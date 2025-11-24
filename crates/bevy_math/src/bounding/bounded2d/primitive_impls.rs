@@ -1,17 +1,18 @@
 //! Contains [`Bounded2d`] implementations for [geometric primitives](crate::primitives).
 
 use crate::{
+    bounding::BoundingVolume,
     ops,
     primitives::{
         Annulus, Arc2d, Capsule2d, Circle, CircularSector, CircularSegment, Ellipse, Line2d,
-        Plane2d, Polygon, Polyline2d, Rectangle, RegularPolygon, Rhombus, Segment2d, Triangle2d,
+        Plane2d, Primitive2d, Rectangle, RegularPolygon, Rhombus, Ring, Segment2d, Triangle2d,
     },
     Dir2, Isometry2d, Mat2, Rot2, Vec2,
 };
 use core::f32::consts::{FRAC_PI_2, PI, TAU};
 
 #[cfg(feature = "alloc")]
-use crate::primitives::{BoxedPolygon, BoxedPolyline2d};
+use crate::primitives::{ConvexPolygon, Polygon, Polyline2d};
 
 use smallvec::SmallVec;
 
@@ -51,10 +52,12 @@ fn arc_bounding_points(arc: Arc2d, rotation: impl Into<Rot2>) -> SmallVec<[Vec2;
         // If inverted = true, then right_angle > left_angle, so we are looking for an angle that is not between them.
         // There's a chance that this condition fails due to rounding error, if the endpoint angle is juuuust shy of the axis.
         // But in that case, the endpoint itself is within rounding error of the axis and will define the bounds just fine.
-        #[allow(clippy::nonminimal_bool)]
-        if !inverted && angle >= right_angle && angle <= left_angle
-            || inverted && (angle >= right_angle || angle <= left_angle)
-        {
+        let angle_within_parameters = if inverted {
+            angle >= right_angle || angle <= left_angle
+        } else {
+            angle >= right_angle && angle <= left_angle
+        };
+        if angle_within_parameters {
             bounds.push(extremum * arc.radius);
         }
     }
@@ -263,33 +266,20 @@ impl Bounded2d for Line2d {
 
 impl Bounded2d for Segment2d {
     fn aabb_2d(&self, isometry: impl Into<Isometry2d>) -> Aabb2d {
-        let isometry = isometry.into();
-
-        // Rotate the segment by `rotation`
-        let direction = isometry.rotation * *self.direction;
-        let half_size = (self.half_length * direction).abs();
-
-        Aabb2d::new(isometry.translation, half_size)
+        Aabb2d::from_point_cloud(isometry, &[self.point1(), self.point2()])
     }
 
     fn bounding_circle(&self, isometry: impl Into<Isometry2d>) -> BoundingCircle {
-        let isometry = isometry.into();
-        BoundingCircle::new(isometry.translation, self.half_length)
-    }
-}
-
-impl<const N: usize> Bounded2d for Polyline2d<N> {
-    fn aabb_2d(&self, isometry: impl Into<Isometry2d>) -> Aabb2d {
-        Aabb2d::from_point_cloud(isometry, &self.vertices)
-    }
-
-    fn bounding_circle(&self, isometry: impl Into<Isometry2d>) -> BoundingCircle {
-        BoundingCircle::from_point_cloud(isometry, &self.vertices)
+        let isometry: Isometry2d = isometry.into();
+        let local_center = self.center();
+        let radius = local_center.distance(self.point1());
+        let local_circle = BoundingCircle::new(local_center, radius);
+        local_circle.transformed_by(isometry.translation, isometry.rotation)
     }
 }
 
 #[cfg(feature = "alloc")]
-impl Bounded2d for BoxedPolyline2d {
+impl Bounded2d for Polyline2d {
     fn aabb_2d(&self, isometry: impl Into<Isometry2d>) -> Aabb2d {
         Aabb2d::from_point_cloud(isometry, &self.vertices)
     }
@@ -334,8 +324,8 @@ impl Bounded2d for Triangle2d {
         if let Some((point1, point2)) = side_opposite_to_non_acute {
             // The triangle is obtuse or right, so the minimum bounding circle's diameter is equal to the longest side.
             // We can compute the minimum bounding circle from the line segment of the longest side.
-            let (segment, center) = Segment2d::from_points(point1, point2);
-            segment.bounding_circle(isometry * Isometry2d::from_translation(center))
+            let segment = Segment2d::new(point1, point2);
+            segment.bounding_circle(isometry)
         } else {
             // The triangle is acute, so the smallest bounding circle is the circumcircle.
             let (Circle { radius }, circumcenter) = self.circumcircle();
@@ -365,7 +355,8 @@ impl Bounded2d for Rectangle {
     }
 }
 
-impl<const N: usize> Bounded2d for Polygon<N> {
+#[cfg(feature = "alloc")]
+impl Bounded2d for Polygon {
     fn aabb_2d(&self, isometry: impl Into<Isometry2d>) -> Aabb2d {
         Aabb2d::from_point_cloud(isometry, &self.vertices)
     }
@@ -376,13 +367,13 @@ impl<const N: usize> Bounded2d for Polygon<N> {
 }
 
 #[cfg(feature = "alloc")]
-impl Bounded2d for BoxedPolygon {
+impl Bounded2d for ConvexPolygon {
     fn aabb_2d(&self, isometry: impl Into<Isometry2d>) -> Aabb2d {
-        Aabb2d::from_point_cloud(isometry, &self.vertices)
+        Aabb2d::from_point_cloud(isometry, self.vertices())
     }
 
     fn bounding_circle(&self, isometry: impl Into<Isometry2d>) -> BoundingCircle {
-        BoundingCircle::from_point_cloud(isometry, &self.vertices)
+        BoundingCircle::from_point_cloud(isometry, self.vertices())
     }
 }
 
@@ -415,11 +406,10 @@ impl Bounded2d for Capsule2d {
         let isometry = isometry.into();
 
         // Get the line segment between the semicircles of the rotated capsule
-        let segment = Segment2d {
-            // Multiplying a normalized vector (Vec2::Y) with a rotation returns a normalized vector.
-            direction: isometry.rotation * Dir2::Y,
-            half_length: self.half_length,
-        };
+        let segment = Segment2d::from_direction_and_length(
+            isometry.rotation * Dir2::Y,
+            self.half_length * 2.,
+        );
         let (a, b) = (segment.point1(), segment.point2());
 
         // Expand the line segment by the capsule radius to get the capsule half-extents
@@ -438,9 +428,21 @@ impl Bounded2d for Capsule2d {
     }
 }
 
+impl<P: Bounded2d + Primitive2d> Bounded2d for Ring<P> {
+    fn aabb_2d(&self, isometry: impl Into<Isometry2d>) -> Aabb2d {
+        self.outer_shape.aabb_2d(isometry)
+    }
+
+    fn bounding_circle(&self, isometry: impl Into<Isometry2d>) -> BoundingCircle {
+        self.outer_shape.bounding_circle(isometry)
+    }
+}
+
 #[cfg(test)]
+#[expect(clippy::print_stdout, reason = "Allowed in tests.")]
 mod tests {
     use core::f32::consts::{FRAC_PI_2, FRAC_PI_3, FRAC_PI_4, FRAC_PI_6, TAU};
+    use std::println;
 
     use approx::assert_abs_diff_eq;
     use glam::Vec2;
@@ -475,7 +477,6 @@ mod tests {
     // Arcs and circular segments have the same bounding shapes so they share test cases.
     fn arc_and_segment() {
         struct TestCase {
-            #[allow(unused)]
             name: &'static str,
             arc: Arc2d,
             translation: Vec2,
@@ -629,7 +630,6 @@ mod tests {
     #[test]
     fn circular_sector() {
         struct TestCase {
-            #[allow(unused)]
             name: &'static str,
             arc: Arc2d,
             translation: Vec2,
@@ -650,7 +650,7 @@ mod tests {
         let apothem = ops::sqrt(3.0) / 2.0;
         let inv_sqrt_3 = ops::sqrt(3.0).recip();
         let tests = [
-            // Test case: An sector whose arc is minor, but whose bounding circle is not the circumcircle of the endpoints and center
+            // Test case: A sector whose arc is minor, but whose bounding circle is not the circumcircle of the endpoints and center
             TestCase {
                 name: "1/3rd circle",
                 arc: Arc2d::from_radians(1.0, TAU / 3.0),
@@ -883,9 +883,9 @@ mod tests {
 
     #[test]
     fn segment() {
+        let segment = Segment2d::new(Vec2::new(-1.0, -0.5), Vec2::new(1.0, 0.5));
         let translation = Vec2::new(2.0, 1.0);
         let isometry = Isometry2d::from_translation(translation);
-        let segment = Segment2d::from_points(Vec2::new(-1.0, -0.5), Vec2::new(1.0, 0.5)).0;
 
         let aabb = segment.aabb_2d(isometry);
         assert_eq!(aabb.min, Vec2::new(1.0, 0.5));
@@ -898,7 +898,7 @@ mod tests {
 
     #[test]
     fn polyline() {
-        let polyline = Polyline2d::<4>::new([
+        let polyline = Polyline2d::new([
             Vec2::ONE,
             Vec2::new(-1.0, 1.0),
             Vec2::NEG_ONE,
@@ -971,7 +971,7 @@ mod tests {
 
     #[test]
     fn polygon() {
-        let polygon = Polygon::<4>::new([
+        let polygon = Polygon::new([
             Vec2::ONE,
             Vec2::new(-1.0, 1.0),
             Vec2::NEG_ONE,

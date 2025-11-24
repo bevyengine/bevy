@@ -3,5 +3,5 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 
 /// Marker struct for labels
 #[derive(Component, Debug, Default, Clone, Copy, Reflect)]
-#[reflect(Component, Default, Debug)]
+#[reflect(Component, Default, Debug, Clone)]
 pub struct Label;

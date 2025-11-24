@@ -222,7 +222,7 @@ impl IntoBindGroupLayoutEntryBuilder for BindingType {
 impl IntoBindGroupLayoutEntryBuilder for BindGroupLayoutEntry {
     fn into_bind_group_layout_entry_builder(self) -> BindGroupLayoutEntryBuilder {
         if self.binding != u32::MAX {
-            bevy_utils::tracing::warn!("The BindGroupLayoutEntries api ignores the binding index when converting a raw wgpu::BindGroupLayoutEntry. You can ignore this warning by setting it to u32::MAX.");
+            tracing::warn!("The BindGroupLayoutEntries api ignores the binding index when converting a raw wgpu::BindGroupLayoutEntry. You can ignore this warning by setting it to u32::MAX.");
         }
         BindGroupLayoutEntryBuilder {
             ty: self.ty,
@@ -331,6 +331,13 @@ impl DynamicBindGroupLayoutEntries {
                 .into_iter()
                 .map(|(binding, resource)| resource.build(binding, default_visibility))
                 .collect(),
+        }
+    }
+
+    pub fn new(default_visibility: ShaderStages) -> Self {
+        Self {
+            default_visibility,
+            entries: Vec::new(),
         }
     }
 
@@ -553,6 +560,32 @@ pub mod binding_types {
             access,
             format,
             view_dimension: TextureViewDimension::D2Array,
+        }
+        .into_bind_group_layout_entry_builder()
+    }
+
+    pub fn texture_storage_3d(
+        format: TextureFormat,
+        access: StorageTextureAccess,
+    ) -> BindGroupLayoutEntryBuilder {
+        BindingType::StorageTexture {
+            access,
+            format,
+            view_dimension: TextureViewDimension::D3,
+        }
+        .into_bind_group_layout_entry_builder()
+    }
+
+    pub fn acceleration_structure() -> BindGroupLayoutEntryBuilder {
+        BindingType::AccelerationStructure {
+            vertex_return: false,
+        }
+        .into_bind_group_layout_entry_builder()
+    }
+
+    pub fn acceleration_structure_vertex_return() -> BindGroupLayoutEntryBuilder {
+        BindingType::AccelerationStructure {
+            vertex_return: true,
         }
         .into_bind_group_layout_entry_builder()
     }

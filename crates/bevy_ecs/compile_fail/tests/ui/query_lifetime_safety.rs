@@ -27,29 +27,29 @@ fn main() {
         }
 
         {
-            let data: &Foo = query.single();
-            let mut data2: Mut<Foo> = query.single_mut();
+            let data: &Foo = query.single().unwrap();
+            let mut data2: Mut<Foo> = query.single_mut().unwrap();
             //~^ E0502
             assert_eq!(data, &mut *data2); // oops UB
         }
 
         {
-            let mut data2: Mut<Foo> = query.single_mut();
-            let data: &Foo = query.single();
+            let mut data2: Mut<Foo> = query.single_mut().unwrap();
+            let data: &Foo = query.single().unwrap();
             //~^ E0502
             assert_eq!(data, &mut *data2); // oops UB
         }
 
         {
-            let data: &Foo = query.get_single().unwrap();
-            let mut data2: Mut<Foo> = query.get_single_mut().unwrap();
+            let data: &Foo = query.single().unwrap();
+            let mut data2: Mut<Foo> = query.single_mut().unwrap();
             //~^ E0502
             assert_eq!(data, &mut *data2); // oops UB
         }
 
         {
-            let mut data2: Mut<Foo> = query.get_single_mut().unwrap();
-            let data: &Foo = query.get_single().unwrap();
+            let mut data2: Mut<Foo> = query.single_mut().unwrap();
+            let data: &Foo = query.single().unwrap();
             //~^ E0502
             assert_eq!(data, &mut *data2); // oops UB
         }

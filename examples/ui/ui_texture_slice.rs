@@ -5,14 +5,11 @@ use bevy::{
     color::palettes::css::{GOLD, ORANGE},
     prelude::*,
     ui::widget::NodeImageMode,
-    winit::WinitSettings,
 };
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        // Only run the app when there is user input. This will significantly reduce CPU/GPU use.
-        .insert_resource(WinitSettings::desktop_app())
         .add_systems(Startup, setup)
         .add_systems(Update, button_system)
         .run();
@@ -48,7 +45,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let image = asset_server.load("textures/fantasy_ui_borders/panel-border-010.png");
 
     let slicer = TextureSlicer {
-        border: BorderRect::square(22.0),
+        border: BorderRect::all(22.0),
         center_scale_mode: SliceScaleMode::Stretch,
         sides_scale_mode: SliceScaleMode::Stretch,
         max_corner_scale: 1.0,
@@ -57,8 +54,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2d);
     commands
         .spawn(Node {
-            width: Val::Percent(100.0),
-            height: Val::Percent(100.0),
+            width: percent(100),
+            height: percent(100),
             align_items: AlignItems::Center,
             justify_content: JustifyContent::Center,
             ..default()
@@ -74,13 +71,13 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             ..default()
                         },
                         Node {
-                            width: Val::Px(w),
-                            height: Val::Px(h),
+                            width: px(w),
+                            height: px(h),
                             // horizontally center child text
                             justify_content: JustifyContent::Center,
                             // vertically center child text
                             align_items: AlignItems::Center,
-                            margin: UiRect::all(Val::Px(20.0)),
+                            margin: UiRect::all(px(20)),
                             ..default()
                         },
                     ))

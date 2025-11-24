@@ -4,7 +4,10 @@
 //! [`GizmoBuffer::curve_3d`] and assorted support items.
 
 use bevy_color::Color;
-use bevy_math::{curve::Curve, Vec2, Vec3};
+use bevy_math::{
+    curve::{Curve, CurveExt},
+    Vec2, Vec3,
+};
 
 use crate::{gizmos::GizmoBuffer, prelude::GizmoConfigGroup};
 
@@ -14,8 +17,6 @@ where
     Clear: 'static + Send + Sync,
 {
     /// Draw a curve, at the given time points, sampling in 2D.
-    ///
-    /// This should be called for each frame the curve needs to be rendered.
     ///
     /// Samples of time points outside of the curve's domain will be filtered out and won't
     /// contribute to the rendering. If you wish to render the curve outside of its domain you need
@@ -48,8 +49,6 @@ where
     }
 
     /// Draw a curve, at the given time points, sampling in 3D.
-    ///
-    /// This should be called for each frame the curve needs to be rendered.
     ///
     /// Samples of time points outside of the curve's domain will be filtered out and won't
     /// contribute to the rendering. If you wish to render the curve outside of its domain you need
@@ -85,8 +84,6 @@ where
     }
 
     /// Draw a curve, at the given time points, sampling in 2D, with a color gradient.
-    ///
-    /// This should be called for each frame the curve needs to be rendered.
     ///
     /// Samples of time points outside of the curve's domain will be filtered out and won't
     /// contribute to the rendering. If you wish to render the curve outside of its domain you need
@@ -128,8 +125,6 @@ where
     }
 
     /// Draw a curve, at the given time points, sampling in 3D, with a color gradient.
-    ///
-    /// This should be called for each frame the curve needs to be rendered.
     ///
     /// Samples of time points outside of the curve's domain will be filtered out and won't
     /// contribute to the rendering. If you wish to render the curve outside of its domain you need

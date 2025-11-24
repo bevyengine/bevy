@@ -2,13 +2,14 @@
 
 use bevy_ecs::{
     entity::Entity,
-    event::{Event, EventReader},
-    system::{ResMut, Resource},
+    message::{Message, MessageReader},
+    resource::Resource,
+    system::ResMut,
 };
 use bevy_math::Vec2;
+use bevy_platform::collections::HashMap;
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
-use bevy_utils::HashMap;
 
 #[cfg(all(feature = "serialize", feature = "bevy_reflect"))]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
@@ -36,8 +37,12 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 ///
 /// This event is the translated version of the `WindowEvent::Touch` from the `winit` crate.
 /// It is available to the end user and can be used for game logic.
-#[derive(Event, Debug, Clone, Copy, PartialEq)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
+#[derive(Message, Debug, Clone, Copy, PartialEq)]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Clone)
+)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
     all(feature = "serialize", feature = "bevy_reflect"),
@@ -61,7 +66,11 @@ pub struct TouchInput {
 
 /// A force description of a [`Touch`] input.
 #[derive(Debug, Clone, Copy, PartialEq)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Clone)
+)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
     all(feature = "serialize", feature = "bevy_reflect"),
@@ -110,7 +119,7 @@ pub enum ForceTouch {
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
-    reflect(Debug, Hash, PartialEq)
+    reflect(Debug, Hash, PartialEq, Clone)
 )]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -423,7 +432,7 @@ impl Touches {
 /// the latter has convenient functions like [`Touches::just_pressed`] and [`Touches::just_released`].
 pub fn touch_screen_input_system(
     mut touch_state: ResMut<Touches>,
-    mut touch_input_events: EventReader<TouchInput>,
+    mut touch_input_reader: MessageReader<TouchInput>,
 ) {
     if !touch_state.just_pressed.is_empty() {
         touch_state.just_pressed.clear();
@@ -435,13 +444,13 @@ pub fn touch_screen_input_system(
         touch_state.just_canceled.clear();
     }
 
-    if !touch_input_events.is_empty() {
+    if !touch_input_reader.is_empty() {
         for touch in touch_state.pressed.values_mut() {
             touch.previous_position = touch.position;
             touch.previous_force = touch.force;
         }
 
-        for event in touch_input_events.read() {
+        for event in touch_input_reader.read() {
             touch_state.process_touch_event(event);
         }
     }

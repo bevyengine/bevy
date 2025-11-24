@@ -1,13 +1,10 @@
 doc-valid-idents = [
+  "GameActivity",
   "GilRs",
   "glTF",
-  "macOS",
   "NVidia",
   "OpenXR",
-  "sRGB",
   "VSync",
-  "WebGL2",
-  "WebGPU",
   "..",
 ]
 
@@ -42,3 +39,6 @@ disallowed-methods = [
   { path = "f32::acosh", reason = "use bevy_math::ops::acosh instead for libm determinism" },
   { path = "f32::atanh", reason = "use bevy_math::ops::atanh instead for libm determinism" },
 ]
+
+# Require `bevy_ecs::children!` to use `[]` braces, instead of `()` or `{}`.
+standard-macro-braces = [{ name = "children", brace = "[" }]

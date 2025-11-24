@@ -1,12 +1,12 @@
 //! This module contains the systems that update the stored UI nodes stack
 
-use bevy_ecs::prelude::*;
-use bevy_utils::HashSet;
-
 use crate::{
     experimental::{UiChildren, UiRootNodes},
     ComputedNode, GlobalZIndex, ZIndex,
 };
+use bevy_ecs::prelude::*;
+use bevy_platform::collections::HashSet;
+use core::ops::Range;
 
 /// The current UI stack, which contains all UI nodes ordered by their depth (back-to-front).
 ///
@@ -14,6 +14,8 @@ use crate::{
 /// while the last entry is the first node to receive interactions.
 #[derive(Debug, Resource, Default)]
 pub struct UiStack {
+    /// Partition of the `uinodes` list into disjoint slices of nodes that all share the same camera target.
+    pub partition: Vec<Range<usize>>,
     /// List of UI nodes ordered from back-to-front
     pub uinodes: Vec<Entity>,
 }
@@ -38,7 +40,6 @@ impl ChildBufferCache {
 /// Create a list of root nodes from parentless entities and entities with a `GlobalZIndex` component.
 /// Then build the `UiStack` from a walk of the existing layout trees starting from each root node,
 /// filtering branches by `Without<GlobalZIndex>`so that we don't revisit nodes.
-#[allow(clippy::too_many_arguments)]
 pub fn ui_stack_system(
     mut cache: Local<ChildBufferCache>,
     mut root_nodes: Local<Vec<(Entity, (i32, i32))>>,
@@ -51,6 +52,7 @@ pub fn ui_stack_system(
     zindex_query: Query<Option<&ZIndex>, (With<ComputedNode>, Without<GlobalZIndex>)>,
     mut update_query: Query<&mut ComputedNode>,
 ) {
+    ui_stack.partition.clear();
     ui_stack.uinodes.clear();
     visited_root_nodes.clear();
 
@@ -62,7 +64,7 @@ pub fn ui_stack_system(
                 maybe_zindex.map(|zindex| zindex.0).unwrap_or(0),
             ),
         ));
-        visited_root_nodes.insert_unique_unchecked(id);
+        visited_root_nodes.insert(id);
     }
 
     for (id, global_zindex, maybe_zindex) in zindex_global_node_query.iter() {
@@ -82,6 +84,7 @@ pub fn ui_stack_system(
     root_nodes.sort_by_key(|(_, z)| *z);
 
     for (root_entity, _) in root_nodes.drain(..) {
+        let start = ui_stack.uinodes.len();
         update_uistack_recursive(
             &mut cache,
             root_entity,
@@ -89,6 +92,8 @@ pub fn ui_stack_system(
             &zindex_query,
             &mut ui_stack.uinodes,
         );
+        let end = ui_stack.uinodes.len();
+        ui_stack.partition.push(start..end);
     }
 
     for (i, entity) in ui_stack.uinodes.iter().enumerate() {
@@ -133,7 +138,6 @@ mod tests {
         system::Commands,
         world::{CommandQueue, World},
     };
-    use bevy_hierarchy::{BuildChildren, ChildBuild};
 
     use crate::{GlobalZIndex, Node, UiStack, ZIndex};
 
@@ -258,6 +262,27 @@ mod tests {
             (Label("0")), // GlobalZIndex(2)
         ];
         assert_eq!(actual_result, expected_result);
+
+        // Test partitioning
+        let last_part = ui_stack.partition.last().unwrap();
+        assert_eq!(last_part.len(), 1);
+        let last_entity = ui_stack.uinodes[last_part.start];
+        assert_eq!(*query.get(&world, last_entity).unwrap(), Label("0"));
+
+        let actual_result = ui_stack.uinodes[ui_stack.partition[4].clone()]
+            .iter()
+            .map(|entity| query.get(&world, *entity).unwrap().clone())
+            .collect::<Vec<_>>();
+        let expected_result = vec![
+            (Label("1")), // ZIndex(1)
+            (Label("1-0")),
+            (Label("1-0-2")), // ZIndex(-1)
+            (Label("1-0-0")),
+            (Label("1-0-1")),
+            (Label("1-1")),
+            (Label("1-3")),
+        ];
+        assert_eq!(actual_result, expected_result);
     }
 
     #[test]
@@ -307,5 +332,10 @@ mod tests {
         ];
 
         assert_eq!(actual_result, expected_result);
+
+        assert_eq!(ui_stack.partition.len(), expected_result.len());
+        for (i, part) in ui_stack.partition.iter().enumerate() {
+            assert_eq!(*part, i..i + 1);
+        }
     }
 }

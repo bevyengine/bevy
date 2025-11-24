@@ -1,9 +1,10 @@
 //! This example displays each contributor to the bevy source code as a bouncing bevy-ball.
 
-use bevy::{math::bounding::Aabb2d, prelude::*, utils::HashMap};
+use bevy::{math::bounding::Aabb2d, prelude::*};
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;
 use std::{
+    collections::HashMap,
     env::VarError,
     hash::{DefaultHasher, Hash, Hasher},
     io::{self, BufRead, BufReader},
@@ -95,16 +96,16 @@ fn setup_contributor_selection(
 
     for (name, num_commits) in contribs {
         let transform = Transform::from_xyz(
-            rng.gen_range(-400.0..400.0),
-            rng.gen_range(0.0..400.0),
-            rng.gen(),
+            rng.random_range(-400.0..400.0),
+            rng.random_range(0.0..400.0),
+            rng.random(),
         );
-        let dir = rng.gen_range(-1.0..1.0);
+        let dir = rng.random_range(-1.0..1.0);
         let velocity = Vec3::new(dir * 500.0, 0.0, 0.0);
         let hue = name_to_hue(&name);
 
         // Some sprites should be flipped for variety
-        let flipped = rng.gen();
+        let flipped = rng.random();
 
         let entity = commands
             .spawn((
@@ -150,8 +151,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             ContributorDisplay,
             Node {
                 position_type: PositionType::Absolute,
-                top: Val::Px(12.),
-                left: Val::Px(12.),
+                top: px(12),
+                left: px(12),
                 ..default()
             },
         ))
@@ -251,10 +252,14 @@ fn gravity(time: Res<Time>, mut velocity_query: Query<&mut Velocity>) {
 /// velocity. On collision with the ground it applies an upwards
 /// force.
 fn collisions(
-    window: Single<&Window>,
+    window: Query<&Window>,
     mut query: Query<(&mut Velocity, &mut Transform), With<Contributor>>,
     mut rng: ResMut<SharedRng>,
 ) {
+    let Ok(window) = window.single() else {
+        return;
+    };
+
     let window_size = window.size();
 
     let collision_area = Aabb2d::new(Vec2::ZERO, (window_size - SPRITE_SIZE) / 2.);
@@ -269,7 +274,7 @@ fn collisions(
             transform.translation.y = collision_area.min.y;
 
             // How high this birb will bounce.
-            let bounce_height = rng.gen_range(min_bounce_height..=max_bounce_height);
+            let bounce_height = rng.random_range(min_bounce_height..=max_bounce_height);
 
             // Apply the velocity that would bounce the birb up to bounce_height.
             velocity.translation.y = (bounce_height * GRAVITY * 2.).sqrt();

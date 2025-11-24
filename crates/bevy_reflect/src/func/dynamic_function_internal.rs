@@ -1,8 +1,8 @@
 use crate::func::args::ArgCount;
 use crate::func::signature::{ArgListSignature, ArgumentSignature};
 use crate::func::{ArgList, FunctionError, FunctionInfo, FunctionOverloadError};
-use alloc::borrow::Cow;
-use bevy_utils::hashbrown::HashMap;
+use alloc::{borrow::Cow, vec, vec::Vec};
+use bevy_platform::collections::HashMap;
 use core::fmt::{Debug, Formatter};
 
 /// An internal structure for storing a function and its corresponding [function information].
@@ -141,19 +141,19 @@ impl<F> DynamicFunctionInternal<F> {
     pub fn merge(&mut self, mut other: Self) -> Result<(), FunctionOverloadError> {
         // Keep a separate map of the new indices to avoid mutating the existing one
         // until we can be sure the merge will be successful.
-        let mut new_signatures = HashMap::new();
+        let mut new_signatures = <HashMap<_, _>>::default();
 
         for (sig, index) in other.arg_map {
             if self.arg_map.contains_key(&sig) {
                 return Err(FunctionOverloadError::DuplicateSignature(sig));
             }
 
-            new_signatures.insert_unique_unchecked(sig, self.functions.len() + index);
+            new_signatures.insert(sig, self.functions.len() + index);
         }
 
         self.arg_map.reserve(new_signatures.len());
         for (sig, index) in new_signatures {
-            self.arg_map.insert_unique_unchecked(sig, index);
+            self.arg_map.insert(sig, index);
         }
 
         self.functions.append(&mut other.functions);
@@ -246,7 +246,7 @@ mod tests {
     }
 
     #[test]
-    fn should_merge_overloaed_into_single() {
+    fn should_merge_overload_into_single() {
         let mut func_a = DynamicFunctionInternal {
             functions: vec!['a', 'b'],
             info: FunctionInfo::new(SignatureInfo::anonymous().with_arg::<i8>("arg0"))

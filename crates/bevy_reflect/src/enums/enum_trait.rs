@@ -4,8 +4,9 @@ use crate::{
     type_info::impl_type_methods,
     DynamicEnum, Generics, PartialReflect, Type, TypePath, VariantInfo, VariantType,
 };
-use alloc::{boxed::Box, format, string::String, sync::Arc};
-use bevy_utils::HashMap;
+use alloc::{boxed::Box, format, string::String};
+use bevy_platform::collections::HashMap;
+use bevy_platform::sync::Arc;
 use core::slice::Iter;
 
 /// A trait used to power [enum-like] operations via [reflection].
@@ -114,7 +115,7 @@ pub trait Enum: PartialReflect {
     /// For non-[`VariantType::Struct`] variants, this should return `None`.
     fn name_at(&self, index: usize) -> Option<&str>;
     /// Returns an iterator over the values of the current variant's fields.
-    fn iter_fields(&self) -> VariantFieldIter;
+    fn iter_fields(&self) -> VariantFieldIter<'_>;
     /// Returns the number of fields in the current variant.
     fn field_len(&self) -> usize;
     /// The name of the current variant.
@@ -123,8 +124,10 @@ pub trait Enum: PartialReflect {
     fn variant_index(&self) -> usize;
     /// The type of the current variant.
     fn variant_type(&self) -> VariantType;
-    // Clones the enum into a [`DynamicEnum`].
-    fn clone_dynamic(&self) -> DynamicEnum;
+    /// Creates a new [`DynamicEnum`] from this enum.
+    fn to_dynamic_enum(&self) -> DynamicEnum {
+        DynamicEnum::from_ref(self)
+    }
     /// Returns true if the current variant's type matches the given one.
     fn is_variant(&self, variant_type: VariantType) -> bool {
         self.variant_type() == variant_type
@@ -151,7 +154,7 @@ pub struct EnumInfo {
     variant_names: Box<[&'static str]>,
     variant_indices: HashMap<&'static str, usize>,
     custom_attributes: Arc<CustomAttributes>,
-    #[cfg(feature = "documentation")]
+    #[cfg(feature = "reflect_documentation")]
     docs: Option<&'static str>,
 }
 
@@ -177,13 +180,13 @@ impl EnumInfo {
             variant_names,
             variant_indices,
             custom_attributes: Arc::new(CustomAttributes::default()),
-            #[cfg(feature = "documentation")]
+            #[cfg(feature = "reflect_documentation")]
             docs: None,
         }
     }
 
     /// Sets the docstring for this enum.
-    #[cfg(feature = "documentation")]
+    #[cfg(feature = "reflect_documentation")]
     pub fn with_docs(self, docs: Option<&'static str>) -> Self {
         Self { docs, ..self }
     }
@@ -243,7 +246,7 @@ impl EnumInfo {
     impl_type_methods!(ty);
 
     /// The docstring of this enum, if any.
-    #[cfg(feature = "documentation")]
+    #[cfg(feature = "reflect_documentation")]
     pub fn docs(&self) -> Option<&'static str> {
         self.docs
     }
@@ -260,6 +263,7 @@ pub struct VariantFieldIter<'a> {
 }
 
 impl<'a> VariantFieldIter<'a> {
+    /// Creates a new [`VariantFieldIter`].
     pub fn new(container: &'a dyn Enum) -> Self {
         Self {
             container,
@@ -292,12 +296,16 @@ impl<'a> Iterator for VariantFieldIter<'a> {
 
 impl<'a> ExactSizeIterator for VariantFieldIter<'a> {}
 
+/// A field in the current enum variant.
 pub enum VariantField<'a> {
+    /// The name and value of a field in a struct variant.
     Struct(&'a str, &'a dyn PartialReflect),
+    /// The value of a field in a tuple variant.
     Tuple(&'a dyn PartialReflect),
 }
 
 impl<'a> VariantField<'a> {
+    /// Returns the name of a struct variant field, or [`None`] for a tuple variant field.
     pub fn name(&self) -> Option<&'a str> {
         if let Self::Struct(name, ..) = self {
             Some(*name)
@@ -306,6 +314,7 @@ impl<'a> VariantField<'a> {
         }
     }
 
+    /// Gets a reference to the value of this field.
     pub fn value(&self) -> &'a dyn PartialReflect {
         match *self {
             Self::Struct(_, value) | Self::Tuple(value) => value,
@@ -316,7 +325,6 @@ impl<'a> VariantField<'a> {
 // Tests that need access to internal fields have to go here rather than in mod.rs
 #[cfg(test)]
 mod tests {
-    use crate as bevy_reflect;
     use crate::*;
 
     #[derive(Reflect, Debug, PartialEq)]

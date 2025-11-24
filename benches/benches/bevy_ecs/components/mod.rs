@@ -1,19 +1,18 @@
-use criterion::*;
-
+mod add_remove;
 mod add_remove_big_sparse_set;
 mod add_remove_big_table;
 mod add_remove_sparse_set;
 mod add_remove_table;
 mod add_remove_very_big_table;
-mod add_remove;
 mod archetype_updates;
 mod insert_simple;
 mod insert_simple_unbatched;
 
 use archetype_updates::*;
+use criterion::{criterion_group, Criterion};
 
 criterion_group!(
-    components_benches,
+    benches,
     add_remove,
     add_remove_big,
     add_remove_very_big,

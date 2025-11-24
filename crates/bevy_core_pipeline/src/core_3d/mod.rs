@@ -1,4 +1,3 @@
-mod camera_3d;
 mod main_opaque_pass_3d_node;
 mod main_transmissive_pass_3d_node;
 mod main_transparent_pass_3d_node;
@@ -16,8 +15,11 @@ pub mod graph {
     #[derive(Debug, Hash, PartialEq, Eq, Clone, RenderLabel)]
     pub enum Node3d {
         MsaaWriteback,
-        Prepass,
-        DeferredPrepass,
+        EarlyPrepass,
+        EarlyDownsampleDepth,
+        LatePrepass,
+        EarlyDeferredPrepass,
+        LateDeferredPrepass,
         CopyDeferredLightingId,
         EndPrepasses,
         StartMainPass,
@@ -25,8 +27,13 @@ pub mod graph {
         MainTransmissivePass,
         MainTransparentPass,
         EndMainPass,
-        Taa,
+        Wireframe,
+        StartMainPassPostProcessing,
+        LateDownsampleDepth,
         MotionBlur,
+        Taa,
+        DlssSuperResolution,
+        DlssRayReconstruction,
         Bloom,
         AutoExposure,
         DepthOfField,
@@ -65,58 +72,64 @@ pub const DEPTH_TEXTURE_SAMPLING_SUPPORTED: bool = true;
 
 use core::ops::Range;
 
-use bevy_render::batching::gpu_preprocessing::{GpuPreprocessingMode, GpuPreprocessingSupport};
-use bevy_render::mesh::allocator::SlabId;
-use bevy_render::render_phase::PhaseItemBinKey;
-use bevy_render::view::GpuCulling;
-pub use camera_3d::*;
+use bevy_camera::{Camera, Camera3d, Camera3dDepthLoadOp};
+use bevy_render::{
+    batching::gpu_preprocessing::{GpuPreprocessingMode, GpuPreprocessingSupport},
+    camera::CameraRenderGraph,
+    experimental::occlusion_culling::OcclusionCulling,
+    mesh::allocator::SlabId,
+    render_phase::PhaseItemBatchSetKey,
+    view::{prepare_view_targets, NoIndirectDrawing, RetainedViewEntity},
+};
 pub use main_opaque_pass_3d_node::*;
 pub use main_transparent_pass_3d_node::*;
 
 use bevy_app::{App, Plugin, PostUpdate};
-use bevy_asset::{AssetId, UntypedAssetId};
+use bevy_asset::UntypedAssetId;
 use bevy_color::LinearRgba;
-use bevy_ecs::{entity::EntityHashSet, prelude::*};
-use bevy_image::{BevyDefault, Image};
+use bevy_ecs::prelude::*;
+use bevy_image::{BevyDefault, ToExtents};
 use bevy_math::FloatOrd;
-use bevy_render::sync_world::MainEntity;
+use bevy_platform::collections::{HashMap, HashSet};
 use bevy_render::{
-    camera::{Camera, ExtractedCamera},
+    camera::ExtractedCamera,
     extract_component::ExtractComponentPlugin,
     prelude::Msaa,
-    render_graph::{EmptyNode, RenderGraphApp, ViewNodeRunner},
+    render_graph::{EmptyNode, RenderGraphExt, ViewNodeRunner},
     render_phase::{
         sort_phase_system, BinnedPhaseItem, CachedRenderPipelinePhaseItem, DrawFunctionId,
         DrawFunctions, PhaseItem, PhaseItemExtraIndex, SortedPhaseItem, ViewBinnedRenderPhases,
         ViewSortedRenderPhases,
     },
     render_resource::{
-        CachedRenderPipelineId, Extent3d, FilterMode, Sampler, SamplerDescriptor, Texture,
-        TextureDescriptor, TextureDimension, TextureFormat, TextureUsages, TextureView,
+        CachedRenderPipelineId, FilterMode, Sampler, SamplerDescriptor, Texture, TextureDescriptor,
+        TextureDimension, TextureFormat, TextureUsages, TextureView,
     },
     renderer::RenderDevice,
-    sync_world::RenderEntity,
+    sync_world::{MainEntity, RenderEntity},
     texture::{ColorAttachment, TextureCache},
     view::{ExtractedView, ViewDepthTexture, ViewTarget},
-    Extract, ExtractSchedule, Render, RenderApp, RenderSet,
+    Extract, ExtractSchedule, Render, RenderApp, RenderSystems,
 };
-use bevy_utils::{tracing::warn, HashMap};
+use nonmax::NonMaxU32;
+use tracing::warn;
 
 use crate::{
     core_3d::main_transmissive_pass_3d_node::MainTransmissivePass3dNode,
     deferred::{
-        copy_lighting_id::CopyDeferredLightingIdNode, node::DeferredGBufferPrepassNode,
+        copy_lighting_id::CopyDeferredLightingIdNode,
+        node::{EarlyDeferredGBufferPrepassNode, LateDeferredGBufferPrepassNode},
         AlphaMask3dDeferred, Opaque3dDeferred, DEFERRED_LIGHTING_PASS_ID_FORMAT,
         DEFERRED_PREPASS_FORMAT,
     },
-    dof::DepthOfFieldNode,
     prepass::{
-        node::PrepassNode, AlphaMask3dPrepass, DeferredPrepass, DepthPrepass, MotionVectorPrepass,
-        NormalPrepass, Opaque3dPrepass, OpaqueNoLightmap3dBinKey, ViewPrepassTextures,
-        MOTION_VECTOR_PREPASS_FORMAT, NORMAL_PREPASS_FORMAT,
+        node::{EarlyPrepassNode, LatePrepassNode},
+        AlphaMask3dPrepass, DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass,
+        Opaque3dPrepass, OpaqueNoLightmap3dBatchSetKey, OpaqueNoLightmap3dBinKey,
+        ViewPrepassTextures, MOTION_VECTOR_PREPASS_FORMAT, NORMAL_PREPASS_FORMAT,
     },
     skybox::SkyboxPlugin,
-    tonemapping::TonemappingNode,
+    tonemapping::{DebandDither, Tonemapping, TonemappingNode},
     upscaling::UpscalingNode,
 };
 
@@ -126,8 +139,11 @@ pub struct Core3dPlugin;
 
 impl Plugin for Core3dPlugin {
     fn build(&self, app: &mut App) {
-        app.register_type::<Camera3d>()
-            .register_type::<ScreenSpaceTransmissionQuality>()
+        app.register_required_components_with::<Camera3d, DebandDither>(|| DebandDither::Enabled)
+            .register_required_components_with::<Camera3d, CameraRenderGraph>(|| {
+                CameraRenderGraph::new(Core3d)
+            })
+            .register_required_components::<Camera3d, Tonemapping>()
             .add_plugins((SkyboxPlugin, ExtractComponentPlugin::<Camera3d>::default()))
             .add_systems(PostUpdate, check_msaa);
 
@@ -156,20 +172,28 @@ impl Plugin for Core3dPlugin {
             .add_systems(
                 Render,
                 (
-                    sort_phase_system::<Transmissive3d>.in_set(RenderSet::PhaseSort),
-                    sort_phase_system::<Transparent3d>.in_set(RenderSet::PhaseSort),
-                    prepare_core_3d_depth_textures.in_set(RenderSet::PrepareResources),
-                    prepare_core_3d_transmission_textures.in_set(RenderSet::PrepareResources),
-                    prepare_prepass_textures.in_set(RenderSet::PrepareResources),
+                    sort_phase_system::<Transmissive3d>.in_set(RenderSystems::PhaseSort),
+                    sort_phase_system::<Transparent3d>.in_set(RenderSystems::PhaseSort),
+                    configure_occlusion_culling_view_targets
+                        .after(prepare_view_targets)
+                        .in_set(RenderSystems::ManageViews),
+                    prepare_core_3d_depth_textures.in_set(RenderSystems::PrepareResources),
+                    prepare_core_3d_transmission_textures.in_set(RenderSystems::PrepareResources),
+                    prepare_prepass_textures.in_set(RenderSystems::PrepareResources),
                 ),
             );
 
         render_app
             .add_render_sub_graph(Core3d)
-            .add_render_graph_node::<ViewNodeRunner<PrepassNode>>(Core3d, Node3d::Prepass)
-            .add_render_graph_node::<ViewNodeRunner<DeferredGBufferPrepassNode>>(
+            .add_render_graph_node::<ViewNodeRunner<EarlyPrepassNode>>(Core3d, Node3d::EarlyPrepass)
+            .add_render_graph_node::<ViewNodeRunner<LatePrepassNode>>(Core3d, Node3d::LatePrepass)
+            .add_render_graph_node::<ViewNodeRunner<EarlyDeferredGBufferPrepassNode>>(
                 Core3d,
-                Node3d::DeferredPrepass,
+                Node3d::EarlyDeferredPrepass,
+            )
+            .add_render_graph_node::<ViewNodeRunner<LateDeferredGBufferPrepassNode>>(
+                Core3d,
+                Node3d::LateDeferredPrepass,
             )
             .add_render_graph_node::<ViewNodeRunner<CopyDeferredLightingIdNode>>(
                 Core3d,
@@ -190,15 +214,17 @@ impl Plugin for Core3dPlugin {
                 Node3d::MainTransparentPass,
             )
             .add_render_graph_node::<EmptyNode>(Core3d, Node3d::EndMainPass)
-            .add_render_graph_node::<ViewNodeRunner<DepthOfFieldNode>>(Core3d, Node3d::DepthOfField)
+            .add_render_graph_node::<EmptyNode>(Core3d, Node3d::StartMainPassPostProcessing)
             .add_render_graph_node::<ViewNodeRunner<TonemappingNode>>(Core3d, Node3d::Tonemapping)
             .add_render_graph_node::<EmptyNode>(Core3d, Node3d::EndMainPassPostProcessing)
             .add_render_graph_node::<ViewNodeRunner<UpscalingNode>>(Core3d, Node3d::Upscaling)
             .add_render_graph_edges(
                 Core3d,
                 (
-                    Node3d::Prepass,
-                    Node3d::DeferredPrepass,
+                    Node3d::EarlyPrepass,
+                    Node3d::EarlyDeferredPrepass,
+                    Node3d::LatePrepass,
+                    Node3d::LateDeferredPrepass,
                     Node3d::CopyDeferredLightingId,
                     Node3d::EndPrepasses,
                     Node3d::StartMainPass,
@@ -206,6 +232,7 @@ impl Plugin for Core3dPlugin {
                     Node3d::MainTransmissivePass,
                     Node3d::MainTransparentPass,
                     Node3d::EndMainPass,
+                    Node3d::StartMainPassPostProcessing,
                     Node3d::Tonemapping,
                     Node3d::EndMainPassPostProcessing,
                     Node3d::Upscaling,
@@ -216,8 +243,13 @@ impl Plugin for Core3dPlugin {
 
 /// Opaque 3D [`BinnedPhaseItem`]s.
 pub struct Opaque3d {
+    /// Determines which objects can be placed into a *batch set*.
+    ///
+    /// Objects in a single batch set can potentially be multi-drawn together,
+    /// if it's enabled and the current platform supports it.
+    pub batch_set_key: Opaque3dBatchSetKey,
     /// The key, which determines which can be batched.
-    pub key: Opaque3dBinKey,
+    pub bin_key: Opaque3dBinKey,
     /// An entity from which data will be fetched, including the mesh if
     /// applicable.
     pub representative_entity: (Entity, MainEntity),
@@ -257,8 +289,15 @@ pub struct Opaque3dBatchSetKey {
     /// For non-mesh items, you can safely fill this with `None`.
     pub index_slab: Option<SlabId>,
 
-    /// The lightmap, if present.
-    pub lightmap_image: Option<AssetId<Image>>,
+    /// Index of the slab that the lightmap resides in, if a lightmap is
+    /// present.
+    pub lightmap_slab: Option<NonMaxU32>,
+}
+
+impl PhaseItemBatchSetKey for Opaque3dBatchSetKey {
+    fn indexed(&self) -> bool {
+        self.index_slab.is_some()
+    }
 }
 
 /// Data that must be identical in order to *batch* phase items together.
@@ -266,25 +305,11 @@ pub struct Opaque3dBatchSetKey {
 /// Note that a *batch set* (if multi-draw is in use) contains multiple batches.
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Opaque3dBinKey {
-    /// The key of the *batch set*.
-    ///
-    /// As batches belong to a batch set, meshes in a batch must obviously be
-    /// able to be placed in a single batch set.
-    pub batch_set_key: Opaque3dBatchSetKey,
-
     /// The asset that this phase item is associated with.
     ///
     /// Normally, this is the ID of the mesh, but for non-mesh items it might be
     /// the ID of another type of asset.
     pub asset_id: UntypedAssetId,
-}
-
-impl PhaseItemBinKey for Opaque3dBinKey {
-    type BatchSetKey = Opaque3dBatchSetKey;
-
-    fn get_batch_set_key(&self) -> Option<Self::BatchSetKey> {
-        Some(self.batch_set_key.clone())
-    }
 }
 
 impl PhaseItem for Opaque3d {
@@ -300,7 +325,7 @@ impl PhaseItem for Opaque3d {
 
     #[inline]
     fn draw_function(&self) -> DrawFunctionId {
-        self.key.batch_set_key.draw_function
+        self.batch_set_key.draw_function
     }
 
     #[inline]
@@ -323,17 +348,20 @@ impl PhaseItem for Opaque3d {
 }
 
 impl BinnedPhaseItem for Opaque3d {
+    type BatchSetKey = Opaque3dBatchSetKey;
     type BinKey = Opaque3dBinKey;
 
     #[inline]
     fn new(
-        key: Self::BinKey,
+        batch_set_key: Self::BatchSetKey,
+        bin_key: Self::BinKey,
         representative_entity: (Entity, MainEntity),
         batch_range: Range<u32>,
         extra_index: PhaseItemExtraIndex,
     ) -> Self {
         Opaque3d {
-            key,
+            batch_set_key,
+            bin_key,
             representative_entity,
             batch_range,
             extra_index,
@@ -344,12 +372,18 @@ impl BinnedPhaseItem for Opaque3d {
 impl CachedRenderPipelinePhaseItem for Opaque3d {
     #[inline]
     fn cached_pipeline(&self) -> CachedRenderPipelineId {
-        self.key.batch_set_key.pipeline
+        self.batch_set_key.pipeline
     }
 }
 
 pub struct AlphaMask3d {
-    pub key: OpaqueNoLightmap3dBinKey,
+    /// Determines which objects can be placed into a *batch set*.
+    ///
+    /// Objects in a single batch set can potentially be multi-drawn together,
+    /// if it's enabled and the current platform supports it.
+    pub batch_set_key: OpaqueNoLightmap3dBatchSetKey,
+    /// The key, which determines which can be batched.
+    pub bin_key: OpaqueNoLightmap3dBinKey,
     pub representative_entity: (Entity, MainEntity),
     pub batch_range: Range<u32>,
     pub extra_index: PhaseItemExtraIndex,
@@ -367,7 +401,7 @@ impl PhaseItem for AlphaMask3d {
 
     #[inline]
     fn draw_function(&self) -> DrawFunctionId {
-        self.key.draw_function
+        self.batch_set_key.draw_function
     }
 
     #[inline]
@@ -393,16 +427,19 @@ impl PhaseItem for AlphaMask3d {
 
 impl BinnedPhaseItem for AlphaMask3d {
     type BinKey = OpaqueNoLightmap3dBinKey;
+    type BatchSetKey = OpaqueNoLightmap3dBatchSetKey;
 
     #[inline]
     fn new(
-        key: Self::BinKey,
+        batch_set_key: Self::BatchSetKey,
+        bin_key: Self::BinKey,
         representative_entity: (Entity, MainEntity),
         batch_range: Range<u32>,
         extra_index: PhaseItemExtraIndex,
     ) -> Self {
         Self {
-            key,
+            batch_set_key,
+            bin_key,
             representative_entity,
             batch_range,
             extra_index,
@@ -413,7 +450,7 @@ impl BinnedPhaseItem for AlphaMask3d {
 impl CachedRenderPipelinePhaseItem for AlphaMask3d {
     #[inline]
     fn cached_pipeline(&self) -> CachedRenderPipelineId {
-        self.key.pipeline
+        self.batch_set_key.pipeline
     }
 }
 
@@ -424,6 +461,9 @@ pub struct Transmissive3d {
     pub draw_function: DrawFunctionId,
     pub batch_range: Range<u32>,
     pub extra_index: PhaseItemExtraIndex,
+    /// Whether the mesh in question is indexed (uses an index buffer in
+    /// addition to its vertex buffer).
+    pub indexed: bool,
 }
 
 impl PhaseItem for Transmissive3d {
@@ -487,6 +527,11 @@ impl SortedPhaseItem for Transmissive3d {
     fn sort(items: &mut [Self]) {
         radsort::sort_by_key(items, |item| item.distance);
     }
+
+    #[inline]
+    fn indexed(&self) -> bool {
+        self.indexed
+    }
 }
 
 impl CachedRenderPipelinePhaseItem for Transmissive3d {
@@ -503,6 +548,9 @@ pub struct Transparent3d {
     pub draw_function: DrawFunctionId,
     pub batch_range: Range<u32>,
     pub extra_index: PhaseItemExtraIndex,
+    /// Whether the mesh in question is indexed (uses an index buffer in
+    /// addition to its vertex buffer).
+    pub indexed: bool,
 }
 
 impl PhaseItem for Transparent3d {
@@ -554,6 +602,11 @@ impl SortedPhaseItem for Transparent3d {
     fn sort(items: &mut [Self]) {
         radsort::sort_by_key(items, |item| item.distance);
     }
+
+    #[inline]
+    fn indexed(&self) -> bool {
+        self.indexed
+    }
 }
 
 impl CachedRenderPipelinePhaseItem for Transparent3d {
@@ -568,42 +621,44 @@ pub fn extract_core_3d_camera_phases(
     mut alpha_mask_3d_phases: ResMut<ViewBinnedRenderPhases<AlphaMask3d>>,
     mut transmissive_3d_phases: ResMut<ViewSortedRenderPhases<Transmissive3d>>,
     mut transparent_3d_phases: ResMut<ViewSortedRenderPhases<Transparent3d>>,
-    cameras_3d: Extract<Query<(RenderEntity, &Camera, Has<GpuCulling>), With<Camera3d>>>,
-    mut live_entities: Local<EntityHashSet>,
+    cameras_3d: Extract<Query<(Entity, &Camera, Has<NoIndirectDrawing>), With<Camera3d>>>,
+    mut live_entities: Local<HashSet<RetainedViewEntity>>,
     gpu_preprocessing_support: Res<GpuPreprocessingSupport>,
 ) {
     live_entities.clear();
 
-    for (entity, camera, has_gpu_culling) in &cameras_3d {
+    for (main_entity, camera, no_indirect_drawing) in &cameras_3d {
         if !camera.is_active {
             continue;
         }
 
         // If GPU culling is in use, use it (and indirect mode); otherwise, just
         // preprocess the meshes.
-        let gpu_preprocessing_mode = gpu_preprocessing_support.min(if has_gpu_culling {
+        let gpu_preprocessing_mode = gpu_preprocessing_support.min(if !no_indirect_drawing {
             GpuPreprocessingMode::Culling
         } else {
             GpuPreprocessingMode::PreprocessingOnly
         });
 
-        opaque_3d_phases.insert_or_clear(entity, gpu_preprocessing_mode);
-        alpha_mask_3d_phases.insert_or_clear(entity, gpu_preprocessing_mode);
-        transmissive_3d_phases.insert_or_clear(entity);
-        transparent_3d_phases.insert_or_clear(entity);
+        // This is the main 3D camera, so use the first subview index (0).
+        let retained_view_entity = RetainedViewEntity::new(main_entity.into(), None, 0);
 
-        live_entities.insert(entity);
+        opaque_3d_phases.prepare_for_new_frame(retained_view_entity, gpu_preprocessing_mode);
+        alpha_mask_3d_phases.prepare_for_new_frame(retained_view_entity, gpu_preprocessing_mode);
+        transmissive_3d_phases.insert_or_clear(retained_view_entity);
+        transparent_3d_phases.insert_or_clear(retained_view_entity);
+
+        live_entities.insert(retained_view_entity);
     }
 
-    opaque_3d_phases.retain(|entity, _| live_entities.contains(entity));
-    alpha_mask_3d_phases.retain(|entity, _| live_entities.contains(entity));
-    transmissive_3d_phases.retain(|entity, _| live_entities.contains(entity));
-    transparent_3d_phases.retain(|entity, _| live_entities.contains(entity));
+    opaque_3d_phases.retain(|view_entity, _| live_entities.contains(view_entity));
+    alpha_mask_3d_phases.retain(|view_entity, _| live_entities.contains(view_entity));
+    transmissive_3d_phases.retain(|view_entity, _| live_entities.contains(view_entity));
+    transparent_3d_phases.retain(|view_entity, _| live_entities.contains(view_entity));
 }
 
 // Extract the render phases for the prepass
 
-#[allow(clippy::too_many_arguments)]
 pub fn extract_camera_prepass_phase(
     mut commands: Commands,
     mut opaque_3d_prepass_phases: ResMut<ViewBinnedRenderPhases<Opaque3dPrepass>>,
@@ -613,9 +668,10 @@ pub fn extract_camera_prepass_phase(
     cameras_3d: Extract<
         Query<
             (
+                Entity,
                 RenderEntity,
                 &Camera,
-                Has<GpuCulling>,
+                Has<NoIndirectDrawing>,
                 Has<DepthPrepass>,
                 Has<NormalPrepass>,
                 Has<MotionVectorPrepass>,
@@ -624,15 +680,16 @@ pub fn extract_camera_prepass_phase(
             With<Camera3d>,
         >,
     >,
-    mut live_entities: Local<EntityHashSet>,
+    mut live_entities: Local<HashSet<RetainedViewEntity>>,
     gpu_preprocessing_support: Res<GpuPreprocessingSupport>,
 ) {
     live_entities.clear();
 
     for (
+        main_entity,
         entity,
         camera,
-        gpu_culling,
+        no_indirect_drawing,
         depth_prepass,
         normal_prepass,
         motion_vector_prepass,
@@ -645,45 +702,73 @@ pub fn extract_camera_prepass_phase(
 
         // If GPU culling is in use, use it (and indirect mode); otherwise, just
         // preprocess the meshes.
-        let gpu_preprocessing_mode = gpu_preprocessing_support.min(if gpu_culling {
+        let gpu_preprocessing_mode = gpu_preprocessing_support.min(if !no_indirect_drawing {
             GpuPreprocessingMode::Culling
         } else {
             GpuPreprocessingMode::PreprocessingOnly
         });
 
+        // This is the main 3D camera, so we use the first subview index (0).
+        let retained_view_entity = RetainedViewEntity::new(main_entity.into(), None, 0);
+
         if depth_prepass || normal_prepass || motion_vector_prepass {
-            opaque_3d_prepass_phases.insert_or_clear(entity, gpu_preprocessing_mode);
-            alpha_mask_3d_prepass_phases.insert_or_clear(entity, gpu_preprocessing_mode);
+            opaque_3d_prepass_phases
+                .prepare_for_new_frame(retained_view_entity, gpu_preprocessing_mode);
+            alpha_mask_3d_prepass_phases
+                .prepare_for_new_frame(retained_view_entity, gpu_preprocessing_mode);
         } else {
-            opaque_3d_prepass_phases.remove(&entity);
-            alpha_mask_3d_prepass_phases.remove(&entity);
+            opaque_3d_prepass_phases.remove(&retained_view_entity);
+            alpha_mask_3d_prepass_phases.remove(&retained_view_entity);
         }
 
         if deferred_prepass {
-            opaque_3d_deferred_phases.insert_or_clear(entity, gpu_preprocessing_mode);
-            alpha_mask_3d_deferred_phases.insert_or_clear(entity, gpu_preprocessing_mode);
+            opaque_3d_deferred_phases
+                .prepare_for_new_frame(retained_view_entity, gpu_preprocessing_mode);
+            alpha_mask_3d_deferred_phases
+                .prepare_for_new_frame(retained_view_entity, gpu_preprocessing_mode);
         } else {
-            opaque_3d_deferred_phases.remove(&entity);
-            alpha_mask_3d_deferred_phases.remove(&entity);
+            opaque_3d_deferred_phases.remove(&retained_view_entity);
+            alpha_mask_3d_deferred_phases.remove(&retained_view_entity);
         }
-        live_entities.insert(entity);
+        live_entities.insert(retained_view_entity);
 
-        commands
+        // Add or remove prepasses as appropriate.
+
+        let mut camera_commands = commands
             .get_entity(entity)
-            .expect("Camera entity wasn't synced.")
-            .insert_if(DepthPrepass, || depth_prepass)
-            .insert_if(NormalPrepass, || normal_prepass)
-            .insert_if(MotionVectorPrepass, || motion_vector_prepass)
-            .insert_if(DeferredPrepass, || deferred_prepass);
+            .expect("Camera entity wasn't synced.");
+
+        if depth_prepass {
+            camera_commands.insert(DepthPrepass);
+        } else {
+            camera_commands.remove::<DepthPrepass>();
+        }
+
+        if normal_prepass {
+            camera_commands.insert(NormalPrepass);
+        } else {
+            camera_commands.remove::<NormalPrepass>();
+        }
+
+        if motion_vector_prepass {
+            camera_commands.insert(MotionVectorPrepass);
+        } else {
+            camera_commands.remove::<MotionVectorPrepass>();
+        }
+
+        if deferred_prepass {
+            camera_commands.insert(DeferredPrepass);
+        } else {
+            camera_commands.remove::<DeferredPrepass>();
+        }
     }
 
-    opaque_3d_prepass_phases.retain(|entity, _| live_entities.contains(entity));
-    alpha_mask_3d_prepass_phases.retain(|entity, _| live_entities.contains(entity));
-    opaque_3d_deferred_phases.retain(|entity, _| live_entities.contains(entity));
-    alpha_mask_3d_deferred_phases.retain(|entity, _| live_entities.contains(entity));
+    opaque_3d_prepass_phases.retain(|view_entity, _| live_entities.contains(view_entity));
+    alpha_mask_3d_prepass_phases.retain(|view_entity, _| live_entities.contains(view_entity));
+    opaque_3d_deferred_phases.retain(|view_entity, _| live_entities.contains(view_entity));
+    alpha_mask_3d_deferred_phases.retain(|view_entity, _| live_entities.contains(view_entity));
 }
 
-#[allow(clippy::too_many_arguments)]
 pub fn prepare_core_3d_depth_textures(
     mut commands: Commands,
     mut texture_cache: ResMut<TextureCache>,
@@ -695,17 +780,18 @@ pub fn prepare_core_3d_depth_textures(
     views_3d: Query<(
         Entity,
         &ExtractedCamera,
+        &ExtractedView,
         Option<&DepthPrepass>,
         &Camera3d,
         &Msaa,
     )>,
 ) {
-    let mut render_target_usage = HashMap::default();
-    for (view, camera, depth_prepass, camera_3d, _msaa) in &views_3d {
-        if !opaque_3d_phases.contains_key(&view)
-            || !alpha_mask_3d_phases.contains_key(&view)
-            || !transmissive_3d_phases.contains_key(&view)
-            || !transparent_3d_phases.contains_key(&view)
+    let mut render_target_usage = <HashMap<_, _>>::default();
+    for (_, camera, extracted_view, depth_prepass, camera_3d, _msaa) in &views_3d {
+        if !opaque_3d_phases.contains_key(&extracted_view.retained_view_entity)
+            || !alpha_mask_3d_phases.contains_key(&extracted_view.retained_view_entity)
+            || !transmissive_3d_phases.contains_key(&extracted_view.retained_view_entity)
+            || !transparent_3d_phases.contains_key(&extracted_view.retained_view_entity)
         {
             continue;
         };
@@ -722,8 +808,8 @@ pub fn prepare_core_3d_depth_textures(
             .or_insert_with(|| usage);
     }
 
-    let mut textures = HashMap::default();
-    for (entity, camera, _, camera_3d, msaa) in &views_3d {
+    let mut textures = <HashMap<_, _>>::default();
+    for (entity, camera, _, _, camera_3d, msaa) in &views_3d {
         let Some(physical_target_size) = camera.physical_target_size else {
             continue;
         };
@@ -731,20 +817,14 @@ pub fn prepare_core_3d_depth_textures(
         let cached_texture = textures
             .entry((camera.target.clone(), msaa))
             .or_insert_with(|| {
-                // The size of the depth texture
-                let size = Extent3d {
-                    depth_or_array_layers: 1,
-                    width: physical_target_size.x,
-                    height: physical_target_size.y,
-                };
-
                 let usage = *render_target_usage
                     .get(&camera.target.clone())
                     .expect("The depth texture usage should already exist for this target");
 
                 let descriptor = TextureDescriptor {
                     label: Some("view_depth_texture"),
-                    size,
+                    // The size of the depth texture
+                    size: physical_target_size.to_extents(),
                     mip_level_count: 1,
                     sample_count: msaa.samples(),
                     dimension: TextureDimension::D2,
@@ -774,7 +854,6 @@ pub struct ViewTransmissionTexture {
     pub sampler: Sampler,
 }
 
-#[allow(clippy::too_many_arguments)]
 pub fn prepare_core_3d_transmission_textures(
     mut commands: Commands,
     mut texture_cache: ResMut<TextureCache>,
@@ -785,16 +864,17 @@ pub fn prepare_core_3d_transmission_textures(
     transparent_3d_phases: Res<ViewSortedRenderPhases<Transparent3d>>,
     views_3d: Query<(Entity, &ExtractedCamera, &Camera3d, &ExtractedView)>,
 ) {
-    let mut textures = HashMap::default();
+    let mut textures = <HashMap<_, _>>::default();
     for (entity, camera, camera_3d, view) in &views_3d {
-        if !opaque_3d_phases.contains_key(&entity)
-            || !alpha_mask_3d_phases.contains_key(&entity)
-            || !transparent_3d_phases.contains_key(&entity)
+        if !opaque_3d_phases.contains_key(&view.retained_view_entity)
+            || !alpha_mask_3d_phases.contains_key(&view.retained_view_entity)
+            || !transparent_3d_phases.contains_key(&view.retained_view_entity)
         {
             continue;
         };
 
-        let Some(transmissive_3d_phase) = transmissive_3d_phases.get(&entity) else {
+        let Some(transmissive_3d_phase) = transmissive_3d_phases.get(&view.retained_view_entity)
+        else {
             continue;
         };
 
@@ -817,13 +897,6 @@ pub fn prepare_core_3d_transmission_textures(
             .or_insert_with(|| {
                 let usage = TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST;
 
-                // The size of the transmission texture
-                let size = Extent3d {
-                    depth_or_array_layers: 1,
-                    width: physical_target_size.x,
-                    height: physical_target_size.y,
-                };
-
                 let format = if view.hdr {
                     ViewTarget::TEXTURE_FORMAT_HDR
                 } else {
@@ -832,7 +905,8 @@ pub fn prepare_core_3d_transmission_textures(
 
                 let descriptor = TextureDescriptor {
                     label: Some("view_transmission_texture"),
-                    size,
+                    // The size of the transmission texture
+                    size: physical_target_size.to_extents(),
                     mip_level_count: 1,
                     sample_count: 1, // No need for MSAA, as we'll only copy the main texture here
                     dimension: TextureDimension::D2,
@@ -860,6 +934,27 @@ pub fn prepare_core_3d_transmission_textures(
     }
 }
 
+/// Sets the `TEXTURE_BINDING` flag on the depth texture if necessary for
+/// occlusion culling.
+///
+/// We need that flag to be set in order to read from the texture.
+fn configure_occlusion_culling_view_targets(
+    mut view_targets: Query<
+        &mut Camera3d,
+        (
+            With<OcclusionCulling>,
+            Without<NoIndirectDrawing>,
+            With<DepthPrepass>,
+        ),
+    >,
+) {
+    for mut camera_3d in &mut view_targets {
+        let mut depth_texture_usages = TextureUsages::from(camera_3d.depth_texture_usages);
+        depth_texture_usages |= TextureUsages::TEXTURE_BINDING;
+        camera_3d.depth_texture_usages = depth_texture_usages.into();
+    }
+}
+
 // Disable MSAA and warn if using deferred rendering
 pub fn check_msaa(mut deferred_views: Query<&mut Msaa, (With<Camera>, With<DeferredPrepass>)>) {
     for mut msaa in deferred_views.iter_mut() {
@@ -874,7 +969,6 @@ pub fn check_msaa(mut deferred_views: Query<&mut Msaa, (With<Camera>, With<Defer
 }
 
 // Prepares the textures used by the prepass
-#[allow(clippy::too_many_arguments)]
 pub fn prepare_prepass_textures(
     mut commands: Commands,
     mut texture_cache: ResMut<TextureCache>,
@@ -886,6 +980,7 @@ pub fn prepare_prepass_textures(
     views_3d: Query<(
         Entity,
         &ExtractedCamera,
+        &ExtractedView,
         &Msaa,
         Has<DepthPrepass>,
         Has<NormalPrepass>,
@@ -893,14 +988,15 @@ pub fn prepare_prepass_textures(
         Has<DeferredPrepass>,
     )>,
 ) {
-    let mut depth_textures = HashMap::default();
-    let mut normal_textures = HashMap::default();
-    let mut deferred_textures = HashMap::default();
-    let mut deferred_lighting_id_textures = HashMap::default();
-    let mut motion_vectors_textures = HashMap::default();
+    let mut depth_textures = <HashMap<_, _>>::default();
+    let mut normal_textures = <HashMap<_, _>>::default();
+    let mut deferred_textures = <HashMap<_, _>>::default();
+    let mut deferred_lighting_id_textures = <HashMap<_, _>>::default();
+    let mut motion_vectors_textures = <HashMap<_, _>>::default();
     for (
         entity,
         camera,
+        view,
         msaa,
         depth_prepass,
         normal_prepass,
@@ -908,11 +1004,12 @@ pub fn prepare_prepass_textures(
         deferred_prepass,
     ) in &views_3d
     {
-        if !opaque_3d_prepass_phases.contains_key(&entity)
-            && !alpha_mask_3d_prepass_phases.contains_key(&entity)
-            && !opaque_3d_deferred_phases.contains_key(&entity)
-            && !alpha_mask_3d_deferred_phases.contains_key(&entity)
+        if !opaque_3d_prepass_phases.contains_key(&view.retained_view_entity)
+            && !alpha_mask_3d_prepass_phases.contains_key(&view.retained_view_entity)
+            && !opaque_3d_deferred_phases.contains_key(&view.retained_view_entity)
+            && !alpha_mask_3d_deferred_phases.contains_key(&view.retained_view_entity)
         {
+            commands.entity(entity).remove::<ViewPrepassTextures>();
             continue;
         };
 
@@ -920,11 +1017,7 @@ pub fn prepare_prepass_textures(
             continue;
         };
 
-        let size = Extent3d {
-            depth_or_array_layers: 1,
-            width: physical_target_size.x,
-            height: physical_target_size.y,
-        };
+        let size = physical_target_size.to_extents();
 
         let cached_depth_texture = depth_prepass.then(|| {
             depth_textures
@@ -939,7 +1032,8 @@ pub fn prepare_prepass_textures(
                         format: CORE_3D_DEPTH_FORMAT,
                         usage: TextureUsages::COPY_DST
                             | TextureUsages::RENDER_ATTACHMENT
-                            | TextureUsages::TEXTURE_BINDING,
+                            | TextureUsages::TEXTURE_BINDING
+                            | TextureUsages::COPY_SRC, // TODO: Remove COPY_SRC, double buffer instead (for bevy_solari)
                         view_formats: &[],
                     };
                     texture_cache.get(&render_device, descriptor)
@@ -1005,7 +1099,8 @@ pub fn prepare_prepass_textures(
                             dimension: TextureDimension::D2,
                             format: DEFERRED_PREPASS_FORMAT,
                             usage: TextureUsages::RENDER_ATTACHMENT
-                                | TextureUsages::TEXTURE_BINDING,
+                                | TextureUsages::TEXTURE_BINDING
+                                | TextureUsages::COPY_SRC, // TODO: Remove COPY_SRC, double buffer instead (for bevy_solari)
                             view_formats: &[],
                         },
                     )

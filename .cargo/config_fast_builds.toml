@@ -8,8 +8,9 @@
 # ## LLD
 #
 # LLD is a linker from the LLVM project that supports Linux, Windows, macOS, and Wasm. It has the greatest
-# platform support and the easiest installation process. It is enabled by default in this file for Linux
-# and Windows. On macOS, the default linker yields higher performance than LLD and is used instead.
+# platform support and the easiest installation process. It is enabled by default in this file for Windows. 
+# LLD is the default linker in Rust itself for Linux, so no configuration is needed.
+# On macOS, the default linker yields higher performance than LLD and is used instead.
 #
 # To install, please scroll to the corresponding table for your target (eg. `[target.x86_64-pc-windows-msvc]`
 # for Windows) and follow the steps under `LLD linker`.
@@ -22,8 +23,8 @@
 # through its high parallelism, though it only supports Linux.
 #
 # Mold is disabled by default in this file. If you wish to enable it, follow the installation instructions for
-# your corresponding target, disable LLD by commenting out its `-Clink-arg=...` line, and enable Mold by
-# *uncommenting* its `-Clink-arg=...` line.
+# your corresponding target, disable LLD by commenting out its `-Clink-arg=...` line (not applicable for Linux anymore), 
+# and enable Mold by *uncommenting* its `-Clink-arg=...` line.
 #
 # There is a fork of Mold named Sold that supports macOS, but it is unmaintained and is about the same speed as
 # the default ld64 linker. For this reason, it is not included in this file.
@@ -65,17 +66,7 @@
 # For more information, see the blog post at <https://blog.rust-lang.org/2023/11/09/parallel-rustc.html>.
 
 [target.x86_64-unknown-linux-gnu]
-linker = "clang"
 rustflags = [
-  # LLD linker
-  #
-  # You may need to install it:
-  #
-  # - Ubuntu: `sudo apt-get install lld clang`
-  # - Fedora: `sudo dnf install lld clang`
-  # - Arch: `sudo pacman -S lld clang`
-  "-Clink-arg=-fuse-ld=lld",
-
   # Mold linker
   #
   # You may need to install it:
@@ -92,9 +83,6 @@ rustflags = [
 # Some systems may experience linker performance issues when running doc tests.
 # See https://github.com/bevyengine/bevy/issues/12207 for details.
 rustdocflags = [
-  # LLD linker
-  "-Clink-arg=-fuse-ld=lld",
-
   # Mold linker
   # "-Clink-arg=-fuse-ld=mold",
 ]
@@ -154,8 +142,3 @@ rustflags = [
 # In most cases the gains are negligible, but if you are on macOS and have slow compile times you should see significant gains.
 # [profile.dev]
 # debug = 1
-
-# This enables you to run the CI tool using `cargo ci`.
-# This is not enabled by default, you need to copy this file to `config.toml`.
-[alias]
-ci = "run --package ci --"

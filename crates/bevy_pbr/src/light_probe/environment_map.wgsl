@@ -4,9 +4,7 @@
 #import bevy_pbr::mesh_view_bindings as bindings
 #import bevy_pbr::mesh_view_bindings::light_probes
 #import bevy_pbr::mesh_view_bindings::environment_map_uniform
-#import bevy_pbr::lighting::{
-    F_Schlick_vec, LayerLightingInput, LightingInput, LAYER_BASE, LAYER_CLEARCOAT
-}
+#import bevy_pbr::lighting::{F_Schlick_vec, LightingInput, LayerLightingInput, LAYER_BASE, LAYER_CLEARCOAT}
 #import bevy_pbr::clustered_forward::ClusterableObjectIndexRanges
 
 struct EnvironmentMapLight {
@@ -26,16 +24,16 @@ struct EnvironmentMapRadiances {
 #ifdef MULTIPLE_LIGHT_PROBES_IN_ARRAY
 
 fn compute_radiances(
-    input: ptr<function, LightingInput>,
+    input: LayerLightingInput,
     clusterable_object_index_ranges: ptr<function, ClusterableObjectIndexRanges>,
-    layer: u32,
     world_position: vec3<f32>,
     found_diffuse_indirect: bool,
 ) -> EnvironmentMapRadiances {
     // Unpack.
-    let perceptual_roughness = (*input).layers[layer].perceptual_roughness;
-    let N = (*input).layers[layer].N;
-    let R = (*input).layers[layer].R;
+    let N = input.N;
+    let R = input.R;
+    let perceptual_roughness = input.perceptual_roughness;
+    let roughness = input.roughness;
 
     var radiances: EnvironmentMapRadiances;
 
@@ -50,6 +48,8 @@ fn compute_radiances(
     if (query_result.texture_index < 0) {
         query_result.texture_index = light_probes.view_cubemap_index;
         query_result.intensity = light_probes.intensity_for_view;
+        query_result.affects_lightmapped_mesh_diffuse =
+            light_probes.view_environment_map_affects_lightmapped_mesh_diffuse != 0u;
     }
 
     // If there's no cubemap, bail out.
@@ -63,9 +63,16 @@ fn compute_radiances(
     let radiance_level = perceptual_roughness * f32(textureNumLevels(
         bindings::specular_environment_maps[query_result.texture_index]) - 1u);
 
-    if (!found_diffuse_indirect) {
+    // If we're lightmapped, and we shouldn't accumulate diffuse light from the
+    // environment map, note that.
+    var enable_diffuse = !found_diffuse_indirect;
+#ifdef LIGHTMAP
+    enable_diffuse = enable_diffuse && query_result.affects_lightmapped_mesh_diffuse;
+#endif  // LIGHTMAP
+
+    if (enable_diffuse) {
         var irradiance_sample_dir = N;
-        // Rotating the world space ray direction by the environment light map transform matrix, it is 
+        // Rotating the world space ray direction by the environment light map transform matrix, it is
         // equivalent to rotating the diffuse environment cubemap itself.
         irradiance_sample_dir = (environment_map_uniform.transform * vec4(irradiance_sample_dir, 1.0)).xyz;
         // Cube maps are left-handed so we negate the z coordinate.
@@ -77,8 +84,8 @@ fn compute_radiances(
             0.0).rgb * query_result.intensity;
     }
 
-    var radiance_sample_dir = R;
-    // Rotating the world space ray direction by the environment light map transform matrix, it is 
+    var radiance_sample_dir = radiance_sample_direction(N, R, roughness);
+    // Rotating the world space ray direction by the environment light map transform matrix, it is
     // equivalent to rotating the specular environment cubemap itself.
     radiance_sample_dir = (environment_map_uniform.transform * vec4(radiance_sample_dir, 1.0)).xyz;
     // Cube maps are left-handed so we negate the z coordinate.
@@ -95,16 +102,16 @@ fn compute_radiances(
 #else   // MULTIPLE_LIGHT_PROBES_IN_ARRAY
 
 fn compute_radiances(
-    input: ptr<function, LightingInput>,
+    input: LayerLightingInput,
     clusterable_object_index_ranges: ptr<function, ClusterableObjectIndexRanges>,
-    layer: u32,
     world_position: vec3<f32>,
     found_diffuse_indirect: bool,
 ) -> EnvironmentMapRadiances {
     // Unpack.
-    let perceptual_roughness = (*input).layers[layer].perceptual_roughness;
-    let N = (*input).layers[layer].N;
-    let R = (*input).layers[layer].R;
+    let N = input.N;
+    let R = input.R;
+    let perceptual_roughness = input.perceptual_roughness;
+    let roughness = input.roughness;
 
     var radiances: EnvironmentMapRadiances;
 
@@ -121,9 +128,17 @@ fn compute_radiances(
 
     let intensity = light_probes.intensity_for_view;
 
-    if (!found_diffuse_indirect) {
+    // If we're lightmapped, and we shouldn't accumulate diffuse light from the
+    // environment map, note that.
+    var enable_diffuse = !found_diffuse_indirect;
+#ifdef LIGHTMAP
+    enable_diffuse = enable_diffuse &&
+        light_probes.view_environment_map_affects_lightmapped_mesh_diffuse;
+#endif  // LIGHTMAP
+
+    if (enable_diffuse) {
         var irradiance_sample_dir = N;
-        // Rotating the world space ray direction by the environment light map transform matrix, it is 
+        // Rotating the world space ray direction by the environment light map transform matrix, it is
         // equivalent to rotating the diffuse environment cubemap itself.
         irradiance_sample_dir = (environment_map_uniform.transform * vec4(irradiance_sample_dir, 1.0)).xyz;
         // Cube maps are left-handed so we negate the z coordinate.
@@ -135,8 +150,8 @@ fn compute_radiances(
             0.0).rgb * intensity;
     }
 
-    var radiance_sample_dir = R;
-    // Rotating the world space ray direction by the environment light map transform matrix, it is 
+    var radiance_sample_dir = radiance_sample_direction(N, R, roughness);
+    // Rotating the world space ray direction by the environment light map transform matrix, it is
     // equivalent to rotating the specular environment cubemap itself.
     radiance_sample_dir = (environment_map_uniform.transform * vec4(radiance_sample_dir, 1.0)).xyz;
     // Cube maps are left-handed so we negate the z coordinate.
@@ -174,9 +189,8 @@ fn environment_map_light_clearcoat(
     let inv_Fc = 1.0 - Fc;
 
     let clearcoat_radiances = compute_radiances(
-        input,
+        (*input).layers[LAYER_CLEARCOAT],
         clusterable_object_index_ranges,
-        LAYER_CLEARCOAT,
         world_position,
         found_diffuse_indirect,
     );
@@ -206,9 +220,8 @@ fn environment_map_light(
     var out: EnvironmentMapLight;
 
     let radiances = compute_radiances(
-        input,
+        (*input).layers[LAYER_BASE],
         clusterable_object_index_ranges,
-        LAYER_BASE,
         world_position,
         found_diffuse_indirect,
     );
@@ -255,4 +268,12 @@ fn environment_map_light(
 #endif  // STANDARD_MATERIAL_CLEARCOAT
 
     return out;
+}
+
+// "Moving Frostbite to Physically Based Rendering 3.0", listing 22
+// https://seblagarde.wordpress.com/wp-content/uploads/2015/07/course_notes_moving_frostbite_to_pbr_v32.pdf#page=70
+fn radiance_sample_direction(N: vec3<f32>, R: vec3<f32>, roughness: f32) -> vec3<f32> {
+    let smoothness = saturate(1.0 - roughness);
+    let lerp_factor = smoothness * (sqrt(smoothness) + roughness);
+    return mix(N, R, lerp_factor);
 }

@@ -9,7 +9,7 @@ use bevy_reflect::Reflect;
 
 /// A raycast intersection test for 3D bounding volumes
 #[derive(Clone, Debug)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug))]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, Clone))]
 pub struct RayCast3d {
     /// The origin of the ray.
     pub origin: Vec3A,
@@ -106,7 +106,7 @@ impl IntersectsVolume<BoundingSphere> for RayCast3d {
 
 /// An intersection test that casts an [`Aabb3d`] along a ray.
 #[derive(Clone, Debug)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug))]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, Clone))]
 pub struct AabbCast3d {
     /// The ray along which to cast the bounding volume
     pub ray: RayCast3d,
@@ -151,7 +151,7 @@ impl IntersectsVolume<Aabb3d> for AabbCast3d {
 
 /// An intersection test that casts a [`BoundingSphere`] along a ray.
 #[derive(Clone, Debug)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug))]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, Clone))]
 pub struct BoundingSphereCast {
     /// The ray along which to cast the bounding volume
     pub ray: RayCast3d,

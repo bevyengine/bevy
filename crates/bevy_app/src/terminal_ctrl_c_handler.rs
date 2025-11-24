@@ -1,6 +1,6 @@
 use core::sync::atomic::{AtomicBool, Ordering};
 
-use bevy_ecs::event::EventWriter;
+use bevy_ecs::message::MessageWriter;
 
 use crate::{App, AppExit, Plugin, Update};
 
@@ -48,9 +48,9 @@ impl TerminalCtrlCHandlerPlugin {
     }
 
     /// Sends a [`AppExit`] event when the user presses `Ctrl+C` on the terminal.
-    pub fn exit_on_flag(mut events: EventWriter<AppExit>) {
+    pub fn exit_on_flag(mut app_exit_writer: MessageWriter<AppExit>) {
         if SHOULD_EXIT.load(Ordering::Relaxed) {
-            events.send(AppExit::from_code(130));
+            app_exit_writer.write(AppExit::from_code(130));
         }
     }
 }
@@ -63,9 +63,9 @@ impl Plugin for TerminalCtrlCHandlerPlugin {
         match result {
             Ok(()) => {}
             Err(ctrlc::Error::MultipleHandlers) => {
-                bevy_utils::tracing::info!("Skipping installing `Ctrl+C` handler as one was already installed. Please call `TerminalCtrlCHandlerPlugin::gracefully_exit` in your own `Ctrl+C` handler if you want Bevy to gracefully exit on `Ctrl+C`.");
+                log::info!("Skipping installing `Ctrl+C` handler as one was already installed. Please call `TerminalCtrlCHandlerPlugin::gracefully_exit` in your own `Ctrl+C` handler if you want Bevy to gracefully exit on `Ctrl+C`.");
             }
-            Err(err) => bevy_utils::tracing::warn!("Failed to set `Ctrl+C` handler: {err}"),
+            Err(err) => log::warn!("Failed to set `Ctrl+C` handler: {err}"),
         }
 
         app.add_systems(Update, TerminalCtrlCHandlerPlugin::exit_on_flag);

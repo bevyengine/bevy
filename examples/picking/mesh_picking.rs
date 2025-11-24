@@ -16,8 +16,8 @@
 //!
 //! By default, the mesh picking plugin will raycast against all entities, which is especially
 //! useful for debugging. If you want mesh picking to be opt-in, you can set
-//! [`MeshPickingSettings::require_markers`] to `true` and add a [`RayCastPickable`] component to
-//! the desired camera and target entities.
+//! [`MeshPickingSettings::require_markers`] to `true` and add a [`Pickable`] component to the
+//! desired camera and target entities.
 
 use std::f32::consts::PI;
 
@@ -91,8 +91,8 @@ fn setup_scene(
             ))
             .observe(update_material_on::<Pointer<Over>>(hover_matl.clone()))
             .observe(update_material_on::<Pointer<Out>>(white_matl.clone()))
-            .observe(update_material_on::<Pointer<Pressed>>(pressed_matl.clone()))
-            .observe(update_material_on::<Pointer<Released>>(hover_matl.clone()))
+            .observe(update_material_on::<Pointer<Press>>(pressed_matl.clone()))
+            .observe(update_material_on::<Pointer<Release>>(hover_matl.clone()))
             .observe(rotate_on_drag);
     }
 
@@ -114,8 +114,8 @@ fn setup_scene(
             ))
             .observe(update_material_on::<Pointer<Over>>(hover_matl.clone()))
             .observe(update_material_on::<Pointer<Out>>(white_matl.clone()))
-            .observe(update_material_on::<Pointer<Pressed>>(pressed_matl.clone()))
-            .observe(update_material_on::<Pointer<Released>>(hover_matl.clone()))
+            .observe(update_material_on::<Pointer<Press>>(pressed_matl.clone()))
+            .observe(update_material_on::<Pointer<Release>>(hover_matl.clone()))
             .observe(rotate_on_drag);
     }
 
@@ -123,7 +123,7 @@ fn setup_scene(
     commands.spawn((
         Mesh3d(meshes.add(Plane3d::default().mesh().size(50.0, 50.0).subdivisions(10))),
         MeshMaterial3d(ground_matl.clone()),
-        PickingBehavior::IGNORE, // Disable picking for the ground plane.
+        Pickable::IGNORE, // Disable picking for the ground plane.
     ));
 
     // Light
@@ -149,22 +149,22 @@ fn setup_scene(
         Text::new("Hover over the shapes to pick them\nDrag to rotate"),
         Node {
             position_type: PositionType::Absolute,
-            top: Val::Px(12.0),
-            left: Val::Px(12.0),
+            top: px(12),
+            left: px(12),
             ..default()
         },
     ));
 }
 
 /// Returns an observer that updates the entity's material to the one specified.
-fn update_material_on<E>(
+fn update_material_on<E: EntityEvent>(
     new_material: Handle<StandardMaterial>,
-) -> impl Fn(Trigger<E>, Query<&mut MeshMaterial3d<StandardMaterial>>) {
+) -> impl Fn(On<E>, Query<&mut MeshMaterial3d<StandardMaterial>>) {
     // An observer closure that captures `new_material`. We do this to avoid needing to write four
     // versions of this observer, each triggered by a different event and with a different hardcoded
     // material. Instead, the event type is a generic, and the material is passed in.
-    move |trigger, mut query| {
-        if let Ok(mut material) = query.get_mut(trigger.target()) {
+    move |event, mut query| {
+        if let Ok(mut material) = query.get_mut(event.event_target()) {
             material.0 = new_material.clone();
         }
     }
@@ -190,8 +190,8 @@ fn rotate(mut query: Query<&mut Transform, With<Shape>>, time: Res<Time>) {
 }
 
 /// An observer to rotate an entity when it is dragged
-fn rotate_on_drag(drag: Trigger<Pointer<Drag>>, mut transforms: Query<&mut Transform>) {
-    let mut transform = transforms.get_mut(drag.target()).unwrap();
+fn rotate_on_drag(drag: On<Pointer<Drag>>, mut transforms: Query<&mut Transform>) {
+    let mut transform = transforms.get_mut(drag.entity).unwrap();
     transform.rotate_y(drag.delta.x * 0.02);
     transform.rotate_x(drag.delta.y * 0.02);
 }

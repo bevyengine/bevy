@@ -1,19 +1,23 @@
-#![allow(unsafe_code)]
+#![expect(
+    unsafe_code,
+    reason = "Unsafe code is needed to work with dynamic components"
+)]
 
 //! This example show how you can create components dynamically, spawn entities with those components
 //! as well as query for entities with those components.
 
-use std::{alloc::Layout, io::Write, ptr::NonNull};
+use std::{alloc::Layout, collections::HashMap, io::Write, ptr::NonNull};
 
 use bevy::{
     ecs::{
-        component::{ComponentDescriptor, ComponentId, ComponentInfo, StorageType},
-        query::QueryData,
+        component::{
+            ComponentCloneBehavior, ComponentDescriptor, ComponentId, ComponentInfo, StorageType,
+        },
+        query::{ComponentAccessKind, QueryData},
         world::FilteredEntityMut,
     },
     prelude::*,
     ptr::{Aligned, OwningPtr},
-    utils::HashMap,
 };
 
 const PROMPT: &str = "
@@ -92,6 +96,8 @@ fn main() {
                             Layout::array::<u64>(size).unwrap(),
                             None,
                             true,
+                            ComponentCloneBehavior::Default,
+                            None,
                         )
                     });
                     let Some(info) = world.components().get_info(id) else {
@@ -99,7 +105,7 @@ fn main() {
                     };
                     component_names.insert(name.to_string(), id);
                     component_info.insert(id, info.clone());
-                    println!("Component {} created with id: {:?}", name, id.index());
+                    println!("Component {} created with id: {}", name, id.index());
                 });
             }
             "s" => {
@@ -143,20 +149,19 @@ fn main() {
                     entity.insert_by_ids(&to_insert_ids, to_insert_ptr.into_iter());
                 }
 
-                println!("Entity spawned with id: {:?}", entity.id());
+                println!("Entity spawned with id: {}", entity.id());
             }
             "q" => {
                 let mut builder = QueryBuilder::<FilteredEntityMut>::new(&mut world);
                 parse_query(rest, &mut builder, &component_names);
                 let mut query = builder.build();
-
                 query.iter_mut(&mut world).for_each(|filtered_entity| {
-                    #[allow(deprecated)]
                     let terms = filtered_entity
                         .access()
-                        .component_reads_and_writes()
-                        .0
-                        .map(|id| {
+                        .try_iter_component_access()
+                        .unwrap()
+                        .map(|component_access| {
+                            let id = *component_access.index();
                             let ptr = filtered_entity.get_by_id(id).unwrap();
                             let info = component_info.get(&id).unwrap();
                             let len = info.layout().size() / size_of::<u64>();
@@ -172,7 +177,7 @@ fn main() {
                             };
 
                             // If we have write access, increment each value once
-                            if filtered_entity.access().has_component_write(id) {
+                            if matches!(component_access, ComponentAccessKind::Exclusive(_)) {
                                 data.iter_mut().for_each(|data| {
                                     *data += 1;
                                 });
@@ -183,7 +188,7 @@ fn main() {
                         .collect::<Vec<_>>()
                         .join(", ");
 
-                    println!("{:?}: {}", filtered_entity.id(), terms);
+                    println!("{}: {}", filtered_entity.id(), terms);
                 });
             }
             _ => continue,
@@ -193,7 +198,7 @@ fn main() {
 
 // Constructs `OwningPtr` for each item in `components`
 // By sharing the lifetime of `components` with the resulting ptrs we ensure we don't drop the data before use
-fn to_owning_ptrs(components: &mut [Vec<u64>]) -> Vec<OwningPtr<Aligned>> {
+fn to_owning_ptrs(components: &mut [Vec<u64>]) -> Vec<OwningPtr<'_, Aligned>> {
     components
         .iter_mut()
         .map(|data| {
@@ -227,11 +232,11 @@ fn parse_term<Q: QueryData>(
             let mut parts = str.split_whitespace();
             let first = parts.next().unwrap();
             if first == "&mut" {
-                if let Some(str) = parts.next() {
-                    if let Some(&id) = components.get(str) {
-                        builder.mut_id(id);
-                        matched = true;
-                    }
+                if let Some(str) = parts.next()
+                    && let Some(&id) = components.get(str)
+                {
+                    builder.mut_id(id);
+                    matched = true;
                 };
             } else if let Some(&id) = components.get(&first[1..]) {
                 builder.ref_id(id);

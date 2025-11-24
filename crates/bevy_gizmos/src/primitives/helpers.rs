@@ -15,7 +15,7 @@ pub(crate) fn single_circle_coordinate(radius: f32, resolution: u32, nth_point: 
 
 /// Generates an iterator over the coordinates of a circle.
 ///
-/// The coordinates form a open circle, meaning the first and last points aren't the same.
+/// The coordinates form an open circle, meaning the first and last points aren't the same.
 ///
 /// This function creates an iterator that yields the positions of points approximating a
 /// circle with the given radius, divided into linear segments. The iterator produces `resolution`

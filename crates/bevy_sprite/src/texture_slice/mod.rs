@@ -1,14 +1,9 @@
 mod border_rect;
-mod computed_slices;
 mod slicer;
 
 use bevy_math::{Rect, Vec2};
 pub use border_rect::BorderRect;
 pub use slicer::{SliceScaleMode, TextureSlicer};
-
-pub(crate) use computed_slices::{
-    compute_slices_on_asset_event, compute_slices_on_sprite_change, ComputedTextureSlices,
-};
 
 /// Single texture slice, representing a texture rect to draw in a given area
 #[derive(Debug, Clone, PartialEq)]
@@ -22,12 +17,12 @@ pub struct TextureSlice {
 }
 
 impl TextureSlice {
-    /// Transforms the given slice in an collection of tiled subdivisions.
+    /// Transforms the given slice in a collection of tiled subdivisions.
     ///
     /// # Arguments
     ///
     /// * `stretch_value` - The slice will repeat when the ratio between the *drawing dimensions* of texture and the
-    ///     *original texture size* (rect) are above `stretch_value`.
+    ///   *original texture size* (rect) are above `stretch_value`.
     /// * `tile_x` - should the slice be tiled horizontally
     /// * `tile_y` - should the slice be tiled vertically
     #[must_use]
@@ -86,7 +81,7 @@ impl TextureSlice {
             remaining_columns -= size_y;
         }
         if slices.len() > 1_000 {
-            bevy_utils::tracing::warn!("One of your tiled textures has generated {} slices. You might want to use higher stretch values to avoid a great performance cost", slices.len());
+            tracing::warn!("One of your tiled textures has generated {} slices. You might want to use higher stretch values to avoid a great performance cost", slices.len());
         }
         slices
     }

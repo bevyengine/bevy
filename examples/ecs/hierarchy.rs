@@ -1,4 +1,8 @@
-//! Creates a hierarchy of parents and children entities.
+//! Demonstrates techniques for creating a hierarchy of parent and child entities.
+//!
+//! When [`DefaultPlugins`] are added to your app, systems are automatically added to propagate
+//! [`Transform`] and [`Visibility`] from parents to children down the hierarchy,
+//! resulting in a final [`GlobalTransform`] and [`InheritedVisibility`] component for each entity.
 
 use std::f32::consts::*;
 
@@ -24,7 +28,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         ))
         // With that entity as a parent, run a lambda that spawns its children
         .with_children(|parent| {
-            // parent is a ChildBuilder, which has a similar API to Commands
+            // parent is a ChildSpawnerCommands, which has a similar API to Commands
             parent.spawn((
                 Transform::from_xyz(250.0, 0.0, 0.0).with_scale(Vec3::splat(0.75)),
                 Sprite {
@@ -67,7 +71,7 @@ fn rotate(
         }
 
         // To iterate through the entities children, just treat the Children component as a Vec
-        // Alternatively, you could query entities that have a Parent component
+        // Alternatively, you could query entities that have a ChildOf component
         for child in children {
             if let Ok(mut transform) = transform_query.get_mut(*child) {
                 transform.rotate_z(PI * time.delta_secs());
@@ -77,13 +81,13 @@ fn rotate(
         // To demonstrate removing children, we'll remove a child after a couple of seconds.
         if time.elapsed_secs() >= 2.0 && children.len() == 2 {
             let child = children.last().unwrap();
-            commands.entity(*child).despawn_recursive();
+            commands.entity(*child).despawn();
         }
 
         if time.elapsed_secs() >= 4.0 {
             // This will remove the entity from its parent's list of children, as well as despawn
             // any children the entity has.
-            commands.entity(parent).despawn_recursive();
+            commands.entity(parent).despawn();
         }
     }
 }

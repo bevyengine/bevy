@@ -11,17 +11,16 @@ pub(crate) fn impl_opaque(meta: &ReflectMeta) -> proc_macro2::TokenStream {
     let bevy_reflect_path = meta.bevy_reflect_path();
     let type_path = meta.type_path();
 
-    #[cfg(feature = "documentation")]
+    #[cfg(feature = "reflect_documentation")]
     let with_docs = {
         let doc = quote::ToTokens::to_token_stream(meta.doc());
         Some(quote!(.with_docs(#doc)))
     };
-    #[cfg(not(feature = "documentation"))]
+    #[cfg(not(feature = "reflect_documentation"))]
     let with_docs: Option<proc_macro2::TokenStream> = None;
 
     let where_clause_options = WhereClauseOptions::new(meta);
     let typed_impl = impl_typed(
-        meta,
         &where_clause_options,
         quote! {
             let info = #bevy_reflect_path::OpaqueInfo::new::<Self>() #with_docs;
@@ -30,8 +29,9 @@ pub(crate) fn impl_opaque(meta: &ReflectMeta) -> proc_macro2::TokenStream {
     );
 
     let type_path_impl = impl_type_path(meta);
-    let full_reflect_impl = impl_full_reflect(meta, &where_clause_options);
+    let full_reflect_impl = impl_full_reflect(&where_clause_options);
     let common_methods = common_partial_reflect_methods(meta, || None, || None);
+    let clone_fn = meta.attrs().get_clone_impl(bevy_reflect_path);
 
     let apply_impl = if let Some(remote_ty) = meta.remote_ty() {
         let ty = remote_ty.type_path();
@@ -53,7 +53,12 @@ pub(crate) fn impl_opaque(meta: &ReflectMeta) -> proc_macro2::TokenStream {
     #[cfg(not(feature = "functions"))]
     let function_impls = None::<proc_macro2::TokenStream>;
     #[cfg(feature = "functions")]
-    let function_impls = crate::impls::impl_function_traits(meta, &where_clause_options);
+    let function_impls = crate::impls::impl_function_traits(&where_clause_options);
+
+    #[cfg(not(feature = "auto_register"))]
+    let auto_register = None::<proc_macro2::TokenStream>;
+    #[cfg(feature = "auto_register")]
+    let auto_register = crate::impls::reflect_auto_registration(meta);
 
     let (impl_generics, ty_generics, where_clause) = type_path.generics().split_for_impl();
     let where_reflect_clause = where_clause_options.extend_where_clause(where_clause);
@@ -70,6 +75,8 @@ pub(crate) fn impl_opaque(meta: &ReflectMeta) -> proc_macro2::TokenStream {
 
         #function_impls
 
+        #auto_register
+
         impl #impl_generics #bevy_reflect_path::PartialReflect for #type_path #ty_generics #where_reflect_clause  {
             #[inline]
             fn get_represented_type_info(&self) -> #FQOption<&'static #bevy_reflect_path::TypeInfo> {
@@ -77,7 +84,7 @@ pub(crate) fn impl_opaque(meta: &ReflectMeta) -> proc_macro2::TokenStream {
             }
 
             #[inline]
-            fn clone_value(&self) -> #bevy_reflect_path::__macro_exports::alloc_utils::Box<dyn #bevy_reflect_path::PartialReflect> {
+            fn to_dynamic(&self) -> #bevy_reflect_path::__macro_exports::alloc_utils::Box<dyn #bevy_reflect_path::PartialReflect> {
                 #bevy_reflect_path::__macro_exports::alloc_utils::Box::new(#FQClone::clone(self))
             }
 
@@ -117,6 +124,8 @@ pub(crate) fn impl_opaque(meta: &ReflectMeta) -> proc_macro2::TokenStream {
             }
 
             #common_methods
+
+            #clone_fn
         }
     }
 }

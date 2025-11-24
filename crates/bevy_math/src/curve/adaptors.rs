@@ -10,13 +10,19 @@ use core::fmt::{self, Debug};
 use core::marker::PhantomData;
 
 #[cfg(feature = "bevy_reflect")]
-use bevy_reflect::{utility::GenericTypePathCell, FromReflect, Reflect, TypePath};
+use {
+    alloc::format,
+    bevy_reflect::{utility::GenericTypePathCell, FromReflect, Reflect, TypePath},
+};
 
 #[cfg(feature = "bevy_reflect")]
 mod paths {
     pub(super) const THIS_MODULE: &str = "bevy_math::curve::adaptors";
     pub(super) const THIS_CRATE: &str = "bevy_math";
 }
+
+#[expect(unused, reason = "imported just for doc links")]
+use super::CurveExt;
 
 // NOTE ON REFLECTION:
 //
@@ -85,7 +91,8 @@ pub struct FunctionCurve<T, F> {
     pub(crate) domain: Interval,
     #[cfg_attr(feature = "bevy_reflect", reflect(ignore))]
     pub(crate) f: F,
-    #[cfg_attr(feature = "bevy_reflect", reflect(ignore))]
+    #[cfg_attr(feature = "serialize", serde(skip))]
+    #[cfg_attr(feature = "bevy_reflect", reflect(ignore, clone))]
     pub(crate) _phantom: PhantomData<fn() -> T>,
 }
 
@@ -173,7 +180,7 @@ where
 }
 
 /// A curve whose samples are defined by mapping samples from another curve through a
-/// given function. Curves of this type are produced by [`Curve::map`].
+/// given function. Curves of this type are produced by [`CurveExt::map`].
 #[derive(Clone)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -186,7 +193,8 @@ pub struct MapCurve<S, T, C, F> {
     pub(crate) preimage: C,
     #[cfg_attr(feature = "bevy_reflect", reflect(ignore))]
     pub(crate) f: F,
-    #[cfg_attr(feature = "bevy_reflect", reflect(ignore))]
+    #[cfg_attr(feature = "serialize", serde(skip))]
+    #[cfg_attr(feature = "bevy_reflect", reflect(ignore, clone))]
     pub(crate) _phantom: PhantomData<(fn() -> S, fn(S) -> T)>,
 }
 
@@ -269,7 +277,7 @@ where
 }
 
 /// A curve whose sample space is mapped onto that of some base curve's before sampling.
-/// Curves of this type are produced by [`Curve::reparametrize`].
+/// Curves of this type are produced by [`CurveExt::reparametrize`].
 #[derive(Clone)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -283,7 +291,8 @@ pub struct ReparamCurve<T, C, F> {
     pub(crate) base: C,
     #[cfg_attr(feature = "bevy_reflect", reflect(ignore))]
     pub(crate) f: F,
-    #[cfg_attr(feature = "bevy_reflect", reflect(ignore))]
+    #[cfg_attr(feature = "serialize", serde(skip))]
+    #[cfg_attr(feature = "bevy_reflect", reflect(ignore, clone))]
     pub(crate) _phantom: PhantomData<fn() -> T>,
 }
 
@@ -364,7 +373,7 @@ where
 }
 
 /// A curve that has had its domain changed by a linear reparameterization (stretching and scaling).
-/// Curves of this type are produced by [`Curve::reparametrize_linear`].
+/// Curves of this type are produced by [`CurveExt::reparametrize_linear`].
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -377,7 +386,8 @@ pub struct LinearReparamCurve<T, C> {
     pub(crate) base: C,
     /// Invariants: This interval must always be bounded.
     pub(crate) new_domain: Interval,
-    #[cfg_attr(feature = "bevy_reflect", reflect(ignore))]
+    #[cfg_attr(feature = "serialize", serde(skip))]
+    #[cfg_attr(feature = "bevy_reflect", reflect(ignore, clone))]
     pub(crate) _phantom: PhantomData<fn() -> T>,
 }
 
@@ -399,7 +409,7 @@ where
 }
 
 /// A curve that has been reparametrized by another curve, using that curve to transform the
-/// sample times before sampling. Curves of this type are produced by [`Curve::reparametrize_by_curve`].
+/// sample times before sampling. Curves of this type are produced by [`CurveExt::reparametrize_by_curve`].
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -410,7 +420,8 @@ where
 pub struct CurveReparamCurve<T, C, D> {
     pub(crate) base: C,
     pub(crate) reparam_curve: D,
-    #[cfg_attr(feature = "bevy_reflect", reflect(ignore))]
+    #[cfg_attr(feature = "serialize", serde(skip))]
+    #[cfg_attr(feature = "bevy_reflect", reflect(ignore, clone))]
     pub(crate) _phantom: PhantomData<fn() -> T>,
 }
 
@@ -432,7 +443,7 @@ where
 }
 
 /// A curve that is the graph of another curve over its parameter space. Curves of this type are
-/// produced by [`Curve::graph`].
+/// produced by [`CurveExt::graph`].
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -442,7 +453,8 @@ where
 )]
 pub struct GraphCurve<T, C> {
     pub(crate) base: C,
-    #[cfg_attr(feature = "bevy_reflect", reflect(ignore))]
+    #[cfg_attr(feature = "serialize", serde(skip))]
+    #[cfg_attr(feature = "bevy_reflect", reflect(ignore, clone))]
     pub(crate) _phantom: PhantomData<fn() -> T>,
 }
 
@@ -462,7 +474,7 @@ where
 }
 
 /// A curve that combines the output data from two constituent curves into a tuple output. Curves
-/// of this type are produced by [`Curve::zip`].
+/// of this type are produced by [`CurveExt::zip`].
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -474,7 +486,8 @@ pub struct ZipCurve<S, T, C, D> {
     pub(crate) domain: Interval,
     pub(crate) first: C,
     pub(crate) second: D,
-    #[cfg_attr(feature = "bevy_reflect", reflect(ignore))]
+    #[cfg_attr(feature = "serialize", serde(skip))]
+    #[cfg_attr(feature = "bevy_reflect", reflect(ignore, clone))]
     pub(crate) _phantom: PhantomData<fn() -> (S, T)>,
 }
 
@@ -503,7 +516,7 @@ where
 /// For this to be well-formed, the first curve's domain must be right-finite and the second's
 /// must be left-finite.
 ///
-/// Curves of this type are produced by [`Curve::chain`].
+/// Curves of this type are produced by [`CurveExt::chain`].
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -514,7 +527,8 @@ where
 pub struct ChainCurve<T, C, D> {
     pub(crate) first: C,
     pub(crate) second: D,
-    #[cfg_attr(feature = "bevy_reflect", reflect(ignore))]
+    #[cfg_attr(feature = "serialize", serde(skip))]
+    #[cfg_attr(feature = "bevy_reflect", reflect(ignore, clone))]
     pub(crate) _phantom: PhantomData<fn() -> T>,
 }
 
@@ -549,7 +563,7 @@ where
 
 /// The curve that results from reversing another.
 ///
-/// Curves of this type are produced by [`Curve::reverse`].
+/// Curves of this type are produced by [`CurveExt::reverse`].
 ///
 /// # Domain
 ///
@@ -563,7 +577,8 @@ where
 )]
 pub struct ReverseCurve<T, C> {
     pub(crate) curve: C,
-    #[cfg_attr(feature = "bevy_reflect", reflect(ignore))]
+    #[cfg_attr(feature = "serialize", serde(skip))]
+    #[cfg_attr(feature = "bevy_reflect", reflect(ignore, clone))]
     pub(crate) _phantom: PhantomData<fn() -> T>,
 }
 
@@ -590,7 +605,7 @@ where
 /// - the value at the transitioning points (`domain.end() * n` for `n >= 1`) in the results is the
 ///   value at `domain.end()` in the original curve
 ///
-/// Curves of this type are produced by [`Curve::repeat`].
+/// Curves of this type are produced by [`CurveExt::repeat`].
 ///
 /// # Domain
 ///
@@ -605,7 +620,8 @@ where
 pub struct RepeatCurve<T, C> {
     pub(crate) domain: Interval,
     pub(crate) curve: C,
-    #[cfg_attr(feature = "bevy_reflect", reflect(ignore))]
+    #[cfg_attr(feature = "serialize", serde(skip))]
+    #[cfg_attr(feature = "bevy_reflect", reflect(ignore, clone))]
     pub(crate) _phantom: PhantomData<fn() -> T>,
 }
 
@@ -620,15 +636,25 @@ where
 
     #[inline]
     fn sample_unchecked(&self, t: f32) -> T {
+        let t = self.base_curve_sample_time(t);
+        self.curve.sample_unchecked(t)
+    }
+}
+
+impl<T, C> RepeatCurve<T, C>
+where
+    C: Curve<T>,
+{
+    #[inline]
+    pub(crate) fn base_curve_sample_time(&self, t: f32) -> f32 {
         // the domain is bounded by construction
         let d = self.curve.domain();
         let cyclic_t = ops::rem_euclid(t - d.start(), d.length());
-        let t = if t != d.start() && cyclic_t == 0.0 {
+        if t != d.start() && cyclic_t == 0.0 {
             d.end()
         } else {
             d.start() + cyclic_t
-        };
-        self.curve.sample_unchecked(t)
+        }
     }
 }
 
@@ -639,7 +665,7 @@ where
 /// - the value at the transitioning points (`domain.end() * n` for `n >= 1`) in the results is the
 ///   value at `domain.end()` in the original curve
 ///
-/// Curves of this type are produced by [`Curve::forever`].
+/// Curves of this type are produced by [`CurveExt::forever`].
 ///
 /// # Domain
 ///
@@ -653,7 +679,8 @@ where
 )]
 pub struct ForeverCurve<T, C> {
     pub(crate) curve: C,
-    #[cfg_attr(feature = "bevy_reflect", reflect(ignore))]
+    #[cfg_attr(feature = "serialize", serde(skip))]
+    #[cfg_attr(feature = "bevy_reflect", reflect(ignore, clone))]
     pub(crate) _phantom: PhantomData<fn() -> T>,
 }
 
@@ -668,22 +695,32 @@ where
 
     #[inline]
     fn sample_unchecked(&self, t: f32) -> T {
+        let t = self.base_curve_sample_time(t);
+        self.curve.sample_unchecked(t)
+    }
+}
+
+impl<T, C> ForeverCurve<T, C>
+where
+    C: Curve<T>,
+{
+    #[inline]
+    pub(crate) fn base_curve_sample_time(&self, t: f32) -> f32 {
         // the domain is bounded by construction
         let d = self.curve.domain();
         let cyclic_t = ops::rem_euclid(t - d.start(), d.length());
-        let t = if t != d.start() && cyclic_t == 0.0 {
+        if t != d.start() && cyclic_t == 0.0 {
             d.end()
         } else {
             d.start() + cyclic_t
-        };
-        self.curve.sample_unchecked(t)
+        }
     }
 }
 
 /// The curve that results from chaining a curve with its reversed version. The transition point
 /// is guaranteed to make no jump.
 ///
-/// Curves of this type are produced by [`Curve::ping_pong`].
+/// Curves of this type are produced by [`CurveExt::ping_pong`].
 ///
 /// # Domain
 ///
@@ -697,7 +734,8 @@ where
 )]
 pub struct PingPongCurve<T, C> {
     pub(crate) curve: C,
-    #[cfg_attr(feature = "bevy_reflect", reflect(ignore))]
+    #[cfg_attr(feature = "serialize", serde(skip))]
+    #[cfg_attr(feature = "bevy_reflect", reflect(ignore, clone))]
     pub(crate) _phantom: PhantomData<fn() -> T>,
 }
 
@@ -736,7 +774,7 @@ where
 /// realized by translating the second curve so that its start sample point coincides with the
 /// first curves' end sample point.
 ///
-/// Curves of this type are produced by [`Curve::chain_continue`].
+/// Curves of this type are produced by [`CurveExt::chain_continue`].
 ///
 /// # Domain
 ///
@@ -754,7 +792,8 @@ pub struct ContinuationCurve<T, C, D> {
     pub(crate) second: D,
     // cache the offset in the curve directly to prevent triple sampling for every sample we make
     pub(crate) offset: T,
-    #[cfg_attr(feature = "bevy_reflect", reflect(ignore))]
+    #[cfg_attr(feature = "serialize", serde(skip))]
+    #[cfg_attr(feature = "bevy_reflect", reflect(ignore, clone))]
     pub(crate) _phantom: PhantomData<fn() -> T>,
 }
 

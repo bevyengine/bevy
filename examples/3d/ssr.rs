@@ -3,8 +3,9 @@
 use std::ops::Range;
 
 use bevy::{
+    anti_alias::fxaa::Fxaa,
     color::palettes::css::{BLACK, WHITE},
-    core_pipeline::{fxaa::Fxaa, Skybox},
+    core_pipeline::Skybox,
     image::{
         ImageAddressMode, ImageFilterMode, ImageLoaderSettings, ImageSampler,
         ImageSamplerDescriptor,
@@ -15,7 +16,11 @@ use bevy::{
         DefaultOpaqueRendererMethod, ExtendedMaterial, MaterialExtension, ScreenSpaceReflections,
     },
     prelude::*,
-    render::render_resource::{AsBindGroup, ShaderRef, ShaderType},
+    render::{
+        render_resource::{AsBindGroup, ShaderType},
+        view::Hdr,
+    },
+    shader::ShaderRef,
 };
 
 /// This example uses a shader source file from the assets subdirectory
@@ -226,10 +231,7 @@ fn spawn_camera(commands: &mut Commands, asset_server: &AssetServer) {
         .spawn((
             Camera3d::default(),
             Transform::from_translation(vec3(-1.25, 2.25, 4.5)).looking_at(Vec3::ZERO, Vec3::Y),
-            Camera {
-                hdr: true,
-                ..default()
-            },
+            Hdr,
             Msaa::Off,
         ))
         .insert(EnvironmentMapLight {
@@ -253,8 +255,8 @@ fn spawn_text(commands: &mut Commands, app_settings: &AppSettings) {
         create_text(app_settings),
         Node {
             position_type: PositionType::Absolute,
-            bottom: Val::Px(12.0),
-            left: Val::Px(12.0),
+            bottom: px(12),
+            left: px(12),
             ..default()
         },
     ));
@@ -297,7 +299,7 @@ fn rotate_model(
 // Processes input related to camera movement.
 fn move_camera(
     keyboard_input: Res<ButtonInput<KeyCode>>,
-    mut mouse_wheel_input: EventReader<MouseWheel>,
+    mut mouse_wheel_reader: MessageReader<MouseWheel>,
     mut cameras: Query<&mut Transform, With<Camera>>,
 ) {
     let (mut distance_delta, mut theta_delta) = (0.0, 0.0);
@@ -317,8 +319,8 @@ fn move_camera(
     }
 
     // Handle mouse events.
-    for mouse_wheel_event in mouse_wheel_input.read() {
-        distance_delta -= mouse_wheel_event.y * CAMERA_MOUSE_WHEEL_ZOOM_SPEED;
+    for mouse_wheel in mouse_wheel_reader.read() {
+        distance_delta -= mouse_wheel.y * CAMERA_MOUSE_WHEEL_ZOOM_SPEED;
     }
 
     // Update transforms.
@@ -338,7 +340,6 @@ fn move_camera(
 }
 
 // Adjusts app settings per user input.
-#[allow(clippy::too_many_arguments)]
 fn adjust_app_settings(
     mut commands: Commands,
     keyboard_input: Res<ButtonInput<KeyCode>>,

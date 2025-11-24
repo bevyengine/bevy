@@ -15,25 +15,28 @@ use anyhow::Result as AnyhowResult;
 use async_channel::{Receiver, Sender};
 use async_io::Async;
 use bevy_app::{App, Plugin, Startup};
-use bevy_ecs::system::{Res, Resource};
+use bevy_ecs::resource::Resource;
+use bevy_ecs::system::Res;
 use bevy_tasks::{futures_lite::StreamExt, IoTaskPool};
-use core::net::{IpAddr, Ipv4Addr};
 use core::{
     convert::Infallible,
+    net::{IpAddr, Ipv4Addr},
     pin::Pin,
     task::{Context, Poll},
 };
 use http_body_util::{BodyExt as _, Full};
-use hyper::header::{HeaderName, HeaderValue};
 use hyper::{
     body::{Body, Bytes, Frame, Incoming},
+    header::{HeaderName, HeaderValue},
     server::conn::http1,
     service, Request, Response,
 };
 use serde_json::Value;
 use smol_hyper::rt::{FuturesIo, SmolTimer};
-use std::collections::HashMap;
-use std::net::{TcpListener, TcpStream};
+use std::{
+    collections::HashMap,
+    net::{TcpListener, TcpStream},
+};
 
 /// The default port that Bevy will listen on.
 ///
@@ -57,7 +60,7 @@ impl Headers {
     /// Create a new instance of `Headers`.
     pub fn new() -> Self {
         Self {
-            headers: HashMap::new(),
+            headers: HashMap::default(),
         }
     }
 

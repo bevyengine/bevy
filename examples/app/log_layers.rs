@@ -1,9 +1,12 @@
 //! This example illustrates how to add custom log layers in bevy.
 
 use bevy::{
-    log::{tracing_subscriber::Layer, BoxedLayer},
+    log::{
+        tracing::{self, Subscriber},
+        tracing_subscriber::{field::MakeExt, Layer},
+        BoxedFmtLayer, BoxedLayer,
+    },
     prelude::*,
-    utils::tracing::Subscriber,
 };
 
 struct CustomLayer;
@@ -11,13 +14,13 @@ struct CustomLayer;
 impl<S: Subscriber> Layer<S> for CustomLayer {
     fn on_event(
         &self,
-        event: &bevy::utils::tracing::Event<'_>,
+        event: &tracing::Event<'_>,
         _ctx: bevy::log::tracing_subscriber::layer::Context<'_, S>,
     ) {
         println!("Got event!");
-        println!("  level={:?}", event.metadata().level());
-        println!("  target={:?}", event.metadata().target());
-        println!("  name={:?}", event.metadata().name());
+        println!("  level={}", event.metadata().level());
+        println!("  target={}", event.metadata().target());
+        println!("  name={}", event.metadata().name());
     }
 }
 
@@ -33,10 +36,26 @@ fn custom_layer(_app: &mut App) -> Option<BoxedLayer> {
     ]))
 }
 
+// While `custom_layer` allows you to add _additional_ layers, it won't allow you to override the
+// default `tracing_subscriber::fmt::Layer` added by `LogPlugin`. To do that, you can use the
+// `fmt_layer` option.
+//
+// In this example, we're disabling the timestamp in the log output and enabling the alternative debugging format.
+// This formatting inserts newlines into logs that use the debug sigil (`?`) like `info!(foo=?bar)`
+fn fmt_layer(_app: &mut App) -> Option<BoxedFmtLayer> {
+    Some(Box::new(
+        bevy::log::tracing_subscriber::fmt::Layer::default()
+            .without_time()
+            .map_fmt_fields(MakeExt::debug_alt)
+            .with_writer(std::io::stderr),
+    ))
+}
+
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins.set(bevy::log::LogPlugin {
             custom_layer,
+            fmt_layer,
 
             ..default()
         }))
@@ -50,6 +69,8 @@ fn log_system() {
     error!("something failed");
     warn!("something bad happened that isn't a failure, but thats worth calling out");
     info!("helpful information that is worth printing by default");
+    let secret_message = "Bevy";
+    info!(?secret_message, "Here's a log that uses the debug sigil");
     debug!("helpful for debugging");
     trace!("very noisy");
 }

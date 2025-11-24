@@ -4,8 +4,9 @@
 //!
 //! This module exports two types: [`ReflectFromWorldFns`] and [`ReflectFromWorld`].
 //!
-//! Same as [`super::component`], but for [`FromWorld`].
+//! Same as [`component`](`super::component`), but for [`FromWorld`].
 
+use alloc::boxed::Box;
 use bevy_reflect::{FromType, Reflect};
 
 use crate::world::{FromWorld, World};

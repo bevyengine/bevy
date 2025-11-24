@@ -3,6 +3,8 @@ use crate::Dir2;
 use bevy_reflect::Reflect;
 #[cfg(all(feature = "serialize", feature = "bevy_reflect"))]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
+use core::ops::Neg;
+use glam::Vec2;
 
 /// A compass enum with 4 directions.
 /// ```text
@@ -18,7 +20,11 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Hash, Clone)
+)]
 #[cfg_attr(
     all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Deserialize, Serialize)
@@ -32,6 +38,79 @@ pub enum CompassQuadrant {
     South,
     /// Corresponds to [`Dir2::NEG_Y`] and [`Dir2::WEST`]
     West,
+}
+
+impl CompassQuadrant {
+    /// Converts a standard index to a [`CompassQuadrant`].
+    ///
+    /// Starts at 0 for [`CompassQuadrant::North`] and increments clockwise.
+    pub const fn from_index(index: usize) -> Option<Self> {
+        match index {
+            0 => Some(Self::North),
+            1 => Some(Self::East),
+            2 => Some(Self::South),
+            3 => Some(Self::West),
+            _ => None,
+        }
+    }
+
+    /// Converts a [`CompassQuadrant`] to a standard index.
+    ///
+    /// Starts at 0 for [`CompassQuadrant::North`] and increments clockwise.
+    pub const fn to_index(self) -> usize {
+        match self {
+            Self::North => 0,
+            Self::East => 1,
+            Self::South => 2,
+            Self::West => 3,
+        }
+    }
+
+    /// Returns the opposite [`CompassQuadrant`], located 180 degrees from `self`.
+    ///
+    /// This can also be accessed via the `-` operator, using the [`Neg`] trait.
+    pub const fn opposite(&self) -> CompassQuadrant {
+        match self {
+            Self::North => Self::South,
+            Self::East => Self::West,
+            Self::South => Self::North,
+            Self::West => Self::East,
+        }
+    }
+
+    /// Checks if a point is in the direction represented by this [`CompassQuadrant`] from an origin.
+    ///
+    /// This uses a cone-based check: the vector from origin to the candidate point
+    /// must have a positive dot product with the direction vector.
+    ///
+    /// Uses standard mathematical coordinates where Y increases upward.
+    ///
+    /// # Arguments
+    ///
+    /// * `origin` - The starting position
+    /// * `candidate` - The target position to check
+    ///
+    /// # Returns
+    ///
+    /// `true` if the candidate is generally in the direction of this quadrant from the origin.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use bevy_math::{CompassQuadrant, Vec2};
+    ///
+    /// let origin = Vec2::new(0.0, 0.0);
+    /// let north_point = Vec2::new(0.0, 10.0);  // Above origin (Y+ = up)
+    /// let east_point = Vec2::new(10.0, 0.0);   // Right of origin
+    ///
+    /// assert!(CompassQuadrant::North.is_in_direction(origin, north_point));
+    /// assert!(!CompassQuadrant::North.is_in_direction(origin, east_point));
+    /// ```
+    pub fn is_in_direction(self, origin: Vec2, candidate: Vec2) -> bool {
+        let dir = Dir2::from(self);
+        let to_candidate = candidate - origin;
+        to_candidate.dot(*dir) > 0.0
+    }
 }
 
 /// A compass enum with 8 directions.
@@ -48,7 +127,11 @@ pub enum CompassQuadrant {
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Hash, Clone)
+)]
 #[cfg_attr(
     all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Deserialize, Serialize)
@@ -70,6 +153,91 @@ pub enum CompassOctant {
     West,
     /// Corresponds to [`Dir2::NORTH_WEST`]
     NorthWest,
+}
+
+impl CompassOctant {
+    /// Converts a standard index to a [`CompassOctant`].
+    ///
+    /// Starts at 0 for [`CompassOctant::North`] and increments clockwise.
+    pub const fn from_index(index: usize) -> Option<Self> {
+        match index {
+            0 => Some(Self::North),
+            1 => Some(Self::NorthEast),
+            2 => Some(Self::East),
+            3 => Some(Self::SouthEast),
+            4 => Some(Self::South),
+            5 => Some(Self::SouthWest),
+            6 => Some(Self::West),
+            7 => Some(Self::NorthWest),
+            _ => None,
+        }
+    }
+
+    /// Converts a [`CompassOctant`] to a standard index.
+    ///
+    /// Starts at 0 for [`CompassOctant::North`] and increments clockwise.
+    pub const fn to_index(self) -> usize {
+        match self {
+            Self::North => 0,
+            Self::NorthEast => 1,
+            Self::East => 2,
+            Self::SouthEast => 3,
+            Self::South => 4,
+            Self::SouthWest => 5,
+            Self::West => 6,
+            Self::NorthWest => 7,
+        }
+    }
+
+    /// Returns the opposite [`CompassOctant`], located 180 degrees from `self`.
+    ///
+    /// This can also be accessed via the `-` operator, using the [`Neg`] trait.
+    pub const fn opposite(&self) -> CompassOctant {
+        match self {
+            Self::North => Self::South,
+            Self::NorthEast => Self::SouthWest,
+            Self::East => Self::West,
+            Self::SouthEast => Self::NorthWest,
+            Self::South => Self::North,
+            Self::SouthWest => Self::NorthEast,
+            Self::West => Self::East,
+            Self::NorthWest => Self::SouthEast,
+        }
+    }
+
+    /// Checks if a point is in the direction represented by this [`CompassOctant`] from an origin.
+    ///
+    /// This uses a cone-based check: the vector from origin to the candidate point
+    /// must have a positive dot product with the direction vector.
+    ///
+    /// Uses standard mathematical coordinates where Y increases upward.
+    ///
+    /// # Arguments
+    ///
+    /// * `origin` - The starting position
+    /// * `candidate` - The target position to check
+    ///
+    /// # Returns
+    ///
+    /// `true` if the candidate is generally in the direction of this octant from the origin.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use bevy_math::{CompassOctant, Vec2};
+    ///
+    /// let origin = Vec2::new(0.0, 0.0);
+    /// let north_point = Vec2::new(0.0, 10.0);  // Above origin (Y+ = up)
+    /// let east_point = Vec2::new(10.0, 0.0);   // Right of origin
+    ///
+    /// assert!(CompassOctant::North.is_in_direction(origin, north_point));
+    /// assert!(!CompassOctant::North.is_in_direction(origin, east_point));
+    /// ```
+    pub fn is_in_direction(self, origin: Vec2, candidate: Vec2) -> bool {
+        let dir = Dir2::from(self);
+        let to_candidate = candidate - origin;
+        to_candidate.dot(*dir) > 0.0
+    }
 }
 
 impl From<CompassQuadrant> for Dir2 {
@@ -131,6 +299,22 @@ impl From<Dir2> for CompassOctant {
             -157.5..=-112.5 => Self::SouthWest,
             _ => unreachable!(),
         }
+    }
+}
+
+impl Neg for CompassQuadrant {
+    type Output = CompassQuadrant;
+
+    fn neg(self) -> Self::Output {
+        self.opposite()
+    }
+}
+
+impl Neg for CompassOctant {
+    type Output = CompassOctant;
+
+    fn neg(self) -> Self::Output {
+        self.opposite()
     }
 }
 
@@ -233,6 +417,29 @@ mod test_compass_quadrant {
 
         for (dir, expected) in tests {
             assert_eq!(CompassQuadrant::from(dir), expected);
+        }
+    }
+
+    #[test]
+    fn out_of_bounds_indexes_return_none() {
+        assert_eq!(CompassQuadrant::from_index(4), None);
+        assert_eq!(CompassQuadrant::from_index(5), None);
+        assert_eq!(CompassQuadrant::from_index(usize::MAX), None);
+    }
+
+    #[test]
+    fn compass_indexes_are_reversible() {
+        for i in 0..4 {
+            let quadrant = CompassQuadrant::from_index(i).unwrap();
+            assert_eq!(quadrant.to_index(), i);
+        }
+    }
+
+    #[test]
+    fn opposite_directions_reverse_themselves() {
+        for i in 0..4 {
+            let quadrant = CompassQuadrant::from_index(i).unwrap();
+            assert_eq!(-(-quadrant), quadrant);
         }
     }
 }
@@ -418,6 +625,29 @@ mod test_compass_octant {
 
         for (dir, expected) in tests {
             assert_eq!(CompassOctant::from(dir), expected);
+        }
+    }
+
+    #[test]
+    fn out_of_bounds_indexes_return_none() {
+        assert_eq!(CompassOctant::from_index(8), None);
+        assert_eq!(CompassOctant::from_index(9), None);
+        assert_eq!(CompassOctant::from_index(usize::MAX), None);
+    }
+
+    #[test]
+    fn compass_indexes_are_reversible() {
+        for i in 0..8 {
+            let octant = CompassOctant::from_index(i).unwrap();
+            assert_eq!(octant.to_index(), i);
+        }
+    }
+
+    #[test]
+    fn opposite_directions_reverse_themselves() {
+        for i in 0..8 {
+            let octant = CompassOctant::from_index(i).unwrap();
+            assert_eq!(-(-octant), octant);
         }
     }
 }

@@ -1,6 +1,6 @@
 use super::{BorderRect, TextureSlice};
 use bevy_math::{vec2, Rect, Vec2};
-use bevy_reflect::Reflect;
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 
 /// Slices a texture using the **9-slicing** technique. This allows to reuse an image at various sizes
 /// without needing to prepare multiple assets. The associated texture will be split into nine portions,
@@ -11,8 +11,9 @@ use bevy_reflect::Reflect;
 ///
 /// See [9-sliced](https://en.wikipedia.org/wiki/9-slice_scaling) textures.
 #[derive(Debug, Clone, Reflect, PartialEq)]
+#[reflect(Clone, PartialEq)]
 pub struct TextureSlicer {
-    /// The sprite borders, defining the 9 sections of the image
+    /// Inset values in pixels that define the four slicing lines dividing the texture into nine sections.
     pub border: BorderRect,
     /// Defines how the center part of the 9 slices will scale
     pub center_scale_mode: SliceScaleMode,
@@ -24,6 +25,7 @@ pub struct TextureSlicer {
 
 /// Defines how a texture slice scales when resized
 #[derive(Debug, Copy, Clone, Default, Reflect, PartialEq)]
+#[reflect(Clone, PartialEq, Default)]
 pub enum SliceScaleMode {
     /// The slice will be stretched to fit the area
     #[default]
@@ -217,7 +219,7 @@ impl TextureSlicer {
         if self.border.left + self.border.right >= rect.size().x
             || self.border.top + self.border.bottom >= rect.size().y
         {
-            bevy_utils::tracing::error!(
+            tracing::error!(
                 "TextureSlicer::border has out of bounds values. No slicing will be applied"
             );
             return vec![TextureSlice {

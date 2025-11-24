@@ -4,6 +4,8 @@ use super::cores::{EvenCore, EvenCoreError, UnevenCore, UnevenCoreError};
 use super::{Curve, Interval};
 
 use crate::StableInterpolate;
+#[cfg(feature = "bevy_reflect")]
+use alloc::format;
 use core::any::type_name;
 use core::fmt::{self, Debug};
 
@@ -277,7 +279,10 @@ impl<T, I> UnevenSampleCurve<T, I> {
     pub fn new(
         timed_samples: impl IntoIterator<Item = (f32, T)>,
         interpolation: I,
-    ) -> Result<Self, UnevenCoreError> {
+    ) -> Result<Self, UnevenCoreError>
+    where
+        I: Fn(&T, &T, f32) -> T,
+    {
         Ok(Self {
             core: UnevenCore::new(timed_samples)?,
             interpolation,
@@ -285,11 +290,13 @@ impl<T, I> UnevenSampleCurve<T, I> {
     }
 
     /// This [`UnevenSampleAutoCurve`], but with the sample times moved by the map `f`.
-    /// In principle, when `f` is monotone, this is equivalent to [`Curve::reparametrize`],
+    /// In principle, when `f` is monotone, this is equivalent to [`CurveExt::reparametrize`],
     /// but the function inputs to each are inverses of one another.
     ///
     /// The samples are re-sorted by time after mapping and deduplicated by output time, so
     /// the function `f` should generally be injective over the sample times of the curve.
+    ///
+    /// [`CurveExt::reparametrize`]: super::CurveExt::reparametrize
     pub fn map_sample_times(self, f: impl Fn(f32) -> f32) -> UnevenSampleCurve<T, I> {
         Self {
             core: self.core.map_sample_times(f),
@@ -343,11 +350,13 @@ impl<T> UnevenSampleAutoCurve<T> {
     }
 
     /// This [`UnevenSampleAutoCurve`], but with the sample times moved by the map `f`.
-    /// In principle, when `f` is monotone, this is equivalent to [`Curve::reparametrize`],
+    /// In principle, when `f` is monotone, this is equivalent to [`CurveExt::reparametrize`],
     /// but the function inputs to each are inverses of one another.
     ///
     /// The samples are re-sorted by time after mapping and deduplicated by output time, so
     /// the function `f` should generally be injective over the sample times of the curve.
+    ///
+    /// [`CurveExt::reparametrize`]: super::CurveExt::reparametrize
     pub fn map_sample_times(self, f: impl Fn(f32) -> f32) -> UnevenSampleAutoCurve<T> {
         Self {
             core: self.core.map_sample_times(f),
@@ -365,6 +374,7 @@ mod tests {
     //! - function pointers
     use super::{SampleCurve, UnevenSampleCurve};
     use crate::{curve::Interval, VectorSpace};
+    use alloc::boxed::Box;
     use bevy_reflect::Reflect;
 
     #[test]
@@ -395,5 +405,12 @@ mod tests {
         let _: Box<dyn Reflect> = Box::new(UnevenSampleCurve::new(keyframes, foo).unwrap());
         let _: Box<dyn Reflect> = Box::new(UnevenSampleCurve::new(keyframes, bar).unwrap());
         let _: Box<dyn Reflect> = Box::new(UnevenSampleCurve::new(keyframes, baz).unwrap());
+    }
+    #[test]
+    fn test_infer_interp_arguments() {
+        // it should be possible to infer the x and y arguments of the interpolation function
+        // from the input samples. If that becomes impossible, this will fail to compile.
+        SampleCurve::new(Interval::UNIT, [0.0, 1.0], |x, y, t| x.lerp(*y, t)).ok();
+        UnevenSampleCurve::new([(0.1, 1.0), (1.0, 3.0)], |x, y, t| x.lerp(*y, t)).ok();
     }
 }

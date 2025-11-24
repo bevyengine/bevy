@@ -1,8 +1,8 @@
 //! Displays information about available monitors (displays).
 
 use bevy::{
+    camera::RenderTarget,
     prelude::*,
-    render::camera::RenderTarget,
     window::{ExitCondition, Monitor, WindowMode, WindowRef},
 };
 
@@ -44,7 +44,10 @@ fn update(
             .spawn((
                 Window {
                     title: name.clone(),
-                    mode: WindowMode::Fullscreen(MonitorSelection::Entity(entity)),
+                    mode: WindowMode::Fullscreen(
+                        MonitorSelection::Entity(entity),
+                        VideoModeSelection::Current,
+                    ),
                     position: WindowPosition::Centered(MonitorSelection::Entity(entity)),
                     ..default()
                 },
@@ -69,11 +72,11 @@ fn update(
             Text(info_text),
             Node {
                 position_type: PositionType::Relative,
-                height: Val::Percent(100.0),
-                width: Val::Percent(100.0),
+                height: percent(100),
+                width: percent(100),
                 ..default()
             },
-            TargetCamera(camera),
+            UiTargetCamera(camera),
             MonitorRef(entity),
         ));
     }
@@ -82,7 +85,7 @@ fn update(
     for monitor_entity in monitors_removed.read() {
         for (ref_entity, monitor_ref) in monitor_refs.iter() {
             if monitor_ref.0 == monitor_entity {
-                commands.entity(ref_entity).despawn_recursive();
+                commands.entity(ref_entity).despawn();
             }
         }
     }

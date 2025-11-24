@@ -24,7 +24,7 @@ impl SerializationDataDef {
         fields: &[StructField<'_>],
         bevy_reflect_path: &Path,
     ) -> Result<Option<Self>, syn::Error> {
-        let mut skipped = HashMap::default();
+        let mut skipped = <HashMap<_, _>>::default();
 
         for field in fields {
             match field.attrs.ignore {

@@ -9,9 +9,9 @@ use bevy_reflect_derive::impl_type_path;
 
 use crate::generics::impl_generic_info_methods;
 use crate::{
-    self as bevy_reflect, type_info::impl_type_methods, utility::reflect_hasher, ApplyError,
-    FromReflect, Generics, MaybeTyped, PartialReflect, Reflect, ReflectKind, ReflectMut,
-    ReflectOwned, ReflectRef, Type, TypeInfo, TypePath,
+    type_info::impl_type_methods, utility::reflect_hasher, ApplyError, FromReflect, Generics,
+    MaybeTyped, PartialReflect, Reflect, ReflectKind, ReflectMut, ReflectOwned, ReflectRef, Type,
+    TypeInfo, TypePath,
 };
 
 /// A trait used to power [list-like] operations via [reflection].
@@ -95,7 +95,7 @@ pub trait List: PartialReflect {
     }
 
     /// Returns an iterator over the list.
-    fn iter(&self) -> ListIter;
+    fn iter(&self) -> ListIter<'_>;
 
     /// Drain the elements of this list to get a vector of owned values.
     ///
@@ -103,11 +103,11 @@ pub trait List: PartialReflect {
     /// [`Vec`] will match the order of items in `self`.
     fn drain(&mut self) -> Vec<Box<dyn PartialReflect>>;
 
-    /// Clones the list, producing a [`DynamicList`].
-    fn clone_dynamic(&self) -> DynamicList {
+    /// Creates a new [`DynamicList`] from this list.
+    fn to_dynamic_list(&self) -> DynamicList {
         DynamicList {
             represented_type: self.get_represented_type_info(),
-            values: self.iter().map(PartialReflect::clone_value).collect(),
+            values: self.iter().map(PartialReflect::to_dynamic).collect(),
         }
     }
 
@@ -124,7 +124,7 @@ pub struct ListInfo {
     generics: Generics,
     item_info: fn() -> Option<&'static TypeInfo>,
     item_ty: Type,
-    #[cfg(feature = "documentation")]
+    #[cfg(feature = "reflect_documentation")]
     docs: Option<&'static str>,
 }
 
@@ -136,13 +136,13 @@ impl ListInfo {
             generics: Generics::new(),
             item_info: TItem::maybe_type_info,
             item_ty: Type::of::<TItem>(),
-            #[cfg(feature = "documentation")]
+            #[cfg(feature = "reflect_documentation")]
             docs: None,
         }
     }
 
     /// Sets the docstring for this list.
-    #[cfg(feature = "documentation")]
+    #[cfg(feature = "reflect_documentation")]
     pub fn with_docs(self, docs: Option<&'static str>) -> Self {
         Self { docs, ..self }
     }
@@ -165,7 +165,7 @@ impl ListInfo {
     }
 
     /// The docstring of this list, if any.
-    #[cfg(feature = "documentation")]
+    #[cfg(feature = "reflect_documentation")]
     pub fn docs(&self) -> Option<&'static str> {
         self.docs
     }
@@ -191,8 +191,7 @@ impl DynamicList {
         if let Some(represented_type) = represented_type {
             assert!(
                 matches!(represented_type, TypeInfo::List(_)),
-                "expected TypeInfo::List but received: {:?}",
-                represented_type
+                "expected TypeInfo::List but received: {represented_type:?}"
             );
         }
 
@@ -239,23 +238,12 @@ impl List for DynamicList {
         self.values.len()
     }
 
-    fn iter(&self) -> ListIter {
+    fn iter(&self) -> ListIter<'_> {
         ListIter::new(self)
     }
 
     fn drain(&mut self) -> Vec<Box<dyn PartialReflect>> {
         self.values.drain(..).collect()
-    }
-
-    fn clone_dynamic(&self) -> DynamicList {
-        DynamicList {
-            represented_type: self.represented_type,
-            values: self
-                .values
-                .iter()
-                .map(|value| value.clone_value())
-                .collect(),
-        }
     }
 }
 
@@ -306,23 +294,18 @@ impl PartialReflect for DynamicList {
     }
 
     #[inline]
-    fn reflect_ref(&self) -> ReflectRef {
+    fn reflect_ref(&self) -> ReflectRef<'_> {
         ReflectRef::List(self)
     }
 
     #[inline]
-    fn reflect_mut(&mut self) -> ReflectMut {
+    fn reflect_mut(&mut self) -> ReflectMut<'_> {
         ReflectMut::List(self)
     }
 
     #[inline]
     fn reflect_owned(self: Box<Self>) -> ReflectOwned {
         ReflectOwned::List(self)
-    }
-
-    #[inline]
-    fn clone_value(&self) -> Box<dyn PartialReflect> {
-        Box::new(self.clone_dynamic())
     }
 
     #[inline]
@@ -399,7 +382,7 @@ pub struct ListIter<'a> {
 impl ListIter<'_> {
     /// Creates a new [`ListIter`].
     #[inline]
-    pub const fn new(list: &dyn List) -> ListIter {
+    pub const fn new(list: &dyn List) -> ListIter<'_> {
         ListIter { list, index: 0 }
     }
 }
@@ -470,7 +453,7 @@ pub fn list_try_apply<L: List>(a: &mut L, b: &dyn PartialReflect) -> Result<(), 
                 v.try_apply(value)?;
             }
         } else {
-            List::push(a, value.clone_value());
+            List::push(a, value.to_dynamic());
         }
     }
 
@@ -535,6 +518,7 @@ pub fn list_debug(dyn_list: &dyn List, f: &mut Formatter<'_>) -> core::fmt::Resu
 mod tests {
     use super::DynamicList;
     use crate::Reflect;
+    use alloc::{boxed::Box, vec};
     use core::assert_eq;
 
     #[test]

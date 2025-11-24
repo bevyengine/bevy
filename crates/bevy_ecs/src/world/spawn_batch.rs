@@ -1,11 +1,12 @@
+use bevy_ptr::move_as_ptr;
+
 use crate::{
-    bundle::{Bundle, BundleSpawner},
-    entity::Entity,
+    bundle::{Bundle, BundleSpawner, NoBundleEffect},
+    change_detection::MaybeLocation,
+    entity::{AllocEntitiesIterator, Entity, EntitySetIterator},
     world::World,
 };
 use core::iter::FusedIterator;
-#[cfg(feature = "track_change_detection")]
-use core::panic::Location;
 
 /// An iterator that spawns a series of entities and returns the [ID](Entity) of
 /// each spawned entity.
@@ -14,43 +15,35 @@ use core::panic::Location;
 pub struct SpawnBatchIter<'w, I>
 where
     I: Iterator,
-    I::Item: Bundle,
+    I::Item: Bundle<Effect: NoBundleEffect>,
 {
     inner: I,
     spawner: BundleSpawner<'w>,
-    #[cfg(feature = "track_change_detection")]
-    caller: &'static Location<'static>,
+    allocator: AllocEntitiesIterator<'w>,
+    caller: MaybeLocation,
 }
 
 impl<'w, I> SpawnBatchIter<'w, I>
 where
     I: Iterator,
-    I::Item: Bundle,
+    I::Item: Bundle<Effect: NoBundleEffect>,
 {
     #[inline]
     #[track_caller]
-    pub(crate) fn new(
-        world: &'w mut World,
-        iter: I,
-        #[cfg(feature = "track_change_detection")] caller: &'static Location,
-    ) -> Self {
-        // Ensure all entity allocations are accounted for so `self.entities` can realloc if
-        // necessary
-        world.flush();
-
+    pub(crate) fn new(world: &'w mut World, iter: I, caller: MaybeLocation) -> Self {
         let change_tick = world.change_tick();
 
         let (lower, upper) = iter.size_hint();
         let length = upper.unwrap_or(lower);
-        world.entities.reserve(length as u32);
 
         let mut spawner = BundleSpawner::new::<I::Item>(world, change_tick);
         spawner.reserve_storage(length);
+        let allocator = spawner.allocator().alloc_many(length as u32);
 
         Self {
             inner: iter,
+            allocator,
             spawner,
-            #[cfg(feature = "track_change_detection")]
             caller,
         }
     }
@@ -59,7 +52,7 @@ where
 impl<I> Drop for SpawnBatchIter<'_, I>
 where
     I: Iterator,
-    I::Item: Bundle,
+    I::Item: Bundle<Effect: NoBundleEffect>,
 {
     fn drop(&mut self) {
         // Iterate through self in order to spawn remaining bundles.
@@ -73,20 +66,23 @@ where
 impl<I> Iterator for SpawnBatchIter<'_, I>
 where
     I: Iterator,
-    I::Item: Bundle,
+    I::Item: Bundle<Effect: NoBundleEffect>,
 {
     type Item = Entity;
 
     fn next(&mut self) -> Option<Entity> {
         let bundle = self.inner.next()?;
-        // SAFETY: bundle matches spawner type
-        unsafe {
-            Some(self.spawner.spawn(
-                bundle,
-                #[cfg(feature = "track_change_detection")]
-                self.caller,
-            ))
-        }
+        move_as_ptr!(bundle);
+        Some(if let Some(bulk) = self.allocator.next() {
+            // SAFETY: bundle matches spawner type and we just allocated it
+            unsafe {
+                self.spawner.spawn_at(bulk, bundle, self.caller);
+            }
+            bulk
+        } else {
+            // SAFETY: bundle matches spawner type
+            unsafe { self.spawner.spawn(bundle, self.caller) }
+        })
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
@@ -97,7 +93,7 @@ where
 impl<I, T> ExactSizeIterator for SpawnBatchIter<'_, I>
 where
     I: ExactSizeIterator<Item = T>,
-    T: Bundle,
+    T: Bundle<Effect: NoBundleEffect>,
 {
     fn len(&self) -> usize {
         self.inner.len()
@@ -107,6 +103,14 @@ where
 impl<I, T> FusedIterator for SpawnBatchIter<'_, I>
 where
     I: FusedIterator<Item = T>,
-    T: Bundle,
+    T: Bundle<Effect: NoBundleEffect>,
+{
+}
+
+// SAFETY: Newly spawned entities are unique.
+unsafe impl<I: Iterator, T> EntitySetIterator for SpawnBatchIter<'_, I>
+where
+    I: FusedIterator<Item = T>,
+    T: Bundle<Effect: NoBundleEffect>,
 {
 }

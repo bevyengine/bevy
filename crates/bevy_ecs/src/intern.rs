@@ -4,10 +4,13 @@
 //! speed up code by shrinking the stack size of large types,
 //! and make comparisons for any type as fast as integers.
 
+use alloc::{borrow::ToOwned, boxed::Box};
+use bevy_platform::{
+    collections::HashSet,
+    hash::FixedHasher,
+    sync::{PoisonError, RwLock},
+};
 use core::{fmt::Debug, hash::Hash, ops::Deref};
-use std::sync::{OnceLock, PoisonError, RwLock};
-
-use bevy_utils::HashSet;
 
 /// An interned value. Will stay valid until the end of the program and will not drop.
 ///
@@ -120,12 +123,12 @@ impl Internable for str {
 /// The implementation ensures that two equal values return two equal [`Interned<T>`] values.
 ///
 /// To use an [`Interner<T>`], `T` must implement [`Internable`].
-pub struct Interner<T: ?Sized + 'static>(OnceLock<RwLock<HashSet<&'static T>>>);
+pub struct Interner<T: ?Sized + 'static>(RwLock<HashSet<&'static T>>);
 
 impl<T: ?Sized> Interner<T> {
     /// Creates a new empty interner
     pub const fn new() -> Self {
-        Self(OnceLock::new())
+        Self(RwLock::new(HashSet::with_hasher(FixedHasher)))
     }
 }
 
@@ -136,15 +139,17 @@ impl<T: Internable + ?Sized> Interner<T> {
     /// [`Interned<T>`] using the obtained static reference. Subsequent calls for the same `value`
     /// will return [`Interned<T>`] using the same static reference.
     pub fn intern(&self, value: &T) -> Interned<T> {
-        let lock = self.0.get_or_init(Default::default);
         {
-            let set = lock.read().unwrap_or_else(PoisonError::into_inner);
+            let set = self.0.read().unwrap_or_else(PoisonError::into_inner);
+
             if let Some(value) = set.get(value) {
                 return Interned(*value);
             }
         }
+
         {
-            let mut set = lock.write().unwrap_or_else(PoisonError::into_inner);
+            let mut set = self.0.write().unwrap_or_else(PoisonError::into_inner);
+
             if let Some(value) = set.get(value) {
                 Interned(*value)
             } else {
@@ -164,8 +169,9 @@ impl<T: ?Sized> Default for Interner<T> {
 
 #[cfg(test)]
 mod tests {
-    use core::hash::{Hash, Hasher};
-    use std::collections::hash_map::DefaultHasher;
+    use alloc::{boxed::Box, string::ToString};
+    use bevy_platform::hash::FixedHasher;
+    use core::hash::{BuildHasher, Hash, Hasher};
 
     use crate::intern::{Internable, Interned, Interner};
 
@@ -250,13 +256,8 @@ mod tests {
 
         assert_eq!(a, b);
 
-        let mut hasher = DefaultHasher::default();
-        a.hash(&mut hasher);
-        let hash_a = hasher.finish();
-
-        let mut hasher = DefaultHasher::default();
-        b.hash(&mut hasher);
-        let hash_b = hasher.finish();
+        let hash_a = FixedHasher.hash_one(a);
+        let hash_b = FixedHasher.hash_one(b);
 
         assert_eq!(hash_a, hash_b);
     }

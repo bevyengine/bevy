@@ -2,26 +2,36 @@
 //!
 //! For more info, see [`RenderDiagnosticsPlugin`].
 
+mod erased_render_asset_diagnostic_plugin;
 pub(crate) mod internal;
+mod mesh_allocator_diagnostic_plugin;
+mod render_asset_diagnostic_plugin;
+#[cfg(feature = "tracing-tracy")]
+mod tracy_gpu;
 
 use alloc::{borrow::Cow, sync::Arc};
 use core::marker::PhantomData;
 
 use bevy_app::{App, Plugin, PreUpdate};
 
-use crate::RenderApp;
+use crate::{renderer::RenderAdapterInfo, RenderApp};
 
 use self::internal::{
     sync_diagnostics, DiagnosticsRecorder, Pass, RenderDiagnosticsMutex, WriteTimestamp,
 };
+pub use self::{
+    erased_render_asset_diagnostic_plugin::ErasedRenderAssetDiagnosticPlugin,
+    mesh_allocator_diagnostic_plugin::MeshAllocatorDiagnosticPlugin,
+    render_asset_diagnostic_plugin::RenderAssetDiagnosticPlugin,
+};
 
-use super::{RenderDevice, RenderQueue};
+use crate::renderer::{RenderDevice, RenderQueue};
 
 /// Enables collecting render diagnostics, such as CPU/GPU elapsed time per render pass,
 /// as well as pipeline statistics (number of primitives, number of shader invocations, etc).
 ///
-/// To access the diagnostics, you can use [`DiagnosticsStore`](bevy_diagnostic::DiagnosticsStore) resource,
-/// or add [`LogDiagnosticsPlugin`](bevy_diagnostic::LogDiagnosticsPlugin).
+/// To access the diagnostics, you can use the [`DiagnosticsStore`](bevy_diagnostic::DiagnosticsStore) resource,
+/// add [`LogDiagnosticsPlugin`](bevy_diagnostic::LogDiagnosticsPlugin), or use [Tracy](https://github.com/bevyengine/bevy/blob/main/docs/profiling.md#tracy-renderqueue).
 ///
 /// To record diagnostics in your own passes:
 ///  1. First, obtain the diagnostic recorder using [`RenderContext::diagnostic_recorder`](crate::renderer::RenderContext::diagnostic_recorder).
@@ -43,7 +53,6 @@ use super::{RenderDevice, RenderQueue};
 /// # Supported platforms
 /// Timestamp queries and pipeline statistics are currently supported only on Vulkan and DX12.
 /// On other platforms (Metal, WebGPU, WebGL2) only CPU time will be recorded.
-#[allow(clippy::doc_markdown)]
 #[derive(Default)]
 pub struct RenderDiagnosticsPlugin;
 
@@ -63,9 +72,10 @@ impl Plugin for RenderDiagnosticsPlugin {
             return;
         };
 
+        let adapter_info = render_app.world().resource::<RenderAdapterInfo>();
         let device = render_app.world().resource::<RenderDevice>();
         let queue = render_app.world().resource::<RenderQueue>();
-        render_app.insert_resource(DiagnosticsRecorder::new(device, queue));
+        render_app.insert_resource(DiagnosticsRecorder::new(adapter_info, device, queue));
     }
 }
 
@@ -146,7 +156,7 @@ pub struct PassSpanGuard<'a, R: ?Sized, P> {
 }
 
 impl<R: RecordDiagnostics + ?Sized, P: Pass> PassSpanGuard<'_, R, P> {
-    /// End the span. You have to provide the same encoder which was used to begin the span.
+    /// End the span. You have to provide the same pass which was used to begin the span.
     pub fn end(self, pass: &mut P) {
         self.recorder.end_pass_span(pass);
         core::mem::forget(self);

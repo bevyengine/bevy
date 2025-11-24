@@ -2,12 +2,12 @@ use crate::renderer::{
     RenderAdapter, RenderAdapterInfo, RenderDevice, RenderInstance, RenderQueue,
 };
 use alloc::borrow::Cow;
-use std::path::PathBuf;
 
 pub use wgpu::{
     Backends, Dx12Compiler, Features as WgpuFeatures, Gles3MinorVersion, InstanceFlags,
     Limits as WgpuLimits, MemoryHints, PowerPreference,
 };
+use wgpu::{DxcShaderModel, MemoryBudgetThresholds};
 
 /// Configures the priority used when automatically configuring the features/limits of `wgpu`.
 #[derive(Clone)]
@@ -27,8 +27,8 @@ pub enum WgpuSettingsPriority {
 /// [`Backends::VULKAN`](Backends::VULKAN) are enabled by default for non-web and the best choice
 /// is automatically selected. Web using the `webgl` feature uses [`Backends::GL`](Backends::GL).
 /// NOTE: If you want to use [`Backends::GL`](Backends::GL) in a native app on `Windows` and/or `macOS`, you must
-/// use [`ANGLE`](https://github.com/gfx-rs/wgpu#angle). This is because wgpu requires EGL to
-/// create a GL context without a window and only ANGLE supports that.
+/// use [`ANGLE`](https://github.com/gfx-rs/wgpu#angle) and enable the `gles` feature. This is
+/// because wgpu requires EGL to create a GL context without a window and only ANGLE supports that.
 #[derive(Clone)]
 pub struct WgpuSettings {
     pub device_label: Option<Cow<'static, str>>,
@@ -53,8 +53,12 @@ pub struct WgpuSettings {
     pub instance_flags: InstanceFlags,
     /// This hints to the WGPU device about the preferred memory allocation strategy.
     pub memory_hints: MemoryHints,
-    /// The path to pass to wgpu for API call tracing. This only has an effect if wgpu's tracing functionality is enabled.
-    pub trace_path: Option<PathBuf>,
+    /// The thresholds for device memory budget.
+    pub instance_memory_budget_thresholds: MemoryBudgetThresholds,
+    /// If true, will force wgpu to use a software renderer, if available.
+    pub force_fallback_adapter: bool,
+    /// The name of the adapter to use.
+    pub adapter_name: Option<String>,
 }
 
 impl Default for WgpuSettings {
@@ -71,10 +75,10 @@ impl Default for WgpuSettings {
             Backends::all()
         };
 
-        let backends = Some(wgpu::util::backend_bits_from_env().unwrap_or(default_backends));
+        let backends = Some(Backends::from_env().unwrap_or(default_backends));
 
         let power_preference =
-            wgpu::util::power_preference_from_env().unwrap_or(PowerPreference::HighPerformance);
+            PowerPreference::from_env().unwrap_or(PowerPreference::HighPerformance);
 
         let priority = settings_priority_from_env().unwrap_or(WgpuSettingsPriority::Functionality);
 
@@ -86,7 +90,11 @@ impl Default for WgpuSettings {
         {
             wgpu::Limits::downlevel_webgl2_defaults()
         } else {
-            #[allow(unused_mut)]
+            #[expect(clippy::allow_attributes, reason = "`unused_mut` is not always linted")]
+            #[allow(
+                unused_mut,
+                reason = "This variable needs to be mutable if the `ci_limits` feature is enabled"
+            )]
             let mut limits = wgpu::Limits::default();
             #[cfg(feature = "ci_limits")]
             {
@@ -96,13 +104,23 @@ impl Default for WgpuSettings {
             limits
         };
 
-        let dx12_compiler =
-            wgpu::util::dx12_shader_compiler_from_env().unwrap_or(Dx12Compiler::Dxc {
-                dxil_path: None,
-                dxc_path: None,
+        let dx12_shader_compiler =
+            Dx12Compiler::from_env().unwrap_or(if cfg!(feature = "statically-linked-dxc") {
+                Dx12Compiler::StaticDxc
+            } else {
+                let dxc = "dxcompiler.dll";
+
+                if cfg!(target_os = "windows") && std::fs::metadata(dxc).is_ok() {
+                    Dx12Compiler::DynamicDxc {
+                        dxc_path: String::from(dxc),
+                        max_shader_model: DxcShaderModel::V6_7,
+                    }
+                } else {
+                    Dx12Compiler::Fxc
+                }
             });
 
-        let gles3_minor_version = wgpu::util::gles_minor_version_from_env().unwrap_or_default();
+        let gles3_minor_version = Gles3MinorVersion::from_env().unwrap_or_default();
 
         let instance_flags = InstanceFlags::default().with_env();
 
@@ -115,11 +133,13 @@ impl Default for WgpuSettings {
             disabled_features: None,
             limits,
             constrained_limits: None,
-            dx12_shader_compiler: dx12_compiler,
+            dx12_shader_compiler,
             gles3_minor_version,
             instance_flags,
             memory_hints: MemoryHints::default(),
-            trace_path: None,
+            instance_memory_budget_thresholds: MemoryBudgetThresholds::default(),
+            force_fallback_adapter: false,
+            adapter_name: None,
         }
     }
 }
@@ -131,9 +151,15 @@ pub struct RenderResources(
     pub RenderAdapterInfo,
     pub RenderAdapter,
     pub RenderInstance,
+    #[cfg(feature = "raw_vulkan_init")]
+    pub  crate::renderer::raw_vulkan_init::AdditionalVulkanFeatures,
 );
 
 /// An enum describing how the renderer will initialize resources. This is used when creating the [`RenderPlugin`](crate::RenderPlugin).
+#[expect(
+    clippy::large_enum_variant,
+    reason = "See https://github.com/bevyengine/bevy/issues/19220"
+)]
 pub enum RenderCreation {
     /// Allows renderer resource initialization to happen outside of the rendering plugin.
     Manual(RenderResources),
@@ -149,8 +175,19 @@ impl RenderCreation {
         adapter_info: RenderAdapterInfo,
         adapter: RenderAdapter,
         instance: RenderInstance,
+        #[cfg(feature = "raw_vulkan_init")]
+        additional_vulkan_features: crate::renderer::raw_vulkan_init::AdditionalVulkanFeatures,
     ) -> Self {
-        RenderResources(device, queue, adapter_info, adapter, instance).into()
+        RenderResources(
+            device,
+            queue,
+            adapter_info,
+            adapter,
+            instance,
+            #[cfg(feature = "raw_vulkan_init")]
+            additional_vulkan_features,
+        )
+        .into()
     }
 }
 

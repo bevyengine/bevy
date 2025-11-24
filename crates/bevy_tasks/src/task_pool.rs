@@ -1,8 +1,12 @@
-use alloc::sync::Arc;
+use alloc::{boxed::Box, format, string::String, vec::Vec};
 use core::{future::Future, marker::PhantomData, mem, panic::AssertUnwindSafe};
-use std::thread::{self, JoinHandle};
+use std::{
+    thread::{self, JoinHandle},
+    thread_local,
+};
 
 use crate::executor::FallibleTask;
+use bevy_platform::sync::Arc;
 use concurrent_queue::ConcurrentQueue;
 use futures_lite::FutureExt;
 
@@ -70,7 +74,21 @@ impl TaskPoolBuilder {
     /// This is called on the thread itself and has access to all thread-local storage.
     /// This will block running async tasks on the thread until the callback completes.
     pub fn on_thread_spawn(mut self, f: impl Fn() + Send + Sync + 'static) -> Self {
-        self.on_thread_spawn = Some(Arc::new(f));
+        let arc = Arc::new(f);
+
+        #[cfg(not(target_has_atomic = "ptr"))]
+        #[expect(
+            unsafe_code,
+            reason = "unsized coercion is an unstable feature for non-std types"
+        )]
+        // SAFETY:
+        // - Coercion from `impl Fn` to `dyn Fn` is valid
+        // - `Arc::from_raw` receives a valid pointer from a previous call to `Arc::into_raw`
+        let arc = unsafe {
+            Arc::from_raw(Arc::into_raw(arc) as *const (dyn Fn() + Send + Sync + 'static))
+        };
+
+        self.on_thread_spawn = Some(arc);
         self
     }
 
@@ -79,7 +97,21 @@ impl TaskPoolBuilder {
     /// This is called on the thread itself and has access to all thread-local storage.
     /// This will block thread termination until the callback completes.
     pub fn on_thread_destroy(mut self, f: impl Fn() + Send + Sync + 'static) -> Self {
-        self.on_thread_destroy = Some(Arc::new(f));
+        let arc = Arc::new(f);
+
+        #[cfg(not(target_has_atomic = "ptr"))]
+        #[expect(
+            unsafe_code,
+            reason = "unsized coercion is an unstable feature for non-std types"
+        )]
+        // SAFETY:
+        // - Coercion from `impl Fn` to `dyn Fn` is valid
+        // - `Arc::from_raw` receives a valid pointer from a previous call to `Arc::into_raw`
+        let arc = unsafe {
+            Arc::from_raw(Arc::into_raw(arc) as *const (dyn Fn() + Send + Sync + 'static))
+        };
+
+        self.on_thread_destroy = Some(arc);
         self
     }
 
@@ -305,7 +337,7 @@ impl TaskPool {
         T: Send + 'static,
     {
         Self::THREAD_EXECUTOR.with(|scope_executor| {
-            // If a `external_executor` is passed use that. Otherwise get the executor stored
+            // If an `external_executor` is passed, use that. Otherwise, get the executor stored
             // in the `THREAD_EXECUTOR` thread local.
             if let Some(external_executor) = external_executor {
                 self.scope_with_executor_inner(
@@ -352,12 +384,12 @@ impl TaskPool {
             unsafe { mem::transmute(external_executor) };
         // SAFETY: As above, all futures must complete in this function so we can change the lifetime
         let scope_executor: &'env ThreadExecutor<'env> = unsafe { mem::transmute(scope_executor) };
-        let spawned: ConcurrentQueue<FallibleTask<Result<T, Box<(dyn core::any::Any + Send)>>>> =
+        let spawned: ConcurrentQueue<FallibleTask<Result<T, Box<dyn core::any::Any + Send>>>> =
             ConcurrentQueue::unbounded();
         // shadow the variable so that the owned value cannot be used for the rest of the function
         // SAFETY: As above, all futures must complete in this function so we can change the lifetime
         let spawned: &'env ConcurrentQueue<
-            FallibleTask<Result<T, Box<(dyn core::any::Any + Send)>>>,
+            FallibleTask<Result<T, Box<dyn core::any::Any + Send>>>,
         > = unsafe { mem::transmute(&spawned) };
 
         let scope = Scope {
@@ -454,7 +486,7 @@ impl TaskPool {
                     .is_ok();
             }
         };
-        execute_forever.or(get_results).await
+        get_results.or(execute_forever).await
     }
 
     #[inline]
@@ -473,7 +505,7 @@ impl TaskPool {
                 let _result = AssertUnwindSafe(tick_forever).catch_unwind().await.is_ok();
             }
         };
-        execute_forever.or(get_results).await
+        get_results.or(execute_forever).await
     }
 
     #[inline]
@@ -495,7 +527,7 @@ impl TaskPool {
                     .is_ok();
             }
         };
-        execute_forever.or(get_results).await
+        get_results.or(execute_forever).await
     }
 
     #[inline]
@@ -513,7 +545,7 @@ impl TaskPool {
                 let _result = AssertUnwindSafe(tick_forever).catch_unwind().await.is_ok();
             }
         };
-        execute_forever.or(get_results).await
+        get_results.or(execute_forever).await
     }
 
     /// Spawns a static future onto the thread pool. The returned [`Task`] is a
@@ -596,7 +628,7 @@ pub struct Scope<'scope, 'env: 'scope, T> {
     executor: &'scope crate::executor::Executor<'scope>,
     external_executor: &'scope ThreadExecutor<'scope>,
     scope_executor: &'scope ThreadExecutor<'scope>,
-    spawned: &'scope ConcurrentQueue<FallibleTask<Result<T, Box<(dyn core::any::Any + Send)>>>>,
+    spawned: &'scope ConcurrentQueue<FallibleTask<Result<T, Box<dyn core::any::Any + Send>>>>,
     // make `Scope` invariant over 'scope and 'env
     scope: PhantomData<&'scope mut &'scope ()>,
     env: PhantomData<&'env mut &'env ()>,
@@ -669,7 +701,6 @@ where
 }
 
 #[cfg(test)]
-#[allow(clippy::disallowed_types)]
 mod tests {
     use super::*;
     use core::sync::atomic::{AtomicBool, AtomicI32, Ordering};

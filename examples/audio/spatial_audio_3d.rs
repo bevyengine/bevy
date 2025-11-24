@@ -11,6 +11,7 @@ fn main() {
         .add_systems(Startup, setup)
         .add_systems(Update, update_positions)
         .add_systems(Update, update_listener)
+        .add_systems(Update, mute)
         .run();
 }
 
@@ -34,27 +35,25 @@ fn setup(
     ));
 
     let listener = SpatialListener::new(gap);
-    commands
-        .spawn((
-            Transform::default(),
-            Visibility::default(),
-            listener.clone(),
-        ))
-        .with_children(|parent| {
+    commands.spawn((
+        Transform::default(),
+        Visibility::default(),
+        listener.clone(),
+        children![
             // left ear indicator
-            parent.spawn((
+            (
                 Mesh3d(meshes.add(Cuboid::new(0.2, 0.2, 0.2))),
                 MeshMaterial3d(materials.add(Color::from(RED))),
                 Transform::from_translation(listener.left_ear_offset),
-            ));
-
+            ),
             // right ear indicator
-            parent.spawn((
+            (
                 Mesh3d(meshes.add(Cuboid::new(0.2, 0.2, 0.2))),
                 MeshMaterial3d(materials.add(Color::from(LIME))),
                 Transform::from_translation(listener.right_ear_offset),
-            ));
-        });
+            )
+        ],
+    ));
 
     // light
     commands.spawn((
@@ -64,11 +63,13 @@ fn setup(
 
     // example instructions
     commands.spawn((
-        Text::new("Up/Down/Left/Right: Move Listener\nSpace: Toggle Emitter Movement"),
+        Text::new(
+            "Up/Down/Left/Right: Move Listener\nSpace: Toggle Emitter Movement\nM: Toggle Mute",
+        ),
         Node {
             position_type: PositionType::Absolute,
-            bottom: Val::Px(12.0),
-            left: Val::Px(12.0),
+            bottom: px(12),
+            left: px(12),
             ..default()
         },
     ));
@@ -126,5 +127,13 @@ fn update_listener(
     }
     if keyboard.pressed(KeyCode::ArrowUp) {
         listeners.translation.z -= speed * time.delta_secs();
+    }
+}
+
+fn mute(keyboard_input: Res<ButtonInput<KeyCode>>, mut sinks: Query<&mut SpatialAudioSink>) {
+    if keyboard_input.just_pressed(KeyCode::KeyM) {
+        for mut sink in sinks.iter_mut() {
+            sink.toggle_mute();
+        }
     }
 }

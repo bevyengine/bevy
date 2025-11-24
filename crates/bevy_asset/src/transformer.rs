@@ -1,6 +1,8 @@
 use crate::{meta::Settings, Asset, ErasedLoadedAsset, Handle, LabeledAsset, UntypedHandle};
+use alloc::boxed::Box;
 use atomicow::CowArc;
-use bevy_utils::{ConditionalSendFuture, HashMap};
+use bevy_platform::collections::HashMap;
+use bevy_tasks::ConditionalSendFuture;
 use core::{
     borrow::Borrow,
     convert::Infallible,
@@ -85,7 +87,7 @@ impl<A: Asset> TransformedAsset<A> {
         &mut self.value
     }
     /// Returns the labeled asset, if it exists and matches this type.
-    pub fn get_labeled<B: Asset, Q>(&mut self, label: &Q) -> Option<TransformedSubAsset<B>>
+    pub fn get_labeled<B: Asset, Q>(&mut self, label: &Q) -> Option<TransformedSubAsset<'_, B>>
     where
         CowArc<'static, str>: Borrow<Q>,
         Q: ?Sized + Hash + Eq,
@@ -185,7 +187,7 @@ impl<'a, A: Asset> TransformedSubAsset<'a, A> {
         self.value
     }
     /// Returns the labeled asset, if it exists and matches this type.
-    pub fn get_labeled<B: Asset, Q>(&mut self, label: &Q) -> Option<TransformedSubAsset<B>>
+    pub fn get_labeled<B: Asset, Q>(&mut self, label: &Q) -> Option<TransformedSubAsset<'_, B>>
     where
         CowArc<'static, str>: Borrow<Q>,
         Q: ?Sized + Hash + Eq,
@@ -252,6 +254,7 @@ pub struct IdentityAssetTransformer<A: Asset> {
 }
 
 impl<A: Asset> IdentityAssetTransformer<A> {
+    /// Creates a new [`IdentityAssetTransformer`] with the correct internal [`PhantomData`] field.
     pub const fn new() -> Self {
         Self {
             _phantom: PhantomData,

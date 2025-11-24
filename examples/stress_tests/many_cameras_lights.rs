@@ -3,14 +3,24 @@
 use std::f32::consts::PI;
 
 use bevy::{
+    camera::Viewport,
     math::ops::{cos, sin},
     prelude::*,
-    render::camera::Viewport,
+    window::{PresentMode, WindowResolution},
+    winit::WinitSettings,
 };
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins)
+        .add_plugins(DefaultPlugins.set(WindowPlugin {
+            primary_window: Some(Window {
+                present_mode: PresentMode::AutoNoVsync,
+                resolution: WindowResolution::new(1920, 1080).with_scale_factor_override(1.0),
+                ..default()
+            }),
+            ..default()
+        }))
+        .insert_resource(WinitSettings::continuous())
         .add_systems(Startup, setup)
         .add_systems(Update, rotate_cameras)
         .run();
@@ -26,7 +36,7 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     window: Query<&Window>,
-) {
+) -> Result {
     // circular base
     commands.spawn((
         Mesh3d(meshes.add(Circle::new(4.0))),
@@ -56,7 +66,7 @@ fn setup(
     }
 
     // cameras
-    let window = window.single();
+    let window = window.single()?;
     let width = window.resolution.width() / CAMERA_COLS as f32 * window.resolution.scale_factor();
     let height = window.resolution.height() / CAMERA_ROWS as f32 * window.resolution.scale_factor();
     let mut i = 0;
@@ -83,6 +93,7 @@ fn setup(
             i += 1;
         }
     }
+    Ok(())
 }
 
 fn rotate_cameras(time: Res<Time>, mut query: Query<&mut Transform, With<Camera>>) {

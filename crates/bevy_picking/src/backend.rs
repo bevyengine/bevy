@@ -20,7 +20,7 @@
 //! - The [`PointerHits`] events produced by a backend do **not** need to be sorted or filtered, all
 //!   that is needed is an unordered list of entities and their [`HitData`].
 //!
-//! - Backends do not need to consider the [`PickingBehavior`](crate::PickingBehavior) component, though they may
+//! - Backends do not need to consider the [`Pickable`](crate::Pickable) component, though they may
 //!   use it for optimization purposes. For example, a backend that traverses a spatial hierarchy
 //!   may want to exit early if it intersects an entity that blocks lower entities from being
 //!   picked.
@@ -42,28 +42,28 @@ pub mod prelude {
     pub use super::{ray::RayMap, HitData, PointerHits};
     pub use crate::{
         pointer::{PointerId, PointerLocation},
-        PickSet, PickingBehavior,
+        Pickable, PickingSystems,
     };
 }
 
-/// An event produced by a picking backend after it has run its hit tests, describing the entities
+/// A message produced by a picking backend after it has run its hit tests, describing the entities
 /// under a pointer.
 ///
 /// Some backends may only support providing the topmost entity; this is a valid limitation. For
 /// example, a picking shader might only have data on the topmost rendered output from its buffer.
 ///
-/// Note that systems reading these events in [`PreUpdate`](bevy_app) will not report ordering
+/// Note that systems reading these messages in [`PreUpdate`](bevy_app::PreUpdate) will not report ordering
 /// ambiguities with picking backends. Take care to ensure such systems are explicitly ordered
-/// against [`PickSet::Backends`](crate), or better, avoid reading `PointerHits` in `PreUpdate`.
-#[derive(Event, Debug, Clone, Reflect)]
-#[reflect(Debug)]
+/// against [`PickingSystems::Backend`](crate::PickingSystems::Backend), or better, avoid reading `PointerHits` in `PreUpdate`.
+#[derive(Message, Debug, Clone, Reflect)]
+#[reflect(Debug, Clone)]
 pub struct PointerHits {
     /// The pointer associated with this hit test.
     pub pointer: prelude::PointerId,
     /// An unordered collection of entities and their distance (depth) from the cursor.
     pub picks: Vec<(Entity, HitData)>,
     /// Set the order of this group of picks. Normally, this is the
-    /// [`bevy_render::camera::Camera::order`].
+    /// [`bevy_camera::Camera::order`].
     ///
     /// Used to allow multiple `PointerHits` submitted for the same pointer to be ordered.
     /// `PointerHits` with a higher `order` will be checked before those with a lower `order`,
@@ -84,8 +84,7 @@ pub struct PointerHits {
 }
 
 impl PointerHits {
-    // FIXME(15321): solve CI failures, then replace with `#[expect()]`.
-    #[allow(missing_docs, reason = "Not all docs are written yet (#3492).")]
+    /// Construct [`PointerHits`].
     pub fn new(pointer: prelude::PointerId, picks: Vec<(Entity, HitData)>, order: f32) -> Self {
         Self {
             pointer,
@@ -97,24 +96,25 @@ impl PointerHits {
 
 /// Holds data from a successful pointer hit test. See [`HitData::depth`] for important details.
 #[derive(Clone, Debug, PartialEq, Reflect)]
+#[reflect(Clone, PartialEq)]
 pub struct HitData {
     /// The camera entity used to detect this hit. Useful when you need to find the ray that was
-    /// casted for this hit when using a raycasting backend.
+    /// cast for this hit when using a raycasting backend.
     pub camera: Entity,
     /// `depth` only needs to be self-consistent with other [`PointerHits`]s using the same
-    /// [`RenderTarget`](bevy_render::camera::RenderTarget). However, it is recommended to use the
+    /// [`RenderTarget`](bevy_camera::RenderTarget). However, it is recommended to use the
     /// distance from the pointer to the hit, measured from the near plane of the camera, to the
     /// point, in world space.
     pub depth: f32,
-    /// The position of the intersection in the world, if the data is available from the backend.
+    /// The position reported by the backend, if the data is available. Position data may be in any
+    /// space (e.g. World space, Screen space, Local space), specified by the backend providing it.
     pub position: Option<Vec3>,
     /// The normal vector of the hit test, if the data is available from the backend.
     pub normal: Option<Vec3>,
 }
 
 impl HitData {
-    // FIXME(15321): solve CI failures, then replace with `#[expect()]`.
-    #[allow(missing_docs, reason = "Not all docs are written yet (#3492).")]
+    /// Construct a [`HitData`].
     pub fn new(camera: Entity, depth: f32, position: Option<Vec3>, normal: Option<Vec3>) -> Self {
         Self {
             camera,
@@ -129,17 +129,18 @@ pub mod ray {
     //! Types and systems for constructing rays from cameras and pointers.
 
     use crate::backend::prelude::{PointerId, PointerLocation};
+    use bevy_camera::Camera;
     use bevy_ecs::prelude::*;
     use bevy_math::Ray3d;
+    use bevy_platform::collections::{hash_map::Iter, HashMap};
     use bevy_reflect::Reflect;
-    use bevy_render::camera::Camera;
     use bevy_transform::prelude::GlobalTransform;
-    use bevy_utils::{hashbrown::hash_map::Iter, HashMap};
     use bevy_window::PrimaryWindow;
 
     /// Identifies a ray constructed from some (pointer, camera) combination. A pointer can be over
     /// multiple cameras, which is why a single pointer may have multiple rays.
     #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Reflect)]
+    #[reflect(Clone, PartialEq, Hash)]
     pub struct RayId {
         /// The camera whose projection was used to calculate the ray.
         pub camera: Entity,
@@ -169,7 +170,7 @@ pub mod ray {
     /// # use bevy_picking::backend::ray::RayMap;
     /// # use bevy_picking::backend::PointerHits;
     /// // My raycasting backend
-    /// pub fn update_hits(ray_map: Res<RayMap>, mut output_events: EventWriter<PointerHits>,) {
+    /// pub fn update_hits(ray_map: Res<RayMap>, mut output_messages: MessageWriter<PointerHits>,) {
     ///     for (&ray_id, &ray) in ray_map.iter() {
     ///         // Run a raycast with each ray, returning any `PointerHits` found.
     ///     }
@@ -177,18 +178,16 @@ pub mod ray {
     /// ```
     #[derive(Clone, Debug, Default, Resource)]
     pub struct RayMap {
-        map: HashMap<RayId, Ray3d>,
+        /// Cartesian product of all pointers and all cameras
+        /// Add your rays here to support picking through indirections,
+        /// e.g. rendered-to-texture cameras
+        pub map: HashMap<RayId, Ray3d>,
     }
 
     impl RayMap {
         /// Iterates over all world space rays for every picking pointer.
         pub fn iter(&self) -> Iter<'_, RayId, Ray3d> {
             self.map.iter()
-        }
-
-        /// The hash map of all rays cast in the current frame.
-        pub fn map(&self) -> &HashMap<RayId, Ray3d> {
-            &self.map
         }
 
         /// Clears the [`RayMap`] and re-populates it with one ray for each
@@ -230,11 +229,8 @@ pub mod ray {
         if !pointer_loc.is_in_viewport(camera, primary_window_entity) {
             return None;
         }
-        let mut viewport_pos = pointer_loc.position;
-        if let Some(viewport) = &camera.viewport {
-            let viewport_logical = camera.to_logical(viewport.physical_position)?;
-            viewport_pos -= viewport_logical;
-        }
-        camera.viewport_to_world(camera_tfm, viewport_pos).ok()
+        camera
+            .viewport_to_world(camera_tfm, pointer_loc.position)
+            .ok()
     }
 }

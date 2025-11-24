@@ -14,7 +14,8 @@
 use crate::func::args::ArgInfo;
 use crate::func::{ArgList, SignatureInfo};
 use crate::Type;
-use bevy_utils::hashbrown::Equivalent;
+use alloc::boxed::Box;
+use bevy_platform::collections::Equivalent;
 use core::borrow::Borrow;
 use core::fmt::{Debug, Formatter};
 use core::hash::{Hash, Hasher};
@@ -89,6 +90,7 @@ impl<'a, 'b> ArgListSignature<'a, 'b> {
 }
 
 impl Eq for ArgListSignature<'_, '_> {}
+
 impl PartialEq for ArgListSignature<'_, '_> {
     fn eq(&self, other: &Self) -> bool {
         self.len() == other.len() && self.iter().eq(other.iter())
@@ -203,6 +205,7 @@ impl From<&ArgList<'_>> for ArgumentSignature {
 mod tests {
     use super::*;
     use crate::func::TypedFunction;
+    use alloc::{format, string::String, vec};
 
     #[test]
     fn should_generate_signature_from_function_info() {
@@ -227,7 +230,7 @@ mod tests {
         );
 
         assert_eq!(
-            format!("{:?}", signature),
+            format!("{signature:?}"),
             "(&mut alloc::string::String, i32) -> ()"
         );
     }

@@ -1,11 +1,10 @@
-#![allow(clippy::match_same_arms)]
 //! This example illustrates how reflection works for simple data structures, like
 //! structs, tuples and vectors.
 
 use bevy::{
+    platform::collections::HashMap,
     prelude::*,
     reflect::{DynamicList, PartialReflect, ReflectRef},
-    utils::HashMap,
 };
 use serde::{Deserialize, Serialize};
 
@@ -34,21 +33,20 @@ pub struct C(usize);
 
 /// Deriving reflect on an enum will implement the `Reflect` and `Enum` traits
 #[derive(Reflect)]
-#[allow(dead_code)]
 enum D {
     A,
     B(usize),
     C { value: f32 },
 }
 
-/// Reflect has "built in" support for some common traits like `PartialEq`, `Hash`, and `Serialize`.
+/// Reflect has "built in" support for some common traits like `PartialEq`, `Hash`, and `Clone`.
 ///
 /// These are exposed via methods like `PartialReflect::reflect_hash()`,
-/// `PartialReflect::reflect_partial_eq()`, and `PartialReflect::serializable()`.
+/// `PartialReflect::reflect_partial_eq()`, and `PartialReflect::reflect_clone()`.
 /// You can force these implementations to use the actual trait
 /// implementations (instead of their defaults) like this:
-#[derive(Reflect, Hash, Serialize, PartialEq, Eq)]
-#[reflect(Hash, Serialize, PartialEq)]
+#[derive(Reflect, Hash, PartialEq, Clone)]
+#[reflect(Hash, PartialEq, Clone)]
 pub struct E {
     x: usize,
 }
@@ -56,19 +54,18 @@ pub struct E {
 /// By default, deriving with Reflect assumes the type is either a "struct" or an "enum".
 ///
 /// You can tell reflect to treat your type instead as an "opaque type" by using the `#[reflect(opaque)]`.
-/// It is generally a good idea to implement (and reflect) the `PartialEq`, `Serialize`, and `Deserialize`
+/// It is generally a good idea to implement (and reflect) the `PartialEq` and `Clone` (optionally also `Serialize` and `Deserialize`)
 /// traits on opaque types to ensure that these values behave as expected when nested in other reflected types.
 #[derive(Reflect, Copy, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[reflect(opaque)]
-#[reflect(PartialEq, Serialize, Deserialize)]
-#[allow(dead_code)]
+#[reflect(PartialEq, Clone, Serialize, Deserialize)]
 enum F {
     X,
     Y,
 }
 
 fn setup() {
-    let mut z = HashMap::default();
+    let mut z = <HashMap<_, _>>::default();
     z.insert("Hello".to_string(), 1.0);
     let value: Box<dyn Reflect> = Box::new(A {
         x: 1,
@@ -124,6 +121,15 @@ fn setup() {
         // implementation. Opaque is implemented for opaque types like String and Instant,
         // but also include primitive types like i32, usize, and f32 (despite not technically being opaque).
         ReflectRef::Opaque(_) => {}
+        #[expect(
+            clippy::allow_attributes,
+            reason = "`unreachable_patterns` is not always linted"
+        )]
+        #[allow(
+            unreachable_patterns,
+            reason = "This example cannot always detect when `bevy_reflect/functions` is enabled."
+        )]
+        _ => {}
     }
 
     let mut dynamic_list = DynamicList::default();
@@ -134,4 +140,8 @@ fn setup() {
     let mut value: A = value.take::<A>().unwrap();
     value.y.apply(&dynamic_list);
     assert_eq!(value.y, vec![3u32, 4u32, 5u32]);
+
+    // reference types defined above that are only used to demonstrate reflect
+    // derive functionality:
+    _ = || -> (A, B, C, D, E, F) { unreachable!() };
 }

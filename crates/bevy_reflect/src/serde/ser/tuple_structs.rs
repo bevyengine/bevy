@@ -57,10 +57,7 @@ impl<P: ReflectSerializerProcessor> Serialize for TupleStructSerializer<'_, P> {
         )?;
 
         for (index, value) in self.tuple_struct.iter_fields().enumerate() {
-            if serialization_data
-                .map(|data| data.is_field_skipped(index))
-                .unwrap_or(false)
-            {
+            if serialization_data.is_some_and(|data| data.is_field_skipped(index)) {
                 continue;
             }
             state.serialize_field(&TypedReflectSerializer::new_internal(

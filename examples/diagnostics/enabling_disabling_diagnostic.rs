@@ -12,7 +12,7 @@ fn main() {
     App::new()
         .add_plugins((
             DefaultPlugins,
-            FrameTimeDiagnosticsPlugin,
+            FrameTimeDiagnosticsPlugin::default(),
             LogDiagnosticsPlugin::default(),
         ))
         .add_systems(

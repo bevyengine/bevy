@@ -2,8 +2,10 @@ use crate::{
     io::Writer, meta::Settings, transformer::TransformedAsset, Asset, AssetLoader,
     ErasedLoadedAsset, Handle, LabeledAsset, UntypedHandle,
 };
+use alloc::boxed::Box;
 use atomicow::CowArc;
-use bevy_utils::{BoxedFuture, ConditionalSendFuture, HashMap};
+use bevy_platform::collections::HashMap;
+use bevy_tasks::{BoxedFuture, ConditionalSendFuture};
 use core::{borrow::Borrow, hash::Hash, ops::Deref};
 use serde::{Deserialize, Serialize};
 
@@ -112,7 +114,7 @@ impl<'a, A: Asset> SavedAsset<'a, A> {
     }
 
     /// Returns the labeled asset, if it exists and matches this type.
-    pub fn get_labeled<B: Asset, Q>(&self, label: &Q) -> Option<SavedAsset<B>>
+    pub fn get_labeled<B: Asset, Q>(&self, label: &Q) -> Option<SavedAsset<'_, B>>
     where
         CowArc<'static, str>: Borrow<Q>,
         Q: ?Sized + Hash + Eq,

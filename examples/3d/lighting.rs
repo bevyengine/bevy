@@ -4,10 +4,10 @@
 use std::f32::consts::PI;
 
 use bevy::{
+    camera::{Exposure, PhysicalCameraParameters},
     color::palettes::css::*,
-    pbr::CascadeShadowConfigBuilder,
+    light::CascadeShadowConfigBuilder,
     prelude::*,
-    render::camera::{Exposure, PhysicalCameraParameters},
 };
 
 fn main() {
@@ -20,7 +20,15 @@ fn main() {
             sensor_height: 0.01866,
         }))
         .add_systems(Startup, setup)
-        .add_systems(Update, (update_exposure, movement, animate_light_direction))
+        .add_systems(
+            Update,
+            (
+                update_exposure,
+                toggle_ambient_light,
+                movement,
+                animate_light_direction,
+            ),
+        )
         .run();
 }
 
@@ -111,47 +119,44 @@ fn setup(
     ));
 
     // ambient light
-    commands.insert_resource(AmbientLight {
+    // ambient lights' brightnesses are measured in candela per meter square, calculable as (color * brightness)
+    commands.insert_resource(GlobalAmbientLight {
         color: ORANGE_RED.into(),
-        brightness: 0.02,
+        brightness: 200.0,
+        ..default()
     });
 
     // red point light
-    commands
-        .spawn((
-            PointLight {
-                intensity: 100_000.0,
-                color: RED.into(),
-                shadows_enabled: true,
+    commands.spawn((
+        PointLight {
+            intensity: 100_000.0,
+            color: RED.into(),
+            shadows_enabled: true,
+            ..default()
+        },
+        Transform::from_xyz(1.0, 2.0, 0.0),
+        children![(
+            Mesh3d(meshes.add(Sphere::new(0.1).mesh().uv(32, 18))),
+            MeshMaterial3d(materials.add(StandardMaterial {
+                base_color: RED.into(),
+                emissive: LinearRgba::new(4.0, 0.0, 0.0, 0.0),
                 ..default()
-            },
-            Transform::from_xyz(1.0, 2.0, 0.0),
-        ))
-        .with_children(|builder| {
-            builder.spawn((
-                Mesh3d(meshes.add(Sphere::new(0.1).mesh().uv(32, 18))),
-                MeshMaterial3d(materials.add(StandardMaterial {
-                    base_color: RED.into(),
-                    emissive: LinearRgba::new(4.0, 0.0, 0.0, 0.0),
-                    ..default()
-                })),
-            ));
-        });
+            })),
+        )],
+    ));
 
     // green spot light
-    commands
-        .spawn((
-            SpotLight {
-                intensity: 100_000.0,
-                color: LIME.into(),
-                shadows_enabled: true,
-                inner_angle: 0.6,
-                outer_angle: 0.8,
-                ..default()
-            },
-            Transform::from_xyz(-1.0, 2.0, 0.0).looking_at(Vec3::new(-1.0, 0.0, 0.0), Vec3::Z),
-        ))
-        .with_child((
+    commands.spawn((
+        SpotLight {
+            intensity: 100_000.0,
+            color: LIME.into(),
+            shadows_enabled: true,
+            inner_angle: 0.6,
+            outer_angle: 0.8,
+            ..default()
+        },
+        Transform::from_xyz(-1.0, 2.0, 0.0).looking_at(Vec3::new(-1.0, 0.0, 0.0), Vec3::Z),
+        children![(
             Mesh3d(meshes.add(Capsule3d::new(0.1, 0.125))),
             MeshMaterial3d(materials.add(StandardMaterial {
                 base_color: LIME.into(),
@@ -159,29 +164,27 @@ fn setup(
                 ..default()
             })),
             Transform::from_rotation(Quat::from_rotation_x(PI / 2.0)),
-        ));
+        )],
+    ));
 
     // blue point light
-    commands
-        .spawn((
-            PointLight {
-                intensity: 100_000.0,
-                color: BLUE.into(),
-                shadows_enabled: true,
+    commands.spawn((
+        PointLight {
+            intensity: 100_000.0,
+            color: BLUE.into(),
+            shadows_enabled: true,
+            ..default()
+        },
+        Transform::from_xyz(0.0, 4.0, 0.0),
+        children![(
+            Mesh3d(meshes.add(Sphere::new(0.1).mesh().uv(32, 18))),
+            MeshMaterial3d(materials.add(StandardMaterial {
+                base_color: BLUE.into(),
+                emissive: LinearRgba::new(0.0, 0.0, 713.0, 0.0),
                 ..default()
-            },
-            Transform::from_xyz(0.0, 4.0, 0.0),
-        ))
-        .with_children(|builder| {
-            builder.spawn((
-                Mesh3d(meshes.add(Sphere::new(0.1).mesh().uv(32, 18))),
-                MeshMaterial3d(materials.add(StandardMaterial {
-                    base_color: BLUE.into(),
-                    emissive: LinearRgba::new(0.0, 0.0, 713.0, 0.0),
-                    ..default()
-                })),
-            ));
-        });
+            })),
+        )],
+    ));
 
     // directional 'sun' light
     commands.spawn((
@@ -208,39 +211,36 @@ fn setup(
 
     // example instructions
 
-    commands
-        .spawn((
-            Text::default(),
-            Node {
-                position_type: PositionType::Absolute,
-                top: Val::Px(12.0),
-                left: Val::Px(12.0),
-                ..default()
-            },
-        ))
-        .with_children(|p| {
-            p.spawn(TextSpan(format!(
-                "Aperture: f/{:.0}\n",
-                parameters.aperture_f_stops,
-            )));
-            p.spawn(TextSpan(format!(
+    commands.spawn((
+        Text::default(),
+        Node {
+            position_type: PositionType::Absolute,
+            top: px(12),
+            left: px(12),
+            ..default()
+        },
+        children![
+            TextSpan::new("Ambient light is on\n"),
+            TextSpan(format!("Aperture: f/{:.0}\n", parameters.aperture_f_stops,)),
+            TextSpan(format!(
                 "Shutter speed: 1/{:.0}s\n",
                 1.0 / parameters.shutter_speed_s
-            )));
-            p.spawn(TextSpan(format!(
+            )),
+            TextSpan(format!(
                 "Sensitivity: ISO {:.0}\n",
                 parameters.sensitivity_iso
-            )));
-            p.spawn(TextSpan::new("\n\n"));
-            p.spawn(TextSpan::new("Controls\n"));
-            p.spawn(TextSpan::new("---------------\n"));
-            p.spawn(TextSpan::new("Arrow keys - Move objects\n"));
-            p.spawn(TextSpan::new("1/2 - Decrease/Increase aperture\n"));
-            p.spawn(TextSpan::new("Arrow keys - Move objects\n"));
-            p.spawn(TextSpan::new("3/4 - Decrease/Increase shutter speed\n"));
-            p.spawn(TextSpan::new("5/6 - Decrease/Increase sensitivity\n"));
-            p.spawn(TextSpan::new("R - Reset exposure"));
-        });
+            )),
+            TextSpan::new("\n\n"),
+            TextSpan::new("Controls\n"),
+            TextSpan::new("---------------\n"),
+            TextSpan::new("Arrow keys - Move objects\n"),
+            TextSpan::new("Space - Toggle ambient light\n"),
+            TextSpan::new("1/2 - Decrease/Increase aperture\n"),
+            TextSpan::new("3/4 - Decrease/Increase shutter speed\n"),
+            TextSpan::new("5/6 - Decrease/Increase sensitivity\n"),
+            TextSpan::new("R - Reset exposure"),
+        ],
+    ));
 
     // camera
     commands.spawn((
@@ -278,14 +278,36 @@ fn update_exposure(
         *parameters = Parameters::default();
     }
 
-    *writer.text(entity, 1) = format!("Aperture: f/{:.0}\n", parameters.aperture_f_stops);
-    *writer.text(entity, 2) = format!(
+    *writer.text(entity, 2) = format!("Aperture: f/{:.0}\n", parameters.aperture_f_stops);
+    *writer.text(entity, 3) = format!(
         "Shutter speed: 1/{:.0}s\n",
         1.0 / parameters.shutter_speed_s
     );
-    *writer.text(entity, 3) = format!("Sensitivity: ISO {:.0}\n", parameters.sensitivity_iso);
+    *writer.text(entity, 4) = format!("Sensitivity: ISO {:.0}\n", parameters.sensitivity_iso);
 
     **exposure = Exposure::from_physical_camera(**parameters);
+}
+
+fn toggle_ambient_light(
+    key_input: Res<ButtonInput<KeyCode>>,
+    mut ambient_light: ResMut<GlobalAmbientLight>,
+    text: Single<Entity, With<Text>>,
+    mut writer: TextUiWriter,
+) {
+    if key_input.just_pressed(KeyCode::Space) {
+        if ambient_light.brightness > 1. {
+            ambient_light.brightness = 0.;
+        } else {
+            ambient_light.brightness = 200.;
+        }
+
+        let entity = *text;
+        let ambient_light_state_text: &str = match ambient_light.brightness {
+            0. => "off",
+            _ => "on",
+        };
+        *writer.text(entity, 1) = format!("Ambient light is {ambient_light_state_text}\n");
+    }
 }
 
 fn animate_light_direction(

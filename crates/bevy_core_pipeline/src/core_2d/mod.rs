@@ -1,4 +1,3 @@
-mod camera_2d;
 mod main_opaque_pass_2d_node;
 mod main_transparent_pass_2d_node;
 
@@ -19,6 +18,8 @@ pub mod graph {
         MainOpaquePass,
         MainTransparentPass,
         EndMainPass,
+        Wireframe,
+        StartMainPassPostProcessing,
         Bloom,
         PostProcessing,
         Tonemapping,
@@ -33,36 +34,43 @@ pub mod graph {
 use core::ops::Range;
 
 use bevy_asset::UntypedAssetId;
-use bevy_render::batching::gpu_preprocessing::GpuPreprocessingMode;
-use bevy_render::render_phase::PhaseItemBinKey;
-use bevy_utils::HashMap;
-pub use camera_2d::*;
+use bevy_camera::{Camera, Camera2d};
+use bevy_image::ToExtents;
+use bevy_platform::collections::{HashMap, HashSet};
+use bevy_render::{
+    batching::gpu_preprocessing::GpuPreprocessingMode,
+    camera::CameraRenderGraph,
+    render_phase::PhaseItemBatchSetKey,
+    view::{ExtractedView, RetainedViewEntity},
+};
 pub use main_opaque_pass_2d_node::*;
 pub use main_transparent_pass_2d_node::*;
 
-use crate::{tonemapping::TonemappingNode, upscaling::UpscalingNode};
+use crate::{
+    tonemapping::{DebandDither, Tonemapping, TonemappingNode},
+    upscaling::UpscalingNode,
+};
 use bevy_app::{App, Plugin};
-use bevy_ecs::{entity::EntityHashSet, prelude::*};
+use bevy_ecs::prelude::*;
 use bevy_math::FloatOrd;
-use bevy_render::sync_world::MainEntity;
 use bevy_render::{
-    camera::{Camera, ExtractedCamera},
+    camera::ExtractedCamera,
     extract_component::ExtractComponentPlugin,
-    render_graph::{EmptyNode, RenderGraphApp, ViewNodeRunner},
+    render_graph::{EmptyNode, RenderGraphExt, ViewNodeRunner},
     render_phase::{
         sort_phase_system, BinnedPhaseItem, CachedRenderPipelinePhaseItem, DrawFunctionId,
         DrawFunctions, PhaseItem, PhaseItemExtraIndex, SortedPhaseItem, ViewBinnedRenderPhases,
         ViewSortedRenderPhases,
     },
     render_resource::{
-        BindGroupId, CachedRenderPipelineId, Extent3d, TextureDescriptor, TextureDimension,
-        TextureFormat, TextureUsages,
+        BindGroupId, CachedRenderPipelineId, TextureDescriptor, TextureDimension, TextureFormat,
+        TextureUsages,
     },
     renderer::RenderDevice,
-    sync_world::RenderEntity,
+    sync_world::MainEntity,
     texture::TextureCache,
     view::{Msaa, ViewDepthTexture},
-    Extract, ExtractSchedule, Render, RenderApp, RenderSet,
+    Extract, ExtractSchedule, Render, RenderApp, RenderSystems,
 };
 
 use self::graph::{Core2d, Node2d};
@@ -73,7 +81,11 @@ pub struct Core2dPlugin;
 
 impl Plugin for Core2dPlugin {
     fn build(&self, app: &mut App) {
-        app.register_type::<Camera2d>()
+        app.register_required_components::<Camera2d, DebandDither>()
+            .register_required_components_with::<Camera2d, CameraRenderGraph>(|| {
+                CameraRenderGraph::new(Core2d)
+            })
+            .register_required_components_with::<Camera2d, Tonemapping>(|| Tonemapping::None)
             .add_plugins(ExtractComponentPlugin::<Camera2d>::default());
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
@@ -90,8 +102,8 @@ impl Plugin for Core2dPlugin {
             .add_systems(
                 Render,
                 (
-                    sort_phase_system::<Transparent2d>.in_set(RenderSet::PhaseSort),
-                    prepare_core_2d_depth_textures.in_set(RenderSet::PrepareResources),
+                    sort_phase_system::<Transparent2d>.in_set(RenderSystems::PhaseSort),
+                    prepare_core_2d_depth_textures.in_set(RenderSystems::PrepareResources),
                 ),
             );
 
@@ -107,6 +119,7 @@ impl Plugin for Core2dPlugin {
                 Node2d::MainTransparentPass,
             )
             .add_render_graph_node::<EmptyNode>(Core2d, Node2d::EndMainPass)
+            .add_render_graph_node::<EmptyNode>(Core2d, Node2d::StartMainPassPostProcessing)
             .add_render_graph_node::<ViewNodeRunner<TonemappingNode>>(Core2d, Node2d::Tonemapping)
             .add_render_graph_node::<EmptyNode>(Core2d, Node2d::EndMainPassPostProcessing)
             .add_render_graph_node::<ViewNodeRunner<UpscalingNode>>(Core2d, Node2d::Upscaling)
@@ -117,6 +130,7 @@ impl Plugin for Core2dPlugin {
                     Node2d::MainOpaquePass,
                     Node2d::MainTransparentPass,
                     Node2d::EndMainPass,
+                    Node2d::StartMainPassPostProcessing,
                     Node2d::Tonemapping,
                     Node2d::EndMainPassPostProcessing,
                     Node2d::Upscaling,
@@ -127,8 +141,13 @@ impl Plugin for Core2dPlugin {
 
 /// Opaque 2D [`BinnedPhaseItem`]s.
 pub struct Opaque2d {
+    /// Determines which objects can be placed into a *batch set*.
+    ///
+    /// Objects in a single batch set can potentially be multi-drawn together,
+    /// if it's enabled and the current platform supports it.
+    pub batch_set_key: BatchSetKey2d,
     /// The key, which determines which can be batched.
-    pub key: Opaque2dBinKey,
+    pub bin_key: Opaque2dBinKey,
     /// An entity from which data will be fetched, including the mesh if
     /// applicable.
     pub representative_entity: (Entity, MainEntity),
@@ -155,14 +174,6 @@ pub struct Opaque2dBinKey {
     pub material_bind_group_id: Option<BindGroupId>,
 }
 
-impl PhaseItemBinKey for Opaque2dBinKey {
-    type BatchSetKey = ();
-
-    fn get_batch_set_key(&self) -> Option<Self::BatchSetKey> {
-        None
-    }
-}
-
 impl PhaseItem for Opaque2d {
     #[inline]
     fn entity(&self) -> Entity {
@@ -175,7 +186,7 @@ impl PhaseItem for Opaque2d {
 
     #[inline]
     fn draw_function(&self) -> DrawFunctionId {
-        self.key.draw_function
+        self.bin_key.draw_function
     }
 
     #[inline]
@@ -198,16 +209,22 @@ impl PhaseItem for Opaque2d {
 }
 
 impl BinnedPhaseItem for Opaque2d {
+    // Since 2D meshes presently can't be multidrawn, the batch set key is
+    // irrelevant.
+    type BatchSetKey = BatchSetKey2d;
+
     type BinKey = Opaque2dBinKey;
 
     fn new(
-        key: Self::BinKey,
+        batch_set_key: Self::BatchSetKey,
+        bin_key: Self::BinKey,
         representative_entity: (Entity, MainEntity),
         batch_range: Range<u32>,
         extra_index: PhaseItemExtraIndex,
     ) -> Self {
         Opaque2d {
-            key,
+            batch_set_key,
+            bin_key,
             representative_entity,
             batch_range,
             extra_index,
@@ -215,17 +232,36 @@ impl BinnedPhaseItem for Opaque2d {
     }
 }
 
+/// 2D meshes aren't currently multi-drawn together, so this batch set key only
+/// stores whether the mesh is indexed.
+#[derive(Clone, Copy, PartialEq, PartialOrd, Eq, Ord, Hash)]
+pub struct BatchSetKey2d {
+    /// True if the mesh is indexed.
+    pub indexed: bool,
+}
+
+impl PhaseItemBatchSetKey for BatchSetKey2d {
+    fn indexed(&self) -> bool {
+        self.indexed
+    }
+}
+
 impl CachedRenderPipelinePhaseItem for Opaque2d {
     #[inline]
     fn cached_pipeline(&self) -> CachedRenderPipelineId {
-        self.key.pipeline
+        self.bin_key.pipeline
     }
 }
 
 /// Alpha mask 2D [`BinnedPhaseItem`]s.
 pub struct AlphaMask2d {
+    /// Determines which objects can be placed into a *batch set*.
+    ///
+    /// Objects in a single batch set can potentially be multi-drawn together,
+    /// if it's enabled and the current platform supports it.
+    pub batch_set_key: BatchSetKey2d,
     /// The key, which determines which can be batched.
-    pub key: AlphaMask2dBinKey,
+    pub bin_key: AlphaMask2dBinKey,
     /// An entity from which data will be fetched, including the mesh if
     /// applicable.
     pub representative_entity: (Entity, MainEntity),
@@ -265,7 +301,7 @@ impl PhaseItem for AlphaMask2d {
 
     #[inline]
     fn draw_function(&self) -> DrawFunctionId {
-        self.key.draw_function
+        self.bin_key.draw_function
     }
 
     #[inline]
@@ -288,16 +324,22 @@ impl PhaseItem for AlphaMask2d {
 }
 
 impl BinnedPhaseItem for AlphaMask2d {
+    // Since 2D meshes presently can't be multidrawn, the batch set key is
+    // irrelevant.
+    type BatchSetKey = BatchSetKey2d;
+
     type BinKey = AlphaMask2dBinKey;
 
     fn new(
-        key: Self::BinKey,
+        batch_set_key: Self::BatchSetKey,
+        bin_key: Self::BinKey,
         representative_entity: (Entity, MainEntity),
         batch_range: Range<u32>,
         extra_index: PhaseItemExtraIndex,
     ) -> Self {
         AlphaMask2d {
-            key,
+            batch_set_key,
+            bin_key,
             representative_entity,
             batch_range,
             extra_index,
@@ -305,18 +347,10 @@ impl BinnedPhaseItem for AlphaMask2d {
     }
 }
 
-impl PhaseItemBinKey for AlphaMask2dBinKey {
-    type BatchSetKey = ();
-
-    fn get_batch_set_key(&self) -> Option<Self::BatchSetKey> {
-        None
-    }
-}
-
 impl CachedRenderPipelinePhaseItem for AlphaMask2d {
     #[inline]
     fn cached_pipeline(&self) -> CachedRenderPipelineId {
-        self.key.pipeline
+        self.bin_key.pipeline
     }
 }
 
@@ -327,7 +361,11 @@ pub struct Transparent2d {
     pub pipeline: CachedRenderPipelineId,
     pub draw_function: DrawFunctionId,
     pub batch_range: Range<u32>,
+    pub extracted_index: usize,
     pub extra_index: PhaseItemExtraIndex,
+    /// Whether the mesh in question is indexed (uses an index buffer in
+    /// addition to its vertex buffer).
+    pub indexed: bool,
 }
 
 impl PhaseItem for Transparent2d {
@@ -380,6 +418,10 @@ impl SortedPhaseItem for Transparent2d {
         // radsort is a stable radix sort that performed better than `slice::sort_by_key` or `slice::sort_unstable_by_key`.
         radsort::sort_by_key(items, |item| item.sort_key().0);
     }
+
+    fn indexed(&self) -> bool {
+        self.indexed
+    }
 }
 
 impl CachedRenderPipelinePhaseItem for Transparent2d {
@@ -393,20 +435,25 @@ pub fn extract_core_2d_camera_phases(
     mut transparent_2d_phases: ResMut<ViewSortedRenderPhases<Transparent2d>>,
     mut opaque_2d_phases: ResMut<ViewBinnedRenderPhases<Opaque2d>>,
     mut alpha_mask_2d_phases: ResMut<ViewBinnedRenderPhases<AlphaMask2d>>,
-    cameras_2d: Extract<Query<(RenderEntity, &Camera), With<Camera2d>>>,
-    mut live_entities: Local<EntityHashSet>,
+    cameras_2d: Extract<Query<(Entity, &Camera), With<Camera2d>>>,
+    mut live_entities: Local<HashSet<RetainedViewEntity>>,
 ) {
     live_entities.clear();
 
-    for (entity, camera) in &cameras_2d {
+    for (main_entity, camera) in &cameras_2d {
         if !camera.is_active {
             continue;
         }
-        transparent_2d_phases.insert_or_clear(entity);
-        opaque_2d_phases.insert_or_clear(entity, GpuPreprocessingMode::None);
-        alpha_mask_2d_phases.insert_or_clear(entity, GpuPreprocessingMode::None);
 
-        live_entities.insert(entity);
+        // This is the main 2D camera, so we use the first subview index (0).
+        let retained_view_entity = RetainedViewEntity::new(main_entity.into(), None, 0);
+
+        transparent_2d_phases.insert_or_clear(retained_view_entity);
+        opaque_2d_phases.prepare_for_new_frame(retained_view_entity, GpuPreprocessingMode::None);
+        alpha_mask_2d_phases
+            .prepare_for_new_frame(retained_view_entity, GpuPreprocessingMode::None);
+
+        live_entities.insert(retained_view_entity);
     }
 
     // Clear out all dead views.
@@ -421,11 +468,13 @@ pub fn prepare_core_2d_depth_textures(
     render_device: Res<RenderDevice>,
     transparent_2d_phases: Res<ViewSortedRenderPhases<Transparent2d>>,
     opaque_2d_phases: Res<ViewBinnedRenderPhases<Opaque2d>>,
-    views_2d: Query<(Entity, &ExtractedCamera, &Msaa), (With<Camera2d>,)>,
+    views_2d: Query<(Entity, &ExtractedCamera, &ExtractedView, &Msaa), (With<Camera2d>,)>,
 ) {
-    let mut textures = HashMap::default();
-    for (view, camera, msaa) in &views_2d {
-        if !opaque_2d_phases.contains_key(&view) || !transparent_2d_phases.contains_key(&view) {
+    let mut textures = <HashMap<_, _>>::default();
+    for (view, camera, extracted_view, msaa) in &views_2d {
+        if !opaque_2d_phases.contains_key(&extracted_view.retained_view_entity)
+            || !transparent_2d_phases.contains_key(&extracted_view.retained_view_entity)
+        {
             continue;
         };
 
@@ -436,16 +485,10 @@ pub fn prepare_core_2d_depth_textures(
         let cached_texture = textures
             .entry(camera.target.clone())
             .or_insert_with(|| {
-                // The size of the depth texture
-                let size = Extent3d {
-                    depth_or_array_layers: 1,
-                    width: physical_target_size.x,
-                    height: physical_target_size.y,
-                };
-
                 let descriptor = TextureDescriptor {
                     label: Some("view_depth_texture"),
-                    size,
+                    // The size of the depth texture
+                    size: physical_target_size.to_extents(),
                     mip_level_count: 1,
                     sample_count: msaa.samples(),
                     dimension: TextureDimension::D2,

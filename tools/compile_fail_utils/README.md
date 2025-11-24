@@ -1,6 +1,6 @@
 # Helpers for compile fail tests
 
-This crate contains everything needed to set up compile tests for the Bevy repo. It, like all Bevy compile test crates, is excluded from the Bevy workspace. This is done to not fail [`crater` tests](https://github.com/rust-lang/crater) for Bevy. The `CI` workflow executes these tests on the stable rust toolchain see ([tools/ci](../../tools/ci/src/main.rs)).
+This crate contains everything needed to set up compile tests for the Bevy repo. The `CI` workflow executes these tests on the stable rust toolchain (see [tools/ci](../../tools/ci/src/main.rs)).
 
 ## Writing new test cases
 
@@ -34,7 +34,6 @@ This will be a rather involved process. You'll have to:
 - Create a folder called `tests` within the new crate.
 - Add a test runner file to this folder. The file should contain a main function calling one of the test functions defined in this crate.
 - Add a `[[test]]` table to the `Cargo.toml`. This table will need to contain `harness = false` and `name = <name of the test runner file you defined>`.
-- Add the path of the new crate under `[workspace].exclude` in the root [`Cargo.toml`](../../Cargo.toml).
 - Modify the [`CI`](../../tools/ci/) tool to run `cargo test` on this crate.
 - And finally, write your compile tests.
 

@@ -2,13 +2,13 @@ use bevy_reflect_derive::impl_type_path;
 
 use crate::generics::impl_generic_info_methods;
 use crate::{
-    self as bevy_reflect,
     attributes::{impl_custom_attribute_methods, CustomAttributes},
     type_info::impl_type_methods,
     ApplyError, DynamicTuple, Generics, PartialReflect, Reflect, ReflectKind, ReflectMut,
     ReflectOwned, ReflectRef, Tuple, Type, TypeInfo, TypePath, UnnamedField,
 };
-use alloc::{boxed::Box, sync::Arc, vec::Vec};
+use alloc::{boxed::Box, vec::Vec};
+use bevy_platform::sync::Arc;
 use core::{
     fmt::{Debug, Formatter},
     slice::Iter,
@@ -53,10 +53,15 @@ pub trait TupleStruct: PartialReflect {
     fn field_len(&self) -> usize;
 
     /// Returns an iterator over the values of the tuple struct's fields.
-    fn iter_fields(&self) -> TupleStructFieldIter;
+    fn iter_fields(&self) -> TupleStructFieldIter<'_>;
 
-    /// Clones the struct into a [`DynamicTupleStruct`].
-    fn clone_dynamic(&self) -> DynamicTupleStruct;
+    /// Creates a new [`DynamicTupleStruct`] from this tuple struct.
+    fn to_dynamic_tuple_struct(&self) -> DynamicTupleStruct {
+        DynamicTupleStruct {
+            represented_type: self.get_represented_type_info(),
+            fields: self.iter_fields().map(PartialReflect::to_dynamic).collect(),
+        }
+    }
 
     /// Will return `None` if [`TypeInfo`] is not available.
     fn get_represented_tuple_struct_info(&self) -> Option<&'static TupleStructInfo> {
@@ -71,7 +76,7 @@ pub struct TupleStructInfo {
     generics: Generics,
     fields: Box<[UnnamedField]>,
     custom_attributes: Arc<CustomAttributes>,
-    #[cfg(feature = "documentation")]
+    #[cfg(feature = "reflect_documentation")]
     docs: Option<&'static str>,
 }
 
@@ -87,13 +92,13 @@ impl TupleStructInfo {
             generics: Generics::new(),
             fields: fields.to_vec().into_boxed_slice(),
             custom_attributes: Arc::new(CustomAttributes::default()),
-            #[cfg(feature = "documentation")]
+            #[cfg(feature = "reflect_documentation")]
             docs: None,
         }
     }
 
     /// Sets the docstring for this struct.
-    #[cfg(feature = "documentation")]
+    #[cfg(feature = "reflect_documentation")]
     pub fn with_docs(self, docs: Option<&'static str>) -> Self {
         Self { docs, ..self }
     }
@@ -124,7 +129,7 @@ impl TupleStructInfo {
     impl_type_methods!(ty);
 
     /// The docstring of this struct, if any.
-    #[cfg(feature = "documentation")]
+    #[cfg(feature = "reflect_documentation")]
     pub fn docs(&self) -> Option<&'static str> {
         self.docs
     }
@@ -141,6 +146,7 @@ pub struct TupleStructFieldIter<'a> {
 }
 
 impl<'a> TupleStructFieldIter<'a> {
+    /// Creates a new [`TupleStructFieldIter`].
     pub fn new(value: &'a dyn TupleStruct) -> Self {
         TupleStructFieldIter {
             tuple_struct: value,
@@ -237,8 +243,7 @@ impl DynamicTupleStruct {
         if let Some(represented_type) = represented_type {
             assert!(
                 matches!(represented_type, TypeInfo::TupleStruct(_)),
-                "expected TypeInfo::TupleStruct but received: {:?}",
-                represented_type
+                "expected TypeInfo::TupleStruct but received: {represented_type:?}"
             );
         }
 
@@ -273,21 +278,10 @@ impl TupleStruct for DynamicTupleStruct {
     }
 
     #[inline]
-    fn iter_fields(&self) -> TupleStructFieldIter {
+    fn iter_fields(&self) -> TupleStructFieldIter<'_> {
         TupleStructFieldIter {
             tuple_struct: self,
             index: 0,
-        }
-    }
-
-    fn clone_dynamic(&self) -> DynamicTupleStruct {
-        DynamicTupleStruct {
-            represented_type: self.represented_type,
-            fields: self
-                .fields
-                .iter()
-                .map(|value| value.clone_value())
-                .collect(),
         }
     }
 }
@@ -343,23 +337,18 @@ impl PartialReflect for DynamicTupleStruct {
     }
 
     #[inline]
-    fn reflect_ref(&self) -> ReflectRef {
+    fn reflect_ref(&self) -> ReflectRef<'_> {
         ReflectRef::TupleStruct(self)
     }
 
     #[inline]
-    fn reflect_mut(&mut self) -> ReflectMut {
+    fn reflect_mut(&mut self) -> ReflectMut<'_> {
         ReflectMut::TupleStruct(self)
     }
 
     #[inline]
     fn reflect_owned(self: Box<Self>) -> ReflectOwned {
         ReflectOwned::TupleStruct(self)
-    }
-
-    #[inline]
-    fn clone_value(&self) -> Box<dyn PartialReflect> {
-        Box::new(self.clone_dynamic())
     }
 
     #[inline]
@@ -494,7 +483,6 @@ pub fn tuple_struct_debug(
 
 #[cfg(test)]
 mod tests {
-    use crate as bevy_reflect;
     use crate::*;
     #[derive(Reflect)]
     struct Ts(u8, u8, u8, u8, u8, u8, u8, u8, u8, u8, u8, u8);

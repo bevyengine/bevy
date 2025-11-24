@@ -2,7 +2,8 @@ use crate::{
     core_3d::Opaque3d,
     skybox::{SkyboxBindGroup, SkyboxPipelineId},
 };
-use bevy_ecs::{entity::Entity, prelude::World, query::QueryItem};
+use bevy_camera::{MainPassResolutionOverride, Viewport};
+use bevy_ecs::{prelude::World, query::QueryItem};
 use bevy_render::{
     camera::ExtractedCamera,
     diagnostic::RecordDiagnostics,
@@ -10,11 +11,11 @@ use bevy_render::{
     render_phase::{TrackedRenderPass, ViewBinnedRenderPhases},
     render_resource::{CommandEncoderDescriptor, PipelineCache, RenderPassDescriptor, StoreOp},
     renderer::RenderContext,
-    view::{ViewDepthTexture, ViewTarget, ViewUniformOffset},
+    view::{ExtractedView, ViewDepthTexture, ViewTarget, ViewUniformOffset},
 };
-use bevy_utils::tracing::error;
+use tracing::error;
 #[cfg(feature = "trace")]
-use bevy_utils::tracing::info_span;
+use tracing::info_span;
 
 use super::AlphaMask3d;
 
@@ -24,13 +25,14 @@ use super::AlphaMask3d;
 pub struct MainOpaquePass3dNode;
 impl ViewNode for MainOpaquePass3dNode {
     type ViewQuery = (
-        Entity,
         &'static ExtractedCamera,
+        &'static ExtractedView,
         &'static ViewTarget,
         &'static ViewDepthTexture,
         Option<&'static SkyboxPipelineId>,
         Option<&'static SkyboxBindGroup>,
         &'static ViewUniformOffset,
+        Option<&'static MainPassResolutionOverride>,
     );
 
     fn run<'w>(
@@ -38,14 +40,15 @@ impl ViewNode for MainOpaquePass3dNode {
         graph: &mut RenderGraphContext,
         render_context: &mut RenderContext<'w>,
         (
-            view,
             camera,
+            extracted_view,
             target,
             depth,
             skybox_pipeline,
             skybox_bind_group,
             view_uniform_offset,
-        ): QueryItem<'w, Self::ViewQuery>,
+            resolution_override,
+        ): QueryItem<'w, '_, Self::ViewQuery>,
         world: &'w World,
     ) -> Result<(), NodeRunError> {
         let (Some(opaque_phases), Some(alpha_mask_phases)) = (
@@ -55,9 +58,10 @@ impl ViewNode for MainOpaquePass3dNode {
             return Ok(());
         };
 
-        let (Some(opaque_phase), Some(alpha_mask_phase)) =
-            (opaque_phases.get(&view), alpha_mask_phases.get(&view))
-        else {
+        let (Some(opaque_phase), Some(alpha_mask_phase)) = (
+            opaque_phases.get(&extracted_view.retained_view_entity),
+            alpha_mask_phases.get(&extracted_view.retained_view_entity),
+        ) else {
             return Ok(());
         };
 
@@ -88,8 +92,10 @@ impl ViewNode for MainOpaquePass3dNode {
             let mut render_pass = TrackedRenderPass::new(&render_device, render_pass);
             let pass_span = diagnostics.pass_span(&mut render_pass, "main_opaque_pass_3d");
 
-            if let Some(viewport) = camera.viewport.as_ref() {
-                render_pass.set_camera_viewport(viewport);
+            if let Some(viewport) =
+                Viewport::from_viewport_and_override(camera.viewport.as_ref(), resolution_override)
+            {
+                render_pass.set_camera_viewport(&viewport);
             }
 
             // Opaque draws

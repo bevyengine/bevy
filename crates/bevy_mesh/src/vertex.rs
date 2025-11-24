@@ -1,14 +1,18 @@
 use alloc::sync::Arc;
 use bevy_derive::EnumVariantMeta;
-use bevy_ecs::system::Resource;
+use bevy_ecs::resource::Resource;
 use bevy_math::Vec3;
-use bevy_utils::HashSet;
+#[cfg(feature = "serialize")]
+use bevy_platform::collections::HashMap;
+use bevy_platform::collections::HashSet;
 use bytemuck::cast_slice;
 use core::hash::{Hash, Hasher};
+#[cfg(feature = "serialize")]
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use wgpu_types::{BufferAddress, VertexAttribute, VertexFormat, VertexStepMode};
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct MeshVertexAttribute {
     /// The friendly name of the vertex attribute
     pub name: &'static str,
@@ -20,6 +24,37 @@ pub struct MeshVertexAttribute {
 
     /// The format of the vertex attribute.
     pub format: VertexFormat,
+}
+
+#[cfg(feature = "serialize")]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub(crate) struct SerializedMeshVertexAttribute {
+    pub(crate) name: String,
+    pub(crate) id: MeshVertexAttributeId,
+    pub(crate) format: VertexFormat,
+}
+
+#[cfg(feature = "serialize")]
+impl SerializedMeshVertexAttribute {
+    pub(crate) fn from_mesh_vertex_attribute(attribute: MeshVertexAttribute) -> Self {
+        Self {
+            name: attribute.name.to_string(),
+            id: attribute.id,
+            format: attribute.format,
+        }
+    }
+
+    pub(crate) fn try_into_mesh_vertex_attribute(
+        self,
+        possible_attributes: &HashMap<Box<str>, MeshVertexAttribute>,
+    ) -> Option<MeshVertexAttribute> {
+        let attr = possible_attributes.get(self.name.as_str())?;
+        if attr.id == self.id {
+            Some(*attr)
+        } else {
+            None
+        }
+    }
 }
 
 impl MeshVertexAttribute {
@@ -37,6 +72,7 @@ impl MeshVertexAttribute {
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Ord, PartialOrd, Hash)]
+#[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
 pub struct MeshVertexAttributeId(u64);
 
 impl From<MeshVertexAttribute> for MeshVertexAttributeId {
@@ -132,10 +168,40 @@ impl VertexAttributeDescriptor {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub(crate) struct MeshAttributeData {
     pub(crate) attribute: MeshVertexAttribute,
     pub(crate) values: VertexAttributeValues,
+}
+
+#[cfg(feature = "serialize")]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub(crate) struct SerializedMeshAttributeData {
+    pub(crate) attribute: SerializedMeshVertexAttribute,
+    pub(crate) values: VertexAttributeValues,
+}
+
+#[cfg(feature = "serialize")]
+impl SerializedMeshAttributeData {
+    pub(crate) fn from_mesh_attribute_data(data: MeshAttributeData) -> Self {
+        Self {
+            attribute: SerializedMeshVertexAttribute::from_mesh_vertex_attribute(data.attribute),
+            values: data.values,
+        }
+    }
+
+    pub(crate) fn try_into_mesh_attribute_data(
+        self,
+        possible_attributes: &HashMap<Box<str>, MeshVertexAttribute>,
+    ) -> Option<MeshAttributeData> {
+        let attribute = self
+            .attribute
+            .try_into_mesh_vertex_attribute(possible_attributes)?;
+        Some(MeshAttributeData {
+            attribute,
+            values: self.values,
+        })
+    }
 }
 
 /// Compute a vector whose direction is the normal of the triangle formed by
@@ -153,68 +219,22 @@ pub(crate) struct MeshAttributeData {
 /// the sum of these vectors which are then normalized, a constant multiple has
 /// no effect.
 #[inline]
-pub fn face_area_normal(a: [f32; 3], b: [f32; 3], c: [f32; 3]) -> [f32; 3] {
+pub fn triangle_area_normal(a: [f32; 3], b: [f32; 3], c: [f32; 3]) -> [f32; 3] {
     let (a, b, c) = (Vec3::from(a), Vec3::from(b), Vec3::from(c));
     (b - a).cross(c - a).into()
 }
 
 /// Compute the normal of a face made of three points: a, b, and c.
 #[inline]
-pub fn face_normal(a: [f32; 3], b: [f32; 3], c: [f32; 3]) -> [f32; 3] {
+pub fn triangle_normal(a: [f32; 3], b: [f32; 3], c: [f32; 3]) -> [f32; 3] {
     let (a, b, c) = (Vec3::from(a), Vec3::from(b), Vec3::from(c));
-    (b - a).cross(c - a).normalize().into()
-}
-
-pub trait VertexFormatSize {
-    fn get_size(self) -> u64;
-}
-
-impl VertexFormatSize for VertexFormat {
-    #[allow(clippy::match_same_arms)]
-    fn get_size(self) -> u64 {
-        match self {
-            VertexFormat::Uint8x2 => 2,
-            VertexFormat::Uint8x4 => 4,
-            VertexFormat::Sint8x2 => 2,
-            VertexFormat::Sint8x4 => 4,
-            VertexFormat::Unorm8x2 => 2,
-            VertexFormat::Unorm8x4 => 4,
-            VertexFormat::Snorm8x2 => 2,
-            VertexFormat::Snorm8x4 => 4,
-            VertexFormat::Unorm10_10_10_2 => 4,
-            VertexFormat::Uint16x2 => 2 * 2,
-            VertexFormat::Uint16x4 => 2 * 4,
-            VertexFormat::Sint16x2 => 2 * 2,
-            VertexFormat::Sint16x4 => 2 * 4,
-            VertexFormat::Unorm16x2 => 2 * 2,
-            VertexFormat::Unorm16x4 => 2 * 4,
-            VertexFormat::Snorm16x2 => 2 * 2,
-            VertexFormat::Snorm16x4 => 2 * 4,
-            VertexFormat::Float16x2 => 2 * 2,
-            VertexFormat::Float16x4 => 2 * 4,
-            VertexFormat::Float32 => 4,
-            VertexFormat::Float32x2 => 4 * 2,
-            VertexFormat::Float32x3 => 4 * 3,
-            VertexFormat::Float32x4 => 4 * 4,
-            VertexFormat::Uint32 => 4,
-            VertexFormat::Uint32x2 => 4 * 2,
-            VertexFormat::Uint32x3 => 4 * 3,
-            VertexFormat::Uint32x4 => 4 * 4,
-            VertexFormat::Sint32 => 4,
-            VertexFormat::Sint32x2 => 4 * 2,
-            VertexFormat::Sint32x3 => 4 * 3,
-            VertexFormat::Sint32x4 => 4 * 4,
-            VertexFormat::Float64 => 8,
-            VertexFormat::Float64x2 => 8 * 2,
-            VertexFormat::Float64x3 => 8 * 3,
-            VertexFormat::Float64x4 => 8 * 4,
-        }
-    }
+    (b - a).cross(c - a).normalize_or_zero().into()
 }
 
 /// Contains an array where each entry describes a property of a single vertex.
 /// Matches the [`VertexFormats`](VertexFormat).
-#[derive(Clone, Debug, EnumVariantMeta)]
+#[derive(Clone, Debug, EnumVariantMeta, PartialEq)]
+#[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
 pub enum VertexAttributeValues {
     Float32(Vec<f32>),
     Sint32(Vec<i32>),
@@ -249,7 +269,10 @@ pub enum VertexAttributeValues {
 impl VertexAttributeValues {
     /// Returns the number of vertices in this [`VertexAttributeValues`]. For a single
     /// mesh, all of the [`VertexAttributeValues`] must have the same length.
-    #[allow(clippy::match_same_arms)]
+    #[expect(
+        clippy::match_same_arms,
+        reason = "Although the `values` binding on some match arms may have matching types, each variant has different semantics; thus it's not guaranteed that they will use the same type forever."
+    )]
     pub fn len(&self) -> usize {
         match self {
             VertexAttributeValues::Float32(values) => values.len(),
@@ -299,7 +322,10 @@ impl VertexAttributeValues {
     // TODO: add vertex format as parameter here and perform type conversions
     /// Flattens the [`VertexAttributeValues`] into a sequence of bytes. This is
     /// useful for serialization and sending to the GPU.
-    #[allow(clippy::match_same_arms)]
+    #[expect(
+        clippy::match_same_arms,
+        reason = "Although the `values` binding on some match arms may have matching types, each variant has different semantics; thus it's not guaranteed that they will use the same type forever."
+    )]
     pub fn get_bytes(&self) -> &[u8] {
         match self {
             VertexAttributeValues::Float32(values) => cast_slice(values),

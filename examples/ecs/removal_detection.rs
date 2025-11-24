@@ -1,6 +1,6 @@
 //! This example shows how you can know when a [`Component`] has been removed, so you can react to it.
 //!
-//! When a [`Component`] is removed from an [`Entity`], all [`Observer`] with an [`OnRemove`] trigger for
+//! When a [`Component`] is removed from an [`Entity`], all [`Observer`] with an [`Remove`] trigger for
 //! that [`Component`] will be notified. These observers will be called immediately after the
 //! [`Component`] is removed. For more info on observers, see the
 //! [observers example](https://github.com/bevyengine/bevy/blob/main/examples/ecs/observers.rs).
@@ -41,17 +41,16 @@ fn remove_component(
     query: Query<Entity, With<MyComponent>>,
 ) {
     // After two seconds have passed the `Component` is removed.
-    if time.elapsed_secs() > 2.0 {
-        if let Some(entity) = query.iter().next() {
-            commands.entity(entity).remove::<MyComponent>();
-        }
+    if time.elapsed_secs() > 2.0
+        && let Some(entity) = query.iter().next()
+    {
+        commands.entity(entity).remove::<MyComponent>();
     }
 }
 
-fn react_on_removal(trigger: Trigger<OnRemove, MyComponent>, mut query: Query<&mut Sprite>) {
-    // The `OnRemove` trigger was automatically called on the `Entity` that had its `MyComponent` removed.
-    let entity = trigger.target();
-    if let Ok(mut sprite) = query.get_mut(entity) {
+fn react_on_removal(remove: On<Remove, MyComponent>, mut query: Query<&mut Sprite>) {
+    // The `Remove` event was automatically triggered for the `Entity` that had its `MyComponent` removed.
+    if let Ok(mut sprite) = query.get_mut(remove.entity) {
         sprite.color = Color::srgb(0.5, 1., 1.);
     }
 }

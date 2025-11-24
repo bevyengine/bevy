@@ -1,7 +1,8 @@
 use core::marker::PhantomData;
 use std::thread::{self, ThreadId};
 
-use crate::executor::{Executor, Task};
+use crate::executor::Executor;
+use async_task::Task;
 use futures_lite::Future;
 
 /// An executor that can only be ticked on the thread it was instantiated on. But
@@ -23,7 +24,7 @@ use futures_lite::Future;
 ///         // we cannot get the ticker from another thread
 ///         let not_thread_ticker = thread_executor.ticker();
 ///         assert!(not_thread_ticker.is_none());
-///         
+///
 ///         // but we can spawn tasks from another thread
 ///         thread_executor.spawn(async move {
 ///             count_clone.fetch_add(1, Ordering::Relaxed);
@@ -97,6 +98,7 @@ pub struct ThreadExecutorTicker<'task, 'ticker> {
     // make type not send or sync
     _marker: PhantomData<*const ()>,
 }
+
 impl<'task, 'ticker> ThreadExecutorTicker<'task, 'ticker> {
     /// Tick the thread executor.
     pub async fn tick(&self) {

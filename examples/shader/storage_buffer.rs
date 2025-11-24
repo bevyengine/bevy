@@ -1,11 +1,10 @@
 //! This example demonstrates how to use a storage buffer with `AsBindGroup` in a custom material.
 use bevy::{
+    mesh::MeshTag,
     prelude::*,
     reflect::TypePath,
-    render::{
-        render_resource::{AsBindGroup, ShaderRef},
-        storage::ShaderStorageBuffer,
-    },
+    render::{render_resource::AsBindGroup, storage::ShaderStorageBuffer},
+    shader::ShaderRef,
 };
 
 const SHADER_ASSET_PATH: &str = "shaders/storage_buffer.wgsl";
@@ -36,20 +35,25 @@ fn setup(
 
     let colors = buffers.add(ShaderStorageBuffer::from(color_data));
 
+    let mesh_handle = meshes.add(Cuboid::from_size(Vec3::splat(0.3)));
     // Create the custom material with the storage buffer
-    let custom_material = CustomMaterial { colors };
+    let material_handle = materials.add(CustomMaterial {
+        colors: colors.clone(),
+    });
 
-    let material_handle = materials.add(custom_material);
     commands.insert_resource(CustomMaterialHandle(material_handle.clone()));
 
     // Spawn cubes with the custom material
+    let mut current_color_id: u32 = 0;
     for i in -6..=6 {
         for j in -3..=3 {
             commands.spawn((
-                Mesh3d(meshes.add(Cuboid::from_size(Vec3::splat(0.3)))),
+                Mesh3d(mesh_handle.clone()),
                 MeshMaterial3d(material_handle.clone()),
+                MeshTag(current_color_id % 5),
                 Transform::from_xyz(i as f32, j as f32, 0.0),
             ));
+            current_color_id += 1;
         }
     }
 
@@ -63,11 +67,12 @@ fn setup(
 // Update the material color by time
 fn update(
     time: Res<Time>,
-    material_handle: Res<CustomMaterialHandle>,
+    material_handles: Res<CustomMaterialHandle>,
     mut materials: ResMut<Assets<CustomMaterial>>,
     mut buffers: ResMut<Assets<ShaderStorageBuffer>>,
 ) {
-    let material = materials.get_mut(&material_handle.0).unwrap();
+    let material = materials.get_mut(&material_handles.0).unwrap();
+
     let buffer = buffers.get_mut(&material.colors).unwrap();
     buffer.set_data(
         (0..5)
@@ -80,12 +85,11 @@ fn update(
                     1.0,
                 ]
             })
-            .collect::<Vec<[f32; 4]>>()
-            .as_slice(),
+            .collect::<Vec<[f32; 4]>>(),
     );
 }
 
-// Holds a handle to the custom material
+// Holds handles to the custom materials
 #[derive(Resource)]
 struct CustomMaterialHandle(Handle<CustomMaterial>);
 

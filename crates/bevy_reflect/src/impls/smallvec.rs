@@ -1,17 +1,14 @@
-use alloc::boxed::Box;
+use crate::{
+    utility::GenericTypeInfoCell, ApplyError, FromReflect, FromType, Generics, GetTypeRegistration,
+    List, ListInfo, ListIter, MaybeTyped, PartialReflect, Reflect, ReflectFromPtr, ReflectKind,
+    ReflectMut, ReflectOwned, ReflectRef, TypeInfo, TypeParamInfo, TypePath, TypeRegistration,
+    Typed,
+};
+use alloc::{boxed::Box, vec::Vec};
+use bevy_reflect::ReflectCloneError;
 use bevy_reflect_derive::impl_type_path;
 use core::any::Any;
 use smallvec::{Array as SmallArray, SmallVec};
-
-#[cfg(not(feature = "std"))]
-use alloc::{format, vec};
-
-use crate::{
-    self as bevy_reflect, utility::GenericTypeInfoCell, ApplyError, FromReflect, FromType,
-    Generics, GetTypeRegistration, List, ListInfo, ListIter, MaybeTyped, PartialReflect, Reflect,
-    ReflectFromPtr, ReflectKind, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, TypeParamInfo,
-    TypePath, TypeRegistration, Typed,
-};
 
 impl<T: SmallArray + TypePath + Send + Sync> List for SmallVec<T>
 where
@@ -70,7 +67,7 @@ where
         <SmallVec<T>>::len(self)
     }
 
-    fn iter(&self) -> ListIter {
+    fn iter(&self) -> ListIter<'_> {
         ListIter::new(self)
     }
 
@@ -80,6 +77,7 @@ where
             .collect()
     }
 }
+
 impl<T: SmallArray + TypePath + Send + Sync> PartialReflect for SmallVec<T>
 where
     T::Item: FromReflect + MaybeTyped + TypePath,
@@ -125,11 +123,11 @@ where
         ReflectKind::List
     }
 
-    fn reflect_ref(&self) -> ReflectRef {
+    fn reflect_ref(&self) -> ReflectRef<'_> {
         ReflectRef::List(self)
     }
 
-    fn reflect_mut(&mut self) -> ReflectMut {
+    fn reflect_mut(&mut self) -> ReflectMut<'_> {
         ReflectMut::List(self)
     }
 
@@ -137,8 +135,15 @@ where
         ReflectOwned::List(self)
     }
 
-    fn clone_value(&self) -> Box<dyn PartialReflect> {
-        Box::new(self.clone_dynamic())
+    fn reflect_clone(&self) -> Result<Box<dyn Reflect>, ReflectCloneError> {
+        Ok(Box::new(
+            // `(**self)` avoids getting `SmallVec<T> as List::iter`, which
+            // would give us the wrong item type.
+            (**self)
+                .iter()
+                .map(PartialReflect::reflect_clone_and_take)
+                .collect::<Result<Self, ReflectCloneError>>()?,
+        ))
     }
 
     fn reflect_partial_eq(&self, value: &dyn PartialReflect) -> Option<bool> {

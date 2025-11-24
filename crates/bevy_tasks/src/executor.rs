@@ -8,27 +8,25 @@
 //! [`async-executor`]: https://crates.io/crates/async-executor
 //! [`edge-executor`]: https://crates.io/crates/edge-executor
 
-pub use async_task::Task;
 use core::{
     fmt,
     panic::{RefUnwindSafe, UnwindSafe},
 };
 use derive_more::{Deref, DerefMut};
 
-#[cfg(feature = "multi_threaded")]
-pub use async_task::FallibleTask;
+crate::cfg::async_executor! {
+    if {
+        type ExecutorInner<'a> = async_executor::Executor<'a>;
+        type LocalExecutorInner<'a> = async_executor::LocalExecutor<'a>;
+    } else {
+        type ExecutorInner<'a> = crate::edge_executor::Executor<'a, 64>;
+        type LocalExecutorInner<'a> = crate::edge_executor::LocalExecutor<'a, 64>;
+    }
+}
 
-#[cfg(feature = "async_executor")]
-type ExecutorInner<'a> = async_executor::Executor<'a>;
-
-#[cfg(feature = "async_executor")]
-type LocalExecutorInner<'a> = async_executor::LocalExecutor<'a>;
-
-#[cfg(all(not(feature = "async_executor"), feature = "edge_executor"))]
-type ExecutorInner<'a> = edge_executor::Executor<'a, 64>;
-
-#[cfg(all(not(feature = "async_executor"), feature = "edge_executor"))]
-type LocalExecutorInner<'a> = edge_executor::LocalExecutor<'a, 64>;
+crate::cfg::multi_threaded! {
+    pub use async_task::FallibleTask;
+}
 
 /// Wrapper around a multi-threading-aware async executor.
 /// Spawning will generally require tasks to be `Send` and `Sync` to allow multiple
@@ -51,6 +49,7 @@ pub struct LocalExecutor<'a>(LocalExecutorInner<'a>);
 
 impl Executor<'_> {
     /// Construct a new [`Executor`]
+    #[expect(clippy::allow_attributes, reason = "This lint may not always trigger.")]
     #[allow(dead_code, reason = "not all feature flags require this function")]
     pub const fn new() -> Self {
         Self(ExecutorInner::new())
@@ -59,6 +58,7 @@ impl Executor<'_> {
 
 impl LocalExecutor<'_> {
     /// Construct a new [`LocalExecutor`]
+    #[expect(clippy::allow_attributes, reason = "This lint may not always trigger.")]
     #[allow(dead_code, reason = "not all feature flags require this function")]
     pub const fn new() -> Self {
         Self(LocalExecutorInner::new())
@@ -66,9 +66,11 @@ impl LocalExecutor<'_> {
 }
 
 impl UnwindSafe for Executor<'_> {}
+
 impl RefUnwindSafe for Executor<'_> {}
 
 impl UnwindSafe for LocalExecutor<'_> {}
+
 impl RefUnwindSafe for LocalExecutor<'_> {}
 
 impl fmt::Debug for Executor<'_> {

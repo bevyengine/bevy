@@ -3,7 +3,7 @@
 //!
 //! The prepass only runs for opaque meshes or meshes with an alpha mask. Transparent meshes are ignored.
 //!
-//! To enable the prepass, you need to add a prepass component to a [`crate::prelude::Camera3d`].
+//! To enable the prepass, you need to add a prepass component to a [`bevy_camera::Camera3d`].
 //!
 //! [`DepthPrepass`]
 //! [`NormalPrepass`]
@@ -34,7 +34,8 @@ use bevy_asset::UntypedAssetId;
 use bevy_ecs::prelude::*;
 use bevy_math::Mat4;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_render::render_phase::PhaseItemBinKey;
+use bevy_render::mesh::allocator::SlabId;
+use bevy_render::render_phase::PhaseItemBatchSetKey;
 use bevy_render::sync_world::MainEntity;
 use bevy_render::{
     render_phase::{
@@ -51,32 +52,41 @@ use bevy_render::{
 pub const NORMAL_PREPASS_FORMAT: TextureFormat = TextureFormat::Rgb10a2Unorm;
 pub const MOTION_VECTOR_PREPASS_FORMAT: TextureFormat = TextureFormat::Rg16Float;
 
-/// If added to a [`crate::prelude::Camera3d`] then depth values will be copied to a separate texture available to the main pass.
+/// If added to a [`bevy_camera::Camera3d`] then depth values will be copied to a separate texture available to the main pass.
 #[derive(Component, Default, Reflect, Clone)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Clone)]
 pub struct DepthPrepass;
 
-/// If added to a [`crate::prelude::Camera3d`] then vertex world normals will be copied to a separate texture available to the main pass.
+/// If added to a [`bevy_camera::Camera3d`] then vertex world normals will be copied to a separate texture available to the main pass.
 /// Normals will have normal map textures already applied.
 #[derive(Component, Default, Reflect, Clone)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Clone)]
 pub struct NormalPrepass;
 
-/// If added to a [`crate::prelude::Camera3d`] then screen space motion vectors will be copied to a separate texture available to the main pass.
+/// If added to a [`bevy_camera::Camera3d`] then screen space motion vectors will be copied to a separate texture available to the main pass.
+///
+/// Motion vectors are stored in the range -1,1, with +x right and +y down.
+/// A value of (1.0,1.0) indicates a pixel moved from the top left corner to the bottom right corner of the screen.
 #[derive(Component, Default, Reflect, Clone)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Clone)]
 pub struct MotionVectorPrepass;
 
-/// If added to a [`crate::prelude::Camera3d`] then deferred materials will be rendered to the deferred gbuffer texture and will be available to subsequent passes.
+/// If added to a [`bevy_camera::Camera3d`] then deferred materials will be rendered to the deferred gbuffer texture and will be available to subsequent passes.
 /// Note the default deferred lighting plugin also requires `DepthPrepass` to work correctly.
 #[derive(Component, Default, Reflect)]
 #[reflect(Component, Default)]
 pub struct DeferredPrepass;
 
+/// View matrices from the previous frame.
+///
+/// Useful for temporal rendering techniques that need access to last frame's camera data.
 #[derive(Component, ShaderType, Clone)]
 pub struct PreviousViewData {
     pub view_from_world: Mat4,
     pub clip_from_world: Mat4,
+    pub clip_from_view: Mat4,
+    pub world_from_clip: Mat4,
+    pub view_from_clip: Mat4,
 }
 
 #[derive(Resource, Default)]
@@ -139,8 +149,13 @@ impl ViewPrepassTextures {
 ///
 /// Used to render all 3D meshes with materials that have no transparency.
 pub struct Opaque3dPrepass {
+    /// Determines which objects can be placed into a *batch set*.
+    ///
+    /// Objects in a single batch set can potentially be multi-drawn together,
+    /// if it's enabled and the current platform supports it.
+    pub batch_set_key: OpaqueNoLightmap3dBatchSetKey,
     /// Information that separates items into bins.
-    pub key: OpaqueNoLightmap3dBinKey,
+    pub bin_key: OpaqueNoLightmap3dBinKey,
 
     /// An entity from which Bevy fetches data common to all instances in this
     /// batch, such as the mesh.
@@ -149,10 +164,13 @@ pub struct Opaque3dPrepass {
     pub extra_index: PhaseItemExtraIndex,
 }
 
-// TODO: Try interning these.
-/// The data used to bin each opaque 3D object in the prepass and deferred pass.
+/// Information that must be identical in order to place opaque meshes in the
+/// same *batch set* in the prepass and deferred pass.
+///
+/// A batch set is a set of batches that can be multi-drawn together, if
+/// multi-draw is in use.
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct OpaqueNoLightmap3dBinKey {
+pub struct OpaqueNoLightmap3dBatchSetKey {
     /// The ID of the GPU pipeline.
     pub pipeline: CachedRenderPipelineId,
 
@@ -164,16 +182,30 @@ pub struct OpaqueNoLightmap3dBinKey {
     /// In the case of PBR, this is the `MaterialBindGroupIndex`.
     pub material_bind_group_index: Option<u32>,
 
-    /// The ID of the asset.
-    pub asset_id: UntypedAssetId,
+    /// The ID of the slab of GPU memory that contains vertex data.
+    ///
+    /// For non-mesh items, you can fill this with 0 if your items can be
+    /// multi-drawn, or with a unique value if they can't.
+    pub vertex_slab: SlabId,
+
+    /// The ID of the slab of GPU memory that contains index data, if present.
+    ///
+    /// For non-mesh items, you can safely fill this with `None`.
+    pub index_slab: Option<SlabId>,
 }
 
-impl PhaseItemBinKey for OpaqueNoLightmap3dBinKey {
-    type BatchSetKey = ();
-
-    fn get_batch_set_key(&self) -> Option<Self::BatchSetKey> {
-        None
+impl PhaseItemBatchSetKey for OpaqueNoLightmap3dBatchSetKey {
+    fn indexed(&self) -> bool {
+        self.index_slab.is_some()
     }
+}
+
+// TODO: Try interning these.
+/// The data used to bin each opaque 3D object in the prepass and deferred pass.
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct OpaqueNoLightmap3dBinKey {
+    /// The ID of the asset.
+    pub asset_id: UntypedAssetId,
 }
 
 impl PhaseItem for Opaque3dPrepass {
@@ -188,7 +220,7 @@ impl PhaseItem for Opaque3dPrepass {
 
     #[inline]
     fn draw_function(&self) -> DrawFunctionId {
-        self.key.draw_function
+        self.batch_set_key.draw_function
     }
 
     #[inline]
@@ -213,17 +245,20 @@ impl PhaseItem for Opaque3dPrepass {
 }
 
 impl BinnedPhaseItem for Opaque3dPrepass {
+    type BatchSetKey = OpaqueNoLightmap3dBatchSetKey;
     type BinKey = OpaqueNoLightmap3dBinKey;
 
     #[inline]
     fn new(
-        key: Self::BinKey,
+        batch_set_key: Self::BatchSetKey,
+        bin_key: Self::BinKey,
         representative_entity: (Entity, MainEntity),
         batch_range: Range<u32>,
         extra_index: PhaseItemExtraIndex,
     ) -> Self {
         Opaque3dPrepass {
-            key,
+            batch_set_key,
+            bin_key,
             representative_entity,
             batch_range,
             extra_index,
@@ -234,7 +269,7 @@ impl BinnedPhaseItem for Opaque3dPrepass {
 impl CachedRenderPipelinePhaseItem for Opaque3dPrepass {
     #[inline]
     fn cached_pipeline(&self) -> CachedRenderPipelineId {
-        self.key.pipeline
+        self.batch_set_key.pipeline
     }
 }
 
@@ -244,7 +279,13 @@ impl CachedRenderPipelinePhaseItem for Opaque3dPrepass {
 ///
 /// Used to render all meshes with a material with an alpha mask.
 pub struct AlphaMask3dPrepass {
-    pub key: OpaqueNoLightmap3dBinKey,
+    /// Determines which objects can be placed into a *batch set*.
+    ///
+    /// Objects in a single batch set can potentially be multi-drawn together,
+    /// if it's enabled and the current platform supports it.
+    pub batch_set_key: OpaqueNoLightmap3dBatchSetKey,
+    /// Information that separates items into bins.
+    pub bin_key: OpaqueNoLightmap3dBinKey,
     pub representative_entity: (Entity, MainEntity),
     pub batch_range: Range<u32>,
     pub extra_index: PhaseItemExtraIndex,
@@ -262,7 +303,7 @@ impl PhaseItem for AlphaMask3dPrepass {
 
     #[inline]
     fn draw_function(&self) -> DrawFunctionId {
-        self.key.draw_function
+        self.batch_set_key.draw_function
     }
 
     #[inline]
@@ -287,17 +328,20 @@ impl PhaseItem for AlphaMask3dPrepass {
 }
 
 impl BinnedPhaseItem for AlphaMask3dPrepass {
+    type BatchSetKey = OpaqueNoLightmap3dBatchSetKey;
     type BinKey = OpaqueNoLightmap3dBinKey;
 
     #[inline]
     fn new(
-        key: Self::BinKey,
+        batch_set_key: Self::BatchSetKey,
+        bin_key: Self::BinKey,
         representative_entity: (Entity, MainEntity),
         batch_range: Range<u32>,
         extra_index: PhaseItemExtraIndex,
     ) -> Self {
         Self {
-            key,
+            batch_set_key,
+            bin_key,
             representative_entity,
             batch_range,
             extra_index,
@@ -308,7 +352,7 @@ impl BinnedPhaseItem for AlphaMask3dPrepass {
 impl CachedRenderPipelinePhaseItem for AlphaMask3dPrepass {
     #[inline]
     fn cached_pipeline(&self) -> CachedRenderPipelineId {
-        self.key.pipeline
+        self.batch_set_key.pipeline
     }
 }
 

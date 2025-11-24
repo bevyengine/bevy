@@ -23,6 +23,9 @@ pub use bevy_render_macros::RenderLabel;
 use super::{InternedRenderSubGraph, RenderSubGraph};
 
 define_label!(
+    #[diagnostic::on_unimplemented(
+        note = "consider annotating `{Self}` with `#[derive(RenderLabel)]`"
+    )]
     /// A strongly-typed class of labels used to identify a [`Node`] in a render graph.
     RenderLabel,
     RENDER_LABEL_INTERNER
@@ -238,7 +241,7 @@ pub struct NodeState {
 
 impl Debug for NodeState {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        writeln!(f, "{:?} ({:?})", self.label, self.type_name)
+        writeln!(f, "{:?} ({})", self.label, self.type_name)
     }
 }
 
@@ -363,7 +366,7 @@ pub trait ViewNode {
         &self,
         graph: &mut RenderGraphContext,
         render_context: &mut RenderContext<'w>,
-        view_query: QueryItem<'w, Self::ViewQuery>,
+        view_query: QueryItem<'w, '_, Self::ViewQuery>,
         world: &'w World,
     ) -> Result<(), NodeRunError>;
 }

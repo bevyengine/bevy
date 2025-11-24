@@ -1,18 +1,27 @@
 #![forbid(unsafe_code)]
-#![allow(internal_features)]
-#![cfg_attr(any(docsrs, docsrs_dep), feature(rustdoc_internals))]
-#![cfg_attr(docsrs, feature(doc_auto_cfg))]
-#![doc(
-    html_logo_url = "https://bevyengine.org/assets/icon.png",
-    html_favicon_url = "https://bevyengine.org/assets/icon.png"
+#![cfg_attr(
+    any(docsrs, docsrs_dep),
+    expect(
+        internal_features,
+        reason = "rustdoc_internals is needed for fake_variadic"
+    )
 )]
-#![cfg_attr(not(feature = "std"), no_std)]
+#![cfg_attr(any(docsrs, docsrs_dep), feature(rustdoc_internals))]
+#![cfg_attr(docsrs, feature(doc_cfg))]
+#![doc(
+    html_logo_url = "https://bevy.org/assets/icon.png",
+    html_favicon_url = "https://bevy.org/assets/icon.png"
+)]
+#![no_std]
 
 //! Provides math types and functionality for the Bevy game engine.
 //!
 //! The commonly used types are vectors like [`Vec2`] and [`Vec3`],
 //! matrices like [`Mat2`], [`Mat3`] and [`Mat4`] and orientation representations
 //! like [`Quat`].
+
+#[cfg(feature = "std")]
+extern crate std;
 
 #[cfg(feature = "alloc")]
 extern crate alloc;

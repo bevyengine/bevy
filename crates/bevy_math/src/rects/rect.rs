@@ -19,7 +19,7 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
-    reflect(Debug, PartialEq, Default)
+    reflect(Debug, PartialEq, Default, Clone)
 )]
 #[cfg_attr(
     all(feature = "serialize", feature = "bevy_reflect"),
@@ -354,6 +354,20 @@ impl Rect {
             min: (self.min - other.min) / outer_size,
             max: (self.max - other.min) / outer_size,
         }
+    }
+
+    /// Return the area of this rectangle.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_math::Rect;
+    /// let r = Rect::new(0., 0., 10., 10.); // w=10 h=10
+    /// assert_eq!(r.area(), 100.0);
+    /// ```
+    #[inline]
+    pub fn area(&self) -> f32 {
+        self.width() * self.height()
     }
 
     /// Returns self as [`IRect`] (i32)

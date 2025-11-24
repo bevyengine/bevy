@@ -1,8 +1,5 @@
-use alloc::{borrow::Cow, vec};
+use alloc::{borrow::Cow, boxed::Box, vec, vec::Vec};
 use core::fmt::{Debug, Formatter};
-
-#[cfg(not(feature = "std"))]
-use alloc::{boxed::Box, format, vec};
 
 use crate::{
     func::args::{ArgCount, ArgCountOutOfBoundsError, ArgInfo, GetOwnership, Ownership},
@@ -180,7 +177,7 @@ impl FunctionInfo {
     /// let pretty = info.pretty_printer();
     /// assert_eq!(format!("{:?}", pretty), "(_: i32, _: i32) -> i32");
     /// ```
-    pub fn pretty_printer(&self) -> PrettyPrintFunctionInfo {
+    pub fn pretty_printer(&self) -> PrettyPrintFunctionInfo<'_> {
         PrettyPrintFunctionInfo::new(self)
     }
 
@@ -238,6 +235,12 @@ impl<const N: usize> TryFrom<[SignatureInfo; N]> for FunctionInfo {
     }
 }
 
+/// Type information for the signature of a [`DynamicFunction`] or [`DynamicFunctionMut`].
+///
+/// Every [`FunctionInfo`] contains one or more [`SignatureInfo`]s.
+///
+/// [`DynamicFunction`]: crate::func::DynamicFunction
+/// [`DynamicFunctionMut`]: crate::func::DynamicFunctionMut
 #[derive(Debug, Clone)]
 pub struct SignatureInfo {
     name: Option<Cow<'static, str>>,
@@ -437,7 +440,7 @@ impl<'a> Debug for PrettyPrintFunctionInfo<'a> {
         }
 
         match (self.include_name, self.info.name()) {
-            (true, Some(name)) => write!(f, "{}", name)?,
+            (true, Some(name)) => write!(f, "{name}")?,
             (true, None) => write!(f, "_")?,
             _ => {}
         }
@@ -512,7 +515,7 @@ impl<'a> Debug for PrettyPrintSignatureInfo<'a> {
         }
 
         match (self.include_name, self.info.name()) {
-            (true, Some(name)) => write!(f, "{}", name)?,
+            (true, Some(name)) => write!(f, "{name}")?,
             (true, None) => write!(f, "_")?,
             _ => {}
         }
@@ -597,13 +600,13 @@ pub trait TypedFunction<Marker> {
 
 /// Helper macro for implementing [`TypedFunction`] on Rust functions.
 ///
-/// This currently implements it for the following signatures (where `argX` may be any of `T`, `&T`, or `&mut T`):
-/// - `FnMut(arg0, arg1, ..., argN) -> R`
-/// - `FnMut(&Receiver, arg0, arg1, ..., argN) -> &R`
-/// - `FnMut(&mut Receiver, arg0, arg1, ..., argN) -> &mut R`
-/// - `FnMut(&mut Receiver, arg0, arg1, ..., argN) -> &R`
+/// This currently implements it for the following signatures (where `ArgX` may be any of `T`, `&T`, or `&mut T`):
+/// - `FnMut(Arg0, Arg1, ..., ArgN) -> R`
+/// - `FnMut(&Receiver, Arg0, Arg1, ..., ArgN) -> &R`
+/// - `FnMut(&mut Receiver, Arg0, Arg1, ..., ArgN) -> &mut R`
+/// - `FnMut(&mut Receiver, Arg0, Arg1, ..., ArgN) -> &R`
 macro_rules! impl_typed_function {
-    ($(($Arg:ident, $arg:ident)),*) => {
+    ($($Arg:ident),*) => {
         // === (...) -> ReturnType === //
         impl<$($Arg,)* ReturnType, Function> TypedFunction<fn($($Arg),*) -> [ReturnType]> for Function
         where
@@ -615,7 +618,6 @@ macro_rules! impl_typed_function {
                 FunctionInfo::new(
                     create_info::<Function>()
                         .with_args({
-                            #[allow(unused_mut)]
                             let mut _index = 0;
                             vec![
                                 $(ArgInfo::new::<$Arg>({
@@ -641,7 +643,6 @@ macro_rules! impl_typed_function {
                 FunctionInfo::new(
                     create_info::<Function>()
                         .with_args({
-                            #[allow(unused_mut)]
                             let mut _index = 1;
                             vec![
                                 ArgInfo::new::<&Receiver>(0),
@@ -668,7 +669,6 @@ macro_rules! impl_typed_function {
                 FunctionInfo::new(
                     create_info::<Function>()
                         .with_args({
-                            #[allow(unused_mut)]
                             let mut _index = 1;
                             vec![
                                 ArgInfo::new::<&mut Receiver>(0),
@@ -695,7 +695,6 @@ macro_rules! impl_typed_function {
                 FunctionInfo::new(
                     create_info::<Function>()
                         .with_args({
-                            #[allow(unused_mut)]
                             let mut _index = 1;
                             vec![
                                 ArgInfo::new::<&mut Receiver>(0),
@@ -712,7 +711,7 @@ macro_rules! impl_typed_function {
     };
 }
 
-all_tuples!(impl_typed_function, 0, 15, Arg, arg);
+all_tuples!(impl_typed_function, 0, 15, Arg);
 
 /// Helper function for creating [`FunctionInfo`] with the proper name value.
 ///

@@ -5,6 +5,7 @@ use core::any::TypeId;
 use thiserror::Error;
 
 use bevy_reflect::{Reflect, ReflectFromPtr};
+use bevy_utils::prelude::DebugName;
 
 use crate::{prelude::*, world::ComponentId};
 
@@ -69,17 +70,14 @@ impl World {
         entity: Entity,
         type_id: TypeId,
     ) -> Result<&dyn Reflect, GetComponentReflectError> {
-        let Some(component_id) = self.components().get_id(type_id) else {
+        let Some(component_id) = self.components().get_valid_id(type_id) else {
             return Err(GetComponentReflectError::NoCorrespondingComponentId(
                 type_id,
             ));
         };
 
         let Some(comp_ptr) = self.get_by_id(entity, component_id) else {
-            let component_name = self
-                .components()
-                .get_name(component_id)
-                .map(ToString::to_string);
+            let component_name = self.components().get_name(component_id);
 
             return Err(GetComponentReflectError::EntityDoesNotHaveComponent {
                 entity,
@@ -157,7 +155,7 @@ impl World {
             ));
         };
 
-        let Some(component_id) = self.components().get_id(type_id) else {
+        let Some(component_id) = self.components().get_valid_id(type_id) else {
             return Err(GetComponentReflectError::NoCorrespondingComponentId(
                 type_id,
             ));
@@ -165,10 +163,7 @@ impl World {
 
         // HACK: Only required for the `None`-case/`else`-branch, but it borrows `self`, which will
         // already be mutably borrowed by `self.get_mut_by_id()`, and I didn't find a way around it.
-        let component_name = self
-            .components()
-            .get_name(component_id)
-            .map(ToString::to_string);
+        let component_name = self.components().get_name(component_id).clone();
 
         let Some(comp_mut_untyped) = self.get_mut_by_id(entity, component_id) else {
             return Err(GetComponentReflectError::EntityDoesNotHaveComponent {
@@ -212,7 +207,7 @@ pub enum GetComponentReflectError {
     NoCorrespondingComponentId(TypeId),
 
     /// The given [`Entity`] does not have a [`Component`] corresponding to the given [`TypeId`].
-    #[error("The given `Entity` {entity:?} does not have a `{component_name:?}` component ({component_id:?}, which corresponds to {type_id:?})")]
+    #[error("The given `Entity` {entity} does not have a `{component_name:?}` component ({component_id:?}, which corresponds to {type_id:?})")]
     EntityDoesNotHaveComponent {
         /// The given [`Entity`].
         entity: Entity,
@@ -222,7 +217,7 @@ pub enum GetComponentReflectError {
         component_id: ComponentId,
         /// The name corresponding to the [`Component`] with the given [`TypeId`], or `None`
         /// if not available.
-        component_name: Option<String>,
+        component_name: Option<DebugName>,
     },
 
     /// The [`World`] was missing the [`AppTypeRegistry`] resource.
@@ -250,11 +245,7 @@ mod tests {
 
     use bevy_reflect::Reflect;
 
-    use crate::{
-        // For bevy_ecs_macros
-        self as bevy_ecs,
-        prelude::{AppTypeRegistry, Component, DetectChanges, World},
-    };
+    use crate::prelude::{AppTypeRegistry, Component, DetectChanges, World};
 
     #[derive(Component, Reflect)]
     struct RFoo(i32);

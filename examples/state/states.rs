@@ -5,11 +5,11 @@
 //!
 //! In this case, we're transitioning from a `Menu` state to an `InGame` state.
 
-use bevy::{dev_tools::states::*, prelude::*};
+use bevy::prelude::*;
 
 fn main() {
-    App::new()
-        .add_plugins(DefaultPlugins)
+    let mut app = App::new();
+    app.add_plugins(DefaultPlugins)
         .init_state::<AppState>() // Alternatively we could use .insert_state(AppState::Menu)
         .add_systems(Startup, setup)
         // This system runs when we enter `AppState::Menu`, during the `StateTransition` schedule.
@@ -24,9 +24,14 @@ fn main() {
         .add_systems(
             Update,
             (movement, change_color).run_if(in_state(AppState::InGame)),
-        )
-        .add_systems(Update, log_transitions::<AppState>)
-        .run();
+        );
+
+    #[cfg(feature = "bevy_dev_tools")]
+    app.add_systems(Update, bevy::dev_tools::states::log_transitions::<AppState>);
+    #[cfg(not(feature = "bevy_dev_tools"))]
+    warn!("Enable feature bevy_dev_tools to log state transitions");
+
+    app.run();
 }
 
 #[derive(Debug, Clone, Copy, Default, Eq, PartialEq, Hash, States)]
@@ -51,40 +56,37 @@ fn setup(mut commands: Commands) {
 
 fn setup_menu(mut commands: Commands) {
     let button_entity = commands
-        .spawn(Node {
-            // center button
-            width: Val::Percent(100.),
-            height: Val::Percent(100.),
-            justify_content: JustifyContent::Center,
-            align_items: AlignItems::Center,
-            ..default()
-        })
-        .with_children(|parent| {
-            parent
-                .spawn((
-                    Button,
-                    Node {
-                        width: Val::Px(150.),
-                        height: Val::Px(65.),
-                        // horizontally center child text
-                        justify_content: JustifyContent::Center,
-                        // vertically center child text
-                        align_items: AlignItems::Center,
+        .spawn((
+            Node {
+                // center button
+                width: percent(100),
+                height: percent(100),
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
+                ..default()
+            },
+            children![(
+                Button,
+                Node {
+                    width: px(150),
+                    height: px(65),
+                    // horizontally center child text
+                    justify_content: JustifyContent::Center,
+                    // vertically center child text
+                    align_items: AlignItems::Center,
+                    ..default()
+                },
+                BackgroundColor(NORMAL_BUTTON),
+                children![(
+                    Text::new("Play"),
+                    TextFont {
+                        font_size: 33.0,
                         ..default()
                     },
-                    BackgroundColor(NORMAL_BUTTON),
-                ))
-                .with_children(|parent| {
-                    parent.spawn((
-                        Text::new("Play"),
-                        TextFont {
-                            font_size: 33.0,
-                            ..default()
-                        },
-                        TextColor(Color::srgb(0.9, 0.9, 0.9)),
-                    ));
-                });
-        })
+                    TextColor(Color::srgb(0.9, 0.9, 0.9)),
+                )],
+            )],
+        ))
         .id();
     commands.insert_resource(MenuData { button_entity });
 }
@@ -113,7 +115,7 @@ fn menu(
 }
 
 fn cleanup_menu(mut commands: Commands, menu_data: Res<MenuData>) {
-    commands.entity(menu_data.button_entity).despawn_recursive();
+    commands.entity(menu_data.button_entity).despawn();
 }
 
 fn setup_game(mut commands: Commands, asset_server: Res<AssetServer>) {

@@ -1,8 +1,5 @@
 use variadics_please::all_tuples;
 
-#[cfg(not(feature = "std"))]
-use alloc::{boxed::Box, format, vec};
-
 use crate::{
     func::{
         args::{ArgCount, FromArg},
@@ -47,7 +44,7 @@ use crate::{
 ///   a + b
 /// }
 ///
-/// let args = ArgList::new().push_owned(25_i32).push_owned(75_i32);
+/// let args = ArgList::new().with_owned(25_i32).with_owned(75_i32);
 ///
 /// let value = add.reflect_call(args).unwrap().unwrap_owned();
 /// assert_eq!(value.try_take::<i32>().unwrap(), 100);
@@ -91,7 +88,14 @@ macro_rules! impl_reflect_fn {
             // This clause essentially asserts that `Arg::This` is the same type as `Arg`
             Function: for<'a> Fn($($Arg::This<'a>),*) -> ReturnType + 'env,
         {
-            #[allow(unused_mut)]
+            #[expect(
+                clippy::allow_attributes,
+                reason = "This lint is part of a macro, which may not always trigger the `unused_mut` lint."
+            )]
+            #[allow(
+                unused_mut,
+                reason = "Some invocations of this macro may trigger the `unused_mut` lint, where others won't."
+            )]
             fn reflect_call<'a>(&self, mut args: ArgList<'a>) -> FunctionResult<'a> {
                 const COUNT: usize = count_tokens!($($Arg)*);
 

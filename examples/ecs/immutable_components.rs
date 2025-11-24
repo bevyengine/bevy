@@ -2,12 +2,13 @@
 
 use bevy::{
     ecs::{
-        component::{ComponentDescriptor, ComponentId, StorageType},
+        component::{ComponentCloneBehavior, ComponentDescriptor, ComponentId, StorageType},
+        lifecycle::HookContext,
         world::DeferredWorld,
     },
+    platform::collections::HashMap,
     prelude::*,
     ptr::OwningPtr,
-    utils::HashMap,
 };
 use core::alloc::Layout;
 
@@ -73,9 +74,9 @@ impl NameIndex {
 ///
 /// Since all mutations to [`Name`] are captured by hooks, we know it is not currently
 /// inserted in the index, and its value will not change without triggering a hook.
-fn on_insert_name(mut world: DeferredWorld<'_>, entity: Entity, _component: ComponentId) {
+fn on_insert_name(mut world: DeferredWorld<'_>, HookContext { entity, .. }: HookContext) {
     let Some(&name) = world.entity(entity).get::<Name>() else {
-        unreachable!("OnInsert hook guarantees `Name` is available on entity")
+        unreachable!("Insert hook guarantees `Name` is available on entity")
     };
     let Some(mut index) = world.get_resource_mut::<NameIndex>() else {
         return;
@@ -88,9 +89,9 @@ fn on_insert_name(mut world: DeferredWorld<'_>, entity: Entity, _component: Comp
 ///
 /// Since all mutations to [`Name`] are captured by hooks, we know it is currently
 /// inserted in the index.
-fn on_replace_name(mut world: DeferredWorld<'_>, entity: Entity, _component: ComponentId) {
+fn on_replace_name(mut world: DeferredWorld<'_>, HookContext { entity, .. }: HookContext) {
     let Some(&name) = world.entity(entity).get::<Name>() else {
-        unreachable!("OnReplace hook guarantees `Name` is available on entity")
+        unreachable!("Replace hook guarantees `Name` is available on entity")
     };
     let Some(mut index) = world.get_resource_mut::<NameIndex>() else {
         return;
@@ -127,7 +128,10 @@ fn demo_2(world: &mut World) {
 }
 
 /// This example demonstrates how to work with _dynamic_ immutable components.
-#[allow(unsafe_code)]
+#[expect(
+    unsafe_code,
+    reason = "Unsafe code is needed to work with dynamic components"
+)]
 fn demo_3(world: &mut World) {
     // This is a list of dynamic components we will create.
     // The first item is the name of the component, and the second is the size
@@ -149,6 +153,8 @@ fn demo_3(world: &mut World) {
                     Layout::array::<u8>(size).unwrap(),
                     None,
                     false,
+                    ComponentCloneBehavior::Default,
+                    None,
                 )
             };
 

@@ -3,12 +3,12 @@
 use std::f32::consts::PI;
 
 use bevy::{
+    camera::visibility::VisibilityRange,
     core_pipeline::prepass::{DepthPrepass, NormalPrepass},
     input::mouse::MouseWheel,
+    light::{light_consts::lux::FULL_DAYLIGHT, CascadeShadowConfigBuilder},
     math::vec3,
-    pbr::{light_consts::lux::FULL_DAYLIGHT, CascadeShadowConfigBuilder},
     prelude::*,
-    render::view::VisibilityRange,
 };
 
 // Where the camera is focused.
@@ -161,8 +161,8 @@ fn setup(
         app_status.create_text(),
         Node {
             position_type: PositionType::Absolute,
-            bottom: Val::Px(12.0),
-            left: Val::Px(12.0),
+            bottom: px(12),
+            left: px(12),
             ..default()
         },
     ));
@@ -175,19 +175,19 @@ fn setup(
 fn set_visibility_ranges(
     mut commands: Commands,
     mut new_meshes: Query<Entity, Added<Mesh3d>>,
-    parents: Query<(Option<&Parent>, Option<&MainModel>)>,
+    children: Query<(Option<&ChildOf>, Option<&MainModel>)>,
 ) {
     // Loop over each newly-added mesh.
     for new_mesh in new_meshes.iter_mut() {
         // Search for the nearest ancestor `MainModel` component.
         let (mut current, mut main_model) = (new_mesh, None);
-        while let Ok((parent, maybe_main_model)) = parents.get(current) {
+        while let Ok((child_of, maybe_main_model)) = children.get(current) {
             if let Some(model) = maybe_main_model {
                 main_model = Some(model);
                 break;
             }
-            match parent {
-                Some(parent) => current = **parent,
+            match child_of {
+                Some(child_of) => current = child_of.parent(),
                 None => break,
             }
         }
@@ -214,7 +214,7 @@ fn set_visibility_ranges(
 // Process the movement controls.
 fn move_camera(
     keyboard_input: Res<ButtonInput<KeyCode>>,
-    mut mouse_wheel_events: EventReader<MouseWheel>,
+    mut mouse_wheel_reader: MessageReader<MouseWheel>,
     mut cameras: Query<&mut Transform, With<Camera3d>>,
 ) {
     let (mut zoom_delta, mut theta_delta) = (0.0, 0.0);
@@ -234,8 +234,8 @@ fn move_camera(
     }
 
     // Process zoom in and out via the mouse wheel.
-    for event in mouse_wheel_events.read() {
-        zoom_delta -= event.y * CAMERA_MOUSE_MOVEMENT_SPEED;
+    for mouse_wheel in mouse_wheel_reader.read() {
+        zoom_delta -= mouse_wheel.y * CAMERA_MOUSE_MOVEMENT_SPEED;
     }
 
     // Update the camera transform.

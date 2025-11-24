@@ -10,7 +10,7 @@ use serde::de::DeserializeSeed;
 use std::collections::{HashMap, HashSet};
 
 fn main() {
-    #[derive(Reflect, Default)]
+    #[derive(Reflect, Default, PartialEq, Debug)]
     #[reflect(Identifiable, Default)]
     struct Player {
         id: u32,
@@ -42,22 +42,27 @@ fn main() {
     // Because it's the same type under the hood, we can still downcast it back to the original type.
     assert!(reflected.downcast_ref::<Player>().is_some());
 
-    // But now let's "clone" our type using `PartialReflect::clone_value`.
-    // Notice here we bind it as a `dyn PartialReflect`.
-    let cloned: Box<dyn PartialReflect> = reflected.clone_value();
+    // We can attempt to clone our value using `PartialReflect::reflect_clone`.
+    // This will recursively call `PartialReflect::reflect_clone` on all fields of the type.
+    // Or, if we had registered `ReflectClone` using `#[reflect(Clone)]`, it would simply call `Clone::clone` directly.
+    let cloned: Box<dyn Reflect> = reflected.reflect_clone().unwrap();
+    assert_eq!(cloned.downcast_ref::<Player>(), Some(&Player { id: 123 }));
 
-    // If we try and convert it to a `dyn Reflect` trait object, we'll get an error.
-    assert!(cloned.try_as_reflect().is_none());
+    // Another way we can "clone" our data is by converting it to a dynamic type.
+    // Notice here we bind it as a `dyn PartialReflect` instead of `dyn Reflect`.
+    // This is because it returns a dynamic type that simply represents the original type.
+    // In this case, because `Player` is a struct, it will return a `DynamicStruct`.
+    let dynamic: Box<dyn PartialReflect> = reflected.to_dynamic();
+    assert!(dynamic.is_dynamic());
 
-    // Why is this?
-    // Well the reason is that `PartialReflect::clone_value` actually creates a dynamic type.
-    // Since `Player` is a struct, our trait object is actually a value of `DynamicStruct`.
-    assert!(cloned.is_dynamic());
+    // And if we try to convert it back to a `dyn Reflect` trait object, we'll get `None`.
+    // Dynamic types cannot be directly cast to `dyn Reflect` trait objects.
+    assert!(dynamic.try_as_reflect().is_none());
 
-    // This dynamic type is used to represent (or "proxy") the original type,
+    // Generally dynamic types are used to represent (or "proxy") the original type,
     // so that we can continue to access its fields and overall structure.
-    let cloned_ref = cloned.reflect_ref().as_struct().unwrap();
-    let id = cloned_ref.field("id").unwrap().try_downcast_ref::<u32>();
+    let dynamic_ref = dynamic.reflect_ref().as_struct().unwrap();
+    let id = dynamic_ref.field("id").unwrap().try_downcast_ref::<u32>();
     assert_eq!(id, Some(&123));
 
     // It also enables us to create a representation of a type without having compile-time
@@ -137,7 +142,7 @@ fn main() {
     }
 
     // Lastly, while dynamic types are commonly generated via reflection methods like
-    // `PartialReflect::clone_value` or via the reflection deserializers,
+    // `PartialReflect::to_dynamic` or via the reflection deserializers,
     // you can also construct them manually.
     let mut my_dynamic_list = DynamicList::from_iter([1u32, 2u32, 3u32]);
 
@@ -195,7 +200,7 @@ fn main() {
 
         dynamic_set.remove(&"y");
 
-        let mut my_set: HashSet<&str> = HashSet::new();
+        let mut my_set: HashSet<&str> = HashSet::default();
         my_set.apply(&dynamic_set);
         assert_eq!(my_set, HashSet::from_iter(["x", "z"]));
     }
@@ -204,7 +209,7 @@ fn main() {
     {
         let dynamic_map = DynamicMap::from_iter([("x", 1u32), ("y", 2u32), ("z", 3u32)]);
 
-        let mut my_map: HashMap<&str, u32> = HashMap::new();
+        let mut my_map: HashMap<&str, u32> = HashMap::default();
         my_map.apply(&dynamic_map);
         assert_eq!(my_map.get("x"), Some(&1));
         assert_eq!(my_map.get("y"), Some(&2));

@@ -1,8 +1,5 @@
 use variadics_please::all_tuples;
 
-#[cfg(not(feature = "std"))]
-use alloc::{boxed::Box, format, vec};
-
 use crate::{
     func::{
         args::{ArgCount, FromArg},
@@ -53,7 +50,7 @@ use crate::{
 ///   list.insert(index, value);
 /// };
 ///
-/// let args = ArgList::new().push_owned(1_usize).push_owned(2_i32);
+/// let args = ArgList::new().with_owned(1_usize).with_owned(2_i32);
 ///
 /// insert.reflect_call_mut(args).unwrap();
 /// assert_eq!(list, vec![1, 2, 3]);
@@ -98,7 +95,14 @@ macro_rules! impl_reflect_fn_mut {
             // This clause essentially asserts that `Arg::This` is the same type as `Arg`
             Function: for<'a> FnMut($($Arg::This<'a>),*) -> ReturnType + 'env,
         {
-            #[allow(unused_mut)]
+            #[expect(
+                clippy::allow_attributes,
+                reason = "This lint is part of a macro, which may not always trigger the `unused_mut` lint."
+            )]
+            #[allow(
+                unused_mut,
+                reason = "Some invocations of this macro may trigger the `unused_mut` lint, where others won't."
+            )]
             fn reflect_call_mut<'a>(&mut self, mut args: ArgList<'a>) -> FunctionResult<'a> {
                 const COUNT: usize = count_tokens!($($Arg)*);
 

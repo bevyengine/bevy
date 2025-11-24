@@ -33,9 +33,8 @@
 #endif
 
 
-// Biasing info needed to sample from a texture when calling `sample_texture`.
-// How this is done depends on whether we're rendering meshlets or regular
-// meshes.
+// Biasing info needed to sample from a texture. How this is done depends on
+// whether we're rendering meshlets or regular meshes.
 struct SampleBias {
 #ifdef MESHLET_MESH_MATERIAL_PASS
     ddx_uv: vec2<f32>,
@@ -119,21 +118,6 @@ fn alpha_discard(material: pbr_types::StandardMaterial, output_color: vec4<f32>)
 #endif
 
     return color;
-}
-
-// Samples a texture using the appropriate biasing metric for the type of mesh
-// in use (mesh vs. meshlet).
-fn sample_texture(
-    texture: texture_2d<f32>,
-    samp: sampler,
-    uv: vec2<f32>,
-    bias: SampleBias,
-) -> vec4<f32> {
-#ifdef MESHLET_MESH_MATERIAL_PASS
-    return textureSampleGrad(texture, samp, uv, bias.ddx_uv, bias.ddy_uv);
-#else
-    return textureSampleBias(texture, samp, uv, bias.mip_bias);
-#endif
 }
 
 fn prepare_world_normal(
@@ -257,7 +241,7 @@ fn bend_normal_for_anisotropy(lighting_input: ptr<function, lighting::LightingIn
     (*lighting_input).layers[LAYER_BASE].R = R;
 }
 
-#endif  // STANDARD_MATERIAL_ANISTROPY
+#endif  // STANDARD_MATERIAL_ANISOTROPY
 
 // NOTE: Correctly calculates the view vector depending on whether
 // the projection is orthographic or perspective.
@@ -289,7 +273,7 @@ fn calculate_diffuse_color(
 
 // Remapping [0,1] reflectance to F0
 // See https://google.github.io/filament/Filament.html#materialsystem/parameterization/remapping
-fn calculate_F0(base_color: vec3<f32>, metallic: f32, reflectance: f32) -> vec3<f32> {
+fn calculate_F0(base_color: vec3<f32>, metallic: f32, reflectance: vec3<f32>) -> vec3<f32> {
     return 0.16 * reflectance * reflectance * (1.0 - metallic) + base_color * metallic;
 }
 
@@ -400,9 +384,9 @@ fn apply_pbr_lighting(
     transmissive_lighting_input.clearcoat_strength = 0.0;
 #endif  // STANDARD_MATERIAL_CLEARCOAT
 #ifdef STANDARD_MATERIAL_ANISOTROPY
-    lighting_input.anisotropy = in.anisotropy_strength;
-    lighting_input.Ta = in.anisotropy_T;
-    lighting_input.Ba = in.anisotropy_B;
+    transmissive_lighting_input.anisotropy = in.anisotropy_strength;
+    transmissive_lighting_input.Ta = in.anisotropy_T;
+    transmissive_lighting_input.Ba = in.anisotropy_B;
 #endif  // STANDARD_MATERIAL_ANISOTROPY
 #endif  // STANDARD_MATERIAL_DIFFUSE_TRANSMISSION
 
@@ -421,13 +405,24 @@ fn apply_pbr_lighting(
             i < clusterable_object_index_ranges.first_spot_light_index_offset;
             i = i + 1u) {
         let light_id = clustering::get_clusterable_object_id(i);
+
+        // If we're lightmapped, disable diffuse contribution from the light if
+        // requested, to avoid double-counting light.
+#ifdef LIGHTMAP
+        let enable_diffuse =
+            (view_bindings::clusterable_objects.data[light_id].flags &
+                mesh_view_types::POINT_LIGHT_FLAGS_AFFECTS_LIGHTMAPPED_MESH_DIFFUSE_BIT) != 0u;
+#else   // LIGHTMAP
+        let enable_diffuse = true;
+#endif  // LIGHTMAP
+
         var shadow: f32 = 1.0;
         if ((in.flags & MESH_FLAGS_SHADOW_RECEIVER_BIT) != 0u
                 && (view_bindings::clusterable_objects.data[light_id].flags & mesh_view_types::POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
             shadow = shadows::fetch_point_shadow(light_id, in.world_position, in.world_normal);
         }
 
-        let light_contrib = lighting::point_light(light_id, &lighting_input);
+        let light_contrib = lighting::point_light(light_id, &lighting_input, enable_diffuse, true);
         direct_light += light_contrib * shadow;
 
 #ifdef STANDARD_MATERIAL_DIFFUSE_TRANSMISSION
@@ -447,7 +442,7 @@ fn apply_pbr_lighting(
         }
 
         let transmitted_light_contrib =
-            lighting::point_light(light_id, &transmissive_lighting_input);
+            lighting::point_light(light_id, &transmissive_lighting_input, enable_diffuse, true);
         transmitted_light += transmitted_light_contrib * transmitted_shadow;
 #endif
     }
@@ -457,6 +452,16 @@ fn apply_pbr_lighting(
             i < clusterable_object_index_ranges.first_reflection_probe_index_offset;
             i = i + 1u) {
         let light_id = clustering::get_clusterable_object_id(i);
+
+        // If we're lightmapped, disable diffuse contribution from the light if
+        // requested, to avoid double-counting light.
+#ifdef LIGHTMAP
+        let enable_diffuse =
+            (view_bindings::clusterable_objects.data[light_id].flags &
+                mesh_view_types::POINT_LIGHT_FLAGS_AFFECTS_LIGHTMAPPED_MESH_DIFFUSE_BIT) != 0u;
+#else   // LIGHTMAP
+        let enable_diffuse = true;
+#endif  // LIGHTMAP
 
         var shadow: f32 = 1.0;
         if ((in.flags & MESH_FLAGS_SHADOW_RECEIVER_BIT) != 0u
@@ -470,7 +475,7 @@ fn apply_pbr_lighting(
             );
         }
 
-        let light_contrib = lighting::spot_light(light_id, &lighting_input);
+        let light_contrib = lighting::spot_light(light_id, &lighting_input, enable_diffuse);
         direct_light += light_contrib * shadow;
 
 #ifdef STANDARD_MATERIAL_DIFFUSE_TRANSMISSION
@@ -495,7 +500,7 @@ fn apply_pbr_lighting(
         }
 
         let transmitted_light_contrib =
-            lighting::spot_light(light_id, &transmissive_lighting_input);
+            lighting::spot_light(light_id, &transmissive_lighting_input, enable_diffuse);
         transmitted_light += transmitted_light_contrib * transmitted_shadow;
 #endif
     }
@@ -506,9 +511,17 @@ fn apply_pbr_lighting(
         // check if this light should be skipped, which occurs if this light does not intersect with the view
         // note point and spot lights aren't skippable, as the relevant lights are filtered in `assign_lights_to_clusters`
         let light = &view_bindings::lights.directional_lights[i];
-        if (*light).skip != 0u {
-            continue;
-        }
+
+        // If we're lightmapped, disable diffuse contribution from the light if
+        // requested, to avoid double-counting light.
+#ifdef LIGHTMAP
+        let enable_diffuse =
+            ((*light).flags &
+                mesh_view_types::DIRECTIONAL_LIGHT_FLAGS_AFFECTS_LIGHTMAPPED_MESH_DIFFUSE_BIT) !=
+                0u;
+#else   // LIGHTMAP
+        let enable_diffuse = true;
+#endif  // LIGHTMAP
 
         var shadow: f32 = 1.0;
         if ((in.flags & MESH_FLAGS_SHADOW_RECEIVER_BIT) != 0u
@@ -516,7 +529,7 @@ fn apply_pbr_lighting(
             shadow = shadows::fetch_directional_shadow(i, in.world_position, in.world_normal, view_z);
         }
 
-        var light_contrib = lighting::directional_light(i, &lighting_input);
+        var light_contrib = lighting::directional_light(i, &lighting_input, enable_diffuse);
 
 #ifdef DIRECTIONAL_LIGHT_SHADOW_MAP_DEBUG_CASCADES
         light_contrib = shadows::cascade_debug_visualization(light_contrib, i, view_z);
@@ -540,7 +553,7 @@ fn apply_pbr_lighting(
         }
 
         let transmitted_light_contrib =
-            lighting::directional_light(i, &transmissive_lighting_input);
+            lighting::directional_light(i, &transmissive_lighting_input, enable_diffuse);
         transmitted_light += transmitted_light_contrib * transmitted_shadow;
 #endif
     }
@@ -591,21 +604,6 @@ fn apply_pbr_lighting(
 
     // Environment map light (indirect)
 #ifdef ENVIRONMENT_MAP
-
-#ifdef STANDARD_MATERIAL_ANISOTROPY
-    var bent_normal_lighting_input = lighting_input;
-    bend_normal_for_anisotropy(&bent_normal_lighting_input);
-    let environment_map_lighting_input = &bent_normal_lighting_input;
-#else   // STANDARD_MATERIAL_ANISOTROPY
-    let environment_map_lighting_input = &lighting_input;
-#endif  // STANDARD_MATERIAL_ANISOTROPY
-
-    let environment_light = environment_map::environment_map_light(
-        environment_map_lighting_input,
-        &clusterable_object_index_ranges,
-        found_diffuse_indirect,
-    );
-
     // If screen space reflections are going to be used for this material, don't
     // accumulate environment map light yet. The SSR shader will do it.
 #ifdef SCREEN_SPACE_REFLECTIONS
@@ -614,22 +612,38 @@ fn apply_pbr_lighting(
 #else   // SCREEN_SPACE_REFLECTIONS
     let use_ssr = false;
 #endif  // SCREEN_SPACE_REFLECTIONS
-
+    
     if (!use_ssr) {
+#ifdef STANDARD_MATERIAL_ANISOTROPY
+        var bent_normal_lighting_input = lighting_input;
+        bend_normal_for_anisotropy(&bent_normal_lighting_input);
+        let environment_map_lighting_input = &bent_normal_lighting_input;
+#else   // STANDARD_MATERIAL_ANISOTROPY
+        let environment_map_lighting_input = &lighting_input;
+#endif  // STANDARD_MATERIAL_ANISOTROPY
+
         let environment_light = environment_map::environment_map_light(
-            &lighting_input,
+            environment_map_lighting_input,
             &clusterable_object_index_ranges,
-            found_diffuse_indirect
+            found_diffuse_indirect,
         );
 
         indirect_light += environment_light.diffuse * diffuse_occlusion +
             environment_light.specular * specular_occlusion;
     }
-
 #endif  // ENVIRONMENT_MAP
 
     // Ambient light (indirect)
-    indirect_light += ambient::ambient_light(in.world_position, in.N, in.V, NdotV, diffuse_color, F0, perceptual_roughness, diffuse_occlusion);
+    // If we are lightmapped, disable the ambient contribution if requested.
+    // This is to avoid double-counting ambient light. (It might be part of the lightmap)
+#ifdef LIGHTMAP
+    let enable_ambient = view_bindings::lights.ambient_light_affects_lightmapped_meshes != 0u;
+#else   // LIGHTMAP
+    let enable_ambient = true;
+#endif  // LIGHTMAP
+    if (enable_ambient) {
+        indirect_light += ambient::ambient_light(in.world_position, in.N, in.V, NdotV, diffuse_color, F0, perceptual_roughness, diffuse_occlusion);
+    }
 
     // we'll use the specular component of the transmitted environment
     // light in the call to `specular_transmissive_light()` below
@@ -743,6 +757,7 @@ fn apply_pbr_lighting(
 }
 #endif // PREPASS_FRAGMENT
 
+#ifdef DISTANCE_FOG
 fn apply_fog(fog_params: mesh_view_types::Fog, input_color: vec4<f32>, fragment_world_position: vec3<f32>, view_world_position: vec3<f32>) -> vec4<f32> {
     let view_to_world = fragment_world_position.xyz - view_world_position.xyz;
 
@@ -780,6 +795,7 @@ fn apply_fog(fog_params: mesh_view_types::Fog, input_color: vec4<f32>, fragment_
         return input_color;
     }
 }
+#endif  // DISTANCE_FOG
 
 #ifdef PREMULTIPLY_ALPHA
 fn premultiply_alpha(standard_material_flags: u32, color: vec4<f32>) -> vec4<f32> {
@@ -841,10 +857,12 @@ fn main_pass_post_lighting_processing(
 ) -> vec4<f32> {
     var output_color = input_color;
 
+#ifdef DISTANCE_FOG
     // fog
-    if (view_bindings::fog.mode != mesh_view_types::FOG_MODE_OFF && (pbr_input.material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_FOG_ENABLED_BIT) != 0u) {
+    if ((pbr_input.material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_FOG_ENABLED_BIT) != 0u) {
         output_color = apply_fog(view_bindings::fog, output_color, pbr_input.world_position.xyz, view_bindings::view.world_position.xyz);
     }
+#endif  // DISTANCE_FOG
 
 #ifdef TONEMAP_IN_SHADER
     output_color = tone_mapping(output_color, view_bindings::view.color_grading);

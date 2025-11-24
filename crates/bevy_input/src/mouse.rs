@@ -4,8 +4,9 @@ use crate::{ButtonInput, ButtonState};
 use bevy_ecs::{
     change_detection::DetectChangesMut,
     entity::Entity,
-    event::{Event, EventReader},
-    system::{ResMut, Resource},
+    message::{Message, MessageReader},
+    resource::Resource,
+    system::ResMut,
 };
 use bevy_math::Vec2;
 #[cfg(feature = "bevy_reflect")]
@@ -25,8 +26,12 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 ///
 /// The event is read inside of the [`mouse_button_input_system`]
 /// to update the [`ButtonInput<MouseButton>`] resource.
-#[derive(Event, Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
+#[derive(Message, Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Clone)
+)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
     all(feature = "serialize", feature = "bevy_reflect"),
@@ -55,7 +60,7 @@ pub struct MouseButtonInput {
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
-    reflect(Debug, Hash, PartialEq)
+    reflect(Debug, Hash, PartialEq, Clone)
 )]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -86,8 +91,12 @@ pub enum MouseButton {
 /// However, the event data does not make it possible to distinguish which device it is referring to.
 ///
 /// [`DeviceEvent::MouseMotion`]: https://docs.rs/winit/latest/winit/event/enum.DeviceEvent.html#variant.MouseMotion
-#[derive(Event, Debug, Clone, Copy, PartialEq)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
+#[derive(Message, Debug, Clone, Copy, PartialEq)]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Clone)
+)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
     all(feature = "serialize", feature = "bevy_reflect"),
@@ -104,8 +113,12 @@ pub struct MouseMotion {
 ///
 /// The value of the event can either be interpreted as the amount of lines or the amount of pixels
 /// to scroll.
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
+#[derive(Debug, Hash, Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Clone)
+)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
     all(feature = "serialize", feature = "bevy_reflect"),
@@ -124,11 +137,27 @@ pub enum MouseScrollUnit {
     Pixel,
 }
 
+impl MouseScrollUnit {
+    /// An approximate conversion factor to account for the difference between
+    /// [`MouseScrollUnit::Line`] and [`MouseScrollUnit::Pixel`].
+    ///
+    /// Each line corresponds to many pixels; this must be corrected for in order to ensure that
+    /// mouse wheel controls are scaled properly regardless of the provided input events for the end user.
+    ///
+    /// This value is correct for Microsoft Edge, but its validity has not been broadly tested.
+    /// Please file an issue if you find that this differs on certain platforms or hardware!
+    pub const SCROLL_UNIT_CONVERSION_FACTOR: f32 = 100.;
+}
+
 /// A mouse wheel event.
 ///
 /// This event is the translated version of the `WindowEvent::MouseWheel` from the `winit` crate.
-#[derive(Event, Debug, Clone, Copy, PartialEq)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
+#[derive(Message, Debug, Clone, Copy, PartialEq)]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Clone)
+)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
     all(feature = "serialize", feature = "bevy_reflect"),
@@ -153,7 +182,7 @@ pub struct MouseWheel {
 /// the latter has convenient functions like [`ButtonInput::pressed`], [`ButtonInput::just_pressed`] and [`ButtonInput::just_released`].
 pub fn mouse_button_input_system(
     mut mouse_button_input: ResMut<ButtonInput<MouseButton>>,
-    mut mouse_button_input_events: EventReader<MouseButtonInput>,
+    mut mouse_button_input_events: MessageReader<MouseButtonInput>,
 ) {
     mouse_button_input.bypass_change_detection().clear();
     for event in mouse_button_input_events.read() {
@@ -173,7 +202,7 @@ pub fn mouse_button_input_system(
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
-    reflect(Debug, Default, Resource, PartialEq)
+    reflect(Debug, Default, Resource, PartialEq, Clone)
 )]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -194,7 +223,7 @@ pub struct AccumulatedMouseMotion {
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
-    reflect(Debug, Default, Resource, PartialEq)
+    reflect(Debug, Default, Resource, PartialEq, Clone)
 )]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -222,7 +251,7 @@ impl Default for AccumulatedMouseScroll {
 /// Updates the [`AccumulatedMouseMotion`] resource using the [`MouseMotion`] event.
 /// The value of [`AccumulatedMouseMotion`] is reset to zero every frame
 pub fn accumulate_mouse_motion_system(
-    mut mouse_motion_event: EventReader<MouseMotion>,
+    mut mouse_motion_event: MessageReader<MouseMotion>,
     mut accumulated_mouse_motion: ResMut<AccumulatedMouseMotion>,
 ) {
     let mut delta = Vec2::ZERO;
@@ -235,7 +264,7 @@ pub fn accumulate_mouse_motion_system(
 /// Updates the [`AccumulatedMouseScroll`] resource using the [`MouseWheel`] event.
 /// The value of [`AccumulatedMouseScroll`] is reset to zero every frame
 pub fn accumulate_mouse_scroll_system(
-    mut mouse_scroll_event: EventReader<MouseWheel>,
+    mut mouse_scroll_event: MessageReader<MouseWheel>,
     mut accumulated_mouse_scroll: ResMut<AccumulatedMouseScroll>,
 ) {
     let mut delta = Vec2::ZERO;

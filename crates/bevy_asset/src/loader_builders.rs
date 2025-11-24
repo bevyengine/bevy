@@ -7,7 +7,7 @@ use crate::{
     Asset, AssetLoadError, AssetPath, ErasedAssetLoader, ErasedLoadedAsset, Handle, LoadContext,
     LoadDirectError, LoadedAsset, LoadedUntypedAsset, UntypedHandle,
 };
-use alloc::sync::Arc;
+use alloc::{borrow::ToOwned, boxed::Box, sync::Arc};
 use core::any::TypeId;
 
 // Utility type for handling the sources of reader references
@@ -305,15 +305,21 @@ impl NestedLoader<'_, '_, StaticTyped, Deferred> {
     pub fn load<'c, A: Asset>(self, path: impl Into<AssetPath<'c>>) -> Handle<A> {
         let path = path.into().to_owned();
         let handle = if self.load_context.should_load_dependencies {
-            self.load_context
-                .asset_server
-                .load_with_meta_transform(path, self.meta_transform, ())
+            self.load_context.asset_server.load_with_meta_transform(
+                path,
+                self.meta_transform,
+                (),
+                true,
+            )
         } else {
             self.load_context
                 .asset_server
-                .get_or_create_path_handle(path, None)
+                .get_or_create_path_handle(path, self.meta_transform)
         };
-        self.load_context.dependencies.insert(handle.id().untyped());
+        // `load_with_meta_transform` and `get_or_create_path_handle` always returns a Strong
+        // variant, so we are safe to unwrap.
+        let index = (&handle).try_into().unwrap();
+        self.load_context.dependencies.insert(index);
         handle
     }
 }
@@ -346,7 +352,10 @@ impl NestedLoader<'_, '_, DynamicTyped, Deferred> {
                     self.meta_transform,
                 )
         };
-        self.load_context.dependencies.insert(handle.id());
+        // `load_erased_with_meta_transform` and `get_or_create_path_handle_erased` always returns a
+        // Strong variant, so we are safe to unwrap.
+        let index = (&handle).try_into().unwrap();
+        self.load_context.dependencies.insert(index);
         handle
     }
 }
@@ -367,7 +376,10 @@ impl NestedLoader<'_, '_, UnknownTyped, Deferred> {
                 .asset_server
                 .get_or_create_path_handle(path, self.meta_transform)
         };
-        self.load_context.dependencies.insert(handle.id().untyped());
+        // `load_unknown_type_with_meta_transform` and `get_or_create_path_handle` always returns a
+        // Strong variant, so we are safe to unwrap.
+        let index = (&handle).try_into().unwrap();
+        self.load_context.dependencies.insert(index);
         handle
     }
 }
@@ -387,13 +399,21 @@ impl<'builder, 'reader, T> NestedLoader<'_, '_, T, Immediate<'builder, 'reader>>
         path: &AssetPath<'static>,
         asset_type_id: Option<TypeId>,
     ) -> Result<(Arc<dyn ErasedAssetLoader>, ErasedLoadedAsset), LoadDirectError> {
+        if path.label().is_some() {
+            return Err(LoadDirectError::RequestedSubasset(path.clone()));
+        }
+        self.load_context
+            .asset_server
+            .write_infos()
+            .stats
+            .started_load_tasks += 1;
         let (mut meta, loader, mut reader) = if let Some(reader) = self.mode.reader {
             let loader = if let Some(asset_type_id) = asset_type_id {
                 self.load_context
                     .asset_server
                     .get_asset_loader_with_asset_type_id(asset_type_id)
                     .await
-                    .map_err(|error| LoadDirectError {
+                    .map_err(|error| LoadDirectError::LoadError {
                         dependency: path.clone(),
                         error: error.into(),
                     })?
@@ -402,7 +422,7 @@ impl<'builder, 'reader, T> NestedLoader<'_, '_, T, Immediate<'builder, 'reader>>
                     .asset_server
                     .get_path_asset_loader(path)
                     .await
-                    .map_err(|error| LoadDirectError {
+                    .map_err(|error| LoadDirectError::LoadError {
                         dependency: path.clone(),
                         error: error.into(),
                     })?
@@ -415,7 +435,7 @@ impl<'builder, 'reader, T> NestedLoader<'_, '_, T, Immediate<'builder, 'reader>>
                 .asset_server
                 .get_meta_loader_and_reader(path, asset_type_id)
                 .await
-                .map_err(|error| LoadDirectError {
+                .map_err(|error| LoadDirectError::LoadError {
                     dependency: path.clone(),
                     error,
                 })?;
@@ -428,7 +448,7 @@ impl<'builder, 'reader, T> NestedLoader<'_, '_, T, Immediate<'builder, 'reader>>
 
         let asset = self
             .load_context
-            .load_direct_internal(path.clone(), meta, &*loader, reader.as_mut())
+            .load_direct_internal(path.clone(), meta.as_ref(), &*loader, reader.as_mut())
             .await?;
         Ok((loader, asset))
     }
@@ -453,15 +473,17 @@ impl NestedLoader<'_, '_, StaticTyped, Immediate<'_, '_>> {
         self.load_internal(&path, Some(TypeId::of::<A>()))
             .await
             .and_then(move |(loader, untyped_asset)| {
-                untyped_asset.downcast::<A>().map_err(|_| LoadDirectError {
-                    dependency: path.clone(),
-                    error: AssetLoadError::RequestedHandleTypeMismatch {
-                        path,
-                        requested: TypeId::of::<A>(),
-                        actual_asset_name: loader.asset_type_name(),
-                        loader_name: loader.type_name(),
-                    },
-                })
+                untyped_asset
+                    .downcast::<A>()
+                    .map_err(|_| LoadDirectError::LoadError {
+                        dependency: path.clone(),
+                        error: AssetLoadError::RequestedHandleTypeMismatch {
+                            path,
+                            requested: TypeId::of::<A>(),
+                            actual_asset_name: loader.asset_type_name(),
+                            loader_name: loader.type_name(),
+                        },
+                    })
             })
     }
 }

@@ -1,7 +1,7 @@
 //! This example shows how to configure Physically Based Rendering (PBR) parameters.
 
+use bevy::camera::ScalingMode;
 use bevy::prelude::*;
-use bevy::render::camera::ScalingMode;
 
 fn main() {
     App::new()
@@ -67,8 +67,8 @@ fn setup(
         },
         Node {
             position_type: PositionType::Absolute,
-            top: Val::Px(20.0),
-            left: Val::Px(100.0),
+            top: px(20),
+            left: px(100),
             ..default()
         },
     ));
@@ -81,12 +81,12 @@ fn setup(
         },
         Node {
             position_type: PositionType::Absolute,
-            top: Val::Px(130.0),
+            top: px(130),
             right: Val::ZERO,
             ..default()
         },
-        Transform {
-            rotation: Quat::from_rotation_z(std::f32::consts::PI / 2.0),
+        UiTransform {
+            rotation: Rot2::degrees(90.),
             ..default()
         },
     ));
@@ -99,8 +99,8 @@ fn setup(
         },
         Node {
             position_type: PositionType::Absolute,
-            bottom: Val::Px(20.0),
-            right: Val::Px(20.0),
+            bottom: px(20),
+            right: px(20),
             ..default()
         },
         EnvironmentMapLabel,
@@ -128,7 +128,7 @@ fn environment_map_load_finish(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     environment_map: Single<&EnvironmentMapLight>,
-    label_entity: Single<Entity, With<EnvironmentMapLabel>>,
+    label_entity: Option<Single<Entity, With<EnvironmentMapLabel>>>,
 ) {
     if asset_server
         .load_state(&environment_map.diffuse_map)
@@ -137,7 +137,10 @@ fn environment_map_load_finish(
             .load_state(&environment_map.specular_map)
             .is_loaded()
     {
-        commands.entity(*label_entity).despawn();
+        // Do not attempt to remove `label_entity` if it has already been removed.
+        if let Some(label_entity) = label_entity {
+            commands.entity(*label_entity).despawn();
+        }
     }
 }
 

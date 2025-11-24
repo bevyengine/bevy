@@ -12,7 +12,11 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 /// An infinite half-line starting at `origin` and going in `direction` in 2D space.
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Clone)
+)]
 #[cfg_attr(
     all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Deserialize, Serialize)
@@ -54,7 +58,11 @@ impl Ray2d {
 /// An infinite half-line starting at `origin` and going in `direction` in 3D space.
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Clone)
+)]
 #[cfg_attr(
     all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Deserialize, Serialize)

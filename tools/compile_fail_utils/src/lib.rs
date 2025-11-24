@@ -7,13 +7,14 @@ use std::{
 pub use ui_test;
 
 use ui_test::{
+    bless_output_files,
     color_eyre::eyre::eyre,
     default_file_filter, default_per_file_config,
     dependencies::DependencyBuilder,
-    run_tests_generic,
+    ignore_output_conflict, run_tests_generic,
     spanned::Spanned,
     status_emitter::{Gha, StatusEmitter, Text},
-    Args, Config, OutputConflictHandling,
+    Args, Config,
 };
 
 /// Use this instead of hand rolling configs.
@@ -27,10 +28,14 @@ fn basic_config(root_dir: impl Into<PathBuf>, args: &Args) -> ui_test::Result<Co
     match root_dir.try_exists() {
         Ok(true) => { /* success */ }
         Ok(false) => {
-            return Err(eyre!("path does not exist: {:?}", root_dir));
+            return Err(eyre!("path does not exist: {}", root_dir.display()));
         }
         Err(error) => {
-            return Err(eyre!("failed to read path: {:?} ({:?})", root_dir, error));
+            return Err(eyre!(
+                "failed to read path: {} ({})",
+                root_dir.display(),
+                error
+            ));
         }
     }
 
@@ -40,10 +45,10 @@ fn basic_config(root_dir: impl Into<PathBuf>, args: &Args) -> ui_test::Result<Co
                 .to_string(),
         ),
         output_conflict_handling: if env::var_os("BLESS").is_some() {
-            OutputConflictHandling::Bless
+            bless_output_files
         } else {
             // stderr output changes between rust versions so we just rely on annotations
-            OutputConflictHandling::Ignore
+            ignore_output_conflict
         },
         ..Config::rustc(root_dir)
     };
@@ -54,7 +59,9 @@ fn basic_config(root_dir: impl Into<PathBuf>, args: &Args) -> ui_test::Result<Co
 
     // Don't leak contributor filesystem paths
     config.path_stderr_filter(Path::new(bevy_root), b"$BEVY_ROOT");
-    config.path_stderr_filter(Path::new(env!("RUSTUP_HOME")), b"$RUSTUP_HOME");
+    if let Some(path) = option_env!("RUSTUP_HOME") {
+        config.path_stderr_filter(Path::new(path), b"$RUSTUP_HOME");
+    }
 
     // ui_test doesn't compile regex with perl character classes.
     // \pL = unicode class for letters, \pN = unicode class for numbers
@@ -109,10 +116,18 @@ pub fn test_with_multiple_configs(
     test_name: impl Into<String>,
     configs: impl IntoIterator<Item = ui_test::Result<Config>>,
 ) -> ui_test::Result<()> {
-    let configs = configs.into_iter().collect::<ui_test::Result<Vec<Config>>>()?;
+    let configs = configs
+        .into_iter()
+        .collect::<ui_test::Result<Vec<Config>>>()?;
 
     let emitter: Box<dyn StatusEmitter + Send> = if env::var_os("CI").is_some() {
-        Box::new((Text::verbose(), Gha::<true> { name: test_name.into() }))
+        Box::new((
+            Text::verbose(),
+            Gha {
+                group: true,
+                name: test_name.into(),
+            },
+        ))
     } else {
         Box::new(Text::quiet())
     };

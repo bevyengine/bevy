@@ -15,7 +15,11 @@ use thiserror::Error;
 #[doc = include_str!("../docs/diagrams/model_graph.svg")]
 /// </div>
 #[derive(Debug, Clone, Copy, PartialEq)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(PartialEq, Default))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Clone, PartialEq, Default)
+)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
     all(feature = "serialize", feature = "bevy_reflect"),
@@ -141,17 +145,17 @@ impl Srgba {
             3 => {
                 let [l, b] = u16::from_str_radix(hex, 16)?.to_be_bytes();
                 let (r, g, b) = (l & 0x0F, (b & 0xF0) >> 4, b & 0x0F);
-                Ok(Self::rgb_u8(r << 4 | r, g << 4 | g, b << 4 | b))
+                Ok(Self::rgb_u8((r << 4) | r, (g << 4) | g, (b << 4) | b))
             }
             // RGBA
             4 => {
                 let [l, b] = u16::from_str_radix(hex, 16)?.to_be_bytes();
                 let (r, g, b, a) = ((l & 0xF0) >> 4, l & 0xF, (b & 0xF0) >> 4, b & 0x0F);
                 Ok(Self::rgba_u8(
-                    r << 4 | r,
-                    g << 4 | g,
-                    b << 4 | b,
-                    a << 4 | a,
+                    (r << 4) | r,
+                    (g << 4) | g,
+                    (b << 4) | b,
+                    (a << 4) | a,
                 ))
             }
             // RRGGBB
@@ -173,8 +177,8 @@ impl Srgba {
     pub fn to_hex(&self) -> String {
         let [r, g, b, a] = self.to_u8_array();
         match a {
-            255 => format!("#{:02X}{:02X}{:02X}", r, g, b),
-            _ => format!("#{:02X}{:02X}{:02X}{:02X}", r, g, b, a),
+            255 => format!("#{r:02X}{g:02X}{b:02X}"),
+            _ => format!("#{r:02X}{g:02X}{b:02X}{a:02X}"),
         }
     }
 

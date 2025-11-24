@@ -1,11 +1,12 @@
 //! System parameter for computing up-to-date [`GlobalTransform`]s.
 
 use bevy_ecs::{
+    entity::EntityNotSpawnedError,
+    hierarchy::ChildOf,
     prelude::Entity,
     query::QueryEntityError,
     system::{Query, SystemParam},
 };
-use bevy_hierarchy::{HierarchyQueryExt, Parent};
 use thiserror::Error;
 
 use crate::components::{GlobalTransform, Transform};
@@ -18,7 +19,7 @@ use crate::components::{GlobalTransform, Transform};
 /// the last time the transform propagation systems ran.
 #[derive(SystemParam)]
 pub struct TransformHelper<'w, 's> {
-    parent_query: Query<'w, 's, &'static Parent>,
+    parent_query: Query<'w, 's, &'static ChildOf>,
     transform_query: Query<'w, 's, &'static Transform>,
 }
 
@@ -52,11 +53,11 @@ fn map_error(err: QueryEntityError, ancestor: bool) -> ComputeGlobalTransformErr
     use ComputeGlobalTransformError::*;
     match err {
         QueryEntityError::QueryDoesNotMatch(entity, _) => MissingTransform(entity),
-        QueryEntityError::NoSuchEntity(entity) => {
+        QueryEntityError::NotSpawned(error) => {
             if ancestor {
-                MalformedHierarchy(entity)
+                MalformedHierarchy(error)
             } else {
-                NoSuchEntity(entity)
+                NoSuchEntity(error)
             }
         }
         QueryEntityError::AliasedMutability(_) => unreachable!(),
@@ -70,21 +71,21 @@ pub enum ComputeGlobalTransformError {
     #[error("The entity {0:?} or one of its ancestors is missing the `Transform` component")]
     MissingTransform(Entity),
     /// The entity does not exist.
-    #[error("The entity {0:?} does not exist")]
-    NoSuchEntity(Entity),
+    #[error("The entity does not exist: {0}")]
+    NoSuchEntity(EntityNotSpawnedError),
     /// An ancestor is missing.
     /// This probably means that your hierarchy has been improperly maintained.
-    #[error("The ancestor {0:?} is missing")]
-    MalformedHierarchy(Entity),
+    #[error("The ancestor is missing: {0}")]
+    MalformedHierarchy(EntityNotSpawnedError),
 }
 
 #[cfg(test)]
 mod tests {
+    use alloc::{vec, vec::Vec};
     use core::f32::consts::TAU;
 
     use bevy_app::App;
-    use bevy_ecs::system::SystemState;
-    use bevy_hierarchy::BuildChildren;
+    use bevy_ecs::{hierarchy::ChildOf, system::SystemState};
     use bevy_math::{Quat, Vec3};
 
     use crate::{
@@ -123,8 +124,8 @@ mod tests {
         for transform in transforms {
             let mut e = app.world_mut().spawn(transform);
 
-            if let Some(entity) = entity {
-                e.set_parent(entity);
+            if let Some(parent) = entity {
+                e.insert(ChildOf(parent));
             }
 
             entity = Some(e.id());

@@ -1,45 +1,31 @@
-use bevy_hierarchy::Children;
-use bevy_math::Vec3;
-pub use bevy_mesh::*;
-use morph::{MeshMorphWeights, MorphWeights};
 pub mod allocator;
-mod components;
 use crate::{
-    primitives::Aabb,
     render_asset::{PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets},
-    render_resource::TextureView,
     texture::GpuImage,
     RenderApp,
 };
 use allocator::MeshAllocatorPlugin;
-use bevy_app::{App, Plugin, PostUpdate};
-use bevy_asset::{AssetApp, AssetId, RenderAssetUsages};
+use bevy_app::{App, Plugin};
+use bevy_asset::{AssetId, RenderAssetUsages};
 use bevy_ecs::{
-    entity::Entity,
-    query::{Changed, With},
-    system::Query,
-};
-use bevy_ecs::{
-    query::Without,
+    prelude::*,
     system::{
         lifetimeless::{SRes, SResMut},
         SystemParamItem,
     },
 };
-pub use components::{Mesh2d, Mesh3d};
+#[cfg(feature = "morph")]
+use bevy_mesh::morph::{MeshMorphWeights, MorphWeights};
+use bevy_mesh::*;
 use wgpu::IndexFormat;
 
-/// Adds the [`Mesh`] as an asset and makes sure that they are extracted and prepared for the GPU.
-pub struct MeshPlugin;
+/// Makes sure that [`Mesh`]es are extracted and prepared for the GPU.
+/// Does *not* add the [`Mesh`] as an asset. Use [`MeshPlugin`] for that.
+pub struct MeshRenderAssetPlugin;
 
-impl Plugin for MeshPlugin {
+impl Plugin for MeshRenderAssetPlugin {
     fn build(&self, app: &mut App) {
-        app.init_asset::<Mesh>()
-            .init_asset::<skinning::SkinnedMeshInverseBindposes>()
-            .register_asset_reflect::<Mesh>()
-            .register_type::<Mesh3d>()
-            .register_type::<skinning::SkinnedMesh>()
-            .register_type::<Vec<Entity>>()
+        app
             // 'Mesh' must be prepared after 'Image' as meshes rely on the morph target image being ready
             .add_plugins(RenderAssetPlugin::<RenderMesh, GpuImage>::default())
             .add_plugins(MeshAllocatorPlugin);
@@ -54,12 +40,15 @@ impl Plugin for MeshPlugin {
 
 /// [Inherit weights](inherit_weights) from glTF mesh parent entity to direct
 /// bevy mesh child entities (ie: glTF primitive).
+#[cfg(feature = "morph")]
 pub struct MorphPlugin;
+#[cfg(feature = "morph")]
 impl Plugin for MorphPlugin {
     fn build(&self, app: &mut App) {
-        app.register_type::<MorphWeights>()
-            .register_type::<MeshMorphWeights>()
-            .add_systems(PostUpdate, inherit_weights);
+        app.add_systems(
+            bevy_app::PostUpdate,
+            inherit_weights.in_set(InheritWeightSystems),
+        );
     }
 }
 
@@ -67,6 +56,7 @@ impl Plugin for MorphPlugin {
 /// should be inherited by children meshes.
 ///
 /// Only direct children are updated, to fulfill the expectations of glTF spec.
+#[cfg(feature = "morph")]
 pub fn inherit_weights(
     morph_nodes: Query<(&Children, &MorphWeights), (Without<Mesh3d>, Changed<MorphWeights>)>,
     mut morph_primitives: Query<&mut MeshMorphWeights, With<Mesh3d>>,
@@ -80,26 +70,6 @@ pub fn inherit_weights(
     }
 }
 
-pub trait MeshAabb {
-    /// Compute the Axis-Aligned Bounding Box of the mesh vertices in model space
-    ///
-    /// Returns `None` if `self` doesn't have [`Mesh::ATTRIBUTE_POSITION`] of
-    /// type [`VertexAttributeValues::Float32x3`], or if `self` doesn't have any vertices.
-    fn compute_aabb(&self) -> Option<Aabb>;
-}
-
-impl MeshAabb for Mesh {
-    fn compute_aabb(&self) -> Option<Aabb> {
-        let Some(VertexAttributeValues::Float32x3(values)) =
-            self.attribute(Mesh::ATTRIBUTE_POSITION)
-        else {
-            return None;
-        };
-
-        Aabb::enclosing(values.iter().map(|p| Vec3::from_slice(p)))
-    }
-}
-
 /// The render world representation of a [`Mesh`].
 #[derive(Debug, Clone)]
 pub struct RenderMesh {
@@ -107,7 +77,8 @@ pub struct RenderMesh {
     pub vertex_count: u32,
 
     /// Morph targets for the mesh, if present.
-    pub morph_targets: Option<TextureView>,
+    #[cfg(feature = "morph")]
+    pub morph_targets: Option<crate::render_resource::TextureView>,
 
     /// Information about the mesh data buffers, including whether the mesh uses
     /// indices or not.
@@ -129,6 +100,12 @@ impl RenderMesh {
     #[inline]
     pub fn primitive_topology(&self) -> PrimitiveTopology {
         self.key_bits.primitive_topology()
+    }
+
+    /// Returns true if this mesh uses an index buffer or false otherwise.
+    #[inline]
+    pub fn indexed(&self) -> bool {
+        matches!(self.buffer_info, RenderMeshBufferInfo::Indexed { .. })
     }
 }
 
@@ -158,7 +135,7 @@ impl RenderAsset for RenderMesh {
         let mut vertex_size = 0;
         for attribute_data in mesh.attributes() {
             let vertex_format = attribute_data.0.format;
-            vertex_size += vertex_format.get_size() as usize;
+            vertex_size += vertex_format.size() as usize;
         }
 
         let vertex_count = mesh.count_vertices();
@@ -170,11 +147,13 @@ impl RenderAsset for RenderMesh {
     fn prepare_asset(
         mesh: Self::SourceAsset,
         _: AssetId<Self::SourceAsset>,
-        (images, ref mut mesh_vertex_buffer_layouts): &mut SystemParamItem<Self::Param>,
+        (_images, mesh_vertex_buffer_layouts): &mut SystemParamItem<Self::Param>,
+        _: Option<&Self>,
     ) -> Result<Self, PrepareAssetError<Self::SourceAsset>> {
+        #[cfg(feature = "morph")]
         let morph_targets = match mesh.morph_targets() {
             Some(mt) => {
-                let Some(target_image) = images.get(mt) else {
+                let Some(target_image) = _images.get(mt) else {
                     return Err(PrepareAssetError::RetryNextUpdate(mesh));
                 };
                 Some(target_image.texture_view.clone())
@@ -193,17 +172,20 @@ impl RenderAsset for RenderMesh {
         let mesh_vertex_buffer_layout =
             mesh.get_mesh_vertex_buffer_layout(mesh_vertex_buffer_layouts);
 
-        let mut key_bits = BaseMeshPipelineKey::from_primitive_topology(mesh.primitive_topology());
-        key_bits.set(
-            BaseMeshPipelineKey::MORPH_TARGETS,
-            mesh.morph_targets().is_some(),
-        );
+        let key_bits = BaseMeshPipelineKey::from_primitive_topology(mesh.primitive_topology());
+        #[cfg(feature = "morph")]
+        let key_bits = if mesh.morph_targets().is_some() {
+            key_bits | BaseMeshPipelineKey::MORPH_TARGETS
+        } else {
+            key_bits
+        };
 
         Ok(RenderMesh {
             vertex_count: mesh.count_vertices() as u32,
             buffer_info,
             key_bits,
             layout: mesh_vertex_buffer_layout,
+            #[cfg(feature = "morph")]
             morph_targets,
         })
     }
