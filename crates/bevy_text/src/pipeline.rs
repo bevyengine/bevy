@@ -123,6 +123,7 @@ impl TextPipeline {
 
 /// create a TextLayoutInfo
 pub fn update_text_layout_info(
+    info: &mut TextLayoutInfo,
     layout: &mut Layout<u32>,
     max_advance: Option<f32>,
     alignment: Alignment,
@@ -131,11 +132,11 @@ pub fn update_text_layout_info(
     texture_atlases: &mut Assets<TextureAtlasLayout>,
     textures: &mut Assets<Image>,
     font_smoothing: FontSmoothing,
-) -> TextLayoutInfo {
+) {
+    info.clear();
+
     layout.break_all_lines(max_advance);
     layout.align(None, alignment, AlignmentOptions::default());
-
-    let mut info = TextLayoutInfo::default();
 
     info.scale_factor = layout.scale();
     info.size = (
@@ -226,6 +227,4 @@ pub fn update_text_layout_info(
             }
         }
     }
-
-    info
 }

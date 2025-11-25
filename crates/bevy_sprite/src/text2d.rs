@@ -202,8 +202,15 @@ pub fn update_text2d_layout(
     let mut previous_scale_factor = 0.;
     let mut previous_mask = &RenderLayers::none();
 
-    for (entity, maybe_entity_mask, block, bounds, text_layout_info, mut computed, mut layout) in
-        &mut text_query
+    for (
+        entity,
+        maybe_entity_mask,
+        block,
+        bounds,
+        mut text_layout_info,
+        mut computed,
+        mut layout,
+    ) in &mut text_query
     {
         let entity_mask = maybe_entity_mask.unwrap_or_default();
 
@@ -235,8 +242,6 @@ pub fn update_text2d_layout(
         computed.needs_rerender = false;
         computed.entities.clear();
 
-        let text_layout_info = text_layout_info.into_inner();
-
         text_pipeline.shape_text(
             entity,
             &mut text_reader,
@@ -249,7 +254,8 @@ pub fn update_text2d_layout(
             &mut computed.entities,
         );
 
-        *text_layout_info = update_text_layout_info(
+        update_text_layout_info(
+            &mut text_layout_info,
             &mut layout.0,
             bounds.width.map(|w| w * scale_factor),
             block.justify.into(),

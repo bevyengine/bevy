@@ -342,7 +342,8 @@ pub fn layout_text_system(
 ) {
     for (node, block, mut text_layout_info, mut text_flags, mut layout) in &mut text_query {
         if node.is_changed() || layout.is_changed() || text_flags.needs_relayout {
-            *text_layout_info = update_text_layout_info(
+            update_text_layout_info(
+                &mut text_layout_info,
                 &mut layout.0,
                 Some(node.size.x).filter(|_| block.linebreak != LineBreak::NoWrap),
                 block.justify.into(),
