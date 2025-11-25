@@ -631,6 +631,14 @@ pub struct TextLayoutInfo {
     pub size: Vec2,
 }
 
+impl TextLayoutInfo {
+    /// Clear any glyph data
+    pub fn clear(&mut self) {
+        self.glyphs.clear();
+        self.run_geometry.clear();
+    }
+}
+
 /// Geometry of a text run used to render text decorations like background colors, strikethrough, and underline.
 /// A run in `bevy_text` is a contiguous sequence of glyphs on a line that share the same text attributes like font,
 /// font size, and line height.
