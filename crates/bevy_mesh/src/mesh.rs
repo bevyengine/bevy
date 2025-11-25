@@ -151,6 +151,12 @@ pub struct Mesh {
     /// with `bevy_solari` (see `bevy_solari`'s docs).
     pub enable_raytracing: bool,
 
+    /// Whether or not to compress vertex attributes when uploading to GPU buffer.
+    /// If the corresponding flag is enabled:
+    ///   Normal and tangent will be Unorm16x2 using octahedral encoding.
+    ///   UV0 and UV1 will be Float16x2.
+    ///   Joint weight will be Unorm16x4.
+    ///   Color will be Float16x4 or Unorm8x4
     pub attribute_compression: MeshAttributeCompressionFlags,
 }
 
@@ -446,6 +452,7 @@ impl Mesh {
     }
 
     /// Returns the size of a vertex in bytes.
+    /// This is affected by the [`Mesh::attribute_compression`].
     pub fn get_vertex_size(&self) -> u64 {
         self.attributes
             .values()
@@ -458,6 +465,7 @@ impl Mesh {
     }
 
     /// Returns the size required for the vertex buffer in bytes.
+    /// This is affected by the [`Mesh::attribute_compression`].
     pub fn get_vertex_buffer_size(&self) -> usize {
         let vertex_size = self.get_vertex_size() as usize;
         let vertex_count = self.count_vertices();
@@ -474,6 +482,7 @@ impl Mesh {
     }
 
     /// Get this `Mesh`'s [`MeshVertexBufferLayout`], used in `SpecializedMeshPipeline`.
+    /// This is affected by the [`Mesh::attribute_compression`].
     pub fn get_mesh_vertex_buffer_layout(
         &self,
         mesh_vertex_buffer_layouts: &mut MeshVertexBufferLayouts,
@@ -556,14 +565,14 @@ impl Mesh {
                     .attribute_compression
                     .contains(MeshAttributeCompressionFlags::COMPRESS_UV0) =>
             {
-                Some(VertexFormat::Unorm16x2)
+                Some(VertexFormat::Float16x2)
             }
             id if id == Self::ATTRIBUTE_UV_1.id
                 && self
                     .attribute_compression
                     .contains(MeshAttributeCompressionFlags::COMPRESS_UV1) =>
             {
-                Some(VertexFormat::Unorm16x2)
+                Some(VertexFormat::Float16x2)
             }
             id if id == Self::ATTRIBUTE_TANGENT.id
                 && self
@@ -619,14 +628,14 @@ impl Mesh {
                     .attribute_compression
                     .contains(MeshAttributeCompressionFlags::COMPRESS_UV0) =>
             {
-                Some(attribute_values.create_unorm16_values())
+                Some(attribute_values.create_f16_values())
             }
             id if id == Self::ATTRIBUTE_UV_1.id
                 && self
                     .attribute_compression
                     .contains(MeshAttributeCompressionFlags::COMPRESS_UV1) =>
             {
-                Some(attribute_values.create_unorm16_values())
+                Some(attribute_values.create_f16_values())
             }
             id if id == Self::ATTRIBUTE_TANGENT.id
                 && self
@@ -649,6 +658,7 @@ impl Mesh {
                 {
                     Some(attribute_values.create_f16_values())
                 } else {
+                    // Create Unorm8x4 color
                     let VertexAttributeValues::Float32x4(uncompressed_values) = attribute_values
                     else {
                         unreachable!()
@@ -680,6 +690,8 @@ impl Mesh {
     ///
     /// This is a convenience method which allocates a Vec.
     /// Prefer pre-allocating and using [`Mesh::write_packed_vertex_buffer_data`] when possible.
+    ///
+    /// This will be compressed data if [`Mesh::attribute_compression`] isn't none.
     pub fn create_packed_vertex_buffer_data(&self) -> Vec<u8> {
         let mut attributes_interleaved_buffer = vec![0; self.get_vertex_buffer_size()];
         self.write_packed_vertex_buffer_data(&mut attributes_interleaved_buffer);
@@ -692,6 +704,8 @@ impl Mesh {
     ///
     /// If the vertex attributes have different lengths, they are all truncated to
     /// the length of the smallest.
+    ///
+    /// This will write compressed data if [`Mesh::attribute_compression`] isn't none.
     pub fn write_packed_vertex_buffer_data(&self, slice: &mut [u8]) {
         let vertex_size = self.get_vertex_size() as usize;
         let vertex_count = self.count_vertices();
