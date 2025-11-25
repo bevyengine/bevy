@@ -171,7 +171,7 @@ fn print_counts(
     mut timer: Local<PrintingTimer>,
     texts: Query<&ViewVisibility, With<Text2d>>,
     font_atlas_set: Res<FontAtlasSet>,
-    font: Res<FontHandle>,
+    _font: Res<FontHandle>,
 ) {
     timer.tick(time.delta());
     if !timer.just_finished() {
