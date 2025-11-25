@@ -3058,6 +3058,8 @@ mod tests {
             ..Default::default()
         };
 
+        assert_eq!(None, node.vertical_scrollbar());
+
         let (gutter, thumb) = node.horizontal_scrollbar().unwrap();
         assert_eq!(
             gutter,
@@ -3089,6 +3091,8 @@ mod tests {
             scroll_position: Vec2::new(0., 0.),
             ..Default::default()
         };
+
+        assert_eq!(None, node.horizontal_scrollbar());
 
         let (gutter, thumb) = node.vertical_scrollbar().unwrap();
         assert_eq!(
