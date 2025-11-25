@@ -5,7 +5,7 @@
 #import bevy_solari::gbuffer_utils::gpixel_resolve
 #import bevy_solari::sampling::{sample_random_light, sample_ggx_vndf, ggx_vndf_pdf}
 #import bevy_solari::scene_bindings::{trace_ray, resolve_ray_hit_full, RAY_T_MIN, RAY_T_MAX}
-#import bevy_solari::world_cache::query_world_cache
+#import bevy_solari::world_cache::{query_world_cache, WORLD_CACHE_CELL_LIFETIME}
 
 @group(1) @binding(0) var view_output: texture_storage_2d<rgba16float, read_write>;
 @group(1) @binding(5) var<storage, read_write> gi_reservoirs_a: array<Reservoir>;
@@ -61,7 +61,7 @@ fn specular_gi(@builtin(global_invocation_id) global_id: vec3<u32>) {
     textureStore(view_output, global_id.xy, pixel_color);
 
 #ifdef VISUALIZE_WORLD_CACHE
-    textureStore(view_output, global_id.xy, vec4(query_world_cache(surface.world_position, surface.world_normal, view.world_position, &rng) * view.exposure, 1.0));
+    textureStore(view_output, global_id.xy, vec4(query_world_cache(surface.world_position, surface.world_normal, view.world_position, WORLD_CACHE_CELL_LIFETIME, &rng) * view.exposure, 1.0));
 #endif
 }
 
@@ -84,7 +84,7 @@ fn trace_glossy_path(initial_ray_origin: vec3<f32>, initial_wi: vec3<f32>, rng: 
         if ray_hit.material.roughness > 0.1 && i != 0u {
             // Surface is very rough, terminate path in the world cache
             let diffuse_brdf = ray_hit.material.base_color / PI;
-            radiance += throughput * diffuse_brdf * query_world_cache(ray_hit.world_position, ray_hit.geometric_world_normal, view.world_position, rng);
+            radiance += throughput * diffuse_brdf * query_world_cache(ray_hit.world_position, ray_hit.geometric_world_normal, view.world_position, WORLD_CACHE_CELL_LIFETIME, rng);
             break;
         } else {
             // Sample direct lighting
