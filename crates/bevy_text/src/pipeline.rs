@@ -17,6 +17,8 @@ use parley::Alignment;
 use parley::AlignmentOptions;
 use parley::Brush;
 use parley::FontContext;
+use parley::FontFeature;
+use parley::FontSettings;
 use parley::FontStack;
 use parley::Layout;
 use parley::LayoutContext;
@@ -49,6 +51,7 @@ pub struct TextSectionStyle<'a, B> {
     family_name: Option<&'a str>,
     font_size: f32,
     line_height: crate::text::LineHeight,
+    font_features: Vec<FontFeature>,
     brush: B,
 }
 
@@ -58,6 +61,7 @@ impl<'a, B: Brush> TextSectionStyle<'a, B> {
         family_id: Option<&'a str>,
         font_size: f32,
         line_height: crate::LineHeight,
+        font_features: Vec<FontFeature>,
         brush: B,
     ) -> Self {
         Self {
@@ -65,6 +69,7 @@ impl<'a, B: Brush> TextSectionStyle<'a, B> {
             font_size,
             line_height,
             brush,
+            font_features,
         }
     }
 }
@@ -95,7 +100,12 @@ pub fn shape_text_from_sections<'a, B: Brush>(
         };
         builder.push(StyleProperty::Brush(style.brush.clone()), range.clone());
         builder.push(StyleProperty::FontSize(style.font_size), range.clone());
-        builder.push(style.line_height.eval(), range);
+        builder.push(style.line_height.eval(), range.clone());
+        let font_features: &[FontFeature] = &style.font_features;
+        builder.push(
+            StyleProperty::FontFeatures(FontSettings::from(font_features)),
+            range,
+        );
     }
     builder.build_into(layout, &text);
 }

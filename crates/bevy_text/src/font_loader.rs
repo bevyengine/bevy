@@ -1,6 +1,5 @@
 use crate::Font;
 use bevy_asset::{io::Reader, AssetLoader, LoadContext};
-use cosmic_text::skrifa::raw::ReadError;
 use thiserror::Error;
 
 #[derive(Default)]

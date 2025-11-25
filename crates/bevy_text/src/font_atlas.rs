@@ -197,7 +197,7 @@ pub fn get_outlined_glyph_texture(
     ])
     .format(swash::zeno::Format::Alpha)
     .render(scaler, glyph_id)
-    .ok_or(TextError::FailedToGetGlyphImage)?;
+    .ok_or(TextError::FailedToGetGlyphImage(glyph_id))?;
 
     let left = image.placement.left;
     let top = image.placement.top;

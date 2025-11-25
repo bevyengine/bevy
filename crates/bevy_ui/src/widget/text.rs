@@ -297,6 +297,7 @@ pub fn shape_text_system(
                 entity: section_entity,
                 depth,
             });
+            let font_features: Vec<_> = (&text_font.font_features).into();
             text_sections.push(text);
             text_section_styles.push(TextSectionStyle::new(
                 fonts
@@ -304,6 +305,7 @@ pub fn shape_text_system(
                     .map(|font| font.family_name.as_str()),
                 text_font.font_size,
                 line_height,
+                font_features,
                 i as u32,
             ));
         }

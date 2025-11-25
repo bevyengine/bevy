@@ -34,8 +34,7 @@ pub struct Font {
 
 impl Font {
     /// Creates a [`Font`] from bytes
-    pub fn try_from_bytes(font_data: Vec<u8>, family_name: String) -> Result<Self, ReadError> {
-        let _ = swash::FontRef::from_index(&font_data, 0)?;
+    pub fn try_from_bytes(font_data: Vec<u8>, family_name: String) -> Font {
         Font {
             blob: Blob::from(font_data),
             family_name,

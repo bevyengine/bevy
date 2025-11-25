@@ -29,6 +29,7 @@ use bevy_text::{
 };
 use bevy_transform::components::Transform;
 use core::any::TypeId;
+use std::arch::x86_64::_MM_FROUND_TO_NEG_INF;
 
 /// The top-level 2D text component.
 ///
@@ -245,12 +246,14 @@ pub fn update_text2d_layout(
                 depth,
             });
             text_sections.push(text);
+            let font_features: Vec<_> = (&text_font.font_features).into();
             text_section_styles.push(TextSectionStyle::new(
                 fonts
                     .get(text_font.font.id())
                     .map(|font| font.family_name.as_str()),
                 text_font.font_size,
                 line_height,
+                font_features,
                 i as u32,
             ));
         }
