@@ -1,12 +1,17 @@
 use crate::add_glyph_to_atlas;
 use crate::get_glyph_atlas_info;
+use crate::Font;
 use crate::FontAtlasKey;
 use crate::FontAtlasSet;
 use crate::FontSmoothing;
 use crate::GlyphCacheKey;
 use crate::RunGeometry;
+use crate::TextEntity;
+use crate::TextHead;
 use crate::TextLayoutInfo;
+use crate::TextReader;
 use bevy_asset::Assets;
+use bevy_ecs::entity::Entity;
 use bevy_image::Image;
 use bevy_image::TextureAtlasLayout;
 use bevy_math::Rect;
@@ -25,6 +30,7 @@ use parley::LayoutContext;
 use parley::PositionedLayoutItem;
 use parley::StyleProperty;
 use parley::WordBreakStrength;
+use smallvec::SmallVec;
 use std::ops::Range;
 use std::usize;
 use swash::scale::ScaleContext;
@@ -102,6 +108,59 @@ pub fn shape_text_from_sections<'a, B: Brush>(
         builder.push(StyleProperty::FontSize(style.font_size), range.clone());
         builder.push(style.line_height.eval(), range.clone());
         let font_features: &[FontFeature] = &style.font_features;
+        builder.push(
+            StyleProperty::FontFeatures(FontSettings::from(font_features)),
+            range,
+        );
+    }
+    builder.build_into(layout, &text);
+}
+
+/// Create layout given text sections and styles
+pub fn shape_text_from_reader<'a, T: TextHead>(
+    text_root_entity: Entity,
+    reader: &mut TextReader<T>,
+    layout: &mut Layout<u32>,
+    font_cx: &'a mut FontContext,
+    layout_cx: &'a mut LayoutContext<u32>,
+    scale_factor: f32,
+    line_break: crate::text::LineBreak,
+    fonts: &Assets<Font>,
+    entities: &mut SmallVec<[TextEntity; 1]>,
+) {
+    let mut text = String::new();
+    let mut section_ranges = Vec::new();
+
+    for (entity, depth, text_section, ..) in reader.iter(text_root_entity) {
+        entities.push(TextEntity { entity, depth });
+        let start = text.len();
+        text.push_str(text_section);
+        let end = text.len();
+        section_ranges.push(start..end);
+    }
+
+    let mut builder = layout_cx.ranged_builder(font_cx, &text, scale_factor, true);
+    if let Some(word_break_strength) = match line_break {
+        crate::LineBreak::WordBoundary => Some(WordBreakStrength::Normal),
+        crate::LineBreak::AnyCharacter => Some(WordBreakStrength::BreakAll),
+        crate::LineBreak::WordOrCharacter => Some(WordBreakStrength::KeepAll),
+        _ => None,
+    } {
+        builder.push_default(StyleProperty::WordBreak(word_break_strength));
+    };
+    for (index, (_, _, _, text_font, _, line_height)) in reader.iter(text_root_entity).enumerate() {
+        let range = section_ranges[index].clone();
+        if let Some(family) = fonts
+            .get(text_font.font.id())
+            .map(|font| font.family_name.as_str())
+        {
+            builder.push(FontStack::from(family), range.clone());
+        };
+        builder.push(StyleProperty::Brush(index as u32), range.clone());
+        builder.push(StyleProperty::FontSize(text_font.font_size), range.clone());
+        builder.push(line_height.eval(), range.clone());
+        let ffv: Vec<_> = (&text_font.font_features).into();
+        let font_features: &[FontFeature] = &ffv;
         builder.push(
             StyleProperty::FontFeatures(FontSettings::from(font_features)),
             range,

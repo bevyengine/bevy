@@ -17,7 +17,7 @@ use bevy_image::prelude::*;
 use bevy_math::Vec2;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_text::{
-    shape_text_from_sections, update_text_layout_info, ComputedTextBlock, ComputedTextLayout, Font,
+    shape_text_from_reader, update_text_layout_info, ComputedTextBlock, ComputedTextLayout, Font,
     FontAtlasSet, FontCx, LayoutCx, LineBreak, LineHeight, ScaleCx, TextBounds, TextColor,
     TextEntity, TextFont, TextHead, TextLayout, TextLayoutInfo, TextReader, TextSectionStyle,
     TextSpanAccess, TextWriter,
@@ -288,36 +288,17 @@ pub fn shape_text_system(
         }
         computed_block.needs_rerender = false;
         computed_block.entities.clear();
-        let mut text_sections: Vec<&str> = Vec::new();
-        let mut text_section_styles: Vec<TextSectionStyle<u32>> = Vec::new();
-        for (i, (section_entity, depth, text, text_font, _, line_height)) in
-            text_reader.iter(entity).enumerate()
-        {
-            computed_block.entities.push(TextEntity {
-                entity: section_entity,
-                depth,
-            });
-            let font_features: Vec<_> = (&text_font.font_features).into();
-            text_sections.push(text);
-            text_section_styles.push(TextSectionStyle::new(
-                fonts
-                    .get(text_font.font.id())
-                    .map(|font| font.family_name.as_str()),
-                text_font.font_size,
-                line_height,
-                font_features,
-                i as u32,
-            ));
-        }
 
-        shape_text_from_sections(
+        shape_text_from_reader(
+            entity,
+            &mut text_reader,
             &mut computed_layout.0,
             &mut font_cx.0,
             &mut layout_cx.0,
-            text_sections.iter().copied(),
-            text_section_styles.iter(),
             computed_target.scale_factor,
             block.linebreak,
+            &fonts,
+            &mut computed_block.entities,
         );
 
         computed_layout.break_all_lines(None);
