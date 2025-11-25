@@ -10,7 +10,10 @@ use alloc::{
     vec,
     vec::Vec,
 };
-use bevy_platform::collections::{HashMap, HashSet};
+use bevy_platform::{
+    collections::{HashMap, HashSet},
+    hash::FixedHasher,
+};
 use bevy_utils::{default, TypeIdMap};
 use core::{
     any::{Any, TypeId},
@@ -698,7 +701,7 @@ pub struct ScheduleGraph {
     anonymous_sets: usize,
     changed: bool,
     settings: ScheduleBuildSettings,
-    passes: IndexMap<TypeId, Box<dyn ScheduleBuildPassObj>>,
+    passes: IndexMap<TypeId, Box<dyn ScheduleBuildPassObj>, FixedHasher>,
 }
 
 impl ScheduleGraph {
