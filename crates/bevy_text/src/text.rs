@@ -249,6 +249,7 @@ pub struct TextFont {
     /// The antialiasing method to use when rendering text.
     pub font_smoothing: FontSmoothing,
     /// OpenType features for .otf fonts that support them.
+    #[reflect(ignore)]
     pub font_features: FontFeatures,
 }
 
@@ -414,9 +415,9 @@ impl From<FontFeatureTag> for u32 {
 ///   FontFeatureTag::TABULAR_FIGURES
 /// ].into();
 /// ```
-#[derive(Clone, Debug, Default, Reflect, PartialEq)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct FontFeatures {
-    features: Vec<(FontFeatureTag, u16)>,
+    features: Vec<FontFeature>,
 }
 
 impl FontFeatures {
@@ -424,12 +425,17 @@ impl FontFeatures {
     pub fn builder() -> FontFeaturesBuilder {
         FontFeaturesBuilder::default()
     }
+
+    /// Returns the `FontFeature` list as a slice.
+    pub fn as_slice(&self) -> &[FontFeature] {
+        &self.features
+    }
 }
 
 /// A builder for [`FontFeatures`].
 #[derive(Clone, Default)]
 pub struct FontFeaturesBuilder {
-    features: Vec<(FontFeatureTag, u16)>,
+    features: Vec<FontFeature>,
 }
 
 impl FontFeaturesBuilder {
@@ -446,7 +452,10 @@ impl FontFeaturesBuilder {
     /// For most features, the [`FontFeaturesBuilder::enable`] method should be used instead. A few
     /// features, such as "wght", take numeric values, so this method may be used for these cases.
     pub fn set(mut self, feature_tag: FontFeatureTag, value: u16) -> Self {
-        self.features.push((feature_tag, value));
+        self.features.push(FontFeature {
+            tag: feature_tag.into(),
+            value,
+        });
         self
     }
 
@@ -467,21 +476,14 @@ where
 {
     fn from(value: T) -> Self {
         FontFeatures {
-            features: value.into_iter().map(|x| (x, 1)).collect(),
+            features: value
+                .into_iter()
+                .map(|x| FontFeature {
+                    tag: x.into(),
+                    value: 1,
+                })
+                .collect(),
         }
-    }
-}
-
-impl From<&FontFeatures> for Vec<FontFeature> {
-    fn from(font_features: &FontFeatures) -> Self {
-        font_features
-            .features
-            .iter()
-            .map(|(tag, value)| FontFeature {
-                tag: (*tag).into(),
-                value: *value,
-            })
-            .collect()
     }
 }
 

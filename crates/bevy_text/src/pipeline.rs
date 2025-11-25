@@ -107,10 +107,8 @@ impl TextPipeline {
             builder.push(StyleProperty::Brush(index as u32), range.clone());
             builder.push(StyleProperty::FontSize(text_font.font_size), range.clone());
             builder.push(line_height, range.clone());
-            let ffv: Vec<_> = (&text_font.font_features).into();
-            let font_features: &[FontFeature] = &ffv;
             builder.push(
-                StyleProperty::FontFeatures(FontSettings::from(font_features)),
+                StyleProperty::FontFeatures(FontSettings::from(text_font.font_features.as_slice())),
                 range,
             );
         }
