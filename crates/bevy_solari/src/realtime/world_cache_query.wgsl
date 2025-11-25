@@ -309,7 +309,7 @@ fn select_light_randomly(
     }
 
     let base_inverse_pdf = select_random_light_inverse_pdf_with_count_offset(selected, cell.visible_light_count);
-    return SelectedLight(selected, selected_weight, weight_sum, 1.0);
+    return SelectedLight(selected, selected_weight, weight_sum, base_inverse_pdf);
 }
 
 fn get_cell_size(world_position: vec3<f32>, view_position: vec3<f32>) -> f32 {

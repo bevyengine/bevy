@@ -23,7 +23,7 @@
 @group(1) @binding(13) var<storage, read_write> world_cache_radiance: array<vec4<f32>, #{WORLD_CACHE_SIZE}>;
 @group(1) @binding(14) var<storage, read_write> world_cache_geometry_data: array<WorldCacheGeometryData, #{WORLD_CACHE_SIZE}>;
 @group(1) @binding(15) var<storage, read_write> world_cache_light_data: array<WorldCacheLightDataRead, #{WORLD_CACHE_SIZE}>;
-#ifndef WORLD_CACHE_DECAY
+#ifndef WORLD_CACHE_UPDATE_LIGHTS
 @group(1) @binding(16) var<storage, read_write> world_cache_light_data_new_lights: array<WorldCacheLightDataWrite, #{WORLD_CACHE_SIZE}>;
 #else
 @group(1) @binding(16) var<storage, read_write> world_cache_light_data_new_lights: array<WorldCacheLightDataRead, #{WORLD_CACHE_SIZE}>;

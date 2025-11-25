@@ -4,13 +4,18 @@
 #import bevy_solari::sampling::{calculate_resolved_light_contribution, trace_light_visibility}
 #import bevy_solari::scene_bindings::{ResolvedMaterial, trace_ray, resolve_ray_hit_full, RAY_T_MIN, RAY_T_MAX}
 #import bevy_solari::realtime_bindings::{
+    world_cache_checksums, 
     world_cache_active_cells_count,
     world_cache_active_cell_indices,
     world_cache_geometry_data,
     world_cache_radiance,
+    world_cache_light_data, 
+    world_cache_light_data_new_lights, 
     world_cache_active_cells_new_radiance,
     view,
     constants,
+    WORLD_CACHE_CELL_LIGHT_COUNT,
+    WorldCacheSingleLightData, 
 }
 #import bevy_solari::world_cache::{
     query_world_cache_radiance,
@@ -18,12 +23,69 @@
     evaluate_lighting_from_cache,
     write_world_cache_light,
     WORLD_CACHE_MAX_TEMPORAL_SAMPLES,
+    WORLD_CACHE_EMPTY_CELL,
 }
 
 const MAX_GI_RAY_DISTANCE: f32 = 4.0;
 
+#ifdef WORLD_CACHE_UPDATE_LIGHTS
+
 @compute @workgroup_size(64, 1, 1)
-fn sample_radiance(@builtin(workgroup_id) workgroup_id: vec3<u32>, @builtin(global_invocation_id) active_cell_id: vec3<u32>) {
+fn update_lights(@builtin(global_invocation_id) active_cell_id: vec3<u32>) {
+    if active_cell_id.x < world_cache_active_cells_count {        
+        let cell_index = world_cache_active_cell_indices[active_cell_id.x];
+        var rng = cell_index + constants.frame_index;
+
+        let old_data = world_cache_light_data[cell_index];
+        let new_data = world_cache_light_data_new_lights[cell_index];
+        let new_count = min(WORLD_CACHE_CELL_LIGHT_COUNT, new_data.visible_light_count);
+        world_cache_light_data_new_lights[cell_index].visible_light_count = 0u;
+        var out_i = 0u;
+        var out_lights: array<WorldCacheSingleLightData, WORLD_CACHE_CELL_LIGHT_COUNT>;
+
+        for (var i = 0u; i < new_count; i++) {
+            let data = new_data.visible_lights[i];
+            world_cache_light_data_new_lights[cell_index].visible_lights[i] = WorldCacheSingleLightData(0, 0.0);
+            if data.weight == 0.0 { 
+                break; 
+            }
+
+            var exist_index = 0u;
+            if is_light_in_array(out_lights, out_i, data.light, &exist_index) {
+                out_lights[exist_index].weight = max(out_lights[exist_index].weight, data.weight);
+            } else {
+                out_lights[out_i] = data;
+                out_i++;
+            }
+        }
+        for (var i = 0u; i < old_data.visible_light_count && out_i < WORLD_CACHE_CELL_LIGHT_COUNT; i++) {
+            var exist_index = 0u;
+            if is_light_in_array(out_lights, out_i, old_data.visible_lights[i].light, &exist_index) {
+                out_lights[exist_index].weight = max(out_lights[exist_index].weight, old_data.visible_lights[i].weight);
+            } else {
+                out_lights[out_i] = old_data.visible_lights[i];
+                out_i++;
+            }
+        }
+        world_cache_light_data[cell_index].visible_light_count = out_i;
+        world_cache_light_data[cell_index].visible_lights = out_lights;
+    }
+}
+
+fn is_light_in_array(arr: array<WorldCacheSingleLightData, WORLD_CACHE_CELL_LIGHT_COUNT>, len: u32, light: u32, out_index: ptr<function, u32>) -> bool {
+    var found: bool = false;
+    for (var i = 0u; i < WORLD_CACHE_CELL_LIGHT_COUNT; i++) {
+        let found_here = arr[i].light == light && i < len;
+        *out_index = select(*out_index, i, found_here);
+        found |= found_here;
+    }
+    return found;
+}
+
+#else
+
+@compute @workgroup_size(64, 1, 1)
+fn sample_radiance(@builtin(global_invocation_id) active_cell_id: vec3<u32>) {
     if active_cell_id.x < world_cache_active_cells_count {
         let cell_index = world_cache_active_cell_indices[active_cell_id.x];
         let geometry_data = world_cache_geometry_data[cell_index];
@@ -71,3 +133,5 @@ fn blend_new_samples(@builtin(global_invocation_id) active_cell_id: vec3<u32>) {
         world_cache_radiance[cell_index] = vec4(blended_radiance, sample_count);
     }
 }
+
+#endif

@@ -51,6 +51,7 @@ pub struct SolariLightingNode {
     compact_world_cache_single_block_pipeline: CachedComputePipelineId,
     compact_world_cache_blocks_pipeline: CachedComputePipelineId,
     compact_world_cache_write_active_cells_pipeline: CachedComputePipelineId,
+    update_world_cache_lights_pipeline: CachedComputePipelineId,
     sample_for_world_cache_pipeline: CachedComputePipelineId,
     blend_new_world_cache_samples_pipeline: CachedComputePipelineId,
     presample_light_tiles_pipeline: CachedComputePipelineId,
@@ -116,6 +117,7 @@ impl ViewNode for SolariLightingNode {
             Some(compact_world_cache_single_block_pipeline),
             Some(compact_world_cache_blocks_pipeline),
             Some(compact_world_cache_write_active_cells_pipeline),
+            Some(update_world_cache_lights_pipeline),
             Some(sample_for_world_cache_pipeline),
             Some(blend_new_world_cache_samples_pipeline),
             Some(presample_light_tiles_pipeline),
@@ -135,6 +137,7 @@ impl ViewNode for SolariLightingNode {
             pipeline_cache.get_compute_pipeline(self.compact_world_cache_blocks_pipeline),
             pipeline_cache
                 .get_compute_pipeline(self.compact_world_cache_write_active_cells_pipeline),
+            pipeline_cache.get_compute_pipeline(self.update_world_cache_lights_pipeline),
             pipeline_cache.get_compute_pipeline(self.sample_for_world_cache_pipeline),
             pipeline_cache.get_compute_pipeline(self.blend_new_world_cache_samples_pipeline),
             pipeline_cache.get_compute_pipeline(self.presample_light_tiles_pipeline),
@@ -279,11 +282,17 @@ impl ViewNode for SolariLightingNode {
 
         pass.set_bind_group(2, None, &[]);
 
-        pass.set_pipeline(sample_for_world_cache_pipeline);
+        pass.set_pipeline(update_world_cache_lights_pipeline);
         pass.set_push_constants(
             0,
             bytemuck::cast_slice(&[frame_index, solari_lighting.reset as u32]),
         );
+        pass.dispatch_workgroups_indirect(
+            &solari_lighting_resources.world_cache_active_cells_dispatch,
+            0,
+        );
+
+        pass.set_pipeline(sample_for_world_cache_pipeline);
         pass.dispatch_workgroups_indirect(
             &solari_lighting_resources.world_cache_active_cells_dispatch,
             0,
@@ -458,12 +467,9 @@ impl FromWorld for SolariLightingNode {
             decay_world_cache_pipeline: create_pipeline(
                 "solari_lighting_decay_world_cache_pipeline",
                 "decay_world_cache",
-                load_embedded_asset!(world, "world_cache_decay.wgsl"),
+                load_embedded_asset!(world, "world_cache_compact.wgsl"),
                 Some(&bind_group_layout_world_cache_active_cells_dispatch),
-                vec![
-                    "WORLD_CACHE_NON_ATOMIC_LIFE_BUFFER".into(),
-                    "WORLD_CACHE_DECAY".into(),
-                ],
+                vec!["WORLD_CACHE_NON_ATOMIC_LIFE_BUFFER".into()],
             ),
             compact_world_cache_single_block_pipeline: create_pipeline(
                 "solari_lighting_compact_world_cache_single_block_pipeline",
@@ -485,6 +491,13 @@ impl FromWorld for SolariLightingNode {
                 load_embedded_asset!(world, "world_cache_compact.wgsl"),
                 Some(&bind_group_layout_world_cache_active_cells_dispatch),
                 vec!["WORLD_CACHE_NON_ATOMIC_LIFE_BUFFER".into()],
+            ),
+            update_world_cache_lights_pipeline: create_pipeline(
+                "solari_lighting_update_world_cache_lights_pipeline",
+                "update_lights",
+                load_embedded_asset!(world, "world_cache_update.wgsl"),
+                None,
+                vec!["WORLD_CACHE_UPDATE_LIGHTS".into()],
             ),
             sample_for_world_cache_pipeline: create_pipeline(
                 "solari_lighting_sample_for_world_cache_pipeline",

@@ -1,5 +1,7 @@
-#import bevy_solari::realtime_bindings::{ 
-    world_cache_life, 
+#import bevy_solari::realtime_bindings::{
+    world_cache_checksums,
+    world_cache_life,
+    world_cache_radiance,
     world_cache_a, 
     world_cache_b, 
     world_cache_active_cell_indices,
@@ -13,6 +15,20 @@
 
 var<workgroup> w1: array<u32, 1024u>;
 var<workgroup> w2: array<u32, 1024u>;
+
+@compute @workgroup_size(64, 1, 1)
+fn decay_world_cache(@builtin(global_invocation_id) global_id: vec3<u32>) {
+    var life = world_cache_life[global_id.x];
+    if life > 0u {
+        life -= 1u;
+        world_cache_life[global_id.x] = life;
+
+        if life == 0u {
+            world_cache_checksums[global_id.x] = WORLD_CACHE_EMPTY_CELL;
+            world_cache_radiance[global_id.x] = vec4(0.0);
+        }
+    }
+}
 
 @compute @workgroup_size(1024, 1, 1)
 fn compact_world_cache_single_block(
