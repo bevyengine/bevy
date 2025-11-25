@@ -3020,10 +3020,12 @@ mod tests {
 
     #[test]
     fn computed_node_both_scrollbars() {
-        let mut node = ComputedNode::default();
-        node.size = Vec2::splat(100.);
-        node.scrollbar_size = Vec2::splat(10.);
-        node.content_size = Vec2::splat(100.);
+        let node = ComputedNode {
+            size: Vec2::splat(100.),
+            scrollbar_size: Vec2::splat(10.),
+            content_size: Vec2::splat(100.),
+            ..Default::default()
+        };
 
         let (gutter, thumb) = node.horizontal_scrollbar().unwrap();
         assert_eq!(
@@ -3048,11 +3050,13 @@ mod tests {
 
     #[test]
     fn computed_node_single_horizontal_scrollbar() {
-        let mut node = ComputedNode::default();
-        node.size = Vec2::splat(100.);
-        node.scrollbar_size = Vec2::new(0., 10.);
-        node.content_size = Vec2::new(200., 100.);
-        node.scroll_position = Vec2::new(0., 0.);
+        let mut node = ComputedNode {
+            size: Vec2::splat(100.),
+            scrollbar_size: Vec2::new(0., 10.),
+            content_size: Vec2::new(200., 100.),
+            scroll_position: Vec2::new(0., 0.),
+            ..Default::default()
+        };
 
         let (gutter, thumb) = node.horizontal_scrollbar().unwrap();
         assert_eq!(
@@ -3078,11 +3082,13 @@ mod tests {
 
     #[test]
     fn computed_node_single_vertical_scrollbar() {
-        let mut node = ComputedNode::default();
-        node.size = Vec2::splat(100.);
-        node.scrollbar_size = Vec2::new(10., 0.);
-        node.content_size = Vec2::new(100., 200.);
-        node.scroll_position = Vec2::new(0., 0.);
+        let mut node = ComputedNode {
+            size: Vec2::splat(100.),
+            scrollbar_size: Vec2::new(10., 0.),
+            content_size: Vec2::new(100., 200.),
+            scroll_position: Vec2::new(0., 0.),
+            ..Default::default()
+        };
 
         let (gutter, thumb) = node.vertical_scrollbar().unwrap();
         assert_eq!(
