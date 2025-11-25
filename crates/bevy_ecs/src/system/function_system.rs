@@ -91,6 +91,25 @@ impl SystemMeta {
     #[inline]
     pub fn set_non_send(&mut self) {
         self.flags |= SystemStateFlags::NON_SEND;
+    /// Alternatively, for exclusive systems the ECS can automatically cache a
+    /// `SystemState` for you. The trait [`ExclusiveSystemParam`] is implemented for
+    /// `&'a mut SystemState<P>`, so if your function is an exclusive system
+    /// (takes `&mut World` as its first parameter) you can accept
+    /// `&mut SystemState<...>` directly and the ECS will initialize and persist it
+    /// across invocations. Example:
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// # use bevy_ecs::system::SystemState;
+    /// #
+    /// # #[derive(Message)]
+    /// # struct MyMessage;
+    /// fn exclusive_system(world: &mut World, system_state: &mut SystemState<MessageReader<MyMessage>>) {
+    ///     let mut message_reader = system_state.get_mut(world);
+    ///     for message in message_reader.read() {
+    ///         println!("Hello World!");
+    ///     }
+    /// }
+    /// ```
     }
 
     /// Returns true if the system has deferred [`SystemParam`]'s
