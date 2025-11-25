@@ -59,12 +59,14 @@ fn compact_world_cache_write_active_cells(
     @builtin(local_invocation_index) thread_index: u32,
 ) {
     let compacted_index = world_cache_a[cell_id.x] + world_cache_b[workgroup_id.x];
-    if world_cache_life[cell_id.x] != 0u {
+    let cell_active = world_cache_life[cell_id.x] != 0u;
+
+    if cell_active {
         world_cache_active_cell_indices[compacted_index] = cell_id.x;
     }
 
     if thread_index == 1023u && workgroup_id.x == 1023u {
-        world_cache_active_cells_count = compacted_index + 1u; // TODO: This is 1 even when there are zero active entries in the cache
-        world_cache_active_cells_dispatch = vec3((world_cache_active_cells_count + 1023u) / 1024u, 1u, 1u);
+        world_cache_active_cells_count = compacted_index + u32(cell_active);
+        world_cache_active_cells_dispatch = vec3((world_cache_active_cells_count + 63u) / 64u, 1u, 1u);
     }
 }
