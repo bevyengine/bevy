@@ -14,6 +14,7 @@
     world_cache_life,
     world_cache_geometry_data,
     world_cache_radiance,
+    world_cache_luminance_deltas,
     world_cache_active_cells_new_radiance,
 }
 
@@ -54,11 +55,19 @@ fn blend_new_samples(@builtin(global_invocation_id) active_cell_id: vec3<u32>) {
 
         let old_radiance = world_cache_radiance[cell_index];
         let new_radiance = world_cache_active_cells_new_radiance[active_cell_id.x];
-        let sample_count = min(old_radiance.a + 1.0, WORLD_CACHE_MAX_TEMPORAL_SAMPLES);
+        let luminance_delta = world_cache_luminance_deltas[cell_index];
 
-        let blended_radiance = mix(old_radiance.rgb, new_radiance, 1.0 / sample_count);
+        // https://bsky.app/profile/gboisse.bsky.social/post/3m5blga3ftk2a
+        let sample_count = min(old_radiance.a + 1.0, WORLD_CACHE_MAX_TEMPORAL_SAMPLES);
+        let alpha = abs(luminance_delta) / max(luminance(old_radiance.rgb), 0.001);
+        let max_sample_count = mix(WORLD_CACHE_MAX_TEMPORAL_SAMPLES, 1.0, pow(saturate(alpha), 1.0 / 8.0));
+        let blend_amount = 1.0 / min(sample_count, max_sample_count);
+
+        let blended_radiance = mix(old_radiance.rgb, new_radiance, blend_amount);
+        let blended_luminance_delta = mix(luminance_delta, luminance(blended_radiance) - luminance(old_radiance.rgb), 1.0 / 8.0);
 
         world_cache_radiance[cell_index] = vec4(blended_radiance, sample_count);
+        world_cache_luminance_deltas[cell_index] = blended_luminance_delta;
     }
 }
 
