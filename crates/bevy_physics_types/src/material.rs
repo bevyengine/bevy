@@ -1,31 +1,40 @@
-use bevy_ecs::prelude::Component;
+//! Material properties for physics simulations.
 
-/// USD `physics:staticFriction` doc: "Static friction coefficient. Unitless."
-#[derive(Component, Debug, Clone, Copy, PartialEq)]
-pub struct StaticFriction(pub f32);
-
-impl Default for StaticFriction {
-    fn default() -> Self {
-        Self(0.6)
-    }
+usd_asset! {
+    /// All collisions that have a relationship to this material will have their
+    /// collision response defined through this material. Material properties include
+    /// dynamic and static friction coefficients, restitution (bounciness), and
+    /// density which can be used for body mass computation.
+    Material
 }
 
-/// USD `physics:dynamicFriction` doc: "Dynamic friction coefficient. Unitless."
-#[derive(Component, Debug, Clone, Copy, PartialEq)]
-pub struct DynamicFriction(pub f32);
-
-impl Default for DynamicFriction {
-    fn default() -> Self {
-        Self(0.4)
-    }
+usd_attribute! {
+    /// Dynamic friction coefficient. Unitless.
+    DynamicFriction(f32) = 0.0;
+    apiName = "dynamicFriction"
+    displayName = "Dynamic Friction"
 }
 
-/// USD `physics:restitution` doc: "Restitution coefficient. Unitless."
-#[derive(Component, Debug, Clone, Copy, PartialEq)]
-pub struct Restitution(pub f32);
+usd_attribute! {
+    /// Static friction coefficient. Unitless.
+    StaticFriction(f32) = 0.0;
+    apiName = "staticFriction"
+    displayName = "Static Friction"
+}
 
-impl Default for Restitution {
-    fn default() -> Self {
-        Self(0.2)
-    }
+usd_attribute! {
+    /// Restitution coefficient. Unitless.
+    Restitution(f32) = 0.0;
+    apiName = "restitution"
+    displayName = "Restitution"
+}
+
+usd_attribute! {
+    /// If non-zero, defines the density of the material. This can be
+    /// used for body mass computation, see PhysicsMassAPI.
+    /// Note that if the density is 0.0 it is ignored.
+    /// Units: mass/distance/distance/distance.
+    Density(f32) = 0.0;
+    apiName = "density"
+    displayName = "Density"
 }

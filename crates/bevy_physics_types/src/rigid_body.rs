@@ -1,68 +1,59 @@
-use bevy_ecs::prelude::{Component, Entity};
-use bevy_math::{Quat, Vec3};
+//! Rigid body physics properties.
+//!
+//! The PhysicsRigidBodyAPI applies physics body attributes to any UsdGeomXformable
+//! prim and marks it to be driven by a simulation. If a simulation is running,
+//! it will update the prim's pose. All prims in the hierarchy below are moved
+//! rigidly with the body, except descendants with their own PhysicsRigidBodyAPI
+//! which move independently. This API supports kinematic bodies (moved through
+//! animated poses), sleeping states, and velocity tracking for both linear and
+//! angular motion.
+use bevy_math::prelude::*;
 
-use crate::scene::PhysicsScene;
-
-/// root of physics rigidbody tree
-/// USD `PhysicsRigidBodyAPI`:
-#[derive(Component, Debug, Clone, Copy, PartialEq, Eq)]
-pub struct RigidBody;
-
-/// linear velocity in the same space as the node's xform.
-/// Units: distance/second.
-#[derive(Component, Debug, Clone, Copy, PartialEq)]
-pub struct LinearVelocity(pub Vec3);
-
-impl Default for LinearVelocity {
-    fn default() -> Self {
-        Self(Vec3::ZERO)
-    }
+usd_marker! {
+    /// marks the root of a rigid body
+    RigidBody;
+    apiName = "rigidBodyApi"
+    displayName = "Rigid Body"
 }
 
-/// Angular velocity in the same space as the node's xform.
-/// Units: degrees/second.
-#[derive(Component, Debug, Clone, Copy, PartialEq)]
-pub struct AngularVelocity(pub Vec3);
-
-impl Default for AngularVelocity {
-    fn default() -> Self {
-        Self(Vec3::ZERO)
-    }
+usd_marker! {
+    /// causes the entity to react to external forces
+    Dynamic;
+    apiName = "rigidBodyEnabled"
+    displayName = "Rigid Body Enabled"
 }
 
-/// promise that the item won't move
-/// allows for performance optimizations
-/// incompatable with dynmaic
-#[derive(Component, Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Static;
+usd_marker! {
+    /// The physics engine won't move this entity.
+    /// Determines whether the body is kinematic or not. A kinematic
+    /// body is a body that is moved through animated poses or through
+    /// user defined poses. The simulation derives velocities for the
+    /// kinematic body based on the external motion. When a continuous motion
+    /// is not desired, this kinematic flag should be set to false.
+    Kinematic;
+    apiName = "kinematicEnabled"
+    displayName = "Kinematic Enabled"
+}
 
-/// USD `physics:rigidBodyEnabled`
-/// position driven by physics engine 
-#[derive(Component, Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Dynamic;
+usd_marker! {
+    /// Determines if the body is asleep when the simulation starts.
+    StartsAsleep;
+    apiName = "startsAsleep"
+    displayName = "Starts as Asleep"
+}
 
-/// causes this rigdbody to be manipulated by external force
-/// NOT normal kinematic
-/// if you want kinematic, remove this.
-/// USD `physics:kinematicEnabled`:
-#[derive(Component, Debug, Clone, Copy, PartialEq, Eq)]
-pub struct ExternalForce;
+usd_attribute! {
+    /// Linear velocity in the same space as the node's xform.
+    /// Units: distance/second.
+    Velocity(Vec3) = vec3(0.0, 0.0, 0.0);
+    apiName = "velocity"
+    displayName = "Linear Velocity"
+}
 
-/// PhysicsScene that will simulate this body.
-/// USD `physics:simulationOwner`
-#[derive(Component, Debug, Clone, Copy, PartialEq, Eq)]
-#[relationship(relationship_target = PhysicsScene)]
-pub struct SimulationOwner(pub Entity);
-
-/// USD `physics:startsAsleep`
-/// causes the body to be asleep when the simulation starts.
-#[derive(Component, Debug, Clone, Copy, PartialEq, Eq)]
-pub struct StartsAsleep;
-
-/// Runtime sleeping feedback.
-#[derive(Component, Debug, Clone, Copy, PartialEq, Eq, Default)]
-pub struct BodySleeping(pub bool);
-
-/// can this be auto slept
-#[derive(Component, Debug, Clone, Copy, PartialEq, Eq, Default)]
-pub struct AutoSleep;
+usd_attribute! {
+    /// Angular velocity in the same space as the node's xform.
+    /// Units: degrees/second.
+    AngularVelocity(Vec3) = vec3(0.0, 0.0, 0.0);
+    apiName = "angularVelocity"
+    displayName = "Angular Velocity"
+}

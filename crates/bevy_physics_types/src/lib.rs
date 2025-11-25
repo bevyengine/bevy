@@ -1,13 +1,42 @@
-//! Lightweight physics data model for Bevy.
-pub mod collider;
-pub mod force_field;
-pub mod material;
-pub mod rigid_body;
+#[macro_use]
+mod macros;
+
+pub mod axis;
+
+pub mod global;
+
 pub mod scene;
-pub mod force;
-pub mod event;
+
+pub mod types;
+
+pub mod rigid_body;
+
 pub mod mass;
-pub mod groups;
-pub mod support;
-pub mod detector;
-pub mod raycaster;
+
+pub mod collision;
+
+pub mod mesh_collision;
+
+pub mod material;
+
+pub mod collision_group;
+
+pub mod filtered_pairs;
+
+pub mod joint;
+
+pub mod joint_revolute;
+
+pub mod joint_prismatic;
+
+pub mod joint_spherical;
+
+pub mod joint_distance;
+
+pub mod joint_fixed;
+
+pub mod limit;
+
+pub mod drive;
+
+pub mod articulation;
