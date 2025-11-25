@@ -17,7 +17,7 @@ use bevy_image::prelude::*;
 use bevy_math::Vec2;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_text::{
-    shape_text_from_reader, update_text_layout_info, ComputedTextBlock, ComputedTextLayout, Font,
+    shape_text, update_text_layout_info, ComputedTextBlock, ComputedTextLayout, Font,
     FontAtlasSet, FontCx, LayoutCx, LineBreak, LineHeight, ScaleCx, TextBounds, TextColor,
     TextFont, TextHead, TextLayout, TextLayoutInfo, TextReader, TextSpanAccess, TextWriter,
 };
@@ -288,7 +288,7 @@ pub fn shape_text_system(
         computed_block.needs_rerender = false;
         computed_block.entities.clear();
 
-        shape_text_from_reader(
+        shape_text(
             entity,
             &mut text_reader,
             &mut computed_layout.0,

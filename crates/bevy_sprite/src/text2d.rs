@@ -22,9 +22,9 @@ use bevy_image::prelude::*;
 use bevy_math::{FloatOrd, Vec2, Vec3};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_text::{
-    shape_text_from_reader, update_text_layout_info, ComputedTextBlock, ComputedTextLayout, Font,
-    FontAtlasSet, FontCx, LayoutCx, LineHeight, ScaleCx, TextBounds, TextColor, TextFont, TextHead,
-    TextLayout, TextLayoutInfo, TextReader, TextSpanAccess, TextWriter,
+    shape_text, update_text_layout_info, ComputedTextBlock, ComputedTextLayout, Font, FontAtlasSet,
+    FontCx, LayoutCx, LineHeight, ScaleCx, TextBounds, TextColor, TextFont, TextHead, TextLayout,
+    TextLayoutInfo, TextReader, TextSpanAccess, TextWriter,
 };
 use bevy_transform::components::Transform;
 use core::any::TypeId;
@@ -236,7 +236,7 @@ pub fn update_text2d_layout(
 
         let text_layout_info = text_layout_info.into_inner();
 
-        shape_text_from_reader(
+        shape_text(
             entity,
             &mut text_reader,
             &mut layout.0,

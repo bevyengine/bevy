@@ -20,7 +20,6 @@ use bevy_math::Vec2;
 use parley::swash::FontRef;
 use parley::Alignment;
 use parley::AlignmentOptions;
-use parley::Brush;
 use parley::FontContext;
 use parley::FontFeature;
 use parley::FontSettings;
@@ -31,93 +30,11 @@ use parley::PositionedLayoutItem;
 use parley::StyleProperty;
 use parley::WordBreakStrength;
 use smallvec::SmallVec;
-use std::ops::Range;
 use std::usize;
 use swash::scale::ScaleContext;
 
-fn concat_text_for_layout<'a>(
-    text_sections: impl Iterator<Item = &'a str>,
-) -> (String, Vec<Range<usize>>) {
-    let mut out = String::new();
-    let mut ranges = Vec::new();
-
-    for text_section in text_sections {
-        let start = out.len();
-        out.push_str(text_section);
-        let end = out.len();
-        ranges.push(start..end);
-    }
-
-    (out, ranges)
-}
-
-/// Resolved text style
-#[derive(Clone, Debug)]
-pub struct TextSectionStyle<'a, B> {
-    family_name: Option<&'a str>,
-    font_size: f32,
-    line_height: crate::text::LineHeight,
-    font_features: Vec<FontFeature>,
-    brush: B,
-}
-
-impl<'a, B: Brush> TextSectionStyle<'a, B> {
-    /// new text section style
-    pub fn new(
-        family_id: Option<&'a str>,
-        font_size: f32,
-        line_height: crate::LineHeight,
-        font_features: Vec<FontFeature>,
-        brush: B,
-    ) -> Self {
-        Self {
-            family_name: family_id,
-            font_size,
-            line_height,
-            brush,
-            font_features,
-        }
-    }
-}
-
 /// Create layout given text sections and styles
-pub fn shape_text_from_sections<'a, B: Brush>(
-    layout: &mut Layout<B>,
-    font_cx: &'a mut FontContext,
-    layout_cx: &'a mut LayoutContext<B>,
-    text_sections: impl Iterator<Item = &'a str>,
-    text_section_styles: impl Iterator<Item = &'a TextSectionStyle<'a, B>>,
-    scale_factor: f32,
-    line_break: crate::text::LineBreak,
-) {
-    let (text, section_ranges) = concat_text_for_layout(text_sections);
-    let mut builder = layout_cx.ranged_builder(font_cx, &text, scale_factor, true);
-    if let Some(word_break_strength) = match line_break {
-        crate::LineBreak::WordBoundary => Some(WordBreakStrength::Normal),
-        crate::LineBreak::AnyCharacter => Some(WordBreakStrength::BreakAll),
-        crate::LineBreak::WordOrCharacter => Some(WordBreakStrength::KeepAll),
-        _ => None,
-    } {
-        builder.push_default(StyleProperty::WordBreak(word_break_strength));
-    };
-    for (style, range) in text_section_styles.zip(section_ranges) {
-        if let Some(family) = style.family_name {
-            builder.push(FontStack::from(family), range.clone());
-        };
-        builder.push(StyleProperty::Brush(style.brush.clone()), range.clone());
-        builder.push(StyleProperty::FontSize(style.font_size), range.clone());
-        builder.push(style.line_height.eval(), range.clone());
-        let font_features: &[FontFeature] = &style.font_features;
-        builder.push(
-            StyleProperty::FontFeatures(FontSettings::from(font_features)),
-            range,
-        );
-    }
-    builder.build_into(layout, &text);
-}
-
-/// Create layout given text sections and styles
-pub fn shape_text_from_reader<'a, T: TextHead>(
+pub fn shape_text<'a, T: TextHead>(
     text_root_entity: Entity,
     reader: &mut TextReader<T>,
     layout: &mut Layout<u32>,
@@ -128,15 +45,21 @@ pub fn shape_text_from_reader<'a, T: TextHead>(
     fonts: &Assets<Font>,
     entities: &mut SmallVec<[TextEntity; 1]>,
 ) {
-    let mut text = String::new();
-    let mut section_ranges = Vec::new();
-
+    let mut text_len = 0;
     for (entity, depth, text_section, ..) in reader.iter(text_root_entity) {
-        entities.push(TextEntity { entity, depth });
-        let start = text.len();
+        let end = text_len + text_section.len();
+        let range = text_len..end;
+        text_len = end;
+        entities.push(TextEntity {
+            entity,
+            depth,
+            range,
+        });
+    }
+
+    let mut text = String::with_capacity(text_len);
+    for (_, _, text_section, ..) in reader.iter(text_root_entity) {
         text.push_str(text_section);
-        let end = text.len();
-        section_ranges.push(start..end);
     }
 
     let mut builder = layout_cx.ranged_builder(font_cx, &text, scale_factor, true);
@@ -149,7 +72,7 @@ pub fn shape_text_from_reader<'a, T: TextHead>(
         builder.push_default(StyleProperty::WordBreak(word_break_strength));
     };
     for (index, (_, _, _, text_font, _, line_height)) in reader.iter(text_root_entity).enumerate() {
-        let range = section_ranges[index].clone();
+        let range = entities[index].range.clone();
         if let Some(family) = fonts
             .get(text_font.font.id())
             .map(|font| font.family_name.as_str())

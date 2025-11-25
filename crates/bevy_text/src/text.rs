@@ -14,17 +14,20 @@ use core::str::from_utf8;
 use parley::{FontFeature, Layout};
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
+use std::ops::Range;
 
 /// A sub-entity of a [`ComputedTextBlock`].
 ///
 /// Returned by [`ComputedTextBlock::entities`].
-#[derive(Debug, Copy, Clone, Reflect)]
+#[derive(Debug, Clone, Reflect)]
 #[reflect(Debug, Clone)]
 pub struct TextEntity {
     /// The entity.
     pub entity: Entity,
     /// Records the hierarchy depth of the entity within a `TextLayout`.
     pub depth: usize,
+    /// Range in the [`Layout`](`parley::Layout`)
+    pub range: Range<usize>,
 }
 
 /// Computed information for a text block.
