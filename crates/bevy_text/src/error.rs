@@ -11,6 +11,15 @@ pub enum TextError {
     #[error("failed to add glyph to newly-created atlas {0:?}")]
     FailedToAddGlyph(u16),
     /// Failed to get scaled glyph image for cache key
-    #[error("failed to get scaled glyph image for cache key")]
-    FailedToGetGlyphImage,
+    #[error("failed to get scaled glyph image for cache key: {0:?}")]
+    FailedToGetGlyphImage(CacheKey),
+    /// Missing texture atlas layout for the font
+    #[error("missing texture atlas layout for the font")]
+    MissingAtlasLayout,
+    /// Missing texture for the font atlas
+    #[error("missing texture for the font atlas")]
+    MissingAtlasTexture,
+    /// Failed to find glyph in atlas after it was added
+    #[error("failed to find glyph in atlas after it was added")]
+    InconsistentAtlasState,
 }
