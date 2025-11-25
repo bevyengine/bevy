@@ -19,8 +19,7 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_text::{
     shape_text_from_reader, update_text_layout_info, ComputedTextBlock, ComputedTextLayout, Font,
     FontAtlasSet, FontCx, LayoutCx, LineBreak, LineHeight, ScaleCx, TextBounds, TextColor,
-    TextEntity, TextFont, TextHead, TextLayout, TextLayoutInfo, TextReader, TextSectionStyle,
-    TextSpanAccess, TextWriter,
+    TextFont, TextHead, TextLayout, TextLayoutInfo, TextReader, TextSpanAccess, TextWriter,
 };
 use taffy::style::AvailableSpace;
 use tracing::error;
