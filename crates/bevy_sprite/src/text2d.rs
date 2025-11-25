@@ -29,7 +29,6 @@ use bevy_text::{
 };
 use bevy_transform::components::Transform;
 use core::any::TypeId;
-use std::arch::x86_64::_MM_FROUND_TO_NEG_INF;
 
 /// The top-level 2D text component.
 ///
