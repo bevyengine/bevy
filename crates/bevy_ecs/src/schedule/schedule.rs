@@ -23,7 +23,7 @@ use thiserror::Error;
 #[cfg(feature = "trace")]
 use tracing::info_span;
 
-use crate::{change_detection::CheckChangeTicks, system::System};
+use crate::{change_detection::CheckChangeTicks, component::Component, system::System};
 use crate::{resource::Resource, schedule::*, system::ScheduleSystem, world::World};
 
 pub use stepping::Stepping;
@@ -124,6 +124,24 @@ impl Schedules {
         for (_, schedule) in &mut self.inner {
             schedule.set_build_settings(schedule_build_settings.clone());
         }
+    }
+
+    /// Ignore system order ambiguities caused by conflicts on [`Component`]s of type `T`.
+    #[deprecated(
+        since = "0.18.0",
+        note = "Use `World::allow_ambiguous_component` instead"
+    )]
+    pub fn allow_ambiguous_component<T: Component>(&mut self, world: &mut World) {
+        world.allow_ambiguous_component::<T>();
+    }
+
+    /// Ignore system order ambiguities caused by conflicts on [`Resource`]s of type `T`.
+    #[deprecated(
+        since = "0.18.0",
+        note = "Use `World::allow_ambiguous_resource` instead"
+    )]
+    pub fn allow_ambiguous_resource<T: Resource>(&mut self, world: &mut World) {
+        world.allow_ambiguous_resource::<T>();
     }
 
     /// Adds one or more systems to the [`Schedule`] matching the provided [`ScheduleLabel`].
