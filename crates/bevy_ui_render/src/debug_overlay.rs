@@ -37,13 +37,13 @@ pub struct UiDebugOptions {
     /// Set to true to enable the UI debug overlay
     pub enabled: bool,
     /// Show outlines for the border boxes of UI nodes
-    pub show_border_box: bool,
+    pub outline_border_box: bool,
     /// Show outlines for the padding boxes of UI nodes
-    pub show_padding_box: bool,
+    pub outline_padding_box: bool,
     /// Show outlines for the content boxes of UI nodes
-    pub show_content_box: bool,
+    pub outline_content_box: bool,
     /// Show outlines for the scrollbar regions of UI nodes
-    pub show_scrollbars: bool,
+    pub outline_scrollbars: bool,
     /// Width of the overlay's lines in logical pixels
     pub line_width: f32,
     /// Show outlines for non-visible UI nodes
@@ -68,10 +68,10 @@ impl Default for UiDebugOptions {
             show_hidden: false,
             show_clipped: false,
             ignore_border_radius: false,
-            show_border_box: true,
-            show_padding_box: false,
-            show_content_box: false,
-            show_scrollbars: false,
+            outline_border_box: true,
+            outline_padding_box: false,
+            outline_content_box: false,
+            outline_scrollbars: false,
         }
     }
 }
@@ -149,11 +149,11 @@ pub fn extract_debug_overlay(
 
         let border_box = Rect::from_center_size(Vec2::ZERO, uinode.size);
 
-        if debug_options.show_border_box {
+        if debug_options.outline_border_box {
             push_outline(border_box, uinode.border_radius());
         }
 
-        if debug_options.show_padding_box {
+        if debug_options.outline_padding_box {
             let mut padding_box = border_box;
             padding_box.min.x += uinode.border.left;
             padding_box.max.x -= uinode.border.right;
@@ -162,7 +162,7 @@ pub fn extract_debug_overlay(
             push_outline(padding_box, uinode.inner_radius());
         }
 
-        if debug_options.show_content_box {
+        if debug_options.outline_content_box {
             let mut content_box = border_box;
             let content_inset = uinode.content_inset();
             content_box.min.x += content_inset.left;
@@ -172,7 +172,7 @@ pub fn extract_debug_overlay(
             push_outline(content_box, ResolvedBorderRadius::ZERO);
         }
 
-        if debug_options.show_scrollbars {
+        if debug_options.outline_scrollbars {
             if 0. <= uinode.scrollbar_size.y {
                 let content_inset = uinode.content_inset();
                 let half_size = 0.5 * uinode.size;
