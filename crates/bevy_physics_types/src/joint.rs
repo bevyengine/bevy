@@ -1,65 +1,143 @@
-//! Joint physics constraints.
+//! Joint physics constraints between rigid bodies.
 //!
-//! PhysicsJoint constrains the movement of rigid bodies. A joint can be created
-//! between two rigid bodies or between one rigid body and the world. By default,
-//! a joint primitive defines a D6 joint where all degrees of freedom are free
-//! (three linear and three angular). Note that the default behavior is to disable
-//! collision between jointed bodies.
-//! 
-//! impl SHOULD delete this entity if joint is pointing to one ore more invalid entitites.
-//! impl MUST NOT apply forces from invalid joints. 
-//! Impl MUST delete broken joints.
-//! 
-//! if Body0 or Body1 component is missing, this joint is anchored to world space.
+//! Joints are constraints that create fixed spatial relationships between rigid
+//! bodies. They represent attachments like a drawer to a cabinet, a wheel to a car,
+//! or robot arm links to each other.
+//!
+//! ## Joint Types
+//!
+//! - **Generic D6 Joint** ([`PhysicsJoint`]): All six degrees of freedom configurable
+//!   via [`LimitAPI`](crate::limit) and [`DriveAPI`](crate::drive). Default is fully free.
+//! - **[`FixedJoint`](crate::joint_fixed::FixedJoint)**: Locks all DOFs.
+//! - **[`RevoluteJoint`](crate::joint_revolute::RevoluteJoint)**: Rotation around one axis.
+//! - **[`PrismaticJoint`](crate::joint_prismatic::PrismaticJoint)**: Translation along one axis.
+//! - **[`SphericalJoint`](crate::joint_spherical::SphericalJoint)**: Ball-and-socket, removes linear DOFs.
+//! - **[`DistanceJoint`](crate::joint_distance::DistanceJoint)**: Min/max distance constraint.
+//!
+//! ## Joint Reference Frames
+//!
+//! Joints are defined by **two distinct frames**, one relative to each connected body.
+//! This is necessary because:
+//! - The joint allows relative motion (like a car suspension moving up/down)
+//! - Approximate simulations may allow slight separation under high forces
+//!
+//! The joint frames should generally align in world space along constrained DOFs.
+//! [`LocalPos0`]/[`LocalRot0`] define the frame relative to body0, and
+//! [`LocalPos1`]/[`LocalRot1`] define the frame relative to body1.
+//!
+//! **Note**: Joint space is translation and orientation only—scaling is not supported.
+//! Real-world objects cannot scale arbitrarily, and simulations don't support it.
+//!
+//! ## Connected Bodies
+//!
+//! [`Body0`] and [`Body1`] relationships define the connected bodies. If either
+//! relationship is undefined, the joint attaches to the **static world frame**.
+//! At least one body should have [`RigidBody`](crate::rigid_body::RigidBody) for
+//! meaningful simulation.
+//!
+//! ## Collision Filtering
+//!
+//! By **default, collisions between jointed bodies are disabled** to prevent
+//! collision shapes from interfering. This can be overridden by applying
+//! [`CollisionEnabled`](crate::collision::CollisionEnabled) to the joint.
+//! No filtering occurs if either body relationship is undefined.
+//!
+//! ## Breaking Joints
+//!
+//! Joints can break when sufficient force ([`BreakForce`]) or torque ([`BreakTorque`])
+//! is applied. This models real-world behavior like a door being ripped off its hinges.
+//! Set to infinity (default) for unbreakable joints.
+//!
+//! ## Implementation Notes
+//!
+//! - Implementations SHOULD delete joint entities pointing to invalid bodies
+//! - Implementations MUST NOT apply forces from invalid joints
+//! - Implementations MUST delete broken joints
+
 use bevy_ecs::entity::Entity;
 use bevy_math::prelude::*;
 
 usd_marker! {
-    /// Marks this entity as a physics joint constraining rigid bodies.
+    /// Marks this entity as a physics joint.
+    ///
+    /// The base joint type represents a D6 joint with all degrees of freedom
+    /// free by default. Use [`LimitAPI`](crate::limit) components to restrict
+    /// motion and [`DriveAPI`](crate::drive) components to add actuation.
+    ///
+    /// For common joint configurations, use the specialized joint types instead.
     PhysicsJoint;
     apiName = "jointEnabled"
     displayName = "Physics Joint"
 }
 
 usd_attribute! {
-    /// Relationship to first connected body.
-    /// If missing, fixed.
+    /// Relationship to the first connected body.
+    ///
+    /// This can reference any transformable entity. The actual rigid body is
+    /// found by searching up the hierarchy for [`RigidBody`](crate::rigid_body::RigidBody).
+    ///
+    /// If not specified, the joint is anchored to the static world frame.
     Body0(Entity);
     apiName = "body0"
     displayName = "Body 0"
 }
 
 usd_attribute! {
-    /// Relationship to second connected body.
-    /// If missing, fixed.
+    /// Relationship to the second connected body.
+    ///
+    /// This can reference any transformable entity. The actual rigid body is
+    /// found by searching up the hierarchy for [`RigidBody`](crate::rigid_body::RigidBody).
+    ///
+    /// If not specified, the joint is anchored to the static world frame.
     Body1(Entity);
     apiName = "body1"
     displayName = "Body 1"
 }
 
 usd_attribute! {
-    /// Relative position of the joint frame to body0's frame.
+    /// Position of the joint frame relative to body0.
+    ///
+    /// Defines where the joint attaches to body0 in body0's local space.
+    /// This position is in body0's local coordinate frame, which may be
+    /// scaled—the joint position will appear in the correct location
+    /// regardless of body scaling.
+    ///
+    /// Units: distance.
     LocalPos0(Vec3) = vec3(0.0, 0.0, 0.0);
     apiName = "localPos0"
     displayName = "Local Position 0"
 }
 
 usd_attribute! {
-    /// Relative orientation of the joint frame to body0's frame.
+    /// Orientation of the joint frame relative to body0.
+    ///
+    /// Defines the joint's rotational alignment relative to body0.
+    /// The identity quaternion (1, 0, 0, 0) means the joint frame is
+    /// aligned with body0's local axes.
+    ///
+    /// Unitless (quaternion).
     LocalRot0(Quat) = quat(1.0, 0.0, 0.0, 0.0);
     apiName = "localRot0"
     displayName = "Local Rotation 0"
 }
 
 usd_attribute! {
-    /// Relative position of the joint frame to body1's frame.
+    /// Position of the joint frame relative to body1.
+    ///
+    /// Defines where the joint attaches to body1 in body1's local space.
+    ///
+    /// Units: distance.
     LocalPos1(Vec3) = vec3(0.0, 0.0, 0.0);
     apiName = "localPos1"
     displayName = "Local Position 1"
 }
 
 usd_attribute! {
-    /// Relative orientation of the joint frame to body1's frame.
+    /// Orientation of the joint frame relative to body1.
+    ///
+    /// Defines the joint's rotational alignment relative to body1.
+    ///
+    /// Unitless (quaternion).
     LocalRot1(Quat) = quat(1.0, 0.0, 0.0, 0.0);
     apiName = "localRot1"
     displayName = "Local Rotation 1"
@@ -67,25 +145,40 @@ usd_attribute! {
 
 
 usd_marker! {
-    /// Determines if the joint can be included in an Articulation.
+    /// Excludes this joint from articulation reduced-coordinate solving.
+    ///
+    /// When a joint would create a loop in an articulation tree, it must
+    /// remain a maximal-coordinate joint. Use this marker to explicitly
+    /// exclude joints from articulation processing.
+    ///
+    /// This is required when articulation topology would create closed loops,
+    /// which many reduced-coordinate solvers don't support.
     ExcludeFromArticulation;
     apiName = "excludeFromArticulation"
     displayName = "Exclude From Articulation"
 }
 
 usd_attribute! {
-    /// Joint break force. If set, joint is to break when this force
-    /// limit is reached. (Used for linear DOFs.)
-    /// Units: mass * distance / second / second
+    /// Force threshold at which the joint breaks.
+    ///
+    /// When the constraint force exceeds this value, the joint is destroyed.
+    /// This applies to linear degrees of freedom. Use `f32::INFINITY`
+    /// (the default) for an unbreakable joint.
+    ///
+    /// Units: mass × distance / second².
     BreakForce(f32) = f32::INFINITY;
     apiName = "breakForce"
     displayName = "Break Force"
 }
 
 usd_attribute! {
-    /// Joint break torque. If set, joint is to break when this torque
-    /// limit is reached. (Used for angular DOFs.)
-    /// Units: mass * distance * distance / second / second
+    /// Torque threshold at which the joint breaks.
+    ///
+    /// When the constraint torque exceeds this value, the joint is destroyed.
+    /// This applies to angular degrees of freedom. Use `f32::INFINITY`
+    /// (the default) for an unbreakable joint.
+    ///
+    /// Units: mass × distance² / second².
     BreakTorque(f32) = f32::INFINITY;
     apiName = "breakTorque"
     displayName = "Break Torque"

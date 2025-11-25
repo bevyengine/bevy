@@ -1,30 +1,70 @@
-//! Joint axis and limit configuration.
+//! Joint limit configuration for degrees of freedom.
 //!
-//! PhysicsLimitAPI restricts movement along an axis. It is a multipleApply schema
-//! that can be applied to "transX", "transY", "transZ", "rotX", "rotY", "rotZ",
-//! or "distance" to define different degrees of freedom. When the low limit is
-//! higher than the high limit, motion along that axis is locked.
+//! The [`LimitRange`] type and limit components restrict movement along specific
+//! joint axes. This is a multi-apply schema pattern where limits can be applied
+//! to different degrees of freedom (DOFs).
+//!
+//! ## Available Degrees of Freedom
+//!
+//! - **Translation**: [`LimitTransX`], [`LimitTransY`], [`LimitTransZ`]
+//! - **Rotation**: [`LimitRotX`], [`LimitRotY`], [`LimitRotZ`]
+//! - **Special**: [`LimitLinear`] (prismatic), [`LimitAngular`] (revolute)
+//!
+//! ## Lock Semantics
+//!
+//! When `low > high` in a [`LimitRange`], motion along that axis is **locked**
+//! (no movement allowed). This is a convenient way to fully constrain an axis
+//! without needing a separate "locked" flag.
+//!
+//! ## Limit States
+//!
+//! A degree of freedom can be in one of three states:
+//! 1. **Free**: `low = -∞` and `high = +∞` (unlimited motion)
+//! 2. **Limited**: `low < high` (motion constrained to range [low, high])
+//! 3. **Locked**: `low >= high` (no motion allowed)
+//!
+//! ## Units
+//!
+//! - Translation limits: distance units
+//! - Rotation limits: degrees (per USD convention)
+//!
+//! ## D6 Joint Configuration
+//!
+//! For generic D6 joints, applying limit components to specific DOFs creates
+//! custom joint configurations. Combined with [`DriveAPI`](crate::drive)
+//! components, this allows building any joint type from primitives.
 
 use core::f32;
 
-/// Shared limit range type for joint axis constraints.
-/// When low > high, motion along that axis is locked.
+/// Limit range configuration for joint axis constraints.
+///
+/// Defines the allowable range of motion for a degree of freedom.
+/// When `low > high`, the axis is locked (no motion allowed).
 #[derive(Default, Clone, Copy, Debug)]
 pub struct LimitRange {
-    /// Lower limit. -inf means not limited in negative direction.
+    /// Lower limit of motion.
+    ///
+    /// Use `f32::NEG_INFINITY` for no lower bound.
+    /// Units depend on DOF type (distance for translation, degrees for rotation).
     pub low: f32,
-    /// Upper limit. inf means not limited in positive direction.
+
+    /// Upper limit of motion.
+    ///
+    /// Use `f32::INFINITY` for no upper bound.
+    /// Units depend on DOF type (distance for translation, degrees for rotation).
     pub high: f32,
 }
 
 impl LimitRange {
-    /// Unlocked limit range (fully unconstrained motion).
+    /// Fully unconstrained motion (free DOF).
     pub const UNLOCKED: Self = Self {
         low: f32::NEG_INFINITY,
         high: f32::INFINITY,
     };
 
     /// Create a new limit range with the given bounds.
+    ///
+    /// If `low > high`, the axis will be locked.
     pub fn new(low: f32, high: f32) -> Self {
         Self { low, high }
     }
@@ -35,65 +75,93 @@ impl LimitRange {
     }
 
     /// Create a locked limit range (no motion allowed).
+    ///
+    /// Sets `low = high = 0`, which satisfies `low >= high` and locks the axis.
     pub fn locked() -> Self {
         Self {
             low: 0.0,
             high: 0.0,
         }
     }
+
+    /// Returns true if this range represents a locked axis.
+    pub fn is_locked(&self) -> bool {
+        self.low >= self.high
+    }
+
+    /// Returns true if this range is fully unconstrained.
+    pub fn is_free(&self) -> bool {
+        self.low == f32::NEG_INFINITY && self.high == f32::INFINITY
+    }
 }
 
 usd_attribute! {
-    /// Limit configuration for the X translation axis.
+    /// Limit for the X translation axis.
+    ///
+    /// Units: distance.
     LimitTransX(LimitRange) = LimitRange::UNLOCKED;
     apiName = "limit:transX"
     displayName = "Limit Trans X"
 }
 
 usd_attribute! {
-    /// Limit configuration for the Y translation axis.
+    /// Limit for the Y translation axis.
+    ///
+    /// Units: distance.
     LimitTransY(LimitRange) = LimitRange::UNLOCKED;
     apiName = "limit:transY"
     displayName = "Limit Trans Y"
 }
 
 usd_attribute! {
-    /// Limit configuration for the Z translation axis.
+    /// Limit for the Z translation axis.
+    ///
+    /// Units: distance.
     LimitTransZ(LimitRange) = LimitRange::UNLOCKED;
     apiName = "limit:transZ"
     displayName = "Limit Trans Z"
 }
 
 usd_attribute! {
-    /// Limit configuration for the X rotation axis.
+    /// Limit for the X rotation axis.
+    ///
+    /// Units: degrees.
     LimitRotX(LimitRange) = LimitRange::UNLOCKED;
     apiName = "limit:rotX"
     displayName = "Limit Rot X"
 }
 
 usd_attribute! {
-    /// Limit configuration for the Y rotation axis.
+    /// Limit for the Y rotation axis.
+    ///
+    /// Units: degrees.
     LimitRotY(LimitRange) = LimitRange::UNLOCKED;
     apiName = "limit:rotY"
     displayName = "Limit Rot Y"
 }
 
 usd_attribute! {
-    /// Limit configuration for the Z rotation axis.
+    /// Limit for the Z rotation axis.
+    ///
+    /// Units: degrees.
     LimitRotZ(LimitRange) = LimitRange::UNLOCKED;
     apiName = "limit:rotZ"
     displayName = "Limit Rot Z"
 }
 
 usd_attribute! {
-    /// Limit configuration for linear distance (prismatic joints).
+    /// Limit for linear distance (used with prismatic joints).
+    ///
+    /// Units: distance.
     LimitLinear(LimitRange) = LimitRange::UNLOCKED;
     apiName = "limit:linear"
     displayName = "Limit Linear"
 }
 
 usd_attribute! {
-    /// Limit configuration for angular motion (revolute joints).
+    /// Limit for angular motion (used with revolute joints).
+    ///
+    /// Units: degrees.
     LimitAngular(LimitRange) = LimitRange::UNLOCKED;
     apiName = "limit:angular"
     displayName = "Limit Angular"

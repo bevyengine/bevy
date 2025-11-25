@@ -1,65 +1,131 @@
 //! Mass properties for physics objects.
 //!
-//! The PhysicsMassAPI defines explicit mass properties including mass, density,
-//! center of mass, and inertia tensor. This API can be applied to any object
-//! that has a PhysicsCollisionAPI or PhysicsRigidBodyAPI. Mass has precedence
-//! over density when both are specified. Child prims' density overrides parent
-//! density as it is accumulative, while parent mass overrides child mass. The
-//! inertia tensor is specified as diagonal components along principal axes with
-//! an optional orientation quaternion.
+//! The [`Mass`], [`Density`], [`CenterOfMass`], and inertia properties define how
+//! mass is distributed within a rigid body. This API can be applied to any entity
+//! that has a [`CollisionEnabled`](crate::collision::CollisionEnabled) or
+//! [`RigidBody`](crate::rigid_body::RigidBody).
+//!
+//! ## Mass Precedence Rules
+//!
+//! Mass can be specified in multiple ways, resolved using this precedence system:
+//!
+//! 1. **Explicit mass on rigid body** overrides any mass properties in its subtree.
+//!
+//! 2. **Mass overrides density**: Explicit mass always takes precedence over
+//!    implicit mass computed from volume × density.
+//!
+//! 3. **Child density overrides parent**: A density on a child collider overrides
+//!    a density specified on a parent rigid body for that child.
+//!
+//! 4. **MassAPI density overrides material density**: Density specified via this
+//!    API (even if inherited from a parent) overrides any density specified via
+//!    [`PhysicsMaterialAPI`](crate::material).
+//!
+//! 5. **Implicit mass computation**: A collider's implicit mass equals its
+//!    computed volume times the locally effective density.
+//!
+//! 6. **Rigid body implicit mass**: Total implicit mass of all collision shapes
+//!    in the subtree belonging to that body.
+//!
+//! ## Default Values
+//!
+//! - **Default density**: 1000.0 kg/m³ (approximately water density) when no
+//!   density is specified locally or via bound materials. This value is converted
+//!   to the collider's native units before mass computation.
+//!
+//! - **Default mass**: 1.0 in stage mass units when none is provided explicitly
+//!   and there are no collision volumes to derive from.
+//!
+//! ## Sentinel Values
+//!
+//! A value of 0.0 for [`Mass`] or [`Density`] means "not specified" and the
+//! attribute is ignored. For [`CenterOfMass`], a sentinel value outside the
+//! normal range indicates automatic computation from collision geometry.
+
 use bevy_math::prelude::*;
 
 usd_attribute! {
-    /// If non-zero, directly specifies the mass of the object.
-    /// Note that any child prim can also have a mass when they apply massAPI.
-    /// In this case, the precedence rule is 'parent mass overrides the
-    /// child's'. This may come as counter-intuitive, but mass is a computed
-    /// quantity and in general not accumulative. For example, if a parent
-    /// has mass of 10, and one of two children has mass of 20, allowing
-    /// child's mass to override its parent results in a mass of -10 for the
-    /// other child. Note if mass is 0.0 it is ignored. Units: mass.
+    /// Explicit mass of the object.
+    ///
+    /// If non-zero, directly specifies the mass. Note that child entities can
+    /// also have mass when they apply MassAPI. The precedence rule is:
+    /// **parent mass overrides child mass**.
+    ///
+    /// This may seem counter-intuitive, but mass is a computed quantity and
+    /// generally not accumulative. For example, if a parent has mass 10 and
+    /// one of two children has mass 20, allowing child mass to override would
+    /// result in -10 mass for the other child.
+    ///
+    /// A value of 0.0 means "not specified" and is ignored.
+    ///
+    /// Units: mass (scaled by stage `kilogramsPerUnit`).
     Mass(f32) = 0.0;
     apiName = "mass"
     displayName = "Mass"
 }
 
 usd_attribute! {
-    /// If non-zero, specifies the density of the object.
-    /// In the context of rigid body physics, density indirectly results in
-    /// setting mass via (mass = density x volume of the object). How the
-    /// volume is computed is up to implementation of the physics system.
-    /// It is generally computed from the collision approximation rather than
-    /// the graphical mesh. In the case where both density and mass are
-    /// specified for the same object, mass has precedence over density.
-    /// Unlike mass, child's prim's density overrides parent prim's density
-    /// as it is accumulative. Note that density of a collisionAPI can be also
-    /// alternatively set through a PhysicsMaterialAPI. The material density
-    /// has the weakest precedence in density definition. Note if density is
-    /// 0.0 it is ignored. Units: mass/distance/distance/distance.
+    /// Density of the object for implicit mass computation.
+    ///
+    /// If non-zero, specifies the density. In rigid body physics, density
+    /// indirectly sets mass via: `mass = density × volume`. The volume is
+    /// typically computed from collision geometry rather than render geometry.
+    ///
+    /// When both density and mass are specified, **mass takes precedence**.
+    ///
+    /// Unlike mass, **child density overrides parent density** as density is
+    /// accumulative through the hierarchy.
+    ///
+    /// Density can also be set via [`PhysicsMaterialAPI`](crate::material),
+    /// but MassAPI density has higher precedence than material density.
+    ///
+    /// A value of 0.0 means "not specified" and is ignored.
+    /// Default when unspecified: 1000.0 kg/m³ (water density).
+    ///
+    /// Units: mass/distance³.
     Density(f32) = 0.0;
     apiName = "density"
     displayName = "Density"
 }
 
 usd_attribute! {
-    /// Center of mass in the prim's local space. Units: distance.
+    /// Center of mass in the entity's local space.
+    ///
+    /// When specified, overrides the automatically computed center of mass.
+    /// The sentinel value (very large negative numbers) indicates that the
+    /// center of mass should be computed from the collision geometry.
+    ///
+    /// Units: distance.
     CenterOfMass(Vec3) = vec3(-9999999.0, -9999999.0, -9999999.0);
     apiName = "centerOfMass"
     displayName = "Center of Mass"
 }
 
 usd_attribute! {
-    /// If non-zero, specifies diagonalized inertia tensor along the
-    /// principal axes. Note if diagonalInertial is (0.0, 0.0, 0.0) it is
-    /// ignored. Units: mass*distance*distance.
+    /// Diagonalized inertia tensor along principal axes.
+    ///
+    /// If non-zero, specifies the diagonal components of the inertia tensor
+    /// when expressed in the principal axes frame (see [`PrincipalAxes`]).
+    /// The inertia tensor describes how mass is distributed and affects
+    /// rotational dynamics.
+    ///
+    /// A value of (0, 0, 0) means "not specified" and inertia should be
+    /// computed from collision geometry and mass distribution.
+    ///
+    /// Units: mass × distance².
     DiagonalInertia(Vec3) = vec3(0.0, 0.0, 0.0);
     apiName = "diagonalInertia"
     displayName = "Diagonal Inertia"
 }
 
 usd_attribute! {
-    /// Orientation of the inertia tensor's principal axes in the
-    /// prim's local space.
+    /// Orientation of the inertia tensor's principal axes.
+    ///
+    /// Specifies the rotation from the entity's local space to the principal
+    /// axes frame in which [`DiagonalInertia`] is expressed. A zero quaternion
+    /// (the default) indicates identity orientation.
+    ///
+    /// Unitless (quaternion).
     PrincipalAxes(Quat) = quat(0.0, 0.0, 0.0, 0.0);
     apiName = "principalAxes"
     displayName = "Principal Axes"

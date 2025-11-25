@@ -1,26 +1,69 @@
-//! Spherical joint type with cone limit constraints.
+//! Spherical (ball-and-socket) joint type.
 //!
-//! PhysicsSphericalJoint defines a predefined spherical joint type that removes linear
-//! degrees of freedom. A cone limit may restrict the motion in a given range. Two limit
-//! values can be specified: when equal they create a circular cone, otherwise an elliptic
-//! cone limit around the limit axis.
+//! A [`SphericalJoint`] allows all rotational freedom while constraining all
+//! translation. This represents ball-and-socket joints like hip joints,
+//! shoulder joints, and trailer hitches.
+//!
+//! ## Behavior
+//!
+//! - **Allowed motion**: Rotation around all three axes
+//! - **Restricted motion**: All translation
+//!
+//! ## Cone Limits
+//!
+//! Rotational freedom can be restricted using cone limits:
+//! - `cone_angle0_limit`: Angle from the primary axis toward the "next" axis
+//! - `cone_angle1_limit`: Angle from the primary axis toward the "second next" axis
+//!
+//! The axis cycling is: X → Y → Z → X
+//!
+//! When both cone angles are equal, the limit forms a **circular cone**.
+//! When different, it forms an **elliptical cone**, useful for modeling
+//! joints with asymmetric range of motion.
+//!
+//! ## Negative Values
+//!
+//! A negative cone angle means unlimited rotation in that direction
+//! (sentinel value indicating no limit).
+//!
+//! ## Example Uses
+//!
+//! - Human hip and shoulder joints (with cone limits)
+//! - Trailer hitch ball joints
+//! - Camera gimbals
+//! - Ragdoll character joints
 
 use bevy_ecs_macros::Component;
 use crate::axis::Axis;
 
-/// Marks this entity as a spherical joint with optional cone limit constraints.
+/// A spherical (ball-and-socket) joint allowing rotation around all axes.
+///
+/// This joint type represents ball joints where one body can rotate freely
+/// relative to another but cannot translate.
 #[derive(Component)]
 pub struct SphericalJoint {
-    /// Cone limit axis: X, Y, or Z.
+    /// The primary cone limit axis (X, Y, or Z).
+    ///
+    /// The cone limits are defined relative to this axis.
     pub axis: Axis,
 
-    /// Cone limit from the primary joint axis in the local0 frame toward the next axis.
-    /// (Next axis of X is Y, and of Z is X.) A negative value means not limited.
-    /// Units: degrees.
+    /// First cone angle limit in degrees.
+    ///
+    /// Limits rotation from the primary axis toward the next axis in the
+    /// cycle (X→Y, Y→Z, Z→X). A negative value means no limit.
+    ///
+    /// When equal to `cone_angle1_limit`, creates a circular cone.
+    /// When different, creates an elliptical cone.
+    ///
+    /// Units: degrees. Negative = unlimited.
     pub cone_angle0_limit: f32,
 
-    /// Cone limit from the primary joint axis in the local0 frame toward the second to next axis.
-    /// A negative value means not limited. Units: degrees.
+    /// Second cone angle limit in degrees.
+    ///
+    /// Limits rotation from the primary axis toward the second-next axis
+    /// in the cycle (X→Z, Y→X, Z→Y). A negative value means no limit.
+    ///
+    /// Units: degrees. Negative = unlimited.
     pub cone_angle1_limit: f32,
 }
 

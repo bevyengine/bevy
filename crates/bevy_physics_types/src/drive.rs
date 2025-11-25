@@ -1,54 +1,132 @@
-//! Joint drive and actuation.
+//! Joint drive (motor/actuator) configuration.
 //!
+//! The [`DriveConfig`] type and drive components allow joints to be motorized
+//! along specific degrees of freedom. Drives act as force-limited damped springs
+//! that can target either a position or velocity.
+//!
+//! ## Drive Formula
+//!
+//! The resulting drive force or acceleration is proportional to:
+//!
+//! ```text
+//! force = stiffness × (targetPosition - position) + damping × (targetVelocity - velocity)
+//! ```
+//!
+//! Where:
+//! - `position` is the current relative pose along the DOF (angle for revolute, distance for prismatic)
+//! - `velocity` is the rate of change of this motion
+//!
+//! ## Drive Types
+//!
+//! - **Force drive** ([`DriveType::Force`]): The computed value is a force/torque.
+//!   The resulting motion depends on the mass of connected bodies.
+//! - **Acceleration drive** ([`DriveType::Acceleration`]): The computed value is
+//!   an acceleration. Motion is independent of body mass—useful for precise
+//!   motion control in robotics applications.
+//!
+//! ## Position vs Velocity Targeting
+//!
+//! - **Position targeting**: Set `stiffness > 0` and `target_position` to desired pose.
+//!   The drive acts like a spring pulling toward the target.
+//! - **Velocity targeting**: Set `damping > 0` and `target_velocity` to desired speed.
+//!   The drive acts like a motor maintaining constant velocity.
+//! - **Combined**: Both can be used together for spring-damper behavior.
+//!
+//! ## Available DOFs
+//!
+//! - **Translation**: [`DriveTransX`], [`DriveTransY`], [`DriveTransZ`]
+//! - **Rotation**: [`DriveRotX`], [`DriveRotY`], [`DriveRotZ`]
+//! - **Special**: [`DriveLinear`] (prismatic), [`DriveAngular`] (revolute)
+//!
+//! ## Units
+//!
+//! Units vary by drive type and DOF:
+//!
+//! | Property | Linear DOF | Angular DOF |
+//! |----------|------------|-------------|
+//! | `max_force` | mass×distance/second² | mass×distance²/second² |
+//! | `target_position` | distance | degrees |
+//! | `target_velocity` | distance/second | degrees/second |
+//! | `stiffness` | mass/second² | mass×distance²/degrees/second² |
+//! | `damping` | mass/second | mass×distance²/second/degrees |
 
 use core::f32;
 
+/// The type of drive (how the computed value is interpreted).
 #[derive(Default, Clone, Copy, Debug, PartialEq, Eq)]
 pub enum DriveType {
-    /// Drive spring applies force at the joint.
+    /// Drive applies a force/torque.
+    ///
+    /// The resulting motion depends on the mass of connected bodies.
+    /// Heavier bodies move more slowly for the same drive force.
     #[default]
     Force,
-    /// Drive spring applies acceleration at the joint.
+
+    /// Drive applies an acceleration.
+    ///
+    /// The resulting motion is independent of body mass. This is useful
+    /// for robotics applications where precise motion control is needed
+    /// regardless of payload mass.
     Acceleration,
 }
 
-/// Shared drive configuration type for joint axis actuation.
-/// Each drive is a force-limited damped spring:
-/// Force or acceleration = stiffness * (targetPosition - position) + damping * (targetVelocity - velocity)
+/// Drive configuration for joint actuation.
+///
+/// A force-limited damped spring that can target position and/or velocity:
+/// `force = stiffness × (targetPosition - position) + damping × (targetVelocity - velocity)`
 #[derive(Clone, Copy, Debug)]
 pub struct DriveConfig {
-    /// Drive type: force or acceleration.
+    /// Whether this drive applies force or acceleration.
     pub drive_type: DriveType,
 
-    /// Maximum force that can be applied to drive. Units:
-    /// if linear drive: mass*distance/second/second
-    /// if angular drive: mass*distance*distance/second/second
-    /// inf means not limited. Must be non-negative.
+    /// Maximum force/torque the drive can apply.
+    ///
+    /// Use `f32::INFINITY` for unlimited force.
+    /// Must be non-negative.
+    ///
+    /// Units (linear): mass × distance / second²
+    /// Units (angular): mass × distance² / second²
     pub max_force: f32,
 
-    /// Target value for position. Units:
-    /// if linear drive: distance
-    /// if angular drive: degrees.
+    /// Target position for the drive.
+    ///
+    /// Only effective when `stiffness > 0`.
+    ///
+    /// Units (linear): distance
+    /// Units (angular): degrees
     pub target_position: f32,
 
-    /// Target value for velocity. Units:
-    /// if linear drive: distance/second
-    /// if angular drive: degrees/second.
+    /// Target velocity for the drive.
+    ///
+    /// Only effective when `damping > 0`.
+    ///
+    /// Units (linear): distance / second
+    /// Units (angular): degrees / second
     pub target_velocity: f32,
 
-    /// Damping of the drive. Units:
-    /// if linear drive: mass/second
-    /// if angular drive: mass*distance*distance/second/degrees.
+    /// Damping coefficient (velocity term).
+    ///
+    /// Controls how strongly the drive resists deviation from target velocity.
+    /// Set to 0 for pure position targeting.
+    ///
+    /// Units (linear): mass / second
+    /// Units (angular): mass × distance² / second / degrees
     pub damping: f32,
 
-    /// Stiffness of the drive. Units:
-    /// if linear drive: mass/second/second
-    /// if angular drive: mass*distance*distance/degrees/second/second.
+    /// Stiffness coefficient (position term).
+    ///
+    /// Controls how strongly the drive pulls toward target position.
+    /// Set to 0 for pure velocity targeting.
+    ///
+    /// Units (linear): mass / second²
+    /// Units (angular): mass × distance² / degrees / second²
     pub stiffness: f32,
 }
 
 impl DriveConfig {
-    /// Default drive configuration (fully unconstrained, no actuation).
+    /// Default drive configuration (no actuation).
+    ///
+    /// All targets are zero, no stiffness or damping, unlimited force.
     pub const DEFAULT: Self = Self {
         drive_type: DriveType::Force,
         max_force: f32::INFINITY,
@@ -57,6 +135,11 @@ impl DriveConfig {
         damping: 0.0,
         stiffness: 0.0,
     };
+
+    /// Returns true if this drive has no effect (zero stiffness and damping).
+    pub fn is_inactive(&self) -> bool {
+        self.stiffness == 0.0 && self.damping == 0.0
+    }
 }
 
 impl Default for DriveConfig {
@@ -66,56 +149,56 @@ impl Default for DriveConfig {
 }
 
 usd_attribute! {
-    /// Drive configuration for the X translation axis.
+    /// Drive for the X translation axis.
     DriveTransX(DriveConfig) = DriveConfig::DEFAULT;
     apiName = "drive:transX"
     displayName = "Drive Trans X"
 }
 
 usd_attribute! {
-    /// Drive configuration for the Y translation axis.
+    /// Drive for the Y translation axis.
     DriveTransY(DriveConfig) = DriveConfig::DEFAULT;
     apiName = "drive:transY"
     displayName = "Drive Trans Y"
 }
 
 usd_attribute! {
-    /// Drive configuration for the Z translation axis.
+    /// Drive for the Z translation axis.
     DriveTransZ(DriveConfig) = DriveConfig::DEFAULT;
     apiName = "drive:transZ"
     displayName = "Drive Trans Z"
 }
 
 usd_attribute! {
-    /// Drive configuration for the X rotation axis.
+    /// Drive for the X rotation axis.
     DriveRotX(DriveConfig) = DriveConfig::DEFAULT;
     apiName = "drive:rotX"
     displayName = "Drive Rot X"
 }
 
 usd_attribute! {
-    /// Drive configuration for the Y rotation axis.
+    /// Drive for the Y rotation axis.
     DriveRotY(DriveConfig) = DriveConfig::DEFAULT;
     apiName = "drive:rotY"
     displayName = "Drive Rot Y"
 }
 
 usd_attribute! {
-    /// Drive configuration for the Z rotation axis.
+    /// Drive for the Z rotation axis.
     DriveRotZ(DriveConfig) = DriveConfig::DEFAULT;
     apiName = "drive:rotZ"
     displayName = "Drive Rot Z"
 }
 
 usd_attribute! {
-    /// Drive configuration for linear distance (prismatic joints).
+    /// Drive for linear distance (used with prismatic joints).
     DriveLinear(DriveConfig) = DriveConfig::DEFAULT;
     apiName = "drive:linear"
     displayName = "Drive Linear"
 }
 
 usd_attribute! {
-    /// Drive configuration for angular motion (revolute joints).
+    /// Drive for angular motion (used with revolute joints).
     DriveAngular(DriveConfig) = DriveConfig::DEFAULT;
     apiName = "drive:angular"
     displayName = "Drive Angular"

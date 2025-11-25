@@ -1,22 +1,62 @@
-//! Prismatic joint type with translational constraints.
+//! Prismatic (slider) joint type.
 //!
-//! PhysicsPrismaticJoint defines a predefined prismatic joint type where translation
-//! along the joint axis is permitted. It restricts all other linear motion and all
-//! rotational motion.
+//! A [`PrismaticJoint`] allows translation along a single axis while restricting
+//! all other degrees of freedom. This represents sliding mechanisms like pistons,
+//! drawer slides, and linear actuators.
+//!
+//! ## Behavior
+//!
+//! - **Allowed motion**: Translation along the specified axis
+//! - **Restricted motion**: All rotation, translation along other axes
+//!
+//! ## Limits
+//!
+//! Linear limits can be specified in distance units:
+//! - `lower_limit` / `upper_limit`: The allowable translation range
+//! - Set both to infinity for unlimited translation
+//! - A joint drive can be added via [`DriveAPI`](crate::drive) for motorization
+//!
+//! ## Axis Convention
+//!
+//! The axis follows USD conventions, specifying which local axis the
+//! translation occurs along.
+//!
+//! ## Example Uses
+//!
+//! - Hydraulic pistons
+//! - Drawer slides
+//! - Car suspensions (simplified)
+//! - Industrial linear actuators
+//! - Elevator mechanisms
 
 use bevy_ecs_macros::Component;
 use crate::axis::Axis;
 
-/// Marks this entity as a prismatic joint constraining translation along a specified axis.
+/// A prismatic (slider) joint allowing translation along one axis.
+///
+/// This joint type represents sliding mechanisms where one body moves
+/// linearly relative to another without rotation.
 #[derive(Component)]
 pub struct PrismaticJoint {
-    /// Joint axis: X, Y, or Z.
+    /// The axis of translation (X, Y, or Z in the joint frame).
+    ///
+    /// Translation is permitted along this axis; all other DOFs are locked.
     pub axis: Axis,
 
-    /// Lower limit in distance. -inf means not limited in negative direction.
+    /// Lower translation limit.
+    ///
+    /// The minimum translation distance allowed. Use `f32::NEG_INFINITY` for
+    /// no lower limit.
+    ///
+    /// Units: distance.
     pub lower_limit: f32,
 
-    /// Upper limit in distance. inf means not limited in positive direction.
+    /// Upper translation limit.
+    ///
+    /// The maximum translation distance allowed. Use `f32::INFINITY` for
+    /// no upper limit.
+    ///
+    /// Units: distance.
     pub upper_limit: f32,
 }
 
