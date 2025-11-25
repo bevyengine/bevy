@@ -79,7 +79,7 @@ impl TextPipeline {
 
         let mut text = String::with_capacity(text_len);
         for (text_section, ..) in &spans {
-            text.push_str(*text_section);
+            text.push_str(text_section);
         }
 
         let mut builder = layout_cx.ranged_builder(font_cx, &text, scale_factor, true);
