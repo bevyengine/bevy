@@ -24,7 +24,6 @@ use parley::swash::FontRef;
 use parley::Alignment;
 use parley::AlignmentOptions;
 use parley::FontContext;
-use parley::FontFeature;
 use parley::FontSettings;
 use parley::FontStack;
 use parley::Layout;
