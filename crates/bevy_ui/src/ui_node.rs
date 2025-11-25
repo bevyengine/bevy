@@ -299,9 +299,25 @@ impl ComputedNode {
         clip_rect
     }
 
+    const fn compute_thumb(
+        gutter_min: f32,
+        content_length: f32,
+        gutter_length: f32,
+        scroll_position: f32,
+    ) -> [f32; 2] {
+        if content_length <= gutter_length {
+            return [gutter_min, gutter_min + gutter_length];
+        }
+        let thumb_len = gutter_length * gutter_length / content_length;
+        let thumb_min = gutter_min
+            + scroll_position / (content_length - gutter_length) * (gutter_length - thumb_len);
+        let thumb_max = thumb_min + thumb_len;
+        [thumb_min, thumb_max]
+    }
+
     /// Compute the bounds of the horizontal scrollbar and the thumb
     /// in object-centered coordinates.
-    pub fn horizontal_scrollbar(&self) -> Option<(Rect, f32, f32)> {
+    pub fn horizontal_scrollbar(&self) -> Option<(Rect, [f32; 2])> {
         if self.scrollbar_size.y <= 0. {
             return None;
         }
@@ -315,15 +331,20 @@ impl ComputedNode {
             min: Vec2::new(min_x, min_y),
             max: Vec2::new(max_x, max_y),
         };
-        let gutter_length = gutter.size().x;
-        let thumb_min = gutter.min.x + gutter_length * self.scroll_position.x / self.content_size.x;
-        let thumb_max = thumb_min + gutter_length * gutter_length / self.content_size.x;
-        (gutter, thumb_min, thumb_max)
+        Some((
+            gutter,
+            Self::compute_thumb(
+                gutter.min.x,
+                self.content_size.x,
+                gutter.size().x,
+                self.scroll_position.x,
+            ),
+        ))
     }
 
     /// Compute the bounds of the horizontal scrollbar and the thumb
     /// in object-centered coordinates.
-    pub fn vertical_scrollbar(&self) -> Option<Rect, f32, f32> {
+    pub fn vertical_scrollbar(&self) -> Option<(Rect, [f32; 2])> {
         if self.scrollbar_size.x <= 0. {
             return None;
         }
@@ -337,10 +358,15 @@ impl ComputedNode {
             min: Vec2::new(min_x, min_y),
             max: Vec2::new(max_x, max_y),
         };
-        let gutter_length = gutter.size().y;
-        let thumb_min = gutter.min.y + gutter_length * self.scroll_position.y / self.content_size.y;
-        let thumb_max = thumb_min + gutter_length * gutter_length / self.content_size.y;
-        (gutter, thumb_min, thumb_max)
+        Some((
+            gutter,
+            Self::compute_thumb(
+                gutter.min.y,
+                self.content_size.y,
+                gutter.size().y,
+                self.scroll_position.y,
+            ),
+        ))
     }
 }
 
@@ -2960,6 +2986,10 @@ impl ComputedUiRenderTargetInfo {
 
 #[cfg(test)]
 mod tests {
+    use bevy_math::Rect;
+    use bevy_math::Vec2;
+
+    use crate::ComputedNode;
     use crate::GridPlacement;
 
     #[test]
@@ -2986,5 +3016,93 @@ mod tests {
         assert_eq!(GridPlacement::start_end(11, 21).get_span(), None);
         assert_eq!(GridPlacement::start_span(3, 5).get_end(), None);
         assert_eq!(GridPlacement::end_span(-4, 12).get_start(), None);
+    }
+
+    #[test]
+    fn computed_node_both_scrollbars() {
+        let mut node = ComputedNode::default();
+        node.size = Vec2::splat(100.);
+        node.scrollbar_size = Vec2::splat(10.);
+        node.content_size = Vec2::splat(100.);
+
+        let (gutter, thumb) = node.horizontal_scrollbar().unwrap();
+        assert_eq!(
+            gutter,
+            Rect {
+                min: Vec2::new(-50., 40.),
+                max: Vec2::new(40., 50.)
+            }
+        );
+        assert_eq!(thumb, [-50., 31.]);
+
+        let (gutter, thumb) = node.vertical_scrollbar().unwrap();
+        assert_eq!(
+            gutter,
+            Rect {
+                min: Vec2::new(40., -50.),
+                max: Vec2::new(50., 40.)
+            }
+        );
+        assert_eq!(thumb, [-50., 31.]);
+    }
+
+    #[test]
+    fn computed_node_single_horizontal_scrollbar() {
+        let mut node = ComputedNode::default();
+        node.size = Vec2::splat(100.);
+        node.scrollbar_size = Vec2::new(0., 10.);
+        node.content_size = Vec2::new(200., 100.);
+        node.scroll_position = Vec2::new(0., 0.);
+
+        let (gutter, thumb) = node.horizontal_scrollbar().unwrap();
+        assert_eq!(
+            gutter,
+            Rect {
+                min: Vec2::new(-50., 40.),
+                max: Vec2::new(50., 50.)
+            }
+        );
+        assert_eq!(thumb, [-50., 0.]);
+
+        node.scroll_position.x += 100.;
+        let (gutter, thumb) = node.horizontal_scrollbar().unwrap();
+        assert_eq!(
+            gutter,
+            Rect {
+                min: Vec2::new(-50., 40.),
+                max: Vec2::new(50., 50.)
+            }
+        );
+        assert_eq!(thumb, [0., 50.]);
+    }
+
+    #[test]
+    fn computed_node_single_vertical_scrollbar() {
+        let mut node = ComputedNode::default();
+        node.size = Vec2::splat(100.);
+        node.scrollbar_size = Vec2::new(10., 0.);
+        node.content_size = Vec2::new(100., 200.);
+        node.scroll_position = Vec2::new(0., 0.);
+
+        let (gutter, thumb) = node.vertical_scrollbar().unwrap();
+        assert_eq!(
+            gutter,
+            Rect {
+                min: Vec2::new(40., -50.),
+                max: Vec2::new(50., 50.)
+            }
+        );
+        assert_eq!(thumb, [-50., 0.]);
+
+        node.scroll_position.y += 100.;
+        let (gutter, thumb) = node.vertical_scrollbar().unwrap();
+        assert_eq!(
+            gutter,
+            Rect {
+                min: Vec2::new(40., -50.),
+                max: Vec2::new(50., 50.)
+            }
+        );
+        assert_eq!(thumb, [0., 50.]);
     }
 }
