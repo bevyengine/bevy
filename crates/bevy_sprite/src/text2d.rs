@@ -22,9 +22,9 @@ use bevy_image::prelude::*;
 use bevy_math::{FloatOrd, Vec2, Vec3};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_text::{
-    shape_text, update_text_layout_info, ComputedTextBlock, ComputedTextLayout, Font, FontAtlasSet,
-    FontCx, LayoutCx, LineHeight, ScaleCx, TextBounds, TextColor, TextFont, TextHead, TextLayout,
-    TextLayoutInfo, TextReader, TextSpanAccess, TextWriter,
+    update_text_layout_info, ComputedTextBlock, ComputedTextLayout, Font, FontAtlasSet, FontCx,
+    LayoutCx, LineHeight, ScaleCx, TextBounds, TextColor, TextFont, TextHead, TextLayout,
+    TextLayoutInfo, TextPipeline, TextReader, TextSpanAccess, TextWriter,
 };
 use bevy_transform::components::Transform;
 use core::any::TypeId;
@@ -165,6 +165,7 @@ impl Default for Text2dShadow {
 /// It does not modify or observe existing ones.
 pub fn update_text2d_layout(
     mut target_scale_factors: Local<Vec<(f32, RenderLayers)>>,
+    mut text_pipeline: ResMut<TextPipeline>,
     mut textures: ResMut<Assets<Image>>,
     fonts: Res<Assets<Font>>,
     camera_query: Query<(&Camera, &VisibleEntities, Option<&RenderLayers>)>,
@@ -236,7 +237,7 @@ pub fn update_text2d_layout(
 
         let text_layout_info = text_layout_info.into_inner();
 
-        shape_text(
+        text_pipeline.shape_text(
             entity,
             &mut text_reader,
             &mut layout.0,

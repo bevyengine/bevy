@@ -17,9 +17,9 @@ use bevy_image::prelude::*;
 use bevy_math::Vec2;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_text::{
-    shape_text, update_text_layout_info, ComputedTextBlock, ComputedTextLayout, Font,
-    FontAtlasSet, FontCx, LayoutCx, LineBreak, LineHeight, ScaleCx, TextBounds, TextColor,
-    TextFont, TextHead, TextLayout, TextLayoutInfo, TextReader, TextSpanAccess, TextWriter,
+    update_text_layout_info, ComputedTextBlock, ComputedTextLayout, Font, FontAtlasSet, FontCx,
+    LayoutCx, LineBreak, LineHeight, ScaleCx, TextBounds, TextColor, TextFont, TextHead,
+    TextLayout, TextLayoutInfo, TextPipeline, TextReader, TextSpanAccess, TextWriter,
 };
 use taffy::style::AvailableSpace;
 use tracing::error;
@@ -248,6 +248,7 @@ impl Measure for TextMeasure {
 ///   color changes. This can be expensive, particularly for large blocks of text, and the [`bypass_change_detection`](bevy_ecs::change_detection::DetectChangesMut::bypass_change_detection)
 ///   method should be called when only changing the `Text`'s colors.
 pub fn shape_text_system(
+    mut text_pipeline: ResMut<TextPipeline>,
     mut font_cx: ResMut<FontCx>,
     mut layout_cx: ResMut<LayoutCx>,
     fonts: Res<Assets<Font>>,
@@ -288,7 +289,7 @@ pub fn shape_text_system(
         computed_block.needs_rerender = false;
         computed_block.entities.clear();
 
-        shape_text(
+        text_pipeline.shape_text(
             entity,
             &mut text_reader,
             &mut computed_layout.0,

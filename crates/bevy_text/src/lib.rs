@@ -102,6 +102,7 @@ impl Plugin for TextPlugin {
             .init_asset_loader::<FontLoader>()
             .init_resource::<FontAtlasSet>()
             .init_resource::<TextIterScratch>()
+            .init_resource::<TextPipeline>()
             .init_resource::<FontCx>()
             .init_resource::<LayoutCx>()
             .init_resource::<ScaleCx>()
