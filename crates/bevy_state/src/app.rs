@@ -101,7 +101,8 @@ impl AppExtStates for SubApp {
             self.world_mut().write_message(StateTransitionEvent {
                 exited: None,
                 entered: Some(state),
-                same_state_enforced: false,
+                // makes no difference: the state didn't exist before anyways
+                allow_same_state_transitions: true,
             });
             enable_state_scoped_entities::<S>(self);
         } else {
@@ -125,7 +126,8 @@ impl AppExtStates for SubApp {
             self.world_mut().write_message(StateTransitionEvent {
                 exited: None,
                 entered: Some(state),
-                same_state_enforced: false,
+                // makes no difference: the state didn't exist before anyways
+                allow_same_state_transitions: true,
             });
             enable_state_scoped_entities::<S>(self);
         } else {
@@ -137,7 +139,9 @@ impl AppExtStates for SubApp {
             self.world_mut().write_message(StateTransitionEvent {
                 exited: None,
                 entered: Some(state),
-                same_state_enforced: false,
+                // Not configurable for the moment. This controls whether inserting a state with the same value as a pre-existing state should run state transitions.
+                // Leaving it at `true` makes state insertion idempotent. Neat!
+                allow_same_state_transitions: true,
             });
         }
 
@@ -162,7 +166,7 @@ impl AppExtStates for SubApp {
             self.world_mut().write_message(StateTransitionEvent {
                 exited: None,
                 entered: state,
-                same_state_enforced: false,
+                allow_same_state_transitions: S::ALLOW_SAME_STATE_TRANSITIONS,
             });
             enable_state_scoped_entities::<S>(self);
         } else {
@@ -192,7 +196,8 @@ impl AppExtStates for SubApp {
             self.world_mut().write_message(StateTransitionEvent {
                 exited: None,
                 entered: state,
-                same_state_enforced: false,
+                // makes no difference: the state didn't exist before anyways
+                allow_same_state_transitions: true,
             });
             enable_state_scoped_entities::<S>(self);
         } else {
