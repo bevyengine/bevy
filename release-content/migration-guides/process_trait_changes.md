@@ -1,6 +1,6 @@
 ---
-title: Changes to the `Process` trait.
-pull_requests: []
+title: Changes to the `Process` trait in `bevy_asset`.
+pull_requests: [21925]
 ---
 
 `ProcessContext` no longer includes `asset_bytes`. This has been replaced by `asset_reader`. To
