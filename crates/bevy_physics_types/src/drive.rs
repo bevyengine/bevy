@@ -50,7 +50,7 @@
 //! | `stiffness` | mass/second² | mass×distance²/degrees/second² |
 //! | `damping` | mass/second | mass×distance²/second/degrees |
 
-use core::f32;
+use crate::types::float;
 
 /// The type of drive (how the computed value is interpreted).
 #[derive(Default, Clone, Copy, Debug, PartialEq, Eq)]
@@ -81,12 +81,12 @@ pub struct DriveConfig {
 
     /// Maximum force/torque the drive can apply.
     ///
-    /// Use `f32::INFINITY` for unlimited force.
+    /// Use `float::INFINITY` for unlimited force.
     /// Must be non-negative.
     ///
     /// Units (linear): mass × distance / second²
     /// Units (angular): mass × distance² / second²
-    pub max_force: f32,
+    pub max_force: float,
 
     /// Target position for the drive.
     ///
@@ -94,7 +94,7 @@ pub struct DriveConfig {
     ///
     /// Units (linear): distance
     /// Units (angular): degrees
-    pub target_position: f32,
+    pub target_position: float,
 
     /// Target velocity for the drive.
     ///
@@ -102,7 +102,7 @@ pub struct DriveConfig {
     ///
     /// Units (linear): distance / second
     /// Units (angular): degrees / second
-    pub target_velocity: f32,
+    pub target_velocity: float,
 
     /// Damping coefficient (velocity term).
     ///
@@ -111,7 +111,7 @@ pub struct DriveConfig {
     ///
     /// Units (linear): mass / second
     /// Units (angular): mass × distance² / second / degrees
-    pub damping: f32,
+    pub damping: float,
 
     /// Stiffness coefficient (position term).
     ///
@@ -120,7 +120,7 @@ pub struct DriveConfig {
     ///
     /// Units (linear): mass / second²
     /// Units (angular): mass × distance² / degrees / second²
-    pub stiffness: f32,
+    pub stiffness: float,
 }
 
 impl DriveConfig {
@@ -129,7 +129,7 @@ impl DriveConfig {
     /// All targets are zero, no stiffness or damping, unlimited force.
     pub const DEFAULT: Self = Self {
         drive_type: DriveType::Force,
-        max_force: f32::INFINITY,
+        max_force: float::INFINITY,
         target_position: 0.0,
         target_velocity: 0.0,
         damping: 0.0,

@@ -55,7 +55,7 @@
 //! - Implementations MUST delete broken joints
 
 use bevy_ecs::entity::Entity;
-use bevy_math::prelude::*;
+use crate::types::{point3f, quatf, float};
 
 usd_marker! {
     /// Marks this entity as a physics joint.
@@ -103,7 +103,7 @@ usd_attribute! {
     /// regardless of body scaling.
     ///
     /// Units: distance.
-    LocalPos0(Vec3) = vec3(0.0, 0.0, 0.0);
+    LocalPos0(point3f) = point3f::ZERO;
     apiName = "localPos0"
     displayName = "Local Position 0"
 }
@@ -116,7 +116,7 @@ usd_attribute! {
     /// aligned with body0's local axes.
     ///
     /// Unitless (quaternion).
-    LocalRot0(Quat) = quat(1.0, 0.0, 0.0, 0.0);
+    LocalRot0(quatf) = quatf::IDENTITY;
     apiName = "localRot0"
     displayName = "Local Rotation 0"
 }
@@ -127,7 +127,7 @@ usd_attribute! {
     /// Defines where the joint attaches to body1 in body1's local space.
     ///
     /// Units: distance.
-    LocalPos1(Vec3) = vec3(0.0, 0.0, 0.0);
+    LocalPos1(point3f) = point3f::ZERO;
     apiName = "localPos1"
     displayName = "Local Position 1"
 }
@@ -138,7 +138,7 @@ usd_attribute! {
     /// Defines the joint's rotational alignment relative to body1.
     ///
     /// Unitless (quaternion).
-    LocalRot1(Quat) = quat(1.0, 0.0, 0.0, 0.0);
+    LocalRot1(quatf) = quatf::IDENTITY;
     apiName = "localRot1"
     displayName = "Local Rotation 1"
 }
@@ -165,7 +165,7 @@ usd_attribute! {
     /// (the default) for an unbreakable joint.
     ///
     /// Units: mass × distance / second².
-    BreakForce(f32) = f32::INFINITY;
+    BreakForce(float) = float::INFINITY;
     apiName = "breakForce"
     displayName = "Break Force"
 }
@@ -178,7 +178,7 @@ usd_attribute! {
     /// (the default) for an unbreakable joint.
     ///
     /// Units: mass × distance² / second².
-    BreakTorque(f32) = f32::INFINITY;
+    BreakTorque(float) = float::INFINITY;
     apiName = "breakTorque"
     displayName = "Break Torque"
 }

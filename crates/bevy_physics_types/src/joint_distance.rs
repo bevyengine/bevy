@@ -27,6 +27,7 @@
 //! - Springy connections with slack
 //! - Keeping objects within range of each other
 
+use crate::types::float;
 use bevy_ecs::component::Component;
 
 /// A distance joint constraining the distance between attachment points.
@@ -43,7 +44,7 @@ pub struct DistanceJoint {
     /// A negative value disables the minimum distance constraint.
     ///
     /// Units: distance.
-    pub min_distance: f32,
+    pub min_distance: float,
 
     /// Maximum allowed distance between attachment points.
     ///
@@ -53,7 +54,7 @@ pub struct DistanceJoint {
     /// A negative value disables the maximum distance constraint.
     ///
     /// Units: distance.
-    pub max_distance: f32,
+    pub max_distance: float,
 }
 
 impl Default for DistanceJoint {

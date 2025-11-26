@@ -42,7 +42,7 @@
 //! attribute is ignored. For [`CenterOfMass`], a sentinel value outside the
 //! normal range indicates automatic computation from collision geometry.
 
-use bevy_math::prelude::*;
+use crate::types::{float, point3f, vector3f, quatf};
 
 usd_attribute! {
     /// Explicit mass of the object.
@@ -59,7 +59,7 @@ usd_attribute! {
     /// A value of 0.0 means "not specified" and is ignored.
     ///
     /// Units: mass (scaled by scene `kilogramsPerUnit`).
-    Mass(f32) = 0.0;
+    Mass(float) = 0.0;
     apiName = "mass"
     displayName = "Mass"
 }
@@ -83,7 +83,7 @@ usd_attribute! {
     /// Default when unspecified: 1000.0 kg/m³ (water density).
     ///
     /// Units: mass/distance³.
-    Density(f32) = 0.0;
+    Density(float) = 0.0;
     apiName = "density"
     displayName = "Density"
 }
@@ -96,7 +96,7 @@ usd_attribute! {
     /// center of mass should be computed from the collision geometry.
     ///
     /// Units: distance.
-    CenterOfMass(Vec3) = vec3(-9999999.0, -9999999.0, -9999999.0);
+    CenterOfMass(point3f) = point3f::splat(-9999999.0);
     apiName = "centerOfMass"
     displayName = "Center of Mass"
 }
@@ -113,7 +113,7 @@ usd_attribute! {
     /// computed from collision geometry and mass distribution.
     ///
     /// Units: mass × distance².
-    DiagonalInertia(Vec3) = vec3(0.0, 0.0, 0.0);
+    DiagonalInertia(vector3f) = vector3f::ZERO;
     apiName = "diagonalInertia"
     displayName = "Diagonal Inertia"
 }
@@ -122,11 +122,10 @@ usd_attribute! {
     /// Orientation of the inertia tensor's principal axes.
     ///
     /// Specifies the rotation from the entity's local space to the principal
-    /// axes frame in which [`DiagonalInertia`] is expressed. A zero quaternion
-    /// (the default) indicates identity orientation.
+    /// axes frame in which [`DiagonalInertia`] is expressed.
     ///
     /// Unitless (quaternion).
-    PrincipalAxes(Quat) = quat(0.0, 0.0, 0.0, 0.0);
+    PrincipalAxes(quatf) = quatf::IDENTITY;
     apiName = "principalAxes"
     displayName = "Principal Axes"
 }

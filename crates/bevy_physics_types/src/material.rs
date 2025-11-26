@@ -49,6 +49,8 @@
 //! 2. Inherited density from parent
 //! 3. Material density (lowest)
 
+use crate::types::float;
+
 usd_asset! {
     /// Physics material asset defining collision response properties.
     ///
@@ -69,7 +71,7 @@ usd_attribute! {
     /// - Steel on steel: ~0.4-0.6
     ///
     /// Unitless. Range: [0, ∞) though typically [0, 1].
-    DynamicFriction(f32) = 0.0;
+    DynamicFriction(float) = 0.0;
     apiName = "dynamicFriction"
     displayName = "Dynamic Friction"
 }
@@ -82,7 +84,7 @@ usd_attribute! {
     /// Static friction is typically higher than dynamic friction.
     ///
     /// Unitless. Range: [0, ∞) though typically [0, 1].
-    StaticFriction(f32) = 0.0;
+    StaticFriction(float) = 0.0;
     apiName = "staticFriction"
     displayName = "Static Friction"
 }
@@ -98,7 +100,7 @@ usd_attribute! {
     /// useful for gameplay).
     ///
     /// Unitless. Range: [0, 1] for realistic behavior.
-    Restitution(f32) = 0.0;
+    Restitution(float) = 0.0;
     apiName = "restitution"
     displayName = "Restitution"
 }
@@ -115,7 +117,7 @@ usd_attribute! {
     /// A value of 0.0 means "not specified" and is ignored.
     ///
     /// Units: mass/distance³.
-    Density(f32) = 0.0;
+    Density(float) = 0.0;
     apiName = "density"
     displayName = "Density"
 }

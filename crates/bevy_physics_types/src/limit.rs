@@ -34,7 +34,7 @@
 //! custom joint configurations. Combined with [`DriveAPI`](crate::drive)
 //! components, this allows building any joint type from primitives.
 
-use core::f32;
+use crate::types::float;
 
 /// Limit range configuration for joint axis constraints.
 ///
@@ -44,28 +44,28 @@ use core::f32;
 pub struct LimitRange {
     /// Lower limit of motion.
     ///
-    /// Use `f32::NEG_INFINITY` for no lower bound.
+    /// Use `float::NEG_INFINITY` for no lower bound.
     /// Units depend on DOF type (distance for translation, degrees for rotation).
-    pub low: f32,
+    pub low: float,
 
     /// Upper limit of motion.
     ///
-    /// Use `f32::INFINITY` for no upper bound.
+    /// Use `float::INFINITY` for no upper bound.
     /// Units depend on DOF type (distance for translation, degrees for rotation).
-    pub high: f32,
+    pub high: float,
 }
 
 impl LimitRange {
     /// Fully unconstrained motion (free DOF).
     pub const UNLOCKED: Self = Self {
-        low: f32::NEG_INFINITY,
-        high: f32::INFINITY,
+        low: float::NEG_INFINITY,
+        high: float::INFINITY,
     };
 
     /// Create a new limit range with the given bounds.
     ///
     /// If `low > high`, the axis will be locked.
-    pub fn new(low: f32, high: f32) -> Self {
+    pub fn new(low: float, high: float) -> Self {
         Self { low, high }
     }
 
@@ -91,7 +91,7 @@ impl LimitRange {
 
     /// Returns true if this range is fully unconstrained.
     pub fn is_free(&self) -> bool {
-        self.low == f32::NEG_INFINITY && self.high == f32::INFINITY
+        self.low == float::NEG_INFINITY && self.high == float::INFINITY
     }
 }
 

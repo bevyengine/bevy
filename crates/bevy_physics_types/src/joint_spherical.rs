@@ -34,6 +34,7 @@
 //! - Ragdoll character joints
 
 use crate::axis::Axis;
+use crate::types::angle;
 use bevy_ecs::component::Component;
 
 /// A spherical (ball-and-socket) joint allowing rotation around all axes.
@@ -56,7 +57,7 @@ pub struct SphericalJoint {
     /// When different, creates an elliptical cone.
     ///
     /// Units: degrees. Negative = unlimited.
-    pub cone_angle0_limit: f32,
+    pub cone_angle0_limit: angle,
 
     /// Second cone angle limit in degrees.
     ///
@@ -64,7 +65,7 @@ pub struct SphericalJoint {
     /// in the cycle (X→Z, Y→X, Z→Y). A negative value means no limit.
     ///
     /// Units: degrees. Negative = unlimited.
-    pub cone_angle1_limit: f32,
+    pub cone_angle1_limit: angle,
 }
 
 impl Default for SphericalJoint {

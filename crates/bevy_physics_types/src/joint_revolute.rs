@@ -28,6 +28,7 @@
 //! - Propellers and fans
 
 use crate::axis::Axis;
+use crate::types::angle;
 use bevy_ecs::component::Component;
 
 /// A revolute (hinge) joint allowing rotation around one axis.
@@ -43,27 +44,27 @@ pub struct RevoluteJoint {
 
     /// Lower angular limit in degrees.
     ///
-    /// The minimum rotation angle allowed. Use `f32::NEG_INFINITY` for
+    /// The minimum rotation angle allowed. Use `angle::NEG_INFINITY` for
     /// no lower limit (unlimited rotation in negative direction).
     ///
     /// Units: degrees.
-    pub lower_limit: f32,
+    pub lower_limit: angle,
 
     /// Upper angular limit in degrees.
     ///
-    /// The maximum rotation angle allowed. Use `f32::INFINITY` for
+    /// The maximum rotation angle allowed. Use `angle::INFINITY` for
     /// no upper limit (unlimited rotation in positive direction).
     ///
     /// Units: degrees.
-    pub upper_limit: f32,
+    pub upper_limit: angle,
 }
 
 impl Default for RevoluteJoint {
     fn default() -> Self {
         Self {
             axis: Axis::default(),
-            lower_limit: f32::NEG_INFINITY,
-            upper_limit: f32::INFINITY,
+            lower_limit: angle::NEG_INFINITY,
+            upper_limit: angle::INFINITY,
         }
     }
 }

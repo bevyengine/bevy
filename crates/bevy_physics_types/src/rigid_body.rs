@@ -40,7 +40,7 @@
 //! local space, consistent with USD's `UsdGeomPointInstancer` conventions and the
 //! entity's transform. Angular velocity uses degrees per second.
 
-use bevy_math::prelude::*;
+use crate::types::vector3f;
 
 usd_marker! {
     /// Marks the root of a rigid body hierarchy.
@@ -101,7 +101,7 @@ usd_attribute! {
     /// This velocity is specified relative to the entity's local coordinate frame.
     ///
     /// Units: distance/second.
-    Velocity(Vec3) = vec3(0.0, 0.0, 0.0);
+    Velocity(vector3f) = vector3f::ZERO;
     apiName = "velocity"
     displayName = "Linear Velocity"
 }
@@ -112,7 +112,7 @@ usd_attribute! {
     /// This velocity is specified relative to the entity's local coordinate frame.
     ///
     /// Units: degrees/second.
-    AngularVelocity(Vec3) = vec3(0.0, 0.0, 0.0);
+    AngularVelocity(vector3f) = vector3f::ZERO;
     apiName = "angularVelocity"
     displayName = "Angular Velocity"
 }

@@ -30,6 +30,7 @@
 
 use bevy_ecs::entity::EntityHashSet;
 use bevy_math::Dir3;
+use crate::types::float;
 
 usd_attribute! {
     /// Gravity direction vector in simulation world space.
@@ -52,7 +53,7 @@ usd_attribute! {
     /// convert this to appropriate scene units.
     ///
     /// Units: distance/second².
-    GravityMagnitude(f32) = -9.81;
+    GravityMagnitude(float) = -9.81;
     apiName = "gravityMagnitude"
     displayName = "Gravity Magnitude"
 }

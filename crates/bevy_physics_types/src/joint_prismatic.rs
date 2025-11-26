@@ -29,6 +29,7 @@
 //! - Elevator mechanisms
 
 use crate::axis::Axis;
+use crate::types::float;
 use bevy_ecs::component::Component;
 
 /// A prismatic (slider) joint allowing translation along one axis.
@@ -44,27 +45,27 @@ pub struct PrismaticJoint {
 
     /// Lower translation limit.
     ///
-    /// The minimum translation distance allowed. Use `f32::NEG_INFINITY` for
+    /// The minimum translation distance allowed. Use `float::NEG_INFINITY` for
     /// no lower limit.
     ///
     /// Units: distance.
-    pub lower_limit: f32,
+    pub lower_limit: float,
 
     /// Upper translation limit.
     ///
-    /// The maximum translation distance allowed. Use `f32::INFINITY` for
+    /// The maximum translation distance allowed. Use `float::INFINITY` for
     /// no upper limit.
     ///
     /// Units: distance.
-    pub upper_limit: f32,
+    pub upper_limit: float,
 }
 
 impl Default for PrismaticJoint {
     fn default() -> Self {
         Self {
             axis: Axis::default(),
-            lower_limit: f32::NEG_INFINITY,
-            upper_limit: f32::INFINITY,
+            lower_limit: float::NEG_INFINITY,
+            upper_limit: float::INFINITY,
         }
     }
 }

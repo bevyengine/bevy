@@ -3,13 +3,14 @@
 #[macro_use]
 mod macros;
 
+pub mod types;
+pub use types::*;
+
 pub mod axis;
 
 pub mod global;
 
 pub mod scene;
-
-pub mod types;
 
 pub mod rigid_body;
 
