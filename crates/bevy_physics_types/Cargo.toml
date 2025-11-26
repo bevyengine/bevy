@@ -4,6 +4,5 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-bevy_ecs = "0.17.3"
-bevy_ecs_macros = "0.17.3"
-bevy_math = "*"
+bevy_ecs = { path = "../bevy_ecs", version = "0.18.0-dev" }
+bevy_math = { path = "../bevy_math", version = "0.18.0-dev" }
