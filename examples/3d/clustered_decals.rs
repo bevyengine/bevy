@@ -281,11 +281,11 @@ fn drag_button(label: &str) -> impl Bundle {
             justify_content: JustifyContent::Center,
             align_items: AlignItems::Center,
             padding: BUTTON_PADDING,
+            border_radius: BorderRadius::all(BUTTON_BORDER_RADIUS_SIZE),
             ..default()
         },
         Button,
         BackgroundColor(Color::BLACK),
-        BorderRadius::all(BUTTON_BORDER_RADIUS_SIZE),
         BUTTON_BORDER_COLOR,
         children![widgets::ui_text(label, Color::WHITE)],
     )
