@@ -101,11 +101,7 @@ fn select_random_light(rng: ptr<function, u32>) -> u32 {
 }
 
 fn select_random_light_inverse_pdf(light_id: u32) -> f32 {
-    return select_random_light_inverse_pdf_with_count_offset(light_id, 0u);
-}
-
-fn select_random_light_inverse_pdf_with_count_offset(light_id: u32, count_offset: u32) -> f32 {
-    let light_count = arrayLength(&light_sources) - count_offset;
+    let light_count = arrayLength(&light_sources);
     let light_source = light_sources[light_id >> 16u];
     var triangle_count = 1u;
     if light_source.kind != LIGHT_SOURCE_KIND_DIRECTIONAL {

@@ -54,7 +54,7 @@ fn specular_gi(@builtin(global_invocation_id) global_id: vec3<u32>) {
     textureStore(view_output, global_id.xy, pixel_color);
 
 #ifdef VISUALIZE_WORLD_CACHE
-    textureStore(view_output, global_id.xy, vec4(query_world_cache_radiance(surface.world_position, surface.world_normal, view.world_position, &rng) * view.exposure, 1.0));
+    textureStore(view_output, global_id.xy, vec4(query_world_cache_radiance(&rng, surface.world_position, surface.world_normal, view.world_position) * view.exposure, 1.0));
 #endif
 }
 

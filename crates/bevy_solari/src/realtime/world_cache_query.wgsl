@@ -27,7 +27,7 @@
     WorldCacheLightDataRead,
 }
 #import bevy_solari::presample_light_tiles::unpack_light_sample
-#import bevy_solari::sampling::{light_contribution_no_trace, select_random_light, select_random_light_inverse_pdf_with_count_offset, trace_light_visibility, calculate_light_contribution}
+#import bevy_solari::sampling::{light_contribution_no_trace, select_random_light, select_random_light_inverse_pdf, trace_light_visibility, calculate_light_contribution}
 #import bevy_solari::scene_bindings::ResolvedMaterial
 
 /// How responsive the world cache is to changes in lighting (higher is less responsive, lower is more responsive)
@@ -40,8 +40,8 @@ const WORLD_CACHE_MAX_SEARCH_STEPS: u32 = 3u;
 const WORLD_CACHE_NEW_LIGHTS_SEARCH_COUNT_MIN: u32 = 4u;
 const WORLD_CACHE_NEW_LIGHTS_SEARCH_COUNT_MAX: u32 = 8u;
 const WORLD_CACHE_EXPLORATORY_SAMPLE_RATIO: f32 = 0.25;
-const WORLD_CACHE_CELL_CONFIDENCE_LUM_MIN: f32 = 0.0001;
-const WORLD_CACHE_CELL_CONFIDENCE_LUM_MAX: f32 = 0.1;
+const WORLD_CACHE_CELL_CONFIDENCE_LUM_MIN: f32 = 0.1;
+const WORLD_CACHE_CELL_CONFIDENCE_LUM_MAX: f32 = 0.3;
 
 /// The size of a cache cell at the lowest LOD in meters
 const WORLD_CACHE_POSITION_BASE_CELL_SIZE: f32 = 0.1;
@@ -176,6 +176,7 @@ fn write_world_cache_light(rng: ptr<function, u32>, cell: EvaluatedLighting, wor
 
 struct EvaluatedLighting {
     radiance: vec3<f32>,
+    inverse_pdf: f32,
     data: WorldCacheSingleLightData,
 }
 
@@ -203,26 +204,28 @@ fn evaluate_lighting_from_cache(
     var sel = cell_selected_light.light;
     var sel_weight = cell_selected_light.weight;
     var weight_sum = cell_selected_light.weight_sum;
+
+    let random_weight = min(mix(random_selected_light.weight_sum, WORLD_CACHE_EXPLORATORY_SAMPLE_RATIO * weight_sum, cell_confidence), random_selected_light.weight_sum);
+    weight_sum += random_weight;
     var inverse_pdf = select(weight_sum / sel_weight, 0.0, sel_weight < 0.0001);
 
-    let random_weight = min(mix(1.0, WORLD_CACHE_EXPLORATORY_SAMPLE_RATIO * weight_sum, cell_confidence), random_selected_light.weight_sum);
-    weight_sum += random_weight;
     if rand_f(rng) < random_weight / weight_sum {
         sel = random_selected_light.light;
         sel_weight = random_selected_light.weight;
-        inverse_pdf = select(random_selected_light.base_inverse_pdf * weight_sum / random_weight, 0.0, random_weight < 0.0001);
+        inverse_pdf = select(weight_sum / random_weight, 0.0, random_weight < 0.0001) * random_selected_light.base_inverse_pdf;
     }
 
-    if log2((exp2(weight_sum) - 1.0) * exposure + 1.0) < 0.0001 {
-        return EvaluatedLighting(vec3(0.0), WorldCacheSingleLightData(0, 0.0));
+    if weight_sum < 0.0001 {
+        return EvaluatedLighting(vec3(0.0), 0.0, WorldCacheSingleLightData(0, 0.0));
     }
 
     // TODO: reuse the eval that we did for light selection somehow
     let direct_lighting = light_contribution_no_trace(rng, sel, world_position, world_normal);
     let brdf = evaluate_brdf(world_normal, wo, direct_lighting.wi, material);
     let visibility = trace_light_visibility(world_position, direct_lighting.world_position);
-    let radiance = direct_lighting.radiance * direct_lighting.inverse_pdf * inverse_pdf * brdf * visibility;
-    return EvaluatedLighting(radiance, WorldCacheSingleLightData(sel, sel_weight * visibility));
+    let radiance = direct_lighting.radiance * brdf;
+    let final_inverse_pdf = direct_lighting.inverse_pdf * inverse_pdf * visibility;
+    return EvaluatedLighting(radiance, final_inverse_pdf, WorldCacheSingleLightData(sel, sel_weight * visibility));
 }
 
 struct SelectedLight {
@@ -284,12 +287,6 @@ fn select_light_randomly(
     var weight_sum = 0.0;
     for (var i = 0u; i < samples; i++) {
         let tile_sample = light_tile_samples[light_tile_start + rand_range_u(1024u, rng)];
-        var light_in_cell = false;
-        for (var i = 0u; i < cell.visible_light_count; i++) {
-            if tile_sample.light_id == cell.visible_lights[i].light { light_in_cell = true; break; }
-        }
-        if light_in_cell { continue; }
-
         let sample = unpack_light_sample(tile_sample);
         let direct_lighting = calculate_light_contribution(sample, world_position, world_normal);
         let brdf = evaluate_brdf(world_normal, wo, direct_lighting.wi, material);
@@ -308,7 +305,7 @@ fn select_light_randomly(
         }
     }
 
-    let base_inverse_pdf = select_random_light_inverse_pdf_with_count_offset(selected, cell.visible_light_count);
+    let base_inverse_pdf = select_random_light_inverse_pdf(selected);
     return SelectedLight(selected, selected_weight, weight_sum, base_inverse_pdf);
 }
 
