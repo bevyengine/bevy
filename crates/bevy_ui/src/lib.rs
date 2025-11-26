@@ -34,6 +34,7 @@ mod layout;
 mod stack;
 mod ui_node;
 
+use bevy_text::TextSystems;
 pub use focus::*;
 pub use geometry::*;
 pub use gradients::*;
@@ -180,8 +181,7 @@ impl Plugin for UiPlugin {
 
         let ui_layout_system_config = ui_layout_system_config
             // Text and Text2D operate on disjoint sets of entities
-            .ambiguous_with(bevy_sprite::update_text2d_layout)
-            .ambiguous_with(bevy_text::detect_text_needs_rerender::<bevy_sprite::Text2d>);
+            .ambiguous_with(bevy_sprite::update_text2d_layout);
 
         app.add_systems(
             PostUpdate,
@@ -191,7 +191,7 @@ impl Plugin for UiPlugin {
                 ui_stack_system
                     .in_set(UiSystems::Stack)
                     // These systems don't care about stack index
-                    .ambiguous_with(widget::measure_text_system)
+                    .ambiguous_with(widget::shape_text_system)
                     .ambiguous_with(update_clipping_system)
                     .ambiguous_with(ui_layout_system)
                     .ambiguous_with(widget::update_viewport_render_target_size)
@@ -227,12 +227,12 @@ fn build_text_interop(app: &mut App) {
         (
             (
                 bevy_text::detect_text_needs_rerender::<Text>,
-                widget::measure_text_system,
+                widget::shape_text_system,
             )
                 .chain()
+                .after(TextSystems::RegisterFontAssets)
                 .in_set(UiSystems::Content)
                 // Text and Text2d are independent.
-                .ambiguous_with(bevy_text::detect_text_needs_rerender::<bevy_sprite::Text2d>)
                 // Potential conflict: `Assets<Image>`
                 // Since both systems will only ever insert new [`Image`] assets,
                 // they will never observe each other's effects.
@@ -240,12 +240,12 @@ fn build_text_interop(app: &mut App) {
                 // We assume Text is on disjoint UI entities to ImageNode and UiTextureAtlasImage
                 // FIXME: Add an archetype invariant for this https://github.com/bevyengine/bevy/issues/1481.
                 .ambiguous_with(widget::update_image_content_size_system),
-            widget::text_system
+            widget::layout_text_system
+                .after(TextSystems::RegisterFontAssets)
                 .in_set(UiSystems::PostLayout)
-                .after(bevy_text::free_unused_font_atlases_system)
-                .before(bevy_asset::AssetEventSystems)
+                //.after(bevy_text::free_unused_font_atlases_system)
+                .after(bevy_asset::AssetEventSystems)
                 // Text2d and bevy_ui text are entirely on separate entities
-                .ambiguous_with(bevy_text::detect_text_needs_rerender::<bevy_sprite::Text2d>)
                 .ambiguous_with(bevy_sprite::update_text2d_layout)
                 .ambiguous_with(bevy_sprite::calculate_bounds_text2d),
         ),
@@ -262,7 +262,7 @@ fn build_text_interop(app: &mut App) {
 
     app.configure_sets(
         PostUpdate,
-        AmbiguousWithText.ambiguous_with(widget::text_system),
+        AmbiguousWithText.ambiguous_with(widget::layout_text_system),
     );
 
     app.configure_sets(

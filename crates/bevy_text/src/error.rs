@@ -1,4 +1,3 @@
-use cosmic_text::CacheKey;
 use thiserror::Error;
 
 #[derive(Debug, PartialEq, Eq, Error)]
@@ -13,7 +12,7 @@ pub enum TextError {
     FailedToAddGlyph(u16),
     /// Failed to get scaled glyph image for cache key
     #[error("failed to get scaled glyph image for cache key: {0:?}")]
-    FailedToGetGlyphImage(CacheKey),
+    FailedToGetGlyphImage(u16),
     /// Missing texture atlas layout for the font
     #[error("missing texture atlas layout for the font")]
     MissingAtlasLayout,

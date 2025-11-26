@@ -1,31 +1,24 @@
-use crate::{Font, TextLayoutInfo, TextSpanAccess, TextSpanComponent};
+use crate::Font;
+use crate::{PositionedGlyph, TextSpanAccess, TextSpanComponent};
 use bevy_asset::Handle;
 use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{prelude::*, reflect::ReflectComponent};
+use bevy_log::once;
+use bevy_log::warn;
+use bevy_math::{Rect, Vec2};
 use bevy_reflect::prelude::*;
-use bevy_utils::{default, once};
+use bevy_utils::default;
 use core::fmt::{Debug, Formatter};
 use core::str::from_utf8;
-use cosmic_text::{Buffer, Metrics};
+use parley::{FontFeature, Layout};
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
-use tracing::warn;
-
-/// Wrapper for [`cosmic_text::Buffer`]
-#[derive(Deref, DerefMut, Debug, Clone)]
-pub struct CosmicBuffer(pub Buffer);
-
-impl Default for CosmicBuffer {
-    fn default() -> Self {
-        Self(Buffer::new_empty(Metrics::new(0.0, 0.000001)))
-    }
-}
 
 /// A sub-entity of a [`ComputedTextBlock`].
 ///
 /// Returned by [`ComputedTextBlock::entities`].
-#[derive(Debug, Copy, Clone, Reflect)]
+#[derive(Debug, Clone, Reflect)]
 #[reflect(Debug, Clone)]
 pub struct TextEntity {
     /// The entity.
@@ -42,18 +35,10 @@ pub struct TextEntity {
 #[derive(Component, Debug, Clone, Reflect)]
 #[reflect(Component, Debug, Default, Clone)]
 pub struct ComputedTextBlock {
-    /// Buffer for managing text layout and creating [`TextLayoutInfo`].
-    ///
-    /// This is private because buffer contents are always refreshed from ECS state when writing glyphs to
-    /// `TextLayoutInfo`. If you want to control the buffer contents manually or use the `cosmic-text`
-    /// editor, then you need to not use `TextLayout` and instead manually implement the conversion to
-    /// `TextLayoutInfo`.
-    #[reflect(ignore, clone)]
-    pub(crate) buffer: CosmicBuffer,
     /// Entities for all text spans in the block, including the root-level text.
     ///
     /// The [`TextEntity::depth`] field can be used to reconstruct the hierarchy.
-    pub(crate) entities: SmallVec<[TextEntity; 1]>,
+    pub entities: SmallVec<[TextEntity; 1]>,
     /// Flag set when any change has been made to this block that should cause it to be rerendered.
     ///
     /// Includes:
@@ -64,7 +49,7 @@ pub struct ComputedTextBlock {
     // the actual changes are non-structural and can be handled by only rerendering and not remeasuring. A full
     // solution would probably require splitting TextLayout and TextFont into structural/non-structural
     // components for more granular change detection. A cost/benefit analysis is needed.
-    pub(crate) needs_rerender: bool,
+    pub needs_rerender: bool,
 }
 
 impl ComputedTextBlock {
@@ -83,22 +68,11 @@ impl ComputedTextBlock {
     pub fn needs_rerender(&self) -> bool {
         self.needs_rerender
     }
-    /// Accesses the underlying buffer which can be used for `cosmic-text` APIs such as accessing layout information
-    /// or calculating a cursor position.
-    ///
-    /// Mutable access is not offered because changes would be overwritten during the automated layout calculation.
-    /// If you want to control the buffer contents manually or use the `cosmic-text`
-    /// editor, then you need to not use `TextLayout` and instead manually implement the conversion to
-    /// `TextLayoutInfo`.
-    pub fn buffer(&self) -> &CosmicBuffer {
-        &self.buffer
-    }
 }
 
 impl Default for ComputedTextBlock {
     fn default() -> Self {
         Self {
-            buffer: CosmicBuffer::default(),
             entities: SmallVec::default(),
             needs_rerender: true,
         }
@@ -114,7 +88,7 @@ impl Default for ComputedTextBlock {
 /// See `Text2d` in `bevy_sprite` for the core component of 2d text, and `Text` in `bevy_ui` for UI text.
 #[derive(Component, Debug, Copy, Clone, Default, Reflect)]
 #[reflect(Component, Default, Debug, Clone)]
-#[require(ComputedTextBlock, TextLayoutInfo)]
+#[require(TextLayoutInfo)]
 pub struct TextLayout {
     /// The text's internal alignment.
     /// Should not affect its position within a container.
@@ -232,15 +206,21 @@ pub enum Justify {
     /// align with their margins.
     /// Bounds start from the render position and advance equally left & right.
     Justified,
+    /// `TextAlignment::Left` for LTR text and `TextAlignment::Right` for RTL text.
+    Start,
+    /// `TextAlignment::Left` for RTL text and `TextAlignment::Right` for LTR text.
+    End,
 }
 
-impl From<Justify> for cosmic_text::Align {
+impl From<Justify> for parley::Alignment {
     fn from(justify: Justify) -> Self {
         match justify {
-            Justify::Left => cosmic_text::Align::Left,
-            Justify::Center => cosmic_text::Align::Center,
-            Justify::Right => cosmic_text::Align::Right,
-            Justify::Justified => cosmic_text::Align::Justified,
+            Justify::Start => parley::Alignment::Start,
+            Justify::End => parley::Alignment::End,
+            Justify::Left => parley::Alignment::Left,
+            Justify::Center => parley::Alignment::Center,
+            Justify::Right => parley::Alignment::Right,
+            Justify::Justified => parley::Alignment::Justify,
         }
     }
 }
@@ -269,6 +249,7 @@ pub struct TextFont {
     /// The antialiasing method to use when rendering text.
     pub font_smoothing: FontSmoothing,
     /// OpenType features for .otf fonts that support them.
+    #[reflect(ignore)]
     pub font_features: FontFeatures,
 }
 
@@ -403,6 +384,14 @@ impl Debug for FontFeatureTag {
     }
 }
 
+impl From<FontFeatureTag> for u32 {
+    fn from(value: FontFeatureTag) -> Self {
+        // OpenType use big-endian byte order
+        // <https://learn.microsoft.com/en-us/typography/opentype/spec/otff>
+        Self::from_be_bytes(value.0)
+    }
+}
+
 /// OpenType features for .otf fonts that support them.
 ///
 /// Examples features include ligatures, small-caps, and fractional number display. For the complete
@@ -426,9 +415,9 @@ impl Debug for FontFeatureTag {
 ///   FontFeatureTag::TABULAR_FIGURES
 /// ].into();
 /// ```
-#[derive(Clone, Debug, Default, Reflect, PartialEq)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct FontFeatures {
-    features: Vec<(FontFeatureTag, u32)>,
+    features: Vec<FontFeature>,
 }
 
 impl FontFeatures {
@@ -436,12 +425,17 @@ impl FontFeatures {
     pub fn builder() -> FontFeaturesBuilder {
         FontFeaturesBuilder::default()
     }
+
+    /// Returns the `FontFeature` list as a slice.
+    pub fn as_slice(&self) -> &[FontFeature] {
+        &self.features
+    }
 }
 
 /// A builder for [`FontFeatures`].
 #[derive(Clone, Default)]
 pub struct FontFeaturesBuilder {
-    features: Vec<(FontFeatureTag, u32)>,
+    features: Vec<FontFeature>,
 }
 
 impl FontFeaturesBuilder {
@@ -457,8 +451,11 @@ impl FontFeaturesBuilder {
     ///
     /// For most features, the [`FontFeaturesBuilder::enable`] method should be used instead. A few
     /// features, such as "wght", take numeric values, so this method may be used for these cases.
-    pub fn set(mut self, feature_tag: FontFeatureTag, value: u32) -> Self {
-        self.features.push((feature_tag, value));
+    pub fn set(mut self, feature_tag: FontFeatureTag, value: u16) -> Self {
+        self.features.push(FontFeature {
+            tag: feature_tag.into(),
+            value,
+        });
         self
     }
 
@@ -479,20 +476,11 @@ where
 {
     fn from(value: T) -> Self {
         FontFeatures {
-            features: value.into_iter().map(|x| (x, 1)).collect(),
-        }
-    }
-}
-
-impl From<&FontFeatures> for cosmic_text::FontFeatures {
-    fn from(font_features: &FontFeatures) -> Self {
-        cosmic_text::FontFeatures {
-            features: font_features
-                .features
-                .iter()
-                .map(|(tag, value)| cosmic_text::Feature {
-                    tag: cosmic_text::FeatureTag::new(&tag.0),
-                    value: *value,
+            features: value
+                .into_iter()
+                .map(|x| FontFeature {
+                    tag: x.into(),
+                    value: 1,
                 })
                 .collect(),
         }
@@ -512,10 +500,11 @@ pub enum LineHeight {
 }
 
 impl LineHeight {
-    pub(crate) fn eval(self, font_size: f32) -> f32 {
+    /// eval
+    pub fn eval(self) -> parley::LineHeight {
         match self {
-            LineHeight::Px(px) => px,
-            LineHeight::RelativeToFont(scale) => scale * font_size,
+            LineHeight::Px(px) => parley::LineHeight::Absolute(px),
+            LineHeight::RelativeToFont(scale) => parley::LineHeight::FontSizeRelative(scale),
         }
     }
 }
@@ -621,6 +610,82 @@ impl<T: Into<Color>> From<T> for StrikethroughColor {
 #[reflect(Serialize, Deserialize, Clone, Default)]
 pub struct Underline;
 
+/// Render information for a corresponding text block.
+///
+/// Contains scaled glyphs and their size. Generated via [`TextPipeline::queue_text`] when an entity has
+/// [`TextLayout`] and [`ComputedTextBlock`] components.
+#[derive(Component, Clone, Default, Debug, Reflect)]
+#[reflect(Component, Default, Debug, Clone)]
+pub struct TextLayoutInfo {
+    /// The target scale factor for this text layout
+    pub scale_factor: f32,
+    /// Scaled and positioned glyphs in screenspace
+    pub glyphs: Vec<PositionedGlyph>,
+    /// Geometry of each text run used to render text decorations like background colors, strikethrough, and underline.
+    /// A run in `bevy_text` is a contiguous sequence of glyphs on a line that share the same text attributes like font,
+    /// font size, and line height. A text entity that extends over multiple lines will have multiple corresponding runs.
+    ///
+    /// The coordinates are unscaled and relative to the top left corner of the text layout.
+    pub run_geometry: Vec<RunGeometry>,
+    /// The glyphs resulting size
+    pub size: Vec2,
+}
+
+impl TextLayoutInfo {
+    /// Clear any glyph data
+    pub fn clear(&mut self) {
+        self.glyphs.clear();
+        self.run_geometry.clear();
+    }
+}
+
+/// Geometry of a text run used to render text decorations like background colors, strikethrough, and underline.
+/// A run in `bevy_text` is a contiguous sequence of glyphs on a line that share the same text attributes like font,
+/// font size, and line height.
+#[derive(Default, Debug, Clone, Reflect)]
+pub struct RunGeometry {
+    /// The index of the text entity in [`ComputedTextBlock`] that this run belongs to.
+    pub span_index: usize,
+    /// Bounding box around the text run
+    pub bounds: Rect,
+    /// Y position of the strikethrough in the text layout.
+    pub strikethrough_y: f32,
+    /// Strikethrough stroke thickness.
+    pub strikethrough_thickness: f32,
+    /// Y position of the underline  in the text layout.
+    pub underline_y: f32,
+    /// Underline stroke thickness.
+    pub underline_thickness: f32,
+}
+
+impl RunGeometry {
+    /// Returns the center of the strikethrough in the text layout.
+    pub fn strikethrough_position(&self) -> Vec2 {
+        Vec2::new(
+            self.bounds.center().x,
+            self.strikethrough_y + 0.5 * self.strikethrough_thickness,
+        )
+    }
+
+    /// Returns the size of the strikethrough.
+    pub fn strikethrough_size(&self) -> Vec2 {
+        Vec2::new(self.bounds.size().x, self.strikethrough_thickness)
+    }
+
+    /// Get the center of the underline in the text layout.
+    pub fn underline_position(&self) -> Vec2 {
+        Vec2::new(
+            self.bounds.center().x,
+            self.underline_y + 0.5 * self.underline_thickness,
+        )
+    }
+
+    /// Returns the size of the underline.
+    pub fn underline_size(&self) -> Vec2 {
+        Vec2::new(self.bounds.size().x, self.underline_thickness)
+    }
+}
+
 /// Color for the text's underline. If this component is not present, its `TextColor` will be used.
 #[derive(Component, Copy, Clone, Debug, Deref, DerefMut, Reflect, PartialEq)]
 #[reflect(Component, Default, Debug, PartialEq, Clone)]
@@ -662,7 +727,11 @@ pub enum FontSmoothing {
     // SubpixelAntiAliased,
 }
 
-/// System that detects changes to text blocks and sets `ComputedTextBlock::should_rerender`.
+/// Computed text layout
+#[derive(Component, Default, Deref, DerefMut)]
+pub struct ComputedTextLayout(pub Layout<(u32, FontSmoothing)>);
+
+// System that detects changes to text blocks and sets `ComputedTextBlock::should_rerender`.
 ///
 /// Generic over the root text component and text span component. For example, `Text2d`/[`TextSpan`] for
 /// 2d or `Text`/[`TextSpan`] for UI.

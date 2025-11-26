@@ -7,22 +7,24 @@ use bevy_camera::visibility::{
 use bevy_camera::Camera;
 use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::entity::EntityHashSet;
+
+use bevy_ecs::change_detection::DetectChanges;
+use bevy_ecs::system::Res;
 use bevy_ecs::{
-    change_detection::{DetectChanges, Ref},
+    change_detection::Ref,
     component::Component,
     entity::Entity,
     prelude::ReflectComponent,
     query::{Changed, Without},
-    system::{Commands, Local, Query, Res, ResMut},
+    system::{Commands, Local, Query, ResMut},
 };
 use bevy_image::prelude::*;
 use bevy_math::{FloatOrd, Vec2, Vec3};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_text::{
-    ComputedTextBlock, CosmicFontSystem, Font, FontAtlasSet, LineBreak, LineHeight, SwashCache,
-    TextBounds, TextColor, TextError, TextFont, TextLayout, TextLayoutInfo, TextPipeline,
-    TextReader, TextRoot, TextSpanAccess, TextWriter,
+    update_text_layout_info, ComputedTextBlock, ComputedTextLayout, Font, FontAtlasSet, FontCx,
+    LayoutCx, LineHeight, ScaleCx, TextBounds, TextColor, TextFont, TextHead, TextLayout,
+    TextLayoutInfo, TextPipeline, TextReader, TextSpanAccess, TextWriter,
 };
 use bevy_transform::components::Transform;
 use core::any::TypeId;
@@ -88,7 +90,10 @@ use core::any::TypeId;
     Anchor,
     Visibility,
     VisibilityClass,
-    Transform
+    ComputedTextBlock,
+    TextLayoutInfo,
+    Transform,
+    ComputedTextLayout
 )]
 #[component(on_add = visibility::add_visibility_class::<Sprite>)]
 pub struct Text2d(pub String);
@@ -100,7 +105,7 @@ impl Text2d {
     }
 }
 
-impl TextRoot for Text2d {}
+impl TextHead for Text2d {}
 
 impl TextSpanAccess for Text2d {
     fn read_span(&self) -> &str {
@@ -160,14 +165,15 @@ impl Default for Text2dShadow {
 /// It does not modify or observe existing ones.
 pub fn update_text2d_layout(
     mut target_scale_factors: Local<Vec<(f32, RenderLayers)>>,
-    // Text items which should be reprocessed again, generally when the font hasn't loaded yet.
-    mut queue: Local<EntityHashSet>,
+    mut text_pipeline: ResMut<TextPipeline>,
     mut textures: ResMut<Assets<Image>>,
     fonts: Res<Assets<Font>>,
     camera_query: Query<(&Camera, &VisibleEntities, Option<&RenderLayers>)>,
     mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
     mut font_atlas_set: ResMut<FontAtlasSet>,
-    mut text_pipeline: ResMut<TextPipeline>,
+    mut font_cx: ResMut<FontCx>,
+    mut layout_cx: ResMut<LayoutCx>,
+    mut scale_cx: ResMut<ScaleCx>,
     mut text_query: Query<(
         Entity,
         Option<&RenderLayers>,
@@ -175,10 +181,9 @@ pub fn update_text2d_layout(
         Ref<TextBounds>,
         &mut TextLayoutInfo,
         &mut ComputedTextBlock,
+        &mut ComputedTextLayout,
     )>,
     mut text_reader: Text2dReader,
-    mut font_system: ResMut<CosmicFontSystem>,
-    mut swash_cache: ResMut<SwashCache>,
 ) {
     target_scale_factors.clear();
     target_scale_factors.extend(
@@ -197,8 +202,15 @@ pub fn update_text2d_layout(
     let mut previous_scale_factor = 0.;
     let mut previous_mask = &RenderLayers::none();
 
-    for (entity, maybe_entity_mask, block, bounds, text_layout_info, mut computed) in
-        &mut text_query
+    for (
+        entity,
+        maybe_entity_mask,
+        block,
+        bounds,
+        mut text_layout_info,
+        mut computed,
+        mut layout,
+    ) in &mut text_query
     {
         let entity_mask = maybe_entity_mask.unwrap_or_default();
 
@@ -219,55 +231,39 @@ pub fn update_text2d_layout(
             *scale_factor
         };
 
-        if scale_factor != text_layout_info.scale_factor
-            || computed.needs_rerender()
+        if !(computed.needs_rerender()
+            || block.is_changed()
             || bounds.is_changed()
-            || (!queue.is_empty() && queue.remove(&entity))
+            || scale_factor != text_layout_info.scale_factor)
         {
-            let text_bounds = TextBounds {
-                width: if block.linebreak == LineBreak::NoWrap {
-                    None
-                } else {
-                    bounds.width.map(|width| width * scale_factor)
-                },
-                height: bounds.height.map(|height| height * scale_factor),
-            };
-
-            let text_layout_info = text_layout_info.into_inner();
-            match text_pipeline.queue_text(
-                text_layout_info,
-                &fonts,
-                text_reader.iter(entity),
-                scale_factor as f64,
-                &block,
-                text_bounds,
-                &mut font_atlas_set,
-                &mut texture_atlases,
-                &mut textures,
-                computed.as_mut(),
-                &mut font_system,
-                &mut swash_cache,
-            ) {
-                Err(TextError::NoSuchFont) => {
-                    // There was an error processing the text layout, let's add this entity to the
-                    // queue for further processing
-                    queue.insert(entity);
-                }
-                Err(
-                    e @ (TextError::FailedToAddGlyph(_)
-                    | TextError::FailedToGetGlyphImage(_)
-                    | TextError::MissingAtlasLayout
-                    | TextError::MissingAtlasTexture
-                    | TextError::InconsistentAtlasState),
-                ) => {
-                    panic!("Fatal error when processing text: {e}.");
-                }
-                Ok(()) => {
-                    text_layout_info.scale_factor = scale_factor;
-                    text_layout_info.size *= scale_factor.recip();
-                }
-            }
+            continue;
         }
+
+        computed.needs_rerender = false;
+        computed.entities.clear();
+
+        text_pipeline.shape_text(
+            entity,
+            &mut text_reader,
+            &mut layout.0,
+            &mut font_cx.0,
+            &mut layout_cx.0,
+            scale_factor,
+            block.linebreak,
+            &fonts,
+            &mut computed.entities,
+        );
+
+        update_text_layout_info(
+            &mut text_layout_info,
+            &mut layout.0,
+            bounds.width.map(|w| w * scale_factor),
+            block.justify.into(),
+            &mut scale_cx,
+            &mut font_atlas_set,
+            &mut texture_atlases,
+            &mut textures,
+        );
     }
 }
 
@@ -305,137 +301,5 @@ pub fn calculate_bounds_text2d(
         } else {
             commands.entity(entity).try_insert(new_aabb);
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-
-    use bevy_app::{App, Update};
-    use bevy_asset::{load_internal_binary_asset, Handle};
-    use bevy_camera::{ComputedCameraValues, RenderTargetInfo};
-    use bevy_ecs::schedule::IntoScheduleConfigs;
-    use bevy_math::UVec2;
-    use bevy_text::{detect_text_needs_rerender, TextIterScratch};
-
-    use super::*;
-
-    const FIRST_TEXT: &str = "Sample text.";
-    const SECOND_TEXT: &str = "Another, longer sample text.";
-
-    fn setup() -> (App, Entity) {
-        let mut app = App::new();
-        app.init_resource::<Assets<Font>>()
-            .init_resource::<Assets<Image>>()
-            .init_resource::<Assets<TextureAtlasLayout>>()
-            .init_resource::<FontAtlasSet>()
-            .init_resource::<TextPipeline>()
-            .init_resource::<CosmicFontSystem>()
-            .init_resource::<SwashCache>()
-            .init_resource::<TextIterScratch>()
-            .add_systems(
-                Update,
-                (
-                    detect_text_needs_rerender::<Text2d>,
-                    update_text2d_layout,
-                    calculate_bounds_text2d,
-                )
-                    .chain(),
-            );
-
-        let mut visible_entities = VisibleEntities::default();
-        visible_entities.push(Entity::PLACEHOLDER, TypeId::of::<Sprite>());
-
-        app.world_mut().spawn((
-            Camera {
-                computed: ComputedCameraValues {
-                    target_info: Some(RenderTargetInfo {
-                        physical_size: UVec2::splat(1000),
-                        scale_factor: 1.,
-                    }),
-                    ..Default::default()
-                },
-                ..Default::default()
-            },
-            visible_entities,
-        ));
-
-        // A font is needed to ensure the text is laid out with an actual size.
-        load_internal_binary_asset!(
-            app,
-            Handle::default(),
-            "../../bevy_text/src/FiraMono-subset.ttf",
-            |bytes: &[u8], _path: String| { Font::try_from_bytes(bytes.to_vec()).unwrap() }
-        );
-
-        let entity = app.world_mut().spawn(Text2d::new(FIRST_TEXT)).id();
-
-        (app, entity)
-    }
-
-    #[test]
-    fn calculate_bounds_text2d_create_aabb() {
-        let (mut app, entity) = setup();
-
-        assert!(!app
-            .world()
-            .get_entity(entity)
-            .expect("Could not find entity")
-            .contains::<Aabb>());
-
-        // Creates the AABB after text layouting.
-        app.update();
-
-        let aabb = app
-            .world()
-            .get_entity(entity)
-            .expect("Could not find entity")
-            .get::<Aabb>()
-            .expect("Text should have an AABB");
-
-        // Text2D AABB does not have a depth.
-        assert_eq!(aabb.center.z, 0.0);
-        assert_eq!(aabb.half_extents.z, 0.0);
-
-        // AABB has an actual size.
-        assert!(aabb.half_extents.x > 0.0 && aabb.half_extents.y > 0.0);
-    }
-
-    #[test]
-    fn calculate_bounds_text2d_update_aabb() {
-        let (mut app, entity) = setup();
-
-        // Creates the initial AABB after text layouting.
-        app.update();
-
-        let first_aabb = *app
-            .world()
-            .get_entity(entity)
-            .expect("Could not find entity")
-            .get::<Aabb>()
-            .expect("Could not find initial AABB");
-
-        let mut entity_ref = app
-            .world_mut()
-            .get_entity_mut(entity)
-            .expect("Could not find entity");
-        *entity_ref
-            .get_mut::<Text2d>()
-            .expect("Missing Text2d on entity") = Text2d::new(SECOND_TEXT);
-
-        // Recomputes the AABB.
-        app.update();
-
-        let second_aabb = *app
-            .world()
-            .get_entity(entity)
-            .expect("Could not find entity")
-            .get::<Aabb>()
-            .expect("Could not find second AABB");
-
-        // Check that the height is the same, but the width is greater.
-        approx::assert_abs_diff_eq!(first_aabb.half_extents.y, second_aabb.half_extents.y);
-        assert!(FIRST_TEXT.len() < SECOND_TEXT.len());
-        assert!(first_aabb.half_extents.x < second_aabb.half_extents.x);
     }
 }

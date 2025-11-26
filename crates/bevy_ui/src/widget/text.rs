@@ -9,39 +9,38 @@ use bevy_ecs::{
     change_detection::DetectChanges,
     component::Component,
     entity::Entity,
-    query::With,
     reflect::ReflectComponent,
     system::{Query, Res, ResMut},
-    world::{Mut, Ref},
+    world::Ref,
 };
 use bevy_image::prelude::*;
 use bevy_math::Vec2;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_text::{
-    ComputedTextBlock, CosmicFontSystem, Font, FontAtlasSet, LineBreak, LineHeight, SwashCache,
-    TextBounds, TextColor, TextError, TextFont, TextLayout, TextLayoutInfo, TextMeasureInfo,
-    TextPipeline, TextReader, TextRoot, TextSpanAccess, TextWriter,
+    update_text_layout_info, ComputedTextBlock, ComputedTextLayout, Font, FontAtlasSet, FontCx,
+    LayoutCx, LineBreak, LineHeight, ScaleCx, TextBounds, TextColor, TextFont, TextHead,
+    TextLayout, TextLayoutInfo, TextPipeline, TextReader, TextSpanAccess, TextWriter,
 };
 use taffy::style::AvailableSpace;
 use tracing::error;
 
 /// UI text system flags.
 ///
-/// Used internally by [`measure_text_system`] and [`text_system`] to schedule text for processing.
+/// Used internally by [`shape_text_system`] and [`layout_text_system`] to schedule text for processing.
 #[derive(Component, Debug, Clone, Reflect)]
 #[reflect(Component, Default, Debug, Clone)]
 pub struct TextNodeFlags {
-    /// If set then a new measure function for the text node will be created.
-    needs_measure_fn: bool,
+    /// If set then the text will be reshaped.
+    pub needs_shaping: bool,
     /// If set then the text will be recomputed.
-    needs_recompute: bool,
+    pub needs_relayout: bool,
 }
 
 impl Default for TextNodeFlags {
     fn default() -> Self {
         Self {
-            needs_measure_fn: true,
-            needs_recompute: true,
+            needs_shaping: true,
+            needs_relayout: true,
         }
     }
 }
@@ -100,9 +99,11 @@ impl Default for TextNodeFlags {
     TextLayout,
     TextFont,
     TextColor,
-    LineHeight,
     TextNodeFlags,
-    ContentSize
+    ContentSize,
+    ComputedTextBlock,
+    ComputedTextLayout,
+    LineHeight
 )]
 pub struct Text(pub String);
 
@@ -113,7 +114,7 @@ impl Text {
     }
 }
 
-impl TextRoot for Text {}
+impl TextHead for Text {}
 
 impl TextSpanAccess for Text {
     fn read_span(&self) -> &str {
@@ -164,6 +165,23 @@ pub type TextUiReader<'w, 's> = TextReader<'w, 's, Text>;
 /// UI alias for [`TextWriter`].
 pub type TextUiWriter<'w, 's> = TextWriter<'w, 's, Text>;
 
+/// Data for `TextMeasure`
+pub struct TextMeasureInfo {
+    pub min: Vec2,
+    pub max: Vec2,
+    pub entity: Entity,
+}
+
+impl TextMeasureInfo {
+    /// Computes the size of the text area within the provided bounds.
+    pub fn compute_size(&mut self, bounds: TextBounds, layout: &mut ComputedTextLayout) -> Vec2 {
+        // Note that this arbitrarily adjusts the buffer layout. We assume the buffer is always 'refreshed'
+        // whenever a canonical state is required.
+        layout.break_all_lines(bounds.width);
+        Vec2::new(layout.width(), layout.height())
+    }
+}
+
 /// Text measurement for UI layout. See [`NodeMeasure`].
 pub struct TextMeasure {
     pub info: TextMeasureInfo,
@@ -172,7 +190,7 @@ pub struct TextMeasure {
 impl TextMeasure {
     /// Checks if the cosmic text buffer is needed for measuring the text.
     #[inline]
-    pub const fn needs_buffer(height: Option<f32>, available_width: AvailableSpace) -> bool {
+    pub const fn needs_text_layout(height: Option<f32>, available_width: AvailableSpace) -> bool {
         height.is_none() && matches!(available_width, AvailableSpace::Definite(_))
     }
 }
@@ -183,9 +201,8 @@ impl Measure for TextMeasure {
             width,
             height,
             available_width,
-            buffer,
-            font_system,
-            ..
+            available_height: _,
+            maybe_text_layout,
         } = measure_args;
         let x = width.unwrap_or_else(|| match available_width {
             AvailableSpace::Definite(x) => {
@@ -203,12 +220,9 @@ impl Measure for TextMeasure {
             .map_or_else(
                 || match available_width {
                     AvailableSpace::Definite(_) => {
-                        if let Some(buffer) = buffer {
-                            self.info.compute_size(
-                                TextBounds::new_horizontal(x),
-                                buffer,
-                                font_system,
-                            )
+                        if let Some(text_layout) = maybe_text_layout {
+                            self.info
+                                .compute_size(TextBounds::new_horizontal(x), text_layout)
                         } else {
                             error!("text measure failed, buffer is missing");
                             Vec2::default()
@@ -223,55 +237,6 @@ impl Measure for TextMeasure {
     }
 }
 
-#[inline]
-fn create_text_measure<'a>(
-    entity: Entity,
-    fonts: &Assets<Font>,
-    scale_factor: f64,
-    spans: impl Iterator<Item = (Entity, usize, &'a str, &'a TextFont, Color, LineHeight)>,
-    block: Ref<TextLayout>,
-    text_pipeline: &mut TextPipeline,
-    mut content_size: Mut<ContentSize>,
-    mut text_flags: Mut<TextNodeFlags>,
-    mut computed: Mut<ComputedTextBlock>,
-    font_system: &mut CosmicFontSystem,
-) {
-    match text_pipeline.create_text_measure(
-        entity,
-        fonts,
-        spans,
-        scale_factor,
-        &block,
-        computed.as_mut(),
-        font_system,
-    ) {
-        Ok(measure) => {
-            if block.linebreak == LineBreak::NoWrap {
-                content_size.set(NodeMeasure::Fixed(FixedMeasure { size: measure.max }));
-            } else {
-                content_size.set(NodeMeasure::Text(TextMeasure { info: measure }));
-            }
-
-            // Text measure func created successfully, so set `TextNodeFlags` to schedule a recompute
-            text_flags.needs_measure_fn = false;
-            text_flags.needs_recompute = true;
-        }
-        Err(TextError::NoSuchFont) => {
-            // Try again next frame
-            text_flags.needs_measure_fn = true;
-        }
-        Err(
-            e @ (TextError::FailedToAddGlyph(_)
-            | TextError::FailedToGetGlyphImage(_)
-            | TextError::MissingAtlasLayout
-            | TextError::MissingAtlasTexture
-            | TextError::InconsistentAtlasState),
-        ) => {
-            panic!("Fatal error when processing text: {e}.");
-        }
-    };
-}
-
 /// Generates a new [`Measure`] for a text node on changes to its [`Text`] component.
 ///
 /// A `Measure` is used by the UI's layout algorithm to determine the appropriate amount of space
@@ -282,116 +247,75 @@ fn create_text_measure<'a>(
 ///   is only able to detect that a `Text` component has changed and will regenerate the `Measure` on
 ///   color changes. This can be expensive, particularly for large blocks of text, and the [`bypass_change_detection`](bevy_ecs::change_detection::DetectChangesMut::bypass_change_detection)
 ///   method should be called when only changing the `Text`'s colors.
-pub fn measure_text_system(
-    fonts: Res<Assets<Font>>,
-    mut text_query: Query<
-        (
-            Entity,
-            Ref<TextLayout>,
-            &mut ContentSize,
-            &mut TextNodeFlags,
-            &mut ComputedTextBlock,
-            Ref<ComputedUiRenderTargetInfo>,
-            &ComputedNode,
-        ),
-        With<Node>,
-    >,
-    mut text_reader: TextUiReader,
+pub fn shape_text_system(
     mut text_pipeline: ResMut<TextPipeline>,
-    mut font_system: ResMut<CosmicFontSystem>,
+    mut font_cx: ResMut<FontCx>,
+    mut layout_cx: ResMut<LayoutCx>,
+    fonts: Res<Assets<Font>>,
+    mut text_query: Query<(
+        Entity,
+        Ref<TextLayout>,
+        &mut ContentSize,
+        &mut TextNodeFlags,
+        &mut ComputedTextBlock,
+        &mut ComputedTextLayout,
+        Ref<ComputedUiRenderTargetInfo>,
+        &ComputedNode,
+    )>,
+    mut text_reader: TextUiReader,
 ) {
-    for (entity, block, content_size, text_flags, computed, computed_target, computed_node) in
-        &mut text_query
+    for (
+        entity,
+        block,
+        mut content_size,
+        mut text_flags,
+        mut computed_block,
+        mut computed_layout,
+        computed_target,
+        computed_node,
+    ) in &mut text_query
     {
         // Note: the ComputedTextBlock::needs_rerender bool is cleared in create_text_measure().
         // 1e-5 epsilon to ignore tiny scale factor float errors
-        if 1e-5
+
+        if !(1e-5
             < (computed_target.scale_factor() - computed_node.inverse_scale_factor.recip()).abs()
-            || computed.needs_rerender()
-            || text_flags.needs_measure_fn
-            || content_size.is_added()
+            || computed_block.needs_rerender()
+            || text_flags.needs_shaping
+            || content_size.is_added())
         {
-            create_text_measure(
-                entity,
-                &fonts,
-                computed_target.scale_factor.into(),
-                text_reader.iter(entity),
-                block,
-                &mut text_pipeline,
-                content_size,
-                text_flags,
-                computed,
-                &mut font_system,
-            );
+            continue;
         }
-    }
-}
+        computed_block.needs_rerender = false;
+        computed_block.entities.clear();
 
-#[inline]
-fn queue_text(
-    entity: Entity,
-    fonts: &Assets<Font>,
-    text_pipeline: &mut TextPipeline,
-    font_atlas_set: &mut FontAtlasSet,
-    texture_atlases: &mut Assets<TextureAtlasLayout>,
-    textures: &mut Assets<Image>,
-    scale_factor: f32,
-    inverse_scale_factor: f32,
-    block: &TextLayout,
-    node: Ref<ComputedNode>,
-    mut text_flags: Mut<TextNodeFlags>,
-    text_layout_info: Mut<TextLayoutInfo>,
-    computed: &mut ComputedTextBlock,
-    text_reader: &mut TextUiReader,
-    font_system: &mut CosmicFontSystem,
-    swash_cache: &mut SwashCache,
-) {
-    // Skip the text node if it is waiting for a new measure func
-    if text_flags.needs_measure_fn {
-        return;
-    }
+        text_pipeline.shape_text(
+            entity,
+            &mut text_reader,
+            &mut computed_layout.0,
+            &mut font_cx.0,
+            &mut layout_cx.0,
+            computed_target.scale_factor,
+            block.linebreak,
+            &fonts,
+            &mut computed_block.entities,
+        );
 
-    let physical_node_size = if block.linebreak == LineBreak::NoWrap {
-        // With `NoWrap` set, no constraints are placed on the width of the text.
-        TextBounds::UNBOUNDED
-    } else {
-        // `scale_factor` is already multiplied by `UiScale`
-        TextBounds::new(node.unrounded_size.x, node.unrounded_size.y)
-    };
+        computed_layout.break_all_lines(None);
+        let max = (computed_layout.width(), computed_layout.height()).into();
 
-    let text_layout_info = text_layout_info.into_inner();
-    match text_pipeline.queue_text(
-        text_layout_info,
-        fonts,
-        text_reader.iter(entity),
-        scale_factor.into(),
-        block,
-        physical_node_size,
-        font_atlas_set,
-        texture_atlases,
-        textures,
-        computed,
-        font_system,
-        swash_cache,
-    ) {
-        Err(TextError::NoSuchFont) => {
-            // There was an error processing the text layout, try again next frame
-            text_flags.needs_recompute = true;
+        if block.linebreak == LineBreak::NoWrap {
+            content_size.set(NodeMeasure::Fixed(FixedMeasure { size: max }));
+        } else {
+            computed_layout.break_all_lines(Some(0.));
+            let min = (computed_layout.width(), computed_layout.height()).into();
+            content_size.set(NodeMeasure::Text(TextMeasure {
+                info: TextMeasureInfo { min, max, entity },
+            }));
         }
-        Err(
-            e @ (TextError::FailedToAddGlyph(_)
-            | TextError::FailedToGetGlyphImage(_)
-            | TextError::MissingAtlasLayout
-            | TextError::MissingAtlasTexture
-            | TextError::InconsistentAtlasState),
-        ) => {
-            panic!("Fatal error when processing text: {e}.");
-        }
-        Ok(()) => {
-            text_layout_info.scale_factor = scale_factor;
-            text_layout_info.size *= inverse_scale_factor;
-            text_flags.needs_recompute = false;
-        }
+
+        text_flags.needs_shaping = false;
+        text_flags.needs_relayout = true;
     }
 }
 
@@ -403,44 +327,33 @@ fn queue_text(
 ///
 /// [`ResMut<Assets<Image>>`](Assets<Image>) -- This system only adds new [`Image`] assets.
 /// It does not modify or observe existing ones. The exception is when adding new glyphs to a [`bevy_text::FontAtlas`].
-pub fn text_system(
+pub fn layout_text_system(
     mut textures: ResMut<Assets<Image>>,
-    fonts: Res<Assets<Font>>,
     mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
     mut font_atlas_set: ResMut<FontAtlasSet>,
-    mut text_pipeline: ResMut<TextPipeline>,
     mut text_query: Query<(
-        Entity,
         Ref<ComputedNode>,
         &TextLayout,
         &mut TextLayoutInfo,
         &mut TextNodeFlags,
-        &mut ComputedTextBlock,
+        &mut ComputedTextLayout,
     )>,
-    mut text_reader: TextUiReader,
-    mut font_system: ResMut<CosmicFontSystem>,
-    mut swash_cache: ResMut<SwashCache>,
+    mut scale_cx: ResMut<ScaleCx>,
 ) {
-    for (entity, node, block, text_layout_info, text_flags, mut computed) in &mut text_query {
-        if node.is_changed() || text_flags.needs_recompute {
-            queue_text(
-                entity,
-                &fonts,
-                &mut text_pipeline,
+    for (node, block, mut text_layout_info, mut text_flags, mut layout) in &mut text_query {
+        if node.is_changed() || layout.is_changed() || text_flags.needs_relayout {
+            update_text_layout_info(
+                &mut text_layout_info,
+                &mut layout.0,
+                Some(node.size.x).filter(|_| block.linebreak != LineBreak::NoWrap),
+                block.justify.into(),
+                &mut scale_cx,
                 &mut font_atlas_set,
                 &mut texture_atlases,
                 &mut textures,
-                node.inverse_scale_factor.recip(),
-                node.inverse_scale_factor,
-                block,
-                node,
-                text_flags,
-                text_layout_info,
-                computed.as_mut(),
-                &mut text_reader,
-                &mut font_system,
-                &mut swash_cache,
             );
+
+            text_flags.needs_relayout = false;
         }
     }
 }

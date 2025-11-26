@@ -1,9 +1,16 @@
-use alloc::sync::Arc;
-
+use crate::context::FontCx;
+use crate::TextFont;
 use bevy_asset::Asset;
+use bevy_asset::AssetEvent;
+use bevy_asset::Assets;
+use bevy_ecs::change_detection::DetectChangesMut;
+use bevy_ecs::message::MessageReader;
+use bevy_ecs::system::Query;
+use bevy_ecs::system::ResMut;
 use bevy_reflect::TypePath;
-use cosmic_text::skrifa::raw::ReadError;
-use cosmic_text::skrifa::FontRef;
+use bevy_utils::default;
+use parley::fontique::Blob;
+use parley::fontique::FontInfoOverride;
 
 /// An [`Asset`] that contains the data for a loaded font, if loaded as an asset.
 ///
@@ -19,16 +26,48 @@ use cosmic_text::skrifa::FontRef;
 /// Bevy currently loads a single font face as a single `Font` asset.
 #[derive(Debug, TypePath, Clone, Asset)]
 pub struct Font {
-    /// Content of a font file as bytes
-    pub data: Arc<Vec<u8>>,
+    /// raw font data
+    pub blob: Blob<u8>,
+    /// font family name
+    pub family_name: String,
 }
 
 impl Font {
     /// Creates a [`Font`] from bytes
-    pub fn try_from_bytes(font_data: Vec<u8>) -> Result<Self, ReadError> {
-        let _ = FontRef::from_index(&font_data, 0)?;
-        Ok(Self {
-            data: Arc::new(font_data),
-        })
+    pub fn try_from_bytes(font_data: Vec<u8>, family_name: String) -> Font {
+        Font {
+            blob: Blob::from(font_data),
+            family_name,
+        }
+    }
+}
+
+/// Register new font assets with Parley's FontContext.
+pub fn register_font_assets_system(
+    mut cx: ResMut<FontCx>,
+    mut fonts: ResMut<Assets<Font>>,
+    mut events: MessageReader<AssetEvent<Font>>,
+    mut text_font_query: Query<&mut TextFont>,
+) {
+    for event in events.read() {
+        match event {
+            AssetEvent::Added { id } => {
+                if let Some(font) = fonts.get_mut(*id) {
+                    cx.collection.register_fonts(
+                        font.blob.clone(),
+                        Some(FontInfoOverride {
+                            family_name: Some(font.family_name.as_str()),
+                            ..default()
+                        }),
+                    );
+                    for mut font in text_font_query.iter_mut() {
+                        if font.font.id() == *id {
+                            font.set_changed();
+                        }
+                    }
+                }
+            }
+            _ => {}
+        }
     }
 }

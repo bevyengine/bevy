@@ -6,6 +6,7 @@ use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
     text::TextColor,
+    ui::widget::TextNodeFlags,
     window::{PresentMode, WindowResolution},
     winit::WinitSettings,
 };
@@ -112,6 +113,11 @@ fn main() {
             text_query
                 .iter_mut()
                 .for_each(|mut text| text.set_changed());
+        });
+        app.add_systems(Update, |mut text_query: Query<&mut TextNodeFlags>| {
+            text_query
+                .iter_mut()
+                .for_each(|mut text| text.needs_shaping = true);
         });
     }
 

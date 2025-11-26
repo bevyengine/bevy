@@ -171,17 +171,15 @@ fn print_counts(
     mut timer: Local<PrintingTimer>,
     texts: Query<&ViewVisibility, With<Text2d>>,
     font_atlas_set: Res<FontAtlasSet>,
-    font: Res<FontHandle>,
+    _font: Res<FontHandle>,
 ) {
     timer.tick(time.delta());
     if !timer.just_finished() {
         return;
     }
 
-    let font_id = font.0.id();
     let num_atlases = font_atlas_set
         .iter()
-        .filter(|(key, _)| key.0 == font_id)
         .map(|(_, atlases)| atlases.len())
         .sum::<usize>();
 

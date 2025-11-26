@@ -32,6 +32,7 @@
 extern crate alloc;
 
 mod bounds;
+mod context;
 mod error;
 mod font;
 mod font_atlas;
@@ -43,6 +44,7 @@ mod text;
 mod text_access;
 
 pub use bounds::*;
+pub use context::*;
 pub use error::*;
 pub use font::*;
 pub use font_atlas::*;
@@ -83,26 +85,40 @@ pub struct TextPlugin;
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub struct Text2dUpdateSystems;
 
+/// Deprecated alias for [`Text2dUpdateSystems`].
+#[deprecated(since = "0.17.0", note = "Renamed to `Text2dUpdateSystems`.")]
+pub type Update2dText = Text2dUpdateSystems;
+
+/// Text Systems set
+#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
+pub enum TextSystems {
+    /// Register new font assets with Parley's `FontContext` after loading
+    RegisterFontAssets,
+}
+
 impl Plugin for TextPlugin {
     fn build(&self, app: &mut App) {
         app.init_asset::<Font>()
             .init_asset_loader::<FontLoader>()
             .init_resource::<FontAtlasSet>()
-            .init_resource::<TextPipeline>()
-            .init_resource::<CosmicFontSystem>()
-            .init_resource::<SwashCache>()
             .init_resource::<TextIterScratch>()
+            .init_resource::<TextPipeline>()
+            .init_resource::<FontCx>()
+            .init_resource::<LayoutCx>()
+            .init_resource::<ScaleCx>()
             .add_systems(
                 PostUpdate,
-                free_unused_font_atlases_system.before(AssetEventSystems),
-            )
-            .add_systems(Last, trim_cosmic_cache);
+                register_font_assets_system
+                    .in_set(TextSystems::RegisterFontAssets)
+                    .after(AssetEventSystems),
+            );
 
         #[cfg(feature = "default_font")]
         {
             use bevy_asset::{AssetId, Assets};
             let mut assets = app.world_mut().resource_mut::<Assets<_>>();
-            let asset = Font::try_from_bytes(DEFAULT_FONT_DATA.to_vec()).unwrap();
+            let asset =
+                Font::try_from_bytes(DEFAULT_FONT_DATA.to_vec(), "bevy default font".to_string());
             assets.insert(AssetId::default(), asset).unwrap();
         };
     }

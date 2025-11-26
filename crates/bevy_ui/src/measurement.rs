@@ -1,7 +1,6 @@
 use bevy_ecs::{prelude::Component, reflect::ReflectComponent};
 use bevy_math::Vec2;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_text::CosmicFontSystem;
 use core::fmt::Formatter;
 pub use taffy::style::AvailableSpace;
 
@@ -20,8 +19,7 @@ pub struct MeasureArgs<'a> {
     pub height: Option<f32>,
     pub available_width: AvailableSpace,
     pub available_height: AvailableSpace,
-    pub font_system: &'a mut CosmicFontSystem,
-    pub buffer: Option<&'a mut bevy_text::ComputedTextBlock>,
+    pub maybe_text_layout: Option<&'a mut bevy_text::ComputedTextLayout>,
 }
 
 /// A `Measure` is used to compute the size of a ui node
@@ -37,7 +35,6 @@ pub trait Measure: Send + Sync + 'static {
 /// by wrapping them in a closure and a Custom variant that allows arbitrary measurement closures if required.
 pub enum NodeMeasure {
     Fixed(FixedMeasure),
-
     Text(TextMeasure),
     Image(ImageMeasure),
     Custom(Box<dyn Measure>),
