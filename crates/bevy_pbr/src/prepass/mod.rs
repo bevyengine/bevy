@@ -501,7 +501,7 @@ pub struct PrepassPipelineSpecializer {
     pub(crate) properties: Arc<MaterialProperties>,
 }
 
-impl PipelineSpecializer for PrepassPipelineSpecializer {
+impl MeshPassSpecializer for PrepassPipelineSpecializer {
     type Pipeline = PrepassPipeline;
 
     fn create_key(context: &SpecializerKeyContext) -> Self::Key {
@@ -858,14 +858,14 @@ impl PrepassPipeline {
 pub struct PrepassExtractCondition;
 
 impl ExtractCondition for PrepassExtractCondition {
-    type QueryData = (
+    type ViewQuery = (
         Has<DepthPrepass>,
         Has<NormalPrepass>,
         Has<MotionVectorPrepass>,
     );
 
     fn should_extract(
-        (depth_prepass, normal_prepass, motion_vector_prepass): QueryItem<'_, '_, Self::QueryData>,
+        (depth_prepass, normal_prepass, motion_vector_prepass): QueryItem<'_, '_, Self::ViewQuery>,
     ) -> bool {
         depth_prepass || normal_prepass || motion_vector_prepass
     }
@@ -874,10 +874,10 @@ impl ExtractCondition for PrepassExtractCondition {
 pub struct DeferredExtractCondition;
 
 impl ExtractCondition for DeferredExtractCondition {
-    type QueryData = Has<DeferredPrepass>;
+    type ViewQuery = Has<DeferredPrepass>;
 
     #[inline]
-    fn should_extract(deferred_prepass: QueryItem<'_, '_, Self::QueryData>) -> bool {
+    fn should_extract(deferred_prepass: QueryItem<'_, '_, Self::ViewQuery>) -> bool {
         deferred_prepass
     }
 }

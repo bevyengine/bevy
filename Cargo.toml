@@ -4885,6 +4885,6 @@ doc-scrape-examples = true
 
 [package.metadata.example.custom_mesh_pass]
 name = "Custom Mesh Pass"
-description = "Example Pan-Camera Styled Camera Controller for 2D scenes"
+description = "Demonstrates how to write a custom mesh pass"
 category = "Shaders"
 wasm = true

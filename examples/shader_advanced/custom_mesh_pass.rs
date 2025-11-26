@@ -1,6 +1,8 @@
-//! Demonstrates how to use `MeshPass`.
+//! Demonstrates how to write a custom mesh pass
 //!
-//! TODO: Documentation
+//! The `MeshPass` in Bevy is designed for creating render passes that draw meshes with a set of new shaders in `Material`.
+//!
+//! This is useful for creating custom prepasses or implementing techniques like Inverted Hull Outline.
 
 use bevy::{
     camera::{MainPassResolutionOverride, Viewport},
@@ -138,10 +140,6 @@ impl MaterialExtension for OutlineExtension {
             ),
         ]);
         pass_shaders
-    }
-
-    fn enabled_passes() -> Vec<bevy::pbr::PassId> {
-        vec![MainPass::id(), OutlinePass::id()]
     }
 
     fn specialize(

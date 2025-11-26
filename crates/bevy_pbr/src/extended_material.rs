@@ -49,11 +49,6 @@ pub trait MaterialExtension: Asset + AsBindGroup + Clone + Sized {
         pass_shaders
     }
 
-    /// Controls whether the passes defined in [`Material::shaders`] are enabled for the Material.
-    fn enabled_passes() -> Vec<PassId> {
-        vec![DeferredPass::id(), Prepass::id(), MainPass::id()]
-    }
-
     /// Returns this material's vertex shader. If [`ShaderRef::Default`] is returned, the base material mesh vertex shader
     /// will be used.
     fn vertex_shader() -> ShaderRef {
@@ -334,10 +329,6 @@ impl<B: Material, E: MaterialExtension> AsBindGroup for ExtendedMaterial<B, E> {
 impl<B: Material, E: MaterialExtension> Material for ExtendedMaterial<B, E> {
     fn shaders() -> PassShaders {
         E::shaders()
-    }
-
-    fn enabled_passes() -> Vec<PassId> {
-        E::enabled_passes()
     }
 
     fn vertex_shader() -> ShaderRef {

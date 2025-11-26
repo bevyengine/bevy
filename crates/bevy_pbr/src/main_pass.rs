@@ -101,10 +101,9 @@ impl MeshPass for MainPass {
     type RenderCommand = DrawMaterial;
 }
 
-// TODO: Redesign
-pub fn check_views_need_specialization<P: MeshPass>(
-    mut view_key_cache: ResMut<ViewKeyCache<P>>,
-    mut view_specialization_ticks: ResMut<ViewSpecializationTicks<P>>,
+pub fn check_views_need_specialization<MP: MeshPass>(
+    mut view_key_cache: ResMut<ViewKeyCache<MP>>,
+    mut view_specialization_ticks: ResMut<ViewSpecializationTicks<MP>>,
     mut views: Query<
         (
             &ExtractedView,
@@ -129,7 +128,7 @@ pub fn check_views_need_specialization<P: MeshPass>(
             ),
             Has<OrderIndependentTransparencySettings>,
         ),
-        With<P>,
+        With<MP>,
     >,
     ticks: SystemChangeTick,
 ) {
@@ -244,7 +243,7 @@ pub struct MaterialPipelineSpecializer {
     pub(crate) properties: Arc<MaterialProperties>,
 }
 
-impl PipelineSpecializer for MaterialPipelineSpecializer {
+impl MeshPassSpecializer for MaterialPipelineSpecializer {
     type Pipeline = MaterialPipeline;
 
     fn create_key(context: &SpecializerKeyContext) -> Self::Key {
@@ -365,10 +364,10 @@ impl SpecializedMeshPipeline for MaterialPipelineSpecializer {
 pub struct NoExtractCondition;
 
 impl ExtractCondition for NoExtractCondition {
-    type QueryData = ();
+    type ViewQuery = ();
 
     #[inline]
-    fn should_extract(_item: QueryItem<'_, '_, Self::QueryData>) -> bool {
+    fn should_extract(_item: QueryItem<'_, '_, Self::ViewQuery>) -> bool {
         true
     }
 }
