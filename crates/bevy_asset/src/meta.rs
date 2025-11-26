@@ -253,11 +253,11 @@ pub(crate) async fn get_asset_hash(
     let mut buffer = [0; blake3::CHUNK_LEN];
     loop {
         let bytes_read = asset_reader.read(&mut buffer).await?;
-        if bytes_read == 0 {
-            // This means we've reached EOF, so we're done consume asset bytes.
+        hasher.update(&buffer[..bytes_read]);
+        if bytes_read < buffer.len() {
+            // This means we've reached EOF, so we're done consuming asset bytes.
             break;
         }
-        hasher.update(&buffer[..bytes_read]);
     }
     Ok(*hasher.finalize().as_bytes())
 }
