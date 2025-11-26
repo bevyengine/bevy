@@ -14,11 +14,9 @@ impl MeshBuilder for Polyline3dMeshBuilder {
     fn build(&self) -> Mesh {
         let positions: Vec<_> = self.polyline.vertices.clone();
 
-        let indices = Indices::U32(
-            (0..self.polyline.vertices.len() as u32 - 1)
-                .flat_map(|i| [i, i + 1])
-                .collect(),
-        );
+        let mut indices =
+            Indices::with_capacity(self.polyline.vertices.len() - 1, positions.len() as u32);
+        indices.extend((0..self.polyline.vertices.len() as u32 - 1).flat_map(|i| [i, i + 1]));
 
         Mesh::new(PrimitiveTopology::LineList, RenderAssetUsages::default())
             .with_inserted_indices(indices)

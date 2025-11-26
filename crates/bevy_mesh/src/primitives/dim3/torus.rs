@@ -126,7 +126,7 @@ impl MeshBuilder for TorusMeshBuilder {
         let n_triangles = n_faces * 2;
         let n_indices = n_triangles * 3;
 
-        let mut indices: Vec<u32> = Vec::with_capacity(n_indices);
+        let mut indices = Indices::with_capacity(n_indices, n_vertices as u32);
 
         let n_vertices_per_row = self.minor_resolution + 1;
         for segment in 0..self.major_resolution {
@@ -151,7 +151,7 @@ impl MeshBuilder for TorusMeshBuilder {
             PrimitiveTopology::TriangleList,
             RenderAssetUsages::default(),
         )
-        .with_inserted_indices(Indices::U32(indices))
+        .with_inserted_indices(indices)
         .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
         .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
         .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)

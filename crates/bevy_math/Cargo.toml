@@ -74,6 +74,7 @@ mint = ["glam/mint"]
 libm = ["dep:libm", "glam/libm"]
 # Enable assertions to check the validity of parameters passed to glam
 glam_assert = ["glam/glam-assert"]
+glam_bytemuck = ["glam/bytemuck"]
 # Enable assertions in debug builds to check the validity of parameters passed to glam
 debug_glam_assert = ["glam/debug-glam-assert"]
 # Enable the rand dependency for shape_sampling

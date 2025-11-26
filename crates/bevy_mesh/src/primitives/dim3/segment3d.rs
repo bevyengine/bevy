@@ -13,7 +13,7 @@ pub struct Segment3dMeshBuilder {
 impl MeshBuilder for Segment3dMeshBuilder {
     fn build(&self) -> Mesh {
         let positions: Vec<_> = self.segment.vertices.into();
-        let indices = Indices::U32(vec![0, 1]);
+        let indices = Indices::U16(vec![0, 1]);
 
         Mesh::new(PrimitiveTopology::LineList, RenderAssetUsages::default())
             .with_inserted_indices(indices)

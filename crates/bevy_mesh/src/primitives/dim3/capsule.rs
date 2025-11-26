@@ -295,7 +295,8 @@ impl MeshBuilder for Capsule3dMeshBuilder {
         let tri_offset_south_cap = tri_offset_south_hemi + hemi_lons;
 
         let fs_len = tri_offset_south_cap + lons3;
-        let mut tris: Vec<u32> = vec![0; fs_len as usize];
+        let mut tris = Indices::with_capacity(fs_len as usize, vert_len as u32);
+        tris.resize(fs_len as usize, 0);
 
         // Polar caps.
         let mut i = 0;
@@ -303,14 +304,14 @@ impl MeshBuilder for Capsule3dMeshBuilder {
         let mut m = tri_offset_south_cap as usize;
         while i < longitudes {
             // North.
-            tris[k] = i;
-            tris[k + 1] = vert_offset_north_hemi + i;
-            tris[k + 2] = vert_offset_north_hemi + i + 1;
+            tris.set(k, i);
+            tris.set(k + 1, vert_offset_north_hemi + i);
+            tris.set(k + 2, vert_offset_north_hemi + i + 1);
 
             // South.
-            tris[m] = vert_offset_south_cap + i;
-            tris[m + 1] = vert_offset_south_polar + i + 1;
-            tris[m + 2] = vert_offset_south_polar + i;
+            tris.set(m, vert_offset_south_cap + i);
+            tris.set(m + 1, vert_offset_south_polar + i + 1);
+            tris.set(m + 2, vert_offset_south_polar + i);
 
             i += 1;
             k += 3;
@@ -340,13 +341,13 @@ impl MeshBuilder for Capsule3dMeshBuilder {
                 let north11 = vert_next_lat_north + j + 1;
                 let north10 = vert_curr_lat_north + j + 1;
 
-                tris[k] = north00;
-                tris[k + 1] = north11;
-                tris[k + 2] = north10;
+                tris.set(k, north00);
+                tris.set(k + 1, north11);
+                tris.set(k + 2, north10);
 
-                tris[k + 3] = north00;
-                tris[k + 4] = north01;
-                tris[k + 5] = north11;
+                tris.set(k + 3, north00);
+                tris.set(k + 4, north01);
+                tris.set(k + 5, north11);
 
                 // South.
                 let south00 = vert_curr_lat_south + j;
@@ -354,13 +355,13 @@ impl MeshBuilder for Capsule3dMeshBuilder {
                 let south11 = vert_next_lat_south + j + 1;
                 let south10 = vert_curr_lat_south + j + 1;
 
-                tris[m] = south00;
-                tris[m + 1] = south11;
-                tris[m + 2] = south10;
+                tris.set(m, south00);
+                tris.set(m + 1, south11);
+                tris.set(m + 2, south10);
 
-                tris[m + 3] = south00;
-                tris[m + 4] = south01;
-                tris[m + 5] = south11;
+                tris.set(m + 3, south00);
+                tris.set(m + 4, south01);
+                tris.set(m + 5, south11);
 
                 j += 1;
                 k += 6;
@@ -385,13 +386,13 @@ impl MeshBuilder for Capsule3dMeshBuilder {
                 let cy11 = vert_next_lat + j + 1;
                 let cy10 = vert_curr_lat + j + 1;
 
-                tris[k] = cy00;
-                tris[k + 1] = cy11;
-                tris[k + 2] = cy10;
+                tris.set(k, cy00);
+                tris.set(k + 1, cy11);
+                tris.set(k + 2, cy10);
 
-                tris[k + 3] = cy00;
-                tris[k + 4] = cy01;
-                tris[k + 5] = cy11;
+                tris.set(k + 3, cy00);
+                tris.set(k + 4, cy01);
+                tris.set(k + 5, cy11);
 
                 j += 1;
                 k += 6;
@@ -400,12 +401,9 @@ impl MeshBuilder for Capsule3dMeshBuilder {
             i += 1;
         }
 
-        let vs: Vec<[f32; 3]> = vs.into_iter().map(Into::into).collect();
-        let vns: Vec<[f32; 3]> = vns.into_iter().map(Into::into).collect();
-        let vts: Vec<[f32; 2]> = vts.into_iter().map(Into::into).collect();
-
-        assert_eq!(vs.len(), vert_len);
-        assert_eq!(tris.len(), fs_len as usize);
+        let vs: Vec<[f32; 3]> = bytemuck::cast_vec(vs);
+        let vns: Vec<[f32; 3]> = bytemuck::cast_vec(vns);
+        let vts: Vec<[f32; 2]> = bytemuck::cast_vec(vts);
 
         Mesh::new(
             PrimitiveTopology::TriangleList,
@@ -414,7 +412,7 @@ impl MeshBuilder for Capsule3dMeshBuilder {
         .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, vs)
         .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, vns)
         .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, vts)
-        .with_inserted_indices(Indices::U32(tris))
+        .with_inserted_indices(tris)
     }
 }
 
