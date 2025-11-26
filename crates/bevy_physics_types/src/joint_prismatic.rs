@@ -29,7 +29,7 @@
 //! - Industrial linear actuators
 //! - Elevator mechanisms
 
-use bevy_ecs_macros::Component;
+use bevy_ecs::component::Component;
 use crate::axis::Axis;
 
 /// A prismatic (slider) joint allowing translation along one axis.

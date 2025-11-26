@@ -33,7 +33,7 @@
 //! - Temporary assembly connections
 //! - Mounting points for articulated mechanisms
 
-use bevy_ecs_macros::Component;
+use bevy_ecs::component::Component;
 
 /// A fixed joint that welds two bodies together.
 ///

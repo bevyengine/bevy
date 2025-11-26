@@ -33,7 +33,7 @@
 //! - Camera gimbals
 //! - Ragdoll character joints
 
-use bevy_ecs_macros::Component;
+use bevy_ecs::component::Component;
 use crate::axis::Axis;
 
 /// A spherical (ball-and-socket) joint allowing rotation around all axes.

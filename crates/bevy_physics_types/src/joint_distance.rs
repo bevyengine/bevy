@@ -27,7 +27,7 @@
 //! - Springy connections with slack
 //! - Keeping objects within range of each other
 
-use bevy_ecs_macros::Component;
+use bevy_ecs::component::Component;
 
 /// A distance joint constraining the distance between attachment points.
 ///
