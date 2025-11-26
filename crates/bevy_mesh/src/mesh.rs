@@ -2156,6 +2156,7 @@ impl Mesh {
         }) = attributes
             .as_ref_option()?
             .and_then(|attrs| attrs.get(&Self::ATTRIBUTE_POSITION.id))
+            && !position_values.is_empty()
         {
             let mut iter = position_values.iter().map(|p| Vec3::from_slice(p));
             let mut min = iter.next().unwrap();
