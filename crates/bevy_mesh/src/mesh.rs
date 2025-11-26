@@ -2153,7 +2153,9 @@ impl Mesh {
         if let Some(MeshAttributeData {
             values: VertexAttributeValues::Float32x3(position_values),
             ..
-        }) = attributes.as_ref()?.get(&Self::ATTRIBUTE_POSITION.id)
+        }) = attributes
+            .as_ref_option()?
+            .and_then(|attrs| attrs.get(&Self::ATTRIBUTE_POSITION.id))
         {
             let mut iter = position_values.iter().map(|p| Vec3::from_slice(p));
             let mut min = iter.next().unwrap();
