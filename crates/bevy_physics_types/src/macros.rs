@@ -1,8 +1,28 @@
-macro_rules! usd_token {
-    ($(#[$meta:meta])* $name:ident) => {
+macro_rules! usd_global {
+    (
+        $(#[$meta:meta])*
+        $name:ident($ty:ty) = $default:expr;
+        $($rest:tt)*
+    ) => {
+        #[derive(bevy_ecs::resource::Resource)]
         $(#[$meta])*
-        #[derive(bevy_ecs::component::Component)]
-        pub struct $name;
+        pub struct $name(pub $ty);
+
+        impl Default for $name {
+            fn default() -> Self {
+                $name($default)
+            }
+        }
+    };
+
+    (
+        $(#[$meta:meta])*
+        $name:ident($ty:ty);
+        $($rest:tt)*
+    ) => {
+        #[derive(bevy_ecs::resource::Resource)]
+        $(#[$meta])*
+        pub struct $name(pub $ty);
     };
 }
 
@@ -100,6 +120,7 @@ macro_rules! usd_collection {
     ) => {
         $(#[$meta])*
         #[derive(bevy_ecs::component::Component)]
+        #[component(immutable)]
         pub struct $member;
 
         $(#[$meta])*

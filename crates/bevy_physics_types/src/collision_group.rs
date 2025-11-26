@@ -52,11 +52,10 @@ usd_collection! {
     /// Membership in a collision group.
     ///
     /// Entities with this component belong to the referenced [`CollisionGroup`].
-    /// A collider can belong to multiple groups. Colliders without any group
-    /// membership collide with everything (unless filtered by other means).
+    /// A collider can belong to multiple groups.
+    /// Colliders without any group membership collide with everything (unless filtered by other means).
     CollisionGroupMember -> CollisionGroup(EntityHashSet);
     apiName = "PhysicsCollisionGroup"
-
 }
 
 usd_attribute! {

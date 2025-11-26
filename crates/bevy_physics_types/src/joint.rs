@@ -143,7 +143,6 @@ usd_attribute! {
     displayName = "Local Rotation 1"
 }
 
-
 usd_marker! {
     /// Excludes this joint from articulation reduced-coordinate solving.
     ///

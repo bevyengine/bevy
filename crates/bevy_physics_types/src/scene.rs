@@ -34,9 +34,8 @@ use bevy_math::Dir3;
 usd_attribute! {
     /// Gravity direction vector in simulation world space.
     ///
-    /// This should be a normalized direction vector. When set to the default
-    /// or a zero vector, implementations should use the negative stage upAxis
-    /// as the gravity direction (typically -Y or -Z depending on stage configuration).
+    /// When not set, implementations should use the negative stage upAxis as the gravity direction
+    /// (typically -Y or -Z depending on stage configuration).
     ///
     /// Unitless (normalized direction).
     GravityDirection(bevy_math::Dir3) = Dir3::NEG_Y;

@@ -28,8 +28,8 @@
 //! - Robot arm joints
 //! - Propellers and fans
 
-use bevy_ecs::component::Component;
 use crate::axis::Axis;
+use bevy_ecs::component::Component;
 
 /// A revolute (hinge) joint allowing rotation around one axis.
 ///

@@ -1,2 +1,0 @@
-wget -o schema.usda https://raw.githubusercontent.com/PixarAnimationStudios/OpenUSD/refs/heads/dev/pxr/usd/usdPhysics/schema.usda
-wget -o generatedSchema.usda https://raw.githubusercontent.com/PixarAnimationStudios/OpenUSD/refs/heads/dev/pxr/usd/usdPhysics/generatedSchema.usda
