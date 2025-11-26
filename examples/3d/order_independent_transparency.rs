@@ -101,6 +101,7 @@ fn cycle_scenes(
     mut materials: ResMut<Assets<StandardMaterial>>,
     q: Query<Entity, With<Mesh3d>>,
     mut scene_id: Local<usize>,
+    asset_server: Res<AssetServer>,
 ) {
     if keyboard_input.just_pressed(KeyCode::KeyC) {
         // despawn current scene
@@ -108,12 +109,15 @@ fn cycle_scenes(
             commands.entity(e).despawn();
         }
         // increment scene_id
-        *scene_id = (*scene_id + 1) % 3;
+        *scene_id = (*scene_id + 1) % 4;
         // spawn next scene
         match *scene_id {
             0 => spawn_spheres(&mut commands, &mut meshes, &mut materials),
             1 => spawn_quads(&mut commands, &mut meshes, &mut materials),
             2 => spawn_occlusion_test(&mut commands, &mut meshes, &mut materials),
+            3 => {
+                spawn_auto_instancing_test(&mut commands, &mut meshes, &mut materials, asset_server)
+            }
             _ => unreachable!(),
         }
     }
@@ -303,4 +307,35 @@ fn spawn_occlusion_test(
         Transform::from_xyz(x, 0., 0.),
         render_layers.clone(),
     ));
+}
+
+fn spawn_auto_instancing_test(
+    commands: &mut Commands,
+    meshes: &mut Assets<Mesh>,
+    materials: &mut Assets<StandardMaterial>,
+    asset_server: Res<AssetServer>,
+) {
+    let render_layers = RenderLayers::layer(1);
+
+    let cube = meshes.add(Cuboid::new(1.0, 1.0, 1.0));
+    let material_handle = materials.add(StandardMaterial {
+        alpha_mode: AlphaMode::Blend,
+        base_color_texture: Some(asset_server.load("textures/slice_square.png")),
+        ..Default::default()
+    });
+    let mut bundles = Vec::with_capacity(3 * 3 * 3);
+
+    for z in -1..=1 {
+        for y in -1..=1 {
+            for x in -1..=1 {
+                bundles.push((
+                    Mesh3d(cube.clone()),
+                    MeshMaterial3d(material_handle.clone()),
+                    Transform::from_xyz(x as f32 * 2.0, y as f32 * 2.0, z as f32 * 2.0),
+                    render_layers.clone(),
+                ));
+            }
+        }
+    }
+    commands.spawn_batch(bundles);
 }

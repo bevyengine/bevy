@@ -54,7 +54,9 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
 
 fn resolve(header: u32, opaque_depth: f32) -> vec4<f32> {
     // Contains all the colors and depth for this specific fragment
-    // Fragments are sorted from back to front.
+    // Fragments are sorted from front to back (depth values are in descending order)
+    // This should make insertion sort slightly faster
+    // because transparent pass sorts objects so the linked list iteration is usually in descending order.
     var fragment_list: array<OitFragment, SORTED_FRAGMENT_MAX_COUNT>;
     var final_color = vec4<f32>(0.0);
 
@@ -81,7 +83,7 @@ fn resolve(header: u32, opaque_depth: f32) -> vec4<f32> {
             var i = sorted_frag_count;
             for(; i > 0; i -= 1) {
                 // short-circuit can't be used in for(;;;), https://github.com/gfx-rs/wgpu/issues/4394
-                if depth_alpha.x < fragment_list[i - 1].depth {
+                if depth_alpha.x > fragment_list[i - 1].depth {
                     fragment_list[i] = fragment_list[i - 1];
                 } else {
                     break;
@@ -91,16 +93,18 @@ fn resolve(header: u32, opaque_depth: f32) -> vec4<f32> {
             fragment_list[i].alpha = depth_alpha.y;
             fragment_list[i].depth = depth_alpha.x;
             sorted_frag_count += 1;
-        } else if fragment_list[0].depth < depth_alpha.x {
-            // The fragment is closer than the farthest sorted one.
-            // First, make room by blending the farthest fragment from the sorted list.
+        } else if fragment_list[0].depth > depth_alpha.x {
+            // The fragment is farther than the nearest sorted one.
+            // First, make room by blending the nearest fragment from the sorted list.
             // Then, insert the fragment in the sorted list.
             // This is an approximation.
-            final_color = blend(vec4f(fragment_list[0].color * fragment_list[0].alpha, fragment_list[0].alpha), final_color);
+            let nearest_color = fragment_list[0].color;
+            let nearest_alpha = fragment_list[0].alpha;
+            final_color = blend(final_color, vec4f(nearest_color * nearest_alpha, nearest_alpha));
             var i = 0u;
             for(; i < SORTED_FRAGMENT_MAX_COUNT - 1; i += 1) {
                 // short-circuit can't be used in for(;;;), https://github.com/gfx-rs/wgpu/issues/4394
-                if fragment_list[i + 1].depth < depth_alpha.x {
+                if depth_alpha.x < fragment_list[i + 1].depth {
                     fragment_list[i] = fragment_list[i + 1];
                 } else {
                     break;
@@ -110,10 +114,10 @@ fn resolve(header: u32, opaque_depth: f32) -> vec4<f32> {
             fragment_list[i].alpha = depth_alpha.y;
             fragment_list[i].depth = depth_alpha.x;
         } else {
-            // The next fragment is farther than any of the sorted ones.
+            // The next fragment is nearer than any of the sorted ones.
             // Blend it early.
             // This is an approximation.
-            final_color = blend(vec4f(color * depth_alpha.y, depth_alpha.y), final_color);
+            final_color = blend(final_color, vec4f(color * depth_alpha.y, depth_alpha.y));
         }
     }
 
@@ -122,7 +126,7 @@ fn resolve(header: u32, opaque_depth: f32) -> vec4<f32> {
         let color = fragment_list[i].color;
         let alpha = fragment_list[i].alpha;
         var base_color = vec4(color.rgb * alpha, alpha);
-        final_color = blend(base_color, final_color);
+        final_color = blend(final_color, base_color);
         if final_color.a == 1.0 {
             break;
         }
