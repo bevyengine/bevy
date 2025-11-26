@@ -140,7 +140,7 @@ pub fn add_glyph_to_atlas(
     font_smoothing: FontSmoothing,
     glyph_id: u16,
 ) -> Result<GlyphAtlasInfo, TextError> {
-    let (glyph_texture, offset) = get_outlined_glyph_texture(scaler, glyph_id)?;
+    let (glyph_texture, offset) = get_outlined_glyph_texture(scaler, glyph_id, font_smoothing)?;
     let mut add_char_to_font_atlas = |atlas: &mut FontAtlas| -> Result<(), TextError> {
         atlas.add_glyph(
             textures,
@@ -189,6 +189,7 @@ pub fn add_glyph_to_atlas(
 pub fn get_outlined_glyph_texture(
     scaler: &mut Scaler,
     glyph_id: u16,
+    font_smoothing: FontSmoothing,
 ) -> Result<(Image, IVec2), TextError> {
     let image = swash::scale::Render::new(&[
         swash::scale::Source::ColorOutline(0),
@@ -206,12 +207,25 @@ pub fn get_outlined_glyph_texture(
 
     let px = (width * height) as usize;
     let mut rgba = vec![0u8; px * 4];
-    for i in 0..px {
-        let a = image.data[i];
-        rgba[i * 4 + 0] = 255; // R
-        rgba[i * 4 + 1] = 255; // G
-        rgba[i * 4 + 2] = 255; // B
-        rgba[i * 4 + 3] = a; // A from swash
+    match font_smoothing {
+        FontSmoothing::AntiAliased => {
+            for i in 0..px {
+                let a = image.data[i];
+                rgba[i * 4 + 0] = 255; // R
+                rgba[i * 4 + 1] = 255; // G
+                rgba[i * 4 + 2] = 255; // B
+                rgba[i * 4 + 3] = a; // A from swash
+            }
+        }
+        FontSmoothing::None => {
+            for i in 0..px {
+                let a = image.data[i];
+                rgba[i * 4 + 0] = 255; // R
+                rgba[i * 4 + 1] = 255; // G
+                rgba[i * 4 + 2] = 255; // B
+                rgba[i * 4 + 3] = if 127 < a { 255 } else { 0 }; // A from swash
+            }
+        }
     }
 
     Ok((
