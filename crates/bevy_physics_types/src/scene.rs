@@ -28,9 +28,9 @@
 //! depends on the scene's `metersPerUnit` metadata. For example, if `metersPerUnit = 0.01`
 //! (centimeters), then earth gravity would be approximately 981 in scene units.
 
+use crate::types::float;
 use bevy_ecs::entity::EntityHashSet;
 use bevy_math::Dir3;
-use crate::types::float;
 
 usd_attribute! {
     /// Gravity direction vector in simulation world space.

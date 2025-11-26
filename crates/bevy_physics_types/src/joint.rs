@@ -54,8 +54,8 @@
 //! - Implementations MUST NOT apply forces from invalid joints
 //! - Implementations MUST delete broken joints
 
+use crate::types::{float, point3f, quatf};
 use bevy_ecs::entity::Entity;
-use crate::types::{point3f, quatf, float};
 
 usd_marker! {
     /// Marks this entity as a physics joint.

@@ -42,7 +42,7 @@
 //! attribute is ignored. For [`CenterOfMass`], a sentinel value outside the
 //! normal range indicates automatic computation from collision geometry.
 
-use crate::types::{float, point3f, vector3f, quatf};
+use crate::types::{float, point3f, quatf, vector3f};
 
 usd_attribute! {
     /// Explicit mass of the object.
