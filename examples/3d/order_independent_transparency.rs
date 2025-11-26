@@ -116,7 +116,12 @@ fn cycle_scenes(
             1 => spawn_quads(&mut commands, &mut meshes, &mut materials),
             2 => spawn_occlusion_test(&mut commands, &mut meshes, &mut materials),
             3 => {
-                spawn_auto_instancing_test(&mut commands, &mut meshes, &mut materials, asset_server)
+                spawn_auto_instancing_test(
+                    &mut commands,
+                    &mut meshes,
+                    &mut materials,
+                    asset_server,
+                );
             }
             _ => unreachable!(),
         }
