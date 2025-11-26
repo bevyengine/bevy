@@ -111,7 +111,7 @@ usd_attribute! {
     ///
     /// This velocity is specified relative to the entity's local coordinate frame.
     ///
-    /// Units: degrees/second.
+    /// Units: radians/second.
     AngularVelocity(vector3f) = vector3f::ZERO;
     apiName = "angularVelocity"
     displayName = "Angular Velocity"

@@ -26,7 +26,7 @@
 //! ## Units
 //!
 //! - Translation limits: distance units
-//! - Rotation limits: degrees
+//! - Rotation limits: radians
 //!
 //! ## D6 Joint Configuration
 //!
@@ -45,13 +45,13 @@ pub struct LimitRange {
     /// Lower limit of motion.
     ///
     /// Use `float::NEG_INFINITY` for no lower bound.
-    /// Units depend on DOF type (distance for translation, degrees for rotation).
+    /// Units depend on DOF type (distance for translation, radians for rotation).
     pub low: float,
 
     /// Upper limit of motion.
     ///
     /// Use `float::INFINITY` for no upper bound.
-    /// Units depend on DOF type (distance for translation, degrees for rotation).
+    /// Units depend on DOF type (distance for translation, radians for rotation).
     pub high: float,
 }
 
@@ -125,7 +125,7 @@ usd_attribute! {
 usd_attribute! {
     /// Limit for the X rotation axis.
     ///
-    /// Units: degrees.
+    /// Units: radians.
     LimitRotX(LimitRange) = LimitRange::UNLOCKED;
     apiName = "limit:rotX"
     displayName = "Limit Rot X"
@@ -134,7 +134,7 @@ usd_attribute! {
 usd_attribute! {
     /// Limit for the Y rotation axis.
     ///
-    /// Units: degrees.
+    /// Units: radians.
     LimitRotY(LimitRange) = LimitRange::UNLOCKED;
     apiName = "limit:rotY"
     displayName = "Limit Rot Y"
@@ -143,7 +143,7 @@ usd_attribute! {
 usd_attribute! {
     /// Limit for the Z rotation axis.
     ///
-    /// Units: degrees.
+    /// Units: radians.
     LimitRotZ(LimitRange) = LimitRange::UNLOCKED;
     apiName = "limit:rotZ"
     displayName = "Limit Rot Z"
@@ -161,7 +161,7 @@ usd_attribute! {
 usd_attribute! {
     /// Limit for angular motion (used with revolute joints).
     ///
-    /// Units: degrees.
+    /// Units: radians.
     LimitAngular(LimitRange) = LimitRange::UNLOCKED;
     apiName = "limit:angular"
     displayName = "Limit Angular"

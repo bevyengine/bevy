@@ -48,7 +48,7 @@ pub struct SphericalJoint {
     /// The cone limits are defined relative to this axis.
     pub axis: Axis,
 
-    /// First cone angle limit in degrees.
+    /// First cone angle limit in radians.
     ///
     /// Limits rotation from the primary axis toward the next axis in the
     /// cycle (X→Y, Y→Z, Z→X). A negative value means no limit.
@@ -56,15 +56,15 @@ pub struct SphericalJoint {
     /// When equal to `cone_angle1_limit`, creates a circular cone.
     /// When different, creates an elliptical cone.
     ///
-    /// Units: degrees. Negative = unlimited.
+    /// Units: radians. Negative = unlimited.
     pub cone_angle0_limit: angle,
 
-    /// Second cone angle limit in degrees.
+    /// Second cone angle limit in radians.
     ///
     /// Limits rotation from the primary axis toward the second-next axis
     /// in the cycle (X→Z, Y→X, Z→Y). A negative value means no limit.
     ///
-    /// Units: degrees. Negative = unlimited.
+    /// Units: radians. Negative = unlimited.
     pub cone_angle1_limit: angle,
 }
 

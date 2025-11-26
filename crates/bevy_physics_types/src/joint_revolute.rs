@@ -11,7 +11,7 @@
 //!
 //! ## Limits
 //!
-//! Angular limits can be specified in degrees:
+//! Angular limits can be specified in radians:
 //! - `lower_limit` / `upper_limit`: The allowable rotation range
 //! - Set both to infinity for unlimited rotation
 //! - A joint drive can be added via [`DriveAPI`](crate::drive) for motorization
@@ -42,20 +42,20 @@ pub struct RevoluteJoint {
     /// Rotation is permitted around this axis; all other DOFs are locked.
     pub axis: Axis,
 
-    /// Lower angular limit in degrees.
+    /// Lower angular limit in radians.
     ///
     /// The minimum rotation angle allowed. Use `angle::NEG_INFINITY` for
     /// no lower limit (unlimited rotation in negative direction).
     ///
-    /// Units: degrees.
+    /// Units: radians.
     pub lower_limit: angle,
 
-    /// Upper angular limit in degrees.
+    /// Upper angular limit in radians.
     ///
     /// The maximum rotation angle allowed. Use `angle::INFINITY` for
     /// no upper limit (unlimited rotation in positive direction).
     ///
-    /// Units: degrees.
+    /// Units: radians.
     pub upper_limit: angle,
 }
 

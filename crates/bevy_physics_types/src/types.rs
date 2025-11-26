@@ -18,5 +18,5 @@ pub type quatf = bevy_math::Quat;
 /// A 3D point (position in space).
 pub type point3f = bevy_math::Vec3;
 
-/// An angle measured in degrees.
+/// An angle measured in radians.
 pub type angle = f32;

@@ -45,10 +45,10 @@
 //! | Property | Linear DOF | Angular DOF |
 //! |----------|------------|-------------|
 //! | `max_force` | mass×distance/second² | mass×distance²/second² |
-//! | `target_position` | distance | degrees |
-//! | `target_velocity` | distance/second | degrees/second |
-//! | `stiffness` | mass/second² | mass×distance²/degrees/second² |
-//! | `damping` | mass/second | mass×distance²/second/degrees |
+//! | `target_position` | distance | radians |
+//! | `target_velocity` | distance/second | radians/second |
+//! | `stiffness` | mass/second² | mass×distance²/radians/second² |
+//! | `damping` | mass/second | mass×distance²/second/radians |
 
 use crate::types::float;
 
@@ -93,7 +93,7 @@ pub struct DriveConfig {
     /// Only effective when `stiffness > 0`.
     ///
     /// Units (linear): distance
-    /// Units (angular): degrees
+    /// Units (angular): radians
     pub target_position: float,
 
     /// Target velocity for the drive.
@@ -101,7 +101,7 @@ pub struct DriveConfig {
     /// Only effective when `damping > 0`.
     ///
     /// Units (linear): distance / second
-    /// Units (angular): degrees / second
+    /// Units (angular): radians / second
     pub target_velocity: float,
 
     /// Damping coefficient (velocity term).
@@ -110,7 +110,7 @@ pub struct DriveConfig {
     /// Set to 0 for pure position targeting.
     ///
     /// Units (linear): mass / second
-    /// Units (angular): mass × distance² / second / degrees
+    /// Units (angular): mass × distance² / second / radians
     pub damping: float,
 
     /// Stiffness coefficient (position term).
@@ -119,7 +119,7 @@ pub struct DriveConfig {
     /// Set to 0 for pure velocity targeting.
     ///
     /// Units (linear): mass / second²
-    /// Units (angular): mass × distance² / degrees / second²
+    /// Units (angular): mass × distance² / radians / second²
     pub stiffness: float,
 }
 
