@@ -53,9 +53,9 @@ impl TextPipeline {
         &mut self,
         text_root_entity: Entity,
         reader: &mut TextReader<T>,
-        layout: &mut Layout<u32>,
+        layout: &mut Layout<(u32, FontSmoothing)>,
         font_cx: &'a mut FontContext,
-        layout_cx: &'a mut LayoutContext<u32>,
+        layout_cx: &'a mut LayoutContext<(u32, FontSmoothing)>,
         scale_factor: f32,
         line_break: crate::text::LineBreak,
         fonts: &Assets<Font>,
@@ -103,7 +103,10 @@ impl TextPipeline {
             {
                 builder.push(FontStack::from(family), range.clone());
             };
-            builder.push(StyleProperty::Brush(index as u32), range.clone());
+            builder.push(
+                StyleProperty::Brush((index as u32, text_font.font_smoothing)),
+                range.clone(),
+            );
             builder.push(StyleProperty::FontSize(text_font.font_size), range.clone());
             builder.push(line_height, range.clone());
             builder.push(
@@ -124,14 +127,13 @@ impl TextPipeline {
 /// create a TextLayoutInfo
 pub fn update_text_layout_info(
     info: &mut TextLayoutInfo,
-    layout: &mut Layout<u32>,
+    layout: &mut Layout<(u32, FontSmoothing)>,
     max_advance: Option<f32>,
     alignment: Alignment,
     scale_cx: &mut ScaleContext,
     font_atlas_set: &mut FontAtlasSet,
     texture_atlases: &mut Assets<TextureAtlasLayout>,
     textures: &mut Assets<Image>,
-    font_smoothing: FontSmoothing,
 ) {
     info.clear();
 
@@ -149,7 +151,7 @@ pub fn update_text_layout_info(
         for (line_index, item) in line.items().enumerate() {
             match item {
                 PositionedLayoutItem::GlyphRun(glyph_run) => {
-                    let span_index = glyph_run.style().brush;
+                    let span_index = glyph_run.style().brush.0;
 
                     let run = glyph_run.run();
 
@@ -157,7 +159,8 @@ pub fn update_text_layout_info(
                     let font_size = run.font_size();
                     let coords = run.normalized_coords();
 
-                    let font_atlas_key = FontAtlasKey::new(&font, font_size, font_smoothing);
+                    let font_atlas_key =
+                        FontAtlasKey::new(&font, font_size, glyph_run.style().brush.1);
 
                     for glyph in glyph_run.positioned_glyphs() {
                         let font_atlases = font_atlas_set.entry(font_atlas_key).or_default();
@@ -183,7 +186,7 @@ pub fn update_text_layout_info(
                                 texture_atlases,
                                 textures,
                                 &mut scaler,
-                                font_smoothing,
+                                glyph_run.style().brush.1,
                                 glyph.id as u16,
                             )
                         }) else {

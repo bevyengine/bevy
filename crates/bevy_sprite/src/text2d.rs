@@ -263,7 +263,6 @@ pub fn update_text2d_layout(
             &mut font_atlas_set,
             &mut texture_atlases,
             &mut textures,
-            bevy_text::FontSmoothing::AntiAliased,
         );
     }
 }

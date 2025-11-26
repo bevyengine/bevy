@@ -351,7 +351,6 @@ pub fn layout_text_system(
                 &mut font_atlas_set,
                 &mut texture_atlases,
                 &mut textures,
-                bevy_text::FontSmoothing::AntiAliased,
             );
 
             text_flags.needs_relayout = false;

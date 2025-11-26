@@ -729,7 +729,7 @@ pub enum FontSmoothing {
 
 /// Computed text layout
 #[derive(Component, Default, Deref, DerefMut)]
-pub struct ComputedTextLayout(pub Layout<u32>);
+pub struct ComputedTextLayout(pub Layout<(u32, FontSmoothing)>);
 
 // System that detects changes to text blocks and sets `ComputedTextBlock::should_rerender`.
 ///
