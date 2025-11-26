@@ -98,8 +98,7 @@ usd_marker! {
 usd_attribute! {
     /// Linear velocity in the body's local space.
     ///
-    /// This velocity is specified relative to the entity's local coordinate frame,
-    /// consistent with USD's `UsdGeomPointInstancer` velocity conventions.
+    /// This velocity is specified relative to the entity's local coordinate frame.
     ///
     /// Units: distance/second.
     Velocity(Vec3) = vec3(0.0, 0.0, 0.0);
@@ -110,8 +109,7 @@ usd_attribute! {
 usd_attribute! {
     /// Angular velocity in the body's local space.
     ///
-    /// This velocity is specified relative to the entity's local coordinate frame,
-    /// consistent with USD's `UsdGeomPointInstancer` angular velocity conventions.
+    /// This velocity is specified relative to the entity's local coordinate frame.
     ///
     /// Units: degrees/second.
     AngularVelocity(Vec3) = vec3(0.0, 0.0, 0.0);

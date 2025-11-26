@@ -1,15 +1,14 @@
 //! Global physics tokens and constants.
 //!
-//! This module defines tokens that represent standard identifiers used across
-//! the USD Physics schema, including degree-of-freedom names for joints and
-//! stage-level metadata keys.
+//! This module defines global identifiers used across the physics system,
+//! including degree-of-freedom names for joints and scene-level metadata keys.
 
 use crate::axis::Axis;
 
 usd_global! {
-    /// Stage-level metadata that encodes the scene's distance unit scaling.
+    /// Scene-level metadata that encodes the distance unit scaling.
     ///
-    /// Defines how distance values in the stage relate to meters.
+    /// Defines how distance values in the scene relate to meters.
     /// For example, `metersPerUnit = 1.0` means distance values are in meters;
     /// `metersPerUnit = 0.01` means distance values are in centimeters.
     ///
@@ -20,7 +19,7 @@ usd_global! {
 }
 
 usd_global! {
-    /// Stage-level metadata that specifies the up axis for the scene.
+    /// Scene-level metadata that specifies the up axis.
     ///
     /// Defines which axis represents "up" in the coordinate system.
     /// This affects default gravity direction and other orientation-dependent
@@ -31,10 +30,10 @@ usd_global! {
 }
 
 usd_global! {
-    /// Stage-level metadata that encodes the scene's mass unit scaling.
+    /// Scene-level metadata that encodes the mass unit scaling.
     ///
     /// Similar to `metersPerUnit` for distance, this defines how mass values
-    /// in the stage relate to kilograms. For example, `kilogramsPerUnit = 1.0`
+    /// in the scene relate to kilograms. For example, `kilogramsPerUnit = 1.0`
     /// means mass values are in kilograms; `kilogramsPerUnit = 0.001` means
     /// mass values are in grams.
     KilogramsPerUnit(f32) = 1.0;

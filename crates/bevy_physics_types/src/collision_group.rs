@@ -1,14 +1,14 @@
 //! Collision group filtering for coarse-grained collision management.
 //!
 //! [`CollisionGroup`] defines collision groups for efficient broad-phase filtering.
-//! When a collision occurs between two objects with groups assigned, they collide
+//! When a collision occurs between two entities with groups assigned, they collide
 //! unless the group pair is explicitly filtered.
 //!
 //! ## Basic Filtering
 //!
 //! Colliders not in any group collide with all other colliders in the scene
 //! (except those with disabled collision by default). Groups define which
-//! object categories should not interact.
+//! entity categories should not interact.
 //!
 //! ## Inverted Filtering
 //!
@@ -16,13 +16,13 @@
 //! disabling collisions with listed groups, it disables collisions against
 //! **all other colliders except** those in the filtered groups.
 //!
-//! This is useful for configuring objects that should only interact with
+//! This is useful for configuring entities that should only interact with
 //! specific categories (e.g., a trigger volume that only detects players).
 //!
 //! ## Group Merging
 //!
-//! When composing a stage from multiple USD files, collision groups may need to
-//! be merged. The [`MergeGroupName`] attribute allows groups with matching names
+//! When composing a scene from multiple sources, collision groups may need to
+//! be merged. The [`MergeGroupName`] component allows groups with matching names
 //! to be combined:
 //!
 //! - Members of merged groups become members of the unified group
@@ -71,15 +71,15 @@ usd_attribute! {
 }
 
 usd_attribute! {
-    /// Name used to merge collision groups across composed stages.
+    /// Name used to merge collision groups across composed scenes.
     ///
-    /// All groups with a matching merge group name should be considered part
+    /// All groups with a matching merge group name are considered part
     /// of a single unified group. The members and filter relationships of all
     /// matched groups are combined.
     ///
     /// This enables patterns like having each character instance define its
     /// own ragdoll-vs-controller filter that automatically applies to all
-    /// instances when the stage is composed.
+    /// instances when the scene is composed.
     #[require(CollisionGroup)]
     MergeGroupName(String);
     apiName = "mergeGroupName"

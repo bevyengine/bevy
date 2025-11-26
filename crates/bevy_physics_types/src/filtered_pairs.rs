@@ -1,7 +1,7 @@
 //! Fine-grained pairwise collision filtering.
 //!
-//! The [`FilteredPairs`] attribute provides fine-grained collision filtering
-//! between specific object pairs, complementing the coarse-grained
+//! The [`FilteredPairs`] component provides fine-grained collision filtering
+//! between specific entity pairs, complementing the coarse-grained
 //! [`CollisionGroup`](crate::collision_group::CollisionGroup) filtering.
 //!
 //! ## Use Case
@@ -13,7 +13,7 @@
 //! close-proximity movement.
 //!
 //! Pairwise filtering solves this by explicitly disabling collisions between
-//! specific object pairs.
+//! specific entity pairs.
 //!
 //! ## Applicable Types
 //!

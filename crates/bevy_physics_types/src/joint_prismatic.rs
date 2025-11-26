@@ -18,8 +18,7 @@
 //!
 //! ## Axis Convention
 //!
-//! The axis follows USD conventions, specifying which local axis the
-//! translation occurs along.
+//! The axis specifies which local axis the translation occurs along.
 //!
 //! ## Example Uses
 //!

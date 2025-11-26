@@ -18,8 +18,7 @@
 //!
 //! ## Axis Convention
 //!
-//! The axis follows USD conventions established in `UsdGeomCapsule` and
-//! `UsdGeomCylinder`, specifying which local axis the rotation occurs around.
+//! The axis specifies which local axis the rotation occurs around.
 //!
 //! ## Example Uses
 //!

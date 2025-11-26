@@ -4,7 +4,9 @@
 //! Currently placeholder for potential future type definitions.
 
 // Type aliases for USD Physics schema compatibility:
-// - float → f32
-// - vector3f → bevy_math::Vec3
-// - quatf → bevy_math::Quat
-// - point3f → bevy_math::Vec3 (position semantics)
+
+#![allow(non_camel_case_types)]
+type float = f32;
+type vector3f = bevy_math::Vec3;
+type quatf = bevy_math::Quat;
+type point3f = bevy_math::Vec3;

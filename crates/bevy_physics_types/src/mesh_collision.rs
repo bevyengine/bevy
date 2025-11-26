@@ -7,7 +7,7 @@
 //! ## Usage
 //!
 //! This API is applied to mesh geometry alongside [`CollisionEnabled`](crate::collision::CollisionEnabled).
-//! Simple USD primitives (Sphere, Cylinder, Cube, Cone, Capsule) can be used
+//! Simple primitives (Sphere, Cylinder, Cube, Cone, Capsule) can be used
 //! directly without approximation.
 //!
 //! ## Approximation Methods

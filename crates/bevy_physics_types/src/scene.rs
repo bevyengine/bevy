@@ -1,23 +1,23 @@
 //! Physics scene configuration for simulation-level properties.
 //!
-//! The [`PhysicsSimulation`] represents a USD PhysicsScene which defines stage-level
-//! physics simulation properties. Multiple independent physics simulations can be
-//! described within a single USD stage by creating multiple scenes.
+//! The [`PhysicsSimulation`] defines sim-level physics simulation properties.
+//! Multiple independent physics simulations can be described within a single
+//! scene by creating multiple simulation entities.
 //!
 //! ## Gravity Configuration
 //!
-//! The scene controls gravity via separate direction and magnitude attributes:
+//! The scene controls gravity via separate direction and magnitude components:
 //! - [`GravityDirection`]: A normalized vector in simulation world space. When not
-//!   specified (or zero), the negative stage upAxis is used as default.
+//!   specified (or zero), the negative scene upAxis is used as default.
 //! - [`GravityMagnitude`]: The acceleration magnitude. A negative sentinel value
 //!   (-inf or similar) requests earth-equivalent gravity (9.81 m/s²) regardless
-//!   of the stage's `metersPerUnit` scaling.
+//!   of the scene's `metersPerUnit` scaling.
 //!
 //! ## Multi-Scene Support
 //!
 //! Bodies are assigned to specific scenes using the [`SimulationOwner`] relationship.
-//! If there is only one unique scene in the stage, an explicit relationship is
-//! unnecessary—bodies are assumed to be associated with the singleton scene.
+//! If there is only one unique sim, an explicit relationship is unnecessary—bodies
+//! are assumed to be associated with the singleton sim.
 //!
 //! **Note**: A single body cannot belong to multiple scenes as this would create
 //! data races and conflicting simulation states.
@@ -25,8 +25,8 @@
 //! ## Units
 //!
 //! Gravity magnitude uses units of `distance/second²`. The actual physical value
-//! depends on the stage's `metersPerUnit` metadata. For example, if `metersPerUnit = 0.01`
-//! (centimeters), then earth gravity would be approximately 981 in stage units.
+//! depends on the scene's `metersPerUnit` metadata. For example, if `metersPerUnit = 0.01`
+//! (centimeters), then earth gravity would be approximately 981 in scene units.
 
 use bevy_ecs::entity::EntityHashSet;
 use bevy_math::Dir3;
@@ -34,8 +34,8 @@ use bevy_math::Dir3;
 usd_attribute! {
     /// Gravity direction vector in simulation world space.
     ///
-    /// When not set, implementations should use the negative stage upAxis as the gravity direction
-    /// (typically -Y or -Z depending on stage configuration).
+    /// When not set, implementations should use the negative scene upAxis as the
+    /// gravity direction (typically -Y or -Z depending on scene configuration).
     ///
     /// Unitless (normalized direction).
     GravityDirection(bevy_math::Dir3) = Dir3::NEG_Y;
@@ -48,8 +48,8 @@ usd_attribute! {
     ///
     /// A negative sentinel value (the default -9.81 or -inf) is a request to use
     /// a value equivalent to earth gravity (9.81 m/s²) regardless of the
-    /// `metersPerUnit` scaling used by this stage. The implementation should
-    /// convert this to appropriate stage units.
+    /// `metersPerUnit` scaling used by this scene. The implementation should
+    /// convert this to appropriate scene units.
     ///
     /// Units: distance/second².
     GravityMagnitude(f32) = -9.81;
@@ -58,15 +58,15 @@ usd_attribute! {
 }
 
 usd_collection! {
-    /// Relationship to the PhysicsScene that will simulate this object.
+    /// Relationship to the PhysicsSimulation that will simulate this entity.
     ///
-    /// This component establishes which physics scene owns and simulates the
-    /// associated rigid body or collider. When only one PhysicsScene exists
-    /// in the stage, this relationship may be omitted and bodies will
-    /// automatically belong to that singleton scene.
+    /// This component establishes which physics sim owns and simulates the
+    /// associated rigid body or collider. When only one PhysicsSimulation exists
+    /// in the scene, this relationship may be omitted and bodies will
+    /// automatically belong to that singleton sim.
     ///
     /// For static colliders not under a RigidBody, this relationship determines
-    /// which scene handles their collision detection.
+    /// which sim handles their collision detection.
     SimulationOwner->PhysicsSimulation(EntityHashSet);
     apiName = "simulationOwner"
     displayName = "Simulation Owner"

@@ -33,7 +33,7 @@
 //!   density is specified locally or via bound materials. This value is converted
 //!   to the collider's native units before mass computation.
 //!
-//! - **Default mass**: 1.0 in stage mass units when none is provided explicitly
+//! - **Default mass**: 1.0 in scene mass units when none is provided explicitly
 //!   and there are no collision volumes to derive from.
 //!
 //! ## Sentinel Values
@@ -58,7 +58,7 @@ usd_attribute! {
     ///
     /// A value of 0.0 means "not specified" and is ignored.
     ///
-    /// Units: mass (scaled by stage `kilogramsPerUnit`).
+    /// Units: mass (scaled by scene `kilogramsPerUnit`).
     Mass(f32) = 0.0;
     apiName = "mass"
     displayName = "Mass"

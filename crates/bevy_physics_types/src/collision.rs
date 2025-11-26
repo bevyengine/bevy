@@ -18,10 +18,10 @@
 //!
 //! ## Subtree Behavior
 //!
-//! According to USD rules, geometric primitives must generally be leaf prims.
-//! Since [`CollisionEnabled`] can only be applied to geometry, there is no
-//! opportunity to inherit collision attributes down the scene graph. If a mesh
-//! is composed of submeshes, all submeshes are considered part of the collider.
+//! Geometric primitives are generally leaf entities. Since [`CollisionEnabled`]
+//! can only be applied to geometry, there is no opportunity to inherit collision
+//! attributes down the hierarchy. If a mesh is composed of submeshes, all
+//! submeshes are considered part of the collider.
 //!
 //! ## Simulation Owner
 //!
@@ -32,7 +32,7 @@
 //!
 //! ## Supported Shapes
 //!
-//! The USD Physics spec suggests support for:
+//! Supported collision primitives include:
 //! - `Sphere`, `Capsule`, `Cube`, `Cylinder`, `Cone` (built-in primitives)
 //! - `Mesh` (with [`ColliderFromMeshApproximation`](crate::mesh_collision::ColliderFromMeshApproximation))
 //!

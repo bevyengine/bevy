@@ -26,7 +26,7 @@
 //! ## Units
 //!
 //! - Translation limits: distance units
-//! - Rotation limits: degrees (per USD convention)
+//! - Rotation limits: degrees
 //!
 //! ## D6 Joint Configuration
 //!

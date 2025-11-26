@@ -1,8 +1,6 @@
 //! Shared axis enumeration for joint types.
 //!
 //! The [`Axis`] enum specifies which local axis a joint operates on.
-//! This follows USD conventions established by `UsdGeomCapsule`,
-//! `UsdGeomCylinder`, and other oriented primitives.
 
 /// Primary axis for joint constraints.
 ///
