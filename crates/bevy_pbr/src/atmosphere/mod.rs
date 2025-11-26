@@ -235,6 +235,11 @@ pub struct Atmosphere {
     /// units: m
     pub top_radius: f32,
 
+    /// Position of the center of the planet in the world.
+    ///
+    /// units: m
+    pub world_position: Vec3,
+
     /// An approximation of the average albedo (or color, roughly) of the
     /// planet's surface. This is used when calculating multiscattering.
     ///
@@ -256,6 +261,7 @@ impl Atmosphere {
             top_radius: EARTH_TOP_RADIUS,
             ground_albedo: EARTH_ALBEDO,
             medium,
+            world_position: Vec3::new(0.0, -EARTH_BOTTOM_RADIUS, 0.0),
         }
     }
 }
@@ -271,6 +277,7 @@ impl ExtractComponent for Atmosphere {
         Some(ExtractedAtmosphere {
             bottom_radius: item.bottom_radius,
             top_radius: item.top_radius,
+            world_position: item.world_position,
             ground_albedo: item.ground_albedo,
             medium: item.medium.id(),
         })
@@ -283,6 +290,7 @@ impl ExtractComponent for Atmosphere {
 pub struct ExtractedAtmosphere {
     pub bottom_radius: f32,
     pub top_radius: f32,
+    pub world_position: Vec3,
     pub ground_albedo: Vec3,
     pub medium: AssetId<ScatteringMedium>,
 }
