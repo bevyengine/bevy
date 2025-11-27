@@ -3,8 +3,8 @@
 #import bevy_render::view::View
 #import bevy_solari::brdf::{evaluate_brdf, evaluate_specular_brdf}
 #import bevy_solari::gbuffer_utils::gpixel_resolve
-#import bevy_solari::sampling::{sample_random_light, sample_ggx_vndf, ggx_vndf_pdf}
-#import bevy_solari::scene_bindings::{trace_ray, resolve_ray_hit_full, RAY_T_MIN, RAY_T_MAX}
+#import bevy_solari::sampling::{sample_random_light, random_light_pdf, sample_ggx_vndf, ggx_vndf_pdf, power_heuristic}
+#import bevy_solari::scene_bindings::{trace_ray, resolve_ray_hit_full, ResolvedRayHitFull, RAY_T_MIN, RAY_T_MAX}
 #import bevy_solari::world_cache::{query_world_cache, WORLD_CACHE_CELL_LIFETIME}
 
 @group(1) @binding(0) var view_output: texture_storage_2d<rgba16float, read_write>;
@@ -51,7 +51,8 @@ fn specular_gi(@builtin(global_invocation_id) global_id: vec3<u32>) {
         wi = wi_tangent.x * T + wi_tangent.y * B + wi_tangent.z * N;
         let pdf = ggx_vndf_pdf(wo_tangent, wi_tangent, surface.material.roughness);
 
-        radiance = trace_glossy_path(surface.world_position, wi, &rng) / pdf;
+        let surface_perfectly_specular = surface.material.roughness <= 0.001 && surface.material.metallic > 0.9999;
+        radiance = trace_glossy_path(surface.world_position, wi, surface_perfectly_specular, &rng) / pdf;
     }
 
     let brdf = evaluate_specular_brdf(surface.world_normal, wo, wi, surface.material.base_color, surface.material.metallic,
@@ -68,9 +69,11 @@ fn specular_gi(@builtin(global_invocation_id) global_id: vec3<u32>) {
 #endif
 }
 
-fn trace_glossy_path(initial_ray_origin: vec3<f32>, initial_wi: vec3<f32>, rng: ptr<function, u32>) -> vec3<f32> {
+fn trace_glossy_path(initial_ray_origin: vec3<f32>, initial_wi: vec3<f32>, initial_surface_perfectly_specular: bool, rng: ptr<function, u32>) -> vec3<f32> {
     var ray_origin = initial_ray_origin;
     var wi = initial_wi;
+    var surface_perfectly_specular = initial_surface_perfectly_specular;
+    var pdf = 0.0;
 
     // Trace up to three bounces, getting the net throughput from them
     var radiance = vec3(0.0);
@@ -80,40 +83,65 @@ fn trace_glossy_path(initial_ray_origin: vec3<f32>, initial_wi: vec3<f32>, rng: 
         let ray = trace_ray(ray_origin, wi, RAY_T_MIN, RAY_T_MAX, RAY_FLAG_NONE);
         if ray.kind == RAY_QUERY_INTERSECTION_NONE { break; }
         let ray_hit = resolve_ray_hit_full(ray);
-        let wo = -wi;
 
-        // TODO: Account for ray_hit.material.emissive with MIS
+        let TBN = calculate_tbn_mikktspace(ray_hit.world_normal, ray_hit.world_tangent);
+        let T = TBN[0];
+        let B = TBN[1];
+        let N = TBN[2];
+
+        let wo = -wi;
+        let wo_tangent = vec3(dot(wo, T), dot(wo, B), dot(wo, N));
+
+        // Add emissive contribution
+        radiance += throughput * emissive_mis_weight(pdf, ray_hit, surface_perfectly_specular) * ray_hit.material.emissive;
+
+        // Should not perform NEE for mirror-like surfaces
+        surface_perfectly_specular = ray_hit.material.roughness <= 0.001 && ray_hit.material.metallic > 0.9999;
 
         if ray_hit.material.roughness > WORLD_CACHE_TERMINATION_ROUGHNESS_THRESHOLD && i != 0u {
             // Surface is very rough, terminate path in the world cache
             let diffuse_brdf = ray_hit.material.base_color / PI;
             radiance += throughput * diffuse_brdf * query_world_cache(ray_hit.world_position, ray_hit.geometric_world_normal, view.world_position, WORLD_CACHE_CELL_LIFETIME, rng);
             break;
-        } else {
-            // Sample direct lighting
+        } else if !surface_perfectly_specular {
+            // Sample direct lighting (NEE)
             let direct_lighting = sample_random_light(ray_hit.world_position, ray_hit.world_normal, rng);
             let direct_lighting_brdf = evaluate_brdf(ray_hit.world_normal, wo, direct_lighting.wi, ray_hit.material);
-            radiance += throughput * direct_lighting.radiance * direct_lighting.inverse_pdf * direct_lighting_brdf;
+            let mis_weight = nee_mis_weight(direct_lighting.inverse_pdf, wo_tangent, direct_lighting.wi, ray_hit, TBN);
+            radiance += throughput * mis_weight * direct_lighting.radiance * direct_lighting.inverse_pdf * direct_lighting_brdf;
         }
 
         // Sample new ray direction from the GGX BRDF for next bounce
-        let TBN = calculate_tbn_mikktspace(ray_hit.world_normal, ray_hit.world_tangent);
-        let T = TBN[0];
-        let B = TBN[1];
-        let N = TBN[2];
-        let wo_tangent = vec3(dot(wo, T), dot(wo, B), dot(wo, N));
         let wi_tangent = sample_ggx_vndf(wo_tangent, ray_hit.material.roughness, rng);
         wi = wi_tangent.x * T + wi_tangent.y * B + wi_tangent.z * N;
         ray_origin = ray_hit.world_position;
 
         // Update throughput for next bounce
-        let pdf = ggx_vndf_pdf(wo_tangent, wi_tangent, ray_hit.material.roughness);
+        pdf = ggx_vndf_pdf(wo_tangent, wi_tangent, ray_hit.material.roughness);
         let brdf = evaluate_brdf(N, wo, wi, ray_hit.material);
         let cos_theta = saturate(dot(wi, N));
         throughput *= (brdf * cos_theta) / pdf;
     }
 
     return radiance;
+}
+
+fn emissive_mis_weight(p_bounce: f32, ray_hit: ResolvedRayHitFull, previous_surface_perfectly_specular: bool) -> f32 {
+    if previous_surface_perfectly_specular { return 1.0; }
+
+    let p_light = random_light_pdf(ray_hit);
+    return power_heuristic(p_bounce, p_light);
+}
+
+fn nee_mis_weight(inverse_p_light: f32, wo_tangent: vec3<f32>, wi: vec3<f32>, ray_hit: ResolvedRayHitFull, TBN: mat3x3<f32>) -> f32 {
+    let T = TBN[0];
+    let B = TBN[1];
+    let N = TBN[2];
+    let wi_tangent = vec3(dot(wi, T), dot(wi, B), dot(wi, N));
+
+    let p_light = 1.0 / inverse_p_light;
+    let p_bounce = max(0.001, ggx_vndf_pdf(wo_tangent, wi_tangent, ray_hit.material.roughness));
+    return power_heuristic(p_light, p_bounce);
 }
 
 // Don't adjust the size of this struct without also adjusting GI_RESERVOIR_STRUCT_SIZE.
