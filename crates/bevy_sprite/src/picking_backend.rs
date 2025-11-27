@@ -13,7 +13,7 @@
 use crate::{Anchor, Sprite};
 use bevy_app::prelude::*;
 use bevy_asset::prelude::*;
-use bevy_camera::{visibility::ViewVisibility, Camera, Projection};
+use bevy_camera::{visibility::{ViewVisibility, RenderLayers}, Camera, Projection};
 use bevy_color::Alpha;
 use bevy_ecs::prelude::*;
 use bevy_image::prelude::*;
@@ -88,6 +88,7 @@ fn sprite_picking(
         &GlobalTransform,
         &Projection,
         Has<SpritePickingCamera>,
+        Option<&RenderLayers>,
     )>,
     primary_window: Query<Entity, With<PrimaryWindow>>,
     images: Res<Assets<Image>>,
@@ -100,15 +101,16 @@ fn sprite_picking(
         &Anchor,
         &Pickable,
         &ViewVisibility,
+        Option<&RenderLayers>,
     )>,
     mut pointer_hits_writer: MessageWriter<PointerHits>,
     ray_map: Res<RayMap>,
 ) {
     let mut sorted_sprites: Vec<_> = sprite_query
         .iter()
-        .filter_map(|(entity, sprite, transform, anchor, pickable, vis)| {
+        .filter_map(|(entity, sprite, transform, anchor, pickable, vis, render_layers)| {
             if !transform.affine().is_nan() && vis.get() {
-                Some((entity, sprite, transform, anchor, pickable))
+                Some((entity, sprite, transform, anchor, pickable, render_layers))
             } else {
                 None
             }
@@ -116,7 +118,7 @@ fn sprite_picking(
         .collect();
 
     // radsort is a stable radix sort that performed better than `slice::sort_by_key`
-    radsort::sort_by_key(&mut sorted_sprites, |(_, _, transform, _, _)| {
+    radsort::sort_by_key(&mut sorted_sprites, |(_, _, transform, _, _, _)| {
         -transform.translation().z
     });
 
@@ -125,7 +127,7 @@ fn sprite_picking(
     let pick_sets = ray_map.iter().flat_map(|(ray_id, ray)| {
         let mut blocked = false;
 
-        let Ok((cam_entity, camera, cam_transform, Projection::Orthographic(cam_ortho), cam_can_pick)) =
+        let Ok((cam_entity, camera, cam_transform, Projection::Orthographic(cam_ortho), cam_can_pick, cam_render_layers)) =
             cameras.get(ray_id.camera)
         else { 
             return None
@@ -164,8 +166,19 @@ fn sprite_picking(
         let picks: Vec<(Entity, HitData)> = sorted_sprites
             .iter()
             .copied()
-            .filter_map(|(entity, sprite, sprite_transform, anchor, pickable)| {
+            .filter_map(|(entity, sprite, sprite_transform, anchor, pickable, sprite_render_layers)| {
                 if blocked {
+                    return None;
+                }
+
+                // Filter out sprites based on whether they share RenderLayers with the current
+                // ray's associated camera.
+                // Any entity without a RenderLayers component will by default be
+                // on RenderLayers::layer(0) only.
+                if !cam_render_layers
+                    .unwrap_or_default()
+                    .intersects(sprite_render_layers.unwrap_or_default())
+                {
                     return None;
                 }
 
