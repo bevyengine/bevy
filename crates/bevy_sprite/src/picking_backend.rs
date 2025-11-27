@@ -102,6 +102,7 @@ fn sprite_picking(
         &ViewVisibility,
     )>,
     mut pointer_hits_writer: MessageWriter<PointerHits>,
+    ray_map: Res<RayMap>,
 ) {
     let mut sorted_sprites: Vec<_> = sprite_query
         .iter()
@@ -121,40 +122,44 @@ fn sprite_picking(
 
     let primary_window = primary_window.single().ok();
 
-    for (pointer, location) in pointers.iter().filter_map(|(pointer, pointer_location)| {
-        pointer_location.location().map(|loc| (pointer, loc))
-    }) {
+    let pick_sets = ray_map.iter().flat_map(|(ray_id, ray)| {
         let mut blocked = false;
-        let Some((cam_entity, camera, cam_transform, Projection::Orthographic(cam_ortho), _)) =
-            cameras
-                .iter()
-                .filter(|(_, camera, _, _, cam_can_pick)| {
-                    let marker_requirement = !settings.require_markers || *cam_can_pick;
-                    camera.is_active && marker_requirement
-                })
-                .find(|(_, camera, _, _, _)| {
-                    camera
-                        .target
-                        .normalize(primary_window)
-                        .is_some_and(|x| x == location.target)
-                })
-        else {
-            continue;
+
+        let Ok((cam_entity, camera, cam_transform, Projection::Orthographic(cam_ortho), cam_can_pick)) =
+            cameras.get(ray_id.camera)
+        else { 
+            return None
         };
+
+        let marker_requirement = !settings.require_markers || cam_can_pick;
+        if !camera.is_active || !marker_requirement {
+            return None
+        }
+
+        let location = pointers.iter().find_map(|(id, loc)| {
+            if *id == ray_id.pointer {
+                return loc.location.as_ref();
+            }
+            None
+        })?;
+
+        if camera.target
+            .normalize(primary_window)
+            .is_none_or(|x| x != location.target)
+        {
+            return None;
+        }
 
         let viewport_pos = location.position;
         if let Some(viewport) = camera.logical_viewport_rect()
             && !viewport.contains(viewport_pos)
         {
             // The pointer is outside the viewport, skip it
-            continue;
+            return None;
         }
 
-        let Ok(cursor_ray_world) = camera.viewport_to_world(cam_transform, viewport_pos) else {
-            continue;
-        };
         let cursor_ray_len = cam_ortho.far - cam_ortho.near;
-        let cursor_ray_end = cursor_ray_world.origin + cursor_ray_world.direction * cursor_ray_len;
+        let cursor_ray_end = ray.origin + ray.direction * cursor_ray_len;
 
         let picks: Vec<(Entity, HitData)> = sorted_sprites
             .iter()
@@ -166,7 +171,7 @@ fn sprite_picking(
 
                 // Transform cursor line segment to sprite coordinate system
                 let world_to_sprite = sprite_transform.affine().inverse();
-                let cursor_start_sprite = world_to_sprite.transform_point3(cursor_ray_world.origin);
+                let cursor_start_sprite = world_to_sprite.transform_point3(ray.origin);
                 let cursor_end_sprite = world_to_sprite.transform_point3(cursor_ray_end);
 
                 // Find where the cursor segment intersects the plane Z=0 (which is the sprite's
@@ -250,7 +255,10 @@ fn sprite_picking(
             })
             .collect();
 
-        let order = camera.order as f32;
-        pointer_hits_writer.write(PointerHits::new(*pointer, picks, order));
-    }
+        Some((ray_id.pointer,picks,camera.order))
+    });
+
+    pick_sets.for_each(|(pointer,picks,order)| {
+        pointer_hits_writer.write(PointerHits::new(pointer, picks, order as f32));
+    })
 }
