@@ -26,8 +26,8 @@ use bevy_render::{
     camera::TemporalJitter,
     extract_component::ExtractComponent,
     render_phase::{
-        AddRenderCommand, BinnedRenderPhasePlugin, BinnedRenderPhaseType, DrawFunctions,
-        PhaseItemExtraIndex,
+        AddRenderCommand, BinnedPhaseItem, BinnedRenderPhase, BinnedRenderPhasePlugin,
+        BinnedRenderPhaseType, DrawFunctions, PhaseItemExtraIndex,
     },
     render_resource::{
         RenderPipelineDescriptor, SpecializedMeshPipeline, SpecializedMeshPipelineError,
@@ -378,6 +378,16 @@ impl PhaseItemExt for Opaque3d {
     const PHASE_TYPES: RenderPhaseType = RenderPhaseType::Opaque;
 
     fn queue(render_phase: &mut PIEPhase<Self>, context: &PhaseContext) {
+        Self::queue_item(render_phase, context);
+    }
+}
+
+impl QueueBinnedPhaseItem for Opaque3d {
+    fn queue_item<PIE>(render_phase: &mut BinnedRenderPhase<PIE>, context: &PhaseContext)
+    where
+        PIE: BinnedPhaseItem<BatchSetKey = Self::BatchSetKey, BinKey = Self::BinKey>
+            + PhaseItemExt<PhaseFamily = BinnedPhaseFamily<PIE>>,
+    {
         if context.material.properties.render_method == OpaqueRendererMethod::Deferred {
             // Even though we aren't going to insert the entity into
             // a bin, we still want to update its cache entry. That
@@ -423,6 +433,16 @@ impl PhaseItemExt for AlphaMask3d {
     const PHASE_TYPES: RenderPhaseType = RenderPhaseType::AlphaMask;
 
     fn queue(render_phase: &mut PIEPhase<Self>, context: &PhaseContext) {
+        Self::queue_item(render_phase, context);
+    }
+}
+
+impl QueueBinnedPhaseItem for AlphaMask3d {
+    fn queue_item<PIE>(render_phase: &mut BinnedRenderPhase<PIE>, context: &PhaseContext)
+    where
+        PIE: BinnedPhaseItem<BatchSetKey = Self::BatchSetKey, BinKey = Self::BinKey>
+            + PhaseItemExt<PhaseFamily = BinnedPhaseFamily<PIE>>,
+    {
         let (vertex_slab, index_slab) = context
             .mesh_allocator
             .mesh_slabs(&context.mesh_instance.mesh_asset_id);
@@ -455,6 +475,14 @@ impl PhaseItemExt for Transmissive3d {
     const PHASE_TYPES: RenderPhaseType = RenderPhaseType::Transmissive;
 
     fn queue(render_phase: &mut PIEPhase<Self>, context: &PhaseContext) {
+        render_phase.add(Self::get_item(context));
+    }
+}
+
+impl QueueSortedPhaseItem for Transmissive3d {
+    type SortedPhaseItem = Self;
+
+    fn get_item(context: &PhaseContext) -> Self::SortedPhaseItem {
         let (_, index_slab) = context
             .mesh_allocator
             .mesh_slabs(&context.mesh_instance.mesh_asset_id);
@@ -463,7 +491,7 @@ impl PhaseItemExt for Transmissive3d {
             .distance_translation(&context.mesh_instance.translation)
             + context.material.properties.depth_bias;
 
-        render_phase.add(Transmissive3d {
+        Transmissive3d {
             entity: (context.entity, context.main_entity),
             draw_function: context.draw_function,
             pipeline: context.pipeline_id,
@@ -471,7 +499,7 @@ impl PhaseItemExt for Transmissive3d {
             batch_range: 0..1,
             extra_index: PhaseItemExtraIndex::None,
             indexed: index_slab.is_some(),
-        });
+        }
     }
 }
 
@@ -481,6 +509,14 @@ impl PhaseItemExt for Transparent3d {
     const PHASE_TYPES: RenderPhaseType = RenderPhaseType::Transparent;
 
     fn queue(render_phase: &mut PIEPhase<Self>, context: &PhaseContext) {
+        render_phase.add(Self::get_item(context));
+    }
+}
+
+impl QueueSortedPhaseItem for Transparent3d {
+    type SortedPhaseItem = Self;
+
+    fn get_item(context: &PhaseContext) -> Self::SortedPhaseItem {
         let (_, index_slab) = context
             .mesh_allocator
             .mesh_slabs(&context.mesh_instance.mesh_asset_id);
@@ -489,7 +525,7 @@ impl PhaseItemExt for Transparent3d {
             .distance_translation(&context.mesh_instance.translation)
             + context.material.properties.depth_bias;
 
-        render_phase.add(Transparent3d {
+        Transparent3d {
             entity: (context.entity, context.main_entity),
             draw_function: context.draw_function,
             pipeline: context.pipeline_id,
@@ -497,6 +533,6 @@ impl PhaseItemExt for Transparent3d {
             batch_range: 0..1,
             extra_index: PhaseItemExtraIndex::None,
             indexed: index_slab.is_some(),
-        });
+        }
     }
 }

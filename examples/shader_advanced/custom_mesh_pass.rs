@@ -8,7 +8,7 @@ use bevy::{
     camera::{MainPassResolutionOverride, Viewport},
     core_pipeline::core_3d::{
         graph::{Core3d, Node3d},
-        Opaque3d, Opaque3dBatchSetKey, Opaque3dBinKey,
+        Opaque3d,
     },
     ecs::query::QueryItem,
     mesh::MeshVertexBufferLayoutRef,
@@ -16,7 +16,7 @@ use bevy::{
         BinnedPhaseFamily, DrawMaterial, ExtendedMaterial, MainPass, MaterialExtension,
         MaterialExtensionKey, MaterialExtensionPipeline, MaterialPipelineSpecializer, MeshPass,
         MeshPassPlugin, NoExtractCondition, PIEPhase, PassShaders, PhaseContext, PhaseItemExt,
-        RenderPhaseType, ShaderSet,
+        QueueBinnedPhaseItem, RenderPhaseType, ShaderSet,
     },
     prelude::*,
     render::{
@@ -24,9 +24,7 @@ use bevy::{
         diagnostic::RecordDiagnostics,
         extract_component::ExtractComponent,
         render_graph::{RenderGraphContext, RenderGraphExt, RenderLabel, ViewNode, ViewNodeRunner},
-        render_phase::{
-            BinnedPhaseItem, BinnedRenderPhaseType, TrackedRenderPass, ViewBinnedRenderPhases,
-        },
+        render_phase::{BinnedPhaseItem, TrackedRenderPass, ViewBinnedRenderPhases},
         render_resource::{
             AsBindGroup, CommandEncoderDescriptor, Face, RenderPassDescriptor,
             RenderPipelineDescriptor, SpecializedMeshPipelineError, StoreOp,
@@ -89,34 +87,7 @@ impl PhaseItemExt for OutlineOpaque3d {
     const PHASE_TYPES: RenderPhaseType = RenderPhaseType::Opaque;
 
     fn queue(render_phase: &mut PIEPhase<Self>, context: &PhaseContext) {
-        let (vertex_slab, index_slab) = context
-            .mesh_allocator
-            .mesh_slabs(&context.mesh_instance.mesh_asset_id);
-
-        render_phase.add(
-            Opaque3dBatchSetKey {
-                pipeline: context.pipeline_id,
-                draw_function: context.draw_function,
-                material_bind_group_index: Some(context.material.binding.group.0),
-                vertex_slab: vertex_slab.unwrap_or_default(),
-                index_slab,
-                lightmap_slab: context
-                    .mesh_instance
-                    .shared
-                    .lightmap_slab_index
-                    .map(|index| *index),
-            },
-            Opaque3dBinKey {
-                asset_id: context.mesh_instance.mesh_asset_id.into(),
-            },
-            (context.entity, context.main_entity),
-            context.mesh_instance.current_uniform_index,
-            BinnedRenderPhaseType::mesh(
-                context.mesh_instance.should_batch(),
-                &context.gpu_preprocessing_support,
-            ),
-            context.current_change_tick,
-        );
+        Opaque3d::queue_item(render_phase, context);
     }
 }
 

@@ -1546,6 +1546,19 @@ pub trait PhaseItemExt: PhaseItem {
     fn queue(render_phase: &mut PIEPhase<Self>, context: &PhaseContext);
 }
 
+pub trait QueueBinnedPhaseItem: BinnedPhaseItem {
+    fn queue_item<PIE>(render_phase: &mut BinnedRenderPhase<PIE>, context: &PhaseContext)
+    where
+        PIE: BinnedPhaseItem<BatchSetKey = Self::BatchSetKey, BinKey = Self::BinKey>
+            + PhaseItemExt<PhaseFamily = BinnedPhaseFamily<PIE>>;
+}
+
+pub trait QueueSortedPhaseItem: SortedPhaseItem {
+    type SortedPhaseItem: SortedPhaseItem;
+
+    fn get_item(context: &PhaseContext) -> Self::SortedPhaseItem;
+}
+
 pub trait RenderPhase {
     fn add(&mut self, context: &PhaseContext);
 
