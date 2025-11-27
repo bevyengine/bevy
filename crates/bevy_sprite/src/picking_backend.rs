@@ -287,5 +287,5 @@ fn sprite_picking(
 
     pick_sets.for_each(|(pointer, picks, order)| {
         pointer_hits_writer.write(PointerHits::new(pointer, picks, order as f32));
-    })
+    });
 }
