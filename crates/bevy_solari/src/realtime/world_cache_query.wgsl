@@ -122,7 +122,7 @@ fn compute_checksum(world_position: vec3<u32>, world_normal: vec3<u32>) -> u32 {
     key = iqint_hash(key + world_normal.x);
     key = iqint_hash(key + world_normal.y);
     key = iqint_hash(key + world_normal.z);
-    return key;
+    return max(key, 1u); // 0u is reserved for WORLD_CACHE_EMPTY_CELL
 }
 
 fn pcg_hash(input: u32) -> u32 {
