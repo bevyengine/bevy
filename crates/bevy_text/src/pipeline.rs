@@ -14,7 +14,6 @@ use bevy_platform::collections::HashMap;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 
 use cosmic_text::{Attrs, Buffer, Family, Metrics, Shaping, Wrap};
-use tracing::info_span;
 
 use crate::{
     add_glyph_to_atlas, error::TextError, get_glyph_atlas_info, ComputedTextBlock, Font,
@@ -607,13 +606,9 @@ impl TextMeasureInfo {
     ) -> Vec2 {
         // Note that this arbitrarily adjusts the buffer layout. We assume the buffer is always 'refreshed'
         // whenever a canonical state is required.
-
-        let _measure_span = info_span!("measure_span", name = "measure_span").entered();
         computed
             .buffer
             .set_size(&mut font_system.0, bounds.width, bounds.height);
-
-        let _dim_span = info_span!("dim_measure_span", name = "dim_measure_span").entered();
         buffer_dimensions(&computed.buffer)
     }
 }
