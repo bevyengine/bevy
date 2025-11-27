@@ -47,12 +47,13 @@ struct WorldCacheGeometryData {
 
 #ifndef WORLD_CACHE_NON_ATOMIC_LIFE_BUFFER
 fn query_world_cache(world_position: vec3<f32>, world_normal: vec3<f32>, view_position: vec3<f32>, cell_lifetime: u32, rng: ptr<function, u32>) -> vec3<f32> {
-    let cell_size = get_cell_size(world_position, view_position);
+    var cell_size = get_cell_size(world_position, view_position);
 
     // https://tomclabault.github.io/blog/2025/regir, jitter_world_position_tangent_plane
     let TBN = orthonormalize(world_normal);
     let offset = (rand_vec2f(rng) * 2.0 - 1.0) * cell_size * 0.5;
     let jittered_position = world_position + offset.x * TBN[0] + offset.y * TBN[1];
+    cell_size = get_cell_size(jittered_position, view_position);
 
     let world_position_quantized = bitcast<vec3<u32>>(quantize_position(jittered_position, cell_size));
     let world_normal_quantized = bitcast<vec3<u32>>(quantize_normal(world_normal));
