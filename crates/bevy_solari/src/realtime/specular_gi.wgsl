@@ -32,7 +32,7 @@ fn specular_gi(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
     var radiance: vec3<f32>;
     var wi: vec3<f32>;
-    if surface.material.roughness > 0.1 {
+    if surface.material.roughness > 0.4 {
         // Surface is very rough, reuse the ReSTIR GI reservoir
         let gi_reservoir = gi_reservoirs_a[pixel_index];
         wi = normalize(gi_reservoir.sample_point_world_position - surface.world_position);
@@ -81,7 +81,7 @@ fn trace_glossy_path(initial_ray_origin: vec3<f32>, initial_wi: vec3<f32>, rng: 
 
         // TODO: Account for ray_hit.material.emissive with MIS
 
-        if ray_hit.material.roughness > 0.1 && i != 0u {
+        if ray_hit.material.roughness > 0.4 && i != 0u {
             // Surface is very rough, terminate path in the world cache
             let diffuse_brdf = ray_hit.material.base_color / PI;
             radiance += throughput * diffuse_brdf * query_world_cache(ray_hit.world_position, ray_hit.geometric_world_normal, view.world_position, WORLD_CACHE_CELL_LIFETIME, rng);
