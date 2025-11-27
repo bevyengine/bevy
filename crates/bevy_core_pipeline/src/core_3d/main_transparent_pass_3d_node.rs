@@ -1,4 +1,7 @@
-use crate::core_3d::Transparent3d;
+use crate::{
+    core_3d::Transparent3d,
+    oit::{resolve::OitResolvePipelineId, OrderIndependentTransparencySettings},
+};
 use bevy_camera::{MainPassResolutionOverride, Viewport};
 use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_render::{
@@ -6,7 +9,7 @@ use bevy_render::{
     diagnostic::RecordDiagnostics,
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
     render_phase::ViewSortedRenderPhases,
-    render_resource::{RenderPassDescriptor, StoreOp},
+    render_resource::{PipelineCache, RenderPassDescriptor, StoreOp},
     renderer::RenderContext,
     view::{ExtractedView, ViewDepthTexture, ViewTarget},
 };
@@ -26,12 +29,14 @@ impl ViewNode for MainTransparentPass3dNode {
         &'static ViewTarget,
         &'static ViewDepthTexture,
         Option<&'static MainPassResolutionOverride>,
+        Has<OrderIndependentTransparencySettings>,
+        Option<&'static OitResolvePipelineId>,
     );
     fn run(
         &self,
         graph: &mut RenderGraphContext,
         render_context: &mut RenderContext,
-        (camera, view, target, depth, resolution_override): QueryItem<Self::ViewQuery>,
+        (camera, view, target, depth, resolution_override, has_oit,oit_resolve_pipeline_id): QueryItem<Self::ViewQuery>,
         world: &World,
     ) -> Result<(), NodeRunError> {
         let view_entity = graph.view_entity();
@@ -47,6 +52,22 @@ impl ViewNode for MainTransparentPass3dNode {
         };
 
         if !transparent_phase.items.is_empty() {
+            if has_oit {
+                // We can't run transparent phase if OitResolvePipelineId is not ready
+                // Otherwise we will write to `oit_atomic_counter` and `oit_headers` buffer without resetting them
+                // which causes corrupted linked list(can have circular references) on the next pass
+                let Some(oit_resolve_pipeline_id) = oit_resolve_pipeline_id else {
+                    return Ok(());
+                };
+                let pipeline_cache = world.resource::<PipelineCache>();
+                if pipeline_cache
+                    .get_render_pipeline(oit_resolve_pipeline_id.0)
+                    .is_none()
+                {
+                    return Ok(());
+                }
+            }
+
             // Run the transparent pass, sorted back-to-front
             // NOTE: Scoped to drop the mutable borrow of render_context
             #[cfg(feature = "trace")]
