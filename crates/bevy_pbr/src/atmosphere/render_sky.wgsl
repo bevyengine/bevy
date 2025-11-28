@@ -1,8 +1,7 @@
 enable dual_source_blending;
 
 #import bevy_pbr::atmosphere::{
-    types::{Atmosphere, AtmosphereSettings},
-    bindings::{atmosphere, view, atmosphere_transforms, settings},
+    bindings::{view, settings},
     functions::{
         sample_transmittance_lut, sample_transmittance_lut_segment,
         sample_sky_view_lut, direction_world_to_atmosphere,
@@ -11,14 +10,13 @@ enable dual_source_blending;
         get_view_position, max_atmosphere_distance
     },
 };
-#import bevy_render::view::View;
 
 #import bevy_core_pipeline::fullscreen_vertex_shader::FullscreenVertexOutput
 
 #ifdef MULTISAMPLED
-@group(0) @binding(16) var depth_texture: texture_depth_multisampled_2d;
+@group(0) @binding(13) var depth_texture: texture_depth_multisampled_2d;
 #else
-@group(0) @binding(16) var depth_texture: texture_depth_2d;
+@group(0) @binding(13) var depth_texture: texture_depth_2d;
 #endif
 
 struct RenderSkyOutput {

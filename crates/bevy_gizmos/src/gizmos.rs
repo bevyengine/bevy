@@ -376,8 +376,6 @@ where
     }
     /// Draw a line in 3D from `start` to `end`.
     ///
-    /// This should be called for each frame the line needs to be rendered.
-    ///
     /// # Example
     /// ```
     /// # use bevy_gizmos::prelude::*;
@@ -398,8 +396,6 @@ where
     }
 
     /// Draw a line in 3D with a color gradient from `start` to `end`.
-    ///
-    /// This should be called for each frame the line needs to be rendered.
     ///
     /// # Example
     /// ```
@@ -428,8 +424,6 @@ where
 
     /// Draw a line in 3D from `start` to `start + vector`.
     ///
-    /// This should be called for each frame the line needs to be rendered.
-    ///
     /// # Example
     /// ```
     /// # use bevy_gizmos::prelude::*;
@@ -449,8 +443,6 @@ where
     }
 
     /// Draw a line in 3D with a color gradient from `start` to `start + vector`.
-    ///
-    /// This should be called for each frame the line needs to be rendered.
     ///
     /// # Example
     /// ```
@@ -477,8 +469,6 @@ where
     }
 
     /// Draw a line in 3D made of straight segments between the points.
-    ///
-    /// This should be called for each frame the line needs to be rendered.
     ///
     /// # Example
     /// ```
@@ -507,8 +497,6 @@ where
     }
 
     /// Draw a line in 3D made of straight segments between the points, with a color gradient.
-    ///
-    /// This should be called for each frame the lines need to be rendered.
     ///
     /// # Example
     /// ```
@@ -560,8 +548,6 @@ where
     /// - the center is at `Vec3::ZERO`
     /// - the sizes are aligned with the `Vec3::X` and `Vec3::Y` axes.
     ///
-    /// This should be called for each frame the rectangle needs to be rendered.
-    ///
     /// # Example
     /// ```
     /// # use bevy_gizmos::prelude::*;
@@ -583,8 +569,6 @@ where
     }
 
     /// Draw a wireframe cube in 3D.
-    ///
-    /// This should be called for each frame the cube needs to be rendered.
     ///
     /// # Example
     /// ```
@@ -623,8 +607,6 @@ where
     }
 
     /// Draw a wireframe aabb in 3D.
-    ///
-    /// This should be called for each frame the aabb needs to be rendered.
     ///
     /// # Example
     /// ```
@@ -677,8 +659,6 @@ where
 
     /// Draw a line in 2D from `start` to `end`.
     ///
-    /// This should be called for each frame the line needs to be rendered.
-    ///
     /// # Example
     /// ```
     /// # use bevy_gizmos::prelude::*;
@@ -698,8 +678,6 @@ where
     }
 
     /// Draw a line in 2D with a color gradient from `start` to `end`.
-    ///
-    /// This should be called for each frame the line needs to be rendered.
     ///
     /// # Example
     /// ```
@@ -727,8 +705,6 @@ where
 
     /// Draw a line in 2D made of straight segments between the points.
     ///
-    /// This should be called for each frame the line needs to be rendered.
-    ///
     /// # Example
     /// ```
     /// # use bevy_gizmos::prelude::*;
@@ -752,8 +728,6 @@ where
     }
 
     /// Draw a line in 2D made of straight segments between the points, with a color gradient.
-    ///
-    /// This should be called for each frame the line needs to be rendered.
     ///
     /// # Example
     /// ```
@@ -786,8 +760,6 @@ where
 
     /// Draw a line in 2D from `start` to `start + vector`.
     ///
-    /// This should be called for each frame the line needs to be rendered.
-    ///
     /// # Example
     /// ```
     /// # use bevy_gizmos::prelude::*;
@@ -807,8 +779,6 @@ where
     }
 
     /// Draw a line in 2D with a color gradient from `start` to `start + vector`.
-    ///
-    /// This should be called for each frame the line needs to be rendered.
     ///
     /// # Example
     /// ```
@@ -840,8 +810,6 @@ where
     ///
     /// - the center is at `Vec2::ZERO`
     /// - the sizes are aligned with the `Vec2::X` and `Vec2::Y` axes.
-    ///
-    /// This should be called for each frame the rectangle needs to be rendered.
     ///
     /// # Example
     /// ```

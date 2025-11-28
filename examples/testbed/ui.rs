@@ -337,6 +337,16 @@ mod borders {
                             margin: UiRect::all(px(30)),
                             align_items: AlignItems::Center,
                             justify_content: JustifyContent::Center,
+                            border_radius: if rounded {
+                                BorderRadius::px(
+                                    border_size(border.left, border.top),
+                                    border_size(border.right, border.top),
+                                    border_size(border.right, border.bottom),
+                                    border_size(border.left, border.bottom),
+                                )
+                            } else {
+                                BorderRadius::ZERO
+                            },
                             ..default()
                         },
                         BackgroundColor(MAROON.into()),
@@ -348,16 +358,6 @@ mod borders {
                         },
                     ))
                     .id();
-
-                if rounded {
-                    let border_radius = BorderRadius::px(
-                        border_size(border.left, border.top),
-                        border_size(border.right, border.top),
-                        border_size(border.right, border.bottom),
-                        border_size(border.left, border.bottom),
-                    );
-                    commands.entity(border_node).insert(border_radius);
-                }
 
                 commands.entity(root).add_child(border_node);
             }
@@ -430,10 +430,10 @@ mod box_shadow {
                             width: px(size.x),
                             height: px(size.y),
                             border: UiRect::all(px(2)),
+                            border_radius,
                             ..default()
                         },
                         BorderColor::all(WHITE),
-                        border_radius,
                         BackgroundColor(BLUE.into()),
                         BoxShadow::new(
                             Color::BLACK.with_alpha(0.9),

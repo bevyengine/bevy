@@ -5,15 +5,13 @@
 #import bevy_pbr::atmosphere::{
     types::Atmosphere,
     bindings::{
-        atmosphere, settings, view, lights, transmittance_lut, transmittance_lut_sampler, 
-        multiscattering_lut, multiscattering_lut_sampler, sky_view_lut, sky_view_lut_sampler,
-        aerial_view_lut, aerial_view_lut_sampler, atmosphere_transforms, medium_density_lut,
-        medium_scattering_lut, medium_sampler,
+        atmosphere, settings, view, lights, transmittance_lut, atmosphere_lut_sampler,
+        multiscattering_lut, sky_view_lut, aerial_view_lut, atmosphere_transforms,
+        medium_density_lut, medium_scattering_lut, medium_sampler,
     },
     bruneton_functions::{
-        transmittance_lut_r_mu_to_uv, transmittance_lut_uv_to_r_mu, 
-        ray_intersects_ground, distance_to_top_atmosphere_boundary, 
-        distance_to_bottom_atmosphere_boundary
+        transmittance_lut_r_mu_to_uv, ray_intersects_ground,
+        distance_to_top_atmosphere_boundary, distance_to_bottom_atmosphere_boundary
     },
 }
 
@@ -116,8 +114,8 @@ fn sky_view_lut_uv_to_zenith_azimuth(r: f32, uv: vec2<f32>) -> vec2<f32> {
 // LUT SAMPLING
 
 fn sample_transmittance_lut(r: f32, mu: f32) -> vec3<f32> {
-    let uv = transmittance_lut_r_mu_to_uv(r, mu);
-    return textureSampleLevel(transmittance_lut, transmittance_lut_sampler, uv, 0.0).rgb;
+    let uv = transmittance_lut_r_mu_to_uv(atmosphere, r, mu);
+    return textureSampleLevel(transmittance_lut, atmosphere_lut_sampler, uv, 0.0).rgb;
 }
 
 // NOTICE: This function is copyrighted by Eric Bruneton and INRIA, and falls
@@ -143,14 +141,14 @@ fn sample_transmittance_lut_segment(r: f32, mu: f32, t: f32) -> vec3<f32> {
 
 fn sample_multiscattering_lut(r: f32, mu: f32) -> vec3<f32> {
     let uv = multiscattering_lut_r_mu_to_uv(r, mu);
-    return textureSampleLevel(multiscattering_lut, multiscattering_lut_sampler, uv, 0.0).rgb;
+    return textureSampleLevel(multiscattering_lut, atmosphere_lut_sampler, uv, 0.0).rgb;
 }
 
 fn sample_sky_view_lut(r: f32, ray_dir_as: vec3<f32>) -> vec3<f32> {
     let mu = ray_dir_as.y;
     let azimuth = fast_atan2(ray_dir_as.x, -ray_dir_as.z);
     let uv = sky_view_lut_r_mu_azimuth_to_uv(r, mu, azimuth);
-    return textureSampleLevel(sky_view_lut, sky_view_lut_sampler, uv, 0.0).rgb;
+    return textureSampleLevel(sky_view_lut, atmosphere_lut_sampler, uv, 0.0).rgb;
 }
 
 fn ndc_to_camera_dist(ndc: vec3<f32>) -> f32 {
@@ -170,7 +168,7 @@ fn sample_aerial_view_lut(uv: vec2<f32>, t: f32) -> vec3<f32> {
     // we'd need to sample at the center of the previous slice, and vice-versa for
     // sampling in the center of a slice.
     let uvw = vec3(uv, saturate(t / t_max - 0.5 / num_slices));
-    let sample = textureSampleLevel(aerial_view_lut, aerial_view_lut_sampler, uvw, 0.0);
+    let sample = textureSampleLevel(aerial_view_lut, atmosphere_lut_sampler, uvw, 0.0);
     // Since sampling anywhere between w=0 and w=t_slice will clamp to the first slice,
     // we need to do a linear step over the first slice towards zero at the camera's
     // position to recover the correct integral value.
@@ -257,10 +255,34 @@ fn sample_sun_radiance(ray_dir_ws: vec3<f32>) -> vec3<f32> {
     return sun_radiance;
 }
 
+fn calculate_visible_sun_ratio(atmosphere: Atmosphere, r: f32, mu: f32, sun_angular_size: f32) -> f32 {
+    let bottom_radius = atmosphere.bottom_radius;
+    // Calculate the angle between horizon and sun center
+    // Invert the horizon angle calculation to fix shading direction
+    let horizon_cos = -sqrt(1.0 - (bottom_radius * bottom_radius) / (r * r));
+    let horizon_angle = fast_acos_4(horizon_cos);
+    let sun_zenith_angle = fast_acos_4(mu);
+    
+    // If sun is completely above horizon
+    if sun_zenith_angle + sun_angular_size * 0.5 <= horizon_angle {
+        return 1.0;
+    }
+    
+    // If sun is completely below horizon
+    if sun_zenith_angle - sun_angular_size * 0.5 >= horizon_angle {
+        return 0.0;
+    }
+    
+    // Calculate partial visibility using circular segment area formula
+    let d = (horizon_angle - sun_zenith_angle) / (sun_angular_size * 0.5);
+    let visible_ratio = 0.5 + d * 0.5;
+    return clamp(visible_ratio, 0.0, 1.0);
+}
+
 // TRANSFORM UTILITIES
 
 fn max_atmosphere_distance(r: f32, mu: f32) -> f32 {
-    let t_top = distance_to_top_atmosphere_boundary(r, mu);
+    let t_top = distance_to_top_atmosphere_boundary(atmosphere, r, mu);
     let t_bottom = distance_to_bottom_atmosphere_boundary(r, mu);
     let hits = ray_intersects_ground(r, mu);
     return mix(t_top, t_bottom, f32(hits));
