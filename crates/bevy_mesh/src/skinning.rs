@@ -5,7 +5,7 @@ use bevy_reflect::prelude::*;
 use bevy_transform::components::GlobalTransform;
 use core::ops::Deref;
 
-use crate::{Mesh, VertexAttributeValues, VertexFormat};
+use crate::{Mesh, MeshVertexAttribute, VertexAttributeValues, VertexFormat};
 
 #[derive(Component, Debug, Default, Clone, Reflect)]
 #[reflect(Component, Default, Debug, Clone)]
@@ -89,44 +89,11 @@ pub struct SkinnedMeshBounds {
     pub aabb_index_to_joint_index: Vec<JointIndex>,
 }
 
-#[derive(Copy, Clone, PartialEq, Debug)]
-pub enum SkinnedMeshBoundsError {
-    MissingPositionAttribute,
-    UnrecognisedPositionFormat(VertexFormat),
-    MissingJointIndexAttribute,
-    UnrecognisedJointIndexFormat(VertexFormat),
-    MissingJointWeightAttribute,
-    UnrecognisedJointWeightFormat(VertexFormat),
-}
-
-impl From<InfluenceIteratorError> for SkinnedMeshBoundsError {
-    fn from(value: InfluenceIteratorError) -> Self {
-        match value {
-            InfluenceIteratorError::MissingJointIndexAttribute => Self::MissingJointIndexAttribute,
-            InfluenceIteratorError::UnrecognisedJointIndexFormat(format) => {
-                Self::UnrecognisedJointIndexFormat(format)
-            }
-            InfluenceIteratorError::MissingJointWeightAttribute => {
-                Self::MissingJointWeightAttribute
-            }
-            InfluenceIteratorError::UnrecognisedJointWeightFormat(format) => {
-                Self::UnrecognisedJointWeightFormat(format)
-            }
-        }
-    }
-}
-
 impl SkinnedMeshBounds {
     /// XXX TODO: Document.
-    pub fn from_mesh(mesh: &Mesh) -> Result<SkinnedMeshBounds, SkinnedMeshBoundsError> {
-        let vertex_positions = match mesh.attribute(Mesh::ATTRIBUTE_POSITION) {
-            Some(VertexAttributeValues::Float32x3(v)) => v,
-            Some(v) => return Err(SkinnedMeshBoundsError::UnrecognisedPositionFormat(v.into())),
-            None => return Err(SkinnedMeshBoundsError::MissingPositionAttribute),
-        };
-
-        let vertex_influences =
-            InfluenceIterator::new(mesh).map_err(Into::<SkinnedMeshBoundsError>::into)?;
+    pub fn from_mesh(mesh: &Mesh) -> Result<SkinnedMeshBounds, MeshAttributeError> {
+        let vertex_positions = expect_attribute_float32x3(mesh, Mesh::ATTRIBUTE_POSITION)?;
+        let vertex_influences = InfluenceIterator::new(mesh)?;
 
         let Some(max_joint_index) = vertex_influences
             .clone()
@@ -143,7 +110,6 @@ impl SkinnedMeshBounds {
             vec![AabbAccumulator::new(); (max_joint_index as usize) + 1].into();
 
         for influence in vertex_influences {
-            // XXX TODO: Should error if vertex index is out of range?
             if let Some(&vertex_position) = vertex_positions.get(influence.vertex_index) {
                 accumulators[influence.joint_index as usize]
                     .add_point(Vec3A::from_array(vertex_position));
@@ -356,40 +322,18 @@ pub struct InfluenceIterator<'a> {
     influence_index: usize,
 }
 
-#[derive(PartialEq, Debug)]
-pub enum InfluenceIteratorError {
-    MissingJointIndexAttribute,
-    UnrecognisedJointIndexFormat(VertexFormat),
-    MissingJointWeightAttribute,
-    UnrecognisedJointWeightFormat(VertexFormat),
-}
-
 impl<'a> InfluenceIterator<'a> {
-    pub fn new(mesh: &'a Mesh) -> Result<Self, InfluenceIteratorError> {
-        // XXX TODO: Should error if attributes are present but in unsupported form?
-        match (
-            mesh.attribute(Mesh::ATTRIBUTE_JOINT_INDEX),
-            mesh.attribute(Mesh::ATTRIBUTE_JOINT_WEIGHT),
-        ) {
-            (
-                Some(VertexAttributeValues::Uint16x4(joint_indices)),
-                Some(VertexAttributeValues::Float32x4(joint_weights)),
-            ) => Ok(InfluenceIterator {
-                vertex_count: joint_indices.len().min(joint_weights.len()),
-                joint_indices,
-                joint_weights,
-                vertex_index: 0,
-                influence_index: 0,
-            }),
-            (Some(attribute), Some(_)) => Err(
-                InfluenceIteratorError::UnrecognisedJointIndexFormat(attribute.into()),
-            ),
-            (_, Some(attribute)) => Err(InfluenceIteratorError::UnrecognisedJointWeightFormat(
-                attribute.into(),
-            )),
-            (None, _) => Err(InfluenceIteratorError::MissingJointIndexAttribute),
-            (_, None) => Err(InfluenceIteratorError::MissingJointWeightAttribute),
-        }
+    pub fn new(mesh: &'a Mesh) -> Result<Self, MeshAttributeError> {
+        let joint_indices = expect_attribute_uint16x4(mesh, Mesh::ATTRIBUTE_JOINT_INDEX)?;
+        let joint_weights = expect_attribute_float32x4(mesh, Mesh::ATTRIBUTE_JOINT_WEIGHT)?;
+
+        Ok(InfluenceIterator {
+            vertex_count: joint_indices.len().min(joint_weights.len()),
+            joint_indices,
+            joint_weights,
+            vertex_index: 0,
+            influence_index: 0,
+        })
     }
     // `Mesh` only supports four influences, so we can make this const for
     // simplicity. If `Mesh` gains support for variable influences then this
@@ -429,6 +373,42 @@ impl Iterator for InfluenceIterator<'_> {
         }
     }
 }
+
+/// Generic error for when a mesh was expected to have a certain attribute with
+/// a certain type.
+#[derive(Copy, Clone, PartialEq, Debug)]
+pub enum MeshAttributeError {
+    MissingAttribute(&'static str),
+    UnexpectedFormat(&'static str, VertexFormat),
+}
+
+// Implements a function that returns a mesh attribute's data or `MeshAttributeError`.
+//
+// `impl_expect_attribute!(expect_attribute_float32x3, Float32x3, [f32; 3])` would
+// implement `fn expect_attribute_float32x3(mesh: &Mesh) -> Result<Vec<[f32; 3]>, MeshAttributeError`.
+macro_rules! impl_expect_attribute {
+    ($name:ident, $value_type:ident, $output_type:ty) => {
+        fn $name<'a>(
+            mesh: &'a Mesh,
+            attribute: MeshVertexAttribute,
+        ) -> Result<&'a Vec<$output_type>, MeshAttributeError> {
+            match mesh.attribute(attribute) {
+                Some(VertexAttributeValues::$value_type(v)) => Ok(v),
+                Some(v) => {
+                    return Err(MeshAttributeError::UnexpectedFormat(
+                        attribute.name,
+                        v.into(),
+                    ))
+                }
+                None => return Err(MeshAttributeError::MissingAttribute(attribute.name)),
+            }
+        }
+    };
+}
+
+impl_expect_attribute!(expect_attribute_float32x3, Float32x3, [f32; 3]);
+impl_expect_attribute!(expect_attribute_float32x4, Float32x4, [f32; 4]);
+impl_expect_attribute!(expect_attribute_uint16x4, Uint16x4, [u16; 4]);
 
 #[cfg(test)]
 mod tests {
@@ -517,7 +497,9 @@ mod tests {
 
         assert_eq!(
             InfluenceIterator::new(&mesh).err(),
-            Some(InfluenceIteratorError::MissingJointIndexAttribute)
+            Some(MeshAttributeError::MissingAttribute(
+                Mesh::ATTRIBUTE_JOINT_INDEX.name
+            ))
         );
 
         let mesh = mesh.with_inserted_attribute(
@@ -535,7 +517,9 @@ mod tests {
 
         assert_eq!(
             InfluenceIterator::new(&mesh).err(),
-            Some(InfluenceIteratorError::MissingJointWeightAttribute)
+            Some(MeshAttributeError::MissingAttribute(
+                Mesh::ATTRIBUTE_JOINT_WEIGHT.name
+            ))
         );
 
         let mesh = mesh.with_inserted_attribute(
