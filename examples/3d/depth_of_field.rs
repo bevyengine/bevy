@@ -9,6 +9,7 @@
 //!
 //! [a blog post on depth of field in Unity]: https://catlikecoding.com/unity/tutorials/advanced-rendering/depth-of-field/
 
+use bevy::image::{CompressedImageFormatSupport, CompressedImageFormats};
 use bevy::{
     camera::PhysicalCameraParameters,
     core_pipeline::tonemapping::Tonemapping,
@@ -186,6 +187,7 @@ fn tweak_scene(
         (Entity, &GltfMeshName, &MeshMaterial3d<StandardMaterial>),
         (With<Mesh3d>, Without<Lightmap>),
     >,
+    compressed_format_support: Res<CompressedImageFormatSupport>,
 ) {
     // Turn on shadows.
     for mut light in lights.iter_mut() {
@@ -197,7 +199,27 @@ fn tweak_scene(
         if &**name == "CircuitBoard" {
             materials.get_mut(material).unwrap().lightmap_exposure = 10000.0;
             commands.entity(entity).insert(Lightmap {
-                image: asset_server.load("models/DepthOfFieldExample/CircuitBoardLightmap.hdr"),
+                image: asset_server.load(
+                    if compressed_format_support
+                        .0
+                        .contains(CompressedImageFormats::ASTC_HDR)
+                    {
+                        info!(
+                            "Use compressed lightmap: {:?}",
+                            CompressedImageFormats::ASTC_HDR
+                        );
+                        "models/DepthOfFieldExample/CircuitBoardLightmap_astc_4x4_hdr.ktx2"
+                    } else if compressed_format_support
+                        .0
+                        .contains(CompressedImageFormats::BC)
+                    {
+                        info!("Use compressed lightmap: {:?}", CompressedImageFormats::BC);
+                        "models/DepthOfFieldExample/CircuitBoardLightmap_bc6h_ufloat.ktx2"
+                    } else {
+                        info!("Use uncompressed lightmap");
+                        "models/DepthOfFieldExample/CircuitBoardLightmap.hdr"
+                    },
+                ),
                 ..default()
             });
         }
