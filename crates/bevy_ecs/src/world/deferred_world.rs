@@ -14,7 +14,7 @@ use crate::{
     query::{QueryData, QueryFilter},
     relationship::RelationshipHookMode,
     resource::Resource,
-    system::{Commands, Query},
+    system::{CachedSystemId, Commands, IntoSystem, Query, SystemId, SystemInput},
     traversal::Traversal,
     world::{error::EntityMutableFetchError, EntityFetcher, WorldEntityFetch},
 };
@@ -889,5 +889,43 @@ impl<'w> DeferredWorld<'w> {
     #[inline]
     pub(crate) fn as_unsafe_world_cell(&mut self) -> UnsafeWorldCell {
         self.world
+    }
+
+    /// Registers a system or returns its cached [`SystemId`].
+    ///
+    /// If you want to run the system immediately and you don't need its `SystemId`, see
+    /// [`Commands::run_system_cached`].
+    ///
+    /// The first time this function is called for a particular system, it will register it and
+    /// store its [`SystemId`] in a [`CachedSystemId`] resource for later. If you would rather
+    /// manage the `SystemId` yourself, or register multiple copies of the same system, use
+    /// [`Commands::register_system`] instead.
+    ///
+    /// # Limitations
+    /// 
+    /// If this function is called twice for the same system before commands are executed, then it will register the system twice.
+    ///
+    /// This function only accepts ZST (zero-sized) systems to guarantee that any two systems of
+    /// the same type must be equal. This means that closures that capture the environment, and
+    /// function pointers, are not accepted.
+    ///
+    /// If you want to access values from the environment within a system, consider passing them in
+    /// as inputs via [`Commands::run_system_cached_with`]. If that's not an option, consider
+    /// [`Commands::register_system`] instead.
+    pub fn register_system_cached<I, O, M, S>(&mut self, system: S) -> SystemId<I, O>
+    where
+        I: SystemInput + Send + 'static,
+        O: Send + 'static,
+        S: IntoSystem<I, O, M> + 'static,
+    {
+        match self.get_resource::<CachedSystemId<S>>() {
+            Some(cached_system) => SystemId::from_entity(cached_system.entity),
+            None => {
+                let mut commands = self.commands();
+                let system_id = commands.register_system(system);
+                commands.insert_resource(CachedSystemId::<S>::new(system_id));
+                system_id
+            }
+        }
     }
 }
