@@ -1,8 +1,6 @@
 #import bevy_pbr::{
-    mesh_view_types::Lights,
     atmosphere::{
-        types::{Atmosphere, AtmosphereSettings},
-        bindings::{atmosphere, view, settings},
+        bindings::settings,
         functions::{
             get_view_position, raymarch_atmosphere,
             max_atmosphere_distance, direction_atmosphere_to_world,
