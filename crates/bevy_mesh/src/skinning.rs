@@ -210,7 +210,7 @@ pub fn entity_aabb_from_skinned_mesh_bounds(
 // Match the `Mesh` limits on joint indices (`ATTRIBUTE_JOINT_INDEX = VertexFormat::Uint16x4`)
 //
 // XXX TODO: Where should this go?
-pub type JointIndex = u16;
+type JointIndex = u16;
 
 // Return the smallest AABB that encloses the transformed input AABB.
 //
