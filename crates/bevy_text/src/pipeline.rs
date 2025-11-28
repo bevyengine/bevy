@@ -678,13 +678,12 @@ fn get_attrs<'a>(
 
 /// Calculate the size of the text area for the given buffer.
 fn buffer_dimensions(buffer: &Buffer) -> Vec2 {
-    let (width, height) = buffer
-        .layout_runs()
-        .map(|run| (run.line_w, run.line_height))
-        .reduce(|(w1, h1), (w2, h2)| (w1.max(w2), h1 + h2))
-        .unwrap_or((0.0, 0.0));
-
-    Vec2::new(width, height).ceil()
+    let mut size = Vec2::ZERO;
+    for run in buffer.layout_runs() {
+        size.x = size.x.max(run.line_w);
+        size.y += run.line_height;
+    }
+    size.ceil()
 }
 
 /// Discards stale data cached in `FontSystem`.
