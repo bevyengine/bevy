@@ -327,74 +327,6 @@ pub fn measure_text_system(
     }
 }
 
-#[inline]
-fn queue_text(
-    entity: Entity,
-    fonts: &Assets<Font>,
-    text_pipeline: &mut TextPipeline,
-    font_atlas_set: &mut FontAtlasSet,
-    texture_atlases: &mut Assets<TextureAtlasLayout>,
-    textures: &mut Assets<Image>,
-    scale_factor: f32,
-    inverse_scale_factor: f32,
-    block: &TextLayout,
-    node: Ref<ComputedNode>,
-    mut text_flags: Mut<TextNodeFlags>,
-    text_layout_info: Mut<TextLayoutInfo>,
-    computed: &mut ComputedTextBlock,
-    text_reader: &mut TextUiReader,
-    font_system: &mut CosmicFontSystem,
-    swash_cache: &mut SwashCache,
-) {
-    // Skip the text node if it is waiting for a new measure func
-    if text_flags.needs_measure_fn {
-        return;
-    }
-
-    let physical_node_size = if block.linebreak == LineBreak::NoWrap {
-        // With `NoWrap` set, no constraints are placed on the width of the text.
-        TextBounds::UNBOUNDED
-    } else {
-        // `scale_factor` is already multiplied by `UiScale`
-        TextBounds::new(node.unrounded_size.x, node.unrounded_size.y)
-    };
-
-    let text_layout_info = text_layout_info.into_inner();
-    match text_pipeline.queue_text(
-        text_layout_info,
-        fonts,
-        text_reader.iter(entity),
-        scale_factor.into(),
-        block,
-        physical_node_size,
-        font_atlas_set,
-        texture_atlases,
-        textures,
-        computed,
-        font_system,
-        swash_cache,
-    ) {
-        Err(TextError::NoSuchFont) => {
-            // There was an error processing the text layout, try again next frame
-            text_flags.needs_recompute = true;
-        }
-        Err(
-            e @ (TextError::FailedToAddGlyph(_)
-            | TextError::FailedToGetGlyphImage(_)
-            | TextError::MissingAtlasLayout
-            | TextError::MissingAtlasTexture
-            | TextError::InconsistentAtlasState),
-        ) => {
-            panic!("Fatal error when processing text: {e}.");
-        }
-        Ok(()) => {
-            text_layout_info.scale_factor = scale_factor;
-            text_layout_info.size *= inverse_scale_factor;
-            text_flags.needs_recompute = false;
-        }
-    }
-}
-
 /// Updates the layout and size information for a UI text node on changes to the size value of its [`Node`] component,
 /// or when the `needs_recompute` field of [`TextNodeFlags`] is set to true.
 /// This information is computed by the [`TextPipeline`] and then stored in [`TextLayoutInfo`].
@@ -405,7 +337,6 @@ fn queue_text(
 /// It does not modify or observe existing ones. The exception is when adding new glyphs to a [`bevy_text::FontAtlas`].
 pub fn text_system(
     mut textures: ResMut<Assets<Image>>,
-    fonts: Res<Assets<Font>>,
     mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
     mut font_atlas_set: ResMut<FontAtlasSet>,
     mut text_pipeline: ResMut<TextPipeline>,
@@ -421,26 +352,54 @@ pub fn text_system(
     mut font_system: ResMut<CosmicFontSystem>,
     mut swash_cache: ResMut<SwashCache>,
 ) {
-    for (entity, node, block, text_layout_info, text_flags, mut computed) in &mut text_query {
+    for (entity, node, block, text_layout_info, mut text_flags, mut computed) in &mut text_query {
         if node.is_changed() || text_flags.needs_recompute {
-            queue_text(
-                entity,
-                &fonts,
-                &mut text_pipeline,
+            // Skip the text node if it is waiting for a new measure func
+            if text_flags.needs_measure_fn {
+                return;
+            }
+
+            let physical_node_size = if block.linebreak == LineBreak::NoWrap {
+                // With `NoWrap` set, no constraints are placed on the width of the text.
+                TextBounds::UNBOUNDED
+            } else {
+                // `scale_factor` is already multiplied by `UiScale`
+                TextBounds::new(node.unrounded_size.x, node.unrounded_size.y)
+            };
+
+            let scale_factor = node.inverse_scale_factor().recip().into();
+            let text_layout_info = text_layout_info.into_inner();
+            match text_pipeline.render_text(
+                text_layout_info,
+                text_reader.iter(entity),
+                scale_factor,
                 &mut font_atlas_set,
                 &mut texture_atlases,
                 &mut textures,
-                node.inverse_scale_factor.recip(),
-                node.inverse_scale_factor,
-                block,
-                node,
-                text_flags,
-                text_layout_info,
-                computed.as_mut(),
-                &mut text_reader,
+                &mut computed,
                 &mut font_system,
                 &mut swash_cache,
-            );
+                physical_node_size,
+            ) {
+                Err(TextError::NoSuchFont) => {
+                    // There was an error processing the text layout, try again next frame
+                    text_flags.needs_recompute = true;
+                }
+                Err(
+                    e @ (TextError::FailedToAddGlyph(_)
+                    | TextError::FailedToGetGlyphImage(_)
+                    | TextError::MissingAtlasLayout
+                    | TextError::MissingAtlasTexture
+                    | TextError::InconsistentAtlasState),
+                ) => {
+                    panic!("Fatal error when processing text: {e}.");
+                }
+                Ok(()) => {
+                    text_layout_info.scale_factor = scale_factor as f32;
+                    text_layout_info.size *= node.inverse_scale_factor();
+                    text_flags.needs_recompute = false;
+                }
+            }
         }
     }
 }
