@@ -515,7 +515,7 @@ impl TextPipeline {
     }
 
     /// Update TextLayoutInfo for rendering
-    pub fn render_text<'a>(
+    pub fn update_text_layout_info<'a>(
         &mut self,
         layout_info: &mut TextLayoutInfo,
         text_spans: impl Iterator<Item = (Entity, usize, &'a str, &'a TextFont, Color, LineHeight)>,

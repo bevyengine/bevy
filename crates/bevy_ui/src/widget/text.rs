@@ -369,7 +369,7 @@ pub fn text_system(
 
             let scale_factor = node.inverse_scale_factor().recip().into();
             let text_layout_info = text_layout_info.into_inner();
-            match text_pipeline.render_text(
+            match text_pipeline.update_text_layout_info(
                 text_layout_info,
                 text_reader.iter(entity),
                 scale_factor,
