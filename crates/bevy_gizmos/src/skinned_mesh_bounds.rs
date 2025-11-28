@@ -1,4 +1,4 @@
-//! A module adding debug visualization of [`SkinnedMeshBounds`]s.
+//! A module adding debug visualization of [`DynamicSkinnedMeshBounds`].
 
 use bevy_app::{Plugin, PostUpdate};
 use bevy_asset::Assets;
