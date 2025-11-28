@@ -2,10 +2,11 @@ use bevy_transform::components::Transform;
 pub use wgpu_types::PrimitiveTopology;
 
 use super::{
-    skinning::SkinnedMeshBounds, triangle_area_normal, triangle_normal, FourIterators, Indices,
-    MeshAttributeData, MeshTrianglesError, MeshVertexAttribute, MeshVertexAttributeId,
-    MeshVertexBufferLayout, MeshVertexBufferLayoutRef, MeshVertexBufferLayouts,
-    MeshWindingInvertError, VertexAttributeValues, VertexBufferLayout,
+    skinning::{SkinnedMeshBounds, SkinnedMeshBoundsError},
+    triangle_area_normal, triangle_normal, FourIterators, Indices, MeshAttributeData,
+    MeshTrianglesError, MeshVertexAttribute, MeshVertexAttributeId, MeshVertexBufferLayout,
+    MeshVertexBufferLayoutRef, MeshVertexBufferLayouts, MeshWindingInvertError,
+    VertexAttributeValues, VertexBufferLayout,
 };
 #[cfg(feature = "serialize")]
 use crate::SerializedMeshAttributeData;
@@ -1372,13 +1373,14 @@ impl Mesh {
     }
 
     // XXX TODO: Document.
-    pub fn generate_skinned_mesh_bounds(&mut self) {
-        self.skinned_mesh_bounds = SkinnedMeshBounds::from_mesh(self);
+    pub fn generate_skinned_mesh_bounds(&mut self) -> Result<(), SkinnedMeshBoundsError> {
+        self.skinned_mesh_bounds = Some(SkinnedMeshBounds::from_mesh(self)?);
+        Ok(())
     }
 
     // XXX TODO: Document.
     pub fn with_generated_skinned_mesh_bounds(mut self) -> Self {
-        self.generate_skinned_mesh_bounds();
+        let _ = self.generate_skinned_mesh_bounds();
         self
     }
 }

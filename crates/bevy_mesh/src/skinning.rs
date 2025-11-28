@@ -5,7 +5,7 @@ use bevy_reflect::prelude::*;
 use bevy_transform::components::GlobalTransform;
 use core::ops::Deref;
 
-use crate::{Mesh, VertexAttributeValues};
+use crate::{Mesh, VertexAttributeValues, VertexFormat};
 
 #[derive(Component, Debug, Default, Clone, Reflect)]
 #[reflect(Component, Default, Debug, Clone)]
@@ -67,7 +67,7 @@ impl From<Aabb3d> for PackedAabb3d {
 }
 
 /// XXX TODO: Document.
-#[derive(Clone, Debug, Reflect, PartialEq)]
+#[derive(Clone, Default, Debug, Reflect, PartialEq)]
 #[reflect(Clone)]
 pub struct SkinnedMeshBounds {
     // Model-space AABBs that enclose the vertices skinned to a joint. This may
@@ -89,25 +89,52 @@ pub struct SkinnedMeshBounds {
     pub aabb_index_to_joint_index: Vec<JointIndex>,
 }
 
+#[derive(Copy, Clone, PartialEq, Debug)]
+pub enum SkinnedMeshBoundsError {
+    MissingPositionAttribute,
+    UnrecognisedPositionFormat(VertexFormat),
+    MissingJointIndexAttribute,
+    UnrecognisedJointIndexFormat(VertexFormat),
+    MissingJointWeightAttribute,
+    UnrecognisedJointWeightFormat(VertexFormat),
+}
+
+impl From<InfluenceIteratorError> for SkinnedMeshBoundsError {
+    fn from(value: InfluenceIteratorError) -> Self {
+        match value {
+            InfluenceIteratorError::MissingJointIndexAttribute => Self::MissingJointIndexAttribute,
+            InfluenceIteratorError::UnrecognisedJointIndexFormat(format) => {
+                Self::UnrecognisedJointIndexFormat(format)
+            }
+            InfluenceIteratorError::MissingJointWeightAttribute => {
+                Self::MissingJointWeightAttribute
+            }
+            InfluenceIteratorError::UnrecognisedJointWeightFormat(format) => {
+                Self::UnrecognisedJointWeightFormat(format)
+            }
+        }
+    }
+}
+
 impl SkinnedMeshBounds {
     /// XXX TODO: Document.
-    pub fn from_mesh(mesh: &Mesh) -> Option<SkinnedMeshBounds> {
+    pub fn from_mesh(mesh: &Mesh) -> Result<SkinnedMeshBounds, SkinnedMeshBoundsError> {
         let vertex_positions = match mesh.attribute(Mesh::ATTRIBUTE_POSITION) {
             Some(VertexAttributeValues::Float32x3(v)) => v,
-            // XXX TODO: Error for unrecognized format? Not currently possible but might be in future.
-            Some(_) => return None,
-            // XXX TODO: Error?
-            #[expect(clippy::match_same_arms, reason = "Will be a different error")]
-            None => return None,
+            Some(v) => return Err(SkinnedMeshBoundsError::UnrecognisedPositionFormat(v.into())),
+            None => return Err(SkinnedMeshBoundsError::MissingPositionAttribute),
         };
 
-        // XXX TODO: Error?
-        let vertex_influences = InfluenceIterator::new(mesh)?;
+        let vertex_influences =
+            InfluenceIterator::new(mesh).map_err(Into::<SkinnedMeshBoundsError>::into)?;
 
-        let max_joint_index = vertex_influences
+        let Some(max_joint_index) = vertex_influences
             .clone()
             .map(|i| i.joint_index)
-            .reduce(Ord::max)?;
+            .reduce(Ord::max)
+        else {
+            return Ok(SkinnedMeshBounds::default());
+        };
 
         // Accumulate the AABB of each joint. Some joints may not have skinned
         // vertices, so their accumulators will be left empty.
@@ -140,7 +167,7 @@ impl SkinnedMeshBounds {
 
         assert_eq!(aabbs.len(), aabb_index_to_joint_index.len());
 
-        Some(SkinnedMeshBounds {
+        Ok(SkinnedMeshBounds {
             aabbs,
             aabb_index_to_joint_index,
         })
@@ -151,6 +178,13 @@ impl SkinnedMeshBounds {
     }
 }
 
+#[derive(Copy, Clone, Debug)]
+pub enum EntityAabbFromSkinnedMeshBoundsError {
+    OutOfRangeJointIndex(JointIndex),
+    MissingJointEntities,
+    MissingSkinnedMeshBounds,
+}
+
 /// XXX TODO: Document.
 pub fn entity_aabb_from_skinned_mesh_bounds(
     joint_entities: &Query<&GlobalTransform>,
@@ -158,8 +192,10 @@ pub fn entity_aabb_from_skinned_mesh_bounds(
     skinned_mesh: &SkinnedMesh,
     skinned_mesh_inverse_bindposes: &SkinnedMeshInverseBindposes,
     world_from_entity: Option<&GlobalTransform>,
-) -> Option<Aabb3d> {
-    let skinned_mesh_bounds = mesh.skinned_mesh_bounds()?;
+) -> Result<Aabb3d, EntityAabbFromSkinnedMeshBoundsError> {
+    let Some(skinned_mesh_bounds) = mesh.skinned_mesh_bounds() else {
+        return Err(EntityAabbFromSkinnedMeshBoundsError::MissingSkinnedMeshBounds);
+    };
 
     // Calculate an AABB that encloses the transformed AABBs of each joint.
 
@@ -170,13 +206,15 @@ pub fn entity_aabb_from_skinned_mesh_bounds(
             .get(joint_index as usize)
             .map(|&m| Affine3A::from_mat4(m))
         else {
-            // XXX TODO: Error?
-            continue;
+            return Err(EntityAabbFromSkinnedMeshBoundsError::OutOfRangeJointIndex(
+                joint_index,
+            ));
         };
 
         let Some(&joint_entity) = skinned_mesh.joints.get(joint_index as usize) else {
-            // XXX TODO: Error?
-            continue;
+            return Err(EntityAabbFromSkinnedMeshBoundsError::OutOfRangeJointIndex(
+                joint_index,
+            ));
         };
 
         let Ok(&world_from_joint) = joint_entities.get(joint_entity) else {
@@ -189,15 +227,17 @@ pub fn entity_aabb_from_skinned_mesh_bounds(
         accumulator.add_aabb(worldspace_joint_aabb);
     }
 
-    let worldspace_entity_aabb = accumulator.finish()?;
+    let Some(worldspace_entity_aabb) = accumulator.finish() else {
+        return Err(EntityAabbFromSkinnedMeshBoundsError::MissingJointEntities);
+    };
 
     // If necessary, transform the AABB from world-space to entity-space.
     match world_from_entity {
-        Some(world_from_entity) => Some(transform_aabb(
+        Some(world_from_entity) => Ok(transform_aabb(
             worldspace_entity_aabb.into(),
             world_from_entity.affine().inverse(),
         )),
-        None => Some(worldspace_entity_aabb),
+        None => Ok(worldspace_entity_aabb),
     }
 }
 
@@ -316,31 +356,41 @@ pub struct InfluenceIterator<'a> {
     influence_index: usize,
 }
 
+#[derive(PartialEq, Debug)]
+pub enum InfluenceIteratorError {
+    MissingJointIndexAttribute,
+    UnrecognisedJointIndexFormat(VertexFormat),
+    MissingJointWeightAttribute,
+    UnrecognisedJointWeightFormat(VertexFormat),
+}
+
 impl<'a> InfluenceIterator<'a> {
-    pub fn new(mesh: &'a Mesh) -> Option<Self> {
+    pub fn new(mesh: &'a Mesh) -> Result<Self, InfluenceIteratorError> {
         // XXX TODO: Should error if attributes are present but in unsupported form?
-        if let (
-            Some(VertexAttributeValues::Uint16x4(joint_indices)),
-            Some(VertexAttributeValues::Float32x4(joint_weights)),
-        ) = (
+        match (
             mesh.attribute(Mesh::ATTRIBUTE_JOINT_INDEX),
             mesh.attribute(Mesh::ATTRIBUTE_JOINT_WEIGHT),
-        ) &&
-            // XXX TODO: Should be an error if the attribute lengths don't match?            
-            (joint_indices.len() == joint_weights.len())
-        {
-            Some(InfluenceIterator {
-                vertex_count: joint_indices.len(),
+        ) {
+            (
+                Some(VertexAttributeValues::Uint16x4(joint_indices)),
+                Some(VertexAttributeValues::Float32x4(joint_weights)),
+            ) => Ok(InfluenceIterator {
+                vertex_count: joint_indices.len().min(joint_weights.len()),
                 joint_indices,
                 joint_weights,
                 vertex_index: 0,
                 influence_index: 0,
-            })
-        } else {
-            None
+            }),
+            (Some(attribute), Some(_)) => Err(
+                InfluenceIteratorError::UnrecognisedJointIndexFormat(attribute.into()),
+            ),
+            (_, Some(attribute)) => Err(InfluenceIteratorError::UnrecognisedJointWeightFormat(
+                attribute.into(),
+            )),
+            (None, _) => Err(InfluenceIteratorError::MissingJointIndexAttribute),
+            (_, None) => Err(InfluenceIteratorError::MissingJointWeightAttribute),
         }
     }
-
     // `Mesh` only supports four influences, so we can make this const for
     // simplicity. If `Mesh` gains support for variable influences then this
     // will become a variable.
@@ -465,33 +515,41 @@ mod tests {
             RenderAssetUsages::default(),
         );
 
-        assert!(InfluenceIterator::new(&mesh).is_none());
+        assert_eq!(
+            InfluenceIterator::new(&mesh).err(),
+            Some(InfluenceIteratorError::MissingJointIndexAttribute)
+        );
 
-        let mesh = mesh
-            .with_inserted_attribute(
-                Mesh::ATTRIBUTE_JOINT_INDEX,
-                VertexAttributeValues::Uint16x4(vec![
-                    [1, 0, 0, 0],
-                    [0, 2, 0, 0],
-                    [0, 0, 3, 0],
-                    [0, 0, 0, 4],
-                    [1, 2, 0, 0],
-                    [3, 4, 5, 0],
-                    [6, 7, 8, 9],
-                ]),
-            )
-            .with_inserted_attribute(
-                Mesh::ATTRIBUTE_JOINT_WEIGHT,
-                VertexAttributeValues::Float32x4(vec![
-                    [1.0, 0.0, 0.0, 0.0],
-                    [0.0, 1.0, 0.0, 0.0],
-                    [0.0, 0.0, 1.0, 0.0],
-                    [0.0, 0.0, 0.0, 1.0],
-                    [0.1, 0.9, 0.0, 0.0],
-                    [0.1, 0.2, 0.7, 0.0],
-                    [0.1, 0.2, 0.4, 0.3],
-                ]),
-            );
+        let mesh = mesh.with_inserted_attribute(
+            Mesh::ATTRIBUTE_JOINT_INDEX,
+            VertexAttributeValues::Uint16x4(vec![
+                [1, 0, 0, 0],
+                [0, 2, 0, 0],
+                [0, 0, 3, 0],
+                [0, 0, 0, 4],
+                [1, 2, 0, 0],
+                [3, 4, 5, 0],
+                [6, 7, 8, 9],
+            ]),
+        );
+
+        assert_eq!(
+            InfluenceIterator::new(&mesh).err(),
+            Some(InfluenceIteratorError::MissingJointWeightAttribute)
+        );
+
+        let mesh = mesh.with_inserted_attribute(
+            Mesh::ATTRIBUTE_JOINT_WEIGHT,
+            VertexAttributeValues::Float32x4(vec![
+                [1.0, 0.0, 0.0, 0.0],
+                [0.0, 1.0, 0.0, 0.0],
+                [0.0, 0.0, 1.0, 0.0],
+                [0.0, 0.0, 0.0, 1.0],
+                [0.1, 0.9, 0.0, 0.0],
+                [0.1, 0.2, 0.7, 0.0],
+                [0.1, 0.2, 0.4, 0.3],
+            ]),
+        );
 
         let expected = &[
             Influence {

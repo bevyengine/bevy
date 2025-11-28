@@ -432,7 +432,7 @@ fn update_skinned_mesh_bounds(
             if let Some(inverse_bindposes_asset) =
                 inverse_bindposes_assets.get(&skinned_mesh.inverse_bindposes)
                 && let Some(mesh_asset) = mesh_assets.get(mesh)
-                && let Some(skinned_aabb) = entity_aabb_from_skinned_mesh_bounds(
+                && let Ok(skinned_aabb) = entity_aabb_from_skinned_mesh_bounds(
                     &joint_entities,
                     mesh_asset,
                     skinned_mesh,
