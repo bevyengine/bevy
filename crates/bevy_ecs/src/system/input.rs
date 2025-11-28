@@ -357,5 +357,20 @@ mod tests {
         schedule.add_systems(generic_system::<()>);
 
         takes_system(generic_system::<In<usize>>);
+
+        // The `StaticSystemInput` wrapper is removed even within tuples
+        fn generic_tuple_system<I1: SystemInput, I2: SystemInput>(
+            _: (In<usize>, StaticSystemInput<I1>, StaticSystemInput<I2>),
+        ) {
+        }
+
+        fn takes_tuple_system<M>(
+            system: impl IntoSystem<(In<usize>, In<u32>, InRef<'static, str>), (), M> + 'static,
+        ) {
+            let mut world = World::new();
+            world.run_system_cached_with(system, (0, 0, "")).unwrap();
+        }
+
+        takes_tuple_system(generic_tuple_system::<In<u32>, InRef<str>>);
     }
 }
