@@ -13,6 +13,7 @@ use bevy_ecs::{
 };
 use bevy_math::Affine3A;
 use bevy_mesh::{
+    mark_3d_meshes_as_changed_if_their_assets_changed,
     skinning::{SkinnedMesh, SkinnedMeshInverseBindposes},
     Mesh, Mesh3d,
 };
@@ -42,7 +43,8 @@ impl Plugin for SkinnedMeshBoundsGizmoPlugin {
                             .draw_all
                     }),
                 )
-                    .after(TransformSystems::Propagate),
+                    .after(TransformSystems::Propagate)
+                    .ambiguous_with(mark_3d_meshes_as_changed_if_their_assets_changed),
             );
     }
 }
