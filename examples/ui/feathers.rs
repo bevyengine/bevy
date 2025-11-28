@@ -9,6 +9,7 @@ use bevy::{
             ColorSlider, ColorSliderProps, ColorSwatch, ColorSwatchValue, SliderBaseColor,
             SliderProps,
         },
+        cursor::{EntityCursor, OverrideCursor},
         dark_theme::create_dark_theme,
         rounded_corners::RoundedCorners,
         theme::{ThemeBackgroundColor, ThemedText, UiTheme},
@@ -21,6 +22,7 @@ use bevy::{
         checkbox_self_update, observe, slider_self_update, Activate, RadioButton, RadioGroup,
         SliderPrecision, SliderStep, SliderValue, ValueChange,
     },
+    window::SystemCursorIcon,
 };
 
 /// A struct to hold the state of various widgets shown in the demo.
@@ -185,10 +187,15 @@ fn demo_root() -> impl Bundle {
                     button(
                         ButtonProps::default(),
                         (),
-                        Spawn((Text::new("Button"), ThemedText))
+                        Spawn((Text::new("Toggle override"), ThemedText))
                     ),
-                    observe(|_activate: On<Activate>| {
-                        info!("Wide button clicked!");
+                    observe(|_activate: On<Activate>, mut ovr: ResMut<OverrideCursor>| {
+                        ovr.0 = if ovr.0.is_some() {
+                            None
+                        } else {
+                            Some(EntityCursor::System(SystemCursorIcon::Wait))
+                        };
+                        info!("Override cursor button clicked!");
                     })
                 ),
                 (
