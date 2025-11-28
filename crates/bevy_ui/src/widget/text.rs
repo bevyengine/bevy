@@ -352,13 +352,15 @@ pub fn text_system(
     mut font_system: ResMut<CosmicFontSystem>,
     mut swash_cache: ResMut<SwashCache>,
 ) {
-    for (entity, node, block, text_layout_info, mut text_flags, mut computed) in &mut text_query {
+    for (entity, node, block, mut text_layout_info, mut text_flags, mut computed) in &mut text_query
+    {
         if node.is_changed() || text_flags.needs_recompute {
             // Skip the text node if it is waiting for a new measure func
             if text_flags.needs_measure_fn {
                 return;
             }
 
+            let scale_factor = node.inverse_scale_factor().recip().into();
             let physical_node_size = if block.linebreak == LineBreak::NoWrap {
                 // With `NoWrap` set, no constraints are placed on the width of the text.
                 TextBounds::UNBOUNDED
@@ -367,10 +369,8 @@ pub fn text_system(
                 TextBounds::new(node.unrounded_size.x, node.unrounded_size.y)
             };
 
-            let scale_factor = node.inverse_scale_factor().recip().into();
-            let text_layout_info = text_layout_info.into_inner();
             match text_pipeline.update_text_layout_info(
-                text_layout_info,
+                &mut text_layout_info,
                 text_reader.iter(entity),
                 scale_factor,
                 &mut font_atlas_set,
