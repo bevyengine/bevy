@@ -5,12 +5,11 @@ use std::f32::consts::*;
 
 use bevy::{
     asset::RenderAssetUsages,
+    camera::visibility::DynamicSkinnedMeshBounds,
     input::common_conditions::input_just_pressed,
     math::ops,
     mesh::{
-        skinning::{
-            SkinnedMesh, SkinnedMeshBounds, SkinnedMeshBoundsAsset, SkinnedMeshInverseBindposes,
-        },
+        skinning::{SkinnedMesh, SkinnedMeshInverseBindposes},
         Indices, PrimitiveTopology, VertexAttributeValues,
     },
     prelude::*,
@@ -52,7 +51,6 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut skinned_mesh_inverse_bindposes_assets: ResMut<Assets<SkinnedMeshInverseBindposes>>,
-    mut skinned_mesh_bounds_assets: ResMut<Assets<SkinnedMeshBoundsAsset>>,
 ) {
     // Create a camera
     commands.spawn((
@@ -69,7 +67,9 @@ fn setup(
     // Create a mesh
     let mesh = Mesh::new(
         PrimitiveTopology::TriangleList,
-        RenderAssetUsages::RENDER_WORLD,
+        // XXX TODO: Change this back.
+        //RenderAssetUsages::RENDER_WORLD,
+        RenderAssetUsages::default(),
     )
     // Set mesh vertex positions
     .with_inserted_attribute(
@@ -148,12 +148,10 @@ fn setup(
     // where each 3 vertex indices form a triangle.
     .with_inserted_indices(Indices::U16(vec![
         0, 1, 3, 0, 3, 2, 2, 3, 5, 2, 5, 4, 4, 5, 7, 4, 7, 6, 6, 7, 9, 6, 9, 8,
-    ]));
-
-    // Create skinned mesh bounds. This ensures that the mesh's `Aabb` takes
-    // skinning into account.
-    let skinned_mesh_bounds =
-        skinned_mesh_bounds_assets.add(SkinnedMeshBoundsAsset::from_mesh(&mesh).unwrap());
+    ]))
+    // Create skinned mesh bounds. Together with the `DynamicSkinnedMeshBounds`
+    // component, this will ensure the mesh is correctly frustum culled.
+    .with_generated_skinned_mesh_bounds();
 
     let mesh = meshes.add(mesh);
 
@@ -196,7 +194,7 @@ fn setup(
                 inverse_bindposes: inverse_bindposes.clone(),
                 joints: joint_entities,
             },
-            SkinnedMeshBounds(skinned_mesh_bounds.clone()),
+            DynamicSkinnedMeshBounds,
         ));
     }
 }

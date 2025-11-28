@@ -72,14 +72,6 @@ pub enum GltfAssetLabel {
     /// `Skin{}/InverseBindMatrices`: glTF mesh skin matrices as Bevy
     /// [`SkinnedMeshInverseBindposes`](bevy_mesh::skinning::SkinnedMeshInverseBindposes)
     InverseBindMatrices(usize),
-    /// `Mesh{}/Primitive{}/SkinnedMeshBounds`: the optional [`SkinnedMeshBoundsAsset`](bevy_mesh::skinning::SkinnedMeshBoundsAsset)
-    /// created from a primitive.
-    SkinnedMeshBounds {
-        /// Index of the mesh for the primitive
-        mesh: usize,
-        /// Index of the primitive in its parent mesh
-        primitive: usize,
-    },
 }
 
 impl core::fmt::Display for GltfAssetLabel {
@@ -112,9 +104,6 @@ impl core::fmt::Display for GltfAssetLabel {
             GltfAssetLabel::InverseBindMatrices(index) => {
                 f.write_str(&format!("Skin{index}/InverseBindMatrices"))
             }
-            GltfAssetLabel::SkinnedMeshBounds { mesh, primitive } => f.write_str(&format!(
-                "Mesh{mesh}/Primitive{primitive}/SkinnedMeshBounds"
-            )),
         }
     }
 }

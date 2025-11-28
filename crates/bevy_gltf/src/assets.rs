@@ -6,10 +6,7 @@ use core::ops::Deref;
 use bevy_animation::AnimationClip;
 use bevy_asset::{Asset, Handle};
 use bevy_ecs::{component::Component, reflect::ReflectComponent};
-use bevy_mesh::{
-    skinning::{SkinnedMeshBoundsAsset, SkinnedMeshInverseBindposes},
-    Mesh,
-};
+use bevy_mesh::{skinning::SkinnedMeshInverseBindposes, Mesh};
 use bevy_pbr::StandardMaterial;
 use bevy_platform::collections::HashMap;
 use bevy_reflect::{prelude::ReflectDefault, Reflect, TypePath};
@@ -180,8 +177,6 @@ pub struct GltfPrimitive {
     pub extras: Option<GltfExtras>,
     /// Additional data of the `material`.
     pub material_extras: Option<GltfExtras>,
-    /// Optional skinned mesh bounds of this primitive.
-    pub skinned_mesh_bounds: Option<Handle<SkinnedMeshBoundsAsset>>,
 }
 
 impl GltfPrimitive {
@@ -193,7 +188,6 @@ impl GltfPrimitive {
         material: Option<Handle<StandardMaterial>>,
         extras: Option<GltfExtras>,
         material_extras: Option<GltfExtras>,
-        skinned_mesh_bounds: Option<Handle<SkinnedMeshBoundsAsset>>,
     ) -> Self {
         GltfPrimitive {
             index: gltf_primitive.index(),
@@ -210,7 +204,6 @@ impl GltfPrimitive {
             material,
             extras,
             material_extras,
-            skinned_mesh_bounds,
         }
     }
 

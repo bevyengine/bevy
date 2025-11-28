@@ -42,7 +42,7 @@ impl Deref for SkinnedMeshInverseBindposes {
 }
 
 // An `Aabb3d` that uses `Vec3` instead of `Vec3A`.
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, Reflect)]
 pub struct PackedAabb3d {
     pub min: Vec3,
     pub max: Vec3,
@@ -67,51 +67,31 @@ impl From<Aabb3d> for PackedAabb3d {
 }
 
 /// XXX TODO: Document.
-#[derive(Component, Default, Debug, Clone, Reflect)]
-#[reflect(Component, Default, Debug, Clone)]
-pub struct SkinnedMeshBounds(pub Handle<SkinnedMeshBoundsAsset>);
-
-impl From<SkinnedMeshBounds> for AssetId<SkinnedMeshBoundsAsset> {
-    fn from(value: SkinnedMeshBounds) -> Self {
-        value.0.id()
-    }
-}
-
-impl From<&SkinnedMeshBounds> for AssetId<SkinnedMeshBoundsAsset> {
-    fn from(value: &SkinnedMeshBounds) -> Self {
-        value.0.id()
-    }
-}
-
-impl AsAssetId for SkinnedMeshBounds {
-    type Asset = SkinnedMeshBoundsAsset;
-
-    fn as_asset_id(&self) -> AssetId<Self::Asset> {
-        self.0.id()
-    }
-}
-
-/// XXX TODO: Document.
-#[derive(Asset, TypePath, Debug)]
-pub struct SkinnedMeshBoundsAsset {
+#[derive(Clone, Debug, Reflect, PartialEq)]
+#[reflect(Clone)]
+pub struct SkinnedMeshBounds {
     // Model-space AABBs that enclose the vertices skinned to a joint. This may
     // be a subset of the joints, as some might not be skinned to any vertices.
     //
     // `aabb_index_to_joint_index` maps from this array's indices to joint
     // indices.
-    pub aabbs: Box<[PackedAabb3d]>,
+    //
+    // XXX TODO: Should be a Box<[PackedAabb3d]>, but that doesn't seem to work with reflection?
+    pub aabbs: Vec<PackedAabb3d>,
 
     // Maps from an `aabbs` array index to its joint index (`Mesh::ATTRIBUTE_JOINT_INDEX`).
     //
     // Caution: `aabbs` and `aabb_index_to_joint_index` should be the same
     // length. They're kept separate as a minor optimization - folding them into
     // one array would waste two bytes per joint due to alignment.
-    pub aabb_index_to_joint_index: Box<[JointIndex]>,
+    //
+    // XXX TODO: Should be a Box<[JointIndex]>, but that doesn't seem to work with reflection?
+    pub aabb_index_to_joint_index: Vec<JointIndex>,
 }
 
-impl SkinnedMeshBoundsAsset {
+impl SkinnedMeshBounds {
     /// XXX TODO: Document.
-    pub fn from_mesh(mesh: &Mesh) -> Option<SkinnedMeshBoundsAsset> {
+    pub fn from_mesh(mesh: &Mesh) -> Option<SkinnedMeshBounds> {
         let vertex_positions = match mesh.attribute(Mesh::ATTRIBUTE_POSITION) {
             Some(VertexAttributeValues::Float32x3(v)) => v,
             // XXX TODO: Error for unrecognized format? Not currently possible but might be in future.
@@ -143,13 +123,12 @@ impl SkinnedMeshBoundsAsset {
             }
         }
 
-        // Finish the accumulators and keep only joints with AABBs. See `SkinnedMeshBoundsAsset`
-        // for why the AABBs and indices are separate arrays.
+        // Finish the accumulators and keep only joints with AABBs.
 
         let aabbs = accumulators
             .iter()
             .filter_map(|&accumulator| accumulator.finish().map(PackedAabb3d::from))
-            .collect::<Box<[_]>>();
+            .collect::<Vec<_>>();
 
         let aabb_index_to_joint_index = accumulators
             .iter()
@@ -157,11 +136,11 @@ impl SkinnedMeshBoundsAsset {
             .filter_map(|(joint_index, &accumulator)| {
                 accumulator.finish().map(|_| joint_index as JointIndex)
             })
-            .collect::<Box<[_]>>();
+            .collect::<Vec<_>>();
 
         assert_eq!(aabbs.len(), aabb_index_to_joint_index.len());
 
-        Some(SkinnedMeshBoundsAsset {
+        Some(SkinnedMeshBounds {
             aabbs,
             aabb_index_to_joint_index,
         })
@@ -175,11 +154,13 @@ impl SkinnedMeshBoundsAsset {
 /// XXX TODO: Document.
 pub fn entity_aabb_from_skinned_mesh_bounds(
     joint_entities: &Query<&GlobalTransform>,
+    mesh: &Mesh,
     skinned_mesh: &SkinnedMesh,
     skinned_mesh_inverse_bindposes: &SkinnedMeshInverseBindposes,
-    skinned_mesh_bounds: &SkinnedMeshBoundsAsset,
     world_from_entity: Option<&GlobalTransform>,
 ) -> Option<Aabb3d> {
+    let skinned_mesh_bounds = mesh.skinned_mesh_bounds()?;
+
     // Calculate an AABB that encloses the transformed AABBs of each joint.
 
     let mut accumulator = AabbAccumulator::new();

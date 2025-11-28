@@ -201,9 +201,10 @@ pub enum GltfSkinnedMeshBoundsPolicy {
     /// Skinned meshes are assigned an `Aabb` component calculated from the bind
     /// pose `Mesh`.
     BindPose,
-    /// Skinned meshes are assigned a `SkinnedMeshBounds` component, which will
-    /// be used by the `bevy_camera` plugin to update the `Aabb` component
-    /// based on joint positions.
+    /// Skinned meshes are created with `SkinnedMeshBounds` and assigned
+    /// a [`DynamicSkinnedMeshBounds`](bevy_camera::visibility::DynamicSkinnedMeshBounds)
+    /// component. This means the `bevy_camera` plugin will update the `Aabb`
+    /// component based on joint positions.
     Dynamic,
     /// Same as `BindPose`, but also assign a `NoFrustumCulling` component. That
     /// component tells the `bevy_camera` plugin to avoid frustum culling the

@@ -2,17 +2,19 @@
 
 use bevy_app::{Plugin, PostUpdate};
 use bevy_asset::Assets;
+use bevy_camera::visibility::DynamicSkinnedMeshBounds;
 use bevy_color::Color;
 use bevy_ecs::{
     component::Component,
-    query::Without,
+    query::{With, Without},
     reflect::ReflectComponent,
     schedule::IntoScheduleConfigs,
     system::{Query, Res},
 };
 use bevy_math::Affine3A;
-use bevy_mesh::skinning::{
-    SkinnedMesh, SkinnedMeshBounds, SkinnedMeshBoundsAsset, SkinnedMeshInverseBindposes,
+use bevy_mesh::{
+    skinning::{SkinnedMesh, SkinnedMeshInverseBindposes},
+    Mesh, Mesh3d,
 };
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_transform::{components::GlobalTransform, TransformSystems};
@@ -23,7 +25,7 @@ use crate::{
     AppGizmoBuilder,
 };
 
-/// A [`Plugin`] that provides visualization of [`SkinnedMeshBounds`]s for debugging.
+/// A [`Plugin`] that provides visualization of entities with [`DynamicSkinnedMeshBounds`].
 pub struct SkinnedMeshBoundsGizmoPlugin;
 
 impl Plugin for SkinnedMeshBoundsGizmoPlugin {
@@ -44,7 +46,7 @@ impl Plugin for SkinnedMeshBoundsGizmoPlugin {
             );
     }
 }
-/// The [`GizmoConfigGroup`] used for debug visualizations of [`SkinnedMeshBounds`] components on entities.
+/// The [`GizmoConfigGroup`] used for debug visualizations of entities with [`DynamicSkinnedMeshBounds`]
 #[derive(Clone, Reflect, GizmoConfigGroup)]
 #[reflect(Clone, Default)]
 pub struct SkinnedMeshBoundsGizmoConfigGroup {
@@ -68,7 +70,7 @@ impl Default for SkinnedMeshBoundsGizmoConfigGroup {
     }
 }
 
-/// Add this [`Component`] to an entity to draw its [`SkinnedMeshBounds`] component.
+/// Add this [`Component`] to an entity to draw its [`DynamicSkinnedMeshBounds`] component.
 #[derive(Component, Reflect, Default, Debug)]
 #[reflect(Component, Default, Debug)]
 pub struct ShowSkinnedMeshBoundsGizmo {
@@ -80,25 +82,27 @@ pub struct ShowSkinnedMeshBoundsGizmo {
 
 fn draw(
     color: Color,
-    mesh: &SkinnedMesh,
-    bounds: &SkinnedMeshBounds,
-    joints: &Query<&GlobalTransform>,
-    bounds_assets: &Res<Assets<SkinnedMeshBoundsAsset>>,
+    mesh: &Mesh3d,
+    mesh_assets: &Res<Assets<Mesh>>,
+    skinned_mesh: &SkinnedMesh,
+    joint_entities: &Query<&GlobalTransform>,
     inverse_bindposes_assets: &Res<Assets<SkinnedMeshInverseBindposes>>,
     gizmos: &mut Gizmos<SkinnedMeshBoundsGizmoConfigGroup>,
 ) {
-    if let Some(bounds_asset) = bounds_assets.get(bounds)
-        && let Some(inverse_bindposes_asset) = inverse_bindposes_assets.get(&mesh.inverse_bindposes)
+    if let Some(mesh_asset) = mesh_assets.get(mesh)
+        && let Some(bounds) = mesh_asset.skinned_mesh_bounds()
+        && let Some(inverse_bindposes_asset) =
+            inverse_bindposes_assets.get(&skinned_mesh.inverse_bindposes)
     {
-        for (&joint_index, &joint_aabb) in bounds_asset
+        for (&joint_index, &joint_aabb) in bounds
             .aabb_index_to_joint_index
             .iter()
-            .zip(bounds_asset.aabbs.iter())
+            .zip(bounds.aabbs.iter())
         {
             let joint_index = joint_index as usize;
 
-            if let Some(&joint_entity) = mesh.joints.get(joint_index)
-                && let Ok(&world_from_joint) = joints.get(joint_entity)
+            if let Some(&joint_entity) = skinned_mesh.joints.get(joint_index)
+                && let Ok(&world_from_joint) = joint_entities.get(joint_entity)
                 && let Some(&joint_from_mesh) = inverse_bindposes_asset.get(joint_index)
             {
                 let world_from_mesh =
@@ -111,25 +115,24 @@ fn draw(
 }
 
 fn draw_skinned_mesh_bounds(
-    meshes: Query<(
-        &SkinnedMesh,
-        &SkinnedMeshBounds,
-        &ShowSkinnedMeshBoundsGizmo,
-    )>,
-    joints: Query<&GlobalTransform>,
-    bounds_assets: Res<Assets<SkinnedMeshBoundsAsset>>,
+    mesh_entities: Query<
+        (&Mesh3d, &SkinnedMesh, &ShowSkinnedMeshBoundsGizmo),
+        With<DynamicSkinnedMeshBounds>,
+    >,
+    joint_entities: Query<&GlobalTransform>,
+    mesh_assets: Res<Assets<Mesh>>,
     inverse_bindposes_assets: Res<Assets<SkinnedMeshInverseBindposes>>,
     mut gizmos: Gizmos<SkinnedMeshBoundsGizmoConfigGroup>,
 ) {
-    for (mesh_bounds, mesh, gizmo) in meshes {
+    for (mesh, skinned_mesh, gizmo) in mesh_entities {
         let color = gizmo.color.unwrap_or(gizmos.config_ext.default_color);
 
         draw(
             color,
-            mesh_bounds,
             mesh,
-            &joints,
-            &bounds_assets,
+            &mesh_assets,
+            skinned_mesh,
+            &joint_entities,
             &inverse_bindposes_assets,
             &mut gizmos,
         );
@@ -137,19 +140,25 @@ fn draw_skinned_mesh_bounds(
 }
 
 fn draw_all_skinned_mesh_bounds(
-    meshes: Query<(&SkinnedMesh, &SkinnedMeshBounds), Without<ShowSkinnedMeshBoundsGizmo>>,
-    joints: Query<&GlobalTransform>,
-    bounds_assets: Res<Assets<SkinnedMeshBoundsAsset>>,
+    mesh_entities: Query<
+        (&Mesh3d, &SkinnedMesh),
+        (
+            With<DynamicSkinnedMeshBounds>,
+            Without<ShowSkinnedMeshBoundsGizmo>,
+        ),
+    >,
+    joint_entities: Query<&GlobalTransform>,
+    mesh_assets: Res<Assets<Mesh>>,
     inverse_bindposes_assets: Res<Assets<SkinnedMeshInverseBindposes>>,
     mut gizmos: Gizmos<SkinnedMeshBoundsGizmoConfigGroup>,
 ) {
-    for (mesh_bounds, mesh) in meshes {
+    for (mesh, skinned_mesh) in mesh_entities {
         draw(
             gizmos.config_ext.default_color,
-            mesh_bounds,
             mesh,
-            &joints,
-            &bounds_assets,
+            &mesh_assets,
+            skinned_mesh,
+            &joint_entities,
             &inverse_bindposes_assets,
             &mut gizmos,
         );

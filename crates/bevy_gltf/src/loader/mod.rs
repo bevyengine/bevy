@@ -12,7 +12,7 @@ use bevy_asset::{
 };
 use bevy_camera::{
     primitives::Aabb,
-    visibility::{NoFrustumCulling, Visibility},
+    visibility::{DynamicSkinnedMeshBounds, NoFrustumCulling, Visibility},
     Camera, Camera3d, OrthographicProjection, PerspectiveProjection, Projection, ScalingMode,
 };
 use bevy_color::{Color, LinearRgba};
@@ -30,9 +30,7 @@ use bevy_light::{DirectionalLight, PointLight, SpotLight};
 use bevy_math::{Mat4, Vec3};
 use bevy_mesh::{
     morph::{MeshMorphWeights, MorphAttributes, MorphTargetImage, MorphWeights},
-    skinning::{
-        SkinnedMesh, SkinnedMeshBounds, SkinnedMeshBoundsAsset, SkinnedMeshInverseBindposes,
-    },
+    skinning::{SkinnedMesh, SkinnedMeshInverseBindposes},
     Indices, Mesh, Mesh3d, MeshVertexAttribute, PrimitiveTopology,
 };
 #[cfg(feature = "pbr_transmission_textures")]
@@ -800,29 +798,10 @@ impl GltfLoader {
                     });
                 }
 
-                // XXX TODO: Review after we add proper errors to `from_mesh`.
-                // XXX TODO: This is arguably wrong if the mesh has skinning
-                // attributes but is never assigned to a node with a skin.
-                // Unclear if that case it worth worrying about, but should be
-                // documented.
-                let skinned_mesh_bounds_handle = if (skinned_mesh_bounds_policy
-                    == GltfSkinnedMeshBoundsPolicy::Dynamic)
-                    && let Some(skinned_mesh_bounds_asset) =
-                        SkinnedMeshBoundsAsset::from_mesh(&mesh)
-                {
-                    Some(
-                        load_context.add_labeled_asset(
-                            GltfAssetLabel::SkinnedMeshBounds {
-                                mesh: gltf_mesh.index(),
-                                primitive: primitive.index(),
-                            }
-                            .to_string(),
-                            skinned_mesh_bounds_asset,
-                        ),
-                    )
-                } else {
-                    None
-                };
+                // XXX TODO: Review after we add proper errors.
+                if skinned_mesh_bounds_policy == GltfSkinnedMeshBoundsPolicy::Dynamic {
+                    mesh.generate_skinned_mesh_bounds();
+                }
 
                 let mesh_handle = load_context.add_labeled_asset(primitive_label.to_string(), mesh);
                 primitives.push(super::GltfPrimitive::new(
@@ -839,7 +818,6 @@ impl GltfLoader {
                         .extras()
                         .as_deref()
                         .map(GltfExtras::from),
-                    skinned_mesh_bounds_handle,
                 ));
             }
 
@@ -1582,17 +1560,7 @@ fn load_node(
                 if gltf_node.skin().is_some() {
                     match skinned_mesh_bounds_policy {
                         GltfSkinnedMeshBoundsPolicy::Dynamic => {
-                            let skinned_mesh_bounds_label = GltfAssetLabel::SkinnedMeshBounds {
-                                mesh: mesh.index(),
-                                primitive: primitive.index(),
-                            }
-                            .to_string();
-
-                            if load_context.has_labeled_asset(skinned_mesh_bounds_label.clone()) {
-                                mesh_entity.insert(SkinnedMeshBounds(
-                                    load_context.get_label_handle(skinned_mesh_bounds_label),
-                                ));
-                            }
+                            mesh_entity.insert(DynamicSkinnedMeshBounds);
                         }
                         GltfSkinnedMeshBoundsPolicy::NoFrustumCulling => {
                             mesh_entity.insert(NoFrustumCulling);

@@ -2,10 +2,10 @@ use bevy_transform::components::Transform;
 pub use wgpu_types::PrimitiveTopology;
 
 use super::{
-    triangle_area_normal, triangle_normal, FourIterators, Indices, MeshAttributeData,
-    MeshTrianglesError, MeshVertexAttribute, MeshVertexAttributeId, MeshVertexBufferLayout,
-    MeshVertexBufferLayoutRef, MeshVertexBufferLayouts, MeshWindingInvertError,
-    VertexAttributeValues, VertexBufferLayout,
+    skinning::SkinnedMeshBounds, triangle_area_normal, triangle_normal, FourIterators, Indices,
+    MeshAttributeData, MeshTrianglesError, MeshVertexAttribute, MeshVertexAttributeId,
+    MeshVertexBufferLayout, MeshVertexBufferLayoutRef, MeshVertexBufferLayouts,
+    MeshWindingInvertError, VertexAttributeValues, VertexBufferLayout,
 };
 #[cfg(feature = "serialize")]
 use crate::SerializedMeshAttributeData;
@@ -150,6 +150,8 @@ pub struct Mesh {
     /// Does nothing if not used with `bevy_solari`, or if the mesh is not compatible
     /// with `bevy_solari` (see `bevy_solari`'s docs).
     pub enable_raytracing: bool,
+    /// XXX TODO: Document.
+    skinned_mesh_bounds: Option<SkinnedMeshBounds>,
 }
 
 impl Mesh {
@@ -241,6 +243,7 @@ impl Mesh {
             morph_target_names: None,
             asset_usage,
             enable_raytracing: true,
+            skinned_mesh_bounds: None,
         }
     }
 
@@ -1361,6 +1364,22 @@ impl Mesh {
                 vertices: [vert0, vert1, vert2],
             })
         }
+    }
+
+    // XXX TODO: Document.
+    pub fn skinned_mesh_bounds(&self) -> Option<&SkinnedMeshBounds> {
+        self.skinned_mesh_bounds.as_ref()
+    }
+
+    // XXX TODO: Document.
+    pub fn generate_skinned_mesh_bounds(&mut self) {
+        self.skinned_mesh_bounds = SkinnedMeshBounds::from_mesh(self);
+    }
+
+    // XXX TODO: Document.
+    pub fn with_generated_skinned_mesh_bounds(mut self) -> Self {
+        self.generate_skinned_mesh_bounds();
+        self
     }
 }
 
