@@ -514,7 +514,7 @@ impl TextPipeline {
             .map(|(id, _)| id)
     }
 
-    /// Update TextLayoutInfo for rendering
+    /// Update [`TextLayoutInfo`] with the new [`PositionedGlyph`] layout.
     pub fn update_text_layout_info<'a>(
         &mut self,
         layout_info: &mut TextLayoutInfo,
