@@ -331,8 +331,8 @@ pub fn init_prepass_pipeline(
 }
 
 pub struct PrepassPipelineSpecializer {
-    pub(crate) pipeline: PrepassPipeline,
-    pub(crate) properties: Arc<MaterialProperties>,
+    pub pipeline: PrepassPipeline,
+    pub properties: Arc<MaterialProperties>,
 }
 
 impl SpecializedMeshPipeline for PrepassPipelineSpecializer {
