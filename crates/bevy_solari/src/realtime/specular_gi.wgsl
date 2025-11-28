@@ -73,7 +73,7 @@ fn trace_glossy_path(initial_ray_origin: vec3<f32>, initial_wi: vec3<f32>, initi
     var ray_origin = initial_ray_origin;
     var wi = initial_wi;
     var surface_perfectly_specular = initial_surface_perfectly_specular;
-    var pdf = 0.0;
+    var p_bounce = 0.0;
 
     // Trace up to three bounces, getting the net throughput from them
     var radiance = vec3(0.0);
@@ -93,7 +93,7 @@ fn trace_glossy_path(initial_ray_origin: vec3<f32>, initial_wi: vec3<f32>, initi
         let wo_tangent = vec3(dot(wo, T), dot(wo, B), dot(wo, N));
 
         // Add emissive contribution
-        radiance += throughput * emissive_mis_weight(pdf, ray_hit, surface_perfectly_specular) * ray_hit.material.emissive;
+        radiance += throughput * emissive_mis_weight(p_bounce, ray_hit, surface_perfectly_specular) * ray_hit.material.emissive;
 
         // Should not perform NEE for mirror-like surfaces
         surface_perfectly_specular = ray_hit.material.roughness <= 0.001 && ray_hit.material.metallic > 0.9999;
@@ -117,10 +117,10 @@ fn trace_glossy_path(initial_ray_origin: vec3<f32>, initial_wi: vec3<f32>, initi
         ray_origin = ray_hit.world_position;
 
         // Update throughput for next bounce
-        pdf = ggx_vndf_pdf(wo_tangent, wi_tangent, ray_hit.material.roughness);
+        p_bounce = ggx_vndf_pdf(wo_tangent, wi_tangent, ray_hit.material.roughness);
         let brdf = evaluate_brdf(N, wo, wi, ray_hit.material);
         let cos_theta = saturate(dot(wi, N));
-        throughput *= (brdf * cos_theta) / pdf;
+        throughput *= (brdf * cos_theta) / p_bounce;
     }
 
     return radiance;
