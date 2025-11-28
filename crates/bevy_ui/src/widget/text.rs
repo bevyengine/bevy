@@ -341,19 +341,17 @@ pub fn text_system(
     mut font_atlas_set: ResMut<FontAtlasSet>,
     mut text_pipeline: ResMut<TextPipeline>,
     mut text_query: Query<(
-        Entity,
         Ref<ComputedNode>,
         &TextLayout,
         &mut TextLayoutInfo,
         &mut TextNodeFlags,
         &mut ComputedTextBlock,
     )>,
-    mut text_reader: TextUiReader,
+    text_font_query: Query<&TextFont>,
     mut font_system: ResMut<CosmicFontSystem>,
     mut swash_cache: ResMut<SwashCache>,
 ) {
-    for (entity, node, block, mut text_layout_info, mut text_flags, mut computed) in &mut text_query
-    {
+    for (node, block, mut text_layout_info, mut text_flags, mut computed) in &mut text_query {
         if node.is_changed() || text_flags.needs_recompute {
             // Skip the text node if it is waiting for a new measure func
             if text_flags.needs_measure_fn {
@@ -371,7 +369,7 @@ pub fn text_system(
 
             match text_pipeline.update_text_layout_info(
                 &mut text_layout_info,
-                text_reader.iter(entity),
+                text_font_query,
                 scale_factor,
                 &mut font_atlas_set,
                 &mut texture_atlases,

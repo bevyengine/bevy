@@ -4,8 +4,11 @@ use bevy_asset::{AssetId, Assets};
 use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
-    component::Component, entity::Entity, reflect::ReflectComponent, resource::Resource,
-    system::ResMut,
+    component::Component,
+    entity::Entity,
+    reflect::ReflectComponent,
+    resource::Resource,
+    system::{Query, ResMut},
 };
 use bevy_image::prelude::*;
 use bevy_log::{once, warn};
@@ -518,7 +521,7 @@ impl TextPipeline {
     pub fn update_text_layout_info<'a>(
         &mut self,
         layout_info: &mut TextLayoutInfo,
-        text_spans: impl Iterator<Item = (Entity, usize, &'a str, &'a TextFont, Color, LineHeight)>,
+        text_font_query: Query<&'a TextFont>,
         scale_factor: f64,
         font_atlas_set: &mut FontAtlasSet,
         texture_atlases: &mut Assets<TextureAtlasLayout>,
@@ -534,35 +537,33 @@ impl TextPipeline {
 
         self.glyph_info.clear();
 
-        for (_entity, _depth, _text, text_font, _color, _line_height) in text_spans {
-            self.glyph_info.push((
+        for text_font in text_font_query.iter_many(computed.entities.iter().map(|e| e.entity)) {
+            let mut section_info = (
                 text_font.font.id(),
                 text_font.font_smoothing,
                 text_font.font_size,
-                0.,
-                0.,
-                0.,
-            ));
+                0.0,
+                0.0,
+                0.0,
+            );
 
-            let glyph_info = self.glyph_info.last_mut().unwrap();
-
-            let Some((id, _)) = self.map_handle_to_font_id.get(&glyph_info.0) else {
-                continue;
-            };
-            let weight = font_system
-                .db()
-                .face(*id)
-                .map(|f| f.weight)
-                .unwrap_or(cosmic_text::Weight::NORMAL);
-            if let Some(font) = font_system.get_font(*id, weight) {
-                let swash = font.as_swash();
-                let metrics = swash.metrics(&[]);
-                let upem = metrics.units_per_em as f32;
-                let scalar = glyph_info.2 * scale_factor as f32 / upem;
-                glyph_info.3 = (metrics.strikeout_offset * scalar).round();
-                glyph_info.4 = (metrics.stroke_size * scalar).round().max(1.);
-                glyph_info.5 = (metrics.underline_offset * scalar).round();
+            if let Some((id, _)) = self.map_handle_to_font_id.get(&section_info.0) {
+                let weight = font_system
+                    .db()
+                    .face(*id)
+                    .map(|f| f.weight)
+                    .unwrap_or(cosmic_text::Weight::NORMAL);
+                if let Some(font) = font_system.get_font(*id, weight) {
+                    let swash = font.as_swash();
+                    let metrics = swash.metrics(&[]);
+                    let upem = metrics.units_per_em as f32;
+                    let scalar = section_info.2 * scale_factor as f32 / upem;
+                    section_info.3 = (metrics.strikeout_offset * scalar).round();
+                    section_info.4 = (metrics.stroke_size * scalar).round().max(1.);
+                    section_info.5 = (metrics.underline_offset * scalar).round();
+                }
             }
+            self.glyph_info.push(section_info);
         }
 
         let buffer = &mut computed.buffer;
