@@ -1243,26 +1243,24 @@ where
     fn init_state(world: &mut World) -> Self::State {
         let mut access = Access::new();
         access.read_all_components();
-        B::component_ids(&mut world.components_registrator(), &mut |id| {
+        for id in B::component_ids(&mut world.components_registrator()) {
             access.remove_component_read(id);
-        });
+        }
         access
     }
 
     fn get_state(components: &Components) -> Option<Self::State> {
         let mut access = Access::new();
         access.read_all_components();
-        B::get_component_ids(components, &mut |maybe_id| {
-            // If the component isn't registered, we don't have a `ComponentId`
-            // to use to exclude its access.
-            // Rather than fail, just try to take additional access.
-            // This is sound because access checks will run on the resulting access.
-            // Since the component isn't registered, there are no entities with that
-            // component, and the extra access will usually have no effect.
-            if let Some(id) = maybe_id {
-                access.remove_component_read(id);
-            }
-        });
+        // If the component isn't registered, we don't have a `ComponentId`
+        // to use to exclude its access.
+        // Rather than fail, just try to take additional access.
+        // This is sound because access checks will run on the resulting access.
+        // Since the component isn't registered, there are no entities with that
+        // component, and the extra access will usually have no effect.
+        for id in B::get_component_ids(components).flatten() {
+            access.remove_component_read(id);
+        }
         Some(access)
     }
 
@@ -1359,26 +1357,24 @@ where
     fn init_state(world: &mut World) -> Self::State {
         let mut access = Access::new();
         access.write_all_components();
-        B::component_ids(&mut world.components_registrator(), &mut |id| {
+        for id in B::component_ids(&mut world.components_registrator()) {
             access.remove_component_read(id);
-        });
+        }
         access
     }
 
     fn get_state(components: &Components) -> Option<Self::State> {
         let mut access = Access::new();
         access.write_all_components();
-        B::get_component_ids(components, &mut |maybe_id| {
-            // If the component isn't registered, we don't have a `ComponentId`
-            // to use to exclude its access.
-            // Rather than fail, just try to take additional access.
-            // This is sound because access checks will run on the resulting access.
-            // Since the component isn't registered, there are no entities with that
-            // component, and the extra access will usually have no effect.
-            if let Some(id) = maybe_id {
-                access.remove_component_read(id);
-            }
-        });
+        // If the component isn't registered, we don't have a `ComponentId`
+        // to use to exclude its access.
+        // Rather than fail, just try to take additional access.
+        // This is sound because access checks will run on the resulting access.
+        // Since the component isn't registered, there are no entities with that
+        // component, and the extra access will usually have no effect.
+        for id in B::get_component_ids(components).flatten() {
+            access.remove_component_read(id);
+        }
         Some(access)
     }
 
@@ -1657,7 +1653,7 @@ unsafe impl<T: Component> QueryData for &T {
                 // SAFETY: set_table was previously called
                 let table = unsafe { table.debug_checked_unwrap() };
                 // SAFETY: Caller ensures `table_row` is in range.
-                let item = unsafe { table.get(table_row.index()) };
+                let item = unsafe { table.get_unchecked(table_row.index()) };
                 item.deref()
             },
             |sparse_set| {
@@ -1845,13 +1841,14 @@ unsafe impl<'__w, T: Component> QueryData for Ref<'__w, T> {
                     unsafe { table.debug_checked_unwrap() };
 
                 // SAFETY: The caller ensures `table_row` is in range.
-                let component = unsafe { table_components.get(table_row.index()) };
+                let component = unsafe { table_components.get_unchecked(table_row.index()) };
                 // SAFETY: The caller ensures `table_row` is in range.
-                let added = unsafe { added_ticks.get(table_row.index()) };
+                let added = unsafe { added_ticks.get_unchecked(table_row.index()) };
                 // SAFETY: The caller ensures `table_row` is in range.
-                let changed = unsafe { changed_ticks.get(table_row.index()) };
+                let changed = unsafe { changed_ticks.get_unchecked(table_row.index()) };
                 // SAFETY: The caller ensures `table_row` is in range.
-                let caller = callers.map(|callers| unsafe { callers.get(table_row.index()) });
+                let caller =
+                    callers.map(|callers| unsafe { callers.get_unchecked(table_row.index()) });
 
                 Ref {
                     value: component.deref(),
@@ -2057,13 +2054,14 @@ unsafe impl<'__w, T: Component<Mutability = Mutable>> QueryData for &'__w mut T 
                     unsafe { table.debug_checked_unwrap() };
 
                 // SAFETY: The caller ensures `table_row` is in range.
-                let component = unsafe { table_components.get(table_row.index()) };
+                let component = unsafe { table_components.get_unchecked(table_row.index()) };
                 // SAFETY: The caller ensures `table_row` is in range.
-                let added = unsafe { added_ticks.get(table_row.index()) };
+                let added = unsafe { added_ticks.get_unchecked(table_row.index()) };
                 // SAFETY: The caller ensures `table_row` is in range.
-                let changed = unsafe { changed_ticks.get(table_row.index()) };
+                let changed = unsafe { changed_ticks.get_unchecked(table_row.index()) };
                 // SAFETY: The caller ensures `table_row` is in range.
-                let caller = callers.map(|callers| unsafe { callers.get(table_row.index()) });
+                let caller =
+                    callers.map(|callers| unsafe { callers.get_unchecked(table_row.index()) });
 
                 Mut {
                     value: component.deref_mut(),

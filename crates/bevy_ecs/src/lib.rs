@@ -244,10 +244,8 @@ mod tests {
             x: TableStored,
             y: SparseStored,
         }
-        let mut ids = Vec::new();
-        <FooBundle as Bundle>::component_ids(&mut world.components_registrator(), &mut |id| {
-            ids.push(id);
-        });
+        let ids: Vec<_> =
+            <FooBundle as Bundle>::component_ids(&mut world.components_registrator()).collect();
 
         assert_eq!(
             ids,
@@ -294,10 +292,8 @@ mod tests {
             b: B,
         }
 
-        let mut ids = Vec::new();
-        <NestedBundle as Bundle>::component_ids(&mut world.components_registrator(), &mut |id| {
-            ids.push(id);
-        });
+        let ids: Vec<_> =
+            <NestedBundle as Bundle>::component_ids(&mut world.components_registrator()).collect();
 
         assert_eq!(
             ids,
@@ -346,13 +342,9 @@ mod tests {
             ignored: Ignored,
         }
 
-        let mut ids = Vec::new();
-        <BundleWithIgnored as Bundle>::component_ids(
-            &mut world.components_registrator(),
-            &mut |id| {
-                ids.push(id);
-            },
-        );
+        let ids: Vec<_> =
+            <BundleWithIgnored as Bundle>::component_ids(&mut world.components_registrator())
+                .collect();
 
         assert_eq!(ids, &[world.register_component::<C>(),]);
 

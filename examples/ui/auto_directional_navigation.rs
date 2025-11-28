@@ -144,10 +144,10 @@ fn setup_scattered_ui(mut commands: Commands, mut input_focus: ResMut<InputFocus
                 top: px(20),
                 width: px(280),
                 padding: UiRect::all(px(12)),
+                border_radius: BorderRadius::all(px(8)),
                 ..default()
             },
             BackgroundColor(Color::srgba(0.1, 0.1, 0.1, 0.8)),
-            BorderRadius::all(px(8)),
         ))
         .id();
 
@@ -161,10 +161,10 @@ fn setup_scattered_ui(mut commands: Commands, mut input_focus: ResMut<InputFocus
             bottom: px(80),
             width: px(280),
             padding: UiRect::all(px(12)),
+            border_radius: BorderRadius::all(px(8)),
             ..default()
         },
         BackgroundColor(Color::srgba(0.1, 0.5, 0.1, 0.8)),
-        BorderRadius::all(px(8)),
         TextFont {
             font_size: 20.0,
             ..default()
@@ -181,10 +181,10 @@ fn setup_scattered_ui(mut commands: Commands, mut input_focus: ResMut<InputFocus
             bottom: px(20),
             width: px(280),
             padding: UiRect::all(px(12)),
+            border_radius: BorderRadius::all(px(8)),
             ..default()
         },
         BackgroundColor(Color::srgba(0.5, 0.1, 0.5, 0.8)),
-        BorderRadius::all(px(8)),
         TextFont {
             font_size: 20.0,
             ..default()
@@ -224,12 +224,12 @@ fn setup_scattered_ui(mut commands: Commands, mut input_focus: ResMut<InputFocus
                     border: UiRect::all(px(4)),
                     justify_content: JustifyContent::Center,
                     align_items: AlignItems::Center,
+                    border_radius: BorderRadius::all(px(12)),
                     ..default()
                 },
                 // This is the key: just add this component for automatic navigation!
                 AutoDirectionalNavigation::default(),
                 ResetTimer::default(),
-                BorderRadius::all(px(12)),
                 BackgroundColor::from(NORMAL_BUTTON),
                 Name::new(format!("Button {}", i + 1)),
             ))
