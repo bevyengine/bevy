@@ -140,7 +140,7 @@ fn nee_mis_weight(inverse_p_light: f32, wo_tangent: vec3<f32>, wi: vec3<f32>, ra
     let wi_tangent = vec3(dot(wi, T), dot(wi, B), dot(wi, N));
 
     let p_light = 1.0 / inverse_p_light;
-    let p_bounce = max(0.001, ggx_vndf_pdf(wo_tangent, wi_tangent, ray_hit.material.roughness));
+    let p_bounce = max(0.0, ggx_vndf_pdf(wo_tangent, wi_tangent, ray_hit.material.roughness));
     return power_heuristic(p_light, p_bounce);
 }
 
