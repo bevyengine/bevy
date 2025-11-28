@@ -814,8 +814,10 @@ where
 ///     let mut world = World::default();
 ///     world.insert_resource(Message("42".to_string()));
 ///
-///     // pipe the `parse_message_system`'s output into the `filter_system`s input
-///     let mut piped_system = IntoSystem::into_system(pipe(parse_message, filter));
+///     // pipe the `parse_message_system`'s output into the `filter_system`s input.
+///     // Type annotations should only needed when using `StaticSystemInput` as input
+///     // AND the input type isn't constrained by nearby code.
+///     let mut piped_system = IntoSystem::<(), Option<usize>, _>::into_system(pipe(parse_message, filter));
 ///     piped_system.initialize(&mut world);
 ///     assert_eq!(piped_system.run((), &mut world).unwrap(), Some(42));
 /// }
