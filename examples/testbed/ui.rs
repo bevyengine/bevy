@@ -910,7 +910,7 @@ mod transformations {
                     ),
                     (
                         UiTransform::from_scale(Vec2::new(2., 0.5)),
-                        "Scale 2x 0.5.y",
+                        "Scale 2.x 0.5y",
                         GREEN,
                     ),
                     (
@@ -924,7 +924,7 @@ mod transformations {
                             scale: Vec2::new(-1., 1.),
                             rotation: Rot2::degrees(30.),
                         },
-                        "T 50px x\nS -1.x (refl)\nR 30d",
+                        "T 50px x\nS -1.x (refl)\nR 30deg",
                         DARK_CYAN,
                     ),
                 ] {
@@ -946,6 +946,7 @@ mod transformations {
                                 Node {
                                     width: px(100),
                                     height: px(100),
+                                    border_radius: BorderRadius::bottom_right(px(25.)),
                                     ..default()
                                 },
                                 BackgroundColor(background.into()),
@@ -956,6 +957,7 @@ mod transformations {
                                 Node {
                                     width: px(100),
                                     height: px(100),
+                                    border_radius: BorderRadius::bottom_right(px(25.)),
                                     ..default()
                                 },
                                 BackgroundColor(background.into()),
