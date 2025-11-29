@@ -889,7 +889,7 @@ mod radial_gradient {
 mod transformations {
     use bevy::{color::palettes::css::*, prelude::*};
 
-    pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+    pub fn setup(mut commands: Commands) {
         commands.spawn((Camera2d, DespawnOnExit(super::Scene::Transformations)));
         commands
             .spawn((
@@ -929,20 +929,17 @@ mod transformations {
                     ),
                 ] {
                     parent
-                        .spawn((
-                            Node {
-                                width: percent(100),
-                                margin: UiRect {
-                                    top: px(50),
-                                    bottom: px(50),
-                                    ..default()
-                                },
-                                align_items: AlignItems::Center,
-                                justify_content: JustifyContent::SpaceAround,
+                        .spawn((Node {
+                            width: percent(100),
+                            margin: UiRect {
+                                top: px(50),
+                                bottom: px(50),
                                 ..default()
                             },
-                            DespawnOnExit(super::Scene::Transformations),
-                        ))
+                            align_items: AlignItems::Center,
+                            justify_content: JustifyContent::SpaceAround,
+                            ..default()
+                        },))
                         .with_children(|row| {
                             row.spawn((
                                 Text::new("Before Tf"),
@@ -952,11 +949,7 @@ mod transformations {
                                     ..default()
                                 },
                                 BackgroundColor(background.into()),
-                                TextFont {
-                                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                                    ..default()
-                                },
-                                DespawnOnExit(super::Scene::Transformations),
+                                TextFont::default(),
                             ));
                             row.spawn((
                                 Text::new(label),
@@ -967,11 +960,7 @@ mod transformations {
                                 },
                                 BackgroundColor(background.into()),
                                 transformation,
-                                TextFont {
-                                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                                    ..default()
-                                },
-                                DespawnOnExit(super::Scene::Transformations),
+                                TextFont::default(),
                             ));
                         });
                 }
