@@ -1,7 +1,7 @@
 use alloc::sync::Arc;
 use bevy_derive::EnumVariantMeta;
 use bevy_ecs::resource::Resource;
-use bevy_math::Vec3;
+use bevy_math::{vec2, Vec2, Vec3, Vec3Swizzles};
 #[cfg(feature = "serialize")]
 use bevy_platform::collections::HashMap;
 use bevy_platform::collections::HashSet;
@@ -84,6 +84,8 @@ impl From<MeshVertexAttribute> for MeshVertexAttributeId {
 #[derive(Debug, Clone, Hash, Eq, PartialEq)]
 pub struct MeshVertexBufferLayout {
     pub(crate) attribute_ids: Vec<MeshVertexAttributeId>,
+    pub(crate) is_normal_compressed: bool,
+    pub(crate) is_tangent_compressed: bool,
     pub(crate) layout: VertexBufferLayout,
 }
 
@@ -91,6 +93,8 @@ impl MeshVertexBufferLayout {
     pub fn new(attribute_ids: Vec<MeshVertexAttributeId>, layout: VertexBufferLayout) -> Self {
         Self {
             attribute_ids,
+            is_normal_compressed: false,
+            is_tangent_compressed: false,
             layout,
         }
     }
@@ -108,6 +112,14 @@ impl MeshVertexBufferLayout {
     #[inline]
     pub fn layout(&self) -> &VertexBufferLayout {
         &self.layout
+    }
+
+    pub fn is_vertex_normal_compressed(&self) -> bool {
+        self.is_normal_compressed
+    }
+
+    pub fn is_vertex_tangent_compressed(&self) -> bool {
+        self.is_tangent_compressed
     }
 
     pub fn get_layout(
@@ -237,15 +249,18 @@ pub fn triangle_normal(a: [f32; 3], b: [f32; 3], c: [f32; 3]) -> [f32; 3] {
 #[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
 pub enum VertexAttributeValues {
     Float32(Vec<f32>),
+    Float16(Vec<half::f16>),
     Sint32(Vec<i32>),
     Uint32(Vec<u32>),
     Float32x2(Vec<[f32; 2]>),
+    Float16x2(Vec<[half::f16; 2]>),
     Sint32x2(Vec<[i32; 2]>),
     Uint32x2(Vec<[u32; 2]>),
     Float32x3(Vec<[f32; 3]>),
     Sint32x3(Vec<[i32; 3]>),
     Uint32x3(Vec<[u32; 3]>),
     Float32x4(Vec<[f32; 4]>),
+    Float16x4(Vec<[half::f16; 4]>),
     Sint32x4(Vec<[i32; 4]>),
     Uint32x4(Vec<[u32; 4]>),
     Sint16x2(Vec<[i16; 2]>),
@@ -276,15 +291,18 @@ impl VertexAttributeValues {
     pub fn len(&self) -> usize {
         match self {
             VertexAttributeValues::Float32(values) => values.len(),
+            VertexAttributeValues::Float16(values) => values.len(),
             VertexAttributeValues::Sint32(values) => values.len(),
             VertexAttributeValues::Uint32(values) => values.len(),
             VertexAttributeValues::Float32x2(values) => values.len(),
+            VertexAttributeValues::Float16x2(values) => values.len(),
             VertexAttributeValues::Sint32x2(values) => values.len(),
             VertexAttributeValues::Uint32x2(values) => values.len(),
             VertexAttributeValues::Float32x3(values) => values.len(),
             VertexAttributeValues::Sint32x3(values) => values.len(),
             VertexAttributeValues::Uint32x3(values) => values.len(),
             VertexAttributeValues::Float32x4(values) => values.len(),
+            VertexAttributeValues::Float16x4(values) => values.len(),
             VertexAttributeValues::Sint32x4(values) => values.len(),
             VertexAttributeValues::Uint32x4(values) => values.len(),
             VertexAttributeValues::Sint16x2(values) => values.len(),
@@ -329,15 +347,18 @@ impl VertexAttributeValues {
     pub fn get_bytes(&self) -> &[u8] {
         match self {
             VertexAttributeValues::Float32(values) => cast_slice(values),
+            VertexAttributeValues::Float16(values) => cast_slice(values),
             VertexAttributeValues::Sint32(values) => cast_slice(values),
             VertexAttributeValues::Uint32(values) => cast_slice(values),
             VertexAttributeValues::Float32x2(values) => cast_slice(values),
+            VertexAttributeValues::Float16x2(values) => cast_slice(values),
             VertexAttributeValues::Sint32x2(values) => cast_slice(values),
             VertexAttributeValues::Uint32x2(values) => cast_slice(values),
             VertexAttributeValues::Float32x3(values) => cast_slice(values),
             VertexAttributeValues::Sint32x3(values) => cast_slice(values),
             VertexAttributeValues::Uint32x3(values) => cast_slice(values),
             VertexAttributeValues::Float32x4(values) => cast_slice(values),
+            VertexAttributeValues::Float16x4(values) => cast_slice(values),
             VertexAttributeValues::Sint32x4(values) => cast_slice(values),
             VertexAttributeValues::Uint32x4(values) => cast_slice(values),
             VertexAttributeValues::Sint16x2(values) => cast_slice(values),
@@ -358,21 +379,118 @@ impl VertexAttributeValues {
             VertexAttributeValues::Unorm8x4(values) => cast_slice(values),
         }
     }
+
+    /// Create a new `VertexAttributeValues` with the values converted from f32 to f16. Panic if the values are not Float32, Float32x2 or Float32x4.
+    pub fn create_f16_values(&self) -> VertexAttributeValues {
+        match &self {
+            VertexAttributeValues::Float32(uncompressed_values) => {
+                let mut values = Vec::<half::f16>::with_capacity(uncompressed_values.len());
+                for value in uncompressed_values {
+                    values.push(half::f16::from_f32(*value));
+                }
+                VertexAttributeValues::Float16(values)
+            }
+            VertexAttributeValues::Float32x2(uncompressed_values) => {
+                let mut values = Vec::<[half::f16; 2]>::with_capacity(uncompressed_values.len());
+                for value in uncompressed_values {
+                    values.push([half::f16::from_f32(value[0]), half::f16::from_f32(value[1])]);
+                }
+                VertexAttributeValues::Float16x2(values)
+            }
+            VertexAttributeValues::Float32x4(uncompressed_values) => {
+                let mut values = Vec::<[half::f16; 4]>::with_capacity(uncompressed_values.len());
+                for value in uncompressed_values {
+                    values.push([
+                        half::f16::from_f32(value[0]),
+                        half::f16::from_f32(value[1]),
+                        half::f16::from_f32(value[2]),
+                        half::f16::from_f32(value[3]),
+                    ]);
+                }
+                VertexAttributeValues::Float16x4(values)
+            }
+            _ => panic!("Unsupported vertex attribute format"),
+        }
+    }
+
+    /// Create a new `VertexAttributeValues` with the values converted from f32 to unorm16. Panic if the values are not Float32, Float32x2 or Float32x4.
+    pub fn create_unorm16_values(&self) -> VertexAttributeValues {
+        match &self {
+            VertexAttributeValues::Float32x2(uncompressed_values) => {
+                let mut values = Vec::<[u16; 2]>::with_capacity(uncompressed_values.len());
+                for value in uncompressed_values {
+                    values.push([
+                        (value[0] * u16::MAX as f32).round() as u16,
+                        (value[1] * u16::MAX as f32).round() as u16,
+                    ]);
+                }
+                VertexAttributeValues::Unorm16x2(values)
+            }
+            VertexAttributeValues::Float32x4(uncompressed_values) => {
+                let mut values = Vec::<[u16; 4]>::with_capacity(uncompressed_values.len());
+                for value in uncompressed_values {
+                    values.push([
+                        (value[0] * u16::MAX as f32).round() as u16,
+                        (value[1] * u16::MAX as f32).round() as u16,
+                        (value[2] * u16::MAX as f32).round() as u16,
+                        (value[3] * u16::MAX as f32).round() as u16,
+                    ]);
+                }
+                VertexAttributeValues::Unorm16x4(values)
+            }
+            _ => panic!("Unsupported vertex attribute format"),
+        }
+    }
+
+    /// Create a new `VertexAttributeValues` with Float32x3 or Float32x4 values converted to Unorm16x2 using octahedral encoding, assuming the values are vertex normal or tangent. Panic if the values are not Float32x3 or Float32x4.
+    pub fn create_octahedral_encode_unorm16(&self) -> VertexAttributeValues {
+        match &self {
+            VertexAttributeValues::Float32x3(uncompressed_values) => {
+                let mut values = Vec::<[u16; 2]>::with_capacity(uncompressed_values.len());
+                for value in uncompressed_values {
+                    let val = octahedral_encode(Vec3::from_array(*value).normalize());
+                    values.push([
+                        (val.x * u16::MAX as f32).round() as u16,
+                        (val.y * u16::MAX as f32).round() as u16,
+                    ]);
+                }
+                VertexAttributeValues::Unorm16x2(values)
+            }
+            VertexAttributeValues::Float32x4(uncompressed_values) => {
+                let mut values = Vec::<[u16; 2]>::with_capacity(uncompressed_values.len());
+                for value in uncompressed_values {
+                    let encoded_value = octahedral_encode_tangent(
+                        Vec3::from_array([value[0], value[1], value[2]]).normalize(),
+                        value[3],
+                    );
+                    values.push([
+                        (encoded_value.x * u16::MAX as f32).round() as u16,
+                        (encoded_value.y * u16::MAX as f32).round() as u16,
+                    ]);
+                }
+                VertexAttributeValues::Unorm16x2(values)
+            }
+            _ => panic!("Unsupported vertex attribute format"),
+        }
+    }
 }
 
 impl From<&VertexAttributeValues> for VertexFormat {
     fn from(values: &VertexAttributeValues) -> Self {
         match values {
             VertexAttributeValues::Float32(_) => VertexFormat::Float32,
+            VertexAttributeValues::Float16(_) => VertexFormat::Float16,
             VertexAttributeValues::Sint32(_) => VertexFormat::Sint32,
             VertexAttributeValues::Uint32(_) => VertexFormat::Uint32,
             VertexAttributeValues::Float32x2(_) => VertexFormat::Float32x2,
+            VertexAttributeValues::Float16x2(_) => VertexFormat::Float16x2,
             VertexAttributeValues::Sint32x2(_) => VertexFormat::Sint32x2,
             VertexAttributeValues::Uint32x2(_) => VertexFormat::Uint32x2,
             VertexAttributeValues::Float32x3(_) => VertexFormat::Float32x3,
             VertexAttributeValues::Sint32x3(_) => VertexFormat::Sint32x3,
             VertexAttributeValues::Uint32x3(_) => VertexFormat::Uint32x3,
             VertexAttributeValues::Float32x4(_) => VertexFormat::Float32x4,
+            VertexAttributeValues::Float16x4(_) => VertexFormat::Float16x4,
             VertexAttributeValues::Sint32x4(_) => VertexFormat::Sint32x4,
             VertexAttributeValues::Uint32x4(_) => VertexFormat::Uint32x4,
             VertexAttributeValues::Sint16x2(_) => VertexFormat::Sint16x2,
@@ -489,5 +607,88 @@ impl Hash for MeshVertexBufferLayoutRef {
         // Hash the address of the underlying data, so two layouts that share the same
         // `MeshVertexBufferLayout` will have the same hash.
         (Arc::as_ptr(&self.0) as usize).hash(state);
+    }
+}
+
+/// Encode normals or unit direction vectors as octahedral coordinates.
+fn octahedral_encode(v: Vec3) -> Vec2 {
+    let n = v / (v.x.abs() + v.y.abs() + v.z.abs());
+    let octahedral_wrap = (1.0 - n.yx().abs())
+        * Vec2::select(
+            n.xy().cmpgt(vec2(0.0, 0.0)),
+            vec2(1.0, 1.0),
+            vec2(-1.0, -1.0),
+        );
+    let mut n_xy = if n.z >= 0.0 { n.xy() } else { octahedral_wrap };
+    n_xy = n_xy * 0.5 + 0.5;
+    n_xy
+}
+
+/// Encode tangent vectors as octahedral coordinates. sign is encoded in y component.
+fn octahedral_encode_tangent(v: Vec3, sign: f32) -> Vec2 {
+    // Code from Godot, https://github.com/godotengine/godot/pull/73265
+    let bias = 1.0 / 32767.0;
+    let mut n_xy = octahedral_encode(v);
+    n_xy.y = n_xy.y.max(bias);
+    n_xy.y = n_xy.y * 0.5 + 0.5;
+    n_xy.y = if sign >= 0.0 { n_xy.y } else { 1.0 - n_xy.y };
+    n_xy
+}
+
+#[cfg(test)]
+mod tests {
+    use bevy_math::{vec2, vec3, Vec2, Vec3, Vec3Swizzles as _, Vec4Swizzles};
+
+    use crate::vertex::{octahedral_encode, octahedral_encode_tangent};
+
+    #[test]
+    fn octahedral_encode_decode() {
+        let vs = [
+            vec3(1.0, 2.0, 3.0).normalize().extend(1.0),
+            vec3(1.0, 0.0, 0.0).extend(-1.0),
+            vec3(0.0, 0.0, -1.0).extend(1.0),
+        ];
+        let vs_encoded = [vec2(0.5833333, 0.6666667), vec2(1.0, 0.5), vec2(0.0, 0.0)];
+        let vs_encoded_tangent = [
+            vec2(0.5833333, 0.8333334),
+            vec2(1.0, 0.25),
+            vec2(0.0, 0.50001526),
+        ];
+        for (i, &v) in vs.iter().enumerate() {
+            let encoded_normal = octahedral_encode(v.xyz());
+            let decoded_normal = octahedral_decode(encoded_normal);
+            assert_eq!(encoded_normal, vs_encoded[i]);
+            assert!(decoded_normal.distance(vs[i].xyz()) < 1e-6);
+
+            let encoded_tangent = octahedral_encode_tangent(v.xyz(), v.w);
+            let (decoded_tangent, sign) = octahedral_decode_tangent(encoded_tangent);
+            assert_eq!(encoded_tangent, vs_encoded_tangent[i]);
+            assert_eq!(v.w, sign);
+            assert!(decoded_tangent.distance(v.xyz()) < 1e-4);
+        }
+    }
+
+    /// Decode normals or unit direction vectors from octahedral coordinates.
+    fn octahedral_decode(v: Vec2) -> Vec3 {
+        let f = v * 2.0 - 1.0;
+        octahedral_decode_signed(f)
+    }
+
+    /// Decode tangent vectors from octahedral coordinates and return the sign. The sign should have been encoded in y component using corresponding `octahedral_encode_tangent`.
+    fn octahedral_decode_tangent(v: Vec2) -> (Vec3, f32) {
+        let mut f = v;
+        f.y = f.y * 2.0 - 1.0;
+        let sign = if f.y >= 0.0 { 1.0 } else { -1.0 };
+        f.y = f.y.abs();
+        (octahedral_decode(f), sign)
+    }
+
+    /// Like octahedral_decode, but for input in [-1, 1] instead of [0, 1].
+    fn octahedral_decode_signed(v: Vec2) -> Vec3 {
+        let mut n = vec3(v.x, v.y, 1.0 - v.x.abs() - v.y.abs());
+        let t = (-n.z).clamp(0.0, 1.0);
+        let w = Vec2::select(n.xy().cmpge(vec2(0.0, 0.0)), vec2(-t, -t), vec2(t, t));
+        n = vec3(n.x + w.x, n.y + w.y, n.z);
+        n.normalize()
     }
 }
