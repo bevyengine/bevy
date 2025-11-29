@@ -15,6 +15,10 @@ fn balance_heuristic(f: f32, g: f32) -> f32 {
 
 // https://gpuopen.com/download/Bounded_VNDF_Sampling_for_Smith-GGX_Reflections.pdf (Listing 1)
 fn sample_ggx_vndf(wi_tangent: vec3<f32>, roughness: f32, rng: ptr<function, u32>) -> vec3<f32> {
+    if roughness <= 0.01 {
+        return vec3(-wi_tangent.xy, wi_tangent.z);
+    }
+
     let i = wi_tangent;
     let rand = rand_vec2f(rng);
     let i_std = normalize(vec3(i.xy * roughness, i.z));
