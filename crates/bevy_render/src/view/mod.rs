@@ -1050,10 +1050,14 @@ pub fn prepare_view_targets(
     for (entity, camera, view, texture_usage, msaa) in cameras.iter() {
         let (Some(target_size), Some(target)) = (camera.physical_target_size, &camera.target)
         else {
+            commands.entity(entity).try_remove::<ViewTarget>();
+
             continue;
         };
 
         let Some(out_attachment) = view_target_attachments.get(target) else {
+            commands.entity(entity).try_remove::<ViewTarget>();
+
             continue;
         };
 
