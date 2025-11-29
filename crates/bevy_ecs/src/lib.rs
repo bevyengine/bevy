@@ -391,9 +391,9 @@ mod tests {
             .despawn_no_free();
         world.spawn_at(e3, (TableStored("def"), A(456))).unwrap();
 
-        assert_eq!(world.entities.count_spawned(), 3); // includes resource entity
+        assert_eq!(world.entities.count_spawned(), start + 2);
         assert!(world.despawn(e1));
-        assert_eq!(world.entities.count_spawned(), 2); // includes resource entity
+        assert_eq!(world.entities.count_spawned(), start + 1);
         assert!(world.get::<TableStored>(e1).is_none());
         assert!(world.get::<A>(e1).is_none());
         assert_eq!(world.get::<TableStored>(e3).unwrap().0, "def");
