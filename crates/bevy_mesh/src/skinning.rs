@@ -665,7 +665,7 @@ mod tests {
 
         for i in 0..8 {
             let corner = vec3(
-                minmax[(i >> 0) & 1].x,
+                minmax[i & 1].x,
                 minmax[(i >> 1) & 1].y,
                 minmax[(i >> 2) & 1].z,
             );
