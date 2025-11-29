@@ -54,7 +54,7 @@ impl ViewNode for FxaaNode {
             cached_bind_group => {
                 let bind_group = render_context.render_device().create_bind_group(
                     None,
-                    &pipeline_cache.get_bind_group_layout(&fxaa_pipeline.texture_bind_group),
+                    pipeline_cache.get_bind_group_layout(&fxaa_pipeline.texture_bind_group),
                     &BindGroupEntries::sequential((source, &fxaa_pipeline.sampler)),
                 );
 

@@ -295,7 +295,7 @@ impl ViewNode for ScreenSpaceReflectionsNode {
         let ssr_pipeline = world.resource::<ScreenSpaceReflectionsPipeline>();
         let ssr_bind_group = render_context.render_device().create_bind_group(
             "SSR bind group",
-            &pipeline_cache.get_bind_group_layout(&ssr_pipeline.bind_group_layout),
+            pipeline_cache.get_bind_group_layout(&ssr_pipeline.bind_group_layout),
             &BindGroupEntries::sequential((
                 postprocess.source,
                 &ssr_pipeline.color_sampler,

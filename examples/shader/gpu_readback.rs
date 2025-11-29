@@ -163,7 +163,7 @@ fn prepare_bind_group(
     let image = images.get(&image.0).unwrap();
     let bind_group = render_device.create_bind_group(
         None,
-        &pipeline_cache.get_bind_group_layout(&pipeline.layout),
+        pipeline_cache.get_bind_group_layout(&pipeline.layout),
         &BindGroupEntries::sequential((
             buffer.buffer.as_entire_buffer_binding(),
             image.texture_view.into_binding(),

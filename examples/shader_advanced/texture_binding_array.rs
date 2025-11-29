@@ -130,7 +130,7 @@ impl AsBindGroup for BindlessMaterial {
 
         let bind_group = render_device.create_bind_group(
             Self::label(),
-            &pipeline_cache.get_bind_group_layout(layout),
+            pipeline_cache.get_bind_group_layout(layout),
             &BindGroupEntries::sequential((&textures[..], &fallback_image.sampler)),
         );
 

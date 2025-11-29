@@ -398,7 +398,7 @@ pub fn prepare_uimaterial_nodes<M: UiMaterial>(
         ui_meta.vertices.clear();
         ui_meta.view_bind_group = Some(render_device.create_bind_group(
             "ui_material_view_bind_group",
-            &pipeline_cache.get_bind_group_layout(&ui_material_pipeline.view_layout),
+            pipeline_cache.get_bind_group_layout(&ui_material_pipeline.view_layout),
             &BindGroupEntries::sequential((view_binding, globals_binding)),
         ));
         let mut index = 0;
