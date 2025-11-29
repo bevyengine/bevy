@@ -222,7 +222,10 @@ impl ComputedNode {
     /// Returns the combined inset on each edge including both padding and border thickness in physical pixels.
     #[inline]
     pub fn content_inset(&self) -> BorderRect {
-        self.border + self.padding
+        let mut content_inset = self.border + self.padding;
+        content_inset.right += self.scrollbar_size.x;
+        content_inset.bottom += self.scrollbar_size.y;
+        content_inset
     }
 
     /// Returns the inverse of the scale factor for this node.
