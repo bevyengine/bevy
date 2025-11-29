@@ -55,7 +55,7 @@ impl Rect {
     /// let r = Rect::new(2., 3., 5., -1.); // w=3 h=4
     /// ```
     #[inline]
-    pub fn new(x0: f32, y0: f32, x1: f32, y1: f32) -> Self {
+    pub const fn new(x0: f32, y0: f32, x1: f32, y1: f32) -> Self {
         Self::from_corners(Vec2::new(x0, y0), Vec2::new(x1, y1))
     }
 
@@ -74,10 +74,10 @@ impl Rect {
     /// let r = Rect::from_corners(Vec2::ONE, Vec2::ZERO); // w=1 h=1
     /// ```
     #[inline]
-    pub fn from_corners(p0: Vec2, p1: Vec2) -> Self {
+    pub const fn from_corners(p0: Vec2, p1: Vec2) -> Self {
         Self {
-            min: p0.min(p1),
-            max: p0.max(p1),
+            min: Vec2::new(p0.x.min(p1.x), p0.y.min(p1.y)),
+            max: Vec2::new(p0.x.max(p1.x), p0.y.max(p1.y)),
         }
     }
 
@@ -96,10 +96,9 @@ impl Rect {
     /// assert!(r.max.abs_diff_eq(Vec2::splat(0.5), 1e-5));
     /// ```
     #[inline]
-    pub fn from_center_size(origin: Vec2, size: Vec2) -> Self {
-        assert!(size.cmpge(Vec2::ZERO).all(), "Rect size must be positive");
-        let half_size = size / 2.;
-        Self::from_center_half_size(origin, half_size)
+    pub const fn from_center_size(origin: Vec2, size: Vec2) -> Self {
+        assert!(0. <= size.x && 0. <= size.y, "Rect size must be positive");
+        Self::from_center_half_size(origin, Vec2::new(0.5 * size.x, 0.5 * size.y))
     }
 
     /// Create a new rectangle from its center and half-size.
@@ -117,14 +116,14 @@ impl Rect {
     /// assert!(r.max.abs_diff_eq(Vec2::splat(1.), 1e-5));
     /// ```
     #[inline]
-    pub fn from_center_half_size(origin: Vec2, half_size: Vec2) -> Self {
+    pub const fn from_center_half_size(origin: Vec2, half_size: Vec2) -> Self {
         assert!(
-            half_size.cmpge(Vec2::ZERO).all(),
+            0. <= half_size.x && 0. <= half_size.y,
             "Rect half_size must be positive"
         );
         Self {
-            min: origin - half_size,
-            max: origin + half_size,
+            min: Vec2::new(origin.x - half_size.x, origin.y - half_size.y),
+            max: Vec2::new(origin.x + half_size.x, origin.y + half_size.y),
         }
     }
 
@@ -138,8 +137,8 @@ impl Rect {
     /// assert!(r.is_empty());
     /// ```
     #[inline]
-    pub fn is_empty(&self) -> bool {
-        self.min.cmpge(self.max).any()
+    pub const fn is_empty(&self) -> bool {
+        self.min.x >= self.max.x || self.min.y >= self.max.y
     }
 
     /// Rectangle width (max.x - min.x).
@@ -152,7 +151,7 @@ impl Rect {
     /// assert!((r.width() - 5.).abs() <= 1e-5);
     /// ```
     #[inline]
-    pub fn width(&self) -> f32 {
+    pub const fn width(&self) -> f32 {
         self.max.x - self.min.x
     }
 
@@ -166,7 +165,7 @@ impl Rect {
     /// assert!((r.height() - 1.).abs() <= 1e-5);
     /// ```
     #[inline]
-    pub fn height(&self) -> f32 {
+    pub const fn height(&self) -> f32 {
         self.max.y - self.min.y
     }
 
@@ -180,8 +179,8 @@ impl Rect {
     /// assert!(r.size().abs_diff_eq(Vec2::new(5., 1.), 1e-5));
     /// ```
     #[inline]
-    pub fn size(&self) -> Vec2 {
-        self.max - self.min
+    pub const fn size(&self) -> Vec2 {
+        Vec2::new(self.max.x - self.min.x, self.max.y - self.min.y)
     }
 
     /// Rectangle half-size.
@@ -194,8 +193,9 @@ impl Rect {
     /// assert!(r.half_size().abs_diff_eq(Vec2::new(2.5, 0.5), 1e-5));
     /// ```
     #[inline]
-    pub fn half_size(&self) -> Vec2 {
-        self.size() * 0.5
+    pub const fn half_size(&self) -> Vec2 {
+        let size = self.size();
+        Vec2::new(0.5 * size.x, 0.5 * size.y)
     }
 
     /// The center point of the rectangle.
@@ -208,8 +208,11 @@ impl Rect {
     /// assert!(r.center().abs_diff_eq(Vec2::new(2.5, 0.5), 1e-5));
     /// ```
     #[inline]
-    pub fn center(&self) -> Vec2 {
-        (self.min + self.max) * 0.5
+    pub const fn center(&self) -> Vec2 {
+        Vec2::new(
+            0.5 * (self.min.x + self.max.x),
+            0.5 * (self.min.y + self.max.y),
+        )
     }
 
     /// Check if a point lies within this rectangle, inclusive of its edges.
@@ -224,8 +227,11 @@ impl Rect {
     /// assert!(r.contains(r.max));
     /// ```
     #[inline]
-    pub fn contains(&self, point: Vec2) -> bool {
-        (point.cmpge(self.min) & point.cmple(self.max)).all()
+    pub const fn contains(&self, point: Vec2) -> bool {
+        self.min.x <= point.x
+            && point.x <= self.max.x
+            && self.min.y <= point.y
+            && point.y <= self.max.y
     }
 
     /// Build a new rectangle formed of the union of this rectangle and another rectangle.
@@ -243,10 +249,15 @@ impl Rect {
     /// assert!(r.max.abs_diff_eq(Vec2::new(5., 3.), 1e-5));
     /// ```
     #[inline]
-    pub fn union(&self, other: Self) -> Self {
+    pub const fn union(&self, other: Self) -> Self {
+        let min_x = self.min.x.min(other.min.x);
+        let min_y = self.min.y.min(other.min.y);
+        let max_x = self.max.x.max(other.max.x);
+        let max_y = self.max.y.max(other.max.y);
+
         Self {
-            min: self.min.min(other.min),
-            max: self.max.max(other.max),
+            min: Vec2::new(min_x, min_y),
+            max: Vec2::new(max_x, max_y),
         }
     }
 
@@ -265,10 +276,15 @@ impl Rect {
     /// assert!(u.max.abs_diff_eq(Vec2::new(5., 6.), 1e-5));
     /// ```
     #[inline]
-    pub fn union_point(&self, other: Vec2) -> Self {
+    pub const fn union_point(&self, other: Vec2) -> Self {
+        let min_x = self.min.x.min(other.x);
+        let min_y = self.min.y.min(other.y);
+        let max_x = self.max.x.max(other.x);
+        let max_y = self.max.y.max(other.y);
+
         Self {
-            min: self.min.min(other),
-            max: self.max.max(other),
+            min: Vec2::new(min_x, min_y),
+            max: Vec2::new(max_x, max_y),
         }
     }
 
@@ -290,14 +306,18 @@ impl Rect {
     /// ```
     #[inline]
     pub fn intersect(&self, other: Self) -> Self {
-        let mut r = Self {
-            min: self.min.max(other.min),
-            max: self.max.min(other.max),
-        };
+        let min_x = self.min.x.max(other.min.x);
+        let min_y = self.min.y.max(other.min.y);
+        let max_x = self.max.x.min(other.max.x);
+        let max_y = self.max.y.min(other.max.y);
         // Collapse min over max to enforce invariants and ensure e.g. width() or
         // height() never return a negative value.
-        r.min = r.min.min(r.max);
-        r
+        let collapsed_min_x = min_x.min(max_x);
+        let collapsed_min_y = min_y.min(max_y);
+        Self {
+            min: Vec2::new(collapsed_min_x, collapsed_min_y),
+            max: Vec2::new(max_x, max_y),
+        }
     }
 
     /// Create a new rectangle by expanding it evenly on all sides.
@@ -321,15 +341,19 @@ impl Rect {
     /// assert!(r2.max.abs_diff_eq(Vec2::new(4., 5.), 1e-5));
     /// ```
     #[inline]
-    pub fn inflate(&self, expansion: f32) -> Self {
-        let mut r = Self {
-            min: self.min - expansion,
-            max: self.max + expansion,
-        };
+    pub const fn inflate(&self, expansion: f32) -> Self {
+        let min_x = self.min.x - expansion;
+        let min_y = self.min.y - expansion;
+        let max_x = self.max.x + expansion;
+        let max_y = self.max.y + expansion;
         // Collapse min over max to enforce invariants and ensure e.g. width() or
         // height() never return a negative value.
-        r.min = r.min.min(r.max);
-        r
+        let collapsed_min_x = min_x.min(max_x);
+        let collapsed_min_y = min_y.min(max_y);
+        Self {
+            min: Vec2::new(collapsed_min_x, collapsed_min_y),
+            max: Vec2::new(max_x, max_y),
+        }
     }
 
     /// Build a new rectangle from this one with its coordinates expressed
@@ -348,11 +372,16 @@ impl Rect {
     /// assert_eq!(n.max.x, 0.4);
     /// assert_eq!(n.max.y, 0.6);
     /// ```
-    pub fn normalize(&self, other: Self) -> Self {
+    pub const fn normalize(&self, other: Self) -> Self {
         let outer_size = other.size();
+        let min_x = (self.min.x - other.min.x) / outer_size.x;
+        let min_y = (self.min.y - other.min.y) / outer_size.y;
+        let max_x = (self.max.x - other.min.x) / outer_size.x;
+        let max_y = (self.max.y - other.min.y) / outer_size.y;
+
         Self {
-            min: (self.min - other.min) / outer_size,
-            max: (self.max - other.min) / outer_size,
+            min: Vec2::new(min_x, min_y),
+            max: Vec2::new(max_x, max_y),
         }
     }
 
@@ -366,7 +395,7 @@ impl Rect {
     /// assert_eq!(r.area(), 100.0);
     /// ```
     #[inline]
-    pub fn area(&self) -> f32 {
+    pub const fn area(&self) -> f32 {
         self.width() * self.height()
     }
 
