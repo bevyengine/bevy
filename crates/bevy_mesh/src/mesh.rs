@@ -2,7 +2,7 @@ use bevy_transform::components::Transform;
 pub use wgpu_types::PrimitiveTopology;
 
 use super::{
-    skinning::{MeshAttributeError, SkinnedMeshBounds},
+    skinning::{SkinnedMeshBounds, SkinnedMeshBoundsError},
     triangle_area_normal, triangle_normal, FourIterators, Indices, MeshAttributeData,
     MeshTrianglesError, MeshVertexAttribute, MeshVertexAttributeId, MeshVertexBufferLayout,
     MeshVertexBufferLayoutRef, MeshVertexBufferLayouts, MeshWindingInvertError,
@@ -1373,7 +1373,7 @@ impl Mesh {
     }
 
     // XXX TODO: Document.
-    pub fn generate_skinned_mesh_bounds(&mut self) -> Result<(), MeshAttributeError> {
+    pub fn generate_skinned_mesh_bounds(&mut self) -> Result<(), SkinnedMeshBoundsError> {
         self.skinned_mesh_bounds = Some(SkinnedMeshBounds::from_mesh(self)?);
         Ok(())
     }

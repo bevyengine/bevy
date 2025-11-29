@@ -802,7 +802,7 @@ impl GltfLoader {
                     && meshes_on_skinned_nodes.contains(&gltf_mesh.index())
                     && let Err(err) = mesh.generate_skinned_mesh_bounds()
                 {
-                    warn!("Failed to generate skinned mesh bounds: {err:?}");
+                    warn!("Failed to generate skinned mesh bounds: {err}");
                 }
 
                 let mesh_handle = load_context.add_labeled_asset(primitive_label.to_string(), mesh);

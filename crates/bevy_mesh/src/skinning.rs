@@ -1,3 +1,4 @@
+use crate::{Mesh, MeshVertexAttribute, VertexAttributeValues, VertexFormat};
 use bevy_asset::{AsAssetId, Asset, AssetId, Handle};
 use bevy_ecs::{component::Component, entity::Entity, prelude::ReflectComponent, system::Query};
 use bevy_math::{
@@ -7,8 +8,7 @@ use bevy_math::{
 use bevy_reflect::prelude::*;
 use bevy_transform::components::GlobalTransform;
 use core::ops::Deref;
-
-use crate::{Mesh, MeshVertexAttribute, VertexAttributeValues, VertexFormat};
+use thiserror::Error;
 
 #[derive(Component, Debug, Default, Clone, Reflect)]
 #[reflect(Component, Default, Debug, Clone)]
@@ -53,11 +53,21 @@ pub struct JointAabb {
     pub half_size: Vec3,
 }
 
+impl JointAabb {
+    fn min(&self) -> Vec3 {
+        self.center - self.half_size
+    }
+
+    fn max(&self) -> Vec3 {
+        self.center + self.half_size
+    }
+}
+
 impl From<JointAabb> for Aabb3d {
     fn from(value: JointAabb) -> Self {
         Self {
-            min: Vec3A::from(value.center) - Vec3A::from(value.half_size),
-            max: Vec3A::from(value.center) + Vec3A::from(value.half_size),
+            min: value.min().into(),
+            max: value.max().into(),
         }
     }
 }
@@ -71,7 +81,7 @@ impl From<Aabb3d> for JointAabb {
     }
 }
 
-/// XXX TODO: Document.
+/// Data used to calculate the `Aabb` of a skinned mesh.
 #[derive(Clone, Default, Debug, PartialEq, Reflect)]
 #[reflect(Clone)]
 pub struct SkinnedMeshBounds {
@@ -91,9 +101,20 @@ pub struct SkinnedMeshBounds {
     pub aabb_index_to_joint_index: Vec<JointIndex>,
 }
 
+#[derive(Copy, Clone, PartialEq, Debug, Error)]
+pub enum SkinnedMeshBoundsError {
+    #[error("The mesh does not contain any joints that are skinned to vertices")]
+    NoSkinnedJoints,
+    #[error(transparent)]
+    MeshAttributeError(#[from] MeshAttributeError),
+}
+
 impl SkinnedMeshBounds {
-    /// XXX TODO: Document.
-    pub fn from_mesh(mesh: &Mesh) -> Result<SkinnedMeshBounds, MeshAttributeError> {
+    /// Create a `SkinnedMeshBounds` from a [`Mesh`].
+    ///
+    /// The mesh is expected to have position, joint index and joint weight
+    /// attributes. If any are missing then a [`MeshAttributeError`] is returned.
+    pub fn from_mesh(mesh: &Mesh) -> Result<SkinnedMeshBounds, SkinnedMeshBoundsError> {
         let vertex_positions = expect_attribute_float32x3(mesh, Mesh::ATTRIBUTE_POSITION)?;
         let vertex_influences = InfluenceIterator::new(mesh)?;
 
@@ -127,6 +148,10 @@ impl SkinnedMeshBounds {
             })
             .collect::<Vec<_>>();
 
+        if joint_indices_and_aabbs.is_empty() {
+            return Err(SkinnedMeshBoundsError::NoSkinnedJoints);
+        }
+
         let aabbs = joint_indices_and_aabbs
             .iter()
             .map(|&(_, aabb)| JointAabb::from(aabb))
@@ -145,7 +170,7 @@ impl SkinnedMeshBounds {
         })
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = (&JointIndex, &JointAabb)> {
+    fn iter(&self) -> impl Iterator<Item = (&JointIndex, &JointAabb)> {
         self.aabb_index_to_joint_index.iter().zip(self.aabbs.iter())
     }
 }
@@ -153,11 +178,12 @@ impl SkinnedMeshBounds {
 #[derive(Copy, Clone, Debug)]
 pub enum EntityAabbFromSkinnedMeshBoundsError {
     OutOfRangeJointIndex(JointIndex),
-    MissingJointEntities,
+    MissingJointEntity,
     MissingSkinnedMeshBounds,
 }
 
-/// XXX TODO: Document.
+/// Given a skinned mesh entity, return an `Aabb3d` that encloses the skinned
+/// vertices of the mesh.
 pub fn entity_aabb_from_skinned_mesh_bounds(
     joint_entities: &Query<&GlobalTransform>,
     mesh: &Mesh,
@@ -190,7 +216,7 @@ pub fn entity_aabb_from_skinned_mesh_bounds(
         };
 
         let Ok(&world_from_joint) = joint_entities.get(joint_entity) else {
-            continue;
+            return Err(EntityAabbFromSkinnedMeshBoundsError::MissingJointEntity);
         };
 
         let world_from_model = world_from_joint.affine() * joint_from_model;
@@ -200,7 +226,7 @@ pub fn entity_aabb_from_skinned_mesh_bounds(
     }
 
     let Some(worldspace_entity_aabb) = accumulator.finish() else {
-        return Err(EntityAabbFromSkinnedMeshBoundsError::MissingJointEntities);
+        return Err(EntityAabbFromSkinnedMeshBoundsError::MissingJointEntity);
     };
 
     // If the entity has a transform, move the AABB from world-space to entity-space.
@@ -383,16 +409,21 @@ impl Iterator for InfluenceIterator<'_> {
 
 /// Generic error for when a mesh was expected to have a certain attribute with
 /// a certain type.
-#[derive(Copy, Clone, PartialEq, Debug)]
+#[derive(Copy, Clone, PartialEq, Debug, Error)]
 pub enum MeshAttributeError {
+    #[error("Missing attribute \"{0}\"")]
     MissingAttribute(&'static str),
+    #[error("Attribute \"{0}\" has unexpected format {1:?}")]
     UnexpectedFormat(&'static str, VertexFormat),
 }
 
 // Implements a function that returns a mesh attribute's data or `MeshAttributeError`.
 //
-// `impl_expect_attribute!(expect_attribute_float32x3, Float32x3, [f32; 3])` would
-// implement `fn expect_attribute_float32x3(mesh: &Mesh) -> Result<Vec<[f32; 3]>, MeshAttributeError`.
+// ```
+// impl_expect_attribute!(expect_attribute_float32x3, Float32x3, [f32; 3]);
+//
+// let positions: Vec<[f32; 3]> = expect_attribute_float32x3(mesh, Mesh::ATTRIBUTE_POSITION)?;
+// ```
 macro_rules! impl_expect_attribute {
     ($name:ident, $value_type:ident, $output_type:ty) => {
         fn $name<'a>(
@@ -628,10 +659,7 @@ mod tests {
 
     // Like `transform_aabb`, but uses the naive method of transforming each corner.
     fn naive_transform_aabb(input: JointAabb, transform: Affine3A) -> Aabb3d {
-        let minmax = [
-            input.center - input.half_size,
-            input.center + input.half_size,
-        ];
+        let minmax = [input.min(), input.max()];
 
         let mut accumulator = AabbAccumulator::new();
 
