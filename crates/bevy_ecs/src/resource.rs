@@ -189,29 +189,29 @@ mod tests {
         struct TestResource3(u8);
 
         let mut world = World::new();
-        let start = world.entities().len();
+        let start = world.entities().count_spawned();
         world.init_resource::<TestResource1>();
-        assert_eq!(world.entities().len(), start + 1);
+        assert_eq!(world.entities().count_spawned(), start + 1);
         world.insert_resource(TestResource2(String::from("Foo")));
-        assert_eq!(world.entities().len(), start + 2);
+        assert_eq!(world.entities().count_spawned(), start + 2);
         // like component registration, which just makes it known to the world that a component exists,
         // registering a resource should not spawn an entity.
         let id = world.register_resource::<TestResource3>();
-        assert_eq!(world.entities().len(), start + 2);
+        assert_eq!(world.entities().count_spawned(), start + 2);
         OwningPtr::make(20_u8, |ptr| {
             // SAFETY: id was just initialized and corresponds to a resource.
             unsafe {
                 world.insert_resource_by_id(id, ptr, MaybeLocation::caller());
             }
         });
-        assert_eq!(world.entities().len(), start + 3);
+        assert_eq!(world.entities().count_spawned(), start + 3);
         assert!(world.remove_resource_by_id(id).is_some());
-        assert_eq!(world.entities().len(), start + 2);
+        assert_eq!(world.entities().count_spawned(), start + 2);
         // the entity is stable: removing the resource should only remove the component from the entity, not despawn the entity
         world.remove_resource::<TestResource1>();
-        assert_eq!(world.entities().len(), start + 2);
+        assert_eq!(world.entities().count_spawned(), start + 2);
         // make sure that trying to add a resource twice results, doesn't change the entity count
         world.insert_resource(TestResource2(String::from("Bar")));
-        assert_eq!(world.entities().len(), start + 2);
+        assert_eq!(world.entities().count_spawned(), start + 2);
     }
 }

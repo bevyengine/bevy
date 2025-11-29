@@ -370,6 +370,7 @@ mod tests {
     #[test]
     fn spawning_with_manual_entity_allocation() {
         let mut world = World::new();
+        let start = world.entities().count_spawned();
         let e1 = world.entities_allocator_mut().alloc();
         world.spawn_at(e1, (TableStored("abc"), A(123))).unwrap();
 
@@ -390,9 +391,9 @@ mod tests {
             .despawn_no_free();
         world.spawn_at(e3, (TableStored("def"), A(456))).unwrap();
 
-        assert_eq!(world.entities.count_spawned(), 2);
+        assert_eq!(world.entities.count_spawned(), 3); // includes resource entity
         assert!(world.despawn(e1));
-        assert_eq!(world.entities.count_spawned(), 1);
+        assert_eq!(world.entities.count_spawned(), 2); // includes resource entity
         assert!(world.get::<TableStored>(e1).is_none());
         assert!(world.get::<A>(e1).is_none());
         assert_eq!(world.get::<TableStored>(e3).unwrap().0, "def");
