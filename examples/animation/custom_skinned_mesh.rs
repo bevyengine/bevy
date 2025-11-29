@@ -5,6 +5,8 @@ use std::f32::consts::*;
 
 use bevy::{
     asset::RenderAssetUsages,
+    camera::visibility::DynamicSkinnedMeshBounds,
+    input::common_conditions::input_just_pressed,
     math::ops,
     mesh::{
         skinning::{SkinnedMesh, SkinnedMeshInverseBindposes},
@@ -24,6 +26,15 @@ fn main() {
         })
         .add_systems(Startup, setup)
         .add_systems(Update, joint_animation)
+        // XXX TODO: Decide if we keep bounds debug rendering. Makes this
+        // example a convenient test but a worse example.
+        .add_systems(
+            Update,
+            (
+                toggle_bounding_boxes.run_if(input_just_pressed(KeyCode::KeyB)),
+                toggle_skinned_mesh_bounds.run_if(input_just_pressed(KeyCode::KeyJ)),
+            ),
+        )
         .run();
 }
 
@@ -56,7 +67,9 @@ fn setup(
     // Create a mesh
     let mesh = Mesh::new(
         PrimitiveTopology::TriangleList,
-        RenderAssetUsages::RENDER_WORLD,
+        // XXX TODO: Change this back.
+        //RenderAssetUsages::RENDER_WORLD,
+        RenderAssetUsages::default(),
     )
     // Set mesh vertex positions
     .with_inserted_attribute(
@@ -135,7 +148,11 @@ fn setup(
     // where each 3 vertex indices form a triangle.
     .with_inserted_indices(Indices::U16(vec![
         0, 1, 3, 0, 3, 2, 2, 3, 5, 2, 5, 4, 4, 5, 7, 4, 7, 6, 6, 7, 9, 6, 9, 8,
-    ]));
+    ]))
+    // Create skinned mesh bounds. Together with the `DynamicSkinnedMeshBounds`
+    // component, this will ensure the mesh is correctly frustum culled.
+    .with_generated_skinned_mesh_bounds()
+    .unwrap();
 
     let mesh = meshes.add(mesh);
 
@@ -178,6 +195,7 @@ fn setup(
                 inverse_bindposes: inverse_bindposes.clone(),
                 joints: joint_entities,
             },
+            DynamicSkinnedMeshBounds,
         ));
     }
 }
@@ -230,4 +248,15 @@ fn joint_animation(
         axis.translation.x += animated_joint.0 as f32 * 1.5;
         gizmos.axes(axis, 1.0);
     }
+}
+
+fn toggle_bounding_boxes(mut config: ResMut<GizmoConfigStore>) {
+    config.config_mut::<AabbGizmoConfigGroup>().1.draw_all ^= true;
+}
+
+fn toggle_skinned_mesh_bounds(mut config: ResMut<GizmoConfigStore>) {
+    config
+        .config_mut::<SkinnedMeshBoundsGizmoConfigGroup>()
+        .1
+        .draw_all ^= true;
 }

@@ -2,6 +2,7 @@ use bevy_transform::components::Transform;
 pub use wgpu_types::PrimitiveTopology;
 
 use super::{
+    skinning::{SkinnedMeshBounds, SkinnedMeshBoundsError},
     triangle_area_normal, triangle_normal, FourIterators, Indices, MeshAttributeData,
     MeshTrianglesError, MeshVertexAttribute, MeshVertexAttributeId, MeshVertexBufferLayout,
     MeshVertexBufferLayoutRef, MeshVertexBufferLayouts, MeshWindingInvertError,
@@ -150,6 +151,7 @@ pub struct Mesh {
     /// Does nothing if not used with `bevy_solari`, or if the mesh is not compatible
     /// with `bevy_solari` (see `bevy_solari`'s docs).
     pub enable_raytracing: bool,
+    skinned_mesh_bounds: Option<SkinnedMeshBounds>,
 }
 
 impl Mesh {
@@ -241,6 +243,7 @@ impl Mesh {
             morph_target_names: None,
             asset_usage,
             enable_raytracing: true,
+            skinned_mesh_bounds: None,
         }
     }
 
@@ -1361,6 +1364,23 @@ impl Mesh {
                 vertices: [vert0, vert1, vert2],
             })
         }
+    }
+
+    // Get this mesh's [`SkinnedMeshBounds`].
+    pub fn skinned_mesh_bounds(&self) -> Option<&SkinnedMeshBounds> {
+        self.skinned_mesh_bounds.as_ref()
+    }
+
+    // Generate [`SkinnedMeshBounds`] for this mesh.
+    pub fn generate_skinned_mesh_bounds(&mut self) -> Result<(), SkinnedMeshBoundsError> {
+        self.skinned_mesh_bounds = Some(SkinnedMeshBounds::from_mesh(self)?);
+        Ok(())
+    }
+
+    // Consumes the mesh and returns a mesh with [`SkinnedMeshBounds`].
+    pub fn with_generated_skinned_mesh_bounds(mut self) -> Result<Self, SkinnedMeshBoundsError> {
+        self.generate_skinned_mesh_bounds()?;
+        Ok(self)
     }
 }
 
