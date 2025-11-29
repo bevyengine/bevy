@@ -101,7 +101,7 @@ fn draw(
             .iter()
             .zip(bounds.aabbs.iter())
         {
-            let joint_index = joint_index as usize;
+            let joint_index = joint_index.0 as usize;
 
             if let Some(&joint_entity) = skinned_mesh.joints.get(joint_index)
                 && let Ok(&world_from_joint) = joint_entities.get(joint_entity)

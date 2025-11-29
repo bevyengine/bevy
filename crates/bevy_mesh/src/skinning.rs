@@ -72,7 +72,7 @@ impl From<Aabb3d> for JointAabb {
 }
 
 /// XXX TODO: Document.
-#[derive(Clone, Default, Debug, Reflect, PartialEq)]
+#[derive(Clone, Default, Debug, PartialEq, Reflect)]
 #[reflect(Clone)]
 pub struct SkinnedMeshBounds {
     // Model-space AABBs that enclose the vertices skinned to a joint. Some
@@ -99,7 +99,7 @@ impl SkinnedMeshBounds {
 
         let Some(max_joint_index) = vertex_influences
             .clone()
-            .map(|i| i.joint_index)
+            .map(|i| i.joint_index.0 as usize)
             .reduce(Ord::max)
         else {
             return Ok(SkinnedMeshBounds::default());
@@ -107,13 +107,13 @@ impl SkinnedMeshBounds {
 
         // Create an AABB accumulator for each joint.
         let mut accumulators: Box<[AabbAccumulator]> =
-            vec![AabbAccumulator::new(); (max_joint_index as usize) + 1].into();
+            vec![AabbAccumulator::new(); max_joint_index + 1].into();
 
         // Iterate over all vertex influences and add the vertex position to
         // the influencing joint's AABB.
         for influence in vertex_influences {
             if let Some(&vertex_position) = vertex_positions.get(influence.vertex_index) {
-                accumulators[influence.joint_index as usize]
+                accumulators[influence.joint_index.0 as usize]
                     .add_point(Vec3A::from_array(vertex_position));
             }
         }
@@ -134,7 +134,7 @@ impl SkinnedMeshBounds {
 
         let aabb_index_to_joint_index = joint_indices_and_aabbs
             .iter()
-            .map(|&(joint_index, _)| joint_index as JointIndex)
+            .map(|&(joint_index, _)| JointIndex(joint_index as u16))
             .collect::<Vec<_>>();
 
         assert_eq!(aabbs.len(), aabb_index_to_joint_index.len());
@@ -175,7 +175,7 @@ pub fn entity_aabb_from_skinned_mesh_bounds(
     // to the accumulator.
     for (&joint_index, &modelspace_joint_aabb) in skinned_mesh_bounds.iter() {
         let Some(joint_from_model) = skinned_mesh_inverse_bindposes
-            .get(joint_index as usize)
+            .get(joint_index.0 as usize)
             .map(|&m| Affine3A::from_mat4(m))
         else {
             return Err(EntityAabbFromSkinnedMeshBoundsError::OutOfRangeJointIndex(
@@ -183,7 +183,7 @@ pub fn entity_aabb_from_skinned_mesh_bounds(
             ));
         };
 
-        let Some(&joint_entity) = skinned_mesh.joints.get(joint_index as usize) else {
+        let Some(&joint_entity) = skinned_mesh.joints.get(joint_index.0 as usize) else {
             return Err(EntityAabbFromSkinnedMeshBoundsError::OutOfRangeJointIndex(
                 joint_index,
             ));
@@ -215,12 +215,6 @@ pub fn entity_aabb_from_skinned_mesh_bounds(
         Ok(worldspace_entity_aabb)
     }
 }
-
-// Match the `Mesh` limits on joint indices (`ATTRIBUTE_JOINT_INDEX = VertexFormat::Uint16x4`)
-//
-// XXX TODO: Where should this go?
-// XXX TODO: Consider making this a newtype?
-type JointIndex = u16;
 
 // Return the smallest AABB that encloses the transformed input AABB.
 //
@@ -312,6 +306,10 @@ impl AabbAccumulator {
     }
 }
 
+// An index that corresponds to `Mesh::ATTRIBUTE_JOINT_INDEX` and `SkinnedMesh::joints`.
+#[derive(Copy, Clone, PartialEq, Debug, Reflect)]
+pub struct JointIndex(pub u16);
+
 /// A single vertex influence. Used by [`InfluenceIterator`].
 #[derive(Copy, Clone, PartialEq, Debug)]
 pub struct Influence {
@@ -375,7 +373,7 @@ impl Iterator for InfluenceIterator<'_> {
             if joint_weight > 0.0 {
                 return Some(Influence {
                     vertex_index: self.vertex_index,
-                    joint_index,
+                    joint_index: JointIndex(joint_index),
                     joint_weight,
                 });
             }
@@ -548,67 +546,67 @@ mod tests {
         let expected = &[
             Influence {
                 vertex_index: 0,
-                joint_index: 1,
+                joint_index: JointIndex(1),
                 joint_weight: 1.0,
             },
             Influence {
                 vertex_index: 1,
-                joint_index: 2,
+                joint_index: JointIndex(2),
                 joint_weight: 1.0,
             },
             Influence {
                 vertex_index: 2,
-                joint_index: 3,
+                joint_index: JointIndex(3),
                 joint_weight: 1.0,
             },
             Influence {
                 vertex_index: 3,
-                joint_index: 4,
+                joint_index: JointIndex(4),
                 joint_weight: 1.0,
             },
             Influence {
                 vertex_index: 4,
-                joint_index: 1,
+                joint_index: JointIndex(1),
                 joint_weight: 0.1,
             },
             Influence {
                 vertex_index: 4,
-                joint_index: 2,
+                joint_index: JointIndex(2),
                 joint_weight: 0.9,
             },
             Influence {
                 vertex_index: 5,
-                joint_index: 3,
+                joint_index: JointIndex(3),
                 joint_weight: 0.1,
             },
             Influence {
                 vertex_index: 5,
-                joint_index: 4,
+                joint_index: JointIndex(4),
                 joint_weight: 0.2,
             },
             Influence {
                 vertex_index: 5,
-                joint_index: 5,
+                joint_index: JointIndex(5),
                 joint_weight: 0.7,
             },
             Influence {
                 vertex_index: 6,
-                joint_index: 6,
+                joint_index: JointIndex(6),
                 joint_weight: 0.1,
             },
             Influence {
                 vertex_index: 6,
-                joint_index: 7,
+                joint_index: JointIndex(7),
                 joint_weight: 0.2,
             },
             Influence {
                 vertex_index: 6,
-                joint_index: 8,
+                joint_index: JointIndex(8),
                 joint_weight: 0.4,
             },
             Influence {
                 vertex_index: 6,
-                joint_index: 9,
+                joint_index: JointIndex(9),
                 joint_weight: 0.3,
             },
         ];
