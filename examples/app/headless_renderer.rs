@@ -449,7 +449,7 @@ fn receive_image_from_buffer(
 
         // This blocks until the gpu is done executing everything
         render_device
-            .poll(PollType::Wait)
+            .poll(PollType::wait_indefinitely())
             .expect("Failed to poll device for map async");
 
         // This blocks until the buffer is mapped
