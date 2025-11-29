@@ -1,6 +1,9 @@
 use bevy_asset::{AsAssetId, Asset, AssetId, Handle};
 use bevy_ecs::{component::Component, entity::Entity, prelude::ReflectComponent, system::Query};
-use bevy_math::{bounding::Aabb3d, Affine3A, Mat4, Vec3, Vec3A};
+use bevy_math::{
+    bounding::{Aabb3d, BoundingVolume},
+    Affine3A, Mat4, Vec3, Vec3A,
+};
 use bevy_reflect::prelude::*;
 use bevy_transform::components::GlobalTransform;
 use core::ops::Deref;
@@ -41,27 +44,29 @@ impl Deref for SkinnedMeshInverseBindposes {
     }
 }
 
-// An `Aabb3d` that uses `Vec3` instead of `Vec3A`.
+// The AABB of a joint. This is optimized for `transform_aabb` - center/size is
+// slightly faster than min/max, and the vectors don't benefit from alignment
+// because they're broadcast loaded.
 #[derive(Copy, Clone, Debug, PartialEq, Reflect)]
-pub struct PackedAabb3d {
-    pub min: Vec3,
-    pub max: Vec3,
+pub struct JointAabb {
+    pub center: Vec3,
+    pub half_size: Vec3,
 }
 
-impl From<PackedAabb3d> for Aabb3d {
-    fn from(value: PackedAabb3d) -> Self {
+impl From<JointAabb> for Aabb3d {
+    fn from(value: JointAabb) -> Self {
         Self {
-            min: value.min.into(),
-            max: value.max.into(),
+            min: Vec3A::from(value.center) - Vec3A::from(value.half_size),
+            max: Vec3A::from(value.center) + Vec3A::from(value.half_size),
         }
     }
 }
 
-impl From<Aabb3d> for PackedAabb3d {
+impl From<Aabb3d> for JointAabb {
     fn from(value: Aabb3d) -> Self {
         Self {
-            min: value.min.into(),
-            max: value.max.into(),
+            center: value.center().into(),
+            half_size: value.half_size().into(),
         }
     }
 }
@@ -77,7 +82,7 @@ pub struct SkinnedMeshBounds {
     // indices.
     //
     // XXX TODO: Should be a Box<[PackedAabb3d]>, but that doesn't seem to work with reflection?
-    pub aabbs: Vec<PackedAabb3d>,
+    pub aabbs: Vec<JointAabb>,
 
     // Maps from an `aabbs` array index to its joint index (`Mesh::ATTRIBUTE_JOINT_INDEX`).
     //
@@ -120,7 +125,7 @@ impl SkinnedMeshBounds {
 
         let aabbs = accumulators
             .iter()
-            .filter_map(|&accumulator| accumulator.finish().map(PackedAabb3d::from))
+            .filter_map(|&accumulator| accumulator.finish().map(JointAabb::from))
             .collect::<Vec<_>>();
 
         let aabb_index_to_joint_index = accumulators
@@ -139,7 +144,7 @@ impl SkinnedMeshBounds {
         })
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = (&JointIndex, &PackedAabb3d)> {
+    pub fn iter(&self) -> impl Iterator<Item = (&JointIndex, &JointAabb)> {
         self.aabb_index_to_joint_index.iter().zip(self.aabbs.iter())
     }
 }
@@ -212,35 +217,44 @@ pub fn entity_aabb_from_skinned_mesh_bounds(
 // XXX TODO: Where should this go?
 type JointIndex = u16;
 
+// Return `(a * b) + c`, preferring fused multiply-adds if available.
+fn fast_mul_add(a: Vec3A, b: Vec3A, c: Vec3A) -> Vec3A {
+    #[cfg(target_feature = "fma")]
+    return a.mul_add(b, c);
+    #[cfg(not(target_feature = "fma"))]
+    return (a * b) + c;
+}
+
 // Return the smallest AABB that encloses the transformed input AABB.
 //
 // Algorithm from "Transforming Axis-Aligned Bounding Boxes", James Arvo, Graphics Gems (1990).
-//
-// The input AABB is a `PackedAabb3d` because it doesn't benefit from
-// alignment - the components of the AABB are broadcast loaded through `Vec3A::splat`.
 #[inline]
-fn transform_aabb(input: PackedAabb3d, transform: Affine3A) -> Aabb3d {
-    let rs = transform.matrix3;
-    let t = transform.translation;
+fn transform_aabb(input: JointAabb, transform: Affine3A) -> Aabb3d {
+    let mx = transform.matrix3.x_axis;
+    let my = transform.matrix3.y_axis;
+    let mz = transform.matrix3.z_axis;
+    let mt = transform.translation;
 
-    let e_x = rs.x_axis * Vec3A::splat(input.min.x);
-    let e_y = rs.y_axis * Vec3A::splat(input.min.y);
-    let e_z = rs.z_axis * Vec3A::splat(input.min.z);
+    let cx = Vec3A::splat(input.center.x);
+    let cy = Vec3A::splat(input.center.y);
+    let cz = Vec3A::splat(input.center.z);
 
-    let f_x = rs.x_axis * Vec3A::splat(input.max.x);
-    let f_y = rs.y_axis * Vec3A::splat(input.max.y);
-    let f_z = rs.z_axis * Vec3A::splat(input.max.z);
+    let sx = Vec3A::splat(input.half_size.x);
+    let sy = Vec3A::splat(input.half_size.y);
+    let sz = Vec3A::splat(input.half_size.z);
 
-    let min_x = e_x.min(f_x);
-    let min_y = e_y.min(f_y);
-    let min_z = e_z.min(f_z);
+    // Transform the center.
+    let tc = fast_mul_add(mz, cz, mt);
+    let tc = fast_mul_add(my, cy, tc);
+    let tc = fast_mul_add(mx, cx, tc);
 
-    let max_x = e_x.max(f_x);
-    let max_y = e_y.max(f_y);
-    let max_z = e_z.max(f_z);
+    // Calculate a size that encloses the transformed size.
+    let ts = mx.abs() * sx;
+    let ts = fast_mul_add(my.abs(), sy, ts);
+    let ts = fast_mul_add(mz.abs(), sz, ts);
 
-    let min = t + min_x + min_y + min_z;
-    let max = t + max_x + max_y + max_z;
+    let min = tc - ts;
+    let max = tc + ts;
 
     Aabb3d { min, max }
 }
@@ -413,8 +427,9 @@ impl_expect_attribute!(expect_attribute_uint16x4, Uint16x4, [u16; 4]);
 #[cfg(test)]
 mod tests {
     use super::*;
+    use approx::assert_abs_diff_eq;
     use bevy_asset::RenderAssetUsages;
-    use bevy_math::{bounding::BoundingVolume, vec3a};
+    use bevy_math::{bounding::BoundingVolume, vec3, vec3a};
 
     #[test]
     fn aabb_accumulator() {
@@ -607,5 +622,88 @@ mod tests {
             InfluenceIterator::new(&mesh).unwrap().collect::<Vec<_>>(),
             expected
         );
+    }
+
+    fn aabb_assert_eq(a: Aabb3d, b: Aabb3d) {
+        assert_abs_diff_eq!(a.min.x, b.min.x);
+        assert_abs_diff_eq!(a.min.y, b.min.y);
+        assert_abs_diff_eq!(a.min.z, b.min.z);
+        assert_abs_diff_eq!(a.max.x, b.max.x);
+        assert_abs_diff_eq!(a.max.y, b.max.y);
+        assert_abs_diff_eq!(a.max.z, b.max.z);
+    }
+
+    // Like `transform_aabb`, but uses the naive method of calculating each corner.
+    fn alternative_transform_aabb(input: JointAabb, transform: Affine3A) -> Aabb3d {
+        let c = input.center;
+        let s = input.half_size;
+
+        let corners = [
+            vec3(c.x + s.x, c.y + s.y, c.z + s.z),
+            vec3(c.x - s.x, c.y + s.y, c.z + s.z),
+            vec3(c.x + s.x, c.y - s.y, c.z + s.z),
+            vec3(c.x - s.x, c.y - s.y, c.z + s.z),
+            vec3(c.x + s.x, c.y + s.y, c.z - s.z),
+            vec3(c.x - s.x, c.y + s.y, c.z - s.z),
+            vec3(c.x + s.x, c.y - s.y, c.z - s.z),
+            vec3(c.x - s.x, c.y - s.y, c.z - s.z),
+        ];
+
+        let mut a = AabbAccumulator::new();
+
+        for corner in corners {
+            a.add_point(transform.transform_point3(corner).into());
+        }
+
+        a.finish().unwrap()
+    }
+
+    #[test]
+    fn transform_aabb() {
+        let aabbs = [
+            JointAabb {
+                center: Vec3::ZERO,
+                half_size: Vec3::ZERO,
+            },
+            JointAabb {
+                center: Vec3::ZERO,
+                half_size: vec3(2.0, 3.0, 4.0),
+            },
+            JointAabb {
+                center: vec3(2.0, 3.0, 4.0),
+                half_size: Vec3::ZERO,
+            },
+            JointAabb {
+                center: vec3(20.0, -30.0, 40.0),
+                half_size: vec3(5.0, 6.0, 7.0),
+            },
+        ];
+
+        // Various transforms, including awkward ones like skews and
+        // negative/zero scales.
+        let transforms = [
+            Affine3A::IDENTITY,
+            Affine3A::from_cols(Vec3A::X, Vec3A::Z, Vec3A::Y, vec3a(1.0, 2.0, 3.0)),
+            Affine3A::from_cols(Vec3A::Y, Vec3A::X, Vec3A::Z, vec3a(1.0, 2.0, 3.0)),
+            Affine3A::from_cols(Vec3A::Z, Vec3A::Y, Vec3A::X, vec3a(1.0, 2.0, 3.0)),
+            Affine3A::from_scale(Vec3::ZERO),
+            Affine3A::from_scale(vec3(2.0, 3.0, 4.0)),
+            Affine3A::from_scale(vec3(-2.0, 3.0, -4.0)),
+            Affine3A::from_cols(
+                vec3a(1.0, 2.0, -3.0),
+                vec3a(4.0, -5.0, 6.0),
+                vec3a(-7.0, 8.0, 9.0),
+                vec3a(1.0, -2.0, 3.0),
+            ),
+        ];
+
+        for aabb in aabbs {
+            for transform in transforms {
+                aabb_assert_eq(
+                    super::transform_aabb(aabb, transform),
+                    alternative_transform_aabb(aabb, transform),
+                );
+            }
+        }
     }
 }
