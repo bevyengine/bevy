@@ -75,22 +75,19 @@ impl From<Aabb3d> for JointAabb {
 #[derive(Clone, Default, Debug, Reflect, PartialEq)]
 #[reflect(Clone)]
 pub struct SkinnedMeshBounds {
-    // Model-space AABBs that enclose the vertices skinned to a joint. This may
-    // be a subset of the joints, as some might not be skinned to any vertices.
+    // Model-space AABBs that enclose the vertices skinned to a joint. Some
+    // joints may not be skinned to any vertices, so not every joint has an
+    // AABB.
     //
-    // `aabb_index_to_joint_index` maps from this array's indices to joint
-    // indices.
+    // `aabb_index_to_joint_index` maps from an `aabbs` index to a joint index,
+    // which corresponds to `Mesh::ATTRIBUTE_JOINT_INDEX` and `SkinnedMesh::joints`.
     //
-    // XXX TODO: Should be a Box<[PackedAabb3d]>, but that doesn't seem to work with reflection?
+    // These arrays could be a single `Vec<(JointAabb, JointIndex)>`, but that
+    // would waste two bytes due to alignment.
+    //
+    // TODO: If https://github.com/bevyengine/bevy/issues/11570 is fixed, `Vec<_>`
+    // can be changed to `Box<[_]>`.
     pub aabbs: Vec<JointAabb>,
-
-    // Maps from an `aabbs` array index to its joint index (`Mesh::ATTRIBUTE_JOINT_INDEX`).
-    //
-    // Caution: `aabbs` and `aabb_index_to_joint_index` should be the same
-    // length. They're kept separate as a minor optimization - folding them into
-    // one array would waste two bytes per joint due to alignment.
-    //
-    // XXX TODO: Should be a Box<[JointIndex]>, but that doesn't seem to work with reflection?
     pub aabb_index_to_joint_index: Vec<JointIndex>,
 }
 
@@ -108,12 +105,12 @@ impl SkinnedMeshBounds {
             return Ok(SkinnedMeshBounds::default());
         };
 
-        // Accumulate the AABB of each joint. Some joints may not have skinned
-        // vertices, so their accumulators will be left empty.
-
+        // Create an AABB accumulator for each joint.
         let mut accumulators: Box<[AabbAccumulator]> =
             vec![AabbAccumulator::new(); (max_joint_index as usize) + 1].into();
 
+        // Iterate over all vertex influences and add the vertex position to
+        // the influencing joint's AABB.
         for influence in vertex_influences {
             if let Some(&vertex_position) = vertex_positions.get(influence.vertex_index) {
                 accumulators[influence.joint_index as usize]
@@ -121,19 +118,23 @@ impl SkinnedMeshBounds {
             }
         }
 
-        // Finish the accumulators and keep only joints with AABBs.
-
-        let aabbs = accumulators
-            .iter()
-            .filter_map(|&accumulator| accumulator.finish().map(JointAabb::from))
-            .collect::<Vec<_>>();
-
-        let aabb_index_to_joint_index = accumulators
+        // Filter out joints with no AABB.
+        let joint_indices_and_aabbs = accumulators
             .iter()
             .enumerate()
             .filter_map(|(joint_index, &accumulator)| {
-                accumulator.finish().map(|_| joint_index as JointIndex)
+                accumulator.finish().map(|aabb| (joint_index, aabb))
             })
+            .collect::<Vec<_>>();
+
+        let aabbs = joint_indices_and_aabbs
+            .iter()
+            .map(|&(_, aabb)| JointAabb::from(aabb))
+            .collect::<Vec<_>>();
+
+        let aabb_index_to_joint_index = joint_indices_and_aabbs
+            .iter()
+            .map(|&(joint_index, _)| joint_index as JointIndex)
             .collect::<Vec<_>>();
 
         assert_eq!(aabbs.len(), aabb_index_to_joint_index.len());
@@ -168,10 +169,10 @@ pub fn entity_aabb_from_skinned_mesh_bounds(
         return Err(EntityAabbFromSkinnedMeshBoundsError::MissingSkinnedMeshBounds);
     };
 
-    // Calculate an AABB that encloses the transformed AABBs of each joint.
-
     let mut accumulator = AabbAccumulator::new();
 
+    // For each model-space joint AABB, transform it to world-space and add it
+    // to the accumulator.
     for (&joint_index, &modelspace_joint_aabb) in skinned_mesh_bounds.iter() {
         let Some(joint_from_model) = skinned_mesh_inverse_bindposes
             .get(joint_index as usize)
@@ -202,19 +203,23 @@ pub fn entity_aabb_from_skinned_mesh_bounds(
         return Err(EntityAabbFromSkinnedMeshBoundsError::MissingJointEntities);
     };
 
-    // If necessary, transform the AABB from world-space to entity-space.
-    match world_from_entity {
-        Some(world_from_entity) => Ok(transform_aabb(
+    // If the entity has a transform, move the AABB from world-space to entity-space.
+    if let Some(world_from_entity) = world_from_entity {
+        let entityspace_entity_aabb = transform_aabb(
             worldspace_entity_aabb.into(),
             world_from_entity.affine().inverse(),
-        )),
-        None => Ok(worldspace_entity_aabb),
+        );
+
+        Ok(entityspace_entity_aabb)
+    } else {
+        Ok(worldspace_entity_aabb)
     }
 }
 
 // Match the `Mesh` limits on joint indices (`ATTRIBUTE_JOINT_INDEX = VertexFormat::Uint16x4`)
 //
 // XXX TODO: Where should this go?
+// XXX TODO: Consider making this a newtype?
 type JointIndex = u16;
 
 // Return the smallest AABB that encloses the transformed input AABB.
@@ -236,9 +241,9 @@ fn transform_aabb(input: JointAabb, transform: Affine3A) -> Aabb3d {
     let sz = Vec3A::splat(input.half_size.z);
 
     // Transform the center.
-    let tc = (mz * cz) + mt;
+    let tc = (mx * cx) + mt;
     let tc = (my * cy) + tc;
-    let tc = (mx * cx) + tc;
+    let tc = (mz * cz) + tc;
 
     // Calculate a size that encloses the transformed size.
     let ts = mx.abs() * sx;
@@ -267,9 +272,6 @@ fn transform_aabb(input: JointAabb, transform: Affine3A) -> Aabb3d {
 //
 // For alternatives, see [`Aabb3d::from_point_clound`](`bevy_math::bounding::bounded3d::Aabb3d::from_point_cloud`)
 // and [`BoundingVolume::merge`](`bevy_math::bounding::BoundingVolume::merge`).
-//
-// XXX TODO: Maybe could move to `bevy_math`? Not sure if it's general purpose
-// enough.
 #[derive(Copy, Clone)]
 struct AabbAccumulator {
     min: Vec3A,
@@ -341,6 +343,7 @@ impl<'a> InfluenceIterator<'a> {
             influence_index: 0,
         })
     }
+
     // `Mesh` only supports four influences, so we can make this const for
     // simplicity. If `Mesh` gains support for variable influences then this
     // will become a variable.
@@ -625,29 +628,26 @@ mod tests {
         assert_abs_diff_eq!(a.max.z, b.max.z);
     }
 
-    // Like `transform_aabb`, but uses the naive method of calculating each corner.
-    fn alternative_transform_aabb(input: JointAabb, transform: Affine3A) -> Aabb3d {
-        let c = input.center;
-        let s = input.half_size;
-
-        let corners = [
-            vec3(c.x + s.x, c.y + s.y, c.z + s.z),
-            vec3(c.x - s.x, c.y + s.y, c.z + s.z),
-            vec3(c.x + s.x, c.y - s.y, c.z + s.z),
-            vec3(c.x - s.x, c.y - s.y, c.z + s.z),
-            vec3(c.x + s.x, c.y + s.y, c.z - s.z),
-            vec3(c.x - s.x, c.y + s.y, c.z - s.z),
-            vec3(c.x + s.x, c.y - s.y, c.z - s.z),
-            vec3(c.x - s.x, c.y - s.y, c.z - s.z),
+    // Like `transform_aabb`, but uses the naive method of transforming each corner.
+    fn naive_transform_aabb(input: JointAabb, transform: Affine3A) -> Aabb3d {
+        let minmax = [
+            input.center - input.half_size,
+            input.center + input.half_size,
         ];
 
-        let mut a = AabbAccumulator::new();
+        let mut accumulator = AabbAccumulator::new();
 
-        for corner in corners {
-            a.add_point(transform.transform_point3(corner).into());
+        for i in 0..8 {
+            let corner = vec3(
+                minmax[(i >> 0) & 1].x,
+                minmax[(i >> 1) & 1].y,
+                minmax[(i >> 2) & 1].z,
+            );
+
+            accumulator.add_point(transform.transform_point3(corner).into());
         }
 
-        a.finish().unwrap()
+        accumulator.finish().unwrap()
     }
 
     #[test]
@@ -693,7 +693,7 @@ mod tests {
             for transform in transforms {
                 aabb_assert_eq(
                     super::transform_aabb(aabb, transform),
-                    alternative_transform_aabb(aabb, transform),
+                    naive_transform_aabb(aabb, transform),
                 );
             }
         }
