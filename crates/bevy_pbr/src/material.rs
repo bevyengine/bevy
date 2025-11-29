@@ -7,6 +7,10 @@ use bevy_asset::prelude::AssetChanged;
 use bevy_asset::{Asset, AssetEventSystems, AssetId, AssetServer, UntypedAssetId};
 use bevy_camera::visibility::ViewVisibility;
 use bevy_camera::ScreenSpaceTransmissionQuality;
+use bevy_core_pipeline::core_3d::{
+    UnsortedTransparent3d, UnsortedTransparent3dBatchSetKey, UnsortedTransparent3dBinKey,
+};
+use bevy_core_pipeline::core_3d::{WbOit3dBatchSetKey, WbOit3dBinKey, WeightedBlendedOit3d};
 use bevy_core_pipeline::deferred::{AlphaMask3dDeferred, Opaque3dDeferred};
 use bevy_core_pipeline::prepass::{AlphaMask3dPrepass, Opaque3dPrepass};
 use bevy_core_pipeline::{
@@ -18,14 +22,9 @@ use bevy_core_pipeline::{
 };
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::change_detection::Tick;
-use bevy_ecs::system::SystemChangeTick;
-use bevy_ecs::{
-    prelude::*,
-    system::{
-        lifetimeless::{SRes, SResMut},
-        SystemParamItem,
-    },
-};
+use bevy_ecs::system::lifetimeless::SRes;
+use bevy_ecs::system::{StaticSystemParam, SystemChangeTick, SystemParam};
+use bevy_ecs::{prelude::*, system::SystemParamItem};
 use bevy_mesh::{
     mark_3d_meshes_as_changed_if_their_assets_changed, Mesh3d, MeshVertexBufferLayoutRef,
 };
@@ -295,6 +294,8 @@ impl Plugin for MaterialsPlugin {
                 .add_render_command::<Shadow, DrawPrepass>()
                 .add_render_command::<Transmissive3d, DrawMaterial>()
                 .add_render_command::<Transparent3d, DrawMaterial>()
+                .add_render_command::<UnsortedTransparent3d, DrawMaterial>()
+                .add_render_command::<WeightedBlendedOit3d, DrawMaterial>()
                 .add_render_command::<Opaque3d, DrawMaterial>()
                 .add_render_command::<AlphaMask3d, DrawMaterial>()
                 .add_systems(RenderStartup, init_material_pipeline)
@@ -621,14 +622,15 @@ pub const fn alpha_mode_pipeline_key(alpha_mode: AlphaMode, msaa: &Msaa) -> Mesh
         // Premultiplied and Add share the same pipeline key
         // They're made distinct in the PBR shader, via `premultiply_alpha()`
         AlphaMode::Premultiplied | AlphaMode::Add => MeshPipelineKey::BLEND_PREMULTIPLIED_ALPHA,
-        AlphaMode::Blend => MeshPipelineKey::BLEND_ALPHA,
+        AlphaMode::Blend | AlphaMode::UnsortedBlend => MeshPipelineKey::BLEND_ALPHA,
+        AlphaMode::WeightedBlend => MeshPipelineKey::BLEND_ALPHA_WBOIT,
         AlphaMode::Multiply => MeshPipelineKey::BLEND_MULTIPLY,
         AlphaMode::Mask(_) => MeshPipelineKey::MAY_DISCARD,
         AlphaMode::AlphaToCoverage => match *msaa {
             Msaa::Off => MeshPipelineKey::MAY_DISCARD,
             _ => MeshPipelineKey::BLEND_ALPHA_TO_COVERAGE,
         },
-        _ => MeshPipelineKey::NONE,
+        AlphaMode::Opaque => MeshPipelineKey::NONE,
     }
 }
 
@@ -1005,11 +1007,15 @@ pub fn specialize_material_meshes(
         alpha_mask_render_phases,
         transmissive_render_phases,
         transparent_render_phases,
+        unsorted_transparent_render_phases,
+        wboit_render_phases,
     ): (
         Res<ViewBinnedRenderPhases<Opaque3d>>,
         Res<ViewBinnedRenderPhases<AlphaMask3d>>,
         Res<ViewSortedRenderPhases<Transmissive3d>>,
         Res<ViewSortedRenderPhases<Transparent3d>>,
+        Res<ViewBinnedRenderPhases<UnsortedTransparent3d>>,
+        Res<ViewBinnedRenderPhases<WeightedBlendedOit3d>>,
     ),
     views: Query<(&ExtractedView, &RenderVisibleEntities)>,
     view_key_cache: Res<ViewKeyCache>,
@@ -1029,6 +1035,8 @@ pub fn specialize_material_meshes(
         all_views.insert(view.retained_view_entity);
 
         if !transparent_render_phases.contains_key(&view.retained_view_entity)
+            && !unsorted_transparent_render_phases.contains_key(&view.retained_view_entity)
+            && !wboit_render_phases.contains_key(&view.retained_view_entity)
             && !opaque_render_phases.contains_key(&view.retained_view_entity)
             && !alpha_mask_render_phases.contains_key(&view.retained_view_entity)
             && !transmissive_render_phases.contains_key(&view.retained_view_entity)
@@ -1085,6 +1093,11 @@ pub fn specialize_material_meshes(
             let mut mesh_key = *view_key
                 | MeshPipelineKey::from_bits_retain(mesh.key_bits.bits())
                 | mesh_pipeline_key_bits;
+            println!(
+                "Material mesh is use wboit: {:?} {:?}",
+                material.properties.alpha_mode,
+                mesh_key.contains(MeshPipelineKey::BLEND_ALPHA_WBOIT)
+            );
 
             if let Some(lightmap) = render_lightmaps.render_lightmaps.get(visible_entity) {
                 mesh_key |= MeshPipelineKey::LIGHTMAPPED;
@@ -1159,6 +1172,8 @@ pub fn queue_material_meshes(
     mut alpha_mask_render_phases: ResMut<ViewBinnedRenderPhases<AlphaMask3d>>,
     mut transmissive_render_phases: ResMut<ViewSortedRenderPhases<Transmissive3d>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<Transparent3d>>,
+    mut unsorted_transparent_render_phases: ResMut<ViewBinnedRenderPhases<UnsortedTransparent3d>>,
+    mut wboit_render_phases: ResMut<ViewBinnedRenderPhases<WeightedBlendedOit3d>>,
     views: Query<(&ExtractedView, &RenderVisibleEntities)>,
     specialized_material_pipeline_cache: ResMut<SpecializedMaterialPipelineCache>,
 ) {
@@ -1168,11 +1183,15 @@ pub fn queue_material_meshes(
             Some(alpha_mask_phase),
             Some(transmissive_phase),
             Some(transparent_phase),
+            Some(unsorted_transparent_phase),
+            Some(wboit_phase),
         ) = (
             opaque_render_phases.get_mut(&view.retained_view_entity),
             alpha_mask_render_phases.get_mut(&view.retained_view_entity),
             transmissive_render_phases.get_mut(&view.retained_view_entity),
             transparent_render_phases.get_mut(&view.retained_view_entity),
+            unsorted_transparent_render_phases.get_mut(&view.retained_view_entity),
+            wboit_render_phases.get_mut(&view.retained_view_entity),
         )
         else {
             continue;
@@ -1322,6 +1341,64 @@ pub fn queue_material_meshes(
                         indexed: index_slab.is_some(),
                     });
                 }
+                RenderPhaseType::UnsortedTransparent => {
+                    let Some(draw_function) = material
+                        .properties
+                        .get_draw_function(MainPassUnsortedTransparentDrawFunction)
+                    else {
+                        continue;
+                    };
+                    let batch_set_key = UnsortedTransparent3dBatchSetKey {
+                        pipeline: pipeline_id,
+                        draw_function,
+                        material_bind_group_index: Some(material.binding.group.0),
+                        vertex_slab: vertex_slab.unwrap_or_default(),
+                        index_slab,
+                    };
+                    let bin_key = UnsortedTransparent3dBinKey {
+                        asset_id: mesh_instance.mesh_asset_id.into(),
+                    };
+                    unsorted_transparent_phase.add(
+                        batch_set_key,
+                        bin_key,
+                        (*render_entity, *visible_entity),
+                        mesh_instance.current_uniform_index,
+                        BinnedRenderPhaseType::mesh(
+                            mesh_instance.should_batch(),
+                            &gpu_preprocessing_support,
+                        ),
+                        current_change_tick,
+                    );
+                }
+                RenderPhaseType::WeightedBlendedOit => {
+                    let Some(draw_function) = material
+                        .properties
+                        .get_draw_function(MainPassWbOitDrawFunction)
+                    else {
+                        continue;
+                    };
+                    let batch_set_key = WbOit3dBatchSetKey {
+                        pipeline: pipeline_id,
+                        draw_function,
+                        material_bind_group_index: Some(material.binding.group.0),
+                        vertex_slab: vertex_slab.unwrap_or_default(),
+                        index_slab,
+                    };
+                    let bin_key = WbOit3dBinKey {
+                        asset_id: mesh_instance.mesh_asset_id.into(),
+                    };
+                    wboit_phase.add(
+                        batch_set_key,
+                        bin_key,
+                        (*render_entity, *visible_entity),
+                        mesh_instance.current_uniform_index,
+                        BinnedRenderPhaseType::mesh(
+                            mesh_instance.should_batch(),
+                            &gpu_preprocessing_support,
+                        ),
+                        current_change_tick,
+                    );
+                }
             }
         }
     }
@@ -1412,6 +1489,10 @@ pub struct MainPassAlphaMaskDrawFunction;
 pub struct MainPassTransmissiveDrawFunction;
 #[derive(DrawFunctionLabel, Debug, Hash, PartialEq, Eq, Clone, Default)]
 pub struct MainPassTransparentDrawFunction;
+#[derive(DrawFunctionLabel, Debug, Hash, PartialEq, Eq, Clone, Default)]
+pub struct MainPassUnsortedTransparentDrawFunction;
+#[derive(DrawFunctionLabel, Debug, Hash, PartialEq, Eq, Clone, Default)]
+pub struct MainPassWbOitDrawFunction;
 
 #[derive(DrawFunctionLabel, Debug, Hash, PartialEq, Eq, Clone, Default)]
 pub struct PrepassOpaqueDrawFunction;
@@ -1591,6 +1672,8 @@ pub enum RenderPhaseType {
     AlphaMask,
     Transmissive,
     Transparent,
+    UnsortedTransparent,
+    WeightedBlendedOit,
 }
 
 /// A resource that maps each untyped material ID to its binding.
@@ -1607,6 +1690,28 @@ pub struct PreparedMaterial {
     pub properties: Arc<MaterialProperties>,
 }
 
+#[derive(SystemParam)]
+pub struct MeshMaterial3dParam<'w, 's, M: Material> {
+    pub render_device: Res<'w, RenderDevice>,
+    pub pipeline_cache: Res<'w, PipelineCache>,
+    pub default_opaque_render_method: Res<'w, DefaultOpaqueRendererMethod>,
+    pub bind_group_allocators: ResMut<'w, MaterialBindGroupAllocators>,
+    pub render_material_bindings: ResMut<'w, RenderMaterialBindings>,
+    pub opaque_draw_functions: Res<'w, DrawFunctions<Opaque3d>>,
+    pub alpha_mask_draw_functions: Res<'w, DrawFunctions<AlphaMask3d>>,
+    pub transmissive_draw_functions: Res<'w, DrawFunctions<Transmissive3d>>,
+    pub transparent_draw_functions: Res<'w, DrawFunctions<Transparent3d>>,
+    pub unsorted_transparent_draw_functions: Res<'w, DrawFunctions<UnsortedTransparent3d>>,
+    pub wboit_draw_functions: Res<'w, DrawFunctions<WeightedBlendedOit3d>>,
+    pub opaque_prepass_draw_functions: Res<'w, DrawFunctions<Opaque3dPrepass>>,
+    pub alpha_mask_prepass_draw_functions: Res<'w, DrawFunctions<AlphaMask3dPrepass>>,
+    pub opaque_deferred_draw_functions: Res<'w, DrawFunctions<Opaque3dDeferred>>,
+    pub alpha_mask_deferred_draw_functions: Res<'w, DrawFunctions<AlphaMask3dDeferred>>,
+    pub shadow_draw_functions: Res<'w, DrawFunctions<Shadow>>,
+    pub asset_server: Res<'w, AssetServer>,
+    pub material_param: StaticSystemParam<'w, 's, <M as AsBindGroup>::Param>,
+}
+
 // orphan rules T_T
 impl<M: Material> ErasedRenderAsset for MeshMaterial3d<M>
 where
@@ -1615,29 +1720,12 @@ where
     type SourceAsset = M;
     type ErasedAsset = PreparedMaterial;
 
-    type Param = (
-        SRes<RenderDevice>,
-        SRes<PipelineCache>,
-        SRes<DefaultOpaqueRendererMethod>,
-        SResMut<MaterialBindGroupAllocators>,
-        SResMut<RenderMaterialBindings>,
-        SRes<DrawFunctions<Opaque3d>>,
-        SRes<DrawFunctions<AlphaMask3d>>,
-        SRes<DrawFunctions<Transmissive3d>>,
-        SRes<DrawFunctions<Transparent3d>>,
-        SRes<DrawFunctions<Opaque3dPrepass>>,
-        SRes<DrawFunctions<AlphaMask3dPrepass>>,
-        SRes<DrawFunctions<Opaque3dDeferred>>,
-        SRes<DrawFunctions<AlphaMask3dDeferred>>,
-        SRes<DrawFunctions<Shadow>>,
-        SRes<AssetServer>,
-        M::Param,
-    );
+    type Param = MeshMaterial3dParam<'static, 'static, M>;
 
     fn prepare_asset(
         material: Self::SourceAsset,
         material_id: AssetId<Self::SourceAsset>,
-        (
+        SystemParamItem::<Self::Param> {
             render_device,
             pipeline_cache,
             default_opaque_render_method,
@@ -1647,6 +1735,8 @@ where
             alpha_mask_draw_functions,
             transmissive_draw_functions,
             transparent_draw_functions,
+            unsorted_transparent_draw_functions,
+            wboit_draw_functions,
             opaque_prepass_draw_functions,
             alpha_mask_prepass_draw_functions,
             opaque_deferred_draw_functions,
@@ -1654,7 +1744,7 @@ where
             shadow_draw_functions,
             asset_server,
             material_param,
-        ): &mut SystemParamItem<Self::Param>,
+        }: &mut SystemParamItem<Self::Param>,
     ) -> Result<Self::ErasedAsset, PrepareAssetError<Self::SourceAsset>> {
         let shadows_enabled = M::enable_shadows();
         let prepass_enabled = M::enable_prepass();
@@ -1663,6 +1753,10 @@ where
         let draw_alpha_mask_pbr = alpha_mask_draw_functions.read().id::<DrawMaterial>();
         let draw_transmissive_pbr = transmissive_draw_functions.read().id::<DrawMaterial>();
         let draw_transparent_pbr = transparent_draw_functions.read().id::<DrawMaterial>();
+        let draw_unsorted_transparent_pbr = unsorted_transparent_draw_functions
+            .read()
+            .id::<DrawMaterial>();
+        let draw_wboit_pbr = wboit_draw_functions.read().id::<DrawMaterial>();
         let draw_opaque_prepass = opaque_prepass_draw_functions.read().id::<DrawPrepass>();
         let draw_alpha_mask_prepass = alpha_mask_prepass_draw_functions.read().id::<DrawPrepass>();
         let draw_opaque_deferred = opaque_deferred_draw_functions.read().id::<DrawPrepass>();
@@ -1682,6 +1776,11 @@ where
                 MainPassTransparentDrawFunction.intern(),
                 draw_transparent_pbr,
             ),
+            (
+                MainPassUnsortedTransparentDrawFunction.intern(),
+                draw_unsorted_transparent_pbr,
+            ),
+            (MainPassWbOitDrawFunction.intern(), draw_wboit_pbr),
             (PrepassOpaqueDrawFunction.intern(), draw_opaque_prepass),
             (
                 PrepassAlphaMaskDrawFunction.intern(),
@@ -1711,9 +1810,11 @@ where
             mesh_pipeline_key_bits.contains(MeshPipelineKey::READS_VIEW_TRANSMISSION_TEXTURE);
 
         let render_phase_type = match material.alpha_mode() {
-            AlphaMode::Blend | AlphaMode::Premultiplied | AlphaMode::Add | AlphaMode::Multiply => {
-                RenderPhaseType::Transparent
+            AlphaMode::UnsortedBlend | AlphaMode::Add | AlphaMode::Multiply => {
+                RenderPhaseType::UnsortedTransparent
             }
+            AlphaMode::WeightedBlend => RenderPhaseType::WeightedBlendedOit,
+            AlphaMode::Blend | AlphaMode::Premultiplied => RenderPhaseType::Transparent,
             _ if reads_view_transmission_texture => RenderPhaseType::Transmissive,
             AlphaMode::Opaque | AlphaMode::AlphaToCoverage => RenderPhaseType::Opaque,
             AlphaMode::Mask(_) => RenderPhaseType::AlphaMask,
@@ -1889,9 +1990,14 @@ where
 
     fn unload_asset(
         source_asset: AssetId<Self::SourceAsset>,
-        (_, _, _, bind_group_allocators, render_material_bindings, ..): &mut SystemParamItem<
-            Self::Param,
-        >,
+        SystemParamItem::<Self::Param> {
+            render_device: _,
+            pipeline_cache: _,
+            default_opaque_render_method: _,
+            bind_group_allocators,
+            render_material_bindings,
+            ..
+        }: &mut SystemParamItem<Self::Param>,
     ) {
         let Some(material_binding_id) = render_material_bindings.remove(&source_asset.untyped())
         else {
