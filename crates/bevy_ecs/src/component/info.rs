@@ -350,7 +350,7 @@ impl ComponentDescriptor {
 pub struct Components {
     pub(super) components: Vec<Option<ComponentInfo>>,
     pub(super) indices: TypeIdMap<ComponentId>,
-    // This is kept internal and local to verify that no deadlocks can occor.
+    // This is kept internal and local to verify that no deadlocks can occur.
     pub(super) queued: bevy_platform::sync::RwLock<QueuedComponents>,
 }
 
