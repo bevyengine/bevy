@@ -217,14 +217,6 @@ pub fn entity_aabb_from_skinned_mesh_bounds(
 // XXX TODO: Where should this go?
 type JointIndex = u16;
 
-// Return `(a * b) + c`, preferring fused multiply-adds if available.
-fn fast_mul_add(a: Vec3A, b: Vec3A, c: Vec3A) -> Vec3A {
-    #[cfg(target_feature = "fma")]
-    return a.mul_add(b, c);
-    #[cfg(not(target_feature = "fma"))]
-    return (a * b) + c;
-}
-
 // Return the smallest AABB that encloses the transformed input AABB.
 //
 // Algorithm from "Transforming Axis-Aligned Bounding Boxes", James Arvo, Graphics Gems (1990).
@@ -244,14 +236,14 @@ fn transform_aabb(input: JointAabb, transform: Affine3A) -> Aabb3d {
     let sz = Vec3A::splat(input.half_size.z);
 
     // Transform the center.
-    let tc = fast_mul_add(mz, cz, mt);
-    let tc = fast_mul_add(my, cy, tc);
-    let tc = fast_mul_add(mx, cx, tc);
+    let tc = (mz * cz) + mt;
+    let tc = (my * cy) + tc;
+    let tc = (mx * cx) + tc;
 
     // Calculate a size that encloses the transformed size.
     let ts = mx.abs() * sx;
-    let ts = fast_mul_add(my.abs(), sy, ts);
-    let ts = fast_mul_add(mz.abs(), sz, ts);
+    let ts = (my.abs() * sy) + ts;
+    let ts = (mz.abs() * sz) + ts;
 
     let min = tc - ts;
     let max = tc + ts;
