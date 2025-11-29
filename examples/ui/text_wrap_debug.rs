@@ -113,7 +113,7 @@ fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
             ];
 
             for (j, message) in messages.into_iter().enumerate() {
-                commands.entity(column_id).with_child((
+                commands.entity(column_id).spawn_child((
                     Text(message.clone()),
                     text_font.clone(),
                     TextLayout::new(Justify::Left, linebreak),
