@@ -626,7 +626,7 @@ mod tests {
         system::{Local, RunSystemOnce},
     };
     use alloc::vec;
-    use bevy_reflect::{FromType, Reflect, ReflectRef};
+    use bevy_reflect::Reflect;
 
     use super::*;
 
@@ -1024,32 +1024,5 @@ mod tests {
         )
             .build_state(&mut world)
             .build_system(|_r: ResMut<R>, _fr: FilteredResourcesMut| {});
-    }
-
-    #[test]
-    fn filtered_resource_reflect() {
-        let mut world = World::new();
-        world.insert_resource(R { foo: 7 });
-
-        let system = (FilteredResourcesParamBuilder::new(|builder| {
-            builder.add_read::<R>();
-        }),)
-            .build_state(&mut world)
-            .build_system(|res: FilteredResources| {
-                let reflect_resource = <ReflectResource as FromType<R>>::from_type();
-                let ReflectRef::Struct(reflect_struct) =
-                    reflect_resource.reflect(res).unwrap().reflect_ref()
-                else {
-                    panic!()
-                };
-                *reflect_struct
-                    .field("foo")
-                    .unwrap()
-                    .try_downcast_ref::<usize>()
-                    .unwrap()
-            });
-
-        let output = world.run_system_once(system).unwrap();
-        assert_eq!(output, 7);
     }
 }

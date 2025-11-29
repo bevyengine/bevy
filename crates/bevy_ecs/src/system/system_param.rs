@@ -9,7 +9,7 @@ use crate::{
         Access, FilteredAccess, FilteredAccessSet, QueryData, QueryFilter, QuerySingleError,
         QueryState, ReadOnlyQueryData,
     },
-    resource::Resource,
+    resource::{Resource, IS_RESOURCE},
     storage::ResourceData,
     system::{Query, Single, SystemMeta},
     world::{
@@ -771,7 +771,20 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
             system_meta.name,
         );
 
-        component_access_set.add_unfiltered_resource_read(component_id);
+        let mut filter = FilteredAccess::default();
+        filter.add_component_read(component_id);
+        filter.add_resource_read(component_id);
+        filter.and_with(IS_RESOURCE);
+
+        assert!(component_access_set
+            .get_conflicts_single(&filter)
+            .is_empty(),
+            "error[B0002]: Res<{}> in system {} conflicts with a previous query. Consider removing the duplicate access. See: https://bevy.org/learn/errors/b0002",
+            DebugName::type_name::<T>(),
+            system_meta.name
+        );
+
+        component_access_set.add(filter);
     }
 
     #[inline]
@@ -780,11 +793,10 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
         _system_meta: &SystemMeta,
         world: UnsafeWorldCell,
     ) -> Result<(), SystemParamValidationError> {
-        // SAFETY: Read-only access to resource metadata.
-        if unsafe { world.storages() }
-            .resources
-            .get(component_id)
-            .is_some_and(ResourceData::is_present)
+        // SAFETY: Read-only access to the resource
+        if let Some(entity) = unsafe { world.resource_entities() }.get(component_id)
+            && let Ok(entity_ref) = world.get_entity(*entity)
+            && entity_ref.contains_id(component_id)
         {
             Ok(())
         } else {
@@ -849,7 +861,21 @@ unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
                 "error[B0002]: ResMut<{}> in system {} conflicts with a previous Res<{0}> access. Consider removing the duplicate access. See: https://bevy.org/learn/errors/b0002",
                 DebugName::type_name::<T>(), system_meta.name);
         }
-        component_access_set.add_unfiltered_resource_write(component_id);
+
+        let mut filter = FilteredAccess::default();
+        filter.add_component_write(component_id);
+        filter.add_resource_write(component_id);
+        filter.and_with(IS_RESOURCE);
+
+        assert!(component_access_set
+            .get_conflicts_single(&filter)
+            .is_empty(),
+            "error[B0002]: Res<{}> in system {} conflicts with a previous query. Consider removing the duplicate access. See: https://bevy.org/learn/errors/b0002",
+            DebugName::type_name::<T>(),
+            system_meta.name
+        );
+
+        component_access_set.add(filter);
     }
 
     #[inline]
@@ -858,11 +884,10 @@ unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
         _system_meta: &SystemMeta,
         world: UnsafeWorldCell,
     ) -> Result<(), SystemParamValidationError> {
-        // SAFETY: Read-only access to resource metadata.
-        if unsafe { world.storages() }
-            .resources
-            .get(component_id)
-            .is_some_and(ResourceData::is_present)
+        // SAFETY: Read-only access to the resource.
+        if let Some(entity) = unsafe { world.resource_entities() }.get(component_id)
+            && let Ok(entity_ref) = world.get_entity(*entity)
+            && entity_ref.contains_id(component_id)
         {
             Ok(())
         } else {
