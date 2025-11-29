@@ -151,7 +151,8 @@ fn setup(
     ]))
     // Create skinned mesh bounds. Together with the `DynamicSkinnedMeshBounds`
     // component, this will ensure the mesh is correctly frustum culled.
-    .with_generated_skinned_mesh_bounds();
+    .with_generated_skinned_mesh_bounds()
+    .unwrap();
 
     let mesh = meshes.add(mesh);
 

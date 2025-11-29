@@ -192,19 +192,14 @@ impl DefaultGltfImageSampler {
 
 /// Controls the bounds related components that are assigned to skinned mesh
 /// entities. These components are used by systems like frustum culling.
-///
-/// XXX TODO: More documentation on how to choose the right option?
-/// XXX TODO: Is "Policy" the best name? `GltfSkinnedMeshBounds` alone seems a
-//  bit vague, and this option might move out of the glTF importer at some point.
 #[derive(Copy, Clone, PartialEq, Serialize, Deserialize)]
 pub enum GltfSkinnedMeshBoundsPolicy {
     /// Skinned meshes are assigned an `Aabb` component calculated from the bind
     /// pose `Mesh`.
     BindPose,
-    /// Skinned meshes are created with `SkinnedMeshBounds` and assigned
-    /// a [`DynamicSkinnedMeshBounds`](bevy_camera::visibility::DynamicSkinnedMeshBounds)
-    /// component. This means the `bevy_camera` plugin will update the `Aabb`
-    /// component based on joint positions.
+    /// Skinned meshes are created with [`SkinnedMeshBounds`](bevy_mesh::skinning::SkinnedMeshBounds)
+    /// and assigned a [`DynamicSkinnedMeshBounds`](bevy_camera::visibility::DynamicSkinnedMeshBounds)
+    /// component. See `DynamicSkinnedMeshBounds` for details.
     Dynamic,
     /// Same as `BindPose`, but also assign a `NoFrustumCulling` component. That
     /// component tells the `bevy_camera` plugin to avoid frustum culling the
@@ -238,7 +233,8 @@ pub struct GltfPlugin {
     /// To specify, use [`GltfPlugin::add_custom_vertex_attribute`].
     pub custom_vertex_attributes: HashMap<Box<str>, MeshVertexAttribute>,
 
-    /// XXX TODO: Document.
+    /// The default policy for skinned mesh bounds. Can be overridden by
+    /// [`GltfLoaderSettings::skinned_mesh_bounds_policy`].
     pub skinned_mesh_bounds_policy: GltfSkinnedMeshBoundsPolicy,
 }
 

@@ -151,7 +151,6 @@ pub struct Mesh {
     /// Does nothing if not used with `bevy_solari`, or if the mesh is not compatible
     /// with `bevy_solari` (see `bevy_solari`'s docs).
     pub enable_raytracing: bool,
-    /// XXX TODO: Document.
     skinned_mesh_bounds: Option<SkinnedMeshBounds>,
 }
 
@@ -1367,21 +1366,21 @@ impl Mesh {
         }
     }
 
-    // XXX TODO: Document.
+    // Get this mesh's [`SkinnedMeshBounds`].
     pub fn skinned_mesh_bounds(&self) -> Option<&SkinnedMeshBounds> {
         self.skinned_mesh_bounds.as_ref()
     }
 
-    // XXX TODO: Document.
+    // Generate [`SkinnedMeshBounds`] for this mesh.
     pub fn generate_skinned_mesh_bounds(&mut self) -> Result<(), SkinnedMeshBoundsError> {
         self.skinned_mesh_bounds = Some(SkinnedMeshBounds::from_mesh(self)?);
         Ok(())
     }
 
-    // XXX TODO: Document.
-    pub fn with_generated_skinned_mesh_bounds(mut self) -> Self {
-        let _ = self.generate_skinned_mesh_bounds();
-        self
+    // Consumes the mesh and returns a mesh with [`SkinnedMeshBounds`].
+    pub fn with_generated_skinned_mesh_bounds(mut self) -> Result<Self, SkinnedMeshBoundsError> {
+        self.generate_skinned_mesh_bounds()?;
+        Ok(self)
     }
 }
 

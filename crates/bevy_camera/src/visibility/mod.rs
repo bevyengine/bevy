@@ -416,7 +416,8 @@ pub fn calculate_bounds(
     }
 }
 
-// XXX TODO: Document.
+// Update the `Aabb` component of all skinned mesh entities with a `DynamicSkinnedMeshBounds`
+// component.
 fn update_skinned_mesh_bounds(
     inverse_bindposes_assets: Res<Assets<SkinnedMeshInverseBindposes>>,
     mesh_assets: Res<Assets<Mesh>>,
