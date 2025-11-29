@@ -72,7 +72,7 @@
 //!     // within this scope, we can query like no components are disabled.
 //!     assert_eq!(world.query::<&Disabled>().query(&world).count(), 1);
 //!     assert_eq!(world.query::<&CustomDisabled>().query(&world).count(), 1);
-//!     assert_eq!(world.query::<()>().query(&world).count(), world.entities().len() as usize);
+//!     assert_eq!(world.query::<()>().query(&world).count(), world.entities().count_spawned() as usize);
 //! })
 //! ```
 //!
@@ -83,7 +83,7 @@
 //! app starts.
 //!
 //! Because filters are applied to all queries they can have performance implication for
-//! the enire [`World`], especially when they cause queries to mix sparse and table components.
+//! the entire [`World`], especially when they cause queries to mix sparse and table components.
 //! See [`Query` performance] for more info.
 //!
 //! Custom disabling components can cause significant interoperability issues within the ecosystem,

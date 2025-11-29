@@ -185,6 +185,7 @@ impl ViewNode for SolariLightingNode {
                 s.world_cache_life.as_entire_binding(),
                 s.world_cache_radiance.as_entire_binding(),
                 s.world_cache_geometry_data.as_entire_binding(),
+                s.world_cache_luminance_deltas.as_entire_binding(),
                 s.world_cache_active_cells_new_radiance.as_entire_binding(),
                 s.world_cache_a.as_entire_binding(),
                 s.world_cache_b.as_entire_binding(),
@@ -204,7 +205,8 @@ impl ViewNode for SolariLightingNode {
         let bind_group_resolve_dlss_rr_textures = view_dlss_rr_textures.map(|d| {
             render_context.render_device().create_bind_group(
                 "solari_lighting_bind_group_resolve_dlss_rr_textures",
-                &self.bind_group_layout_resolve_dlss_rr_textures,
+                &pipeline_cache
+                    .get_bind_group_layout(&self.bind_group_layout_resolve_dlss_rr_textures),
                 &BindGroupEntries::sequential((
                     &d.diffuse_albedo.default_view,
                     &d.specular_albedo.default_view,
@@ -398,6 +400,7 @@ impl FromWorld for SolariLightingNode {
                     storage_buffer_sized(false, None),
                     storage_buffer_sized(false, None),
                     storage_buffer_sized(false, None),
+                    storage_buffer_sized(false, None),
                 ),
             ),
         );
@@ -497,7 +500,7 @@ impl FromWorld for SolariLightingNode {
                 "sample_radiance",
                 load_embedded_asset!(world, "world_cache_update.wgsl"),
                 None,
-                vec![],
+                vec!["WORLD_CACHE_QUERY_ATOMIC_MAX_LIFETIME".into()],
             ),
             blend_new_world_cache_samples_pipeline: create_pipeline(
                 "solari_lighting_blend_new_world_cache_samples_pipeline",

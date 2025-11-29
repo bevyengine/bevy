@@ -310,7 +310,12 @@ impl TextPipeline {
             let Some((id, _)) = self.map_handle_to_font_id.get(font) else {
                 continue;
             };
-            if let Some(font) = font_system.get_font(*id) {
+            let weight = font_system
+                .db()
+                .face(*id)
+                .map(|f| f.weight)
+                .unwrap_or(cosmic_text::Weight::NORMAL);
+            if let Some(font) = font_system.get_font(*id, weight) {
                 let swash = font.as_swash();
                 let metrics = swash.metrics(&[]);
                 let upem = metrics.units_per_em as f32;
@@ -667,18 +672,18 @@ fn get_attrs<'a>(
             }
             .scale(scale_factor as f32),
         )
+        .font_features((&text_font.font_features).into())
         .color(cosmic_text::Color(color.to_linear().as_u32()))
 }
 
 /// Calculate the size of the text area for the given buffer.
 fn buffer_dimensions(buffer: &Buffer) -> Vec2 {
-    let (width, height) = buffer
-        .layout_runs()
-        .map(|run| (run.line_w, run.line_height))
-        .reduce(|(w1, h1), (w2, h2)| (w1.max(w2), h1 + h2))
-        .unwrap_or((0.0, 0.0));
-
-    Vec2::new(width, height).ceil()
+    let mut size = Vec2::ZERO;
+    for run in buffer.layout_runs() {
+        size.x = size.x.max(run.line_w);
+        size.y += run.line_height;
+    }
+    size.ceil()
 }
 
 /// Discards stale data cached in `FontSystem`.

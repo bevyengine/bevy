@@ -1682,6 +1682,7 @@ fn despawn_entities(commands: &mut Commands, entities: Vec<Entity>) {
 // collection.
 pub fn check_light_entities_needing_specialization<M: Material>(
     needs_specialization: Query<Entity, (With<MeshMaterial3d<M>>, Changed<NotShadowCaster>)>,
+    mesh_materials: Query<Entity, With<MeshMaterial3d<M>>>,
     mut entities_needing_specialization: ResMut<EntitiesNeedingSpecialization<M>>,
     mut removed_components: RemovedComponents<NotShadowCaster>,
 ) {
@@ -1690,7 +1691,10 @@ pub fn check_light_entities_needing_specialization<M: Material>(
     }
 
     for removed in removed_components.read() {
-        entities_needing_specialization.entities.push(removed);
+        // Only require specialization if the entity still exists.
+        if mesh_materials.contains(removed) {
+            entities_needing_specialization.entities.push(removed);
+        }
     }
 }
 

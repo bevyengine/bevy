@@ -64,19 +64,19 @@
 // Assuming r between ground and top atmosphere boundary, and mu= cos(zenith_angle)
 // Chosen to increase precision near the ground and to work around a discontinuity at the horizon
 // See Bruneton and Neyret 2008, "Precomputed Atmospheric Scattering" section 4
-fn transmittance_lut_r_mu_to_uv(r: f32, mu: f32) -> vec2<f32> {
+fn transmittance_lut_r_mu_to_uv(atm: Atmosphere, r: f32, mu: f32) -> vec2<f32> {
   // Distance along a horizontal ray from the ground to the top atmosphere boundary
-    let H = sqrt(atmosphere.top_radius * atmosphere.top_radius - atmosphere.bottom_radius * atmosphere.bottom_radius);
+    let H = sqrt(atm.top_radius * atm.top_radius - atm.bottom_radius * atm.bottom_radius);
 
   // Distance from a point at height r to the horizon
   // ignore the case where r <= atmosphere.bottom_radius
-    let rho = sqrt(max(r * r - atmosphere.bottom_radius * atmosphere.bottom_radius, 0.0));
+    let rho = sqrt(max(r * r - atm.bottom_radius * atm.bottom_radius, 0.0));
 
   // Distance from a point at height r to the top atmosphere boundary at zenith angle mu
-    let d = distance_to_top_atmosphere_boundary(r, mu);
+    let d = distance_to_top_atmosphere_boundary(atm, r, mu);
 
   // Minimum and maximum distance to the top atmosphere boundary from a point at height r
-    let d_min = atmosphere.top_radius - r; // length of the ray straight up to the top atmosphere boundary
+    let d_min = atm.top_radius - r; // length of the ray straight up to the top atmosphere boundary
     let d_max = rho + H; // length of the ray to the top atmosphere boundary and grazing the horizon
 
     let u = (d - d_min) / (d_max - d_min);
@@ -121,9 +121,9 @@ fn transmittance_lut_uv_to_r_mu(uv: vec2<f32>) -> vec2<f32> {
 /// Center of sphere, c = [0,0,0]
 /// Radius of sphere, r = atmosphere.top_radius
 /// This function solves the quadratic equation for line-sphere intersection simplified under these assumptions
-fn distance_to_top_atmosphere_boundary(r: f32, mu: f32) -> f32 {
-  // ignore the case where r > atmosphere.top_radius
-    let positive_discriminant = max(r * r * (mu * mu - 1.0) + atmosphere.top_radius * atmosphere.top_radius, 0.0);
+fn distance_to_top_atmosphere_boundary(atm: Atmosphere, r: f32, mu: f32) -> f32 {
+  // ignore the case where r > atm.top_radius
+    let positive_discriminant = max(r * r * (mu * mu - 1.0) + atm.top_radius * atm.top_radius, 0.0);
     return max(-r * mu + sqrt(positive_discriminant), 0.0);
 }
 

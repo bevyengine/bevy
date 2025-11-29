@@ -8,6 +8,7 @@
 //! Provides rendering functionality for `bevy_ui`.
 
 pub mod box_shadow;
+mod color_space;
 mod gradient;
 mod pipeline;
 mod render_pass;
@@ -56,6 +57,8 @@ use bevy_render::{
 use bevy_sprite::BorderRect;
 #[cfg(feature = "bevy_ui_debug")]
 pub use debug_overlay::UiDebugOptions;
+
+use color_space::ColorSpacePlugin;
 use gradient::GradientPlugin;
 
 use bevy_platform::collections::{HashMap, HashSet};
@@ -194,10 +197,6 @@ impl Default for BoxShadowSamples {
     }
 }
 
-/// Deprecated alias for [`RenderUiSystems`].
-#[deprecated(since = "0.17.0", note = "Renamed to `RenderUiSystems`.")]
-pub type RenderUiSystem = RenderUiSystems;
-
 #[derive(Default)]
 pub struct UiRenderPlugin;
 
@@ -286,6 +285,7 @@ impl Plugin for UiRenderPlugin {
             });
 
         app.add_plugins(UiTextureSlicerPlugin);
+        app.add_plugins(ColorSpacePlugin);
         app.add_plugins(GradientPlugin);
         app.add_plugins(BoxShadowPlugin);
     }

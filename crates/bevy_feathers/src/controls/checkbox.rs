@@ -88,10 +88,10 @@ pub fn checkbox<C: SpawnableList<ChildOf> + Send + Sync + 'static, B: Bundle>(
                     width: size::CHECKBOX_SIZE,
                     height: size::CHECKBOX_SIZE,
                     border: UiRect::all(Val::Px(2.0)),
+                    border_radius: BorderRadius::all(Val::Px(4.0)),
                     ..Default::default()
                 },
                 CheckboxOutline,
-                BorderRadius::all(Val::Px(4.0)),
                 ThemeBackgroundColor(tokens::CHECKBOX_BG),
                 ThemeBorderColor(tokens::CHECKBOX_BORDER),
                 children![(
@@ -289,7 +289,7 @@ fn set_checkbox_styles(
 
     // Change mark visibility
     commands.entity(mark_ent).insert(match checked {
-        true => Visibility::Visible,
+        true => Visibility::Inherited,
         false => Visibility::Hidden,
     });
 

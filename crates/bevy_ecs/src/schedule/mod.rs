@@ -745,7 +745,7 @@ mod tests {
             let result = schedule.initialize(&mut world);
             assert!(matches!(
                 result,
-                Err(ScheduleBuildError::CrossDependency(_, _))
+                Err(ScheduleBuildError::CrossDependency(_))
             ));
         }
 
@@ -770,7 +770,7 @@ mod tests {
             // `foo` can't be in both `A` and `C` because they can't run at the same time.
             assert!(matches!(
                 result,
-                Err(ScheduleBuildError::SetsHaveOrderButIntersect(_, _))
+                Err(ScheduleBuildError::SetsHaveOrderButIntersect(_))
             ));
         }
 
@@ -1173,7 +1173,8 @@ mod tests {
 
             let ambiguities: Vec<_> = schedule
                 .graph()
-                .conflicts_to_string(schedule.graph().conflicting_systems(), world.components())
+                .conflicting_systems()
+                .to_string(schedule.graph(), world.components())
                 .map(|item| {
                     (
                         item.0,
@@ -1231,7 +1232,8 @@ mod tests {
 
             let ambiguities: Vec<_> = schedule
                 .graph()
-                .conflicts_to_string(schedule.graph().conflicting_systems(), world.components())
+                .conflicting_systems()
+                .to_string(schedule.graph(), world.components())
                 .map(|item| {
                     (
                         item.0,

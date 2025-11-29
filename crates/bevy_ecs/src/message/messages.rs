@@ -172,35 +172,6 @@ impl<M: Message> Messages<M> {
         self.write(Default::default())
     }
 
-    /// "Sends" an `message` by writing it to the current message buffer.
-    /// [`MessageReader`](super::MessageReader)s can then read the message.
-    /// This method returns the [ID](`MessageId`) of the sent `message`.
-    #[deprecated(since = "0.17.0", note = "Use `Messages<E>::write` instead.")]
-    #[track_caller]
-    pub fn send(&mut self, message: M) -> MessageId<M> {
-        self.write(message)
-    }
-
-    /// Sends a list of `messages` all at once, which can later be read by [`MessageReader`](super::MessageReader)s.
-    /// This is more efficient than sending each message individually.
-    /// This method returns the [IDs](`MessageId`) of the sent `messages`.
-    #[deprecated(since = "0.17.0", note = "Use `Messages<E>::write_batch` instead.")]
-    #[track_caller]
-    pub fn send_batch(&mut self, messages: impl IntoIterator<Item = M>) -> WriteBatchIds<M> {
-        self.write_batch(messages)
-    }
-
-    /// Sends the default value of the message. Useful when the message is an empty struct.
-    /// This method returns the [ID](`MessageId`) of the sent `message`.
-    #[deprecated(since = "0.17.0", note = "Use `Messages<E>::write_default` instead.")]
-    #[track_caller]
-    pub fn send_default(&mut self) -> MessageId<M>
-    where
-        M: Default,
-    {
-        self.write_default()
-    }
-
     /// Gets a new [`MessageCursor`]. This will include all messages already in the message buffers.
     pub fn get_cursor(&self) -> MessageCursor<M> {
         MessageCursor::default()
@@ -392,10 +363,6 @@ pub struct WriteBatchIds<E> {
     message_count: usize,
     _marker: PhantomData<E>,
 }
-
-/// [`Iterator`] over sent [`MessageIds`](`MessageId`) from a batch.
-#[deprecated(since = "0.17.0", note = "Use `WriteBatchIds` instead.")]
-pub type SendBatchIds<E> = WriteBatchIds<E>;
 
 impl<E: Message> Iterator for WriteBatchIds<E> {
     type Item = MessageId<E>;
