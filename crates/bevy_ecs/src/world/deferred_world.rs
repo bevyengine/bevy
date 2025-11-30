@@ -902,7 +902,7 @@ impl<'w> DeferredWorld<'w> {
     /// [`Commands::register_system`] instead.
     ///
     /// # Limitations
-    /// 
+    ///
     /// If this function is called twice for the same system before commands are executed, then it will register the system twice.
     ///
     /// This function only accepts ZST (zero-sized) systems to guarantee that any two systems of
