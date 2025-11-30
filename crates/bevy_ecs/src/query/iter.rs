@@ -4,7 +4,10 @@ use crate::{
     bundle::Bundle,
     change_detection::Tick,
     entity::{ContainsEntity, Entities, Entity, EntityEquivalent, EntitySet, EntitySetIterator},
-    query::{ArchetypeFilter, ArchetypeQueryData, DebugCheckedUnwrap, QueryState, StorageId},
+    query::{
+        ArchetypeFilter, ArchetypeQueryData, ContiguousQueryData, ContiguousQueryFilter,
+        DebugCheckedUnwrap, QueryState, StorageId,
+    },
     storage::{Table, TableRow, Tables},
     world::{
         unsafe_world_cell::UnsafeWorldCell, EntityMut, EntityMutExcept, EntityRef, EntityRefExcept,
@@ -899,6 +902,20 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
                 world.change_tick(),
             )
         }
+    }
+
+    /// Returns the next contiguous chunk of memory
+    /// or [`None`] if the query doesn't support contiguous access or if there is no elements left
+    #[inline(always)]
+    pub fn next_contiguous(&mut self) -> Option<D::Contiguous<'w, 's>>
+    where
+        D: ContiguousQueryData,
+        F: ContiguousQueryFilter,
+    {
+        // SAFETY:
+        // `tables` belongs to the same world that the cursor was initialized for.
+        // `query_state` is the state that was passed to `QueryIterationCursor::init`
+        unsafe { self.cursor.next_contiguous(self.tables, self.query_state) }
     }
 }
 
@@ -2528,6 +2545,62 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
             unsafe { ids.map(|id| archetypes[id.archetype_id].len()).sum() }
         };
         remaining_matched + self.current_len - self.current_row
+    }
+
+    /// Returns the next contiguous chunk of memory or [`None`] if it is impossible or there is none
+    ///
+    /// # Safety
+    /// - `tables` must belong to the same world that the [`QueryIterationCursor`] was initialized for.
+    /// - `query_state` must be the same [`QueryState`] that was passed to `init` or `init_empty`.
+    #[inline(always)]
+    unsafe fn next_contiguous(
+        &mut self,
+        tables: &'w Tables,
+        query_state: &'s QueryState<D, F>,
+    ) -> Option<D::Contiguous<'w, 's>>
+    where
+        D: ContiguousQueryData,
+        F: ContiguousQueryFilter,
+    {
+        if !self.is_dense {
+            return None;
+        }
+
+        loop {
+            if self.current_row == self.current_len {
+                let table_id = self.storage_id_iter.next()?.table_id;
+                let table = tables.get(table_id).debug_checked_unwrap();
+                if table.is_empty() {
+                    continue;
+                }
+                D::set_table(&mut self.fetch, &query_state.fetch_state, table);
+                F::set_table(&mut self.filter, &query_state.filter_state, table);
+                self.table_entities = table.entities();
+                self.current_len = table.entity_count();
+                self.current_row = 0;
+            }
+
+            let offset = self.current_row as usize;
+            self.current_row = self.current_len;
+
+            if !F::filter_fetch_contiguous(
+                &query_state.filter_state,
+                &mut self.filter,
+                self.table_entities,
+                offset,
+            ) {
+                continue;
+            }
+
+            let item = D::fetch_contiguous(
+                &query_state.fetch_state,
+                &mut self.fetch,
+                self.table_entities,
+                offset,
+            );
+
+            return Some(item);
+        }
     }
 
     // NOTE: If you are changing query iteration code, remember to update the following places, where relevant:

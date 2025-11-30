@@ -1104,6 +1104,50 @@ impl<'a, T> ThinSlicePtr<'a, T> {
         unsafe { &*self.ptr.add(index).as_ptr() }
     }
 
+    /// Returns a slice without performing bounds checks.
+    ///
+    /// # Safety
+    ///
+    /// `len` must be less or equal to the length of the slice.
+    pub unsafe fn as_slice(&self, len: usize) -> &'a [T] {
+        #[cfg(debug_assertions)]
+        assert!(len <= self.len, "tried to create an out-of-bounds slice");
+
+        // SAFETY: The caller guarantees `len` is not greater than the length of the slice
+        unsafe { core::slice::from_raw_parts(self.ptr.as_ptr(), len) }
+    }
+
+    /// Casts the slice to another type
+    pub fn cast<U>(&self) -> ThinSlicePtr<'a, U> {
+        ThinSlicePtr {
+            ptr: self.ptr.cast::<U>(),
+            #[cfg(debug_assertions)]
+            len: self.len * size_of::<T>() / size_of::<U>(),
+            _marker: PhantomData,
+        }
+    }
+
+    /// Offsets the slice beginning by [`count`] elements
+    ///
+    /// # Safety
+    ///
+    /// - `count` must be less or equal to the length of the slice
+    // The result pointer must lie within the same allocation
+    pub unsafe fn add(&self, count: usize) -> ThinSlicePtr<'a, T> {
+        #[cfg(debug_assertions)]
+        assert!(
+            count <= self.len,
+            "tried to offset the slice by more than the length"
+        );
+
+        Self {
+            ptr: unsafe { self.ptr.add(count) },
+            #[cfg(debug_assertions)]
+            len: self.len - count,
+            _marker: PhantomData,
+        }
+    }
+
     /// Indexes the slice without performing bounds checks.
     ///
     /// # Safety
@@ -1113,6 +1157,21 @@ impl<'a, T> ThinSlicePtr<'a, T> {
     pub unsafe fn get(self, index: usize) -> &'a T {
         // SAFETY: The caller guarantees that `index` is in-bounds.
         unsafe { self.get_unchecked(index) }
+    }
+}
+
+impl<'a, T> ThinSlicePtr<'a, UnsafeCell<T>> {
+    /// Returns a mutable reference of the slice
+    ///
+    /// # Safety
+    ///
+    /// - There must not be any aliases to the slice
+    /// - `len` must be less or equal to the length of the slice
+    pub unsafe fn as_mut_slice(&self, len: usize) -> &'a mut [T] {
+        #[cfg(debug_assertions)]
+        assert!(len <= self.len, "tried to create an out-of-bounds slice");
+
+        unsafe { core::slice::from_raw_parts_mut(UnsafeCell::raw_get(self.ptr.as_ptr()), len) }
     }
 }
 

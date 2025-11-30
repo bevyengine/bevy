@@ -3,8 +3,9 @@ use crate::{
     ptr::PtrMut,
     resource::Resource,
 };
-use bevy_ptr::{Ptr, UnsafeCellDeref};
+use bevy_ptr::{Ptr, ThinSlicePtr, UnsafeCellDeref};
 use core::{
+    cell::UnsafeCell,
     ops::{Deref, DerefMut},
     panic::Location,
 };
@@ -460,6 +461,63 @@ impl<'w, T: ?Sized> Mut<'w, T> {
     pub fn set_ticks(&mut self, last_run: Tick, this_run: Tick) {
         self.ticks.last_run = last_run;
         self.ticks.this_run = this_run;
+    }
+}
+
+/// Used by [`Mut`] for [`ContiguousQueryData`] to allow marking component's changes
+pub struct ContiguousComponentTicks<'w, const MUTABLE: bool> {
+    added: ThinSlicePtr<'w, UnsafeCell<Tick>>,
+    changed: ThinSlicePtr<'w, UnsafeCell<Tick>>,
+    changed_by: MaybeLocation<ThinSlicePtr<'w, UnsafeCell<&'static Location<'static>>>>,
+    count: usize,
+    last_run: Tick,
+    this_run: Tick,
+}
+
+impl<'w> ContiguousComponentTicks<'w, true> {
+    /// Returns mutable changed ticks slice
+    pub fn get_changed_ticks_mut(&mut self) -> &mut [Tick] {
+        unsafe { self.changed.as_mut_slice(self.count) }
+    }
+}
+
+impl<'w, const MUTABLE: bool> ContiguousComponentTicks<'w, MUTABLE> {
+    pub(crate) unsafe fn new(
+        added: ThinSlicePtr<'w, UnsafeCell<Tick>>,
+        changed: ThinSlicePtr<'w, UnsafeCell<Tick>>,
+        changed_by: MaybeLocation<ThinSlicePtr<'w, UnsafeCell<&'static Location<'static>>>>,
+        count: usize,
+        last_run: Tick,
+        this_run: Tick,
+    ) -> Self {
+        Self {
+            added,
+            changed,
+            count,
+            changed_by,
+            last_run,
+            this_run,
+        }
+    }
+
+    /// Returns immutable changed ticks slice
+    pub fn get_changed_ticks(&self) -> &[Tick] {
+        unsafe { self.changed.cast::<Tick>().as_slice(self.count) }
+    }
+
+    /// Returns immutable added ticks slice
+    pub fn get_added_ticks(&self) -> &[Tick] {
+        unsafe { self.added.cast::<Tick>().as_slice(self.count) }
+    }
+
+    /// Returns the last tick system ran
+    pub fn last_run(&self) -> Tick {
+        self.last_run
+    }
+
+    /// Returns the current tick
+    pub fn this_run(&self) -> Tick {
+        self.this_run
     }
 }
 
