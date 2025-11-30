@@ -6,6 +6,7 @@ use bevy::{
     core_pipeline::tonemapping::Tonemapping,
     input::mouse::{AccumulatedMouseMotion, AccumulatedMouseScroll, MouseButtonInput},
     math::prelude::*,
+    mesh::InfallibleMesh,
     post_process::bloom::Bloom,
     prelude::*,
 };
@@ -206,7 +207,7 @@ impl Meshable for Shape {
 }
 
 impl MeshBuilder for ShapeMeshBuilder {
-    fn build(&self) -> Mesh {
+    fn build_infallible(&self) -> InfallibleMesh {
         match self.shape {
             Shape::Cuboid => CUBOID.mesh().into(),
             Shape::Sphere => SPHERE.mesh().into(),

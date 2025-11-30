@@ -10,7 +10,7 @@ use bevy::{
     color::palettes::basic::YELLOW,
     core_pipeline::core_2d::{Transparent2d, CORE_2D_DEPTH_FORMAT},
     math::{ops, FloatOrd},
-    mesh::{Indices, MeshVertexAttribute, VertexBufferLayout},
+    mesh::{Indices, InfallibleMesh, MeshVertexAttribute, VertexBufferLayout},
     prelude::*,
     render::{
         mesh::RenderMesh,
@@ -58,7 +58,7 @@ fn star(
     // specified. We set `RenderAssetUsages::RENDER_WORLD`, meaning this mesh
     // will not be accessible in future frames from the `meshes` resource, in
     // order to save on memory once it has been uploaded to the GPU.
-    let mut star = Mesh::new(
+    let mut star = InfallibleMesh::new(
         PrimitiveTopology::TriangleList,
         RenderAssetUsages::RENDER_WORLD,
     );

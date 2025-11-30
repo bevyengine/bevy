@@ -1,4 +1,4 @@
-use crate::{Indices, Mesh, MeshBuilder, Meshable, PrimitiveTopology};
+use crate::{Indices, InfallibleMesh, Mesh, MeshBuilder, Meshable, PrimitiveTopology};
 use bevy_asset::RenderAssetUsages;
 use bevy_math::{primitives::Triangle3d, Vec3};
 use bevy_reflect::prelude::*;
@@ -11,7 +11,7 @@ pub struct Triangle3dMeshBuilder {
 }
 
 impl MeshBuilder for Triangle3dMeshBuilder {
-    fn build(&self) -> Mesh {
+    fn build_infallible(&self) -> InfallibleMesh {
         let positions: Vec<_> = self.triangle.vertices.into();
         let uvs: Vec<_> = uv_coords(&self.triangle).into();
 
@@ -21,7 +21,7 @@ impl MeshBuilder for Triangle3dMeshBuilder {
 
         let indices = Indices::U32(vec![0, 1, 2]);
 
-        Mesh::new(
+        InfallibleMesh::new(
             PrimitiveTopology::TriangleList,
             RenderAssetUsages::default(),
         )

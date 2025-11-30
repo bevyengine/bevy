@@ -31,7 +31,7 @@ use bevy_math::{Mat4, Vec3};
 use bevy_mesh::{
     morph::{MeshMorphWeights, MorphAttributes, MorphTargetImage, MorphWeights},
     skinning::{SkinnedMesh, SkinnedMeshInverseBindposes},
-    Indices, Mesh, Mesh3d, MeshVertexAttribute, PrimitiveTopology,
+    Indices, InfallibleMesh, Mesh, Mesh3d, MeshVertexAttribute, PrimitiveTopology,
 };
 #[cfg(feature = "pbr_transmission_textures")]
 use bevy_pbr::UvChannel;
@@ -727,7 +727,7 @@ impl GltfLoader {
                 };
                 let primitive_topology = primitive_topology(primitive.mode())?;
 
-                let mut mesh = Mesh::new(primitive_topology, settings.load_meshes);
+                let mut mesh = InfallibleMesh::new(primitive_topology, settings.load_meshes);
 
                 // Read vertex attributes
                 for (semantic, accessor) in primitive.attributes() {
@@ -837,7 +837,8 @@ impl GltfLoader {
                     });
                 }
 
-                let mesh_handle = load_context.add_labeled_asset(primitive_label.to_string(), mesh);
+                let mesh_handle =
+                    load_context.add_labeled_asset(primitive_label.to_string(), mesh.into());
                 primitives.push(super::GltfPrimitive::new(
                     &gltf_mesh,
                     &primitive,

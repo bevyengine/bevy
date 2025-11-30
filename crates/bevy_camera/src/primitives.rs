@@ -23,8 +23,7 @@ impl MeshAabb for Mesh {
             return Some(aabb.into());
         }
 
-        let Ok(VertexAttributeValues::Float32x3(values)) =
-            self.try_attribute(Mesh::ATTRIBUTE_POSITION)
+        let Ok(VertexAttributeValues::Float32x3(values)) = self.attribute(Mesh::ATTRIBUTE_POSITION)
         else {
             return None;
         };

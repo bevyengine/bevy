@@ -1,4 +1,4 @@
-use crate::{Indices, Mesh, MeshBuilder, Meshable, PrimitiveTopology};
+use crate::{Indices, InfallibleMesh, Mesh, MeshBuilder, Meshable, PrimitiveTopology};
 use bevy_asset::RenderAssetUsages;
 use bevy_math::{ops, primitives::Cone, Vec3};
 use bevy_reflect::prelude::*;
@@ -69,7 +69,7 @@ impl ConeMeshBuilder {
 }
 
 impl MeshBuilder for ConeMeshBuilder {
-    fn build(&self) -> Mesh {
+    fn build_infallible(&self) -> InfallibleMesh {
         let half_height = self.cone.height / 2.0;
 
         // `resolution` vertices for the base, `resolution` vertices for the bottom of the lateral surface,
@@ -160,7 +160,7 @@ impl MeshBuilder for ConeMeshBuilder {
             ConeAnchor::MidPoint => (),
         };
 
-        Mesh::new(
+        InfallibleMesh::new(
             PrimitiveTopology::TriangleList,
             RenderAssetUsages::default(),
         )
@@ -213,7 +213,7 @@ mod tests {
         }
         .mesh()
         .resolution(4)
-        .build();
+        .build_infallible();
 
         let Some(VertexAttributeValues::Float32x3(mut positions)) =
             mesh.remove_attribute(Mesh::ATTRIBUTE_POSITION)

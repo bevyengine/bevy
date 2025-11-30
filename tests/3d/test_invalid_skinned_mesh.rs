@@ -6,7 +6,7 @@ use bevy::{
     math::ops,
     mesh::{
         skinning::{SkinnedMesh, SkinnedMeshInverseBindposes},
-        Indices, PrimitiveTopology, VertexAttributeValues,
+        Indices, InfallibleMesh, PrimitiveTopology, VertexAttributeValues,
     },
     post_process::motion_blur::MotionBlur,
     prelude::*,
@@ -96,7 +96,7 @@ fn setup_meshes(
     mut inverse_bindposes_assets: ResMut<Assets<SkinnedMeshInverseBindposes>>,
 ) {
     // Create a mesh with two rectangles.
-    let unskinned_mesh = Mesh::new(
+    let unskinned_mesh = InfallibleMesh::new(
         PrimitiveTopology::TriangleList,
         RenderAssetUsages::default(),
     )

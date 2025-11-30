@@ -32,7 +32,7 @@ impl Plugin for ForwardDecalPlugin {
         let mesh = app.world_mut().resource_mut::<Assets<Mesh>>().add(
             Rectangle::from_size(Vec2::ONE)
                 .mesh()
-                .build()
+                .build_infallible()
                 .rotated_by(Quat::from_rotation_arc(Vec3::Z, Vec3::Y))
                 .with_generated_tangents()
                 .unwrap(),
