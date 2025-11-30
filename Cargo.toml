@@ -3787,14 +3787,6 @@ doc-scrape-examples = true
 hidden = true
 
 [[example]]
-name = "register_system_cached_on_deferred_world"
-path = "tests/ecs/register_system_cached_on_deferred_world.rs"
-doc-scrape-examples = true
-
-[package.metadata.example.register_system_cached_on_deferred_world]
-hidden = true
-
-[[example]]
 name = "resizing"
 path = "tests/window/resizing.rs"
 doc-scrape-examples = true

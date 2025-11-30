@@ -151,10 +151,12 @@ mod tests {
         component::{Component, ComponentId, RequiredComponents, RequiredComponentsError},
         entity::{Entity, EntityMapper},
         entity_disabling::DefaultQueryFilters,
+        lifecycle::HookContext,
         prelude::Or,
         query::{Added, Changed, FilteredAccess, QueryFilter, With, Without},
         resource::Resource,
-        world::{EntityMut, EntityRef, Mut, World},
+        system::SystemId,
+        world::{DeferredWorld, EntityMut, EntityRef, Mut, World},
     };
     use alloc::{
         string::{String, ToString},
@@ -2775,5 +2777,46 @@ mod tests {
         struct CloneFunction;
 
         fn custom_clone(_source: &SourceComponent, _ctx: &mut ComponentCloneCtx) {}
+    }
+
+    #[test]
+    fn register_system_cached_on_deferred_world() {
+        let mut world = World::new();
+
+        let first_entity = world.spawn(ComponentWithOnAddHook).id();
+        let second_entity = world.spawn(ComponentWithOnAddHook).id();
+
+        let first_system = world
+            .entity(first_entity)
+            .get::<RegisteredSystem>()
+            .unwrap()
+            .0;
+        let second_system = world
+            .entity(second_entity)
+            .get::<RegisteredSystem>()
+            .unwrap()
+            .0;
+
+        assert_eq!(first_system, second_system);
+
+        #[derive(Component)]
+        #[component(on_add = Self::on_add)]
+        struct ComponentWithOnAddHook;
+
+        impl ComponentWithOnAddHook {
+            fn on_add(mut world: DeferredWorld, context: HookContext) {
+                let system_id =
+                    world.register_system_cached(Self::the_system_that_will_be_registered);
+                world
+                    .commands()
+                    .entity(context.entity)
+                    .insert(RegisteredSystem(system_id));
+            }
+
+            fn the_system_that_will_be_registered() {}
+        }
+
+        #[derive(Component)]
+        struct RegisteredSystem(SystemId);
     }
 }
