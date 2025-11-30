@@ -1309,7 +1309,7 @@ unsafe impl<T: SystemBuffer> SystemParam for Deferred<'_, T> {
     }
 }
 
-/// A dummy type to tell the executor run the system exclusively.
+/// A dummy type to tell the executor to run the system exclusively.
 pub struct ExclusiveMarker(PhantomData<()>);
 
 // SAFETY: No world access.
