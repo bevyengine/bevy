@@ -3,7 +3,7 @@
 #import bevy_render::view::View
 #import bevy_solari::brdf::{evaluate_brdf, evaluate_specular_brdf}
 #import bevy_solari::gbuffer_utils::gpixel_resolve
-#import bevy_solari::sampling::{sample_random_light, random_light_pdf, sample_ggx_vndf, ggx_vndf_pdf, power_heuristic}
+#import bevy_solari::sampling::{sample_random_light, random_emissive_light_pdf, sample_ggx_vndf, ggx_vndf_pdf, power_heuristic}
 #import bevy_solari::scene_bindings::{trace_ray, resolve_ray_hit_full, ResolvedRayHitFull, RAY_T_MIN, RAY_T_MAX}
 #import bevy_solari::world_cache::{query_world_cache, WORLD_CACHE_CELL_LIFETIME}
 
@@ -107,7 +107,7 @@ fn trace_glossy_path(initial_ray_origin: vec3<f32>, initial_wi: vec3<f32>, initi
             // Sample direct lighting (NEE)
             let direct_lighting = sample_random_light(ray_hit.world_position, ray_hit.world_normal, rng);
             let direct_lighting_brdf = evaluate_brdf(ray_hit.world_normal, wo, direct_lighting.wi, ray_hit.material);
-            let mis_weight = nee_mis_weight(direct_lighting.inverse_pdf, wo_tangent, direct_lighting.wi, ray_hit, TBN);
+            let mis_weight = nee_mis_weight(direct_lighting.inverse_pdf, direct_lighting.brdf_rays_can_hit, wo_tangent, direct_lighting.wi, ray_hit, TBN);
             radiance += throughput * mis_weight * direct_lighting.radiance * direct_lighting.inverse_pdf * direct_lighting_brdf;
         }
 
@@ -129,11 +129,15 @@ fn trace_glossy_path(initial_ray_origin: vec3<f32>, initial_wi: vec3<f32>, initi
 fn emissive_mis_weight(p_bounce: f32, ray_hit: ResolvedRayHitFull, previous_surface_perfectly_specular: bool) -> f32 {
     if previous_surface_perfectly_specular { return 1.0; }
 
-    let p_light = random_light_pdf(ray_hit);
+    let p_light = random_emissive_light_pdf(ray_hit);
     return power_heuristic(p_bounce, p_light);
 }
 
-fn nee_mis_weight(inverse_p_light: f32, wo_tangent: vec3<f32>, wi: vec3<f32>, ray_hit: ResolvedRayHitFull, TBN: mat3x3<f32>) -> f32 {
+fn nee_mis_weight(inverse_p_light: f32, brdf_rays_can_hit: bool, wo_tangent: vec3<f32>, wi: vec3<f32>, ray_hit: ResolvedRayHitFull, TBN: mat3x3<f32>) -> f32 {
+    if !brdf_rays_can_hit {
+        return 1.0;
+    }
+
     let T = TBN[0];
     let B = TBN[1];
     let N = TBN[2];
