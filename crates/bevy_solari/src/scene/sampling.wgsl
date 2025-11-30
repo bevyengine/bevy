@@ -6,11 +6,15 @@
 #import bevy_solari::scene_bindings::{trace_ray, RAY_T_MIN, RAY_T_MAX, light_sources, directional_lights, LightSource, LIGHT_SOURCE_KIND_DIRECTIONAL, resolve_triangle_data_full, ResolvedRayHitFull}
 
 fn power_heuristic(f: f32, g: f32) -> f32 {
-    return f * f / (f * f + g * g);
+    return balance_heuristic(f * f, g * g);
 }
 
 fn balance_heuristic(f: f32, g: f32) -> f32 {
-    return f / (f + g);
+    let sum = f + g;
+    if sum == 0.0 {
+        return 0.0;
+    }
+    return f / sum;
 }
 
 // https://gpuopen.com/download/Bounded_VNDF_Sampling_for_Smith-GGX_Reflections.pdf (Listing 1)
