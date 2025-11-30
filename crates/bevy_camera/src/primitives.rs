@@ -23,8 +23,7 @@ impl MeshAabb for Mesh {
             return Some(Aabb::from_min_max(extents.0, extents.1));
         }
 
-        let Some(VertexAttributeValues::Float32x3(values)) =
-            self.attribute(Mesh::ATTRIBUTE_POSITION)
+        let Ok(VertexAttributeValues::Float32x3(values)) = self.attribute(Mesh::ATTRIBUTE_POSITION)
         else {
             return None;
         };

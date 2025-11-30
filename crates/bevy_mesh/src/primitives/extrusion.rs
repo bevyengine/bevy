@@ -4,7 +4,7 @@ use bevy_math::{
 };
 
 use super::{MeshBuilder, Meshable};
-use crate::{Indices, Mesh, PrimitiveTopology, VertexAttributeValues};
+use crate::{Indices, InfallibleMesh, Mesh, PrimitiveTopology, VertexAttributeValues};
 
 /// A type representing a segment of the perimeter of an extrudable mesh.
 pub enum PerimeterSegment {
@@ -177,12 +177,12 @@ where
     P: Primitive2d + Meshable,
     P::Output: Extrudable,
 {
-    fn build(&self) -> Mesh {
+    fn build_infallible(&self) -> InfallibleMesh {
         // Create and move the base mesh to the front
-        let mut front_face =
-            self.base_builder
-                .build()
-                .translated_by(Vec3::new(0., 0., self.half_depth));
+        let mut front_face = self
+            .base_builder
+            .build_infallible()
+            .translated_by(Vec3::new(0., 0., self.half_depth));
 
         // Move the uvs of the front face to be between (0., 0.) and (0.5, 0.5)
         if let Some(VertexAttributeValues::Float32x2(uvs)) =
@@ -413,7 +413,7 @@ where
                 }
             }
 
-            Mesh::new(PrimitiveTopology::TriangleList, front_face.asset_usage)
+            InfallibleMesh::new(PrimitiveTopology::TriangleList, front_face.asset_usage)
                 .with_inserted_indices(Indices::U32(indices))
                 .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
                 .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)

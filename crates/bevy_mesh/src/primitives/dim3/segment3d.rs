@@ -1,4 +1,4 @@
-use crate::{Indices, Mesh, MeshBuilder, Meshable, PrimitiveTopology};
+use crate::{Indices, InfallibleMesh, Mesh, MeshBuilder, Meshable, PrimitiveTopology};
 use bevy_asset::RenderAssetUsages;
 use bevy_math::primitives::Segment3d;
 use bevy_reflect::prelude::*;
@@ -11,11 +11,11 @@ pub struct Segment3dMeshBuilder {
 }
 
 impl MeshBuilder for Segment3dMeshBuilder {
-    fn build(&self) -> Mesh {
+    fn build_infallible(&self) -> InfallibleMesh {
         let positions: Vec<_> = self.segment.vertices.into();
         let indices = Indices::U32(vec![0, 1]);
 
-        Mesh::new(PrimitiveTopology::LineList, RenderAssetUsages::default())
+        InfallibleMesh::new(PrimitiveTopology::LineList, RenderAssetUsages::default())
             .with_inserted_indices(indices)
             .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
     }

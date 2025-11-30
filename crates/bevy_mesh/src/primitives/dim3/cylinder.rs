@@ -1,4 +1,4 @@
-use crate::{Indices, Mesh, MeshBuilder, Meshable, PrimitiveTopology};
+use crate::{Indices, InfallibleMesh, Mesh, MeshBuilder, Meshable, PrimitiveTopology};
 use bevy_asset::RenderAssetUsages;
 use bevy_math::{ops, primitives::Cylinder};
 use bevy_reflect::prelude::*;
@@ -94,7 +94,7 @@ impl CylinderMeshBuilder {
 }
 
 impl MeshBuilder for CylinderMeshBuilder {
-    fn build(&self) -> Mesh {
+    fn build_infallible(&self) -> InfallibleMesh {
         let resolution = self.resolution;
         let segments = self.segments;
 
@@ -193,7 +193,7 @@ impl MeshBuilder for CylinderMeshBuilder {
             CylinderAnchor::MidPoint => (),
         };
 
-        Mesh::new(
+        InfallibleMesh::new(
             PrimitiveTopology::TriangleList,
             RenderAssetUsages::default(),
         )

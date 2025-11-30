@@ -86,7 +86,7 @@ fn name_morphs(
         if let AssetEvent::<Mesh>::Added { id } = event
             && let Some(path) = asset_server.get_path(*id)
             && let Some(mesh) = meshes.get(*id)
-            && let Some(names) = mesh.morph_target_names()
+            && let Some(names) = mesh.morph_target_names().unwrap()
         {
             info!("Morph target names for {path:?}:");
 

@@ -144,7 +144,10 @@ impl RenderAsset for RenderMesh {
 
     fn byte_len(mesh: &Self::SourceAsset) -> Option<usize> {
         let mut vertex_size = 0;
-        for attribute_data in mesh.attributes() {
+        for attribute_data in mesh
+            .attributes()
+            .expect("mesh data should always be available in render world")
+        {
             let vertex_format = attribute_data.0.format;
             vertex_size += vertex_format.size() as usize;
         }
@@ -163,21 +166,27 @@ impl RenderAsset for RenderMesh {
     ) -> Result<Self, PrepareAssetError<Self::SourceAsset>> {
         #[cfg(feature = "morph")]
         let morph_targets = match mesh.morph_targets() {
-            Some(mt) => {
+            Ok(mt) => {
                 let Some(target_image) = _images.get(mt) else {
                     return Err(PrepareAssetError::RetryNextUpdate(mesh));
                 };
                 Some(target_image.texture_view.clone())
             }
-            None => None,
+            Err(MeshAccessError::NotFound) => None,
+            Err(MeshAccessError::ExtractedToRenderWorld) => {
+                panic!("mesh data should always be available in render world")
+            }
         };
 
         let buffer_info = match mesh.indices() {
-            Some(indices) => RenderMeshBufferInfo::Indexed {
+            Ok(indices) => RenderMeshBufferInfo::Indexed {
                 count: indices.len() as u32,
                 index_format: indices.into(),
             },
-            None => RenderMeshBufferInfo::NonIndexed,
+            Err(MeshAccessError::NotFound) => RenderMeshBufferInfo::NonIndexed,
+            Err(MeshAccessError::ExtractedToRenderWorld) => {
+                panic!("mesh data should always be available in render world")
+            }
         };
 
         let mesh_vertex_buffer_layout =
@@ -185,7 +194,7 @@ impl RenderAsset for RenderMesh {
 
         let key_bits = BaseMeshPipelineKey::from_primitive_topology(mesh.primitive_topology());
         #[cfg(feature = "morph")]
-        let key_bits = if mesh.morph_targets().is_some() {
+        let key_bits = if mesh.morph_targets().is_ok() {
             key_bits | BaseMeshPipelineKey::MORPH_TARGETS
         } else {
             key_bits
