@@ -1,5 +1,5 @@
 use crate::{
-    component::{CheckChangeTicks, Tick},
+    change_detection::{CheckChangeTicks, Tick},
     error::{BevyError, Result},
     never::Never,
     prelude::FromWorld,
@@ -19,6 +19,9 @@ use variadics_please::all_tuples;
 
 #[cfg(feature = "trace")]
 use tracing::{info_span, Span};
+
+#[cfg(feature = "trace")]
+use alloc::string::ToString as _;
 
 use super::{
     IntoSystem, ReadOnlySystem, RunSystemError, SystemParamBuilder, SystemParamValidationError,
@@ -46,9 +49,9 @@ impl SystemMeta {
             // These spans are initialized during plugin build, so we set the parent to `None` to prevent
             // them from being children of the span that is measuring the plugin build time.
             #[cfg(feature = "trace")]
-            system_span: info_span!(parent: None, "system", name = name.clone().as_string()),
+            system_span: info_span!(parent: None, "system", name = name.clone().to_string()),
             #[cfg(feature = "trace")]
-            commands_span: info_span!(parent: None, "system_commands", name = name.clone().as_string()),
+            commands_span: info_span!(parent: None, "system_commands", name = name.clone().to_string()),
             name,
             flags: SystemStateFlags::empty(),
             last_run: Tick::new(0),
@@ -135,7 +138,6 @@ impl SystemMeta {
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_ecs::system::SystemState;
-/// # use bevy_ecs::event::Events;
 /// #
 /// # #[derive(Message)]
 /// # struct MyMessage;
@@ -403,58 +405,6 @@ impl<Param: SystemParam> SystemState<Param> {
         if !self.matches_world(world_id) {
             panic_mismatched(self.world_id, world_id);
         }
-    }
-
-    /// Has no effect
-    #[inline]
-    #[deprecated(
-        since = "0.17.0",
-        note = "No longer has any effect.  Calls may be removed."
-    )]
-    pub fn update_archetypes(&mut self, _world: &World) {}
-
-    /// Has no effect
-    #[inline]
-    #[deprecated(
-        since = "0.17.0",
-        note = "No longer has any effect.  Calls may be removed."
-    )]
-    pub fn update_archetypes_unsafe_world_cell(&mut self, _world: UnsafeWorldCell) {}
-
-    /// Identical to [`SystemState::get`].
-    #[inline]
-    #[deprecated(since = "0.17.0", note = "Call `SystemState::get` instead.")]
-    pub fn get_manual<'w, 's>(&'s mut self, world: &'w World) -> SystemParamItem<'w, 's, Param>
-    where
-        Param: ReadOnlySystemParam,
-    {
-        self.get(world)
-    }
-
-    /// Identical to [`SystemState::get_mut`].
-    #[inline]
-    #[deprecated(since = "0.17.0", note = "Call `SystemState::get_mut` instead.")]
-    pub fn get_manual_mut<'w, 's>(
-        &'s mut self,
-        world: &'w mut World,
-    ) -> SystemParamItem<'w, 's, Param> {
-        self.get_mut(world)
-    }
-
-    /// Identical to [`SystemState::get_unchecked`].
-    ///
-    /// # Safety
-    /// This call might access any of the input parameters in a way that violates Rust's mutability rules. Make sure the data
-    /// access is safe in the context of global [`World`] access. The passed-in [`World`] _must_ be the [`World`] the [`SystemState`] was
-    /// created with.
-    #[inline]
-    #[deprecated(since = "0.17.0", note = "Call `SystemState::get_unchecked` instead.")]
-    pub unsafe fn get_unchecked_manual<'w, 's>(
-        &'s mut self,
-        world: UnsafeWorldCell<'w>,
-    ) -> SystemParamItem<'w, 's, Param> {
-        // SAFETY: Caller ensures safety requirements
-        unsafe { self.get_unchecked(world) }
     }
 
     /// Retrieve the [`SystemParam`] values.

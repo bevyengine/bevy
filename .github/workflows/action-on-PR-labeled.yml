@@ -14,9 +14,9 @@ permissions:
 jobs:
   comment-on-migration-guide-label:
     runs-on: ubuntu-latest
-    if: github.event.label.name == 'M-Needs-Migration-Guide'
+    if: github.event.label.name == 'M-Migration-Guide'
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 2
@@ -44,9 +44,9 @@ jobs:
             })
   comment-on-release-note-label:
     runs-on: ubuntu-latest
-    if: github.event.label.name == 'M-Needs-Release-Note'
+    if: github.event.label.name == 'M-Release-Note'
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 2

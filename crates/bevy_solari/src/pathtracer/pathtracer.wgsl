@@ -54,7 +54,7 @@ fn pathtrace(@builtin(global_invocation_id) global_id: vec3<u32>) {
             radiance += mis_weight * throughput * ray_hit.material.emissive;
 
             // Sample direct lighting, but only if the surface is not mirror-like
-            let is_perfectly_specular = ray_hit.material.roughness < 0.0001 && ray_hit.material.metallic > 0.9999;
+            let is_perfectly_specular = ray_hit.material.roughness <= 0.001 && ray_hit.material.metallic > 0.9999;
             if !is_perfectly_specular {
                 let direct_lighting = sample_random_light(ray_hit.world_position, ray_hit.world_normal, &rng);
                 let pdf_of_bounce = brdf_pdf(wo, direct_lighting.wi, ray_hit);
@@ -100,11 +100,11 @@ struct NextBounce {
 }
 
 fn importance_sample_next_bounce(wo: vec3<f32>, ray_hit: ResolvedRayHitFull, rng: ptr<function, u32>) -> NextBounce {
-    let is_perfectly_specular = ray_hit.material.roughness < 0.0001 && ray_hit.material.metallic > 0.9999;
+    let is_perfectly_specular = ray_hit.material.roughness <= 0.001 && ray_hit.material.metallic > 0.9999;
     if is_perfectly_specular {
         return NextBounce(reflect(-wo, ray_hit.world_normal), 1.0, true);
     }
-    let diffuse_weight = mix(mix(0.4f, 0.9f, ray_hit.material.perceptual_roughness), 0.f, ray_hit.material.metallic);
+    let diffuse_weight = mix(mix(0.4, 0.9, ray_hit.material.perceptual_roughness), 0.0, ray_hit.material.metallic);
     let specular_weight = 1.0 - diffuse_weight;
 
     let TBN = calculate_tbn_mikktspace(ray_hit.world_normal, ray_hit.world_tangent);
@@ -133,7 +133,7 @@ fn importance_sample_next_bounce(wo: vec3<f32>, ray_hit: ResolvedRayHitFull, rng
 }
 
 fn brdf_pdf(wo: vec3<f32>, wi: vec3<f32>, ray_hit: ResolvedRayHitFull) -> f32 {
-    let diffuse_weight = mix(mix(0.4f, 0.9f, ray_hit.material.roughness), 0.f, ray_hit.material.metallic);
+    let diffuse_weight = mix(mix(0.4, 0.9, ray_hit.material.roughness), 0.0, ray_hit.material.metallic);
     let specular_weight = 1.0 - diffuse_weight;
 
     let TBN = calculate_tbn_mikktspace(ray_hit.world_normal, ray_hit.world_tangent);

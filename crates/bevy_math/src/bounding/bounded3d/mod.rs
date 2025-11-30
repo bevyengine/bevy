@@ -6,6 +6,7 @@ use glam::Mat3;
 use super::{BoundingVolume, IntersectsVolume};
 use crate::{
     ops::{self, FloatPow},
+    primitives::Cuboid,
     Isometry3d, Quat, Vec3A,
 };
 
@@ -116,6 +117,15 @@ impl Aabb3d {
     pub fn closest_point(&self, point: impl Into<Vec3A>) -> Vec3A {
         // Clamp point coordinates to the AABB
         point.into().clamp(self.min, self.max)
+    }
+}
+
+impl From<Cuboid> for Aabb3d {
+    fn from(value: Cuboid) -> Self {
+        Aabb3d {
+            min: (-value.half_size).into(),
+            max: value.half_size.into(),
+        }
     }
 }
 

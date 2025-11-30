@@ -13,7 +13,7 @@ use bevy_color::{Color, ColorToComponents};
 use bevy_core_pipeline::core_3d::graph::{Core3d, Node3d};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
-    component::Tick,
+    change_detection::Tick,
     prelude::*,
     query::QueryItem,
     system::{lifetimeless::SRes, SystemChangeTick, SystemParamItem},
