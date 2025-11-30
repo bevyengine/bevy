@@ -750,11 +750,11 @@ impl core::ops::Deref for InfallibleMesh {
 /// `StandardMaterial` or `ColorMaterial`:
 ///
 /// ```
-/// # use bevy_mesh::{Mesh, Indices, PrimitiveTopology};
+/// # use bevy_mesh::{Mesh, InfallibleMesh, Indices, PrimitiveTopology};
 /// # use bevy_asset::RenderAssetUsages;
 /// fn create_simple_parallelogram() -> Mesh {
 ///     // Create a new mesh using a triangle list topology, where each set of 3 vertices composes a triangle.
-///     Mesh::new(PrimitiveTopology::TriangleList, RenderAssetUsages::default())
+///     InfallibleMesh::new(PrimitiveTopology::TriangleList, RenderAssetUsages::default())
 ///         // Add 4 vertices, each with its own position attribute (coordinate in
 ///         // 3D space), for each of the corners of the parallelogram.
 ///         .with_inserted_attribute(
@@ -779,6 +779,7 @@ impl core::ops::Deref for InfallibleMesh {
 ///             // Second triangle
 ///             1, 3, 2
 ///         ]))
+///         .into()
 /// }
 /// ```
 ///
