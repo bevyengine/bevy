@@ -472,9 +472,9 @@ impl Meshable for Heart {
     // The `MeshBuilder` can be used to create the actual mesh for that primitive.
     type Output = HeartMeshBuilder;
 
-    fn mesh(&self) -> Self::Output {
+    fn mesh(self) -> Self::Output {
         Self::Output {
-            heart: *self,
+            heart: self,
             resolution: 32,
         }
     }

@@ -85,15 +85,9 @@ impl MeshBuilder for CuboidMeshBuilder {
 impl Meshable for Cuboid {
     type Output = CuboidMeshBuilder;
 
-    fn mesh(&self) -> Self::Output {
+    fn mesh(self) -> Self::Output {
         CuboidMeshBuilder {
             half_size: self.half_size,
         }
-    }
-}
-
-impl From<Cuboid> for Mesh {
-    fn from(cuboid: Cuboid) -> Self {
-        cuboid.mesh().build()
     }
 }

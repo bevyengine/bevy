@@ -249,16 +249,10 @@ impl MeshBuilder for SphereMeshBuilder {
 impl Meshable for Sphere {
     type Output = SphereMeshBuilder;
 
-    fn mesh(&self) -> Self::Output {
+    fn mesh(self) -> Self::Output {
         SphereMeshBuilder {
-            sphere: *self,
+            sphere: self,
             ..Default::default()
         }
-    }
-}
-
-impl From<Sphere> for Mesh {
-    fn from(sphere: Sphere) -> Self {
-        sphere.mesh().build()
     }
 }

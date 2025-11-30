@@ -54,13 +54,7 @@ impl MeshBuilder for TetrahedronMeshBuilder {
 impl Meshable for Tetrahedron {
     type Output = TetrahedronMeshBuilder;
 
-    fn mesh(&self) -> Self::Output {
-        TetrahedronMeshBuilder { tetrahedron: *self }
-    }
-}
-
-impl From<Tetrahedron> for Mesh {
-    fn from(tetrahedron: Tetrahedron) -> Self {
-        tetrahedron.mesh().build()
+    fn mesh(self) -> Self::Output {
+        TetrahedronMeshBuilder { tetrahedron: self }
     }
 }
