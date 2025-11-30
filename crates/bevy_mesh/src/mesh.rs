@@ -1362,6 +1362,94 @@ impl Mesh {
             })
         }
     }
+
+    /// Get multiple vertex attributes of the [`Mesh`] mutably.
+    ///
+    /// The result will have the same length as `attributes`, and missing or duplicated ids
+    /// will be returned as [`None`].
+    ///
+    /// ## Example
+    /// ```
+    /// # use bevy_asset::RenderAssetUsages;
+    /// # use bevy_math::{Vec3, Vec4};
+    /// # use bevy_mesh::{Mesh, PrimitiveTopology};
+    /// # let mut mesh = Mesh::new(PrimitiveTopology::PointList, RenderAssetUsages::default())
+    /// #  .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, vec![Vec3::new(0., 0., 0.)])
+    /// #  .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, vec![Vec3::new(1., 1., 1.)])
+    /// #  .with_inserted_attribute(Mesh::ATTRIBUTE_COLOR, vec![Vec4::new(2., 2., 2., 2.)]);
+    /// let [pos1, pos2, pos3, normal, color] = mesh.get_attributes_mut([
+    ///     &Mesh::ATTRIBUTE_POSITION.id,
+    ///     &Mesh::ATTRIBUTE_POSITION.id,
+    ///     &Mesh::ATTRIBUTE_POSITION.id,
+    ///     &Mesh::ATTRIBUTE_NORMAL.id,
+    ///     &Mesh::ATTRIBUTE_COLOR.id,
+    /// ]);
+    /// assert_eq!(pos1.unwrap().0, &Mesh::ATTRIBUTE_POSITION);
+    /// assert!(pos2.is_none());
+    /// assert!(pos3.is_none());
+    /// assert_eq!(normal.unwrap().0, &Mesh::ATTRIBUTE_NORMAL);
+    /// assert_eq!(color.unwrap().0, &Mesh::ATTRIBUTE_COLOR);
+    /// ```
+    pub fn get_attributes_mut<'a, const N: usize>(
+        &'a mut self,
+        ks: [&MeshVertexAttributeId; N],
+    ) -> [Option<(&'a MeshVertexAttribute, &'a mut VertexAttributeValues)>; N] {
+        let mut attrs = self
+            .attributes
+            .iter_mut()
+            .map(|(k, v)| Some((&v.attribute, &mut v.values)).filter(|(_, _)| ks.contains(&k)))
+            .collect::<Vec<_>>();
+
+        // Extending the size of the attributes list to match N
+        // to guarantee that there is enough `None`s for the swaps
+        if attrs.len() < N {
+            attrs.resize_with(N, || None);
+        }
+
+        let mut attrs_slice = attrs.as_mut_slice();
+        for k in ks {
+            // If current key is different from top of attributes slice,
+            // swap is needed
+            if attrs_slice[0]
+                .as_ref()
+                .filter(|(attr, _)| &attr.id != k)
+                .is_some()
+            {
+                if let Some(pos) = attrs_slice
+                    .iter()
+                    .position(|attr| attr.as_ref().filter(|(attr, _)| &attr.id == k).is_some())
+                {
+                    // Swap for the attribute with the correct id
+                    attrs_slice.swap(0, pos);
+                } else if attrs_slice[0].is_some() {
+                    // If attribute with id does not exist and current attribute is not `None`
+                    // swap for a `None`
+                    if let Some(pos) = attrs_slice[1..].iter().position(Option::is_none) {
+                        attrs_slice.swap(0, pos + 1);
+                    } else {
+                        unimplemented!(
+                            "Attribute list must have enough `None`s to be able to sort."
+                        );
+                    }
+                }
+            }
+            attrs_slice = &mut attrs_slice[1..];
+        }
+
+        // Truncate the attributes list after sorting to prevent accidentally
+        // removing a valid output
+        if attrs.len() > N {
+            attrs.truncate(N);
+        }
+
+        let Ok(result): Result<[Option<(&MeshVertexAttribute, &mut VertexAttributeValues)>; N], _> =
+            attrs.try_into()
+        else {
+            unreachable!("Must always return {N} attributes.");
+        };
+
+        result
+    }
 }
 
 #[cfg(feature = "morph")]
@@ -1594,7 +1682,7 @@ mod tests {
     use crate::PrimitiveTopology;
     use bevy_asset::RenderAssetUsages;
     use bevy_math::primitives::Triangle3d;
-    use bevy_math::Vec3;
+    use bevy_math::{Vec3, Vec4};
     use bevy_transform::components::Transform;
 
     #[test]
@@ -1968,5 +2056,72 @@ mod tests {
             serde_json::from_str(&serialized_string).unwrap();
         let deserialized_mesh = serialized_mesh_from_string.into_mesh();
         assert_eq!(mesh, deserialized_mesh);
+    }
+
+    #[test]
+    fn get_attributes_mut_test() {
+        let mut mesh = Mesh::new(PrimitiveTopology::PointList, RenderAssetUsages::default());
+
+        mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, vec![Vec3::new(0., 0., 0.)]);
+        mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, vec![Vec3::new(1., 1., 1.)]);
+        mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, vec![Vec4::new(2., 2., 2., 2.)]);
+        {
+            let [pos, normal, color] = mesh.get_attributes_mut([
+                &Mesh::ATTRIBUTE_POSITION.id,
+                &Mesh::ATTRIBUTE_NORMAL.id,
+                &Mesh::ATTRIBUTE_COLOR.id,
+            ]);
+            assert_eq!(pos.unwrap().0, &Mesh::ATTRIBUTE_POSITION);
+            assert_eq!(normal.unwrap().0, &Mesh::ATTRIBUTE_NORMAL);
+            assert_eq!(color.unwrap().0, &Mesh::ATTRIBUTE_COLOR);
+        }
+        {
+            let [pos, color, normal] = mesh.get_attributes_mut([
+                &Mesh::ATTRIBUTE_POSITION.id,
+                &Mesh::ATTRIBUTE_COLOR.id,
+                &Mesh::ATTRIBUTE_NORMAL.id,
+            ]);
+            assert_eq!(pos.unwrap().0, &Mesh::ATTRIBUTE_POSITION);
+            assert_eq!(color.unwrap().0, &Mesh::ATTRIBUTE_COLOR);
+            assert_eq!(normal.unwrap().0, &Mesh::ATTRIBUTE_NORMAL);
+        }
+        {
+            let [pos1, pos2, pos3] = mesh.get_attributes_mut([
+                &Mesh::ATTRIBUTE_POSITION.id,
+                &Mesh::ATTRIBUTE_POSITION.id,
+                &Mesh::ATTRIBUTE_POSITION.id,
+            ]);
+            assert_eq!(pos1.unwrap().0, &Mesh::ATTRIBUTE_POSITION);
+            assert!(pos2.is_none());
+            assert!(pos3.is_none());
+        }
+        {
+            let [pos1, pos2, pos3, normal, color] = mesh.get_attributes_mut([
+                &Mesh::ATTRIBUTE_POSITION.id,
+                &Mesh::ATTRIBUTE_POSITION.id,
+                &Mesh::ATTRIBUTE_POSITION.id,
+                &Mesh::ATTRIBUTE_NORMAL.id,
+                &Mesh::ATTRIBUTE_COLOR.id,
+            ]);
+            assert_eq!(pos1.unwrap().0, &Mesh::ATTRIBUTE_POSITION);
+            assert!(pos2.is_none());
+            assert!(pos3.is_none());
+            assert_eq!(normal.unwrap().0, &Mesh::ATTRIBUTE_NORMAL);
+            assert_eq!(color.unwrap().0, &Mesh::ATTRIBUTE_COLOR);
+        }
+        {
+            let [color, uv0, normal, uv1, pos] = mesh.get_attributes_mut([
+                &Mesh::ATTRIBUTE_COLOR.id,
+                &Mesh::ATTRIBUTE_UV_0.id,
+                &Mesh::ATTRIBUTE_NORMAL.id,
+                &Mesh::ATTRIBUTE_UV_1.id,
+                &Mesh::ATTRIBUTE_POSITION.id,
+            ]);
+            assert_eq!(color.unwrap().0, &Mesh::ATTRIBUTE_COLOR);
+            assert!(uv0.is_none());
+            assert_eq!(normal.unwrap().0, &Mesh::ATTRIBUTE_NORMAL);
+            assert!(uv1.is_none());
+            assert_eq!(pos.unwrap().0, &Mesh::ATTRIBUTE_POSITION);
+        }
     }
 }
