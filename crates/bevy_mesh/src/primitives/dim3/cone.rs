@@ -174,17 +174,11 @@ impl MeshBuilder for ConeMeshBuilder {
 impl Meshable for Cone {
     type Output = ConeMeshBuilder;
 
-    fn mesh(&self) -> Self::Output {
+    fn mesh(self) -> Self::Output {
         ConeMeshBuilder {
-            cone: *self,
+            cone: self,
             ..Default::default()
         }
-    }
-}
-
-impl From<Cone> for Mesh {
-    fn from(cone: Cone) -> Self {
-        cone.mesh().build()
     }
 }
 

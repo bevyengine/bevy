@@ -29,15 +29,7 @@ impl MeshBuilder for Polyline3dMeshBuilder {
 impl Meshable for Polyline3d {
     type Output = Polyline3dMeshBuilder;
 
-    fn mesh(&self) -> Self::Output {
-        Polyline3dMeshBuilder {
-            polyline: self.clone(),
-        }
-    }
-}
-
-impl From<Polyline3d> for Mesh {
-    fn from(polyline: Polyline3d) -> Self {
-        polyline.mesh().build()
+    fn mesh(self) -> Self::Output {
+        Polyline3dMeshBuilder { polyline: self }
     }
 }

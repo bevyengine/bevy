@@ -24,14 +24,8 @@ impl MeshBuilder for Segment3dMeshBuilder {
 impl Meshable for Segment3d {
     type Output = Segment3dMeshBuilder;
 
-    fn mesh(&self) -> Self::Output {
-        Segment3dMeshBuilder { segment: *self }
-    }
-}
-
-impl From<Segment3d> for Mesh {
-    fn from(segment: Segment3d) -> Self {
-        segment.mesh().build()
+    fn mesh(self) -> Self::Output {
+        Segment3dMeshBuilder { segment: self }
     }
 }
 

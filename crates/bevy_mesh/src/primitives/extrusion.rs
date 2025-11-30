@@ -92,7 +92,7 @@ where
 {
     type Output = ExtrusionBuilder<P>;
 
-    fn mesh(&self) -> Self::Output {
+    fn mesh(self) -> Self::Output {
         ExtrusionBuilder {
             base_builder: self.base_shape.mesh(),
             half_depth: self.half_depth,
@@ -118,7 +118,7 @@ where
     P::Output: Extrudable,
 {
     /// Create a new `ExtrusionBuilder<P>` from a given `base_shape` and the full `depth` of the extrusion.
-    pub fn new(base_shape: &P, depth: f32) -> Self {
+    pub fn new(base_shape: P, depth: f32) -> Self {
         Self {
             base_builder: base_shape.mesh(),
             half_depth: depth / 2.,
@@ -423,15 +423,5 @@ where
         front_face.merge(&back_face).unwrap();
         front_face.merge(&mantel).unwrap();
         front_face
-    }
-}
-
-impl<P> From<Extrusion<P>> for Mesh
-where
-    P: Primitive2d + Meshable,
-    P::Output: Extrudable,
-{
-    fn from(value: Extrusion<P>) -> Self {
-        value.mesh().build()
     }
 }

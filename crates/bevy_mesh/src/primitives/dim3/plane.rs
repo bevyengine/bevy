@@ -145,16 +145,10 @@ impl MeshBuilder for PlaneMeshBuilder {
 impl Meshable for Plane3d {
     type Output = PlaneMeshBuilder;
 
-    fn mesh(&self) -> Self::Output {
+    fn mesh(self) -> Self::Output {
         PlaneMeshBuilder {
-            plane: *self,
+            plane: self,
             subdivisions: 0,
         }
-    }
-}
-
-impl From<Plane3d> for Mesh {
-    fn from(plane: Plane3d) -> Self {
-        plane.mesh().build()
     }
 }

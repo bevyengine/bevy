@@ -169,16 +169,10 @@ impl MeshBuilder for ConicalFrustumMeshBuilder {
 impl Meshable for ConicalFrustum {
     type Output = ConicalFrustumMeshBuilder;
 
-    fn mesh(&self) -> Self::Output {
+    fn mesh(self) -> Self::Output {
         ConicalFrustumMeshBuilder {
-            frustum: *self,
+            frustum: self,
             ..Default::default()
         }
-    }
-}
-
-impl From<ConicalFrustum> for Mesh {
-    fn from(frustum: ConicalFrustum) -> Self {
-        frustum.mesh().build()
     }
 }

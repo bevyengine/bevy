@@ -201,8 +201,8 @@ impl ShapeSample for Shape {
 impl Meshable for Shape {
     type Output = ShapeMeshBuilder;
 
-    fn mesh(&self) -> Self::Output {
-        ShapeMeshBuilder { shape: *self }
+    fn mesh(self) -> Self::Output {
+        ShapeMeshBuilder { shape: self }
     }
 }
 
