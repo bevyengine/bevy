@@ -336,7 +336,7 @@ impl<'a> ProcessContext<'a> {
         self.path
     }
 
-    /// The source bytes of the asset being processed.
+    /// The reader for the asset being processed.
     #[inline]
     pub fn asset_reader(&mut self) -> &mut dyn Reader {
         &mut self.reader
