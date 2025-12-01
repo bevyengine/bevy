@@ -36,15 +36,12 @@ impl<'w> Benchmark<'w> {
     #[inline(never)]
     pub fn run(&mut self) {
         let mut iter = self.1.iter_mut(&mut self.0);
-        while let Some((velocity, (position, mut ticks))) = iter.next_contiguous() {
+        for (velocity, (position, mut ticks)) in iter.as_contiguous_iter().unwrap() {
             for (v, p) in velocity.iter().zip(position.iter_mut()) {
                 p.0 += v.0;
             }
-            let tick = ticks.this_run();
             // to match the iter_simple benchmark
-            for t in ticks.get_changed_ticks_mut() {
-                *t = tick;
-            }
+            ticks.mark_all_as_updated();
         }
     }
 }

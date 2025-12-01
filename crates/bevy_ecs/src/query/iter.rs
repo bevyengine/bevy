@@ -904,18 +904,15 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
         }
     }
 
-    /// Returns the next contiguous chunk of memory
-    /// or [`None`] if the query doesn't support contiguous access or if there is no elements left
-    #[inline(always)]
-    pub fn next_contiguous(&mut self) -> Option<D::Contiguous<'w, 's>>
+    /// Returns a contiguous iter or [`None`] if contiguous access is not supported
+    pub fn as_contiguous_iter(&mut self) -> Option<QueryContiguousIter<'_, 'w, 's, D, F>>
     where
         D: ContiguousQueryData,
         F: ContiguousQueryFilter,
     {
-        // SAFETY:
-        // `tables` belongs to the same world that the cursor was initialized for.
-        // `query_state` is the state that was passed to `QueryIterationCursor::init`
-        unsafe { self.cursor.next_contiguous(self.tables, self.query_state) }
+        self.cursor
+            .is_dense
+            .then(|| QueryContiguousIter { iter: self })
     }
 }
 
@@ -1006,6 +1003,31 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Debug for QueryIter<'w, 's, D, F> {
 impl<'w, 's, D: ReadOnlyQueryData, F: QueryFilter> Clone for QueryIter<'w, 's, D, F> {
     fn clone(&self) -> Self {
         self.remaining()
+    }
+}
+
+/// Iterator for contiguous chunks of memory
+pub struct QueryContiguousIter<'a, 'w, 's, D: ContiguousQueryData, F: ContiguousQueryFilter> {
+    iter: &'a mut QueryIter<'w, 's, D, F>,
+}
+
+impl<'a, 'w, 's, D, F> Iterator for QueryContiguousIter<'a, 'w, 's, D, F>
+where
+    D: ContiguousQueryData,
+    F: ContiguousQueryFilter,
+{
+    type Item = D::Contiguous<'w, 's>;
+
+    #[inline(always)]
+    fn next(&mut self) -> Option<Self::Item> {
+        // SAFETY:
+        // `tables` belongs to the same world that the cursor was initialized for.
+        // `query_state` is the state that was passed to `QueryIterationCursor::init`
+        unsafe {
+            self.iter
+                .cursor
+                .next_contiguous(&self.iter.tables, &mut self.iter.query_state)
+        }
     }
 }
 
@@ -2552,6 +2574,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
     /// # Safety
     /// - `tables` must belong to the same world that the [`QueryIterationCursor`] was initialized for.
     /// - `query_state` must be the same [`QueryState`] that was passed to `init` or `init_empty`.
+    /// - Query must be dense
     #[inline(always)]
     unsafe fn next_contiguous(
         &mut self,
@@ -2562,10 +2585,6 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
         D: ContiguousQueryData,
         F: ContiguousQueryFilter,
     {
-        if !self.is_dense {
-            return None;
-        }
-
         loop {
             if self.current_row == self.current_len {
                 let table_id = self.storage_id_iter.next()?.table_id;

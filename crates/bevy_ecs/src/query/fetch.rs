@@ -3574,40 +3574,44 @@ mod tests {
 
         let mut query = world.query::<(&C, &D)>();
         let mut iter = query.iter(&world);
-        let c = iter.next_contiguous().unwrap();
+        let mut iter = iter.as_contiguous_iter().unwrap();
+        let c = iter.next().unwrap();
         assert_eq!(c.0, [C(0), C(1)].as_slice());
         assert_eq!(c.1, [D(true), D(false)].as_slice());
-        assert!(iter.next_contiguous().is_none());
+        assert!(iter.next().is_none());
 
         let mut query = world.query::<&C>();
         let mut iter = query.iter(&world);
+        let mut iter = iter.as_contiguous_iter().unwrap();
         let mut present = [false; 3];
         let mut len = 0;
         for _ in 0..2 {
-            let c = iter.next_contiguous().unwrap();
+            let c = iter.next().unwrap();
             for c in c {
                 present[c.0 as usize] = true;
                 len += 1;
             }
         }
-        assert!(iter.next_contiguous().is_none());
+        assert!(iter.next().is_none());
         assert_eq!(len, 3);
         assert_eq!(present, [true; 3]);
 
         let mut query = world.query::<&mut C>();
         let mut iter = query.iter_mut(&mut world);
+        let mut iter = iter.as_contiguous_iter().unwrap();
         for _ in 0..2 {
-            let c = iter.next_contiguous().unwrap();
+            let c = iter.next().unwrap();
             for c in c.0 {
                 c.0 *= 2;
             }
         }
-        assert!(iter.next_contiguous().is_none());
+        assert!(iter.next().is_none());
         let mut iter = query.iter(&mut world);
+        let mut iter = iter.as_contiguous_iter().unwrap();
         let mut present = [false; 6];
         let mut len = 0;
         for _ in 0..2 {
-            let c = iter.next_contiguous().unwrap();
+            let c = iter.next().unwrap();
             for c in c {
                 present[c.0 as usize] = true;
                 len += 1;
@@ -3628,7 +3632,7 @@ mod tests {
 
         let mut query = world.query::<&mut S>();
         let mut iter = query.iter_mut(&mut world);
-        assert!(iter.next_contiguous().is_none());
+        assert!(iter.as_contiguous_iter().is_none());
         assert_eq!(iter.next().unwrap().as_ref(), &S(0));
     }
 }

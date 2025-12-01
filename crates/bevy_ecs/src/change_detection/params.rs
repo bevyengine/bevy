@@ -479,6 +479,22 @@ impl<'w> ContiguousComponentTicks<'w, true> {
     pub fn get_changed_ticks_mut(&mut self) -> &mut [Tick] {
         unsafe { self.changed.as_mut_slice(self.count) }
     }
+
+    /// Marks all components as updated
+    pub fn mark_all_as_updated(&mut self) {
+        let this_run = self.this_run;
+
+        for i in 0..self.count {
+            // SAFETY: `changed_by` slice is `self.count` long, aliasing rules are uphold by `new`
+            self.changed_by
+                .map(|v| unsafe { v.get_unchecked(i).deref_mut() })
+                .assign(MaybeLocation::caller());
+        }
+
+        for t in self.get_changed_ticks_mut() {
+            *t = this_run;
+        }
+    }
 }
 
 impl<'w, const MUTABLE: bool> ContiguousComponentTicks<'w, MUTABLE> {

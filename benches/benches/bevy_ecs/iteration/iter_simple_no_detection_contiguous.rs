@@ -36,7 +36,7 @@ impl<'w> Benchmark<'w> {
     #[inline(never)]
     pub fn run(&mut self) {
         let mut iter = self.1.iter_mut(&mut self.0);
-        while let Some((velocity, (position, _ticks))) = iter.next_contiguous() {
+        for (velocity, (position, _ticks)) in iter.as_contiguous_iter().unwrap() {
             for (v, p) in velocity.iter().zip(position.iter_mut()) {
                 p.0 += v.0;
             }
