@@ -2932,7 +2932,7 @@ impl ComputedUiRenderTargetInfo {
 ///     let ui_container = commands.spawn(UiContainer::new(500,500)).id();
 ///
 ///     commands.spawn((Node::default(), UiContainerTarget(ui_container)));
-/// 
+///
 ///     // All child Nodes will point to the same UiContainer entity.
 ///     commands.spawn((Node::default(), Propagate(UiContainerTarget(ui_container))));
 /// }
