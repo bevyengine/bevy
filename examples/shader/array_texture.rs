@@ -11,6 +11,8 @@ use bevy::{
     render::render_resource::AsBindGroup,
     shader::ShaderRef,
 };
+use rand::{Rng, SeedableRng};
+use rand_chacha::ChaCha8Rng;
 
 /// This example uses a shader source file from the assets subdirectory.
 const SHADER_ASSET_PATH: &str = "shaders/array_texture.wgsl";
@@ -72,7 +74,17 @@ fn setup(
     }
 }
 
-fn update_mesh_tags(time: Res<Time>, mut query: Query<&mut MeshTag>, mut timer: Local<Timer>) {
+fn update_mesh_tags(
+    time: Res<Time>,
+    mut query: Query<&mut MeshTag>,
+    mut timer: Local<Timer>,
+    mut rng: Local<Option<ChaCha8Rng>>,
+) {
+    // We're seeding the PRNG here to make this example deterministic for
+    // testing purposes. This isn't strictly required in practical use unless
+    // you need your app to be deterministic.
+    let rng = rng.get_or_insert_with(|| ChaCha8Rng::seed_from_u64(19878367467713));
+
     // Initialize the timer on the first run.
     if timer.duration().is_zero() {
         *timer = Timer::from_seconds(0.5, TimerMode::Repeating);
@@ -83,7 +95,7 @@ fn update_mesh_tags(time: Res<Time>, mut query: Query<&mut MeshTag>, mut timer: 
         for mut tag in query.iter_mut() {
             // Randomly change the mesh tag to demonstrate that we can select
             // different layers of the array texture at runtime.
-            *tag = MeshTag(rand::random::<u32>() % TEXTURE_COUNT);
+            *tag = MeshTag(rng.random::<u32>() % TEXTURE_COUNT);
         }
     }
 }
