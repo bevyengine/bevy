@@ -542,12 +542,12 @@ pub fn pointer_events(
             continue;
         };
 
-        // For each button update its `dragging_over` state and possibly emit `DragEnter` events.
+        // For each button update its `dragging_over` state and possibly emit DragEnter events.
         for button in PointerButton::iter() {
             let state = pointer_state.get_mut(pointer_id, button);
 
             // Only update the `dragging_over` state if there is at least one entity being dragged.
-            // Only emit `DragEnter` events for this `hovered_entity`, if it had no previous `dragging_over` state.
+            // Only emit DragEnter events for this `hovered_entity`, if it had no previous `dragging_over` state.
             if !state.dragging.is_empty()
                 && state
                     .dragging_over
@@ -571,7 +571,7 @@ pub fn pointer_events(
             }
         }
 
-        // Emit an `Over` event if the `hovered_entity` was not hovered by the same pointer the previous frame.
+        // Emit an Over event if the `hovered_entity` was not hovered by the same pointer the previous frame.
         if !previous_hover_map
             .get(&pointer_id)
             .iter()
@@ -741,8 +741,32 @@ pub fn pointer_events(
                             },
                             *press_target,
                         );
+
                         commands.trigger(drag_start_event.clone());
                         message_writers.drag_start_events.write(drag_start_event);
+
+                        // Insert dragging over state and emit DragEnter for hovered entities.
+                        for (hovered_entity, hit) in hover_map
+                            .get(&pointer_id)
+                            .iter()
+                            .flat_map(|h| h.iter().map(|(entity, data)| (*entity, data.to_owned())))
+                            .filter(|(hovered_entity, _)| *hovered_entity != *press_target)
+                        {
+                            // Inserting the `dragging_over` state here ensures the `DragEnter` event won't be dispatched twice.
+                            state.dragging_over.insert(hovered_entity, hit.clone());
+                            let drag_enter_event = Pointer::new(
+                                pointer_id,
+                                location.clone(),
+                                DragEnter {
+                                    button,
+                                    dragged: *press_target,
+                                    hit: hit.clone(),
+                                },
+                                hovered_entity,
+                            );
+                            commands.trigger(drag_enter_event.clone());
+                            message_writers.drag_enter_events.write(drag_enter_event);
+                        }
                     }
 
                     // Emit Drag events to the entities we are dragging
