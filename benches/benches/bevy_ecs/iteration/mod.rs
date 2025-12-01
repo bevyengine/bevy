@@ -9,6 +9,7 @@ mod iter_frag_wide;
 mod iter_frag_wide_sparse;
 mod iter_simple;
 mod iter_simple_contiguous;
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 mod iter_simple_contiguous_avx2;
 mod iter_simple_foreach;
 mod iter_simple_foreach_hybrid;
@@ -48,11 +49,14 @@ fn iter_simple(c: &mut Criterion) {
         let mut bench = iter_simple_contiguous::Benchmark::new();
         b.iter(move || bench.run());
     });
-    if iter_simple_contiguous_avx2::Benchmark::supported() {
-        group.bench_function("base_contiguous_avx2", |b| {
-            let mut bench = iter_simple_contiguous_avx2::Benchmark::new().unwrap();
-            b.iter(move || bench.run());
-        });
+    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+    {
+        if iter_simple_contiguous_avx2::Benchmark::supported() {
+            group.bench_function("base_contiguous_avx2", |b| {
+                let mut bench = iter_simple_contiguous_avx2::Benchmark::new().unwrap();
+                b.iter(move || bench.run());
+            });
+        }
     }
     group.bench_function("base_no_detection", |b| {
         let mut bench = iter_simple_no_detection::Benchmark::new();

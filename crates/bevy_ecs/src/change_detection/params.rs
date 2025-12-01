@@ -464,7 +464,7 @@ impl<'w, T: ?Sized> Mut<'w, T> {
     }
 }
 
-/// Used by [`Mut`] for [`ContiguousQueryData`] to allow marking component's changes
+/// Used by [`Mut`] for [`crate::query::ContiguousQueryData`] to allow marking component's changes
 pub struct ContiguousComponentTicks<'w, const MUTABLE: bool> {
     added: ThinSlicePtr<'w, UnsafeCell<Tick>>,
     changed: ThinSlicePtr<'w, UnsafeCell<Tick>>,

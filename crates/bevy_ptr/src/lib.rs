@@ -1127,7 +1127,7 @@ impl<'a, T> ThinSlicePtr<'a, T> {
         }
     }
 
-    /// Offsets the slice beginning by [`count`] elements
+    /// Offsets the slice beginning by `count` elements
     ///
     /// # Safety
     ///

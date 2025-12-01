@@ -247,7 +247,7 @@ unsafe impl<T: Component> QueryFilter for With<T> {
     }
 }
 
-// SAFETY: [`QueryFilter::filter_fetch`] and [`ContiguousQueryFilter::filter_fetch`] both always return true
+// SAFETY: [`QueryFilter::filter_fetch`] and [`ContiguousQueryFilter::filter_fetch_contiguous`] both always return true
 unsafe impl<T: Component> ContiguousQueryFilter for With<T> {
     #[inline(always)]
     unsafe fn filter_fetch_contiguous(
@@ -361,7 +361,7 @@ unsafe impl<T: Component> QueryFilter for Without<T> {
     }
 }
 
-// SAFETY: [`QueryFilter::filter_fetch`] and [`ContiguousQueryFilter::filter_fetch`] both always return true
+// SAFETY: [`QueryFilter::filter_fetch`] and [`ContiguousQueryFilter::filter_fetch_contiguous`] both always return true
 unsafe impl<T: Component> ContiguousQueryFilter for Without<T> {
     #[inline(always)]
     unsafe fn filter_fetch_contiguous(

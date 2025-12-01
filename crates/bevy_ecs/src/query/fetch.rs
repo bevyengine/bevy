@@ -361,7 +361,7 @@ pub unsafe trait ContiguousQueryData: QueryData {
     /// Represents a contiguous chunk of memory.
     type Contiguous<'w, 's>;
 
-    /// Fetch [`Self::Contiguous`] which represents a contiguous chunk of memory (e.g., an array) in the current [`Table`].
+    /// Fetch [`ContiguousQueryData::Contiguous`] which represents a contiguous chunk of memory (e.g., an array) in the current [`Table`].
     /// This must always be called after [`WorldQuery::set_table`].
     ///
     /// # Safety
@@ -1719,7 +1719,7 @@ unsafe impl<T: Component> QueryData for &T {
     }
 }
 
-/// SAFETY: The result represents all values of [`T`] in the set table.
+/// SAFETY: The result represents all values of [`Self`] in the set table.
 unsafe impl<T: Component> ContiguousQueryData for &T {
     type Contiguous<'w, 's> = &'w [T];
 
@@ -2223,8 +2223,8 @@ impl<T: Component<Mutability = Mutable>> ReleaseStateQueryData for &mut T {
 impl<T: Component<Mutability = Mutable>> ArchetypeQueryData for &mut T {}
 
 /// SAFETY:
-/// - The first element of [`Self::Contiguous`] tuple represents all components' values in the set table.
-/// - The second element of [`Self::Contiguous`] tuple represents all components' ticks in the set table.
+/// - The first element of [`ContiguousQueryData::Contiguous`] tuple represents all components' values in the set table.
+/// - The second element of [`ContiguousQueryData::Contiguous`] tuple represents all components' ticks in the set table.
 unsafe impl<T: Component<Mutability = Mutable>> ContiguousQueryData for &mut T {
     type Contiguous<'w, 's> = (&'w mut [T], ContiguousComponentTicks<'w, true>);
 
@@ -2544,7 +2544,7 @@ impl<T: ReleaseStateQueryData> ReleaseStateQueryData for Option<T> {
 // so it's always an `ArchetypeQueryData`, even for non-archetypal `T`.
 impl<T: QueryData> ArchetypeQueryData for Option<T> {}
 
-/// SAFETY: [`fetch.matches`] depends solely on the table.
+// SAFETY: matches the [`QueryData::fetch`] impl
 unsafe impl<T: ContiguousQueryData> ContiguousQueryData for Option<T> {
     type Contiguous<'w, 's> = Option<T::Contiguous<'w, 's>>;
 
