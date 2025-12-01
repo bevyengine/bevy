@@ -2,7 +2,7 @@ use core::{marker::PhantomData, mem};
 
 use bevy_ecs::{
     message::{Message, MessageReader, MessageWriter},
-    schedule::{ApplyDeferred, IntoScheduleConfigs, Schedule, ScheduleLabel, Schedules, SystemSet},
+    schedule::{IntoScheduleConfigs, Schedule, ScheduleLabel, Schedules, SystemSet},
     system::{Commands, In, ResMut},
     world::World,
 };
@@ -226,11 +226,6 @@ pub fn setup_state_transitions_in_world(world: &mut World) {
             StateTransitionSystems::EnterSchedules,
         )
             .chain(),
-    );
-    schedule.add_systems(
-        ApplyDeferred
-            .after(StateTransitionSystems::DependentTransitions)
-            .before(StateTransitionSystems::ExitSchedules),
     );
 
     schedules.insert(schedule);
