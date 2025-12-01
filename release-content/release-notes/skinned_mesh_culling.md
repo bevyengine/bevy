@@ -50,9 +50,9 @@ If you want to visualize the bounds, enable these gizmos:
 
 ```rust
 fn toggle_skinned_mesh_bounds(mut config: ResMut<GizmoConfigStore>) {
-	// Toggle drawing of the per-mesh `Aabb` component that's used for culling.
+    // Toggle drawing of the per-mesh `Aabb` component that's used for culling.
     config.config_mut::<AabbGizmoConfigGroup>().1.draw_all ^= true;
-	// Toggle drawing of the per-joint AABBs used to update the `Aabb` component.
+    // Toggle drawing of the per-joint AABBs used to update the `Aabb` component.
     config.config_mut::<SkinnedMeshBoundsGizmoConfigGroup>().1.draw_all ^= true;
 }
 ```
