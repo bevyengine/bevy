@@ -65,4 +65,4 @@ cargo run --example scene_viewer --features "free_camera" -- "path/to/your.gltf"
 ```
 
 If you were using the [`bevy_mod_skinned_aabb`](https://github.com/greeble-dev/bevy_mod_skinned_aabb) plugin then the built-in behavior should
-replace it. For upgrade instructions, see *(TODO: Will link to a release note in the `bevy_mod_skinned_aabb` repo. Or I can add notes here if preferred.)*.
+replace it. For upgrade instructions, see [here](https://github.com/greeble-dev/bevy_mod_skinned_aabb/blob/main/notes/bevy_upgrade.md).
