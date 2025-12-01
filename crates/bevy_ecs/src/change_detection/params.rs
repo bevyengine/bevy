@@ -477,6 +477,7 @@ pub struct ContiguousComponentTicks<'w, const MUTABLE: bool> {
 impl<'w> ContiguousComponentTicks<'w, true> {
     /// Returns mutable changed ticks slice
     pub fn get_changed_ticks_mut(&mut self) -> &mut [Tick] {
+        // SAFETY: `changed` slice is `self.count` long, aliasing rules are uphold by `new`.
         unsafe { self.changed.as_mut_slice(self.count) }
     }
 
@@ -518,11 +519,13 @@ impl<'w, const MUTABLE: bool> ContiguousComponentTicks<'w, MUTABLE> {
 
     /// Returns immutable changed ticks slice
     pub fn get_changed_ticks(&self) -> &[Tick] {
+        // SAFETY: `self.changed` is `self.count` long
         unsafe { self.changed.cast::<Tick>().as_slice(self.count) }
     }
 
     /// Returns immutable added ticks slice
     pub fn get_added_ticks(&self) -> &[Tick] {
+        // SAFETY: `self.added` is `self.count` long
         unsafe { self.added.cast::<Tick>().as_slice(self.count) }
     }
 

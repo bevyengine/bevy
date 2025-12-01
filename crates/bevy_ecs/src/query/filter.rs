@@ -247,8 +247,7 @@ unsafe impl<T: Component> QueryFilter for With<T> {
     }
 }
 
-/// # Safety
-/// [`QueryFilter::filter_fetch`] and [`ContiguousQueryFilter::filter_fetch`] both always return true
+// SAFETY: [`QueryFilter::filter_fetch`] and [`ContiguousQueryFilter::filter_fetch`] both always return true
 unsafe impl<T: Component> ContiguousQueryFilter for With<T> {
     #[inline(always)]
     unsafe fn filter_fetch_contiguous(
@@ -362,8 +361,7 @@ unsafe impl<T: Component> QueryFilter for Without<T> {
     }
 }
 
-/// # Safety
-/// [`QueryFilter::filter_fetch`] and [`ContiguousQueryFilter::filter_fetch`] both always return true
+// SAFETY: [`QueryFilter::filter_fetch`] and [`ContiguousQueryFilter::filter_fetch`] both always return true
 unsafe impl<T: Component> ContiguousQueryFilter for Without<T> {
     #[inline(always)]
     unsafe fn filter_fetch_contiguous(
@@ -614,6 +612,7 @@ macro_rules! impl_or_query_filter {
                 let ($($filter,)*) = fetch;
 
                 (Self::IS_ARCHETYPAL
+                    // SAFETY: The invariants are upheld by the caller
                     $(|| ($filter.matches && unsafe { $filter::filter_fetch_contiguous($state, &mut $filter.fetch, entities, offset) }))*
                     || !(false $(|| $filter.matches)*))
             }
@@ -666,8 +665,7 @@ macro_rules! impl_tuple_query_filter {
             unused_variables,
             reason = "Zero-length tuples won't use any of the parameters."
         )]
-        /// # Safety
-        /// Implied by individual safety guarantees of the tuple's types
+        // SAFETY: Implied by individual safety guarantees of the tuple's types
         unsafe impl<$($name: ContiguousQueryFilter),*> ContiguousQueryFilter for ($($name,)*) {
             unsafe fn filter_fetch_contiguous(
                 state: &Self::State,
@@ -677,6 +675,7 @@ macro_rules! impl_tuple_query_filter {
             ) -> bool {
                 let ($($state,)*) = state;
                 let ($($name,)*) = fetch;
+                // SAFETY: The invariants are upheld by the caller.
                 true $(&& unsafe { $name::filter_fetch_contiguous($state, $name, table_entities, offset) })*
             }
         }

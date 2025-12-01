@@ -1141,6 +1141,7 @@ impl<'a, T> ThinSlicePtr<'a, T> {
         );
 
         Self {
+            // SAFETY: The caller guarantees that count is in-bounds.
             ptr: unsafe { self.ptr.add(count) },
             #[cfg(debug_assertions)]
             len: self.len - count,
@@ -1171,6 +1172,7 @@ impl<'a, T> ThinSlicePtr<'a, UnsafeCell<T>> {
         #[cfg(debug_assertions)]
         assert!(len <= self.len, "tried to create an out-of-bounds slice");
 
+        // SAFETY: The caller ensures no aliases exist and `len` is in-bounds.
         unsafe { core::slice::from_raw_parts_mut(UnsafeCell::raw_get(self.ptr.as_ptr()), len) }
     }
 }

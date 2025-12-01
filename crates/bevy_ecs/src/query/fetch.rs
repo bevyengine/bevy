@@ -346,9 +346,9 @@ pub unsafe trait QueryData: WorldQuery {
     ) -> Option<Self::Item<'w, 's>>;
 }
 
-/// A QueryData which allows getting a direct access to contiguous chunks of components' values
+/// A [`QueryData`] which allows getting a direct access to contiguous chunks of components' values
 ///
-// NOTE: The safety rules might not be used to optimize the library, it still may be better to ensure
+// NOTE: The safety rules might not be used to optimize the library, it still might be better to ensure
 // that contiguous query data methods match their non-contiguous versions
 // NOTE: Even though all component references (&T, &mut T) implement this trait, it won't be executed for
 // SparseSet components because in that case the query is not dense.
@@ -1986,6 +1986,7 @@ unsafe impl<T: Component> ContiguousQueryData for Ref<'_, T> {
     ) -> Self::Contiguous<'w, 's> {
         fetch.components.extract(
             |table| {
+                // SAFETY: set_table was previously called
                 let (table_components, added_ticks, changed_ticks, callers) =
                     unsafe { table.debug_checked_unwrap() };
 
@@ -2235,6 +2236,7 @@ unsafe impl<T: Component<Mutability = Mutable>> ContiguousQueryData for &mut T {
     ) -> Self::Contiguous<'w, 's> {
         fetch.components.extract(
             |table| {
+                // SAFETY: set_table was previously called
                 let (table_components, added_ticks, changed_ticks, callers) =
                     unsafe { table.debug_checked_unwrap() };
 
@@ -2848,6 +2850,7 @@ macro_rules! impl_tuple_query_data {
             ) -> Self::Contiguous<'w, 's> {
                 let ($($state,)*) = state;
                 let ($($name,)*) = fetch;
+                // SAFETY: The invariants are upheld by the caller.
                 ($(unsafe {$name::fetch_contiguous($state, $name, entities, offset)},)*)
             }
         }

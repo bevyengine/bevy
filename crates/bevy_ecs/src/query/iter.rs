@@ -912,7 +912,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     {
         self.cursor
             .is_dense
-            .then(|| QueryContiguousIter { iter: self })
+            .then_some(QueryContiguousIter { iter: self })
     }
 }
 
@@ -1026,7 +1026,7 @@ where
         unsafe {
             self.iter
                 .cursor
-                .next_contiguous(&self.iter.tables, &mut self.iter.query_state)
+                .next_contiguous(self.iter.tables, self.iter.query_state)
         }
     }
 }
