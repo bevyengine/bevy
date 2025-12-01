@@ -255,7 +255,7 @@ pub struct DragEnd {
     pub distance: Vec2,
 }
 
-/// Fires when a pointer dragging the `dragged` entity enters the [target entity](EntityEvent::event_target).
+/// Fires when a pointer dragging the `dragged` entity enters the [target entity](EntityEvent::event_target)
 #[derive(Clone, PartialEq, Debug, Reflect)]
 #[reflect(Clone, PartialEq)]
 pub struct DragEnter {
@@ -528,31 +528,33 @@ pub fn pointer_events(
         }
     }
 
-    // If the entity is hovered...
+    // Iterate all currently hovered entities for each pointer
     for (pointer_id, hovered_entity, hit) in hover_map
         .iter()
         .flat_map(|(id, hashmap)| hashmap.iter().map(|data| (*id, *data.0, data.1.clone())))
     {
-        // ...but was not hovered last frame...
-        if !previous_hover_map
-            .get(&pointer_id)
-            .iter()
-            .any(|e| e.contains_key(&hovered_entity))
-        {
-            let Some(location) = pointer_location(pointer_id) else {
-                debug!(
-                    "Unable to get location for pointer {:?} during pointer over",
-                    pointer_id
-                );
-                continue;
-            };
+        // Continue if the pointer does not a valid location.
+        let Some(location) = pointer_location(pointer_id) else {
+            debug!(
+                "Unable to get location for pointer {:?} during pointer over",
+                pointer_id
+            );
+            continue;
+        };
 
-            // Possibly send DragEnter events
-            for button in PointerButton::iter() {
-                let state = pointer_state.get_mut(pointer_id, button);
+        // For each button update its `dragging_over` state and possibly emit `DragEnter` events.
+        for button in PointerButton::iter() {
+            let state = pointer_state.get_mut(pointer_id, button);
 
+            // Only update the `dragging_over` state if there is at least one entity being dragged.
+            // Only emit `DragEnter` events for this `hovered_entity`, if it had no previous `dragging_over` state.
+            if !state.dragging.is_empty()
+                && state
+                    .dragging_over
+                    .insert(hovered_entity, hit.clone())
+                    .is_none()
+            {
                 for drag_target in state.dragging.keys() {
-                    state.dragging_over.insert(hovered_entity, hit.clone());
                     let drag_enter_event = Pointer::new(
                         pointer_id,
                         location.clone(),
@@ -567,8 +569,14 @@ pub fn pointer_events(
                     message_writers.drag_enter_events.write(drag_enter_event);
                 }
             }
+        }
 
-            // Always send Over events
+        // Emit an `Over` event if the `hovered_entity` was not hovered by the same pointer the previous frame.
+        if !previous_hover_map
+            .get(&pointer_id)
+            .iter()
+            .any(|e| e.contains_key(&hovered_entity))
+        {
             let over_event = Pointer::new(
                 pointer_id,
                 location.clone(),
@@ -766,7 +774,6 @@ pub fn pointer_events(
                             .flat_map(|h| h.iter().map(|(entity, data)| (*entity, data.to_owned())))
                             .filter(|(hovered_entity, _)| *hovered_entity != *drag_target)
                         {
-                            *state.dragging_over.get_mut(&hovered_entity).unwrap() = hit.clone();
                             let drag_over_event = Pointer::new(
                                 pointer_id,
                                 location.clone(),
