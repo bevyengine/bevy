@@ -133,6 +133,13 @@ impl<S: States> Deref for State<S> {
 )]
 pub struct PreviousState<S: States>(pub(crate) S);
 
+impl<S: States> PreviousState<S> {
+    /// Get the previous state.
+    pub fn get(&self) -> &S {
+        &self.0
+    }
+}
+
 impl<S: States> Deref for PreviousState<S> {
     type Target = S;
 

@@ -7,7 +7,10 @@ use bevy_ecs::{
     world::World,
 };
 
-use super::{resources::{PreviousState, State},states::States};
+use super::{
+    resources::{PreviousState, State},
+    states::States,
+};
 
 /// The label of a [`Schedule`] that **only** runs whenever [`State<S>`] enters the provided state.
 ///
