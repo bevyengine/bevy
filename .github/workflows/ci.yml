@@ -304,7 +304,7 @@ jobs:
           # Full git history is needed to get a proper list of changed files within `super-linter`
           fetch-depth: 0
       - name: Run Markdown Lint
-        uses: super-linter/super-linter/slim@v8.2.1
+        uses: super-linter/super-linter/slim@v8.3.0
         env:
           MULTI_STATUS: false
           VALIDATE_ALL_CODEBASE: false
