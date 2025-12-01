@@ -81,8 +81,7 @@ impl From<Aabb3d> for JointAabb {
     }
 }
 
-/// Data that can optionally be used to calculate the `Aabb` of a skinned mesh.
-/// See also [`DynamicSkinnedMeshBounds`](bevy_camera::visibility::DynamicSkinnedMeshBounds)
+/// Data that can be used to calculate the AABB of a skinned mesh.
 #[derive(Clone, Default, Debug, PartialEq, Reflect)]
 #[reflect(Clone)]
 pub struct SkinnedMeshBounds {
