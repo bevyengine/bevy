@@ -36,11 +36,11 @@ use tracing::warn;
 /// # impl Sprite { fn from_image(_: Handle<Image>) -> Self { Sprite } }
 /// # fn main() {
 /// App::new()
-/// #   .add_plugins((TaskPoolPlugin::default(), AssetPlugin::default()))
-/// #   .init_asset::<Image>()
 ///     .add_plugins(DefaultPlugins.set(WebAssetPlugin {
 ///         silence_startup_warning: true,
 ///     }))
+/// #   .add_plugins((TaskPoolPlugin::default(), AssetPlugin::default()))
+/// #   .init_asset::<Image>()
 /// #   .add_systems(Startup, setup).run();
 /// # }
 /// // ...
