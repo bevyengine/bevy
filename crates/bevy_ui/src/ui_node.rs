@@ -2918,24 +2918,47 @@ impl ComputedUiRenderTargetInfo {
 /// The node will be laid out within this container.
 /// For proper functionality, both the root node and its children must have this component and point to the same container entity.
 /// You can use [`Propagate`](bevy_app::Propagate) to pass the container reference to all child nodes.
+///
+/// This will render the Node within the designated Ui container.
+///
+/// # Example
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// # use bevy_app::Propagate;
+/// # use bevy_ui::UiContainer;
+/// # use bevy_ui::Node;
+/// # use bevy_ui::UiContainerTarget;
+/// fn setup(mut commands: Commands) {
+///     let ui_container = commands.spawn(UiContainer::new(500,500)).id();
+///
+///     commands.spawn((Node::default(), UiContainerTarget(ui_container)));
+/// 
+///     // All child Nodes will point to the same UiContainer entity.
+///     commands.spawn((Node::default(), Propagate(UiContainerTarget(ui_container))));
+/// }
+/// ```
 #[derive(Component, Clone, Copy, Debug, Reflect, PartialEq)]
 #[reflect(Component, PartialEq, Clone)]
 #[relationship(relationship_target = UiContainerOf)]
 pub struct UiContainerTarget(pub Entity);
 
+/// A collection of node entities that are designated to be rendered within the container.
 #[derive(Component, Default, Debug, PartialEq, Eq)]
 #[relationship_target(relationship = UiContainerTarget, linked_spawn)]
 pub struct UiContainerOf(Vec<Entity>);
 
 /// Sets the size of the UI container. The root node will calculate its layout based on this container size.
 /// Use the Anchor component to change the container's origin point.
+///
+/// This component enables Node UI to be rendered in world space and does not follow camera movement.
+/// # Example
 /// ```
 /// # use bevy_ecs::prelude::*;
-/// # use bevy_ui::UiContainerSize;
+/// # use bevy_ui::UiContainer;
 /// # use bevy_ui::Node;
 /// # use bevy_ui::UiContainerTarget;
 /// fn setup(mut commands: Commands) {
-///     let ui_container = commands.spawn(UiContainerSize::default()).id();
+///     let ui_container = commands.spawn(UiContainer::new(500,500)).id();
 ///
 ///     commands.spawn((Node::default(), UiContainerTarget(ui_container)));
 /// }
@@ -2943,9 +2966,37 @@ pub struct UiContainerOf(Vec<Entity>);
 #[derive(Component, Clone, Copy, Debug, Reflect, PartialEq, Default, Deref, DerefMut)]
 #[reflect(Component, Default, PartialEq, Clone)]
 #[require(bevy_transform::components::Transform, UiContainerOf, Anchor, UiScale)]
-pub struct UiContainerSize(pub UVec2);
+pub struct UiContainer(pub UVec2);
+
+impl UiContainer {
+    /// Creates a new container.
+    #[inline(always)]
+    #[must_use]
+    pub const fn new(x: u32, y: u32) -> Self {
+        Self(UVec2::new(x, y))
+    }
+}
 
 /// It performs clipping on all root nodes in the container and propagates the clipping bounds to the root nodes.
+///
+/// # Example
+/// ```
+/// use bevy_ecs::prelude::*;
+/// use bevy_ui::Node;
+/// use bevy_ui::UiContainer;
+/// use bevy_ui::UiContainerTarget;
+/// use bevy_ui::Overflow;
+/// use bevy_ui::UiContainerOverflow;
+/// fn setup(mut commands: Commands) {
+///     let ui_container = commands.spawn(UiContainer::new(500, 500)).id();
+///     // The Root Node will be clipped.
+///     commands.spawn((
+///         Node::default(),
+///         UiContainerTarget(ui_container),
+///         UiContainerOverflow(Overflow::clip()),
+///     ));
+/// }
+/// ```
 #[derive(Component, Clone, Copy, Debug, Reflect, PartialEq, Default, Deref, DerefMut)]
 #[reflect(Component, PartialEq, Clone)]
 pub struct UiContainerOverflow(pub Overflow);

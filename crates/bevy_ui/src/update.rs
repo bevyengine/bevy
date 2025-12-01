@@ -6,7 +6,7 @@ use crate::{
     CalculatedClip, ComputedUiRenderTargetInfo, ComputedUiTargetCamera, DefaultUiCamera, Display,
     Node, OverflowAxis, OverrideClip, UiScale, UiTargetCamera,
 };
-use crate::{UiContainerOverflow, UiContainerSize, UiContainerTarget};
+use crate::{UiContainer, UiContainerOverflow, UiContainerTarget};
 
 use super::ComputedNode;
 use bevy_app::Propagate;
@@ -35,7 +35,7 @@ pub fn update_clipping_system(
     ui_children: UiChildren,
     contain_target_query: Query<&UiContainerTarget>,
     contain_query: Query<(
-        &UiContainerSize,
+        &UiContainer,
         &UiContainerOverflow,
         &Anchor,
         &GlobalTransform,
@@ -175,7 +175,7 @@ pub fn propagate_ui_target_cameras(
     camera_query: Query<&Camera>,
     target_camera_query: Query<&UiTargetCamera>,
     ui_root_nodes: UiRootNodes,
-    query_ui_scale: Query<(&UiScale, &UiContainerSize)>,
+    query_ui_scale: Query<(&UiScale, &UiContainer)>,
     query_target: Query<&UiContainerTarget>,
 ) {
     let default_camera_entity = default_ui_camera.get();

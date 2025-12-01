@@ -4,7 +4,7 @@ use crate::{
     ComputedNode, ComputedUiRenderTargetInfo, ContentSize, Display, IgnoreScroll, LayoutConfig,
     Node, Outline, OverflowAxis, ScrollPosition,
 };
-use crate::{UiContainerSize, UiContainerTarget};
+use crate::{UiContainer, UiContainerTarget};
 
 use bevy_ecs::{
     change_detection::{DetectChanges, DetectChangesMut},
@@ -98,7 +98,7 @@ pub fn ui_layout_system(
     mut removed_children: RemovedComponents<Children>,
     mut removed_content_sizes: RemovedComponents<ContentSize>,
     mut removed_nodes: RemovedComponents<Node>,
-    container_query: Query<(&GlobalTransform, &UiContainerSize, &Anchor)>,
+    container_query: Query<(&GlobalTransform, &UiContainer, &Anchor)>,
 ) {
     // When a `ContentSize` component is removed from an entity, we need to remove the measure from the corresponding taffy node.
     for entity in removed_content_sizes.read() {
@@ -210,7 +210,7 @@ pub fn ui_layout_system(
         inverse_target_scale_factor: f32,
         parent_size: Vec2,
         parent_scroll_position: Vec2,
-        container_query: &Query<(&GlobalTransform, &UiContainerSize, &Anchor)>,
+        container_query: &Query<(&GlobalTransform, &UiContainer, &Anchor)>,
     ) {
         if let Ok((
             mut node,
@@ -1261,7 +1261,7 @@ mod tests {
             let world = app.world_mut();
 
             let ui_container = world
-                .spawn(UiContainerSize(UVec2::new(WINDOW_WIDTH, WINDOW_HEIGHT)))
+                .spawn(UiContainer(UVec2::new(WINDOW_WIDTH, WINDOW_HEIGHT)))
                 .id();
 
             let ui_root = world

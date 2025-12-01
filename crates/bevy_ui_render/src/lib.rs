@@ -770,6 +770,7 @@ pub struct UiCameraView {
 #[derive(Component)]
 pub struct UiViewTarget(pub Entity);
 
+/// Marker component used to distinguish between rendering in world space and camera space
 #[derive(Component)]
 pub struct UiContainerViewTarget;
 

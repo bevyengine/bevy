@@ -51,7 +51,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Initialize uicontainer
     let ui_contain = commands
         .spawn((
-            UiContainerSize(UVec2::new(300, 300)),
+            UiContainer(UVec2::new(300, 300)),
             Anchor::TOP_LEFT,
             UiContainerOverflow::default(),
             UiContainInfo,
