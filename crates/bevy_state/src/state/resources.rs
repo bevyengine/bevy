@@ -91,6 +91,56 @@ impl<S: States> Deref for State<S> {
     }
 }
 
+/// The previous state of [`State<S>`].
+///
+/// This resource holds the state value that was active immediately **before** the
+/// most recent state transition. It is primarily useful for logic that runs
+/// during state exit or transition schedules ([`OnExit`](crate::state::OnExit), [`OnTransition`](crate::state::OnTransition)).
+///
+/// It is inserted into the world only after the first state transition occurs. It will
+/// remain present even if the primary state is removed (e.g., when a
+/// [`SubStates`](crate::state::SubStates) or [`ComputedStates`](crate::state::ComputedStates) instance ceases to exist).
+///
+/// Use `Option<Res<PreviousState<S>>>` to access it, as it will not exist
+/// before the first transition.
+///
+/// ```
+/// use bevy_state::prelude::*;
+/// use bevy_ecs::prelude::*;
+/// use bevy_state_macros::States;
+///
+/// #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default, States)]
+/// enum GameState {
+///     #[default]
+///     MainMenu,
+///     InGame,
+/// }
+///
+/// // This system might run in an OnExit schedule
+/// fn log_previous_state(previous_state: Option<Res<PreviousState<GameState>>>) {
+///     if let Some(previous) = previous_state {
+///         // If this system is in OnExit(InGame), the previous state is what we
+///         // were in before InGame.
+///         println!("Transitioned from: {:?}", previous.get());
+///     }
+/// }
+/// ```
+#[derive(Resource, Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(bevy_reflect::Reflect),
+    reflect(Resource, Debug, PartialEq)
+)]
+pub struct PreviousState<S: States>(pub(crate) S);
+
+impl<S: States> Deref for PreviousState<S> {
+    type Target = S;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
 /// The next state of [`State<S>`].
 ///
 /// This can be fetched as a resource and used to queue state transitions.
