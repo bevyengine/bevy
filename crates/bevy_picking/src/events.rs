@@ -533,7 +533,7 @@ pub fn pointer_events(
         .iter()
         .flat_map(|(id, hashmap)| hashmap.iter().map(|data| (*id, *data.0, data.1.clone())))
     {
-        // Continue if the pointer does not a valid location.
+        // Continue if the pointer does not have a valid location.
         let Some(location) = pointer_location(pointer_id) else {
             debug!(
                 "Unable to get location for pointer {:?} during pointer over",
