@@ -388,7 +388,7 @@ impl PointerState {
     pub fn clear(&mut self, pointer_id: PointerId) {
         for button in PointerButton::iter() {
             if let Some(state) = self.pointer_buttons.get_mut(&(pointer_id, button)) {
-                state.clear()
+                state.clear();
             }
         }
     }
