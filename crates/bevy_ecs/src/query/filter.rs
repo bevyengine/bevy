@@ -112,37 +112,6 @@ pub unsafe trait QueryFilter: WorldQuery {
     ) -> bool;
 }
 
-/// Types that filter contiguous chunks of memory
-///
-/// Some types which implement this trait:
-/// - [`With`] and [`Without`]
-///
-/// Some [`QueryFilter`]s which **do not** implement this trait:
-/// - [`Added`], [`Changed`] and [`Spawned`] due to their selective filters within contiguous chunks of memory
-///   (i.e., it might exclude entities thus breaking contiguity)
-///
-// NOTE: The safety rules might not be used to optimize the library, it still might be better to ensure
-// that contiguous query filters match their non-contiguous versions
-/// # Safety
-///
-/// - The result of [`ContiguousQueryFilter::filter_fetch_contiguous`] must be the same as
-///   The value returned by every call of [`QueryFilter::filter_fetch`] on the same table for every entity
-///   (i.e., the value depends on the table not an entity)
-pub unsafe trait ContiguousQueryFilter: QueryFilter {
-    /// # Safety
-    ///
-    /// - Must always be called _after_ [`WorldQuery::set_table`]
-    /// - `entities`'s length must match the length of the set table.
-    /// - `entities` must match the entities of the set table.
-    /// - `offset` must be less than the length of the set table.
-    unsafe fn filter_fetch_contiguous(
-        state: &Self::State,
-        fetch: &mut Self::Fetch<'_>,
-        entities: &[Entity],
-        offset: usize,
-    ) -> bool;
-}
-
 /// Filter that selects entities with a component `T`.
 ///
 /// This can be used in a [`Query`](crate::system::Query) if entities are required to have the
@@ -247,19 +216,6 @@ unsafe impl<T: Component> QueryFilter for With<T> {
     }
 }
 
-// SAFETY: [`QueryFilter::filter_fetch`] and [`ContiguousQueryFilter::filter_fetch_contiguous`] both always return true
-unsafe impl<T: Component> ContiguousQueryFilter for With<T> {
-    #[inline(always)]
-    unsafe fn filter_fetch_contiguous(
-        _state: &Self::State,
-        _fetch: &mut Self::Fetch<'_>,
-        _table_entities: &[Entity],
-        _offset: usize,
-    ) -> bool {
-        true
-    }
-}
-
 /// Filter that selects entities without a component `T`.
 ///
 /// This is the negation of [`With`].
@@ -356,19 +312,6 @@ unsafe impl<T: Component> QueryFilter for Without<T> {
         _fetch: &mut Self::Fetch<'_>,
         _entity: Entity,
         _table_row: TableRow,
-    ) -> bool {
-        true
-    }
-}
-
-// SAFETY: [`QueryFilter::filter_fetch`] and [`ContiguousQueryFilter::filter_fetch_contiguous`] both always return true
-unsafe impl<T: Component> ContiguousQueryFilter for Without<T> {
-    #[inline(always)]
-    unsafe fn filter_fetch_contiguous(
-        _state: &Self::State,
-        _fetch: &mut Self::Fetch<'_>,
-        _table_entities: &[Entity],
-        _offset: usize,
     ) -> bool {
         true
     }
@@ -585,38 +528,6 @@ macro_rules! impl_or_query_filter {
                     || !(false $(|| $filter.matches)*))
             }
         }
-
-        #[expect(
-            clippy::allow_attributes,
-            reason = "This is a tuple-related macro; as such the lints below may not always apply."
-        )]
-        #[allow(
-            non_snake_case,
-            reason = "The names of some variables are provided by the macro's caller, not by us."
-        )]
-        #[allow(
-            unused_variables,
-            reason = "Zero-length tuples won't use any of the parameters."
-        )]
-        $(#[$meta])*
-        // SAFETY: `filter_fetch_contiguous` matches the implementation of `filter_fetch`
-        unsafe impl<$($filter: ContiguousQueryFilter),*> ContiguousQueryFilter for Or<($($filter,)*)> {
-            #[inline(always)]
-            unsafe fn filter_fetch_contiguous(
-                state: &Self::State,
-                fetch: &mut Self::Fetch<'_>,
-                entities: &[Entity],
-                offset: usize,
-            ) -> bool {
-                let ($($state,)*) = state;
-                let ($($filter,)*) = fetch;
-
-                (Self::IS_ARCHETYPAL
-                    // SAFETY: The invariants are upheld by the caller
-                    $(|| ($filter.matches && unsafe { $filter::filter_fetch_contiguous($state, &mut $filter.fetch, entities, offset) }))*
-                    || !(false $(|| $filter.matches)*))
-            }
-        }
     };
 }
 
@@ -652,34 +563,6 @@ macro_rules! impl_tuple_query_filter {
                 true $(&& unsafe { $name::filter_fetch($state, $name, entity, table_row) })*
             }
         }
-
-        #[expect(
-            clippy::allow_attributes,
-            reason = "This is a tuple-related macro; as such the lints below may not always apply."
-        )]
-        #[allow(
-            non_snake_case,
-            reason = "The names of some variables are provided by the macro's caller, not by us."
-        )]
-        #[allow(
-            unused_variables,
-            reason = "Zero-length tuples won't use any of the parameters."
-        )]
-        // SAFETY: Implied by individual safety guarantees of the tuple's types
-        unsafe impl<$($name: ContiguousQueryFilter),*> ContiguousQueryFilter for ($($name,)*) {
-            unsafe fn filter_fetch_contiguous(
-                state: &Self::State,
-                fetch: &mut Self::Fetch<'_>,
-                table_entities: &[Entity],
-                offset: usize,
-            ) -> bool {
-                let ($($state,)*) = state;
-                let ($($name,)*) = fetch;
-                // SAFETY: The invariants are upheld by the caller.
-                true $(&& unsafe { $name::filter_fetch_contiguous($state, $name, table_entities, offset) })*
-            }
-        }
-
     };
 }
 
@@ -1356,8 +1239,9 @@ unsafe impl QueryFilter for Spawned {
 
 /// A marker trait to indicate that the filter works at an archetype level.
 ///
-/// This is needed to implement [`ExactSizeIterator`] for
-/// [`QueryIter`](crate::query::QueryIter) that contains archetype-level filters.
+/// This is needed to:
+/// - implement [`ExactSizeIterator`] for [`QueryIter`](crate::query::QueryIter) that contains archetype-level filters.
+/// - ensure table filtering for [`QueryContiguousIter`](crate::query::QueryContiguousIter).
 ///
 /// The trait must only be implemented for filters where its corresponding [`QueryFilter::IS_ARCHETYPAL`]
 /// is [`prim@true`]. As such, only the [`With`] and [`Without`] filters can implement the trait.

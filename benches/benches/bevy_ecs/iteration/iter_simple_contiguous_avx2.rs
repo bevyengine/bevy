@@ -43,6 +43,8 @@ impl<'w> Benchmark<'w> {
 
     #[inline(never)]
     pub fn run(&mut self) {
+        /// # Safety
+        /// avx2 must be supported
         #[target_feature(enable = "avx2")]
         fn exec(position: &mut [Position], velocity: &[Velocity]) {
             for i in 0..position.len() {

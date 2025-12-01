@@ -5,8 +5,8 @@ use crate::{
     change_detection::Tick,
     entity::{ContainsEntity, Entities, Entity, EntityEquivalent, EntitySet, EntitySetIterator},
     query::{
-        ArchetypeFilter, ArchetypeQueryData, ContiguousQueryData, ContiguousQueryFilter,
-        DebugCheckedUnwrap, QueryState, StorageId,
+        ArchetypeFilter, ArchetypeQueryData, ContiguousQueryData, DebugCheckedUnwrap, QueryState,
+        StorageId,
     },
     storage::{Table, TableRow, Tables},
     world::{
@@ -908,7 +908,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     pub fn as_contiguous_iter(&mut self) -> Option<QueryContiguousIter<'_, 'w, 's, D, F>>
     where
         D: ContiguousQueryData,
-        F: ContiguousQueryFilter,
+        F: ArchetypeFilter,
     {
         self.cursor
             .is_dense
@@ -1007,14 +1007,14 @@ impl<'w, 's, D: ReadOnlyQueryData, F: QueryFilter> Clone for QueryIter<'w, 's, D
 }
 
 /// Iterator for contiguous chunks of memory
-pub struct QueryContiguousIter<'a, 'w, 's, D: ContiguousQueryData, F: ContiguousQueryFilter> {
+pub struct QueryContiguousIter<'a, 'w, 's, D: ContiguousQueryData, F: ArchetypeFilter> {
     iter: &'a mut QueryIter<'w, 's, D, F>,
 }
 
 impl<'a, 'w, 's, D, F> Iterator for QueryContiguousIter<'a, 'w, 's, D, F>
 where
     D: ContiguousQueryData,
-    F: ContiguousQueryFilter,
+    F: ArchetypeFilter,
 {
     type Item = D::Contiguous<'w, 's>;
 
@@ -2583,8 +2583,9 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
     ) -> Option<D::Contiguous<'w, 's>>
     where
         D: ContiguousQueryData,
-        F: ContiguousQueryFilter,
+        F: ArchetypeFilter,
     {
+        // SAFETY: Refer to [`Self::next`]
         loop {
             if self.current_row == self.current_len {
                 let table_id = self.storage_id_iter.next()?.table_id;
@@ -2602,14 +2603,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
             let offset = self.current_row as usize;
             self.current_row = self.current_len;
 
-            if !F::filter_fetch_contiguous(
-                &query_state.filter_state,
-                &mut self.filter,
-                self.table_entities,
-                offset,
-            ) {
-                continue;
-            }
+            // no filtering because `F` implements `ArchetypeFilter` which ensures that `QueryFilter::fetch`
+            // always returns true
 
             let item = D::fetch_contiguous(
                 &query_state.fetch_state,
@@ -2638,6 +2633,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
         query_state: &'s QueryState<D, F>,
     ) -> Option<D::Item<'w, 's>> {
         if self.is_dense {
+            // NOTE: If you are changing this branch's code (the self.is_dense branch),
+            // don't forget to update [`Self::next_contiguous`]
             loop {
                 // we are on the beginning of the query, or finished processing a table, so skip to the next
                 if self.current_row == self.current_len {

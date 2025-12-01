@@ -3317,6 +3317,7 @@ impl<C: Component, T: Copy, S: Copy> Copy for StorageSwitch<C, T, S> {}
 mod tests {
     use super::*;
     use crate::change_detection::DetectChanges;
+    use crate::query::Without;
     use crate::system::{assert_is_system, Query};
     use bevy_ecs::prelude::Schedule;
     use bevy_ecs_macros::QueryData;
@@ -3609,7 +3610,7 @@ mod tests {
             }
         }
         assert!(iter.next().is_none());
-        let mut iter = query.iter(&mut world);
+        let mut iter = query.iter(&world);
         let mut iter = iter.as_contiguous_iter().unwrap();
         let mut present = [false; 6];
         let mut len = 0;
@@ -3622,6 +3623,12 @@ mod tests {
         }
         assert_eq!(present, [true, false, true, false, true, false]);
         assert_eq!(len, 3);
+
+        let mut query = world.query_filtered::<&C, Without<D>>();
+        let mut iter = query.iter(&world);
+        let mut iter = iter.as_contiguous_iter().unwrap();
+        assert_eq!(iter.next().unwrap(), &[C(4)]);
+        assert!(iter.next().is_none());
     }
 
     #[test]
