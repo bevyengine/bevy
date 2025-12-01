@@ -301,7 +301,7 @@ struct AabbAccumulator {
 
 impl AabbAccumulator {
     fn new() -> Self {
-        // Initialise in such a way that adds can be branchless but `finish` can
+        // Initialize in such a way that adds can be branchless but `finish` can
         // still detect if nothing was added. The initial state has `min > max`,
         // but the first add will make `min <= max`.
         Self {
