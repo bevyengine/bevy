@@ -6,7 +6,6 @@ use std::f32::consts::*;
 use bevy::{
     asset::RenderAssetUsages,
     camera::visibility::DynamicSkinnedMeshBounds,
-    input::common_conditions::input_just_pressed,
     math::ops,
     mesh::{
         skinning::{SkinnedMesh, SkinnedMeshInverseBindposes},
@@ -26,15 +25,6 @@ fn main() {
         })
         .add_systems(Startup, setup)
         .add_systems(Update, joint_animation)
-        // XXX TODO: Decide if we keep bounds debug rendering. Makes this
-        // example a convenient test but a worse example.
-        .add_systems(
-            Update,
-            (
-                toggle_bounding_boxes.run_if(input_just_pressed(KeyCode::KeyB)),
-                toggle_skinned_mesh_bounds.run_if(input_just_pressed(KeyCode::KeyJ)),
-            ),
-        )
         .run();
 }
 
@@ -67,9 +57,7 @@ fn setup(
     // Create a mesh
     let mesh = Mesh::new(
         PrimitiveTopology::TriangleList,
-        // XXX TODO: Change this back.
-        //RenderAssetUsages::RENDER_WORLD,
-        RenderAssetUsages::default(),
+        RenderAssetUsages::RENDER_WORLD,
     )
     // Set mesh vertex positions
     .with_inserted_attribute(
@@ -248,15 +236,4 @@ fn joint_animation(
         axis.translation.x += animated_joint.0 as f32 * 1.5;
         gizmos.axes(axis, 1.0);
     }
-}
-
-fn toggle_bounding_boxes(mut config: ResMut<GizmoConfigStore>) {
-    config.config_mut::<AabbGizmoConfigGroup>().1.draw_all ^= true;
-}
-
-fn toggle_skinned_mesh_bounds(mut config: ResMut<GizmoConfigStore>) {
-    config
-        .config_mut::<SkinnedMeshBoundsGizmoConfigGroup>()
-        .1
-        .draw_all ^= true;
 }
