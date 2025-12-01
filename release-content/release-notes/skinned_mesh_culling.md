@@ -4,8 +4,9 @@ authors: ["@greeble-dev"]
 pull_requests: [21837]
 ---
 
-Skinned meshes can now calculate their bounds based on their joint positions.
-This mostly fixes issues like [#4971](https://github.com/bevyengine/bevy/issues/4971) where skinned meshes would disappear at certain camera angles due to incorrect
+Skinned meshes can now calculate their bounds from their joint positions. This
+mostly fixes issues like [#4971](https://github.com/bevyengine/bevy/issues/4971)
+where skinned meshes would disappear at certain camera angles due to incorrect
 bounds.
 
 *TODO: Maybe add a video here? The [PR video](https://github.com/user-attachments/assets/d67b2137-aedc-43a8-a141-fc7523074eea)
