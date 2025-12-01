@@ -45,8 +45,8 @@ impl Deref for SkinnedMeshInverseBindposes {
 }
 
 // The AABB of a joint. This is optimized for `transform_aabb` - center/size is
-// slightly faster than min/max, and the vectors don't benefit from alignment
-// because they're broadcast loaded.
+// slightly faster than the min/max used by `bevy_math::Aabb3d`, and the vectors
+// don't benefit from alignment because they're broadcast loaded.
 #[derive(Copy, Clone, Debug, PartialEq, Reflect)]
 pub struct JointAabb {
     pub center: Vec3,
@@ -81,7 +81,8 @@ impl From<Aabb3d> for JointAabb {
     }
 }
 
-/// Data used to calculate the `Aabb` of a skinned mesh.
+/// Data that can optionally be used to calculate the `Aabb` of a skinned mesh.
+/// See also [`DynamicSkinnedMeshBounds`](bevy_camera::visibility::DynamicSkinnedMeshBounds)
 #[derive(Clone, Default, Debug, PartialEq, Reflect)]
 #[reflect(Clone)]
 pub struct SkinnedMeshBounds {
@@ -118,6 +119,7 @@ impl SkinnedMeshBounds {
         let vertex_positions = expect_attribute_float32x3(mesh, Mesh::ATTRIBUTE_POSITION)?;
         let vertex_influences = InfluenceIterator::new(mesh)?;
 
+        // Find the maximum joint index.
         let Some(max_joint_index) = vertex_influences
             .clone()
             .map(|i| i.joint_index.0 as usize)
@@ -170,7 +172,7 @@ impl SkinnedMeshBounds {
         })
     }
 
-    fn iter(&self) -> impl Iterator<Item = (&JointIndex, &JointAabb)> {
+    pub fn iter(&self) -> impl Iterator<Item = (&JointIndex, &JointAabb)> {
         self.aabb_index_to_joint_index.iter().zip(self.aabbs.iter())
     }
 }
@@ -182,8 +184,8 @@ pub enum EntityAabbFromSkinnedMeshBoundsError {
     MissingSkinnedMeshBounds,
 }
 
-/// Given a skinned mesh entity, return an `Aabb3d` that encloses the skinned
-/// vertices of the mesh.
+/// Given the components of a skinned mesh entity, return an `Aabb3d` that
+/// encloses the skinned vertices of the mesh.
 pub fn entity_aabb_from_skinned_mesh_bounds(
     joint_entities: &Query<&GlobalTransform>,
     mesh: &Mesh,
@@ -242,7 +244,7 @@ pub fn entity_aabb_from_skinned_mesh_bounds(
     }
 }
 
-// Return the smallest AABB that encloses the transformed input AABB.
+// Return the smallest `Aabb3d` that encloses the transformed `JointAabb`.
 //
 // Algorithm from "Transforming Axis-Aligned Bounding Boxes", James Arvo, Graphics Gems (1990).
 #[inline]
@@ -300,9 +302,9 @@ struct AabbAccumulator {
 
 impl AabbAccumulator {
     fn new() -> Self {
-        // The initial state has `min > max`, and the first add will make
-        // `min <= max`. This means `finish` can detect if nothing was added,
-        // and the add functions can be branchless.
+        // Initialise in such a way that adds can be branchless but `finish` can
+        // still detect if nothing was added. The initial state has `min > max`,
+        // but the first add will make `min <= max`.
         Self {
             min: Vec3A::MAX,
             max: Vec3A::MIN,
@@ -408,7 +410,7 @@ impl Iterator for InfluenceIterator<'_> {
 }
 
 /// Generic error for when a mesh was expected to have a certain attribute with
-/// a certain type.
+/// a certain format.
 #[derive(Copy, Clone, PartialEq, Debug, Error)]
 pub enum MeshAttributeError {
     #[error("Missing attribute \"{0}\"")]

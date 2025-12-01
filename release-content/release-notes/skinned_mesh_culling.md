@@ -12,7 +12,7 @@ bounds.
 could be used, but I can make a nicer one.*
 
 The new behavior is reliable for meshes that only use skinning, although the
-bounds can be larger than optimal. However, the new behaviour doesn't account
+bounds can be larger than optimal. However, the new behavior doesn't account
 for morph targets, vertex shaders, or anything else that modifies vertex
 positions.
 

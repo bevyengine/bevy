@@ -244,7 +244,7 @@ impl Default for GltfPlugin {
             default_sampler: ImageSamplerDescriptor::linear(),
             custom_vertex_attributes: HashMap::default(),
             use_model_forward_direction: false,
-            skinned_mesh_bounds_policy: GltfSkinnedMeshBoundsPolicy::Dynamic, // XXX TODO: Decide default.
+            skinned_mesh_bounds_policy: GltfSkinnedMeshBoundsPolicy::Dynamic,
         }
     }
 }

@@ -96,11 +96,7 @@ fn draw(
         && let Some(inverse_bindposes_asset) =
             inverse_bindposes_assets.get(&skinned_mesh.inverse_bindposes)
     {
-        for (&joint_index, &joint_aabb) in bounds
-            .aabb_index_to_joint_index
-            .iter()
-            .zip(bounds.aabbs.iter())
-        {
+        for (&joint_index, &joint_aabb) in bounds.iter() {
             let joint_index = joint_index.0 as usize;
 
             if let Some(&joint_entity) = skinned_mesh.joints.get(joint_index)
