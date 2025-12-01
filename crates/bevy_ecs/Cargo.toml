@@ -149,10 +149,6 @@ path = "examples/resources.rs"
 name = "change_detection"
 path = "examples/change_detection.rs"
 
-[[example]]
-name = "contigious"
-path = "examples/contigious.rs"
-
 [lints]
 workspace = true
 
