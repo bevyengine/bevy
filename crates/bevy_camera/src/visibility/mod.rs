@@ -223,7 +223,11 @@ pub struct NoFrustumCulling;
 /// component of the skinned mesh will be automatically updated each frame based
 /// on the current joint transforms.
 ///
-/// XXX TODO: More documentation.
+/// `DynamicSkinnedMeshBounds` depends on data from `Mesh::skinned_mesh_bounds`
+/// and `SkinnedMesh`. The resulting `Aabb` will reliably enclose meshes where
+/// vertex positions are only affected by skinning. But the `Aabb` may be larger
+/// than is optimal, and doesn't account for morph targets, vertex shaders, and
+/// anything else that modifies vertex positions.
 #[derive(Debug, Component, Default, Reflect)]
 #[reflect(Component, Default, Debug)]
 pub struct DynamicSkinnedMeshBounds;
