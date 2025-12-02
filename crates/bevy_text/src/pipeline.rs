@@ -457,7 +457,7 @@ impl TextPipeline {
         // Check result.
         result?;
 
-        layout_info.size = box_size;
+        layout_info.size = box_size.ceil();
         Ok(())
     }
 
