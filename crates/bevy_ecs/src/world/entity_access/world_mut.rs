@@ -770,8 +770,11 @@ impl<'w> EntityWorldMut<'w> {
         &mut self,
         component_ids: F,
     ) -> Result<F::Mut<'_>, EntityComponentError> {
-        self.as_mutable()
-            .into_mut_assume_mutable_by_id(component_ids)
+        // SAFETY: Upheld by caller
+        unsafe {
+            self.as_mutable()
+                .into_mut_assume_mutable_by_id(component_ids)
+        }
     }
 
     /// Consumes `self` and returns [untyped mutable reference(s)](MutUntyped)
@@ -840,8 +843,11 @@ impl<'w> EntityWorldMut<'w> {
         self,
         component_ids: F,
     ) -> Result<F::Mut<'w>, EntityComponentError> {
-        self.into_mutable()
-            .into_mut_assume_mutable_by_id(component_ids)
+        // SAFETY: Upheld by caller
+        unsafe {
+            self.into_mutable()
+                .into_mut_assume_mutable_by_id(component_ids)
+        }
     }
 
     /// Adds a [`Bundle`] of components to the entity.
@@ -971,13 +977,16 @@ impl<'w> EntityWorldMut<'w> {
         component_id: ComponentId,
         component: OwningPtr<'_>,
     ) -> &mut Self {
-        self.insert_by_id_with_caller(
-            component_id,
-            component,
-            InsertMode::Replace,
-            MaybeLocation::caller(),
-            RelationshipHookMode::Run,
-        )
+        // SAFETY: Upheld by caller
+        unsafe {
+            self.insert_by_id_with_caller(
+                component_id,
+                component,
+                InsertMode::Replace,
+                MaybeLocation::caller(),
+                RelationshipHookMode::Run,
+            )
+        }
     }
 
     /// # Safety

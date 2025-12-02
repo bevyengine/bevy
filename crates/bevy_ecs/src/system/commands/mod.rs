@@ -182,11 +182,14 @@ const _: () = {
             system_meta: &bevy_ecs::system::SystemMeta,
             world: UnsafeWorldCell,
         ) -> Result<(), SystemParamValidationError> {
-            <__StructFieldsAlias as bevy_ecs::system::SystemParam>::validate_param(
-                &mut state.state,
-                system_meta,
-                world,
-            )
+            // SAFETY: Upheld by caller
+            unsafe {
+                <__StructFieldsAlias as bevy_ecs::system::SystemParam>::validate_param(
+                    &mut state.state,
+                    system_meta,
+                    world,
+                )
+            }
         }
 
         #[inline]
@@ -196,12 +199,15 @@ const _: () = {
             world: UnsafeWorldCell<'w>,
             change_tick: bevy_ecs::change_detection::Tick,
         ) -> Self::Item<'w, 's> {
-            let params = <__StructFieldsAlias as bevy_ecs::system::SystemParam>::get_param(
-                &mut state.state,
-                system_meta,
-                world,
-                change_tick,
-            );
+            // SAFETY: Upheld by caller
+            let params = unsafe {
+                <__StructFieldsAlias as bevy_ecs::system::SystemParam>::get_param(
+                    &mut state.state,
+                    system_meta,
+                    world,
+                    change_tick,
+                )
+            };
             Commands {
                 queue: InternalQueue::CommandQueue(params.0),
                 allocator: params.1,

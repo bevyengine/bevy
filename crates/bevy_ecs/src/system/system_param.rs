@@ -703,7 +703,10 @@ macro_rules! impl_param_set {
                 system_meta: &SystemMeta,
                 world: UnsafeWorldCell<'w>,
             ) -> Result<(), SystemParamValidationError> {
-                <($($param,)*) as SystemParam>::validate_param(state, system_meta, world)
+                // SAFETY: Upheld by caller
+                unsafe {
+                    <($($param,)*) as SystemParam>::validate_param(state, system_meta, world)
+                }
             }
 
             #[inline]
@@ -968,7 +971,8 @@ unsafe impl<'w> SystemParam for DeferredWorld<'w> {
         world: UnsafeWorldCell<'world>,
         _change_tick: Tick,
     ) -> Self::Item<'world, 'state> {
-        world.into_deferred()
+        // SAFETY: Upheld by caller
+        unsafe { world.into_deferred() }
     }
 }
 
@@ -1773,9 +1777,12 @@ unsafe impl<T: SystemParam> SystemParam for Option<T> {
         world: UnsafeWorldCell<'world>,
         change_tick: Tick,
     ) -> Self::Item<'world, 'state> {
-        T::validate_param(state, system_meta, world)
-            .ok()
-            .map(|()| T::get_param(state, system_meta, world, change_tick))
+        // SAFETY: Upheld by caller
+        unsafe {
+            T::validate_param(state, system_meta, world)
+                .ok()
+                .map(|()| T::get_param(state, system_meta, world, change_tick))
+        }
     }
 
     fn apply(state: &mut Self::State, system_meta: &SystemMeta, world: &mut World) {
@@ -1816,8 +1823,11 @@ unsafe impl<T: SystemParam> SystemParam for Result<T, SystemParamValidationError
         world: UnsafeWorldCell<'world>,
         change_tick: Tick,
     ) -> Self::Item<'world, 'state> {
-        T::validate_param(state, system_meta, world)
-            .map(|()| T::get_param(state, system_meta, world, change_tick))
+        // SAFETY: Upheld by caller
+        unsafe {
+            T::validate_param(state, system_meta, world)
+                .map(|()| T::get_param(state, system_meta, world, change_tick))
+        }
     }
 
     fn apply(state: &mut Self::State, system_meta: &SystemMeta, world: &mut World) {
@@ -1910,7 +1920,8 @@ unsafe impl<T: SystemParam> SystemParam for If<T> {
         system_meta: &SystemMeta,
         world: UnsafeWorldCell,
     ) -> Result<(), SystemParamValidationError> {
-        T::validate_param(state, system_meta, world).map_err(|mut e| {
+        // SAFETY: Upheld by caller
+        unsafe { T::validate_param(state, system_meta, world) }.map_err(|mut e| {
             e.skipped = true;
             e
         })
@@ -1923,7 +1934,8 @@ unsafe impl<T: SystemParam> SystemParam for If<T> {
         world: UnsafeWorldCell<'world>,
         change_tick: Tick,
     ) -> Self::Item<'world, 'state> {
-        If(T::get_param(state, system_meta, world, change_tick))
+        // SAFETY: Upheld by caller.
+        If(unsafe { T::get_param(state, system_meta, world, change_tick) })
     }
 
     fn apply(state: &mut Self::State, system_meta: &SystemMeta, world: &mut World) {
@@ -1967,7 +1979,8 @@ unsafe impl<T: SystemParam> SystemParam for Vec<T> {
         world: UnsafeWorldCell,
     ) -> Result<(), SystemParamValidationError> {
         for state in state {
-            T::validate_param(state, system_meta, world)?;
+            // SAFETY: Upheld by caller
+            unsafe { T::validate_param(state, system_meta, world)? };
         }
         Ok(())
     }
@@ -2148,9 +2161,17 @@ macro_rules! impl_system_param_tuple {
                 world: UnsafeWorldCell,
             ) -> Result<(), SystemParamValidationError> {
                 let ($($param,)*) = state;
-                $(
-                    $param::validate_param($param, system_meta, world)?;
-                )*
+
+                #[allow(
+                    unused_unsafe,
+                    reason = "Zero-length tuples won't have any params to validate."
+                )]
+                // SAFETY: Upheld by caller
+                unsafe {
+                    $(
+                        $param::validate_param($param, system_meta, world)?;
+                    )*
+                }
                 Ok(())
             }
 
@@ -2162,11 +2183,19 @@ macro_rules! impl_system_param_tuple {
                 change_tick: Tick,
             ) -> Self::Item<'w, 's> {
                 let ($($param,)*) = state;
+
                 #[allow(
-                    clippy::unused_unit,
-                    reason = "Zero-length tuples won't have any params to get."
+                    unused_unsafe,
+                    reason = "Zero-length tuples won't have any params to validate."
                 )]
-                ($($param::get_param($param, system_meta, world, change_tick),)*)
+                // SAFETY: Upheld by caller
+                unsafe {
+                    #[allow(
+                        clippy::unused_unit,
+                        reason = "Zero-length tuples won't have any params to get."
+                    )]
+                    ($($param::get_param($param, system_meta, world, change_tick),)*)
+                }
             }
         }
     };
@@ -2319,7 +2348,8 @@ unsafe impl<P: SystemParam + 'static> SystemParam for StaticSystemParam<'_, '_, 
         system_meta: &SystemMeta,
         world: UnsafeWorldCell,
     ) -> Result<(), SystemParamValidationError> {
-        P::validate_param(state, system_meta, world)
+        // SAFETY: Upheld by caller
+        unsafe { P::validate_param(state, system_meta, world) }
     }
 
     #[inline]
@@ -2604,7 +2634,8 @@ impl<T: SystemParam + 'static> DynParamState for ParamState<T> {
         system_meta: &SystemMeta,
         world: UnsafeWorldCell,
     ) -> Result<(), SystemParamValidationError> {
-        T::validate_param(&mut self.0, system_meta, world)
+        // SAFETY: Upheld by caller
+        unsafe { T::validate_param(&mut self.0, system_meta, world) }
     }
 }
 
@@ -2635,7 +2666,8 @@ unsafe impl SystemParam for DynSystemParam<'_, '_> {
         system_meta: &SystemMeta,
         world: UnsafeWorldCell,
     ) -> Result<(), SystemParamValidationError> {
-        state.0.validate_param(system_meta, world)
+        // SAFETY: Upheld by caller.
+        unsafe { state.0.validate_param(system_meta, world) }
     }
 
     #[inline]
