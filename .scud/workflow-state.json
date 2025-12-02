@@ -1,0 +1,40 @@
+{
+  "version": "1.0.0",
+  "current_phase": "ideation",
+  "active_group": null,
+  "phases": {
+    "ideation": {
+      "status": "active",
+      "completed_at": null,
+      "agent": "scud-pm",
+      "description": "Product definition and PRD creation"
+    },
+    "planning": {
+      "status": "pending",
+      "completed_at": null,
+      "agent": "scud-sm",
+      "description": "PRD parsing and task breakdown"
+    },
+    "architecture": {
+      "status": "pending",
+      "completed_at": null,
+      "agent": "scud-architect",
+      "description": "Technical design and architecture planning"
+    },
+    "implementation": {
+      "status": "pending",
+      "completed_at": null,
+      "agent": "scud-dev",
+      "description": "Task execution and development"
+    },
+    "retrospective": {
+      "status": "pending",
+      "completed_at": null,
+      "agent": "scud-retrospective",
+      "description": "Post-phase analysis and learning capture"
+    }
+  },
+  "history": [],
+  "completed_groups": [],
+  "last_updated": null
+}

@@ -1,0 +1,4 @@
+[llm]
+provider = "xai"
+model = "grok-4-1-fast-reasoning"
+max_tokens = 4096
