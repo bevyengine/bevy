@@ -309,8 +309,7 @@ impl ComputedNode {
             return [gutter_min, gutter_min + gutter_length];
         }
         let thumb_len = gutter_length * gutter_length / content_length;
-        let thumb_min = gutter_min
-            + scroll_position * gutter_length / content_length;
+        let thumb_min = gutter_min + scroll_position * gutter_length / content_length;
         [thumb_min, thumb_min + thumb_len]
     }
 
