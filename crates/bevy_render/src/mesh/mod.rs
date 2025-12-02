@@ -94,7 +94,8 @@ pub struct RenderMesh {
     /// layout of the buffers associated with this mesh.
     pub layout: MeshVertexBufferLayoutRef,
 
-    /// AABB for decompressing vertex positions. None if the mesh doesn't compress positions.
+    /// AABB used for decompressing vertex positions.
+    /// None if the positions of the mesh is empty or the format isn't Float32x3.
     pub aabb: Option<Aabb3d>,
 }
 
