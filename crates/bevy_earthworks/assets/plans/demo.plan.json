@@ -1,0 +1,148 @@
+{
+  "version": "1.0",
+  "metadata": {
+    "name": "Demo Excavation Plan",
+    "description": "A simple demonstration of earthworks operations",
+    "duration": 60.0,
+    "total_volume": 100.0
+  },
+  "site": {
+    "bounds": [48, 16, 48],
+    "voxel_size": 1.0
+  },
+  "machines": [
+    {
+      "id": "excavator-1",
+      "machine_type": "Excavator",
+      "initial_position": [5.0, 4.5, 5.0]
+    },
+    {
+      "id": "dozer-1",
+      "machine_type": "Dozer",
+      "initial_position": [35.0, 4.5, 35.0]
+    }
+  ],
+  "steps": [
+    {
+      "timestamp": 0.0,
+      "machine_id": "excavator-1",
+      "action": {
+        "type": "MoveTo",
+        "target": [18.0, 4.5, 24.0]
+      },
+      "duration": 5.0
+    },
+    {
+      "timestamp": 5.0,
+      "machine_id": "excavator-1",
+      "action": {
+        "type": "Excavate",
+        "target": [24.0, 8.0, 24.0],
+        "volume": 30.0
+      },
+      "duration": 10.0
+    },
+    {
+      "timestamp": 2.0,
+      "machine_id": "dozer-1",
+      "action": {
+        "type": "MoveTo",
+        "target": [30.0, 4.5, 24.0]
+      },
+      "duration": 8.0
+    },
+    {
+      "timestamp": 15.0,
+      "machine_id": "excavator-1",
+      "action": {
+        "type": "Dump",
+        "target": [10.0, 4.0, 24.0],
+        "volume": 30.0
+      },
+      "duration": 5.0
+    },
+    {
+      "timestamp": 12.0,
+      "machine_id": "dozer-1",
+      "action": {
+        "type": "Push",
+        "direction": [-1.0, 0.0, 0.0],
+        "distance": 8.0
+      },
+      "duration": 8.0
+    },
+    {
+      "timestamp": 25.0,
+      "machine_id": "excavator-1",
+      "action": {
+        "type": "MoveTo",
+        "target": [24.0, 4.5, 18.0]
+      },
+      "duration": 5.0
+    },
+    {
+      "timestamp": 30.0,
+      "machine_id": "excavator-1",
+      "action": {
+        "type": "Excavate",
+        "target": [24.0, 6.0, 24.0],
+        "volume": 20.0
+      },
+      "duration": 8.0
+    },
+    {
+      "timestamp": 22.0,
+      "machine_id": "dozer-1",
+      "action": {
+        "type": "MoveTo",
+        "target": [20.0, 4.5, 30.0]
+      },
+      "duration": 6.0
+    },
+    {
+      "timestamp": 40.0,
+      "machine_id": "excavator-1",
+      "action": {
+        "type": "Dump",
+        "target": [10.0, 5.0, 20.0],
+        "volume": 20.0
+      },
+      "duration": 5.0
+    },
+    {
+      "timestamp": 30.0,
+      "machine_id": "dozer-1",
+      "action": {
+        "type": "Push",
+        "direction": [0.0, 0.0, -1.0],
+        "distance": 5.0
+      },
+      "duration": 5.0
+    },
+    {
+      "timestamp": 48.0,
+      "machine_id": "excavator-1",
+      "action": {
+        "type": "MoveTo",
+        "target": [5.0, 4.5, 5.0]
+      },
+      "duration": 10.0
+    },
+    {
+      "timestamp": 38.0,
+      "machine_id": "dozer-1",
+      "action": {
+        "type": "MoveTo",
+        "target": [35.0, 4.5, 35.0]
+      },
+      "duration": 15.0
+    }
+  ],
+  "expected_results": {
+    "volume_excavated": 50.0,
+    "volume_filled": 0.0,
+    "total_distance": 120.0,
+    "fuel_consumed": 25.0,
+    "score": 82.0
+  }
+}
