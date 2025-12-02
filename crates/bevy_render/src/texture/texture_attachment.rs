@@ -159,4 +159,11 @@ impl OutputColorAttachment {
             },
         }
     }
+
+    /// Returns `true` if this attachment has been written to by a render pass.
+    // we re-use is_first_call atomic to track usage, which assumes that calls to get_attachment
+    // are always consumed by a render pass that writes to the attachment
+    pub fn needs_present(&self) -> bool {
+        !self.is_first_call.load(Ordering::SeqCst)
+    }
 }
