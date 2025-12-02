@@ -268,9 +268,7 @@ impl TextPipeline {
         font_system: &mut CosmicFontSystem,
         swash_cache: &mut SwashCache,
     ) -> Result<(), TextError> {
-        layout_info.glyphs.clear();
-        layout_info.run_geometry.clear();
-        layout_info.size = Default::default();
+        layout_info.clear();
 
         // Clear this here at the focal point of text rendering to ensure the field's lifecycle has strong boundaries.
         computed.needs_rerender = false;
@@ -534,6 +532,16 @@ pub struct TextLayoutInfo {
     pub run_geometry: Vec<RunGeometry>,
     /// The glyphs resulting size
     pub size: Vec2,
+}
+
+impl TextLayoutInfo {
+    /// Clear the layout, retaining capacity
+    pub fn clear(&mut self) {
+        self.scale_factor = 1.;
+        self.glyphs.clear();
+        self.run_geometry.clear();
+        self.size = Vec2::ZERO;
+    }
 }
 
 /// Geometry of a text run used to render text decorations like background colors, strikethrough, and underline.
