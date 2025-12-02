@@ -17,8 +17,10 @@ use bevy_core_pipeline::{
 use bevy_derive::{Deref, DerefMut};
 use bevy_diagnostic::FrameCount;
 use bevy_ecs::{
+    entity::EntityHashSet,
     prelude::*,
     query::{QueryData, ROQueryItem},
+    relationship::RelationshipSourceCollection,
     system::{lifetimeless::*, SystemParamItem, SystemState},
 };
 use bevy_image::{BevyDefault, ImageSampler, TextureFormatPixelInfo};
@@ -1476,11 +1478,39 @@ pub fn extract_meshes_for_gpu_building(
             )>,
         >,
     >,
+    (
+        mut removed_previous_global_transform_query,
+        mut removed_lightmap_query,
+        mut removed_aabb_query,
+        mut removed_mesh_tag_query,
+        mut removed_no_frustum_culling_query,
+        mut removed_not_shadow_receiver_query,
+        mut removed_transmitted_receiver_query,
+        mut removed_not_shadow_caster_query,
+        mut removed_no_automatic_batching_query,
+        mut removed_visibility_range_query,
+        mut removed_skinned_mesh_query,
+    ): (
+        Extract<RemovedComponents<PreviousGlobalTransform>>,
+        Extract<RemovedComponents<Lightmap>>,
+        Extract<RemovedComponents<Aabb>>,
+        Extract<RemovedComponents<MeshTag>>,
+        Extract<RemovedComponents<NoFrustumCulling>>,
+        Extract<RemovedComponents<NotShadowReceiver>>,
+        Extract<RemovedComponents<TransmittedShadowReceiver>>,
+        Extract<RemovedComponents<NotShadowCaster>>,
+        Extract<RemovedComponents<NoAutomaticBatching>>,
+        Extract<RemovedComponents<VisibilityRange>>,
+        Extract<RemovedComponents<SkinnedMesh>>,
+    ),
     all_meshes_query: Extract<Query<GpuMeshExtractionQuery>>,
     mut removed_meshes_query: Extract<RemovedComponents<Mesh3d>>,
     gpu_culling_query: Extract<Query<(), (With<Camera>, Without<NoIndirectDrawing>)>>,
     meshes_to_reextract_next_frame: ResMut<MeshesToReextractNextFrame>,
+    mut reextract_entities: Local<EntityHashSet>,
 ) {
+    reextract_entities.clear();
+
     let any_gpu_culling = !gpu_culling_query.is_empty();
 
     for render_mesh_instance_queue in render_mesh_instance_queues.iter_mut() {
@@ -1518,9 +1548,26 @@ pub fn extract_meshes_for_gpu_building(
     // because the material hadn't yet been loaded. We reextract such materials
     // on subsequent frames so that `collect_meshes_for_gpu_building` will check
     // to see if their materials have been prepared.
+    let iters = meshes_to_reextract_next_frame
+        .iter()
+        .map(|&e| *e)
+        .chain(removed_previous_global_transform_query.read())
+        .chain(removed_lightmap_query.read())
+        .chain(removed_aabb_query.read())
+        .chain(removed_mesh_tag_query.read())
+        .chain(removed_no_frustum_culling_query.read())
+        .chain(removed_not_shadow_receiver_query.read())
+        .chain(removed_transmitted_receiver_query.read())
+        .chain(removed_not_shadow_caster_query.read())
+        .chain(removed_no_automatic_batching_query.read())
+        .chain(removed_visibility_range_query.read())
+        .chain(removed_skinned_mesh_query.read());
+
+    reextract_entities.extend_from_iter(iters);
+
     let mut queue = render_mesh_instance_queues.borrow_local_mut();
-    for &mesh_entity in &**meshes_to_reextract_next_frame {
-        if let Ok(query_row) = all_meshes_query.get(*mesh_entity) {
+    for entity in &reextract_entities {
+        if let Ok(query_row) = all_meshes_query.get(*entity) {
             extract_mesh_for_gpu_building(
                 query_row,
                 &render_visibility_ranges,
