@@ -24,6 +24,7 @@ Move from `bevy_pbr` to `bevy_material`:
 - `MeshPipelineViewLayout`, `MeshPipelineViewLayoutKey`, `MeshPipelineViewLayouts`
 - `MeshLayouts`
 - `MaterialProperties` and `MaterialPipeline`
+- `UvChannel`
 
 Move from `bevy_pbr` to `bevy_render`:
 

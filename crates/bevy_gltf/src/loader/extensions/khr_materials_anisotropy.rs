@@ -9,7 +9,7 @@ use {
     crate::loader::gltf_ext::{material::uv_channel, texture::texture_handle_from_info},
     bevy_asset::Handle,
     bevy_image::Image,
-    bevy_pbr::UvChannel,
+    bevy_material::UvChannel,
     gltf::json::texture::Info,
     serde_json::value,
 };
