@@ -341,7 +341,7 @@ impl ComputedNode {
         ))
     }
 
-    /// Compute the bounds of the horizontal scrollbar and the thumb
+    /// Compute the bounds of the vertical scrollbar and the thumb
     /// in object-centered coordinates.
     pub fn vertical_scrollbar(&self) -> Option<(Rect, [f32; 2])> {
         if self.scrollbar_size.x <= 0. {
