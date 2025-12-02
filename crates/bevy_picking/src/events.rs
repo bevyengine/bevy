@@ -347,8 +347,17 @@ pub struct PointerButtonState {
     pub pressing: HashMap<Entity, (Location, Instant, HitData)>,
     /// Stores the starting and current locations for each entity currently being dragged by the pointer.
     pub dragging: HashMap<Entity, DragEntry>,
-    /// Stores  the hit data for each entity currently being dragged over by the pointer.
+    /// Stores the hit data for each entity currently being dragged over by the pointer.
     pub dragging_over: HashMap<Entity, HitData>,
+}
+
+impl PointerButtonState {
+    /// Clears all press and drag data tracked for this button on its pointer.
+    pub fn clear(&mut self) {
+        self.pressing.clear();
+        self.dragging.clear();
+        self.dragging_over.clear();
+    }
 }
 
 /// State for all pointers.
@@ -379,9 +388,7 @@ impl PointerState {
     pub fn clear(&mut self, pointer_id: PointerId) {
         for button in PointerButton::iter() {
             if let Some(state) = self.pointer_buttons.get_mut(&(pointer_id, button)) {
-                state.pressing.clear();
-                state.dragging.clear();
-                state.dragging_over.clear();
+                state.clear();
             }
         }
     }
@@ -699,9 +706,7 @@ pub fn pointer_events(
                 }
 
                 // Finally, we can clear the state of everything relating to presses or drags.
-                state.pressing.clear();
-                state.dragging.clear();
-                state.dragging_over.clear();
+                state.clear();
             }
             // Moved
             PointerAction::Move { delta } => {

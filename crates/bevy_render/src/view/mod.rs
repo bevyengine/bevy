@@ -1048,12 +1048,18 @@ pub fn prepare_view_targets(
 ) {
     let mut textures = <HashMap<_, _>>::default();
     for (entity, camera, view, texture_usage, msaa) in cameras.iter() {
-        let (Some(target_size), Some(target)) = (camera.physical_target_size, &camera.target)
-        else {
-            continue;
-        };
+        let (Some(target_size), Some(out_attachment)) = (
+            camera.physical_target_size,
+            camera
+                .target
+                .as_ref()
+                .and_then(|target| view_target_attachments.get(target)),
+        ) else {
+            // If we can't find an output attachment we need to remove the ViewTarget
+            // component to make sure the camera doesn't try rendering to an invalid
+            // output attachment.
+            commands.entity(entity).try_remove::<ViewTarget>();
 
-        let Some(out_attachment) = view_target_attachments.get(target) else {
             continue;
         };
 
