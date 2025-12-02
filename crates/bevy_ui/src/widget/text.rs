@@ -12,7 +12,7 @@ use bevy_ecs::{
     query::With,
     reflect::ReflectComponent,
     system::{Query, Res, ResMut},
-    world::{Mut, Ref},
+    world::Ref,
 };
 use bevy_image::prelude::*;
 use bevy_math::Vec2;
@@ -223,55 +223,6 @@ impl Measure for TextMeasure {
     }
 }
 
-#[inline]
-fn create_text_measure<'a>(
-    entity: Entity,
-    fonts: &Assets<Font>,
-    scale_factor: f64,
-    spans: impl Iterator<Item = (Entity, usize, &'a str, &'a TextFont, Color, LineHeight)>,
-    block: Ref<TextLayout>,
-    text_pipeline: &mut TextPipeline,
-    mut content_size: Mut<ContentSize>,
-    mut text_flags: Mut<TextNodeFlags>,
-    mut computed: Mut<ComputedTextBlock>,
-    font_system: &mut CosmicFontSystem,
-) {
-    match text_pipeline.create_text_measure(
-        entity,
-        fonts,
-        spans,
-        scale_factor,
-        &block,
-        computed.as_mut(),
-        font_system,
-    ) {
-        Ok(measure) => {
-            if block.linebreak == LineBreak::NoWrap {
-                content_size.set(NodeMeasure::Fixed(FixedMeasure { size: measure.max }));
-            } else {
-                content_size.set(NodeMeasure::Text(TextMeasure { info: measure }));
-            }
-
-            // Text measure func created successfully, so set `TextNodeFlags` to schedule a recompute
-            text_flags.needs_measure_fn = false;
-            text_flags.needs_recompute = true;
-        }
-        Err(TextError::NoSuchFont) => {
-            // Try again next frame
-            text_flags.needs_measure_fn = true;
-        }
-        Err(
-            e @ (TextError::FailedToAddGlyph(_)
-            | TextError::FailedToGetGlyphImage(_)
-            | TextError::MissingAtlasLayout
-            | TextError::MissingAtlasTexture
-            | TextError::InconsistentAtlasState),
-        ) => {
-            panic!("Fatal error when processing text: {e}.");
-        }
-    };
-}
-
 /// Generates a new [`Measure`] for a text node on changes to its [`Text`] component.
 ///
 /// A `Measure` is used by the UI's layout algorithm to determine the appropriate amount of space
@@ -300,30 +251,61 @@ pub fn measure_text_system(
     mut text_pipeline: ResMut<TextPipeline>,
     mut font_system: ResMut<CosmicFontSystem>,
 ) {
-    for (entity, block, content_size, text_flags, computed, computed_target, computed_node) in
-        &mut text_query
+    for (
+        entity,
+        block,
+        mut content_size,
+        mut text_flags,
+        mut computed,
+        computed_target,
+        computed_node,
+    ) in &mut text_query
     {
         // Note: the ComputedTextBlock::needs_rerender bool is cleared in create_text_measure().
         // 1e-5 epsilon to ignore tiny scale factor float errors
-        if 1e-5
+        if !(1e-5
             < (computed_target.scale_factor() - computed_node.inverse_scale_factor.recip()).abs()
             || computed.needs_rerender()
             || text_flags.needs_measure_fn
-            || content_size.is_added()
+            || content_size.is_added())
         {
-            create_text_measure(
-                entity,
-                &fonts,
-                computed_target.scale_factor.into(),
-                text_reader.iter(entity),
-                block,
-                &mut text_pipeline,
-                content_size,
-                text_flags,
-                computed,
-                &mut font_system,
-            );
+            continue;
         }
+
+        match text_pipeline.create_text_measure(
+            entity,
+            fonts.as_ref(),
+            text_reader.iter(entity),
+            computed_target.scale_factor.into(),
+            &block,
+            computed.as_mut(),
+            &mut font_system,
+        ) {
+            Ok(measure) => {
+                if block.linebreak == LineBreak::NoWrap {
+                    content_size.set(NodeMeasure::Fixed(FixedMeasure { size: measure.max }));
+                } else {
+                    content_size.set(NodeMeasure::Text(TextMeasure { info: measure }));
+                }
+
+                // Text measure func created successfully, so set `TextNodeFlags` to schedule a recompute
+                text_flags.needs_measure_fn = false;
+                text_flags.needs_recompute = true;
+            }
+            Err(TextError::NoSuchFont) => {
+                // Try again next frame
+                text_flags.needs_measure_fn = true;
+            }
+            Err(
+                e @ (TextError::FailedToAddGlyph(_)
+                | TextError::FailedToGetGlyphImage(_)
+                | TextError::MissingAtlasLayout
+                | TextError::MissingAtlasTexture
+                | TextError::InconsistentAtlasState),
+            ) => {
+                panic!("Fatal error when processing text: {e}.");
+            }
+        };
     }
 }
 
