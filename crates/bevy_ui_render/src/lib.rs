@@ -429,8 +429,8 @@ impl RenderGraphNode for RunUiSubgraphOnUiViewNode {
         };
 
         // Run the subgraph on the UI view.
-        graph.run_sub_graph(SubGraphUi, vec![], Some(ui_camera_view.ui_camera))?;
         graph.run_sub_graph(SubGraphUi, vec![], Some(ui_camera_view.ui_container))?;
+        graph.run_sub_graph(SubGraphUi, vec![], Some(ui_camera_view.ui_camera))?;
         Ok(())
     }
 }
