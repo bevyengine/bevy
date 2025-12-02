@@ -241,7 +241,7 @@ impl NormalizedRenderTargetExt for NormalizedRenderTarget {
                 .get(&image_target.handle)
                 .map(|image| RenderTargetInfo {
                     physical_size: image.size(),
-                    scale_factor: image_target.scale_factor.0,
+                    scale_factor: image_target.scale_factor,
                 })
                 .ok_or(MissingRenderTargetInfoError::Image {
                     image: image_target.handle.id(),

@@ -91,13 +91,8 @@ fn setup(mut commands: Commands) {
 
     let borders_examples = (
         Node {
-            margin: UiRect::all(px(25)),
-            align_self: AlignSelf::Stretch,
-            justify_self: JustifySelf::Stretch,
+            margin: px(25).all(),
             flex_wrap: FlexWrap::Wrap,
-            justify_content: JustifyContent::FlexStart,
-            align_items: AlignItems::FlexStart,
-            align_content: AlignContent::FlexStart,
             ..default()
         },
         Children::spawn(SpawnIter(border_labels.into_iter().zip(borders).map(
@@ -114,7 +109,7 @@ fn setup(mut commands: Commands) {
                                 width: px(50),
                                 height: px(50),
                                 border,
-                                margin: UiRect::all(px(20)),
+                                margin: px(20).all(),
                                 align_items: AlignItems::Center,
                                 justify_content: JustifyContent::Center,
                                 ..default()
@@ -158,13 +153,8 @@ fn setup(mut commands: Commands) {
 
     let borders_examples_rounded = (
         Node {
-            margin: UiRect::all(px(25)),
-            align_self: AlignSelf::Stretch,
-            justify_self: JustifySelf::Stretch,
+            margin: px(25).all(),
             flex_wrap: FlexWrap::Wrap,
-            justify_content: JustifyContent::FlexStart,
-            align_items: AlignItems::FlexStart,
-            align_content: AlignContent::FlexStart,
             ..default()
         },
         Children::spawn(SpawnIter(border_labels.into_iter().zip(borders).map(
@@ -181,9 +171,15 @@ fn setup(mut commands: Commands) {
                                 width: px(50),
                                 height: px(50),
                                 border,
-                                margin: UiRect::all(px(20)),
+                                margin: px(20).all(),
                                 align_items: AlignItems::Center,
                                 justify_content: JustifyContent::Center,
+                                border_radius: BorderRadius::px(
+                                    border_size(border.left, border.top),
+                                    border_size(border.right, border.top),
+                                    border_size(border.right, border.bottom,),
+                                    border_size(border.left, border.bottom),
+                                ),
                                 ..default()
                             },
                             BackgroundColor(MAROON.into()),
@@ -193,12 +189,6 @@ fn setup(mut commands: Commands) {
                                 left: GREEN.into(),
                                 right: BLUE.into(),
                             },
-                            BorderRadius::px(
-                                border_size(border.left, border.top),
-                                border_size(border.right, border.top),
-                                border_size(border.right, border.bottom,),
-                                border_size(border.left, border.bottom),
-                            ),
                             Outline {
                                 width: px(6),
                                 offset: px(6),
@@ -208,9 +198,9 @@ fn setup(mut commands: Commands) {
                                 Node {
                                     width: px(10),
                                     height: px(10),
+                                    border_radius: BorderRadius::MAX,
                                     ..default()
                                 },
-                                BorderRadius::MAX,
                                 BackgroundColor(YELLOW.into()),
                             )],
                         ),
@@ -223,14 +213,10 @@ fn setup(mut commands: Commands) {
 
     commands.spawn((
         Node {
-            margin: UiRect::all(px(25)),
+            margin: px(25).all(),
             flex_direction: FlexDirection::Column,
             align_self: AlignSelf::Stretch,
             justify_self: JustifySelf::Stretch,
-            flex_wrap: FlexWrap::Wrap,
-            justify_content: JustifyContent::FlexStart,
-            align_items: AlignItems::FlexStart,
-            align_content: AlignContent::FlexStart,
             ..default()
         },
         BackgroundColor(Color::srgb(0.25, 0.25, 0.25)),
@@ -248,7 +234,7 @@ fn setup(mut commands: Commands) {
 fn label(text: &str) -> impl Bundle {
     (
         Node {
-            margin: UiRect::all(px(25)),
+            margin: px(25).all(),
             ..default()
         },
         children![(Text::new(text), TextFont::from_font_size(20.0))],

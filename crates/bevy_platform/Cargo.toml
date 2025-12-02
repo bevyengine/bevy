@@ -1,6 +1,6 @@
 [package]
 name = "bevy_platform"
-version = "0.17.0-dev"
+version = "0.18.0-dev"
 edition = "2024"
 description = "Provides common platform agnostic APIs, as well as platform-specific features for Bevy Engine"
 homepage = "https://bevy.org"
@@ -67,7 +67,7 @@ spin = { version = "0.10.0", default-features = false, features = [
   "barrier",
 ] }
 foldhash = { version = "0.2.0", default-features = false }
-hashbrown = { version = "0.16.0", features = [
+hashbrown = { version = "0.16.1", features = [
   "equivalent",
   "raw-entry",
 ], optional = true, default-features = false }

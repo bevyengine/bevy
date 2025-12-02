@@ -347,8 +347,17 @@ pub struct PointerButtonState {
     pub pressing: HashMap<Entity, (Location, Instant, HitData)>,
     /// Stores the starting and current locations for each entity currently being dragged by the pointer.
     pub dragging: HashMap<Entity, DragEntry>,
-    /// Stores  the hit data for each entity currently being dragged over by the pointer.
+    /// Stores the hit data for each entity currently being dragged over by the pointer.
     pub dragging_over: HashMap<Entity, HitData>,
+}
+
+impl PointerButtonState {
+    /// Clears all press and drag data tracked for this button on its pointer.
+    pub fn clear(&mut self) {
+        self.pressing.clear();
+        self.dragging.clear();
+        self.dragging_over.clear();
+    }
 }
 
 /// State for all pointers.
@@ -379,9 +388,7 @@ impl PointerState {
     pub fn clear(&mut self, pointer_id: PointerId) {
         for button in PointerButton::iter() {
             if let Some(state) = self.pointer_buttons.get_mut(&(pointer_id, button)) {
-                state.pressing.clear();
-                state.dragging.clear();
-                state.dragging_over.clear();
+                state.clear();
             }
         }
     }
@@ -437,7 +444,7 @@ pub struct PickingMessageWriters<'w> {
 ///
 /// When the pointer goes from hovering entity A to entity B, entity A will
 /// receive [`Out`] and then entity B will receive [`Over`]. No entity will ever
-/// receive both an [`Over`] and and a [`Out`] event during the same frame.
+/// receive both an [`Over`] and an [`Out`] event during the same frame.
 ///
 /// When we account for event bubbling, this is no longer true. When the hovering focus shifts
 /// between children, parent entities may receive redundant [`Out`] → [`Over`] pairs.
@@ -699,9 +706,7 @@ pub fn pointer_events(
                 }
 
                 // Finally, we can clear the state of everything relating to presses or drags.
-                state.pressing.clear();
-                state.dragging.clear();
-                state.dragging_over.clear();
+                state.clear();
             }
             // Moved
             PointerAction::Move { delta } => {
@@ -766,6 +771,7 @@ pub fn pointer_events(
                             .flat_map(|h| h.iter().map(|(entity, data)| (*entity, data.to_owned())))
                             .filter(|(hovered_entity, _)| *hovered_entity != *drag_target)
                         {
+                            *state.dragging_over.get_mut(&hovered_entity).unwrap() = hit.clone();
                             let drag_over_event = Pointer::new(
                                 pointer_id,
                                 location.clone(),

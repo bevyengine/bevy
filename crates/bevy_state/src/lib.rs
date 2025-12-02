@@ -29,7 +29,8 @@
 //! - The [`in_state<S>`](crate::condition::in_state) and [`state_changed<S>`](crate::condition::state_changed) run conditions - which are used
 //!   to determine whether a system should run based on the current state.
 //!
-//! Bevy also provides ("state-scoped entities") [`state_scoped`](`crate::state_scoped`) functionality for managing the lifetime of entities in the context of game states.
+//! Bevy also provides functionality for managing the lifetime of entities in the context of game states, using the [`state_scoped`] module.
+//! Specifically, the marker components [`DespawnOnEnter<S>`](crate::state_scoped::DespawnOnEnter) and [`DespawnOnExit<S>`](crate::state_scoped::DespawnOnExit) are provided for despawning entities on state transition.
 //! This, especially in combination with system scheduling, enables a flexible and expressive way to manage spawning and despawning entities.
 
 #![cfg_attr(
@@ -81,13 +82,6 @@ pub mod prelude {
     #[cfg(feature = "bevy_reflect")]
     #[doc(hidden)]
     pub use crate::reflect::{ReflectFreelyMutableState, ReflectState};
-
-    #[doc(hidden)]
-    #[expect(
-        deprecated,
-        reason = "Temporarily re-exporting deprecated type for transition"
-    )]
-    pub use crate::state_scoped::StateScoped;
 
     #[doc(hidden)]
     pub use crate::{

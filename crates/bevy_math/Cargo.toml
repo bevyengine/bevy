@@ -1,6 +1,6 @@
 [package]
 name = "bevy_math"
-version = "0.17.0-dev"
+version = "0.18.0-dev"
 edition = "2024"
 description = "Provides math functionality for Bevy Engine"
 homepage = "https://bevy.org"
@@ -10,7 +10,7 @@ keywords = ["bevy"]
 rust-version = "1.85.0"
 
 [dependencies]
-glam = { version = "0.30.1", default-features = false, features = ["bytemuck"] }
+glam = { version = "0.30.7", default-features = false, features = ["bytemuck"] }
 thiserror = { version = "2", default-features = false }
 derive_more = { version = "2", default-features = false, features = [
   "from",
@@ -24,8 +24,8 @@ libm = { version = "0.2", optional = true }
 approx = { version = "0.5", default-features = false, optional = true }
 rand = { version = "0.9", default-features = false, optional = true }
 rand_distr = { version = "0.5", optional = true }
-smallvec = { version = "1", default-features = false }
-bevy_reflect = { path = "../bevy_reflect", version = "0.17.0-dev", default-features = false, features = [
+arrayvec = { version = "0.7", default-features = false }
+bevy_reflect = { path = "../bevy_reflect", version = "0.18.0-dev", default-features = false, features = [
   "glam",
 ], optional = true }
 variadics_please = "1.1"
@@ -37,7 +37,7 @@ rand = "0.9"
 rand_chacha = "0.9"
 # Enable the approx feature when testing.
 bevy_math = { path = ".", default-features = false, features = ["approx"] }
-glam = { version = "0.30.1", default-features = false, features = ["approx"] }
+glam = { version = "0.30.7", default-features = false, features = ["approx"] }
 
 [target.'cfg(target_arch = "wasm32")'.dev-dependencies]
 getrandom = { version = "0.3", default-features = false, features = [
