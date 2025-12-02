@@ -1,0 +1,873 @@
+{
+  "init": {
+    "name": "init",
+    "tasks": [
+      {
+        "id": "1",
+        "title": "Set up project structure and EarthworksPlugin",
+        "description": "Fork Bevy repo, create bevy_earthworks crate with Cargo.toml, module structure, and basic Plugin implementation including config resource and system stubs. Add dependencies like serde, base64. Ensure plugin builds and integrates into a minimal Bevy app.",
+        "status": "expanded",
+        "complexity": 3,
+        "priority": "high",
+        "dependencies": [],
+        "subtasks": [
+          "1.1",
+          "1.2",
+          "1.3"
+        ],
+        "created_at": "2025-12-02T06:41:33.725255+00:00",
+        "updated_at": "2025-12-02T06:42:54.513301+00:00"
+      },
+      {
+        "id": "2",
+        "title": "Implement voxel, chunk, and VoxelTerrain data structures",
+        "description": "Define VoxelState, MaterialId, Voxel, Chunk with fixed-size array, and VoxelTerrain resource with HashMap storage. Add coordinate conversion methods (world_to_chunk, etc.) and basic get/set_voxel. Test voxel access and chunk creation.",
+        "status": "expanded",
+        "complexity": 5,
+        "priority": "high",
+        "dependencies": [
+          "1"
+        ],
+        "subtasks": [
+          "2.1",
+          "2.2",
+          "2.3",
+          "2.4"
+        ],
+        "created_at": "2025-12-02T06:41:33.726178+00:00",
+        "updated_at": "2025-12-02T06:42:54.513203+00:00"
+      },
+      {
+        "id": "3",
+        "title": "Add terrain operations (excavate, fill) and dirty tracking",
+        "description": "Implement excavate for shapes (Aabb), fill for piling material, update solid_count, emit TerrainModifiedEvent, and dirty chunk marking. Add dirty_chunks iterator and mark_clean. Verify volume calculations and events.",
+        "status": "expanded",
+        "complexity": 5,
+        "priority": "high",
+        "dependencies": [
+          "2"
+        ],
+        "subtasks": [
+          "3.1",
+          "3.2",
+          "3.3",
+          "3.4"
+        ],
+        "created_at": "2025-12-02T06:41:33.726179+00:00",
+        "updated_at": "2025-12-02T06:42:54.513280+00:00"
+      },
+      {
+        "id": "4",
+        "title": "Implement simple cube meshing and chunk rendering",
+        "description": "Create basic per-voxel cube meshing in meshing.rs, chunk_dirty_system, and mesh_generation_system spawning PbrBundle entities with ChunkMarker. Limit meshes per frame. Render a manually filled terrain successfully.",
+        "status": "expanded",
+        "complexity": 8,
+        "priority": "high",
+        "dependencies": [
+          "3"
+        ],
+        "subtasks": [
+          "4.1",
+          "4.2",
+          "4.3",
+          "4.4",
+          "4.5"
+        ],
+        "created_at": "2025-12-02T06:41:33.726181+00:00",
+        "updated_at": "2025-12-02T06:42:54.513337+00:00"
+      },
+      {
+        "id": "5",
+        "title": "Define plan schema and ExecutionPlan asset loader",
+        "description": "Create serde types for ExecutionPlan, PlanStep, PlannedAction, SiteDefinition, etc., matching JSON schema. Implement PlanLoader for bevy_asset. Load and validate a sample JSON plan without errors.",
+        "status": "expanded",
+        "complexity": 3,
+        "priority": "high",
+        "dependencies": [
+          "1"
+        ],
+        "subtasks": [
+          "5.1",
+          "5.2",
+          "5.3"
+        ],
+        "created_at": "2025-12-02T06:41:33.726182+00:00",
+        "updated_at": "2025-12-02T06:42:54.513183+00:00"
+      },
+      {
+        "id": "6",
+        "title": "Initialize terrain and spawn machines from loaded plan",
+        "description": "Add plan_loader_system to init VoxelTerrain from plan (decode RLE terrain_data), compute bounds, spawn Chunk-filled entities, and spawn MachineBundles using presets catalog with initial positions. Clear existing entities on reload. Display initial terrain and machines.",
+        "status": "expanded",
+        "complexity": 8,
+        "priority": "high",
+        "dependencies": [
+          "2",
+          "4",
+          "5",
+          "6"
+        ],
+        "subtasks": [
+          "6.1",
+          "6.2",
+          "6.3",
+          "6.4",
+          "6.5"
+        ],
+        "created_at": "2025-12-02T06:41:33.726183+00:00",
+        "updated_at": "2025-12-02T06:42:54.513489+00:00"
+      },
+      {
+        "id": "7",
+        "title": "Implement PlanPlayback and basic plan executor",
+        "description": "Create PlanPlayback resource with play/pause/seek/reset methods. Add plan_executor_system to advance time, trigger steps at timestamps, dispatch MachineEvents and TerrainModifiedEvent. Execute MoveTo and Idle actions correctly.",
+        "status": "expanded",
+        "complexity": 8,
+        "priority": "high",
+        "dependencies": [
+          "7"
+        ],
+        "subtasks": [
+          "7.1",
+          "7.2",
+          "7.3",
+          "7.4",
+          "7.5"
+        ],
+        "created_at": "2025-12-02T06:41:33.726185+00:00",
+        "updated_at": "2025-12-02T06:42:54.513385+00:00"
+      },
+      {
+        "id": "8",
+        "title": "Add machine components, activities, and animation system",
+        "description": "Define MachineActivity enum, WorkEnvelope variants with contains method, MachineBundle. Implement animation_system for interpolating travel/excavate/dump progress, update Transform. Animate a simple move-excavate cycle smoothly.",
+        "status": "expanded",
+        "complexity": 8,
+        "priority": "high",
+        "dependencies": [
+          "7"
+        ],
+        "subtasks": [
+          "8.1",
+          "8.2",
+          "8.3",
+          "8.4",
+          "8.5"
+        ],
+        "created_at": "2025-12-02T06:41:33.726186+00:00",
+        "updated_at": "2025-12-02T06:42:54.513362+00:00"
+      },
+      {
+        "id": "9",
+        "title": "Upgrade to greedy meshing algorithm",
+        "description": "Replace cube meshing with greedy_mesh_face for each axis/dir, merging same-material faces into quads with correct normals/UVs/colors/indices. Handle chunk edges and empty chunks. Achieve lower triangle count and matching visuals.",
+        "status": "expanded",
+        "complexity": 13,
+        "priority": "high",
+        "dependencies": [
+          "4"
+        ],
+        "subtasks": [
+          "9.1",
+          "9.2",
+          "9.3",
+          "9.4",
+          "9.5",
+          "9.6"
+        ],
+        "created_at": "2025-12-02T06:41:33.726187+00:00",
+        "updated_at": "2025-12-02T06:42:54.513446+00:00"
+      },
+      {
+        "id": "10",
+        "title": "Implement UI timeline, overlay, and controls",
+        "description": "Add EarthworksUiPlugin with egui for timeline (play/pause/scrub/speed/loop), score_overlay_ui showing plan vs live stats, keyboard shortcuts. Integrate with PlanPlayback. Controls respond and update display accurately.",
+        "status": "expanded",
+        "complexity": 5,
+        "priority": "high",
+        "dependencies": [
+          "8"
+        ],
+        "subtasks": [
+          "10.1",
+          "10.2",
+          "10.3",
+          "10.4"
+        ],
+        "created_at": "2025-12-02T06:41:33.726188+00:00",
+        "updated_at": "2025-12-02T06:42:54.513418+00:00"
+      },
+      {
+        "id": "11",
+        "title": "Add scoring tracker, gizmos, and basic camera",
+        "description": "Implement SimulationScore resource and score_tracker_system accumulating from events/costs. Add draw_work_envelopes gizmos system. Create simple orbit camera. Display scores and envelopes togglable.",
+        "status": "expanded",
+        "complexity": 5,
+        "priority": "medium",
+        "dependencies": [
+          "3",
+          "8"
+        ],
+        "subtasks": [
+          "11.1",
+          "11.2",
+          "11.3",
+          "11.4"
+        ],
+        "created_at": "2025-12-02T06:41:33.726190+00:00",
+        "updated_at": "2025-12-02T06:42:54.513509+00:00"
+      },
+      {
+        "id": "5.1",
+        "title": "Define serde types for plan schema",
+        "description": "Create Rust structs with serde attributes for ExecutionPlan, PlanStep, PlannedAction, SiteDefinition, and related types, matching the JSON schema. Test deserialization from sample JSON snippets.",
+        "status": "pending",
+        "complexity": 0,
+        "priority": "high",
+        "dependencies": [],
+        "parent_id": "5",
+        "created_at": "2025-12-02T06:42:54.513165+00:00",
+        "updated_at": "2025-12-02T06:42:54.513165+00:00"
+      },
+      {
+        "id": "5.2",
+        "title": "Implement PlanLoader for bevy_asset",
+        "description": "Create PlanLoader struct implementing AssetLoader for bevy_asset. Use defined serde types to load JSON into ExecutionPlan. Test loader independently with a JSON byte slice.",
+        "status": "pending",
+        "complexity": 0,
+        "priority": "high",
+        "dependencies": [
+          "5.1"
+        ],
+        "parent_id": "5",
+        "created_at": "2025-12-02T06:42:54.513174+00:00",
+        "updated_at": "2025-12-02T06:42:54.513174+00:00"
+      },
+      {
+        "id": "5.3",
+        "title": "Load and validate sample JSON plan",
+        "description": "Create a sample JSON plan file. Integrate PlanLoader into a minimal Bevy app, load the asset, and verify it deserializes without errors. Add basic validation assertions.",
+        "status": "pending",
+        "complexity": 0,
+        "priority": "high",
+        "dependencies": [
+          "5.2"
+        ],
+        "parent_id": "5",
+        "created_at": "2025-12-02T06:42:54.513179+00:00",
+        "updated_at": "2025-12-02T06:42:54.513179+00:00"
+      },
+      {
+        "id": "2.1",
+        "title": "Define foundational voxel types",
+        "description": "Define VoxelState, MaterialId, and Voxel structs/enums with appropriate fields and derive necessary traits (e.g., Clone, Debug). Ensure they are serializable if needed.",
+        "status": "pending",
+        "complexity": 0,
+        "priority": "high",
+        "dependencies": [],
+        "parent_id": "2",
+        "created_at": "2025-12-02T06:42:54.513188+00:00",
+        "updated_at": "2025-12-02T06:42:54.513188+00:00"
+      },
+      {
+        "id": "2.2",
+        "title": "Implement Chunk data structure",
+        "description": "Define Chunk struct using a fixed-size array for voxels. Add methods for local coordinate handling and basic voxel access within a chunk. Test chunk creation and internal voxel get/set.",
+        "status": "pending",
+        "complexity": 0,
+        "priority": "high",
+        "dependencies": [
+          "2.1"
+        ],
+        "parent_id": "2",
+        "created_at": "2025-12-02T06:42:54.513192+00:00",
+        "updated_at": "2025-12-02T06:42:54.513192+00:00"
+      },
+      {
+        "id": "2.3",
+        "title": "Implement VoxelTerrain and coordinate conversions",
+        "description": "Define VoxelTerrain as a resource using HashMap<ChunkCoord, Chunk> for storage. Implement coordinate conversion methods: world_to_chunk, chunk_to_world, world_to_local, etc. Test conversions independently.",
+        "status": "pending",
+        "complexity": 0,
+        "priority": "high",
+        "dependencies": [
+          "2.1",
+          "2.2"
+        ],
+        "parent_id": "2",
+        "created_at": "2025-12-02T06:42:54.513195+00:00",
+        "updated_at": "2025-12-02T06:42:54.513195+00:00"
+      },
+      {
+        "id": "2.4",
+        "title": "Add get/set_voxel methods and full tests",
+        "description": "Implement get_voxel and set_voxel methods on VoxelTerrain using conversions. Ensure chunk lazy creation/loading. Add comprehensive tests for voxel access across chunks and chunk creation.",
+        "status": "pending",
+        "complexity": 0,
+        "priority": "medium",
+        "dependencies": [
+          "2.3"
+        ],
+        "parent_id": "2",
+        "created_at": "2025-12-02T06:42:54.513200+00:00",
+        "updated_at": "2025-12-02T06:42:54.513200+00:00"
+      },
+      {
+        "id": "3.1",
+        "title": "Implement dirty chunk tracking",
+        "description": "Add dirty_chunks iterator, mark_dirty, and mark_clean functions. Ensure chunks can be marked as dirty during modifications and iterated for updates.",
+        "status": "pending",
+        "complexity": 0,
+        "priority": "high",
+        "dependencies": [],
+        "parent_id": "3",
+        "created_at": "2025-12-02T06:42:54.513262+00:00",
+        "updated_at": "2025-12-02T06:42:54.513262+00:00"
+      },
+      {
+        "id": "3.2",
+        "title": "Implement excavate operation",
+        "description": "Add excavate function for Aabb shapes: remove voxels, update solid_count, mark affected chunks as dirty, and emit TerrainModifiedEvent.",
+        "status": "pending",
+        "complexity": 0,
+        "priority": "high",
+        "dependencies": [
+          "3.1"
+        ],
+        "parent_id": "3",
+        "created_at": "2025-12-02T06:42:54.513267+00:00",
+        "updated_at": "2025-12-02T06:42:54.513267+00:00"
+      },
+      {
+        "id": "3.3",
+        "title": "Implement fill operation",
+        "description": "Add fill function for piling material: add voxels, update solid_count, mark affected chunks as dirty, and emit TerrainModifiedEvent.",
+        "status": "pending",
+        "complexity": 0,
+        "priority": "high",
+        "dependencies": [
+          "3.1"
+        ],
+        "parent_id": "3",
+        "created_at": "2025-12-02T06:42:54.513271+00:00",
+        "updated_at": "2025-12-02T06:42:54.513271+00:00"
+      },
+      {
+        "id": "3.4",
+        "title": "Verify volume calculations and events",
+        "description": "Add unit tests for excavate and fill operations, verifying solid_count updates, volume calculations, dirty chunk marking, and TerrainModifiedEvent emission.",
+        "status": "pending",
+        "complexity": 0,
+        "priority": "high",
+        "dependencies": [
+          "3.2",
+          "3.3"
+        ],
+        "parent_id": "3",
+        "created_at": "2025-12-02T06:42:54.513276+00:00",
+        "updated_at": "2025-12-02T06:42:54.513276+00:00"
+      },
+      {
+        "id": "1.1",
+        "title": "Fork Bevy repo and create bevy_earthworks crate",
+        "description": "Fork the Bevy repository on GitHub, clone locally, create the bevy_earthworks crate directory under crates/, generate Cargo.toml with necessary dependencies including serde and base64, and ensure basic cargo check passes.",
+        "status": "pending",
+        "complexity": 0,
+        "priority": "high",
+        "dependencies": [],
+        "parent_id": "1",
+        "created_at": "2025-12-02T06:42:54.513289+00:00",
+        "updated_at": "2025-12-02T06:42:54.513289+00:00"
+      },
+      {
+        "id": "1.2",
+        "title": "Implement module structure and basic Plugin",
+        "description": "In bevy_earthworks, set up Rust module structure (lib.rs, mod plugin.rs, mod config.rs, etc.), implement a basic EarthworksPlugin with Plugin trait, add Config resource, and include system stubs (empty functions). Verify with cargo build.",
+        "status": "pending",
+        "complexity": 0,
+        "priority": "high",
+        "dependencies": [
+          "1.1"
+        ],
+        "parent_id": "1",
+        "created_at": "2025-12-02T06:42:54.513293+00:00",
+        "updated_at": "2025-12-02T06:42:54.513293+00:00"
+      },
+      {
+        "id": "1.3",
+        "title": "Integrate plugin into minimal Bevy app and test build",
+        "description": "Create a minimal Bevy example app (e.g., in examples/ folder) that adds the EarthworksPlugin to the App builder, runs it, and confirms the project builds and runs without errors (cargo run --example minimal).",
+        "status": "pending",
+        "complexity": 0,
+        "priority": "high",
+        "dependencies": [
+          "1.2"
+        ],
+        "parent_id": "1",
+        "created_at": "2025-12-02T06:42:54.513297+00:00",
+        "updated_at": "2025-12-02T06:42:54.513297+00:00"
+      },
+      {
+        "id": "4.1",
+        "title": "Define Chunk-related components",
+        "description": "Create ChunkMarker, Chunk (with voxel data storage like 16x16x16 array), and DirtyChunk components. Ensure they can be attached to entities.",
+        "status": "pending",
+        "complexity": 0,
+        "priority": "high",
+        "dependencies": [],
+        "parent_id": "4",
+        "created_at": "2025-12-02T06:42:54.513306+00:00",
+        "updated_at": "2025-12-02T06:42:54.513306+00:00"
+      },
+      {
+        "id": "4.2",
+        "title": "Implement basic cube meshing in meshing.rs",
+        "description": "Write a function in meshing.rs that takes Chunk voxel data and generates a combined mesh by creating simple cube geometry for each filled voxel (naive per-voxel meshing, no culling). Add unit tests for mesh vertex count on simple voxel patterns.",
+        "status": "pending",
+        "complexity": 0,
+        "priority": "high",
+        "dependencies": [
+          "4.1"
+        ],
+        "parent_id": "4",
+        "created_at": "2025-12-02T06:42:54.513310+00:00",
+        "updated_at": "2025-12-02T06:42:54.513310+00:00"
+      },
+      {
+        "id": "4.3",
+        "title": "Implement chunk_dirty_system",
+        "description": "Create chunk_dirty_system that detects changes to Chunk voxel data (e.g., via Changed<Chunk> query) and adds DirtyChunk component to the entity. Test by spawning a Chunk, modifying voxels, running system, and verifying DirtyChunk added.",
+        "status": "pending",
+        "complexity": 0,
+        "priority": "high",
+        "dependencies": [
+          "4.1"
+        ],
+        "parent_id": "4",
+        "created_at": "2025-12-02T06:42:54.513314+00:00",
+        "updated_at": "2025-12-02T06:42:54.513314+00:00"
+      },
+      {
+        "id": "4.4",
+        "title": "Implement mesh_generation_system",
+        "description": "Create mesh_generation_system that queries entities with Chunk and DirtyChunk, uses meshing.rs to generate PbrBundle (with mesh, material, transform), spawns the entity with ChunkMarker, and removes DirtyChunk. Test spawning and verifying entity creation.",
+        "status": "pending",
+        "complexity": 0,
+        "priority": "high",
+        "dependencies": [
+          "4.1",
+          "4.2",
+          "4.3"
+        ],
+        "parent_id": "4",
+        "created_at": "2025-12-02T06:42:54.513318+00:00",
+        "updated_at": "2025-12-02T06:42:54.513318+00:00"
+      },
+      {
+        "id": "4.5",
+        "title": "Add per-frame mesh limiting and manual terrain test",
+        "description": "Update mesh_generation_system to process limited number of dirty chunks per frame (e.g., 1-2). Add a startup system to spawn manually filled terrain chunks (e.g., flat ground or simple structure). Verify chunks mesh and render correctly in game.",
+        "status": "pending",
+        "complexity": 0,
+        "priority": "high",
+        "dependencies": [
+          "4.4"
+        ],
+        "parent_id": "4",
+        "created_at": "2025-12-02T06:42:54.513322+00:00",
+        "updated_at": "2025-12-02T06:42:54.513322+00:00"
+      },
+      {
+        "id": "8.1",
+        "title": "Define MachineActivity enum",
+        "description": "Create the MachineActivity enum with variants such as Idle, Travel, Excavate, Dump, and implement any necessary associated methods. Ensure it compiles and can be used in basic structs.",
+        "status": "pending",
+        "complexity": 0,
+        "priority": "high",
+        "dependencies": [],
+        "parent_id": "8",
+        "created_at": "2025-12-02T06:42:54.513343+00:00",
+        "updated_at": "2025-12-02T06:42:54.513343+00:00"
+      },
+      {
+        "id": "8.2",
+        "title": "Define WorkEnvelope variants and contains method",
+        "description": "Define WorkEnvelope as an enum with relevant variants (e.g., Circle, Rectangle). Implement the contains method to check if a point is within the envelope. Add unit tests for contains.",
+        "status": "pending",
+        "complexity": 0,
+        "priority": "high",
+        "dependencies": [],
+        "parent_id": "8",
+        "created_at": "2025-12-02T06:42:54.513346+00:00",
+        "updated_at": "2025-12-02T06:42:54.513346+00:00"
+      },
+      {
+        "id": "8.3",
+        "title": "Define MachineBundle",
+        "description": "Create MachineBundle as a component bundle including MachineActivity, WorkEnvelope, position, progress fields, and other necessary machine components. Ensure it can be spawned as an entity.",
+        "status": "pending",
+        "complexity": 0,
+        "priority": "high",
+        "dependencies": [
+          "8.1",
+          "8.2"
+        ],
+        "parent_id": "8",
+        "created_at": "2025-12-02T06:42:54.513351+00:00",
+        "updated_at": "2025-12-02T06:42:54.513351+00:00"
+      },
+      {
+        "id": "8.4",
+        "title": "Implement animation_system for progress interpolation",
+        "description": "Create animation_system that queries MachineBundle entities, interpolates progress for travel/excavate/dump activities based on time delta, and updates Transform accordingly. Add basic integration test.",
+        "status": "pending",
+        "complexity": 0,
+        "priority": "medium",
+        "dependencies": [
+          "8.3"
+        ],
+        "parent_id": "8",
+        "created_at": "2025-12-02T06:42:54.513355+00:00",
+        "updated_at": "2025-12-02T06:42:54.513355+00:00"
+      },
+      {
+        "id": "8.5",
+        "title": "Animate simple move-excavate cycle",
+        "description": "Integrate animation_system into the app, set up a test scene with a machine performing a move-excavate-dump cycle, verify smooth animation via manual run or automated checks.",
+        "status": "pending",
+        "complexity": 0,
+        "priority": "medium",
+        "dependencies": [
+          "8.4"
+        ],
+        "parent_id": "8",
+        "created_at": "2025-12-02T06:42:54.513358+00:00",
+        "updated_at": "2025-12-02T06:42:54.513358+00:00"
+      },
+      {
+        "id": "7.1",
+        "title": "Define PlanPlayback resource",
+        "description": "Create the PlanPlayback struct as an app resource with fields for playback state (play/pause), current time, and plan steps with timestamps. Implement play, pause, seek, and reset methods to mutate its state.",
+        "status": "pending",
+        "complexity": 0,
+        "priority": "high",
+        "dependencies": [],
+        "parent_id": "7",
+        "created_at": "2025-12-02T06:42:54.513366+00:00",
+        "updated_at": "2025-12-02T06:42:54.513366+00:00"
+      },
+      {
+        "id": "7.2",
+        "title": "Implement basic plan_executor_system",
+        "description": "Add the plan_executor_system that queries PlanPlayback resource, advances current_time by delta_time when playing, and inserts the system into the app schedule.",
+        "status": "pending",
+        "complexity": 0,
+        "priority": "high",
+        "dependencies": [
+          "7.1"
+        ],
+        "parent_id": "7",
+        "created_at": "2025-12-02T06:42:54.513370+00:00",
+        "updated_at": "2025-12-02T06:42:54.513370+00:00"
+      },
+      {
+        "id": "7.3",
+        "title": "Add step triggering at timestamps",
+        "description": "Extend plan_executor_system to detect plan steps where timestamp <= current_time and not yet triggered, mark them as triggered, and prepare for action execution.",
+        "status": "pending",
+        "complexity": 0,
+        "priority": "high",
+        "dependencies": [
+          "7.2"
+        ],
+        "parent_id": "7",
+        "created_at": "2025-12-02T06:42:54.513374+00:00",
+        "updated_at": "2025-12-02T06:42:54.513374+00:00"
+      },
+      {
+        "id": "7.4",
+        "title": "Dispatch MachineEvents and TerrainModifiedEvent",
+        "description": "In plan_executor_system, dispatch MachineEvents and TerrainModifiedEvent when triggering relevant steps based on their action types.",
+        "status": "pending",
+        "complexity": 0,
+        "priority": "medium",
+        "dependencies": [
+          "7.3"
+        ],
+        "parent_id": "7",
+        "created_at": "2025-12-02T06:42:54.513377+00:00",
+        "updated_at": "2025-12-02T06:42:54.513377+00:00"
+      },
+      {
+        "id": "7.5",
+        "title": "Execute MoveTo and Idle actions",
+        "description": "Implement correct execution in plan_executor_system or triggered handlers for MoveTo (e.g., move machine to position) and Idle (e.g., skip or wait) actions.",
+        "status": "pending",
+        "complexity": 0,
+        "priority": "medium",
+        "dependencies": [
+          "7.4"
+        ],
+        "parent_id": "7",
+        "created_at": "2025-12-02T06:42:54.513381+00:00",
+        "updated_at": "2025-12-02T06:42:54.513381+00:00"
+      },
+      {
+        "id": "10.1",
+        "title": "Set up EarthworksUiPlugin with egui",
+        "description": "Create EarthworksUiPlugin, integrate egui framework, and establish initial connection to PlanPlayback for state access and updates.",
+        "status": "pending",
+        "complexity": 0,
+        "priority": "high",
+        "dependencies": [],
+        "parent_id": "10",
+        "created_at": "2025-12-02T06:42:54.513403+00:00",
+        "updated_at": "2025-12-02T06:42:54.513403+00:00"
+      },
+      {
+        "id": "10.2",
+        "title": "Implement timeline UI controls",
+        "description": "Build egui timeline UI with play/pause/scrub/speed/loop buttons that send commands to and receive updates from PlanPlayback.",
+        "status": "pending",
+        "complexity": 0,
+        "priority": "high",
+        "dependencies": [
+          "10.1"
+        ],
+        "parent_id": "10",
+        "created_at": "2025-12-02T06:42:54.513407+00:00",
+        "updated_at": "2025-12-02T06:42:54.513407+00:00"
+      },
+      {
+        "id": "10.3",
+        "title": "Implement score overlay UI",
+        "description": "Add score_overlay_ui using egui to display plan vs live stats, pulling and rendering data from PlanPlayback in real-time.",
+        "status": "pending",
+        "complexity": 0,
+        "priority": "medium",
+        "dependencies": [
+          "10.1"
+        ],
+        "parent_id": "10",
+        "created_at": "2025-12-02T06:42:54.513411+00:00",
+        "updated_at": "2025-12-02T06:42:54.513411+00:00"
+      },
+      {
+        "id": "10.4",
+        "title": "Add keyboard shortcuts and verify controls",
+        "description": "Implement keyboard shortcuts for all controls, ensure UI responds accurately to PlanPlayback changes, and test end-to-end integration.",
+        "status": "pending",
+        "complexity": 0,
+        "priority": "medium",
+        "dependencies": [
+          "10.2",
+          "10.3"
+        ],
+        "parent_id": "10",
+        "created_at": "2025-12-02T06:42:54.513415+00:00",
+        "updated_at": "2025-12-02T06:42:54.513415+00:00"
+      },
+      {
+        "id": "9.1",
+        "title": "Implement basic greedy meshing for +Z faces",
+        "description": "Write a greedy_mesh_face function for +Z direction that scans voxel slices, merges adjacent same-material faces into quads, and generates indices. Output basic quad vertices.",
+        "status": "pending",
+        "complexity": 0,
+        "priority": "high",
+        "dependencies": [],
+        "parent_id": "9",
+        "created_at": "2025-12-02T06:42:54.513423+00:00",
+        "updated_at": "2025-12-02T06:42:54.513423+00:00"
+      },
+      {
+        "id": "9.2",
+        "title": "Add normals, UVs, and colors to greedy quads",
+        "description": "Extend the +Z greedy mesher to compute correct face normals, scale UVs to quad size, apply per-voxel colors, and generate proper indices for the mesh buffer.",
+        "status": "pending",
+        "complexity": 0,
+        "priority": "high",
+        "dependencies": [
+          "9.1"
+        ],
+        "parent_id": "9",
+        "created_at": "2025-12-02T06:42:54.513428+00:00",
+        "updated_at": "2025-12-02T06:42:54.513428+00:00"
+      },
+      {
+        "id": "9.3",
+        "title": "Generalize greedy meshing for all 6 face directions",
+        "description": "Adapt the greedy_mesh_face function to handle X+, X-, Y+, Y-, Z+, Z- directions with proper axis rotations, normal flips, and UV transformations.",
+        "status": "pending",
+        "complexity": 0,
+        "priority": "high",
+        "dependencies": [
+          "9.2"
+        ],
+        "parent_id": "9",
+        "created_at": "2025-12-02T06:42:54.513431+00:00",
+        "updated_at": "2025-12-02T06:42:54.513431+00:00"
+      },
+      {
+        "id": "9.4",
+        "title": "Integrate greedy meshing into chunk pipeline",
+        "description": "Replace per-cube face meshing in chunk generation with calls to greedy_mesh_face for all directions. Add early exit for completely empty chunks.",
+        "status": "pending",
+        "complexity": 0,
+        "priority": "medium",
+        "dependencies": [
+          "9.3"
+        ],
+        "parent_id": "9",
+        "created_at": "2025-12-02T06:42:54.513436+00:00",
+        "updated_at": "2025-12-02T06:42:54.513436+00:00"
+      },
+      {
+        "id": "9.5",
+        "title": "Handle chunk edges for seamless rendering",
+        "description": "Modify greedy meshing to query adjacent chunk voxels (if loaded) and avoid emitting faces on chunk borders where neighbors have matching materials.",
+        "status": "pending",
+        "complexity": 0,
+        "priority": "medium",
+        "dependencies": [
+          "9.4"
+        ],
+        "parent_id": "9",
+        "created_at": "2025-12-02T06:42:54.513439+00:00",
+        "updated_at": "2025-12-02T06:42:54.513439+00:00"
+      },
+      {
+        "id": "9.6",
+        "title": "Add tests and verify performance/visuals",
+        "description": "Implement unit tests for mesh output matching old visuals, integration tests for chunks/edges, and benchmarks showing reduced triangle counts.",
+        "status": "pending",
+        "complexity": 0,
+        "priority": "low",
+        "dependencies": [
+          "9.5"
+        ],
+        "parent_id": "9",
+        "created_at": "2025-12-02T06:42:54.513443+00:00",
+        "updated_at": "2025-12-02T06:42:54.513443+00:00"
+      },
+      {
+        "id": "6.1",
+        "title": "Implement RLE decoding for terrain_data",
+        "description": "Write a function to decode RLE-compressed terrain_data from the loaded plan into a usable voxel structure. Test decoding with sample compressed data.",
+        "status": "pending",
+        "complexity": 0,
+        "priority": "high",
+        "dependencies": [],
+        "parent_id": "6",
+        "created_at": "2025-12-02T06:42:54.513451+00:00",
+        "updated_at": "2025-12-02T06:42:54.513451+00:00"
+      },
+      {
+        "id": "6.2",
+        "title": "Create plan_loader_system and entity clearing",
+        "description": "Add plan_loader_system that detects plan reloads and clears/despawns all existing terrain chunk entities and machine entities. Test clearing functionality independently.",
+        "status": "pending",
+        "complexity": 0,
+        "priority": "high",
+        "dependencies": [],
+        "parent_id": "6",
+        "created_at": "2025-12-02T06:42:54.513467+00:00",
+        "updated_at": "2025-12-02T06:42:54.513467+00:00"
+      },
+      {
+        "id": "6.3",
+        "title": "Initialize VoxelTerrain and compute bounds",
+        "description": "Use decoded terrain_data to initialize VoxelTerrain, compute and set bounds from the voxel data. Test terrain initialization and bounds calculation.",
+        "status": "pending",
+        "complexity": 0,
+        "priority": "high",
+        "dependencies": [
+          "6.1"
+        ],
+        "parent_id": "6",
+        "created_at": "2025-12-02T06:42:54.513474+00:00",
+        "updated_at": "2025-12-02T06:42:54.513474+00:00"
+      },
+      {
+        "id": "6.4",
+        "title": "Spawn Chunk-filled entities for terrain",
+        "description": "In plan_loader_system, spawn entities representing terrain chunks populated with voxel data from VoxelTerrain. Test spawning and basic chunk population.",
+        "status": "pending",
+        "complexity": 0,
+        "priority": "high",
+        "dependencies": [
+          "6.2",
+          "6.3"
+        ],
+        "parent_id": "6",
+        "created_at": "2025-12-02T06:42:54.513478+00:00",
+        "updated_at": "2025-12-02T06:42:54.513478+00:00"
+      },
+      {
+        "id": "6.5",
+        "title": "Spawn MachineBundles from plan",
+        "description": "Spawn MachineBundle entities at initial positions specified in the plan, using presets from the catalog. Ensure display of initial terrain and machines after spawning. Test machine spawning and positioning.",
+        "status": "pending",
+        "complexity": 0,
+        "priority": "high",
+        "dependencies": [
+          "6.2",
+          "6.4"
+        ],
+        "parent_id": "6",
+        "created_at": "2025-12-02T06:42:54.513483+00:00",
+        "updated_at": "2025-12-02T06:42:54.513483+00:00"
+      },
+      {
+        "id": "11.1",
+        "title": "Implement SimulationScore resource and score_tracker_system",
+        "description": "Create the SimulationScore resource with fields for tracking scores. Implement score_tracker_system to accumulate scores from events and costs.",
+        "status": "pending",
+        "complexity": 0,
+        "priority": "high",
+        "dependencies": [],
+        "parent_id": "11",
+        "created_at": "2025-12-02T06:42:54.513494+00:00",
+        "updated_at": "2025-12-02T06:42:54.513494+00:00"
+      },
+      {
+        "id": "11.2",
+        "title": "Implement draw_work_envelopes gizmos system",
+        "description": "Add a gizmos system to draw work envelopes.",
+        "status": "pending",
+        "complexity": 0,
+        "priority": "high",
+        "dependencies": [],
+        "parent_id": "11",
+        "created_at": "2025-12-02T06:42:54.513498+00:00",
+        "updated_at": "2025-12-02T06:42:54.513498+00:00"
+      },
+      {
+        "id": "11.3",
+        "title": "Create simple orbit camera",
+        "description": "Implement a basic orbit camera controller.",
+        "status": "pending",
+        "complexity": 0,
+        "priority": "medium",
+        "dependencies": [],
+        "parent_id": "11",
+        "created_at": "2025-12-02T06:42:54.513502+00:00",
+        "updated_at": "2025-12-02T06:42:54.513502+00:00"
+      },
+      {
+        "id": "11.4",
+        "title": "Add togglable displays for scores and envelopes",
+        "description": "Implement displays for scores from SimulationScore and envelopes, with toggle functionality.",
+        "status": "pending",
+        "complexity": 0,
+        "priority": "medium",
+        "dependencies": [
+          "11.1",
+          "11.2"
+        ],
+        "parent_id": "11",
+        "created_at": "2025-12-02T06:42:54.513505+00:00",
+        "updated_at": "2025-12-02T06:42:54.513505+00:00"
+      }
+    ]
+  }
+}

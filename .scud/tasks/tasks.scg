@@ -1,0 +1,262 @@
+# SCUD Graph v1
+# Phase: init
+
+@meta {
+  name init
+  updated 2025-12-02T06:42:54.513757+00:00
+}
+
+@nodes
+# id | title | status | complexity | priority
+1 | Set up project structure and EarthworksPlugin | X | 3 | H
+1.1 | Fork Bevy repo and create bevy_earthworks crate | P | 0 | H
+1.2 | Implement module structure and basic Plugin | P | 0 | H
+1.3 | Integrate plugin into minimal Bevy app and test build | P | 0 | H
+2 | Implement voxel, chunk, and VoxelTerrain data structures | X | 5 | H
+2.1 | Define foundational voxel types | P | 0 | H
+2.2 | Implement Chunk data structure | P | 0 | H
+2.3 | Implement VoxelTerrain and coordinate conversions | P | 0 | H
+2.4 | Add get/set_voxel methods and full tests | P | 0 | M
+3 | Add terrain operations (excavate, fill) and dirty tracking | X | 5 | H
+3.1 | Implement dirty chunk tracking | P | 0 | H
+3.2 | Implement excavate operation | P | 0 | H
+3.3 | Implement fill operation | P | 0 | H
+3.4 | Verify volume calculations and events | P | 0 | H
+4 | Implement simple cube meshing and chunk rendering | X | 8 | H
+4.1 | Define Chunk-related components | P | 0 | H
+4.2 | Implement basic cube meshing in meshing.rs | P | 0 | H
+4.3 | Implement chunk_dirty_system | P | 0 | H
+4.4 | Implement mesh_generation_system | P | 0 | H
+4.5 | Add per-frame mesh limiting and manual terrain test | P | 0 | H
+5 | Define plan schema and ExecutionPlan asset loader | X | 3 | H
+5.1 | Define serde types for plan schema | P | 0 | H
+5.2 | Implement PlanLoader for bevy_asset | P | 0 | H
+5.3 | Load and validate sample JSON plan | P | 0 | H
+6 | Initialize terrain and spawn machines from loaded plan | X | 8 | H
+6.1 | Implement RLE decoding for terrain_data | P | 0 | H
+6.2 | Create plan_loader_system and entity clearing | P | 0 | H
+6.3 | Initialize VoxelTerrain and compute bounds | P | 0 | H
+6.4 | Spawn Chunk-filled entities for terrain | P | 0 | H
+6.5 | Spawn MachineBundles from plan | P | 0 | H
+7 | Implement PlanPlayback and basic plan executor | X | 8 | H
+7.1 | Define PlanPlayback resource | P | 0 | H
+7.2 | Implement basic plan_executor_system | P | 0 | H
+7.3 | Add step triggering at timestamps | P | 0 | H
+7.4 | Dispatch MachineEvents and TerrainModifiedEvent | P | 0 | M
+7.5 | Execute MoveTo and Idle actions | P | 0 | M
+8 | Add machine components, activities, and animation system | X | 8 | H
+8.1 | Define MachineActivity enum | P | 0 | H
+8.2 | Define WorkEnvelope variants and contains method | P | 0 | H
+8.3 | Define MachineBundle | P | 0 | H
+8.4 | Implement animation_system for progress interpolation | P | 0 | M
+8.5 | Animate simple move-excavate cycle | P | 0 | M
+9 | Upgrade to greedy meshing algorithm | X | 13 | H
+9.1 | Implement basic greedy meshing for +Z faces | P | 0 | H
+9.2 | Add normals, UVs, and colors to greedy quads | P | 0 | H
+9.3 | Generalize greedy meshing for all 6 face directions | P | 0 | H
+9.4 | Integrate greedy meshing into chunk pipeline | P | 0 | M
+9.5 | Handle chunk edges for seamless rendering | P | 0 | M
+9.6 | Add tests and verify performance/visuals | P | 0 | L
+10 | Implement UI timeline, overlay, and controls | X | 5 | H
+10.1 | Set up EarthworksUiPlugin with egui | P | 0 | H
+10.2 | Implement timeline UI controls | P | 0 | H
+10.3 | Implement score overlay UI | P | 0 | M
+10.4 | Add keyboard shortcuts and verify controls | P | 0 | M
+11 | Add scoring tracker, gizmos, and basic camera | X | 5 | M
+11.1 | Implement SimulationScore resource and score_tracker_system | P | 0 | H
+11.2 | Implement draw_work_envelopes gizmos system | P | 0 | H
+11.3 | Create simple orbit camera | P | 0 | M
+11.4 | Add togglable displays for scores and envelopes | P | 0 | M
+
+@edges
+# dependent -> dependency
+1.2 -> 1.1
+1.3 -> 1.2
+2 -> 1
+2.2 -> 2.1
+2.3 -> 2.1
+2.3 -> 2.2
+2.4 -> 2.3
+3 -> 2
+3.2 -> 3.1
+3.3 -> 3.1
+3.4 -> 3.2
+3.4 -> 3.3
+4 -> 3
+4.2 -> 4.1
+4.3 -> 4.1
+4.4 -> 4.1
+4.4 -> 4.2
+4.4 -> 4.3
+4.5 -> 4.4
+5 -> 1
+5.2 -> 5.1
+5.3 -> 5.2
+6 -> 2
+6 -> 4
+6 -> 5
+6 -> 6
+6.3 -> 6.1
+6.4 -> 6.2
+6.4 -> 6.3
+6.5 -> 6.2
+6.5 -> 6.4
+7 -> 7
+7.2 -> 7.1
+7.3 -> 7.2
+7.4 -> 7.3
+7.5 -> 7.4
+8 -> 7
+8.3 -> 8.1
+8.3 -> 8.2
+8.4 -> 8.3
+8.5 -> 8.4
+9 -> 4
+9.2 -> 9.1
+9.3 -> 9.2
+9.4 -> 9.3
+9.5 -> 9.4
+9.6 -> 9.5
+10 -> 8
+10.2 -> 10.1
+10.3 -> 10.1
+10.4 -> 10.2
+10.4 -> 10.3
+11 -> 3
+11 -> 8
+11.4 -> 11.1
+11.4 -> 11.2
+
+@parents
+# parent: subtasks...
+1: 1.1, 1.2, 1.3
+2: 2.1, 2.2, 2.3, 2.4
+3: 3.1, 3.2, 3.3, 3.4
+4: 4.1, 4.2, 4.3, 4.4, 4.5
+5: 5.1, 5.2, 5.3
+6: 6.1, 6.2, 6.3, 6.4, 6.5
+7: 7.1, 7.2, 7.3, 7.4, 7.5
+8: 8.1, 8.2, 8.3, 8.4, 8.5
+9: 9.1, 9.2, 9.3, 9.4, 9.5, 9.6
+10: 10.1, 10.2, 10.3, 10.4
+11: 11.1, 11.2, 11.3, 11.4
+
+@details
+1 | description |
+  Fork Bevy repo, create bevy_earthworks crate with Cargo.toml, module structure, and basic Plugin implementation including config resource and system stubs. Add dependencies like serde, base64. Ensure plugin builds and integrates into a minimal Bevy app.
+1.1 | description |
+  Fork the Bevy repository on GitHub, clone locally, create the bevy_earthworks crate directory under crates/, generate Cargo.toml with necessary dependencies including serde and base64, and ensure basic cargo check passes.
+1.2 | description |
+  In bevy_earthworks, set up Rust module structure (lib.rs, mod plugin.rs, mod config.rs, etc.), implement a basic EarthworksPlugin with Plugin trait, add Config resource, and include system stubs (empty functions). Verify with cargo build.
+1.3 | description |
+  Create a minimal Bevy example app (e.g., in examples/ folder) that adds the EarthworksPlugin to the App builder, runs it, and confirms the project builds and runs without errors (cargo run --example minimal).
+2 | description |
+  Define VoxelState, MaterialId, Voxel, Chunk with fixed-size array, and VoxelTerrain resource with HashMap storage. Add coordinate conversion methods (world_to_chunk, etc.) and basic get/set_voxel. Test voxel access and chunk creation.
+2.1 | description |
+  Define VoxelState, MaterialId, and Voxel structs/enums with appropriate fields and derive necessary traits (e.g., Clone, Debug). Ensure they are serializable if needed.
+2.2 | description |
+  Define Chunk struct using a fixed-size array for voxels. Add methods for local coordinate handling and basic voxel access within a chunk. Test chunk creation and internal voxel get/set.
+2.3 | description |
+  Define VoxelTerrain as a resource using HashMap<ChunkCoord, Chunk> for storage. Implement coordinate conversion methods: world_to_chunk, chunk_to_world, world_to_local, etc. Test conversions independently.
+2.4 | description |
+  Implement get_voxel and set_voxel methods on VoxelTerrain using conversions. Ensure chunk lazy creation/loading. Add comprehensive tests for voxel access across chunks and chunk creation.
+3 | description |
+  Implement excavate for shapes (Aabb), fill for piling material, update solid_count, emit TerrainModifiedEvent, and dirty chunk marking. Add dirty_chunks iterator and mark_clean. Verify volume calculations and events.
+3.1 | description |
+  Add dirty_chunks iterator, mark_dirty, and mark_clean functions. Ensure chunks can be marked as dirty during modifications and iterated for updates.
+3.2 | description |
+  Add excavate function for Aabb shapes: remove voxels, update solid_count, mark affected chunks as dirty, and emit TerrainModifiedEvent.
+3.3 | description |
+  Add fill function for piling material: add voxels, update solid_count, mark affected chunks as dirty, and emit TerrainModifiedEvent.
+3.4 | description |
+  Add unit tests for excavate and fill operations, verifying solid_count updates, volume calculations, dirty chunk marking, and TerrainModifiedEvent emission.
+4 | description |
+  Create basic per-voxel cube meshing in meshing.rs, chunk_dirty_system, and mesh_generation_system spawning PbrBundle entities with ChunkMarker. Limit meshes per frame. Render a manually filled terrain successfully.
+4.1 | description |
+  Create ChunkMarker, Chunk (with voxel data storage like 16x16x16 array), and DirtyChunk components. Ensure they can be attached to entities.
+4.2 | description |
+  Write a function in meshing.rs that takes Chunk voxel data and generates a combined mesh by creating simple cube geometry for each filled voxel (naive per-voxel meshing, no culling). Add unit tests for mesh vertex count on simple voxel patterns.
+4.3 | description |
+  Create chunk_dirty_system that detects changes to Chunk voxel data (e.g., via Changed<Chunk> query) and adds DirtyChunk component to the entity. Test by spawning a Chunk, modifying voxels, running system, and verifying DirtyChunk added.
+4.4 | description |
+  Create mesh_generation_system that queries entities with Chunk and DirtyChunk, uses meshing.rs to generate PbrBundle (with mesh, material, transform), spawns the entity with ChunkMarker, and removes DirtyChunk. Test spawning and verifying entity creation.
+4.5 | description |
+  Update mesh_generation_system to process limited number of dirty chunks per frame (e.g., 1-2). Add a startup system to spawn manually filled terrain chunks (e.g., flat ground or simple structure). Verify chunks mesh and render correctly in game.
+5 | description |
+  Create serde types for ExecutionPlan, PlanStep, PlannedAction, SiteDefinition, etc., matching JSON schema. Implement PlanLoader for bevy_asset. Load and validate a sample JSON plan without errors.
+5.1 | description |
+  Create Rust structs with serde attributes for ExecutionPlan, PlanStep, PlannedAction, SiteDefinition, and related types, matching the JSON schema. Test deserialization from sample JSON snippets.
+5.2 | description |
+  Create PlanLoader struct implementing AssetLoader for bevy_asset. Use defined serde types to load JSON into ExecutionPlan. Test loader independently with a JSON byte slice.
+5.3 | description |
+  Create a sample JSON plan file. Integrate PlanLoader into a minimal Bevy app, load the asset, and verify it deserializes without errors. Add basic validation assertions.
+6 | description |
+  Add plan_loader_system to init VoxelTerrain from plan (decode RLE terrain_data), compute bounds, spawn Chunk-filled entities, and spawn MachineBundles using presets catalog with initial positions. Clear existing entities on reload. Display initial terrain and machines.
+6.1 | description |
+  Write a function to decode RLE-compressed terrain_data from the loaded plan into a usable voxel structure. Test decoding with sample compressed data.
+6.2 | description |
+  Add plan_loader_system that detects plan reloads and clears/despawns all existing terrain chunk entities and machine entities. Test clearing functionality independently.
+6.3 | description |
+  Use decoded terrain_data to initialize VoxelTerrain, compute and set bounds from the voxel data. Test terrain initialization and bounds calculation.
+6.4 | description |
+  In plan_loader_system, spawn entities representing terrain chunks populated with voxel data from VoxelTerrain. Test spawning and basic chunk population.
+6.5 | description |
+  Spawn MachineBundle entities at initial positions specified in the plan, using presets from the catalog. Ensure display of initial terrain and machines after spawning. Test machine spawning and positioning.
+7 | description |
+  Create PlanPlayback resource with play/pause/seek/reset methods. Add plan_executor_system to advance time, trigger steps at timestamps, dispatch MachineEvents and TerrainModifiedEvent. Execute MoveTo and Idle actions correctly.
+7.1 | description |
+  Create the PlanPlayback struct as an app resource with fields for playback state (play/pause), current time, and plan steps with timestamps. Implement play, pause, seek, and reset methods to mutate its state.
+7.2 | description |
+  Add the plan_executor_system that queries PlanPlayback resource, advances current_time by delta_time when playing, and inserts the system into the app schedule.
+7.3 | description |
+  Extend plan_executor_system to detect plan steps where timestamp <= current_time and not yet triggered, mark them as triggered, and prepare for action execution.
+7.4 | description |
+  In plan_executor_system, dispatch MachineEvents and TerrainModifiedEvent when triggering relevant steps based on their action types.
+7.5 | description |
+  Implement correct execution in plan_executor_system or triggered handlers for MoveTo (e.g., move machine to position) and Idle (e.g., skip or wait) actions.
+8 | description |
+  Define MachineActivity enum, WorkEnvelope variants with contains method, MachineBundle. Implement animation_system for interpolating travel/excavate/dump progress, update Transform. Animate a simple move-excavate cycle smoothly.
+8.1 | description |
+  Create the MachineActivity enum with variants such as Idle, Travel, Excavate, Dump, and implement any necessary associated methods. Ensure it compiles and can be used in basic structs.
+8.2 | description |
+  Define WorkEnvelope as an enum with relevant variants (e.g., Circle, Rectangle). Implement the contains method to check if a point is within the envelope. Add unit tests for contains.
+8.3 | description |
+  Create MachineBundle as a component bundle including MachineActivity, WorkEnvelope, position, progress fields, and other necessary machine components. Ensure it can be spawned as an entity.
+8.4 | description |
+  Create animation_system that queries MachineBundle entities, interpolates progress for travel/excavate/dump activities based on time delta, and updates Transform accordingly. Add basic integration test.
+8.5 | description |
+  Integrate animation_system into the app, set up a test scene with a machine performing a move-excavate-dump cycle, verify smooth animation via manual run or automated checks.
+9 | description |
+  Replace cube meshing with greedy_mesh_face for each axis/dir, merging same-material faces into quads with correct normals/UVs/colors/indices. Handle chunk edges and empty chunks. Achieve lower triangle count and matching visuals.
+9.1 | description |
+  Write a greedy_mesh_face function for +Z direction that scans voxel slices, merges adjacent same-material faces into quads, and generates indices. Output basic quad vertices.
+9.2 | description |
+  Extend the +Z greedy mesher to compute correct face normals, scale UVs to quad size, apply per-voxel colors, and generate proper indices for the mesh buffer.
+9.3 | description |
+  Adapt the greedy_mesh_face function to handle X+, X-, Y+, Y-, Z+, Z- directions with proper axis rotations, normal flips, and UV transformations.
+9.4 | description |
+  Replace per-cube face meshing in chunk generation with calls to greedy_mesh_face for all directions. Add early exit for completely empty chunks.
+9.5 | description |
+  Modify greedy meshing to query adjacent chunk voxels (if loaded) and avoid emitting faces on chunk borders where neighbors have matching materials.
+9.6 | description |
+  Implement unit tests for mesh output matching old visuals, integration tests for chunks/edges, and benchmarks showing reduced triangle counts.
+10 | description |
+  Add EarthworksUiPlugin with egui for timeline (play/pause/scrub/speed/loop), score_overlay_ui showing plan vs live stats, keyboard shortcuts. Integrate with PlanPlayback. Controls respond and update display accurately.
+10.1 | description |
+  Create EarthworksUiPlugin, integrate egui framework, and establish initial connection to PlanPlayback for state access and updates.
+10.2 | description |
+  Build egui timeline UI with play/pause/scrub/speed/loop buttons that send commands to and receive updates from PlanPlayback.
+10.3 | description |
+  Add score_overlay_ui using egui to display plan vs live stats, pulling and rendering data from PlanPlayback in real-time.
+10.4 | description |
+  Implement keyboard shortcuts for all controls, ensure UI responds accurately to PlanPlayback changes, and test end-to-end integration.
+11 | description |
+  Implement SimulationScore resource and score_tracker_system accumulating from events/costs. Add draw_work_envelopes gizmos system. Create simple orbit camera. Display scores and envelopes togglable.
+11.1 | description |
+  Create the SimulationScore resource with fields for tracking scores. Implement score_tracker_system to accumulate scores from events and costs.
+11.2 | description |
+  Add a gizmos system to draw work envelopes.
+11.3 | description |
+  Implement a basic orbit camera controller.
+11.4 | description |
+  Implement displays for scores from SimulationScore and envelopes, with toggle functionality.
