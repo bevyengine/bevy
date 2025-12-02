@@ -422,6 +422,9 @@ impl PrepassPipeline {
         }
         if layout.0.contains(Mesh::ATTRIBUTE_POSITION) {
             shader_defs.push("VERTEX_POSITIONS".into());
+            if layout.0.is_vertex_position_compressed() {
+                shader_defs.push("VERTEX_POSITIONS_COMPRESSED".into());
+            }
             vertex_attributes.push(Mesh::ATTRIBUTE_POSITION.at_shader_location(0));
         }
         // For directional light shadow map views, use unclipped depth via either the native GPU feature,

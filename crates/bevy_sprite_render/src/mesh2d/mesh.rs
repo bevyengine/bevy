@@ -21,7 +21,10 @@ use bevy_ecs::{
     system::{lifetimeless::*, SystemParamItem},
 };
 use bevy_image::BevyDefault;
-use bevy_math::{Affine3, Vec4};
+use bevy_math::{
+    bounding::{Aabb3d, BoundingVolume},
+    Affine3, Vec3, Vec4,
+};
 use bevy_mesh::{Mesh, Mesh2d, MeshTag, MeshVertexBufferLayoutRef};
 use bevy_render::prelude::Msaa;
 use bevy_render::RenderSystems::PrepareAssets;
@@ -207,10 +210,15 @@ pub struct Mesh2dUniform {
     pub local_from_world_transpose_b: f32,
     pub flags: u32,
     pub tag: u32,
+    /// AABB for decompressing positions.
+    pub aabb_center: Vec3,
+    pub pad1: u32,
+    pub aabb_half_extents: Vec3,
+    pub pad2: u32,
 }
 
 impl Mesh2dUniform {
-    fn from_components(mesh_transforms: &Mesh2dTransforms, tag: u32) -> Self {
+    fn from_components(mesh_transforms: &Mesh2dTransforms, tag: u32, aabb: Option<Aabb3d>) -> Self {
         let (local_from_world_transpose_a, local_from_world_transpose_b) =
             mesh_transforms.world_from_local.inverse_transpose_3x3();
         Self {
@@ -219,6 +227,12 @@ impl Mesh2dUniform {
             local_from_world_transpose_b,
             flags: mesh_transforms.flags,
             tag,
+            aabb_center: aabb.map(|aabb| aabb.center().into()).unwrap_or(Vec3::ZERO),
+            aabb_half_extents: aabb
+                .map(|aabb| aabb.half_size().into())
+                .unwrap_or(Vec3::ZERO),
+            pad1: 0,
+            pad2: 0,
         }
     }
 }
@@ -336,12 +350,19 @@ impl GetBatchData for Mesh2dPipeline {
     type BufferData = Mesh2dUniform;
 
     fn get_batch_data(
-        (mesh_instances, _, _): &SystemParamItem<Self::Param>,
+        (mesh_instances, meshes, _): &SystemParamItem<Self::Param>,
         (_entity, main_entity): (Entity, MainEntity),
     ) -> Option<(Self::BufferData, Option<Self::CompareData>)> {
         let mesh_instance = mesh_instances.get(&main_entity)?;
         Some((
-            Mesh2dUniform::from_components(&mesh_instance.transforms, mesh_instance.tag),
+            Mesh2dUniform::from_components(
+                &mesh_instance.transforms,
+                mesh_instance.tag,
+                meshes
+                    .get(mesh_instance.mesh_asset_id)
+                    .map(|m| m.aabb)
+                    .unwrap_or(None),
+            ),
             mesh_instance.automatic_batching.then_some((
                 mesh_instance.material_bind_group_id,
                 mesh_instance.mesh_asset_id,
@@ -354,13 +375,17 @@ impl GetFullBatchData for Mesh2dPipeline {
     type BufferInputData = ();
 
     fn get_binned_batch_data(
-        (mesh_instances, _, _): &SystemParamItem<Self::Param>,
+        (mesh_instances, meshes, _): &SystemParamItem<Self::Param>,
         main_entity: MainEntity,
     ) -> Option<Self::BufferData> {
         let mesh_instance = mesh_instances.get(&main_entity)?;
         Some(Mesh2dUniform::from_components(
             &mesh_instance.transforms,
             mesh_instance.tag,
+            meshes
+                .get(mesh_instance.mesh_asset_id)
+                .map(|m| m.aabb)
+                .unwrap_or(None),
         ))
     }
 
@@ -504,6 +529,9 @@ impl SpecializedMeshPipeline for Mesh2dPipeline {
 
         if layout.0.contains(Mesh::ATTRIBUTE_POSITION) {
             shader_defs.push("VERTEX_POSITIONS".into());
+            if layout.0.is_vertex_position_compressed() {
+                shader_defs.push("VERTEX_POSITIONS_COMPRESSED".into());
+            }
             vertex_attributes.push(Mesh::ATTRIBUTE_POSITION.at_shader_location(0));
         }
 

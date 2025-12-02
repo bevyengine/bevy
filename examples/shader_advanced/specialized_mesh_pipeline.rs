@@ -188,9 +188,14 @@ impl SpecializedMeshPipeline for CustomMeshPipeline {
         mesh_key: Self::Key,
         layout: &MeshVertexBufferLayoutRef,
     ) -> Result<RenderPipelineDescriptor, SpecializedMeshPipelineError> {
+        let mut shader_defs = Vec::new();
         // Define the vertex attributes based on a standard bevy [`Mesh`]
         let mut vertex_attributes = Vec::new();
         if layout.0.contains(Mesh::ATTRIBUTE_POSITION) {
+            // Handle compressed vertex positions.
+            if layout.0.is_vertex_position_compressed() {
+                shader_defs.push("VERTEX_POSITIONS_COMPRESSED".into());
+            }
             // Make sure this matches the shader location
             vertex_attributes.push(Mesh::ATTRIBUTE_POSITION.at_shader_location(0));
         }
@@ -214,12 +219,14 @@ impl SpecializedMeshPipeline for CustomMeshPipeline {
             ],
             vertex: VertexState {
                 shader: self.shader_handle.clone(),
+                shader_defs: shader_defs.clone(),
                 // Customize how to store the meshes' vertex attributes in the vertex buffer
                 buffers: vec![vertex_buffer_layout],
                 ..default()
             },
             fragment: Some(FragmentState {
                 shader: self.shader_handle.clone(),
+                shader_defs,
                 targets: vec![Some(ColorTargetState {
                     // This isn't required, but bevy supports HDR and non-HDR rendering
                     // so it's generally recommended to specialize the pipeline for that

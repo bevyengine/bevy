@@ -15,7 +15,11 @@ use bevy_asset::Handle;
 use bevy_asset::{Asset, RenderAssetUsages};
 #[cfg(feature = "morph")]
 use bevy_image::Image;
-use bevy_math::{primitives::Triangle3d, *};
+use bevy_math::{
+    bounding::{Aabb3d, BoundingVolume},
+    primitives::Triangle3d,
+    *,
+};
 #[cfg(feature = "serialize")]
 use bevy_platform::collections::HashMap;
 use bevy_reflect::Reflect;
@@ -153,6 +157,7 @@ pub struct Mesh {
 
     /// Whether or not to compress vertex attributes when uploading to GPU buffer.
     /// If the corresponding flag is enabled:
+    ///   Position will be Snorm16x4 relative to the mesh's AABB. The w component is unused.
     ///   Normal and tangent will be Unorm16x2 using octahedral encoding.
     ///   UV0 and UV1 will be Float16x2.
     ///   Joint weight will be Unorm16x4.
@@ -168,22 +173,28 @@ bitflags::bitflags! {
     #[reflect(Hash, Clone, PartialEq, Debug)]
     pub struct MeshAttributeCompressionFlags: u8 {
         const COMPRESS_NONE = 0;
-        const COMPRESS_NORMAL = 1 << 0;
-        const COMPRESS_TANGENT = 1 << 1;
-        const COMPRESS_UV0 = 1 << 2;
-        const COMPRESS_UV1 = 1 << 3;
-        const COMPRESS_JOINT_WEIGHT = 1 << 4;
-        const COMPRESS_COLOR_UNORM8 = 1 << 5;
-        const COMPRESS_COLOR_FLOAT16 = 1 << 6;
+        const COMPRESS_POSITION = 1 << 0;
+        const COMPRESS_NORMAL = 1 << 1;
+        const COMPRESS_TANGENT = 1 << 2;
+        const COMPRESS_UV0 = 1 << 3;
+        const COMPRESS_UV1 = 1 << 4;
+        const COMPRESS_JOINT_WEIGHT = 1 << 5;
+
+        const COMPRESS_COLOR_RESERVED_BIT = Self::COMPRESS_COLOR_MASK_BIT << Self::COMPRESS_COLOR_SHIFT_BIT;
+        const COMPRESS_COLOR_UNORM8 = 1 << Self::COMPRESS_COLOR_SHIFT_BIT;
+        const COMPRESS_COLOR_FLOAT16 = 2 << Self::COMPRESS_COLOR_SHIFT_BIT;
     }
+}
+impl MeshAttributeCompressionFlags {
+    const COMPRESS_COLOR_MASK_BIT: u8 = 0b11;
+    const COMPRESS_COLOR_SHIFT_BIT: u8 =
+        Self::COMPRESS_JOINT_WEIGHT.bits().trailing_zeros() as u8 + 1;
 }
 
 impl Default for MeshAttributeCompressionFlags {
     fn default() -> Self {
         Self::COMPRESS_NORMAL
             | Self::COMPRESS_TANGENT
-            | Self::COMPRESS_UV0
-            | Self::COMPRESS_UV1
             | Self::COMPRESS_JOINT_WEIGHT
             | Self::COMPRESS_COLOR_FLOAT16
     }
@@ -510,6 +521,9 @@ impl Mesh {
                 attributes,
             },
             attribute_ids,
+            is_position_compressed: self
+                .attribute_compression
+                .contains(MeshAttributeCompressionFlags::COMPRESS_POSITION),
             is_normal_compressed: self
                 .attribute_compression
                 .contains(MeshAttributeCompressionFlags::COMPRESS_NORMAL),
@@ -547,12 +561,37 @@ impl Mesh {
         vertex_count.unwrap_or(0)
     }
 
+    /// Calculates the axis-aligned bounding box of the mesh. Panics if the positions attribute is not Float32x3.
+    pub fn calculate_aabb(&self) -> Option<Aabb3d> {
+        let positions = self.attribute(Self::ATTRIBUTE_POSITION)?;
+        match positions {
+            VertexAttributeValues::Float32x3(val) => {
+                let mut iter = val.iter().map(|a| Vec3A::from_array(*a));
+                let first = iter.next()?;
+                let (min, max) = iter.fold((first, first), |(prev_min, prev_max), point| {
+                    (point.min(prev_min), point.max(prev_max))
+                });
+                Some(Aabb3d { min, max })
+            }
+            _ => {
+                unreachable!()
+            }
+        }
+    }
+
     /// Returns the compressed vertex format for the given attribute ID, or None if the attribute is not compressed.
     pub fn get_compressed_vertex_format(
         &self,
         attribute_id: MeshVertexAttributeId,
     ) -> Option<VertexFormat> {
         match attribute_id {
+            id if id == Self::ATTRIBUTE_POSITION.id
+                && self
+                    .attribute_compression
+                    .contains(MeshAttributeCompressionFlags::COMPRESS_POSITION) =>
+            {
+                Some(VertexFormat::Snorm16x4)
+            }
             id if id == Self::ATTRIBUTE_NORMAL.id
                 && self
                     .attribute_compression
@@ -616,6 +655,29 @@ impl Mesh {
         attribute_values: &VertexAttributeValues,
     ) -> Option<VertexAttributeValues> {
         match attribute_id {
+            id if id == Self::ATTRIBUTE_POSITION.id
+                && self
+                    .attribute_compression
+                    .contains(MeshAttributeCompressionFlags::COMPRESS_POSITION) =>
+            {
+                // Create Snorm16x4 position
+                let VertexAttributeValues::Float32x3(uncompressed_values) = attribute_values else {
+                    unreachable!()
+                };
+                let aabb = self.calculate_aabb().unwrap();
+                let mut values = Vec::<[i16; 4]>::with_capacity(uncompressed_values.len());
+                for val in uncompressed_values {
+                    let mut val = Vec3A::from_array(*val);
+                    val = (val - aabb.center()) / aabb.half_size();
+                    values.push([
+                        (val[0] * i16::MAX as f32).round() as i16,
+                        (val[1] * i16::MAX as f32).round() as i16,
+                        (val[2] * i16::MAX as f32).round() as i16,
+                        0,
+                    ]);
+                }
+                Some(VertexAttributeValues::Snorm16x4(values))
+            }
             id if id == Self::ATTRIBUTE_NORMAL.id
                 && self
                     .attribute_compression

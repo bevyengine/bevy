@@ -84,6 +84,7 @@ impl From<MeshVertexAttribute> for MeshVertexAttributeId {
 #[derive(Debug, Clone, Hash, Eq, PartialEq)]
 pub struct MeshVertexBufferLayout {
     pub(crate) attribute_ids: Vec<MeshVertexAttributeId>,
+    pub(crate) is_position_compressed: bool,
     pub(crate) is_normal_compressed: bool,
     pub(crate) is_tangent_compressed: bool,
     pub(crate) layout: VertexBufferLayout,
@@ -93,6 +94,7 @@ impl MeshVertexBufferLayout {
     pub fn new(attribute_ids: Vec<MeshVertexAttributeId>, layout: VertexBufferLayout) -> Self {
         Self {
             attribute_ids,
+            is_position_compressed: false,
             is_normal_compressed: false,
             is_tangent_compressed: false,
             layout,
@@ -112,6 +114,10 @@ impl MeshVertexBufferLayout {
     #[inline]
     pub fn layout(&self) -> &VertexBufferLayout {
         &self.layout
+    }
+
+    pub fn is_vertex_position_compressed(&self) -> bool {
+        self.is_position_compressed
     }
 
     pub fn is_vertex_normal_compressed(&self) -> bool {

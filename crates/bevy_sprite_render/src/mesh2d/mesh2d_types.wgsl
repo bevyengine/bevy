@@ -14,4 +14,9 @@ struct Mesh2d {
     // 'flags' is a bit field indicating various options. u32 is 32 bits so we have up to 32 options.
     flags: u32,
     tag: u32,
+    // AABB for decompressing positions.
+    aabb_center: vec3<f32>,
+    pad1_: u32,
+    aabb_half_extents: vec3<f32>,
+    pad2_: u32,
 };

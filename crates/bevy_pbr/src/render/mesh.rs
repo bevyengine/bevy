@@ -26,7 +26,7 @@ use bevy_light::{
     EnvironmentMapLight, IrradianceVolume, NotShadowCaster, NotShadowReceiver,
     ShadowFilteringMethod, TransmittedShadowReceiver,
 };
-use bevy_math::{Affine3, Rect, UVec2, Vec3, Vec4};
+use bevy_math::{bounding::BoundingVolume, Affine3, Rect, UVec2, Vec3, Vec4};
 use bevy_mesh::{
     skinning::SkinnedMesh, BaseMeshPipelineKey, Mesh, Mesh3d, MeshTag, MeshVertexBufferLayoutRef,
     VertexAttributeDescriptor,
@@ -485,6 +485,12 @@ pub struct MeshUniform {
     pub tag: u32,
     /// Padding.
     pub pad: u32,
+    /// AABB center for decompressing vertex positions.
+    pub aabb_center: Vec3,
+    pub pad1: u32,
+    /// AABB half extents for decompressing vertex positions.
+    pub aabb_half_extents: Vec3,
+    pub pad2: u32,
 }
 
 /// Information that has to be transferred from CPU to GPU in order to produce
@@ -549,8 +555,13 @@ pub struct MeshInputUniform {
     pub timestamp: u32,
     /// User supplied tag to identify this mesh instance.
     pub tag: u32,
-    /// Padding.
     pub pad: u32,
+    /// AABB for decompressing positions.
+    pub aabb_center: Vec3,
+    pub pad1: u32,
+    pub aabb_half_extents: Vec3,
+    pub pad2: u32,
+    pub pad3: [u32; 4],
 }
 
 /// Information about each mesh instance needed to cull it on GPU.
@@ -584,6 +595,7 @@ impl MeshUniform {
         maybe_lightmap: Option<(LightmapSlotIndex, Rect)>,
         current_skin_index: Option<u32>,
         tag: Option<u32>,
+        mesh: Option<&RenderMesh>,
     ) -> Self {
         let (local_from_world_transpose_a, local_from_world_transpose_b) =
             mesh_transforms.world_from_local.inverse_transpose_3x3();
@@ -591,6 +603,7 @@ impl MeshUniform {
             None => u16::MAX,
             Some((slot_index, _)) => slot_index.into(),
         };
+        let aabb = mesh.map(|m| m.aabb).unwrap_or_default();
 
         Self {
             world_from_local: mesh_transforms.world_from_local.to_transpose(),
@@ -604,7 +617,11 @@ impl MeshUniform {
             material_and_lightmap_bind_group_slot: u32::from(material_bind_group_slot)
                 | ((lightmap_bind_group_slot as u32) << 16),
             tag: tag.unwrap_or(0),
+            aabb_center: aabb.map(|a| a.center().into()).unwrap_or_default(),
+            aabb_half_extents: aabb.map(|a| a.half_size().into()).unwrap_or_default(),
             pad: 0,
+            pad1: 0,
+            pad2: 0,
         }
     }
 }
@@ -1115,6 +1132,7 @@ impl RenderMeshInstanceGpuBuilder {
         skin_uniforms: &SkinUniforms,
         timestamp: FrameCount,
         meshes_to_reextract_next_frame: &mut MeshesToReextractNextFrame,
+        meshes: &RenderAssets<RenderMesh>,
     ) -> Option<u32> {
         let (first_vertex_index, vertex_count) =
             match mesh_allocator.mesh_vertex_slice(&self.shared.mesh_asset_id) {
@@ -1186,7 +1204,22 @@ impl RenderMeshInstanceGpuBuilder {
                 self.shared.material_bindings_index.slot,
             ) | ((lightmap_slot as u32) << 16),
             tag: self.shared.tag,
+            aabb_center: meshes
+                .get(self.shared.mesh_asset_id)
+                .map(|a| a.aabb.map(|aabb| aabb.center().into()).unwrap_or_default())
+                .unwrap_or_default(),
+            aabb_half_extents: meshes
+                .get(self.shared.mesh_asset_id)
+                .map(|a| {
+                    a.aabb
+                        .map(|aabb| aabb.half_size().into())
+                        .unwrap_or_default()
+                })
+                .unwrap_or_default(),
             pad: 0,
+            pad1: 0,
+            pad2: 0,
+            pad3: [0; 4],
         };
 
         // Did the last frame contain this entity as well?
@@ -1670,6 +1703,7 @@ pub fn collect_meshes_for_gpu_building(
     skin_uniforms: Res<SkinUniforms>,
     frame_count: Res<FrameCount>,
     mut meshes_to_reextract_next_frame: ResMut<MeshesToReextractNextFrame>,
+    meshes: Res<RenderAssets<RenderMesh>>,
 ) {
     let RenderMeshInstances::GpuBuilding(render_mesh_instances) =
         render_mesh_instances.into_inner()
@@ -1714,6 +1748,7 @@ pub fn collect_meshes_for_gpu_building(
                         &skin_uniforms,
                         *frame_count,
                         &mut meshes_to_reextract_next_frame,
+                        &meshes,
                     );
                 }
 
@@ -1743,6 +1778,7 @@ pub fn collect_meshes_for_gpu_building(
                         &skin_uniforms,
                         *frame_count,
                         &mut meshes_to_reextract_next_frame,
+                        &meshes,
                     ) else {
                         continue;
                     };
@@ -1915,7 +1951,7 @@ impl GetBatchData for MeshPipeline {
     type BufferData = MeshUniform;
 
     fn get_batch_data(
-        (mesh_instances, lightmaps, _, mesh_allocator, skin_uniforms): &SystemParamItem<
+        (mesh_instances, lightmaps, meshes, mesh_allocator, skin_uniforms): &SystemParamItem<
             Self::Param,
         >,
         (_entity, main_entity): (Entity, MainEntity),
@@ -1946,6 +1982,7 @@ impl GetBatchData for MeshPipeline {
                 maybe_lightmap.map(|lightmap| (lightmap.slot_index, lightmap.uv_rect)),
                 current_skin_index,
                 Some(mesh_instance.tag),
+                meshes.get(mesh_instance.mesh_asset_id),
             ),
             mesh_instance.should_batch().then_some((
                 material_bind_group_index.group,
@@ -1986,7 +2023,7 @@ impl GetFullBatchData for MeshPipeline {
     }
 
     fn get_binned_batch_data(
-        (mesh_instances, lightmaps, _, mesh_allocator, skin_uniforms): &SystemParamItem<
+        (mesh_instances, lightmaps, meshes, mesh_allocator, skin_uniforms): &SystemParamItem<
             Self::Param,
         >,
         main_entity: MainEntity,
@@ -2014,6 +2051,7 @@ impl GetFullBatchData for MeshPipeline {
             maybe_lightmap.map(|lightmap| (lightmap.slot_index, lightmap.uv_rect)),
             current_skin_index,
             Some(mesh_instance.tag),
+            meshes.get(mesh_instance.mesh_asset_id),
         ))
     }
 
@@ -2305,6 +2343,9 @@ impl SpecializedMeshPipeline for MeshPipeline {
 
         if layout.0.contains(Mesh::ATTRIBUTE_POSITION) {
             shader_defs.push("VERTEX_POSITIONS".into());
+            if layout.0.is_vertex_position_compressed() {
+                shader_defs.push("VERTEX_POSITIONS_COMPRESSED".into());
+            }
             vertex_attributes.push(Mesh::ATTRIBUTE_POSITION.at_shader_location(0));
         }
 

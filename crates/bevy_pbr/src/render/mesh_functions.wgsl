@@ -24,7 +24,7 @@ fn get_previous_world_from_local(instance_index: u32) -> mat4x4<f32> {
 
 fn get_local_from_world(instance_index: u32) -> mat4x4<f32> {
     // the model matrix is translation * rotation * scale
-    // the inverse is then scale^-1 * rotation ^-1 * translation^-1        
+    // the inverse is then scale^-1 * rotation ^-1 * translation^-1
     // the 3x3 matrix only contains the information for the rotation and scale
     let inverse_model_3x3 = transpose(mat2x4_f32_to_mat3x3_unpack(
         mesh[instance_index].local_from_world_transpose_a,
@@ -166,3 +166,17 @@ fn get_tag(instance_index: u32) -> u32 {
     return mesh[instance_index].tag;
 }
 #endif
+
+fn decompress_vertex_position(instance_index: u32, compressed_position: vec4<f32>) -> vec3<f32> {
+    let aabb_center = bevy_pbr::mesh_bindings::mesh[instance_index].aabb_center;
+    let aabb_half_extents = bevy_pbr::mesh_bindings::mesh[instance_index].aabb_half_extents;
+    return aabb_center + aabb_half_extents * compressed_position.xyz;
+}
+
+fn decompress_vertex_normal(compressed_normal: vec2<f32>) -> vec3<f32> {
+    return bevy_pbr::utils::octahedral_decode(compressed_normal);
+}
+
+fn decompress_vertex_tangent(compressed_tangent: vec2<f32>) -> vec4<f32> {
+    return bevy_pbr::utils::octahedral_decode_tangent(compressed_tangent);
+}

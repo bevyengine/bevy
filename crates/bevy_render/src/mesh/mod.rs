@@ -14,6 +14,7 @@ use bevy_ecs::{
         SystemParamItem,
     },
 };
+use bevy_math::bounding::Aabb3d;
 #[cfg(feature = "morph")]
 use bevy_mesh::morph::{MeshMorphWeights, MorphWeights};
 use bevy_mesh::*;
@@ -92,6 +93,9 @@ pub struct RenderMesh {
     /// Combined with [`RenderMesh::buffer_info`], this specifies the complete
     /// layout of the buffers associated with this mesh.
     pub layout: MeshVertexBufferLayoutRef,
+
+    /// AABB for decompressing vertex positions. None if the mesh doesn't compress positions.
+    pub aabb: Option<Aabb3d>,
 }
 
 impl RenderMesh {
@@ -187,6 +191,7 @@ impl RenderAsset for RenderMesh {
             layout: mesh_vertex_buffer_layout,
             #[cfg(feature = "morph")]
             morph_targets,
+            aabb: mesh.calculate_aabb(),
         })
     }
 }
