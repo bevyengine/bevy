@@ -111,6 +111,16 @@ impl CompassQuadrant {
         let to_candidate = candidate - origin;
         to_candidate.dot(*dir) > 0.0
     }
+
+    /// Get the dir2 representing this direction
+    pub const fn to_dir2(self) -> Dir2 {
+        match self {
+            CompassQuadrant::North => Dir2::NORTH,
+            CompassQuadrant::East => Dir2::EAST,
+            CompassQuadrant::South => Dir2::SOUTH,
+            CompassQuadrant::West => Dir2::WEST,
+        }
+    }
 }
 
 /// A compass enum with 8 directions.
@@ -238,16 +248,25 @@ impl CompassOctant {
         let to_candidate = candidate - origin;
         to_candidate.dot(*dir) > 0.0
     }
+
+    /// Get the dir2 representing this direction.
+    pub const fn to_dir2(self) -> Dir2 {
+        match self {
+            CompassOctant::North => Dir2::NORTH,
+            CompassOctant::NorthEast => Dir2::NORTH_EAST,
+            CompassOctant::East => Dir2::EAST,
+            CompassOctant::SouthEast => Dir2::SOUTH_EAST,
+            CompassOctant::South => Dir2::SOUTH,
+            CompassOctant::SouthWest => Dir2::SOUTH_WEST,
+            CompassOctant::West => Dir2::WEST,
+            CompassOctant::NorthWest => Dir2::NORTH_WEST,
+        }
+    }
 }
 
 impl From<CompassQuadrant> for Dir2 {
     fn from(q: CompassQuadrant) -> Self {
-        match q {
-            CompassQuadrant::North => Dir2::NORTH,
-            CompassQuadrant::East => Dir2::EAST,
-            CompassQuadrant::South => Dir2::SOUTH,
-            CompassQuadrant::West => Dir2::WEST,
-        }
+        q.to_dir2()
     }
 }
 
@@ -269,16 +288,7 @@ impl From<Dir2> for CompassQuadrant {
 
 impl From<CompassOctant> for Dir2 {
     fn from(o: CompassOctant) -> Self {
-        match o {
-            CompassOctant::North => Dir2::NORTH,
-            CompassOctant::NorthEast => Dir2::NORTH_EAST,
-            CompassOctant::East => Dir2::EAST,
-            CompassOctant::SouthEast => Dir2::SOUTH_EAST,
-            CompassOctant::South => Dir2::SOUTH,
-            CompassOctant::SouthWest => Dir2::SOUTH_WEST,
-            CompassOctant::West => Dir2::WEST,
-            CompassOctant::NorthWest => Dir2::NORTH_WEST,
-        }
+        o.to_dir2()
     }
 }
 
