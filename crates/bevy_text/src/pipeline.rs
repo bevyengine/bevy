@@ -271,6 +271,7 @@ impl TextPipeline {
         layout_info.glyphs.clear();
         layout_info.run_geometry.clear();
         layout_info.size = Default::default();
+        layout_info.scale_factor = scale_factor as f32;
 
         // Clear this here at the focal point of text rendering to ensure the field's lifecycle has strong boundaries.
         computed.needs_rerender = false;
@@ -455,7 +456,8 @@ impl TextPipeline {
         // Check result.
         result?;
 
-        layout_info.size = box_size;
+        layout_info.size = layout_info.scale_factor.recip() * box_size;
+
         Ok(())
     }
 

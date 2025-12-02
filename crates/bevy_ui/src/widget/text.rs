@@ -336,7 +336,6 @@ fn queue_text(
     texture_atlases: &mut Assets<TextureAtlasLayout>,
     textures: &mut Assets<Image>,
     scale_factor: f32,
-    inverse_scale_factor: f32,
     block: &TextLayout,
     node: Ref<ComputedNode>,
     mut text_flags: Mut<TextNodeFlags>,
@@ -388,8 +387,6 @@ fn queue_text(
             panic!("Fatal error when processing text: {e}.");
         }
         Ok(()) => {
-            text_layout_info.scale_factor = scale_factor;
-            text_layout_info.size *= inverse_scale_factor;
             text_flags.needs_recompute = false;
         }
     }
@@ -431,7 +428,6 @@ pub fn text_system(
                 &mut texture_atlases,
                 &mut textures,
                 node.inverse_scale_factor.recip(),
-                node.inverse_scale_factor,
                 block,
                 node,
                 text_flags,
