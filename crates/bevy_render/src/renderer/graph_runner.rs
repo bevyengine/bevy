@@ -112,13 +112,6 @@ impl RenderGraphRunner {
     ) -> Result<(), RenderGraphRunnerError> {
         let mut node_outputs: HashMap<InternedRenderLabel, SmallVec<[SlotValue; 4]>> =
             HashMap::default();
-        let debug_group = debug_group.map(|debug_group| {
-            if let Some(entity) = view_entity {
-                format!("{debug_group} ({entity})")
-            } else {
-                debug_group.to_owned()
-            }
-        });
         #[cfg(feature = "trace")]
         let span = if let Some(render_label) = &sub_graph {
             let name = format!("{render_label:?}");

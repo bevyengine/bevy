@@ -54,17 +54,14 @@ impl Node for CameraDriverNode {
                 }
             }
             if run_graph {
-                // let debug_group = if cfg!(feature = "debug") {
-                let debug_group = if true {
-                    Some(format!("Camera {}", sorted_camera.order))
-                } else {
-                    None
-                };
                 graph.run_sub_graph(
                     camera.render_graph,
                     vec![],
                     Some(sorted_camera.entity),
-                    debug_group,
+                    Some(format!(
+                        "Camera {} ({})",
+                        sorted_camera.order, sorted_camera.entity
+                    )),
                 )?;
             }
         }
