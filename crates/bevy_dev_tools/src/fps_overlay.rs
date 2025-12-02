@@ -7,7 +7,6 @@ use bevy_diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin};
 use bevy_ecs::{
     component::Component,
     entity::Entity,
-    prelude::Local,
     query::{With, Without},
     resource::Resource,
     schedule::{common_conditions::resource_changed, IntoScheduleConfigs},
@@ -16,13 +15,14 @@ use bevy_ecs::{
 use bevy_picking::Pickable;
 use bevy_render::storage::ShaderStorageBuffer;
 use bevy_text::{Font, TextColor, TextFont, TextSpan};
-use bevy_time::Time;
+use bevy_time::common_conditions::on_timer;
 use bevy_ui::{
     widget::{Text, TextUiWriter},
     FlexDirection, GlobalZIndex, Node, PositionType, Val,
 };
 use bevy_ui_render::prelude::MaterialNode;
 use core::time::Duration;
+use tracing::warn;
 
 use crate::frame_time_graph::{
     FrameTimeGraphConfigUniform, FrameTimeGraphPlugin, FrametimeGraphMaterial,
@@ -32,6 +32,9 @@ use crate::frame_time_graph::{
 ///
 /// We use a number slightly under `i32::MAX` so you can render on top of it if you really need to.
 pub const FPS_OVERLAY_ZINDEX: i32 = i32::MAX - 32;
+
+// Warn the user if the interval is below this threshold.
+const MIN_SAFE_INTERVAL: Duration = Duration::from_millis(50);
 
 // Used to scale the frame time graph based on the fps text size
 const FRAME_TIME_GRAPH_WIDTH_SCALE: f32 = 6.0;
@@ -61,6 +64,14 @@ impl Plugin for FpsOverlayPlugin {
             app.add_plugins(FrameTimeGraphPlugin);
         }
 
+        if self.config.refresh_interval < MIN_SAFE_INTERVAL {
+            warn!(
+                "Low refresh interval ({:?}) may degrade performance. \
+                Min recommended: {:?}.",
+                self.config.refresh_interval, MIN_SAFE_INTERVAL
+            );
+        }
+
         app.insert_resource(self.config.clone())
             .add_systems(Startup, setup)
             .add_systems(
@@ -68,7 +79,7 @@ impl Plugin for FpsOverlayPlugin {
                 (
                     (toggle_display, customize_overlay)
                         .run_if(resource_changed::<FpsOverlayConfig>),
-                    update_text,
+                    update_text.run_if(on_timer(self.config.refresh_interval)),
                 ),
             );
     }
@@ -213,20 +224,12 @@ fn update_text(
     diagnostic: Res<DiagnosticsStore>,
     query: Query<Entity, With<FpsText>>,
     mut writer: TextUiWriter,
-    time: Res<Time>,
-    config: Res<FpsOverlayConfig>,
-    mut time_since_rerender: Local<Duration>,
 ) {
-    *time_since_rerender += time.delta();
-    if *time_since_rerender >= config.refresh_interval {
-        *time_since_rerender = Duration::ZERO;
-        for entity in &query {
-            if let Some(fps) = diagnostic.get(&FrameTimeDiagnosticsPlugin::FPS)
-                && let Some(value) = fps.smoothed()
-            {
-                *writer.text(entity, 1) = format!("{value:.2}");
-            }
-        }
+    if let Ok(entity) = query.single()
+        && let Some(fps) = diagnostic.get(&FrameTimeDiagnosticsPlugin::FPS)
+        && let Some(value) = fps.smoothed()
+    {
+        *writer.text(entity, 1) = format!("{value:.2}");
     }
 }
 
