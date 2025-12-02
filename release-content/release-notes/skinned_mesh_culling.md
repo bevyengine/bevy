@@ -8,11 +8,10 @@ Skinned meshes can now update their bounds from joint positions. This mostly
 fixes issues like [#4971](https://github.com/bevyengine/bevy/issues/4971), where
 meshes would disappear at certain camera angles.
 
-*TODO: Maybe add a video here? The [PR video](https://github.com/user-attachments/assets/d67b2137-aedc-43a8-a141-fc7523074eea)
-could be used, but I can make a nicer one.*
+*TODO: Maybe add the [video from the PR](https://github.com/bevyengine/bevy/pull/21837) here?* 
 
 If you load your skinned meshes from glTFs then you don't need to make any
-changes - the new behavior is automatically enabled. 
+changes - the new behavior is automatically enabled.
 
 If you create your own skinned meshes, you'll need to call
 `Mesh::generate_skinned_mesh_bounds` or `Mesh::with_generated_skinned_bounds`
