@@ -163,7 +163,7 @@ pub struct Mesh {
     ///   Joint weight will be Unorm16x4.
     ///   Color will be Float16x4 or Unorm8x4.
     ///
-    /// For UVs compression, it's recommended to use Unorm16x2 for better precision if you don't need texture coordinates that go beyond the range of [0, 1]. The Float16x2 format may cause precision issues for textures larger than 1024x1024.
+    /// For UVs compression, it's recommended to use Unorm16x2 for better precision if you don't need texture coordinates that go beyond the range of [0, 1]. The Float16x2 format is only suitable for tiling small textures otherwise it may have precision issues.
     pub attribute_compression: MeshAttributeCompressionFlags,
 }
 

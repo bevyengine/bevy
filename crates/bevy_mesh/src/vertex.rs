@@ -632,7 +632,7 @@ fn octahedral_encode(v: Vec3) -> Vec2 {
 
 /// Encode tangent vectors as octahedral coordinates. sign is encoded in y component.
 fn octahedral_encode_tangent(v: Vec3, sign: f32) -> Vec2 {
-    // Code from Godot, https://github.com/godotengine/godot/pull/73265
+    // Code references Godot, the bias is from https://github.com/godotengine/godot/pull/73265
     let bias = 1.0 / 32767.0;
     let mut n_xy = octahedral_encode(v);
     n_xy.y = n_xy.y.max(bias);
