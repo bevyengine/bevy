@@ -8,7 +8,7 @@ Skinned meshes can now update their bounds from joint positions. This mostly
 fixes issues like [#4971](https://github.com/bevyengine/bevy/issues/4971), where
 meshes would disappear at certain camera angles.
 
-*TODO: Maybe add the [video from the PR](https://github.com/bevyengine/bevy/pull/21837) here?* 
+*TODO: Maybe add the [video from the PR](https://github.com/bevyengine/bevy/pull/21837) here?*
 
 If you load your skinned meshes from glTFs then you don't need to make any
 changes - the new behavior is automatically enabled.
