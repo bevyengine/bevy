@@ -1056,6 +1056,9 @@ pub fn prepare_view_targets(
         };
 
         let Some(out_attachment) = view_target_attachments.get(target) else {
+			// If we can't find an output attachment we need to remove the ViewTarget 
+			// component to make sure the camera doesn't try rendering to an invalid 
+			// output attachment.
             commands.entity(entity).try_remove::<ViewTarget>();
 
             continue;
