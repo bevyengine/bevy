@@ -287,7 +287,7 @@ pub mod graph {
 }
 
 #[derive(Resource)]
-struct FutureRenderResources(Arc<Mutex<Option<RenderResources>>>);
+pub struct FutureRenderResources(Arc<Mutex<Option<RenderResources>>>);
 
 /// A label for the rendering sub-app.
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, AppLabel)]
@@ -448,11 +448,11 @@ impl Plugin for RenderPlugin {
 /// A "scratch" world used to avoid allocating new worlds every frame when
 /// swapping out the [`MainWorld`] for [`ExtractSchedule`].
 #[derive(Resource, Default)]
-struct ScratchMainWorld(World);
+pub struct ScratchMainWorld(World);
 
 /// Executes the [`ExtractSchedule`] step of the renderer.
 /// This updates the render world with the extracted ECS data of the current frame.
-fn extract(main_world: &mut World, render_world: &mut World) {
+pub fn extract(main_world: &mut World, render_world: &mut World) {
     // temporarily add the app world to the render world as a resource
     let scratch_world = main_world.remove_resource::<ScratchMainWorld>().unwrap();
     let inserted_world = core::mem::replace(main_world, scratch_world.0);
