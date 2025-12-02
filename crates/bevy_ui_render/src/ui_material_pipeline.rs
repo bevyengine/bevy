@@ -11,9 +11,9 @@ use bevy_ecs::{
 };
 use bevy_image::BevyDefault as _;
 use bevy_math::{Affine2, FloatOrd, Rect, Vec2};
+use bevy_mesh::VertexBufferLayout;
 use bevy_render::{
     globals::{GlobalsBuffer, GlobalsUniform},
-    load_shader_library,
     render_asset::{PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets},
     render_phase::*,
     render_resource::{binding_types::uniform_buffer, *},
@@ -23,6 +23,7 @@ use bevy_render::{
     Extract, ExtractSchedule, Render, RenderSystems,
 };
 use bevy_render::{RenderApp, RenderStartup};
+use bevy_shader::{load_shader_library, Shader, ShaderRef};
 use bevy_sprite::BorderRect;
 use bevy_utils::default;
 use bytemuck::{Pod, Zeroable};
@@ -48,11 +49,8 @@ where
         embedded_asset!(app, "ui_material.wgsl");
 
         app.init_asset::<M>()
-            //.register_type::<MaterialNode<M>>()
-            .add_plugins((
-                //ExtractComponentPlugin::<MaterialNode<M>>::extract_visible(),
-                RenderAssetPlugin::<PreparedUiMaterial<M>>::default(),
-            ));
+            .register_type::<MaterialNode<M>>()
+            .add_plugins(RenderAssetPlugin::<PreparedUiMaterial<M>>::default());
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
@@ -115,8 +113,8 @@ pub struct UiMaterialBatch<M: UiMaterial> {
 /// Render pipeline data for a given [`UiMaterial`]
 #[derive(Resource)]
 pub struct UiMaterialPipeline<M: UiMaterial> {
-    pub ui_layout: BindGroupLayout,
-    pub view_layout: BindGroupLayout,
+    pub ui_layout: BindGroupLayoutDescriptor,
+    pub view_layout: BindGroupLayoutDescriptor,
     pub vertex_shader: Handle<Shader>,
     pub fragment_shader: Handle<Shader>,
     marker: PhantomData<M>,
@@ -181,12 +179,12 @@ where
 
 pub fn init_ui_material_pipeline<M: UiMaterial>(
     mut commands: Commands,
-    render_device: Res<RenderDevice>,
     asset_server: Res<AssetServer>,
+    render_device: Res<RenderDevice>,
 ) {
-    let ui_layout = M::bind_group_layout(&render_device);
+    let ui_layout = M::bind_group_layout_descriptor(&render_device);
 
-    let view_layout = render_device.create_bind_group_layout(
+    let view_layout = BindGroupLayoutDescriptor::new(
         "ui_view_layout",
         &BindGroupLayoutEntries::sequential(
             ShaderStages::VERTEX_FRAGMENT,
@@ -336,7 +334,7 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
             &MaterialNode<M>,
             &InheritedVisibility,
             Option<&CalculatedClip>,
-            &ComputedNodeTarget,
+            &ComputedUiTargetCamera,
         )>,
     >,
     camera_map: Extract<UiCameraMap>,
@@ -382,6 +380,7 @@ pub fn prepare_uimaterial_nodes<M: UiMaterial>(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
+    pipeline_cache: Res<PipelineCache>,
     mut ui_meta: ResMut<UiMaterialMeta<M>>,
     mut extracted_uinodes: ResMut<ExtractedUiMaterialNodes<M>>,
     view_uniforms: Res<ViewUniforms>,
@@ -399,7 +398,7 @@ pub fn prepare_uimaterial_nodes<M: UiMaterial>(
         ui_meta.vertices.clear();
         ui_meta.view_bind_group = Some(render_device.create_bind_group(
             "ui_material_view_bind_group",
-            &ui_material_pipeline.view_layout,
+            &pipeline_cache.get_bind_group_layout(&ui_material_pipeline.view_layout),
             &BindGroupEntries::sequential((view_binding, globals_binding)),
         ));
         let mut index = 0;
@@ -550,16 +549,28 @@ pub struct PreparedUiMaterial<T: UiMaterial> {
 impl<M: UiMaterial> RenderAsset for PreparedUiMaterial<M> {
     type SourceAsset = M;
 
-    type Param = (SRes<RenderDevice>, SRes<UiMaterialPipeline<M>>, M::Param);
+    type Param = (
+        SRes<RenderDevice>,
+        SRes<PipelineCache>,
+        SRes<UiMaterialPipeline<M>>,
+        M::Param,
+    );
 
     fn prepare_asset(
         material: Self::SourceAsset,
         _: AssetId<Self::SourceAsset>,
-        (render_device, pipeline, material_param): &mut SystemParamItem<Self::Param>,
+        (render_device, pipeline_cache, pipeline, material_param): &mut SystemParamItem<
+            Self::Param,
+        >,
         _: Option<&Self>,
     ) -> Result<Self, PrepareAssetError<Self::SourceAsset>> {
         let bind_group_data = material.bind_group_data();
-        match material.as_bind_group(&pipeline.ui_layout, render_device, material_param) {
+        match material.as_bind_group(
+            &pipeline.ui_layout.clone(),
+            render_device,
+            pipeline_cache,
+            material_param,
+        ) {
             Ok(prepared) => Ok(PreparedUiMaterial {
                 bindings: prepared.bindings,
                 bind_group: prepared.bind_group,
@@ -613,7 +624,7 @@ pub fn queue_ui_material_nodes<M: UiMaterial>(
             &ui_material_pipeline,
             UiMaterialKey {
                 hdr: view.hdr,
-                bind_group_data: material.key,
+                bind_group_data: material.key.clone(),
             },
         );
         if transparent_phase.items.capacity() < extracted_uinodes.uinodes.len() {

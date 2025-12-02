@@ -1,4 +1,4 @@
-#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![forbid(unsafe_code)]
 #![doc(
     html_logo_url = "https://bevy.org/assets/icon.png",
@@ -16,10 +16,12 @@ pub use default_plugins::*;
 
 #[cfg(feature = "bevy_window")]
 pub use bevy_a11y as a11y;
+#[cfg(target_os = "android")]
+pub use bevy_android as android;
 #[cfg(feature = "bevy_animation")]
 pub use bevy_animation as animation;
-#[cfg(feature = "bevy_anti_aliasing")]
-pub use bevy_anti_aliasing as anti_aliasing;
+#[cfg(feature = "bevy_anti_alias")]
+pub use bevy_anti_alias as anti_alias;
 pub use bevy_app as app;
 #[cfg(feature = "bevy_asset")]
 pub use bevy_asset as asset;
@@ -27,12 +29,12 @@ pub use bevy_asset as asset;
 pub use bevy_audio as audio;
 #[cfg(feature = "bevy_camera")]
 pub use bevy_camera as camera;
+#[cfg(feature = "bevy_camera_controller")]
+pub use bevy_camera_controller as camera_controller;
 #[cfg(feature = "bevy_color")]
 pub use bevy_color as color;
 #[cfg(feature = "bevy_core_pipeline")]
 pub use bevy_core_pipeline as core_pipeline;
-#[cfg(feature = "bevy_core_widgets")]
-pub use bevy_core_widgets as core_widgets;
 #[cfg(feature = "bevy_dev_tools")]
 pub use bevy_dev_tools as dev_tools;
 pub use bevy_diagnostic as diagnostic;
@@ -43,6 +45,8 @@ pub use bevy_feathers as feathers;
 pub use bevy_gilrs as gilrs;
 #[cfg(feature = "bevy_gizmos")]
 pub use bevy_gizmos as gizmos;
+#[cfg(feature = "bevy_gizmos_render")]
+pub use bevy_gizmos_render as gizmos_render;
 #[cfg(feature = "bevy_gltf")]
 pub use bevy_gltf as gltf;
 #[cfg(feature = "bevy_image")]
@@ -62,6 +66,8 @@ pub use bevy_pbr as pbr;
 #[cfg(feature = "bevy_picking")]
 pub use bevy_picking as picking;
 pub use bevy_platform as platform;
+#[cfg(feature = "bevy_post_process")]
+pub use bevy_post_process as post_process;
 pub use bevy_ptr as ptr;
 pub use bevy_reflect as reflect;
 #[cfg(feature = "bevy_remote")]
@@ -70,10 +76,14 @@ pub use bevy_remote as remote;
 pub use bevy_render as render;
 #[cfg(feature = "bevy_scene")]
 pub use bevy_scene as scene;
+#[cfg(feature = "bevy_shader")]
+pub use bevy_shader as shader;
 #[cfg(feature = "bevy_solari")]
 pub use bevy_solari as solari;
 #[cfg(feature = "bevy_sprite")]
 pub use bevy_sprite as sprite;
+#[cfg(feature = "bevy_sprite_render")]
+pub use bevy_sprite_render as sprite_render;
 #[cfg(feature = "bevy_state")]
 pub use bevy_state as state;
 pub use bevy_tasks as tasks;
@@ -85,6 +95,8 @@ pub use bevy_transform as transform;
 pub use bevy_ui as ui;
 #[cfg(feature = "bevy_ui_render")]
 pub use bevy_ui_render as ui_render;
+#[cfg(feature = "bevy_ui_widgets")]
+pub use bevy_ui_widgets as ui_widgets;
 pub use bevy_utils as utils;
 #[cfg(feature = "bevy_window")]
 pub use bevy_window as window;

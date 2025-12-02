@@ -6,8 +6,8 @@
 //! light.
 
 use bevy::{
+    light::{FogVolume, VolumetricFog, VolumetricLight},
     math::vec3,
-    pbr::{FogVolume, VolumetricFog, VolumetricLight},
     prelude::*,
     render::view::Hdr,
 };
@@ -22,7 +22,7 @@ fn main() {
             }),
             ..default()
         }))
-        .insert_resource(AmbientLight::NONE)
+        .insert_resource(GlobalAmbientLight::NONE)
         .add_systems(Startup, setup)
         .add_systems(Update, rotate_camera)
         .run();

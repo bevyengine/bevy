@@ -1,6 +1,7 @@
 //! A module adding debug visualization of [`Aabb`]s.
 
 use bevy_app::{Plugin, PostUpdate};
+use bevy_camera::{primitives::Aabb, visibility::ViewVisibility};
 use bevy_color::{Color, Oklcha};
 use bevy_ecs::{
     component::Component,
@@ -11,11 +12,7 @@ use bevy_ecs::{
     system::{Query, Res},
 };
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_render::primitives::Aabb;
-use bevy_transform::{
-    components::{GlobalTransform, Transform},
-    TransformSystems,
-};
+use bevy_transform::{components::GlobalTransform, TransformSystems};
 
 use crate::{
     config::{GizmoConfigGroup, GizmoConfigStore},
@@ -28,19 +25,17 @@ pub struct AabbGizmoPlugin;
 
 impl Plugin for AabbGizmoPlugin {
     fn build(&self, app: &mut bevy_app::App) {
-        app.register_type::<AabbGizmoConfigGroup>()
-            .init_gizmo_group::<AabbGizmoConfigGroup>()
-            .add_systems(
-                PostUpdate,
-                (
-                    draw_aabbs,
-                    draw_all_aabbs.run_if(|config: Res<GizmoConfigStore>| {
-                        config.config::<AabbGizmoConfigGroup>().1.draw_all
-                    }),
-                )
-                    .after(bevy_render::view::VisibilitySystems::CalculateBounds)
-                    .after(TransformSystems::Propagate),
-            );
+        app.init_gizmo_group::<AabbGizmoConfigGroup>().add_systems(
+            PostUpdate,
+            (
+                draw_aabbs,
+                draw_all_aabbs.run_if(|config: Res<GizmoConfigStore>| {
+                    config.config::<AabbGizmoConfigGroup>().1.draw_all
+                }),
+            )
+                .after(bevy_camera::visibility::VisibilitySystems::MarkNewlyHiddenEntitiesInvisible)
+                .after(TransformSystems::Propagate),
+        );
     }
 }
 /// The [`GizmoConfigGroup`] used for debug visualizations of [`Aabb`] components on entities
@@ -72,39 +67,52 @@ pub struct ShowAabbGizmo {
 }
 
 fn draw_aabbs(
-    query: Query<(Entity, &Aabb, &GlobalTransform, &ShowAabbGizmo)>,
+    query: Query<(
+        Entity,
+        &Aabb,
+        &GlobalTransform,
+        Option<&ViewVisibility>,
+        &ShowAabbGizmo,
+    )>,
     mut gizmos: Gizmos<AabbGizmoConfigGroup>,
 ) {
-    for (entity, &aabb, &transform, gizmo) in &query {
+    for (entity, &aabb, &transform, view_visibility, gizmo) in &query {
+        if !is_visible(view_visibility) {
+            continue;
+        }
+
         let color = gizmo
             .color
             .or(gizmos.config_ext.default_color)
             .unwrap_or_else(|| color_from_entity(entity));
-        gizmos.cuboid(aabb_transform(aabb, transform), color);
+        gizmos.aabb_3d(aabb, transform, color);
     }
 }
 
 fn draw_all_aabbs(
-    query: Query<(Entity, &Aabb, &GlobalTransform), Without<ShowAabbGizmo>>,
+    query: Query<
+        (Entity, &Aabb, &GlobalTransform, Option<&ViewVisibility>),
+        Without<ShowAabbGizmo>,
+    >,
     mut gizmos: Gizmos<AabbGizmoConfigGroup>,
 ) {
-    for (entity, &aabb, &transform) in &query {
+    for (entity, &aabb, &transform, view_visibility) in &query {
+        if !is_visible(view_visibility) {
+            continue;
+        }
+
         let color = gizmos
             .config_ext
             .default_color
             .unwrap_or_else(|| color_from_entity(entity));
-        gizmos.cuboid(aabb_transform(aabb, transform), color);
+        gizmos.aabb_3d(aabb, transform, color);
     }
 }
 
-fn color_from_entity(entity: Entity) -> Color {
-    Oklcha::sequential_dispersed(entity.index()).into()
+fn is_visible(view_visibility: Option<&ViewVisibility>) -> bool {
+    view_visibility.is_some_and(|v| v.get())
 }
 
-fn aabb_transform(aabb: Aabb, transform: GlobalTransform) -> GlobalTransform {
-    transform
-        * GlobalTransform::from(
-            Transform::from_translation(aabb.center.into())
-                .with_scale((aabb.half_extents * 2.).into()),
-        )
+fn color_from_entity(entity: Entity) -> Color {
+    Oklcha::sequential_dispersed(entity.index_u32()).into()
 }

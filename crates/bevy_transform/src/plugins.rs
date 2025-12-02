@@ -9,21 +9,12 @@ pub enum TransformSystems {
     Propagate,
 }
 
-/// Deprecated alias for [`TransformSystems`].
-#[deprecated(since = "0.17.0", note = "Renamed to `TransformSystems`.")]
-pub type TransformSystem = TransformSystems;
-
 /// The base plugin for handling [`Transform`](crate::components::Transform) components
 #[derive(Default)]
 pub struct TransformPlugin;
 
 impl Plugin for TransformPlugin {
     fn build(&self, app: &mut App) {
-        #[cfg(feature = "bevy_reflect")]
-        app.register_type::<crate::components::Transform>()
-            .register_type::<crate::components::TransformTreeChanged>()
-            .register_type::<crate::components::GlobalTransform>();
-
         app
             // add transform systems to startup so the first update is "correct"
             .add_systems(

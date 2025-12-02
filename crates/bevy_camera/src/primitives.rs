@@ -1,7 +1,10 @@
 use core::borrow::Borrow;
 
 use bevy_ecs::{component::Component, entity::EntityHashMap, reflect::ReflectComponent};
-use bevy_math::{Affine3A, Mat3A, Mat4, Vec3, Vec3A, Vec4, Vec4Swizzles};
+use bevy_math::{
+    bounding::{Aabb3d, BoundingVolume},
+    Affine3A, Mat3A, Mat4, Vec3, Vec3A, Vec4, Vec4Swizzles,
+};
 use bevy_mesh::{Mesh, VertexAttributeValues};
 use bevy_reflect::prelude::*;
 
@@ -132,6 +135,24 @@ impl Aabb {
     }
 }
 
+impl From<Aabb3d> for Aabb {
+    fn from(aabb: Aabb3d) -> Self {
+        Self {
+            center: aabb.center(),
+            half_extents: aabb.half_size(),
+        }
+    }
+}
+
+impl From<Aabb> for Aabb3d {
+    fn from(aabb: Aabb) -> Self {
+        Self {
+            min: aabb.min(),
+            max: aabb.max(),
+        }
+    }
+}
+
 impl From<Sphere> for Aabb {
     #[inline]
     fn from(sphere: Sphere) -> Self {
@@ -235,7 +256,7 @@ impl HalfSpace {
 /// This process is called frustum culling, and entities can opt out of it using
 /// the [`NoFrustumCulling`] component.
 ///
-/// The frustum component is typically added automatically for cameras, either `Camera2d` or `Camera3d`.
+/// The frustum component is typically added automatically for cameras, either [`Camera2d`] or [`Camera3d`].
 /// It is usually updated automatically by [`update_frusta`] from the
 /// [`CameraProjection`] component and [`GlobalTransform`] of the camera entity.
 ///
@@ -244,6 +265,8 @@ impl HalfSpace {
 /// [`update_frusta`]: crate::visibility::update_frusta
 /// [`CameraProjection`]: crate::CameraProjection
 /// [`GlobalTransform`]: bevy_transform::components::GlobalTransform
+/// [`Camera2d`]: crate::Camera2d
+/// [`Camera3d`]: crate::Camera3d
 #[derive(Component, Clone, Copy, Debug, Default, Reflect)]
 #[reflect(Component, Default, Debug, Clone)]
 pub struct Frustum {
@@ -252,11 +275,15 @@ pub struct Frustum {
 }
 
 impl Frustum {
+    pub const NEAR_PLANE_IDX: usize = 4;
+    const FAR_PLANE_IDX: usize = 5;
+    const INACTIVE_HALF_SPACE: Vec4 = Vec4::new(0.0, 0.0, 0.0, f32::INFINITY);
+
     /// Returns a frustum derived from `clip_from_world`.
     #[inline]
     pub fn from_clip_from_world(clip_from_world: &Mat4) -> Self {
         let mut frustum = Frustum::from_clip_from_world_no_far(clip_from_world);
-        frustum.half_spaces[5] = HalfSpace::new(clip_from_world.row(2));
+        frustum.half_spaces[Self::FAR_PLANE_IDX] = HalfSpace::new(clip_from_world.row(2));
         frustum
     }
 
@@ -271,7 +298,7 @@ impl Frustum {
     ) -> Self {
         let mut frustum = Frustum::from_clip_from_world_no_far(clip_from_world);
         let far_center = *view_translation - far * *view_backward;
-        frustum.half_spaces[5] =
+        frustum.half_spaces[Self::FAR_PLANE_IDX] =
             HalfSpace::new(view_backward.extend(-view_backward.dot(far_center)));
         frustum
     }
@@ -282,25 +309,33 @@ impl Frustum {
     /// Returns a frustum derived from `view_projection`,
     /// without a far plane.
     fn from_clip_from_world_no_far(clip_from_world: &Mat4) -> Self {
+        let row0 = clip_from_world.row(0);
+        let row1 = clip_from_world.row(1);
+        let row2 = clip_from_world.row(2);
         let row3 = clip_from_world.row(3);
-        let mut half_spaces = [HalfSpace::default(); 6];
-        for (i, half_space) in half_spaces.iter_mut().enumerate().take(5) {
-            let row = clip_from_world.row(i / 2);
-            *half_space = HalfSpace::new(if (i & 1) == 0 && i != 4 {
-                row3 + row
-            } else {
-                row3 - row
-            });
+
+        Self {
+            half_spaces: [
+                HalfSpace::new(row3 + row0),
+                HalfSpace::new(row3 - row0),
+                HalfSpace::new(row3 + row1),
+                HalfSpace::new(row3 - row1),
+                HalfSpace::new(row3 + row2),
+                HalfSpace::new(Self::INACTIVE_HALF_SPACE),
+            ],
         }
-        Self { half_spaces }
     }
 
     /// Checks if a sphere intersects the frustum.
     #[inline]
     pub fn intersects_sphere(&self, sphere: &Sphere, intersect_far: bool) -> bool {
         let sphere_center = sphere.center.extend(1.0);
-        let max = if intersect_far { 6 } else { 5 };
-        for half_space in &self.half_spaces[..max] {
+        let max = if intersect_far {
+            Self::FAR_PLANE_IDX
+        } else {
+            Self::NEAR_PLANE_IDX
+        };
+        for half_space in &self.half_spaces[..=max] {
             if half_space.normal_d().dot(sphere_center) + sphere.radius <= 0.0 {
                 return false;
             }
@@ -318,11 +353,11 @@ impl Frustum {
         intersect_far: bool,
     ) -> bool {
         let aabb_center_world = world_from_local.transform_point3a(aabb.center).extend(1.0);
+
         for (idx, half_space) in self.half_spaces.into_iter().enumerate() {
-            if idx == 4 && !intersect_near {
-                continue;
-            }
-            if idx == 5 && !intersect_far {
+            if (idx == Self::NEAR_PLANE_IDX && !intersect_near)
+                || (idx == Self::FAR_PLANE_IDX && !intersect_far)
+            {
                 continue;
             }
             let p_normal = half_space.normal();
@@ -628,7 +663,7 @@ mod tests {
 
     #[test]
     fn aabb_enclosing() {
-        assert_eq!(Aabb::enclosing(<[Vec3; 0]>::default()), None);
+        assert_eq!(Aabb::enclosing([] as [Vec3; 0]), None);
         assert_eq!(
             Aabb::enclosing(vec![Vec3::ONE]).unwrap(),
             Aabb::from_min_max(Vec3::ONE, Vec3::ONE)

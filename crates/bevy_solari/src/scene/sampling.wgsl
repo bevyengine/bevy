@@ -1,8 +1,57 @@
 #define_import_path bevy_solari::sampling
 
+#import bevy_pbr::lighting::D_GGX
 #import bevy_pbr::utils::{rand_f, rand_vec2f, rand_u, rand_range_u}
-#import bevy_render::maths::PI_2
-#import bevy_solari::scene_bindings::{trace_ray, RAY_T_MIN, RAY_T_MAX, light_sources, directional_lights, LightSource, LIGHT_SOURCE_KIND_DIRECTIONAL, resolve_triangle_data_full}
+#import bevy_render::maths::{PI_2, orthonormalize}
+#import bevy_solari::scene_bindings::{trace_ray, RAY_T_MIN, RAY_T_MAX, light_sources, directional_lights, LightSource, LIGHT_SOURCE_KIND_DIRECTIONAL, resolve_triangle_data_full, ResolvedRayHitFull}
+
+fn power_heuristic(f: f32, g: f32) -> f32 {
+    return f * f / (f * f + g * g);
+}
+
+fn balance_heuristic(f: f32, g: f32) -> f32 {
+    return f / (f + g);
+}
+
+// https://gpuopen.com/download/Bounded_VNDF_Sampling_for_Smith-GGX_Reflections.pdf (Listing 1)
+fn sample_ggx_vndf(wi_tangent: vec3<f32>, roughness: f32, rng: ptr<function, u32>) -> vec3<f32> {
+    let i = wi_tangent;
+    let rand = rand_vec2f(rng);
+    let i_std = normalize(vec3(i.xy * roughness, i.z));
+    let phi = PI_2 * rand.x;
+    let a = roughness;
+    let s = 1.0 + length(vec2(i.xy));
+    let a2 = a * a;
+    let s2 = s * s;
+    let k = (1.0 - a2) * s2 / (s2 + a2 * i.z * i.z);
+    let b = select(i_std.z, k * i_std.z, i.z > 0.0);
+    let z = fma(1.0 - rand.y, 1.0 + b, -b);
+    let sin_theta = sqrt(saturate(1.0 - z * z));
+    let o_std = vec3(sin_theta * cos(phi), sin_theta * sin(phi), z);
+    let m_std = i_std + o_std;
+    let m = normalize(vec3(m_std.xy * roughness, m_std.z));
+    return 2.0 * dot(i, m) * m - i;
+}
+
+// https://gpuopen.com/download/Bounded_VNDF_Sampling_for_Smith-GGX_Reflections.pdf (Listing 2)
+fn ggx_vndf_pdf(wi_tangent: vec3<f32>, wo_tangent: vec3<f32>, roughness: f32) -> f32 {
+    let i = wi_tangent;
+    let o = wo_tangent;
+    let m = normalize(i + o);
+    let ndf = D_GGX(roughness, saturate(m.z));
+    let ai = roughness * i.xy;
+    let len2 = dot(ai, ai);
+    let t = sqrt(len2 + i.z * i.z);
+    if i.z >= 0.0 {
+        let a = roughness;
+        let s = 1.0 + length(i.xy);
+        let a2 = a * a;
+        let s2 = s * s;
+        let k = (1.0 - a2) * s2 / (s2 + a2 * i.z * i.z);
+        return ndf / (2.0 * (k * i.z + t));
+    }
+    return ndf * (t - i.z) / (2.0 * len2);
+}
 
 struct LightSample {
     light_id: u32,
@@ -37,6 +86,12 @@ fn sample_random_light(ray_origin: vec3<f32>, origin_world_normal: vec3<f32>, rn
     var light_contribution = calculate_resolved_light_contribution(sample.resolved_light_sample, ray_origin, origin_world_normal);
     light_contribution.radiance *= trace_light_visibility(ray_origin, sample.resolved_light_sample.world_position);
     return light_contribution;
+}
+
+fn random_light_pdf(hit: ResolvedRayHitFull) -> f32 {
+    let light_count = arrayLength(&light_sources);
+    let p_light = 1.0 / f32(light_count);
+    return p_light / (hit.triangle_area * f32(hit.triangle_count));
 }
 
 fn generate_random_light_sample(rng: ptr<function, u32>) -> GenerateRandomLightSampleResult {

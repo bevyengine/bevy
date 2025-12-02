@@ -1,4 +1,4 @@
-#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![forbid(unsafe_code)]
 #![doc(
     html_logo_url = "https://bevy.org/assets/icon.png",
@@ -140,11 +140,14 @@ pub struct InputFocusVisible(pub bool);
 /// To set up your own bubbling input event, add the [`dispatch_focused_input::<MyEvent>`](dispatch_focused_input) system to your app,
 /// in the [`InputFocusSystems::Dispatch`] system set during [`PreUpdate`].
 #[derive(EntityEvent, Clone, Debug, Component)]
-#[entity_event(traversal = WindowTraversal, auto_propagate)]
+#[entity_event(propagate = WindowTraversal, auto_propagate)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Component, Clone))]
-pub struct FocusedInput<E: BufferedEvent + Clone> {
-    /// The underlying input event.
-    pub input: E,
+pub struct FocusedInput<M: Message + Clone> {
+    /// The entity that has received focused input.
+    #[event_target]
+    pub focused_entity: Entity,
+    /// The underlying input message.
+    pub input: M,
     /// The primary window entity.
     window: Entity,
 }
@@ -152,8 +155,11 @@ pub struct FocusedInput<E: BufferedEvent + Clone> {
 /// An event which is used to set input focus. Trigger this on an entity, and it will bubble
 /// until it finds a focusable entity, and then set focus to it.
 #[derive(Clone, EntityEvent)]
-#[entity_event(traversal = WindowTraversal, auto_propagate)]
+#[entity_event(propagate = WindowTraversal, auto_propagate)]
 pub struct AcquireFocus {
+    /// The entity that has acquired focus.
+    #[event_target]
+    pub focused_entity: Entity,
     /// The primary window entity.
     window: Entity,
 }
@@ -165,8 +171,8 @@ pub struct WindowTraversal {
     window: Option<&'static Window>,
 }
 
-impl<E: BufferedEvent + Clone> Traversal<FocusedInput<E>> for WindowTraversal {
-    fn traverse(item: Self::Item<'_, '_>, event: &FocusedInput<E>) -> Option<Entity> {
+impl<M: Message + Clone> Traversal<FocusedInput<M>> for WindowTraversal {
+    fn traverse(item: Self::Item<'_, '_>, event: &FocusedInput<M>) -> Option<Entity> {
         let WindowTraversalItem { child_of, window } = item;
 
         // Send event to parent, if it has one.
@@ -221,11 +227,6 @@ impl Plugin for InputDispatchPlugin {
                 )
                     .in_set(InputFocusSystems::Dispatch),
             );
-
-        #[cfg(feature = "bevy_reflect")]
-        app.register_type::<AutoFocus>()
-            .register_type::<InputFocus>()
-            .register_type::<InputFocusVisible>();
     }
 }
 
@@ -237,10 +238,6 @@ pub enum InputFocusSystems {
     /// System which dispatches bubbled input events to the focused entity, or to the primary window.
     Dispatch,
 }
-
-/// Deprecated alias for [`InputFocusSystems`].
-#[deprecated(since = "0.17.0", note = "Renamed to `InputFocusSystems`.")]
-pub type InputFocusSet = InputFocusSystems;
 
 /// If no entity is focused, sets the focus to the primary window, if any.
 pub fn set_initial_focus(
@@ -257,8 +254,8 @@ pub fn set_initial_focus(
 ///
 /// If the currently focused entity no longer exists (has been despawned), this system will
 /// automatically clear the focus and dispatch events to the primary window instead.
-pub fn dispatch_focused_input<E: BufferedEvent + Clone>(
-    mut key_events: EventReader<E>,
+pub fn dispatch_focused_input<M: Message + Clone>(
+    mut input_reader: MessageReader<M>,
     mut focus: ResMut<InputFocus>,
     windows: Query<Entity, With<PrimaryWindow>>,
     entities: &Entities,
@@ -269,39 +266,33 @@ pub fn dispatch_focused_input<E: BufferedEvent + Clone>(
         if let Some(focused_entity) = focus.0 {
             // Check if the focused entity is still alive
             if entities.contains(focused_entity) {
-                for ev in key_events.read() {
-                    commands.trigger_targets(
-                        FocusedInput {
-                            input: ev.clone(),
-                            window,
-                        },
+                for ev in input_reader.read() {
+                    commands.trigger(FocusedInput {
                         focused_entity,
-                    );
+                        input: ev.clone(),
+                        window,
+                    });
                 }
             } else {
                 // If the focused entity no longer exists, clear focus and dispatch to window
                 focus.0 = None;
-                for ev in key_events.read() {
-                    commands.trigger_targets(
-                        FocusedInput {
-                            input: ev.clone(),
-                            window,
-                        },
+                for ev in input_reader.read() {
+                    commands.trigger(FocusedInput {
+                        focused_entity: window,
+                        input: ev.clone(),
                         window,
-                    );
+                    });
                 }
             }
         } else {
             // If no element has input focus, then dispatch the input event to the primary window.
             // There should be only one primary window.
-            for ev in key_events.read() {
-                commands.trigger_targets(
-                    FocusedInput {
-                        input: ev.clone(),
-                        window,
-                    },
+            for ev in input_reader.read() {
+                commands.trigger(FocusedInput {
+                    focused_entity: window,
+                    input: ev.clone(),
                     window,
-                );
+                });
             }
         }
     }
@@ -424,17 +415,17 @@ mod tests {
     struct GatherKeyboardEvents(String);
 
     fn gather_keyboard_events(
-        trigger: On<FocusedInput<KeyboardInput>>,
+        event: On<FocusedInput<KeyboardInput>>,
         mut query: Query<&mut GatherKeyboardEvents>,
     ) {
-        if let Ok(mut gather) = query.get_mut(trigger.target()) {
-            if let Key::Character(c) = &trigger.input.logical_key {
+        if let Ok(mut gather) = query.get_mut(event.focused_entity) {
+            if let Key::Character(c) = &event.input.logical_key {
                 gather.0.push_str(c.as_str());
             }
         }
     }
 
-    fn key_a_event() -> KeyboardInput {
+    fn key_a_message() -> KeyboardInput {
         KeyboardInput {
             key_code: KeyCode::KeyA,
             logical_key: Key::Character("A".into()),
@@ -567,7 +558,7 @@ mod tests {
         assert!(!app.world().is_focus_visible(child_of_b));
 
         // entity_a should receive this event
-        app.world_mut().write_event(key_a_event());
+        app.world_mut().write_message(key_a_message());
         app.update();
 
         assert_eq!(get_gathered(&app, entity_a), "A");
@@ -580,7 +571,7 @@ mod tests {
         assert!(!app.world().is_focus_visible(entity_a));
 
         // This event should be lost
-        app.world_mut().write_event(key_a_event());
+        app.world_mut().write_message(key_a_message());
         app.update();
 
         assert_eq!(get_gathered(&app, entity_a), "A");
@@ -601,7 +592,7 @@ mod tests {
 
         // These events should be received by entity_b and child_of_b
         app.world_mut()
-            .write_event_batch(core::iter::repeat_n(key_a_event(), 4));
+            .write_message_batch(core::iter::repeat_n(key_a_message(), 4));
         app.update();
 
         assert_eq!(get_gathered(&app, entity_a), "A");
@@ -665,7 +656,7 @@ mod tests {
         assert_eq!(app.world().resource::<InputFocus>().0, Some(entity));
 
         // Send input event - this should clear focus instead of panicking
-        app.world_mut().write_event(key_a_event());
+        app.world_mut().write_message(key_a_message());
         app.update();
 
         assert_eq!(app.world().resource::<InputFocus>().0, None);

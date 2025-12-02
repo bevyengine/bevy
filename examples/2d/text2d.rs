@@ -9,7 +9,7 @@ use bevy::{
     color::palettes::css::*,
     math::ops,
     prelude::*,
-    sprite::Anchor,
+    sprite::{Anchor, Text2dShadow},
     text::{FontSmoothing, LineBreak, TextBounds},
 };
 
@@ -44,24 +44,30 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2d);
     // Demonstrate changing translation
     commands.spawn((
-        Text2d::new("translation"),
+        Text2d::new(" translation "),
         text_font.clone(),
         TextLayout::new_with_justify(text_justification),
+        TextBackgroundColor(Color::BLACK.with_alpha(0.5)),
+        Text2dShadow::default(),
         AnimateTranslation,
     ));
     // Demonstrate changing rotation
     commands.spawn((
-        Text2d::new("rotation"),
+        Text2d::new(" rotation "),
         text_font.clone(),
         TextLayout::new_with_justify(text_justification),
+        TextBackgroundColor(Color::BLACK.with_alpha(0.5)),
+        Text2dShadow::default(),
         AnimateRotation,
     ));
     // Demonstrate changing scale
     commands.spawn((
-        Text2d::new("scale"),
+        Text2d::new(" scale "),
         text_font,
         TextLayout::new_with_justify(text_justification),
         Transform::from_translation(Vec3::new(400.0, 0.0, 0.0)),
+        TextBackgroundColor(Color::BLACK.with_alpha(0.5)),
+        Text2dShadow::default(),
         AnimateScale,
     ));
     // Demonstrate text wrapping
@@ -72,6 +78,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     };
     let box_size = Vec2::new(300.0, 200.0);
     let box_position = Vec2::new(0.0, -250.0);
+    let box_color = Color::srgb(0.25, 0.25, 0.55);
+    let text_shadow_color = box_color.darker(0.05);
     commands.spawn((
         Sprite::from_color(Color::srgb(0.25, 0.25, 0.55), box_size),
         Transform::from_translation(box_position.extend(0.0)),
@@ -83,6 +91,12 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             TextBounds::from(box_size),
             // Ensure the text is drawn on top of the box
             Transform::from_translation(Vec3::Z),
+            // Add a shadow to the text
+            Text2dShadow {
+                color: text_shadow_color,
+                ..default()
+            },
+            Underline,
         )],
     ));
 
@@ -99,6 +113,11 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             TextBounds::from(other_box_size),
             // Ensure the text is drawn on top of the box
             Transform::from_translation(Vec3::Z),
+            // Add a shadow to the text
+            Text2dShadow {
+                color: text_shadow_color,
+                ..default()
+            }
         )],
     ));
 
@@ -110,42 +129,48 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             .with_font_smoothing(FontSmoothing::None),
         TextLayout::new_with_justify(Justify::Center),
         Transform::from_translation(Vec3::new(-400.0, -250.0, 0.0)),
+        // Add a black shadow to the text
+        Text2dShadow::default(),
     ));
 
-    commands
-        .spawn((
-            Sprite {
-                color: Color::Srgba(LIGHT_CYAN),
-                custom_size: Some(Vec2::new(10., 10.)),
-                ..Default::default()
-            },
-            Transform::from_translation(250. * Vec3::Y),
-        ))
-        .with_children(|commands| {
-            for (text_anchor, color) in [
-                (Anchor::TOP_LEFT, Color::Srgba(LIGHT_SALMON)),
-                (Anchor::TOP_RIGHT, Color::Srgba(LIGHT_GREEN)),
-                (Anchor::BOTTOM_RIGHT, Color::Srgba(LIGHT_BLUE)),
-                (Anchor::BOTTOM_LEFT, Color::Srgba(LIGHT_YELLOW)),
-            ] {
-                commands
-                    .spawn((
-                        Text2d::new(" Anchor".to_string()),
-                        slightly_smaller_text_font.clone(),
-                        text_anchor,
-                    ))
-                    .with_child((
-                        TextSpan("::".to_string()),
-                        slightly_smaller_text_font.clone(),
-                        TextColor(LIGHT_GREY.into()),
-                    ))
-                    .with_child((
-                        TextSpan(format!("{text_anchor:?} ")),
-                        slightly_smaller_text_font.clone(),
-                        TextColor(color),
-                    ));
-            }
-        });
+    let make_child = move |(text_anchor, color): (Anchor, Color)| {
+        (
+            Text2d::new(" Anchor".to_string()),
+            slightly_smaller_text_font.clone(),
+            text_anchor,
+            TextBackgroundColor(Color::WHITE.darker(0.8)),
+            Transform::from_translation(-1. * Vec3::Z),
+            children![
+                (
+                    TextSpan("::".to_string()),
+                    slightly_smaller_text_font.clone(),
+                    TextColor(LIGHT_GREY.into()),
+                    TextBackgroundColor(DARK_BLUE.into()),
+                ),
+                (
+                    TextSpan(format!("{text_anchor:?} ")),
+                    slightly_smaller_text_font.clone(),
+                    TextColor(color),
+                    TextBackgroundColor(color.darker(0.3)),
+                )
+            ],
+        )
+    };
+
+    commands.spawn((
+        Sprite {
+            color: Color::Srgba(LIGHT_CYAN),
+            custom_size: Some(Vec2::new(10., 10.)),
+            ..Default::default()
+        },
+        Transform::from_translation(250. * Vec3::Y),
+        children![
+            make_child((Anchor::TOP_LEFT, Color::Srgba(LIGHT_SALMON))),
+            make_child((Anchor::TOP_RIGHT, Color::Srgba(LIGHT_GREEN))),
+            make_child((Anchor::BOTTOM_RIGHT, Color::Srgba(LIGHT_BLUE))),
+            make_child((Anchor::BOTTOM_LEFT, Color::Srgba(LIGHT_YELLOW))),
+        ],
+    ));
 }
 
 fn animate_translation(

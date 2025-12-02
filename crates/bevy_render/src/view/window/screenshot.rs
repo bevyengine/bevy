@@ -1,11 +1,9 @@
 use super::ExtractedWindows;
 use crate::{
-    camera::{NormalizedRenderTarget, ToNormalizedRenderTarget as _},
     gpu_readback,
-    prelude::Shader,
-    render_asset::{RenderAssetUsages, RenderAssets},
+    render_asset::RenderAssets,
     render_resource::{
-        binding_types::texture_2d, BindGroup, BindGroupEntries, BindGroupLayout,
+        binding_types::texture_2d, BindGroup, BindGroupEntries, BindGroupLayoutDescriptor,
         BindGroupLayoutEntries, Buffer, BufferUsages, CachedRenderPipelineId, FragmentState,
         PipelineCache, RenderPipelineDescriptor, SpecializedRenderPipeline,
         SpecializedRenderPipelines, Texture, TextureUsages, TextureView, VertexState,
@@ -17,15 +15,16 @@ use crate::{
 };
 use alloc::{borrow::Cow, sync::Arc};
 use bevy_app::{First, Plugin, Update};
-use bevy_asset::{embedded_asset, load_embedded_asset, AssetServer, Handle};
-use bevy_camera::{ManualTextureViewHandle, RenderTarget};
+use bevy_asset::{embedded_asset, load_embedded_asset, AssetServer, Handle, RenderAssetUsages};
+use bevy_camera::{ManualTextureViewHandle, NormalizedRenderTarget, RenderTarget};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
-    entity::EntityHashMap, event::event_update_system, prelude::*, system::SystemState,
+    entity::EntityHashMap, message::message_update_system, prelude::*, system::SystemState,
 };
 use bevy_image::{Image, TextureFormatPixelInfo, ToExtents};
 use bevy_platform::collections::HashSet;
 use bevy_reflect::Reflect;
+use bevy_shader::Shader;
 use bevy_tasks::AsyncComputeTaskPool;
 use bevy_utils::default;
 use bevy_window::{PrimaryWindow, WindowRef};
@@ -40,9 +39,13 @@ use std::{
 use tracing::{error, info, warn};
 use wgpu::{CommandEncoder, Extent3d, TextureFormat};
 
-#[derive(EntityEvent, Deref, DerefMut, Reflect, Debug)]
+#[derive(EntityEvent, Reflect, Deref, DerefMut, Debug)]
 #[reflect(Debug)]
-pub struct ScreenshotCaptured(pub Image);
+pub struct ScreenshotCaptured {
+    pub entity: Entity,
+    #[deref]
+    pub image: Image,
+}
 
 /// A component that signals to the renderer to capture a screenshot this frame.
 ///
@@ -125,8 +128,8 @@ struct RenderScreenshotsSender(Sender<(Entity, Image)>);
 /// Saves the captured screenshot to disk at the provided path.
 pub fn save_to_disk(path: impl AsRef<Path>) -> impl FnMut(On<ScreenshotCaptured>) {
     let path = path.as_ref().to_owned();
-    move |trigger| {
-        let img = trigger.event().deref().clone();
+    move |screenshot_captured| {
+        let img = screenshot_captured.image.clone();
         match img.try_into_dynamic() {
             Ok(dyn_img) => match image::ImageFormat::from_path(&path) {
                 Ok(format) => {
@@ -197,7 +200,7 @@ pub fn trigger_screenshots(
     let captured_screenshots = captured_screenshots.lock().unwrap();
     while let Ok((entity, image)) = captured_screenshots.try_recv() {
         commands.entity(entity).insert(Captured);
-        commands.trigger_targets(ScreenshotCaptured(image), entity);
+        commands.trigger(ScreenshotCaptured { image, entity });
     }
 }
 
@@ -337,6 +340,9 @@ fn prepare_screenshots(
                     OutputColorAttachment::new(texture_view.clone(), format.add_srgb_suffix()),
                 );
             }
+            NormalizedRenderTarget::None { .. } => {
+                // Nothing to screenshot!
+            }
         }
     }
 }
@@ -364,13 +370,13 @@ fn prepare_screenshot_state(
     let texture_view = texture.create_view(&Default::default());
     let buffer = render_device.create_buffer(&wgpu::BufferDescriptor {
         label: Some("screenshot-transfer-buffer"),
-        size: gpu_readback::get_aligned_size(size, format.pixel_size() as u32) as u64,
+        size: gpu_readback::get_aligned_size(size, format.pixel_size().unwrap_or(0) as u32) as u64,
         usage: BufferUsages::MAP_READ | BufferUsages::COPY_DST,
         mapped_at_creation: false,
     });
     let bind_group = render_device.create_bind_group(
         "screenshot-to-screen-bind-group",
-        &pipeline.bind_group_layout,
+        &pipeline_cache.get_bind_group_layout(&pipeline.bind_group_layout),
         &BindGroupEntries::single(&texture_view),
     );
     let pipeline_id = pipelines.specialize(pipeline_cache, pipeline, format);
@@ -398,12 +404,10 @@ impl Plugin for ScreenshotPlugin {
             .add_systems(
                 First,
                 clear_screenshots
-                    .after(event_update_system)
+                    .after(message_update_system)
                     .before(ApplyDeferred),
             )
-            .add_systems(Update, trigger_screenshots)
-            .register_type::<Screenshot>()
-            .register_type::<ScreenshotCaptured>();
+            .add_systems(Update, trigger_screenshots);
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
@@ -428,16 +432,12 @@ impl Plugin for ScreenshotPlugin {
 
 #[derive(Resource)]
 pub struct ScreenshotToScreenPipeline {
-    pub bind_group_layout: BindGroupLayout,
+    pub bind_group_layout: BindGroupLayoutDescriptor,
     pub shader: Handle<Shader>,
 }
 
-pub fn init_screenshot_to_screen_pipeline(
-    mut commands: Commands,
-    render_device: Res<RenderDevice>,
-    asset_server: Res<AssetServer>,
-) {
-    let bind_group_layout = render_device.create_bind_group_layout(
+pub fn init_screenshot_to_screen_pipeline(mut commands: Commands, asset_server: Res<AssetServer>) {
+    let bind_group_layout = BindGroupLayoutDescriptor::new(
         "screenshot-to-screen-bgl",
         &BindGroupLayoutEntries::single(
             wgpu::ShaderStages::FRAGMENT,
@@ -561,6 +561,9 @@ pub(crate) fn submit_screenshot_commands(world: &World, encoder: &mut CommandEnc
                     texture_view,
                 );
             }
+            NormalizedRenderTarget::None { .. } => {
+                // Nothing to screenshot!
+            }
         };
     }
 }
@@ -595,6 +598,7 @@ fn render_screenshot(
                 label: Some("screenshot_to_screen_pass"),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                     view: texture_view,
+                    depth_slice: None,
                     resolve_target: None,
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Load,
@@ -625,7 +629,9 @@ pub(crate) fn collect_screenshots(world: &mut World) {
         let width = prepared.size.width;
         let height = prepared.size.height;
         let texture_format = prepared.texture.format();
-        let pixel_size = texture_format.pixel_size();
+        let Ok(pixel_size) = texture_format.pixel_size() else {
+            continue;
+        };
         let buffer = prepared.buffer.clone();
 
         let finish = async move {
@@ -633,9 +639,8 @@ pub(crate) fn collect_screenshots(world: &mut World) {
             let buffer_slice = buffer.slice(..);
             // The polling for this map call is done every frame when the command queue is submitted.
             buffer_slice.map_async(wgpu::MapMode::Read, move |result| {
-                let err = result.err();
-                if err.is_some() {
-                    panic!("{}", err.unwrap().to_string());
+                if let Err(err) = result {
+                    panic!("{}", err.to_string());
                 }
                 tx.try_send(()).unwrap();
             });

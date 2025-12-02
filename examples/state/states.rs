@@ -5,11 +5,11 @@
 //!
 //! In this case, we're transitioning from a `Menu` state to an `InGame` state.
 
-use bevy::{dev_tools::states::*, prelude::*};
+use bevy::prelude::*;
 
 fn main() {
-    App::new()
-        .add_plugins(DefaultPlugins)
+    let mut app = App::new();
+    app.add_plugins(DefaultPlugins)
         .init_state::<AppState>() // Alternatively we could use .insert_state(AppState::Menu)
         .add_systems(Startup, setup)
         // This system runs when we enter `AppState::Menu`, during the `StateTransition` schedule.
@@ -24,9 +24,14 @@ fn main() {
         .add_systems(
             Update,
             (movement, change_color).run_if(in_state(AppState::InGame)),
-        )
-        .add_systems(Update, log_transitions::<AppState>)
-        .run();
+        );
+
+    #[cfg(feature = "bevy_dev_tools")]
+    app.add_systems(Update, bevy::dev_tools::states::log_transitions::<AppState>);
+    #[cfg(not(feature = "bevy_dev_tools"))]
+    warn!("Enable feature bevy_dev_tools to log state transitions");
+
+    app.run();
 }
 
 #[derive(Debug, Clone, Copy, Default, Eq, PartialEq, Hash, States)]
@@ -54,8 +59,8 @@ fn setup_menu(mut commands: Commands) {
         .spawn((
             Node {
                 // center button
-                width: Val::Percent(100.),
-                height: Val::Percent(100.),
+                width: percent(100),
+                height: percent(100),
                 justify_content: JustifyContent::Center,
                 align_items: AlignItems::Center,
                 ..default()
@@ -63,8 +68,8 @@ fn setup_menu(mut commands: Commands) {
             children![(
                 Button,
                 Node {
-                    width: Val::Px(150.),
-                    height: Val::Px(65.),
+                    width: px(150),
+                    height: px(65),
                     // horizontally center child text
                     justify_content: JustifyContent::Center,
                     // vertically center child text

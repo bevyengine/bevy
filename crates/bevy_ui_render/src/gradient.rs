@@ -21,6 +21,7 @@ use bevy_math::{
     FloatOrd, Rect, Vec2,
 };
 use bevy_math::{Affine2, Vec2Swizzles};
+use bevy_mesh::VertexBufferLayout;
 use bevy_render::{
     render_phase::*,
     render_resource::{binding_types::uniform_buffer, *},
@@ -30,10 +31,11 @@ use bevy_render::{
     Extract, ExtractSchedule, Render, RenderSystems,
 };
 use bevy_render::{sync_world::MainEntity, RenderStartup};
+use bevy_shader::Shader;
 use bevy_sprite::BorderRect;
 use bevy_ui::{
-    BackgroundGradient, BorderGradient, ColorStop, ConicGradient, Gradient,
-    InterpolationColorSpace, LinearGradient, RadialGradient, ResolvedBorderRadius, Val,
+    BackgroundGradient, BorderGradient, ColorStop, ComputedUiRenderTargetInfo, ConicGradient,
+    Gradient, InterpolationColorSpace, LinearGradient, RadialGradient, ResolvedBorderRadius, Val,
 };
 use bevy_utils::default;
 use bytemuck::{Pod, Zeroable};
@@ -93,16 +95,12 @@ impl Default for GradientMeta {
 
 #[derive(Resource)]
 pub struct GradientPipeline {
-    pub view_layout: BindGroupLayout,
+    pub view_layout: BindGroupLayoutDescriptor,
     pub shader: Handle<Shader>,
 }
 
-pub fn init_gradient_pipeline(
-    mut commands: Commands,
-    render_device: Res<RenderDevice>,
-    asset_server: Res<AssetServer>,
-) {
-    let view_layout = render_device.create_bind_group_layout(
+pub fn init_gradient_pipeline(mut commands: Commands, asset_server: Res<AssetServer>) {
+    let view_layout = BindGroupLayoutDescriptor::new(
         "ui_gradient_view_layout",
         &BindGroupLayoutEntries::single(
             ShaderStages::VERTEX_FRAGMENT,
@@ -350,7 +348,8 @@ pub fn extract_gradients(
         Query<(
             Entity,
             &ComputedNode,
-            &ComputedNodeTarget,
+            &ComputedUiTargetCamera,
+            &ComputedUiRenderTargetInfo,
             &UiGlobalTransform,
             &InheritedVisibility,
             Option<&CalculatedClip>,
@@ -365,6 +364,7 @@ pub fn extract_gradients(
     for (
         entity,
         uinode,
+        camera,
         target,
         transform,
         inherited_visibility,
@@ -377,7 +377,7 @@ pub fn extract_gradients(
             continue;
         }
 
-        let Some(extracted_camera_entity) = camera_mapper.map(target) else {
+        let Some(extracted_camera_entity) = camera_mapper.map(camera) else {
             continue;
         };
 
@@ -400,22 +400,22 @@ pub fn extract_gradients(
                                 NodeType::Rect => stack_z_offsets::GRADIENT,
                                 NodeType::Border(_) => stack_z_offsets::BORDER_GRADIENT,
                             },
-                        color: color.into(),
-                        rect: Rect {
-                            min: Vec2::ZERO,
-                            max: uinode.size,
-                        },
                         image: AssetId::default(),
                         clip: clip.map(|clip| clip.clip),
                         extracted_camera_entity,
+                        transform: transform.into(),
                         item: ExtractedUiItem::Node {
+                            color: color.into(),
+                            rect: Rect {
+                                min: Vec2::ZERO,
+                                max: uinode.size,
+                            },
                             atlas_scaling: None,
                             flip_x: false,
                             flip_y: false,
                             border_radius: uinode.border_radius,
                             border: uinode.border,
                             node_type,
-                            transform: transform.into(),
                         },
                         main_entity: entity.into(),
                         render_entity: commands.spawn(TemporaryRenderEntity).id(),
@@ -665,7 +665,8 @@ fn convert_color_to_space(color: LinearRgba, space: InterpolationColorSpace) -> 
             [
                 oklcha.lightness,
                 oklcha.chroma,
-                oklcha.hue.to_radians(),
+                // The shader expects normalized hues
+                oklcha.hue / 360.,
                 oklcha.alpha,
             ]
         }
@@ -676,18 +677,13 @@ fn convert_color_to_space(color: LinearRgba, space: InterpolationColorSpace) -> 
         InterpolationColorSpace::LinearRgba => color.to_f32_array(),
         InterpolationColorSpace::Hsla | InterpolationColorSpace::HslaLong => {
             let hsla: Hsla = color.into();
-            // Normalize hue to 0..1 range for shader
-            [
-                hsla.hue / 360.0,
-                hsla.saturation,
-                hsla.lightness,
-                hsla.alpha,
-            ]
+            // The shader expects normalized hues
+            [hsla.hue / 360., hsla.saturation, hsla.lightness, hsla.alpha]
         }
         InterpolationColorSpace::Hsva | InterpolationColorSpace::HsvaLong => {
             let hsva: Hsva = color.into();
-            // Normalize hue to 0..1 range for shader
-            [hsva.hue / 360.0, hsva.saturation, hsva.value, hsva.alpha]
+            // The shader expects normalized hues
+            [hsva.hue / 360., hsva.saturation, hsva.value, hsva.alpha]
         }
     }
 }
@@ -696,6 +692,7 @@ pub fn prepare_gradient(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
+    pipeline_cache: Res<PipelineCache>,
     mut ui_meta: ResMut<GradientMeta>,
     mut extracted_gradients: ResMut<ExtractedGradients>,
     mut extracted_color_stops: ResMut<ExtractedColorStops>,
@@ -711,7 +708,7 @@ pub fn prepare_gradient(
         ui_meta.indices.clear();
         ui_meta.view_bind_group = Some(render_device.create_bind_group(
             "gradient_view_bind_group",
-            &gradients_pipeline.view_layout,
+            &pipeline_cache.get_bind_group_layout(&gradients_pipeline.view_layout),
             &BindGroupEntries::single(view_binding),
         ));
 
@@ -966,7 +963,7 @@ impl<P: PhaseItem> RenderCommand<P> for DrawGradient {
         // Store the vertices
         pass.set_vertex_buffer(0, vertices.slice(..));
         // Define how to "connect" the vertices
-        pass.set_index_buffer(indices.slice(..), 0, IndexFormat::Uint32);
+        pass.set_index_buffer(indices.slice(..), IndexFormat::Uint32);
         // Draw the vertices
         pass.draw_indexed(batch.range.clone(), 0, 0..1);
         RenderCommandResult::Success

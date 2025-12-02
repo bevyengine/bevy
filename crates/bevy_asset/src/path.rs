@@ -246,7 +246,7 @@ impl<'a> AssetPath<'a> {
     /// Gets the "asset source", if one was defined. If none was defined, the default source
     /// will be used.
     #[inline]
-    pub fn source(&self) -> &AssetSourceId {
+    pub fn source(&self) -> &AssetSourceId<'_> {
         &self.source
     }
 
@@ -535,43 +535,17 @@ impl<'a> AssetPath<'a> {
     }
 }
 
-impl AssetPath<'static> {
-    /// Indicates this [`AssetPath`] should have a static lifetime.
+// This is only implemented for static lifetimes to ensure `Path::clone` does not allocate
+// by ensuring that this is stored as a `CowArc::Static`.
+// Please read https://github.com/bevyengine/bevy/issues/19844 before changing this!
+impl From<&'static str> for AssetPath<'static> {
     #[inline]
-    pub fn as_static(self) -> Self {
-        let Self {
-            source,
-            path,
-            label,
-        } = self;
-
-        let source = source.as_static();
-        let path = path.as_static();
-        let label = label.map(CowArc::as_static);
-
-        Self {
-            source,
-            path,
-            label,
-        }
-    }
-
-    /// Constructs an [`AssetPath`] with a static lifetime.
-    #[inline]
-    pub fn from_static(value: impl Into<Self>) -> Self {
-        value.into().as_static()
-    }
-}
-
-impl<'a> From<&'a str> for AssetPath<'a> {
-    #[inline]
-    fn from(asset_path: &'a str) -> Self {
+    fn from(asset_path: &'static str) -> Self {
         let (source, path, label) = Self::parse_internal(asset_path).unwrap();
-
         AssetPath {
             source: source.into(),
-            path: CowArc::Borrowed(path),
-            label: label.map(CowArc::Borrowed),
+            path: CowArc::Static(path),
+            label: label.map(CowArc::Static),
         }
     }
 }
@@ -590,12 +564,12 @@ impl From<String> for AssetPath<'static> {
     }
 }
 
-impl<'a> From<&'a Path> for AssetPath<'a> {
+impl From<&'static Path> for AssetPath<'static> {
     #[inline]
-    fn from(path: &'a Path) -> Self {
+    fn from(path: &'static Path) -> Self {
         Self {
             source: AssetSourceId::Default,
-            path: CowArc::Borrowed(path),
+            path: CowArc::Static(path),
             label: None,
         }
     }
@@ -674,7 +648,13 @@ pub(crate) fn normalize_path(path: &Path) -> PathBuf {
         if elt == "." {
             // Skip
         } else if elt == ".." {
-            if !result_path.pop() {
+            // Note: If the result_path ends in `..`, Path::file_name returns None, so we'll end up
+            // preserving it.
+            if result_path.file_name().is_some() {
+                // This assert is just a sanity check - we already know the path has a file_name, so
+                // we know there is something to pop.
+                assert!(result_path.pop());
+            } else {
                 // Preserve ".." if insufficient matches (per RFC 1808).
                 result_path.push(elt);
             }
@@ -1019,6 +999,24 @@ mod tests {
         assert_eq!(
             base.resolve_embed("../../joe/next").unwrap(),
             AssetPath::from("../joe/next")
+        );
+    }
+
+    #[test]
+    fn resolve_embed_relative_to_external_path() {
+        let base = AssetPath::from("../../a/b.gltf");
+        assert_eq!(
+            base.resolve_embed("c.bin").unwrap(),
+            AssetPath::from("../../a/c.bin")
+        );
+    }
+
+    #[test]
+    fn resolve_relative_to_external_path() {
+        let base = AssetPath::from("../../a/b.gltf");
+        assert_eq!(
+            base.resolve("c.bin").unwrap(),
+            AssetPath::from("../../a/b.gltf/c.bin")
         );
     }
 

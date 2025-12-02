@@ -8,6 +8,7 @@ use bevy_ecs::prelude::*;
 use bevy_image::ToExtents;
 use bevy_render::{
     camera::ExtractedCamera,
+    diagnostic::RecordDiagnostics,
     render_resource::{binding_types::texture_2d, *},
     renderer::RenderDevice,
     texture::{CachedTexture, TextureCache},
@@ -77,14 +78,16 @@ impl ViewNode for CopyDeferredLightingIdNode {
             return Ok(());
         };
 
+        let diagnostics = render_context.diagnostic_recorder();
+
         let bind_group = render_context.render_device().create_bind_group(
             "copy_deferred_lighting_id_bind_group",
-            &copy_deferred_lighting_id_pipeline.layout,
+            &pipeline_cache.get_bind_group_layout(&copy_deferred_lighting_id_pipeline.layout),
             &BindGroupEntries::single(&deferred_lighting_pass_id_texture.texture.default_view),
         );
 
         let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
-            label: Some("copy_deferred_lighting_id_pass"),
+            label: Some("copy_deferred_lighting_id"),
             color_attachments: &[],
             depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
                 view: &deferred_lighting_id_depth_texture.texture.default_view,
@@ -98,9 +101,13 @@ impl ViewNode for CopyDeferredLightingIdNode {
             occlusion_query_set: None,
         });
 
+        let pass_span = diagnostics.pass_span(&mut render_pass, "copy_deferred_lighting_id");
+
         render_pass.set_render_pipeline(pipeline);
         render_pass.set_bind_group(0, &bind_group, &[]);
         render_pass.draw(0..3, 0..1);
+
+        pass_span.end(&mut render_pass);
 
         Ok(())
     }
@@ -108,18 +115,17 @@ impl ViewNode for CopyDeferredLightingIdNode {
 
 #[derive(Resource)]
 struct CopyDeferredLightingIdPipeline {
-    layout: BindGroupLayout,
+    layout: BindGroupLayoutDescriptor,
     pipeline_id: CachedRenderPipelineId,
 }
 
 pub fn init_copy_deferred_lighting_id_pipeline(
     mut commands: Commands,
-    render_device: Res<RenderDevice>,
     fullscreen_shader: Res<FullscreenShader>,
     asset_server: Res<AssetServer>,
     pipeline_cache: Res<PipelineCache>,
 ) {
-    let layout = render_device.create_bind_group_layout(
+    let layout = BindGroupLayoutDescriptor::new(
         "copy_deferred_lighting_id_bind_group_layout",
         &BindGroupLayoutEntries::single(
             ShaderStages::FRAGMENT,

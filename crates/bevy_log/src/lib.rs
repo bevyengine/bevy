@@ -1,4 +1,4 @@
-#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![doc(
     html_logo_url = "https://bevy.org/assets/icon.png",
     html_favicon_url = "https://bevy.org/assets/icon.png"
@@ -240,7 +240,7 @@ pub struct LogPlugin {
     /// Access to [`App`] is also provided to allow for communication between the
     /// [`Subscriber`](tracing::Subscriber) and the [`App`].
     ///
-    /// Please see the `examples/log_layers.rs` for a complete example.
+    /// Please see the `examples/app/log_layers.rs` for a complete example.
     pub custom_layer: fn(app: &mut App) -> Option<BoxedLayer>,
 
     /// Override the default [`tracing_subscriber::fmt::Layer`] with a custom one.
@@ -253,7 +253,7 @@ pub struct LogPlugin {
     /// For example, you can use [`tracing_subscriber::fmt::Layer::without_time`] to remove the
     /// timestamp from the log output.
     ///
-    /// Please see the `examples/log_layers.rs` for a complete example.
+    /// Please see the `examples/app/log_layers.rs` for a complete example.
     pub fmt_layer: fn(app: &mut App) -> Option<BoxedFmtLayer>,
 }
 
@@ -275,7 +275,18 @@ type PreFmtSubscriber =
 pub type BoxedFmtLayer = Box<dyn Layer<PreFmtSubscriber> + Send + Sync + 'static>;
 
 /// The default [`LogPlugin`] [`EnvFilter`].
-pub const DEFAULT_FILTER: &str = "wgpu=error,naga=warn";
+pub const DEFAULT_FILTER: &str = concat!(
+    "wgpu=error,",
+    "naga=warn,",
+    "symphonia_bundle_mp3::demuxer=warn,",
+    "symphonia_format_caf::demuxer=warn,",
+    "symphonia_format_isompf4::demuxer=warn,",
+    "symphonia_format_mkv::demuxer=warn,",
+    "symphonia_format_ogg::demuxer=warn,",
+    "symphonia_format_riff::demuxer=warn,",
+    "symphonia_format_wav::demuxer=warn,",
+    "calloop::loop_logic=error,",
+);
 
 impl Default for LogPlugin {
     fn default() -> Self {
@@ -325,13 +336,9 @@ impl Plugin for LogPlugin {
         #[cfg(feature = "trace")]
         let subscriber = subscriber.with(tracing_error::ErrorLayer::default());
 
-        #[cfg(all(
-            not(target_arch = "wasm32"),
-            not(target_os = "android"),
-            not(target_os = "ios")
-        ))]
+        #[cfg(all(not(target_arch = "wasm32"), not(target_os = "ios")))]
         {
-            #[cfg(feature = "tracing-chrome")]
+            #[cfg(all(feature = "tracing-chrome", not(target_os = "android")))]
             let chrome_layer = {
                 let mut layer = tracing_chrome::ChromeLayerBuilder::new();
                 if let Ok(path) = std::env::var("TRACE_CHROME") {
@@ -375,10 +382,12 @@ impl Plugin for LogPlugin {
 
             let subscriber = subscriber.with(fmt_layer);
 
-            #[cfg(feature = "tracing-chrome")]
+            #[cfg(all(feature = "tracing-chrome", not(target_os = "android")))]
             let subscriber = subscriber.with(chrome_layer);
             #[cfg(feature = "tracing-tracy")]
             let subscriber = subscriber.with(tracy_layer);
+            #[cfg(target_os = "android")]
+            let subscriber = subscriber.with(android_tracing::AndroidLayer::default());
             finished_subscriber = subscriber;
         }
 
@@ -387,11 +396,6 @@ impl Plugin for LogPlugin {
             finished_subscriber = subscriber.with(tracing_wasm::WASMLayer::new(
                 tracing_wasm::WASMLayerConfig::default(),
             ));
-        }
-
-        #[cfg(target_os = "android")]
-        {
-            finished_subscriber = subscriber.with(android_tracing::AndroidLayer::default());
         }
 
         #[cfg(target_os = "ios")]

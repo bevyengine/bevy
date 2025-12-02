@@ -1,5 +1,5 @@
 #![forbid(unsafe_code)]
-#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![doc(
     html_logo_url = "https://bevy.org/assets/icon.png",
     html_favicon_url = "https://bevy.org/assets/icon.png"
@@ -69,9 +69,7 @@ use core::sync::atomic::{AtomicBool, Ordering};
 use accesskit::Node;
 use bevy_app::Plugin;
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::{
-    component::Component, event::BufferedEvent, resource::Resource, schedule::SystemSet,
-};
+use bevy_ecs::{component::Component, message::Message, resource::Resource, schedule::SystemSet};
 
 #[cfg(feature = "bevy_reflect")]
 use {
@@ -88,7 +86,7 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 /// Wrapper struct for [`accesskit::ActionRequest`].
 ///
 /// This newtype is required to use `ActionRequest` as a Bevy `Event`.
-#[derive(BufferedEvent, Deref, DerefMut)]
+#[derive(Message, Deref, DerefMut)]
 #[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
 pub struct ActionRequest(pub accesskit::ActionRequest);
 
@@ -259,10 +257,6 @@ pub enum AccessibilitySystems {
     /// Update the accessibility tree.
     Update,
 }
-
-/// Deprecated alias for [`AccessibilitySystems`].
-#[deprecated(since = "0.17.0", note = "Renamed to `AccessibilitySystems`.")]
-pub type AccessibilitySystem = AccessibilitySystems;
 
 /// Plugin managing integration with accessibility APIs.
 ///

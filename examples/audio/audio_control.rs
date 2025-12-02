@@ -23,8 +23,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         Text::new(""),
         Node {
             position_type: PositionType::Absolute,
-            top: Val::Px(12.0),
-            left: Val::Px(12.0),
+            top: px(12),
+            left: px(12),
             ..default()
         },
         ProgressText,
@@ -35,8 +35,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         Text::new("-/=: Volume Down/Up\nSpace: Toggle Playback\nM: Toggle Mute"),
         Node {
             position_type: PositionType::Absolute,
-            bottom: Val::Px(12.0),
-            left: Val::Px(12.0),
+            bottom: px(12),
+            left: px(12),
             ..default()
         },
     ));

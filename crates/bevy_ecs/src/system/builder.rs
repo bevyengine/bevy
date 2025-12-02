@@ -7,8 +7,8 @@ use crate::{
     query::{QueryData, QueryFilter, QueryState},
     resource::Resource,
     system::{
-        DynSystemParam, DynSystemParamState, Local, ParamSet, Query, SystemParam,
-        SystemParamValidationError, When,
+        DynSystemParam, DynSystemParamState, If, Local, ParamSet, Query, SystemParam,
+        SystemParamValidationError,
     },
     world::{
         FilteredResources, FilteredResourcesBuilder, FilteredResourcesMut,
@@ -106,7 +106,7 @@ use super::{Res, ResMut, SystemState};
 ///
 /// The implementor must ensure that the state returned
 /// from [`SystemParamBuilder::build`] is valid for `P`.
-/// Note that the exact safety requiremensts depend on the implementation of [`SystemParam`],
+/// Note that the exact safety requirements depend on the implementation of [`SystemParam`],
 /// so if `Self` is not a local type then you must call [`SystemParam::init_state`]
 /// or another [`SystemParamBuilder::build`].
 pub unsafe trait SystemParamBuilder<P: SystemParam>: Sized {
@@ -605,15 +605,13 @@ unsafe impl<P: SystemParam, B: SystemParamBuilder<P>>
     }
 }
 
-/// A [`SystemParamBuilder`] for a [`When`].
+/// A [`SystemParamBuilder`] for a [`If`].
 #[derive(Clone)]
-pub struct WhenBuilder<T>(T);
+pub struct IfBuilder<T>(T);
 
-// SAFETY: `WhenBuilder<B>` builds a state that is valid for `P`, and any state valid for `P` is valid for `When<P>`
-unsafe impl<P: SystemParam, B: SystemParamBuilder<P>> SystemParamBuilder<When<P>>
-    for WhenBuilder<B>
-{
-    fn build(self, world: &mut World) -> <When<P> as SystemParam>::State {
+// SAFETY: `IfBuilder<B>` builds a state that is valid for `P`, and any state valid for `P` is valid for `If<P>`
+unsafe impl<P: SystemParam, B: SystemParamBuilder<P>> SystemParamBuilder<If<P>> for IfBuilder<B> {
+    fn build(self, world: &mut World) -> <If<P> as SystemParam>::State {
         self.0.build(world)
     }
 }

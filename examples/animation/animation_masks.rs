@@ -1,7 +1,7 @@
 //! Demonstrates how to use masks to limit the scope of animations.
 
 use bevy::{
-    animation::{AnimationTarget, AnimationTargetId},
+    animation::{AnimatedBy, AnimationTargetId},
     color::palettes::css::{LIGHT_GRAY, WHITE},
     prelude::*,
 };
@@ -105,7 +105,7 @@ fn main() {
         .add_systems(Update, setup_animation_graph_once_loaded)
         .add_systems(Update, handle_button_toggles)
         .add_systems(Update, update_ui)
-        .insert_resource(AmbientLight {
+        .insert_resource(GlobalAmbientLight {
             color: WHITE.into(),
             brightness: 100.0,
             ..default()
@@ -161,75 +161,72 @@ fn setup_ui(mut commands: Commands) {
         Text::new("Click on a button to toggle animations for its associated bones"),
         Node {
             position_type: PositionType::Absolute,
-            left: Val::Px(12.0),
-            top: Val::Px(12.0),
+            left: px(12),
+            top: px(12),
             ..default()
         },
     ));
 
     // Add the buttons that allow the user to toggle mask groups on and off.
-    commands
-        .spawn(Node {
+    commands.spawn((
+        Node {
             flex_direction: FlexDirection::Column,
             position_type: PositionType::Absolute,
-            row_gap: Val::Px(6.0),
-            left: Val::Px(12.0),
-            bottom: Val::Px(12.0),
+            row_gap: px(6),
+            left: px(12),
+            bottom: px(12),
             ..default()
-        })
-        .with_children(|parent| {
-            let row_node = Node {
-                flex_direction: FlexDirection::Row,
-                column_gap: Val::Px(6.0),
-                ..default()
-            };
-
-            add_mask_group_control(parent, "Head", Val::Auto, MASK_GROUP_HEAD);
-
-            parent.spawn(row_node.clone()).with_children(|parent| {
-                add_mask_group_control(
-                    parent,
-                    "Left Front Leg",
-                    Val::Px(MASK_GROUP_BUTTON_WIDTH),
-                    MASK_GROUP_LEFT_FRONT_LEG,
-                );
-                add_mask_group_control(
-                    parent,
-                    "Right Front Leg",
-                    Val::Px(MASK_GROUP_BUTTON_WIDTH),
-                    MASK_GROUP_RIGHT_FRONT_LEG,
-                );
-            });
-
-            parent.spawn(row_node).with_children(|parent| {
-                add_mask_group_control(
-                    parent,
-                    "Left Hind Leg",
-                    Val::Px(MASK_GROUP_BUTTON_WIDTH),
-                    MASK_GROUP_LEFT_HIND_LEG,
-                );
-                add_mask_group_control(
-                    parent,
-                    "Right Hind Leg",
-                    Val::Px(MASK_GROUP_BUTTON_WIDTH),
-                    MASK_GROUP_RIGHT_HIND_LEG,
-                );
-            });
-
-            add_mask_group_control(parent, "Tail", Val::Auto, MASK_GROUP_TAIL);
-        });
+        },
+        children![
+            new_mask_group_control("Head", auto(), MASK_GROUP_HEAD),
+            (
+                Node {
+                    flex_direction: FlexDirection::Row,
+                    column_gap: px(6),
+                    ..default()
+                },
+                children![
+                    new_mask_group_control(
+                        "Left Front Leg",
+                        px(MASK_GROUP_BUTTON_WIDTH),
+                        MASK_GROUP_LEFT_FRONT_LEG,
+                    ),
+                    new_mask_group_control(
+                        "Right Front Leg",
+                        px(MASK_GROUP_BUTTON_WIDTH),
+                        MASK_GROUP_RIGHT_FRONT_LEG,
+                    )
+                ],
+            ),
+            (
+                Node {
+                    flex_direction: FlexDirection::Row,
+                    column_gap: px(6),
+                    ..default()
+                },
+                children![
+                    new_mask_group_control(
+                        "Left Hind Leg",
+                        px(MASK_GROUP_BUTTON_WIDTH),
+                        MASK_GROUP_LEFT_HIND_LEG,
+                    ),
+                    new_mask_group_control(
+                        "Right Hind Leg",
+                        px(MASK_GROUP_BUTTON_WIDTH),
+                        MASK_GROUP_RIGHT_HIND_LEG,
+                    )
+                ]
+            ),
+            new_mask_group_control("Tail", auto(), MASK_GROUP_TAIL),
+        ],
+    ));
 }
 
 // Adds a button that allows the user to toggle a mask group on and off.
 //
 // The button will automatically become a child of the parent that owns the
 // given `ChildSpawnerCommands`.
-fn add_mask_group_control(
-    parent: &mut ChildSpawnerCommands,
-    label: &str,
-    width: Val,
-    mask_group_id: u32,
-) {
+fn new_mask_group_control(label: &str, width: Val, mask_group_id: u32) -> impl Bundle {
     let button_text_style = (
         TextFont {
             font_size: 14.0,
@@ -243,107 +240,99 @@ fn add_mask_group_control(
         TextColor(Color::Srgba(LIGHT_GRAY)),
     );
 
-    parent
-        .spawn((
-            Node {
-                border: UiRect::all(Val::Px(1.0)),
-                width,
-                flex_direction: FlexDirection::Column,
-                justify_content: JustifyContent::Center,
-                align_items: AlignItems::Center,
-                padding: UiRect::ZERO,
-                margin: UiRect::ZERO,
-                ..default()
-            },
-            BorderColor::all(Color::WHITE),
-            BorderRadius::all(Val::Px(3.0)),
-            BackgroundColor(Color::BLACK),
-        ))
-        .with_children(|builder| {
-            builder
-                .spawn((
+    let make_animation_label = {
+        let button_text_style = button_text_style.clone();
+        let selected_button_text_style = selected_button_text_style.clone();
+        move |first: bool, label: AnimationLabel| {
+            (
+                Button,
+                BackgroundColor(if !first { Color::BLACK } else { Color::WHITE }),
+                Node {
+                    flex_grow: 1.0,
+                    border: if !first {
+                        UiRect::left(px(1))
+                    } else {
+                        UiRect::ZERO
+                    },
+                    ..default()
+                },
+                BorderColor::all(Color::WHITE),
+                AnimationControl {
+                    group_id: mask_group_id,
+                    label,
+                },
+                children![(
+                    Text(format!("{label:?}")),
+                    if !first {
+                        button_text_style.clone()
+                    } else {
+                        selected_button_text_style.clone()
+                    },
+                    TextLayout::new_with_justify(Justify::Center),
                     Node {
-                        border: UiRect::ZERO,
-                        width: Val::Percent(100.0),
-                        justify_content: JustifyContent::Center,
-                        align_items: AlignItems::Center,
-                        padding: UiRect::ZERO,
-                        margin: UiRect::ZERO,
+                        flex_grow: 1.0,
+                        margin: UiRect::vertical(px(3)),
                         ..default()
                     },
-                    BackgroundColor(Color::BLACK),
-                ))
-                .with_child((
+                )],
+            )
+        }
+    };
+
+    (
+        Node {
+            border: UiRect::all(px(1)),
+            width,
+            flex_direction: FlexDirection::Column,
+            justify_content: JustifyContent::Center,
+            align_items: AlignItems::Center,
+            padding: UiRect::ZERO,
+            margin: UiRect::ZERO,
+            border_radius: BorderRadius::all(px(3)),
+            ..default()
+        },
+        BorderColor::all(Color::WHITE),
+        BackgroundColor(Color::BLACK),
+        children![
+            (
+                Node {
+                    border: UiRect::ZERO,
+                    width: percent(100),
+                    justify_content: JustifyContent::Center,
+                    align_items: AlignItems::Center,
+                    padding: UiRect::ZERO,
+                    margin: UiRect::ZERO,
+                    ..default()
+                },
+                BackgroundColor(Color::BLACK),
+                children![(
                     Text::new(label),
                     label_text_style.clone(),
                     Node {
-                        margin: UiRect::vertical(Val::Px(3.0)),
+                        margin: UiRect::vertical(px(3)),
                         ..default()
                     },
-                ));
-
-            builder
-                .spawn((
-                    Node {
-                        width: Val::Percent(100.0),
-                        flex_direction: FlexDirection::Row,
-                        justify_content: JustifyContent::Center,
-                        align_items: AlignItems::Center,
-                        border: UiRect::top(Val::Px(1.0)),
-                        ..default()
-                    },
-                    BorderColor::all(Color::WHITE),
-                ))
-                .with_children(|builder| {
-                    for (index, label) in [
-                        AnimationLabel::Run,
-                        AnimationLabel::Walk,
-                        AnimationLabel::Idle,
-                        AnimationLabel::Off,
-                    ]
-                    .iter()
-                    .enumerate()
-                    {
-                        builder
-                            .spawn((
-                                Button,
-                                BackgroundColor(if index > 0 {
-                                    Color::BLACK
-                                } else {
-                                    Color::WHITE
-                                }),
-                                Node {
-                                    flex_grow: 1.0,
-                                    border: if index > 0 {
-                                        UiRect::left(Val::Px(1.0))
-                                    } else {
-                                        UiRect::ZERO
-                                    },
-                                    ..default()
-                                },
-                                BorderColor::all(Color::WHITE),
-                                AnimationControl {
-                                    group_id: mask_group_id,
-                                    label: *label,
-                                },
-                            ))
-                            .with_child((
-                                Text(format!("{label:?}")),
-                                if index > 0 {
-                                    button_text_style.clone()
-                                } else {
-                                    selected_button_text_style.clone()
-                                },
-                                TextLayout::new_with_justify(Justify::Center),
-                                Node {
-                                    flex_grow: 1.0,
-                                    margin: UiRect::vertical(Val::Px(3.0)),
-                                    ..default()
-                                },
-                            ));
-                    }
-                });
-        });
+                )]
+            ),
+            (
+                Node {
+                    width: percent(100),
+                    flex_direction: FlexDirection::Row,
+                    justify_content: JustifyContent::Center,
+                    align_items: AlignItems::Center,
+                    border: UiRect::top(px(1)),
+                    ..default()
+                },
+                BorderColor::all(Color::WHITE),
+                children![
+                    make_animation_label(true, AnimationLabel::Run),
+                    make_animation_label(false, AnimationLabel::Walk),
+                    make_animation_label(false, AnimationLabel::Idle),
+                    make_animation_label(false, AnimationLabel::Off),
+                ]
+            )
+        ],
+    )
 }
 
 // Builds up the animation graph, including the mask groups, and adds it to the
@@ -353,7 +342,7 @@ fn setup_animation_graph_once_loaded(
     asset_server: Res<AssetServer>,
     mut animation_graphs: ResMut<Assets<AnimationGraph>>,
     mut players: Query<(Entity, &mut AnimationPlayer), Added<AnimationPlayer>>,
-    targets: Query<(Entity, &AnimationTarget)>,
+    targets: Query<(Entity, &AnimationTargetId)>,
 ) {
     for (entity, mut player) in &mut players {
         // Load the animation clip from the glTF file.
@@ -400,8 +389,11 @@ fn setup_animation_graph_once_loaded(
         // don't do that, those bones will play all animations at once, which is
         // ugly.
         for (target_entity, target) in &targets {
-            if !all_animation_target_ids.contains(&target.id) {
-                commands.entity(target_entity).remove::<AnimationTarget>();
+            if !all_animation_target_ids.contains(target) {
+                commands
+                    .entity(target_entity)
+                    .remove::<AnimationTargetId>()
+                    .remove::<AnimatedBy>();
             }
         }
 

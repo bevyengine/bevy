@@ -6,9 +6,10 @@ use crate::{
     archetype::{Archetype, ArchetypeCreated, ArchetypeId, Archetypes},
     bundle::{Bundle, BundleId, BundleInfo},
     change_detection::MaybeLocation,
-    component::{ComponentId, Components, ComponentsRegistrator, StorageType},
+    component::{ComponentId, Components, StorageType},
     entity::{Entity, EntityLocation},
-    lifecycle::{REMOVE, REPLACE},
+    event::EntityComponentsTrigger,
+    lifecycle::{Remove, Replace, REMOVE, REPLACE},
     observer::Observers,
     relationship::RelationshipHookMode,
     storage::{SparseSets, Storages, Table},
@@ -33,17 +34,14 @@ impl<'w> BundleRemover<'w> {
     /// # Safety
     /// Caller must ensure that `archetype_id` is valid
     #[inline]
+    #[deny(unsafe_op_in_unsafe_fn)]
     pub(crate) unsafe fn new<T: Bundle>(
         world: &'w mut World,
         archetype_id: ArchetypeId,
         require_all: bool,
     ) -> Option<Self> {
-        // SAFETY: These come from the same world. `world.components_registrator` can't be used since we borrow other fields too.
-        let mut registrator =
-            unsafe { ComponentsRegistrator::new(&mut world.components, &mut world.component_ids) };
-        let bundle_id = world
-            .bundles
-            .register_info::<T>(&mut registrator, &mut world.storages);
+        let bundle_id = world.register_bundle_info::<T>();
+
         // SAFETY: we initialized this bundle_id in `init_info`, and caller ensures archetype is valid.
         unsafe { Self::new_with_id(world, archetype_id, bundle_id, require_all) }
     }
@@ -150,10 +148,14 @@ impl<'w> BundleRemover<'w> {
                     .filter(|component_id| self.old_archetype.as_ref().contains(*component_id))
             };
             if self.old_archetype.as_ref().has_replace_observer() {
-                deferred_world.trigger_observers(
+                let components = bundle_components_in_archetype().collect::<Vec<_>>();
+                // SAFETY: the REPLACE event_key corresponds to the Replace event's type
+                deferred_world.trigger_raw(
                     REPLACE,
-                    Some(entity),
-                    bundle_components_in_archetype(),
+                    &mut Replace { entity },
+                    &mut EntityComponentsTrigger {
+                        components: &components,
+                    },
                     caller,
                 );
             }
@@ -165,10 +167,14 @@ impl<'w> BundleRemover<'w> {
                 self.relationship_hook_mode,
             );
             if self.old_archetype.as_ref().has_remove_observer() {
-                deferred_world.trigger_observers(
+                let components = bundle_components_in_archetype().collect::<Vec<_>>();
+                // SAFETY: the REMOVE event_key corresponds to the Remove event's type
+                deferred_world.trigger_raw(
                     REMOVE,
-                    Some(entity),
-                    bundle_components_in_archetype(),
+                    &mut Remove { entity },
+                    &mut EntityComponentsTrigger {
+                        components: &components,
+                    },
                     caller,
                 );
             }
@@ -222,9 +228,9 @@ impl<'w> BundleRemover<'w> {
             .swap_remove(location.archetype_row);
         // if an entity was moved into this entity's archetype row, update its archetype row
         if let Some(swapped_entity) = remove_result.swapped_entity {
-            let swapped_location = world.entities.get(swapped_entity).unwrap();
+            let swapped_location = world.entities.get_spawned(swapped_entity).unwrap();
 
-            world.entities.set(
+            world.entities.update_existing_location(
                 swapped_entity.index(),
                 Some(EntityLocation {
                     archetype_id: swapped_location.archetype_id,
@@ -263,9 +269,9 @@ impl<'w> BundleRemover<'w> {
 
             // if an entity was moved into this entity's table row, update its table row
             if let Some(swapped_entity) = move_result.swapped_entity {
-                let swapped_location = world.entities.get(swapped_entity).unwrap();
+                let swapped_location = world.entities.get_spawned(swapped_entity).unwrap();
 
-                world.entities.set(
+                world.entities.update_existing_location(
                     swapped_entity.index(),
                     Some(EntityLocation {
                         archetype_id: swapped_location.archetype_id,
@@ -288,7 +294,9 @@ impl<'w> BundleRemover<'w> {
 
         // SAFETY: The entity is valid and has been moved to the new location already.
         unsafe {
-            world.entities.set(entity.index(), Some(new_location));
+            world
+                .entities
+                .update_existing_location(entity.index(), Some(new_location));
         }
 
         (new_location, pre_remove_result)

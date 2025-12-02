@@ -3,7 +3,9 @@ use bevy_ecs::reflect::ReflectComponent;
 use bevy_ecs::{
     component::Component,
     entity::Entity,
-    event::EventReader,
+    entity_disabling::Disabled,
+    message::MessageReader,
+    query::Allow,
     system::{Commands, Query},
 };
 #[cfg(feature = "bevy_reflect")]
@@ -34,7 +36,7 @@ use crate::state::{StateTransitionEvent, States};
 ///
 /// fn spawn_player(mut commands: Commands) {
 ///     commands.spawn((
-///         DespawnOnExitState(GameState::InGame),
+///         DespawnOnExit(GameState::InGame),
 ///         Player
 ///     ));
 /// }
@@ -52,9 +54,9 @@ use crate::state::{StateTransitionEvent, States};
 /// ```
 #[derive(Component, Clone)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Component, Clone))]
-pub struct DespawnOnExitState<S: States>(pub S);
+pub struct DespawnOnExit<S: States>(pub S);
 
-impl<S> Default for DespawnOnExitState<S>
+impl<S> Default for DespawnOnExit<S>
 where
     S: States + Default,
 {
@@ -63,12 +65,12 @@ where
     }
 }
 
-/// Despawns entities marked with [`DespawnOnExitState<S>`] when their state no
+/// Despawns entities marked with [`DespawnOnExit<S>`] when their state no
 /// longer matches the world state.
 pub fn despawn_entities_on_exit_state<S: States>(
     mut commands: Commands,
-    mut transitions: EventReader<StateTransitionEvent<S>>,
-    query: Query<(Entity, &DespawnOnExitState<S>)>,
+    mut transitions: MessageReader<StateTransitionEvent<S>>,
+    query: Query<(Entity, &DespawnOnExit<S>), Allow<Disabled>>,
 ) {
     // We use the latest event, because state machine internals generate at most 1
     // transition event (per type) each frame. No event means no change happened
@@ -92,9 +94,6 @@ pub fn despawn_entities_on_exit_state<S: States>(
 /// Entities marked with this component will be despawned
 /// upon entering the given state.
 ///
-/// To enable this feature remember to configure your application
-/// with [`enable_state_scoped_entities`](crate::app::AppExtStates::enable_state_scoped_entities) on your state(s) of choice.
-///
 /// ```
 /// use bevy_state::prelude::*;
 /// use bevy_ecs::{prelude::*, system::ScheduleSystem};
@@ -112,7 +111,7 @@ pub fn despawn_entities_on_exit_state<S: States>(
 ///
 /// fn spawn_player(mut commands: Commands) {
 ///     commands.spawn((
-///         DespawnOnEnterState(GameState::MainMenu),
+///         DespawnOnEnter(GameState::MainMenu),
 ///         Player
 ///     ));
 /// }
@@ -130,14 +129,14 @@ pub fn despawn_entities_on_exit_state<S: States>(
 /// ```
 #[derive(Component, Clone)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Component))]
-pub struct DespawnOnEnterState<S: States>(pub S);
+pub struct DespawnOnEnter<S: States>(pub S);
 
-/// Despawns entities marked with [`DespawnOnEnterState<S>`] when their state
+/// Despawns entities marked with [`DespawnOnEnter<S>`] when their state
 /// matches the world state.
 pub fn despawn_entities_on_enter_state<S: States>(
     mut commands: Commands,
-    mut transitions: EventReader<StateTransitionEvent<S>>,
-    query: Query<(Entity, &DespawnOnEnterState<S>)>,
+    mut transitions: MessageReader<StateTransitionEvent<S>>,
+    query: Query<(Entity, &DespawnOnEnter<S>), Allow<Disabled>>,
 ) {
     // We use the latest event, because state machine internals generate at most 1
     // transition event (per type) each frame. No event means no change happened

@@ -10,6 +10,7 @@ use bevy_render::{
     renderer::RenderDevice,
     RenderApp, RenderStartup,
 };
+use bevy_shader::Shader;
 use bevy_utils::default;
 
 /// Adds support for specialized "blit pipelines", which can be used to write one texture to another.
@@ -32,7 +33,7 @@ impl Plugin for BlitPlugin {
 
 #[derive(Resource)]
 pub struct BlitPipeline {
-    pub layout: BindGroupLayout,
+    pub layout: BindGroupLayoutDescriptor,
     pub sampler: Sampler,
     pub fullscreen_shader: FullscreenShader,
     pub fragment_shader: Handle<Shader>,
@@ -44,7 +45,7 @@ pub fn init_blit_pipeline(
     fullscreen_shader: Res<FullscreenShader>,
     asset_server: Res<AssetServer>,
 ) {
-    let layout = render_device.create_bind_group_layout(
+    let layout = BindGroupLayoutDescriptor::new(
         "blit_bind_group_layout",
         &BindGroupLayoutEntries::sequential(
             ShaderStages::FRAGMENT,
@@ -70,10 +71,11 @@ impl BlitPipeline {
         &self,
         render_device: &RenderDevice,
         src_texture: &TextureView,
+        pipeline_cache: &PipelineCache,
     ) -> BindGroup {
         render_device.create_bind_group(
             None,
-            &self.layout,
+            &pipeline_cache.get_bind_group_layout(&self.layout),
             &BindGroupEntries::sequential((src_texture, &self.sampler)),
         )
     }

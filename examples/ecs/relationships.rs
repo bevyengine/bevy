@@ -87,8 +87,8 @@ fn main() {
             let targeted_by_string = if let Some(targeted_by) = maybe_targeted_by {
                 let mut vec_of_names = Vec::<&Name>::new();
 
-                for entity in &targeted_by.0 {
-                    let name = name_query.get(*entity).unwrap();
+                for entity in targeted_by.iter() {
+                    let name = name_query.get(entity).unwrap();
                     vec_of_names.push(name);
                 }
 

@@ -1,7 +1,7 @@
 //! A scene showcasing screen space ambient occlusion.
 
 use bevy::{
-    anti_aliasing::taa::TemporalAntiAliasing,
+    anti_alias::taa::TemporalAntiAliasing,
     math::ops,
     pbr::{ScreenSpaceAmbientOcclusion, ScreenSpaceAmbientOcclusionQualityLevel},
     prelude::*,
@@ -11,7 +11,7 @@ use std::f32::consts::PI;
 
 fn main() {
     App::new()
-        .insert_resource(AmbientLight {
+        .insert_resource(GlobalAmbientLight {
             brightness: 1000.,
             ..default()
         })
@@ -79,8 +79,8 @@ fn setup(
         Text::default(),
         Node {
             position_type: PositionType::Absolute,
-            bottom: Val::Px(12.0),
-            left: Val::Px(12.0),
+            bottom: px(12),
+            left: px(12),
             ..default()
         },
     ));

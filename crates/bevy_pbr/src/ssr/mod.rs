@@ -22,29 +22,33 @@ use bevy_ecs::{
     world::World,
 };
 use bevy_image::BevyDefault as _;
+use bevy_light::EnvironmentMapLight;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
+    diagnostic::RecordDiagnostics,
     extract_component::{ExtractComponent, ExtractComponentPlugin},
-    render_graph::{NodeRunError, RenderGraphContext, RenderGraphExt, ViewNode, ViewNodeRunner},
+    render_graph::{
+        NodeRunError, RenderGraph, RenderGraphContext, RenderGraphExt, ViewNode, ViewNodeRunner,
+    },
     render_resource::{
-        binding_types, AddressMode, BindGroupEntries, BindGroupLayout, BindGroupLayoutEntries,
-        CachedRenderPipelineId, ColorTargetState, ColorWrites, DynamicUniformBuffer, FilterMode,
-        FragmentState, Operations, PipelineCache, RenderPassColorAttachment, RenderPassDescriptor,
-        RenderPipelineDescriptor, Sampler, SamplerBindingType, SamplerDescriptor, Shader,
-        ShaderStages, ShaderType, SpecializedRenderPipeline, SpecializedRenderPipelines,
-        TextureFormat, TextureSampleType,
+        binding_types, AddressMode, BindGroupEntries, BindGroupLayoutDescriptor,
+        BindGroupLayoutEntries, CachedRenderPipelineId, ColorTargetState, ColorWrites,
+        DynamicUniformBuffer, FilterMode, FragmentState, Operations, PipelineCache,
+        RenderPassColorAttachment, RenderPassDescriptor, RenderPipelineDescriptor, Sampler,
+        SamplerBindingType, SamplerDescriptor, ShaderStages, ShaderType, SpecializedRenderPipeline,
+        SpecializedRenderPipelines, TextureFormat, TextureSampleType,
     },
     renderer::{RenderAdapter, RenderContext, RenderDevice, RenderQueue},
     view::{ExtractedView, Msaa, ViewTarget, ViewUniformOffset},
     Render, RenderApp, RenderStartup, RenderSystems,
 };
-use bevy_render::{load_shader_library, render_graph::RenderGraph};
+use bevy_shader::{load_shader_library, Shader};
 use bevy_utils::{once, prelude::default};
 use tracing::info;
 
 use crate::{
-    binding_arrays_are_usable, graph::NodePbr, prelude::EnvironmentMapLight,
-    MeshPipelineViewLayoutKey, MeshPipelineViewLayouts, MeshViewBindGroup, RenderViewLightProbes,
+    binding_arrays_are_usable, graph::NodePbr, ExtractedAtmosphere, MeshPipelineViewLayoutKey,
+    MeshPipelineViewLayouts, MeshViewBindGroup, RenderViewLightProbes,
     ViewEnvironmentMapUniformOffset, ViewFogUniformOffset, ViewLightProbesUniformOffset,
     ViewLightsUniformOffset,
 };
@@ -58,7 +62,8 @@ pub struct ScreenSpaceReflectionsPlugin;
 ///
 /// Screen-space reflections currently require deferred rendering in order to
 /// appear. Therefore, they also need the [`DepthPrepass`] and [`DeferredPrepass`]
-/// components, which are inserted automatically.
+/// components, which are inserted automatically,
+/// but deferred rendering itself is not automatically enabled.
 ///
 /// SSR currently performs no roughness filtering for glossy reflections, so
 /// only very smooth surfaces will reflect objects in screen space. You can
@@ -68,7 +73,7 @@ pub struct ScreenSpaceReflectionsPlugin;
 /// As with all screen-space techniques, SSR can only reflect objects on screen.
 /// When objects leave the camera, they will disappear from reflections.
 /// An alternative that doesn't suffer from this problem is the combination of
-/// a [`LightProbe`](crate::LightProbe) and [`EnvironmentMapLight`]. The advantage of SSR is
+/// a [`LightProbe`](bevy_light::LightProbe) and [`EnvironmentMapLight`]. The advantage of SSR is
 /// that it can reflect all objects, not just static ones.
 ///
 /// SSR is an approximation technique and produces artifacts in some situations.
@@ -153,7 +158,7 @@ pub struct ScreenSpaceReflectionsPipeline {
     color_sampler: Sampler,
     depth_linear_sampler: Sampler,
     depth_nearest_sampler: Sampler,
-    bind_group_layout: BindGroupLayout,
+    bind_group_layout: BindGroupLayoutDescriptor,
     binding_arrays_are_usable: bool,
     fullscreen_shader: FullscreenShader,
     fragment_shader: Handle<Shader>,
@@ -174,6 +179,7 @@ pub struct ScreenSpaceReflectionsPipelineKey {
     mesh_pipeline_view_key: MeshPipelineViewLayoutKey,
     is_hdr: bool,
     has_environment_maps: bool,
+    has_atmosphere: bool,
 }
 
 impl Plugin for ScreenSpaceReflectionsPlugin {
@@ -181,8 +187,7 @@ impl Plugin for ScreenSpaceReflectionsPlugin {
         load_shader_library!(app, "ssr.wgsl");
         load_shader_library!(app, "raymarch.wgsl");
 
-        app.register_type::<ScreenSpaceReflections>()
-            .add_plugins(ExtractComponentPlugin::<ScreenSpaceReflections>::default());
+        app.add_plugins(ExtractComponentPlugin::<ScreenSpaceReflections>::default());
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
@@ -281,6 +286,8 @@ impl ViewNode for ScreenSpaceReflectionsNode {
             return Ok(());
         };
 
+        let diagnostics = render_context.diagnostic_recorder();
+
         // Set up a standard pair of postprocessing textures.
         let postprocess = view_target.post_process_write();
 
@@ -288,7 +295,7 @@ impl ViewNode for ScreenSpaceReflectionsNode {
         let ssr_pipeline = world.resource::<ScreenSpaceReflectionsPipeline>();
         let ssr_bind_group = render_context.render_device().create_bind_group(
             "SSR bind group",
-            &ssr_pipeline.bind_group_layout,
+            &pipeline_cache.get_bind_group_layout(&ssr_pipeline.bind_group_layout),
             &BindGroupEntries::sequential((
                 postprocess.source,
                 &ssr_pipeline.color_sampler,
@@ -299,9 +306,10 @@ impl ViewNode for ScreenSpaceReflectionsNode {
 
         // Build the SSR render pass.
         let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
-            label: Some("SSR pass"),
+            label: Some("ssr"),
             color_attachments: &[Some(RenderPassColorAttachment {
                 view: postprocess.destination,
+                depth_slice: None,
                 resolve_target: None,
                 ops: Operations::default(),
             })],
@@ -309,6 +317,7 @@ impl ViewNode for ScreenSpaceReflectionsNode {
             timestamp_writes: None,
             occlusion_query_set: None,
         });
+        let pass_span = diagnostics.pass_span(&mut render_pass, "ssr");
 
         // Set bind groups.
         render_pass.set_render_pipeline(render_pipeline);
@@ -330,6 +339,8 @@ impl ViewNode for ScreenSpaceReflectionsNode {
         render_pass.set_bind_group(2, &ssr_bind_group, &[]);
         render_pass.draw(0..3, 0..1);
 
+        pass_span.end(&mut render_pass);
+
         Ok(())
     }
 }
@@ -343,7 +354,7 @@ pub fn init_screen_space_reflections_pipeline(
     asset_server: Res<AssetServer>,
 ) {
     // Create the bind group layout.
-    let bind_group_layout = render_device.create_bind_group_layout(
+    let bind_group_layout = BindGroupLayoutDescriptor::new(
         "SSR bind group layout",
         &BindGroupLayoutEntries::sequential(
             ShaderStages::FRAGMENT,
@@ -412,6 +423,7 @@ pub fn prepare_ssr_pipelines(
             Has<RenderViewLightProbes<EnvironmentMapLight>>,
             Has<NormalPrepass>,
             Has<MotionVectorPrepass>,
+            Has<ExtractedAtmosphere>,
         ),
         (
             With<ScreenSpaceReflectionsUniform>,
@@ -426,6 +438,7 @@ pub fn prepare_ssr_pipelines(
         has_environment_maps,
         has_normal_prepass,
         has_motion_vector_prepass,
+        has_atmosphere,
     ) in &views
     {
         // SSR is only supported in the deferred pipeline, which has no MSAA
@@ -441,6 +454,7 @@ pub fn prepare_ssr_pipelines(
             MeshPipelineViewLayoutKey::MOTION_VECTOR_PREPASS,
             has_motion_vector_prepass,
         );
+        mesh_pipeline_view_key.set(MeshPipelineViewLayoutKey::ATMOSPHERE, has_atmosphere);
 
         // Build the pipeline.
         let pipeline_id = pipelines.specialize(
@@ -450,6 +464,7 @@ pub fn prepare_ssr_pipelines(
                 mesh_pipeline_view_key,
                 is_hdr: extracted_view.hdr,
                 has_environment_maps,
+                has_atmosphere,
             },
         );
 
@@ -531,6 +546,10 @@ impl SpecializedRenderPipeline for ScreenSpaceReflectionsPipeline {
 
         if self.binding_arrays_are_usable {
             shader_defs.push("MULTIPLE_LIGHT_PROBES_IN_ARRAY".into());
+        }
+
+        if key.has_atmosphere {
+            shader_defs.push("ATMOSPHERE".into());
         }
 
         RenderPipelineDescriptor {

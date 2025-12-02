@@ -1,5 +1,5 @@
 use bevy_app::{Plugin, PreUpdate};
-use bevy_core_widgets::{Callback, CoreCheckbox, ValueChange};
+use bevy_camera::visibility::Visibility;
 use bevy_ecs::{
     bundle::Bundle,
     children,
@@ -8,45 +8,43 @@ use bevy_ecs::{
     hierarchy::{ChildOf, Children},
     lifecycle::RemovedComponents,
     query::{Added, Changed, Has, Or, With},
+    reflect::ReflectComponent,
     schedule::IntoScheduleConfigs,
     spawn::{Spawn, SpawnRelated, SpawnableList},
-    system::{Commands, In, Query},
+    system::{Commands, Query},
 };
 use bevy_input_focus::tab_navigation::TabIndex;
 use bevy_math::Rot2;
 use bevy_picking::{hover::Hovered, PickingSystems};
-use bevy_render::view::Visibility;
+use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_ui::{
     AlignItems, BorderRadius, Checked, Display, FlexDirection, InteractionDisabled, JustifyContent,
     Node, PositionType, UiRect, UiTransform, Val,
 };
-use bevy_winit::cursor::CursorIcon;
+use bevy_ui_widgets::Checkbox;
 
 use crate::{
     constants::{fonts, size},
+    cursor::EntityCursor,
     font_styles::InheritableFont,
     handle_or_path::HandleOrPath,
     theme::{ThemeBackgroundColor, ThemeBorderColor, ThemeFontColor},
     tokens,
 };
 
-/// Parameters for the checkbox template, passed to [`checkbox`] function.
-#[derive(Default)]
-pub struct CheckboxProps {
-    /// Change handler
-    pub on_change: Callback<In<ValueChange<bool>>>,
-}
-
 /// Marker for the checkbox frame (contains both checkbox and label)
-#[derive(Component, Default, Clone)]
+#[derive(Component, Default, Clone, Reflect)]
+#[reflect(Component, Clone, Default)]
 struct CheckboxFrame;
 
 /// Marker for the checkbox outline
-#[derive(Component, Default, Clone)]
+#[derive(Component, Default, Clone, Reflect)]
+#[reflect(Component, Clone, Default)]
 struct CheckboxOutline;
 
 /// Marker for the checkbox check mark
-#[derive(Component, Default, Clone)]
+#[derive(Component, Default, Clone, Reflect)]
+#[reflect(Component, Clone, Default)]
 struct CheckboxMark;
 
 /// Template function to spawn a checkbox.
@@ -55,8 +53,12 @@ struct CheckboxMark;
 /// * `props` - construction properties for the checkbox.
 /// * `overrides` - a bundle of components that are merged in with the normal checkbox components.
 /// * `label` - the label of the checkbox.
+///
+/// # Emitted events
+/// * [`bevy_ui_widgets::ValueChange<bool>`] with the new value when the checkbox changes state.
+///
+///  These events can be disabled by adding an [`bevy_ui::InteractionDisabled`] component to the entity
 pub fn checkbox<C: SpawnableList<ChildOf> + Send + Sync + 'static, B: Bundle>(
-    props: CheckboxProps,
     overrides: B,
     label: C,
 ) -> impl Bundle {
@@ -69,12 +71,10 @@ pub fn checkbox<C: SpawnableList<ChildOf> + Send + Sync + 'static, B: Bundle>(
             column_gap: Val::Px(4.0),
             ..Default::default()
         },
-        CoreCheckbox {
-            on_change: props.on_change,
-        },
+        Checkbox,
         CheckboxFrame,
         Hovered::default(),
-        CursorIcon::System(bevy_window::SystemCursorIcon::Pointer),
+        EntityCursor::System(bevy_window::SystemCursorIcon::Pointer),
         TabIndex(0),
         ThemeFontColor(tokens::CHECKBOX_TEXT),
         InheritableFont {
@@ -88,10 +88,10 @@ pub fn checkbox<C: SpawnableList<ChildOf> + Send + Sync + 'static, B: Bundle>(
                     width: size::CHECKBOX_SIZE,
                     height: size::CHECKBOX_SIZE,
                     border: UiRect::all(Val::Px(2.0)),
+                    border_radius: BorderRadius::all(Val::Px(4.0)),
                     ..Default::default()
                 },
                 CheckboxOutline,
-                BorderRadius::all(Val::Px(4.0)),
                 ThemeBackgroundColor(tokens::CHECKBOX_BG),
                 ThemeBorderColor(tokens::CHECKBOX_BORDER),
                 children![(
@@ -153,7 +153,7 @@ fn update_checkbox_styles(
         };
         let (outline_bg, outline_border) = q_outline.get_mut(outline_ent).unwrap();
         let mark_color = q_mark.get_mut(mark_ent).unwrap();
-        set_checkbox_colors(
+        set_checkbox_styles(
             checkbox_ent,
             outline_ent,
             mark_ent,
@@ -208,7 +208,7 @@ fn update_checkbox_styles_remove(
                 };
                 let (outline_bg, outline_border) = q_outline.get_mut(outline_ent).unwrap();
                 let mark_color = q_mark.get_mut(mark_ent).unwrap();
-                set_checkbox_colors(
+                set_checkbox_styles(
                     checkbox_ent,
                     outline_ent,
                     mark_ent,
@@ -225,7 +225,7 @@ fn update_checkbox_styles_remove(
         });
 }
 
-fn set_checkbox_colors(
+fn set_checkbox_styles(
     checkbox_ent: Entity,
     outline_ent: Entity,
     mark_ent: Entity,
@@ -261,6 +261,11 @@ fn set_checkbox_colors(
         false => tokens::CHECKBOX_TEXT,
     };
 
+    let cursor_shape = match disabled {
+        true => bevy_window::SystemCursorIcon::NotAllowed,
+        false => bevy_window::SystemCursorIcon::Pointer,
+    };
+
     // Change outline background
     if outline_bg.0 != outline_bg_token {
         commands
@@ -284,7 +289,7 @@ fn set_checkbox_colors(
 
     // Change mark visibility
     commands.entity(mark_ent).insert(match checked {
-        true => Visibility::Visible,
+        true => Visibility::Inherited,
         false => Visibility::Hidden,
     });
 
@@ -294,6 +299,11 @@ fn set_checkbox_colors(
             .entity(checkbox_ent)
             .insert(ThemeFontColor(font_color_token));
     }
+
+    // Change cursor shape
+    commands
+        .entity(checkbox_ent)
+        .insert(EntityCursor::System(cursor_shape));
 }
 
 /// Plugin which registers the systems for updating the checkbox styles.
