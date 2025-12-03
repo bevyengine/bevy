@@ -2,7 +2,7 @@ use crate::meshlet::asset::{BvhNode, MeshletAabb, MeshletCullData};
 
 use super::{asset::Meshlet, persistent_buffer::PersistentGpuBuffer, MeshletMesh};
 use alloc::sync::Arc;
-use bevy_asset::{AssetId, AssetStorageStrategy, Assets};
+use bevy_asset::{Asset, AssetId, AssetStorageStrategy, Assets};
 use bevy_ecs::{
     resource::Resource,
     system::{Commands, Res, ResMut},
