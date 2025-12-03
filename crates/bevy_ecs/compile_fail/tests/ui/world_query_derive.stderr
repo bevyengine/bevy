@@ -1,4 +1,4 @@
-error: invalid attribute, expected `mutable` or `derive`
+error: invalid attribute, expected `mutable`, `derive` or `contiguous`
   --> tests/ui/world_query_derive.rs:14:14
    |
 14 | #[query_data(mut)]

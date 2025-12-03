@@ -356,7 +356,7 @@ pub unsafe trait QueryData: WorldQuery {
 ///
 /// - The result of [`ContiguousQueryData::fetch_contiguous`] must represent the same result as if
 ///   [`QueryData::fetch`] was executed for each entity of the set table
-pub unsafe trait ContiguousQueryData: QueryData {
+pub unsafe trait ContiguousQueryData: ArchetypeQueryData {
     /// Item returned by [`ContiguousQueryData::fetch_contiguous`].
     /// Represents a contiguous chunk of memory.
     type Contiguous<'w, 's>;
@@ -3050,6 +3050,44 @@ macro_rules! impl_anytuple_fetch {
 
         $(#[$meta])*
         impl<$($name: ArchetypeQueryData),*> ArchetypeQueryData for AnyOf<($($name,)*)> {}
+
+
+        #[expect(
+            clippy::allow_attributes,
+            reason = "This is a tuple-related macro; as such the lints below may not always apply."
+        )]
+        #[allow(
+            non_snake_case,
+            reason = "The names of some variables are provided by the macro's caller, not by us."
+        )]
+        #[allow(
+            unused_variables,
+            reason = "Zero-length tuples won't use any of the parameters."
+        )]
+        #[allow(
+            clippy::unused_unit,
+            reason = "Zero-length tuples will generate some function bodies equivalent to `()`; however, this macro is meant for all applicable tuples, and as such it makes no sense to rewrite it just for that case."
+        )]
+        $(#[$meta])*
+        // SAFETY: Matches the fetch implementation
+        unsafe impl<$($name: ContiguousQueryData),*> ContiguousQueryData for AnyOf<($($name,)*)> {
+            type Contiguous<'w, 's> = ($(Option<$name::Contiguous<'w,'s>>,)*);
+
+            unsafe fn fetch_contiguous<'w, 's>(
+                state: &'s Self::State,
+                fetch: &mut Self::Fetch<'w>,
+                entities: &'w [Entity],
+                offset: usize,
+            ) -> Self::Contiguous<'w, 's> {
+                let ($($name,)*) = fetch;
+                let ($($state,)*) = state;
+                // Matches the [`QueryData::fetch`] except it always returns Some
+                ($(
+                    // SAFETY: The invariants are upheld by the caller
+                    $name.1.then(|| unsafe { $name::fetch_contiguous($state, &mut $name.0, entities, offset) }),
+                )*)
+            }
+        }
     };
 }
 
@@ -3644,5 +3682,78 @@ mod tests {
         let mut iter = query.iter_mut(&mut world);
         assert!(iter.as_contiguous_iter().is_none());
         assert_eq!(iter.next().unwrap().as_ref(), &S(0));
+    }
+
+    #[test]
+    fn any_of_contiguous_test() {
+        #[derive(Component, Debug, Clone, Copy)]
+        pub struct C(i32);
+
+        #[derive(Component, Debug, Clone, Copy)]
+        pub struct D(i32);
+
+        let mut world = World::new();
+        world.spawn((C(0), D(1)));
+        world.spawn(C(2));
+        world.spawn(D(3));
+        world.spawn(());
+
+        let mut query = world.query::<AnyOf<(&C, &D)>>();
+        let mut iter = query.iter(&world);
+        let mut present = [false; 4];
+
+        for (c, d) in iter.as_contiguous_iter().unwrap() {
+            assert!(c.is_some() || d.is_some());
+            let c = c.unwrap_or(&[]);
+            let d = d.unwrap_or(&[]);
+            for i in 0..c.len().max(d.len()) {
+                let c = c.get(i).cloned();
+                let d = d.get(i).cloned();
+                if let Some(C(c)) = c {
+                    assert!(!present[c as usize]);
+                    present[c as usize] = true;
+                }
+                if let Some(D(d)) = d {
+                    assert!(!present[d as usize]);
+                    present[d as usize] = true;
+                }
+            }
+        }
+
+        assert_eq!(present, [true; 4]);
+    }
+
+    #[test]
+    fn option_contiguous_test() {
+        #[derive(Component, Clone, Copy)]
+        struct C(i32);
+
+        #[derive(Component, Clone, Copy)]
+        struct D(i32);
+
+        let mut world = World::new();
+        world.spawn((C(0), D(1)));
+        world.spawn(D(2));
+        world.spawn(C(3));
+
+        let mut query = world.query::<(Option<&C>, &D)>();
+        let mut iter = query.iter(&world);
+        let mut present = [false; 3];
+
+        for (c, d) in iter.as_contiguous_iter().unwrap() {
+            let c = c.unwrap_or(&[]);
+            for i in 0..d.len() {
+                let c = c.get(i).cloned();
+                let D(d) = d[i];
+                if let Some(C(c)) = c {
+                    assert!(!present[c as usize]);
+                    present[c as usize] = true;
+                }
+                assert!(!present[d as usize]);
+                present[d as usize] = true;
+            }
+        }
+
+        assert_eq!(present, [true; 3]);
     }
 }

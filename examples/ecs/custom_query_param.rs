@@ -28,6 +28,7 @@ fn main() {
                 print_components_iter_mut,
                 print_components_iter,
                 print_components_tuple,
+                print_components_contiguous_iter,
             )
                 .chain(),
         )
@@ -111,7 +112,7 @@ struct NestedQuery {
 }
 
 #[derive(QueryData)]
-#[query_data(derive(Debug))]
+#[query_data(derive(Debug), contiguous(mutable))]
 struct GenericQuery<T: Component, P: Component> {
     generic: (&'static T, &'static P),
 }
@@ -191,5 +192,37 @@ fn print_components_tuple(
         println!("B: {b:?}");
         println!("Nested: {:?} {:?}", nested.0, nested.1);
         println!("Generic: {generic_c:?} {generic_d:?}");
+    }
+}
+
+/// If you are going to contiguously iterate the data in a query, you must mark it with the `contiguous` attribute,
+/// which accepts one of 3 targets (`all`, `immutable` and `mutable`)
+///
+/// - `all` will make read only query as well as mutable query both be able to be iterated contiguosly
+/// - `mutable` will only make the original query (i.e., in that case [`CustomContiguousQuery`]) be able to be iterated contiguously
+/// - `immutable` will only make the read only query (which is only useful when you mark the original query as `mutable`)
+///   be able to be iterated contiguously
+#[derive(QueryData)]
+#[query_data(derive(Debug), contiguous(all))]
+struct CustomContiguousQuery<T: Component + Debug, P: Component + Debug> {
+    entity: Entity,
+    a: &'static ComponentA,
+    b: Option<&'static ComponentB>,
+    generic: GenericQuery<T, P>,
+}
+
+fn print_components_contiguous_iter(query: Query<CustomContiguousQuery<ComponentC, ComponentD>>) {
+    println!("Print components (contiguous_iter):");
+    for e in query.iter().as_contiguous_iter().unwrap() {
+        let e: CustomContiguousQueryContiguousItem<'_, '_, _, _> = e;
+        for i in 0..e.entity.len() {
+            println!("Entity: {:?}", e.entity[i]);
+            println!("A: {:?}", e.a[i]);
+            println!("B: {:?}", e.b.map(|b| &b[i]));
+            println!(
+                "Generic: {:?} {:?}",
+                e.generic.generic.0[i], e.generic.generic.1[i]
+            );
+        }
     }
 }
