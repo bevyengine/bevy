@@ -755,8 +755,7 @@ pub trait FromType<T> {
     /// Creates an instance of `Self` for type `T`.
     fn from_type() -> Self;
     /// Inserts [`TypeData`] dependencies of this [`TypeData`]
-    #[allow(unused_variables)]
-    fn insert_dependencies(type_registration: &mut TypeRegistration) {}
+    fn insert_dependencies(_type_registration: &mut TypeRegistration) {}
 }
 
 /// A struct used to serialize reflected instances of a type.
