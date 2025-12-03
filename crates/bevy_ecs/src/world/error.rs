@@ -18,6 +18,8 @@ pub struct TryRunScheduleError(pub InternedScheduleLabel);
 
 /// The error type returned by [`World::try_run_system_set`] if the provided
 /// schedule or system set does not exist.
+///
+/// [`World::try_run_system_set`]: crate::world::World::try_run_system_set
 #[derive(thiserror::Error, Debug)]
 pub enum TryRunSystemSetError {
     /// The schedule with the given label does not exist.

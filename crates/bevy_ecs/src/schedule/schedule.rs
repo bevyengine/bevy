@@ -2671,9 +2671,13 @@ mod tests {
                 .unwrap();
             assert_eq!(world.get_resource::<Counter>().unwrap().0, 3);
 
-            schedule
-                .run_system_set(&mut world, SystemSets::Baz)
-                .unwrap();
+            assert_eq!(
+                schedule
+                    .run_system_set(&mut world, SystemSets::Baz)
+                    .unwrap_err()
+                    .0,
+                SystemSets::Baz.intern()
+            );
             assert_eq!(world.get_resource::<Counter>().unwrap().0, 3);
         }
 
@@ -2694,9 +2698,13 @@ mod tests {
                 .unwrap();
             assert_eq!(world.get_resource::<Counter>().unwrap().0, 3);
 
-            schedule
-                .run_system_set(&mut world, SystemSets::Baz)
-                .unwrap();
+            assert_eq!(
+                schedule
+                    .run_system_set(&mut world, SystemSets::Baz)
+                    .unwrap_err()
+                    .0,
+                SystemSets::Baz.intern()
+            );
             assert_eq!(world.get_resource::<Counter>().unwrap().0, 3);
         }
 
@@ -2728,9 +2736,13 @@ mod tests {
                 .unwrap();
             assert_eq!(world.get_resource::<Counter>().unwrap().0, 5);
 
-            schedule
-                .run_system_set(&mut world, SystemSets::Baz)
-                .unwrap();
+            assert_eq!(
+                schedule
+                    .run_system_set(&mut world, SystemSets::Baz)
+                    .unwrap_err()
+                    .0,
+                SystemSets::Baz.intern()
+            );
             assert_eq!(world.get_resource::<Counter>().unwrap().0, 5);
         }
 
@@ -2751,9 +2763,13 @@ mod tests {
                 .unwrap();
             assert_eq!(world.get_resource::<Counter>().unwrap().0, 5);
 
-            schedule
-                .run_system_set(&mut world, SystemSets::Baz)
-                .unwrap();
+            assert_eq!(
+                schedule
+                    .run_system_set(&mut world, SystemSets::Baz)
+                    .unwrap_err()
+                    .0,
+                SystemSets::Baz.intern()
+            );
             assert_eq!(world.get_resource::<Counter>().unwrap().0, 5);
         }
     }
