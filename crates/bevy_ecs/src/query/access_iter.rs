@@ -173,24 +173,6 @@ pub enum ResourceAccessLevel {
     Write(ComponentId),
 }
 
-/// Return value of [`EcsAccessType::is_compatible`]
-pub enum AccessCompatible {
-    /// Access is compatible
-    Compatible,
-    /// Access conflicts
-    Conflicts,
-}
-
-impl From<bool> for AccessCompatible {
-    fn from(value: bool) -> Self {
-        if value {
-            AccessCompatible::Compatible
-        } else {
-            AccessCompatible::Conflicts
-        }
-    }
-}
-
 /// Error returned from [`EcsAccessType::is_compatible`]
 pub struct AccessConflictError<'a>(EcsAccessType<'a>, EcsAccessType<'a>);
 
