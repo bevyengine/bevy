@@ -214,9 +214,9 @@ pub fn run_schedule(criterion: &mut Criterion) {
 
         let mut schedule = new_schedule(ExecutorKind::SingleThreaded);
         // Make sure its cached before benchmarking
-        schedule.run_system_set(&mut world, SetB);
+        schedule.run_system_set(&mut world, SetB).unwrap();
 
-        bencher.iter(|| schedule.run_system_set(&mut world, SetB));
+        bencher.iter(|| schedule.run_system_set(&mut world, SetB).unwrap());
     });
 
     group.bench_function("single_set/MultiThreaded", |bencher| {
@@ -225,9 +225,9 @@ pub fn run_schedule(criterion: &mut Criterion) {
 
         let mut schedule = new_schedule(ExecutorKind::MultiThreaded);
         // Make sure its cached before benchmarking
-        schedule.run_system_set(&mut world, SetB);
+        schedule.run_system_set(&mut world, SetB).unwrap();
 
-        bencher.iter(|| schedule.run_system_set(&mut world, SetB));
+        bencher.iter(|| schedule.run_system_set(&mut world, SetB).unwrap());
     });
 
     group.finish();
