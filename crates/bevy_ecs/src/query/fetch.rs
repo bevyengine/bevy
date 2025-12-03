@@ -107,7 +107,7 @@ use variadics_please::all_tuples;
 /// |`XReadOnlyItem`|✓|---|The type of the query item for `XReadOnly`|
 /// |`XReadOnly`|✓|---|[`ReadOnly`] variant of `X`|
 /// |`XContiguousItem`|---|`mutable` or `all`|The type of the contiguous query item for `X`|
-/// |`XContiguousReadOnlyItem`|✓|`immutable` or `all`|The type of the contiguous query item for `XReadOnly`|
+/// |`XReadOnlyContiguousItem`|✓|`immutable` or `all`|The type of the contiguous query item for `XReadOnly`|
 ///
 /// ## Adding mutable references
 ///
@@ -250,7 +250,7 @@ use variadics_please::all_tuples;
 /// assert_debug::<CustomQueryItem>();
 /// assert_debug::<CustomQueryReadOnlyItem>();
 /// assert_debug::<CustomQueryContiguousItem>();
-/// assert_debug::<CustomQueryContiguousReadOnlyItem>();
+/// assert_debug::<CustomQueryReadOnlyContiguousItem>();
 /// ```
 ///
 /// ## Query composition
