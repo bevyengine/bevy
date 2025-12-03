@@ -1,6 +1,7 @@
 use alloc::boxed::Box;
 use core::{
     any::{Any, TypeId},
+    fmt::Debug,
     ops::{Deref, DerefMut},
 };
 
@@ -43,6 +44,26 @@ impl<'a> AssetRefReflect<'a> {
     #[inline]
     pub fn reflect(&mut self) -> ReflectRef<'_> {
         self.asset_ref.as_ref().reflect_ref()
+    }
+
+    /// Attempts to downcast the asset reference to a concrete type.
+    ///
+    /// Returns `Some(&T)` if the asset is of type `T`, or `None` otherwise.
+    #[inline]
+    pub fn downcast_ref<T: Asset + Reflect + 'static>(&self) -> Option<&T> {
+        self.asset_ref.as_ref().as_any().downcast_ref::<T>()
+    }
+
+    /// Returns the asset as `&dyn Any`.
+    #[inline]
+    pub fn as_any(&self) -> &dyn Any {
+        self.asset_ref.as_ref().as_any()
+    }
+}
+
+impl<'a> Debug for AssetRefReflect<'a> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        self.asset_ref.as_ref().fmt(f)
     }
 }
 
@@ -88,6 +109,40 @@ impl<'a> AssetMutReflect<'a> {
     #[inline]
     pub fn reflect_mut(&mut self) -> ReflectMut<'_> {
         self.asset_mut.as_mut().reflect_mut()
+    }
+
+    /// Attempts to downcast the asset reference to a concrete type.
+    ///
+    /// Returns `Some(&T)` if the asset is of type `T`, or `None` otherwise.
+    #[inline]
+    pub fn downcast_ref<T: Asset + Reflect + 'static>(&self) -> Option<&T> {
+        self.asset_mut.as_ref().as_any().downcast_ref::<T>()
+    }
+
+    /// Attempts to downcast the asset mutable reference to a concrete type.
+    ///
+    /// Returns `Some(&mut T)` if the asset is of type `T`, or `None` otherwise.
+    #[inline]
+    pub fn downcast_mut<T: Asset + Reflect + 'static>(&mut self) -> Option<&mut T> {
+        self.asset_mut.as_mut().as_any_mut().downcast_mut::<T>()
+    }
+
+    /// Returns the asset as `&dyn Any`.
+    #[inline]
+    pub fn as_any(&self) -> &dyn Any {
+        self.asset_mut.as_ref().as_any()
+    }
+
+    /// Returns the asset as `&mut dyn Any`.
+    #[inline]
+    pub fn as_any_mut(&mut self) -> &mut dyn Any {
+        self.asset_mut.as_mut().as_any_mut()
+    }
+}
+
+impl<'a> Debug for AssetMutReflect<'a> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        self.asset_mut.as_ref().fmt(f)
     }
 }
 
@@ -382,27 +437,28 @@ mod tests {
         };
 
         let handle = reflect_asset.add(app.world_mut(), &value);
-        // struct is a reserved keyword, so we can't use it here
-        let strukt = reflect_asset
-            .get_mut(app.world_mut(), &handle)
-            .unwrap()
-            .reflect_mut()
-            .as_struct()
-            .unwrap();
-        strukt
-            .field_mut("field")
-            .unwrap()
-            .apply(&String::from("edited"));
+
+        {
+            let mut reflect_mut = reflect_asset.get_mut(app.world_mut(), &handle).unwrap();
+            // struct is a reserved keyword, so we can't use it here
+            let strukt = reflect_mut.reflect_mut().as_struct().unwrap();
+            strukt
+                .field_mut("field")
+                .unwrap()
+                .apply(&String::from("edited"))
+        };
 
         assert_eq!(reflect_asset.len(app.world()), 1);
         let ids: Vec<_> = reflect_asset.ids(app.world()).collect();
         assert_eq!(ids.len(), 1);
         let id = ids[0];
 
-        let asset = reflect_asset.get(app.world(), id).unwrap();
-        assert_eq!(asset.downcast_ref::<AssetType>().unwrap().field, "edited");
+        {
+            let asset = reflect_asset.get(app.world(), id).unwrap();
+            assert_eq!(asset.downcast_ref::<AssetType>().unwrap().field, "edited");
+        }
 
-        reflect_asset.remove(app.world_mut(), id).unwrap();
+        reflect_asset.remove(app.world_mut(), id);
         assert_eq!(reflect_asset.len(app.world()), 0);
     }
 }

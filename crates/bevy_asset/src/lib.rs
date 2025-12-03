@@ -722,8 +722,8 @@ mod tests {
         },
         loader::{AssetLoader, LoadContext},
         Asset, AssetApp, AssetEvent, AssetId, AssetLoadError, AssetLoadFailedEvent, AssetPath,
-        AssetPlugin, AssetServer, Assets, InvalidGenerationError, LoadState, UnapprovedPathMode,
-        UntypedHandle,
+        AssetPlugin, AssetRef, AssetServer, Assets, InvalidGenerationError, LoadState,
+        UnapprovedPathMode, UntypedHandle,
     };
     use alloc::{
         boxed::Box,
@@ -933,7 +933,7 @@ mod tests {
 
     const LARGE_ITERATION_COUNT: usize = 10000;
 
-    fn get<A: Asset>(world: &World, id: AssetId<A>) -> Option<&A> {
+    fn get<'w, A: Asset>(world: &'w World, id: AssetId<A>) -> Option<AssetRef<'w, A>> {
         world.resource::<Assets<A>>().get(id)
     }
 
@@ -1199,7 +1199,7 @@ mod tests {
 
         {
             let mut texts = app.world_mut().resource_mut::<Assets<CoolText>>();
-            let mut a = texts.get_mut(a_id).unwrap();
+            let a = texts.get_mut(a_id).unwrap();
             a.text = "Changed".to_string();
         }
 
