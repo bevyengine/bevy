@@ -3,7 +3,7 @@ mod multi_threaded;
 mod single_threaded;
 
 use alloc::{vec, vec::Vec};
-use bevy_platform::collections::HashMap;
+use bevy_platform::{collections::HashMap, hash::FixedHasher};
 use bevy_utils::prelude::DebugName;
 use core::any::TypeId;
 
@@ -114,7 +114,7 @@ pub struct SystemSchedule {
 
 impl SystemSchedule {
     /// Creates an empty [`SystemSchedule`].
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Self {
             systems: Vec::new(),
             system_conditions: Vec::new(),
@@ -125,7 +125,7 @@ impl SystemSchedule {
             system_dependents: Vec::new(),
             sets_with_conditions_of_systems: Vec::new(),
             systems_in_sets_with_conditions: Vec::new(),
-            systems_in_sets: HashMap::default(),
+            systems_in_sets: HashMap::with_hasher(FixedHasher),
         }
     }
 }

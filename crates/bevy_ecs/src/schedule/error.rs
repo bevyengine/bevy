@@ -10,8 +10,8 @@ use crate::{
             DagCrossDependencyError, DagOverlappingGroupError, DagRedundancyError,
             DiGraphToposortError, GraphNodeId,
         },
-        AmbiguousSystemConflictsWarning, ConflictingSystems, NodeId, ScheduleGraph, SystemKey,
-        SystemSetKey, SystemTypeSetAmbiguityError,
+        AmbiguousSystemConflictsWarning, ConflictingSystems, InternedSystemSet, NodeId,
+        ScheduleGraph, SystemKey, SystemSetKey, SystemTypeSetAmbiguityError,
     },
     world::World,
 };
@@ -301,3 +301,11 @@ impl From<ScheduleBuildError> for ScheduleError {
         Self::ScheduleBuildError(value)
     }
 }
+
+/// Error returned by [`Schedule::run_system_set`] when the specified system set
+/// is not found.
+///
+/// [`Schedule::run_system_set`]: crate::schedule::Schedule::run_system_set
+#[derive(Error, Debug)]
+#[error("System set not found: {0:?}")]
+pub struct SystemSetNotFound(pub InternedSystemSet);

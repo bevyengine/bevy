@@ -521,24 +521,37 @@ impl Schedule {
 
     /// Runs all systems in this schedule on the `world`, using its current execution strategy.
     pub fn run(&mut self, world: &mut World) {
-        self.run_internal(world, None);
+        #[cfg(feature = "trace")]
+        let _span = info_span!("schedule", name = ?self.label).entered();
+
+        self.run_internal(world, None)
+            .unwrap_or_else(|_| unreachable!("No set was specified"));
     }
 
     /// Runs all systems in the specified system set (including transitively) on
     /// the `world`, using its current execution strategy.
-    pub fn run_system_set<M>(&mut self, world: &mut World, set: impl IntoSystemSet<M>) {
+    pub fn run_system_set<M>(
+        &mut self,
+        world: &mut World,
+        set: impl IntoSystemSet<M>,
+    ) -> Result<(), SystemSetNotFound> {
         let set = set.into_system_set().intern();
+
+        #[cfg(feature = "trace")]
+        let _span = info_span!("schedule", name = ?self.label, system_set = ?set).entered();
+
         let Some(set_key) = self.graph.system_sets.get_key(set) else {
-            return;
+            return Err(SystemSetNotFound(set));
         };
-        self.run_internal(world, Some((set_key, set)));
+        self.run_internal(world, Some((set_key, set)))
     }
 
     #[inline(always)]
-    fn run_internal(&mut self, world: &mut World, set: Option<(SystemSetKey, InternedSystemSet)>) {
-        #[cfg(feature = "trace")]
-        let _span = info_span!("schedule", name = ?self.label).entered();
-
+    fn run_internal(
+        &mut self,
+        world: &mut World,
+        set: Option<(SystemSetKey, InternedSystemSet)>,
+    ) -> Result<(), SystemSetNotFound> {
         world.check_change_ticks();
         self.initialize(world).unwrap_or_else(|e| {
             panic!(
@@ -554,12 +567,8 @@ impl Schedule {
             // lazily re-populated again.
             if let Entry::Vacant(entry) = self.executable.systems_in_sets.entry(set_key) {
                 let Ok(systems_in_set) = self.graph.systems_in_set(set) else {
-                    // Just log and do nothing if the set does not exist.
-                    warn!(
-                        "Tried to run non-existent system set {:?} in schedule {:?}.",
-                        set, self.label
-                    );
-                    return;
+                    // Return error if the set is not found.
+                    return Err(SystemSetNotFound(set));
                 };
                 let mut systems = FixedBitSet::with_capacity(self.executable.systems.len());
                 for (index, key) in self.executable.system_ids.iter().enumerate() {
@@ -597,6 +606,8 @@ impl Schedule {
                 error_handler,
             );
         }
+
+        Ok(())
     }
 
     /// Initializes any newly-added systems and conditions, rebuilds the executable schedule,
@@ -2650,13 +2661,19 @@ mod tests {
             let mut world = World::new();
             world.insert_resource(Counter(0));
 
-            schedule.run_system_set(&mut world, SystemSets::Foo);
+            schedule
+                .run_system_set(&mut world, SystemSets::Foo)
+                .unwrap();
             assert_eq!(world.get_resource::<Counter>().unwrap().0, 1);
 
-            schedule.run_system_set(&mut world, SystemSets::Bar);
+            schedule
+                .run_system_set(&mut world, SystemSets::Bar)
+                .unwrap();
             assert_eq!(world.get_resource::<Counter>().unwrap().0, 3);
 
-            schedule.run_system_set(&mut world, SystemSets::Baz);
+            schedule
+                .run_system_set(&mut world, SystemSets::Baz)
+                .unwrap();
             assert_eq!(world.get_resource::<Counter>().unwrap().0, 3);
         }
 
@@ -2667,13 +2684,19 @@ mod tests {
             let mut world = World::new();
             world.insert_resource(Counter(0));
 
-            schedule.run_system_set(&mut world, SystemSets::Foo);
+            schedule
+                .run_system_set(&mut world, SystemSets::Foo)
+                .unwrap();
             assert_eq!(world.get_resource::<Counter>().unwrap().0, 1);
 
-            schedule.run_system_set(&mut world, SystemSets::Bar);
+            schedule
+                .run_system_set(&mut world, SystemSets::Bar)
+                .unwrap();
             assert_eq!(world.get_resource::<Counter>().unwrap().0, 3);
 
-            schedule.run_system_set(&mut world, SystemSets::Baz);
+            schedule
+                .run_system_set(&mut world, SystemSets::Baz)
+                .unwrap();
             assert_eq!(world.get_resource::<Counter>().unwrap().0, 3);
         }
 
@@ -2695,13 +2718,19 @@ mod tests {
             let mut world = World::new();
             world.insert_resource(Counter(0));
 
-            schedule.run_system_set(&mut world, SystemSets::Foo);
+            schedule
+                .run_system_set(&mut world, SystemSets::Foo)
+                .unwrap();
             assert_eq!(world.get_resource::<Counter>().unwrap().0, 3);
 
-            schedule.run_system_set(&mut world, SystemSets::Bar);
+            schedule
+                .run_system_set(&mut world, SystemSets::Bar)
+                .unwrap();
             assert_eq!(world.get_resource::<Counter>().unwrap().0, 5);
 
-            schedule.run_system_set(&mut world, SystemSets::Baz);
+            schedule
+                .run_system_set(&mut world, SystemSets::Baz)
+                .unwrap();
             assert_eq!(world.get_resource::<Counter>().unwrap().0, 5);
         }
 
@@ -2712,13 +2741,19 @@ mod tests {
             let mut world = World::new();
             world.insert_resource(Counter(0));
 
-            schedule.run_system_set(&mut world, SystemSets::Foo);
+            schedule
+                .run_system_set(&mut world, SystemSets::Foo)
+                .unwrap();
             assert_eq!(world.get_resource::<Counter>().unwrap().0, 3);
 
-            schedule.run_system_set(&mut world, SystemSets::Bar);
+            schedule
+                .run_system_set(&mut world, SystemSets::Bar)
+                .unwrap();
             assert_eq!(world.get_resource::<Counter>().unwrap().0, 5);
 
-            schedule.run_system_set(&mut world, SystemSets::Baz);
+            schedule
+                .run_system_set(&mut world, SystemSets::Baz)
+                .unwrap();
             assert_eq!(world.get_resource::<Counter>().unwrap().0, 5);
         }
     }

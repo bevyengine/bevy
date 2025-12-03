@@ -60,6 +60,7 @@ use crate::{
         command_queue::RawCommandQueue,
         error::{
             EntityDespawnError, EntityMutableFetchError, TryInsertBatchError, TryRunScheduleError,
+            TryRunSystemSetError,
         },
     },
 };
@@ -3761,8 +3762,14 @@ impl World {
         &mut self,
         schedule: impl ScheduleLabel,
         set: impl IntoSystemSet<M>,
-    ) -> Result<(), TryRunScheduleError> {
-        self.try_schedule_scope(schedule, |world, sched| sched.run_system_set(world, set))
+    ) -> Result<(), TryRunSystemSetError> {
+        let schedule = schedule.intern();
+        if let Err(e) =
+            self.try_schedule_scope(schedule, |world, sched| sched.run_system_set(world, set))?
+        {
+            return Err(TryRunSystemSetError::SystemSetNotFound(schedule, e.0));
+        }
+        Ok(())
     }
 
     /// Runs the specified [`SystemSet`] within the [`Schedule`] associated with
@@ -3781,8 +3788,19 @@ impl World {
     /// If the requested schedule does not exist.
     ///
     /// [`SystemSet`]: crate::schedule::SystemSet
-    pub fn run_system_set<M>(&mut self, schedule: impl ScheduleLabel, set: impl IntoSystemSet<M>) {
-        self.schedule_scope(schedule, |world, sched| sched.run_system_set(world, set));
+    pub fn run_system_set<M>(
+        &mut self,
+        schedule: impl ScheduleLabel,
+        set: impl IntoSystemSet<M>,
+    ) -> Result<(), TryRunSystemSetError> {
+        let schedule = schedule.intern();
+        self.schedule_scope(schedule, |world, sched| {
+            if let Err(e) = sched.run_system_set(world, set) {
+                Err(TryRunSystemSetError::SystemSetNotFound(schedule, e.0))
+            } else {
+                Ok(())
+            }
+        })
     }
 
     /// Ignore system order ambiguities caused by conflicts on [`Component`]s of type `T`.
