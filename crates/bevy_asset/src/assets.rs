@@ -307,7 +307,7 @@ where
     pub fn snapshot(&'a mut self) -> AssetSnapshot<A> {
         A::AssetStorage::get_snapshot(self.stored_asset)
     }
-    /// Instead of returning a clone of the asset or an Arc clone like [`StoredAssetEntry::snapshot`],
+    /// Instead of returning a clone of the asset or an Arc clone like [`crate::StoredAssetEntry::snapshot`],
     /// this will take ownership of the asset and put the entry in [`Assets<A>`] into an erased state.
     ///
     /// Future attempts to get the asset will fail.
@@ -491,9 +491,7 @@ impl<A: Asset> Assets<A> {
         stored_asset.map(|stored_asset| A::AssetStorage::get_ref(stored_asset))
     }
 
-    /// Returns a snapshot of the [`Asset`] with the given `id`, if it exists. For sometimes, this will be
-    /// a clone (memory copy), but if's a asset using [`ArcedStorageStrategy`], it will be a cheap arc clone.
-    #[inline]
+    /// Returns a snapshot of the asset, which is a clone of the asset `A` (or an `Arc<A>` clone, depending on the storage strategy).
     pub fn get_snapshot(&mut self, id: impl Into<AssetId<A>>) -> Option<AssetSnapshot<A>>
     where
         A::AssetStorage: AssetSnapshotStrategy<A>,
@@ -505,9 +503,10 @@ impl<A: Asset> Assets<A> {
         stored_asset.map(|stored_asset| A::AssetStorage::get_snapshot(stored_asset))
     }
 
-    /// Returns a snapshot of the [`Asset`] with the given `id`, if it exists. For sometimes, this will be
-    /// a clone (memory copy), but if's a asset using [`ArcedStorageStrategy`], it will be a cheap arc clone.
-    #[inline]
+    /// Instead of returning a clone of the asset or an Arc clone like [`crate::StoredAssetEntry::snapshot`],
+    /// this will take ownership of the asset and put the entry in [`Assets<A>`] into an erased state.
+    ///
+    /// Future attempts to get the asset will fail.
     pub fn get_snapshot_erased(&mut self, id: impl Into<AssetId<A>>) -> Option<AssetSnapshot<A>>
     where
         A::AssetStorage: AssetSnapshotStrategy<A>,

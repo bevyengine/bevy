@@ -445,8 +445,8 @@ mod tests {
             strukt
                 .field_mut("field")
                 .unwrap()
-                .apply(&String::from("edited"))
-        };
+                .apply(&String::from("edited"));
+        }
 
         assert_eq!(reflect_asset.len(app.world()), 1);
         let ids: Vec<_> = reflect_asset.ids(app.world()).collect();

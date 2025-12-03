@@ -65,8 +65,8 @@ pub trait AssetSnapshotStrategy<A>: AssetStorageStrategy<A> {
     /// Returns a snapshot of the asset, which is a clone of the asset `A` (or an `Arc<A>` clone, depending on the storage strategy).
     fn get_snapshot(stored_asset: &mut Self::AssetStorage) -> Self::AssetSnapshot;
 
-    /// Instead of returning a clone of the asset or an Arc clone like [`StoredAssetEntry::snapshot`],
-    /// this will take ownership of the asset and put the entry in [`Assets<A>`] into an erased state.
+    /// Instead of returning a clone of the asset or an Arc clone like [`crate::StoredAssetEntry::snapshot`],
+    /// this will take ownership of the asset and put the entry in [`crate::Assets<A>`] into an erased state.
     ///
     /// Future attempts to get the asset will fail.
     fn get_snapshot_erased(stored_asset: &mut Self::AssetStorage) -> Self::AssetSnapshot;
