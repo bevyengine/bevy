@@ -588,6 +588,13 @@ impl TypeRegistration {
         self.data.insert(TypeId::of::<T>(), Box::new(data));
     }
 
+    /// Inserts the [`TypeData`] instance of `T` created for `V`, and inserts any
+    /// [`TypeData`] dependencies for that combination of `T` and `V`.
+    pub fn register_type_data<T: TypeData + FromType<V>, V>(&mut self) {
+        self.insert(T::from_type());
+        T::insert_dependencies(self);
+    }
+
     /// Returns a reference to the value of type `T` in this registration's
     /// [type data].
     ///
@@ -747,6 +754,9 @@ where
 pub trait FromType<T> {
     /// Creates an instance of `Self` for type `T`.
     fn from_type() -> Self;
+    /// Inserts [`TypeData`] dependencies of this [`TypeData`]
+    #[allow(unused_variables)]
+    fn insert_dependencies(type_registration: &mut TypeRegistration) {}
 }
 
 /// A struct used to serialize reflected instances of a type.
