@@ -2,7 +2,7 @@
 
 use bevy_app::{Plugin, Startup, Update};
 use bevy_asset::{Assets, Handle};
-use bevy_color::Color;
+use bevy_color::{Color, LinearRgba};
 use bevy_diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin};
 use bevy_ecs::{
     component::Component,
@@ -85,36 +85,70 @@ impl Plugin for FpsOverlayPlugin {
     }
 }
 
+/// Configuration options for the FPS overlay position on the screen.
+#[derive(Default, Copy, Clone)]
+pub struct FpsOverlayPositionConfig {
+    /// The horizontal position of the left edge of the overlay.
+    pub left: Val,
+    /// The horizontal position of the right edge of the overlay.
+    pub right: Val,
+    /// The vertical position of the top edge of the overlay.
+    pub top: Val,
+    /// The vertical position of the bottom edge of the overlay.
+    pub bottom: Val,
+}
+
+/// Configuration options for the FPS overlay.
+#[derive(Resource, Clone)]
+pub struct FpsOverlayTextConfig {
+    /// Configuration of text in the overlay.
+    pub font: TextFont,
+    /// Color of text in the overlay.
+    pub color: Color,
+    /// Displays the FPS text overlay if true.
+    pub enabled: bool,
+}
+
+impl Default for FpsOverlayTextConfig {
+    fn default() -> Self {
+        Self {
+            font: TextFont {
+                font: Handle::<Font>::default(),
+                font_size: 32.0,
+                ..Default::default()
+            },
+            color: Color::WHITE,
+            enabled: true,
+        }
+    }
+}
+
 /// Configuration options for the FPS overlay.
 #[derive(Resource, Clone)]
 pub struct FpsOverlayConfig {
-    /// Configuration of text in the overlay.
-    pub text_config: TextFont,
-    /// Color of text in the overlay.
-    pub text_color: Color,
     /// Displays the FPS overlay if true.
     pub enabled: bool,
+    /// Configuration of text in the overlay.
+    pub text_config: FpsOverlayTextConfig,
     /// The period after which the FPS overlay re-renders.
     ///
     /// Defaults to once every 100 ms.
     pub refresh_interval: Duration,
     /// Configuration of the frame time graph
-    pub frame_time_graph_config: FrameTimeGraphConfig,
+    pub graph_config: FrameTimeGraphConfig,
+    /// Configuration of the overlay position.
+    pub position: FpsOverlayPositionConfig,
 }
 
 impl Default for FpsOverlayConfig {
     fn default() -> Self {
         FpsOverlayConfig {
-            text_config: TextFont {
-                font: Handle::<Font>::default(),
-                font_size: 32.0,
-                ..Default::default()
-            },
-            text_color: Color::WHITE,
+            text_config: FpsOverlayTextConfig::default(),
             enabled: true,
             refresh_interval: Duration::from_millis(100),
             // TODO set this to display refresh rate if possible
-            frame_time_graph_config: FrameTimeGraphConfig::target_fps(60.0),
+            graph_config: FrameTimeGraphConfig::target_fps(60.0),
+            position: FpsOverlayPositionConfig::default(),
         }
     }
 }
@@ -126,12 +160,16 @@ pub struct FrameTimeGraphConfig {
     pub enabled: bool,
     /// The minimum acceptable FPS
     ///
-    /// Anything below this will show a red bar
+    /// Anything below this will show a `min_color` bar
     pub min_fps: f32,
     /// The target FPS
     ///
-    /// Anything above this will show a green bar
+    /// Anything above this will show a `max_color` bar
     pub target_fps: f32,
+    /// The color of the bar when having lower values
+    pub min_color: LinearRgba,
+    /// The color of the bar when having higher values
+    pub max_color: LinearRgba,
 }
 
 impl FrameTimeGraphConfig {
@@ -150,6 +188,8 @@ impl Default for FrameTimeGraphConfig {
             enabled: true,
             min_fps: 30.0,
             target_fps: 60.0,
+            min_color: LinearRgba::GREEN,
+            max_color: LinearRgba::RED,
         }
     }
 }
@@ -172,6 +212,10 @@ fn setup(
                 // We need to make sure the overlay doesn't affect the position of other UI nodes
                 position_type: PositionType::Absolute,
                 flex_direction: FlexDirection::Column,
+                top: overlay_config.position.top,
+                right: overlay_config.position.right,
+                bottom: overlay_config.position.bottom,
+                left: overlay_config.position.left,
                 ..Default::default()
             },
             // Render overlay on top of everything
@@ -181,19 +225,19 @@ fn setup(
         .with_children(|p| {
             p.spawn((
                 Text::new("FPS: "),
-                overlay_config.text_config.clone(),
-                TextColor(overlay_config.text_color),
+                overlay_config.text_config.font.clone(),
+                TextColor(overlay_config.text_config.color),
                 FpsText,
                 Pickable::IGNORE,
             ))
-            .with_child((TextSpan::default(), overlay_config.text_config.clone()));
+            .with_child((TextSpan::default(), overlay_config.text_config.font.clone()));
 
-            let font_size = overlay_config.text_config.font_size;
+            let font_size = overlay_config.text_config.font.font_size;
             p.spawn((
                 Node {
                     width: Val::Px(font_size * FRAME_TIME_GRAPH_WIDTH_SCALE),
                     height: Val::Px(font_size * FRAME_TIME_GRAPH_HEIGHT_SCALE),
-                    display: if overlay_config.frame_time_graph_config.enabled {
+                    display: if overlay_config.graph_config.enabled {
                         bevy_ui::Display::DEFAULT
                     } else {
                         bevy_ui::Display::None
@@ -210,9 +254,11 @@ fn setup(
                         ..Default::default()
                     }),
                     config: FrameTimeGraphConfigUniform::new(
-                        overlay_config.frame_time_graph_config.target_fps,
-                        overlay_config.frame_time_graph_config.min_fps,
+                        overlay_config.graph_config.target_fps,
+                        overlay_config.graph_config.min_fps,
                         true,
+                        overlay_config.graph_config.min_color,
+                        overlay_config.graph_config.max_color,
                     ),
                 })),
                 FrameTimeGraph,
@@ -240,9 +286,11 @@ fn customize_overlay(
 ) {
     for entity in &query {
         writer.for_each_font(entity, |mut font| {
-            *font = overlay_config.text_config.clone();
+            *font = overlay_config.text_config.font.clone();
         });
-        writer.for_each_color(entity, |mut color| color.0 = overlay_config.text_color);
+        writer.for_each_color(entity, |mut color| {
+            color.0 = overlay_config.text_config.color;
+        });
     }
 }
 
@@ -251,15 +299,15 @@ fn toggle_display(
     mut text_node: Single<&mut Node, (With<FpsText>, Without<FrameTimeGraph>)>,
     mut graph_node: Single<&mut Node, (With<FrameTimeGraph>, Without<FpsText>)>,
 ) {
-    if overlay_config.enabled {
+    if overlay_config.enabled && overlay_config.text_config.enabled {
         text_node.display = bevy_ui::Display::DEFAULT;
     } else {
         text_node.display = bevy_ui::Display::None;
     }
 
-    if overlay_config.frame_time_graph_config.enabled {
+    if overlay_config.enabled && overlay_config.graph_config.enabled {
         // Scale the frame time graph based on the font size of the overlay
-        let font_size = overlay_config.text_config.font_size;
+        let font_size = overlay_config.text_config.font.font_size;
         graph_node.width = Val::Px(font_size * FRAME_TIME_GRAPH_WIDTH_SCALE);
         graph_node.height = Val::Px(font_size * FRAME_TIME_GRAPH_HEIGHT_SCALE);
 
