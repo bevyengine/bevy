@@ -201,7 +201,6 @@ impl TextPipeline {
 
         // Update the buffer.
         let buffer = &mut computed.buffer;
-        buffer.set_metrics_and_size(font_system, metrics, bounds.width, bounds.height);
 
         buffer.set_wrap(
             font_system,
@@ -226,9 +225,12 @@ impl TextPipeline {
         // Workaround for alignment not working for unbounded text.
         // See https://github.com/pop-os/cosmic-text/issues/343
         if bounds.width.is_none() && justify != Justify::Left {
+            buffer.set_metrics(font_system, metrics);
             let dimensions = buffer_dimensions(buffer);
             // `set_size` causes a re-layout to occur.
             buffer.set_size(font_system, Some(dimensions.x), bounds.height);
+        } else {
+            buffer.set_metrics_and_size(font_system, metrics, bounds.width, bounds.height);
         }
 
         // Recover the spans buffer.
