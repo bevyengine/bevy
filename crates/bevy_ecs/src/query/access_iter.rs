@@ -54,7 +54,7 @@ pub enum EcsAccessType<'a> {
 }
 
 impl<'a> EcsAccessType<'a> {
-    /// See [`AccessCompatible`] for more info
+    /// Returns `Ok(())` if `self` and `other` are compatible. Returns a [`AccessConflictError`] otherwise.
     #[inline(never)]
     pub fn is_compatible(&self, other: Self) -> Result<(), AccessConflictError<'_>> {
         use EcsAccessLevel::*;
