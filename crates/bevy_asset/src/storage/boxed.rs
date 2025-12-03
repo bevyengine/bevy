@@ -11,9 +11,9 @@ macro_rules! panic_asset_erased {
     };
 }
 
-/// This storage strategy wraps assets in a [`Box`]. This is less preferable than [`StackAssetStorage`],
+/// This storage strategy wraps assets in a [`Box`]. This is less preferable than [`crate::StackAssetStorage`],
 /// except for cases when the stack size of the asset type is large. Boxing reduces the performance cost
-/// of resizing the inner storage of `Assets<A>` when assets are added and the capacity is exceeded.
+/// of resizing the inner storage of [`crate::Assets<A>`] when assets are added and the capacity is exceeded.
 pub struct BoxedAssetStorage;
 
 impl<A: Send + Sync + Sized> AssetStorageStrategy<A> for BoxedAssetStorage {

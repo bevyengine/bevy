@@ -19,7 +19,7 @@ macro_rules! panic_asset_erased {
 
 /// This storage strategy provides async read/write access to assets.
 ///
-/// This is achieved by storing the asset on the stack by default, and upgrading to an `Arc` or `RwLock` when needed.
+/// This is achieved by storing the asset on the stack by default, and upgrading to an [`Arc`] or [`RwLock`] when needed.
 /// This approach allows assets that *don't* need to be shared across threads to not have to pay the potential performance cost
 /// of locking. Also, for asset types that never request a `RwLock`, the compiler's optimizer should be able to optimize-away
 /// the lock completely.
