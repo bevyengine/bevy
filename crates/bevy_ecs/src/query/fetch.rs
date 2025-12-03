@@ -98,14 +98,16 @@ use variadics_please::all_tuples;
 ///
 /// ## Macro expansion
 ///
-/// Expanding the macro will declare one or three additional structs, depending on whether or not the struct is marked as mutable.
+/// Expanding the macro will declare one to five additional structs, depending on whether or not the struct is marked as mutable or as contiguous.
 /// For a struct named `X`, the additional structs will be:
 ///
-/// |Struct name|`mutable` only|Description|
-/// |:---:|:---:|---|
-/// |`XItem`|---|The type of the query item for `X`|
-/// |`XReadOnlyItem`|✓|The type of the query item for `XReadOnly`|
-/// |`XReadOnly`|✓|[`ReadOnly`] variant of `X`|
+/// |Struct name|`mutable` only|`contiguous` target|Description|
+/// |:---:|:---:|:---:|---|
+/// |`XItem`|---|---|The type of the query item for `X`|
+/// |`XReadOnlyItem`|✓|---|The type of the query item for `XReadOnly`|
+/// |`XReadOnly`|✓|---|[`ReadOnly`] variant of `X`|
+/// |`XContiguousItem`|---|`mutable` or `all`|The type of the contiguous query item for `X`|
+/// |`XContiguousReadOnlyItem`|✓|`immutable` or `all`|The type of the contiguous query item for `XReadOnly`|
 ///
 /// ## Adding mutable references
 ///
@@ -141,11 +143,38 @@ use variadics_please::all_tuples;
 /// }
 /// ```
 ///
+/// ## Adding contiguous items
+///
+/// To create contiguous items additionally, the struct must be marked with the `#[query_data(contiguous(target))]` attribute,
+/// where the target may be `all`, `mutable` or `immutable` (see the table above).
+///
+/// For mutable queries it may be done like that:
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// # use bevy_ecs::query::QueryData;
+/// #
+/// # #[derive(Component)]
+/// # struct ComponentA;
+/// #
+/// #[derive(QueryData)]
+/// /// - contiguous(all) will create contiguous items for both read and mutable versions
+/// /// - contiguous(mutable) will only create a contiguous item for the mutable version
+/// /// - contiguous(immutable) will only create a contiguous item for the read only version
+/// #[query_data(mutable, contiguous(all))]
+/// struct CustomQuery {
+///     component_a: &'static mut ComponentA,
+/// }
+/// ```
+///
+/// For immutable queries `contiguous(immutable)` attribute will be **ignored**, meanwhile `contiguous(mutable)` and `contiguous(all)`
+/// will only generate a contiguous item for the (original) read only version.
+///
 /// ## Adding methods to query items
 ///
 /// It is possible to add methods to query items in order to write reusable logic about related components.
 /// This will often make systems more readable because low level logic is moved out from them.
-/// It is done by adding `impl` blocks with methods for the `-Item` or `-ReadOnlyItem` generated structs.
+/// It is done by adding `impl` blocks with methods for the `-Item`, `-ReadOnlyItem`, `-ContiguousItem` or `ContiguousReadOnlyItem`
+/// generated structs.
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
@@ -210,7 +239,7 @@ use variadics_please::all_tuples;
 /// # struct ComponentA;
 /// #
 /// #[derive(QueryData)]
-/// #[query_data(mutable, derive(Debug))]
+/// #[query_data(mutable, derive(Debug), contiguous(all))]
 /// struct CustomQuery {
 ///     component_a: &'static ComponentA,
 /// }
@@ -220,6 +249,8 @@ use variadics_please::all_tuples;
 ///
 /// assert_debug::<CustomQueryItem>();
 /// assert_debug::<CustomQueryReadOnlyItem>();
+/// assert_debug::<CustomQueryContiguousItem>();
+/// assert_debug::<CustomQueryContiguousReadOnlyItem>();
 /// ```
 ///
 /// ## Query composition
@@ -356,6 +387,12 @@ pub unsafe trait QueryData: WorldQuery {
 ///
 /// - The result of [`ContiguousQueryData::fetch_contiguous`] must represent the same result as if
 ///   [`QueryData::fetch`] was executed for each entity of the set table
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` cannot be iterated contiguously",
+    label = "invalid contiguous `Query` data",
+    note = "if `{Self}` is a component type, ensure that it's storage type is `StorageType::Table`",
+    note = "if `{Self}` is a custom query type, using `QueryData` derive macro, ensure that the `#[query_data(contiguous(target))]` attribute is added"
+)]
 pub unsafe trait ContiguousQueryData: ArchetypeQueryData {
     /// Item returned by [`ContiguousQueryData::fetch_contiguous`].
     /// Represents a contiguous chunk of memory.
