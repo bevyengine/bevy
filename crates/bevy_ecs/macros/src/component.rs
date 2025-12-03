@@ -826,7 +826,7 @@ fn derive_relationship(
             }
 
             #[inline]
-            fn set_risky(&mut self, entity: Entity) {
+            fn set_risky(&mut self, entity: #bevy_ecs_path::entity::Entity) {
                 self.#relationship_member = entity;
             }
         }
