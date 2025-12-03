@@ -4883,7 +4883,7 @@ name = "contiguous_query"
 path = "examples/ecs/contiguous_query.rs"
 doc-scrape-examples = true
 
-[[package.metadata.example.contiguous_query]]
+[package.metadata.example.contiguous_query]
 name = "Contiguous query"
 description = "Demonstrates contiguous queries"
 category = "ECS (Entity Component System)"
