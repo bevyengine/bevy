@@ -2,7 +2,7 @@ use crate::meshlet::asset::{BvhNode, MeshletAabb, MeshletCullData};
 
 use super::{asset::Meshlet, persistent_buffer::PersistentGpuBuffer, MeshletMesh};
 use alloc::sync::Arc;
-use bevy_asset::{AssetId, Assets};
+use bevy_asset::{AssetId, AssetStorageStrategy, Assets};
 use bevy_ecs::{
     resource::Resource,
     system::{Commands, Res, ResMut},
@@ -50,7 +50,9 @@ impl MeshletMeshManager {
         assets: &mut Assets<MeshletMesh>,
     ) -> (u32, MeshletAabb, u32) {
         let queue_meshlet_mesh = |asset_id: &AssetId<MeshletMesh>| {
-            let meshlet_mesh = assets.remove_untracked(*asset_id).expect(
+            let meshlet_mesh = assets.remove_untracked(*asset_id).and_then(|stored_asset| {
+                <MeshletMesh as Asset>::AssetStorage::into_inner(stored_asset)
+            }).expect(
                 "MeshletMesh asset was already unloaded but is not registered with MeshletMeshManager",
             );
 
