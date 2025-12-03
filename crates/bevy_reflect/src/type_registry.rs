@@ -754,7 +754,9 @@ where
 pub trait FromType<T> {
     /// Creates an instance of `Self` for type `T`.
     fn from_type() -> Self;
-    /// Inserts [`TypeData`] dependencies of this [`TypeData`]
+    /// Inserts [`TypeData`] dependencies of this [`TypeData`].
+    /// This is especially useful for trait [`TypeData`] that has a supertrait (ex: `A: B`).
+    /// When the [`TypeData`] for `A` is inserted, the `B` [`TypeData`] will also be inserted.
     fn insert_dependencies(_type_registration: &mut TypeRegistration) {}
 }
 
