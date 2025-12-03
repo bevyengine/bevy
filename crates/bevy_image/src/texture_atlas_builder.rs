@@ -1,4 +1,4 @@
-use bevy_asset::{AssetId, RenderAssetUsages};
+use bevy_asset::{AssetId, AssetRef, RenderAssetUsages};
 use bevy_math::{URect, UVec2};
 use bevy_platform::collections::HashMap;
 use rectangle_pack::{
@@ -29,13 +29,12 @@ pub enum TextureAtlasBuilderError {
     TextureAccess(#[from] TextureAccessError),
 }
 
-#[derive(Debug)]
 #[must_use]
 /// A builder which is used to create a texture atlas from many individual
 /// sprites.
 pub struct TextureAtlasBuilder<'a> {
     /// Collection of texture's asset id (optional) and image data to be packed into an atlas
-    textures_to_place: Vec<(Option<AssetId<Image>>, &'a Image)>,
+    textures_to_place: Vec<(Option<AssetId<Image>>, AssetRef<'a, Image>)>,
     /// The initial atlas size in pixels.
     initial_size: UVec2,
     /// The absolute maximum size of the texture atlas in pixels.
@@ -95,7 +94,7 @@ impl<'a> TextureAtlasBuilder<'a> {
     pub fn add_texture(
         &mut self,
         image_id: Option<AssetId<Image>>,
-        texture: &'a Image,
+        texture: AssetRef<'a, Image>,
     ) -> &mut Self {
         self.textures_to_place.push((image_id, texture));
         self

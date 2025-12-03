@@ -14,6 +14,11 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use uuid::Uuid;
 
+use crate::storage::{
+    AssetMut, AssetRef, AssetSnapshot, AssetSnapshotStrategy, AssetStorageStrategy,
+    AssetWriteStrategy, StoredAsset,
+};
+
 /// A generational runtime-only identifier for a specific [`Asset`] stored in [`Assets`]. This is optimized for efficient runtime
 /// usage and is not suitable for identifying assets across app runs.
 #[derive(
@@ -107,7 +112,10 @@ enum Entry<A: Asset> {
     #[default]
     None,
     /// Some is an indicator that there is a live handle active for the entry at this [`AssetIndex`]
-    Some { value: Option<A>, generation: u32 },
+    Some {
+        value: Option<StoredAsset<A>>,
+        generation: u32,
+    },
 }
 
 /// Stores [`Asset`] values in a Vec-like storage identified by [`AssetIndex`].
@@ -152,7 +160,7 @@ impl<A: Asset> DenseAssetStorage<A> {
                 if !exists {
                     self.len += 1;
                 }
-                *value = Some(asset);
+                *value = Some(A::AssetStorage::new(asset));
                 Ok(exists)
             } else {
                 Err(InvalidGenerationError::Occupied {
@@ -167,7 +175,7 @@ impl<A: Asset> DenseAssetStorage<A> {
 
     /// Removes the asset stored at the given `index` and returns it as [`Some`] (if the asset exists).
     /// This will recycle the id and allow new entries to be inserted.
-    pub(crate) fn remove_dropped(&mut self, index: AssetIndex) -> Option<A> {
+    pub(crate) fn remove_dropped(&mut self, index: AssetIndex) -> Option<StoredAsset<A>> {
         self.remove_internal(index, |dense_storage| {
             dense_storage.storage[index.index as usize] = Entry::None;
             dense_storage.allocator.recycle(index);
@@ -177,7 +185,7 @@ impl<A: Asset> DenseAssetStorage<A> {
     /// Removes the asset stored at the given `index` and returns it as [`Some`] (if the asset exists).
     /// This will _not_ recycle the id. New values with the current ID can still be inserted. The ID will
     /// not be reused until [`DenseAssetStorage::remove_dropped`] is called.
-    pub(crate) fn remove_still_alive(&mut self, index: AssetIndex) -> Option<A> {
+    pub(crate) fn remove_still_alive(&mut self, index: AssetIndex) -> Option<StoredAsset<A>> {
         self.remove_internal(index, |_| {})
     }
 
@@ -185,7 +193,7 @@ impl<A: Asset> DenseAssetStorage<A> {
         &mut self,
         index: AssetIndex,
         removed_action: impl FnOnce(&mut Self),
-    ) -> Option<A> {
+    ) -> Option<StoredAsset<A>> {
         self.flush();
         let value = match &mut self.storage[index.index as usize] {
             Entry::None => return None,
@@ -201,7 +209,7 @@ impl<A: Asset> DenseAssetStorage<A> {
         value
     }
 
-    pub(crate) fn get(&self, index: AssetIndex) -> Option<&A> {
+    pub(crate) fn get(&self, index: AssetIndex) -> Option<&StoredAsset<A>> {
         let entry = self.storage.get(index.index as usize)?;
         match entry {
             Entry::None => None,
@@ -215,7 +223,7 @@ impl<A: Asset> DenseAssetStorage<A> {
         }
     }
 
-    pub(crate) fn get_mut(&mut self, index: AssetIndex) -> Option<&mut A> {
+    pub(crate) fn get_mut(&mut self, index: AssetIndex) -> Option<&mut StoredAsset<A>> {
         let entry = self.storage.get_mut(index.index as usize)?;
         match entry {
             Entry::None => None,
@@ -272,6 +280,42 @@ impl<A: Asset> DenseAssetStorage<A> {
     }
 }
 
+pub struct StoredAssetEntry<'a, A: Asset> {
+    stored_asset: &'a mut StoredAsset<A>,
+}
+
+impl<'a, A: Asset> StoredAssetEntry<'a, A> {
+    pub fn as_ref(&'a self) -> AssetRef<'a, A> {
+        A::AssetStorage::get_ref(self.stored_asset)
+    }
+}
+
+impl<'a, A: Asset> StoredAssetEntry<'a, A>
+where
+    A::AssetStorage: AssetWriteStrategy<A>,
+{
+    pub fn as_mut(&'a mut self) -> AssetMut<'a, A> {
+        A::AssetStorage::get_mut(self.stored_asset)
+    }
+}
+
+impl<'a, A: Asset> StoredAssetEntry<'a, A>
+where
+    A::AssetStorage: AssetSnapshotStrategy<A>,
+{
+    /// Returns a snapshot of the asset, which is a clone of the asset `A` (or an `Arc<A>` clone, depending on the storage strategy).
+    pub fn snapshot(&'a mut self) -> AssetSnapshot<A> {
+        A::AssetStorage::get_snapshot(self.stored_asset)
+    }
+    /// Instead of returning a clone of the asset or an Arc clone like [`StoredAssetEntry::snapshot`],
+    /// this will take ownership of the asset and put the entry in [`Assets<A>`] into an erased state.
+    ///
+    /// Future attempts to get the asset will fail.
+    pub fn snapshot_erased(&'a mut self) -> AssetSnapshot<A> {
+        A::AssetStorage::get_snapshot_erased(self.stored_asset)
+    }
+}
+
 /// Stores [`Asset`] values identified by their [`AssetId`].
 ///
 /// Assets identified by [`AssetId::Index`] will be stored in a "dense" vec-like storage. This is more efficient, but it means that
@@ -286,7 +330,7 @@ impl<A: Asset> DenseAssetStorage<A> {
 #[derive(Resource)]
 pub struct Assets<A: Asset> {
     dense_storage: DenseAssetStorage<A>,
-    hash_map: HashMap<Uuid, A>,
+    hash_map: HashMap<Uuid, StoredAsset<A>>,
     handle_provider: AssetHandleProvider,
     queued_events: Vec<AssetEvent<A>>,
     /// Assets managed by the `Assets` struct with live strong `Handle`s
@@ -339,26 +383,27 @@ impl<A: Asset> Assets<A> {
         }
     }
 
-    /// Retrieves an [`Asset`] stored for the given `id` if it exists. If it does not exist, it will
-    /// be inserted using `insert_fn`.
-    ///
-    /// Note: This will never return an error for UUID asset IDs.
-    // PERF: Optimize this or remove it
-    pub fn get_or_insert_with(
-        &mut self,
-        id: impl Into<AssetId<A>>,
-        insert_fn: impl FnOnce() -> A,
-    ) -> Result<&mut A, InvalidGenerationError> {
-        let id: AssetId<A> = id.into();
-        if self.get(id).is_none() {
-            self.insert(id, insert_fn())?;
-        }
-        // This should be impossible since either, `self.get` was Some, in which case this succeeds,
-        // or `self.get` was None and we inserted it (and bailed out if there was an error).
-        Ok(self
-            .get_mut(id)
-            .expect("the Asset was none even though we checked or inserted"))
-    }
+    // /// Retrieves an [`Asset`] stored for the given `id` if it exists. If it does not exist, it will
+    // /// be inserted using `insert_fn`.
+    // ///
+    // /// Note: This will never return an error for UUID asset IDs.
+    // // PERF: Optimize this or remove it
+    // #[deprecated]
+    // pub fn get_or_insert_with(
+    //     &mut self,
+    //     id: impl Into<AssetId<A>>,
+    //     insert_fn: impl FnOnce() -> A,
+    // ) -> Result<AssetMut<'_, A>, InvalidGenerationError> {
+    //     let id: AssetId<A> = id.into();
+    //     if self.get(id).is_none() {
+    //         self.insert(id, insert_fn())?;
+    //     }
+    //     // This should be impossible since either, `self.get` was Some, in which case this succeeds,
+    //     // or `self.get` was None and we inserted it (and bailed out if there was an error).
+    //     Ok(self
+    //         .get_mut(id)
+    //         .expect("the Asset was none even though we checked or inserted"))
+    // }
 
     /// Returns `true` if the `id` exists in this collection. Otherwise it returns `false`.
     pub fn contains(&self, id: impl Into<AssetId<A>>) -> bool {
@@ -368,8 +413,9 @@ impl<A: Asset> Assets<A> {
         }
     }
 
-    pub(crate) fn insert_with_uuid(&mut self, uuid: Uuid, asset: A) -> Option<A> {
-        let result = self.hash_map.insert(uuid, asset);
+    pub(crate) fn insert_with_uuid(&mut self, uuid: Uuid, asset: A) -> Option<StoredAsset<A>> {
+        let stored_asset = A::AssetStorage::new(asset);
+        let result = self.hash_map.insert(uuid, stored_asset);
         if result.is_some() {
             self.queued_events
                 .push(AssetEvent::Modified { id: uuid.into() });
@@ -426,43 +472,90 @@ impl<A: Asset> Assets<A> {
     /// Retrieves a reference to the [`Asset`] with the given `id`, if it exists.
     /// Note that this supports anything that implements `Into<AssetId<A>>`, which includes [`Handle`] and [`AssetId`].
     #[inline]
-    pub fn get(&self, id: impl Into<AssetId<A>>) -> Option<&A> {
-        match id.into() {
+    pub fn entry(&mut self, id: impl Into<AssetId<A>>) -> Option<StoredAssetEntry<'_, A>> {
+        let stored_asset = match id.into() {
+            AssetId::Index { index, .. } => self.dense_storage.get_mut(index),
+            AssetId::Uuid { uuid } => self.hash_map.get_mut(&uuid),
+        };
+        stored_asset.map(|stored_asset| StoredAssetEntry { stored_asset })
+    }
+
+    /// Retrieves a reference to the [`Asset`] with the given `id`, if it exists.
+    /// Note that this supports anything that implements `Into<AssetId<A>>`, which includes [`Handle`] and [`AssetId`].
+    #[inline]
+    pub fn get(&self, id: impl Into<AssetId<A>>) -> Option<AssetRef<'_, A>> {
+        let stored_asset = match id.into() {
             AssetId::Index { index, .. } => self.dense_storage.get(index),
             AssetId::Uuid { uuid } => self.hash_map.get(&uuid),
-        }
+        };
+        stored_asset.map(|stored_asset| A::AssetStorage::get_ref(stored_asset))
+    }
+
+    /// Returns a snapshot of the [`Asset`] with the given `id`, if it exists. For sometimes, this will be
+    /// a clone (memory copy), but if's a asset using [`ArcedStorageStrategy`], it will be a cheap arc clone.
+    #[inline]
+    pub fn get_snapshot(&mut self, id: impl Into<AssetId<A>>) -> Option<AssetSnapshot<A>>
+    where
+        A::AssetStorage: AssetSnapshotStrategy<A>,
+    {
+        let stored_asset = match id.into() {
+            AssetId::Index { index, .. } => self.dense_storage.get_mut(index),
+            AssetId::Uuid { uuid } => self.hash_map.get_mut(&uuid),
+        };
+        stored_asset.map(|stored_asset| A::AssetStorage::get_snapshot(stored_asset))
+    }
+
+    /// Returns a snapshot of the [`Asset`] with the given `id`, if it exists. For sometimes, this will be
+    /// a clone (memory copy), but if's a asset using [`ArcedStorageStrategy`], it will be a cheap arc clone.
+    #[inline]
+    pub fn get_snapshot_erased(&mut self, id: impl Into<AssetId<A>>) -> Option<AssetSnapshot<A>>
+    where
+        A::AssetStorage: AssetSnapshotStrategy<A>,
+    {
+        let stored_asset = match id.into() {
+            AssetId::Index { index, .. } => self.dense_storage.get_mut(index),
+            AssetId::Uuid { uuid } => self.hash_map.get_mut(&uuid),
+        };
+        stored_asset.map(|stored_asset| A::AssetStorage::get_snapshot_erased(stored_asset))
     }
 
     /// Retrieves a mutable reference to the [`Asset`] with the given `id`, if it exists.
     /// Note that this supports anything that implements `Into<AssetId<A>>`, which includes [`Handle`] and [`AssetId`].
     #[inline]
-    pub fn get_mut(&mut self, id: impl Into<AssetId<A>>) -> Option<&mut A> {
+    pub fn get_mut<'a>(&'a mut self, id: impl Into<AssetId<A>>) -> Option<AssetMut<'a, A>>
+    where
+        A::AssetStorage: AssetWriteStrategy<A>,
+    {
         let id: AssetId<A> = id.into();
-        let result = match id {
+        let stored_asset = match id {
             AssetId::Index { index, .. } => self.dense_storage.get_mut(index),
             AssetId::Uuid { uuid } => self.hash_map.get_mut(&uuid),
         };
-        if result.is_some() {
+        if stored_asset.is_some() {
             self.queued_events.push(AssetEvent::Modified { id });
         }
-        result
+        stored_asset.map(|stored_asset| A::AssetStorage::get_mut(stored_asset))
     }
 
     /// Retrieves a mutable reference to the [`Asset`] with the given `id`, if it exists.
     ///
     /// This is the same as [`Assets::get_mut`] except it doesn't emit [`AssetEvent::Modified`].
     #[inline]
-    pub fn get_mut_untracked(&mut self, id: impl Into<AssetId<A>>) -> Option<&mut A> {
+    pub fn get_mut_untracked<'a>(&'a mut self, id: impl Into<AssetId<A>>) -> Option<AssetMut<'a, A>>
+    where
+        A::AssetStorage: AssetWriteStrategy<A>,
+    {
         let id: AssetId<A> = id.into();
-        match id {
+        let stored_asset = match id {
             AssetId::Index { index, .. } => self.dense_storage.get_mut(index),
             AssetId::Uuid { uuid } => self.hash_map.get_mut(&uuid),
-        }
+        };
+        stored_asset.map(|stored_asset| A::AssetStorage::get_mut(stored_asset))
     }
 
     /// Removes (and returns) the [`Asset`] with the given `id`, if it exists.
     /// Note that this supports anything that implements `Into<AssetId<A>>`, which includes [`Handle`] and [`AssetId`].
-    pub fn remove(&mut self, id: impl Into<AssetId<A>>) -> Option<A> {
+    pub fn remove(&mut self, id: impl Into<AssetId<A>>) -> Option<StoredAsset<A>> {
         let id: AssetId<A> = id.into();
         let result = self.remove_untracked(id);
         if result.is_some() {
@@ -475,7 +568,7 @@ impl<A: Asset> Assets<A> {
     /// Note that this supports anything that implements `Into<AssetId<A>>`, which includes [`Handle`] and [`AssetId`].
     ///
     /// This is the same as [`Assets::remove`] except it doesn't emit [`AssetEvent::Removed`].
-    pub fn remove_untracked(&mut self, id: impl Into<AssetId<A>>) -> Option<A> {
+    pub fn remove_untracked(&mut self, id: impl Into<AssetId<A>>) -> Option<StoredAsset<A>> {
         let id: AssetId<A> = id.into();
         match id {
             AssetId::Index { index, .. } => {
@@ -528,14 +621,14 @@ impl<A: Asset> Assets<A> {
 
     /// Returns an iterator over the [`AssetId`] and [`Asset`] ref of every asset in this collection.
     // PERF: this could be accelerated if we implement a skip list. Consider the cost/benefits
-    pub fn iter(&self) -> impl Iterator<Item = (AssetId<A>, &A)> {
+    pub fn iter(&self) -> impl Iterator<Item = (AssetId<A>, AssetRef<'_, A>)> + '_ {
         self.dense_storage
             .storage
             .iter()
             .enumerate()
             .filter_map(|(i, v)| match v {
                 Entry::None => None,
-                Entry::Some { value, generation } => value.as_ref().map(|v| {
+                Entry::Some { value, generation } => value.as_ref().map(|stored_asset| {
                     let id = AssetId::Index {
                         index: AssetIndex {
                             generation: *generation,
@@ -543,13 +636,13 @@ impl<A: Asset> Assets<A> {
                         },
                         marker: PhantomData,
                     };
-                    (id, v)
+                    (id, A::AssetStorage::get_ref(stored_asset))
                 }),
             })
             .chain(
                 self.hash_map
                     .iter()
-                    .map(|(i, v)| (AssetId::Uuid { uuid: *i }, v)),
+                    .map(|(i, v)| (AssetId::Uuid { uuid: *i }, A::AssetStorage::get_ref(v))),
             )
     }
 
@@ -622,11 +715,14 @@ impl<A: Asset> Assets<A> {
 pub struct AssetsMutIterator<'a, A: Asset> {
     queued_events: &'a mut Vec<AssetEvent<A>>,
     dense_storage: Enumerate<core::slice::IterMut<'a, Entry<A>>>,
-    hash_map: bevy_platform::collections::hash_map::IterMut<'a, Uuid, A>,
+    hash_map: bevy_platform::collections::hash_map::IterMut<'a, Uuid, StoredAsset<A>>,
 }
 
-impl<'a, A: Asset> Iterator for AssetsMutIterator<'a, A> {
-    type Item = (AssetId<A>, &'a mut A);
+impl<'a, A: Asset> Iterator for AssetsMutIterator<'a, A>
+where
+    A::AssetStorage: AssetWriteStrategy<A>,
+{
+    type Item = (AssetId<A>, AssetMut<'a, A>);
 
     fn next(&mut self) -> Option<Self::Item> {
         for (i, entry) in &mut self.dense_storage {
@@ -644,7 +740,7 @@ impl<'a, A: Asset> Iterator for AssetsMutIterator<'a, A> {
                     };
                     self.queued_events.push(AssetEvent::Modified { id });
                     if let Some(value) = value {
-                        return Some((id, value));
+                        return Some((id, A::AssetStorage::get_mut(value)));
                     }
                 }
             }
@@ -652,7 +748,7 @@ impl<'a, A: Asset> Iterator for AssetsMutIterator<'a, A> {
         if let Some((key, value)) = self.hash_map.next() {
             let id = AssetId::Uuid { uuid: *key };
             self.queued_events.push(AssetEvent::Modified { id });
-            Some((id, value))
+            Some((id, A::AssetStorage::get_mut(value)))
         } else {
             None
         }

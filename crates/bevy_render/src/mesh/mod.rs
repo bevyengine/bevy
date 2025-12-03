@@ -6,7 +6,7 @@ use crate::{
 };
 use allocator::MeshAllocatorPlugin;
 use bevy_app::{App, Plugin};
-use bevy_asset::{AssetId, RenderAssetUsages};
+use bevy_asset::{AssetId, AssetSnapshot, RenderAssetUsages};
 use bevy_ecs::{
     prelude::*,
     system::{
@@ -145,11 +145,11 @@ impl RenderAsset for RenderMesh {
 
     /// Converts the extracted mesh into a [`RenderMesh`].
     fn prepare_asset(
-        mesh: Self::SourceAsset,
+        mesh: AssetSnapshot<Self::SourceAsset>,
         _: AssetId<Self::SourceAsset>,
         (_images, mesh_vertex_buffer_layouts): &mut SystemParamItem<Self::Param>,
         _: Option<&Self>,
-    ) -> Result<Self, PrepareAssetError<Self::SourceAsset>> {
+    ) -> Result<Self, PrepareAssetError<AssetSnapshot<Self::SourceAsset>>> {
         #[cfg(feature = "morph")]
         let morph_targets = match mesh.morph_targets() {
             Some(mt) => {

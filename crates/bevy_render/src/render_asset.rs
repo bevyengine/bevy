@@ -3,7 +3,9 @@ use crate::{
     RenderSystems, Res,
 };
 use bevy_app::{App, Plugin, SubApp};
-use bevy_asset::{Asset, AssetEvent, AssetId, Assets, RenderAssetUsages};
+use bevy_asset::{
+    Asset, AssetEvent, AssetId, AssetSnapshot, AssetSnapshotStrategy, Assets, RenderAssetUsages,
+};
 use bevy_ecs::{
     prelude::{Commands, IntoScheduleConfigs, MessageReader, ResMut, Resource},
     schedule::{ScheduleConfigs, SystemSet},
@@ -37,7 +39,7 @@ pub struct AssetExtractionSystems;
 /// is transformed into its GPU-representation of type [`RenderAsset`].
 pub trait RenderAsset: Send + Sync + 'static + Sized {
     /// The representation of the asset in the "main world".
-    type SourceAsset: Asset + Clone;
+    type SourceAsset: Asset<AssetStorage: AssetSnapshotStrategy<Self::SourceAsset>> + Clone;
 
     /// Specifies all ECS data required by [`RenderAsset::prepare_asset`].
     ///
@@ -65,11 +67,11 @@ pub trait RenderAsset: Send + Sync + 'static + Sized {
     ///
     /// ECS data may be accessed via `param`.
     fn prepare_asset(
-        source_asset: Self::SourceAsset,
+        source_asset: AssetSnapshot<Self::SourceAsset>,
         asset_id: AssetId<Self::SourceAsset>,
         param: &mut SystemParamItem<Self::Param>,
         previous_asset: Option<&Self>,
-    ) -> Result<Self, PrepareAssetError<Self::SourceAsset>>;
+    ) -> Result<Self, PrepareAssetError<AssetSnapshot<Self::SourceAsset>>>;
 
     /// Called whenever the [`RenderAsset::SourceAsset`] has been removed.
     ///
@@ -153,7 +155,7 @@ pub struct ExtractedAssets<A: RenderAsset> {
     /// The assets extracted this frame.
     ///
     /// These are assets that were either added or modified this frame.
-    pub extracted: Vec<(AssetId<A::SourceAsset>, A::SourceAsset)>,
+    pub extracted: Vec<(AssetId<A::SourceAsset>, AssetSnapshot<A::SourceAsset>)>,
 
     /// IDs of the assets that were removed this frame.
     ///
@@ -276,16 +278,14 @@ pub(crate) fn extract_render_asset<A: RenderAsset>(
             let mut extracted_assets = Vec::new();
             let mut added = <HashSet<_>>::default();
             for id in needs_extracting.drain() {
-                if let Some(asset) = assets.get(id) {
-                    let asset_usage = A::asset_usage(asset);
+                if let Some(mut asset_entry) = assets.entry(id) {
+                    let asset_usage = A::asset_usage(&*asset_entry.as_ref());
                     if asset_usage.contains(RenderAssetUsages::RENDER_WORLD) {
                         if asset_usage == RenderAssetUsages::RENDER_WORLD {
-                            if let Some(asset) = assets.remove(id) {
-                                extracted_assets.push((id, asset));
-                                added.insert(id);
-                            }
+                            extracted_assets.push((id, asset_entry.snapshot_erased()));
+                            added.insert(id);
                         } else {
-                            extracted_assets.push((id, asset.clone()));
+                            extracted_assets.push((id, asset_entry.snapshot()));
                             added.insert(id);
                         }
                     }
@@ -307,7 +307,7 @@ pub(crate) fn extract_render_asset<A: RenderAsset>(
 /// All assets that should be prepared next frame.
 #[derive(Resource)]
 pub struct PrepareNextFrameAssets<A: RenderAsset> {
-    assets: Vec<(AssetId<A::SourceAsset>, A::SourceAsset)>,
+    assets: Vec<(AssetId<A::SourceAsset>, AssetSnapshot<A::SourceAsset>)>,
 }
 
 impl<A: RenderAsset> Default for PrepareNextFrameAssets<A> {

@@ -146,7 +146,7 @@ impl ErasedRenderAsset for ImageMaterial {
     );
 
     fn prepare_asset(
-        source_asset: Self::SourceAsset,
+        source_asset: AssetSnapshot<Self::SourceAsset>,
         asset_id: AssetId<Self::SourceAsset>,
         (
             opaque_draw_functions,
@@ -157,7 +157,8 @@ impl ErasedRenderAsset for ImageMaterial {
             gpu_images,
             image_material_sampler,
         ): &mut SystemParamItem<Self::Param>,
-    ) -> std::result::Result<Self::ErasedAsset, PrepareAssetError<Self::SourceAsset>> {
+    ) -> std::result::Result<Self::ErasedAsset, PrepareAssetError<AssetSnapshot<Self::SourceAsset>>>
+    {
         let material_layout = material_layout.0.clone();
         let draw_function_id = opaque_draw_functions.read().id::<DrawMaterial>();
         let bind_group_allocator = bind_group_allocators

@@ -167,8 +167,8 @@ pub mod prelude {
 
     #[doc(hidden)]
     pub use crate::{
-        Asset, AssetApp, AssetEvent, AssetId, AssetMode, AssetPlugin, AssetServer, Assets,
-        DirectAssetAccessExt, Handle, UntypedHandle,
+        Asset, AssetApp, AssetEvent, AssetId, AssetMode, AssetMut, AssetPlugin, AssetRef,
+        AssetServer, AssetSnapshot, Assets, DirectAssetAccessExt, Handle, UntypedHandle,
     };
 }
 
@@ -185,6 +185,7 @@ mod path;
 mod reflect;
 mod render_asset;
 mod server;
+mod storage;
 
 pub use assets::*;
 pub use bevy_asset_macros::Asset;
@@ -203,6 +204,7 @@ pub use path::*;
 pub use reflect::*;
 pub use render_asset::*;
 pub use server::*;
+pub use storage::*;
 
 pub use uuid;
 
@@ -453,7 +455,9 @@ impl Plugin for AssetPlugin {
     label = "invalid `Asset`",
     note = "consider annotating `{Self}` with `#[derive(Asset)]`"
 )]
-pub trait Asset: VisitAssetDependencies + TypePath + Send + Sync + 'static {}
+pub trait Asset: VisitAssetDependencies + TypePath + Send + Sync + Sized + 'static {
+    type AssetStorage: AssetStorageStrategy<Self>;
+}
 
 /// A trait for components that can be used as asset identifiers, e.g. handle wrappers.
 pub trait AsAssetId: Component {
@@ -581,7 +585,8 @@ pub trait AssetApp {
     /// This enables reflection code to access assets. For detailed information, see the docs on [`ReflectAsset`] and [`ReflectHandle`].
     fn register_asset_reflect<A>(&mut self) -> &mut Self
     where
-        A: Asset + Reflect + FromReflect + GetTypeRegistration;
+        A: Asset + Reflect + FromReflect + GetTypeRegistration,
+        A::AssetStorage: AssetWriteStrategy<A>;
     /// Preregisters a loader for the given extensions, that will block asset loads until a real loader
     /// is registered.
     fn preregister_asset_loader<L: AssetLoader>(&mut self, extensions: &[&str]) -> &mut Self;
@@ -671,6 +676,7 @@ impl AssetApp for App {
     fn register_asset_reflect<A>(&mut self) -> &mut Self
     where
         A: Asset + Reflect + FromReflect + GetTypeRegistration,
+        A::AssetStorage: AssetWriteStrategy<A>,
     {
         let type_registry = self.world().resource::<AppTypeRegistry>();
         {
@@ -1193,7 +1199,7 @@ mod tests {
 
         {
             let mut texts = app.world_mut().resource_mut::<Assets<CoolText>>();
-            let a = texts.get_mut(a_id).unwrap();
+            let mut a = texts.get_mut(a_id).unwrap();
             a.text = "Changed".to_string();
         }
 

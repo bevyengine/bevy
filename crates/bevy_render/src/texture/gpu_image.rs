@@ -3,7 +3,7 @@ use crate::{
     render_resource::{DefaultImageSampler, Sampler, Texture, TextureView},
     renderer::{RenderDevice, RenderQueue},
 };
-use bevy_asset::{AssetId, RenderAssetUsages};
+use bevy_asset::{AssetId, AssetSnapshot, RenderAssetUsages};
 use bevy_ecs::system::{lifetimeless::SRes, SystemParamItem};
 use bevy_image::{Image, ImageSampler};
 use bevy_math::{AspectRatio, UVec2};
@@ -42,11 +42,11 @@ impl RenderAsset for GpuImage {
 
     /// Converts the extracted image into a [`GpuImage`].
     fn prepare_asset(
-        image: Self::SourceAsset,
+        image: AssetSnapshot<Self::SourceAsset>,
         _: AssetId<Self::SourceAsset>,
         (render_device, render_queue, default_sampler): &mut SystemParamItem<Self::Param>,
         previous_asset: Option<&Self>,
-    ) -> Result<Self, PrepareAssetError<Self::SourceAsset>> {
+    ) -> Result<Self, PrepareAssetError<AssetSnapshot<Self::SourceAsset>>> {
         let texture = if let Some(ref data) = image.data {
             render_device.create_texture_with_data(
                 render_queue,
@@ -89,14 +89,13 @@ impl RenderAsset for GpuImage {
             new_texture
         };
 
-        let texture_view = texture.create_view(
-            image
-                .texture_view_descriptor
-                .or_else(|| Some(TextureViewDescriptor::default()))
-                .as_ref()
-                .unwrap(),
-        );
-        let sampler = match image.sampler {
+        let texture_view = if let Some(descriptor) = image.texture_view_descriptor.as_ref() {
+            texture.create_view(descriptor)
+        } else {
+            texture.create_view(&TextureViewDescriptor::default())
+        };
+
+        let sampler = match &image.sampler {
             ImageSampler::Default => (***default_sampler).clone(),
             ImageSampler::Descriptor(descriptor) => {
                 render_device.create_sampler(&descriptor.as_wgpu())

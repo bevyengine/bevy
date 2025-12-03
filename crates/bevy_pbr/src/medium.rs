@@ -2,7 +2,7 @@ use alloc::{borrow::Cow, sync::Arc};
 use core::f32::{self, consts::PI};
 
 use bevy_app::{App, Plugin};
-use bevy_asset::{Asset, AssetApp, AssetId};
+use bevy_asset::{Asset, AssetApp, AssetId, AssetSnapshot};
 use bevy_ecs::{
     resource::Resource,
     system::{Commands, Res, SystemParamItem},
@@ -415,11 +415,12 @@ impl RenderAsset for GpuScatteringMedium {
     type Param = (Res<'static, RenderDevice>, Res<'static, RenderQueue>);
 
     fn prepare_asset(
-        source_asset: Self::SourceAsset,
+        source_asset: AssetSnapshot<Self::SourceAsset>,
         _asset_id: AssetId<Self::SourceAsset>,
         (render_device, render_queue): &mut SystemParamItem<Self::Param>,
         _previous_asset: Option<&Self>,
-    ) -> Result<Self, PrepareAssetError<Self::SourceAsset>> {
+    ) -> Result<Self, PrepareAssetError<AssetSnapshot<Self::SourceAsset>>> {
+        let source_asset = source_asset.into_inner();
         let mut density: Vec<Vec4> =
             Vec::with_capacity(2 * source_asset.falloff_resolution as usize);
 

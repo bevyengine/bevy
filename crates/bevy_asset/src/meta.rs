@@ -6,7 +6,7 @@ use alloc::{
 
 use crate::{
     loader::AssetLoader, processor::Process, Asset, AssetPath, DeserializeMetaError,
-    VisitAssetDependencies,
+    StackAssetStorage, VisitAssetDependencies,
 };
 use downcast_rs::{impl_downcast, Downcast};
 use ron::ser::PrettyConfig;
@@ -189,7 +189,9 @@ impl Process for () {
     }
 }
 
-impl Asset for () {}
+impl Asset for () {
+    type AssetStorage = StackAssetStorage;
+}
 
 impl VisitAssetDependencies for () {
     fn visit_dependencies(&self, _visit: &mut impl FnMut(bevy_asset::UntypedAssetId)) {

@@ -1,5 +1,5 @@
 use crate::Node;
-use bevy_asset::{Asset, AssetId, Handle};
+use bevy_asset::{Asset, AssetId, AssetSnapshotStrategy, Handle};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{component::Component, reflect::ReflectComponent};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
@@ -99,7 +99,9 @@ use derive_more::derive::From;
 ///
 /// }
 /// ```
-pub trait UiMaterial: AsBindGroup + Asset + Clone + Sized {
+pub trait UiMaterial:
+    AsBindGroup + Asset<AssetStorage: AssetSnapshotStrategy<Self>> + Clone + Sized
+{
     /// Returns this materials vertex shader. If [`ShaderRef::Default`] is returned, the default UI
     /// vertex shader will be used.
     fn vertex_shader() -> ShaderRef {

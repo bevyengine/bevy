@@ -543,9 +543,11 @@ fn add_skin(
     for (joint_index, &joint) in skinned_mesh.joints.iter().enumerate() {
         // Calculate the initial joint matrix.
         let skinned_mesh_inverse_bindpose =
-            skinned_mesh_inverse_bindposes.and_then(|skinned_mesh_inverse_bindposes| {
-                skinned_mesh_inverse_bindposes.get(joint_index)
-            });
+            skinned_mesh_inverse_bindposes
+                .as_ref()
+                .and_then(|skinned_mesh_inverse_bindposes| {
+                    skinned_mesh_inverse_bindposes.get(joint_index)
+                });
         let joint_matrix = match (skinned_mesh_inverse_bindpose, joints.get(joint)) {
             (Some(skinned_mesh_inverse_bindpose), Ok(transform)) => {
                 transform.affine() * *skinned_mesh_inverse_bindpose
