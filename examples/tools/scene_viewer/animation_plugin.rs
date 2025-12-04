@@ -171,15 +171,14 @@ fn handle_inputs(
         if keyboard_input.just_pressed(KeyCode::Enter) {
             info!("switching to new animation for {display_entity_name}");
 
-            let resume = !player.all_paused();
-            // set the current animation to its start and pause it to reset to its starting state
-            player.rewind_all().pause_all();
+            let paused = player.all_paused();
+            player.stop_all();
 
             clips.advance_to_next();
             let current_clip = clips.current();
             player.play(current_clip).repeat();
-            if resume {
-                player.resume_all();
+            if paused {
+                player.pause_all();
             }
         }
     }
