@@ -247,8 +247,6 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
                         }
                     }
 
-
-
                     fn provide_extra_access(
                         state: &mut Self::State,
                         access: &mut #path::query::Access,
@@ -281,7 +279,7 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
                 for #read_only_struct_name #user_ty_generics #user_where_clauses
                 // Make these HRTBs with an unused lifetime parameter to allow trivial constraints
                 // See https://github.com/rust-lang/rust/issues/48214
-                where #(for<'__a> #field_types: #path::query::ReborrowQueryData,)* {
+                where #(for<'__a> #field_types: #path::query::QueryData<ReadOnly: #path::query::ReborrowQueryData>,)* {
                     fn reborrow<'wlong: 'short, 'slong: 'short, 'short>(
                         item: &'short mut Self::Item<'wlong, 'slong>,
                     ) -> Self::Item<'short, 'short> {
