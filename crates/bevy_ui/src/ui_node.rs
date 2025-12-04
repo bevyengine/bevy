@@ -3,7 +3,7 @@ use crate::{
     FocusPolicy, UiRect, Val,
 };
 use bevy_camera::{visibility::Visibility, Camera, RenderTarget};
-use bevy_color::{Alpha, Color};
+use bevy_color::{palettes::css::GRAY, Alpha, Color};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{prelude::*, system::SystemParam};
 use bevy_math::{vec4, BVec2, Rect, UVec2, Vec2, Vec4Swizzles};
@@ -297,6 +297,52 @@ impl ComputedNode {
         }
 
         clip_rect
+    }
+
+    /// Compute the size and position of the horizontal scrollbar's gutter
+    pub fn horizontal_scrollbar_gutter(&self) -> Rect {
+        let content_inset = self.content_inset();
+        let min_x = content_inset.left;
+        let max_x = self.size.x - content_inset.right - self.scrollbar_size.x;
+        let max_y = self.size.y - content_inset.bottom;
+        let min_y = max_y - self.scrollbar_size.y;
+        Rect {
+            min: (min_x, min_y).into(),
+            max: (max_x, max_y).into(),
+        }
+    }
+
+    /// Compute the size and position of the vertical scrollbar's gutter
+    pub fn vertical_scrollbar_gutter(&self) -> Rect {
+        let content_inset = self.content_inset();
+        let max_x = self.size.x - content_inset.right;
+        let min_x = max_x - self.scrollbar_size.x;
+        let min_y = content_inset.top;
+        let max_y = self.size.y - content_inset.bottom - self.scrollbar_size.y;
+        Rect {
+            min: (min_x, min_y).into(),
+            max: (max_x, max_y).into(),
+        }
+    }
+
+    // Compute the size and position of the horizontal scrollbar's thumb
+    pub fn horizontal_scrollbar_thumb(&self) -> Rect {
+        let gutter = self.horizontal_scrollbar_gutter();
+        let width = gutter.size().x * gutter.size().x / self.content_size.x;
+        let min_x = gutter.size().x * self.scroll_position.x / self.content_size.x;
+        let min = (min_x, gutter.min.y).into();
+        let max = min + Vec2::new(width, gutter.size().y);
+        Rect { min, max }
+    }
+
+    // Compute the size and position of the vertical scrollbar's thumb
+    pub fn vertical_scrollbar_thumb(&self) -> Rect {
+        let gutter = self.vertical_scrollbar_gutter();
+        let height = gutter.size().y * gutter.size().y / self.content_size.y;
+        let min_y = gutter.size().y * self.scroll_position.y / self.content_size.y;
+        let min = (gutter.min.x, min_y).into();
+        let max = (gutter.max.x, min_y + height).into();
+        Rect { min, max }
     }
 }
 
@@ -2911,6 +2957,33 @@ impl ComputedUiRenderTargetInfo {
     /// Returns the size of the target camera's viewport in logical pixels.
     pub fn logical_size(&self) -> Vec2 {
         self.physical_size.as_vec2() / self.scale_factor
+    }
+}
+
+/// Styling for an automatic scrollbar
+#[derive(Component, Clone, Copy, Debug, Reflect, PartialEq)]
+#[reflect(Component, Default, PartialEq, Clone)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+pub struct ScrollbarStyle {
+    /// Color of the scrollbar's thumb
+    pub thumb: Color,
+    /// Color of the scrollbar's gutter
+    pub gutter: Color,
+    /// Color of the scrollbar's corner section
+    pub corner: Color,
+}
+
+impl Default for ScrollbarStyle {
+    fn default() -> Self {
+        Self {
+            thumb: Color::WHITE,
+            gutter: GRAY.into(),
+            corner: Color::BLACK,
+        }
     }
 }
 

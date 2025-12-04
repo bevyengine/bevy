@@ -230,6 +230,7 @@ fn vertically_scrolling_list(font_handle: Handle<Font>) -> impl Bundle {
                     align_self: AlignSelf::Stretch,
                     height: percent(50),
                     overflow: Overflow::scroll_y(), // n.b.
+                    scrollbar_width: 20.,
                     ..default()
                 },
                 BackgroundColor(Color::srgb(0.10, 0.10, 0.10)),
@@ -281,6 +282,7 @@ fn bidirectional_scrolling_list(font_handle: Handle<Font>) -> impl Bundle {
                     align_self: AlignSelf::Stretch,
                     height: percent(50),
                     overflow: Overflow::scroll(), // n.b.
+                    scrollbar_width: 20.,
                     ..default()
                 },
                 BackgroundColor(Color::srgb(0.10, 0.10, 0.10)),
@@ -336,6 +338,7 @@ fn bidirectional_scrolling_list_with_sticky(font_handle: Handle<Font>) -> impl B
                     align_self: AlignSelf::Stretch,
                     height: percent(50),
                     overflow: Overflow::scroll(), // n.b.
+                    scrollbar_width: 20.,
                     grid_template_columns: RepeatedGridTrack::auto(30),
                     ..default()
                 },
@@ -408,6 +411,7 @@ fn nested_scrolling_list(font_handle: Handle<Font>) -> impl Bundle {
                     align_self: AlignSelf::Stretch,
                     height: percent(50),
                     overflow: Overflow::scroll(),
+                    scrollbar_width: 20.,
                     ..default()
                 },
                 BackgroundColor(Color::srgb(0.10, 0.10, 0.10)),
@@ -419,6 +423,7 @@ fn nested_scrolling_list(font_handle: Handle<Font>) -> impl Bundle {
                             align_self: AlignSelf::Stretch,
                             height: percent(200. / 5. * (oi as f32 + 1.)),
                             overflow: Overflow::scroll_y(),
+                            scrollbar_width: 20.,
                             ..default()
                         },
                         BackgroundColor(Color::srgb(0.05, 0.05, 0.05)),
