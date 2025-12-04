@@ -48,20 +48,34 @@ fn contiguous_item_struct(
     user_ty_generics_with_world_and_state: &TypeGenerics,
     user_where_clauses_with_world_and_state: Option<&WhereClause>,
 ) -> proc_macro2::TokenStream {
+    let item_attrs = quote! {
+        #[doc = concat!(
+            "Automatically generated [`ContiguousQueryData`](",
+            stringify!(#path),
+            "::fetch::ContiguousQueryData) item type for [`",
+            stringify!(#struct_name),
+            "`], returned when iterating over contiguous query results",
+        )]
+        #[automatically_derived]
+    };
+
     match fields {
         Fields::Named(_) => quote! {
             #derive_macro_call
+            #item_attrs
             #visibility struct #item_struct_name #user_impl_generics_with_world_and_state #user_where_clauses_with_world_and_state {
                 #(#(#field_attrs)* #field_visibilities #field_members: <#field_types as #path::query::ContiguousQueryData>::Contiguous<'__w, '__s>,)*
             }
         },
         Fields::Unnamed(_) => quote! {
             #derive_macro_call
+            #item_attrs
             #visibility struct #item_struct_name #user_impl_generics_with_world_and_state #user_where_clauses_with_world_and_state (
                 #( #field_visibilities <#field_types as #path::query::ContiguousQueryData>::Contiguous<'__w, '__s>, )*
             )
         },
         Fields::Unit => quote! {
+            #item_attrs
             #visibility type #item_struct_name #user_ty_generics_with_world_and_state = #struct_name #user_ty_generics;
         },
     }

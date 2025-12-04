@@ -1773,7 +1773,7 @@ unsafe impl<T: Component> ContiguousQueryData for &T {
                 // (i.e. repr(transparent)) of UnsafeCell
                 let table = table.cast::<T>();
                 // SAFETY: Caller ensures `rows` is the amount of rows in the table
-                let item = unsafe { table.as_slice(entities.len()) };
+                let item = unsafe { table.as_slice_unchecked(entities.len()) };
                 &item[offset..]
             },
             |_| {
@@ -2027,11 +2027,13 @@ unsafe impl<T: Component> ContiguousQueryData for Ref<'_, T> {
                     unsafe { table.debug_checked_unwrap() };
 
                 (
-                    &table_components.cast::<T>().as_slice(entities.len())[offset..],
+                    &table_components
+                        .cast::<T>()
+                        .as_slice_unchecked(entities.len())[offset..],
                     ContiguousComponentTicks::<'w, false>::new(
-                        added_ticks.add(offset),
-                        changed_ticks.add(offset),
-                        callers.map(|callers| callers.add(offset)),
+                        added_ticks.add_unchecked(offset),
+                        changed_ticks.add_unchecked(offset),
+                        callers.map(|callers| callers.add_unchecked(offset)),
                         entities.len() - offset,
                         fetch.last_run,
                         fetch.this_run,
@@ -2277,11 +2279,11 @@ unsafe impl<T: Component<Mutability = Mutable>> ContiguousQueryData for &mut T {
                     unsafe { table.debug_checked_unwrap() };
 
                 (
-                    &mut table_components.as_mut_slice(entities.len())[offset..],
+                    &mut table_components.as_mut_slice_unchecked(entities.len())[offset..],
                     ContiguousComponentTicks::<'w, true>::new(
-                        added_ticks.add(offset),
-                        changed_ticks.add(offset),
-                        callers.map(|callers| callers.add(offset)),
+                        added_ticks.add_unchecked(offset),
+                        changed_ticks.add_unchecked(offset),
+                        callers.map(|callers| callers.add_unchecked(offset)),
                         entities.len() - offset,
                         fetch.last_run,
                         fetch.this_run,
