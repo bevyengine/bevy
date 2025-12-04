@@ -1626,7 +1626,8 @@ impl ProcessorAssetInfos {
     }
 
     /// Remove the info for the given path. This should only happen if an asset's source is
-    /// removed/non-existent. Returns the transaction lock for the asset.
+    /// removed/non-existent. Returns the transaction lock for the asset, or [`None`] if the asset
+    /// path does not exist.
     async fn remove(
         &mut self,
         asset_path: &AssetPath<'static>,
@@ -1652,8 +1653,9 @@ impl ProcessorAssetInfos {
         Some(info.file_transaction_lock)
     }
 
-    /// Remove the info for the given path. This should only happen if an asset's source is
-    /// removed/non-existent. Returns the transaction locks for the old and new assets respectively.
+    /// Remove the info for the old path, and move over its info to the new path. This should only
+    /// happen if an asset's source is removed/non-existent. Returns the transaction locks for the
+    /// old and new assets respectively, or [`None`] if the old path does not exist.
     async fn rename(
         &mut self,
         old: &AssetPath<'static>,
