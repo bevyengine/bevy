@@ -18,7 +18,7 @@ pub struct CosmicBuffer(pub Buffer);
 
 impl Default for CosmicBuffer {
     fn default() -> Self {
-        Self(Buffer::new_empty(Metrics::new(0.0, 0.000001)))
+        Self(Buffer::new_empty(Metrics::new(20.0, 20.0)))
     }
 }
 
