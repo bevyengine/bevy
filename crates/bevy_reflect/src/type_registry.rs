@@ -758,7 +758,6 @@ pub trait FromType<T> {
     /// Inserts [`TypeData`] dependencies of this [`TypeData`].
     /// This is especially useful for trait [`TypeData`] that has a supertrait (ex: `A: B`).
     /// When the [`TypeData`] for `A` is inserted, the `B` [`TypeData`] will also be inserted.
-    // #[inline]
     fn insert_dependencies(_type_registration: &mut TypeRegistration) {}
 }
 
