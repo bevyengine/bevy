@@ -105,8 +105,6 @@ impl TextPipeline {
 
         // Collect span information into a vec. This is necessary because font loading requires mut access
         // to FontSystem, which the cosmic-text Buffer also needs.
-        let mut max_font_size: f32 = 0.;
-        let mut max_line_height: f32 = 0.0;
         let mut spans: Vec<(usize, &str, &TextFont, FontFaceInfo, Color, LineHeight)> =
             core::mem::take(&mut self.spans_buffer)
                 .into_iter()
@@ -147,10 +145,6 @@ impl TextPipeline {
                 return Err(TextError::NoSuchFont);
             }
 
-            // Get max font size for use in cosmic Metrics.
-            max_font_size = max_font_size.max(text_font.font_size);
-            max_line_height = max_line_height.max(line_height.eval(text_font.font_size));
-
             // Load Bevy fonts into cosmic-text's font system.
             let face_info = load_font_to_fontdb(
                 text_font,
@@ -169,13 +163,6 @@ impl TextPipeline {
             }
             spans.push((span_index, span, text_font, face_info, color, line_height));
         }
-
-        let mut metrics = Metrics::new(max_font_size, max_line_height).scale(scale_factor as f32);
-        // Metrics of 0.0 cause `Buffer::set_metrics` to panic. We hack around this by 'falling
-        // through' to call `Buffer::set_rich_text` with zero spans so any cached text will be cleared without
-        // deallocating the buffer.
-        metrics.font_size = metrics.font_size.max(0.000001);
-        metrics.line_height = metrics.line_height.max(0.000001);
 
         // Map text sections to cosmic-text spans, and ignore sections with negative or zero fontsizes,
         // since they cannot be rendered by cosmic-text.
@@ -220,18 +207,12 @@ impl TextPipeline {
             Some(justify.into()),
         );
 
-        buffer.shape_until_scroll(font_system, false);
-
         // Workaround for alignment not working for unbounded text.
         // See https://github.com/pop-os/cosmic-text/issues/343
-        if bounds.width.is_none() && justify != Justify::Left {
-            buffer.set_metrics(font_system, metrics);
-            let dimensions = buffer_dimensions(buffer);
-            // `set_size` causes a re-layout to occur.
-            buffer.set_size(font_system, Some(dimensions.x), bounds.height);
-        } else {
-            buffer.set_metrics_and_size(font_system, metrics, bounds.width, bounds.height);
-        }
+        let width = (bounds.width.is_none() && justify != Justify::Left)
+            .then(|| buffer_dimensions(buffer).x)
+            .or(bounds.width);
+        buffer.set_size(font_system, width, bounds.height);
 
         // Recover the spans buffer.
         spans.clear();
