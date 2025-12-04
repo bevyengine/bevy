@@ -1,6 +1,6 @@
 ---
 title: ECS reborrowing traits
-pull_requests: [todo]
+pull_requests: [22025]
 ---
 
 Bevy 0.18 adds a new `ReborrowQueryData` trait to the `QueryData` family, which allows for
