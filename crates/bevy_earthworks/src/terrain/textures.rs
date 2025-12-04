@@ -204,6 +204,30 @@ impl TerrainTextureAtlas {
     pub fn has_texture(&self, material: MaterialId) -> bool {
         self.get_material(material).is_some() && self.albedo_atlas.is_some()
     }
+
+    /// Converts this atlas configuration to an AtlasUvConfig for mesh generation.
+    ///
+    /// The returned config can be safely sent to async mesh tasks since it
+    /// contains only UV data (no asset handles).
+    pub fn to_uv_config(&self) -> super::meshing::AtlasUvConfig {
+        let mut config = super::meshing::AtlasUvConfig::new();
+
+        // Copy UV regions for each material
+        for (i, mat_config) in self.materials.iter().enumerate() {
+            if let Some(mat) = mat_config {
+                if let Some(material_id) = MaterialId::from_u8(i as u8) {
+                    config.set_material(material_id, mat.albedo_region, mat.uv_scale);
+                }
+            }
+        }
+
+        // Only enable if we have an albedo atlas
+        if self.albedo_atlas.is_some() && self.ready {
+            config.enabled = true;
+        }
+
+        config
+    }
 }
 
 /// Creates a PBR terrain material using the texture atlas.

@@ -1,6 +1,17 @@
 //! UI components for earthworks visualization.
 //!
-//! Provides timeline and playback controls for plan execution.
+//! Provides:
+//! - Timeline and playback controls for plan execution
+//! - RTS-style selection UI with unit info and command card
+//! - Minimap display
+
+mod minimap;
+mod selection;
+
+pub use minimap::{MinimapContainer, MinimapPlugin, MinimapState};
+pub use selection::{
+    CommandButton, MachineCommand, SelectionPanel, SelectionState, SelectionUiPlugin, UnitPortrait,
+};
 
 use bevy_app::prelude::*;
 use bevy_camera::prelude::Visibility;

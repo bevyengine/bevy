@@ -2,11 +2,12 @@
 
 use bevy_asset::RenderAssetUsages;
 use bevy_color::LinearRgba;
-use bevy_math::Vec3;
+use bevy_math::{Vec2, Vec3};
 use bevy_mesh::{Indices, Mesh, PrimitiveTopology, VertexAttributeValues};
 
 use super::chunk::{Chunk, CHUNK_SIZE};
 use super::materials::MaterialId;
+use super::textures::AtlasRegion;
 
 /// Meshing algorithm mode.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -16,6 +17,53 @@ pub enum MeshingMode {
     Simple,
     /// Greedy meshing - merges adjacent faces of the same material into larger quads.
     Greedy,
+}
+
+/// Configuration for atlas-based UV mapping during mesh generation.
+///
+/// This struct contains only the data needed for UV computation (no asset handles),
+/// so it can be safely cloned and sent to async mesh tasks.
+#[derive(Clone, Debug, Default)]
+pub struct AtlasUvConfig {
+    /// UV regions for each material (indexed by MaterialId as u8).
+    /// None means use vertex colors instead.
+    pub regions: [Option<MaterialAtlasUv>; 8],
+    /// Whether the atlas is configured and should be used.
+    pub enabled: bool,
+}
+
+/// UV configuration for a single material.
+#[derive(Clone, Copy, Debug)]
+pub struct MaterialAtlasUv {
+    /// The atlas region for this material.
+    pub region: AtlasRegion,
+    /// UV scale factor for tiling (larger = more repetition within the region).
+    pub uv_scale: f32,
+}
+
+impl AtlasUvConfig {
+    /// Creates a new empty atlas UV config (disabled).
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Sets the UV config for a material.
+    pub fn set_material(&mut self, material: MaterialId, region: AtlasRegion, uv_scale: f32) {
+        if let Some(slot) = self.regions.get_mut(material as usize) {
+            *slot = Some(MaterialAtlasUv { region, uv_scale });
+        }
+    }
+
+    /// Gets the UV config for a material.
+    pub fn get_material(&self, material: MaterialId) -> Option<&MaterialAtlasUv> {
+        self.regions.get(material as usize).and_then(|m| m.as_ref())
+    }
+
+    /// Enables the atlas.
+    pub fn enable(mut self) -> Self {
+        self.enabled = true;
+        self
+    }
 }
 
 /// Generated mesh data for a chunk.
@@ -204,6 +252,20 @@ fn generate_chunk_mesh_simple(chunk: &Chunk, voxel_size: f32) -> Option<Mesh> {
 ///
 /// Returns `None` if the chunk is empty.
 pub fn generate_chunk_mesh_greedy(chunk: &Chunk, voxel_size: f32) -> Option<Mesh> {
+    generate_chunk_mesh_greedy_with_atlas(chunk, voxel_size, None)
+}
+
+/// Generates a mesh for the given chunk using greedy meshing with optional atlas UV mapping.
+///
+/// When `atlas_config` is provided and enabled, UVs are computed to sample from
+/// the correct region of a texture atlas based on each face's material.
+///
+/// Returns `None` if the chunk is empty.
+pub fn generate_chunk_mesh_greedy_with_atlas(
+    chunk: &Chunk,
+    voxel_size: f32,
+    atlas_config: Option<&AtlasUvConfig>,
+) -> Option<Mesh> {
     if chunk.is_empty() {
         return None;
     }
@@ -219,7 +281,7 @@ pub fn generate_chunk_mesh_greedy(chunk: &Chunk, voxel_size: f32) -> Option<Mesh
         Face::PosZ,
         Face::NegZ,
     ] {
-        greedy_mesh_face(chunk, &mut mesh, voxel_size, face);
+        greedy_mesh_face_with_atlas(chunk, &mut mesh, voxel_size, face, atlas_config);
     }
 
     if mesh.is_empty() {
@@ -348,6 +410,136 @@ fn greedy_mesh_face(chunk: &Chunk, mesh: &mut ChunkMesh, voxel_size: f32, face: 
     }
 }
 
+/// Processes a single face direction using greedy meshing with atlas UV support.
+fn greedy_mesh_face_with_atlas(
+    chunk: &Chunk,
+    mesh: &mut ChunkMesh,
+    voxel_size: f32,
+    face: Face,
+    atlas_config: Option<&AtlasUvConfig>,
+) {
+    // Determine the axes for this face direction
+    let (depth_axis, width_axis, height_axis) = match face {
+        Face::PosX | Face::NegX => (0, 2, 1), // depth=X, width=Z, height=Y
+        Face::PosY | Face::NegY => (1, 0, 2), // depth=Y, width=X, height=Z
+        Face::PosZ | Face::NegZ => (2, 0, 1), // depth=Z, width=X, height=Y
+    };
+
+    // Create a visited mask for this face direction
+    let mut visited = [[[false; CHUNK_SIZE]; CHUNK_SIZE]; CHUNK_SIZE];
+
+    // Iterate through each slice perpendicular to the face normal
+    for depth in 0..CHUNK_SIZE {
+        // Iterate through the 2D slice
+        for height in 0..CHUNK_SIZE {
+            for width in 0..CHUNK_SIZE {
+                // Convert 2D slice coordinates to 3D voxel coordinates
+                let mut coords = [0; 3];
+                coords[depth_axis] = depth;
+                coords[width_axis] = width;
+                coords[height_axis] = height;
+                let (x, y, z) = (coords[0], coords[1], coords[2]);
+
+                // Skip if already visited or not solid
+                if visited[x][y][z] {
+                    continue;
+                }
+
+                let voxel = chunk.get(x, y, z);
+                if !voxel.is_solid() {
+                    continue;
+                }
+
+                // Check if this face should be rendered
+                if !should_render_face(chunk, x, y, z, face) {
+                    continue;
+                }
+
+                let material = voxel.material;
+
+                // Greedily expand in width
+                let mut rect_width = 1;
+                while width + rect_width < CHUNK_SIZE {
+                    let mut test_coords = coords;
+                    test_coords[width_axis] = width + rect_width;
+                    let (tx, ty, tz) = (test_coords[0], test_coords[1], test_coords[2]);
+
+                    if visited[tx][ty][tz] {
+                        break;
+                    }
+
+                    let test_voxel = chunk.get(tx, ty, tz);
+                    if !test_voxel.is_solid()
+                        || test_voxel.material != material
+                        || !should_render_face(chunk, tx, ty, tz, face)
+                    {
+                        break;
+                    }
+
+                    rect_width += 1;
+                }
+
+                // Greedily expand in height
+                let mut rect_height = 1;
+                'height_loop: while height + rect_height < CHUNK_SIZE {
+                    // Check if the entire row can be merged
+                    for w in 0..rect_width {
+                        let mut test_coords = coords;
+                        test_coords[width_axis] = width + w;
+                        test_coords[height_axis] = height + rect_height;
+                        let (tx, ty, tz) = (test_coords[0], test_coords[1], test_coords[2]);
+
+                        if visited[tx][ty][tz] {
+                            break 'height_loop;
+                        }
+
+                        let test_voxel = chunk.get(tx, ty, tz);
+                        if !test_voxel.is_solid()
+                            || test_voxel.material != material
+                            || !should_render_face(chunk, tx, ty, tz, face)
+                        {
+                            break 'height_loop;
+                        }
+                    }
+                    rect_height += 1;
+                }
+
+                // Mark all voxels in the rectangle as visited
+                for h in 0..rect_height {
+                    for w in 0..rect_width {
+                        let mut mark_coords = coords;
+                        mark_coords[width_axis] = width + w;
+                        mark_coords[height_axis] = height + h;
+                        let (mx, my, mz) = (mark_coords[0], mark_coords[1], mark_coords[2]);
+                        visited[mx][my][mz] = true;
+                    }
+                }
+
+                // Add the merged quad to the mesh with atlas support
+                let color = material_to_color(material);
+                let atlas_uv = atlas_config
+                    .filter(|c| c.enabled)
+                    .and_then(|c| c.get_material(material));
+
+                add_greedy_face_with_atlas(
+                    mesh,
+                    x,
+                    y,
+                    z,
+                    rect_width,
+                    rect_height,
+                    voxel_size,
+                    face,
+                    width_axis,
+                    height_axis,
+                    color,
+                    atlas_uv,
+                );
+            }
+        }
+    }
+}
+
 /// Adds a greedily-merged face quad to the mesh.
 #[allow(clippy::too_many_arguments)]
 fn add_greedy_face(
@@ -397,6 +589,94 @@ fn add_greedy_face(
     mesh.uvs.push([u_scale, 0.0]);
     mesh.uvs.push([u_scale, v_scale]);
     mesh.uvs.push([0.0, v_scale]);
+
+    // Two triangles for the quad (CCW winding)
+    mesh.indices.push(base_index);
+    mesh.indices.push(base_index + 1);
+    mesh.indices.push(base_index + 2);
+    mesh.indices.push(base_index);
+    mesh.indices.push(base_index + 2);
+    mesh.indices.push(base_index + 3);
+}
+
+/// Adds a greedily-merged face quad to the mesh with atlas UV support.
+#[allow(clippy::too_many_arguments)]
+fn add_greedy_face_with_atlas(
+    mesh: &mut ChunkMesh,
+    x: usize,
+    y: usize,
+    z: usize,
+    width: usize,
+    height: usize,
+    voxel_size: f32,
+    face: Face,
+    width_axis: usize,
+    height_axis: usize,
+    color: [f32; 4],
+    atlas_uv: Option<&MaterialAtlasUv>,
+) {
+    let base_index = mesh.positions.len() as u32;
+    let normal = face.normal();
+
+    // Calculate base position
+    let base_pos = Vec3::new(
+        x as f32 * voxel_size,
+        y as f32 * voxel_size,
+        z as f32 * voxel_size,
+    );
+
+    // Get the 4 vertices for this merged face
+    let vertices = get_greedy_face_vertices(
+        base_pos,
+        voxel_size,
+        face,
+        width,
+        height,
+        width_axis,
+        height_axis,
+    );
+
+    for vertex in &vertices {
+        mesh.positions.push(*vertex);
+        mesh.normals.push(normal);
+        mesh.colors.push(color);
+    }
+
+    // Generate UVs based on atlas config or use simple tiling
+    let uvs = if let Some(atlas) = atlas_uv {
+        // Atlas mode: map UVs to the material's region with tiling
+        let region = &atlas.region;
+        let uv_scale = atlas.uv_scale;
+
+        // Calculate tiled local UVs (these repeat within the region)
+        let u_tiles = width as f32 * uv_scale;
+        let v_tiles = height as f32 * uv_scale;
+
+        // Map the 4 corners to the atlas region with tiling
+        // We use fract() implicitly through the shader's texture wrap mode,
+        // but we encode the atlas region bounds so the shader can sample correctly.
+        // For now, we map to the region center and let tiling happen at edges.
+        [
+            region.map_uv_tiled(Vec2::new(0.0, 0.0)).to_array(),
+            region.map_uv_tiled(Vec2::new(u_tiles, 0.0)).to_array(),
+            region.map_uv_tiled(Vec2::new(u_tiles, v_tiles)).to_array(),
+            region.map_uv_tiled(Vec2::new(0.0, v_tiles)).to_array(),
+        ]
+    } else {
+        // Non-atlas mode: simple tiling UVs
+        let u_scale = width as f32;
+        let v_scale = height as f32;
+        [
+            [0.0, 0.0],
+            [u_scale, 0.0],
+            [u_scale, v_scale],
+            [0.0, v_scale],
+        ]
+    };
+
+    for uv in &uvs {
+        mesh.uvs.push(*uv);
+    }
 
     // Two triangles for the quad (CCW winding)
     mesh.indices.push(base_index);

@@ -11,7 +11,7 @@ use crate::models::ModelsPlugin;
 use crate::plan::PlanPlugin;
 use crate::scoring::ScoringPlugin;
 use crate::terrain::TerrainPlugin;
-use crate::ui::UiPlugin;
+use crate::ui::{MinimapPlugin, SelectionUiPlugin, UiPlugin};
 use crate::zyns::ZynsPlugin;
 
 /// The main Earthworks plugin that provides volumetric terrain and machine simulation.
@@ -52,9 +52,11 @@ impl Plugin for EarthworksPlugin {
             .add_plugins(ZynsPlugin)
             .add_plugins(JobsPlugin);
 
-        // Only add UI plugin if show_ui is enabled
+        // Only add UI plugins if show_ui is enabled
         if self.config.show_ui {
-            app.add_plugins(UiPlugin);
+            app.add_plugins(UiPlugin)
+                .add_plugins(SelectionUiPlugin)
+                .add_plugins(MinimapPlugin);
         }
     }
 }

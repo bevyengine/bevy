@@ -20,7 +20,10 @@ mod voxel;
 pub use chunk::{Chunk, ChunkCoord, ChunkLOD, DirtyChunk, MeshTask, CHUNK_SIZE};
 pub use height::{get_terrain_height, get_terrain_height_interpolated};
 pub use materials::MaterialId;
-pub use meshing::{generate_chunk_mesh, generate_chunk_mesh_greedy, ChunkMesh};
+pub use meshing::{
+    generate_chunk_mesh, generate_chunk_mesh_greedy, generate_chunk_mesh_greedy_with_atlas,
+    AtlasUvConfig, ChunkMesh, MaterialAtlasUv,
+};
 pub use operations::{excavate, fill, Aabb, TerrainModifiedEvent};
 pub use textures::{AtlasRegion, TerrainTextureAtlas, TerrainMaterialTexture, create_terrain_material};
 pub use voxel::{Voxel, VoxelState, VoxelTerrain};
@@ -89,9 +92,16 @@ fn queue_async_mesh_generation(
     mut commands: Commands,
     config: Res<crate::config::EarthworksConfig>,
     dirty_chunks: Query<(Entity, &Chunk), (With<DirtyChunk>, Without<MeshTask>)>,
+    texture_atlas: Option<Res<TerrainTextureAtlas>>,
 ) {
     let task_pool = AsyncComputeTaskPool::get();
     let voxel_size = config.voxel_size;
+
+    // Get atlas UV config if available
+    let atlas_config = texture_atlas
+        .as_ref()
+        .filter(|a| a.ready)
+        .map(|a| a.to_uv_config());
 
     // Limit how many we queue per frame to prevent hitches
     let max_queue = config.max_meshes_per_frame as usize;
@@ -105,6 +115,7 @@ fn queue_async_mesh_generation(
         // Clone voxel data for async processing
         let voxels = chunk.voxels().clone();
         let is_empty = chunk.is_empty();
+        let atlas_config_clone = atlas_config.clone();
 
         // Spawn async task
         let task = task_pool.spawn(async move {
@@ -119,7 +130,11 @@ fn queue_async_mesh_generation(
                 temp_chunk.set(x, y, z, *voxel);
             }
 
-            generate_chunk_mesh_greedy(&temp_chunk, voxel_size)
+            generate_chunk_mesh_greedy_with_atlas(
+                &temp_chunk,
+                voxel_size,
+                atlas_config_clone.as_ref(),
+            )
         });
 
         commands
@@ -135,6 +150,10 @@ fn queue_async_mesh_generation(
 #[derive(Resource)]
 struct TerrainMaterial(bevy_asset::Handle<bevy_pbr::StandardMaterial>);
 
+/// Shared material handle for textured terrain chunks.
+#[derive(Resource)]
+struct TexturedTerrainMaterial(bevy_asset::Handle<bevy_pbr::StandardMaterial>);
+
 /// Poll completed mesh tasks and apply results.
 fn poll_mesh_tasks(
     mut commands: Commands,
@@ -143,9 +162,28 @@ fn poll_mesh_tasks(
     mut meshes: ResMut<bevy_asset::Assets<bevy_mesh::Mesh>>,
     mut materials: ResMut<bevy_asset::Assets<bevy_pbr::StandardMaterial>>,
     terrain_material: Option<Res<TerrainMaterial>>,
+    textured_material: Option<Res<TexturedTerrainMaterial>>,
+    texture_atlas: Option<Res<TerrainTextureAtlas>>,
 ) {
-    // Get or create the shared terrain material
-    let material_handle = if let Some(mat) = terrain_material {
+    // Check if we should use textured material
+    let use_textured = texture_atlas
+        .as_ref()
+        .map(|a| a.ready && a.albedo_atlas.is_some())
+        .unwrap_or(false);
+
+    // Get or create the appropriate material
+    let material_handle = if use_textured {
+        // Use textured material with atlas
+        if let Some(mat) = textured_material {
+            mat.0.clone()
+        } else {
+            // Create textured material from atlas
+            let atlas = texture_atlas.as_ref().unwrap();
+            let handle = create_terrain_material(&mut materials, atlas);
+            commands.insert_resource(TexturedTerrainMaterial(handle.clone()));
+            handle
+        }
+    } else if let Some(mat) = terrain_material {
         mat.0.clone()
     } else {
         // Create a material that uses vertex colors with improved shading
