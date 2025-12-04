@@ -208,8 +208,6 @@ impl TextPipeline {
             Some(justify.into()),
         );
 
-        buffer.shape_until_scroll(font_system, false);
-
         // Workaround for alignment not working for unbounded text.
         // See https://github.com/pop-os/cosmic-text/issues/343
         if bounds.width.is_none() && justify != Justify::Left {
