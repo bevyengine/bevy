@@ -38,6 +38,7 @@ use bevy_render::{
         SamplerBindingType, ShaderType, TextureSampleType, TextureView,
     },
     renderer::{RenderAdapter, RenderDevice, RenderQueue},
+    settings::WgpuFeatures,
     sync_component::SyncComponentPlugin,
     sync_world::RenderEntity,
     texture::{FallbackImage, GpuImage},
@@ -48,13 +49,6 @@ use bevy_transform::components::GlobalTransform;
 use bytemuck::{Pod, Zeroable};
 
 use crate::{binding_arrays_are_usable, prepare_lights, GlobalClusterableObjectMeta};
-
-/// The maximum number of decals that can be present in a view.
-///
-/// This number is currently relatively low in order to work around the lack of
-/// first-class binding arrays in `wgpu`. When that feature is implemented, this
-/// limit can be increased.
-pub(crate) const MAX_VIEW_DECALS: usize = 8;
 
 /// A plugin that adds support for clustered decals.
 ///
@@ -328,7 +322,7 @@ pub(crate) fn get_bind_group_layout_entries(
         binding_types::storage_buffer_read_only::<RenderClusteredDecal>(false),
         // `decal_textures`
         binding_types::texture_2d(TextureSampleType::Float { filterable: true })
-            .count(NonZero::<u32>::new(MAX_VIEW_DECALS as u32).unwrap()),
+            .count(NonZero::<u32>::new(max_view_decals(render_device)).unwrap()),
         // `decal_sampler`
         binding_types::sampler(SamplerBindingType::Filtering),
     ])
@@ -372,10 +366,16 @@ impl<'a> RenderViewClusteredDecalBindGroupEntries<'a> {
             }
         }
 
-        // Pad out the binding array to its maximum length, which is
-        // required on some platforms.
-        while texture_views.len() < MAX_VIEW_DECALS {
-            texture_views.push(&*fallback_image.d2.texture_view);
+        // If required on this platform, pad out the binding array to its
+        // maximum length.
+        if !render_device
+            .features()
+            .contains(WgpuFeatures::PARTIALLY_BOUND_BINDING_ARRAY)
+        {
+            let max_view_decals = max_view_decals(render_device);
+            while texture_views.len() < max_view_decals as usize {
+                texture_views.push(&*fallback_image.d2.texture_view);
+            }
         }
 
         Some(RenderViewClusteredDecalBindGroupEntries {
@@ -438,4 +438,21 @@ pub fn clustered_decals_are_usable(
     // Re-enable this when `wgpu` has first-class bindless.
     binding_arrays_are_usable(render_device, render_adapter)
         && cfg!(feature = "pbr_clustered_decals")
+}
+
+/// Returns the maximum number of decals that can be in the scene, taking
+/// platform limitations into account.
+fn max_view_decals(render_device: &RenderDevice) -> u32 {
+    // If the current `wgpu` platform doesn't support partially-bound binding
+    // arrays, limit the number of decals to a low number. If we didn't do this,
+    // then on such platforms we'd pay the maximum overhead even if there are no
+    // decals are in the scene.
+    if render_device
+        .features()
+        .contains(WgpuFeatures::PARTIALLY_BOUND_BINDING_ARRAY)
+    {
+        1024
+    } else {
+        8
+    }
 }
