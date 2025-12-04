@@ -1011,10 +1011,8 @@ pub struct QueryContiguousIter<'a, 'w, 's, D: ContiguousQueryData, F: ArchetypeF
     iter: &'a mut QueryIter<'w, 's, D, F>,
 }
 
-impl<'a, 'w, 's, D, F> Iterator for QueryContiguousIter<'a, 'w, 's, D, F>
-where
-    D: ContiguousQueryData,
-    F: ArchetypeFilter,
+impl<'a, 'w, 's, D: ContiguousQueryData, F: ArchetypeFilter> Iterator
+    for QueryContiguousIter<'a, 'w, 's, D, F>
 {
     type Item = D::Contiguous<'w, 's>;
 
@@ -1029,6 +1027,22 @@ where
                 .next_contiguous(self.iter.tables, self.iter.query_state)
         }
     }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.iter.cursor.storage_id_iter.size_hint()
+    }
+}
+
+// [`QueryIterationCursor::next_contiguous`] always returns None when exhausted
+impl<'a, 'w, 's, D: ContiguousQueryData, F: ArchetypeFilter> FusedIterator
+    for QueryContiguousIter<'a, 'w, 's, D, F>
+{
+}
+
+// self.iter.cursor.storage_id_iter is a slice's iterator hence has an exact size
+impl<'a, 'w, 's, D: ContiguousQueryData, F: ArchetypeFilter> ExactSizeIterator
+    for QueryContiguousIter<'a, 'w, 's, D, F>
+{
 }
 
 /// An [`Iterator`] over sorted query results of a [`Query`](crate::system::Query).
