@@ -27,6 +27,7 @@ pub mod effects;
 pub mod export;
 pub mod jobs;
 pub mod machines;
+pub mod models;
 pub mod plan;
 pub mod scoring;
 pub mod terrain;
@@ -48,6 +49,9 @@ pub mod prelude {
     pub use crate::machines::{
         BladeState, BladeVisual, ControlResponse, DirectControlPlugin, DozerPushState, Machine,
         MachineActivity, MachineCatalog, MachineType, Mobility, PlayerControlled, WorkEnvelope,
+    };
+    pub use crate::models::{
+        spawn_machine_with_model, MachineModelRegistry, MachineSpawner, ModelAssets, ModelLoadState,
     };
     pub use crate::plan::{ExecutionPlan, PlanPlayback, PlanStep, PlannedAction};
     pub use crate::plugin::EarthworksPlugin;

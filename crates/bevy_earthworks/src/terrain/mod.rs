@@ -14,6 +14,7 @@ mod height;
 mod materials;
 mod meshing;
 pub mod operations;
+mod textures;
 mod voxel;
 
 pub use chunk::{Chunk, ChunkCoord, ChunkLOD, DirtyChunk, MeshTask, CHUNK_SIZE};
@@ -21,6 +22,7 @@ pub use height::{get_terrain_height, get_terrain_height_interpolated};
 pub use materials::MaterialId;
 pub use meshing::{generate_chunk_mesh, generate_chunk_mesh_greedy, ChunkMesh};
 pub use operations::{excavate, fill, Aabb, TerrainModifiedEvent};
+pub use textures::{AtlasRegion, TerrainTextureAtlas, TerrainMaterialTexture, create_terrain_material};
 pub use voxel::{Voxel, VoxelState, VoxelTerrain};
 
 use bevy_app::prelude::*;

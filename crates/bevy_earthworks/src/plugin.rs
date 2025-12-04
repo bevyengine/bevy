@@ -7,6 +7,7 @@ use crate::config::EarthworksConfig;
 use crate::effects::EffectsPlugin;
 use crate::jobs::JobsPlugin;
 use crate::machines::MachinesPlugin;
+use crate::models::ModelsPlugin;
 use crate::plan::PlanPlugin;
 use crate::scoring::ScoringPlugin;
 use crate::terrain::TerrainPlugin;
@@ -44,6 +45,7 @@ impl Plugin for EarthworksPlugin {
         app.insert_resource(self.config.clone())
             .add_plugins(TerrainPlugin)
             .add_plugins(MachinesPlugin)
+            .add_plugins(ModelsPlugin)
             .add_plugins(PlanPlugin)
             .add_plugins(ScoringPlugin)
             .add_plugins(EffectsPlugin)

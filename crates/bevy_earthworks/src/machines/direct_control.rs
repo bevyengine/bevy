@@ -11,6 +11,7 @@
 
 use bevy_app::prelude::*;
 use bevy_asset::prelude::*;
+#[cfg(feature = "audio")]
 use bevy_audio::{AudioPlayer, AudioSink, AudioSinkPlayback, PlaybackSettings, Volume};
 use bevy_color::Color;
 use bevy_ecs::prelude::*;
@@ -135,15 +136,12 @@ pub struct DirectControlPlugin;
 impl Plugin for DirectControlPlugin {
     fn build(&self, app: &mut App) {
         app.register_type::<DozerPushState>()
-            .register_type::<EngineSound>()
-            .register_type::<EngineSoundSpawned>()
             .register_type::<BladeLoadPile>()
             .register_type::<ControlResponse>()
             .add_systems(
                 Update,
                 (
                     spawn_control_response,
-                    spawn_engine_sound,
                     spawn_blade_load_visual,
                     read_dozer_input,
                     smooth_controls,
@@ -151,11 +149,17 @@ impl Plugin for DirectControlPlugin {
                     update_machine_on_terrain,
                     blade_terrain_interaction,
                     animate_blade_visual,
-                    update_engine_sound,
                     update_blade_load_visual,
                 )
                     .chain(),
             );
+
+        #[cfg(feature = "audio")]
+        {
+            app.register_type::<EngineSound>()
+                .register_type::<EngineSoundSpawned>()
+                .add_systems(Update, (spawn_engine_sound, update_engine_sound));
+        }
     }
 }
 
@@ -164,10 +168,12 @@ impl Plugin for DirectControlPlugin {
 pub struct BladeVisual;
 
 /// Marker for the engine audio source.
+#[cfg(feature = "audio")]
 #[derive(Component, Default, Reflect)]
 pub struct EngineSound;
 
 /// Marker that engine sound was already attempted to be spawned.
+#[cfg(feature = "audio")]
 #[derive(Component, Default, Reflect)]
 pub struct EngineSoundSpawned;
 
@@ -662,6 +668,7 @@ fn animate_blade_visual(
 }
 
 /// Spawns engine sound for player-controlled machines.
+#[cfg(feature = "audio")]
 fn spawn_engine_sound(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
@@ -685,6 +692,7 @@ fn spawn_engine_sound(
 }
 
 /// Updates engine sound pitch based on movement speed.
+#[cfg(feature = "audio")]
 fn update_engine_sound(
     player_query: Query<(&MachineActivity, Option<&ControlResponse>), With<PlayerControlled>>,
     engine_query: Query<&AudioSink, With<EngineSound>>,
