@@ -59,7 +59,7 @@ impl NonSendData {
     /// The only row in the underlying `BlobArray`.
     const ROW: usize = 0;
 
-    /// Validates that the access to NonSendData is only done on the thread they were created from.
+    /// Validates that the access to `NonSendData` is only done on the thread they were created from.
     ///
     /// # Panics
     /// This will panic if called from a different thread than the one it was inserted from.
