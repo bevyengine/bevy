@@ -590,6 +590,7 @@ impl TypeRegistration {
 
     /// Inserts the [`TypeData`] instance of `T` created for `V`, and inserts any
     /// [`TypeData`] dependencies for that combination of `T` and `V`.
+    #[inline]
     pub fn register_type_data<T: TypeData + FromType<V>, V>(&mut self) {
         self.insert(T::from_type());
         T::insert_dependencies(self);
@@ -757,6 +758,7 @@ pub trait FromType<T> {
     /// Inserts [`TypeData`] dependencies of this [`TypeData`].
     /// This is especially useful for trait [`TypeData`] that has a supertrait (ex: `A: B`).
     /// When the [`TypeData`] for `A` is inserted, the `B` [`TypeData`] will also be inserted.
+    // #[inline]
     fn insert_dependencies(_type_registration: &mut TypeRegistration) {}
 }
 
