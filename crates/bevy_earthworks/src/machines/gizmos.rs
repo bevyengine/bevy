@@ -99,14 +99,28 @@ pub fn draw_work_envelopes(
                         let a1 = -half_angle + (i as f32 / segments as f32) * *angle;
                         let a2 = -half_angle + ((i + 1) as f32 / segments as f32) * *angle;
 
-                        let p1 = center + rotation * Vec3::new(a1.sin() * *radius, 0.0, a1.cos() * *radius);
-                        let p2 = center + rotation * Vec3::new(a2.sin() * *radius, 0.0, a2.cos() * *radius);
+                        let p1 = center
+                            + rotation * Vec3::new(a1.sin() * *radius, 0.0, a1.cos() * *radius);
+                        let p2 = center
+                            + rotation * Vec3::new(a2.sin() * *radius, 0.0, a2.cos() * *radius);
                         gizmos.line(p1, p2, color);
                     }
 
                     // Draw lines from center to arc ends
-                    let left = center + rotation * Vec3::new((-half_angle).sin() * *radius, 0.0, (-half_angle).cos() * *radius);
-                    let right = center + rotation * Vec3::new(half_angle.sin() * *radius, 0.0, half_angle.cos() * *radius);
+                    let left = center
+                        + rotation
+                            * Vec3::new(
+                                (-half_angle).sin() * *radius,
+                                0.0,
+                                (-half_angle).cos() * *radius,
+                            );
+                    let right = center
+                        + rotation
+                            * Vec3::new(
+                                half_angle.sin() * *radius,
+                                0.0,
+                                half_angle.cos() * *radius,
+                            );
                     gizmos.line(center, left, color);
                     gizmos.line(center, right, color);
                 }

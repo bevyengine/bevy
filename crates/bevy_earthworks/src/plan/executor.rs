@@ -13,7 +13,12 @@ pub fn plan_executor_system(
     time: Res<Time>,
     plans: Res<bevy_asset::Assets<ExecutionPlan>>,
     mut playback: ResMut<PlanPlayback>,
-    mut machines: Query<(Entity, &Machine, &mut MachineActivity, &bevy_transform::components::Transform)>,
+    mut machines: Query<(
+        Entity,
+        &Machine,
+        &mut MachineActivity,
+        &bevy_transform::components::Transform,
+    )>,
     mut step_events: MessageWriter<PlanStepEvent>,
     mut machine_events: MessageWriter<MachineEvent>,
 ) {

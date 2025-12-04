@@ -1,4 +1,8 @@
 //! Camera control for earthworks visualization.
+//!
+//! Features:
+//! - Orbit camera with mouse and keyboard controls
+//! - Trauma-based camera shake system for game feel
 
 use bevy_app::prelude::*;
 use bevy_ecs::prelude::*;
@@ -6,6 +10,7 @@ use bevy_input::mouse::{MouseMotion, MouseWheel};
 use bevy_input::prelude::*;
 use bevy_math::{Quat, Vec2, Vec3};
 use bevy_reflect::Reflect;
+use bevy_time::Time;
 use bevy_transform::components::Transform;
 
 /// Plugin for camera systems.
@@ -13,7 +18,8 @@ pub struct CameraPlugin;
 
 impl Plugin for CameraPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Update, orbit_camera_system);
+        app.register_type::<CameraShake>()
+            .add_systems(Update, (orbit_camera_system, apply_camera_shake).chain());
     }
 }
 
@@ -101,6 +107,89 @@ impl OrbitCamera {
     }
 }
 
+/// Trauma-based camera shake component.
+///
+/// Uses Squirrel Eiserloh's GDC talk "Juice it or Lose it" approach:
+/// - Trauma accumulates from impacts (0.0 - 1.0)
+/// - Shake amount = trauma² (smoother feel at low trauma)
+/// - Trauma decays over time
+#[derive(Component, Clone, Debug, Reflect)]
+pub struct CameraShake {
+    /// Current trauma level (0.0 - 1.0).
+    pub trauma: f32,
+    /// Maximum translation offset in world units.
+    pub max_offset: Vec3,
+    /// Maximum rotation offset in radians.
+    pub max_rotation: f32,
+    /// Trauma decay rate per second.
+    pub decay: f32,
+    /// Noise time accumulator for smooth shake.
+    noise_time: f32,
+}
+
+impl Default for CameraShake {
+    fn default() -> Self {
+        Self {
+            trauma: 0.0,
+            max_offset: Vec3::new(0.3, 0.2, 0.0),
+            max_rotation: 0.02,
+            decay: 1.5,
+            noise_time: 0.0,
+        }
+    }
+}
+
+impl CameraShake {
+    /// Creates a new camera shake with default settings.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Adds trauma to the shake (capped at 1.0).
+    pub fn add_trauma(&mut self, amount: f32) {
+        self.trauma = (self.trauma + amount).min(1.0);
+    }
+
+    /// Returns the current shake intensity (trauma squared for smoother feel).
+    pub fn shake_amount(&self) -> f32 {
+        self.trauma * self.trauma
+    }
+
+    /// Returns true if there is active shake.
+    pub fn is_shaking(&self) -> bool {
+        self.trauma > 0.001
+    }
+}
+
+/// Event to add camera trauma from anywhere in the codebase.
+#[derive(Clone, Debug, bevy_ecs::prelude::Message)]
+pub struct CameraTraumaEvent {
+    /// Amount of trauma to add (0.0 - 1.0).
+    pub amount: f32,
+}
+
+impl CameraTraumaEvent {
+    /// Light impact (blade scrape, small excavation).
+    pub fn light() -> Self {
+        Self { amount: 0.03 }
+    }
+
+    /// Medium impact (digging, pushing load).
+    pub fn medium() -> Self {
+        Self { amount: 0.08 }
+    }
+
+    /// Heavy impact (dump load, job complete).
+    pub fn heavy() -> Self {
+        Self { amount: 0.15 }
+    }
+
+    /// Custom trauma amount.
+    pub fn custom(amount: f32) -> Self {
+        Self { amount }
+    }
+}
+
 /// System that handles orbit camera input and updates.
 pub fn orbit_camera_system(
     mut cameras: Query<(&mut OrbitCamera, &mut Transform)>,
@@ -174,5 +263,62 @@ pub fn orbit_camera_system(
         // Update transform
         transform.translation = orbit.calculate_position();
         transform.rotation = orbit.calculate_rotation();
+    }
+}
+
+/// System that applies camera shake effect.
+fn apply_camera_shake(time: Res<Time>, mut query: Query<(&mut Transform, &mut CameraShake)>) {
+    let dt = time.delta_secs();
+
+    for (mut transform, mut shake) in query.iter_mut() {
+        if !shake.is_shaking() {
+            continue;
+        }
+
+        let shake_amount = shake.shake_amount();
+
+        // Update noise time for smooth shake
+        shake.noise_time += dt * 25.0;
+        let t = shake.noise_time;
+
+        // Use multiple sine waves at different frequencies for pseudo-noise
+        // This creates a more organic shake than single frequency
+        let noise_x = (t * 1.0).sin() * 0.5
+            + (t * 2.3).sin() * 0.3
+            + (t * 5.7).sin() * 0.2;
+        let noise_y = (t * 1.1).sin() * 0.5
+            + (t * 2.7).sin() * 0.3
+            + (t * 6.1).sin() * 0.2;
+        let noise_rot = (t * 0.9).sin() * 0.5
+            + (t * 2.1).sin() * 0.3
+            + (t * 4.3).sin() * 0.2;
+
+        // Apply offset scaled by shake amount
+        let offset = Vec3::new(
+            noise_x * shake.max_offset.x * shake_amount,
+            noise_y * shake.max_offset.y * shake_amount,
+            0.0,
+        );
+
+        transform.translation += offset;
+
+        // Apply rotation shake (roll only for best effect)
+        let rotation_offset = noise_rot * shake.max_rotation * shake_amount;
+        transform.rotate_local_z(rotation_offset);
+
+        // Decay trauma
+        shake.trauma = (shake.trauma - shake.decay * dt).max(0.0);
+    }
+}
+
+/// System to handle camera trauma events.
+pub fn handle_camera_trauma_events(
+    mut events: MessageReader<CameraTraumaEvent>,
+    mut cameras: Query<&mut CameraShake>,
+) {
+    for event in events.read() {
+        for mut shake in cameras.iter_mut() {
+            shake.add_trauma(event.amount);
+        }
     }
 }

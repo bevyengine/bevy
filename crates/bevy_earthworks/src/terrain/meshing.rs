@@ -496,7 +496,13 @@ fn should_render_face(chunk: &Chunk, x: usize, y: usize, z: usize, face: Face) -
     let nz = z as i32 + dz;
 
     // If neighbor is out of bounds, render the face
-    if nx < 0 || nx >= CHUNK_SIZE as i32 || ny < 0 || ny >= CHUNK_SIZE as i32 || nz < 0 || nz >= CHUNK_SIZE as i32 {
+    if nx < 0
+        || nx >= CHUNK_SIZE as i32
+        || ny < 0
+        || ny >= CHUNK_SIZE as i32
+        || nz < 0
+        || nz >= CHUNK_SIZE as i32
+    {
         return true;
     }
 

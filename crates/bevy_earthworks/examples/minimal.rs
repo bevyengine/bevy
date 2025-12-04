@@ -11,11 +11,7 @@ fn main() {
         .run();
 }
 
-fn setup(
-    mut commands: Commands,
-    mut terrain: ResMut<VoxelTerrain>,
-    config: Res<EarthworksConfig>,
-) {
+fn setup(mut commands: Commands, mut terrain: ResMut<VoxelTerrain>, config: Res<EarthworksConfig>) {
     // Spawn camera
     commands.spawn((
         Camera3d::default(),

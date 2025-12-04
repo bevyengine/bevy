@@ -46,13 +46,20 @@ impl MaterialId {
     pub fn color(&self) -> Color {
         match self {
             MaterialId::Air => Color::NONE,
-            MaterialId::Dirt => Color::srgb(0.55, 0.40, 0.25),
-            MaterialId::Clay => Color::srgb(0.70, 0.55, 0.45),
-            MaterialId::Rock => Color::srgb(0.50, 0.50, 0.50),
-            MaterialId::Topsoil => Color::srgb(0.35, 0.25, 0.15),
-            MaterialId::Gravel => Color::srgb(0.60, 0.58, 0.55),
-            MaterialId::Sand => Color::srgb(0.85, 0.80, 0.60),
-            MaterialId::Water => Color::srgba(0.20, 0.40, 0.80, 0.70),
+            // Rich brown dirt - earthy and warm
+            MaterialId::Dirt => Color::srgb(0.6, 0.45, 0.3),
+            // Orange-brown clay - distinct from dirt
+            MaterialId::Clay => Color::srgb(0.75, 0.5, 0.35),
+            // Gray rock with slight blue tint
+            MaterialId::Rock => Color::srgb(0.45, 0.45, 0.5),
+            // Dark rich topsoil with green tint (grass)
+            MaterialId::Topsoil => Color::srgb(0.35, 0.45, 0.25),
+            // Light gray gravel
+            MaterialId::Gravel => Color::srgb(0.55, 0.55, 0.5),
+            // Warm tan sand
+            MaterialId::Sand => Color::srgb(0.9, 0.8, 0.55),
+            // Blue water
+            MaterialId::Water => Color::srgba(0.2, 0.5, 0.8, 0.8),
         }
     }
 

@@ -3,6 +3,7 @@
 //! Provides timeline and playback controls for plan execution.
 
 use bevy_app::prelude::*;
+use bevy_camera::prelude::Visibility;
 use bevy_color::Color;
 use bevy_ecs::prelude::*;
 use bevy_input::mouse::MouseButton;
@@ -24,6 +25,7 @@ impl Plugin for UiPlugin {
             .add_systems(
                 Update,
                 (
+                    update_timeline_visibility,
                     update_timeline_display,
                     handle_timeline_interaction,
                     handle_scrubber_interaction,
@@ -259,13 +261,27 @@ fn spawn_timeline_ui(mut commands: Commands) {
         });
 }
 
+/// System to update timeline visibility based on TimelineState.
+fn update_timeline_visibility(
+    timeline_state: Res<TimelineState>,
+    mut timeline_query: Query<&mut Visibility, With<TimelineUi>>,
+) {
+    for mut visibility in timeline_query.iter_mut() {
+        *visibility = if timeline_state.visible {
+            Visibility::Inherited
+        } else {
+            Visibility::Hidden
+        };
+    }
+}
+
 /// System to update timeline display based on PlanPlayback state.
 fn update_timeline_display(
     playback: Res<PlanPlayback>,
     mut play_pause_query: Query<&Children, With<PlayPauseButton>>,
-    mut text_query: Query<&mut Text>,
-    mut time_display_query: Query<&mut Text, (With<TimeDisplay>, Without<PlayPauseButton>)>,
-    mut progress_query: Query<&mut Node, With<TimelineProgress>>,
+    mut text_query: Query<&mut Text, Without<TimeDisplay>>,
+    mut time_display_query: Query<&mut Text, With<TimeDisplay>>,
+    mut progress_query: Query<&mut Node, (With<TimelineProgress>, Without<ScrubberHandle>)>,
     mut scrubber_handle_query: Query<&mut Node, (With<ScrubberHandle>, Without<TimelineProgress>)>,
 ) {
     // Update play/pause button text
@@ -306,45 +322,50 @@ fn update_timeline_display(
 /// System to handle button clicks and interactions.
 fn handle_timeline_interaction(
     mut playback: ResMut<PlanPlayback>,
-    mut play_pause_query: Query<(&Interaction, &BackgroundColor), (Changed<Interaction>, With<PlayPauseButton>)>,
-    mut speed_query: Query<
+    mut play_pause_query: Query<&Interaction, (Changed<Interaction>, With<PlayPauseButton>)>,
+    mut speed_buttons: Query<
         (&Interaction, &SpeedButton, &mut BackgroundColor),
-        (Changed<Interaction>, Without<PlayPauseButton>),
+        Without<PlayPauseButton>,
     >,
-    mut all_speed_buttons: Query<(&SpeedButton, &mut BackgroundColor), Without<PlayPauseButton>>,
 ) {
     // Handle play/pause button
-    for (interaction, _) in play_pause_query.iter_mut() {
+    for interaction in play_pause_query.iter_mut() {
         if *interaction == Interaction::Pressed {
             playback.toggle();
         }
     }
 
-    // Handle speed buttons
-    for (interaction, speed_button, mut bg_color) in speed_query.iter_mut() {
-        match *interaction {
-            Interaction::Pressed => {
-                playback.set_speed(speed_button.speed);
+    // First pass: check if any speed button was pressed and capture the new speed
+    let mut new_speed: Option<f32> = None;
+    for (interaction, speed_button, _) in speed_buttons.iter() {
+        if *interaction == Interaction::Pressed {
+            new_speed = Some(speed_button.speed);
+            playback.set_speed(speed_button.speed);
+            break;
+        }
+    }
 
-                // Update all speed button colors
-                for (sb, mut bg) in all_speed_buttons.iter_mut() {
-                    bg.0 = if (sb.speed - speed_button.speed).abs() < 0.01 {
-                        BUTTON_ACTIVE
-                    } else {
-                        BUTTON_BG
-                    };
+    // Second pass: update colors based on interaction state and active speed
+    let current_speed = playback.speed();
+    for (interaction, speed_button, mut bg_color) in speed_buttons.iter_mut() {
+        let is_active = (speed_button.speed - current_speed).abs() < 0.01;
+
+        if new_speed.is_some() {
+            // A button was just pressed - update all to show active/inactive state
+            bg_color.0 = if is_active { BUTTON_ACTIVE } else { BUTTON_BG };
+        } else {
+            // Normal hover/none handling
+            match *interaction {
+                Interaction::Pressed => {
+                    // Already handled above
                 }
-            }
-            Interaction::Hovered => {
-                // Only change hover color if not the active button
-                if (playback.speed() - speed_button.speed).abs() > 0.01 {
-                    bg_color.0 = BUTTON_HOVER;
+                Interaction::Hovered => {
+                    if !is_active {
+                        bg_color.0 = BUTTON_HOVER;
+                    }
                 }
-            }
-            Interaction::None => {
-                // Reset color based on whether this is the active speed
-                if (playback.speed() - speed_button.speed).abs() > 0.01 {
-                    bg_color.0 = BUTTON_BG;
+                Interaction::None => {
+                    bg_color.0 = if is_active { BUTTON_ACTIVE } else { BUTTON_BG };
                 }
             }
         }

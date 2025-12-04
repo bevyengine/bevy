@@ -10,12 +10,16 @@
 mod animation;
 mod catalog;
 mod components;
+mod direct_control;
 mod gizmos;
 
 pub use animation::animation_system;
 pub use catalog::MachineCatalog;
 pub use components::{
     Machine, MachineActivity, MachineBundle, MachineType, Mobility, WorkEnvelope,
+};
+pub use direct_control::{
+    BladeState, BladeVisual, ControlResponse, DirectControlPlugin, DozerPushState, PlayerControlled,
 };
 pub use gizmos::draw_work_envelopes;
 

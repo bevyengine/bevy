@@ -75,8 +75,7 @@ impl Aabb {
         let min = self.min;
         let max = self.max;
         (min.z..=max.z).flat_map(move |z| {
-            (min.y..=max.y)
-                .flat_map(move |y| (min.x..=max.x).map(move |x| IVec3::new(x, y, z)))
+            (min.y..=max.y).flat_map(move |y| (min.x..=max.x).map(move |x| IVec3::new(x, y, z)))
         })
     }
 }

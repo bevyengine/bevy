@@ -25,11 +25,14 @@
 pub mod camera;
 pub mod effects;
 pub mod export;
+pub mod jobs;
 pub mod machines;
 pub mod plan;
 pub mod scoring;
 pub mod terrain;
+pub mod testing;
 pub mod ui;
+pub mod zyns;
 
 mod config;
 mod plugin;
@@ -39,14 +42,24 @@ pub use plugin::EarthworksPlugin;
 
 /// Prelude module for convenient imports
 pub mod prelude {
+    pub use crate::camera::{CameraShake, CameraTraumaEvent, OrbitCamera};
     pub use crate::config::EarthworksConfig;
+    pub use crate::jobs::{CurrentJob, Job, JobType, JobsPlugin};
     pub use crate::machines::{
-        Machine, MachineActivity, MachineCatalog, MachineType, Mobility, WorkEnvelope,
+        BladeState, BladeVisual, ControlResponse, DirectControlPlugin, DozerPushState, Machine,
+        MachineActivity, MachineCatalog, MachineType, Mobility, PlayerControlled, WorkEnvelope,
     };
     pub use crate::plan::{ExecutionPlan, PlanPlayback, PlanStep, PlannedAction};
     pub use crate::plugin::EarthworksPlugin;
     pub use crate::scoring::SimulationScore;
     pub use crate::terrain::{
-        Chunk, ChunkCoord, MaterialId, TerrainModifiedEvent, Voxel, VoxelState, VoxelTerrain,
+        get_terrain_height, get_terrain_height_interpolated, Chunk, ChunkCoord, ChunkLOD,
+        MaterialId, TerrainModifiedEvent, Voxel, VoxelState, VoxelTerrain, CHUNK_SIZE,
+    };
+    pub use crate::testing::{AIAgent, AgentBehavior, AgentGoal, TestingPlugin};
+    pub use crate::ui::TimelineState;
+    pub use crate::zyns::{
+        Achievement, AchievementTracker, AchievementUnlockedEvent, ZynsConfig, ZynsEarnedEvent,
+        ZynsSource, ZynsUiState, ZynsWallet,
     };
 }

@@ -37,6 +37,19 @@ pub struct EarthworksConfig {
     /// Whether to loop playback when reaching the end.
     /// Default: false
     pub loop_playback: bool,
+
+    /// Whether to show the timeline/playback UI.
+    /// Set to false when embedding earthworks in another application with its own UI.
+    /// Default: true
+    pub show_ui: bool,
+
+    /// Whether to show the Zyns HUD overlay.
+    /// Default: true
+    pub show_zyns_hud: bool,
+
+    /// Whether to enable achievement particle effects.
+    /// Default: true
+    pub enable_achievement_effects: bool,
 }
 
 impl Default for EarthworksConfig {
@@ -50,6 +63,9 @@ impl Default for EarthworksConfig {
             playback_speed: 1.0,
             is_playing: false,
             loop_playback: false,
+            show_ui: true,
+            show_zyns_hud: true,
+            enable_achievement_effects: true,
         }
     }
 }

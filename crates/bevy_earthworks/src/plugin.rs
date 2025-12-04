@@ -4,11 +4,14 @@ use bevy_app::prelude::*;
 use bevy_ecs::prelude::*;
 
 use crate::config::EarthworksConfig;
+use crate::effects::EffectsPlugin;
+use crate::jobs::JobsPlugin;
 use crate::machines::MachinesPlugin;
 use crate::plan::PlanPlugin;
 use crate::scoring::ScoringPlugin;
 use crate::terrain::TerrainPlugin;
 use crate::ui::UiPlugin;
+use crate::zyns::ZynsPlugin;
 
 /// The main Earthworks plugin that provides volumetric terrain and machine simulation.
 ///
@@ -43,6 +46,13 @@ impl Plugin for EarthworksPlugin {
             .add_plugins(MachinesPlugin)
             .add_plugins(PlanPlugin)
             .add_plugins(ScoringPlugin)
-            .add_plugins(UiPlugin);
+            .add_plugins(EffectsPlugin)
+            .add_plugins(ZynsPlugin)
+            .add_plugins(JobsPlugin);
+
+        // Only add UI plugin if show_ui is enabled
+        if self.config.show_ui {
+            app.add_plugins(UiPlugin);
+        }
     }
 }

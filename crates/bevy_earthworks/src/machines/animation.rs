@@ -11,7 +11,13 @@ use super::MachineEvent;
 /// System that updates machine positions and states based on their activities.
 pub fn animation_system(
     time: Res<Time>,
-    mut machines: Query<(Entity, &Machine, &Mobility, &mut MachineActivity, &mut Transform)>,
+    mut machines: Query<(
+        Entity,
+        &Machine,
+        &Mobility,
+        &mut MachineActivity,
+        &mut Transform,
+    )>,
     mut events: MessageWriter<MachineEvent>,
 ) {
     let dt = time.delta_secs();
@@ -48,10 +54,9 @@ pub fn animation_system(
                             let target_rotation = bevy_math::Quat::from_rotation_y(
                                 (-direction.x).atan2(-direction.z),
                             );
-                            transform.rotation = transform.rotation.slerp(
-                                target_rotation,
-                                (mobility.turn_rate * dt).min(1.0),
-                            );
+                            transform.rotation = transform
+                                .rotation
+                                .slerp(target_rotation, (mobility.turn_rate * dt).min(1.0));
                         }
                     }
                 } else {

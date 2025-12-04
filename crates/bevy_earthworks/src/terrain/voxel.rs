@@ -1,6 +1,7 @@
 //! Voxel and VoxelTerrain definitions.
 
 use bevy_ecs::prelude::*;
+use bevy_ecs::world::{FromWorld, World};
 use bevy_math::{IVec3, Vec3};
 use bevy_reflect::Reflect;
 use serde::{Deserialize, Serialize};
@@ -79,7 +80,7 @@ impl Voxel {
 }
 
 /// The world-level terrain resource managing all chunks.
-#[derive(Resource, Default, Reflect)]
+#[derive(Resource, Reflect)]
 pub struct VoxelTerrain {
     /// Storage for all chunks, keyed by chunk coordinate.
     #[reflect(ignore)]
@@ -88,6 +89,16 @@ pub struct VoxelTerrain {
     chunk_size: u32,
     /// Cached voxel size from config.
     voxel_size: f32,
+}
+
+impl FromWorld for VoxelTerrain {
+    fn from_world(world: &mut World) -> Self {
+        let config = world
+            .get_resource::<EarthworksConfig>()
+            .cloned()
+            .unwrap_or_default();
+        Self::new(&config)
+    }
 }
 
 impl VoxelTerrain {

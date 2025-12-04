@@ -2,7 +2,9 @@
 
 use bevy_ecs::prelude::*;
 use bevy_math::IVec3;
+use bevy_mesh::Mesh;
 use bevy_reflect::Reflect;
+use bevy_tasks::Task;
 use serde::{Deserialize, Serialize};
 
 use super::materials::MaterialId;
@@ -15,7 +17,9 @@ pub const CHUNK_SIZE: usize = 16;
 pub const CHUNK_VOLUME: usize = CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE;
 
 /// Coordinate of a chunk in the world.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Component, Serialize, Deserialize, Reflect)]
+#[derive(
+    Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Component, Serialize, Deserialize, Reflect,
+)]
 pub struct ChunkCoord {
     /// X coordinate of the chunk.
     pub x: i32,
@@ -52,6 +56,38 @@ impl From<ChunkCoord> for IVec3 {
 /// Marker component indicating a chunk needs its mesh regenerated.
 #[derive(Component, Default, Reflect)]
 pub struct DirtyChunk;
+
+/// Component holding an async mesh generation task.
+#[derive(Component)]
+pub struct MeshTask(pub Task<Option<Mesh>>);
+
+/// Level of detail for a chunk.
+#[derive(Component, Default, Clone, Copy, Debug, Reflect)]
+pub struct ChunkLOD {
+    /// Current LOD level (0 = full detail, 3 = lowest).
+    pub level: u8,
+    /// Distance to camera.
+    pub distance: f32,
+}
+
+impl ChunkLOD {
+    /// LOD distance thresholds.
+    pub const LOD_DISTANCES: [f32; 4] = [32.0, 64.0, 128.0, f32::MAX];
+
+    /// Calculate LOD level from distance.
+    pub fn from_distance(distance: f32) -> Self {
+        let level = if distance < Self::LOD_DISTANCES[0] {
+            0
+        } else if distance < Self::LOD_DISTANCES[1] {
+            1
+        } else if distance < Self::LOD_DISTANCES[2] {
+            2
+        } else {
+            3
+        };
+        Self { level, distance }
+    }
+}
 
 /// A 16x16x16 container of voxels.
 #[derive(Clone, Component)]
