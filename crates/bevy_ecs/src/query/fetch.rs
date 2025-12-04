@@ -2771,6 +2771,20 @@ impl<T: Component> ReleaseStateQueryData for Has<T> {
 
 impl<T: Component> ArchetypeQueryData for Has<T> {}
 
+/// SAFETY: matches [`QueryData::fetch`]
+unsafe impl<T: Component> ContiguousQueryData for Has<T> {
+    type Contiguous<'w, 's> = bool;
+
+    unsafe fn fetch_contiguous<'w, 's>(
+        _state: &'s Self::State,
+        fetch: &mut Self::Fetch<'w>,
+        _entities: &'w [Entity],
+        _offset: usize,
+    ) -> Self::Contiguous<'w, 's> {
+        *fetch
+    }
+}
+
 /// The `AnyOf` query parameter fetches entities with any of the component types included in T.
 ///
 /// `Query<AnyOf<(&A, &B, &mut C)>>` is equivalent to `Query<(Option<&A>, Option<&B>, Option<&mut C>), Or<(With<A>, With<B>, With<C>)>>`.
