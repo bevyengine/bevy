@@ -52,7 +52,7 @@ use crate::{
     prelude::{Add, Despawn, DetectChangesMut, Insert, Remove, Replace, Without},
     query::{DebugCheckedUnwrap, QueryData, QueryFilter, QueryState},
     relationship::RelationshipHookMode,
-    resource::{IsResource, Resource, ResourceCache, IS_RESOURCE},
+    resource::{IsResource, Resource, ResourceEntities, IS_RESOURCE},
     schedule::{Schedule, ScheduleLabel, Schedules},
     storage::{NonSendData, Storages},
     system::Commands,
@@ -96,7 +96,7 @@ pub struct World {
     pub(crate) allocator: EntityAllocator,
     pub(crate) components: Components,
     pub(crate) component_ids: ComponentIds,
-    pub(crate) resource_entities: ResourceCache,
+    pub(crate) resource_entities: ResourceEntities,
     pub(crate) archetypes: Archetypes,
     pub(crate) storages: Storages,
     pub(crate) bundles: Bundles,
@@ -256,7 +256,7 @@ impl World {
 
     /// Retrieves this world's [`ResourceCache`].
     #[inline]
-    pub fn resource_entities(&self) -> &ResourceCache {
+    pub fn resource_entities(&self) -> &ResourceEntities {
         &self.resource_entities
     }
 
@@ -3489,15 +3489,21 @@ impl World {
         }
     }
 
-    /// Removes the resource of a given type, if it exists. Otherwise returns `None`.
+    /// Removes the resource of a given type, if it exists.
+    /// Returns `true` if the resource is successfully removed and `false` if
+    /// the entity does not exist.
     ///
     /// **You should prefer to use the typed API [`World::remove_resource`] where possible and only
     /// use this in cases where the actual types are not known at compile time.**
-    pub fn remove_resource_by_id(&mut self, component_id: ComponentId) -> Option<()> {
-        if let Some(entity) = self.resource_entities.remove(component_id) {
-            self.despawn(entity).then_some::<()>(())
+    pub fn remove_resource_by_id(&mut self, component_id: ComponentId) -> bool {
+        if let Some(entity) = self.resource_entities.remove(component_id)
+            && let Ok(mut entity_mut) = self.get_entity_mut(entity)
+            && entity_mut.contains_id(component_id)
+        {
+            entity_mut.remove_by_id(component_id);
+            true
         } else {
-            None
+            false
         }
     }
 

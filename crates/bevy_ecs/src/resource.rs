@@ -91,16 +91,16 @@ pub trait Resource: Component<Mutability = Mutable> {}
 /// The `on_add` component hook that maintains the uniqueness property of a resource.
 pub fn resource_on_add_hook(mut world: DeferredWorld, context: HookContext) {
     if let Some(&original_entity) = world.resource_entities.get(context.component_id) {
-        let name = world
-            .components()
-            .get_name(context.component_id)
-            .expect("resource is registered");
-        assert!(
-            world.entities().contains(original_entity),
-            "Resource entity {} of {} has been despawned, when it's not supposed to be.",
-            original_entity,
-            name
-        );
+        if !world.entities().contains(original_entity) {
+            let name = world
+                .components()
+                .get_name(context.component_id)
+                .expect("resource is registered");
+            panic!(
+                "Resource entity {} of {} has been despawned, when it's not supposed to be.",
+                original_entity, name
+            );
+        }
 
         if original_entity != context.entity {
             // the resource already exists and the new one should be removed
@@ -108,7 +108,13 @@ pub fn resource_on_add_hook(mut world: DeferredWorld, context: HookContext) {
                 .commands()
                 .entity(context.entity)
                 .remove_by_id(context.component_id);
-            warn!("Tried inserting {} on the wrong entity.", name);
+            let name = world
+                .components()
+                .get_name(context.component_id)
+                .expect("resource is registered");
+            warn!("Tried inserting the resource {} while one already exists.
+                Resources are unique components stored on a single entity.
+                Inserting on a different entity, when one already exists, causes the new value to be removed.", name);
         }
     } else {
         // SAFETY: We have exclusive world access (as long as we don't make structural changes).
@@ -133,9 +139,9 @@ pub fn resource_on_despawn_hook(mut world: DeferredWorld, context: HookContext) 
 
 /// A cache that links each `ComponentId` from a resource to the corresponding entity.
 #[derive(Default)]
-pub struct ResourceCache(SyncUnsafeCell<SparseSet<ComponentId, Entity>>);
+pub struct ResourceEntities(SyncUnsafeCell<SparseSet<ComponentId, Entity>>);
 
-impl Deref for ResourceCache {
+impl Deref for ResourceEntities {
     type Target = SparseSet<ComponentId, Entity>;
 
     fn deref(&self) -> &Self::Target {
@@ -148,13 +154,13 @@ impl Deref for ResourceCache {
     }
 }
 
-impl DerefMut for ResourceCache {
+impl DerefMut for ResourceEntities {
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.0.get_mut()
     }
 }
 
-/// A marker component for entities which store resources.
+/// A marker component for entities that have a Resource component.
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
@@ -164,8 +170,7 @@ impl DerefMut for ResourceCache {
 pub struct IsResource;
 
 /// [`ComponentId`] of the [`IsResource`] component.
-/// This must not conflict with any other [`ComponentId`] constants in the [lifecycle documentation](crate::lifecycle).
-pub const IS_RESOURCE: ComponentId = ComponentId::new(5);
+pub const IS_RESOURCE: ComponentId = ComponentId::new(crate::component::IS_RESOURCE);
 
 #[cfg(test)]
 mod tests {
@@ -205,13 +210,14 @@ mod tests {
             }
         });
         assert_eq!(world.entities().count_spawned(), start + 3);
-        assert!(world.remove_resource_by_id(id).is_some());
-        assert_eq!(world.entities().count_spawned(), start + 2);
+        assert!(world.remove_resource_by_id(id));
         // the entity is stable: removing the resource should only remove the component from the entity, not despawn the entity
+        assert_eq!(world.entities().count_spawned(), start + 3);
+        // again, the entity is stable: see previous explanation
         world.remove_resource::<TestResource1>();
-        assert_eq!(world.entities().count_spawned(), start + 2);
+        assert_eq!(world.entities().count_spawned(), start + 3);
         // make sure that trying to add a resource twice results, doesn't change the entity count
         world.insert_resource(TestResource2(String::from("Bar")));
-        assert_eq!(world.entities().count_spawned(), start + 2);
+        assert_eq!(world.entities().count_spawned(), start + 3);
     }
 }

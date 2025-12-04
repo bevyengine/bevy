@@ -17,7 +17,7 @@ use crate::{
     observer::Observers,
     prelude::Component,
     query::{DebugCheckedUnwrap, ReleaseStateQueryData},
-    resource::{Resource, ResourceCache},
+    resource::{Resource, ResourceEntities},
     storage::{ComponentSparseSet, Storages, Table},
     world::RawCommandQueue,
 };
@@ -293,7 +293,7 @@ impl<'w> UnsafeWorldCell<'w> {
     /// # Safety
     /// The caller must have exclusive read or write access to the resources that are updated in the cache.
     #[inline]
-    pub unsafe fn resource_entities(self) -> &'w ResourceCache {
+    pub unsafe fn resource_entities(self) -> &'w ResourceEntities {
         // SAFETY:
         // - we only access world metadata
         &unsafe { self.world_metadata() }.resource_entities
