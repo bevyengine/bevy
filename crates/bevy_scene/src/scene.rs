@@ -99,11 +99,15 @@ impl Scene {
                     .ok_or_else(|| SceneSpawnError::UnregisteredType {
                         std_type_name: component_info.name(),
                     })?;
-            let reflect_resource = registration.data::<ReflectResource>().ok_or_else(|| {
+            registration.data::<ReflectResource>().ok_or_else(|| {
                 SceneSpawnError::UnregisteredResource {
                     type_path: registration.type_info().type_path().to_string(),
                 }
             })?;
+            // reflect_resource existing, implies that reflect_component also exists
+            let reflect_component = registration
+                .data::<ReflectComponent>()
+                .expect("ReflectComponent is depended on ReflectResource");
 
             // check if the resource already exists in the other world, if not spawn it
             let destination_entity =
@@ -113,7 +117,7 @@ impl Scene {
                     world.spawn_empty().id()
                 };
 
-            reflect_resource.copy(
+            reflect_component.copy(
                 &self.world,
                 world,
                 *source_entity,

@@ -153,13 +153,17 @@ impl DynamicScene {
                     type_path: type_info.type_path().to_string(),
                 }
             })?;
-            let reflect_resource = registration.data::<ReflectResource>().ok_or_else(|| {
+            registration.data::<ReflectResource>().ok_or_else(|| {
                 SceneSpawnError::UnregisteredResource {
                     type_path: type_info.type_path().to_string(),
                 }
             })?;
+            // reflect_resource existing, implies that reflect_component also exists
+            let reflect_component = registration
+                .data::<ReflectComponent>()
+                .expect("ReflectComponent is depended on ReflectResource");
 
-            let resource_id = reflect_resource.register_component(world);
+            let resource_id = reflect_component.register_component(world);
 
             // check if the resource already exists, if not spawn it, otherwise override the value
             let entity = if let Some(entity) = world.resource_entities().get(resource_id) {
@@ -169,7 +173,7 @@ impl DynamicScene {
             };
 
             SceneEntityMapper::world_scope(entity_map, world, |world, mapper| {
-                reflect_resource.apply_or_insert_mapped(
+                reflect_component.apply_or_insert_mapped(
                     &mut world.entity_mut(entity),
                     resource.as_partial_reflect(),
                     &type_registry,

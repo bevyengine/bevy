@@ -384,14 +384,15 @@ impl<'w> DynamicSceneBuilder<'w> {
 
                 let type_registration = type_registry.get(type_id)?;
 
-                let resource = type_registration
-                    .data::<ReflectResource>()?
+                type_registration.data::<ReflectResource>()?;
+                let component = type_registration
+                    .data::<ReflectComponent>()?
                     .reflect(self.original_world.entity(*entity))?;
 
-                let resource =
-                    clone_reflect_value(resource.as_partial_reflect(), type_registration);
+                let component =
+                    clone_reflect_value(component.as_partial_reflect(), type_registration);
 
-                self.extracted_resources.insert(*component_id, resource);
+                self.extracted_resources.insert(*component_id, component);
                 Some(())
             };
             extract_and_push();

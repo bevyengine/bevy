@@ -514,13 +514,14 @@ pub fn process_remote_get_resources_request(
 
     let app_type_registry = world.resource::<AppTypeRegistry>();
     let type_registry = app_type_registry.read();
-    let reflect_resource =
-        get_reflect_resource(&type_registry, &resource_path).map_err(BrpError::resource_error)?;
+    get_reflect_resource(&type_registry, &resource_path).map_err(BrpError::resource_error)?;
+    let reflect_component =
+        get_reflect_component(&type_registry, &resource_path).map_err(BrpError::component_error)?;
     let entity = get_resource_entity(&type_registry, &resource_path, world)
         .map_err(BrpError::resource_error)?;
     let entity_ref = world.get_entity(entity).map_err(BrpError::resource_error)?;
 
-    let Some(reflected) = reflect_resource.reflect(entity_ref) else {
+    let Some(reflected) = reflect_component.reflect(entity_ref) else {
         return Err(BrpError::resource_not_present(&resource_path));
     };
 
@@ -1132,20 +1133,21 @@ pub fn process_remote_mutate_resources_request(
     let type_registry = app_type_registry.read();
 
     // Get the `ReflectResource` for the given resource path.
-    let reflect_resource =
-        get_reflect_resource(&type_registry, &resource_path).map_err(BrpError::resource_error)?;
+    get_reflect_resource(&type_registry, &resource_path).map_err(BrpError::resource_error)?;
+    let reflect_component =
+        get_reflect_component(&type_registry, &resource_path).map_err(BrpError::component_error)?;
     let entity = get_resource_entity(&type_registry, &resource_path, world)
         .map_err(BrpError::resource_error)?;
 
     // Get the actual resource value from the world as a `dyn Reflect`.
-    let mut reflected_resource = reflect_resource
+    let mut reflected_component = reflect_component
         .reflect_mut(world.entity_mut(entity))
         .ok_or(BrpError::resource_not_present(&resource_path))?;
 
     // Get the type registration for the field with the given path.
     let value_registration = type_registry
         .get_with_type_path(
-            reflected_resource
+            reflected_component
                 .reflect_path(field_path.as_str())
                 .map_err(BrpError::resource_error)?
                 .reflect_type_path(),
@@ -1161,7 +1163,7 @@ pub fn process_remote_mutate_resources_request(
             .map_err(BrpError::resource_error)?;
 
     // Apply the value to the resource.
-    reflected_resource
+    reflected_component
         .reflect_path_mut(field_path.as_str())
         .map_err(BrpError::resource_error)?
         .try_apply(&*deserialized_value)
