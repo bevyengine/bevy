@@ -13,8 +13,8 @@ use bevy_ecs::{
     query::FilteredAccessSet,
     resource::Resource,
     system::{
-        Deferred, ReadOnlySystemParam, Res, SystemBuffer, SystemMeta, SystemParam,
-        SystemParamValidationError,
+        Deferred, ReadOnlySystemParam, ReborrowSystemParam, Res, SystemBuffer, SystemMeta,
+        SystemParam, SystemParamValidationError,
     },
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
@@ -152,6 +152,22 @@ where
     pub config_ext: &'w Config,
 }
 
+impl<'w, 's, Config, Clear> Gizmos<'w, 's, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
+    /// Returns a [`Gizmos`] with a shorter lifetime.
+    /// Useful if you have an `&mut Gizmos` but want a `Gizmos`
+    pub fn reborrow(&mut self) -> Gizmos<'_, '_, Config, Clear> {
+        Gizmos {
+            buffer: self.buffer.reborrow(),
+            config: self.config,
+            config_ext: self.config_ext,
+        }
+    }
+}
+
 impl<'w, 's, Config, Clear> Deref for Gizmos<'w, 's, Config, Clear>
 where
     Config: GizmoConfigGroup,
@@ -199,16 +215,6 @@ where
 {
     type State = GizmosFetchState<Config, Clear>;
     type Item<'w, 's> = Gizmos<'w, 's, Config, Clear>;
-
-    fn reborrow<'wlong: 'short, 'slong: 'short, 'short>(
-        item: &'short mut Self::Item<'wlong, 'slong>,
-    ) -> Self::Item<'short, 'short> {
-        Gizmos {
-            buffer: item.buffer.reborrow(),
-            config: item.config,
-            config_ext: item.config_ext,
-        }
-    }
 
     fn init_state(world: &mut World) -> Self::State {
         GizmosFetchState {
@@ -274,6 +280,18 @@ where
             config,
             config_ext,
         }
+    }
+}
+
+impl<Config, Clear> ReborrowSystemParam for Gizmos<'_, '_, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
+    fn reborrow<'wlong: 'short, 'slong: 'short, 'short>(
+        item: &'short mut Self::Item<'wlong, 'slong>,
+    ) -> Self::Item<'short, 'short> {
+        item.reborrow()
     }
 }
 
