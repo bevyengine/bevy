@@ -390,7 +390,6 @@ pub unsafe trait QueryData: WorldQuery {
 #[diagnostic::on_unimplemented(
     message = "`{Self}` cannot be iterated contiguously",
     label = "invalid contiguous `Query` data",
-    note = "if `{Self}` is a component type, ensure that it's storage type is `StorageType::Table`",
     note = "if `{Self}` is a custom query type, using `QueryData` derive macro, ensure that the `#[query_data(contiguous(target))]` attribute is added"
 )]
 pub unsafe trait ContiguousQueryData: ArchetypeQueryData {
