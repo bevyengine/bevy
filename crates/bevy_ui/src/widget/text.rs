@@ -337,7 +337,7 @@ pub fn text_system(
         if node.is_changed() || text_flags.needs_recompute {
             // Skip the text node if it is waiting for a new measure func
             if text_flags.needs_measure_fn {
-                return;
+                continue;
             }
 
             let scale_factor = node.inverse_scale_factor().recip().into();
