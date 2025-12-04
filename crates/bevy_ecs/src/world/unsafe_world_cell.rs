@@ -470,44 +470,44 @@ impl<'w> UnsafeWorldCell<'w> {
         entity_cell.get_by_id(component_id)
     }
 
-    /// Gets a reference to the non-send resource of the given type if it exists
+    /// Gets a reference to non-send data of the given type if it exists
     ///
     /// # Safety
     /// It is the caller's responsibility to ensure that
-    /// - the [`UnsafeWorldCell`] has permission to access the resource
-    /// - no mutable reference to the resource exists at the same time
+    /// - the [`UnsafeWorldCell`] has permission to access the data
+    /// - no mutable reference to the data exists at the same time
     #[inline]
-    pub unsafe fn get_non_send_resource<R: 'static>(self) -> Option<&'w R> {
+    pub unsafe fn get_non_send<R: 'static>(self) -> Option<&'w R> {
         let component_id = self.components().get_valid_resource_id(TypeId::of::<R>())?;
         // SAFETY: caller ensures that `self` has permission to access `R`
         //  caller ensures that no mutable reference exists to `R`
         unsafe {
-            self.get_non_send_resource_by_id(component_id)
+            self.get_non_send_by_id(component_id)
                 // SAFETY: `component_id` was obtained from `TypeId::of::<R>()`
                 .map(|ptr| ptr.deref::<R>())
         }
     }
 
-    /// Gets a `!Send` resource to the resource with the id [`ComponentId`] if it exists.
-    /// The returned pointer must not be used to modify the resource, and must not be
+    /// Gets a pointer to `!Send` data with the id [`ComponentId`] if it exists.
+    /// The returned pointer must not be used to modify the data, and must not be
     /// dereferenced after the immutable borrow of the [`World`] ends.
     ///
-    /// **You should prefer to use the typed API [`UnsafeWorldCell::get_non_send_resource`] where possible and only
+    /// **You should prefer to use the typed API [`UnsafeWorldCell::get_non_send`] where possible and only
     /// use this in cases where the actual types are not known at compile time.**
     ///
     /// # Panics
-    /// This function will panic if it isn't called from the same thread that the resource was inserted from.
+    /// This function will panic if it isn't called from the same thread that the data was inserted from.
     ///
     /// # Safety
     /// It is the caller's responsibility to ensure that
-    /// - the [`UnsafeWorldCell`] has permission to access the resource
-    /// - no mutable reference to the resource exists at the same time
+    /// - the [`UnsafeWorldCell`] has permission to access the data
+    /// - no mutable reference to the data exists at the same time
     #[inline]
-    pub unsafe fn get_non_send_resource_by_id(self, component_id: ComponentId) -> Option<Ptr<'w>> {
+    pub unsafe fn get_non_send_by_id(self, component_id: ComponentId) -> Option<Ptr<'w>> {
         // SAFETY: we only access data on world that the caller has ensured is unaliased and we have
         //  permission to access.
         unsafe { self.storages() }
-            .non_send_resources
+            .non_sends
             .get(component_id)?
             .get_data()
     }
@@ -555,42 +555,42 @@ impl<'w> UnsafeWorldCell<'w> {
         entity_cell.get_mut_by_id(component_id).ok()
     }
 
-    /// Gets a mutable reference to the non-send resource of the given type if it exists
+    /// Gets a mutable reference to the non-send data of the given type if it exists
     ///
     /// # Safety
     /// It is the caller's responsibility to ensure that
-    /// - the [`UnsafeWorldCell`] has permission to access the resource mutably
-    /// - no other references to the resource exist at the same time
+    /// - the [`UnsafeWorldCell`] has permission to access the data mutably
+    /// - no other references to the data exist at the same time
     #[inline]
-    pub unsafe fn get_non_send_resource_mut<R: 'static>(self) -> Option<Mut<'w, R>> {
+    pub unsafe fn get_non_send_mut<R: 'static>(self) -> Option<Mut<'w, R>> {
         self.assert_allows_mutable_access();
         let component_id = self.components().get_valid_resource_id(TypeId::of::<R>())?;
         // SAFETY:
-        // - caller ensures that `self` has permission to access the resource
-        // - caller ensures that the resource is unaliased
+        // - caller ensures that `self` has permission to access the data
+        // - caller ensures that the data is unaliased
         unsafe {
-            self.get_non_send_resource_mut_by_id(component_id)
+            self.get_non_send_mut_by_id(component_id)
                 // SAFETY: `component_id` was gotten by `TypeId::of::<R>()`
                 .map(|ptr| ptr.with_type::<R>())
         }
     }
 
-    /// Gets a `!Send` resource to the resource with the id [`ComponentId`] if it exists.
-    /// The returned pointer may be used to modify the resource, as long as the mutable borrow
+    /// Gets mutable access to `!Send` data with the id [`ComponentId`] if it exists.
+    /// The returned pointer may be used to modify the data, as long as the mutable borrow
     /// of the [`World`] is still valid.
     ///
-    /// **You should prefer to use the typed API [`UnsafeWorldCell::get_non_send_resource_mut`] where possible and only
+    /// **You should prefer to use the typed API [`UnsafeWorldCell::get_non_send_mut`] where possible and only
     /// use this in cases where the actual types are not known at compile time.**
     ///
     /// # Panics
-    /// This function will panic if it isn't called from the same thread that the resource was inserted from.
+    /// This function will panic if it isn't called from the same thread that the data was inserted from.
     ///
     /// # Safety
     /// It is the caller's responsibility to ensure that
-    /// - the [`UnsafeWorldCell`] has permission to access the resource mutably
-    /// - no other references to the resource exist at the same time
+    /// - the [`UnsafeWorldCell`] has permission to access the data mutably
+    /// - no other references to the data exist at the same time
     #[inline]
-    pub unsafe fn get_non_send_resource_mut_by_id(
+    pub unsafe fn get_non_send_mut_by_id(
         self,
         component_id: ComponentId,
     ) -> Option<MutUntyped<'w>> {
@@ -599,7 +599,7 @@ impl<'w> UnsafeWorldCell<'w> {
         // SAFETY: we only access data that the caller has ensured is unaliased and `self`
         //  has permission to access.
         let (ptr, ticks) = unsafe { self.storages() }
-            .non_send_resources
+            .non_sends
             .get(component_id)?
             .get_with_ticks()?;
 
@@ -656,7 +656,7 @@ impl<'w> UnsafeWorldCell<'w> {
         // - caller ensures there are no mutable borrows of this resource
         // - caller ensures that we have permission to access this resource
         unsafe { self.storages() }
-            .non_send_resources
+            .non_sends
             .get(component_id)?
             .get_with_ticks()
     }

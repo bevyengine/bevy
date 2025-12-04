@@ -1419,30 +1419,30 @@ mod tests {
     }
 
     #[test]
-    fn non_send_resource() {
+    fn non_send() {
         let mut world = World::default();
-        world.insert_non_send_resource(123i32);
-        world.insert_non_send_resource(456i64);
-        assert_eq!(*world.non_send_resource::<i32>(), 123);
-        assert_eq!(*world.non_send_resource_mut::<i64>(), 456);
+        world.insert_non_send(123i32);
+        world.insert_non_send(456i64);
+        assert_eq!(*world.non_send::<i32>(), 123);
+        assert_eq!(*world.non_send_mut::<i64>(), 456);
     }
 
     #[test]
-    fn non_send_resource_points_to_distinct_data() {
+    fn non_send_points_to_distinct_data() {
         let mut world = World::default();
         world.insert_resource(ResA(123));
-        world.insert_non_send_resource(ResA(456));
+        world.insert_non_send(ResA(456));
         assert_eq!(*world.resource::<ResA>(), ResA(123));
-        assert_eq!(*world.non_send_resource::<ResA>(), ResA(456));
+        assert_eq!(*world.non_send::<ResA>(), ResA(456));
     }
 
     #[test]
     #[should_panic]
-    fn non_send_resource_panic() {
+    fn non_send_panic() {
         let mut world = World::default();
-        world.insert_non_send_resource(0i32);
+        world.insert_non_send(0i32);
         std::thread::spawn(move || {
-            let _ = world.non_send_resource_mut::<i32>();
+            let _ = world.non_send_mut::<i32>();
         })
         .join()
         .unwrap();
@@ -1590,9 +1590,9 @@ mod tests {
 
     #[test]
     #[should_panic]
-    fn non_send_resource_drop_from_different_thread() {
+    fn non_send_drop_from_different_thread() {
         let mut world = World::default();
-        world.insert_non_send_resource(NonSendA::default());
+        world.insert_non_send(NonSendA::default());
 
         let thread = std::thread::spawn(move || {
             // Dropping the non-send resource on a different thread
@@ -1606,9 +1606,9 @@ mod tests {
     }
 
     #[test]
-    fn non_send_resource_drop_from_same_thread() {
+    fn non_send_drop_from_same_thread() {
         let mut world = World::default();
-        world.insert_non_send_resource(NonSendA::default());
+        world.insert_non_send(NonSendA::default());
         drop(world);
     }
 

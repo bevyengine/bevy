@@ -54,7 +54,7 @@ use crate::{
     relationship::RelationshipHookMode,
     resource::{IsResource, Resource, ResourceCache, IS_RESOURCE},
     schedule::{Schedule, ScheduleLabel, Schedules},
-    storage::{ResourceData, Storages},
+    storage::{NonSendData, Storages},
     system::Commands,
     world::{
         command_queue::RawCommandQueue,
@@ -1883,25 +1883,25 @@ impl World {
         });
     }
 
-    /// Initializes a new non-send resource and returns the [`ComponentId`] created for it.
+    /// Initializes new non-send data and returns the [`ComponentId`] created for it.
     ///
-    /// If the resource already exists, nothing happens.
+    /// If the data already exists, nothing happens.
     ///
     /// The value given by the [`FromWorld::from_world`] method will be used.
-    /// Note that any resource with the `Default` trait automatically implements `FromWorld`,
-    /// and those default values will be here instead.
+    /// Note that any non-send data with the `Default` trait automatically implements
+    /// `FromWorld`, and those default values will be here instead.
     ///
     /// # Panics
     ///
     /// Panics if called from a thread other than the main thread.
     #[inline]
     #[track_caller]
-    pub fn init_non_send_resource<R: 'static + FromWorld>(&mut self) -> ComponentId {
+    pub fn init_non_send<R: 'static + FromWorld>(&mut self) -> ComponentId {
         let caller = MaybeLocation::caller();
         let component_id = self.components_registrator().register_non_send::<R>();
         if self
             .storages
-            .non_send_resources
+            .non_sends
             .get(component_id)
             .is_none_or(|data| !data.is_present())
         {
@@ -1916,9 +1916,9 @@ impl World {
         component_id
     }
 
-    /// Inserts a new non-send resource with the given `value`.
+    /// Inserts new non-send data with the given `value`.
     ///
-    /// `NonSend` resources cannot be sent across threads,
+    /// `NonSend` data cannot be sent across threads,
     /// and do not need the `Send + Sync` bounds.
     /// Systems with `NonSend` resources are always scheduled on the main thread.
     ///
@@ -1927,11 +1927,11 @@ impl World {
     /// from a different thread than where the original value was inserted from.
     #[inline]
     #[track_caller]
-    pub fn insert_non_send_resource<R: 'static>(&mut self, value: R) {
+    pub fn insert_non_send<R: 'static>(&mut self, value: R) {
         let caller = MaybeLocation::caller();
         let component_id = self.components_registrator().register_non_send::<R>();
         OwningPtr::make(value, |ptr| {
-            // SAFETY: component_id was just initialized and corresponds to resource of type R.
+            // SAFETY: component_id was just initialized and corresponds to the data of type R.
             unsafe {
                 self.insert_non_send_by_id(component_id, ptr, caller);
             }
@@ -1950,11 +1950,11 @@ impl World {
         Some(value)
     }
 
-    /// Removes a `!Send` resource from the world and returns it, if present.
+    /// Removes `!Send` data from the world and returns it, if present.
     ///
     /// `NonSend` resources cannot be sent across threads,
     /// and do not need the `Send + Sync` bounds.
-    /// Systems with `NonSend` resources are always scheduled on the main thread.
+    /// Systems with `NonSend` data are always scheduled on the main thread.
     ///
     /// Returns `None` if a value was not previously present.
     ///
@@ -1962,13 +1962,9 @@ impl World {
     /// If a value is present, this function will panic if called from a different
     /// thread than where the value was inserted from.
     #[inline]
-    pub fn remove_non_send_resource<R: 'static>(&mut self) -> Option<R> {
+    pub fn remove_non_send<R: 'static>(&mut self) -> Option<R> {
         let component_id = self.components.get_valid_resource_id(TypeId::of::<R>())?;
-        let (ptr, _, _) = self
-            .storages
-            .non_send_resources
-            .get_mut(component_id)?
-            .remove()?;
+        let (ptr, _, _) = self.storages.non_sends.get_mut(component_id)?.remove()?;
         // SAFETY: `component_id` was gotten via looking up the `R` type
         unsafe { Some(ptr.read::<R>()) }
     }
@@ -1992,22 +1988,22 @@ impl World {
         false
     }
 
-    /// Returns `true` if a resource of type `R` exists. Otherwise returns `false`.
+    /// Returns `true` if `!Send` data of type `R` exists. Otherwise returns `false`.
     #[inline]
     pub fn contains_non_send<R: 'static>(&self) -> bool {
         self.components
             .get_valid_resource_id(TypeId::of::<R>())
-            .and_then(|component_id| self.storages.non_send_resources.get(component_id))
-            .is_some_and(ResourceData::is_present)
+            .and_then(|component_id| self.storages.non_sends.get(component_id))
+            .is_some_and(NonSendData::is_present)
     }
 
-    /// Returns `true` if a resource with provided `component_id` exists. Otherwise returns `false`.
+    /// Returns `true` if `!Send` data with `component_id` exists. Otherwise returns `false`.
     #[inline]
     pub fn contains_non_send_by_id(&self, component_id: ComponentId) -> bool {
         self.storages
-            .non_send_resources
+            .non_sends
             .get(component_id)
-            .is_some_and(ResourceData::is_present)
+            .is_some_and(NonSendData::is_present)
     }
 
     /// Returns `true` if a resource of type `R` exists and was added since the world's
@@ -2246,74 +2242,74 @@ impl World {
         self.get_resource_mut::<R>().unwrap() // must exist
     }
 
-    /// Gets an immutable reference to the non-send resource of the given type, if it exists.
+    /// Gets an immutable reference to the non-send data of the given type, if it exists.
     ///
     /// # Panics
     ///
-    /// Panics if the resource does not exist.
-    /// Use [`get_non_send_resource`](World::get_non_send_resource) instead if you want to handle this case.
+    /// Panics if the data does not exist.
+    /// Use [`get_non_send`](World::get_non_send) instead if you want to handle this case.
     ///
     /// This function will panic if it isn't called from the same thread that the resource was inserted from.
     #[inline]
     #[track_caller]
-    pub fn non_send_resource<R: 'static>(&self) -> &R {
-        match self.get_non_send_resource() {
+    pub fn non_send<R: 'static>(&self) -> &R {
+        match self.get_non_send() {
             Some(x) => x,
             None => panic!(
                 "Requested non-send resource {} does not exist in the `World`.
-                Did you forget to add it using `app.insert_non_send_resource` / `app.init_non_send_resource`?
+                Did you forget to add it using `app.insert_non_send` / `app.init_non_send`?
                 Non-send resources can also be added by plugins.",
                 DebugName::type_name::<R>()
             ),
         }
     }
 
-    /// Gets a mutable reference to the non-send resource of the given type, if it exists.
+    /// Gets a mutable reference to the non-send data of the given type, if it exists.
     ///
     /// # Panics
     ///
-    /// Panics if the resource does not exist.
-    /// Use [`get_non_send_resource_mut`](World::get_non_send_resource_mut) instead if you want to handle this case.
+    /// Panics if the data does not exist.
+    /// Use [`get_non_send_mut`](World::get_non_send_mut) instead if you want to handle this case.
     ///
     /// This function will panic if it isn't called from the same thread that the resource was inserted from.
     #[inline]
     #[track_caller]
-    pub fn non_send_resource_mut<R: 'static>(&mut self) -> Mut<'_, R> {
-        match self.get_non_send_resource_mut() {
+    pub fn non_send_mut<R: 'static>(&mut self) -> Mut<'_, R> {
+        match self.get_non_send_mut() {
             Some(x) => x,
             None => panic!(
                 "Requested non-send resource {} does not exist in the `World`.
-                Did you forget to add it using `app.insert_non_send_resource` / `app.init_non_send_resource`?
+                Did you forget to add it using `app.insert_non_send` / `app.init_non_send`?
                 Non-send resources can also be added by plugins.",
                 DebugName::type_name::<R>()
             ),
         }
     }
 
-    /// Gets a reference to the non-send resource of the given type, if it exists.
+    /// Gets a reference to the non-send data of the given type, if it exists.
     /// Otherwise returns `None`.
     ///
     /// # Panics
     /// This function will panic if it isn't called from the same thread that the resource was inserted from.
     #[inline]
-    pub fn get_non_send_resource<R: 'static>(&self) -> Option<&R> {
+    pub fn get_non_send<R: 'static>(&self) -> Option<&R> {
         // SAFETY:
         // - `as_unsafe_world_cell_readonly` gives permission to access the entire world immutably
         // - `&self` ensures that there are no mutable borrows of world data
-        unsafe { self.as_unsafe_world_cell_readonly().get_non_send_resource() }
+        unsafe { self.as_unsafe_world_cell_readonly().get_non_send() }
     }
 
-    /// Gets a mutable reference to the non-send resource of the given type, if it exists.
+    /// Gets a mutable reference to the non-send data of the given type, if it exists.
     /// Otherwise returns `None`.
     ///
     /// # Panics
     /// This function will panic if it isn't called from the same thread that the resource was inserted from.
     #[inline]
-    pub fn get_non_send_resource_mut<R: 'static>(&mut self) -> Option<Mut<'_, R>> {
+    pub fn get_non_send_mut<R: 'static>(&mut self) -> Option<Mut<'_, R>> {
         // SAFETY:
         // - `as_unsafe_world_cell` gives permission to access the entire world mutably
         // - `&mut self` ensures that there are no borrows of world data
-        unsafe { self.as_unsafe_world_cell().get_non_send_resource_mut() }
+        unsafe { self.as_unsafe_world_cell().get_non_send_mut() }
     }
 
     /// For a given batch of ([`Entity`], [`Bundle`]) pairs,
@@ -2823,10 +2819,10 @@ impl World {
         );
     }
 
-    /// Inserts a new `!Send` resource with the given `value`. Will replace the value if it already
+    /// Inserts new `!Send` data with the given `value`. Will replace the value if it already
     /// existed.
     ///
-    /// **You should prefer to use the typed API [`World::insert_non_send_resource`] where possible and only
+    /// **You should prefer to use the typed API [`World::insert_non_send`] where possible and only
     /// use this in cases where the actual types are not known at compile time.**
     ///
     /// # Panics
@@ -2858,10 +2854,10 @@ impl World {
     pub(crate) fn initialize_non_send_internal(
         &mut self,
         component_id: ComponentId,
-    ) -> &mut ResourceData<false> {
+    ) -> &mut NonSendData {
         self.flush_components();
         self.storages
-            .non_send_resources
+            .non_sends
             .initialize_with(component_id, &self.components)
     }
 
@@ -3084,14 +3080,14 @@ impl World {
         let Storages {
             ref mut tables,
             ref mut sparse_sets,
-            ref mut non_send_resources,
+            ref mut non_sends,
         } = self.storages;
 
         #[cfg(feature = "trace")]
         let _span = tracing::info_span!("check component ticks").entered();
         tables.check_change_ticks(check);
         sparse_sets.check_change_ticks(check);
-        non_send_resources.check_change_ticks(check);
+        non_sends.check_change_ticks(check);
         self.entities.check_change_ticks(check);
 
         if let Some(mut schedules) = self.get_resource_mut::<Schedules>() {
@@ -3117,6 +3113,13 @@ impl World {
     }
 
     /// Despawns all entities in this [`World`].
+    ///
+    /// **Note:** This includes all resources, as they are stored as components.
+    /// Any resource fetch to this [`World`] will fail unless they are re-initialized,
+    /// including engine-internal resources that are only initialized on app/world construction.
+    ///
+    /// This can easily cause systems expecting certain resources to immediately start panicking.
+    /// Use with caution.
     pub fn clear_entities(&mut self) {
         self.resource_scope::<DefaultQueryFilters, ()>(|world: &mut World, _| {
             let to_remove: Vec<Entity> = world
@@ -3146,7 +3149,11 @@ impl World {
         for (component_id, entity) in pairs {
             self.entity_mut(entity).remove_by_id(component_id);
         }
-        self.storages.non_send_resources.clear();
+    }
+
+    /// Clears all non-send data in this [`World`].
+    pub fn clear_non_send(&mut self) {
+        self.storages.non_sends.clear();
     }
 
     /// Registers all of the components in the given [`Bundle`] and returns both the component
@@ -3442,15 +3449,15 @@ impl World {
             })
     }
 
-    /// Gets a `!Send` resource to the resource with the id [`ComponentId`] if it exists.
+    /// Gets a pointer to `!Send` data with the id [`ComponentId`] if it exists.
     /// The returned pointer must not be used to modify the resource, and must not be
     /// dereferenced after the immutable borrow of the [`World`] ends.
     ///
-    /// **You should prefer to use the typed API [`World::get_resource`] where possible and only
+    /// **You should prefer to use the typed API [`World::get_non_send`] where possible and only
     /// use this in cases where the actual types are not known at compile time.**
     ///
     /// # Panics
-    /// This function will panic if it isn't called from the same thread that the resource was inserted from.
+    /// This function will panic if it isn't called from the same thread that the data was inserted from.
     #[inline]
     pub fn get_non_send_by_id(&self, component_id: ComponentId) -> Option<Ptr<'_>> {
         // SAFETY:
@@ -3458,19 +3465,19 @@ impl World {
         // - `&self` ensures there are no mutable borrows on world data
         unsafe {
             self.as_unsafe_world_cell_readonly()
-                .get_non_send_resource_by_id(component_id)
+                .get_non_send_by_id(component_id)
         }
     }
 
-    /// Gets a `!Send` resource to the resource with the id [`ComponentId`] if it exists.
-    /// The returned pointer may be used to modify the resource, as long as the mutable borrow
+    /// Gets mutable access to `!Send` data with the id [`ComponentId`] if it exists.
+    /// The returned pointer may be used to modify the data, as long as the mutable borrow
     /// of the [`World`] is still valid.
     ///
-    /// **You should prefer to use the typed API [`World::get_resource_mut`] where possible and only
+    /// **You should prefer to use the typed API [`World::get_non_send_mut`] where possible and only
     /// use this in cases where the actual types are not known at compile time.**
     ///
     /// # Panics
-    /// This function will panic if it isn't called from the same thread that the resource was inserted from.
+    /// This function will panic if it isn't called from the same thread that the data was inserted from.
     #[inline]
     pub fn get_non_send_mut_by_id(&mut self, component_id: ComponentId) -> Option<MutUntyped<'_>> {
         // SAFETY:
@@ -3478,7 +3485,7 @@ impl World {
         // - `as_unsafe_world_cell` provides mutable permission to the whole world
         unsafe {
             self.as_unsafe_world_cell()
-                .get_non_send_resource_mut_by_id(component_id)
+                .get_non_send_mut_by_id(component_id)
         }
     }
 
@@ -3494,16 +3501,16 @@ impl World {
         }
     }
 
-    /// Removes the resource of a given type, if it exists. Otherwise returns `None`.
+    /// Removes the non-send data of a given type, if it exists. Otherwise returns `None`.
     ///
-    /// **You should prefer to use the typed API [`World::remove_resource`] where possible and only
+    /// **You should prefer to use the typed API [`World::remove_non_send`] where possible and only
     /// use this in cases where the actual types are not known at compile time.**
     ///
     /// # Panics
-    /// This function will panic if it isn't called from the same thread that the resource was inserted from.
+    /// This function will panic if it isn't called from the same thread that the data was inserted from.
     pub fn remove_non_send_by_id(&mut self, component_id: ComponentId) -> Option<()> {
         self.storages
-            .non_send_resources
+            .non_sends
             .get_mut(component_id)?
             .remove_and_drop();
         Some(())
@@ -4078,14 +4085,14 @@ mod tests {
     }
 
     #[test]
-    fn init_non_send_resource_does_not_overwrite() {
+    fn init_non_send_does_not_overwrite() {
         let mut world = World::new();
         world.insert_resource(TestResource(0));
-        world.init_non_send_resource::<TestFromWorld>();
+        world.init_non_send::<TestFromWorld>();
         world.insert_resource(TestResource(1));
-        world.init_non_send_resource::<TestFromWorld>();
+        world.init_non_send::<TestFromWorld>();
 
-        let resource = world.non_send_resource::<TestFromWorld>();
+        let resource = world.non_send::<TestFromWorld>();
 
         assert_eq!(resource.0, 0);
     }

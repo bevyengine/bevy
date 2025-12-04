@@ -507,16 +507,16 @@ mod tests {
     }
 
     #[test]
-    fn non_send_resources() {
+    fn non_send() {
         fn non_send_count_down(mut ns: NonSendMut<Counter>) {
             ns.0 -= 1;
         }
 
         let mut world = World::new();
-        world.insert_non_send_resource(Counter(10));
-        assert_eq!(*world.non_send_resource::<Counter>(), Counter(10));
+        world.insert_non_send(Counter(10));
+        assert_eq!(*world.non_send::<Counter>(), Counter(10));
         world.run_system_once(non_send_count_down).unwrap();
-        assert_eq!(*world.non_send_resource::<Counter>(), Counter(9));
+        assert_eq!(*world.non_send::<Counter>(), Counter(9));
     }
 
     #[test]

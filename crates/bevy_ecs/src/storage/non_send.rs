@@ -15,7 +15,7 @@ use std::thread::ThreadId;
 /// If `SEND` is false, values of this type will panic if dropped from a different thread.
 ///
 /// [`World`]: crate::world::World
-pub struct ResourceData<const SEND: bool> {
+pub struct NonSendData {
     /// Capacity is 1, length is 1 if `is_present` and 0 otherwise.
     data: BlobArray,
     is_present: bool,
@@ -31,12 +31,11 @@ pub struct ResourceData<const SEND: bool> {
     changed_by: MaybeLocation<UnsafeCell<&'static Location<'static>>>,
 }
 
-impl<const SEND: bool> Drop for ResourceData<SEND> {
+impl Drop for NonSendData {
     fn drop(&mut self) {
-        // For Non Send resources we need to validate that correct thread
-        // is dropping the resource. This validation is not needed in case
-        // of SEND resources. Or if there is no data.
-        if !SEND && self.is_present() {
+        // We need to validate that correct thread is dropping the data.
+        // This validation is not needed if there is no data.
+        if self.is_present() {
             // If this thread is already panicking, panicking again will cause
             // the entire process to abort. In this case we choose to avoid
             // dropping or checking this altogether and just leak the column.
@@ -46,8 +45,8 @@ impl<const SEND: bool> Drop for ResourceData<SEND> {
             }
             self.validate_access();
         }
-        // SAFETY: Drop is only called once upon dropping the ResourceData
-        // and is inaccessible after this as the parent ResourceData has
+        // SAFETY: Drop is only called once upon dropping the NonSendData
+        // and is inaccessible after this as the parent NonSendData has
         // been dropped. The validate_access call above will check that the
         // data is dropped on the thread it was inserted from.
         unsafe {
@@ -56,33 +55,31 @@ impl<const SEND: bool> Drop for ResourceData<SEND> {
     }
 }
 
-impl<const SEND: bool> ResourceData<SEND> {
+impl NonSendData {
     /// The only row in the underlying `BlobArray`.
     const ROW: usize = 0;
 
-    /// Validates the access to `!Send` resources is only done on the thread they were created from.
+    /// Validates that the access to NonSendData is only done on the thread they were created from.
     ///
     /// # Panics
-    /// If `SEND` is false, this will panic if called from a different thread than the one it was inserted from.
+    /// This will panic if called from a different thread than the one it was inserted from.
     #[inline]
     fn validate_access(&self) {
-        if !SEND {
-            #[cfg(feature = "std")]
-            if self.origin_thread_id != Some(std::thread::current().id()) {
-                // Panic in tests, as testing for aborting is nearly impossible
-                panic!(
-                    "Attempted to access or drop non-send resource {} from thread {:?} on a thread {:?}. This is not allowed. Aborting.",
-                    self.type_name,
-                    self.origin_thread_id,
-                    std::thread::current().id()
-                );
-            }
-
-            // TODO: Handle no_std non-send.
-            // Currently, no_std is single-threaded only, so this is safe to ignore.
-            // To support no_std multithreading, an alternative will be required.
-            // Remove the #[expect] attribute above when this is addressed.
+        #[cfg(feature = "std")]
+        if self.origin_thread_id != Some(std::thread::current().id()) {
+            // Panic in tests, as testing for aborting is nearly impossible
+            panic!(
+                "Attempted to access or drop non-send resource {} from thread {:?} on a thread {:?}. This is not allowed. Aborting.",
+                self.type_name,
+                self.origin_thread_id,
+                std::thread::current().id()
+            );
         }
+
+        // TODO: Handle no_std non-send.
+        // Currently, no_std is single-threaded only, so this is safe to ignore.
+        // To support no_std multithreading, an alternative will be required.
+        // Remove the #[expect] attribute above when this is addressed.
     }
 
     /// Returns true if the resource is populated.
@@ -94,8 +91,7 @@ impl<const SEND: bool> ResourceData<SEND> {
     /// Returns a reference to the resource, if it exists.
     ///
     /// # Panics
-    /// If `SEND` is false, this will panic if a value is present and is not accessed from the
-    /// original thread it was inserted from.
+    /// This will panic if a value is present and is not accessed from the original thread it was inserted from.
     #[inline]
     pub fn get_data(&self) -> Option<Ptr<'_>> {
         self.is_present().then(|| {
@@ -121,8 +117,7 @@ impl<const SEND: bool> ResourceData<SEND> {
     /// Returns references to the resource and its change ticks, if it exists.
     ///
     /// # Panics
-    /// If `SEND` is false, this will panic if a value is present and is not accessed from the
-    /// original thread it was inserted in.
+    /// This will panic if a value is present and is not accessed from the original thread it was inserted in.
     #[inline]
     pub(crate) fn get_with_ticks(&self) -> Option<(Ptr<'_>, ComponentTickCells<'_>)> {
         self.is_present().then(|| {
@@ -143,8 +138,7 @@ impl<const SEND: bool> ResourceData<SEND> {
     /// it will be replaced.
     ///
     /// # Panics
-    /// If `SEND` is false, this will panic if a value is present and is not replaced from
-    /// the original thread it was inserted in.
+    /// This will panic if a value is present and is not replaced from the original thread it was inserted in.
     ///
     /// # Safety
     /// - `value` must be valid for the underlying type for the resource.
@@ -163,7 +157,7 @@ impl<const SEND: bool> ResourceData<SEND> {
             unsafe { self.data.replace_unchecked(Self::ROW, value) };
         } else {
             #[cfg(feature = "std")]
-            if !SEND {
+            {
                 self.origin_thread_id = Some(std::thread::current().id());
             }
             // SAFETY:
@@ -186,17 +180,14 @@ impl<const SEND: bool> ResourceData<SEND> {
     /// Removes a value from the resource, if present.
     ///
     /// # Panics
-    /// If `SEND` is false, this will panic if a value is present and is not removed from the
-    /// original thread it was inserted from.
+    /// This will panic if a value is present and is not removed from the original thread it was inserted from.
     #[inline]
     #[must_use = "The returned pointer to the removed component should be used or dropped"]
     pub(crate) fn remove(&mut self) -> Option<(OwningPtr<'_>, ComponentTicks, MaybeLocation)> {
         if !self.is_present() {
             return None;
         }
-        if !SEND {
-            self.validate_access();
-        }
+        self.validate_access();
 
         self.is_present = false;
 
@@ -229,8 +220,7 @@ impl<const SEND: bool> ResourceData<SEND> {
     /// Removes a value from the resource, if present, and drops it.
     ///
     /// # Panics
-    /// If `SEND` is false, this will panic if a value is present and is not
-    /// accessed from the original thread it was inserted in.
+    /// This will panic if a value is present and is not accessed from the original thread it was inserted in.
     #[inline]
     pub(crate) fn remove_and_drop(&mut self) {
         if self.is_present() {
@@ -252,79 +242,67 @@ impl<const SEND: bool> ResourceData<SEND> {
 /// [`Resource`]: crate::resource::Resource
 /// [`World`]: crate::world::World
 #[derive(Default)]
-pub struct Resources<const SEND: bool> {
-    resources: SparseSet<ComponentId, ResourceData<SEND>>,
+pub struct NonSends {
+    non_sends: SparseSet<ComponentId, NonSendData>,
 }
 
-impl<const SEND: bool> Resources<SEND> {
-    /// The total number of resources stored in the [`World`]
+impl NonSends {
+    /// The total amount of `!Send` data stored in the [`World`]
     ///
     /// [`World`]: crate::world::World
     #[inline]
     pub fn len(&self) -> usize {
-        self.resources.len()
+        self.non_sends.len()
     }
 
     /// Iterate over all resources that have been initialized, i.e. given a [`ComponentId`]
-    pub fn iter(&self) -> impl Iterator<Item = (ComponentId, &ResourceData<SEND>)> {
-        self.resources.iter().map(|(id, data)| (*id, data))
+    pub fn iter(&self) -> impl Iterator<Item = (ComponentId, &NonSendData)> {
+        self.non_sends.iter().map(|(id, data)| (*id, data))
     }
 
-    /// Returns true if there are no resources stored in the [`World`],
+    /// Returns true if there is no `!Send` data stored in the [`World`],
     /// false otherwise.
     ///
     /// [`World`]: crate::world::World
     #[inline]
     pub fn is_empty(&self) -> bool {
-        self.resources.is_empty()
+        self.non_sends.is_empty()
     }
 
-    /// Gets read-only access to a resource, if it exists.
+    /// Gets read-only access to some `!Send` data, if it exists.
     #[inline]
-    pub fn get(&self, component_id: ComponentId) -> Option<&ResourceData<SEND>> {
-        self.resources.get(component_id)
+    pub fn get(&self, component_id: ComponentId) -> Option<&NonSendData> {
+        self.non_sends.get(component_id)
     }
 
     /// Clears all resources.
     #[inline]
     pub fn clear(&mut self) {
-        self.resources.clear();
+        self.non_sends.clear();
     }
 
-    /// Gets mutable access to a resource, if it exists.
+    /// Gets mutable access to `!Send` data, if it exists.
     #[inline]
-    pub(crate) fn get_mut(&mut self, component_id: ComponentId) -> Option<&mut ResourceData<SEND>> {
-        self.resources.get_mut(component_id)
+    pub(crate) fn get_mut(&mut self, component_id: ComponentId) -> Option<&mut NonSendData> {
+        self.non_sends.get_mut(component_id)
     }
 
-    /// Fetches or initializes a new resource and returns back its underlying column.
+    /// Fetches or initializes new `!Send` data and returns back its underlying column.
     ///
     /// # Panics
     /// Will panic if `component_id` is not valid for the provided `components`
-    /// If `SEND` is true, this will panic if `component_id`'s `ComponentInfo` is not registered as being `Send` + `Sync`.
     pub(crate) fn initialize_with(
         &mut self,
         component_id: ComponentId,
         components: &Components,
-    ) -> &mut ResourceData<SEND> {
-        self.resources.get_or_insert_with(component_id, || {
+    ) -> &mut NonSendData {
+        self.non_sends.get_or_insert_with(component_id, || {
             let component_info = components.get_info(component_id).unwrap();
-            if SEND {
-                assert!(
-                    component_info.is_send_and_sync(),
-                    "Send + Sync resource {} initialized as non_send. It may have been inserted via World::insert_non_send_resource by accident. Try using World::insert_resource instead.",
-                    component_info.name(),
-                );
-            }
             // SAFETY: component_info.drop() is valid for the types that will be inserted.
             let data = unsafe {
-                BlobArray::with_capacity(
-                    component_info.layout(),
-                    component_info.drop(),
-                    1
-                )
+                BlobArray::with_capacity(component_info.layout(), component_info.drop(), 1)
             };
-            ResourceData {
+            NonSendData {
                 data,
                 is_present: false,
                 added_ticks: UnsafeCell::new(Tick::new(0)),
@@ -338,7 +316,7 @@ impl<const SEND: bool> Resources<SEND> {
     }
 
     pub(crate) fn check_change_ticks(&mut self, check: CheckChangeTicks) {
-        for info in self.resources.values_mut() {
+        for info in self.non_sends.values_mut() {
             info.check_change_ticks(check);
         }
     }
