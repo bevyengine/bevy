@@ -4,8 +4,8 @@ use bevy_ecs::{
     prelude::*,
     query::FilteredAccessSet,
     system::{
-        ReadOnlySystemParam, SystemMeta, SystemParam, SystemParamItem, SystemParamValidationError,
-        SystemState,
+        ReadOnlySystemParam, ReborrowSystemParam, SystemMeta, SystemParam, SystemParamItem,
+        SystemParamValidationError, SystemState,
     },
     world::unsafe_world_cell::UnsafeWorldCell,
 };
@@ -71,14 +71,6 @@ where
 {
     type State = ExtractState<P>;
     type Item<'w, 's> = Extract<'w, 's, P>;
-
-    fn reborrow<'wlong: 'short, 'slong: 'short, 'short>(
-        item: &'short mut Self::Item<'wlong, 'slong>,
-    ) -> Self::Item<'short, 'short> {
-        Extract {
-            item: <P as SystemParam>::reborrow(&mut item.item),
-        }
-    }
 
     fn init_state(world: &mut World) -> Self::State {
         let mut main_world = world.resource_mut::<MainWorld>();
@@ -149,10 +141,20 @@ where
     }
 }
 
-impl<'w, 's, P: ReadOnlySystemParam> Extract<'w, 's, P> {
+impl<P: ReborrowSystemParam + ReadOnlySystemParam> ReborrowSystemParam for Extract<'_, '_, P> {
+    fn reborrow<'wlong: 'short, 'slong: 'short, 'short>(
+        item: &'short mut Self::Item<'wlong, 'slong>,
+    ) -> Self::Item<'short, 'short> {
+        Extract {
+            item: P::reborrow(&mut item.item),
+        }
+    }
+}
+
+impl<'w, 's, P: ReborrowSystemParam + ReadOnlySystemParam> Extract<'w, 's, P> {
     pub fn reborrow(&mut self) -> Extract<'_, '_, P> {
         Extract {
-            item: <P as SystemParam>::reborrow(&mut self.item),
+            item: P::reborrow(&mut self.item),
         }
     }
 }
