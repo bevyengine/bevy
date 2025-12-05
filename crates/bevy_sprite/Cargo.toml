@@ -32,7 +32,7 @@ bevy_text = { path = "../bevy_text", version = "0.18.0-dev", optional = true }
 # other
 radsort = "0.1"
 tracing = { version = "0.1", default-features = false, features = ["std"] }
-wgpu-types = { version = "26", default-features = false }
+wgpu-types = { version = "27", default-features = false }
 
 [dev-dependencies]
 approx = "0.5.1"
