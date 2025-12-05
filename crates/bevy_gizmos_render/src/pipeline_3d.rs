@@ -8,7 +8,7 @@ use bevy_asset::{load_embedded_asset, AssetServer, Handle};
 use bevy_camera::visibility::RenderLayers;
 use bevy_core_pipeline::{
     core_3d::{Transparent3d, CORE_3D_DEPTH_FORMAT},
-    oit::OrderIndependentTransparencySettings,
+    oit::{ExactOit, WeightedBlendedOit},
     prepass::{DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass},
 };
 use bevy_gizmos::config::{GizmoLineJoint, GizmoLineStyle, GizmoMeshConfig};
@@ -289,7 +289,8 @@ fn queue_line_gizmos_3d(
             Has<DepthPrepass>,
             Has<MotionVectorPrepass>,
             Has<DeferredPrepass>,
-            Has<OrderIndependentTransparencySettings>,
+            Has<ExactOit>,
+            Has<WeightedBlendedOit>,
         ),
     )>,
 ) {
@@ -303,7 +304,7 @@ fn queue_line_gizmos_3d(
         view,
         msaa,
         render_layers,
-        (normal_prepass, depth_prepass, motion_vector_prepass, deferred_prepass, oit),
+        (normal_prepass, depth_prepass, motion_vector_prepass, deferred_prepass, exact_oit, wb_oit),
     ) in &views
     {
         let Some(transparent_phase) = transparent_render_phases.get_mut(&view.retained_view_entity)
@@ -332,8 +333,12 @@ fn queue_line_gizmos_3d(
             view_key |= MeshPipelineKey::DEFERRED_PREPASS;
         }
 
-        if oit {
-            view_key |= MeshPipelineKey::OIT_ENABLED;
+        if exact_oit {
+            view_key |= MeshPipelineKey::OIT_METHOD_EXACT;
+        }
+
+        if wb_oit {
+            view_key |= MeshPipelineKey::OIT_METHOD_WEIGHTED_BLEND;
         }
 
         for (entity, main_entity, config) in &line_gizmos {

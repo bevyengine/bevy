@@ -1165,6 +1165,9 @@ impl AsBindGroupShaderType<StandardMaterialUniform> for StandardMaterial {
             AlphaMode::AlphaToCoverage => {
                 flags |= StandardMaterialFlags::ALPHA_MODE_ALPHA_TO_COVERAGE;
             }
+            AlphaMode::UnsortedBlend | AlphaMode::WeightedBlend => {
+                flags |= StandardMaterialFlags::ALPHA_MODE_BLEND; // The flag is unused
+            }
         };
 
         if self.attenuation_distance.is_finite() {
