@@ -12,7 +12,7 @@ fn main() {
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Load a variable font that supports weight changes.
     // Roboto Flex ships with Bevy's examples.
-    let font = asset_server.load("fonts/FiraSans-Bold.ttf");
+    let font = asset_server.load("fonts/EBGaramond12-regular.otf");
 
     commands.spawn(Camera2d);
 
