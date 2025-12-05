@@ -60,6 +60,11 @@ impl FromArgValue for Trigger {
 }
 
 impl WhatToRunCommand {
+    #[expect(clippy::print_stdout, reason = "goal is to print jobs to stdout")]
+    #[expect(
+        clippy::vec_init_then_push,
+        reason = "temp, will be better after the todo"
+    )]
     pub fn run(&self, _sh: &Shell, _args: Args) {
         let _diff = match self.trigger {
             Trigger::Schedule | Trigger::PushToBranch => vec![],
