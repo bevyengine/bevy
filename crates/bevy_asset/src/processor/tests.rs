@@ -1834,13 +1834,13 @@ fn fails_to_add_or_remove_source_after_processor_starts() {
     // We can't remove the source because it is processed.
     assert_eq!(
         asset_server.remove_source("custom_2"),
-        Err(RemoveSourceError::SourceIsProcessed)
+        Err(RemoveSourceError::SourceIsProcessed("custom_2".into()))
     );
 
     // We can't add a processed source, since the processor has started.
     assert_eq!(
         asset_server.add_source("custom_3", &mut create_processed_source(source_gate).0),
-        Err(AddSourceError::SourceIsProcessed)
+        Err(AddSourceError::SourceIsProcessed("custom_3".into()))
     );
 
     // However we can add unprocessed sources even after the processor has started!
