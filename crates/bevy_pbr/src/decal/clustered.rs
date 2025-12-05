@@ -451,6 +451,10 @@ fn max_view_decals(render_device: &RenderDevice) -> u32 {
         .features()
         .contains(WgpuFeatures::PARTIALLY_BOUND_BINDING_ARRAY)
     {
+        // This number was determined arbitrarily as a reasonable value that
+        // would encompass most use cases (e.g. bullet holes in walls) while
+        // offering a failsafe to prevent shaders becoming too slow if there are
+        // extremely large numbers of decals.
         1024
     } else {
         8
