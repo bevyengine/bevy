@@ -119,6 +119,8 @@ enum Commands {
     CompileFail(commands::CompileFailCommand),
     BenchCheck(commands::BenchCheckCommand),
     ExampleCheck(commands::ExampleCheckCommand),
+    // Controller (list commands that needs to run)
+    WhatToRun(commands::WhatToRunCommand),
 }
 
 impl Prepare for Commands {
@@ -141,6 +143,10 @@ impl Prepare for Commands {
             Commands::CompileFail(subcommand) => subcommand.prepare(sh, args),
             Commands::BenchCheck(subcommand) => subcommand.prepare(sh, args),
             Commands::ExampleCheck(subcommand) => subcommand.prepare(sh, args),
+            Commands::WhatToRun(subcommand) => {
+                subcommand.run(sh, args);
+                vec![]
+            }
         }
     }
 }
