@@ -171,7 +171,7 @@ jobs:
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             target/
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain
         with:
           targets: x86_64-unknown-none
       - name: Install Linux dependencies
@@ -199,7 +199,7 @@ jobs:
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             target/
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain
         with:
           targets: thumbv6m-none-eabi
       - name: Install Linux dependencies
@@ -227,7 +227,7 @@ jobs:
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             target/
-      - uses: dtolnay/rust-toolchain@1.91.1
+      - uses: dtolnay/rust-toolchain
         with:
           targets: x86_64-unknown-none
       - name: Install Linux dependencies
