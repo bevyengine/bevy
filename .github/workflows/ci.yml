@@ -48,6 +48,8 @@ jobs:
             ~/.cargo/git/db/
             target/
       - uses: dtolnay/rust-toolchain@stable
+      - name: override
+        run: rustup override set stable
       - name: Install Linux dependencies
         uses: ./.github/actions/install-linux-deps
       - name: Build & run tests
@@ -78,6 +80,8 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
+      - name: override
+        run: rustup override set stable
       - name: Install Linux dependencies
         uses: ./.github/actions/install-linux-deps
         with:
