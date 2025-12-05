@@ -18,10 +18,10 @@ use thiserror::Error;
 ///
 /// Asset paths consist of three main parts:
 /// * [`AssetPath::source`]: The name of the [`AssetSource`](crate::io::AssetSource) to load the asset from.
-///     This is optional. If one is not set the default source will be used (which is the `assets` folder by default).
+///   This is optional. If one is not set the default source will be used (which is the `assets` folder by default).
 /// * [`AssetPath::path`]: The "virtual filesystem path" pointing to an asset source file.
 /// * [`AssetPath::label`]: An optional "named sub asset". When assets are loaded, they are
-///     allowed to load "sub assets" of any type, which are identified by a named "label".
+///   allowed to load "sub assets" of any type, which are identified by a named "label".
 ///
 /// Asset paths are generally constructed (and visualized) as strings:
 ///
@@ -53,7 +53,7 @@ use thiserror::Error;
 /// This also means that you should use [`AssetPath::parse`] in cases where `&str` is the explicit type.
 #[derive(Eq, PartialEq, Hash, Clone, Default, Reflect)]
 #[reflect(opaque)]
-#[reflect(Debug, PartialEq, Hash, Serialize, Deserialize)]
+#[reflect(Debug, PartialEq, Hash, Clone, Serialize, Deserialize)]
 pub struct AssetPath<'a> {
     source: AssetSourceId<'a>,
     path: CowArc<'a, Path>,
@@ -223,6 +223,16 @@ impl<'a> AssetPath<'a> {
         Ok((source, path, label))
     }
 
+    /// Creates a new [`AssetPath`] from a [`PathBuf`].
+    #[inline]
+    pub fn from_path_buf(path_buf: PathBuf) -> AssetPath<'a> {
+        AssetPath {
+            path: CowArc::Owned(path_buf.into()),
+            source: AssetSourceId::Default,
+            label: None,
+        }
+    }
+
     /// Creates a new [`AssetPath`] from a [`Path`].
     #[inline]
     pub fn from_path(path: &'a Path) -> AssetPath<'a> {
@@ -236,7 +246,7 @@ impl<'a> AssetPath<'a> {
     /// Gets the "asset source", if one was defined. If none was defined, the default source
     /// will be used.
     #[inline]
-    pub fn source(&self) -> &AssetSourceId {
+    pub fn source(&self) -> &AssetSourceId<'_> {
         &self.source
     }
 
@@ -470,7 +480,7 @@ impl<'a> AssetPath<'a> {
     }
 
     pub(crate) fn iter_secondary_extensions(full_extension: &str) -> impl Iterator<Item = &str> {
-        full_extension.chars().enumerate().filter_map(|(i, c)| {
+        full_extension.char_indices().filter_map(|(i, c)| {
             if c == '.' {
                 Some(&full_extension[i + 1..])
             } else {
@@ -478,45 +488,64 @@ impl<'a> AssetPath<'a> {
             }
         })
     }
-}
 
-impl AssetPath<'static> {
-    /// Indicates this [`AssetPath`] should have a static lifetime.
-    #[inline]
-    pub fn as_static(self) -> Self {
-        let Self {
-            source,
-            path,
-            label,
-        } = self;
-
-        let source = source.as_static();
-        let path = path.as_static();
-        let label = label.map(CowArc::as_static);
-
-        Self {
-            source,
-            path,
-            label,
+    /// Returns `true` if this [`AssetPath`] points to a file that is
+    /// outside of its [`AssetSource`](crate::io::AssetSource) folder.
+    ///
+    /// ## Example
+    /// ```
+    /// # use bevy_asset::AssetPath;
+    /// // Inside the default AssetSource.
+    /// let path = AssetPath::parse("thingy.png");
+    /// assert!( ! path.is_unapproved());
+    /// let path = AssetPath::parse("gui/thingy.png");
+    /// assert!( ! path.is_unapproved());
+    ///
+    /// // Inside a different AssetSource.
+    /// let path = AssetPath::parse("embedded://thingy.png");
+    /// assert!( ! path.is_unapproved());
+    ///
+    /// // Exits the `AssetSource`s directory.
+    /// let path = AssetPath::parse("../thingy.png");
+    /// assert!(path.is_unapproved());
+    /// let path = AssetPath::parse("folder/../../thingy.png");
+    /// assert!(path.is_unapproved());
+    ///
+    /// // This references the linux root directory.
+    /// let path = AssetPath::parse("/home/thingy.png");
+    /// assert!(path.is_unapproved());
+    /// ```
+    pub fn is_unapproved(&self) -> bool {
+        use std::path::Component;
+        let mut simplified = PathBuf::new();
+        for component in self.path.components() {
+            match component {
+                Component::Prefix(_) | Component::RootDir => return true,
+                Component::CurDir => {}
+                Component::ParentDir => {
+                    if !simplified.pop() {
+                        return true;
+                    }
+                }
+                Component::Normal(os_str) => simplified.push(os_str),
+            }
         }
-    }
 
-    /// Constructs an [`AssetPath`] with a static lifetime.
-    #[inline]
-    pub fn from_static(value: impl Into<Self>) -> Self {
-        value.into().as_static()
+        false
     }
 }
 
-impl<'a> From<&'a str> for AssetPath<'a> {
+// This is only implemented for static lifetimes to ensure `Path::clone` does not allocate
+// by ensuring that this is stored as a `CowArc::Static`.
+// Please read https://github.com/bevyengine/bevy/issues/19844 before changing this!
+impl From<&'static str> for AssetPath<'static> {
     #[inline]
-    fn from(asset_path: &'a str) -> Self {
+    fn from(asset_path: &'static str) -> Self {
         let (source, path, label) = Self::parse_internal(asset_path).unwrap();
-
         AssetPath {
             source: source.into(),
-            path: CowArc::Borrowed(path),
-            label: label.map(CowArc::Borrowed),
+            path: CowArc::Static(path),
+            label: label.map(CowArc::Static),
         }
     }
 }
@@ -535,12 +564,12 @@ impl From<String> for AssetPath<'static> {
     }
 }
 
-impl<'a> From<&'a Path> for AssetPath<'a> {
+impl From<&'static Path> for AssetPath<'static> {
     #[inline]
-    fn from(path: &'a Path) -> Self {
+    fn from(path: &'static Path) -> Self {
         Self {
             source: AssetSourceId::Default,
-            path: CowArc::Borrowed(path),
+            path: CowArc::Static(path),
             label: None,
         }
     }
@@ -619,7 +648,13 @@ pub(crate) fn normalize_path(path: &Path) -> PathBuf {
         if elt == "." {
             // Skip
         } else if elt == ".." {
-            if !result_path.pop() {
+            // Note: If the result_path ends in `..`, Path::file_name returns None, so we'll end up
+            // preserving it.
+            if result_path.file_name().is_some() {
+                // This assert is just a sanity check - we already know the path has a file_name, so
+                // we know there is something to pop.
+                assert!(result_path.pop());
+            } else {
                 // Preserve ".." if insufficient matches (per RFC 1808).
                 result_path.push(elt);
             }
@@ -964,6 +999,24 @@ mod tests {
         assert_eq!(
             base.resolve_embed("../../joe/next").unwrap(),
             AssetPath::from("../joe/next")
+        );
+    }
+
+    #[test]
+    fn resolve_embed_relative_to_external_path() {
+        let base = AssetPath::from("../../a/b.gltf");
+        assert_eq!(
+            base.resolve_embed("c.bin").unwrap(),
+            AssetPath::from("../../a/c.bin")
+        );
+    }
+
+    #[test]
+    fn resolve_relative_to_external_path() {
+        let base = AssetPath::from("../../a/b.gltf");
+        assert_eq!(
+            base.resolve("c.bin").unwrap(),
+            AssetPath::from("../../a/b.gltf/c.bin")
         );
     }
 

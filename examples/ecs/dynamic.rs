@@ -10,8 +10,10 @@ use std::{alloc::Layout, collections::HashMap, io::Write, ptr::NonNull};
 
 use bevy::{
     ecs::{
-        component::{ComponentDescriptor, ComponentId, ComponentInfo, StorageType},
-        query::QueryData,
+        component::{
+            ComponentCloneBehavior, ComponentDescriptor, ComponentId, ComponentInfo, StorageType,
+        },
+        query::{ComponentAccessKind, QueryData},
         world::FilteredEntityMut,
     },
     prelude::*,
@@ -94,6 +96,8 @@ fn main() {
                             Layout::array::<u64>(size).unwrap(),
                             None,
                             true,
+                            ComponentCloneBehavior::Default,
+                            None,
                         )
                     });
                     let Some(info) = world.components().get_info(id) else {
@@ -154,9 +158,10 @@ fn main() {
                 query.iter_mut(&mut world).for_each(|filtered_entity| {
                     let terms = filtered_entity
                         .access()
-                        .component_reads_and_writes()
-                        .0
-                        .map(|id| {
+                        .try_iter_component_access()
+                        .unwrap()
+                        .map(|component_access| {
+                            let id = *component_access.index();
                             let ptr = filtered_entity.get_by_id(id).unwrap();
                             let info = component_info.get(&id).unwrap();
                             let len = info.layout().size() / size_of::<u64>();
@@ -172,7 +177,7 @@ fn main() {
                             };
 
                             // If we have write access, increment each value once
-                            if filtered_entity.access().has_component_write(id) {
+                            if matches!(component_access, ComponentAccessKind::Exclusive(_)) {
                                 data.iter_mut().for_each(|data| {
                                     *data += 1;
                                 });
@@ -193,7 +198,7 @@ fn main() {
 
 // Constructs `OwningPtr` for each item in `components`
 // By sharing the lifetime of `components` with the resulting ptrs we ensure we don't drop the data before use
-fn to_owning_ptrs(components: &mut [Vec<u64>]) -> Vec<OwningPtr<Aligned>> {
+fn to_owning_ptrs(components: &mut [Vec<u64>]) -> Vec<OwningPtr<'_, Aligned>> {
     components
         .iter_mut()
         .map(|data| {
@@ -227,11 +232,11 @@ fn parse_term<Q: QueryData>(
             let mut parts = str.split_whitespace();
             let first = parts.next().unwrap();
             if first == "&mut" {
-                if let Some(str) = parts.next() {
-                    if let Some(&id) = components.get(str) {
-                        builder.mut_id(id);
-                        matched = true;
-                    }
+                if let Some(str) = parts.next()
+                    && let Some(&id) = components.get(str)
+                {
+                    builder.mut_id(id);
+                    matched = true;
                 };
             } else if let Some(&id) = components.get(&first[1..]) {
                 builder.ref_id(id);

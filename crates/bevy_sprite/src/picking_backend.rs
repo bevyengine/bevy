@@ -1,28 +1,39 @@
 //! A [`bevy_picking`] backend for sprites. Works for simple sprites and sprite atlases. Works for
-//! sprites with arbitrary transforms. Picking is done based on sprite bounds, not visible pixels.
-//! This means a partially transparent sprite is pickable even in its transparent areas.
+//! sprites with arbitrary transforms.
+//!
+//! By default, picking for sprites is based on pixel opacity.
+//! A sprite is picked only when a pointer is over an opaque pixel.
+//! Alternatively, you can configure picking to be based on sprite bounds.
+//!
+//! ## Implementation Notes
+//!
+//! - The `position` reported in `HitData` in world space, and the `normal` is a normalized
+//!   vector provided by the target's `GlobalTransform::back()`.
 
-use crate::Sprite;
+use crate::{Anchor, Sprite};
 use bevy_app::prelude::*;
 use bevy_asset::prelude::*;
+use bevy_camera::{visibility::ViewVisibility, Camera, Projection};
 use bevy_color::Alpha;
 use bevy_ecs::prelude::*;
 use bevy_image::prelude::*;
 use bevy_math::{prelude::*, FloatExt};
 use bevy_picking::backend::prelude::*;
 use bevy_reflect::prelude::*;
-use bevy_render::prelude::*;
 use bevy_transform::prelude::*;
 use bevy_window::PrimaryWindow;
 
-/// A component that marks cameras that should be used in the [`SpritePickingPlugin`].
+/// An optional component that marks cameras that should be used in the [`SpritePickingPlugin`].
+///
+/// Only needed if [`SpritePickingSettings::require_markers`] is set to `true`, and ignored
+/// otherwise.
 #[derive(Debug, Clone, Default, Component, Reflect)]
-#[reflect(Debug, Default, Component)]
+#[reflect(Debug, Default, Component, Clone)]
 pub struct SpritePickingCamera;
 
 /// How should the [`SpritePickingPlugin`] handle picking and how should it handle transparent pixels
 #[derive(Debug, Clone, Copy, Reflect)]
-#[reflect(Debug)]
+#[reflect(Debug, Clone)]
 pub enum SpritePickingMode {
     /// Even if a sprite is picked on a transparent pixel, it should still count within the backend.
     /// Only consider the rect of a given sprite.
@@ -37,9 +48,10 @@ pub enum SpritePickingMode {
 #[reflect(Resource, Default)]
 pub struct SpritePickingSettings {
     /// When set to `true` sprite picking will only consider cameras marked with
-    /// [`SpritePickingCamera`] and entities marked with [`Pickable`]. `false` by default.
+    /// [`SpritePickingCamera`]. Defaults to `false`.
+    /// Regardless of this setting, only sprites marked with [`Pickable`] will be considered.
     ///
-    /// This setting is provided to give you fine-grained control over which cameras and entities
+    /// This setting is provided to give you fine-grained control over which cameras
     /// should be used by the sprite picking backend at runtime.
     pub require_markers: bool,
     /// Should the backend count transparent pixels as part of the sprite for picking purposes or should it use the bounding box of the sprite alone.
@@ -57,18 +69,14 @@ impl Default for SpritePickingSettings {
     }
 }
 
+/// Enables the sprite picking backend, allowing you to click on, hover over and drag sprites.
 #[derive(Clone)]
 pub struct SpritePickingPlugin;
 
 impl Plugin for SpritePickingPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<SpritePickingSettings>()
-            .register_type::<(
-                SpritePickingCamera,
-                SpritePickingMode,
-                SpritePickingSettings,
-            )>()
-            .add_systems(PreUpdate, sprite_picking.in_set(PickSet::Backend));
+            .add_systems(PreUpdate, sprite_picking.in_set(PickingSystems::Backend));
     }
 }
 
@@ -89,17 +97,17 @@ fn sprite_picking(
         Entity,
         &Sprite,
         &GlobalTransform,
-        Option<&Pickable>,
+        &Anchor,
+        &Pickable,
         &ViewVisibility,
     )>,
-    mut output: EventWriter<PointerHits>,
+    mut pointer_hits_writer: MessageWriter<PointerHits>,
 ) {
     let mut sorted_sprites: Vec<_> = sprite_query
         .iter()
-        .filter_map(|(entity, sprite, transform, pickable, vis)| {
-            let marker_requirement = !settings.require_markers || pickable.is_some();
-            if !transform.affine().is_nan() && vis.get() && marker_requirement {
-                Some((entity, sprite, transform, pickable))
+        .filter_map(|(entity, sprite, transform, anchor, pickable, vis)| {
+            if !transform.affine().is_nan() && vis.get() {
+                Some((entity, sprite, transform, anchor, pickable))
             } else {
                 None
             }
@@ -107,11 +115,11 @@ fn sprite_picking(
         .collect();
 
     // radsort is a stable radix sort that performed better than `slice::sort_by_key`
-    radsort::sort_by_key(&mut sorted_sprites, |(_, _, transform, _)| {
+    radsort::sort_by_key(&mut sorted_sprites, |(_, _, transform, _, _)| {
         -transform.translation().z
     });
 
-    let primary_window = primary_window.get_single().ok();
+    let primary_window = primary_window.single().ok();
 
     for (pointer, location) in pointers.iter().filter_map(|(pointer, pointer_location)| {
         pointer_location.location().map(|loc| (pointer, loc))
@@ -134,13 +142,15 @@ fn sprite_picking(
             continue;
         };
 
-        let viewport_pos = camera
-            .logical_viewport_rect()
-            .map(|v| v.min)
-            .unwrap_or_default();
-        let pos_in_viewport = location.position - viewport_pos;
+        let viewport_pos = location.position;
+        if let Some(viewport) = camera.logical_viewport_rect()
+            && !viewport.contains(viewport_pos)
+        {
+            // The pointer is outside the viewport, skip it
+            continue;
+        }
 
-        let Ok(cursor_ray_world) = camera.viewport_to_world(cam_transform, pos_in_viewport) else {
+        let Ok(cursor_ray_world) = camera.viewport_to_world(cam_transform, viewport_pos) else {
             continue;
         };
         let cursor_ray_len = cam_ortho.far - cam_ortho.near;
@@ -149,7 +159,7 @@ fn sprite_picking(
         let picks: Vec<(Entity, HitData)> = sorted_sprites
             .iter()
             .copied()
-            .filter_map(|(entity, sprite, sprite_transform, pickable)| {
+            .filter_map(|(entity, sprite, sprite_transform, anchor, pickable)| {
                 if blocked {
                     return None;
                 }
@@ -182,6 +192,7 @@ fn sprite_picking(
 
                 let Ok(cursor_pixel_space) = sprite.compute_pixel_space_point(
                     cursor_pos_sprite,
+                    *anchor,
                     &images,
                     &texture_atlas_layout,
                 ) else {
@@ -214,8 +225,7 @@ fn sprite_picking(
                     }
                 };
 
-                blocked = cursor_in_valid_pixels_of_sprite
-                    && pickable.is_none_or(|p| p.should_block_lower);
+                blocked = cursor_in_valid_pixels_of_sprite && pickable.should_block_lower;
 
                 cursor_in_valid_pixels_of_sprite.then(|| {
                     let hit_pos_world =
@@ -241,6 +251,6 @@ fn sprite_picking(
             .collect();
 
         let order = camera.order as f32;
-        output.send(PointerHits::new(*pointer, picks, order));
+        pointer_hits_writer.write(PointerHits::new(*pointer, picks, order));
     }
 }

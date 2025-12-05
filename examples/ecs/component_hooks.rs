@@ -8,13 +8,14 @@
 //! Here are some cases where components hooks might be necessary:
 //!
 //! - Maintaining indexes: If you need to keep custom data structures (like a spatial index) in
-//!     sync with the addition/removal of components.
+//!   sync with the addition/removal of components.
 //!
 //! - Enforcing structural rules: When you have systems that depend on specific relationships
-//!     between components (like hierarchies or parent-child links) and need to maintain correctness.
+//!   between components (like hierarchies or parent-child links) and need to maintain correctness.
 
 use bevy::{
-    ecs::component::{ComponentHooks, HookContext, Mutable, StorageType},
+    ecs::component::{Mutable, StorageType},
+    ecs::lifecycle::{ComponentHook, HookContext},
     prelude::*,
 };
 use std::collections::HashMap;
@@ -33,17 +34,19 @@ impl Component for MyComponent {
     type Mutability = Mutable;
 
     /// Hooks can also be registered during component initialization by
-    /// implementing `register_component_hooks`
-    fn register_component_hooks(_hooks: &mut ComponentHooks) {
-        // Register hooks...
+    /// implementing the associated method
+    fn on_add() -> Option<ComponentHook> {
+        // We don't have an `on_add` hook so we'll just return None.
+        // Note that this is the default behavior when not implementing a hook.
+        None
     }
 }
 
 #[derive(Resource, Default, Debug, Deref, DerefMut)]
 struct MyComponentIndex(HashMap<KeyCode, Entity>);
 
-#[derive(Event)]
-struct MyEvent;
+#[derive(Message)]
+struct MyMessage;
 
 fn main() {
     App::new()
@@ -51,7 +54,7 @@ fn main() {
         .add_systems(Startup, setup)
         .add_systems(Update, trigger_hooks)
         .init_resource::<MyComponentIndex>()
-        .add_event::<MyEvent>()
+        .add_message::<MyMessage>()
         .run();
 }
 
@@ -77,6 +80,7 @@ fn setup(world: &mut World) {
                  entity,
                  component_id,
                  caller,
+                 ..
              }| {
                 // You can access component data from within the hook
                 let value = world.get::<MyComponent>(entity).unwrap().0;
@@ -90,8 +94,8 @@ fn setup(world: &mut World) {
                 world
                     .resource_mut::<MyComponentIndex>()
                     .insert(value, entity);
-                // Or send events
-                world.send_event(MyEvent);
+                // Or send messages
+                world.write_message(MyMessage);
             },
         )
         // `on_insert` will trigger when a component is inserted onto an entity,
@@ -114,6 +118,7 @@ fn setup(world: &mut World) {
                  entity,
                  component_id,
                  caller,
+                 ..
              }| {
                 let value = world.get::<MyComponent>(entity).unwrap().0;
                 println!(

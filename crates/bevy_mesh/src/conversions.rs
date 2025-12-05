@@ -445,9 +445,8 @@ mod tests {
         let buffer = vec![[0_u32; 4]; 3];
         let values = VertexAttributeValues::from(buffer);
         let error_result: Result<Vec<u32>, _> = values.try_into();
-        let error = match error_result {
-            Ok(..) => unreachable!(),
-            Err(error) => error,
+        let Err(error) = error_result else {
+            unreachable!()
         };
         assert_eq!(
             error.to_string(),

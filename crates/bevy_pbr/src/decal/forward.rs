@@ -3,38 +3,33 @@ use crate::{
     MaterialPlugin, StandardMaterial,
 };
 use bevy_app::{App, Plugin};
-use bevy_asset::{load_internal_asset, Asset, Assets, Handle};
-use bevy_ecs::component::{require, Component};
+use bevy_asset::{Asset, Assets, Handle};
+use bevy_ecs::{
+    component::Component, lifecycle::HookContext, resource::Resource, world::DeferredWorld,
+};
 use bevy_math::{prelude::Rectangle, Quat, Vec2, Vec3};
+use bevy_mesh::{Mesh, Mesh3d, MeshBuilder, MeshVertexBufferLayoutRef, Meshable};
 use bevy_reflect::{Reflect, TypePath};
 use bevy_render::{
     alpha::AlphaMode,
-    mesh::{Mesh, Mesh3d, MeshBuilder, MeshVertexBufferLayoutRef, Meshable},
+    render_asset::RenderAssets,
     render_resource::{
-        AsBindGroup, CompareFunction, RenderPipelineDescriptor, Shader,
+        AsBindGroup, AsBindGroupShaderType, CompareFunction, RenderPipelineDescriptor, ShaderType,
         SpecializedMeshPipelineError,
     },
+    texture::GpuImage,
+    RenderDebugFlags,
 };
-
-const FORWARD_DECAL_MESH_HANDLE: Handle<Mesh> = Handle::weak_from_u128(19376620402995522466);
-const FORWARD_DECAL_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(29376620402995522466);
+use bevy_shader::load_shader_library;
 
 /// Plugin to render [`ForwardDecal`]s.
 pub struct ForwardDecalPlugin;
 
 impl Plugin for ForwardDecalPlugin {
     fn build(&self, app: &mut App) {
-        load_internal_asset!(
-            app,
-            FORWARD_DECAL_SHADER_HANDLE,
-            "forward_decal.wgsl",
-            Shader::from_wgsl
-        );
+        load_shader_library!(app, "forward_decal.wgsl");
 
-        app.register_type::<ForwardDecal>();
-
-        app.world_mut().resource_mut::<Assets<Mesh>>().insert(
-            FORWARD_DECAL_MESH_HANDLE.id(),
+        let mesh = app.world_mut().resource_mut::<Assets<Mesh>>().add(
             Rectangle::from_size(Vec2::ONE)
                 .mesh()
                 .build()
@@ -43,9 +38,10 @@ impl Plugin for ForwardDecalPlugin {
                 .unwrap(),
         );
 
+        app.insert_resource(ForwardDecalMesh(mesh));
+
         app.add_plugins(MaterialPlugin::<ForwardDecalMaterial<StandardMaterial>> {
-            prepass_enabled: false,
-            shadows_enabled: false,
+            debug_flags: RenderDebugFlags::default(),
             ..Default::default()
         });
     }
@@ -59,11 +55,13 @@ impl Plugin for ForwardDecalPlugin {
 /// # Usage Notes
 ///
 /// * Spawn this component on an entity with a [`crate::MeshMaterial3d`] component holding a [`ForwardDecalMaterial`].
-/// * Any camera rendering a forward decal must have the [`bevy_core_pipeline::DepthPrepass`] component.
+/// * Any camera rendering a forward decal must have the [`bevy_core_pipeline::prepass::DepthPrepass`] component.
 /// * Looking at forward decals at a steep angle can cause distortion. This can be mitigated by padding your decal's
 ///   texture with extra transparent pixels on the edges.
+/// * On Wasm, requires using WebGPU and disabling `Msaa` on your camera.
 #[derive(Component, Reflect)]
-#[require(Mesh3d(|| Mesh3d(FORWARD_DECAL_MESH_HANDLE)))]
+#[require(Mesh3d)]
+#[component(on_add=forward_decal_set_mesh)]
 pub struct ForwardDecal;
 
 /// Type alias for an extended material with a [`ForwardDecalMaterialExt`] extension.
@@ -82,14 +80,34 @@ pub type ForwardDecalMaterial<B: Material> = ExtendedMaterial<B, ForwardDecalMat
 /// The `FORWARD_DECAL` shader define will be made available to your shader so that you can gate
 /// the forward decal code behind an ifdef.
 #[derive(Asset, AsBindGroup, TypePath, Clone, Debug)]
+#[uniform(200, ForwardDecalMaterialExtUniform)]
 pub struct ForwardDecalMaterialExt {
-    /// Controls how far away a surface must be before the decal will stop blending with it, and instead render as opaque.
+    /// Controls the distance threshold for decal blending with surfaces.
     ///
-    /// Decreasing this value will cause the decal to blend only to surfaces closer to it.
+    /// This parameter determines how far away a surface can be before the decal no longer blends
+    /// with it and instead renders with full opacity.
+    ///
+    /// Lower values cause the decal to only blend with close surfaces, while higher values allow
+    /// blending with more distant surfaces.
     ///
     /// Units are in meters.
-    #[uniform(200)]
     pub depth_fade_factor: f32,
+}
+
+#[derive(Clone, Default, ShaderType)]
+pub struct ForwardDecalMaterialExtUniform {
+    pub inv_depth_fade_factor: f32,
+}
+
+impl AsBindGroupShaderType<ForwardDecalMaterialExtUniform> for ForwardDecalMaterialExt {
+    fn as_bind_group_shader_type(
+        &self,
+        _images: &RenderAssets<GpuImage>,
+    ) -> ForwardDecalMaterialExtUniform {
+        ForwardDecalMaterialExtUniform {
+            inv_depth_fade_factor: 1.0 / self.depth_fade_factor.max(0.001),
+        }
+    }
 }
 
 impl MaterialExtension for ForwardDecalMaterialExt {
@@ -112,7 +130,7 @@ impl MaterialExtension for ForwardDecalMaterialExt {
         }
 
         if let Some(label) = &mut descriptor.label {
-            *label = format!("forward_decal_{}", label).into();
+            *label = format!("forward_decal_{label}").into();
         }
 
         Ok(())
@@ -124,5 +142,22 @@ impl Default for ForwardDecalMaterialExt {
         Self {
             depth_fade_factor: 8.0,
         }
+    }
+}
+
+#[derive(Resource)]
+struct ForwardDecalMesh(Handle<Mesh>);
+
+// Note: We need to use a hook here instead of required components since we cannot access resources
+// with required components, and we can't otherwise get a handle to the asset from a required
+// component constructor, since the constructor must be a function pointer, and we intentionally do
+// not want to use `uuid_handle!`.
+fn forward_decal_set_mesh(mut world: DeferredWorld, HookContext { entity, .. }: HookContext) {
+    let decal_mesh = world.resource::<ForwardDecalMesh>().0.clone();
+    let mut entity = world.entity_mut(entity);
+    let mut entity_mesh = entity.get_mut::<Mesh3d>().unwrap();
+    // Only replace the mesh handle if the mesh handle is defaulted.
+    if **entity_mesh == Handle::default() {
+        entity_mesh.0 = decal_mesh;
     }
 }

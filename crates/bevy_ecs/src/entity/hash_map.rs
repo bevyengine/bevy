@@ -9,14 +9,15 @@ use core::{
     ops::{Deref, DerefMut, Index},
 };
 
-use bevy_platform_support::collections::hash_map::{self, HashMap};
+use bevy_platform::collections::hash_map::{self, HashMap};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
 
-use super::{Entity, EntityHash, EntitySetIterator, TrustedEntityBorrow};
+use super::{Entity, EntityEquivalent, EntityHash, EntitySetIterator};
 
 /// A [`HashMap`] pre-configured to use [`EntityHash`] hashing.
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
+#[cfg_attr(feature = "serialize", derive(serde::Deserialize, serde::Serialize))]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EntityHashMap<V>(pub(crate) HashMap<Entity, V, EntityHash>);
 
@@ -26,7 +27,7 @@ impl<V> EntityHashMap<V> {
     /// Equivalent to [`HashMap::with_hasher(EntityHash)`].
     ///
     /// [`HashMap::with_hasher(EntityHash)`]: HashMap::with_hasher
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Self(HashMap::with_hasher(EntityHash))
     }
 
@@ -112,7 +113,7 @@ impl<V> FromIterator<(Entity, V)> for EntityHashMap<V> {
     }
 }
 
-impl<V, Q: TrustedEntityBorrow + ?Sized> Index<&Q> for EntityHashMap<V> {
+impl<V, Q: EntityEquivalent + ?Sized> Index<&Q> for EntityHashMap<V> {
     type Output = V;
     fn index(&self, key: &Q) -> &V {
         self.0.index(&key.entity())

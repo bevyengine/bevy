@@ -1,15 +1,13 @@
 use crate::define_atomic_id;
 use crate::renderer::WgpuWrapper;
-use alloc::sync::Arc;
-use core::ops::{Bound, Deref, RangeBounds};
+use core::ops::{Deref, RangeBounds};
 
 define_atomic_id!(BufferId);
 
 #[derive(Clone, Debug)]
 pub struct Buffer {
     id: BufferId,
-    value: Arc<WgpuWrapper<wgpu::Buffer>>,
-    size: wgpu::BufferAddress,
+    value: WgpuWrapper<wgpu::Buffer>,
 }
 
 impl Buffer {
@@ -18,22 +16,9 @@ impl Buffer {
         self.id
     }
 
-    pub fn slice(&self, bounds: impl RangeBounds<wgpu::BufferAddress>) -> BufferSlice {
-        // need to compute and store this manually because wgpu doesn't export offset and size on wgpu::BufferSlice
-        let offset = match bounds.start_bound() {
-            Bound::Included(&bound) => bound,
-            Bound::Excluded(&bound) => bound + 1,
-            Bound::Unbounded => 0,
-        };
-        let size = match bounds.end_bound() {
-            Bound::Included(&bound) => bound + 1,
-            Bound::Excluded(&bound) => bound,
-            Bound::Unbounded => self.size,
-        } - offset;
+    pub fn slice(&self, bounds: impl RangeBounds<wgpu::BufferAddress>) -> BufferSlice<'_> {
         BufferSlice {
             id: self.id,
-            offset,
-            size,
             value: self.value.slice(bounds),
         }
     }
@@ -48,8 +33,7 @@ impl From<wgpu::Buffer> for Buffer {
     fn from(value: wgpu::Buffer) -> Self {
         Buffer {
             id: BufferId::new(),
-            size: value.size(),
-            value: Arc::new(WgpuWrapper::new(value)),
+            value: WgpuWrapper::new(value),
         }
     }
 }
@@ -66,25 +50,13 @@ impl Deref for Buffer {
 #[derive(Clone, Debug)]
 pub struct BufferSlice<'a> {
     id: BufferId,
-    offset: wgpu::BufferAddress,
     value: wgpu::BufferSlice<'a>,
-    size: wgpu::BufferAddress,
 }
 
 impl<'a> BufferSlice<'a> {
     #[inline]
     pub fn id(&self) -> BufferId {
         self.id
-    }
-
-    #[inline]
-    pub fn offset(&self) -> wgpu::BufferAddress {
-        self.offset
-    }
-
-    #[inline]
-    pub fn size(&self) -> wgpu::BufferAddress {
-        self.size
     }
 }
 

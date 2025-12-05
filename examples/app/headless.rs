@@ -19,7 +19,7 @@ fn main() {
         println!("Disable the default features and rerun the example to run headless.");
         println!("To do so, run:");
         println!();
-        println!("    cargo run --example headless --no-default-features");
+        println!("    cargo run --example headless --no-default-features --features bevy_log");
         return;
     }
 
@@ -50,7 +50,7 @@ fn hello_world_system() {
 }
 
 fn counter(mut state: Local<CounterState>) {
-    if state.count % 60 == 0 {
+    if state.count.is_multiple_of(60) {
         println!("{}", state.count);
     }
     state.count += 1;

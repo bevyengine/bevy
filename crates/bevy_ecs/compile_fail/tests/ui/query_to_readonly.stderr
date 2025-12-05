@@ -6,13 +6,13 @@ error[E0502]: cannot borrow `query` as immutable because it is also borrowed as 
   |              |
   |              mutable borrow occurs here
   |              mutable borrow later used here
-9 |         for _ in query.to_readonly().iter() {}
+9 |         for _ in query.as_readonly().iter() {}
   |                  ^^^^^ immutable borrow occurs here
 
 error[E0502]: cannot borrow `query` as mutable because it is also borrowed as immutable
   --> tests/ui/query_to_readonly.rs:15:18
    |
-14 |     for _ in query.to_readonly().iter() {
+14 |     for _ in query.as_readonly().iter() {
    |              --------------------------
    |              |
    |              immutable borrow occurs here
@@ -26,7 +26,7 @@ error[E0502]: cannot borrow `query` as immutable because it is also borrowed as 
 38 |         let mut mut_foo = query.single_mut();
    |                           ----- mutable borrow occurs here
 ...
-41 |         let readonly_query = query.to_readonly();
+41 |         let readonly_query = query.as_readonly();
    |                              ^^^^^ immutable borrow occurs here
 ...
 46 |         *mut_foo = Foo;
@@ -35,7 +35,7 @@ error[E0502]: cannot borrow `query` as immutable because it is also borrowed as 
 error[E0502]: cannot borrow `query` as mutable because it is also borrowed as immutable
   --> tests/ui/query_to_readonly.rs:58:27
    |
-54 |         let readonly_query = query.to_readonly();
+54 |         let readonly_query = query.as_readonly();
    |                              ----- immutable borrow occurs here
 ...
 58 |         let mut mut_foo = query.single_mut();

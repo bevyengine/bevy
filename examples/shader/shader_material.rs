@@ -1,9 +1,7 @@
 //! A shader and a material that uses it.
 
 use bevy::{
-    prelude::*,
-    reflect::TypePath,
-    render::render_resource::{AsBindGroup, ShaderRef},
+    prelude::*, reflect::TypePath, render::render_resource::AsBindGroup, shader::ShaderRef,
 };
 
 /// This example uses a shader source file from the assets subdirectory

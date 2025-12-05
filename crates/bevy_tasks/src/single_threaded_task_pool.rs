@@ -1,72 +1,27 @@
 use alloc::{string::String, vec::Vec};
-use bevy_platform_support::sync::Arc;
-use core::{cell::RefCell, future::Future, marker::PhantomData, mem};
+use bevy_platform::sync::Arc;
+use core::{cell::{RefCell, Cell}, future::Future, marker::PhantomData, mem};
 
-use crate::Task;
-
-#[cfg(feature = "std")]
-use std::thread_local;
-
-#[cfg(not(feature = "std"))]
-use bevy_platform_support::sync::{Mutex, PoisonError};
-
-#[cfg(all(
-    feature = "std",
-    any(feature = "async_executor", feature = "edge_executor")
-))]
 use crate::executor::LocalExecutor;
+use crate::{block_on, Task};
 
-#[cfg(all(
-    not(feature = "std"),
-    any(feature = "async_executor", feature = "edge_executor")
-))]
-use crate::executor::Executor as LocalExecutor;
+crate::cfg::std! {
+    if {
+        use std::thread_local;
 
-#[cfg(not(any(feature = "async_executor", feature = "edge_executor")))]
-mod dummy_executor {
-    use async_task::Task;
-    use core::{future::Future, marker::PhantomData};
+        use crate::executor::LocalExecutor as Executor;
 
-    /// Dummy implementation of a `LocalExecutor` to allow for a cleaner compiler error
-    /// due to missing feature flags.
-    #[doc(hidden)]
-    #[derive(Debug)]
-    pub struct LocalExecutor<'a>(PhantomData<fn(&'a ())>);
-
-    impl<'a> LocalExecutor<'a> {
-        /// Dummy implementation
-        pub const fn new() -> Self {
-            Self(PhantomData)
+        thread_local! {
+            static LOCAL_EXECUTOR: Executor<'static> = const { Executor::new() };
         }
+    } else {
 
-        /// Dummy implementation
-        pub fn try_tick(&self) -> bool {
-            unimplemented!()
-        }
+        // Because we do not have thread-locals without std, we cannot use LocalExecutor here.
+        use crate::executor::Executor;
 
-        /// Dummy implementation
-        pub fn spawn<T: 'a>(&self, _: impl Future<Output = T> + 'a) -> Task<T> {
-            unimplemented!()
-        }
+        static LOCAL_EXECUTOR: Executor<'static> = const { Executor::new() };
     }
 }
-
-#[cfg(not(any(feature = "async_executor", feature = "edge_executor")))]
-use dummy_executor::LocalExecutor;
-
-#[cfg(feature = "std")]
-thread_local! {
-    static LOCAL_EXECUTOR: LocalExecutor<'static> = const { LocalExecutor::new() };
-}
-
-#[cfg(not(feature = "std"))]
-static LOCAL_EXECUTOR: LocalExecutor<'static> = const { LocalExecutor::new() };
-
-#[cfg(feature = "std")]
-type ScopeResult<T> = alloc::rc::Rc<RefCell<Option<T>>>;
-
-#[cfg(not(feature = "std"))]
-type ScopeResult<T> = Arc<Mutex<Option<T>>>;
 
 /// Used to create a [`TaskPool`].
 #[derive(Debug, Default, Clone)]
@@ -155,7 +110,7 @@ impl TaskPool {
     /// This is similar to `rayon::scope` and `crossbeam::scope`
     pub fn scope<'env, F, T>(&self, f: F) -> Vec<T>
     where
-        F: for<'scope> FnOnce(&'env mut Scope<'scope, 'env, T>),
+        F: for<'scope> FnOnce(&'scope mut Scope<'scope, 'env, T>),
         T: Send + 'static,
     {
         self.scope_with_executor(false, None, f)
@@ -174,7 +129,7 @@ impl TaskPool {
         f: F,
     ) -> Vec<T>
     where
-        F: for<'scope> FnOnce(&'env mut Scope<'scope, 'env, T>),
+        F: for<'scope> FnOnce(&'scope mut Scope<'scope, 'env, T>),
         T: Send + 'static,
     {
         // SAFETY: This safety comment applies to all references transmuted to 'env.
@@ -185,17 +140,22 @@ impl TaskPool {
         // Any usages of the references passed into `Scope` must be accessed through
         // the transmuted reference for the rest of this function.
 
-        let executor = &LocalExecutor::new();
+        let executor = LocalExecutor::new();
         // SAFETY: As above, all futures must complete in this function so we can change the lifetime
-        let executor: &'env LocalExecutor<'env> = unsafe { mem::transmute(executor) };
+        let executor_ref: &'env LocalExecutor<'env> = unsafe { mem::transmute(&executor) };
 
-        let results: RefCell<Vec<ScopeResult<T>>> = RefCell::new(Vec::new());
+        let results: RefCell<Vec<Option<T>>> = RefCell::new(Vec::new());
         // SAFETY: As above, all futures must complete in this function so we can change the lifetime
-        let results: &'env RefCell<Vec<ScopeResult<T>>> = unsafe { mem::transmute(&results) };
+        let results_ref: &'env RefCell<Vec<Option<T>>> = unsafe { mem::transmute(&results) };
+
+        let pending_tasks: Cell<usize> = Cell::new(0);
+        // SAFETY: As above, all futures must complete in this function so we can change the lifetime
+        let pending_tasks: &'env Cell<usize> = unsafe { mem::transmute(&pending_tasks) };
 
         let mut scope = Scope {
-            executor,
-            results,
+            executor_ref,
+            pending_tasks,
+            results_ref,
             scope: PhantomData,
             env: PhantomData,
         };
@@ -205,22 +165,17 @@ impl TaskPool {
 
         f(scope_ref);
 
-        // Loop until all tasks are done
-        while executor.try_tick() {}
+        // Wait until the scope is complete
+        block_on(executor.run(async {
+            while pending_tasks.get() != 0 {
+                futures_lite::future::yield_now().await;
+            }
+        }));
 
-        let results = scope.results.borrow();
         results
-            .iter()
-            .map(|result| {
-                #[cfg(feature = "std")]
-                return result.borrow_mut().take().unwrap();
-
-                #[cfg(not(feature = "std"))]
-                {
-                    let mut lock = result.lock().unwrap_or_else(PoisonError::into_inner);
-                    lock.take().unwrap()
-                }
-            })
+            .take()
+            .into_iter()
+            .map(|result| result.unwrap())
             .collect()
     }
 
@@ -237,26 +192,27 @@ impl TaskPool {
     where
         T: 'static + MaybeSend + MaybeSync,
     {
-        #[cfg(target_arch = "wasm32")]
-        return Task::wrap_future(future);
+        crate::cfg::switch! {{
+            crate::cfg::web => {
+                Task::wrap_future(future)
+            }
+            crate::cfg::std => {
+                LOCAL_EXECUTOR.with(|executor| {
+                    let task = executor.spawn(future);
+                    // Loop until all tasks are done
+                    while executor.try_tick() {}
 
-        #[cfg(all(not(target_arch = "wasm32"), feature = "std"))]
-        return LOCAL_EXECUTOR.with(|executor| {
-            let task = executor.spawn(future);
-            // Loop until all tasks are done
-            while executor.try_tick() {}
+                    Task::new(task)
+                })
+            }
+            _ => {
+                let task = LOCAL_EXECUTOR.spawn(future);
+                // Loop until all tasks are done
+                while LOCAL_EXECUTOR.try_tick() {}
 
-            Task::new(task)
-        });
-
-        #[cfg(all(not(target_arch = "wasm32"), not(feature = "std")))]
-        return {
-            let task = LOCAL_EXECUTOR.spawn(future);
-            // Loop until all tasks are done
-            while LOCAL_EXECUTOR.try_tick() {}
-
-            Task::new(task)
-        };
+                Task::new(task)
+            }
+        }}
     }
 
     /// Spawns a static future on the JS event loop. This is exactly the same as [`TaskPool::spawn`].
@@ -283,13 +239,16 @@ impl TaskPool {
     /// ```
     pub fn with_local_executor<F, R>(&self, f: F) -> R
     where
-        F: FnOnce(&LocalExecutor) -> R,
+        F: FnOnce(&Executor) -> R,
     {
-        #[cfg(feature = "std")]
-        return LOCAL_EXECUTOR.with(f);
-
-        #[cfg(not(feature = "std"))]
-        return f(&LOCAL_EXECUTOR);
+        crate::cfg::switch! {{
+            crate::cfg::std => {
+                LOCAL_EXECUTOR.with(f)
+            }
+            _ => {
+                f(&LOCAL_EXECUTOR)
+            }
+        }}
     }
 }
 
@@ -298,9 +257,11 @@ impl TaskPool {
 /// For more information, see [`TaskPool::scope`].
 #[derive(Debug)]
 pub struct Scope<'scope, 'env: 'scope, T> {
-    executor: &'scope LocalExecutor<'scope>,
+    executor_ref: &'scope LocalExecutor<'scope>,
+    // The number of pending tasks spawned on the scope
+    pending_tasks: &'scope Cell<usize>,
     // Vector to gather results of all futures spawned during scope run
-    results: &'env RefCell<Vec<ScopeResult<T>>>,
+    results_ref: &'env RefCell<Vec<Option<T>>>,
 
     // make `Scope` invariant over 'scope and 'env
     scope: PhantomData<&'scope mut &'scope ()>,
@@ -336,40 +297,76 @@ impl<'scope, 'env, T: Send + 'env> Scope<'scope, 'env, T> {
     ///
     /// For more information, see [`TaskPool::scope`].
     pub fn spawn_on_scope<Fut: Future<Output = T> + 'scope + MaybeSend>(&self, f: Fut) {
-        let result = ScopeResult::<T>::default();
-        self.results.borrow_mut().push(result.clone());
+        // increment the number of pending tasks
+        let pending_tasks = self.pending_tasks;
+        pending_tasks.update(|i| i + 1);
+
+        // add a spot to keep the result, and record the index
+        let results_ref = self.results_ref;
+        let mut results = results_ref.borrow_mut();
+        let task_number = results.len();
+        results.push(None);
+        drop(results);
+
+        // create the job closure
         let f = async move {
-            let temp_result = f.await;
+            let result = f.await;
 
-            #[cfg(feature = "std")]
-            result.borrow_mut().replace(temp_result);
+            // store the result in the allocated slot
+            let mut results = results_ref.borrow_mut();
+            results[task_number] = Some(result);
+            drop(results);
 
-            #[cfg(not(feature = "std"))]
-            {
-                let mut lock = result.lock().unwrap_or_else(PoisonError::into_inner);
-                *lock = Some(temp_result);
-            }
+            // decrement the pending tasks count
+            pending_tasks.update(|i| i - 1);
         };
-        self.executor.spawn(f).detach();
+
+        // spawn the job itself
+        self.executor_ref.spawn(f).detach();
     }
 }
 
-#[cfg(feature = "std")]
-mod send_sync_bounds {
-    pub trait MaybeSend {}
-    impl<T> MaybeSend for T {}
-
-    pub trait MaybeSync {}
-    impl<T> MaybeSync for T {}
+crate::cfg::std! {
+    if {
+        pub trait MaybeSend {}
+        impl<T> MaybeSend for T {}
+    
+        pub trait MaybeSync {}
+        impl<T> MaybeSync for T {}
+    } else {
+        pub trait MaybeSend: Send {}
+        impl<T: Send> MaybeSend for T {}
+    
+        pub trait MaybeSync: Sync {}
+        impl<T: Sync> MaybeSync for T {}
+    }
 }
 
-#[cfg(not(feature = "std"))]
-mod send_sync_bounds {
-    pub trait MaybeSend: Send {}
-    impl<T: Send> MaybeSend for T {}
+#[cfg(test)]
+mod test {
+    use std::{time, thread};
 
-    pub trait MaybeSync: Sync {}
-    impl<T: Sync> MaybeSync for T {}
+    use super::*;
+
+    /// This test creates a scope with a single task that goes to sleep for a
+    /// nontrivial amount of time. At one point, the scope would (incorrectly)
+    /// return early under these conditions, causing a crash.
+    ///
+    /// The correct behavior is for the scope to block until the receiver is
+    /// woken by the external thread.
+    #[test]
+    fn scoped_spawn() {
+        let (sender, receiver) = async_channel::unbounded();
+        let task_pool = TaskPool {};
+        let thread = thread::spawn(move || {
+            let duration = time::Duration::from_millis(50);
+            thread::sleep(duration);
+            let _ = sender.send(0);
+        });
+        task_pool.scope(|scope| {
+            scope.spawn(async {
+                receiver.recv().await
+            });
+        });
+    }
 }
-
-use send_sync_bounds::{MaybeSend, MaybeSync};

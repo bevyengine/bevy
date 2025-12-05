@@ -1,11 +1,12 @@
+use crate::renderer::WgpuWrapper;
 use crate::{
     render_resource::{SurfaceTexture, TextureView},
     renderer::{RenderAdapter, RenderDevice, RenderInstance},
-    Extract, ExtractSchedule, Render, RenderApp, RenderSet, WgpuWrapper,
+    Extract, ExtractSchedule, Render, RenderApp, RenderSystems,
 };
 use bevy_app::{App, Plugin};
-use bevy_ecs::{entity::hash_map::EntityHashMap, prelude::*};
-use bevy_platform_support::collections::HashSet;
+use bevy_ecs::{entity::EntityHashMap, prelude::*};
+use bevy_platform::collections::HashSet;
 use bevy_utils::default;
 use bevy_window::{
     CompositeAlphaMode, PresentMode, PrimaryWindow, RawHandleWrapper, Window, WindowClosing,
@@ -21,7 +22,7 @@ use wgpu::{
 
 pub mod screenshot;
 
-use screenshot::{ScreenshotPlugin, ScreenshotToScreenPipeline};
+use screenshot::ScreenshotPlugin;
 
 pub struct WindowRenderPlugin;
 
@@ -40,13 +41,7 @@ impl Plugin for WindowRenderPlugin {
                         .run_if(need_surface_configuration)
                         .before(prepare_windows),
                 )
-                .add_systems(Render, prepare_windows.in_set(RenderSet::ManageViews));
-        }
-    }
-
-    fn finish(&self, app: &mut App) {
-        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app.init_resource::<ScreenshotToScreenPipeline>();
+                .add_systems(Render, prepare_windows.in_set(RenderSystems::ManageViews));
         }
     }
 }
@@ -81,6 +76,20 @@ impl ExtractedWindow {
         ));
         self.swap_chain_texture = Some(SurfaceTexture::from(frame));
     }
+
+    fn has_swapchain_texture(&self) -> bool {
+        self.swap_chain_texture_view.is_some() && self.swap_chain_texture.is_some()
+    }
+
+    pub fn present(&mut self) {
+        if let Some(surface_texture) = self.swap_chain_texture.take() {
+            // TODO(clean): winit docs recommends calling pre_present_notify before this.
+            // though `present()` doesn't present the frame, it schedules it to be presented
+            // by wgpu.
+            // https://docs.rs/winit/0.29.9/wasm32-unknown-unknown/winit/window/struct.Window.html#method.pre_present_notify
+            surface_texture.present();
+        }
+    }
 }
 
 #[derive(Default, Resource)]
@@ -105,7 +114,7 @@ impl DerefMut for ExtractedWindows {
 
 fn extract_windows(
     mut extracted_windows: ResMut<ExtractedWindows>,
-    mut closing: Extract<EventReader<WindowClosing>>,
+    mut closing: Extract<MessageReader<WindowClosing>>,
     windows: Extract<Query<(Entity, &Window, &RawHandleWrapper, Option<&PrimaryWindow>)>>,
     mut removed: Extract<RemovedComponents<RawHandleWrapper>>,
     mut window_surfaces: ResMut<WindowSurfaces>,
@@ -135,8 +144,13 @@ fn extract_windows(
             alpha_mode: window.composite_alpha_mode,
         });
 
-        // NOTE: Drop the swap chain frame here
-        extracted_window.swap_chain_texture_view = None;
+        if extracted_window.swap_chain_texture.is_none() {
+            // If we called present on the previous swap-chain texture last update,
+            // then drop the swap chain frame here, otherwise we can keep it for the
+            // next update as an optimization. `prepare_windows` will only acquire a new
+            // swap chain texture if needed.
+            extracted_window.swap_chain_texture_view = None;
+        }
         extracted_window.size_changed = new_width != extracted_window.physical_width
             || new_height != extracted_window.physical_height;
         extracted_window.present_mode_changed =
@@ -210,10 +224,10 @@ impl WindowSurfaces {
 ///   `DirectX 11` is not supported by wgpu 0.12 and so if your GPU/drivers do not support Vulkan,
 ///   it may be that a software renderer called "Microsoft Basic Render Driver" using `DirectX 12`
 ///   will be chosen and performance will be very poor. This is visible in a log message that is
-///   output during renderer initialization. Future versions of wgpu will support `DirectX 11`, but
-///   another alternative is to try to use [`ANGLE`](https://github.com/gfx-rs/wgpu#angle) and
-///   [`Backends::GL`](crate::settings::Backends::GL) if your GPU/drivers support `OpenGL 4.3` / `OpenGL ES 3.0` or
-///   later.
+///   output during renderer initialization.
+///   Another alternative is to try to use [`ANGLE`](https://github.com/gfx-rs/wgpu#angle) and
+///   [`Backends::GL`](crate::settings::Backends::GL) with the `gles` feature enabled if your
+///   GPU/drivers support `OpenGL 4.3` / `OpenGL ES 3.0` or later.
 pub fn prepare_windows(
     mut windows: ResMut<ExtractedWindows>,
     mut window_surfaces: ResMut<WindowSurfaces>,
@@ -225,6 +239,11 @@ pub fn prepare_windows(
         let Some(surface_data) = window_surfaces.surfaces.get(&window.entity) else {
             continue;
         };
+
+        // We didn't present the previous frame, so we can keep using our existing swapchain texture.
+        if window.has_swapchain_texture() && !window.size_changed && !window.present_mode_changed {
+            continue;
+        }
 
         // A recurring issue is hitting `wgpu::SurfaceError::Timeout` on certain Linux
         // mesa driver implementations. This seems to be a quirk of some drivers.
@@ -304,16 +323,14 @@ const DEFAULT_DESIRED_MAXIMUM_FRAME_LATENCY: u32 = 2;
 pub fn create_surfaces(
     // By accessing a NonSend resource, we tell the scheduler to put this system on the main thread,
     // which is necessary for some OS's
-    #[cfg(any(target_os = "macos", target_os = "ios"))] _marker: Option<
-        NonSend<bevy_app::NonSendMarker>,
-    >,
-    windows: Res<ExtractedWindows>,
+    #[cfg(any(target_os = "macos", target_os = "ios"))] _marker: bevy_ecs::system::NonSendMarker,
+    mut windows: ResMut<ExtractedWindows>,
     mut window_surfaces: ResMut<WindowSurfaces>,
     render_instance: Res<RenderInstance>,
     render_adapter: Res<RenderAdapter>,
     render_device: Res<RenderDevice>,
 ) {
-    for window in windows.windows.values() {
+    for window in windows.windows.values_mut() {
         let data = window_surfaces
             .surfaces
             .entry(window.entity)
@@ -390,6 +407,10 @@ pub fn create_surfaces(
             });
 
         if window.size_changed || window.present_mode_changed {
+            // normally this is dropped on present but we double check here to be safe as failure to
+            // drop it will cause validation errors in wgpu
+            drop(window.swap_chain_texture.take());
+
             data.configuration.width = window.physical_width;
             data.configuration.height = window.physical_height;
             data.configuration.present_mode = match window.present_mode {

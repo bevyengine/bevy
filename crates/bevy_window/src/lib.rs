@@ -1,7 +1,7 @@
-#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![doc(
-    html_logo_url = "https://bevyengine.org/assets/icon.png",
-    html_favicon_url = "https://bevyengine.org/assets/icon.png"
+    html_logo_url = "https://bevy.org/assets/icon.png",
+    html_favicon_url = "https://bevy.org/assets/icon.png"
 )]
 #![no_std]
 
@@ -17,26 +17,19 @@ extern crate std;
 
 extern crate alloc;
 
-use alloc::sync::Arc;
-
-use bevy_platform_support::sync::Mutex;
-
+mod cursor;
 mod event;
 mod monitor;
 mod raw_handle;
 mod system;
-mod system_cursor;
 mod window;
 
 pub use crate::raw_handle::*;
 
-#[cfg(target_os = "android")]
-pub use android_activity;
-
+pub use cursor::*;
 pub use event::*;
 pub use monitor::*;
 pub use system::*;
-pub use system_cursor::*;
 pub use window::*;
 
 /// The windowing prelude.
@@ -45,17 +38,21 @@ pub use window::*;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        CursorEntered, CursorLeft, CursorMoved, FileDragAndDrop, Ime, MonitorSelection, Window,
-        WindowMoved, WindowPlugin, WindowPosition, WindowResizeConstraints,
+        CursorEntered, CursorLeft, CursorMoved, FileDragAndDrop, Ime, MonitorSelection,
+        VideoModeSelection, Window, WindowMoved, WindowPlugin, WindowPosition,
+        WindowResizeConstraints,
     };
 }
 
+use alloc::sync::Arc;
 use bevy_app::prelude::*;
+use bevy_platform::sync::Mutex;
 
 impl Default for WindowPlugin {
     fn default() -> Self {
         WindowPlugin {
             primary_window: Some(Window::default()),
+            primary_cursor_options: Some(CursorOptions::default()),
             exit_condition: ExitCondition::OnAllClosed,
             close_when_requested: true,
         }
@@ -74,6 +71,13 @@ pub struct WindowPlugin {
     /// Note that if there are no windows the App will exit (by default) due to
     /// [`exit_on_all_closed`].
     pub primary_window: Option<Window>,
+
+    /// Settings for the cursor on the primary window.
+    ///
+    /// Defaults to `Some(CursorOptions::default())`.
+    ///
+    /// Has no effect if [`WindowPlugin::primary_window`] is `None`.
+    pub primary_cursor_options: Option<CursorOptions>,
 
     /// Whether to exit the app when there are no open windows.
     ///
@@ -99,32 +103,36 @@ pub struct WindowPlugin {
 impl Plugin for WindowPlugin {
     fn build(&self, app: &mut App) {
         // User convenience events
-        app.add_event::<WindowEvent>()
-            .add_event::<WindowResized>()
-            .add_event::<WindowCreated>()
-            .add_event::<WindowClosing>()
-            .add_event::<WindowClosed>()
-            .add_event::<WindowCloseRequested>()
-            .add_event::<WindowDestroyed>()
-            .add_event::<RequestRedraw>()
-            .add_event::<CursorMoved>()
-            .add_event::<CursorEntered>()
-            .add_event::<CursorLeft>()
-            .add_event::<Ime>()
-            .add_event::<WindowFocused>()
-            .add_event::<WindowOccluded>()
-            .add_event::<WindowScaleFactorChanged>()
-            .add_event::<WindowBackendScaleFactorChanged>()
-            .add_event::<FileDragAndDrop>()
-            .add_event::<WindowMoved>()
-            .add_event::<WindowThemeChanged>()
-            .add_event::<AppLifecycle>();
+        app.add_message::<WindowEvent>()
+            .add_message::<WindowResized>()
+            .add_message::<WindowCreated>()
+            .add_message::<WindowClosing>()
+            .add_message::<WindowClosed>()
+            .add_message::<WindowCloseRequested>()
+            .add_message::<WindowDestroyed>()
+            .add_message::<RequestRedraw>()
+            .add_message::<CursorMoved>()
+            .add_message::<CursorEntered>()
+            .add_message::<CursorLeft>()
+            .add_message::<Ime>()
+            .add_message::<WindowFocused>()
+            .add_message::<WindowOccluded>()
+            .add_message::<WindowScaleFactorChanged>()
+            .add_message::<WindowBackendScaleFactorChanged>()
+            .add_message::<FileDragAndDrop>()
+            .add_message::<WindowMoved>()
+            .add_message::<WindowThemeChanged>()
+            .add_message::<AppLifecycle>();
 
         if let Some(primary_window) = &self.primary_window {
-            app.world_mut().spawn(primary_window.clone()).insert((
+            let mut entity_commands = app.world_mut().spawn(primary_window.clone());
+            entity_commands.insert((
                 PrimaryWindow,
                 RawHandleWrapperHolder(Arc::new(Mutex::new(None))),
             ));
+            if let Some(primary_cursor_options) = &self.primary_cursor_options {
+                entity_commands.insert(primary_cursor_options.clone());
+            }
         }
 
         match self.exit_condition {
@@ -141,33 +149,6 @@ impl Plugin for WindowPlugin {
             // Need to run before `exit_on_*` systems
             app.add_systems(Update, close_when_requested);
         }
-
-        // Register event types
-        #[cfg(feature = "bevy_reflect")]
-        app.register_type::<WindowEvent>()
-            .register_type::<WindowResized>()
-            .register_type::<RequestRedraw>()
-            .register_type::<WindowCreated>()
-            .register_type::<WindowCloseRequested>()
-            .register_type::<WindowClosing>()
-            .register_type::<WindowClosed>()
-            .register_type::<CursorMoved>()
-            .register_type::<CursorEntered>()
-            .register_type::<CursorLeft>()
-            .register_type::<WindowFocused>()
-            .register_type::<WindowOccluded>()
-            .register_type::<WindowScaleFactorChanged>()
-            .register_type::<WindowBackendScaleFactorChanged>()
-            .register_type::<FileDragAndDrop>()
-            .register_type::<WindowMoved>()
-            .register_type::<WindowThemeChanged>()
-            .register_type::<AppLifecycle>()
-            .register_type::<Monitor>();
-
-        // Register window descriptor and related types
-        #[cfg(feature = "bevy_reflect")]
-        app.register_type::<Window>()
-            .register_type::<PrimaryWindow>();
     }
 }
 
@@ -176,11 +157,11 @@ impl Plugin for WindowPlugin {
 pub enum ExitCondition {
     /// Close application when the primary window is closed
     ///
-    /// The plugin will add [`exit_on_primary_closed`] to [`Update`].
+    /// The plugin will add [`exit_on_primary_closed`] to [`PostUpdate`].
     OnPrimaryClosed,
     /// Close application when all windows are closed
     ///
-    /// The plugin will add [`exit_on_all_closed`] to [`Update`].
+    /// The plugin will add [`exit_on_all_closed`] to [`PostUpdate`].
     OnAllClosed,
     /// Keep application running headless even after closing all windows
     ///
@@ -190,9 +171,3 @@ pub enum ExitCondition {
     /// surprise your users.
     DontExit,
 }
-
-/// [`AndroidApp`] provides an interface to query the application state as well as monitor events
-/// (for example lifecycle and input events).
-#[cfg(target_os = "android")]
-pub static ANDROID_APP: std::sync::OnceLock<android_activity::AndroidApp> =
-    std::sync::OnceLock::new();

@@ -4,9 +4,8 @@
     meshlet_bindings::{
         Meshlet,
         meshlet_visibility_buffer,
-        meshlet_cluster_meshlet_ids,
+        meshlet_raster_clusters,
         meshlets,
-        meshlet_cluster_instance_ids,
         meshlet_instance_uniforms,
         get_meshlet_vertex_id,
         get_meshlet_vertex_position,
@@ -104,10 +103,10 @@ struct VertexOutput {
 
 /// Load the visibility buffer texture and resolve it into a VertexOutput.
 fn resolve_vertex_output(frag_coord: vec4<f32>) -> VertexOutput {
-    let frag_coord_1d = u32(frag_coord.y) * u32(view.viewport.z) + u32(frag_coord.x);
-    let packed_ids = u32(meshlet_visibility_buffer[frag_coord_1d]); // TODO: Might be faster to load the correct u32 directly
+    let packed_ids = u32(textureLoad(meshlet_visibility_buffer, vec2<u32>(frag_coord.xy)).r);
     let cluster_id = packed_ids >> 7u;
-    let meshlet_id = meshlet_cluster_meshlet_ids[cluster_id];
+    let instanced_offset = meshlet_raster_clusters[cluster_id];
+    let meshlet_id = instanced_offset.offset;
     var meshlet = meshlets[meshlet_id];
 
     let triangle_id = extractBits(packed_ids, 0u, 7u);
@@ -117,7 +116,7 @@ fn resolve_vertex_output(frag_coord: vec4<f32>) -> VertexOutput {
     let vertex_1 = load_vertex(&meshlet, vertex_ids[1]);
     let vertex_2 = load_vertex(&meshlet, vertex_ids[2]);
 
-    let instance_id = meshlet_cluster_instance_ids[cluster_id];
+    let instance_id = instanced_offset.instance_id;
     var instance_uniform = meshlet_instance_uniforms[instance_id];
 
     let world_from_local = affine3_to_square(instance_uniform.world_from_local);

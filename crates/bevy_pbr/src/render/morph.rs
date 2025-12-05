@@ -1,20 +1,20 @@
 use core::{iter, mem};
 
+use bevy_camera::visibility::ViewVisibility;
 use bevy_ecs::prelude::*;
+use bevy_mesh::morph::{MeshMorphWeights, MAX_MORPH_WEIGHTS};
 use bevy_render::sync_world::MainEntityHashMap;
 use bevy_render::{
     batching::NoAutomaticBatching,
-    mesh::morph::{MeshMorphWeights, MAX_MORPH_WEIGHTS},
     render_resource::{BufferUsages, RawBufferVec},
     renderer::{RenderDevice, RenderQueue},
-    view::ViewVisibility,
     Extract,
 };
 use bytemuck::NoUninit;
 
 #[derive(Component)]
 pub struct MorphIndex {
-    pub(super) index: u32,
+    pub index: u32,
 }
 
 /// Maps each mesh affected by morph targets to the applicable offset within the
@@ -75,7 +75,7 @@ pub fn prepare_morphs(
 }
 
 const fn can_align(step: usize, target: usize) -> bool {
-    step % target == 0 || target % step == 0
+    step.is_multiple_of(target) || target.is_multiple_of(step)
 }
 
 const WGPU_MIN_ALIGN: usize = 256;

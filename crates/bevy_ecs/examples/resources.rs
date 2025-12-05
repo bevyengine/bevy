@@ -3,6 +3,7 @@
 
 #![expect(
     clippy::std_instead_of_core,
+    clippy::print_stdout,
     reason = "Examples should not follow this lint"
 )]
 
@@ -36,7 +37,7 @@ struct Counter {
 }
 
 fn increase_counter(mut counter: ResMut<Counter>) {
-    if rand::thread_rng().gen_bool(0.5) {
+    if rand::rng().random_bool(0.5) {
         counter.value += 1;
         println!("    Increased counter value");
     }

@@ -5,8 +5,8 @@ use alloc::{
 };
 
 use crate::{
-    self as bevy_asset, loader::AssetLoader, processor::Process, Asset, AssetPath,
-    DeserializeMetaError, VisitAssetDependencies,
+    loader::AssetLoader, processor::Process, Asset, AssetPath, DeserializeMetaError,
+    VisitAssetDependencies,
 };
 use downcast_rs::{impl_downcast, Downcast};
 use ron::ser::PrettyConfig;

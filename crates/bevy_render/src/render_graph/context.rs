@@ -3,10 +3,10 @@ use crate::{
     render_resource::{Buffer, Sampler, TextureView},
 };
 use alloc::borrow::Cow;
-use bevy_ecs::entity::Entity;
+use bevy_ecs::{entity::Entity, intern::Interned};
 use thiserror::Error;
 
-use super::{InternedRenderSubGraph, RenderSubGraph};
+use super::{InternedRenderSubGraph, RenderLabel, RenderSubGraph};
 
 /// A command that signals the graph runner to run the sub graph corresponding to the `sub_graph`
 /// with the specified `inputs` next.
@@ -14,6 +14,7 @@ pub struct RunSubGraph {
     pub sub_graph: InternedRenderSubGraph,
     pub inputs: Vec<SlotValue>,
     pub view_entity: Option<Entity>,
+    pub debug_group: Option<String>,
 }
 
 /// The context with all graph information required to run a [`Node`](super::Node).
@@ -185,6 +186,7 @@ impl<'a> RenderGraphContext<'a> {
         name: impl RenderSubGraph,
         inputs: Vec<SlotValue>,
         view_entity: Option<Entity>,
+        debug_group: Option<String>,
     ) -> Result<(), RunSubGraphError> {
         let name = name.intern();
         let sub_graph = self
@@ -219,9 +221,15 @@ impl<'a> RenderGraphContext<'a> {
             sub_graph: name,
             inputs,
             view_entity,
+            debug_group,
         });
 
         Ok(())
+    }
+
+    /// Returns a human-readable label for this node, for debugging purposes.
+    pub fn label(&self) -> Interned<dyn RenderLabel> {
+        self.node.label
     }
 
     /// Finishes the context for this [`Node`](super::Node) by

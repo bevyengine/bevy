@@ -9,6 +9,7 @@ use encase::{
     internal::{WriteInto, Writer},
     ShaderType,
 };
+use thiserror::Error;
 use wgpu::{BindingResource, BufferAddress, BufferUsages};
 
 use super::GpuArrayBufferable;
@@ -29,13 +30,13 @@ use super::GpuArrayBufferable;
 /// from system RAM to VRAM.
 ///
 /// Other options for storing GPU-accessible data are:
-/// * [`StorageBuffer`](crate::render_resource::StorageBuffer)
+/// * [`BufferVec`]
 /// * [`DynamicStorageBuffer`](crate::render_resource::DynamicStorageBuffer)
-/// * [`UniformBuffer`](crate::render_resource::UniformBuffer)
 /// * [`DynamicUniformBuffer`](crate::render_resource::DynamicUniformBuffer)
 /// * [`GpuArrayBuffer`](crate::render_resource::GpuArrayBuffer)
-/// * [`BufferVec`]
+/// * [`StorageBuffer`](crate::render_resource::StorageBuffer)
 /// * [`Texture`](crate::render_resource::Texture)
+/// * [`UniformBuffer`](crate::render_resource::UniformBuffer)
 pub struct RawBufferVec<T: NoUninit> {
     values: Vec<T>,
     buffer: Option<Buffer>,
@@ -68,7 +69,7 @@ impl<T: NoUninit> RawBufferVec<T> {
 
     /// Returns the binding for the buffer if the data has been uploaded.
     #[inline]
-    pub fn binding(&self) -> Option<BindingResource> {
+    pub fn binding(&self) -> Option<BindingResource<'_>> {
         Some(BindingResource::Buffer(
             self.buffer()?.as_entire_buffer_binding(),
         ))
@@ -101,6 +102,11 @@ impl<T: NoUninit> RawBufferVec<T> {
 
     pub fn append(&mut self, other: &mut RawBufferVec<T>) {
         self.values.append(&mut other.values);
+    }
+
+    /// Returns the value at the given index.
+    pub fn get(&self, index: u32) -> Option<&T> {
+        self.values.get(index as usize)
     }
 
     /// Sets the value at the given index.
@@ -178,6 +184,36 @@ impl<T: NoUninit> RawBufferVec<T> {
         }
     }
 
+    /// Queues writing of data from system RAM to VRAM using the [`RenderDevice`]
+    /// and the provided [`RenderQueue`].
+    ///
+    /// If the buffer is not initialized on the GPU or the range is bigger than the capacity it will
+    /// return an error. You'll need to either reserve a new buffer which will lose data on the GPU
+    /// or create a new buffer and copy the old data to it.
+    ///
+    /// This will only write the data contained in the given range. It is useful if you only want
+    /// to update a part of the buffer.
+    pub fn write_buffer_range(
+        &mut self,
+        render_queue: &RenderQueue,
+        range: core::ops::Range<usize>,
+    ) -> Result<(), WriteBufferRangeError> {
+        if self.values.is_empty() {
+            return Err(WriteBufferRangeError::NoValuesToUpload);
+        }
+        if range.end > self.item_size * self.capacity {
+            return Err(WriteBufferRangeError::RangeBiggerThanBuffer);
+        }
+        if let Some(buffer) = &self.buffer {
+            // Cast only the bytes we need to write
+            let bytes: &[u8] = must_cast_slice(&self.values[range.start..range.end]);
+            render_queue.write_buffer(buffer, (range.start * self.item_size) as u64, bytes);
+            Ok(())
+        } else {
+            Err(WriteBufferRangeError::BufferNotInitialized)
+        }
+    }
+
     /// Reduces the length of the buffer.
     pub fn truncate(&mut self, len: usize) {
         self.values.truncate(len);
@@ -202,6 +238,18 @@ impl<T: NoUninit> RawBufferVec<T> {
     }
 }
 
+impl<T> RawBufferVec<T>
+where
+    T: NoUninit + Default,
+{
+    pub fn grow_set(&mut self, index: u32, value: T) {
+        while index as usize + 1 > self.len() {
+            self.values.push(T::default());
+        }
+        self.values[index as usize] = value;
+    }
+}
+
 impl<T: NoUninit> Extend<T> for RawBufferVec<T> {
     #[inline]
     fn extend<I: IntoIterator<Item = T>>(&mut self, iter: I) {
@@ -221,6 +269,15 @@ impl<T: NoUninit> Extend<T> for RawBufferVec<T> {
 /// CPU access to the data after it's been added via [`BufferVec::push`]. If you
 /// need CPU access to the data, consider another type, such as
 /// [`StorageBuffer`][super::StorageBuffer].
+///
+/// Other options for storing GPU-accessible data are:
+/// * [`DynamicStorageBuffer`](crate::render_resource::DynamicStorageBuffer)
+/// * [`DynamicUniformBuffer`](crate::render_resource::DynamicUniformBuffer)
+/// * [`GpuArrayBuffer`](crate::render_resource::GpuArrayBuffer)
+/// * [`RawBufferVec`]
+/// * [`StorageBuffer`](crate::render_resource::StorageBuffer)
+/// * [`Texture`](crate::render_resource::Texture)
+/// * [`UniformBuffer`](crate::render_resource::UniformBuffer)
 pub struct BufferVec<T>
 where
     T: ShaderType + WriteInto,
@@ -259,7 +316,7 @@ where
 
     /// Returns the binding for the buffer if the data has been uploaded.
     #[inline]
-    pub fn binding(&self) -> Option<BindingResource> {
+    pub fn binding(&self) -> Option<BindingResource<'_>> {
         Some(BindingResource::Buffer(
             self.buffer()?.as_entire_buffer_binding(),
         ))
@@ -290,7 +347,7 @@ where
 
         // TODO: Consider using unsafe code to push uninitialized, to prevent
         // the zeroing. It shows up in profiles.
-        self.data.extend(iter::repeat(0).take(element_size));
+        self.data.extend(iter::repeat_n(0, element_size));
 
         // Take a slice of the new data for `write_into` to use. This is
         // important: it hoists the bounds check up here so that the compiler
@@ -363,6 +420,36 @@ where
         queue.write_buffer(buffer, 0, &self.data);
     }
 
+    /// Queues writing of data from system RAM to VRAM using the [`RenderDevice`]
+    /// and the provided [`RenderQueue`].
+    ///
+    /// If the buffer is not initialized on the GPU or the range is bigger than the capacity it will
+    /// return an error. You'll need to either reserve a new buffer which will lose data on the GPU
+    /// or create a new buffer and copy the old data to it.
+    ///
+    /// This will only write the data contained in the given range. It is useful if you only want
+    /// to update a part of the buffer.
+    pub fn write_buffer_range(
+        &mut self,
+        render_queue: &RenderQueue,
+        range: core::ops::Range<usize>,
+    ) -> Result<(), WriteBufferRangeError> {
+        if self.data.is_empty() {
+            return Err(WriteBufferRangeError::NoValuesToUpload);
+        }
+        let item_size = u64::from(T::min_size()) as usize;
+        if range.end > item_size * self.capacity {
+            return Err(WriteBufferRangeError::RangeBiggerThanBuffer);
+        }
+        if let Some(buffer) = &self.buffer {
+            let bytes = &self.data[range.start..range.end];
+            render_queue.write_buffer(buffer, (range.start * item_size) as u64, bytes);
+            Ok(())
+        } else {
+            Err(WriteBufferRangeError::BufferNotInitialized)
+        }
+    }
+
     /// Reduces the length of the buffer.
     pub fn truncate(&mut self, len: usize) {
         self.data.truncate(u64::from(T::min_size()) as usize * len);
@@ -422,7 +509,7 @@ where
 
     /// Returns the binding for the buffer if the data has been uploaded.
     #[inline]
-    pub fn binding(&self) -> Option<BindingResource> {
+    pub fn binding(&self) -> Option<BindingResource<'_>> {
         Some(BindingResource::Buffer(
             self.buffer()?.as_entire_buffer_binding(),
         ))
@@ -430,8 +517,14 @@ where
 
     /// Reserves space for one more element in the buffer and returns its index.
     pub fn add(&mut self) -> usize {
+        self.add_multiple(1)
+    }
+
+    /// Reserves space for the given number of elements in the buffer and
+    /// returns the index of the first one.
+    pub fn add_multiple(&mut self, count: usize) -> usize {
         let index = self.len;
-        self.len += 1;
+        self.len += count;
         index
     }
 
@@ -478,4 +571,17 @@ where
             self.reserve(self.len, device);
         }
     }
+}
+
+/// Error returned when `write_buffer_range` fails
+///
+/// See [`RawBufferVec::write_buffer_range`] [`BufferVec::write_buffer_range`]
+#[derive(Debug, Eq, PartialEq, Copy, Clone, Error)]
+pub enum WriteBufferRangeError {
+    #[error("the range is bigger than the capacity of the buffer")]
+    RangeBiggerThanBuffer,
+    #[error("the gpu buffer is not initialized")]
+    BufferNotInitialized,
+    #[error("there are no values to upload")]
+    NoValuesToUpload,
 }

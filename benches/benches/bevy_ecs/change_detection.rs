@@ -49,6 +49,7 @@ impl BenchModify for Table {
         black_box(self.0)
     }
 }
+
 impl BenchModify for Sparse {
     fn bench_modify(&mut self) -> f32 {
         self.0 += 1f32;
@@ -95,7 +96,7 @@ fn all_added_detection_generic<T: Component + Default>(group: &mut BenchGroup, e
                     let query = generic_filter_query::<Added<T>>(&mut world);
                     (world, query)
                 },
-                |(ref mut world, ref mut query)| {
+                |(world, query)| {
                     let mut count = 0;
                     for entity in query.iter(world) {
                         black_box(entity);
@@ -143,7 +144,7 @@ fn all_changed_detection_generic<T: Component<Mutability = Mutable> + Default + 
                     let query = generic_filter_query::<Changed<T>>(&mut world);
                     (world, query)
                 },
-                |(ref mut world, ref mut query)| {
+                |(world, query)| {
                     let mut count = 0;
                     for entity in query.iter(world) {
                         black_box(entity);
@@ -196,7 +197,7 @@ fn few_changed_detection_generic<T: Component<Mutability = Mutable> + Default + 
                     let query = generic_filter_query::<Changed<T>>(&mut world);
                     (world, query)
                 },
-                |(ref mut world, ref mut query)| {
+                |(world, query)| {
                     for entity in query.iter(world) {
                         black_box(entity);
                     }
@@ -237,7 +238,7 @@ fn none_changed_detection_generic<T: Component<Mutability = Mutable> + Default>(
                     let query = generic_filter_query::<Changed<T>>(&mut world);
                     (world, query)
                 },
-                |(ref mut world, ref mut query)| {
+                |(world, query)| {
                     let mut count = 0;
                     for entity in query.iter(world) {
                         black_box(entity);
@@ -267,7 +268,7 @@ fn none_changed_detection(criterion: &mut Criterion) {
     }
 }
 fn insert_if_bit_enabled<const B: u16>(entity: &mut EntityWorldMut, i: u16) {
-    if i & 1 << B != 0 {
+    if i & (1 << B) != 0 {
         entity.insert(Data::<B>(1.0));
     }
 }
@@ -343,7 +344,7 @@ fn multiple_archetype_none_changed_detection_generic<
                     let query = generic_filter_query::<Changed<T>>(&mut world);
                     (world, query)
                 },
-                |(ref mut world, ref mut query)| {
+                |(world, query)| {
                     let mut count = 0;
                     for entity in query.iter(world) {
                         black_box(entity);

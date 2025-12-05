@@ -31,7 +31,7 @@ fn main() {
                 ..default()
             }),
             // You need to add this plugin to enable wireframe rendering
-            WireframePlugin,
+            WireframePlugin::default(),
         ))
         // Wireframes can be configured with this resource. This can be changed at runtime.
         .insert_resource(WireframeConfig {
@@ -103,8 +103,8 @@ fn setup(
         Text::default(),
         Node {
             position_type: PositionType::Absolute,
-            top: Val::Px(12.0),
-            left: Val::Px(12.0),
+            top: px(12),
+            left: px(12),
             ..default()
         },
     ));

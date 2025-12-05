@@ -7,6 +7,7 @@ use bevy::{
     color::palettes::css::GOLD,
     diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin},
     prelude::*,
+    text::{FontFeatureTag, FontFeatures, Underline},
 };
 
 fn main() {
@@ -32,19 +33,21 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn((
         // Accepts a `String` or any type that converts into a `String`, such as `&str`
         Text::new("hello\nbevy!"),
+        Underline,
         TextFont {
             // This font is loaded and will be used instead of the default font.
             font: asset_server.load("fonts/FiraSans-Bold.ttf"),
             font_size: 67.0,
             ..default()
         },
+        TextShadow::default(),
         // Set the justification of the Text
-        TextLayout::new_with_justify(JustifyText::Center),
+        TextLayout::new_with_justify(Justify::Center),
         // Set the style of the Node itself.
         Node {
             position_type: PositionType::Absolute,
-            bottom: Val::Px(5.0),
-            right: Val::Px(5.0),
+            bottom: px(5),
+            right: px(5),
             ..default()
         },
         AnimatedText,
@@ -87,6 +90,68 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             FpsText,
         ));
 
+    // Text with OpenType features
+    let opentype_font_handle = asset_server.load("fonts/EBGaramond12-Regular.otf");
+    commands
+        .spawn((
+            Node {
+                margin: UiRect::all(Val::Px(12.0)),
+                position_type: PositionType::Absolute,
+                top: Val::Px(5.0),
+                right: Val::Px(5.0),
+                ..default()
+            },
+            Text::new("Opentype features:\n"),
+            TextFont {
+                font: opentype_font_handle.clone(),
+                font_size: 32.0,
+                ..default()
+            },
+        ))
+        .with_children(|parent| {
+            let text_rows = [
+                ("Smallcaps: ", FontFeatureTag::SMALL_CAPS, "Hello World"),
+                (
+                    "Ligatures: ",
+                    FontFeatureTag::STANDARD_LIGATURES,
+                    "fi fl ff ffi ffl",
+                ),
+                ("Fractions: ", FontFeatureTag::FRACTIONS, "12/134"),
+                ("Superscript: ", FontFeatureTag::SUPERSCRIPT, "Up here!"),
+                ("Subscript: ", FontFeatureTag::SUBSCRIPT, "Down here!"),
+                (
+                    "Oldstyle figures: ",
+                    FontFeatureTag::OLDSTYLE_FIGURES,
+                    "1234567890",
+                ),
+                (
+                    "Lining figures: ",
+                    FontFeatureTag::LINING_FIGURES,
+                    "1234567890",
+                ),
+            ];
+
+            for (title, feature, text) in text_rows {
+                parent.spawn((
+                    TextSpan::new(title),
+                    TextFont {
+                        font: opentype_font_handle.clone(),
+                        font_size: 24.0,
+                        ..default()
+                    },
+                ));
+                parent.spawn((
+                    TextSpan::new(format!("{text}\n")),
+                    TextFont {
+                        font: opentype_font_handle.clone(),
+                        font_size: 24.0,
+                        font_features: FontFeatures::builder().enable(feature).build(),
+                        ..default()
+                    },
+                ));
+            }
+        });
+
     #[cfg(feature = "default_font")]
     commands.spawn((
         // Here we are able to call the `From` method instead of creating a new `TextSection`.
@@ -94,8 +159,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         Text::new("From an &str into a Text with the default font!"),
         Node {
             position_type: PositionType::Absolute,
-            bottom: Val::Px(5.0),
-            left: Val::Px(15.0),
+            bottom: px(5),
+            left: px(15),
             ..default()
         },
     ));
@@ -109,8 +174,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         },
         Node {
             position_type: PositionType::Absolute,
-            bottom: Val::Px(5.0),
-            left: Val::Px(15.0),
+            bottom: px(5),
+            left: px(15),
             ..default()
         },
     ));
@@ -134,11 +199,11 @@ fn text_update_system(
     mut query: Query<&mut TextSpan, With<FpsText>>,
 ) {
     for mut span in &mut query {
-        if let Some(fps) = diagnostics.get(&FrameTimeDiagnosticsPlugin::FPS) {
-            if let Some(value) = fps.smoothed() {
-                // Update the value of the second section
-                **span = format!("{value:.2}");
-            }
+        if let Some(fps) = diagnostics.get(&FrameTimeDiagnosticsPlugin::FPS)
+            && let Some(value) = fps.smoothed()
+        {
+            // Update the value of the second section
+            **span = format!("{value:.2}");
         }
     }
 }

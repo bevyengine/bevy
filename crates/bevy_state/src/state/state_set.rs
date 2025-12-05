@@ -1,6 +1,6 @@
 use bevy_ecs::{
-    event::{EventReader, EventWriter},
-    schedule::{IntoSystemConfigs, IntoSystemSetConfigs, Schedule},
+    message::{MessageReader, MessageWriter},
+    schedule::{IntoScheduleConfigs, Schedule},
     system::{Commands, IntoSystem, Res, ResMut},
 };
 use variadics_please::all_tuples;
@@ -10,7 +10,7 @@ use self::sealed::StateSetSealed;
 use super::{
     computed_states::ComputedStates, internal_apply_state_transition, last_transition, run_enter,
     run_exit, run_transition, sub_states::SubStates, take_next_state, ApplyStateTransition,
-    EnterSchedules, ExitSchedules, NextState, State, StateTransitionEvent, StateTransitionSteps,
+    EnterSchedules, ExitSchedules, NextState, State, StateTransitionEvent, StateTransitionSystems,
     States, TransitionSchedules,
 };
 
@@ -21,7 +21,7 @@ mod sealed {
 
 /// A [`States`] type or tuple of types which implement [`States`].
 ///
-/// This trait is used allow implementors of [`States`], as well
+/// This trait is used to allow implementors of [`States`], as well
 /// as tuples containing exclusively implementors of [`States`], to
 /// be used as [`ComputedStates::SourceStates`].
 ///
@@ -57,7 +57,7 @@ pub trait StateSet: StateSetSealed {
 /// The isolation works because it is implemented for both S & [`Option<S>`], and has the `RawState` associated type
 /// that allows it to know what the resource in the world should be. We can then essentially "unwrap" it in our
 /// `StateSet` implementation - and the behavior of that unwrapping will depend on the arguments expected by the
-/// the [`ComputedStates`] & [`SubStates]`.
+/// [`ComputedStates`] & [`SubStates]`.
 trait InnerStateSet: Sized {
     type RawState: States;
 
@@ -95,8 +95,8 @@ impl<S: InnerStateSet> StateSet for S {
         schedule: &mut Schedule,
     ) {
         let apply_state_transition =
-            |mut parent_changed: EventReader<StateTransitionEvent<S::RawState>>,
-             event: EventWriter<StateTransitionEvent<T>>,
+            |mut parent_changed: MessageReader<StateTransitionEvent<S::RawState>>,
+             event: MessageWriter<StateTransitionEvent<T>>,
              commands: Commands,
              current_state: Option<ResMut<State<T>>>,
              state_set: Option<Res<State<S::RawState>>>| {
@@ -112,19 +112,19 @@ impl<S: InnerStateSet> StateSet for S {
                         None
                     };
 
-                internal_apply_state_transition(event, commands, current_state, new_state);
+                internal_apply_state_transition(event, commands, current_state, new_state, false);
             };
 
         schedule.configure_sets((
             ApplyStateTransition::<T>::default()
-                .in_set(StateTransitionSteps::DependentTransitions)
+                .in_set(StateTransitionSystems::DependentTransitions)
                 .after(ApplyStateTransition::<S::RawState>::default()),
             ExitSchedules::<T>::default()
-                .in_set(StateTransitionSteps::ExitSchedules)
+                .in_set(StateTransitionSystems::ExitSchedules)
                 .before(ExitSchedules::<S::RawState>::default()),
-            TransitionSchedules::<T>::default().in_set(StateTransitionSteps::TransitionSchedules),
+            TransitionSchedules::<T>::default().in_set(StateTransitionSystems::TransitionSchedules),
             EnterSchedules::<T>::default()
-                .in_set(StateTransitionSteps::EnterSchedules)
+                .in_set(StateTransitionSystems::EnterSchedules)
                 .after(EnterSchedules::<S::RawState>::default()),
         ));
 
@@ -166,8 +166,8 @@ impl<S: InnerStateSet> StateSet for S {
         // | true           | false      | true           | true         | Some(current) -> Some(current)   |
 
         let apply_state_transition =
-            |mut parent_changed: EventReader<StateTransitionEvent<S::RawState>>,
-             event: EventWriter<StateTransitionEvent<T>>,
+            |mut parent_changed: MessageReader<StateTransitionEvent<S::RawState>>,
+             event: MessageWriter<StateTransitionEvent<T>>,
              commands: Commands,
              current_state_res: Option<ResMut<State<T>>>,
              next_state_res: Option<ResMut<NextState<T>>>,
@@ -190,21 +190,38 @@ impl<S: InnerStateSet> StateSet for S {
                 } else {
                     current_state.clone()
                 };
-                let new_state = initial_state.map(|x| next_state.or(current_state).unwrap_or(x));
+                let same_state_enforced = next_state
+                    .as_ref()
+                    .map(|(_, same_state_enforced)| same_state_enforced)
+                    .cloned()
+                    .unwrap_or_default();
 
-                internal_apply_state_transition(event, commands, current_state_res, new_state);
+                let new_state = initial_state.map(|x| {
+                    next_state
+                        .map(|(next, _)| next)
+                        .or(current_state)
+                        .unwrap_or(x)
+                });
+
+                internal_apply_state_transition(
+                    event,
+                    commands,
+                    current_state_res,
+                    new_state,
+                    same_state_enforced,
+                );
             };
 
         schedule.configure_sets((
             ApplyStateTransition::<T>::default()
-                .in_set(StateTransitionSteps::DependentTransitions)
+                .in_set(StateTransitionSystems::DependentTransitions)
                 .after(ApplyStateTransition::<S::RawState>::default()),
             ExitSchedules::<T>::default()
-                .in_set(StateTransitionSteps::ExitSchedules)
+                .in_set(StateTransitionSystems::ExitSchedules)
                 .before(ExitSchedules::<S::RawState>::default()),
-            TransitionSchedules::<T>::default().in_set(StateTransitionSteps::TransitionSchedules),
+            TransitionSchedules::<T>::default().in_set(StateTransitionSystems::TransitionSchedules),
             EnterSchedules::<T>::default()
-                .in_set(StateTransitionSteps::EnterSchedules)
+                .in_set(StateTransitionSystems::EnterSchedules)
                 .after(EnterSchedules::<S::RawState>::default()),
         ));
 
@@ -243,8 +260,8 @@ macro_rules! impl_state_set_sealed_tuples {
                 schedule: &mut Schedule,
             ) {
                 let apply_state_transition =
-                    |($(mut $evt),*,): ($(EventReader<StateTransitionEvent<$param::RawState>>),*,),
-                     event: EventWriter<StateTransitionEvent<T>>,
+                    |($(mut $evt),*,): ($(MessageReader<StateTransitionEvent<$param::RawState>>),*,),
+                     message: MessageWriter<StateTransitionEvent<T>>,
                      commands: Commands,
                      current_state: Option<ResMut<State<T>>>,
                      ($($val),*,): ($(Option<Res<State<$param::RawState>>>),*,)| {
@@ -259,20 +276,20 @@ macro_rules! impl_state_set_sealed_tuples {
                             None
                         };
 
-                        internal_apply_state_transition(event, commands, current_state, new_state);
+                        internal_apply_state_transition(message, commands, current_state, new_state, false);
                     };
 
                 schedule.configure_sets((
                     ApplyStateTransition::<T>::default()
-                        .in_set(StateTransitionSteps::DependentTransitions)
+                        .in_set(StateTransitionSystems::DependentTransitions)
                         $(.after(ApplyStateTransition::<$param::RawState>::default()))*,
                     ExitSchedules::<T>::default()
-                        .in_set(StateTransitionSteps::ExitSchedules)
+                        .in_set(StateTransitionSystems::ExitSchedules)
                         $(.before(ExitSchedules::<$param::RawState>::default()))*,
                     TransitionSchedules::<T>::default()
-                        .in_set(StateTransitionSteps::TransitionSchedules),
+                        .in_set(StateTransitionSystems::TransitionSchedules),
                     EnterSchedules::<T>::default()
-                        .in_set(StateTransitionSteps::EnterSchedules)
+                        .in_set(StateTransitionSystems::EnterSchedules)
                         $(.after(EnterSchedules::<$param::RawState>::default()))*,
                 ));
 
@@ -287,13 +304,13 @@ macro_rules! impl_state_set_sealed_tuples {
                 schedule: &mut Schedule,
             ) {
                 let apply_state_transition =
-                    |($(mut $evt),*,): ($(EventReader<StateTransitionEvent<$param::RawState>>),*,),
-                     event: EventWriter<StateTransitionEvent<T>>,
+                    |($(mut $evt),*,): ($(MessageReader<StateTransitionEvent<$param::RawState>>),*,),
+                     message: MessageWriter<StateTransitionEvent<T>>,
                      commands: Commands,
                      current_state_res: Option<ResMut<State<T>>>,
                      next_state_res: Option<ResMut<NextState<T>>>,
                      ($($val),*,): ($(Option<Res<State<$param::RawState>>>),*,)| {
-                        let parent_changed = ($($evt.read().last().is_some())&&*);
+                        let parent_changed = ($($evt.read().last().is_some())||*);
                         let next_state = take_next_state(next_state_res);
 
                         if !parent_changed && next_state.is_none() {
@@ -311,22 +328,34 @@ macro_rules! impl_state_set_sealed_tuples {
                         } else {
                             current_state.clone()
                         };
-                        let new_state = initial_state.map(|x| next_state.or(current_state).unwrap_or(x));
 
-                        internal_apply_state_transition(event, commands, current_state_res, new_state);
+                        let same_state_enforced = next_state
+                            .as_ref()
+                            .map(|(_, same_state_enforced)| same_state_enforced)
+                            .cloned()
+                            .unwrap_or_default();
+
+                        let new_state = initial_state.map(|x| {
+                            next_state
+                                .map(|(next, _)| next)
+                                .or(current_state)
+                                .unwrap_or(x)
+                        });
+
+                        internal_apply_state_transition(message, commands, current_state_res, new_state, same_state_enforced);
                     };
 
                 schedule.configure_sets((
                     ApplyStateTransition::<T>::default()
-                        .in_set(StateTransitionSteps::DependentTransitions)
+                        .in_set(StateTransitionSystems::DependentTransitions)
                         $(.after(ApplyStateTransition::<$param::RawState>::default()))*,
                     ExitSchedules::<T>::default()
-                        .in_set(StateTransitionSteps::ExitSchedules)
+                        .in_set(StateTransitionSystems::ExitSchedules)
                         $(.before(ExitSchedules::<$param::RawState>::default()))*,
                     TransitionSchedules::<T>::default()
-                        .in_set(StateTransitionSteps::TransitionSchedules),
+                        .in_set(StateTransitionSystems::TransitionSchedules),
                     EnterSchedules::<T>::default()
-                        .in_set(StateTransitionSteps::EnterSchedules)
+                        .in_set(StateTransitionSystems::EnterSchedules)
                         $(.after(EnterSchedules::<$param::RawState>::default()))*,
                 ));
 

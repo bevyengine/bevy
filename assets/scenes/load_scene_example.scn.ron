@@ -5,12 +5,9 @@
     ),
   },
   entities: {
-    4294967296: (
+    4294967297: (
       components: {
-        "bevy_ecs::name::Name": (
-          hash: 17588334858059901562,
-          name: "joe",
-        ),
+        "bevy_ecs::name::Name": "joe",
         "bevy_transform::components::global_transform::GlobalTransform": ((1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0)),
         "bevy_transform::components::transform::Transform": (
           translation: (0.0, 0.0, 0.0),
@@ -26,7 +23,7 @@
         ),
       },
     ),
-    4294967297: (
+    4294967298: (
       components: {
         "scene::ComponentA": (
           x: 3.0,

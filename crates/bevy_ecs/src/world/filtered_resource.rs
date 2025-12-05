@@ -1,13 +1,13 @@
 use crate::{
-    change_detection::{Mut, MutUntyped, Ref, Ticks, TicksMut},
-    component::{ComponentId, Tick},
+    change_detection::{ComponentTicksMut, ComponentTicksRef, Mut, MutUntyped, Ref, Tick},
+    component::ComponentId,
     query::Access,
     resource::Resource,
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
 use bevy_ptr::Ptr;
-#[cfg(feature = "track_location")]
-use bevy_ptr::UnsafeCellDeref;
+
+use super::error::ResourceFetchError;
 
 /// Provides read-only access to a set of [`Resource`]s defined by the contained [`Access`].
 ///
@@ -44,9 +44,9 @@ use bevy_ptr::UnsafeCellDeref;
 ///
 /// fn resource_system(res: FilteredResources) {
 ///     // The resource exists, but we have no access, so we can't read it.
-///     assert!(res.get::<A>().is_none());
+///     assert!(res.get::<A>().is_err());
 ///     // The resource doesn't exist, so we can't read it.
-///     assert!(res.get::<B>().is_none());
+///     assert!(res.get::<B>().is_err());
 ///     // The resource exists and we have access, so we can read it.
 ///     let c = res.get::<C>().unwrap();
 ///     // The type parameter can be left out if it can be determined from use.
@@ -117,7 +117,7 @@ use bevy_ptr::UnsafeCellDeref;
 #[derive(Clone, Copy)]
 pub struct FilteredResources<'w, 's> {
     world: UnsafeWorldCell<'w>,
-    access: &'s Access<ComponentId>,
+    access: &'s Access,
     last_run: Tick,
     this_run: Tick,
 }
@@ -128,7 +128,7 @@ impl<'w, 's> FilteredResources<'w, 's> {
     /// It is the callers responsibility to ensure that nothing else may access the any resources in the `world` in a way that conflicts with `access`.
     pub(crate) unsafe fn new(
         world: UnsafeWorldCell<'w>,
-        access: &'s Access<ComponentId>,
+        access: &'s Access,
         last_run: Tick,
         this_run: Tick,
     ) -> Self {
@@ -141,44 +141,50 @@ impl<'w, 's> FilteredResources<'w, 's> {
     }
 
     /// Returns a reference to the underlying [`Access`].
-    pub fn access(&self) -> &Access<ComponentId> {
+    pub fn access(&self) -> &Access {
         self.access
     }
 
     /// Returns `true` if the `FilteredResources` has access to the given resource.
-    /// Note that [`Self::get()`] may still return `None` if the resource does not exist.
+    /// Note that [`Self::get()`] may still return `Err` if the resource does not exist.
     pub fn has_read<R: Resource>(&self) -> bool {
         let component_id = self.world.components().resource_id::<R>();
         component_id.is_some_and(|component_id| self.access.has_resource_read(component_id))
     }
 
     /// Gets a reference to the resource of the given type if it exists and the `FilteredResources` has access to it.
-    pub fn get<R: Resource>(&self) -> Option<Ref<'w, R>> {
-        let component_id = self.world.components().resource_id::<R>()?;
+    pub fn get<R: Resource>(&self) -> Result<Ref<'w, R>, ResourceFetchError> {
+        let component_id = self
+            .world
+            .components()
+            .valid_resource_id::<R>()
+            .ok_or(ResourceFetchError::NotRegistered)?;
         if !self.access.has_resource_read(component_id) {
-            return None;
+            return Err(ResourceFetchError::NoResourceAccess(component_id));
         }
+
         // SAFETY: We have read access to this resource
-        unsafe { self.world.get_resource_with_ticks(component_id) }.map(
-            |(value, ticks, _caller)| Ref {
-                // SAFETY: `component_id` was obtained from the type ID of `R`.
-                value: unsafe { value.deref() },
-                // SAFETY: We have read access to the resource, so no mutable reference can exist.
-                ticks: unsafe { Ticks::from_tick_cells(ticks, self.last_run, self.this_run) },
-                #[cfg(feature = "track_location")]
-                // SAFETY: We have read access to the resource, so no mutable reference can exist.
-                changed_by: unsafe { _caller.deref() },
+        let (value, ticks) = unsafe { self.world.get_resource_with_ticks(component_id) }
+            .ok_or(ResourceFetchError::DoesNotExist(component_id))?;
+
+        Ok(Ref {
+            // SAFETY: `component_id` was obtained from the type ID of `R`.
+            value: unsafe { value.deref() },
+            // SAFETY: We have read access to the resource, so no mutable reference can exist.
+            ticks: unsafe {
+                ComponentTicksRef::from_tick_cells(ticks, self.last_run, self.this_run)
             },
-        )
+        })
     }
 
     /// Gets a pointer to the resource with the given [`ComponentId`] if it exists and the `FilteredResources` has access to it.
-    pub fn get_by_id(&self, component_id: ComponentId) -> Option<Ptr<'w>> {
+    pub fn get_by_id(&self, component_id: ComponentId) -> Result<Ptr<'w>, ResourceFetchError> {
         if !self.access.has_resource_read(component_id) {
-            return None;
+            return Err(ResourceFetchError::NoResourceAccess(component_id));
         }
         // SAFETY: We have read access to this resource
         unsafe { self.world.get_resource_by_id(component_id) }
+            .ok_or(ResourceFetchError::DoesNotExist(component_id))
     }
 }
 
@@ -214,8 +220,8 @@ impl<'w, 's> From<&'w FilteredResourcesMut<'_, 's>> for FilteredResources<'w, 's
 
 impl<'w> From<&'w World> for FilteredResources<'w, 'static> {
     fn from(value: &'w World) -> Self {
-        const READ_ALL_RESOURCES: &Access<ComponentId> = {
-            const ACCESS: Access<ComponentId> = {
+        const READ_ALL_RESOURCES: &Access = {
+            const ACCESS: Access = {
                 let mut access = Access::new();
                 access.read_all_resources();
                 access
@@ -282,14 +288,14 @@ impl<'w> From<&'w mut World> for FilteredResources<'w, 'static> {
 ///
 /// fn resource_system(mut res: FilteredResourcesMut) {
 ///     // The resource exists, but we have no access, so we can't read it or write it.
-///     assert!(res.get::<A>().is_none());
-///     assert!(res.get_mut::<A>().is_none());
+///     assert!(res.get::<A>().is_err());
+///     assert!(res.get_mut::<A>().is_err());
 ///     // The resource doesn't exist, so we can't read it or write it.
-///     assert!(res.get::<B>().is_none());
-///     assert!(res.get_mut::<B>().is_none());
+///     assert!(res.get::<B>().is_err());
+///     assert!(res.get_mut::<B>().is_err());
 ///     // The resource exists and we have read access, so we can read it but not write it.
 ///     let c = res.get::<C>().unwrap();
-///     assert!(res.get_mut::<C>().is_none());
+///     assert!(res.get_mut::<C>().is_err());
 ///     // The resource exists and we have write access, so we can read it or write it.
 ///     let d = res.get::<D>().unwrap();
 ///     let d = res.get_mut::<D>().unwrap();
@@ -367,7 +373,7 @@ impl<'w> From<&'w mut World> for FilteredResources<'w, 'static> {
 /// ```
 pub struct FilteredResourcesMut<'w, 's> {
     world: UnsafeWorldCell<'w>,
-    access: &'s Access<ComponentId>,
+    access: &'s Access,
     last_run: Tick,
     this_run: Tick,
 }
@@ -378,7 +384,7 @@ impl<'w, 's> FilteredResourcesMut<'w, 's> {
     /// It is the callers responsibility to ensure that nothing else may access the any resources in the `world` in a way that conflicts with `access`.
     pub(crate) unsafe fn new(
         world: UnsafeWorldCell<'w>,
-        access: &'s Access<ComponentId>,
+        access: &'s Access,
         last_run: Tick,
         this_run: Tick,
     ) -> Self {
@@ -403,54 +409,60 @@ impl<'w, 's> FilteredResourcesMut<'w, 's> {
     }
 
     /// Returns a reference to the underlying [`Access`].
-    pub fn access(&self) -> &Access<ComponentId> {
+    pub fn access(&self) -> &Access {
         self.access
     }
 
     /// Returns `true` if the `FilteredResources` has read access to the given resource.
-    /// Note that [`Self::get()`] may still return `None` if the resource does not exist.
+    /// Note that [`Self::get()`] may still return `Err` if the resource does not exist.
     pub fn has_read<R: Resource>(&self) -> bool {
         let component_id = self.world.components().resource_id::<R>();
         component_id.is_some_and(|component_id| self.access.has_resource_read(component_id))
     }
 
     /// Returns `true` if the `FilteredResources` has write access to the given resource.
-    /// Note that [`Self::get_mut()`] may still return `None` if the resource does not exist.
+    /// Note that [`Self::get_mut()`] may still return `Err` if the resource does not exist.
     pub fn has_write<R: Resource>(&self) -> bool {
         let component_id = self.world.components().resource_id::<R>();
         component_id.is_some_and(|component_id| self.access.has_resource_write(component_id))
     }
 
     /// Gets a reference to the resource of the given type if it exists and the `FilteredResources` has access to it.
-    pub fn get<R: Resource>(&self) -> Option<Ref<'_, R>> {
+    pub fn get<R: Resource>(&self) -> Result<Ref<'_, R>, ResourceFetchError> {
         self.as_readonly().get()
     }
 
     /// Gets a pointer to the resource with the given [`ComponentId`] if it exists and the `FilteredResources` has access to it.
-    pub fn get_by_id(&self, component_id: ComponentId) -> Option<Ptr<'_>> {
+    pub fn get_by_id(&self, component_id: ComponentId) -> Result<Ptr<'_>, ResourceFetchError> {
         self.as_readonly().get_by_id(component_id)
     }
 
     /// Gets a mutable reference to the resource of the given type if it exists and the `FilteredResources` has access to it.
-    pub fn get_mut<R: Resource>(&mut self) -> Option<Mut<'_, R>> {
+    pub fn get_mut<R: Resource>(&mut self) -> Result<Mut<'_, R>, ResourceFetchError> {
         // SAFETY: We have exclusive access to the resources in `access` for `'_`, and we shorten the returned lifetime to that.
         unsafe { self.get_mut_unchecked() }
     }
 
     /// Gets a mutable pointer to the resource with the given [`ComponentId`] if it exists and the `FilteredResources` has access to it.
-    pub fn get_mut_by_id(&mut self, component_id: ComponentId) -> Option<MutUntyped<'_>> {
+    pub fn get_mut_by_id(
+        &mut self,
+        component_id: ComponentId,
+    ) -> Result<MutUntyped<'_>, ResourceFetchError> {
         // SAFETY: We have exclusive access to the resources in `access` for `'_`, and we shorten the returned lifetime to that.
         unsafe { self.get_mut_by_id_unchecked(component_id) }
     }
 
     /// Consumes self and gets mutable access to resource of the given type with the world `'w` lifetime if it exists and the `FilteredResources` has access to it.
-    pub fn into_mut<R: Resource>(mut self) -> Option<Mut<'w, R>> {
+    pub fn into_mut<R: Resource>(mut self) -> Result<Mut<'w, R>, ResourceFetchError> {
         // SAFETY: This consumes self, so we have exclusive access to the resources in `access` for the entirety of `'w`.
         unsafe { self.get_mut_unchecked() }
     }
 
     /// Consumes self and gets mutable access to resource with the given [`ComponentId`] with the world `'w` lifetime if it exists and the `FilteredResources` has access to it.
-    pub fn into_mut_by_id(mut self, component_id: ComponentId) -> Option<MutUntyped<'w>> {
+    pub fn into_mut_by_id(
+        mut self,
+        component_id: ComponentId,
+    ) -> Result<MutUntyped<'w>, ResourceFetchError> {
         // SAFETY: This consumes self, so we have exclusive access to the resources in `access` for the entirety of `'w`.
         unsafe { self.get_mut_by_id_unchecked(component_id) }
     }
@@ -458,8 +470,12 @@ impl<'w, 's> FilteredResourcesMut<'w, 's> {
     /// Gets a mutable pointer to the resource of the given type if it exists and the `FilteredResources` has access to it.
     /// # Safety
     /// It is the callers responsibility to ensure that there are no conflicting borrows of anything in `access` for the duration of the returned value.
-    unsafe fn get_mut_unchecked<R: Resource>(&mut self) -> Option<Mut<'w, R>> {
-        let component_id = self.world.components().resource_id::<R>()?;
+    unsafe fn get_mut_unchecked<R: Resource>(&mut self) -> Result<Mut<'w, R>, ResourceFetchError> {
+        let component_id = self
+            .world
+            .components()
+            .valid_resource_id::<R>()
+            .ok_or(ResourceFetchError::NotRegistered)?;
         // SAFETY: THe caller ensures that there are no conflicting borrows.
         unsafe { self.get_mut_by_id_unchecked(component_id) }
             // SAFETY: The underlying type of the resource is `R`.
@@ -472,29 +488,30 @@ impl<'w, 's> FilteredResourcesMut<'w, 's> {
     unsafe fn get_mut_by_id_unchecked(
         &mut self,
         component_id: ComponentId,
-    ) -> Option<MutUntyped<'w>> {
+    ) -> Result<MutUntyped<'w>, ResourceFetchError> {
         if !self.access.has_resource_write(component_id) {
-            return None;
+            return Err(ResourceFetchError::NoResourceAccess(component_id));
         }
-        // SAFETY: We have access to this resource in `access`, and the caller ensures that there are no conflicting borrows for the duration of the returned value.
-        unsafe { self.world.get_resource_with_ticks(component_id) }.map(
-            |(value, ticks, _caller)| MutUntyped {
-                // SAFETY: We have exclusive access to the underlying storage.
-                value: unsafe { value.assert_unique() },
-                // SAFETY: We have exclusive access to the underlying storage.
-                ticks: unsafe { TicksMut::from_tick_cells(ticks, self.last_run, self.this_run) },
-                #[cfg(feature = "track_location")]
-                // SAFETY: We have exclusive access to the underlying storage.
-                changed_by: unsafe { _caller.deref_mut() },
+
+        // SAFETY: We have read access to this resource
+        let (value, ticks) = unsafe { self.world.get_resource_with_ticks(component_id) }
+            .ok_or(ResourceFetchError::DoesNotExist(component_id))?;
+
+        Ok(MutUntyped {
+            // SAFETY: We have exclusive access to the underlying storage.
+            value: unsafe { value.assert_unique() },
+            // SAFETY: We have exclusive access to the underlying storage.
+            ticks: unsafe {
+                ComponentTicksMut::from_tick_cells(ticks, self.last_run, self.this_run)
             },
-        )
+        })
     }
 }
 
 impl<'w> From<&'w mut World> for FilteredResourcesMut<'w, 'static> {
     fn from(value: &'w mut World) -> Self {
-        const WRITE_ALL_RESOURCES: &Access<ComponentId> = {
-            const ACCESS: Access<ComponentId> = {
+        const WRITE_ALL_RESOURCES: &Access = {
+            const ACCESS: Access = {
                 let mut access = Access::new();
                 access.write_all_resources();
                 access
@@ -521,7 +538,7 @@ impl<'w> From<&'w mut World> for FilteredResourcesMut<'w, 'static> {
 /// This is passed to a callback in [`FilteredResourcesParamBuilder`](crate::system::FilteredResourcesParamBuilder).
 pub struct FilteredResourcesBuilder<'w> {
     world: &'w mut World,
-    access: Access<ComponentId>,
+    access: Access,
 }
 
 impl<'w> FilteredResourcesBuilder<'w> {
@@ -534,7 +551,7 @@ impl<'w> FilteredResourcesBuilder<'w> {
     }
 
     /// Returns a reference to the underlying [`Access`].
-    pub fn access(&self) -> &Access<ComponentId> {
+    pub fn access(&self) -> &Access {
         &self.access
     }
 
@@ -546,7 +563,7 @@ impl<'w> FilteredResourcesBuilder<'w> {
 
     /// Add accesses required to read the resource of the given type.
     pub fn add_read<R: Resource>(&mut self) -> &mut Self {
-        let component_id = self.world.components.register_resource::<R>();
+        let component_id = self.world.components_registrator().register_resource::<R>();
         self.add_read_by_id(component_id)
     }
 
@@ -557,7 +574,7 @@ impl<'w> FilteredResourcesBuilder<'w> {
     }
 
     /// Create an [`Access`] that represents the accesses of the builder.
-    pub fn build(self) -> Access<ComponentId> {
+    pub fn build(self) -> Access {
         self.access
     }
 }
@@ -567,7 +584,7 @@ impl<'w> FilteredResourcesBuilder<'w> {
 /// This is passed to a callback in [`FilteredResourcesMutParamBuilder`](crate::system::FilteredResourcesMutParamBuilder).
 pub struct FilteredResourcesMutBuilder<'w> {
     world: &'w mut World,
-    access: Access<ComponentId>,
+    access: Access,
 }
 
 impl<'w> FilteredResourcesMutBuilder<'w> {
@@ -580,7 +597,7 @@ impl<'w> FilteredResourcesMutBuilder<'w> {
     }
 
     /// Returns a reference to the underlying [`Access`].
-    pub fn access(&self) -> &Access<ComponentId> {
+    pub fn access(&self) -> &Access {
         &self.access
     }
 
@@ -592,7 +609,7 @@ impl<'w> FilteredResourcesMutBuilder<'w> {
 
     /// Add accesses required to read the resource of the given type.
     pub fn add_read<R: Resource>(&mut self) -> &mut Self {
-        let component_id = self.world.components.register_resource::<R>();
+        let component_id = self.world.components_registrator().register_resource::<R>();
         self.add_read_by_id(component_id)
     }
 
@@ -610,7 +627,7 @@ impl<'w> FilteredResourcesMutBuilder<'w> {
 
     /// Add accesses required to get mutable access to the resource of the given type.
     pub fn add_write<R: Resource>(&mut self) -> &mut Self {
-        let component_id = self.world.components.register_resource::<R>();
+        let component_id = self.world.components_registrator().register_resource::<R>();
         self.add_write_by_id(component_id)
     }
 
@@ -621,7 +638,7 @@ impl<'w> FilteredResourcesMutBuilder<'w> {
     }
 
     /// Create an [`Access`] that represents the accesses of the builder.
-    pub fn build(self) -> Access<ComponentId> {
+    pub fn build(self) -> Access {
         self.access
     }
 }

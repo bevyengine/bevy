@@ -44,7 +44,7 @@ fn main() {
     // This time, you'll notice that `DynamicFunction` doesn't take any information about the function's arguments or return value.
     // This is because `DynamicFunction` checks the types of the arguments and return value at runtime.
     // Now we can generate a list of arguments:
-    let args: ArgList = dbg!(ArgList::new().push_owned(2_i32).push_owned(2_i32));
+    let args: ArgList = dbg!(ArgList::new().with_owned(2_i32).with_owned(2_i32));
 
     // And finally, we can call the function.
     // This returns a `Result` indicating whether the function was called successfully.
@@ -64,7 +64,7 @@ fn main() {
     let clamp = |value: i32| value.max(minimum);
 
     let function: DynamicFunction = dbg!(clamp.into_function());
-    let args = dbg!(ArgList::new().push_owned(2_i32));
+    let args = dbg!(ArgList::new().with_owned(2_i32));
     let return_value = dbg!(function.call(args).unwrap());
     let value: Box<dyn PartialReflect> = return_value.unwrap_owned();
     assert_eq!(value.try_take::<i32>().unwrap(), 5);
@@ -75,7 +75,7 @@ fn main() {
     let increment = |amount: i32| count += amount;
 
     let closure: DynamicFunctionMut = dbg!(increment.into_function_mut());
-    let args = dbg!(ArgList::new().push_owned(5_i32));
+    let args = dbg!(ArgList::new().with_owned(5_i32));
 
     // Because `DynamicFunctionMut` mutably borrows `total`,
     // it will need to be dropped before `total` can be accessed again.
@@ -92,7 +92,7 @@ fn main() {
     // We have to manually specify the concrete generic type we want to use.
     let function = stringify::<i32>.into_function();
 
-    let args = ArgList::new().push_owned(123_i32);
+    let args = ArgList::new().with_owned(123_i32);
     let return_value = function.call(args).unwrap();
     let value: Box<dyn PartialReflect> = return_value.unwrap_owned();
     assert_eq!(value.try_take::<String>().unwrap(), "123");
@@ -106,7 +106,7 @@ fn main() {
         .with_overload(stringify::<f32>);
 
     // Now our `function` accepts both `i32` and `f32` arguments.
-    let args = ArgList::new().push_owned(1.23_f32);
+    let args = ArgList::new().with_owned(1.23_f32);
     let return_value = function.call(args).unwrap();
     let value: Box<dyn PartialReflect> = return_value.unwrap_owned();
     assert_eq!(value.try_take::<String>().unwrap(), "1.23");
@@ -119,9 +119,9 @@ fn main() {
         .with_overload(|a: i32, b: i32, c: i32| a + b + c);
 
     let args = ArgList::new()
-        .push_owned(1_i32)
-        .push_owned(2_i32)
-        .push_owned(3_i32);
+        .with_owned(1_i32)
+        .with_owned(2_i32)
+        .with_owned(3_i32);
     let return_value = function.call(args).unwrap();
     let value: Box<dyn PartialReflect> = return_value.unwrap_owned();
     assert_eq!(value.try_take::<i32>().unwrap(), 6);
@@ -151,12 +151,12 @@ fn main() {
     let mut data = Data::default();
 
     let set_value = dbg!(Data::set_value.into_function());
-    let args = dbg!(ArgList::new().push_mut(&mut data)).push_owned(String::from("Hello, world!"));
+    let args = dbg!(ArgList::new().with_mut(&mut data)).with_owned(String::from("Hello, world!"));
     dbg!(set_value.call(args).unwrap());
     assert_eq!(data.value, "Hello, world!");
 
     let get_value = dbg!(Data::get_value.into_function());
-    let args = dbg!(ArgList::new().push_ref(&data));
+    let args = dbg!(ArgList::new().with_ref(&data));
     let return_value = dbg!(get_value.call(args).unwrap());
     let value: &dyn PartialReflect = return_value.unwrap_ref();
     assert_eq!(value.try_downcast_ref::<String>().unwrap(), "Hello, world!");
@@ -210,11 +210,11 @@ fn main() {
 
     let mut container: Option<i32> = None;
 
-    let args = dbg!(ArgList::new().push_owned(5_i32).push_mut(&mut container));
+    let args = dbg!(ArgList::new().with_owned(5_i32).with_mut(&mut container));
     let value = dbg!(get_or_insert_function.call(args).unwrap()).unwrap_ref();
     assert_eq!(value.try_downcast_ref::<i32>(), Some(&5));
 
-    let args = dbg!(ArgList::new().push_owned(500_i32).push_mut(&mut container));
+    let args = dbg!(ArgList::new().with_owned(500_i32).with_mut(&mut container));
     let value = dbg!(get_or_insert_function.call(args).unwrap()).unwrap_ref();
     assert_eq!(value.try_downcast_ref::<i32>(), Some(&5));
 }

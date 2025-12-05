@@ -5,7 +5,7 @@
 
 use alloc::sync::Arc;
 use bevy_ecs::prelude::Component;
-use bevy_platform_support::sync::Mutex;
+use bevy_platform::sync::Mutex;
 use core::{any::Any, marker::PhantomData, ops::Deref};
 use raw_window_handle::{
     DisplayHandle, HandleError, HasDisplayHandle, HasWindowHandle, RawDisplayHandle,
@@ -50,6 +50,10 @@ impl<W: 'static> Deref for WindowWrapper<W> {
 /// thread-safe.
 #[derive(Debug, Clone, Component)]
 pub struct RawHandleWrapper {
+    /// A shared reference to the window.
+    /// This allows us to extend the lifetime of the window,
+    /// so it doesn’t get eagerly dropped while a pipelined
+    /// renderer still has frames in flight that need to draw to it.
     _window: Arc<dyn Any + Send + Sync>,
     /// Raw handle to a window.
     window_handle: RawWindowHandle,
@@ -134,7 +138,7 @@ unsafe impl Sync for RawHandleWrapper {}
 pub struct ThreadLockedRawWindowHandleWrapper(RawHandleWrapper);
 
 impl HasWindowHandle for ThreadLockedRawWindowHandleWrapper {
-    fn window_handle(&self) -> Result<WindowHandle, HandleError> {
+    fn window_handle(&self) -> Result<WindowHandle<'_>, HandleError> {
         // SAFETY: the caller has validated that this is a valid context to get [`RawHandleWrapper`]
         // as otherwise an instance of this type could not have been constructed
         // NOTE: we cannot simply impl HasRawWindowHandle for RawHandleWrapper,
@@ -146,7 +150,7 @@ impl HasWindowHandle for ThreadLockedRawWindowHandleWrapper {
 }
 
 impl HasDisplayHandle for ThreadLockedRawWindowHandleWrapper {
-    fn display_handle(&self) -> Result<DisplayHandle, HandleError> {
+    fn display_handle(&self) -> Result<DisplayHandle<'_>, HandleError> {
         // SAFETY: the caller has validated that this is a valid context to get [`RawDisplayHandle`]
         // as otherwise an instance of this type could not have been constructed
         // NOTE: we cannot simply impl HasRawDisplayHandle for RawHandleWrapper,

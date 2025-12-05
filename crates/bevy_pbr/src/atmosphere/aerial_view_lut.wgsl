@@ -1,13 +1,9 @@
 #import bevy_pbr::{
-    mesh_view_types::{Lights, DirectionalLight},
     atmosphere::{
-        types::{Atmosphere, AtmosphereSettings},
-        bindings::{atmosphere, settings, view, lights, aerial_view_lut_out},
+        bindings::settings,
         functions::{
-            sample_transmittance_lut, sample_atmosphere, rayleigh, henyey_greenstein,
-            sample_multiscattering_lut, AtmosphereSample, sample_local_inscattering,
-            get_local_r, get_local_up, view_radius, uv_to_ndc, max_atmosphere_distance,
-            uv_to_ray_direction
+            sample_density_lut, sample_local_inscattering, uv_to_ray_direction, get_view_position,
+            MIDPOINT_RATIO, MIN_EXTINCTION, ABSORPTION_DENSITY, SCATTERING_DENSITY,
         },
     }
 }
@@ -22,8 +18,9 @@ fn main(@builtin(global_invocation_id) idx: vec3<u32>) {
 
     let uv = (vec2<f32>(idx.xy) + 0.5) / vec2<f32>(settings.aerial_view_lut_size.xy);
     let ray_dir = uv_to_ray_direction(uv);
-    let r = view_radius();
-    let mu = ray_dir.y;
+    let world_pos = get_view_position();
+
+    let r = length(world_pos);
     let t_max = settings.aerial_view_lut_max_distance;
 
     var prev_t = 0.0;
@@ -32,22 +29,26 @@ fn main(@builtin(global_invocation_id) idx: vec3<u32>) {
 
     for (var slice_i: u32 = 0; slice_i < settings.aerial_view_lut_size.z; slice_i++) {
         for (var step_i: u32 = 0; step_i < settings.aerial_view_lut_samples; step_i++) {
-            let t_i = t_max * (f32(slice_i) + ((f32(step_i) + 0.5) / f32(settings.aerial_view_lut_samples))) / f32(settings.aerial_view_lut_size.z);
+            let t_i = t_max * (f32(slice_i) + ((f32(step_i) + MIDPOINT_RATIO) / f32(settings.aerial_view_lut_samples))) / f32(settings.aerial_view_lut_size.z);
             let dt = (t_i - prev_t);
             prev_t = t_i;
 
-            let local_r = get_local_r(r, mu, t_i);
-            let local_up = get_local_up(r, t_i, ray_dir.xyz);
+            let sample_pos = world_pos + ray_dir * t_i;
+            let local_r = length(sample_pos);
+            let local_up = normalize(sample_pos);
 
-            let local_atmosphere = sample_atmosphere(local_r);
-            let sample_optical_depth = local_atmosphere.extinction * dt;
+            let absorption = sample_density_lut(local_r, ABSORPTION_DENSITY);
+            let scattering = sample_density_lut(local_r, SCATTERING_DENSITY);
+            let extinction = absorption + scattering;
+
+            let sample_optical_depth = extinction * dt;
             let sample_transmittance = exp(-sample_optical_depth);
 
             // evaluate one segment of the integral
-            var inscattering = sample_local_inscattering(local_atmosphere, ray_dir.xyz, local_r, local_up);
+            var inscattering = sample_local_inscattering(scattering, ray_dir, sample_pos);
 
             // Analytical integration of the single scattering term in the radiance transfer equation
-            let s_int = (inscattering - inscattering * sample_transmittance) / local_atmosphere.extinction;
+            let s_int = (inscattering - inscattering * sample_transmittance) / max(extinction, MIN_EXTINCTION);
             total_inscattering += throughput * s_int;
 
             throughput *= sample_transmittance;
@@ -55,8 +56,9 @@ fn main(@builtin(global_invocation_id) idx: vec3<u32>) {
                 break;
             }
         }
-        //We only have one channel to store transmittance, so we store the mean
-        let mean_transmittance = (throughput.r + throughput.g + throughput.b) / 3.0;
-        textureStore(aerial_view_lut_out, vec3(vec2<u32>(idx.xy), slice_i), vec4(total_inscattering, mean_transmittance));
+
+        // Store in log space to allow linear interpolation of exponential values between slices
+        let log_inscattering = log(max(total_inscattering, vec3(1e-6)));
+        textureStore(aerial_view_lut_out, vec3(vec2<u32>(idx.xy), slice_i), vec4(log_inscattering, 0.0));
     }
 }

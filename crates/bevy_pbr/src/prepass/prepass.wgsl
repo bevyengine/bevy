@@ -96,6 +96,7 @@ fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
 #endif // VERTEX_UVS_B
 
 #ifdef NORMAL_PREPASS_OR_DEFERRED_PREPASS
+#ifdef VERTEX_NORMALS
 #ifdef SKINNED
     out.world_normal = skinning::skin_normals(world_from_local, vertex.normal);
 #else // SKINNED
@@ -106,6 +107,7 @@ fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
         vertex_no_morph.instance_index
     );
 #endif // SKINNED
+#endif // VERTEX_NORMALS
 
 #ifdef VERTEX_TANGENTS
     out.world_tangent = mesh_functions::mesh_tangent_local_to_world(

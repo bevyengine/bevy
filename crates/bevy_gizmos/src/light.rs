@@ -2,7 +2,7 @@
 
 use core::f32::consts::PI;
 
-use crate::{self as bevy_gizmos, primitives::dim3::GizmoPrimitive3d};
+use crate::primitives::dim3::GizmoPrimitive3d;
 
 use bevy_app::{Plugin, PostUpdate};
 use bevy_color::{
@@ -14,17 +14,17 @@ use bevy_ecs::{
     entity::Entity,
     query::Without,
     reflect::ReflectComponent,
-    schedule::IntoSystemConfigs,
+    schedule::IntoScheduleConfigs,
     system::{Query, Res},
 };
+use bevy_light::{DirectionalLight, PointLight, SpotLight};
 use bevy_math::{
     ops,
     primitives::{Cone, Sphere},
     Isometry3d, Quat, Vec3,
 };
-use bevy_pbr::{DirectionalLight, PointLight, SpotLight};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_transform::{components::GlobalTransform, TransformSystem};
+use bevy_transform::{components::GlobalTransform, TransformSystems};
 
 use crate::{
     config::{GizmoConfigGroup, GizmoConfigStore},
@@ -116,23 +116,22 @@ pub struct LightGizmoPlugin;
 
 impl Plugin for LightGizmoPlugin {
     fn build(&self, app: &mut bevy_app::App) {
-        app.register_type::<LightGizmoConfigGroup>()
-            .init_gizmo_group::<LightGizmoConfigGroup>()
-            .add_systems(
-                PostUpdate,
-                (
-                    draw_lights,
-                    draw_all_lights.run_if(|config: Res<GizmoConfigStore>| {
-                        config.config::<LightGizmoConfigGroup>().1.draw_all
-                    }),
-                )
-                    .after(TransformSystem::TransformPropagate),
-            );
+        app.init_gizmo_group::<LightGizmoConfigGroup>().add_systems(
+            PostUpdate,
+            (
+                draw_lights,
+                draw_all_lights.run_if(|config: Res<GizmoConfigStore>| {
+                    config.config::<LightGizmoConfigGroup>().1.draw_all
+                }),
+            )
+                .after(TransformSystems::Propagate),
+        );
     }
 }
 
 /// Configures how a color is attributed to a light gizmo.
 #[derive(Debug, Clone, Copy, Default, Reflect)]
+#[reflect(Clone, Default)]
 pub enum LightGizmoColor {
     /// User-specified color.
     Manual(Color),
@@ -147,6 +146,7 @@ pub enum LightGizmoColor {
 
 /// The [`GizmoConfigGroup`] used to configure the visualization of lights.
 #[derive(Clone, Reflect, GizmoConfigGroup)]
+#[reflect(Clone, Default)]
 pub struct LightGizmoConfigGroup {
     /// Draw a gizmo for all lights if true.
     ///
@@ -202,7 +202,7 @@ fn draw_lights(
     let color = |entity: Entity, gizmo_color: Option<LightGizmoColor>, light_color, type_color| {
         match gizmo_color.unwrap_or(gizmos.config_ext.color) {
             LightGizmoColor::Manual(color) => color,
-            LightGizmoColor::Varied => Oklcha::sequential_dispersed(entity.index()).into(),
+            LightGizmoColor::Varied => Oklcha::sequential_dispersed(entity.index_u32()).into(),
             LightGizmoColor::MatchLightColor => light_color,
             LightGizmoColor::ByLightType => type_color,
         }
@@ -258,7 +258,7 @@ fn draw_all_lights(
             }
         }
         LightGizmoColor::Varied => {
-            let color = |entity: Entity| Oklcha::sequential_dispersed(entity.index()).into();
+            let color = |entity: Entity| Oklcha::sequential_dispersed(entity.index_u32()).into();
             for (entity, light, transform) in &point_query {
                 point_light_gizmo(transform, light, color(entity), &mut gizmos);
             }

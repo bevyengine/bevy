@@ -241,7 +241,7 @@ fn bend_normal_for_anisotropy(lighting_input: ptr<function, lighting::LightingIn
     (*lighting_input).layers[LAYER_BASE].R = R;
 }
 
-#endif  // STANDARD_MATERIAL_ANISTROPY
+#endif  // STANDARD_MATERIAL_ANISOTROPY
 
 // NOTE: Correctly calculates the view vector depending on whether
 // the projection is orthographic or perspective.
@@ -384,9 +384,9 @@ fn apply_pbr_lighting(
     transmissive_lighting_input.clearcoat_strength = 0.0;
 #endif  // STANDARD_MATERIAL_CLEARCOAT
 #ifdef STANDARD_MATERIAL_ANISOTROPY
-    lighting_input.anisotropy = in.anisotropy_strength;
-    lighting_input.Ta = in.anisotropy_T;
-    lighting_input.Ba = in.anisotropy_B;
+    transmissive_lighting_input.anisotropy = in.anisotropy_strength;
+    transmissive_lighting_input.Ta = in.anisotropy_T;
+    transmissive_lighting_input.Ba = in.anisotropy_B;
 #endif  // STANDARD_MATERIAL_ANISOTROPY
 #endif  // STANDARD_MATERIAL_DIFFUSE_TRANSMISSION
 
@@ -422,7 +422,7 @@ fn apply_pbr_lighting(
             shadow = shadows::fetch_point_shadow(light_id, in.world_position, in.world_normal);
         }
 
-        let light_contrib = lighting::point_light(light_id, &lighting_input, enable_diffuse);
+        let light_contrib = lighting::point_light(light_id, &lighting_input, enable_diffuse, true);
         direct_light += light_contrib * shadow;
 
 #ifdef STANDARD_MATERIAL_DIFFUSE_TRANSMISSION
@@ -442,7 +442,7 @@ fn apply_pbr_lighting(
         }
 
         let transmitted_light_contrib =
-            lighting::point_light(light_id, &transmissive_lighting_input, enable_diffuse);
+            lighting::point_light(light_id, &transmissive_lighting_input, enable_diffuse, true);
         transmitted_light += transmitted_light_contrib * transmitted_shadow;
 #endif
     }
@@ -511,9 +511,6 @@ fn apply_pbr_lighting(
         // check if this light should be skipped, which occurs if this light does not intersect with the view
         // note point and spot lights aren't skippable, as the relevant lights are filtered in `assign_lights_to_clusters`
         let light = &view_bindings::lights.directional_lights[i];
-        if (*light).skip != 0u {
-            continue;
-        }
 
         // If we're lightmapped, disable diffuse contribution from the light if
         // requested, to avoid double-counting light.
@@ -607,21 +604,6 @@ fn apply_pbr_lighting(
 
     // Environment map light (indirect)
 #ifdef ENVIRONMENT_MAP
-
-#ifdef STANDARD_MATERIAL_ANISOTROPY
-    var bent_normal_lighting_input = lighting_input;
-    bend_normal_for_anisotropy(&bent_normal_lighting_input);
-    let environment_map_lighting_input = &bent_normal_lighting_input;
-#else   // STANDARD_MATERIAL_ANISOTROPY
-    let environment_map_lighting_input = &lighting_input;
-#endif  // STANDARD_MATERIAL_ANISOTROPY
-
-    let environment_light = environment_map::environment_map_light(
-        environment_map_lighting_input,
-        &clusterable_object_index_ranges,
-        found_diffuse_indirect,
-    );
-
     // If screen space reflections are going to be used for this material, don't
     // accumulate environment map light yet. The SSR shader will do it.
 #ifdef SCREEN_SPACE_REFLECTIONS
@@ -630,22 +612,38 @@ fn apply_pbr_lighting(
 #else   // SCREEN_SPACE_REFLECTIONS
     let use_ssr = false;
 #endif  // SCREEN_SPACE_REFLECTIONS
-
+    
     if (!use_ssr) {
+#ifdef STANDARD_MATERIAL_ANISOTROPY
+        var bent_normal_lighting_input = lighting_input;
+        bend_normal_for_anisotropy(&bent_normal_lighting_input);
+        let environment_map_lighting_input = &bent_normal_lighting_input;
+#else   // STANDARD_MATERIAL_ANISOTROPY
+        let environment_map_lighting_input = &lighting_input;
+#endif  // STANDARD_MATERIAL_ANISOTROPY
+
         let environment_light = environment_map::environment_map_light(
-            &lighting_input,
+            environment_map_lighting_input,
             &clusterable_object_index_ranges,
-            found_diffuse_indirect
+            found_diffuse_indirect,
         );
 
         indirect_light += environment_light.diffuse * diffuse_occlusion +
             environment_light.specular * specular_occlusion;
     }
-
 #endif  // ENVIRONMENT_MAP
 
     // Ambient light (indirect)
-    indirect_light += ambient::ambient_light(in.world_position, in.N, in.V, NdotV, diffuse_color, F0, perceptual_roughness, diffuse_occlusion);
+    // If we are lightmapped, disable the ambient contribution if requested.
+    // This is to avoid double-counting ambient light. (It might be part of the lightmap)
+#ifdef LIGHTMAP
+    let enable_ambient = view_bindings::lights.ambient_light_affects_lightmapped_meshes != 0u;
+#else   // LIGHTMAP
+    let enable_ambient = true;
+#endif  // LIGHTMAP
+    if (enable_ambient) {
+        indirect_light += ambient::ambient_light(in.world_position, in.N, in.V, NdotV, diffuse_color, F0, perceptual_roughness, diffuse_occlusion);
+    }
 
     // we'll use the specular component of the transmitted environment
     // light in the call to `specular_transmissive_light()` below

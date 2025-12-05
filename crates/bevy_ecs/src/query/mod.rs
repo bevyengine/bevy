@@ -25,7 +25,8 @@ pub use world_query::*;
 /// debug modes if unwrapping a `None` or `Err` value in debug mode, but is
 /// equivalent to `Option::unwrap_unchecked` or `Result::unwrap_unchecked`
 /// in release mode.
-pub(crate) trait DebugCheckedUnwrap {
+#[doc(hidden)]
+pub trait DebugCheckedUnwrap {
     type Item;
     /// # Panics
     /// Panics if the value is `None` or `Err`, only in debug mode.
@@ -102,23 +103,23 @@ impl<T> DebugCheckedUnwrap for Option<T> {
 }
 
 #[cfg(test)]
+#[expect(clippy::print_stdout, reason = "Allowed in tests.")]
 mod tests {
     use crate::{
-        self as bevy_ecs,
         archetype::Archetype,
-        component::{Component, ComponentId, Components, Tick},
-        prelude::{AnyOf, Changed, Entity, Or, QueryState, Res, ResMut, Resource, With, Without},
+        change_detection::Tick,
+        component::{Component, ComponentId, Components},
+        prelude::{AnyOf, Changed, Entity, Or, QueryState, Resource, With, Without},
         query::{
-            ArchetypeFilter, FilteredAccess, Has, QueryCombinationIter, QueryData,
-            ReadOnlyQueryData, WorldQuery,
+            ArchetypeFilter, ArchetypeQueryData, FilteredAccess, Has, QueryCombinationIter,
+            QueryData, QueryFilter, ReadOnlyQueryData, WorldQuery,
         },
-        schedule::{IntoSystemConfigs, Schedule},
+        schedule::{IntoScheduleConfigs, Schedule},
         storage::{Table, TableRow},
         system::{assert_is_system, IntoSystem, Query, System, SystemState},
         world::{unsafe_world_cell::UnsafeWorldCell, World},
     };
     use alloc::{vec, vec::Vec};
-    use bevy_ecs_macros::QueryFilter;
     use core::{any::type_name, fmt::Debug, hash::Hash};
     use std::{collections::HashSet, println};
 
@@ -163,7 +164,7 @@ mod tests {
         }
         fn assert_combination<D, F, const K: usize>(world: &mut World, expected_size: usize)
         where
-            D: ReadOnlyQueryData,
+            D: ReadOnlyQueryData + ArchetypeQueryData,
             F: ArchetypeFilter,
         {
             let mut query = world.query_filtered::<D, F>();
@@ -177,7 +178,7 @@ mod tests {
         }
         fn assert_all_sizes_equal<D, F>(world: &mut World, expected_size: usize)
         where
-            D: ReadOnlyQueryData,
+            D: ReadOnlyQueryData + ArchetypeQueryData,
             F: ArchetypeFilter,
         {
             let mut query = world.query_filtered::<D, F>();
@@ -439,6 +440,18 @@ mod tests {
     }
 
     #[test]
+    fn get_many_only_mut_checks_duplicates() {
+        let mut world = World::new();
+        let id = world.spawn(A(10)).id();
+        let mut query_state = world.query::<&mut A>();
+        let mut query = query_state.query_mut(&mut world);
+        let result = query.get_many([id, id]);
+        assert_eq!(result, Ok([&A(10), &A(10)]));
+        let mut_result = query.get_many_mut([id, id]);
+        assert!(mut_result.is_err());
+    }
+
+    #[test]
     fn multi_storage_query() {
         let mut world = World::new();
 
@@ -495,7 +508,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic = "&mut bevy_ecs::query::tests::A conflicts with a previous access in this query."]
+    #[should_panic]
     fn self_conflicting_worldquery() {
         #[derive(QueryData)]
         #[query_data(mutable)]
@@ -705,7 +718,7 @@ mod tests {
             }
             let mut system = IntoSystem::into_system(system);
             system.initialize(&mut world);
-            system.run((), &mut world);
+            system.run((), &mut world).unwrap();
         }
         {
             fn system(has_a: Query<Entity, With<A>>, mut b_query: Query<&mut B>) {
@@ -716,7 +729,7 @@ mod tests {
             }
             let mut system = IntoSystem::into_system(system);
             system.initialize(&mut world);
-            system.run((), &mut world);
+            system.run((), &mut world).unwrap();
         }
         {
             fn system(query: Query<(Option<&A>, &B)>) {
@@ -729,7 +742,7 @@ mod tests {
             }
             let mut system = IntoSystem::into_system(system);
             system.initialize(&mut world);
-            system.run((), &mut world);
+            system.run((), &mut world).unwrap();
         }
     }
 
@@ -752,8 +765,8 @@ mod tests {
         let _: Option<&Foo> = q.get(&world, e).ok();
         let _: Option<&Foo> = q.get_manual(&world, e).ok();
         let _: Option<[&Foo; 1]> = q.get_many(&world, [e]).ok();
-        let _: Option<&Foo> = q.get_single(&world).ok();
-        let _: &Foo = q.single(&world);
+        let _: Option<&Foo> = q.single(&world).ok();
+        let _: &Foo = q.single(&world).unwrap();
 
         // system param
         let mut q = SystemState::<Query<&mut Foo>>::new(&mut world);
@@ -765,9 +778,8 @@ mod tests {
 
         let _: Option<&Foo> = q.get(e).ok();
         let _: Option<[&Foo; 1]> = q.get_many([e]).ok();
-        let _: Option<&Foo> = q.get_single().ok();
-        let _: [&Foo; 1] = q.many([e]);
-        let _: &Foo = q.single();
+        let _: Option<&Foo> = q.single().ok();
+        let _: &Foo = q.single().unwrap();
     }
 
     // regression test for https://github.com/bevyengine/bevy/pull/8029
@@ -807,19 +819,15 @@ mod tests {
 
     /// SAFETY:
     /// `update_component_access` adds resource read access for `R`.
-    /// `update_archetype_component_access` does nothing, as this accesses no components.
     unsafe impl WorldQuery for ReadsRData {
-        type Item<'w> = ();
         type Fetch<'w> = ();
         type State = ComponentId;
 
-        fn shrink<'wlong: 'wshort, 'wshort>(_item: Self::Item<'wlong>) -> Self::Item<'wshort> {}
-
         fn shrink_fetch<'wlong: 'wshort, 'wshort>(_: Self::Fetch<'wlong>) -> Self::Fetch<'wshort> {}
 
-        unsafe fn init_fetch<'w>(
+        unsafe fn init_fetch<'w, 's>(
             _world: UnsafeWorldCell<'w>,
-            _state: &Self::State,
+            _state: &'s Self::State,
             _last_run: Tick,
             _this_run: Tick,
         ) -> Self::Fetch<'w> {
@@ -828,34 +836,23 @@ mod tests {
         const IS_DENSE: bool = true;
 
         #[inline]
-        unsafe fn set_archetype<'w>(
+        unsafe fn set_archetype<'w, 's>(
             _fetch: &mut Self::Fetch<'w>,
-            _state: &Self::State,
+            _state: &'s Self::State,
             _archetype: &'w Archetype,
             _table: &Table,
         ) {
         }
 
         #[inline]
-        unsafe fn set_table<'w>(
+        unsafe fn set_table<'w, 's>(
             _fetch: &mut Self::Fetch<'w>,
-            _state: &Self::State,
+            _state: &'s Self::State,
             _table: &'w Table,
         ) {
         }
 
-        #[inline(always)]
-        unsafe fn fetch<'w>(
-            _fetch: &mut Self::Fetch<'w>,
-            _entity: Entity,
-            _table_row: TableRow,
-        ) -> Self::Item<'w> {
-        }
-
-        fn update_component_access(
-            &component_id: &Self::State,
-            access: &mut FilteredAccess<ComponentId>,
-        ) {
+        fn update_component_access(&component_id: &Self::State, access: &mut FilteredAccess) {
             assert!(
                 !access.access().has_resource_write(component_id),
                 "ReadsRData conflicts with a previous access in this query. Shared access cannot coincide with exclusive access."
@@ -864,7 +861,7 @@ mod tests {
         }
 
         fn init_state(world: &mut World) -> Self::State {
-            world.components.register_resource::<R>()
+            world.components_registrator().register_resource::<R>()
         }
 
         fn get_state(components: &Components) -> Option<Self::State> {
@@ -881,39 +878,35 @@ mod tests {
 
     /// SAFETY: `Self` is the same as `Self::ReadOnly`
     unsafe impl QueryData for ReadsRData {
+        const IS_READ_ONLY: bool = true;
+        const IS_ARCHETYPAL: bool = true;
         type ReadOnly = Self;
+        type Item<'w, 's> = ();
+
+        fn shrink<'wlong: 'wshort, 'wshort, 's>(
+            _item: Self::Item<'wlong, 's>,
+        ) -> Self::Item<'wshort, 's> {
+        }
+
+        #[inline(always)]
+        unsafe fn fetch<'w, 's>(
+            _state: &'s Self::State,
+            _fetch: &mut Self::Fetch<'w>,
+            _entity: Entity,
+            _table_row: TableRow,
+        ) -> Option<Self::Item<'w, 's>> {
+            Some(())
+        }
     }
 
     /// SAFETY: access is read only
     unsafe impl ReadOnlyQueryData for ReadsRData {}
 
+    impl ArchetypeQueryData for ReadsRData {}
+
     #[test]
     fn read_res_read_res_no_conflict() {
         fn system(_q1: Query<ReadsRData, With<A>>, _q2: Query<ReadsRData, Without<A>>) {}
         assert_is_system(system);
-    }
-
-    #[test]
-    fn read_res_sets_archetype_component_access() {
-        let mut world = World::new();
-
-        fn read_query(_q: Query<ReadsRData, With<A>>) {}
-        let mut read_query = IntoSystem::into_system(read_query);
-        read_query.initialize(&mut world);
-
-        fn read_res(_r: Res<R>) {}
-        let mut read_res = IntoSystem::into_system(read_res);
-        read_res.initialize(&mut world);
-
-        fn write_res(_r: ResMut<R>) {}
-        let mut write_res = IntoSystem::into_system(write_res);
-        write_res.initialize(&mut world);
-
-        assert!(read_query
-            .archetype_component_access()
-            .is_compatible(read_res.archetype_component_access()));
-        assert!(!read_query
-            .archetype_component_access()
-            .is_compatible(write_res.archetype_component_access()));
     }
 }

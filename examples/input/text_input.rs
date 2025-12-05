@@ -34,33 +34,30 @@ fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
     // sections that will hold text input.
     let font = asset_server.load("fonts/FiraMono-Medium.ttf");
 
-    commands
-        .spawn((
-            Text::default(),
-            Node {
-                position_type: PositionType::Absolute,
-                top: Val::Px(12.0),
-                left: Val::Px(12.0),
-                ..default()
-            },
-        ))
-        .with_children(|p| {
-            p.spawn(TextSpan::new(
-                "Click to toggle IME. Press return to start a new line.\n\n",
-            ));
-            p.spawn(TextSpan::new("IME Enabled: "));
-            p.spawn(TextSpan::new("false\n"));
-            p.spawn(TextSpan::new("IME Active:  "));
-            p.spawn(TextSpan::new("false\n"));
-            p.spawn(TextSpan::new("IME Buffer:  "));
-            p.spawn((
+    commands.spawn((
+        Text::default(),
+        Node {
+            position_type: PositionType::Absolute,
+            top: px(12),
+            left: px(12),
+            ..default()
+        },
+        children![
+            TextSpan::new("Click to toggle IME. Press return to start a new line.\n\n",),
+            TextSpan::new("IME Enabled: "),
+            TextSpan::new("false\n"),
+            TextSpan::new("IME Active:  "),
+            TextSpan::new("false\n"),
+            TextSpan::new("IME Buffer:  "),
+            (
                 TextSpan::new("\n"),
                 TextFont {
                     font: font.clone(),
                     ..default()
                 },
-            ));
-        });
+            ),
+        ],
+    ));
 
     commands.spawn((
         Text2d::new(""),
@@ -105,13 +102,13 @@ fn bubbling_text(
 }
 
 fn listen_ime_events(
-    mut events: EventReader<Ime>,
+    mut ime_reader: MessageReader<Ime>,
     status_text: Single<Entity, (With<Node>, With<Text>)>,
     mut edit_text: Single<&mut Text2d, (Without<Node>, Without<Bubble>)>,
     mut ui_writer: TextUiWriter,
 ) {
-    for event in events.read() {
-        match event {
+    for ime in ime_reader.read() {
+        match ime {
             Ime::Preedit { value, cursor, .. } if !cursor.is_none() => {
                 *ui_writer.text(*status_text, 7) = format!("{value}\n");
             }
@@ -134,17 +131,17 @@ fn listen_ime_events(
 
 fn listen_keyboard_input_events(
     mut commands: Commands,
-    mut events: EventReader<KeyboardInput>,
+    mut keyboard_input_reader: MessageReader<KeyboardInput>,
     edit_text: Single<(&mut Text2d, &TextFont), (Without<Node>, Without<Bubble>)>,
 ) {
     let (mut text, style) = edit_text.into_inner();
-    for event in events.read() {
+    for keyboard_input in keyboard_input_reader.read() {
         // Only trigger changes when the key is first pressed.
-        if !event.state.is_pressed() {
+        if !keyboard_input.state.is_pressed() {
             continue;
         }
 
-        match (&event.logical_key, &event.text) {
+        match (&keyboard_input.logical_key, &keyboard_input.text) {
             (Key::Enter, _) => {
                 if text.is_empty() {
                     continue;

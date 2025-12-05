@@ -14,30 +14,71 @@
 //!
 //! ## Implementation Notes
 //!
-//! - `bevy_ui` can only render to the primary window
 //! - `bevy_ui` can render on any camera with a flag, it is special, and is not tied to a particular
 //!   camera.
 //! - To correctly sort picks, the order of `bevy_ui` is set to be the camera order plus 0.5.
+//! - The `position` reported in `HitData` is normalized relative to the node, with
+//!   `(-0.5, -0.5, 0.)` at the top left and `(0.5, 0.5, 0.)` in the bottom right. Coordinates are
+//!   relative to the entire node, not just the visible region. This backend does not provide a `normal`.
 
 #![deny(missing_docs)]
 
-use crate::{focus::pick_rounded_rect, prelude::*, UiStack};
+use crate::{clip_check_recursive, prelude::*, ui_transform::UiGlobalTransform, UiStack};
 use bevy_app::prelude::*;
+use bevy_camera::{visibility::InheritedVisibility, Camera};
 use bevy_ecs::{prelude::*, query::QueryData};
-use bevy_math::{Rect, Vec2};
-use bevy_platform_support::collections::HashMap;
-use bevy_render::prelude::*;
-use bevy_transform::prelude::*;
+use bevy_math::Vec2;
+use bevy_platform::collections::HashMap;
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_window::PrimaryWindow;
 
 use bevy_picking::backend::prelude::*;
 
+/// An optional component that marks cameras that should be used in the [`UiPickingPlugin`].
+///
+/// Only needed if [`UiPickingSettings::require_markers`] is set to `true`, and ignored
+/// otherwise.
+#[derive(Debug, Clone, Default, Component, Reflect)]
+#[reflect(Debug, Default, Component)]
+pub struct UiPickingCamera;
+
+/// Runtime settings for the [`UiPickingPlugin`].
+#[derive(Resource, Reflect)]
+#[reflect(Resource, Default)]
+pub struct UiPickingSettings {
+    /// When set to `true` UI picking will only consider cameras marked with
+    /// [`UiPickingCamera`] and entities marked with [`Pickable`]. `false` by default.
+    ///
+    /// This setting is provided to give you fine-grained control over which cameras and entities
+    /// should be used by the UI picking backend at runtime.
+    pub require_markers: bool,
+}
+
+#[expect(
+    clippy::allow_attributes,
+    reason = "clippy::derivable_impls is not always linted"
+)]
+#[allow(
+    clippy::derivable_impls,
+    reason = "Known false positive with clippy: <https://github.com/rust-lang/rust-clippy/issues/13160>"
+)]
+impl Default for UiPickingSettings {
+    fn default() -> Self {
+        Self {
+            require_markers: false,
+        }
+    }
+}
+
 /// A plugin that adds picking support for UI nodes.
+///
+/// This is included by default in [`UiPlugin`](crate::UiPlugin).
 #[derive(Clone)]
 pub struct UiPickingPlugin;
 impl Plugin for UiPickingPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(PreUpdate, ui_picking.in_set(PickSet::Backend));
+        app.init_resource::<UiPickingSettings>()
+            .add_systems(PreUpdate, ui_picking.in_set(PickingSystems::Backend));
     }
 }
 
@@ -47,11 +88,10 @@ impl Plugin for UiPickingPlugin {
 pub struct NodeQuery {
     entity: Entity,
     node: &'static ComputedNode,
-    global_transform: &'static GlobalTransform,
+    transform: &'static UiGlobalTransform,
     pickable: Option<&'static Pickable>,
-    calculated_clip: Option<&'static CalculatedClip>,
     inherited_visibility: Option<&'static InheritedVisibility>,
-    target_camera: Option<&'static UiTargetCamera>,
+    target_camera: &'static ComputedUiTargetCamera,
 }
 
 /// Computes the UI node entities under each pointer.
@@ -60,17 +100,17 @@ pub struct NodeQuery {
 /// we need for determining picking.
 pub fn ui_picking(
     pointers: Query<(&PointerId, &PointerLocation)>,
-    camera_query: Query<(Entity, &Camera, Has<IsDefaultUiCamera>)>,
-    default_ui_camera: DefaultUiCamera,
+    camera_query: Query<(Entity, &Camera, Has<UiPickingCamera>)>,
     primary_window: Query<Entity, With<PrimaryWindow>>,
+    settings: Res<UiPickingSettings>,
     ui_stack: Res<UiStack>,
     node_query: Query<NodeQuery>,
-    mut output: EventWriter<PointerHits>,
+    mut output: MessageWriter<PointerHits>,
+    clipping_query: Query<(&ComputedNode, &UiGlobalTransform, &Node)>,
+    child_of_query: Query<&ChildOf, Without<OverrideClip>>,
 ) {
-    // For each camera, the pointer and its position
+    // Map from each camera to its active pointers and their positions in viewport space
     let mut pointer_pos_by_camera = HashMap::<Entity, HashMap<PointerId, Vec2>>::default();
-
-    let default_camera_entity = default_ui_camera.get();
 
     for (pointer_id, pointer_location) in
         pointers.iter().filter_map(|(pointer, pointer_location)| {
@@ -81,10 +121,11 @@ pub fn ui_picking(
         // cameras. We want to ensure we return all cameras with a matching target.
         for camera in camera_query
             .iter()
+            .filter(|(_, _, cam_can_pick)| !settings.require_markers || *cam_can_pick)
             .map(|(entity, camera, _)| {
                 (
                     entity,
-                    camera.target.normalize(primary_window.get_single().ok()),
+                    camera.target.normalize(primary_window.single().ok()),
                 )
             })
             .filter_map(|(entity, target)| Some(entity).zip(target))
@@ -97,6 +138,10 @@ pub fn ui_picking(
             let mut pointer_pos =
                 pointer_location.position * camera_data.target_scaling_factor().unwrap_or(1.);
             if let Some(viewport) = camera_data.physical_viewport_rect() {
+                if !viewport.as_rect().contains(pointer_pos) {
+                    // The pointer is outside the viewport, skip it
+                    continue;
+                }
                 pointer_pos -= viewport.min.as_vec2();
             }
             pointer_pos_by_camera
@@ -107,94 +152,97 @@ pub fn ui_picking(
     }
 
     // The list of node entities hovered for each (camera, pointer) combo
-    let mut hit_nodes = HashMap::<(Entity, PointerId), Vec<Entity>>::default();
+    let mut hit_nodes = HashMap::<(Entity, PointerId), Vec<(Entity, Vec2)>>::default();
 
     // prepare an iterator that contains all the nodes that have the cursor in their rect,
     // from the top node to the bottom one. this will also reset the interaction to `None`
     // for all nodes encountered that are no longer hovered.
-    for node_entity in ui_stack
-        .uinodes
+    // Reverse the iterator to traverse the tree from closest slice to furthest
+    for uinodes in ui_stack
+        .partition
         .iter()
-        // reverse the iterator to traverse the tree from closest nodes to furthest
         .rev()
+        .map(|range| &ui_stack.uinodes[range.clone()])
     {
-        let Ok(node) = node_query.get(*node_entity) else {
+        // Retrieve the first node and resolve its camera target.
+        // Only need to do this once per slice, as all the nodes in the same slice share the same camera.
+        let Ok(uinode) = node_query.get(uinodes[0]) else {
             continue;
         };
 
-        // Nodes that are not rendered should not be interactable
-        if node
-            .inherited_visibility
-            .map(|inherited_visibility| inherited_visibility.get())
-            != Some(true)
-        {
-            continue;
-        }
-        let Some(camera_entity) = node
-            .target_camera
-            .map(UiTargetCamera::entity)
-            .or(default_camera_entity)
-        else {
+        let Some(camera_entity) = uinode.target_camera.get() else {
             continue;
         };
-
-        let node_rect = Rect::from_center_size(
-            node.global_transform.translation().truncate(),
-            node.node.size(),
-        );
-
-        // Nodes with Display::None have a (0., 0.) logical rect and can be ignored
-        if node_rect.size() == Vec2::ZERO {
-            continue;
-        }
-
-        // Intersect with the calculated clip rect to find the bounds of the visible region of the node
-        let visible_rect = node
-            .calculated_clip
-            .map(|clip| node_rect.intersect(clip.clip))
-            .unwrap_or(node_rect);
 
         let pointers_on_this_cam = pointer_pos_by_camera.get(&camera_entity);
 
-        // The mouse position relative to the node
-        // (0., 0.) is the top-left corner, (1., 1.) is the bottom-right corner
-        // Coordinates are relative to the entire node, not just the visible region.
-        for (pointer_id, cursor_position) in pointers_on_this_cam.iter().flat_map(|h| h.iter()) {
-            let relative_cursor_position = (*cursor_position - node_rect.min) / node_rect.size();
+        // Reverse the iterator to traverse the tree from closest nodes to furthest
+        for node_entity in uinodes.iter().rev().cloned() {
+            let Ok(node) = node_query.get(node_entity) else {
+                continue;
+            };
 
-            if visible_rect
-                .normalize(node_rect)
-                .contains(relative_cursor_position)
-                && pick_rounded_rect(
-                    *cursor_position - node_rect.center(),
-                    node_rect.size(),
-                    node.node.border_radius,
-                )
+            if settings.require_markers && node.pickable.is_none() {
+                continue;
+            }
+
+            // Nodes that are not rendered should not be interactable
+            if node
+                .inherited_visibility
+                .map(|inherited_visibility| inherited_visibility.get())
+                != Some(true)
             {
-                hit_nodes
-                    .entry((camera_entity, *pointer_id))
-                    .or_default()
-                    .push(*node_entity);
+                continue;
+            }
+
+            // Nodes with Display::None have a (0., 0.) logical rect and can be ignored
+            if node.node.size() == Vec2::ZERO {
+                continue;
+            }
+
+            // Find the normalized cursor position relative to the node.
+            // (±0., 0.) is the center with the corners at points (±0.5, ±0.5).
+            // Coordinates are relative to the entire node, not just the visible region.
+            for (pointer_id, cursor_position) in pointers_on_this_cam.iter().flat_map(|h| h.iter())
+            {
+                if node.node.contains_point(*node.transform, *cursor_position)
+                    && clip_check_recursive(
+                        *cursor_position,
+                        node_entity,
+                        &clipping_query,
+                        &child_of_query,
+                    )
+                {
+                    hit_nodes
+                        .entry((camera_entity, *pointer_id))
+                        .or_default()
+                        .push((
+                            node_entity,
+                            node.transform.inverse().transform_point2(*cursor_position)
+                                / node.node.size(),
+                        ));
+                }
             }
         }
     }
 
-    for ((camera, pointer), hovered_nodes) in hit_nodes.iter() {
+    for ((camera, pointer), hovered) in hit_nodes.iter() {
         // As soon as a node with a `Block` focus policy is detected, the iteration will stop on it
         // because it "captures" the interaction.
         let mut picks = Vec::new();
         let mut depth = 0.0;
 
-        for node in node_query.iter_many(hovered_nodes) {
-            let Some(camera_entity) = node
-                .target_camera
-                .map(UiTargetCamera::entity)
-                .or(default_camera_entity)
-            else {
+        for (hovered_node, position) in hovered {
+            let node = node_query.get(*hovered_node).unwrap();
+
+            let Some(camera_entity) = node.target_camera.get() else {
                 continue;
             };
 
-            picks.push((node.entity, HitData::new(camera_entity, depth, None, None)));
+            picks.push((
+                node.entity,
+                HitData::new(camera_entity, depth, Some(position.extend(0.0)), None),
+            ));
 
             if let Some(pickable) = node.pickable {
                 // If an entity has a `Pickable` component, we will use that as the source of truth.
@@ -215,6 +263,6 @@ pub fn ui_picking(
             .unwrap_or_default() as f32
             + 0.5; // bevy ui can run on any camera, it's a special case
 
-        output.send(PointerHits::new(*pointer, picks, order));
+        output.write(PointerHits::new(*pointer, picks, order));
     }
 }

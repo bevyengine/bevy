@@ -26,49 +26,45 @@
 //! set the `uv_rect` field on [`Lightmap`] appropriately.
 //!
 //! [The Lightmapper]: https://github.com/Naxela/The_Lightmapper
-//! [`Mesh3d`]: bevy_render::mesh::Mesh3d
+//! [`Mesh3d`]: bevy_mesh::Mesh3d
 //! [`MeshMaterial3d<StandardMaterial>`]: crate::StandardMaterial
 //! [`StandardMaterial`]: crate::StandardMaterial
 //! [`bevy-baked-gi`]: https://github.com/pcwalton/bevy-baked-gi
 
 use bevy_app::{App, Plugin};
-use bevy_asset::{load_internal_asset, AssetId, Handle};
+use bevy_asset::{AssetId, Handle};
+use bevy_camera::visibility::ViewVisibility;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     component::Component,
     entity::Entity,
+    lifecycle::RemovedComponents,
     query::{Changed, Or},
     reflect::ReflectComponent,
-    removal_detection::RemovedComponents,
     resource::Resource,
-    schedule::IntoSystemConfigs,
-    system::{Query, Res, ResMut},
-    world::{FromWorld, World},
+    schedule::IntoScheduleConfigs,
+    system::{Commands, Query, Res, ResMut},
 };
 use bevy_image::Image;
 use bevy_math::{uvec2, vec4, Rect, UVec2};
-use bevy_platform_support::collections::HashSet;
+use bevy_platform::collections::HashSet;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     render_asset::RenderAssets,
-    render_resource::{Sampler, Shader, TextureView, WgpuSampler, WgpuTextureView},
+    render_resource::{Sampler, TextureView, WgpuSampler, WgpuTextureView},
     renderer::RenderAdapter,
     sync_world::MainEntity,
     texture::{FallbackImage, GpuImage},
-    view::ViewVisibility,
-    Extract, ExtractSchedule, RenderApp,
+    Extract, ExtractSchedule, RenderApp, RenderStartup,
 };
 use bevy_render::{renderer::RenderDevice, sync_world::MainEntityHashMap};
+use bevy_shader::load_shader_library;
 use bevy_utils::default;
 use fixedbitset::FixedBitSet;
 use nonmax::{NonMaxU16, NonMaxU32};
 use tracing::error;
 
-use crate::{binding_arrays_are_usable, ExtractMeshesSet};
-
-/// The ID of the lightmap shader.
-pub const LIGHTMAP_SHADER_HANDLE: Handle<Shader> =
-    Handle::weak_from_u128(285484768317531991932943596447919767152);
+use crate::{binding_arrays_are_usable, MeshExtractionSystems};
 
 /// The number of lightmaps that we store in a single slab, if bindless textures
 /// are in use.
@@ -83,12 +79,12 @@ pub struct LightmapPlugin;
 /// A component that applies baked indirect diffuse global illumination from a
 /// lightmap.
 ///
-/// When assigned to an entity that contains a [`Mesh3d`](bevy_render::mesh::Mesh3d) and a
+/// When assigned to an entity that contains a [`Mesh3d`](bevy_mesh::Mesh3d) and a
 /// [`MeshMaterial3d<StandardMaterial>`](crate::StandardMaterial), if the mesh
-/// has a second UV layer ([`ATTRIBUTE_UV_1`](bevy_render::mesh::Mesh::ATTRIBUTE_UV_1)),
+/// has a second UV layer ([`ATTRIBUTE_UV_1`](bevy_mesh::Mesh::ATTRIBUTE_UV_1)),
 /// then the lightmap will render using those UVs.
 #[derive(Component, Clone, Reflect)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Clone)]
 pub struct Lightmap {
     /// The lightmap texture.
     pub image: Handle<Image>,
@@ -116,9 +112,6 @@ pub struct Lightmap {
 /// There is one of these per visible lightmapped mesh instance.
 #[derive(Debug)]
 pub(crate) struct RenderLightmap {
-    /// The ID of the lightmap texture.
-    pub(crate) image: AssetId<Image>,
-
     /// The rectangle within the lightmap texture that the UVs are relative to.
     ///
     /// The top left coordinate is the `min` part of the rect, and the bottom
@@ -191,22 +184,17 @@ pub struct LightmapSlotIndex(pub(crate) NonMaxU16);
 
 impl Plugin for LightmapPlugin {
     fn build(&self, app: &mut App) {
-        load_internal_asset!(
-            app,
-            LIGHTMAP_SHADER_HANDLE,
-            "lightmap.wgsl",
-            Shader::from_wgsl
-        );
-    }
+        load_shader_library!(app, "lightmap.wgsl");
 
-    fn finish(&self, app: &mut App) {
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
-
         render_app
-            .init_resource::<RenderLightmaps>()
-            .add_systems(ExtractSchedule, extract_lightmaps.after(ExtractMeshesSet));
+            .add_systems(RenderStartup, init_render_lightmaps)
+            .add_systems(
+                ExtractSchedule,
+                extract_lightmaps.after(MeshExtractionSystems),
+            );
     }
 }
 
@@ -245,7 +233,6 @@ fn extract_lightmaps(
         render_lightmaps.render_lightmaps.insert(
             entity.into(),
             RenderLightmap::new(
-                lightmap.image.id(),
                 lightmap.uv_rect,
                 slab_index,
                 slot_index,
@@ -305,14 +292,12 @@ impl RenderLightmap {
     /// Creates a new lightmap from a texture, a UV rect, and a slab and slot
     /// index pair.
     fn new(
-        image: AssetId<Image>,
         uv_rect: Rect,
         slab_index: LightmapSlabIndex,
         slot_index: LightmapSlotIndex,
         bicubic_sampling: bool,
     ) -> Self {
         Self {
-            image,
             uv_rect,
             slab_index,
             slot_index,
@@ -347,21 +332,20 @@ impl Default for Lightmap {
     }
 }
 
-impl FromWorld for RenderLightmaps {
-    fn from_world(world: &mut World) -> Self {
-        let render_device = world.resource::<RenderDevice>();
-        let render_adapter = world.resource::<RenderAdapter>();
+pub fn init_render_lightmaps(
+    mut commands: Commands,
+    render_device: Res<RenderDevice>,
+    render_adapter: Res<RenderAdapter>,
+) {
+    let bindless_supported = binding_arrays_are_usable(&render_device, &render_adapter);
 
-        let bindless_supported = binding_arrays_are_usable(render_device, render_adapter);
-
-        RenderLightmaps {
-            render_lightmaps: default(),
-            slabs: vec![],
-            free_slabs: FixedBitSet::new(),
-            pending_lightmaps: default(),
-            bindless_supported,
-        }
-    }
+    commands.insert_resource(RenderLightmaps {
+        render_lightmaps: default(),
+        slabs: vec![],
+        free_slabs: FixedBitSet::new(),
+        pending_lightmaps: default(),
+        bindless_supported,
+    });
 }
 
 impl RenderLightmaps {
@@ -404,7 +388,7 @@ impl RenderLightmaps {
         slab.remove(fallback_images, slot_index);
 
         if !slab.is_full() {
-            self.free_slabs.grow_and_insert(slot_index.into());
+            self.free_slabs.grow_and_insert(slab_index.into());
         }
     }
 }
@@ -433,6 +417,10 @@ impl LightmapSlab {
     }
 
     fn allocate(&mut self, image_id: AssetId<Image>) -> LightmapSlotIndex {
+        assert!(
+            !self.is_full(),
+            "Attempting to allocate on a full lightmap slab"
+        );
         let index = LightmapSlotIndex::from(self.free_slots_bitmask.trailing_zeros());
         self.free_slots_bitmask &= !(1 << u32::from(index));
         self.lightmaps[usize::from(index)].asset_id = Some(image_id);

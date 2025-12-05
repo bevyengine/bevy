@@ -3,16 +3,14 @@
 use std::f32::consts::*;
 
 use bevy::{
-    core_pipeline::{
-        fxaa::Fxaa,
-        prepass::{DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass},
-    },
+    anti_alias::fxaa::Fxaa,
+    core_pipeline::prepass::{DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass},
     image::ImageLoaderSettings,
-    math::ops,
-    pbr::{
-        CascadeShadowConfigBuilder, DefaultOpaqueRendererMethod, DirectionalLightShadowMap,
-        NotShadowCaster, NotShadowReceiver, OpaqueRendererMethod,
+    light::{
+        CascadeShadowConfigBuilder, DirectionalLightShadowMap, NotShadowCaster, NotShadowReceiver,
     },
+    math::ops,
+    pbr::{DefaultOpaqueRendererMethod, OpaqueRendererMethod},
     prelude::*,
 };
 
@@ -35,11 +33,6 @@ fn setup(
 ) {
     commands.spawn((
         Camera3d::default(),
-        Camera {
-            // Deferred both supports both hdr: true and hdr: false
-            hdr: false,
-            ..default()
-        },
         Transform::from_xyz(0.7, 0.7, 1.0).looking_at(Vec3::new(0.0, 0.3, 0.0), Vec3::Y),
         // MSAA needs to be off for Deferred rendering
         Msaa::Off,
@@ -192,8 +185,8 @@ fn setup(
         Text::default(),
         Node {
             position_type: PositionType::Absolute,
-            top: Val::Px(12.0),
-            left: Val::Px(12.0),
+            top: px(12),
+            left: px(12),
             ..default()
         },
     ));

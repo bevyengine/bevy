@@ -48,6 +48,16 @@ impl WinitSettings {
         }
     }
 
+    /// The application will update as fast possible.
+    ///
+    /// Uses [`Continuous`](UpdateMode::Continuous) regardless of whether windows have focus.
+    pub fn continuous() -> Self {
+        WinitSettings {
+            focused_mode: UpdateMode::Continuous,
+            unfocused_mode: UpdateMode::Continuous,
+        }
+    }
+
     /// Returns the current [`UpdateMode`].
     ///
     /// **Note:** The output depends on whether the window has focus or not.
@@ -80,7 +90,7 @@ pub enum UpdateMode {
     /// - `wait` time has elapsed since the previous update
     /// - a redraw has been requested by [`RequestRedraw`](bevy_window::RequestRedraw)
     /// - new [window](`winit::event::WindowEvent`), [raw input](`winit::event::DeviceEvent`), or custom
-    ///     events have appeared
+    ///   events have appeared
     /// - a redraw has been requested with the [`EventLoopProxy`](crate::EventLoopProxy)
     Reactive {
         /// The approximate time from the start of one update to the next.

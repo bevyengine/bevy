@@ -3,17 +3,15 @@
 use std::{array, f32::consts::FRAC_PI_2};
 
 use bevy::{
-    color::palettes::css::{GOLDENROD, RED},
+    camera::CameraProjection as _,
+    color::palettes::css::RED,
     math::{bounding::Aabb2d, reflection_matrix, uvec2, vec3, vec4},
     pbr::{ExtendedMaterial, MaterialExtension},
     prelude::*,
-    render::{
-        camera::CameraProjection,
-        render_resource::{
-            AsBindGroup, Extent3d, ShaderRef, TextureDescriptor, TextureDimension, TextureFormat,
-            TextureUsages,
-        },
+    render::render_resource::{
+        AsBindGroup, Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
     },
+    shader::ShaderRef,
 };
 
 // TODO: we'll use this to handle window resizes
@@ -28,11 +26,6 @@ struct ScreenSpaceTextureExtension {
 
 fn main() {
     App::new()
-        .insert_resource(AmbientLight {
-            color: Color::WHITE,
-            brightness: 2000.0,
-            affects_lightmapped_meshes: false,
-        })
         .add_plugins(DefaultPlugins)
         .add_plugins(MaterialPlugin::<
             ExtendedMaterial<StandardMaterial, ScreenSpaceTextureExtension>,
@@ -43,7 +36,7 @@ fn main() {
 
 fn setup(
     mut commands: Commands,
-    _asset_server: Res<AssetServer>,
+    asset_server: Res<AssetServer>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut standard_materials: ResMut<Assets<StandardMaterial>>,
     mut screen_space_texture_materials: ResMut<
@@ -65,8 +58,8 @@ fn setup(
 
     let proj = PerspectiveProjection::from_frustum_bounds(-0.1..0.1, -0.1..0.1, 0.1..1000.0);
     let mvp = proj.get_clip_from_view()
-        * camera_transform.compute_matrix().inverse()
-        * mirror_transform.compute_matrix();
+        * camera_transform.to_matrix().inverse()
+        * mirror_transform.to_matrix();
     let plane_bounds = [
         mvp * vec4(-0.5, 0.0, -0.5, 1.0),
         mvp * vec4(-0.5, 0.0, 0.5, 1.0),
@@ -81,6 +74,11 @@ fn setup(
         Camera3d::default(),
         camera_transform,
         Projection::Perspective(proj),
+        AmbientLight {
+            color: Color::WHITE,
+            brightness: 2000.0,
+            affects_lightmapped_meshes: false,
+        },
     ));
 
     // Householder matrix stuff
@@ -94,7 +92,7 @@ fn setup(
     // transform! Transforms aren't powerful enough to correctly multiply
     // non-uniform scale, which `reflection_matrix` generates, by themselves.
     let reflected_transform = Transform::from_matrix(
-        Mat4::from_mat3a(reflection_matrix(Vec3::NEG_Z)) * camera_transform.compute_matrix(),
+        Mat4::from_mat3a(reflection_matrix(Vec3::NEG_Z)) * camera_transform.to_matrix(),
     );
 
     let inverse_linear_camera_transform = camera_transform.compute_affine().matrix3.inverse();
@@ -189,16 +187,11 @@ fn setup(
         Projection::Perspective(mirror_proj),
     ));
 
-    // can't use a fox anymore because of https://github.com/bevyengine/bevy/issues/13796
-    /*commands.spawn(SceneBundle {
-        scene: asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/animated/Fox.glb")),
-        transform: Transform::from_xyz(-50.0, 0.0, -100.0),
-        ..default()
-    });*/
     commands.spawn((
-        Mesh3d(meshes.add(Cuboid::new(1.0, 1.0, 1.0).mesh())),
-        Transform::from_scale(vec3(80.0, 80.0, 80.0)).with_translation(vec3(-50.0, 0.0, -100.0)),
-        MeshMaterial3d(standard_materials.add(Color::from(GOLDENROD))),
+        SceneRoot(
+            asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/animated/Fox.glb")),
+        ),
+        Transform::from_xyz(-50.0, 0.0, -100.0),
     ));
 
     commands.spawn((

@@ -9,7 +9,7 @@
 //! | `A`                  | Move left     |
 //! | `D`                  | Move right    |
 
-use bevy::{core_pipeline::bloom::Bloom, prelude::*};
+use bevy::{post_process::bloom::Bloom, prelude::*};
 
 /// Player movement speed factor.
 const PLAYER_SPEED: f32 = 100.;
@@ -53,22 +53,15 @@ fn setup_instructions(mut commands: Commands) {
         Text::new("Move the light with WASD.\nThe camera will smoothly track the light."),
         Node {
             position_type: PositionType::Absolute,
-            bottom: Val::Px(12.0),
-            left: Val::Px(12.0),
+            bottom: px(12),
+            left: px(12),
             ..default()
         },
     ));
 }
 
 fn setup_camera(mut commands: Commands) {
-    commands.spawn((
-        Camera2d,
-        Camera {
-            hdr: true, // HDR is required for the bloom effect
-            ..default()
-        },
-        Bloom::NATURAL,
-    ));
+    commands.spawn((Camera2d, Bloom::NATURAL));
 }
 
 /// Update the camera position by tracking the player.

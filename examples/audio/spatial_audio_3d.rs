@@ -35,27 +35,25 @@ fn setup(
     ));
 
     let listener = SpatialListener::new(gap);
-    commands
-        .spawn((
-            Transform::default(),
-            Visibility::default(),
-            listener.clone(),
-        ))
-        .with_children(|parent| {
+    commands.spawn((
+        Transform::default(),
+        Visibility::default(),
+        listener.clone(),
+        children![
             // left ear indicator
-            parent.spawn((
+            (
                 Mesh3d(meshes.add(Cuboid::new(0.2, 0.2, 0.2))),
                 MeshMaterial3d(materials.add(Color::from(RED))),
                 Transform::from_translation(listener.left_ear_offset),
-            ));
-
+            ),
             // right ear indicator
-            parent.spawn((
+            (
                 Mesh3d(meshes.add(Cuboid::new(0.2, 0.2, 0.2))),
                 MeshMaterial3d(materials.add(Color::from(LIME))),
                 Transform::from_translation(listener.right_ear_offset),
-            ));
-        });
+            )
+        ],
+    ));
 
     // light
     commands.spawn((
@@ -70,8 +68,8 @@ fn setup(
         ),
         Node {
             position_type: PositionType::Absolute,
-            bottom: Val::Px(12.0),
-            left: Val::Px(12.0),
+            bottom: px(12),
+            left: px(12),
             ..default()
         },
     ));

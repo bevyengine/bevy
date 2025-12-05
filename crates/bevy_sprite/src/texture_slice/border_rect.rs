@@ -1,10 +1,11 @@
-use bevy_reflect::Reflect;
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 
 /// Defines the extents of the border of a rectangle.
 ///
 /// This struct is used to represent thickness or offsets from the edges
 /// of a rectangle (left, right, top, and bottom), with values increasing inwards.
 #[derive(Default, Copy, Clone, PartialEq, Debug, Reflect)]
+#[reflect(Clone, PartialEq, Default)]
 pub struct BorderRect {
     /// Extent of the border along the left edge
     pub left: f32,
@@ -59,5 +60,53 @@ impl From<[f32; 4]> for BorderRect {
             top,
             bottom,
         }
+    }
+}
+
+impl core::ops::Add for BorderRect {
+    type Output = Self;
+
+    fn add(mut self, rhs: Self) -> Self::Output {
+        self.left += rhs.left;
+        self.right += rhs.right;
+        self.top += rhs.top;
+        self.bottom += rhs.bottom;
+        self
+    }
+}
+
+impl core::ops::Sub for BorderRect {
+    type Output = Self;
+
+    fn sub(mut self, rhs: Self) -> Self::Output {
+        self.left -= rhs.left;
+        self.right -= rhs.right;
+        self.top -= rhs.top;
+        self.bottom -= rhs.bottom;
+        self
+    }
+}
+
+impl core::ops::Mul<f32> for BorderRect {
+    type Output = Self;
+
+    fn mul(mut self, rhs: f32) -> Self::Output {
+        self.left *= rhs;
+        self.right *= rhs;
+        self.top *= rhs;
+        self.bottom *= rhs;
+        self
+    }
+}
+
+impl core::ops::Div<f32> for BorderRect {
+    type Output = Self;
+
+    fn div(mut self, rhs: f32) -> Self::Output {
+        self.left /= rhs;
+        self.right /= rhs;
+        self.top /= rhs;
+        self.bottom /= rhs;
+        self
     }
 }

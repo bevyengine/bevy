@@ -12,20 +12,21 @@ use std::{f64::consts::PI, str::FromStr};
 
 use argh::FromArgs;
 use bevy::{
+    asset::RenderAssetUsages,
+    camera::visibility::{NoCpuCulling, NoFrustumCulling},
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
-    math::{DVec2, DVec3},
-    pbr::NotShadowCaster,
+    light::NotShadowCaster,
+    math::{ops::cbrt, DVec2, DVec3},
     prelude::*,
     render::{
         batching::NoAutomaticBatching,
-        render_asset::RenderAssetUsages,
         render_resource::{Extent3d, TextureDimension, TextureFormat},
-        view::{NoCpuCulling, NoFrustumCulling, NoIndirectDrawing},
+        view::NoIndirectDrawing,
     },
     window::{PresentMode, WindowResolution},
     winit::{UpdateMode, WinitSettings},
 };
-use rand::{seq::SliceRandom, Rng, SeedableRng};
+use rand::{seq::IndexedRandom, Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;
 
 #[derive(FromArgs, Resource)]
@@ -70,13 +71,22 @@ struct Args {
     /// whether to enable directional light cascaded shadow mapping.
     #[argh(switch)]
     shadows: bool,
+
+    /// whether to continuously rotate individual cubes.
+    #[argh(switch)]
+    rotate_cubes: bool,
+
+    /// animate the cube materials by updating the material from the cpu each frame
+    #[argh(switch)]
+    animate_materials: bool,
 }
 
-#[derive(Default, Clone)]
+#[derive(Default, Clone, PartialEq)]
 enum Layout {
     Cube,
     #[default]
     Sphere,
+    Dense,
 }
 
 impl FromStr for Layout {
@@ -86,8 +96,9 @@ impl FromStr for Layout {
         match s {
             "cube" => Ok(Self::Cube),
             "sphere" => Ok(Self::Sphere),
+            "dense" => Ok(Self::Dense),
             _ => Err(format!(
-                "Unknown layout value: '{s}', valid options: 'cube', 'sphere'"
+                "Unknown layout value: '{s}', valid options: 'cube', 'sphere', 'dense'"
             )),
         }
     }
@@ -100,28 +111,39 @@ fn main() {
     #[cfg(target_arch = "wasm32")]
     let args = Args::from_args(&[], &[]).unwrap();
 
-    App::new()
-        .add_plugins((
-            DefaultPlugins.set(WindowPlugin {
-                primary_window: Some(Window {
-                    present_mode: PresentMode::AutoNoVsync,
-                    resolution: WindowResolution::new(1920.0, 1080.0)
-                        .with_scale_factor_override(1.0),
-                    ..default()
-                }),
+    let mut app = App::new();
+    app.add_plugins((
+        DefaultPlugins.set(WindowPlugin {
+            primary_window: Some(Window {
+                present_mode: PresentMode::AutoNoVsync,
+                resolution: WindowResolution::new(1920, 1080).with_scale_factor_override(1.0),
                 ..default()
             }),
-            FrameTimeDiagnosticsPlugin::default(),
-            LogDiagnosticsPlugin::default(),
-        ))
-        .insert_resource(WinitSettings {
-            focused_mode: UpdateMode::Continuous,
-            unfocused_mode: UpdateMode::Continuous,
-        })
-        .insert_resource(args)
-        .add_systems(Startup, setup)
-        .add_systems(Update, (move_camera, print_mesh_count))
-        .run();
+            ..default()
+        }),
+        FrameTimeDiagnosticsPlugin::default(),
+        LogDiagnosticsPlugin::default(),
+    ))
+    .insert_resource(WinitSettings {
+        focused_mode: UpdateMode::Continuous,
+        unfocused_mode: UpdateMode::Continuous,
+    })
+    .add_systems(Startup, setup)
+    .add_systems(Update, print_mesh_count);
+
+    if args.layout != Layout::Dense {
+        app.add_systems(Update, move_camera);
+    }
+
+    if args.rotate_cubes {
+        app.add_systems(Update, rotate_cubes);
+    }
+
+    if args.animate_materials {
+        app.add_systems(Update, update_materials);
+    }
+
+    app.insert_resource(args).run();
 }
 
 const WIDTH: usize = 200;
@@ -191,7 +213,7 @@ fn setup(
                 NotShadowCaster,
             ));
         }
-        _ => {
+        Layout::Cube => {
             // NOTE: This pattern is good for demonstrating that frustum culling is working correctly
             // as the number of visible meshes rises and falls depending on the viewing angle.
             let scale = 2.5;
@@ -239,6 +261,34 @@ fn setup(
                 NotShadowCaster,
             ));
         }
+        Layout::Dense => {
+            // NOTE: This pattern is good for demonstrating a dense configuration of cubes
+            // overlapping each other, all within the camera frustum.
+            let count = WIDTH * HEIGHT * 2;
+            let size = cbrt(count as f32).round();
+            let gap = 1.25;
+
+            let cubes = (0..count).map(move |i| {
+                let x = i as f32 % size;
+                let y = (i as f32 / size) % size;
+                let z = i as f32 / (size * size);
+                let pos = Vec3::new(x * gap, y * gap, z * gap);
+                (
+                    Mesh3d(meshes.choose(&mut material_rng).unwrap().0.clone()),
+                    MeshMaterial3d(materials.choose(&mut material_rng).unwrap().clone()),
+                    Transform::from_translation(pos),
+                )
+            });
+
+            // camera
+            commands.spawn((
+                Camera3d::default(),
+                Transform::from_xyz(100.0, 90.0, 100.0)
+                    .looking_at(Vec3::new(0.0, -10.0, 0.0), Vec3::Y),
+            ));
+
+            commands.spawn_batch(cubes);
+        }
     }
 
     commands.spawn((
@@ -255,17 +305,19 @@ fn init_textures(args: &Args, images: &mut Assets<Image>) -> Vec<Handle<Image>> 
     // This isn't strictly required in practical use unless you need your app to be deterministic.
     let mut color_rng = ChaCha8Rng::seed_from_u64(42);
     let color_bytes: Vec<u8> = (0..(args.material_texture_count * 4))
-        .map(|i| if (i % 4) == 3 { 255 } else { color_rng.gen() })
+        .map(|i| {
+            if (i % 4) == 3 {
+                255
+            } else {
+                color_rng.random()
+            }
+        })
         .collect();
     color_bytes
         .chunks(4)
         .map(|pixel| {
             images.add(Image::new_fill(
-                Extent3d {
-                    width: 1,
-                    height: 1,
-                    depth_or_array_layers: 1,
-                },
+                Extent3d::default(),
                 TextureDimension::D2,
                 pixel,
                 TextureFormat::Rgba8UnormSrgb,
@@ -284,6 +336,7 @@ fn init_materials(
         match args.layout {
             Layout::Cube => (WIDTH - WIDTH / 10) * (HEIGHT - HEIGHT / 10),
             Layout::Sphere => WIDTH * HEIGHT * 4,
+            Layout::Dense => WIDTH * HEIGHT * 2,
         }
     } else {
         args.material_texture_count
@@ -304,7 +357,11 @@ fn init_materials(
     materials.extend(
         std::iter::repeat_with(|| {
             assets.add(StandardMaterial {
-                base_color: Color::srgb_u8(color_rng.gen(), color_rng.gen(), color_rng.gen()),
+                base_color: Color::srgb_u8(
+                    color_rng.random(),
+                    color_rng.random(),
+                    color_rng.random(),
+                ),
                 base_color_texture: textures.choose(&mut texture_rng).cloned(),
                 ..default()
             })
@@ -323,7 +380,7 @@ fn init_meshes(args: &Args, assets: &mut Assets<Mesh>) -> Vec<(Handle<Mesh>, Tra
     let mut radius_rng = ChaCha8Rng::seed_from_u64(42);
     let mut variant = 0;
     std::iter::repeat_with(|| {
-        let radius = radius_rng.gen_range(0.25f32..=0.75f32);
+        let radius = radius_rng.random_range(0.25f32..=0.75f32);
         let (handle, transform) = match variant % 15 {
             0 => (
                 assets.add(Cuboid {
@@ -474,4 +531,28 @@ impl Default for PrintingTimer {
     fn default() -> Self {
         Self(Timer::from_seconds(1.0, TimerMode::Repeating))
     }
+}
+
+fn update_materials(mut materials: ResMut<Assets<StandardMaterial>>, time: Res<Time>) {
+    let elapsed = time.elapsed_secs();
+    for (i, (_, material)) in materials.iter_mut().enumerate() {
+        let hue = (elapsed + i as f32 * 0.005).rem_euclid(1.0);
+        // This is much faster than using base_color.set_hue(hue), and in a tight loop it shows.
+        let color = fast_hue_to_rgb(hue);
+        material.base_color = Color::linear_rgb(color.x, color.y, color.z);
+    }
+}
+
+fn rotate_cubes(
+    mut query: Query<&mut Transform, (With<Mesh3d>, Without<NotShadowCaster>)>,
+    time: Res<Time>,
+) {
+    query.par_iter_mut().for_each(|mut transform| {
+        transform.rotate_y(10.0 * time.delta_secs());
+    });
+}
+
+#[inline]
+fn fast_hue_to_rgb(hue: f32) -> Vec3 {
+    (hue * 6.0 - vec3(3.0, 2.0, 4.0)).abs() * vec3(1.0, -1.0, -1.0) + vec3(-1.0, 2.0, 2.0)
 }

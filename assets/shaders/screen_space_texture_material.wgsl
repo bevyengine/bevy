@@ -9,7 +9,7 @@ struct ScreenSpaceTextureMaterial {
     screen_rect: vec4<f32>,
 }
 
-@group(2) @binding(100) var<uniform> material: ScreenSpaceTextureMaterial;
+@group(#{MATERIAL_BIND_GROUP}) @binding(100) var<uniform> material: ScreenSpaceTextureMaterial;
 
 @fragment
 fn fragment(in: VertexOutput, @builtin(front_facing) is_front: bool) -> FragmentOutput {

@@ -1,9 +1,7 @@
 //! Control animations of entities in the loaded scene.
 use std::collections::HashMap;
 
-use bevy::{
-    animation::AnimationTarget, ecs::entity::hash_map::EntityHashMap, gltf::Gltf, prelude::*,
-};
+use bevy::{animation::AnimationTargetId, ecs::entity::EntityHashMap, gltf::Gltf, prelude::*};
 
 use crate::scene_viewer_plugin::SceneHandle;
 
@@ -13,6 +11,7 @@ struct Clips {
     nodes: Vec<AnimationNodeIndex>,
     current: usize,
 }
+
 impl Clips {
     fn new(clips: Vec<AnimationNodeIndex>) -> Self {
         Clips {
@@ -36,7 +35,7 @@ impl Clips {
 /// the common case).
 fn assign_clips(
     mut players: Query<&mut AnimationPlayer>,
-    targets: Query<(Entity, &AnimationTarget)>,
+    targets: Query<(&AnimationTargetId, Entity)>,
     children: Query<&ChildOf>,
     scene_handle: Res<SceneHandle>,
     clips: Res<Assets<AnimationClip>>,
@@ -65,10 +64,7 @@ fn assign_clips(
     info!("Animation names: {names:?}");
 
     // Map animation target IDs to entities.
-    let animation_target_id_to_entity: HashMap<_, _> = targets
-        .iter()
-        .map(|(entity, target)| (target.id, entity))
-        .collect();
+    let animation_target_id_to_entity: HashMap<_, _> = targets.iter().collect();
 
     // Build up a list of all animation clips that belong to each player. A clip
     // is considered to belong to an animation player if all targets of the clip
@@ -109,7 +105,7 @@ fn assign_clips(
                 }
 
                 // Go to the next parent.
-                current = children.get(entity).ok().map(ChildOf::get);
+                current = children.get(entity).ok().map(ChildOf::parent);
             }
         }
 
