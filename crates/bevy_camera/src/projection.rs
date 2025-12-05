@@ -6,7 +6,7 @@ use core::ops::{Deref, DerefMut, Range};
 use crate::{primitives::Frustum, visibility::VisibilitySystems};
 use bevy_app::{App, Plugin, PostUpdate};
 use bevy_ecs::prelude::*;
-use bevy_math::{ops, vec2, vec4, AspectRatio, Mat4, Rect, Vec2, Vec3, Vec3A, Vec4};
+use bevy_math::{ops, vec2, vec4, AspectRatio, Mat4, Rect, Vec2, Vec3A, Vec4};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect, ReflectDeserialize, ReflectSerialize};
 use bevy_transform::{components::GlobalTransform, TransformSystems};
 use derive_more::derive::From;
@@ -324,89 +324,37 @@ pub struct PerspectiveProjection {
     /// See the `mirror` example for an example of usage.
     pub offset: Vec2,
 
-    /// The orientation of the near plane.
+    /// The orientation of a custom clipping plane, as well as its distance from
+    /// the camera.
     ///
-    /// Typically, this is (0, 0, -1), indicating a near plane pointing directly
-    /// away from the camera. It can be set to a different, normalized, value in
-    /// order to achieve an *oblique* near plane. This is commonly used for
-    /// mirrors, in order to avoid reflecting objects behind them.
+    /// If you supply a plane here, anything in front of the plane will be
+    /// clipped out. This is useful for portals and mirrors, in order to clip
+    /// any geometry that would pass through the plane of the portal or mirror.
     ///
-    /// See the `mirror` example for an example of usage.
-    pub near_normal: Vec3,
+    /// The X, Y, and Z components of the vector describe its normal, in view
+    /// space. This normal vector must have length 1, and it should point away
+    /// from the camera. (That is, only geometry on the side of the plane that
+    /// the normal points toward will be rendered.) The W component of the
+    /// vector must be the *negative shortest signed distance* from the camera
+    /// to the plane, again in view space.  This final component can also be
+    /// computed as -(N ·  Q), where N is the normal of the plane and Q is any
+    /// point on it.
+    ///
+    /// By default, this is (0, 0, -1, -[`Self::near`]), which describes a near
+    /// plane located [`Self::near`] meters away pointing directly away from the
+    /// camera.
+    ///
+    /// See the `calculate_mirror_camera_transform_and_projection` function in
+    /// the `mirror` example for an exhaustive example of usage.
+    pub near_clip_plane: Vec4,
 }
 
 impl CameraProjection for PerspectiveProjection {
     fn get_clip_from_view(&self) -> Mat4 {
-        // Unpack.
-        let PerspectiveProjection {
-            fov,
-            aspect_ratio: aspect,
-            near,
-            far: _,
-            offset: xy_offset,
-            near_normal: normal,
-        } = *self;
-
-        // We start with the standard right-handed reversed-depth perspective
-        // matrix with an infinite far plane.
-
-        let inv_f = f32::tan(fov * 0.5);
-        let f = 1.0 / inv_f;
-
-        // The upper left 2×2 matrix is a straightforward scale, which we call
-        // `xy_scale`.
-        let xy_scale = vec2(f / aspect, f);
-
-        // We now make our first adjustment, in order to take `offset` into
-        // account. `offset`, along with `fov` and `aspect`, correspond to the
-        // `left`/`right`/`bottom`/`top` values of a traditional frustum matrix
-        // API like [`glFrustum`]. A normal perspective matrix M defines M₁₃ and
-        // M₂₃ like so:
-        //
-        //             left + right
-        //      M₁₃ = ─────────────
-        //            -left + right
-        //
-        //             bottom + top
-        //      M₂₃ = ─────────────
-        //            -bottom + top
-        //
-        // With some algebraic manipulation, we can calculate these values from
-        // `fov`, `aspect`, and `offset`, and we store them in `xy_skew`.
-
-        let xy_skew = xy_offset * xy_scale / near;
-
-        // Now we need to attach the oblique clip plane. Given a plane normal N
-        // and the near plane distance along the Z axis d, [Lengyel 2005]
-        // describes how to do this by replacing the third row of the
-        // perspective matrix M with the following:
-        //
-        //            -2⋅Qz
-        //      M₃′ = ──────⋅C + (0, 0, 1, 0)
-        //             C⋅Q
-        //
-        // where:
-        //
-        //      Q  = M⁻¹⋅Q′
-        //      Q′ = (sign(Cx) + sign(Cy), 1, 1)
-        //      C  = (Nx, Ny, Nz, -d)
-        //
-        // Substituting and rearranging, we arrive at the following formula for
-        // the third row of the matrix M₃′, which we call `near_skew`.
-        //
-        // [Lengyel 2005]: https://terathon.com/lengyel/Lengyel-Oblique.pdf
-
-        let denom = normal.dot(xy_offset.extend(-near))
-            + inv_f * near * (aspect * normal.x.abs() + normal.y.abs());
-        let near_skew = Vec4::NEG_Z - normal.extend(normal.z * near) * near / denom;
-
-        // Now we're ready to put together the final matrix:
-        Mat4 {
-            x_axis: vec4(xy_scale.x, 0.0, near_skew.x, 0.0),
-            y_axis: vec4(0.0, xy_scale.y, near_skew.y, 0.0),
-            z_axis: vec4(xy_skew.x, xy_skew.y, near_skew.z, -1.0),
-            w_axis: vec4(0.0, 0.0, near_skew.w, 0.0),
-        }
+        let mut matrix =
+            Mat4::perspective_infinite_reverse_rh(self.fov, self.aspect_ratio, self.near);
+        self.adjust_perspective_matrix_for_clip_plane(&mut matrix);
+        matrix
     }
 
     fn get_clip_from_view_for_sub(&self, sub_view: &super::SubCameraView) -> Mat4 {
@@ -442,12 +390,15 @@ impl CameraProjection for PerspectiveProjection {
         let a = (right_prime + left_prime) / (right_prime - left_prime);
         let b = (top_prime + bottom_prime) / (top_prime - bottom_prime);
 
-        Mat4::from_cols(
+        let mut matrix = Mat4::from_cols(
             Vec4::new(x, 0.0, 0.0, 0.0),
             Vec4::new(0.0, y, 0.0, 0.0),
             Vec4::new(a, b, 0.0, -1.0),
             Vec4::new(0.0, 0.0, self.near, 0.0),
-        )
+        );
+
+        self.adjust_perspective_matrix_for_clip_plane(&mut matrix);
+        matrix
     }
 
     fn update(&mut self, width: f32, height: f32) {
@@ -500,7 +451,7 @@ impl Default for PerspectiveProjection {
             far: 1000.0,
             aspect_ratio: 1.0,
             offset: Vec2::ZERO,
-            near_normal: Vec3::NEG_Z,
+            near_clip_plane: vec4(0.0, 0.0, -1.0, -0.1),
         }
     }
 }
@@ -530,8 +481,77 @@ impl PerspectiveProjection {
             near,
             far,
             offset: vec2(x_offset, y_offset),
-            near_normal: Vec3::NEG_Z,
+            near_clip_plane: vec4(0.0, 0.0, -1.0, -near),
         }
+    }
+
+    /// Adjusts the perspective matrix for an oblique clip plane if necessary.
+    ///
+    /// This changes the near and (infinite) far planes so that they correctly
+    /// clip everything in front of the [`Self::near_clip_plane`]. See [Lengyel
+    /// 2005] for an exhaustive treatment of the way this works. Custom near
+    /// clip planes are typically used for portals and mirrors; see
+    /// `examples/3d/mirror.rs` for an example of usage.
+    fn adjust_perspective_matrix_for_clip_plane(&self, matrix: &mut Mat4) {
+        // If we don't have an oblique clip plane, save ourselves the trouble.
+        if self.near_clip_plane == vec4(0.0, 0.0, -1.0, -self.near) {
+            return;
+        }
+
+        // To understand this, refer to [Lengyel 2005]. The notation follows the
+        // paper. The formulas are different because the paper uses a standard
+        // OpenGL convention (near -1, far 1), while we use a reversed Vulkan
+        // convention (near 1, far 0).
+        //
+        // [Lengyel 2005]: https://terathon.com/lengyel/Lengyel-Oblique.pdf
+        let c = self.near_clip_plane;
+
+        // First, calculate the position of Q′, the corner in clip space lying
+        // opposite from the near clip plane. This is identical to equation (7).
+        // Note that this is a point at infinity in view space, because we use
+        // an infinite far plane, but in clip space it's finite.
+        let q_prime = vec4(c.x.signum(), c.y.signum(), 0.0, 1.0);
+
+        // Now convert that point to view space. This *will* be a point at
+        // infinity, but that's OK because we're in homogeneous coordinates.
+        let q = matrix.inverse() * q_prime;
+
+        // Here we're computing the scaling factor to apply to the near plane so
+        // that the far plane will intersect Q. This one differs from the paper.
+        // Using the notation Mᵢ to mean the *i*th row of the matrix M, start by
+        // observing that the near plane (z = 1) is described by M₄ - M₃ and the
+        // far plane (z = 0) is described by simply M₃. So:
+        //
+        // * Equation (4) becomes C = M₄ - M₃.
+        // * Equation (5) becomes M′₃ = M₄ - C.
+        // * Equation (6) becomes F = M′₃ = M₄ - C.
+        // * Equation (8) becomes F = M₄ - aC.
+        // * Equation (9) becomes F ·  Q = 0 ⇒ (M₄ - aC) ·  Q = 0.
+        //
+        // And, solving the modified equation (9), we get:
+        //
+        //          M₄ ·  Q
+        //      a = ⎯⎯⎯⎯⎯⎯
+        //           C ·  Q
+        //
+        // Because M₄ = (0, 0, -1, 0) (just as it is in the paper), this reduces to:
+        //
+        //           -Qz
+        //      a = ⎯⎯⎯⎯⎯
+        //          C ·  Q
+        //
+        // Which is what we calculate here.
+        let a = -q.z / c.dot(q);
+
+        // Finally, we have the revised equation (10), which is M′₃ = M₄ - aC.
+        // Similarly to the above, this simplifies to M′₃ = (0, 0, -1, 0) - aC.
+        let m3_prime = Vec4::NEG_Z - c * a;
+
+        // We have the replacement third row; write it in.
+        matrix.x_axis.z = m3_prime.x;
+        matrix.y_axis.z = m3_prime.y;
+        matrix.z_axis.z = m3_prime.z;
+        matrix.w_axis.z = m3_prime.w;
     }
 }
 

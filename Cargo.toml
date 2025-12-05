@@ -4885,6 +4885,6 @@ doc-scrape-examples = true
 
 [package.metadata.example.mirror]
 name = "Mirror"
-description = "Demonstrates how to create a mirror with a camera"
+description = "Demonstrates how to create a mirror with a second camera"
 category = "3D Rendering"
 wasm = true
