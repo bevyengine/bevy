@@ -4,8 +4,8 @@ use bevy_ecs::{
     prelude::*,
     query::FilteredAccessSet,
     system::{
-        ReadOnlySystemParam, SystemMeta, SystemParam, SystemParamItem, SystemParamValidationError,
-        SystemState,
+        ReadOnlySystemParam, ReborrowSystemParam, SystemMeta, SystemParam, SystemParamItem,
+        SystemParamValidationError, SystemState,
     },
     world::unsafe_world_cell::UnsafeWorldCell,
 };
@@ -138,6 +138,24 @@ where
         };
         let item = state.state.get(main_world.into_inner());
         Extract { item }
+    }
+}
+
+impl<P: ReborrowSystemParam + ReadOnlySystemParam> ReborrowSystemParam for Extract<'_, '_, P> {
+    fn reborrow<'wlong: 'short, 'slong: 'short, 'short>(
+        item: &'short mut Self::Item<'wlong, 'slong>,
+    ) -> Self::Item<'short, 'short> {
+        Extract {
+            item: P::reborrow(&mut item.item),
+        }
+    }
+}
+
+impl<'w, 's, P: ReborrowSystemParam + ReadOnlySystemParam> Extract<'w, 's, P> {
+    pub fn reborrow(&mut self) -> Extract<'_, '_, P> {
+        Extract {
+            item: P::reborrow(&mut self.item),
+        }
     }
 }
 

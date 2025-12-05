@@ -123,6 +123,21 @@ impl<'w, T: Resource> Res<'w, T> {
     pub fn into_inner(self) -> &'w T {
         self.value
     }
+
+    /// Returns a `Res<>` with a smaller lifetime.
+    /// This is useful if you have `&Res`, but you need a `Res`.
+    pub fn reborrow(&self) -> Res<'_, T> {
+        Res {
+            value: self.value,
+            ticks: ComponentTicksRef {
+                added: self.ticks.added,
+                changed: self.ticks.changed,
+                changed_by: self.ticks.changed_by,
+                last_run: self.ticks.last_run,
+                this_run: self.ticks.this_run,
+            },
+        }
+    }
 }
 
 impl<'w, T: Resource> From<ResMut<'w, T>> for Res<'w, T> {
@@ -243,6 +258,23 @@ impl<'w, T> From<NonSendMut<'w, T>> for NonSend<'w, T> {
     }
 }
 
+impl<'w, T> NonSend<'w, T> {
+    /// Returns a `NonSend<>` with a smaller lifetime.
+    /// This is useful if you have `&NonSend<T>`, but you need a `NonSend<T>`.
+    pub fn reborrow(&mut self) -> NonSend<'_, T> {
+        NonSend {
+            value: self.value,
+            ticks: ComponentTicksRef {
+                added: self.ticks.added,
+                changed: self.ticks.changed,
+                changed_by: self.ticks.changed_by,
+                last_run: self.ticks.last_run,
+                this_run: self.ticks.this_run,
+            },
+        }
+    }
+}
+
 /// Unique borrow of a non-[`Send`] resource.
 ///
 /// Only [`Send`] resources may be accessed with the [`ResMut`] [`SystemParam`](crate::system::SystemParam). In case that the
@@ -359,6 +391,21 @@ impl<'w, T: ?Sized> Ref<'w, T> {
     pub fn set_ticks(&mut self, last_run: Tick, this_run: Tick) {
         self.ticks.last_run = last_run;
         self.ticks.this_run = this_run;
+    }
+
+    /// Returns a `Mut<>` with a smaller lifetime.
+    /// This is useful if you have `&Ref<T>`, but you need a `Ref<T>`.
+    pub fn reborrow(&self) -> Ref<'_, T> {
+        Ref {
+            value: self.value,
+            ticks: ComponentTicksRef {
+                added: self.ticks.added,
+                changed: self.ticks.changed,
+                changed_by: self.ticks.changed_by,
+                last_run: self.ticks.last_run,
+                this_run: self.ticks.this_run,
+            },
+        }
     }
 }
 
