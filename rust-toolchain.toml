@@ -1,4 +1,2 @@
 [toolchain]
-profile = "default"
 channel = "1.91.1"
-# components = ["rustfmt", "miri"]
