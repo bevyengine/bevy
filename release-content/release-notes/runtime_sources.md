@@ -1,7 +1,7 @@
 ---
 title: Adding and removing asset sources at runtime
 authors: ["@andriyDev"]
-pull_requests: []
+pull_requests: [21890]
 ---
 
 Custom asset sources are a great way to extend the asset system to access data from all sorts of
