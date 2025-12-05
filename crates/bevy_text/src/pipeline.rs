@@ -59,8 +59,6 @@ pub struct FontFaceInfo {
     pub stretch: cosmic_text::fontdb::Stretch,
     /// Allows italic or oblique faces to be selected
     pub style: cosmic_text::fontdb::Style,
-    /// The degree of blackness or stroke thickness
-    pub weight: cosmic_text::fontdb::Weight,
     /// Font family name
     pub family_name: Arc<str>,
 }
@@ -628,7 +626,6 @@ pub fn load_font_to_fontdb(
     FontFaceInfo {
         stretch: face.stretch,
         style: face.style,
-        weight: face.weight,
         family_name: family_name.clone(),
     }
 }
@@ -647,7 +644,7 @@ fn get_attrs<'a>(
         .family(Family::Name(&face_info.family_name))
         .stretch(face_info.stretch)
         .style(face_info.style)
-        .weight(face_info.weight)
+        .weight(text_font.weight.into())
         .metrics(
             Metrics {
                 font_size: text_font.font_size,
