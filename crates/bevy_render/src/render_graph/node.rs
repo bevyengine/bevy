@@ -343,7 +343,7 @@ impl Node for RunGraphOnViewNode {
         _render_context: &mut RenderContext,
         _world: &World,
     ) -> Result<(), NodeRunError> {
-        graph.run_sub_graph(self.sub_graph, vec![], Some(graph.view_entity()))?;
+        graph.run_sub_graph(self.sub_graph, vec![], Some(graph.view_entity()), None)?;
         Ok(())
     }
 }

@@ -1,8 +1,6 @@
 #import bevy_pbr::{
-    mesh_view_types::Lights,
     atmosphere::{
-        types::{Atmosphere, AtmosphereSettings},
-        bindings::{atmosphere, view, settings},
+        bindings::settings,
         functions::{
             get_view_position, raymarch_atmosphere,
             max_atmosphere_distance, direction_atmosphere_to_world,
@@ -17,7 +15,7 @@
 }
 #import bevy_core_pipeline::fullscreen_vertex_shader::FullscreenVertexOutput
 
-@group(0) @binding(16) var sky_view_lut_out: texture_storage_2d<rgba16float, write>;
+@group(0) @binding(13) var sky_view_lut_out: texture_storage_2d<rgba16float, write>;
 
 @compute
 @workgroup_size(16, 16, 1)

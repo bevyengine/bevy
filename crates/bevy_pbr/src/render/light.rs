@@ -1562,8 +1562,11 @@ pub fn prepare_lights(
 
                 let mut frustum = *frustum;
                 // Push the near clip plane out to infinity for directional lights
-                frustum.half_spaces[4] =
-                    HalfSpace::new(frustum.half_spaces[4].normal().extend(f32::INFINITY));
+                frustum.half_spaces[Frustum::NEAR_PLANE_IDX] = HalfSpace::new(
+                    frustum.half_spaces[Frustum::NEAR_PLANE_IDX]
+                        .normal()
+                        .extend(f32::INFINITY),
+                );
 
                 let retained_view_entity = RetainedViewEntity::new(
                     *light_main_entity,
@@ -1679,6 +1682,7 @@ fn despawn_entities(commands: &mut Commands, entities: Vec<Entity>) {
 // collection.
 pub fn check_light_entities_needing_specialization<M: Material>(
     needs_specialization: Query<Entity, (With<MeshMaterial3d<M>>, Changed<NotShadowCaster>)>,
+    mesh_materials: Query<Entity, With<MeshMaterial3d<M>>>,
     mut entities_needing_specialization: ResMut<EntitiesNeedingSpecialization<M>>,
     mut removed_components: RemovedComponents<NotShadowCaster>,
 ) {
@@ -1687,7 +1691,10 @@ pub fn check_light_entities_needing_specialization<M: Material>(
     }
 
     for removed in removed_components.read() {
-        entities_needing_specialization.entities.push(removed);
+        // Only require specialization if the entity still exists.
+        if mesh_materials.contains(removed) {
+            entities_needing_specialization.entities.push(removed);
+        }
     }
 }
 

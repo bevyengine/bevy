@@ -174,6 +174,12 @@ fn setup(mut commands: Commands) {
                                 margin: px(20).all(),
                                 align_items: AlignItems::Center,
                                 justify_content: JustifyContent::Center,
+                                border_radius: BorderRadius::px(
+                                    border_size(border.left, border.top),
+                                    border_size(border.right, border.top),
+                                    border_size(border.right, border.bottom,),
+                                    border_size(border.left, border.bottom),
+                                ),
                                 ..default()
                             },
                             BackgroundColor(MAROON.into()),
@@ -183,12 +189,6 @@ fn setup(mut commands: Commands) {
                                 left: GREEN.into(),
                                 right: BLUE.into(),
                             },
-                            BorderRadius::px(
-                                border_size(border.left, border.top),
-                                border_size(border.right, border.top),
-                                border_size(border.right, border.bottom,),
-                                border_size(border.left, border.bottom),
-                            ),
                             Outline {
                                 width: px(6),
                                 offset: px(6),
@@ -198,9 +198,9 @@ fn setup(mut commands: Commands) {
                                 Node {
                                     width: px(10),
                                     height: px(10),
+                                    border_radius: BorderRadius::MAX,
                                     ..default()
                                 },
-                                BorderRadius::MAX,
                                 BackgroundColor(YELLOW.into()),
                             )],
                         ),

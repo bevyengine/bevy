@@ -72,7 +72,7 @@
 //!     // within this scope, we can query like no components are disabled.
 //!     assert_eq!(world.query::<&Disabled>().query(&world).count(), 1);
 //!     assert_eq!(world.query::<&CustomDisabled>().query(&world).count(), 1);
-//!     assert_eq!(world.query::<()>().query(&world).count(), world.entities().len() as usize);
+//!     assert_eq!(world.query::<()>().query(&world).count(), world.entities().count_spawned() as usize);
 //! })
 //! ```
 //!
@@ -83,7 +83,7 @@
 //! app starts.
 //!
 //! Because filters are applied to all queries they can have performance implication for
-//! the enire [`World`], especially when they cause queries to mix sparse and table components.
+//! the entire [`World`], especially when they cause queries to mix sparse and table components.
 //! See [`Query` performance] for more info.
 //!
 //! Custom disabling components can cause significant interoperability issues within the ecosystem,
@@ -308,47 +308,50 @@ mod tests {
     #[derive(Component)]
     struct CustomDisabled;
 
+    #[derive(Component)]
+    struct Dummy;
+
     #[test]
     fn multiple_disabling_components() {
         let mut world = World::new();
         world.register_disabling_component::<CustomDisabled>();
 
         // Use powers of two so we can uniquely identify the set of matching archetypes from the count.
-        world.spawn_empty();
-        world.spawn_batch((0..2).map(|_| Disabled));
-        world.spawn_batch((0..4).map(|_| CustomDisabled));
-        world.spawn_batch((0..8).map(|_| (Disabled, CustomDisabled)));
+        world.spawn(Dummy);
+        world.spawn_batch((0..2).map(|_| (Dummy, Disabled)));
+        world.spawn_batch((0..4).map(|_| (Dummy, CustomDisabled)));
+        world.spawn_batch((0..8).map(|_| (Dummy, Disabled, CustomDisabled)));
 
-        let mut query = world.query::<()>();
+        let mut query = world.query::<&Dummy>();
         assert_eq!(1, query.iter(&world).count());
 
-        let mut query = world.query::<EntityRef>();
+        let mut query = world.query_filtered::<EntityRef, With<Dummy>>();
         assert_eq!(1, query.iter(&world).count());
 
-        let mut query = world.query::<EntityMut>();
+        let mut query = world.query_filtered::<EntityMut, With<Dummy>>();
         assert_eq!(1, query.iter(&world).count());
 
-        let mut query = world.query_filtered::<(), With<Disabled>>();
+        let mut query = world.query_filtered::<&Dummy, With<Disabled>>();
         assert_eq!(2, query.iter(&world).count());
 
-        let mut query = world.query::<Has<Disabled>>();
+        let mut query = world.query_filtered::<Has<Disabled>, With<Dummy>>();
         assert_eq!(3, query.iter(&world).count());
 
-        let mut query = world.query_filtered::<(), With<CustomDisabled>>();
+        let mut query = world.query_filtered::<&Dummy, With<CustomDisabled>>();
         assert_eq!(4, query.iter(&world).count());
 
-        let mut query = world.query::<Has<CustomDisabled>>();
+        let mut query = world.query_filtered::<Has<CustomDisabled>, With<Dummy>>();
         assert_eq!(5, query.iter(&world).count());
 
-        let mut query = world.query_filtered::<(), (With<Disabled>, With<CustomDisabled>)>();
+        let mut query = world.query_filtered::<&Dummy, (With<Disabled>, With<CustomDisabled>)>();
         assert_eq!(8, query.iter(&world).count());
 
-        let mut query = world.query::<(Has<Disabled>, Has<CustomDisabled>)>();
+        let mut query = world.query_filtered::<(Has<Disabled>, Has<CustomDisabled>), With<Dummy>>();
         assert_eq!(15, query.iter(&world).count());
 
         // This seems like it ought to count as a mention of `Disabled`, but it does not.
         // We don't consider read access, since that would count `EntityRef` as a mention of *all* components.
-        let mut query = world.query::<Option<&Disabled>>();
+        let mut query = world.query_filtered::<Option<&Disabled>, With<Dummy>>();
         assert_eq!(1, query.iter(&world).count());
     }
 }

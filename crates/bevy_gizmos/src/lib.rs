@@ -260,10 +260,6 @@ pub fn propagate_gizmos<Config, Clear>(
 #[derive(SystemSet, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct GizmoMeshSystems;
 
-/// Deprecated alias for [`GizmoMeshSystems`].
-#[deprecated(since = "0.17.0", note = "Renamed to `GizmoMeshSystems`.")]
-pub type UpdateGizmoMeshes = GizmoMeshSystems;
-
 /// Prepare gizmos for rendering.
 ///
 /// This also clears the default `GizmoStorage`.
