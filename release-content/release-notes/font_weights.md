@@ -1,7 +1,7 @@
 ---
 title: "Font weight support"
 authors: ["@ickshonpe"]
-pull_requests: []
+pull_requests: [22038]
 ---
 
 Adds support for font weights. 
