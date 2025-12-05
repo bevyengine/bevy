@@ -48,8 +48,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             weight: FontWeight::THIN, // 100
                             ..default()
                         },
-                        Underline,
-                        Strikethrough,
                     ),
                     (
                         Text::new("Weight 200 (Extra Light)"),
@@ -104,8 +102,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             weight: FontWeight::BOLD, // 700
                             ..default()
                         },
-                        Underline,
-                        Strikethrough,
                     ),
                     (
                         Text::new("Weight 800 (Extra Bold)"),
@@ -124,8 +120,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             weight: FontWeight::BLACK, // 900
                             ..default()
                         },
-                        Underline,
-                        Strikethrough,
                     ),
                 ]
             ),
