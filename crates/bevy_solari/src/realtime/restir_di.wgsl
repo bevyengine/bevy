@@ -77,12 +77,20 @@ fn spatial_and_shade(@builtin(global_invocation_id) global_id: vec3<u32>) {
         spatial.reservoir, spatial.world_position, spatial.world_normal, spatial.diffuse_brdf, &rng);
     var combined_reservoir = merge_result.merged_reservoir;
 
+    // More accuracy, less stability
+#ifndef BIASED_RESAMPLING
     store_reservoir_a(global_id.xy, combined_reservoir);
+#endif
 
     if reservoir_valid(combined_reservoir) {
         let resolved_light_sample = resolve_light_sample(combined_reservoir.sample, light_sources[combined_reservoir.sample.light_id >> 16u]);
         combined_reservoir.unbiased_contribution_weight *= trace_light_visibility(surface.world_position, resolved_light_sample.world_position);
     }
+
+    // More stability, less accuracy (shadows extend further out than they should)
+#ifdef BIASED_RESAMPLING
+    store_reservoir_a(global_id.xy, combined_reservoir);
+#endif
 
     let wo = normalize(view.world_position - surface.world_position);
     let brdf = evaluate_brdf(surface.world_normal, wo, merge_result.wi, surface.material);
