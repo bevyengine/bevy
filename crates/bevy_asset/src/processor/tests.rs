@@ -312,7 +312,9 @@ impl UnfinishedProcessingDirs {
 }
 
 /// Creates a source, including its processed and unprocessed directories, gated on `source_gate`.
-fn create_source(source_gate: Arc<RwLock<()>>) -> (AssetSourceBuilder, UnfinishedProcessingDirs) {
+fn create_processed_source(
+    source_gate: Arc<RwLock<()>>,
+) -> (AssetSourceBuilder, UnfinishedProcessingDirs) {
     let source_dir = Dir::default();
     let processed_dir = Dir::default();
 
@@ -361,7 +363,8 @@ fn create_app_with_asset_processor() -> AppWithProcessor {
     let mut app = App::new();
     let source_gate = Arc::new(RwLock::new(()));
 
-    let (default_source_builder, default_source_dirs) = create_source(source_gate.clone());
+    let (default_source_builder, default_source_dirs) =
+        create_processed_source(source_gate.clone());
 
     app.add_plugins((
         TaskPoolPlugin::default(),
@@ -390,7 +393,7 @@ fn register_new_source(
     name: impl Into<CowArc<'static, str>>,
     source_gate: Arc<RwLock<()>>,
 ) -> ProcessingDirs {
-    let (source, processing_dirs) = create_source(source_gate);
+    let (source, processing_dirs) = create_processed_source(source_gate);
     app.register_asset_source(name.into(), source);
     processing_dirs.finish()
 }
@@ -1809,13 +1812,16 @@ fn fails_to_add_or_remove_source_after_processor_starts() {
 
     let asset_server = app.world().resource::<AssetServer>().clone();
 
-    app.register_asset_source("custom_1", create_source(source_gate.clone()).0);
+    app.register_asset_source("custom_1", create_processed_source(source_gate.clone()).0);
     // Despite the source being processed, we can remove it before the processor starts.
     asset_server.remove_source("custom_1").unwrap();
 
     // We can still add processed sources before the processor starts.
     asset_server
-        .add_source("custom_2", &mut create_source(source_gate.clone()).0)
+        .add_source(
+            "custom_2",
+            &mut create_processed_source(source_gate.clone()).0,
+        )
         .unwrap();
 
     let guard = source_gate.write_blocking();
@@ -1833,7 +1839,7 @@ fn fails_to_add_or_remove_source_after_processor_starts() {
 
     // We can't add a processed source, since the processor has started.
     assert_eq!(
-        asset_server.add_source("custom_3", &mut create_source(source_gate).0),
+        asset_server.add_source("custom_3", &mut create_processed_source(source_gate).0),
         Err(AddSourceError::SourceIsProcessed)
     );
 
