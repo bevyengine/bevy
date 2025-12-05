@@ -11,6 +11,7 @@ autobenches = false
 # The primary crate that runs and analyzes our benchmarks. This is a regular dependency because the
 # `bench!` macro refers to it in its documentation.
 criterion = { version = "0.8.0", features = ["html_reports"] }
+seq-macro = "0.3.6"
 
 [dev-dependencies]
 # Bevy crates
