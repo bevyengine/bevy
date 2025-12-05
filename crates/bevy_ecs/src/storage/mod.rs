@@ -102,7 +102,8 @@ impl<T> VecExtensions<T> for Vec<T> {
         // SAFETY: We replace self[index] with the last element. The caller must ensure that
         // both the last element and `index` must be valid and cannot point to the same place.
         unsafe { core::ptr::copy_nonoverlapping(base_ptr.add(len - 1), base_ptr.add(index), 1) };
-        self.set_len(len - 1);
+        // SAFETY: Upheld by caller
+        unsafe { self.set_len(len - 1) };
         value
     }
 }

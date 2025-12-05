@@ -697,7 +697,8 @@ impl<'w> UnsafeWorldCell<'w> {
     /// Must have read access to [`DefaultErrorHandler`].
     #[inline]
     pub unsafe fn default_error_handler(&self) -> ErrorHandler {
-        self.get_resource::<DefaultErrorHandler>()
+        // SAFETY: Upheld by caller
+        unsafe { self.get_resource::<DefaultErrorHandler>() }
             .copied()
             .unwrap_or_default()
             .0
