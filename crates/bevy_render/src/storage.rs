@@ -4,7 +4,7 @@ use crate::{
     renderer::RenderDevice,
 };
 use bevy_app::{App, Plugin};
-use bevy_asset::{Asset, AssetApp, AssetId, RenderAssetUsages};
+use bevy_asset::{Asset, AssetApp, AssetId, AssetSnapshot, RenderAssetUsages};
 use bevy_ecs::system::{lifetimeless::SRes, SystemParamItem};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_utils::default;
@@ -112,16 +112,16 @@ impl RenderAsset for GpuShaderStorageBuffer {
     }
 
     fn prepare_asset(
-        source_asset: Self::SourceAsset,
+        source_asset: AssetSnapshot<Self::SourceAsset>,
         _: AssetId<Self::SourceAsset>,
         render_device: &mut SystemParamItem<Self::Param>,
         _: Option<&Self>,
-    ) -> Result<Self, PrepareAssetError<Self::SourceAsset>> {
-        match source_asset.data {
+    ) -> Result<Self, PrepareAssetError<AssetSnapshot<Self::SourceAsset>>> {
+        match &source_asset.data {
             Some(data) => {
                 let buffer = render_device.create_buffer_with_data(&BufferInitDescriptor {
                     label: source_asset.buffer_description.label,
-                    contents: &data,
+                    contents: data,
                     usage: source_asset.buffer_description.usage,
                 });
                 Ok(GpuShaderStorageBuffer { buffer })

@@ -5,7 +5,10 @@ use crate::{
 };
 use bevy_app::{App, Plugin, PostUpdate};
 use bevy_asset::prelude::AssetChanged;
-use bevy_asset::{AsAssetId, Asset, AssetApp, AssetEventSystems, AssetId, AssetServer, Handle};
+use bevy_asset::{
+    AsAssetId, Asset, AssetApp, AssetEventSystems, AssetId, AssetServer, AssetSnapshot,
+    AssetSnapshotStrategy, Handle,
+};
 use bevy_camera::visibility::ViewVisibility;
 use bevy_core_pipeline::{
     core_2d::{
@@ -128,7 +131,9 @@ pub const MATERIAL_2D_BIND_GROUP_INDEX: usize = 2;
 /// @group(2) @binding(1) var color_texture: texture_2d<f32>;
 /// @group(2) @binding(2) var color_sampler: sampler;
 /// ```
-pub trait Material2d: AsBindGroup + Asset + Clone + Sized {
+pub trait Material2d:
+    AsBindGroup + Asset<AssetStorage: AssetSnapshotStrategy<Self>> + Clone + Sized
+{
     /// Returns this material's vertex shader. If [`ShaderRef::Default`] is returned, the default mesh vertex shader
     /// will be used.
     fn vertex_shader() -> ShaderRef {
@@ -972,7 +977,7 @@ impl<M: Material2d> RenderAsset for PreparedMaterial2d<M> {
     );
 
     fn prepare_asset(
-        material: Self::SourceAsset,
+        material: AssetSnapshot<Self::SourceAsset>,
         _: AssetId<Self::SourceAsset>,
         (
             render_device,
@@ -984,7 +989,7 @@ impl<M: Material2d> RenderAsset for PreparedMaterial2d<M> {
             material_param,
         ): &mut SystemParamItem<Self::Param>,
         _: Option<&Self>,
-    ) -> Result<Self, PrepareAssetError<Self::SourceAsset>> {
+    ) -> Result<Self, PrepareAssetError<AssetSnapshot<Self::SourceAsset>>> {
         let bind_group_data = material.bind_group_data();
         match material.as_bind_group(
             &pipeline.material2d_layout,

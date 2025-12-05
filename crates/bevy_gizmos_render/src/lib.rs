@@ -25,6 +25,7 @@ mod pipeline_2d;
 mod pipeline_3d;
 
 use bevy_app::{App, Plugin};
+use bevy_asset::AssetSnapshot;
 use bevy_ecs::{
     resource::Resource,
     schedule::{IntoScheduleConfigs, SystemSet},
@@ -230,11 +231,11 @@ impl RenderAsset for GpuLineGizmo {
     type Param = SRes<RenderDevice>;
 
     fn prepare_asset(
-        gizmo: Self::SourceAsset,
+        gizmo: AssetSnapshot<Self::SourceAsset>,
         _: AssetId<Self::SourceAsset>,
         render_device: &mut SystemParamItem<Self::Param>,
         _: Option<&Self>,
-    ) -> Result<Self, PrepareAssetError<Self::SourceAsset>> {
+    ) -> Result<Self, PrepareAssetError<AssetSnapshot<Self::SourceAsset>>> {
         let list_position_buffer = render_device.create_buffer_with_data(&BufferInitDescriptor {
             usage: BufferUsages::VERTEX,
             label: Some("LineGizmo Position Buffer"),

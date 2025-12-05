@@ -557,13 +557,13 @@ impl<M: UiMaterial> RenderAsset for PreparedUiMaterial<M> {
     );
 
     fn prepare_asset(
-        material: Self::SourceAsset,
+        material: AssetSnapshot<Self::SourceAsset>,
         _: AssetId<Self::SourceAsset>,
         (render_device, pipeline_cache, pipeline, material_param): &mut SystemParamItem<
             Self::Param,
         >,
         _: Option<&Self>,
-    ) -> Result<Self, PrepareAssetError<Self::SourceAsset>> {
+    ) -> Result<Self, PrepareAssetError<AssetSnapshot<Self::SourceAsset>>> {
         let bind_group_data = material.bind_group_data();
         match material.as_bind_group(
             &pipeline.ui_layout.clone(),

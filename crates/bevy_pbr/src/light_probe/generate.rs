@@ -1105,24 +1105,27 @@ pub fn generate_environment_map_light(
     query: Query<(Entity, &GeneratedEnvironmentMapLight), Without<EnvironmentMapLight>>,
 ) {
     for (entity, filtered_env_map) in &query {
-        // Validate and fetch the source cubemap so we can size our targets correctly
-        let Some(src_image) = images.get(&filtered_env_map.environment_map) else {
-            // Texture not ready yet – try again next frame
-            continue;
+        let base_size = {
+            // Validate and fetch the source cubemap so we can size our targets correctly
+            let Some(src_image) = images.get(&filtered_env_map.environment_map) else {
+                // Texture not ready yet – try again next frame
+                continue;
+            };
+
+            let base_size = src_image.texture_descriptor.size.width;
+
+            // Sanity checks – square, power-of-two, ≤ 8192
+            if src_image.texture_descriptor.size.height != base_size
+                || !base_size.is_power_of_two()
+                || base_size > 8192
+            {
+                panic!(
+                    "GeneratedEnvironmentMapLight source cubemap must be square power-of-two ≤ 8192, got {}×{}",
+                    base_size, src_image.texture_descriptor.size.height
+                );
+            }
+            base_size
         };
-
-        let base_size = src_image.texture_descriptor.size.width;
-
-        // Sanity checks – square, power-of-two, ≤ 8192
-        if src_image.texture_descriptor.size.height != base_size
-            || !base_size.is_power_of_two()
-            || base_size > 8192
-        {
-            panic!(
-                "GeneratedEnvironmentMapLight source cubemap must be square power-of-two ≤ 8192, got {}×{}",
-                base_size, src_image.texture_descriptor.size.height
-            );
-        }
 
         let mip_count = compute_mip_count(base_size);
 
