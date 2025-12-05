@@ -343,7 +343,7 @@ fn animate_decals(
                 timer.tick(time.delta());
                 if timer.just_finished() {
                     example_decal.state =
-                        ExampleDecalState::Idling(Timer::new(DECAL_IDLE_DURATION, TimerMode::Once))
+                        ExampleDecalState::Idling(Timer::new(DECAL_IDLE_DURATION, TimerMode::Once));
                 }
             }
             ExampleDecalState::Idling(ref mut timer) => {
@@ -352,7 +352,7 @@ fn animate_decals(
                     example_decal.state = ExampleDecalState::AnimatingOut(Timer::new(
                         DECAL_ANIMATE_OUT_DURATION,
                         TimerMode::Once,
-                    ))
+                    ));
                 }
             }
             ExampleDecalState::AnimatingOut(ref mut timer) => {
