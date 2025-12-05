@@ -563,7 +563,6 @@ macro_rules! impl_tuple_query_filter {
                 true $(&& unsafe { $name::filter_fetch($state, $name, entity, table_row) })*
             }
         }
-
     };
 }
 
@@ -1240,8 +1239,9 @@ unsafe impl QueryFilter for Spawned {
 
 /// A marker trait to indicate that the filter works at an archetype level.
 ///
-/// This is needed to implement [`ExactSizeIterator`] for
-/// [`QueryIter`](crate::query::QueryIter) that contains archetype-level filters.
+/// This is needed to:
+/// - implement [`ExactSizeIterator`] for [`QueryIter`](crate::query::QueryIter) that contains archetype-level filters.
+/// - ensure table filtering for [`QueryContiguousIter`](crate::query::QueryContiguousIter).
 ///
 /// The trait must only be implemented for filters where its corresponding [`QueryFilter::IS_ARCHETYPAL`]
 /// is [`prim@true`]. As such, only the [`With`] and [`Without`] filters can implement the trait.

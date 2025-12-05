@@ -1104,6 +1104,67 @@ impl<'a, T> ThinSlicePtr<'a, T> {
         unsafe { &*self.ptr.add(index).as_ptr() }
     }
 
+    /// Returns a slice without performing bounds checks.
+    ///
+    /// # Safety
+    ///
+    /// `len` must be less or equal to the length of the slice.
+    pub unsafe fn as_slice_unchecked(&self, len: usize) -> &'a [T] {
+        #[cfg(debug_assertions)]
+        assert!(len <= self.len, "tried to create an out-of-bounds slice");
+
+        // SAFETY: The caller guarantees `len` is not greater than the length of the slice
+        unsafe { core::slice::from_raw_parts(self.ptr.as_ptr(), len) }
+    }
+
+    /// Casts the slice to another type
+    pub fn cast<U>(&self) -> ThinSlicePtr<'a, U> {
+        ThinSlicePtr {
+            ptr: self.ptr.cast::<U>(),
+            // self.len is equal the amount of elements of T in the slice, which takes
+            // size_of::<T> * self.len bytes, thus the length of the same slice but for U is the amount
+            // of bytes divided by the size of U.
+            //
+            // when the size of U is 0, then the length of the slice may be infinite.
+            //
+            // when the size of T is 0 as well, then we can logically assume that the lengths of the both slices (of type T,
+            // and of type U) are equal.
+            #[cfg(debug_assertions)]
+            len: if size_of::<U>() == 0 {
+                if size_of::<T>() == 0 {
+                    self.len
+                } else {
+                    isize::MAX as usize
+                }
+            } else {
+                self.len * size_of::<T>() / size_of::<U>()
+            },
+            _marker: PhantomData,
+        }
+    }
+
+    /// Offsets the slice beginning by `count` elements
+    ///
+    /// # Safety
+    ///
+    /// - `count` must be less or equal to the length of the slice
+    // The result pointer must lie within the same allocation
+    pub unsafe fn add_unchecked(&self, count: usize) -> ThinSlicePtr<'a, T> {
+        #[cfg(debug_assertions)]
+        assert!(
+            count <= self.len,
+            "tried to offset the slice by more than the length"
+        );
+
+        Self {
+            // SAFETY: The caller guarantees that count is in-bounds.
+            ptr: unsafe { self.ptr.add(count) },
+            #[cfg(debug_assertions)]
+            len: self.len - count,
+            _marker: PhantomData,
+        }
+    }
+
     /// Indexes the slice without performing bounds checks.
     ///
     /// # Safety
@@ -1113,6 +1174,22 @@ impl<'a, T> ThinSlicePtr<'a, T> {
     pub unsafe fn get(self, index: usize) -> &'a T {
         // SAFETY: The caller guarantees that `index` is in-bounds.
         unsafe { self.get_unchecked(index) }
+    }
+}
+
+impl<'a, T> ThinSlicePtr<'a, UnsafeCell<T>> {
+    /// Returns a mutable reference of the slice
+    ///
+    /// # Safety
+    ///
+    /// - There must not be any aliases to the slice
+    /// - `len` must be less or equal to the length of the slice
+    pub unsafe fn as_mut_slice_unchecked(&self, len: usize) -> &'a mut [T] {
+        #[cfg(debug_assertions)]
+        assert!(len <= self.len, "tried to create an out-of-bounds slice");
+
+        // SAFETY: The caller ensures no aliases exist and `len` is in-bounds.
+        unsafe { core::slice::from_raw_parts_mut(UnsafeCell::raw_get(self.ptr.as_ptr()), len) }
     }
 }
 
