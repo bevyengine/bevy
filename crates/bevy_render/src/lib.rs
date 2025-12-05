@@ -247,13 +247,13 @@ impl Render {
     }
 }
 
-/// Schedule which extract data from the main world and inserts it into the render world.
+/// Schedule in which data from the main world is 'extracted' into the render world.
 ///
 /// This step should be kept as short as possible to increase the "pipelining potential" for
 /// running the next frame while rendering the current frame.
 ///
-/// This schedule is run on the main world, but its buffers are not applied
-/// until it is returned to the render world.
+/// This schedule is run on the render world, but it also has access to the main world.
+/// See [`MainWorld`] and [`Extract`] for details on how to access main world data from this schedule.
 #[derive(ScheduleLabel, PartialEq, Eq, Debug, Clone, Hash, Default)]
 pub struct ExtractSchedule;
 
