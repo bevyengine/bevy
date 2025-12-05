@@ -702,9 +702,9 @@ impl AssetSources {
 /// An error when attempting to add a new asset source.
 #[derive(Error, Debug, Clone, PartialEq, Eq)]
 pub enum AddSourceError {
-    /// The provided asset source is a "processed" source, and processing has already started, where adding is currently unsupported.
+    /// The provided asset source requires processing, and processing has already started, where adding is currently unsupported.
     // TODO: Remove this once it's supported.
-    #[error("The provided asset source is processed, but the asset processor has already started. This is currently unsupported - processed sources can only be added at startup")]
+    #[error("The provided asset source requires processing, but the asset processor has already started. This is currently unsupported - sources needing to be processed can only be added at startup")]
     SourceIsProcessed,
     /// An asset source with the given name already exists.
     #[error("Asset Source '{0}' already exists")]
@@ -714,9 +714,9 @@ pub enum AddSourceError {
 /// An error when attempting to remove an existing asset source.
 #[derive(Error, Debug, Clone, PartialEq, Eq)]
 pub enum RemoveSourceError {
-    /// The requested asset source is a "processed" source, and processing has already started, where removing is currently unsupported.
+    /// The requested asset source requires processing, and processing has already started, where removing is currently unsupported.
     // TODO: Remove this once it's supported.
-    #[error("The asset source being removed is processed, but the asset processor has already started. This is currently unsupported - processed sources can only be removed at startup")]
+    #[error("The asset source being removed requires processing, but the asset processor has already started. This is currently unsupported - sources needing to be processed can only be removed at startup")]
     SourceIsProcessed,
     /// The requested source is missing, so it cannot be removed.
     #[error("Asset Source '{0}' does not exist")]
