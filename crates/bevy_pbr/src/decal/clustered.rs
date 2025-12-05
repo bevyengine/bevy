@@ -9,15 +9,19 @@
 //! used on WebGL 2 or WebGPU. Bevy's clustered decals can be used
 //! with forward or deferred rendering and don't require a prepass.
 //!
-//! On their own, clustered decals only project the base color of a texture. You
-//! can, however, use the built-in *tag* field to customize the appearance of a
-//! clustered decal arbitrarily. See the documentation in `clustered.wgsl` for
-//! more information and the `clustered_decals` example for an example of use.
+//! Each clustered decal may contain up to 4 textures. By default, the 4
+//! textures correspond to the base color, a normal map, a metallic-roughness
+//! map, and an emissive map respectively. However, with a custom shader, you
+//! can use these 4 textures for whatever you wish. Additionally, you can use
+//! the built-in *tag* field to store additional application-specific data; by
+//! reading the tag in the shader, you can appearance of a clustered decal
+//! arbitrarily. See the documentation in `clustered.wgsl` for more information
+//! and the `clustered_decals` example for an example of use.
 
 use core::{num::NonZero, ops::Deref};
 
 use bevy_app::{App, Plugin};
-use bevy_asset::AssetId;
+use bevy_asset::{AssetId, Handle};
 use bevy_camera::visibility::ViewVisibility;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
@@ -56,6 +60,9 @@ use crate::{binding_arrays_are_usable, prepare_lights, GlobalClusterableObjectMe
 /// limit can be increased.
 pub(crate) const MAX_VIEW_DECALS: usize = 8;
 
+/// The number of textures that can be associated with each clustered decal.
+const IMAGES_PER_DECAL: usize = 4;
+
 /// A plugin that adds support for clustered decals.
 ///
 /// In environments where bindless textures aren't available, clustered decals
@@ -72,7 +79,7 @@ pub struct RenderClusteredDecals {
     /// Maps a decal image to the shader binding array.
     ///
     /// [`Self::binding_index_to_textures`] holds the inverse mapping.
-    texture_to_binding_index: HashMap<AssetId<Image>, u32>,
+    texture_to_binding_index: HashMap<AssetId<Image>, i32>,
     /// The information concerning each decal that we provide to the shader.
     decals: Vec<RenderClusteredDecal>,
     /// Maps the [`bevy_render::sync_world::RenderEntity`] of each decal to the
@@ -93,18 +100,22 @@ impl RenderClusteredDecals {
     pub fn insert_decal(
         &mut self,
         entity: Entity,
-        image: &AssetId<Image>,
+        images: [Option<AssetId<Image>>; IMAGES_PER_DECAL],
         local_from_world: Mat4,
         tag: u32,
     ) {
-        let image_index = self.get_or_insert_image(image);
+        let image_indices = images.map(|maybe_image_id| match maybe_image_id {
+            Some(ref image_id) => self.get_or_insert_image(image_id),
+            None => -1,
+        });
         let decal_index = self.decals.len();
         self.decals.push(RenderClusteredDecal {
             local_from_world,
-            image_index,
+            image_indices,
             tag,
             pad_a: 0,
             pad_b: 0,
+            pad_c: 0,
         });
         self.entity_to_decal_index.insert(entity, decal_index);
     }
@@ -189,14 +200,23 @@ pub struct RenderClusteredDecal {
     /// The shader uses this in order to back-transform world positions into
     /// model space.
     local_from_world: Mat4,
-    /// The index of the decal texture in the binding array.
-    image_index: u32,
+    /// The index of each decal texture in the binding array.
+    ///
+    /// These are in the order of the base color texture, the normal map
+    /// texture, the metallic-roughness map texture, and finally the emissive
+    /// texture.
+    ///
+    /// If the decal doesn't have a texture assigned to a slot, the index at
+    /// that slot will be -1.
+    image_indices: [i32; 4],
     /// A custom tag available for application-defined purposes.
     tag: u32,
     /// Padding.
     pad_a: u32,
     /// Padding.
     pad_b: u32,
+    /// Padding.
+    pad_c: u32,
 }
 
 /// Extracts decals from the main world into the render world.
@@ -238,58 +258,129 @@ pub fn extract_decals(
     // Clear out the `RenderDecals` in preparation for a new frame.
     render_decals.clear();
 
+    extract_clustered_decals(&decals, &mut render_decals);
+    extract_spot_light_cookies(&spot_light_textures, &mut render_decals);
+    extract_point_light_cookies(&point_light_textures, &mut render_decals);
+    extract_directional_light_cookies(&directional_light_textures, &mut render_decals);
+}
+
+/// Extracts all clustered decals and light cookies from the scene and transfers
+/// them to the render world.
+fn extract_clustered_decals(
+    decals: &Extract<
+        Query<(
+            RenderEntity,
+            &ClusteredDecal,
+            &GlobalTransform,
+            &ViewVisibility,
+        )>,
+    >,
+    render_decals: &mut RenderClusteredDecals,
+) {
     // Loop over each decal.
-    for (decal_entity, clustered_decal, global_transform, view_visibility) in &decals {
+    for (decal_entity, clustered_decal, global_transform, view_visibility) in decals {
         // If the decal is invisible, skip it.
         if !view_visibility.get() {
             continue;
         }
 
+        // Insert the decal, grabbing the ID of every associated texture as we
+        // do.
         render_decals.insert_decal(
             decal_entity,
-            &clustered_decal.image.id(),
+            [
+                clustered_decal.base_color_texture.as_ref().map(Handle::id),
+                clustered_decal.normal_map_texture.as_ref().map(Handle::id),
+                clustered_decal
+                    .metallic_roughness_texture
+                    .as_ref()
+                    .map(Handle::id),
+                clustered_decal.emissive_texture.as_ref().map(Handle::id),
+            ],
             global_transform.affine().inverse().into(),
             clustered_decal.tag,
         );
     }
+}
 
-    for (decal_entity, texture, global_transform, view_visibility) in &spot_light_textures {
-        // If the decal is invisible, skip it.
+/// Extracts all cookies from spot lights from the main world to the render
+/// world as clustered decals.
+fn extract_spot_light_cookies(
+    spot_light_textures: &Extract<
+        Query<(
+            RenderEntity,
+            &SpotLightTexture,
+            &GlobalTransform,
+            &ViewVisibility,
+        )>,
+    >,
+    render_decals: &mut RenderClusteredDecals,
+) {
+    for (decal_entity, texture, global_transform, view_visibility) in spot_light_textures {
+        // If the cookie is invisible, skip it.
         if !view_visibility.get() {
             continue;
         }
 
         render_decals.insert_decal(
             decal_entity,
-            &texture.image.id(),
+            [Some(texture.image.id()), None, None, None],
             global_transform.affine().inverse().into(),
             0,
         );
     }
+}
 
-    for (decal_entity, texture, global_transform, view_visibility) in &point_light_textures {
-        // If the decal is invisible, skip it.
+/// Extracts all cookies from point lights from the main world to the render
+/// world as clustered decals.
+fn extract_point_light_cookies(
+    point_light_textures: &Extract<
+        Query<(
+            RenderEntity,
+            &PointLightTexture,
+            &GlobalTransform,
+            &ViewVisibility,
+        )>,
+    >,
+    render_decals: &mut RenderClusteredDecals,
+) {
+    for (decal_entity, texture, global_transform, view_visibility) in point_light_textures {
+        // If the cookie is invisible, skip it.
         if !view_visibility.get() {
             continue;
         }
 
         render_decals.insert_decal(
             decal_entity,
-            &texture.image.id(),
+            [Some(texture.image.id()), None, None, None],
             global_transform.affine().inverse().into(),
             texture.cubemap_layout as u32,
         );
     }
+}
 
-    for (decal_entity, texture, global_transform, view_visibility) in &directional_light_textures {
-        // If the decal is invisible, skip it.
+/// Extracts all cookies from directional lights from the main world to the
+/// render world as clustered decals.
+fn extract_directional_light_cookies(
+    directional_light_textures: &Extract<
+        Query<(
+            RenderEntity,
+            &DirectionalLightTexture,
+            &GlobalTransform,
+            &ViewVisibility,
+        )>,
+    >,
+    render_decals: &mut RenderClusteredDecals,
+) {
+    for (decal_entity, texture, global_transform, view_visibility) in directional_light_textures {
+        // If the cookie is invisible, skip it.
         if !view_visibility.get() {
             continue;
         }
 
         render_decals.insert_decal(
             decal_entity,
-            &texture.image.id(),
+            [Some(texture.image.id()), None, None, None],
             global_transform.affine().inverse().into(),
             if texture.tiled { 1 } else { 0 },
         );
@@ -389,12 +480,12 @@ impl<'a> RenderViewClusteredDecalBindGroupEntries<'a> {
 impl RenderClusteredDecals {
     /// Returns the index of the given image in the decal texture binding array,
     /// adding it to the list if necessary.
-    fn get_or_insert_image(&mut self, image_id: &AssetId<Image>) -> u32 {
+    fn get_or_insert_image(&mut self, image_id: &AssetId<Image>) -> i32 {
         *self
             .texture_to_binding_index
             .entry(*image_id)
             .or_insert_with(|| {
-                let index = self.binding_index_to_textures.len() as u32;
+                let index = self.binding_index_to_textures.len() as i32;
                 self.binding_index_to_textures.push(*image_id);
                 index
             })

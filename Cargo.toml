@@ -4877,3 +4877,15 @@ name = "Pan Camera"
 description = "Example Pan-Camera Styled Camera Controller for 2D scenes"
 category = "Camera"
 wasm = true
+
+[[example]]
+name = "clustered_decal_maps"
+path = "examples/3d/clustered_decal_maps.rs"
+doc-scrape-examples = true
+required-features = ["pbr_clustered_decals"]
+
+[package.metadata.example.clustered_decal_maps]
+name = "Clustered Decal Maps"
+description = "Demonstrates normal and metallic-roughness maps of decals"
+category = "3D Rendering"
+wasm = false
