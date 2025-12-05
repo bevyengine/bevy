@@ -1,5 +1,5 @@
 use super::CachedTexture;
-use crate::render_resource::{TextureFormat, TextureView};
+use crate::render_resource::TextureView;
 use alloc::sync::Arc;
 use bevy_color::LinearRgba;
 use core::sync::atomic::{AtomicBool, Ordering};
@@ -127,15 +127,13 @@ impl DepthAttachment {
 #[derive(Clone)]
 pub struct OutputColorAttachment {
     pub view: TextureView,
-    pub format: TextureFormat,
     is_first_call: Arc<AtomicBool>,
 }
 
 impl OutputColorAttachment {
-    pub fn new(view: TextureView, format: TextureFormat) -> Self {
+    pub fn new(view: TextureView) -> Self {
         Self {
             view,
-            format,
             is_first_call: Arc::new(AtomicBool::new(true)),
         }
     }
