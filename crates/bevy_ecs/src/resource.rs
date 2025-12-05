@@ -1,7 +1,21 @@
 //! Resources are unique, singleton-like data types that can be accessed from systems and stored in the [`World`](crate::world::World).
 
+use core::ops::{Deref, DerefMut};
+use log::warn;
+
+use crate::{
+    component::{Component, ComponentId, Mutable},
+    entity::Entity,
+    lifecycle::HookContext,
+    reflect::ReflectComponent,
+    storage::SparseSet,
+    world::DeferredWorld,
+};
+use bevy_reflect::prelude::ReflectDefault;
+use bevy_reflect::Reflect;
 // The derive macro for the `Resource` trait
 pub use bevy_ecs_macros::Resource;
+use bevy_platform::cell::SyncUnsafeCell;
 
 /// A type that can be inserted into a [`World`] as a singleton.
 ///
@@ -72,4 +86,138 @@ pub use bevy_ecs_macros::Resource;
     label = "invalid `Resource`",
     note = "consider annotating `{Self}` with `#[derive(Resource)]`"
 )]
-pub trait Resource: Send + Sync + 'static {}
+pub trait Resource: Component<Mutability = Mutable> {}
+
+/// The `on_add` component hook that maintains the uniqueness property of a resource.
+pub fn resource_on_add_hook(mut world: DeferredWorld, context: HookContext) {
+    if let Some(&original_entity) = world.resource_entities.get(context.component_id) {
+        if !world.entities().contains(original_entity) {
+            let name = world
+                .components()
+                .get_name(context.component_id)
+                .expect("resource is registered");
+            panic!(
+                "Resource entity {} of {} has been despawned, when it's not supposed to be.",
+                original_entity, name
+            );
+        }
+
+        if original_entity != context.entity {
+            // the resource already exists and the new one should be removed
+            world
+                .commands()
+                .entity(context.entity)
+                .remove_by_id(context.component_id);
+            let name = world
+                .components()
+                .get_name(context.component_id)
+                .expect("resource is registered");
+            warn!("Tried inserting the resource {} while one already exists.
+                Resources are unique components stored on a single entity.
+                Inserting on a different entity, when one already exists, causes the new value to be removed.", name);
+        }
+    } else {
+        // SAFETY: We have exclusive world access (as long as we don't make structural changes).
+        let cache = unsafe { world.as_unsafe_world_cell().resource_entities() };
+        // SAFETY: There are no shared references to the map.
+        // We only expose `&ResourceCache` to code with access to a resource (such as `&World`),
+        // and that would conflict with the `DeferredWorld` passed to the resource hook.
+        unsafe { &mut *cache.0.get() }.insert(context.component_id, context.entity);
+    }
+}
+
+/// The `on_despawn` component hook that maintains the uniqueness property of a resource.
+pub fn resource_on_despawn_hook(mut world: DeferredWorld, context: HookContext) {
+    warn!("Resource entities are not supposed to be despawned.");
+    // SAFETY: We have exclusive world access (as long as we don't make structural changes).
+    let cache = unsafe { world.as_unsafe_world_cell().resource_entities() };
+    // SAFETY: There are no shared references to the map.
+    // We only expose `&ResourceCache` to code with access to a resource (such as `&World`),
+    // and that would conflict with the `DeferredWorld` passed to the resource hook.
+    unsafe { &mut *cache.0.get() }.remove(context.component_id);
+}
+
+/// A cache that links each `ComponentId` from a resource to the corresponding entity.
+#[derive(Default)]
+pub struct ResourceEntities(SyncUnsafeCell<SparseSet<ComponentId, Entity>>);
+
+impl Deref for ResourceEntities {
+    type Target = SparseSet<ComponentId, Entity>;
+
+    fn deref(&self) -> &Self::Target {
+        // SAFETY: There are no other mutable references to the map.
+        // The underlying `SyncUnsafeCell` is never exposed outside this module,
+        // so mutable references are only created by the resource hooks.
+        // We only expose `&ResourceCache` to code with access to a resource (such as `&World`),
+        // and that would conflict with the `DeferredWorld` passed to the resource hook.
+        unsafe { &*self.0.get() }
+    }
+}
+
+impl DerefMut for ResourceEntities {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        self.0.get_mut()
+    }
+}
+
+/// A marker component for entities that have a Resource component.
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Component, Default, Debug)
+)]
+#[derive(Component, Debug, Default)]
+pub struct IsResource;
+
+/// [`ComponentId`] of the [`IsResource`] component.
+pub const IS_RESOURCE: ComponentId = ComponentId::new(crate::component::IS_RESOURCE);
+
+#[cfg(test)]
+mod tests {
+    use crate::change_detection::MaybeLocation;
+    use crate::ptr::OwningPtr;
+    use crate::resource::Resource;
+    use crate::world::World;
+    use bevy_platform::prelude::String;
+
+    #[test]
+    fn unique_resource_entities() {
+        #[derive(Default, Resource)]
+        struct TestResource1;
+
+        #[derive(Resource)]
+        #[expect(dead_code, reason = "field needed for testing")]
+        struct TestResource2(String);
+
+        #[derive(Resource)]
+        #[expect(dead_code, reason = "field needed for testing")]
+        struct TestResource3(u8);
+
+        let mut world = World::new();
+        let start = world.entities().count_spawned();
+        world.init_resource::<TestResource1>();
+        assert_eq!(world.entities().count_spawned(), start + 1);
+        world.insert_resource(TestResource2(String::from("Foo")));
+        assert_eq!(world.entities().count_spawned(), start + 2);
+        // like component registration, which just makes it known to the world that a component exists,
+        // registering a resource should not spawn an entity.
+        let id = world.register_resource::<TestResource3>();
+        assert_eq!(world.entities().count_spawned(), start + 2);
+        OwningPtr::make(20_u8, |ptr| {
+            // SAFETY: id was just initialized and corresponds to a resource.
+            unsafe {
+                world.insert_resource_by_id(id, ptr, MaybeLocation::caller());
+            }
+        });
+        assert_eq!(world.entities().count_spawned(), start + 3);
+        assert!(world.remove_resource_by_id(id));
+        // the entity is stable: removing the resource should only remove the component from the entity, not despawn the entity
+        assert_eq!(world.entities().count_spawned(), start + 3);
+        // again, the entity is stable: see previous explanation
+        world.remove_resource::<TestResource1>();
+        assert_eq!(world.entities().count_spawned(), start + 3);
+        // make sure that trying to add a resource twice results, doesn't change the entity count
+        world.insert_resource(TestResource2(String::from("Bar")));
+        assert_eq!(world.entities().count_spawned(), start + 3);
+    }
+}

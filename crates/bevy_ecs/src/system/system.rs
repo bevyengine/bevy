@@ -501,22 +501,22 @@ mod tests {
     #[test]
     fn command_processing() {
         let mut world = World::new();
-        assert_eq!(world.entities.count_spawned(), 0);
+        assert_eq!(world.query::<&A>().query(&world).count(), 0);
         world.run_system_once(spawn_entity).unwrap();
-        assert_eq!(world.entities.count_spawned(), 1);
+        assert_eq!(world.query::<&A>().query(&world).count(), 1);
     }
 
     #[test]
-    fn non_send_resources() {
+    fn non_send() {
         fn non_send_count_down(mut ns: NonSendMut<Counter>) {
             ns.0 -= 1;
         }
 
         let mut world = World::new();
-        world.insert_non_send_resource(Counter(10));
-        assert_eq!(*world.non_send_resource::<Counter>(), Counter(10));
+        world.insert_non_send(Counter(10));
+        assert_eq!(*world.non_send::<Counter>(), Counter(10));
         world.run_system_once(non_send_count_down).unwrap();
-        assert_eq!(*world.non_send_resource::<Counter>(), Counter(9));
+        assert_eq!(*world.non_send::<Counter>(), Counter(9));
     }
 
     #[test]
