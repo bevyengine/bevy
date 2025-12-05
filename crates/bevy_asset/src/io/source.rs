@@ -633,7 +633,11 @@ impl AssetSources {
                 .read()
                 .unwrap_or_else(PoisonError::into_inner);
             if *started_lock {
-                return Err(AddSourceError::SourceIsProcessed);
+                let AssetSourceId::Name(name) = source.id() else {
+                    // We created this with the AssetSourceId::Name
+                    unreachable!()
+                };
+                return Err(AddSourceError::SourceIsProcessed(name));
             }
         }
 
@@ -672,7 +676,7 @@ impl AssetSources {
                 .read()
                 .unwrap_or_else(PoisonError::into_inner);
             if *started_lock {
-                return Err(RemoveSourceError::SourceIsProcessed);
+                return Err(RemoveSourceError::SourceIsProcessed(name.clone_owned()));
             }
         }
 
@@ -704,8 +708,8 @@ impl AssetSources {
 pub enum AddSourceError {
     /// The provided asset source requires processing, and processing has already started, where adding is currently unsupported.
     // TODO: Remove this once it's supported.
-    #[error("The provided asset source requires processing, but the asset processor has already started. This is currently unsupported - sources needing to be processed can only be added at startup")]
-    SourceIsProcessed,
+    #[error("The provided asset source '{0}' requires processing, but the asset processor has already started. This is currently unsupported - sources needing to be processed can only be added at startup")]
+    SourceIsProcessed(CowArc<'static, str>),
     /// An asset source with the given name already exists.
     #[error("Asset Source '{0}' already exists")]
     NameInUse(CowArc<'static, str>),
@@ -716,8 +720,8 @@ pub enum AddSourceError {
 pub enum RemoveSourceError {
     /// The requested asset source requires processing, and processing has already started, where removing is currently unsupported.
     // TODO: Remove this once it's supported.
-    #[error("The asset source being removed requires processing, but the asset processor has already started. This is currently unsupported - sources needing to be processed can only be removed at startup")]
-    SourceIsProcessed,
+    #[error("The asset source being removed '{0}' requires processing, but the asset processor has already started. This is currently unsupported - sources needing to be processed can only be removed at startup")]
+    SourceIsProcessed(CowArc<'static, str>),
     /// The requested source is missing, so it cannot be removed.
     #[error("Asset Source '{0}' does not exist")]
     MissingSource(CowArc<'static, str>),
