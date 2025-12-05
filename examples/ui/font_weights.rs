@@ -10,7 +10,7 @@ fn main() {
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    let font = asset_server.load("fonts/NotoSans-VariableFont_wdth,wght.ttf");
+    let font = asset_server.load("fonts/NotoSans-VariableFont.ttf");
 
     commands.spawn(Camera2d);
 
