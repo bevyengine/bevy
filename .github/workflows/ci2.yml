@@ -38,6 +38,7 @@ jobs:
     timeout-minutes: 30
     needs: [stable-prepare]
     strategy:
+      fail-fast: false
       matrix:
         job: ${{ fromJson(needs.stable-prepare.outputs.jobs) }}
     steps:
