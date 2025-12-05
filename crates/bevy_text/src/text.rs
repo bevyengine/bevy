@@ -266,6 +266,8 @@ pub struct TextFont {
     /// A new font atlas is generated for every combination of font handle and scaled font size
     /// which can have a strong performance impact.
     pub font_size: f32,
+    /// The font's weight
+    pub weight: Weight,
     /// The antialiasing method to use when rendering text.
     pub font_smoothing: FontSmoothing,
     /// OpenType features for .otf fonts that support them.
@@ -308,9 +310,47 @@ impl Default for TextFont {
         Self {
             font: Default::default(),
             font_size: 20.0,
+            weight: Weight::NORMAL,
             font_features: FontFeatures::default(),
             font_smoothing: Default::default(),
         }
+    }
+}
+
+/// The font's weight
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Reflect)]
+pub struct Weight(u16);
+
+impl Weight {
+    /// Thin weight (100), the thinnest value.
+    pub const THIN: Weight = Weight(100);
+    /// Extra light weight (200).
+    pub const EXTRA_LIGHT: Weight = Weight(200);
+    /// Light weight (300).
+    pub const LIGHT: Weight = Weight(300);
+    /// Normal (400).
+    pub const NORMAL: Weight = Weight(400);
+    /// Medium weight (500, higher than normal).
+    pub const MEDIUM: Weight = Weight(500);
+    /// Semibold weight (600).
+    pub const SEMIBOLD: Weight = Weight(600);
+    /// Bold weight (700).
+    pub const BOLD: Weight = Weight(700);
+    /// Extra-bold weight (800).
+    pub const EXTRA_BOLD: Weight = Weight(800);
+    /// Black weight (900), the thickest value.
+    pub const BLACK: Weight = Weight(900);
+}
+
+impl Default for Weight {
+    fn default() -> Self {
+        Self::NORMAL
+    }
+}
+
+impl From<Weight> for cosmic_text::Weight {
+    fn from(value: Weight) -> Self {
+        cosmic_text::Weight(value.0)
     }
 }
 
