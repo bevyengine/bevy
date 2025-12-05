@@ -365,7 +365,7 @@ impl FontWeight {
     /// Values of 0 are mapped to `Weight::DEFAULT`.
     pub const fn clamp(mut self) -> Self {
         if self.0 == 0 {
-            self = Self::DEFAULT
+            self = Self::DEFAULT;
         } else if 1000 < self.0 {
             self.0 = 1000;
         }
