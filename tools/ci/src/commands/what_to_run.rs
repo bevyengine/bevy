@@ -17,7 +17,7 @@ pub struct WhatToRunCommand {
 
     /// select tasks for a specific version of rust
     #[argh(option)]
-    #[expect(dead_code)]
+    #[expect(dead_code, reason = "todo")]
     rust_version: RustVersion,
 }
 
@@ -71,7 +71,7 @@ impl WhatToRunCommand {
         jobs.push(r#""cargo run -p ci -- test""#);
         jobs.push(r#""cargo run -p ci -- lints""#);
 
-        println!("[{}]", jobs.join(", "))
+        println!("[{}]", jobs.join(", "));
     }
 }
 
