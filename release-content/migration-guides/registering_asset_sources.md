@@ -1,6 +1,6 @@
 ---
 title: Registering asset sources
-pull_requests: []
+pull_requests: [21890]
 ---
 
 In previous versions, asset sources had to be registered **before** adding the `AssetPlugin` (which
