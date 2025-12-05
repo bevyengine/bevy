@@ -317,34 +317,38 @@ impl Default for TextFont {
     }
 }
 
-/// The font's weight
+/// How thick or bold the strokes of a font appear.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Reflect)]
 pub struct Weight(u16);
 
 impl Weight {
-    /// Thin weight (100), the thinnest value.
+    /// Weight 100.
     pub const THIN: Weight = Weight(100);
-    /// Extra light weight (200).
+    /// Weight 200.
     pub const EXTRA_LIGHT: Weight = Weight(200);
-    /// Light weight (300).
+    /// Weight 300.
     pub const LIGHT: Weight = Weight(300);
-    /// Normal (400).
+    /// Weight 400. The default weight.
     pub const NORMAL: Weight = Weight(400);
-    /// Medium weight (500, higher than normal).
+    /// Weight 500.
     pub const MEDIUM: Weight = Weight(500);
-    /// Semibold weight (600).
+    /// Weight 600.
     pub const SEMIBOLD: Weight = Weight(600);
-    /// Bold weight (700).
+    /// Weight 700.
     pub const BOLD: Weight = Weight(700);
-    /// Extra-bold weight (800).
+    /// Weight 800
     pub const EXTRA_BOLD: Weight = Weight(800);
-    /// Black weight (900), the thickest value.
+    /// Weight 900.
     pub const BLACK: Weight = Weight(900);
+    /// Weight 950.
+    pub const EXTRA_BLACK: Weight = Weight(950);
+    /// The default font weight.
+    pub const DEFAULT: Weight = Self::NORMAL;
 }
 
 impl Default for Weight {
     fn default() -> Self {
-        Self::NORMAL
+        Self::DEFAULT
     }
 }
 
