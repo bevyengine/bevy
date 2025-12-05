@@ -549,7 +549,7 @@ fn queue_custom_meshes(
                     continue;
                 }
             };
-            let distance = rangefinder.distance_translation(&mesh_instance.translation);
+            let distance = rangefinder.distance(&mesh_instance.center);
             // At this point we have all the data we need to create a phase item and add it to our
             // phase
             custom_phase.add(Stencil3d {

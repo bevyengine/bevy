@@ -515,17 +515,22 @@ impl PhaseItem for Transmissive3d {
 }
 
 impl SortedPhaseItem for Transmissive3d {
-    // NOTE: Values increase towards the camera. Back-to-front ordering for transmissive means we need an ascending sort.
-    type SortKey = FloatOrd;
+    // NOTE:
+    // - Values increase towards the camera. Back-to-front ordering for transmissive means we need an ascending sort.
+    // - Main entity index is a tie breaker.
+    type SortKey = (FloatOrd, u32);
 
     #[inline]
     fn sort_key(&self) -> Self::SortKey {
-        FloatOrd(self.distance)
+        (FloatOrd(self.distance), self.entity.1.index_u32())
     }
 
     #[inline]
     fn sort(items: &mut [Self]) {
-        radsort::sort_by_key(items, |item| item.distance);
+        // Tuple keys make radsort run two passes (stable: index then distance),
+        // almost doubling work, but still ~2-3x faster than std::sort/unstable_sort.
+        // An alternative is packing distance+index into a single u64 to sort once.
+        radsort::sort_by_key(items, |item| (item.distance, item.entity.1.index_u32()));
     }
 
     #[inline]
@@ -590,17 +595,22 @@ impl PhaseItem for Transparent3d {
 }
 
 impl SortedPhaseItem for Transparent3d {
-    // NOTE: Values increase towards the camera. Back-to-front ordering for transparent means we need an ascending sort.
-    type SortKey = FloatOrd;
+    // NOTE:
+    // - Values increase towards the camera. Back-to-front ordering for transparent means we need an ascending sort.
+    // - Main entity index is a tie breaker.
+    type SortKey = (FloatOrd, u32);
 
     #[inline]
     fn sort_key(&self) -> Self::SortKey {
-        FloatOrd(self.distance)
+        (FloatOrd(self.distance), self.entity.1.index_u32())
     }
 
     #[inline]
     fn sort(items: &mut [Self]) {
-        radsort::sort_by_key(items, |item| item.distance);
+        // Tuple keys make radsort run two passes (stable: index then distance),
+        // almost doubling work, but still ~2-3x faster than std::sort/unstable_sort.
+        // An alternative is packing distance+index into a single u64 to sort once.
+        radsort::sort_by_key(items, |item| (item.distance, item.entity.1.index_u32()));
     }
 
     #[inline]

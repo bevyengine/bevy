@@ -161,7 +161,7 @@ fn queue_custom(
                 entity: (entity, *main_entity),
                 pipeline,
                 draw_function: draw_custom,
-                distance: rangefinder.distance_translation(&mesh_instance.translation),
+                distance: rangefinder.distance(&mesh_instance.center),
                 batch_range: 0..1,
                 extra_index: PhaseItemExtraIndex::None,
                 indexed: true,
