@@ -1,6 +1,7 @@
 //! Illustrates how to make a single system from multiple functions running in sequence,
 //! passing the output of the first into the input of the next.
 
+use bevy::ecs::system::{compose, RunSystemError};
 use bevy::prelude::*;
 use std::num::ParseIntError;
 
@@ -21,17 +22,29 @@ fn main() {
                 parse_message_system.pipe(handler_system),
                 data_pipe_system.map(|out| info!("{out}")),
                 parse_message_system.map(|out| debug!("{out:?}")),
-                warning_pipe_system.map(|out| {
-                    if let Err(err) = out {
-                        error!("{err}");
-                    }
-                }),
-                parse_error_message_system.map(|out| {
-                    if let Err(err) = out {
-                        error!("{err}");
-                    }
-                }),
                 parse_message_system.map(drop),
+                // You can also use the `compose!` macro to pipe systems together!
+                // This is even more powerful, but might be harder to use with
+                // fully generic code. See the docs on `compose!` and `compose_with!`
+                // for more info.
+                compose! {
+                    || -> Result<(), RunSystemError> {
+                        let out = run!(warning_pipe_system)?;
+                        if let Err(err) = out {
+                            error!("{err}");
+                        }
+                        Ok(())
+                    }
+                },
+                compose! {
+                    || -> Result<(), RunSystemError>  {
+                        let out = run!(parse_error_message_system)?;
+                        if let Err(err) = out {
+                            error!("{err}");
+                        }
+                        Ok(())
+                    }
+                },
             ),
         )
         .run();
