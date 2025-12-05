@@ -382,6 +382,11 @@ impl<E: Message> Iterator for WriteBatchIds<E> {
 
         result
     }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let len = <Self as ExactSizeIterator>::len(self);
+        (len, Some(len))
+    }
 }
 
 impl<E: Message> ExactSizeIterator for WriteBatchIds<E> {
