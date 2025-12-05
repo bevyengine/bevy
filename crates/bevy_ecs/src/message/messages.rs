@@ -430,4 +430,19 @@ mod tests {
         assert_eq!(test_messages.len(), 2); // Messages are double-buffered, so we see 2 + 0 = 2
         assert_eq!(test_messages.iter_current_update_messages().count(), 0);
     }
+
+    #[test]
+    fn write_batch_iter_size_hint() {
+        #[derive(Message, Clone, Copy)]
+        struct TestMessage;
+
+        let mut test_messages = Messages::<TestMessage>::default();
+        let write_batch_ids = test_messages.write_batch([TestMessage; 4]);
+        let expected_len = 4;
+        assert_eq!(write_batch_ids.len(), expected_len);
+        assert_eq!(
+            write_batch_ids.size_hint(),
+            (expected_len, Some(expected_len))
+        );
+    }
 }
