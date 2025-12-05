@@ -53,6 +53,8 @@ jobs:
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             target/
+      - name: Install Linux dependencies
+        uses: ./.github/actions/install-linux-deps
       - uses: dtolnay/rust-toolchain@stable
       - name: Run CI job
         run: |
