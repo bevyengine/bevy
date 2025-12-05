@@ -11,6 +11,7 @@ use crate::{
     error::Result,
     event::Event,
     message::{Message, Messages},
+    prelude::IntoSystemSet,
     resource::Resource,
     schedule::ScheduleLabel,
     system::{IntoSystem, SystemId, SystemInput},
@@ -204,6 +205,22 @@ where
 pub fn run_schedule(label: impl ScheduleLabel) -> impl Command<Result> {
     move |world: &mut World| -> Result {
         world.try_run_schedule(label)?;
+        Ok(())
+    }
+}
+
+/// A [`Command`] that runs the given [`SystemSet`] in the schedule corresponding
+/// to the given [`ScheduleLabel`]. All systems in the set (including transitively)
+/// will be run.
+///
+/// [`SystemSet`]: crate::schedule::SystemSet
+pub fn run_system_set<M>(
+    schedule: impl ScheduleLabel,
+    set: impl IntoSystemSet<M>,
+) -> impl Command<Result> {
+    let set = set.into_system_set();
+    move |world: &mut World| -> Result {
+        world.try_run_system_set(schedule, set)?;
         Ok(())
     }
 }
