@@ -118,11 +118,8 @@ fn position_popover(
         };
         // Computed node size includes the border, but since absolute positioning doesn't include
         // border we need to remove it from the calculations.
-        let parent_size = parent_node.size()
-            - Vec2::new(
-                parent_node.border.left + parent_node.border.right,
-                parent_node.border.top + parent_node.border.bottom,
-            );
+        let parent_size =
+            parent_node.size() - parent_node.border.min_inset - parent_node.border.max_inset;
         let parent_rect = scale_rect(
             Rect::from_center_size(parent_transform.translation, parent_size),
             parent_node.inverse_scale_factor,

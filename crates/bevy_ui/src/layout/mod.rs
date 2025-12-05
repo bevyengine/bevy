@@ -254,10 +254,8 @@ pub fn ui_layout_system(
             node.bypass_change_detection().content_size = content_size;
 
             let taffy_rect_to_border_rect = |rect: taffy::Rect<f32>| BorderRect {
-                left: rect.left,
-                right: rect.right,
-                top: rect.top,
-                bottom: rect.bottom,
+                min_inset: Vec2::new(rect.left, rect.top),
+                max_inset: Vec2::new(rect.right, rect.bottom),
             };
 
             node.bypass_change_detection().border = taffy_rect_to_border_rect(layout.border);
