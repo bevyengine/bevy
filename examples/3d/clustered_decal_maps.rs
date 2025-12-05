@@ -5,11 +5,11 @@ use std::{f32::consts::PI, time::Duration};
 
 use bevy::{
     color::palettes::css::{CRIMSON, GOLD},
+    image::ImageLoaderSettings,
     light::ClusteredDecal,
     prelude::*,
+    render::view::Hdr,
 };
-use bevy_image::ImageLoaderSettings;
-use bevy_render::view::Hdr;
 use rand::Rng;
 
 use crate::widgets::{RadioButton, RadioButtonText, WidgetClickEvent, WidgetClickSender};
