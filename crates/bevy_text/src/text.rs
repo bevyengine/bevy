@@ -269,7 +269,7 @@ pub struct TextFont {
     /// How thick or bold the strokes of a font appear.
     ///
     /// Font weights can be any value between 1 and 1000, inclusive.
-    pub weight: Weight,
+    pub weight: FontWeight,
     /// The antialiasing method to use when rendering text.
     pub font_smoothing: FontSmoothing,
     /// OpenType features for .otf fonts that support them.
@@ -312,7 +312,7 @@ impl Default for TextFont {
         Self {
             font: Default::default(),
             font_size: 20.0,
-            weight: Weight::NORMAL,
+            weight: FontWeight::NORMAL,
             font_features: FontFeatures::default(),
             font_smoothing: Default::default(),
         }
@@ -325,41 +325,41 @@ impl Default for TextFont {
 /// Weights above 1000 are clamped to 1000.
 /// A weight of 0 is treated as `Weight::DEFAULT`.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Reflect)]
-pub struct Weight(u16);
+pub struct FontWeight(pub u16);
 
-impl Weight {
+impl FontWeight {
     /// Weight 100.
-    pub const THIN: Weight = Weight(100);
+    pub const THIN: FontWeight = FontWeight(100);
 
     /// Weight 200.
-    pub const EXTRA_LIGHT: Weight = Weight(200);
+    pub const EXTRA_LIGHT: FontWeight = FontWeight(200);
 
     /// Weight 300.
-    pub const LIGHT: Weight = Weight(300);
+    pub const LIGHT: FontWeight = FontWeight(300);
 
     /// Weight 400.
-    pub const NORMAL: Weight = Weight(400);
+    pub const NORMAL: FontWeight = FontWeight(400);
 
     /// Weight 500.
-    pub const MEDIUM: Weight = Weight(500);
+    pub const MEDIUM: FontWeight = FontWeight(500);
 
     /// Weight 600.
-    pub const SEMIBOLD: Weight = Weight(600);
+    pub const SEMIBOLD: FontWeight = FontWeight(600);
 
     /// Weight 700.
-    pub const BOLD: Weight = Weight(700);
+    pub const BOLD: FontWeight = FontWeight(700);
 
     /// Weight 800
-    pub const EXTRA_BOLD: Weight = Weight(800);
+    pub const EXTRA_BOLD: FontWeight = FontWeight(800);
 
     /// Weight 900.
-    pub const BLACK: Weight = Weight(900);
+    pub const BLACK: FontWeight = FontWeight(900);
 
     /// Weight 950.
-    pub const EXTRA_BLACK: Weight = Weight(950);
+    pub const EXTRA_BLACK: FontWeight = FontWeight(950);
 
     /// The default font weight.
-    pub const DEFAULT: Weight = Self::NORMAL;
+    pub const DEFAULT: FontWeight = Self::NORMAL;
 
     /// Clamp the weight value to between 1 and 1000.
     /// Values of 0 are mapped to `Weight::DEFAULT`.
@@ -373,14 +373,14 @@ impl Weight {
     }
 }
 
-impl Default for Weight {
+impl Default for FontWeight {
     fn default() -> Self {
         Self::DEFAULT
     }
 }
 
-impl From<Weight> for cosmic_text::Weight {
-    fn from(value: Weight) -> Self {
+impl From<FontWeight> for cosmic_text::Weight {
+    fn from(value: FontWeight) -> Self {
         cosmic_text::Weight(value.clamp().0)
     }
 }

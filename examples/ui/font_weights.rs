@@ -45,16 +45,18 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         TextFont {
                             font: font.clone(),
                             font_size: 32.0,
-                            weight: Weight::THIN, // 100
+                            weight: FontWeight::THIN, // 100
                             ..default()
                         },
+                        Underline,
+                        Strikethrough,
                     ),
                     (
                         Text::new("Weight 200 (Extra Light)"),
                         TextFont {
                             font: font.clone(),
                             font_size: 32.0,
-                            weight: Weight::EXTRA_LIGHT, // 200
+                            weight: FontWeight::EXTRA_LIGHT, // 200
                             ..default()
                         },
                     ),
@@ -63,7 +65,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         TextFont {
                             font: font.clone(),
                             font_size: 32.0,
-                            weight: Weight::LIGHT, // 300
+                            weight: FontWeight::LIGHT, // 300
                             ..default()
                         },
                     ),
@@ -72,7 +74,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         TextFont {
                             font: font.clone(),
                             font_size: 32.0,
-                            weight: Weight::NORMAL, // 400
+                            weight: FontWeight::NORMAL, // 400
                             ..default()
                         },
                     ),
@@ -81,7 +83,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         TextFont {
                             font: font.clone(),
                             font_size: 32.0,
-                            weight: Weight::MEDIUM, // 500
+                            weight: FontWeight::MEDIUM, // 500
                             ..default()
                         },
                     ),
@@ -90,7 +92,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         TextFont {
                             font: font.clone(),
                             font_size: 32.0,
-                            weight: Weight::SEMIBOLD, // 600
+                            weight: FontWeight::SEMIBOLD, // 600
                             ..default()
                         },
                     ),
@@ -99,16 +101,18 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         TextFont {
                             font: font.clone(),
                             font_size: 32.0,
-                            weight: Weight::BOLD, // 700
+                            weight: FontWeight::BOLD, // 700
                             ..default()
                         },
+                        Underline,
+                        Strikethrough,
                     ),
                     (
                         Text::new("Weight 800 (Extra Bold)"),
                         TextFont {
                             font: font.clone(),
                             font_size: 32.0,
-                            weight: Weight::EXTRA_BOLD, // 800
+                            weight: FontWeight::EXTRA_BOLD, // 800
                             ..default()
                         },
                     ),
@@ -117,9 +121,11 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         TextFont {
                             font: font.clone(),
                             font_size: 32.0,
-                            weight: Weight::BLACK, // 900
+                            weight: FontWeight::BLACK, // 900
                             ..default()
                         },
+                        Underline,
+                        Strikethrough,
                     ),
                 ]
             ),
