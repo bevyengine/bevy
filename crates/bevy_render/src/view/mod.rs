@@ -1083,11 +1083,7 @@ pub fn prepare_view_targets(
                     dimension: TextureDimension::D2,
                     format: main_texture_format,
                     usage: texture_usage.0,
-                    view_formats: match main_texture_format {
-                        TextureFormat::Bgra8Unorm => &[TextureFormat::Bgra8UnormSrgb],
-                        TextureFormat::Rgba8Unorm => &[TextureFormat::Rgba8UnormSrgb],
-                        _ => &[],
-                    },
+                    view_formats: &[],
                 };
                 let a = texture_cache.get(
                     &render_device,
