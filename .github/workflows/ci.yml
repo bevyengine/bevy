@@ -110,10 +110,12 @@ jobs:
         with:
           toolchain: ${{ env.NIGHTLY_TOOLCHAIN }}
           components: miri
+      - name: override
+        run: rustup override set ${{ env.NIGHTLY_TOOLCHAIN }}
       - name: CI job
         # To run the tests one item at a time for troubleshooting, use
         # cargo --quiet test --lib -- --list | sed 's/: test$//' | MIRIFLAGS="-Zmiri-disable-isolation -Zmiri-disable-weak-memory-emulation" xargs -n1 cargo miri test -p bevy_ecs --lib -- --exact
-        run: cargo +${{ env.NIGHTLY_TOOLCHAIN }} miri test -p bevy_ecs --features bevy_utils/debug
+        run: cargo miri test -p bevy_ecs --features bevy_utils/debug
         env:
           # -Zrandomize-layout makes sure we dont rely on the layout of anything that might change
           RUSTFLAGS: -Zrandomize-layout
@@ -145,6 +147,8 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: stable
+      - name: override
+        run: rustup override set stable
       - name: Install Linux dependencies
         uses: ./.github/actions/install-linux-deps
       - name: Check Compile
@@ -171,7 +175,7 @@ jobs:
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             target/
-      - uses: dtolnay/rust-toolchain
+      - uses: dtolnay/rust-toolchain@1.91.1
         with:
           targets: x86_64-unknown-none
       - name: Install Linux dependencies
@@ -199,7 +203,7 @@ jobs:
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             target/
-      - uses: dtolnay/rust-toolchain
+      - uses: dtolnay/rust-toolchain@1.91.1
         with:
           targets: thumbv6m-none-eabi
       - name: Install Linux dependencies
@@ -227,7 +231,7 @@ jobs:
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             target/
-      - uses: dtolnay/rust-toolchain
+      - uses: dtolnay/rust-toolchain@1.91.1
         with:
           targets: x86_64-unknown-none
       - name: Install Linux dependencies
