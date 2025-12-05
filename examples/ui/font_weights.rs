@@ -5,14 +5,49 @@ use bevy::prelude::*;
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_systems(Startup, setup)
+        .add_systems(Startup, setup2)
         .run();
 }
 
+fn setup2(mut commands: Commands, asset_server: Res<AssetServer>) {
+    let font = asset_server.load("fonts/FiraMono-Medium.ttf");
+    commands.spawn((
+        Node {
+            flex_direction: FlexDirection::Column,
+            row_gap: Val::Px(8.0),
+            align_self: AlignSelf::Center,
+            justify_self: JustifySelf::Center,
+            align_items: AlignItems::Center,
+            ..default()
+        },
+        children![
+            (
+                Text::new("Xasda s"),
+                TextFont {
+                    font: font.clone(),
+                    font_size: 32.0,
+                    weight: Weight::THIN,
+                    ..default()
+                },
+            ),
+            (
+                Text::new("X"),
+                TextFont {
+                    font: font.clone(),
+                    font_size: 50.0,
+                    weight: Weight::EXTRA_BOLD,
+                    ..default()
+                },
+                Underline,
+            ),
+        ],
+    ));
+}
+
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    // Load a variable font that supports weight changes.
-    // Roboto Flex ships with Bevy's examples.
-    let font = asset_server.load("fonts/EBGaramond12-regular.otf");
+    //let font = asset_server.load("fonts/EBGaramond12-regular.otf");
+    // let font = asset_server.load("fonts/FiraSans-Bold.ttf");
+    let font = asset_server.load("fonts/FiraMono-Medium.ttf");
 
     commands.spawn(Camera2d);
 
