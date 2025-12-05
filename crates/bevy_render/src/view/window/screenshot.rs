@@ -324,7 +324,7 @@ fn prepare_screenshots(
                     );
                     continue;
                 };
-                let format = manual_texture_view.format;
+                let format = manual_texture_view.texture_view.texture().format();
                 let size = manual_texture_view.size.to_extents();
                 let (texture_view, state) = prepare_screenshot_state(
                     size,
@@ -548,7 +548,7 @@ pub(crate) fn submit_screenshot_commands(world: &World, encoder: &mut CommandEnc
                 };
                 let width = texture_view.size.x;
                 let height = texture_view.size.y;
-                let texture_format = texture_view.format;
+                let texture_format = texture_view.texture_view.texture().format();
                 let texture_view = texture_view.texture_view.deref();
                 render_screenshot(
                     encoder,
