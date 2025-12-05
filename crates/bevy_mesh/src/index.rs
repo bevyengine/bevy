@@ -33,6 +33,15 @@ where
             FourIterators::Fourth(iter) => iter.next(),
         }
     }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        match self {
+            FourIterators::First(iter) => iter.size_hint(),
+            FourIterators::Second(iter) => iter.size_hint(),
+            FourIterators::Third(iter) => iter.size_hint(),
+            FourIterators::Fourth(iter) => iter.size_hint(),
+        }
+    }
 }
 
 /// An error that occurred while trying to invert the winding of a [`Mesh`](super::Mesh).
