@@ -324,24 +324,34 @@ pub struct Weight(u16);
 impl Weight {
     /// Weight 100.
     pub const THIN: Weight = Weight(100);
+
     /// Weight 200.
     pub const EXTRA_LIGHT: Weight = Weight(200);
+
     /// Weight 300.
     pub const LIGHT: Weight = Weight(300);
-    /// Weight 400. The default weight.
+
+    /// Weight 400.
     pub const NORMAL: Weight = Weight(400);
+
     /// Weight 500.
     pub const MEDIUM: Weight = Weight(500);
+
     /// Weight 600.
     pub const SEMIBOLD: Weight = Weight(600);
+
     /// Weight 700.
     pub const BOLD: Weight = Weight(700);
+
     /// Weight 800
     pub const EXTRA_BOLD: Weight = Weight(800);
+
     /// Weight 900.
     pub const BLACK: Weight = Weight(900);
+
     /// Weight 950.
     pub const EXTRA_BLACK: Weight = Weight(950);
+
     /// The default font weight.
     pub const DEFAULT: Weight = Self::NORMAL;
 }
