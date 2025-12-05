@@ -7,7 +7,7 @@ use bevy::{
         processor::LoadTransformAndSave,
         saver::{AssetSaver, SavedAsset},
         transformer::{AssetTransformer, TransformedAsset},
-        AssetLoader, AsyncWriteExt, LoadContext,
+        AssetLoader, AsyncWriteExt, DefaultAssetSource, LoadContext,
     },
     prelude::*,
     reflect::TypePath,
@@ -31,9 +31,10 @@ fn main() {
                 mode: AssetMode::Processed,
                 // This is just overriding the default paths to scope this to the correct example folder
                 // You can generally skip this in your own projects
-                file_path: "examples/asset/processing/assets".to_string(),
-                processed_file_path: "examples/asset/processing/imported_assets/Default"
-                    .to_string(),
+                default_source: DefaultAssetSource::from_paths(
+                    "examples/asset/processing/assets".to_string(),
+                    Some("examples/asset/processing/imported_assets/Default".to_string()),
+                ),
                 ..default()
             }),
             TextPlugin,
