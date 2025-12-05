@@ -266,7 +266,9 @@ pub struct TextFont {
     /// A new font atlas is generated for every combination of font handle and scaled font size
     /// which can have a strong performance impact.
     pub font_size: f32,
-    /// The font's weight
+    /// How thick or bold the strokes of a font appear.
+    ///
+    /// Font weights can be any value between 1 and 1000, inclusive.
     pub weight: Weight,
     /// The antialiasing method to use when rendering text.
     pub font_smoothing: FontSmoothing,
@@ -318,6 +320,10 @@ impl Default for TextFont {
 }
 
 /// How thick or bold the strokes of a font appear.
+///
+/// Valid font weights range from 1 to 1000, inclusive.
+/// Weights above 1000 are clamped to 1000.
+/// A weight of 0 is treated as `Weight::DEFAULT`.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Reflect)]
 pub struct Weight(u16);
 
@@ -354,6 +360,17 @@ impl Weight {
 
     /// The default font weight.
     pub const DEFAULT: Weight = Self::NORMAL;
+
+    /// Clamp the weight value to between 1 and 1000.
+    /// Values of 0 are mapped to `Weight::DEFAULT`.
+    pub const fn clamp(mut self) -> Self {
+        if self.0 == 0 {
+            self = Self::DEFAULT
+        } else if 1000 < self.0 {
+            self.0 = 1000;
+        }
+        Self(self.0)
+    }
 }
 
 impl Default for Weight {
@@ -364,7 +381,7 @@ impl Default for Weight {
 
 impl From<Weight> for cosmic_text::Weight {
     fn from(value: Weight) -> Self {
-        cosmic_text::Weight(value.0)
+        cosmic_text::Weight(value.clamp().0)
     }
 }
 
