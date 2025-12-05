@@ -590,6 +590,7 @@ impl TypeRegistration {
 
     /// Inserts the [`TypeData`] instance of `T` created for `V`, and inserts any
     /// [`TypeData`] dependencies for that combination of `T` and `V`.
+    #[inline]
     pub fn register_type_data<T: TypeData + FromType<V>, V>(&mut self) {
         self.insert(T::from_type());
         T::insert_dependencies(self);
