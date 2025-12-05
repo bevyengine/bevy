@@ -87,7 +87,6 @@ impl FontAtlas {
         texture: &Image,
         offset: IVec2,
     ) -> Result<(), TextError> {
-        println!("add glyph with weight: {}", cache_key.font_weight.0);
         let atlas_layout = atlas_layouts
             .get_mut(&self.texture_atlas)
             .ok_or(TextError::MissingAtlasLayout)?;
