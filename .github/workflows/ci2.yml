@@ -20,6 +20,7 @@ env:
   RUSTFLAGS: "-D warnings"
 
 jobs:
+  # job to list the jobs to run on rust stable
   stable-prepare:
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -33,6 +34,7 @@ jobs:
         run: |
           echo "jobs=`cargo run -p ci -- what-to-run --trigger ${{ github.event_name }} --head ${{ github.head_ref }} --rust-version stable`" >> $GITHUB_OUTPUT
 
+  # run all the jobs on stable
   stable-run:
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -61,6 +63,7 @@ jobs:
         run: |
           ${{ matrix.job }}
 
+  # single job to report status, usable in branch protection rules
   stable-status:
     runs-on: ubuntu-latest
     needs: [stable-run]
