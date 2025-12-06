@@ -1,12 +1,10 @@
-use core::array;
-use core::f32::consts::FRAC_PI_2;
 use core::fmt::Debug;
-use core::ops::{Deref, DerefMut, Range};
+use core::ops::{Deref, DerefMut};
 
 use crate::{primitives::Frustum, visibility::VisibilitySystems};
 use bevy_app::{App, Plugin, PostUpdate};
 use bevy_ecs::prelude::*;
-use bevy_math::{ops, vec2, vec4, AspectRatio, Mat4, Rect, Vec2, Vec3A, Vec4};
+use bevy_math::{ops, vec4, AspectRatio, Mat4, Rect, Vec2, Vec3A, Vec4};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect, ReflectDeserialize, ReflectSerialize};
 use bevy_transform::{components::GlobalTransform, TransformSystems};
 use derive_more::derive::From;
@@ -310,20 +308,6 @@ pub struct PerspectiveProjection {
     /// Defaults to a value of `1000.0`.
     pub far: f32,
 
-    /// The offset of the center of the screen from the direction that the
-    /// camera points.
-    ///
-    /// Typically, this vector is zero. It can be set to a nonzero value in
-    /// order to "cut out" a portion of the viewing frustum. This can be useful
-    /// if, for example, you want the render the screen in pieces for a large
-    /// multimonitor display.
-    ///
-    /// This is in world units and specifies a portion of the near plane, so it
-    /// ranges from `(-near * aspect, -near)` to `(near * aspect, near)`.
-    ///
-    /// See the `mirror` example for an example of usage.
-    pub offset: Vec2,
-
     /// The orientation of a custom clipping plane, as well as its distance from
     /// the camera.
     ///
@@ -416,30 +400,17 @@ impl CameraProjection for PerspectiveProjection {
         let a = z_near.abs() * tan_half_fov;
         let b = z_far.abs() * tan_half_fov;
         let aspect_ratio = self.aspect_ratio;
-
-        let n_off = self.offset;
-        let f_off = z_far * self.offset / z_near;
-
         // NOTE: These vertices are in the specific order required by [`calculate_cascade`].
-        static CORNERS: [Vec2; 4] = [
-            vec2(1.0, -1.0),  // bottom right
-            vec2(1.0, 1.0),   // top right
-            vec2(-1.0, 1.0),  // top left
-            vec2(-1.0, -1.0), // bottom left
-        ];
-
-        // Far corners follow near corners.
-        array::from_fn(|i| {
-            if i < 4 {
-                (CORNERS[i] * a * vec2(aspect_ratio, 1.0) - n_off)
-                    .extend(z_near)
-                    .into()
-            } else {
-                (CORNERS[i - 4] * b * vec2(aspect_ratio, 1.0) - f_off)
-                    .extend(z_far)
-                    .into()
-            }
-        })
+        [
+            Vec3A::new(a * aspect_ratio, -a, z_near),  // bottom right
+            Vec3A::new(a * aspect_ratio, a, z_near),   // top right
+            Vec3A::new(-a * aspect_ratio, a, z_near),  // top left
+            Vec3A::new(-a * aspect_ratio, -a, z_near), // bottom left
+            Vec3A::new(b * aspect_ratio, -b, z_far),   // bottom right
+            Vec3A::new(b * aspect_ratio, b, z_far),    // top right
+            Vec3A::new(-b * aspect_ratio, b, z_far),   // top left
+            Vec3A::new(-b * aspect_ratio, -b, z_far),  // bottom left
+        ]
     }
 }
 
@@ -450,41 +421,12 @@ impl Default for PerspectiveProjection {
             near: 0.1,
             far: 1000.0,
             aspect_ratio: 1.0,
-            offset: Vec2::ZERO,
             near_clip_plane: vec4(0.0, 0.0, -1.0, -0.1),
         }
     }
 }
 
 impl PerspectiveProjection {
-    /// Given the coordinates of the clipping planes, computes and returns a
-    /// perspective projection.
-    ///
-    /// `x` specifies the left and right clipping planes; `y` specifies the
-    /// bottom and top clipping planes; `z` specifies the near and far clipping
-    /// planes. All values are in world space units (meters).
-    pub fn from_frustum_bounds(
-        x: Range<f32>,
-        y: Range<f32>,
-        z: Range<f32>,
-    ) -> PerspectiveProjection {
-        let (left, right) = (x.start, x.end);
-        let (bottom, top) = (y.start, y.end);
-        let (near, far) = (z.start, z.end);
-        let fovy = -2.0 * (FRAC_PI_2 - f32::atan(2.0 * near / (bottom - top)));
-        let aspect = (right - left) / (top - bottom);
-        let (x_offset, y_offset) = ((left + right) * 0.5, (bottom + top) * 0.5);
-
-        PerspectiveProjection {
-            fov: fovy,
-            aspect_ratio: aspect,
-            near,
-            far,
-            offset: vec2(x_offset, y_offset),
-            near_clip_plane: vec4(0.0, 0.0, -1.0, -near),
-        }
-    }
-
     /// Adjusts the perspective matrix for an oblique clip plane if necessary.
     ///
     /// This changes the near and (infinite) far planes so that they correctly
