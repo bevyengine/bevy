@@ -364,7 +364,10 @@ reflect_documentation = ["bevy_reflect/reflect_documentation"]
 custom_cursor = ["bevy_window/custom_cursor", "bevy_winit/custom_cursor"]
 
 # Enable custom icon support
-custom_window_icon = ["bevy_window/custom_window_icon", "bevy_winit/custom_window_icon"]
+custom_window_icon = [
+  "bevy_window/custom_window_icon",
+  "bevy_winit/custom_window_icon",
+]
 
 # Experimental support for nodes that are ignored for UI layouting
 ghost_nodes = ["bevy_ui/ghost_nodes"]

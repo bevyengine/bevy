@@ -353,10 +353,10 @@ pub(crate) struct CachedCursorOptions(CursorOptions);
 
 /// Marker component for [`Window`] entities that should have their winit window icon updated to the content behind the [`WindowIcon::handle`].
 /// This component will be removed regardless if the update was successful.
-/// 
+///
 /// [`Changed<WindowIcon>`] can fire before the window itself is added to [`WINIT_WINDOWS`].
 /// In this case, the winit window icon will be set during the window creation instead.
-/// 
+///
 /// A winit window for a [`Window`] with a [`WindowIcon`] can be created before the asset is ready.
 /// The [`changed_window_icon`] system inserts the [`WindowIconRefreshNeeded`] component when the [`WindowIcon::handle`] asset is ready/changed.
 #[cfg(feature = "custom_window_icon")]
