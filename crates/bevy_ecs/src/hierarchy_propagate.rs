@@ -158,10 +158,7 @@ mod serial {
             Without<ChildOf>,
         >,
         mut orphaned: RemovedComponents<ChildOf>,
-        transform_query: Query<
-            (Ref<T::Input>, &mut T::Output, Option<&Children>),
-            With<ChildOf>,
-        >,
+        input_query: Query<(Ref<T::Input>, &mut T::Output, Option<&Children>), With<ChildOf>>,
         child_query: Query<(Entity, Ref<ChildOf>), With<T::Output>>,
         mut orphaned_entities: Local<Vec<Entity>>,
     ) {
@@ -169,10 +166,10 @@ mod serial {
         orphaned_entities.extend(orphaned.read());
         orphaned_entities.sort_unstable();
         root_query.par_iter_mut().for_each(
-        |(entity, children, transform, mut global_transform)| {
-            let changed = transform.is_changed() || global_transform.is_added() || orphaned_entities.binary_search(&entity).is_ok();
+        |(entity, children, input, mut output)| {
+            let changed = input.is_changed() || output.is_added() || orphaned_entities.binary_search(&entity).is_ok();
             if changed {
-                *global_transform = T::input_to_output(&transform);
+                *output = T::input_to_output(&input);
             }
 
             for (child, child_of) in child_query.iter_many(children) {
@@ -190,13 +187,13 @@ mod serial {
                 // - Since each root entity is unique and the hierarchy is consistent and
                 //   forest-like, other root entities' `propagate_recursive` calls will not conflict
                 //   with this one.
-                // - Since this is the only place where `transform_query` gets used, there will be
+                // - Since this is the only place where `input_query` gets used, there will be
                 //   no conflicting fetches elsewhere.
                 #[expect(unsafe_code, reason = "`propagate_recursive()` is unsafe due to its use of `Query::get_unchecked()`.")]
                 unsafe {
-                    propagate_recursive(
-                        &global_transform,
-                        &transform_query,
+                    propagate_recursive::<T>(
+                        &output,
+                        &input_query,
                         &child_query,
                         child,
                         changed || child_of.is_changed(),
@@ -207,16 +204,16 @@ mod serial {
     );
     }
 
-    /// Recursively propagates the transforms for `entity` and all of its descendants.
+    /// Recursively propagates the inputs for `entity` and all of its descendants.
     ///
     /// # Panics
     ///
     /// If `entity`'s descendants have a malformed hierarchy, this function will panic occur before
-    /// propagating the transforms of any malformed entities and their descendants.
+    /// propagating the inputs of any malformed entities and their descendants.
     ///
     /// # Safety
     ///
-    /// - While this function is running, `transform_query` must not have any fetches for `entity`,
+    /// - While this function is running, `input_query` must not have any fetches for `entity`,
     ///   nor any of its descendants.
     /// - The caller must ensure that the hierarchy leading to `entity` is well-formed and must
     ///   remain as a tree or a forest. Each entity must have at most one parent.
@@ -226,16 +223,13 @@ mod serial {
     )]
     unsafe fn propagate_recursive<T: DownPropagate + 'static>(
         parent: &T::Output,
-        transform_query: &Query<
-            (Ref<T::Input>, &mut T::Output, Option<&Children>),
-            With<ChildOf>,
-        >,
+        input_query: &Query<(Ref<T::Input>, &mut T::Output, Option<&Children>), With<ChildOf>>,
         child_query: &Query<(Entity, Ref<ChildOf>), With<T::Output>>,
         entity: Entity,
         mut changed: bool,
     ) {
         let (global_matrix, children) = {
-            let Ok((transform, mut global_transform, children)) =
+            let Ok((input, mut output, children)) =
             // SAFETY: This call cannot create aliased mutable references.
             //   - The top level iteration parallelizes on the roots of the hierarchy.
             //   - The caller ensures that each child has one and only one unique parent throughout
@@ -263,15 +257,15 @@ mod serial {
             //
             // Even if these A and B start two separate tasks running in parallel, one of them will
             // panic before attempting to mutably access E.
-            (unsafe { transform_query.get_unchecked(entity) }) else {
+            (unsafe { input_query.get_unchecked(entity) }) else {
                 return;
             };
 
-            changed |= transform.is_changed() || global_transform.is_added();
+            changed |= input.is_changed() || output.is_added();
             if changed {
-                *global_transform = T::down_propagate(parent, &transform);
+                *output = T::down_propagate(parent, &input);
             }
-            (global_transform, children)
+            (output, children)
         };
 
         let Some(children) = children else { return };
@@ -280,7 +274,7 @@ mod serial {
             child_of.parent(), entity,
             "Malformed hierarchy. This probably means that your hierarchy has been improperly maintained, or contains a cycle"
         );
-            // SAFETY: The caller guarantees that `transform_query` will not be fetched for any
+            // SAFETY: The caller guarantees that `input_query` will not be fetched for any
             // descendants of `entity`, so it is safe to call `propagate_recursive` for each child.
             //
             // The above assertion ensures that each child has one and only one unique parent
@@ -288,7 +282,7 @@ mod serial {
             unsafe {
                 propagate_recursive(
                     global_matrix.as_ref(),
-                    transform_query,
+                    input_query,
                     child_query,
                     child,
                     changed || child_of.is_changed(),
@@ -334,8 +328,8 @@ mod parallel {
         // Process roots in parallel, seeding the work queue
         roots.par_iter_mut().for_each_init(
             || queue.local_queue.borrow_local_mut(),
-            |outbox, (parent, transform, mut parent_transform, children)| {
-                *parent_transform = T::input_to_output(&transform);
+            |outbox, (parent, input, mut parent_input, children)| {
+                *parent_input = T::input_to_output(&input);
 
                 // SAFETY: the parent entities passed into this function are taken from iterating
                 // over the root entity query. Queries iterate over disjoint entities, preventing
@@ -344,7 +338,7 @@ mod parallel {
                 unsafe {
                     propagate_descendants_unchecked::<T>(
                         parent,
-                        parent_transform,
+                        parent_input,
                         children,
                         &nodes,
                         outbox,
@@ -390,8 +384,7 @@ mod parallel {
     #[inline]
     fn propagation_worker<T: DownPropagate + 'static>(queue: &WorkQueue, nodes: &NodeQuery<'_, '_, T>) {
         #[cfg(feature = "std")]
-        //let _span = bevy_log::info_span!("transform propagation worker").entered();
-
+        //let _span = bevy_log::info_span!("input propagation worker").entered();
         let mut outbox = queue.local_queue.borrow_local_mut();
         loop {
             // Try to acquire a lock on the work queue in a tight loop. Profiling shows this is much
@@ -434,11 +427,11 @@ mod parallel {
                 // the hierarchy, guaranteeing unique access.
                 #[expect(unsafe_code, reason = "Mutating disjoint entities in parallel")]
                 unsafe {
-                    let (_, (_, p_global_transform, _), (p_children, _)) =
+                    let (_, (_, p_output, _), (p_children, _)) =
                         nodes.get_unchecked(parent).unwrap();
                     propagate_descendants_unchecked::<T>(
                         parent,
-                        p_global_transform,
+                        p_output,
                         p_children.unwrap(), // All entities in the queue should have children
                         nodes,
                         &mut outbox,
@@ -456,8 +449,8 @@ mod parallel {
         }
     }
 
-    /// Propagate transforms from `parent` to its `children`, pushing updated child entities to the
-    /// `outbox`. This function will continue propagating transforms to descendants in a depth-first
+    /// Propagate inputs from `parent` to its `children`, pushing updated child entities to the
+    /// `outbox`. This function will continue propagating inputs to descendants in a depth-first
     /// traversal, while simultaneously pushing unvisited branches to the outbox, for other threads
     /// to take when idle.
     ///
@@ -478,7 +471,7 @@ mod parallel {
     #[expect(unsafe_code, reason = "Mutating disjoint entities in parallel")]
     unsafe fn propagate_descendants_unchecked<T: DownPropagate + 'static>(
         parent: Entity,
-        p_global_transform: Mut<T::Output>,
+        p_output: Mut<T::Output>,
         p_children: &Children,
         nodes: &NodeQuery<T>,
         outbox: &mut Vec<Entity>,
@@ -486,8 +479,7 @@ mod parallel {
         max_depth: usize,
     ) {
         // Create mutable copies of the input variables, used for iterative depth-first traversal.
-        let (mut parent, mut p_global_transform, mut p_children) =
-            (parent, p_global_transform, p_children);
+        let (mut parent, mut p_output, mut p_children) = (parent, p_output, p_children);
 
         // See the optimization note at the end to understand why this loop is here.
         for depth in 1..=max_depth {
@@ -504,8 +496,8 @@ mod parallel {
 
             let mut last_child = None;
             let new_children = children_iter.filter_map(
-                |(child, (transform, mut global_transform, tree), (children, child_of))| {
-                    if !tree.is_changed() && !p_global_transform.is_changed() {
+                |(child, (input, mut output, tree), (children, child_of))| {
+                    if !tree.is_changed() && !p_output.is_changed() {
                         // Static scene optimization
                         return None;
                     }
@@ -513,11 +505,11 @@ mod parallel {
 
                     // T::Input prop is expensive - this helps avoid updating entire subtrees if
                     // the T::Output is unchanged, at the cost of an added equality check.
-                    global_transform.set_if_neq(T::down_propagate(&p_global_transform, &transform));
+                    output.set_if_neq(T::down_propagate(&p_output, &input));
 
                     children.map(|children| {
                         // Only continue propagation if the entity has children.
-                        last_child = Some((child, global_transform, children));
+                        last_child = Some((child, output, children));
                         child
                     })
                 },
@@ -532,7 +524,7 @@ mod parallel {
             // thread synchronization for as long as possible.
             if let Some(last_child) = last_child {
                 // Overwrite parent data with children, and loop to iterate through descendants.
-                (parent, p_global_transform, p_children) = last_child;
+                (parent, p_output, p_children) = last_child;
                 outbox.pop();
 
                 // Send chunks during traversal. This allows sharing tasks with other threads before
@@ -544,7 +536,7 @@ mod parallel {
         }
     }
 
-    /// Alias for a large, repeatedly used query. Queries for transform entities that have both a
+    /// Alias for a large, repeatedly used query. Queries for input entities that have both a
     /// parent and possibly children, thus they are not roots.
     type NodeQuery<'w, 's, T: DownPropagate + 'static> = Query<
         'w,
@@ -560,7 +552,7 @@ mod parallel {
         ),
     >;
 
-    /// A queue shared between threads for transform propagation.
+    /// A queue shared between threads for input propagation.
     pub struct WorkQueue {
         /// A semaphore that tracks how many threads are busy doing work. Used to determine when
         /// there is no more work to do.
