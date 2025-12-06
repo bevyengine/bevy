@@ -177,7 +177,7 @@ impl CircularSectorMeshBuilder {
 impl MeshBuilder for CircularSectorMeshBuilder {
     fn build(&self) -> Mesh {
         let resolution = self.resolution as usize;
-        let mut indices = Vec::with_capacity((resolution - 1) * 3);
+        let mut indices = Indices::with_capacity((resolution - 1) * 3, (resolution + 1) as u32);
         let mut positions = Vec::with_capacity(resolution + 1);
         let normals = vec![[0.0, 0.0, 1.0]; resolution + 1];
         let mut uvs = Vec::with_capacity(resolution + 1);
@@ -207,7 +207,7 @@ impl MeshBuilder for CircularSectorMeshBuilder {
 
         for i in 1..self.resolution {
             // Index 0 is the center.
-            indices.extend_from_slice(&[0, i, i + 1]);
+            indices.extend([0, i, i + 1]);
         }
 
         Mesh::new(
@@ -217,7 +217,7 @@ impl MeshBuilder for CircularSectorMeshBuilder {
         .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
         .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
         .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)
-        .with_inserted_indices(Indices::U32(indices))
+        .with_inserted_indices(indices)
     }
 }
 
@@ -315,7 +315,7 @@ impl CircularSegmentMeshBuilder {
 impl MeshBuilder for CircularSegmentMeshBuilder {
     fn build(&self) -> Mesh {
         let resolution = self.resolution as usize;
-        let mut indices = Vec::with_capacity((resolution - 1) * 3);
+        let mut indices = Indices::with_capacity((resolution - 1) * 3, (resolution + 1) as u32);
         let mut positions = Vec::with_capacity(resolution + 1);
         let normals = vec![[0.0, 0.0, 1.0]; resolution + 1];
         let mut uvs = Vec::with_capacity(resolution + 1);
@@ -354,7 +354,7 @@ impl MeshBuilder for CircularSegmentMeshBuilder {
 
         for i in 1..self.resolution {
             // Index 0 is the midpoint of the chord.
-            indices.extend_from_slice(&[0, i, i + 1]);
+            indices.extend([0, i, i + 1]);
         }
 
         Mesh::new(
@@ -364,7 +364,7 @@ impl MeshBuilder for CircularSegmentMeshBuilder {
         .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
         .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
         .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)
-        .with_inserted_indices(Indices::U32(indices))
+        .with_inserted_indices(indices)
     }
 }
 
@@ -429,21 +429,21 @@ impl Meshable for ConvexPolygon {
 impl MeshBuilder for ConvexPolygonMeshBuilder {
     fn build(&self) -> Mesh {
         let len = self.vertices.len();
-        let mut indices = Vec::with_capacity((len - 2) * 3);
+        let mut indices = Indices::with_capacity((len - 2) * 3, len as u32);
         let mut positions = Vec::with_capacity(len);
 
         for vertex in &self.vertices {
             positions.push([vertex.x, vertex.y, 0.0]);
         }
         for i in 2..len as u32 {
-            indices.extend_from_slice(&[0, i - 1, i]);
+            indices.extend([0, i - 1, i]);
         }
         Mesh::new(
             PrimitiveTopology::TriangleList,
             RenderAssetUsages::default(),
         )
         .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
-        .with_inserted_indices(Indices::U32(indices))
+        .with_inserted_indices(indices)
     }
 }
 
@@ -578,7 +578,7 @@ impl EllipseMeshBuilder {
 impl MeshBuilder for EllipseMeshBuilder {
     fn build(&self) -> Mesh {
         let resolution = self.resolution as usize;
-        let mut indices = Vec::with_capacity((resolution - 2) * 3);
+        let mut indices = Indices::with_capacity((resolution - 2) * 3, resolution as u32);
         let mut positions = Vec::with_capacity(resolution);
         let normals = vec![[0.0, 0.0, 1.0]; resolution];
         let mut uvs = Vec::with_capacity(resolution);
@@ -599,7 +599,7 @@ impl MeshBuilder for EllipseMeshBuilder {
         }
 
         for i in 1..(self.resolution - 1) {
-            indices.extend_from_slice(&[0, i, i + 1]);
+            indices.extend([0, i, i + 1]);
         }
 
         Mesh::new(
@@ -609,7 +609,7 @@ impl MeshBuilder for EllipseMeshBuilder {
         .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
         .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
         .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)
-        .with_inserted_indices(Indices::U32(indices))
+        .with_inserted_indices(indices)
     }
 }
 
@@ -657,7 +657,7 @@ impl Segment2dMeshBuilder {
 impl MeshBuilder for Segment2dMeshBuilder {
     fn build(&self) -> Mesh {
         let positions = self.segment.vertices.map(|v| v.extend(0.0)).to_vec();
-        let indices = Indices::U32(vec![0, 1]);
+        let indices = Indices::U16(vec![0, 1]);
 
         Mesh::new(PrimitiveTopology::LineList, RenderAssetUsages::default())
             .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
@@ -696,11 +696,9 @@ impl MeshBuilder for Polyline2dMeshBuilder {
             .map(|v| v.extend(0.0))
             .collect();
 
-        let indices = Indices::U32(
-            (0..self.polyline.vertices.len() as u32 - 1)
-                .flat_map(|i| [i, i + 1])
-                .collect(),
-        );
+        let mut indices =
+            Indices::with_capacity(self.polyline.vertices.len() - 1, positions.len() as u32);
+        indices.extend((0..self.polyline.vertices.len() as u32 - 1).flat_map(|i| [i, i + 1]));
 
         Mesh::new(PrimitiveTopology::LineList, RenderAssetUsages::default())
             .with_inserted_indices(indices)
@@ -769,7 +767,7 @@ impl MeshBuilder for AnnulusMeshBuilder {
         let outer_radius = self.annulus.outer_circle.radius;
 
         let num_vertices = (self.resolution as usize + 1) * 2;
-        let mut indices = Vec::with_capacity(self.resolution as usize * 6);
+        let mut indices = Indices::with_capacity(self.resolution as usize * 6, num_vertices as u32);
         let mut positions = Vec::with_capacity(num_vertices);
         let mut uvs = Vec::with_capacity(num_vertices);
         let normals = vec![[0.0, 0.0, 1.0]; num_vertices];
@@ -807,8 +805,8 @@ impl MeshBuilder for AnnulusMeshBuilder {
             let outer_vertex = 2 * i + 1;
             let next_inner = inner_vertex + 2;
             let next_outer = outer_vertex + 2;
-            indices.extend_from_slice(&[inner_vertex, outer_vertex, next_outer]);
-            indices.extend_from_slice(&[next_outer, next_inner, inner_vertex]);
+            indices.extend([inner_vertex, outer_vertex, next_outer]);
+            indices.extend([next_outer, next_inner, inner_vertex]);
         }
 
         Mesh::new(
@@ -818,7 +816,7 @@ impl MeshBuilder for AnnulusMeshBuilder {
         .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
         .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
         .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)
-        .with_inserted_indices(Indices::U32(indices))
+        .with_inserted_indices(indices)
     }
 }
 
@@ -906,7 +904,7 @@ impl MeshBuilder for RhombusMeshBuilder {
         ];
         let normals = vec![[0.0, 0.0, 1.0]; 4];
         let uvs = vec![[1.0, 0.5], [0.5, 0.0], [0.0, 0.5], [0.5, 1.0]];
-        let indices = Indices::U32(vec![2, 0, 1, 2, 3, 0]);
+        let indices = Indices::U16(vec![2, 0, 1, 2, 3, 0]);
 
         Mesh::new(
             PrimitiveTopology::TriangleList,
@@ -983,9 +981,9 @@ impl MeshBuilder for Triangle2dMeshBuilder {
 
         let is_ccw = self.triangle.winding_order() == WindingOrder::CounterClockwise;
         let indices = if is_ccw {
-            Indices::U32(vec![0, 1, 2])
+            Indices::U16(vec![0, 1, 2])
         } else {
-            Indices::U32(vec![2, 1, 0])
+            Indices::U16(vec![2, 1, 0])
         };
 
         Mesh::new(
@@ -1063,7 +1061,7 @@ impl MeshBuilder for RectangleMeshBuilder {
         ];
         let normals = vec![[0.0, 0.0, 1.0]; 4];
         let uvs = vec![[1.0, 0.0], [0.0, 0.0], [0.0, 1.0], [1.0, 1.0]];
-        let indices = Indices::U32(vec![0, 1, 2, 0, 2, 3]);
+        let indices = Indices::U16(vec![0, 1, 2, 0, 2, 3]);
 
         Mesh::new(
             PrimitiveTopology::TriangleList,
@@ -1149,7 +1147,8 @@ impl MeshBuilder for Capsule2dMeshBuilder {
         let vertex_count = 2 * resolution;
 
         // Six extra indices for the two triangles between the semicircles
-        let mut indices = Vec::with_capacity((resolution as usize - 2) * 2 * 3 + 6);
+        let mut indices =
+            Indices::with_capacity((resolution as usize - 2) * 2 * 3 + 6, vertex_count);
         let mut positions = Vec::with_capacity(vertex_count as usize);
         let normals = vec![[0.0, 0.0, 1.0]; vertex_count as usize];
         let mut uvs = Vec::with_capacity(vertex_count as usize);
@@ -1182,11 +1181,11 @@ impl MeshBuilder for Capsule2dMeshBuilder {
 
         // Add top semicircle indices
         for i in 1..resolution - 1 {
-            indices.extend_from_slice(&[0, i, i + 1]);
+            indices.extend([0, i, i + 1]);
         }
 
         // Add indices for top left triangle of the part between the semicircles
-        indices.extend_from_slice(&[0, resolution - 1, resolution]);
+        indices.extend([0, resolution - 1, resolution]);
 
         // Create bottom semicircle
         for i in resolution..vertex_count {
@@ -1201,11 +1200,11 @@ impl MeshBuilder for Capsule2dMeshBuilder {
 
         // Add bottom semicircle indices
         for i in 1..resolution - 1 {
-            indices.extend_from_slice(&[resolution, resolution + i, resolution + i + 1]);
+            indices.extend([resolution, resolution + i, resolution + i + 1]);
         }
 
         // Add indices for bottom right triangle of the part between the semicircles
-        indices.extend_from_slice(&[resolution, vertex_count - 1, 0]);
+        indices.extend([resolution, vertex_count - 1, 0]);
 
         Mesh::new(
             PrimitiveTopology::TriangleList,
@@ -1214,7 +1213,7 @@ impl MeshBuilder for Capsule2dMeshBuilder {
         .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
         .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
         .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)
-        .with_inserted_indices(Indices::U32(indices))
+        .with_inserted_indices(indices)
     }
 }
 
@@ -1402,7 +1401,10 @@ where
             normals.extend(inner_normals);
 
             let points = outer_positions.len() as u32;
-            let mut indices = Vec::with_capacity(outer_positions.len() * 6);
+            let mut indices = Indices::with_capacity(
+                outer_positions.len() * 6,
+                (outer_positions.len() + inner_positions.len()) as u32,
+            );
             for i in 0..points {
                 //                               for five points:
                 indices.push(i); //              0  1  2  3  4
@@ -1414,11 +1416,25 @@ where
             }
             let indices_length = indices.len();
             // Fix up the last pair of triangles (return to start)
-            if let (_, [_, b, _, _, e, f]) = indices.split_at_mut(indices_length.saturating_sub(6))
-            {
-                *b = 0;
-                *e = 0;
-                *f = points;
+            match &mut indices {
+                Indices::U16(indices) => {
+                    if let (_, [_, b, _, _, e, f]) =
+                        indices.split_at_mut(indices_length.saturating_sub(6))
+                    {
+                        *b = 0;
+                        *e = 0;
+                        *f = points as u16;
+                    }
+                }
+                Indices::U32(indices) => {
+                    if let (_, [_, b, _, _, e, f]) =
+                        indices.split_at_mut(indices_length.saturating_sub(6))
+                    {
+                        *b = 0;
+                        *e = 0;
+                        *f = points;
+                    }
+                }
             }
 
             let mut positions = outer_positions;
@@ -1431,7 +1447,7 @@ where
             .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
             .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
             .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)
-            .with_inserted_indices(Indices::U32(indices))
+            .with_inserted_indices(indices)
         } else {
             panic!("The inner and outer meshes should have the same number of vertices, and have required attributes");
         }
