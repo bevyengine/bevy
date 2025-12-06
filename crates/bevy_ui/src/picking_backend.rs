@@ -295,12 +295,9 @@ fn pick_ui_text_section(
     text_layout_info: &TextLayoutInfo,
     text_block: &ComputedTextBlock,
 ) -> Option<Entity> {
-    let Some(local_point) = global_transform
+    let local_point = global_transform
         .try_inverse()
-        .map(|transform| transform.transform_point2(point) + 0.5 * uinode.size())
-    else {
-        return None;
-    };
+        .map(|transform| transform.transform_point2(point) + 0.5 * uinode.size())?;
 
     for run in text_layout_info.run_geometry.iter() {
         if run.bounds.contains(local_point) {
