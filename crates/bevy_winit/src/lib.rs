@@ -55,7 +55,6 @@ mod winit_config;
 mod winit_monitors;
 mod winit_windows;
 
-#[cfg(feature = "custom_window_icon")]
 mod winit_window_icon;
 
 thread_local! {
