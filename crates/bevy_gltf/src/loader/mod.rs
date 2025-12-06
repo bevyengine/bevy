@@ -11,8 +11,9 @@ use bevy_asset::{
     ReadAssetBytesError, RenderAssetUsages,
 };
 use bevy_camera::{
-    primitives::Aabb, visibility::Visibility, Camera, Camera3d, OrthographicProjection,
-    PerspectiveProjection, Projection, ScalingMode,
+    primitives::Aabb,
+    visibility::{DynamicSkinnedMeshBounds, NoFrustumCulling, Visibility},
+    Camera, Camera3d, OrthographicProjection, PerspectiveProjection, Projection, ScalingMode,
 };
 use bevy_color::{Color, LinearRgba};
 use bevy_ecs::{
@@ -59,6 +60,7 @@ use tracing::{error, info_span, warn};
 use crate::{
     vertex_attributes::convert_attribute, Gltf, GltfAssetLabel, GltfExtras, GltfMaterialExtras,
     GltfMaterialName, GltfMeshExtras, GltfMeshName, GltfNode, GltfSceneExtras, GltfSkin,
+    GltfSkinnedMeshBoundsPolicy,
 };
 
 #[cfg(feature = "bevy_animation")]
@@ -160,6 +162,9 @@ pub struct GltfLoader {
     ///
     /// The default is `false`.
     pub default_use_model_forward_direction: bool,
+    /// The default policy for skinned mesh bounds. Can be overridden by
+    /// [`GltfLoaderSettings::skinned_mesh_bounds_policy`].
+    pub default_skinned_mesh_bounds_policy: GltfSkinnedMeshBoundsPolicy,
 }
 
 /// Specifies optional settings for processing gltfs at load time. By default, all recognized contents of
@@ -218,6 +223,8 @@ pub struct GltfLoaderSettings {
     ///
     /// If `None`, uses the global default set by [`GltfPlugin::use_model_forward_direction`](crate::GltfPlugin::use_model_forward_direction).
     pub use_model_forward_direction: Option<bool>,
+    /// Optionally overrides [`GltfPlugin::skinned_mesh_bounds_policy`](crate::GltfPlugin).
+    pub skinned_mesh_bounds_policy: Option<GltfSkinnedMeshBoundsPolicy>,
 }
 
 impl Default for GltfLoaderSettings {
@@ -232,6 +239,7 @@ impl Default for GltfLoaderSettings {
             default_sampler: None,
             override_sampler: false,
             use_model_forward_direction: None,
+            skinned_mesh_bounds_policy: None,
         }
     }
 }
@@ -277,6 +285,10 @@ impl GltfLoader {
             Some(convert_coordinates) => convert_coordinates,
             None => loader.default_use_model_forward_direction,
         };
+
+        let skinned_mesh_bounds_policy = settings
+            .skinned_mesh_bounds_policy
+            .unwrap_or(loader.default_skinned_mesh_bounds_policy);
 
         #[cfg(feature = "bevy_animation")]
         let (animations, named_animations, animation_roots) = if settings.load_animations {
@@ -787,6 +799,13 @@ impl GltfLoader {
                     });
                 }
 
+                if (skinned_mesh_bounds_policy == GltfSkinnedMeshBoundsPolicy::Dynamic)
+                    && meshes_on_skinned_nodes.contains(&gltf_mesh.index())
+                    && let Err(err) = mesh.generate_skinned_mesh_bounds()
+                {
+                    warn!("Failed to generate skinned mesh bounds: {err}");
+                }
+
                 let mesh_handle = load_context.add_labeled_asset(primitive_label.to_string(), mesh);
                 primitives.push(super::GltfPrimitive::new(
                     &gltf_mesh,
@@ -969,6 +988,7 @@ impl GltfLoader {
                             None,
                             &gltf.document,
                             convert_coordinates,
+                            skinned_mesh_bounds_policy,
                         );
                         if result.is_err() {
                             err = Some(result);
@@ -1413,6 +1433,7 @@ fn load_node(
     #[cfg(feature = "bevy_animation")] mut animation_context: Option<AnimationContext>,
     document: &Document,
     convert_coordinates: bool,
+    skinned_mesh_bounds_policy: GltfSkinnedMeshBoundsPolicy,
 ) -> Result<(), GltfError> {
     let mut gltf_error = None;
     let transform = node_transform(gltf_node, convert_coordinates);
@@ -1538,6 +1559,18 @@ fn load_node(
                         load_context.get_label_handle(&material_label),
                     ),
                 ));
+
+                if gltf_node.skin().is_some() {
+                    match skinned_mesh_bounds_policy {
+                        GltfSkinnedMeshBoundsPolicy::Dynamic => {
+                            mesh_entity.insert(DynamicSkinnedMeshBounds);
+                        }
+                        GltfSkinnedMeshBoundsPolicy::NoFrustumCulling => {
+                            mesh_entity.insert(NoFrustumCulling);
+                        }
+                        _ => {}
+                    }
+                }
 
                 let target_count = primitive.morph_targets().len();
                 if target_count != 0 {
@@ -1694,6 +1727,7 @@ fn load_node(
                 animation_context.clone(),
                 document,
                 convert_coordinates,
+                skinned_mesh_bounds_policy,
             ) {
                 gltf_error = Some(err);
                 return;
