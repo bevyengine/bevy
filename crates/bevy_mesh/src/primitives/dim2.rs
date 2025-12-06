@@ -1401,7 +1401,10 @@ where
             normals.extend(inner_normals);
 
             let points = outer_positions.len() as u32;
-            let mut indices = Vec::with_capacity(outer_positions.len() * 6);
+            let mut indices = Indices::with_capacity(
+                outer_positions.len() * 6,
+                (outer_positions.len() + inner_positions.len()) as u32,
+            );
             for i in 0..points {
                 //                               for five points:
                 indices.push(i); //              0  1  2  3  4
@@ -1413,11 +1416,25 @@ where
             }
             let indices_length = indices.len();
             // Fix up the last pair of triangles (return to start)
-            if let (_, [_, b, _, _, e, f]) = indices.split_at_mut(indices_length.saturating_sub(6))
-            {
-                *b = 0;
-                *e = 0;
-                *f = points;
+            match &mut indices {
+                Indices::U16(indices) => {
+                    if let (_, [_, b, _, _, e, f]) =
+                        indices.split_at_mut(indices_length.saturating_sub(6))
+                    {
+                        *b = 0;
+                        *e = 0;
+                        *f = points as u16;
+                    }
+                }
+                Indices::U32(indices) => {
+                    if let (_, [_, b, _, _, e, f]) =
+                        indices.split_at_mut(indices_length.saturating_sub(6))
+                    {
+                        *b = 0;
+                        *e = 0;
+                        *f = points;
+                    }
+                }
             }
 
             let mut positions = outer_positions;
@@ -1430,7 +1447,7 @@ where
             .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
             .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
             .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)
-            .with_inserted_indices(Indices::U32(indices))
+            .with_inserted_indices(indices)
         } else {
             panic!("The inner and outer meshes should have the same number of vertices, and have required attributes");
         }

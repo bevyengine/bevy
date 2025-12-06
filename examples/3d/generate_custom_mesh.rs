@@ -240,7 +240,7 @@ fn create_cube_mesh() -> Mesh {
     // | \ | -> +X
     // |  \|
     // 16--19
-    .with_inserted_indices(Indices::U32(vec![
+    .with_inserted_indices(Indices::U16(vec![
         0,3,1 , 1,3,2, // triangles making up the top (+y) facing side.
         4,5,7 , 5,6,7, // bottom (-y)
         8,11,9 , 9,11,10, // right (+x)
