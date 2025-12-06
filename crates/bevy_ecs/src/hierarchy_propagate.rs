@@ -1,3 +1,61 @@
+
+//! Generic hierarchy propagation framework
+//!
+//! This module provides a generic framework for propagating data down entity hierarchies.
+//! It can be used to implement systems similar to transform propagation, visibility propagation,
+//! and other hierarchical data propagation needs.
+//!
+//! # Overview
+//!
+//! The framework is built around the [`DownPropagate`] trait, which defines how to combine
+//! parent and child data. Three system functions are provided:
+//!
+//! - [`mark_dirty_trees`] - Marks hierarchy trees that need updating
+//! - [`hierarchy_propagate_simple`] - Updates entities without hierarchy relationships
+//! - [`hierarchy_propagate_complex`] - Propagates data down the hierarchy
+//!
+//! # Example
+//!
+//! ```rust
+//! use bevy_ecs::prelude::*;
+//! use bevy_ecs::hierarchy_propogate::*;
+//!
+//! #[derive(Component)]
+//! struct LocalScale(f32);
+//!
+//! #[derive(Component)]
+//! struct GlobalScale(f32);
+//!
+//! #[derive(Component, Default)]
+//! struct ScaleTreeChanged;
+//!
+//! #[derive(Component)]
+//! struct ScalePropagate;
+//!
+//! impl DownPropagate for ScalePropagate {
+//!     type Input = LocalScale;
+//!     type Output = GlobalScale;
+//!     type TreeChanged = ScaleTreeChanged;
+//!
+//!     fn down_propagate(parent: &GlobalScale, input: &LocalScale) -> GlobalScale {
+//!         GlobalScale(parent.0 * input.0)
+//!     }
+//!
+//!     fn input_to_output(input: &LocalScale) -> GlobalScale {
+//!         GlobalScale(input.0)
+//!     }
+//! }
+//!
+//! fn setup_scale_propagation(app: &mut App) {
+//!     app.add_systems(Update, (
+//!         mark_dirty_trees::<ScalePropagate>,
+//!         hierarchy_propagate_simple::<ScalePropagate>,
+//!         hierarchy_propagate_complex::<ScalePropagate>,
+//!     ));
+//! }
+//! ```
+
+
 use crate::{
     prelude::{Component, Query, With, Without, Changed, Added, Or, Ref},
     entity::Entity,
@@ -86,6 +144,7 @@ mod serial {
     use crate::prelude::*;
     use alloc::vec::Vec;
     use bevy_ecs::prelude::*;
+    use super::DownPropagate;
 
     /// Update [`T::Output`] component of entities based on entity hierarchy and [`T::Input`]
     /// component.
@@ -113,7 +172,7 @@ mod serial {
         |(entity, children, transform, mut global_transform)| {
             let changed = transform.is_changed() || global_transform.is_added() || orphaned_entities.binary_search(&entity).is_ok();
             if changed {
-                *global_transform = T::Output::from(*transform);
+                *global_transform = T::input_to_output(&transform);
             }
 
             for (child, child_of) in child_query.iter_many(children) {
@@ -210,7 +269,7 @@ mod serial {
 
             changed |= transform.is_changed() || global_transform.is_added();
             if changed {
-                *global_transform = parent.mul_transform(*transform);
+                *global_transform = T::down_propagate(parent, &transform);
             }
             (global_transform, children)
         };
@@ -248,7 +307,7 @@ mod parallel {
     use crate::prelude::*;
     // TODO: this implementation could be used in no_std if there are equivalents of these.
     use alloc::{sync::Arc, vec::Vec};
-    use bevy_ecs::{entity::UniqueEntityIter, prelude::*, system::lifetimeless::Read};
+    use bevy_ecs::{entity::UniqueEntityIter, system::lifetimeless::Read};
     use bevy_tasks::{ComputeTaskPool, TaskPool};
     use bevy_utils::Parallel;
     use core::sync::atomic::{AtomicI32, Ordering};
@@ -256,6 +315,7 @@ mod parallel {
         mpsc::{Receiver, Sender},
         Mutex,
     };
+    use super::DownPropagate;
 
     /// Update [`T::Output`] component of entities based on entity hierarchy and [`T::Input`]
     /// component.
@@ -269,20 +329,20 @@ mod parallel {
             (Entity, Ref<T::Input>, &mut T::Output, &Children),
             (Without<ChildOf>, Changed<T::TreeChanged>),
         >,
-        nodes: NodeQuery,
+        nodes: NodeQuery<'_, '_, T>,
     ) {
         // Process roots in parallel, seeding the work queue
         roots.par_iter_mut().for_each_init(
             || queue.local_queue.borrow_local_mut(),
             |outbox, (parent, transform, mut parent_transform, children)| {
-                *parent_transform = T::Output::from(*transform);
+                *parent_transform = T::input_to_output(&transform);
 
                 // SAFETY: the parent entities passed into this function are taken from iterating
                 // over the root entity query. Queries iterate over disjoint entities, preventing
                 // mutable aliasing, and making this call safe.
                 #[expect(unsafe_code, reason = "Mutating disjoint entities in parallel")]
                 unsafe {
-                    propagate_descendants_unchecked(
+                    propagate_descendants_unchecked::<T>(
                         parent,
                         parent_transform,
                         children,
@@ -320,17 +380,17 @@ mod parallel {
         let task_pool = ComputeTaskPool::get_or_init(TaskPool::default);
         task_pool.scope(|s| {
             (1..task_pool.thread_num()) // First worker is run locally instead of the task pool.
-                .for_each(|_| s.spawn(async { propagation_worker(&queue, &nodes) }));
-            propagation_worker(&queue, &nodes);
+                .for_each(|_| s.spawn(async { propagation_worker::<T>(&queue, &nodes) }));
+            propagation_worker::<T>(&queue, &nodes);
         });
     }
 
     /// A parallel worker that will consume processed parent entities from the queue, and push
     /// children to the queue once it has propagated their [`T::Output`].
     #[inline]
-    fn propagation_worker<T: DownPropagate + 'static>(queue: &WorkQueue, nodes: &NodeQuery) {
+    fn propagation_worker<T: DownPropagate + 'static>(queue: &WorkQueue, nodes: &NodeQuery<'_, '_, T>) {
         #[cfg(feature = "std")]
-        let _span = bevy_log::info_span!("transform propagation worker").entered();
+        //let _span = bevy_log::info_span!("transform propagation worker").entered();
 
         let mut outbox = queue.local_queue.borrow_local_mut();
         loop {
@@ -376,7 +436,7 @@ mod parallel {
                 unsafe {
                     let (_, (_, p_global_transform, _), (p_children, _)) =
                         nodes.get_unchecked(parent).unwrap();
-                    propagate_descendants_unchecked(
+                    propagate_descendants_unchecked::<T>(
                         parent,
                         p_global_transform,
                         p_children.unwrap(), // All entities in the queue should have children
@@ -420,7 +480,7 @@ mod parallel {
         parent: Entity,
         p_global_transform: Mut<T::Output>,
         p_children: &Children,
-        nodes: &NodeQuery,
+        nodes: &NodeQuery<T>,
         outbox: &mut Vec<Entity>,
         queue: &WorkQueue,
         max_depth: usize,
@@ -453,7 +513,7 @@ mod parallel {
 
                     // T::Input prop is expensive - this helps avoid updating entire subtrees if
                     // the T::Output is unchanged, at the cost of an added equality check.
-                    global_transform.set_if_neq(p_global_transform.mul_transform(*transform));
+                    global_transform.set_if_neq(T::down_propagate(&p_global_transform, &transform));
 
                     children.map(|children| {
                         // Only continue propagation if the entity has children.
@@ -486,7 +546,7 @@ mod parallel {
 
     /// Alias for a large, repeatedly used query. Queries for transform entities that have both a
     /// parent and possibly children, thus they are not roots.
-    type NodeQuery<'w, 's> = Query<
+    type NodeQuery<'w, 's, T: DownPropagate + 'static> = Query<
         'w,
         's,
         (
@@ -550,66 +610,6 @@ mod parallel {
     }
 }
 
-//! Generic hierarchy propagation framework
-//!
-//! This module provides a generic framework for propagating data down entity hierarchies.
-//! It can be used to implement systems similar to transform propagation, visibility propagation,
-//! and other hierarchical data propagation needs.
-//!
-//! # Overview
-//!
-//! The framework is built around the [`DownPropagate`] trait, which defines how to combine
-//! parent and child data. Three system functions are provided:
-//!
-//! - [`mark_dirty_trees`] - Marks hierarchy trees that need updating
-//! - [`hierarchy_propagate_simple`] - Updates entities without hierarchy relationships
-//! - [`hierarchy_propagate_complex`] - Propagates data down the hierarchy
-//!
-//! # Example
-//!
-//! ```rust
-//! use bevy_ecs::prelude::*;
-//! use bevy_ecs::hierarchy_propogate::*;
-//!
-//! #[derive(Component)]
-//! struct LocalScale(f32);
-//!
-//! #[derive(Component)]
-//! struct GlobalScale(f32);
-//!
-//! #[derive(Component, Default)]
-//! struct ScaleTreeChanged;
-//!
-//! #[derive(Component)]
-//! struct ScalePropagate;
-//!
-//! impl DownPropagate for ScalePropagate {
-//!     type Input = LocalScale;
-//!     type Output = GlobalScale;
-//!     type TreeChanged = ScaleTreeChanged;
-//!
-//!     fn down_propagate(parent: Option<&GlobalScale>, input: &LocalScale) -> GlobalScale {
-//!         match parent {
-//!             Some(parent_scale) => GlobalScale(parent_scale.0 * input.0),
-//!             None => GlobalScale(input.0),
-//!         }
-//!     }
-//!
-//!     fn input_to_output(input: &LocalScale) -> GlobalScale {
-//!         GlobalScale(input.0)
-//!     }
-//! }
-//!
-//! fn setup_scale_propagation(app: &mut App) {
-//!     app.add_systems(Update, (
-//!         mark_dirty_trees::<ScalePropagate>,
-//!         hierarchy_propagate_simple::<ScalePropagate>,
-//!         hierarchy_propagate_complex::<ScalePropagate>,
-//!     ));
-//! }
-//! ```
-
-
 /// A trait for implementing hierarchy propagation behavior.
 /// Propagates data down the hierarchy from parent to children (like transforms, visibility).
 pub trait DownPropagate: Component {
@@ -617,7 +617,7 @@ pub trait DownPropagate: Component {
     type Input: Component;
     
     /// The output component type that contains the computed global data.
-    type Output: Component<Mutability = Mutable>;
+    type Output: Component<Mutability = Mutable> + PartialEq;
     
     /// A component used to mark entities in dirty trees for optimization.
     type TreeChanged: Component<Mutability = Mutable> + Default;
@@ -630,7 +630,7 @@ pub trait DownPropagate: Component {
     /// 
     /// # Returns
     /// The computed output data for the child
-    fn down_propagate(parent: Option<&Self::Output>, input: &Self::Input) -> Self::Output;
+    fn down_propagate(parent: &Self::Output, input: &Self::Input) -> Self::Output;
     
     /// Converts input to output for entities without parents.
     fn input_to_output(input: &Self::Input) -> Self::Output;
@@ -639,12 +639,195 @@ pub trait DownPropagate: Component {
 #[cfg(test)]
 mod test {
     use alloc::{vec, vec::Vec};
-    use bevy_app::prelude::*;
-    use bevy_ecs::{prelude::*, world::CommandQueue};
-    use bevy_math::{vec3, Vec3};
     use bevy_tasks::{ComputeTaskPool, TaskPool};
+    use crate::{prelude::*, world::CommandQueue};
+    
+    use super::*;
+    
+    // Simple Vec3 for testing
+    #[derive(Debug, Clone, Copy, PartialEq, Default)]
+    pub struct Vec3 {
+        pub x: f32,
+        pub y: f32, 
+        pub z: f32,
+    }
+    
+    impl Vec3 {
+        pub const ZERO: Self = Self { x: 0.0, y: 0.0, z: 0.0 };
+        pub const ONE: Self = Self { x: 1.0, y: 1.0, z: 1.0 };
+        
+        pub fn new(x: f32, y: f32, z: f32) -> Self {
+            Self { x, y, z }
+        }
+        
+        pub fn abs_diff_eq(&self, other: Vec3, epsilon: f32) -> bool {
+            (self.x - other.x).abs() < epsilon && 
+            (self.y - other.y).abs() < epsilon && 
+            (self.z - other.z).abs() < epsilon
+        }
+    }
+    
+    pub fn vec3(x: f32, y: f32, z: f32) -> Vec3 {
+        Vec3::new(x, y, z)
+    }
+    
+    // Simple Quat for testing
+    #[derive(Debug, Clone, Copy, PartialEq, Default)]
+    pub struct Quat {
+        pub x: f32,
+        pub y: f32,
+        pub z: f32,
+        pub w: f32,
+    }
+    
+    impl Quat {
+        pub const IDENTITY: Self = Self { x: 0.0, y: 0.0, z: 0.0, w: 1.0 };
+    }
+    
+    /// Local transform component for testing
+    #[derive(Component, Debug, PartialEq, Clone, Copy)]
+    #[require(GlobalTransform, TransformChanged)]
+    pub struct Transform {
+        pub translation: Vec3,
+        pub rotation: Quat,
+        pub scale: Vec3,
+    }
+    
+    impl Transform {
+        pub const IDENTITY: Self = Self {
+            translation: Vec3::ZERO,
+            rotation: Quat::IDENTITY,
+            scale: Vec3::ONE,
+        };
+        
+        pub fn from_xyz(x: f32, y: f32, z: f32) -> Self {
+            Self {
+                translation: Vec3::new(x, y, z),
+                rotation: Quat::IDENTITY,
+                scale: Vec3::ONE,
+            }
+        }
+        
+        pub fn from_translation(translation: Vec3) -> Self {
+            Self {
+                translation,
+                rotation: Quat::IDENTITY,
+                scale: Vec3::ONE,
+            }
+        }
+    }
+    
+    /// Global transform component for testing
+    #[derive(Component, Debug, PartialEq, Clone, Copy, Default)]
+    pub struct GlobalTransform {
+        pub translation: Vec3,
+    }
+    
+    impl GlobalTransform {
+        pub fn from_xyz(x: f32, y: f32, z: f32) -> Self {
+            Self {
+                translation: Vec3::new(x, y, z)
+            }
+        }
+        
+        pub fn from_translation(translation: Vec3) -> Self {
+            Self { translation }
+        }
+        
+        pub fn translation(&self) -> Vec3 {
+            self.translation
+        }
+    }
+    
+    impl From<Transform> for GlobalTransform {
+        fn from(transform: Transform) -> Self {
+            Self {
+                translation: transform.translation
+            }
+        }
+    }
+    
+    impl core::ops::Mul<Transform> for GlobalTransform {
+        type Output = GlobalTransform;
+        
+        fn mul(self, transform: Transform) -> Self::Output {
+            GlobalTransform {
+                translation: Vec3::new(
+                    self.translation.x + transform.translation.x,
+                    self.translation.y + transform.translation.y,
+                    self.translation.z + transform.translation.z,
+                )
+            }
+        }
+    }
+    
+    impl core::ops::Mul<f32> for Vec3 {
+        type Output = Vec3;
+        
+        fn mul(self, scalar: f32) -> Self::Output {
+            Vec3::new(self.x * scalar, self.y * scalar, self.z * scalar)
+        }
+    }
+    
+    // Tree change marker for transform propagation
+    #[derive(Component, Default, Debug)]
+    pub struct TransformChanged;
+    
+    impl DownPropagate for Transform {
+        type Input = Transform;
+        type Output = GlobalTransform;
+        type TreeChanged = TransformChanged;
+        
+        fn down_propagate(parent: &GlobalTransform, input: &Transform) -> GlobalTransform {
+            *parent * *input
+        }
+        
+        fn input_to_output(input: &Transform) -> GlobalTransform {
+            GlobalTransform::from(*input)
+        }
+    }
 
-    use crate::systems::*;
+    #[test]
+    fn test_root_entity_propagation() {
+        let mut world = World::default();
+        
+        // Create a root entity (no parent, has children)
+        let root = world.spawn(Transform::from_xyz(3.0, 4.0, 5.0)).id();
+        let child = world.spawn(Transform::from_xyz(1.0, 1.0, 1.0)).id();
+        
+        // Add hierarchy relationship - child should have ChildOf, root should have Children
+        world.entity_mut(child).insert(ChildOf(root));
+        
+        // Create and run the complex propagation system
+        let mut schedule = Schedule::default();
+        schedule.add_systems(hierarchy_propagate_complex::<Transform>);
+        schedule.run(&mut world);
+        
+        // Check if root GlobalTransform was updated
+        let root_global_transform = world.get::<GlobalTransform>(root).unwrap();
+        assert_eq!(root_global_transform.translation.x, 3.0);
+        assert_eq!(root_global_transform.translation.y, 4.0);
+        assert_eq!(root_global_transform.translation.z, 5.0);
+    }
+
+    #[test]
+    fn test_simple_entity_propagation() {
+        let mut world = World::default();
+        
+        // Create a simple entity without hierarchy
+        let entity = world.spawn(Transform::from_xyz(5.0, 10.0, 15.0)).id();
+        
+        // Create and run the simple propagation system
+        let mut schedule = Schedule::default();
+        schedule.add_systems(hierarchy_propagate_simple::<Transform>);
+        schedule.run(&mut world);
+        
+        // Check if GlobalTransform was updated
+        let global_transform = world.get::<GlobalTransform>(entity).unwrap();
+        assert_eq!(global_transform.translation.x, 5.0);
+        assert_eq!(global_transform.translation.y, 10.0);
+        assert_eq!(global_transform.translation.z, 15.0);
+    }
 
     #[test]
     fn correct_parent_removed() {
@@ -657,9 +840,9 @@ mod test {
         let mut schedule = Schedule::default();
         schedule.add_systems(
             (
-                mark_dirty_trees,
-                sync_simple_transforms,
-                propagate_parent_transforms,
+                mark_dirty_trees::<Transform>,
+                hierarchy_propagate_simple::<Transform>,
+                hierarchy_propagate_complex::<Transform>
             )
                 .chain(),
         );
@@ -715,9 +898,9 @@ mod test {
         let mut schedule = Schedule::default();
         schedule.add_systems(
             (
-                mark_dirty_trees,
-                sync_simple_transforms,
-                propagate_parent_transforms,
+                mark_dirty_trees::<Transform>,
+                hierarchy_propagate_simple::<Transform>,
+                hierarchy_propagate_complex::<Transform>
             )
                 .chain(),
         );
@@ -752,9 +935,9 @@ mod test {
         let mut schedule = Schedule::default();
         schedule.add_systems(
             (
-                mark_dirty_trees,
-                sync_simple_transforms,
-                propagate_parent_transforms,
+                mark_dirty_trees::<Transform>,
+                hierarchy_propagate_simple::<Transform>,
+                hierarchy_propagate_complex::<Transform>
             )
                 .chain(),
         );
@@ -791,9 +974,9 @@ mod test {
         let mut schedule = Schedule::default();
         schedule.add_systems(
             (
-                mark_dirty_trees,
-                sync_simple_transforms,
-                propagate_parent_transforms,
+                mark_dirty_trees::<Transform>,
+                hierarchy_propagate_simple::<Transform>,
+                hierarchy_propagate_complex::<Transform>,
             )
                 .chain(),
         );
@@ -865,15 +1048,15 @@ mod test {
 
     #[test]
     fn correct_transforms_when_no_children() {
-        let mut app = App::new();
         ComputeTaskPool::get_or_init(TaskPool::default);
+        let mut world = World::default();
 
-        app.add_systems(
-            Update,
+        let mut schedule = Schedule::default();
+        schedule.add_systems(
             (
-                mark_dirty_trees,
-                sync_simple_transforms,
-                propagate_parent_transforms,
+                mark_dirty_trees::<Transform>,
+                hierarchy_propagate_simple::<Transform>,
+                hierarchy_propagate_complex::<Transform>
             )
                 .chain(),
         );
@@ -883,8 +1066,7 @@ mod test {
         // These will be overwritten.
         let mut child = Entity::from_raw_u32(0).unwrap();
         let mut grandchild = Entity::from_raw_u32(1).unwrap();
-        let parent = app
-            .world_mut()
+        let parent = world
             .spawn(Transform::from_translation(translation))
             .with_children(|builder| {
                 child = builder
@@ -896,20 +1078,20 @@ mod test {
             })
             .id();
 
-        app.update();
+        schedule.run(&mut world);
 
         // check the `Children` structure is spawned
-        assert_eq!(&**app.world().get::<Children>(parent).unwrap(), &[child]);
+        assert_eq!(&**world.get::<Children>(parent).unwrap(), &[child]);
         assert_eq!(
-            &**app.world().get::<Children>(child).unwrap(),
+            &**world.get::<Children>(child).unwrap(),
             &[grandchild]
         );
         // Note that at this point, the `GlobalTransform`s will not have updated yet, due to
         // `Commands` delay
-        app.update();
+        schedule.run(&mut world);
 
-        let mut state = app.world_mut().query::<&GlobalTransform>();
-        for global in state.iter(app.world()) {
+        let mut state = world.query::<&GlobalTransform>();
+        for global in state.iter(&world) {
             assert_eq!(global, &GlobalTransform::from_translation(translation));
         }
     }
@@ -917,18 +1099,17 @@ mod test {
     #[test]
     #[should_panic]
     fn panic_when_hierarchy_cycle() {
-        ComputeTaskPool::get_or_init(TaskPool::default);
         // We cannot directly edit ChildOf and Children, so we use a temp world to break the
         // hierarchy's invariants.
         let mut temp = World::new();
-        let mut app = App::new();
+        let mut world = World::new();
 
-        app.add_systems(
-            Update,
+        let mut schedule = Schedule::default();
+        schedule.add_systems(
             // It is unsound for this unsafe system to encounter a cycle without panicking. This
             // requirement only applies to systems with unsafe parallel traversal that result in
             // aliased mutability during a cycle.
-            propagate_parent_transforms,
+                hierarchy_propagate_complex::<Transform>
         );
 
         fn setup_world(world: &mut World) -> (Entity, Entity) {
@@ -943,16 +1124,16 @@ mod test {
         }
 
         let (temp_child, temp_grandchild) = setup_world(&mut temp);
-        let (child, grandchild) = setup_world(app.world_mut());
+        let (child, grandchild) = setup_world(&mut world);
 
         assert_eq!(temp_child, child);
         assert_eq!(temp_grandchild, grandchild);
 
-        app.world_mut()
+        world
             .spawn(Transform::IDENTITY)
             .add_children(&[child]);
 
-        let mut child_entity = app.world_mut().entity_mut(child);
+        let mut child_entity = world.entity_mut(child);
 
         let mut grandchild_entity = temp.entity_mut(grandchild);
 
@@ -978,7 +1159,7 @@ mod test {
 
         core::mem::swap(a.as_mut(), b.as_mut());
 
-        app.update();
+        schedule.run(&mut world);
     }
 
     #[test]
@@ -990,9 +1171,9 @@ mod test {
         let mut schedule = Schedule::default();
         schedule.add_systems(
             (
-                mark_dirty_trees,
-                propagate_parent_transforms,
-                sync_simple_transforms,
+                mark_dirty_trees::<Transform>,
+                hierarchy_propagate_simple::<Transform>,
+                hierarchy_propagate_complex::<Transform>
             )
                 .chain(),
         );
@@ -1017,7 +1198,7 @@ mod test {
             .abs_diff_eq(translation, 0.1));
         assert!(child_global_transform
             .translation()
-            .abs_diff_eq(2. * translation, 0.1));
+            .abs_diff_eq(translation * 2.0, 0.1));
 
         // Reparent child
         world.entity_mut(child).remove::<ChildOf>();
