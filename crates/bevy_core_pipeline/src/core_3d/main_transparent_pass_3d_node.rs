@@ -36,7 +36,7 @@ impl ViewNode for MainTransparentPass3dNode {
         &self,
         graph: &mut RenderGraphContext,
         render_context: &mut RenderContext,
-        (camera, view, target, depth, resolution_override, has_oit,oit_resolve_pipeline_id): QueryItem<Self::ViewQuery>,
+        (camera, view, target, depth, resolution_override, has_oit, oit_resolve_pipeline_id): QueryItem<Self::ViewQuery>,
         world: &World,
     ) -> Result<(), NodeRunError> {
         let view_entity = graph.view_entity();

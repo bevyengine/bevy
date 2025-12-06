@@ -234,9 +234,8 @@ pub fn prepare_oit_buffers(
         }
         buffers.headers.write_buffer(&render_device, &render_queue);
         trace!(
-            "OIT headers buffer updated in {:.01}ms with capacity {}, total size {} MiB",
+            "OIT headers buffer updated in {:.01}ms with total size {} MiB",
             start.elapsed().as_millis(),
-            buffers.headers.capacity(),
             buffers.headers.capacity() * size_of::<u32>() / 1024 / 1024,
         );
     }
@@ -247,9 +246,8 @@ pub fn prepare_oit_buffers(
         let start = Instant::now();
         buffers.nodes.reserve(nodes_size, &render_device);
         trace!(
-            "OIT nodes buffer updated in {:.01}ms with capacity {}, total size {} MiB",
+            "OIT nodes buffer updated in {:.01}ms with total size {} MiB",
             start.elapsed().as_millis(),
-            buffers.nodes.capacity(),
             buffers.nodes.capacity() * size_of::<OitFragmentNode>() / 1024 / 1024,
         );
     }
