@@ -422,6 +422,9 @@ impl PrepassPipeline {
         }
         if layout.0.contains(Mesh::ATTRIBUTE_POSITION) {
             shader_defs.push("VERTEX_POSITIONS".into());
+            if layout.0.is_vertex_position_compressed() {
+                shader_defs.push("VERTEX_POSITIONS_COMPRESSED".into());
+            }
             vertex_attributes.push(Mesh::ATTRIBUTE_POSITION.at_shader_location(0));
         }
         // For directional light shadow map views, use unclipped depth via either the native GPU feature,
@@ -458,6 +461,9 @@ impl PrepassPipeline {
             shader_defs.push("NORMAL_PREPASS_OR_DEFERRED_PREPASS".into());
             if layout.0.contains(Mesh::ATTRIBUTE_NORMAL) {
                 shader_defs.push("VERTEX_NORMALS".into());
+                if layout.0.is_vertex_normal_compressed() {
+                    shader_defs.push("VERTEX_NORMALS_COMPRESSED".into());
+                }
                 vertex_attributes.push(Mesh::ATTRIBUTE_NORMAL.at_shader_location(3));
             } else if mesh_key.contains(MeshPipelineKey::NORMAL_PREPASS) {
                 warn!(
@@ -466,6 +472,9 @@ impl PrepassPipeline {
             }
             if layout.0.contains(Mesh::ATTRIBUTE_TANGENT) {
                 shader_defs.push("VERTEX_TANGENTS".into());
+                if layout.0.is_vertex_tangent_compressed() {
+                    shader_defs.push("VERTEX_TANGENTS_COMPRESSED".into());
+                }
                 vertex_attributes.push(Mesh::ATTRIBUTE_TANGENT.at_shader_location(4));
             }
         }
