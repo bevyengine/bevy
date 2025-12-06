@@ -1,3 +1,5 @@
+//! Allows configuring a material's transparency behavior.
+
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 
 // TODO: add discussion about performance.

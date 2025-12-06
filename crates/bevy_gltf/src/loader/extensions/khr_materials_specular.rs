@@ -7,7 +7,7 @@ use serde_json::Value;
 #[cfg(feature = "pbr_specular_textures")]
 use {
     crate::loader::gltf_ext::material::parse_material_extension_texture, bevy_asset::Handle,
-    bevy_image::Image, bevy_pbr::UvChannel,
+    bevy_image::Image, bevy_material::UvChannel,
 };
 
 /// Parsed data from the `KHR_materials_specular` extension.
