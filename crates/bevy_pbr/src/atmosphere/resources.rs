@@ -647,7 +647,7 @@ pub(super) fn prepare_atmosphere_bind_groups(
 
         let transmittance_lut = render_device.create_bind_group(
             "transmittance_lut_bind_group",
-            &pipeline_cache.get_bind_group_layout(&layouts.transmittance_lut),
+            pipeline_cache.get_bind_group_layout(&layouts.transmittance_lut),
             &BindGroupEntries::with_indices((
                 // uniforms
                 (0, atmosphere_binding.clone()),
@@ -663,7 +663,7 @@ pub(super) fn prepare_atmosphere_bind_groups(
 
         let multiscattering_lut = render_device.create_bind_group(
             "multiscattering_lut_bind_group",
-            &pipeline_cache.get_bind_group_layout(&layouts.multiscattering_lut),
+            pipeline_cache.get_bind_group_layout(&layouts.multiscattering_lut),
             &BindGroupEntries::with_indices((
                 // uniforms
                 (0, atmosphere_binding.clone()),
@@ -682,7 +682,7 @@ pub(super) fn prepare_atmosphere_bind_groups(
 
         let sky_view_lut = render_device.create_bind_group(
             "sky_view_lut_bind_group",
-            &pipeline_cache.get_bind_group_layout(&layouts.sky_view_lut),
+            pipeline_cache.get_bind_group_layout(&layouts.sky_view_lut),
             &BindGroupEntries::with_indices((
                 // uniforms
                 (0, atmosphere_binding.clone()),
@@ -705,7 +705,7 @@ pub(super) fn prepare_atmosphere_bind_groups(
 
         let aerial_view_lut = render_device.create_bind_group(
             "sky_view_lut_bind_group",
-            &pipeline_cache.get_bind_group_layout(&layouts.aerial_view_lut),
+            pipeline_cache.get_bind_group_layout(&layouts.aerial_view_lut),
             &BindGroupEntries::with_indices((
                 // uniforms
                 (0, atmosphere_binding.clone()),
@@ -727,7 +727,7 @@ pub(super) fn prepare_atmosphere_bind_groups(
 
         let render_sky = render_device.create_bind_group(
             "render_sky_bind_group",
-            &pipeline_cache.get_bind_group_layout(if *msaa == Msaa::Off {
+            pipeline_cache.get_bind_group_layout(if *msaa == Msaa::Off {
                 &render_sky_layouts.render_sky
             } else {
                 &render_sky_layouts.render_sky_msaa

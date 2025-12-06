@@ -149,7 +149,7 @@ fn prepare_bind_group(
 
     let bind_group_0 = render_device.create_bind_group(
         None,
-        &pipeline_cache.get_bind_group_layout(&pipeline.texture_bind_group_layout),
+        pipeline_cache.get_bind_group_layout(&pipeline.texture_bind_group_layout),
         &BindGroupEntries::sequential((
             &view_a.texture_view,
             &view_b.texture_view,
@@ -158,7 +158,7 @@ fn prepare_bind_group(
     );
     let bind_group_1 = render_device.create_bind_group(
         None,
-        &pipeline_cache.get_bind_group_layout(&pipeline.texture_bind_group_layout),
+        pipeline_cache.get_bind_group_layout(&pipeline.texture_bind_group_layout),
         &BindGroupEntries::sequential((
             &view_b.texture_view,
             &view_a.texture_view,

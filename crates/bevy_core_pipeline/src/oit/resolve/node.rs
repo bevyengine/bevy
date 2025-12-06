@@ -55,8 +55,7 @@ impl ViewNode for OitResolveNode {
 
             let depth_bind_group = render_context.render_device().create_bind_group(
                 "oit_resolve_depth_bind_group",
-                &pipeline_cache
-                    .get_bind_group_layout(&resolve_pipeline.oit_depth_bind_group_layout),
+                pipeline_cache.get_bind_group_layout(&resolve_pipeline.oit_depth_bind_group_layout),
                 &BindGroupEntries::single(depth.view()),
             );
 

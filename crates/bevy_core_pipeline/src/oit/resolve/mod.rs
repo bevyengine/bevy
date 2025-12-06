@@ -247,7 +247,7 @@ pub fn prepare_oit_resolve_bind_group(
     ) {
         let bind_group = render_device.create_bind_group(
             "oit_resolve_bind_group",
-            &pipeline_cache.get_bind_group_layout(&resolve_pipeline.view_bind_group_layout),
+            pipeline_cache.get_bind_group_layout(&resolve_pipeline.view_bind_group_layout),
             &BindGroupEntries::sequential((binding.clone(), layers_binding, layer_ids_binding)),
         );
         commands.insert_resource(OitResolveBindGroup(bind_group));

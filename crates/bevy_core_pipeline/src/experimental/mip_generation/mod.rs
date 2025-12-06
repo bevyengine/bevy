@@ -764,7 +764,7 @@ fn prepare_downsample_depth_view_bind_groups(
                     } else {
                         "downsample depth bind group"
                     },
-                    &pipeline_cache.get_bind_group_layout(if is_multisampled {
+                    pipeline_cache.get_bind_group_layout(if is_multisampled {
                         &downsample_depth_pipelines
                             .first_multisample
                             .bind_group_layout

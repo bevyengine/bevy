@@ -1784,7 +1784,7 @@ where
         let actual_material_layout = pipeline_cache.get_bind_group_layout(&material_layout);
 
         match material.unprepared_bind_group(
-            &actual_material_layout,
+            actual_material_layout,
             render_device,
             material_param,
             false,

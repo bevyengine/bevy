@@ -1475,7 +1475,7 @@ pub fn prepare_uinodes(
         ui_meta.indices.clear();
         ui_meta.view_bind_group = Some(render_device.create_bind_group(
             "ui_view_bind_group",
-            &pipeline_cache.get_bind_group_layout(&ui_pipeline.view_layout),
+            pipeline_cache.get_bind_group_layout(&ui_pipeline.view_layout),
             &BindGroupEntries::single(view_binding),
         ));
 
@@ -1523,8 +1523,7 @@ pub fn prepare_uinodes(
                             .or_insert_with(|| {
                                 render_device.create_bind_group(
                                     "ui_material_bind_group",
-                                    &pipeline_cache
-                                        .get_bind_group_layout(&ui_pipeline.image_layout),
+                                    pipeline_cache.get_bind_group_layout(&ui_pipeline.image_layout),
                                     &BindGroupEntries::sequential((
                                         &gpu_image.texture_view,
                                         &gpu_image.sampler,
@@ -1551,8 +1550,7 @@ pub fn prepare_uinodes(
                             .or_insert_with(|| {
                                 render_device.create_bind_group(
                                     "ui_material_bind_group",
-                                    &pipeline_cache
-                                        .get_bind_group_layout(&ui_pipeline.image_layout),
+                                    pipeline_cache.get_bind_group_layout(&ui_pipeline.image_layout),
                                     &BindGroupEntries::sequential((
                                         &gpu_image.texture_view,
                                         &gpu_image.sampler,
