@@ -63,7 +63,6 @@ use crate::{
     prelude::{Added, Changed, Component, Or, Query, Ref, With, Without},
     system::{Local, ParamSet},
 };
-use alloc::vec::Vec;
 #[cfg(feature = "std")]
 pub use parallel::hierarchy_propagate_complex;
 #[cfg(not(feature = "std"))]
@@ -544,15 +543,15 @@ pub mod parallel {
 
     /// Alias for a large, repeatedly used query. Queries for transform entities that have both a
     /// parent and possibly children, thus they are not roots.
-    pub type NodeQuery<'w, 's, T: DownPropagate + 'static> = Query<
+    pub type NodeQuery<'w, 's, T> = Query<
         'w,
         's,
         (
             Entity,
             (
-                Ref<'static, T::Input>,
-                Mut<'static, T::Output>,
-                Ref<'static, T::TreeChanged>,
+                Ref<'static, <T as DownPropagate>::Input>,
+                Mut<'static, <T as DownPropagate>::Output>,
+                Ref<'static, <T as DownPropagate>::TreeChanged>,
             ),
             (Option<Read<Children>>, Read<ChildOf>),
         ),
