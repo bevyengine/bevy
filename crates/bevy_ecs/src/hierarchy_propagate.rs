@@ -303,7 +303,7 @@ mod serial {
 /// Parallel hierarchy traversal with a batched work sharing scheduler. Often 2-5 times faster than
 /// the serial version.
 #[cfg(feature = "std")]
-mod parallel {
+pub mod parallel {
     use crate::prelude::*;
     // TODO: this implementation could be used in no_std if there are equivalents of these.
     use alloc::{sync::Arc, vec::Vec};
@@ -546,7 +546,7 @@ mod parallel {
 
     /// Alias for a large, repeatedly used query. Queries for transform entities that have both a
     /// parent and possibly children, thus they are not roots.
-    type NodeQuery<'w, 's, T: DownPropagate + 'static> = Query<
+    pub type NodeQuery<'w, 's, T: DownPropagate + 'static> = Query<
         'w,
         's,
         (
