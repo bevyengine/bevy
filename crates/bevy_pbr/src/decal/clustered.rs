@@ -14,9 +14,9 @@
 //! map, and an emissive map respectively. However, with a custom shader, you
 //! can use these 4 textures for whatever you wish. Additionally, you can use
 //! the built-in *tag* field to store additional application-specific data; by
-//! reading the tag in the shader, you can appearance of a clustered decal
-//! arbitrarily. See the documentation in `clustered.wgsl` for more information
-//! and the `clustered_decals` example for an example of use.
+//! reading the tag in the shader, you can modify the appearance of a clustered
+//! decal arbitrarily. See the documentation in `clustered.wgsl` for more
+//! information and the `clustered_decals` example for an example of use.
 
 use core::{num::NonZero, ops::Deref};
 
@@ -259,12 +259,12 @@ pub fn extract_decals(
     render_decals.clear();
 
     extract_clustered_decals(&decals, &mut render_decals);
-    extract_spot_light_cookies(&spot_light_textures, &mut render_decals);
-    extract_point_light_cookies(&point_light_textures, &mut render_decals);
-    extract_directional_light_cookies(&directional_light_textures, &mut render_decals);
+    extract_spot_light_textures(&spot_light_textures, &mut render_decals);
+    extract_point_light_textures(&point_light_textures, &mut render_decals);
+    extract_directional_light_textures(&directional_light_textures, &mut render_decals);
 }
 
-/// Extracts all clustered decals and light cookies from the scene and transfers
+/// Extracts all clustered decals and light textures from the scene and transfers
 /// them to the render world.
 fn extract_clustered_decals(
     decals: &Extract<
@@ -303,9 +303,9 @@ fn extract_clustered_decals(
     }
 }
 
-/// Extracts all cookies from spot lights from the main world to the render
+/// Extracts all textures from spot lights from the main world to the render
 /// world as clustered decals.
-fn extract_spot_light_cookies(
+fn extract_spot_light_textures(
     spot_light_textures: &Extract<
         Query<(
             RenderEntity,
@@ -317,7 +317,7 @@ fn extract_spot_light_cookies(
     render_decals: &mut RenderClusteredDecals,
 ) {
     for (decal_entity, texture, global_transform, view_visibility) in spot_light_textures {
-        // If the cookie is invisible, skip it.
+        // If the texture is invisible, skip it.
         if !view_visibility.get() {
             continue;
         }
@@ -331,9 +331,9 @@ fn extract_spot_light_cookies(
     }
 }
 
-/// Extracts all cookies from point lights from the main world to the render
+/// Extracts all textures from point lights from the main world to the render
 /// world as clustered decals.
-fn extract_point_light_cookies(
+fn extract_point_light_textures(
     point_light_textures: &Extract<
         Query<(
             RenderEntity,
@@ -345,7 +345,7 @@ fn extract_point_light_cookies(
     render_decals: &mut RenderClusteredDecals,
 ) {
     for (decal_entity, texture, global_transform, view_visibility) in point_light_textures {
-        // If the cookie is invisible, skip it.
+        // If the texture is invisible, skip it.
         if !view_visibility.get() {
             continue;
         }
@@ -359,9 +359,9 @@ fn extract_point_light_cookies(
     }
 }
 
-/// Extracts all cookies from directional lights from the main world to the
+/// Extracts all textures from directional lights from the main world to the
 /// render world as clustered decals.
-fn extract_directional_light_cookies(
+fn extract_directional_light_textures(
     directional_light_textures: &Extract<
         Query<(
             RenderEntity,
@@ -373,7 +373,7 @@ fn extract_directional_light_cookies(
     render_decals: &mut RenderClusteredDecals,
 ) {
     for (decal_entity, texture, global_transform, view_visibility) in directional_light_textures {
-        // If the cookie is invisible, skip it.
+        // If the texture is invisible, skip it.
         if !view_visibility.get() {
             continue;
         }
