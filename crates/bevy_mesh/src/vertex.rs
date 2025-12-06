@@ -689,7 +689,7 @@ mod tests {
         (octahedral_decode(f), sign)
     }
 
-    /// Like octahedral_decode, but for input in [-1, 1] instead of [0, 1].
+    /// Like `octahedral_decode`, but for input in [-1, 1] instead of [0, 1].
     fn octahedral_decode_signed(v: Vec2) -> Vec3 {
         let mut n = vec3(v.x, v.y, 1.0 - v.x.abs() - v.y.abs());
         let t = (-n.z).clamp(0.0, 1.0);

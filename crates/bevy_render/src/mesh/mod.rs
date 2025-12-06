@@ -192,7 +192,7 @@ impl RenderAsset for RenderMesh {
             layout: mesh_vertex_buffer_layout,
             #[cfg(feature = "morph")]
             morph_targets,
-            aabb: mesh.calculate_aabb(),
+            aabb: mesh.compute_aabb(),
         })
     }
 }

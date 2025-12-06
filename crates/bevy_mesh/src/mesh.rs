@@ -577,9 +577,11 @@ impl Mesh {
         vertex_count.unwrap_or(0)
     }
 
-    /// Calculates the axis-aligned bounding box of the mesh.
-    /// Returns None if the position attribute is empty or the format isn't Float32x3.
-    pub fn calculate_aabb(&self) -> Option<Aabb3d> {
+    /// Compute the Axis-Aligned Bounding Box of the mesh vertices in model space
+    ///
+    /// Returns `None` if `self` doesn't have [`Mesh::ATTRIBUTE_POSITION`] of
+    /// type [`VertexAttributeValues::Float32x3`], or if `self` doesn't have any vertices.
+    pub fn compute_aabb(&self) -> Option<Aabb3d> {
         let positions = self.attribute(Self::ATTRIBUTE_POSITION)?;
         match positions {
             VertexAttributeValues::Float32x3(val) => {
@@ -705,7 +707,7 @@ impl Mesh {
                 let VertexAttributeValues::Float32x3(uncompressed_values) = attribute_values else {
                     unreachable!()
                 };
-                let aabb = self.calculate_aabb().unwrap();
+                let aabb = self.compute_aabb().unwrap();
                 let mut values = Vec::<[i16; 4]>::with_capacity(uncompressed_values.len());
                 for val in uncompressed_values {
                     let mut val = Vec3A::from_array(*val);
