@@ -58,7 +58,7 @@ use crate::{
     GltfMaterialName, GltfMeshExtras, GltfMeshName, GltfNode, GltfSceneExtras, GltfSkin,
 };
 #[cfg(feature = "bevy_animation")]
-use crate::{CreateAnimationPlayers, CreateAnimationTargetIds, GltfAnimationSettings};
+use crate::{GltfAnimationSettings, GltfCreateAnimationPlayers, GltfCreateAnimationTargetIds};
 
 #[cfg(feature = "bevy_animation")]
 use self::gltf_ext::scene::collect_path;
@@ -1003,14 +1003,14 @@ impl GltfLoader {
                     .animation_settings
                     .unwrap_or(loader.default_animation_settings);
 
-                if animation_settings.create_target_ids != CreateAnimationTargetIds::Never {
+                if animation_settings.create_target_ids != GltfCreateAnimationTargetIds::Never {
                     // Add `AnimationTargetId` and `AnimatedBy` components to
                     // nodes, following the rules in `animation_settings`.
                     for (node_index, &entity_id) in &node_index_to_entity_map {
                         let (root_node_index, path) = paths.get(node_index).unwrap();
 
                         if (animation_settings.create_target_ids
-                            == CreateAnimationTargetIds::Always)
+                            == GltfCreateAnimationTargetIds::Always)
                             || animation_roots.contains(root_node_index)
                         {
                             let mut entity = world.entity_mut(entity_id);
@@ -1018,7 +1018,7 @@ impl GltfLoader {
                             entity.insert(AnimationTargetId::from_names(path.iter()));
 
                             if animation_settings.create_players
-                                == CreateAnimationPlayers::Automatically
+                                == GltfCreateAnimationPlayers::Automatically
                             {
                                 entity.insert(AnimatedBy(
                                     *node_index_to_entity_map.get(root_node_index).unwrap(),
@@ -1027,13 +1027,15 @@ impl GltfLoader {
                         }
                     }
 
-                    if animation_settings.create_players == CreateAnimationPlayers::Automatically {
+                    if animation_settings.create_players
+                        == GltfCreateAnimationPlayers::Automatically
+                    {
                         // Add `AnimationPlayer` components to the root node of
                         // hierarchies that we know contain `AnimationTargetId`
                         // and `AnimatedBy` components.
                         for node in scene.nodes() {
                             if (animation_settings.create_target_ids
-                                == CreateAnimationTargetIds::Always)
+                                == GltfCreateAnimationTargetIds::Always)
                                 || animation_roots.contains(&node.index())
                             {
                                 world
