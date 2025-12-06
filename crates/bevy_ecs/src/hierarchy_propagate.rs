@@ -9,15 +9,15 @@ use crate::{
 };
 use alloc::vec::Vec;
 #[cfg(feature = "std")]
-pub use parallel::propagate_parent_transforms;
+pub use parallel::hierarchy_propagate_complex;
 #[cfg(not(feature = "std"))]
-pub use serial::propagate_parent_transforms;
+pub use serial::hierarchy_propagate_complex;
 
 /// Creates a system for syncing simple entities (those without hierarchy).
 /// 
 /// Third party plugins should ensure that this is used in concert with
-/// [`propagate_parent_transforms`] and [`mark_dirty_trees`].
-pub fn sync_simple_transforms<T: DownPropagate + 'static>(
+/// [`hierarchy_propagate_complex`] and [`mark_dirty_trees`].
+pub fn hierarchy_propagate_simple<T: DownPropagate + 'static>(
     mut queries: ParamSet<(
         Query<(&T::Input, &mut T::Output), (Or<(Changed<T::Input>, Added<T::Output>)>, Without<ChildOf>, Without<Children>)>,
         Query<(Ref<T::Input>, &mut T::Output), (Without<ChildOf>, Without<Children>)>,
@@ -91,9 +91,9 @@ mod serial {
     /// component.
     ///
     /// Third party plugins should ensure that this is used in concert with
-    /// [`sync_simple_transforms`](super::sync_simple_transforms) and
+    /// [`hierarchy_propagate_simple`](super::hierarchy_propagate_simple) and
     /// [`mark_dirty_trees`](super::mark_dirty_trees).
-    pub fn propagate_parent_transforms<T: DownPropagate + 'static>(
+    pub fn hierarchy_propagate_complex<T: DownPropagate + 'static>(
         mut root_query: Query<
             (Entity, &Children, Ref<T::Input>, &mut T::Output),
             Without<ChildOf>,
@@ -261,9 +261,9 @@ mod parallel {
     /// component.
     ///
     /// Third party plugins should ensure that this is used in concert with
-    /// [`sync_simple_transforms`](super::sync_simple_transforms) and
+    /// [`hierarchy_propagate_simple`](super::hierarchy_propagate_simple) and
     /// [`mark_dirty_trees`](super::mark_dirty_trees).
-    pub fn propagate_parent_transforms<T: DownPropagate + 'static>(
+    pub fn hierarchy_propagate_complex<T: DownPropagate + 'static>(
         mut queue: Local<WorkQueue>,
         mut roots: Query<
             (Entity, Ref<T::Input>, &mut T::Output, &Children),
@@ -562,8 +562,8 @@ mod parallel {
 //! parent and child data. Three system functions are provided:
 //!
 //! - [`mark_dirty_trees`] - Marks hierarchy trees that need updating
-//! - [`sync_simple_transforms`] - Updates entities without hierarchy relationships
-//! - [`propagate_parent_transforms`] - Propagates data down the hierarchy
+//! - [`hierarchy_propagate_simple`] - Updates entities without hierarchy relationships
+//! - [`hierarchy_propagate_complex`] - Propagates data down the hierarchy
 //!
 //! # Example
 //!
@@ -603,8 +603,8 @@ mod parallel {
 //! fn setup_scale_propagation(app: &mut App) {
 //!     app.add_systems(Update, (
 //!         mark_dirty_trees::<ScalePropagate>,
-//!         sync_simple_transforms::<ScalePropagate>,
-//!         propagate_parent_transforms::<ScalePropagate>,
+//!         hierarchy_propagate_simple::<ScalePropagate>,
+//!         hierarchy_propagate_complex::<ScalePropagate>,
 //!     ));
 //! }
 //! ```
