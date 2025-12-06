@@ -82,10 +82,10 @@ pub enum Indices {
 impl Indices {
     /// Create a empty indices with the given capacity and vertex count. It will be [`Indices::U16`] if the vertex count <= 65536, otherwise it will be [`Indices::U32`].
     pub fn with_capacity(capacity: usize, vertex_count: u32) -> Self {
-        if vertex_count <= u16::MAX as u32 + 1 {
-            Indices::U16(Vec::with_capacity(capacity))
-        } else {
+        if vertex_count > u16::MAX as u32 + 1 {
             Indices::U32(Vec::with_capacity(capacity))
+        } else {
+            Indices::U16(Vec::with_capacity(capacity))
         }
     }
 
