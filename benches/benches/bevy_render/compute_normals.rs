@@ -5,7 +5,7 @@ use rand::random;
 use std::time::{Duration, Instant};
 
 use bevy_asset::RenderAssetUsages;
-use bevy_mesh::{Indices, Mesh, PrimitiveTopology};
+use bevy_mesh::{Indices, InfallibleMesh, Mesh, PrimitiveTopology};
 
 const GRID_SIZE: usize = 256;
 
@@ -28,7 +28,7 @@ fn compute_normals(c: &mut Criterion) {
             .flat_map(|i| std::iter::repeat(i).zip(0..GRID_SIZE))
             .map(|(i, j)| [i as f32, j as f32, random::<f32>()])
             .collect::<Vec<_>>();
-        Mesh::new(
+        InfallibleMesh::new(
             PrimitiveTopology::TriangleList,
             RenderAssetUsages::MAIN_WORLD,
         )

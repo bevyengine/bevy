@@ -260,7 +260,7 @@ fn detect_morphs(
         let target_names = weights
             .first_mesh()
             .and_then(|h| meshes.get(h))
-            .and_then(|m| m.morph_target_names());
+            .and_then(|m| m.morph_target_names().unwrap_or_default());
         let targets = Target::new(name, weights.weights(), target_names, entity);
         detected.extend(targets);
     }

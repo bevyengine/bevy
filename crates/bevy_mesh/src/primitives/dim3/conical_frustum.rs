@@ -1,4 +1,4 @@
-use crate::{Indices, Mesh, MeshBuilder, Meshable, PrimitiveTopology};
+use crate::{Indices, InfallibleMesh, Mesh, MeshBuilder, Meshable, PrimitiveTopology};
 use bevy_asset::RenderAssetUsages;
 use bevy_math::{ops, primitives::ConicalFrustum, Vec3};
 use bevy_reflect::prelude::*;
@@ -61,7 +61,7 @@ impl ConicalFrustumMeshBuilder {
 }
 
 impl MeshBuilder for ConicalFrustumMeshBuilder {
-    fn build(&self) -> Mesh {
+    fn build_infallible(&self) -> InfallibleMesh {
         debug_assert!(self.resolution > 2);
         debug_assert!(self.segments > 0);
 
@@ -155,7 +155,7 @@ impl MeshBuilder for ConicalFrustumMeshBuilder {
         build_cap(true, radius_top);
         build_cap(false, radius_bottom);
 
-        Mesh::new(
+        InfallibleMesh::new(
             PrimitiveTopology::TriangleList,
             RenderAssetUsages::default(),
         )
@@ -169,16 +169,10 @@ impl MeshBuilder for ConicalFrustumMeshBuilder {
 impl Meshable for ConicalFrustum {
     type Output = ConicalFrustumMeshBuilder;
 
-    fn mesh(&self) -> Self::Output {
+    fn mesh(self) -> Self::Output {
         ConicalFrustumMeshBuilder {
-            frustum: *self,
+            frustum: self,
             ..Default::default()
         }
-    }
-}
-
-impl From<ConicalFrustum> for Mesh {
-    fn from(frustum: ConicalFrustum) -> Self {
-        frustum.mesh().build()
     }
 }

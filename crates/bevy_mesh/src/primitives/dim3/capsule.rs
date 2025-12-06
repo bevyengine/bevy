@@ -1,4 +1,4 @@
-use crate::{Indices, Mesh, MeshBuilder, Meshable, PrimitiveTopology};
+use crate::{Indices, InfallibleMesh, Mesh, MeshBuilder, Meshable, PrimitiveTopology};
 use bevy_asset::RenderAssetUsages;
 use bevy_math::{ops, primitives::Capsule3d, Vec2, Vec3};
 use bevy_reflect::prelude::*;
@@ -94,7 +94,7 @@ impl Capsule3dMeshBuilder {
 }
 
 impl MeshBuilder for Capsule3dMeshBuilder {
-    fn build(&self) -> Mesh {
+    fn build_infallible(&self) -> InfallibleMesh {
         // code adapted from https://behreajj.medium.com/making-a-capsule-mesh-via-script-in-five-3d-environments-c2214abf02db
         let Capsule3dMeshBuilder {
             capsule,
@@ -407,7 +407,7 @@ impl MeshBuilder for Capsule3dMeshBuilder {
         assert_eq!(vs.len(), vert_len);
         assert_eq!(tris.len(), fs_len as usize);
 
-        Mesh::new(
+        InfallibleMesh::new(
             PrimitiveTopology::TriangleList,
             RenderAssetUsages::default(),
         )
@@ -421,16 +421,10 @@ impl MeshBuilder for Capsule3dMeshBuilder {
 impl Meshable for Capsule3d {
     type Output = Capsule3dMeshBuilder;
 
-    fn mesh(&self) -> Self::Output {
+    fn mesh(self) -> Self::Output {
         Capsule3dMeshBuilder {
-            capsule: *self,
+            capsule: self,
             ..Default::default()
         }
-    }
-}
-
-impl From<Capsule3d> for Mesh {
-    fn from(capsule: Capsule3d) -> Self {
-        capsule.mesh().build()
     }
 }

@@ -1956,7 +1956,7 @@ impl From<ConvexPolygon> for Polygon {
 )]
 pub struct ConvexPolygon {
     /// The vertices of the [`ConvexPolygon`].
-    vertices: Vec<Vec2>,
+    pub vertices: Vec<Vec2>,
 }
 
 #[cfg(feature = "alloc")]

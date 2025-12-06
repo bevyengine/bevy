@@ -4,7 +4,7 @@
 
 use bevy::{
     asset::RenderAssetUsages,
-    mesh::{Indices, VertexAttributeValues},
+    mesh::{Indices, InfallibleMesh, VertexAttributeValues},
     prelude::*,
     render::render_resource::PrimitiveTopology,
 };
@@ -103,9 +103,9 @@ fn input_handler(
 }
 
 #[rustfmt::skip]
-fn create_cube_mesh() -> Mesh {
+fn create_cube_mesh() -> InfallibleMesh {
     // Keep the mesh data accessible in future frames to be able to mutate it in toggle_texture.
-    Mesh::new(PrimitiveTopology::TriangleList, RenderAssetUsages::MAIN_WORLD | RenderAssetUsages::RENDER_WORLD)
+    InfallibleMesh::new(PrimitiveTopology::TriangleList, RenderAssetUsages::MAIN_WORLD | RenderAssetUsages::RENDER_WORLD)
     .with_inserted_attribute(
         Mesh::ATTRIBUTE_POSITION,
         // Each array is an [x, y, z] coordinate in local space.

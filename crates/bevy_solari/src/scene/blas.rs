@@ -172,12 +172,15 @@ fn allocate_blas(
 
 fn is_mesh_raytracing_compatible(mesh: &Mesh) -> bool {
     let triangle_list = mesh.primitive_topology() == PrimitiveTopology::TriangleList;
-    let vertex_attributes = mesh.attributes().map(|(attribute, _)| attribute.id).eq([
+    let Ok(attributes) = mesh.attributes() else {
+        return false;
+    };
+    let vertex_attributes = attributes.map(|(attribute, _)| attribute.id).eq([
         Mesh::ATTRIBUTE_POSITION.id,
         Mesh::ATTRIBUTE_NORMAL.id,
         Mesh::ATTRIBUTE_UV_0.id,
         Mesh::ATTRIBUTE_TANGENT.id,
     ]);
-    let indexed_32 = matches!(mesh.indices(), Some(Indices::U32(..)));
+    let indexed_32 = matches!(mesh.indices(), Ok(Indices::U32(..)));
     mesh.enable_raytracing && triangle_list && vertex_attributes && indexed_32
 }
