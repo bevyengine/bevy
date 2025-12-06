@@ -194,6 +194,9 @@ impl DefaultGltfImageSampler {
 /// Decides if the loader will create [`AnimationTargetId`] components. These
 /// are used to identify which parts of an [`AnimationClip`] can be applied to
 /// a node.
+///
+/// [`AnimationTargetId`]: bevy_animation::AnimationTargetId
+/// [`AnimationClip`]: bevy_animation::AnimationClip
 #[cfg(feature = "bevy_animation")]
 #[derive(Default, Clone, Copy, Eq, PartialEq, Debug, Serialize, Deserialize)]
 pub enum CreateAnimationTargetIds {
@@ -217,6 +220,10 @@ pub enum CreateAnimationTargetIds {
 /// are created on the root node of a hierarchy. `AnimatedBy` components are
 /// created on all nodes in a hierarchy, alongside the `AnimationTargetId`
 /// components.
+///
+/// [`AnimationTargetId`]: bevy_animation::AnimationTargetId
+/// [`AnimatedBy`]: bevy_animation::AnimatedBy
+/// [`AnimationPlayer`]: bevy_animation::AnimationPlayer
 #[cfg(feature = "bevy_animation")]
 #[derive(Default, Clone, Copy, Eq, PartialEq, Debug, Serialize, Deserialize)]
 pub enum CreateAnimationPlayers {
@@ -228,13 +235,21 @@ pub enum CreateAnimationPlayers {
     Automatically,
 }
 
-/// Animation specific settings. Used by [`GltfPlugin`](crate::GltfPlugin) and
+/// Animation specific settings. Used by [`GltfPlugin`] and
 /// [`GltfLoaderSettings`].
 #[cfg(feature = "bevy_animation")]
 #[derive(Default, Clone, Copy, Eq, PartialEq, Debug, Serialize, Deserialize)]
 pub struct GltfAnimationSettings {
-    create_target_ids: CreateAnimationTargetIds,
-    create_players: CreateAnimationPlayers,
+    /// Decides if the loader will create [`AnimationTargetId`] components.
+    ///
+    /// [`AnimationTargetId`]: bevy_animation::AnimationTargetId
+    pub create_target_ids: CreateAnimationTargetIds,
+    /// Decides if the loader will create [`AnimationPlayer`] and [`AnimatedBy`]
+    /// components.
+    ///
+    /// [`AnimatedBy`]: bevy_animation::AnimatedBy
+    /// [`AnimationPlayer`]: bevy_animation::AnimationPlayer
+    pub create_players: CreateAnimationPlayers,
 }
 
 /// Adds support for glTF file loading to the app.
