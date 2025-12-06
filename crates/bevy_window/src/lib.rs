@@ -53,6 +53,8 @@ impl Default for WindowPlugin {
         WindowPlugin {
             primary_window: Some(Window::default()),
             primary_cursor_options: Some(CursorOptions::default()),
+            #[cfg(feature = "custom_window_icon")]
+            primary_window_icon: Some(WindowIcon::default()),
             exit_condition: ExitCondition::OnAllClosed,
             close_when_requested: true,
         }
@@ -71,6 +73,12 @@ pub struct WindowPlugin {
     /// Note that if there are no windows the App will exit (by default) due to
     /// [`exit_on_all_closed`].
     pub primary_window: Option<Window>,
+
+    /// Default [`WindowIcon`] component for the primary window entity.
+    ///
+    /// Has no effect if [`WindowPlugin::primary_window`] is `None`.
+    #[cfg(feature = "custom_window_icon")]
+    pub primary_window_icon: Option<WindowIcon>,
 
     /// Settings for the cursor on the primary window.
     ///
@@ -132,6 +140,10 @@ impl Plugin for WindowPlugin {
             ));
             if let Some(primary_cursor_options) = &self.primary_cursor_options {
                 entity_commands.insert(primary_cursor_options.clone());
+            }
+            #[cfg(feature = "custom_window_icon")]
+            if let Some(primary_window_icon) = &self.primary_window_icon {
+                entity_commands.insert(primary_window_icon.clone());
             }
         }
 

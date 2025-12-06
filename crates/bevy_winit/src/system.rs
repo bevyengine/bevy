@@ -53,6 +53,8 @@ use crate::{
 
 #[cfg(feature = "custom_window_icon")]
 use crate::winit_window_icon::create_winit_window_icon_from_bevy_image;
+#[cfg(feature = "custom_window_icon")]
+use crate::winit_window_icon::create_winit_window_icon_using_platform_mechanism;
 
 /// Creates new windows on the [`winit`] backend for each entity with a newly-added
 /// [`Window`] component.
@@ -98,31 +100,48 @@ pub fn create_windows<F: QueryFilter + 'static>(
                 info!("Creating new window {} ({})", window.title.as_str(), entity);
 
                 #[cfg(feature = "custom_window_icon")]
-                let winit_window_icon = if let Some(window_icon) = window_icon {
-                    if let Some(image) = assets.get(&window_icon.handle) {
-                        match create_winit_window_icon_from_bevy_image(image.clone()) {
-                            Some(icon) => Some(icon),
-                            None => {
+                let winit_window_icon = match window_icon {
+                    Some(WindowIcon::Image(window_icon_image_handle)) => {
+                        if let Some(image) = assets.get(window_icon_image_handle) {
+                            match create_winit_window_icon_from_bevy_image(image.clone()) {
+                                Ok(icon) => Some(icon),
+                                Err(error) => {
+                                    warn!(
+                                        %error,
+                                        ?entity,
+                                        ?window,
+                                        ?window_icon_image_handle,
+                                        "Could not set winit window icon during winit window creation: failed to create winit window icon"
+                                    );
+                                    None
+                                }
+                            }
+                        } else {
+                            debug!(
+                                ?entity,
+                                ?window,
+                                ?window_icon_image_handle,
+                                "Could not set winit window icon during winit window creation: image asset not found - will try again when the asset is ready"
+                            );
+                            None
+                        }
+                    },
+                    Some(WindowIcon::PlatformSpecific(window_icon_source)) => {
+                        match create_winit_window_icon_using_platform_mechanism(window_icon_source) {
+                            Ok(icon) => Some(icon),
+                            Err(error) => {
                                 warn!(
+                                    %error,
                                     ?entity,
                                     ?window,
                                     ?window_icon,
-                                    "Could not set winit window icon during winit window creation: failed to create winit window icon"
+                                    "Could not set winit window icon during winit window creation: failed to create winit window icon using platform mechanism"
                                 );
                                 None
                             }
                         }
-                    } else {
-                        debug!(
-                            ?entity,
-                            ?window,
-                            ?window_icon,
-                            "Could not set winit window icon during winit window creation: image asset not found - will try again when the asset is ready"
-                        );
-                        None
                     }
-                } else {
-                    None
+                    Some(WindowIcon::PlatformDefault) | None => None,
                 };
 
                 let winit_window = winit_windows.create_window(
@@ -712,7 +731,7 @@ pub(crate) fn changed_window_icon_asset(
     for event in asset_messages.read() {
         if let AssetEvent::LoadedWithDependencies { id } | AssetEvent::Modified { id } = event {
             for (entity, window_icon) in &windows {
-                if window_icon.handle.id() == *id {
+                if matches!(window_icon, WindowIcon::Image(handle) if handle.id() == *id) {
                     commands.entity(entity).insert(WindowIconRefreshNeeded);
                 }
             }
@@ -746,36 +765,61 @@ pub(crate) fn set_winit_window_icon(
                 continue;
             };
 
-            // Identify the image asset
-            let Some(image) = assets.get(&window_icon.handle) else {
-                debug!(
-                    ?window_entity,
-                    ?window,
-                    ?window_icon,
-                    "Could not set winit window icon: image asset not found - will try again when the asset is ready"
-                );
-                continue;
-            };
+            // Determine winit icon
+            let winit_window_icon = match window_icon {
+                WindowIcon::Image(handle) => {
+                    // Identify the image asset
+                    let Some(image) = assets.get(handle) else {
+                        debug!(
+                            ?window_entity,
+                            ?window,
+                            ?window_icon,
+                            "Could not set winit window icon: image asset not found - will try again when the asset is ready"
+                        );
+                        continue;
+                    };
 
-            // Convert to winit icon
-            let Some(icon) = create_winit_window_icon_from_bevy_image(image.clone()) else {
-                warn!(
-                    ?window_entity,
-                    ?window,
-                    ?window_icon,
-                    "Could not set winit window icon: failed to create winit window icon"
-                );
-                continue;
+                    // Convert to winit icon
+                    match create_winit_window_icon_from_bevy_image(image.clone()) {
+                        Ok(icon) => Some(icon),
+                        Err(error) => {
+                            warn!(
+                                %error,
+                                ?window_entity,
+                                ?window,
+                                ?window_icon,
+                                "Could not set winit window icon: failed to create winit window icon from Bevy image asset"
+                            );
+                            continue;
+                        }
+                    }
+                },
+                WindowIcon::PlatformSpecific(window_icon_source) => {
+                    match create_winit_window_icon_using_platform_mechanism(window_icon_source) {
+                            Ok(icon) => Some(icon),
+                        Err(error) => {
+                            warn!(
+                                %error,
+                                ?window_entity,
+                                ?window,
+                                ?window_icon,
+                                "Could not set winit window icon: failed to create winit window icon from process executable"
+                            );
+                            continue;
+                        }
+                    }
+                },
+                WindowIcon::PlatformDefault => None,
             };
 
             // Set the window icon
             debug!(
                 ?window_entity,
                 ?window.title,
-                ?window_icon.handle,
+                ?window_icon,
                 "Setting window icon"
             );
-            winit_window.set_window_icon(Some(icon));
+            winit_window.set_window_icon(winit_window_icon);
         }
     });
 }

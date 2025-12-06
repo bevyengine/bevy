@@ -208,9 +208,9 @@ fn init_window_icon(
     let icon_handle = asset_server.load("branding/icon.png");
     #[cfg(feature = "bevy_log")]
     info!("icon_handle: {:?}", icon_handle);
-    commands.entity(*window).insert(WindowIcon {
-        handle: icon_handle,
-    });
+    commands
+        .entity(*window)
+        .insert(WindowIcon::Image(icon_handle));
 
     // window icon can be different for each window
     commands.spawn((
@@ -219,9 +219,7 @@ fn init_window_icon(
             resolution: (300, 200).into(),
             ..default()
         },
-        WindowIcon {
-            handle: asset_server.load("textures/rpg/props/generic-rpg-tree02.png"),
-        },
+        WindowIcon::Image(asset_server.load("textures/rpg/props/generic-rpg-tree02.png")),
     ));
 }
 
