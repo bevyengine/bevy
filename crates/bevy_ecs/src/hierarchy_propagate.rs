@@ -60,9 +60,10 @@ use crate::{
     entity::Entity,
     hierarchy::{ChildOf, Children},
     lifecycle::RemovedComponents,
-    prelude::*,
     system::ParamSet,
 };
+#[cfg(feature = "std")]
+use crate::prelude::*;
 #[cfg(feature = "std")]
 pub use parallel::hierarchy_propagate_complex;
 #[cfg(not(feature = "std"))]
@@ -150,7 +151,7 @@ mod serial {
     use alloc::vec::Vec;
     use bevy_ecs::prelude::*;
 
-    /// Update [`T::Output`] component of entities based on entity hierarchy and [`T::Input`]
+    /// Update `T::Output` component of entities based on entity hierarchy and `T::Input`
     /// component.
     ///
     /// Third party plugins should ensure that this is used in concert with
@@ -312,7 +313,7 @@ pub mod parallel {
         Mutex,
     };
 
-    /// Update [`T::Output`] component of entities based on entity hierarchy and [`T::Input`]
+    /// Update `T::Output` component of entities based on entity hierarchy and `T::Input`
     /// component.
     ///
     /// Third party plugins should ensure that this is used in concert with
@@ -381,7 +382,7 @@ pub mod parallel {
     }
 
     /// A parallel worker that will consume processed parent entities from the queue, and push
-    /// children to the queue once it has propagated their [`T::Output`].
+    /// children to the queue once it has propagated their `T::Output`.
     #[inline]
     fn propagation_worker<T: DownPropagate + 'static>(
         queue: &WorkQueue,
