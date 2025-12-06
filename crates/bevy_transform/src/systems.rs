@@ -1,5 +1,11 @@
 use crate::components::{GlobalTransform, Transform, TransformTreeChanged};
-use bevy_ecs::{prelude::*, hierarchy_propagate::{hierarchy_propagate_simple, mark_dirty_trees as mark_dirty_trees_generic, hierarchy_propagate_complex, DownPropagate}};
+use bevy_ecs::{
+    hierarchy_propagate::{
+        hierarchy_propagate_complex, hierarchy_propagate_simple,
+        mark_dirty_trees as mark_dirty_trees_generic, DownPropagate,
+    },
+    prelude::*,
+};
 
 // Transform propagation implementation
 #[derive(Component)]
@@ -9,11 +15,11 @@ impl DownPropagate for TransformPropagate {
     type Input = Transform;
     type Output = GlobalTransform;
     type TreeChanged = TransformTreeChanged;
-    
+
     fn down_propagate(parent: &GlobalTransform, input: &Transform) -> GlobalTransform {
         *parent * *input
     }
-    
+
     fn input_to_output(input: &Transform) -> GlobalTransform {
         GlobalTransform::from(*input)
     }
@@ -74,7 +80,7 @@ pub fn propagate_parent_transforms(
         transform_query,
         child_query,
         orphaned_entities,
-)
+    )
 }
 
 /// Update [`GlobalTransform`] component of entities based on entity hierarchy and [`Transform`]
@@ -83,7 +89,7 @@ pub fn propagate_parent_transforms(
 /// This is now implemented using the generic hierarchy propagation framework.
 /// For direct usage, consider using `hierarchy_propagate_complex::<TransformPropagate>` instead.
 #[cfg(feature = "std")]
-use bevy_ecs::hierarchy_propagate::parallel::{WorkQueue, NodeQuery};
+use bevy_ecs::hierarchy_propagate::parallel::{NodeQuery, WorkQueue};
 #[cfg(feature = "std")]
 pub fn propagate_parent_transforms(
     mut queue: Local<WorkQueue>,
