@@ -1,6 +1,10 @@
 #[cfg(feature = "std")]
 use alloc::format;
 use alloc::{borrow::ToOwned, string::String};
+#[cfg(feature = "custom_window_icon")]
+use bevy_asset::Handle;
+#[cfg(feature = "custom_window_icon")]
+use bevy_image::Image;
 use core::num::NonZero;
 
 use bevy_ecs::{
@@ -774,6 +778,19 @@ impl Default for CursorOptions {
             hit_test: true,
         }
     }
+}
+
+/// Icon data for a [`Window`].
+#[derive(Component, Debug, Clone, Default)]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Component, Debug, Default, Clone)
+)]
+#[cfg(feature = "custom_window_icon")]
+pub struct WindowIcon {
+    /// Handle to the asset to be read into the window icon.
+    pub handle: Handle<Image>,
 }
 
 /// Defines where a [`Window`] should be placed on the screen.
