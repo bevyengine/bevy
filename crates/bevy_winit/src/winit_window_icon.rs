@@ -5,7 +5,10 @@ use bevy_window::WindowIconSource;
 use winit::window::BadIcon;
 pub use winit::window::Icon;
 
-#[allow(clippy::allow_attributes, reason = "The unused variants detection is tricky so instead of `expect` we use `allow` here.")]
+#[allow(
+    clippy::allow_attributes,
+    reason = "The unused variants detection is tricky so instead of `expect` we use `allow` here."
+)]
 #[allow(
     dead_code,
     reason = "Bevy only supports custom window icons for Windows at this time. The variants that are dead code here depend on the platform."
