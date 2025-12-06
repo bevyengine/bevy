@@ -1,5 +1,5 @@
 ---
-title: UI per text section picking
+title: "UI per text section picking"
 authors: ["@ickshonpe"]
 pull_requests: [22047]
 ---
