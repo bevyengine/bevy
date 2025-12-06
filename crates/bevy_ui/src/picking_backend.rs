@@ -212,7 +212,7 @@ pub fn ui_picking(
                 if let Some((text_layout_info, text_block)) = node.text_node {
                     if let Some(text_entity) = pick_ui_text_section(
                         &node.node,
-                        &node.transform,
+                        node.transform,
                         *cursor_position,
                         text_layout_info,
                         text_block,
