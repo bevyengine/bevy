@@ -1073,9 +1073,7 @@ mod debug_outlines {
 mod viewport_coords {
     use bevy::{color::palettes::css::*, prelude::*};
 
-    const PALETTE: [Srgba; 9] = [
-        RED, WHITE, BEIGE, AQUA, CRIMSON, NAVY, AZURE, LIME, BLACK,
-    ];
+    const PALETTE: [Srgba; 9] = [RED, WHITE, BEIGE, AQUA, CRIMSON, NAVY, AZURE, LIME, BLACK];
 
     pub fn setup(mut commands: Commands) {
         commands.spawn((Camera2d, DespawnOnExit(super::Scene::ViewportCoords)));
