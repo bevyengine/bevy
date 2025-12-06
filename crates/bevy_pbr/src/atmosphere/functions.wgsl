@@ -14,6 +14,7 @@
         distance_to_top_atmosphere_boundary, distance_to_bottom_atmosphere_boundary
     },
 }
+#import bevy_pbr::mesh_view_types::DIRECTIONAL_LIGHT_FLAGS_ATMOSPHERIC_SCATTERING_BIT
 
 // NOTE FOR CONVENTIONS: 
 // r:
@@ -210,24 +211,26 @@ fn sample_local_inscattering(local_scattering: vec3<f32>, ray_dir: vec3<f32>, wo
     for (var light_i: u32 = 0u; light_i < lights.n_directional_lights; light_i++) {
         let light = &lights.directional_lights[light_i];
 
-        let mu_light = dot((*light).direction_to_light, local_up);
+        if (light.flags & DIRECTIONAL_LIGHT_FLAGS_ATMOSPHERIC_SCATTERING_BIT) != 0 {
+            let mu_light = dot((*light).direction_to_light, local_up);
 
-        // -(L . V) == (L . -V). -V here is our ray direction, which points away from the view
-        // instead of towards it (as is the convention for V)
-        let neg_LdotV = dot((*light).direction_to_light, ray_dir);
+            // -(L . V) == (L . -V). -V here is our ray direction, which points away from the view
+            // instead of towards it (as is the convention for V)
+            let neg_LdotV = dot((*light).direction_to_light, ray_dir);
 
-        let transmittance_to_light = sample_transmittance_lut(local_r, mu_light);
-        let shadow_factor = transmittance_to_light * f32(!ray_intersects_ground(local_r, mu_light));
-        let scattering_coeff = sample_scattering_lut(local_r, neg_LdotV);
+            let transmittance_to_light = sample_transmittance_lut(local_r, mu_light);
+            let shadow_factor = transmittance_to_light * f32(!ray_intersects_ground(local_r, mu_light));
+            let scattering_coeff = sample_scattering_lut(local_r, neg_LdotV);
 
-        // Transmittance from scattering event to light source
-        let scattering_factor = shadow_factor * scattering_coeff;
+            // Transmittance from scattering event to light source
+            let scattering_factor = shadow_factor * scattering_coeff;
 
-        // Additive factor from the multiscattering LUT
-        let psi_ms = sample_multiscattering_lut(local_r, mu_light);
-        let multiscattering_factor = psi_ms * local_scattering;
+            // Additive factor from the multiscattering LUT
+            let psi_ms = sample_multiscattering_lut(local_r, mu_light);
+            let multiscattering_factor = psi_ms * local_scattering;
 
-        inscattering += (*light).color.rgb * (scattering_factor + multiscattering_factor);
+            inscattering += (*light).color.rgb * (scattering_factor + multiscattering_factor);
+        }
     }
     return inscattering;
 }
@@ -241,15 +244,18 @@ fn sample_sun_radiance(ray_dir_ws: vec3<f32>) -> vec3<f32> {
     var sun_radiance = vec3(0.0);
     for (var light_i: u32 = 0u; light_i < lights.n_directional_lights; light_i++) {
         let light = &lights.directional_lights[light_i];
-        let neg_LdotV = dot((*light).direction_to_light, ray_dir_ws);
-        let angle_to_sun = fast_acos(clamp(neg_LdotV, -1.0, 1.0));
-        let w = max(0.5 * fwidth(angle_to_sun), 1e-6);
-        let sun_angular_size = (*light).sun_disk_angular_size;
-        let sun_intensity = (*light).sun_disk_intensity;
-        if sun_angular_size > 0.0 && sun_intensity > 0.0 {
-            let factor = 1 - smoothstep(sun_angular_size * 0.5 - w, sun_angular_size * 0.5 + w, angle_to_sun);
-            let sun_solid_angle = (sun_angular_size * sun_angular_size) * 0.25 * PI;
-            sun_radiance += ((*light).color.rgb / sun_solid_angle) * sun_intensity * factor * shadow_factor;
+
+        if (light.flags & DIRECTIONAL_LIGHT_FLAGS_ATMOSPHERIC_SCATTERING_BIT) != 0 {
+            let neg_LdotV = dot((*light).direction_to_light, ray_dir_ws);
+            let angle_to_sun = fast_acos(clamp(neg_LdotV, -1.0, 1.0));
+            let w = max(0.5 * fwidth(angle_to_sun), 1e-6);
+            let sun_angular_size = (*light).sun_disk_angular_size;
+            let sun_intensity = (*light).sun_disk_intensity;
+            if sun_angular_size > 0.0 && sun_intensity > 0.0 {
+                let factor = 1 - smoothstep(sun_angular_size * 0.5 - w, sun_angular_size * 0.5 + w, angle_to_sun);
+                let sun_solid_angle = (sun_angular_size * sun_angular_size) * 0.25 * PI;
+                sun_radiance += ((*light).color.rgb / sun_solid_angle) * sun_intensity * factor * shadow_factor;
+            }
         }
     }
     return sun_radiance;
@@ -491,18 +497,21 @@ fn raymarch_atmosphere(
     if ground && ray_intersects_ground(r, mu) {
         for (var light_i: u32 = 0u; light_i < lights.n_directional_lights; light_i++) {
             let light = &lights.directional_lights[light_i];
-            let light_dir = (*light).direction_to_light;
-            let light_color = (*light).color.rgb;
-            let transmittance_to_ground = exp(-optical_depth);
-            // position on the sphere and get the sphere normal (up)
-            let sphere_point = pos + ray_dir * t_end;
-            let sphere_normal = normalize(sphere_point);
-            let mu_light = dot(light_dir, sphere_normal);
-            let transmittance_to_light = sample_transmittance_lut(0.0, mu_light);
-            let light_luminance = transmittance_to_light * max(mu_light, 0.0) * light_color;
-            // Normalized Lambert BRDF
-            let ground_luminance = transmittance_to_ground * atmosphere.ground_albedo / PI;
-            result.inscattering += ground_luminance * light_luminance;
+
+            if (light.flags & DIRECTIONAL_LIGHT_FLAGS_ATMOSPHERIC_SCATTERING_BIT) != 0 {
+                let light_dir = (*light).direction_to_light;
+                let light_color = (*light).color.rgb;
+                let transmittance_to_ground = exp(-optical_depth);
+                // position on the sphere and get the sphere normal (up)
+                let sphere_point = pos + ray_dir * t_end;
+                let sphere_normal = normalize(sphere_point);
+                let mu_light = dot(light_dir, sphere_normal);
+                let transmittance_to_light = sample_transmittance_lut(0.0, mu_light);
+                let light_luminance = transmittance_to_light * max(mu_light, 0.0) * light_color;
+                // Normalized Lambert BRDF
+                let ground_luminance = transmittance_to_ground * atmosphere.ground_albedo / PI;
+                result.inscattering += ground_luminance * light_luminance;
+            }
         }
     }
 
