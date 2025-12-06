@@ -1073,8 +1073,8 @@ mod debug_outlines {
 mod viewport_coords {
     use bevy::{color::palettes::css::*, prelude::*};
 
-    const PALETTE: [Srgba; 10] = [
-        RED, YELLOW, WHITE, BEIGE, AQUA, CRIMSON, NAVY, AZURE, LIME, BLACK,
+    const PALETTE: [Srgba; 9] = [
+        RED, WHITE, BEIGE, AQUA, CRIMSON, NAVY, AZURE, LIME, BLACK,
     ];
 
     pub fn setup(mut commands: Commands) {
@@ -1099,8 +1099,8 @@ mod viewport_coords {
                         border: UiRect::all(vmin(5)),
                         ..default()
                     },
-                    BackgroundColor(PALETTE[2].into()),
-                    BorderColor::all(PALETTE[9]),
+                    BackgroundColor(PALETTE[1].into()),
+                    BorderColor::all(PALETTE[8]),
                 ));
 
                 builder.spawn((
@@ -1109,7 +1109,7 @@ mod viewport_coords {
                         height: vh(30),
                         ..default()
                     },
-                    BackgroundColor(PALETTE[3].into()),
+                    BackgroundColor(PALETTE[2].into()),
                 ));
 
                 builder.spawn((
@@ -1119,8 +1119,8 @@ mod viewport_coords {
                         border: UiRect::left(vmax(45. / 2.)),
                         ..default()
                     },
-                    BackgroundColor(PALETTE[4].into()),
-                    BorderColor::all(PALETTE[8]),
+                    BackgroundColor(PALETTE[3].into()),
+                    BorderColor::all(PALETTE[7]),
                 ));
 
                 builder.spawn((
@@ -1130,8 +1130,8 @@ mod viewport_coords {
                         border: UiRect::right(vmax(45. / 2.)),
                         ..default()
                     },
-                    BackgroundColor(PALETTE[5].into()),
-                    BorderColor::all(PALETTE[8]),
+                    BackgroundColor(PALETTE[4].into()),
+                    BorderColor::all(PALETTE[7]),
                 ));
 
                 builder.spawn((
@@ -1140,7 +1140,7 @@ mod viewport_coords {
                         height: vh(30),
                         ..default()
                     },
-                    BackgroundColor(PALETTE[6].into()),
+                    BackgroundColor(PALETTE[5].into()),
                 ));
 
                 builder.spawn((
@@ -1150,8 +1150,8 @@ mod viewport_coords {
                         border: UiRect::all(vmin(5)),
                         ..default()
                     },
-                    BackgroundColor(PALETTE[7].into()),
-                    BorderColor::all(PALETTE[9]),
+                    BackgroundColor(PALETTE[6].into()),
+                    BorderColor::all(PALETTE[8]),
                 ));
             });
     }
