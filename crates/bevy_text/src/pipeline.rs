@@ -105,8 +105,6 @@ impl TextPipeline {
 
         // Collect span information into a vec. This is necessary because font loading requires mut access
         // to FontSystem, which the cosmic-text Buffer also needs.
-        let mut max_font_size: f32 = 0.;
-        let mut max_line_height: f32 = 0.0;
         let mut spans: Vec<(usize, &str, &TextFont, FontFaceInfo, Color, LineHeight)> =
             core::mem::take(&mut self.spans_buffer)
                 .into_iter()
@@ -147,10 +145,6 @@ impl TextPipeline {
                 return Err(TextError::NoSuchFont);
             }
 
-            // Get max font size for use in cosmic Metrics.
-            max_font_size = max_font_size.max(text_font.font_size);
-            max_line_height = max_line_height.max(line_height.eval(text_font.font_size));
-
             // Load Bevy fonts into cosmic-text's font system.
             let face_info = load_font_to_fontdb(
                 text_font,
@@ -169,13 +163,6 @@ impl TextPipeline {
             }
             spans.push((span_index, span, text_font, face_info, color, line_height));
         }
-
-        let mut metrics = Metrics::new(max_font_size, max_line_height).scale(scale_factor as f32);
-        // Metrics of 0.0 cause `Buffer::set_metrics` to panic. We hack around this by 'falling
-        // through' to call `Buffer::set_rich_text` with zero spans so any cached text will be cleared without
-        // deallocating the buffer.
-        metrics.font_size = metrics.font_size.max(0.000001);
-        metrics.line_height = metrics.line_height.max(0.000001);
 
         // Map text sections to cosmic-text spans, and ignore sections with negative or zero fontsizes,
         // since they cannot be rendered by cosmic-text.
@@ -201,7 +188,7 @@ impl TextPipeline {
 
         // Update the buffer.
         let buffer = &mut computed.buffer;
-        buffer.set_metrics_and_size(font_system, metrics, bounds.width, bounds.height);
+        buffer.set_size(font_system, bounds.width, bounds.height);
 
         buffer.set_wrap(
             font_system,
@@ -220,8 +207,6 @@ impl TextPipeline {
             Shaping::Advanced,
             Some(justify.into()),
         );
-
-        buffer.shape_until_scroll(font_system, false);
 
         // Workaround for alignment not working for unbounded text.
         // See https://github.com/pop-os/cosmic-text/issues/343
@@ -620,25 +605,23 @@ pub fn load_font_to_fontdb(
     map_handle_to_font_id: &mut HashMap<AssetId<Font>, (cosmic_text::fontdb::ID, Arc<str>)>,
     fonts: &Assets<Font>,
 ) -> FontFaceInfo {
-    let font_handle = text_font.font.clone();
-    let (face_id, family_name) = map_handle_to_font_id
-        .entry(font_handle.id())
-        .or_insert_with(|| {
-            let font = fonts.get(font_handle.id()).expect(
-                "Tried getting a font that was not available, probably due to not being loaded yet",
-            );
-            let data = Arc::clone(&font.data);
-            let ids = font_system
-                .db_mut()
-                .load_font_source(cosmic_text::fontdb::Source::Binary(data));
+    let font_id = text_font.font.id();
+    let (face_id, family_name) = map_handle_to_font_id.entry(font_id).or_insert_with(|| {
+        let font = fonts.get(font_id).expect(
+            "Tried getting a font that was not available, probably due to not being loaded yet",
+        );
+        let data = Arc::clone(&font.data);
+        let ids = font_system
+            .db_mut()
+            .load_font_source(cosmic_text::fontdb::Source::Binary(data));
 
-            // TODO: it is assumed this is the right font face
-            let face_id = *ids.last().unwrap();
-            let face = font_system.db().face(face_id).unwrap();
+        // TODO: it is assumed this is the right font face
+        let face_id = *ids.last().unwrap();
+        let face = font_system.db().face(face_id).unwrap();
 
-            let family_name = Arc::from(face.families[0].0.as_str());
-            (face_id, family_name)
-        });
+        let family_name = Arc::from(face.families[0].0.as_str());
+        (face_id, family_name)
+    });
 
     let face = font_system.db().face(*face_id).unwrap();
 
@@ -678,13 +661,12 @@ fn get_attrs<'a>(
 
 /// Calculate the size of the text area for the given buffer.
 fn buffer_dimensions(buffer: &Buffer) -> Vec2 {
-    let (width, height) = buffer
-        .layout_runs()
-        .map(|run| (run.line_w, run.line_height))
-        .reduce(|(w1, h1), (w2, h2)| (w1.max(w2), h1 + h2))
-        .unwrap_or((0.0, 0.0));
-
-    Vec2::new(width, height).ceil()
+    let mut size = Vec2::ZERO;
+    for run in buffer.layout_runs() {
+        size.x = size.x.max(run.line_w);
+        size.y += run.line_height;
+    }
+    size.ceil()
 }
 
 /// Discards stale data cached in `FontSystem`.
