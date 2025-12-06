@@ -1,7 +1,4 @@
-use bevy::{
-    prelude::*,
-    window::{WindowIcon, WindowIconSource},
-};
+use bevy::{prelude::*, window::WindowIcon};
 
 fn main() {
     App::new()
@@ -13,7 +10,7 @@ fn main() {
             primary_window_icon: Some({
                 #[cfg(target_os = "windows")]
                 {
-                    WindowIcon::PlatformSpecific(WindowIconSource::ResourceName(
+                    WindowIcon::PlatformSpecific(bevy::window::WindowIconSource::ResourceName(
                         "aaa_my_icon".to_string(),
                     ))
                 }
