@@ -93,7 +93,7 @@ pub struct NodeQuery {
     pickable: Option<&'static Pickable>,
     inherited_visibility: Option<&'static InheritedVisibility>,
     target_camera: &'static ComputedUiTargetCamera,
-    maybe_text_node: Option<(&'static TextLayoutInfo, &'static ComputedTextBlock)>,
+    text_node: Option<(&'static TextLayoutInfo, &'static ComputedTextBlock)>,
 }
 
 /// Computes the UI node entities under each pointer.
@@ -110,6 +110,7 @@ pub fn ui_picking(
     mut output: MessageWriter<PointerHits>,
     clipping_query: Query<(&ComputedNode, &UiGlobalTransform, &Node)>,
     child_of_query: Query<&ChildOf, Without<OverrideClip>>,
+    pickable_query: Query<&Pickable>,
 ) {
     // Map from each camera to its active pointers and their positions in viewport space
     let mut pointer_pos_by_camera = HashMap::<Entity, HashMap<PointerId, Vec2>>::default();
@@ -154,7 +155,7 @@ pub fn ui_picking(
     }
 
     // The list of node entities hovered for each (camera, pointer) combo
-    let mut hit_nodes = HashMap::<(Entity, PointerId), Vec<(Entity, Vec2)>>::default();
+    let mut hit_nodes = HashMap::<(Entity, PointerId), Vec<(Entity, Entity, Vec2)>>::default();
 
     // prepare an iterator that contains all the nodes that have the cursor in their rect,
     // from the top node to the bottom one. this will also reset the interaction to `None`
@@ -184,7 +185,8 @@ pub fn ui_picking(
                 continue;
             };
 
-            if settings.require_markers && node.pickable.is_none() {
+            // Nodes with Display::None have a (0., 0.) logical rect and can be ignored
+            if node.node.size() == Vec2::ZERO {
                 continue;
             }
 
@@ -197,8 +199,8 @@ pub fn ui_picking(
                 continue;
             }
 
-            // Nodes with Display::None have a (0., 0.) logical rect and can be ignored
-            if node.node.size() == Vec2::ZERO {
+            // If this is a text node, need to do this check per section.
+            if node.text_node.is_none() && settings.require_markers && node.pickable.is_none() {
                 continue;
             }
 
@@ -207,20 +209,29 @@ pub fn ui_picking(
             // Coordinates are relative to the entire node, not just the visible region.
             for (pointer_id, cursor_position) in pointers_on_this_cam.iter().flat_map(|h| h.iter())
             {
-                let contains_point =
-                    if let Some((text_layout_info, text_block)) = node.maybe_text_node {
-                        pick_ui_text(
-                            &node.node,
-                            &node.transform,
-                            *cursor_position,
-                            text_layout_info,
-                            text_block,
-                        )
-                        .is_some()
-                    } else {
-                        node.node.contains_point(*node.transform, *cursor_position)
-                    };
-                if contains_point
+                if let Some((text_layout_info, text_block)) = node.text_node {
+                    if let Some(text_entity) = pick_ui_text_section(
+                        &node.node,
+                        &node.transform,
+                        *cursor_position,
+                        text_layout_info,
+                        text_block,
+                    ) {
+                        if settings.require_markers && !pickable_query.contains(text_entity) {
+                            continue;
+                        }
+
+                        hit_nodes
+                            .entry((camera_entity, *pointer_id))
+                            .or_default()
+                            .push((
+                                text_entity,
+                                camera_entity,
+                                node.transform.inverse().transform_point2(*cursor_position)
+                                    / node.node.size(),
+                            ));
+                    }
+                } else if node.node.contains_point(*node.transform, *cursor_position)
                     && clip_check_recursive(
                         *cursor_position,
                         node_entity,
@@ -233,6 +244,7 @@ pub fn ui_picking(
                         .or_default()
                         .push((
                             node_entity,
+                            camera_entity,
                             node.transform.inverse().transform_point2(*cursor_position)
                                 / node.node.size(),
                         ));
@@ -247,19 +259,13 @@ pub fn ui_picking(
         let mut picks = Vec::new();
         let mut depth = 0.0;
 
-        for (hovered_node, position) in hovered {
-            let node = node_query.get(*hovered_node).unwrap();
-
-            let Some(camera_entity) = node.target_camera.get() else {
-                continue;
-            };
-
+        for (hovered_node, camera_entity, position) in hovered {
             picks.push((
-                node.entity,
-                HitData::new(camera_entity, depth, Some(position.extend(0.0)), None),
+                *hovered_node,
+                HitData::new(*camera_entity, depth, Some(position.extend(0.0)), None),
             ));
 
-            if let Some(pickable) = node.pickable {
+            if let Ok(pickable) = pickable_query.get(*hovered_node) {
                 // If an entity has a `Pickable` component, we will use that as the source of truth.
                 if pickable.should_block_lower {
                     break;
@@ -282,7 +288,7 @@ pub fn ui_picking(
     }
 }
 
-fn pick_ui_text(
+fn pick_ui_text_section(
     uinode: &ComputedNode,
     global_transform: &UiGlobalTransform,
     point: Vec2,
@@ -291,7 +297,7 @@ fn pick_ui_text(
 ) -> Option<Entity> {
     let Some(local_point) = global_transform
         .try_inverse()
-        .map(|transform| transform.transform_point2(point) - 0.5 * uinode.size())
+        .map(|transform| transform.transform_point2(point) + 0.5 * uinode.size())
     else {
         return None;
     };
