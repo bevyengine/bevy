@@ -69,7 +69,7 @@ fn setup(mut commands: Commands) {
                             .observe(
                                 |event: On<Pointer<Out>>, mut query: Query<&mut TextColor>| {
                                     if let Ok(mut text_color) = query.get_mut(event.entity) {
-                                        text_color.0 = bevy::color::palettes::css::BLACK.into();
+                                        text_color.0 = Color::BLACK;
                                     }
                                 },
                             );
