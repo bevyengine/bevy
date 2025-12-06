@@ -1,7 +1,13 @@
 use crate::components::{GlobalTransform, Transform, TransformTreeChanged};
-use bevy_ecs::{prelude::*, hierarchy_propagate::{hierarchy_propagate_simple, mark_dirty_trees as mark_dirty_trees_generic, hierarchy_propagate_complex, DownPropagate}};
+use bevy_ecs::{
+    hierarchy_propagate::{
+        hierarchy_propagate_complex, hierarchy_propagate_simple,
+        mark_dirty_trees as mark_dirty_trees_generic, DownPropagate,
+    },
+    prelude::*,
+};
 
-// Transform propagation implementation
+/// Transform propagation implementation
 #[derive(Component)]
 pub struct TransformPropagate;
 
@@ -9,11 +15,11 @@ impl DownPropagate for TransformPropagate {
     type Input = Transform;
     type Output = GlobalTransform;
     type TreeChanged = TransformTreeChanged;
-    
+
     fn down_propagate(parent: &GlobalTransform, input: &Transform) -> GlobalTransform {
         *parent * *input
     }
-    
+
     fn input_to_output(input: &Transform) -> GlobalTransform {
         GlobalTransform::from(*input)
     }
@@ -37,7 +43,7 @@ pub fn sync_simple_transforms(
     )>,
     orphaned: RemovedComponents<ChildOf>,
 ) {
-    hierarchy_propagate_simple::<TransformPropagate>(queries, orphaned)
+    hierarchy_propagate_simple::<TransformPropagate>(queries, orphaned);
 }
 
 /// Optimization for static scenes. Propagates a "dirty bit" up the hierarchy towards ancestors.
@@ -51,22 +57,27 @@ pub fn mark_dirty_trees(
     orphaned: RemovedComponents<ChildOf>,
     transforms: Query<(Option<&ChildOf>, &mut TransformTreeChanged)>,
 ) {
-    mark_dirty_trees_generic::<TransformPropagate>(changed_transforms, orphaned, transforms)
+    mark_dirty_trees_generic::<TransformPropagate>(changed_transforms, orphaned, transforms);
 }
 
 #[cfg(not(feature = "std"))]
+use alloc::vec::Vec;
+
+#[cfg(not(feature = "std"))]
+/// Update [`GlobalTransform`] component of entities based on entity hierarchy and [`Transform`]
+/// component.
+///
+/// Third party plugins should ensure that this is used in concert with
+/// [`sync_simple_transforms`] and [`mark_dirty_trees`].
 pub fn propagate_parent_transforms(
-    mut root_query: Query<
-        (Entity, &Children, Ref<Transform>, &mut GlobalTransform),
-        Without<ChildOf>,
-    >,
-    mut orphaned: RemovedComponents<ChildOf>,
+    root_query: Query<(Entity, &Children, Ref<Transform>, &mut GlobalTransform), Without<ChildOf>>,
+    orphaned: RemovedComponents<ChildOf>,
     transform_query: Query<
         (Ref<Transform>, &mut GlobalTransform, Option<&Children>),
         With<ChildOf>,
     >,
     child_query: Query<(Entity, Ref<ChildOf>), With<GlobalTransform>>,
-    mut orphaned_entities: Local<Vec<Entity>>,
+    orphaned_entities: Local<Vec<Entity>>,
 ) {
     hierarchy_propagate_complex::<TransformPropagate>(
         root_query,
@@ -74,26 +85,24 @@ pub fn propagate_parent_transforms(
         transform_query,
         child_query,
         orphaned_entities,
-)
+    )
 }
 
-/// Update [`GlobalTransform`] component of entities based on entity hierarchy and [`Transform`]
-/// component.
-///
-/// This is now implemented using the generic hierarchy propagation framework.
-/// For direct usage, consider using `hierarchy_propagate_complex::<TransformPropagate>` instead.
 #[cfg(feature = "std")]
-use bevy_ecs::hierarchy_propagate::parallel::{WorkQueue, NodeQuery};
+use bevy_ecs::hierarchy_propagate::parallel::{NodeQuery, WorkQueue};
+
 #[cfg(feature = "std")]
+/// Parallel hierarchy traversal with a batched work sharing scheduler. Often 2-5 times faster than
+/// the serial version.
 pub fn propagate_parent_transforms(
-    mut queue: Local<WorkQueue>,
-    mut roots: Query<
+    queue: Local<WorkQueue>,
+    roots: Query<
         (Entity, Ref<Transform>, &mut GlobalTransform, &Children),
         (Without<ChildOf>, Changed<TransformTreeChanged>),
     >,
     nodes: NodeQuery<'_, '_, TransformPropagate>,
 ) {
-    hierarchy_propagate_complex::<TransformPropagate>(queue, roots, nodes)
+    hierarchy_propagate_complex::<TransformPropagate>(queue, roots, nodes);
 }
 
 #[cfg(test)]
