@@ -50,9 +50,6 @@ use gltf::{
 };
 
 use serde::{Deserialize, Serialize};
-#[cfg(feature = "bevy_animation")]
-use smallvec::SmallVec;
-
 use thiserror::Error;
 use tracing::{error, info_span, warn};
 
@@ -60,6 +57,8 @@ use crate::{
     vertex_attributes::convert_attribute, Gltf, GltfAssetLabel, GltfExtras, GltfMaterialExtras,
     GltfMaterialName, GltfMeshExtras, GltfMeshName, GltfNode, GltfSceneExtras, GltfSkin,
 };
+#[cfg(feature = "bevy_animation")]
+use crate::{CreateAnimationPlayers, CreateAnimationTargetIds, GltfAnimationSettings};
 
 #[cfg(feature = "bevy_animation")]
 use self::gltf_ext::scene::collect_path;
@@ -160,6 +159,10 @@ pub struct GltfLoader {
     ///
     /// The default is `false`.
     pub default_use_model_forward_direction: bool,
+    /// The default animation settings. These can be be overridden per-load by
+    /// [`GltfLoaderSettings::animation_settings`].
+    #[cfg(feature = "bevy_animation")]
+    pub default_animation_settings: GltfAnimationSettings,
 }
 
 /// Specifies optional settings for processing gltfs at load time. By default, all recognized contents of
@@ -218,6 +221,12 @@ pub struct GltfLoaderSettings {
     ///
     /// If `None`, uses the global default set by [`GltfPlugin::use_model_forward_direction`](crate::GltfPlugin::use_model_forward_direction).
     pub use_model_forward_direction: Option<bool>,
+
+    /// Overrides the default animation settings.
+    ///
+    /// If `None`, uses the global default set by [`GltfPlugin::animation_settings`](crate::GltfPlugin::animation_settings).
+    #[cfg(feature = "bevy_animation")]
+    pub animation_settings: Option<GltfAnimationSettings>,
 }
 
 impl Default for GltfLoaderSettings {
@@ -232,6 +241,8 @@ impl Default for GltfLoaderSettings {
             default_sampler: None,
             override_sampler: false,
             use_model_forward_direction: None,
+            #[cfg(feature = "bevy_animation")]
+            animation_settings: Default::default(),
         }
     }
 }
@@ -963,10 +974,6 @@ impl GltfLoader {
                             &mut entity_to_skin_index_map,
                             &mut active_camera_found,
                             &Transform::default(),
-                            #[cfg(feature = "bevy_animation")]
-                            &animation_roots,
-                            #[cfg(feature = "bevy_animation")]
-                            None,
                             &gltf.document,
                             convert_coordinates,
                         );
@@ -988,15 +995,54 @@ impl GltfLoader {
                 return Err(err);
             }
 
+            // Create `AnimationPlayer`, `AnimatedBy`, and `AnimationTargetId`
+            // components.
             #[cfg(feature = "bevy_animation")]
             {
-                // for each node root in a scene, check if it's the root of an animation
-                // if it is, add the AnimationPlayer component
-                for node in scene.nodes() {
-                    if animation_roots.contains(&node.index()) {
-                        world
-                            .entity_mut(*node_index_to_entity_map.get(&node.index()).unwrap())
-                            .insert(AnimationPlayer::default());
+                let animation_settings = settings
+                    .animation_settings
+                    .unwrap_or(loader.default_animation_settings);
+
+                if animation_settings.create_target_ids != CreateAnimationTargetIds::Never {
+                    // Add `AnimationTargetId` and `AnimatedBy` components to
+                    // nodes, following the rules in `animation_settings`.
+                    for (node_index, &entity_id) in &node_index_to_entity_map {
+                        let (root_node_index, path) = paths.get(node_index).unwrap();
+
+                        if (animation_settings.create_target_ids
+                            == CreateAnimationTargetIds::Always)
+                            || animation_roots.contains(root_node_index)
+                        {
+                            let mut entity = world.entity_mut(entity_id);
+
+                            entity.insert(AnimationTargetId::from_names(path.iter()));
+
+                            if animation_settings.create_players
+                                == CreateAnimationPlayers::Automatically
+                            {
+                                entity.insert(AnimatedBy(
+                                    *node_index_to_entity_map.get(root_node_index).unwrap(),
+                                ));
+                            }
+                        }
+                    }
+
+                    if animation_settings.create_players == CreateAnimationPlayers::Automatically {
+                        // Add `AnimationPlayer` components to the root node of
+                        // hierarchies that we know contain `AnimationTargetId`
+                        // and `AnimatedBy` components.
+                        for node in scene.nodes() {
+                            if (animation_settings.create_target_ids
+                                == CreateAnimationTargetIds::Always)
+                                || animation_roots.contains(&node.index())
+                            {
+                                world
+                                    .entity_mut(
+                                        *node_index_to_entity_map.get(&node.index()).unwrap(),
+                                    )
+                                    .insert(AnimationPlayer::default());
+                            }
+                        }
                     }
                 }
             }
@@ -1409,8 +1455,6 @@ fn load_node(
     entity_to_skin_index_map: &mut EntityHashMap<usize>,
     active_camera_found: &mut bool,
     parent_transform: &Transform,
-    #[cfg(feature = "bevy_animation")] animation_roots: &HashSet<usize>,
-    #[cfg(feature = "bevy_animation")] mut animation_context: Option<AnimationContext>,
     document: &Document,
     convert_coordinates: bool,
 ) -> Result<(), GltfError> {
@@ -1428,25 +1472,6 @@ fn load_node(
 
     let name = node_name(gltf_node);
     node.insert(name.clone());
-
-    #[cfg(feature = "bevy_animation")]
-    if animation_context.is_none() && animation_roots.contains(&gltf_node.index()) {
-        // This is an animation root. Make a new animation context.
-        animation_context = Some(AnimationContext {
-            root: node.id(),
-            path: SmallVec::new(),
-        });
-    }
-
-    #[cfg(feature = "bevy_animation")]
-    if let Some(ref mut animation_context) = animation_context {
-        animation_context.path.push(name);
-
-        node.insert((
-            AnimationTargetId::from_names(animation_context.path.iter()),
-            AnimatedBy(animation_context.root),
-        ));
-    }
 
     if let Some(extras) = gltf_node.extras() {
         node.insert(GltfExtras {
@@ -1688,10 +1713,6 @@ fn load_node(
                 entity_to_skin_index_map,
                 active_camera_found,
                 &world_transform,
-                #[cfg(feature = "bevy_animation")]
-                animation_roots,
-                #[cfg(feature = "bevy_animation")]
-                animation_context.clone(),
                 document,
                 convert_coordinates,
             ) {
@@ -1879,18 +1900,6 @@ impl<'s> Iterator for PrimitiveMorphAttributesIter<'s> {
 
         Some(attributes)
     }
-}
-
-/// A helper structure for `load_node` that contains information about the
-/// nearest ancestor animation root.
-#[cfg(feature = "bevy_animation")]
-#[derive(Clone)]
-struct AnimationContext {
-    /// The nearest ancestor animation root.
-    pub root: Entity,
-    /// The path to the animation root. This is used for constructing the
-    /// animation target UUIDs.
-    pub path: SmallVec<[Name; 8]>,
 }
 
 #[derive(Deserialize)]
