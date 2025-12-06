@@ -55,13 +55,13 @@
 //! ```
 
 use crate::{
-    prelude::*,
     change_detection::{DetectChanges, DetectChangesMut},
     component::Mutable,
     entity::Entity,
     hierarchy::{ChildOf, Children},
     lifecycle::RemovedComponents,
-    system::ParamSet
+    prelude::*,
+    system::ParamSet,
 };
 #[cfg(feature = "std")]
 pub use parallel::hierarchy_propagate_complex;
@@ -638,7 +638,7 @@ pub trait DownPropagate: Component {
 
 #[cfg(test)]
 mod test {
-    use crate::{world::CommandQueue};
+    use crate::world::CommandQueue;
     use alloc::{vec, vec::Vec};
     use bevy_tasks::{ComputeTaskPool, TaskPool};
 
