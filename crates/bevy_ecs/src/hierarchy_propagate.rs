@@ -54,6 +54,8 @@
 //! }
 //! ```
 
+#[cfg(feature = "std")]
+use crate::prelude::*;
 use crate::{
     change_detection::{DetectChanges, DetectChangesMut},
     component::Mutable,
@@ -62,8 +64,6 @@ use crate::{
     lifecycle::RemovedComponents,
     system::ParamSet,
 };
-#[cfg(feature = "std")]
-use crate::prelude::*;
 #[cfg(feature = "std")]
 pub use parallel::hierarchy_propagate_complex;
 #[cfg(not(feature = "std"))]
