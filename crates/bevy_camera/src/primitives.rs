@@ -692,6 +692,7 @@ mod tests {
             aspect_ratio: 1.0,
             near: 1.0,
             far: 100.0,
+            ..PerspectiveProjection::default()
         };
         proj.compute_frustum(&GlobalTransform::from_translation(Vec3::new(2.0, 2.0, 0.0)))
     }
@@ -706,6 +707,7 @@ mod tests {
             near,
             far,
             fov,
+            ..PerspectiveProjection::default()
         };
         proj.compute_frustum(&GlobalTransform::IDENTITY)
     }

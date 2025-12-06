@@ -501,6 +501,10 @@ pub fn prepare_deferred_lighting_pipelines(
             view_key |= MeshPipelineKey::ATMOSPHERE;
         }
 
+        if view.invert_culling {
+            view_key |= MeshPipelineKey::INVERT_CULLING;
+        }
+
         // Always true, since we're in the deferred lighting pipeline
         view_key |= MeshPipelineKey::DEFERRED_PREPASS;
 

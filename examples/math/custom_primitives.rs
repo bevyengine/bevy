@@ -70,6 +70,7 @@ const PROJECTION_3D: Projection = Projection::Perspective(PerspectiveProjection 
     near: 0.1,
     far: 1000.0,
     aspect_ratio: 1.0,
+    near_clip_plane: vec4(0.0, 0.0, -1.0, -0.1),
 });
 
 /// State for tracking the currently displayed shape

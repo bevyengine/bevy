@@ -552,6 +552,7 @@ pub fn extract_cameras(
                         viewport_size.y,
                     ),
                     color_grading,
+                    invert_culling: camera.invert_culling,
                 },
                 render_visible_entities,
                 *frustum,
