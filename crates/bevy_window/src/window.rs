@@ -796,7 +796,6 @@ pub enum WindowIcon {
     #[default]
     PlatformDefault,
     /// Use an icon loaded using a platform-specific mechanism.
-    #[cfg(target_os = "windows")]
     PlatformSpecific(WindowIconSource),
 }
 
