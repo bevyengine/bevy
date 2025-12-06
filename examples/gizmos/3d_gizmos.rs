@@ -12,7 +12,14 @@ fn main() {
         .add_plugins((DefaultPlugins, FreeCameraPlugin))
         .init_gizmo_group::<MyRoundGizmos>()
         .add_systems(Startup, setup)
-        .add_systems(Update, (draw_example_collection, update_config))
+        .add_systems(
+            Update,
+            (
+                draw_example_collection,
+                update_config,
+                update_retained_gizmo_visibility,
+            ),
+        )
         .run();
 }
 
@@ -34,7 +41,7 @@ fn setup(
 
     // A sphere made out of 30_000 lines!
     gizmo
-        .sphere(Isometry3d::IDENTITY, 0.5, CRIMSON)
+        .sphere(Isometry3d::IDENTITY, 0.5, LIGHT_GOLDENROD_YELLOW)
         .resolution(30_000 / 3);
 
     commands.spawn((
@@ -82,6 +89,7 @@ fn setup(
             Hold 'Left' or 'Right' to change the line width of straight gizmos\n\
             Hold 'Up' or 'Down' to change the line width of round gizmos\n\
             Press '1' or '2' to toggle the visibility of straight gizmos or round gizmos\n\
+            Press '3' to toggle the visibility of retained gizmos\n\
             Press 'B' to show all AABB boxes\n\
             Press 'U' or 'I' to cycle through line styles for straight or round gizmos\n\
             Press 'J' or 'K' to cycle through line joins for straight or round gizmos",
@@ -288,5 +296,16 @@ fn update_config(
         // AABB gizmos are normally only drawn on entities with a ShowAabbGizmo component
         // We can change this behavior in the configuration of AabbGizmoGroup
         config_store.config_mut::<AabbGizmoConfigGroup>().1.draw_all ^= true;
+    }
+}
+
+fn update_retained_gizmo_visibility(
+    keyboard: Res<ButtonInput<KeyCode>>,
+    mut gizmos: Query<&mut Visibility, With<Gizmo>>,
+) {
+    if keyboard.just_pressed(KeyCode::Digit3) {
+        for mut visibility in &mut gizmos {
+            visibility.toggle_inherited_hidden();
+        }
     }
 }
