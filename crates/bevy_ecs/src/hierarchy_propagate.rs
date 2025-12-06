@@ -387,7 +387,6 @@ pub mod parallel {
         queue: &WorkQueue,
         nodes: &NodeQuery<'_, '_, T>,
     ) {
-        #[cfg(feature = "std")]
         //let _span = bevy_log::info_span!("input propagation worker").entered();
         let mut outbox = queue.local_queue.borrow_local_mut();
         loop {
