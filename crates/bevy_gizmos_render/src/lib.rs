@@ -25,6 +25,7 @@ mod pipeline_2d;
 mod pipeline_3d;
 
 use bevy_app::{App, Plugin};
+use bevy_camera::visibility::{add_visibility_class, Visibility, VisibilityClass};
 use bevy_ecs::{
     name::Name,
     resource::Resource,
@@ -73,6 +74,7 @@ use bevy_render::{
 
 use bevy_gizmos::{
     config::{GizmoConfigStore, GizmoLineJoint},
+    prelude::Gizmo,
     GizmoAsset, GizmoHandles,
 };
 
@@ -120,6 +122,8 @@ impl Plugin for GizmoRenderPlugin {
         } else {
             tracing::warn!("bevy_render feature is enabled but RenderApp was not detected. Are you sure you loaded GizmoPlugin after RenderPlugin?");
         }
+
+        app.register_required_components::<Gizmo, Visibility>();
     }
 }
 
