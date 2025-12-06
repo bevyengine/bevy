@@ -54,7 +54,6 @@
 //! }
 //! ```
 
-#[cfg(feature = "std")]
 use crate::prelude::*;
 use crate::{
     change_detection::{DetectChanges, DetectChangesMut},
@@ -149,7 +148,6 @@ mod serial {
     use super::DownPropagate;
     use crate::prelude::*;
     use alloc::vec::Vec;
-    use bevy_ecs::prelude::*;
 
     /// Update `T::Output` component of entities based on entity hierarchy and `T::Input`
     /// component.
