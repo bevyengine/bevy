@@ -203,3 +203,9 @@ fn dir_to_cube_uv(dir: vec3f) -> CubeUV {
     // Convert from [-1,1] to [0,1]
     return CubeUV(uv * 0.5 + 0.5, face);
 }
+
+// The Porter-Duff OVER operator on RGBA, correctly computing alpha of the
+// result.
+fn porter_duff_over(bg: vec4<f32>, fg: vec4<f32>) -> vec4<f32> {
+    return vec4<f32>(mix(bg.rgb * bg.a, fg.rgb, fg.a), bg.a + fg.a * (1.0 - bg.a));
+}

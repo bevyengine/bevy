@@ -216,13 +216,14 @@ fn spawn_camera(commands: &mut Commands) {
 
 /// Spawns the actual clustered decals.
 fn spawn_decals(commands: &mut Commands, asset_server: &AssetServer) {
-    let image = asset_server.load("branding/icon.png");
+    let base_color_texture = asset_server.load("branding/icon.png");
 
     commands.spawn((
         ClusteredDecal {
-            image: image.clone(),
+            base_color_texture: Some(base_color_texture.clone()),
             // Tint with red.
             tag: 1,
+            ..ClusteredDecal::default()
         },
         calculate_initial_decal_transform(vec3(1.0, 3.0, 5.0), Vec3::ZERO, Vec2::splat(1.1)),
         Selection::DecalA,
@@ -230,9 +231,10 @@ fn spawn_decals(commands: &mut Commands, asset_server: &AssetServer) {
 
     commands.spawn((
         ClusteredDecal {
-            image: image.clone(),
+            base_color_texture: Some(base_color_texture.clone()),
             // Tint with blue.
             tag: 2,
+            ..ClusteredDecal::default()
         },
         calculate_initial_decal_transform(vec3(-2.0, -1.0, 4.0), Vec3::ZERO, Vec2::splat(2.0)),
         Selection::DecalB,
