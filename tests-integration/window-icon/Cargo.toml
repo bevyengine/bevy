@@ -3,7 +3,7 @@ name = "window-icon"
 edition = "2024"
 
 [dependencies]
-bevy = { path = "../../", features=["custom_window_icon"] }
+bevy = { path = "../../", features = ["custom_window_icon"] }
 
 [build-dependencies]
 embed-resource = "3.0.3"
