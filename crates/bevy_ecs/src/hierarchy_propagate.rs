@@ -1,59 +1,56 @@
-use crate::components::{GlobalTransform, Transform, TransformTreeChanged};
-use bevy_ecs::prelude::*;
+use crate::{
+    prelude::{Component, Query, With, Without, Changed, Added, Or, Ref},
+    entity::Entity,
+    lifecycle::RemovedComponents,
+    system::{Local, ParamSet},
+    hierarchy::{ChildOf, Children},
+    change_detection::{DetectChanges, DetectChangesMut},
+    component::Mutable,
+};
+use alloc::vec::Vec;
 #[cfg(feature = "std")]
 pub use parallel::propagate_parent_transforms;
 #[cfg(not(feature = "std"))]
 pub use serial::propagate_parent_transforms;
 
-/// Update [`GlobalTransform`] component of entities that aren't in the hierarchy
-///
+/// Creates a system for syncing simple entities (those without hierarchy).
+/// 
 /// Third party plugins should ensure that this is used in concert with
 /// [`propagate_parent_transforms`] and [`mark_dirty_trees`].
-pub fn sync_simple_transforms(
-    mut query: ParamSet<(
-        Query<
-            (&Transform, &mut GlobalTransform),
-            (
-                Or<(Changed<Transform>, Added<GlobalTransform>)>,
-                Without<ChildOf>,
-                Without<Children>,
-            ),
-        >,
-        Query<(Ref<Transform>, &mut GlobalTransform), (Without<ChildOf>, Without<Children>)>,
+pub fn sync_simple_transforms<T: DownPropagate + 'static>(
+    mut queries: ParamSet<(
+        Query<(&T::Input, &mut T::Output), (Or<(Changed<T::Input>, Added<T::Output>)>, Without<ChildOf>, Without<Children>)>,
+        Query<(Ref<T::Input>, &mut T::Output), (Without<ChildOf>, Without<Children>)>,
     )>,
     mut orphaned: RemovedComponents<ChildOf>,
 ) {
-    // Update changed entities.
-    query
-        .p0()
-        .par_iter_mut()
-        .for_each(|(transform, mut global_transform)| {
-            *global_transform = GlobalTransform::from(*transform);
-        });
-    // Update orphaned entities.
-    let mut query = query.p1();
-    let mut iter = query.iter_many_mut(orphaned.read());
-    while let Some((transform, mut global_transform)) = iter.fetch_next() {
-        if !transform.is_changed() && !global_transform.is_added() {
-            *global_transform = GlobalTransform::from(*transform);
+    // Update changed entities
+    queries.p0().par_iter_mut().for_each(|(input, mut output)| {
+        *output = T::input_to_output(input);
+    });
+    
+    // Update orphaned entities
+    let mut orphaned_query = queries.p1();
+    let mut iter = orphaned_query.iter_many_mut(orphaned.read());
+    while let Some((input, mut output)) = iter.fetch_next() {
+        if !input.is_changed() && !output.is_added() {
+            *output = T::input_to_output(&input);
         }
     }
 }
 
-/// Optimization for static scenes. Propagates a "dirty bit" up the hierarchy towards ancestors.
-/// Transform propagation can ignore entire subtrees of the hierarchy if it encounters an entity
-/// without the dirty bit.
-pub fn mark_dirty_trees(
-    changed_transforms: Query<
-        Entity,
-        Or<(Changed<Transform>, Changed<ChildOf>, Added<GlobalTransform>)>,
-    >,
+/// Creates a system for marking dirty trees.
+/// 
+/// Propagates a "dirty bit" up the hierarchy towards ancestors.
+/// Propagation can ignore entire subtrees if it encounters an entity without the dirty bit.
+pub fn mark_dirty_trees<T: DownPropagate + 'static>(
+    changed_inputs: Query<Entity, Or<(Changed<T::Input>, Changed<ChildOf>, Added<T::Output>)>>,
     mut orphaned: RemovedComponents<ChildOf>,
-    mut transforms: Query<(Option<&ChildOf>, &mut TransformTreeChanged)>,
+    mut tree_changes: Query<(Option<&ChildOf>, &mut T::TreeChanged)>,
 ) {
-    for entity in changed_transforms.iter().chain(orphaned.read()) {
+    for entity in changed_inputs.iter().chain(orphaned.read()) {
         let mut next = entity;
-        while let Ok((child_of, mut tree)) = transforms.get_mut(next) {
+        while let Ok((child_of, mut tree)) = tree_changes.get_mut(next) {
             if tree.is_changed() && !tree.is_added() {
                 // If the component was changed, this part of the tree has already been processed.
                 // Ignore this if the change was caused by the component being added.
@@ -90,23 +87,23 @@ mod serial {
     use alloc::vec::Vec;
     use bevy_ecs::prelude::*;
 
-    /// Update [`GlobalTransform`] component of entities based on entity hierarchy and [`Transform`]
+    /// Update [`T::Output`] component of entities based on entity hierarchy and [`T::Input`]
     /// component.
     ///
     /// Third party plugins should ensure that this is used in concert with
     /// [`sync_simple_transforms`](super::sync_simple_transforms) and
     /// [`mark_dirty_trees`](super::mark_dirty_trees).
-    pub fn propagate_parent_transforms(
+    pub fn propagate_parent_transforms<T: DownPropagate + 'static>(
         mut root_query: Query<
-            (Entity, &Children, Ref<Transform>, &mut GlobalTransform),
+            (Entity, &Children, Ref<T::Input>, &mut T::Output),
             Without<ChildOf>,
         >,
         mut orphaned: RemovedComponents<ChildOf>,
         transform_query: Query<
-            (Ref<Transform>, &mut GlobalTransform, Option<&Children>),
+            (Ref<T::Input>, &mut T::Output, Option<&Children>),
             With<ChildOf>,
         >,
-        child_query: Query<(Entity, Ref<ChildOf>), With<GlobalTransform>>,
+        child_query: Query<(Entity, Ref<ChildOf>), With<T::Output>>,
         mut orphaned_entities: Local<Vec<Entity>>,
     ) {
         orphaned_entities.clear();
@@ -116,7 +113,7 @@ mod serial {
         |(entity, children, transform, mut global_transform)| {
             let changed = transform.is_changed() || global_transform.is_added() || orphaned_entities.binary_search(&entity).is_ok();
             if changed {
-                *global_transform = GlobalTransform::from(*transform);
+                *global_transform = T::Output::from(*transform);
             }
 
             for (child, child_of) in child_query.iter_many(children) {
@@ -168,13 +165,13 @@ mod serial {
         unsafe_code,
         reason = "This function uses `Query::get_unchecked()`, which can result in multiple mutable references if the preconditions are not met."
     )]
-    unsafe fn propagate_recursive(
-        parent: &GlobalTransform,
+    unsafe fn propagate_recursive<T: DownPropagate + 'static>(
+        parent: &T::Output,
         transform_query: &Query<
-            (Ref<Transform>, &mut GlobalTransform, Option<&Children>),
+            (Ref<T::Input>, &mut T::Output, Option<&Children>),
             With<ChildOf>,
         >,
-        child_query: &Query<(Entity, Ref<ChildOf>), With<GlobalTransform>>,
+        child_query: &Query<(Entity, Ref<ChildOf>), With<T::Output>>,
         entity: Entity,
         mut changed: bool,
     ) {
@@ -260,17 +257,17 @@ mod parallel {
         Mutex,
     };
 
-    /// Update [`GlobalTransform`] component of entities based on entity hierarchy and [`Transform`]
+    /// Update [`T::Output`] component of entities based on entity hierarchy and [`T::Input`]
     /// component.
     ///
     /// Third party plugins should ensure that this is used in concert with
     /// [`sync_simple_transforms`](super::sync_simple_transforms) and
     /// [`mark_dirty_trees`](super::mark_dirty_trees).
-    pub fn propagate_parent_transforms(
+    pub fn propagate_parent_transforms<T: DownPropagate + 'static>(
         mut queue: Local<WorkQueue>,
         mut roots: Query<
-            (Entity, Ref<Transform>, &mut GlobalTransform, &Children),
-            (Without<ChildOf>, Changed<TransformTreeChanged>),
+            (Entity, Ref<T::Input>, &mut T::Output, &Children),
+            (Without<ChildOf>, Changed<T::TreeChanged>),
         >,
         nodes: NodeQuery,
     ) {
@@ -278,7 +275,7 @@ mod parallel {
         roots.par_iter_mut().for_each_init(
             || queue.local_queue.borrow_local_mut(),
             |outbox, (parent, transform, mut parent_transform, children)| {
-                *parent_transform = GlobalTransform::from(*transform);
+                *parent_transform = T::Output::from(*transform);
 
                 // SAFETY: the parent entities passed into this function are taken from iterating
                 // over the root entity query. Queries iterate over disjoint entities, preventing
@@ -329,9 +326,9 @@ mod parallel {
     }
 
     /// A parallel worker that will consume processed parent entities from the queue, and push
-    /// children to the queue once it has propagated their [`GlobalTransform`].
+    /// children to the queue once it has propagated their [`T::Output`].
     #[inline]
-    fn propagation_worker(queue: &WorkQueue, nodes: &NodeQuery) {
+    fn propagation_worker<T: DownPropagate + 'static>(queue: &WorkQueue, nodes: &NodeQuery) {
         #[cfg(feature = "std")]
         let _span = bevy_log::info_span!("transform propagation worker").entered();
 
@@ -419,9 +416,9 @@ mod parallel {
     /// following the supplied safety rules, multi-threaded propagation is sound.
     #[inline]
     #[expect(unsafe_code, reason = "Mutating disjoint entities in parallel")]
-    unsafe fn propagate_descendants_unchecked(
+    unsafe fn propagate_descendants_unchecked<T: DownPropagate + 'static>(
         parent: Entity,
-        p_global_transform: Mut<GlobalTransform>,
+        p_global_transform: Mut<T::Output>,
         p_children: &Children,
         nodes: &NodeQuery,
         outbox: &mut Vec<Entity>,
@@ -454,8 +451,8 @@ mod parallel {
                     }
                     assert_eq!(child_of.parent(), parent);
 
-                    // Transform prop is expensive - this helps avoid updating entire subtrees if
-                    // the GlobalTransform is unchanged, at the cost of an added equality check.
+                    // T::Input prop is expensive - this helps avoid updating entire subtrees if
+                    // the T::Output is unchanged, at the cost of an added equality check.
                     global_transform.set_if_neq(p_global_transform.mul_transform(*transform));
 
                     children.map(|children| {
@@ -495,9 +492,9 @@ mod parallel {
         (
             Entity,
             (
-                Ref<'static, Transform>,
-                Mut<'static, GlobalTransform>,
-                Ref<'static, TransformTreeChanged>,
+                Ref<'static, T::Input>,
+                Mut<'static, T::Output>,
+                Ref<'static, T::TreeChanged>,
             ),
             (Option<Read<Children>>, Read<ChildOf>),
         ),
@@ -551,6 +548,92 @@ mod parallel {
                 .for_each(|outbox| Self::send_batches_with(sender, outbox));
         }
     }
+}
+
+//! Generic hierarchy propagation framework
+//!
+//! This module provides a generic framework for propagating data down entity hierarchies.
+//! It can be used to implement systems similar to transform propagation, visibility propagation,
+//! and other hierarchical data propagation needs.
+//!
+//! # Overview
+//!
+//! The framework is built around the [`DownPropagate`] trait, which defines how to combine
+//! parent and child data. Three system functions are provided:
+//!
+//! - [`mark_dirty_trees`] - Marks hierarchy trees that need updating
+//! - [`sync_simple_transforms`] - Updates entities without hierarchy relationships
+//! - [`propagate_parent_transforms`] - Propagates data down the hierarchy
+//!
+//! # Example
+//!
+//! ```rust
+//! use bevy_ecs::prelude::*;
+//! use bevy_ecs::hierarchy_propogate::*;
+//!
+//! #[derive(Component)]
+//! struct LocalScale(f32);
+//!
+//! #[derive(Component)]
+//! struct GlobalScale(f32);
+//!
+//! #[derive(Component, Default)]
+//! struct ScaleTreeChanged;
+//!
+//! #[derive(Component)]
+//! struct ScalePropagate;
+//!
+//! impl DownPropagate for ScalePropagate {
+//!     type Input = LocalScale;
+//!     type Output = GlobalScale;
+//!     type TreeChanged = ScaleTreeChanged;
+//!
+//!     fn down_propagate(parent: Option<&GlobalScale>, input: &LocalScale) -> GlobalScale {
+//!         match parent {
+//!             Some(parent_scale) => GlobalScale(parent_scale.0 * input.0),
+//!             None => GlobalScale(input.0),
+//!         }
+//!     }
+//!
+//!     fn input_to_output(input: &LocalScale) -> GlobalScale {
+//!         GlobalScale(input.0)
+//!     }
+//! }
+//!
+//! fn setup_scale_propagation(app: &mut App) {
+//!     app.add_systems(Update, (
+//!         mark_dirty_trees::<ScalePropagate>,
+//!         sync_simple_transforms::<ScalePropagate>,
+//!         propagate_parent_transforms::<ScalePropagate>,
+//!     ));
+//! }
+//! ```
+
+
+/// A trait for implementing hierarchy propagation behavior.
+/// Propagates data down the hierarchy from parent to children (like transforms, visibility).
+pub trait DownPropagate: Component {
+    /// The input component type that contains the local data to be propagated.
+    type Input: Component;
+    
+    /// The output component type that contains the computed global data.
+    type Output: Component<Mutability = Mutable>;
+    
+    /// A component used to mark entities in dirty trees for optimization.
+    type TreeChanged: Component<Mutability = Mutable> + Default;
+    
+    /// Propagates data from parent to child.
+    /// 
+    /// # Arguments
+    /// * `parent` - The parent's output data (None if this is a root entity)
+    /// * `input` - The child's input data
+    /// 
+    /// # Returns
+    /// The computed output data for the child
+    fn down_propagate(parent: Option<&Self::Output>, input: &Self::Input) -> Self::Output;
+    
+    /// Converts input to output for entities without parents.
+    fn input_to_output(input: &Self::Input) -> Self::Output;
 }
 
 #[cfg(test)]
