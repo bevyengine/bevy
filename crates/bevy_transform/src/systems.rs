@@ -83,17 +83,18 @@ pub fn propagate_parent_transforms(
     )
 }
 
+#[cfg(feature = "std")]
+use bevy_ecs::hierarchy_propagate::parallel::{NodeQuery, WorkQueue};
+
+#[cfg(feature = "std")]
 /// Update [`GlobalTransform`] component of entities based on entity hierarchy and [`Transform`]
 /// component.
 ///
 /// This is now implemented using the generic hierarchy propagation framework.
 /// For direct usage, consider using `hierarchy_propagate_complex::<TransformPropagate>` instead.
-#[cfg(feature = "std")]
-use bevy_ecs::hierarchy_propagate::parallel::{NodeQuery, WorkQueue};
-#[cfg(feature = "std")]
 pub fn propagate_parent_transforms(
-    mut queue: Local<WorkQueue>,
-    mut roots: Query<
+    queue: Local<WorkQueue>,
+    roots: Query<
         (Entity, Ref<Transform>, &mut GlobalTransform, &Children),
         (Without<ChildOf>, Changed<TransformTreeChanged>),
     >,

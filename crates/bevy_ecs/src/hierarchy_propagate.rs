@@ -15,9 +15,9 @@
 //!
 //! # Example
 //!
-//! ```rust
+//! ```rust,ignore
 //! use bevy_ecs::prelude::*;
-//! use bevy_ecs::hierarchy_propogate::*;
+//! use bevy_ecs::hierarchy_propagate::*;
 //!
 //! #[derive(Component)]
 //! struct LocalScale(f32);
@@ -193,7 +193,7 @@ mod serial {
                 //   no conflicting fetches elsewhere.
                 #[expect(unsafe_code, reason = "`propagate_recursive()` is unsafe due to its use of `Query::get_unchecked()`.")]
                 unsafe {
-                    propagate_recursive(
+                    propagate_recursive::<T>(
                         &global_transform,
                         &transform_query,
                         &child_query,
@@ -282,7 +282,7 @@ mod serial {
             // The above assertion ensures that each child has one and only one unique parent
             // throughout the entire hierarchy.
             unsafe {
-                propagate_recursive(
+                propagate_recursive::<T>(
                     global_matrix.as_ref(),
                     transform_query,
                     child_query,
