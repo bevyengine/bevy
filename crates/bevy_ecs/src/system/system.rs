@@ -8,7 +8,7 @@ use core::fmt::{Debug, Display};
 use log::warn;
 
 use crate::{
-    component::{CheckChangeTicks, Tick},
+    change_detection::{CheckChangeTicks, Tick},
     error::BevyError,
     query::FilteredAccessSet,
     schedule::InternedSystemSet,
@@ -442,10 +442,10 @@ where
         // Note that the `downcast_mut` check is based on the static type,
         // and can be optimized out after monomorphization.
         let any: &mut dyn Any = &mut value;
-        if let Some(err) = any.downcast_mut::<SystemParamValidationError>() {
-            if err.skipped {
-                return Self::Skipped(core::mem::replace(err, SystemParamValidationError::EMPTY));
-            }
+        if let Some(err) = any.downcast_mut::<SystemParamValidationError>()
+            && err.skipped
+        {
+            return Self::Skipped(core::mem::replace(err, SystemParamValidationError::EMPTY));
         }
         Self::Failed(From::from(value))
     }
@@ -459,9 +459,8 @@ mod tests {
 
     #[test]
     fn run_system_once() {
+        #[derive(Resource)]
         struct T(usize);
-
-        impl Resource for T {}
 
         fn system(In(n): In<usize>, mut commands: Commands) -> usize {
             commands.insert_resource(T(n));
@@ -502,9 +501,9 @@ mod tests {
     #[test]
     fn command_processing() {
         let mut world = World::new();
-        assert_eq!(world.query::<&A>().query(&world).count(), 0);
+        assert_eq!(world.entities.count_spawned(), 0);
         world.run_system_once(spawn_entity).unwrap();
-        assert_eq!(world.query::<&A>().query(&world).count(), 1);
+        assert_eq!(world.entities.count_spawned(), 1);
     }
 
     #[test]
@@ -522,8 +521,9 @@ mod tests {
 
     #[test]
     fn run_system_once_invalid_params() {
+        #[derive(Resource)]
         struct T;
-        impl Resource for T {}
+
         fn system(_: Res<T>) {}
 
         let mut world = World::default();

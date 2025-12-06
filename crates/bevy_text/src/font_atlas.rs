@@ -2,9 +2,9 @@ use bevy_asset::{Assets, Handle, RenderAssetUsages};
 use bevy_image::{prelude::*, ImageSampler, ToExtents};
 use bevy_math::{IVec2, UVec2};
 use bevy_platform::collections::HashMap;
-use wgpu_types::{TextureDimension, TextureFormat};
+use wgpu_types::{Extent3d, TextureDimension, TextureFormat};
 
-use crate::{FontSmoothing, GlyphAtlasLocation, TextError};
+use crate::{FontSmoothing, GlyphAtlasInfo, GlyphAtlasLocation, TextError};
 
 /// Rasterized glyphs are cached, stored in, and retrieved from, a `FontAtlas`.
 ///
@@ -87,8 +87,12 @@ impl FontAtlas {
         texture: &Image,
         offset: IVec2,
     ) -> Result<(), TextError> {
-        let atlas_layout = atlas_layouts.get_mut(&self.texture_atlas).unwrap();
-        let atlas_texture = textures.get_mut(&self.texture).unwrap();
+        let atlas_layout = atlas_layouts
+            .get_mut(&self.texture_atlas)
+            .ok_or(TextError::MissingAtlasLayout)?;
+        let atlas_texture = textures
+            .get_mut(&self.texture)
+            .ok_or(TextError::MissingAtlasTexture)?;
 
         if let Ok(glyph_index) =
             self.dynamic_texture_atlas_builder
@@ -117,4 +121,144 @@ impl core::fmt::Debug for FontAtlas {
             .field("dynamic_texture_atlas_builder", &"[...]")
             .finish()
     }
+}
+
+/// Adds the given subpixel-offset glyph to the given font atlases
+pub fn add_glyph_to_atlas(
+    font_atlases: &mut Vec<FontAtlas>,
+    texture_atlases: &mut Assets<TextureAtlasLayout>,
+    textures: &mut Assets<Image>,
+    font_system: &mut cosmic_text::FontSystem,
+    swash_cache: &mut cosmic_text::SwashCache,
+    layout_glyph: &cosmic_text::LayoutGlyph,
+    font_smoothing: FontSmoothing,
+) -> Result<GlyphAtlasInfo, TextError> {
+    let physical_glyph = layout_glyph.physical((0., 0.), 1.0);
+
+    let (glyph_texture, offset) =
+        get_outlined_glyph_texture(font_system, swash_cache, &physical_glyph, font_smoothing)?;
+    let mut add_char_to_font_atlas = |atlas: &mut FontAtlas| -> Result<(), TextError> {
+        atlas.add_glyph(
+            textures,
+            texture_atlases,
+            physical_glyph.cache_key,
+            &glyph_texture,
+            offset,
+        )
+    };
+    if !font_atlases
+        .iter_mut()
+        .any(|atlas| add_char_to_font_atlas(atlas).is_ok())
+    {
+        // Find the largest dimension of the glyph, either its width or its height
+        let glyph_max_size: u32 = glyph_texture
+            .texture_descriptor
+            .size
+            .height
+            .max(glyph_texture.width());
+        // Pick the higher of 512 or the smallest power of 2 greater than glyph_max_size
+        let containing = (1u32 << (32 - glyph_max_size.leading_zeros())).max(512);
+
+        let mut new_atlas = FontAtlas::new(
+            textures,
+            texture_atlases,
+            UVec2::splat(containing),
+            font_smoothing,
+        );
+
+        new_atlas.add_glyph(
+            textures,
+            texture_atlases,
+            physical_glyph.cache_key,
+            &glyph_texture,
+            offset,
+        )?;
+
+        font_atlases.push(new_atlas);
+    }
+
+    get_glyph_atlas_info(font_atlases, physical_glyph.cache_key)
+        .ok_or(TextError::InconsistentAtlasState)
+}
+
+/// Get the texture of the glyph as a rendered image, and its offset
+pub fn get_outlined_glyph_texture(
+    font_system: &mut cosmic_text::FontSystem,
+    swash_cache: &mut cosmic_text::SwashCache,
+    physical_glyph: &cosmic_text::PhysicalGlyph,
+    font_smoothing: FontSmoothing,
+) -> Result<(Image, IVec2), TextError> {
+    // NOTE: Ideally, we'd ask COSMIC Text to honor the font smoothing setting directly.
+    // However, since it currently doesn't support that, we render the glyph with antialiasing
+    // and apply a threshold to the alpha channel to simulate the effect.
+    //
+    // This has the side effect of making regular vector fonts look quite ugly when font smoothing
+    // is turned off, but for fonts that are specifically designed for pixel art, it works well.
+    //
+    // See: https://github.com/pop-os/cosmic-text/issues/279
+    let image = swash_cache
+        .get_image_uncached(font_system, physical_glyph.cache_key)
+        .ok_or(TextError::FailedToGetGlyphImage(physical_glyph.cache_key))?;
+
+    let cosmic_text::Placement {
+        left,
+        top,
+        width,
+        height,
+    } = image.placement;
+
+    let data = match image.content {
+        cosmic_text::SwashContent::Mask => {
+            if font_smoothing == FontSmoothing::None {
+                image
+                    .data
+                    .iter()
+                    // Apply a 50% threshold to the alpha channel
+                    .flat_map(|a| [255, 255, 255, if *a > 127 { 255 } else { 0 }])
+                    .collect()
+            } else {
+                image
+                    .data
+                    .iter()
+                    .flat_map(|a| [255, 255, 255, *a])
+                    .collect()
+            }
+        }
+        cosmic_text::SwashContent::Color => image.data,
+        cosmic_text::SwashContent::SubpixelMask => {
+            // TODO: implement
+            todo!()
+        }
+    };
+
+    Ok((
+        Image::new(
+            Extent3d {
+                width,
+                height,
+                depth_or_array_layers: 1,
+            },
+            TextureDimension::D2,
+            data,
+            TextureFormat::Rgba8UnormSrgb,
+            RenderAssetUsages::MAIN_WORLD,
+        ),
+        IVec2::new(left, top),
+    ))
+}
+
+/// Generates the [`GlyphAtlasInfo`] for the given subpixel-offset glyph.
+pub fn get_glyph_atlas_info(
+    font_atlases: &mut [FontAtlas],
+    cache_key: cosmic_text::CacheKey,
+) -> Option<GlyphAtlasInfo> {
+    font_atlases.iter().find_map(|atlas| {
+        atlas
+            .get_glyph_index(cache_key)
+            .map(|location| GlyphAtlasInfo {
+                location,
+                texture_atlas: atlas.texture_atlas.id(),
+                texture: atlas.texture.id(),
+            })
+    })
 }

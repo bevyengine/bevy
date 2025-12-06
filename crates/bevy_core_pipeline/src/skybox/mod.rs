@@ -149,14 +149,14 @@ pub struct SkyboxUniforms {
 
 #[derive(Resource)]
 struct SkyboxPipeline {
-    bind_group_layout: BindGroupLayout,
+    bind_group_layout: BindGroupLayoutDescriptor,
     shader: Handle<Shader>,
 }
 
 impl SkyboxPipeline {
-    fn new(render_device: &RenderDevice, shader: Handle<Shader>) -> Self {
+    fn new(shader: Handle<Shader>) -> Self {
         Self {
-            bind_group_layout: render_device.create_bind_group_layout(
+            bind_group_layout: BindGroupLayoutDescriptor::new(
                 "skybox_bind_group_layout",
                 &BindGroupLayoutEntries::sequential(
                     ShaderStages::FRAGMENT,
@@ -174,13 +174,9 @@ impl SkyboxPipeline {
     }
 }
 
-fn init_skybox_pipeline(
-    mut commands: Commands,
-    render_device: Res<RenderDevice>,
-    asset_server: Res<AssetServer>,
-) {
+fn init_skybox_pipeline(mut commands: Commands, asset_server: Res<AssetServer>) {
     let shader = load_embedded_asset!(asset_server.as_ref(), "skybox.wgsl");
-    commands.insert_resource(SkyboxPipeline::new(&render_device, shader));
+    commands.insert_resource(SkyboxPipeline::new(shader));
 }
 
 #[derive(PartialEq, Eq, Hash, Clone, Copy)]
@@ -278,6 +274,7 @@ fn prepare_skybox_bind_groups(
     skybox_uniforms: Res<ComponentUniforms<SkyboxUniforms>>,
     images: Res<RenderAssets<GpuImage>>,
     render_device: Res<RenderDevice>,
+    pipeline_cache: Res<PipelineCache>,
     views: Query<(Entity, &Skybox, &DynamicUniformIndex<SkyboxUniforms>)>,
 ) {
     for (entity, skybox, skybox_uniform_index) in &views {
@@ -288,7 +285,7 @@ fn prepare_skybox_bind_groups(
         ) {
             let bind_group = render_device.create_bind_group(
                 "skybox_bind_group",
-                &pipeline.bind_group_layout,
+                &pipeline_cache.get_bind_group_layout(&pipeline.bind_group_layout),
                 &BindGroupEntries::sequential((
                     &skybox.texture_view,
                     &skybox.sampler,

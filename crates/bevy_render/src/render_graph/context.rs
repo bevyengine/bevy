@@ -14,6 +14,7 @@ pub struct RunSubGraph {
     pub sub_graph: InternedRenderSubGraph,
     pub inputs: Vec<SlotValue>,
     pub view_entity: Option<Entity>,
+    pub debug_group: Option<String>,
 }
 
 /// The context with all graph information required to run a [`Node`](super::Node).
@@ -185,6 +186,7 @@ impl<'a> RenderGraphContext<'a> {
         name: impl RenderSubGraph,
         inputs: Vec<SlotValue>,
         view_entity: Option<Entity>,
+        debug_group: Option<String>,
     ) -> Result<(), RunSubGraphError> {
         let name = name.intern();
         let sub_graph = self
@@ -219,6 +221,7 @@ impl<'a> RenderGraphContext<'a> {
             sub_graph: name,
             inputs,
             view_entity,
+            debug_group,
         });
 
         Ok(())

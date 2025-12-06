@@ -76,6 +76,20 @@ impl ExtractedWindow {
         ));
         self.swap_chain_texture = Some(SurfaceTexture::from(frame));
     }
+
+    fn has_swapchain_texture(&self) -> bool {
+        self.swap_chain_texture_view.is_some() && self.swap_chain_texture.is_some()
+    }
+
+    pub fn present(&mut self) {
+        if let Some(surface_texture) = self.swap_chain_texture.take() {
+            // TODO(clean): winit docs recommends calling pre_present_notify before this.
+            // though `present()` doesn't present the frame, it schedules it to be presented
+            // by wgpu.
+            // https://docs.rs/winit/0.29.9/wasm32-unknown-unknown/winit/window/struct.Window.html#method.pre_present_notify
+            surface_texture.present();
+        }
+    }
 }
 
 #[derive(Default, Resource)]
@@ -130,8 +144,13 @@ fn extract_windows(
             alpha_mode: window.composite_alpha_mode,
         });
 
-        // NOTE: Drop the swap chain frame here
-        extracted_window.swap_chain_texture_view = None;
+        if extracted_window.swap_chain_texture.is_none() {
+            // If we called present on the previous swap-chain texture last update,
+            // then drop the swap chain frame here, otherwise we can keep it for the
+            // next update as an optimization. `prepare_windows` will only acquire a new
+            // swap chain texture if needed.
+            extracted_window.swap_chain_texture_view = None;
+        }
         extracted_window.size_changed = new_width != extracted_window.physical_width
             || new_height != extracted_window.physical_height;
         extracted_window.present_mode_changed =
@@ -221,6 +240,11 @@ pub fn prepare_windows(
             continue;
         };
 
+        // We didn't present the previous frame, so we can keep using our existing swapchain texture.
+        if window.has_swapchain_texture() && !window.size_changed && !window.present_mode_changed {
+            continue;
+        }
+
         // A recurring issue is hitting `wgpu::SurfaceError::Timeout` on certain Linux
         // mesa driver implementations. This seems to be a quirk of some drivers.
         // We'd rather keep panicking when not on Linux mesa, because in those case,
@@ -300,13 +324,13 @@ pub fn create_surfaces(
     // By accessing a NonSend resource, we tell the scheduler to put this system on the main thread,
     // which is necessary for some OS's
     #[cfg(any(target_os = "macos", target_os = "ios"))] _marker: bevy_ecs::system::NonSendMarker,
-    windows: Res<ExtractedWindows>,
+    mut windows: ResMut<ExtractedWindows>,
     mut window_surfaces: ResMut<WindowSurfaces>,
     render_instance: Res<RenderInstance>,
     render_adapter: Res<RenderAdapter>,
     render_device: Res<RenderDevice>,
 ) {
-    for window in windows.windows.values() {
+    for window in windows.windows.values_mut() {
         let data = window_surfaces
             .surfaces
             .entry(window.entity)
@@ -383,6 +407,10 @@ pub fn create_surfaces(
             });
 
         if window.size_changed || window.present_mode_changed {
+            // normally this is dropped on present but we double check here to be safe as failure to
+            // drop it will cause validation errors in wgpu
+            drop(window.swap_chain_texture.take());
+
             data.configuration.width = window.physical_width;
             data.configuration.height = window.physical_height;
             data.configuration.present_mode = match window.present_mode {
