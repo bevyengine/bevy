@@ -699,6 +699,24 @@ impl ImageSamplerDescriptor {
         }
     }
 
+    /// Returns this sampler descriptor with a new `ImageFilterMode` min, mag, and mipmap filters
+    #[inline]
+    pub fn with_filter(&mut self, filter: ImageFilterMode) -> &mut Self {
+        self.mag_filter = filter;
+        self.min_filter = filter;
+        self.mipmap_filter = filter;
+        self
+    }
+
+    /// Returns this sampler descriptor with a new `ImageAddressMode` for u, v, and w
+    #[inline]
+    pub fn with_address_mode(&mut self, address_mode: ImageAddressMode) -> &mut Self {
+        self.address_mode_u = address_mode;
+        self.address_mode_v = address_mode;
+        self.address_mode_w = address_mode;
+        self
+    }
+
     pub fn as_wgpu(&self) -> SamplerDescriptor<Option<&str>> {
         SamplerDescriptor {
             label: self.label.as_deref(),
@@ -2211,5 +2229,22 @@ mod test {
         image.clear(&[255; 4]);
 
         assert!(image.data.as_ref().unwrap().iter().all(|&p| p == 255));
+    }
+
+    #[test]
+    fn get_or_inti_sampler_modifications() {
+        // given some sampler
+        let mut default_sampler = ImageSampler::Default;
+        // a load_with_settings call wants to customize the descriptor
+        let my_sampler_in_a_loader = default_sampler
+            .get_or_init_descriptor()
+            .with_filter(ImageFilterMode::Linear)
+            .with_address_mode(ImageAddressMode::Repeat);
+
+        assert_eq!(
+            my_sampler_in_a_loader.address_mode_u,
+            ImageAddressMode::Repeat
+        );
+        assert_eq!(my_sampler_in_a_loader.min_filter, ImageFilterMode::Linear);
     }
 }
