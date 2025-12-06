@@ -221,6 +221,7 @@ pub fn update_text2d_layout(
         };
 
         let text_changed = scale_factor != text_layout_info.scale_factor
+            || block.is_changed()
             || computed.needs_rerender()
             || (!queue.is_empty() && queue.remove(&entity));
 
@@ -267,7 +268,7 @@ pub fn update_text2d_layout(
             }
         }
 
-        let _ = text_pipeline.update_text_layout_info(
+        match text_pipeline.update_text_layout_info(
             &mut text_layout_info,
             text_font_query,
             scale_factor as f64,
@@ -278,7 +279,27 @@ pub fn update_text2d_layout(
             &mut font_system,
             &mut swash_cache,
             text_bounds,
-        );
+        ) {
+            Err(TextError::NoSuchFont) => {
+                // There was an error processing the text layout, let's add this entity to the
+                // queue for further processing
+                queue.insert(entity);
+                continue;
+            }
+            Err(
+                e @ (TextError::FailedToAddGlyph(_)
+                | TextError::FailedToGetGlyphImage(_)
+                | TextError::MissingAtlasLayout
+                | TextError::MissingAtlasTexture
+                | TextError::InconsistentAtlasState),
+            ) => {
+                panic!("Fatal error when processing text: {e}.");
+            }
+            Ok(()) => {
+                text_layout_info.scale_factor = scale_factor;
+                text_layout_info.size *= scale_factor.recip();
+            }
+        }
     }
 }
 
