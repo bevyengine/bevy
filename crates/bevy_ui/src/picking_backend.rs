@@ -30,6 +30,7 @@ use bevy_ecs::{prelude::*, query::QueryData};
 use bevy_math::Vec2;
 use bevy_platform::collections::HashMap;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+use bevy_text::{ComputedTextBlock, TextLayoutInfo};
 use bevy_window::PrimaryWindow;
 
 use bevy_picking::backend::prelude::*;
@@ -92,6 +93,7 @@ pub struct NodeQuery {
     pickable: Option<&'static Pickable>,
     inherited_visibility: Option<&'static InheritedVisibility>,
     target_camera: &'static ComputedUiTargetCamera,
+    maybe_text_node: Option<(&'static TextLayoutInfo, &'static ComputedTextBlock)>,
 }
 
 /// Computes the UI node entities under each pointer.
@@ -205,7 +207,20 @@ pub fn ui_picking(
             // Coordinates are relative to the entire node, not just the visible region.
             for (pointer_id, cursor_position) in pointers_on_this_cam.iter().flat_map(|h| h.iter())
             {
-                if node.node.contains_point(*node.transform, *cursor_position)
+                let contains_point =
+                    if let Some((text_layout_info, text_block)) = node.maybe_text_node {
+                        pick_ui_text(
+                            &node.node,
+                            &node.transform,
+                            *cursor_position,
+                            text_layout_info,
+                            text_block,
+                        )
+                        .is_some()
+                    } else {
+                        node.node.contains_point(*node.transform, *cursor_position)
+                    };
+                if contains_point
                     && clip_check_recursive(
                         *cursor_position,
                         node_entity,
@@ -265,4 +280,26 @@ pub fn ui_picking(
 
         output.write(PointerHits::new(*pointer, picks, order));
     }
+}
+
+fn pick_ui_text(
+    uinode: &ComputedNode,
+    global_transform: &UiGlobalTransform,
+    point: Vec2,
+    text_layout_info: &TextLayoutInfo,
+    text_block: &ComputedTextBlock,
+) -> Option<Entity> {
+    let Some(local_point) = global_transform
+        .try_inverse()
+        .map(|transform| transform.transform_point2(point) - 0.5 * uinode.size())
+    else {
+        return None;
+    };
+
+    for run in text_layout_info.run_geometry.iter() {
+        if run.bounds.contains(local_point) {
+            return text_block.entities().get(run.span_index).map(|e| e.entity);
+        }
+    }
+    None
 }
