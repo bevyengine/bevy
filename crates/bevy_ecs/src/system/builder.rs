@@ -234,9 +234,10 @@ impl ParamBuilder {
     /// Helper method for adding a [`SystemRunner`] as a param, equivalent to [`SystemRunnerBuilder::boxed`]
     pub fn dyn_system<'w, 's, In, Out, Marker, Sys>(
         system: Sys,
-    ) -> impl SystemParamBuilder<SystemRunner<'w, 's, In, Out, Sys::System>>
+    ) -> impl SystemParamBuilder<SystemRunner<'w, 's, In, Out, dyn System<In = In, Out = Out>>>
     where
-        In: SystemInput,
+        In: SystemInput + 'static,
+        Out: 'static,
         Sys: IntoSystem<In, Out, Marker>,
     {
         SystemRunnerBuilder::boxed(Box::new(IntoSystem::into_system(system)))
