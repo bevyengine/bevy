@@ -46,7 +46,6 @@ fn setup(mut commands: Commands) {
                         justify: Justify::Center,
                         ..Default::default()
                     },
-                    BackgroundColor(bevy::color::palettes::css::NAVY.into()),
                 ))
                 .with_children(|commands| {
                     for (i, section_str) in message_text.iter().enumerate() {
