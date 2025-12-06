@@ -995,59 +995,16 @@ impl GltfLoader {
                 return Err(err);
             }
 
-            // Create `AnimationPlayer`, `AnimatedBy`, and `AnimationTargetId`
-            // components.
             #[cfg(feature = "bevy_animation")]
-            {
-                let animation_settings = settings
-                    .animation_settings
-                    .unwrap_or(loader.default_animation_settings);
-
-                if animation_settings.create_target_ids != GltfCreateAnimationTargetIds::Never {
-                    // Add `AnimationTargetId` and `AnimatedBy` components to
-                    // nodes, following the rules in `animation_settings`.
-                    for (node_index, &entity_id) in &node_index_to_entity_map {
-                        let (root_node_index, path) = paths.get(node_index).unwrap();
-
-                        if (animation_settings.create_target_ids
-                            == GltfCreateAnimationTargetIds::Always)
-                            || animation_roots.contains(root_node_index)
-                        {
-                            let mut entity = world.entity_mut(entity_id);
-
-                            entity.insert(AnimationTargetId::from_names(path.iter()));
-
-                            if animation_settings.create_players
-                                == GltfCreateAnimationPlayers::Automatically
-                            {
-                                entity.insert(AnimatedBy(
-                                    *node_index_to_entity_map.get(root_node_index).unwrap(),
-                                ));
-                            }
-                        }
-                    }
-
-                    if animation_settings.create_players
-                        == GltfCreateAnimationPlayers::Automatically
-                    {
-                        // Add `AnimationPlayer` components to the root node of
-                        // hierarchies that we know contain `AnimationTargetId`
-                        // and `AnimatedBy` components.
-                        for node in scene.nodes() {
-                            if (animation_settings.create_target_ids
-                                == GltfCreateAnimationTargetIds::Always)
-                                || animation_roots.contains(&node.index())
-                            {
-                                world
-                                    .entity_mut(
-                                        *node_index_to_entity_map.get(&node.index()).unwrap(),
-                                    )
-                                    .insert(AnimationPlayer::default());
-                            }
-                        }
-                    }
-                }
-            }
+            create_animation_components(
+                &mut world,
+                loader,
+                settings,
+                &paths,
+                &animation_roots,
+                &scene,
+                &node_index_to_entity_map,
+            );
 
             for (&entity, &skin_index) in &entity_to_skin_index_map {
                 let mut entity = world.entity_mut(entity);
@@ -1908,6 +1865,59 @@ impl<'s> Iterator for PrimitiveMorphAttributesIter<'s> {
 #[serde(rename_all = "camelCase")]
 struct MorphTargetNames {
     pub target_names: Vec<String>,
+}
+
+// Create `AnimationPlayer`, `AnimatedBy`, and `AnimationTargetId` components.
+#[cfg(feature = "bevy_animation")]
+fn create_animation_components(
+    world: &mut World,
+    loader: &GltfLoader,
+    settings: &GltfLoaderSettings,
+    paths: &HashMap<usize, (usize, Vec<Name>)>,
+    animation_roots: &HashSet<usize>,
+    scene: &gltf::Scene<'_>,
+    node_index_to_entity_map: &HashMap<usize, Entity>,
+) {
+    let animation_settings = settings
+        .animation_settings
+        .unwrap_or(loader.default_animation_settings);
+
+    if animation_settings.create_target_ids != GltfCreateAnimationTargetIds::Never {
+        // Add `AnimationTargetId` and `AnimatedBy` components to
+        // nodes, following the rules in `animation_settings`.
+        for (node_index, &entity_id) in node_index_to_entity_map {
+            let (root_node_index, path) = paths.get(node_index).unwrap();
+
+            if (animation_settings.create_target_ids == GltfCreateAnimationTargetIds::Always)
+                || animation_roots.contains(root_node_index)
+            {
+                let mut entity = world.entity_mut(entity_id);
+
+                entity.insert(AnimationTargetId::from_names(path.iter()));
+
+                if animation_settings.create_players == GltfCreateAnimationPlayers::Automatically {
+                    entity.insert(AnimatedBy(
+                        *node_index_to_entity_map.get(root_node_index).unwrap(),
+                    ));
+                }
+            }
+        }
+
+        if animation_settings.create_players == GltfCreateAnimationPlayers::Automatically {
+            // Add `AnimationPlayer` components to the root node of
+            // hierarchies that we know contain `AnimationTargetId`
+            // and `AnimatedBy` components.
+            for node in scene.nodes() {
+                if (animation_settings.create_target_ids == GltfCreateAnimationTargetIds::Always)
+                    || animation_roots.contains(&node.index())
+                {
+                    world
+                        .entity_mut(*node_index_to_entity_map.get(&node.index()).unwrap())
+                        .insert(AnimationPlayer::default());
+                }
+            }
+        }
+    }
 }
 
 #[cfg(test)]
