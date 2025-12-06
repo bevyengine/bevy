@@ -7,7 +7,7 @@ use bevy_ecs::{
     prelude::*,
 };
 
-// Transform propagation implementation
+/// Transform propagation implementation
 #[derive(Component)]
 pub struct TransformPropagate;
 
@@ -43,7 +43,7 @@ pub fn sync_simple_transforms(
     )>,
     orphaned: RemovedComponents<ChildOf>,
 ) {
-    hierarchy_propagate_simple::<TransformPropagate>(queries, orphaned)
+    hierarchy_propagate_simple::<TransformPropagate>(queries, orphaned);
 }
 
 /// Optimization for static scenes. Propagates a "dirty bit" up the hierarchy towards ancestors.
@@ -57,7 +57,7 @@ pub fn mark_dirty_trees(
     orphaned: RemovedComponents<ChildOf>,
     transforms: Query<(Option<&ChildOf>, &mut TransformTreeChanged)>,
 ) {
-    mark_dirty_trees_generic::<TransformPropagate>(changed_transforms, orphaned, transforms)
+    mark_dirty_trees_generic::<TransformPropagate>(changed_transforms, orphaned, transforms);
 }
 
 #[cfg(not(feature = "std"))]
@@ -100,7 +100,7 @@ pub fn propagate_parent_transforms(
     >,
     nodes: NodeQuery<'_, '_, TransformPropagate>,
 ) {
-    hierarchy_propagate_complex::<TransformPropagate>(queue, roots, nodes)
+    hierarchy_propagate_complex::<TransformPropagate>(queue, roots, nodes);
 }
 
 #[cfg(test)]
