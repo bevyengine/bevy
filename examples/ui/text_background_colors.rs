@@ -46,18 +46,34 @@ fn setup(mut commands: Commands) {
                         justify: Justify::Center,
                         ..Default::default()
                     },
+                    BackgroundColor(bevy::color::palettes::css::NAVY.into()),
                 ))
                 .with_children(|commands| {
                     for (i, section_str) in message_text.iter().enumerate() {
-                        commands.spawn((
-                            TextSpan::new(*section_str),
-                            TextColor::BLACK,
-                            TextFont {
-                                font_size: 100.,
-                                ..default()
-                            },
-                            TextBackgroundColor(PALETTE[i % PALETTE.len()]),
-                        ));
+                        commands
+                            .spawn((
+                                TextSpan::new(*section_str),
+                                TextColor::BLACK,
+                                TextFont {
+                                    font_size: 100.,
+                                    ..default()
+                                },
+                                TextBackgroundColor(PALETTE[i % PALETTE.len()]),
+                            ))
+                            .observe(
+                                |event: On<Pointer<Over>>, mut query: Query<&mut TextColor>| {
+                                    if let Ok(mut text_color) = query.get_mut(event.entity) {
+                                        text_color.0 = Color::WHITE;
+                                    }
+                                },
+                            )
+                            .observe(
+                                |event: On<Pointer<Out>>, mut query: Query<&mut TextColor>| {
+                                    if let Ok(mut text_color) = query.get_mut(event.entity) {
+                                        text_color.0 = bevy::color::palettes::css::BLACK.into();
+                                    }
+                                },
+                            );
                     }
                 });
         });
