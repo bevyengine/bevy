@@ -176,6 +176,7 @@ pub fn update_text2d_layout(
         &mut TextLayoutInfo,
         &mut ComputedTextBlock,
     )>,
+    text_font_query: Query<&TextFont>,
     mut text_reader: Text2dReader,
     mut font_system: ResMut<CosmicFontSystem>,
     mut swash_cache: ResMut<SwashCache>,
@@ -197,7 +198,7 @@ pub fn update_text2d_layout(
     let mut previous_scale_factor = 0.;
     let mut previous_mask = &RenderLayers::none();
 
-    for (entity, maybe_entity_mask, block, bounds, text_layout_info, mut computed) in
+    for (entity, maybe_entity_mask, block, bounds, mut text_layout_info, mut computed) in
         &mut text_query
     {
         let entity_mask = maybe_entity_mask.unwrap_or_default();
@@ -219,39 +220,39 @@ pub fn update_text2d_layout(
             *scale_factor
         };
 
-        if scale_factor != text_layout_info.scale_factor
+        let text_changed = scale_factor != text_layout_info.scale_factor
             || computed.needs_rerender()
-            || bounds.is_changed()
-            || (!queue.is_empty() && queue.remove(&entity))
-        {
-            let text_bounds = TextBounds {
-                width: if block.linebreak == LineBreak::NoWrap {
-                    None
-                } else {
-                    bounds.width.map(|width| width * scale_factor)
-                },
-                height: bounds.height.map(|height| height * scale_factor),
-            };
+            || (!queue.is_empty() && queue.remove(&entity));
 
-            let text_layout_info = text_layout_info.into_inner();
-            match text_pipeline.queue_text(
-                text_layout_info,
+        if !(text_changed || bounds.is_changed()) {
+            continue;
+        }
+
+        let text_bounds = TextBounds {
+            width: if block.linebreak == LineBreak::NoWrap {
+                None
+            } else {
+                bounds.width.map(|width| width * scale_factor)
+            },
+            height: bounds.height.map(|height| height * scale_factor),
+        };
+
+        if text_changed {
+            match text_pipeline.update_buffer(
                 &fonts,
                 text_reader.iter(entity),
-                scale_factor as f64,
-                &block,
+                block.linebreak,
+                block.justify,
                 text_bounds,
-                &mut font_atlas_set,
-                &mut texture_atlases,
-                &mut textures,
-                computed.as_mut(),
+                scale_factor as f64,
+                &mut computed,
                 &mut font_system,
-                &mut swash_cache,
             ) {
                 Err(TextError::NoSuchFont) => {
                     // There was an error processing the text layout, let's add this entity to the
                     // queue for further processing
                     queue.insert(entity);
+                    continue;
                 }
                 Err(
                     e @ (TextError::FailedToAddGlyph(_)
@@ -262,12 +263,22 @@ pub fn update_text2d_layout(
                 ) => {
                     panic!("Fatal error when processing text: {e}.");
                 }
-                Ok(()) => {
-                    text_layout_info.scale_factor = scale_factor;
-                    text_layout_info.size *= scale_factor.recip();
-                }
+                Ok(()) => {}
             }
         }
+
+        let _ = text_pipeline.update_text_layout_info(
+            &mut text_layout_info,
+            text_font_query,
+            scale_factor as f64,
+            &mut font_atlas_set,
+            &mut texture_atlases,
+            &mut textures,
+            &mut computed,
+            &mut font_system,
+            &mut swash_cache,
+            text_bounds,
+        );
     }
 }
 
