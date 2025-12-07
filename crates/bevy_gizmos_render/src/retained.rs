@@ -1,26 +1,34 @@
 //! This module is for 'retained' alternatives to the 'immediate mode' [`Gizmos`](bevy_gizmos::gizmos::Gizmos) system parameter.
 
-use crate::LineGizmoUniform;
-use bevy_camera::visibility::{InheritedVisibility, RenderLayers, ViewVisibility};
-use bevy_gizmos::retained::Gizmo;
-use bevy_math::Affine3;
-use bevy_render::{
-    sync_world::{MainEntity, TemporaryRenderEntity},
-    view,
-};
-use bevy_utils::once;
-use tracing::warn;
 use {
-    bevy_ecs::{
-        entity::Entity,
-        system::{Commands, Local, Query},
+    crate::LineGizmoUniform,
+    bevy_asset::{AssetEvent, AssetId, Assets},
+    bevy_camera::{
+        primitives::Aabb,
+        visibility::{NoFrustumCulling, RenderLayers, ViewVisibility},
     },
-    bevy_gizmos::config::GizmoLineJoint,
-    bevy_render::Extract,
+    bevy_ecs::{
+        change_detection::DetectChangesMut,
+        entity::Entity,
+        message::MessageReader,
+        query::{Changed, Or, Without},
+        system::{Commands, Local, Query, Res},
+    },
+    bevy_gizmos::{
+        config::{GizmoLineJoint, GizmoLineStyle},
+        retained::Gizmo,
+        GizmoAsset,
+    },
+    bevy_math::{bounding::Aabb3d, Affine3, Isometry3d, Vec3A},
+    bevy_platform::{collections::HashSet, hash::FixedHasher},
+    bevy_render::{
+        sync_world::{MainEntity, TemporaryRenderEntity},
+        Extract,
+    },
     bevy_transform::components::GlobalTransform,
+    bevy_utils::once,
+    tracing::warn,
 };
-
-use bevy_gizmos::config::GizmoLineStyle;
 
 pub(crate) fn extract_linegizmos(
     mut commands: Commands,
@@ -30,15 +38,13 @@ pub(crate) fn extract_linegizmos(
             Entity,
             &Gizmo,
             &GlobalTransform,
-            &InheritedVisibility,
             &ViewVisibility,
             Option<&RenderLayers>,
         )>,
     >,
 ) {
     let mut values = Vec::with_capacity(*previous_len);
-    for (entity, gizmo, transform, visibility, view_visibility, render_layers) in &query {
-        println!("{visibility:?} {view_visibility:?}");
+    for (entity, gizmo, transform, view_visibility, render_layers) in &query {
         if !view_visibility.get() {
             continue;
         }
@@ -90,4 +96,57 @@ pub(crate) fn extract_linegizmos(
     }
     *previous_len = values.len();
     commands.spawn_batch(values);
+}
+
+pub(crate) fn calculate_bounds(
+    mut commands: Commands,
+    gizmo_assets: Res<Assets<GizmoAsset>>,
+    without_aabb: Query<
+        (Entity, &Gizmo),
+        (
+            Or<(Changed<Gizmo>, Without<Aabb>)>,
+            Without<NoFrustumCulling>,
+        ),
+    >,
+) {
+    for (entity, gizmo) in &without_aabb {
+        if let Some(gizmo_asset) = gizmo_assets.get(&gizmo.handle) {
+            println!("Calculating AABB for gizmo entity {:?}", entity);
+            let aabb_3d = Aabb3d::from_point_cloud(
+                Isometry3d::IDENTITY,
+                gizmo_asset
+                    .list_positions
+                    .iter()
+                    .chain(gizmo_asset.strip_positions.iter())
+                    // infinite points show up in here for some reason
+                    // i am brutally filtering them for now
+                    .filter(|p| p.is_finite())
+                    .map(|&p| Vec3A::from(p)),
+            );
+            let aabb: Aabb = aabb_3d.into();
+            commands.entity(entity).insert(aabb);
+        }
+    }
+}
+
+pub(crate) fn mark_gizmos_as_changed_if_their_assets_changed(
+    mut gizmos: Query<&mut Gizmo>,
+    mut gizmo_asset_events: MessageReader<AssetEvent<GizmoAsset>>,
+) {
+    let mut changed_gizmos: HashSet<AssetId<GizmoAsset>, FixedHasher> = HashSet::default();
+    for mesh_asset_event in gizmo_asset_events.read() {
+        if let AssetEvent::Modified { id } = mesh_asset_event {
+            changed_gizmos.insert(*id);
+        }
+    }
+
+    if changed_gizmos.is_empty() {
+        return;
+    }
+
+    for mut gizmo in &mut gizmos {
+        if changed_gizmos.contains(&gizmo.handle.id()) {
+            gizmo.set_changed();
+        }
+    }
 }
