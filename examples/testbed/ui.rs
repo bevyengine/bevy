@@ -1063,6 +1063,6 @@ mod debug_outlines {
     }
 
     pub fn teardown(mut debug_options: ResMut<UiDebugOptions>) {
-        debug_options.reset();
+        *debug_options = UiDebugOptions::default();
     }
 }
