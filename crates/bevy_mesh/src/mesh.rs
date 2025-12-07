@@ -137,7 +137,7 @@ impl<T> From<Option<T>> for MeshExtractableData<T> {
 /// that can be converted into a normal `Mesh` using `InfallibleMesh::into_mesh`.
 /// Designed for use during cpu-side mesh construction. Methods on this struct whose `Mesh`
 /// counterparts may return `MeshAccessError::ExtractedToRenderWorld` instead return plain values.
-#[derive(Asset, Debug, Clone, Reflect, PartialEq)]
+#[derive(Debug, Clone, Reflect, PartialEq)]
 #[reflect(Clone)]
 pub struct InfallibleMesh(Mesh);
 
