@@ -717,7 +717,7 @@ impl ImageSamplerDescriptor {
         self
     }
 
-    /// Returns this sampler descriptor with an anisotopy_clamp value and also
+    /// Returns this sampler descriptor with an `anisotropy_clamp` value and also
     /// set filters to `ImageFilterMode::Linear`, which is required to
     /// use anisotropy.
     #[inline]
