@@ -730,27 +730,26 @@ pub fn derive_from_world(input: TokenStream) -> TokenStream {
 /// let system_b = |a: In<u32>, world: &mut World| { println!("{}", *a + 12) };
 /// compose! {
 ///     || -> Result<(), RunSystemError> {
-///         let a = run!(system-a)?;
-///         run!(system_b);
+///         let a = system!(system_a).run()?;
+///         system!(system_b).run_with(a);
 ///     }
 /// }
 /// ```
 ///
-/// What's special is that the macro will expand any invocations of `run!()` into
-/// calls to `SystemRunner::run` or `SystemRunner::run_with`. The `run!()` accepts
-/// two parameters: first, a system identifier (or a path to one), and second, an
-/// optional input to invoke the system with.
+/// What's special is that the macro will expand any invocations of `system!()` into
+/// a reference to a `SystemRunner` param, which you can call `run` or `run_with` on
+/// as normal.
 ///
 /// Notes:
 /// 1. All system runners are passed through a `ParamSet`, so invoked systems will
 ///    not conflict with each other. However, invoked systems may still conflict
 ///    with system params in the outer closure.
 ///
-/// 2. `run!` will not accept expressions that evaluate to systems, only direct
+/// 2. `system!` will not accept expressions that evaluate to systems, only direct
 ///    identifiers or paths. So, if you want to call something like:
 ///
 ///    ```ignore
-///    run!(|query: Query<(&A, &B, &mut C)>| { ... })`
+///    system!(|query: Query<(&A, &B, &mut C)>| { ... }).run()`
 ///    ```
 ///
 ///    Assign the expression to a variable first.
@@ -772,27 +771,26 @@ pub fn compose(input: TokenStream) -> TokenStream {
 /// let system_b = |a: In<u32>, world: &mut World| { println!("{}", *a + 12) };
 /// compose_with! {
 ///     |input: In<u32>| -> Result<(), RunSystemError> {
-///         let a = run!(system_a, input)?;
-///         run!(system_b);
+///         let a = system!(system_a).run_with(input)?;
+///         system!(system_b).run_with(a);
 ///     }
 /// }
 /// ```
 ///
-/// What's special is that the macro will expand any invocations of `run!()` into
-/// calls to `SystemRunner::run` or `SystemRunner::run_with`. The `run!()` accepts
-/// two parameters: first, a system identifier (or a path to one), and second, an
-/// optional input to invoke the system with.
+/// What's special is that the macro will expand any invocations of `system!()` into
+/// a reference to a `SystemRunner` param, which you can call `run` or `run_with` on
+/// as normal.
 ///
 /// Notes:
 /// 1. All system runners are passed through a `ParamSet`, so invoked systems will
 ///    not conflict with each other. However, invoked systems may still conflict
 ///    with system params in the outer closure.
 ///
-/// 2. `run!` will not accept expressions that evaluate to systems, only direct
+/// 2. `system!` will not accept expressions that evaluate to systems, only direct
 ///    identifiers or paths. So, if you want to call something like:
 ///
 ///    ```ignore
-///    run!(|query: Query<(&A, &B, &mut C)>| { ... })`
+///    system!(|query: Query<(&A, &B, &mut C)>| { ... }).run()`
 ///    ```
 ///
 ///    Assign the expression to a variable first.

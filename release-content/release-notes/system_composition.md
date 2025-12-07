@@ -41,8 +41,8 @@ the new `SystemRunner` params seamless to use.
 ```rust
 compose! {
     || -> Result<usize, RunSystemError> {
-        let a = run!(count_a)?;
-        let b = run!(count_b)?;
+        let a = system!(count_a).run()?;
+        let b = system!(count_b).run()?;
         Ok(a + b)
     }
 }
