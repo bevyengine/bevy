@@ -101,7 +101,7 @@ pub(crate) fn extract_linegizmos(
 pub(crate) fn calculate_bounds(
     mut commands: Commands,
     gizmo_assets: Res<Assets<GizmoAsset>>,
-    without_aabb: Query<
+    needs_aabb: Query<
         (Entity, &Gizmo),
         (
             Or<(Changed<Gizmo>, Without<Aabb>)>,
@@ -109,17 +109,14 @@ pub(crate) fn calculate_bounds(
         ),
     >,
 ) {
-    for (entity, gizmo) in &without_aabb {
+    for (entity, gizmo) in &needs_aabb {
         if let Some(gizmo_asset) = gizmo_assets.get(&gizmo.handle) {
-            println!("Calculating AABB for gizmo entity {:?}", entity);
             let aabb_3d = Aabb3d::from_point_cloud(
                 Isometry3d::IDENTITY,
                 gizmo_asset
                     .list_positions
                     .iter()
                     .chain(gizmo_asset.strip_positions.iter())
-                    // infinite points show up in here for some reason
-                    // i am brutally filtering them for now
                     .filter(|p| p.is_finite())
                     .map(|&p| Vec3A::from(p)),
             );
