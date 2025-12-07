@@ -15,7 +15,7 @@ use bevy_asset::Handle;
 use bevy_asset::{Asset, RenderAssetUsages};
 #[cfg(feature = "morph")]
 use bevy_image::Image;
-use bevy_math::{primitives::Triangle3d, *};
+use bevy_math::{bounding::Aabb3d, primitives::Triangle3d, *};
 #[cfg(feature = "serialize")]
 use bevy_platform::collections::HashMap;
 use bevy_reflect::Reflect;
@@ -256,7 +256,7 @@ pub struct Mesh {
     pub enable_raytracing: bool,
     /// Precomputed min and max extents of the mesh position data. Used mainly for constructing `Aabb`s for frustum culling.
     /// This data will be set if/when a mesh is extracted to the GPU
-    pub final_aabb_extents: Option<(Vec3, Vec3)>,
+    pub final_aabb: Option<Aabb3d>,
 }
 
 impl Mesh {
@@ -348,7 +348,7 @@ impl Mesh {
             morph_target_names: MeshExtractableData::NoData,
             asset_usage,
             enable_raytracing: true,
-            final_aabb_extents: None,
+            final_aabb: None,
         }
     }
 
@@ -2165,7 +2165,7 @@ impl Mesh {
                 min = Vec3::min(min, v);
                 max = Vec3::max(max, v);
             }
-            self.final_aabb_extents = Some((min, max));
+            self.final_aabb = Some(Aabb3d::new(min, max));
         }
 
         Ok(Self {
