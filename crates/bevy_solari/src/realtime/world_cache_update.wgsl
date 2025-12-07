@@ -4,13 +4,15 @@
 #import bevy_solari::sampling::{calculate_resolved_light_contribution, trace_light_visibility}
 #import bevy_solari::scene_bindings::{ResolvedMaterial, trace_ray, resolve_ray_hit_full, RAY_T_MIN, RAY_T_MAX}
 #import bevy_solari::realtime_bindings::{
-    world_cache_checksums, 
+    world_cache_checksums,
     world_cache_active_cells_count,
     world_cache_active_cell_indices,
+    world_cache_life,
     world_cache_geometry_data,
     world_cache_radiance,
     world_cache_light_data, 
     world_cache_light_data_new_lights, 
+    world_cache_luminance_deltas,
     world_cache_active_cells_new_radiance,
     view,
     constants,
@@ -24,9 +26,8 @@
     write_world_cache_light,
     WORLD_CACHE_MAX_TEMPORAL_SAMPLES,
     WORLD_CACHE_EMPTY_CELL,
+    WORLD_CACHE_MAX_GI_RAY_DISTANCE,
 }
-
-const MAX_GI_RAY_DISTANCE: f32 = 4.0;
 
 #ifdef WORLD_CACHE_UPDATE_LIGHTS
 
@@ -102,16 +103,17 @@ fn sample_radiance(@builtin(global_invocation_id) active_cell_id: vec3<u32>) {
         material.metallic = 0.0;
 
         let cell = query_world_cache_lights(&rng, geometry_data.world_position, geometry_data.world_normal, view.world_position);
+        let cell_life = atomicLoad(&world_cache_life[cell_index]);
         let direct_lighting = evaluate_lighting_from_cache(&rng, cell, geometry_data.world_position, geometry_data.world_normal, geometry_data.world_normal, material, view.exposure);
-        write_world_cache_light(&rng, direct_lighting, geometry_data.world_position, geometry_data.world_normal, view.world_position, view.exposure);
+        write_world_cache_light(&rng, direct_lighting, geometry_data.world_position, geometry_data.world_normal, view.world_position, cell_life, view.exposure);
         var new_radiance = direct_lighting.radiance * direct_lighting.inverse_pdf;
 
 #ifndef NO_MULTIBOUNCE
         let ray_direction = sample_cosine_hemisphere(geometry_data.world_normal, &rng);
-        let ray_hit = trace_ray(geometry_data.world_position, ray_direction, RAY_T_MIN, MAX_GI_RAY_DISTANCE, RAY_FLAG_NONE);
+        let ray_hit = trace_ray(geometry_data.world_position, ray_direction, RAY_T_MIN, WORLD_CACHE_MAX_GI_RAY_DISTANCE, RAY_FLAG_NONE);
         if ray_hit.kind != RAY_QUERY_INTERSECTION_NONE {
             let ray_hit = resolve_ray_hit_full(ray_hit);
-            new_radiance += ray_hit.material.base_color * query_world_cache_radiance(&rng, ray_hit.world_position, ray_hit.geometric_world_normal, view.world_position);
+            new_radiance += ray_hit.material.base_color * query_world_cache_radiance(&rng, ray_hit.world_position, ray_hit.geometric_world_normal, view.world_position, cell_life);
         }
 #endif
 
@@ -126,11 +128,19 @@ fn blend_new_samples(@builtin(global_invocation_id) active_cell_id: vec3<u32>) {
 
         let old_radiance = world_cache_radiance[cell_index];
         let new_radiance = world_cache_active_cells_new_radiance[active_cell_id.x];
-        let sample_count = min(old_radiance.a + 1.0, WORLD_CACHE_MAX_TEMPORAL_SAMPLES);
+        let luminance_delta = world_cache_luminance_deltas[cell_index];
 
-        let blended_radiance = mix(old_radiance.rgb, new_radiance, 1.0 / sample_count);
+        // https://bsky.app/profile/gboisse.bsky.social/post/3m5blga3ftk2a
+        let sample_count = min(old_radiance.a + 1.0, WORLD_CACHE_MAX_TEMPORAL_SAMPLES);
+        let alpha = abs(luminance_delta) / max(luminance(old_radiance.rgb), 0.001);
+        let max_sample_count = mix(WORLD_CACHE_MAX_TEMPORAL_SAMPLES, 1.0, pow(saturate(alpha), 1.0 / 8.0));
+        let blend_amount = 1.0 / min(sample_count, max_sample_count);
+
+        let blended_radiance = mix(old_radiance.rgb, new_radiance, blend_amount);
+        let blended_luminance_delta = mix(luminance_delta, luminance(blended_radiance) - luminance(old_radiance.rgb), 1.0 / 8.0);
 
         world_cache_radiance[cell_index] = vec4(blended_radiance, sample_count);
+        world_cache_luminance_deltas[cell_index] = blended_luminance_delta;
     }
 }
 

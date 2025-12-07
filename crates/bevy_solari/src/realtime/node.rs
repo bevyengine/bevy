@@ -186,6 +186,7 @@ impl ViewNode for SolariLightingNode {
                 s.world_cache_geometry_data.as_entire_binding(),
                 s.world_cache_light_data.as_entire_binding(),
                 s.world_cache_light_data_new_lights.as_entire_binding(),
+                s.world_cache_luminance_deltas.as_entire_binding(),
                 s.world_cache_active_cells_new_radiance.as_entire_binding(),
                 s.world_cache_a.as_entire_binding(),
                 s.world_cache_b.as_entire_binding(),
@@ -398,6 +399,7 @@ impl FromWorld for SolariLightingNode {
                     storage_buffer_sized(false, None),
                     storage_buffer_sized(false, None),
                     storage_buffer_sized(false, None),
+                    storage_buffer_sized(false, None),
                 ),
             ),
         );
@@ -504,7 +506,7 @@ impl FromWorld for SolariLightingNode {
                 "sample_radiance",
                 load_embedded_asset!(world, "world_cache_update.wgsl"),
                 None,
-                vec![],
+                vec!["WORLD_CACHE_QUERY_ATOMIC_MAX_LIFETIME".into()],
             ),
             blend_new_world_cache_samples_pipeline: create_pipeline(
                 "solari_lighting_blend_new_world_cache_samples_pipeline",

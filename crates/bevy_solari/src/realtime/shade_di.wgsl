@@ -7,7 +7,7 @@
 #import bevy_render::view::View
 #import bevy_solari::realtime_bindings::{view_output, gbuffer, depth_buffer, view, previous_view, constants}
 #import bevy_solari::scene_bindings::ResolvedMaterial
-#import bevy_solari::world_cache::{query_world_cache_lights, evaluate_lighting_from_cache, write_world_cache_light}
+#import bevy_solari::world_cache::{query_world_cache_lights, evaluate_lighting_from_cache, write_world_cache_light, WORLD_CACHE_CELL_LIFETIME}
 
 @compute @workgroup_size(8, 8, 1)
 fn shade(@builtin(workgroup_id) workgroup_id: vec3<u32>, @builtin(global_invocation_id) global_id: vec3<u32>) {
@@ -38,7 +38,7 @@ fn shade(@builtin(workgroup_id) workgroup_id: vec3<u32>, @builtin(global_invocat
 
     let cell = query_world_cache_lights(&rng, world_position, world_normal, view.world_position);
     let direct_lighting = evaluate_lighting_from_cache(&rng, cell, world_position, world_normal, wo, material, view.exposure);
-    write_world_cache_light(&rng, direct_lighting, world_position, world_normal, view.world_position, view.exposure);
+    write_world_cache_light(&rng, direct_lighting, world_position, world_normal, view.world_position, WORLD_CACHE_CELL_LIFETIME, view.exposure);
 
     let pixel_color = direct_lighting.radiance * direct_lighting.inverse_pdf * view.exposure + material.emissive;
     textureStore(view_output, global_id.xy, vec4(pixel_color, 1.0));

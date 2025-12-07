@@ -6,7 +6,7 @@
 #import bevy_solari::realtime_bindings::{view_output, gi_reservoirs_a, gbuffer, depth_buffer, view, constants}
 #import bevy_solari::sampling::{sample_ggx_vndf, ggx_vndf_pdf}
 #import bevy_solari::scene_bindings::{trace_ray, resolve_ray_hit_full, RAY_T_MIN, RAY_T_MAX}
-#import bevy_solari::world_cache::query_world_cache_radiance
+#import bevy_solari::world_cache::{query_world_cache_radiance, WORLD_CACHE_CELL_LIFETIME}
 
 @compute @workgroup_size(8, 8, 1)
 fn specular_gi(@builtin(global_invocation_id) global_id: vec3<u32>) {
@@ -73,7 +73,7 @@ fn trace_glossy_path(initial_ray_origin: vec3<f32>, initial_wi: vec3<f32>, rng: 
 
         // Add world cache contribution
         let diffuse_brdf = ray_hit.material.base_color / PI;
-        radiance += throughput * diffuse_brdf * query_world_cache_radiance(rng, ray_hit.world_position, ray_hit.geometric_world_normal, view.world_position);
+        radiance += throughput * diffuse_brdf * query_world_cache_radiance(rng, ray_hit.world_position, ray_hit.geometric_world_normal, view.world_position, WORLD_CACHE_CELL_LIFETIME);
 
         // Surface is very rough, terminate path in the world cache
         if ray_hit.material.roughness > 0.1 && i != 0u { break; }

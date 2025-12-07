@@ -28,11 +28,12 @@
 #else
 @group(1) @binding(16) var<storage, read_write> world_cache_light_data_new_lights: array<WorldCacheLightDataRead, #{WORLD_CACHE_SIZE}>;
 #endif
-@group(1) @binding(17) var<storage, read_write> world_cache_active_cells_new_radiance: array<vec3<f32>, #{WORLD_CACHE_SIZE}>;
-@group(1) @binding(18) var<storage, read_write> world_cache_a: array<u32, #{WORLD_CACHE_SIZE}>;
-@group(1) @binding(19) var<storage, read_write> world_cache_b: array<u32, 1024u>;
-@group(1) @binding(20) var<storage, read_write> world_cache_active_cell_indices: array<u32, #{WORLD_CACHE_SIZE}>;
-@group(1) @binding(21) var<storage, read_write> world_cache_active_cells_count: u32;
+@group(1) @binding(17) var<storage, read_write> world_cache_luminance_deltas: array<f32, #{WORLD_CACHE_SIZE}>;
+@group(1) @binding(18) var<storage, read_write> world_cache_active_cells_new_radiance: array<vec3<f32>, #{WORLD_CACHE_SIZE}>;
+@group(1) @binding(19) var<storage, read_write> world_cache_a: array<u32, #{WORLD_CACHE_SIZE}>;
+@group(1) @binding(20) var<storage, read_write> world_cache_b: array<u32, 1024u>;
+@group(1) @binding(21) var<storage, read_write> world_cache_active_cell_indices: array<u32, #{WORLD_CACHE_SIZE}>;
+@group(1) @binding(22) var<storage, read_write> world_cache_active_cells_count: u32;
 struct PushConstants { frame_index: u32, reset: u32 }
 var<push_constant> constants: PushConstants;
 

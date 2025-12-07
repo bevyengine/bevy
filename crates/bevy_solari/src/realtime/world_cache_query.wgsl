@@ -28,12 +28,17 @@
 }
 #import bevy_solari::presample_light_tiles::unpack_light_sample
 #import bevy_solari::sampling::{light_contribution_no_trace, select_random_light, select_random_light_inverse_pdf, trace_light_visibility, calculate_light_contribution}
-#import bevy_solari::scene_bindings::ResolvedMaterial
+#import bevy_solari::scene_bindings::{light_sources, LIGHT_SOURCE_KIND_DIRECTIONAL, ResolvedMaterial}
 
 /// How responsive the world cache is to changes in lighting (higher is less responsive, lower is more responsive)
-const WORLD_CACHE_MAX_TEMPORAL_SAMPLES: f32 = 10.0;
+const WORLD_CACHE_MAX_TEMPORAL_SAMPLES: f32 = 32.0;
+/// How many direct light samples each cell takes when updating each frame
+const WORLD_CACHE_DIRECT_LIGHT_SAMPLE_COUNT: u32 = 32u;
+/// Maximum amount of distance to trace GI rays between two cache cells
+const WORLD_CACHE_MAX_GI_RAY_DISTANCE: f32 = 50.0;
+
 /// Maximum amount of frames a cell can live for without being queried
-const WORLD_CACHE_CELL_LIFETIME: u32 = 4u;
+const WORLD_CACHE_CELL_LIFETIME: u32 = 30u;
 /// Maximum amount of attempts to find a cache entry after a hash collision
 const WORLD_CACHE_MAX_SEARCH_STEPS: u32 = 3u;
 /// Lights searched that aren't in the cell
@@ -74,18 +79,26 @@ fn hash_for_cache(rng: ptr<function, u32>, world_position: vec3<f32>, world_norm
     return WorldCacheHashData(key, checksum, jittered_position);
 }
 
-fn query_world_cache_radiance(rng: ptr<function, u32>, world_position: vec3<f32>, world_normal: vec3<f32>, view_position: vec3<f32>) -> vec3<f32> {
+fn query_world_cache_radiance(rng: ptr<function, u32>, world_position: vec3<f32>, world_normal: vec3<f32>, view_position: vec3<f32>, cell_lifetime: u32) -> vec3<f32> {
     var hash = hash_for_cache(rng, world_position, world_normal, view_position);
 
     for (var i = 0u; i < WORLD_CACHE_MAX_SEARCH_STEPS; i++) {
         let existing_checksum = atomicCompareExchangeWeak(&world_cache_checksums[hash.key], WORLD_CACHE_EMPTY_CELL, hash.checksum).old_value;
+
+        // Cell already exists or is empty - reset lifetime
+        if existing_checksum == hash.checksum || existing_checksum == WORLD_CACHE_EMPTY_CELL {
+#ifndef WORLD_CACHE_QUERY_ATOMIC_MAX_LIFETIME
+            atomicStore(&world_cache_life[hash.key], cell_lifetime);
+#else
+            atomicMax(&world_cache_life[hash.key], cell_lifetime);
+#endif
+        }
+
         if existing_checksum == hash.checksum {
-            // Cache entry already exists - get radiance and reset cell lifetime
-            atomicStore(&world_cache_life[hash.key], WORLD_CACHE_CELL_LIFETIME);
+            // Cache entry already exists - get radiance
             return world_cache_radiance[hash.key].rgb;
         } else if existing_checksum == WORLD_CACHE_EMPTY_CELL {
-            // Cell is empty - reset cell lifetime so that it starts getting updated next frame
-            atomicStore(&world_cache_life[hash.key], WORLD_CACHE_CELL_LIFETIME);
+            // Cell is empty - initialize it
             world_cache_geometry_data[hash.key].world_position = hash.jittered_position;
             world_cache_geometry_data[hash.key].world_normal = world_normal;
             world_cache_light_data[hash.key].visible_light_count = 0u;
@@ -149,14 +162,19 @@ fn query_world_cache_lights(rng: ptr<function, u32>, world_position: vec3<f32>, 
     return WorldCacheLightDataRead(0u, 0u, array<WorldCacheSingleLightData, WORLD_CACHE_CELL_LIGHT_COUNT>());
 }
 
-fn write_world_cache_light(rng: ptr<function, u32>, cell: EvaluatedLighting, world_position: vec3<f32>, world_normal: vec3<f32>, view_position: vec3<f32>, exposure: f32) {
+fn write_world_cache_light(rng: ptr<function, u32>, cell: EvaluatedLighting, world_position: vec3<f32>, world_normal: vec3<f32>, view_position: vec3<f32>, cell_lifetime: u32, exposure: f32) {
     var hash = hash_for_cache(rng, world_position, world_normal, view_position);
 
     for (var i = 0u; i < WORLD_CACHE_MAX_SEARCH_STEPS; i++) {
         let existing_checksum = atomicCompareExchangeWeak(&world_cache_checksums[hash.key], WORLD_CACHE_EMPTY_CELL, hash.checksum).old_value;
+
+        // Cell already exists or is empty - reset lifetime
         if existing_checksum == hash.checksum || existing_checksum == WORLD_CACHE_EMPTY_CELL {
-            // Empty or exists - reset cell lifetime
-            atomicStore(&world_cache_life[hash.key], WORLD_CACHE_CELL_LIFETIME);
+#ifndef WORLD_CACHE_QUERY_ATOMIC_MAX_LIFETIME
+            atomicStore(&world_cache_life[hash.key], cell_lifetime);
+#else
+            atomicMax(&world_cache_life[hash.key], cell_lifetime);
+#endif
 
             let index = atomicAdd(&world_cache_light_data_new_lights[hash.key].visible_light_count, 1u) & (WORLD_CACHE_CELL_LIGHT_COUNT - 1u);
             let packed = (u64(bitcast<u32>(cell.data.weight)) << 32u) | u64(cell.data.light);
@@ -287,6 +305,14 @@ fn select_light_randomly(
     var weight_sum = 0.0;
     for (var i = 0u; i < samples; i++) {
         let tile_sample = light_tile_samples[light_tile_start + rand_range_u(1024u, rng)];
+        var already_sampled = false;
+        for (var j = 0u; j < cell.visible_light_count; j++) {
+            if tile_sample.light_id == cell.visible_lights[j].light {
+                already_sampled = true;
+            }
+        }
+        if already_sampled { continue; }
+
         let sample = unpack_light_sample(tile_sample);
         let direct_lighting = calculate_light_contribution(sample, world_position, world_normal);
         let brdf = evaluate_brdf(world_normal, wo, direct_lighting.wi, material);
@@ -305,7 +331,26 @@ fn select_light_randomly(
         }
     }
 
-    let base_inverse_pdf = select_random_light_inverse_pdf(selected);
+    let selected_base_light = selected >> 16u;
+    var base_light_offset = 0u;
+    var sub_light_offset = 0u;
+    for (var i = 0u; i < cell.visible_light_count; i++) {
+        let this_base_light = cell.visible_lights[i].light >> 16u;
+        let light_source = light_sources[this_base_light];
+        if light_source.kind == LIGHT_SOURCE_KIND_DIRECTIONAL {
+            base_light_offset++; // We have already sampled this directional light
+        } else if this_base_light == selected_base_light {
+            sub_light_offset++; // We have already sampled this triangle, but can still sample from the mesh!
+        }
+    }
+
+    let light_count = arrayLength(&light_sources);
+    let light_source = light_sources[selected_base_light];
+    var triangle_count = 1u;
+    if light_source.kind != LIGHT_SOURCE_KIND_DIRECTIONAL {
+        triangle_count = light_source.kind >> 1u;
+    }
+    let base_inverse_pdf =  f32(light_count - min(base_light_offset, light_count)) * f32(triangle_count - sub_light_offset);
     return SelectedLight(selected, selected_weight, weight_sum, base_inverse_pdf);
 }
 
