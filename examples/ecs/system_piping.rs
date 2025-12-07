@@ -29,7 +29,7 @@ fn main() {
                 // for more info.
                 compose! {
                     || -> Result<(), RunSystemError> {
-                        let out = run!(warning_pipe_system)?;
+                        let out = system!(warning_pipe_system).run()?;
                         if let Err(err) = out {
                             error!("{err}");
                         }
@@ -38,7 +38,7 @@ fn main() {
                 },
                 compose! {
                     || -> Result<(), RunSystemError>  {
-                        let out = run!(parse_error_message_system)?;
+                        let out = system!(parse_error_message_system).run()?;
                         if let Err(err) = out {
                             error!("{err}");
                         }
