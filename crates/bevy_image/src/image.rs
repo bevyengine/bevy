@@ -2232,7 +2232,7 @@ mod test {
     }
 
     #[test]
-    fn get_or_inti_sampler_modifications() {
+    fn get_or_init_sampler_modifications() {
         // given some sampler
         let mut default_sampler = ImageSampler::Default;
         // a load_with_settings call wants to customize the descriptor
