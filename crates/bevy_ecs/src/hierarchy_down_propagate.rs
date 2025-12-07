@@ -68,6 +68,32 @@ pub use parallel::hierarchy_propagate_complex;
 #[cfg(not(feature = "std"))]
 pub use serial::hierarchy_propagate_complex;
 
+/// A trait for implementing hierarchy propagation behavior.
+/// Propagates data down the hierarchy from parent to children (like transforms, visibility).
+pub trait DownPropagate {
+    /// The input component type that contains the local data to be propagated.
+    type Input: Component;
+
+    /// The output component type that contains the computed global data.
+    type Output: Component<Mutability = Mutable> + PartialEq;
+
+    /// A component used to mark entities in dirty trees for optimization.
+    type TreeChanged: Component<Mutability = Mutable> + Default;
+
+    /// Propagates data from parent to child.
+    ///
+    /// # Arguments
+    /// * `parent` - The parent's output data (None if this is a root entity)
+    /// * `input` - The child's input data
+    ///
+    /// # Returns
+    /// The computed output data for the child
+    fn down_propagate(parent: &Self::Output, input: &Self::Input) -> Self::Output;
+
+    /// Converts input to output for entities without parents.
+    fn input_to_output(input: &Self::Input) -> Self::Output;
+}
+
 /// Creates a system for syncing simple entities (those without hierarchy).
 ///
 /// Third party plugins should ensure that this is used in concert with
@@ -602,32 +628,6 @@ pub mod parallel {
                 .for_each(|outbox| Self::send_batches_with(sender, outbox));
         }
     }
-}
-
-/// A trait for implementing hierarchy propagation behavior.
-/// Propagates data down the hierarchy from parent to children (like transforms, visibility).
-pub trait DownPropagate {
-    /// The input component type that contains the local data to be propagated.
-    type Input: Component;
-
-    /// The output component type that contains the computed global data.
-    type Output: Component<Mutability = Mutable> + PartialEq;
-
-    /// A component used to mark entities in dirty trees for optimization.
-    type TreeChanged: Component<Mutability = Mutable> + Default;
-
-    /// Propagates data from parent to child.
-    ///
-    /// # Arguments
-    /// * `parent` - The parent's output data (None if this is a root entity)
-    /// * `input` - The child's input data
-    ///
-    /// # Returns
-    /// The computed output data for the child
-    fn down_propagate(parent: &Self::Output, input: &Self::Input) -> Self::Output;
-
-    /// Converts input to output for entities without parents.
-    fn input_to_output(input: &Self::Input) -> Self::Output;
 }
 
 #[cfg(test)]
