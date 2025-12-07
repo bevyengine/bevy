@@ -1,6 +1,6 @@
 use crate::components::{GlobalTransform, Transform, TransformTreeChanged};
 use bevy_ecs::{
-    hierarchy_propagate::{
+    hierarchy_down_propagate::{
         hierarchy_propagate_complex, hierarchy_propagate_simple,
         mark_dirty_trees as mark_dirty_trees_generic, DownPropagate,
     },
@@ -89,7 +89,7 @@ pub fn propagate_parent_transforms(
 }
 
 #[cfg(feature = "std")]
-use bevy_ecs::hierarchy_propagate::parallel::{NodeQuery, WorkQueue};
+use bevy_ecs::hierarchy_down_propagate::parallel::{NodeQuery, WorkQueue};
 
 #[cfg(feature = "std")]
 /// Parallel hierarchy traversal with a batched work sharing scheduler. Often 2-5 times faster than
