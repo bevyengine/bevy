@@ -22,7 +22,6 @@ struct MyRoundGizmos;
 
 fn setup(
     mut commands: Commands,
-    mut gizmo_assets: ResMut<Assets<GizmoAsset>>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {

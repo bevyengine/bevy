@@ -86,9 +86,10 @@ impl Plugin for GizmoRenderPlugin {
             .add_systems(
                 PostUpdate,
                 (
-                    calculate_bounds.in_set(VisibilitySystems::CalculateBounds),
                     mark_gizmos_as_changed_if_their_assets_changed.after(AssetEventSystems),
-                ),
+                    calculate_bounds.in_set(VisibilitySystems::CalculateBounds),
+                )
+                    .chain(),
             );
 
         app.world_mut()
