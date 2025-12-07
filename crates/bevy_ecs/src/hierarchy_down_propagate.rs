@@ -606,7 +606,7 @@ pub mod parallel {
 
 /// A trait for implementing hierarchy propagation behavior.
 /// Propagates data down the hierarchy from parent to children (like transforms, visibility).
-pub trait DownPropagate: Component {
+pub trait DownPropagate {
     /// The input component type that contains the local data to be propagated.
     type Input: Component;
 
