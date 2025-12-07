@@ -187,6 +187,7 @@ default_app = [
   "bevy_state",
   "bevy_window",
   "custom_cursor",
+  "custom_window_icon",
   "reflect_auto_register",
 ]
 
@@ -672,6 +673,9 @@ reflect_auto_register_static = ["bevy_internal/reflect_auto_register_static"]
 
 # Enable winit custom cursor support
 custom_cursor = ["bevy_internal/custom_cursor"]
+
+# Enable winit custom window icon support
+custom_window_icon = ["bevy_internal/custom_window_icon"]
 
 # Experimental support for nodes that are ignored for UI layouting
 ghost_nodes = ["bevy_internal/ghost_nodes"]
@@ -3907,6 +3911,7 @@ wasm = false
 name = "window_settings"
 path = "examples/window/window_settings.rs"
 doc-scrape-examples = true
+required-features = ["bevy_window", "bevy_winit"]
 
 [package.metadata.example.window_settings]
 name = "Window Settings"

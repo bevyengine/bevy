@@ -43,6 +43,9 @@ use crate::{
     state::winit_runner,
 };
 
+#[cfg(feature = "custom_window_icon")]
+use system::{changed_window_icon, changed_window_icon_asset, set_winit_window_icon};
+
 pub mod accessibility;
 mod converters;
 mod cursor;
@@ -51,6 +54,8 @@ mod system;
 mod winit_config;
 mod winit_monitors;
 mod winit_windows;
+
+mod winit_window_icon;
 
 thread_local! {
     /// Temporary storage of WinitWindows data to replace usage of `!Send` resources. This will be replaced with proper
@@ -142,6 +147,12 @@ impl<T: Message> Plugin for WinitPlugin<T> {
                     // so we don't need to care about its ordering relative to `changed_windows`
                     changed_windows.ambiguous_with(exit_on_all_closed),
                     changed_cursor_options,
+                    #[cfg(feature = "custom_window_icon")]
+                    changed_window_icon,
+                    #[cfg(feature = "custom_window_icon")]
+                    changed_window_icon_asset,
+                    #[cfg(feature = "custom_window_icon")]
+                    set_winit_window_icon,
                     despawn_windows,
                     check_keyboard_focus_lost,
                 )
@@ -203,6 +214,7 @@ impl AppSendEvent for Vec<WindowEvent> {
 }
 
 /// The parameters of the [`create_windows`] system.
+#[cfg(not(feature = "custom_window_icon"))]
 pub type CreateWindowParams<'w, 's, F = ()> = (
     Commands<'w, 's>,
     Query<
@@ -220,6 +232,29 @@ pub type CreateWindowParams<'w, 's, F = ()> = (
     ResMut<'w, WinitActionRequestHandlers>,
     Res<'w, AccessibilityRequested>,
     Res<'w, WinitMonitors>,
+);
+
+/// The parameters of the [`create_windows`] system.
+#[cfg(feature = "custom_window_icon")]
+pub type CreateWindowParams<'w, 's, F = ()> = (
+    Commands<'w, 's>,
+    Query<
+        'w,
+        's,
+        (
+            Entity,
+            &'static mut Window,
+            &'static CursorOptions,
+            Option<&'static bevy_window::WindowIcon>,
+            Option<&'static RawHandleWrapperHolder>,
+        ),
+        F,
+    >,
+    MessageWriter<'w, WindowCreated>,
+    ResMut<'w, WinitActionRequestHandlers>,
+    Res<'w, AccessibilityRequested>,
+    Res<'w, WinitMonitors>,
+    Res<'w, bevy_asset::Assets<bevy_image::Image>>, // qualified path used to avoid unused import warnings
 );
 
 /// The parameters of the [`create_monitors`] system.

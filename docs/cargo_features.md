@@ -108,6 +108,7 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 |compressed_image_saver|Enables compressed KTX2 UASTC texture output on the asset processor|
 |critical-section|`critical-section` provides the building blocks for synchronization primitives on all platforms, including `no_std`.|
 |custom_cursor|Enable winit custom cursor support|
+|custom_window_icon|Enable winit custom window icon support|
 |dds|DDS compressed texture support|
 |debug|Enable collecting debug information about systems and components to help with diagnostics|
 |debug_glam_assert|Enable assertions in debug builds to check the validity of parameters passed to glam|

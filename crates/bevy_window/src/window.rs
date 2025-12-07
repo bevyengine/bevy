@@ -1,6 +1,10 @@
 #[cfg(feature = "std")]
 use alloc::format;
 use alloc::{borrow::ToOwned, string::String};
+#[cfg(feature = "custom_window_icon")]
+use bevy_asset::Handle;
+#[cfg(feature = "custom_window_icon")]
+use bevy_image::Image;
 use core::num::NonZero;
 
 use bevy_ecs::{
@@ -161,6 +165,7 @@ impl ContainsEntity for NormalizedWindowRef {
     reflect(Serialize, Deserialize)
 )]
 #[require(CursorOptions)]
+#[cfg_attr(feature = "custom_window_icon", require(WindowIcon))]
 pub struct Window {
     /// What presentation mode to give the window.
     pub present_mode: PresentMode,
@@ -775,6 +780,54 @@ impl Default for CursorOptions {
         }
     }
 }
+
+/// Icon data for a [`Window`].
+#[derive(Component, Debug, Clone, Default)]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Component, Debug, Default, Clone)
+)]
+#[cfg(feature = "custom_window_icon")]
+pub enum WindowIcon {
+    /// Handle to the asset to be read into the window icon.
+    Image(Handle<Image>),
+    /// The icon will not be intentionally set by Bevy, which may result in no icon being set.
+    #[default]
+    PlatformDefault,
+    /// Use an icon loaded using a platform-specific mechanism.
+    PlatformSpecific(WindowIconSource),
+}
+
+/// Icon source for usage with [`IconExtWindows`](https://docs.rs/winit/latest/winit/platform/windows/trait.IconExtWindows.html) from `winit` for the Windows platform.
+/// See the [embed_resource](https://docs.rs/embed-resource/latest/embed_resource/) crate for an example on how to embed resources in a Windows executable.
+/// The Bevy source code has an example under `tests-integration/window-icon`.
+///
+/// At this time, Bevy does not provide automatic discovery of the application icon, so you will have to specify here the identifier used in the `.rc` file manually.
+#[derive(Debug, Clone)]
+#[cfg(feature = "custom_window_icon")]
+#[cfg(target_os = "windows")]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, Clone))]
+pub enum WindowIconSource {
+    /// A path to be passed as an argument to [`LoadImageW`](https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-loadimagew) with `hinst` set to `0`
+    Path {
+        /// The path to the icon file.
+        path: std::path::PathBuf,
+        /// Size that should be used when loading the icon. If `None`, the system's default icon size will be used. If the specified size is not present, Windows may scale another available size.
+        size: Option<(u32, u32)>,
+    },
+    /// A numeric resource identifier to be passed as an argument to [`LoadImageW`](https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-loadimagew) with [`hinst` of the current module](https://docs.rs/crate/winit/latest/source/src/platform_impl/windows/util.rs#147-160).
+    ResourceOrdinal(u16),
+    /// A path to a resource name to be passed as an argument to [`LoadImageW`](https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-loadimagew) with [`hinst` of the current module](https://docs.rs/crate/winit/latest/source/src/platform_impl/windows/util.rs#147-160).
+    ResourceName(String),
+}
+
+/// Icon source for platforms other than Windows.
+#[derive(Debug, Clone)]
+#[cfg(feature = "custom_window_icon")]
+#[cfg(not(target_os = "windows"))]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, Clone))]
+pub enum WindowIconSource {}
 
 /// Defines where a [`Window`] should be placed on the screen.
 #[derive(Default, Debug, Clone, Copy, PartialEq)]
