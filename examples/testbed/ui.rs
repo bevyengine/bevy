@@ -70,12 +70,12 @@ impl Next for Scene {
             Scene::Slice => Scene::LayoutRounding,
             Scene::LayoutRounding => Scene::LinearGradient,
             Scene::LinearGradient => Scene::RadialGradient,
-            Scene::RadialGradient => Scene::Transformations,
             #[cfg(feature = "bevy_ui_debug")]
-            Scene::Transformations => Scene::DebugOutlines,
+            Scene::RadialGradient => Scene::DebugOutlines,
             #[cfg(feature = "bevy_ui_debug")]
-            Scene::DebugOutlines => Scene::Image,
+            Scene::DebugOutlines => Scene::Transformations,
             #[cfg(not(feature = "bevy_ui_debug"))]
+            Scene::RadialGradient => Scene::Transformations,
             Scene::Transformations => Scene::Image,
         }
     }
