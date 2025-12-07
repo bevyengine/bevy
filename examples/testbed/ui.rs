@@ -985,14 +985,16 @@ mod transformations {
 
 #[cfg(feature = "bevy_ui_debug")]
 mod debug_outlines {
-    use bevy::color::palettes::css::GRAY;
-    use bevy::{color::palettes::css::*, prelude::*};
-
-    use bevy::ui_render::UiDebugOptions;
+    use bevy::{
+        color::palettes::css::{BLUE, GRAY, RED},
+        prelude::*,
+        ui_render::UiDebugOptions,
+    };
 
     pub fn setup(mut commands: Commands, mut debug_options: ResMut<UiDebugOptions>) {
         debug_options.enabled = true;
         debug_options.line_width = 5.;
+        debug_options.line_color_override = Some(LinearRgba::GREEN);
         debug_options.show_hidden = true;
         debug_options.show_clipped = true;
         commands.spawn((Camera2d, DespawnOnExit(super::Scene::DebugOutlines)));
