@@ -44,11 +44,11 @@ collections to build your own "profile" equivalent, without needing to manually 
 |default_platform|These are platform support features, such as OS support/features, windowing and input backends, etc.|
 |common_api|Default scene definition features. Note that this does not include an actual renderer, such as bevy_render (Bevy's default render backend).|
 |2d_api|Features used to build 2D Bevy apps (does not include a render backend). You generally don't need to worry about this unless you are using a custom renderer.|
-|2d_bevy_render|Bevy's built-in 2D renderer, built on top of `bevy_render` |
+|2d_bevy_render|Bevy's built-in 2D renderer, built on top of `bevy_render`.|
 |3d_api|Features used to build 3D Bevy apps (does not include a render backend). You generally don't need to worry about this unless you are using a custom renderer.|
-|3d_bevy_render|Bevy's built-in 3D renderer, built on top of `bevy_render` |
+|3d_bevy_render|Bevy's built-in 3D renderer, built on top of `bevy_render`.|
 |ui_api|Features used to build UI Bevy apps (does not include a render backend). You generally don't need to worry about this unless you are using a custom renderer.|
-|ui_bevy_render|Bevy's built-in UI renderer, built on top of `bevy_render` |
+|ui_bevy_render|Bevy's built-in UI renderer, built on top of `bevy_render`.|
 |default_no_std|Recommended defaults for no_std applications|
 
 ### Feature List
