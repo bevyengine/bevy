@@ -267,6 +267,17 @@ fn run_app_until_finished_processing(app: &mut App, guard: RwLockWriteGuard<'_, 
     // finished before, but now that something has changed, we may not have restarted processing
     // yet. So wait for processing to start, then finish.
     run_app_until(app, |_| {
+        // Before we even consider whether the processor is started, make sure that none of the
+        // receivers have anything left in them. This prevents us accidentally, considering the
+        // processor as processing before all the events have been processed.
+        for source in processor.sources().iter() {
+            let Some(recv) = source.event_receiver() else {
+                continue;
+            };
+            if !recv.is_empty() {
+                return None;
+            }
+        }
         let state = bevy_tasks::block_on(processor.get_state());
         (state == ProcessorState::Processing || state == ProcessorState::Initializing).then_some(())
     });

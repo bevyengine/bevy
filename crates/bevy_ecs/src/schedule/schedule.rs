@@ -842,6 +842,8 @@ impl ScheduleGraph {
                             &previous_result.nodes
                         };
 
+                        self.dependency
+                            .reserve_edges(previous_nodes.len() * current_nodes.len());
                         for previous_node in previous_nodes {
                             for current_node in current_nodes {
                                 self.dependency.add_edge(*previous_node, *current_node);
@@ -935,6 +937,8 @@ impl ScheduleGraph {
         let in_nodes: Vec<_> = self.hierarchy.neighbors_directed(node, Incoming).collect();
         let out_nodes: Vec<_> = self.hierarchy.neighbors_directed(node, Outgoing).collect();
 
+        self.hierarchy
+            .reserve_edges(in_nodes.len() * out_nodes.len());
         for &in_node in &in_nodes {
             for &out_node in &out_nodes {
                 self.hierarchy.add_edge(in_node, out_node);
@@ -944,6 +948,8 @@ impl ScheduleGraph {
         let in_nodes: Vec<_> = self.dependency.neighbors_directed(node, Incoming).collect();
         let out_nodes: Vec<_> = self.dependency.neighbors_directed(node, Outgoing).collect();
 
+        self.dependency
+            .reserve_edges(in_nodes.len() * out_nodes.len());
         for &in_node in &in_nodes {
             for &out_node in &out_nodes {
                 self.dependency.add_edge(in_node, out_node);
