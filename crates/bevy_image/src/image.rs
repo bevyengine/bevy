@@ -2270,6 +2270,6 @@ mod test {
             .set_anisotropic_filter(8);
 
         assert_eq!(my_sampler_in_a_loader.min_filter, ImageFilterMode::Linear);
-        assert_eq!(my_sampler_in_a_loader.anisotropy_clamp, 8)
+        assert_eq!(my_sampler_in_a_loader.anisotropy_clamp, 8);
     }
 }
