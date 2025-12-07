@@ -4445,6 +4445,17 @@ description = "Example demonstrating how to debug frustum culling"
 category = "Usage"
 wasm = true
 
+[[example]]
+name = "retained_gizmos"
+path = "examples/gizmos/retained_gizmos.rs"
+doc-scrape-examples = true
+required-features = ["free_camera"]
+
+[package.metadata.example.retained_gizmos]
+name = "Retained Gizmos"
+description = "A scene showcasing retained gizmos"
+category = "Gizmos"
+wasm = true
 
 [[example]]
 name = "custom_gltf_vertex_attribute"
