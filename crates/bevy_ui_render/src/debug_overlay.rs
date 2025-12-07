@@ -44,6 +44,13 @@ impl UiDebugOptions {
     pub fn toggle(&mut self) {
         self.enabled = !self.enabled;
     }
+
+    pub fn reset(&mut self) {
+        self.enabled = false;
+        self.line_width = 1.;
+        self.show_hidden = false;
+        self.show_clipped = false;
+    }
 }
 
 impl Default for UiDebugOptions {
