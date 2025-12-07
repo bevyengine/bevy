@@ -262,14 +262,10 @@ fn transform_aabb(input: JointAabb, transform: Affine3A) -> Aabb3d {
     let sz = Vec3A::splat(input.half_size.z);
 
     // Transform the center.
-    let tc = (mx * cx) + mt;
-    let tc = (my * cy) + tc;
-    let tc = (mz * cz) + tc;
+    let tc = (mx * cx) + (my * cy) + (mz * cz) + mt;
 
     // Calculate a size that encloses the transformed size.
-    let ts = mx.abs() * sx;
-    let ts = (my.abs() * sy) + ts;
-    let ts = (mz.abs() * sz) + ts;
+    let ts = (mx.abs() * sx) + (my.abs() * sy) + (mz.abs() * sz);
 
     let min = tc - ts;
     let max = tc + ts;
