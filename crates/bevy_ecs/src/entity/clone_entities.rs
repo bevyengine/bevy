@@ -1144,11 +1144,11 @@ impl OptOut {
     #[inline]
     fn filter_deny(&mut self, id: ComponentId, world: &World) {
         self.deny.insert(id);
-        if self.attach_required_by_components {
-            if let Some(required_by) = world.components().get_required_by(id) {
-                self.deny.extend(required_by.iter());
-            };
-        }
+        if self.attach_required_by_components
+            && let Some(required_by) = world.components().get_required_by(id)
+        {
+            self.deny.extend(required_by.iter());
+        };
     }
 }
 
