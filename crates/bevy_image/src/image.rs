@@ -701,7 +701,7 @@ impl ImageSamplerDescriptor {
 
     /// Returns this sampler descriptor with a new `ImageFilterMode` min, mag, and mipmap filters
     #[inline]
-    pub fn with_filter(&mut self, filter: ImageFilterMode) -> &mut Self {
+    pub fn set_filter(&mut self, filter: ImageFilterMode) -> &mut Self {
         self.mag_filter = filter;
         self.min_filter = filter;
         self.mipmap_filter = filter;
@@ -710,7 +710,7 @@ impl ImageSamplerDescriptor {
 
     /// Returns this sampler descriptor with a new `ImageAddressMode` for u, v, and w
     #[inline]
-    pub fn with_address_mode(&mut self, address_mode: ImageAddressMode) -> &mut Self {
+    pub fn set_address_mode(&mut self, address_mode: ImageAddressMode) -> &mut Self {
         self.address_mode_u = address_mode;
         self.address_mode_v = address_mode;
         self.address_mode_w = address_mode;
@@ -721,7 +721,7 @@ impl ImageSamplerDescriptor {
     /// set filters to `ImageFilterMode::Linear`, which is required to
     /// use anisotropy.
     #[inline]
-    pub fn with_anisotropic_filter(&mut self, anisotropy_clamp: u16) -> &mut Self {
+    pub fn set_anisotropic_filter(&mut self, anisotropy_clamp: u16) -> &mut Self {
         self.mag_filter = ImageFilterMode::Linear;
         self.min_filter = ImageFilterMode::Linear;
         self.mipmap_filter = ImageFilterMode::Linear;
@@ -2250,8 +2250,8 @@ mod test {
         // a load_with_settings call wants to customize the descriptor
         let my_sampler_in_a_loader = default_sampler
             .get_or_init_descriptor()
-            .with_filter(ImageFilterMode::Linear)
-            .with_address_mode(ImageAddressMode::Repeat);
+            .set_filter(ImageFilterMode::Linear)
+            .set_address_mode(ImageAddressMode::Repeat);
 
         assert_eq!(
             my_sampler_in_a_loader.address_mode_u,
@@ -2267,7 +2267,7 @@ mod test {
         // a load_with_settings call wants to customize the descriptor
         let my_sampler_in_a_loader = default_sampler
             .get_or_init_descriptor()
-            .with_anisotropic_filter(8);
+            .set_anisotropic_filter(8);
 
         assert_eq!(my_sampler_in_a_loader.min_filter, ImageFilterMode::Linear);
         assert_eq!(my_sampler_in_a_loader.anisotropy_clamp, 8)
