@@ -1219,4 +1219,30 @@ mod test {
             *world.entity(child).get::<GlobalTransform>().unwrap()
         );
     }
+
+    #[test]
+    fn hierarchy_with_missing_transform_in_middle() {
+        let mut world = World::new();
+        let mut schedule = Schedule::default();
+        schedule.add_systems(
+            (
+                mark_dirty_trees::<Transform>,
+                hierarchy_propagate_simple::<Transform>,
+                hierarchy_propagate_complex::<Transform>,
+            )
+                .chain(),
+        );
+        let entity_a = world.spawn(Transform::from_xyz(2.0, 0.0, 0.0)).id();
+        let entity_b = world.spawn_empty().id(); // B has no Transform component
+        let entity_c = world.spawn(Transform::from_xyz(3.0, 0.0, 0.0)).id();
+
+        world.entity_mut(entity_b).insert(ChildOf(entity_a));
+        world.entity_mut(entity_c).insert(ChildOf(entity_b));
+
+        schedule.run(&mut world);
+
+        // C's GlobalTransform isn't updated, we only propagate down from the roots.
+        let global_c = world.get::<GlobalTransform>(entity_c).unwrap();
+        assert_eq!(*global_c, GlobalTransform::default());
+    }
 }
