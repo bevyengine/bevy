@@ -557,6 +557,15 @@ impl Systems {
         key
     }
 
+    pub(crate) fn replace(&mut self, key: SystemKey, system: ScheduleSystem) -> bool {
+        let Some(slot) = self.nodes.get_mut(key) else {
+            return false;
+        };
+        *slot = SystemNode::new(system);
+        self.uninit.push(key);
+        true
+    }
+
     /// Remove a system with [`SystemKey`]
     pub(crate) fn remove(&mut self, key: SystemKey) -> bool {
         let mut found = false;
