@@ -313,9 +313,11 @@ impl TextPipeline {
         }
 
         let buffer = &mut computed.buffer;
-        let box_size = buffer_dimensions(buffer);
+        let mut box_size = Vec2::ZERO;
 
         let result = buffer.layout_runs().try_for_each(|run| {
+            box_size.x = box_size.x.max(run.line_w);
+            box_size.y += run.line_height;
             let mut current_section: Option<usize> = None;
             let mut start = 0.;
             let mut end = 0.;
@@ -441,7 +443,7 @@ impl TextPipeline {
         // Check result.
         result?;
 
-        layout_info.size = box_size;
+        layout_info.size = box_size.ceil();
         Ok(())
     }
 
@@ -551,9 +553,11 @@ impl TextPipeline {
 
         let buffer = &mut computed.buffer;
         buffer.set_size(font_system, bounds.width, bounds.height);
-        let box_size = buffer_dimensions(buffer);
+        let mut box_size = Vec2::ZERO;
 
         let result = buffer.layout_runs().try_for_each(|run| {
+            box_size.x = box_size.x.max(run.line_w);
+            box_size.y += run.line_height;
             let mut current_section: Option<usize> = None;
             let mut start = 0.;
             let mut end = 0.;
