@@ -717,6 +717,18 @@ impl ImageSamplerDescriptor {
         self
     }
 
+    /// Returns this sampler descriptor with an anisotopy_clamp value and also
+    /// set filters to `ImageFilterMode::Linear`, which is required to
+    /// use anisotropy.
+    #[inline]
+    pub fn with_anisotropic_filter(&mut self, anisotropy_clamp: u16) -> &mut Self {
+        self.mag_filter = ImageFilterMode::Linear;
+        self.min_filter = ImageFilterMode::Linear;
+        self.mipmap_filter = ImageFilterMode::Linear;
+        self.anisotropy_clamp = anisotropy_clamp;
+        self
+    }
+
     pub fn as_wgpu(&self) -> SamplerDescriptor<Option<&str>> {
         SamplerDescriptor {
             label: self.label.as_deref(),
@@ -2246,5 +2258,18 @@ mod test {
             ImageAddressMode::Repeat
         );
         assert_eq!(my_sampler_in_a_loader.min_filter, ImageFilterMode::Linear);
+    }
+
+    #[test]
+    fn get_or_init_sampler_anisotropy() {
+        // given some sampler
+        let mut default_sampler = ImageSampler::Default;
+        // a load_with_settings call wants to customize the descriptor
+        let my_sampler_in_a_loader = default_sampler
+            .get_or_init_descriptor()
+            .with_anisotropic_filter(8);
+
+        assert_eq!(my_sampler_in_a_loader.min_filter, ImageFilterMode::Linear);
+        assert_eq!(my_sampler_in_a_loader.anisotropy_clamp, 8)
     }
 }
