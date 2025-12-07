@@ -1,21 +1,23 @@
-#import bevy_solari::world_cache::{
-    WORLD_CACHE_EMPTY_CELL,
-    world_cache_life,
+#import bevy_solari::realtime_bindings::{
     world_cache_checksums,
+    world_cache_life,
     world_cache_radiance,
-    world_cache_luminance_deltas,
-    world_cache_a,
-    world_cache_b,
+    world_cache_a, 
+    world_cache_b, 
     world_cache_active_cell_indices,
-    world_cache_active_cells_count,
+    world_cache_active_cells_count, 
+    world_cache_luminance_deltas,
+    WORLD_CACHE_CELL_LIGHT_COUNT,
+    WorldCacheSingleLightData, 
 }
+#import bevy_solari::world_cache::WORLD_CACHE_EMPTY_CELL
 
 @group(2) @binding(0) var<storage, read_write> world_cache_active_cells_dispatch: vec3<u32>;
 
 var<workgroup> w1: array<u32, 1024u>;
 var<workgroup> w2: array<u32, 1024u>;
 
-@compute @workgroup_size(1024, 1, 1)
+@compute @workgroup_size(64, 1, 1)
 fn decay_world_cache(@builtin(global_invocation_id) global_id: vec3<u32>) {
     var life = world_cache_life[global_id.x];
     if life > 0u {

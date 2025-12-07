@@ -1,28 +1,16 @@
 // https://intro-to-restir.cwyman.org/presentations/2023ReSTIR_Course_Notes.pdf
 
 #import bevy_core_pipeline::tonemapping::tonemapping_luminance as luminance
-#import bevy_pbr::prepass_bindings::PreviousViewUniforms
 #import bevy_pbr::utils::{rand_f, sample_uniform_hemisphere, uniform_hemisphere_inverse_pdf, sample_disk}
 #import bevy_render::maths::PI
 #import bevy_render::view::View
 #import bevy_solari::brdf::evaluate_diffuse_brdf
 #import bevy_solari::gbuffer_utils::{gpixel_resolve, pixel_dissimilar, permute_pixel}
-#import bevy_solari::sampling::{sample_random_light, trace_point_visibility}
+#import bevy_solari::realtime_bindings::{view_output, gi_reservoirs_a, gi_reservoirs_b, gbuffer, depth_buffer, motion_vectors, previous_gbuffer, previous_depth_buffer, view, previous_view, constants, Reservoir}
 #import bevy_solari::scene_bindings::{trace_ray, resolve_ray_hit_full, RAY_T_MIN, RAY_T_MAX}
-#import bevy_solari::world_cache::{query_world_cache, WORLD_CACHE_CELL_LIFETIME}
+#import bevy_solari::sampling::trace_point_visibility
+#import bevy_solari::world_cache::{query_world_cache_radiance, query_world_cache_lights, evaluate_lighting_from_cache, write_world_cache_light, WORLD_CACHE_CELL_LIFETIME}
 
-@group(1) @binding(0) var view_output: texture_storage_2d<rgba16float, read_write>;
-@group(1) @binding(5) var<storage, read_write> gi_reservoirs_a: array<Reservoir>;
-@group(1) @binding(6) var<storage, read_write> gi_reservoirs_b: array<Reservoir>;
-@group(1) @binding(7) var gbuffer: texture_2d<u32>;
-@group(1) @binding(8) var depth_buffer: texture_depth_2d;
-@group(1) @binding(9) var motion_vectors: texture_2d<f32>;
-@group(1) @binding(10) var previous_gbuffer: texture_2d<u32>;
-@group(1) @binding(11) var previous_depth_buffer: texture_depth_2d;
-@group(1) @binding(12) var<uniform> view: View;
-@group(1) @binding(13) var<uniform> previous_view: PreviousViewUniforms;
-struct PushConstants { frame_index: u32, reset: u32 }
-var<push_constant> constants: PushConstants;
 
 const SPATIAL_REUSE_RADIUS_PIXELS = 30.0;
 const CONFIDENCE_WEIGHT_CAP = 8.0;
@@ -99,11 +87,15 @@ fn generate_initial_reservoir(world_position: vec3<f32>, world_normal: vec3<f32>
     reservoir.confidence_weight = 1.0;
 
 #ifdef NO_WORLD_CACHE
-    let direct_lighting = sample_random_light(sample_point.world_position, sample_point.world_normal, rng);
+    let wo = normalize(sample_point.world_position - world_position);
+    let cell = query_world_cache_lights(rng, sample_point.world_position, sample_point.world_normal, view.world_position);
+    let direct_lighting = evaluate_lighting_from_cache(rng, cell, sample_point.world_position, sample_point.world_normal, wo, sample_point.material, view.exposure);
+    write_world_cache_light(rng, direct_lighting, sample_point.world_position, sample_point.world_normal, view.world_position, WORLD_CACHE_CELL_LIFETIME, view.exposure);
+    
     reservoir.radiance = direct_lighting.radiance;
-    reservoir.unbiased_contribution_weight = direct_lighting.inverse_pdf * uniform_hemisphere_inverse_pdf();
+    reservoir.unbiased_contribution_weight = direct_lighting.inverse_pdf * uniform_hemisphere_inverse_pdf();    
 #else
-    reservoir.radiance = query_world_cache(sample_point.world_position, sample_point.geometric_world_normal, view.world_position, WORLD_CACHE_CELL_LIFETIME, rng);
+    reservoir.radiance = query_world_cache_radiance(rng, sample_point.world_position, sample_point.geometric_world_normal, view.world_position, WORLD_CACHE_CELL_LIFETIME);
     reservoir.unbiased_contribution_weight = uniform_hemisphere_inverse_pdf();
 #endif
 
@@ -204,16 +196,6 @@ fn isinf(x: f32) -> bool {
 
 fn isnan(x: f32) -> bool {
     return (bitcast<u32>(x) & 0x7fffffffu) > 0x7f800000u;
-}
-
-// Don't adjust the size of this struct without also adjusting GI_RESERVOIR_STRUCT_SIZE.
-struct Reservoir {
-    sample_point_world_position: vec3<f32>,
-    weight_sum: f32,
-    radiance: vec3<f32>,
-    confidence_weight: f32,
-    sample_point_world_normal: vec3<f32>,
-    unbiased_contribution_weight: f32,
 }
 
 fn empty_reservoir() -> Reservoir {
