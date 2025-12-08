@@ -29,8 +29,8 @@ use bevy_ecs::{
     component::Component,
     entity::{ContainsEntity, Entity},
     error::BevyError,
-    event::EventReader,
     lifecycle::HookContext,
+    message::MessageReader,
     prelude::With,
     query::{Has, QueryItem},
     reflect::ReflectComponent,
@@ -87,7 +87,8 @@ impl Plugin for CameraPlugin {
 
 fn warn_on_no_render_graph(world: DeferredWorld, HookContext { entity, caller, .. }: HookContext) {
     if !world.entity(entity).contains::<CameraRenderGraph>() {
-        warn!("{}Entity {entity} has a `Camera` component, but it doesn't have a render graph configured. Consider adding a `Camera2d` or `Camera3d` component, or manually adding a `CameraRenderGraph` component if you need a custom render graph.", caller.map(|location|format!("{location}: ")).unwrap_or_default());
+        warn!("{}Entity {entity} has a `Camera` component, but it doesn't have a render graph configured. Usually, adding a `Camera2d` or `Camera3d` component will work.
+        However, you may instead need to enable `bevy_core_pipeline`, or may want to manually add a `CameraRenderGraph` component to create a custom render graph.", caller.map(|location|format!("{location}: ")).unwrap_or_default());
     }
 }
 
@@ -240,7 +241,7 @@ impl NormalizedRenderTargetExt for NormalizedRenderTarget {
                 .get(&image_target.handle)
                 .map(|image| RenderTargetInfo {
                     physical_size: image.size(),
-                    scale_factor: image_target.scale_factor.0,
+                    scale_factor: image_target.scale_factor,
                 })
                 .ok_or(MissingRenderTargetInfoError::Image {
                     image: image_target.handle.id(),
@@ -303,10 +304,10 @@ pub enum MissingRenderTargetInfoError {
 /// [`OrthographicProjection`]: bevy_camera::OrthographicProjection
 /// [`PerspectiveProjection`]: bevy_camera::PerspectiveProjection
 pub fn camera_system(
-    mut window_resized_events: EventReader<WindowResized>,
-    mut window_created_events: EventReader<WindowCreated>,
-    mut window_scale_factor_changed_events: EventReader<WindowScaleFactorChanged>,
-    mut image_asset_events: EventReader<AssetEvent<Image>>,
+    mut window_resized_reader: MessageReader<WindowResized>,
+    mut window_created_reader: MessageReader<WindowCreated>,
+    mut window_scale_factor_changed_reader: MessageReader<WindowScaleFactorChanged>,
+    mut image_asset_event_reader: MessageReader<AssetEvent<Image>>,
     primary_window: Query<Entity, With<PrimaryWindow>>,
     windows: Query<(Entity, &Window)>,
     images: Res<Assets<Image>>,
@@ -316,15 +317,15 @@ pub fn camera_system(
     let primary_window = primary_window.iter().next();
 
     let mut changed_window_ids = <HashSet<_>>::default();
-    changed_window_ids.extend(window_created_events.read().map(|event| event.window));
-    changed_window_ids.extend(window_resized_events.read().map(|event| event.window));
-    let scale_factor_changed_window_ids: HashSet<_> = window_scale_factor_changed_events
+    changed_window_ids.extend(window_created_reader.read().map(|event| event.window));
+    changed_window_ids.extend(window_resized_reader.read().map(|event| event.window));
+    let scale_factor_changed_window_ids: HashSet<_> = window_scale_factor_changed_reader
         .read()
         .map(|event| event.window)
         .collect();
     changed_window_ids.extend(scale_factor_changed_window_ids.clone());
 
-    let changed_image_handles: HashSet<&AssetId<Image>> = image_asset_events
+    let changed_image_handles: HashSet<&AssetId<Image>> = image_asset_event_reader
         .read()
         .filter_map(|event| match event {
             AssetEvent::Modified { id } | AssetEvent::Added { id } => Some(id),

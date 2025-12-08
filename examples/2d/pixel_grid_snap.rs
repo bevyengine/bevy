@@ -143,15 +143,15 @@ fn rotate(time: Res<Time>, mut transforms: Query<&mut Transform, With<Rotate>>) 
 
 /// Scales camera projection to fit the window (integer multiples only).
 fn fit_canvas(
-    mut resize_events: EventReader<WindowResized>,
+    mut resize_messages: MessageReader<WindowResized>,
     mut projection: Single<&mut Projection, With<OuterCamera>>,
 ) {
     let Projection::Orthographic(projection) = &mut **projection else {
         return;
     };
-    for event in resize_events.read() {
-        let h_scale = event.width / RES_WIDTH as f32;
-        let v_scale = event.height / RES_HEIGHT as f32;
+    for window_resized in resize_messages.read() {
+        let h_scale = window_resized.width / RES_WIDTH as f32;
+        let v_scale = window_resized.height / RES_HEIGHT as f32;
         projection.scale = 1. / h_scale.min(v_scale).round();
     }
 }

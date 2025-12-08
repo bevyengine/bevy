@@ -390,7 +390,7 @@ fn update_buttons(
     }
 }
 fn update_button_values(
-    mut events: EventReader<GamepadButtonChangedEvent>,
+    mut events: MessageReader<GamepadButtonChangedEvent>,
     mut query: Query<(&mut Text2d, &TextWithButtonValue)>,
 ) {
     for button_event in events.read() {
@@ -403,7 +403,7 @@ fn update_button_values(
 }
 
 fn update_axes(
-    mut axis_events: EventReader<GamepadAxisChangedEvent>,
+    mut axis_events: MessageReader<GamepadAxisChangedEvent>,
     mut query: Query<(&mut Transform, &MoveWithAxes)>,
     text_query: Query<(Entity, &TextWithAxes)>,
     mut writer: Text2dWriter,
@@ -431,7 +431,7 @@ fn update_axes(
 }
 
 fn update_connected(
-    mut connected: EventReader<GamepadConnectionEvent>,
+    mut connected: MessageReader<GamepadConnectionEvent>,
     gamepads: Query<(Entity, &Name), With<Gamepad>>,
     text: Single<Entity, With<ConnectedGamepadsText>>,
     mut writer: TextUiWriter,

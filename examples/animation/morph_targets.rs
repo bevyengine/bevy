@@ -10,7 +10,7 @@ const GLTF_PATH: &str = "models/animated/MorphStressTest.gltf";
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .insert_resource(AmbientLight {
+        .insert_resource(GlobalAmbientLight {
             brightness: 150.0,
             ..default()
         })
@@ -79,7 +79,7 @@ fn play_animation_when_ready(
 /// of its morph targets.
 fn name_morphs(
     asset_server: Res<AssetServer>,
-    mut events: EventReader<AssetEvent<Mesh>>,
+    mut events: MessageReader<AssetEvent<Mesh>>,
     meshes: Res<Assets<Mesh>>,
 ) {
     for event in events.read() {

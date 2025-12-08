@@ -3,7 +3,9 @@ use bevy_ecs::reflect::ReflectComponent;
 use bevy_ecs::{
     component::Component,
     entity::Entity,
-    event::EventReader,
+    entity_disabling::Disabled,
+    message::MessageReader,
+    query::Allow,
     system::{Commands, Query},
 };
 #[cfg(feature = "bevy_reflect")]
@@ -67,8 +69,8 @@ where
 /// longer matches the world state.
 pub fn despawn_entities_on_exit_state<S: States>(
     mut commands: Commands,
-    mut transitions: EventReader<StateTransitionEvent<S>>,
-    query: Query<(Entity, &DespawnOnExit<S>)>,
+    mut transitions: MessageReader<StateTransitionEvent<S>>,
+    query: Query<(Entity, &DespawnOnExit<S>), Allow<Disabled>>,
 ) {
     // We use the latest event, because state machine internals generate at most 1
     // transition event (per type) each frame. No event means no change happened
@@ -133,8 +135,8 @@ pub struct DespawnOnEnter<S: States>(pub S);
 /// matches the world state.
 pub fn despawn_entities_on_enter_state<S: States>(
     mut commands: Commands,
-    mut transitions: EventReader<StateTransitionEvent<S>>,
-    query: Query<(Entity, &DespawnOnEnter<S>)>,
+    mut transitions: MessageReader<StateTransitionEvent<S>>,
+    query: Query<(Entity, &DespawnOnEnter<S>), Allow<Disabled>>,
 ) {
     // We use the latest event, because state machine internals generate at most 1
     // transition event (per type) each frame. No event means no change happened

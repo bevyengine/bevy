@@ -1,5 +1,5 @@
 #![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
-#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![forbid(unsafe_code)]
 #![doc(
     html_logo_url = "https://bevy.org/assets/icon.png",
@@ -45,7 +45,7 @@ use bevy_render::{
 use bevy_sprite::Sprite;
 
 #[cfg(feature = "bevy_text")]
-use crate::text2d::extract_text2d_sprite;
+pub use crate::text2d::extract_text2d_sprite;
 
 /// Adds support for 2D sprite rendering.
 #[derive(Default)]
@@ -57,10 +57,6 @@ pub enum SpriteSystems {
     ExtractSprites,
     ComputeSlices,
 }
-
-/// Deprecated alias for [`SpriteSystems`].
-#[deprecated(since = "0.17.0", note = "Renamed to `SpriteSystems`.")]
-pub type SpriteSystem = SpriteSystems;
 
 impl Plugin for SpriteRenderPlugin {
     fn build(&self, app: &mut App) {

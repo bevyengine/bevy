@@ -3,7 +3,7 @@ use crate::{
     gpu_readback,
     render_asset::RenderAssets,
     render_resource::{
-        binding_types::texture_2d, BindGroup, BindGroupEntries, BindGroupLayout,
+        binding_types::texture_2d, BindGroup, BindGroupEntries, BindGroupLayoutDescriptor,
         BindGroupLayoutEntries, Buffer, BufferUsages, CachedRenderPipelineId, FragmentState,
         PipelineCache, RenderPipelineDescriptor, SpecializedRenderPipeline,
         SpecializedRenderPipelines, Texture, TextureUsages, TextureView, VertexState,
@@ -19,7 +19,7 @@ use bevy_asset::{embedded_asset, load_embedded_asset, AssetServer, Handle, Rende
 use bevy_camera::{ManualTextureViewHandle, NormalizedRenderTarget, RenderTarget};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
-    entity::EntityHashMap, event::event_update_system, prelude::*, system::SystemState,
+    entity::EntityHashMap, message::message_update_system, prelude::*, system::SystemState,
 };
 use bevy_image::{Image, TextureFormatPixelInfo, ToExtents};
 use bevy_platform::collections::HashSet;
@@ -376,7 +376,7 @@ fn prepare_screenshot_state(
     });
     let bind_group = render_device.create_bind_group(
         "screenshot-to-screen-bind-group",
-        &pipeline.bind_group_layout,
+        &pipeline_cache.get_bind_group_layout(&pipeline.bind_group_layout),
         &BindGroupEntries::single(&texture_view),
     );
     let pipeline_id = pipelines.specialize(pipeline_cache, pipeline, format);
@@ -404,7 +404,7 @@ impl Plugin for ScreenshotPlugin {
             .add_systems(
                 First,
                 clear_screenshots
-                    .after(event_update_system)
+                    .after(message_update_system)
                     .before(ApplyDeferred),
             )
             .add_systems(Update, trigger_screenshots);
@@ -432,16 +432,12 @@ impl Plugin for ScreenshotPlugin {
 
 #[derive(Resource)]
 pub struct ScreenshotToScreenPipeline {
-    pub bind_group_layout: BindGroupLayout,
+    pub bind_group_layout: BindGroupLayoutDescriptor,
     pub shader: Handle<Shader>,
 }
 
-pub fn init_screenshot_to_screen_pipeline(
-    mut commands: Commands,
-    render_device: Res<RenderDevice>,
-    asset_server: Res<AssetServer>,
-) {
-    let bind_group_layout = render_device.create_bind_group_layout(
+pub fn init_screenshot_to_screen_pipeline(mut commands: Commands, asset_server: Res<AssetServer>) {
+    let bind_group_layout = BindGroupLayoutDescriptor::new(
         "screenshot-to-screen-bgl",
         &BindGroupLayoutEntries::single(
             wgpu::ShaderStages::FRAGMENT,
@@ -643,9 +639,8 @@ pub(crate) fn collect_screenshots(world: &mut World) {
             let buffer_slice = buffer.slice(..);
             // The polling for this map call is done every frame when the command queue is submitted.
             buffer_slice.map_async(wgpu::MapMode::Read, move |result| {
-                let err = result.err();
-                if err.is_some() {
-                    panic!("{}", err.unwrap().to_string());
+                if let Err(err) = result {
+                    panic!("{}", err.to_string());
                 }
                 tx.try_send(()).unwrap();
             });

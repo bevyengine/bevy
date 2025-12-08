@@ -1,18 +1,25 @@
 //! Tools for debugging states.
 
-use bevy_ecs::event::EventReader;
+use bevy_ecs::message::MessageReader;
 use bevy_state::state::{StateTransitionEvent, States};
 use tracing::info;
 
 /// Logs state transitions into console.
 ///
 /// This system is provided to make debugging easier by tracking state changes.
-pub fn log_transitions<S: States>(mut transitions: EventReader<StateTransitionEvent<S>>) {
+pub fn log_transitions<S: States>(mut transitions: MessageReader<StateTransitionEvent<S>>) {
     // State internals can generate at most one event (of type) per frame.
     let Some(transition) = transitions.read().last() else {
         return;
     };
     let name = core::any::type_name::<S>();
-    let StateTransitionEvent { exited, entered } = transition;
-    info!("{} transition: {:?} => {:?}", name, exited, entered);
+    let StateTransitionEvent {
+        exited,
+        entered,
+        same_state_enforced,
+    } = transition;
+    info!(
+        "{} transition: {:?} => {:?} | same state enforced: {:?}",
+        name, exited, entered, same_state_enforced
+    );
 }

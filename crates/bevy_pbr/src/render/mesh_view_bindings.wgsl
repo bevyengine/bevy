@@ -1,6 +1,7 @@
 #define_import_path bevy_pbr::mesh_view_bindings
 
 #import bevy_pbr::mesh_view_types as types
+#import bevy_pbr::atmosphere::types as atmosphere
 #import bevy_render::{
     view::View,
     globals::Globals,
@@ -93,6 +94,12 @@ const VISIBILITY_RANGE_UNIFORM_BUFFER_SIZE: u32 = 64u;
 @group(0) @binding(27) var<storage, read_write> oit_layer_ids: array<atomic<i32>>;
 @group(0) @binding(28) var<uniform> oit_settings: types::OrderIndependentTransparencySettings;
 #endif // OIT_ENABLED
+
+#ifdef ATMOSPHERE
+@group(0) @binding(29) var atmosphere_transmittance_texture: texture_2d<f32>;
+@group(0) @binding(30) var atmosphere_transmittance_sampler: sampler;
+@group(0) @binding(31) var<storage> atmosphere_data: atmosphere::AtmosphereData;
+#endif // ATMOSPHERE
 
 #ifdef MULTIPLE_LIGHT_PROBES_IN_ARRAY
 @group(1) @binding(0) var diffuse_environment_maps: binding_array<texture_cube<f32>, 8u>;

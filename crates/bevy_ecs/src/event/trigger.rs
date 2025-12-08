@@ -7,7 +7,7 @@ use crate::{
     world::DeferredWorld,
 };
 use bevy_ptr::PtrMut;
-use core::marker::PhantomData;
+use core::{fmt, marker::PhantomData};
 
 /// [`Trigger`] determines _how_ an [`Event`] is triggered when [`World::trigger`](crate::world::World::trigger) is called.
 /// This decides which [`Observer`](crate::observer::Observer)s will run, what data gets passed to them, and the order they will
@@ -57,7 +57,7 @@ pub unsafe trait Trigger<E: Event> {
 /// that matches the given [`Event`].
 ///
 /// The [`Event`] derive defaults to using this [`Trigger`], and it is usable for any [`Event`] type.
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct GlobalTrigger;
 
 // SAFETY:
@@ -127,7 +127,7 @@ impl GlobalTrigger {
 /// The [`EntityEvent`] derive defaults to using this [`Trigger`], and it is usable for any [`EntityEvent`] type.
 ///
 /// [`Observer`]: crate::observer::Observer
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct EntityTrigger;
 
 // SAFETY:
@@ -251,6 +251,18 @@ impl<const AUTO_PROPAGATE: bool, E: EntityEvent, T: Traversal<E>> Default
     }
 }
 
+impl<const AUTO_PROPAGATE: bool, E: EntityEvent, T: Traversal<E>> fmt::Debug
+    for PropagateEntityTrigger<AUTO_PROPAGATE, E, T>
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("PropagateEntityTrigger")
+            .field("original_event_target", &self.original_event_target)
+            .field("propagate", &self.propagate)
+            .field("_marker", &self._marker)
+            .finish()
+    }
+}
+
 // SAFETY:
 // - `E`'s [`Event::Trigger`] is constrained to [`PropagateEntityTrigger<E>`]
 unsafe impl<
@@ -289,7 +301,7 @@ unsafe impl<
                 return;
             }
             if let Ok(entity) = world.get_entity(current_entity)
-                && let Some(item) = entity.get_components::<T>()
+                && let Ok(item) = entity.get_components::<T>()
                 && let Some(traverse_to) = T::traverse(item, event)
             {
                 current_entity = traverse_to;

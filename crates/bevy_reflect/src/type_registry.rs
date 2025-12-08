@@ -12,7 +12,7 @@ use core::{
     ops::{Deref, DerefMut},
 };
 use downcast_rs::{impl_downcast, Downcast};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 /// A registry of [reflected] types.
 ///
@@ -100,6 +100,7 @@ impl TypeRegistry {
     /// Create a type registry with default registrations for primitive types.
     pub fn new() -> Self {
         let mut registry = Self::empty();
+        registry.register::<()>();
         registry.register::<bool>();
         registry.register::<char>();
         registry.register::<u8>();
@@ -587,6 +588,14 @@ impl TypeRegistration {
         self.data.insert(TypeId::of::<T>(), Box::new(data));
     }
 
+    /// Inserts the [`TypeData`] instance of `T` created for `V`, and inserts any
+    /// [`TypeData`] dependencies for that combination of `T` and `V`.
+    #[inline]
+    pub fn register_type_data<T: TypeData + FromType<V>, V>(&mut self) {
+        self.insert(T::from_type());
+        T::insert_dependencies(self);
+    }
+
     /// Returns a reference to the value of type `T` in this registration's
     /// [type data].
     ///
@@ -746,6 +755,10 @@ where
 pub trait FromType<T> {
     /// Creates an instance of `Self` for type `T`.
     fn from_type() -> Self;
+    /// Inserts [`TypeData`] dependencies of this [`TypeData`].
+    /// This is especially useful for trait [`TypeData`] that has a supertrait (ex: `A: B`).
+    /// When the [`TypeData`] for `A` is inserted, the `B` [`TypeData`] will also be inserted.
+    fn insert_dependencies(_type_registration: &mut TypeRegistration) {}
 }
 
 /// A struct used to serialize reflected instances of a type.
@@ -780,6 +793,14 @@ impl ReflectSerialize {
     /// Turn the value into a serializable representation
     pub fn get_serializable<'a>(&self, value: &'a dyn Reflect) -> Serializable<'a> {
         (self.get_serializable)(value)
+    }
+
+    /// Serializes a reflected value.
+    pub fn serialize<S>(&self, value: &dyn Reflect, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        (self.get_serializable)(value).serialize(serializer)
     }
 }
 

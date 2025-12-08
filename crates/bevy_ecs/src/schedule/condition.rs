@@ -73,7 +73,7 @@ pub type BoxedCondition<In = ()> = Box<dyn ReadOnlySystem<In = In, Out = bool>>;
 /// # app.run(&mut world);
 /// # assert!(world.resource::<DidRun>().0);
 pub trait SystemCondition<Marker, In: SystemInput = ()>:
-    sealed::SystemCondition<Marker, In>
+    IntoSystem<In, bool, Marker, System: ReadOnlySystem>
 {
     /// Returns a new run condition that only returns `true`
     /// if both this one and the passed `and` return `true`.
@@ -373,28 +373,8 @@ pub trait SystemCondition<Marker, In: SystemInput = ()>:
 }
 
 impl<Marker, In: SystemInput, F> SystemCondition<Marker, In> for F where
-    F: sealed::SystemCondition<Marker, In>
+    F: IntoSystem<In, bool, Marker, System: ReadOnlySystem>
 {
-}
-
-mod sealed {
-    use crate::system::{IntoSystem, ReadOnlySystem, SystemInput};
-
-    pub trait SystemCondition<Marker, In: SystemInput>:
-        IntoSystem<In, bool, Marker, System = Self::ReadOnlySystem>
-    {
-        // This associated type is necessary to let the compiler
-        // know that `Self::System` is `ReadOnlySystem`.
-        type ReadOnlySystem: ReadOnlySystem<In = In, Out = bool>;
-    }
-
-    impl<Marker, In: SystemInput, F> SystemCondition<Marker, In> for F
-    where
-        F: IntoSystem<In, bool, Marker>,
-        F::System: ReadOnlySystem,
-    {
-        type ReadOnlySystem = F::System;
-    }
 }
 
 /// A collection of [run conditions](SystemCondition) that may be useful in any bevy app.
@@ -402,8 +382,8 @@ pub mod common_conditions {
     use super::{NotSystem, SystemCondition};
     use crate::{
         change_detection::DetectChanges,
-        event::{BufferedEvent, EventReader},
         lifecycle::RemovedComponents,
+        message::{Message, MessageReader},
         prelude::{Component, Query, With},
         query::QueryFilter,
         resource::Resource,
@@ -857,35 +837,35 @@ pub mod common_conditions {
     /// # let mut app = Schedule::default();
     /// # let mut world = World::new();
     /// # world.init_resource::<Counter>();
-    /// # world.init_resource::<Events<MyEvent>>();
-    /// # app.add_systems(bevy_ecs::event::event_update_system.before(my_system));
+    /// # world.init_resource::<Messages<MyMessage>>();
+    /// # app.add_systems(bevy_ecs::message::message_update_system.before(my_system));
     ///
     /// app.add_systems(
-    ///     my_system.run_if(on_event::<MyEvent>),
+    ///     my_system.run_if(on_message::<MyMessage>),
     /// );
     ///
-    /// #[derive(BufferedEvent)]
-    /// struct MyEvent;
+    /// #[derive(Message)]
+    /// struct MyMessage;
     ///
     /// fn my_system(mut counter: ResMut<Counter>) {
     ///     counter.0 += 1;
     /// }
     ///
-    /// // No new `MyEvent` events have been push so `my_system` won't run
+    /// // No new `MyMessage` events have been push so `my_system` won't run
     /// app.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 0);
     ///
-    /// world.resource_mut::<Events<MyEvent>>().write(MyEvent);
+    /// world.resource_mut::<Messages<MyMessage>>().write(MyMessage);
     ///
-    /// // A `MyEvent` event has been pushed so `my_system` will run
+    /// // A `MyMessage` event has been pushed so `my_system` will run
     /// app.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 1);
     /// ```
-    pub fn on_event<T: BufferedEvent>(mut reader: EventReader<T>) -> bool {
-        // The events need to be consumed, so that there are no false positives on subsequent
+    pub fn on_message<M: Message>(mut reader: MessageReader<M>) -> bool {
+        // The messages need to be consumed, so that there are no false positives on subsequent
         // calls of the run condition. Simply checking `is_empty` would not be enough.
         // PERF: note that `count` is efficient (not actually looping/iterating),
-        // due to Bevy having a specialized implementation for events.
+        // due to Bevy having a specialized implementation for messages.
         reader.read().count() > 0
     }
 
@@ -1123,7 +1103,7 @@ pub type And<A, B> = CombinatorSystem<AndMarker, A, B>;
 /// Combines and inverts the outputs of two systems using the `&&` and `!` operators.
 pub type Nand<A, B> = CombinatorSystem<NandMarker, A, B>;
 
-/// Combines and inverts the outputs of two systems using the `&&` and `!` operators.
+/// Combines and inverts the outputs of two systems using the `||` and `!` operators.
 pub type Nor<A, B> = CombinatorSystem<NorMarker, A, B>;
 
 /// Combines the outputs of two systems using the `||` operator.
@@ -1270,16 +1250,17 @@ where
 #[cfg(test)]
 mod tests {
     use super::{common_conditions::*, SystemCondition};
-    use crate::event::BufferedEvent;
-    use crate::query::With;
+    use crate::error::{BevyError, DefaultErrorHandler, ErrorContext};
     use crate::{
         change_detection::ResMut,
         component::Component,
+        message::Message,
+        query::With,
         schedule::{IntoScheduleConfigs, Schedule},
-        system::Local,
+        system::{IntoSystem, Local, Res, System},
         world::World,
     };
-    use bevy_ecs_macros::Resource;
+    use bevy_ecs_macros::{Resource, SystemSet};
 
     #[derive(Resource, Default)]
     struct Counter(usize);
@@ -1390,8 +1371,8 @@ mod tests {
     #[derive(Component)]
     struct TestComponent;
 
-    #[derive(BufferedEvent)]
-    struct TestEvent;
+    #[derive(Message)]
+    struct TestMessage;
 
     #[derive(Resource)]
     struct TestResource(());
@@ -1410,10 +1391,47 @@ mod tests {
                 .distributive_run_if(resource_exists_and_changed::<TestResource>)
                 .distributive_run_if(resource_changed_or_removed::<TestResource>)
                 .distributive_run_if(resource_removed::<TestResource>)
-                .distributive_run_if(on_event::<TestEvent>)
+                .distributive_run_if(on_message::<TestMessage>)
                 .distributive_run_if(any_with_component::<TestComponent>)
                 .distributive_run_if(any_match_filter::<With<TestComponent>>)
                 .distributive_run_if(not(run_once)),
         );
+    }
+
+    #[test]
+    fn run_if_error_contains_system() {
+        let mut world = World::new();
+        world.insert_resource(DefaultErrorHandler(my_error_handler));
+
+        #[derive(Resource)]
+        struct MyResource;
+
+        fn condition(_res: Res<MyResource>) -> bool {
+            true
+        }
+
+        fn my_error_handler(_: BevyError, ctx: ErrorContext) {
+            let a = IntoSystem::into_system(system_a);
+            let b = IntoSystem::into_system(system_b);
+            assert!(
+                matches!(ctx, ErrorContext::RunCondition { system, on_set, .. } if (on_set && system == b.name()) || (!on_set && system == a.name()))
+            );
+        }
+
+        fn system_a() {}
+        fn system_b() {}
+
+        let mut schedule = Schedule::default();
+        schedule.add_systems(system_a.run_if(condition));
+        schedule.run(&mut world);
+
+        #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone)]
+        struct Set;
+
+        let mut schedule = Schedule::default();
+        schedule
+            .add_systems((system_b,).in_set(Set))
+            .configure_sets(Set.run_if(condition));
+        schedule.run(&mut world);
     }
 }

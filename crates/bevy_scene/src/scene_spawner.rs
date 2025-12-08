@@ -2,8 +2,9 @@ use crate::{DynamicScene, Scene};
 use bevy_asset::{AssetEvent, AssetId, Assets, Handle};
 use bevy_ecs::{
     entity::{Entity, EntityHashMap},
-    event::{EntityEvent, EventCursor, Events},
+    event::EntityEvent,
     hierarchy::ChildOf,
+    message::{MessageCursor, Messages},
     reflect::AppTypeRegistry,
     resource::Resource,
     world::{Mut, World},
@@ -22,7 +23,7 @@ use bevy_ecs::{
     system::{Commands, Query},
 };
 
-/// Triggered on a scene's parent entity when [`crate::SceneInstance`] becomes ready to use.
+/// Triggered on a scene's parent entity when [`SceneInstance`](`crate::SceneInstance`) becomes ready to use.
 ///
 /// See also [`On`], [`SceneSpawner::instance_is_ready`].
 ///
@@ -83,7 +84,7 @@ pub struct SceneSpawner {
     pub(crate) spawned_scenes: HashMap<AssetId<Scene>, HashSet<InstanceId>>,
     pub(crate) spawned_dynamic_scenes: HashMap<AssetId<DynamicScene>, HashSet<InstanceId>>,
     spawned_instances: HashMap<InstanceId, InstanceInfo>,
-    scene_asset_event_reader: EventCursor<AssetEvent<Scene>>,
+    scene_asset_event_reader: MessageCursor<AssetEvent<Scene>>,
     // TODO: temp fix for https://github.com/bevyengine/bevy/issues/12756 effect on scenes
     // To handle scene hot reloading, they are unloaded/reloaded on asset modifications.
     // When loading several subassets of a scene as is common with gltf, they each trigger a complete asset load,
@@ -92,7 +93,7 @@ pub struct SceneSpawner {
     // Debouncing scene asset events let us ignore events that happen less than SCENE_ASSET_AGE_THRESHOLD frames
     // apart and not reload the scene in those cases as it's unlikely to be an actual asset change.
     debounced_scene_asset_events: HashMap<AssetId<Scene>, u32>,
-    dynamic_scene_asset_event_reader: EventCursor<AssetEvent<DynamicScene>>,
+    dynamic_scene_asset_event_reader: MessageCursor<AssetEvent<DynamicScene>>,
     // TODO: temp fix for https://github.com/bevyengine/bevy/issues/12756 effect on scenes
     // See debounced_scene_asset_events
     debounced_dynamic_scene_asset_events: HashMap<AssetId<DynamicScene>, u32>,
@@ -562,8 +563,8 @@ pub fn scene_spawner_system(world: &mut World) {
             .scenes_to_spawn
             .retain(|(_, _, parent)| is_parent_alive(parent));
 
-        let scene_asset_events = world.resource::<Events<AssetEvent<Scene>>>();
-        let dynamic_scene_asset_events = world.resource::<Events<AssetEvent<DynamicScene>>>();
+        let scene_asset_events = world.resource::<Messages<AssetEvent<Scene>>>();
+        let dynamic_scene_asset_events = world.resource::<Messages<AssetEvent<DynamicScene>>>();
         let scene_spawner = &mut *scene_spawner;
 
         let mut updated_spawned_scenes = Vec::new();

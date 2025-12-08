@@ -198,11 +198,11 @@ fn drag_drop_image(
     image_mat: Query<&MeshMaterial3d<StandardMaterial>, With<HDRViewer>>,
     text: Query<Entity, (With<Text>, With<SceneNumber>)>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    mut drop_events: EventReader<FileDragAndDrop>,
+    mut drag_and_drop_reader: MessageReader<FileDragAndDrop>,
     asset_server: Res<AssetServer>,
     mut commands: Commands,
 ) {
-    let Some(new_image) = drop_events.read().find_map(|e| match e {
+    let Some(new_image) = drag_and_drop_reader.read().find_map(|e| match e {
         FileDragAndDrop::DroppedFile { path_buf, .. } => {
             Some(asset_server.load(path_buf.to_string_lossy().to_string()))
         }
@@ -228,9 +228,9 @@ fn resize_image(
     materials: Res<Assets<StandardMaterial>>,
     mut meshes: ResMut<Assets<Mesh>>,
     images: Res<Assets<Image>>,
-    mut image_events: EventReader<AssetEvent<Image>>,
+    mut image_event_reader: MessageReader<AssetEvent<Image>>,
 ) {
-    for event in image_events.read() {
+    for event in image_event_reader.read() {
         let (AssetEvent::Added { id } | AssetEvent::Modified { id }) = event else {
             continue;
         };

@@ -96,9 +96,9 @@ fn setup(
                         height: Val::Auto,
                         align_items: AlignItems::Center,
                         padding: UiRect::all(Val::Px(20.)),
+                        border_radius: BorderRadius::all(Val::Px(10.)),
                         ..default()
                     },
-                    BorderRadius::all(Val::Px(10.)),
                     BackgroundColor(BLUE.into()),
                 ))
                 .observe(
@@ -181,8 +181,8 @@ fn drive_diegetic_pointer(
     windows: Query<(Entity, &Window)>,
     images: Res<Assets<Image>>,
     manual_texture_views: Res<ManualTextureViews>,
-    mut window_events: EventReader<WindowEvent>,
-    mut pointer_input: EventWriter<PointerInput>,
+    mut window_events: MessageReader<WindowEvent>,
+    mut pointer_inputs: MessageWriter<PointerInput>,
 ) -> Result {
     // Get the size of the texture, so we can convert from dimensionless UV coordinates that span
     // from 0 to 1, to pixel coordinates.
@@ -205,7 +205,7 @@ fn drive_diegetic_pointer(
         for (_cube, hit) in raycast.cast_ray(*ray, &raycast_settings) {
             let position = size * hit.uv.unwrap();
             if position != *cursor_last {
-                pointer_input.write(PointerInput::new(
+                pointer_inputs.write(PointerInput::new(
                     CUBE_POINTER_ID,
                     Location {
                         target: target.clone(),
@@ -233,7 +233,7 @@ fn drive_diegetic_pointer(
                 ButtonState::Pressed => PointerAction::Press(button),
                 ButtonState::Released => PointerAction::Release(button),
             };
-            pointer_input.write(PointerInput::new(
+            pointer_inputs.write(PointerInput::new(
                 CUBE_POINTER_ID,
                 Location {
                     target: target.clone(),

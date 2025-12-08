@@ -1,10 +1,10 @@
-pub use crate::change_detection::{NonSendMut, Res, ResMut};
+pub use crate::change_detection::{NonSend, NonSendMut, Res, ResMut};
 use crate::{
     archetype::Archetypes,
     bundle::Bundles,
-    change_detection::{MaybeLocation, Ticks, TicksMut},
-    component::{ComponentId, ComponentTicks, Components, Tick},
-    entity::Entities,
+    change_detection::{ComponentTicksMut, ComponentTicksRef, Tick},
+    component::{ComponentId, Components},
+    entity::{Entities, EntityAllocator},
     query::{
         Access, FilteredAccess, FilteredAccessSet, QueryData, QueryFilter, QuerySingleError,
         QueryState, ReadOnlyQueryData,
@@ -17,11 +17,7 @@ use crate::{
         FromWorld, World,
     },
 };
-use alloc::{
-    borrow::{Cow, ToOwned},
-    boxed::Box,
-    vec::Vec,
-};
+use alloc::{borrow::Cow, boxed::Box, vec::Vec};
 pub use bevy_ecs_macros::SystemParam;
 use bevy_platform::cell::SyncCell;
 use bevy_ptr::UnsafeCellDeref;
@@ -31,7 +27,6 @@ use core::{
     fmt::{Debug, Display},
     marker::PhantomData,
     ops::{Deref, DerefMut},
-    panic::Location,
 };
 use thiserror::Error;
 
@@ -59,8 +54,8 @@ use variadics_please::{all_tuples, all_tuples_enumerated};
 /// # struct SomeComponent;
 /// # #[derive(Resource)]
 /// # struct SomeResource;
-/// # #[derive(BufferedEvent)]
-/// # struct SomeEvent;
+/// # #[derive(Message)]
+/// # struct SomeMessage;
 /// # #[derive(Resource)]
 /// # struct SomeOtherResource;
 /// # use bevy_ecs::system::SystemParam;
@@ -78,10 +73,10 @@ use variadics_please::{all_tuples, all_tuples_enumerated};
 /// Local<'s, u8>,
 /// #    commands:
 /// Commands<'w, 's>,
-/// #    eventreader:
-/// EventReader<'w, 's, SomeEvent>,
-/// #    eventwriter:
-/// EventWriter<'w, SomeEvent>
+/// #    message_reader:
+/// MessageReader<'w, 's, SomeMessage>,
+/// #    message_writer:
+/// MessageWriter<'w, SomeMessage>
 /// # }
 /// ```
 /// ## `PhantomData`
@@ -605,19 +600,19 @@ unsafe impl<'w, 's, D: ReadOnlyQueryData + 'static, F: QueryFilter + 'static> Re
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// #
-/// # #[derive(BufferedEvent)]
-/// # struct MyEvent;
-/// # impl MyEvent {
+/// # #[derive(Message)]
+/// # struct MyMessage;
+/// # impl MyMessage {
 /// #   pub fn new() -> Self { Self }
 /// # }
-/// fn event_system(
+/// fn message_system(
 ///     mut set: ParamSet<(
-///         // PROBLEM: `EventReader` and `EventWriter` cannot be used together normally,
-///         // because they both need access to the same event queue.
+///         // PROBLEM: `MessageReader` and `MessageWriter` cannot be used together normally,
+///         // because they both need access to the same message queue.
 ///         // SOLUTION: `ParamSet` allows these conflicting parameters to be used safely
 ///         // by ensuring only one is accessed at a time.
-///         EventReader<MyEvent>,
-///         EventWriter<MyEvent>,
+///         MessageReader<MyMessage>,
+///         MessageWriter<MyMessage>,
 ///         // PROBLEM: `&World` needs read access to everything, which conflicts with
 ///         // any mutable access in the same system.
 ///         // SOLUTION: `ParamSet` ensures `&World` is only accessed when we're not
@@ -625,17 +620,17 @@ unsafe impl<'w, 's, D: ReadOnlyQueryData + 'static, F: QueryFilter + 'static> Re
 ///         &World,
 ///     )>,
 /// ) {
-///     for event in set.p0().read() {
+///     for message in set.p0().read() {
 ///         // ...
-///         # let _event = event;
+///         # let _message = message;
 ///     }
-///     set.p1().write(MyEvent::new());
+///     set.p1().write(MyMessage::new());
 ///
 ///     let entities = set.p2().entities();
 ///     // ...
 ///     # let _entities = entities;
 /// }
-/// # bevy_ecs::system::assert_is_system(event_system);
+/// # bevy_ecs::system::assert_is_system(message_system);
 /// ```
 pub struct ParamSet<'w, 's, T: SystemParam> {
     param_states: &'s mut T::State,
@@ -806,25 +801,24 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
         world: UnsafeWorldCell<'w>,
         change_tick: Tick,
     ) -> Self::Item<'w, 's> {
-        let (ptr, ticks, caller) =
-            world
-                .get_resource_with_ticks(component_id)
-                .unwrap_or_else(|| {
-                    panic!(
-                        "Resource requested by {} does not exist: {}",
-                        system_meta.name,
-                        DebugName::type_name::<T>()
-                    );
-                });
+        let (ptr, ticks) = world
+            .get_resource_with_ticks(component_id)
+            .unwrap_or_else(|| {
+                panic!(
+                    "Resource requested by {} does not exist: {}",
+                    system_meta.name,
+                    DebugName::type_name::<T>()
+                );
+            });
         Res {
             value: ptr.deref(),
-            ticks: Ticks {
+            ticks: ComponentTicksRef {
                 added: ticks.added.deref(),
                 changed: ticks.changed.deref(),
+                changed_by: ticks.changed_by.map(|changed_by| changed_by.deref()),
                 last_run: system_meta.last_run,
                 this_run: change_tick,
             },
-            changed_by: caller.map(|caller| caller.deref()),
         }
     }
 }
@@ -896,13 +890,13 @@ unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
             });
         ResMut {
             value: value.value.deref_mut::<T>(),
-            ticks: TicksMut {
+            ticks: ComponentTicksMut {
                 added: value.ticks.added,
                 changed: value.ticks.changed,
+                changed_by: value.ticks.changed_by,
                 last_run: system_meta.last_run,
                 this_run: change_tick,
             },
-            changed_by: value.changed_by,
         }
     }
 }
@@ -978,7 +972,9 @@ unsafe impl<'w> SystemParam for DeferredWorld<'w> {
     }
 }
 
-/// A system local [`SystemParam`].
+/// A [`SystemParam`] that provides a system-private value of `T` that persists across system calls.
+///
+/// The initial value is created by calling `T`'s [`FromWorld::from_world`] (or [`Default::default`] if `T: Default`).
 ///
 /// A local may only be accessed by the system itself and is therefore not visible to other systems.
 /// If two or more systems specify the same local type each will have their own unique local.
@@ -988,6 +984,60 @@ unsafe impl<'w> SystemParam for DeferredWorld<'w> {
 /// The supplied lifetime parameter is the [`SystemParam`]s `'s` lifetime.
 ///
 /// # Examples
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// # let world = &mut World::default();
+/// fn counter(mut count: Local<u32>) -> u32 {
+///     *count += 1;
+///     *count
+/// }
+/// let mut counter_system = IntoSystem::into_system(counter);
+/// counter_system.initialize(world);
+///
+/// // Counter is initialized to u32's default value of 0, and increases to 1 on first run.
+/// assert_eq!(counter_system.run((), world).unwrap(), 1);
+/// // Counter gets the same value and increases to 2 on its second call.
+/// assert_eq!(counter_system.run((), world).unwrap(), 2);
+/// ```
+///
+/// A simple way to set a different default value for a local is by wrapping the value with an Option.
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// # let world = &mut World::default();
+/// fn counter_from_10(mut count: Local<Option<u32>>) -> u32 {
+///     let count = count.get_or_insert(10);
+///     *count += 1;
+///     *count
+/// }
+/// let mut counter_system = IntoSystem::into_system(counter_from_10);
+/// counter_system.initialize(world);
+///
+/// // Counter is initialized at 10, and increases to 11 on first run.
+/// assert_eq!(counter_system.run((), world).unwrap(), 11);
+/// // Counter is only increased by 1 on subsequent runs.
+/// assert_eq!(counter_system.run((), world).unwrap(), 12);
+/// ```
+///
+/// A system can have multiple `Local` values with the same type, each with distinct values.
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// # let world = &mut World::default();
+/// fn double_counter(mut count: Local<u32>, mut double_count: Local<u32>) -> (u32, u32) {
+///     *count += 1;
+///     *double_count += 2;
+///     (*count, *double_count)
+/// }
+/// let mut counter_system = IntoSystem::into_system(double_counter);
+/// counter_system.initialize(world);
+///
+/// assert_eq!(counter_system.run((), world).unwrap(), (1, 2));
+/// assert_eq!(counter_system.run((), world).unwrap(), (2, 4));
+/// ```
+///
+/// This example shows that two systems using the same type for their own `Local` get distinct locals.
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
@@ -1005,27 +1055,21 @@ unsafe impl<'w> SystemParam for DeferredWorld<'w> {
 ///
 /// assert_eq!(read_system.run((), world).unwrap(), 0);
 /// write_system.run((), world);
-/// // Note how the read local is still 0 due to the locals not being shared.
+/// // The read local is still 0 due to the locals not being shared.
 /// assert_eq!(read_system.run((), world).unwrap(), 0);
 /// ```
 ///
-/// A simple way to set a different default value for a local is by wrapping the value with an Option.
+/// You can use a `Local` to avoid reallocating memory every system call.
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
-/// # let world = &mut World::default();
-/// fn counter_from_10(mut count: Local<Option<usize>>) -> usize {
-///     let count = count.get_or_insert(10);
-///     *count += 1;
-///     *count
-/// }
-/// let mut counter_system = IntoSystem::into_system(counter_from_10);
-/// counter_system.initialize(world);
+/// fn some_system(mut vec: Local<Vec<u32>>) {
+///     // Do your regular system logic, using the vec, as normal.
 ///
-/// // Counter is initialized at 10, and increases to 11 on first run.
-/// assert_eq!(counter_system.run((), world).unwrap(), 11);
-/// // Counter is only increased by 1 on subsequent runs.
-/// assert_eq!(counter_system.run((), world).unwrap(), 12);
+///     // At end of function, clear the vec's contents so its empty for next system call.
+///     // If it's possible the capacity could get too large, you may want to check and resize that as well.
+///     vec.clear();
+/// }
 /// ```
 ///
 /// N.B. A [`Local`]s value cannot be read or written to outside of the containing system.
@@ -1349,76 +1393,8 @@ unsafe impl SystemParam for NonSendMarker {
 // SAFETY: Does not read any world state
 unsafe impl ReadOnlySystemParam for NonSendMarker {}
 
-/// Shared borrow of a non-[`Send`] resource.
-///
-/// Only `Send` resources may be accessed with the [`Res`] [`SystemParam`]. In case that the
-/// resource does not implement `Send`, this `SystemParam` wrapper can be used. This will instruct
-/// the scheduler to instead run the system on the main thread so that it doesn't send the resource
-/// over to another thread.
-///
-/// This [`SystemParam`] fails validation if non-send resource doesn't exist.
-/// This will cause a panic, but can be configured to do nothing or warn once.
-///
-/// Use [`Option<NonSend<T>>`] instead if the resource might not always exist.
-pub struct NonSend<'w, T: 'static> {
-    pub(crate) value: &'w T,
-    ticks: ComponentTicks,
-    last_run: Tick,
-    this_run: Tick,
-    changed_by: MaybeLocation<&'w &'static Location<'static>>,
-}
-
 // SAFETY: Only reads a single World non-send resource
 unsafe impl<'w, T> ReadOnlySystemParam for NonSend<'w, T> {}
-
-impl<'w, T> Debug for NonSend<'w, T>
-where
-    T: Debug,
-{
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        f.debug_tuple("NonSend").field(&self.value).finish()
-    }
-}
-
-impl<'w, T: 'static> NonSend<'w, T> {
-    /// Returns `true` if the resource was added after the system last ran.
-    pub fn is_added(&self) -> bool {
-        self.ticks.is_added(self.last_run, self.this_run)
-    }
-
-    /// Returns `true` if the resource was added or mutably dereferenced after the system last ran.
-    pub fn is_changed(&self) -> bool {
-        self.ticks.is_changed(self.last_run, self.this_run)
-    }
-
-    /// The location that last caused this to change.
-    pub fn changed_by(&self) -> MaybeLocation {
-        self.changed_by.copied()
-    }
-}
-
-impl<'w, T> Deref for NonSend<'w, T> {
-    type Target = T;
-
-    fn deref(&self) -> &Self::Target {
-        self.value
-    }
-}
-
-impl<'a, T> From<NonSendMut<'a, T>> for NonSend<'a, T> {
-    fn from(nsm: NonSendMut<'a, T>) -> Self {
-        Self {
-            value: nsm.value,
-            ticks: ComponentTicks {
-                added: nsm.ticks.added.to_owned(),
-                changed: nsm.ticks.changed.to_owned(),
-            },
-            this_run: nsm.ticks.this_run,
-            last_run: nsm.ticks.last_run,
-            changed_by: nsm.changed_by.map(|changed_by| &*changed_by),
-        }
-    }
-}
 
 // SAFETY: NonSendComponentId access is applied to SystemMeta. If this
 // NonSend conflicts with any prior access, a panic will occur.
@@ -1475,23 +1451,18 @@ unsafe impl<'a, T: 'static> SystemParam for NonSend<'a, T> {
         world: UnsafeWorldCell<'w>,
         change_tick: Tick,
     ) -> Self::Item<'w, 's> {
-        let (ptr, ticks, caller) =
-            world
-                .get_non_send_with_ticks(component_id)
-                .unwrap_or_else(|| {
-                    panic!(
-                        "Non-send resource requested by {} does not exist: {}",
-                        system_meta.name,
-                        DebugName::type_name::<T>()
-                    )
-                });
-
+        let (ptr, ticks) = world
+            .get_non_send_with_ticks(component_id)
+            .unwrap_or_else(|| {
+                panic!(
+                    "Non-send resource requested by {} does not exist: {}",
+                    system_meta.name,
+                    DebugName::type_name::<T>()
+                );
+            });
         NonSend {
             value: ptr.deref(),
-            ticks: ticks.read(),
-            last_run: system_meta.last_run,
-            this_run: change_tick,
-            changed_by: caller.map(|caller| caller.deref()),
+            ticks: ComponentTicksRef::from_tick_cells(ticks, system_meta.last_run, change_tick),
         }
     }
 }
@@ -1515,11 +1486,11 @@ unsafe impl<'a, T: 'static> SystemParam for NonSendMut<'a, T> {
         system_meta.set_non_send();
 
         let combined_access = component_access_set.combined_access();
-        if combined_access.has_component_write(component_id) {
+        if combined_access.has_resource_write(component_id) {
             panic!(
                 "error[B0002]: NonSendMut<{}> in system {} conflicts with a previous mutable resource access ({0}). Consider removing the duplicate access. See: https://bevy.org/learn/errors/b0002",
                 DebugName::type_name::<T>(), system_meta.name);
-        } else if combined_access.has_component_read(component_id) {
+        } else if combined_access.has_resource_read(component_id) {
             panic!(
                 "error[B0002]: NonSendMut<{}> in system {} conflicts with a previous immutable resource access ({0}). Consider removing the duplicate access. See: https://bevy.org/learn/errors/b0002",
                 DebugName::type_name::<T>(), system_meta.name);
@@ -1554,20 +1525,18 @@ unsafe impl<'a, T: 'static> SystemParam for NonSendMut<'a, T> {
         world: UnsafeWorldCell<'w>,
         change_tick: Tick,
     ) -> Self::Item<'w, 's> {
-        let (ptr, ticks, caller) =
-            world
-                .get_non_send_with_ticks(component_id)
-                .unwrap_or_else(|| {
-                    panic!(
-                        "Non-send resource requested by {} does not exist: {}",
-                        system_meta.name,
-                        DebugName::type_name::<T>()
-                    );
-                });
+        let (ptr, ticks) = world
+            .get_non_send_with_ticks(component_id)
+            .unwrap_or_else(|| {
+                panic!(
+                    "Non-send resource requested by {} does not exist: {}",
+                    system_meta.name,
+                    DebugName::type_name::<T>()
+                );
+            });
         NonSendMut {
             value: ptr.assert_unique().deref_mut(),
-            ticks: TicksMut::from_tick_cells(ticks, system_meta.last_run, change_tick),
-            changed_by: caller.map(|caller| caller.deref_mut()),
+            ticks: ComponentTicksMut::from_tick_cells(ticks, system_meta.last_run, change_tick),
         }
     }
 }
@@ -1656,6 +1625,35 @@ unsafe impl<'a> SystemParam for &'a Entities {
         _change_tick: Tick,
     ) -> Self::Item<'w, 's> {
         world.entities()
+    }
+}
+
+// SAFETY: Only reads World entities
+unsafe impl<'a> ReadOnlySystemParam for &'a EntityAllocator {}
+
+// SAFETY: no component value access
+unsafe impl<'a> SystemParam for &'a EntityAllocator {
+    type State = ();
+    type Item<'w, 's> = &'w EntityAllocator;
+
+    fn init_state(_world: &mut World) -> Self::State {}
+
+    fn init_access(
+        _state: &Self::State,
+        _system_meta: &mut SystemMeta,
+        _component_access_set: &mut FilteredAccessSet,
+        _world: &mut World,
+    ) {
+    }
+
+    #[inline]
+    unsafe fn get_param<'w, 's>(
+        _state: &'s mut Self::State,
+        _system_meta: &SystemMeta,
+        world: UnsafeWorldCell<'w>,
+        _change_tick: Tick,
+    ) -> Self::Item<'w, 's> {
+        world.entities_allocator()
     }
 }
 
@@ -2777,7 +2775,7 @@ pub struct SystemParamValidationError {
     /// Whether the system should be skipped.
     ///
     /// If `false`, the error should be handled.
-    /// By default, this will result in a panic. See [`crate::error`] for more information.
+    /// By default, this will result in a panic. See [`error`](`crate::error`) for more information.
     ///
     /// This is the default behavior, and is suitable for system params that should *always* be valid,
     /// either because sensible fallback behavior exists (like [`Query`]) or because
@@ -2859,6 +2857,22 @@ mod tests {
     use super::*;
     use crate::system::assert_is_system;
     use core::cell::RefCell;
+
+    #[test]
+    #[should_panic]
+    fn non_send_alias() {
+        #[derive(Resource)]
+        struct A(usize);
+        fn my_system(mut res0: NonSendMut<A>, mut res1: NonSendMut<A>) {
+            res0.0 += 1;
+            res1.0 += 1;
+        }
+        let mut world = World::new();
+        world.insert_non_send_resource(A(42));
+        let mut schedule = crate::schedule::Schedule::default();
+        schedule.add_systems(my_system);
+        schedule.run(&mut world);
+    }
 
     // Compile test for https://github.com/bevyengine/bevy/pull/2838.
     #[test]
@@ -3104,17 +3118,17 @@ mod tests {
 
     #[test]
     #[should_panic]
-    fn missing_event_error() {
-        use crate::prelude::{BufferedEvent, EventReader};
+    fn missing_message_error() {
+        use crate::prelude::{Message, MessageReader};
 
-        #[derive(BufferedEvent)]
+        #[derive(Message)]
         pub struct MissingEvent;
 
         let mut schedule = crate::schedule::Schedule::default();
-        schedule.add_systems(event_system);
+        schedule.add_systems(message_system);
         let mut world = World::new();
         schedule.run(&mut world);
 
-        fn event_system(_: EventReader<MissingEvent>) {}
+        fn message_system(_: MessageReader<MissingEvent>) {}
     }
 }

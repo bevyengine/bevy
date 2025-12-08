@@ -92,20 +92,20 @@ impl Plugin for DebugPickingPlugin {
                 (
                     // This leaves room to easily change the log-level associated
                     // with different events, should that be desired.
-                    log_event_debug::<PointerInput>.run_if(DebugPickingMode::is_noisy),
-                    log_pointer_event_debug::<Over>,
-                    log_pointer_event_debug::<Out>,
-                    log_pointer_event_debug::<Press>,
-                    log_pointer_event_debug::<Release>,
-                    log_pointer_event_debug::<Click>,
+                    log_message_debug::<PointerInput>.run_if(DebugPickingMode::is_noisy),
+                    log_pointer_message_debug::<Over>,
+                    log_pointer_message_debug::<Out>,
+                    log_pointer_message_debug::<Press>,
+                    log_pointer_message_debug::<Release>,
+                    log_pointer_message_debug::<Click>,
                     log_pointer_event_trace::<Move>.run_if(DebugPickingMode::is_noisy),
-                    log_pointer_event_debug::<DragStart>,
+                    log_pointer_message_debug::<DragStart>,
                     log_pointer_event_trace::<Drag>.run_if(DebugPickingMode::is_noisy),
-                    log_pointer_event_debug::<DragEnd>,
-                    log_pointer_event_debug::<DragEnter>,
+                    log_pointer_message_debug::<DragEnd>,
+                    log_pointer_message_debug::<DragEnter>,
                     log_pointer_event_trace::<DragOver>.run_if(DebugPickingMode::is_noisy),
-                    log_pointer_event_debug::<DragLeave>,
-                    log_pointer_event_debug::<DragDrop>,
+                    log_pointer_message_debug::<DragLeave>,
+                    log_pointer_message_debug::<DragDrop>,
                 )
                     .distributive_run_if(DebugPickingMode::is_enabled)
                     .in_set(PickingSystems::Last),
@@ -121,28 +121,28 @@ impl Plugin for DebugPickingPlugin {
     }
 }
 
-/// Listen for any event and logs it at the debug level
-pub fn log_event_debug<E: BufferedEvent + Debug>(mut events: EventReader<PointerInput>) {
+/// Listen for any message and logs it at the debug level
+pub fn log_message_debug<M: Message + Debug>(mut events: MessageReader<PointerInput>) {
     for event in events.read() {
         debug!("{event:?}");
     }
 }
 
 /// Listens for pointer events of type `E` and logs them at "debug" level
-pub fn log_pointer_event_debug<E: Debug + Clone + Reflect>(
-    mut pointer_events: EventReader<Pointer<E>>,
+pub fn log_pointer_message_debug<E: Debug + Clone + Reflect>(
+    mut pointer_reader: MessageReader<Pointer<E>>,
 ) {
-    for event in pointer_events.read() {
-        debug!("{event}");
+    for pointer in pointer_reader.read() {
+        debug!("{pointer}");
     }
 }
 
 /// Listens for pointer events of type `E` and logs them at "trace" level
 pub fn log_pointer_event_trace<E: Debug + Clone + Reflect>(
-    mut pointer_events: EventReader<Pointer<E>>,
+    mut pointer_reader: MessageReader<Pointer<E>>,
 ) {
-    for event in pointer_events.read() {
-        trace!("{event}");
+    for pointer in pointer_reader.read() {
+        trace!("{pointer}");
     }
 }
 

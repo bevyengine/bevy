@@ -1,6 +1,6 @@
 [package]
 name = "bevy_animation"
-version = "0.17.0-dev"
+version = "0.18.0-dev"
 edition = "2024"
 description = "Provides animation functionality for Bevy Engine"
 homepage = "https://bevy.org"
@@ -10,28 +10,30 @@ keywords = ["bevy"]
 
 [dependencies]
 # bevy
-bevy_animation_macros = { path = "macros", version = "0.17.0-dev" }
-bevy_app = { path = "../bevy_app", version = "0.17.0-dev" }
-bevy_asset = { path = "../bevy_asset", version = "0.17.0-dev" }
-bevy_color = { path = "../bevy_color", version = "0.17.0-dev" }
-bevy_derive = { path = "../bevy_derive", version = "0.17.0-dev" }
-bevy_math = { path = "../bevy_math", version = "0.17.0-dev" }
-bevy_mesh = { path = "../bevy_mesh", version = "0.17.0-dev" }
-bevy_reflect = { path = "../bevy_reflect", version = "0.17.0-dev", features = [
+bevy_animation_macros = { path = "macros", version = "0.18.0-dev" }
+bevy_app = { path = "../bevy_app", version = "0.18.0-dev" }
+bevy_asset = { path = "../bevy_asset", version = "0.18.0-dev" }
+bevy_color = { path = "../bevy_color", version = "0.18.0-dev" }
+bevy_derive = { path = "../bevy_derive", version = "0.18.0-dev" }
+bevy_math = { path = "../bevy_math", version = "0.18.0-dev" }
+bevy_mesh = { path = "../bevy_mesh", version = "0.18.0-dev", optional = true, features = [
+  "morph",
+] }
+bevy_reflect = { path = "../bevy_reflect", version = "0.18.0-dev", features = [
   "petgraph",
 ] }
-bevy_time = { path = "../bevy_time", version = "0.17.0-dev" }
-bevy_utils = { path = "../bevy_utils", version = "0.17.0-dev" }
-bevy_ecs = { path = "../bevy_ecs", version = "0.17.0-dev" }
-bevy_transform = { path = "../bevy_transform", version = "0.17.0-dev" }
-bevy_platform = { path = "../bevy_platform", version = "0.17.0-dev", default-features = false, features = [
+bevy_time = { path = "../bevy_time", version = "0.18.0-dev" }
+bevy_utils = { path = "../bevy_utils", version = "0.18.0-dev" }
+bevy_ecs = { path = "../bevy_ecs", version = "0.18.0-dev" }
+bevy_transform = { path = "../bevy_transform", version = "0.18.0-dev" }
+bevy_platform = { path = "../bevy_platform", version = "0.18.0-dev", default-features = false, features = [
   "std",
   "serialize",
 ] }
 
 # other
 petgraph = { version = "0.8", features = ["serde-1"] }
-ron = "0.10"
+ron = "0.12"
 serde = "1"
 blake3 = { version = "1.0" }
 downcast-rs = { version = "2", default-features = false, features = ["std"] }

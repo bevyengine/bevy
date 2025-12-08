@@ -3,6 +3,7 @@
 use accesskit::{Node as Accessible, Role};
 use bevy::{
     a11y::AccessibilityNode,
+    color::palettes::css::{BLACK, BLUE, RED},
     ecs::spawn::SpawnIter,
     input::mouse::{MouseScrollUnit, MouseWheel},
     picking::hover::HoverMap,
@@ -23,15 +24,15 @@ const LINE_HEIGHT: f32 = 21.;
 
 /// Injects scroll events into the UI hierarchy.
 fn send_scroll_events(
-    mut mouse_wheel_events: EventReader<MouseWheel>,
+    mut mouse_wheel_reader: MessageReader<MouseWheel>,
     hover_map: Res<HoverMap>,
     keyboard_input: Res<ButtonInput<KeyCode>>,
     mut commands: Commands,
 ) {
-    for event in mouse_wheel_events.read() {
-        let mut delta = -Vec2::new(event.x, event.y);
+    for mouse_wheel in mouse_wheel_reader.read() {
+        let mut delta = -Vec2::new(mouse_wheel.x, mouse_wheel.y);
 
-        if event.unit == MouseScrollUnit::Line {
+        if mouse_wheel.unit == MouseScrollUnit::Line {
             delta *= LINE_HEIGHT;
         }
 
@@ -193,6 +194,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 children![
                     vertically_scrolling_list(asset_server.load("fonts/FiraSans-Bold.ttf")),
                     bidirectional_scrolling_list(asset_server.load("fonts/FiraSans-Bold.ttf")),
+                    bidirectional_scrolling_list_with_sticky(
+                        asset_server.load("fonts/FiraSans-Bold.ttf")
+                    ),
                     nested_scrolling_list(asset_server.load("fonts/FiraSans-Bold.ttf")),
                 ],
             ));
@@ -302,6 +306,75 @@ fn bidirectional_scrolling_list(font_handle: Handle<Font>) -> impl Bundle {
                         }))),
                     )
                 })))
+            )
+        ],
+    )
+}
+
+fn bidirectional_scrolling_list_with_sticky(font_handle: Handle<Font>) -> impl Bundle {
+    (
+        Node {
+            flex_direction: FlexDirection::Column,
+            justify_content: JustifyContent::Center,
+            align_items: AlignItems::Center,
+            width: px(200),
+            ..default()
+        },
+        children![
+            (
+                Text::new("Bidirectionally Scrolling List With Sticky Nodes"),
+                TextFont {
+                    font: font_handle.clone(),
+                    font_size: FONT_SIZE,
+                    ..default()
+                },
+                Label,
+            ),
+            (
+                Node {
+                    display: Display::Grid,
+                    align_self: AlignSelf::Stretch,
+                    height: percent(50),
+                    overflow: Overflow::scroll(), // n.b.
+                    grid_template_columns: RepeatedGridTrack::auto(30),
+                    ..default()
+                },
+                Children::spawn(SpawnIter(
+                    (0..30)
+                        .flat_map(|y| (0..30).map(move |x| (y, x)))
+                        .map(move |(y, x)| {
+                            let value = font_handle.clone();
+                            // Simple sticky nodes at top and left sides of UI node
+                            // can be achieved by combining such effects as
+                            // IgnoreScroll, ZIndex, BackgroundColor for child UI nodes.
+                            let ignore_scroll = BVec2 {
+                                x: x == 0,
+                                y: y == 0,
+                            };
+                            let (z_index, background_color, role) = match (x == 0, y == 0) {
+                                (true, true) => (2, RED, Role::RowHeader),
+                                (true, false) => (1, BLUE, Role::RowHeader),
+                                (false, true) => (1, BLUE, Role::ColumnHeader),
+                                (false, false) => (0, BLACK, Role::Cell),
+                            };
+                            (
+                                Text(format!("|{},{}|", y, x)),
+                                TextFont {
+                                    font: value.clone(),
+                                    ..default()
+                                },
+                                TextLayout {
+                                    linebreak: LineBreak::NoWrap,
+                                    ..default()
+                                },
+                                Label,
+                                AccessibilityNode(Accessible::new(role)),
+                                IgnoreScroll(ignore_scroll),
+                                ZIndex(z_index),
+                                BackgroundColor(Color::Srgba(background_color)),
+                            )
+                        })
+                ))
             )
         ],
     )

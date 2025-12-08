@@ -24,7 +24,7 @@ struct Meshlet {
 }
 
 fn get_meshlet_vertex_count(meshlet: ptr<function, Meshlet>) -> u32 {
-    return extractBits((*meshlet).packed_a, 0u, 8u);
+    return extractBits((*meshlet).packed_a, 0u, 8u) + 1u;
 }
 
 fn get_meshlet_triangle_count(meshlet: ptr<function, Meshlet>) -> u32 {
