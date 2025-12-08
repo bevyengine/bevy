@@ -21,12 +21,12 @@
 //! [`World::storages`]: crate::world::World::storages
 
 mod blob_array;
-mod resource;
+mod non_send;
 mod sparse_set;
 mod table;
 mod thin_array_ptr;
 
-pub use resource::*;
+pub use non_send::*;
 pub use sparse_set::*;
 pub use table::*;
 
@@ -41,10 +41,8 @@ pub struct Storages {
     pub sparse_sets: SparseSets,
     /// Backing storage for [`Table`] components.
     pub tables: Tables,
-    /// Backing storage for resources.
-    pub resources: Resources<true>,
-    /// Backing storage for `!Send` resources.
-    pub non_send_resources: Resources<false>,
+    /// Backing storage for `!Send` data.
+    pub non_sends: NonSends,
 }
 
 impl Storages {

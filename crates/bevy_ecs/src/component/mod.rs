@@ -1,11 +1,13 @@
 //! Types for declaring and storing [`Component`]s.
 
 mod clone;
+mod constants;
 mod info;
 mod register;
 mod required;
 
 pub use clone::*;
+pub use constants::*;
 pub use info::*;
 pub use register::*;
 pub use required::*;
