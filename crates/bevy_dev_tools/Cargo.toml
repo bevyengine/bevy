@@ -34,7 +34,7 @@ bevy_state = { path = "../bevy_state", version = "0.18.0-dev" }
 
 # other
 serde = { version = "1.0", features = ["derive"], optional = true }
-ron = { version = "0.11", optional = true }
+ron = { version = "0.12", optional = true }
 tracing = { version = "0.1", default-features = false, features = ["std"] }
 
 [lints]
