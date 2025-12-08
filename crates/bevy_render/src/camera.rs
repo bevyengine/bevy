@@ -20,8 +20,8 @@ use bevy_camera::{
     primitives::Frustum,
     visibility::{self, RenderLayers, VisibleEntities},
     Camera, Camera2d, Camera3d, CameraMainTextureUsages, CameraOutputMode, CameraUpdateSystems,
-    ClearColor, ClearColorConfig, Exposure, ManualTextureViewHandle, NormalizedRenderTarget,
-    Projection, RenderTargetInfo, Viewport,
+    ClearColor, ClearColorConfig, Exposure, ManualTextureViewHandle, MsaaWriteback,
+    NormalizedRenderTarget, Projection, RenderTargetInfo, Viewport,
 };
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
@@ -409,8 +409,7 @@ pub struct ExtractedCamera {
     pub render_graph: InternedRenderSubGraph,
     pub order: isize,
     pub output_mode: CameraOutputMode,
-    pub msaa_writeback: bool,
-    pub force_msaa_writeback: bool,
+    pub msaa_writeback: MsaaWriteback,
     pub clear_color: ClearColorConfig,
     pub sorted_camera_index_for_target: usize,
     pub exposure: f32,
@@ -532,7 +531,6 @@ pub fn extract_cameras(
                     order: camera.order,
                     output_mode: camera.output_mode,
                     msaa_writeback: camera.msaa_writeback,
-                    force_msaa_writeback: camera.force_msaa_writeback,
                     clear_color: camera.clear_color,
                     // this will be set in sort_cameras
                     sorted_camera_index_for_target: 0,
