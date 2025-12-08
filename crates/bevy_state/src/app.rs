@@ -5,8 +5,9 @@ use log::warn;
 
 use crate::{
     state::{
-        setup_state_transitions_in_world, ComputedStates, FreelyMutableState, NextState, State,
-        StateTransition, StateTransitionEvent, StateTransitionSystems, States, SubStates,
+        setup_state_transitions_in_world, ComputedStates, FreelyMutableState, NextState,
+        PreviousState, State, StateTransition, StateTransitionEvent, StateTransitionSystems,
+        States, SubStates,
     },
     state_scoped::{despawn_entities_on_enter_state, despawn_entities_on_exit_state},
 };
@@ -210,6 +211,7 @@ impl AppExtStates for SubApp {
     {
         self.register_type::<S>();
         self.register_type::<State<S>>();
+        self.register_type::<PreviousState<S>>();
         self.register_type_data::<S, crate::reflect::ReflectState>();
         self
     }
@@ -222,6 +224,7 @@ impl AppExtStates for SubApp {
         self.register_type::<S>();
         self.register_type::<State<S>>();
         self.register_type::<NextState<S>>();
+        self.register_type::<PreviousState<S>>();
         self.register_type_data::<S, crate::reflect::ReflectState>();
         self.register_type_data::<S, crate::reflect::ReflectFreelyMutableState>();
         self
