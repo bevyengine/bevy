@@ -7,13 +7,16 @@ use bevy_ecs::{
     system::{ReadOnlySystemParam, SystemParam, SystemParamItem, SystemState},
     world::World,
 };
+pub use bevy_material::render_phase::DrawFunctionId;
 use bevy_utils::TypeIdMap;
-use core::{any::TypeId, fmt::Debug, hash::Hash};
+use core::{any::TypeId, fmt::Debug};
 use std::sync::{PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard};
 use thiserror::Error;
 use variadics_please::all_tuples;
 
 /// A draw function used to draw [`PhaseItem`]s.
+///
+/// Identified by a [`DrawFunctionId`], stored in [`DrawFunctions`]
 ///
 /// The draw function can retrieve and query the required ECS data from the render world.
 ///
@@ -48,11 +51,6 @@ pub enum DrawError {
     #[error("View entity not found")]
     ViewEntityNotFound,
 }
-
-// TODO: make this generic?
-/// An identifier for a [`Draw`] function stored in [`DrawFunctions`].
-#[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Hash)]
-pub struct DrawFunctionId(u32);
 
 /// Stores all [`Draw`] functions for the [`PhaseItem`] type.
 ///
@@ -110,7 +108,7 @@ impl<P: PhaseItem> DrawFunctionsInternal<P> {
     }
 }
 
-/// Stores all draw functions for the [`PhaseItem`] type hidden behind a reader-writer lock.
+/// Stores all [`Draw`] functions for the [`PhaseItem`] type hidden behind a reader-writer lock.
 ///
 /// To access them the [`DrawFunctions::read`] and [`DrawFunctions::write`] methods are used.
 #[derive(Resource)]

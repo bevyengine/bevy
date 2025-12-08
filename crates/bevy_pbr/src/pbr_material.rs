@@ -1,5 +1,6 @@
 use bevy_asset::Asset;
 use bevy_color::{Alpha, ColorToComponents};
+use bevy_material::pbr_material::UvChannel;
 use bevy_math::{Affine2, Affine3, Mat2, Mat3, Vec2, Vec3, Vec4};
 use bevy_mesh::MeshVertexBufferLayoutRef;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
@@ -8,25 +9,16 @@ use bitflags::bitflags;
 
 use crate::{deferred::DEFAULT_PBR_DEFERRED_LIGHTING_PASS_ID, *};
 
-/// An enum to define which UV attribute to use for a texture.
-///
-/// It is used for every texture in the [`StandardMaterial`].
-/// It only supports two UV attributes, [`bevy_mesh::Mesh::ATTRIBUTE_UV_0`] and
-/// [`bevy_mesh::Mesh::ATTRIBUTE_UV_1`].
-/// The default is [`UvChannel::Uv0`].
-#[derive(Reflect, Default, Debug, Clone, PartialEq, Eq)]
-#[reflect(Default, Debug, Clone, PartialEq)]
-pub enum UvChannel {
-    #[default]
-    Uv0,
-    Uv1,
-}
-
 /// A material with "standard" properties used in PBR lighting.
 /// Standard property values with pictures here:
 /// <https://google.github.io/filament/notes/material_properties.html>.
 ///
 /// May be created directly from a [`Color`] or an [`Image`].
+///
+/// When a [`Lightmap`] is assigned to an entity that contains a [`Mesh3d`](bevy_mesh::Mesh3d) and a
+/// [`MeshMaterial3d<StandardMaterial>`](crate::StandardMaterial), if the mesh
+/// has a second UV layer ([`ATTRIBUTE_UV_1`](bevy_mesh::Mesh::ATTRIBUTE_UV_1)),
+/// then the lightmap will render using those UVs.
 #[derive(Asset, AsBindGroup, Reflect, Debug, Clone)]
 #[bind_group_data(StandardMaterialKey)]
 #[data(0, StandardMaterialUniform, binding_array(10))]
