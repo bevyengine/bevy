@@ -1,4 +1,5 @@
 use bevy_app::{App, Plugin};
+use bevy_camera::MsaaWriteback;
 use bevy_color::LinearRgba;
 use bevy_core_pipeline::{
     blit::{BlitPipeline, BlitPipelineKey},
@@ -6,7 +7,6 @@ use bevy_core_pipeline::{
     core_3d::graph::{Core3d, Node3d},
 };
 use bevy_ecs::{prelude::*, query::QueryItem};
-use bevy_camera::MsaaWriteback;
 use bevy_render::{
     camera::ExtractedCamera,
     diagnostic::RecordDiagnostics,
