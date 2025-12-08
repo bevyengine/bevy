@@ -914,6 +914,8 @@ pub fn specialize_prepass_material_meshes(
                     mesh_key |= alpha_mode_pipeline_key(alpha_mode, msaa);
                 }
                 AlphaMode::Blend
+                | AlphaMode::UnsortedBlend
+                | AlphaMode::WeightedBlend
                 | AlphaMode::Premultiplied
                 | AlphaMode::Add
                 | AlphaMode::Multiply => {
