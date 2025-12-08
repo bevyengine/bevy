@@ -3415,6 +3415,17 @@ wasm = true
 
 # UI (User Interface)
 [[example]]
+name = "anchor_layout"
+path = "examples/ui/anchor_layout.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.anchor_layout]
+name = "Anchor Layout"
+description = "Shows an 'anchor layout' style of ui layout"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "borders"
 path = "examples/ui/borders.rs"
 doc-scrape-examples = true
