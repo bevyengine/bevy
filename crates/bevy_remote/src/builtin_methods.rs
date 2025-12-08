@@ -1,5 +1,6 @@
 //! Built-in verbs for the Bevy Remote Protocol.
 
+use alloc::borrow::Cow;
 use core::any::TypeId;
 
 use anyhow::{anyhow, Result as AnyhowResult};
@@ -26,8 +27,9 @@ use serde_json::{Map, Value};
 use crate::{
     error_codes,
     schemas::{
-        json_schema::{export_type, JsonSchemaBevyType},
+        json_schema::{JsonSchemaBevyType, SchemaMarker, SchemaPropertyValue},
         open_rpc::OpenRpcDocument,
+        reflect_info::{TypeDefinitionBuilder, TypeReferencePath},
     },
     BrpError, BrpResult,
 };
@@ -357,9 +359,34 @@ pub struct BrpJsonSchemaQueryFilter {
     #[serde(skip_serializing_if = "Vec::is_empty", default)]
     pub with_crates: Vec<String>,
 
-    /// Constrain resource by type
+    /// Constrain resource by data type.
+    /// Mapping of data types to their corresponding JSON schema types
+    /// is provided by the [`crate::schemas::SchemaTypesMetadata`] resource.
     #[serde(default)]
     pub type_limit: JsonSchemaTypeLimit,
+
+    /// Add `one_of` field to the root of the schema.
+    /// It will allow to use the schema for validation values if they match the format used by the Bevy reflect serialization.
+    #[serde(default)]
+    pub meta_schemas_export: bool,
+}
+
+impl BrpJsonSchemaQueryFilter {
+    /// Check if the filter should skip a type registration based on the crate name.
+    pub fn should_skip_for_crate(&self, type_registration: &TypeRegistration) -> bool {
+        let crate_name = type_registration
+            .type_info()
+            .type_path_table()
+            .crate_name()
+            .unwrap_or_default();
+        if !self.with_crates.is_empty() && !self.with_crates.iter().any(|c| crate_name.eq(c)) {
+            return true;
+        }
+        if !self.without_crates.is_empty() && self.without_crates.iter().any(|c| crate_name.eq(c)) {
+            return true;
+        }
+        false
+    }
 }
 
 /// Additional [`BrpJsonSchemaQueryFilter`] constraints that can be placed on a query to include or exclude
@@ -373,6 +400,34 @@ pub struct JsonSchemaTypeLimit {
     /// Schema needs to have specified reflect types
     #[serde(skip_serializing_if = "Vec::is_empty", default)]
     pub with: Vec<String>,
+}
+
+impl JsonSchemaTypeLimit {
+    /// Check if the type limit is empty.
+    pub fn is_empty(&self) -> bool {
+        self.without.is_empty() && self.with.is_empty()
+    }
+
+    /// Check if the type limit should skip a type.
+    pub fn should_skip_type(&self, registered_types: &[&Cow<'_, str>]) -> bool {
+        if !self.with.is_empty()
+            && !self
+                .with
+                .iter()
+                .any(|c| registered_types.iter().any(|cc| c.eq(*cc)))
+        {
+            return true;
+        }
+        if !self.without.is_empty()
+            && self
+                .without
+                .iter()
+                .any(|c| registered_types.iter().any(|cc| c.eq(*cc)))
+        {
+            return true;
+        }
+        false
+    }
 }
 
 /// A response from the world to the client that specifies a single entity.
@@ -1348,57 +1403,89 @@ pub fn process_remote_list_components_watching_request(
     }
 }
 
+fn build_registry_json_schema(
+    filter: BrpJsonSchemaQueryFilter,
+    world: &World,
+) -> Result<JsonSchemaBevyType, BrpError> {
+    let metadata = world.resource::<crate::schemas::SchemaTypesMetadata>();
+    let types = world.resource::<AppTypeRegistry>();
+    let types = types.read();
+    let mut schema = JsonSchemaBevyType {
+        schema: Some(SchemaMarker.into()),
+        description: Some(
+            "This schema represents the types registered in the Bevy application.".into(),
+        ),
+        ..Default::default()
+    };
+    let definitions: Vec<TypeId> = types
+        .iter()
+        .filter_map(|type_reg| {
+            if filter.should_skip_for_crate(type_reg) {
+                return None;
+            }
+            let registered_types = metadata.get_registered_reflect_types(type_reg);
+
+            if filter
+                .type_limit
+                .should_skip_type(registered_types.as_slice())
+            {
+                return None;
+            }
+
+            let type_id = type_reg.type_id();
+            let mut dep_ids = types.get_type_dependencies(type_id);
+            dep_ids.insert(type_id);
+            Some(dep_ids)
+        })
+        .flatten()
+        .collect();
+    schema.definitions = definitions
+        .into_iter()
+        .flat_map(|id| {
+            let result = types.build_schema_for_type_id(id, metadata, true);
+            let Some((Some(schema_id), schema)) = result else {
+                return None;
+            };
+            Some((schema_id, Box::new(schema)))
+        })
+        .collect();
+    if filter.meta_schemas_export {
+        schema.one_of = schema
+            .definitions
+            .iter()
+            .flat_map(|(id, schema)| {
+                let schema = JsonSchemaBevyType {
+                    properties: [(
+                        schema.type_path.clone(),
+                        JsonSchemaBevyType {
+                            ref_type: Some(TypeReferencePath::definition((*id).clone())),
+                            description: schema.description.clone(),
+                            ..Default::default()
+                        }
+                        .into(),
+                    )]
+                    .into(),
+                    schema_type: crate::schemas::json_schema::SchemaType::Object.into(),
+                    additional_properties: Some(SchemaPropertyValue::BoolValue(false)),
+                    description: schema.description.clone(),
+                    reflect_type_data: schema.reflect_type_data.clone(),
+                    ..Default::default()
+                };
+                Some(schema.into())
+            })
+            .collect();
+    }
+    Ok(schema)
+}
+
 /// Handles a `registry.schema` request (list all registry types in form of schema) coming from a client.
 pub fn export_registry_types(In(params): In<Option<Value>>, world: &World) -> BrpResult {
     let filter: BrpJsonSchemaQueryFilter = match params {
         None => Default::default(),
         Some(params) => parse(params)?,
     };
-
-    let extra_info = world.resource::<crate::schemas::SchemaTypesMetadata>();
-    let types = world.resource::<AppTypeRegistry>();
-    let types = types.read();
-    let schemas = types
-        .iter()
-        .filter_map(|type_reg| {
-            let path_table = type_reg.type_info().type_path_table();
-            if let Some(crate_name) = &path_table.crate_name() {
-                if !filter.with_crates.is_empty()
-                    && !filter.with_crates.iter().any(|c| crate_name.eq(c))
-                {
-                    return None;
-                }
-                if !filter.without_crates.is_empty()
-                    && filter.without_crates.iter().any(|c| crate_name.eq(c))
-                {
-                    return None;
-                }
-            }
-            let (id, schema) = export_type(type_reg, extra_info);
-
-            if !filter.type_limit.with.is_empty()
-                && !filter
-                    .type_limit
-                    .with
-                    .iter()
-                    .any(|c| schema.reflect_types.iter().any(|cc| c.eq(cc)))
-            {
-                return None;
-            }
-            if !filter.type_limit.without.is_empty()
-                && filter
-                    .type_limit
-                    .without
-                    .iter()
-                    .any(|c| schema.reflect_types.iter().any(|cc| c.eq(cc)))
-            {
-                return None;
-            }
-            Some((id.to_string(), schema))
-        })
-        .collect::<HashMap<String, JsonSchemaBevyType>>();
-
-    serde_json::to_value(schemas).map_err(BrpError::internal)
+    let result = build_registry_json_schema(filter, world)?;
+    serde_json::to_value(result).map_err(BrpError::internal)
 }
 
 /// Immutably retrieves an entity from the [`World`], returning an error if the
@@ -1627,6 +1714,11 @@ mod tests {
         );
     }
 
+    use bevy_ecs::component::Component;
+    use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
+
+    use crate::schemas::SchemaTypesMetadata;
+
     use super::*;
 
     #[test]
@@ -1679,5 +1771,208 @@ mod tests {
         test_serialize_deserialize(BrpListComponentsParams {
             entity: Entity::from_raw_u32(0).unwrap(),
         });
+    }
+
+    #[test]
+    fn reflection_serialization_tests() {
+        use bevy_ecs::resource::Resource;
+
+        #[derive(Reflect, Default, Deserialize, Serialize, Resource)]
+        #[reflect(Resource, Serialize, Deserialize)]
+        pub struct ResourceStruct {
+            /// FIELD DOC
+            pub field: String,
+            pub second_field: Option<(u8, Option<u16>)>,
+        }
+        #[derive(Reflect, Default, Deserialize, Serialize, Component)]
+        #[reflect(Component, Serialize, Deserialize)]
+        pub struct OtherStruct {
+            /// FIELD DOC
+            pub field: String,
+            pub second_field: Option<(u8, Option<u16>)>,
+        }
+        /// STRUCT DOC
+        #[derive(Reflect, Default, Deserialize, Serialize, Component)]
+        #[reflect(Component, Serialize, Deserialize)]
+        pub struct SecondStruct;
+        /// STRUCT DOC
+        #[derive(Reflect, Default, Deserialize, Serialize, Component)]
+        #[reflect(Component, Serialize, Deserialize)]
+        pub struct ThirdStruct {
+            pub array_strings: Vec<String>,
+            pub array_structs: [OtherStruct; 5],
+            // pub map_strings: HashMap<String, i32>,
+        }
+        #[derive(Reflect, Default, Deserialize, Serialize, Component)]
+        #[reflect(Component, Serialize, Deserialize)]
+        pub struct NestedStruct {
+            pub other: OtherStruct,
+            pub second: SecondStruct,
+            /// DOC FOR FIELD
+            pub third: ThirdStruct,
+        }
+        let atr = AppTypeRegistry::default();
+        {
+            let mut register = atr.write();
+            register.register::<NestedStruct>();
+            register.register::<ResourceStruct>();
+        }
+        let value = NestedStruct {
+            other: OtherStruct {
+                field: "S".into(),
+                second_field: Some((0, None)),
+            },
+            second: SecondStruct,
+            third: ThirdStruct {
+                array_strings: ["s".into(), "SS".into()].into(),
+                array_structs: [
+                    OtherStruct::default(),
+                    OtherStruct::default(),
+                    OtherStruct::default(),
+                    OtherStruct::default(),
+                    OtherStruct::default(),
+                ],
+            },
+        };
+        let mut world = World::new();
+        world.insert_resource(atr.clone());
+        world.insert_resource(SchemaTypesMetadata::default());
+        let response = unwrap_registry_json_schema(BrpJsonSchemaQueryFilter::default(), &world);
+        let schema_value = serde_json::to_value(response).expect("Failed to serialize schema");
+        let type_registry = atr.read();
+        let serializer = ReflectSerializer::new(&value, &type_registry);
+        let res = ResourceStruct {
+            field: "SET".into(),
+            second_field: Some((45, None)),
+        };
+        let serializer_2 = ReflectSerializer::new(&res, &type_registry);
+        let json = serde_json::to_value(&serializer).expect("msg");
+        let validator = jsonschema::options()
+            .with_draft(jsonschema::Draft::Draft202012)
+            .build(&schema_value)
+            .expect("Failed to validate json schema");
+        assert!(
+            validator.validate(&json).is_ok(),
+            "Validation failed: {}",
+            serde_json::to_string_pretty(&serializer).expect("msg")
+        );
+        let json = serde_json::to_value(&serializer_2).expect("msg");
+        assert!(validator.validate(&json).is_ok());
+    }
+
+    #[test]
+    #[cfg(feature = "bevy_math")]
+    fn export_schema_test() {
+        #[derive(Reflect, Default, Deserialize, Serialize, Component)]
+        #[reflect(Component, Serialize, Deserialize)]
+        pub struct OtherStruct {
+            /// FIELD DOC
+            pub field: String,
+            pub second_field: Option<(u8, Option<u16>)>,
+        }
+        /// STRUCT DOC
+        #[derive(Reflect, Default, Deserialize, Serialize, Component)]
+        #[reflect(Component, Serialize, Deserialize)]
+        pub struct SecondStruct;
+        /// STRUCT DOC
+        #[derive(Reflect, Default, Deserialize, Serialize, Component)]
+        #[reflect(Component, Serialize, Deserialize)]
+        pub struct ThirdStruct {
+            pub array_strings: Vec<String>,
+            pub array_structs: [OtherStruct; 5],
+            // pub map_strings: HashMap<String, i32>,
+        }
+        #[derive(Reflect, Default, Deserialize, Serialize, Component)]
+        #[reflect(Component, Serialize, Deserialize)]
+        pub struct NestedStruct {
+            pub other: OtherStruct,
+            pub second: SecondStruct,
+            /// DOC FOR FIELD
+            pub third: ThirdStruct,
+        }
+
+        let atr = AppTypeRegistry::default();
+        {
+            use crate::schemas::RegisterReflectJsonSchemas;
+
+            let mut register = atr.write();
+            register.register::<NestedStruct>();
+            register.register::<bevy_math::Vec3>();
+            register.registry_force_schema_to_be_array::<bevy_math::Vec3>();
+        }
+        let mut world = World::new();
+        world.insert_resource(atr);
+        world.insert_resource(SchemaTypesMetadata::default());
+        let response = unwrap_registry_json_schema(BrpJsonSchemaQueryFilter::default(), &world);
+        let schema_value = serde_json::to_value(&response).unwrap();
+        _ = jsonschema::options()
+            .with_draft(jsonschema::Draft::Draft202012)
+            .build(&schema_value)
+            .expect("Failed to validate json schema");
+        assert_eq!(
+            response.definitions.len(),
+            6,
+            "Expected 6 definitions, got: {}: {}",
+            response.definitions.keys().len(),
+            serde_json::to_string_pretty(&response).unwrap_or_default()
+        );
+        let response = unwrap_registry_json_schema(
+            BrpJsonSchemaQueryFilter {
+                with_crates: vec!["glam".to_string()],
+                ..Default::default()
+            },
+            &world,
+        );
+        assert_eq!(
+            response.definitions.len(),
+            1,
+            "Expected 1 definition, got: {}: {:?}",
+            response.definitions.keys().len(),
+            response.definitions.keys()
+        );
+        {
+            use crate::schemas::reflect_info::TypeReferenceId;
+
+            let first = response.definitions.iter().next().expect("Should have one");
+            assert_eq!(first.0, &TypeReferenceId::from("glam::Vec3"));
+        }
+        let response = unwrap_registry_json_schema(
+            BrpJsonSchemaQueryFilter {
+                with_crates: vec!["bevy_remote".to_string()],
+                ..Default::default()
+            },
+            &world,
+        );
+        assert_eq!(
+            response.definitions.len(),
+            5,
+            "Expected 5 definitions, got: {}: {:?}",
+            response.definitions.len(),
+            response.definitions.keys()
+        );
+        let response = unwrap_registry_json_schema(
+            BrpJsonSchemaQueryFilter {
+                type_limit: JsonSchemaTypeLimit {
+                    with: vec!["Component".to_string()],
+                    ..Default::default()
+                },
+                ..Default::default()
+            },
+            &world,
+        );
+        assert_eq!(
+            response.definitions.len(),
+            5,
+            "Expected 5 definitions, got: {}: {:?}",
+            response.definitions.len(),
+            response.definitions.keys()
+        );
+    }
+
+    fn unwrap_registry_json_schema(
+        input: BrpJsonSchemaQueryFilter,
+        world: &World,
+    ) -> JsonSchemaBevyType {
+        build_registry_json_schema(input, world).expect("Failed to export registry types")
     }
 }

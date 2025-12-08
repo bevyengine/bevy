@@ -542,6 +542,8 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::sync::RwLock;
 
+use crate::schemas::RegisterReflectJsonSchemas;
+
 pub mod builtin_methods;
 #[cfg(feature = "http")]
 pub mod http;
@@ -678,6 +680,7 @@ impl Default for RemotePlugin {
 
 impl Plugin for RemotePlugin {
     fn build(&self, app: &mut App) {
+        app.register_schema_base_types();
         let mut remote_methods = RemoteMethods::new();
 
         let plugin_methods = &mut *self.methods.write().unwrap();
