@@ -365,6 +365,11 @@ pub struct Camera {
     /// "write their results on top" of previous camera results, and include them as a part of their render results. This is enabled by default to ensure
     /// cameras with MSAA enabled layer their results in the same way as cameras without MSAA enabled by default.
     pub msaa_writeback: bool,
+    /// If this is enabled, MSAA writeback will run even if this is the first camera rendering to the target.
+    /// This is useful when you need to preserve contents written directly to the main texture (e.g., via `write_texture`)
+    /// through an MSAA render pass. Normally, MSAA writeback only runs for cameras after the first one on a target,
+    /// but enabling this forces the writeback to copy main texture contents to the MSAA sampled texture before rendering.
+    pub force_msaa_writeback: bool,
     /// The clear color operation to perform on the render target.
     pub clear_color: ClearColorConfig,
     /// If set, this camera will be a sub camera of a large view, defined by a [`SubCameraView`].
@@ -381,6 +386,7 @@ impl Default for Camera {
             target: Default::default(),
             output_mode: Default::default(),
             msaa_writeback: true,
+            force_msaa_writeback: false,
             clear_color: Default::default(),
             sub_camera_view: None,
         }

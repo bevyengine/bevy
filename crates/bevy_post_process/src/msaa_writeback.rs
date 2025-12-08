@@ -137,7 +137,9 @@ fn prepare_msaa_writeback_pipelines(
     for (entity, view_target, camera, msaa) in view_targets.iter() {
         // only do writeback if writeback is enabled for the camera and this isn't the first camera in the target,
         // as there is nothing to write back for the first camera.
-        if msaa.samples() > 1 && camera.msaa_writeback && camera.sorted_camera_index_for_target > 0
+        if msaa.samples() > 1
+            && camera.msaa_writeback
+            && (camera.sorted_camera_index_for_target > 0 || camera.force_msaa_writeback)
         {
             let key = BlitPipelineKey {
                 texture_format: view_target.main_texture_format(),
