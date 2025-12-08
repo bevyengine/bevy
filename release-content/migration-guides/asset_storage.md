@@ -6,6 +6,7 @@ pull_requests: [22015]
 ## Changes to `get()` and `get_mut()` Return Types
 
 The return types for `get()` and `get_mut()` have changed:
+
 - `get()` now returns `AssetRef<'_, A>` instead of `&A`
 - `get_mut()` now returns `AssetMut<'_, A>` instead of `&mut A`
 
