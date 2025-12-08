@@ -383,28 +383,6 @@ impl<A: Asset> Assets<A> {
         }
     }
 
-    // /// Retrieves an [`Asset`] stored for the given `id` if it exists. If it does not exist, it will
-    // /// be inserted using `insert_fn`.
-    // ///
-    // /// Note: This will never return an error for UUID asset IDs.
-    // // PERF: Optimize this or remove it
-    // #[deprecated]
-    // pub fn get_or_insert_with(
-    //     &mut self,
-    //     id: impl Into<AssetId<A>>,
-    //     insert_fn: impl FnOnce() -> A,
-    // ) -> Result<AssetMut<'_, A>, InvalidGenerationError> {
-    //     let id: AssetId<A> = id.into();
-    //     if self.get(id).is_none() {
-    //         self.insert(id, insert_fn())?;
-    //     }
-    //     // This should be impossible since either, `self.get` was Some, in which case this succeeds,
-    //     // or `self.get` was None and we inserted it (and bailed out if there was an error).
-    //     Ok(self
-    //         .get_mut(id)
-    //         .expect("the Asset was none even though we checked or inserted"))
-    // }
-
     /// Returns `true` if the `id` exists in this collection. Otherwise it returns `false`.
     pub fn contains(&self, id: impl Into<AssetId<A>>) -> bool {
         match id.into() {

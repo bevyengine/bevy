@@ -264,7 +264,6 @@ impl ReflectAsset {
 
     /// Equivalent of [`Assets::remove`]
     pub fn remove(&self, world: &mut World, asset_id: impl Into<UntypedAssetId>) {
-        //  -> Option<Box<dyn Reflect>> {
         (self.remove)(world, asset_id.into());
     }
 
@@ -329,8 +328,6 @@ where
             remove: |world, asset_id| {
                 let mut assets = world.resource_mut::<Assets<A>>();
                 assets.remove(asset_id.typed_debug_checked());
-                // let value = assets.remove(asset_id.typed_debug_checked());
-                // value.map(|value| Box::new(value) as Box<dyn Reflect>)
             },
         }
     }
