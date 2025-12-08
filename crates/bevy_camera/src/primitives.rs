@@ -347,7 +347,7 @@ impl Frustum {
         true
     }
 
-    /// optimized version of [`Frustum::intersects_obb`]
+    /// Optimized version of [`Frustum::intersects_obb`]
     /// where the transform is [`Affine3A::IDENTITY`] and both `intersect_near` and `intersect_far` are `true`.
     #[inline]
     pub fn intersects_obb_identity(&self, aabb: &Aabb) -> bool {
