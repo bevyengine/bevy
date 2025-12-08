@@ -179,9 +179,26 @@ impl<A: Send + Sync + Clone> AssetAsyncStrategy<A> for HybridAssetStorage {
                 }
             }
             HybridStorage::UpgradedToArc(asset) => Arc::clone(asset),
-            HybridStorage::UpgradedToArcRwLock(asset) => {
-                // If there's a lock that exists, we only can just return a snapshot
-                Arc::new(asset.read().unwrap().clone())
+            HybridStorage::UpgradedToArcRwLock(..) => {
+                // Try to transition to UpgradedToArc if no outstanding locks exist
+                let owned_stored_asset = core::mem::replace(stored_asset, HybridStorage::Erased);
+                if let HybridStorage::UpgradedToArcRwLock(asset_lock) = owned_stored_asset {
+                    match Arc::try_unwrap(asset_lock) {
+                        Ok(asset_lock) => {
+                            let new_arc = Arc::new(asset_lock.into_inner().unwrap());
+                            *stored_asset = HybridStorage::UpgradedToArc(Arc::clone(&new_arc));
+                            new_arc
+                        }
+                        Err(asset_lock) => {
+                            // There's an outstanding lock, just clone the asset
+                            let arc = Arc::new(asset_lock.read().unwrap().clone());
+                            *stored_asset = HybridStorage::UpgradedToArcRwLock(asset_lock);
+                            arc
+                        }
+                    }
+                } else {
+                    unreachable!()
+                }
             }
             HybridStorage::Erased => panic_asset_erased!(),
         }
