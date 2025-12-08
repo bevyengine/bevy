@@ -43,11 +43,16 @@ bevy_diagnostic = { path = "../bevy_diagnostic", version = "0.18.0-dev" }
 bevy_ecs = { path = "../bevy_ecs", version = "0.18.0-dev" }
 bevy_light = { path = "../bevy_light", version = "0.18.0-dev" }
 bevy_image = { path = "../bevy_image", version = "0.18.0-dev" }
-bevy_mesh = { path = "../bevy_mesh", version = "0.18.0-dev" }
+bevy_mesh = { path = "../bevy_mesh", version = "0.18.0-dev", features = [
+  "morph",
+  "bevy_mikktspace",
+] }
 bevy_shader = { path = "../bevy_shader", version = "0.18.0-dev" }
 bevy_math = { path = "../bevy_math", version = "0.18.0-dev" }
 bevy_reflect = { path = "../bevy_reflect", version = "0.18.0-dev" }
-bevy_render = { path = "../bevy_render", version = "0.18.0-dev" }
+bevy_render = { path = "../bevy_render", version = "0.18.0-dev", features = [
+  "morph",
+] }
 bevy_camera = { path = "../bevy_camera", version = "0.18.0-dev" }
 bevy_tasks = { path = "../bevy_tasks", version = "0.18.0-dev", optional = true }
 bevy_transform = { path = "../bevy_transform", version = "0.18.0-dev" }
@@ -62,12 +67,12 @@ fixedbitset = "0.5"
 thiserror = { version = "2", default-features = false }
 derive_more = { version = "2", default-features = false, features = ["from"] }
 # meshlet
-lz4_flex = { version = "0.11", default-features = false, features = [
+lz4_flex = { version = "0.12", default-features = false, features = [
   "frame",
 ], optional = true }
-range-alloc = { version = "0.1.3", optional = true }
-meshopt = { version = "0.4.1", optional = true }
-metis = { version = "0.2", optional = true }
+range-alloc = { version = "0.1", optional = true }
+meshopt = { version = "0.6.2", optional = true }
+metis = { version = "0.2.2", optional = true }
 itertools = { version = "0.14", optional = true }
 bitvec = { version = "1", optional = true }
 # direct dependency required for derive macro

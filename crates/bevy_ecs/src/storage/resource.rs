@@ -1,11 +1,14 @@
 use crate::{
-    change_detection::{MaybeLocation, MutUntyped, TicksMut},
-    component::{CheckChangeTicks, ComponentId, ComponentTicks, Components, Tick, TickCells},
-    storage::{blob_vec::BlobVec, SparseSet},
+    change_detection::{
+        CheckChangeTicks, ComponentTickCells, ComponentTicks, ComponentTicksMut, MaybeLocation,
+        MutUntyped, Tick,
+    },
+    component::{ComponentId, Components},
+    storage::{blob_array::BlobArray, SparseSet},
 };
 use bevy_ptr::{OwningPtr, Ptr, UnsafeCellDeref};
 use bevy_utils::prelude::DebugName;
-use core::{cell::UnsafeCell, mem::ManuallyDrop, panic::Location};
+use core::{cell::UnsafeCell, panic::Location};
 
 #[cfg(feature = "std")]
 use std::thread::ThreadId;
@@ -16,7 +19,9 @@ use std::thread::ThreadId;
 ///
 /// [`World`]: crate::world::World
 pub struct ResourceData<const SEND: bool> {
-    data: ManuallyDrop<BlobVec>,
+    /// Capacity is 1, length is 1 if `is_present` and 0 otherwise.
+    data: BlobArray,
+    is_present: bool,
     added_ticks: UnsafeCell<Tick>,
     changed_ticks: UnsafeCell<Tick>,
     #[cfg_attr(
@@ -49,13 +54,13 @@ impl<const SEND: bool> Drop for ResourceData<SEND> {
         // been dropped. The validate_access call above will check that the
         // data is dropped on the thread it was inserted from.
         unsafe {
-            ManuallyDrop::drop(&mut self.data);
+            self.data.drop(1, self.is_present().into());
         }
     }
 }
 
 impl<const SEND: bool> ResourceData<SEND> {
-    /// The only row in the underlying `BlobVec`.
+    /// The only row in the underlying `BlobArray`.
     const ROW: usize = 0;
 
     /// Validates the access to `!Send` resources is only done on the thread they were created from.
@@ -86,7 +91,7 @@ impl<const SEND: bool> ResourceData<SEND> {
     /// Returns true if the resource is populated.
     #[inline]
     pub fn is_present(&self) -> bool {
-        !self.data.is_empty()
+        self.is_present
     }
 
     /// Returns a reference to the resource, if it exists.
@@ -122,23 +127,17 @@ impl<const SEND: bool> ResourceData<SEND> {
     /// If `SEND` is false, this will panic if a value is present and is not accessed from the
     /// original thread it was inserted in.
     #[inline]
-    pub(crate) fn get_with_ticks(
-        &self,
-    ) -> Option<(
-        Ptr<'_>,
-        TickCells<'_>,
-        MaybeLocation<&UnsafeCell<&'static Location<'static>>>,
-    )> {
+    pub(crate) fn get_with_ticks(&self) -> Option<(Ptr<'_>, ComponentTickCells<'_>)> {
         self.is_present().then(|| {
             self.validate_access();
             (
                 // SAFETY: We've already checked if a value is present, and there should only be one.
                 unsafe { self.data.get_unchecked(Self::ROW) },
-                TickCells {
+                ComponentTickCells {
                     added: &self.added_ticks,
                     changed: &self.changed_ticks,
+                    changed_by: self.changed_by.as_ref(),
                 },
-                self.changed_by.as_ref(),
             )
         })
     }
@@ -149,14 +148,12 @@ impl<const SEND: bool> ResourceData<SEND> {
     /// If `SEND` is false, this will panic if a value is present and is not accessed from the
     /// original thread it was inserted in.
     pub(crate) fn get_mut(&mut self, last_run: Tick, this_run: Tick) -> Option<MutUntyped<'_>> {
-        let (ptr, ticks, caller) = self.get_with_ticks()?;
+        let (ptr, ticks) = self.get_with_ticks()?;
         Some(MutUntyped {
             // SAFETY: We have exclusive access to the underlying storage.
             value: unsafe { ptr.assert_unique() },
             // SAFETY: We have exclusive access to the underlying storage.
-            ticks: unsafe { TicksMut::from_tick_cells(ticks, last_run, this_run) },
-            // SAFETY: We have exclusive access to the underlying storage.
-            changed_by: unsafe { caller.map(|caller| caller.deref_mut()) },
+            ticks: unsafe { ComponentTicksMut::from_tick_cells(ticks, last_run, this_run) },
         })
     }
 
@@ -181,16 +178,20 @@ impl<const SEND: bool> ResourceData<SEND> {
             // SAFETY: The caller ensures that the provided value is valid for the underlying type and
             // is properly initialized. We've ensured that a value is already present and previously
             // initialized.
-            unsafe {
-                self.data.replace_unchecked(Self::ROW, value);
-            }
+            unsafe { self.data.replace_unchecked(Self::ROW, value) };
         } else {
             #[cfg(feature = "std")]
             if !SEND {
                 self.origin_thread_id = Some(std::thread::current().id());
             }
-            self.data.push(value);
+            // SAFETY:
+            // - There is only one element, and it's always allocated.
+            // - The caller guarantees must be valid for the underlying type and thus its
+            //   layout must be identical.
+            // - The value was previously not present and thus must not have been initialized.
+            unsafe { self.data.initialize_unchecked(Self::ROW, value) };
             *self.added_ticks.deref_mut() = change_tick;
+            self.is_present = true;
         }
         *self.changed_ticks.deref_mut() = change_tick;
 
@@ -221,15 +222,19 @@ impl<const SEND: bool> ResourceData<SEND> {
             // SAFETY: The caller ensures that the provided value is valid for the underlying type and
             // is properly initialized. We've ensured that a value is already present and previously
             // initialized.
-            unsafe {
-                self.data.replace_unchecked(Self::ROW, value);
-            }
+            unsafe { self.data.replace_unchecked(Self::ROW, value) };
         } else {
             #[cfg(feature = "std")]
             if !SEND {
                 self.origin_thread_id = Some(std::thread::current().id());
             }
-            self.data.push(value);
+            // SAFETY:
+            // - There is only one element, and it's always allocated.
+            // - The caller guarantees must be valid for the underlying type and thus its
+            //   layout must be identical.
+            // - The value was previously not present and thus must not have been initialized.
+            unsafe { self.data.initialize_unchecked(Self::ROW, value) };
+            self.is_present = true;
         }
         *self.added_ticks.deref_mut() = change_ticks.added;
         *self.changed_ticks.deref_mut() = change_ticks.changed;
@@ -253,8 +258,14 @@ impl<const SEND: bool> ResourceData<SEND> {
         if !SEND {
             self.validate_access();
         }
-        // SAFETY: We've already validated that the row is present.
-        let res = unsafe { self.data.swap_remove_and_forget_unchecked(Self::ROW) };
+
+        self.is_present = false;
+
+        // SAFETY:
+        // - There is always only one row in the `BlobArray` created during initialization.
+        // - This function has validated that the row is present with the check of `self.is_present`.
+        // - The caller is to take ownership of the value, returned as a `OwningPtr`.
+        let res = unsafe { self.data.get_unchecked_mut(Self::ROW).promote() };
 
         let caller = self
             .changed_by
@@ -285,7 +296,9 @@ impl<const SEND: bool> ResourceData<SEND> {
     pub(crate) fn remove_and_drop(&mut self) {
         if self.is_present() {
             self.validate_access();
-            self.data.clear();
+            // SAFETY: There is only one element, and it's always allocated.
+            unsafe { self.data.drop_last_element(Self::ROW) };
+            self.is_present = false;
         }
     }
 
@@ -366,14 +379,15 @@ impl<const SEND: bool> Resources<SEND> {
             }
             // SAFETY: component_info.drop() is valid for the types that will be inserted.
             let data = unsafe {
-                BlobVec::new(
+                BlobArray::with_capacity(
                     component_info.layout(),
                     component_info.drop(),
                     1
                 )
             };
             ResourceData {
-                data: ManuallyDrop::new(data),
+                data,
+                is_present: false,
                 added_ticks: UnsafeCell::new(Tick::new(0)),
                 changed_ticks: UnsafeCell::new(Tick::new(0)),
                 type_name: component_info.name(),

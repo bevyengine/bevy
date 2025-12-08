@@ -1,11 +1,9 @@
 //! Demonstrates realtime dynamic raytraced lighting using Bevy Solari.
 
-#[path = "../helpers/camera_controller.rs"]
-mod camera_controller;
-
 use argh::FromArgs;
 use bevy::{
     camera::CameraMainTextureUsages,
+    camera_controller::free_camera::{FreeCamera, FreeCameraPlugin},
     gltf::GltfMaterialName,
     prelude::*,
     render::render_resource::TextureUsages,
@@ -15,7 +13,6 @@ use bevy::{
         prelude::{RaytracingMesh3d, SolariLighting, SolariPlugins},
     },
 };
-use camera_controller::{CameraController, CameraControllerPlugin};
 use std::f32::consts::PI;
 
 #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
@@ -41,7 +38,7 @@ fn main() {
         "5417916c-0291-4e3f-8f65-326c1858ab96" // Don't copy paste this - generate your own UUID!
     )));
 
-    app.add_plugins((DefaultPlugins, SolariPlugins, CameraControllerPlugin))
+    app.add_plugins((DefaultPlugins, SolariPlugins, FreeCameraPlugin))
         .insert_resource(args)
         .add_systems(Startup, setup);
 
@@ -118,7 +115,7 @@ fn setup(
             clear_color: ClearColorConfig::Custom(Color::BLACK),
             ..default()
         },
-        CameraController {
+        FreeCamera {
             walk_speed: 3.0,
             run_speed: 10.0,
             ..Default::default()
