@@ -10,6 +10,8 @@ keywords = ["bevy"]
 
 [features]
 bevy_ci_testing = ["serde", "ron"]
+webgl = ["bevy_render/webgl"]
+webgpu = ["bevy_render/webgpu"]
 
 [dependencies]
 # bevy
