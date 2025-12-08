@@ -498,7 +498,6 @@ impl<M: Message> ApplicationHandler<M> for WinitAppRunnerState<M> {
     fn exiting(&mut self, _event_loop: &ActiveEventLoop) {
         // Drop windows while event loop is still active, before TLS destruction.
         // Prevents panic on macOS when exiting from exclusive fullscreen.
-        #[cfg(target_os = "macos")]
         WINIT_WINDOWS.with(|ww| ww.borrow_mut().windows.clear());
 
         let world = self.world_mut();
