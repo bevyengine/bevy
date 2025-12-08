@@ -767,12 +767,12 @@ impl ScheduleGraph {
         if !collective_conditions.is_empty() {
             if let [config] = configs {
                 for condition in collective_conditions {
-                    config.add_run_if(condition);
+                    config.add_condition(condition);
                 }
             } else {
                 let set = self.create_anonymous_set();
                 for config in configs.iter_mut() {
-                    config.add_in_set(set);
+                    config.add_to_set(set);
                 }
                 let mut set_config = InternedSystemSet::into_config(set.intern());
                 set_config.conditions.extend(collective_conditions);
