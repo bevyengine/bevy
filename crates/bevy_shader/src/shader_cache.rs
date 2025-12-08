@@ -5,7 +5,7 @@ use bevy_platform::collections::{hash_map::EntryRef, HashMap, HashSet};
 use core::hash::Hash;
 use naga::valid::Capabilities;
 use thiserror::Error;
-use tracing::{debug, error};
+use tracing::debug;
 use wgpu_types::{DownlevelFlags, Features};
 
 /// Source of a shader module.
@@ -221,7 +221,7 @@ impl<ShaderModule, RenderDevice> ShaderCache<ShaderModule, RenderDevice> {
                             for shader_def in shader_defs {
                                 match shader_def {
                                     ShaderDefVal::Bool(key, value) => {
-                                        compiler_options.features.insert(key.clone(), *value);
+                                        compiler_options.features.flags.insert(key.clone(), (*value).into());
                                     }
                                     _ => debug!(
                                         "ShaderDefVal::Int and ShaderDefVal::UInt are not supported in wesl",

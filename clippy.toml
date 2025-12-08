@@ -1,13 +1,10 @@
 doc-valid-idents = [
+  "GameActivity",
   "GilRs",
   "glTF",
-  "macOS",
   "NVidia",
   "OpenXR",
-  "sRGB",
   "VSync",
-  "WebGL2",
-  "WebGPU",
   "..",
 ]
 

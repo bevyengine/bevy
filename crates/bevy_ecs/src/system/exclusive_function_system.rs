@@ -1,5 +1,5 @@
 use crate::{
-    component::{CheckChangeTicks, Tick},
+    change_detection::{CheckChangeTicks, Tick},
     error::Result,
     query::FilteredAccessSet,
     schedule::{InternedSystemSet, SystemSet},

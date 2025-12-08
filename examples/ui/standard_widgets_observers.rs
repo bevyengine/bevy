@@ -6,7 +6,6 @@
 
 use bevy::{
     color::palettes::basic::*,
-    ecs::system::SystemId,
     input_focus::{
         tab_navigation::{TabGroup, TabIndex, TabNavigationPlugin},
         InputDispatchPlugin,
@@ -16,8 +15,8 @@ use bevy::{
     reflect::Is,
     ui::{Checked, InteractionDisabled, Pressed},
     ui_widgets::{
-        Activate, Button, Callback, Checkbox, Slider, SliderRange, SliderThumb, SliderValue,
-        UiWidgetsPlugins, ValueChange,
+        checkbox_self_update, observe, Activate, Button, Checkbox, Slider, SliderRange,
+        SliderThumb, SliderValue, UiWidgetsPlugins, ValueChange,
     },
 };
 
@@ -86,29 +85,12 @@ struct DemoWidgetStates {
 }
 
 fn setup(mut commands: Commands, assets: Res<AssetServer>) {
-    // System to print a value when the button is clicked.
-    let on_click = commands.register_system(|_: In<Activate>| {
-        info!("Button clicked!");
-    });
-
-    // System to update a resource when the slider value changes. Note that we could have
-    // updated the slider value directly, but we want to demonstrate externalizing the state.
-    let on_change_value = commands.register_system(
-        |value: In<ValueChange<f32>>, mut widget_states: ResMut<DemoWidgetStates>| {
-            widget_states.slider_value = value.0.value;
-        },
-    );
-
     // ui camera
     commands.spawn(Camera2d);
-    commands.spawn(demo_root(&assets, on_click, on_change_value));
+    commands.spawn(demo_root(&assets));
 }
 
-fn demo_root(
-    asset_server: &AssetServer,
-    on_click: SystemId<In<Activate>>,
-    on_change_value: SystemId<In<ValueChange<f32>>>,
-) -> impl Bundle {
+fn demo_root(asset_server: &AssetServer) -> impl Bundle {
     (
         Node {
             width: percent(100),
@@ -122,15 +104,31 @@ fn demo_root(
         },
         TabGroup::default(),
         children![
-            button(asset_server, Callback::System(on_click)),
-            slider(0.0, 100.0, 50.0, Callback::System(on_change_value)),
-            checkbox(asset_server, "Checkbox", Callback::Ignore),
+            (
+                button(asset_server),
+                observe(|_activate: On<Activate>| {
+                    info!("Button clicked!");
+                }),
+            ),
+            (
+                slider(0.0, 100.0, 50.0),
+                observe(
+                    |value_change: On<ValueChange<f32>>,
+                     mut widget_states: ResMut<DemoWidgetStates>| {
+                        widget_states.slider_value = value_change.value;
+                    },
+                )
+            ),
+            (
+                checkbox(asset_server, "Checkbox"),
+                observe(checkbox_self_update),
+            ),
             Text::new("Press 'D' to toggle widget disabled states"),
         ],
     )
 }
 
-fn button(asset_server: &AssetServer, on_click: Callback<In<Activate>>) -> impl Bundle {
+fn button(asset_server: &AssetServer) -> impl Bundle {
     (
         Node {
             width: px(150),
@@ -138,16 +136,14 @@ fn button(asset_server: &AssetServer, on_click: Callback<In<Activate>>) -> impl 
             border: UiRect::all(px(5)),
             justify_content: JustifyContent::Center,
             align_items: AlignItems::Center,
+            border_radius: BorderRadius::MAX,
             ..default()
         },
         DemoButton,
-        Button {
-            on_activate: on_click,
-        },
+        Button,
         Hovered::default(),
         TabIndex(0),
         BorderColor::all(Color::BLACK),
-        BorderRadius::MAX,
         BackgroundColor(NORMAL_BUTTON),
         children![(
             Text::new("Button"),
@@ -224,12 +220,7 @@ fn button_on_interaction<E: EntityEvent, C: Component>(
 }
 
 /// Create a demo slider
-fn slider(
-    min: f32,
-    max: f32,
-    value: f32,
-    on_change: Callback<In<ValueChange<f32>>>,
-) -> impl Bundle {
+fn slider(min: f32, max: f32, value: f32) -> impl Bundle {
     (
         Node {
             display: Display::Flex,
@@ -245,10 +236,7 @@ fn slider(
         Name::new("Slider"),
         Hovered::default(),
         DemoSlider,
-        Slider {
-            on_change,
-            ..default()
-        },
+        Slider::default(),
         SliderValue(value),
         SliderRange::new(min, max),
         TabIndex(0),
@@ -257,10 +245,10 @@ fn slider(
             Spawn((
                 Node {
                     height: px(6),
+                    border_radius: BorderRadius::all(px(3)),
                     ..default()
                 },
                 BackgroundColor(SLIDER_TRACK), // Border color for the checkbox
-                BorderRadius::all(px(3)),
             )),
             // Invisible track to allow absolute placement of thumb entity. This is narrower than
             // the actual slider, which allows us to position the thumb entity using simple
@@ -286,9 +274,9 @@ fn slider(
                         height: px(12),
                         position_type: PositionType::Absolute,
                         left: percent(0), // This will be updated by the slider's value
+                        border_radius: BorderRadius::MAX,
                         ..default()
                     },
-                    BorderRadius::MAX,
                     BackgroundColor(SLIDER_THUMB),
                 )],
             )),
@@ -344,11 +332,7 @@ fn thumb_color(disabled: bool, hovered: bool) -> Color {
 }
 
 /// Create a demo checkbox
-fn checkbox(
-    asset_server: &AssetServer,
-    caption: &str,
-    on_change: Callback<In<ValueChange<bool>>>,
-) -> impl Bundle {
+fn checkbox(asset_server: &AssetServer, caption: &str) -> impl Bundle {
     (
         Node {
             display: Display::Flex,
@@ -362,7 +346,7 @@ fn checkbox(
         Name::new("Checkbox"),
         Hovered::default(),
         DemoCheckbox,
-        Checkbox { on_change },
+        Checkbox,
         TabIndex(0),
         Children::spawn((
             Spawn((
@@ -372,10 +356,10 @@ fn checkbox(
                     width: px(16),
                     height: px(16),
                     border: UiRect::all(px(2)),
+                    border_radius: BorderRadius::all(px(3)),
                     ..default()
                 },
                 BorderColor::all(CHECKBOX_OUTLINE), // Border color for the checkbox
-                BorderRadius::all(px(3)),
                 children![
                     // Checkbox inner
                     (

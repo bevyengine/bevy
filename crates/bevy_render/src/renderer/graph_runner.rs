@@ -76,7 +76,7 @@ impl RenderGraphRunner {
         }
 
         let mut render_context = RenderContext::new(render_device, diagnostics_recorder);
-        Self::run_graph(graph, None, &mut render_context, world, &[], None)?;
+        Self::run_graph(graph, None, &mut render_context, world, &[], None, None)?;
         finalizer(render_context.command_encoder());
 
         let (render_device, mut diagnostics_recorder) = {
@@ -108,17 +108,29 @@ impl RenderGraphRunner {
         world: &'w World,
         inputs: &[SlotValue],
         view_entity: Option<Entity>,
+        debug_group: Option<String>,
     ) -> Result<(), RenderGraphRunnerError> {
         let mut node_outputs: HashMap<InternedRenderLabel, SmallVec<[SlotValue; 4]>> =
             HashMap::default();
         #[cfg(feature = "trace")]
-        let span = if let Some(label) = &sub_graph {
-            info_span!("run_graph", name = format!("{label:?}"))
+        let span = if let Some(render_label) = &sub_graph {
+            let name = format!("{render_label:?}");
+            if let Some(debug_group) = debug_group.as_ref() {
+                info_span!("run_graph", name = name, debug_group = debug_group)
+            } else {
+                info_span!("run_graph", name = name)
+            }
         } else {
             info_span!("run_graph", name = "main_graph")
         };
         #[cfg(feature = "trace")]
         let _guard = span.enter();
+
+        if let Some(debug_group) = debug_group.as_ref() {
+            render_context
+                .command_encoder()
+                .push_debug_group(debug_group);
+        }
 
         // Queue up nodes without inputs, which can be run immediately
         let mut node_queue: VecDeque<&NodeState> = graph
@@ -235,6 +247,7 @@ impl RenderGraphRunner {
                         world,
                         &run_sub_graph.inputs,
                         run_sub_graph.view_entity,
+                        run_sub_graph.debug_group,
                     )?;
                 }
             }
@@ -260,6 +273,10 @@ impl RenderGraphRunner {
             {
                 node_queue.push_front(node_state);
             }
+        }
+
+        if debug_group.is_some() {
+            render_context.command_encoder().pop_debug_group();
         }
 
         Ok(())

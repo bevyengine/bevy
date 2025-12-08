@@ -7,7 +7,7 @@ use bevy_ecs::event::EntityEvent;
 use bevy_ecs::hierarchy::Children;
 use bevy_ecs::lifecycle::Insert;
 use bevy_ecs::query::Has;
-use bevy_ecs::system::{In, Res};
+use bevy_ecs::system::Res;
 use bevy_ecs::world::DeferredWorld;
 use bevy_ecs::{
     component::Component,
@@ -27,7 +27,7 @@ use bevy_ui::{
     ComputedNode, ComputedUiRenderTargetInfo, InteractionDisabled, UiGlobalTransform, UiScale,
 };
 
-use crate::{Callback, Notify, ValueChange};
+use crate::ValueChange;
 use bevy_ecs::entity::Entity;
 
 /// Defines how the slider should behave when you click on the track (not the thumb).
@@ -81,10 +81,6 @@ pub enum TrackClick {
     SliderStep
 )]
 pub struct Slider {
-    /// Callback which is called when the slider is dragged or the value is changed via other user
-    /// interaction. If this value is `Callback::Ignore`, then the slider will update it's own
-    /// internal [`SliderValue`] state without notification.
-    pub on_change: Callback<In<ValueChange<f32>>>,
     /// Set the track-clicking behavior for this slider.
     pub track_click: TrackClick,
     // TODO: Think about whether we want a "vertical" option.
@@ -303,17 +299,10 @@ pub(crate) fn slider_on_pointer_down(
                 .unwrap_or(click_val),
         });
 
-        if matches!(slider.on_change, Callback::Ignore) {
-            commands.entity(press.entity).insert(SliderValue(new_value));
-        } else {
-            commands.notify_with(
-                &slider.on_change,
-                ValueChange {
-                    source: press.entity,
-                    value: new_value,
-                },
-            );
-        }
+        commands.trigger(ValueChange {
+            source: press.entity,
+            value: new_value,
+        });
     }
 }
 
@@ -339,21 +328,24 @@ pub(crate) fn slider_on_drag_start(
 
 pub(crate) fn slider_on_drag(
     mut event: On<Pointer<Drag>>,
-    mut q_slider: Query<(
-        &ComputedNode,
-        &Slider,
-        &SliderRange,
-        Option<&SliderPrecision>,
-        &UiGlobalTransform,
-        &mut CoreSliderDragState,
-        Has<InteractionDisabled>,
-    )>,
+    mut q_slider: Query<
+        (
+            &SliderValue,
+            &ComputedNode,
+            &SliderRange,
+            Option<&SliderPrecision>,
+            &UiGlobalTransform,
+            &mut CoreSliderDragState,
+            Has<InteractionDisabled>,
+        ),
+        With<Slider>,
+    >,
     q_thumb: Query<&ComputedNode, With<SliderThumb>>,
     q_children: Query<&Children>,
     mut commands: Commands,
     ui_scale: Res<UiScale>,
 ) {
-    if let Ok((node, slider, range, precision, transform, drag, disabled)) =
+    if let Ok((value, node, range, precision, transform, drag, disabled)) =
         q_slider.get_mut(event.entity)
     {
         event.propagate(false);
@@ -379,18 +371,11 @@ pub(crate) fn slider_on_drag(
                     .unwrap_or(new_value),
             );
 
-            if matches!(slider.on_change, Callback::Ignore) {
-                commands
-                    .entity(event.entity)
-                    .insert(SliderValue(rounded_value));
-            } else {
-                commands.notify_with(
-                    &slider.on_change,
-                    ValueChange {
-                        source: event.entity,
-                        value: rounded_value,
-                    },
-                );
+            if rounded_value != value.0 {
+                commands.trigger(ValueChange {
+                    source: event.entity,
+                    value: rounded_value,
+                });
             }
         }
     }
@@ -410,16 +395,18 @@ pub(crate) fn slider_on_drag_end(
 
 fn slider_on_key_input(
     mut focused_input: On<FocusedInput<KeyboardInput>>,
-    q_slider: Query<(
-        &Slider,
-        &SliderValue,
-        &SliderRange,
-        &SliderStep,
-        Has<InteractionDisabled>,
-    )>,
+    q_slider: Query<
+        (
+            &SliderValue,
+            &SliderRange,
+            &SliderStep,
+            Has<InteractionDisabled>,
+        ),
+        With<Slider>,
+    >,
     mut commands: Commands,
 ) {
-    if let Ok((slider, value, range, step, disabled)) = q_slider.get(focused_input.focused_entity) {
+    if let Ok((value, range, step, disabled)) = q_slider.get(focused_input.focused_entity) {
         let input_event = &focused_input.input;
         if !disabled && input_event.state == ButtonState::Pressed {
             let new_value = match input_event.key_code {
@@ -432,19 +419,10 @@ fn slider_on_key_input(
                 }
             };
             focused_input.propagate(false);
-            if matches!(slider.on_change, Callback::Ignore) {
-                commands
-                    .entity(focused_input.focused_entity)
-                    .insert(SliderValue(new_value));
-            } else {
-                commands.notify_with(
-                    &slider.on_change,
-                    ValueChange {
-                        source: focused_input.focused_entity,
-                        value: new_value,
-                    },
-                );
-            }
+            commands.trigger(ValueChange {
+                source: focused_input.focused_entity,
+                value: new_value,
+            });
         }
     }
 }
@@ -532,10 +510,10 @@ pub enum SliderValueChange {
 
 fn slider_on_set_value(
     set_slider_value: On<SetSliderValue>,
-    q_slider: Query<(&Slider, &SliderValue, &SliderRange, Option<&SliderStep>)>,
+    q_slider: Query<(&SliderValue, &SliderRange, Option<&SliderStep>), With<Slider>>,
     mut commands: Commands,
 ) {
-    if let Ok((slider, value, range, step)) = q_slider.get(set_slider_value.entity) {
+    if let Ok((value, range, step)) = q_slider.get(set_slider_value.entity) {
         let new_value = match set_slider_value.change {
             SliderValueChange::Absolute(new_value) => range.clamp(new_value),
             SliderValueChange::Relative(delta) => range.clamp(value.0 + delta),
@@ -543,20 +521,20 @@ fn slider_on_set_value(
                 range.clamp(value.0 + delta * step.map(|s| s.0).unwrap_or_default())
             }
         };
-        if matches!(slider.on_change, Callback::Ignore) {
-            commands
-                .entity(set_slider_value.entity)
-                .insert(SliderValue(new_value));
-        } else {
-            commands.notify_with(
-                &slider.on_change,
-                ValueChange {
-                    source: set_slider_value.entity,
-                    value: new_value,
-                },
-            );
-        }
+        commands.trigger(ValueChange {
+            source: set_slider_value.entity,
+            value: new_value,
+        });
     }
+}
+
+/// Observer function which updates the slider value in response to a [`ValueChange`] event.
+/// This can be used to make the slider automatically update its own state when dragged,
+/// as opposed to managing the slider state externally.
+pub fn slider_self_update(value_change: On<ValueChange<f32>>, mut commands: Commands) {
+    commands
+        .entity(value_change.source)
+        .insert(SliderValue(value_change.value));
 }
 
 /// Plugin that adds the observers for the [`Slider`] widget.
