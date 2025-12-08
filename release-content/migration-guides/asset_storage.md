@@ -3,7 +3,7 @@ title: "`Res<Assets<A>>` now uses configurable storage"
 pull_requests: [22015]
 ---
 
-### Changes to `get()` and `get_mut()` Return Types
+## Changes to `get()` and `get_mut()` Return Types
 
 The return types for `get()` and `get_mut()` have changed:
 - `get()` now returns `AssetRef<'_, A>` instead of `&A`
@@ -35,6 +35,19 @@ asset_b.field = true;
 }
 ```
 
-### Removal of `get_or_insert_with`
+## Changes to `remove()`
+
+The remove method now returns the wrapped asset (a type defined by the asset's storage strategy). To unwrap it, use the `into_inner` method provided by the asset's storage strategy:
+
+```diff
+fn my_system(mut assets: ResMut<Assets<MyAsset>>) {
+    // ...
+-   let asset = assets.remove(id).unwrap();
++   let stored_asset = assets.remove(id).unwrap();
++   let asset = <MyAsset as Asset>::AssetStorage::into_inner(stored_asset).unwrap();
+}
+```
+
+## Removal of `get_or_insert_with`
 
 The `get_or_insert_with` method has been removed from `Res<Assets<A>>`. Replace it with separate calls to `get_mut` and `insert` as needed.
