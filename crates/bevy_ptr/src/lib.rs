@@ -1124,43 +1124,17 @@ impl<'a, T> ThinSlicePtr<'a, T> {
 
     /// Casts the slice to another type
     ///
-    /// # Panics
-    ///
-    /// When the feature `debug_assertions` is enabled, panics, when the new type for
-    /// the slice doesn't use all bytes reserved by this slice.
-    /// (this can happen for example, when the size of `T` is not 0 modulo the size of `U`)
-    ///
-    /// When the feature `debug_assertions` is disabled, panics, when the size of `U` is 0 but the size of `T` is not.
-    pub fn cast<U>(&self) -> ThinSlicePtr<'a, U> {
+    /// # Safety
+    /// - The type `U` must have the same in-memory representation as `T`.
+    pub unsafe fn cast_unchecked<U>(&self) -> ThinSlicePtr<'a, U> {
         #[cfg(debug_assertions)]
-        assert!(
-            size_of::<T>() == 0
-                || (size_of::<U>() != 0 && self.len * size_of::<T>() % size_of::<U>() == 0)
-        );
-
-        // must be evaluated in the compilation
-        assert!(size_of::<U>() != 0 || size_of::<T>() == 0);
+        // it doesn't fully ensure that `U` and `T` have the same in-memory representations
+        assert!(size_of::<T>() == size_of::<U>() && align_of::<T>() == align_of::<U>());
 
         ThinSlicePtr {
             ptr: self.ptr.cast::<U>(),
-            // self.len is equal the amount of elements of T in the slice, which takes
-            // size_of::<T> * self.len bytes, thus the length of the same slice but for U is the amount
-            // of bytes divided by the size of U.
-            //
-            // when the size of U is 0, then the length of the slice may be infinite.
-            //
-            // when the size of T is 0 as well, then we can logically assume that the lengths of the both slices (of type T,
-            // and of type U) are equal.
             #[cfg(debug_assertions)]
-            len: if size_of::<U>() == 0 {
-                if size_of::<T>() == 0 {
-                    self.len
-                } else {
-                    unreachable!()
-                }
-            } else {
-                self.len * size_of::<T>() / size_of::<U>()
-            },
+            len: self.len,
             _marker: PhantomData,
         }
     }
