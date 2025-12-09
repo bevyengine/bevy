@@ -365,6 +365,15 @@ pub struct Camera {
     pub msaa_writeback: MsaaWriteback,
     /// The clear color operation to perform on the render target.
     pub clear_color: ClearColorConfig,
+    /// Whether to switch culling mode so that materials that request backface
+    /// culling cull front faces, and vice versa.
+    ///
+    /// This is typically used for cameras that mirror the world that they
+    /// render across a plane, because doing that flips the winding of each
+    /// polygon.
+    ///
+    /// This setting doesn't affect materials that disable backface culling.
+    pub invert_culling: bool,
     /// If set, this camera will be a sub camera of a large view, defined by a [`SubCameraView`].
     pub sub_camera_view: Option<SubCameraView>,
 }
@@ -380,6 +389,7 @@ impl Default for Camera {
             output_mode: Default::default(),
             msaa_writeback: MsaaWriteback::default(),
             clear_color: Default::default(),
+            invert_culling: false,
             sub_camera_view: None,
         }
     }
