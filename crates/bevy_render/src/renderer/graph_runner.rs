@@ -135,7 +135,7 @@ impl RenderGraphRunner {
             // For now, we use a debug_marker as a workaround
             render_context
                 .command_encoder()
-                .insert_debug_marker(debug_group);
+                .insert_debug_marker(&format!("Start {debug_group}"));
         }
 
         // Queue up nodes without inputs, which can be run immediately
@@ -279,6 +279,12 @@ impl RenderGraphRunner {
             {
                 node_queue.push_front(node_state);
             }
+        }
+
+        if let Some(debug_group) = debug_group {
+            render_context
+                .command_encoder()
+                .insert_debug_marker(&format!("End {debug_group}"));
         }
 
         Ok(())
