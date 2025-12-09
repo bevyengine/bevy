@@ -29,7 +29,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     // Ghost UI root
     commands.spawn(GhostNode).with_children(|ghost_root| {
-        ghost_root.spawn(Node::default()).with_child(create_label(
+        ghost_root.spawn(Node::default()).spawn_child(create_label(
             "This text node is rendered under a ghost root",
             font_handle.clone(),
         ));
@@ -55,16 +55,16 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             // These buttons are being treated as children of layout_parent in the context of UI
                             ghost_parent
                                 .spawn(create_button())
-                                .with_child(create_label("0", font_handle.clone()));
+                                .spawn_child(create_label("0", font_handle.clone()));
                             ghost_parent
                                 .spawn(create_button())
-                                .with_child(create_label("0", font_handle.clone()));
+                                .spawn_child(create_label("0", font_handle.clone()));
                         });
 
                     // A normal child using the layout parent counter
                     layout_parent
                         .spawn(create_button())
-                        .with_child(create_label("0", font_handle.clone()));
+                        .spawn_child(create_label("0", font_handle.clone()));
                 });
         });
 }
