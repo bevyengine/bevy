@@ -23,6 +23,7 @@ ba = "ba"         # Part of an accessor in WGSL - weights.ba
 fLenOt = "fLenOt"
 iFO_a = "iFO_a"
 iFO_b = "iFO_b"
+Nd = "Nd"         # Normal of Decal
 ser = "ser"       # ron::ser - Serializer
 toi = "toi"       # Time of impact
 vOt = "vOt"
