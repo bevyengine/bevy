@@ -12,3 +12,9 @@ updates:
       interval: weekly
     labels:
       - "C-Dependencies"
+  - package-ecosystem: rust-toolchain
+    directory: /
+    schedule:
+      interval: daily
+    labels:
+      - "C-Build-System"
