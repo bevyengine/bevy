@@ -330,7 +330,7 @@ impl Specializer<RenderPipeline> for TaaPipelineSpecializer {
         };
 
         if key.reset {
-            fragment.shader_defs.push("RESET".into())
+            fragment.shader_defs.push("RESET".into());
         }
 
         let color_target_state = ColorTargetState {
