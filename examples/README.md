@@ -554,6 +554,7 @@ Example | Description
 
 Example | Description
 --- | ---
+[Anchor Layout](../examples/ui/anchor_layout.rs) | Shows an 'anchor layout' style of ui layout
 [Automatic Directional Navigation](../examples/ui/auto_directional_navigation.rs) | Demonstration of automatic directional navigation graph generation based on UI element positions
 [Borders](../examples/ui/borders.rs) | Demonstrates how to create a node with a border
 [Box Shadow](../examples/ui/box_shadow.rs) | Demonstrates how to create a node with a shadow
