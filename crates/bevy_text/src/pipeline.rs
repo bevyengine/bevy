@@ -191,7 +191,6 @@ impl TextPipeline {
 
         // Update the buffer.
         let buffer = &mut computed.buffer;
-        buffer.set_size(font_system, bounds.width, bounds.height);
 
         buffer.set_wrap(
             font_system,
@@ -213,11 +212,10 @@ impl TextPipeline {
 
         // Workaround for alignment not working for unbounded text.
         // See https://github.com/pop-os/cosmic-text/issues/343
-        if bounds.width.is_none() && justify != Justify::Left {
-            let dimensions = buffer_dimensions(buffer);
-            // `set_size` causes a re-layout to occur.
-            buffer.set_size(font_system, Some(dimensions.x), bounds.height);
-        }
+        let width = (bounds.width.is_none() && justify != Justify::Left)
+            .then(|| buffer_dimensions(buffer).x)
+            .or(bounds.width);
+        buffer.set_size(font_system, width, bounds.height);
 
         // Recover the spans buffer.
         spans.clear();
@@ -343,9 +341,11 @@ impl TextPipeline {
 
         let buffer = &mut computed.buffer;
         buffer.set_size(font_system, bounds.width, bounds.height);
-        let box_size = buffer_dimensions(buffer);
+        let mut box_size = Vec2::ZERO;
 
         let result = buffer.layout_runs().try_for_each(|run| {
+            box_size.x = box_size.x.max(run.line_w);
+            box_size.y += run.line_height;
             let mut current_section: Option<usize> = None;
             let mut start = 0.;
             let mut end = 0.;
@@ -471,7 +471,7 @@ impl TextPipeline {
         // Check result.
         result?;
 
-        layout_info.size = box_size;
+        layout_info.size = box_size.ceil();
         Ok(())
     }
 }
@@ -495,6 +495,16 @@ pub struct TextLayoutInfo {
     pub run_geometry: Vec<RunGeometry>,
     /// The glyphs resulting size
     pub size: Vec2,
+}
+
+impl TextLayoutInfo {
+    /// Clear the layout, retaining capacity
+    pub fn clear(&mut self) {
+        self.scale_factor = 1.;
+        self.glyphs.clear();
+        self.run_geometry.clear();
+        self.size = Vec2::ZERO;
+    }
 }
 
 /// Geometry of a text run used to render text decorations like background colors, strikethrough, and underline.

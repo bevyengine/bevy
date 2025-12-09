@@ -148,26 +148,71 @@ pub struct ClusterableObjectCounts {
 /// An object that projects a decal onto surfaces within its bounds.
 ///
 /// Conceptually, a clustered decal is a 1×1×1 cube centered on its origin. It
-/// projects the given [`Self::image`] onto surfaces in the -Z direction (thus
-/// you may find [`Transform::looking_at`] useful).
+/// projects its images onto surfaces in the -Z direction (thus you may find
+/// [`Transform::looking_at`] useful).
+///
+/// Each decal may project any of a base color texture, a normal map, a
+/// metallic/roughness map, and/or a texture that specifies emissive light. In
+/// addition, you may associate an arbitrary integer [`Self::tag`] with each
+/// clustered decal, which Bevy doesn't use, but that you can use in your
+/// shaders in order to associate application-specific data with your decals.
 ///
 /// Clustered decals are the highest-quality types of decals that Bevy supports,
 /// but they require bindless textures. This means that they presently can't be
 /// used on WebGL 2, WebGPU, macOS, or iOS. Bevy's clustered decals can be used
 /// with forward or deferred rendering and don't require a prepass.
-#[derive(Component, Debug, Clone, Reflect)]
-#[reflect(Component, Debug, Clone)]
+#[derive(Component, Debug, Clone, Default, Reflect)]
+#[reflect(Component, Debug, Clone, Default)]
 #[require(Transform, Visibility, VisibilityClass)]
 #[component(on_add = visibility::add_visibility_class::<ClusterVisibilityClass>)]
 pub struct ClusteredDecal {
-    /// The image that the clustered decal projects.
+    /// The image that the clustered decal projects onto the base color of the
+    /// surface material.
     ///
     /// This must be a 2D image. If it has an alpha channel, it'll be alpha
     /// blended with the underlying surface and/or other decals. All decal
     /// images in the scene must use the same sampler.
-    pub image: Handle<Image>,
+    pub base_color_texture: Option<Handle<Image>>,
 
-    /// An application-specific tag you can use for any purpose you want.
+    /// The normal map that the clustered decal projects onto surfaces.
+    ///
+    /// Bevy uses the *Whiteout* method to combine normal maps from decals with
+    /// any normal map that the surface has, as described in the
+    /// [*Blending in Detail* article].
+    ///
+    /// Note that the normal map must be three-channel and must be in OpenGL
+    /// format, not DirectX format. That is, the green channel must point up,
+    /// not down.
+    ///
+    /// [*Blending in Detail* article]: https://blog.selfshadow.com/publications/blending-in-detail/
+    pub normal_map_texture: Option<Handle<Image>>,
+
+    /// The metallic-roughness map that the clustered decal projects onto
+    /// surfaces.
+    ///
+    /// Metallic and roughness PBR parameters are blended onto the base surface
+    /// using the alpha channel of the base color.
+    ///
+    /// Metallic is expected to be in the blue channel, while roughness is
+    /// expected to be in the green channel, following glTF conventions.
+    pub metallic_roughness_texture: Option<Handle<Image>>,
+
+    /// The emissive map that the clustered decal projects onto surfaces.
+    ///
+    /// Including this texture effectively causes the decal to glow. The
+    /// emissive component is blended onto the surface according to the alpha
+    /// channel.
+    pub emissive_texture: Option<Handle<Image>>,
+
+    /// An application-specific tag you can use for any purpose you want, in
+    /// conjunction with a custom shader.
+    ///
+    /// This value is exposed to the shader via the iterator API
+    /// (`bevy_pbr::decal::clustered::clustered_decal_iterator_new` and
+    /// `bevy_pbr::decal::clustered::clustered_decal_iterator_next`).
+    ///
+    /// For example, you might use the tag to restrict the set of surfaces to
+    /// which a decal can be rendered.
     ///
     /// See the `clustered_decals` example for an example of use.
     pub tag: u32,

@@ -188,35 +188,46 @@ fn setup(
             ))
             .with_child((TextSpan::default(), overlay_config.text_config.clone()));
 
-            let font_size = overlay_config.text_config.font_size;
-            p.spawn((
-                Node {
-                    width: Val::Px(font_size * FRAME_TIME_GRAPH_WIDTH_SCALE),
-                    height: Val::Px(font_size * FRAME_TIME_GRAPH_HEIGHT_SCALE),
-                    display: if overlay_config.frame_time_graph_config.enabled {
-                        bevy_ui::Display::DEFAULT
-                    } else {
-                        bevy_ui::Display::None
-                    },
-                    ..Default::default()
-                },
-                Pickable::IGNORE,
-                MaterialNode::from(frame_time_graph_materials.add(FrametimeGraphMaterial {
-                    values: buffers.add(ShaderStorageBuffer {
-                        // Initialize with dummy data because the default (`data: None`) will
-                        // cause a panic in the shader if the frame time graph is constructed
-                        // with `enabled: false`.
-                        data: Some(vec![0, 0, 0, 0]),
+            #[cfg(all(target_arch = "wasm32", not(feature = "webgpu")))]
+            {
+                if overlay_config.frame_time_graph_config.enabled {
+                    use tracing::warn;
+
+                    warn!("Frame time graph is not supported with WebGL. Consider if WebGPU is viable for your usecase.");
+                }
+            }
+            #[cfg(not(all(target_arch = "wasm32", not(feature = "webgpu"))))]
+            {
+                let font_size = overlay_config.text_config.font_size;
+                p.spawn((
+                    Node {
+                        width: Val::Px(font_size * FRAME_TIME_GRAPH_WIDTH_SCALE),
+                        height: Val::Px(font_size * FRAME_TIME_GRAPH_HEIGHT_SCALE),
+                        display: if overlay_config.frame_time_graph_config.enabled {
+                            bevy_ui::Display::DEFAULT
+                        } else {
+                            bevy_ui::Display::None
+                        },
                         ..Default::default()
-                    }),
-                    config: FrameTimeGraphConfigUniform::new(
-                        overlay_config.frame_time_graph_config.target_fps,
-                        overlay_config.frame_time_graph_config.min_fps,
-                        true,
-                    ),
-                })),
-                FrameTimeGraph,
-            ));
+                    },
+                    Pickable::IGNORE,
+                    MaterialNode::from(frame_time_graph_materials.add(FrametimeGraphMaterial {
+                        values: buffers.add(ShaderStorageBuffer {
+                            // Initialize with dummy data because the default (`data: None`) will
+                            // cause a panic in the shader if the frame time graph is constructed
+                            // with `enabled: false`.
+                            data: Some(vec![0, 0, 0, 0]),
+                            ..Default::default()
+                        }),
+                        config: FrameTimeGraphConfigUniform::new(
+                            overlay_config.frame_time_graph_config.target_fps,
+                            overlay_config.frame_time_graph_config.min_fps,
+                            true,
+                        ),
+                    })),
+                    FrameTimeGraph,
+                ));
+            }
         });
 }
 
