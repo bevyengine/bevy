@@ -833,7 +833,7 @@ where
         }
         let isometry = isometry.into();
         let [tl, tr, br, bl] = rect_inner(size).map(|vec2| isometry * vec2);
-        self.linestrip_2d([tl, tr, br, bl, tl], color);
+        self.linestrip_2d([tl, tr, br, bl, tl, tr], color);
     }
 
     #[inline]
