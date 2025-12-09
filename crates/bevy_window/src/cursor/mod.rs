@@ -24,7 +24,6 @@ pub use crate::cursor::{CustomCursor, CustomCursorImage};
     derive(Reflect),
     reflect(Component, Debug, Default, PartialEq, Clone)
 )]
-
 pub enum CursorIcon {
     #[cfg(feature = "custom_cursor")]
     /// Custom cursor image.
