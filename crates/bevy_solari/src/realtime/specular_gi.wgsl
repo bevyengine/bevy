@@ -146,7 +146,7 @@ fn nee_mis_weight(inverse_p_light: f32, brdf_rays_can_hit: bool, wo_tangent: vec
 
     let p_light = 1.0 / inverse_p_light;
     let p_bounce = ggx_vndf_pdf(wo_tangent, wi_tangent, ray_hit.material.roughness);
-    return max(0.0, power_heuristic(p_light, p_bounce));
+    return power_heuristic(p_light, p_bounce);
 }
 
 // Don't adjust the size of this struct without also adjusting GI_RESERVOIR_STRUCT_SIZE.
