@@ -2,6 +2,7 @@ use bevy_app::{App, Plugin};
 use bevy_asset::{embedded_asset, load_embedded_asset, AssetServer, Handle};
 use bevy_camera::Exposure;
 use bevy_ecs::{
+    error::BevyError,
     prelude::{Component, Entity},
     query::With,
     resource::Resource,
@@ -24,7 +25,6 @@ use bevy_render::{
     view::{ExtractedView, Msaa, ViewTarget, ViewUniform, ViewUniforms},
     Extract, ExtractSchedule, Render, RenderApp, RenderStartup, RenderSystems,
 };
-use bevy_shader::Shader;
 use bevy_transform::components::Transform;
 use bevy_utils::default;
 use prepass::SkyboxPrepassPipeline;
@@ -49,7 +49,6 @@ impl Plugin for SkyboxPlugin {
             return;
         };
         render_app
-            .init_resource::<SpecializedRenderPipelines<SkyboxPipeline>>()
             .init_resource::<SpecializedRenderPipelines<SkyboxPrepassPipeline>>()
             .init_resource::<PreviousViewUniforms>()
             .add_systems(ExtractSchedule, extract_skybox)
@@ -114,55 +113,36 @@ pub struct SkyboxUniforms {
 #[derive(Resource)]
 struct SkyboxPipeline {
     bind_group_layout: BindGroupLayoutDescriptor,
-    shader: Handle<Shader>,
-}
-
-impl SkyboxPipeline {
-    fn new(shader: Handle<Shader>) -> Self {
-        Self {
-            bind_group_layout: BindGroupLayoutDescriptor::new(
-                "skybox_bind_group_layout",
-                &BindGroupLayoutEntries::sequential(
-                    ShaderStages::FRAGMENT,
-                    (
-                        texture_cube(TextureSampleType::Float { filterable: true }),
-                        sampler(SamplerBindingType::Filtering),
-                        uniform_buffer::<ViewUniform>(true)
-                            .visibility(ShaderStages::VERTEX_FRAGMENT),
-                        uniform_buffer::<SkyboxUniforms>(true),
-                    ),
-                ),
-            ),
-            shader,
-        }
-    }
+    variants: Variants<RenderPipeline, SkyboxPipelineSpecializer>,
 }
 
 fn init_skybox_pipeline(mut commands: Commands, asset_server: Res<AssetServer>) {
+    let bind_group_layout = BindGroupLayoutDescriptor::new(
+        "skybox_bind_group_layout",
+        &BindGroupLayoutEntries::sequential(
+            ShaderStages::FRAGMENT,
+            (
+                texture_cube(TextureSampleType::Float { filterable: true }),
+                sampler(SamplerBindingType::Filtering),
+                uniform_buffer::<ViewUniform>(true).visibility(ShaderStages::VERTEX_FRAGMENT),
+                uniform_buffer::<SkyboxUniforms>(true),
+            ),
+        ),
+    );
+
     let shader = load_embedded_asset!(asset_server.as_ref(), "skybox.wgsl");
-    commands.insert_resource(SkyboxPipeline::new(shader));
-}
 
-#[derive(PartialEq, Eq, Hash, Clone, Copy)]
-struct SkyboxPipelineKey {
-    hdr: bool,
-    samples: u32,
-    depth_format: TextureFormat,
-}
-
-impl SpecializedRenderPipeline for SkyboxPipeline {
-    type Key = SkyboxPipelineKey;
-
-    fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
+    let variants = Variants::new(
+        SkyboxPipelineSpecializer,
         RenderPipelineDescriptor {
             label: Some("skybox_pipeline".into()),
-            layout: vec![self.bind_group_layout.clone()],
+            layout: vec![bind_group_layout.clone()],
             vertex: VertexState {
-                shader: self.shader.clone(),
+                shader: shader.clone(),
                 ..default()
             },
             depth_stencil: Some(DepthStencilState {
-                format: key.depth_format,
+                format: TextureFormat::R8Unorm, // placeholder.
                 depth_write_enabled: false,
                 depth_compare: CompareFunction::GreaterEqual,
                 stencil: StencilState {
@@ -177,27 +157,53 @@ impl SpecializedRenderPipeline for SkyboxPipeline {
                     clamp: 0.0,
                 },
             }),
-            multisample: MultisampleState {
-                count: key.samples,
-                mask: !0,
-                alpha_to_coverage_enabled: false,
-            },
             fragment: Some(FragmentState {
-                shader: self.shader.clone(),
-                targets: vec![Some(ColorTargetState {
-                    format: if key.hdr {
-                        ViewTarget::TEXTURE_FORMAT_HDR
-                    } else {
-                        TextureFormat::bevy_default()
-                    },
-                    // BlendState::REPLACE is not needed here, and None will be potentially much faster in some cases.
-                    blend: None,
-                    write_mask: ColorWrites::ALL,
-                })],
+                shader,
                 ..default()
             }),
             ..default()
-        }
+        },
+    );
+
+    commands.insert_resource(SkyboxPipeline {
+        bind_group_layout,
+        variants,
+    });
+}
+
+#[derive(PartialEq, Eq, Hash, Clone, Copy, SpecializerKey)]
+struct SkyboxPipelineKey {
+    hdr: bool,
+    samples: u32,
+    depth_format: TextureFormat,
+}
+
+struct SkyboxPipelineSpecializer;
+
+impl Specializer<RenderPipeline> for SkyboxPipelineSpecializer {
+    type Key = SkyboxPipelineKey;
+
+    fn specialize(
+        &self,
+        key: Self::Key,
+        descriptor: &mut RenderPipelineDescriptor,
+    ) -> Result<Canonical<Self::Key>, BevyError> {
+        descriptor.depth_stencil_mut()?.format = key.depth_format;
+        descriptor.multisample.count = key.samples;
+        descriptor.fragment_mut()?.set_target(
+            0,
+            ColorTargetState {
+                format: if key.hdr {
+                    ViewTarget::TEXTURE_FORMAT_HDR
+                } else {
+                    TextureFormat::bevy_default()
+                },
+                blend: None,
+                write_mask: ColorWrites::ALL,
+            },
+        );
+
+        Ok(key)
     }
 }
 
@@ -207,25 +213,24 @@ pub struct SkyboxPipelineId(pub CachedRenderPipelineId);
 fn prepare_skybox_pipelines(
     mut commands: Commands,
     pipeline_cache: Res<PipelineCache>,
-    mut pipelines: ResMut<SpecializedRenderPipelines<SkyboxPipeline>>,
-    pipeline: Res<SkyboxPipeline>,
+    mut pipeline: ResMut<SkyboxPipeline>,
     views: Query<(Entity, &ExtractedView, &Msaa), With<Skybox>>,
-) {
+) -> Result<(), BevyError> {
     for (entity, view, msaa) in &views {
-        let pipeline_id = pipelines.specialize(
+        let pipeline_id = pipeline.variants.specialize(
             &pipeline_cache,
-            &pipeline,
             SkyboxPipelineKey {
                 hdr: view.hdr,
                 samples: msaa.samples(),
                 depth_format: CORE_3D_DEPTH_FORMAT,
             },
-        );
+        )?;
 
         commands
             .entity(entity)
             .insert(SkyboxPipelineId(pipeline_id));
     }
+    Ok(())
 }
 
 #[derive(Component)]

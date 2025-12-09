@@ -54,9 +54,19 @@ pub struct RenderPipelineDescriptor {
 #[error("RenderPipelineDescriptor has no FragmentState configured")]
 pub struct NoFragmentStateError;
 
+#[derive(Copy, Clone, Debug, Error)]
+#[error("RenderPipelineDescriptor has no DepthStencilState configured")]
+pub struct NoDepthStencilStateError;
+
 impl RenderPipelineDescriptor {
     pub fn fragment_mut(&mut self) -> Result<&mut FragmentState, NoFragmentStateError> {
         self.fragment.as_mut().ok_or(NoFragmentStateError)
+    }
+
+    pub fn depth_stencil_mut(
+        &mut self,
+    ) -> Result<&mut DepthStencilState, NoDepthStencilStateError> {
+        self.depth_stencil.as_mut().ok_or(NoDepthStencilStateError)
     }
 
     pub fn set_layout(&mut self, index: usize, layout: BindGroupLayoutDescriptor) {
