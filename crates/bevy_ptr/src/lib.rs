@@ -161,6 +161,7 @@ mod sealed {
 /// A newtype around [`NonNull`] that only allows conversion to read-only borrows or pointers.
 ///
 /// This type can be thought of as the `*const T` to [`NonNull<T>`]'s `*mut T`.
+#[derive(Clone, Copy)]
 #[repr(transparent)]
 pub struct ConstNonNull<T: ?Sized>(NonNull<T>);
 
