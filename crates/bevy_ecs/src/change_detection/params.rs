@@ -482,6 +482,8 @@ impl<'w> ContiguousComponentTicks<'w, true> {
     }
 
     /// Marks all components as updated
+    ///
+    /// **Executes in O(n), where n is the amount of rows.**
     pub fn mark_all_as_updated(&mut self) {
         let this_run = self.this_run;
 
