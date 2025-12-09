@@ -42,7 +42,10 @@ impl BlobArray {
     ) -> Self {
         if capacity == 0 {
             let align = NonZeroUsize::new(item_layout.align()).expect("alignment must be > 0");
-            let data = bevy_ptr::dangling_with_align(align);
+
+            // Create a dangling pointer with the given alignment.
+            let data = NonNull::without_provenance(align);
+
             Self {
                 item_layout,
                 drop: drop_fn,
