@@ -3694,10 +3694,11 @@ mod tests {
         let mut iter = query.iter_mut(&mut world);
         let mut iter = iter.as_contiguous_iter().unwrap();
         for _ in 0..2 {
-            let c = iter.next().unwrap();
+            let mut c = iter.next().unwrap();
             for c in c.0 {
                 c.0 *= 2;
             }
+            c.1.mark_all_as_updated();
         }
         assert!(iter.next().is_none());
         let mut iter = query.iter(&world);

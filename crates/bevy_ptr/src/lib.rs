@@ -1108,17 +1108,39 @@ impl<'a, T> ThinSlicePtr<'a, T> {
     ///
     /// # Safety
     ///
-    /// `len` must be less or equal to the length of the slice.
+    /// - There must be no mutable aliases for the lifetime `'a` to the slice. to the slice.
+    /// - `len` must be less than or equal to the length of the slice.
     pub unsafe fn as_slice_unchecked(&self, len: usize) -> &'a [T] {
         #[cfg(debug_assertions)]
         assert!(len <= self.len, "tried to create an out-of-bounds slice");
 
-        // SAFETY: The caller guarantees `len` is not greater than the length of the slice
+        // SAFETY:
+        // - The caller guarantees `len` is not greater than the length of the slice.
+        // - The caller guarantess the aliasing rules.
+        // - `self.ptr` is a valid pointer for the type `T`.
+        // - `len` is valid hence `len * size_of::<T>()` is less than `isize::MAX`.
         unsafe { core::slice::from_raw_parts(self.ptr.as_ptr(), len) }
     }
 
     /// Casts the slice to another type
+    ///
+    /// # Panics
+    ///
+    /// When the feature `debug_assertions` is enabled, panics, when the new type for
+    /// the slice doesn't use all bytes reserved by this slice.
+    /// (this can happen for example, when the size of `T` is not 0 modulo the size of `U`)
+    ///
+    /// When the feature `debug_assertions` is disabled, panics, when the size of `U` is 0 but the size of `T` is not.
     pub fn cast<U>(&self) -> ThinSlicePtr<'a, U> {
+        #[cfg(debug_assertions)]
+        assert!(
+            size_of::<T>() == 0
+                || (size_of::<U>() != 0 && self.len * size_of::<T>() % size_of::<U>() == 0)
+        );
+
+        // must be evaluated in the compilation
+        assert!(size_of::<U>() != 0 || size_of::<T>() == 0);
+
         ThinSlicePtr {
             ptr: self.ptr.cast::<U>(),
             // self.len is equal the amount of elements of T in the slice, which takes
@@ -1134,7 +1156,7 @@ impl<'a, T> ThinSlicePtr<'a, T> {
                 if size_of::<T>() == 0 {
                     self.len
                 } else {
-                    isize::MAX as usize
+                    unreachable!()
                 }
             } else {
                 self.len * size_of::<T>() / size_of::<U>()
@@ -1147,7 +1169,7 @@ impl<'a, T> ThinSlicePtr<'a, T> {
     ///
     /// # Safety
     ///
-    /// - `count` must be less or equal to the length of the slice
+    /// - `count` must be less than or equal to the length of the slice
     // The result pointer must lie within the same allocation
     pub unsafe fn add_unchecked(&self, count: usize) -> ThinSlicePtr<'a, T> {
         #[cfg(debug_assertions)]
@@ -1182,13 +1204,16 @@ impl<'a, T> ThinSlicePtr<'a, UnsafeCell<T>> {
     ///
     /// # Safety
     ///
-    /// - There must not be any aliases to the slice
-    /// - `len` must be less or equal to the length of the slice
+    /// - There must not be any aliases for the lifetime `'a` to the slice.
+    /// - `len` must be less than or equal to the length of the slice.
     pub unsafe fn as_mut_slice_unchecked(&self, len: usize) -> &'a mut [T] {
         #[cfg(debug_assertions)]
         assert!(len <= self.len, "tried to create an out-of-bounds slice");
 
-        // SAFETY: The caller ensures no aliases exist and `len` is in-bounds.
+        // SAFETY:
+        // - The caller ensures no aliases exist and `len` is in-bounds.
+        // - `self.ptr` is a valid pointer for the type `T`.
+        // - `len` is valid hence `len * size_of::<T>()` is less than `isize::MAX`.
         unsafe { core::slice::from_raw_parts_mut(UnsafeCell::raw_get(self.ptr.as_ptr()), len) }
     }
 }
