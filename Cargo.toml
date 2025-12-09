@@ -10,7 +10,7 @@ keywords = ["game", "engine", "gamedev", "graphics", "bevy"]
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/bevyengine/bevy"
 documentation = "https://docs.rs/bevy"
-rust-version = "1.88.0"
+rust-version = "1.89.0"
 
 [workspace]
 resolver = "2"
@@ -3492,6 +3492,18 @@ category = "UI (User Interface)"
 wasm = false
 
 [[example]]
+name = "vertical_slider"
+path = "examples/ui/vertical_slider.rs"
+doc-scrape-examples = true
+required-features = ["experimental_bevy_ui_widgets"]
+
+[package.metadata.example.vertical_slider]
+name = "Vertical Slider"
+description = "Simple example showing vertical and horizontal slider widgets with snap behavior and value labels"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "font_atlas_debug"
 path = "examples/ui/font_atlas_debug.rs"
 doc-scrape-examples = true
@@ -4888,3 +4900,15 @@ name = "Pan Camera"
 description = "Example Pan-Camera Styled Camera Controller for 2D scenes"
 category = "Camera"
 wasm = true
+
+[[example]]
+name = "clustered_decal_maps"
+path = "examples/3d/clustered_decal_maps.rs"
+doc-scrape-examples = true
+required-features = ["pbr_clustered_decals", "https"]
+
+[package.metadata.example.clustered_decal_maps]
+name = "Clustered Decal Maps"
+description = "Demonstrates normal and metallic-roughness maps of decals"
+category = "3D Rendering"
+wasm = false

@@ -122,25 +122,16 @@ pub fn ui_picking(
     {
         // This pointer is associated with a render target, which could be used by multiple
         // cameras. We want to ensure we return all cameras with a matching target.
-        for camera in camera_query
-            .iter()
-            .filter(|(_, _, cam_can_pick)| !settings.require_markers || *cam_can_pick)
-            .map(|(entity, camera, _)| {
-                (
-                    entity,
-                    camera.target.normalize(primary_window.single().ok()),
-                )
-            })
-            .filter_map(|(entity, target)| Some(entity).zip(target))
-            .filter(|(_entity, target)| target == &pointer_location.target)
-            .map(|(cam_entity, _target)| cam_entity)
-        {
-            let Ok((_, camera_data, _)) = camera_query.get(camera) else {
-                continue;
-            };
+        for (entity, camera, _) in camera_query.iter().filter(|(_, camera, cam_can_pick)| {
+            (!settings.require_markers || *cam_can_pick)
+                && camera
+                    .target
+                    .normalize(primary_window.single().ok())
+                    .is_some_and(|target| target == pointer_location.target)
+        }) {
             let mut pointer_pos =
-                pointer_location.position * camera_data.target_scaling_factor().unwrap_or(1.);
-            if let Some(viewport) = camera_data.physical_viewport_rect() {
+                pointer_location.position * camera.target_scaling_factor().unwrap_or(1.);
+            if let Some(viewport) = camera.physical_viewport_rect() {
                 if !viewport.as_rect().contains(pointer_pos) {
                     // The pointer is outside the viewport, skip it
                     continue;
@@ -148,7 +139,7 @@ pub fn ui_picking(
                 pointer_pos -= viewport.min.as_vec2();
             }
             pointer_pos_by_camera
-                .entry(camera)
+                .entry(entity)
                 .or_default()
                 .insert(pointer_id, pointer_pos);
         }
@@ -177,7 +168,9 @@ pub fn ui_picking(
             continue;
         };
 
-        let pointers_on_this_cam = pointer_pos_by_camera.get(&camera_entity);
+        let Some(pointers_on_this_cam) = pointer_pos_by_camera.get(&camera_entity) else {
+            continue;
+        };
 
         // Reverse the iterator to traverse the tree from closest nodes to furthest
         for node_entity in uinodes.iter().rev().cloned() {
@@ -207,8 +200,7 @@ pub fn ui_picking(
             // Find the normalized cursor position relative to the node.
             // (±0., 0.) is the center with the corners at points (±0.5, ±0.5).
             // Coordinates are relative to the entire node, not just the visible region.
-            for (pointer_id, cursor_position) in pointers_on_this_cam.iter().flat_map(|h| h.iter())
-            {
+            for (pointer_id, cursor_position) in pointers_on_this_cam.iter() {
                 if let Some((text_layout_info, text_block)) = node.text_node {
                     if let Some(text_entity) = pick_ui_text_section(
                         node.node,
