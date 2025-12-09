@@ -10,7 +10,7 @@ keywords = ["game", "engine", "gamedev", "graphics", "bevy"]
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/bevyengine/bevy"
 documentation = "https://docs.rs/bevy"
-rust-version = "1.88.0"
+rust-version = "1.89.0"
 
 [workspace]
 resolver = "2"
@@ -222,7 +222,7 @@ common_api = [
 # COLLECTION: Features used to build 2D Bevy apps (does not include a render backend). You generally don't need to worry about this unless you are using a custom renderer.
 2d_api = ["common_api", "bevy_sprite"]
 
-# COLLECTION: Bevy's built-in 2D renderer, built on top of `bevy_render` 
+# COLLECTION: Bevy's built-in 2D renderer, built on top of `bevy_render`.
 2d_bevy_render = [
   "2d_api",
   "bevy_render",
@@ -245,7 +245,7 @@ common_api = [
   "zstd_rust",
 ]
 
-# COLLECTION: Bevy's built-in 3D renderer, built on top of `bevy_render` 
+# COLLECTION: Bevy's built-in 3D renderer, built on top of `bevy_render`.
 3d_bevy_render = [
   "3d_api",
   "bevy_render",
@@ -261,7 +261,7 @@ common_api = [
 # COLLECTION: Features used to build UI Bevy apps (does not include a render backend). You generally don't need to worry about this unless you are using a custom renderer.
 ui_api = ["default_app", "common_api", "bevy_ui"]
 
-# COLLECTION: Bevy's built-in UI renderer, built on top of `bevy_render` 
+# COLLECTION: Bevy's built-in UI renderer, built on top of `bevy_render`.
 ui_bevy_render = [
   "ui_api",
   "bevy_render",
@@ -708,7 +708,7 @@ bevy_dylib = { path = "crates/bevy_dylib", version = "0.18.0-dev", default-featu
 [dev-dependencies]
 rand = "0.9.0"
 rand_chacha = "0.9.0"
-ron = "0.11"
+ron = "0.12"
 flate2 = "1.0"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1.0.140"
@@ -3415,6 +3415,17 @@ wasm = true
 
 # UI (User Interface)
 [[example]]
+name = "anchor_layout"
+path = "examples/ui/anchor_layout.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.anchor_layout]
+name = "Anchor Layout"
+description = "Shows an 'anchor layout' style of ui layout"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "borders"
 path = "examples/ui/borders.rs"
 doc-scrape-examples = true
@@ -3479,6 +3490,18 @@ name = "Window Fallthrough"
 description = "Illustrates how to access `winit::window::Window`'s `hittest` functionality."
 category = "UI (User Interface)"
 wasm = false
+
+[[example]]
+name = "vertical_slider"
+path = "examples/ui/vertical_slider.rs"
+doc-scrape-examples = true
+required-features = ["experimental_bevy_ui_widgets"]
+
+[package.metadata.example.vertical_slider]
+name = "Vertical Slider"
+description = "Simple example showing vertical and horizontal slider widgets with snap behavior and value labels"
+category = "UI (User Interface)"
+wasm = true
 
 [[example]]
 name = "font_atlas_debug"

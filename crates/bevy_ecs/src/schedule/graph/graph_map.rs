@@ -208,6 +208,18 @@ impl<const DIRECTED: bool, N: GraphNodeId, S: BuildHasher> Graph<DIRECTED, N, S>
         self.edges.contains(&Self::edge_key(a, b))
     }
 
+    /// Reserve capacity for at least `additional` more nodes to be inserted
+    /// in the graph.
+    pub fn reserve_nodes(&mut self, additional: usize) {
+        self.nodes.reserve(additional);
+    }
+
+    /// Reserve capacity for at least `additional` more edges to be inserted
+    /// in the graph.
+    pub fn reserve_edges(&mut self, additional: usize) {
+        self.edges.reserve(additional);
+    }
+
     /// Return an iterator over the nodes of the graph.
     pub fn nodes(&self) -> impl DoubleEndedIterator<Item = N> + ExactSizeIterator<Item = N> + '_ {
         self.nodes.keys().copied()
@@ -402,7 +414,7 @@ impl<N: GraphNodeId, S: BuildHasher> DiGraph<N, S> {
 
         while let Some(mut scc) = sccs.pop() {
             // only look at nodes and edges in this strongly-connected component
-            let mut subgraph = DiGraph::<N>::default();
+            let mut subgraph = DiGraph::<N>::with_capacity(scc.len(), 0);
             for &node in &scc {
                 subgraph.add_node(node);
             }
