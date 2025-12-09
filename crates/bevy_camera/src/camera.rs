@@ -2,7 +2,7 @@ use crate::primitives::Frustum;
 
 use super::{
     visibility::{Visibility, VisibleEntities},
-    ClearColorConfig,
+    ClearColorConfig, MsaaWriteback,
 };
 use bevy_asset::Handle;
 use bevy_derive::Deref;
@@ -360,11 +360,9 @@ pub struct Camera {
     pub target: RenderTarget,
     /// The [`CameraOutputMode`] for this camera.
     pub output_mode: CameraOutputMode,
-    /// If this is enabled, a previous camera exists that shares this camera's render target, and this camera has MSAA enabled, then the previous camera's
-    /// outputs will be written to the intermediate multi-sampled render target textures for this camera. This enables cameras with MSAA enabled to
-    /// "write their results on top" of previous camera results, and include them as a part of their render results. This is enabled by default to ensure
-    /// cameras with MSAA enabled layer their results in the same way as cameras without MSAA enabled by default.
-    pub msaa_writeback: bool,
+    /// Controls when MSAA writeback occurs for this camera.
+    /// See [`MsaaWriteback`] for available options.
+    pub msaa_writeback: MsaaWriteback,
     /// The clear color operation to perform on the render target.
     pub clear_color: ClearColorConfig,
     /// If set, this camera will be a sub camera of a large view, defined by a [`SubCameraView`].
@@ -380,7 +378,7 @@ impl Default for Camera {
             computed: Default::default(),
             target: Default::default(),
             output_mode: Default::default(),
-            msaa_writeback: true,
+            msaa_writeback: MsaaWriteback::default(),
             clear_color: Default::default(),
             sub_camera_view: None,
         }
