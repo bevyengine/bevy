@@ -174,7 +174,9 @@ pub fn ui_picking(
             continue;
         };
 
-        let pointers_on_this_cam = pointer_pos_by_camera.get(&camera_entity);
+        let Some(pointers_on_this_cam) = pointer_pos_by_camera.get(&camera_entity) else {
+            continue;
+        };
 
         // Reverse the iterator to traverse the tree from closest nodes to furthest
         for node_entity in uinodes.iter().rev().cloned() {
@@ -203,8 +205,7 @@ pub fn ui_picking(
             // Find the normalized cursor position relative to the node.
             // (±0., 0.) is the center with the corners at points (±0.5, ±0.5).
             // Coordinates are relative to the entire node, not just the visible region.
-            for (pointer_id, cursor_position) in pointers_on_this_cam.iter().flat_map(|h| h.iter())
-            {
+            for (pointer_id, cursor_position) in pointers_on_this_cam.iter() {
                 if node.node.contains_point(*node.transform, *cursor_position)
                     && clip_check_recursive(
                         *cursor_position,
