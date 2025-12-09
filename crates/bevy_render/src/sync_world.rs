@@ -282,7 +282,7 @@ mod render_entities_world_query_impls {
         component::{ComponentId, Components},
         entity::Entity,
         query::{
-            ArchetypeQueryData, FilteredAccess, QueryData, ReadOnlyQueryData,
+            ArchetypeQueryData, FilteredAccess, QueryData, ReadOnlyQueryData, ReborrowQueryData,
             ReleaseStateQueryData, WorldQuery,
         },
         storage::{Table, TableRow},
@@ -395,6 +395,14 @@ mod render_entities_world_query_impls {
 
     // SAFETY: the underlying `Entity` is copied, and no mutable access is provided.
     unsafe impl ReadOnlyQueryData for RenderEntity {}
+
+    impl ReborrowQueryData for RenderEntity {
+        fn reborrow<'wlong: 'short, 'slong: 'short, 'short>(
+            item: &'short mut Self::Item<'wlong, 'slong>,
+        ) -> Self::Item<'short, 'short> {
+            *item
+        }
+    }
 
     impl ArchetypeQueryData for RenderEntity {}
 
@@ -510,6 +518,14 @@ mod render_entities_world_query_impls {
 
     // SAFETY: the underlying `Entity` is copied, and no mutable access is provided.
     unsafe impl ReadOnlyQueryData for MainEntity {}
+
+    impl ReborrowQueryData for MainEntity {
+        fn reborrow<'wlong: 'short, 'slong: 'short, 'short>(
+            item: &'short mut Self::Item<'wlong, 'slong>,
+        ) -> Self::Item<'short, 'short> {
+            *item
+        }
+    }
 
     impl ArchetypeQueryData for MainEntity {}
 

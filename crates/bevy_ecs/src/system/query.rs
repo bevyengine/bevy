@@ -8,6 +8,7 @@ use crate::{
         DebugCheckedUnwrap, NopWorldQuery, QueryCombinationIter, QueryData, QueryEntityError,
         QueryFilter, QueryIter, QueryManyIter, QueryManyUniqueIter, QueryParIter, QueryParManyIter,
         QueryParManyUniqueIter, QuerySingleError, QueryState, ROQueryItem, ReadOnlyQueryData,
+        ReborrowQueryData,
     },
     world::unsafe_world_cell::UnsafeWorldCell,
 };
@@ -2674,6 +2675,18 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Single<'w, 's, D, F> {
     pub fn into_inner(self) -> D::Item<'w, 's> {
         self.item
     }
+
+    /// Returns a `Single<>` with a smaller lifetime.
+    /// This is useful if you have `&Single`, but you need an `Single`.
+    pub fn reborrow(&mut self) -> Single<'_, '_, D, F>
+    where
+        D: ReborrowQueryData,
+    {
+        Single {
+            item: D::reborrow(&mut self.item),
+            _filter: PhantomData,
+        }
+    }
 }
 
 /// [System parameter] that works very much like [`Query`] except it always contains at least one matching entity.
@@ -2709,6 +2722,12 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Populated<'w, 's, D, F> {
     /// Returns the inner item with ownership.
     pub fn into_inner(self) -> Query<'w, 's, D, F> {
         self.0
+    }
+
+    /// Returns a `Populated<>` with a smaller lifetime.
+    /// This is useful if you have `&Populated`, but you need a `Populated`.
+    pub fn reborrow(&mut self) -> Populated<'_, '_, D, F> {
+        Populated(self.0.reborrow())
     }
 }
 
