@@ -1116,7 +1116,7 @@ impl<'a, T> ThinSlicePtr<'a, T> {
 
         // SAFETY:
         // - The caller guarantees `len` is not greater than the length of the slice.
-        // - The caller guarantess the aliasing rules.
+        // - The caller guarantees the aliasing rules.
         // - `self.ptr` is a valid pointer for the type `T`.
         // - `len` is valid hence `len * size_of::<T>()` is less than `isize::MAX`.
         unsafe { core::slice::from_raw_parts(self.ptr.as_ptr(), len) }
