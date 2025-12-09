@@ -432,8 +432,10 @@ fn handle_emission_type_change(
 
 /// Returns the GitHub download URL for the given asset.
 ///
-/// The repository is https://github.com/bevyengine/bevy_asset_files, and the
-/// files are expected to be in the `clustered_decal_maps` directory.
+/// The files are expected to be in the `clustered_decal_maps` directory in the
+/// [repository].
+///
+/// [repository]: https://github.com/bevyengine/bevy_asset_files
 fn get_web_asset_url(name: &str) -> String {
     format!(
         "https://raw.githubusercontent.com/bevyengine/bevy_asset_files/refs/heads/main/\
