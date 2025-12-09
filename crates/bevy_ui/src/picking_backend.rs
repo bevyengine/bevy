@@ -119,20 +119,16 @@ pub fn ui_picking(
     {
         // This pointer is associated with a render target, which could be used by multiple
         // cameras. We want to ensure we return all cameras with a matching target.
-        for (camera, camera_data, _) in
-            camera_query
-                .iter()
-                .filter(|(_entity, camera, cam_can_pick)| {
-                    (!settings.require_markers || *cam_can_pick)
-                        && camera
-                            .target
-                            .normalize(primary_window.single().ok())
-                            .is_some_and(|target| target == pointer_location.target)
-                })
-        {
+        for (entity, camera, _) in camera_query.iter().filter(|(_, camera, cam_can_pick)| {
+            (!settings.require_markers || *cam_can_pick)
+                && camera
+                    .target
+                    .normalize(primary_window.single().ok())
+                    .is_some_and(|target| target == pointer_location.target)
+        }) {
             let mut pointer_pos =
-                pointer_location.position * camera_data.target_scaling_factor().unwrap_or(1.);
-            if let Some(viewport) = camera_data.physical_viewport_rect() {
+                pointer_location.position * camera.target_scaling_factor().unwrap_or(1.);
+            if let Some(viewport) = camera.physical_viewport_rect() {
                 if !viewport.as_rect().contains(pointer_pos) {
                     // The pointer is outside the viewport, skip it
                     continue;
@@ -140,7 +136,7 @@ pub fn ui_picking(
                 pointer_pos -= viewport.min.as_vec2();
             }
             pointer_pos_by_camera
-                .entry(camera)
+                .entry(entity)
                 .or_default()
                 .insert(pointer_id, pointer_pos);
         }
