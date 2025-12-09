@@ -4,6 +4,7 @@
 use std::{f32::consts::PI, time::Duration};
 
 use bevy::{
+    asset::io::web::WebAssetPlugin,
     color::palettes::css::{CRIMSON, GOLD},
     image::ImageLoaderSettings,
     light::ClusteredDecal,
@@ -49,14 +50,14 @@ impl FromWorld for AppTextures {
         AppTextures {
             decal_base_color_texture: asset_server.load("branding/bevy_bird_dark.png"),
             decal_normal_map_texture: asset_server.load_with_settings(
-                "textures/BevyLogo-Normal.png",
+                get_web_asset_url("BevyLogo-Normal.png"),
                 |settings: &mut ImageLoaderSettings| settings.is_srgb = false,
             ),
             decal_metallic_roughness_map_texture: asset_server.load_with_settings(
-                "textures/BevyLogo-MetallicRoughness.png",
+                get_web_asset_url("BevyLogo-MetallicRoughness.png"),
                 |settings: &mut ImageLoaderSettings| settings.is_srgb = false,
             ),
-            decal_emissive_texture: asset_server.load("textures/BevyLogo-Emissive.png"),
+            decal_emissive_texture: asset_server.load(get_web_asset_url("BevyLogo-Emissive.png")),
         }
     }
 }
@@ -127,13 +128,19 @@ const DECAL_ANIMATE_OUT_DURATION: Duration = Duration::from_millis(300);
 /// The demo entry point.
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins.set(WindowPlugin {
-            primary_window: Some(Window {
-                title: "Bevy Clustered Decal Maps Example".into(),
-                ..default()
-            }),
-            ..default()
-        }))
+        .add_plugins(
+            DefaultPlugins
+                .set(WebAssetPlugin {
+                    silence_startup_warning: true,
+                })
+                .set(WindowPlugin {
+                    primary_window: Some(Window {
+                        title: "Bevy Clustered Decal Maps Example".into(),
+                        ..default()
+                    }),
+                    ..default()
+                }),
+        )
         .add_message::<WidgetClickEvent<AppSetting>>()
         .init_resource::<AppStatus>()
         .init_resource::<AppTextures>()
@@ -421,4 +428,16 @@ fn handle_emission_type_change(
         let AppSetting::EmissiveDecals(on) = **event;
         app_status.emissive_decals = on;
     }
+}
+
+/// Returns the GitHub download URL for the given asset.
+///
+/// The repository is https://github.com/bevyengine/bevy_asset_files, and the
+/// files are expected to be in the `clustered_decal_maps` directory.
+fn get_web_asset_url(name: &str) -> String {
+    format!(
+        "https://raw.githubusercontent.com/bevyengine/bevy_asset_files/refs/heads/main/\
+clustered_decal_maps/{}",
+        name
+    )
 }

@@ -4893,7 +4893,7 @@ wasm = true
 name = "clustered_decal_maps"
 path = "examples/3d/clustered_decal_maps.rs"
 doc-scrape-examples = true
-required-features = ["pbr_clustered_decals"]
+required-features = ["pbr_clustered_decals", "https"]
 
 [package.metadata.example.clustered_decal_maps]
 name = "Clustered Decal Maps"
