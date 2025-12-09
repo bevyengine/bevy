@@ -646,7 +646,7 @@ mod tests {
     /// `PartialReflect::reflect_clone`/`PartialReflect::to_dynamic` should increase the strong count of a strong handle
     #[test]
     fn strong_handle_reflect_clone() {
-        use crate::{AssetApp, AssetPlugin, Assets, VisitAssetDependencies};
+        use crate::{AssetApp, AssetPlugin, Assets, StackAssetStorage, VisitAssetDependencies};
         use bevy_app::App;
         use bevy_reflect::FromReflect;
 
@@ -654,7 +654,9 @@ mod tests {
         struct MyAsset {
             value: u32,
         }
-        impl Asset for MyAsset {}
+        impl Asset for MyAsset {
+            type AssetStorage = StackAssetStorage;
+        }
         impl VisitAssetDependencies for MyAsset {
             fn visit_dependencies(&self, _visit: &mut impl FnMut(UntypedAssetId)) {}
         }

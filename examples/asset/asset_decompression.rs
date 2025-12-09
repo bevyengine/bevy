@@ -3,7 +3,7 @@
 use bevy::{
     asset::{
         io::{Reader, VecReader},
-        AssetLoader, ErasedLoadedAsset, LoadContext, LoadDirectError,
+        Asset, AssetLoader, AssetStorageStrategy, ErasedLoadedAsset, LoadContext, LoadDirectError,
     },
     prelude::*,
     reflect::TypePath,
@@ -122,11 +122,15 @@ fn decompress<T: Component + From<Handle<A>>, A: Asset>(
     query: Query<(Entity, &Compressed<A>)>,
 ) {
     for (entity, Compressed { compressed, .. }) in query.iter() {
-        let Some(GzAsset { uncompressed }) = compressed_assets.remove(compressed) else {
+        let Some(stored_gz_asset) = compressed_assets.remove(compressed) else {
             continue;
         };
 
-        let uncompressed = uncompressed.take::<A>().unwrap();
+        let Some(gz_asset) = <GzAsset as Asset>::AssetStorage::into_inner(stored_gz_asset) else {
+            continue;
+        };
+
+        let uncompressed = gz_asset.uncompressed.take::<A>().unwrap();
 
         commands
             .entity(entity)

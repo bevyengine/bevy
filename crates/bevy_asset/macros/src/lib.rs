@@ -12,9 +12,10 @@ pub(crate) fn bevy_asset_path() -> Path {
 }
 
 const DEPENDENCY_ATTRIBUTE: &str = "dependency";
+const ASSET_STORAGE_ATTRIBUTE: &str = "asset_storage";
 
 /// Implement the `Asset` trait.
-#[proc_macro_derive(Asset, attributes(dependency))]
+#[proc_macro_derive(Asset, attributes(dependency, asset_storage))]
 pub fn derive_asset(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
     let bevy_asset_path: Path = bevy_asset_path();
@@ -26,8 +27,22 @@ pub fn derive_asset(input: TokenStream) -> TokenStream {
         Err(err) => return err.into_compile_error().into(),
     };
 
+    // Check for custom asset_storage attribute
+    let storage_type = ast
+        .attrs
+        .iter()
+        .find(|attr| attr.path().is_ident(ASSET_STORAGE_ATTRIBUTE))
+        .and_then(|attr| attr.parse_args::<syn::Type>().ok())
+        .unwrap_or_else(|| {
+            // Default to StackAssetStorage if no custom storage is specified
+            let raw_storage = format_ident!("StackAssetStorage");
+            syn::parse_quote!(#bevy_asset_path::#raw_storage)
+        });
+
     TokenStream::from(quote! {
-        impl #impl_generics #bevy_asset_path::Asset for #struct_name #type_generics #where_clause { }
+        impl #impl_generics #bevy_asset_path::Asset for #struct_name #type_generics #where_clause {
+            type AssetStorage = #storage_type;
+        }
         #dependency_visitor
     })
 }
