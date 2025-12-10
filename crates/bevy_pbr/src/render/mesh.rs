@@ -392,6 +392,10 @@ pub fn check_views_need_specialization(
             view_key |= MeshPipelineKey::ATMOSPHERE;
         }
 
+        if view.invert_culling {
+            view_key |= MeshPipelineKey::INVERT_CULLING;
+        }
+
         if let Some(projection) = projection {
             view_key |= match projection {
                 Projection::Perspective(_) => MeshPipelineKey::VIEW_PROJECTION_PERSPECTIVE,
@@ -2152,7 +2156,8 @@ bitflags::bitflags! {
         const OIT_ENABLED                       = 1 << 20;
         const DISTANCE_FOG                      = 1 << 21;
         const ATMOSPHERE                        = 1 << 22;
-        const LAST_FLAG                         = Self::ATMOSPHERE.bits();
+        const INVERT_CULLING                    = 1 << 23;
+        const LAST_FLAG                         = Self::INVERT_CULLING.bits();
 
         // Bitfields
         const MSAA_RESERVED_BITS                = Self::MSAA_MASK_BITS << Self::MSAA_SHIFT_BITS;

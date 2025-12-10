@@ -64,7 +64,7 @@ use bevy_platform::{
 };
 use bevy_tasks::IoTaskPool;
 use futures_io::ErrorKind;
-use futures_lite::{AsyncReadExt, AsyncWriteExt, StreamExt};
+use futures_lite::{AsyncWriteExt, StreamExt};
 use futures_util::{select_biased, FutureExt};
 use std::{
     path::{Path, PathBuf},
@@ -976,9 +976,6 @@ impl AssetProcessor {
             err,
         };
 
-        // Note: we get the asset source reader first because we don't want to create meta files for assets that don't have source files
-        let mut byte_reader = reader.read(path).await.map_err(reader_err)?;
-
         let (mut source_meta, meta_bytes, processor) = match reader.read_meta_bytes(path).await {
             Ok(meta_bytes) => {
                 let minimal: AssetMetaMinimal = ron::de::from_bytes(&meta_bytes).map_err(|e| {
@@ -1033,19 +1030,14 @@ impl AssetProcessor {
 
         let processed_writer = source.processed_writer()?;
 
-        let mut asset_bytes = Vec::new();
-        byte_reader
-            .read_to_end(&mut asset_bytes)
-            .await
-            .map_err(|e| ProcessError::AssetReaderError {
-                path: asset_path.clone(),
-                err: AssetReaderError::Io(e.into()),
-            })?;
-
-        // PERF: in theory these hashes could be streamed if we want to avoid allocating the whole asset.
-        // The downside is that reading assets would need to happen twice (once for the hash and once for the asset loader)
-        // Hard to say which is worse
-        let new_hash = get_asset_hash(&meta_bytes, &asset_bytes);
+        let new_hash = {
+            // Create a reader just for computing the hash. Keep this scoped here so that we drop it
+            // as soon as the hash is computed.
+            let mut reader_for_hash = reader.read(path).await.map_err(reader_err)?;
+            get_asset_hash(&meta_bytes, &mut reader_for_hash)
+                .await
+                .map_err(reader_err)?
+        };
         let mut new_processed_info = ProcessedInfo {
             hash: new_hash,
             full_hash: new_hash,
@@ -1076,6 +1068,16 @@ impl AssetProcessor {
             }
         }
 
+        // Create a reader just for the actual process. Note: this means that we're performing two
+        // reads for the same file (but we avoid having to load the whole file into memory). For
+        // some sources (like local file systems), this is not a big deal, but for other sources
+        // like an HTTP asset sources, this could be an entire additional download (if the asset
+        // source doesn't do any caching). In practice, most sources being processed are likely to
+        // be local, and processing in general is a publish-time operation, so it's not likely to be
+        // too big a deal. If in the future, we decide we want to avoid this repeated read, we could
+        // "ask" the asset source if it prefers avoiding repeated reads or not.
+        let mut reader_for_process = reader.read(path).await.map_err(reader_err)?;
+
         // Note: this lock must remain alive until all processed asset and meta writes have finished (or failed)
         // See ProcessedAssetInfo::file_transaction_lock docs for more info
         let _transaction_lock = {
@@ -1097,8 +1099,12 @@ impl AssetProcessor {
         if let Some(processor) = processor {
             let mut writer = processed_writer.write(path).await.map_err(writer_err)?;
             let mut processed_meta = {
-                let mut context =
-                    ProcessContext::new(self, asset_path, &asset_bytes, &mut new_processed_info);
+                let mut context = ProcessContext::new(
+                    self,
+                    asset_path,
+                    reader_for_process,
+                    &mut new_processed_info,
+                );
                 processor
                     .process(&mut context, source_meta, &mut *writer)
                     .await?
@@ -1128,10 +1134,13 @@ impl AssetProcessor {
                 .await
                 .map_err(writer_err)?;
         } else {
-            processed_writer
-                .write_bytes(path, &asset_bytes)
+            let mut writer = processed_writer.write(path).await.map_err(writer_err)?;
+            futures_lite::io::copy(&mut reader_for_process, &mut writer)
                 .await
-                .map_err(writer_err)?;
+                .map_err(|err| ProcessError::AssetWriterError {
+                    path: asset_path.clone_owned(),
+                    err: err.into(),
+                })?;
             *source_meta.processed_info_mut() = Some(new_processed_info.clone());
             let meta_bytes = source_meta.serialize();
             processed_writer

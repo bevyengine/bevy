@@ -213,9 +213,9 @@ impl NormalizedRenderTargetExt for NormalizedRenderTarget {
             NormalizedRenderTarget::Image(image_target) => images
                 .get(&image_target.handle)
                 .map(|image| image.texture_format),
-            NormalizedRenderTarget::TextureView(id) => {
-                manual_texture_views.get(id).map(|tex| tex.format)
-            }
+            NormalizedRenderTarget::TextureView(id) => manual_texture_views
+                .get(id)
+                .map(|view| view.texture_view.texture().format()),
             NormalizedRenderTarget::None { .. } => None,
         }
     }
@@ -552,6 +552,7 @@ pub fn extract_cameras(
                         viewport_size.y,
                     ),
                     color_grading,
+                    invert_culling: camera.invert_culling,
                 },
                 render_visible_entities,
                 *frustum,
