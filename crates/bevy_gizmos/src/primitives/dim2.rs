@@ -773,18 +773,12 @@ where
 
         let vertices = if primitive.vertices.first() == primitive.vertices.last() {
             // Strip closing point if there is one
-            &primitive.vertices[..primitive.vertices.len()-1]
-        }
-        else {
+            &primitive.vertices[..primitive.vertices.len() - 1]
+        } else {
             &primitive.vertices[..]
         };
 
-        self.lineloop_2d(
-            vertices
-                .iter()
-                .map(|&vec2| isometry * vec2),
-            color,
-        );
+        self.lineloop_2d(vertices.iter().map(|&vec2| isometry * vec2), color);
     }
 }
 

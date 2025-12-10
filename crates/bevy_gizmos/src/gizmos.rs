@@ -758,13 +758,14 @@ where
         let second_again = second.clone();
 
         self.linestrip(
-            first.into_iter()
+            first
+                .into_iter()
                 .chain(second)
                 .chain(positions)
                 .chain(first_again)
                 .chain(second_again)
                 .map(|vec2| vec2.extend(0.)),
-            color
+            color,
         );
     }
 
