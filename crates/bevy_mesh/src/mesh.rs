@@ -9,6 +9,7 @@ use super::{
 };
 #[cfg(feature = "serialize")]
 use crate::SerializedMeshAttributeData;
+use crate::{arr_f32_to_snorm16, arr_f32_to_unorm16, arr_f32_to_unorm8};
 use alloc::collections::BTreeMap;
 #[cfg(feature = "morph")]
 use bevy_asset::Handle;
@@ -690,12 +691,8 @@ impl Mesh {
             for val in uncompressed_values {
                 let mut val = Vec3A::from_array(*val);
                 val = (val - aabb.center()) / aabb.half_size();
-                values.push([
-                    (val[0] * i16::MAX as f32).round() as i16,
-                    (val[1] * i16::MAX as f32).round() as i16,
-                    (val[2] * i16::MAX as f32).round() as i16,
-                    0,
-                ]);
+                let val = arr_f32_to_snorm16(val.extend(0.0).to_array());
+                values.push(val);
             }
             Some(VertexAttributeValues::Snorm16x4(values))
         }
@@ -714,10 +711,7 @@ impl Mesh {
             for val in uncompressed_values {
                 let mut val = Vec2::from_array(*val);
                 val = (val - range.min) / (range.max - range.min);
-                values.push([
-                    (val[0] * u16::MAX as f32).round() as u16,
-                    (val[1] * u16::MAX as f32).round() as u16,
-                ]);
+                values.push(arr_f32_to_unorm16(val.to_array()));
             }
             Some(VertexAttributeValues::Unorm16x2(values))
         }
@@ -779,7 +773,7 @@ impl Mesh {
                     };
                     let mut values = Vec::<[u8; 4]>::with_capacity(uncompressed_values.len());
                     for val in uncompressed_values {
-                        values.push(val.map(|v| (v * u8::MAX as f32).round() as u8));
+                        values.push(arr_f32_to_unorm8(*val));
                     }
                     Some(VertexAttributeValues::Unorm8x4(values))
                 }

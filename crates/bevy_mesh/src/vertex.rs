@@ -386,26 +386,21 @@ impl VertexAttributeValues {
             VertexAttributeValues::Float32(uncompressed_values) => {
                 let mut values = Vec::<half::f16>::with_capacity(uncompressed_values.len());
                 for value in uncompressed_values {
-                    values.push(half::f16::from_f32(*value));
+                    values.push(arr_f32_to_f16([*value])[0]);
                 }
                 VertexAttributeValues::Float16(values)
             }
             VertexAttributeValues::Float32x2(uncompressed_values) => {
                 let mut values = Vec::<[half::f16; 2]>::with_capacity(uncompressed_values.len());
                 for value in uncompressed_values {
-                    values.push([half::f16::from_f32(value[0]), half::f16::from_f32(value[1])]);
+                    values.push(arr_f32_to_f16(*value));
                 }
                 VertexAttributeValues::Float16x2(values)
             }
             VertexAttributeValues::Float32x4(uncompressed_values) => {
                 let mut values = Vec::<[half::f16; 4]>::with_capacity(uncompressed_values.len());
                 for value in uncompressed_values {
-                    values.push([
-                        half::f16::from_f32(value[0]),
-                        half::f16::from_f32(value[1]),
-                        half::f16::from_f32(value[2]),
-                        half::f16::from_f32(value[3]),
-                    ]);
+                    values.push(arr_f32_to_f16(*value));
                 }
                 VertexAttributeValues::Float16x4(values)
             }
@@ -419,22 +414,14 @@ impl VertexAttributeValues {
             VertexAttributeValues::Float32x2(uncompressed_values) => {
                 let mut values = Vec::<[u16; 2]>::with_capacity(uncompressed_values.len());
                 for value in uncompressed_values {
-                    values.push([
-                        (value[0] * u16::MAX as f32).round() as u16,
-                        (value[1] * u16::MAX as f32).round() as u16,
-                    ]);
+                    values.push(arr_f32_to_unorm16(*value));
                 }
                 VertexAttributeValues::Unorm16x2(values)
             }
             VertexAttributeValues::Float32x4(uncompressed_values) => {
                 let mut values = Vec::<[u16; 4]>::with_capacity(uncompressed_values.len());
                 for value in uncompressed_values {
-                    values.push([
-                        (value[0] * u16::MAX as f32).round() as u16,
-                        (value[1] * u16::MAX as f32).round() as u16,
-                        (value[2] * u16::MAX as f32).round() as u16,
-                        (value[3] * u16::MAX as f32).round() as u16,
-                    ]);
+                    values.push(arr_f32_to_unorm16(*value));
                 }
                 VertexAttributeValues::Unorm16x4(values)
             }
@@ -448,11 +435,8 @@ impl VertexAttributeValues {
             VertexAttributeValues::Float32x3(uncompressed_values) => {
                 let mut values = Vec::<[i16; 2]>::with_capacity(uncompressed_values.len());
                 for value in uncompressed_values {
-                    let val = octahedral_encode_signed(Vec3::from_array(*value).normalize());
-                    values.push([
-                        (val.x * i16::MAX as f32).round() as i16,
-                        (val.y * i16::MAX as f32).round() as i16,
-                    ]);
+                    let encoded = octahedral_encode_signed(Vec3::from_array(*value).normalize());
+                    values.push(arr_f32_to_snorm16(encoded.to_array()));
                 }
                 VertexAttributeValues::Snorm16x2(values)
             }
@@ -466,14 +450,11 @@ impl VertexAttributeValues {
             VertexAttributeValues::Float32x4(uncompressed_values) => {
                 let mut values = Vec::<[i16; 2]>::with_capacity(uncompressed_values.len());
                 for value in uncompressed_values {
-                    let encoded_value = octahedral_encode_tangent(
+                    let encoded = octahedral_encode_tangent(
                         Vec3::from_array([value[0], value[1], value[2]]).normalize(),
                         value[3],
                     );
-                    values.push([
-                        (encoded_value.x * i16::MAX as f32).round() as i16,
-                        (encoded_value.y * i16::MAX as f32).round() as i16,
-                    ]);
+                    values.push(arr_f32_to_snorm16(encoded.to_array()));
                 }
                 VertexAttributeValues::Snorm16x2(values)
             }
@@ -615,6 +596,31 @@ impl Hash for MeshVertexBufferLayoutRef {
         // `MeshVertexBufferLayout` will have the same hash.
         (Arc::as_ptr(&self.0) as usize).hash(state);
     }
+}
+
+pub(crate) fn arr_f32_to_unorm16<const N: usize>(value: [f32; N]) -> [u16; N] {
+    value.map(|v| {
+        debug_assert!(v >= 0.0 && v <= 1.0);
+        (v * u16::MAX as f32).round() as u16
+    })
+}
+
+pub(crate) fn arr_f32_to_unorm8<const N: usize>(value: [f32; N]) -> [u8; N] {
+    value.map(|v| {
+        debug_assert!(v >= 0.0 && v <= 1.0);
+        (v * u8::MAX as f32).round() as u8
+    })
+}
+
+pub(crate) fn arr_f32_to_snorm16<const N: usize>(value: [f32; N]) -> [i16; N] {
+    value.map(|v| {
+        debug_assert!(v >= -1.0 && v <= 1.0);
+        (v * i16::MAX as f32).round() as i16
+    })
+}
+
+pub(crate) fn arr_f32_to_f16<const N: usize>(value: [f32; N]) -> [half::f16; N] {
+    value.map(half::f16::from_f32)
 }
 
 /// Encode normals or unit direction vectors as octahedral coordinates with range [-1, 1].
