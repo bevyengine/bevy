@@ -12,7 +12,7 @@ use bevy::{
     core_pipeline::core_3d::{Opaque3d, Opaque3dBatchSetKey, Opaque3dBinKey, CORE_3D_DEPTH_FORMAT},
     ecs::change_detection::Tick,
     math::{vec3, vec4},
-    mesh::{Indices, MeshVertexBufferLayoutRef, PrimitiveTopology},
+    mesh::{Indices, MeshAttributeCompressionFlags, MeshVertexBufferLayoutRef, PrimitiveTopology},
     pbr::{
         DrawMesh, MeshPipeline, MeshPipelineKey, MeshPipelineViewLayoutKey, RenderMeshInstances,
         SetMeshBindGroup, SetMeshViewBindGroup, SetMeshViewEmptyBindGroup,
@@ -193,7 +193,11 @@ impl SpecializedMeshPipeline for CustomMeshPipeline {
         let mut vertex_attributes = Vec::new();
         if layout.0.contains(Mesh::ATTRIBUTE_POSITION) {
             // Handle compressed vertex positions.
-            if layout.0.is_vertex_position_compressed() {
+            if layout
+                .0
+                .get_attribute_compression()
+                .contains(MeshAttributeCompressionFlags::COMPRESS_POSITION)
+            {
                 shader_defs.push("VERTEX_POSITIONS_COMPRESSED".into());
             }
             // Make sure this matches the shader location

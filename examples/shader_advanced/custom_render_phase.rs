@@ -13,6 +13,7 @@
 use std::ops::Range;
 
 use bevy::camera::Viewport;
+use bevy::mesh::MeshAttributeCompressionFlags;
 use bevy::pbr::SetMeshViewEmptyBindGroup;
 use bevy::{
     camera::MainPassResolutionOverride,
@@ -187,7 +188,11 @@ impl SpecializedMeshPipeline for StencilPipeline {
         let mut vertex_attributes = Vec::new();
         if layout.0.contains(Mesh::ATTRIBUTE_POSITION) {
             // Handle compressed vertex positions.
-            if layout.0.is_vertex_position_compressed() {
+            if layout
+                .0
+                .get_attribute_compression()
+                .contains(MeshAttributeCompressionFlags::COMPRESS_POSITION)
+            {
                 shader_defs.push("VERTEX_POSITIONS_COMPRESSED".into());
             }
             // Make sure this matches the shader location
