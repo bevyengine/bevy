@@ -153,6 +153,8 @@ pub use system_name::*;
 pub use system_param::*;
 pub use system_registry::*;
 
+pub use bevy_ecs_macros::{compose, compose_with};
+
 use crate::world::{FromWorld, World};
 
 /// Conversion trait to turn something into a [`System`].
