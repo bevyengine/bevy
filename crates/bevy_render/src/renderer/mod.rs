@@ -195,6 +195,9 @@ pub async fn initialize_renderer(
             },
             dx12: wgpu::Dx12BackendOptions {
                 shader_compiler: options.dx12_shader_compiler.clone(),
+                presentation_system: wgpu::wgt::Dx12SwapchainKind::from_env().unwrap_or_default(),
+                latency_waitable_object: wgpu::wgt::Dx12UseFrameLatencyWaitableObject::from_env()
+                    .unwrap_or_default(),
             },
             noop: wgpu::NoopBackendOptions { enable: false },
         },
@@ -431,7 +434,21 @@ pub async fn initialize_renderer(
             max_subgroup_size: limits
                 .max_subgroup_size
                 .min(constrained_limits.max_subgroup_size),
-            max_acceleration_structures_per_shader_stage: 0,
+            max_acceleration_structures_per_shader_stage: limits
+                .max_acceleration_structures_per_shader_stage
+                .min(constrained_limits.max_acceleration_structures_per_shader_stage),
+            max_task_workgroup_total_count: limits
+                .max_task_workgroup_total_count
+                .min(constrained_limits.max_task_workgroup_total_count),
+            max_task_workgroups_per_dimension: limits
+                .max_task_workgroups_per_dimension
+                .min(constrained_limits.max_task_workgroups_per_dimension),
+            max_mesh_output_layers: limits
+                .max_mesh_output_layers
+                .min(constrained_limits.max_mesh_output_layers),
+            max_mesh_multiview_count: limits
+                .max_mesh_multiview_count
+                .min(constrained_limits.max_mesh_multiview_count),
         };
     }
 
@@ -439,6 +456,8 @@ pub async fn initialize_renderer(
         label: options.device_label.as_ref().map(AsRef::as_ref),
         required_features: features,
         required_limits: limits,
+        // SAFETY: TODO, see https://github.com/bevyengine/bevy/issues/22082
+        experimental_features: unsafe { wgpu::ExperimentalFeatures::enabled() },
         memory_hints: options.memory_hints.clone(),
         // See https://github.com/gfx-rs/wgpu/issues/5974
         trace: Trace::Off,
