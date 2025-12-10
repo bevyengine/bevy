@@ -219,6 +219,7 @@ impl Timer {
     /// assert!(!timer.is_finished());
     /// assert_eq!(timer.remaining(), Duration::from_nanos(1));
     /// ```
+    #[inline]
     pub fn almost_finish(&mut self) {
         let remaining = self.remaining() - Duration::from_nanos(1);
         self.tick(remaining);
