@@ -456,7 +456,7 @@ pub async fn initialize_renderer(
         label: options.device_label.as_ref().map(AsRef::as_ref),
         required_features: features,
         required_limits: limits,
-        // SAFETY: TODO, see https://github.com/bevyengine/bevy/issues/22082 
+        // SAFETY: TODO, see https://github.com/bevyengine/bevy/issues/22082
         experimental_features: unsafe { wgpu::ExperimentalFeatures::enabled() },
         memory_hints: options.memory_hints.clone(),
         // See https://github.com/gfx-rs/wgpu/issues/5974
