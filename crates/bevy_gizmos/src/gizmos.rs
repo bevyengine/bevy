@@ -749,15 +749,20 @@ where
             return;
         }
 
-        // Loop back to the first vertex
+        // Loop back to the start; second is needed to ensure that
+        // the joint on the first corner is drawn.
         let mut positions = positions.into_iter();
         let first = positions.next();
-        let last = first.clone();
+        let second = positions.next();
+        let first_again = first.clone();
+        let second_again = second.clone();
 
         self.linestrip(
             first.into_iter()
+                .chain(second)
                 .chain(positions)
-                .chain(last)
+                .chain(first_again)
+                .chain(second_again)
                 .map(|vec2| vec2.extend(0.)),
             color
         );
