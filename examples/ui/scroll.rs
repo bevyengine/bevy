@@ -242,9 +242,10 @@ fn vertically_scrolling_list(font_handle: Handle<Font>) -> impl Bundle {
                     outline_content_box: false,
                     outline_scrollbars: true,
                     line_width: 2.,
+                    line_color_override: None,
                     show_hidden: false,
                     show_clipped: true,
-                    ignore_border_radius: true
+                    ignore_border_radius: true,
                 },
                 BackgroundColor(Color::srgb(0.10, 0.10, 0.10)),
                 Children::spawn(SpawnIter((0..25).map(move |i| {
