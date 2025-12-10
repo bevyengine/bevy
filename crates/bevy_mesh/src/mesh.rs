@@ -155,13 +155,15 @@ pub struct Mesh {
     /// with `bevy_solari` (see `bevy_solari`'s docs).
     pub enable_raytracing: bool,
 
-    /// Whether or not to compress vertex attributes when uploading to GPU buffer.
+    /// Whether or not to compress vertex attributes when uploading to GPU buffer to save memory
+    /// and bandwidth, but it will reduce precision and have some CPU processing overhead.
+    ///
     /// If the corresponding flag is enabled:
-    ///   Position will be Snorm16x4 relative to the mesh's AABB. The w component is unused.
-    ///   Normal and tangent will be Unorm16x2 using octahedral encoding.
-    ///   UV0 and UV1 will be Unorm16x2 or Float16x2.
-    ///   Joint weight will be Unorm16x4.
-    ///   Color will be Float16x4 or Unorm8x4.
+    /// - Position will be Snorm16x4 relative to the mesh's AABB. The w component is unused.
+    /// - Normal and tangent will be Unorm16x2 using octahedral encoding.
+    /// - UV0 and UV1 will be Unorm16x2 or Float16x2.
+    /// - Joint weight will be Unorm16x4.
+    /// - Color will be Float16x4 or Unorm8x4.
     ///
     /// For UVs compression, it's recommended to use Unorm16x2 for better precision if you don't need texture coordinates that go beyond the range of [0, 1]. The Float16x2 format is only suitable for tiling small textures otherwise it may have precision issues.
     pub attribute_compression: MeshAttributeCompressionFlags,
@@ -208,6 +210,10 @@ impl MeshAttributeCompressionFlags {
 }
 
 impl Default for MeshAttributeCompressionFlags {
+    /// Default compression flags for mesh attributes.
+    ///
+    /// Includes normal, tangent, joint weights, and float16 color.
+    /// These values have a very small dynamic range and are unlikely to produce significant visual differences.
     fn default() -> Self {
         Self::COMPRESS_NORMAL
             | Self::COMPRESS_TANGENT
@@ -726,7 +732,7 @@ impl Mesh {
                     .attribute_compression
                     .contains(MeshAttributeCompressionFlags::COMPRESS_NORMAL) =>
             {
-                Some(attribute_values.create_octahedral_encode_unorm16())
+                Some(attribute_values.create_octahedral_encode_normals())
             }
             id if id == Self::ATTRIBUTE_UV_0.id
                 && self
@@ -771,7 +777,7 @@ impl Mesh {
                     .attribute_compression
                     .contains(MeshAttributeCompressionFlags::COMPRESS_TANGENT) =>
             {
-                Some(attribute_values.create_octahedral_encode_unorm16())
+                Some(attribute_values.create_octahedral_encode_tangents())
             }
             id if id == Self::ATTRIBUTE_COLOR.id
                 && (self
@@ -840,19 +846,20 @@ impl Mesh {
         let vertex_count = self.count_vertices();
         // bundle into interleaved buffers
         let mut attribute_offset = 0;
-        for attribute_data in self.attributes.values() {
+        for uncompressed_attribute_data in self.attributes.values() {
             let compressed_values = self.create_compressed_attribute_values(
-                attribute_data.attribute.id,
-                &attribute_data.values,
+                uncompressed_attribute_data.attribute.id,
+                &uncompressed_attribute_data.values,
             );
-            let compressed_format = self.get_compressed_vertex_format(attribute_data.attribute.id);
+            let compressed_format =
+                self.get_compressed_vertex_format(uncompressed_attribute_data.attribute.id);
             let compressed_attribute_data = if let Some(compressed_values) = compressed_values
                 && let Some(compressed_format) = compressed_format
             {
                 Some(MeshAttributeData {
                     attribute: MeshVertexAttribute {
                         format: compressed_format,
-                        ..attribute_data.attribute
+                        ..uncompressed_attribute_data.attribute
                     },
                     values: compressed_values,
                 })
@@ -860,7 +867,9 @@ impl Mesh {
                 None
             };
 
-            let attribute_data = compressed_attribute_data.as_ref().unwrap_or(attribute_data);
+            let attribute_data = compressed_attribute_data
+                .as_ref()
+                .unwrap_or(uncompressed_attribute_data);
             let attribute_size = attribute_data.attribute.format.size() as usize;
             let attributes_bytes = attribute_data.values.get_bytes();
             for (vertex_index, attribute_bytes) in attributes_bytes

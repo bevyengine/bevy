@@ -448,8 +448,8 @@ impl VertexAttributeValues {
         }
     }
 
-    /// Create a new `VertexAttributeValues` with Float32x3 or Float32x4 values converted to Unorm16x2 using octahedral encoding, assuming the values are vertex normal or tangent. Panic if the values are not Float32x3 or Float32x4.
-    pub fn create_octahedral_encode_unorm16(&self) -> VertexAttributeValues {
+    /// Create a new `VertexAttributeValues` with Float32x3 normals converted to Unorm16x2 using octahedral encoding. Panics if the values are not Float32x3.
+    pub fn create_octahedral_encode_normals(&self) -> VertexAttributeValues {
         match &self {
             VertexAttributeValues::Float32x3(uncompressed_values) => {
                 let mut values = Vec::<[u16; 2]>::with_capacity(uncompressed_values.len());
@@ -462,6 +462,13 @@ impl VertexAttributeValues {
                 }
                 VertexAttributeValues::Unorm16x2(values)
             }
+            _ => panic!("Unsupported vertex attribute format"),
+        }
+    }
+
+    /// Create a new `VertexAttributeValues` with Float32x4 tangents converted to Unorm16x2 using octahedral encoding. Panics if the values are not Float32x4.
+    pub fn create_octahedral_encode_tangents(&self) -> VertexAttributeValues {
+        match &self {
             VertexAttributeValues::Float32x4(uncompressed_values) => {
                 let mut values = Vec::<[u16; 2]>::with_capacity(uncompressed_values.len());
                 for value in uncompressed_values {
@@ -616,7 +623,7 @@ impl Hash for MeshVertexBufferLayoutRef {
     }
 }
 
-/// Encode normals or unit direction vectors as octahedral coordinates.
+/// Encode normals or unit direction vectors as octahedral coordinates with range [0, 1].
 fn octahedral_encode(v: Vec3) -> Vec2 {
     let n = v / (v.x.abs() + v.y.abs() + v.z.abs());
     let octahedral_wrap = (1.0 - n.yx().abs())
@@ -632,7 +639,7 @@ fn octahedral_encode(v: Vec3) -> Vec2 {
 
 /// Encode tangent vectors as octahedral coordinates. sign is encoded in y component.
 fn octahedral_encode_tangent(v: Vec3, sign: f32) -> Vec2 {
-    // Code references Godot, the bias is from https://github.com/godotengine/godot/pull/73265
+    // Bias to ensure that encoding as unorm16 preserves the sign. See https://github.com/godotengine/godot/pull/73265
     let bias = 1.0 / 32767.0;
     let mut n_xy = octahedral_encode(v);
     n_xy.y = n_xy.y.max(bias);
@@ -649,26 +656,33 @@ mod tests {
 
     #[test]
     fn octahedral_encode_decode() {
-        let vs = [
+        let vectors = [
             vec3(1.0, 2.0, 3.0).normalize().extend(1.0),
             vec3(1.0, 0.0, 0.0).extend(-1.0),
             vec3(0.0, 0.0, -1.0).extend(1.0),
+            vec3(0.0, 0.0, -1.0).extend(-1.0),
         ];
-        let vs_encoded = [vec2(0.5833333, 0.6666667), vec2(1.0, 0.5), vec2(0.0, 0.0)];
-        let vs_encoded_tangent = [
+        let expected_encoded_normals = [
+            vec2(0.5833333, 0.6666667),
+            vec2(1.0, 0.5),
+            vec2(0.0, 0.0),
+            vec2(0.0, 0.0),
+        ];
+        let expected_encoded_tangents = [
             vec2(0.5833333, 0.8333334),
             vec2(1.0, 0.25),
             vec2(0.0, 0.50001526),
+            vec2(0.0, 0.49998474),
         ];
-        for (i, &v) in vs.iter().enumerate() {
+        for (i, &v) in vectors.iter().enumerate() {
             let encoded_normal = octahedral_encode(v.xyz());
             let decoded_normal = octahedral_decode(encoded_normal);
-            assert_eq!(encoded_normal, vs_encoded[i]);
-            assert!(decoded_normal.distance(vs[i].xyz()) < 1e-6);
+            assert!(encoded_normal.distance(expected_encoded_normals[i]) < 1e-6);
+            assert!(decoded_normal.distance(vectors[i].xyz()) < 1e-6);
 
             let encoded_tangent = octahedral_encode_tangent(v.xyz(), v.w);
             let (decoded_tangent, sign) = octahedral_decode_tangent(encoded_tangent);
-            assert_eq!(encoded_tangent, vs_encoded_tangent[i]);
+            assert_eq!(encoded_tangent, expected_encoded_tangents[i]);
             assert_eq!(v.w, sign);
             assert!(decoded_tangent.distance(v.xyz()) < 1e-4);
         }

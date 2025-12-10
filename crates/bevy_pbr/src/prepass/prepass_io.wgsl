@@ -41,7 +41,7 @@ struct UncompressedVertex {
 struct Vertex {
     @builtin(instance_index) instance_index: u32,
 #ifdef VERTEX_POSITIONS_COMPRESSED
-    @location(0) position: vec4<f32>,
+    @location(0) compressed_position: vec4<f32>,
 #else
     @location(0) position: vec3<f32>,
 #endif
@@ -56,14 +56,14 @@ struct Vertex {
 #ifdef NORMAL_PREPASS_OR_DEFERRED_PREPASS
 #ifdef VERTEX_NORMALS
 #ifdef VERTEX_NORMALS_COMPRESSED
-    @location(3) normal: vec2<f32>,
+    @location(3) compressed_normal: vec2<f32>,
 #else
     @location(3) normal: vec3<f32>,
 #endif
 #endif
 #ifdef VERTEX_TANGENTS
 #ifdef VERTEX_TANGENTS_COMPRESSED
-    @location(4) tangent: vec2<f32>,
+    @location(4) compressed_tangent: vec2<f32>,
 #else
     @location(4) tangent: vec4<f32>,
 #endif
@@ -88,21 +88,21 @@ fn decompress_vertex(vertex_in: Vertex) -> UncompressedVertex {
     var uncompressed_vertex: UncompressedVertex;
     uncompressed_vertex.instance_index = vertex_in.instance_index;
 #ifdef VERTEX_POSITIONS_COMPRESSED
-    uncompressed_vertex.position = bevy_pbr::mesh_functions::decompress_vertex_position(vertex_in.instance_index, vertex_in.position);
+    uncompressed_vertex.position = bevy_pbr::mesh_functions::decompress_vertex_position(vertex_in.instance_index, vertex_in.compressed_position);
 #else
     uncompressed_vertex.position = vertex_in.position;
 #endif
 #ifdef NORMAL_PREPASS_OR_DEFERRED_PREPASS
 #ifdef VERTEX_NORMALS
 #ifdef VERTEX_NORMALS_COMPRESSED
-    uncompressed_vertex.normal = bevy_pbr::mesh_functions::decompress_vertex_normal(vertex_in.normal);
+    uncompressed_vertex.normal = bevy_pbr::mesh_functions::decompress_vertex_normal(vertex_in.compressed_normal);
 #else
     uncompressed_vertex.normal = vertex_in.normal;
 #endif
 #endif
 #ifdef VERTEX_TANGENTS
 #ifdef VERTEX_TANGENTS_COMPRESSED
-    uncompressed_vertex.tangent = bevy_pbr::mesh_functions::decompress_vertex_tangent(vertex_in.tangent);
+    uncompressed_vertex.tangent = bevy_pbr::mesh_functions::decompress_vertex_tangent(vertex_in.compressed_tangent);
 #else
     uncompressed_vertex.tangent = vertex_in.tangent;
 #endif

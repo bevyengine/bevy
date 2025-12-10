@@ -34,11 +34,11 @@ fn morph_vertex(vertex_in: UncompressedVertex) -> UncompressedVertex {
 @vertex
 fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
     var out: VertexOutput;
-    let uncompressed_vertex = decompress_vertex(vertex_no_morph);
+    let uncompressed_vertex_no_morph = decompress_vertex(vertex_no_morph);
 #ifdef MORPH_TARGETS
-    var vertex = morph_vertex(uncompressed_vertex);
+    var vertex = morph_vertex(uncompressed_vertex_no_morph);
 #else
-    var vertex = uncompressed_vertex;
+    var vertex = uncompressed_vertex_no_morph;
 #endif
 
     let mesh_world_from_local = mesh_functions::get_world_from_local(vertex_no_morph.instance_index);

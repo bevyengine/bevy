@@ -15,7 +15,7 @@ struct Vertex {
     // Like we defined for the vertex layout
     // position is at location 0
 #ifdef VERTEX_POSITIONS_COMPRESSED
-    @location(0) position: vec4<f32>,
+    @location(0) compressed_position: vec4<f32>,
 #else
     @location(0) position: vec3<f32>,
 #endif
@@ -34,7 +34,7 @@ fn vertex(vertex: Vertex) -> VertexOutput {
     // The vertex.instance_index is very important. Especially if you are using batching and gpu preprocessing
     var world_from_local = mesh_functions::get_world_from_local(vertex.instance_index);
 #ifdef VERTEX_POSITIONS_COMPRESSED
-    let vertex_position = mesh_functions::decompress_vertex_position(vertex.instance_index, vertex.position);
+    let vertex_position = mesh_functions::decompress_vertex_position(vertex.instance_index, vertex.compressed_position);
 #else
     let vertex_position = vertex.position;
 #endif

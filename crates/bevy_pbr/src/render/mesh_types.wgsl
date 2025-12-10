@@ -23,12 +23,11 @@ struct Mesh {
     material_and_lightmap_bind_group_slot: u32,
     // User supplied index to identify the mesh instance
     tag: u32,
-    pad: u32,
     // AABB for decompressing positions.
     aabb_center: vec3<f32>,
-    pad1_: u32,
+    pad: u32,
     aabb_half_extents: vec3<f32>,
-    pad2_: u32,
+    pad1_: u32,
 };
 
 #ifdef SKINNED

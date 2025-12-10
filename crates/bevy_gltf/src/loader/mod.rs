@@ -160,6 +160,8 @@ pub struct GltfLoader {
     ///
     /// The default is `false`.
     pub default_use_model_forward_direction: bool,
+    /// Default Mesh attribute compression flags for the loaded meshes.
+    pub default_mesh_attribute_compression: MeshAttributeCompressionFlags,
 }
 
 /// Specifies optional settings for processing gltfs at load time. By default, all recognized contents of
@@ -185,8 +187,6 @@ pub struct GltfLoaderSettings {
     ///
     /// Otherwise, nodes will be loaded and retained in RAM/VRAM according to the active flags.
     pub load_meshes: RenderAssetUsages,
-    /// Mesh attribute compression flags for the loaded meshes.
-    pub mesh_attribute_compression: MeshAttributeCompressionFlags,
     /// If empty, the gltf materials will be skipped.
     ///
     /// Otherwise, materials will be loaded and retained in RAM/VRAM according to the active flags.
@@ -220,6 +220,9 @@ pub struct GltfLoaderSettings {
     ///
     /// If `None`, uses the global default set by [`GltfPlugin::use_model_forward_direction`](crate::GltfPlugin::use_model_forward_direction).
     pub use_model_forward_direction: Option<bool>,
+    /// Mesh attribute compression flags for the loaded meshes.
+    /// If `None`, uses the global default set by [`GltfPlugin::mesh_attribute_compression`](crate::GltfPlugin::mesh_attribute_compression).
+    pub mesh_attribute_compression: Option<MeshAttributeCompressionFlags>,
 }
 
 impl Default for GltfLoaderSettings {
@@ -234,7 +237,7 @@ impl Default for GltfLoaderSettings {
             default_sampler: None,
             override_sampler: false,
             use_model_forward_direction: None,
-            mesh_attribute_compression: MeshAttributeCompressionFlags::default(),
+            mesh_attribute_compression: None,
         }
     }
 }
@@ -681,7 +684,9 @@ impl GltfLoader {
                 let primitive_topology = primitive_topology(primitive.mode())?;
 
                 let mut mesh = Mesh::new(primitive_topology, settings.load_meshes);
-                mesh.attribute_compression = settings.mesh_attribute_compression;
+                mesh.attribute_compression = settings
+                    .mesh_attribute_compression
+                    .unwrap_or(loader.default_mesh_attribute_compression);
                 // Read vertex attributes
                 for (semantic, accessor) in primitive.attributes() {
                     if [Semantic::Joints(0), Semantic::Weights(0)].contains(&semantic) {

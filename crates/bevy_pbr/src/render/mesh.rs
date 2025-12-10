@@ -483,14 +483,12 @@ pub struct MeshUniform {
     pub material_and_lightmap_bind_group_slot: u32,
     /// User supplied tag to identify this mesh instance.
     pub tag: u32,
-    /// Padding.
-    pub pad: u32,
     /// AABB center for decompressing vertex positions.
     pub aabb_center: Vec3,
-    pub pad1: u32,
+    pub pad: u32,
     /// AABB half extents for decompressing vertex positions.
     pub aabb_half_extents: Vec3,
-    pub pad2: u32,
+    pub pad1: u32,
 }
 
 /// Information that has to be transferred from CPU to GPU in order to produce
@@ -621,7 +619,6 @@ impl MeshUniform {
             aabb_half_extents: aabb.map(|a| a.half_size().into()).unwrap_or_default(),
             pad: 0,
             pad1: 0,
-            pad2: 0,
         }
     }
 }
