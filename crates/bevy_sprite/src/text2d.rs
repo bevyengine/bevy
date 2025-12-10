@@ -279,6 +279,7 @@ pub fn update_text2d_layout(
             &mut font_system,
             &mut swash_cache,
             text_bounds,
+            block.justify,
         ) {
             Err(TextError::NoSuchFont) => {
                 // There was an error processing the text layout, let's add this entity to the

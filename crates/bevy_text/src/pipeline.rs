@@ -303,6 +303,7 @@ impl TextPipeline {
         font_system: &mut CosmicFontSystem,
         swash_cache: &mut SwashCache,
         bounds: TextBounds,
+        justify: Justify,
     ) -> Result<(), TextError> {
         layout_info.glyphs.clear();
         layout_info.run_geometry.clear();
@@ -340,7 +341,13 @@ impl TextPipeline {
         }
 
         let buffer = &mut computed.buffer;
-        buffer.set_size(font_system, bounds.width, bounds.height);
+
+        // Workaround for alignment not working for unbounded text.
+        // See https://github.com/pop-os/cosmic-text/issues/343
+        let width = (bounds.width.is_none() && justify != Justify::Left)
+            .then(|| buffer_dimensions(buffer).x)
+            .or(bounds.width);
+        buffer.set_size(font_system, width, bounds.height);
         let mut box_size = Vec2::ZERO;
 
         let result = buffer.layout_runs().try_for_each(|run| {
