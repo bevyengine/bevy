@@ -636,7 +636,7 @@ pub fn queue_ui_material_nodes<M: UiMaterial>(
             draw_function,
             pipeline,
             entity: (extracted_uinode.render_entity, extracted_uinode.main_entity),
-            sort_key: FloatOrd(extracted_uinode.stack_index as f32 + stack_z_offsets::MATERIAL),
+            sort_key: FloatOrd(extracted_uinode.stack_index as f32 + M::stack_z_offset()),
             batch_range: 0..0,
             extra_index: PhaseItemExtraIndex::None,
             index,
