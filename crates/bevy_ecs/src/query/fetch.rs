@@ -1823,7 +1823,7 @@ unsafe impl<T: Component> ContiguousQueryData for &T {
                 let table = unsafe { table.debug_checked_unwrap() };
                 // UnsafeCell<T> has the same alignment as T because of transparent representation
                 // (i.e. repr(transparent)) of UnsafeCell
-                let table = table.cast_unchecked::<T>();
+                let table = table.cast();
                 // SAFETY: Caller ensures `rows` is the amount of rows in the table
                 let item = unsafe { table.as_slice_unchecked(entities.len()) };
                 &item[offset..]
@@ -2083,9 +2083,7 @@ unsafe impl<T: Component> ContiguousQueryData for Ref<'_, T> {
                     unsafe { table.debug_checked_unwrap() };
 
                 (
-                    &table_components
-                        .cast_unchecked::<T>()
-                        .as_slice_unchecked(entities.len())[offset..],
+                    &table_components.cast().as_slice_unchecked(entities.len())[offset..],
                     ContiguousComponentTicks::<'w, false>::new(
                         added_ticks.add_unchecked(offset),
                         changed_ticks.add_unchecked(offset),

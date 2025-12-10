@@ -522,21 +522,13 @@ impl<'w, const MUTABLE: bool> ContiguousComponentTicks<'w, MUTABLE> {
     /// Returns immutable changed ticks slice
     pub fn get_changed_ticks(&self) -> &[Tick] {
         // SAFETY: `self.changed` is `self.count` long
-        unsafe {
-            self.changed
-                .cast_unchecked::<Tick>()
-                .as_slice_unchecked(self.count)
-        }
+        unsafe { self.changed.cast().as_slice_unchecked(self.count) }
     }
 
     /// Returns immutable added ticks slice
     pub fn get_added_ticks(&self) -> &[Tick] {
         // SAFETY: `self.added` is `self.count` long
-        unsafe {
-            self.added
-                .cast_unchecked::<Tick>()
-                .as_slice_unchecked(self.count)
-        }
+        unsafe { self.added.cast().as_slice_unchecked(self.count) }
     }
 
     /// Returns the last tick system ran

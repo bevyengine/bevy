@@ -1122,23 +1122,6 @@ impl<'a, T> ThinSlicePtr<'a, T> {
         unsafe { core::slice::from_raw_parts(self.ptr.as_ptr(), len) }
     }
 
-    /// Casts the slice to another type
-    ///
-    /// # Safety
-    /// - The type `U` must have the same in-memory representation as `T`.
-    pub unsafe fn cast_unchecked<U>(&self) -> ThinSlicePtr<'a, U> {
-        #[cfg(debug_assertions)]
-        // it doesn't fully ensure that `U` and `T` have the same in-memory representations
-        assert!(size_of::<T>() == size_of::<U>() && align_of::<T>() == align_of::<U>());
-
-        ThinSlicePtr {
-            ptr: self.ptr.cast::<U>(),
-            #[cfg(debug_assertions)]
-            len: self.len,
-            _marker: PhantomData,
-        }
-    }
-
     /// Offsets the slice beginning by `count` elements
     ///
     /// # Safety
@@ -1189,6 +1172,17 @@ impl<'a, T> ThinSlicePtr<'a, UnsafeCell<T>> {
         // - `self.ptr` is a valid pointer for the type `T`.
         // - `len` is valid hence `len * size_of::<T>()` is less than `isize::MAX`.
         unsafe { core::slice::from_raw_parts_mut(UnsafeCell::raw_get(self.ptr.as_ptr()), len) }
+    }
+
+    /// Returns a slice pointer to the underlying type `T`.
+    pub fn cast(&self) -> ThinSlicePtr<'a, T> {
+        ThinSlicePtr {
+            // SAFETY: `self.ptr` is non null hence `UnsafeCell::raw_get` always returns a non null pointer
+            ptr: unsafe { NonNull::new_unchecked(UnsafeCell::raw_get(self.ptr.as_ptr())) },
+            #[cfg(debug_assertions)]
+            len: self.len,
+            _marker: PhantomData,
+        }
     }
 }
 
