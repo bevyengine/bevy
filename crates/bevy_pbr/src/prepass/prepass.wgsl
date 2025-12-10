@@ -134,11 +134,11 @@ fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
 #ifdef HAS_PREVIOUS_MORPH
     let prev_vertex = morph_prev_vertex(uncompressed_vertex);
 #else   // HAS_PREVIOUS_MORPH
-    let prev_vertex = uncompressed_vertex;
+    let prev_vertex = uncompressed_vertex_no_morph;
 #endif  // HAS_PREVIOUS_MORPH
 
 #else   // MORPH_TARGETS
-    let prev_vertex = uncompressed_vertex;
+    let prev_vertex = uncompressed_vertex_no_morph;
 #endif  // MORPH_TARGETS
 
     // Take skinning into account.
