@@ -1,6 +1,6 @@
 use crate::{
     primitives::{Primitive2d, Primitive3d},
-    Quat, Rot2, Vec2, Vec3, Vec3A, Vec4,
+    Quat, Rot2, DVec2, Vec2, Vec3, DVec3, DQuat, Vec3A, Vec4
 };
 
 use core::f32::consts::FRAC_1_SQRT_2;
@@ -45,6 +45,19 @@ impl InvalidDirectionError {
             InvalidDirectionError::Zero
         }
     }
+    /// Creates an [`InvalidDirectionError`] from the length of an invalid direction vector.
+    pub fn from_length_64(length: f64) -> Self {
+        if length.is_nan() {
+            InvalidDirectionError::NaN
+        } else if !length.is_finite() {
+            // If the direction is non-finite but also not NaN, it must be infinite
+            InvalidDirectionError::Infinite
+        } else {
+            // If the direction is invalid but neither NaN nor infinite, it must be zero
+            InvalidDirectionError::Zero
+        }
+    }
+
 }
 
 /// Checks that a vector with the given squared length is normalized.
@@ -79,6 +92,39 @@ fn assert_is_normalized(message: &str, length_squared: f32) {
         }
     }
 }
+
+/// Checks that a 64 bit vector with the given squared length is normalized.
+///
+/// Warns for small error with a length threshold of approximately `1e-4`,
+/// and panics for large error with a length threshold of approximately `1e-2`.
+///
+/// The format used for the logged warning is `"Warning: {warning} The length is {length}`,
+/// and similarly for the error.
+#[cfg(debug_assertions)]
+fn assert_is_normalized_64(message: &str, length_squared: f64) {
+    let length_error_squared = (length_squared - 1.0).abs();
+
+    // Panic for large error and warn for slight error.
+    if length_error_squared > 2e-2 || length_error_squared.is_nan() {
+        // Length error is approximately 1e-2 or more.
+
+        panic!(
+            "Error: {message} The length is {}.",
+            (length_squared).sqrt()
+        );
+    } else if length_error_squared > 2e-4 {
+        // Length error is approximately 1e-4 or more.
+        #[cfg(feature = "std")]
+        #[expect(clippy::print_stderr, reason = "Allowed behind `std` feature gate.")]
+        {     
+            eprintln!(
+                "Warning: {message} The length is {}.",
+                (length_squared).sqrt()
+            );
+        }
+    }
+}
+
 
 /// A normalized vector pointing in a direction in 2D space
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -881,6 +927,274 @@ impl approx::UlpsEq for Dir3A {
         4
     }
     fn ulps_eq(&self, other: &Self, epsilon: f32, max_ulps: u32) -> bool {
+        self.as_ref().ulps_eq(other.as_ref(), epsilon, max_ulps)
+    }
+}
+
+/// A normalized 64bit vector pointing in a direction in 3D space
+#[derive(Clone, Copy, Debug, PartialEq, Into)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Clone)
+)]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
+    reflect(Serialize, Deserialize)
+)]
+#[doc(alias = "Direction3d")]
+pub struct DDir3(DVec3);
+impl Primitive3d for DDir3 {}
+
+impl DDir3 {
+    /// A unit vector pointing along the positive X axis.
+    pub const X: Self = Self(DVec3::X);
+    /// A unit vector pointing along the positive Y axis.
+    pub const Y: Self = Self(DVec3::Y);
+    /// A unit vector pointing along the positive Z axis.
+    pub const Z: Self = Self(DVec3::Z);
+    /// A unit vector pointing along the negative X axis.
+    pub const NEG_X: Self = Self(DVec3::NEG_X);
+    /// A unit vector pointing along the negative Y axis.
+    pub const NEG_Y: Self = Self(DVec3::NEG_Y);
+    /// A unit vector pointing along the negative Z axis.
+    pub const NEG_Z: Self = Self(DVec3::NEG_Z);
+    /// The directional axes.
+    pub const AXES: [Self; 3] = [Self::X, Self::Y, Self::Z];
+
+    /// Create a direction from a finite, nonzero [`DVec3`], normalizing it.
+    ///
+    /// Returns [`Err(InvalidDirectionError)`](InvalidDirectionError) if the length
+    /// of the given vector is zero (or very close to zero), infinite, or `NaN`.
+    pub fn new(value: DVec3) -> Result<Self, InvalidDirectionError> {
+        Self::new_and_length(value).map(|(dir, _)| dir)
+    }
+
+    /// Create a [`DDir3`] from a [`DVec3`] that is already normalized.
+    ///
+    /// # Warning
+    ///
+    /// `value` must be normalized, i.e its length must be `1.0`.
+    pub fn new_unchecked(value: DVec3) -> Self {
+        #[cfg(debug_assertions)]
+        assert_is_normalized_64(
+            "The vector given to `DDir3::new_unchecked` is not normalized.",
+            value.length_squared(),
+        );
+
+        Self(value)
+    }
+
+    /// Create a direction from a finite, nonzero [`DVec3`], normalizing it and
+    /// also returning its original length.
+    ///
+    /// Returns [`Err(InvalidDirectionError)`](InvalidDirectionError) if the length
+    /// of the given vector is zero (or very close to zero), infinite, or `NaN`.
+    pub fn new_and_length(value: DVec3) -> Result<(Self, f64), InvalidDirectionError> {
+        let length = value.length();
+        let direction = (length.is_finite() && length > 0.0).then_some(value / length);
+
+        direction
+            .map(|dir| (Self(dir), length))
+            .ok_or(InvalidDirectionError::from_length_64(length))
+    }
+
+    /// Create a direction from its `x`, `y`, and `z` components.
+    ///
+    /// Returns [`Err(InvalidDirectionError)`](InvalidDirectionError) if the length
+    /// of the vector formed by the components is zero (or very close to zero), infinite, or `NaN`.
+    pub fn from_xyz(x: f64, y: f64, z: f64) -> Result<Self, InvalidDirectionError> {
+        Self::new(DVec3::new(x, y, z))
+    }
+
+    /// Create a direction from its `x`, `y`, and `z` components, assuming the resulting vector is normalized.
+    ///
+    /// # Warning
+    ///
+    /// The vector produced from `x`, `y`, and `z` must be normalized, i.e its length must be `1.0`.
+    pub fn from_xyz_unchecked(x: f64, y: f64, z: f64) -> Self {
+        Self::new_unchecked(DVec3::new(x, y, z))
+    }
+
+    /// Returns the inner [`DVec3`]
+    pub const fn as_vec3(&self) -> DVec3 {
+        self.0
+    }
+
+    /// Performs a spherical linear interpolation between `self` and `rhs`
+    /// based on the value `s`.
+    ///
+    /// This corresponds to interpolating between the two directions at a constant angular velocity.
+    ///
+    /// When `s == 0.0`, the result will be equal to `self`.
+    /// When `s == 1.0`, the result will be equal to `rhs`.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_math::DDir3;
+    /// # use approx::{assert_relative_eq, RelativeEq};
+    /// #
+    /// let dir1 = DDir3::X;
+    /// let dir2 = DDir3::Y;
+    ///
+    /// let result1 = dir1.slerp(dir2, 1.0 / 3.0);
+    /// #[cfg(feature = "approx")]
+    /// assert_relative_eq!(
+    ///     result1,
+    ///     Dir3::from_xyz(0.75_f32.sqrt(), 0.5, 0.0).unwrap(),
+    ///     epsilon = 0.000001
+    /// );
+    ///
+    /// let result2 = dir1.slerp(dir2, 0.5);
+    /// #[cfg(feature = "approx")]
+    /// assert_relative_eq!(result2, Dir3::from_xyz(0.5_f64.sqrt(), 0.5_f64.sqrt(), 0.0).unwrap());
+    /// ```
+    #[inline]
+    pub fn slerp(self, rhs: Self, s: f64) -> Self {
+        let quat = DQuat::IDENTITY.slerp(DQuat::from_rotation_arc(self.0, rhs.0), s);
+        DDir3(quat.mul_vec3(self.0))
+    }
+
+    /// Returns `self` after an approximate normalization, assuming the value is already nearly normalized.
+    /// Useful for preventing numerical error accumulation.
+    ///
+    /// # Example
+    /// The following seemingly benign code would start accumulating errors over time,
+    /// leading to `dir` eventually not being normalized anymore.
+    /// ```
+    /// # use bevy_math::prelude::*;
+    /// # let N: usize = 200;
+    /// let mut dir = DDir3::X;
+    /// let quaternion = DQuat::from_euler(EulerRot::XYZ, 1.0, 2.0, 3.0);
+    /// for i in 0..N {
+    ///     dir = quaternion * dir;
+    /// }
+    /// ```
+    /// Instead, do the following.
+    /// ```
+    /// # use bevy_math::prelude::*;
+    /// # let N: usize = 200;
+    /// let mut dir = DDir3::X;
+    /// let quaternion = DQuat::from_euler(EulerRot::XYZ, 1.0, 2.0, 3.0);
+    /// for i in 0..N {
+    ///     dir = quaternion * dir;
+    ///     dir = dir.fast_renormalize();
+    /// }
+    /// ```
+    #[inline]
+    pub fn fast_renormalize(self) -> Self {
+        // We numerically approximate the inverse square root by a Taylor series around 1
+        // As we expect the error (x := length_squared - 1) to be small
+        // inverse_sqrt(length_squared) = (1 + x)^(-1/2) = 1 - 1/2 x + O(x²)
+        // inverse_sqrt(length_squared) ≈ 1 - 1/2 (length_squared - 1) = 1/2 (3 - length_squared)
+
+        // Iterative calls to this method quickly converge to a normalized value,
+        // so long as the denormalization is not large ~ O(1/10).
+        // One iteration can be described as:
+        // l_sq <- l_sq * (1 - 1/2 (l_sq - 1))²;
+        // Rewriting in terms of the error x:
+        // 1 + x <- (1 + x) * (1 - 1/2 x)²
+        // 1 + x <- (1 + x) * (1 - x + 1/4 x²)
+        // 1 + x <- 1 - x + 1/4 x² + x - x² + 1/4 x³
+        // x <- -1/4 x² (3 - x)
+        // If the error is small, say in a range of (-1/2, 1/2), then:
+        // |-1/4 x² (3 - x)| <= (3/4 + 1/4 * |x|) * x² <= (3/4 + 1/4 * 1/2) * x² < x² < 1/2 x
+        // Therefore the sequence of iterates converges to 0 error as a second order method.
+
+        let length_squared = self.0.length_squared();
+        Self(self * (0.5 * (3.0 - length_squared)))
+    }
+}
+
+impl TryFrom<DVec3> for DDir3 {
+    type Error = InvalidDirectionError;
+
+    fn try_from(value: DVec3) -> Result<Self, Self::Error> {
+        Self::new(value)
+    }
+}
+
+impl core::ops::Deref for DDir3 {
+    type Target = DVec3;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl core::ops::Neg for DDir3 {
+    type Output = Self;
+    fn neg(self) -> Self::Output {
+        Self(-self.0)
+    }
+}
+
+impl core::ops::Mul<f64> for DDir3 {
+    type Output = DVec3;
+    fn mul(self, rhs: f64) -> Self::Output {
+        self.0 * rhs
+    }
+}
+
+impl core::ops::Mul<DDir3> for f64 {
+    type Output = DVec3;
+    fn mul(self, rhs: DDir3) -> Self::Output {
+        self * rhs.0
+    }
+}
+
+impl core::ops::Mul<DDir3> for DQuat {
+    type Output = DDir3;
+
+    /// Rotates the [`DDir3`] using a [`DQuat`].
+    fn mul(self, direction: DDir3) -> Self::Output {
+        let rotated = self * *direction;
+
+        #[cfg(debug_assertions)]
+        assert_is_normalized_64(
+            "`DDir3` is denormalized after rotation.",
+            rotated.length_squared(),
+        );
+
+        DDir3(rotated)
+    }
+}
+
+impl fmt::Display for DDir3 {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+#[cfg(feature = "approx")]
+impl approx::AbsDiffEq for DDir3 {
+    type Epsilon = f64;
+    fn default_epsilon() -> f64 {
+        f64::EPSILON
+    }
+    fn abs_diff_eq(&self, other: &Self, epsilon: f64) -> bool {
+        self.as_ref().abs_diff_eq(other.as_ref(), epsilon)
+    }
+}
+
+#[cfg(feature = "approx")]
+impl approx::RelativeEq for DDir3 {
+    fn default_max_relative() -> f64 {
+        f64::EPSILON
+    }
+    fn relative_eq(&self, other: &Self, epsilon: f64, max_relative: f64) -> bool {
+        self.as_ref()
+            .relative_eq(other.as_ref(), epsilon, max_relative)
+    }
+}
+
+#[cfg(feature = "approx")]
+impl approx::UlpsEq for DDir3 {
+    fn default_max_ulps() -> u32 {
+        4
+    }
+    fn ulps_eq(&self, other: &Self, epsilon: f64, max_ulps: u32) -> bool {
         self.as_ref().ulps_eq(other.as_ref(), epsilon, max_ulps)
     }
 }
