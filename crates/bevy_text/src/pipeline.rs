@@ -478,7 +478,7 @@ impl TextPipeline {
 
 /// Render information for a corresponding text block.
 ///
-/// Contains scaled glyphs and their size. Generated via [`TextPipeline::queue_text`] when an entity has
+/// Contains scaled glyphs and their size. Generated via [`TextPipeline::update_text_layout_info`] when an entity has
 /// [`TextLayout`] and [`ComputedTextBlock`] components.
 #[derive(Component, Clone, Default, Debug, Reflect)]
 #[reflect(Component, Default, Debug, Clone)]
