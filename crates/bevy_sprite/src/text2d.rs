@@ -160,8 +160,8 @@ impl Default for Text2dShadow {
 /// It does not modify or observe existing ones.
 pub fn update_text2d_layout(
     mut target_scale_factors: Local<Vec<(f32, RenderLayers)>>,
-    // Text items which should be reprocessed again, generally when the font hasn't loaded yet.
-    mut queue: Local<EntityHashSet>,
+    // Text2d entities from the previous frame which need to be reprocessed, usually because the font hadn't loaded yet.
+    mut reprocess_queue: Local<EntityHashSet>,
     mut textures: ResMut<Assets<Image>>,
     fonts: Res<Assets<Font>>,
     camera_query: Query<(&Camera, &VisibleEntities, Option<&RenderLayers>)>,
@@ -223,7 +223,7 @@ pub fn update_text2d_layout(
         let text_changed = scale_factor != text_layout_info.scale_factor
             || block.is_changed()
             || computed.needs_rerender()
-            || (!queue.is_empty() && queue.remove(&entity));
+            || (!reprocess_queue.is_empty() && reprocess_queue.remove(&entity));
 
         if !(text_changed || bounds.is_changed()) {
             continue;
@@ -250,9 +250,9 @@ pub fn update_text2d_layout(
                 &mut font_system,
             ) {
                 Err(TextError::NoSuchFont) => {
-                    // There was an error processing the text layout, let's add this entity to the
-                    // queue for further processing
-                    queue.insert(entity);
+                    // There was an error processing the text layout.
+                    // Add this entity to the queue and reprocess it in the following frame
+                    reprocess_queue.insert(entity);
                     continue;
                 }
                 Err(
@@ -282,9 +282,9 @@ pub fn update_text2d_layout(
             block.justify,
         ) {
             Err(TextError::NoSuchFont) => {
-                // There was an error processing the text layout, let's add this entity to the
-                // queue for further processing
-                queue.insert(entity);
+                // There was an error processing the text layout.
+                // Add this entity to the queue and reprocess it in the following frame.
+                reprocess_queue.insert(entity);
                 continue;
             }
             Err(
