@@ -1,6 +1,6 @@
 use crate::{
     primitives::{Primitive2d, Primitive3d},
-    Quat, Rot2, DVec2, Vec2, Vec3, DVec3, DQuat, Vec3A, Vec4
+    DQuat, DVec3, Quat, Rot2, Vec2, Vec3, Vec3A, Vec4,
 };
 
 use core::f32::consts::FRAC_1_SQRT_2;
@@ -57,7 +57,6 @@ impl InvalidDirectionError {
             InvalidDirectionError::Zero
         }
     }
-
 }
 
 /// Checks that a vector with the given squared length is normalized.
@@ -116,7 +115,7 @@ fn assert_is_normalized_64(message: &str, length_squared: f64) {
         // Length error is approximately 1e-4 or more.
         #[cfg(feature = "std")]
         #[expect(clippy::print_stderr, reason = "Allowed behind `std` feature gate.")]
-        {     
+        {
             eprintln!(
                 "Warning: {message} The length is {}.",
                 (length_squared).sqrt()
@@ -124,7 +123,6 @@ fn assert_is_normalized_64(message: &str, length_squared: f64) {
         }
     }
 }
-
 
 /// A normalized vector pointing in a direction in 2D space
 #[derive(Clone, Copy, Debug, PartialEq)]
