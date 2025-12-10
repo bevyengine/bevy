@@ -3606,6 +3606,36 @@ bevy_reflect::tests::Test {
             assert!(registry.contains(TypeId::of::<OpaqueStructReflect>()));
             assert!(registry.contains(TypeId::of::<ZSTOpaqueStructReflect>()));
         }
+
+        #[test]
+        fn type_data_dependency() {
+            #[derive(Reflect)]
+            #[reflect(A)]
+            struct X;
+
+            #[derive(Clone)]
+            struct ReflectA;
+
+            impl<T> FromType<T> for ReflectA {
+                fn from_type() -> Self {
+                    ReflectA
+                }
+
+                fn insert_dependencies(type_registration: &mut TypeRegistration) {
+                    type_registration.insert(ReflectB);
+                }
+            }
+
+            #[derive(Clone)]
+            struct ReflectB;
+
+            let mut registry = TypeRegistry::new();
+            registry.register::<X>();
+
+            let registration = registry.get(TypeId::of::<X>()).unwrap();
+            assert!(registration.data::<ReflectA>().is_some());
+            assert!(registration.data::<ReflectB>().is_some());
+        }
     }
 
     #[cfg(feature = "glam")]

@@ -129,29 +129,27 @@ pub enum NextState<S: FreelyMutableState> {
     Pending(S),
     /// There is a pending transition for state `S`
     ///
-    /// This will trigger state transitions schedules even if the target state is the same as the current one.
-    ForcedPending(S),
+    /// This will not trigger state transitions schedules if the target state is the same as the current one.
+    PendingIfNeq(S),
 }
 
 impl<S: FreelyMutableState> NextState<S> {
     /// Tentatively set a pending state transition to `Some(state)`.
     ///
-    /// If `state` is the same as the current state, this will *not* trigger state
-    /// transition [`OnEnter`](crate::state::OnEnter) and [`OnExit`](crate::state::OnExit) schedules.
-    ///
-    /// If [`set_forced`](Self::set_forced) has already been called in the same frame with the same state, its behavior is kept.
+    /// This will run the state transition schedules [`OnEnter`](crate::state::OnEnter) and [`OnExit`](crate::state::OnExit).
+    /// If you want to skip those schedules for the same where we are transitioning to the same state, use [`set_if_neq`](Self::set_if_neq) instead.
     pub fn set(&mut self, state: S) {
-        if !matches!(self, Self::ForcedPending(s) if s == &state) {
-            *self = Self::Pending(state);
-        }
+        *self = Self::Pending(state);
     }
 
     /// Tentatively set a pending state transition to `Some(state)`.
     ///
-    /// If `state` is the same as the current state, this will trigger state
-    /// transition [`OnEnter`](crate::state::OnEnter) and [`OnExit`](crate::state::OnExit) schedules.
-    pub fn set_forced(&mut self, state: S) {
-        *self = Self::ForcedPending(state);
+    /// Like [`set`](Self::set), but will not run any state transition schedules if the target state is the same as the current one.
+    /// If [`set`](Self::set) has already been called in the same frame with the same state, the transition schedules will be run anyways.
+    pub fn set_if_neq(&mut self, state: S) {
+        if !matches!(self, Self::Pending(s) if s == &state) {
+            *self = Self::PendingIfNeq(state);
+        }
     }
 
     /// Remove any pending changes to [`State<S>`]
@@ -168,11 +166,11 @@ pub(crate) fn take_next_state<S: FreelyMutableState>(
     match core::mem::take(next_state.bypass_change_detection()) {
         NextState::Pending(x) => {
             next_state.set_changed();
-            Some((x, false))
-        }
-        NextState::ForcedPending(x) => {
-            next_state.set_changed();
             Some((x, true))
+        }
+        NextState::PendingIfNeq(x) => {
+            next_state.set_changed();
+            Some((x, false))
         }
         NextState::Unchanged => None,
     }

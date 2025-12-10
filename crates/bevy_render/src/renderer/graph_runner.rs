@@ -127,9 +127,15 @@ impl RenderGraphRunner {
         let _guard = span.enter();
 
         if let Some(debug_group) = debug_group.as_ref() {
+            // wgpu 27 changed the debug_group validation which makes it impossible to have
+            // a debug_group that spans multiple command encoders.
+            //
+            // <https://github.com/gfx-rs/wgpu/pull/8048>
+            //
+            // For now, we use a debug_marker as a workaround
             render_context
                 .command_encoder()
-                .push_debug_group(debug_group);
+                .insert_debug_marker(&format!("Start {debug_group}"));
         }
 
         // Queue up nodes without inputs, which can be run immediately
@@ -275,8 +281,10 @@ impl RenderGraphRunner {
             }
         }
 
-        if debug_group.is_some() {
-            render_context.command_encoder().pop_debug_group();
+        if let Some(debug_group) = debug_group {
+            render_context
+                .command_encoder()
+                .insert_debug_marker(&format!("End {debug_group}"));
         }
 
         Ok(())
