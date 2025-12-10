@@ -522,15 +522,11 @@ impl TextPipeline {
                 0.0,
                 0.0,
                 0.0,
+                text_font.weight.clamp().0,
             );
 
             if let Some((id, _)) = self.map_handle_to_font_id.get(&section_info.0) {
-                let weight = font_system
-                    .db()
-                    .face(*id)
-                    .map(|f| f.weight)
-                    .unwrap_or(cosmic_text::Weight::NORMAL);
-                if let Some(font) = font_system.get_font(*id, weight) {
+                if let Some(font) = font_system.get_font(*id, cosmic_text::Weight(section_info.6)) {
                     let swash = font.as_swash();
                     let metrics = swash.metrics(&[]);
                     let upem = metrics.units_per_em as f32;
@@ -675,7 +671,7 @@ impl TextPipeline {
         // Check result.
         result?;
 
-        layout_info.size = box_size;
+        layout_info.size = box_size.ceil();
         Ok(())
     }
 }
