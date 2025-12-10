@@ -267,6 +267,12 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
                             #(#field_members: <#read_only_field_types>::fetch(&_state.#field_aliases, &mut _fetch.#field_aliases, _entity, _table_row)?,)*
                         })
                     }
+
+                    fn iter_access(
+                        _state: &Self::State,
+                    ) -> impl core::iter::Iterator<Item = #path::query::EcsAccessType<'_>> {
+                        core::iter::empty() #(.chain(<#field_types>::iter_access(&_state.#field_aliases)))*
+                    }
                 }
 
                 impl #user_impl_generics #path::query::ReleaseStateQueryData
@@ -331,6 +337,12 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
                     Some(Self::Item {
                         #(#field_members: <#field_types>::fetch(&_state.#field_aliases, &mut _fetch.#field_aliases, _entity, _table_row)?,)*
                     })
+                }
+
+                fn iter_access(
+                    _state: &Self::State,
+                ) -> impl core::iter::Iterator<Item = #path::query::EcsAccessType<'_>> {
+                    core::iter::empty() #(.chain(<#field_types>::iter_access(&_state.#field_aliases)))*
                 }
             }
 
