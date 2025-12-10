@@ -323,7 +323,7 @@ impl Default for TextFont {
 ///
 /// Valid font weights range from 1 to 1000, inclusive.
 /// Weights above 1000 are clamped to 1000.
-/// A weight of 0 is treated as `Weight::DEFAULT`.
+/// A weight of 0 is treated as [`FontWeight::DEFAULT`].
 ///
 /// `<https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Properties/font-weight>`
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Reflect)]
