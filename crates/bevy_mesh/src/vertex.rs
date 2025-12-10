@@ -442,40 +442,40 @@ impl VertexAttributeValues {
         }
     }
 
-    /// Create a new `VertexAttributeValues` with Float32x3 normals converted to Unorm16x2 using octahedral encoding. Panics if the values are not Float32x3.
+    /// Create a new `VertexAttributeValues` with Float32x3 normals converted to Snorm16x2 using octahedral encoding. Panics if the values are not Float32x3.
     pub fn create_octahedral_encode_normals(&self) -> VertexAttributeValues {
         match &self {
             VertexAttributeValues::Float32x3(uncompressed_values) => {
-                let mut values = Vec::<[u16; 2]>::with_capacity(uncompressed_values.len());
+                let mut values = Vec::<[i16; 2]>::with_capacity(uncompressed_values.len());
                 for value in uncompressed_values {
-                    let val = octahedral_encode(Vec3::from_array(*value).normalize());
+                    let val = octahedral_encode_signed(Vec3::from_array(*value).normalize());
                     values.push([
-                        (val.x * u16::MAX as f32).round() as u16,
-                        (val.y * u16::MAX as f32).round() as u16,
+                        (val.x * i16::MAX as f32).round() as i16,
+                        (val.y * i16::MAX as f32).round() as i16,
                     ]);
                 }
-                VertexAttributeValues::Unorm16x2(values)
+                VertexAttributeValues::Snorm16x2(values)
             }
             _ => panic!("Unsupported vertex attribute format"),
         }
     }
 
-    /// Create a new `VertexAttributeValues` with Float32x4 tangents converted to Unorm16x2 using octahedral encoding. Panics if the values are not Float32x4.
+    /// Create a new `VertexAttributeValues` with Float32x4 tangents converted to Snorm16x2 using octahedral encoding. Panics if the values are not Float32x4.
     pub fn create_octahedral_encode_tangents(&self) -> VertexAttributeValues {
         match &self {
             VertexAttributeValues::Float32x4(uncompressed_values) => {
-                let mut values = Vec::<[u16; 2]>::with_capacity(uncompressed_values.len());
+                let mut values = Vec::<[i16; 2]>::with_capacity(uncompressed_values.len());
                 for value in uncompressed_values {
                     let encoded_value = octahedral_encode_tangent(
                         Vec3::from_array([value[0], value[1], value[2]]).normalize(),
                         value[3],
                     );
                     values.push([
-                        (encoded_value.x * u16::MAX as f32).round() as u16,
-                        (encoded_value.y * u16::MAX as f32).round() as u16,
+                        (encoded_value.x * i16::MAX as f32).round() as i16,
+                        (encoded_value.y * i16::MAX as f32).round() as i16,
                     ]);
                 }
-                VertexAttributeValues::Unorm16x2(values)
+                VertexAttributeValues::Snorm16x2(values)
             }
             _ => panic!("Unsupported vertex attribute format"),
         }
@@ -617,8 +617,8 @@ impl Hash for MeshVertexBufferLayoutRef {
     }
 }
 
-/// Encode normals or unit direction vectors as octahedral coordinates with range [0, 1].
-fn octahedral_encode(v: Vec3) -> Vec2 {
+/// Encode normals or unit direction vectors as octahedral coordinates with range [-1, 1].
+fn octahedral_encode_signed(v: Vec3) -> Vec2 {
     let n = v / (v.x.abs() + v.y.abs() + v.z.abs());
     let octahedral_wrap = (1.0 - n.yx().abs())
         * Vec2::select(
@@ -626,19 +626,23 @@ fn octahedral_encode(v: Vec3) -> Vec2 {
             vec2(1.0, 1.0),
             vec2(-1.0, -1.0),
         );
-    let mut n_xy = if n.z >= 0.0 { n.xy() } else { octahedral_wrap };
-    n_xy = n_xy * 0.5 + 0.5;
-    n_xy
+    if n.z >= 0.0 {
+        n.xy()
+    } else {
+        octahedral_wrap
+    }
 }
 
-/// Encode tangent vectors as octahedral coordinates. sign is encoded in y component.
+/// Encode tangent vectors as octahedral coordinates with range [-1, 1]. The sign is encoded in y component.
 fn octahedral_encode_tangent(v: Vec3, sign: f32) -> Vec2 {
     // Bias to ensure that encoding as unorm16 preserves the sign. See https://github.com/godotengine/godot/pull/73265
     let bias = 1.0 / 32767.0;
-    let mut n_xy = octahedral_encode(v);
-    n_xy.y = n_xy.y.max(bias);
+    let mut n_xy = octahedral_encode_signed(v);
+    // Map y to always be positive.
     n_xy.y = n_xy.y * 0.5 + 0.5;
-    n_xy.y = if sign >= 0.0 { n_xy.y } else { 1.0 - n_xy.y };
+    n_xy.y = n_xy.y.max(bias);
+    // Encode the sign.
+    n_xy.y = if sign >= 0.0 { n_xy.y } else { -n_xy.y };
     n_xy
 }
 
@@ -646,7 +650,25 @@ fn octahedral_encode_tangent(v: Vec3, sign: f32) -> Vec2 {
 mod tests {
     use bevy_math::{vec2, vec3, Vec2, Vec3, Vec3Swizzles as _, Vec4Swizzles};
 
-    use crate::vertex::{octahedral_encode, octahedral_encode_tangent};
+    use crate::vertex::{octahedral_encode_signed, octahedral_encode_tangent};
+
+    /// Decode tangent vectors from octahedral coordinates and return the sign. Input is [-1, 1]. The y component should have been mapped to always be positive and then encoded the sign.
+    fn octahedral_decode_tangent(v: Vec2) -> (Vec3, f32) {
+        let sign = if v.y >= 0.0 { 1.0 } else { -1.0 };
+        let mut f = v;
+        f.y = f.y.abs();
+        f.y = f.y * 2.0 - 1.0;
+        (octahedral_decode_signed(f), sign)
+    }
+
+    /// Decode octahedral coordinates to normals or unit direction vectors. Input is [-1, 1].
+    fn octahedral_decode_signed(v: Vec2) -> Vec3 {
+        let mut n = vec3(v.x, v.y, 1.0 - v.x.abs() - v.y.abs());
+        let t = (-n.z).clamp(0.0, 1.0);
+        let w = Vec2::select(n.xy().cmpge(vec2(0.0, 0.0)), vec2(-t, -t), vec2(t, t));
+        n = vec3(n.x + w.x, n.y + w.y, n.z);
+        n.normalize()
+    }
 
     #[test]
     fn octahedral_encode_decode() {
@@ -657,52 +679,28 @@ mod tests {
             vec3(0.0, 0.0, -1.0).extend(-1.0),
         ];
         let expected_encoded_normals = [
-            vec2(0.5833333, 0.6666667),
-            vec2(1.0, 0.5),
-            vec2(0.0, 0.0),
-            vec2(0.0, 0.0),
+            vec2(0.16666667, 0.33333334),
+            vec2(1.0, 0.0),
+            vec2(-1.0, -1.0),
+            vec2(-1.0, -1.0),
         ];
         let expected_encoded_tangents = [
-            vec2(0.5833333, 0.8333334),
-            vec2(1.0, 0.25),
-            vec2(0.0, 0.50001526),
-            vec2(0.0, 0.49998474),
+            vec2(0.16666667, 0.6666667),
+            vec2(1.0, -0.5),
+            vec2(-1.0, 3.051851e-5),
+            vec2(-1.0, -3.051851e-5),
         ];
         for (i, &v) in vectors.iter().enumerate() {
-            let encoded_normal = octahedral_encode(v.xyz());
-            let decoded_normal = octahedral_decode(encoded_normal);
-            assert!(encoded_normal.distance(expected_encoded_normals[i]) < 1e-6);
+            let encoded_normal = octahedral_encode_signed(v.xyz());
+            let decoded_normal = octahedral_decode_signed(encoded_normal);
+            assert!(encoded_normal.distance(expected_encoded_normals[i]) < 1e6);
             assert!(decoded_normal.distance(vectors[i].xyz()) < 1e-6);
 
             let encoded_tangent = octahedral_encode_tangent(v.xyz(), v.w);
             let (decoded_tangent, sign) = octahedral_decode_tangent(encoded_tangent);
-            assert_eq!(encoded_tangent, expected_encoded_tangents[i]);
+            assert!(encoded_tangent.distance(expected_encoded_tangents[i]) < 1e6);
             assert_eq!(v.w, sign);
             assert!(decoded_tangent.distance(v.xyz()) < 1e-4);
         }
-    }
-
-    /// Decode normals or unit direction vectors from octahedral coordinates.
-    fn octahedral_decode(v: Vec2) -> Vec3 {
-        let f = v * 2.0 - 1.0;
-        octahedral_decode_signed(f)
-    }
-
-    /// Decode tangent vectors from octahedral coordinates and return the sign. The sign should have been encoded in y component using corresponding `octahedral_encode_tangent`.
-    fn octahedral_decode_tangent(v: Vec2) -> (Vec3, f32) {
-        let mut f = v;
-        f.y = f.y * 2.0 - 1.0;
-        let sign = if f.y >= 0.0 { 1.0 } else { -1.0 };
-        f.y = f.y.abs();
-        (octahedral_decode(f), sign)
-    }
-
-    /// Like `octahedral_decode`, but for input in [-1, 1] instead of [0, 1].
-    fn octahedral_decode_signed(v: Vec2) -> Vec3 {
-        let mut n = vec3(v.x, v.y, 1.0 - v.x.abs() - v.y.abs());
-        let t = (-n.z).clamp(0.0, 1.0);
-        let w = Vec2::select(n.xy().cmpge(vec2(0.0, 0.0)), vec2(-t, -t), vec2(t, t));
-        n = vec3(n.x + w.x, n.y + w.y, n.z);
-        n.normalize()
     }
 }

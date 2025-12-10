@@ -174,7 +174,7 @@ fn decompress_vertex_position(instance_index: u32, compressed_position: vec4<f32
 }
 
 fn decompress_vertex_normal(compressed_normal: vec2<f32>) -> vec3<f32> {
-    return bevy_pbr::utils::octahedral_decode(compressed_normal);
+    return bevy_pbr::utils::octahedral_decode_signed(compressed_normal);
 }
 
 fn decompress_vertex_tangent(compressed_tangent: vec2<f32>) -> vec4<f32> {

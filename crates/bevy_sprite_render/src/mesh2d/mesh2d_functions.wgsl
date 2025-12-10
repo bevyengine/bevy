@@ -55,7 +55,7 @@ fn decompress_vertex_position(instance_index: u32, compressed_position: vec4<f32
 }
 
 fn decompress_vertex_normal(compressed_normal: vec2<f32>) -> vec3<f32> {
-    return octahedral_decode(compressed_normal);
+    return octahedral_decode_signed(compressed_normal);
 }
 
 fn decompress_vertex_tangent(compressed_tangent: vec2<f32>) -> vec4<f32> {
@@ -67,13 +67,7 @@ fn decompress_vertex_uv(instance_index: u32, compressed_uv: vec2<f32>) -> vec2<f
     return uv_range.xy + (uv_range.zw - uv_range.xy) * compressed_uv;
 }
 
-// For decoding normals or unit direction vectors from octahedral coordinates.
-fn octahedral_decode(v: vec2<f32>) -> vec3<f32> {
-    let f = v * 2.0 - 1.0;
-    return octahedral_decode_signed(f);
-}
-
-// Like `octahedral_decode`, but for input in [-1, 1] instead of [0, 1].
+// For decoding normals or unit direction vectors from octahedral coordinates. Input is [-1, 1].
 fn octahedral_decode_signed(v: vec2<f32>) -> vec3<f32> {
     var n = vec3(v.xy, 1.0 - abs(v.x) - abs(v.y));
     let t = saturate(-n.z);
@@ -82,11 +76,11 @@ fn octahedral_decode_signed(v: vec2<f32>) -> vec3<f32> {
     return normalize(n);
 }
 
-// Decode tangent vectors from octahedral coordinates and return the sign. The sign should have been encoded in y component using corresponding `octahedral_encode_tangent`.
+// Decode tangent vectors from octahedral coordinates and return the sign. Input is [-1, 1]. The y component should have been mapped to always be positive and then encoded the sign.
 fn octahedral_decode_tangent(v: vec2<f32>) -> vec4<f32> {
+    let sign = select(-1.0, 1.0, v.y >= 0.0);
     var f = v;
-    f.y = f.y * 2.0 - 1.0;
-    let sign = select(-1.0, 1.0, f.y >= 0.0);
     f.y = abs(f.y);
-    return vec4<f32>(octahedral_decode(f), sign);
+    f.y = f.y * 2.0 - 1.0;
+    return vec4<f32>(octahedral_decode_signed(f), sign);
 }

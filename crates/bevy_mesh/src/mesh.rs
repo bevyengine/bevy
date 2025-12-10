@@ -160,7 +160,7 @@ pub struct Mesh {
     ///
     /// If the corresponding flag is enabled:
     /// - Position will be Snorm16x4 relative to the mesh's AABB. The w component is unused.
-    /// - Normal and tangent will be Unorm16x2 using octahedral encoding.
+    /// - Normal and tangent will be Snorm16x2 using octahedral encoding.
     /// - UV0 and UV1 will be Unorm16x2. UVs are remapped based on their min/max values so them can go beyond [0, 1], though a larger range will reduce precision.
     /// - Joint weight will be Unorm16x4.
     /// - Color will be Float16x4 or Unorm8x4.
@@ -618,7 +618,7 @@ impl Mesh {
                     .attribute_compression
                     .contains(MeshAttributeCompressionFlags::COMPRESS_NORMAL) =>
             {
-                Some(VertexFormat::Unorm16x2)
+                Some(VertexFormat::Snorm16x2)
             }
             id if id == Self::ATTRIBUTE_UV_0.id
                 && self
@@ -639,7 +639,7 @@ impl Mesh {
                     .attribute_compression
                     .contains(MeshAttributeCompressionFlags::COMPRESS_TANGENT) =>
             {
-                Some(VertexFormat::Unorm16x2)
+                Some(VertexFormat::Snorm16x2)
             }
             id if id == Self::ATTRIBUTE_COLOR.id
                 && self
