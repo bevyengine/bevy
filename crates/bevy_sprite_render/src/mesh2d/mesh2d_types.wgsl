@@ -19,4 +19,5 @@ struct Mesh2d {
     pad1_: u32,
     aabb_half_extents: vec3<f32>,
     pad2_: u32,
+    uv0_range: vec4<f32>,
 };

@@ -375,4 +375,6 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
     output[mesh_output_index].tag = current_input[input_index].tag;
     output[mesh_output_index].aabb_center = current_input[input_index].aabb_center;
     output[mesh_output_index].aabb_half_extents = current_input[input_index].aabb_half_extents;
+    output[mesh_output_index].uv0_range = current_input[input_index].uv0_range;
+    output[mesh_output_index].uv1_range = current_input[input_index].uv1_range;
 }

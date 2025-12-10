@@ -14,7 +14,7 @@ use bevy_ecs::{
         SystemParamItem,
     },
 };
-use bevy_math::bounding::Aabb3d;
+use bevy_math::bounding::{Aabb2d, Aabb3d};
 #[cfg(feature = "morph")]
 use bevy_mesh::morph::{MeshMorphWeights, MorphWeights};
 use bevy_mesh::*;
@@ -97,6 +97,10 @@ pub struct RenderMesh {
     /// AABB used for decompressing vertex positions.
     /// None if the positions of the mesh is empty or the format isn't Float32x3.
     pub aabb: Option<Aabb3d>,
+    /// UV0 range for decompressing UV0 coordinates.
+    pub uv0_range: Option<Aabb2d>,
+    /// UV1 range for decompressing UV1 coordinates.
+    pub uv1_range: Option<Aabb2d>,
 }
 
 impl RenderMesh {
@@ -193,6 +197,8 @@ impl RenderAsset for RenderMesh {
             #[cfg(feature = "morph")]
             morph_targets,
             aabb: mesh.compute_aabb(),
+            uv0_range: mesh.compute_uv_range(Mesh::ATTRIBUTE_UV_0),
+            uv1_range: mesh.compute_uv_range(Mesh::ATTRIBUTE_UV_1),
         })
     }
 }

@@ -46,10 +46,18 @@ struct Vertex {
 #endif
 #endif
 #ifdef VERTEX_UVS_A
+#ifdef VERTEX_UVS_A_COMPRESSED
+    @location(2) compressed_uv: vec2<f32>,
+#else
     @location(2) uv: vec2<f32>,
 #endif
+#endif
 #ifdef VERTEX_UVS_B
+#ifdef VERTEX_UVS_B_COMPRESSED
+    @location(3) compressed_uv_b: vec2<f32>,
+#else
     @location(3) uv_b: vec2<f32>,
+#endif
 #endif
 #ifdef VERTEX_TANGENTS
 #ifdef VERTEX_TANGENTS_COMPRESSED
@@ -88,10 +96,18 @@ fn decompress_vertex(vertex_in: Vertex) -> UncompressedVertex {
 #endif
 #endif
 #ifdef VERTEX_UVS_A
+#ifdef VERTEX_UVS_A_COMPRESSED
+    uncompressed_vertex.uv = bevy_pbr::mesh_functions::decompress_vertex_uv(vertex_in.instance_index, vertex_in.compressed_uv);
+#else
     uncompressed_vertex.uv = vertex_in.uv;
 #endif
+#endif
 #ifdef VERTEX_UVS_B
+#ifdef VERTEX_UVS_B_COMPRESSED
+    uncompressed_vertex.uv_b = bevy_pbr::mesh_functions::decompress_vertex_uv_b(vertex_in.instance_index, vertex_in.compressed_uv_b);
+#else
     uncompressed_vertex.uv_b = vertex_in.uv_b;
+#endif
 #endif
 #ifdef VERTEX_TANGENTS
 #ifdef VERTEX_TANGENTS_COMPRESSED

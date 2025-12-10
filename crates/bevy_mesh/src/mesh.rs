@@ -16,7 +16,7 @@ use bevy_asset::{Asset, RenderAssetUsages};
 #[cfg(feature = "morph")]
 use bevy_image::Image;
 use bevy_math::{
-    bounding::{Aabb3d, BoundingVolume},
+    bounding::{Aabb2d, Aabb3d, BoundingVolume},
     primitives::Triangle3d,
     *,
 };
@@ -161,11 +161,9 @@ pub struct Mesh {
     /// If the corresponding flag is enabled:
     /// - Position will be Snorm16x4 relative to the mesh's AABB. The w component is unused.
     /// - Normal and tangent will be Unorm16x2 using octahedral encoding.
-    /// - UV0 and UV1 will be Unorm16x2 or Float16x2.
+    /// - UV0 and UV1 will be Unorm16x2. UVs are remapped based on their min/max values so them can go beyond [0, 1], though a larger range will reduce precision.
     /// - Joint weight will be Unorm16x4.
     /// - Color will be Float16x4 or Unorm8x4.
-    ///
-    /// For UVs compression, it's recommended to use Unorm16x2 for better precision if you don't need texture coordinates that go beyond the range of [0, 1]. The Float16x2 format is only suitable for tiling small textures otherwise it may have precision issues.
     pub attribute_compression: MeshAttributeCompressionFlags,
 }
 
@@ -175,20 +173,14 @@ bitflags::bitflags! {
     #[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
     #[reflect(opaque)]
     #[reflect(Hash, Clone, PartialEq, Debug)]
-    pub struct MeshAttributeCompressionFlags: u16 {
+    pub struct MeshAttributeCompressionFlags: u8 {
         const COMPRESS_NONE = 0;
         const COMPRESS_POSITION = 1 << 0;
         const COMPRESS_NORMAL = 1 << 1;
         const COMPRESS_TANGENT = 1 << 2;
-        const COMPRESS_JOINT_WEIGHT = 1 << 3;
-
-        const COMPRESS_UV0_RESERVED_BIT = Self::COMPRESS_UV0_MASK_BIT << Self::COMPRESS_UV0_SHIFT_BIT;
-        const COMPRESS_UV0_UNORM16 = 1 << Self::COMPRESS_UV0_SHIFT_BIT;
-        const COMPRESS_UV0_FLOAT16 = 2 << Self::COMPRESS_UV0_SHIFT_BIT;
-
-        const COMPRESS_UV1_RESERVED_BIT = Self::COMPRESS_UV1_MASK_BIT << Self::COMPRESS_UV1_SHIFT_BIT;
-        const COMPRESS_UV1_UNORM16 = 1 << Self::COMPRESS_UV1_SHIFT_BIT;
-        const COMPRESS_UV1_FLOAT16 = 2 << Self::COMPRESS_UV1_SHIFT_BIT;
+        const COMPRESS_UV0 = 1 << 3;
+        const COMPRESS_UV1 = 1 << 4;
+        const COMPRESS_JOINT_WEIGHT = 1 << 5;
 
         const COMPRESS_COLOR_RESERVED_BIT = Self::COMPRESS_COLOR_MASK_BIT << Self::COMPRESS_COLOR_SHIFT_BIT;
         const COMPRESS_COLOR_UNORM8 = 1 << Self::COMPRESS_COLOR_SHIFT_BIT;
@@ -196,17 +188,9 @@ bitflags::bitflags! {
     }
 }
 impl MeshAttributeCompressionFlags {
-    const COMPRESS_UV0_MASK_BIT: u16 = 0b11;
-    const COMPRESS_UV0_SHIFT_BIT: u16 =
-        Self::COMPRESS_JOINT_WEIGHT.bits().trailing_zeros() as u16 + 1;
-
-    const COMPRESS_UV1_MASK_BIT: u16 = 0b11;
-    const COMPRESS_UV1_SHIFT_BIT: u16 =
-        Self::COMPRESS_UV0_MASK_BIT.count_ones() as u16 + Self::COMPRESS_UV0_SHIFT_BIT;
-
-    const COMPRESS_COLOR_MASK_BIT: u16 = 0b11;
-    const COMPRESS_COLOR_SHIFT_BIT: u16 =
-        Self::COMPRESS_UV1_MASK_BIT.count_ones() as u16 + Self::COMPRESS_UV1_SHIFT_BIT;
+    const COMPRESS_COLOR_MASK_BIT: u8 = 0b11;
+    const COMPRESS_COLOR_SHIFT_BIT: u8 =
+        Self::COMPRESS_JOINT_WEIGHT.bits().trailing_zeros() as u8 + 1;
 }
 
 impl Default for MeshAttributeCompressionFlags {
@@ -543,15 +527,7 @@ impl Mesh {
                 attributes,
             },
             attribute_ids,
-            is_position_compressed: self
-                .attribute_compression
-                .contains(MeshAttributeCompressionFlags::COMPRESS_POSITION),
-            is_normal_compressed: self
-                .attribute_compression
-                .contains(MeshAttributeCompressionFlags::COMPRESS_NORMAL),
-            is_tangent_compressed: self
-                .attribute_compression
-                .contains(MeshAttributeCompressionFlags::COMPRESS_TANGENT),
+            attribute_compression: self.attribute_compression,
         };
         mesh_vertex_buffer_layouts.insert(layout)
     }
@@ -602,6 +578,28 @@ impl Mesh {
         }
     }
 
+    /// Compute the UV0 or UV1 range.
+    ///
+    /// Returns `None` if `attr` isn't [`Mesh::ATTRIBUTE_UV_0`] or [`Mesh::ATTRIBUTE_UV_1`],
+    /// or if `self` doesn't have uv0 or uv1 of type [`VertexAttributeValues::Float32x2`].
+    pub fn compute_uv_range(&self, attr: MeshVertexAttribute) -> Option<Aabb2d> {
+        if attr != Self::ATTRIBUTE_UV_0 && attr != Self::ATTRIBUTE_UV_1 {
+            return None;
+        }
+        let uvs = self.attribute(attr)?;
+        match uvs {
+            VertexAttributeValues::Float32x2(val) => {
+                let mut iter = val.iter().map(|a| Vec2::from_array(*a));
+                let first = iter.next()?;
+                let (min, max) = iter.fold((first, first), |(prev_min, prev_max), point| {
+                    (point.min(prev_min), point.max(prev_max))
+                });
+                Some(Aabb2d { min, max })
+            }
+            _ => None,
+        }
+    }
+
     /// Returns the compressed vertex format for the given attribute ID, or None if the attribute is not compressed.
     pub fn get_compressed_vertex_format(
         &self,
@@ -625,40 +623,16 @@ impl Mesh {
             id if id == Self::ATTRIBUTE_UV_0.id
                 && self
                     .attribute_compression
-                    .intersects(MeshAttributeCompressionFlags::COMPRESS_UV0_RESERVED_BIT) =>
+                    .contains(MeshAttributeCompressionFlags::COMPRESS_UV0) =>
             {
-                if self
-                    .attribute_compression
-                    .contains(MeshAttributeCompressionFlags::COMPRESS_UV0_UNORM16)
-                {
-                    Some(VertexFormat::Unorm16x2)
-                } else if self
-                    .attribute_compression
-                    .contains(MeshAttributeCompressionFlags::COMPRESS_UV0_FLOAT16)
-                {
-                    Some(VertexFormat::Float16x2)
-                } else {
-                    unreachable!()
-                }
+                Some(VertexFormat::Unorm16x2)
             }
             id if id == Self::ATTRIBUTE_UV_1.id
                 && self
                     .attribute_compression
-                    .intersects(MeshAttributeCompressionFlags::COMPRESS_UV1_RESERVED_BIT) =>
+                    .contains(MeshAttributeCompressionFlags::COMPRESS_UV1) =>
             {
-                if self
-                    .attribute_compression
-                    .contains(MeshAttributeCompressionFlags::COMPRESS_UV1_UNORM16)
-                {
-                    Some(VertexFormat::Unorm16x2)
-                } else if self
-                    .attribute_compression
-                    .contains(MeshAttributeCompressionFlags::COMPRESS_UV1_FLOAT16)
-                {
-                    Some(VertexFormat::Float16x2)
-                } else {
-                    unreachable!()
-                }
+                Some(VertexFormat::Unorm16x2)
             }
             id if id == Self::ATTRIBUTE_TANGENT.id
                 && self
@@ -703,29 +677,58 @@ impl Mesh {
         attribute_id: MeshVertexAttributeId,
         attribute_values: &VertexAttributeValues,
     ) -> Option<VertexAttributeValues> {
+        fn create_compressed_positions(
+            mesh: &Mesh,
+            attribute_values: &VertexAttributeValues,
+        ) -> Option<VertexAttributeValues> {
+            // Create Snorm16x4 position
+            let VertexAttributeValues::Float32x3(uncompressed_values) = attribute_values else {
+                unreachable!()
+            };
+            let aabb = mesh.compute_aabb().unwrap();
+            let mut values = Vec::<[i16; 4]>::with_capacity(uncompressed_values.len());
+            for val in uncompressed_values {
+                let mut val = Vec3A::from_array(*val);
+                val = (val - aabb.center()) / aabb.half_size();
+                values.push([
+                    (val[0] * i16::MAX as f32).round() as i16,
+                    (val[1] * i16::MAX as f32).round() as i16,
+                    (val[2] * i16::MAX as f32).round() as i16,
+                    0,
+                ]);
+            }
+            Some(VertexAttributeValues::Snorm16x4(values))
+        }
+
+        fn create_compressed_uvs(
+            mesh: &Mesh,
+            attr: MeshVertexAttribute,
+            attribute_values: &VertexAttributeValues,
+        ) -> Option<VertexAttributeValues> {
+            // Create Unorm16x2 UVs
+            let VertexAttributeValues::Float32x2(uncompressed_values) = attribute_values else {
+                unreachable!()
+            };
+            let range = mesh.compute_uv_range(attr).unwrap();
+            let mut values = Vec::<[u16; 2]>::with_capacity(uncompressed_values.len());
+            for val in uncompressed_values {
+                let mut val = Vec2::from_array(*val);
+                val = (val - range.min) / (range.max - range.min);
+                values.push([
+                    (val[0] * u16::MAX as f32).round() as u16,
+                    (val[1] * u16::MAX as f32).round() as u16,
+                ]);
+            }
+            Some(VertexAttributeValues::Unorm16x2(values))
+        }
+
         match attribute_id {
             id if id == Self::ATTRIBUTE_POSITION.id
                 && self
                     .attribute_compression
                     .contains(MeshAttributeCompressionFlags::COMPRESS_POSITION) =>
             {
-                // Create Snorm16x4 position
-                let VertexAttributeValues::Float32x3(uncompressed_values) = attribute_values else {
-                    unreachable!()
-                };
-                let aabb = self.compute_aabb().unwrap();
-                let mut values = Vec::<[i16; 4]>::with_capacity(uncompressed_values.len());
-                for val in uncompressed_values {
-                    let mut val = Vec3A::from_array(*val);
-                    val = (val - aabb.center()) / aabb.half_size();
-                    values.push([
-                        (val[0] * i16::MAX as f32).round() as i16,
-                        (val[1] * i16::MAX as f32).round() as i16,
-                        (val[2] * i16::MAX as f32).round() as i16,
-                        0,
-                    ]);
-                }
-                Some(VertexAttributeValues::Snorm16x4(values))
+                create_compressed_positions(self, attribute_values)
             }
             id if id == Self::ATTRIBUTE_NORMAL.id
                 && self
@@ -737,40 +740,16 @@ impl Mesh {
             id if id == Self::ATTRIBUTE_UV_0.id
                 && self
                     .attribute_compression
-                    .intersects(MeshAttributeCompressionFlags::COMPRESS_UV0_RESERVED_BIT) =>
+                    .contains(MeshAttributeCompressionFlags::COMPRESS_UV0) =>
             {
-                if self
-                    .attribute_compression
-                    .contains(MeshAttributeCompressionFlags::COMPRESS_UV0_UNORM16)
-                {
-                    Some(attribute_values.create_unorm16_values())
-                } else if self
-                    .attribute_compression
-                    .contains(MeshAttributeCompressionFlags::COMPRESS_UV0_FLOAT16)
-                {
-                    Some(attribute_values.create_f16_values())
-                } else {
-                    unreachable!()
-                }
+                create_compressed_uvs(self, Mesh::ATTRIBUTE_UV_0, attribute_values)
             }
             id if id == Self::ATTRIBUTE_UV_1.id
                 && self
                     .attribute_compression
-                    .intersects(MeshAttributeCompressionFlags::COMPRESS_UV1_RESERVED_BIT) =>
+                    .contains(MeshAttributeCompressionFlags::COMPRESS_UV1) =>
             {
-                if self
-                    .attribute_compression
-                    .contains(MeshAttributeCompressionFlags::COMPRESS_UV1_UNORM16)
-                {
-                    Some(attribute_values.create_unorm16_values())
-                } else if self
-                    .attribute_compression
-                    .contains(MeshAttributeCompressionFlags::COMPRESS_UV1_FLOAT16)
-                {
-                    Some(attribute_values.create_f16_values())
-                } else {
-                    unreachable!()
-                }
+                create_compressed_uvs(self, Mesh::ATTRIBUTE_UV_1, attribute_values)
             }
             id if id == Self::ATTRIBUTE_TANGENT.id
                 && self

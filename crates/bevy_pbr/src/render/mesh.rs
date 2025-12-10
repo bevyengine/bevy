@@ -26,10 +26,13 @@ use bevy_light::{
     EnvironmentMapLight, IrradianceVolume, NotShadowCaster, NotShadowReceiver,
     ShadowFilteringMethod, TransmittedShadowReceiver,
 };
-use bevy_math::{bounding::BoundingVolume, Affine3, Rect, UVec2, Vec3, Vec4};
+use bevy_math::{
+    bounding::{Aabb2d, BoundingVolume},
+    Affine3, Rect, UVec2, Vec3, Vec4,
+};
 use bevy_mesh::{
-    skinning::SkinnedMesh, BaseMeshPipelineKey, Mesh, Mesh3d, MeshTag, MeshVertexBufferLayoutRef,
-    VertexAttributeDescriptor,
+    skinning::SkinnedMesh, BaseMeshPipelineKey, Mesh, Mesh3d, MeshAttributeCompressionFlags,
+    MeshTag, MeshVertexBufferLayoutRef, VertexAttributeDescriptor,
 };
 use bevy_platform::collections::{hash_map::Entry, HashMap};
 use bevy_render::{
@@ -489,6 +492,9 @@ pub struct MeshUniform {
     /// AABB half extents for decompressing vertex positions.
     pub aabb_half_extents: Vec3,
     pub pad1: u32,
+    /// UVs range for decompressing UVs coordinates.
+    pub uv0_range: Vec4,
+    pub uv1_range: Vec4,
 }
 
 /// Information that has to be transferred from CPU to GPU in order to produce
@@ -559,7 +565,9 @@ pub struct MeshInputUniform {
     pub pad1: u32,
     pub aabb_half_extents: Vec3,
     pub pad2: u32,
-    pub pad3: [u32; 4],
+    /// UVs range for decompressing UVs coordinates.
+    pub uv0_range: Vec4,
+    pub uv1_range: Vec4,
 }
 
 /// Information about each mesh instance needed to cull it on GPU.
@@ -601,7 +609,9 @@ impl MeshUniform {
             None => u16::MAX,
             Some((slot_index, _)) => slot_index.into(),
         };
-        let aabb = mesh.map(|m| m.aabb).unwrap_or_default();
+        let (aabb, uv0_range, uv1_range) = mesh
+            .map(|m| (m.aabb, m.uv0_range, m.uv1_range))
+            .unwrap_or_default();
 
         Self {
             world_from_local: mesh_transforms.world_from_local.to_transpose(),
@@ -615,12 +625,20 @@ impl MeshUniform {
             material_and_lightmap_bind_group_slot: u32::from(material_bind_group_slot)
                 | ((lightmap_bind_group_slot as u32) << 16),
             tag: tag.unwrap_or(0),
-            aabb_center: aabb.map(|a| a.center().into()).unwrap_or_default(),
-            aabb_half_extents: aabb.map(|a| a.half_size().into()).unwrap_or_default(),
+            aabb_center: aabb.map(|a| a.center().into()).unwrap_or(Vec3::ZERO),
+            aabb_half_extents: aabb.map(|a| a.half_size().into()).unwrap_or(Vec3::ZERO),
+            uv0_range: uv_range_to_vec4(uv0_range),
+            uv1_range: uv_range_to_vec4(uv1_range),
             pad: 0,
             pad1: 0,
         }
     }
+}
+
+fn uv_range_to_vec4(range: Option<Aabb2d>) -> Vec4 {
+    range
+        .map(|r| Vec4::new(r.min.x, r.min.y, r.max.x, r.max.y))
+        .unwrap_or(Vec4::new(0.0, 0.0, 1.0, 1.0))
 }
 
 // NOTE: These must match the bit flags in bevy_pbr/src/render/mesh_types.wgsl!
@@ -1182,6 +1200,11 @@ impl RenderMeshInstanceGpuBuilder {
             .map(|lightmap| lightmap.slab_index);
         self.shared.lightmap_slab_index = lightmap_slab_index;
 
+        let (aabb, uv0_range, uv1_range) = meshes
+            .get(self.shared.mesh_asset_id)
+            .map(|m| (m.aabb, m.uv0_range, m.uv1_range))
+            .unwrap_or_default();
+
         // Create the mesh input uniform.
         let mut mesh_input_uniform = MeshInputUniform {
             world_from_local: self.world_from_local.to_transpose(),
@@ -1201,22 +1224,15 @@ impl RenderMeshInstanceGpuBuilder {
                 self.shared.material_bindings_index.slot,
             ) | ((lightmap_slot as u32) << 16),
             tag: self.shared.tag,
-            aabb_center: meshes
-                .get(self.shared.mesh_asset_id)
-                .map(|a| a.aabb.map(|aabb| aabb.center().into()).unwrap_or_default())
-                .unwrap_or_default(),
-            aabb_half_extents: meshes
-                .get(self.shared.mesh_asset_id)
-                .map(|a| {
-                    a.aabb
-                        .map(|aabb| aabb.half_size().into())
-                        .unwrap_or_default()
-                })
-                .unwrap_or_default(),
+            aabb_center: aabb.map(|aabb| aabb.center().into()).unwrap_or(Vec3::ZERO),
+            aabb_half_extents: aabb
+                .map(|aabb| aabb.half_size().into())
+                .unwrap_or(Vec3::ZERO),
+            uv0_range: uv_range_to_vec4(uv0_range),
+            uv1_range: uv_range_to_vec4(uv1_range),
             pad: 0,
             pad1: 0,
             pad2: 0,
-            pad3: [0; 4],
         };
 
         // Did the last frame contain this entity as well?
@@ -2340,7 +2356,11 @@ impl SpecializedMeshPipeline for MeshPipeline {
 
         if layout.0.contains(Mesh::ATTRIBUTE_POSITION) {
             shader_defs.push("VERTEX_POSITIONS".into());
-            if layout.0.is_vertex_position_compressed() {
+            if layout
+                .0
+                .get_attribute_compression()
+                .contains(MeshAttributeCompressionFlags::COMPRESS_POSITION)
+            {
                 shader_defs.push("VERTEX_POSITIONS_COMPRESSED".into());
             }
             vertex_attributes.push(Mesh::ATTRIBUTE_POSITION.at_shader_location(0));
@@ -2348,7 +2368,11 @@ impl SpecializedMeshPipeline for MeshPipeline {
 
         if layout.0.contains(Mesh::ATTRIBUTE_NORMAL) {
             shader_defs.push("VERTEX_NORMALS".into());
-            if layout.0.is_vertex_normal_compressed() {
+            if layout
+                .0
+                .get_attribute_compression()
+                .contains(MeshAttributeCompressionFlags::COMPRESS_NORMAL)
+            {
                 shader_defs.push("VERTEX_NORMALS_COMPRESSED".into());
             }
             vertex_attributes.push(Mesh::ATTRIBUTE_NORMAL.at_shader_location(1));
@@ -2357,18 +2381,36 @@ impl SpecializedMeshPipeline for MeshPipeline {
         if layout.0.contains(Mesh::ATTRIBUTE_UV_0) {
             shader_defs.push("VERTEX_UVS".into());
             shader_defs.push("VERTEX_UVS_A".into());
+            if layout
+                .0
+                .get_attribute_compression()
+                .contains(MeshAttributeCompressionFlags::COMPRESS_UV0)
+            {
+                shader_defs.push("VERTEX_UVS_A_COMPRESSED".into());
+            }
             vertex_attributes.push(Mesh::ATTRIBUTE_UV_0.at_shader_location(2));
         }
 
         if layout.0.contains(Mesh::ATTRIBUTE_UV_1) {
             shader_defs.push("VERTEX_UVS".into());
             shader_defs.push("VERTEX_UVS_B".into());
+            if layout
+                .0
+                .get_attribute_compression()
+                .contains(MeshAttributeCompressionFlags::COMPRESS_UV1)
+            {
+                shader_defs.push("VERTEX_UVS_B_COMPRESSED".into());
+            }
             vertex_attributes.push(Mesh::ATTRIBUTE_UV_1.at_shader_location(3));
         }
 
         if layout.0.contains(Mesh::ATTRIBUTE_TANGENT) {
             shader_defs.push("VERTEX_TANGENTS".into());
-            if layout.0.is_vertex_tangent_compressed() {
+            if layout
+                .0
+                .get_attribute_compression()
+                .contains(MeshAttributeCompressionFlags::COMPRESS_TANGENT)
+            {
                 shader_defs.push("VERTEX_TANGENTS_COMPRESSED".into());
             }
             vertex_attributes.push(Mesh::ATTRIBUTE_TANGENT.at_shader_location(4));

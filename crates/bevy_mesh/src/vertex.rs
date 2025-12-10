@@ -12,6 +12,8 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use wgpu_types::{BufferAddress, VertexAttribute, VertexFormat, VertexStepMode};
 
+use crate::MeshAttributeCompressionFlags;
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct MeshVertexAttribute {
     /// The friendly name of the vertex attribute
@@ -84,19 +86,19 @@ impl From<MeshVertexAttribute> for MeshVertexAttributeId {
 #[derive(Debug, Clone, Hash, Eq, PartialEq)]
 pub struct MeshVertexBufferLayout {
     pub(crate) attribute_ids: Vec<MeshVertexAttributeId>,
-    pub(crate) is_position_compressed: bool,
-    pub(crate) is_normal_compressed: bool,
-    pub(crate) is_tangent_compressed: bool,
+    pub(crate) attribute_compression: MeshAttributeCompressionFlags,
     pub(crate) layout: VertexBufferLayout,
 }
 
 impl MeshVertexBufferLayout {
-    pub fn new(attribute_ids: Vec<MeshVertexAttributeId>, layout: VertexBufferLayout) -> Self {
+    pub fn new(
+        attribute_ids: Vec<MeshVertexAttributeId>,
+        layout: VertexBufferLayout,
+        attribute_compression: MeshAttributeCompressionFlags,
+    ) -> Self {
         Self {
             attribute_ids,
-            is_position_compressed: false,
-            is_normal_compressed: false,
-            is_tangent_compressed: false,
+            attribute_compression,
             layout,
         }
     }
@@ -116,16 +118,8 @@ impl MeshVertexBufferLayout {
         &self.layout
     }
 
-    pub fn is_vertex_position_compressed(&self) -> bool {
-        self.is_position_compressed
-    }
-
-    pub fn is_vertex_normal_compressed(&self) -> bool {
-        self.is_normal_compressed
-    }
-
-    pub fn is_vertex_tangent_compressed(&self) -> bool {
-        self.is_tangent_compressed
+    pub fn get_attribute_compression(&self) -> MeshAttributeCompressionFlags {
+        self.attribute_compression
     }
 
     pub fn get_layout(

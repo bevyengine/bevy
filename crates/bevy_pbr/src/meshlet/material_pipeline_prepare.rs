@@ -471,5 +471,6 @@ fn fake_vertex_buffer_layout(layouts: &mut MeshVertexBufferLayouts) -> MeshVerte
                 },
             ],
         },
+        MeshAttributeCompressionFlags::COMPRESS_NONE,
     ))
 }
