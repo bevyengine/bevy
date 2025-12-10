@@ -1,7 +1,7 @@
 use crate::{
     io::{
         AssetReaderError, AssetWriterError, MissingAssetWriterError,
-        MissingProcessedAssetReaderError, MissingProcessedAssetWriterError, SliceReader, Writer,
+        MissingProcessedAssetReaderError, MissingProcessedAssetWriterError, Reader, Writer,
     },
     meta::{AssetAction, AssetMeta, AssetMetaDyn, ProcessDependencyInfo, ProcessedInfo, Settings},
     processor::AssetProcessor,
@@ -280,20 +280,20 @@ pub struct ProcessContext<'a> {
     /// [`AssetServer`]: crate::server::AssetServer
     processor: &'a AssetProcessor,
     path: &'a AssetPath<'static>,
-    asset_bytes: &'a [u8],
+    reader: Box<dyn Reader + 'a>,
 }
 
 impl<'a> ProcessContext<'a> {
     pub(crate) fn new(
         processor: &'a AssetProcessor,
         path: &'a AssetPath<'static>,
-        asset_bytes: &'a [u8],
+        reader: Box<dyn Reader + 'a>,
         new_processed_info: &'a mut ProcessedInfo,
     ) -> Self {
         Self {
             processor,
             path,
-            asset_bytes,
+            reader,
             new_processed_info,
         }
     }
@@ -309,9 +309,15 @@ impl<'a> ProcessContext<'a> {
         let server = &self.processor.server;
         let loader_name = core::any::type_name::<L>();
         let loader = server.get_asset_loader_with_type_name(loader_name).await?;
-        let mut reader = SliceReader::new(self.asset_bytes);
         let loaded_asset = server
-            .load_with_meta_loader_and_reader(self.path, &meta, &*loader, &mut reader, false, true)
+            .load_with_meta_loader_and_reader(
+                self.path,
+                &meta,
+                &*loader,
+                &mut self.reader,
+                false,
+                true,
+            )
             .await?;
         for (path, full_hash) in &loaded_asset.loader_dependencies {
             self.new_processed_info
@@ -330,9 +336,9 @@ impl<'a> ProcessContext<'a> {
         self.path
     }
 
-    /// The source bytes of the asset being processed.
+    /// The reader for the asset being processed.
     #[inline]
-    pub fn asset_bytes(&self) -> &[u8] {
-        self.asset_bytes
+    pub fn asset_reader(&mut self) -> &mut dyn Reader {
+        &mut self.reader
     }
 }
