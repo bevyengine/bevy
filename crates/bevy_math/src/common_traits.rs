@@ -2,9 +2,11 @@
 
 use crate::{ops, DVec2, DVec3, DVec4, Dir2, Dir3, Dir3A, Quat, Rot2, Vec2, Vec3, Vec3A, Vec4};
 use core::{
+    convert::Infallible,
     fmt::Debug,
     ops::{Add, Div, Mul, Neg, Sub},
 };
+use thiserror::Error;
 use variadics_please::all_tuples_enumerated;
 
 /// A type that supports the mathematical operations of a real vector space, irrespective of dimension.
@@ -396,7 +398,7 @@ impl NormedVectorSpace for f64 {
 /// ```text
 /// top curve = u.interpolate_stable(v, t)
 ///
-///              t0 => p   t1 => q    
+///              t0 => p   t1 => q
 ///   |-------------|---------|-------------|
 /// 0 => u         /           \          1 => v
 ///              /               \
@@ -537,6 +539,56 @@ all_tuples_enumerated!(
     11,
     T
 );
+
+/// Error produced when the values to be interpolated are not in the same units.
+#[derive(Clone, Debug, Error)]
+#[error("cannot interpolate between two values of different units")]
+pub struct MismatchedUnitsError;
+
+/// A trait that indicates that a value _may_ be interpolable via [`StableInterpolate`]. An
+/// interpolation may fail if the values have different units - for example, attempting to
+/// interpolate between [`Val::Px`] and [`Val::Percent`] will fail,
+/// even though they are the same Rust type.
+///
+/// Fallible interpolation can be used for animated transitions, which can be set up to fail
+/// gracefully if the the values cannot be interpolated. For example, the a transition could smoothly
+/// go from `Val::Px(10)` to `Val::Px(20)`, but if the user attempts to go from `Val::Px(10)` to
+/// `Val::Percent(10)`, the animation player can detect the failure and simply snap to the new
+/// value without interpolating.
+///
+/// An animation clip system can incorporate fallible interpolation to support a broad set of
+/// sequenced parameter values. This can include numeric types, which always interpolate,
+/// enum types, which may or may not interpolate depending on the units, and non-interpolable
+/// types, which always jump immediately to the new value without interpolation. This meaas, for
+/// example, that you can have an animation track whose value type is a boolean or a string.
+///
+/// Interpolation for simple number and coordinate types will always succeed, as will any type
+/// that implements [`StableInterpolate`]. Types which have different variants such as
+/// [`Val`] and [`Color`] will only fail if the units are different.
+/// Note that [`Color`] has its own, non-fallible mixing methods, but those entail
+/// automatically converting between different color spaces, and is both expensive and complex.
+/// [`TryStableInterpolate`] is more conservative, and doesn't automatically convert between
+/// color spaces. This produces a color interpolation that has more predictable performance.
+///
+/// [`Val::Px`]: https://docs.rs/bevy/latest/bevy/ui/enum.Val.html#variant.Px
+/// [`Val::Percent`]: https://docs.rs/bevy/latest/bevy/ui/enum.Val.html#variant.Percent
+/// [`Val`]: https://docs.rs/bevy/latest/bevy/ui/enum.Val.html
+/// [`Color`]: https://docs.rs/bevy/latest/bevy/color/enum.Color.html
+pub trait TryStableInterpolate: Clone {
+    /// Error produced when the value cannot be interpolated.
+    type Error;
+
+    /// Attempt to interpolate the value. This may fail if the two interpolation values have
+    /// different units, or if the type is not interpolable.
+    fn try_interpolate_stable(&self, other: &Self, t: f32) -> Result<Self, Self::Error>;
+}
+
+impl<T: StableInterpolate> TryStableInterpolate for T {
+    type Error = Infallible;
+    fn try_interpolate_stable(&self, other: &Self, t: f32) -> Result<Self, Self::Error> {
+        Ok(self.interpolate_stable(other, t))
+    }
+}
 
 /// A type that has tangents.
 pub trait HasTangent {
