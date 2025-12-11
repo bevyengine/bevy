@@ -61,7 +61,7 @@ fn initial_timestamp(device: &RenderDevice, queue: &RenderQueue) -> i64 {
 
     map_buffer.slice(..).map_async(MapMode::Read, |_| ());
     device
-        .poll(PollType::Wait)
+        .poll(PollType::wait_indefinitely())
         .expect("Failed to poll device for map async");
 
     let view = map_buffer.slice(..).get_mapped_range();

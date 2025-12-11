@@ -67,6 +67,8 @@ pub struct StateTransitionEvent<S: States> {
     pub exited: Option<S>,
     /// The state being entered.
     pub entered: Option<S>,
+    /// Allow running state transition events when `exited` and `entered` are the same
+    pub allow_same_state_transitions: bool,
 }
 
 /// Applies state transitions and runs transitions schedules in order.
@@ -135,6 +137,7 @@ pub(crate) fn internal_apply_state_transition<S: States>(
     mut commands: Commands,
     current_state: Option<ResMut<State<S>>>,
     new_state: Option<S>,
+    allow_same_state_transitions: bool,
 ) {
     match new_state {
         Some(entered) => {
@@ -153,6 +156,7 @@ pub(crate) fn internal_apply_state_transition<S: States>(
                     event.write(StateTransitionEvent {
                         exited: Some(exited.clone()),
                         entered: Some(entered.clone()),
+                        allow_same_state_transitions,
                     });
                 }
                 None => {
@@ -162,6 +166,7 @@ pub(crate) fn internal_apply_state_transition<S: States>(
                     event.write(StateTransitionEvent {
                         exited: None,
                         entered: Some(entered.clone()),
+                        allow_same_state_transitions,
                     });
                 }
             };
@@ -174,6 +179,7 @@ pub(crate) fn internal_apply_state_transition<S: States>(
                 event.write(StateTransitionEvent {
                     exited: Some(resource.get().clone()),
                     entered: None,
+                    allow_same_state_transitions,
                 });
             }
         }
@@ -217,7 +223,7 @@ pub(crate) fn run_enter<S: States>(
     let Some(transition) = transition.0 else {
         return;
     };
-    if transition.entered == transition.exited {
+    if transition.entered == transition.exited && !transition.allow_same_state_transitions {
         return;
     }
     let Some(entered) = transition.entered else {
@@ -234,7 +240,7 @@ pub(crate) fn run_exit<S: States>(
     let Some(transition) = transition.0 else {
         return;
     };
-    if transition.entered == transition.exited {
+    if transition.entered == transition.exited && !transition.allow_same_state_transitions {
         return;
     }
     let Some(exited) = transition.exited else {
