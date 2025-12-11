@@ -1575,7 +1575,6 @@ mod tests {
         );
     }
 
-    
     #[test]
     fn dir3a_slerp() {
         assert_relative_eq!(
@@ -1689,7 +1688,6 @@ mod tests {
         );
         assert!(dir_b.is_normalized(), "Renormalisation did not work.");
     }
-
 
     #[test]
     fn dir4_creation() {
