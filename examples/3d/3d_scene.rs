@@ -41,3 +41,19 @@ fn setup(
         Transform::from_xyz(-2.5, 4.5, 9.0).looking_at(Vec3::ZERO, Vec3::Y),
     ));
 }
+
+use std::ops::Deref;
+fn mesh_transform<'a, 'b, S: Deref<Target = QueryState<(&'a Transform, &'b Mesh3d), ()>>>(
+    query: Query<(&'a Transform, &'b Mesh3d), (), S>,
+) {
+}
+
+trait QueryStateTrait {
+    type Data: QueryData;
+    type Filter: QueryFilter;
+}
+
+type QueryAlias<'w, 's, S> =
+    Query<'w, 's, <S as QueryStateTrait>::Data, <S as QueryStateTrait>::Filter, S>;
+
+fn generic_in_query_state<S: QueryStateTrait>(query: QueryAlias<S>) {}

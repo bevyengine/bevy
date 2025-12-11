@@ -46,15 +46,18 @@ impl ConvertCoordinates for [f32; 4] {
 /// Note that some glTF files may not follow the glTF standard.
 ///
 /// If your glTF scene is +Z forward and you want it converted to match Bevy's
-/// `Transform::forward`, enable the `scenes` option. If you also want `Mesh`
-/// assets to be converted, enable the `meshes` option.
+/// `Transform::forward`, enable the `rotate_scene_entity` option. If you also want `Mesh`
+/// assets to be converted, enable the `rotate_meshes` option.
 ///
 /// Cameras and lights in glTF files are an exception - they already use Bevy's
 /// coordinate system. This means cameras and lights will match
 /// `Transform::forward` even if conversion is disabled.
 #[derive(Copy, Clone, Default, Debug, Serialize, Deserialize)]
 pub struct GltfConvertCoordinates {
-    /// If true, convert scenes via the transform of the scene entity.
+    /// If true, convert scenes by rotating the top-level transform of the scene entity.
+    ///
+    /// This will ensure that [`Transform::forward`] of the "root" entity (the one with [`SceneInstance`](bevy_scene::SceneInstance))
+    /// aligns with the "forward" of the glTF scene.
     ///
     /// The glTF loader creates an entity for each glTF scene. Entities are
     /// then created for each node within the glTF scene. Nodes without a
@@ -63,14 +66,14 @@ pub struct GltfConvertCoordinates {
     /// This option only changes the transform of the scene entity. It does not
     /// directly change the transforms of node entities - it only changes them
     /// indirectly through transform inheritance.
-    pub scenes: bool,
+    pub rotate_scene_entity: bool,
 
     /// If true, convert mesh assets. This includes skinned mesh bind poses.
     ///
     /// This option only changes mesh assets and the transforms of entities that
     /// instance meshes. It does not change the transforms of entities that
     /// correspond to glTF nodes.
-    pub meshes: bool,
+    pub rotate_meshes: bool,
 }
 
 impl GltfConvertCoordinates {
@@ -82,7 +85,7 @@ impl GltfConvertCoordinates {
     }
 
     pub(crate) fn scene_conversion_transform(&self) -> Transform {
-        if self.scenes {
+        if self.rotate_scene_entity {
             Self::CONVERSION_TRANSFORM
         } else {
             Transform::IDENTITY
@@ -90,7 +93,7 @@ impl GltfConvertCoordinates {
     }
 
     pub(crate) fn mesh_conversion_transform(&self) -> Transform {
-        if self.meshes {
+        if self.rotate_meshes {
             Self::CONVERSION_TRANSFORM
         } else {
             Transform::IDENTITY
@@ -104,7 +107,7 @@ impl GltfConvertCoordinates {
     }
 
     pub(crate) fn mesh_conversion_mat4(&self) -> Mat4 {
-        if self.meshes {
+        if self.rotate_meshes {
             Self::conversion_mat4()
         } else {
             Mat4::IDENTITY

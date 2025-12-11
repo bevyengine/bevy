@@ -99,8 +99,8 @@ fn main() {
             })
             .set(GltfPlugin {
                 convert_coordinates: GltfConvertCoordinates {
-                    scenes: args.convert_scene_coordinates == Some(true),
-                    meshes: args.convert_mesh_coordinates == Some(true),
+                    rotate_scene_entity: args.convert_scene_coordinates == Some(true),
+                    rotate_meshes: args.convert_mesh_coordinates == Some(true),
                 },
                 ..default()
             }),

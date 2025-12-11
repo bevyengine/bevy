@@ -663,7 +663,7 @@ impl GltfLoader {
                         accessor,
                         &buffer_data,
                         &loader.custom_vertex_attributes,
-                        convert_coordinates.meshes,
+                        convert_coordinates.rotate_meshes,
                     ) {
                         Ok((attribute, values)) => mesh.insert_attribute(attribute, values),
                         Err(err) => warn!("{}", err),
@@ -690,7 +690,7 @@ impl GltfLoader {
                         };
                         let morph_target_image = MorphTargetImage::new(
                             morph_target_reader.map(|i| PrimitiveMorphAttributesIter {
-                                convert_coordinates: convert_coordinates.meshes,
+                                convert_coordinates: convert_coordinates.rotate_meshes,
                                 positions: i.0,
                                 normals: i.1,
                                 tangents: i.2,
@@ -1529,7 +1529,7 @@ fn load_node(
                 let mut bounds_min = Vec3::from_slice(&bounds.min);
                 let mut bounds_max = Vec3::from_slice(&bounds.max);
 
-                if convert_coordinates.meshes {
+                if convert_coordinates.rotate_meshes {
                     let converted_min = bounds_min.convert_coordinates();
                     let converted_max = bounds_max.convert_coordinates();
 
