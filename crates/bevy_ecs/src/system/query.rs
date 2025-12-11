@@ -5,9 +5,10 @@ use crate::{
     change_detection::Tick,
     entity::{Entity, EntityEquivalent, EntitySet, UniqueEntityArray},
     query::{
-        DebugCheckedUnwrap, NopWorldQuery, QueryCombinationIter, QueryData, QueryEntityError,
-        QueryFilter, QueryIter, QueryManyIter, QueryManyUniqueIter, QueryParIter, QueryParManyIter,
-        QueryParManyUniqueIter, QuerySingleError, QueryState, ROQueryItem, ReadOnlyQueryData,
+        BorrowedQuery, DebugCheckedUnwrap, NopWorldQuery, OwnedQuery, QueryCombinationIter,
+        QueryData, QueryEntityError, QueryFilter, QueryIter, QueryManyIter, QueryManyUniqueIter,
+        QueryParIter, QueryParManyIter, QueryParManyUniqueIter, QuerySingleError, QueryState,
+        QueryType, ROQueryItem, ReadOnlyQueryData,
     },
     world::unsafe_world_cell::UnsafeWorldCell,
 };
@@ -33,9 +34,9 @@ use core::{
 ///   An optional set of conditions that determine whether query items should be kept or discarded.
 ///   This defaults to [`unit`], which means no additional filters will be applied.
 ///   Must implement the [`QueryFilter`] trait.
-/// - **`S` (query state)**:
+/// - **`T` (query type)**:
 ///   An optional type that indicates how the internal state of the query is stored.
-///   For the query to be a system parameter, this must be the default of `&'state QueryState<D, F>`.
+///   For the query to be a system parameter, this must be the default of [`BorrowedQuery`].
 ///   That stores the state along with the system, and borrows from it when running.
 ///   For cases where a query needs to contain an owned state, use the [`QueryLens`] type alias.
 ///
@@ -488,23 +489,15 @@ use core::{
 /// ```
 ///
 /// [autovectorization]: https://en.wikipedia.org/wiki/Automatic_vectorization
-pub struct Query<
-    'world,
-    // Note that `'state` is only used in the default type for `S`.
-    // That's necessary to make `Query<D, F>` be a valid `SystemParam`.
-    'state,
-    D: QueryData,
-    F: QueryFilter = (),
-    S: Deref<Target = QueryState<D, F>> = &'state QueryState<D, F>,
-> {
+pub struct Query<'world, 'state, D: QueryData, F: QueryFilter = (), T: QueryType = BorrowedQuery> {
     // SAFETY: Must have access to the components registered in `state`.
     world: UnsafeWorldCell<'world>,
-    state: S,
+    state: T::QueryState<'state, D, F>,
     last_run: Tick,
     this_run: Tick,
-    // Note that `&'state QueryState<D, F>` won't work because
-    // `QueryLens` uses `'static`, but `D` and `F` might not be `'static`.
-    marker: PhantomData<(&'state (), fn() -> QueryState<D, F>)>,
+    // This `PhantomData` creates implied bounds that `D: 'state` and `F: 'state`,
+    // making `T::QueryState<'state, D, F>` a valid type without needing explicit bounds
+    marker: PhantomData<&'state QueryState<D, F>>,
 }
 
 impl<D: ReadOnlyQueryData, F: QueryFilter> Clone for Query<'_, '_, D, F> {
@@ -527,9 +520,7 @@ impl<D: QueryData, F: QueryFilter> core::fmt::Debug for Query<'_, '_, D, F> {
     }
 }
 
-impl<'w, 's, D: QueryData, F: QueryFilter, S: Deref<Target = QueryState<D, F>>>
-    Query<'w, 's, D, F, S>
-{
+impl<'w, 's, D: QueryData, F: QueryFilter, T: QueryType> Query<'w, 's, D, F, T> {
     /// Creates a new query.
     ///
     /// # Safety
@@ -540,7 +531,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, S: Deref<Target = QueryState<D, F>>>
     #[inline]
     pub(crate) unsafe fn new(
         world: UnsafeWorldCell<'w>,
-        state: S,
+        state: T::QueryState<'s, D, F>,
         last_run: Tick,
         this_run: Tick,
     ) -> Self {
@@ -628,7 +619,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, S: Deref<Target = QueryState<D, F>>>
         // SAFETY:
         // - This is memory safe because the caller ensures that there are no conflicting references.
         // - The world matches because it was the same one used to construct self.
-        unsafe { Query::new(self.world, &self.state, self.last_run, self.this_run) }
+        unsafe { Query::new(self.world, &*self.state, self.last_run, self.this_run) }
     }
 
     /// Returns an [`Iterator`] over the read-only query items.
@@ -2542,9 +2533,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> IntoIterator for Query<'w, 's, D, F> 
     }
 }
 
-impl<'w, D: QueryData, F: QueryFilter, S: Deref<Target = QueryState<D, F>>> IntoIterator
-    for &'w Query<'_, '_, D, F, S>
-{
+impl<'w, D: QueryData, F: QueryFilter, T: QueryType> IntoIterator for &'w Query<'_, '_, D, F, T> {
     type Item = ROQueryItem<'w, 'w, D>;
     type IntoIter = QueryIter<'w, 'w, D::ReadOnly, F>;
 
@@ -2553,8 +2542,8 @@ impl<'w, D: QueryData, F: QueryFilter, S: Deref<Target = QueryState<D, F>>> Into
     }
 }
 
-impl<'w, D: QueryData, F: QueryFilter, S: Deref<Target = QueryState<D, F>>> IntoIterator
-    for &'w mut Query<'_, '_, D, F, S>
+impl<'w, D: QueryData, F: QueryFilter, T: QueryType> IntoIterator
+    for &'w mut Query<'_, '_, D, F, T>
 {
     type Item = D::Item<'w, 'w>;
     type IntoIter = QueryIter<'w, 'w, D, F>;
@@ -2597,7 +2586,9 @@ impl<'w, 's, D: ReadOnlyQueryData, F: QueryFilter> Query<'w, 's, D, F> {
 /// A [`Query`] with an owned [`QueryState`].
 ///
 /// This is returned from methods like [`Query::transmute_lens`] that construct a fresh [`QueryState`].
-pub type QueryLens<'w, Q, F = ()> = Query<'w, 'static, Q, F, Box<QueryState<Q, F>>>;
+// The `'state` lifetime is ignored by `OwnedQuery`, but `Query` still requires `D` and `F` outlive it.
+// Using `'w` here allows `as_query_lens()` to work for all source queries, since `D: 'w`.
+pub type QueryLens<'w, Q, F = ()> = Query<'w, 'w, Q, F, OwnedQuery>;
 
 impl<'w, Q: QueryData, F: QueryFilter> QueryLens<'w, Q, F> {
     /// Create a [`Query`] from the underlying [`QueryState`].

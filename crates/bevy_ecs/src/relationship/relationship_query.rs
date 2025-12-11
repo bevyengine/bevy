@@ -1,8 +1,6 @@
-use core::ops::Deref;
-
 use crate::{
     entity::Entity,
-    query::{QueryData, QueryFilter, QueryState},
+    query::{QueryData, QueryFilter, QueryType},
     relationship::{Relationship, RelationshipTarget},
     system::Query,
 };
@@ -11,9 +9,7 @@ use smallvec::SmallVec;
 
 use super::SourceIter;
 
-impl<'w, 's, D: QueryData, F: QueryFilter, S: Deref<Target = QueryState<D, F>>>
-    Query<'w, 's, D, F, S>
-{
+impl<'w, 's, D: QueryData, F: QueryFilter, T: QueryType> Query<'w, 's, D, F, T> {
     /// If the given `entity` contains the `R` [`Relationship`] component, returns the
     /// target entity of that relationship.
     pub fn related<R: Relationship>(&'w self, entity: Entity) -> Option<Entity>
@@ -64,7 +60,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, S: Deref<Target = QueryState<D, F>>>
     pub fn iter_leaves<R: RelationshipTarget>(
         &'w self,
         entity: Entity,
-    ) -> impl Iterator<Item = Entity> + use<'w, 's, D, F, S, R>
+    ) -> impl Iterator<Item = Entity> + use<'w, 's, D, F, T, R>
     where
         D::ReadOnly: QueryData<Item<'w, 'w> = &'w R>,
         SourceIter<'w, R>: DoubleEndedIterator,
@@ -105,7 +101,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, S: Deref<Target = QueryState<D, F>>>
     pub fn iter_descendants<R: RelationshipTarget>(
         &'w self,
         entity: Entity,
-    ) -> DescendantIter<'w, 's, D, F, S, R>
+    ) -> DescendantIter<'w, 's, D, F, T, R>
     where
         D::ReadOnly: QueryData<Item<'w, 'w> = &'w R>,
     {
@@ -122,7 +118,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, S: Deref<Target = QueryState<D, F>>>
     pub fn iter_descendants_depth_first<R: RelationshipTarget>(
         &'w self,
         entity: Entity,
-    ) -> DescendantDepthFirstIter<'w, 's, D, F, S, R>
+    ) -> DescendantDepthFirstIter<'w, 's, D, F, T, R>
     where
         D::ReadOnly: QueryData<Item<'w, 'w> = &'w R>,
         SourceIter<'w, R>: DoubleEndedIterator,
@@ -139,7 +135,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, S: Deref<Target = QueryState<D, F>>>
     pub fn iter_ancestors<R: Relationship>(
         &'w self,
         entity: Entity,
-    ) -> AncestorIter<'w, 's, D, F, S, R>
+    ) -> AncestorIter<'w, 's, D, F, T, R>
     where
         D::ReadOnly: QueryData<Item<'w, 'w> = &'w R>,
     {
@@ -150,33 +146,21 @@ impl<'w, 's, D: QueryData, F: QueryFilter, S: Deref<Target = QueryState<D, F>>>
 /// An [`Iterator`] of [`Entity`]s over the descendants of an [`Entity`].
 ///
 /// Traverses the hierarchy breadth-first.
-pub struct DescendantIter<
-    'w,
-    's,
-    D: QueryData,
-    F: QueryFilter,
-    S: Deref<Target = QueryState<D, F>>,
-    R: RelationshipTarget,
-> where
+pub struct DescendantIter<'w, 's, D: QueryData, F: QueryFilter, T: QueryType, R: RelationshipTarget>
+where
     D::ReadOnly: QueryData<Item<'w, 'w> = &'w R>,
 {
-    children_query: &'w Query<'w, 's, D, F, S>,
+    children_query: &'w Query<'w, 's, D, F, T>,
     vecdeque: VecDeque<Entity>,
 }
 
-impl<
-        'w,
-        's,
-        D: QueryData,
-        F: QueryFilter,
-        S: Deref<Target = QueryState<D, F>>,
-        R: RelationshipTarget,
-    > DescendantIter<'w, 's, D, F, S, R>
+impl<'w, 's, D: QueryData, F: QueryFilter, T: QueryType, R: RelationshipTarget>
+    DescendantIter<'w, 's, D, F, T, R>
 where
     D::ReadOnly: QueryData<Item<'w, 'w> = &'w R>,
 {
     /// Returns a new [`DescendantIter`].
-    pub fn new(children_query: &'w Query<'w, 's, D, F, S>, entity: Entity) -> Self {
+    pub fn new(children_query: &'w Query<'w, 's, D, F, T>, entity: Entity) -> Self {
         DescendantIter {
             children_query,
             vecdeque: children_query
@@ -188,14 +172,8 @@ where
     }
 }
 
-impl<
-        'w,
-        's,
-        D: QueryData,
-        F: QueryFilter,
-        S: Deref<Target = QueryState<D, F>>,
-        R: RelationshipTarget,
-    > Iterator for DescendantIter<'w, 's, D, F, S, R>
+impl<'w, 's, D: QueryData, F: QueryFilter, T: QueryType, R: RelationshipTarget> Iterator
+    for DescendantIter<'w, 's, D, F, T, R>
 where
     D::ReadOnly: QueryData<Item<'w, 'w> = &'w R>,
 {
@@ -220,29 +198,23 @@ pub struct DescendantDepthFirstIter<
     's,
     D: QueryData,
     F: QueryFilter,
-    S: Deref<Target = QueryState<D, F>>,
+    T: QueryType,
     R: RelationshipTarget,
 > where
     D::ReadOnly: QueryData<Item<'w, 'w> = &'w R>,
 {
-    children_query: &'w Query<'w, 's, D, F, S>,
+    children_query: &'w Query<'w, 's, D, F, T>,
     stack: SmallVec<[Entity; 8]>,
 }
 
-impl<
-        'w,
-        's,
-        D: QueryData,
-        F: QueryFilter,
-        S: Deref<Target = QueryState<D, F>>,
-        R: RelationshipTarget,
-    > DescendantDepthFirstIter<'w, 's, D, F, S, R>
+impl<'w, 's, D: QueryData, F: QueryFilter, T: QueryType, R: RelationshipTarget>
+    DescendantDepthFirstIter<'w, 's, D, F, T, R>
 where
     D::ReadOnly: QueryData<Item<'w, 'w> = &'w R>,
     SourceIter<'w, R>: DoubleEndedIterator,
 {
     /// Returns a new [`DescendantDepthFirstIter`].
-    pub fn new(children_query: &'w Query<'w, 's, D, F, S>, entity: Entity) -> Self {
+    pub fn new(children_query: &'w Query<'w, 's, D, F, T>, entity: Entity) -> Self {
         DescendantDepthFirstIter {
             children_query,
             stack: children_query
@@ -252,14 +224,8 @@ where
     }
 }
 
-impl<
-        'w,
-        's,
-        D: QueryData,
-        F: QueryFilter,
-        S: Deref<Target = QueryState<D, F>>,
-        R: RelationshipTarget,
-    > Iterator for DescendantDepthFirstIter<'w, 's, D, F, S, R>
+impl<'w, 's, D: QueryData, F: QueryFilter, T: QueryType, R: RelationshipTarget> Iterator
+    for DescendantDepthFirstIter<'w, 's, D, F, T, R>
 where
     D::ReadOnly: QueryData<Item<'w, 'w> = &'w R>,
     SourceIter<'w, R>: DoubleEndedIterator,
@@ -278,33 +244,21 @@ where
 }
 
 /// An [`Iterator`] of [`Entity`]s over the ancestors of an [`Entity`].
-pub struct AncestorIter<
-    'w,
-    's,
-    D: QueryData,
-    F: QueryFilter,
-    S: Deref<Target = QueryState<D, F>>,
-    R: Relationship,
-> where
+pub struct AncestorIter<'w, 's, D: QueryData, F: QueryFilter, T: QueryType, R: Relationship>
+where
     D::ReadOnly: QueryData<Item<'w, 'w> = &'w R>,
 {
-    parent_query: &'w Query<'w, 's, D, F, S>,
+    parent_query: &'w Query<'w, 's, D, F, T>,
     next: Option<Entity>,
 }
 
-impl<
-        'w,
-        's,
-        D: QueryData,
-        F: QueryFilter,
-        S: Deref<Target = QueryState<D, F>>,
-        R: Relationship,
-    > AncestorIter<'w, 's, D, F, S, R>
+impl<'w, 's, D: QueryData, F: QueryFilter, T: QueryType, R: Relationship>
+    AncestorIter<'w, 's, D, F, T, R>
 where
     D::ReadOnly: QueryData<Item<'w, 'w> = &'w R>,
 {
     /// Returns a new [`AncestorIter`].
-    pub fn new(parent_query: &'w Query<'w, 's, D, F, S>, entity: Entity) -> Self {
+    pub fn new(parent_query: &'w Query<'w, 's, D, F, T>, entity: Entity) -> Self {
         AncestorIter {
             parent_query,
             next: Some(entity),
@@ -312,14 +266,8 @@ where
     }
 }
 
-impl<
-        'w,
-        's,
-        D: QueryData,
-        F: QueryFilter,
-        S: Deref<Target = QueryState<D, F>>,
-        R: Relationship,
-    > Iterator for AncestorIter<'w, 's, D, F, S, R>
+impl<'w, 's, D: QueryData, F: QueryFilter, T: QueryType, R: Relationship> Iterator
+    for AncestorIter<'w, 's, D, F, T, R>
 where
     D::ReadOnly: QueryData<Item<'w, 'w> = &'w R>,
 {
