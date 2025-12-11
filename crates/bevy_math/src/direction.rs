@@ -1398,8 +1398,7 @@ mod tests {
     use crate::ops;
 
     use super::*;
-    use approx::assert_relative_eq;
-    use rand_distr::num_traits::Float;
+    use approx::assert_relative_eq; 
 
     #[test]
     fn dir2_creation() {
