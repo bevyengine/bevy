@@ -1137,7 +1137,7 @@ async fn load_image<'a, 'b>(
                     path: image_path,
                     is_srgb,
                     sampler_descriptor,
-                    render_asset_usages,
+                    render_asset_usages: settings.load_materials,
                 })
             }
         }
