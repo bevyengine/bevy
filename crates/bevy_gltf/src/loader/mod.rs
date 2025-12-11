@@ -247,7 +247,7 @@ impl GltfLoader {
         let gltf = gltf::Gltf::from_slice(bytes)?;
 
         let file_name = load_context
-            .asset_path()
+            .path()
             .path()
             .to_str()
             .ok_or(GltfError::Gltf(gltf::Error::Io(Error::new(
@@ -601,7 +601,7 @@ impl GltfLoader {
                     texture,
                     &buffer_data,
                     &linear_textures,
-                    load_context.asset_path(),
+                    load_context.path(),
                     loader.supported_compressed_formats,
                     default_sampler,
                     settings,
@@ -614,7 +614,7 @@ impl GltfLoader {
             IoTaskPool::get()
                 .scope(|scope| {
                     gltf.textures().for_each(|gltf_texture| {
-                        let asset_path = load_context.asset_path().clone();
+                        let asset_path = load_context.path().clone();
                         let linear_textures = &linear_textures;
                         let buffer_data = &buffer_data;
                         scope.spawn(async move {
@@ -1137,6 +1137,7 @@ async fn load_image<'a, 'b>(
                     path: image_path,
                     is_srgb,
                     sampler_descriptor,
+                    render_asset_usages: settings.load_materials,
                 })
             }
         }
@@ -1744,7 +1745,7 @@ async fn load_buffers(
                     Err(()) => {
                         // TODO: Remove this and add dep
                         let buffer_path = load_context
-                            .asset_path()
+                            .path()
                             .resolve_embed(uri)
                             .map_err(|err| GltfError::InvalidBufferUri(uri.to_owned(), err))?;
                         load_context.read_asset_bytes(buffer_path).await?
@@ -1811,6 +1812,7 @@ enum ImageOrPath {
         path: AssetPath<'static>,
         is_srgb: bool,
         sampler_descriptor: ImageSamplerDescriptor,
+        render_asset_usages: RenderAssetUsages,
     },
 }
 
@@ -1833,11 +1835,13 @@ impl ImageOrPath {
                 path,
                 is_srgb,
                 sampler_descriptor,
+                render_asset_usages,
             } => load_context
                 .loader()
                 .with_settings(move |settings: &mut ImageLoaderSettings| {
                     settings.is_srgb = is_srgb;
                     settings.sampler = ImageSampler::Descriptor(sampler_descriptor.clone());
+                    settings.asset_usage = render_asset_usages;
                 })
                 .load(path),
         };
@@ -1908,7 +1912,7 @@ mod test {
     use bevy_asset::{
         io::{
             memory::{Dir, MemoryAssetReader},
-            AssetSource, AssetSourceId,
+            AssetSourceBuilder, AssetSourceId,
         },
         AssetApp, AssetLoader, AssetPlugin, AssetServer, Assets, Handle, LoadState,
     };
@@ -1925,7 +1929,7 @@ mod test {
         let reader = MemoryAssetReader { root: dir };
         app.register_asset_source(
             AssetSourceId::Default,
-            AssetSource::build().with_reader(move || Box::new(reader.clone())),
+            AssetSourceBuilder::new(move || Box::new(reader.clone())),
         )
         .add_plugins((
             LogPlugin::default(),
@@ -2344,7 +2348,7 @@ mod test {
         // Create a default asset source so we definitely don't try to read from disk.
         app.register_asset_source(
             AssetSourceId::Default,
-            AssetSource::build().with_reader(move || {
+            AssetSourceBuilder::new(move || {
                 Box::new(MemoryAssetReader {
                     root: Dir::default(),
                 })
@@ -2352,7 +2356,7 @@ mod test {
         )
         .register_asset_source(
             "custom",
-            AssetSource::build().with_reader(move || Box::new(custom_reader.clone())),
+            AssetSourceBuilder::new(move || Box::new(custom_reader.clone())),
         )
         .add_plugins((
             LogPlugin::default(),

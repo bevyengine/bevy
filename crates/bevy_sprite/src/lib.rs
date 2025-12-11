@@ -66,10 +66,6 @@ pub enum SpriteSystems {
     ComputeSlices,
 }
 
-/// Deprecated alias for [`SpriteSystems`].
-#[deprecated(since = "0.17.0", note = "Renamed to `SpriteSystems`.")]
-pub type SpriteSystem = SpriteSystems;
-
 impl Plugin for SpritePlugin {
     fn build(&self, app: &mut App) {
         if !app.is_plugin_added::<TextureAtlasPlugin>() {

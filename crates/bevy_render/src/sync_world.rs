@@ -385,6 +385,12 @@ mod render_entities_world_query_impls {
                 unsafe { <&RenderEntity as QueryData>::fetch(state, fetch, entity, table_row) };
             component.map(RenderEntity::id)
         }
+
+        fn iter_access(
+            state: &Self::State,
+        ) -> impl Iterator<Item = bevy_ecs::query::EcsAccessType<'_>> {
+            <&RenderEntity as QueryData>::iter_access(state)
+        }
     }
 
     /// SAFETY: access is read only and only on the current entity
@@ -499,6 +505,12 @@ mod render_entities_world_query_impls {
             let component =
                 unsafe { <&MainEntity as QueryData>::fetch(state, fetch, entity, table_row) };
             component.map(MainEntity::id)
+        }
+
+        fn iter_access(
+            state: &Self::State,
+        ) -> impl Iterator<Item = bevy_ecs::query::EcsAccessType<'_>> {
+            <&MainEntity as QueryData>::iter_access(state)
         }
     }
 

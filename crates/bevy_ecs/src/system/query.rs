@@ -3,7 +3,7 @@ use bevy_utils::prelude::DebugName;
 use crate::{
     batching::BatchingStrategy,
     change_detection::Tick,
-    entity::{Entity, EntityDoesNotExistError, EntityEquivalent, EntitySet, UniqueEntityArray},
+    entity::{Entity, EntityEquivalent, EntitySet, UniqueEntityArray},
     query::{
         DebugCheckedUnwrap, IterQueryData, NopWorldQuery, QueryCombinationIter, QueryData,
         QueryEntityError, QueryFilter, QueryIter, QueryManyIter, QueryManyUniqueIter, QueryParIter,
@@ -1449,7 +1449,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// assert_eq!(
     ///     match query.get_many([wrong_entity]).unwrap_err() {
-    ///         QueryEntityError::EntityDoesNotExist(error) => error.entity,
+    ///         QueryEntityError::NotSpawned(error) => error.entity(),
     ///         _ => panic!(),
     ///     },
     ///     wrong_entity
@@ -1500,7 +1500,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// assert_eq!(
     ///     match query.get_many_unique(UniqueEntityArray::from([wrong_entity])).unwrap_err() {
-    ///         QueryEntityError::EntityDoesNotExist(error) => error.entity,
+    ///         QueryEntityError::NotSpawned(error) => error.entity(),
     ///         _ => panic!(),
     ///     },
     ///     wrong_entity
@@ -1568,11 +1568,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
         // SAFETY: system runs without conflicts with other systems.
         // same-system queries have runtime borrow checks when they conflict
         unsafe {
-            let location = self
-                .world
-                .entities()
-                .get(entity)
-                .ok_or(EntityDoesNotExistError::new(entity, self.world.entities()))?;
+            let location = self.world.entities().get_spawned(entity)?;
             if !self
                 .state
                 .matched_archetypes
@@ -1673,7 +1669,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///         .get_many_mut([wrong_entity])
     ///         .unwrap_err()
     ///     {
-    ///         QueryEntityError::EntityDoesNotExist(error) => error.entity,
+    ///         QueryEntityError::NotSpawned(error) => error.entity(),
     ///         _ => panic!(),
     ///     },
     ///     wrong_entity
@@ -1750,7 +1746,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///         .get_many_unique_mut(UniqueEntityArray::from([wrong_entity]))
     ///         .unwrap_err()
     ///     {
-    ///         QueryEntityError::EntityDoesNotExist(error) => error.entity,
+    ///         QueryEntityError::NotSpawned(error) => error.entity(),
     ///         _ => panic!(),
     ///     },
     ///     wrong_entity

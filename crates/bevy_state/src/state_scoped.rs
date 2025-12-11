@@ -65,12 +65,10 @@ where
     }
 }
 
-/// A deprecated alias for [`DespawnOnExit`].
-#[deprecated(since = "0.17.0", note = "use DespawnOnExit instead")]
-pub type StateScoped<S> = DespawnOnExit<S>;
-
 /// Despawns entities marked with [`DespawnOnExit<S>`] when their state no
 /// longer matches the world state.
+///
+/// If the entity has already been despawned no warning will be emitted.
 pub fn despawn_entities_on_exit_state<S: States>(
     mut commands: Commands,
     mut transitions: MessageReader<StateTransitionEvent<S>>,
@@ -90,7 +88,7 @@ pub fn despawn_entities_on_exit_state<S: States>(
     };
     for (entity, binding) in &query {
         if binding.0 == *exited {
-            commands.entity(entity).despawn();
+            commands.entity(entity).try_despawn();
         }
     }
 }
@@ -137,6 +135,8 @@ pub struct DespawnOnEnter<S: States>(pub S);
 
 /// Despawns entities marked with [`DespawnOnEnter<S>`] when their state
 /// matches the world state.
+///
+/// If the entity has already been despawned no warning will be emitted.
 pub fn despawn_entities_on_enter_state<S: States>(
     mut commands: Commands,
     mut transitions: MessageReader<StateTransitionEvent<S>>,
@@ -156,7 +156,7 @@ pub fn despawn_entities_on_enter_state<S: States>(
     };
     for (entity, binding) in &query {
         if binding.0 == *entered {
-            commands.entity(entity).despawn();
+            commands.entity(entity).try_despawn();
         }
     }
 }

@@ -1097,7 +1097,7 @@ where
         // `tables` and `archetypes` belong to the same world that the [`QueryIter`]
         // was initialized for.
         unsafe {
-            location = self.entities.get(entity).debug_checked_unwrap();
+            location = self.entities.get_spawned(entity).debug_checked_unwrap();
             archetype = self
                 .archetypes
                 .get(location.archetype_id)
@@ -1274,7 +1274,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: EntityEquivalent>>
     ) -> Option<D::Item<'w, 's>> {
         for entity_borrow in entity_iter {
             let entity = entity_borrow.entity();
-            let Some(location) = entities.get(entity) else {
+            let Ok(location) = entities.get_spawned(entity) else {
                 continue;
             };
 
@@ -2105,7 +2105,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item = Entity>>
         // `tables` and `archetypes` belong to the same world that the [`QueryIter`]
         // was initialized for.
         unsafe {
-            location = self.entities.get(entity).debug_checked_unwrap();
+            location = self.entities.get_spawned(entity).debug_checked_unwrap();
             archetype = self
                 .archetypes
                 .get(location.archetype_id)
