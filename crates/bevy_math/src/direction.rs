@@ -1399,6 +1399,7 @@ mod tests {
 
     use super::*;
     use approx::assert_relative_eq;
+    use rand_distr::num_traits::Float;
 
     #[test]
     fn dir2_creation() {
@@ -1572,6 +1573,77 @@ mod tests {
             (Quat::from_rotation_z(core::f32::consts::FRAC_PI_2) * Dir3A::X)
                 .abs_diff_eq(Vec3A::Y, 10e-6)
         );
+    }
+
+    #[test]
+    fn ddir3_creation() {
+        assert_eq!(DDir3::new(DVec3::X * 12.5), Ok(DDir3::X));
+        assert_eq!(
+            DDir3::new(DVec3::new(0.0, 0.0, 0.0)),
+            Err(InvalidDirectionError::Zero)
+        );
+        assert_eq!(
+            DDir3::new(DVec3::new(f64::INFINITY, 0.0, 0.0)),
+            Err(InvalidDirectionError::Infinite)
+        );
+        assert_eq!(
+            DDir3::new(DVec3::new(f64::NEG_INFINITY, 0.0, 0.0)),
+            Err(InvalidDirectionError::Infinite)
+        );
+        assert_eq!(
+            DDir3::new(DVec3::new(f64::NAN, 0.0, 0.0)),
+            Err(InvalidDirectionError::NaN)
+        );
+        assert_eq!(DDir3::new_and_length(DVec3::X * 6.5), Ok((DDir3::X, 6.5)));
+
+        // Test rotation
+        assert!(
+            (DQuat::from_rotation_z(core::f64::consts::FRAC_PI_2) * DDir3::X)
+                .abs_diff_eq(DVec3::Y, 10e-6)
+        );
+    }
+
+    #[test]
+    fn ddir3_slerp() {
+        assert_relative_eq!(
+            DDir3::X.slerp(DDir3::Y, 0.5),
+            DDir3::from_xyz(0.5f64.sqrt(), 0.5f64.sqrt(), 0.0).unwrap()
+        );
+        assert_relative_eq!(DDir3::Y.slerp(DDir3::Z, 0.0), DDir3::Y);
+        assert_relative_eq!(DDir3::Z.slerp(DDir3::X, 1.0), DDir3::X, epsilon = 0.000001);
+        assert_relative_eq!(
+            DDir3::X.slerp(DDir3::Z, 1.0 / 3.0),
+            DDir3::from_xyz(0.75f64.sqrt(), 0.0, 0.5).unwrap(),
+            epsilon = 0.000001
+        );
+        assert_relative_eq!(
+            DDir3::Z.slerp(DDir3::Y, 2.0 / 3.0),
+            DDir3::from_xyz(0.0, 0.75f64.sqrt(), 0.5f64 - 0.0000000000000001).unwrap()
+        );
+    }
+
+    #[test]
+    fn ddir3_renorm() {
+        // Evil denormalized quaternion
+        let rot3 = DQuat::from_euler(glam::EulerRot::XYZ, 1.0, 2.0, 3.0) * (1.0 + 1e-5);
+        let mut dir_a = DDir3::X;
+        let mut dir_b = DDir3::X;
+
+        // We test that renormalizing an already normalized dir doesn't do anything
+        assert_relative_eq!(dir_b, dir_b.fast_renormalize(), epsilon = 0.000001);
+
+        for _ in 0..50 {
+            dir_a = rot3 * dir_a;
+            dir_b = rot3 * dir_b;
+            dir_b = dir_b.fast_renormalize();
+        }
+
+        // `dir_a` should've gotten denormalized, meanwhile `dir_b` should stay normalized.
+        assert!(
+            !dir_a.is_normalized(),
+            "Denormalization doesn't work, test is faulty"
+        );
+        assert!(dir_b.is_normalized(), "Renormalisation did not work.");
     }
 
     #[test]
