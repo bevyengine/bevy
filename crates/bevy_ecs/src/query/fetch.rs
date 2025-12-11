@@ -2525,7 +2525,10 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> WorldQuery for Nes
     unsafe fn set_table<'w>(_fetch: &mut Self::Fetch<'w>, _state: &Self::State, _table: &'w Table) {
     }
 
-    fn update_component_access(_state: &Self::State, _access: &mut FilteredAccess) {}
+    fn update_component_access(_state: &Self::State, _access: &mut FilteredAccess) {
+        // This performs no access on the current entity
+        // Access to the nested query is checked through `init_nested_access`
+    }
 
     fn init_nested_access(
         state: &Self::State,
@@ -2606,6 +2609,11 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> QueryData for Nest
                 fetch.this_run,
             ))
         }
+    }
+
+    fn iter_access(_state: &Self::State) -> impl Iterator<Item = EcsAccessType<'_>> {
+        // This performs no access on the current entity
+        // Access to the nested query is checked through `init_nested_access`
     }
 }
 
