@@ -15,7 +15,7 @@ fn main() {
         .add_systems(OnEnter(Scene::Bloom), bloom::setup)
         .add_systems(OnEnter(Scene::Text), text::setup)
         .add_systems(OnEnter(Scene::Sprite), sprite::setup)
-        .add_systems(OnEnter(Scene::SpriteSlicing),sprite_slicing::setup)
+        .add_systems(OnEnter(Scene::SpriteSlicing), sprite_slicing::setup)
         .add_systems(OnEnter(Scene::Gizmos), gizmos::setup)
         .add_systems(Update, switch_scene)
         .add_systems(Update, gizmos::draw_gizmos.run_if(in_state(Scene::Gizmos)));
@@ -339,12 +339,11 @@ mod sprite_slicing {
                 image: texture.clone(),
                 ..default()
             },
-            Transform::from_translation(Vec3::new(-150.0, 50.0, 0.0))
-                .with_scale(Vec3::splat(2.0)),
+            Transform::from_translation(Vec3::new(-150.0, 50.0, 0.0)).with_scale(Vec3::splat(2.0)),
             DespawnOnExit(super::Scene::SpriteSlicing),
         ));
 
-\        commands.spawn((
+        commands.spawn((
             Sprite {
                 image: texture,
                 image_mode: SpriteImageMode::Sliced(TextureSlicer {
