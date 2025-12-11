@@ -1,7 +1,10 @@
 use alloc::sync::Arc;
 use bevy_derive::EnumVariantMeta;
 use bevy_ecs::resource::Resource;
-use bevy_math::{vec2, Vec2, Vec3, Vec3Swizzles};
+use bevy_math::{
+    bounding::{Aabb2d, Aabb3d, BoundingVolume},
+    vec2, Vec2, Vec3, Vec3A, Vec3Swizzles,
+};
 #[cfg(feature = "serialize")]
 use bevy_platform::collections::HashMap;
 use bevy_platform::collections::HashSet;
@@ -381,7 +384,7 @@ impl VertexAttributeValues {
     }
 
     /// Create a new `VertexAttributeValues` with the values converted from f32 to f16. Panic if the values are not Float32, Float32x2 or Float32x4.
-    pub fn create_f16_values(&self) -> VertexAttributeValues {
+    pub(crate) fn create_f16_values(&self) -> VertexAttributeValues {
         match &self {
             VertexAttributeValues::Float32(uncompressed_values) => {
                 let mut values = Vec::<half::f16>::with_capacity(uncompressed_values.len());
@@ -409,7 +412,7 @@ impl VertexAttributeValues {
     }
 
     /// Create a new `VertexAttributeValues` with the values converted from f32 to unorm16. Panic if the values are not Float32, Float32x2 or Float32x4.
-    pub fn create_unorm16_values(&self) -> VertexAttributeValues {
+    pub(crate) fn create_unorm16_values(&self) -> VertexAttributeValues {
         match &self {
             VertexAttributeValues::Float32x2(uncompressed_values) => {
                 let mut values = Vec::<[u16; 2]>::with_capacity(uncompressed_values.len());
@@ -430,7 +433,7 @@ impl VertexAttributeValues {
     }
 
     /// Create a new `VertexAttributeValues` with Float32x3 normals converted to Snorm16x2 using octahedral encoding. Panics if the values are not Float32x3.
-    pub fn create_octahedral_encode_normals(&self) -> VertexAttributeValues {
+    pub(crate) fn create_octahedral_encode_normals(&self) -> VertexAttributeValues {
         match &self {
             VertexAttributeValues::Float32x3(uncompressed_values) => {
                 let mut values = Vec::<[i16; 2]>::with_capacity(uncompressed_values.len());
@@ -445,7 +448,7 @@ impl VertexAttributeValues {
     }
 
     /// Create a new `VertexAttributeValues` with Float32x4 tangents converted to Snorm16x2 using octahedral encoding. Panics if the values are not Float32x4.
-    pub fn create_octahedral_encode_tangents(&self) -> VertexAttributeValues {
+    pub(crate) fn create_octahedral_encode_tangents(&self) -> VertexAttributeValues {
         match &self {
             VertexAttributeValues::Float32x4(uncompressed_values) => {
                 let mut values = Vec::<[i16; 2]>::with_capacity(uncompressed_values.len());
@@ -460,6 +463,35 @@ impl VertexAttributeValues {
             }
             _ => panic!("Unsupported vertex attribute format"),
         }
+    }
+
+    pub(crate) fn create_compressed_positions(&self, aabb: Aabb3d) -> VertexAttributeValues {
+        // Create Snorm16x4 position
+        let VertexAttributeValues::Float32x3(uncompressed_values) = self else {
+            unreachable!()
+        };
+        let mut values = Vec::<[i16; 4]>::with_capacity(uncompressed_values.len());
+        for val in uncompressed_values {
+            let mut val = Vec3A::from_array(*val);
+            val = (val - aabb.center()) / aabb.half_size();
+            let val = arr_f32_to_snorm16(val.extend(0.0).to_array());
+            values.push(val);
+        }
+        VertexAttributeValues::Snorm16x4(values)
+    }
+
+    pub(crate) fn create_compressed_uvs(&self, range: Aabb2d) -> VertexAttributeValues {
+        // Create Unorm16x2 UVs
+        let VertexAttributeValues::Float32x2(uncompressed_values) = self else {
+            unreachable!()
+        };
+        let mut values = Vec::<[u16; 2]>::with_capacity(uncompressed_values.len());
+        for val in uncompressed_values {
+            let mut val = Vec2::from_array(*val);
+            val = (val - range.min) / (range.max - range.min);
+            values.push(arr_f32_to_unorm16(val.to_array()));
+        }
+        VertexAttributeValues::Unorm16x2(values)
     }
 }
 
@@ -599,24 +631,15 @@ impl Hash for MeshVertexBufferLayoutRef {
 }
 
 pub(crate) fn arr_f32_to_unorm16<const N: usize>(value: [f32; N]) -> [u16; N] {
-    value.map(|v| {
-        debug_assert!(v >= 0.0 && v <= 1.0);
-        (v * u16::MAX as f32).round() as u16
-    })
+    value.map(|v| (v.clamp(0.0, 1.0) * u16::MAX as f32).round() as u16)
 }
 
 pub(crate) fn arr_f32_to_unorm8<const N: usize>(value: [f32; N]) -> [u8; N] {
-    value.map(|v| {
-        debug_assert!(v >= 0.0 && v <= 1.0);
-        (v * u8::MAX as f32).round() as u8
-    })
+    value.map(|v| (v.clamp(0.0, 1.0) * u8::MAX as f32).round() as u8)
 }
 
 pub(crate) fn arr_f32_to_snorm16<const N: usize>(value: [f32; N]) -> [i16; N] {
-    value.map(|v| {
-        debug_assert!(v >= -1.0 && v <= 1.0);
-        (v * i16::MAX as f32).round() as i16
-    })
+    value.map(|v| (v.clamp(-1.0, 1.0) * i16::MAX as f32).round() as i16)
 }
 
 pub(crate) fn arr_f32_to_f16<const N: usize>(value: [f32; N]) -> [half::f16; N] {

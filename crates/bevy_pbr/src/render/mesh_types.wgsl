@@ -25,9 +25,8 @@ struct Mesh {
     tag: u32,
     // AABB for decompressing positions.
     aabb_center: vec3<f32>,
-    pad: u32,
     aabb_half_extents: vec3<f32>,
-    pad1_: u32,
+    // UVs range for decompressing UVs coordinates.
     uv0_range: vec4<f32>,
     uv1_range: vec4<f32>,
 };

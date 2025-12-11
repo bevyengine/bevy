@@ -492,10 +492,8 @@ pub struct MeshUniform {
     pub tag: u32,
     /// AABB center for decompressing vertex positions.
     pub aabb_center: Vec3,
-    pub pad: u32,
     /// AABB half extents for decompressing vertex positions.
     pub aabb_half_extents: Vec3,
-    pub pad1: u32,
     /// UVs range for decompressing UVs coordinates.
     pub uv0_range: Vec4,
     pub uv1_range: Vec4,
@@ -566,9 +564,9 @@ pub struct MeshInputUniform {
     pub pad: u32,
     /// AABB for decompressing positions.
     pub aabb_center: Vec3,
-    pub pad1: u32,
-    pub aabb_half_extents: Vec3,
     pub pad2: u32,
+    pub aabb_half_extents: Vec3,
+    pub pad3: u32,
     /// UVs range for decompressing UVs coordinates.
     pub uv0_range: Vec4,
     pub uv1_range: Vec4,
@@ -633,8 +631,6 @@ impl MeshUniform {
             aabb_half_extents: aabb.map(|a| a.half_size().into()).unwrap_or(Vec3::ZERO),
             uv0_range: uv_range_to_vec4(uv0_range),
             uv1_range: uv_range_to_vec4(uv1_range),
-            pad: 0,
-            pad1: 0,
         }
     }
 }
@@ -1235,8 +1231,8 @@ impl RenderMeshInstanceGpuBuilder {
             uv0_range: uv_range_to_vec4(uv0_range),
             uv1_range: uv_range_to_vec4(uv1_range),
             pad: 0,
-            pad1: 0,
             pad2: 0,
+            pad3: 0,
         };
 
         // Did the last frame contain this entity as well?
