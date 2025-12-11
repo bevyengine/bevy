@@ -223,7 +223,7 @@ impl<'w> EntityMut<'w> {
     ///
     /// Note that this does a O(n^2) check that the [`QueryData`](crate::query::QueryData) does not conflict. If performance is a
     /// consideration you should use [`Self::get_components_mut_unchecked`] instead.
-    pub fn get_components_mut<Q: ReleaseStateQueryData>(
+    pub fn get_components_mut<Q: ReleaseStateQueryData + SingleEntityQueryData>(
         &mut self,
     ) -> Result<Q::Item<'_, 'static>, QueryAccessError> {
         self.reborrow().into_components_mut::<Q>()
@@ -312,7 +312,7 @@ impl<'w> EntityMut<'w> {
     /// // This panics, as the `&mut X`s would alias:
     /// entity.into_components_mut::<(&mut X, &mut X)>();
     /// ```
-    pub fn into_components_mut<Q: ReleaseStateQueryData>(
+    pub fn into_components_mut<Q: ReleaseStateQueryData + SingleEntityQueryData>(
         self,
     ) -> Result<Q::Item<'w, 'static>, QueryAccessError> {
         has_conflicts::<Q>(self.cell.world().components())?;
