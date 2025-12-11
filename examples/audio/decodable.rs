@@ -1,7 +1,7 @@
 //! Shows how to create a custom [`Decodable`] type by implementing a Sine wave.
 
 use bevy::{
-    audio::{AddAudioSource, AudioPlugin, Source, Volume},
+    audio::{AddAudioSource, AudioPlugin, ChannelCount, SampleRate, Source, Volume},
     math::ops,
     prelude::*,
     reflect::TypePath,
@@ -24,7 +24,7 @@ struct SineDecoder {
     progress_per_frame: f32,
     // how long a period is
     period: f32,
-    sample_rate: u32,
+    sample_rate: SampleRate,
 }
 
 impl SineDecoder {
@@ -35,7 +35,7 @@ impl SineDecoder {
             current_progress: 0.,
             progress_per_frame: frequency / sample_rate as f32,
             period: std::f32::consts::PI * 2.,
-            sample_rate,
+            sample_rate: SampleRate::new(sample_rate).unwrap(),
         }
     }
 }
@@ -58,11 +58,11 @@ impl Source for SineDecoder {
         None
     }
 
-    fn channels(&self) -> u16 {
-        1
+    fn channels(&self) -> ChannelCount {
+        ChannelCount::new(1).unwrap()
     }
 
-    fn sample_rate(&self) -> u32 {
+    fn sample_rate(&self) -> SampleRate {
         self.sample_rate
     }
 
