@@ -3,7 +3,9 @@ title: "Rodio 0.21 Update"
 pull_requests: [20323]
 ---
 
-### Audio Feature Flags
+`rodio` was updated to `0.21` and `cpal` to `0.16`. The following sections will guide you through the necessary changes to ensure compatibility.
+
+## Audio Feature Flags
 
 Audio format related features were reworked and now `symphonia` will be the default backend for most of them.
 
@@ -26,19 +28,19 @@ There are also "fallback" backend flags you can use for certain formats:
 
 Notice that OGG/VORBIS support through `symphonia` is not the default due to issues with buffering, reverb, looping and spatial audio. Check the following issues/PRs for additional context:
 
-- https://github.com/RustAudio/rodio/issues/775
-- https://github.com/RustAudio/rodio/pull/786
+- <https://github.com/RustAudio/rodio/issues/775>
+- <https://github.com/RustAudio/rodio/pull/786>
 
 The `audio-all` feature was added for convenience. It will enable all the available audio formats. Here's the full list and the corresponding backend for each format:
 
 - AAC, FLAC, MP3, MP4, and WAV: `symphonia`.
 - OGG/VORBIS: `lewton`.
 
-### Audio Traits
+## Audio Traits
 
 `type DecoderItem` was removed from the `Decodable` trait. Now `rodio::Sample` is an alias for `f32`.
 
-### Android Related Features
+## Android Related Features
 
 The `android_shared_stdcxx` feature was removed, as `cpal`'s `oboe-shared-stdcxx` feature was also removed in favor of Android NDK audio APIs.
 
