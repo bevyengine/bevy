@@ -165,7 +165,6 @@ fn get_visibility_range_dither_level(instance_index: u32, world_position: vec4<f
 fn get_tag(instance_index: u32) -> u32 {
     return mesh[instance_index].tag;
 }
-#endif
 
 fn decompress_vertex_position(instance_index: u32, compressed_position: vec4<f32>) -> vec3<f32> {
     let aabb_center = bevy_pbr::mesh_bindings::mesh[instance_index].aabb_center;
@@ -190,3 +189,4 @@ fn decompress_vertex_uv_b(instance_index: u32, compressed_uv: vec2<f32>) -> vec2
     let uv_range = bevy_pbr::mesh_bindings::mesh[instance_index].uv1_range;
     return uv_range.xy + (uv_range.zw - uv_range.xy) * compressed_uv;
 }
+#endif
