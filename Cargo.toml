@@ -5325,4 +5325,5 @@ category = "2D Rendering"
 wasm = false
 
 [patch.crates-io]
-cpal = { git = "https://github.com/RustAudio/cpal.git", rev = "de5f48fb8f80580014e11402c6aae483e0cb578c" }
+cpal = { git = "https://github.com/RustAudio/cpal.git", rev = "e32ee65a5335301553cc9650b949b868f922d748" }
+rodio = { git = "https://github.com/philpax/rodio.git", rev = "1a66725ce9ecfd7a89ba780e249477cdd8c644e0" }
