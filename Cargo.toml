@@ -502,7 +502,7 @@ fallback-wav = ["bevy_internal/fallback-wav"]
 # AAC audio format support (through `symphonia`)
 aac = ["bevy_internal/aac"]
 
-# AAC, FLAC, MP3, MP4, OGG/VORBIS, and WAV audio formats support (through `symphonia`)
+# AAC, FLAC, MP3, MP4, WAV (through `symphonia`) and OGG/VORBIS (through `lewton`) audio formats support
 audio-all = ["bevy_internal/audio-all"]
 
 # FLAC audio format support (through `symphonia`)
