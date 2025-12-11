@@ -64,7 +64,7 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 |asset_processor|Enables the built-in asset processor for processed assets.|
 |async-io|Use async-io's implementation of block_on instead of futures-lite's implementation. This is preferred if your application uses async-io.|
 |async_executor|Uses `async-executor` as a task execution backend.|
-|audio-all|AAC, FLAC, MP3, MP4, OGG/VORBIS, and WAV audio formats support (through `symphonia`)|
+|audio-all|AAC, FLAC, MP3, MP4, WAV (through `symphonia`) and OGG/VORBIS (through `lewton`) audio formats support|
 |basis-universal|Basis Universal compressed texture support|
 |bevy_animation|Provides animation functionality|
 |bevy_anti_alias|Provides various anti aliasing solutions|

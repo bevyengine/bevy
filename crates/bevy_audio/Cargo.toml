@@ -53,7 +53,7 @@ audio-all = [
   "rodio/flac",
   "rodio/mp3",
   "rodio/mp4",
-  "rodio/vorbis",
+  "rodio/lewton",
   "rodio/wav",
 ]
 
