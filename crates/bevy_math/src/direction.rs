@@ -1575,6 +1575,50 @@ mod tests {
         );
     }
 
+    
+    #[test]
+    fn dir3a_slerp() {
+        assert_relative_eq!(
+            Dir3A::X.slerp(Dir3A::Y, 0.5),
+            Dir3A::from_xyz(ops::sqrt(0.5f32), ops::sqrt(0.5f32), 0.0).unwrap()
+        );
+        assert_relative_eq!(Dir3A::Y.slerp(Dir3A::Z, 0.0), Dir3A::Y);
+        assert_relative_eq!(Dir3A::Z.slerp(Dir3A::X, 1.0), Dir3A::X, epsilon = 0.000001);
+        assert_relative_eq!(
+            Dir3A::X.slerp(Dir3A::Z, 1.0 / 3.0),
+            Dir3A::from_xyz(ops::sqrt(0.75f32), 0.0, 0.5).unwrap(),
+            epsilon = 0.000001
+        );
+        assert_relative_eq!(
+            Dir3A::Z.slerp(Dir3A::Y, 2.0 / 3.0),
+            Dir3A::from_xyz(0.0, ops::sqrt(0.75f32), 0.5).unwrap()
+        );
+    }
+
+    #[test]
+    fn dir3a_renorm() {
+        // Evil denormalized quaternion
+        let rot3 = Quat::from_euler(glam::EulerRot::XYZ, 1.0, 2.0, 3.0) * (1.0 + 1e-5);
+        let mut dir_a = Dir3A::X;
+        let mut dir_b = Dir3A::X;
+
+        // We test that renormalizing an already normalized dir doesn't do anything
+        assert_relative_eq!(dir_b, dir_b.fast_renormalize(), epsilon = 0.000001);
+
+        for _ in 0..50 {
+            dir_a = rot3 * dir_a;
+            dir_b = rot3 * dir_b;
+            dir_b = dir_b.fast_renormalize();
+        }
+
+        // `dir_a` should've gotten denormalized, meanwhile `dir_b` should stay normalized.
+        assert!(
+            !dir_a.is_normalized(),
+            "Denormalization doesn't work, test is faulty"
+        );
+        assert!(dir_b.is_normalized(), "Renormalisation did not work.");
+    }
+
     #[test]
     fn ddir3_creation() {
         assert_eq!(DDir3::new(DVec3::X * 12.5), Ok(DDir3::X));
@@ -1618,7 +1662,7 @@ mod tests {
         );
         assert_relative_eq!(
             DDir3::Z.slerp(DDir3::Y, 2.0 / 3.0),
-            DDir3::from_xyz(0.0, 0.75f64.sqrt(), 0.5f64 - 0.0000000000000001).unwrap()
+            DDir3::from_xyz(0.0, 0.75f64.sqrt(), 0.5f64).unwrap()
         );
     }
 
@@ -1646,48 +1690,6 @@ mod tests {
         assert!(dir_b.is_normalized(), "Renormalisation did not work.");
     }
 
-    #[test]
-    fn dir3a_slerp() {
-        assert_relative_eq!(
-            Dir3A::X.slerp(Dir3A::Y, 0.5),
-            Dir3A::from_xyz(ops::sqrt(0.5f32), ops::sqrt(0.5f32), 0.0).unwrap()
-        );
-        assert_relative_eq!(Dir3A::Y.slerp(Dir3A::Z, 0.0), Dir3A::Y);
-        assert_relative_eq!(Dir3A::Z.slerp(Dir3A::X, 1.0), Dir3A::X, epsilon = 0.000001);
-        assert_relative_eq!(
-            Dir3A::X.slerp(Dir3A::Z, 1.0 / 3.0),
-            Dir3A::from_xyz(ops::sqrt(0.75f32), 0.0, 0.5).unwrap(),
-            epsilon = 0.000001
-        );
-        assert_relative_eq!(
-            Dir3A::Z.slerp(Dir3A::Y, 2.0 / 3.0),
-            Dir3A::from_xyz(0.0, ops::sqrt(0.75f32), 0.5).unwrap()
-        );
-    }
-
-    #[test]
-    fn dir3a_renorm() {
-        // Evil denormalized quaternion
-        let rot3 = Quat::from_euler(glam::EulerRot::XYZ, 1.0, 2.0, 3.0) * (1.0 + 1e-5);
-        let mut dir_a = Dir3A::X;
-        let mut dir_b = Dir3A::X;
-
-        // We test that renormalizing an already normalized dir doesn't do anything
-        assert_relative_eq!(dir_b, dir_b.fast_renormalize(), epsilon = 0.000001);
-
-        for _ in 0..50 {
-            dir_a = rot3 * dir_a;
-            dir_b = rot3 * dir_b;
-            dir_b = dir_b.fast_renormalize();
-        }
-
-        // `dir_a` should've gotten denormalized, meanwhile `dir_b` should stay normalized.
-        assert!(
-            !dir_a.is_normalized(),
-            "Denormalization doesn't work, test is faulty"
-        );
-        assert!(dir_b.is_normalized(), "Renormalisation did not work.");
-    }
 
     #[test]
     fn dir4_creation() {
