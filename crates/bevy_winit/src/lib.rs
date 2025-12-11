@@ -163,9 +163,13 @@ impl Plugin for WinitPlugin {
 ///
 /// Sent via the [`EventLoopProxyWrapper`] resource.
 ///
+/// # Example
+///
 /// ```
+/// # use bevy_ecs::prelude::*;
+/// # use bevy_winit::{EventLoopProxyWrapper, WinitUserEvent};
 /// fn wakeup_system(event_loop_proxy: Res<EventLoopProxyWrapper>) -> Result {
-///     event_loop_proxy.send_event(WinitUserEvent::Wakeup)?;
+///     event_loop_proxy.send_event(WinitUserEvent::WakeUp)?;
 ///
 ///     Ok(())
 /// }
