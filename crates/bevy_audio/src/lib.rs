@@ -52,7 +52,7 @@ pub use audio_source::*;
 pub use pitch::*;
 pub use volume::*;
 
-pub use rodio::{cpal::Sample as CpalSample, source::Source, Sample};
+pub use rodio::{cpal::Sample as CpalSample, source::Source, ChannelCount, Sample, SampleRate};
 pub use sinks::*;
 
 use bevy_app::prelude::*;
