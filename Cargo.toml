@@ -1442,6 +1442,28 @@ category = "3D Rendering"
 wasm = true
 
 [[example]]
+name = "only_shadow_caster"
+path = "examples/3d/only_shadow_caster.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.only_shadow_caster]
+name = "Only Shadow Caster"
+description = "Demonstrates how to make a mesh invisible but still cast shadows using `OnlyShadowCaster`."
+category = "3D Rendering"
+wasm = true
+
+[[example]]
+name = "peter_pans_shadow"
+path = "examples/3d/peter_pans_shadow.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.peter_pans_shadow]
+name = "Peter Pan's Shadow"
+description = "Shows how to create an independent shadow entity using OnlyShadowCaster so the visible character's shadow is controlled separately."
+category = "3D Rendering"
+wasm = true
+
+[[example]]
 name = "skybox"
 path = "examples/3d/skybox.rs"
 # Causes an ICE on docs.rs
