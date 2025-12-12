@@ -26,7 +26,8 @@ use bevy_light::SunDisk;
 use bevy_light::{
     spot_light_clip_from_view, spot_light_world_from_view, AmbientLight, CascadeShadowConfig,
     Cascades, DirectionalLight, DirectionalLightShadowMap, GlobalAmbientLight, NotShadowCaster,
-    PointLight, PointLightShadowMap, ShadowFilteringMethod, SpotLight, VolumetricLight,
+    OnlyShadowCaster, PointLight, PointLightShadowMap, ShadowFilteringMethod, SpotLight,
+    VolumetricLight,
 };
 use bevy_math::{ops, Mat4, UVec4, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles};
 use bevy_platform::collections::{HashMap, HashSet};
@@ -1684,16 +1685,29 @@ fn despawn_entities(commands: &mut Commands, entities: Vec<Entity>) {
 // These will be extracted in the material extraction, which will also clear the needs_specialization
 // collection.
 pub fn check_light_entities_needing_specialization<M: Material>(
-    needs_specialization: Query<Entity, (With<MeshMaterial3d<M>>, Changed<NotShadowCaster>)>,
+    needs_specialization: Query<
+        Entity,
+        (
+            With<MeshMaterial3d<M>>,
+            Or<(Changed<NotShadowCaster>, Changed<OnlyShadowCaster>)>,
+        ),
+    >,
     mesh_materials: Query<Entity, With<MeshMaterial3d<M>>>,
     mut entities_needing_specialization: ResMut<EntitiesNeedingSpecialization<M>>,
     mut removed_components: RemovedComponents<NotShadowCaster>,
+    mut removed_only_shadow_caster_components: RemovedComponents<OnlyShadowCaster>,
 ) {
     for entity in &needs_specialization {
         entities_needing_specialization.push(entity);
     }
 
     for removed in removed_components.read() {
+        // Only require specialization if the entity still exists.
+        if mesh_materials.contains(removed) {
+            entities_needing_specialization.entities.push(removed);
+        }
+    }
+    for removed in removed_only_shadow_caster_components.read() {
         // Only require specialization if the entity still exists.
         if mesh_materials.contains(removed) {
             entities_needing_specialization.entities.push(removed);

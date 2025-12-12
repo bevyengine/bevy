@@ -23,7 +23,7 @@ use bevy_ecs::{
 };
 use bevy_image::{BevyDefault, ImageSampler, TextureFormatPixelInfo};
 use bevy_light::{
-    EnvironmentMapLight, IrradianceVolume, NotShadowCaster, NotShadowReceiver,
+    EnvironmentMapLight, IrradianceVolume, NotShadowCaster, NotShadowReceiver, OnlyShadowCaster,
     ShadowFilteringMethod, TransmittedShadowReceiver,
 };
 use bevy_math::{Affine3, Rect, UVec2, Vec3, Vec4};
@@ -1335,6 +1335,7 @@ pub fn extract_meshes_for_cpu_building(
             Has<NotShadowReceiver>,
             Has<TransmittedShadowReceiver>,
             Has<NotShadowCaster>,
+            Has<OnlyShadowCaster>,
             Has<NoAutomaticBatching>,
             Has<VisibilityRange>,
             Option<&RenderLayers>,
@@ -1355,11 +1356,12 @@ pub fn extract_meshes_for_cpu_building(
             not_shadow_receiver,
             transmitted_receiver,
             not_shadow_caster,
+            only_shadow_caster,
             no_automatic_batching,
             visibility_range,
             render_layers,
         )| {
-            if !view_visibility.get() {
+            if !view_visibility.get() && !only_shadow_caster {
                 return;
             }
 
@@ -1438,12 +1440,15 @@ type GpuMeshExtractionQuery = (
     Option<Read<Aabb>>,
     Read<Mesh3d>,
     Option<Read<MeshTag>>,
-    Has<NoFrustumCulling>,
-    Has<NotShadowReceiver>,
-    Has<TransmittedShadowReceiver>,
-    Has<NotShadowCaster>,
-    Has<NoAutomaticBatching>,
-    Has<VisibilityRange>,
+    (
+        Has<NoFrustumCulling>,
+        Has<NotShadowReceiver>,
+        Has<TransmittedShadowReceiver>,
+        Has<NotShadowCaster>,
+        Has<OnlyShadowCaster>,
+        Has<NoAutomaticBatching>,
+        Has<VisibilityRange>,
+    ),
     Option<Read<RenderLayers>>,
 );
 
@@ -1475,6 +1480,7 @@ pub fn extract_meshes_for_gpu_building(
                 Changed<TransmittedShadowReceiver>,
                 Changed<NotShadowCaster>,
                 Changed<NoAutomaticBatching>,
+                Changed<OnlyShadowCaster>,
                 Changed<VisibilityRange>,
                 Changed<SkinnedMesh>,
             )>,
@@ -1559,12 +1565,15 @@ fn extract_mesh_for_gpu_building(
         aabb,
         mesh,
         tag,
-        no_frustum_culling,
-        not_shadow_receiver,
-        transmitted_receiver,
-        not_shadow_caster,
-        no_automatic_batching,
-        visibility_range,
+        (
+            no_frustum_culling,
+            not_shadow_receiver,
+            transmitted_receiver,
+            not_shadow_caster,
+            only_shadow_caster,
+            no_automatic_batching,
+            visibility_range,
+        ),
         render_layers,
     ): <GpuMeshExtractionQuery as QueryData>::Item<'_, '_>,
     render_visibility_ranges: &RenderVisibilityRanges,
@@ -1572,7 +1581,7 @@ fn extract_mesh_for_gpu_building(
     queue: &mut RenderMeshInstanceGpuQueue,
     any_gpu_culling: bool,
 ) {
-    if !view_visibility.get() {
+    if !view_visibility.get() && !only_shadow_caster {
         queue.remove(entity.into(), any_gpu_culling);
         return;
     }
