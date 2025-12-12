@@ -1690,8 +1690,6 @@ mod tests {
 
     #[test]
     fn insert_reflect_only_component() {
-        use bevy_ecs::prelude::Component;
-        use bevy_reflect::Reflect;
         #[derive(Reflect, Component)]
         #[reflect(Component)]
         struct Player {

@@ -2125,6 +2125,7 @@ macro_rules! impl_system_param_tuple {
             unused_variables,
             reason = "Zero-length tuples won't use some of the parameters."
         )]
+        #[allow(clippy::unused_unit, reason = "Zero length tuple is unit.")]
         $(#[$meta])*
         // SAFETY: implementers of each `SystemParam` in the tuple have validated their impls
         unsafe impl<$($param: SystemParam),*> SystemParam for ($($param,)*) {
@@ -2133,7 +2134,7 @@ macro_rules! impl_system_param_tuple {
 
             #[inline]
             fn init_state(world: &mut World) -> Self::State {
-                (($($param::init_state(world),)*))
+                ($($param::init_state(world),)*)
             }
 
             fn init_access(state: &Self::State, _system_meta: &mut SystemMeta, _component_access_set: &mut FilteredAccessSet, _world: &mut World) {
