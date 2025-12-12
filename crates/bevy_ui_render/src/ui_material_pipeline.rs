@@ -307,6 +307,7 @@ pub struct ExtractedUiMaterialNode<M: UiMaterial> {
     pub extracted_camera_entity: Entity,
     pub main_entity: MainEntity,
     pub render_entity: Entity,
+    pub is_container: bool,
 }
 
 #[derive(Resource)]
@@ -335,14 +336,23 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
             &InheritedVisibility,
             Option<&CalculatedClip>,
             &ComputedUiTargetCamera,
+            Has<UiContainerTarget>,
         )>,
     >,
     camera_map: Extract<UiCameraMap>,
 ) {
     let mut camera_mapper = camera_map.get_mapper();
 
-    for (entity, computed_node, transform, handle, inherited_visibility, clip, camera) in
-        uinode_query.iter()
+    for (
+        entity,
+        computed_node,
+        transform,
+        handle,
+        inherited_visibility,
+        clip,
+        camera,
+        is_container,
+    ) in uinode_query.iter()
     {
         // skip invisible nodes
         if !inherited_visibility.get() || computed_node.is_empty() {
@@ -372,6 +382,7 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
             clip: clip.map(|clip| clip.clip),
             extracted_camera_entity,
             main_entity: entity.into(),
+            is_container,
         });
     }
 }
@@ -610,7 +621,13 @@ pub fn queue_ui_material_nodes<M: UiMaterial>(
             continue;
         };
 
-        let Ok(view) = camera_views.get(default_camera_view.0) else {
+        let get_view = if extracted_uinode.is_container {
+            camera_views.get(default_camera_view.ui_container)
+        } else {
+            camera_views.get(default_camera_view.ui_camera)
+        };
+
+        let Ok(view) = get_view else {
             continue;
         };
 

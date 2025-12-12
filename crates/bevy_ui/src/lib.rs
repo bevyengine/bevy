@@ -113,7 +113,7 @@ pub enum UiSystems {
 ///
 /// A multiplier to fixed-sized ui values.
 /// **Note:** This will only affect fixed ui values like [`Val::Px`]
-#[derive(Debug, Reflect, Resource, Deref, DerefMut)]
+#[derive(Debug, Reflect, Resource, Component, Deref, DerefMut)]
 #[reflect(Resource, Debug, Default)]
 pub struct UiScale(pub f32);
 
@@ -160,6 +160,13 @@ impl Plugin for UiPlugin {
                 PropagateSet::<ComputedUiRenderTargetInfo>::default().in_set(UiSystems::Propagate),
             )
             .add_plugins(HierarchyPropagatePlugin::<ComputedUiRenderTargetInfo>::new(
+                PostUpdate,
+            ))
+            .configure_sets(
+                PostUpdate,
+                PropagateSet::<UiContainerTarget>::default().in_set(UiSystems::Propagate),
+            )
+            .add_plugins(HierarchyPropagatePlugin::<UiContainerTarget>::new(
                 PostUpdate,
             ))
             .add_systems(

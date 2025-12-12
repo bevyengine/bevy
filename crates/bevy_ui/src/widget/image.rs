@@ -1,9 +1,13 @@
-use crate::{ComputedUiRenderTargetInfo, ContentSize, Measure, MeasureArgs, Node, NodeMeasure};
+use crate::{
+    ComputedUiRenderTargetInfo, ContentSize, Measure, MeasureArgs, Node, NodeMeasure,
+    UiContainerTarget,
+};
 use bevy_asset::{AsAssetId, AssetId, Assets, Handle};
 use bevy_color::Color;
 use bevy_ecs::prelude::*;
 use bevy_image::{prelude::*, TRANSPARENT_IMAGE_HANDLE};
 use bevy_math::{Rect, UVec2, Vec2};
+use bevy_platform::collections::HashSet;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_sprite::TextureSlicer;
 use taffy::{MaybeMath, MaybeResolve};
@@ -287,11 +291,17 @@ pub fn update_image_content_size_system(
             Ref<ImageNode>,
             &mut ImageNodeSize,
             Ref<ComputedUiRenderTargetInfo>,
+            Option<Ref<UiContainerTarget>>,
+            Entity,
         ),
         UpdateImageFilter,
     >,
+    mut removed_container_target: RemovedComponents<UiContainerTarget>,
 ) {
-    for (mut content_size, image, mut image_size, computed_target) in &mut query {
+    let removes = removed_container_target.read().collect::<HashSet<Entity>>();
+    for (mut content_size, image, mut image_size, computed_target, container_target, entity) in
+        &mut query
+    {
         if !matches!(image.image_mode, NodeImageMode::Auto)
             || image.image.id() == TRANSPARENT_IMAGE_HANDLE.id()
         {
@@ -312,7 +322,12 @@ pub fn update_image_content_size_system(
                 })
         {
             // Update only if size or scale factor has changed to avoid needless layout calculations
-            if size != image_size.size || computed_target.is_changed() || content_size.is_added() {
+            if size != image_size.size
+                || computed_target.is_changed()
+                || content_size.is_added()
+                || container_target.is_some_and(|target| target.is_changed())
+                || removes.contains(&entity)
+            {
                 image_size.size = size;
                 content_size.set(NodeMeasure::Image(ImageMeasure {
                     // multiply the image size by the scale factor to get the physical size

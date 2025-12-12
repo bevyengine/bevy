@@ -2,7 +2,7 @@ use core::ops::Range;
 
 use super::{ImageNodeBindGroups, UiBatch, UiMeta, UiViewTarget};
 
-use crate::UiCameraView;
+use crate::{UiCameraView, UiContainerViewTarget};
 use bevy_ecs::{
     prelude::*,
     system::{lifetimeless::*, SystemParamItem},
@@ -21,7 +21,11 @@ use bevy_render::{
 use tracing::error;
 
 pub struct UiPassNode {
-    ui_view_query: QueryState<(&'static ExtractedView, &'static UiViewTarget)>,
+    ui_view_query: QueryState<(
+        &'static ExtractedView,
+        &'static UiViewTarget,
+        Has<UiContainerViewTarget>,
+    )>,
     ui_view_target_query: QueryState<(&'static ViewTarget, &'static ExtractedCamera)>,
     ui_camera_view_query: QueryState<&'static UiCameraView>,
 }
@@ -59,7 +63,8 @@ impl Node for UiPassNode {
         };
 
         // Query the UI view components.
-        let Ok((view, ui_view_target)) = self.ui_view_query.get_manual(world, input_view_entity)
+        let Ok((view, ui_view_target, is_container)) =
+            self.ui_view_query.get_manual(world, input_view_entity)
         else {
             return Ok(());
         };
@@ -87,7 +92,11 @@ impl Node for UiPassNode {
             .ui_camera_view_query
             .get_manual(world, input_view_entity)
         {
-            ui_camera_view.0
+            if is_container {
+                ui_camera_view.ui_container
+            } else {
+                ui_camera_view.ui_camera
+            }
         } else {
             input_view_entity
         };

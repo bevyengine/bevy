@@ -29,7 +29,7 @@ use bevy_render::{RenderApp, RenderStartup};
 use bevy_shader::{Shader, ShaderDefVal};
 use bevy_ui::{
     BoxShadow, CalculatedClip, ComputedNode, ComputedUiRenderTargetInfo, ComputedUiTargetCamera,
-    ResolvedBorderRadius, UiGlobalTransform, Val,
+    ResolvedBorderRadius, UiContainerTarget, UiGlobalTransform, Val,
 };
 use bevy_utils::default;
 use bytemuck::{Pod, Zeroable};
@@ -200,6 +200,7 @@ pub struct ExtractedBoxShadow {
     pub size: Vec2,
     pub main_entity: MainEntity,
     pub render_entity: Entity,
+    pub is_container: bool,
 }
 
 /// List of extracted shadows to be sorted and queued for rendering
@@ -221,13 +222,14 @@ pub fn extract_shadows(
             Option<&CalculatedClip>,
             &ComputedUiTargetCamera,
             &ComputedUiRenderTargetInfo,
+            Has<UiContainerTarget>,
         )>,
     >,
     camera_map: Extract<UiCameraMap>,
 ) {
     let mut mapping = camera_map.get_mapper();
 
-    for (entity, uinode, transform, visibility, box_shadow, clip, camera, target) in
+    for (entity, uinode, transform, visibility, box_shadow, clip, camera, target, is_container) in
         &box_shadow_query
     {
         // Skip if no visible shadows
@@ -292,6 +294,7 @@ pub fn extract_shadows(
                 blur_radius,
                 size: shadow_size,
                 main_entity: entity.into(),
+                is_container,
             });
         }
     }
@@ -320,7 +323,13 @@ pub fn queue_shadows(
             continue;
         };
 
-        let Ok(view) = camera_views.get(default_camera_view.0) else {
+        let get_view = if extracted_shadow.is_container {
+            camera_views.get(default_camera_view.ui_container)
+        } else {
+            camera_views.get(default_camera_view.ui_camera)
+        };
+
+        let Ok(view) = get_view else {
             continue;
         };
 
