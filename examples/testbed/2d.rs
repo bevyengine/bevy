@@ -283,47 +283,6 @@ mod sprite {
     }
 }
 
-mod gizmos {
-    use bevy::{color::palettes::css::*, prelude::*};
-
-    pub fn setup(mut commands: Commands) {
-        commands.spawn((Camera2d, DespawnOnExit(super::Scene::Gizmos)));
-    }
-
-    pub fn draw_gizmos(mut gizmos: Gizmos) {
-        gizmos.rect_2d(
-            Isometry2d::from_translation(Vec2::new(-200.0, 0.0)),
-            Vec2::new(200.0, 200.0),
-            RED,
-        );
-        gizmos
-            .circle_2d(
-                Isometry2d::from_translation(Vec2::new(-200.0, 0.0)),
-                200.0,
-                GREEN,
-            )
-            .resolution(64);
-
-        // 2d grids with all variations of outer edges on or off
-        for i in 0..4 {
-            let x = 200.0 * (1.0 + (i % 2) as f32);
-            let y = 150.0 * (0.5 - (i / 2) as f32);
-            let mut grid = gizmos.grid(
-                Vec3::new(x, y, 0.0),
-                UVec2::new(5, 4),
-                Vec2::splat(30.),
-                Color::WHITE,
-            );
-            if i & 1 > 0 {
-                grid = grid.outer_edges_x();
-            }
-            if i & 2 > 0 {
-                grid.outer_edges_y();
-            }
-        }
-    }
-}
-
 mod sprite_slicing {
     use bevy::prelude::*;
     use bevy::sprite::{BorderRect, SliceScaleMode, SpriteImageMode, TextureSlicer};
@@ -379,5 +338,46 @@ mod sprite_slicing {
             Transform::from_translation(Vec3::new(150.0, -80.0, 0.0)),
             DespawnOnExit(super::Scene::SpriteSlicing),
         ));
+    }
+}
+
+mod gizmos {
+    use bevy::{color::palettes::css::*, prelude::*};
+
+    pub fn setup(mut commands: Commands) {
+        commands.spawn((Camera2d, DespawnOnExit(super::Scene::Gizmos)));
+    }
+
+    pub fn draw_gizmos(mut gizmos: Gizmos) {
+        gizmos.rect_2d(
+            Isometry2d::from_translation(Vec2::new(-200.0, 0.0)),
+            Vec2::new(200.0, 200.0),
+            RED,
+        );
+        gizmos
+            .circle_2d(
+                Isometry2d::from_translation(Vec2::new(-200.0, 0.0)),
+                200.0,
+                GREEN,
+            )
+            .resolution(64);
+
+        // 2d grids with all variations of outer edges on or off
+        for i in 0..4 {
+            let x = 200.0 * (1.0 + (i % 2) as f32);
+            let y = 150.0 * (0.5 - (i / 2) as f32);
+            let mut grid = gizmos.grid(
+                Vec3::new(x, y, 0.0),
+                UVec2::new(5, 4),
+                Vec2::splat(30.),
+                Color::WHITE,
+            );
+            if i & 1 > 0 {
+                grid = grid.outer_edges_x();
+            }
+            if i & 2 > 0 {
+                grid.outer_edges_y();
+            }
+        }
     }
 }
