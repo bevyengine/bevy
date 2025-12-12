@@ -254,7 +254,7 @@ pub(crate) async fn get_asset_hash(
     loop {
         let bytes_read = asset_reader.read(&mut buffer).await?;
         hasher.update(&buffer[..bytes_read]);
-        if bytes_read < buffer.len() {
+        if bytes_read == 0 {
             // This means we've reached EOF, so we're done consuming asset bytes.
             break;
         }
