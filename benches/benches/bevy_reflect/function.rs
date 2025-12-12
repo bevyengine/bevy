@@ -48,9 +48,7 @@ fn into(c: &mut Criterion) {
         .bench_function("closure_mut", |b| {
             let mut _capture = 25;
             // `move` is required here because `into_function_mut()` takes ownership of `self`.
-            #[allow(clippy::allow_attributes_without_reason)]
-            #[allow(clippy::allow_attributes)]
-            #[allow(
+            #[expect(
                 unused_assignments,
                 reason = "rustc bug https://github.com/rust-lang/rust/issues/149889"
             )]
