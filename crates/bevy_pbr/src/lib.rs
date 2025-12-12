@@ -29,12 +29,14 @@ mod cluster;
 mod components;
 pub mod decal;
 pub mod deferred;
+pub mod diagnostic;
 mod extended_material;
 mod fog;
 mod light_probe;
 mod lightmap;
 mod material;
 mod material_bind_groups;
+mod medium;
 mod mesh_material;
 mod parallax;
 mod pbr_material;
@@ -61,6 +63,7 @@ pub use light_probe::*;
 pub use lightmap::*;
 pub use material::*;
 pub use material_bind_groups::*;
+pub use medium::*;
 pub use mesh_material::*;
 pub use parallax::*;
 pub use pbr_material::*;
@@ -246,7 +249,7 @@ impl Plugin for PbrPlugin {
                 SyncComponentPlugin::<SpotLight>::default(),
                 SyncComponentPlugin::<AmbientLight>::default(),
             ))
-            .add_plugins(AtmospherePlugin)
+            .add_plugins((ScatteringMediumPlugin, AtmospherePlugin))
             .configure_sets(
                 PostUpdate,
                 (

@@ -318,7 +318,7 @@ mod gizmos {
     }
 
     pub fn draw_gizmos(mut gizmos: Gizmos) {
-        gizmos.cuboid(
+        gizmos.cube(
             Transform::from_translation(Vec3::X * -1.75).with_scale(Vec3::splat(1.25)),
             RED,
         );

@@ -12,6 +12,7 @@ use argh::FromArgs;
 use bevy::{
     asset::UnapprovedPathMode,
     camera::primitives::{Aabb, Sphere},
+    camera_controller::free_camera::{FreeCamera, FreeCameraPlugin},
     core_pipeline::prepass::{DeferredPrepass, DepthPrepass},
     gltf::{convert_coordinates::GltfConvertCoordinates, GltfPlugin},
     pbr::DefaultOpaqueRendererMethod,
@@ -19,15 +20,11 @@ use bevy::{
     render::experimental::occlusion_culling::OcclusionCulling,
 };
 
-#[path = "../../helpers/camera_controller.rs"]
-mod camera_controller;
-
-#[cfg(feature = "animation")]
+#[cfg(feature = "gltf_animation")]
 mod animation_plugin;
 mod morph_viewer_plugin;
 mod scene_viewer_plugin;
 
-use camera_controller::{CameraController, CameraControllerPlugin};
 use morph_viewer_plugin::MorphViewerPlugin;
 use scene_viewer_plugin::{SceneHandle, SceneViewerPlugin};
 
@@ -104,7 +101,7 @@ fn main() {
                 },
                 ..default()
             }),
-        CameraControllerPlugin,
+        FreeCameraPlugin,
         SceneViewerPlugin,
         MorphViewerPlugin,
     ))
@@ -117,7 +114,7 @@ fn main() {
         app.insert_resource(DefaultOpaqueRendererMethod::deferred());
     }
 
-    #[cfg(feature = "animation")]
+    #[cfg(feature = "gltf_animation")]
     app.add_plugins(animation_plugin::AnimationManipulationPlugin);
 
     app.run();
@@ -184,7 +181,7 @@ fn setup_scene_after_load(
         projection.far = projection.far.max(size * 10.0);
 
         let walk_speed = size * 3.0;
-        let camera_controller = CameraController {
+        let camera_controller = FreeCamera {
             walk_speed,
             run_speed: 3.0 * walk_speed,
             ..default()

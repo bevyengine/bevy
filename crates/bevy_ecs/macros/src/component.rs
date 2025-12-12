@@ -17,6 +17,21 @@ pub fn derive_resource(input: TokenStream) -> TokenStream {
     let mut ast = parse_macro_input!(input as DeriveInput);
     let bevy_ecs_path: Path = crate::bevy_ecs_path();
 
+    // We want to raise a compile time error when the generic lifetimes
+    // are not bound to 'static lifetime
+    let non_static_lifetime_error = ast
+        .generics
+        .lifetimes()
+        .filter(|lifetime| !lifetime.bounds.iter().any(|bound| bound.ident == "static"))
+        .map(|param| syn::Error::new(param.span(), "Lifetimes must be 'static"))
+        .reduce(|mut err_acc, err| {
+            err_acc.combine(err);
+            err_acc
+        });
+    if let Some(err) = non_static_lifetime_error {
+        return err.into_compile_error().into();
+    }
+
     ast.generics
         .make_where_clause()
         .predicates
@@ -201,6 +216,35 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
         )
     };
 
+    let relationship_accessor = if (relationship.is_some() || relationship_target.is_some())
+        && let Data::Struct(DataStruct {
+            fields,
+            struct_token,
+            ..
+        }) = &ast.data
+        && let Ok(field) = relationship_field(fields, "Relationship", struct_token.span())
+    {
+        let relationship_member = field.ident.clone().map_or(Member::from(0), Member::Named);
+        if relationship.is_some() {
+            quote! {
+                Some(
+                    // Safety: we pass valid offset of a field containing Entity (obtained via offset_off!)
+                    unsafe {
+                        #bevy_ecs_path::relationship::ComponentRelationshipAccessor::<Self>::relationship(
+                            core::mem::offset_of!(Self, #relationship_member)
+                        )
+                    }
+                )
+            }
+        } else {
+            quote! {
+                Some(#bevy_ecs_path::relationship::ComponentRelationshipAccessor::<Self>::relationship_target())
+            }
+        }
+    } else {
+        quote! {None}
+    };
+
     // This puts `register_required` before `register_recursive_requires` to ensure that the constructors of _all_ top
     // level components are initialized first, giving them precedence over recursively defined constructors for the same component type
     TokenStream::from(quote! {
@@ -226,6 +270,10 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
             }
 
             #map_entities
+
+            fn relationship_accessor() -> Option<#bevy_ecs_path::relationship::ComponentRelationshipAccessor<Self>> {
+                #relationship_accessor
+            }
         }
 
         #relationship
@@ -302,7 +350,7 @@ pub(crate) fn map_entities(
                 let ident = &variant.ident;
                 let field_idents = field_members
                     .iter()
-                    .map(|member| format_ident!("__self_{}", member))
+                    .map(|member| format_ident!("__self{}", member))
                     .collect::<Vec<_>>();
 
                 map.push(
@@ -359,6 +407,18 @@ enum HookAttributeKind {
 }
 
 impl HookAttributeKind {
+    fn parse(
+        input: syn::parse::ParseStream,
+        default_hook_path: impl FnOnce() -> ExprPath,
+    ) -> Result<Self> {
+        if input.peek(Token![=]) {
+            input.parse::<Token![=]>()?;
+            input.parse::<Expr>().and_then(Self::from_expr)
+        } else {
+            Ok(Self::Path(default_hook_path()))
+        }
+    }
+
     fn from_expr(value: Expr) -> Result<Self> {
         match value {
             Expr::Path(path) => Ok(HookAttributeKind::Path(path)),
@@ -388,12 +448,6 @@ impl HookAttributeKind {
                 })
             }
         }
-    }
-}
-
-impl Parse for HookAttributeKind {
-    fn parse(input: syn::parse::ParseStream) -> Result<Self> {
-        input.parse::<Expr>().and_then(Self::from_expr)
     }
 }
 
@@ -518,19 +572,29 @@ fn parse_component_attr(ast: &DeriveInput) -> Result<Attrs> {
                     };
                     Ok(())
                 } else if nested.path.is_ident(ON_ADD) {
-                    attrs.on_add = Some(nested.value()?.parse::<HookAttributeKind>()?);
+                    attrs.on_add = Some(HookAttributeKind::parse(nested.input, || {
+                        parse_quote! { Self::on_add }
+                    })?);
                     Ok(())
                 } else if nested.path.is_ident(ON_INSERT) {
-                    attrs.on_insert = Some(nested.value()?.parse::<HookAttributeKind>()?);
+                    attrs.on_insert = Some(HookAttributeKind::parse(nested.input, || {
+                        parse_quote! { Self::on_insert }
+                    })?);
                     Ok(())
                 } else if nested.path.is_ident(ON_REPLACE) {
-                    attrs.on_replace = Some(nested.value()?.parse::<HookAttributeKind>()?);
+                    attrs.on_replace = Some(HookAttributeKind::parse(nested.input, || {
+                        parse_quote! { Self::on_replace }
+                    })?);
                     Ok(())
                 } else if nested.path.is_ident(ON_REMOVE) {
-                    attrs.on_remove = Some(nested.value()?.parse::<HookAttributeKind>()?);
+                    attrs.on_remove = Some(HookAttributeKind::parse(nested.input, || {
+                        parse_quote! { Self::on_remove }
+                    })?);
                     Ok(())
                 } else if nested.path.is_ident(ON_DESPAWN) {
-                    attrs.on_despawn = Some(nested.value()?.parse::<HookAttributeKind>()?);
+                    attrs.on_despawn = Some(HookAttributeKind::parse(nested.input, || {
+                        parse_quote! { Self::on_despawn }
+                    })?);
                     Ok(())
                 } else if nested.path.is_ident(IMMUTABLE) {
                     attrs.immutable = true;
@@ -762,7 +826,7 @@ fn derive_relationship(
             }
 
             #[inline]
-            fn set_risky(&mut self, entity: Entity) {
+            fn set_risky(&mut self, entity: #bevy_ecs_path::entity::Entity) {
                 self.#relationship_member = entity;
             }
         }

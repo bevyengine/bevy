@@ -11,6 +11,7 @@ keywords = ["bevy"]
 [features]
 default = ["serialize"]
 serialize = [
+  "dep:ron",
   "dep:serde",
   "uuid/serde",
   "bevy_ecs/serialize",
@@ -32,6 +33,7 @@ bevy_platform = { path = "../bevy_platform", version = "0.18.0-dev", default-fea
 ] }
 
 # other
+ron = { version = "0.12", default-features = false, optional = true }
 serde = { version = "1.0", features = ["derive"], optional = true }
 uuid = { version = "1.13.1", features = ["v4"] }
 thiserror = { version = "2", default-features = false }

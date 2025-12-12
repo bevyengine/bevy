@@ -72,6 +72,12 @@ struct SliderValueText;
 ///
 /// * `props` - construction properties for the slider.
 /// * `overrides` - a bundle of components that are merged in with the normal slider components.
+///
+/// # Emitted events
+///
+/// * [`bevy_ui_widgets::ValueChange<f32>`] when the slider value is changed.
+///
+///  These events can be disabled by adding an [`bevy_ui::InteractionDisabled`] component to the entity
 pub fn slider<B: Bundle>(props: SliderProps, overrides: B) -> impl Bundle {
     (
         Node {
@@ -80,6 +86,7 @@ pub fn slider<B: Bundle>(props: SliderProps, overrides: B) -> impl Bundle {
             align_items: AlignItems::Center,
             padding: UiRect::axes(Val::Px(8.0), Val::Px(0.)),
             flex_grow: 1.0,
+            border_radius: RoundedCorners::All.to_border_radius(6.0),
             ..Default::default()
         },
         Slider {
@@ -90,7 +97,6 @@ pub fn slider<B: Bundle>(props: SliderProps, overrides: B) -> impl Bundle {
         SliderRange::new(props.min, props.max),
         EntityCursor::System(bevy_window::SystemCursorIcon::EwResize),
         TabIndex(0),
-        RoundedCorners::All.to_border_radius(6.0),
         // Use a gradient to draw the moving bar
         BackgroundGradient(vec![Gradient::Linear(LinearGradient {
             angle: PI * 0.5,
@@ -216,7 +222,7 @@ fn update_slider_pos(
 ) {
     for (slider_ent, value, range, precision, mut gradient) in q_sliders.iter_mut() {
         if let [Gradient::Linear(linear_gradient)] = &mut gradient.0[..] {
-            let percent_value = range.thumb_position(value.0) * 100.0;
+            let percent_value = (range.thumb_position(value.0) * 100.0).clamp(0.0, 100.0);
             linear_gradient.stops[1].point = Val::Percent(percent_value);
             linear_gradient.stops[2].point = Val::Percent(percent_value);
         }
