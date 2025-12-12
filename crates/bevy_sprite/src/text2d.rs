@@ -268,37 +268,39 @@ pub fn update_text2d_layout(
             }
         }
 
-        match text_pipeline.update_text_layout_info(
-            &mut text_layout_info,
-            text_font_query,
-            scale_factor as f64,
-            &mut font_atlas_set,
-            &mut texture_atlases,
-            &mut textures,
-            &mut computed,
-            &mut font_system,
-            &mut swash_cache,
-            text_bounds,
-            block.justify,
-        ) {
-            Err(TextError::NoSuchFont) => {
-                // There was an error processing the text layout.
-                // Add this entity to the queue and reprocess it in the following frame.
-                reprocess_queue.insert(entity);
-                continue;
-            }
-            Err(
-                e @ (TextError::FailedToAddGlyph(_)
-                | TextError::FailedToGetGlyphImage(_)
-                | TextError::MissingAtlasLayout
-                | TextError::MissingAtlasTexture
-                | TextError::InconsistentAtlasState),
-            ) => {
-                panic!("Fatal error when processing text: {e}.");
-            }
-            Ok(()) => {
-                text_layout_info.scale_factor = scale_factor;
-                text_layout_info.size *= scale_factor.recip();
+        if text_changed || bounds.is_changed() {
+            match text_pipeline.update_text_layout_info(
+                &mut text_layout_info,
+                text_font_query,
+                scale_factor as f64,
+                &mut font_atlas_set,
+                &mut texture_atlases,
+                &mut textures,
+                &mut computed,
+                &mut font_system,
+                &mut swash_cache,
+                text_bounds,
+                block.justify,
+            ) {
+                Err(TextError::NoSuchFont) => {
+                    // There was an error processing the text layout.
+                    // Add this entity to the queue and reprocess it in the following frame.
+                    reprocess_queue.insert(entity);
+                    continue;
+                }
+                Err(
+                    e @ (TextError::FailedToAddGlyph(_)
+                    | TextError::FailedToGetGlyphImage(_)
+                    | TextError::MissingAtlasLayout
+                    | TextError::MissingAtlasTexture
+                    | TextError::InconsistentAtlasState),
+                ) => {
+                    panic!("Fatal error when processing text: {e}.");
+                }
+                Ok(()) => {
+                    text_layout_info.scale_factor = scale_factor;
+                    text_layout_info.size *= scale_factor.recip();
+                }
             }
         }
     }
