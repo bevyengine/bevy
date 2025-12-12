@@ -34,6 +34,7 @@ pub mod grid;
 pub mod primitives;
 pub mod retained;
 pub mod rounded_box;
+pub mod text;
 
 #[cfg(feature = "bevy_light")]
 pub mod light;
@@ -62,7 +63,7 @@ pub mod prelude {
     pub use crate::light::{LightGizmoColor, LightGizmoConfigGroup, ShowLightGizmo};
 }
 
-use bevy_app::{App, FixedFirst, FixedLast, Last, Plugin, RunFixedMainLoop};
+use bevy_app::{App, FixedFirst, FixedLast, Last, Plugin, PostUpdate, RunFixedMainLoop};
 use bevy_asset::{Asset, AssetApp, Assets, Handle};
 use bevy_ecs::{
     resource::Resource,
@@ -71,7 +72,11 @@ use bevy_ecs::{
 };
 use bevy_reflect::TypePath;
 
-use crate::{config::ErasedGizmoConfigGroup, gizmos::GizmoBuffer};
+use crate::{
+    config::ErasedGizmoConfigGroup,
+    gizmos::GizmoBuffer,
+    text::{gizmo_text_system, GizmoText, GizmoTextBuffer},
+};
 
 use bevy_time::Fixed;
 use bevy_utils::TypeIdMap;
@@ -136,6 +141,7 @@ impl AppGizmoBuilder for App {
         self.init_resource::<GizmoStorage<Config, ()>>()
             .init_resource::<GizmoStorage<Config, Fixed>>()
             .init_resource::<GizmoStorage<Config, Swap<Fixed>>>()
+            .init_resource::<GizmoTextBuffer<Config, ()>>()
             .add_systems(
                 RunFixedMainLoop,
                 start_gizmo_context::<Config, Fixed>
@@ -148,6 +154,7 @@ impl AppGizmoBuilder for App {
                 end_gizmo_context::<Config, Fixed>
                     .in_set(bevy_app::RunFixedMainLoopSystems::AfterFixedMainLoop),
             )
+            .add_systems(PostUpdate, gizmo_text_system::<Config, ()>)
             .add_systems(
                 Last,
                 (
@@ -287,6 +294,9 @@ fn update_gizmo_meshes<Config: GizmoConfigGroup>(
                     list_colors: mem::take(&mut storage.list_colors),
                     strip_positions: mem::take(&mut storage.strip_positions),
                     strip_colors: mem::take(&mut storage.strip_colors),
+                    glyph_vertices: mem::take(&mut storage.glyph_vertices),
+                    glyph_uvs: mem::take(&mut storage.glyph_uvs),
+                    glyph_colors: mem::take(&mut storage.glyph_colors),
                     marker: PhantomData,
                 },
             };
