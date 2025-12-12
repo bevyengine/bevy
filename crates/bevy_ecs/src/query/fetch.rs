@@ -2614,6 +2614,7 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> QueryData for Nest
     fn iter_access(_state: &Self::State) -> impl Iterator<Item = EcsAccessType<'_>> {
         // This performs no access on the current entity
         // Access to the nested query is checked through `init_nested_access`
+        iter::empty()
     }
 }
 
