@@ -188,7 +188,7 @@ fn alter_mesh(
     // `ATTRIBUTE_POSITION` is a constant indicating that we want to know where the vertex is
     // located in space (as opposed to which way its normal is facing, vertex color, or other
     // details).
-    if let Some(VertexAttributeValues::Float32x3(positions)) =
+    if let Ok(VertexAttributeValues::Float32x3(positions)) =
         mesh.attribute_mut(Mesh::ATTRIBUTE_POSITION)
     {
         // Check a Local value (which only this system can make use of) to determine if we're

@@ -1,7 +1,7 @@
 //! A shader that reads a mesh's custom vertex attribute.
 
 use bevy::{
-    mesh::{MeshVertexAttribute, MeshVertexBufferLayoutRef},
+    mesh::{InfallibleMesh, MeshVertexAttribute, MeshVertexBufferLayoutRef},
     pbr::{MaterialPipeline, MaterialPipelineKey},
     prelude::*,
     reflect::TypePath,
@@ -32,7 +32,7 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<CustomMaterial>>,
 ) {
-    let mesh = Mesh::from(Cuboid::default())
+    let mesh = InfallibleMesh::from(Cuboid::default().mesh())
         // Sets the custom attribute
         .with_inserted_attribute(
             ATTRIBUTE_BLEND_COLOR,

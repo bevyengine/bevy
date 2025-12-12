@@ -12,7 +12,7 @@ use bevy::{
     core_pipeline::core_3d::{Opaque3d, Opaque3dBatchSetKey, Opaque3dBinKey, CORE_3D_DEPTH_FORMAT},
     ecs::change_detection::Tick,
     math::{vec3, vec4},
-    mesh::{Indices, MeshVertexBufferLayoutRef, PrimitiveTopology},
+    mesh::{Indices, InfallibleMesh, MeshVertexBufferLayoutRef, PrimitiveTopology},
     pbr::{
         DrawMesh, MeshPipeline, MeshPipelineKey, MeshPipelineViewLayoutKey, RenderMeshInstances,
         SetMeshBindGroup, SetMeshViewBindGroup, SetMeshViewEmptyBindGroup,
@@ -53,7 +53,7 @@ fn setup(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>) {
     // Build a custom triangle mesh with colors
     // We define a custom mesh because the examples only uses a limited
     // set of vertex attributes for simplicity
-    let mesh = Mesh::new(
+    let mesh = InfallibleMesh::new(
         PrimitiveTopology::TriangleList,
         RenderAssetUsages::default(),
     )

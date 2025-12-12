@@ -1029,7 +1029,10 @@ impl ElementLayout {
     /// Creates the appropriate [`ElementLayout`] for the given mesh's index
     /// data.
     fn index(mesh: &Mesh) -> Option<ElementLayout> {
-        let size = match mesh.indices()? {
+        let size = match mesh
+            .indices_option()
+            .expect("mesh data should always be available in render world")?
+        {
             Indices::U16(_) => 2,
             Indices::U32(_) => 4,
         };
