@@ -20,7 +20,7 @@ use smallvec::SmallVec;
 
 use crate::{
     camera::Camera,
-    primitives::{Aabb, Frustum, MeshAabb, Sphere},
+    primitives::{Aabb, Frustum, Sphere},
     Projection,
 };
 use bevy_mesh::{mark_3d_meshes_as_changed_if_their_assets_changed, Mesh, Mesh2d, Mesh3d};
@@ -395,7 +395,7 @@ pub fn calculate_bounds(
 ) {
     for (entity, mesh_handle) in &without_aabb {
         if let Some(mesh) = meshes.get(mesh_handle)
-            && let Some(aabb) = mesh.compute_aabb()
+            && let Some(aabb) = mesh.compute_aabb().map(|aabb| -> Aabb { aabb.into() })
         {
             commands.entity(entity).try_insert(aabb);
         }

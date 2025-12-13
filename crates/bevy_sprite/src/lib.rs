@@ -38,11 +38,7 @@ pub mod prelude {
 }
 
 use bevy_asset::Assets;
-use bevy_camera::{
-    primitives::{Aabb, MeshAabb},
-    visibility::NoFrustumCulling,
-    visibility::VisibilitySystems,
-};
+use bevy_camera::{primitives::Aabb, visibility::NoFrustumCulling, visibility::VisibilitySystems};
 use bevy_mesh::{Mesh, Mesh2d};
 #[cfg(feature = "bevy_picking")]
 pub use picking_backend::*;
@@ -118,7 +114,7 @@ pub fn calculate_bounds_2d(
 ) {
     for (entity, mesh_handle) in &meshes_without_aabb {
         if let Some(mesh) = meshes.get(&mesh_handle.0)
-            && let Some(aabb) = mesh.compute_aabb()
+            && let Some(aabb) = mesh.compute_aabb().map(|aabb| -> Aabb { aabb.into() })
         {
             commands.entity(entity).try_insert(aabb);
         }
