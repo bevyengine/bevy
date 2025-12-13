@@ -67,9 +67,7 @@ impl Plugin for GltfToMesh2dPlugin {
             return;
         };
 
-        extensions
-            .0
-            .push(Box::new(GltfExtensionProcessorToMesh2d::default()));
+        extensions.0.push(Box::new(GltfExtensionProcessorToMesh2d));
 
         app.add_plugins(Material2dPlugin::<CustomMaterial>::default());
     }
