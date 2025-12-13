@@ -44,25 +44,5 @@ fn flush_global_gizmos(mut gizmos: Gizmos) {
 /// }
 /// ```
 pub fn gizmo() -> impl core::ops::DerefMut<Target = GizmoBuffer<DefaultGizmoConfigGroup, ()>> {
-    GlobalGizmos {
-        guard: GLOBAL_GIZMO.lock().unwrap(),
-    }
-}
-
-struct GlobalGizmos<'a> {
-    guard: std::sync::MutexGuard<'a, GizmoBuffer<DefaultGizmoConfigGroup, ()>>,
-}
-
-impl<'a> core::ops::Deref for GlobalGizmos<'a> {
-    type Target = GizmoBuffer<DefaultGizmoConfigGroup, ()>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.guard
-    }
-}
-
-impl<'a> core::ops::DerefMut for GlobalGizmos<'a> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.guard
-    }
+    GLOBAL_GIZMO.lock().unwrap()
 }
