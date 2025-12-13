@@ -278,9 +278,7 @@ impl Plugin for GltfPlugin {
         let default_sampler = default_sampler_resource.get_internal();
         app.insert_resource(default_sampler_resource);
 
-        let extensions = app
-            .world()
-            .resource::<GltfExtensionProcessors>();
+        let extensions = app.world().resource::<GltfExtensionProcessors>();
 
         app.register_asset_loader(GltfLoader {
             supported_compressed_formats,
