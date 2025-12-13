@@ -54,7 +54,7 @@ fn setup(
                 base_color: Color::srgba(0.0, 1.0, 0.0, 0.5),
                 // Use alpha blending for decals
                 alpha_mode: AlphaMode::Blend,
-                depth_bias: 1.0,
+                depth_bias: 2.0,
                 ..default()
             },
             extension: ForwardDecalMaterialExt {
@@ -73,7 +73,7 @@ fn setup(
                 base_color: Color::srgba(0.0, 0.0, 1.0, 0.5),
                 // Use alpha blending for decals
                 alpha_mode: AlphaMode::Blend,
-                depth_bias: 2.0,
+                depth_bias: 4.0,
                 ..default()
             },
             extension: ForwardDecalMaterialExt {
