@@ -301,7 +301,7 @@ where
     Initialized {
         system: FunctionSystem<Marker, In, Out, Func>,
     },
-    /// An unititialized system, whose state hasn't been constructed from
+    /// An uninitialized system, whose state hasn't been constructed from
     /// the param builder yet
     Uninitialized {
         builder: Builder,
