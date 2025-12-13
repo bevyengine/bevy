@@ -22,7 +22,7 @@ pub(crate) use self::{
 };
 
 // todo: change name to `GltfExtensionProcessor`
-/// implement this trait to be able to process
+/// Implement this trait to be able to process glTF extension data
 pub trait GltfExtensionProcessor: Send + Sync {
     /// Required for dyn cloning
     fn dyn_clone(&self) -> Box<dyn GltfExtensionProcessor>;
