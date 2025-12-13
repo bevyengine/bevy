@@ -59,15 +59,10 @@ struct GltfToMesh2dPlugin;
 
 impl Plugin for GltfToMesh2dPlugin {
     fn build(&self, app: &mut App) {
-        let Some(mut extensions) = app
-            .world_mut()
-            .get_resource_mut::<bevy::gltf::GltfExtensionHandlers>()
-        else {
-            warn!("GltfExtensionHandlers was not added");
-            return;
-        };
-
-        extensions.0.push(Box::new(GltfExtensionHandlerToMesh2d));
+        app.world_mut()
+            .resource_mut::<bevy::gltf::GltfExtensionHandlers>()
+            .0
+            .push(Box::new(GltfExtensionHandlerToMesh2d));
 
         app.add_plugins(Material2dPlugin::<CustomMaterial>::default());
     }
