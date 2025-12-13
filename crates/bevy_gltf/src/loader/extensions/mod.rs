@@ -34,11 +34,17 @@ pub trait GltfExtensionProcessor: Send + Sync {
 
     /// Called when the "global" data for an extension
     /// at the root of a glTF file is encountered.
-    #[allow(unused)]
+    #[expect(
+        unused,
+        reason = "default trait implementations do not use the arguments because they are no-ops"
+    )]
     fn on_root_data(&mut self, value: Option<&serde_json::Value>) {}
 
     #[cfg(feature = "bevy_animation")]
-    #[allow(unused)]
+    #[expect(
+        unused,
+        reason = "default trait implementations do not use the arguments because they are no-ops"
+    )]
     /// Called when an individual animation is processed
     fn on_animation(
         &mut self,
@@ -49,10 +55,13 @@ pub trait GltfExtensionProcessor: Send + Sync {
     }
 
     #[cfg(feature = "bevy_animation")]
-    #[allow(unused)]
+    #[expect(
+        unused,
+        reason = "default trait implementations do not use the arguments because they are no-ops"
+    )]
     /// Called when all animations have been collected.
     /// `animations` is the glTF ordered list of `Handle<AnimationClip>`s
-    /// `named_animations` is a HashMap from animation name to `Handle<AnimationClip>`
+    /// `named_animations` is a `HashMap` from animation name to `Handle<AnimationClip>`
     /// `animation_roots` is the glTF index of the animation root object
     fn on_animations_collected(
         &mut self,
@@ -64,7 +73,10 @@ pub trait GltfExtensionProcessor: Send + Sync {
     }
 
     /// Called when an individual texture is processed
-    #[allow(unused)]
+    #[expect(
+        unused,
+        reason = "default trait implementations do not use the arguments because they are no-ops"
+    )]
     fn on_texture(
         &mut self,
         value: Option<&serde_json::Value>,
@@ -73,7 +85,10 @@ pub trait GltfExtensionProcessor: Send + Sync {
     }
 
     /// Called when an individual material is processed
-    #[allow(unused)]
+    #[expect(
+        unused,
+        reason = "default trait implementations do not use the arguments because they are no-ops"
+    )]
     fn on_material(
         &mut self,
         value: Option<&serde_json::Value>,
@@ -84,7 +99,10 @@ pub trait GltfExtensionProcessor: Send + Sync {
     }
 
     /// Called when an individual glTF Mesh is processed
-    #[allow(unused)]
+    #[expect(
+        unused,
+        reason = "default trait implementations do not use the arguments because they are no-ops"
+    )]
     fn on_gltf_mesh(
         &mut self,
         value: Option<&serde_json::Value>,
@@ -97,7 +115,10 @@ pub trait GltfExtensionProcessor: Send + Sync {
     /// mesh and material are spawned as a single Entity,
     /// which means an extension would have to decide for
     /// itself how to merge the extension data.
-    #[allow(unused)]
+    #[expect(
+        unused,
+        reason = "default trait implementations do not use the arguments because they are no-ops"
+    )]
     fn on_spawn_mesh_and_material(
         &mut self,
         load_context: &mut LoadContext<'_>,
@@ -107,7 +128,10 @@ pub trait GltfExtensionProcessor: Send + Sync {
     }
 
     /// Called when an individual Scene is done processing
-    #[allow(unused)]
+    #[expect(
+        unused,
+        reason = "default trait implementations do not use the arguments because they are no-ops"
+    )]
     fn on_scene_completed(
         &mut self,
         value: Option<&serde_json::Value>,
@@ -119,7 +143,10 @@ pub trait GltfExtensionProcessor: Send + Sync {
     }
 
     /// Called when a node is processed
-    #[allow(unused)]
+    #[expect(
+        unused,
+        reason = "default trait implementations do not use the arguments because they are no-ops"
+    )]
     fn on_gltf_node(
         &mut self,
         value: Option<&serde_json::Value>,
@@ -132,7 +159,10 @@ pub trait GltfExtensionProcessor: Send + Sync {
     /// Called with a `DirectionalLight` node is spawned
     /// which is typically created as a result of
     /// `KHR_lights_punctual`
-    #[allow(unused)]
+    #[expect(
+        unused,
+        reason = "default trait implementations do not use the arguments because they are no-ops"
+    )]
     fn on_spawn_light_directional(
         &mut self,
         value: Option<&serde_json::Value>,
@@ -144,7 +174,10 @@ pub trait GltfExtensionProcessor: Send + Sync {
     /// Called with a `PointLight` node is spawned
     /// which is typically created as a result of
     /// `KHR_lights_punctual`
-    #[allow(unused)]
+    #[expect(
+        unused,
+        reason = "default trait implementations do not use the arguments because they are no-ops"
+    )]
     fn on_spawn_light_point(
         &mut self,
         value: Option<&serde_json::Value>,
@@ -156,7 +189,10 @@ pub trait GltfExtensionProcessor: Send + Sync {
     /// Called with a `SpotLight` node is spawned
     /// which is typically created as a result of
     /// `KHR_lights_punctual`
-    #[allow(unused)]
+    #[expect(
+        unused,
+        reason = "default trait implementations do not use the arguments because they are no-ops"
+    )]
     fn on_spawn_light_spot(
         &mut self,
         value: Option<&serde_json::Value>,

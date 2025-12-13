@@ -258,7 +258,7 @@ impl GltfLoader {
         // they've subscribed to.
         for extension in extensions.iter_mut() {
             for id in extension.extension_ids() {
-                extension.on_root_data(gltf.extension_value(*id));
+                extension.on_root_data(gltf.extension_value(id));
             }
         }
 
@@ -598,7 +598,7 @@ impl GltfLoader {
                 for extension in extensions.iter_mut() {
                     for id in extension.extension_ids() {
                         extension.on_animation(
-                            animation.extension_value(*id),
+                            animation.extension_value(id),
                             animation.name(),
                             handle.clone(),
                         );
@@ -653,7 +653,7 @@ impl GltfLoader {
                 for extension in extensions.iter_mut() {
                     for id in extension.extension_ids() {
                         extension.on_texture(
-                            texture.extension_value(*id),
+                            texture.extension_value(id),
                             _texture_handles.iter().last().unwrap().clone(),
                         );
                     }
@@ -667,7 +667,7 @@ impl GltfLoader {
                         let asset_path = load_context.path().clone();
                         let linear_textures = &linear_textures;
                         let buffer_data = &buffer_data;
-                        let extension_data = gltf_texture.extensions().map(|map| map.to_owned());
+                        let extension_data = gltf_texture.extensions().map(ToOwned::to_owned);
                         scope.spawn(async move {
                             let result = load_image(
                                 gltf_texture,
@@ -720,7 +720,7 @@ impl GltfLoader {
                 for extension in extensions.iter_mut() {
                     for id in extension.extension_ids() {
                         extension.on_material(
-                            material.extension_value(*id),
+                            material.extension_value(id),
                             load_context,
                             material.name(),
                             handle.clone(),
@@ -894,7 +894,7 @@ impl GltfLoader {
             for extension in extensions.iter_mut() {
                 for id in extension.extension_ids() {
                     extension.on_gltf_mesh(
-                        gltf_mesh.extension_value(*id),
+                        gltf_mesh.extension_value(id),
                         load_context,
                         gltf_mesh.name(),
                         handle.clone(),
@@ -1107,7 +1107,7 @@ impl GltfLoader {
             for extension in extensions.iter_mut() {
                 for id in extension.extension_ids() {
                     extension.on_scene_completed(
-                        scene.extension_value(*id),
+                        scene.extension_value(id),
                         scene.name(),
                         world_root_id,
                         &mut world,
