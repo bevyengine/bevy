@@ -54,7 +54,8 @@ impl BlobArray {
                 capacity,
             }
         } else {
-            let mut arr = Self::with_capacity(item_layout, drop_fn, 0);
+            // SAFETY: Upheld by caller
+            let mut arr = unsafe { Self::with_capacity(item_layout, drop_fn, 0) };
             // SAFETY: `capacity` > 0
             unsafe { arr.alloc(NonZeroUsize::new_unchecked(capacity)) }
             arr
