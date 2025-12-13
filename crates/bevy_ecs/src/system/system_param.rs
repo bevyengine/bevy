@@ -1359,6 +1359,40 @@ unsafe impl<T: SystemBuffer> SystemParam for Deferred<'_, T> {
     }
 }
 
+/// A dummy type to tell the executor to run the system exclusively.
+pub struct ExclusiveMarker(PhantomData<()>);
+
+// SAFETY: No world access.
+unsafe impl SystemParam for ExclusiveMarker {
+    type State = ();
+    type Item<'w, 's> = Self;
+
+    #[inline]
+    fn init_state(_world: &mut World) -> Self::State {}
+
+    fn init_access(
+        _state: &Self::State,
+        system_meta: &mut SystemMeta,
+        _component_access_set: &mut FilteredAccessSet,
+        _world: &mut World,
+    ) {
+        system_meta.set_exclusive();
+    }
+
+    #[inline]
+    unsafe fn get_param<'world, 'state>(
+        _state: &'state mut Self::State,
+        _system_meta: &SystemMeta,
+        _world: UnsafeWorldCell<'world>,
+        _change_tick: Tick,
+    ) -> Self::Item<'world, 'state> {
+        Self(PhantomData)
+    }
+}
+
+// SAFETY: Does not read any world state
+unsafe impl ReadOnlySystemParam for ExclusiveMarker {}
+
 /// A dummy type that is [`!Send`](Send), to force systems to run on the main thread.
 pub struct NonSendMarker(PhantomData<*mut ()>);
 
@@ -2111,6 +2145,7 @@ macro_rules! impl_system_param_tuple {
             unused_variables,
             reason = "Zero-length tuples won't use some of the parameters."
         )]
+        #[allow(clippy::unused_unit, reason = "Zero length tuple is unit.")]
         $(#[$meta])*
         // SAFETY: implementers of each `SystemParam` in the tuple have validated their impls
         unsafe impl<$($param: SystemParam),*> SystemParam for ($($param,)*) {
@@ -2119,7 +2154,7 @@ macro_rules! impl_system_param_tuple {
 
             #[inline]
             fn init_state(world: &mut World) -> Self::State {
-                (($($param::init_state(world),)*))
+                ($($param::init_state(world),)*)
             }
 
             fn init_access(state: &Self::State, _system_meta: &mut SystemMeta, _component_access_set: &mut FilteredAccessSet, _world: &mut World) {
