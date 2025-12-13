@@ -12,6 +12,7 @@ use bevy::{
 
 fn main() {
     let mut app = App::new();
+
     app.add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
         .add_systems(Update, send_scroll_events)
@@ -230,7 +231,21 @@ fn vertically_scrolling_list(font_handle: Handle<Font>) -> impl Bundle {
                     align_self: AlignSelf::Stretch,
                     height: percent(50),
                     overflow: Overflow::scroll_y(), // n.b.
+                    scrollbar_width: 20.,
                     ..default()
+                },
+                #[cfg(feature = "bevy_ui_debug")]
+                UiDebugOptions {
+                    enabled: true,
+                    outline_border_box: false,
+                    outline_padding_box: false,
+                    outline_content_box: false,
+                    outline_scrollbars: true,
+                    line_width: 2.,
+                    line_color_override: None,
+                    show_hidden: false,
+                    show_clipped: true,
+                    ignore_border_radius: true,
                 },
                 BackgroundColor(Color::srgb(0.10, 0.10, 0.10)),
                 Children::spawn(SpawnIter((0..25).map(move |i| {
