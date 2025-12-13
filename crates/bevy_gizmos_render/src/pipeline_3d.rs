@@ -14,6 +14,7 @@ use bevy_core_pipeline::{
 use bevy_gizmos::config::{GizmoLineJoint, GizmoLineStyle, GizmoMeshConfig};
 
 use bevy_ecs::{
+    error::BevyError,
     prelude::Entity,
     query::Has,
     resource::Resource,
@@ -48,7 +49,6 @@ impl Plugin for LineGizmo3dPlugin {
             .add_render_command::<Transparent3d, DrawLineGizmo3d>()
             .add_render_command::<Transparent3d, DrawLineGizmo3dStrip>()
             .add_render_command::<Transparent3d, DrawLineJointGizmo3d>()
-            .init_resource::<SpecializedRenderPipelines<LineGizmoPipeline>>()
             .init_resource::<SpecializedRenderPipelines<LineJointGizmoPipeline>>()
             .configure_sets(
                 Render,
@@ -67,11 +67,9 @@ impl Plugin for LineGizmo3dPlugin {
     }
 }
 
-#[derive(Clone, Resource)]
+#[derive(Resource)]
 struct LineGizmoPipeline {
-    mesh_pipeline: MeshPipeline,
-    uniform_layout: BindGroupLayoutDescriptor,
-    shader: Handle<Shader>,
+    variants: Variants<RenderPipeline, LineGizmoPipelineSpecializer>,
 }
 
 fn init_line_gizmo_pipelines(
@@ -80,10 +78,38 @@ fn init_line_gizmo_pipelines(
     uniform_bind_group_layout: Res<LineGizmoUniformBindgroupLayout>,
     asset_server: Res<AssetServer>,
 ) {
+    let line_shader = load_embedded_asset!(asset_server.as_ref(), "lines.wgsl");
+    let variants_line = Variants::new(
+        LineGizmoPipelineSpecializer {
+            mesh_pipeline: mesh_pipeline.clone(),
+        },
+        RenderPipelineDescriptor {
+            label: Some("LineGizmo 3d Pipeline".into()),
+            vertex: VertexState {
+                shader: line_shader.clone(),
+                ..default()
+            },
+            fragment: Some(FragmentState {
+                shader: line_shader,
+                ..default()
+            }),
+            layout: vec![
+                Default::default(), // placeholder
+                uniform_bind_group_layout.layout.clone(),
+            ],
+            depth_stencil: Some(DepthStencilState {
+                format: CORE_3D_DEPTH_FORMAT,
+                depth_write_enabled: true,
+                depth_compare: CompareFunction::Greater,
+                stencil: StencilState::default(),
+                bias: DepthBiasState::default(),
+            }),
+            ..default()
+        },
+    );
+
     commands.insert_resource(LineGizmoPipeline {
-        mesh_pipeline: mesh_pipeline.clone(),
-        uniform_layout: uniform_bind_group_layout.layout.clone(),
-        shader: load_embedded_asset!(asset_server.as_ref(), "lines.wgsl"),
+        variants: variants_line,
     });
     commands.insert_resource(LineJointGizmoPipeline {
         mesh_pipeline: mesh_pipeline.clone(),
@@ -92,7 +118,11 @@ fn init_line_gizmo_pipelines(
     });
 }
 
-#[derive(PartialEq, Eq, Hash, Clone)]
+struct LineGizmoPipelineSpecializer {
+    mesh_pipeline: MeshPipeline,
+}
+
+#[derive(PartialEq, Eq, Hash, Clone, SpecializerKey)]
 struct LineGizmoPipelineKey {
     view_key: MeshPipelineKey,
     strip: bool,
@@ -100,17 +130,30 @@ struct LineGizmoPipelineKey {
     line_style: GizmoLineStyle,
 }
 
-impl SpecializedRenderPipeline for LineGizmoPipeline {
+impl Specializer<RenderPipeline> for LineGizmoPipelineSpecializer {
     type Key = LineGizmoPipelineKey;
 
-    fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
-        let mut shader_defs = vec![
-            #[cfg(feature = "webgl")]
-            "SIXTEEN_BYTE_ALIGNMENT".into(),
-        ];
+    fn specialize(
+        &self,
+        key: Self::Key,
+        descriptor: &mut RenderPipelineDescriptor,
+    ) -> Result<Canonical<Self::Key>, BevyError> {
+        let view_layout = self
+            .mesh_pipeline
+            .get_view_layout(key.view_key.into())
+            .clone();
+
+        descriptor.set_layout(0, view_layout.main_layout.clone());
+        descriptor.vertex.buffers = line_gizmo_vertex_buffer_layouts(key.strip);
+        descriptor.multisample.count = key.view_key.msaa_samples();
+
+        let fragment = descriptor.fragment_mut()?;
+
+        #[cfg(feature = "webgl")]
+        fragment.shader_defs.push("SIXTEEN_BYTE_ALIGNMENT".into());
 
         if key.perspective {
-            shader_defs.push("PERSPECTIVE".into());
+            fragment.shader_defs.push("PERSPECTIVE".into());
         }
 
         let format = if key.view_key.contains(MeshPipelineKey::HDR) {
@@ -119,12 +162,6 @@ impl SpecializedRenderPipeline for LineGizmoPipeline {
             TextureFormat::bevy_default()
         };
 
-        let view_layout = self
-            .mesh_pipeline
-            .get_view_layout(key.view_key.into())
-            .clone();
-        let layout = vec![view_layout.main_layout.clone(), self.uniform_layout.clone()];
-
         let fragment_entry_point = match key.line_style {
             GizmoLineStyle::Solid => "fragment_solid",
             GizmoLineStyle::Dotted => "fragment_dotted",
@@ -132,39 +169,18 @@ impl SpecializedRenderPipeline for LineGizmoPipeline {
             _ => unimplemented!(),
         };
 
-        RenderPipelineDescriptor {
-            vertex: VertexState {
-                shader: self.shader.clone(),
-                shader_defs: shader_defs.clone(),
-                buffers: line_gizmo_vertex_buffer_layouts(key.strip),
-                ..default()
+        fragment.entry_point = Some(fragment_entry_point.into());
+
+        fragment.set_target(
+            0,
+            ColorTargetState {
+                format,
+                blend: Some(BlendState::ALPHA_BLENDING),
+                write_mask: ColorWrites::ALL,
             },
-            fragment: Some(FragmentState {
-                shader: self.shader.clone(),
-                shader_defs,
-                entry_point: Some(fragment_entry_point.into()),
-                targets: vec![Some(ColorTargetState {
-                    format,
-                    blend: Some(BlendState::ALPHA_BLENDING),
-                    write_mask: ColorWrites::ALL,
-                })],
-            }),
-            layout,
-            depth_stencil: Some(DepthStencilState {
-                format: CORE_3D_DEPTH_FORMAT,
-                depth_write_enabled: true,
-                depth_compare: CompareFunction::Greater,
-                stencil: StencilState::default(),
-                bias: DepthBiasState::default(),
-            }),
-            multisample: MultisampleState {
-                count: key.view_key.msaa_samples(),
-                mask: !0,
-                alpha_to_coverage_enabled: false,
-            },
-            label: Some("LineGizmo 3d Pipeline".into()),
-            ..default()
-        }
+        );
+
+        Ok(key)
     }
 }
 
@@ -274,8 +290,7 @@ type DrawLineJointGizmo3d = (
 
 fn queue_line_gizmos_3d(
     draw_functions: Res<DrawFunctions<Transparent3d>>,
-    pipeline: Res<LineGizmoPipeline>,
-    mut pipelines: ResMut<SpecializedRenderPipelines<LineGizmoPipeline>>,
+    mut pipeline: ResMut<LineGizmoPipeline>,
     pipeline_cache: Res<PipelineCache>,
     line_gizmos: Query<(Entity, &MainEntity, &GizmoMeshConfig)>,
     line_gizmo_assets: Res<RenderAssets<GpuLineGizmo>>,
@@ -292,7 +307,7 @@ fn queue_line_gizmos_3d(
             Has<OrderIndependentTransparencySettings>,
         ),
     )>,
-) {
+) -> Result<(), BevyError> {
     let draw_function = draw_functions.read().get_id::<DrawLineGizmo3d>().unwrap();
     let draw_function_strip = draw_functions
         .read()
@@ -346,16 +361,15 @@ fn queue_line_gizmos_3d(
             };
 
             if line_gizmo.list_vertex_count > 0 {
-                let pipeline = pipelines.specialize(
+                let pipeline = pipeline.variants.specialize(
                     &pipeline_cache,
-                    &pipeline,
                     LineGizmoPipelineKey {
                         view_key,
                         strip: false,
                         perspective: config.line_perspective,
                         line_style: config.line_style,
                     },
-                );
+                )?;
                 transparent_phase.add(Transparent3d {
                     entity: (entity, *main_entity),
                     draw_function,
@@ -368,16 +382,15 @@ fn queue_line_gizmos_3d(
             }
 
             if line_gizmo.strip_vertex_count >= 2 {
-                let pipeline = pipelines.specialize(
+                let pipeline = pipeline.variants.specialize(
                     &pipeline_cache,
-                    &pipeline,
                     LineGizmoPipelineKey {
                         view_key,
                         strip: true,
                         perspective: config.line_perspective,
                         line_style: config.line_style,
                     },
-                );
+                )?;
                 transparent_phase.add(Transparent3d {
                     entity: (entity, *main_entity),
                     draw_function: draw_function_strip,
@@ -390,6 +403,8 @@ fn queue_line_gizmos_3d(
             }
         }
     }
+
+    Ok(())
 }
 
 fn queue_line_joint_gizmos_3d(
