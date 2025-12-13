@@ -1234,7 +1234,7 @@ fn package_double_buffered_texture(
             None,
             Some(LinearRgba::BLACK),
         )),
-        (Some(t1), Some(t2)) if frame_count % 2 == 0 => Some(ColorAttachment::new(
+        (Some(t1), Some(t2)) if frame_count.is_multiple_of(2) => Some(ColorAttachment::new(
             t1,
             None,
             Some(t2),
