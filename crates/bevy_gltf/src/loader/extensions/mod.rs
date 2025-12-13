@@ -21,7 +21,6 @@ pub(crate) use self::{
     khr_materials_specular::SpecularExtension,
 };
 
-// todo: change name to `GltfExtensionProcessor`
 /// Implement this trait to be able to process glTF extension data
 pub trait GltfExtensionProcessor: Send + Sync {
     /// Required for dyn cloning
