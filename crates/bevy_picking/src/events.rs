@@ -178,6 +178,8 @@ pub struct Release {
     pub button: PointerButton,
     /// Information about the picking intersection.
     pub hit: HitData,
+    /// Whether the pointer was dragged during the click
+    pub dragged: bool,
 }
 
 /// Fires when a pointer sends a pointer pressed event followed by a pointer released event, with the same
@@ -191,6 +193,8 @@ pub struct Click {
     pub hit: HitData,
     /// Duration between the pointer pressed and lifted for this click
     pub duration: Duration,
+    /// Whether the pointer was dragged during the click
+    pub dragged: bool,
 }
 
 /// Fires while a pointer is moving over the [target entity](EntityEvent::event_target).
@@ -638,6 +642,8 @@ pub fn pointer_events(
                     .iter()
                     .flat_map(|h| h.iter().map(|(entity, data)| (*entity, data.clone())))
                 {
+                    // Whether any dragging happened during this press
+                    let dragged = !state.dragging.is_empty();
                     // If this pointer previously pressed the hovered entity, emit a Click event
                     if let Some((_, press_instant, _)) = state.pressing.get(&hovered_entity) {
                         let click_event = Pointer::new(
@@ -647,6 +653,7 @@ pub fn pointer_events(
                                 button,
                                 hit: hit.clone(),
                                 duration: now - *press_instant,
+                                dragged,
                             },
                             hovered_entity,
                         );
@@ -660,6 +667,7 @@ pub fn pointer_events(
                         Release {
                             button,
                             hit: hit.clone(),
+                            dragged,
                         },
                         hovered_entity,
                     );
