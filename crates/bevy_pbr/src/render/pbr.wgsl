@@ -26,9 +26,9 @@
 #import bevy_pbr::meshlet_visibility_buffer_resolve::resolve_vertex_output
 #endif
 
-#ifdef OIT_ENABLED
+#ifdef OIT_VIEW
 #import bevy_core_pipeline::oit::oit_draw
-#endif // OIT_ENABLED
+#endif // OIT_VIEW
 
 #ifdef FORWARD_DECAL
 #import bevy_pbr::decal::forward::get_forward_decal_info
@@ -89,6 +89,7 @@ fn fragment(
     out.color = main_pass_post_lighting_processing(pbr_input, out.color);
 #endif
 
+#ifdef OIT_VIEW
 #ifdef OIT_ENABLED
     let alpha_mode = pbr_input.material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_ALPHA_MODE_RESERVED_BITS;
     if alpha_mode != pbr_types::STANDARD_MATERIAL_FLAGS_ALPHA_MODE_OPAQUE {
@@ -97,6 +98,7 @@ fn fragment(
         discard;
     }
 #endif // OIT_ENABLED
+#endif // OIT_VIEW
 
 #ifdef FORWARD_DECAL
         out.color.a = min(forward_decal_info.alpha, out.color.a);

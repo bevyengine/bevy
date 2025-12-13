@@ -179,6 +179,13 @@ pub trait Material: Asset + AsBindGroup + Clone + Sized {
         false
     }
 
+    /// If there is [`OrderIndependentTransparencySettings`](bevy_core_pipeline::oit::OrderIndependentTransparencySettings) in the camera,
+    /// controls whether to enable OIT or do regular alpha blending with sorting for the Material.
+    #[inline]
+    fn enable_oit() -> bool {
+        true
+    }
+
     /// Controls if the prepass is enabled for the Material.
     /// For more information about what a prepass is, see the [`bevy_core_pipeline::prepass`] docs.
     #[inline]
@@ -1114,6 +1121,10 @@ pub fn specialize_material_meshes(
                 }
             }
 
+            if material.properties.oit_enabled {
+                mesh_key |= MeshPipelineKey::OIT_ENABLED;
+            }
+
             let erased_key = ErasedMaterialPipelineKey {
                 type_id: material_instance.asset_id.type_id(),
                 mesh_key,
@@ -1552,6 +1563,8 @@ pub struct MaterialProperties {
     pub shadows_enabled: bool,
     /// Whether prepass is enabled for this material
     pub prepass_enabled: bool,
+    /// Whether order independent transparency is enabled for this material.
+    pub oit_enabled: bool,
 }
 
 impl MaterialProperties {
@@ -1658,6 +1671,7 @@ where
     ) -> Result<Self::ErasedAsset, PrepareAssetError<Self::SourceAsset>> {
         let shadows_enabled = M::enable_shadows();
         let prepass_enabled = M::enable_prepass();
+        let oit_enabled = M::enable_oit();
 
         let draw_opaque_pbr = opaque_draw_functions.read().id::<DrawMaterial>();
         let draw_alpha_mask_pbr = alpha_mask_draw_functions.read().id::<DrawMaterial>();
@@ -1827,6 +1841,7 @@ where
                         material_key,
                         shadows_enabled,
                         prepass_enabled,
+                        oit_enabled,
                     }),
                 })
             }
@@ -1871,6 +1886,7 @@ where
                                 material_key,
                                 shadows_enabled,
                                 prepass_enabled,
+                                oit_enabled,
                             }),
                         })
                     }
