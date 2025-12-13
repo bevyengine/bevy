@@ -133,10 +133,6 @@ struct GltfExtensionProcessorAnimation {
 }
 
 impl GltfExtensionProcessor for GltfExtensionProcessorAnimation {
-    fn extension_ids(&self) -> &'static [&'static str] {
-        &[""]
-    }
-
     fn dyn_clone(&self) -> Box<dyn GltfExtensionProcessor> {
         Box::new((*self).clone())
     }

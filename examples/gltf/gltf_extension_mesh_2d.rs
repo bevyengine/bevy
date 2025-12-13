@@ -77,10 +77,6 @@ impl Plugin for GltfToMesh2dPlugin {
 struct GltfExtensionProcessorToMesh2d;
 
 impl GltfExtensionProcessor for GltfExtensionProcessorToMesh2d {
-    fn extension_ids(&self) -> &'static [&'static str] {
-        &[""]
-    }
-
     fn dyn_clone(&self) -> Box<dyn GltfExtensionProcessor> {
         Box::new((*self).clone())
     }

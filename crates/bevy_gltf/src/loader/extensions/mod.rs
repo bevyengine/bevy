@@ -29,7 +29,17 @@ pub trait GltfExtensionProcessor: Send + Sync {
     /// The extension ids that this `GltfExtensionProcessor` should process.
     /// This is used to dispatch callbacks when relevant data is encountered.
     /// For example: `KHR_materials_variants`, `EXT_meshopt_compression`, or `BEVY_my_tool`
-    fn extension_ids(&self) -> &'static [&'static str];
+    ///
+    /// The default list of extensions to handle is an empty string so
+    /// that extensions get called even if they don't define specific
+    /// extensions to handle. This results in all extension data being
+    /// `None` in all hooks.
+    /// Having the hooks be called even when there is no specific
+    /// extension being handled is useful for scenarios where additional
+    /// extension data isn't required, but processing should still happen.
+    fn extension_ids(&self) -> &'static [&'static str] {
+        &[""]
+    }
 
     /// Called when the "global" data for an extension
     /// at the root of a glTF file is encountered.
