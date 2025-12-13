@@ -302,6 +302,16 @@ pub struct ExtractedView {
     // uvec4(origin.x, origin.y, width, height)
     pub viewport: UVec4,
     pub color_grading: ColorGrading,
+
+    /// Whether to switch culling mode so that materials that request backface
+    /// culling cull front faces, and vice versa.
+    ///
+    /// This is typically used for cameras that mirror the world that they
+    /// render across a plane, because doing that flips the winding of each
+    /// polygon.
+    ///
+    /// This setting doesn't affect materials that disable backface culling.
+    pub invert_culling: bool,
 }
 
 impl ExtractedView {
@@ -601,7 +611,7 @@ pub struct ViewUniformOffset {
     pub offset: u32,
 }
 
-#[derive(Component)]
+#[derive(Component, Clone)]
 pub struct ViewTarget {
     main_textures: MainTargetTextures,
     main_texture_format: TextureFormat,
@@ -1069,12 +1079,18 @@ pub fn prepare_view_targets(
 ) {
     let mut textures = <HashMap<_, _>>::default();
     for (entity, camera, view, texture_usage, msaa) in cameras.iter() {
-        let (Some(target_size), Some(target)) = (camera.physical_target_size, &camera.target)
-        else {
-            continue;
-        };
+        let (Some(target_size), Some(out_attachment)) = (
+            camera.physical_target_size,
+            camera
+                .target
+                .as_ref()
+                .and_then(|target| view_target_attachments.get(target)),
+        ) else {
+            // If we can't find an output attachment we need to remove the ViewTarget
+            // component to make sure the camera doesn't try rendering to an invalid
+            // output attachment.
+            commands.entity(entity).try_remove::<ViewTarget>();
 
-        let Some(out_attachment) = view_target_attachments.get(target) else {
             continue;
         };
 

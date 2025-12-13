@@ -12,7 +12,6 @@ use core::{
     fmt::{self, Debug, Formatter, Pointer},
     marker::PhantomData,
     mem::{self, ManuallyDrop, MaybeUninit},
-    num::NonZeroUsize,
     ops::{Deref, DerefMut},
     ptr::{self, NonNull},
 };
@@ -162,6 +161,7 @@ mod sealed {
 /// A newtype around [`NonNull`] that only allows conversion to read-only borrows or pointers.
 ///
 /// This type can be thought of as the `*const T` to [`NonNull<T>`]'s `*mut T`.
+#[derive(Clone, Copy)]
 #[repr(transparent)]
 pub struct ConstNonNull<T: ?Sized>(NonNull<T>);
 
@@ -1137,16 +1137,6 @@ impl<'a, T> From<&'a [T]> for ThinSlicePtr<'a, T> {
             _marker: PhantomData,
         }
     }
-}
-
-/// Creates a dangling pointer with specified alignment.
-/// See [`NonNull::dangling`].
-pub const fn dangling_with_align(align: NonZeroUsize) -> NonNull<u8> {
-    debug_assert!(align.is_power_of_two(), "Alignment must be power of two.");
-    // SAFETY: The pointer will not be null, since it was created
-    // from the address of a `NonZero<usize>`.
-    // TODO: use https://doc.rust-lang.org/std/ptr/struct.NonNull.html#method.with_addr once stabilized
-    unsafe { NonNull::new_unchecked(ptr::null_mut::<u8>().wrapping_add(align.get())) }
 }
 
 mod private {
