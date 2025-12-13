@@ -389,6 +389,14 @@ impl Plugin for VisibilityPlugin {
     }
 }
 
+/// Add this component to an entity to prevent its `AABB` from being automatically recomputed.
+///
+/// This is useful if entities are already spawned with a correct `Aabb` component, or you have
+/// many entities and want to avoid the cost of table scans searching for entities that need to have
+/// their AABB recomputed.
+#[derive(Component, Clone, Debug, Default, Reflect)]
+pub struct NoAutoAabb;
+
 /// Computes and adds an [`Aabb`] component to entities with a
 /// [`Mesh3d`] component and without a [`NoFrustumCulling`] component.
 ///
@@ -396,12 +404,20 @@ impl Plugin for VisibilityPlugin {
 pub fn calculate_bounds(
     mut commands: Commands,
     meshes: Res<Assets<Mesh>>,
-    new_aabb: Query<(Entity, &Mesh3d), (Without<Aabb>, Without<NoFrustumCulling>)>,
+    new_aabb: Query<
+        (Entity, &Mesh3d),
+        (
+            Without<Aabb>,
+            Without<NoFrustumCulling>,
+            Without<NoAutoAabb>,
+        ),
+    >,
     mut update_aabb: Query<
         (&Mesh3d, &mut Aabb),
         (
             Or<(AssetChanged<Mesh3d>, Changed<Mesh3d>)>,
             Without<NoFrustumCulling>,
+            Without<NoAutoAabb>,
         ),
     >,
 ) {

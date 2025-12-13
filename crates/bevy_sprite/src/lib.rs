@@ -53,6 +53,7 @@ pub use texture_slice::*;
 
 use bevy_app::prelude::*;
 use bevy_asset::prelude::AssetChanged;
+use bevy_camera::visibility::NoAutoAabb;
 use bevy_ecs::prelude::*;
 use bevy_image::{Image, TextureAtlasLayout, TextureAtlasPlugin};
 use bevy_math::Vec2;
@@ -109,21 +110,37 @@ pub fn calculate_bounds_2d(
     meshes: Res<Assets<Mesh>>,
     images: Res<Assets<Image>>,
     atlases: Res<Assets<TextureAtlasLayout>>,
-    new_mesh_aabb: Query<(Entity, &Mesh2d), (Without<Aabb>, Without<NoFrustumCulling>)>,
+    new_mesh_aabb: Query<
+        (Entity, &Mesh2d),
+        (
+            Without<Aabb>,
+            Without<NoFrustumCulling>,
+            Without<NoAutoAabb>,
+        ),
+    >,
     mut update_mesh_aabb: Query<
         (&Mesh2d, &mut Aabb),
         (
             Or<(AssetChanged<Mesh2d>, Changed<Mesh2d>)>,
             Without<NoFrustumCulling>,
+            Without<NoAutoAabb>,
             Without<Sprite>, // disjoint mutable query
         ),
     >,
-    new_sprite_aabb: Query<(Entity, &Sprite, &Anchor), (Without<Aabb>, Without<NoFrustumCulling>)>,
+    new_sprite_aabb: Query<
+        (Entity, &Sprite, &Anchor),
+        (
+            Without<Aabb>,
+            Without<NoFrustumCulling>,
+            Without<NoAutoAabb>,
+        ),
+    >,
     mut update_sprite_aabb: Query<
         (&Sprite, &mut Aabb, &Anchor),
         (
             Or<(Changed<Sprite>, Changed<Anchor>)>,
             Without<NoFrustumCulling>,
+            Without<NoAutoAabb>,
             Without<Mesh2d>, // disjoint mutable query
         ),
     >,
