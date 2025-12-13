@@ -258,7 +258,7 @@ impl GltfLoader {
         // they've subscribed to.
         for extension in extensions.iter_mut() {
             for id in extension.extension_ids() {
-                extension.on_root_data(gltf.extension_value(id));
+                extension.on_root_data(id, gltf.extension_value(id));
             }
         }
 
@@ -598,6 +598,7 @@ impl GltfLoader {
                 for extension in extensions.iter_mut() {
                     for id in extension.extension_ids() {
                         extension.on_animation(
+                            id,
                             animation.extension_value(id),
                             animation.name(),
                             handle.clone(),
@@ -653,6 +654,7 @@ impl GltfLoader {
                 for extension in extensions.iter_mut() {
                     for id in extension.extension_ids() {
                         extension.on_texture(
+                            id,
                             texture.extension_value(id),
                             _texture_handles.iter().last().unwrap().clone(),
                         );
@@ -693,6 +695,7 @@ impl GltfLoader {
                         for extension in extensions.iter_mut() {
                             for id in extension.extension_ids() {
                                 extension.on_texture(
+                                    id,
                                     extension_data.as_ref().and_then(|map| map.get(*id)),
                                     _texture_handles.iter().last().unwrap().clone(),
                                 );
@@ -720,6 +723,7 @@ impl GltfLoader {
                 for extension in extensions.iter_mut() {
                     for id in extension.extension_ids() {
                         extension.on_material(
+                            id,
                             material.extension_value(id),
                             load_context,
                             material.name(),
@@ -894,6 +898,7 @@ impl GltfLoader {
             for extension in extensions.iter_mut() {
                 for id in extension.extension_ids() {
                     extension.on_gltf_mesh(
+                        id,
                         gltf_mesh.extension_value(id),
                         load_context,
                         gltf_mesh.name(),
@@ -1107,6 +1112,7 @@ impl GltfLoader {
             for extension in extensions.iter_mut() {
                 for id in extension.extension_ids() {
                     extension.on_scene_completed(
+                        id,
                         scene.extension_value(id),
                         scene.name(),
                         world_root_id,
@@ -1739,6 +1745,7 @@ fn load_node(
                     for extension in extensions.iter_mut() {
                         for id in extension.extension_ids() {
                             extension.on_spawn_light_directional(
+                                id,
                                 gltf_node.extension_value(id),
                                 load_context,
                                 gltf_node,
@@ -1769,6 +1776,7 @@ fn load_node(
                     for extension in extensions.iter_mut() {
                         for id in extension.extension_ids() {
                             extension.on_spawn_light_point(
+                                id,
                                 gltf_node.extension_value(id),
                                 load_context,
                                 gltf_node,
@@ -1804,6 +1812,7 @@ fn load_node(
                     for extension in extensions.iter_mut() {
                         for id in extension.extension_ids() {
                             extension.on_spawn_light_spot(
+                                id,
                                 gltf_node.extension_value(id),
                                 load_context,
                                 gltf_node,
@@ -1862,7 +1871,7 @@ fn load_node(
     for extension in extensions.iter_mut() {
         for id in extension.extension_ids() {
             let data = gltf_node.extension_value(id);
-            extension.on_gltf_node(data, load_context, gltf_node, &mut node);
+            extension.on_gltf_node(id, data, load_context, gltf_node, &mut node);
         }
     }
 

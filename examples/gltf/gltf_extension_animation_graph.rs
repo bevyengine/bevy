@@ -134,6 +134,7 @@ impl GltfExtensionHandler for GltfExtensionHandlerAnimation {
     #[cfg(feature = "bevy_animation")]
     fn on_animation(
         &mut self,
+        _extension_id: &str,
         _value: Option<&serde_json::Value>,
         name: Option<&str>,
         handle: Handle<AnimationClip>,
@@ -155,6 +156,7 @@ impl GltfExtensionHandler for GltfExtensionHandlerAnimation {
 
     fn on_gltf_node(
         &mut self,
+        _extension_id: &str,
         _value: Option<&serde_json::Value>,
         _load_context: &mut LoadContext<'_>,
         gltf_node: &gltf::Node,
@@ -168,12 +170,14 @@ impl GltfExtensionHandler for GltfExtensionHandlerAnimation {
     /// Called when an individual Scene is done processing
     fn on_scene_completed(
         &mut self,
+        extension_id: &str,
         _value: Option<&serde_json::Value>,
         _name: Option<&str>,
         _world_root_id: Entity,
         world: &mut World,
         load_context: &mut LoadContext<'_>,
     ) {
+        dbg!(extension_id);
         // Create an AnimationGraph from the desired clip
         let (graph, index) = AnimationGraph::from_clip(self.clip.clone().unwrap());
         // Store the animation graph as an asset with an arbitrary label

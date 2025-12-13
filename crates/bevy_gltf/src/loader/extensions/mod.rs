@@ -53,7 +53,7 @@ pub trait GltfExtensionHandler: Send + Sync {
         unused,
         reason = "default trait implementations do not use the arguments because they are no-ops"
     )]
-    fn on_root_data(&mut self, value: Option<&serde_json::Value>) {}
+    fn on_root_data(&mut self, extension_id: &str, value: Option<&serde_json::Value>) {}
 
     #[cfg(feature = "bevy_animation")]
     #[expect(
@@ -63,6 +63,7 @@ pub trait GltfExtensionHandler: Send + Sync {
     /// Called when an individual animation is processed
     fn on_animation(
         &mut self,
+        extension_id: &str,
         value: Option<&serde_json::Value>,
         name: Option<&str>,
         handle: Handle<AnimationClip>,
@@ -94,6 +95,7 @@ pub trait GltfExtensionHandler: Send + Sync {
     )]
     fn on_texture(
         &mut self,
+        extension_id: &str,
         value: Option<&serde_json::Value>,
         texture: Handle<bevy_image::Image>,
     ) {
@@ -106,6 +108,7 @@ pub trait GltfExtensionHandler: Send + Sync {
     )]
     fn on_material(
         &mut self,
+        extension_id: &str,
         value: Option<&serde_json::Value>,
         load_context: &mut LoadContext<'_>,
         name: Option<&str>,
@@ -120,6 +123,7 @@ pub trait GltfExtensionHandler: Send + Sync {
     )]
     fn on_gltf_mesh(
         &mut self,
+        extension_id: &str,
         value: Option<&serde_json::Value>,
         load_context: &mut LoadContext<'_>,
         name: Option<&str>,
@@ -149,6 +153,7 @@ pub trait GltfExtensionHandler: Send + Sync {
     )]
     fn on_scene_completed(
         &mut self,
+        extension_id: &str,
         value: Option<&serde_json::Value>,
         name: Option<&str>,
         world_root_id: Entity,
@@ -164,6 +169,7 @@ pub trait GltfExtensionHandler: Send + Sync {
     )]
     fn on_gltf_node(
         &mut self,
+        extension_id: &str,
         value: Option<&serde_json::Value>,
         load_context: &mut LoadContext<'_>,
         gltf_node: &Node,
@@ -180,6 +186,7 @@ pub trait GltfExtensionHandler: Send + Sync {
     )]
     fn on_spawn_light_directional(
         &mut self,
+        extension_id: &str,
         value: Option<&serde_json::Value>,
         load_context: &mut LoadContext<'_>,
         gltf_node: &Node,
@@ -195,6 +202,7 @@ pub trait GltfExtensionHandler: Send + Sync {
     )]
     fn on_spawn_light_point(
         &mut self,
+        extension_id: &str,
         value: Option<&serde_json::Value>,
         load_context: &mut LoadContext<'_>,
         gltf_node: &Node,
@@ -210,6 +218,7 @@ pub trait GltfExtensionHandler: Send + Sync {
     )]
     fn on_spawn_light_spot(
         &mut self,
+        extension_id: &str,
         value: Option<&serde_json::Value>,
         load_context: &mut LoadContext<'_>,
         gltf_node: &Node,
