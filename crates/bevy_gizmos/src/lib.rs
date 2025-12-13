@@ -30,6 +30,8 @@ pub mod config;
 pub mod cross;
 pub mod curves;
 pub mod gizmos;
+#[cfg(feature = "global_gizmos")]
+mod global;
 pub mod grid;
 pub mod primitives;
 pub mod retained;
@@ -45,6 +47,8 @@ pub mod prelude {
     #[doc(hidden)]
     pub use crate::aabb::{AabbGizmoConfigGroup, ShowAabbGizmo};
 
+    #[cfg(feature = "global_gizmos")]
+    pub use crate::global::gizmo;
     #[doc(hidden)]
     pub use crate::{
         config::{
@@ -93,6 +97,9 @@ impl Plugin for GizmoPlugin {
             .init_gizmo_group::<DefaultGizmoConfigGroup>();
 
         app.add_plugins(aabb::AabbGizmoPlugin);
+
+        #[cfg(feature = "global_gizmos")]
+        app.add_plugins(global::GlobalGizmosPlugin);
 
         #[cfg(feature = "bevy_light")]
         app.add_plugins(LightGizmoPlugin);
