@@ -20,7 +20,7 @@ use indexmap::set::{self, IndexSet};
 
 use super::{Entity, EntityHash, EntitySetIterator};
 
-use bevy_platform_support::prelude::Box;
+use bevy_platform::prelude::Box;
 
 /// An [`IndexSet`] pre-configured to use [`EntityHash`] hashing.
 #[cfg_attr(feature = "serialize", derive(serde::Deserialize, serde::Serialize))]
@@ -582,6 +582,10 @@ impl<'a> Iterator for Iter<'a> {
     fn next(&mut self) -> Option<Self::Item> {
         self.0.next()
     }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.0.size_hint()
+    }
 }
 
 impl DoubleEndedIterator for Iter<'_> {
@@ -650,6 +654,10 @@ impl Iterator for IntoIter {
 
     fn next(&mut self) -> Option<Self::Item> {
         self.0.next()
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.0.size_hint()
     }
 }
 
@@ -722,6 +730,10 @@ impl<'a> Iterator for Drain<'a> {
 
     fn next(&mut self) -> Option<Self::Item> {
         self.0.next()
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.0.size_hint()
     }
 }
 

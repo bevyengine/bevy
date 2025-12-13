@@ -1,7 +1,7 @@
 use core::{marker::PhantomData, mem};
 
 use bevy_ecs::{
-    event::{Event, EventReader, EventWriter},
+    message::{Message, MessageReader, MessageWriter},
     schedule::{IntoScheduleConfigs, Schedule, ScheduleLabel, Schedules, SystemSet},
     system::{Commands, In, ResMut},
     world::World,
@@ -12,13 +12,13 @@ use super::{resources::State, states::States};
 /// The label of a [`Schedule`] that **only** runs whenever [`State<S>`] enters the provided state.
 ///
 /// This schedule ignores identity transitions.
-#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash, Default)]
 pub struct OnEnter<S: States>(pub S);
 
 /// The label of a [`Schedule`] that **only** runs whenever [`State<S>`] exits the provided state.
 ///
 /// This schedule ignores identity transitions.
-#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash, Default)]
 pub struct OnExit<S: States>(pub S);
 
 /// The label of a [`Schedule`] that **only** runs whenever [`State<S>`]
@@ -27,7 +27,7 @@ pub struct OnExit<S: States>(pub S);
 /// Systems added to this schedule are always ran *after* [`OnExit`], and *before* [`OnEnter`].
 ///
 /// This schedule will run on identity transitions.
-#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash, Default)]
 pub struct OnTransition<S: States> {
     /// The state being exited.
     pub exited: S,
@@ -50,28 +50,32 @@ pub struct OnTransition<S: States> {
 /// }
 /// ```
 ///
+/// This schedule is split up into four phases, as described in [`StateTransitionSystems`].
+///
 /// [`PreStartup`]: https://docs.rs/bevy/latest/bevy/prelude/struct.PreStartup.html
 /// [`PreUpdate`]: https://docs.rs/bevy/latest/bevy/prelude/struct.PreUpdate.html
-#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash, Default)]
 pub struct StateTransition;
 
-/// Event sent when any state transition of `S` happens.
+/// A [`Message`] sent when any state transition of `S` happens.
 /// This includes identity transitions, where `exited` and `entered` have the same value.
 ///
 /// If you know exactly what state you want to respond to ahead of time, consider [`OnEnter`], [`OnTransition`], or [`OnExit`]
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Event)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Message)]
 pub struct StateTransitionEvent<S: States> {
     /// The state being exited.
     pub exited: Option<S>,
     /// The state being entered.
     pub entered: Option<S>,
+    /// Enforce this transition even if `exited` and `entered` are the same
+    pub same_state_enforced: bool,
 }
 
 /// Applies state transitions and runs transitions schedules in order.
 ///
 /// These system sets are run sequentially, in the order of the enum variants.
 #[derive(SystemSet, Clone, Debug, PartialEq, Eq, Hash)]
-pub enum StateTransitionSteps {
+pub enum StateTransitionSystems {
     /// States apply their transitions from [`NextState`](super::NextState)
     /// and compute functions based on their parent states.
     DependentTransitions,
@@ -129,10 +133,11 @@ impl<S: States> Default for ApplyStateTransition<S> {
 /// The `new_state` is an option to allow for removal - `None` will trigger the
 /// removal of the `State<S>` resource from the [`World`].
 pub(crate) fn internal_apply_state_transition<S: States>(
-    mut event: EventWriter<StateTransitionEvent<S>>,
+    mut event: MessageWriter<StateTransitionEvent<S>>,
     mut commands: Commands,
     current_state: Option<ResMut<State<S>>>,
     new_state: Option<S>,
+    same_state_enforced: bool,
 ) {
     match new_state {
         Some(entered) => {
@@ -151,6 +156,7 @@ pub(crate) fn internal_apply_state_transition<S: States>(
                     event.write(StateTransitionEvent {
                         exited: Some(exited.clone()),
                         entered: Some(entered.clone()),
+                        same_state_enforced,
                     });
                 }
                 None => {
@@ -160,6 +166,7 @@ pub(crate) fn internal_apply_state_transition<S: States>(
                     event.write(StateTransitionEvent {
                         exited: None,
                         entered: Some(entered.clone()),
+                        same_state_enforced,
                     });
                 }
             };
@@ -172,6 +179,7 @@ pub(crate) fn internal_apply_state_transition<S: States>(
                 event.write(StateTransitionEvent {
                     exited: Some(resource.get().clone()),
                     entered: None,
+                    same_state_enforced,
                 });
             }
         }
@@ -191,10 +199,10 @@ pub fn setup_state_transitions_in_world(world: &mut World) {
     let mut schedule = Schedule::new(StateTransition);
     schedule.configure_sets(
         (
-            StateTransitionSteps::DependentTransitions,
-            StateTransitionSteps::ExitSchedules,
-            StateTransitionSteps::TransitionSchedules,
-            StateTransitionSteps::EnterSchedules,
+            StateTransitionSystems::DependentTransitions,
+            StateTransitionSystems::ExitSchedules,
+            StateTransitionSystems::TransitionSchedules,
+            StateTransitionSystems::EnterSchedules,
         )
             .chain(),
     );
@@ -203,7 +211,7 @@ pub fn setup_state_transitions_in_world(world: &mut World) {
 
 /// Returns the latest state transition event of type `S`, if any are available.
 pub fn last_transition<S: States>(
-    mut reader: EventReader<StateTransitionEvent<S>>,
+    mut reader: MessageReader<StateTransitionEvent<S>>,
 ) -> Option<StateTransitionEvent<S>> {
     reader.read().last().cloned()
 }
@@ -215,7 +223,7 @@ pub(crate) fn run_enter<S: States>(
     let Some(transition) = transition.0 else {
         return;
     };
-    if transition.entered == transition.exited {
+    if transition.entered == transition.exited && !transition.same_state_enforced {
         return;
     }
     let Some(entered) = transition.entered else {
@@ -232,7 +240,7 @@ pub(crate) fn run_exit<S: States>(
     let Some(transition) = transition.0 else {
         return;
     };
-    if transition.entered == transition.exited {
+    if transition.entered == transition.exited && !transition.same_state_enforced {
         return;
     }
     let Some(exited) = transition.exited else {

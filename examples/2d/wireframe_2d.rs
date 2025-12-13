@@ -16,7 +16,9 @@ use bevy::{
         settings::{RenderCreation, WgpuSettings},
         RenderPlugin,
     },
-    sprite::{NoWireframe2d, Wireframe2d, Wireframe2dColor, Wireframe2dConfig, Wireframe2dPlugin},
+    sprite_render::{
+        NoWireframe2d, Wireframe2d, Wireframe2dColor, Wireframe2dConfig, Wireframe2dPlugin,
+    },
 };
 
 fn main() {
@@ -31,7 +33,7 @@ fn main() {
                 ..default()
             }),
             // You need to add this plugin to enable wireframe rendering
-            Wireframe2dPlugin,
+            Wireframe2dPlugin::default(),
         ))
         // Wireframes can be configured with this resource. This can be changed at runtime.
         .insert_resource(Wireframe2dConfig {
@@ -91,8 +93,8 @@ fn setup(
         Text::default(),
         Node {
             position_type: PositionType::Absolute,
-            top: Val::Px(12.0),
-            left: Val::Px(12.0),
+            top: px(12),
+            left: px(12),
             ..default()
         },
     ));

@@ -16,7 +16,7 @@ fn main() {
 
 fn gamepad_system(
     gamepads: Query<(Entity, &Gamepad)>,
-    mut rumble_requests: EventWriter<GamepadRumbleRequest>,
+    mut rumble_requests: MessageWriter<GamepadRumbleRequest>,
 ) {
     for (entity, gamepad) in &gamepads {
         if gamepad.just_pressed(GamepadButton::North) {

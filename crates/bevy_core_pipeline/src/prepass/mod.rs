@@ -3,7 +3,7 @@
 //!
 //! The prepass only runs for opaque meshes or meshes with an alpha mask. Transparent meshes are ignored.
 //!
-//! To enable the prepass, you need to add a prepass component to a [`crate::prelude::Camera3d`].
+//! To enable the prepass, you need to add a prepass component to a [`bevy_camera::Camera3d`].
 //!
 //! [`DepthPrepass`]
 //! [`NormalPrepass`]
@@ -52,33 +52,41 @@ use bevy_render::{
 pub const NORMAL_PREPASS_FORMAT: TextureFormat = TextureFormat::Rgb10a2Unorm;
 pub const MOTION_VECTOR_PREPASS_FORMAT: TextureFormat = TextureFormat::Rg16Float;
 
-/// If added to a [`crate::prelude::Camera3d`] then depth values will be copied to a separate texture available to the main pass.
+/// If added to a [`bevy_camera::Camera3d`] then depth values will be copied to a separate texture available to the main pass.
 #[derive(Component, Default, Reflect, Clone)]
 #[reflect(Component, Default, Clone)]
 pub struct DepthPrepass;
 
-/// If added to a [`crate::prelude::Camera3d`] then vertex world normals will be copied to a separate texture available to the main pass.
+/// If added to a [`bevy_camera::Camera3d`] then vertex world normals will be copied to a separate texture available to the main pass.
 /// Normals will have normal map textures already applied.
 #[derive(Component, Default, Reflect, Clone)]
 #[reflect(Component, Default, Clone)]
 pub struct NormalPrepass;
 
-/// If added to a [`crate::prelude::Camera3d`] then screen space motion vectors will be copied to a separate texture available to the main pass.
+/// If added to a [`bevy_camera::Camera3d`] then screen space motion vectors will be copied to a separate texture available to the main pass.
+///
+/// Motion vectors are stored in the range -1,1, with +x right and +y down.
+/// A value of (1.0,1.0) indicates a pixel moved from the top left corner to the bottom right corner of the screen.
 #[derive(Component, Default, Reflect, Clone)]
 #[reflect(Component, Default, Clone)]
 pub struct MotionVectorPrepass;
 
-/// If added to a [`crate::prelude::Camera3d`] then deferred materials will be rendered to the deferred gbuffer texture and will be available to subsequent passes.
+/// If added to a [`bevy_camera::Camera3d`] then deferred materials will be rendered to the deferred gbuffer texture and will be available to subsequent passes.
 /// Note the default deferred lighting plugin also requires `DepthPrepass` to work correctly.
 #[derive(Component, Default, Reflect)]
 #[reflect(Component, Default)]
 pub struct DeferredPrepass;
 
+/// View matrices from the previous frame.
+///
+/// Useful for temporal rendering techniques that need access to last frame's camera data.
 #[derive(Component, ShaderType, Clone)]
 pub struct PreviousViewData {
     pub view_from_world: Mat4,
     pub clip_from_world: Mat4,
     pub clip_from_view: Mat4,
+    pub world_from_clip: Mat4,
+    pub view_from_clip: Mat4,
 }
 
 #[derive(Resource, Default)]

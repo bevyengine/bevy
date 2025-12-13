@@ -1,13 +1,13 @@
-use crate::renderer::WgpuWrapper;
 use crate::{
     define_atomic_id,
     render_asset::RenderAssets,
-    render_resource::{BindGroupLayout, Buffer, Sampler, TextureView},
-    renderer::RenderDevice,
+    render_resource::{BindGroupLayout, Buffer, PipelineCache, Sampler, TextureView},
+    renderer::{RenderDevice, WgpuWrapper},
     texture::GpuImage,
 };
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::system::{SystemParam, SystemParamItem};
+use bevy_render::render_resource::BindGroupLayoutDescriptor;
 pub use bevy_render_macros::AsBindGroup;
 use core::ops::Deref;
 use encase::ShaderType;
@@ -133,12 +133,12 @@ impl Deref for BindGroup {
 /// In WGSL shaders, the binding would look like this:
 ///
 /// ```wgsl
-/// @group(2) @binding(0) var<uniform> color: vec4<f32>;
-/// @group(2) @binding(1) var color_texture: texture_2d<f32>;
-/// @group(2) @binding(2) var color_sampler: sampler;
-/// @group(2) @binding(3) var<storage> storage_buffer: array<f32>;
-/// @group(2) @binding(4) var<storage> raw_buffer: array<f32>;
-/// @group(2) @binding(5) var storage_texture: texture_storage_2d<rgba8unorm, read_write>;
+/// @group(#{MATERIAL_BIND_GROUP}) @binding(0) var<uniform> color: vec4<f32>;
+/// @group(#{MATERIAL_BIND_GROUP}) @binding(1) var color_texture: texture_2d<f32>;
+/// @group(#{MATERIAL_BIND_GROUP}) @binding(2) var color_sampler: sampler;
+/// @group(#{MATERIAL_BIND_GROUP}) @binding(3) var<storage> storage_buffer: array<f32>;
+/// @group(#{MATERIAL_BIND_GROUP}) @binding(4) var<storage> raw_buffer: array<f32>;
+/// @group(#{MATERIAL_BIND_GROUP}) @binding(5) var storage_texture: texture_storage_2d<rgba8unorm, read_write>;
 /// ```
 /// Note that the "group" index is determined by the usage context. It is not defined in [`AsBindGroup`]. For example, in Bevy material bind groups
 /// are generally bound to group 2.
@@ -261,7 +261,7 @@ impl Deref for BindGroup {
 ///     roughness: f32,
 /// };
 ///
-/// @group(2) @binding(0) var<uniform> material: CoolMaterial;
+/// @group(#{MATERIAL_BIND_GROUP}) @binding(0) var<uniform> material: CoolMaterial;
 /// ```
 ///
 /// Some less common scenarios will require "struct-level" attributes. These are the currently supported struct-level attributes:
@@ -312,7 +312,7 @@ impl Deref for BindGroup {
 /// declaration:
 ///
 /// ```wgsl
-/// @group(2) @binding(10) var<storage> material_array: binding_array<StandardMaterial>;
+/// @group(#{MATERIAL_BIND_GROUP}) @binding(10) var<storage> material_array: binding_array<StandardMaterial>;
 /// ```
 ///
 /// On the other hand, if you write this declaration:
@@ -325,7 +325,7 @@ impl Deref for BindGroup {
 /// Then Bevy produces a binding that matches this WGSL declaration instead:
 ///
 /// ```wgsl
-/// @group(2) @binding(10) var<storage> material_array: array<StandardMaterial>;
+/// @group(#{MATERIAL_BIND_GROUP}) @binding(10) var<storage> material_array: array<StandardMaterial>;
 /// ```
 ///
 /// * Just as with the structure-level `uniform` attribute, Bevy converts the
@@ -338,7 +338,7 @@ impl Deref for BindGroup {
 ///   this in WGSL in non-bindless mode:
 ///
 /// ```wgsl
-/// @group(2) @binding(0) var<uniform> material: StandardMaterial;
+/// @group(#{MATERIAL_BIND_GROUP}) @binding(0) var<uniform> material: StandardMaterial;
 /// ```
 ///
 /// * For efficiency reasons, `data` is generally preferred over `uniform`
@@ -369,12 +369,12 @@ impl Deref for BindGroup {
 ///   available. Because not all platforms support bindless resources, you
 ///   should check for the presence of this definition via `#ifdef` and fall
 ///   back to standard bindings if it isn't present.
-/// * In bindless mode, binding 0 becomes the *bindless index table*, which is
-///   an array of structures, each of which contains as many fields of type `u32`
-///   as the highest binding number in the structure annotated with
-///   `#[derive(AsBindGroup)]`. The *i*th field of the bindless index table
-///   contains the index of the resource with binding *i* within the appropriate
-///   binding array.
+/// * By default, in bindless mode, binding 0 becomes the *bindless index
+///   table*, which is an array of structures, each of which contains as many
+///   fields of type `u32` as the highest binding number in the structure
+///   annotated with `#[derive(AsBindGroup)]`. Again by default, the *i*th field
+///   of the bindless index table contains the index of the resource with binding
+///   *i* within the appropriate binding array.
 /// * In the case of materials, the index of the applicable table within the
 ///   bindless index table list corresponding to the mesh currently being drawn
 ///   can be retrieved with
@@ -384,12 +384,30 @@ impl Deref for BindGroup {
 ///   each slab will have no more than 16 total resources in it. If you don't
 ///   specify a limit, Bevy automatically picks a reasonable one for the current
 ///   platform.
+/// * The `index_table(range(M..N), binding(B))` declaration allows you to
+///   customize the layout of the bindless index table. This is useful for
+///   materials that are composed of multiple bind groups, such as
+///   `ExtendedMaterial`. In such cases, there will be multiple bindless index
+///   tables, so they can't both be assigned to binding 0 or their bindings will
+///   conflict.
+///   - The `binding(B)` attribute of the `index_table` attribute allows you to
+///     customize the binding (`@binding(B)`, in the shader) at which the index
+///     table will be bound.
+///   - The `range(M, N)` attribute of the `index_table` attribute allows you to
+///     change the mapping from the field index in the bindless index table to the
+///     bindless index. Instead of the field at index $i$ being mapped to the
+///     bindless index $i$, with the `range(M, N)` attribute the field at index
+///     $i$ in the bindless index table is mapped to the bindless index $i$ + M.
+///     The size of the index table will be set to N - M. Note that this may
+///     result in the table being too small to contain all the bindless bindings.
 /// * The purpose of bindless mode is to improve performance by reducing
 ///   state changes. By grouping resources together into binding arrays, Bevy
 ///   doesn't have to modify GPU state as often, decreasing API and driver
 ///   overhead.
-/// * See the `shaders/shader_material_bindless` example for an example of
-///   how to use bindless mode.
+/// * See the `shaders/shader_material_bindless` example for an example of how
+///   to use bindless mode. See the `shaders/extended_material_bindless` example
+///   for a more exotic example of bindless mode that demonstrates the
+///   `index_table` attribute.
 /// * The following diagram illustrates how bindless mode works using a subset
 ///   of `StandardMaterial`:
 ///
@@ -463,6 +481,9 @@ impl Deref for BindGroup {
 ///     is_shaded: bool,
 /// }
 ///
+/// // Materials keys are intended to be small, cheap to hash, and
+/// // uniquely identify a specific material permutation.
+/// #[repr(C)]
 /// #[derive(Copy, Clone, Hash, Eq, PartialEq)]
 /// struct CoolMaterialKey {
 ///     is_shaded: bool,
@@ -503,18 +524,19 @@ pub trait AsBindGroup {
     }
 
     /// label
-    fn label() -> Option<&'static str> {
-        None
-    }
+    fn label() -> &'static str;
 
     /// Creates a bind group for `self` matching the layout defined in [`AsBindGroup::bind_group_layout`].
     fn as_bind_group(
         &self,
-        layout: &BindGroupLayout,
+        layout_descriptor: &BindGroupLayoutDescriptor,
         render_device: &RenderDevice,
+        pipeline_cache: &PipelineCache,
         param: &mut SystemParamItem<'_, '_, Self::Param>,
-    ) -> Result<PreparedBindGroup<Self::Data>, AsBindGroupError> {
-        let UnpreparedBindGroup { bindings, data } =
+    ) -> Result<PreparedBindGroup, AsBindGroupError> {
+        let layout = &pipeline_cache.get_bind_group_layout(layout_descriptor);
+
+        let UnpreparedBindGroup { bindings } =
             Self::unprepared_bind_group(self, layout, render_device, param, false)?;
 
         let entries = bindings
@@ -530,9 +552,10 @@ pub trait AsBindGroup {
         Ok(PreparedBindGroup {
             bindings,
             bind_group,
-            data,
         })
     }
+
+    fn bind_group_data(&self) -> Self::Data;
 
     /// Returns a vec of (binding index, `OwnedBindingResource`).
     ///
@@ -551,7 +574,7 @@ pub trait AsBindGroup {
         render_device: &RenderDevice,
         param: &mut SystemParamItem<'_, '_, Self::Param>,
         force_no_bindless: bool,
-    ) -> Result<UnpreparedBindGroup<Self::Data>, AsBindGroupError>;
+    ) -> Result<UnpreparedBindGroup, AsBindGroupError>;
 
     /// Creates the bind group layout matching all bind groups returned by
     /// [`AsBindGroup::as_bind_group`]
@@ -563,6 +586,19 @@ pub trait AsBindGroup {
             Self::label(),
             &Self::bind_group_layout_entries(render_device, false),
         )
+    }
+
+    /// Creates the bind group layout descriptor matching all bind groups returned by
+    /// [`AsBindGroup::as_bind_group`]
+    /// TODO: we only need `RenderDevice` to determine if bindless is supported
+    fn bind_group_layout_descriptor(render_device: &RenderDevice) -> BindGroupLayoutDescriptor
+    where
+        Self: Sized,
+    {
+        BindGroupLayoutDescriptor {
+            label: Self::label().into(),
+            entries: Self::bind_group_layout_entries(render_device, false),
+        }
     }
 
     /// Returns a vec of bind group layout entries.
@@ -595,16 +631,14 @@ pub enum AsBindGroupError {
 }
 
 /// A prepared bind group returned as a result of [`AsBindGroup::as_bind_group`].
-pub struct PreparedBindGroup<T> {
+pub struct PreparedBindGroup {
     pub bindings: BindingResources,
     pub bind_group: BindGroup,
-    pub data: T,
 }
 
 /// a map containing `OwnedBindingResource`s, keyed by the target binding index
-pub struct UnpreparedBindGroup<T> {
+pub struct UnpreparedBindGroup {
     pub bindings: BindingResources,
-    pub data: T,
 }
 
 /// A pair of binding index and binding resource, used as part of
@@ -637,7 +671,7 @@ impl OwnedBindingResource {
     /// [`OwnedBindingResource::Data`], because [`OwnedData`] doesn't itself
     /// correspond to any binding and instead requires the
     /// `MaterialBindGroupAllocator` to pack it into a buffer.
-    pub fn get_binding(&self) -> BindingResource {
+    pub fn get_binding(&self) -> BindingResource<'_> {
         match self {
             OwnedBindingResource::Buffer(buffer) => buffer.as_entire_binding(),
             OwnedBindingResource::TextureView(_, view) => BindingResource::TextureView(view),
@@ -677,6 +711,10 @@ mod test {
 
     #[test]
     fn texture_visibility() {
+        #[expect(
+            dead_code,
+            reason = "This is a derive macro compilation test. It will not be constructed."
+        )]
         #[derive(AsBindGroup)]
         pub struct TextureVisibilityTest {
             #[texture(0, visibility(all))]

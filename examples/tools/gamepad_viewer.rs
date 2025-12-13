@@ -48,6 +48,7 @@ struct ButtonMaterials {
     normal: MeshMaterial2d<ColorMaterial>,
     active: MeshMaterial2d<ColorMaterial>,
 }
+
 impl FromWorld for ButtonMaterials {
     fn from_world(world: &mut World) -> Self {
         Self {
@@ -63,6 +64,7 @@ struct ButtonMeshes {
     start_pause: Mesh2d,
     trigger: Mesh2d,
 }
+
 impl FromWorld for ButtonMeshes {
     fn from_world(world: &mut World) -> Self {
         Self {
@@ -362,8 +364,8 @@ fn setup_connected(mut commands: Commands) {
         Text::new("Connected Gamepads:\n"),
         Node {
             position_type: PositionType::Absolute,
-            top: Val::Px(12.),
-            left: Val::Px(12.),
+            top: px(12),
+            left: px(12),
             ..default()
         },
         ConnectedGamepadsText,
@@ -388,7 +390,7 @@ fn update_buttons(
     }
 }
 fn update_button_values(
-    mut events: EventReader<GamepadButtonChangedEvent>,
+    mut events: MessageReader<GamepadButtonChangedEvent>,
     mut query: Query<(&mut Text2d, &TextWithButtonValue)>,
 ) {
     for button_event in events.read() {
@@ -401,7 +403,7 @@ fn update_button_values(
 }
 
 fn update_axes(
-    mut axis_events: EventReader<GamepadAxisChangedEvent>,
+    mut axis_events: MessageReader<GamepadAxisChangedEvent>,
     mut query: Query<(&mut Transform, &MoveWithAxes)>,
     text_query: Query<(Entity, &TextWithAxes)>,
     mut writer: Text2dWriter,
@@ -429,7 +431,7 @@ fn update_axes(
 }
 
 fn update_connected(
-    mut connected: EventReader<GamepadConnectionEvent>,
+    mut connected: MessageReader<GamepadConnectionEvent>,
     gamepads: Query<(Entity, &Name), With<Gamepad>>,
     text: Single<Entity, With<ConnectedGamepadsText>>,
     mut writer: TextUiWriter,
@@ -441,7 +443,7 @@ fn update_connected(
 
     let formatted = gamepads
         .iter()
-        .map(|(entity, name)| format!("{} - {}", entity, name))
+        .map(|(entity, name)| format!("{entity} - {name}"))
         .collect::<Vec<_>>()
         .join("\n");
 

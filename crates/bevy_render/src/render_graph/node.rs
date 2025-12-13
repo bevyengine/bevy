@@ -343,7 +343,7 @@ impl Node for RunGraphOnViewNode {
         _render_context: &mut RenderContext,
         _world: &World,
     ) -> Result<(), NodeRunError> {
-        graph.run_sub_graph(self.sub_graph, vec![], Some(graph.view_entity()))?;
+        graph.run_sub_graph(self.sub_graph, vec![], Some(graph.view_entity()), None)?;
         Ok(())
     }
 }
@@ -366,7 +366,7 @@ pub trait ViewNode {
         &self,
         graph: &mut RenderGraphContext,
         render_context: &mut RenderContext<'w>,
-        view_query: QueryItem<'w, Self::ViewQuery>,
+        view_query: QueryItem<'w, '_, Self::ViewQuery>,
         world: &'w World,
     ) -> Result<(), NodeRunError>;
 }

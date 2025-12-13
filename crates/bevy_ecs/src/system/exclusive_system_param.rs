@@ -4,7 +4,7 @@ use crate::{
     system::{Local, SystemMeta, SystemParam, SystemState},
     world::World,
 };
-use bevy_utils::synccell::SyncCell;
+use bevy_platform::cell::SyncCell;
 use core::marker::PhantomData;
 use variadics_please::all_tuples;
 

@@ -2,7 +2,7 @@
 use bevy::{
     dev_tools::ci_testing::{CiTestingConfig, CiTestingEvent, CiTestingEventOnFrame},
     diagnostic::FrameCount,
-    platform_support::collections::HashSet,
+    platform::collections::HashSet,
     prelude::*,
     render::view::screenshot::Captured,
     state::state::FreelyMutableState,

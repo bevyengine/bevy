@@ -1,8 +1,12 @@
 use alloc::{boxed::Box, vec::Vec};
+use bevy_platform::collections::HashSet;
 use core::any::{Any, TypeId};
 
 use super::{DiGraph, NodeId, ScheduleBuildError, ScheduleGraph};
-use crate::world::World;
+use crate::{
+    schedule::{graph::Dag, SystemKey, SystemSetKey},
+    world::World,
+};
 use bevy_utils::TypeIdMap;
 use core::fmt::Debug;
 
@@ -19,9 +23,9 @@ pub trait ScheduleBuildPass: Send + Sync + Debug + 'static {
     /// Instead of modifying the graph directly, this method should return an iterator of edges to add to the graph.
     fn collapse_set(
         &mut self,
-        set: NodeId,
-        systems: &[NodeId],
-        dependency_flattened: &DiGraph,
+        set: SystemSetKey,
+        systems: &HashSet<SystemKey>,
+        dependency_flattening: &DiGraph<NodeId>,
     ) -> impl Iterator<Item = (NodeId, NodeId)>;
 
     /// The implementation will be able to modify the `ScheduleGraph` here.
@@ -29,7 +33,7 @@ pub trait ScheduleBuildPass: Send + Sync + Debug + 'static {
         &mut self,
         world: &mut World,
         graph: &mut ScheduleGraph,
-        dependency_flattened: &mut DiGraph,
+        dependency_flattened: &mut Dag<SystemKey>,
     ) -> Result<(), ScheduleBuildError>;
 }
 
@@ -39,35 +43,36 @@ pub(super) trait ScheduleBuildPassObj: Send + Sync + Debug {
         &mut self,
         world: &mut World,
         graph: &mut ScheduleGraph,
-        dependency_flattened: &mut DiGraph,
+        dependency_flattened: &mut Dag<SystemKey>,
     ) -> Result<(), ScheduleBuildError>;
 
     fn collapse_set(
         &mut self,
-        set: NodeId,
-        systems: &[NodeId],
-        dependency_flattened: &DiGraph,
+        set: SystemSetKey,
+        systems: &HashSet<SystemKey>,
+        dependency_flattening: &DiGraph<NodeId>,
         dependencies_to_add: &mut Vec<(NodeId, NodeId)>,
     );
     fn add_dependency(&mut self, from: NodeId, to: NodeId, all_options: &TypeIdMap<Box<dyn Any>>);
 }
+
 impl<T: ScheduleBuildPass> ScheduleBuildPassObj for T {
     fn build(
         &mut self,
         world: &mut World,
         graph: &mut ScheduleGraph,
-        dependency_flattened: &mut DiGraph,
+        dependency_flattened: &mut Dag<SystemKey>,
     ) -> Result<(), ScheduleBuildError> {
         self.build(world, graph, dependency_flattened)
     }
     fn collapse_set(
         &mut self,
-        set: NodeId,
-        systems: &[NodeId],
-        dependency_flattened: &DiGraph,
+        set: SystemSetKey,
+        systems: &HashSet<SystemKey>,
+        dependency_flattening: &DiGraph<NodeId>,
         dependencies_to_add: &mut Vec<(NodeId, NodeId)>,
     ) {
-        let iter = self.collapse_set(set, systems, dependency_flattened);
+        let iter = self.collapse_set(set, systems, dependency_flattening);
         dependencies_to_add.extend(iter);
     }
     fn add_dependency(&mut self, from: NodeId, to: NodeId, all_options: &TypeIdMap<Box<dyn Any>>) {

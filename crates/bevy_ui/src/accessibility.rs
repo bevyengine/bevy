@@ -1,6 +1,7 @@
 use crate::{
     experimental::UiChildren,
     prelude::{Button, Label},
+    ui_transform::UiGlobalTransform,
     widget::{ImageNode, TextUiReader},
     ComputedNode,
 };
@@ -13,10 +14,9 @@ use bevy_ecs::{
     system::{Commands, Query},
     world::Ref,
 };
-use bevy_render::{camera::CameraUpdateSystem, prelude::Camera};
-use bevy_transform::prelude::GlobalTransform;
 
 use accesskit::{Node, Rect, Role};
+use bevy_camera::CameraUpdateSystems;
 
 fn calc_label(
     text_reader: &mut TextUiReader,
@@ -26,7 +26,7 @@ fn calc_label(
     for child in children {
         let values = text_reader
             .iter(child)
-            .map(|(_, _, text, _, _)| text.into())
+            .map(|(_, _, text, _, _, _)| text.into())
             .collect::<Vec<String>>();
         if !values.is_empty() {
             name = Some(values.join(" "));
@@ -36,28 +36,20 @@ fn calc_label(
 }
 
 fn calc_bounds(
-    camera: Query<(&Camera, &GlobalTransform)>,
     mut nodes: Query<(
         &mut AccessibilityNode,
         Ref<ComputedNode>,
-        Ref<GlobalTransform>,
+        Ref<UiGlobalTransform>,
     )>,
 ) {
-    if let Ok((camera, camera_transform)) = camera.single() {
-        for (mut accessible, node, transform) in &mut nodes {
-            if node.is_changed() || transform.is_changed() {
-                if let Ok(translation) =
-                    camera.world_to_viewport(camera_transform, transform.translation())
-                {
-                    let bounds = Rect::new(
-                        translation.x.into(),
-                        translation.y.into(),
-                        (translation.x + node.size.x).into(),
-                        (translation.y + node.size.y).into(),
-                    );
-                    accessible.set_bounds(bounds);
-                }
-            }
+    for (mut accessible, node, transform) in &mut nodes {
+        if node.is_changed() || transform.is_changed() {
+            let center = transform.translation;
+            let half_size = 0.5 * node.size;
+            let min = center - half_size;
+            let max = center + half_size;
+            let bounds = Rect::new(min.x as f64, min.y as f64, max.x as f64, max.y as f64);
+            accessible.set_bounds(bounds);
         }
     }
 }
@@ -127,7 +119,7 @@ fn label_changed(
     for (entity, accessible) in &mut query {
         let values = text_reader
             .iter(entity)
-            .map(|(_, _, text, _, _)| text.into())
+            .map(|(_, _, text, _, _, _)| text.into())
             .collect::<Vec<String>>();
         let label = Some(values.join(" ").into_boxed_str());
         if let Some(mut accessible) = accessible {
@@ -158,8 +150,8 @@ impl Plugin for AccessibilityPlugin {
             PostUpdate,
             (
                 calc_bounds
-                    .after(bevy_transform::TransformSystem::TransformPropagate)
-                    .after(CameraUpdateSystem)
+                    .after(bevy_transform::TransformSystems::Propagate)
+                    .after(CameraUpdateSystems)
                     // the listed systems do not affect calculated size
                     .ambiguous_with(crate::ui_stack_system),
                 button_changed,

@@ -69,10 +69,19 @@ impl AssetReader for FileAssetReader {
                     f.ok().and_then(|dir_entry| {
                         let path = dir_entry.path();
                         // filter out meta files as they are not considered assets
-                        if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
-                            if ext.eq_ignore_ascii_case("meta") {
-                                return None;
-                            }
+                        if let Some(ext) = path.extension().and_then(|e| e.to_str())
+                            && ext.eq_ignore_ascii_case("meta")
+                        {
+                            return None;
+                        }
+                        // filter out hidden files. they are not listed by default but are directly targetable
+                        if path
+                            .file_name()
+                            .and_then(|file_name| file_name.to_str())
+                            .map(|file_name| file_name.starts_with('.'))
+                            .unwrap_or_default()
+                        {
+                            return None;
                         }
                         let relative_path = path.strip_prefix(&root_path).unwrap();
                         Some(relative_path.to_owned())

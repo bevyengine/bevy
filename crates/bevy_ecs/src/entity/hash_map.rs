@@ -9,7 +9,7 @@ use core::{
     ops::{Deref, DerefMut, Index},
 };
 
-use bevy_platform_support::collections::hash_map::{self, HashMap};
+use bevy_platform::collections::hash_map::{self, HashMap};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
 
@@ -176,6 +176,10 @@ impl<'a, V> Iterator for Keys<'a, V> {
     fn next(&mut self) -> Option<Self::Item> {
         self.0.next()
     }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.0.size_hint()
+    }
 }
 
 impl<V> ExactSizeIterator for Keys<'_, V> {}
@@ -233,6 +237,10 @@ impl<V> Iterator for IntoKeys<V> {
 
     fn next(&mut self) -> Option<Self::Item> {
         self.0.next()
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.0.size_hint()
     }
 }
 

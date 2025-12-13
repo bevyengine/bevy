@@ -93,11 +93,11 @@
 //! - [`ResMut`] and `Option<ResMut>`
 //! - [`Commands`]
 //! - [`Local`]
-//! - [`EventReader`](crate::event::EventReader)
-//! - [`EventWriter`](crate::event::EventWriter)
+//! - [`MessageReader`](crate::message::MessageReader)
+//! - [`MessageWriter`](crate::message::MessageWriter)
 //! - [`NonSend`] and `Option<NonSend>`
 //! - [`NonSendMut`] and `Option<NonSendMut>`
-//! - [`RemovedComponents`](crate::removal_detection::RemovedComponents)
+//! - [`RemovedComponents`](crate::lifecycle::RemovedComponents)
 //! - [`SystemName`]
 //! - [`SystemChangeTick`]
 //! - [`Archetypes`](crate::archetype::Archetypes) (Provides Archetype metadata)
@@ -153,7 +153,7 @@ pub use system_name::*;
 pub use system_param::*;
 pub use system_registry::*;
 
-use crate::world::World;
+use crate::world::{FromWorld, World};
 
 /// Conversion trait to turn something into a [`System`].
 ///
@@ -226,6 +226,77 @@ pub trait IntoSystem<In: SystemInput, Out, Marker>: Sized {
         F: Send + Sync + 'static + FnMut(Out) -> T,
     {
         IntoAdapterSystem::new(f, self)
+    }
+
+    /// Passes a mutable reference to `value` as input to the system each run,
+    /// turning it into a system that takes no input.
+    ///
+    /// `Self` can have any [`SystemInput`] type that takes a mutable reference
+    /// to `T`, such as [`InMut`].
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// fn my_system(InMut(value): InMut<usize>) {
+    ///     *value += 1;
+    ///     if *value > 10 {
+    ///        println!("Value is greater than 10!");
+    ///     }
+    /// }
+    ///
+    /// # let mut schedule = Schedule::default();
+    /// schedule.add_systems(my_system.with_input(0));
+    /// # bevy_ecs::system::assert_is_system(my_system.with_input(0));
+    /// ```
+    fn with_input<T>(self, value: T) -> WithInputWrapper<Self::System, T>
+    where
+        for<'i> In: SystemInput<Inner<'i> = &'i mut T>,
+        T: Send + Sync + 'static,
+    {
+        WithInputWrapper::new(self, value)
+    }
+
+    /// Passes a mutable reference to a value of type `T` created via
+    /// [`FromWorld`] as input to the system each run, turning it into a system
+    /// that takes no input.
+    ///
+    /// `Self` can have any [`SystemInput`] type that takes a mutable reference
+    /// to `T`, such as [`InMut`].
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// struct MyData {
+    ///     value: usize,
+    /// }
+    ///
+    /// impl FromWorld for MyData {
+    ///     fn from_world(world: &mut World) -> Self {
+    ///         // Fetch from the world the data needed to create `MyData`
+    /// #       MyData { value: 0 }
+    ///     }
+    /// }
+    ///
+    /// fn my_system(InMut(data): InMut<MyData>) {
+    ///     data.value += 1;
+    ///     if data.value > 10 {
+    ///         println!("Value is greater than 10!");
+    ///     }
+    /// }
+    /// # let mut schedule = Schedule::default();
+    /// schedule.add_systems(my_system.with_input_from::<MyData>());
+    /// # bevy_ecs::system::assert_is_system(my_system.with_input_from::<MyData>());
+    /// ```
+    fn with_input_from<T>(self) -> WithInputFromWrapper<Self::System, T>
+    where
+        for<'i> In: SystemInput<Inner<'i> = &'i mut T>,
+        T: FromWorld + Send + Sync + 'static,
+    {
+        WithInputFromWrapper::new(self)
     }
 
     /// Get the [`TypeId`] of the [`System`] produced after calling [`into_system`](`IntoSystem::into_system`).
@@ -319,7 +390,7 @@ pub fn assert_system_does_not_conflict<Out, Params, S: IntoSystem<(), Out, Param
     let mut world = World::new();
     let mut system = IntoSystem::into_system(sys);
     system.initialize(&mut world);
-    system.run((), &mut world);
+    system.run((), &mut world).unwrap();
 }
 
 #[cfg(test)]
@@ -331,23 +402,24 @@ mod tests {
     use std::println;
 
     use crate::{
-        archetype::{ArchetypeComponentId, Archetypes},
+        archetype::Archetypes,
         bundle::Bundles,
         change_detection::DetectChanges,
         component::{Component, Components},
         entity::{Entities, Entity},
         error::Result,
-        prelude::{AnyOf, EntityRef},
-        query::{Added, Changed, Or, With, Without},
-        removal_detection::RemovedComponents,
+        lifecycle::RemovedComponents,
+        name::Name,
+        prelude::{Add, AnyOf, EntityRef, On},
+        query::{Added, Changed, Or, SpawnDetails, Spawned, With, Without},
         resource::Resource,
         schedule::{
-            common_conditions::resource_exists, ApplyDeferred, Condition, IntoScheduleConfigs,
-            Schedule,
+            common_conditions::resource_exists, ApplyDeferred, IntoScheduleConfigs, Schedule,
+            SystemCondition,
         },
         system::{
-            Commands, In, IntoSystem, Local, NonSend, NonSendMut, ParamSet, Query, Res, ResMut,
-            Single, StaticSystemParam, System, SystemState,
+            Commands, In, InMut, IntoSystem, Local, NonSend, NonSendMut, ParamSet, Query, Res,
+            ResMut, Single, StaticSystemParam, System, SystemState,
         },
         world::{DeferredWorld, EntityMut, FromWorld, World},
     };
@@ -360,18 +432,31 @@ mod tests {
         No,
     }
 
-    #[derive(Component, Resource, Debug, Eq, PartialEq, Default)]
+    #[derive(Component, Debug, Eq, PartialEq, Default)]
     struct A;
-    #[derive(Component, Resource)]
+    #[derive(Component)]
     struct B;
-    #[derive(Component, Resource)]
+    #[derive(Component)]
     struct C;
-    #[derive(Component, Resource)]
+    #[derive(Component)]
     struct D;
-    #[derive(Component, Resource)]
+    #[derive(Component)]
     struct E;
-    #[derive(Component, Resource)]
+    #[derive(Component)]
     struct F;
+
+    #[derive(Resource)]
+    struct ResA;
+    #[derive(Resource)]
+    struct ResB;
+    #[derive(Resource)]
+    struct ResC;
+    #[derive(Resource)]
+    struct ResD;
+    #[derive(Resource)]
+    struct ResE;
+    #[derive(Resource)]
+    struct ResF;
 
     #[derive(Component, Debug)]
     struct W<T>(T);
@@ -389,7 +474,7 @@ mod tests {
         world.spawn(A);
 
         system.initialize(&mut world);
-        system.run((), &mut world);
+        system.run((), &mut world).unwrap();
     }
 
     fn run_system<Marker, S: IntoScheduleConfigs<ScheduleSystem, Marker>>(
@@ -562,7 +647,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic = "&bevy_ecs::system::tests::A conflicts with a previous access in this query."]
+    #[should_panic]
     fn any_of_with_mut_and_ref() {
         fn sys(_: Query<AnyOf<(&mut A, &A)>>) {}
         let mut world = World::default();
@@ -570,7 +655,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic = "&mut bevy_ecs::system::tests::A conflicts with a previous access in this query."]
+    #[should_panic]
     fn any_of_with_ref_and_mut() {
         fn sys(_: Query<AnyOf<(&A, &mut A)>>) {}
         let mut world = World::default();
@@ -578,7 +663,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic = "&bevy_ecs::system::tests::A conflicts with a previous access in this query."]
+    #[should_panic]
     fn any_of_with_mut_and_option() {
         fn sys(_: Query<AnyOf<(&mut A, Option<&A>)>>) {}
         let mut world = World::default();
@@ -608,7 +693,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic = "&mut bevy_ecs::system::tests::A conflicts with a previous access in this query."]
+    #[should_panic]
     fn any_of_with_conflicting() {
         fn sys(_: Query<AnyOf<(&mut A, &mut A)>>) {}
         let mut world = World::default();
@@ -841,8 +926,8 @@ mod tests {
     fn test_for_conflicting_resources<Marker, S: IntoSystem<(), (), Marker>>(sys: S) {
         let mut world = World::default();
         world.insert_resource(BufferRes::default());
-        world.insert_resource(A);
-        world.insert_resource(B);
+        world.insert_resource(ResA);
+        world.insert_resource(ResB);
         run_system(&mut world, sys);
     }
 
@@ -869,7 +954,7 @@ mod tests {
 
     #[test]
     fn nonconflicting_system_resources() {
-        fn sys(_: Local<BufferRes>, _: ResMut<BufferRes>, _: Local<A>, _: ResMut<A>) {}
+        fn sys(_: Local<BufferRes>, _: ResMut<BufferRes>, _: Local<A>, _: ResMut<ResA>) {}
         test_for_conflicting_resources(sys);
     }
 
@@ -1053,9 +1138,9 @@ mod tests {
         ) {
             assert_eq!(query.iter().count(), 1, "entity exists");
             for entity in &query {
-                let location = entities.get(entity).unwrap();
+                let location = entities.get_spawned(entity).unwrap();
                 let archetype = archetypes.get(location.archetype_id).unwrap();
-                let archetype_components = archetype.components().collect::<Vec<_>>();
+                let archetype_components = archetype.components();
                 let bundle_id = bundles
                     .get_id(TypeId::of::<(W<i32>, W<bool>)>())
                     .expect("Bundle used to spawn entity should exist");
@@ -1084,20 +1169,20 @@ mod tests {
 
     #[test]
     fn get_system_conflicts() {
-        fn sys_x(_: Res<A>, _: Res<B>, _: Query<(&C, &D)>) {}
+        fn sys_x(_: Res<ResA>, _: Res<ResB>, _: Query<(&C, &D)>) {}
 
-        fn sys_y(_: Res<A>, _: ResMut<B>, _: Query<(&C, &mut D)>) {}
+        fn sys_y(_: Res<ResA>, _: ResMut<ResB>, _: Query<(&C, &mut D)>) {}
 
         let mut world = World::default();
         let mut x = IntoSystem::into_system(sys_x);
         let mut y = IntoSystem::into_system(sys_y);
-        x.initialize(&mut world);
-        y.initialize(&mut world);
+        let x_access = x.initialize(&mut world);
+        let y_access = y.initialize(&mut world);
 
-        let conflicts = x.component_access().get_conflicts(y.component_access());
+        let conflicts = x_access.get_conflicts(&y_access);
         let b_id = world
             .components()
-            .get_resource_id(TypeId::of::<B>())
+            .get_resource_id(TypeId::of::<ResB>())
             .unwrap();
         let d_id = world.components().get_id(TypeId::of::<D>()).unwrap();
         assert_eq!(conflicts, vec![b_id, d_id].into());
@@ -1120,22 +1205,22 @@ mod tests {
 
         let mut without_filter = IntoSystem::into_system(without_filter);
         without_filter.initialize(&mut world);
-        without_filter.run((), &mut world);
+        without_filter.run((), &mut world).unwrap();
 
         let mut with_filter = IntoSystem::into_system(with_filter);
         with_filter.initialize(&mut world);
-        with_filter.run((), &mut world);
+        with_filter.run((), &mut world).unwrap();
     }
 
     #[test]
     fn can_have_16_parameters() {
         fn sys_x(
-            _: Res<A>,
-            _: Res<B>,
-            _: Res<C>,
-            _: Res<D>,
-            _: Res<E>,
-            _: Res<F>,
+            _: Res<ResA>,
+            _: Res<ResB>,
+            _: Res<ResC>,
+            _: Res<ResD>,
+            _: Res<ResE>,
+            _: Res<ResF>,
             _: Query<&A>,
             _: Query<&B>,
             _: Query<&C>,
@@ -1149,12 +1234,12 @@ mod tests {
         }
         fn sys_y(
             _: (
-                Res<A>,
-                Res<B>,
-                Res<C>,
-                Res<D>,
-                Res<E>,
-                Res<F>,
+                Res<ResA>,
+                Res<ResB>,
+                Res<ResC>,
+                Res<ResD>,
+                Res<ResE>,
+                Res<ResF>,
                 Query<&A>,
                 Query<&B>,
                 Query<&C>,
@@ -1255,6 +1340,25 @@ mod tests {
     }
 
     #[test]
+    fn system_state_spawned() {
+        let mut world = World::default();
+        world.spawn(A);
+        let spawn_tick = world.change_tick();
+
+        let mut system_state: SystemState<Option<Single<(&A, SpawnDetails), Spawned>>> =
+            SystemState::new(&mut world);
+        {
+            let query = system_state.get(&world);
+            assert_eq!(query.unwrap().1.spawn_tick(), spawn_tick);
+        }
+
+        {
+            let query = system_state.get(&world);
+            assert!(query.is_none());
+        }
+    }
+
+    #[test]
     #[should_panic]
     fn system_state_invalid_world() {
         let mut world = World::default();
@@ -1301,19 +1405,23 @@ mod tests {
         reason = "This test exists to show that read-only world-only queries can return data that lives as long as `'world`."
     )]
     fn long_life_test() {
+        struct ResourceHolder<'w> {
+            value: &'w ResA,
+        }
+
         struct Holder<'w> {
             value: &'w A,
         }
 
         struct State {
-            state: SystemState<Res<'static, A>>,
+            state: SystemState<Res<'static, ResA>>,
             state_q: SystemState<Query<'static, 'static, &'static A>>,
         }
 
         impl State {
-            fn hold_res<'w>(&mut self, world: &'w World) -> Holder<'w> {
+            fn hold_res<'w>(&mut self, world: &'w World) -> ResourceHolder<'w> {
                 let a = self.state.get(world);
-                Holder {
+                ResourceHolder {
                     value: a.into_inner(),
                 }
             }
@@ -1479,68 +1587,21 @@ mod tests {
             let mut sys = IntoSystem::into_system(mutable_query);
             sys.initialize(&mut world);
         }
-    }
 
-    #[test]
-    fn update_archetype_component_access_works() {
-        use std::collections::HashSet;
+        {
+            let mut world = World::new();
 
-        fn a_not_b_system(_query: Query<&A, Without<B>>) {}
+            fn mutable_query(mut query: Query<(&mut A, &mut B, SpawnDetails), Spawned>) {
+                for _ in &mut query {}
 
-        let mut world = World::default();
-        let mut system = IntoSystem::into_system(a_not_b_system);
-        let mut expected_ids = HashSet::<ArchetypeComponentId>::new();
-        let a_id = world.register_component::<A>();
+                immutable_query(query.as_readonly());
+            }
 
-        // set up system and verify its access is empty
-        system.initialize(&mut world);
-        system.update_archetype_component_access(world.as_unsafe_world_cell());
-        let archetype_component_access = system.archetype_component_access();
-        assert!(expected_ids
-            .iter()
-            .all(|id| archetype_component_access.has_component_read(*id)));
+            fn immutable_query(_: Query<(&A, &B, SpawnDetails), Spawned>) {}
 
-        // add some entities with archetypes that should match and save their ids
-        expected_ids.insert(
-            world
-                .spawn(A)
-                .archetype()
-                .get_archetype_component_id(a_id)
-                .unwrap(),
-        );
-        expected_ids.insert(
-            world
-                .spawn((A, C))
-                .archetype()
-                .get_archetype_component_id(a_id)
-                .unwrap(),
-        );
-
-        // add some entities with archetypes that should not match
-        world.spawn((A, B));
-        world.spawn((B, C));
-
-        // update system and verify its accesses are correct
-        system.update_archetype_component_access(world.as_unsafe_world_cell());
-        let archetype_component_access = system.archetype_component_access();
-        assert!(expected_ids
-            .iter()
-            .all(|id| archetype_component_access.has_component_read(*id)));
-
-        // one more round
-        expected_ids.insert(
-            world
-                .spawn((A, D))
-                .archetype()
-                .get_archetype_component_id(a_id)
-                .unwrap(),
-        );
-        world.spawn((A, B, D));
-        system.update_archetype_component_access(world.as_unsafe_world_cell());
-        let archetype_component_access = system.archetype_component_access();
-        assert!(expected_ids
-            .iter()
-            .all(|id| archetype_component_access.has_component_read(*id)));
+            let mut sys = IntoSystem::into_system(mutable_query);
+            sys.initialize(&mut world);
+        }
     }
 
     #[test]
@@ -1585,54 +1646,42 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(
-        expected = "error[B0001]: Query<EntityMut, ()> in system bevy_ecs::system::tests::assert_world_and_entity_mut_system_does_conflict_first::system accesses component(s) in a way that conflicts with a previous system parameter. Consider using `Without<T>` to create disjoint Queries or merging conflicting Queries into a `ParamSet`. See: https://bevyengine.org/learn/errors/b0001"
-    )]
+    #[should_panic]
     fn assert_world_and_entity_mut_system_does_conflict_first() {
         fn system(_query: &World, _q2: Query<EntityMut>) {}
         super::assert_system_does_not_conflict(system);
     }
 
     #[test]
-    #[should_panic(
-        expected = "&World conflicts with a previous mutable system parameter. Allowing this would break Rust's mutability rules"
-    )]
+    #[should_panic]
     fn assert_world_and_entity_mut_system_does_conflict_second() {
         fn system(_: Query<EntityMut>, _: &World) {}
         super::assert_system_does_not_conflict(system);
     }
 
     #[test]
-    #[should_panic(
-        expected = "error[B0001]: Query<EntityMut, ()> in system bevy_ecs::system::tests::assert_entity_ref_and_entity_mut_system_does_conflict::system accesses component(s) in a way that conflicts with a previous system parameter. Consider using `Without<T>` to create disjoint Queries or merging conflicting Queries into a `ParamSet`. See: https://bevyengine.org/learn/errors/b0001"
-    )]
+    #[should_panic]
     fn assert_entity_ref_and_entity_mut_system_does_conflict() {
         fn system(_query: Query<EntityRef>, _q2: Query<EntityMut>) {}
         super::assert_system_does_not_conflict(system);
     }
 
     #[test]
-    #[should_panic(
-        expected = "error[B0001]: Query<EntityMut, ()> in system bevy_ecs::system::tests::assert_entity_mut_system_does_conflict::system accesses component(s) in a way that conflicts with a previous system parameter. Consider using `Without<T>` to create disjoint Queries or merging conflicting Queries into a `ParamSet`. See: https://bevyengine.org/learn/errors/b0001"
-    )]
+    #[should_panic]
     fn assert_entity_mut_system_does_conflict() {
         fn system(_query: Query<EntityMut>, _q2: Query<EntityMut>) {}
         super::assert_system_does_not_conflict(system);
     }
 
     #[test]
-    #[should_panic(
-        expected = "error[B0001]: Query<EntityRef, ()> in system bevy_ecs::system::tests::assert_deferred_world_and_entity_ref_system_does_conflict_first::system accesses component(s) in a way that conflicts with a previous system parameter. Consider using `Without<T>` to create disjoint Queries or merging conflicting Queries into a `ParamSet`. See: https://bevyengine.org/learn/errors/b0001"
-    )]
+    #[should_panic]
     fn assert_deferred_world_and_entity_ref_system_does_conflict_first() {
         fn system(_world: DeferredWorld, _query: Query<EntityRef>) {}
         super::assert_system_does_not_conflict(system);
     }
 
     #[test]
-    #[should_panic(
-        expected = "DeferredWorld in system bevy_ecs::system::tests::assert_deferred_world_and_entity_ref_system_does_conflict_second::system conflicts with a previous access."
-    )]
+    #[should_panic]
     fn assert_deferred_world_and_entity_ref_system_does_conflict_second() {
         fn system(_query: Query<EntityRef>, _world: DeferredWorld) {}
         super::assert_system_does_not_conflict(system);
@@ -1754,29 +1803,33 @@ mod tests {
         let mut sys = IntoSystem::into_system(first.pipe(second));
         sys.initialize(&mut world);
 
-        sys.run(default(), &mut world);
+        sys.run(default(), &mut world).unwrap();
 
         // The second system should observe a change made in the first system.
-        let info = sys.run(
-            Info {
-                do_first: true,
-                ..default()
-            },
-            &mut world,
-        );
+        let info = sys
+            .run(
+                Info {
+                    do_first: true,
+                    ..default()
+                },
+                &mut world,
+            )
+            .unwrap();
         assert!(!info.first_flag);
         assert!(info.second_flag);
 
         // When a change is made in the second system, the first system
         // should observe it the next time they are run.
-        let info1 = sys.run(
-            Info {
-                do_second: true,
-                ..default()
-            },
-            &mut world,
-        );
-        let info2 = sys.run(default(), &mut world);
+        let info1 = sys
+            .run(
+                Info {
+                    do_second: true,
+                    ..default()
+                },
+                &mut world,
+            )
+            .unwrap();
+        let info2 = sys.run(default(), &mut world).unwrap();
         assert!(!info1.first_flag);
         assert!(!info1.second_flag);
         assert!(info2.first_flag);
@@ -1813,7 +1866,9 @@ mod tests {
     }
 
     #[test]
-    #[should_panic]
+    #[should_panic(
+        expected = "Encountered an error in system `bevy_ecs::system::tests::simple_fallible_system::sys`: error"
+    )]
     fn simple_fallible_system() {
         fn sys() -> Result {
             Err("error")?;
@@ -1822,5 +1877,107 @@ mod tests {
 
         let mut world = World::new();
         run_system(&mut world, sys);
+    }
+
+    #[test]
+    #[should_panic(
+        expected = "Encountered an error in system `bevy_ecs::system::tests::simple_fallible_exclusive_system::sys`: error"
+    )]
+    fn simple_fallible_exclusive_system() {
+        fn sys(_world: &mut World) -> Result {
+            Err("error")?;
+            Ok(())
+        }
+
+        let mut world = World::new();
+        run_system(&mut world, sys);
+    }
+
+    // Regression test for
+    // https://github.com/bevyengine/bevy/issues/18778
+    //
+    // Dear rustc team, please reach out if you encounter this
+    // in a crater run and we can work something out!
+    //
+    // These todo! macro calls should never be removed;
+    // they're intended to demonstrate real-world usage
+    // in a way that's clearer than simply calling `panic!`
+    //
+    // Because type inference behaves differently for functions and closures,
+    // we need to test both, in addition to explicitly annotating the return type
+    // to ensure that there are no upstream regressions there.
+    #[test]
+    fn nondiverging_never_trait_impls() {
+        // This test is a compilation test:
+        // no meaningful logic is ever actually evaluated.
+        // It is simply intended to check that the correct traits are implemented
+        // when todo! or similar nondiverging panics are used.
+        let mut world = World::new();
+        let mut schedule = Schedule::default();
+
+        fn sys(_query: Query<&Name>) {
+            todo!()
+        }
+
+        schedule.add_systems(sys);
+        schedule.add_systems(|_query: Query<&Name>| {});
+        schedule.add_systems(|_query: Query<&Name>| todo!());
+        schedule.add_systems(|_query: Query<&Name>| -> () { todo!() });
+
+        fn obs(_event: On<Add, Name>) {
+            todo!()
+        }
+
+        world.add_observer(obs);
+        world.add_observer(|_event: On<Add, Name>| {});
+        world.add_observer(|_event: On<Add, Name>| todo!());
+        world.add_observer(|_event: On<Add, Name>| -> () { todo!() });
+
+        fn my_command(_world: &mut World) {
+            todo!()
+        }
+
+        world.commands().queue(my_command);
+        world.commands().queue(|_world: &mut World| {});
+        world.commands().queue(|_world: &mut World| todo!());
+        world
+            .commands()
+            .queue(|_world: &mut World| -> () { todo!() });
+    }
+
+    #[test]
+    fn with_input() {
+        fn sys(InMut(v): InMut<usize>) {
+            *v += 1;
+        }
+
+        let mut world = World::new();
+        let mut system = IntoSystem::into_system(sys.with_input(42));
+        system.initialize(&mut world);
+        system.run((), &mut world).unwrap();
+        assert_eq!(*system.value(), 43);
+    }
+
+    #[test]
+    fn with_input_from() {
+        struct TestData(usize);
+
+        impl FromWorld for TestData {
+            fn from_world(_world: &mut World) -> Self {
+                Self(5)
+            }
+        }
+
+        fn sys(InMut(v): InMut<TestData>) {
+            v.0 += 1;
+        }
+
+        let mut world = World::new();
+        let mut system = IntoSystem::into_system(sys.with_input_from::<TestData>());
+        assert!(system.value().is_none());
+        system.initialize(&mut world);
+        assert!(system.value().is_some());
+        system.run((), &mut world).unwrap();
+        assert_eq!(system.value().unwrap().0, 6);
     }
 }

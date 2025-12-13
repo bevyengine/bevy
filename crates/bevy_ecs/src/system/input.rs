@@ -2,7 +2,7 @@ use core::ops::{Deref, DerefMut};
 
 use variadics_please::all_tuples;
 
-use crate::{bundle::Bundle, prelude::Trigger, system::System};
+use crate::{bundle::Bundle, event::Event, prelude::On, system::System};
 
 /// Trait for types that can be used as input to [`System`]s.
 ///
@@ -11,7 +11,7 @@ use crate::{bundle::Bundle, prelude::Trigger, system::System};
 /// - [`In<T>`]: For values
 /// - [`InRef<T>`]: For read-only references to values
 /// - [`InMut<T>`]: For mutable references to values
-/// - [`Trigger<E, B>`]: For [`ObserverSystem`]s
+/// - [`On<E, B>`]: For [`ObserverSystem`]s
 /// - [`StaticSystemInput<I>`]: For arbitrary [`SystemInput`]s in generic contexts
 /// - Tuples of [`SystemInput`]s up to 8 elements
 ///
@@ -80,7 +80,7 @@ pub type SystemIn<'a, S> = <<S as System>::In as SystemInput>::Inner<'a>;
 /// let mut square_system = IntoSystem::into_system(square);
 /// square_system.initialize(&mut world);
 ///
-/// assert_eq!(square_system.run(12, &mut world), 144);
+/// assert_eq!(square_system.run(12, &mut world).unwrap(), 144);
 /// ```
 ///
 /// [`SystemParam`]: crate::system::SystemParam
@@ -222,9 +222,13 @@ impl<'i, T: ?Sized> DerefMut for InMut<'i, T> {
 /// Used for [`ObserverSystem`]s.
 ///
 /// [`ObserverSystem`]: crate::system::ObserverSystem
-impl<E: 'static, B: Bundle> SystemInput for Trigger<'_, E, B> {
-    type Param<'i> = Trigger<'i, E, B>;
-    type Inner<'i> = Trigger<'i, E, B>;
+impl<E: Event, B: Bundle> SystemInput for On<'_, '_, E, B> {
+    // Note: the fact that we must use a shared lifetime here is
+    // a key piece of the complicated safety story documented above
+    // the `&mut E::Trigger<'_>` cast in `observer_system_runner` and in
+    // the `On` implementation.
+    type Param<'i> = On<'i, 'i, E, B>;
+    type Inner<'i> = On<'i, 'i, E, B>;
 
     fn wrap(this: Self::Inner<'_>) -> Self::Param<'_> {
         this
@@ -318,9 +322,9 @@ mod tests {
         let mut a = 12;
         let b = 24;
 
-        assert_eq!(by_value.run((a, b), &mut world), 36);
-        assert_eq!(by_ref.run((&a, &b), &mut world), 36);
-        by_mut.run((&mut a, b), &mut world);
+        assert_eq!(by_value.run((a, b), &mut world).unwrap(), 36);
+        assert_eq!(by_ref.run((&a, &b), &mut world).unwrap(), 36);
+        by_mut.run((&mut a, b), &mut world).unwrap();
         assert_eq!(a, 36);
     }
 }

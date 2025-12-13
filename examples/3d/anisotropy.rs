@@ -138,8 +138,8 @@ fn spawn_text(commands: &mut Commands, app_status: &AppStatus) {
         app_status.create_help_text(),
         Node {
             position_type: PositionType::Absolute,
-            bottom: Val::Px(12.0),
-            left: Val::Px(12.0),
+            bottom: px(12),
+            left: px(12),
             ..default()
         },
     ));
@@ -353,11 +353,7 @@ impl AppStatus {
         let mesh_help_text = format!("Press Q to change to {}", self.visible_scene.next());
 
         // Build the `Text` object.
-        format!(
-            "{}\n{}\n{}",
-            material_variant_help_text, light_help_text, mesh_help_text,
-        )
-        .into()
+        format!("{material_variant_help_text}\n{light_help_text}\n{mesh_help_text}",).into()
     }
 }
 

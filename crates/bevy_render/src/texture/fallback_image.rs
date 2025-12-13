@@ -1,9 +1,9 @@
 use crate::{
-    render_asset::RenderAssetUsages,
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
     texture::{DefaultImageSampler, GpuImage},
 };
+use bevy_asset::RenderAssetUsages;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     prelude::{FromWorld, Res, ResMut},
@@ -11,7 +11,7 @@ use bevy_ecs::{
     system::SystemParam,
 };
 use bevy_image::{BevyDefault, Image, ImageSampler, TextureFormatPixelInfo};
-use bevy_platform_support::collections::HashMap;
+use bevy_platform::collections::HashMap;
 
 /// A [`RenderApp`](crate::RenderApp) resource that contains the default "fallback image",
 /// which can be used in situations where an image was not explicitly defined. The most common
@@ -89,7 +89,7 @@ fn fallback_image_new(
 
     let image_dimension = dimension.compatible_texture_dimension();
     let mut image = if create_texture_with_data {
-        let data = vec![value; format.pixel_size()];
+        let data = vec![value; format.pixel_size().unwrap_or(0)];
         Image::new_fill(
             extents,
             image_dimension,

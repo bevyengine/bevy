@@ -12,7 +12,7 @@ use core::{
     },
 };
 
-use bevy_platform_support::collections::hash_set::{self, HashSet};
+use bevy_platform::collections::hash_set::{self, HashSet};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
 
@@ -238,6 +238,10 @@ impl<'a> Iterator for Iter<'a> {
     fn next(&mut self) -> Option<Self::Item> {
         self.0.next()
     }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.0.size_hint()
+    }
 }
 
 impl ExactSizeIterator for Iter<'_> {}
@@ -293,6 +297,10 @@ impl Iterator for IntoIter {
     fn next(&mut self) -> Option<Self::Item> {
         self.0.next()
     }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.0.size_hint()
+    }
 }
 
 impl ExactSizeIterator for IntoIter {}
@@ -345,6 +353,10 @@ impl<'a> Iterator for Drain<'a> {
     fn next(&mut self) -> Option<Self::Item> {
         self.0.next()
     }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.0.size_hint()
+    }
 }
 
 impl ExactSizeIterator for Drain<'_> {}
@@ -393,6 +405,10 @@ impl<'a, F: FnMut(&Entity) -> bool> Iterator for ExtractIf<'a, F> {
 
     fn next(&mut self) -> Option<Self::Item> {
         self.0.next()
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.0.size_hint()
     }
 }
 

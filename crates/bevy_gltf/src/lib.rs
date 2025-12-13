@@ -1,8 +1,8 @@
-#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![forbid(unsafe_code)]
 #![doc(
-    html_logo_url = "https://bevyengine.org/assets/icon.png",
-    html_favicon_url = "https://bevyengine.org/assets/icon.png"
+    html_logo_url = "https://bevy.org/assets/icon.png",
+    html_favicon_url = "https://bevy.org/assets/icon.png"
 )]
 
 //! Plugin providing an [`AssetLoader`](bevy_asset::AssetLoader) and type definitions
@@ -89,21 +89,63 @@
 //! Be careful when using this feature, if you misspell a label it will simply ignore it without warning.
 //!
 //! You can use [`GltfAssetLabel`] to ensure you are using the correct label.
+//!
+//! # Supported KHR Extensions
+//!
+//! glTF files may use functionality beyond the base glTF specification, specified as a list of
+//! required extensions. The table below shows which of the ratified Khronos extensions are
+//! supported by Bevy.
+//!
+//! | Extension                         | Supported | Requires feature                    |
+//! | --------------------------------- | --------- | ----------------------------------- |
+//! | `KHR_animation_pointer`           | ❌        |                                     |
+//! | `KHR_draco_mesh_compression`      | ❌        |                                     |
+//! | `KHR_lights_punctual`             | ✅        |                                     |
+//! | `KHR_materials_anisotropy`        | ✅        | `pbr_anisotropy_texture`            |
+//! | `KHR_materials_clearcoat`         | ✅        | `pbr_multi_layer_material_textures` |
+//! | `KHR_materials_dispersion`        | ❌        |                                     |
+//! | `KHR_materials_emissive_strength` | ✅        |                                     |
+//! | `KHR_materials_ior`               | ✅        |                                     |
+//! | `KHR_materials_iridescence`       | ❌        |                                     |
+//! | `KHR_materials_sheen`             | ❌        |                                     |
+//! | `KHR_materials_specular`          | ✅        | `pbr_specular_textures`             |
+//! | `KHR_materials_transmission`      | ✅        | `pbr_transmission_textures`         |
+//! | `KHR_materials_unlit`             | ✅        |                                     |
+//! | `KHR_materials_variants`          | ❌        |                                     |
+//! | `KHR_materials_volume`            | ✅        |                                     |
+//! | `KHR_mesh_quantization`           | ❌        |                                     |
+//! | `KHR_texture_basisu`              | ❌\*      |                                     |
+//! | `KHR_texture_transform`           | ✅\**     |                                     |
+//! | `KHR_xmp_json_ld`                 | ❌        |                                     |
+//! | `EXT_mesh_gpu_instancing`         | ❌        |                                     |
+//! | `EXT_meshopt_compression`         | ❌        |                                     |
+//! | `EXT_texture_webp`                | ❌\*      |                                     |
+//!
+//! \*Bevy supports ktx2 and webp formats but doesn't support the extension's syntax, see [#19104](https://github.com/bevyengine/bevy/issues/19104).
+//!
+//! \**`KHR_texture_transform` is only supported on `base_color_texture`, see [#15310](https://github.com/bevyengine/bevy/issues/15310).
+//!
+//! See the [glTF Extension Registry](https://github.com/KhronosGroup/glTF/blob/main/extensions/README.md) for more information on extensions.
 
 mod assets;
+mod convert_coordinates;
 mod label;
 mod loader;
 mod vertex_attributes;
 
 extern crate alloc;
 
-use bevy_platform_support::collections::HashMap;
+use alloc::sync::Arc;
+use std::sync::Mutex;
+use tracing::warn;
+
+use bevy_platform::collections::HashMap;
 
 use bevy_app::prelude::*;
 use bevy_asset::AssetApp;
-use bevy_image::CompressedImageFormats;
+use bevy_ecs::prelude::Resource;
+use bevy_image::{CompressedImageFormatSupport, CompressedImageFormats, ImageSamplerDescriptor};
 use bevy_mesh::MeshVertexAttribute;
-use bevy_render::renderer::RenderDevice;
 
 /// The glTF prelude.
 ///
@@ -115,10 +157,73 @@ pub mod prelude {
 
 pub use {assets::*, label::GltfAssetLabel, loader::*};
 
+// Has to store an Arc<Mutex<...>> as there is no other way to mutate fields of asset loaders.
+/// Stores default [`ImageSamplerDescriptor`] in main world.
+#[derive(Resource)]
+pub struct DefaultGltfImageSampler(Arc<Mutex<ImageSamplerDescriptor>>);
+
+impl DefaultGltfImageSampler {
+    /// Creates a new [`DefaultGltfImageSampler`].
+    pub fn new(descriptor: &ImageSamplerDescriptor) -> Self {
+        Self(Arc::new(Mutex::new(descriptor.clone())))
+    }
+
+    /// Returns the current default [`ImageSamplerDescriptor`].
+    pub fn get(&self) -> ImageSamplerDescriptor {
+        self.0.lock().unwrap().clone()
+    }
+
+    /// Makes a clone of internal [`Arc`] pointer.
+    ///
+    /// Intended only to be used by code with no access to ECS.
+    pub fn get_internal(&self) -> Arc<Mutex<ImageSamplerDescriptor>> {
+        self.0.clone()
+    }
+
+    /// Replaces default [`ImageSamplerDescriptor`].
+    ///
+    /// Doesn't apply to samplers already built on top of it, i.e. `GltfLoader`'s output.
+    /// Assets need to manually be reloaded.
+    pub fn set(&self, descriptor: &ImageSamplerDescriptor) {
+        *self.0.lock().unwrap() = descriptor.clone();
+    }
+}
+
 /// Adds support for glTF file loading to the app.
-#[derive(Default)]
 pub struct GltfPlugin {
-    custom_vertex_attributes: HashMap<Box<str>, MeshVertexAttribute>,
+    /// The default image sampler to lay glTF sampler data on top of.
+    ///
+    /// Can be modified with the [`DefaultGltfImageSampler`] resource.
+    pub default_sampler: ImageSamplerDescriptor,
+
+    /// _CAUTION: This is an experimental feature with [known issues](https://github.com/bevyengine/bevy/issues/20621). Behavior may change in future versions._
+    ///
+    /// How to convert glTF coordinates on import. Assuming glTF cameras, glTF lights, and glTF meshes had global identity transforms,
+    /// their Bevy [`Transform::forward`](bevy_transform::components::Transform::forward) will be pointing in the following global directions:
+    /// - When set to `false`
+    ///   - glTF cameras and glTF lights: global -Z,
+    ///   - glTF models: global +Z.
+    /// - When set to `true`
+    ///   - glTF cameras and glTF lights: global +Z,
+    ///   - glTF models: global -Z.
+    ///
+    /// The default is `false`.
+    pub use_model_forward_direction: bool,
+
+    /// Registry for custom vertex attributes.
+    ///
+    /// To specify, use [`GltfPlugin::add_custom_vertex_attribute`].
+    pub custom_vertex_attributes: HashMap<Box<str>, MeshVertexAttribute>,
+}
+
+impl Default for GltfPlugin {
+    fn default() -> Self {
+        GltfPlugin {
+            default_sampler: ImageSamplerDescriptor::linear(),
+            custom_vertex_attributes: HashMap::default(),
+            use_model_forward_direction: false,
+        }
+    }
 }
 
 impl GltfPlugin {
@@ -139,12 +244,7 @@ impl GltfPlugin {
 
 impl Plugin for GltfPlugin {
     fn build(&self, app: &mut App) {
-        app.register_type::<GltfExtras>()
-            .register_type::<GltfSceneExtras>()
-            .register_type::<GltfMeshExtras>()
-            .register_type::<GltfMaterialExtras>()
-            .register_type::<GltfMaterialName>()
-            .init_asset::<Gltf>()
+        app.init_asset::<Gltf>()
             .init_asset::<GltfNode>()
             .init_asset::<GltfPrimitive>()
             .init_asset::<GltfMesh>()
@@ -153,13 +253,25 @@ impl Plugin for GltfPlugin {
     }
 
     fn finish(&self, app: &mut App) {
-        let supported_compressed_formats = match app.world().get_resource::<RenderDevice>() {
-            Some(render_device) => CompressedImageFormats::from_features(render_device.features()),
-            None => CompressedImageFormats::NONE,
+        let supported_compressed_formats = if let Some(resource) =
+            app.world().get_resource::<CompressedImageFormatSupport>()
+        {
+            resource.0
+        } else {
+            warn!("CompressedImageFormatSupport resource not found. It should either be initialized in finish() of \
+            RenderPlugin, or manually if not using the RenderPlugin or the WGPU backend.");
+            CompressedImageFormats::NONE
         };
+
+        let default_sampler_resource = DefaultGltfImageSampler::new(&self.default_sampler);
+        let default_sampler = default_sampler_resource.get_internal();
+        app.insert_resource(default_sampler_resource);
+
         app.register_asset_loader(GltfLoader {
             supported_compressed_formats,
             custom_vertex_attributes: self.custom_vertex_attributes.clone(),
+            default_sampler,
+            default_use_model_forward_direction: self.use_model_forward_direction,
         });
     }
 }
