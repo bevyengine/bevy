@@ -17,6 +17,7 @@ use bevy_shader::{
 };
 use bevy_tasks::Task;
 use bevy_utils::default;
+use core::pin::Pin;
 use core::{future::Future, hash::Hash, mem};
 use std::sync::{Mutex, PoisonError};
 use tracing::error;
@@ -209,22 +210,25 @@ fn load_module(
 
 #[derive(Default)]
 struct BindGroupLayoutCache {
-    bgls: HashMap<BindGroupLayoutDescriptor, BindGroupLayout>,
+    bgls: HashMap<BindGroupLayoutDescriptor, Pin<Box<BindGroupLayout>>>,
 }
 
 impl BindGroupLayoutCache {
     fn get(
         &mut self,
         render_device: &RenderDevice,
-        descriptor: BindGroupLayoutDescriptor,
-    ) -> BindGroupLayout {
-        self.bgls
-            .entry(descriptor)
-            .or_insert_with_key(|descriptor| {
-                render_device
-                    .create_bind_group_layout(descriptor.label.as_ref(), &descriptor.entries)
-            })
-            .clone()
+        descriptor: &BindGroupLayoutDescriptor,
+    ) -> &Pin<Box<BindGroupLayout>> {
+        use bevy_platform::collections::hash_map::RawEntryMut;
+        // SAFETY: PipelineCache::get_bind_group_layout() requires that items are never removed or modified. See the SAFETY comment in that method for more details.
+        match self.bgls.raw_entry_mut().from_key(descriptor) {
+            RawEntryMut::Occupied(entry) => entry.into_mut(),
+            RawEntryMut::Vacant(slot) => {
+                let created = render_device
+                    .create_bind_group_layout(descriptor.label.as_ref(), &descriptor.entries);
+                slot.insert(descriptor.clone(), Box::pin(created)).1
+            }
+        }
     }
 }
 
@@ -475,11 +479,16 @@ impl PipelineCache {
     pub fn get_bind_group_layout(
         &self,
         bind_group_layout_descriptor: &BindGroupLayoutDescriptor,
-    ) -> BindGroupLayout {
-        self.bindgroup_layout_cache
-            .lock()
-            .unwrap()
-            .get(&self.device, bind_group_layout_descriptor.clone())
+    ) -> &BindGroupLayout {
+        let mut mutex_guard = self.bindgroup_layout_cache.lock().unwrap();
+        let boxed_layout = mutex_guard.get(&self.device, bind_group_layout_descriptor);
+        let boxed_layout_ptr = Pin::as_ref(boxed_layout).get_ref() as *const BindGroupLayout;
+
+        // SAFETY:
+        // - Cached `BindGroupLayout` entries are immutable: they're never replaced, modified, or evicted from the hashmap.
+        // - Cached `BindGroupLayout` entries are Pin<Box<...>>, so the memory address will be stable (i.e. hashmap resizes will not move the `BindGroupLayout`).
+        // - The returned reference's lifetime matches the lifetime of the `BindGroupLayoutCache`.
+        unsafe { &*boxed_layout_ptr }
     }
 
     fn set_shader(&mut self, id: AssetId<Shader>, shader: Shader) {
@@ -513,9 +522,14 @@ impl PipelineCache {
             .layout
             .iter()
             .map(|bind_group_layout_descriptor| {
-                bindgroup_layout_cache.get(&self.device, bind_group_layout_descriptor.clone())
+                bindgroup_layout_cache
+                    .get(&self.device, bind_group_layout_descriptor)
+                    .as_ref()
+                    .get_ref()
+                    .clone()
             })
             .collect::<Vec<_>>();
+        drop(bindgroup_layout_cache);
 
         create_pipeline_task(
             async move {
@@ -632,9 +646,14 @@ impl PipelineCache {
             .layout
             .iter()
             .map(|bind_group_layout_descriptor| {
-                bindgroup_layout_cache.get(&self.device, bind_group_layout_descriptor.clone())
+                bindgroup_layout_cache
+                    .get(&self.device, bind_group_layout_descriptor)
+                    .as_ref()
+                    .get_ref()
+                    .clone()
             })
             .collect::<Vec<_>>();
+        drop(bindgroup_layout_cache);
 
         create_pipeline_task(
             async move {

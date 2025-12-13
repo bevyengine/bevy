@@ -153,7 +153,7 @@ pub fn prepare_skybox_prepass_bind_groups(
         };
         let bind_group = render_device.create_bind_group(
             "skybox_prepass_bind_group",
-            &pipeline_cache.get_bind_group_layout(&pipeline.bind_group_layout),
+            pipeline_cache.get_bind_group_layout(&pipeline.bind_group_layout),
             &BindGroupEntries::sequential((view_uniforms, prev_view_uniforms)),
         );
 
