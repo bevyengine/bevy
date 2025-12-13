@@ -152,13 +152,10 @@ use bevy_mesh::MeshVertexAttribute;
 /// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
     #[doc(hidden)]
-    pub use crate::{
-        assets::Gltf, assets::GltfExtras, label::GltfAssetLabel,
-        loader::extensions::GltfExtensionHandler,
-    };
+    pub use crate::{assets::Gltf, assets::GltfExtras, label::GltfAssetLabel};
 }
 
-use crate::extensions::GltfExtensionHandler;
+use crate::extensions::GltfExtensionHandlers;
 
 pub use {assets::*, label::GltfAssetLabel, loader::*};
 
@@ -166,11 +163,6 @@ pub use {assets::*, label::GltfAssetLabel, loader::*};
 /// Stores default [`ImageSamplerDescriptor`] in main world.
 #[derive(Resource)]
 pub struct DefaultGltfImageSampler(Arc<Mutex<ImageSamplerDescriptor>>);
-
-/// Stores the `GltfExtensionHandler` implementations so that they
-/// can be added by users and also passed to the glTF loader
-#[derive(Resource, Default)]
-pub struct GltfExtensionHandlers(pub Vec<Box<dyn GltfExtensionHandler>>);
 
 impl DefaultGltfImageSampler {
     /// Creates a new [`DefaultGltfImageSampler`].

@@ -8,6 +8,7 @@ use bevy_animation::AnimationClip;
 use bevy_asset::{Handle, LoadContext};
 use bevy_ecs::{
     entity::Entity,
+    resource::Resource,
     world::{EntityWorldMut, World},
 };
 use bevy_pbr::StandardMaterial;
@@ -20,6 +21,11 @@ pub(crate) use self::{
     khr_materials_anisotropy::AnisotropyExtension, khr_materials_clearcoat::ClearcoatExtension,
     khr_materials_specular::SpecularExtension,
 };
+
+/// Stores the `GltfExtensionHandler` implementations so that they
+/// can be added by users and also passed to the glTF loader
+#[derive(Resource, Default)]
+pub struct GltfExtensionHandlers(pub Vec<Box<dyn GltfExtensionHandler>>);
 
 /// Implement this trait to be able to process glTF extension data
 pub trait GltfExtensionHandler: Send + Sync {

@@ -1,4 +1,4 @@
-pub(crate) mod extensions;
+pub mod extensions;
 mod gltf_ext;
 
 use alloc::sync::Arc;

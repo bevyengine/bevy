@@ -2,6 +2,7 @@
 
 use bevy::{
     asset::LoadContext,
+    gltf::extensions::{GltfExtensionHandler, GltfExtensionHandlers},
     gltf::GltfPlugin,
     mesh::{MeshVertexAttribute, MeshVertexBufferLayoutRef},
     prelude::*,
@@ -60,7 +61,7 @@ struct GltfToMesh2dPlugin;
 impl Plugin for GltfToMesh2dPlugin {
     fn build(&self, app: &mut App) {
         app.world_mut()
-            .resource_mut::<bevy::gltf::GltfExtensionHandlers>()
+            .resource_mut::<GltfExtensionHandlers>()
             .0
             .push(Box::new(GltfExtensionHandlerToMesh2d));
 

@@ -5,6 +5,7 @@ use std::f32::consts::PI;
 use bevy::{
     asset::LoadContext,
     ecs::entity::EntityHashSet,
+    gltf::extensions::{GltfExtensionHandler, GltfExtensionHandlers},
     light::CascadeShadowConfigBuilder,
     platform::collections::{HashMap, HashSet},
     prelude::*,
@@ -112,7 +113,7 @@ struct GltfExtensionHandlerAnimationPlugin;
 impl Plugin for GltfExtensionHandlerAnimationPlugin {
     fn build(&self, app: &mut App) {
         app.world_mut()
-            .resource_mut::<bevy::gltf::GltfExtensionHandlers>()
+            .resource_mut::<GltfExtensionHandlers>()
             .0
             .push(Box::new(GltfExtensionHandlerAnimation::default()));
     }
