@@ -152,8 +152,13 @@ use bevy_mesh::MeshVertexAttribute;
 /// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
     #[doc(hidden)]
-    pub use crate::{assets::Gltf, assets::GltfExtras, label::GltfAssetLabel};
+    pub use crate::{
+        assets::Gltf, assets::GltfExtras, label::GltfAssetLabel,
+        loader::extensions::GltfExtensionProcessor,
+    };
 }
+
+use crate::extensions::GltfExtensionProcessor;
 
 pub use {assets::*, label::GltfAssetLabel, loader::*};
 
@@ -161,6 +166,11 @@ pub use {assets::*, label::GltfAssetLabel, loader::*};
 /// Stores default [`ImageSamplerDescriptor`] in main world.
 #[derive(Resource)]
 pub struct DefaultGltfImageSampler(Arc<Mutex<ImageSamplerDescriptor>>);
+
+/// Stores the `GltfExtensionProcessor` implementations so that they
+/// can be added by users and also passed to the glTF loader
+#[derive(Resource)]
+pub struct GltfExtensionProcessors(pub Vec<Box<dyn GltfExtensionProcessor>>);
 
 impl DefaultGltfImageSampler {
     /// Creates a new [`DefaultGltfImageSampler`].
@@ -249,7 +259,8 @@ impl Plugin for GltfPlugin {
             .init_asset::<GltfPrimitive>()
             .init_asset::<GltfMesh>()
             .init_asset::<GltfSkin>()
-            .preregister_asset_loader::<GltfLoader>(&["gltf", "glb"]);
+            .preregister_asset_loader::<GltfLoader>(&["gltf", "glb"])
+            .insert_resource(GltfExtensionProcessors(vec![]));
     }
 
     fn finish(&self, app: &mut App) {
@@ -267,11 +278,17 @@ impl Plugin for GltfPlugin {
         let default_sampler = default_sampler_resource.get_internal();
         app.insert_resource(default_sampler_resource);
 
+        let extensions = app
+            .world()
+            .get_resource::<GltfExtensionProcessors>()
+            .expect("The GltfExtensionProcessors Resource was inserted");
+
         app.register_asset_loader(GltfLoader {
             supported_compressed_formats,
             custom_vertex_attributes: self.custom_vertex_attributes.clone(),
             default_sampler,
             default_use_model_forward_direction: self.use_model_forward_direction,
+            extensions: extensions.0.clone(),
         });
     }
 }

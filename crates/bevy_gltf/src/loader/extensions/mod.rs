@@ -4,7 +4,171 @@ mod khr_materials_anisotropy;
 mod khr_materials_clearcoat;
 mod khr_materials_specular;
 
+use bevy_animation::AnimationClip;
+use bevy_asset::{Handle, LoadContext};
+use bevy_ecs::{
+    entity::Entity,
+    world::{EntityWorldMut, World},
+};
+use bevy_pbr::StandardMaterial;
+use bevy_platform::collections::{HashMap, HashSet};
+use gltf::Node;
+
+use crate::GltfMesh;
+
 pub(crate) use self::{
     khr_materials_anisotropy::AnisotropyExtension, khr_materials_clearcoat::ClearcoatExtension,
     khr_materials_specular::SpecularExtension,
 };
+
+// todo: change name to `GltfExtensionProcessor`
+/// implement this trait to be able to process
+pub trait GltfExtensionProcessor: Send + Sync {
+    /// Required for dyn cloning
+    fn dyn_clone(&self) -> Box<dyn GltfExtensionProcessor>;
+
+    /// The extension ids that this `GltfExtensionProcessor` should process.
+    /// This is used to dispatch callbacks when relevant data is encountered.
+    /// For example: `KHR_materials_variants`, `EXT_meshopt_compression`, or `BEVY_my_tool`
+    fn extension_ids(&self) -> &'static [&'static str];
+
+    /// Called when the "global" data for an extension
+    /// at the root of a glTF file is encountered.
+    #[allow(unused)]
+    fn on_root_data(&mut self, value: Option<&serde_json::Value>) {}
+
+    #[cfg(feature = "bevy_animation")]
+    #[allow(unused)]
+    /// Called when an individual animation is processed
+    fn on_animation(
+        &mut self,
+        value: Option<&serde_json::Value>,
+        name: Option<&str>,
+        handle: Handle<AnimationClip>,
+    ) {
+    }
+
+    #[cfg(feature = "bevy_animation")]
+    #[allow(unused)]
+    /// Called when all animations have been collected.
+    /// `animations` is the glTF ordered list of `Handle<AnimationClip>`s
+    /// `named_animations` is a HashMap from animation name to `Handle<AnimationClip>`
+    /// `animation_roots` is the glTF index of the animation root object
+    fn on_animations_collected(
+        &mut self,
+        load_context: &mut LoadContext<'_>,
+        animations: &[Handle<AnimationClip>],
+        named_animations: &HashMap<Box<str>, Handle<AnimationClip>>,
+        animation_roots: &HashSet<usize>,
+    ) {
+    }
+
+    /// Called when an individual texture is processed
+    #[allow(unused)]
+    fn on_texture(
+        &mut self,
+        value: Option<&serde_json::Value>,
+        texture: Handle<bevy_image::Image>,
+    ) {
+    }
+
+    /// Called when an individual material is processed
+    #[allow(unused)]
+    fn on_material(
+        &mut self,
+        value: Option<&serde_json::Value>,
+        load_context: &mut LoadContext<'_>,
+        name: Option<&str>,
+        material: Handle<StandardMaterial>,
+    ) {
+    }
+
+    /// Called when an individual glTF Mesh is processed
+    #[allow(unused)]
+    fn on_gltf_mesh(
+        &mut self,
+        value: Option<&serde_json::Value>,
+        load_context: &mut LoadContext<'_>,
+        name: Option<&str>,
+        mesh: Handle<GltfMesh>,
+    ) {
+    }
+
+    /// mesh and material are spawned as a single Entity,
+    /// which means an extension would have to decide for
+    /// itself how to merge the extension data.
+    #[allow(unused)]
+    fn on_spawn_mesh_and_material(
+        &mut self,
+        load_context: &mut LoadContext<'_>,
+        gltf_node: &Node,
+        entity: &mut EntityWorldMut,
+    ) {
+    }
+
+    /// Called when an individual Scene is done processing
+    #[allow(unused)]
+    fn on_scene_completed(
+        &mut self,
+        value: Option<&serde_json::Value>,
+        name: Option<&str>,
+        world_root_id: Entity,
+        world: &mut World,
+        load_context: &mut LoadContext<'_>,
+    ) {
+    }
+
+    /// Called when a node is processed
+    #[allow(unused)]
+    fn on_gltf_node(
+        &mut self,
+        value: Option<&serde_json::Value>,
+        load_context: &mut LoadContext<'_>,
+        gltf_node: &Node,
+        entity: &mut EntityWorldMut,
+    ) {
+    }
+
+    /// Called with a `DirectionalLight` node is spawned
+    /// which is typically created as a result of
+    /// `KHR_lights_punctual`
+    #[allow(unused)]
+    fn on_spawn_light_directional(
+        &mut self,
+        value: Option<&serde_json::Value>,
+        load_context: &mut LoadContext<'_>,
+        gltf_node: &Node,
+        entity: &mut EntityWorldMut,
+    ) {
+    }
+    /// Called with a `PointLight` node is spawned
+    /// which is typically created as a result of
+    /// `KHR_lights_punctual`
+    #[allow(unused)]
+    fn on_spawn_light_point(
+        &mut self,
+        value: Option<&serde_json::Value>,
+        load_context: &mut LoadContext<'_>,
+        gltf_node: &Node,
+        entity: &mut EntityWorldMut,
+    ) {
+    }
+    /// Called with a `SpotLight` node is spawned
+    /// which is typically created as a result of
+    /// `KHR_lights_punctual`
+    #[allow(unused)]
+    fn on_spawn_light_spot(
+        &mut self,
+        value: Option<&serde_json::Value>,
+        load_context: &mut LoadContext<'_>,
+        gltf_node: &Node,
+        entity: &mut EntityWorldMut,
+    ) {
+    }
+}
+
+impl Clone for Box<dyn GltfExtensionProcessor> {
+    fn clone(&self) -> Self {
+        self.dyn_clone()
+    }
+}
