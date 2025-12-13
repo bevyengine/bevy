@@ -1,5 +1,8 @@
 use crate::{Image, TextureAccessError, TextureFormatPixelInfo};
-use bevy_asset::{io::Reader, AssetLoader, LoadContext, RenderAssetUsages};
+use bevy_asset::{
+    io::{Reader, ReaderRequiredFeatures},
+    AssetLoader, LoadContext, RenderAssetUsages,
+};
 use image::ImageDecoder;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -71,6 +74,10 @@ impl AssetLoader for ExrTextureLoader {
             format,
             settings.asset_usage,
         ))
+    }
+
+    fn reader_required_features(_settings: &Self::Settings) -> ReaderRequiredFeatures {
+        ReaderRequiredFeatures::default()
     }
 
     fn extensions(&self) -> &[&str] {

@@ -7,7 +7,8 @@ use std::{io::Error, sync::Mutex};
 #[cfg(feature = "bevy_animation")]
 use bevy_animation::{prelude::*, AnimatedBy, AnimationTargetId};
 use bevy_asset::{
-    io::Reader, AssetLoadError, AssetLoader, AssetPath, Handle, LoadContext, ParseAssetPathError,
+    io::{Reader, ReaderRequiredFeatures},
+    AssetLoadError, AssetLoader, AssetPath, Handle, LoadContext, ParseAssetPathError,
     ReadAssetBytesError, RenderAssetUsages,
 };
 use bevy_camera::{
@@ -1068,6 +1069,10 @@ impl AssetLoader for GltfLoader {
         reader.read_to_end(&mut bytes).await?;
 
         Self::load_gltf(self, &bytes, load_context, settings).await
+    }
+
+    fn reader_required_features(_settings: &Self::Settings) -> ReaderRequiredFeatures {
+        ReaderRequiredFeatures::default()
     }
 
     fn extensions(&self) -> &[&str] {

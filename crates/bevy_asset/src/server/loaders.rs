@@ -1,3 +1,5 @@
+#[cfg(feature = "trace")]
+use crate::io::ReaderRequiredFeatures;
 use crate::{
     loader::{AssetLoader, ErasedAssetLoader},
     path::AssetPath,
@@ -331,6 +333,10 @@ impl<T: AssetLoader> AssetLoader for InstrumentedAssetLoader<T> {
         self.0.load(reader, settings, load_context).instrument(span)
     }
 
+    fn reader_required_features(settings: &Self::Settings) -> ReaderRequiredFeatures {
+        T::reader_required_features(settings)
+    }
+
     fn extensions(&self) -> &[&str] {
         self.0.extensions()
     }
@@ -348,7 +354,7 @@ mod tests {
     use bevy_reflect::TypePath;
     use bevy_tasks::block_on;
 
-    use crate::Asset;
+    use crate::{io::ReaderRequiredFeatures, Asset};
 
     use super::*;
 
@@ -399,6 +405,10 @@ mod tests {
                 core::any::type_name::<Self::Asset>(),
                 N
             ))
+        }
+
+        fn reader_required_features(_: &Self::Settings) -> ReaderRequiredFeatures {
+            ReaderRequiredFeatures::default()
         }
 
         fn extensions(&self) -> &[&str] {

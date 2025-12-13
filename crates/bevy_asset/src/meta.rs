@@ -130,6 +130,8 @@ pub trait AssetMetaDyn: Downcast + Send + Sync {
     fn loader_settings(&self) -> Option<&dyn Settings>;
     /// Returns a mutable reference to the [`AssetLoader`] settings, if they exist.
     fn loader_settings_mut(&mut self) -> Option<&mut dyn Settings>;
+    /// Returns a reference to the [`Process`] settings, if they exist.
+    fn process_settings(&self) -> Option<&dyn Settings>;
     /// Serializes the internal [`AssetMeta`].
     fn serialize(&self) -> Vec<u8>;
     /// Returns a reference to the [`ProcessedInfo`] if it exists.
@@ -148,6 +150,13 @@ impl<L: AssetLoader, P: Process> AssetMetaDyn for AssetMeta<L, P> {
     }
     fn loader_settings_mut(&mut self) -> Option<&mut dyn Settings> {
         if let AssetAction::Load { settings, .. } = &mut self.asset {
+            Some(settings)
+        } else {
+            None
+        }
+    }
+    fn process_settings(&self) -> Option<&dyn Settings> {
+        if let AssetAction::Process { settings, .. } = &self.asset {
             Some(settings)
         } else {
             None
@@ -185,7 +194,7 @@ impl Process for () {
     async fn process(
         &self,
         _context: &mut bevy_asset::processor::ProcessContext<'_>,
-        _meta: AssetMeta<(), Self>,
+        _settings: &Self::Settings,
         _writer: &mut bevy_asset::io::Writer,
     ) -> Result<(), bevy_asset::processor::ProcessError> {
         unreachable!()
@@ -211,6 +220,10 @@ impl AssetLoader for () {
         _settings: &Self::Settings,
         _load_context: &mut crate::LoadContext<'_>,
     ) -> Result<Self::Asset, Self::Error> {
+        unreachable!();
+    }
+
+    fn reader_required_features(_settings: &Self::Settings) -> crate::io::ReaderRequiredFeatures {
         unreachable!();
     }
 

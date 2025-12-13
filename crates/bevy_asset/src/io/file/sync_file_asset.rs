@@ -2,15 +2,15 @@ use futures_io::{AsyncRead, AsyncWrite};
 use futures_lite::Stream;
 
 use crate::io::{
-    get_meta_path, AssetReader, AssetReaderError, AssetWriter, AssetWriterError, AsyncSeekForward,
-    PathStream, Reader, Writer,
+    get_meta_path, AssetReader, AssetReaderError, AssetWriter, AssetWriterError, AsyncSeek,
+    PathStream, Reader, ReaderRequiredFeatures, Writer,
 };
 
 use alloc::{borrow::ToOwned, boxed::Box, vec::Vec};
 use core::{pin::Pin, task::Poll};
 use std::{
     fs::{read_dir, File},
-    io::{Read, Seek, Write},
+    io::{Read, Seek, SeekFrom, Write},
     path::{Path, PathBuf},
 };
 
@@ -30,17 +30,13 @@ impl AsyncRead for FileReader {
     }
 }
 
-impl AsyncSeekForward for FileReader {
-    fn poll_seek_forward(
-        self: Pin<&mut Self>,
+impl AsyncSeek for FileReader {
+    fn poll_seek(
+        mut self: Pin<&mut Self>,
         _cx: &mut core::task::Context<'_>,
-        offset: u64,
+        pos: SeekFrom,
     ) -> Poll<std::io::Result<u64>> {
-        let this = self.get_mut();
-        let current = this.0.stream_position()?;
-        let seek = this.0.seek(std::io::SeekFrom::Start(current + offset));
-
-        Poll::Ready(seek)
+        Poll::Ready(self.0.seek(pos))
     }
 }
 
@@ -99,7 +95,11 @@ impl Stream for DirReader {
 }
 
 impl AssetReader for FileAssetReader {
-    async fn read<'a>(&'a self, path: &'a Path) -> Result<impl Reader + 'a, AssetReaderError> {
+    async fn read<'a>(
+        &'a self,
+        path: &'a Path,
+        _required_features: ReaderRequiredFeatures,
+    ) -> Result<impl Reader + 'a, AssetReaderError> {
         let full_path = self.root_path.join(path);
         match File::open(&full_path) {
             Ok(file) => Ok(FileReader(file)),

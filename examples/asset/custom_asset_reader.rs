@@ -5,7 +5,7 @@
 use bevy::{
     asset::io::{
         AssetReader, AssetReaderError, AssetSource, AssetSourceBuilder, AssetSourceId,
-        ErasedAssetReader, PathStream, Reader,
+        ErasedAssetReader, PathStream, Reader, ReaderRequiredFeatures,
     },
     prelude::*,
 };
@@ -15,9 +15,13 @@ use std::path::Path;
 struct CustomAssetReader(Box<dyn ErasedAssetReader>);
 
 impl AssetReader for CustomAssetReader {
-    async fn read<'a>(&'a self, path: &'a Path) -> Result<impl Reader + 'a, AssetReaderError> {
+    async fn read<'a>(
+        &'a self,
+        path: &'a Path,
+        required_features: ReaderRequiredFeatures,
+    ) -> Result<impl Reader + 'a, AssetReaderError> {
         info!("Reading {}", path.display());
-        self.0.read(path).await
+        self.0.read(path, required_features).await
     }
     async fn read_meta<'a>(&'a self, path: &'a Path) -> Result<impl Reader + 'a, AssetReaderError> {
         self.0.read_meta(path).await
