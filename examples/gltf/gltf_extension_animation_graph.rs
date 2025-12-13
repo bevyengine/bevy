@@ -2,11 +2,14 @@
 
 use std::f32::consts::PI;
 
-#[cfg(feature = "bevy_animation")]
-use bevy::platform::collections::{HashMap, HashSet};
-use bevy::{light::CascadeShadowConfigBuilder, prelude::*, scene::SceneInstanceReady};
-use bevy_asset::LoadContext;
-use bevy_ecs::entity::EntityHashSet;
+use bevy::{
+    asset::LoadContext,
+    ecs::entity::EntityHashSet,
+    light::CascadeShadowConfigBuilder,
+    platform::collections::{HashMap, HashSet},
+    prelude::*,
+    scene::SceneInstanceReady,
+};
 
 // An example asset that contains a mesh and animation.
 const GLTF_PATH: &str = "models/animated/Fox.glb";

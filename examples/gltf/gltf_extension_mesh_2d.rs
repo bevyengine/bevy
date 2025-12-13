@@ -1,14 +1,15 @@
 //! Uses glTF extension processing to convert incoming 3d Meshes to 2d Meshes
 
-use bevy::{gltf::GltfPlugin, prelude::*, sprite_render::Material2dPlugin};
 use bevy::{
+    asset::LoadContext,
+    gltf::GltfPlugin,
     mesh::{MeshVertexAttribute, MeshVertexBufferLayoutRef},
+    prelude::*,
     reflect::TypePath,
     render::render_resource::*,
     shader::ShaderRef,
-    sprite_render::{Material2d, Material2dKey},
+    sprite_render::{Material2d, Material2dKey, Material2dPlugin},
 };
-use bevy_asset::LoadContext;
 
 /// This example uses a shader source file from the assets subdirectory
 const SHADER_ASSET_PATH: &str = "shaders/custom_gltf_2d.wgsl";
