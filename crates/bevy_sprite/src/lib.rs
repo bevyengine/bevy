@@ -128,6 +128,7 @@ pub fn calculate_bounds_2d(
         ),
     >,
 ) {
+    // New meshes require inserting a component
     for (entity, mesh_handle) in &new_mesh_aabb {
         if let Some(mesh) = meshes.get(mesh_handle)
             && let Some(aabb) = mesh.compute_aabb()
@@ -136,14 +137,16 @@ pub fn calculate_bounds_2d(
         }
     }
 
+    // Updated meshes can take the fast path with parallel component mutation
     update_mesh_aabb
         .par_iter_mut()
-        .for_each(|(mesh_handle, mut old_aabb)| {
-            if let Some(aabb) = meshes.get(mesh_handle).and_then(MeshAabb::compute_aabb) {
-                *old_aabb = aabb;
+        .for_each(|(mesh_handle, mut aabb)| {
+            if let Some(new_aabb) = meshes.get(mesh_handle).and_then(MeshAabb::compute_aabb) {
+                aabb.set_if_neq(new_aabb);
             }
         });
 
+    // Sprite helper
     let sprite_size = |sprite: &Sprite| -> Option<Vec2> {
         sprite
             .custom_size
@@ -158,6 +161,7 @@ pub fn calculate_bounds_2d(
             })
     };
 
+    // New sprites require inserting a component
     for (size, (entity, anchor)) in new_sprite_aabb
         .iter()
         .filter_map(|(entity, sprite, anchor)| sprite_size(sprite).zip(Some((entity, anchor))))
@@ -169,14 +173,15 @@ pub fn calculate_bounds_2d(
         commands.entity(entity).try_insert(aabb);
     }
 
+    // Updated sprites can take the fast path with parallel component mutation
     update_sprite_aabb
         .par_iter_mut()
         .for_each(|(sprite, mut aabb, anchor)| {
             if let Some(size) = sprite_size(sprite) {
-                *aabb = Aabb {
+                aabb.set_if_neq(Aabb {
                     center: (-anchor.as_vec() * size).extend(0.0).into(),
                     half_extents: (0.5 * size).extend(0.0).into(),
-                };
+                });
             }
         });
 }
