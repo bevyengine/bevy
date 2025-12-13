@@ -1861,7 +1861,7 @@ fn load_node(
     // are merged onto the same entity in Bevy
     for extension in extensions.iter_mut() {
         for id in extension.extension_ids() {
-            let data = gltf_node.extension_value(&id);
+            let data = gltf_node.extension_value(id);
             extension.on_gltf_node(data, load_context, gltf_node, &mut node);
         }
     }
