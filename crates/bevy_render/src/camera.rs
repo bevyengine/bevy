@@ -213,9 +213,9 @@ impl NormalizedRenderTargetExt for NormalizedRenderTarget {
             NormalizedRenderTarget::Image(image_target) => images
                 .get(&image_target.handle)
                 .map(|image| image.texture_format),
-            NormalizedRenderTarget::TextureView(id) => manual_texture_views
-                .get(id)
-                .map(|view| view.texture_view.texture().format()),
+            NormalizedRenderTarget::TextureView(id) => {
+                manual_texture_views.get(id).map(|tex| tex.format)
+            }
             NormalizedRenderTarget::None { .. } => None,
         }
     }

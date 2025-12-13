@@ -104,6 +104,8 @@ impl TextPipeline {
         computed: &mut ComputedTextBlock,
         font_system: &mut CosmicFontSystem,
     ) -> Result<(), TextError> {
+        computed.needs_rerender = false;
+
         let font_system = &mut font_system.0;
 
         // Collect span information into a vec. This is necessary because font loading requires mut access
@@ -305,6 +307,8 @@ impl TextPipeline {
         bounds: TextBounds,
         justify: Justify,
     ) -> Result<(), TextError> {
+        computed.needs_rerender = false;
+
         layout_info.glyphs.clear();
         layout_info.run_geometry.clear();
         layout_info.size = Default::default();
