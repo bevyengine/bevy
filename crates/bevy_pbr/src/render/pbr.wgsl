@@ -2,7 +2,7 @@
     pbr_types,
     pbr_functions::alpha_discard,
     pbr_fragment::pbr_input_from_standard_material,
-    decal::clustered::apply_decal_base_color,
+    decal::clustered::apply_decals,
 }
 
 #ifdef PREPASS_PIPELINE
@@ -13,10 +13,13 @@
 #else
 #import bevy_pbr::{
     forward_io::{VertexOutput, FragmentOutput},
-    pbr_functions,
     pbr_functions::{apply_pbr_lighting, main_pass_post_lighting_processing},
     pbr_types::STANDARD_MATERIAL_FLAGS_UNLIT_BIT,
 }
+#endif
+
+#ifdef VISIBILITY_RANGE_DITHER
+#import bevy_pbr::pbr_functions::visibility_range_dither;
 #endif
 
 #ifdef MESHLET_MESH_MATERIAL_PASS
@@ -50,7 +53,7 @@ fn fragment(
     // If we're in the crossfade section of a visibility range, conditionally
     // discard the fragment according to the visibility pattern.
 #ifdef VISIBILITY_RANGE_DITHER
-    pbr_functions::visibility_range_dither(in.position, in.visibility_range_dither);
+    visibility_range_dither(in.position, in.visibility_range_dither);
 #endif
 
 #ifdef FORWARD_DECAL
@@ -66,11 +69,7 @@ fn fragment(
     pbr_input.material.base_color = alpha_discard(pbr_input.material, pbr_input.material.base_color);
 
     // clustered decals
-    pbr_input.material.base_color = apply_decal_base_color(
-        in.world_position.xyz,
-        in.position.xy,
-        pbr_input.material.base_color
-    );
+    apply_decals(&pbr_input);
 
 #ifdef PREPASS_PIPELINE
     // write the gbuffer, lighting pass id, and optionally normal and motion_vector textures
