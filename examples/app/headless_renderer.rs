@@ -248,13 +248,13 @@ fn setup_render_target(
 
     // This is the texture that will be rendered to.
     let mut render_target_image =
-        Image::new_target_texture(size.width, size.height, TextureFormat::bevy_default());
+        Image::new_target_texture(size.width, size.height, TextureFormat::bevy_default(), None);
     render_target_image.texture_descriptor.usage |= TextureUsages::COPY_SRC;
     let render_target_image_handle = images.add(render_target_image);
 
     // This is the texture that will be copied to.
     let cpu_image =
-        Image::new_target_texture(size.width, size.height, TextureFormat::bevy_default());
+        Image::new_target_texture(size.width, size.height, TextureFormat::bevy_default(), None);
     let cpu_image_handle = images.add(cpu_image);
 
     commands.spawn(ImageCopier::new(

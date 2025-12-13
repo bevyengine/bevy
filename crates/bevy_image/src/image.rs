@@ -38,6 +38,130 @@ impl BevyDefault for TextureFormat {
     }
 }
 
+/// Trait used to provide texture srgb view formats with static lifetime for `TextureDescriptor.view_formats`.
+pub trait TextureSrgbViewFormats {
+    /// Returns the srgb view formats for a type.
+    fn srgb_view_formats(&self) -> &'static [TextureFormat];
+}
+
+impl TextureSrgbViewFormats for TextureFormat {
+    /// Returns the srgb view formats if the format has an srgb variant, otherwise returns an empty slice.
+    ///
+    /// The return result covers all the results of [`TextureFormat::add_srgb_suffix`](wgpu_types::TextureFormat::add_srgb_suffix).
+    fn srgb_view_formats(&self) -> &'static [TextureFormat] {
+        match self {
+            TextureFormat::Rgba8Unorm => &[TextureFormat::Rgba8UnormSrgb],
+            TextureFormat::Bgra8Unorm => &[TextureFormat::Bgra8UnormSrgb],
+            TextureFormat::Bc1RgbaUnorm => &[TextureFormat::Bc1RgbaUnormSrgb],
+            TextureFormat::Bc2RgbaUnorm => &[TextureFormat::Bc2RgbaUnormSrgb],
+            TextureFormat::Bc3RgbaUnorm => &[TextureFormat::Bc3RgbaUnormSrgb],
+            TextureFormat::Bc7RgbaUnorm => &[TextureFormat::Bc7RgbaUnormSrgb],
+            TextureFormat::Etc2Rgb8Unorm => &[TextureFormat::Etc2Rgb8UnormSrgb],
+            TextureFormat::Etc2Rgb8A1Unorm => &[TextureFormat::Etc2Rgb8A1UnormSrgb],
+            TextureFormat::Etc2Rgba8Unorm => &[TextureFormat::Etc2Rgba8UnormSrgb],
+            TextureFormat::Astc {
+                block: wgpu_types::AstcBlock::B4x4,
+                channel: wgpu_types::AstcChannel::Unorm,
+            } => &[TextureFormat::Astc {
+                block: wgpu_types::AstcBlock::B4x4,
+                channel: wgpu_types::AstcChannel::UnormSrgb,
+            }],
+            TextureFormat::Astc {
+                block: wgpu_types::AstcBlock::B5x4,
+                channel: wgpu_types::AstcChannel::Unorm,
+            } => &[TextureFormat::Astc {
+                block: wgpu_types::AstcBlock::B5x4,
+                channel: wgpu_types::AstcChannel::UnormSrgb,
+            }],
+            TextureFormat::Astc {
+                block: wgpu_types::AstcBlock::B5x5,
+                channel: wgpu_types::AstcChannel::Unorm,
+            } => &[TextureFormat::Astc {
+                block: wgpu_types::AstcBlock::B5x5,
+                channel: wgpu_types::AstcChannel::UnormSrgb,
+            }],
+            TextureFormat::Astc {
+                block: wgpu_types::AstcBlock::B6x5,
+                channel: wgpu_types::AstcChannel::Unorm,
+            } => &[TextureFormat::Astc {
+                block: wgpu_types::AstcBlock::B6x5,
+                channel: wgpu_types::AstcChannel::UnormSrgb,
+            }],
+            TextureFormat::Astc {
+                block: wgpu_types::AstcBlock::B6x6,
+                channel: wgpu_types::AstcChannel::Unorm,
+            } => &[TextureFormat::Astc {
+                block: wgpu_types::AstcBlock::B6x6,
+                channel: wgpu_types::AstcChannel::UnormSrgb,
+            }],
+            TextureFormat::Astc {
+                block: wgpu_types::AstcBlock::B8x5,
+                channel: wgpu_types::AstcChannel::Unorm,
+            } => &[TextureFormat::Astc {
+                block: wgpu_types::AstcBlock::B8x5,
+                channel: wgpu_types::AstcChannel::UnormSrgb,
+            }],
+            TextureFormat::Astc {
+                block: wgpu_types::AstcBlock::B8x6,
+                channel: wgpu_types::AstcChannel::Unorm,
+            } => &[TextureFormat::Astc {
+                block: wgpu_types::AstcBlock::B8x6,
+                channel: wgpu_types::AstcChannel::UnormSrgb,
+            }],
+            TextureFormat::Astc {
+                block: wgpu_types::AstcBlock::B8x8,
+                channel: wgpu_types::AstcChannel::Unorm,
+            } => &[TextureFormat::Astc {
+                block: wgpu_types::AstcBlock::B8x8,
+                channel: wgpu_types::AstcChannel::UnormSrgb,
+            }],
+            TextureFormat::Astc {
+                block: wgpu_types::AstcBlock::B10x5,
+                channel: wgpu_types::AstcChannel::Unorm,
+            } => &[TextureFormat::Astc {
+                block: wgpu_types::AstcBlock::B10x5,
+                channel: wgpu_types::AstcChannel::UnormSrgb,
+            }],
+            TextureFormat::Astc {
+                block: wgpu_types::AstcBlock::B10x6,
+                channel: wgpu_types::AstcChannel::Unorm,
+            } => &[TextureFormat::Astc {
+                block: wgpu_types::AstcBlock::B10x6,
+                channel: wgpu_types::AstcChannel::UnormSrgb,
+            }],
+            TextureFormat::Astc {
+                block: wgpu_types::AstcBlock::B10x8,
+                channel: wgpu_types::AstcChannel::Unorm,
+            } => &[TextureFormat::Astc {
+                block: wgpu_types::AstcBlock::B10x8,
+                channel: wgpu_types::AstcChannel::UnormSrgb,
+            }],
+            TextureFormat::Astc {
+                block: wgpu_types::AstcBlock::B10x10,
+                channel: wgpu_types::AstcChannel::Unorm,
+            } => &[TextureFormat::Astc {
+                block: wgpu_types::AstcBlock::B10x10,
+                channel: wgpu_types::AstcChannel::UnormSrgb,
+            }],
+            TextureFormat::Astc {
+                block: wgpu_types::AstcBlock::B12x10,
+                channel: wgpu_types::AstcChannel::Unorm,
+            } => &[TextureFormat::Astc {
+                block: wgpu_types::AstcBlock::B12x10,
+                channel: wgpu_types::AstcChannel::UnormSrgb,
+            }],
+            TextureFormat::Astc {
+                block: wgpu_types::AstcBlock::B12x12,
+                channel: wgpu_types::AstcChannel::Unorm,
+            } => &[TextureFormat::Astc {
+                block: wgpu_types::AstcBlock::B12x12,
+                channel: wgpu_types::AstcChannel::UnormSrgb,
+            }],
+            _ => &[],
+        }
+    }
+}
+
 /// A handle to a 1 x 1 transparent white image.
 ///
 /// Like [`Handle<Image>::default`], this is a handle to a fallback image asset.
@@ -1010,7 +1134,12 @@ impl Image {
     ///
     /// [`Camera`]: https://docs.rs/bevy/latest/bevy/render/camera/struct.Camera.html
     /// [`RenderTarget::Image`]: https://docs.rs/bevy/latest/bevy/render/camera/enum.RenderTarget.html#variant.Image
-    pub fn new_target_texture(width: u32, height: u32, format: TextureFormat) -> Self {
+    pub fn new_target_texture(
+        width: u32,
+        height: u32,
+        format: TextureFormat,
+        view_format: Option<TextureFormat>,
+    ) -> Self {
         let size = Extent3d {
             width,
             height,
@@ -1039,10 +1168,16 @@ impl Image {
                 mip_level_count: 1,
                 sample_count: 1,
                 usage,
-                view_formats: &[],
+                view_formats: match view_format {
+                    Some(_) => format.srgb_view_formats(),
+                    None => &[],
+                },
             },
             sampler: ImageSampler::Default,
-            texture_view_descriptor: None,
+            texture_view_descriptor: view_format.map(|f| TextureViewDescriptor {
+                format: Some(f),
+                ..Default::default()
+            }),
             asset_usage: RenderAssetUsages::default(),
             copy_on_resize: true,
         }

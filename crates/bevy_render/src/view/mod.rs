@@ -847,8 +847,8 @@ impl ViewTarget {
 
     /// The format of the final texture this view will render to
     #[inline]
-    pub fn out_texture_format(&self) -> TextureFormat {
-        self.out_texture.format
+    pub fn out_texture_view_format(&self) -> TextureFormat {
+        self.out_texture.view_format
     }
 
     /// This will start a new "post process write", which assumes that the caller
@@ -1024,10 +1024,8 @@ pub fn prepare_view_attachments(
                 let Some(attachment) = target
                     .get_texture_view(&windows, &images, &manual_texture_views)
                     .cloned()
-                    .zip(target.get_texture_format(&windows, &images, &manual_texture_views))
-                    .map(|(view, format)| {
-                        OutputColorAttachment::new(view.clone(), format.add_srgb_suffix())
-                    })
+                    .zip(target.get_texture_view_format(&windows, &images, &manual_texture_views))
+                    .map(|(view, format)| OutputColorAttachment::new(view.clone(), format))
                 else {
                     continue;
                 };

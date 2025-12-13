@@ -17,6 +17,7 @@ pub struct GpuImage {
     pub texture: Texture,
     pub texture_view: TextureView,
     pub texture_format: TextureFormat,
+    pub texture_view_format: Option<TextureFormat>,
     pub sampler: Sampler,
     pub size: Extent3d,
     pub mip_level_count: u32,
@@ -92,9 +93,8 @@ impl RenderAsset for GpuImage {
         let texture_view = texture.create_view(
             image
                 .texture_view_descriptor
-                .or_else(|| Some(TextureViewDescriptor::default()))
                 .as_ref()
-                .unwrap(),
+                .unwrap_or(&TextureViewDescriptor::default()),
         );
         let sampler = match image.sampler {
             ImageSampler::Default => (***default_sampler).clone(),
@@ -107,6 +107,7 @@ impl RenderAsset for GpuImage {
             texture,
             texture_view,
             texture_format: image.texture_descriptor.format,
+            texture_view_format: image.texture_view_descriptor.and_then(|v| v.format),
             sampler,
             size: image.texture_descriptor.size,
             mip_level_count: image.texture_descriptor.mip_level_count,
