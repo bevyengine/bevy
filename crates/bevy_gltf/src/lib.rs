@@ -280,8 +280,7 @@ impl Plugin for GltfPlugin {
 
         let extensions = app
             .world()
-            .get_resource::<GltfExtensionProcessors>()
-            .expect("The GltfExtensionProcessors Resource was inserted");
+            .resource::<GltfExtensionProcessors>();
 
         app.register_asset_loader(GltfLoader {
             supported_compressed_formats,
