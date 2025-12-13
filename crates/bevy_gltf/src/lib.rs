@@ -169,7 +169,7 @@ pub struct DefaultGltfImageSampler(Arc<Mutex<ImageSamplerDescriptor>>);
 
 /// Stores the `GltfExtensionProcessor` implementations so that they
 /// can be added by users and also passed to the glTF loader
-#[derive(Resource)]
+#[derive(Resource, Default)]
 pub struct GltfExtensionProcessors(pub Vec<Box<dyn GltfExtensionProcessor>>);
 
 impl DefaultGltfImageSampler {
@@ -260,7 +260,7 @@ impl Plugin for GltfPlugin {
             .init_asset::<GltfMesh>()
             .init_asset::<GltfSkin>()
             .preregister_asset_loader::<GltfLoader>(&["gltf", "glb"])
-            .insert_resource(GltfExtensionProcessors(vec![]));
+            .init_resource::<GltfExtensionProcessors>();
     }
 
     fn finish(&self, app: &mut App) {
