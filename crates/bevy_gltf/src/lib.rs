@@ -154,11 +154,11 @@ pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
         assets::Gltf, assets::GltfExtras, label::GltfAssetLabel,
-        loader::extensions::GltfExtensionProcessor,
+        loader::extensions::GltfExtensionHandler,
     };
 }
 
-use crate::extensions::GltfExtensionProcessor;
+use crate::extensions::GltfExtensionHandler;
 
 pub use {assets::*, label::GltfAssetLabel, loader::*};
 
@@ -167,10 +167,10 @@ pub use {assets::*, label::GltfAssetLabel, loader::*};
 #[derive(Resource)]
 pub struct DefaultGltfImageSampler(Arc<Mutex<ImageSamplerDescriptor>>);
 
-/// Stores the `GltfExtensionProcessor` implementations so that they
+/// Stores the `GltfExtensionHandler` implementations so that they
 /// can be added by users and also passed to the glTF loader
 #[derive(Resource, Default)]
-pub struct GltfExtensionProcessors(pub Vec<Box<dyn GltfExtensionProcessor>>);
+pub struct GltfExtensionHandlers(pub Vec<Box<dyn GltfExtensionHandler>>);
 
 impl DefaultGltfImageSampler {
     /// Creates a new [`DefaultGltfImageSampler`].
@@ -260,7 +260,7 @@ impl Plugin for GltfPlugin {
             .init_asset::<GltfMesh>()
             .init_asset::<GltfSkin>()
             .preregister_asset_loader::<GltfLoader>(&["gltf", "glb"])
-            .init_resource::<GltfExtensionProcessors>();
+            .init_resource::<GltfExtensionHandlers>();
     }
 
     fn finish(&self, app: &mut App) {
@@ -278,7 +278,7 @@ impl Plugin for GltfPlugin {
         let default_sampler = default_sampler_resource.get_internal();
         app.insert_resource(default_sampler_resource);
 
-        let extensions = app.world().resource::<GltfExtensionProcessors>();
+        let extensions = app.world().resource::<GltfExtensionHandlers>();
 
         app.register_asset_loader(GltfLoader {
             supported_compressed_formats,

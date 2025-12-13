@@ -61,23 +61,23 @@ impl Plugin for GltfToMesh2dPlugin {
     fn build(&self, app: &mut App) {
         let Some(mut extensions) = app
             .world_mut()
-            .get_resource_mut::<bevy::gltf::GltfExtensionProcessors>()
+            .get_resource_mut::<bevy::gltf::GltfExtensionHandlers>()
         else {
-            warn!("GltfExtensionProcessors was not added");
+            warn!("GltfExtensionHandlers was not added");
             return;
         };
 
-        extensions.0.push(Box::new(GltfExtensionProcessorToMesh2d));
+        extensions.0.push(Box::new(GltfExtensionHandlerToMesh2d));
 
         app.add_plugins(Material2dPlugin::<CustomMaterial>::default());
     }
 }
 
 #[derive(Default, Clone)]
-struct GltfExtensionProcessorToMesh2d;
+struct GltfExtensionHandlerToMesh2d;
 
-impl GltfExtensionProcessor for GltfExtensionProcessorToMesh2d {
-    fn dyn_clone(&self) -> Box<dyn GltfExtensionProcessor> {
+impl GltfExtensionHandler for GltfExtensionHandlerToMesh2d {
+    fn dyn_clone(&self) -> Box<dyn GltfExtensionHandler> {
         Box::new((*self).clone())
     }
 

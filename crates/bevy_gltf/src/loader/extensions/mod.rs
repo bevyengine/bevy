@@ -22,11 +22,11 @@ pub(crate) use self::{
 };
 
 /// Implement this trait to be able to process glTF extension data
-pub trait GltfExtensionProcessor: Send + Sync {
+pub trait GltfExtensionHandler: Send + Sync {
     /// Required for dyn cloning
-    fn dyn_clone(&self) -> Box<dyn GltfExtensionProcessor>;
+    fn dyn_clone(&self) -> Box<dyn GltfExtensionHandler>;
 
-    /// The extension ids that this `GltfExtensionProcessor` should process.
+    /// The extension ids that this `GltfExtensionHandler` should process.
     /// This is used to dispatch callbacks when relevant data is encountered.
     /// For example: `KHR_materials_variants`, `EXT_meshopt_compression`, or `BEVY_my_tool`
     ///
@@ -212,7 +212,7 @@ pub trait GltfExtensionProcessor: Send + Sync {
     }
 }
 
-impl Clone for Box<dyn GltfExtensionProcessor> {
+impl Clone for Box<dyn GltfExtensionHandler> {
     fn clone(&self) -> Self {
         self.dyn_clone()
     }

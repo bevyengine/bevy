@@ -163,7 +163,7 @@ pub struct GltfLoader {
     /// glTF extension data processors.
     /// These are Bevy-side processors designed to access glTF
     /// extension data during the loading process.
-    pub extensions: Vec<Box<dyn extensions::GltfExtensionProcessor>>,
+    pub extensions: Vec<Box<dyn extensions::GltfExtensionHandler>>,
 }
 
 /// Specifies optional settings for processing gltfs at load time. By default, all recognized contents of
@@ -609,7 +609,7 @@ impl GltfLoader {
             }
 
             // let extensions process the collection of animation data
-            // this only happens once for each GltfExtensionProcessor because
+            // this only happens once for each GltfExtensionHandler because
             // it is a hook for Bevy's finalized representation of the animations
             for extension in extensions.iter_mut() {
                 extension.on_animations_collected(
@@ -1515,7 +1515,7 @@ fn load_node(
     #[cfg(feature = "bevy_animation")] mut animation_context: Option<AnimationContext>,
     document: &Document,
     convert_coordinates: bool,
-    extensions: &mut [Box<dyn extensions::GltfExtensionProcessor>],
+    extensions: &mut [Box<dyn extensions::GltfExtensionHandler>],
 ) -> Result<(), GltfError> {
     let mut gltf_error = None;
     let transform = node_transform(gltf_node, convert_coordinates);

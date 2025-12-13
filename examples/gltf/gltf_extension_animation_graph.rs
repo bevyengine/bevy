@@ -21,7 +21,7 @@ fn main() {
             brightness: 2000.,
             ..default()
         })
-        .add_plugins((DefaultPlugins, GltfExtensionProcessorAnimationPlugin))
+        .add_plugins((DefaultPlugins, GltfExtensionHandlerAnimationPlugin))
         .add_systems(Startup, setup_mesh_and_animation)
         .add_systems(Startup, setup_camera_and_environment)
         .run();
@@ -107,33 +107,33 @@ fn setup_camera_and_environment(
     ));
 }
 
-struct GltfExtensionProcessorAnimationPlugin;
+struct GltfExtensionHandlerAnimationPlugin;
 
-impl Plugin for GltfExtensionProcessorAnimationPlugin {
+impl Plugin for GltfExtensionHandlerAnimationPlugin {
     fn build(&self, app: &mut App) {
         let Some(mut extensions) = app
             .world_mut()
-            .get_resource_mut::<bevy::gltf::GltfExtensionProcessors>()
+            .get_resource_mut::<bevy::gltf::GltfExtensionHandlers>()
         else {
-            warn!("GltfExtensionProcessors was not added");
+            warn!("GltfExtensionHandlers was not added");
             return;
         };
 
         extensions
             .0
-            .push(Box::new(GltfExtensionProcessorAnimation::default()));
+            .push(Box::new(GltfExtensionHandlerAnimation::default()));
     }
 }
 
 #[derive(Default, Clone)]
-struct GltfExtensionProcessorAnimation {
+struct GltfExtensionHandlerAnimation {
     animation_root_indices: HashSet<usize>,
     animation_root_entities: EntityHashSet,
     clip: Option<Handle<AnimationClip>>,
 }
 
-impl GltfExtensionProcessor for GltfExtensionProcessorAnimation {
-    fn dyn_clone(&self) -> Box<dyn GltfExtensionProcessor> {
+impl GltfExtensionHandler for GltfExtensionHandlerAnimation {
+    fn dyn_clone(&self) -> Box<dyn GltfExtensionHandler> {
         Box::new((*self).clone())
     }
 
