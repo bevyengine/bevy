@@ -6,7 +6,6 @@ use bevy_ecs::{
         ExecutorKind, InternedScheduleLabel, IntoScheduleConfigs, Schedule, ScheduleLabel,
         SystemSet,
     },
-    system::Local,
     world::{Mut, World},
 };
 
@@ -55,6 +54,10 @@ use bevy_ecs::{
 /// [`SubApp`]: crate::SubApp
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash, Default)]
 pub struct Main;
+
+/// The schedule that runs all startup schedules (e.g., [`Startup`], [`PostStartup`]).
+#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash, Default)]
+pub struct StartupMain;
 
 /// The schedule that runs before [`Startup`].
 ///
@@ -278,18 +281,20 @@ impl MainScheduleOrder {
 
 impl Main {
     /// A system that runs the "main schedule"
-    pub fn run_main(world: &mut World, mut run_at_least_once: Local<bool>) {
-        if !*run_at_least_once {
-            world.resource_scope(|world, order: Mut<MainScheduleOrder>| {
-                for &label in &order.startup_labels {
-                    let _ = world.try_run_schedule(label);
-                }
-            });
-            *run_at_least_once = true;
-        }
-
+    pub fn run_main(world: &mut World) {
         world.resource_scope(|world, order: Mut<MainScheduleOrder>| {
             for &label in &order.labels {
+                let _ = world.try_run_schedule(label);
+            }
+        });
+    }
+}
+
+impl StartupMain {
+    /// A system that runs the startup main schedule.
+    pub fn run_startup_main(world: &mut World) {
+        world.resource_scope(|world, order: Mut<MainScheduleOrder>| {
+            for &label in &order.startup_labels {
                 let _ = world.try_run_schedule(label);
             }
         });
@@ -304,17 +309,21 @@ impl Plugin for MainSchedulePlugin {
         // simple "facilitator" schedules benefit from simpler single threaded scheduling
         let mut main_schedule = Schedule::new(Main);
         main_schedule.set_executor_kind(ExecutorKind::SingleThreaded);
+        let mut startup_main_schedule = Schedule::new(StartupMain);
+        startup_main_schedule.set_executor_kind(ExecutorKind::SingleThreaded);
         let mut fixed_main_schedule = Schedule::new(FixedMain);
         fixed_main_schedule.set_executor_kind(ExecutorKind::SingleThreaded);
         let mut fixed_main_loop_schedule = Schedule::new(RunFixedMainLoop);
         fixed_main_loop_schedule.set_executor_kind(ExecutorKind::SingleThreaded);
 
         app.add_schedule(main_schedule)
+            .add_schedule(startup_main_schedule)
             .add_schedule(fixed_main_schedule)
             .add_schedule(fixed_main_loop_schedule)
             .init_resource::<MainScheduleOrder>()
             .init_resource::<FixedMainScheduleOrder>()
             .add_systems(Main, Main::run_main)
+            .add_systems(StartupMain, StartupMain::run_startup_main)
             .add_systems(FixedMain, FixedMain::run_fixed_main)
             .configure_sets(
                 RunFixedMainLoop,

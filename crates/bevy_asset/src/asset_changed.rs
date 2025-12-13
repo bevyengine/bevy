@@ -449,6 +449,7 @@ mod tests {
             .add_systems(PostUpdate, count_update.after(AssetEventSystems));
 
         // First run of the app, `add_systems(Startup…)` runs.
+        app.startup();
         app.update(); // run_count == 0
 
         // First run: We count the entities that were added in the `Startup` schedule
