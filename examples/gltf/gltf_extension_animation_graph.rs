@@ -58,7 +58,7 @@ fn play_animation_when_ready(
 ) {
     for child in children.iter_descendants(scene_ready.entity) {
         let Ok((mut player, animation_to_play)) = players.get_mut(child) else {
-            return;
+            continue;
         };
 
         // Tell the animation player to start the animation and keep
