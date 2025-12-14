@@ -32,7 +32,7 @@ pub struct GltfExtensionHandlers(pub Vec<Box<dyn GltfExtensionHandler>>);
 /// data in the extensions sub-object is keyed by the id of the extension.
 /// For example: `KHR_materials_variants`, `EXT_meshopt_compression`, or `BEVY_my_tool`
 ///
-/// A list of publically known extensions and their ids can be found
+/// A list of publicly known extensions and their ids can be found
 /// in the [KhronosGroup/glTF](https://github.com/KhronosGroup/glTF/blob/main/extensions/README.md)
 /// git repo. Vendors reserve prefixes, such as the `BEVY` prefix,
 /// which is also listed in the [KhronosGroup repo](https://github.com/KhronosGroup/glTF/blob/main/extensions/Prefixes.md).
