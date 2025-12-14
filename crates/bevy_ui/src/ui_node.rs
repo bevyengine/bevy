@@ -2814,9 +2814,9 @@ impl UiTargetCamera {
 ///     commands.spawn((
 ///         Camera2d,
 ///         Camera {
-///             target: RenderTarget::Window(WindowRef::Entity(another_window)),
 ///             ..Default::default()
 ///         },
+///         RenderTarget::Window(WindowRef::Entity(another_window)),
 ///         // We add the Marker here so all Ui will spawn in
 ///         // another window if no UiTargetCamera is specified
 ///         IsDefaultUiCamera
