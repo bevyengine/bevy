@@ -1,5 +1,5 @@
 use crate::{
-    render_asset::{PrepareAssetError, RenderAsset},
+    render_asset::{AssetExtractionError, PrepareAssetError, RenderAsset},
     render_resource::{DefaultImageSampler, Sampler, Texture, TextureView},
     renderer::{RenderDevice, RenderQueue},
 };
@@ -21,6 +21,7 @@ pub struct GpuImage {
     pub sampler: Sampler,
     pub size: Extent3d,
     pub mip_level_count: u32,
+    pub had_data: bool,
 }
 
 impl RenderAsset for GpuImage {
@@ -36,6 +37,24 @@ impl RenderAsset for GpuImage {
         image.asset_usage
     }
 
+    fn take_gpu_data(
+        source: &mut Self::SourceAsset,
+        previous_gpu_asset: Option<&Self>,
+    ) -> Result<Self::SourceAsset, AssetExtractionError> {
+        let data = source.data.take();
+
+        // check if this image originally had data and no longer does, that implies it
+        // has already been extracted
+        let valid_upload = data.is_some() || previous_gpu_asset.is_none_or(|prev| !prev.had_data);
+
+        valid_upload
+            .then(|| Self::SourceAsset {
+                data,
+                ..source.clone()
+            })
+            .ok_or(AssetExtractionError::AlreadyExtracted)
+    }
+
     #[inline]
     fn byte_len(image: &Self::SourceAsset) -> Option<usize> {
         image.data.as_ref().map(Vec::len)
@@ -48,6 +67,7 @@ impl RenderAsset for GpuImage {
         (render_device, render_queue, default_sampler): &mut SystemParamItem<Self::Param>,
         previous_asset: Option<&Self>,
     ) -> Result<Self, PrepareAssetError<Self::SourceAsset>> {
+        let had_data = image.data.is_some();
         let texture = if let Some(ref data) = image.data {
             render_device.create_texture_with_data(
                 render_queue,
@@ -111,6 +131,7 @@ impl RenderAsset for GpuImage {
             sampler,
             size: image.texture_descriptor.size,
             mip_level_count: image.texture_descriptor.mip_level_count,
+            had_data,
         })
     }
 }
