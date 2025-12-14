@@ -1924,6 +1924,7 @@ mod test {
     use bevy_mesh::skinning::SkinnedMeshInverseBindposes;
     use bevy_mesh::MeshPlugin;
     use bevy_pbr::StandardMaterial;
+    use bevy_reflect::TypePath;
     use bevy_scene::ScenePlugin;
 
     fn test_app(dir: Dir) -> App {
@@ -2460,6 +2461,7 @@ mod test {
         dir.insert_asset_text(Path::new("abc.png"), "Sup");
 
         /// A fake loader to avoid actually loading any image data and just return an image.
+        #[derive(TypePath)]
         struct FakePngLoader;
 
         impl AssetLoader for FakePngLoader {
