@@ -5,7 +5,7 @@ mod khr_materials_clearcoat;
 mod khr_materials_specular;
 
 use async_lock::RwLock;
-use std::sync::Arc;
+use alloc::sync::Arc;
 
 use bevy_animation::AnimationClip;
 use bevy_asset::{Handle, LoadContext};
