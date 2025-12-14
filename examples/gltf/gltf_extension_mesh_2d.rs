@@ -90,7 +90,7 @@ impl GltfExtensionHandler for GltfExtensionHandlerToMesh2d {
             && let Some(_) = entity.get::<MeshMaterial3d<StandardMaterial>>()
         {
             let material_handle =
-                load_context.add_loaded_labeled_asset("AColorMaterial", (CustomMaterial {}).into());
+                load_context.add_labeled_asset("AColorMaterial".to_string(), CustomMaterial {});
             let mesh_handle = mesh3d.0.clone();
             entity
                 .remove::<(Mesh3d, MeshMaterial3d<StandardMaterial>)>()

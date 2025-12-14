@@ -187,7 +187,7 @@ impl GltfExtensionHandler for GltfExtensionHandlerAnimation {
         // Store the animation graph as an asset with an arbitrary label
         // We only have one graph, so this label will be unique
         let graph_handle =
-            load_context.add_loaded_labeled_asset("MyAnimationGraphLabel", graph.into());
+            load_context.add_labeled_asset("MyAnimationGraphLabel".to_string(), graph);
 
         // Create a component that stores a reference to our animation
         let animation_to_play = AnimationToPlay {
