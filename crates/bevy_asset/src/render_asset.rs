@@ -4,12 +4,13 @@ use serde::{Deserialize, Serialize};
 bitflags::bitflags! {
     /// Defines where the asset will be used.
     ///
-    /// If an asset is set to the `RENDER_WORLD` but not the `MAIN_WORLD`, the asset will be
-    /// unloaded from the asset server once it's been extracted and prepared in the render world.
+    /// If an asset is set to the `RENDER_WORLD` but not the `MAIN_WORLD`, the asset data (pixel data,
+    /// mesh vertex data, etc) will be removed from the cpu-side asset once it's been extracted and prepared
+    /// in the render world. The asset will remain in the assets collection, but with only metadata.
     ///
-    /// Unloading the asset saves on memory, as for most cases it is no longer necessary to keep
-    /// it in RAM once it's been uploaded to the GPU's VRAM. However, this means you can no longer
-    /// access the asset from the CPU (via the `Assets<T>` resource) once unloaded (without re-loading it).
+    /// Unloading the asset data saves on memory, as for most cases it is no longer necessary to keep
+    /// it in RAM once it's been uploaded to the GPU's VRAM. However, this means you cannot access the
+    /// asset data from the CPU (via the `Assets<T>` resource) once unloaded (without re-loading it).
     ///
     /// If you never need access to the asset from the CPU past the first frame it's loaded on,
     /// or only need very infrequent access, then set this to `RENDER_WORLD`. Otherwise, set this to
