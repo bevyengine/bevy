@@ -2250,10 +2250,6 @@ mod tests {
     /// their self path deferred of unknown type without error. It has the same
     /// asset index as the original handle, but not the same type. And it can
     /// reload.
-    ///
-    /// Caveat: Windows behaves strangely on this test. It loads a self-path
-    /// deferred with an unknown type, but once that path is loaded, it cannot
-    /// be retrieved from the `Assets<T>` resource.
     #[test]
     fn no_error_on_unknown_type_deferred_load_of_self_path() {
         let (mut app, dir, source_events) = create_app_with_source_event_sender();
