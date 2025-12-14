@@ -125,7 +125,7 @@ uuid = { version = "1.13.1", default-features = false, optional = true, features
   "serde",
 ] }
 variadics_please = "1.1"
-wgpu-types = { version = "26", features = [
+wgpu-types = { version = "27", features = [
   "serde",
 ], optional = true, default-features = false }
 
@@ -133,7 +133,7 @@ wgpu-types = { version = "26", features = [
 inventory = { version = "0.3", optional = true }
 
 [dev-dependencies]
-ron = "0.11"
+ron = "0.12"
 rmp-serde = "1.1"
 bincode = { version = "2.0", features = ["serde"] }
 serde_json = "1.0.140"

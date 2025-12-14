@@ -389,6 +389,10 @@ pub fn check_views_need_specialization(
             view_key |= MeshPipelineKey::ATMOSPHERE;
         }
 
+        if view.invert_culling {
+            view_key |= MeshPipelineKey::INVERT_CULLING;
+        }
+
         if let Some(projection) = projection {
             view_key |= match projection {
                 Projection::Perspective(_) => MeshPipelineKey::VIEW_PROJECTION_PERSPECTIVE,
@@ -1639,7 +1643,7 @@ fn extract_mesh_for_gpu_building(
 /// [`crate::material::queue_material_meshes`] check the skin and morph target
 /// tables for each mesh, but that would be too slow in the hot mesh queuing
 /// loop.
-pub(crate) fn set_mesh_motion_vector_flags(
+pub fn set_mesh_motion_vector_flags(
     mut render_mesh_instances: ResMut<RenderMeshInstances>,
     skin_uniforms: Res<SkinUniforms>,
     morph_indices: Res<MorphIndices>,
@@ -2101,7 +2105,8 @@ bitflags::bitflags! {
         const OIT_ENABLED                       = 1 << 20;
         const DISTANCE_FOG                      = 1 << 21;
         const ATMOSPHERE                        = 1 << 22;
-        const LAST_FLAG                         = Self::ATMOSPHERE.bits();
+        const INVERT_CULLING                    = 1 << 23;
+        const LAST_FLAG                         = Self::INVERT_CULLING.bits();
 
         // Bitfields
         const MSAA_RESERVED_BITS                = Self::MSAA_MASK_BITS << Self::MSAA_SHIFT_BITS;

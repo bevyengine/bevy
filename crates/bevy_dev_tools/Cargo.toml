@@ -10,6 +10,8 @@ keywords = ["bevy"]
 
 [features]
 bevy_ci_testing = ["serde", "ron"]
+webgl = ["bevy_render/webgl"]
+webgpu = ["bevy_render/webgpu"]
 
 [dependencies]
 # bevy
@@ -34,7 +36,7 @@ bevy_state = { path = "../bevy_state", version = "0.18.0-dev" }
 
 # other
 serde = { version = "1.0", features = ["derive"], optional = true }
-ron = { version = "0.11", optional = true }
+ron = { version = "0.12", optional = true }
 tracing = { version = "0.1", default-features = false, features = ["std"] }
 
 [lints]

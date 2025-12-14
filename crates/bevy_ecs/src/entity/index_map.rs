@@ -861,6 +861,10 @@ impl<'a, V> Iterator for Iter<'a, V> {
     fn next(&mut self) -> Option<Self::Item> {
         self.0.next()
     }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.0.size_hint()
+    }
 }
 
 impl<V> DoubleEndedIterator for Iter<'_, V> {
@@ -934,6 +938,10 @@ impl<'a, V> Iterator for IterMut<'a, V> {
     fn next(&mut self) -> Option<Self::Item> {
         self.0.next()
     }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.0.size_hint()
+    }
 }
 
 impl<V> DoubleEndedIterator for IterMut<'_, V> {
@@ -1004,6 +1012,10 @@ impl<V> Iterator for IntoIter<V> {
     fn next(&mut self) -> Option<Self::Item> {
         self.0.next()
     }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.0.size_hint()
+    }
 }
 
 impl<V> DoubleEndedIterator for IntoIter<V> {
@@ -1072,6 +1084,10 @@ impl<V> Iterator for Drain<'_, V> {
     fn next(&mut self) -> Option<Self::Item> {
         self.0.next()
     }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.0.size_hint()
+    }
 }
 
 impl<V> DoubleEndedIterator for Drain<'_, V> {
@@ -1119,6 +1135,10 @@ impl<'a, V> Iterator for Keys<'a, V> {
 
     fn next(&mut self) -> Option<Self::Item> {
         self.0.next()
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.0.size_hint()
     }
 }
 
@@ -1187,6 +1207,10 @@ impl<V> Iterator for IntoKeys<V> {
 
     fn next(&mut self) -> Option<Self::Item> {
         self.0.next()
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.0.size_hint()
     }
 }
 

@@ -6,13 +6,12 @@
     types::Atmosphere,
     bindings::{
         atmosphere, settings, view, lights, transmittance_lut, atmosphere_lut_sampler,
-        multiscattering_lut, sky_view_lut, aerial_view_lut, atmosphere_transforms, 
+        multiscattering_lut, sky_view_lut, aerial_view_lut, atmosphere_transforms,
         medium_density_lut, medium_scattering_lut, medium_sampler,
     },
     bruneton_functions::{
-        transmittance_lut_r_mu_to_uv, transmittance_lut_uv_to_r_mu, 
-        ray_intersects_ground, distance_to_top_atmosphere_boundary, 
-        distance_to_bottom_atmosphere_boundary
+        transmittance_lut_r_mu_to_uv, ray_intersects_ground,
+        distance_to_top_atmosphere_boundary, distance_to_bottom_atmosphere_boundary
     },
 }
 

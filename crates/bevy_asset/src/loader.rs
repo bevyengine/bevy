@@ -321,6 +321,10 @@ pub enum DeserializeMetaError {
 /// Any asset state accessed by [`LoadContext`] will be tracked and stored for use in dependency events and asset preprocessing.
 pub struct LoadContext<'a> {
     pub(crate) asset_server: &'a AssetServer,
+    /// Specifies whether dependencies that are loaded deferred should be loaded.
+    ///
+    /// This allows us to skip loads for cases where we're never going to use the asset and we just
+    /// need the dependency information, for example during asset processing.
     pub(crate) should_load_dependencies: bool,
     populate_hashes: bool,
     asset_path: AssetPath<'static>,
@@ -536,7 +540,7 @@ impl<'a> LoadContext<'a> {
                 meta,
                 loader,
                 reader,
-                false,
+                self.should_load_dependencies,
                 self.populate_hashes,
             )
             .await
