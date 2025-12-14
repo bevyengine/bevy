@@ -28,7 +28,12 @@ fn setup(
     mut images: ResMut<Assets<Image>>,
 ) {
     // This is the texture that will be rendered to.
-    let image = Image::new_target_texture(512, 512, TextureFormat::bevy_default());
+    let image = Image::new_target_texture(
+        512,
+        512,
+        TextureFormat::Rgba8Unorm,
+        Some(TextureFormat::Rgba8UnormSrgb),
+    );
 
     let image_handle = images.add(image);
 
