@@ -122,7 +122,7 @@ pub fn ui_picking(
     {
         // This pointer is associated with a render target, which could be used by multiple
         // cameras. We want to ensure we return all cameras with a matching target.
-        for (entity, camera, render_target, _) in
+        for (entity, camera, _, _) in
             camera_query
                 .iter()
                 .filter(|(_, _, render_target, cam_can_pick)| {
