@@ -360,6 +360,7 @@ pub fn text_system(
                 &mut font_system,
                 &mut swash_cache,
                 physical_node_size,
+                block.justify,
             ) {
                 Err(TextError::NoSuchFont) => {
                     // There was an error processing the text layout, try again next frame
