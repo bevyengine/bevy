@@ -4,8 +4,8 @@ mod khr_materials_anisotropy;
 mod khr_materials_clearcoat;
 mod khr_materials_specular;
 
-use async_lock::RwLock;
 use alloc::sync::Arc;
+use async_lock::RwLock;
 
 use bevy_animation::AnimationClip;
 use bevy_asset::{Handle, LoadContext};
