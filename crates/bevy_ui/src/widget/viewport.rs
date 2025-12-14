@@ -26,7 +26,7 @@ use bevy_reflect::Reflect;
 use crate::UiGlobalTransform;
 use crate::{ComputedNode, Node};
 
-/// Component used to render a [`Camera::target`]  to a node.
+/// Component used to render a [`RenderTarget`]  to a node.
 ///
 /// # See Also
 ///
