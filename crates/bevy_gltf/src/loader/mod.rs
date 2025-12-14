@@ -1983,7 +1983,7 @@ impl<'a> AabbComputer<'a> {
         }
     }
 
-    /// A helper method that computex the global transform for a node and its
+    /// A helper method that computes the global transform for a node and its
     /// ancestors if necessary.
     fn compute_global_transform_for_node(&mut self, gltf: &gltf::Gltf, node_index: usize) {
         // If we've already computed the global transform for this node, bail.
