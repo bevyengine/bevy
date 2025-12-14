@@ -302,6 +302,16 @@ pub struct ExtractedView {
     // uvec4(origin.x, origin.y, width, height)
     pub viewport: UVec4,
     pub color_grading: ColorGrading,
+
+    /// Whether to switch culling mode so that materials that request backface
+    /// culling cull front faces, and vice versa.
+    ///
+    /// This is typically used for cameras that mirror the world that they
+    /// render across a plane, because doing that flips the winding of each
+    /// polygon.
+    ///
+    /// This setting doesn't affect materials that disable backface culling.
+    pub invert_culling: bool,
 }
 
 impl ExtractedView {
@@ -1131,8 +1141,8 @@ pub fn prepare_view_targets(
         let converted_clear_color = clear_color.map(Into::into);
 
         let main_textures = MainTargetTextures {
-            a: ColorAttachment::new(a.clone(), sampled.clone(), converted_clear_color),
-            b: ColorAttachment::new(b.clone(), sampled.clone(), converted_clear_color),
+            a: ColorAttachment::new(a.clone(), sampled.clone(), None, converted_clear_color),
+            b: ColorAttachment::new(b.clone(), sampled.clone(), None, converted_clear_color),
             main_texture: main_texture.clone(),
         };
 

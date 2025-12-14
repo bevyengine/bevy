@@ -389,6 +389,10 @@ pub fn check_views_need_specialization(
             view_key |= MeshPipelineKey::ATMOSPHERE;
         }
 
+        if view.invert_culling {
+            view_key |= MeshPipelineKey::INVERT_CULLING;
+        }
+
         if let Some(projection) = projection {
             view_key |= match projection {
                 Projection::Perspective(_) => MeshPipelineKey::VIEW_PROJECTION_PERSPECTIVE,
@@ -715,11 +719,11 @@ pub struct RenderMeshInstanceGpu {
     /// uniform building paths.
     #[deref]
     pub shared: RenderMeshInstanceShared,
-    /// The translation of the mesh.
+    /// The representative position of the mesh instance in world-space.
     ///
-    /// This is the only part of the transform that we have to keep on CPU (for
-    /// distance sorting).
-    pub translation: Vec3,
+    /// This world-space center is used as a spatial proxy for view-dependent
+    /// operations such as distance computation and render-order sorting.
+    pub center: Vec3,
     /// The index of the [`MeshInputUniform`] in the buffer.
     pub current_uniform_index: NonMaxU32,
 }
@@ -740,6 +744,12 @@ pub struct RenderMeshInstanceShared {
     pub tag: u32,
     /// Render layers that this mesh instance belongs to.
     pub render_layers: Option<RenderLayers>,
+    /// A representative position of the mesh instance in local space,
+    /// derived from its axis-aligned bounding box.
+    ///
+    /// This value is typically used as a spatial proxy for operations such as
+    /// view-dependent sorting (e.g., transparent object ordering).
+    pub center: Vec3,
 }
 
 /// Information that is gathered during the parallel portion of mesh extraction
@@ -832,6 +842,7 @@ impl RenderMeshInstanceShared {
         not_shadow_caster: bool,
         no_automatic_batching: bool,
         render_layers: Option<&RenderLayers>,
+        aabb: Option<&Aabb>,
     ) -> Self {
         Self::for_cpu_building(
             previous_transform,
@@ -841,6 +852,7 @@ impl RenderMeshInstanceShared {
             not_shadow_caster,
             no_automatic_batching,
             render_layers,
+            aabb,
         )
     }
 
@@ -853,6 +865,7 @@ impl RenderMeshInstanceShared {
         not_shadow_caster: bool,
         no_automatic_batching: bool,
         render_layers: Option<&RenderLayers>,
+        aabb: Option<&Aabb>,
     ) -> Self {
         let mut mesh_instance_flags = RenderMeshInstanceFlags::empty();
         mesh_instance_flags.set(RenderMeshInstanceFlags::SHADOW_CASTER, !not_shadow_caster);
@@ -872,6 +885,7 @@ impl RenderMeshInstanceShared {
             lightmap_slab_index: None,
             tag: tag.map_or(0, |i| **i),
             render_layers: render_layers.cloned(),
+            center: aabb.map_or(Vec3::ZERO, |aabb| aabb.center.into()),
         }
     }
 
@@ -959,12 +973,19 @@ impl RenderMeshInstancesCpu {
     }
 
     fn render_mesh_queue_data(&self, entity: MainEntity) -> Option<RenderMeshQueueData<'_>> {
-        self.get(&entity)
-            .map(|render_mesh_instance| RenderMeshQueueData {
+        self.get(&entity).map(|render_mesh_instance| {
+            let world_from_local = &render_mesh_instance.transforms.world_from_local;
+            let center = world_from_local
+                .matrix3
+                .mul_vec3(render_mesh_instance.shared.center)
+                + world_from_local.translation;
+
+            RenderMeshQueueData {
                 shared: &render_mesh_instance.shared,
-                translation: render_mesh_instance.transforms.world_from_local.translation,
+                center,
                 current_uniform_index: InputUniformIndex::default(),
-            })
+            }
+        })
     }
 
     /// Inserts the given flags into the render mesh instance data for the given
@@ -986,7 +1007,7 @@ impl RenderMeshInstancesGpu {
         self.get(&entity)
             .map(|render_mesh_instance| RenderMeshQueueData {
                 shared: &render_mesh_instance.shared,
-                translation: render_mesh_instance.translation,
+                center: render_mesh_instance.center,
                 current_uniform_index: InputUniformIndex(
                     render_mesh_instance.current_uniform_index.into(),
                 ),
@@ -1191,6 +1212,10 @@ impl RenderMeshInstanceGpuBuilder {
 
         // Did the last frame contain this entity as well?
         let current_uniform_index;
+        let world_from_local = &self.world_from_local;
+        let center =
+            world_from_local.matrix3.mul_vec3(self.shared.center) + world_from_local.translation;
+
         match render_mesh_instances.entry(entity) {
             Entry::Occupied(mut occupied_entry) => {
                 // Yes, it did. Replace its entry with the new one.
@@ -1210,8 +1235,8 @@ impl RenderMeshInstanceGpuBuilder {
 
                 occupied_entry.replace_entry_with(|_, _| {
                     Some(RenderMeshInstanceGpu {
-                        translation: self.world_from_local.translation,
                         shared: self.shared,
+                        center,
                         current_uniform_index: NonMaxU32::new(current_uniform_index)
                             .unwrap_or_default(),
                     })
@@ -1223,8 +1248,8 @@ impl RenderMeshInstanceGpuBuilder {
                 current_uniform_index = current_input_buffer.add(mesh_input_uniform);
 
                 vacant_entry.insert(RenderMeshInstanceGpu {
-                    translation: self.world_from_local.translation,
                     shared: self.shared,
+                    center,
                     current_uniform_index: NonMaxU32::new(current_uniform_index)
                         .unwrap_or_default(),
                 });
@@ -1296,8 +1321,11 @@ pub struct RenderMeshQueueData<'a> {
     /// General information about the mesh instance.
     #[deref]
     pub shared: &'a RenderMeshInstanceShared,
-    /// The translation of the mesh instance.
-    pub translation: Vec3,
+    /// The representative position of the mesh instance in world-space.
+    ///
+    /// This world-space center is used as a spatial proxy for view-dependent
+    /// operations such as distance computation and render-order sorting.
+    pub center: Vec3,
     /// The index of the [`MeshInputUniform`] in the GPU buffer for this mesh
     /// instance.
     pub current_uniform_index: InputUniformIndex,
@@ -1334,6 +1362,7 @@ pub fn extract_meshes_for_cpu_building(
             Has<NoAutomaticBatching>,
             Has<VisibilityRange>,
             Option<&RenderLayers>,
+            Option<&Aabb>,
         )>,
     >,
 ) {
@@ -1354,6 +1383,7 @@ pub fn extract_meshes_for_cpu_building(
             no_automatic_batching,
             visibility_range,
             render_layers,
+            aabb,
         )| {
             if !view_visibility.get() {
                 return;
@@ -1387,6 +1417,7 @@ pub fn extract_meshes_for_cpu_building(
                 not_shadow_caster,
                 no_automatic_batching,
                 render_layers,
+                aabb,
             );
 
             let world_from_local = transform.affine();
@@ -1593,6 +1624,7 @@ fn extract_mesh_for_gpu_building(
         not_shadow_caster,
         no_automatic_batching,
         render_layers,
+        aabb,
     );
 
     let lightmap_uv_rect = pack_lightmap_uv_rect(lightmap.map(|lightmap| lightmap.uv_rect));
@@ -2101,7 +2133,8 @@ bitflags::bitflags! {
         const OIT_ENABLED                       = 1 << 20;
         const DISTANCE_FOG                      = 1 << 21;
         const ATMOSPHERE                        = 1 << 22;
-        const LAST_FLAG                         = Self::ATMOSPHERE.bits();
+        const INVERT_CULLING                    = 1 << 23;
+        const LAST_FLAG                         = Self::INVERT_CULLING.bits();
 
         // Bitfields
         const MSAA_RESERVED_BITS                = Self::MSAA_MASK_BITS << Self::MSAA_SHIFT_BITS;
