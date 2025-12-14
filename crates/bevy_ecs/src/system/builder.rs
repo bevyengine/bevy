@@ -231,7 +231,7 @@ where
 {
     builder: Builder,
     func: Func,
-    _data: PhantomData<fn(In) -> (Marker, Out)>,
+    _marker: PhantomData<fn(In) -> (Marker, Out)>,
 }
 
 impl<Marker, In, Out, Func, Builder> IntoBuilderSystem<Marker, In, Out, Func, Builder>
