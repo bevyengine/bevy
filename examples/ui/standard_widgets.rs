@@ -200,6 +200,7 @@ fn button(asset_server: &AssetServer) -> impl Bundle {
             width: px(150),
             height: px(65),
             border: UiRect::all(px(5)),
+            border_radius: BorderRadius::MAX,
             justify_content: JustifyContent::Center,
             align_items: AlignItems::Center,
             ..default()
@@ -209,7 +210,6 @@ fn button(asset_server: &AssetServer) -> impl Bundle {
         Hovered::default(),
         TabIndex(0),
         BorderColor::all(Color::BLACK),
-        BorderRadius::MAX,
         BackgroundColor(NORMAL_BUTTON),
         children![(
             Text::new("Button"),
@@ -238,6 +238,7 @@ fn menu_button(asset_server: &AssetServer) -> impl Bundle {
                 justify_content: JustifyContent::SpaceBetween,
                 align_items: AlignItems::Center,
                 padding: UiRect::axes(px(16), px(0)),
+                border_radius: BorderRadius::all(px(5)),
                 ..default()
             },
             DemoMenuButton,
@@ -245,7 +246,6 @@ fn menu_button(asset_server: &AssetServer) -> impl Bundle {
             Hovered::default(),
             TabIndex(0),
             BorderColor::all(Color::BLACK),
-            BorderRadius::all(px(5)),
             BackgroundColor(NORMAL_BUTTON),
             children![
                 (
@@ -409,10 +409,10 @@ fn slider(min: f32, max: f32, value: f32) -> impl Bundle {
             Spawn((
                 Node {
                     height: px(6),
+                    border_radius: BorderRadius::all(px(3)),
                     ..default()
                 },
                 BackgroundColor(SLIDER_TRACK), // Border color for the slider
-                BorderRadius::all(px(3)),
             )),
             // Invisible track to allow absolute placement of thumb entity. This is narrower than
             // the actual slider, which allows us to position the thumb entity using simple
@@ -438,9 +438,9 @@ fn slider(min: f32, max: f32, value: f32) -> impl Bundle {
                         height: px(12),
                         position_type: PositionType::Absolute,
                         left: percent(0), // This will be updated by the slider's value
+                        border_radius: BorderRadius::MAX,
                         ..default()
                     },
-                    BorderRadius::MAX,
                     BackgroundColor(SLIDER_THUMB),
                 )],
             )),
@@ -547,10 +547,10 @@ fn checkbox(asset_server: &AssetServer, caption: &str) -> impl Bundle {
                     width: px(16),
                     height: px(16),
                     border: UiRect::all(px(2)),
+                    border_radius: BorderRadius::all(px(3)),
                     ..default()
                 },
                 BorderColor::all(ELEMENT_OUTLINE), // Border color for the checkbox
-                BorderRadius::all(px(3)),
                 children![
                     // Checkbox inner
                     (
@@ -759,10 +759,10 @@ fn radio(asset_server: &AssetServer, value: TrackClick, caption: &str) -> impl B
                     width: px(16),
                     height: px(16),
                     border: UiRect::all(px(2)),
+                    border_radius: BorderRadius::MAX,
                     ..default()
                 },
                 BorderColor::all(ELEMENT_OUTLINE), // Border color for the radio button
-                BorderRadius::MAX,
                 children![
                     // Radio inner
                     (
@@ -773,9 +773,9 @@ fn radio(asset_server: &AssetServer, value: TrackClick, caption: &str) -> impl B
                             position_type: PositionType::Absolute,
                             left: px(2),
                             top: px(2),
+                            border_radius: BorderRadius::MAX,
                             ..default()
                         },
-                        BorderRadius::MAX,
                         BackgroundColor(ELEMENT_FILL),
                     ),
                 ],

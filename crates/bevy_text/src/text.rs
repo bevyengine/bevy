@@ -18,7 +18,7 @@ pub struct CosmicBuffer(pub Buffer);
 
 impl Default for CosmicBuffer {
     fn default() -> Self {
-        Self(Buffer::new_empty(Metrics::new(0.0, 0.000001)))
+        Self(Buffer::new_empty(Metrics::new(20.0, 20.0)))
     }
 }
 
@@ -674,6 +674,7 @@ pub fn detect_text_needs_rerender<Root: Component>(
                 Changed<Root>,
                 Changed<TextFont>,
                 Changed<TextLayout>,
+                Changed<LineHeight>,
                 Changed<Children>,
             )>,
             With<Root>,
@@ -687,6 +688,7 @@ pub fn detect_text_needs_rerender<Root: Component>(
             Or<(
                 Changed<TextSpan>,
                 Changed<TextFont>,
+                Changed<LineHeight>,
                 Changed<Children>,
                 Changed<ChildOf>, // Included to detect broken text block hierarchies.
                 Added<TextLayout>,

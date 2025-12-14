@@ -429,8 +429,8 @@ where
     }
 }
 
-impl<'w, 's, B: Bundle> From<&'w EntityMutExcept<'_, 's, B>> for FilteredEntityMut<'w, 's> {
-    fn from(value: &'w EntityMutExcept<'_, 's, B>) -> Self {
+impl<'w, 's, B: Bundle> From<&'w mut EntityMutExcept<'_, 's, B>> for FilteredEntityMut<'w, 's> {
+    fn from(value: &'w mut EntityMutExcept<'_, 's, B>) -> Self {
         // SAFETY:
         // - The FilteredEntityMut has the same component access as the given EntityMutExcept.
         unsafe { FilteredEntityMut::new(value.entity, value.access) }
@@ -490,10 +490,8 @@ where
     B: Bundle,
 {
     let mut found = false;
-    B::get_component_ids(components, &mut |maybe_id| {
-        if let Some(id) = maybe_id {
-            found = found || id == query_id;
-        }
-    });
+    for id in B::get_component_ids(components).flatten() {
+        found = found || id == query_id;
+    }
     found
 }

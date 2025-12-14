@@ -59,16 +59,16 @@ impl<'a> PathParser<'a> {
         // If we do not find a subsequent token, we are at the end of the parse string.
         let ident_len = to_parse.iter().position(|t| Token::SYMBOLS.contains(t));
         let (ident, remaining) = to_parse.split_at(ident_len.unwrap_or(to_parse.len()));
+        #[expect(
+            unsafe_code,
+            reason = "We have fulfilled the Safety requirements for `from_utf8_unchecked`."
+        )]
         // SAFETY: This relies on `self.remaining` always remaining valid UTF8:
         // - self.remaining is a slice derived from self.path (valid &str)
         // - The slice's end is either the same as the valid &str or
         //   the last byte before an ASCII utf-8 character (ie: it is a char
         //   boundary).
         // - The slice always starts after a symbol ie: an ASCII character's boundary.
-        #[expect(
-            unsafe_code,
-            reason = "We have fulfilled the Safety requirements for `from_utf8_unchecked`."
-        )]
         let ident = unsafe { from_utf8_unchecked(ident) };
 
         self.remaining = remaining;
