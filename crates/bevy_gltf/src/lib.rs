@@ -136,6 +136,8 @@ mod vertex_attributes;
 extern crate alloc;
 
 use alloc::sync::Arc;
+#[cfg(feature = "bevy_animation")]
+use serde::{Deserialize, Serialize};
 use std::sync::Mutex;
 use tracing::warn;
 
@@ -189,6 +191,67 @@ impl DefaultGltfImageSampler {
     }
 }
 
+/// Decides if the loader will create [`AnimationTargetId`] components. These
+/// are used to identify which parts of an [`AnimationClip`] can be applied to
+/// a node.
+///
+/// [`AnimationTargetId`]: bevy_animation::AnimationTargetId
+/// [`AnimationClip`]: bevy_animation::AnimationClip
+#[cfg(feature = "bevy_animation")]
+#[derive(Default, Clone, Copy, Eq, PartialEq, Debug, Serialize, Deserialize)]
+pub enum GltfCreateAnimationTargetIds {
+    /// Never create `AnimationTargetId`s.
+    Never,
+    /// Always create `AnimationTargetId`s. This is typically used when the glTF
+    /// does not contain animations itself, but might be bound to animations in
+    /// another glTF or some other source.
+    Always,
+    /// Only create `AnimationTargetId`s for a hierarchy if at least one node in
+    /// the hierarchy is affected by an animation within the glTF.
+    #[default]
+    Automatically,
+}
+
+/// Decides if the loader will create [`AnimationPlayer`] and [`AnimatedBy`]
+/// components.
+///
+/// These components are only created if a hierarchy has [`AnimationTargetId`]
+/// components (see [`GltfCreateAnimationTargetIds`]). `AnimationPlayer` components
+/// are created on the root node of a hierarchy. `AnimatedBy` components are
+/// created on all nodes in a hierarchy, alongside the `AnimationTargetId`
+/// components.
+///
+/// [`AnimationTargetId`]: bevy_animation::AnimationTargetId
+/// [`AnimatedBy`]: bevy_animation::AnimatedBy
+/// [`AnimationPlayer`]: bevy_animation::AnimationPlayer
+#[cfg(feature = "bevy_animation")]
+#[derive(Default, Clone, Copy, Eq, PartialEq, Debug, Serialize, Deserialize)]
+pub enum GltfCreateAnimationPlayers {
+    /// Never create `AnimationPlayer` and `AnimatedBy` components.
+    Never,
+    /// Only create `AnimationPlayer` and `AnimatedBy` components if
+    /// the hierarchy has `AnimationTargetId` components.
+    #[default]
+    Automatically,
+}
+
+/// Animation specific settings. Used by [`GltfPlugin`] and
+/// [`GltfLoaderSettings`].
+#[cfg(feature = "bevy_animation")]
+#[derive(Default, Clone, Copy, Eq, PartialEq, Debug, Serialize, Deserialize)]
+pub struct GltfAnimationSettings {
+    /// Decides if the loader will create [`AnimationTargetId`] components.
+    ///
+    /// [`AnimationTargetId`]: bevy_animation::AnimationTargetId
+    pub create_target_ids: GltfCreateAnimationTargetIds,
+    /// Decides if the loader will create [`AnimationPlayer`] and [`AnimatedBy`]
+    /// components.
+    ///
+    /// [`AnimatedBy`]: bevy_animation::AnimatedBy
+    /// [`AnimationPlayer`]: bevy_animation::AnimationPlayer
+    pub create_players: GltfCreateAnimationPlayers,
+}
+
 /// Adds support for glTF file loading to the app.
 pub struct GltfPlugin {
     /// The default image sampler to lay glTF sampler data on top of.
@@ -214,6 +277,11 @@ pub struct GltfPlugin {
     ///
     /// To specify, use [`GltfPlugin::add_custom_vertex_attribute`].
     pub custom_vertex_attributes: HashMap<Box<str>, MeshVertexAttribute>,
+
+    /// The default animation settings. These can be overridden per-load by
+    /// [`GltfLoaderSettings::animation_settings`].
+    #[cfg(feature = "bevy_animation")]
+    pub animation_settings: GltfAnimationSettings,
 }
 
 impl Default for GltfPlugin {
@@ -222,6 +290,8 @@ impl Default for GltfPlugin {
             default_sampler: ImageSamplerDescriptor::linear(),
             custom_vertex_attributes: HashMap::default(),
             use_model_forward_direction: false,
+            #[cfg(feature = "bevy_animation")]
+            animation_settings: Default::default(),
         }
     }
 }
@@ -272,6 +342,8 @@ impl Plugin for GltfPlugin {
             custom_vertex_attributes: self.custom_vertex_attributes.clone(),
             default_sampler,
             default_use_model_forward_direction: self.use_model_forward_direction,
+            #[cfg(feature = "bevy_animation")]
+            default_animation_settings: self.animation_settings,
         });
     }
 }
