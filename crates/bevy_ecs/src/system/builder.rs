@@ -308,9 +308,9 @@ where
         func: Func,
         meta: SystemMeta,
     },
-    // This only exists as a variant to use with `mem::replace` in `initialize`.
-    // If this state is ever observed outside `initialize`, then a `panic!`
-    // interrupted initialization, leaving this system in an invalid state.
+    /// This only exists as a variant to use with `mem::replace` in `initialize`.
+    /// If this state is ever observed outside `initialize`, then a `panic!`
+    /// interrupted initialization, leaving this system in an invalid state.
     Invalid,
 }
 
