@@ -9,6 +9,7 @@ use bevy::camera::visibility::RenderLayers;
 use bevy::gltf::Gltf;
 use bevy::gltf::GltfAssetLabel;
 use bevy::light::{DirectionalLightShadowMap, NotShadowCaster, OnlyShadowCaster};
+use bevy::math::ops::{cos, sin};
 use bevy::prelude::*;
 use bevy::scene::{SceneInstanceReady, SceneRoot};
 
@@ -31,7 +32,7 @@ fn main() {
         .run();
 }
 
-/// Create an AnimationToPlay component from an animation clip handle.
+/// Create an `AnimationToPlay` component from an animation clip handle.
 fn create_animation(
     clip_handle: Handle<AnimationClip>,
     graphs: &mut ResMut<Assets<AnimationGraph>>,
@@ -168,9 +169,9 @@ fn setup(
     });
 }
 
-/// Triggered when a scene instance is spawned; this will find AnimationPlayer
+/// Triggered when a scene instance is spawned; this will find `AnimationPlayer`
 /// components in the scene and start the requested animation, and also apply
-/// shadow-related components (NotShadowCaster / OnlyShadowCaster) to mesh
+/// shadow-related components (`NotShadowCaster` / `OnlyShadowCaster`) to mesh
 /// descendants depending on whether the root is a `PeterPanBody` or `PeterPanShadow`.
 ///
 fn play_peter_pan_when_ready(
@@ -188,14 +189,14 @@ fn play_peter_pan_when_ready(
 
     for child in children.iter_descendants(scene_ready.entity) {
         // Start animations on any AnimationPlayer only if AnimationToPlay exists
-        if let Some(animation_to_play) = anim {
-            if let Ok(mut player) = players.get_mut(child) {
-                player.play(animation_to_play.index).repeat();
-                // Connect the animation graph to the player
-                commands
-                    .entity(child)
-                    .insert(AnimationGraphHandle(animation_to_play.graph_handle.clone()));
-            }
+        if let Some(animation_to_play) = anim
+            && let Ok(mut player) = players.get_mut(child)
+        {
+            player.play(animation_to_play.index).repeat();
+            // Connect the animation graph to the player
+            commands
+                .entity(child)
+                .insert(AnimationGraphHandle(animation_to_play.graph_handle.clone()));
         }
 
         if shadow_query.get(scene_ready.entity).is_ok() {
@@ -238,8 +239,8 @@ fn move_peter_pan(
     if let Some(mut shadow_transform) = shadow_query.iter_mut().next() {
         // Offset phase for a lazy animation
         let shadow_t = t - 0.5;
-        shadow_transform.translation.x = -shadow_t.sin() * 2.0;
-        shadow_transform.translation.z = shadow_t.cos() * 2.0;
+        shadow_transform.translation.x = -sin(shadow_t) * 2.0;
+        shadow_transform.translation.z = cos(shadow_t) * 2.0;
     }
 }
 
@@ -331,60 +332,58 @@ fn try_apply_named_animations(
         if gltf.named_animations.is_empty() {
             info!("No named animations found in GLTF");
         } else {
-            let names: Vec<&str> = gltf.named_animations.keys().map(|k| k.as_ref()).collect();
+            let names: Vec<&str> = gltf.named_animations.keys().map(AsRef::as_ref).collect();
             info!("Discovered named animations: {:?}", names);
         }
 
         // Try to find named animations "survey" / "Survey"
-        if let Some(body_entity) = entities.body {
-            if let Some(anim_handle) = gltf
+        if let Some(body_entity) = entities.body
+            && let Some(anim_handle) = gltf
                 .named_animations
                 .get("Survey")
                 .or_else(|| gltf.named_animations.get("survey"))
-            {
-                let anim_clip: Handle<AnimationClip> = anim_handle.clone();
-                let (graph, idx) = AnimationGraph::from_clip(anim_clip);
-                let graph_handle = graphs.add(graph);
-                commands.entity(body_entity).insert(AnimationToPlay {
-                    graph_handle: graph_handle.clone(),
-                    index: idx,
-                });
-                // Start the anim on any existing players in case the scene already spawned
-                for child in children.iter_descendants(body_entity) {
-                    if let Ok(mut player) = players.get_mut(child) {
-                        player.play(idx).repeat();
-                        commands
-                            .entity(child)
-                            .insert(AnimationGraphHandle(graph_handle.clone()));
-                    }
+        {
+            let anim_clip: Handle<AnimationClip> = anim_handle.clone();
+            let (graph, idx) = AnimationGraph::from_clip(anim_clip);
+            let graph_handle = graphs.add(graph);
+            commands.entity(body_entity).insert(AnimationToPlay {
+                graph_handle: graph_handle.clone(),
+                index: idx,
+            });
+            // Start the anim on any existing players in case the scene already spawned
+            for child in children.iter_descendants(body_entity) {
+                if let Ok(mut player) = players.get_mut(child) {
+                    player.play(idx).repeat();
+                    commands
+                        .entity(child)
+                        .insert(AnimationGraphHandle(graph_handle.clone()));
                 }
-                info!("Applied named 'Survey' animation to body. index: {:?}", idx);
             }
+            info!("Applied named 'Survey' animation to body. index: {:?}", idx);
         }
         // Run for shadow
-        if let Some(shadow_entity) = entities.shadow {
-            if let Some(anim_handle) = gltf
+        if let Some(shadow_entity) = entities.shadow
+            && let Some(anim_handle) = gltf
                 .named_animations
                 .get("Run")
                 .or_else(|| gltf.named_animations.get("run"))
-            {
-                let anim_clip: Handle<AnimationClip> = anim_handle.clone();
-                let (graph, idx) = AnimationGraph::from_clip(anim_clip);
-                let graph_handle = graphs.add(graph);
-                commands.entity(shadow_entity).insert(AnimationToPlay {
-                    graph_handle: graph_handle.clone(),
-                    index: idx,
-                });
-                for child in children.iter_descendants(shadow_entity) {
-                    if let Ok(mut player) = players.get_mut(child) {
-                        player.play(idx).repeat();
-                        commands
-                            .entity(child)
-                            .insert(AnimationGraphHandle(graph_handle.clone()));
-                    }
+        {
+            let anim_clip: Handle<AnimationClip> = anim_handle.clone();
+            let (graph, idx) = AnimationGraph::from_clip(anim_clip);
+            let graph_handle = graphs.add(graph);
+            commands.entity(shadow_entity).insert(AnimationToPlay {
+                graph_handle: graph_handle.clone(),
+                index: idx,
+            });
+            for child in children.iter_descendants(shadow_entity) {
+                if let Ok(mut player) = players.get_mut(child) {
+                    player.play(idx).repeat();
+                    commands
+                        .entity(child)
+                        .insert(AnimationGraphHandle(graph_handle.clone()));
                 }
-                info!("Applied named 'Run' animation to shadow. index: {:?}", idx);
             }
+            info!("Applied named 'Run' animation to shadow. index: {:?}", idx);
         }
         override_state.applied = true;
     }
