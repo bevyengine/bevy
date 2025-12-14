@@ -223,7 +223,7 @@ fn init_pipeline<T: FullscreenMaterial>(
         ShaderRef::Default => {
             // TODO not sure what an actual fallback should be. An empty shader or output a solid
             // color to indicate a missing shader?
-            unimplemented!("No default fallback for FullscreenMaterial shader")
+            unimplemented!("FullscreenMaterial::fragment_shader() must not return ShaderRef::Default")
         }
         ShaderRef::Handle(handle) => handle,
         ShaderRef::Path(path) => asset_server.load(path),
