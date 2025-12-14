@@ -56,7 +56,7 @@ pub struct UiDebugOptions {
     pub show_hidden: bool,
     /// Show outlines for clipped sections of UI nodes
     pub show_clipped: bool,
-    /// Draw outlines without curved corners
+    /// Draw outlines with sharp corners even if the UI nodes have border radii
     pub ignore_border_radius: bool,
 }
 
