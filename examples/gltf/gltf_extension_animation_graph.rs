@@ -12,7 +12,7 @@ use bevy::{
     scene::SceneInstanceReady,
 };
 
-// An example asset that contains a mesh and animation.
+/// An example asset that contains a mesh and animation.
 const GLTF_PATH: &str = "models/animated/Fox.glb";
 
 fn main() {
@@ -23,14 +23,16 @@ fn main() {
             ..default()
         })
         .add_plugins((DefaultPlugins, GltfExtensionHandlerAnimationPlugin))
-        .add_systems(Startup, setup_mesh_and_animation)
-        .add_systems(Startup, setup_camera_and_environment)
+        .add_systems(
+            Startup,
+            (setup_mesh_and_animation, setup_camera_and_environment),
+        )
         .run();
 }
 
-// A component that stores a reference to an animation we want to play. This is
-// created when we start loading the mesh (see `setup_mesh_and_animation`) and
-// read when the mesh has spawned (see `play_animation_once_loaded`).
+/// A component that stores a reference to an animation we want to play. This is
+/// created when we start loading the mesh (see `setup_mesh_and_animation`) and
+/// read when the mesh has spawned (see `play_animation_once_loaded`).
 #[derive(Component, Reflect)]
 #[reflect(Component)]
 struct AnimationToPlay {
@@ -52,29 +54,29 @@ fn play_animation_when_ready(
     scene_ready: On<SceneInstanceReady>,
     mut commands: Commands,
     children: Query<&Children>,
-    // animations_to_play: Query<&AnimationToPlay>,
     mut players: Query<(&mut AnimationPlayer, &AnimationToPlay)>,
 ) {
     for child in children.iter_descendants(scene_ready.entity) {
-        if let Ok((mut player, animation_to_play)) = players.get_mut(child) {
-            // Tell the animation player to start the animation and keep
-            // repeating it.
-            //
-            // If you want to try stopping and switching animations, see the
-            // `animated_mesh_control.rs` example.
-            player.play(animation_to_play.index).repeat();
+        let Ok((mut player, animation_to_play)) = players.get_mut(child) else {
+            return;
+        };
 
-            // Add the animation graph. This only needs to be done once to
-            // connect the animation player to the mesh.
-            commands
-                .entity(child)
-                .insert(AnimationGraphHandle(animation_to_play.graph_handle.clone()));
-        }
+        // Tell the animation player to start the animation and keep
+        // repeating it.
+        //
+        // If you want to try stopping and switching animations, see the
+        // `animated_mesh_control.rs` example.
+        player.play(animation_to_play.index).repeat();
+
+        // Add the animation graph. This only needs to be done once to
+        // connect the animation player to the mesh.
+        commands
+            .entity(child)
+            .insert(AnimationGraphHandle(animation_to_play.graph_handle.clone()));
     }
-    // }
 }
 
-// Spawn a camera and a simple environment with a ground plane and light.
+/// Spawn a camera and a simple environment with a ground plane and light.
 fn setup_camera_and_environment(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,

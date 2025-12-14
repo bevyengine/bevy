@@ -193,7 +193,7 @@ pub trait GltfExtensionHandler: Send + Sync {
         scene: &gltf::Scene,
         name: Option<&str>,
         world_root_id: Entity,
-        world: &mut World,
+        scene_world: &mut World,
         load_context: &mut LoadContext<'_>,
     ) {
     }

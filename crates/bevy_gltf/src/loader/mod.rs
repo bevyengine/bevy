@@ -637,7 +637,7 @@ impl GltfLoader {
         // In theory we could store a mapping between texture.index() and handle to use
         // later in the loader when looking up handles for materials. However this would mean
         // that the material's load context would no longer track those images as dependencies.
-        let mut _texture_handles = Vec::new();
+        let mut texture_handles = Vec::new();
         if gltf.textures().len() == 1 || cfg!(target_arch = "wasm32") {
             for texture in gltf.textures() {
                 let image = load_image(
@@ -650,14 +650,14 @@ impl GltfLoader {
                     settings,
                 )
                 .await?;
-                image.process_loaded_texture(load_context, &mut _texture_handles);
+                image.process_loaded_texture(load_context, &mut texture_handles);
                 // let extensions handle texture data
                 for extension in extensions.iter_mut() {
                     for id in extension.extension_ids() {
                         extension.on_texture(
                             id,
                             texture.extension_value(id),
-                            _texture_handles.iter().last().unwrap().clone(),
+                            texture_handles.iter().last().unwrap().clone(),
                         );
                     }
                 }
@@ -689,7 +689,7 @@ impl GltfLoader {
                 .into_iter()
                 .for_each(|(extension_data, result)| match result {
                     Ok(image) => {
-                        image.process_loaded_texture(load_context, &mut _texture_handles);
+                        image.process_loaded_texture(load_context, &mut texture_handles);
                         // let extensions handle texture data
                         // We do this differently here because of the IoTaskPool vs
                         // gltf::Texture lifetimes
@@ -698,7 +698,7 @@ impl GltfLoader {
                                 extension.on_texture(
                                     id,
                                     extension_data.as_ref().and_then(|map| map.get(*id)),
-                                    _texture_handles.iter().last().unwrap().clone(),
+                                    texture_handles.iter().last().unwrap().clone(),
                                 );
                             }
                         }
