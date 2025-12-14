@@ -136,7 +136,7 @@ pub use stackfuture::StackFuture;
 /// A type returned from [`AssetReader::read`], which is used to read the contents of a file
 /// (or virtual file) corresponding to an asset.
 ///
-/// This is essentially a trait alias for types implementing [`AsyncRead`] and [`AsyncSeekForward`].
+/// This is essentially a trait alias for types implementing [`AsyncRead`] and [`AsyncSeek`].
 /// The only reason a blanket implementation is not provided for applicable types is to allow
 /// implementors to override the provided implementation of [`Reader::read_to_end`].
 ///
@@ -151,9 +151,9 @@ pub use stackfuture::StackFuture;
 /// use, avoiding cases where the caller uses a feature that the reader does not support.
 ///
 /// For example, the caller may set [`ReaderRequiredFeatures::seek`] to
-/// [`SeekKind::AnySeek`](crate::loader::SeekKind::AnySeek) to indicate that they may seek backward,
-/// or from the start/end. A reader implementation may choose to support that, or may just detect
-/// those kinds of seeks and return an error.
+/// [`SeekKind::AnySeek`] to indicate that they may seek backward, or from the start/end. A reader
+/// implementation may choose to support that, or may just detect those kinds of seeks and return an
+/// error.
 pub trait Reader: AsyncRead + AsyncSeek + Unpin + Send + Sync {
     /// Reads the entire contents of this reader and appends them to a vec.
     ///
