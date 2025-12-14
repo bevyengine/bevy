@@ -28,7 +28,7 @@ impl EmbeddedWatcher {
     pub fn new(
         dir: Dir,
         root_paths: Arc<RwLock<HashMap<Box<Path>, PathBuf>>>,
-        sender: crossbeam_channel::Sender<AssetSourceEvent>,
+        sender: async_channel::Sender<AssetSourceEvent>,
         debounce_wait_time: Duration,
     ) -> Self {
         let root = get_base_path();
@@ -50,7 +50,7 @@ impl AssetWatcher for EmbeddedWatcher {}
 /// binary-embedded Rust source files. This will read the contents of changed files from the file system and overwrite
 /// the initial static bytes from the file embedded in the binary.
 pub(crate) struct EmbeddedEventHandler {
-    sender: crossbeam_channel::Sender<AssetSourceEvent>,
+    sender: async_channel::Sender<AssetSourceEvent>,
     root_paths: Arc<RwLock<HashMap<Box<Path>, PathBuf>>>,
     root: PathBuf,
     dir: Dir,
@@ -90,7 +90,7 @@ impl FilesystemEventHandler for EmbeddedEventHandler {
                 }
             }
             self.last_event = Some(event.clone());
-            self.sender.send(event).unwrap();
+            self.sender.send_blocking(event).unwrap();
         }
     }
 }

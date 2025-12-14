@@ -26,6 +26,7 @@ use alloc::{
     sync::Arc,
 };
 use atomicow::CowArc;
+use bevy_diagnostic::{DiagnosticPath, Diagnostics};
 use bevy_ecs::prelude::*;
 use bevy_platform::{
     collections::HashSet,
@@ -68,7 +69,7 @@ pub(crate) struct AssetServerData {
     pub(crate) loaders: Arc<RwLock<AssetLoaders>>,
     asset_event_sender: Sender<InternalAssetEvent>,
     asset_event_receiver: Receiver<InternalAssetEvent>,
-    sources: AssetSources,
+    sources: Arc<AssetSources>,
     mode: AssetServerMode,
     meta_check: AssetMetaCheck,
     unapproved_path_mode: UnapprovedPathMode,
@@ -84,10 +85,13 @@ pub enum AssetServerMode {
 }
 
 impl AssetServer {
+    /// The number of loads that have been started by the server.
+    pub const STARTED_LOAD_COUNT: DiagnosticPath = DiagnosticPath::const_new("started_load_count");
+
     /// Create a new instance of [`AssetServer`]. If `watch_for_changes` is true, the [`AssetReader`](crate::io::AssetReader) storage will watch for changes to
     /// asset sources and hot-reload them.
     pub fn new(
-        sources: AssetSources,
+        sources: Arc<AssetSources>,
         mode: AssetServerMode,
         watching_for_changes: bool,
         unapproved_path_mode: UnapprovedPathMode,
@@ -105,7 +109,7 @@ impl AssetServer {
     /// Create a new instance of [`AssetServer`]. If `watch_for_changes` is true, the [`AssetReader`](crate::io::AssetReader) storage will watch for changes to
     /// asset sources and hot-reload them.
     pub fn new_with_meta_check(
-        sources: AssetSources,
+        sources: Arc<AssetSources>,
         mode: AssetServerMode,
         meta_check: AssetMetaCheck,
         watching_for_changes: bool,
@@ -122,7 +126,7 @@ impl AssetServer {
     }
 
     pub(crate) fn new_with_loaders(
-        sources: AssetSources,
+        sources: Arc<AssetSources>,
         loaders: Arc<RwLock<AssetLoaders>>,
         mode: AssetServerMode,
         meta_check: AssetMetaCheck,
@@ -547,9 +551,11 @@ impl AssetServer {
         &self,
         handle: UntypedHandle,
         path: AssetPath<'static>,
-        infos: RwLockWriteGuard<AssetInfos>,
+        mut infos: RwLockWriteGuard<AssetInfos>,
         guard: G,
     ) {
+        infos.stats.started_load_tasks += 1;
+
         // drop the lock on `AssetInfos` before spawning a task that may block on it in single-threaded
         #[cfg(any(target_arch = "wasm32", not(feature = "multi_threaded")))]
         drop(infos);
@@ -586,6 +592,8 @@ impl AssetServer {
         &self,
         path: impl Into<AssetPath<'a>>,
     ) -> Result<UntypedHandle, AssetLoadError> {
+        self.write_infos().stats.started_load_tasks += 1;
+
         let path: AssetPath = path.into();
         self.load_internal(None, path, false, None)
             .await
@@ -611,19 +619,26 @@ impl AssetServer {
             meta_transform,
         );
 
-        // drop the lock on `AssetInfos` before spawning a task that may block on it in single-threaded
-        #[cfg(any(target_arch = "wasm32", not(feature = "multi_threaded")))]
-        drop(infos);
-
         if !should_load {
             return handle;
         }
         let index = (&handle).try_into().unwrap();
 
+        infos.stats.started_load_tasks += 1;
+
+        // drop the lock on `AssetInfos` before spawning a task that may block on it in single-threaded
+        #[cfg(any(target_arch = "wasm32", not(feature = "multi_threaded")))]
+        drop(infos);
+
         let server = self.clone();
         let task = IoTaskPool::get().spawn(async move {
             let path_clone = path.clone();
-            match server.load_untyped_async(path).await {
+            match server
+                .load_internal(None, path, false, None)
+                .await
+                .map(|h| {
+                    h.expect("handle must be returned, since we didn't pass in an input handle")
+                }) {
                 Ok(handle) => server.send_asset_event(InternalAssetEvent::Loaded {
                     index,
                     loaded_asset: LoadedAsset::new_with_dependencies(LoadedUntypedAsset { handle })
@@ -637,7 +652,7 @@ impl AssetServer {
                         error: err,
                     });
                 }
-            }
+            };
         });
 
         #[cfg(not(any(target_arch = "wasm32", not(feature = "multi_threaded"))))]
@@ -879,6 +894,8 @@ impl AssetServer {
                     .collect::<Vec<_>>();
 
                 for result in requests {
+                    // Count each reload as a started load.
+                    server.write_infos().stats.started_load_tasks += 1;
                     match result.await {
                         Ok(_) => reloaded = true,
                         Err(err) => error!("{}", err),
@@ -886,6 +903,7 @@ impl AssetServer {
                 }
 
                 if !reloaded && server.read_infos().should_reload(&path) {
+                    server.write_infos().stats.started_load_tasks += 1;
                     match server.load_internal(None, path.clone(), true, None).await {
                         Ok(_) => reloaded = true,
                         Err(err) => error!("{}", err),
@@ -1069,6 +1087,8 @@ impl AssetServer {
             }
             Ok(())
         }
+
+        self.write_infos().stats.started_load_tasks += 1;
 
         let path = path.into_owned();
         let server = self.clone();
@@ -1755,6 +1775,12 @@ pub fn handle_internal_asset_events(world: &mut World) {
             world.write_message_batch(untyped_failures);
         }
 
+        // The following code all deals with hot-reloading, which we can skip if the server isn't
+        // watching for changes.
+        if !infos.watching_for_changes {
+            return;
+        }
+
         fn queue_ancestors(
             asset_path: &AssetPath,
             infos: &AssetInfos,
@@ -1816,14 +1842,14 @@ pub fn handle_internal_asset_events(world: &mut World) {
             match server.data.mode {
                 AssetServerMode::Unprocessed => {
                     if let Some(receiver) = source.event_receiver() {
-                        for event in receiver.try_iter() {
+                        while let Ok(event) = receiver.try_recv() {
                             handle_event(source.id(), event);
                         }
                     }
                 }
                 AssetServerMode::Processed => {
                     if let Some(receiver) = source.processed_event_receiver() {
-                        for event in receiver.try_iter() {
+                        while let Ok(event) = receiver.try_recv() {
                             handle_event(source.id(), event);
                         }
                     }
@@ -1844,6 +1870,17 @@ pub fn handle_internal_asset_events(world: &mut World) {
         infos
             .pending_tasks
             .retain(|_, load_task| !load_task.is_finished());
+    });
+}
+
+/// A system publishing asset server statistics to [`bevy_diagnostic`].
+pub fn publish_asset_server_diagnostics(
+    asset_server: Res<AssetServer>,
+    mut diagnostics: Diagnostics,
+) {
+    let infos = asset_server.read_infos();
+    diagnostics.add_measurement(&AssetServer::STARTED_LOAD_COUNT, || {
+        infos.stats.started_load_tasks as _
     });
 }
 

@@ -2,7 +2,7 @@ use crate::primitives::Frustum;
 
 use super::{
     visibility::{Visibility, VisibleEntities},
-    ClearColorConfig,
+    ClearColorConfig, MsaaWriteback,
 };
 use bevy_asset::Handle;
 use bevy_derive::Deref;
@@ -84,17 +84,13 @@ impl Viewport {
         viewport: Option<&Self>,
         main_pass_resolution_override: Option<&MainPassResolutionOverride>,
     ) -> Option<Self> {
-        let mut viewport = viewport.cloned();
-
         if let Some(override_size) = main_pass_resolution_override {
-            if viewport.is_none() {
-                viewport = Some(Viewport::default());
-            }
-
-            viewport.as_mut().unwrap().physical_size = **override_size;
+            let mut vp = viewport.map_or_else(Self::default, Self::clone);
+            vp.physical_size = **override_size;
+            Some(vp)
+        } else {
+            viewport.cloned()
         }
-
-        viewport
     }
 }
 
@@ -364,13 +360,20 @@ pub struct Camera {
     pub target: RenderTarget,
     /// The [`CameraOutputMode`] for this camera.
     pub output_mode: CameraOutputMode,
-    /// If this is enabled, a previous camera exists that shares this camera's render target, and this camera has MSAA enabled, then the previous camera's
-    /// outputs will be written to the intermediate multi-sampled render target textures for this camera. This enables cameras with MSAA enabled to
-    /// "write their results on top" of previous camera results, and include them as a part of their render results. This is enabled by default to ensure
-    /// cameras with MSAA enabled layer their results in the same way as cameras without MSAA enabled by default.
-    pub msaa_writeback: bool,
+    /// Controls when MSAA writeback occurs for this camera.
+    /// See [`MsaaWriteback`] for available options.
+    pub msaa_writeback: MsaaWriteback,
     /// The clear color operation to perform on the render target.
     pub clear_color: ClearColorConfig,
+    /// Whether to switch culling mode so that materials that request backface
+    /// culling cull front faces, and vice versa.
+    ///
+    /// This is typically used for cameras that mirror the world that they
+    /// render across a plane, because doing that flips the winding of each
+    /// polygon.
+    ///
+    /// This setting doesn't affect materials that disable backface culling.
+    pub invert_culling: bool,
     /// If set, this camera will be a sub camera of a large view, defined by a [`SubCameraView`].
     pub sub_camera_view: Option<SubCameraView>,
 }
@@ -384,8 +387,9 @@ impl Default for Camera {
             computed: Default::default(),
             target: Default::default(),
             output_mode: Default::default(),
-            msaa_writeback: true,
+            msaa_writeback: MsaaWriteback::default(),
             clear_color: Default::default(),
+            invert_culling: false,
             sub_camera_view: None,
         }
     }
@@ -614,13 +618,7 @@ impl Camera {
         camera_transform: &GlobalTransform,
         viewport_position: Vec2,
     ) -> Result<Ray3d, ViewportConversionError> {
-        let target_rect = self
-            .logical_viewport_rect()
-            .ok_or(ViewportConversionError::NoViewportSize)?;
-        let rect_relative = (viewport_position - target_rect.min) / target_rect.size();
-        let mut ndc_xy = rect_relative * 2. - Vec2::ONE;
-        // Flip the Y co-ordinate from the top to the bottom to enter NDC.
-        ndc_xy.y = -ndc_xy.y;
+        let ndc_xy = self.viewport_to_ndc(viewport_position)?;
 
         let ndc_point_near = ndc_xy.extend(1.0).into();
         // Using EPSILON because an ndc with Z = 0 returns NaNs.
@@ -682,15 +680,7 @@ impl Camera {
         camera_transform: &GlobalTransform,
         viewport_position: Vec2,
     ) -> Result<Vec2, ViewportConversionError> {
-        let target_rect = self
-            .logical_viewport_rect()
-            .ok_or(ViewportConversionError::NoViewportSize)?;
-        let mut rect_relative = (viewport_position - target_rect.min) / target_rect.size();
-
-        // Flip the Y co-ordinate origin from the top to the bottom.
-        rect_relative.y = 1.0 - rect_relative.y;
-
-        let ndc = rect_relative * 2. - Vec2::ONE;
+        let ndc = self.viewport_to_ndc(viewport_position)?;
 
         let world_near_plane = self
             .ndc_to_world(camera_transform, ndc.extend(1.))
@@ -727,12 +717,13 @@ impl Camera {
     /// Given a position in Normalized Device Coordinates,
     /// use the camera's viewport to compute the world space position.
     ///
-    /// When the position is within the viewport the values returned will be between -1.0 and 1.0 on the X and Y axes,
-    /// and between 0.0 and 1.0 on the Z axis.
-    /// To get the world space coordinates with the viewport position, you should use
-    /// [`world_to_viewport`](Self::world_to_viewport).
+    /// The input is expected to be in NDC: `x` and `y` in the range `[-1.0, 1.0]`, and `z` in `[0.0, 1.0]`
+    /// (with `z = 0.0` at the far plane and `z = 1.0` at the near plane).
+    /// The returned value is a position in world space (your game's world units) and is not limited to `[-1.0, 1.0]`.
+    /// To convert from a viewport position to world space, you should use
+    /// [`viewport_to_world`](Self::viewport_to_world).
     ///
-    /// Returns `None` if the `camera_transform`, the `world_position`, or the projection matrix defined by
+    /// Returns `None` if the `camera_transform`, the `ndc_point`, or the projection matrix defined by
     /// [`Projection`](super::projection::Projection) contain `NAN`.
     ///
     /// # Panics
@@ -771,6 +762,21 @@ impl Camera {
     pub fn depth_ndc_to_view_z_2d(&self, ndc_depth: f32) -> f32 {
         -(self.clip_from_view().w_axis.z - ndc_depth) / self.clip_from_view().z_axis.z
         //                       [3][2]                                         [2][2]
+    }
+
+    /// Converts a position in viewport coordinates to NDC.
+    pub fn viewport_to_ndc(
+        &self,
+        viewport_position: Vec2,
+    ) -> Result<Vec2, ViewportConversionError> {
+        let target_rect = self
+            .logical_viewport_rect()
+            .ok_or(ViewportConversionError::NoViewportSize)?;
+        let rect_relative = (viewport_position - target_rect.min) / target_rect.size();
+        let mut ndc = rect_relative * 2. - Vec2::ONE;
+        // Flip the Y co-ordinate from the top to the bottom to enter NDC.
+        ndc.y = -ndc.y;
+        Ok(ndc)
     }
 }
 

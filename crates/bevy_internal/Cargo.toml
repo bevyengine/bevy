@@ -187,6 +187,7 @@ webgl = [
   "bevy_render?/webgl",
   "bevy_gizmos_render?/webgl",
   "bevy_sprite_render?/webgl",
+  "bevy_dev_tools?/webgl",
 ]
 
 webgpu = [
@@ -196,6 +197,7 @@ webgpu = [
   "bevy_render?/webgpu",
   "bevy_gizmos_render?/webgpu",
   "bevy_sprite_render?/webgpu",
+  "bevy_dev_tools?/webgpu",
 ]
 
 # Enable systems that allow for automated testing on CI
@@ -309,13 +311,14 @@ bevy_dev_tools = ["dep:bevy_dev_tools"]
 
 # Provides a collection of prebuilt camera controllers
 bevy_camera_controller = ["dep:bevy_camera_controller"]
-free_cam = ["bevy_camera_controller/free_cam"]
+free_camera = ["bevy_camera_controller/free_camera"]
+pan_camera = ["bevy_camera_controller/pan_camera"]
 
 # Enable support for the Bevy Remote Protocol
 bevy_remote = ["dep:bevy_remote", "serialize"]
 
 # Provides picking functionality
-bevy_picking = ["dep:bevy_picking"]
+bevy_picking = ["dep:bevy_picking", "bevy_input_focus?/bevy_picking"]
 
 # Provides a mesh picking backend
 mesh_picking = ["bevy_picking", "bevy_picking/mesh_picking"]
@@ -356,8 +359,8 @@ reflect_auto_register_static = [
   "bevy_ecs/reflect_auto_register",
 ]
 
-# Enable documentation reflection
-reflect_documentation = ["bevy_reflect/documentation"]
+# Enables bevy_reflect to access documentation comments of rust code at runtime
+reflect_documentation = ["bevy_reflect/reflect_documentation"]
 
 # Enable custom cursor support
 custom_cursor = ["bevy_window/custom_cursor", "bevy_winit/custom_cursor"]
@@ -425,7 +428,7 @@ web = ["bevy_app/web", "bevy_platform/web", "bevy_reflect/web"]
 
 hotpatching = ["bevy_app/hotpatching", "bevy_ecs/hotpatching"]
 
-debug = ["bevy_utils/debug"]
+debug = ["bevy_utils/debug", "bevy_ecs/debug"]
 
 screenrecording = ["bevy_dev_tools/screenrecording"]
 

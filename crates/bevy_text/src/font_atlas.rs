@@ -87,8 +87,12 @@ impl FontAtlas {
         texture: &Image,
         offset: IVec2,
     ) -> Result<(), TextError> {
-        let atlas_layout = atlas_layouts.get_mut(&self.texture_atlas).unwrap();
-        let atlas_texture = textures.get_mut(&self.texture).unwrap();
+        let atlas_layout = atlas_layouts
+            .get_mut(&self.texture_atlas)
+            .ok_or(TextError::MissingAtlasLayout)?;
+        let atlas_texture = textures
+            .get_mut(&self.texture)
+            .ok_or(TextError::MissingAtlasTexture)?;
 
         if let Ok(glyph_index) =
             self.dynamic_texture_atlas_builder
@@ -154,23 +158,27 @@ pub fn add_glyph_to_atlas(
             .max(glyph_texture.width());
         // Pick the higher of 512 or the smallest power of 2 greater than glyph_max_size
         let containing = (1u32 << (32 - glyph_max_size.leading_zeros())).max(512);
-        font_atlases.push(FontAtlas::new(
+
+        let mut new_atlas = FontAtlas::new(
             textures,
             texture_atlases,
             UVec2::splat(containing),
             font_smoothing,
-        ));
+        );
 
-        font_atlases.last_mut().unwrap().add_glyph(
+        new_atlas.add_glyph(
             textures,
             texture_atlases,
             physical_glyph.cache_key,
             &glyph_texture,
             offset,
         )?;
+
+        font_atlases.push(new_atlas);
     }
 
-    Ok(get_glyph_atlas_info(font_atlases, physical_glyph.cache_key).unwrap())
+    get_glyph_atlas_info(font_atlases, physical_glyph.cache_key)
+        .ok_or(TextError::InconsistentAtlasState)
 }
 
 /// Get the texture of the glyph as a rendered image, and its offset

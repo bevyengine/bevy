@@ -3,7 +3,7 @@ use bevy_utils::prelude::DebugName;
 use core::marker::PhantomData;
 
 use crate::{
-    component::{CheckChangeTicks, Tick},
+    change_detection::{CheckChangeTicks, Tick},
     prelude::World,
     query::FilteredAccessSet,
     schedule::InternedSystemSet,

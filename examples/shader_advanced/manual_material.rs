@@ -9,8 +9,8 @@ use bevy::{
     },
     pbr::{
         late_sweep_material_instances, DrawMaterial, EntitiesNeedingSpecialization,
-        EntitySpecializationTickPair, EntitySpecializationTicks, MaterialBindGroupAllocator,
-        MaterialBindGroupAllocators, MaterialDrawFunction,
+        EntitySpecializationTickPair, EntitySpecializationTicks, MainPassOpaqueDrawFunction,
+        MaterialBindGroupAllocator, MaterialBindGroupAllocators,
         MaterialExtractEntitiesNeedingSpecializationSystems, MaterialExtractionSystems,
         MaterialFragmentShader, MaterialProperties, PreparedMaterial, RenderMaterialBindings,
         RenderMaterialInstance, RenderMaterialInstances, SpecializedMaterialPipelineCache,
@@ -23,7 +23,7 @@ use bevy::{
         render_phase::DrawFunctions,
         render_resource::{
             binding_types::{sampler, texture_2d},
-            AsBindGroup, BindGroupLayout, BindGroupLayoutEntries, BindingResources,
+            AsBindGroup, BindGroupLayoutDescriptor, BindGroupLayoutEntries, BindingResources,
             OwnedBindingResource, Sampler, SamplerBindingType, SamplerDescriptor, ShaderStages,
             TextureSampleType, TextureViewDimension, UnpreparedBindGroup,
         },
@@ -84,7 +84,7 @@ fn init_image_material_resources(
     render_device: Res<RenderDevice>,
     mut bind_group_allocators: ResMut<MaterialBindGroupAllocators>,
 ) {
-    let bind_group_layout = render_device.create_bind_group_layout(
+    let bind_group_layout = BindGroupLayoutDescriptor::new(
         "image_material_layout",
         &BindGroupLayoutEntries::sequential(
             ShaderStages::FRAGMENT,
@@ -100,12 +100,18 @@ fn init_image_material_resources(
 
     bind_group_allocators.insert(
         TypeId::of::<ImageMaterial>(),
-        MaterialBindGroupAllocator::new(&render_device, None, None, bind_group_layout, None),
+        MaterialBindGroupAllocator::new(
+            &render_device,
+            "image_material_allocator",
+            None,
+            bind_group_layout,
+            None,
+        ),
     );
 }
 
 #[derive(Resource)]
-struct ImageMaterialBindGroupLayout(BindGroupLayout);
+struct ImageMaterialBindGroupLayout(BindGroupLayoutDescriptor);
 
 #[derive(Resource)]
 struct ImageMaterialBindGroupSampler(Sampler);
@@ -194,7 +200,7 @@ impl ErasedRenderAsset for ImageMaterial {
             material_layout: Some(material_layout),
             ..Default::default()
         };
-        properties.add_draw_function(MaterialDrawFunction, draw_function_id);
+        properties.add_draw_function(MainPassOpaqueDrawFunction, draw_function_id);
         properties.add_shader(MaterialFragmentShader, asset_server.load(SHADER_ASSET_PATH));
 
         Ok(PreparedMaterial {

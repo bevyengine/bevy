@@ -136,6 +136,7 @@ fn button(asset_server: &AssetServer) -> impl Bundle {
             border: UiRect::all(px(5)),
             justify_content: JustifyContent::Center,
             align_items: AlignItems::Center,
+            border_radius: BorderRadius::MAX,
             ..default()
         },
         DemoButton,
@@ -143,7 +144,6 @@ fn button(asset_server: &AssetServer) -> impl Bundle {
         Hovered::default(),
         TabIndex(0),
         BorderColor::all(Color::BLACK),
-        BorderRadius::MAX,
         BackgroundColor(NORMAL_BUTTON),
         children![(
             Text::new("Button"),
@@ -245,10 +245,10 @@ fn slider(min: f32, max: f32, value: f32) -> impl Bundle {
             Spawn((
                 Node {
                     height: px(6),
+                    border_radius: BorderRadius::all(px(3)),
                     ..default()
                 },
                 BackgroundColor(SLIDER_TRACK), // Border color for the checkbox
-                BorderRadius::all(px(3)),
             )),
             // Invisible track to allow absolute placement of thumb entity. This is narrower than
             // the actual slider, which allows us to position the thumb entity using simple
@@ -274,9 +274,9 @@ fn slider(min: f32, max: f32, value: f32) -> impl Bundle {
                         height: px(12),
                         position_type: PositionType::Absolute,
                         left: percent(0), // This will be updated by the slider's value
+                        border_radius: BorderRadius::MAX,
                         ..default()
                     },
-                    BorderRadius::MAX,
                     BackgroundColor(SLIDER_THUMB),
                 )],
             )),
@@ -356,10 +356,10 @@ fn checkbox(asset_server: &AssetServer, caption: &str) -> impl Bundle {
                     width: px(16),
                     height: px(16),
                     border: UiRect::all(px(2)),
+                    border_radius: BorderRadius::all(px(3)),
                     ..default()
                 },
                 BorderColor::all(CHECKBOX_OUTLINE), // Border color for the checkbox
-                BorderRadius::all(px(3)),
                 children![
                     // Checkbox inner
                     (

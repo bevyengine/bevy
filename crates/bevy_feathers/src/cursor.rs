@@ -1,5 +1,6 @@
 //! Provides a way to automatically set the mouse cursor based on hovered entity.
 use bevy_app::{App, Plugin, PreUpdate};
+use bevy_derive::Deref;
 use bevy_ecs::{
     component::Component,
     entity::Entity,
@@ -18,7 +19,7 @@ use bevy_window::{CursorIcon, SystemCursorIcon, Window};
 
 /// A resource that specifies the cursor icon to be used when the mouse is not hovering over
 /// any other entity. This is used to set the default cursor icon for the window.
-#[derive(Resource, Debug, Clone, Default, Reflect)]
+#[derive(Deref, Resource, Debug, Clone, Default, Reflect)]
 #[reflect(Resource, Debug, Default)]
 pub struct DefaultCursor(pub EntityCursor);
 
@@ -36,6 +37,13 @@ pub enum EntityCursor {
     /// System provided cursor icon.
     System(SystemCursorIcon),
 }
+
+/// A component used to override any [`EntityCursor`] cursor changes.
+///
+/// This is meant for cases like loading where you don't want the cursor to imply you
+/// can interact with something.
+#[derive(Deref, Resource, Debug, Clone, Default, Reflect)]
+pub struct OverrideCursor(pub Option<EntityCursor>);
 
 impl EntityCursor {
     /// Convert the [`EntityCursor`] to a [`CursorIcon`] so that it can be inserted into a
@@ -80,19 +88,22 @@ pub(crate) fn update_cursor(
     cursor_query: Query<&EntityCursor, Without<Window>>,
     q_windows: Query<(Entity, Option<&CursorIcon>), With<Window>>,
     r_default_cursor: Res<DefaultCursor>,
+    r_override_cursor: Res<OverrideCursor>,
 ) {
-    let cursor = hover_map
-        .and_then(|hover_map| match hover_map.get(&PointerId::Mouse) {
-            Some(hover_set) => hover_set.keys().find_map(|entity| {
-                cursor_query.get(*entity).ok().or_else(|| {
-                    parent_query
-                        .iter_ancestors(*entity)
-                        .find_map(|e| cursor_query.get(e).ok())
-                })
-            }),
-            None => None,
-        })
-        .unwrap_or(&r_default_cursor.0);
+    let cursor = r_override_cursor.0.as_ref().unwrap_or_else(|| {
+        hover_map
+            .and_then(|hover_map| match hover_map.get(&PointerId::Mouse) {
+                Some(hover_set) => hover_set.keys().find_map(|entity| {
+                    cursor_query.get(*entity).ok().or_else(|| {
+                        parent_query
+                            .iter_ancestors(*entity)
+                            .find_map(|e| cursor_query.get(e).ok())
+                    })
+                }),
+                None => None,
+            })
+            .unwrap_or(&r_default_cursor)
+    });
 
     for (entity, prev_cursor) in q_windows.iter() {
         if let Some(prev_cursor) = prev_cursor
@@ -111,6 +122,7 @@ impl Plugin for CursorIconPlugin {
     fn build(&self, app: &mut App) {
         if app.world().get_resource::<DefaultCursor>().is_none() {
             app.init_resource::<DefaultCursor>();
+            app.init_resource::<OverrideCursor>();
         }
         app.add_systems(PreUpdate, update_cursor.in_set(PickingSystems::Last));
     }
