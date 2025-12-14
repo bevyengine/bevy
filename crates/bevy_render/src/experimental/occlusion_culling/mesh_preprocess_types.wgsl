@@ -22,6 +22,14 @@ struct MeshInput {
     // User supplied index to identify the mesh instance
     tag: u32,
     pad: u32,
+    // AABB for decompressing positions.
+    aabb_center: vec3<f32>,
+    pad2_: u32,
+    aabb_half_extents: vec3<f32>,
+    pad3_: u32,
+    // UVs range for decompressing UVs coordinates.
+    uv0_range: vec4<f32>,
+    uv1_range: vec4<f32>,
 }
 
 // The `wgpu` indirect parameters structure. This is a union of two structures.

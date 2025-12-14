@@ -145,7 +145,7 @@ use bevy_app::prelude::*;
 use bevy_asset::AssetApp;
 use bevy_ecs::prelude::Resource;
 use bevy_image::{CompressedImageFormatSupport, CompressedImageFormats, ImageSamplerDescriptor};
-use bevy_mesh::MeshVertexAttribute;
+use bevy_mesh::{MeshAttributeCompressionFlags, MeshVertexAttribute};
 
 /// The glTF prelude.
 ///
@@ -214,6 +214,9 @@ pub struct GltfPlugin {
     ///
     /// To specify, use [`GltfPlugin::add_custom_vertex_attribute`].
     pub custom_vertex_attributes: HashMap<Box<str>, MeshVertexAttribute>,
+
+    /// Mesh attribute compression flags for the loaded meshes.
+    pub mesh_attribute_compression: MeshAttributeCompressionFlags,
 }
 
 impl Default for GltfPlugin {
@@ -222,6 +225,7 @@ impl Default for GltfPlugin {
             default_sampler: ImageSamplerDescriptor::linear(),
             custom_vertex_attributes: HashMap::default(),
             use_model_forward_direction: false,
+            mesh_attribute_compression: MeshAttributeCompressionFlags::default(),
         }
     }
 }
@@ -272,6 +276,7 @@ impl Plugin for GltfPlugin {
             custom_vertex_attributes: self.custom_vertex_attributes.clone(),
             default_sampler,
             default_use_model_forward_direction: self.use_model_forward_direction,
+            default_mesh_attribute_compression: self.mesh_attribute_compression,
         });
     }
 }
