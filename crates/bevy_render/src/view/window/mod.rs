@@ -60,6 +60,7 @@ pub struct ExtractedWindow {
     pub swap_chain_texture_view: Option<TextureView>,
     pub swap_chain_texture: Option<SurfaceTexture>,
     pub swap_chain_texture_format: Option<TextureFormat>,
+    pub swap_chain_texture_view_format: Option<TextureFormat>,
     pub size_changed: bool,
     pub present_mode_changed: bool,
     pub alpha_mode: CompositeAlphaMode,
@@ -67,8 +68,9 @@ pub struct ExtractedWindow {
 
 impl ExtractedWindow {
     fn set_swapchain_texture(&mut self, frame: wgpu::SurfaceTexture) {
+        self.swap_chain_texture_view_format = Some(frame.texture.format().add_srgb_suffix());
         let texture_view_descriptor = TextureViewDescriptor {
-            format: Some(frame.texture.format().add_srgb_suffix()),
+            format: self.swap_chain_texture_view_format,
             ..default()
         };
         self.swap_chain_texture_view = Some(TextureView::from(
@@ -140,6 +142,7 @@ fn extract_windows(
             swap_chain_texture_view: None,
             size_changed: false,
             swap_chain_texture_format: None,
+            swap_chain_texture_view_format: None,
             present_mode_changed: false,
             alpha_mode: window.composite_alpha_mode,
         });
@@ -191,6 +194,7 @@ struct SurfaceData {
     // TODO: what lifetime should this be?
     surface: WgpuWrapper<wgpu::Surface<'static>>,
     configuration: SurfaceConfiguration,
+    texture_view_format: Option<TextureFormat>,
 }
 
 #[derive(Resource, Default)]
@@ -364,6 +368,11 @@ pub fn create_surfaces(
                     }
                 }
 
+                let texture_view_format = if !format.is_srgb() {
+                    Some(format.add_srgb_suffix())
+                } else {
+                    None
+                };
                 let configuration = SurfaceConfiguration {
                     format,
                     width: window.physical_width,
@@ -385,10 +394,9 @@ pub fn create_surfaces(
                         }
                         CompositeAlphaMode::Inherit => wgpu::CompositeAlphaMode::Inherit,
                     },
-                    view_formats: if !format.is_srgb() {
-                        vec![format.add_srgb_suffix()]
-                    } else {
-                        vec![]
+                    view_formats: match texture_view_format {
+                        Some(format) => vec![format],
+                        None => vec![],
                     },
                 };
 
@@ -397,6 +405,7 @@ pub fn create_surfaces(
                 SurfaceData {
                     surface: WgpuWrapper::new(surface),
                     configuration,
+                    texture_view_format,
                 }
             });
 
