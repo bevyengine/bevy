@@ -2882,9 +2882,9 @@ impl UiTargetCamera {
 ///     commands.spawn((
 ///         Camera2d,
 ///         Camera {
-///             target: RenderTarget::Window(WindowRef::Entity(another_window)),
 ///             ..Default::default()
 ///         },
+///         RenderTarget::Window(WindowRef::Entity(another_window)),
 ///         // We add the Marker here so all Ui will spawn in
 ///         // another window if no UiTargetCamera is specified
 ///         IsDefaultUiCamera
@@ -2896,7 +2896,7 @@ pub struct IsDefaultUiCamera;
 
 #[derive(SystemParam)]
 pub struct DefaultUiCamera<'w, 's> {
-    cameras: Query<'w, 's, (Entity, &'static Camera)>,
+    cameras: Query<'w, 's, (Entity, &'static Camera, &'static RenderTarget)>,
     default_cameras: Query<'w, 's, Entity, (With<Camera>, With<IsDefaultUiCamera>)>,
     primary_window: Query<'w, 's, Entity, With<PrimaryWindow>>,
 }
@@ -2910,15 +2910,15 @@ impl<'w, 's> DefaultUiCamera<'w, 's> {
             }
             self.cameras
                 .iter()
-                .filter(|(_, c)| match c.target {
+                .filter(|(_, _, render_target)| match render_target {
                     RenderTarget::Window(WindowRef::Primary) => true,
                     RenderTarget::Window(WindowRef::Entity(w)) => {
-                        self.primary_window.get(w).is_ok()
+                        self.primary_window.get(*w).is_ok()
                     }
                     _ => false,
                 })
-                .max_by_key(|(e, c)| (c.order, *e))
-                .map(|(e, _)| e)
+                .max_by_key(|(e, c, _)| (c.order, *e))
+                .map(|(e, _, _)| e)
         })
     }
 }
