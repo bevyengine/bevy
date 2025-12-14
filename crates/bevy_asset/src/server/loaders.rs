@@ -1,5 +1,3 @@
-#[cfg(feature = "trace")]
-use crate::io::ReaderRequiredFeatures;
 use crate::{
     loader::{AssetLoader, ErasedAssetLoader},
     path::AssetPath,
@@ -15,6 +13,7 @@ use tracing::warn;
 
 #[cfg(feature = "trace")]
 use {
+    crate::io::ReaderRequiredFeatures,
     alloc::string::ToString,
     bevy_tasks::ConditionalSendFuture,
     tracing::{info_span, instrument::Instrument},
