@@ -80,7 +80,9 @@ impl GltfExtensionHandler for GltfExtensionHandlerToMesh2d {
     fn on_spawn_mesh_and_material(
         &mut self,
         load_context: &mut LoadContext<'_>,
-        _gltf_node: &gltf::Node,
+        _primitive: &gltf::Primitive,
+        _mesh: &gltf::Mesh,
+        _material: &gltf::Material,
         entity: &mut EntityWorldMut,
     ) {
         if let Some(mesh3d) = entity.get::<Mesh3d>()

@@ -1717,7 +1717,13 @@ fn load_node(
                 // enable extension processing for a Bevy-created construct
                 // that is the Mesh and Material merged on a single entity
                 for extension in extensions.iter_mut() {
-                    extension.on_spawn_mesh_and_material(load_context, gltf_node, &mut mesh_entity);
+                    extension.on_spawn_mesh_and_material(
+                        load_context,
+                        &primitive,
+                        &mesh,
+                        &material,
+                        &mut mesh_entity,
+                    );
                 }
             }
         }

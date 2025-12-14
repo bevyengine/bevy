@@ -171,7 +171,9 @@ pub trait GltfExtensionHandler: Send + Sync {
     fn on_spawn_mesh_and_material(
         &mut self,
         load_context: &mut LoadContext<'_>,
-        gltf_node: &Node,
+        primitive: &gltf::Primitive,
+        mesh: &gltf::Mesh,
+        material: &gltf::Material,
         entity: &mut EntityWorldMut,
     ) {
     }
