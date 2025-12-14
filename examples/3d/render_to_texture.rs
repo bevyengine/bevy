@@ -2,6 +2,7 @@
 
 use std::f32::consts::PI;
 
+use bevy::camera::RenderTarget;
 use bevy::{camera::visibility::RenderLayers, prelude::*, render::render_resource::TextureFormat};
 
 fn main() {
@@ -66,10 +67,10 @@ fn setup(
         Camera {
             // render before the "main pass" camera
             order: -1,
-            target: image_handle.clone().into(),
             clear_color: Color::WHITE.into(),
             ..default()
         },
+        RenderTarget::Image(image_handle.clone().into()),
         Transform::from_translation(Vec3::new(0.0, 0.0, 15.0)).looking_at(Vec3::ZERO, Vec3::Y),
         first_pass_layer,
     ));

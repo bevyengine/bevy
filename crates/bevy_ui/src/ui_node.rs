@@ -298,6 +298,74 @@ impl ComputedNode {
 
         clip_rect
     }
+
+    const fn compute_thumb(
+        gutter_min: f32,
+        content_length: f32,
+        gutter_length: f32,
+        scroll_position: f32,
+    ) -> [f32; 2] {
+        if content_length <= gutter_length {
+            return [gutter_min, gutter_min + gutter_length];
+        }
+        let thumb_len = gutter_length * gutter_length / content_length;
+        let thumb_min = gutter_min + scroll_position * gutter_length / content_length;
+        [thumb_min, thumb_min + thumb_len]
+    }
+
+    /// Compute the bounds of the horizontal scrollbar and the thumb
+    /// in object-centered coordinates.
+    pub fn horizontal_scrollbar(&self) -> Option<(Rect, [f32; 2])> {
+        if self.scrollbar_size.y <= 0. {
+            return None;
+        }
+        let content_inset = self.content_inset();
+        let half_size = 0.5 * self.size;
+        let min_x = -half_size.x + content_inset.left;
+        let max_x = half_size.x - content_inset.right - self.scrollbar_size.x;
+        let max_y = half_size.y - content_inset.bottom;
+        let min_y = max_y - self.scrollbar_size.y;
+        let gutter = Rect {
+            min: Vec2::new(min_x, min_y),
+            max: Vec2::new(max_x, max_y),
+        };
+        Some((
+            gutter,
+            Self::compute_thumb(
+                gutter.min.x,
+                self.content_size.x,
+                gutter.size().x,
+                self.scroll_position.x,
+            ),
+        ))
+    }
+
+    /// Compute the bounds of the vertical scrollbar and the thumb
+    /// in object-centered coordinates.
+    pub fn vertical_scrollbar(&self) -> Option<(Rect, [f32; 2])> {
+        if self.scrollbar_size.x <= 0. {
+            return None;
+        }
+        let content_inset = self.content_inset();
+        let half_size = 0.5 * self.size;
+        let max_x = half_size.x - content_inset.right;
+        let min_x = max_x - self.scrollbar_size.x;
+        let min_y = -half_size.y + content_inset.top;
+        let max_y = half_size.y - content_inset.bottom - self.scrollbar_size.y;
+        let gutter = Rect {
+            min: Vec2::new(min_x, min_y),
+            max: Vec2::new(max_x, max_y),
+        };
+        Some((
+            gutter,
+            Self::compute_thumb(
+                gutter.min.y,
+                self.content_size.y,
+                gutter.size().y,
+                self.scroll_position.y,
+            ),
+        ))
+    }
 }
 
 impl ComputedNode {
@@ -2814,9 +2882,9 @@ impl UiTargetCamera {
 ///     commands.spawn((
 ///         Camera2d,
 ///         Camera {
-///             target: RenderTarget::Window(WindowRef::Entity(another_window)),
 ///             ..Default::default()
 ///         },
+///         RenderTarget::Window(WindowRef::Entity(another_window)),
 ///         // We add the Marker here so all Ui will spawn in
 ///         // another window if no UiTargetCamera is specified
 ///         IsDefaultUiCamera
@@ -2828,7 +2896,7 @@ pub struct IsDefaultUiCamera;
 
 #[derive(SystemParam)]
 pub struct DefaultUiCamera<'w, 's> {
-    cameras: Query<'w, 's, (Entity, &'static Camera)>,
+    cameras: Query<'w, 's, (Entity, &'static Camera, &'static RenderTarget)>,
     default_cameras: Query<'w, 's, Entity, (With<Camera>, With<IsDefaultUiCamera>)>,
     primary_window: Query<'w, 's, Entity, With<PrimaryWindow>>,
 }
@@ -2842,15 +2910,15 @@ impl<'w, 's> DefaultUiCamera<'w, 's> {
             }
             self.cameras
                 .iter()
-                .filter(|(_, c)| match c.target {
+                .filter(|(_, _, render_target)| match render_target {
                     RenderTarget::Window(WindowRef::Primary) => true,
                     RenderTarget::Window(WindowRef::Entity(w)) => {
-                        self.primary_window.get(w).is_ok()
+                        self.primary_window.get(*w).is_ok()
                     }
                     _ => false,
                 })
-                .max_by_key(|(e, c)| (c.order, *e))
-                .map(|(e, _)| e)
+                .max_by_key(|(e, c, _)| (c.order, *e))
+                .map(|(e, _, _)| e)
         })
     }
 }
@@ -2916,6 +2984,10 @@ impl ComputedUiRenderTargetInfo {
 
 #[cfg(test)]
 mod tests {
+    use bevy_math::Rect;
+    use bevy_math::Vec2;
+
+    use crate::ComputedNode;
     use crate::GridPlacement;
 
     #[test]
@@ -2942,5 +3014,103 @@ mod tests {
         assert_eq!(GridPlacement::start_end(11, 21).get_span(), None);
         assert_eq!(GridPlacement::start_span(3, 5).get_end(), None);
         assert_eq!(GridPlacement::end_span(-4, 12).get_start(), None);
+    }
+
+    #[test]
+    fn computed_node_both_scrollbars() {
+        let node = ComputedNode {
+            size: Vec2::splat(100.),
+            scrollbar_size: Vec2::splat(10.),
+            content_size: Vec2::splat(100.),
+            ..Default::default()
+        };
+
+        let (gutter, thumb) = node.horizontal_scrollbar().unwrap();
+        assert_eq!(
+            gutter,
+            Rect {
+                min: Vec2::new(-50., 40.),
+                max: Vec2::new(40., 50.)
+            }
+        );
+        assert_eq!(thumb, [-50., 31.]);
+
+        let (gutter, thumb) = node.vertical_scrollbar().unwrap();
+        assert_eq!(
+            gutter,
+            Rect {
+                min: Vec2::new(40., -50.),
+                max: Vec2::new(50., 40.)
+            }
+        );
+        assert_eq!(thumb, [-50., 31.]);
+    }
+
+    #[test]
+    fn computed_node_single_horizontal_scrollbar() {
+        let mut node = ComputedNode {
+            size: Vec2::splat(100.),
+            scrollbar_size: Vec2::new(0., 10.),
+            content_size: Vec2::new(200., 100.),
+            scroll_position: Vec2::new(0., 0.),
+            ..Default::default()
+        };
+
+        assert_eq!(None, node.vertical_scrollbar());
+
+        let (gutter, thumb) = node.horizontal_scrollbar().unwrap();
+        assert_eq!(
+            gutter,
+            Rect {
+                min: Vec2::new(-50., 40.),
+                max: Vec2::new(50., 50.)
+            }
+        );
+        assert_eq!(thumb, [-50., 0.]);
+
+        node.scroll_position.x += 100.;
+        let (gutter, thumb) = node.horizontal_scrollbar().unwrap();
+        assert_eq!(
+            gutter,
+            Rect {
+                min: Vec2::new(-50., 40.),
+                max: Vec2::new(50., 50.)
+            }
+        );
+        assert_eq!(thumb, [0., 50.]);
+    }
+
+    #[test]
+    fn computed_node_single_vertical_scrollbar() {
+        let mut node = ComputedNode {
+            size: Vec2::splat(100.),
+            scrollbar_size: Vec2::new(10., 0.),
+            content_size: Vec2::new(100., 200.),
+            scroll_position: Vec2::new(0., 0.),
+            ..Default::default()
+        };
+
+        assert_eq!(None, node.horizontal_scrollbar());
+
+        let (gutter, thumb) = node.vertical_scrollbar().unwrap();
+        assert_eq!(
+            gutter,
+            Rect {
+                min: Vec2::new(40., -50.),
+                max: Vec2::new(50., 50.)
+            }
+        );
+        assert_eq!(thumb, [-50., 0.]);
+
+        node.scroll_position.y += 100.;
+        let (gutter, thumb) = node.vertical_scrollbar().unwrap();
+        assert_eq!(
+            gutter,
+            Rect {
+                min: Vec2::new(40., -50.),
+                max: Vec2::new(50., 50.)
+            }
+        );
+        assert_eq!(thumb, [0., 50.]);
     }
 }
