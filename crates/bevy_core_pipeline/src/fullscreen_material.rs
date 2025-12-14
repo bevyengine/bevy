@@ -91,7 +91,7 @@ impl<T: FullscreenMaterial> Plugin for FullscreenMaterialPlugin<T> {
                 warn!("Failed to add edges for FullscreenMaterial");
             };
         } else {
-            // If there was no sub_graph specify we try to determine the graph based on the camera
+            // If there was no sub_graph specified we try to determine the graph based on the camera
             // it gets added to.
             render_app.add_systems(ExtractSchedule, extract_on_add::<T>);
         }
