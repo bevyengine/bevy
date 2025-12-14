@@ -33,8 +33,8 @@ use bevy_ui::UiStack;
 
 /// Configuration for the UI debug overlay
 ///
-/// Can be added as both a global `Resource` and locally as a `Component` to
-/// individual UI node entities. The local component options override the global resource.
+/// Can be added as both a global `Resource` and locally as a `Component` to individual UI node entities.
+/// The local component options override the global resource.
 #[derive(Component, Resource, Reflect)]
 #[reflect(Component, Resource)]
 pub struct UiDebugOptions {
@@ -87,18 +87,6 @@ pub fn extract_debug_overlay(
     mut commands: Commands,
     debug_options: Extract<Res<UiDebugOptions>>,
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
-    uinode_query: Extract<
-        Query<(
-            Entity,
-            &ComputedNode,
-            &UiGlobalTransform,
-            &InheritedVisibility,
-            Option<&CalculatedClip>,
-            &ComputedUiTargetCamera,
-            Option<&UiDebugOptions>,
-        )>,
-    >,
-
     uinode_query: Extract<
         Query<(
             Entity,
