@@ -95,6 +95,7 @@ pub trait GltfExtensionHandler: Send + Sync {
         &mut self,
         extension_id: &str,
         extension_data: Option<&serde_json::Value>,
+        gltf_animation: &gltf::Animation,
         name: Option<&str>,
         handle: Handle<AnimationClip>,
     ) {
@@ -141,6 +142,7 @@ pub trait GltfExtensionHandler: Send + Sync {
         extension_id: &str,
         extension_data: Option<&serde_json::Value>,
         load_context: &mut LoadContext<'_>,
+        gltf_material: &gltf::Material,
         name: Option<&str>,
         material: Handle<StandardMaterial>,
     ) {
@@ -156,6 +158,7 @@ pub trait GltfExtensionHandler: Send + Sync {
         extension_id: &str,
         extension_data: Option<&serde_json::Value>,
         load_context: &mut LoadContext<'_>,
+        gltf_mesh: &gltf::Mesh,
         name: Option<&str>,
         mesh: Handle<GltfMesh>,
     ) {
@@ -187,6 +190,7 @@ pub trait GltfExtensionHandler: Send + Sync {
         &mut self,
         extension_id: &str,
         extension_data: Option<&serde_json::Value>,
+        scene: &gltf::Scene,
         name: Option<&str>,
         world_root_id: Entity,
         world: &mut World,

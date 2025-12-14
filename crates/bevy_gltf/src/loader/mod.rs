@@ -600,6 +600,7 @@ impl GltfLoader {
                         extension.on_animation(
                             id,
                             animation.extension_value(id),
+                            &animation,
                             animation.name(),
                             handle.clone(),
                         );
@@ -726,6 +727,7 @@ impl GltfLoader {
                             id,
                             material.extension_value(id),
                             load_context,
+                            &material,
                             material.name(),
                             handle.clone(),
                         );
@@ -901,6 +903,7 @@ impl GltfLoader {
                         id,
                         gltf_mesh.extension_value(id),
                         load_context,
+                        &gltf_mesh,
                         gltf_mesh.name(),
                         handle.clone(),
                     );
@@ -1114,6 +1117,7 @@ impl GltfLoader {
                     extension.on_scene_completed(
                         id,
                         scene.extension_value(id),
+                        &scene,
                         scene.name(),
                         world_root_id,
                         &mut world,

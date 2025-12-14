@@ -136,6 +136,7 @@ impl GltfExtensionHandler for GltfExtensionHandlerAnimation {
         &mut self,
         _extension_id: &str,
         _value: Option<&serde_json::Value>,
+        _gltf_animation: &gltf::Animation,
         name: Option<&str>,
         handle: Handle<AnimationClip>,
     ) {
@@ -172,6 +173,7 @@ impl GltfExtensionHandler for GltfExtensionHandlerAnimation {
         &mut self,
         _extension_id: &str,
         _value: Option<&serde_json::Value>,
+        _scene: &gltf::Scene,
         _name: Option<&str>,
         _world_root_id: Entity,
         world: &mut World,
