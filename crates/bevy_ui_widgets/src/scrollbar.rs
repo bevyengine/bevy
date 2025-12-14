@@ -130,7 +130,8 @@ fn scrollbar_on_pointer_down(
         // Convert the click coordinates into a scroll position. If it's greater than the
         // current scroll position, scroll forward by one step (visible size) otherwise scroll
         // back.
-        let visible_size = scroll_content.size() * scroll_content.inverse_scale_factor;
+        let visible_size = (scroll_content.size() - scroll_content.scrollbar_size)
+            * scroll_content.inverse_scale_factor;
         let content_size = scroll_content.content_size() * scroll_content.inverse_scale_factor;
         let max_range = (content_size - visible_size).max(Vec2::ZERO);
 
@@ -193,8 +194,11 @@ fn scrollbar_on_drag(
 
         if drag.dragging {
             let distance = ev.event().distance / ui_scale.0;
-            let visible_size = scroll_content.size() * scroll_content.inverse_scale_factor;
+
+            let visible_size = (scroll_content.size() - scroll_content.scrollbar_size)
+                * scroll_content.inverse_scale_factor;
             let content_size = scroll_content.content_size() * scroll_content.inverse_scale_factor;
+
             let scrollbar_size = (node.size() * node.inverse_scale_factor).max(Vec2::ONE);
 
             match scrollbar.orientation {
@@ -250,7 +254,8 @@ fn update_scrollbar_thumb(
         };
 
         // Size of the visible scrolling area.
-        let visible_size = scroll_area.1.size() * scroll_area.1.inverse_scale_factor;
+        let visible_size = (scroll_area.1.size() - scroll_area.1.scrollbar_size)
+            * scroll_area.1.inverse_scale_factor;
 
         // Size of the scrolling content.
         let content_size = scroll_area.1.content_size() * scroll_area.1.inverse_scale_factor;
@@ -263,7 +268,7 @@ fn update_scrollbar_thumb(
             visible_size: f32,
             track_length: f32,
             min_size: f32,
-            offset: f32,
+            mut offset: f32,
         ) -> (f32, f32) {
             let thumb_size = if content_size > visible_size {
                 (track_length * visible_size / content_size)
@@ -272,6 +277,15 @@ fn update_scrollbar_thumb(
             } else {
                 track_length
             };
+
+            if content_size > visible_size {
+                let max_offset = content_size - visible_size;
+
+                // Clamp offset to prevent thumb from going out of bounds during inertial scroll
+                offset = offset.clamp(0.0, max_offset);
+            } else {
+                offset = 0.0;
+            }
 
             let thumb_pos = if content_size > visible_size {
                 offset * (track_length - thumb_size) / (content_size - visible_size)

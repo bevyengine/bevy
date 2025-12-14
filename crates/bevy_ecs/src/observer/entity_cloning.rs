@@ -95,7 +95,6 @@ mod tests {
             .spawn_empty()
             .observe(|_: On<E>, mut res: ResMut<Num>| res.0 += 1)
             .id();
-        world.flush();
 
         world.trigger(E(e));
 

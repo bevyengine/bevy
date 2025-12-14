@@ -1,4 +1,4 @@
-#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![forbid(unsafe_code)]
 #![doc(
     html_logo_url = "https://bevy.org/assets/icon.png",
@@ -238,10 +238,6 @@ pub enum InputFocusSystems {
     /// System which dispatches bubbled input events to the focused entity, or to the primary window.
     Dispatch,
 }
-
-/// Deprecated alias for [`InputFocusSystems`].
-#[deprecated(since = "0.17.0", note = "Renamed to `InputFocusSystems`.")]
-pub type InputFocusSet = InputFocusSystems;
 
 /// If no entity is focused, sets the focus to the primary window, if any.
 pub fn set_initial_focus(

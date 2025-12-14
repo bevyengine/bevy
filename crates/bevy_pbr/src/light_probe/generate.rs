@@ -30,7 +30,7 @@ use bevy_render::{
     render_asset::RenderAssets,
     render_graph::{Node, NodeRunError, RenderGraphContext, RenderGraphExt, RenderLabel},
     render_resource::{
-        binding_types::*, AddressMode, BindGroup, BindGroupEntries, BindGroupLayout,
+        binding_types::*, AddressMode, BindGroup, BindGroupEntries, BindGroupLayoutDescriptor,
         BindGroupLayoutEntries, CachedComputePipelineId, ComputePassDescriptor,
         ComputePipelineDescriptor, DownlevelFlags, Extent3d, FilterMode, PipelineCache, Sampler,
         SamplerBindingType, SamplerDescriptor, ShaderStages, ShaderType, StorageTextureAccess,
@@ -77,11 +77,11 @@ pub enum GeneratorNode {
 /// Stores the bind group layouts for the environment map generation pipelines
 #[derive(Resource)]
 pub struct GeneratorBindGroupLayouts {
-    pub downsampling_first: BindGroupLayout,
-    pub downsampling_second: BindGroupLayout,
-    pub radiance: BindGroupLayout,
-    pub irradiance: BindGroupLayout,
-    pub copy: BindGroupLayout,
+    pub downsampling_first: BindGroupLayoutDescriptor,
+    pub downsampling_second: BindGroupLayoutDescriptor,
+    pub radiance: BindGroupLayoutDescriptor,
+    pub irradiance: BindGroupLayoutDescriptor,
+    pub copy: BindGroupLayoutDescriptor,
 }
 
 /// Samplers for the environment map generation pipelines
@@ -210,7 +210,7 @@ pub fn initialize_generated_environment_map_resources(
     // Bind group layouts
     let (downsampling_first, downsampling_second) = if combine_bind_group {
         // One big bind group layout containing all outputs 1–12
-        let downsampling = render_device.create_bind_group_layout(
+        let downsampling = BindGroupLayoutDescriptor::new(
             "downsampling_bind_group_layout_combined",
             &BindGroupLayoutEntries::sequential(
                 ShaderStages::COMPUTE,
@@ -241,7 +241,7 @@ pub fn initialize_generated_environment_map_resources(
     } else {
         // Split layout: first pass outputs 1–6, second pass outputs 7–12 (input mip6 read-only)
 
-        let downsampling_first = render_device.create_bind_group_layout(
+        let downsampling_first = BindGroupLayoutDescriptor::new(
             "downsampling_first_bind_group_layout",
             &BindGroupLayoutEntries::sequential(
                 ShaderStages::COMPUTE,
@@ -260,7 +260,7 @@ pub fn initialize_generated_environment_map_resources(
             ),
         );
 
-        let downsampling_second = render_device.create_bind_group_layout(
+        let downsampling_second = BindGroupLayoutDescriptor::new(
             "downsampling_second_bind_group_layout",
             &BindGroupLayoutEntries::sequential(
                 ShaderStages::COMPUTE,
@@ -281,7 +281,7 @@ pub fn initialize_generated_environment_map_resources(
 
         (downsampling_first, downsampling_second)
     };
-    let radiance = render_device.create_bind_group_layout(
+    let radiance = BindGroupLayoutDescriptor::new(
         "radiance_bind_group_layout",
         &BindGroupLayoutEntries::sequential(
             ShaderStages::COMPUTE,
@@ -300,7 +300,7 @@ pub fn initialize_generated_environment_map_resources(
         ),
     );
 
-    let irradiance = render_device.create_bind_group_layout(
+    let irradiance = BindGroupLayoutDescriptor::new(
         "irradiance_bind_group_layout",
         &BindGroupLayoutEntries::sequential(
             ShaderStages::COMPUTE,
@@ -319,7 +319,7 @@ pub fn initialize_generated_environment_map_resources(
         ),
     );
 
-    let copy = render_device.create_bind_group_layout(
+    let copy = BindGroupLayoutDescriptor::new(
         "copy_bind_group_layout",
         &BindGroupLayoutEntries::sequential(
             ShaderStages::COMPUTE,
@@ -595,6 +595,7 @@ pub fn prepare_generated_environment_map_bind_groups(
         With<RenderEnvironmentMap>,
     >,
     render_device: Res<RenderDevice>,
+    pipeline_cache: Res<PipelineCache>,
     queue: Res<RenderQueue>,
     layouts: Res<GeneratorBindGroupLayouts>,
     samplers: Res<GeneratorSamplers>,
@@ -654,7 +655,7 @@ pub fn prepare_generated_environment_map_bind_groups(
                 // Combined layout expects destinations 1–12 in both bind groups
                 let bind_group = render_device.create_bind_group(
                     "downsampling_bind_group_combined_first",
-                    &layouts.downsampling_first,
+                    &pipeline_cache.get_bind_group_layout(&layouts.downsampling_first),
                     &BindGroupEntries::sequential((
                         &samplers.linear,
                         &downsampling_constants_buffer,
@@ -677,17 +678,21 @@ pub fn prepare_generated_environment_map_bind_groups(
                 (bind_group.clone(), bind_group)
             } else {
                 // Split path requires a separate view for mip6 input
-                let input_env_map_second = env_map_texture.create_view(&TextureViewDescriptor {
-                    dimension: Some(TextureViewDimension::D2Array),
-                    base_mip_level: min(6, last_mip),
-                    mip_level_count: Some(1),
-                    ..Default::default()
-                });
+                let input_env_map_second =
+                    textures
+                        .environment_map
+                        .texture
+                        .create_view(&TextureViewDescriptor {
+                            dimension: Some(TextureViewDimension::D2Array),
+                            base_mip_level: min(6, last_mip),
+                            mip_level_count: Some(1),
+                            ..Default::default()
+                        });
 
                 // Split layout (current behavior)
                 let first = render_device.create_bind_group(
                     "downsampling_first_bind_group",
-                    &layouts.downsampling_first,
+                    &pipeline_cache.get_bind_group_layout(&layouts.downsampling_first),
                     &BindGroupEntries::sequential((
                         &samplers.linear,
                         &downsampling_constants_buffer,
@@ -703,7 +708,7 @@ pub fn prepare_generated_environment_map_bind_groups(
 
                 let second = render_device.create_bind_group(
                     "downsampling_second_bind_group",
-                    &layouts.downsampling_second,
+                    &pipeline_cache.get_bind_group_layout(&layouts.downsampling_second),
                     &BindGroupEntries::sequential((
                         &samplers.linear,
                         &downsampling_constants_buffer,
@@ -756,7 +761,7 @@ pub fn prepare_generated_environment_map_bind_groups(
             );
             let bind_group = render_device.create_bind_group(
                 Some(format!("radiance_bind_group_mip_{mip}").as_str()),
-                &layouts.radiance,
+                &pipeline_cache.get_bind_group_layout(&layouts.radiance),
                 &BindGroupEntries::sequential((
                     &textures.environment_map.default_view,
                     &samplers.linear,
@@ -793,7 +798,7 @@ pub fn prepare_generated_environment_map_bind_groups(
 
         let irradiance_bind_group = render_device.create_bind_group(
             "irradiance_bind_group",
-            &layouts.irradiance,
+            &pipeline_cache.get_bind_group_layout(&layouts.irradiance),
             &BindGroupEntries::sequential((
                 &textures.environment_map.default_view,
                 &samplers.linear,
@@ -816,7 +821,7 @@ pub fn prepare_generated_environment_map_bind_groups(
 
         let copy_bind_group = render_device.create_bind_group(
             "copy_bind_group",
-            &layouts.copy,
+            &pipeline_cache.get_bind_group_layout(&layouts.copy),
             &BindGroupEntries::with_indices(((0, &src_view), (1, &dst_view))),
         );
 

@@ -9,7 +9,7 @@ license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
 [features]
-bevy_sprite_picking_backend = ["bevy_picking", "bevy_window"]
+bevy_picking = ["dep:bevy_picking", "bevy_window"]
 bevy_text = ["dep:bevy_text", "bevy_window"]
 
 [dependencies]
@@ -32,7 +32,7 @@ bevy_text = { path = "../bevy_text", version = "0.18.0-dev", optional = true }
 # other
 radsort = "0.1"
 tracing = { version = "0.1", default-features = false, features = ["std"] }
-wgpu-types = { version = "26", default-features = false }
+wgpu-types = { version = "27", default-features = false }
 
 [dev-dependencies]
 approx = "0.5.1"

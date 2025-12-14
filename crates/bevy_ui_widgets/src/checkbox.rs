@@ -2,8 +2,8 @@ use accesskit::Role;
 use bevy_a11y::AccessibilityNode;
 use bevy_app::{App, Plugin};
 use bevy_ecs::event::EntityEvent;
-use bevy_ecs::query::{Has, Without};
-use bevy_ecs::system::{In, ResMut};
+use bevy_ecs::query::{Has, With, Without};
+use bevy_ecs::system::ResMut;
 use bevy_ecs::{
     component::Component,
     observer::On,
@@ -15,14 +15,14 @@ use bevy_input_focus::{FocusedInput, InputFocus, InputFocusVisible};
 use bevy_picking::events::{Click, Pointer};
 use bevy_ui::{Checkable, Checked, InteractionDisabled};
 
-use crate::{Callback, Notify as _, ValueChange};
+use crate::ValueChange;
 use bevy_ecs::entity::Entity;
 
 /// Headless widget implementation for checkboxes. The [`Checked`] component represents the current
-/// state of the checkbox. The `on_change` field is an optional system id that will be run when the
-/// checkbox is clicked, or when the `Enter` or `Space` key is pressed while the checkbox is
-/// focused. If the `on_change` field is `Callback::Ignore`, then instead of calling a callback, the
-/// checkbox will update its own [`Checked`] state directly.
+/// state of the checkbox. The widget will emit a [`ValueChange<bool>`] event when clicked, or when
+/// the `Enter` or `Space` key is pressed while the checkbox is focused.
+///
+/// Add the [`checkbox_self_update`] observer watching the entity with this component to automatically add and remove the [`Checked`] component.
 ///
 /// # Toggle switches
 ///
@@ -31,38 +31,36 @@ use bevy_ecs::entity::Entity;
 /// the `Switch` role instead of the `Checkbox` role.
 #[derive(Component, Debug, Default)]
 #[require(AccessibilityNode(accesskit::Node::new(Role::CheckBox)), Checkable)]
-pub struct Checkbox {
-    /// One-shot system that is run when the checkbox state needs to be changed. If this value is
-    /// `Callback::Ignore`, then the checkbox will update it's own internal [`Checked`] state
-    /// without notification.
-    pub on_change: Callback<In<ValueChange<bool>>>,
-}
+pub struct Checkbox;
 
 fn checkbox_on_key_input(
     mut ev: On<FocusedInput<KeyboardInput>>,
-    q_checkbox: Query<(&Checkbox, Has<Checked>), Without<InteractionDisabled>>,
+    q_checkbox: Query<Has<Checked>, (With<Checkbox>, Without<InteractionDisabled>)>,
     mut commands: Commands,
 ) {
-    if let Ok((checkbox, is_checked)) = q_checkbox.get(ev.focused_entity) {
+    if let Ok(is_checked) = q_checkbox.get(ev.focused_entity) {
         let event = &ev.event().input;
         if event.state == ButtonState::Pressed
             && !event.repeat
             && (event.key_code == KeyCode::Enter || event.key_code == KeyCode::Space)
         {
             ev.propagate(false);
-            set_checkbox_state(&mut commands, ev.focused_entity, checkbox, !is_checked);
+            commands.trigger(ValueChange {
+                source: ev.focused_entity,
+                value: !is_checked,
+            });
         }
     }
 }
 
 fn checkbox_on_pointer_click(
     mut click: On<Pointer<Click>>,
-    q_checkbox: Query<(&Checkbox, Has<Checked>, Has<InteractionDisabled>)>,
+    q_checkbox: Query<(Has<Checked>, Has<InteractionDisabled>), With<Checkbox>>,
     focus: Option<ResMut<InputFocus>>,
     focus_visible: Option<ResMut<InputFocusVisible>>,
     mut commands: Commands,
 ) {
-    if let Ok((checkbox, is_checked, disabled)) = q_checkbox.get(click.entity) {
+    if let Ok((is_checked, disabled)) = q_checkbox.get(click.entity) {
         // Clicking on a button makes it the focused input,
         // and hides the focus ring if it was visible.
         if let Some(mut focus) = focus {
@@ -74,7 +72,10 @@ fn checkbox_on_pointer_click(
 
         click.propagate(false);
         if !disabled {
-            set_checkbox_state(&mut commands, click.entity, checkbox, !is_checked);
+            commands.trigger(ValueChange {
+                source: click.entity,
+                value: !is_checked,
+            });
         }
     }
 }
@@ -133,53 +134,38 @@ pub struct ToggleChecked {
 
 fn checkbox_on_set_checked(
     set_checked: On<SetChecked>,
-    q_checkbox: Query<(&Checkbox, Has<Checked>, Has<InteractionDisabled>)>,
+    q_checkbox: Query<(Has<Checked>, Has<InteractionDisabled>), With<Checkbox>>,
     mut commands: Commands,
 ) {
-    if let Ok((checkbox, is_checked, disabled)) = q_checkbox.get(set_checked.entity) {
+    if let Ok((is_checked, disabled)) = q_checkbox.get(set_checked.entity) {
         if disabled {
             return;
         }
 
         let will_be_checked = set_checked.checked;
         if will_be_checked != is_checked {
-            set_checkbox_state(&mut commands, set_checked.entity, checkbox, will_be_checked);
+            commands.trigger(ValueChange {
+                source: set_checked.entity,
+                value: will_be_checked,
+            });
         }
     }
 }
 
 fn checkbox_on_toggle_checked(
     toggle_checked: On<ToggleChecked>,
-    q_checkbox: Query<(&Checkbox, Has<Checked>, Has<InteractionDisabled>)>,
+    q_checkbox: Query<(Has<Checked>, Has<InteractionDisabled>), With<Checkbox>>,
     mut commands: Commands,
 ) {
-    if let Ok((checkbox, is_checked, disabled)) = q_checkbox.get(toggle_checked.entity) {
+    if let Ok((is_checked, disabled)) = q_checkbox.get(toggle_checked.entity) {
         if disabled {
             return;
         }
 
-        set_checkbox_state(&mut commands, toggle_checked.entity, checkbox, !is_checked);
-    }
-}
-
-fn set_checkbox_state(
-    commands: &mut Commands,
-    entity: impl Into<Entity>,
-    checkbox: &Checkbox,
-    new_state: bool,
-) {
-    if !matches!(checkbox.on_change, Callback::Ignore) {
-        commands.notify_with(
-            &checkbox.on_change,
-            ValueChange {
-                source: entity.into(),
-                value: new_state,
-            },
-        );
-    } else if new_state {
-        commands.entity(entity.into()).insert(Checked);
-    } else {
-        commands.entity(entity.into()).remove::<Checked>();
+        commands.trigger(ValueChange {
+            source: toggle_checked.entity,
+            value: !is_checked,
+        });
     }
 }
 
@@ -192,5 +178,16 @@ impl Plugin for CheckboxPlugin {
             .add_observer(checkbox_on_pointer_click)
             .add_observer(checkbox_on_set_checked)
             .add_observer(checkbox_on_toggle_checked);
+    }
+}
+
+/// Observer function which updates the checkbox value in response to a [`ValueChange`] event.
+/// This can be used to make the checkbox automatically update its own state when clicked,
+/// as opposed to managing the checkbox state externally.
+pub fn checkbox_self_update(value_change: On<ValueChange<bool>>, mut commands: Commands) {
+    if value_change.value {
+        commands.entity(value_change.source).insert(Checked);
+    } else {
+        commands.entity(value_change.source).remove::<Checked>();
     }
 }

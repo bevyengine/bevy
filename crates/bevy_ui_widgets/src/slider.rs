@@ -7,7 +7,7 @@ use bevy_ecs::event::EntityEvent;
 use bevy_ecs::hierarchy::Children;
 use bevy_ecs::lifecycle::Insert;
 use bevy_ecs::query::Has;
-use bevy_ecs::system::{In, Res};
+use bevy_ecs::system::Res;
 use bevy_ecs::world::DeferredWorld;
 use bevy_ecs::{
     component::Component,
@@ -27,7 +27,7 @@ use bevy_ui::{
     ComputedNode, ComputedUiRenderTargetInfo, InteractionDisabled, UiGlobalTransform, UiScale,
 };
 
-use crate::{Callback, Notify, ValueChange};
+use crate::ValueChange;
 use bevy_ecs::entity::Entity;
 
 /// Defines how the slider should behave when you click on the track (not the thumb).
@@ -81,10 +81,6 @@ pub enum TrackClick {
     SliderStep
 )]
 pub struct Slider {
-    /// Callback which is called when the slider is dragged or the value is changed via other user
-    /// interaction. If this value is `Callback::Ignore`, then the slider will update it's own
-    /// internal [`SliderValue`] state without notification.
-    pub on_change: Callback<In<ValueChange<f32>>>,
     /// Set the track-clicking behavior for this slider.
     pub track_click: TrackClick,
     // TODO: Think about whether we want a "vertical" option.
@@ -268,22 +264,49 @@ pub(crate) fn slider_on_pointer_down(
             return;
         }
 
+        // Detect orientation: vertical if height > width
+        let is_vertical = node.size().y > node.size().x;
+
         // Find thumb size by searching descendants for the first entity with SliderThumb
         let thumb_size = q_children
             .iter_descendants(press.entity)
-            .find_map(|child_id| q_thumb.get(child_id).ok().map(|thumb| thumb.size().x))
+            .find_map(|child_id| {
+                q_thumb.get(child_id).ok().map(|thumb| {
+                    if is_vertical {
+                        thumb.size().y
+                    } else {
+                        thumb.size().x
+                    }
+                })
+            })
             .unwrap_or(0.0);
 
         // Detect track click.
         let local_pos = transform.try_inverse().unwrap().transform_point2(
             press.pointer_location.position * node_target.scale_factor() / ui_scale.0,
         );
-        let track_width = node.size().x - thumb_size;
-        // Avoid division by zero
-        let click_val = if track_width > 0. {
-            local_pos.x * range.span() / track_width + range.center()
+        let track_size = if is_vertical {
+            node.size().y - thumb_size
         } else {
-            0.
+            node.size().x - thumb_size
+        };
+
+        // Avoid division by zero
+        let click_val = if track_size > 0. {
+            if is_vertical {
+                // For vertical sliders: bottom-to-top (0 at bottom, max at top)
+                // local_pos.y ranges from -height/2 (top) to +height/2 (bottom)
+                let y_from_bottom = (node.size().y / 2.0) - local_pos.y;
+                let adjusted_y = y_from_bottom - thumb_size / 2.0;
+                adjusted_y * range.span() / track_size + range.start()
+            } else {
+                // For horizontal sliders: convert from center-origin to left-origin
+                let x_from_left = local_pos.x + node.size().x / 2.0;
+                let adjusted_x = x_from_left - thumb_size / 2.0;
+                adjusted_x * range.span() / track_size + range.start()
+            }
+        } else {
+            range.center()
         };
 
         // Compute new value from click position
@@ -303,17 +326,10 @@ pub(crate) fn slider_on_pointer_down(
                 .unwrap_or(click_val),
         });
 
-        if matches!(slider.on_change, Callback::Ignore) {
-            commands.entity(press.entity).insert(SliderValue(new_value));
-        } else {
-            commands.notify_with(
-                &slider.on_change,
-                ValueChange {
-                    source: press.entity,
-                    value: new_value,
-                },
-            );
-        }
+        commands.trigger(ValueChange {
+            source: press.entity,
+            value: new_value,
+        });
     }
 }
 
@@ -339,37 +355,58 @@ pub(crate) fn slider_on_drag_start(
 
 pub(crate) fn slider_on_drag(
     mut event: On<Pointer<Drag>>,
-    mut q_slider: Query<(
-        &ComputedNode,
-        &Slider,
-        &SliderRange,
-        Option<&SliderPrecision>,
-        &UiGlobalTransform,
-        &mut CoreSliderDragState,
-        Has<InteractionDisabled>,
-    )>,
+    mut q_slider: Query<
+        (
+            &ComputedNode,
+            &SliderRange,
+            Option<&SliderPrecision>,
+            &UiGlobalTransform,
+            &mut CoreSliderDragState,
+            Has<InteractionDisabled>,
+        ),
+        With<Slider>,
+    >,
     q_thumb: Query<&ComputedNode, With<SliderThumb>>,
     q_children: Query<&Children>,
     mut commands: Commands,
     ui_scale: Res<UiScale>,
 ) {
-    if let Ok((node, slider, range, precision, transform, drag, disabled)) =
-        q_slider.get_mut(event.entity)
+    if let Ok((node, range, precision, transform, drag, disabled)) = q_slider.get_mut(event.entity)
     {
         event.propagate(false);
         if drag.dragging && !disabled {
+            // Detect orientation: vertical if height > width
+            let is_vertical = node.size().y > node.size().x;
+
             let mut distance = event.distance / ui_scale.0;
             distance.y *= -1.;
             let distance = transform.transform_vector2(distance);
+
             // Find thumb size by searching descendants for the first entity with SliderThumb
             let thumb_size = q_children
                 .iter_descendants(event.entity)
-                .find_map(|child_id| q_thumb.get(child_id).ok().map(|thumb| thumb.size().x))
+                .find_map(|child_id| {
+                    q_thumb.get(child_id).ok().map(|thumb| {
+                        if is_vertical {
+                            thumb.size().y
+                        } else {
+                            thumb.size().x
+                        }
+                    })
+                })
                 .unwrap_or(0.0);
-            let slider_width = ((node.size().x - thumb_size) * node.inverse_scale_factor).max(1.0);
+
+            let slider_size = if is_vertical {
+                ((node.size().y - thumb_size) * node.inverse_scale_factor).max(1.0)
+            } else {
+                ((node.size().x - thumb_size) * node.inverse_scale_factor).max(1.0)
+            };
+
+            let drag_distance = if is_vertical { distance.y } else { distance.x };
+
             let span = range.span();
             let new_value = if span > 0. {
-                drag.offset + (distance.x * span) / slider_width
+                drag.offset + (drag_distance * span) / slider_size
             } else {
                 range.start() + span * 0.5
             };
@@ -379,19 +416,10 @@ pub(crate) fn slider_on_drag(
                     .unwrap_or(new_value),
             );
 
-            if matches!(slider.on_change, Callback::Ignore) {
-                commands
-                    .entity(event.entity)
-                    .insert(SliderValue(rounded_value));
-            } else {
-                commands.notify_with(
-                    &slider.on_change,
-                    ValueChange {
-                        source: event.entity,
-                        value: rounded_value,
-                    },
-                );
-            }
+            commands.trigger(ValueChange {
+                source: event.entity,
+                value: rounded_value,
+            });
         }
     }
 }
@@ -410,16 +438,18 @@ pub(crate) fn slider_on_drag_end(
 
 fn slider_on_key_input(
     mut focused_input: On<FocusedInput<KeyboardInput>>,
-    q_slider: Query<(
-        &Slider,
-        &SliderValue,
-        &SliderRange,
-        &SliderStep,
-        Has<InteractionDisabled>,
-    )>,
+    q_slider: Query<
+        (
+            &SliderValue,
+            &SliderRange,
+            &SliderStep,
+            Has<InteractionDisabled>,
+        ),
+        With<Slider>,
+    >,
     mut commands: Commands,
 ) {
-    if let Ok((slider, value, range, step, disabled)) = q_slider.get(focused_input.focused_entity) {
+    if let Ok((value, range, step, disabled)) = q_slider.get(focused_input.focused_entity) {
         let input_event = &focused_input.input;
         if !disabled && input_event.state == ButtonState::Pressed {
             let new_value = match input_event.key_code {
@@ -432,19 +462,10 @@ fn slider_on_key_input(
                 }
             };
             focused_input.propagate(false);
-            if matches!(slider.on_change, Callback::Ignore) {
-                commands
-                    .entity(focused_input.focused_entity)
-                    .insert(SliderValue(new_value));
-            } else {
-                commands.notify_with(
-                    &slider.on_change,
-                    ValueChange {
-                        source: focused_input.focused_entity,
-                        value: new_value,
-                    },
-                );
-            }
+            commands.trigger(ValueChange {
+                source: focused_input.focused_entity,
+                value: new_value,
+            });
         }
     }
 }
@@ -532,10 +553,10 @@ pub enum SliderValueChange {
 
 fn slider_on_set_value(
     set_slider_value: On<SetSliderValue>,
-    q_slider: Query<(&Slider, &SliderValue, &SliderRange, Option<&SliderStep>)>,
+    q_slider: Query<(&SliderValue, &SliderRange, Option<&SliderStep>), With<Slider>>,
     mut commands: Commands,
 ) {
-    if let Ok((slider, value, range, step)) = q_slider.get(set_slider_value.entity) {
+    if let Ok((value, range, step)) = q_slider.get(set_slider_value.entity) {
         let new_value = match set_slider_value.change {
             SliderValueChange::Absolute(new_value) => range.clamp(new_value),
             SliderValueChange::Relative(delta) => range.clamp(value.0 + delta),
@@ -543,20 +564,20 @@ fn slider_on_set_value(
                 range.clamp(value.0 + delta * step.map(|s| s.0).unwrap_or_default())
             }
         };
-        if matches!(slider.on_change, Callback::Ignore) {
-            commands
-                .entity(set_slider_value.entity)
-                .insert(SliderValue(new_value));
-        } else {
-            commands.notify_with(
-                &slider.on_change,
-                ValueChange {
-                    source: set_slider_value.entity,
-                    value: new_value,
-                },
-            );
-        }
+        commands.trigger(ValueChange {
+            source: set_slider_value.entity,
+            value: new_value,
+        });
     }
+}
+
+/// Observer function which updates the slider value in response to a [`ValueChange`] event.
+/// This can be used to make the slider automatically update its own state when dragged,
+/// as opposed to managing the slider state externally.
+pub fn slider_self_update(value_change: On<ValueChange<f32>>, mut commands: Commands) {
+    commands
+        .entity(value_change.source)
+        .insert(SliderValue(value_change.value));
 }
 
 /// Plugin that adds the observers for the [`Slider`] widget.

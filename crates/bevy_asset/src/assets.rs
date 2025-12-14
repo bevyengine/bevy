@@ -291,7 +291,7 @@ pub struct Assets<A: Asset> {
     queued_events: Vec<AssetEvent<A>>,
     /// Assets managed by the `Assets` struct with live strong `Handle`s
     /// originating from `get_strong_handle`.
-    duplicate_handles: HashMap<AssetId<A>, u16>,
+    duplicate_handles: HashMap<AssetIndex, u16>,
 }
 
 impl<A: Asset> Default for Assets<A> {
@@ -400,10 +400,7 @@ impl<A: Asset> Assets<A> {
     pub fn add(&mut self, asset: impl Into<A>) -> Handle<A> {
         let index = self.dense_storage.allocator.reserve();
         self.insert_with_index(index, asset.into()).unwrap();
-        Handle::Strong(
-            self.handle_provider
-                .get_handle(index.into(), false, None, None),
-        )
+        Handle::Strong(self.handle_provider.get_handle(index, false, None, None))
     }
 
     /// Upgrade an `AssetId` into a strong `Handle` that will prevent asset drop.
@@ -415,11 +412,12 @@ impl<A: Asset> Assets<A> {
         if !self.contains(id) {
             return None;
         }
-        *self.duplicate_handles.entry(id).or_insert(0) += 1;
         let index = match id {
-            AssetId::Index { index, .. } => index.into(),
-            AssetId::Uuid { uuid } => uuid.into(),
+            AssetId::Index { index, .. } => index,
+            // We don't support strong handles for Uuid assets.
+            AssetId::Uuid { .. } => return None,
         };
+        *self.duplicate_handles.entry(index).or_insert(0) += 1;
         Some(Handle::Strong(
             self.handle_provider.get_handle(index, false, None, None),
         ))
@@ -479,19 +477,21 @@ impl<A: Asset> Assets<A> {
     /// This is the same as [`Assets::remove`] except it doesn't emit [`AssetEvent::Removed`].
     pub fn remove_untracked(&mut self, id: impl Into<AssetId<A>>) -> Option<A> {
         let id: AssetId<A> = id.into();
-        self.duplicate_handles.remove(&id);
         match id {
-            AssetId::Index { index, .. } => self.dense_storage.remove_still_alive(index),
+            AssetId::Index { index, .. } => {
+                self.duplicate_handles.remove(&index);
+                self.dense_storage.remove_still_alive(index)
+            }
             AssetId::Uuid { uuid } => self.hash_map.remove(&uuid),
         }
     }
 
     /// Removes the [`Asset`] with the given `id`.
-    pub(crate) fn remove_dropped(&mut self, id: AssetId<A>) {
-        match self.duplicate_handles.get_mut(&id) {
+    pub(crate) fn remove_dropped(&mut self, index: AssetIndex) {
+        match self.duplicate_handles.get_mut(&index) {
             None => {}
             Some(0) => {
-                self.duplicate_handles.remove(&id);
+                self.duplicate_handles.remove(&index);
             }
             Some(value) => {
                 *value -= 1;
@@ -499,14 +499,13 @@ impl<A: Asset> Assets<A> {
             }
         }
 
-        let existed = match id {
-            AssetId::Index { index, .. } => self.dense_storage.remove_dropped(index).is_some(),
-            AssetId::Uuid { uuid } => self.hash_map.remove(&uuid).is_some(),
-        };
+        let existed = self.dense_storage.remove_dropped(index).is_some();
 
-        self.queued_events.push(AssetEvent::Unused { id });
+        self.queued_events
+            .push(AssetEvent::Unused { id: index.into() });
         if existed {
-            self.queued_events.push(AssetEvent::Removed { id });
+            self.queued_events
+                .push(AssetEvent::Removed { id: index.into() });
         }
     }
 
@@ -572,27 +571,23 @@ impl<A: Asset> Assets<A> {
         // that `asset_server.load` calls that occur during it block, which ensures that
         // re-loads are kicked off appropriately. This function must be "transactional" relative
         // to other asset info operations
-        let mut infos = asset_server.data.infos.write();
+        let mut infos = asset_server.write_infos();
         while let Ok(drop_event) = assets.handle_provider.drop_receiver.try_recv() {
-            let id = drop_event.id.typed();
-
             if drop_event.asset_server_managed {
-                let untyped_id = id.untyped();
-
                 // the process_handle_drop call checks whether new handles have been created since the drop event was fired, before removing the asset
-                if !infos.process_handle_drop(untyped_id) {
+                if !infos.process_handle_drop(drop_event.index) {
                     // a new handle has been created, or the asset doesn't exist
                     continue;
                 }
             }
 
-            assets.remove_dropped(id);
+            assets.remove_dropped(drop_event.index.index);
         }
     }
 
     /// A system that applies accumulated asset change events to the [`Messages`] resource.
     ///
-    /// [`Messages`]: bevy_ecs::event::Events
+    /// [`Messages`]: bevy_ecs::message::Messages
     pub(crate) fn asset_events(
         mut assets: ResMut<Self>,
         mut messages: MessageWriter<AssetEvent<A>>,

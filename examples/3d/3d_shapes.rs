@@ -2,7 +2,7 @@
 //!
 //! "Shape primitives" here are just the mathematical definition of certain shapes, they're not meshes on their own! A sphere with radius `1.0` can be defined with [`Sphere::new(1.0)`][Sphere::new] but all this does is store the radius. So we need to turn these descriptions of shapes into meshes.
 //!
-//! While a shape is not a mesh, turning it into one in Bevy is easy. In this example we call [`meshes.add(/* Shape here! */)`][Assets<A>::add] on the shape, which works because the [`Assets<A>::add`] method takes anything that can be turned into the asset type it stores. There's an implementation for [`From`] on shape primitives into [`Mesh`], so that will get called internally by [`Assets<A>::add`].
+//! While a shape is not a mesh, turning it into one in Bevy is easy. In this example we call [`meshes.add(/* Shape here! */)`][`Assets<A>::add`] on the shape, which works because the [`Assets<A>::add`] method takes anything that can be turned into the asset type it stores. There's an implementation for [`From`] on shape primitives into [`Mesh`], so that will get called internally by [`Assets<A>::add`].
 //!
 //! [`Extrusion`] lets us turn 2D shape primitives into versions of those shapes that have volume by extruding them. A 1x1 square that gets wrapped in this with an extrusion depth of 2 will give us a rectangular prism of size 1x1x2, but here we're just extruding these 2d shapes by depth 1.
 //!
@@ -20,6 +20,7 @@ use bevy::pbr::wireframe::{WireframeConfig, WireframePlugin};
 use bevy::{
     asset::RenderAssetUsages,
     color::palettes::basic::SILVER,
+    input::common_conditions::{input_just_pressed, input_toggle_active},
     prelude::*,
     render::render_resource::{Extent3d, TextureDimension, TextureFormat},
 };
@@ -35,7 +36,8 @@ fn main() {
         .add_systems(
             Update,
             (
-                rotate,
+                rotate.run_if(input_toggle_active(true, KeyCode::KeyR)),
+                advance_rows.run_if(input_just_pressed(KeyCode::Tab)),
                 #[cfg(not(target_arch = "wasm32"))]
                 toggle_wireframe,
             ),
@@ -48,8 +50,9 @@ fn main() {
 struct Shape;
 
 const SHAPES_X_EXTENT: f32 = 14.0;
-const EXTRUSION_X_EXTENT: f32 = 16.0;
-const Z_EXTENT: f32 = 5.0;
+const EXTRUSION_X_EXTENT: f32 = 14.0;
+const Z_EXTENT: f32 = 8.0;
+const THICKNESS: f32 = 0.1;
 
 fn setup(
     mut commands: Commands,
@@ -90,6 +93,31 @@ fn setup(
         meshes.add(Extrusion::new(Triangle2d::default(), 1.)),
     ];
 
+    let ring_extrusions = [
+        meshes.add(Extrusion::new(Rectangle::default().to_ring(THICKNESS), 1.)),
+        meshes.add(Extrusion::new(Capsule2d::default().to_ring(THICKNESS), 1.)),
+        meshes.add(Extrusion::new(
+            Ring::new(Circle::new(1.0), Circle::new(0.5)),
+            1.,
+        )),
+        meshes.add(Extrusion::new(Circle::default().to_ring(THICKNESS), 1.)),
+        meshes.add(Extrusion::new(
+            {
+                // This is an approximation; Ellipse does not implement Inset as concentric ellipses do not have parallel curves
+                let outer = Ellipse::default();
+                let mut inner = outer;
+                inner.half_size -= Vec2::splat(THICKNESS);
+                Ring::new(outer, inner)
+            },
+            1.,
+        )),
+        meshes.add(Extrusion::new(
+            RegularPolygon::default().to_ring(THICKNESS),
+            1.,
+        )),
+        meshes.add(Extrusion::new(Triangle2d::default().to_ring(THICKNESS), 1.)),
+    ];
+
     let num_shapes = shapes.len();
 
     for (i, shape) in shapes.into_iter().enumerate() {
@@ -99,10 +127,11 @@ fn setup(
             Transform::from_xyz(
                 -SHAPES_X_EXTENT / 2. + i as f32 / (num_shapes - 1) as f32 * SHAPES_X_EXTENT,
                 2.0,
-                Z_EXTENT / 2.,
+                Row::Front.z(),
             )
             .with_rotation(Quat::from_rotation_x(-PI / 4.)),
             Shape,
+            Row::Front,
         ));
     }
 
@@ -116,10 +145,29 @@ fn setup(
                 -EXTRUSION_X_EXTENT / 2.
                     + i as f32 / (num_extrusions - 1) as f32 * EXTRUSION_X_EXTENT,
                 2.0,
-                -Z_EXTENT / 2.,
+                Row::Middle.z(),
             )
             .with_rotation(Quat::from_rotation_x(-PI / 4.)),
             Shape,
+            Row::Middle,
+        ));
+    }
+
+    let num_ring_extrusions = ring_extrusions.len();
+
+    for (i, shape) in ring_extrusions.into_iter().enumerate() {
+        commands.spawn((
+            Mesh3d(shape),
+            MeshMaterial3d(debug_material.clone()),
+            Transform::from_xyz(
+                -EXTRUSION_X_EXTENT / 2.
+                    + i as f32 / (num_ring_extrusions - 1) as f32 * EXTRUSION_X_EXTENT,
+                2.0,
+                Row::Rear.z(),
+            )
+            .with_rotation(Quat::from_rotation_x(-PI / 4.)),
+            Shape,
+            Row::Rear,
         ));
     }
 
@@ -145,9 +193,15 @@ fn setup(
         Transform::from_xyz(0.0, 7., 14.0).looking_at(Vec3::new(0., 1., 0.), Vec3::Y),
     ));
 
+    let mut text = "\
+        Press 'R' to pause/resume rotation\n\
+        Press 'Tab' to cycle through rows"
+        .to_string();
     #[cfg(not(target_arch = "wasm32"))]
+    text.push_str("\nPress 'Space' to toggle wireframes");
+
     commands.spawn((
-        Text::new("Press space to toggle wireframes"),
+        Text::new(text),
         Node {
             position_type: PositionType::Absolute,
             top: px(12),
@@ -199,5 +253,37 @@ fn toggle_wireframe(
 ) {
     if keyboard.just_pressed(KeyCode::Space) {
         wireframe_config.global = !wireframe_config.global;
+    }
+}
+
+#[derive(Component, Clone, Copy)]
+enum Row {
+    Front,
+    Middle,
+    Rear,
+}
+
+impl Row {
+    fn z(self) -> f32 {
+        match self {
+            Row::Front => Z_EXTENT / 2.,
+            Row::Middle => 0.,
+            Row::Rear => -Z_EXTENT / 2.,
+        }
+    }
+
+    fn advance(self) -> Self {
+        match self {
+            Row::Front => Row::Rear,
+            Row::Middle => Row::Front,
+            Row::Rear => Row::Middle,
+        }
+    }
+}
+
+fn advance_rows(mut shapes: Query<(&mut Row, &mut Transform), With<Shape>>) {
+    for (mut row, mut transform) in &mut shapes {
+        *row = row.advance();
+        transform.translation.z = row.z();
     }
 }

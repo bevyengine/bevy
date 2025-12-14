@@ -1,6 +1,7 @@
 use core::f32::consts::FRAC_PI_2;
+use core::mem;
 
-use crate::{primitives::dim3::triangle3d, Indices, Mesh, PerimeterSegment};
+use crate::{primitives::dim3::triangle3d, Indices, Mesh, PerimeterSegment, VertexAttributeValues};
 use bevy_asset::RenderAssetUsages;
 
 use super::{Extrudable, MeshBuilder, Meshable};
@@ -9,9 +10,10 @@ use bevy_math::{
     ops,
     primitives::{
         Annulus, Capsule2d, Circle, CircularSector, CircularSegment, ConvexPolygon, Ellipse,
-        Rectangle, RegularPolygon, Rhombus, Segment2d, Triangle2d, Triangle3d, WindingOrder,
+        Primitive2d, Rectangle, RegularPolygon, Rhombus, Ring, Segment2d, Triangle2d, Triangle3d,
+        WindingOrder,
     },
-    FloatExt, Vec2,
+    FloatExt, Vec2, Vec3,
 };
 use bevy_reflect::prelude::*;
 use wgpu_types::PrimitiveTopology;
@@ -898,13 +900,13 @@ impl MeshBuilder for RhombusMeshBuilder {
         let [hhd, vhd] = [self.half_diagonals.x, self.half_diagonals.y];
         let positions = vec![
             [hhd, 0.0, 0.0],
-            [-hhd, 0.0, 0.0],
             [0.0, vhd, 0.0],
+            [-hhd, 0.0, 0.0],
             [0.0, -vhd, 0.0],
         ];
         let normals = vec![[0.0, 0.0, 1.0]; 4];
-        let uvs = vec![[1.0, 0.5], [0.0, 0.5], [0.5, 0.0], [0.5, 1.0]];
-        let indices = Indices::U32(vec![1, 0, 2, 1, 3, 0]);
+        let uvs = vec![[1.0, 0.5], [0.5, 0.0], [0.0, 0.5], [0.5, 1.0]];
+        let indices = Indices::U32(vec![2, 0, 1, 2, 3, 0]);
 
         Mesh::new(
             PrimitiveTopology::TriangleList,
@@ -920,7 +922,7 @@ impl MeshBuilder for RhombusMeshBuilder {
 impl Extrudable for RhombusMeshBuilder {
     fn perimeter(&self) -> Vec<PerimeterSegment> {
         vec![PerimeterSegment::Flat {
-            indices: vec![0, 2, 1, 3, 0],
+            indices: vec![0, 1, 2, 3, 0],
         }]
     }
 }
@@ -1256,6 +1258,269 @@ impl Meshable for Capsule2d {
 impl From<Capsule2d> for Mesh {
     fn from(capsule: Capsule2d) -> Self {
         capsule.mesh().build()
+    }
+}
+
+/// A builder used for creating a [`Mesh`] with a [`Ring`] shape.
+pub struct RingMeshBuilder<P>
+where
+    P: Primitive2d + Meshable,
+{
+    pub outer_shape_builder: P::Output,
+    pub inner_shape_builder: P::Output,
+}
+
+impl<P> RingMeshBuilder<P>
+where
+    P: Primitive2d + Meshable,
+{
+    /// Create a new `RingMeshBuilder<P>` from a given `Ring<P>` shape.
+    pub fn new(ring: &Ring<P>) -> Self {
+        Self {
+            outer_shape_builder: ring.outer_shape.mesh(),
+            inner_shape_builder: ring.inner_shape.mesh(),
+        }
+    }
+
+    /// Apply a function to the inner builders
+    pub fn with_inner(mut self, func: impl Fn(P::Output) -> P::Output) -> Self {
+        self.outer_shape_builder = func(self.outer_shape_builder);
+        self.inner_shape_builder = func(self.inner_shape_builder);
+        self
+    }
+
+    fn get_vertex_attributes(&self) -> Option<RingMeshBuilderVertexAttributes> {
+        fn get_positions(mesh: &mut Mesh) -> Option<&mut Vec<[f32; 3]>> {
+            if let VertexAttributeValues::Float32x3(data) =
+                mesh.attribute_mut(Mesh::ATTRIBUTE_POSITION)?
+            {
+                Some(data)
+            } else {
+                None
+            }
+        }
+
+        fn get_uvs(mesh: &mut Mesh) -> Option<&mut Vec<[f32; 2]>> {
+            if let VertexAttributeValues::Float32x2(data) =
+                mesh.attribute_mut(Mesh::ATTRIBUTE_UV_0)?
+            {
+                Some(data)
+            } else {
+                None
+            }
+        }
+
+        fn get_normals(mesh: &mut Mesh) -> Option<&mut Vec<[f32; 3]>> {
+            if let VertexAttributeValues::Float32x3(data) =
+                mesh.attribute_mut(Mesh::ATTRIBUTE_NORMAL)?
+            {
+                Some(data)
+            } else {
+                None
+            }
+        }
+
+        let mut outer = self.outer_shape_builder.build();
+        let mut inner = self.inner_shape_builder.build();
+
+        assert_eq!(
+            outer.primitive_topology(),
+            PrimitiveTopology::TriangleList,
+            "PrimitiveTopology must be a TriangleList, mesh builder not compatible"
+        );
+        assert_eq!(
+            inner.primitive_topology(),
+            PrimitiveTopology::TriangleList,
+            "PrimitiveTopology must be a TriangleList, mesh builder not compatible"
+        );
+
+        Some(RingMeshBuilderVertexAttributes {
+            outer_positions: mem::take(get_positions(&mut outer)?),
+            inner_positions: mem::take(get_positions(&mut inner)?),
+            outer_normals: mem::take(get_normals(&mut outer)?),
+            inner_normals: mem::take(get_normals(&mut inner)?),
+            outer_uvs: mem::take(get_uvs(&mut outer)?),
+            inner_uvs: mem::take(get_uvs(&mut inner)?),
+        })
+    }
+}
+
+struct RingMeshBuilderVertexAttributes {
+    outer_positions: Vec<[f32; 3]>,
+    inner_positions: Vec<[f32; 3]>,
+    outer_normals: Vec<[f32; 3]>,
+    inner_normals: Vec<[f32; 3]>,
+    outer_uvs: Vec<[f32; 2]>,
+    inner_uvs: Vec<[f32; 2]>,
+}
+
+impl<P> MeshBuilder for RingMeshBuilder<P>
+where
+    P: Primitive2d + Meshable,
+{
+    /// Builds a [`Mesh`] based on the configuration in `self`.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the following assumptions are not met.
+    ///
+    /// It is assumed that the inner and outer meshes have the same number of vertices.
+    /// If not, then the [`MeshBuilder`] of the underlying 2d primitive has generated
+    /// a different number of vertices for the inner and outer instances of the primitive.
+    ///
+    /// It is assumed that the `primitive_topology` of the mesh returned by
+    /// the underlying builder is [`PrimitiveTopology::TriangleList`]
+    /// and that the mesh has [`Mesh::ATTRIBUTE_POSITION`], [`Mesh::ATTRIBUTE_NORMAL`] and [`Mesh::ATTRIBUTE_UV_0`] attributes.
+    fn build(&self) -> Mesh {
+        if let Some(RingMeshBuilderVertexAttributes {
+            outer_uvs,
+            inner_uvs,
+            outer_positions,
+            inner_positions,
+            outer_normals,
+            inner_normals,
+        }) = self.get_vertex_attributes()
+            && outer_uvs.len() == inner_uvs.len()
+            && outer_positions.len() == inner_positions.len()
+            && outer_normals.len() == inner_normals.len()
+        {
+            let mut uvs = outer_uvs;
+            let inner_uvs = inner_positions
+                .iter()
+                .zip(&outer_positions)
+                .zip(&inner_uvs)
+                .map(|((inner_position, outer_position), inner_uv)| -> [f32; 2] {
+                    const UV_CENTER: Vec2 = Vec2::splat(0.5);
+                    let ip = Vec3::from(*inner_position).truncate();
+                    let op = Vec3::from(*outer_position).truncate();
+                    let uv = Vec2::from(*inner_uv) - UV_CENTER;
+                    (uv * ip.length() / op.length() + UV_CENTER).into()
+                });
+            uvs.extend(inner_uvs);
+
+            let mut normals = outer_normals;
+            normals.extend(inner_normals);
+
+            let points = outer_positions.len() as u32;
+            let mut indices = Vec::with_capacity(outer_positions.len() * 6);
+            for i in 0..points {
+                //                               for five points:
+                indices.push(i); //              0  1  2  3  4
+                indices.push(i + 1); //          1  2  3  4  0  <-
+                indices.push(points + i); //     0' 1' 2' 3' 4'
+                indices.push(points + i); //     0' 1' 2' 3' 4'
+                indices.push(i + 1); //          1  2  3  4  0  <-
+                indices.push(points + i + 1); // 1' 2' 3' 4' 0' <-
+            }
+            let indices_length = indices.len();
+            // Fix up the last pair of triangles (return to start)
+            if let (_, [_, b, _, _, e, f]) = indices.split_at_mut(indices_length.saturating_sub(6))
+            {
+                *b = 0;
+                *e = 0;
+                *f = points;
+            }
+
+            let mut positions = outer_positions;
+            positions.extend_from_slice(&inner_positions);
+
+            Mesh::new(
+                PrimitiveTopology::TriangleList,
+                RenderAssetUsages::default(),
+            )
+            .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
+            .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
+            .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)
+            .with_inserted_indices(Indices::U32(indices))
+        } else {
+            panic!("The inner and outer meshes should have the same number of vertices, and have required attributes");
+        }
+    }
+}
+
+impl<P> Extrudable for RingMeshBuilder<P>
+where
+    P: Primitive2d + Meshable,
+    P::Output: Extrudable,
+{
+    /// A list of the indices each representing a part of the perimeter of the mesh.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the following assumptions are not met.
+    ///
+    /// It is assumed that the inner and outer meshes have the same number of vertices.
+    /// If not, then the [`MeshBuilder`] of the underlying 2d primitive has generated
+    /// a different number of vertices for the inner and outer instances of the primitive.
+    ///
+    /// It is assumed that the `primitive_topology` of the mesh returned by
+    /// the underlying builder is [`PrimitiveTopology::TriangleList`]
+    /// and that the mesh has [`Mesh::ATTRIBUTE_POSITION`], [`Mesh::ATTRIBUTE_NORMAL`] and [`Mesh::ATTRIBUTE_UV_0`] attributes.
+    fn perimeter(&self) -> Vec<PerimeterSegment> {
+        let outer_vertex_count = self
+            .get_vertex_attributes()
+            .filter(|r| r.outer_positions.len() == r.inner_positions.len())
+            .expect("The inner and outer meshes should have the same number of vertices, and have required attributes")
+            .outer_positions
+            .len();
+
+        let mut outer_perimeter = self.outer_shape_builder.perimeter();
+        let inner_perimeter =
+            self.inner_shape_builder
+                .perimeter()
+                .into_iter()
+                .rev()
+                .map(|segment| match segment {
+                    PerimeterSegment::Smooth {
+                        first_normal,
+                        last_normal,
+                        mut indices,
+                    } => PerimeterSegment::Smooth {
+                        first_normal: -last_normal,
+                        last_normal: -first_normal,
+                        indices: {
+                            let outer_perimeter_vertex_count = outer_vertex_count as u32;
+                            indices.reverse();
+                            for i in &mut indices {
+                                *i += outer_perimeter_vertex_count;
+                            }
+                            indices
+                        },
+                    },
+                    PerimeterSegment::Flat { mut indices } => PerimeterSegment::Flat {
+                        indices: {
+                            let outer_perimeter_vertex_count = outer_vertex_count as u32;
+                            indices.reverse();
+                            for i in &mut indices {
+                                *i += outer_perimeter_vertex_count;
+                            }
+                            indices
+                        },
+                    },
+                });
+
+        outer_perimeter.extend(inner_perimeter);
+        outer_perimeter
+    }
+}
+
+impl<P> Meshable for Ring<P>
+where
+    P: Primitive2d + Meshable,
+{
+    type Output = RingMeshBuilder<P>;
+
+    fn mesh(&self) -> Self::Output {
+        RingMeshBuilder::new(self)
+    }
+}
+
+impl<P> From<Ring<P>> for Mesh
+where
+    P: Primitive2d + Meshable,
+{
+    fn from(ring: Ring<P>) -> Self {
+        ring.mesh().build()
     }
 }
 

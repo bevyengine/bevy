@@ -59,11 +59,11 @@ impl ReflectAsset {
         world: &'w mut World,
         asset_id: impl Into<UntypedAssetId>,
     ) -> Option<&'w mut dyn Reflect> {
-        // SAFETY: unique world access
         #[expect(
             unsafe_code,
             reason = "Use of unsafe `Self::get_unchecked_mut()` function."
         )]
+        // SAFETY: unique world access
         unsafe {
             (self.get_unchecked_mut)(world.as_unsafe_world_cell(), asset_id.into())
         }

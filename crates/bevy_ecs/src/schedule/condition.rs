@@ -73,7 +73,7 @@ pub type BoxedCondition<In = ()> = Box<dyn ReadOnlySystem<In = In, Out = bool>>;
 /// # app.run(&mut world);
 /// # assert!(world.resource::<DidRun>().0);
 pub trait SystemCondition<Marker, In: SystemInput = ()>:
-    sealed::SystemCondition<Marker, In>
+    IntoSystem<In, bool, Marker, System: ReadOnlySystem>
 {
     /// Returns a new run condition that only returns `true`
     /// if both this one and the passed `and` return `true`.
@@ -373,28 +373,8 @@ pub trait SystemCondition<Marker, In: SystemInput = ()>:
 }
 
 impl<Marker, In: SystemInput, F> SystemCondition<Marker, In> for F where
-    F: sealed::SystemCondition<Marker, In>
+    F: IntoSystem<In, bool, Marker, System: ReadOnlySystem>
 {
-}
-
-mod sealed {
-    use crate::system::{IntoSystem, ReadOnlySystem, SystemInput};
-
-    pub trait SystemCondition<Marker, In: SystemInput>:
-        IntoSystem<In, bool, Marker, System = Self::ReadOnlySystem>
-    {
-        // This associated type is necessary to let the compiler
-        // know that `Self::System` is `ReadOnlySystem`.
-        type ReadOnlySystem: ReadOnlySystem<In = In, Out = bool>;
-    }
-
-    impl<Marker, In: SystemInput, F> SystemCondition<Marker, In> for F
-    where
-        F: IntoSystem<In, bool, Marker>,
-        F::System: ReadOnlySystem,
-    {
-        type ReadOnlySystem = F::System;
-    }
 }
 
 /// A collection of [run conditions](SystemCondition) that may be useful in any bevy app.
@@ -881,47 +861,6 @@ pub mod common_conditions {
     /// app.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 1);
     /// ```
-    #[deprecated(since = "0.17.0", note = "Use `on_message` instead.")]
-    pub fn on_event<T: Message>(reader: MessageReader<T>) -> bool {
-        on_message(reader)
-    }
-
-    /// A [`SystemCondition`]-satisfying system that returns `true`
-    /// if there are any new messages of the given type since it was last called.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use bevy_ecs::prelude::*;
-    /// # #[derive(Resource, Default)]
-    /// # struct Counter(u8);
-    /// # let mut app = Schedule::default();
-    /// # let mut world = World::new();
-    /// # world.init_resource::<Counter>();
-    /// # world.init_resource::<Messages<MyMessage>>();
-    /// # app.add_systems(bevy_ecs::message::message_update_system.before(my_system));
-    ///
-    /// app.add_systems(
-    ///     my_system.run_if(on_message::<MyMessage>),
-    /// );
-    ///
-    /// #[derive(Message)]
-    /// struct MyMessage;
-    ///
-    /// fn my_system(mut counter: ResMut<Counter>) {
-    ///     counter.0 += 1;
-    /// }
-    ///
-    /// // No new `MyMessage` messages have been push so `my_system` won't run
-    /// app.run(&mut world);
-    /// assert_eq!(world.resource::<Counter>().0, 0);
-    ///
-    /// world.resource_mut::<Messages<MyMessage>>().write(MyMessage);
-    ///
-    /// // A `MyMessage` message has been pushed so `my_system` will run
-    /// app.run(&mut world);
-    /// assert_eq!(world.resource::<Counter>().0, 1);
-    /// ```
     pub fn on_message<M: Message>(mut reader: MessageReader<M>) -> bool {
         // The messages need to be consumed, so that there are no false positives on subsequent
         // calls of the run condition. Simply checking `is_empty` would not be enough.
@@ -1164,7 +1103,7 @@ pub type And<A, B> = CombinatorSystem<AndMarker, A, B>;
 /// Combines and inverts the outputs of two systems using the `&&` and `!` operators.
 pub type Nand<A, B> = CombinatorSystem<NandMarker, A, B>;
 
-/// Combines and inverts the outputs of two systems using the `&&` and `!` operators.
+/// Combines and inverts the outputs of two systems using the `||` and `!` operators.
 pub type Nor<A, B> = CombinatorSystem<NorMarker, A, B>;
 
 /// Combines the outputs of two systems using the `||` operator.

@@ -7,7 +7,9 @@ mod components;
 mod conversions;
 mod index;
 mod mesh;
+#[cfg(feature = "bevy_mikktspace")]
 mod mikktspace;
+#[cfg(feature = "morph")]
 pub mod morph;
 pub mod primitives;
 pub mod skinning;
@@ -19,6 +21,7 @@ use bitflags::bitflags;
 pub use components::*;
 pub use index::*;
 pub use mesh::*;
+#[cfg(feature = "bevy_mikktspace")]
 pub use mikktspace::*;
 pub use primitives::*;
 pub use vertex::*;
@@ -28,10 +31,10 @@ pub use wgpu_types::VertexFormat;
 ///
 /// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
+    #[cfg(feature = "morph")]
+    pub use crate::morph::MorphWeights;
     #[doc(hidden)]
-    pub use crate::{
-        morph::MorphWeights, primitives::MeshBuilder, primitives::Meshable, Mesh, Mesh2d, Mesh3d,
-    };
+    pub use crate::{primitives::MeshBuilder, primitives::Meshable, Mesh, Mesh2d, Mesh3d};
 }
 
 bitflags! {
@@ -45,12 +48,14 @@ bitflags! {
     }
 }
 
+/// Adds [`Mesh`] as an asset.
 #[derive(Default)]
 pub struct MeshPlugin;
 
 impl Plugin for MeshPlugin {
     fn build(&self, app: &mut App) {
         app.init_asset::<Mesh>()
+            .init_asset::<skinning::SkinnedMeshInverseBindposes>()
             .register_asset_reflect::<Mesh>()
             .add_systems(
                 PostUpdate,
