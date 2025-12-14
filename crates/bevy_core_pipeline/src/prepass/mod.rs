@@ -77,6 +77,18 @@ pub struct MotionVectorPrepass;
 #[reflect(Component, Default)]
 pub struct DeferredPrepass;
 
+/// Allows querying the previous frame's [`DepthPrepass`].
+#[derive(Component, Default, Reflect, Clone)]
+#[reflect(Component, Default, Clone)]
+#[require(DepthPrepass)]
+pub struct DepthPrepassDoubleBuffer;
+
+/// Allows querying the previous frame's [`DeferredPrepass`].
+#[derive(Component, Default, Reflect, Clone)]
+#[reflect(Component, Default, Clone)]
+#[require(DeferredPrepass)]
+pub struct DeferredPrepassDoubleBuffer;
+
 /// View matrices from the previous frame.
 ///
 /// Useful for temporal rendering techniques that need access to last frame's camera data.
@@ -128,6 +140,12 @@ impl ViewPrepassTextures {
         self.depth.as_ref().map(|t| &t.texture.default_view)
     }
 
+    pub fn previous_depth_view(&self) -> Option<&TextureView> {
+        self.depth
+            .as_ref()
+            .and_then(|t| t.previous_frame_texture.as_ref().map(|t| &t.default_view))
+    }
+
     pub fn normal_view(&self) -> Option<&TextureView> {
         self.normal.as_ref().map(|t| &t.texture.default_view)
     }
@@ -140,6 +158,12 @@ impl ViewPrepassTextures {
 
     pub fn deferred_view(&self) -> Option<&TextureView> {
         self.deferred.as_ref().map(|t| &t.texture.default_view)
+    }
+
+    pub fn previous_deferred_view(&self) -> Option<&TextureView> {
+        self.deferred
+            .as_ref()
+            .and_then(|t| t.previous_frame_texture.as_ref().map(|t| &t.default_view))
     }
 }
 
