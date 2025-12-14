@@ -4,6 +4,9 @@ mod khr_materials_anisotropy;
 mod khr_materials_clearcoat;
 mod khr_materials_specular;
 
+use async_lock::RwLock;
+use std::sync::Arc;
+
 use bevy_animation::AnimationClip;
 use bevy_asset::{Handle, LoadContext};
 use bevy_ecs::{
@@ -25,7 +28,7 @@ pub(crate) use self::{
 /// Stores the `GltfExtensionHandler` implementations so that they
 /// can be added by users and also passed to the glTF loader
 #[derive(Resource, Default)]
-pub struct GltfExtensionHandlers(pub Vec<Box<dyn GltfExtensionHandler>>);
+pub struct GltfExtensionHandlers(pub Arc<RwLock<Vec<Box<dyn GltfExtensionHandler>>>>);
 
 /// glTF Extensions can attach data to any objects in a glTF file.
 /// This is done by inserting data in the `extensions` sub-object, and

@@ -117,6 +117,7 @@ impl Plugin for GltfExtensionHandlerAnimationPlugin {
         app.world_mut()
             .resource_mut::<GltfExtensionHandlers>()
             .0
+            .write_blocking()
             .push(Box::new(GltfExtensionHandlerAnimation::default()));
     }
 }

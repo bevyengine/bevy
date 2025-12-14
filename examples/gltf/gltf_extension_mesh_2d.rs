@@ -63,6 +63,7 @@ impl Plugin for GltfToMesh2dPlugin {
         app.world_mut()
             .resource_mut::<GltfExtensionHandlers>()
             .0
+            .write_blocking()
             .push(Box::new(GltfExtensionHandlerToMesh2d));
 
         app.add_plugins(Material2dPlugin::<CustomMaterial>::default());

@@ -2,6 +2,7 @@ pub mod extensions;
 mod gltf_ext;
 
 use alloc::sync::Arc;
+use async_lock::RwLock;
 use std::{io::Error, sync::Mutex};
 
 #[cfg(feature = "bevy_animation")]
@@ -163,7 +164,7 @@ pub struct GltfLoader {
     /// glTF extension data processors.
     /// These are Bevy-side processors designed to access glTF
     /// extension data during the loading process.
-    pub extensions: Vec<Box<dyn extensions::GltfExtensionHandler>>,
+    pub extensions: Arc<RwLock<Vec<Box<dyn extensions::GltfExtensionHandler>>>>,
 }
 
 /// Specifies optional settings for processing gltfs at load time. By default, all recognized contents of
@@ -251,7 +252,7 @@ impl GltfLoader {
         let gltf = gltf::Gltf::from_slice(bytes)?;
 
         // clone extensions to start with a fresh processing state
-        let mut extensions = loader.extensions.clone();
+        let mut extensions = loader.extensions.read().await.clone();
 
         // Extensions can have data on the "root" of the glTF data.
         // Let extensions process the root data for the extension ids
