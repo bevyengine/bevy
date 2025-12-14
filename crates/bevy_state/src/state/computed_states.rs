@@ -75,6 +75,9 @@ pub trait ComputedStates: 'static + Send + Sync + Clone + PartialEq + Eq + Hash 
     /// For example, `(MapState, EnemyState)` is valid, as is `(MapState, Option<EnemyState>)`
     type SourceStates: StateSet;
 
+    /// Whether state transition schedules should be run when the state changes to the same value. Default is `true`.
+    const ALLOW_SAME_STATE_TRANSITIONS: bool = true;
+
     /// Computes the next value of [`State<Self>`](crate::state::State).
     /// This function gets called whenever one of the [`SourceStates`](Self::SourceStates) changes.
     ///

@@ -808,6 +808,7 @@ pub fn extract_ui_camera_view(
                             physical_viewport_rect.size(),
                         )),
                         color_grading: Default::default(),
+                        invert_culling: false,
                     },
                     // Link to the main camera view.
                     UiViewTarget(render_entity),
