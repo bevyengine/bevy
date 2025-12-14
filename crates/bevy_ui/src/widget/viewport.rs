@@ -1,5 +1,5 @@
 use bevy_asset::Assets;
-#[cfg(feature = "bevy_ui_picking_backend")]
+#[cfg(feature = "bevy_picking")]
 use bevy_camera::NormalizedRenderTarget;
 use bevy_camera::{Camera, RenderTarget};
 use bevy_ecs::{
