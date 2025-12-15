@@ -214,7 +214,7 @@ impl Plugin for EasyScreenRecordPlugin {
                           mut messages: MessageReader<RecordScreen>,
                           window: Single<&Window, With<PrimaryWindow>>,
                           current_screenshot: Query<(), With<Screenshot>>,
-                          mut time: ResMut<Time<bevy_time::Virtual>>| {
+                          mut virtual_time: ResMut<Time<bevy_time::Virtual>>| {
                         match messages.read().last() {
                             Some(RecordScreen::Start) => {
                                 let since_the_epoch = SystemTime::now()
@@ -228,12 +228,12 @@ impl Plugin for EasyScreenRecordPlugin {
                                 tx.send(RecordCommand::Start(filename, preset, tune))
                                     .unwrap();
                                 *recording = true;
-                                time.pause();
+                                virtual_time.pause();
                             }
                             Some(RecordScreen::Stop) => {
                                 tx.send(RecordCommand::Stop).unwrap();
                                 *recording = false;
-                                time.unpause();
+                                virtual_time.unpause();
                             }
                             _ => {}
                         }
@@ -241,10 +241,12 @@ impl Plugin for EasyScreenRecordPlugin {
                             let tx = tx.clone();
                             commands.spawn(Screenshot::primary_window()).observe(
                                 move |screenshot_captured: On<ScreenshotCaptured>,
-                                      mut time: ResMut<Time<bevy_time::Virtual>>| {
+                                      mut virtual_time: ResMut<Time<bevy_time::Virtual>>,
+                                      mut time: ResMut<Time<()>>| {
                                     let img = screenshot_captured.image.clone();
                                     tx.send(RecordCommand::Frame(img)).unwrap();
-                                    time.advance_by(frame_time);
+                                    virtual_time.advance_by(frame_time);
+                                    *time = virtual_time.as_generic();
                                 },
                             );
                         }
