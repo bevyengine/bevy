@@ -857,7 +857,7 @@ unsafe impl QueryData for EntityRef<'_> {
     }
 
     fn reborrow<'a>(item: &'a mut Self::Item<'_, '_>) -> Self::Item<'a, 'a> {
-        item.reborrow()
+        *item
     }
 
     #[inline(always)]
