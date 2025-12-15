@@ -53,7 +53,7 @@ jobs:
             --exclude no_std_library
 
       - name: Create PR
-        uses: peter-evans/create-pull-request@v7
+        uses: peter-evans/create-pull-request@v8
         with:
           delete-branch: true
           base: "main"
