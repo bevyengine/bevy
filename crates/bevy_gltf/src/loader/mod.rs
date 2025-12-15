@@ -646,7 +646,7 @@ impl GltfLoader {
                 for extension in extensions.iter_mut() {
                     extension.on_texture(
                         texture.extensions(),
-                        texture_handles.iter().last().unwrap().clone(),
+                        texture_handles.last().unwrap().clone(),
                     );
                 }
             }
@@ -684,7 +684,7 @@ impl GltfLoader {
                         for extension in extensions.iter_mut() {
                             extension.on_texture(
                                 extension_data.as_ref(),
-                                texture_handles.iter().last().unwrap().clone(),
+                                texture_handles.last().unwrap().clone(),
                             );
                         }
                     }
