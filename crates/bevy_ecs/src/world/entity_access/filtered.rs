@@ -208,15 +208,6 @@ impl<'w, 's> FilteredEntityRef<'w, 's> {
     pub fn spawn_tick(&self) -> Tick {
         self.entity.spawn_tick()
     }
-
-    /// Returns an `FilteredEntityRef<>` with a smaller lifetime.
-    /// This is useful if you have `&FilteredEntityRef`, but you need an `FilteredEntityRef`.
-    pub fn reborrow(&self) -> FilteredEntityRef<'_, '_> {
-        FilteredEntityRef {
-            entity: self.entity,
-            access: self.access,
-        }
-    }
 }
 
 impl<'a> TryFrom<FilteredEntityRef<'a, '_>> for EntityRef<'a> {

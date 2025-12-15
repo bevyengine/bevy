@@ -189,16 +189,6 @@ where
             })
             .flatten()
     }
-
-    /// Returns an `EntityRefExcept<>` with a smaller lifetime.
-    /// This is useful if you have `&EntityRefExcept`, but you need an `EntityRefExcept`.
-    pub fn reborrow(&self) -> EntityRefExcept<'_, '_, B> {
-        EntityRefExcept {
-            entity: self.entity,
-            access: self.access,
-            phantom: PhantomData,
-        }
-    }
 }
 
 impl<'w, 's, B: Bundle> From<&'w EntityRefExcept<'_, 's, B>> for FilteredEntityRef<'w, 's> {
