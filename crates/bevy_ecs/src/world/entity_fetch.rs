@@ -247,7 +247,8 @@ unsafe impl<const N: usize> WorldEntityFetch for [Entity; N] {
         self,
         cell: UnsafeWorldCell<'_>,
     ) -> Result<Self::Ref<'_>, EntityNotSpawnedError> {
-        <&Self>::fetch_ref(&self, cell)
+        // SAFETY: Upheld by caller
+        unsafe { <&Self>::fetch_ref(&self, cell) }
     }
 
     #[inline]
@@ -255,7 +256,8 @@ unsafe impl<const N: usize> WorldEntityFetch for [Entity; N] {
         self,
         cell: UnsafeWorldCell<'_>,
     ) -> Result<Self::Mut<'_>, EntityMutableFetchError> {
-        <&Self>::fetch_mut(&self, cell)
+        // SAFETY: Upheld by caller
+        unsafe { <&Self>::fetch_mut(&self, cell) }
     }
 
     #[inline]
@@ -263,7 +265,8 @@ unsafe impl<const N: usize> WorldEntityFetch for [Entity; N] {
         self,
         cell: UnsafeWorldCell<'_>,
     ) -> Result<Self::DeferredMut<'_>, EntityMutableFetchError> {
-        <&Self>::fetch_deferred_mut(&self, cell)
+        // SAFETY: Upheld by caller
+        unsafe { <&Self>::fetch_deferred_mut(&self, cell) }
     }
 }
 

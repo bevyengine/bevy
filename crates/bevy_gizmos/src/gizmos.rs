@@ -308,6 +308,17 @@ where
     Clear: 'static + Send + Sync,
 {
     fn default() -> Self {
+        GizmoBuffer::new()
+    }
+}
+
+impl<Config, Clear> GizmoBuffer<Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
+    /// Constructs an empty `GizmoBuffer`.
+    pub const fn new() -> Self {
         GizmoBuffer {
             enabled: true,
             list_positions: Vec::new(),
