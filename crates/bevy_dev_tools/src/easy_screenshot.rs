@@ -4,7 +4,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 #[cfg(feature = "screenrecording")]
 use std::{fs::File, io::Write, sync::mpsc::channel};
 
-use bevy_app::{App, Plugin, Update};
+use bevy_app::{App, Plugin, PostUpdate, Update};
 use bevy_camera::Camera;
 use bevy_ecs::prelude::*;
 #[cfg(feature = "screenrecording")]
@@ -285,7 +285,7 @@ impl Plugin for EasyCameraMovementPlugin {
     fn build(&self, app: &mut App) {
         let decay_rate = self.decay_rate;
         app.add_systems(
-            Update,
+            PostUpdate,
             move |mut query: Single<(&mut Transform, &CameraMovement), With<Camera>>,
                   time: Res<Time>| {
                 let target = query.1;
