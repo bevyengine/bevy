@@ -1,21 +1,18 @@
+use bevy_camera::{ClearColor, NormalizedRenderTarget};
 use bevy_ecs::{
     prelude::*,
     schedule::{IntoScheduleConfigs, Schedule, ScheduleLabel, SystemSet},
 };
+use bevy_platform::collections::HashSet;
 use bevy_render::{
     camera::{ExtractedCamera, SortedCameras},
     render_resource::{
         CommandEncoderDescriptor, LoadOp, Operations, RenderPassColorAttachment,
         RenderPassDescriptor, StoreOp,
     },
-    renderer::{
-        CurrentViewEntity, PendingCommandBuffers, RenderDevice,
-        RenderQueue,
-    },
+    renderer::{CurrentViewEntity, PendingCommandBuffers, RenderDevice, RenderQueue},
     view::ExtractedWindows,
 };
-use bevy_camera::{ClearColor, NormalizedRenderTarget};
-use bevy_platform::collections::HashSet;
 
 /// Schedule label for the Core 3D rendering pipeline.
 #[derive(ScheduleLabel, Debug, Clone, PartialEq, Eq, Hash, Default)]
@@ -183,8 +180,7 @@ fn handle_uncovered_swap_chains(world: &mut World, camera_windows: &HashSet<Enti
     let render_device = world.resource::<RenderDevice>();
     let render_queue = world.resource::<RenderQueue>();
 
-    let mut encoder =
-        render_device.create_command_encoder(&CommandEncoderDescriptor::default());
+    let mut encoder = render_device.create_command_encoder(&CommandEncoderDescriptor::default());
 
     for (swap_chain_texture, clear_color) in &windows_to_clear {
         #[cfg(feature = "trace")]

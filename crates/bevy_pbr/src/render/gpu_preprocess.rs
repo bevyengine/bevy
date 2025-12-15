@@ -77,7 +77,6 @@ pub struct GpuMeshPreprocessPlugin {
     pub use_gpu_instance_buffer_builder: bool,
 }
 
-
 /// The compute shader pipelines for the GPU mesh preprocessing and indirect
 /// parameter building passes.
 #[derive(Resource)]
@@ -496,8 +495,7 @@ pub fn early_gpu_preprocess(
             continue;
         };
 
-        let Some(preprocess_pipeline) =
-            pipeline_cache.get_compute_pipeline(preprocess_pipeline_id)
+        let Some(preprocess_pipeline) = pipeline_cache.get_compute_pipeline(preprocess_pipeline_id)
         else {
             // This will happen while the pipeline is being compiled and is fine.
             continue;
@@ -618,11 +616,7 @@ pub fn early_gpu_preprocess(
 
 pub fn late_gpu_preprocess(
     current_view: ViewQuery<
-        (
-            &ExtractedView,
-            &PreprocessBindGroups,
-            &ViewUniformOffset,
-        ),
+        (&ExtractedView, &PreprocessBindGroups, &ViewUniformOffset),
         (
             Without<SkipGpuPreprocess>,
             Without<NoIndirectDrawing>,

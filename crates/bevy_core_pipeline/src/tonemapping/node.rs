@@ -122,9 +122,7 @@ pub fn tonemapping(
     let time_span = diagnostics.time_span(ctx.command_encoder(), "tonemapping");
 
     {
-        let mut render_pass = ctx
-            .command_encoder()
-            .begin_render_pass(&pass_descriptor);
+        let mut render_pass = ctx.command_encoder().begin_render_pass(&pass_descriptor);
 
         render_pass.set_pipeline(pipeline);
         render_pass.set_bind_group(0, bind_group, &[view_uniform_offset.offset]);
@@ -133,4 +131,3 @@ pub fn tonemapping(
 
     time_span.end(ctx.command_encoder());
 }
-

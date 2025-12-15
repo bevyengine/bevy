@@ -15,10 +15,7 @@ use bevy_camera::Viewport;
 use bevy_core_pipeline::prepass::{
     MotionVectorPrepass, PreviousViewUniformOffset, ViewPrepassTextures,
 };
-use bevy_ecs::{
-    prelude::*,
-    query::Has,
-};
+use bevy_ecs::{prelude::*, query::Has};
 use bevy_render::{
     camera::ExtractedCamera,
     render_resource::{

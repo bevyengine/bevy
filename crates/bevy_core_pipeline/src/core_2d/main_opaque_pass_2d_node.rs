@@ -80,4 +80,3 @@ pub fn main_opaque_pass_2d(
 
     pass_span.end(&mut render_pass);
 }
-

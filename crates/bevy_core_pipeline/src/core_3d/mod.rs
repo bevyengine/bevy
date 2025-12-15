@@ -71,20 +71,27 @@ use bevy_render::{
 use nonmax::NonMaxU32;
 use tracing::warn;
 
-use crate::{deferred::{
-    AlphaMask3dDeferred, Opaque3dDeferred, DEFERRED_LIGHTING_PASS_ID_FORMAT,
-    DEFERRED_PREPASS_FORMAT,
-}, prepass::{
-    AlphaMask3dPrepass, DeferredPrepass, DeferredPrepassDoubleBuffer, DepthPrepass,
-    DepthPrepassDoubleBuffer, MotionVectorPrepass, NormalPrepass, Opaque3dPrepass,
-    OpaqueNoLightmap3dBatchSetKey, OpaqueNoLightmap3dBinKey, ViewPrepassTextures,
-    MOTION_VECTOR_PREPASS_FORMAT, NORMAL_PREPASS_FORMAT,
-}, schedule::Core3d, skybox::SkyboxPlugin, tonemapping::{DebandDither, Tonemapping}, Core3dSystems};
 use crate::deferred::copy_lighting_id::copy_deferred_lighting_id;
 use crate::deferred::node::{early_deferred_prepass, late_deferred_prepass};
 use crate::prepass::node::{early_prepass, late_prepass};
 use crate::tonemapping::tonemapping;
 use crate::upscaling::upscaling;
+use crate::{
+    deferred::{
+        AlphaMask3dDeferred, Opaque3dDeferred, DEFERRED_LIGHTING_PASS_ID_FORMAT,
+        DEFERRED_PREPASS_FORMAT,
+    },
+    prepass::{
+        AlphaMask3dPrepass, DeferredPrepass, DeferredPrepassDoubleBuffer, DepthPrepass,
+        DepthPrepassDoubleBuffer, MotionVectorPrepass, NormalPrepass, Opaque3dPrepass,
+        OpaqueNoLightmap3dBatchSetKey, OpaqueNoLightmap3dBinKey, ViewPrepassTextures,
+        MOTION_VECTOR_PREPASS_FORMAT, NORMAL_PREPASS_FORMAT,
+    },
+    schedule::Core3d,
+    skybox::SkyboxPlugin,
+    tonemapping::{DebandDither, Tonemapping},
+    Core3dSystems,
+};
 
 pub struct Core3dPlugin;
 
@@ -135,39 +142,39 @@ impl Plugin for Core3dPlugin {
             )
             .add_schedule(Core3d::base_schedule())
             .add_systems(
-            Core3d,
-            (
-                // Prepasses
-                early_prepass.before(Core3dSystems::EndPrepasses),
-                early_deferred_prepass
-                    .after(early_prepass)
-                    .before(Core3dSystems::EndPrepasses),
-                late_prepass
-                    .after(early_deferred_prepass)
-                    .before(Core3dSystems::EndPrepasses),
-                late_deferred_prepass
-                    .after(late_prepass)
-                    .before(Core3dSystems::EndPrepasses),
-                copy_deferred_lighting_id
-                    .after(late_deferred_prepass)
-                    .before(Core3dSystems::EndPrepasses),
-                // Main passes
-                main_opaque_pass_3d
-                    .after(Core3dSystems::StartMainPass)
-                    .before(Core3dSystems::EndMainPass),
-                main_transmissive_pass_3d
-                    .after(main_opaque_pass_3d)
-                    .before(Core3dSystems::EndMainPass),
-                main_transparent_pass_3d
-                    .after(main_transmissive_pass_3d)
-                    .before(Core3dSystems::EndMainPass),
-                // Post-processing
-                tonemapping
-                    .after(Core3dSystems::StartMainPassPostProcessing)
-                    .before(Core3dSystems::PostProcessing),
-                upscaling.after(Core3dSystems::EndMainPassPostProcessing),
-            ),
-        );
+                Core3d,
+                (
+                    // Prepasses
+                    early_prepass.before(Core3dSystems::EndPrepasses),
+                    early_deferred_prepass
+                        .after(early_prepass)
+                        .before(Core3dSystems::EndPrepasses),
+                    late_prepass
+                        .after(early_deferred_prepass)
+                        .before(Core3dSystems::EndPrepasses),
+                    late_deferred_prepass
+                        .after(late_prepass)
+                        .before(Core3dSystems::EndPrepasses),
+                    copy_deferred_lighting_id
+                        .after(late_deferred_prepass)
+                        .before(Core3dSystems::EndPrepasses),
+                    // Main passes
+                    main_opaque_pass_3d
+                        .after(Core3dSystems::StartMainPass)
+                        .before(Core3dSystems::EndMainPass),
+                    main_transmissive_pass_3d
+                        .after(main_opaque_pass_3d)
+                        .before(Core3dSystems::EndMainPass),
+                    main_transparent_pass_3d
+                        .after(main_transmissive_pass_3d)
+                        .before(Core3dSystems::EndMainPass),
+                    // Post-processing
+                    tonemapping
+                        .after(Core3dSystems::StartMainPassPostProcessing)
+                        .before(Core3dSystems::PostProcessing),
+                    upscaling.after(Core3dSystems::EndMainPassPostProcessing),
+                ),
+            );
     }
 }
 

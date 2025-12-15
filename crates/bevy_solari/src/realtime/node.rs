@@ -95,10 +95,7 @@ pub fn init_solari_lighting_pipelines(
 
     let bind_group_layout_world_cache_active_cells_dispatch = BindGroupLayoutDescriptor::new(
         "solari_lighting_bind_group_layout_world_cache_active_cells_dispatch",
-        &BindGroupLayoutEntries::single(
-            ShaderStages::COMPUTE,
-            storage_buffer_sized(false, None),
-        ),
+        &BindGroupLayoutEntries::single(ShaderStages::COMPUTE, storage_buffer_sized(false, None)),
     );
 
     #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
@@ -307,7 +304,8 @@ pub fn solari_lighting(
         pipeline_cache.get_compute_pipeline(pipelines.decay_world_cache_pipeline),
         pipeline_cache.get_compute_pipeline(pipelines.compact_world_cache_single_block_pipeline),
         pipeline_cache.get_compute_pipeline(pipelines.compact_world_cache_blocks_pipeline),
-        pipeline_cache.get_compute_pipeline(pipelines.compact_world_cache_write_active_cells_pipeline),
+        pipeline_cache
+            .get_compute_pipeline(pipelines.compact_world_cache_write_active_cells_pipeline),
         pipeline_cache.get_compute_pipeline(pipelines.sample_for_world_cache_pipeline),
         pipeline_cache.get_compute_pipeline(pipelines.blend_new_world_cache_samples_pipeline),
         pipeline_cache.get_compute_pipeline(pipelines.presample_light_tiles_pipeline),
@@ -364,9 +362,8 @@ pub fn solari_lighting(
     );
     let bind_group_world_cache_active_cells_dispatch = render_device.create_bind_group(
         "solari_lighting_bind_group_world_cache_active_cells_dispatch",
-        &pipeline_cache.get_bind_group_layout(
-            &pipelines.bind_group_layout_world_cache_active_cells_dispatch,
-        ),
+        &pipeline_cache
+            .get_bind_group_layout(&pipelines.bind_group_layout_world_cache_active_cells_dispatch),
         &BindGroupEntries::single(s.world_cache_active_cells_dispatch.as_entire_binding()),
     );
 
@@ -538,7 +535,8 @@ pub fn solari_lighting(
         pipeline_cache.get_compute_pipeline(pipelines.decay_world_cache_pipeline),
         pipeline_cache.get_compute_pipeline(pipelines.compact_world_cache_single_block_pipeline),
         pipeline_cache.get_compute_pipeline(pipelines.compact_world_cache_blocks_pipeline),
-        pipeline_cache.get_compute_pipeline(pipelines.compact_world_cache_write_active_cells_pipeline),
+        pipeline_cache
+            .get_compute_pipeline(pipelines.compact_world_cache_write_active_cells_pipeline),
         pipeline_cache.get_compute_pipeline(pipelines.sample_for_world_cache_pipeline),
         pipeline_cache.get_compute_pipeline(pipelines.blend_new_world_cache_samples_pipeline),
         pipeline_cache.get_compute_pipeline(pipelines.presample_light_tiles_pipeline),
@@ -601,9 +599,8 @@ pub fn solari_lighting(
     );
     let bind_group_world_cache_active_cells_dispatch = render_device.create_bind_group(
         "solari_lighting_bind_group_world_cache_active_cells_dispatch",
-        &pipeline_cache.get_bind_group_layout(
-            &pipelines.bind_group_layout_world_cache_active_cells_dispatch,
-        ),
+        &pipeline_cache
+            .get_bind_group_layout(&pipelines.bind_group_layout_world_cache_active_cells_dispatch),
         &BindGroupEntries::single(s.world_cache_active_cells_dispatch.as_entire_binding()),
     );
 

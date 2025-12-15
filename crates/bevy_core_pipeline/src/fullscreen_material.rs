@@ -67,7 +67,16 @@ impl<T: FullscreenMaterial> Plugin for FullscreenMaterialPlugin<T> {
 
 /// A trait to define a material that will render to the entire screen using a fullscreen triangle.
 pub trait FullscreenMaterial:
-    Component + ExtractComponent + Clone + Copy + ShaderType + WriteInto + Default + Send + Sync + 'static
+    Component
+    + ExtractComponent
+    + Clone
+    + Copy
+    + ShaderType
+    + WriteInto
+    + Default
+    + Send
+    + Sync
+    + 'static
 {
     /// The shader that will run on the entire screen using a fullscreen triangle.
     fn fragment_shader() -> ShaderRef;

@@ -32,8 +32,7 @@ pub(crate) fn motion_blur(
     globals_buffer: Res<GlobalsBuffer>,
     mut ctx: RenderContext,
 ) {
-    let (view_target, pipeline_id, prepass_textures, motion_blur_uniform, msaa) =
-        view.into_inner();
+    let (view_target, pipeline_id, prepass_textures, motion_blur_uniform, msaa) = view.into_inner();
 
     if motion_blur_uniform.samples == 0 || motion_blur_uniform.shutter_angle <= 0.0 {
         return; // We can skip running motion blur in these cases.

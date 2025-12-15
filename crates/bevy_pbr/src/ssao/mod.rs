@@ -233,11 +233,10 @@ fn ssao(
     }
 
     {
-        let mut spatial_denoise_pass =
-            command_encoder.begin_compute_pass(&ComputePassDescriptor {
-                label: Some("ssao_spatial_denoise"),
-                timestamp_writes: None,
-            });
+        let mut spatial_denoise_pass = command_encoder.begin_compute_pass(&ComputePassDescriptor {
+            label: Some("ssao_spatial_denoise"),
+            timestamp_writes: None,
+        });
         spatial_denoise_pass.set_pipeline(spatial_denoise_pipeline);
         spatial_denoise_pass.set_bind_group(0, &bind_groups.spatial_denoise_bind_group, &[]);
         spatial_denoise_pass.set_bind_group(

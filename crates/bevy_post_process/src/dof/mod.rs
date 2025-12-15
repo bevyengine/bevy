@@ -59,13 +59,11 @@ use bevy_utils::{default, once};
 use smallvec::SmallVec;
 use tracing::{info, warn};
 
+use crate::bloom::bloom;
 use bevy_core_pipeline::{
-    core_3d::DEPTH_TEXTURE_SAMPLING_SUPPORTED,
-    schedule::Core3d,
-    tonemapping::tonemapping,
+    core_3d::DEPTH_TEXTURE_SAMPLING_SUPPORTED, schedule::Core3d, tonemapping::tonemapping,
     FullscreenShader,
 };
-use crate::bloom::bloom;
 
 /// A plugin that adds support for the depth of field effect to Bevy.
 #[derive(Default)]
@@ -241,15 +239,9 @@ impl Plugin for DepthOfFieldPlugin {
                 prepare_depth_of_field_global_bind_group.in_set(RenderSystems::PrepareBindGroups),
             )
             // Add depth_of_field to the 3d schedule
-            .add_systems(
-                Core3d,
-                depth_of_field
-                    .after(bloom)
-                    .before(tonemapping),
-            );
+            .add_systems(Core3d, depth_of_field.after(bloom).before(tonemapping));
     }
 }
-
 
 /// The layout for the bind group shared among all invocations of the depth of
 /// field shader.
@@ -770,7 +762,6 @@ impl DepthOfFieldPipelines {
     }
 }
 
-
 pub(crate) fn depth_of_field(
     view: ViewQuery<(
         &ViewUniformOffset,
@@ -889,7 +880,9 @@ pub(crate) fn depth_of_field(
             ..default()
         };
 
-        let mut render_pass = ctx.command_encoder().begin_render_pass(&render_pass_descriptor);
+        let mut render_pass = ctx
+            .command_encoder()
+            .begin_render_pass(&render_pass_descriptor);
 
         render_pass.set_pipeline(render_pipeline);
         // Set the per-view bind group.

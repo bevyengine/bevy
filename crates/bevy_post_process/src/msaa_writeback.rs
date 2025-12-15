@@ -29,14 +29,8 @@ impl Plugin for MsaaWritebackPlugin {
             Render,
             prepare_msaa_writeback_pipelines.in_set(RenderSystems::Prepare),
         );
-        render_app.add_systems(
-            Core3d,
-            msaa_writeback.before(Core3dSystems::EndPrepasses),
-        );
-        render_app.add_systems(
-            Core2d,
-            msaa_writeback.before(Core2dSystems::StartMainPass),
-        );
+        render_app.add_systems(Core3d, msaa_writeback.before(Core3dSystems::EndPrepasses));
+        render_app.add_systems(Core2d, msaa_writeback.before(Core2dSystems::StartMainPass));
     }
 }
 
@@ -81,11 +75,8 @@ pub(crate) fn msaa_writeback(
         occlusion_query_set: None,
     };
 
-    let bind_group = blit_pipeline.create_bind_group(
-        ctx.render_device(),
-        post_process.source,
-        &pipeline_cache,
-    );
+    let bind_group =
+        blit_pipeline.create_bind_group(ctx.render_device(), post_process.source, &pipeline_cache);
 
     let diagnostics = ctx.diagnostic_recorder();
     let diagnostics = diagnostics.as_deref();

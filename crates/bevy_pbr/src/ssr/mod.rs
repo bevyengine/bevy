@@ -205,7 +205,6 @@ impl Plugin for ScreenSpaceReflectionsPlugin {
     }
 }
 
-
 impl Default for ScreenSpaceReflections {
     // Reasonable default values.
     //

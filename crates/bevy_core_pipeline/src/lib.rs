@@ -25,6 +25,7 @@ pub use skybox::Skybox;
 mod fullscreen_vertex_shader;
 mod skybox;
 
+use crate::schedule::camera_driver;
 use crate::{
     blit::BlitPlugin, core_2d::Core2dPlugin, core_3d::Core3dPlugin,
     deferred::copy_lighting_id::CopyDeferredLightingIdPlugin,
@@ -33,10 +34,9 @@ use crate::{
 };
 use bevy_app::{App, Plugin};
 use bevy_asset::embedded_asset;
-use bevy_render::RenderApp;
 use bevy_render::renderer::RenderGraph;
+use bevy_render::RenderApp;
 use oit::OrderIndependentTransparencyPlugin;
-use crate::schedule::camera_driver;
 
 #[derive(Default)]
 pub struct CorePipelinePlugin;

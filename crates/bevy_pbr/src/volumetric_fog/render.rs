@@ -120,7 +120,6 @@ pub struct ViewVolumetricFogPipelines {
     pub textured: CachedRenderPipelineId,
 }
 
-
 /// Identifies a single specialization of the volumetric fog shader.
 #[derive(PartialEq, Eq, Hash, Clone)]
 pub struct VolumetricFogPipelineKey {

@@ -43,8 +43,7 @@ use bevy_math::{
 };
 use bevy_mesh::{Mesh, Meshable};
 use bevy_render::{
-    render_resource::SpecializedRenderPipelines,
-    sync_component::SyncComponentPlugin,
+    render_resource::SpecializedRenderPipelines, sync_component::SyncComponentPlugin,
     ExtractSchedule, Render, RenderApp, RenderStartup, RenderSystems,
 };
 use render::{volumetric_fog, VolumetricFogPipeline, VolumetricFogUniformBuffer};

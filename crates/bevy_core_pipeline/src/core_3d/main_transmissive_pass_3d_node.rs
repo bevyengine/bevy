@@ -105,8 +105,7 @@ pub fn main_transmissive_pass_3d(
                     physical_target_size.to_extents(),
                 );
 
-                let mut render_pass =
-                    ctx.begin_tracked_render_pass(render_pass_descriptor.clone());
+                let mut render_pass = ctx.begin_tracked_render_pass(render_pass_descriptor.clone());
                 let pass_span =
                     diagnostics.pass_span(&mut render_pass, "main_transmissive_pass_3d");
 

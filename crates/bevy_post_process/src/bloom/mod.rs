@@ -246,14 +246,13 @@ pub(crate) fn bloom(
 
     // Final upsample pass
     {
-        let mut upsampling_final_pass =
-            command_encoder.begin_render_pass(&RenderPassDescriptor {
-                label: Some("bloom_upsampling_final_pass"),
-                color_attachments: &[Some(view_texture_unsampled)],
-                depth_stencil_attachment: None,
-                timestamp_writes: None,
-                occlusion_query_set: None,
-            });
+        let mut upsampling_final_pass = command_encoder.begin_render_pass(&RenderPassDescriptor {
+            label: Some("bloom_upsampling_final_pass"),
+            color_attachments: &[Some(view_texture_unsampled)],
+            depth_stencil_attachment: None,
+            timestamp_writes: None,
+            occlusion_query_set: None,
+        });
         upsampling_final_pass.set_pipeline(upsampling_final_pipeline);
         upsampling_final_pass.set_bind_group(
             0,
@@ -270,8 +269,7 @@ pub(crate) fn bloom(
                 viewport.depth.end,
             );
         }
-        let blend =
-            compute_blend_factor(bloom_settings, 0.0, (bloom_texture.mip_count - 1) as f32);
+        let blend = compute_blend_factor(bloom_settings, 0.0, (bloom_texture.mip_count - 1) as f32);
         upsampling_final_pass.set_blend_constant(LinearRgba::gray(blend).into());
         upsampling_final_pass.draw(0..3, 0..1);
     }

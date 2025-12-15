@@ -48,10 +48,7 @@ impl Plugin for PathtracingPlugin {
                 Render,
                 prepare_pathtracer_accumulation_texture.in_set(RenderSystems::PrepareResources),
             )
-            .add_systems(
-                Core3d,
-                pathtracer.after(Core3dSystems::EndMainPass),
-            );
+            .add_systems(Core3d, pathtracer.after(Core3dSystems::EndMainPass));
     }
 }
 

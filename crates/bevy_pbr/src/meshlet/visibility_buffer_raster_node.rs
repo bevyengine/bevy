@@ -93,8 +93,7 @@ pub fn meshlet_visibility_buffer_raster(
         meshlet_view_resources.view_size,
     );
 
-    ctx.command_encoder()
-        .push_debug_group("meshlet_first_pass");
+    ctx.command_encoder().push_debug_group("meshlet_first_pass");
     first_cull(
         &mut ctx,
         meshlet_view_bind_groups,
@@ -122,14 +121,16 @@ pub fn meshlet_visibility_buffer_raster(
     );
     ctx.command_encoder().pop_debug_group();
 
-    meshlet_view_resources.depth_pyramid.downsample_depth_with_ctx(
-        "downsample_depth",
-        &mut ctx,
-        meshlet_view_resources.view_size,
-        &meshlet_view_bind_groups.downsample_depth,
-        downsample_depth_first_pipeline,
-        downsample_depth_second_pipeline,
-    );
+    meshlet_view_resources
+        .depth_pyramid
+        .downsample_depth_with_ctx(
+            "downsample_depth",
+            &mut ctx,
+            meshlet_view_resources.view_size,
+            &meshlet_view_bind_groups.downsample_depth,
+            downsample_depth_first_pipeline,
+            downsample_depth_second_pipeline,
+        );
 
     ctx.command_encoder()
         .push_debug_group("meshlet_second_pass");
@@ -174,14 +175,16 @@ pub fn meshlet_visibility_buffer_raster(
         resolve_material_depth_pipeline,
         camera,
     );
-    meshlet_view_resources.depth_pyramid.downsample_depth_with_ctx(
-        "downsample_depth",
-        &mut ctx,
-        meshlet_view_resources.view_size,
-        &meshlet_view_bind_groups.downsample_depth,
-        downsample_depth_first_pipeline,
-        downsample_depth_second_pipeline,
-    );
+    meshlet_view_resources
+        .depth_pyramid
+        .downsample_depth_with_ctx(
+            "downsample_depth",
+            &mut ctx,
+            meshlet_view_resources.view_size,
+            &meshlet_view_bind_groups.downsample_depth,
+            downsample_depth_first_pipeline,
+            downsample_depth_second_pipeline,
+        );
     ctx.command_encoder().pop_debug_group();
 
     for light_entity in &lights.lights {
@@ -216,8 +219,7 @@ pub fn meshlet_visibility_buffer_raster(
             meshlet_view_resources.view_size,
         );
 
-        ctx.command_encoder()
-            .push_debug_group("meshlet_first_pass");
+        ctx.command_encoder().push_debug_group("meshlet_first_pass");
         first_cull(
             &mut ctx,
             meshlet_view_bind_groups,
@@ -245,14 +247,16 @@ pub fn meshlet_visibility_buffer_raster(
         );
         ctx.command_encoder().pop_debug_group();
 
-        meshlet_view_resources.depth_pyramid.downsample_depth_with_ctx(
-            "downsample_depth",
-            &mut ctx,
-            meshlet_view_resources.view_size,
-            &meshlet_view_bind_groups.downsample_depth,
-            downsample_depth_first_shadow_view_pipeline,
-            downsample_depth_second_shadow_view_pipeline,
-        );
+        meshlet_view_resources
+            .depth_pyramid
+            .downsample_depth_with_ctx(
+                "downsample_depth",
+                &mut ctx,
+                meshlet_view_resources.view_size,
+                &meshlet_view_bind_groups.downsample_depth,
+                downsample_depth_first_shadow_view_pipeline,
+                downsample_depth_second_shadow_view_pipeline,
+            );
 
         ctx.command_encoder()
             .push_debug_group("meshlet_second_pass");
@@ -290,14 +294,16 @@ pub fn meshlet_visibility_buffer_raster(
             resolve_depth_shadow_view_pipeline,
             camera,
         );
-        meshlet_view_resources.depth_pyramid.downsample_depth_with_ctx(
-            "downsample_depth",
-            &mut ctx,
-            meshlet_view_resources.view_size,
-            &meshlet_view_bind_groups.downsample_depth,
-            downsample_depth_first_shadow_view_pipeline,
-            downsample_depth_second_shadow_view_pipeline,
-        );
+        meshlet_view_resources
+            .depth_pyramid
+            .downsample_depth_with_ctx(
+                "downsample_depth",
+                &mut ctx,
+                meshlet_view_resources.view_size,
+                &meshlet_view_bind_groups.downsample_depth,
+                downsample_depth_first_shadow_view_pipeline,
+                downsample_depth_second_shadow_view_pipeline,
+            );
         ctx.command_encoder().pop_debug_group();
     }
 }
@@ -530,14 +536,16 @@ fn raster_pass(
     camera: Option<&ExtractedCamera>,
     raster_cluster_rightmost_slot: u32,
 ) {
-    let mut software_pass = ctx.command_encoder().begin_compute_pass(&ComputePassDescriptor {
-        label: Some(if first_pass {
-            "raster_software_first"
-        } else {
-            "raster_software_second"
-        }),
-        timestamp_writes: None,
-    });
+    let mut software_pass = ctx
+        .command_encoder()
+        .begin_compute_pass(&ComputePassDescriptor {
+            label: Some(if first_pass {
+                "raster_software_first"
+            } else {
+                "raster_software_second"
+            }),
+            timestamp_writes: None,
+        });
     software_pass.set_pipeline(visibility_buffer_software_raster_pipeline);
     software_pass.set_bind_group(
         0,
@@ -583,10 +591,12 @@ fn raster_pass(
     hardware_pass.draw_indirect(visibility_buffer_hardware_raster_indirect_args, 0);
     drop(hardware_pass);
 
-    let mut fill_counts_pass = ctx.command_encoder().begin_compute_pass(&ComputePassDescriptor {
-        label: Some("fill_counts"),
-        timestamp_writes: None,
-    });
+    let mut fill_counts_pass = ctx
+        .command_encoder()
+        .begin_compute_pass(&ComputePassDescriptor {
+            label: Some("fill_counts"),
+            timestamp_writes: None,
+        });
     fill_counts_pass.set_pipeline(fill_counts_pipeline);
     fill_counts_pass.set_bind_group(0, &meshlet_view_bind_groups.fill_counts, &[]);
     fill_counts_pass.dispatch_workgroups(1, 1, 1);

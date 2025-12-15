@@ -189,7 +189,6 @@ pub struct ViewSmaaPipelines {
     neighborhood_blending_pipeline_id: CachedRenderPipelineId,
 }
 
-
 /// Values supplied to the GPU for SMAA.
 ///
 /// Currently, this just contains the render target metrics and values derived
@@ -815,8 +814,13 @@ pub(crate) fn smaa(
     pipeline_cache: Res<PipelineCache>,
     mut ctx: RenderContext,
 ) {
-    let (view_target, view_pipelines, view_smaa_uniform_offset, smaa_textures, view_smaa_bind_groups) =
-        view.into_inner();
+    let (
+        view_target,
+        view_pipelines,
+        view_smaa_uniform_offset,
+        smaa_textures,
+        view_smaa_bind_groups,
+    ) = view.into_inner();
 
     let (
         Some(edge_detection_pipeline),

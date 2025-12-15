@@ -38,8 +38,15 @@ pub(crate) fn early_deferred_prepass(
     mut ctx: RenderContext,
 ) {
     let view_entity = view.entity();
-    let (camera, extracted_view, view_depth_texture, view_prepass_textures, resolution_override, _, _) =
-        view.into_inner();
+    let (
+        camera,
+        extracted_view,
+        view_depth_texture,
+        view_prepass_textures,
+        resolution_override,
+        _,
+        _,
+    ) = view.into_inner();
 
     run_deferred_prepass_system(
         world,

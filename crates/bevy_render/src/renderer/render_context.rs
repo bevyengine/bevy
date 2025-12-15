@@ -11,7 +11,9 @@ use bevy_ecs::change_detection::Tick;
 use bevy_ecs::component::ComponentId;
 use bevy_ecs::prelude::*;
 use bevy_ecs::query::{FilteredAccessSet, QueryData, QueryFilter, QueryState};
-use bevy_ecs::system::{Deferred, SystemBuffer, SystemMeta, SystemParam, SystemParamValidationError};
+use bevy_ecs::system::{
+    Deferred, SystemBuffer, SystemMeta, SystemParam, SystemParamValidationError,
+};
 use bevy_ecs::world::unsafe_world_cell::UnsafeWorldCell;
 use bevy_ecs::world::DeferredWorld;
 use core::marker::PhantomData;
@@ -85,8 +87,7 @@ impl SystemBuffer for RenderContextState {
         self.render_device = None;
     }
 
-    fn queue(&mut self, _system_meta: &SystemMeta, _world: DeferredWorld) {
-    }
+    fn queue(&mut self, _system_meta: &SystemMeta, _world: DeferredWorld) {}
 }
 
 #[derive(SystemParam)]

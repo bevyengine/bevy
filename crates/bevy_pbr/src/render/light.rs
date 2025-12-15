@@ -42,6 +42,10 @@ use bevy_render::{
     view::{NoIndirectDrawing, RetainedViewEntity},
 };
 use bevy_render::{
+    mesh::allocator::SlabId,
+    sync_world::{MainEntity, RenderEntity},
+};
+use bevy_render::{
     mesh::RenderMesh,
     render_asset::RenderAssets,
     render_phase::*,
@@ -50,10 +54,6 @@ use bevy_render::{
     texture::*,
     view::ExtractedView,
     Extract,
-};
-use bevy_render::{
-    mesh::allocator::SlabId,
-    sync_world::{MainEntity, RenderEntity},
 };
 use bevy_transform::{components::GlobalTransform, prelude::Transform};
 use bevy_utils::default;

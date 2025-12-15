@@ -1,12 +1,12 @@
 use crate::{
+    DistanceFog, ExtractedAtmosphere, MeshPipelineKey, ViewFogUniformOffset,
+    ViewLightsUniformOffset,
+};
+use crate::{
     MeshPipeline, MeshViewBindGroup, RenderViewLightProbes, ScreenSpaceAmbientOcclusion,
     ScreenSpaceReflectionsUniform, ViewEnvironmentMapUniformOffset, ViewLightProbesUniformOffset,
     ViewScreenSpaceReflectionsUniformOffset, TONEMAPPING_LUT_SAMPLER_BINDING_INDEX,
     TONEMAPPING_LUT_TEXTURE_BINDING_INDEX,
-};
-use crate::{
-    DistanceFog, ExtractedAtmosphere, MeshPipelineKey, ViewFogUniformOffset,
-    ViewLightsUniformOffset,
 };
 use bevy_app::prelude::*;
 use bevy_asset::{embedded_asset, load_embedded_asset, AssetServer, Handle};

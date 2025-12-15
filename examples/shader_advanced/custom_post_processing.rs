@@ -139,20 +139,22 @@ fn post_process_system(
         }
     };
 
-    let mut render_pass = ctx.command_encoder().begin_render_pass(&RenderPassDescriptor {
-        label: Some("post_process_pass"),
-        color_attachments: &[Some(RenderPassColorAttachment {
-            // We need to specify the post process destination view here
-            // to make sure we write to the appropriate texture.
-            view: post_process.destination,
-            depth_slice: None,
-            resolve_target: None,
-            ops: Operations::default(),
-        })],
-        depth_stencil_attachment: None,
-        timestamp_writes: None,
-        occlusion_query_set: None,
-    });
+    let mut render_pass = ctx
+        .command_encoder()
+        .begin_render_pass(&RenderPassDescriptor {
+            label: Some("post_process_pass"),
+            color_attachments: &[Some(RenderPassColorAttachment {
+                // We need to specify the post process destination view here
+                // to make sure we write to the appropriate texture.
+                view: post_process.destination,
+                depth_slice: None,
+                resolve_target: None,
+                ops: Operations::default(),
+            })],
+            depth_stencil_attachment: None,
+            timestamp_writes: None,
+            occlusion_query_set: None,
+        });
 
     render_pass.set_pipeline(pipeline);
     // By passing in the index of the post process settings on this view, we ensure

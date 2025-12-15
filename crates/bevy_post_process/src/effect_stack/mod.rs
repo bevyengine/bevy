@@ -40,12 +40,12 @@ use bevy_render::{
 use bevy_shader::{load_shader_library, Shader};
 use bevy_utils::prelude::default;
 
+use crate::bloom::bloom;
 use bevy_core_pipeline::{
     schedule::{Core2d, Core3d},
     tonemapping::tonemapping,
     FullscreenShader,
 };
-use crate::bloom::bloom;
 
 /// The default chromatic aberration intensity amount, in a fraction of the
 /// window size.
@@ -216,18 +216,8 @@ impl Plugin for EffectStackPlugin {
                 )
                     .in_set(RenderSystems::Prepare),
             )
-            .add_systems(
-                Core3d,
-                post_processing
-                    .after(bloom)
-                    .before(tonemapping),
-            )
-            .add_systems(
-                Core2d,
-                post_processing
-                    .after(bloom)
-                    .before(tonemapping),
-            );
+            .add_systems(Core3d, post_processing.after(bloom).before(tonemapping))
+            .add_systems(Core2d, post_processing.after(bloom).before(tonemapping));
     }
 }
 

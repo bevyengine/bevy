@@ -1015,8 +1015,7 @@ pub fn filtering_system(
                         timestamp_writes: None,
                     });
 
-            let irr_span =
-                diagnostics.pass_span(&mut compute_pass, "lightprobe_irradiance_map");
+            let irr_span = diagnostics.pass_span(&mut compute_pass, "lightprobe_irradiance_map");
 
             compute_pass.set_pipeline(irradiance_pipeline);
             compute_pass.set_bind_group(0, &bind_groups.irradiance, &[]);

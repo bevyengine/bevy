@@ -38,7 +38,8 @@ pub fn ui_pass(
         return;
     };
 
-    let Some(transparent_phase) = transparent_render_phases.get(&extracted_view.retained_view_entity)
+    let Some(transparent_phase) =
+        transparent_render_phases.get(&extracted_view.retained_view_entity)
     else {
         return;
     };

@@ -12,13 +12,13 @@ pub use render_device::*;
 pub use wgpu_wrapper::WgpuWrapper;
 
 use crate::{
-    diagnostic::RecordDiagnostics,
     settings::{RenderResources, WgpuSettings, WgpuSettingsPriority},
     view::{ExtractedWindows, ViewTarget},
 };
 use alloc::sync::Arc;
 use bevy_camera::NormalizedRenderTarget;
 use bevy_derive::{Deref, DerefMut};
+use bevy_ecs::schedule::ScheduleLabel;
 use bevy_ecs::{prelude::*, system::SystemState};
 use bevy_platform::time::Instant;
 use bevy_render::camera::ExtractedCamera;
@@ -26,10 +26,8 @@ use bevy_time::TimeSender;
 use bevy_window::RawHandleWrapperHolder;
 use tracing::{debug, error, info, info_span, warn};
 use wgpu::{
-    Adapter, AdapterInfo, Backends, DeviceType, Instance, Queue,
-    RequestAdapterOptions, Trace,
+    Adapter, AdapterInfo, Backends, DeviceType, Instance, Queue, RequestAdapterOptions, Trace,
 };
-use bevy_ecs::schedule::ScheduleLabel;
 
 #[derive(ScheduleLabel, Debug, Clone, PartialEq, Eq, Hash, Default)]
 pub struct RenderGraph;

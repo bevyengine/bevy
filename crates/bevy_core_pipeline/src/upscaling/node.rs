@@ -66,7 +66,9 @@ pub fn upscaling(
 
     let pass_descriptor = RenderPassDescriptor {
         label: Some("upscaling"),
-        color_attachments: &[Some(target.out_texture_color_attachment(converted_clear_color))],
+        color_attachments: &[Some(
+            target.out_texture_color_attachment(converted_clear_color),
+        )],
         depth_stencil_attachment: None,
         timestamp_writes: None,
         occlusion_query_set: None,
@@ -94,4 +96,3 @@ pub fn upscaling(
 
     time_span.end(ctx.command_encoder());
 }
-
