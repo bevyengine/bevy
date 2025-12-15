@@ -343,7 +343,8 @@ pub enum ViewportConversionError {
     CameraMainTextureUsages,
     VisibleEntities,
     Transform,
-    Visibility
+    Visibility,
+    RenderTarget
 )]
 pub struct Camera {
     /// If set, this camera will render to the given [`Viewport`] rectangle within the configured [`RenderTarget`].
@@ -356,8 +357,7 @@ pub struct Camera {
     /// Computed values for this camera, such as the projection matrix and the render target size.
     #[reflect(ignore, clone)]
     pub computed: ComputedCameraValues,
-    /// The "target" that this camera will render to.
-    pub target: RenderTarget,
+    // todo: reflect this when #6042 lands
     /// The [`CameraOutputMode`] for this camera.
     pub output_mode: CameraOutputMode,
     /// Controls when MSAA writeback occurs for this camera.
@@ -385,7 +385,6 @@ impl Default for Camera {
             order: 0,
             viewport: None,
             computed: Default::default(),
-            target: Default::default(),
             output_mode: Default::default(),
             msaa_writeback: MsaaWriteback::default(),
             clear_color: Default::default(),
@@ -811,8 +810,8 @@ impl Default for CameraOutputMode {
 
 /// The "target" that a [`Camera`] will render to. For example, this could be a `Window`
 /// swapchain or an [`Image`].
-#[derive(Debug, Clone, Reflect, From)]
-#[reflect(Clone)]
+#[derive(Component, Debug, Clone, Reflect, From)]
+#[reflect(Clone, Component)]
 pub enum RenderTarget {
     /// Window to which the camera's view is rendered.
     Window(WindowRef),

@@ -66,7 +66,8 @@ where
         _input: SystemIn<'_, Self>,
         world: UnsafeWorldCell,
     ) -> Result<Self::Out, RunSystemError> {
-        self.system.run_unsafe(&mut self.value, world)
+        // SAFETY: Upheld by caller
+        unsafe { self.system.run_unsafe(&mut self.value, world) }
     }
 
     #[cfg(feature = "hotpatching")]
@@ -87,7 +88,8 @@ where
         &mut self,
         world: UnsafeWorldCell,
     ) -> Result<(), SystemParamValidationError> {
-        self.system.validate_param_unsafe(world)
+        // SAFETY: Upheld by caller
+        unsafe { self.system.validate_param_unsafe(world) }
     }
 
     fn initialize(&mut self, world: &mut World) -> FilteredAccessSet {
@@ -163,7 +165,8 @@ where
             .value
             .as_mut()
             .expect("System input value was not found. Did you forget to initialize the system before running it?");
-        self.system.run_unsafe(value, world)
+        // SAFETY: Upheld by caller
+        unsafe { self.system.run_unsafe(value, world) }
     }
 
     #[cfg(feature = "hotpatching")]
@@ -184,7 +187,8 @@ where
         &mut self,
         world: UnsafeWorldCell,
     ) -> Result<(), SystemParamValidationError> {
-        self.system.validate_param_unsafe(world)
+        // SAFETY: Upheld by caller
+        unsafe { self.system.validate_param_unsafe(world) }
     }
 
     fn initialize(&mut self, world: &mut World) -> FilteredAccessSet {

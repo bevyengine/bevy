@@ -21,7 +21,7 @@ use bevy_camera::{
     visibility::{self, RenderLayers, VisibleEntities},
     Camera, Camera2d, Camera3d, CameraMainTextureUsages, CameraOutputMode, CameraUpdateSystems,
     ClearColor, ClearColorConfig, Exposure, ManualTextureViewHandle, MsaaWriteback,
-    NormalizedRenderTarget, Projection, RenderTargetInfo, Viewport,
+    NormalizedRenderTarget, Projection, RenderTarget, RenderTargetInfo, Viewport,
 };
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
@@ -156,7 +156,7 @@ pub trait NormalizedRenderTargetExt {
     ) -> Option<&'a TextureView>;
 
     /// Retrieves the [`TextureFormat`] of this render target, if it exists.
-    fn get_texture_format<'a>(
+    fn get_texture_view_format<'a>(
         &self,
         windows: &'a ExtractedWindows,
         images: &'a RenderAssets<GpuImage>,
@@ -199,8 +199,8 @@ impl NormalizedRenderTargetExt for NormalizedRenderTarget {
         }
     }
 
-    /// Retrieves the [`TextureFormat`] of this render target, if it exists.
-    fn get_texture_format<'a>(
+    /// Retrieves the texture view's [`TextureFormat`] of this render target, if it exists.
+    fn get_texture_view_format<'a>(
         &self,
         windows: &'a ExtractedWindows,
         images: &'a RenderAssets<GpuImage>,
@@ -209,13 +209,13 @@ impl NormalizedRenderTargetExt for NormalizedRenderTarget {
         match self {
             NormalizedRenderTarget::Window(window_ref) => windows
                 .get(&window_ref.entity())
-                .and_then(|window| window.swap_chain_texture_format),
+                .and_then(|window| window.swap_chain_texture_view_format),
             NormalizedRenderTarget::Image(image_target) => images
                 .get(&image_target.handle)
-                .map(|image| image.texture_format),
-            NormalizedRenderTarget::TextureView(id) => manual_texture_views
-                .get(id)
-                .map(|view| view.texture_view.texture().format()),
+                .map(|image| image.texture_view_format.unwrap_or(image.texture_format)),
+            NormalizedRenderTarget::TextureView(id) => {
+                manual_texture_views.get(id).map(|tex| tex.view_format)
+            }
             NormalizedRenderTarget::None { .. } => None,
         }
     }
@@ -312,7 +312,7 @@ pub fn camera_system(
     windows: Query<(Entity, &Window)>,
     images: Res<Assets<Image>>,
     manual_texture_views: Res<ManualTextureViews>,
-    mut cameras: Query<(&mut Camera, &mut Projection)>,
+    mut cameras: Query<(&mut Camera, &RenderTarget, &mut Projection)>,
 ) -> Result<(), BevyError> {
     let primary_window = primary_window.iter().next();
 
@@ -333,13 +333,13 @@ pub fn camera_system(
         })
         .collect();
 
-    for (mut camera, mut camera_projection) in &mut cameras {
+    for (mut camera, render_target, mut camera_projection) in &mut cameras {
         let mut viewport_size = camera
             .viewport
             .as_ref()
             .map(|viewport| viewport.physical_size);
 
-        if let Some(normalized_target) = &camera.target.normalize(primary_window)
+        if let Some(normalized_target) = render_target.normalize(primary_window)
             && (normalized_target.is_changed(&changed_window_ids, &changed_image_handles)
                 || camera.is_added()
                 || camera_projection.is_changed()
@@ -423,18 +423,21 @@ pub fn extract_cameras(
             Entity,
             RenderEntity,
             &Camera,
+            &RenderTarget,
             &CameraRenderGraph,
             &GlobalTransform,
             &VisibleEntities,
             &Frustum,
-            Has<Hdr>,
-            Option<&ColorGrading>,
-            Option<&Exposure>,
-            Option<&TemporalJitter>,
-            Option<&MipBias>,
-            Option<&RenderLayers>,
-            Option<&Projection>,
-            Has<NoIndirectDrawing>,
+            (
+                Has<Hdr>,
+                Option<&ColorGrading>,
+                Option<&Exposure>,
+                Option<&TemporalJitter>,
+                Option<&MipBias>,
+                Option<&RenderLayers>,
+                Option<&Projection>,
+                Has<NoIndirectDrawing>,
+            ),
         )>,
     >,
     primary_window: Extract<Query<Entity, With<PrimaryWindow>>>,
@@ -457,18 +460,21 @@ pub fn extract_cameras(
         main_entity,
         render_entity,
         camera,
+        render_target,
         camera_render_graph,
         transform,
         visible_entities,
         frustum,
-        hdr,
-        color_grading,
-        exposure,
-        temporal_jitter,
-        mip_bias,
-        render_layers,
-        projection,
-        no_indirect_drawing,
+        (
+            hdr,
+            color_grading,
+            exposure,
+            temporal_jitter,
+            mip_bias,
+            render_layers,
+            projection,
+            no_indirect_drawing,
+        ),
     ) in query.iter()
     {
         if !camera.is_active {
@@ -523,7 +529,7 @@ pub fn extract_cameras(
             let mut commands = commands.entity(render_entity);
             commands.insert((
                 ExtractedCamera {
-                    target: camera.target.normalize(primary_window),
+                    target: render_target.normalize(primary_window),
                     viewport: camera.viewport.clone(),
                     physical_viewport_size: Some(viewport_size),
                     physical_target_size: Some(target_size),

@@ -113,7 +113,7 @@ smallvec = { version = "1", default-features = false, features = ["const_new"] }
 offset-allocator = "0.2"
 variadics_please = "1.1"
 tracing = { version = "0.1", default-features = false, features = ["std"] }
-tracy-client = { version = "0.18.0", optional = true }
+tracy-client = { version = "0.18.3", optional = true }
 indexmap = { version = "2" }
 fixedbitset = { version = "0.5" }
 bitflags = "2"

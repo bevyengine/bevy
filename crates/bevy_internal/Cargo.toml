@@ -430,6 +430,8 @@ hotpatching = ["bevy_app/hotpatching", "bevy_ecs/hotpatching"]
 
 debug = ["bevy_utils/debug", "bevy_ecs/debug"]
 
+screenrecording = ["bevy_dev_tools/screenrecording"]
+
 [dependencies]
 # bevy (no_std)
 bevy_app = { path = "../bevy_app", version = "0.18.0-dev", default-features = false, features = [

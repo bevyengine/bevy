@@ -155,7 +155,7 @@ pub mod prelude {
     pub use crate::{assets::Gltf, assets::GltfExtras, label::GltfAssetLabel};
 }
 
-use crate::convert_coordinates::GltfConvertCoordinates;
+use crate::{convert_coordinates::GltfConvertCoordinates, extensions::GltfExtensionHandlers};
 
 pub use {assets::*, label::GltfAssetLabel, loader::*};
 
@@ -241,7 +241,8 @@ impl Plugin for GltfPlugin {
             .init_asset::<GltfPrimitive>()
             .init_asset::<GltfMesh>()
             .init_asset::<GltfSkin>()
-            .preregister_asset_loader::<GltfLoader>(&["gltf", "glb"]);
+            .preregister_asset_loader::<GltfLoader>(&["gltf", "glb"])
+            .init_resource::<GltfExtensionHandlers>();
     }
 
     fn finish(&self, app: &mut App) {
@@ -259,11 +260,14 @@ impl Plugin for GltfPlugin {
         let default_sampler = default_sampler_resource.get_internal();
         app.insert_resource(default_sampler_resource);
 
+        let extensions = app.world().resource::<GltfExtensionHandlers>();
+
         app.register_asset_loader(GltfLoader {
             supported_compressed_formats,
             custom_vertex_attributes: self.custom_vertex_attributes.clone(),
             default_sampler,
             default_convert_coordinates: self.convert_coordinates,
+            extensions: extensions.0.clone(),
         });
     }
 }
