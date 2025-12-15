@@ -1,25 +1,15 @@
 #[cfg(feature = "screenrecording")]
 use core::time::Duration;
 use std::time::{SystemTime, UNIX_EPOCH};
-#[cfg(feature = "screenrecording")]
-use std::{fs::File, io::Write, sync::mpsc::channel};
 
 use bevy_app::{App, Plugin, Update};
 use bevy_ecs::prelude::*;
-#[cfg(feature = "screenrecording")]
-use bevy_image::Image;
 use bevy_input::{common_conditions::input_just_pressed, keyboard::KeyCode};
-#[cfg(feature = "screenrecording")]
-use bevy_render::view::screenshot::ScreenshotCaptured;
 use bevy_render::view::screenshot::{save_to_disk, Screenshot};
-#[cfg(feature = "screenrecording")]
-use bevy_time::Time;
 use bevy_window::{PrimaryWindow, Window};
 #[cfg(feature = "screenrecording")]
 use tracing::info;
-#[cfg(feature = "screenrecording")]
-use x264::{Colorspace, Encoder, Setup};
-#[cfg(feature = "screenrecording")]
+#[cfg(all(not(target_os = "windows"), feature = "screenrecording"))]
 pub use x264::{Preset, Tune};
 
 /// File format the screenshot will be saved in
@@ -82,6 +72,50 @@ impl Plugin for EasyScreenshotPlugin {
     }
 }
 
+/// Placeholder
+#[cfg(all(target_os = "windows", feature = "screenrecording"))]
+pub enum Preset {
+    /// Placeholder
+    Ultrafast,
+    /// Placeholder
+    Superfast,
+    /// Placeholder
+    Veryfast,
+    /// Placeholder
+    Faster,
+    /// Placeholder
+    Fast,
+    /// Placeholder
+    Medium,
+    /// Placeholder
+    Slow,
+    /// Placeholder
+    Slower,
+    /// Placeholder
+    Veryslow,
+    /// Placeholder
+    Placebo,
+}
+
+/// Placeholder
+#[cfg(all(target_os = "windows", feature = "screenrecording"))]
+pub enum Tune {
+    /// Placeholder
+    None,
+    /// Placeholder
+    Film,
+    /// Placeholder
+    Animation,
+    /// Placeholder
+    Grain,
+    /// Placeholder
+    StillImage,
+    /// Placeholder
+    Psnr,
+    /// Placeholder
+    Ssim,
+}
+
 #[cfg(feature = "screenrecording")]
 /// Add this plugin to your app to enable easy screen recording.
 pub struct EasyScreenRecordPlugin {
@@ -108,13 +142,6 @@ impl Default for EasyScreenRecordPlugin {
 }
 
 #[cfg(feature = "screenrecording")]
-enum RecordCommand {
-    Start(String, Preset, Tune),
-    Stop,
-    Frame(Image),
-}
-
-#[cfg(feature = "screenrecording")]
 /// Controls screen recording
 #[derive(Message)]
 pub enum RecordScreen {
@@ -126,90 +153,117 @@ pub enum RecordScreen {
 
 #[cfg(feature = "screenrecording")]
 impl Plugin for EasyScreenRecordPlugin {
+    #[cfg_attr(
+        target_os = "windows",
+        expect(unused_variables, reason = "not working on windows")
+    )]
     fn build(&self, app: &mut App) {
-        let (tx, rx) = channel::<RecordCommand>();
+        #[cfg(target_os = "windows")]
+        {
+            warn!("Screen recording is not supported on Windows");
+        }
+        #[cfg(not(target_os = "windows"))]
+        {
+            use bevy_image::Image;
+            use bevy_render::view::screenshot::ScreenshotCaptured;
+            use bevy_time::Time;
+            use std::{fs::File, io::Write, sync::mpsc::channel};
+            use x264::{Colorspace, Encoder, Setup};
 
-        let frame_time = self.frame_time;
+            enum RecordCommand {
+                Start(String, Preset, Tune),
+                Stop,
+                Frame(Image),
+            }
 
-        std::thread::spawn(move || {
-            let mut encoder: Option<Encoder> = None;
-            let mut setup = None;
-            let mut file: Option<File> = None;
-            let mut frame = 0;
-            loop {
-                let Ok(next) = rx.recv() else {
-                    break;
-                };
-                match next {
-                    RecordCommand::Start(name, preset, tune) => {
-                        info!("starting recording at {}", name);
-                        file = Some(File::create(name).unwrap());
-                        setup = Some(Setup::preset(preset, tune, false, true).high());
-                    }
-                    RecordCommand::Stop => {
-                        info!("stopping recording");
-                        if let Some(encoder) = encoder.take() {
-                            let mut flush = encoder.flush();
-                            let mut file = file.take().unwrap();
-                            while let Some(result) = flush.next() {
-                                let (data, _) = result.unwrap();
-                                file.write_all(data.entirety()).unwrap();
+            let (tx, rx) = channel::<RecordCommand>();
+
+            let frame_time = self.frame_time;
+
+            std::thread::spawn(move || {
+                let mut encoder: Option<Encoder> = None;
+                let mut setup = None;
+                let mut file: Option<File> = None;
+                let mut frame = 0;
+                loop {
+                    let Ok(next) = rx.recv() else {
+                        break;
+                    };
+                    match next {
+                        RecordCommand::Start(name, preset, tune) => {
+                            info!("starting recording at {}", name);
+                            file = Some(File::create(name).unwrap());
+                            setup = Some(Setup::preset(preset, tune, false, true).high());
+                        }
+                        RecordCommand::Stop => {
+                            info!("stopping recording");
+                            if let Some(encoder) = encoder.take() {
+                                let mut flush = encoder.flush();
+                                let mut file = file.take().unwrap();
+                                while let Some(result) = flush.next() {
+                                    let (data, _) = result.unwrap();
+                                    file.write_all(data.entirety()).unwrap();
+                                }
+                            }
+                        }
+                        RecordCommand::Frame(image) => {
+                            if let Some(setup) = setup.take() {
+                                let mut new_encoder = setup
+                                    .fps((1000 / frame_time.as_millis()) as u32, 1)
+                                    .build(
+                                        Colorspace::RGB,
+                                        image.width() as i32,
+                                        image.height() as i32,
+                                    )
+                                    .unwrap();
+                                let headers = new_encoder.headers().unwrap();
+                                file.as_mut()
+                                    .unwrap()
+                                    .write_all(headers.entirety())
+                                    .unwrap();
+                                encoder = Some(new_encoder);
+                            }
+                            if let Some(encoder) = encoder.as_mut() {
+                                let pts = (frame_time.as_millis() * frame) as i64;
+
+                                frame += 1;
+                                let (data, _) = encoder
+                                    .encode(
+                                        pts,
+                                        x264::Image::rgb(
+                                            image.width() as i32,
+                                            image.height() as i32,
+                                            &image.try_into_dynamic().unwrap().to_rgb8(),
+                                        ),
+                                    )
+                                    .unwrap();
+                                file.as_mut().unwrap().write_all(data.entirety()).unwrap();
                             }
                         }
                     }
-                    RecordCommand::Frame(image) => {
-                        if let Some(setup) = setup.take() {
-                            let mut new_encoder = setup
-                                .fps((1000 / frame_time.as_millis()) as u32, 1)
-                                .build(Colorspace::RGB, image.width() as i32, image.height() as i32)
-                                .unwrap();
-                            let headers = new_encoder.headers().unwrap();
-                            file.as_mut()
-                                .unwrap()
-                                .write_all(headers.entirety())
-                                .unwrap();
-                            encoder = Some(new_encoder);
-                        }
-                        if let Some(encoder) = encoder.as_mut() {
-                            let pts = (frame_time.as_millis() * frame) as i64;
-
-                            frame += 1;
-                            let (data, _) = encoder
-                                .encode(
-                                    pts,
-                                    x264::Image::rgb(
-                                        image.width() as i32,
-                                        image.height() as i32,
-                                        &image.try_into_dynamic().unwrap().to_rgb8(),
-                                    ),
-                                )
-                                .unwrap();
-                            file.as_mut().unwrap().write_all(data.entirety()).unwrap();
-                        }
-                    }
                 }
-            }
-        });
+            });
 
-        let frame_time = self.frame_time;
+            let frame_time = self.frame_time;
 
-        app.add_message::<RecordScreen>().add_systems(
-            Update,
-            (
-                (move |mut messages: MessageWriter<RecordScreen>, mut recording: Local<bool>| {
-                    *recording = !*recording;
-                    if *recording {
-                        messages.write(RecordScreen::Start);
-                    } else {
-                        messages.write(RecordScreen::Stop);
-                    }
-                })
-                .run_if(input_just_pressed(self.toggle)),
-                {
-                    let tx = tx.clone();
-                    let preset = self.preset;
-                    let tune = self.tune;
-                    move |mut commands: Commands,
+            app.add_message::<RecordScreen>().add_systems(
+                Update,
+                (
+                    (move |mut messages: MessageWriter<RecordScreen>,
+                           mut recording: Local<bool>| {
+                        *recording = !*recording;
+                        if *recording {
+                            messages.write(RecordScreen::Start);
+                        } else {
+                            messages.write(RecordScreen::Stop);
+                        }
+                    })
+                    .run_if(input_just_pressed(self.toggle)),
+                    {
+                        let tx = tx.clone();
+                        let preset = self.preset;
+                        let tune = self.tune;
+                        move |mut commands: Commands,
                           mut recording: Local<bool>,
                           mut messages: MessageReader<RecordScreen>,
                           window: Single<&Window, With<PrimaryWindow>>,
@@ -251,9 +305,10 @@ impl Plugin for EasyScreenRecordPlugin {
                             );
                         }
                     }
-                },
-            )
-                .chain(),
-        );
+                    },
+                )
+                    .chain(),
+            );
+        }
     }
 }
