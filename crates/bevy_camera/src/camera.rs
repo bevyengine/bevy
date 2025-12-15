@@ -811,7 +811,7 @@ impl Default for CameraOutputMode {
 /// The "target" that a [`Camera`] will render to. For example, this could be a `Window`
 /// swapchain or an [`Image`].
 #[derive(Component, Debug, Clone, Reflect, From)]
-#[reflect(Clone)]
+#[reflect(Clone, Component)]
 pub enum RenderTarget {
     /// Window to which the camera's view is rendered.
     Window(WindowRef),
