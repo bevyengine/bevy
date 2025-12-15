@@ -149,7 +149,8 @@ pub fn ui_picking(
     }
 
     // The list of node entities hovered for each (camera, pointer) combo
-    let mut hit_nodes = HashMap::<(Entity, PointerId), Vec<(Entity, Entity, Vec2)>>::default();
+    let mut hit_nodes =
+        HashMap::<(Entity, PointerId), Vec<(Entity, Entity, Option<Pickable>, Vec2)>>::default();
 
     // prepare an iterator that contains all the nodes that have the cursor in their rect,
     // from the top node to the bottom one. this will also reset the interaction to `None`
@@ -222,6 +223,7 @@ pub fn ui_picking(
                             .push((
                                 text_entity,
                                 camera_entity,
+                                node.pickable.cloned(),
                                 node.transform.inverse().transform_point2(*cursor_position)
                                     / node.node.size(),
                             ));
@@ -240,6 +242,7 @@ pub fn ui_picking(
                         .push((
                             node_entity,
                             camera_entity,
+                            node.pickable.cloned(),
                             node.transform.inverse().transform_point2(*cursor_position)
                                 / node.node.size(),
                         ));
@@ -254,13 +257,13 @@ pub fn ui_picking(
         let mut picks = Vec::new();
         let mut depth = 0.0;
 
-        for (hovered_node, camera_entity, position) in hovered {
+        for (hovered_node, camera_entity, pickable, position) in hovered {
             picks.push((
                 *hovered_node,
                 HitData::new(*camera_entity, depth, Some(position.extend(0.0)), None),
             ));
 
-            if let Ok(pickable) = pickable_query.get(*hovered_node) {
+            if let Some(pickable) = pickable {
                 // If an entity has a `Pickable` component, we will use that as the source of truth.
                 if pickable.should_block_lower {
                     break;
