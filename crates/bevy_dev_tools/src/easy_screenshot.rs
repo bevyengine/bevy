@@ -158,7 +158,7 @@ impl Plugin for EasyScreenRecordPlugin {
     fn build(&self, app: &mut App) {
         #[cfg(target_os = "windows")]
         {
-            tracing::warn!("Screen recording is not supported on Windows");
+            tracing::warn!("Screen recording is not currently supported on Windows: see https://github.com/bevyengine/bevy/issues/22132");
         }
         #[cfg(not(target_os = "windows"))]
         {
