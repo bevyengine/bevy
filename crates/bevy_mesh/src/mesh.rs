@@ -2182,18 +2182,32 @@ impl Mesh {
         })
     }
 
-    // Get this mesh's [`SkinnedMeshBounds`].
+    /// Get this mesh's [`SkinnedMeshBounds`].
     pub fn skinned_mesh_bounds(&self) -> Option<&SkinnedMeshBounds> {
         self.skinned_mesh_bounds.as_ref()
     }
 
-    // Generate [`SkinnedMeshBounds`] for this mesh.
+    /// Set this mesh's [`SkinnedMeshBounds`].
+    pub fn set_skinned_mesh_bounds(&mut self, skinned_mesh_bounds: Option<SkinnedMeshBounds>) {
+        self.skinned_mesh_bounds = skinned_mesh_bounds;
+    }
+
+    /// Consumes the mesh and returns a mesh with the given [`SkinnedMeshBounds`].
+    pub fn with_skinned_mesh_bounds(
+        mut self,
+        skinned_mesh_bounds: Option<SkinnedMeshBounds>,
+    ) -> Self {
+        self.set_skinned_mesh_bounds(skinned_mesh_bounds);
+        self
+    }
+
+    /// Generate [`SkinnedMeshBounds`] for this mesh.
     pub fn generate_skinned_mesh_bounds(&mut self) -> Result<(), SkinnedMeshBoundsError> {
         self.skinned_mesh_bounds = Some(SkinnedMeshBounds::from_mesh(self)?);
         Ok(())
     }
 
-    // Consumes the mesh and returns a mesh with [`SkinnedMeshBounds`].
+    /// Consumes the mesh and returns a mesh with generated [`SkinnedMeshBounds`].
     pub fn with_generated_skinned_mesh_bounds(mut self) -> Result<Self, SkinnedMeshBoundsError> {
         self.generate_skinned_mesh_bounds()?;
         Ok(self)
