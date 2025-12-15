@@ -244,7 +244,7 @@ where
         Self {
             builder,
             func,
-            _data: PhantomData,
+            _marker: PhantomData,
         }
     }
 }
