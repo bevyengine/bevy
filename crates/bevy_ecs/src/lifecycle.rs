@@ -60,7 +60,7 @@ use crate::{
     query::FilteredAccessSet,
     relationship::RelationshipHookMode,
     storage::SparseSet,
-    system::{Local, ReadOnlySystemParam, ReborrowSystemParam, SystemMeta, SystemParam},
+    system::{Local, ReadOnlySystemParam, SystemMeta, SystemParam},
     world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, World},
 };
 
@@ -614,12 +614,16 @@ impl<'w, 's, T: Component> RemovedComponents<'w, 's, T> {
 }
 
 // SAFETY: Only reads World removed component messages
-unsafe impl<'a> ReadOnlySystemParam for &'a RemovedComponentMessages {}
+unsafe impl ReadOnlySystemParam for &'_ RemovedComponentMessages {}
 
 // SAFETY: no component value access.
-unsafe impl<'a> SystemParam for &'a RemovedComponentMessages {
+unsafe impl SystemParam for &'_ RemovedComponentMessages {
     type State = ();
     type Item<'w, 's> = &'w RemovedComponentMessages;
+
+    fn reborrow<'a>(item: &'a mut Self::Item<'_, '_>) -> Self::Item<'a, 'a> {
+        *item
+    }
 
     fn init_state(_world: &mut World) -> Self::State {}
 
@@ -639,13 +643,5 @@ unsafe impl<'a> SystemParam for &'a RemovedComponentMessages {
         _change_tick: Tick,
     ) -> Self::Item<'w, 's> {
         world.removed_components()
-    }
-}
-
-impl<'a> ReborrowSystemParam for &'a RemovedComponentMessages {
-    fn reborrow<'wlong: 'short, 'slong: 'short, 'short>(
-        item: &'short mut Self::Item<'wlong, 'slong>,
-    ) -> Self::Item<'short, 'short> {
-        *item
     }
 }

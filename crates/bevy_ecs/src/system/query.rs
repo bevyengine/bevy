@@ -8,7 +8,6 @@ use crate::{
         DebugCheckedUnwrap, NopWorldQuery, QueryCombinationIter, QueryData, QueryEntityError,
         QueryFilter, QueryIter, QueryManyIter, QueryManyUniqueIter, QueryParIter, QueryParManyIter,
         QueryParManyUniqueIter, QuerySingleError, QueryState, ROQueryItem, ReadOnlyQueryData,
-        ReborrowQueryData,
     },
     world::unsafe_world_cell::UnsafeWorldCell,
 };
@@ -2678,10 +2677,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Single<'w, 's, D, F> {
 
     /// Returns a `Single<>` with a smaller lifetime.
     /// This is useful if you have `&Single`, but you need an `Single`.
-    pub fn reborrow(&mut self) -> Single<'_, '_, D, F>
-    where
-        D: ReborrowQueryData,
-    {
+    pub fn reborrow(&mut self) -> Single<'_, '_, D, F> {
         Single {
             item: D::reborrow(&mut self.item),
             _filter: PhantomData,

@@ -2,9 +2,7 @@ use crate::{
     change_detection::Tick,
     query::FilteredAccessSet,
     storage::SparseSetIndex,
-    system::{
-        ExclusiveSystemParam, ReadOnlySystemParam, ReborrowSystemParam, SystemMeta, SystemParam,
-    },
+    system::{ExclusiveSystemParam, ReadOnlySystemParam, SystemMeta, SystemParam},
     world::{FromWorld, World},
 };
 use bevy_platform::sync::atomic::{AtomicUsize, Ordering};
@@ -56,6 +54,10 @@ unsafe impl SystemParam for WorldId {
 
     type Item<'world, 'state> = WorldId;
 
+    fn reborrow<'a>(item: &'a mut Self::Item<'_, '_>) -> Self::Item<'a, 'a> {
+        *item
+    }
+
     fn init_state(_: &mut World) -> Self::State {}
 
     fn init_access(
@@ -74,14 +76,6 @@ unsafe impl SystemParam for WorldId {
         _: Tick,
     ) -> Self::Item<'world, 'state> {
         world.id()
-    }
-}
-
-impl ReborrowSystemParam for WorldId {
-    fn reborrow<'wlong: 'short, 'slong: 'short, 'short>(
-        item: &'short mut Self::Item<'wlong, 'slong>,
-    ) -> Self::Item<'short, 'short> {
-        *item
     }
 }
 

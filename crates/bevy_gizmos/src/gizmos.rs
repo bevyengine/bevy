@@ -13,8 +13,8 @@ use bevy_ecs::{
     query::FilteredAccessSet,
     resource::Resource,
     system::{
-        Deferred, ReadOnlySystemParam, ReborrowSystemParam, Res, SystemBuffer, SystemMeta,
-        SystemParam, SystemParamValidationError,
+        Deferred, ReadOnlySystemParam, Res, SystemBuffer, SystemMeta, SystemParam,
+        SystemParamValidationError,
     },
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
@@ -216,6 +216,10 @@ where
     type State = GizmosFetchState<Config, Clear>;
     type Item<'w, 's> = Gizmos<'w, 's, Config, Clear>;
 
+    fn reborrow<'a>(item: &'a mut Self::Item<'_, '_>) -> Self::Item<'a, 'a> {
+        item.reborrow()
+    }
+
     fn init_state(world: &mut World) -> Self::State {
         GizmosFetchState {
             state: GizmosState::<Config, Clear>::init_state(world),
@@ -280,18 +284,6 @@ where
             config,
             config_ext,
         }
-    }
-}
-
-impl<Config, Clear> ReborrowSystemParam for Gizmos<'_, '_, Config, Clear>
-where
-    Config: GizmoConfigGroup,
-    Clear: 'static + Send + Sync,
-{
-    fn reborrow<'wlong: 'short, 'slong: 'short, 'short>(
-        item: &'short mut Self::Item<'wlong, 'slong>,
-    ) -> Self::Item<'short, 'short> {
-        item.reborrow()
     }
 }
 

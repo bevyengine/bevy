@@ -2,9 +2,7 @@ use crate::{
     change_detection::Tick,
     prelude::World,
     query::FilteredAccessSet,
-    system::{
-        ExclusiveSystemParam, ReadOnlySystemParam, ReborrowSystemParam, SystemMeta, SystemParam,
-    },
+    system::{ExclusiveSystemParam, ReadOnlySystemParam, SystemMeta, SystemParam},
     world::unsafe_world_cell::UnsafeWorldCell,
 };
 use bevy_utils::prelude::DebugName;
@@ -51,6 +49,10 @@ unsafe impl SystemParam for SystemName {
     type State = ();
     type Item<'w, 's> = SystemName;
 
+    fn reborrow<'a>(item: &'a mut Self::Item<'_, '_>) -> Self::Item<'a, 'a> {
+        item.clone()
+    }
+
     fn init_state(_world: &mut World) -> Self::State {}
 
     fn init_access(
@@ -69,14 +71,6 @@ unsafe impl SystemParam for SystemName {
         _change_tick: Tick,
     ) -> Self::Item<'w, 's> {
         SystemName(system_meta.name.clone())
-    }
-}
-
-impl ReborrowSystemParam for SystemName {
-    fn reborrow<'wlong: 'short, 'slong: 'short, 'short>(
-        item: &'short mut Self::Item<'wlong, 'slong>,
-    ) -> Self::Item<'short, 'short> {
-        item.clone()
     }
 }
 

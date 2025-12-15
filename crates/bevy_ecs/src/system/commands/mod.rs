@@ -30,8 +30,8 @@ use crate::{
     resource::Resource,
     schedule::ScheduleLabel,
     system::{
-        Deferred, IntoObserverSystem, IntoSystem, ReborrowSystemParam, RegisteredSystem, SystemId,
-        SystemInput, SystemParamValidationError,
+        Deferred, IntoObserverSystem, IntoSystem, RegisteredSystem, SystemId, SystemInput,
+        SystemParamValidationError,
     },
     world::{
         command_queue::RawCommandQueue, unsafe_world_cell::UnsafeWorldCell, CommandQueue,
@@ -130,6 +130,10 @@ const _: () = {
 
         type Item<'w, 's> = Commands<'w, 's>;
 
+        fn reborrow<'a>(item: &'a mut Self::Item<'_, '_>) -> Self::Item<'a, 'a> {
+            item.reborrow()
+        }
+
         fn init_state(world: &mut World) -> Self::State {
             FetchState {
                 state: <__StructFieldsAlias<'_, '_> as bevy_ecs::system::SystemParam>::init_state(
@@ -215,14 +219,6 @@ const _: () = {
         Deferred<'s, CommandQueue>: bevy_ecs::system::ReadOnlySystemParam,
         &'w Entities: bevy_ecs::system::ReadOnlySystemParam,
     {
-    }
-
-    impl<'w, 's> ReborrowSystemParam for Commands<'w, 's> {
-        fn reborrow<'wlong: 'short, 'slong: 'short, 'short>(
-            item: &'short mut Self::Item<'wlong, 'slong>,
-        ) -> Self::Item<'short, 'short> {
-            item.reborrow()
-        }
     }
 };
 
