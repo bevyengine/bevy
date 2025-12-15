@@ -18,8 +18,13 @@ pub trait MeshAabb {
 
 impl MeshAabb for Mesh {
     fn compute_aabb(&self) -> Option<Aabb> {
-        let Some(VertexAttributeValues::Float32x3(values)) =
-            self.attribute(Mesh::ATTRIBUTE_POSITION)
+        if let Some(aabb) = self.final_aabb {
+            // use precomputed extents
+            return Some(aabb.into());
+        }
+
+        let Ok(VertexAttributeValues::Float32x3(values)) =
+            self.try_attribute(Mesh::ATTRIBUTE_POSITION)
         else {
             return None;
         };

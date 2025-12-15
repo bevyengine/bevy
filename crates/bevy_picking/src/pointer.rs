@@ -8,8 +8,8 @@
 //! The purpose of this module is primarily to provide a common interface that can be
 //! driven by lower-level input devices and consumed by higher-level interaction systems.
 
-use bevy_camera::Camera;
 use bevy_camera::NormalizedRenderTarget;
+use bevy_camera::{Camera, RenderTarget};
 use bevy_ecs::prelude::*;
 use bevy_input::mouse::MouseScrollUnit;
 use bevy_math::Vec2;
@@ -223,10 +223,10 @@ impl Location {
     pub fn is_in_viewport(
         &self,
         camera: &Camera,
+        render_target: &RenderTarget,
         primary_window: &Query<Entity, With<PrimaryWindow>>,
     ) -> bool {
-        if camera
-            .target
+        if render_target
             .normalize(Some(match primary_window.single() {
                 Ok(w) => w,
                 Err(_) => return false,

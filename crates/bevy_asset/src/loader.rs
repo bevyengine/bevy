@@ -305,6 +305,8 @@ pub enum LoadDirectError {
         dependency: AssetPath<'static>,
         error: AssetLoadError,
     },
+    #[error("The asset at path `{0:?}` requested to immediately load itself recursively, but this is not supported")]
+    RequestedSelfPath(AssetPath<'static>),
 }
 
 /// An error that occurs while deserializing [`AssetMeta`].
@@ -507,7 +509,9 @@ impl<'a> LoadContext<'a> {
                 path: path.path().to_path_buf(),
                 source,
             })?;
-        self.loader_dependencies.insert(path.clone_owned(), hash);
+        if self.asset_path != path {
+            self.loader_dependencies.insert(path.clone_owned(), hash);
+        }
         Ok(bytes)
     }
 
@@ -533,6 +537,11 @@ impl<'a> LoadContext<'a> {
         loader: &dyn ErasedAssetLoader,
         reader: &mut dyn Reader,
     ) -> Result<ErasedLoadedAsset, LoadDirectError> {
+        if self.asset_path == path {
+            return Err(LoadDirectError::RequestedSelfPath(
+                self.asset_path.clone_owned(),
+            ));
+        }
         let loaded_asset = self
             .asset_server
             .load_with_meta_loader_and_reader(
