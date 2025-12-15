@@ -7,7 +7,6 @@ mod khr_materials_specular;
 use alloc::sync::Arc;
 use async_lock::RwLock;
 
-use bevy_animation::AnimationClip;
 use bevy_asset::{Handle, LoadContext};
 use bevy_ecs::{
     entity::Entity,
@@ -15,8 +14,13 @@ use bevy_ecs::{
     world::{EntityWorldMut, World},
 };
 use bevy_pbr::StandardMaterial;
-use bevy_platform::collections::{HashMap, HashSet};
 use gltf::Node;
+
+#[cfg(feature = "bevy_animation")]
+use {
+    bevy_animation::AnimationClip,
+    bevy_platform::collections::{HashMap, HashSet},
+};
 
 use crate::GltfMesh;
 
