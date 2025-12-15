@@ -993,7 +993,7 @@ impl Entities {
     ) -> Option<EntityLocation> {
         self.ensure_index_index_is_valid(index);
         // SAFETY: We just did `ensure_index`
-        self.update_existing_location(index, location)
+        unsafe { self.update_existing_location(index, location) }
     }
 
     /// Ensures the index is within the bounds of [`Self::meta`], expanding it if necessary.
