@@ -258,9 +258,7 @@ impl GltfLoader {
         // Let extensions process the root data for the extension ids
         // they've subscribed to.
         for extension in extensions.iter_mut() {
-            for id in extension.extension_ids() {
-                extension.on_root_data(id, gltf.extension_value(id));
-            }
+            extension.on_root(&gltf);
         }
 
         let file_name = load_context
@@ -597,15 +595,7 @@ impl GltfLoader {
 
                 // let extensions handle extension data placed on animations
                 for extension in extensions.iter_mut() {
-                    for id in extension.extension_ids() {
-                        extension.on_animation(
-                            id,
-                            animation.extension_value(id),
-                            &animation,
-                            animation.name(),
-                            handle.clone(),
-                        );
-                    }
+                    extension.on_animation(&animation, handle.clone());
                 }
 
                 animations.push(handle);
@@ -654,13 +644,7 @@ impl GltfLoader {
                 image.process_loaded_texture(load_context, &mut texture_handles);
                 // let extensions handle texture data
                 for extension in extensions.iter_mut() {
-                    for id in extension.extension_ids() {
-                        extension.on_texture(
-                            id,
-                            texture.extension_value(id),
-                            texture_handles.iter().last().unwrap().clone(),
-                        );
-                    }
+                    extension.on_texture(&texture, texture_handles.last().unwrap().clone());
                 }
             }
         } else {
@@ -671,9 +655,8 @@ impl GltfLoader {
                         let asset_path = load_context.path().clone();
                         let linear_textures = &linear_textures;
                         let buffer_data = &buffer_data;
-                        let extension_data = gltf_texture.extensions().map(ToOwned::to_owned);
                         scope.spawn(async move {
-                            let result = load_image(
+                            load_image(
                                 gltf_texture,
                                 buffer_data,
                                 linear_textures,
@@ -682,26 +665,19 @@ impl GltfLoader {
                                 default_sampler,
                                 settings,
                             )
-                            .await;
-                            (extension_data, result)
+                            .await
                         });
                     });
                 })
                 .into_iter()
-                .for_each(|(extension_data, result)| match result {
+                // order is preserved if the futures are only spawned from the root scope
+                .zip(gltf.textures())
+                .for_each(|(result, texture)| match result {
                     Ok(image) => {
                         image.process_loaded_texture(load_context, &mut texture_handles);
                         // let extensions handle texture data
-                        // We do this differently here because of the IoTaskPool vs
-                        // gltf::Texture lifetimes
                         for extension in extensions.iter_mut() {
-                            for id in extension.extension_ids() {
-                                extension.on_texture(
-                                    id,
-                                    extension_data.as_ref().and_then(|map| map.get(*id)),
-                                    texture_handles.iter().last().unwrap().clone(),
-                                );
-                            }
+                            extension.on_texture(&texture, texture_handles.last().unwrap().clone());
                         }
                     }
                     Err(err) => {
@@ -723,16 +699,7 @@ impl GltfLoader {
 
                 // let extensions handle material data
                 for extension in extensions.iter_mut() {
-                    for id in extension.extension_ids() {
-                        extension.on_material(
-                            id,
-                            material.extension_value(id),
-                            load_context,
-                            &material,
-                            material.name(),
-                            handle.clone(),
-                        );
-                    }
+                    extension.on_material(load_context, &material, handle.clone());
                 }
 
                 materials.push(handle);
@@ -899,16 +866,7 @@ impl GltfLoader {
                 named_meshes.insert(name.into(), handle.clone());
             }
             for extension in extensions.iter_mut() {
-                for id in extension.extension_ids() {
-                    extension.on_gltf_mesh(
-                        id,
-                        gltf_mesh.extension_value(id),
-                        load_context,
-                        &gltf_mesh,
-                        gltf_mesh.name(),
-                        handle.clone(),
-                    );
-                }
+                extension.on_gltf_mesh(load_context, &gltf_mesh, handle.clone());
             }
 
             meshes.push(handle);
@@ -1114,17 +1072,12 @@ impl GltfLoader {
 
             // let extensions handle scene extension data
             for extension in extensions.iter_mut() {
-                for id in extension.extension_ids() {
-                    extension.on_scene_completed(
-                        id,
-                        scene.extension_value(id),
-                        &scene,
-                        scene.name(),
-                        world_root_id,
-                        &mut world,
-                        &mut scene_load_context,
-                    );
-                }
+                extension.on_scene_completed(
+                    &mut scene_load_context,
+                    &scene,
+                    world_root_id,
+                    &mut world,
+                );
             }
 
             let loaded_scene = scene_load_context.finish(Scene::new(world));
@@ -1755,15 +1708,7 @@ fn load_node(
                         });
                     }
                     for extension in extensions.iter_mut() {
-                        for id in extension.extension_ids() {
-                            extension.on_spawn_light_directional(
-                                id,
-                                gltf_node.extension_value(id),
-                                load_context,
-                                gltf_node,
-                                &mut entity,
-                            );
-                        }
+                        extension.on_spawn_light_directional(load_context, gltf_node, &mut entity);
                     }
                 }
                 gltf::khr_lights_punctual::Kind::Point => {
@@ -1786,15 +1731,7 @@ fn load_node(
                         });
                     }
                     for extension in extensions.iter_mut() {
-                        for id in extension.extension_ids() {
-                            extension.on_spawn_light_point(
-                                id,
-                                gltf_node.extension_value(id),
-                                load_context,
-                                gltf_node,
-                                &mut entity,
-                            );
-                        }
+                        extension.on_spawn_light_point(load_context, gltf_node, &mut entity);
                     }
                 }
                 gltf::khr_lights_punctual::Kind::Spot {
@@ -1822,15 +1759,7 @@ fn load_node(
                         });
                     }
                     for extension in extensions.iter_mut() {
-                        for id in extension.extension_ids() {
-                            extension.on_spawn_light_spot(
-                                id,
-                                gltf_node.extension_value(id),
-                                load_context,
-                                gltf_node,
-                                &mut entity,
-                            );
-                        }
+                        extension.on_spawn_light_spot(load_context, gltf_node, &mut entity);
                     }
                 }
             }
@@ -1881,10 +1810,7 @@ fn load_node(
     // accessing Mesh and Material extension data, which
     // are merged onto the same entity in Bevy
     for extension in extensions.iter_mut() {
-        for id in extension.extension_ids() {
-            let data = gltf_node.extension_value(id);
-            extension.on_gltf_node(id, data, load_context, gltf_node, &mut node);
-        }
+        extension.on_gltf_node(load_context, gltf_node, &mut node);
     }
 
     if let Some(err) = gltf_error {

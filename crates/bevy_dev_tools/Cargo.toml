@@ -10,7 +10,7 @@ keywords = ["bevy"]
 
 [features]
 bevy_ci_testing = ["serde", "ron"]
-screenrecording = ["x264"]
+screenrecording = ["dep:x264"]
 webgl = ["bevy_render/webgl"]
 webgpu = ["bevy_render/webgpu"]
 
@@ -41,6 +41,8 @@ bevy_state = { path = "../bevy_state", version = "0.18.0-dev" }
 serde = { version = "1.0", features = ["derive"], optional = true }
 ron = { version = "0.12", optional = true }
 tracing = { version = "0.1", default-features = false, features = ["std"] }
+
+[target.'cfg(not(target_os = "windows"))'.dependencies]
 x264 = { version = "0.5.0", optional = true }
 
 [lints]
