@@ -644,10 +644,7 @@ impl GltfLoader {
                 image.process_loaded_texture(load_context, &mut texture_handles);
                 // let extensions handle texture data
                 for extension in extensions.iter_mut() {
-                    extension.on_texture(
-                        texture.extensions(),
-                        texture_handles.last().unwrap().clone(),
-                    );
+                    extension.on_texture(&texture, texture_handles.last().unwrap().clone());
                 }
             }
         } else {
@@ -658,7 +655,6 @@ impl GltfLoader {
                         let asset_path = load_context.path().clone();
                         let linear_textures = &linear_textures;
                         let buffer_data = &buffer_data;
-                        let extension_data = gltf_texture.extensions().map(ToOwned::to_owned);
                         scope.spawn(async move {
                             let result = load_image(
                                 gltf_texture,
@@ -670,22 +666,19 @@ impl GltfLoader {
                                 settings,
                             )
                             .await;
-                            (extension_data, result)
+                            result
                         });
                     });
                 })
                 .into_iter()
-                .for_each(|(extension_data, result)| match result {
+                // order is preserved if the futures are only spawned from the root scope
+                .zip(gltf.textures())
+                .for_each(|(result, texture)| match result {
                     Ok(image) => {
                         image.process_loaded_texture(load_context, &mut texture_handles);
                         // let extensions handle texture data
-                        // We do this differently here because of the IoTaskPool vs
-                        // gltf::Texture lifetimes
                         for extension in extensions.iter_mut() {
-                            extension.on_texture(
-                                extension_data.as_ref(),
-                                texture_handles.last().unwrap().clone(),
-                            );
+                            extension.on_texture(&texture, texture_handles.last().unwrap().clone());
                         }
                     }
                     Err(err) => {
