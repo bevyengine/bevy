@@ -1,3 +1,8 @@
+#![expect(
+    unsafe_op_in_unsafe_fn,
+    reason = "See #11590. To be removed once all applicable unsafe code has an unsafe block with a safety comment."
+)]
+
 use alloc::{format, vec::Vec};
 use bevy_utils::prelude::DebugName;
 use core::marker::PhantomData;
