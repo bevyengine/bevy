@@ -50,8 +50,14 @@ impl MeshAabb for Mesh {
 ///   or `Sprite` component,
 /// - don't have the [`NoFrustumCulling`] component.
 ///
-/// It won't be updated automatically if the space occupied by the entity changes,
-/// for example if the vertex positions of a [`Mesh3d`] are updated.
+/// It won't be updated automatically if the space occupied by the entity
+/// changes, for example if the vertex positions of a [`Mesh3d`] are updated, or
+/// if animation deforms the positions of a skinned mesh outside the boundaries
+/// of the AABB that have been computed for it. Be warned that this can cause
+/// skinned meshes to disappear in the presence of animation. To prevent this,
+/// you may either create a custom AABB that you know will always encompass the
+/// boundaries of the skinned mesh even after animation, or else remove the
+/// [`Aabb`] component.
 ///
 /// [`Camera`]: crate::Camera
 /// [`NoFrustumCulling`]: crate::visibility::NoFrustumCulling

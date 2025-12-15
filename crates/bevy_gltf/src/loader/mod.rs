@@ -2,6 +2,7 @@ pub mod extensions;
 mod gltf_ext;
 
 use alloc::sync::Arc;
+use core::iter::Iterator;
 use async_lock::RwLock;
 use std::{io::Error, sync::Mutex};
 
@@ -27,7 +28,7 @@ use bevy_image::{
     ImageType, TextureError,
 };
 use bevy_light::{DirectionalLight, PointLight, SpotLight};
-use bevy_math::{Mat4, Vec3};
+use bevy_math::{Affine3A, Mat4, Vec3};
 use bevy_mesh::{
     morph::{MeshMorphWeights, MorphAttributes, MorphTargetImage, MorphWeights},
     skinning::{SkinnedMesh, SkinnedMeshInverseBindposes},
@@ -46,8 +47,11 @@ use bevy_transform::components::Transform;
 use gltf::{
     accessor::Iter,
     image::Source,
-    mesh::{util::ReadIndices, Mode},
-    Document, Material, Node, Semantic,
+    mesh::{
+        util::{ReadIndices, ReadJoints, ReadWeights},
+        Mode,
+    },
+    Document, Material, Node, Primitive, Semantic,
 };
 
 use serde::{Deserialize, Serialize};
@@ -239,6 +243,34 @@ impl Default for GltfLoaderSettings {
             use_model_forward_direction: None,
         }
     }
+}
+
+/// Encapsulates state needed to properly compute axis-aligned bounding boxes
+/// for meshes.
+///
+/// One might naively think that the `POSITION` accessor bounds (`min` and
+/// `max`) can be used to construct an AABB for a mesh. This, however, is not
+/// correct for skinned meshes, as the rest pose for the skinned mesh may deform
+/// the mesh positions arbitrarily. Therefore, for skinned meshes, we compute
+/// the AABB manually by applying the joint matrices of the rest pose.
+struct AabbComputer<'a> {
+    /// A reference to the raw data inside the glTF buffers.
+    ///
+    /// The AABB computer needs this in order to read positions, joint indices,
+    /// and joint weights.
+    buffer_data: &'a [Vec<u8>],
+
+    /// A mapping from a node index to the index of its parent.
+    ///
+    /// This is used for calculating global transforms. If there are no skins,
+    /// then this won't be populated at all.
+    node_index_to_parent_node_index: HashMap<usize, usize>,
+
+    /// A mapping from each node to its global transform.
+    ///
+    /// A global transform will be present only for nodes that represent either
+    /// skinned meshes or joints.
+    node_index_to_global_transform: HashMap<usize, Affine3A>,
 }
 
 impl GltfLoader {
@@ -1001,6 +1033,10 @@ impl GltfLoader {
             .map(|(_, resolved)| resolved)
             .collect();
 
+        // Prepare to compute AABBs for meshes.
+        let mut aabb_computer = AabbComputer::new(&gltf, &buffer_data);
+        aabb_computer.compute_needed_global_transforms(&gltf);
+
         let mut scenes = vec![];
         let mut named_scenes = <HashMap<_, _>>::default();
         let mut active_camera_found = false;
@@ -1030,6 +1066,7 @@ impl GltfLoader {
                             #[cfg(feature = "bevy_animation")]
                             None,
                             &gltf.document,
+                            &mut aabb_computer,
                             convert_coordinates,
                             &mut extensions,
                         );
@@ -1487,6 +1524,7 @@ fn load_node(
     #[cfg(feature = "bevy_animation")] animation_roots: &HashSet<usize>,
     #[cfg(feature = "bevy_animation")] mut animation_context: Option<AnimationContext>,
     document: &Document,
+    aabb_computer: &mut AabbComputer,
     convert_coordinates: bool,
     extensions: &mut [Box<dyn extensions::GltfExtensionHandler>],
 ) -> Result<(), GltfError> {
@@ -1579,6 +1617,8 @@ fn load_node(
     // Map node index to entity
     node_index_to_entity_map.insert(gltf_node.index(), node.id());
 
+    let joint_matrices = aabb_computer.compute_joint_matrices_for_node(gltf_node);
+
     let mut morph_weights = None;
 
     node.with_children(|parent| {
@@ -1605,7 +1645,6 @@ fn load_node(
                     mesh: mesh.index(),
                     primitive: primitive.index(),
                 };
-                let bounds = primitive.bounding_box();
 
                 let mut mesh_entity = parent.spawn((
                     // TODO: handle missing label handle errors here?
@@ -1614,6 +1653,15 @@ fn load_node(
                         load_context.get_label_handle(&material_label),
                     ),
                 ));
+
+                // Compute the AABB for this mesh, taking the rest pose of the
+                // skin into account if necessary.
+                let aabb = aabb_computer.compute_aabb_for_primitive(
+                    &primitive,
+                    &joint_matrices,
+                    convert_coordinates,
+                );
+                mesh_entity.insert(aabb);
 
                 let target_count = primitive.morph_targets().len();
                 if target_count != 0 {
@@ -1634,19 +1682,6 @@ fn load_node(
                     // > the accessors of the original primitive.
                     mesh_entity.insert(MeshMorphWeights::new(weights).unwrap());
                 }
-
-                let mut bounds_min = Vec3::from_slice(&bounds.min);
-                let mut bounds_max = Vec3::from_slice(&bounds.max);
-
-                if convert_coordinates {
-                    let converted_min = bounds_min.convert_coordinates();
-                    let converted_max = bounds_max.convert_coordinates();
-
-                    bounds_min = converted_min.min(converted_max);
-                    bounds_max = converted_min.max(converted_max);
-                }
-
-                mesh_entity.insert(Aabb::from_min_max(bounds_min, bounds_max));
 
                 if let Some(extras) = primitive.extras() {
                     mesh_entity.insert(GltfExtras {
@@ -1790,6 +1825,7 @@ fn load_node(
                 #[cfg(feature = "bevy_animation")]
                 animation_context.clone(),
                 document,
+                aabb_computer,
                 convert_coordinates,
                 extensions,
             ) {
@@ -2007,6 +2043,211 @@ struct AnimationContext {
 #[serde(rename_all = "camelCase")]
 struct MorphTargetNames {
     pub target_names: Vec<String>,
+}
+
+impl<'a> AabbComputer<'a> {
+    /// Creates a new [`AabbComputer`] for the given glTF asset and associated
+    /// buffer data.
+    ///
+    /// This populates the [`Self::node_index_to_parent_node_index`] table if
+    /// necessary.
+    fn new<'b>(gltf: &'_ gltf::Gltf, buffer_data: &'b [Vec<u8>]) -> AabbComputer<'b> {
+        // Make the tree doubly linked by computing child-to-parent uplinks. But
+        // if there are no skins, then we don't even need to do that.
+        let mut node_index_to_parent_node_index = HashMap::default();
+        if gltf.skins().next().is_some() {
+            for node in gltf.nodes() {
+                for kid in node.children() {
+                    node_index_to_parent_node_index.insert(kid.index(), node.index());
+                }
+            }
+        }
+
+        AabbComputer {
+            buffer_data,
+            node_index_to_parent_node_index,
+            node_index_to_global_transform: HashMap::default(),
+        }
+    }
+
+    /// Computes all global transforms needed to compute AABBs.
+    ///
+    /// Since computing a global transform can be mildly expensive, we avoid
+    /// doing it for nodes other than those that will be needed to properly
+    /// compute bounding boxes. We must compute the transform for each node that
+    /// contains a skinned mesh and each node that represents a joint.
+    fn compute_needed_global_transforms(&mut self, gltf: &gltf::Gltf) {
+        // We don't need to compute any global transforms if there are no skins
+        // in the glTF file.
+        if gltf.skins().next().is_none() {
+            return;
+        }
+
+        for node in gltf.nodes() {
+            if let Some(skin) = node.skin() {
+                self.compute_global_transform_for_node(gltf, node.index());
+                for joint in skin.joints() {
+                    self.compute_global_transform_for_node(gltf, joint.index());
+                }
+            }
+        }
+    }
+
+    /// A helper method that computes the global transform for a node and its
+    /// ancestors if necessary.
+    fn compute_global_transform_for_node(&mut self, gltf: &gltf::Gltf, node_index: usize) {
+        // If we've already computed the global transform for this node, bail.
+        if self
+            .node_index_to_global_transform
+            .contains_key(&node_index)
+        {
+            return;
+        }
+
+        // Compute this node's local transform. We can get away with `Affine3A`s
+        // because the glTF spec requires that matrices "*MUST* be decomposable
+        // to TRS properties".
+        let local_transform = Affine3A::from_mat4(Mat4::from_cols_array_2d(
+            &gltf.nodes().nth(node_index).unwrap().transform().matrix(),
+        ));
+
+        // If we have a parent, then compute its global transform and append
+        // ours. Otherwise, if we're at top level, the global transform is just
+        // the node's transform.
+        match self.node_index_to_parent_node_index.get(&node_index) {
+            Some(&parent_index) => {
+                self.compute_global_transform_for_node(gltf, parent_index);
+                self.node_index_to_global_transform.insert(
+                    node_index,
+                    self.node_index_to_global_transform[&parent_index] * local_transform,
+                );
+            }
+            None => {
+                self.node_index_to_global_transform
+                    .insert(node_index, local_transform);
+            }
+        }
+    }
+
+    /// Computes and returns the joint matrices for the given skinned mesh if
+    /// applicable.
+    ///
+    /// If the given node doesn't represent a skinned mesh, returns an empty
+    /// vector.
+    fn compute_joint_matrices_for_node(&mut self, gltf_node: &Node) -> Vec<Affine3A> {
+        // If this node doesn't represent a skinned mesh, bail.
+        let (&Some(_), Some(skin), &Some(global_mesh_transform)) = (
+            &gltf_node.mesh(),
+            &gltf_node.skin(),
+            &self.node_index_to_global_transform.get(&gltf_node.index()),
+        ) else {
+            return vec![];
+        };
+
+        // Compute the inverse transform of the mesh (needed to translate joint
+        // matrices into local mesh space), and prepare to read skinned mesh
+        // inverse bindposes.
+        let inverse_mesh_transform = global_mesh_transform.inverse();
+        let inverse_bind_matrix_reader =
+            skin.reader(|buffer| Some(&self.buffer_data[buffer.index()]));
+        let mut inverse_bind_matrix_iter = inverse_bind_matrix_reader.read_inverse_bind_matrices();
+
+        // Calculate the joint matrices.
+        let mut joint_matrices = vec![];
+        for joint in skin.joints() {
+            let joint_transform = self.node_index_to_global_transform[&joint.index()];
+            let inverse_bind_matrix = inverse_bind_matrix_iter
+                .as_mut()
+                .and_then(Iterator::next)
+                .map(|matrix| Affine3A::from_mat4(Mat4::from_cols_array_2d(&matrix)))
+                .unwrap_or(Affine3A::IDENTITY);
+            joint_matrices.push(inverse_mesh_transform * joint_transform * inverse_bind_matrix);
+        }
+
+        joint_matrices
+    }
+
+    /// Computes the axis-aligned bounding box for the given mesh primitive.
+    ///
+    /// The `joint_matrices` for the mesh that this primitive belongs to must
+    /// have been computed with a prior call to
+    /// [`Self::compute_joint_matrices_for_node`]. If `convert_coordinates` is
+    /// true, this method converts the AABB to match Bevy's conventions.
+    fn compute_aabb_for_primitive(
+        &self,
+        primitive: &Primitive,
+        joint_matrices: &[Affine3A],
+        convert_coordinates: bool,
+    ) -> Aabb {
+        // Prepare to read positions.
+        let primitive_reader = primitive.reader(|buffer| Some(&self.buffer_data[buffer.index()]));
+        let Some(positions_reader) = primitive_reader.read_positions() else {
+            return Aabb::default();
+        };
+
+        // Prepare to read joint indices and weights.
+        let mut joint_indices_reader = primitive_reader.read_joints(0).map(ReadJoints::into_u16);
+        let mut joint_weights_reader = primitive_reader.read_weights(0).map(ReadWeights::into_f32);
+
+        let mut bounds = None;
+        match (&mut joint_indices_reader, &mut joint_weights_reader) {
+            // If this is a skinned mesh, apply the rest pose.
+            //
+            // Note that animation can deform the mesh outside the AABB computed
+            // here. This may cause skinned meshes to be culled when they
+            // shouldn't be in the presence of animation. A solution to this
+            // problem is currently outside the scope of the glTF loader.
+            (&mut Some(ref mut joint_indices_iter), &mut Some(ref mut joint_weights_reader)) => {
+                for position in positions_reader {
+                    // Apply the rest pose to this position.
+                    let mut position = Vec3::from_array(position);
+                    if let (Some(joint_indices), Some(joint_weights)) =
+                        (joint_indices_iter.next(), joint_weights_reader.next())
+                    {
+                        // Make sure to compute joint matrix * position * weight,
+                        // not joint matrix * weight * position, as the latter would
+                        // require Bevy to multiply every element of the matrix by
+                        // the weight (i.e. weighting the joint would use 12
+                        // multiplies instead of 3).
+                        let [i0, i1, i2, i3] = joint_indices;
+                        let [w0, w1, w2, w3] = joint_weights;
+                        position = joint_matrices[i0 as usize].transform_point3(position) * w0
+                            + joint_matrices[i1 as usize].transform_point3(position) * w1
+                            + joint_matrices[i2 as usize].transform_point3(position) * w2
+                            + joint_matrices[i3 as usize].transform_point3(position) * w3;
+                    }
+
+                    // Accumulate the transformed position.
+                    match bounds {
+                        None => bounds = Some((position, position)),
+                        Some((ref mut min_position, ref mut max_position)) => {
+                            *min_position = min_position.min(position);
+                            *max_position = max_position.max(position);
+                        }
+                    }
+                }
+            }
+
+            // Otherwise, if this isn't a skinned mesh, we can just use the
+            // `POSITION` accessor bounds specified in the glTF file.
+            _ => {
+                let bounding_box = primitive.bounding_box();
+                bounds = Some((bounding_box.min.into(), bounding_box.max.into()));
+            }
+        }
+
+        // Flip coordinates if necessary.
+        let (mut min_position, mut max_position) = bounds.unwrap_or_default();
+        if convert_coordinates {
+            let converted_min = min_position.convert_coordinates();
+            let converted_max = max_position.convert_coordinates();
+
+            min_position = converted_min.min(converted_max);
+            max_position = converted_min.max(converted_max);
+        }
+
+        Aabb::from_min_max(min_position, max_position)
+    }
 }
 
 #[cfg(test)]
