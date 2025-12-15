@@ -99,18 +99,11 @@ pub trait GltfExtensionHandler: Send + Sync {
     }
 
     /// Called when an individual texture is processed
-    /// Unlike other hooks, this hook does not receive its glTF
-    /// object due to internal constraints.
     #[expect(
         unused,
         reason = "default trait implementations do not use the arguments because they are no-ops"
     )]
-    fn on_texture(
-        &mut self,
-        extension_data: Option<&serde_json::Map<String, serde_json::Value>>,
-        texture: Handle<bevy_image::Image>,
-    ) {
-    }
+    fn on_texture(&mut self, gltf_texture: &gltf::Texture, texture: Handle<bevy_image::Image>) {}
 
     /// Called when an individual material is processed
     #[expect(
