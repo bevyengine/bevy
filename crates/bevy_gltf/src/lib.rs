@@ -194,7 +194,7 @@ impl DefaultGltfImageSampler {
 
 /// Controls the bounds related components that are assigned to skinned mesh
 /// entities. These components are used by systems like frustum culling.
-#[derive(Copy, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Default, Copy, Clone, PartialEq, Serialize, Deserialize)]
 pub enum GltfSkinnedMeshBoundsPolicy {
     /// Skinned meshes are assigned an `Aabb` component calculated from the bind
     /// pose `Mesh`.
@@ -202,6 +202,7 @@ pub enum GltfSkinnedMeshBoundsPolicy {
     /// Skinned meshes are created with [`SkinnedMeshBounds`](bevy_mesh::skinning::SkinnedMeshBounds)
     /// and assigned a [`DynamicSkinnedMeshBounds`](bevy_camera::visibility::DynamicSkinnedMeshBounds)
     /// component. See `DynamicSkinnedMeshBounds` for details.
+    #[default]
     Dynamic,
     /// Same as `BindPose`, but also assign a `NoFrustumCulling` component. That
     /// component tells the `bevy_camera` plugin to avoid frustum culling the
@@ -246,7 +247,7 @@ impl Default for GltfPlugin {
             default_sampler: ImageSamplerDescriptor::linear(),
             custom_vertex_attributes: HashMap::default(),
             use_model_forward_direction: false,
-            skinned_mesh_bounds_policy: GltfSkinnedMeshBoundsPolicy::Dynamic,
+            skinned_mesh_bounds_policy: Default::default(),
         }
     }
 }
