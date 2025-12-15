@@ -1,14 +1,12 @@
 pub mod allocator;
 use crate::{
-    render_asset::{
-        AssetExtractionError, PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets,
-    },
+    render_asset::{PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets},
     texture::GpuImage,
     RenderApp,
 };
 use allocator::MeshAllocatorPlugin;
 use bevy_app::{App, Plugin};
-use bevy_asset::{AssetId, RenderAssetUsages};
+use bevy_asset::{AssetId, ExtractableAsset, RenderAssetUsages};
 use bevy_ecs::{
     prelude::*,
     system::{
@@ -135,11 +133,8 @@ impl RenderAsset for RenderMesh {
 
     fn take_gpu_data(
         source: &mut Self::SourceAsset,
-        _previous_gpu_asset: Option<&Self>,
-    ) -> Result<Self::SourceAsset, AssetExtractionError> {
-        source
-            .take_gpu_data()
-            .map_err(|_| AssetExtractionError::AlreadyExtracted)
+    ) -> Result<Self::SourceAsset, bevy_asset::AssetExtractionError> {
+        source.take_gpu_data()
     }
 
     fn byte_len(mesh: &Self::SourceAsset) -> Option<usize> {
