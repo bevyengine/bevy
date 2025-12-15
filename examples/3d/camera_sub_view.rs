@@ -90,13 +90,13 @@ fn setup(
         Camera3d::default(),
         transform,
         Camera {
-            target: RenderTarget::Window(WindowRef::Entity(top_right)),
             sub_camera_view: Some(SubCameraView {
                 scale: 0.5,
                 offset: Vec2::new(0.5, 0.0),
             }),
             ..default()
         },
+        RenderTarget::Window(WindowRef::Entity(top_right)),
     ));
 
     let bottom_left = commands
@@ -115,13 +115,13 @@ fn setup(
         Camera3d::default(),
         transform,
         Camera {
-            target: RenderTarget::Window(WindowRef::Entity(bottom_left)),
             sub_camera_view: Some(SubCameraView {
                 scale: 0.5,
                 offset: Vec2::new(0.0, 0.5),
             }),
             ..default()
         },
+        RenderTarget::Window(WindowRef::Entity(bottom_left)),
     ));
 
     let bottom_right = commands
@@ -140,12 +140,12 @@ fn setup(
         Camera3d::default(),
         transform,
         Camera {
-            target: RenderTarget::Window(WindowRef::Entity(bottom_right)),
             sub_camera_view: Some(SubCameraView {
                 scale: 0.5,
                 offset: Vec2::splat(0.5),
             }),
             ..default()
         },
+        RenderTarget::Window(WindowRef::Entity(bottom_right)),
     ));
 }
