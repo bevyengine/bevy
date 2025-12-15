@@ -47,38 +47,18 @@ pub struct GltfExtensionHandlers(pub Arc<RwLock<Vec<Box<dyn GltfExtensionHandler
 /// The type a `GltfExtensionHandler` is implemented for can define data
 /// which will be cloned for each new glTF load. This enables stateful
 /// handling of glTF extension data during a single load.
+///
+/// When loading a glTF file, a glTF object that could contain extension
+/// data will cause the relevant hook to execute once per object.
+/// Each invocation will receive all extension data, which is required because
+/// many extensions require accessing data defined by other extensions.
+///
+/// The hooks are always called once, even if there is no extension data
+/// This is useful for scenarios where additional extension data isn't
+/// required, but processing should still happen.
 pub trait GltfExtensionHandler: Send + Sync {
     /// Required for dyn cloning
     fn dyn_clone(&self) -> Box<dyn GltfExtensionHandler>;
-
-    /// When loading a glTF file, a glTF object that could contain extension
-    /// data will cause the relevant hook to execute once for each id in this list.
-    /// Each invocation will receive the extension data for one of the extension ids,
-    /// along with the `extension_id` itself so implementors can differentiate
-    /// between different calls and parse data correctly.
-    ///
-    /// The hooks are always called, even if there is no extension data
-    /// for a specified id. This is useful for scenarios where additional
-    /// extension data isn't required, but processing should still happen.
-    ///
-    /// Most implementors will pick one extension for this list, causing the
-    /// relevant hooks to fire once per object. An implementor that does not
-    /// wish to receive any data but still wants hooks to be called can use
-    /// an empty string `""` as the extension id, which is also the default
-    /// value if the function is not implemented by an implementor. If the
-    /// empty string is used, all extension data in hooks will be `None`.
-    ///
-    /// Some implementors will choose to list multiple extensions here.
-    /// This is an advanced use case and the alternative of having multiple
-    /// independent handlers should be considered as an option first.
-    /// If multiple extension ids are listed here, the hooks will fire once
-    /// for each extension id, and each successive call will receive the data for
-    /// a separate extension. The extension id is also included in hook arguments
-    /// for this reason, so multiple extension id implementors can differentiate
-    /// between the data received.
-    fn extension_ids(&self) -> &'static [&'static str] {
-        &[""]
-    }
 
     /// Called when the "global" data for an extension
     /// at the root of a glTF file is encountered.
@@ -86,7 +66,7 @@ pub trait GltfExtensionHandler: Send + Sync {
         unused,
         reason = "default trait implementations do not use the arguments because they are no-ops"
     )]
-    fn on_root_data(&mut self, extension_id: &str, value: Option<&serde_json::Value>) {}
+    fn on_root(&mut self, gltf: &gltf::Gltf) {}
 
     #[cfg(feature = "bevy_animation")]
     #[expect(
@@ -94,15 +74,7 @@ pub trait GltfExtensionHandler: Send + Sync {
         reason = "default trait implementations do not use the arguments because they are no-ops"
     )]
     /// Called when an individual animation is processed
-    fn on_animation(
-        &mut self,
-        extension_id: &str,
-        extension_data: Option<&serde_json::Value>,
-        gltf_animation: &gltf::Animation,
-        name: Option<&str>,
-        handle: Handle<AnimationClip>,
-    ) {
-    }
+    fn on_animation(&mut self, gltf_animation: &gltf::Animation, handle: Handle<AnimationClip>) {}
 
     #[cfg(feature = "bevy_animation")]
     #[expect(
@@ -123,14 +95,15 @@ pub trait GltfExtensionHandler: Send + Sync {
     }
 
     /// Called when an individual texture is processed
+    /// Unlike other hooks, this hook does not receive its glTF
+    /// object due to internal constraints.
     #[expect(
         unused,
         reason = "default trait implementations do not use the arguments because they are no-ops"
     )]
     fn on_texture(
         &mut self,
-        extension_id: &str,
-        extension_data: Option<&serde_json::Value>,
+        extension_data: Option<&serde_json::Map<String, serde_json::Value>>,
         texture: Handle<bevy_image::Image>,
     ) {
     }
@@ -142,11 +115,8 @@ pub trait GltfExtensionHandler: Send + Sync {
     )]
     fn on_material(
         &mut self,
-        extension_id: &str,
-        extension_data: Option<&serde_json::Value>,
         load_context: &mut LoadContext<'_>,
         gltf_material: &gltf::Material,
-        name: Option<&str>,
         material: Handle<StandardMaterial>,
     ) {
     }
@@ -158,11 +128,8 @@ pub trait GltfExtensionHandler: Send + Sync {
     )]
     fn on_gltf_mesh(
         &mut self,
-        extension_id: &str,
-        extension_data: Option<&serde_json::Value>,
         load_context: &mut LoadContext<'_>,
         gltf_mesh: &gltf::Mesh,
-        name: Option<&str>,
         mesh: Handle<GltfMesh>,
     ) {
     }
@@ -191,13 +158,10 @@ pub trait GltfExtensionHandler: Send + Sync {
     )]
     fn on_scene_completed(
         &mut self,
-        extension_id: &str,
-        extension_data: Option<&serde_json::Value>,
+        load_context: &mut LoadContext<'_>,
         scene: &gltf::Scene,
-        name: Option<&str>,
         world_root_id: Entity,
         scene_world: &mut World,
-        load_context: &mut LoadContext<'_>,
     ) {
     }
 
@@ -208,8 +172,6 @@ pub trait GltfExtensionHandler: Send + Sync {
     )]
     fn on_gltf_node(
         &mut self,
-        extension_id: &str,
-        extension_data: Option<&serde_json::Value>,
         load_context: &mut LoadContext<'_>,
         gltf_node: &Node,
         entity: &mut EntityWorldMut,
@@ -225,8 +187,6 @@ pub trait GltfExtensionHandler: Send + Sync {
     )]
     fn on_spawn_light_directional(
         &mut self,
-        extension_id: &str,
-        extension_data: Option<&serde_json::Value>,
         load_context: &mut LoadContext<'_>,
         gltf_node: &Node,
         entity: &mut EntityWorldMut,
@@ -241,8 +201,6 @@ pub trait GltfExtensionHandler: Send + Sync {
     )]
     fn on_spawn_light_point(
         &mut self,
-        extension_id: &str,
-        extension_data: Option<&serde_json::Value>,
         load_context: &mut LoadContext<'_>,
         gltf_node: &Node,
         entity: &mut EntityWorldMut,
@@ -257,8 +215,6 @@ pub trait GltfExtensionHandler: Send + Sync {
     )]
     fn on_spawn_light_spot(
         &mut self,
-        extension_id: &str,
-        extension_data: Option<&serde_json::Value>,
         load_context: &mut LoadContext<'_>,
         gltf_node: &Node,
         entity: &mut EntityWorldMut,
