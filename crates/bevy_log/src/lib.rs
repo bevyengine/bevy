@@ -407,6 +407,9 @@ impl Plugin for LogPlugin {
         let subscriber_already_set =
             tracing::subscriber::set_global_default(finished_subscriber).is_err();
 
+        #[cfg(feature = "tracing-tracy")]
+        warn!("Tracing with Tracy is active, memory consumption will grow until a client is connected");
+
         match (logger_already_set, subscriber_already_set) {
             (true, true) => error!(
                 "Could not set global logger and tracing subscriber as they are already set. Consider disabling LogPlugin."
