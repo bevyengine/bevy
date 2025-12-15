@@ -656,7 +656,7 @@ impl GltfLoader {
                         let linear_textures = &linear_textures;
                         let buffer_data = &buffer_data;
                         scope.spawn(async move {
-                            let result = load_image(
+                            load_image(
                                 gltf_texture,
                                 buffer_data,
                                 linear_textures,
@@ -665,8 +665,7 @@ impl GltfLoader {
                                 default_sampler,
                                 settings,
                             )
-                            .await;
-                            result
+                            .await
                         });
                     });
                 })
