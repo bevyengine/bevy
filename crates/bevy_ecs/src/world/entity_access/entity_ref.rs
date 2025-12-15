@@ -286,12 +286,6 @@ impl<'w> EntityRef<'w> {
     pub fn spawn_tick(&self) -> Tick {
         self.cell.spawn_tick()
     }
-
-    /// Returns an `EntityRef<>` with a smaller lifetime.
-    /// This is useful if you have `&EntityRef`, but you need an `EntityRef`.
-    pub fn reborrow(&self) -> EntityRef<'_> {
-        EntityRef { cell: self.cell }
-    }
 }
 
 impl<'a> From<EntityRef<'a>> for FilteredEntityRef<'a, 'static> {
