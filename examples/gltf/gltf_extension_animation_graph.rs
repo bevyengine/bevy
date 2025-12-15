@@ -135,15 +135,8 @@ impl GltfExtensionHandler for GltfExtensionHandlerAnimation {
     }
 
     #[cfg(feature = "bevy_animation")]
-    fn on_animation(
-        &mut self,
-        _extension_id: &str,
-        _value: Option<&serde_json::Value>,
-        _gltf_animation: &gltf::Animation,
-        name: Option<&str>,
-        handle: Handle<AnimationClip>,
-    ) {
-        if name.is_some_and(|v| v == "Walk") {
+    fn on_animation(&mut self, gltf_animation: &gltf::Animation, handle: Handle<AnimationClip>) {
+        if gltf_animation.name().is_some_and(|v| v == "Walk") {
             self.clip = Some(handle.clone());
         }
     }
@@ -160,8 +153,6 @@ impl GltfExtensionHandler for GltfExtensionHandlerAnimation {
 
     fn on_gltf_node(
         &mut self,
-        _extension_id: &str,
-        _value: Option<&serde_json::Value>,
         _load_context: &mut LoadContext<'_>,
         gltf_node: &gltf::Node,
         entity: &mut EntityWorldMut,
@@ -174,13 +165,10 @@ impl GltfExtensionHandler for GltfExtensionHandlerAnimation {
     /// Called when an individual Scene is done processing
     fn on_scene_completed(
         &mut self,
-        _extension_id: &str,
-        _value: Option<&serde_json::Value>,
+        load_context: &mut LoadContext<'_>,
         _scene: &gltf::Scene,
-        _name: Option<&str>,
         _world_root_id: Entity,
         world: &mut World,
-        load_context: &mut LoadContext<'_>,
     ) {
         // Create an AnimationGraph from the desired clip
         let (graph, index) = AnimationGraph::from_clip(self.clip.clone().unwrap());
