@@ -16,10 +16,8 @@ use super::texture::texture_transform_to_affine2;
     feature = "pbr_multi_layer_material_textures"
 ))]
 use {
-    super::texture::texture_handle_from_info,
-    bevy_asset::{Handle, LoadContext},
+    bevy_asset::Handle,
     bevy_image::Image,
-    gltf::Document,
     serde_json::{Map, Value},
 };
 
@@ -32,11 +30,10 @@ use {
 ))]
 pub(crate) fn parse_material_extension_texture(
     material: &Material,
-    load_context: &mut LoadContext,
-    document: &Document,
     extension: &Map<String, Value>,
     texture_name: &str,
     texture_kind: &str,
+    textures: &[Handle<Image>],
 ) -> (UvChannel, Option<Handle<Image>>) {
     match extension
         .get(texture_name)
@@ -44,7 +41,12 @@ pub(crate) fn parse_material_extension_texture(
     {
         Some(json_info) => (
             uv_channel(material, texture_kind, json_info.tex_coord),
-            Some(texture_handle_from_info(&json_info, document, load_context)),
+            Some(
+                textures
+                    .get(json_info.index.value())
+                    .cloned()
+                    .unwrap_or_default(),
+            ),
         ),
         None => (UvChannel::default(), None),
     }

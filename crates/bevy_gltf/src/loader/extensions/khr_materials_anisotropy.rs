@@ -1,14 +1,12 @@
-use bevy_asset::LoadContext;
+use bevy_asset::Handle;
+use bevy_image::Image;
 
-use gltf::{Document, Material};
+use gltf::Material;
 
 use serde_json::Value;
 
 #[cfg(feature = "pbr_anisotropy_texture")]
-use {
-    crate::loader::gltf_ext::material::parse_material_extension_texture, bevy_asset::Handle,
-    bevy_image::Image, bevy_pbr::UvChannel,
-};
+use {crate::loader::gltf_ext::material::parse_material_extension_texture, bevy_pbr::UvChannel};
 
 /// Parsed data from the `KHR_materials_anisotropy` extension.
 ///
@@ -34,9 +32,8 @@ impl AnisotropyExtension {
         reason = "Depending on what features are used to compile this crate, certain parameters may end up unused."
     )]
     pub(crate) fn parse(
-        load_context: &mut LoadContext,
-        document: &Document,
         material: &Material,
+        textures: &[Handle<Image>],
     ) -> Option<AnisotropyExtension> {
         let extension = material
             .extensions()?
@@ -46,11 +43,10 @@ impl AnisotropyExtension {
         #[cfg(feature = "pbr_anisotropy_texture")]
         let (anisotropy_channel, anisotropy_texture) = parse_material_extension_texture(
             material,
-            load_context,
-            document,
             extension,
             "anisotropyTexture",
             "anisotropy",
+            textures,
         );
 
         Some(AnisotropyExtension {

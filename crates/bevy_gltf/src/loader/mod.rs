@@ -72,7 +72,7 @@ use self::{
         },
         mesh::{primitive_name, primitive_topology},
         scene::{node_name, node_transform},
-        texture::{texture_handle, texture_sampler, texture_transform_to_affine2},
+        texture::{texture_sampler, texture_transform_to_affine2},
     },
 };
 use crate::convert_coordinates::GltfConvertCoordinates;
@@ -656,7 +656,7 @@ impl GltfLoader {
         if !settings.load_materials.is_empty() {
             // NOTE: materials must be loaded after textures because image load() calls will happen before load_with_settings, preventing is_srgb from being set properly
             for material in gltf.materials() {
-                let handle = load_material(&material, load_context, &gltf.document, false);
+                let handle = load_material(&material, load_context, &texture_handles, false);
                 if let Some(name) = material.name() {
                     named_materials.insert(name.into(), handle.clone());
                 }
@@ -984,6 +984,7 @@ impl GltfLoader {
                             #[cfg(feature = "bevy_animation")]
                             None,
                             &gltf.document,
+                            &texture_handles,
                             &convert_coordinates,
                             &mut extensions,
                         );
@@ -1176,12 +1177,12 @@ async fn load_image<'a, 'b>(
 fn load_material(
     material: &Material,
     load_context: &mut LoadContext,
-    document: &Document,
+    textures: &[Handle<Image>],
     is_scale_inverted: bool,
 ) -> Handle<StandardMaterial> {
     let material_label = material_label(material, is_scale_inverted);
     load_context
-        .labeled_asset_scope::<_, ()>(material_label.to_string(), |load_context| {
+        .labeled_asset_scope::<_, ()>(material_label.to_string(), |_load_context| {
             let pbr = material.pbr_metallic_roughness();
 
             // TODO: handle missing label handle errors here?
@@ -1190,9 +1191,12 @@ fn load_material(
                 .base_color_texture()
                 .map(|info| uv_channel(material, "base color", info.tex_coord()))
                 .unwrap_or_default();
-            let base_color_texture = pbr
-                .base_color_texture()
-                .map(|info| texture_handle(&info.texture(), load_context));
+            let base_color_texture = pbr.base_color_texture().map(|info| {
+                textures
+                    .get(info.texture().index())
+                    .cloned()
+                    .unwrap_or_default()
+            });
 
             let uv_transform = pbr
                 .base_color_texture()
@@ -1206,7 +1210,10 @@ fn load_material(
             let normal_map_texture: Option<Handle<Image>> =
                 material.normal_texture().map(|normal_texture| {
                     // TODO: handle normal_texture.scale
-                    texture_handle(&normal_texture.texture(), load_context)
+                    textures
+                        .get(normal_texture.texture().index())
+                        .cloned()
+                        .unwrap_or_default()
                 });
 
             let metallic_roughness_channel = pbr
@@ -1220,7 +1227,10 @@ fn load_material(
                     uv_transform,
                     "metallic/roughness",
                 );
-                texture_handle(&info.texture(), load_context)
+                textures
+                    .get(info.texture().index())
+                    .cloned()
+                    .unwrap_or_default()
             });
 
             let occlusion_channel = material
@@ -1229,7 +1239,10 @@ fn load_material(
                 .unwrap_or_default();
             let occlusion_texture = material.occlusion_texture().map(|occlusion_texture| {
                 // TODO: handle occlusion_texture.strength() (a scalar multiplier for occlusion strength)
-                texture_handle(&occlusion_texture.texture(), load_context)
+                textures
+                    .get(occlusion_texture.texture().index())
+                    .cloned()
+                    .unwrap_or_default()
             });
 
             let emissive = material.emissive_factor();
@@ -1240,7 +1253,10 @@ fn load_material(
             let emissive_texture = material.emissive_texture().map(|info| {
                 // TODO: handle occlusion_texture.strength() (a scalar multiplier for occlusion strength)
                 warn_on_differing_texture_transforms(material, &info, uv_transform, "emissive");
-                texture_handle(&info.texture(), load_context)
+                textures
+                    .get(info.texture().index())
+                    .cloned()
+                    .unwrap_or_default()
             });
 
             #[cfg(feature = "pbr_transmission_textures")]
@@ -1258,7 +1274,10 @@ fn load_material(
                     let transmission_texture: Option<Handle<Image>> = transmission
                         .transmission_texture()
                         .map(|transmission_texture| {
-                            texture_handle(&transmission_texture.texture(), load_context)
+                            textures
+                                .get(transmission_texture.texture().index())
+                                .cloned()
+                                .unwrap_or_default()
                         });
 
                     (
@@ -1289,7 +1308,10 @@ fn load_material(
                         .unwrap_or_default();
                     let thickness_texture: Option<Handle<Image>> =
                         volume.thickness_texture().map(|thickness_texture| {
-                            texture_handle(&thickness_texture.texture(), load_context)
+                            textures
+                                .get(thickness_texture.texture().index())
+                                .cloned()
+                                .unwrap_or_default()
                         });
 
                     (
@@ -1317,16 +1339,13 @@ fn load_material(
             let ior = material.ior().unwrap_or(1.5);
 
             // Parse the `KHR_materials_clearcoat` extension data if necessary.
-            let clearcoat =
-                ClearcoatExtension::parse(load_context, document, material).unwrap_or_default();
+            let clearcoat = ClearcoatExtension::parse(material, textures).unwrap_or_default();
 
             // Parse the `KHR_materials_anisotropy` extension data if necessary.
-            let anisotropy =
-                AnisotropyExtension::parse(load_context, document, material).unwrap_or_default();
+            let anisotropy = AnisotropyExtension::parse(material, textures).unwrap_or_default();
 
             // Parse the `KHR_materials_specular` extension data if necessary.
-            let specular =
-                SpecularExtension::parse(load_context, document, material).unwrap_or_default();
+            let specular = SpecularExtension::parse(material, textures).unwrap_or_default();
 
             // We need to operate in the Linear color space and be willing to exceed 1.0 in our channels
             let base_emissive = LinearRgba::rgb(emissive[0], emissive[1], emissive[2]);
@@ -1441,6 +1460,7 @@ fn load_node(
     #[cfg(feature = "bevy_animation")] animation_roots: &HashSet<usize>,
     #[cfg(feature = "bevy_animation")] mut animation_context: Option<AnimationContext>,
     document: &Document,
+    textures: &[Handle<Image>],
     convert_coordinates: &GltfConvertCoordinates,
     extensions: &mut [Box<dyn extensions::GltfExtensionHandler>],
 ) -> Result<(), GltfError> {
@@ -1552,7 +1572,7 @@ fn load_node(
                 if !root_load_context.has_labeled_asset(&material_label)
                     && !load_context.has_labeled_asset(&material_label)
                 {
-                    load_material(&material, load_context, document, is_scale_inverted);
+                    load_material(&material, load_context, textures, is_scale_inverted);
                 }
 
                 let primitive_label = GltfAssetLabel::Primitive {
@@ -1750,6 +1770,7 @@ fn load_node(
                 #[cfg(feature = "bevy_animation")]
                 animation_context.clone(),
                 document,
+                textures,
                 convert_coordinates,
                 extensions,
             ) {
