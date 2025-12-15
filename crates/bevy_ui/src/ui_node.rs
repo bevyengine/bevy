@@ -222,7 +222,10 @@ impl ComputedNode {
     /// Returns the combined inset on each edge including both padding and border thickness in physical pixels.
     #[inline]
     pub fn content_inset(&self) -> BorderRect {
-        self.border + self.padding
+        let mut content_inset = self.border + self.padding;
+        content_inset.right += self.scrollbar_size.x;
+        content_inset.bottom += self.scrollbar_size.y;
+        content_inset
     }
 
     /// Returns the inverse of the scale factor for this node.
@@ -322,9 +325,9 @@ impl ComputedNode {
         let content_inset = self.content_inset();
         let half_size = 0.5 * self.size;
         let min_x = -half_size.x + content_inset.left;
-        let max_x = half_size.x - content_inset.right - self.scrollbar_size.x;
-        let max_y = half_size.y - content_inset.bottom;
-        let min_y = max_y - self.scrollbar_size.y;
+        let max_x = half_size.x - content_inset.right;
+        let min_y = half_size.y - content_inset.bottom;
+        let max_y = min_y + self.scrollbar_size.y;
         let gutter = Rect {
             min: Vec2::new(min_x, min_y),
             max: Vec2::new(max_x, max_y),
@@ -348,10 +351,10 @@ impl ComputedNode {
         }
         let content_inset = self.content_inset();
         let half_size = 0.5 * self.size;
-        let max_x = half_size.x - content_inset.right;
-        let min_x = max_x - self.scrollbar_size.x;
+        let min_x = half_size.x - content_inset.right;
+        let max_x = min_x + self.scrollbar_size.x;
         let min_y = -half_size.y + content_inset.top;
-        let max_y = half_size.y - content_inset.bottom - self.scrollbar_size.y;
+        let max_y = half_size.y - content_inset.bottom;
         let gutter = Rect {
             min: Vec2::new(min_x, min_y),
             max: Vec2::new(max_x, max_y),
