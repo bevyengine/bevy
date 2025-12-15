@@ -21,6 +21,8 @@ use indexmap::set::{self, IndexSet};
 use super::{Entity, EntityHash, EntitySetIterator};
 
 use bevy_platform::prelude::Box;
+
+#[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
 
 /// An [`IndexSet`] pre-configured to use [`EntityHash`] hashing.
