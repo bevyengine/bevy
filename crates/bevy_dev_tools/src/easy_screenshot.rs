@@ -102,7 +102,7 @@ impl Default for EasyScreenRecordPlugin {
             toggle: KeyCode::Space,
             preset: Preset::Medium,
             tune: Tune::Animation,
-            frame_time: Duration::from_millis(16),
+            frame_time: Duration::from_millis(33),
         }
     }
 }
