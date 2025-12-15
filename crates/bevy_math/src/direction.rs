@@ -941,7 +941,7 @@ impl approx::UlpsEq for Dir3A {
     all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Serialize, Deserialize)
 )]
-#[doc(alias = "Direction3d")]
+#[doc(alias = "DDirection3d")]
 pub struct DDir3(DVec3);
 impl Primitive3d for DDir3 {}
 
@@ -1041,13 +1041,13 @@ impl DDir3 {
     /// #[cfg(feature = "approx")]
     /// assert_relative_eq!(
     ///     result1,
-    ///     Dir3::from_xyz(0.75_f32.sqrt(), 0.5, 0.0).unwrap(),
+    ///     DDir3::from_xyz(0.75_f64.sqrt(), 0.5, 0.0).unwrap(),
     ///     epsilon = 0.000001
     /// );
     ///
     /// let result2 = dir1.slerp(dir2, 0.5);
     /// #[cfg(feature = "approx")]
-    /// assert_relative_eq!(result2, Dir3::from_xyz(0.5_f64.sqrt(), 0.5_f64.sqrt(), 0.0).unwrap());
+    /// assert_relative_eq!(result2, DDir3::from_xyz(0.5_f64.sqrt(), 0.5_f64.sqrt(), 0.0).unwrap());
     /// ```
     #[inline]
     pub fn slerp(self, rhs: Self, s: f64) -> Self {
@@ -1062,7 +1062,7 @@ impl DDir3 {
     /// The following seemingly benign code would start accumulating errors over time,
     /// leading to `dir` eventually not being normalized anymore.
     /// ```
-    /// # use bevy_math::prelude::*;
+    /// # use bevy_math::{DQuat, DDir3, prelude::*};
     /// # let N: usize = 200;
     /// let mut dir = DDir3::X;
     /// let quaternion = DQuat::from_euler(EulerRot::XYZ, 1.0, 2.0, 3.0);
@@ -1072,7 +1072,7 @@ impl DDir3 {
     /// ```
     /// Instead, do the following.
     /// ```
-    /// # use bevy_math::prelude::*;
+    /// # use bevy_math::{DQuat, DDir3, prelude::*};
     /// # let N: usize = 200;
     /// let mut dir = DDir3::X;
     /// let quaternion = DQuat::from_euler(EulerRot::XYZ, 1.0, 2.0, 3.0);
@@ -1660,7 +1660,8 @@ mod tests {
         );
         assert_relative_eq!(
             DDir3::Z.slerp(DDir3::Y, 2.0 / 3.0),
-            DDir3::from_xyz(0.0, 0.75f64.sqrt(), 0.5f64).unwrap()
+            DDir3::from_xyz(0.0, 0.75f64.sqrt(), 0.5f64).unwrap(),
+            epsilon = 0.000001
         );
     }
 
