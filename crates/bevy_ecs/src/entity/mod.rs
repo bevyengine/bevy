@@ -671,9 +671,13 @@ impl fmt::Debug for Entity {
 impl fmt::Display for Entity {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if self == &Self::PLACEHOLDER {
-            write!(f, "PLACEHOLDER")
+            f.pad("PLACEHOLDER")
         } else {
-            write!(f, "{}v{}", self.index(), self.generation())
+            f.pad(&alloc::fmt::format(format_args!(
+                "{}v{}",
+                self.index(),
+                self.generation()
+            )))
         }
     }
 }
@@ -989,7 +993,7 @@ impl Entities {
     ) -> Option<EntityLocation> {
         self.ensure_index_index_is_valid(index);
         // SAFETY: We just did `ensure_index`
-        self.update_existing_location(index, location)
+        unsafe { self.update_existing_location(index, location) }
     }
 
     /// Ensures the index is within the bounds of [`Self::meta`], expanding it if necessary.
@@ -1513,6 +1517,12 @@ mod tests {
         let entity = Entity::from_index(EntityIndex::from_raw_u32(42).unwrap());
         let string = format!("{entity}");
         assert_eq!(string, "42v0");
+
+        let padded_left = format!("{entity:<5}");
+        assert_eq!(padded_left, "42v0 ");
+
+        let padded_right = format!("{entity:>6}");
+        assert_eq!(padded_right, "  42v0");
 
         let entity = Entity::PLACEHOLDER;
         let string = format!("{entity}");

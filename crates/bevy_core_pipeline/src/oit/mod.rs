@@ -1,7 +1,7 @@
 //! Order Independent Transparency (OIT) for 3d rendering. See [`OrderIndependentTransparencyPlugin`] for more details.
 
 use bevy_app::prelude::*;
-use bevy_camera::{Camera, Camera3d};
+use bevy_camera::{Camera3d, RenderTarget};
 use bevy_ecs::{component::*, lifecycle::ComponentHook, prelude::*};
 use bevy_math::UVec2;
 use bevy_platform::collections::HashSet;
@@ -135,8 +135,8 @@ impl Plugin for OrderIndependentTransparencyPlugin {
 // bevy reuses the same depth texture so we need to set this on all cameras with the same render target.
 fn configure_depth_texture_usages(
     p: Query<Entity, With<PrimaryWindow>>,
-    cameras: Query<(&Camera, Has<OrderIndependentTransparencySettings>)>,
-    mut new_cameras: Query<(&mut Camera3d, &Camera), Added<Camera3d>>,
+    cameras: Query<(&RenderTarget, Has<OrderIndependentTransparencySettings>)>,
+    mut new_cameras: Query<(&mut Camera3d, &RenderTarget), Added<Camera3d>>,
 ) {
     if new_cameras.is_empty() {
         return;
@@ -145,15 +145,15 @@ fn configure_depth_texture_usages(
     // Find all the render target that potentially uses OIT
     let primary_window = p.single().ok();
     let mut render_target_has_oit = <HashSet<_>>::default();
-    for (camera, has_oit) in &cameras {
+    for (render_target, has_oit) in &cameras {
         if has_oit {
-            render_target_has_oit.insert(camera.target.normalize(primary_window));
+            render_target_has_oit.insert(render_target.normalize(primary_window));
         }
     }
 
     // Update the depth texture usage for cameras with a render target that has OIT
-    for (mut camera_3d, camera) in &mut new_cameras {
-        if render_target_has_oit.contains(&camera.target.normalize(primary_window)) {
+    for (mut camera_3d, render_target) in &mut new_cameras {
+        if render_target_has_oit.contains(&render_target.normalize(primary_window)) {
             let mut usages = TextureUsages::from(camera_3d.depth_texture_usages);
             usages |= TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING;
             camera_3d.depth_texture_usages = usages.into();

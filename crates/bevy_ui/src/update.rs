@@ -111,8 +111,8 @@ fn update_clipping(
 
         clip_rect.min.x += clip_inset.left;
         clip_rect.min.y += clip_inset.top;
-        clip_rect.max.x -= clip_inset.right + computed_node.scrollbar_size.x;
-        clip_rect.max.y -= clip_inset.bottom + computed_node.scrollbar_size.y;
+        clip_rect.max.x -= clip_inset.right;
+        clip_rect.max.y -= clip_inset.bottom;
 
         clip_rect = clip_rect
             .inflate(node.overflow_clip_margin.margin.max(0.) / computed_node.inverse_scale_factor);
@@ -181,11 +181,11 @@ pub fn propagate_ui_target_cameras(
 pub(crate) fn update_cameras_test_system(
     primary_window: Query<Entity, bevy_ecs::query::With<bevy_window::PrimaryWindow>>,
     window_query: Query<&bevy_window::Window>,
-    mut camera_query: Query<&mut Camera>,
+    mut camera_query: Query<(&mut Camera, &bevy_camera::RenderTarget)>,
 ) {
     let primary_window = primary_window.single().ok();
-    for mut camera in camera_query.iter_mut() {
-        let Some(camera_target) = camera.target.normalize(primary_window) else {
+    for (mut camera, render_target) in camera_query.iter_mut() {
+        let Some(camera_target) = render_target.normalize(primary_window) else {
             continue;
         };
         let bevy_camera::NormalizedRenderTarget::Window(window_ref) = camera_target else {
@@ -217,13 +217,11 @@ mod tests {
     use bevy_app::HierarchyPropagatePlugin;
     use bevy_app::PostUpdate;
     use bevy_app::PropagateSet;
-    use bevy_camera::Camera;
     use bevy_camera::Camera2d;
     use bevy_camera::RenderTarget;
     use bevy_ecs::hierarchy::ChildOf;
     use bevy_ecs::schedule::IntoScheduleConfigs;
     use bevy_math::UVec2;
-    use bevy_utils::default;
     use bevy_window::PrimaryWindow;
     use bevy_window::Window;
     use bevy_window::WindowRef;
@@ -326,13 +324,7 @@ mod tests {
 
         let camera1 = world.spawn((Camera2d, IsDefaultUiCamera)).id();
         let camera2 = world
-            .spawn((
-                Camera2d,
-                Camera {
-                    target: RenderTarget::Window(WindowRef::Entity(window_2)),
-                    ..default()
-                },
-            ))
+            .spawn((Camera2d, RenderTarget::Window(WindowRef::Entity(window_2))))
             .id();
 
         let uinode1a = world.spawn(Node::default()).id();
@@ -393,13 +385,7 @@ mod tests {
 
         let camera1 = world.spawn((Camera2d, IsDefaultUiCamera)).id();
         let camera2 = world
-            .spawn((
-                Camera2d,
-                Camera {
-                    target: RenderTarget::Window(WindowRef::Entity(window_2)),
-                    ..default()
-                },
-            ))
+            .spawn((Camera2d, RenderTarget::Window(WindowRef::Entity(window_2))))
             .id();
 
         let uinode = world.spawn(Node::default()).id();
@@ -490,13 +476,7 @@ mod tests {
 
         let camera1 = world.spawn((Camera2d, IsDefaultUiCamera)).id();
         let camera2 = world
-            .spawn((
-                Camera2d,
-                Camera {
-                    target: RenderTarget::Window(WindowRef::Entity(window_2)),
-                    ..default()
-                },
-            ))
+            .spawn((Camera2d, RenderTarget::Window(WindowRef::Entity(window_2))))
             .id();
 
         // `UiTargetCamera` is ignored on non-root UI nodes

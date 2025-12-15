@@ -9,6 +9,6 @@ use bevy_ecs::prelude::*;
 )]
 pub struct FooWrongCall;
 
-fn wrong_bazzing(path: &str) -> impl Fn(bevy_ecs::world::DeferredWorld) {
-    |world| {}
+fn wrong_bazzing(_path: &str) -> impl Fn(bevy_ecs::world::DeferredWorld) {
+    |_world| {}
 }

@@ -9,7 +9,10 @@ use crate::{
     event::{EntityComponentsTrigger, EntityEvent},
     lifecycle::{Despawn, Remove, Replace, DESPAWN, REMOVE, REPLACE},
     observer::Observer,
-    query::{Access, DebugCheckedUnwrap, ReadOnlyQueryData, ReleaseStateQueryData},
+    query::{
+        has_conflicts, Access, DebugCheckedUnwrap, QueryAccessError, ReadOnlyQueryData,
+        ReleaseStateQueryData,
+    },
     relationship::RelationshipHookMode,
     resource::Resource,
     storage::{SparseSets, Table},
@@ -284,7 +287,7 @@ impl<'w> EntityWorldMut<'w> {
     #[inline]
     pub fn get_components<Q: ReadOnlyQueryData + ReleaseStateQueryData>(
         &self,
-    ) -> Option<Q::Item<'_, 'static>> {
+    ) -> Result<Q::Item<'_, 'static>, QueryAccessError> {
         self.as_readonly().get_components::<Q>()
     }
 
@@ -316,11 +319,44 @@ impl<'w> EntityWorldMut<'w> {
     /// # Safety
     /// It is the caller's responsibility to ensure that
     /// the `QueryData` does not provide aliasing mutable references to the same component.
+    ///
+    /// /// # See also
+    ///
+    /// - [`Self::get_components_mut`] for the safe version that performs aliasing checks
     pub unsafe fn get_components_mut_unchecked<Q: ReleaseStateQueryData>(
         &mut self,
-    ) -> Option<Q::Item<'_, 'static>> {
+    ) -> Result<Q::Item<'_, 'static>, QueryAccessError> {
         // SAFETY: Caller the `QueryData` does not provide aliasing mutable references to the same component
         unsafe { self.as_mutable().into_components_mut_unchecked::<Q>() }
+    }
+
+    /// Returns components for the current entity that match the query `Q`.
+    /// In the case of conflicting [`QueryData`](crate::query::QueryData), unregistered components, or missing components,
+    /// this will return a [`QueryAccessError`]
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// #[derive(Component)]
+    /// struct X(usize);
+    /// #[derive(Component)]
+    /// struct Y(usize);
+    ///
+    /// # let mut world = World::default();
+    /// let mut entity = world.spawn((X(0), Y(0))).into_mutable();
+    /// // Get mutable access to two components at once
+    /// // SAFETY: X and Y are different components
+    /// let (mut x, mut y) = entity.get_components_mut::<(&mut X, &mut Y)>().unwrap();
+    /// ```
+    ///
+    /// Note that this does a O(n^2) check that the [`QueryData`](crate::query::QueryData) does not conflict. If performance is a
+    /// consideration you should use [`Self::get_components_mut_unchecked`] instead.
+    pub fn get_components_mut<Q: ReleaseStateQueryData>(
+        &mut self,
+    ) -> Result<Q::Item<'_, 'static>, QueryAccessError> {
+        self.as_mutable().into_components_mut::<Q>()
     }
 
     /// Consumes self and returns components for the current entity that match the query `Q` for the world lifetime `'w`,
@@ -351,10 +387,63 @@ impl<'w> EntityWorldMut<'w> {
     /// # Safety
     /// It is the caller's responsibility to ensure that
     /// the `QueryData` does not provide aliasing mutable references to the same component.
+    ///
+    /// # See also
+    ///
+    /// - [`Self::into_components_mut`] for the safe version that performs aliasing checks
     pub unsafe fn into_components_mut_unchecked<Q: ReleaseStateQueryData>(
         self,
-    ) -> Option<Q::Item<'w, 'static>> {
+    ) -> Result<Q::Item<'w, 'static>, QueryAccessError> {
         // SAFETY: Caller the `QueryData` does not provide aliasing mutable references to the same component
+        unsafe { self.into_mutable().into_components_mut_unchecked::<Q>() }
+    }
+
+    /// Consumes self and returns components for the current entity that match the query `Q` for the world lifetime `'w`,
+    /// or `None` if the entity does not have the components required by the query `Q`.
+    ///
+    /// The checks for aliasing mutable references may be expensive.
+    /// If performance is a concern, consider making multiple calls to [`Self::get_mut`].
+    /// If that is not possible, consider using [`Self::into_components_mut_unchecked`] to skip the checks.
+    ///
+    /// # Panics
+    ///
+    /// - If the `QueryData` provides aliasing mutable references to the same component.
+    /// - If the entity has been despawned while this `EntityWorldMut` is still alive.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// #[derive(Component)]
+    /// struct X(usize);
+    /// #[derive(Component)]
+    /// struct Y(usize);
+    ///
+    /// # let mut world = World::default();
+    /// let mut entity = world.spawn((X(0), Y(0)));
+    /// // Get mutable access to two components at once
+    /// let (mut x, mut y) = entity.into_components_mut::<(&mut X, &mut Y)>().unwrap();
+    /// *x = X(1);
+    /// *y = Y(1);
+    /// ```
+    ///
+    /// ```should_panic
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// # #[derive(Component)]
+    /// # struct X(usize);
+    /// #
+    /// # let mut world = World::default();
+    /// let mut entity = world.spawn((X(0)));
+    /// // This panics, as the `&mut X`s would alias:
+    /// entity.into_components_mut::<(&mut X, &mut X)>();
+    /// ```
+    pub fn into_components_mut<Q: ReleaseStateQueryData>(
+        self,
+    ) -> Result<Q::Item<'w, 'static>, QueryAccessError> {
+        has_conflicts::<Q>(self.world.components())?;
+        // SAFETY: we checked that there were not conflicting components above
         unsafe { self.into_mutable().into_components_mut_unchecked::<Q>() }
     }
 
@@ -770,8 +859,11 @@ impl<'w> EntityWorldMut<'w> {
         &mut self,
         component_ids: F,
     ) -> Result<F::Mut<'_>, EntityComponentError> {
-        self.as_mutable()
-            .into_mut_assume_mutable_by_id(component_ids)
+        // SAFETY: Upheld by caller
+        unsafe {
+            self.as_mutable()
+                .into_mut_assume_mutable_by_id(component_ids)
+        }
     }
 
     /// Consumes `self` and returns [untyped mutable reference(s)](MutUntyped)
@@ -840,8 +932,11 @@ impl<'w> EntityWorldMut<'w> {
         self,
         component_ids: F,
     ) -> Result<F::Mut<'w>, EntityComponentError> {
-        self.into_mutable()
-            .into_mut_assume_mutable_by_id(component_ids)
+        // SAFETY: Upheld by caller
+        unsafe {
+            self.into_mutable()
+                .into_mut_assume_mutable_by_id(component_ids)
+        }
     }
 
     /// Adds a [`Bundle`] of components to the entity.
@@ -971,13 +1066,16 @@ impl<'w> EntityWorldMut<'w> {
         component_id: ComponentId,
         component: OwningPtr<'_>,
     ) -> &mut Self {
-        self.insert_by_id_with_caller(
-            component_id,
-            component,
-            InsertMode::Replace,
-            MaybeLocation::caller(),
-            RelationshipHookMode::Run,
-        )
+        // SAFETY: Upheld by caller
+        unsafe {
+            self.insert_by_id_with_caller(
+                component_id,
+                component,
+                InsertMode::Replace,
+                MaybeLocation::caller(),
+                RelationshipHookMode::Run,
+            )
+        }
     }
 
     /// # Safety
