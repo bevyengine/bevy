@@ -7,7 +7,10 @@ use bevy_app::{App, Plugin};
 use bevy_asset::embedded_asset;
 use bevy_core_pipeline::{
     core_3d::graph::{Core3d, Node3d},
-    prepass::{DeferredPrepass, DepthPrepass, MotionVectorPrepass},
+    prepass::{
+        DeferredPrepass, DeferredPrepassDoubleBuffer, DepthPrepass, DepthPrepassDoubleBuffer,
+        MotionVectorPrepass,
+    },
 };
 use bevy_ecs::{component::Component, reflect::ReflectComponent, schedule::IntoScheduleConfigs};
 use bevy_pbr::DefaultOpaqueRendererMethod;
@@ -87,7 +90,14 @@ impl Plugin for SolariLightingPlugin {
 /// `Msaa::Off`.
 #[derive(Component, Reflect, Clone)]
 #[reflect(Component, Default, Clone)]
-#[require(Hdr, DeferredPrepass, DepthPrepass, MotionVectorPrepass)]
+#[require(
+    Hdr,
+    DeferredPrepass,
+    DepthPrepass,
+    MotionVectorPrepass,
+    DeferredPrepassDoubleBuffer,
+    DepthPrepassDoubleBuffer
+)]
 pub struct SolariLighting {
     /// Set to true to delete the saved temporal history (past frames).
     ///

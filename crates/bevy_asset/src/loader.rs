@@ -305,6 +305,8 @@ pub enum LoadDirectError {
         dependency: AssetPath<'static>,
         error: AssetLoadError,
     },
+    #[error("The asset at path `{0:?}` requested to immediately load itself recursively, but this is not supported")]
+    RequestedSelfPath(AssetPath<'static>),
 }
 
 /// An error that occurs while deserializing [`AssetMeta`].
@@ -321,6 +323,10 @@ pub enum DeserializeMetaError {
 /// Any asset state accessed by [`LoadContext`] will be tracked and stored for use in dependency events and asset preprocessing.
 pub struct LoadContext<'a> {
     pub(crate) asset_server: &'a AssetServer,
+    /// Specifies whether dependencies that are loaded deferred should be loaded.
+    ///
+    /// This allows us to skip loads for cases where we're never going to use the asset and we just
+    /// need the dependency information, for example during asset processing.
     pub(crate) should_load_dependencies: bool,
     populate_hashes: bool,
     asset_path: AssetPath<'static>,
@@ -503,7 +509,9 @@ impl<'a> LoadContext<'a> {
                 path: path.path().to_path_buf(),
                 source,
             })?;
-        self.loader_dependencies.insert(path.clone_owned(), hash);
+        if self.asset_path != path {
+            self.loader_dependencies.insert(path.clone_owned(), hash);
+        }
         Ok(bytes)
     }
 
@@ -529,6 +537,11 @@ impl<'a> LoadContext<'a> {
         loader: &dyn ErasedAssetLoader,
         reader: &mut dyn Reader,
     ) -> Result<ErasedLoadedAsset, LoadDirectError> {
+        if self.asset_path == path {
+            return Err(LoadDirectError::RequestedSelfPath(
+                self.asset_path.clone_owned(),
+            ));
+        }
         let loaded_asset = self
             .asset_server
             .load_with_meta_loader_and_reader(
@@ -536,7 +549,7 @@ impl<'a> LoadContext<'a> {
                 meta,
                 loader,
                 reader,
-                false,
+                self.should_load_dependencies,
                 self.populate_hashes,
             )
             .await
