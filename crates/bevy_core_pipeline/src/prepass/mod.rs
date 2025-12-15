@@ -64,6 +64,9 @@ pub struct DepthPrepass;
 pub struct NormalPrepass;
 
 /// If added to a [`bevy_camera::Camera3d`] then screen space motion vectors will be copied to a separate texture available to the main pass.
+///
+/// Motion vectors are stored in the range -1,1, with +x right and +y down.
+/// A value of (1.0,1.0) indicates a pixel moved from the top left corner to the bottom right corner of the screen.
 #[derive(Component, Default, Reflect, Clone)]
 #[reflect(Component, Default, Clone)]
 pub struct MotionVectorPrepass;
@@ -73,6 +76,18 @@ pub struct MotionVectorPrepass;
 #[derive(Component, Default, Reflect)]
 #[reflect(Component, Default)]
 pub struct DeferredPrepass;
+
+/// Allows querying the previous frame's [`DepthPrepass`].
+#[derive(Component, Default, Reflect, Clone)]
+#[reflect(Component, Default, Clone)]
+#[require(DepthPrepass)]
+pub struct DepthPrepassDoubleBuffer;
+
+/// Allows querying the previous frame's [`DeferredPrepass`].
+#[derive(Component, Default, Reflect, Clone)]
+#[reflect(Component, Default, Clone)]
+#[require(DeferredPrepass)]
+pub struct DeferredPrepassDoubleBuffer;
 
 /// View matrices from the previous frame.
 ///
@@ -125,6 +140,12 @@ impl ViewPrepassTextures {
         self.depth.as_ref().map(|t| &t.texture.default_view)
     }
 
+    pub fn previous_depth_view(&self) -> Option<&TextureView> {
+        self.depth
+            .as_ref()
+            .and_then(|t| t.previous_frame_texture.as_ref().map(|t| &t.default_view))
+    }
+
     pub fn normal_view(&self) -> Option<&TextureView> {
         self.normal.as_ref().map(|t| &t.texture.default_view)
     }
@@ -137,6 +158,12 @@ impl ViewPrepassTextures {
 
     pub fn deferred_view(&self) -> Option<&TextureView> {
         self.deferred.as_ref().map(|t| &t.texture.default_view)
+    }
+
+    pub fn previous_deferred_view(&self) -> Option<&TextureView> {
+        self.deferred
+            .as_ref()
+            .and_then(|t| t.previous_frame_texture.as_ref().map(|t| &t.default_view))
     }
 }
 

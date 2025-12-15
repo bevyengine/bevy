@@ -4,8 +4,8 @@ use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     change_detection::DetectChangesMut,
     entity::Entity,
-    event::EventWriter,
     lifecycle::RemovedComponents,
+    message::MessageWriter,
     prelude::{Changed, Component},
     query::QueryFilter,
     system::{Local, NonSendMarker, Query, SystemParamItem},
@@ -24,7 +24,7 @@ use winit::{
 };
 
 use bevy_app::AppExit;
-use bevy_ecs::{prelude::EventReader, query::With, system::Res};
+use bevy_ecs::{prelude::MessageReader, query::With, system::Res};
 use bevy_math::{IVec2, UVec2};
 #[cfg(target_os = "ios")]
 use winit::platform::ios::WindowExtIOS;
@@ -133,15 +133,15 @@ pub fn create_windows<F: QueryFilter + 'static>(
 /// Check whether keyboard focus was lost. This is different from window
 /// focus in that swapping between Bevy windows keeps window focus.
 pub(crate) fn check_keyboard_focus_lost(
-    mut focus_events: EventReader<WindowFocused>,
-    mut keyboard_focus: EventWriter<KeyboardFocusLost>,
-    mut keyboard_input: EventWriter<KeyboardInput>,
-    mut window_events: EventWriter<WindowEvent>,
+    mut window_focused_reader: MessageReader<WindowFocused>,
+    mut keyboard_focus_lost_writer: MessageWriter<KeyboardFocusLost>,
+    mut keyboard_input_writer: MessageWriter<KeyboardInput>,
+    mut window_event_writer: MessageWriter<WindowEvent>,
     mut q_windows: Query<&mut WinitWindowPressedKeys>,
 ) {
     let mut focus_lost = vec![];
     let mut focus_gained = false;
-    for e in focus_events.read() {
+    for e in window_focused_reader.read() {
         if e.focused {
             focus_gained = true;
         } else {
@@ -151,8 +151,8 @@ pub(crate) fn check_keyboard_focus_lost(
 
     if !focus_gained {
         if !focus_lost.is_empty() {
-            window_events.write(WindowEvent::KeyboardFocusLost(KeyboardFocusLost));
-            keyboard_focus.write(KeyboardFocusLost);
+            window_event_writer.write(WindowEvent::KeyboardFocusLost(KeyboardFocusLost));
+            keyboard_focus_lost_writer.write(KeyboardFocusLost);
         }
 
         for window in focus_lost {
@@ -168,8 +168,8 @@ pub(crate) fn check_keyboard_focus_lost(
                     window,
                     text: None,
                 };
-                window_events.write(WindowEvent::KeyboardInput(event.clone()));
-                keyboard_input.write(event);
+                window_event_writer.write(WindowEvent::KeyboardInput(event.clone()));
+                keyboard_input_writer.write(event);
             }
         }
     }
@@ -242,16 +242,16 @@ pub(crate) fn despawn_windows(
     closing: Query<Entity, With<ClosingWindow>>,
     mut closed: RemovedComponents<Window>,
     window_entities: Query<Entity, With<Window>>,
-    mut closing_events: EventWriter<WindowClosing>,
-    mut closed_events: EventWriter<WindowClosed>,
+    mut closing_event_writer: MessageWriter<WindowClosing>,
+    mut closed_event_writer: MessageWriter<WindowClosed>,
     mut windows_to_drop: Local<Vec<WindowWrapper<winit::window::Window>>>,
-    mut exit_events: EventReader<AppExit>,
+    mut exit_event_reader: MessageReader<AppExit>,
     _non_send_marker: NonSendMarker,
 ) {
     // Drop all the windows that are waiting to be closed
     windows_to_drop.clear();
     for window in closing.iter() {
-        closing_events.write(WindowClosing { window });
+        closing_event_writer.write(WindowClosing { window });
     }
     for window in closed.read() {
         info!("Closing window {}", window);
@@ -268,16 +268,16 @@ pub(crate) fn despawn_windows(
                     windows_to_drop.push(window);
                 }
             });
-            closed_events.write(WindowClosed { window });
+            closed_event_writer.write(WindowClosed { window });
         }
     }
 
     // On macOS, when exiting, we need to tell the rendering thread the windows are about to
     // close to ensure that they are dropped on the main thread. Otherwise, the app will hang.
-    if !exit_events.is_empty() {
-        exit_events.clear();
+    if !exit_event_reader.is_empty() {
+        exit_event_reader.clear();
         for window in window_entities.iter() {
-            closing_events.write(WindowClosing { window });
+            closing_event_writer.write(WindowClosing { window });
         }
     }
 }
@@ -301,7 +301,7 @@ pub(crate) struct CachedCursorOptions(CursorOptions);
 pub(crate) fn changed_windows(
     mut changed_windows: Query<(Entity, &mut Window, &mut CachedWindow), Changed<Window>>,
     monitors: Res<WinitMonitors>,
-    mut window_resized: EventWriter<WindowResized>,
+    mut window_resized: MessageWriter<WindowResized>,
     _non_send_marker: NonSendMarker,
 ) {
     WINIT_WINDOWS.with_borrow(|winit_windows| {

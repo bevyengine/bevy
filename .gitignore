@@ -22,6 +22,7 @@ Cargo.lock
 assets/**/*.meta
 crates/bevy_asset/imported_assets
 imported_assets
+.web-asset-cache
 
 # Bevy Examples
 example_showcase_config.ron

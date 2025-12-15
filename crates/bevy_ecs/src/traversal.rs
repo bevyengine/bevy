@@ -8,7 +8,7 @@ use crate::{
 
 /// A component that can point to another entity, and which can be used to define a path through the ECS.
 ///
-/// Traversals are used to [specify the direction] of [event propagation] in [observers].
+/// Traversals are used to [specify the direction] of [event propagation] in [`EntityEvent`] [observers].
 /// The default query is `()`.
 ///
 /// Infinite loops are possible, and are not checked for. While looping can be desirable in some contexts
@@ -21,9 +21,10 @@ use crate::{
 /// parameter `D` is the event type given in `On<E>`. This allows traversal to differ depending on event
 /// data.
 ///
-/// [specify the direction]: crate::event::EntityEvent::Traversal
+/// [specify the direction]: crate::event::PropagateEntityTrigger
 /// [event propagation]: crate::observer::On::propagate
 /// [observers]: crate::observer::Observer
+/// [`EntityEvent`]: crate::event::EntityEvent
 pub trait Traversal<D: ?Sized>: ReadOnlyQueryData + ReleaseStateQueryData {
     /// Returns the next entity to visit.
     fn traverse(item: Self::Item<'_, '_>, data: &D) -> Option<Entity>;

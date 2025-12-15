@@ -182,7 +182,10 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
     // `MeshInput` into the appropriate slot so that the indirect parameters
     // building shader can access it.
 #ifndef LATE_PHASE
-    if (instance_index == 0u || work_items[instance_index - 1].output_or_indirect_parameters_index != indirect_parameters_index) {
+    // https://github.com/gfx-rs/wgpu/issues/4394
+    if (instance_index == 0u) {
+        indirect_parameters_gpu_metadata[indirect_parameters_index].mesh_index = input_index;
+    } else if (work_items[instance_index - 1].output_or_indirect_parameters_index != indirect_parameters_index) {
         indirect_parameters_gpu_metadata[indirect_parameters_index].mesh_index = input_index;
     }
 #endif  // LATE_PHASE

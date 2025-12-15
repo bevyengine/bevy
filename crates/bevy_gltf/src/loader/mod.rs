@@ -1,18 +1,15 @@
-mod extensions;
+pub mod extensions;
 mod gltf_ext;
 
 use alloc::sync::Arc;
-use std::{
-    io::Error,
-    path::{Path, PathBuf},
-    sync::Mutex,
-};
+use async_lock::RwLock;
+use std::{io::Error, sync::Mutex};
 
 #[cfg(feature = "bevy_animation")]
-use bevy_animation::{prelude::*, AnimationTarget, AnimationTargetId};
+use bevy_animation::{prelude::*, AnimatedBy, AnimationTargetId};
 use bevy_asset::{
-    io::Reader, AssetLoadError, AssetLoader, Handle, LoadContext, ReadAssetBytesError,
-    RenderAssetUsages,
+    io::Reader, AssetLoadError, AssetLoader, AssetPath, Handle, LoadContext, ParseAssetPathError,
+    ReadAssetBytesError, RenderAssetUsages,
 };
 use bevy_camera::{
     primitives::Aabb, visibility::Visibility, Camera, Camera3d, OrthographicProjection,
@@ -103,6 +100,9 @@ pub enum GltfError {
     /// Unsupported buffer format.
     #[error("unsupported buffer format")]
     BufferFormatUnsupported,
+    /// The buffer URI was unable to be resolved with respect to the asset path.
+    #[error("invalid buffer uri: {0}. asset path error={1}")]
+    InvalidBufferUri(String, ParseAssetPathError),
     /// Invalid image mime type.
     #[error("invalid image mime type: {0}")]
     #[from(ignore)]
@@ -110,6 +110,9 @@ pub enum GltfError {
     /// Error when loading a texture. Might be due to a disabled image file format feature.
     #[error("You may need to add the feature for the file format: {0}")]
     ImageError(#[from] TextureError),
+    /// The image URI was unable to be resolved with respect to the asset path.
+    #[error("invalid image uri: {0}. asset path error={1}")]
+    InvalidImageUri(String, ParseAssetPathError),
     /// Failed to read bytes from an asset path.
     #[error("failed to read bytes from an asset path: {0}")]
     ReadAssetBytesError(#[from] ReadAssetBytesError),
@@ -158,6 +161,10 @@ pub struct GltfLoader {
     ///
     /// The default is `false`.
     pub default_use_model_forward_direction: bool,
+    /// glTF extension data processors.
+    /// These are Bevy-side processors designed to access glTF
+    /// extension data during the loading process.
+    pub extensions: Arc<RwLock<Vec<Box<dyn extensions::GltfExtensionHandler>>>>,
 }
 
 /// Specifies optional settings for processing gltfs at load time. By default, all recognized contents of
@@ -191,6 +198,10 @@ pub struct GltfLoaderSettings {
     pub load_cameras: bool,
     /// If true, the loader will spawn lights for gltf light nodes.
     pub load_lights: bool,
+    /// If true, the loader will load `AnimationClip` assets, and also add
+    /// `AnimationTarget` and `AnimationPlayer` components to hierarchies
+    /// affected by animation. Requires the `bevy_animation` feature.
+    pub load_animations: bool,
     /// If true, the loader will include the root of the gltf root node.
     pub include_source: bool,
     /// Overrides the default sampler. Data from sampler node is added on top of that.
@@ -221,6 +232,7 @@ impl Default for GltfLoaderSettings {
             load_materials: RenderAssetUsages::default(),
             load_cameras: true,
             load_lights: true,
+            load_animations: true,
             include_source: false,
             default_sampler: None,
             override_sampler: false,
@@ -239,8 +251,18 @@ impl GltfLoader {
     ) -> Result<Gltf, GltfError> {
         let gltf = gltf::Gltf::from_slice(bytes)?;
 
+        // clone extensions to start with a fresh processing state
+        let mut extensions = loader.extensions.read().await.clone();
+
+        // Extensions can have data on the "root" of the glTF data.
+        // Let extensions process the root data for the extension ids
+        // they've subscribed to.
+        for extension in extensions.iter_mut() {
+            extension.on_root(&gltf);
+        }
+
         let file_name = load_context
-            .asset_path()
+            .path()
             .path()
             .to_str()
             .ok_or(GltfError::Gltf(gltf::Error::Io(Error::new(
@@ -253,7 +275,7 @@ impl GltfLoader {
         let linear_textures = get_linear_textures(&gltf.document);
 
         #[cfg(feature = "bevy_animation")]
-        let paths = {
+        let paths = if settings.load_animations {
             let mut paths = HashMap::<usize, (usize, Vec<Name>)>::default();
             for scene in gltf.scenes() {
                 for node in scene.nodes() {
@@ -262,6 +284,8 @@ impl GltfLoader {
                 }
             }
             paths
+        } else {
+            Default::default()
         };
 
         let convert_coordinates = match settings.use_model_forward_direction {
@@ -270,7 +294,7 @@ impl GltfLoader {
         };
 
         #[cfg(feature = "bevy_animation")]
-        let (animations, named_animations, animation_roots) = {
+        let (animations, named_animations, animation_roots) = if settings.load_animations {
             use bevy_animation::{
                 animated_field, animation_curves::*, gltf_curves::*, VariableCurve,
             };
@@ -568,9 +592,30 @@ impl GltfLoader {
                 if let Some(name) = animation.name() {
                     named_animations.insert(name.into(), handle.clone());
                 }
+
+                // let extensions handle extension data placed on animations
+                for extension in extensions.iter_mut() {
+                    extension.on_animation(&animation, handle.clone());
+                }
+
                 animations.push(handle);
             }
+
+            // let extensions process the collection of animation data
+            // this only happens once for each GltfExtensionHandler because
+            // it is a hook for Bevy's finalized representation of the animations
+            for extension in extensions.iter_mut() {
+                extension.on_animations_collected(
+                    load_context,
+                    &animations,
+                    &named_animations,
+                    &animation_roots,
+                );
+            }
+
             (animations, named_animations, animation_roots)
+        } else {
+            Default::default()
         };
 
         let default_sampler = match settings.default_sampler.as_ref() {
@@ -583,48 +628,65 @@ impl GltfLoader {
         // In theory we could store a mapping between texture.index() and handle to use
         // later in the loader when looking up handles for materials. However this would mean
         // that the material's load context would no longer track those images as dependencies.
-        let mut _texture_handles = Vec::new();
+        let mut texture_handles = Vec::new();
         if gltf.textures().len() == 1 || cfg!(target_arch = "wasm32") {
             for texture in gltf.textures() {
-                let parent_path = load_context.path().parent().unwrap();
                 let image = load_image(
-                    texture,
+                    texture.clone(),
                     &buffer_data,
                     &linear_textures,
-                    parent_path,
+                    load_context.path(),
                     loader.supported_compressed_formats,
                     default_sampler,
                     settings,
                 )
                 .await?;
-                image.process_loaded_texture(load_context, &mut _texture_handles);
+                image.process_loaded_texture(load_context, &mut texture_handles);
+                // let extensions handle texture data
+                for extension in extensions.iter_mut() {
+                    extension.on_texture(
+                        texture.extensions(),
+                        texture_handles.last().unwrap().clone(),
+                    );
+                }
             }
         } else {
             #[cfg(not(target_arch = "wasm32"))]
             IoTaskPool::get()
                 .scope(|scope| {
                     gltf.textures().for_each(|gltf_texture| {
-                        let parent_path = load_context.path().parent().unwrap();
+                        let asset_path = load_context.path().clone();
                         let linear_textures = &linear_textures;
                         let buffer_data = &buffer_data;
+                        let extension_data = gltf_texture.extensions().map(ToOwned::to_owned);
                         scope.spawn(async move {
-                            load_image(
+                            let result = load_image(
                                 gltf_texture,
                                 buffer_data,
                                 linear_textures,
-                                parent_path,
+                                &asset_path,
                                 loader.supported_compressed_formats,
                                 default_sampler,
                                 settings,
                             )
-                            .await
+                            .await;
+                            (extension_data, result)
                         });
                     });
                 })
                 .into_iter()
-                .for_each(|result| match result {
+                .for_each(|(extension_data, result)| match result {
                     Ok(image) => {
-                        image.process_loaded_texture(load_context, &mut _texture_handles);
+                        image.process_loaded_texture(load_context, &mut texture_handles);
+                        // let extensions handle texture data
+                        // We do this differently here because of the IoTaskPool vs
+                        // gltf::Texture lifetimes
+                        for extension in extensions.iter_mut() {
+                            extension.on_texture(
+                                extension_data.as_ref(),
+                                texture_handles.last().unwrap().clone(),
+                            );
+                        }
                     }
                     Err(err) => {
                         warn!("Error loading glTF texture: {}", err);
@@ -642,6 +704,12 @@ impl GltfLoader {
                 if let Some(name) = material.name() {
                     named_materials.insert(name.into(), handle.clone());
                 }
+
+                // let extensions handle material data
+                for extension in extensions.iter_mut() {
+                    extension.on_material(load_context, &material, handle.clone());
+                }
+
                 materials.push(handle);
             }
         }
@@ -805,6 +873,10 @@ impl GltfLoader {
             if let Some(name) = gltf_mesh.name() {
                 named_meshes.insert(name.into(), handle.clone());
             }
+            for extension in extensions.iter_mut() {
+                extension.on_gltf_mesh(load_context, &gltf_mesh, handle.clone());
+            }
+
             meshes.push(handle);
         }
 
@@ -959,6 +1031,7 @@ impl GltfLoader {
                             None,
                             &gltf.document,
                             convert_coordinates,
+                            &mut extensions,
                         );
                         if result.is_err() {
                             err = Some(result);
@@ -1004,6 +1077,17 @@ impl GltfLoader {
                     joints: joint_entities,
                 });
             }
+
+            // let extensions handle scene extension data
+            for extension in extensions.iter_mut() {
+                extension.on_scene_completed(
+                    &mut scene_load_context,
+                    &scene,
+                    world_root_id,
+                    &mut world,
+                );
+            }
+
             let loaded_scene = scene_load_context.finish(Scene::new(world));
             let scene_handle = load_context.add_loaded_labeled_asset(
                 GltfAssetLabel::Scene(scene.index()).to_string(),
@@ -1070,7 +1154,7 @@ async fn load_image<'a, 'b>(
     gltf_texture: gltf::Texture<'a>,
     buffer_data: &[Vec<u8>],
     linear_textures: &HashSet<usize>,
-    parent_path: &'b Path,
+    gltf_path: &'b AssetPath<'b>,
     supported_compressed_formats: CompressedImageFormats,
     default_sampler: &ImageSamplerDescriptor,
     settings: &GltfLoaderSettings,
@@ -1120,11 +1204,14 @@ async fn load_image<'a, 'b>(
                     label: GltfAssetLabel::Texture(gltf_texture.index()),
                 })
             } else {
-                let image_path = parent_path.join(uri);
+                let image_path = gltf_path
+                    .resolve_embed(uri)
+                    .map_err(|err| GltfError::InvalidImageUri(uri.to_owned(), err))?;
                 Ok(ImageOrPath::Path {
                     path: image_path,
                     is_srgb,
                     sampler_descriptor,
+                    render_asset_usages: settings.load_materials,
                 })
             }
         }
@@ -1401,6 +1488,7 @@ fn load_node(
     #[cfg(feature = "bevy_animation")] mut animation_context: Option<AnimationContext>,
     document: &Document,
     convert_coordinates: bool,
+    extensions: &mut [Box<dyn extensions::GltfExtensionHandler>],
 ) -> Result<(), GltfError> {
     let mut gltf_error = None;
     let transform = node_transform(gltf_node, convert_coordinates);
@@ -1430,10 +1518,10 @@ fn load_node(
     if let Some(ref mut animation_context) = animation_context {
         animation_context.path.push(name);
 
-        node.insert(AnimationTarget {
-            id: AnimationTargetId::from_names(animation_context.path.iter()),
-            player: animation_context.root,
-        });
+        node.insert((
+            AnimationTargetId::from_names(animation_context.path.iter()),
+            AnimatedBy(animation_context.root),
+        ));
     }
 
     if let Some(extras) = gltf_node.extras() {
@@ -1592,6 +1680,18 @@ fn load_node(
                 if let Some(skin) = gltf_node.skin() {
                     entity_to_skin_index_map.insert(mesh_entity.id(), skin.index());
                 }
+
+                // enable extension processing for a Bevy-created construct
+                // that is the Mesh and Material merged on a single entity
+                for extension in extensions.iter_mut() {
+                    extension.on_spawn_mesh_and_material(
+                        load_context,
+                        &primitive,
+                        &mesh,
+                        &material,
+                        &mut mesh_entity,
+                    );
+                }
             }
         }
 
@@ -1615,6 +1715,9 @@ fn load_node(
                             value: extras.get().to_string(),
                         });
                     }
+                    for extension in extensions.iter_mut() {
+                        extension.on_spawn_light_directional(load_context, gltf_node, &mut entity);
+                    }
                 }
                 gltf::khr_lights_punctual::Kind::Point => {
                     let mut entity = parent.spawn(PointLight {
@@ -1634,6 +1737,9 @@ fn load_node(
                         entity.insert(GltfExtras {
                             value: extras.get().to_string(),
                         });
+                    }
+                    for extension in extensions.iter_mut() {
+                        extension.on_spawn_light_point(load_context, gltf_node, &mut entity);
                     }
                 }
                 gltf::khr_lights_punctual::Kind::Spot {
@@ -1660,6 +1766,9 @@ fn load_node(
                             value: extras.get().to_string(),
                         });
                     }
+                    for extension in extensions.iter_mut() {
+                        extension.on_spawn_light_spot(load_context, gltf_node, &mut entity);
+                    }
                 }
             }
         }
@@ -1682,6 +1791,7 @@ fn load_node(
                 animation_context.clone(),
                 document,
                 convert_coordinates,
+                extensions,
             ) {
                 gltf_error = Some(err);
                 return;
@@ -1700,6 +1810,15 @@ fn load_node(
         let first_mesh =
             primitive_label.map(|label| load_context.get_label_handle(label.to_string()));
         node.insert(MorphWeights::new(weights, first_mesh)?);
+    }
+
+    // let extensions process node data
+    // This can be *many* kinds of object, so we also
+    // give access to the gltf_node, which is needed for
+    // accessing Mesh and Material extension data, which
+    // are merged onto the same entity in Bevy
+    for extension in extensions.iter_mut() {
+        extension.on_gltf_node(load_context, gltf_node, &mut node);
     }
 
     if let Some(err) = gltf_error {
@@ -1731,7 +1850,10 @@ async fn load_buffers(
                     Ok(_) => return Err(GltfError::BufferFormatUnsupported),
                     Err(()) => {
                         // TODO: Remove this and add dep
-                        let buffer_path = load_context.path().parent().unwrap().join(uri);
+                        let buffer_path = load_context
+                            .path()
+                            .resolve_embed(uri)
+                            .map_err(|err| GltfError::InvalidBufferUri(uri.to_owned(), err))?;
                         load_context.read_asset_bytes(buffer_path).await?
                     }
                 };
@@ -1793,9 +1915,10 @@ enum ImageOrPath {
         label: GltfAssetLabel,
     },
     Path {
-        path: PathBuf,
+        path: AssetPath<'static>,
         is_srgb: bool,
         sampler_descriptor: ImageSamplerDescriptor,
+        render_asset_usages: RenderAssetUsages,
     },
 }
 
@@ -1818,11 +1941,13 @@ impl ImageOrPath {
                 path,
                 is_srgb,
                 sampler_descriptor,
+                render_asset_usages,
             } => load_context
                 .loader()
                 .with_settings(move |settings: &mut ImageLoaderSettings| {
                     settings.is_srgb = is_srgb;
                     settings.sampler = ImageSampler::Descriptor(sampler_descriptor.clone());
+                    settings.asset_usage = render_asset_usages;
                 })
                 .load(path),
         };
@@ -1893,14 +2018,16 @@ mod test {
     use bevy_asset::{
         io::{
             memory::{Dir, MemoryAssetReader},
-            AssetSource, AssetSourceId,
+            AssetSourceBuilder, AssetSourceId,
         },
-        AssetApp, AssetPlugin, AssetServer, Assets, Handle, LoadState,
+        AssetApp, AssetLoader, AssetPlugin, AssetServer, Assets, Handle, LoadState,
     };
     use bevy_ecs::{resource::Resource, world::World};
+    use bevy_image::{Image, ImageLoaderSettings};
     use bevy_log::LogPlugin;
     use bevy_mesh::skinning::SkinnedMeshInverseBindposes;
-    use bevy_render::mesh::MeshPlugin;
+    use bevy_mesh::MeshPlugin;
+    use bevy_pbr::StandardMaterial;
     use bevy_scene::ScenePlugin;
 
     fn test_app(dir: Dir) -> App {
@@ -1908,7 +2035,7 @@ mod test {
         let reader = MemoryAssetReader { root: dir };
         app.register_asset_source(
             AssetSourceId::Default,
-            AssetSource::build().with_reader(move || Box::new(reader.clone())),
+            AssetSourceBuilder::new(move || Box::new(reader.clone())),
         )
         .add_plugins((
             LogPlugin::default(),
@@ -2317,5 +2444,158 @@ mod test {
         assert_eq!(skinned_node.name, "skinned");
         assert_eq!(skinned_node.children.len(), 2);
         assert_eq!(skinned_node.skin.as_ref(), Some(&gltf_root.skins[0]));
+    }
+
+    fn test_app_custom_asset_source() -> (App, Dir) {
+        let dir = Dir::default();
+
+        let mut app = App::new();
+        let custom_reader = MemoryAssetReader { root: dir.clone() };
+        // Create a default asset source so we definitely don't try to read from disk.
+        app.register_asset_source(
+            AssetSourceId::Default,
+            AssetSourceBuilder::new(move || {
+                Box::new(MemoryAssetReader {
+                    root: Dir::default(),
+                })
+            }),
+        )
+        .register_asset_source(
+            "custom",
+            AssetSourceBuilder::new(move || Box::new(custom_reader.clone())),
+        )
+        .add_plugins((
+            LogPlugin::default(),
+            TaskPoolPlugin::default(),
+            AssetPlugin::default(),
+            ScenePlugin,
+            MeshPlugin,
+            crate::GltfPlugin::default(),
+        ));
+
+        app.finish();
+        app.cleanup();
+
+        (app, dir)
+    }
+
+    #[test]
+    fn reads_buffer_in_custom_asset_source() {
+        let (mut app, dir) = test_app_custom_asset_source();
+
+        dir.insert_asset_text(
+            Path::new("abc.gltf"),
+            r#"
+{
+    "asset": {
+        "version": "2.0"
+    },
+    "buffers": [
+        {
+            "uri": "abc.bin",
+            "byteLength": 3
+        }
+    ]
+}
+"#,
+        );
+        // We don't care that the buffer contains reasonable info since we won't actually use it.
+        dir.insert_asset_text(Path::new("abc.bin"), "Sup");
+
+        let asset_server = app.world().resource::<AssetServer>().clone();
+        let handle: Handle<Gltf> = asset_server.load("custom://abc.gltf");
+        run_app_until(&mut app, |_world| {
+            let load_state = asset_server.get_load_state(handle.id()).unwrap();
+            match load_state {
+                LoadState::Loaded => Some(()),
+                LoadState::Failed(err) => panic!("{err}"),
+                _ => None,
+            }
+        });
+    }
+
+    #[test]
+    fn reads_images_in_custom_asset_source() {
+        let (mut app, dir) = test_app_custom_asset_source();
+
+        app.init_asset::<StandardMaterial>();
+
+        // Note: We need the material here since otherwise we don't store the texture handle, which
+        // can result in the image getting dropped leading to the gltf never being loaded with
+        // dependencies.
+        dir.insert_asset_text(
+            Path::new("abc.gltf"),
+            r#"
+{
+    "asset": {
+        "version": "2.0"
+    },
+    "textures": [
+        {
+            "source": 0,
+            "sampler": 0
+        }
+    ],
+    "images": [
+        {
+            "uri": "abc.png"
+        }
+    ],
+    "samplers": [
+        {
+            "magFilter": 9729,
+            "minFilter": 9729
+        }
+    ],
+    "materials": [
+        {
+            "pbrMetallicRoughness": {
+                "baseColorTexture": {
+                    "index": 0,
+                    "texCoord": 0
+                }
+            }
+        }
+    ]
+}
+"#,
+        );
+        // We don't care that the image contains reasonable info since we won't actually use it.
+        dir.insert_asset_text(Path::new("abc.png"), "Sup");
+
+        /// A fake loader to avoid actually loading any image data and just return an image.
+        struct FakePngLoader;
+
+        impl AssetLoader for FakePngLoader {
+            type Asset = Image;
+            type Error = std::io::Error;
+            type Settings = ImageLoaderSettings;
+
+            async fn load(
+                &self,
+                _reader: &mut dyn bevy_asset::io::Reader,
+                _settings: &Self::Settings,
+                _load_context: &mut bevy_asset::LoadContext<'_>,
+            ) -> Result<Self::Asset, Self::Error> {
+                Ok(Image::default())
+            }
+
+            fn extensions(&self) -> &[&str] {
+                &["png"]
+            }
+        }
+
+        app.init_asset::<Image>()
+            .register_asset_loader(FakePngLoader);
+
+        let asset_server = app.world().resource::<AssetServer>().clone();
+        let handle: Handle<Gltf> = asset_server.load("custom://abc.gltf");
+        run_app_until(&mut app, |_world| {
+            // Note: we can't assert for failure since it's the nested load that fails, not the GLTF
+            // load.
+            asset_server
+                .is_loaded_with_dependencies(&handle)
+                .then_some(())
+        });
     }
 }

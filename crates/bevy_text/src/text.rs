@@ -5,6 +5,8 @@ use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{prelude::*, reflect::ReflectComponent};
 use bevy_reflect::prelude::*;
 use bevy_utils::{default, once};
+use core::fmt::{Debug, Formatter};
+use core::str::from_utf8;
 use cosmic_text::{Buffer, Metrics};
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
@@ -16,7 +18,7 @@ pub struct CosmicBuffer(pub Buffer);
 
 impl Default for CosmicBuffer {
     fn default() -> Self {
-        Self(Buffer::new_empty(Metrics::new(0.0, 0.000001)))
+        Self(Buffer::new_empty(Metrics::new(20.0, 20.0)))
     }
 }
 
@@ -172,7 +174,7 @@ impl TextLayout {
 /// but each node has its own [`TextFont`] and [`TextColor`].
 #[derive(Component, Debug, Default, Clone, Deref, DerefMut, Reflect)]
 #[reflect(Component, Default, Debug, Clone)]
-#[require(TextFont, TextColor)]
+#[require(TextFont, TextColor, LineHeight)]
 pub struct TextSpan(pub String);
 
 impl TextSpan {
@@ -214,6 +216,7 @@ impl From<String> for TextSpan {
 /// [`TextBounds`](super::bounds::TextBounds) component with an explicit `width` value.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash, Reflect, Serialize, Deserialize)]
 #[reflect(Serialize, Deserialize, Clone, PartialEq, Hash)]
+#[doc(alias = "JustifyText")]
 pub enum Justify {
     /// Leftmost character is immediately to the right of the render position.
     /// Bounds start from the render position and advance rightwards.
@@ -243,7 +246,7 @@ impl From<Justify> for cosmic_text::Align {
 }
 
 /// `TextFont` determines the style of a text span within a [`ComputedTextBlock`], specifically
-/// the font face, the font size, and the color.
+/// the font face, the font size, the line height, and the antialiasing method.
 #[derive(Component, Clone, Debug, Reflect, PartialEq)]
 #[reflect(Component, Default, Debug, Clone)]
 pub struct TextFont {
@@ -263,29 +266,16 @@ pub struct TextFont {
     /// A new font atlas is generated for every combination of font handle and scaled font size
     /// which can have a strong performance impact.
     pub font_size: f32,
-    /// The vertical height of a line of text, from the top of one line to the top of the
-    /// next.
-    ///
-    /// Defaults to `LineHeight::RelativeToFont(1.2)`
-    pub line_height: LineHeight,
     /// The antialiasing method to use when rendering text.
     pub font_smoothing: FontSmoothing,
+    /// OpenType features for .otf fonts that support them.
+    pub font_features: FontFeatures,
 }
 
 impl TextFont {
-    /// Returns a new [`TextFont`] with the specified font face handle.
-    pub fn from_font(font: Handle<Font>) -> Self {
-        Self::default().with_font(font)
-    }
-
     /// Returns a new [`TextFont`] with the specified font size.
     pub fn from_font_size(font_size: f32) -> Self {
         Self::default().with_font_size(font_size)
-    }
-
-    /// Returns a new [`TextFont`] with the specified line height.
-    pub fn from_line_height(line_height: LineHeight) -> Self {
-        Self::default().with_line_height(line_height)
     }
 
     /// Returns this [`TextFont`] with the specified font face handle.
@@ -305,12 +295,6 @@ impl TextFont {
         self.font_smoothing = font_smoothing;
         self
     }
-
-    /// Returns this [`TextFont`] with the specified [`LineHeight`].
-    pub const fn with_line_height(mut self, line_height: LineHeight) -> Self {
-        self.line_height = line_height;
-        self
-    }
 }
 
 impl From<Handle<Font>> for TextFont {
@@ -319,22 +303,198 @@ impl From<Handle<Font>> for TextFont {
     }
 }
 
-impl From<LineHeight> for TextFont {
-    fn from(line_height: LineHeight) -> Self {
-        Self {
-            line_height,
-            ..default()
-        }
-    }
-}
-
 impl Default for TextFont {
     fn default() -> Self {
         Self {
             font: Default::default(),
             font_size: 20.0,
-            line_height: LineHeight::default(),
+            font_features: FontFeatures::default(),
             font_smoothing: Default::default(),
+        }
+    }
+}
+
+/// An OpenType font feature tag.
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Reflect)]
+pub struct FontFeatureTag([u8; 4]);
+
+impl FontFeatureTag {
+    /// Replaces character combinations like fi, fl with ligatures.
+    pub const STANDARD_LIGATURES: FontFeatureTag = FontFeatureTag::new(b"liga");
+
+    /// Enables ligatures based on character context.
+    pub const CONTEXTUAL_LIGATURES: FontFeatureTag = FontFeatureTag::new(b"clig");
+
+    /// Enables optional ligatures for stylistic use (e.g., ct, st).
+    pub const DISCRETIONARY_LIGATURES: FontFeatureTag = FontFeatureTag::new(b"dlig");
+
+    /// Adjust glyph shapes based on surrounding letters.
+    pub const CONTEXTUAL_ALTERNATES: FontFeatureTag = FontFeatureTag::new(b"calt");
+
+    /// Use alternate glyph designs.
+    pub const STYLISTIC_ALTERNATES: FontFeatureTag = FontFeatureTag::new(b"salt");
+
+    /// Replaces lowercase letters with small caps.
+    pub const SMALL_CAPS: FontFeatureTag = FontFeatureTag::new(b"smcp");
+
+    /// Replaces uppercase letters with small caps.
+    pub const CAPS_TO_SMALL_CAPS: FontFeatureTag = FontFeatureTag::new(b"c2sc");
+
+    /// Replaces characters with swash versions (often decorative).
+    pub const SWASH: FontFeatureTag = FontFeatureTag::new(b"swsh");
+
+    /// Enables alternate glyphs for large sizes or titles.
+    pub const TITLING_ALTERNATES: FontFeatureTag = FontFeatureTag::new(b"titl");
+
+    /// Converts numbers like 1/2 into true fractions (½).
+    pub const FRACTIONS: FontFeatureTag = FontFeatureTag::new(b"frac");
+
+    /// Formats characters like 1st, 2nd properly.
+    pub const ORDINALS: FontFeatureTag = FontFeatureTag::new(b"ordn");
+
+    /// Uses a slashed version of zero (0) to differentiate from O.
+    pub const SLASHED_ZERO: FontFeatureTag = FontFeatureTag::new(b"ordn");
+
+    /// Replaces figures with superscript figures, e.g. for indicating footnotes.
+    pub const SUPERSCRIPT: FontFeatureTag = FontFeatureTag::new(b"sups");
+
+    /// Replaces figures with subscript figures.
+    pub const SUBSCRIPT: FontFeatureTag = FontFeatureTag::new(b"subs");
+
+    /// Changes numbers to "oldstyle" form, which fit better in the flow of sentences or other text.
+    pub const OLDSTYLE_FIGURES: FontFeatureTag = FontFeatureTag::new(b"onum");
+
+    /// Changes numbers to "lining" form, which are better suited for standalone numbers. When
+    /// enabled, the bottom of all numbers will be aligned with each other.
+    pub const LINING_FIGURES: FontFeatureTag = FontFeatureTag::new(b"lnum");
+
+    /// Changes numbers to be of proportional width. When enabled, numbers may have varying widths.
+    pub const PROPORTIONAL_FIGURES: FontFeatureTag = FontFeatureTag::new(b"pnum");
+
+    /// Changes numbers to be of uniform (tabular) width. When enabled, all numbers will have the
+    /// same width.
+    pub const TABULAR_FIGURES: FontFeatureTag = FontFeatureTag::new(b"tnum");
+
+    /// Varies the stroke thickness. Values must be in the range of 0 to 1000.
+    pub const WEIGHT: FontFeatureTag = FontFeatureTag::new(b"wght");
+
+    /// Varies the width of text from narrower to wider. Must be a value greater than 0. A value of
+    /// 100 is typically considered standard width.
+    pub const WIDTH: FontFeatureTag = FontFeatureTag::new(b"wdth");
+
+    /// Varies between upright and slanted text. Must be a value greater than -90 and less than +90.
+    /// A value of 0 is upright.
+    pub const SLANT: FontFeatureTag = FontFeatureTag::new(b"slnt");
+
+    /// Create a new [`FontFeatureTag`] from raw bytes.
+    pub const fn new(src: &[u8; 4]) -> Self {
+        Self(*src)
+    }
+}
+
+impl Debug for FontFeatureTag {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+        // OpenType tags are always ASCII, so this match will succeed for valid tags. This gives us
+        // human-readable debug output, e.g. FontFeatureTag("liga").
+        match from_utf8(&self.0) {
+            Ok(s) => write!(f, "FontFeatureTag(\"{}\")", s),
+            Err(_) => write!(f, "FontFeatureTag({:?})", self.0),
+        }
+    }
+}
+
+/// OpenType features for .otf fonts that support them.
+///
+/// Examples features include ligatures, small-caps, and fractional number display. For the complete
+/// list of OpenType features, see the spec at
+/// `<https://learn.microsoft.com/en-us/typography/opentype/spec/featurelist>`.
+///
+/// # Usage:
+/// ```
+/// use bevy_text::{FontFeatureTag, FontFeatures};
+///
+/// // Create using the builder
+/// let font_features = FontFeatures::builder()
+///   .enable(FontFeatureTag::STANDARD_LIGATURES)
+///   .set(FontFeatureTag::WEIGHT, 300)
+///   .build();
+///
+/// // Create from a list
+/// let more_font_features: FontFeatures = [
+///   FontFeatureTag::STANDARD_LIGATURES,
+///   FontFeatureTag::OLDSTYLE_FIGURES,
+///   FontFeatureTag::TABULAR_FIGURES
+/// ].into();
+/// ```
+#[derive(Clone, Debug, Default, Reflect, PartialEq)]
+pub struct FontFeatures {
+    features: Vec<(FontFeatureTag, u32)>,
+}
+
+impl FontFeatures {
+    /// Create a new [`FontFeaturesBuilder`].
+    pub fn builder() -> FontFeaturesBuilder {
+        FontFeaturesBuilder::default()
+    }
+}
+
+/// A builder for [`FontFeatures`].
+#[derive(Clone, Default)]
+pub struct FontFeaturesBuilder {
+    features: Vec<(FontFeatureTag, u32)>,
+}
+
+impl FontFeaturesBuilder {
+    /// Enable an OpenType feature.
+    ///
+    /// Most OpenType features are on/off switches, so this is a convenience method that sets the
+    /// feature's value to "1" (enabled). For non-boolean features, see [`FontFeaturesBuilder::set`].
+    pub fn enable(self, feature_tag: FontFeatureTag) -> Self {
+        self.set(feature_tag, 1)
+    }
+
+    /// Set an OpenType feature to a specific value.
+    ///
+    /// For most features, the [`FontFeaturesBuilder::enable`] method should be used instead. A few
+    /// features, such as "wght", take numeric values, so this method may be used for these cases.
+    pub fn set(mut self, feature_tag: FontFeatureTag, value: u32) -> Self {
+        self.features.push((feature_tag, value));
+        self
+    }
+
+    /// Build a [`FontFeatures`] from the values set within this builder.
+    pub fn build(self) -> FontFeatures {
+        FontFeatures {
+            features: self.features,
+        }
+    }
+}
+
+/// Allow [`FontFeatures`] to be built from a list. This is suitable for the standard case when each
+/// listed feature is a boolean type. If any features require a numeric value (like "wght"), use
+/// [`FontFeaturesBuilder`] instead.
+impl<T> From<T> for FontFeatures
+where
+    T: IntoIterator<Item = FontFeatureTag>,
+{
+    fn from(value: T) -> Self {
+        FontFeatures {
+            features: value.into_iter().map(|x| (x, 1)).collect(),
+        }
+    }
+}
+
+impl From<&FontFeatures> for cosmic_text::FontFeatures {
+    fn from(font_features: &FontFeatures) -> Self {
+        cosmic_text::FontFeatures {
+            features: font_features
+                .features
+                .iter()
+                .map(|(tag, value)| cosmic_text::Feature {
+                    tag: cosmic_text::FeatureTag::new(&tag.0),
+                    value: *value,
+                })
+                .collect(),
         }
     }
 }
@@ -342,8 +502,8 @@ impl Default for TextFont {
 /// Specifies the height of each line of text for `Text` and `Text2d`
 ///
 /// Default is 1.2x the font size
-#[derive(Debug, Clone, Copy, PartialEq, Reflect)]
-#[reflect(Debug, Clone, PartialEq)]
+#[derive(Component, Debug, Clone, Copy, PartialEq, Reflect)]
+#[reflect(Component, Debug, Clone, PartialEq)]
 pub enum LineHeight {
     /// Set line height to a specific number of pixels
     Px(f32),
@@ -434,6 +594,50 @@ pub enum LineBreak {
     NoWrap,
 }
 
+/// A text entity with this component is drawn with strikethrough.
+#[derive(Component, Copy, Clone, Debug, Reflect, Default, Serialize, Deserialize)]
+#[reflect(Serialize, Deserialize, Clone, Default)]
+pub struct Strikethrough;
+
+/// Color for the text's strikethrough. If this component is not present, its `TextColor` will be used.
+#[derive(Component, Copy, Clone, Debug, Deref, DerefMut, Reflect, PartialEq)]
+#[reflect(Component, Default, Debug, PartialEq, Clone)]
+pub struct StrikethroughColor(pub Color);
+
+impl Default for StrikethroughColor {
+    fn default() -> Self {
+        Self(Color::WHITE)
+    }
+}
+
+impl<T: Into<Color>> From<T> for StrikethroughColor {
+    fn from(color: T) -> Self {
+        Self(color.into())
+    }
+}
+
+/// Add to a text entity to draw its text with underline.
+#[derive(Component, Copy, Clone, Debug, Reflect, Default, Serialize, Deserialize)]
+#[reflect(Serialize, Deserialize, Clone, Default)]
+pub struct Underline;
+
+/// Color for the text's underline. If this component is not present, its `TextColor` will be used.
+#[derive(Component, Copy, Clone, Debug, Deref, DerefMut, Reflect, PartialEq)]
+#[reflect(Component, Default, Debug, PartialEq, Clone)]
+pub struct UnderlineColor(pub Color);
+
+impl Default for UnderlineColor {
+    fn default() -> Self {
+        Self(Color::WHITE)
+    }
+}
+
+impl<T: Into<Color>> From<T> for UnderlineColor {
+    fn from(color: T) -> Self {
+        Self(color.into())
+    }
+}
+
 /// Determines which antialiasing method to use when rendering text. By default, text is
 /// rendered with grayscale antialiasing, but this can be changed to achieve a pixelated look.
 ///
@@ -470,6 +674,7 @@ pub fn detect_text_needs_rerender<Root: Component>(
                 Changed<Root>,
                 Changed<TextFont>,
                 Changed<TextLayout>,
+                Changed<LineHeight>,
                 Changed<Children>,
             )>,
             With<Root>,
@@ -483,6 +688,7 @@ pub fn detect_text_needs_rerender<Root: Component>(
             Or<(
                 Changed<TextSpan>,
                 Changed<TextFont>,
+                Changed<LineHeight>,
                 Changed<Children>,
                 Changed<ChildOf>, // Included to detect broken text block hierarchies.
                 Added<TextLayout>,

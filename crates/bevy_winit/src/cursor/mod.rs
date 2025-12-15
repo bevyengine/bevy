@@ -56,7 +56,7 @@ pub enum CursorSource {
 #[derive(Component, Debug)]
 pub struct PendingCursor(pub Option<CursorSource>);
 
-impl<T: BufferedEvent> WinitAppRunnerState<T> {
+impl<M: Message> WinitAppRunnerState<M> {
     pub(crate) fn update_cursors(
         &mut self,
         #[cfg(feature = "custom_cursor")] event_loop: &ActiveEventLoop,
@@ -222,10 +222,10 @@ fn update_cursors(
 }
 
 /// Resets the cursor to the default icon when `CursorIcon` is removed.
-fn on_remove_cursor_icon(event: On<Remove, CursorIcon>, mut commands: Commands) {
+fn on_remove_cursor_icon(remove: On<Remove, CursorIcon>, mut commands: Commands) {
     // Use `try_insert` to avoid panic if the window is being destroyed.
     commands
-        .entity(event.entity())
+        .entity(remove.entity)
         .try_insert(PendingCursor(Some(CursorSource::System(
             convert_system_cursor_icon(SystemCursorIcon::Default),
         ))));

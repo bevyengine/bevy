@@ -10,7 +10,7 @@ use bevy_ecs::{
 };
 use bevy_render::{
     render_resource::{
-        binding_types::uniform_buffer, BindGroup, BindGroupEntries, BindGroupLayout,
+        binding_types::uniform_buffer, BindGroup, BindGroupEntries, BindGroupLayoutDescriptor,
         BindGroupLayoutEntries, CachedRenderPipelineId, CompareFunction, DepthStencilState,
         FragmentState, MultisampleState, PipelineCache, RenderPipelineDescriptor, ShaderStages,
         SpecializedRenderPipeline, SpecializedRenderPipelines,
@@ -37,7 +37,7 @@ use crate::{
 /// blur is enabled.
 #[derive(Resource)]
 pub struct SkyboxPrepassPipeline {
-    bind_group_layout: BindGroupLayout,
+    bind_group_layout: BindGroupLayoutDescriptor,
     fullscreen_shader: FullscreenShader,
     fragment_shader: Handle<Shader>,
 }
@@ -61,12 +61,11 @@ pub struct SkyboxPrepassBindGroup(pub BindGroup);
 
 pub fn init_skybox_prepass_pipeline(
     mut commands: Commands,
-    render_device: Res<RenderDevice>,
     fullscreen_shader: Res<FullscreenShader>,
     asset_server: Res<AssetServer>,
 ) {
     commands.insert_resource(SkyboxPrepassPipeline {
-        bind_group_layout: render_device.create_bind_group_layout(
+        bind_group_layout: BindGroupLayoutDescriptor::new(
             "skybox_prepass_bind_group_layout",
             &BindGroupLayoutEntries::sequential(
                 ShaderStages::FRAGMENT,
@@ -142,6 +141,7 @@ pub fn prepare_skybox_prepass_bind_groups(
     view_uniforms: Res<ViewUniforms>,
     prev_view_uniforms: Res<PreviousViewUniforms>,
     render_device: Res<RenderDevice>,
+    pipeline_cache: Res<PipelineCache>,
     views: Query<Entity, (With<Skybox>, With<MotionVectorPrepass>)>,
 ) {
     for entity in &views {
@@ -153,7 +153,7 @@ pub fn prepare_skybox_prepass_bind_groups(
         };
         let bind_group = render_device.create_bind_group(
             "skybox_prepass_bind_group",
-            &pipeline.bind_group_layout,
+            &pipeline_cache.get_bind_group_layout(&pipeline.bind_group_layout),
             &BindGroupEntries::sequential((view_uniforms, prev_view_uniforms)),
         );
 

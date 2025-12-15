@@ -74,6 +74,7 @@ enum PrimitiveSelected {
     Segment,
     Polyline,
     Polygon,
+    ConvexPolygon,
     RegularPolygon,
     Capsule,
     Cylinder,
@@ -98,7 +99,7 @@ impl std::fmt::Display for PrimitiveSelected {
 }
 
 impl PrimitiveSelected {
-    const ALL: [Self; 19] = [
+    const ALL: [Self; 20] = [
         Self::RectangleAndCuboid,
         Self::CircleAndSphere,
         Self::Ellipse,
@@ -108,6 +109,7 @@ impl PrimitiveSelected {
         Self::Segment,
         Self::Polyline,
         Self::Polygon,
+        Self::ConvexPolygon,
         Self::RegularPolygon,
         Self::Capsule,
         Self::Cylinder,
@@ -183,8 +185,8 @@ const PLANE_3D: Plane3d = Plane3d {
     half_size: Vec2::new(BIG_3D, BIG_3D),
 };
 
-const LINE2D: Line2d = Line2d { direction: Dir2::X };
-const LINE3D: Line3d = Line3d { direction: Dir3::X };
+const LINE_2D: Line2d = Line2d { direction: Dir2::X };
+const LINE_3D: Line3d = Line3d { direction: Dir3::X };
 
 const SEGMENT_2D: Segment2d = Segment2d {
     vertices: [Vec2::new(-BIG_2D / 2., 0.), Vec2::new(BIG_2D / 2., 0.)],
@@ -197,6 +199,28 @@ const SEGMENT_3D: Segment3d = Segment3d {
     ],
 };
 
+const POLYLINE_2D_VERTICES: [Vec2; 4] = [
+    Vec2::new(-BIG_2D, -SMALL_2D),
+    Vec2::new(-SMALL_2D, SMALL_2D),
+    Vec2::new(SMALL_2D, -SMALL_2D),
+    Vec2::new(BIG_2D, SMALL_2D),
+];
+
+const POLYLINE_3D_VERTICES: [Vec3; 4] = [
+    Vec3::new(-BIG_3D, -SMALL_3D, -SMALL_3D),
+    Vec3::new(SMALL_3D, SMALL_3D, 0.0),
+    Vec3::new(-SMALL_3D, -SMALL_3D, 0.0),
+    Vec3::new(BIG_3D, SMALL_3D, SMALL_3D),
+];
+
+const CONVEX_POLYGON_VERTICES: [Vec2; 5] = [
+    Vec2::new(-BIG_2D, -SMALL_2D),
+    Vec2::new(BIG_2D, -SMALL_2D),
+    Vec2::new(BIG_2D, SMALL_2D),
+    Vec2::new(BIG_2D / 2.0, SMALL_2D * 2.0),
+    Vec2::new(-BIG_2D, SMALL_2D),
+];
+
 const REGULAR_POLYGON: RegularPolygon = RegularPolygon {
     circumcircle: Circle { radius: BIG_2D },
     sides: 5,
@@ -206,6 +230,7 @@ const CAPSULE_2D: Capsule2d = Capsule2d {
     radius: SMALL_2D,
     half_length: SMALL_2D,
 };
+
 const CAPSULE_3D: Capsule3d = Capsule3d {
     radius: SMALL_3D,
     half_length: SMALL_3D,
@@ -281,7 +306,7 @@ fn setup_cameras(mut commands: Commands) {
     ));
 }
 
-fn setup_ambient_light(mut ambient_light: ResMut<AmbientLight>) {
+fn setup_ambient_light(mut ambient_light: ResMut<GlobalAmbientLight>) {
     ambient_light.brightness = 50.0;
 }
 
@@ -345,7 +370,7 @@ fn setup_text(mut commands: Commands, cameras: Query<(Entity, &Camera)>) {
         HeaderNode,
         Node {
             justify_self: JustifySelf::Center,
-            top: Val::Px(5.0),
+            top: px(5),
             ..Default::default()
         },
         UiTargetCamera(active_camera),
@@ -421,19 +446,19 @@ fn draw_gizmos_2d(mut gizmos: Gizmos, state: Res<State<PrimitiveSelected>>, time
         PrimitiveSelected::Ellipse => drop(gizmos.primitive_2d(&ELLIPSE, isometry, color)),
         PrimitiveSelected::Triangle => gizmos.primitive_2d(&TRIANGLE_2D, isometry, color),
         PrimitiveSelected::Plane => gizmos.primitive_2d(&PLANE_2D, isometry, color),
-        PrimitiveSelected::Line => drop(gizmos.primitive_2d(&LINE2D, isometry, color)),
+        PrimitiveSelected::Line => drop(gizmos.primitive_2d(&LINE_2D, isometry, color)),
         PrimitiveSelected::Segment => {
             drop(gizmos.primitive_2d(&SEGMENT_2D, isometry, color));
         }
         PrimitiveSelected::Polyline => gizmos.primitive_2d(
             &Polyline2d {
-                vertices: vec![
-                    Vec2::new(-BIG_2D, -SMALL_2D),
-                    Vec2::new(-SMALL_2D, SMALL_2D),
-                    Vec2::new(SMALL_2D, -SMALL_2D),
-                    Vec2::new(BIG_2D, SMALL_2D),
-                ],
+                vertices: POLYLINE_2D_VERTICES.to_vec(),
             },
+            isometry,
+            color,
+        ),
+        PrimitiveSelected::ConvexPolygon => gizmos.primitive_2d(
+            &Polygon::from(ConvexPolygon::new(CONVEX_POLYGON_VERTICES).unwrap()),
             isometry,
             color,
         ),
@@ -492,6 +517,10 @@ fn spawn_primitive_2d(
     const POSITION: Vec3 = Vec3::new(LEFT_RIGHT_OFFSET_2D, 0.0, 0.0);
     let material: Handle<ColorMaterial> = materials.add(Color::WHITE);
     let camera_mode = CameraActive::Dim2;
+    let polyline_2d = Polyline2d {
+        vertices: POLYLINE_2D_VERTICES.to_vec(),
+    };
+    let convex_polygon = ConvexPolygon::new(CONVEX_POLYGON_VERTICES).unwrap();
     [
         Some(RECTANGLE.mesh().build()),
         Some(CIRCLE.mesh().build()),
@@ -499,9 +528,10 @@ fn spawn_primitive_2d(
         Some(TRIANGLE_2D.mesh().build()),
         None, // plane
         None, // line
-        None, // segment
-        None, // polyline
+        Some(SEGMENT_2D.mesh().build()),
+        Some(polyline_2d.mesh().build()),
         None, // polygon
+        Some(convex_polygon.mesh().build()),
         Some(REGULAR_POLYGON.mesh().build()),
         Some(CAPSULE_2D.mesh().build()),
         None, // cylinder
@@ -509,6 +539,9 @@ fn spawn_primitive_2d(
         None, // conical frustum
         Some(ANNULUS.mesh().build()),
         None, // tetrahedron
+        None, // arc
+        Some(CIRCULAR_SECTOR.mesh().build()),
+        Some(CIRCULAR_SEGMENT.mesh().build()),
     ]
     .into_iter()
     .zip(PrimitiveSelected::ALL)
@@ -536,6 +569,9 @@ fn spawn_primitive_3d(
     const POSITION: Vec3 = Vec3::new(-LEFT_RIGHT_OFFSET_3D, 0.0, 0.0);
     let material: Handle<StandardMaterial> = materials.add(Color::WHITE);
     let camera_mode = CameraActive::Dim3;
+    let polyline_3d = Polyline3d {
+        vertices: POLYLINE_3D_VERTICES.to_vec(),
+    };
     [
         Some(CUBOID.mesh().build()),
         Some(SPHERE.mesh().build()),
@@ -543,16 +579,20 @@ fn spawn_primitive_3d(
         Some(TRIANGLE_3D.mesh().build()),
         Some(PLANE_3D.mesh().build()),
         None, // line
-        None, // segment
-        None, // polyline
+        Some(SEGMENT_3D.mesh().build()),
+        Some(polyline_3d.mesh().build()),
         None, // polygon
+        None, // convex polygon
         None, // regular polygon
         Some(CAPSULE_3D.mesh().build()),
         Some(CYLINDER.mesh().build()),
-        None, // cone
-        None, // conical frustum
+        Some(CONE.mesh().build()),
+        Some(CONICAL_FRUSTUM.mesh().build()),
         Some(TORUS.mesh().build()),
         Some(TETRAHEDRON.mesh().build()),
+        None, // arc
+        None, // circular sector
+        None, // circular segment
     ]
     .into_iter()
     .zip(PrimitiveSelected::ALL)
@@ -661,21 +701,17 @@ fn draw_gizmos_3d(mut gizmos: Gizmos, state: Res<State<PrimitiveSelected>>, time
         PrimitiveSelected::Ellipse => {}
         PrimitiveSelected::Triangle => gizmos.primitive_3d(&TRIANGLE_3D, isometry, color),
         PrimitiveSelected::Plane => drop(gizmos.primitive_3d(&PLANE_3D, isometry, color)),
-        PrimitiveSelected::Line => gizmos.primitive_3d(&LINE3D, isometry, color),
+        PrimitiveSelected::Line => gizmos.primitive_3d(&LINE_3D, isometry, color),
         PrimitiveSelected::Segment => gizmos.primitive_3d(&SEGMENT_3D, isometry, color),
         PrimitiveSelected::Polyline => gizmos.primitive_3d(
             &Polyline3d {
-                vertices: vec![
-                    Vec3::new(-BIG_3D, -SMALL_3D, -SMALL_3D),
-                    Vec3::new(SMALL_3D, SMALL_3D, 0.0),
-                    Vec3::new(-SMALL_3D, -SMALL_3D, 0.0),
-                    Vec3::new(BIG_3D, SMALL_3D, SMALL_3D),
-                ],
+                vertices: POLYLINE_3D_VERTICES.to_vec(),
             },
             isometry,
             color,
         ),
         PrimitiveSelected::Polygon => {}
+        PrimitiveSelected::ConvexPolygon => {}
         PrimitiveSelected::RegularPolygon => {}
         PrimitiveSelected::Capsule => drop(
             gizmos

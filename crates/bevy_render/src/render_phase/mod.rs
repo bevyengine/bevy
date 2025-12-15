@@ -30,7 +30,7 @@ mod rangefinder;
 
 use bevy_app::{App, Plugin};
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::component::Tick;
+use bevy_ecs::change_detection::Tick;
 use bevy_ecs::entity::EntityHash;
 use bevy_platform::collections::{hash_map::Entry, HashMap};
 use bevy_utils::default;

@@ -5,7 +5,7 @@
         reason = "rustdoc_internals is needed for fake_variadic"
     )
 )]
-#![cfg_attr(any(docsrs, docsrs_dep), feature(doc_auto_cfg, rustdoc_internals))]
+#![cfg_attr(any(docsrs, docsrs_dep), feature(doc_cfg, rustdoc_internals))]
 #![doc(
     html_logo_url = "https://bevy.org/assets/icon.png",
     html_favicon_url = "https://bevy.org/assets/icon.png"
@@ -584,6 +584,7 @@ mod fields;
 mod from_reflect;
 #[cfg(feature = "functions")]
 pub mod func;
+mod is;
 mod kind;
 mod list;
 mod map;
@@ -658,6 +659,7 @@ pub use error::*;
 pub use fields::*;
 pub use from_reflect::*;
 pub use generics::*;
+pub use is::*;
 pub use kind::*;
 pub use list::*;
 pub use map::*;
@@ -815,7 +817,7 @@ pub mod __macro_exports {
 
             static REGISTRATION_FNS: Mutex<Vec<fn(&mut TypeRegistry)>> = Mutex::new(Vec::new());
 
-            /// Adds adds a new registration function for [`TypeRegistry`]
+            /// Adds a new registration function for [`TypeRegistry`]
             pub fn push_registration_fn(registration_fn: fn(&mut TypeRegistry)) {
                 REGISTRATION_FNS.lock().unwrap().push(registration_fn);
             }
@@ -1070,6 +1072,11 @@ mod tests {
         expected = "the dynamic type `bevy_reflect::DynamicStruct` does not support hashing"
     )]
     fn reflect_map_no_hash_dynamic() {
+        #[allow(
+            clippy::allow_attributes,
+            dead_code,
+            reason = "This struct is used as a compilation test to test the derive macros, and as such is intentionally never constructed."
+        )]
         #[derive(Reflect, Hash)]
         #[reflect(Hash)]
         struct Foo {
@@ -1127,12 +1134,24 @@ mod tests {
             }
         }
 
+        #[expect(
+            dead_code,
+            reason = "This struct is used as a compilation test to test the derive macros, and as such is intentionally never constructed."
+        )]
         #[derive(Reflect)]
         struct Foo<A>(A);
 
+        #[expect(
+            dead_code,
+            reason = "This struct is used as a compilation test to test the derive macros, and as such is intentionally never constructed."
+        )]
         #[derive(Reflect)]
         struct Bar<A, B>(A, B);
 
+        #[expect(
+            dead_code,
+            reason = "This struct is used as a compilation test to test the derive macros, and as such is intentionally never constructed."
+        )]
         #[derive(Reflect)]
         struct Baz<A, B, C>(A, B, C);
     }
@@ -2289,7 +2308,7 @@ mod tests {
         let info = MyCowStr::type_info().as_opaque().unwrap();
 
         assert!(info.is::<MyCowStr>());
-        assert_eq!(core::any::type_name::<MyCowStr>(), info.type_path());
+        assert_eq!("alloc::borrow::Cow<str>", info.type_path());
 
         let value: &dyn Reflect = &Cow::<'static, str>::Owned("Hello!".to_string());
         let info = value.reflect_type_info();
@@ -2303,8 +2322,8 @@ mod tests {
         assert!(info.is::<MyCowSlice>());
         assert!(info.item_ty().is::<u8>());
         assert!(info.item_info().unwrap().is::<u8>());
-        assert_eq!(core::any::type_name::<MyCowSlice>(), info.type_path());
-        assert_eq!(core::any::type_name::<u8>(), info.item_ty().path());
+        assert_eq!("alloc::borrow::Cow<[u8]>", info.type_path());
+        assert_eq!("u8", info.item_ty().path());
 
         let value: &dyn Reflect = &Cow::<'static, [u8]>::Owned(vec![0, 1, 2, 3]);
         let info = value.reflect_type_info();
@@ -2437,7 +2456,7 @@ mod tests {
         dynamic_array.set_represented_type(Some(type_info));
     }
 
-    #[cfg(feature = "documentation")]
+    #[cfg(feature = "reflect_documentation")]
     mod docstrings {
         use super::*;
 
@@ -2777,6 +2796,11 @@ bevy_reflect::tests::Test {
         #[reflect(where U: core::ops::Add<T>)]
         struct Foo<T, U>(T, U);
 
+        #[allow(
+            clippy::allow_attributes,
+            dead_code,
+            reason = "This struct is used as a compilation test to test the derive macros, and as such is intentionally never constructed."
+        )]
         #[derive(Reflect)]
         struct Baz {
             a: Foo<i32, i32>,
@@ -3210,6 +3234,11 @@ bevy_reflect::tests::Test {
             pub mod external_crate {
                 use alloc::string::String;
 
+                #[allow(
+                    clippy::allow_attributes,
+                    dead_code,
+                    reason = "This struct is used as a compilation test to test the derive macros, and as such is intentionally never constructed."
+                )]
                 pub struct TheirType {
                     pub value: String,
                 }
@@ -3221,6 +3250,11 @@ bevy_reflect::tests::Test {
             }
         }
 
+        #[allow(
+            clippy::allow_attributes,
+            dead_code,
+            reason = "This struct is used as a compilation test to test the derive macros, and as such is intentionally never constructed."
+        )]
         #[derive(Reflect)]
         struct ContainerStruct {
             #[reflect(remote = wrapper::MyType)]
@@ -3497,6 +3531,41 @@ bevy_reflect::tests::Test {
         );
     }
 
+    // https://github.com/bevyengine/bevy/issues/19017
+    #[test]
+    fn should_serialize_opaque_remote_type() {
+        mod external_crate {
+            use serde::{Deserialize, Serialize};
+            #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+            pub struct Vector2<T>(pub [T; 2]);
+        }
+
+        #[reflect_remote(external_crate::Vector2<i32>)]
+        #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+        #[reflect(Serialize, Deserialize)]
+        #[reflect(opaque)]
+        struct Vector2Wrapper([i32; 2]);
+
+        #[derive(Reflect, Debug, PartialEq)]
+        struct Point(#[reflect(remote = Vector2Wrapper)] external_crate::Vector2<i32>);
+
+        let point = Point(external_crate::Vector2([1, 2]));
+
+        let mut registry = TypeRegistry::new();
+        registry.register::<Point>();
+        registry.register::<Vector2Wrapper>();
+
+        let serializer = ReflectSerializer::new(&point, &registry);
+        let serialized = ron::to_string(&serializer).unwrap();
+        assert_eq!(serialized, r#"{"bevy_reflect::tests::Point":((((1,2))))}"#);
+
+        let mut deserializer = Deserializer::from_str(&serialized).unwrap();
+        let reflect_deserializer = ReflectDeserializer::new(&registry);
+        let deserialized = reflect_deserializer.deserialize(&mut deserializer).unwrap();
+        let point = <Point as FromReflect>::from_reflect(&*deserialized).unwrap();
+        assert_eq!(point, Point(external_crate::Vector2([1, 2])));
+    }
+
     #[cfg(feature = "auto_register")]
     mod auto_register_reflect {
         use super::*;
@@ -3564,6 +3633,36 @@ bevy_reflect::tests::Test {
             assert!(registry.contains(TypeId::of::<ZSTEnumReflect>()));
             assert!(registry.contains(TypeId::of::<OpaqueStructReflect>()));
             assert!(registry.contains(TypeId::of::<ZSTOpaqueStructReflect>()));
+        }
+
+        #[test]
+        fn type_data_dependency() {
+            #[derive(Reflect)]
+            #[reflect(A)]
+            struct X;
+
+            #[derive(Clone)]
+            struct ReflectA;
+
+            impl<T> FromType<T> for ReflectA {
+                fn from_type() -> Self {
+                    ReflectA
+                }
+
+                fn insert_dependencies(type_registration: &mut TypeRegistration) {
+                    type_registration.insert(ReflectB);
+                }
+            }
+
+            #[derive(Clone)]
+            struct ReflectB;
+
+            let mut registry = TypeRegistry::new();
+            registry.register::<X>();
+
+            let registration = registry.get(TypeId::of::<X>()).unwrap();
+            assert!(registration.data::<ReflectA>().is_some());
+            assert!(registration.data::<ReflectB>().is_some());
         }
     }
 

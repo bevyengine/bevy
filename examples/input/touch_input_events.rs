@@ -9,8 +9,8 @@ fn main() {
         .run();
 }
 
-fn touch_event_system(mut touch_events: EventReader<TouchInput>) {
-    for event in touch_events.read() {
-        info!("{:?}", event);
+fn touch_event_system(mut touch_inputs: MessageReader<TouchInput>) {
+    for touch_input in touch_inputs.read() {
+        info!("{:?}", touch_input);
     }
 }

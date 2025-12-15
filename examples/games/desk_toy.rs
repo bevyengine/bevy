@@ -301,7 +301,7 @@ fn drag(
 /// Quit when the user right clicks the Bevy logo
 fn quit(
     cursor_world_pos: Res<CursorWorldPos>,
-    mut app_exit: EventWriter<AppExit>,
+    mut app_exit: MessageWriter<AppExit>,
     bevy_logo_transform: Single<&Transform, With<BevyLogo>>,
 ) {
     // If the cursor is not within the primary window skip this system

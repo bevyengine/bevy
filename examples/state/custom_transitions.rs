@@ -246,8 +246,8 @@ fn setup_menu(mut commands: Commands) {
         .spawn((
             Node {
                 // center button
-                width: Val::Percent(100.),
-                height: Val::Percent(100.),
+                width: percent(100),
+                height: percent(100),
                 justify_content: JustifyContent::Center,
                 align_items: AlignItems::Center,
                 ..default()
@@ -255,8 +255,8 @@ fn setup_menu(mut commands: Commands) {
             children![(
                 Button,
                 Node {
-                    width: Val::Px(150.),
-                    height: Val::Px(65.),
+                    width: px(150),
+                    height: px(65),
                     // horizontally center child text
                     justify_content: JustifyContent::Center,
                     // vertically center child text

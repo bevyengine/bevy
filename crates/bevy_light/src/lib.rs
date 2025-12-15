@@ -25,7 +25,7 @@ use cluster::{
     VisibleClusterableObjects,
 };
 mod ambient_light;
-pub use ambient_light::AmbientLight;
+pub use ambient_light::{AmbientLight, GlobalAmbientLight};
 mod probe;
 pub use probe::{
     AtmosphereEnvironmentMapLight, EnvironmentMapLight, GeneratedEnvironmentMapLight,
@@ -58,7 +58,7 @@ pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
         light_consts, AmbientLight, DirectionalLight, EnvironmentMapLight,
-        GeneratedEnvironmentMapLight, LightProbe, PointLight, SpotLight,
+        GeneratedEnvironmentMapLight, GlobalAmbientLight, LightProbe, PointLight, SpotLight,
     };
 }
 
@@ -127,12 +127,13 @@ pub mod light_consts {
     }
 }
 
+#[derive(Default)]
 pub struct LightPlugin;
 
 impl Plugin for LightPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<GlobalVisibleClusterableObjects>()
-            .init_resource::<AmbientLight>()
+            .init_resource::<GlobalAmbientLight>()
             .init_resource::<DirectionalLightShadowMap>()
             .init_resource::<PointLightShadowMap>()
             .configure_sets(

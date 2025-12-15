@@ -14,7 +14,7 @@
 //!
 //! ```json
 //! {
-//!     "method": world.get_components",
+//!     "method": "world.get_components",
 //!     "id": 0,
 //!     "params": {
 //!         "entity": 4294967298,
@@ -153,7 +153,7 @@
 //! - `has`: A map associating each type name from `has` to a boolean value indicating whether or not the
 //!   entity has that component. If `has` was empty or omitted, this key will be omitted in the response.
 //!
-//! ### Example
+//! #### Example
 //! To use the query API and retrieve Transform data for all entities that have a Transform
 //! use this query:
 //!
@@ -455,6 +455,42 @@
 //!
 //! `result`: An array of [fully-qualified type names] of registered resource types.
 //!
+//! ### `world.trigger_event`
+//!
+//! Triggers an event.
+//!
+//! `params`:
+//! - `event`: The [fully-qualified type name] of the event to trigger.
+//! - `value`: The value of the event to trigger.
+//!
+//! `result`: null.
+//!
+//! ### `registry.schema`
+//!
+//! Retrieve schema information about registered types in the Bevy app's type registry.
+//!
+//! `params` (optional):
+//! - `with_crates`: An array of crate names to include in the results. When empty or omitted, types from all crates will be included.
+//! - `without_crates`: An array of crate names to exclude from the results. When empty or omitted, no crates will be excluded.
+//! - `type_limit`: Additional type constraints:
+//!   - `with`: An array of [fully-qualified type names] that must be present for a type to be included
+//!   - `without`: An array of [fully-qualified type names] that must not be present for a type to be excluded
+//!
+//! `result`: A map associating each type's [fully-qualified type name] to a [`JsonSchemaBevyType`](crate::schemas::json_schema::JsonSchemaBevyType).
+//! This contains schema information about that type, including field definitions, type information, reflect type information, and other metadata
+//! helpful for understanding the structure of the type.
+//!
+//! ### `rpc.discover`
+//!
+//! Discover available remote methods and server information. This follows the [`OpenRPC` specification for service discovery](https://spec.open-rpc.org/#service-discovery-method).
+//!
+//! This method takes no parameters.
+//!
+//! `result`: An `OpenRPC` document containing:
+//! - Information about all available remote methods
+//! - Server connection information (when using HTTP transport)
+//! - `OpenRPC` specification version
+//!
 //! ## Custom methods
 //!
 //! In addition to the provided methods, the Bevy Remote Protocol can be extended to include custom
@@ -644,6 +680,10 @@ impl Default for RemotePlugin {
                 builtin_methods::process_remote_list_resources_request,
             )
             .with_method(
+                builtin_methods::BRP_TRIGGER_EVENT_METHOD,
+                builtin_methods::process_remote_trigger_event_request,
+            )
+            .with_method(
                 builtin_methods::BRP_REGISTRY_SCHEMA_METHOD,
                 builtin_methods::export_registry_types,
             )
@@ -708,10 +748,6 @@ pub enum RemoteSystems {
     /// Cleanup (remove closed watchers etc)
     Cleanup,
 }
-
-/// Deprecated alias for [`RemoteSystems`].
-#[deprecated(since = "0.17.0", note = "Renamed to `RemoteSystems`.")]
-pub type RemoteSet = RemoteSystems;
 
 /// A type to hold the allowed types of systems to be used as method handlers.
 #[derive(Debug)]
@@ -893,7 +929,7 @@ impl From<BrpResult> for BrpPayload {
 }
 
 /// An error a request might return.
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub struct BrpError {
     /// Defines the general type of the error.
     pub code: i16,

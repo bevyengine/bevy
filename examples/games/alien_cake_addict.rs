@@ -120,7 +120,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMu
     game.player.move_cooldown = Timer::from_seconds(0.3, TimerMode::Once);
 
     commands.spawn((
-        DespawnOnExitState(GameState::Playing),
+        DespawnOnExit(GameState::Playing),
         PointLight {
             intensity: 2_000_000.0,
             shadows_enabled: true,
@@ -139,7 +139,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMu
                 .map(|i| {
                     let height = rng.random_range(-0.1..0.1);
                     commands.spawn((
-                        DespawnOnExitState(GameState::Playing),
+                        DespawnOnExit(GameState::Playing),
                         Transform::from_xyz(i as f32, height - 0.2, j as f32),
                         SceneRoot(cell_scene.clone()),
                     ));
@@ -153,7 +153,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMu
     game.player.entity = Some(
         commands
             .spawn((
-                DespawnOnExitState(GameState::Playing),
+                DespawnOnExit(GameState::Playing),
                 Transform {
                     translation: Vec3::new(
                         game.player.i as f32,
@@ -177,7 +177,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMu
 
     // scoreboard
     commands.spawn((
-        DespawnOnExitState(GameState::Playing),
+        DespawnOnExit(GameState::Playing),
         Text::new("Score:"),
         TextFont {
             font_size: 33.0,
@@ -186,8 +186,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMu
         TextColor(Color::srgb(0.5, 0.5, 1.0)),
         Node {
             position_type: PositionType::Absolute,
-            top: Val::Px(5.0),
-            left: Val::Px(5.0),
+            top: px(5),
+            left: px(5),
             ..default()
         },
     ));
@@ -340,7 +340,7 @@ fn spawn_bonus(
     game.bonus.entity = Some(
         commands
             .spawn((
-                DespawnOnExitState(GameState::Playing),
+                DespawnOnExit(GameState::Playing),
                 Transform::from_xyz(
                     game.bonus.i as f32,
                     game.board[game.bonus.j][game.bonus.i].height + 0.2,
@@ -390,9 +390,9 @@ fn game_over_keyboard(
 // display the number of cake eaten before losing
 fn display_score(mut commands: Commands, game: Res<Game>) {
     commands.spawn((
-        DespawnOnExitState(GameState::GameOver),
+        DespawnOnExit(GameState::GameOver),
         Node {
-            width: Val::Percent(100.),
+            width: percent(100),
             align_items: AlignItems::Center,
             justify_content: JustifyContent::Center,
             ..default()

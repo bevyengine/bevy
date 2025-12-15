@@ -50,7 +50,7 @@ impl Plugin for CiTestingPlugin {
                 fixed_frame_time,
             )));
         }
-        app.add_event::<CiTestingCustomEvent>()
+        app.add_message::<CiTestingCustomEvent>()
             .insert_resource(config)
             .add_systems(
                 Update,

@@ -30,11 +30,11 @@ fn setup(
     let texture_atlas_layout = texture_atlas_layouts.add(layout);
     commands.spawn((
         Node {
-            width: Val::Percent(100.),
-            height: Val::Percent(100.),
+            width: percent(100),
+            height: percent(100),
             align_items: AlignItems::Center,
             justify_content: JustifyContent::Center,
-            column_gap: Val::Px(15.),
+            column_gap: px(15),
             ..default()
         },
         Children::spawn(SpawnIter(
@@ -68,8 +68,8 @@ fn setup(
         Text::new("*Click some food to eat it*"),
         Node {
             position_type: PositionType::Absolute,
-            top: Val::Px(12.0),
-            left: Val::Px(12.0),
+            top: px(12),
+            left: px(12),
             ..default()
         },
     ));
@@ -98,8 +98,8 @@ fn build_ability(
     // of a cooldown, effectively graying out the whole button, and then getting smaller over time.
     (
         Node {
-            width: Val::Px(80.0),
-            height: Val::Px(80.0),
+            width: px(80),
+            height: px(80),
             flex_direction: FlexDirection::ColumnReverse,
             ..default()
         },
@@ -110,8 +110,8 @@ fn build_ability(
         name,
         children![(
             Node {
-                width: Val::Percent(100.),
-                height: Val::Percent(0.),
+                width: percent(100),
+                height: percent(0),
                 ..default()
             },
             BackgroundColor(tailwind::SLATE_50.with_alpha(0.5).into()),
@@ -169,9 +169,9 @@ fn animate_cooldowns(
         let cooldown = children.first().ok_or("No child")?;
         if timer.0.just_finished() {
             commands.entity(entity).remove::<ActiveCooldown>();
-            nodes.get_mut(*cooldown)?.height = Val::Percent(0.);
+            nodes.get_mut(*cooldown)?.height = percent(0);
         } else {
-            nodes.get_mut(*cooldown)?.height = Val::Percent((1. - timer.0.fraction()) * 100.);
+            nodes.get_mut(*cooldown)?.height = percent((1. - timer.0.fraction()) * 100.);
         }
     }
 

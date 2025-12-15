@@ -4,17 +4,16 @@ mod clone;
 mod info;
 mod register;
 mod required;
-mod tick;
 
 pub use clone::*;
 pub use info::*;
 pub use register::*;
 pub use required::*;
-pub use tick::*;
 
 use crate::{
     entity::EntityMapper,
     lifecycle::ComponentHook,
+    relationship::ComponentRelationshipAccessor,
     system::{Local, SystemParam},
     world::{FromWorld, World},
 };
@@ -406,6 +405,29 @@ use core::{fmt::Debug, marker::PhantomData, ops::Deref};
 /// }
 ///
 /// ```
+///
+/// A hook's function path can be elided if it is `Self::on_add`, `Self::on_insert` etc.
+/// ```
+/// # use bevy_ecs::lifecycle::HookContext;
+/// # use bevy_ecs::prelude::*;
+/// # use bevy_ecs::world::DeferredWorld;
+/// #
+/// #[derive(Component, Debug)]
+/// #[component(on_add)]
+/// struct DoubleOnSpawn(usize);
+///
+/// impl DoubleOnSpawn {
+///     fn on_add(mut world: DeferredWorld, context: HookContext) {
+///         let mut entity = world.get_mut::<Self>(context.entity).unwrap();
+///         entity.0 *= 2;
+///     }
+/// }
+/// #
+/// # let mut world = World::new();
+/// # let entity = world.spawn(DoubleOnSpawn(2));
+/// # assert_eq!(entity.get::<DoubleOnSpawn>().unwrap().0, 4);
+/// ```
+///
 /// # Setting the clone behavior
 ///
 /// You can specify how the [`Component`] is cloned when deriving it.
@@ -625,6 +647,13 @@ pub trait Component: Send + Sync + 'static {
     /// You can use the turbofish (`::<A,B,C>`) to specify parameters when a function is generic, using either M or _ for the type of the mapper parameter.
     #[inline]
     fn map_entities<E: EntityMapper>(_this: &mut Self, _mapper: &mut E) {}
+
+    /// Returns [`ComponentRelationshipAccessor`] required for working with relationships in dynamic contexts.
+    ///
+    /// If component is not a [`Relationship`](crate::relationship::Relationship) or [`RelationshipTarget`](crate::relationship::RelationshipTarget), this should return `None`.
+    fn relationship_accessor() -> Option<ComponentRelationshipAccessor<Self>> {
+        None
+    }
 }
 
 mod private {

@@ -11,13 +11,13 @@
 //! interactions change based on the density of the fog.
 
 use bevy::{
-    anti_aliasing::taa::TemporalAntiAliasing,
-    core_pipeline::bloom::Bloom,
+    anti_alias::taa::TemporalAntiAliasing,
     image::{
         ImageAddressMode, ImageFilterMode, ImageLoaderSettings, ImageSampler,
         ImageSamplerDescriptor,
     },
     light::{DirectionalLightShadowMap, FogVolume, VolumetricFog, VolumetricLight},
+    post_process::bloom::Bloom,
     prelude::*,
 };
 

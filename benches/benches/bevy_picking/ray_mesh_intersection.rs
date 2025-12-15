@@ -44,7 +44,7 @@ fn create_mesh(vertices_per_side: u32) -> SimpleMesh {
         // All vertices have the same normal.
         normals.push([0.0, 1.0, 0.0]);
 
-        // Extend the indices for for all vertices except for the final row and column, since
+        // Extend the indices for all vertices except for the final row and column, since
         // indices are "between" points.
         if p % vertices_per_side != vertices_per_side - 1
             && p / vertices_per_side != vertices_per_side - 1

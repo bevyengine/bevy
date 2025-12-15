@@ -91,7 +91,7 @@ mod light {
                 perceptual_roughness: 1.0,
                 ..default()
             })),
-            DespawnOnExitState(CURRENT_SCENE),
+            DespawnOnExit(CURRENT_SCENE),
         ));
 
         commands.spawn((
@@ -101,7 +101,7 @@ mod light {
                 ..default()
             })),
             Transform::from_xyz(0.0, 1.0, 0.0),
-            DespawnOnExitState(CURRENT_SCENE),
+            DespawnOnExit(CURRENT_SCENE),
         ));
 
         commands.spawn((
@@ -112,7 +112,7 @@ mod light {
                 ..default()
             },
             Transform::from_xyz(1.0, 2.0, 0.0),
-            DespawnOnExitState(CURRENT_SCENE),
+            DespawnOnExit(CURRENT_SCENE),
         ));
 
         commands.spawn((
@@ -125,7 +125,7 @@ mod light {
                 ..default()
             },
             Transform::from_xyz(-1.0, 2.0, 0.0).looking_at(Vec3::new(-1.0, 0.0, 0.0), Vec3::Z),
-            DespawnOnExitState(CURRENT_SCENE),
+            DespawnOnExit(CURRENT_SCENE),
         ));
 
         commands.spawn((
@@ -139,22 +139,19 @@ mod light {
                 rotation: Quat::from_rotation_x(-PI / 4.),
                 ..default()
             },
-            DespawnOnExitState(CURRENT_SCENE),
+            DespawnOnExit(CURRENT_SCENE),
         ));
 
         commands.spawn((
             Camera3d::default(),
             Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
-            DespawnOnExitState(CURRENT_SCENE),
+            DespawnOnExit(CURRENT_SCENE),
         ));
     }
 }
 
 mod bloom {
-    use bevy::{
-        core_pipeline::{bloom::Bloom, tonemapping::Tonemapping},
-        prelude::*,
-    };
+    use bevy::{core_pipeline::tonemapping::Tonemapping, post_process::bloom::Bloom, prelude::*};
 
     const CURRENT_SCENE: super::Scene = super::Scene::Bloom;
 
@@ -168,7 +165,7 @@ mod bloom {
             Tonemapping::TonyMcMapface,
             Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
             Bloom::NATURAL,
-            DespawnOnExitState(CURRENT_SCENE),
+            DespawnOnExit(CURRENT_SCENE),
         ));
 
         let material_emissive1 = materials.add(StandardMaterial {
@@ -193,7 +190,7 @@ mod bloom {
                 Mesh3d(mesh.clone()),
                 MeshMaterial3d(material),
                 Transform::from_xyz(z as f32 * 2.0, 0.0, 0.0),
-                DespawnOnExitState(CURRENT_SCENE),
+                DespawnOnExit(CURRENT_SCENE),
             ));
         }
     }
@@ -214,7 +211,7 @@ mod gltf {
                 intensity: 250.0,
                 ..default()
             },
-            DespawnOnExitState(CURRENT_SCENE),
+            DespawnOnExit(CURRENT_SCENE),
         ));
 
         commands.spawn((
@@ -222,13 +219,13 @@ mod gltf {
                 shadows_enabled: true,
                 ..default()
             },
-            DespawnOnExitState(CURRENT_SCENE),
+            DespawnOnExit(CURRENT_SCENE),
         ));
         commands.spawn((
             SceneRoot(asset_server.load(
                 GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf"),
             )),
-            DespawnOnExitState(CURRENT_SCENE),
+            DespawnOnExit(CURRENT_SCENE),
         ));
     }
 }
@@ -265,7 +262,7 @@ mod animation {
         commands.spawn((
             Camera3d::default(),
             Transform::from_xyz(100.0, 100.0, 150.0).looking_at(Vec3::new(0.0, 20.0, 0.0), Vec3::Y),
-            DespawnOnExitState(CURRENT_SCENE),
+            DespawnOnExit(CURRENT_SCENE),
         ));
 
         commands.spawn((
@@ -274,25 +271,25 @@ mod animation {
                 shadows_enabled: true,
                 ..default()
             },
-            DespawnOnExitState(CURRENT_SCENE),
+            DespawnOnExit(CURRENT_SCENE),
         ));
 
         commands
             .spawn((
                 SceneRoot(asset_server.load(GltfAssetLabel::Scene(0).from_asset(FOX_PATH))),
-                DespawnOnExitState(CURRENT_SCENE),
+                DespawnOnExit(CURRENT_SCENE),
             ))
             .observe(pause_animation_frame);
     }
 
     fn pause_animation_frame(
-        event: On<SceneInstanceReady>,
+        scene_ready: On<SceneInstanceReady>,
         children: Query<&Children>,
         mut commands: Commands,
         animation: Res<Animation>,
         mut players: Query<(Entity, &mut AnimationPlayer)>,
     ) {
-        for child in children.iter_descendants(event.entity()) {
+        for child in children.iter_descendants(scene_ready.entity) {
             if let Ok((entity, mut player)) = players.get_mut(child) {
                 let mut transitions = AnimationTransitions::new();
                 transitions
@@ -316,12 +313,12 @@ mod gizmos {
         commands.spawn((
             Camera3d::default(),
             Transform::from_xyz(-1.0, 2.5, 6.5).looking_at(Vec3::ZERO, Vec3::Y),
-            DespawnOnExitState(super::Scene::Gizmos),
+            DespawnOnExit(super::Scene::Gizmos),
         ));
     }
 
     pub fn draw_gizmos(mut gizmos: Gizmos) {
-        gizmos.cuboid(
+        gizmos.cube(
             Transform::from_translation(Vec3::X * -1.75).with_scale(Vec3::splat(1.25)),
             RED,
         );
@@ -363,7 +360,7 @@ mod gltf_coordinate_conversion {
         commands.spawn((
             Camera3d::default(),
             Transform::from_xyz(-4.0, 4.0, -5.0).looking_at(Vec3::ZERO, Vec3::Y),
-            DespawnOnExitState(CURRENT_SCENE),
+            DespawnOnExit(CURRENT_SCENE),
         ));
 
         commands.spawn((
@@ -372,7 +369,7 @@ mod gltf_coordinate_conversion {
                 ..default()
             },
             Transform::IDENTITY.looking_to(Dir3::Z, Dir3::Y),
-            DespawnOnExitState(CURRENT_SCENE),
+            DespawnOnExit(CURRENT_SCENE),
         ));
 
         commands.spawn((
@@ -381,7 +378,7 @@ mod gltf_coordinate_conversion {
                 ..default()
             },
             Transform::IDENTITY.looking_to(Dir3::X, Dir3::Y),
-            DespawnOnExitState(CURRENT_SCENE),
+            DespawnOnExit(CURRENT_SCENE),
         ));
 
         commands.spawn((
@@ -390,7 +387,7 @@ mod gltf_coordinate_conversion {
                 ..default()
             },
             Transform::IDENTITY.looking_to(Dir3::NEG_Y, Dir3::X),
-            DespawnOnExitState(CURRENT_SCENE),
+            DespawnOnExit(CURRENT_SCENE),
         ));
 
         commands
@@ -401,19 +398,19 @@ mod gltf_coordinate_conversion {
                         s.use_model_forward_direction = Some(true);
                     },
                 )),
-                DespawnOnExitState(CURRENT_SCENE),
+                DespawnOnExit(CURRENT_SCENE),
             ))
             .observe(show_aabbs);
     }
 
     pub fn show_aabbs(
-        event: On<SceneInstanceReady>,
+        scene_ready: On<SceneInstanceReady>,
         mut commands: Commands,
         children: Query<&Children>,
         meshes: Query<(), With<Mesh3d>>,
     ) {
         for child in children
-            .iter_descendants(event.entity())
+            .iter_descendants(scene_ready.entity)
             .filter(|&e| meshes.contains(e))
         {
             commands.entity(child).insert(ShowAabbGizmo {

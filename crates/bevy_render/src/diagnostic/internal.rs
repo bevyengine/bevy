@@ -15,8 +15,7 @@ use wgpu::{
     PipelineStatisticsTypes, QuerySet, QuerySetDescriptor, QueryType, RenderPass,
 };
 
-use crate::renderer::{RenderAdapterInfo, RenderDevice, RenderQueue};
-use crate::WgpuWrapper;
+use crate::renderer::{RenderAdapterInfo, RenderDevice, RenderQueue, WgpuWrapper};
 
 use super::RecordDiagnostics;
 
@@ -324,11 +323,7 @@ impl FrameData {
     ) -> &mut SpanRecord {
         let thread_id = thread::current().id();
 
-        let parent = self
-            .open_spans
-            .iter()
-            .filter(|v| v.thread_id == thread_id)
-            .next_back();
+        let parent = self.open_spans.iter().rfind(|v| v.thread_id == thread_id);
 
         let path_range = match &parent {
             Some(parent) if parent.path_range.end == self.path_components.len() => {
@@ -364,8 +359,7 @@ impl FrameData {
         let iter = self.open_spans.iter();
         let (index, _) = iter
             .enumerate()
-            .filter(|(_, v)| v.thread_id == thread_id)
-            .next_back()
+            .rfind(|(_, v)| v.thread_id == thread_id)
             .unwrap();
 
         let span = self.open_spans.swap_remove(index);

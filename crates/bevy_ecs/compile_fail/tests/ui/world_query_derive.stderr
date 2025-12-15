@@ -4,18 +4,6 @@ error: invalid attribute, expected `mutable` or `derive`
 14 | #[query_data(mut)]
    |              ^^^
 
-error: `mutable` does not take any arguments
-  --> tests/ui/world_query_derive.rs:21:14
-   |
-21 | #[query_data(mutable(foo))]
-   |              ^^^^^^^
-
-error: `derive` requires at least one argument
-  --> tests/ui/world_query_derive.rs:28:14
-   |
-28 | #[query_data(derive)]
-   |              ^^^^^^
-
 error[E0277]: the trait bound `&'static mut Foo: ReadOnlyQueryData` is not satisfied
   --> tests/ui/world_query_derive.rs:10:8
    |
@@ -31,20 +19,25 @@ error[E0277]: the trait bound `&'static mut Foo: ReadOnlyQueryData` is not satis
              (F0, F1, F2)
              (F0, F1, F2, F3)
              (F0, F1, F2, F3, F4)
-           and 39 others
+           and 40 others
 note: required by a bound in `_::assert_readonly`
   --> tests/ui/world_query_derive.rs:7:10
    |
-7  | #[derive(QueryData)]
+ 7 | #[derive(QueryData)]
    |          ^^^^^^^^^ required by this bound in `assert_readonly`
    = note: this error originates in the derive macro `QueryData` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error[E0277]: the trait bound `MutableMarked: ReadOnlyQueryData` is not satisfied
-  --> tests/ui/world_query_derive.rs:43:8
+  --> tests/ui/world_query_derive.rs:29:8
    |
-43 |     a: MutableMarked,
-   |        ^^^^^^^^^^^^^ the trait `ReadOnlyQueryData` is not implemented for `MutableMarked`
+29 |     a: MutableMarked,
+   |        ^^^^^^^^^^^^^ unsatisfied trait bound
    |
+help: the trait `ReadOnlyQueryData` is not implemented for `MutableMarked`
+  --> tests/ui/world_query_derive.rs:22:1
+   |
+22 | struct MutableMarked {
+   | ^^^^^^^^^^^^^^^^^^^^
    = help: the following other types implement trait `ReadOnlyQueryData`:
              &Archetype
              &T
@@ -54,14 +47,14 @@ error[E0277]: the trait bound `MutableMarked: ReadOnlyQueryData` is not satisfie
              (F0, F1, F2)
              (F0, F1, F2, F3)
              (F0, F1, F2, F3, F4)
-           and 39 others
+           and 40 others
 note: required by a bound in `_::assert_readonly`
-  --> tests/ui/world_query_derive.rs:40:10
+  --> tests/ui/world_query_derive.rs:26:10
    |
-40 | #[derive(QueryData)]
+26 | #[derive(QueryData)]
    |          ^^^^^^^^^ required by this bound in `assert_readonly`
    = note: this error originates in the derive macro `QueryData` (in Nightly builds, run with -Z macro-backtrace for more info)
 
-error: aborting due to 5 previous errors
+error: aborting due to 3 previous errors
 
 For more information about this error, try `rustc --explain E0277`.

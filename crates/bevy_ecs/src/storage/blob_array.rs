@@ -1,16 +1,16 @@
-use super::blob_vec::array_layout;
-use crate::storage::blob_vec::array_layout_unchecked;
 use alloc::alloc::handle_alloc_error;
 use bevy_ptr::{OwningPtr, Ptr, PtrMut};
 use bevy_utils::OnDrop;
 use core::{alloc::Layout, cell::UnsafeCell, num::NonZeroUsize, ptr::NonNull};
 
-/// A flat, type-erased data storage type similar to a [`BlobVec`](super::blob_vec::BlobVec), but with the length and capacity cut out
-/// for performance reasons. This type is reliant on its owning type to store the capacity and length information.
+/// A flat, type-erased data storage type.
 ///
 /// Used to densely store homogeneous ECS data. A blob is usually just an arbitrary block of contiguous memory without any identity, and
-/// could be used to represent any arbitrary data (i.e. string, arrays, etc). This type only stores meta-data about the Blob that it stores,
-/// and a pointer to the location of the start of the array, similar to a C array.
+/// could be used to represent any arbitrary data (i.e. string, arrays, etc). This type only stores meta-data about the blob that it stores,
+/// and a pointer to the location of the start of the array, similar to a C-style `void*` array.
+///
+/// This type is reliant on its owning type to store the capacity and length information.
+#[derive(Debug)]
 pub(super) struct BlobArray {
     item_layout: Layout,
     // the `data` ptr's layout is always `array_layout(item_layout, capacity)`
@@ -42,7 +42,10 @@ impl BlobArray {
     ) -> Self {
         if capacity == 0 {
             let align = NonZeroUsize::new(item_layout.align()).expect("alignment must be > 0");
-            let data = bevy_ptr::dangling_with_align(align);
+
+            // Create a dangling pointer with the given alignment.
+            let data = NonNull::without_provenance(align);
+
             Self {
                 item_layout,
                 drop: drop_fn,
@@ -51,7 +54,8 @@ impl BlobArray {
                 capacity,
             }
         } else {
-            let mut arr = Self::with_capacity(item_layout, drop_fn, 0);
+            // SAFETY: Upheld by caller
+            let mut arr = unsafe { Self::with_capacity(item_layout, drop_fn, 0) };
             // SAFETY: `capacity` > 0
             unsafe { arr.alloc(NonZeroUsize::new_unchecked(capacity)) }
             arr
@@ -69,10 +73,17 @@ impl BlobArray {
         self.item_layout.size() == 0
     }
 
+    /// Returns the drop function for values stored in the vector,
+    /// or `None` if they don't need to be dropped.
+    #[inline]
+    pub fn get_drop(&self) -> Option<unsafe fn(OwningPtr<'_>)> {
+        self.drop
+    }
+
     /// Returns a reference to the element at `index`, without doing bounds checking.
     ///
     /// *`len` refers to the length of the array, the number of elements that have been initialized, and are safe to read.
-    /// Just like [`Vec::len`], or [`BlobVec::len`](super::blob_vec::BlobVec::len).*
+    /// Just like [`Vec::len`].*
     ///
     /// # Safety
     /// - The element at index `index` is safe to access.
@@ -95,7 +106,7 @@ impl BlobArray {
     /// Returns a mutable reference to the element at `index`, without doing bounds checking.
     ///
     /// *`len` refers to the length of the array, the number of elements that have been initialized, and are safe to read.
-    /// Just like [`Vec::len`], or [`BlobVec::len`](super::blob_vec::BlobVec::len).*
+    /// Just like [`Vec::len`].*
     ///
     /// # Safety
     /// - The element with at index `index` is safe to access.
@@ -133,7 +144,7 @@ impl BlobArray {
     /// To get a slice to the entire array, the caller must plug `len` in `slice_len`.
     ///
     /// *`len` refers to the length of the array, the number of elements that have been initialized, and are safe to read.
-    /// Just like [`Vec::len`], or [`BlobVec::len`](super::blob_vec::BlobVec::len).*
+    /// Just like [`Vec::len`].*
     ///
     /// # Safety
     /// - The type `T` must be the type of the items in this [`BlobArray`].
@@ -227,6 +238,10 @@ impl BlobArray {
 
     /// Allocate a block of memory for the array. This should be used to initialize the array, do not use this
     /// method if there are already elements stored in the array - use [`Self::realloc`] instead.
+    ///
+    /// # Panics
+    /// - Panics if the new capacity overflows `isize::MAX` bytes.
+    /// - Panics if the allocation causes an out-of-memory error.
     pub(super) fn alloc(&mut self, capacity: NonZeroUsize) {
         #[cfg(debug_assertions)]
         debug_assert_eq!(self.capacity, 0);
@@ -246,6 +261,10 @@ impl BlobArray {
     /// Reallocate memory for this array.
     /// For example, if the length (number of stored elements) reached the capacity (number of elements the current allocation can store),
     /// you might want to use this method to increase the allocation, so more data can be stored in the array.
+    ///
+    /// # Panics
+    /// - Panics if the new capacity overflows `isize::MAX` bytes.
+    /// - Panics if the allocation causes an out-of-memory error.
     ///
     /// # Safety
     /// - `current_capacity` is indeed the current capacity of this array.
@@ -474,6 +493,94 @@ impl BlobArray {
             drop(value);
         }
     }
+}
+
+/// From <https://doc.rust-lang.org/beta/src/core/alloc/layout.rs.html>
+pub(super) fn array_layout(layout: &Layout, n: usize) -> Option<Layout> {
+    let (array_layout, offset) = repeat_layout(layout, n)?;
+    debug_assert_eq!(layout.size(), offset);
+    Some(array_layout)
+}
+
+// TODO: replace with `Layout::repeat` if/when it stabilizes
+/// From <https://doc.rust-lang.org/beta/src/core/alloc/layout.rs.html>
+fn repeat_layout(layout: &Layout, n: usize) -> Option<(Layout, usize)> {
+    // This cannot overflow. Quoting from the invariant of Layout:
+    // > `size`, when rounded up to the nearest multiple of `align`,
+    // > must not overflow (i.e., the rounded value must be less than
+    // > `usize::MAX`)
+    let padded_size = layout.size() + padding_needed_for(layout, layout.align());
+    let alloc_size = padded_size.checked_mul(n)?;
+
+    // SAFETY: self.align is already known to be valid and alloc_size has been
+    // padded already.
+    unsafe {
+        Some((
+            Layout::from_size_align_unchecked(alloc_size, layout.align()),
+            padded_size,
+        ))
+    }
+}
+
+/// From <https://doc.rust-lang.org/beta/src/core/alloc/layout.rs.html>
+/// # Safety
+/// The caller must ensure that:
+/// - The resulting [`Layout`] is valid, by ensuring that `(layout.size() + padding_needed_for(layout, layout.align())) * n` doesn't overflow.
+pub(super) unsafe fn array_layout_unchecked(layout: &Layout, n: usize) -> Layout {
+    let (array_layout, offset) = repeat_layout_unchecked(layout, n);
+    debug_assert_eq!(layout.size(), offset);
+    array_layout
+}
+
+// TODO: replace with `Layout::repeat` if/when it stabilizes
+/// From <https://doc.rust-lang.org/beta/src/core/alloc/layout.rs.html>
+/// # Safety
+/// The caller must ensure that:
+/// - The resulting [`Layout`] is valid, by ensuring that `(layout.size() + padding_needed_for(layout, layout.align())) * n` doesn't overflow.
+unsafe fn repeat_layout_unchecked(layout: &Layout, n: usize) -> (Layout, usize) {
+    // This cannot overflow. Quoting from the invariant of Layout:
+    // > `size`, when rounded up to the nearest multiple of `align`,
+    // > must not overflow (i.e., the rounded value must be less than
+    // > `usize::MAX`)
+    let padded_size = layout.size() + padding_needed_for(layout, layout.align());
+    // This may overflow in release builds, that's why this function is unsafe.
+    let alloc_size = padded_size * n;
+
+    // SAFETY: self.align is already known to be valid and alloc_size has been
+    // padded already.
+    unsafe {
+        (
+            Layout::from_size_align_unchecked(alloc_size, layout.align()),
+            padded_size,
+        )
+    }
+}
+
+/// From <https://doc.rust-lang.org/beta/src/core/alloc/layout.rs.html>
+const fn padding_needed_for(layout: &Layout, align: usize) -> usize {
+    let len = layout.size();
+
+    // Rounded up value is:
+    //   len_rounded_up = (len + align - 1) & !(align - 1);
+    // and then we return the padding difference: `len_rounded_up - len`.
+    //
+    // We use modular arithmetic throughout:
+    //
+    // 1. align is guaranteed to be > 0, so align - 1 is always
+    //    valid.
+    //
+    // 2. `len + align - 1` can overflow by at most `align - 1`,
+    //    so the &-mask with `!(align - 1)` will ensure that in the
+    //    case of overflow, `len_rounded_up` will itself be 0.
+    //    Thus the returned padding, when added to `len`, yields 0,
+    //    which trivially satisfies the alignment `align`.
+    //
+    // (Of course, attempts to allocate blocks of memory whose
+    // size and padding overflow in the above manner should cause
+    // the allocator to yield an error anyway.)
+
+    let len_rounded_up = len.wrapping_add(align).wrapping_sub(1) & !align.wrapping_sub(1);
+    len_rounded_up.wrapping_sub(len)
 }
 
 #[cfg(test)]

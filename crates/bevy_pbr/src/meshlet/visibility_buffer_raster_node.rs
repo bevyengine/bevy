@@ -246,7 +246,7 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
                 "meshlet_visibility_buffer_raster: {}",
                 shadow_view.pass_name
             ));
-            let pass_span = diagnostics.time_span(
+            let time_span_shadow = diagnostics.time_span(
                 render_context.command_encoder(),
                 shadow_view.pass_name.clone(),
             );
@@ -342,7 +342,7 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
                 downsample_depth_second_shadow_view_pipeline,
             );
             render_context.command_encoder().pop_debug_group();
-            pass_span.end(render_context.command_encoder());
+            time_span_shadow.end(render_context.command_encoder());
         }
 
         time_span.end(render_context.command_encoder());

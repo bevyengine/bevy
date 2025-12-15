@@ -1,6 +1,6 @@
 use crate::{
-    meta::MetaTransform, Asset, AssetId, AssetIndexAllocator, AssetPath, InternalAssetId,
-    UntypedAssetId,
+    meta::MetaTransform, Asset, AssetId, AssetIndex, AssetIndexAllocator, AssetPath,
+    ErasedAssetIndex, UntypedAssetId,
 };
 use alloc::sync::Arc;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect, TypePath};
@@ -26,7 +26,7 @@ pub struct AssetHandleProvider {
 
 #[derive(Debug)]
 pub(crate) struct DropEvent {
-    pub(crate) id: InternalAssetId,
+    pub(crate) index: ErasedAssetIndex,
     pub(crate) asset_server_managed: bool,
 }
 
@@ -45,18 +45,19 @@ impl AssetHandleProvider {
     /// [`UntypedHandle`] will match the [`Asset`] [`TypeId`] assigned to this [`AssetHandleProvider`].
     pub fn reserve_handle(&self) -> UntypedHandle {
         let index = self.allocator.reserve();
-        UntypedHandle::Strong(self.get_handle(InternalAssetId::Index(index), false, None, None))
+        UntypedHandle::Strong(self.get_handle(index, false, None, None))
     }
 
     pub(crate) fn get_handle(
         &self,
-        id: InternalAssetId,
+        index: AssetIndex,
         asset_server_managed: bool,
         path: Option<AssetPath<'static>>,
         meta_transform: Option<MetaTransform>,
     ) -> Arc<StrongHandle> {
         Arc::new(StrongHandle {
-            id: id.untyped(self.type_id),
+            index,
+            type_id: self.type_id,
             drop_sender: self.drop_sender.clone(),
             meta_transform,
             path,
@@ -71,12 +72,7 @@ impl AssetHandleProvider {
         meta_transform: Option<MetaTransform>,
     ) -> Arc<StrongHandle> {
         let index = self.allocator.reserve();
-        self.get_handle(
-            InternalAssetId::Index(index),
-            asset_server_managed,
-            path,
-            meta_transform,
-        )
+        self.get_handle(index, asset_server_managed, path, meta_transform)
     }
 }
 
@@ -84,7 +80,8 @@ impl AssetHandleProvider {
 /// the [`Asset`] will be freed. It also stores some asset metadata for easy access from handles.
 #[derive(TypePath)]
 pub struct StrongHandle {
-    pub(crate) id: UntypedAssetId,
+    pub(crate) index: AssetIndex,
+    pub(crate) type_id: TypeId,
     pub(crate) asset_server_managed: bool,
     pub(crate) path: Option<AssetPath<'static>>,
     /// Modifies asset meta. This is stored on the handle because it is:
@@ -97,7 +94,7 @@ pub struct StrongHandle {
 impl Drop for StrongHandle {
     fn drop(&mut self) {
         let _ = self.drop_sender.send(DropEvent {
-            id: self.id.internal(),
+            index: ErasedAssetIndex::new(self.index, self.type_id),
             asset_server_managed: self.asset_server_managed,
         });
     }
@@ -106,7 +103,8 @@ impl Drop for StrongHandle {
 impl core::fmt::Debug for StrongHandle {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("StrongHandle")
-            .field("id", &self.id)
+            .field("index", &self.index)
+            .field("type_id", &self.type_id)
             .field("asset_server_managed", &self.asset_server_managed)
             .field("path", &self.path)
             .field("drop_sender", &self.drop_sender)
@@ -154,7 +152,10 @@ impl<A: Asset> Handle<A> {
     #[inline]
     pub fn id(&self) -> AssetId<A> {
         match self {
-            Handle::Strong(handle) => handle.id.typed_unchecked(),
+            Handle::Strong(handle) => AssetId::Index {
+                index: handle.index,
+                marker: PhantomData,
+            },
             Handle::Uuid(uuid, ..) => AssetId::Uuid { uuid: *uuid },
         }
     }
@@ -202,9 +203,8 @@ impl<A: Asset> core::fmt::Debug for Handle<A> {
             Handle::Strong(handle) => {
                 write!(
                     f,
-                    "StrongHandle<{name}>{{ id: {:?}, path: {:?} }}",
-                    handle.id.internal(),
-                    handle.path
+                    "StrongHandle<{name}>{{ index: {:?}, type_id: {:?}, path: {:?} }}",
+                    handle.index, handle.type_id, handle.path
                 )
             }
             Handle::Uuid(uuid, ..) => write!(f, "UuidHandle<{name}>({uuid:?})"),
@@ -268,6 +268,13 @@ impl<A: Asset> From<&mut Handle<A>> for UntypedAssetId {
     }
 }
 
+impl<A: Asset> From<Uuid> for Handle<A> {
+    #[inline]
+    fn from(uuid: Uuid) -> Self {
+        Handle::Uuid(uuid, PhantomData)
+    }
+}
+
 /// An untyped variant of [`Handle`], which internally stores the [`Asset`] type information at runtime
 /// as a [`TypeId`] instead of encoding it in the compile-time type. This allows handles across [`Asset`] types
 /// to be stored together and compared.
@@ -291,7 +298,10 @@ impl UntypedHandle {
     #[inline]
     pub fn id(&self) -> UntypedAssetId {
         match self {
-            UntypedHandle::Strong(handle) => handle.id,
+            UntypedHandle::Strong(handle) => UntypedAssetId::Index {
+                type_id: handle.type_id,
+                index: handle.index,
+            },
             UntypedHandle::Uuid { type_id, uuid } => UntypedAssetId::Uuid {
                 uuid: *uuid,
                 type_id: *type_id,
@@ -312,7 +322,7 @@ impl UntypedHandle {
     #[inline]
     pub fn type_id(&self) -> TypeId {
         match self {
-            UntypedHandle::Strong(handle) => handle.id.type_id(),
+            UntypedHandle::Strong(handle) => handle.type_id,
             UntypedHandle::Uuid { type_id, .. } => *type_id,
         }
     }
@@ -393,9 +403,7 @@ impl core::fmt::Debug for UntypedHandle {
                 write!(
                     f,
                     "StrongHandle{{ type_id: {:?}, id: {:?}, path: {:?} }}",
-                    handle.id.type_id(),
-                    handle.id.internal(),
-                    handle.path
+                    handle.type_id, handle.index, handle.path
                 )
             }
             UntypedHandle::Uuid { type_id, uuid } => {
@@ -506,7 +514,7 @@ macro_rules! uuid_handle {
 #[macro_export]
 macro_rules! weak_handle {
     ($uuid:expr) => {
-        uuid_handle!($uuid)
+        $crate::uuid_handle!($uuid)
     };
 }
 
@@ -624,6 +632,15 @@ mod tests {
 
         assert_eq!(typed, Handle::try_from(untyped.clone()).unwrap());
         assert_eq!(UntypedHandle::from(typed.clone()), untyped);
+    }
+
+    #[test]
+    fn from_uuid() {
+        let uuid = UUID_1;
+        let handle: Handle<TestAsset> = uuid.into();
+
+        assert!(handle.is_uuid());
+        assert_eq!(handle.id(), AssetId::Uuid { uuid });
     }
 
     /// `PartialReflect::reflect_clone`/`PartialReflect::to_dynamic` should increase the strong count of a strong handle

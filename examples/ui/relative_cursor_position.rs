@@ -1,12 +1,10 @@
 //! Showcases the [`RelativeCursorPosition`] component, used to check the position of the cursor relative to a UI node.
 
-use bevy::{camera::Viewport, prelude::*, ui::RelativeCursorPosition, winit::WinitSettings};
+use bevy::{camera::Viewport, prelude::*, ui::RelativeCursorPosition};
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        // Only run the app when there is user input. This will significantly reduce CPU/GPU use.
-        .insert_resource(WinitSettings::desktop_app())
         .add_systems(Startup, setup)
         .add_systems(Update, relative_cursor_position_system)
         .run();
@@ -28,8 +26,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     commands
         .spawn(Node {
-            width: Val::Percent(100.),
-            height: Val::Percent(100.0),
+            width: percent(100),
+            height: percent(100),
             align_items: AlignItems::Center,
             justify_content: JustifyContent::Center,
             flex_direction: FlexDirection::Column,
@@ -39,9 +37,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             parent
                 .spawn((
                     Node {
-                        width: Val::Px(250.),
-                        height: Val::Px(250.),
-                        margin: UiRect::bottom(Val::Px(15.)),
+                        width: px(250),
+                        height: px(250),
+                        margin: UiRect::bottom(px(15)),
                         ..default()
                     },
                     BackgroundColor(Color::srgb(0.92, 0.14, 0.05)),

@@ -367,8 +367,14 @@ impl AssetLoader for ShaderLoader {
         settings: &Self::Settings,
         load_context: &mut LoadContext<'_>,
     ) -> Result<Shader, Self::Error> {
-        let ext = load_context.path().extension().unwrap().to_str().unwrap();
-        let path = load_context.asset_path().to_string();
+        let ext = load_context
+            .path()
+            .path()
+            .extension()
+            .unwrap()
+            .to_str()
+            .unwrap();
+        let path = load_context.path().to_string();
         // On windows, the path will inconsistently use \ or /.
         // TODO: remove this once AssetPath forces cross-platform "slash" consistency. See #10511
         let path = path.replace(std::path::MAIN_SEPARATOR, "/");
@@ -381,7 +387,7 @@ impl AssetLoader for ShaderLoader {
             );
         }
         let mut shader = match ext {
-            "spv" => Shader::from_spirv(bytes, load_context.path().to_string_lossy()),
+            "spv" => Shader::from_spirv(bytes, load_context.path().path().to_string_lossy()),
             "wgsl" => Shader::from_wgsl_with_defs(
                 String::from_utf8(bytes)?,
                 path,
@@ -429,8 +435,10 @@ impl ShaderImport {
 }
 
 /// A reference to a shader asset.
+#[derive(Default)]
 pub enum ShaderRef {
     /// Use the "default" shader for the current context.
+    #[default]
     Default,
     /// A handle to a shader stored in the [`Assets<Shader>`](bevy_asset::Assets) resource
     Handle(Handle<Shader>),

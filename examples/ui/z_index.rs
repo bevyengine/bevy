@@ -24,8 +24,8 @@ fn setup(mut commands: Commands) {
     // because this is a root UI node, using local or global values will do the same thing.
     commands
         .spawn(Node {
-            width: Val::Percent(100.),
-            height: Val::Percent(100.),
+            width: percent(100),
+            height: percent(100),
             align_items: AlignItems::Center,
             justify_content: JustifyContent::Center,
             ..default()
@@ -34,8 +34,8 @@ fn setup(mut commands: Commands) {
             parent
                 .spawn((
                     Node {
-                        width: Val::Px(180.0),
-                        height: Val::Px(100.0),
+                        width: px(180),
+                        height: px(100),
                         ..default()
                     },
                     BackgroundColor(GRAY.into()),
@@ -45,10 +45,10 @@ fn setup(mut commands: Commands) {
                     parent.spawn((
                         Node {
                             position_type: PositionType::Absolute,
-                            left: Val::Px(10.0),
-                            bottom: Val::Px(40.0),
-                            width: Val::Px(100.0),
-                            height: Val::Px(50.0),
+                            left: px(10),
+                            bottom: px(40),
+                            width: px(100),
+                            height: px(50),
                             ..default()
                         },
                         BackgroundColor(RED.into()),
@@ -59,10 +59,10 @@ fn setup(mut commands: Commands) {
                     parent.spawn((
                         Node {
                             position_type: PositionType::Absolute,
-                            left: Val::Px(45.0),
-                            bottom: Val::Px(30.0),
-                            width: Val::Px(100.),
-                            height: Val::Px(50.),
+                            left: px(45),
+                            bottom: px(30),
+                            width: px(100),
+                            height: px(50),
                             ..default()
                         },
                         ZIndex(2),
@@ -74,10 +74,10 @@ fn setup(mut commands: Commands) {
                     parent.spawn((
                         Node {
                             position_type: PositionType::Absolute,
-                            left: Val::Px(70.0),
-                            bottom: Val::Px(20.0),
-                            width: Val::Px(100.),
-                            height: Val::Px(75.),
+                            left: px(70),
+                            bottom: px(20),
+                            width: px(100),
+                            height: px(75),
                             ..default()
                         },
                         ZIndex(-1),
@@ -90,10 +90,10 @@ fn setup(mut commands: Commands) {
                     parent.spawn((
                         Node {
                             position_type: PositionType::Absolute,
-                            left: Val::Px(15.0),
-                            bottom: Val::Px(10.0),
-                            width: Val::Px(100.),
-                            height: Val::Px(60.),
+                            left: px(15),
+                            bottom: px(10),
+                            width: px(100),
+                            height: px(60),
                             ..default()
                         },
                         BackgroundColor(PURPLE.into()),
@@ -106,10 +106,10 @@ fn setup(mut commands: Commands) {
                     parent.spawn((
                         Node {
                             position_type: PositionType::Absolute,
-                            left: Val::Px(-15.0),
-                            bottom: Val::Px(-15.0),
-                            width: Val::Px(100.),
-                            height: Val::Px(125.),
+                            left: px(-15),
+                            bottom: px(-15),
+                            width: px(100),
+                            height: px(125),
                             ..default()
                         },
                         BackgroundColor(YELLOW.into()),

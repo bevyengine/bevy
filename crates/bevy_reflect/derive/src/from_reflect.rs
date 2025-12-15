@@ -3,10 +3,10 @@ use crate::{
     derive_data::ReflectEnum,
     enum_utility::{EnumVariantOutputData, FromReflectVariantBuilder, VariantBuilder},
     field_attributes::DefaultBehavior,
-    ident::ident_or_index,
     where_clause_options::WhereClauseOptions,
     ReflectMeta, ReflectStruct,
 };
+use bevy_macro_utils::as_member;
 use bevy_macro_utils::fq_std::{FQClone, FQDefault, FQOption};
 use proc_macro2::Span;
 use quote::{quote, ToTokens};
@@ -27,14 +27,29 @@ pub(crate) fn impl_opaque(meta: &ReflectMeta) -> proc_macro2::TokenStream {
     let bevy_reflect_path = meta.bevy_reflect_path();
     let (impl_generics, ty_generics, where_clause) = type_path.generics().split_for_impl();
     let where_from_reflect_clause = WhereClauseOptions::new(meta).extend_where_clause(where_clause);
+
+    let downcast = match meta.remote_ty() {
+        Some(remote) => {
+            let remote_ty = remote.type_path();
+            quote! {
+                <Self as #bevy_reflect_path::ReflectRemote>::into_wrapper(
+                    #FQClone::clone(
+                        <dyn #bevy_reflect_path::PartialReflect>::try_downcast_ref::<#remote_ty>(reflect)?
+                    )
+                )
+            }
+        }
+        None => quote! {
+            #FQClone::clone(
+                <dyn #bevy_reflect_path::PartialReflect>::try_downcast_ref::<#type_path #ty_generics>(reflect)?
+            )
+        },
+    };
+
     quote! {
         impl #impl_generics #bevy_reflect_path::FromReflect for #type_path #ty_generics #where_from_reflect_clause  {
             fn from_reflect(reflect: &dyn #bevy_reflect_path::PartialReflect) -> #FQOption<Self> {
-                #FQOption::Some(
-                    #FQClone::clone(
-                        <dyn #bevy_reflect_path::PartialReflect>::try_downcast_ref::<#type_path #ty_generics>(reflect)?
-                    )
-                )
+                #FQOption::Some(#downcast)
             }
         }
     }
@@ -195,13 +210,13 @@ fn impl_struct_internal(
 /// Get the collection of ignored field definitions
 ///
 /// Each value of the `MemberValuePair` is a token stream that generates a
-/// a default value for the ignored field.
+/// default value for the ignored field.
 fn get_ignored_fields(reflect_struct: &ReflectStruct) -> MemberValuePair {
     MemberValuePair::new(
         reflect_struct
             .ignored_fields()
             .map(|field| {
-                let member = ident_or_index(field.data.ident.as_ref(), field.declaration_index);
+                let member = as_member(field.data.ident.as_ref(), field.declaration_index);
 
                 let value = match &field.attrs.default {
                     DefaultBehavior::Func(path) => quote! {#path()},
@@ -230,7 +245,7 @@ fn get_active_fields(
         reflect_struct
             .active_fields()
             .map(|field| {
-                let member = ident_or_index(field.data.ident.as_ref(), field.declaration_index);
+                let member = as_member(field.data.ident.as_ref(), field.declaration_index);
                 let accessor = get_field_accessor(
                     field.data,
                     field.reflection_index.expect("field should be active"),

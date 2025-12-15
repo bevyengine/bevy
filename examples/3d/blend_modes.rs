@@ -171,8 +171,8 @@ fn setup(
             text_style.clone(),
         Node {
             position_type: PositionType::Absolute,
-            top: Val::Px(12.0),
-            left: Val::Px(12.0),
+            top: px(12),
+            left: px(12),
             ..default()
         })
     );
@@ -182,34 +182,31 @@ fn setup(
         text_style,
         Node {
             position_type: PositionType::Absolute,
-            top: Val::Px(12.0),
-            right: Val::Px(12.0),
+            top: px(12),
+            right: px(12),
             ..default()
         },
         ExampleDisplay,
     ));
 
     let mut label = |entity: Entity, label: &str| {
-        commands
-            .spawn((
+        commands.spawn((
+            Node {
+                position_type: PositionType::Absolute,
+                ..default()
+            },
+            ExampleLabel { entity },
+            children![(
+                Text::new(label),
+                label_text_style.clone(),
                 Node {
                     position_type: PositionType::Absolute,
+                    bottom: Val::ZERO,
                     ..default()
                 },
-                ExampleLabel { entity },
-            ))
-            .with_children(|parent| {
-                parent.spawn((
-                    Text::new(label),
-                    label_text_style.clone(),
-                    Node {
-                        position_type: PositionType::Absolute,
-                        bottom: Val::ZERO,
-                        ..default()
-                    },
-                    TextLayout::default().with_no_wrap(),
-                ));
-            });
+                TextLayout::default().with_no_wrap(),
+            )],
+        ));
     };
 
     label(opaque, "┌─ Opaque\n│\n│\n│\n│");
@@ -327,8 +324,8 @@ fn example_control_system(
             .world_to_viewport(camera_global_transform, world_position)
             .unwrap();
 
-        node.top = Val::Px(viewport_position.y);
-        node.left = Val::Px(viewport_position.x);
+        node.top = px(viewport_position.y);
+        node.left = px(viewport_position.x);
     }
 
     display.0 = format!(

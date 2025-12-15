@@ -165,6 +165,142 @@ impl PartialEq for Val {
 impl Val {
     pub const DEFAULT: Self = Self::Auto;
     pub const ZERO: Self = Self::Px(0.0);
+
+    /// Returns a [`UiRect`] with its `left` equal to this value,
+    /// and all other fields set to `Val::ZERO`.
+    ///
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ui::{UiRect, Val};
+    /// #
+    /// let ui_rect = Val::Px(1.).left();
+    ///
+    /// assert_eq!(ui_rect.left, Val::Px(1.));
+    /// assert_eq!(ui_rect.right, Val::ZERO);
+    /// assert_eq!(ui_rect.top, Val::ZERO);
+    /// assert_eq!(ui_rect.bottom, Val::ZERO);
+    /// ```
+    pub const fn left(self) -> UiRect {
+        UiRect::left(self)
+    }
+
+    /// Returns a [`UiRect`] with its `right` equal to this value,
+    /// and all other fields set to `Val::ZERO`.
+    ///
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ui::{UiRect, Val};
+    /// #
+    /// let ui_rect = Val::Px(1.).right();
+    ///
+    /// assert_eq!(ui_rect.left, Val::ZERO);
+    /// assert_eq!(ui_rect.right, Val::Px(1.));
+    /// assert_eq!(ui_rect.top, Val::ZERO);
+    /// assert_eq!(ui_rect.bottom, Val::ZERO);
+    /// ```
+    pub const fn right(self) -> UiRect {
+        UiRect::right(self)
+    }
+
+    /// Returns a [`UiRect`] with its `top` equal to this value,
+    /// and all other fields set to `Val::ZERO`.
+    ///
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ui::{UiRect, Val};
+    /// #
+    /// let ui_rect = Val::Px(1.).top();
+    ///
+    /// assert_eq!(ui_rect.left, Val::ZERO);
+    /// assert_eq!(ui_rect.right, Val::ZERO);
+    /// assert_eq!(ui_rect.top, Val::Px(1.));
+    /// assert_eq!(ui_rect.bottom, Val::ZERO);
+    /// ```
+    pub const fn top(self) -> UiRect {
+        UiRect::top(self)
+    }
+
+    /// Returns a [`UiRect`] with its `bottom` equal to this value,
+    /// and all other fields set to `Val::ZERO`.
+    ///
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ui::{UiRect, Val};
+    /// #
+    /// let ui_rect = Val::Px(1.).bottom();
+    ///
+    /// assert_eq!(ui_rect.left, Val::ZERO);
+    /// assert_eq!(ui_rect.right, Val::ZERO);
+    /// assert_eq!(ui_rect.top, Val::ZERO);
+    /// assert_eq!(ui_rect.bottom, Val::Px(1.));
+    /// ```
+    pub const fn bottom(self) -> UiRect {
+        UiRect::bottom(self)
+    }
+
+    /// Returns a [`UiRect`] with all its fields equal to this value.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ui::{UiRect, Val};
+    /// #
+    /// let ui_rect = Val::Px(1.).all();
+    ///
+    /// assert_eq!(ui_rect.left, Val::Px(1.));
+    /// assert_eq!(ui_rect.right, Val::Px(1.));
+    /// assert_eq!(ui_rect.top, Val::Px(1.));
+    /// assert_eq!(ui_rect.bottom, Val::Px(1.));
+    /// ```
+    pub const fn all(self) -> UiRect {
+        UiRect::all(self)
+    }
+
+    /// Returns a [`UiRect`] with all its `left` and `right` equal to this value,
+    /// and its `top` and `bottom` set to `Val::ZERO`.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ui::{UiRect, Val};
+    /// #
+    /// let ui_rect = Val::Px(1.).horizontal();
+    ///
+    /// assert_eq!(ui_rect.left, Val::Px(1.));
+    /// assert_eq!(ui_rect.right, Val::Px(1.));
+    /// assert_eq!(ui_rect.top, Val::ZERO);
+    /// assert_eq!(ui_rect.bottom, Val::ZERO);
+    /// ```
+    pub const fn horizontal(self) -> UiRect {
+        UiRect::horizontal(self)
+    }
+
+    /// Returns a [`UiRect`] with all its `top` and `bottom` equal to this value,
+    /// and its `left` and `right` set to `Val::ZERO`.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ui::{UiRect, Val};
+    /// #
+    /// let ui_rect = Val::Px(1.).vertical();
+    ///
+    /// assert_eq!(ui_rect.left, Val::ZERO);
+    /// assert_eq!(ui_rect.right, Val::ZERO);
+    /// assert_eq!(ui_rect.top, Val::Px(1.));
+    /// assert_eq!(ui_rect.bottom, Val::Px(1.));
+    /// ```
+    pub const fn vertical(self) -> UiRect {
+        UiRect::vertical(self)
+    }
 }
 
 impl Default for Val {
@@ -282,6 +418,30 @@ impl Val {
     }
 }
 
+/// All the types that should be able to be used in the [`Val`] enum should implement this trait.
+///
+/// Instead of just implementing `Into<Val>` a custom trait is added.
+/// This is done in order to prevent having to define a default unit, which could lead to confusion especially for newcomers.
+pub trait ValNum {
+    /// Called by the [`Val`] helper functions to convert the implementing type to an `f32` that can
+    /// be used by [`Val`].
+    fn val_num_f32(self) -> f32;
+}
+
+macro_rules! impl_to_val_num {
+    ($($impl_type:ty),*$(,)?) => {
+        $(
+            impl ValNum for $impl_type {
+                fn val_num_f32(self) -> f32 {
+                    self as f32
+                }
+            }
+        )*
+    };
+}
+
+impl_to_val_num!(f32, f64, i8, i16, i32, i64, u8, u16, u32, u64, usize, isize);
+
 /// Returns a [`Val::Auto`] where the value is automatically determined
 /// based on the context and other [`Node`](crate::Node) properties.
 pub const fn auto() -> Val {
@@ -289,8 +449,8 @@ pub const fn auto() -> Val {
 }
 
 /// Returns a [`Val::Px`] representing a value in logical pixels.
-pub const fn px(value: f32) -> Val {
-    Val::Px(value)
+pub fn px<T: ValNum>(value: T) -> Val {
+    Val::Px(value.val_num_f32())
 }
 
 /// Returns a [`Val::Percent`] representing a percentage of the parent node's length
@@ -306,28 +466,28 @@ pub const fn px(value: f32) -> Val {
 ///   - `height` is relative to the parent's height.
 /// * For `margin`, `padding`, and `border` values: the percentage is relative to the parent's width.
 /// * For positions, `left` and `right` are relative to the parent's width, while `bottom` and `top` are relative to the parent's height.
-pub const fn percent(value: f32) -> Val {
-    Val::Percent(value)
+pub fn percent<T: ValNum>(value: T) -> Val {
+    Val::Percent(value.val_num_f32())
 }
 
 /// Returns a [`Val::Vw`] representing a percentage of the viewport width.
-pub const fn vw(value: f32) -> Val {
-    Val::Vw(value)
+pub fn vw<T: ValNum>(value: T) -> Val {
+    Val::Vw(value.val_num_f32())
 }
 
 /// Returns a [`Val::Vh`] representing a percentage of the viewport height.
-pub const fn vh(value: f32) -> Val {
-    Val::Vh(value)
+pub fn vh<T: ValNum>(value: T) -> Val {
+    Val::Vh(value.val_num_f32())
 }
 
 /// Returns a [`Val::VMin`] representing a percentage of the viewport's smaller dimension.
-pub const fn vmin(value: f32) -> Val {
-    Val::VMin(value)
+pub fn vmin<T: ValNum>(value: T) -> Val {
+    Val::VMin(value.val_num_f32())
 }
 
 /// Returns a [`Val::VMax`] representing a percentage of the viewport's larger dimension.
-pub const fn vmax(value: f32) -> Val {
-    Val::VMax(value)
+pub fn vmax<T: ValNum>(value: T) -> Val {
+    Val::VMax(value.val_num_f32())
 }
 
 /// A type which is commonly used to define margins, paddings and borders.
@@ -1091,5 +1251,16 @@ mod tests {
         assert_eq!(r.right, Val::Percent(5.));
         assert_eq!(r.top, Val::Percent(20.));
         assert_eq!(r.bottom, Val::Percent(99.));
+    }
+
+    #[test]
+    fn val_constructor_fns_return_correct_val_variant() {
+        assert_eq!(auto(), Val::Auto);
+        assert_eq!(px(0.0), Val::Px(0.0));
+        assert_eq!(percent(0.0), Val::Percent(0.0));
+        assert_eq!(vw(0.0), Val::Vw(0.0));
+        assert_eq!(vh(0.0), Val::Vh(0.0));
+        assert_eq!(vmin(0.0), Val::VMin(0.0));
+        assert_eq!(vmax(0.0), Val::VMax(0.0));
     }
 }

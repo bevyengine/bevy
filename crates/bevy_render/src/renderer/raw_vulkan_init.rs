@@ -122,8 +122,6 @@ pub(crate) async fn create_raw_device(
 
 #[derive(Error, Debug)]
 pub(crate) enum CreateRawVulkanDeviceError {
-    #[error("Could not create a raw Vulkan device because the Vulkan backend is not supported")]
-    UnsupportedBackend,
     #[error(transparent)]
     RequestDeviceError(#[from] wgpu::RequestDeviceError),
     #[error(transparent)]

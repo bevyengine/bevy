@@ -22,7 +22,7 @@ const FIXED_HASHER: FixedState =
 #[derive(Copy, Clone, Default, Debug)]
 pub struct FixedHasher;
 impl BuildHasher for FixedHasher {
-    type Hasher = DefaultHasher;
+    type Hasher = DefaultHasher<'static>;
 
     #[inline]
     fn build_hasher(&self) -> Self::Hasher {
@@ -63,6 +63,12 @@ impl<V, H> Hash for Hashed<V, H> {
     #[inline]
     fn hash<R: Hasher>(&self, state: &mut R) {
         state.write_u64(self.hash);
+    }
+}
+
+impl<V: Hash, H: BuildHasher + Default> From<V> for Hashed<V, H> {
+    fn from(value: V) -> Self {
+        Self::new(value)
     }
 }
 

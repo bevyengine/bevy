@@ -18,7 +18,7 @@ use crate::cluster::{ClusterVisibilityClass, GlobalVisibleClusterableObjects};
 /// shines light only in a given direction. The direction is taken from
 /// the transform, and can be specified with [`Transform::looking_at`](Transform::looking_at).
 ///
-/// To control the resolution of the shadow maps, use the [`crate::DirectionalLightShadowMap`] resource.
+/// To control the resolution of the shadow maps, use the [`DirectionalLightShadowMap`](`crate::DirectionalLightShadowMap`)  resource.
 #[derive(Component, Debug, Clone, Copy, Reflect)]
 #[reflect(Component, Default, Debug, Clone)]
 #[require(Frustum, VisibleMeshEntities, Transform, Visibility, VisibilityClass)]

@@ -99,6 +99,32 @@ fn sphere_intersects_plane_half_space(
     return dot(plane, sphere_center) + sphere_radius > 0.0;
 }
 
+// Returns the distances along the ray to its intersections with a sphere
+// centered at the origin.
+//
+// r: distance from the sphere center to the ray origin
+// mu: cosine of the zenith angle
+// sphere_radius: radius of the sphere
+//
+// Returns vec2(t0, t1). If there is no intersection, returns vec2(-1.0).
+fn ray_sphere_intersect(r: f32, mu: f32, sphere_radius: f32) -> vec2<f32> {
+    let discriminant = r * r * (mu * mu - 1.0) + sphere_radius * sphere_radius;
+    
+    // No intersection
+    if discriminant < 0.0 {
+        return vec2(-1.0);
+    }
+    
+    let q = -r * mu;
+    let sqrt_discriminant = sqrt(discriminant);
+    
+    // Return both intersection distances
+    return vec2(
+        q - sqrt_discriminant,
+        q + sqrt_discriminant
+    );
+}
+
 // pow() but safe for NaNs/negatives
 fn powsafe(color: vec3<f32>, power: f32) -> vec3<f32> {
     return pow(abs(color), vec3(power)) * sign(color);

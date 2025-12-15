@@ -8,7 +8,7 @@ use rand_chacha::ChaCha8Rng;
 
 fn main() {
     App::new()
-        .add_event::<StreamEvent>()
+        .add_message::<StreamMessage>()
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
         .add_systems(Update, (spawn_text, move_text))
@@ -20,8 +20,8 @@ fn main() {
 #[derive(Resource, Deref)]
 struct StreamReceiver(Receiver<u32>);
 
-#[derive(BufferedEvent)]
-struct StreamEvent(u32);
+#[derive(Message)]
+struct StreamMessage(u32);
 
 fn setup(mut commands: Commands) {
     commands.spawn(Camera2d);
@@ -43,17 +43,17 @@ fn setup(mut commands: Commands) {
     commands.insert_resource(StreamReceiver(rx));
 }
 
-// This system reads from the receiver and sends events to Bevy
-fn read_stream(receiver: Res<StreamReceiver>, mut events: EventWriter<StreamEvent>) {
+// This system reads from the receiver and sends messages in the ECS
+fn read_stream(receiver: Res<StreamReceiver>, mut events: MessageWriter<StreamMessage>) {
     for from_stream in receiver.try_iter() {
-        events.write(StreamEvent(from_stream));
+        events.write(StreamMessage(from_stream));
     }
 }
 
-fn spawn_text(mut commands: Commands, mut reader: EventReader<StreamEvent>) {
-    for (per_frame, event) in reader.read().enumerate() {
+fn spawn_text(mut commands: Commands, mut reader: MessageReader<StreamMessage>) {
+    for (per_frame, message) in reader.read().enumerate() {
         commands.spawn((
-            Text2d::new(event.0.to_string()),
+            Text2d::new(message.0.to_string()),
             TextLayout::new_with_justify(Justify::Center),
             Transform::from_xyz(per_frame as f32 * 100.0, 300.0, 0.0),
         ));

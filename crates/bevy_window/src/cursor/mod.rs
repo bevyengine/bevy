@@ -8,7 +8,9 @@ mod system_cursor;
 pub use custom_cursor::*;
 pub use system_cursor::*;
 
-use bevy_ecs::{component::Component, reflect::ReflectComponent};
+use bevy_ecs::component::Component;
+#[cfg(feature = "bevy_reflect")]
+use bevy_ecs::reflect::ReflectComponent;
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 
@@ -22,7 +24,6 @@ pub use crate::cursor::{CustomCursor, CustomCursorImage};
     derive(Reflect),
     reflect(Component, Debug, Default, PartialEq, Clone)
 )]
-
 pub enum CursorIcon {
     #[cfg(feature = "custom_cursor")]
     /// Custom cursor image.

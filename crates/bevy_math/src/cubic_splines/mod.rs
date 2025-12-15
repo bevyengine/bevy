@@ -743,7 +743,7 @@ impl<P: VectorSpace<Scalar = f32>> CubicNurbs<P> {
         )
     }
 
-    #[inline(always)]
+    #[inline]
     const fn knots_len(control_points_len: usize) -> usize {
         control_points_len + 4
     }

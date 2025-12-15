@@ -58,11 +58,14 @@ struct BindlessIndexTableRangeAttr {
 }
 
 pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
-    let manifest = BevyManifest::shared();
-    let render_path = manifest.get_path("bevy_render");
-    let image_path = manifest.get_path("bevy_image");
-    let asset_path = manifest.get_path("bevy_asset");
-    let ecs_path = manifest.get_path("bevy_ecs");
+    let (render_path, image_path, asset_path, ecs_path) = BevyManifest::shared(|manifest| {
+        let render_path = manifest.get_path("bevy_render");
+        let image_path = manifest.get_path("bevy_image");
+        let asset_path = manifest.get_path("bevy_asset");
+        let ecs_path = manifest.get_path("bevy_ecs");
+
+        (render_path, image_path, asset_path, ecs_path)
+    });
 
     let mut binding_states: Vec<BindingState> = Vec::new();
     let mut binding_impls = Vec::new();
@@ -713,7 +716,7 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                             #binding_index,
                             #render_path::render_resource::OwnedBindingResource::Sampler(
                                 // TODO: Support other types.
-                                #render_path::render_resource::WgpuSamplerBindingType::Filtering,
+                                #render_path::render_resource::SamplerBindingType::Filtering,
                                 {
                                 let handle: Option<&#asset_path::Handle<#image_path::Image>> = (&self.#field_name).into();
                                 if let Some(handle) = handle {
@@ -1051,8 +1054,8 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
 
             #bindless_slot_count
 
-            fn label() -> Option<&'static str> {
-                Some(#struct_name_literal)
+            fn label() -> &'static str {
+                #struct_name_literal
             }
 
             fn unprepared_bind_group(

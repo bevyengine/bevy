@@ -1,51 +1,24 @@
 ---
-title: Schedule API Cleanup
-pull_requests: [19352, 20119, 20172, 20256]
+title: "Schedule cleanup"
+pull_requests: [21608, 21817]
 ---
 
-In order to support removing systems from schedules, `Vec`s storing `System`s and
-`SystemSet`s have been replaced with `SlotMap`s which allow safely removing nodes and
-reusing indices. The maps are respectively keyed by `SystemKey`s and `SystemSetKey`s.
-
-The following signatures were changed:
-
-- `DiGraph` and `UnGraph` now have an additional, required type parameter `N`, which
-  is a `GraphNodeId`. Use `DiGraph<NodeId>`/`UnGraph<NodeId>` for the equivalent to the previous type.
-- `NodeId::System`: Now stores a `SystemKey` instead of a plain `usize`
-- `NodeId::Set`: Now stores a `SystemSetKey` instead of a plain `usize`
-- `ScheduleBuildPass::collapse_set`: Now takes the type-specific keys.
-  Wrap them back into a `NodeId` if necessary.
-- `ScheduleBuildPass::build`: Now takes a `DiGraph<SystemKey>` instead of `DiGraph<NodeId>`.
-  Re-wrap the keys back into `NodeId` if necessary.
-- The following functions now return the type-specific keys. Wrap them back into a `NodeId` if necessary.
-  - `Schedule::systems`
-  - `ScheduleGraph::conflicting_systems`
-- `ScheduleBuildError` variants now contain `NodeId` or type-specific keys, rather than `String`s.
-  Use `ScheduleBuildError::to_string` to render the nodes' names and get the old error messages.
-- `ScheduleGraph::build_schedule` now returns a `Vec<ScheduleBuildWarning>` in addition to the built
-  `SystemSchedule`. Use standard `Result` functions to grab just the `SystemSchedule`, if needed.
-
-The following functions were replaced. Those that took or returned `NodeId` now
-take or return `SystemKey` or `SystemSetKey`. Wrap/unwrap them as necessary.
-
-- `ScheduleGraph::contains_set`: Use `ScheduleGraph::system_sets` and `SystemSets::contains`.
-- `ScheduleGraph::get_set_at`: Use `ScheduleGraph::system_sets` and `SystemSets::get`.
-- `ScheduleGraph::set_at`: Use `ScheduleGraph::system_sets` and `SystemSets::index` (`system_sets[key]`).
-- `ScheduleGraph::get_set_conditions_at`: Use `ScheduleGraph::system_sets` and `SystemSets::get_conditions`.
-- `ScheduleGraph::system_sets`: Use `ScheduleGraph::system_sets` and `SystemSets::iter`.
-- `ScheduleGraph::get_system_at`: Use `ScheduleGraph::systems` and `Systems::get`.
-- `ScheduleGraph::system_at`: Use `ScheduleGraph::systems` and `Systems::index` (`systems[key]`).
-- `ScheduleGraph::systems`: Use `ScheduleGraph::systems` and `Systems::iter`.
-
-The following enum variants were replaced:
-
-- `ScheduleBuildError::HierarchyRedundancy` with `ScheduleBuildError::Elevated(ScheduleBuildWarning::HierarchyRedundancy)`
-- `ScheduleBuildError::Ambiguity` with `ScheduleBuildError::Elevated(ScheduleBuildWarning::Ambiguity)`
-
-The following functions were removed:
-
-- `NodeId::index`: You should match on and use the `SystemKey` and `SystemSetKey` instead.
-- `NodeId::cmp`: Use the `PartialOrd` and `Ord` traits instead.
-- `ScheduleGraph::set_conditions_at`: If needing to check presence of conditions,
-  use `ScheduleGraph::system_sets` and `SystemSets::has_conditions`.
-  Otherwise, use `SystemSets::get_conditions`.
+- `ScheduleGraph::topsort_graph` has been moved to `DiGraph::toposort`, and now takes a `Vec<N>` parameter for allocation reuse.
+- `ReportCycles` was removed: instead, `DiGraphToposortError`s should be immediately
+  wrapped into hierarchy graph or dependency graph `ScheduleBuildError` variants.
+- `ScheduleBuildError::HierarchyLoop` variant was removed, use `ScheduleBuildError::HierarchySort(DiGraphToposortError::Loop())` instead.
+- `ScheduleBuildError::HierarchyCycle` variant was removed, use `ScheduleBuildError::HierarchySort(DiGraphToposortError::Cycle())` instead.
+- `ScheduleBuildError::DependencyLoop` variant was removed, use `ScheduleBuildError::DependencySort(DiGraphToposortError::Loop())` instead.
+- `ScheduleBuildError::DependencyCycle` variant was removed, use `ScheduleBuildError::DependencySort(DiGraphToposortError::Cycle())` instead.
+- `ScheduleBuildError::CrossDependency` now wraps a `DagCrossDependencyError<NodeId>` instead of directly holding two `NodeId`s. Fetch them from the wrapped struct instead.
+- `ScheduleBuildError::SetsHaveOrderButIntersect` now wraps a `DagOverlappingGroupError<SystemSetKey>` instead of directly holding two `SystemSetKey`s. Fetch them from the wrapped struct instead.
+- `ScheduleBuildError::SystemTypeSetAmbiguity` now wraps a `SystemTypeSetAmbiguityError` instead of directly holding a `SystemSetKey`. Fetch them from the wrapped struct instead.
+- `ScheduleBuildWarning::HierarchyRedundancy` now wraps a `DagRedundancyError<NodeId>` instead of directly holding a `Vec<(NodeId, NodeId)>`. Fetch them from the wrapped struct instead.
+- `ScheduleBuildWarning::Ambiguity` now wraps a `AmbiguousSystemConflictsWarning` instead of directly holding a `Vec`. Fetch them from the wrapped struct instead.
+- `ScheduleGraph::conflicting_systems` now returns a `&ConflictingSystems` instead of a slice. Fetch conflicts from the wrapped struct instead.
+- `ScheduleGraph::systems_in_set` now returns a `&HashSet<SystemKey>` instead of a slice, to reduce redundant allocations.
+- `ScheduleGraph::conflicts_to_string` functionality has been replaced with `ConflictingSystems::to_string`.
+- `ScheduleBuildPass::build` now takes `&mut Dag<SystemKey>` instead of `&mut DiGraph<SystemKey>`, to allow reusing previous toposorts.
+- `ScheduleBuildPass::collapse_set` now takes `&HashSet<SystemKey>` instead of a slice, to reduce redundant allocations.
+- `simple_cycles_in_component` has been changed from a free function into a method on `DiGraph`.
+- `DiGraph::try_into`/`UnGraph::try_into` was renamed to `DiGraph::try_convert`/`UnGraph::try_convert` to prevent overlap with the `TryInto` trait, and now makes use of `TryInto` instead of `TryFrom` for conversions.

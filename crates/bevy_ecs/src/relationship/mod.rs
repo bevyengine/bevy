@@ -4,6 +4,8 @@ mod related_methods;
 mod relationship_query;
 mod relationship_source_collection;
 
+use alloc::boxed::Box;
+use bevy_ptr::Ptr;
 use core::marker::PhantomData;
 
 use alloc::format;
@@ -186,28 +188,27 @@ pub trait Relationship: Component + Sized {
             }
         }
         let target_entity = world.entity(entity).get::<Self>().unwrap().get();
-        if let Ok(mut target_entity_mut) = world.get_entity_mut(target_entity) {
-            if let Some(mut relationship_target) =
+        if let Ok(mut target_entity_mut) = world.get_entity_mut(target_entity)
+            && let Some(mut relationship_target) =
                 target_entity_mut.get_mut::<Self::RelationshipTarget>()
-            {
-                relationship_target.collection_mut_risky().remove(entity);
-                if relationship_target.len() == 0 {
-                    let command = |mut entity: EntityWorldMut| {
-                        // this "remove" operation must check emptiness because in the event that an identical
-                        // relationship is inserted on top, this despawn would result in the removal of that identical
-                        // relationship ... not what we want!
-                        if entity
-                            .get::<Self::RelationshipTarget>()
-                            .is_some_and(RelationshipTarget::is_empty)
-                        {
-                            entity.remove::<Self::RelationshipTarget>();
-                        }
-                    };
+        {
+            relationship_target.collection_mut_risky().remove(entity);
+            if relationship_target.len() == 0 {
+                let command = |mut entity: EntityWorldMut| {
+                    // this "remove" operation must check emptiness because in the event that an identical
+                    // relationship is inserted on top, this despawn would result in the removal of that identical
+                    // relationship ... not what we want!
+                    if entity
+                        .get::<Self::RelationshipTarget>()
+                        .is_some_and(RelationshipTarget::is_empty)
+                    {
+                        entity.remove::<Self::RelationshipTarget>();
+                    }
+                };
 
-                    world
-                        .commands()
-                        .queue_silenced(command.with_entity(target_entity));
-                }
+                world
+                    .commands()
+                    .queue_silenced(command.with_entity(target_entity));
             }
         }
     }
@@ -478,11 +479,78 @@ impl RelationshipTargetCloneBehaviorHierarchy
     }
 }
 
+/// This enum describes a way to access the entities of [`Relationship`] and [`RelationshipTarget`] components
+/// in a type-erased context.
+#[derive(Debug, Clone, Copy)]
+pub enum RelationshipAccessor {
+    /// This component is a [`Relationship`].
+    Relationship {
+        /// Offset of the field containing [`Entity`] from the base of the component.
+        ///
+        /// Dynamic equivalent of [`Relationship::get`].
+        entity_field_offset: usize,
+        /// Value of [`RelationshipTarget::LINKED_SPAWN`] for the [`Relationship::RelationshipTarget`] of this [`Relationship`].
+        linked_spawn: bool,
+    },
+    /// This component is a [`RelationshipTarget`].
+    RelationshipTarget {
+        /// Function that returns an iterator over all [`Entity`]s of this [`RelationshipTarget`]'s collection.
+        ///
+        /// Dynamic equivalent of [`RelationshipTarget::iter`].
+        /// # Safety
+        /// Passed pointer must point to the value of the same component as the one that this accessor was registered to.
+        iter: for<'a> unsafe fn(Ptr<'a>) -> Box<dyn Iterator<Item = Entity> + 'a>,
+        /// Value of [`RelationshipTarget::LINKED_SPAWN`] of this [`RelationshipTarget`].
+        linked_spawn: bool,
+    },
+}
+
+/// A type-safe convenience wrapper over [`RelationshipAccessor`].
+pub struct ComponentRelationshipAccessor<C: ?Sized> {
+    pub(crate) accessor: RelationshipAccessor,
+    phantom: PhantomData<C>,
+}
+
+impl<C> ComponentRelationshipAccessor<C> {
+    /// Create a new [`ComponentRelationshipAccessor`] for a [`Relationship`] component.
+    /// # Safety
+    /// `entity_field_offset` should be the offset from the base of this component and point to a field that stores value of type [`Entity`].
+    /// This value can be obtained using the [`core::mem::offset_of`] macro.
+    pub unsafe fn relationship(entity_field_offset: usize) -> Self
+    where
+        C: Relationship,
+    {
+        Self {
+            accessor: RelationshipAccessor::Relationship {
+                entity_field_offset,
+                linked_spawn: C::RelationshipTarget::LINKED_SPAWN,
+            },
+            phantom: Default::default(),
+        }
+    }
+
+    /// Create a new [`ComponentRelationshipAccessor`] for a [`RelationshipTarget`] component.
+    pub fn relationship_target() -> Self
+    where
+        C: RelationshipTarget,
+    {
+        Self {
+            accessor: RelationshipAccessor::RelationshipTarget {
+                // Safety: caller ensures that `ptr` is of type `C`.
+                iter: |ptr| unsafe { Box::new(RelationshipTarget::iter(ptr.deref::<C>())) },
+                linked_spawn: C::LINKED_SPAWN,
+            },
+            phantom: Default::default(),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use core::marker::PhantomData;
 
     use crate::prelude::{ChildOf, Children};
+    use crate::relationship::RelationshipAccessor;
     use crate::world::World;
     use crate::{component::Component, entity::Entity};
     use alloc::vec::Vec;
@@ -541,9 +609,12 @@ mod tests {
 
     #[test]
     fn relationship_with_multiple_non_target_fields_compiles() {
+        #[expect(
+            dead_code,
+            reason = "This struct is used as a compilation test to test the derive macros, and as such is intentionally never constructed."
+        )]
         #[derive(Component)]
         #[relationship(relationship_target=Target)]
-        #[expect(dead_code, reason = "test struct")]
         struct Source {
             #[relationship]
             target: Entity,
@@ -551,6 +622,10 @@ mod tests {
             bar: u8,
         }
 
+        #[expect(
+            dead_code,
+            reason = "This struct is used as a compilation test to test the derive macros, and as such is intentionally never constructed."
+        )]
         #[derive(Component)]
         #[relationship_target(relationship=Source)]
         struct Target(Vec<Entity>);
@@ -559,13 +634,20 @@ mod tests {
     }
     #[test]
     fn relationship_target_with_multiple_non_target_fields_compiles() {
+        #[expect(
+            dead_code,
+            reason = "This struct is used as a compilation test to test the derive macros, and as such is intentionally never constructed."
+        )]
         #[derive(Component)]
         #[relationship(relationship_target=Target)]
         struct Source(Entity);
 
+        #[expect(
+            dead_code,
+            reason = "This struct is used as a compilation test to test the derive macros, and as such is intentionally never constructed."
+        )]
         #[derive(Component)]
         #[relationship_target(relationship=Source)]
-        #[expect(dead_code, reason = "test struct")]
         struct Target {
             #[relationship]
             target: Vec<Entity>,
@@ -578,10 +660,18 @@ mod tests {
 
     #[test]
     fn relationship_with_multiple_unnamed_non_target_fields_compiles() {
+        #[expect(
+            dead_code,
+            reason = "This struct is used as a compilation test to test the derive macros, and as such is intentionally never constructed."
+        )]
         #[derive(Component)]
         #[relationship(relationship_target=Target<T>)]
         struct Source<T: Send + Sync + 'static>(#[relationship] Entity, PhantomData<T>);
 
+        #[expect(
+            dead_code,
+            reason = "This struct is used as a compilation test to test the derive macros, and as such is intentionally never constructed."
+        )]
         #[derive(Component)]
         #[relationship_target(relationship=Source<T>)]
         struct Target<T: Send + Sync + 'static>(#[relationship] Vec<Entity>, PhantomData<T>);
@@ -674,5 +764,51 @@ mod tests {
 
         assert!(world.get::<ChildOf>(child).is_some());
         assert!(world.get::<Children>(parent).is_some());
+    }
+
+    #[test]
+    fn dynamically_traverse_hierarchy() {
+        let mut world = World::new();
+        let child_of_id = world.register_component::<ChildOf>();
+        let children_id = world.register_component::<Children>();
+
+        let parent = world.spawn_empty().id();
+        let child = world.spawn_empty().id();
+        world.entity_mut(child).insert(ChildOf(parent));
+        world.flush();
+
+        let children_ptr = world.get_by_id(parent, children_id).unwrap();
+        let RelationshipAccessor::RelationshipTarget { iter, .. } = world
+            .components()
+            .get_info(children_id)
+            .unwrap()
+            .relationship_accessor()
+            .unwrap()
+        else {
+            unreachable!()
+        };
+        // Safety: `children_ptr` contains value of the same type as the one this accessor was registered for.
+        let children: Vec<_> = unsafe { iter(children_ptr).collect() };
+        assert_eq!(children, alloc::vec![child]);
+
+        let child_of_ptr = world.get_by_id(child, child_of_id).unwrap();
+        let RelationshipAccessor::Relationship {
+            entity_field_offset,
+            ..
+        } = world
+            .components()
+            .get_info(child_of_id)
+            .unwrap()
+            .relationship_accessor()
+            .unwrap()
+        else {
+            unreachable!()
+        };
+        // Safety:
+        // - offset is in bounds, aligned and has the same lifetime as the original pointer.
+        // - value at offset is guaranteed to be a valid Entity
+        let child_of_entity: Entity =
+            unsafe { *child_of_ptr.byte_add(*entity_field_offset).deref() };
+        assert_eq!(child_of_entity, parent);
     }
 }
