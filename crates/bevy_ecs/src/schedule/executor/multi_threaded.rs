@@ -1,8 +1,3 @@
-#![expect(
-    unsafe_op_in_unsafe_fn,
-    reason = "See #11590. To be removed once all applicable unsafe code has an unsafe block with a safety comment."
-)]
-
 use alloc::{boxed::Box, vec::Vec};
 use bevy_platform::cell::SyncUnsafeCell;
 use bevy_platform::sync::Arc;
@@ -453,12 +448,15 @@ impl ExecutorState {
         }
 
         #[cfg(feature = "hotpatching")]
-        let hotpatch_tick = context
-            .environment
-            .world_cell
-            .get_resource_ref::<HotPatchChanges>()
-            .map(|r| r.last_changed())
-            .unwrap_or_default();
+        // SAFETY: No system should mutate `HotPatchChanges`
+        let hotpatch_tick = unsafe {
+            context
+                .environment
+                .world_cell
+                .get_resource_ref::<HotPatchChanges>()
+        }
+        .map(|r| r.last_changed())
+        .unwrap_or_default();
 
         // can't borrow since loop mutably borrows `self`
         let mut ready_systems = core::mem::take(&mut self.ready_systems_copy);
