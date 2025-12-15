@@ -1,7 +1,6 @@
-use crate::MeshExtractableData;
+use crate::MeshAccessError;
 
 use super::{Indices, Mesh, VertexAttributeValues};
-use bevy_asset::ExtractableAssetAccessError;
 use thiserror::Error;
 use wgpu_types::{PrimitiveTopology, VertexFormat};
 
@@ -74,19 +73,18 @@ pub enum GenerateTangentsError {
     #[error("mesh not suitable for tangent generation")]
     MikktspaceError(#[from] bevy_mikktspace::GenerateTangentSpaceError),
     #[error("Mesh access error: {0}")]
-    MeshAccessError(#[from] ExtractableAssetAccessError),
+    MeshAccessError(#[from] MeshAccessError),
 }
 
 pub(crate) fn generate_tangents_for_mesh(
-    mesh: &MeshExtractableData,
-    topology: PrimitiveTopology,
+    mesh: &Mesh,
 ) -> Result<Vec<[f32; 4]>, GenerateTangentsError> {
-    match topology {
+    match mesh.primitive_topology() {
         PrimitiveTopology::TriangleList => {}
         other => return Err(GenerateTangentsError::UnsupportedTopology(other)),
     };
 
-    let positions = mesh.attribute(Mesh::ATTRIBUTE_POSITION).ok_or(
+    let positions = mesh.try_attribute_option(Mesh::ATTRIBUTE_POSITION)?.ok_or(
         GenerateTangentsError::MissingVertexAttribute(Mesh::ATTRIBUTE_POSITION.name),
     )?;
     let VertexAttributeValues::Float32x3(positions) = positions else {
@@ -95,7 +93,7 @@ pub(crate) fn generate_tangents_for_mesh(
             VertexFormat::Float32x3,
         ));
     };
-    let normals = mesh.attribute(Mesh::ATTRIBUTE_NORMAL).ok_or(
+    let normals = mesh.try_attribute_option(Mesh::ATTRIBUTE_NORMAL)?.ok_or(
         GenerateTangentsError::MissingVertexAttribute(Mesh::ATTRIBUTE_NORMAL.name),
     )?;
     let VertexAttributeValues::Float32x3(normals) = normals else {
@@ -104,7 +102,7 @@ pub(crate) fn generate_tangents_for_mesh(
             VertexFormat::Float32x3,
         ));
     };
-    let uvs = mesh.attribute(Mesh::ATTRIBUTE_UV_0).ok_or(
+    let uvs = mesh.try_attribute_option(Mesh::ATTRIBUTE_UV_0)?.ok_or(
         GenerateTangentsError::MissingVertexAttribute(Mesh::ATTRIBUTE_UV_0.name),
     )?;
     let VertexAttributeValues::Float32x2(uvs) = uvs else {
@@ -117,7 +115,7 @@ pub(crate) fn generate_tangents_for_mesh(
     let len = positions.len();
     let tangents = vec![[0., 0., 0., 0.]; len];
     let mut mikktspace_mesh = MikktspaceGeometryHelper {
-        indices: mesh.indices(),
+        indices: mesh.try_indices_option()?,
         positions,
         normals,
         uvs,

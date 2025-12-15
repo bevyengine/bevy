@@ -1,4 +1,3 @@
-use bevy_asset::ExtractableAssetAccessError;
 use bevy_reflect::Reflect;
 use core::iter;
 use core::iter::FusedIterator;
@@ -6,6 +5,8 @@ use core::iter::FusedIterator;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use wgpu_types::IndexFormat;
+
+use crate::MeshAccessError;
 
 /// A disjunction of four iterators. This is necessary to have a well-formed type for the output
 /// of [`Mesh::triangles`](super::Mesh::triangles), which produces iterators of four different types depending on the
@@ -58,7 +59,7 @@ pub enum MeshWindingInvertError {
     #[error("Indices weren't in chunks according to topology")]
     AbruptIndicesEnd,
     #[error("Mesh access error: {0}")]
-    MeshAccessError(#[from] ExtractableAssetAccessError),
+    MeshAccessError(#[from] MeshAccessError),
 }
 
 /// An error that occurred while trying to extract a collection of triangles from a [`Mesh`](super::Mesh).
@@ -67,17 +68,13 @@ pub enum MeshTrianglesError {
     #[error("Source mesh does not have primitive topology TriangleList or TriangleStrip")]
     WrongTopology,
 
-    #[error("Source mesh position data does not exist")]
-    BadPositions,
-
     #[error("Source mesh position data is not Float32x3")]
     PositionsFormat,
 
     #[error("Face index data references vertices that do not exist")]
     BadIndices,
-
     #[error("mesh access error: {0}")]
-    MeshAccessError(#[from] ExtractableAssetAccessError),
+    MeshAccessError(#[from] MeshAccessError),
 }
 
 /// An array of indices into the [`VertexAttributeValues`](super::VertexAttributeValues) for a mesh.

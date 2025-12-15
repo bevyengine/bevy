@@ -452,6 +452,5 @@ pub fn lut_placeholder() -> Image {
         texture_view_descriptor: None,
         asset_usage: RenderAssetUsages::RENDER_WORLD,
         copy_on_resize: false,
-        is_extracted_to_render_world: false,
     }
 }

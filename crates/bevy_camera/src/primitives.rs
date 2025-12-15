@@ -1,4 +1,5 @@
-use bevy_asset::ExtractableAsset;
+use core::borrow::Borrow;
+
 use bevy_ecs::{component::Component, entity::EntityHashMap, reflect::ReflectComponent};
 use bevy_math::{
     bounding::{Aabb3d, BoundingVolume},
@@ -6,7 +7,6 @@ use bevy_math::{
 };
 use bevy_mesh::{Mesh, VertexAttributeValues};
 use bevy_reflect::prelude::*;
-use core::borrow::Borrow;
 
 pub trait MeshAabb {
     /// Compute the Axis-Aligned Bounding Box of the mesh vertices in model space
@@ -23,10 +23,8 @@ impl MeshAabb for Mesh {
             return Some(aabb.into());
         }
 
-        let Some(VertexAttributeValues::Float32x3(values)) = self
-            .extractable_data_ref()
-            .ok()
-            .and_then(|d| d.attribute(Mesh::ATTRIBUTE_POSITION))
+        let Ok(VertexAttributeValues::Float32x3(values)) =
+            self.try_attribute(Mesh::ATTRIBUTE_POSITION)
         else {
             return None;
         };
