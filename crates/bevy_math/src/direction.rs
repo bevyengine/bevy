@@ -1041,7 +1041,7 @@ impl DDir3 {
     /// #[cfg(feature = "approx")]
     /// assert_relative_eq!(
     ///     result1,
-    ///     DDir3::from_xyz(0.75_f64.sqrt(), 0.5, 0.0).unwrap(),
+    ///     DDir3::from_xyz(0.75_f32.sqrt(), 0.5, 0.0).unwrap(),
     ///     epsilon = 0.000001
     /// );
     ///
