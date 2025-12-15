@@ -16,11 +16,10 @@ use bevy_app::{App, Plugin, PreUpdate};
 
 use crate::{renderer::RenderAdapterInfo, RenderApp};
 
-use self::internal::{
-    sync_diagnostics, DiagnosticsRecorder, Pass, RenderDiagnosticsMutex, WriteTimestamp,
-};
+use self::internal::{sync_diagnostics, Pass, RenderDiagnosticsMutex, WriteTimestamp};
 pub use self::{
     erased_render_asset_diagnostic_plugin::ErasedRenderAssetDiagnosticPlugin,
+    internal::DiagnosticsRecorder,
     mesh_allocator_diagnostic_plugin::MeshAllocatorDiagnosticPlugin,
     render_asset_diagnostic_plugin::RenderAssetDiagnosticPlugin,
 };
@@ -190,6 +189,32 @@ impl<T: RecordDiagnostics> RecordDiagnostics for Option<Arc<T>> {
 
     fn end_pass_span<P: Pass>(&self, pass: &mut P) {
         if let Some(recorder) = &self {
+            recorder.end_pass_span(pass);
+        }
+    }
+}
+
+impl<'a, T: RecordDiagnostics> RecordDiagnostics for Option<&'a T> {
+    fn begin_time_span<E: WriteTimestamp>(&self, encoder: &mut E, name: Cow<'static, str>) {
+        if let Some(recorder) = self {
+            recorder.begin_time_span(encoder, name);
+        }
+    }
+
+    fn end_time_span<E: WriteTimestamp>(&self, encoder: &mut E) {
+        if let Some(recorder) = self {
+            recorder.end_time_span(encoder);
+        }
+    }
+
+    fn begin_pass_span<P: Pass>(&self, pass: &mut P, name: Cow<'static, str>) {
+        if let Some(recorder) = self {
+            recorder.begin_pass_span(pass, name);
+        }
+    }
+
+    fn end_pass_span<P: Pass>(&self, pass: &mut P) {
+        if let Some(recorder) = self {
             recorder.end_pass_span(pass);
         }
     }

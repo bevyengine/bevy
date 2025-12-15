@@ -6,8 +6,8 @@ use bevy_app::{App, Plugin};
 use bevy_asset::embedded_asset;
 use bevy_camera::Camera;
 use bevy_core_pipeline::{
-    core_3d::graph::{Core3d, Node3d},
     prepass::{DepthPrepass, MotionVectorPrepass},
+    schedule::{Core3d, Core3dSystems},
 };
 use bevy_ecs::{
     component::Component,
@@ -18,10 +18,10 @@ use bevy_ecs::{
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin, UniformComponentPlugin},
-    render_graph::{RenderGraphExt, ViewNodeRunner},
     render_resource::{ShaderType, SpecializedRenderPipelines},
     Render, RenderApp, RenderStartup, RenderSystems,
 };
+use crate::bloom::bloom;
 
 pub mod node;
 pub mod pipeline;
@@ -151,18 +151,11 @@ impl Plugin for MotionBlurPlugin {
                 pipeline::prepare_motion_blur_pipelines.in_set(RenderSystems::Prepare),
             );
 
-        render_app
-            .add_render_graph_node::<ViewNodeRunner<node::MotionBlurNode>>(
-                Core3d,
-                Node3d::MotionBlur,
-            )
-            .add_render_graph_edges(
-                Core3d,
-                (
-                    Node3d::StartMainPassPostProcessing,
-                    Node3d::MotionBlur,
-                    Node3d::Bloom, // we want blurred areas to bloom and tonemap properly.
-                ),
-            );
+        render_app.add_systems(
+            Core3d,
+            node::motion_blur
+                .after(Core3dSystems::StartMainPassPostProcessing)
+                .before(bloom),
+        );
     }
 }

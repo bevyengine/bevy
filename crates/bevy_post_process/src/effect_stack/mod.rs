@@ -16,7 +16,6 @@ use bevy_ecs::{
     resource::Resource,
     schedule::IntoScheduleConfigs as _,
     system::{lifetimeless::Read, Commands, Query, Res, ResMut},
-    world::World,
 };
 use bevy_image::{BevyDefault, Image};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
@@ -24,9 +23,6 @@ use bevy_render::{
     diagnostic::RecordDiagnostics,
     extract_component::{ExtractComponent, ExtractComponentPlugin},
     render_asset::RenderAssets,
-    render_graph::{
-        NodeRunError, RenderGraphContext, RenderGraphExt as _, ViewNode, ViewNodeRunner,
-    },
     render_resource::{
         binding_types::{sampler, texture_2d, uniform_buffer},
         BindGroupEntries, BindGroupLayoutDescriptor, BindGroupLayoutEntries,
@@ -36,7 +32,7 @@ use bevy_render::{
         SamplerDescriptor, ShaderStages, ShaderType, SpecializedRenderPipeline,
         SpecializedRenderPipelines, TextureDimension, TextureFormat, TextureSampleType,
     },
-    renderer::{RenderContext, RenderDevice, RenderQueue},
+    renderer::{RenderContext, RenderDevice, RenderQueue, ViewQuery},
     texture::GpuImage,
     view::{ExtractedView, ViewTarget},
     Render, RenderApp, RenderStartup, RenderSystems,
@@ -45,10 +41,11 @@ use bevy_shader::{load_shader_library, Shader};
 use bevy_utils::prelude::default;
 
 use bevy_core_pipeline::{
-    core_2d::graph::{Core2d, Node2d},
-    core_3d::graph::{Core3d, Node3d},
+    schedule::{Core2d, Core3d},
+    tonemapping::tonemapping,
     FullscreenShader,
 };
+use crate::bloom::bloom;
 
 /// The default chromatic aberration intensity amount, in a fraction of the
 /// window size.
@@ -65,7 +62,7 @@ static DEFAULT_CHROMATIC_ABERRATION_LUT_DATA: [u8; 12] =
     [255, 0, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255];
 
 #[derive(Resource)]
-struct DefaultChromaticAberrationLut(Handle<Image>);
+pub(crate) struct DefaultChromaticAberrationLut(Handle<Image>);
 
 /// A plugin that implements a built-in postprocessing stack with some common
 /// effects.
@@ -180,10 +177,6 @@ pub struct PostProcessingUniformBufferOffsets {
     chromatic_aberration: u32,
 }
 
-/// The render node that runs the built-in postprocessing stack.
-#[derive(Default)]
-pub struct PostProcessingNode;
-
 impl Plugin for EffectStackPlugin {
     fn build(&self, app: &mut App) {
         load_shader_library!(app, "chromatic_aberration.wgsl");
@@ -223,25 +216,17 @@ impl Plugin for EffectStackPlugin {
                 )
                     .in_set(RenderSystems::Prepare),
             )
-            .add_render_graph_node::<ViewNodeRunner<PostProcessingNode>>(
+            .add_systems(
                 Core3d,
-                Node3d::PostProcessing,
+                post_processing
+                    .after(bloom)
+                    .before(tonemapping),
             )
-            .add_render_graph_edges(
-                Core3d,
-                (
-                    Node3d::DepthOfField,
-                    Node3d::PostProcessing,
-                    Node3d::Tonemapping,
-                ),
-            )
-            .add_render_graph_node::<ViewNodeRunner<PostProcessingNode>>(
+            .add_systems(
                 Core2d,
-                Node2d::PostProcessing,
-            )
-            .add_render_graph_edges(
-                Core2d,
-                (Node2d::Bloom, Node2d::PostProcessing, Node2d::Tonemapping),
+                post_processing
+                    .after(bloom)
+                    .before(tonemapping),
             );
     }
 }
@@ -330,94 +315,87 @@ impl SpecializedRenderPipeline for PostProcessingPipeline {
     }
 }
 
-impl ViewNode for PostProcessingNode {
-    type ViewQuery = (
-        Read<ViewTarget>,
-        Read<PostProcessingPipelineId>,
-        Read<ChromaticAberration>,
-        Read<PostProcessingUniformBufferOffsets>,
+pub(crate) fn post_processing(
+    view: ViewQuery<(
+        &ViewTarget,
+        &PostProcessingPipelineId,
+        &ChromaticAberration,
+        &PostProcessingUniformBufferOffsets,
+    )>,
+    pipeline_cache: Res<PipelineCache>,
+    post_processing_pipeline: Res<PostProcessingPipeline>,
+    post_processing_uniform_buffers: Res<PostProcessingUniformBuffers>,
+    gpu_image_assets: Res<RenderAssets<GpuImage>>,
+    default_lut: Res<DefaultChromaticAberrationLut>,
+    mut ctx: RenderContext,
+) {
+    let (view_target, pipeline_id, chromatic_aberration, post_processing_uniform_buffer_offsets) =
+        view.into_inner();
+
+    // We need a render pipeline to be prepared.
+    let Some(pipeline) = pipeline_cache.get_render_pipeline(**pipeline_id) else {
+        return;
+    };
+
+    // We need the chromatic aberration LUT to be present.
+    let Some(chromatic_aberration_lut) = gpu_image_assets.get(
+        chromatic_aberration
+            .color_lut
+            .as_ref()
+            .unwrap_or(&default_lut.0),
+    ) else {
+        return;
+    };
+
+    // We need the postprocessing settings to be uploaded to the GPU.
+    let Some(chromatic_aberration_uniform_buffer_binding) = post_processing_uniform_buffers
+        .chromatic_aberration
+        .binding()
+    else {
+        return;
+    };
+
+    // Use the [`PostProcessWrite`] infrastructure, since this is a full-screen pass.
+    let post_process = view_target.post_process_write();
+
+    let pass_descriptor = RenderPassDescriptor {
+        label: Some("postprocessing"),
+        color_attachments: &[Some(RenderPassColorAttachment {
+            view: post_process.destination,
+            depth_slice: None,
+            resolve_target: None,
+            ops: Operations::default(),
+        })],
+        depth_stencil_attachment: None,
+        timestamp_writes: None,
+        occlusion_query_set: None,
+    };
+
+    let bind_group = ctx.render_device().create_bind_group(
+        Some("postprocessing bind group"),
+        &pipeline_cache.get_bind_group_layout(&post_processing_pipeline.bind_group_layout),
+        &BindGroupEntries::sequential((
+            post_process.source,
+            &post_processing_pipeline.source_sampler,
+            &chromatic_aberration_lut.texture_view,
+            &post_processing_pipeline.chromatic_aberration_lut_sampler,
+            chromatic_aberration_uniform_buffer_binding,
+        )),
     );
 
-    fn run<'w>(
-        &self,
-        _: &mut RenderGraphContext,
-        render_context: &mut RenderContext<'w>,
-        (view_target, pipeline_id, chromatic_aberration, post_processing_uniform_buffer_offsets): QueryItem<'w, '_, Self::ViewQuery>,
-        world: &'w World,
-    ) -> Result<(), NodeRunError> {
-        let pipeline_cache = world.resource::<PipelineCache>();
-        let post_processing_pipeline = world.resource::<PostProcessingPipeline>();
-        let post_processing_uniform_buffers = world.resource::<PostProcessingUniformBuffers>();
-        let gpu_image_assets = world.resource::<RenderAssets<GpuImage>>();
-        let default_lut = world.resource::<DefaultChromaticAberrationLut>();
+    let diagnostics = ctx.diagnostic_recorder();
+    let diagnostics = diagnostics.as_deref();
+    let time_span = diagnostics.time_span(ctx.command_encoder(), "postprocessing");
 
-        // We need a render pipeline to be prepared.
-        let Some(pipeline) = pipeline_cache.get_render_pipeline(**pipeline_id) else {
-            return Ok(());
-        };
-
-        // We need the chromatic aberration LUT to be present.
-        let Some(chromatic_aberration_lut) = gpu_image_assets.get(
-            chromatic_aberration
-                .color_lut
-                .as_ref()
-                .unwrap_or(&default_lut.0),
-        ) else {
-            return Ok(());
-        };
-
-        // We need the postprocessing settings to be uploaded to the GPU.
-        let Some(chromatic_aberration_uniform_buffer_binding) = post_processing_uniform_buffers
-            .chromatic_aberration
-            .binding()
-        else {
-            return Ok(());
-        };
-
-        let diagnostics = render_context.diagnostic_recorder();
-
-        // Use the [`PostProcessWrite`] infrastructure, since this is a
-        // full-screen pass.
-        let post_process = view_target.post_process_write();
-
-        let pass_descriptor = RenderPassDescriptor {
-            label: Some("postprocessing"),
-            color_attachments: &[Some(RenderPassColorAttachment {
-                view: post_process.destination,
-                depth_slice: None,
-                resolve_target: None,
-                ops: Operations::default(),
-            })],
-            depth_stencil_attachment: None,
-            timestamp_writes: None,
-            occlusion_query_set: None,
-        };
-
-        let bind_group = render_context.render_device().create_bind_group(
-            Some("postprocessing bind group"),
-            &pipeline_cache.get_bind_group_layout(&post_processing_pipeline.bind_group_layout),
-            &BindGroupEntries::sequential((
-                post_process.source,
-                &post_processing_pipeline.source_sampler,
-                &chromatic_aberration_lut.texture_view,
-                &post_processing_pipeline.chromatic_aberration_lut_sampler,
-                chromatic_aberration_uniform_buffer_binding,
-            )),
-        );
-
-        let mut render_pass = render_context
-            .command_encoder()
-            .begin_render_pass(&pass_descriptor);
-        let pass_span = diagnostics.pass_span(&mut render_pass, "postprocessing");
+    {
+        let mut render_pass = ctx.command_encoder().begin_render_pass(&pass_descriptor);
 
         render_pass.set_pipeline(pipeline);
         render_pass.set_bind_group(0, &bind_group, &[**post_processing_uniform_buffer_offsets]);
         render_pass.draw(0..3, 0..1);
-
-        pass_span.end(&mut render_pass);
-
-        Ok(())
     }
+
+    time_span.end(ctx.command_encoder());
 }
 
 /// Specializes the built-in postprocessing pipeline for each applicable view.

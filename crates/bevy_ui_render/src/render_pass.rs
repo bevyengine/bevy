@@ -11,106 +11,63 @@ use bevy_math::FloatOrd;
 use bevy_render::{
     camera::ExtractedCamera,
     diagnostic::RecordDiagnostics,
-    render_graph::*,
     render_phase::*,
     render_resource::{CachedRenderPipelineId, RenderPassDescriptor},
-    renderer::*,
+    renderer::{RenderContext, ViewQuery},
     sync_world::MainEntity,
     view::*,
 };
 use tracing::error;
 
-pub struct UiPassNode {
-    ui_view_query: QueryState<(&'static ExtractedView, &'static UiViewTarget)>,
-    ui_view_target_query: QueryState<(&'static ViewTarget, &'static ExtractedCamera)>,
-    ui_camera_view_query: QueryState<&'static UiCameraView>,
-}
+pub fn ui_pass(
+    world: &World,
+    view: ViewQuery<&UiCameraView>,
+    ui_view_query: Query<(&ExtractedView, &UiViewTarget)>,
+    ui_view_target_query: Query<(&ViewTarget, &ExtractedCamera)>,
+    transparent_render_phases: Res<ViewSortedRenderPhases<TransparentUi>>,
+    mut ctx: RenderContext,
+) {
+    let ui_camera_view = view.into_inner();
+    let ui_view_entity = ui_camera_view.0;
 
-impl UiPassNode {
-    pub fn new(world: &mut World) -> Self {
-        Self {
-            ui_view_query: world.query_filtered(),
-            ui_view_target_query: world.query(),
-            ui_camera_view_query: world.query(),
-        }
+    let Ok((extracted_view, ui_view_target)) = ui_view_query.get(ui_view_entity) else {
+        return;
+    };
+
+    let Ok((target, camera)) = ui_view_target_query.get(ui_view_target.0) else {
+        return;
+    };
+
+    let Some(transparent_phase) = transparent_render_phases.get(&extracted_view.retained_view_entity)
+    else {
+        return;
+    };
+
+    if transparent_phase.items.is_empty() {
+        return;
     }
-}
 
-impl Node for UiPassNode {
-    fn update(&mut self, world: &mut World) {
-        self.ui_view_query.update_archetypes(world);
-        self.ui_view_target_query.update_archetypes(world);
-        self.ui_camera_view_query.update_archetypes(world);
+    let diagnostics = ctx.diagnostic_recorder();
+    let diagnostics = diagnostics.as_deref();
+
+    let mut render_pass = ctx.begin_tracked_render_pass(RenderPassDescriptor {
+        label: Some("ui"),
+        color_attachments: &[Some(target.get_unsampled_color_attachment())],
+        depth_stencil_attachment: None,
+        timestamp_writes: None,
+        occlusion_query_set: None,
+    });
+    let pass_span = diagnostics.pass_span(&mut render_pass, "ui");
+
+    if let Some(viewport) = camera.viewport.as_ref() {
+        render_pass.set_camera_viewport(viewport);
     }
 
-    fn run(
-        &self,
-        graph: &mut RenderGraphContext,
-        render_context: &mut RenderContext,
-        world: &World,
-    ) -> Result<(), NodeRunError> {
-        // Extract the UI view.
-        let input_view_entity = graph.view_entity();
-
-        let Some(transparent_render_phases) =
-            world.get_resource::<ViewSortedRenderPhases<TransparentUi>>()
-        else {
-            return Ok(());
-        };
-
-        // Query the UI view components.
-        let Ok((view, ui_view_target)) = self.ui_view_query.get_manual(world, input_view_entity)
-        else {
-            return Ok(());
-        };
-
-        let Ok((target, camera)) = self
-            .ui_view_target_query
-            .get_manual(world, ui_view_target.0)
-        else {
-            return Ok(());
-        };
-
-        let Some(transparent_phase) = transparent_render_phases.get(&view.retained_view_entity)
-        else {
-            return Ok(());
-        };
-
-        if transparent_phase.items.is_empty() {
-            return Ok(());
-        }
-
-        let diagnostics = render_context.diagnostic_recorder();
-
-        // use the UI view entity if it is defined
-        let view_entity = if let Ok(ui_camera_view) = self
-            .ui_camera_view_query
-            .get_manual(world, input_view_entity)
-        {
-            ui_camera_view.0
-        } else {
-            input_view_entity
-        };
-        let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
-            label: Some("ui"),
-            color_attachments: &[Some(target.get_unsampled_color_attachment())],
-            depth_stencil_attachment: None,
-            timestamp_writes: None,
-            occlusion_query_set: None,
-        });
-        let pass_span = diagnostics.pass_span(&mut render_pass, "ui");
-
-        if let Some(viewport) = camera.viewport.as_ref() {
-            render_pass.set_camera_viewport(viewport);
-        }
-        if let Err(err) = transparent_phase.render(&mut render_pass, world, view_entity) {
-            error!("Error encountered while rendering the ui phase {err:?}");
-        }
-
-        pass_span.end(&mut render_pass);
-
-        Ok(())
+    if let Err(err) = transparent_phase.render(&mut render_pass, world, ui_view_entity) {
+        error!("Error encountered while rendering the ui phase {err:?}");
     }
+
+    pass_span.end(&mut render_pass);
 }
 
 pub struct TransparentUi {

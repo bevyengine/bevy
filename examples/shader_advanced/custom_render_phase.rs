@@ -16,11 +16,8 @@ use bevy::camera::Viewport;
 use bevy::pbr::SetMeshViewEmptyBindGroup;
 use bevy::{
     camera::MainPassResolutionOverride,
-    core_pipeline::core_3d::graph::{Core3d, Node3d},
-    ecs::{
-        query::QueryItem,
-        system::{lifetimeless::SRes, SystemParamItem},
-    },
+    core_pipeline::{schedule::Core3d, Core3dSystems},
+    ecs::system::{lifetimeless::SRes, SystemParamItem},
     math::FloatOrd,
     mesh::MeshVertexBufferLayoutRef,
     pbr::{
@@ -41,9 +38,6 @@ use bevy::{
         extract_component::{ExtractComponent, ExtractComponentPlugin},
         mesh::{allocator::MeshAllocator, RenderMesh},
         render_asset::RenderAssets,
-        render_graph::{
-            NodeRunError, RenderGraphContext, RenderGraphExt, RenderLabel, ViewNode, ViewNodeRunner,
-        },
         render_phase::{
             sort_phase_system, AddRenderCommand, CachedRenderPipelinePhaseItem, DrawFunctionId,
             DrawFunctions, PhaseItem, PhaseItemExtraIndex, SetItemPipeline, SortedPhaseItem,
@@ -55,7 +49,7 @@ use bevy::{
             SpecializedMeshPipeline, SpecializedMeshPipelineError, SpecializedMeshPipelines,
             TextureFormat, VertexState,
         },
-        renderer::RenderContext,
+        renderer::{RenderContext, ViewQuery},
         sync_world::MainEntity,
         view::{ExtractedView, RenderVisibleEntities, RetainedViewEntity, ViewTarget},
         Extract, Render, RenderApp, RenderDebugFlags, RenderStartup, RenderSystems,
@@ -140,12 +134,13 @@ impl Plugin for MeshStencilPhasePlugin {
                     batch_and_prepare_sorted_render_phase::<Stencil3d, StencilPipeline>
                         .in_set(RenderSystems::PrepareResources),
                 ),
+            )
+            .add_systems(
+                Core3d,
+                custom_draw_system
+                    .after(Core3dSystems::StartMainPass)
+                    .before(Core3dSystems::EndMainPass),
             );
-
-        render_app
-            .add_render_graph_node::<ViewNodeRunner<CustomDrawNode>>(Core3d, CustomDrawPassLabel)
-            // Tell the node to run after the main pass
-            .add_render_graph_edges(Core3d, (Node3d::MainOpaquePass, CustomDrawPassLabel));
     }
 }
 
@@ -567,65 +562,43 @@ fn queue_custom_meshes(
     }
 }
 
-// Render label used to order our render graph node that will render our phase
-#[derive(RenderLabel, Debug, Clone, Hash, PartialEq, Eq)]
-struct CustomDrawPassLabel;
+fn custom_draw_system(
+    world: &World,
+    view: ViewQuery<(
+        &ExtractedCamera,
+        &ExtractedView,
+        &ViewTarget,
+        Option<&MainPassResolutionOverride>,
+    )>,
+    stencil_phases: Res<ViewSortedRenderPhases<Stencil3d>>,
+    mut ctx: RenderContext,
+) {
+    let view_entity = view.entity();
+    let (camera, extracted_view, target, resolution_override) = view.into_inner();
 
-#[derive(Default)]
-struct CustomDrawNode;
-impl ViewNode for CustomDrawNode {
-    type ViewQuery = (
-        &'static ExtractedCamera,
-        &'static ExtractedView,
-        &'static ViewTarget,
-        Option<&'static MainPassResolutionOverride>,
-    );
+    let Some(stencil_phase) = stencil_phases.get(&extracted_view.retained_view_entity) else {
+        return;
+    };
 
-    fn run<'w>(
-        &self,
-        graph: &mut RenderGraphContext,
-        render_context: &mut RenderContext<'w>,
-        (camera, view, target, resolution_override): QueryItem<'w, '_, Self::ViewQuery>,
-        world: &'w World,
-    ) -> Result<(), NodeRunError> {
-        // First, we need to get our phases resource
-        let Some(stencil_phases) = world.get_resource::<ViewSortedRenderPhases<Stencil3d>>() else {
-            return Ok(());
-        };
+    let mut render_pass = ctx.begin_tracked_render_pass(RenderPassDescriptor {
+        label: Some("stencil pass"),
+        // For the purpose of the example, we will write directly to the view target. A real
+        // stencil pass would write to a custom texture and that texture would be used in later
+        // passes to render custom effects using it.
+        color_attachments: &[Some(target.get_color_attachment())],
+        // We don't bind any depth buffer for this pass
+        depth_stencil_attachment: None,
+        timestamp_writes: None,
+        occlusion_query_set: None,
+    });
 
-        // Get the view entity from the graph
-        let view_entity = graph.view_entity();
+    if let Some(viewport) =
+        Viewport::from_viewport_and_override(camera.viewport.as_ref(), resolution_override)
+    {
+        render_pass.set_camera_viewport(&viewport);
+    }
 
-        // Get the phase for the current view running our node
-        let Some(stencil_phase) = stencil_phases.get(&view.retained_view_entity) else {
-            return Ok(());
-        };
-
-        // Render pass setup
-        let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
-            label: Some("stencil pass"),
-            // For the purpose of the example, we will write directly to the view target. A real
-            // stencil pass would write to a custom texture and that texture would be used in later
-            // passes to render custom effects using it.
-            color_attachments: &[Some(target.get_color_attachment())],
-            // We don't bind any depth buffer for this pass
-            depth_stencil_attachment: None,
-            timestamp_writes: None,
-            occlusion_query_set: None,
-        });
-
-        if let Some(viewport) =
-            Viewport::from_viewport_and_override(camera.viewport.as_ref(), resolution_override)
-        {
-            render_pass.set_camera_viewport(&viewport);
-        }
-
-        // Render the phase
-        // This will execute each draw functions of each phase items queued in this phase
-        if let Err(err) = stencil_phase.render(&mut render_pass, world, view_entity) {
-            error!("Error encountered while rendering the stencil phase {err:?}");
-        }
-
-        Ok(())
+    if let Err(err) = stencil_phase.render(&mut render_pass, world, view_entity) {
+        error!("Error encountered while rendering the stencil phase {err:?}");
     }
 }

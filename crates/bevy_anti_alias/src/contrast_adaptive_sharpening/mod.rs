@@ -2,16 +2,15 @@ use bevy_app::prelude::*;
 use bevy_asset::{embedded_asset, load_embedded_asset, AssetServer, Handle};
 use bevy_camera::Camera;
 use bevy_core_pipeline::{
-    core_2d::graph::{Core2d, Node2d},
-    core_3d::graph::{Core3d, Node3d},
+    schedule::{Core2d, Core2dSystems, Core3d, Core3dSystems},
     FullscreenShader,
 };
+use crate::fxaa::fxaa;
 use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_image::BevyDefault as _;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin, UniformComponentPlugin},
-    render_graph::RenderGraphExt,
     render_resource::{
         binding_types::{sampler, texture_2d, uniform_buffer},
         *,
@@ -25,7 +24,7 @@ use bevy_utils::default;
 
 mod node;
 
-pub use node::CasNode;
+pub(crate) use node::cas;
 
 /// Applies a contrast adaptive sharpening (CAS) filter to the camera.
 ///
@@ -116,42 +115,17 @@ impl Plugin for CasPlugin {
         render_app
             .init_resource::<SpecializedRenderPipelines<CasPipeline>>()
             .add_systems(RenderStartup, init_cas_pipeline)
-            .add_systems(Render, prepare_cas_pipelines.in_set(RenderSystems::Prepare));
-
-        {
-            render_app
-                .add_render_graph_node::<CasNode>(Core3d, Node3d::ContrastAdaptiveSharpening)
-                .add_render_graph_edge(
-                    Core3d,
-                    Node3d::Tonemapping,
-                    Node3d::ContrastAdaptiveSharpening,
-                )
-                .add_render_graph_edges(
-                    Core3d,
-                    (
-                        Node3d::Fxaa,
-                        Node3d::ContrastAdaptiveSharpening,
-                        Node3d::EndMainPassPostProcessing,
-                    ),
-                );
-        }
-        {
-            render_app
-                .add_render_graph_node::<CasNode>(Core2d, Node2d::ContrastAdaptiveSharpening)
-                .add_render_graph_edge(
-                    Core2d,
-                    Node2d::Tonemapping,
-                    Node2d::ContrastAdaptiveSharpening,
-                )
-                .add_render_graph_edges(
-                    Core2d,
-                    (
-                        Node2d::Fxaa,
-                        Node2d::ContrastAdaptiveSharpening,
-                        Node2d::EndMainPassPostProcessing,
-                    ),
-                );
-        }
+            .add_systems(Render, prepare_cas_pipelines.in_set(RenderSystems::Prepare))
+            .add_systems(
+                Core3d,
+                cas.after(fxaa)
+                    .before(Core3dSystems::EndMainPassPostProcessing),
+            )
+            .add_systems(
+                Core2d,
+                cas.after(fxaa)
+                    .before(Core2dSystems::EndMainPassPostProcessing),
+            );
     }
 }
 

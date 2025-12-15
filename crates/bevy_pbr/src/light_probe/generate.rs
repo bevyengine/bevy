@@ -13,22 +13,19 @@
 //! These components are intended to be added to a camera.
 use bevy_app::{App, Plugin, Update};
 use bevy_asset::{embedded_asset, load_embedded_asset, AssetServer, Assets, RenderAssetUsages};
-use bevy_core_pipeline::core_3d::graph::{Core3d, Node3d};
 use bevy_ecs::{
     component::Component,
     entity::Entity,
-    query::{QueryState, With, Without},
+    query::{With, Without},
     resource::Resource,
     schedule::IntoScheduleConfigs,
-    system::{lifetimeless::Read, Commands, Query, Res, ResMut},
-    world::{FromWorld, World},
+    system::{Commands, Query, Res, ResMut},
 };
 use bevy_image::Image;
 use bevy_math::{Quat, UVec2, Vec2};
 use bevy_render::{
     diagnostic::RecordDiagnostics,
     render_asset::RenderAssets,
-    render_graph::{Node, NodeRunError, RenderGraphContext, RenderGraphExt, RenderLabel},
     render_resource::{
         binding_types::*, AddressMode, BindGroup, BindGroupEntries, BindGroupLayoutDescriptor,
         BindGroupLayoutEntries, CachedComputePipelineId, ComputePassDescriptor,
@@ -66,13 +63,6 @@ use core::cmp::min;
 use tracing::info;
 
 use crate::Bluenoise;
-
-/// Labels for the environment map generation nodes
-#[derive(PartialEq, Eq, Debug, Copy, Clone, Hash, RenderLabel)]
-pub enum GeneratorNode {
-    Downsampling,
-    Filtering,
-}
 
 /// Stores the bind group layouts for the environment map generation pipelines
 #[derive(Resource)]
@@ -146,30 +136,22 @@ impl Plugin for EnvironmentMapGenerationPlugin {
         };
 
         render_app
-            .add_render_graph_node::<DownsamplingNode>(Core3d, GeneratorNode::Downsampling)
-            .add_render_graph_node::<FilteringNode>(Core3d, GeneratorNode::Filtering)
-            .add_render_graph_edges(
-                Core3d,
-                (
-                    Node3d::EndPrepasses,
-                    GeneratorNode::Downsampling,
-                    GeneratorNode::Filtering,
-                    Node3d::StartMainPass,
-                ),
-            )
             .add_systems(
                 ExtractSchedule,
                 extract_generated_environment_map_entities.after(generate_environment_map_light),
             )
             .add_systems(
                 Render,
-                prepare_generated_environment_map_bind_groups
-                    .in_set(RenderSystems::PrepareBindGroups),
-            )
-            .add_systems(
-                Render,
-                prepare_generated_environment_map_intermediate_textures
-                    .in_set(RenderSystems::PrepareResources),
+                (
+                    prepare_generated_environment_map_bind_groups
+                        .in_set(RenderSystems::PrepareBindGroups),
+                    prepare_generated_environment_map_intermediate_textures
+                        .in_set(RenderSystems::PrepareResources),
+                    (downsampling_system, filtering_system)
+                        .chain()
+                        .after(RenderSystems::PrepareBindGroups)
+                        .before(RenderSystems::Render),
+                ),
             )
             .add_systems(
                 RenderStartup,
@@ -871,178 +853,132 @@ fn create_placeholder_storage_view(render_device: &RenderDevice) -> TextureView 
     tex.create_view(&TextureViewDescriptor::default())
 }
 
-/// Downsampling node implementation that handles all parts of the mip chain
-pub struct DownsamplingNode {
-    query: QueryState<(
-        Entity,
-        Read<GeneratorBindGroups>,
-        Read<RenderEnvironmentMap>,
-    )>,
-}
+pub fn downsampling_system(
+    query: Query<(&GeneratorBindGroups, &RenderEnvironmentMap)>,
+    pipeline_cache: Res<PipelineCache>,
+    pipelines: Option<Res<GeneratorPipelines>>,
+    mut ctx: RenderContext,
+) {
+    let Some(pipelines) = pipelines else {
+        return;
+    };
 
-impl FromWorld for DownsamplingNode {
-    fn from_world(world: &mut World) -> Self {
-        Self {
-            query: QueryState::new(world),
-        }
-    }
-}
+    let Some(downsample_first_pipeline) =
+        pipeline_cache.get_compute_pipeline(pipelines.downsample_first)
+    else {
+        return;
+    };
 
-impl Node for DownsamplingNode {
-    fn update(&mut self, world: &mut World) {
-        self.query.update_archetypes(world);
-    }
+    let Some(downsample_second_pipeline) =
+        pipeline_cache.get_compute_pipeline(pipelines.downsample_second)
+    else {
+        return;
+    };
 
-    fn run(
-        &self,
-        _graph: &mut RenderGraphContext,
-        render_context: &mut RenderContext,
-        world: &World,
-    ) -> Result<(), NodeRunError> {
-        let pipeline_cache = world.resource::<PipelineCache>();
-        let pipelines = world.resource::<GeneratorPipelines>();
+    let Some(copy_pipeline) = pipeline_cache.get_compute_pipeline(pipelines.copy) else {
+        return;
+    };
 
-        let Some(downsample_first_pipeline) =
-            pipeline_cache.get_compute_pipeline(pipelines.downsample_first)
-        else {
-            return Ok(());
-        };
+    let diagnostics = ctx.diagnostic_recorder();
+    let diagnostics = diagnostics.as_deref();
 
-        let Some(downsample_second_pipeline) =
-            pipeline_cache.get_compute_pipeline(pipelines.downsample_second)
-        else {
-            return Ok(());
-        };
-
-        let diagnostics = render_context.diagnostic_recorder();
-
-        for (_, bind_groups, env_map_light) in self.query.iter_manual(world) {
-            // Copy base mip using compute shader with pre-built bind group
-            let Some(copy_pipeline) = pipeline_cache.get_compute_pipeline(pipelines.copy) else {
-                return Ok(());
-            };
-
-            {
-                let mut compute_pass =
-                    render_context
-                        .command_encoder()
-                        .begin_compute_pass(&ComputePassDescriptor {
-                            label: Some("lightprobe_copy"),
-                            timestamp_writes: None,
-                        });
-
-                let pass_span = diagnostics.pass_span(&mut compute_pass, "lightprobe_copy");
-
-                compute_pass.set_pipeline(copy_pipeline);
-                compute_pass.set_bind_group(0, &bind_groups.copy, &[]);
-
-                let tex_size = env_map_light.environment_map.size;
-                let wg_x = tex_size.width.div_ceil(8);
-                let wg_y = tex_size.height.div_ceil(8);
-                compute_pass.dispatch_workgroups(wg_x, wg_y, 6);
-
-                pass_span.end(&mut compute_pass);
-            }
-
-            // First pass - process mips 0-5
-            {
-                let mut compute_pass =
-                    render_context
-                        .command_encoder()
-                        .begin_compute_pass(&ComputePassDescriptor {
-                            label: Some("lightprobe_downsampling_first_pass"),
-                            timestamp_writes: None,
-                        });
-
-                let pass_span =
-                    diagnostics.pass_span(&mut compute_pass, "lightprobe_downsampling_first_pass");
-
-                compute_pass.set_pipeline(downsample_first_pipeline);
-                compute_pass.set_bind_group(0, &bind_groups.downsampling_first, &[]);
-
-                let tex_size = env_map_light.environment_map.size;
-                let wg_x = tex_size.width.div_ceil(64);
-                let wg_y = tex_size.height.div_ceil(64);
-                compute_pass.dispatch_workgroups(wg_x, wg_y, 6); // 6 faces
-
-                pass_span.end(&mut compute_pass);
-            }
-
-            // Second pass - process mips 6-12
-            {
-                let mut compute_pass =
-                    render_context
-                        .command_encoder()
-                        .begin_compute_pass(&ComputePassDescriptor {
-                            label: Some("lightprobe_downsampling_second_pass"),
-                            timestamp_writes: None,
-                        });
-
-                let pass_span =
-                    diagnostics.pass_span(&mut compute_pass, "lightprobe_downsampling_second_pass");
-
-                compute_pass.set_pipeline(downsample_second_pipeline);
-                compute_pass.set_bind_group(0, &bind_groups.downsampling_second, &[]);
-
-                let tex_size = env_map_light.environment_map.size;
-                let wg_x = tex_size.width.div_ceil(256);
-                let wg_y = tex_size.height.div_ceil(256);
-                compute_pass.dispatch_workgroups(wg_x, wg_y, 6);
-
-                pass_span.end(&mut compute_pass);
-            }
-        }
-
-        Ok(())
-    }
-}
-
-/// Radiance map node for generating specular environment maps
-pub struct FilteringNode {
-    query: QueryState<(
-        Entity,
-        Read<GeneratorBindGroups>,
-        Read<RenderEnvironmentMap>,
-    )>,
-}
-
-impl FromWorld for FilteringNode {
-    fn from_world(world: &mut World) -> Self {
-        Self {
-            query: QueryState::new(world),
-        }
-    }
-}
-
-impl Node for FilteringNode {
-    fn update(&mut self, world: &mut World) {
-        self.query.update_archetypes(world);
-    }
-
-    fn run(
-        &self,
-        _graph: &mut RenderGraphContext,
-        render_context: &mut RenderContext,
-        world: &World,
-    ) -> Result<(), NodeRunError> {
-        let pipeline_cache = world.resource::<PipelineCache>();
-        let pipelines = world.resource::<GeneratorPipelines>();
-
-        let Some(radiance_pipeline) = pipeline_cache.get_compute_pipeline(pipelines.radiance)
-        else {
-            return Ok(());
-        };
-        let Some(irradiance_pipeline) = pipeline_cache.get_compute_pipeline(pipelines.irradiance)
-        else {
-            return Ok(());
-        };
-
-        let diagnostics = render_context.diagnostic_recorder();
-
-        for (_, bind_groups, env_map_light) in self.query.iter_manual(world) {
+    for (bind_groups, env_map_light) in &query {
+        // Copy base mip using compute shader with pre-built bind group
+        {
             let mut compute_pass =
-                render_context
-                    .command_encoder()
+                ctx.command_encoder()
+                    .begin_compute_pass(&ComputePassDescriptor {
+                        label: Some("lightprobe_copy"),
+                        timestamp_writes: None,
+                    });
+
+            let pass_span = diagnostics.pass_span(&mut compute_pass, "lightprobe_copy");
+
+            compute_pass.set_pipeline(copy_pipeline);
+            compute_pass.set_bind_group(0, &bind_groups.copy, &[]);
+
+            let tex_size = env_map_light.environment_map.size;
+            let wg_x = tex_size.width.div_ceil(8);
+            let wg_y = tex_size.height.div_ceil(8);
+            compute_pass.dispatch_workgroups(wg_x, wg_y, 6);
+
+            pass_span.end(&mut compute_pass);
+        }
+
+        // First pass - process mips 0-5
+        {
+            let mut compute_pass =
+                ctx.command_encoder()
+                    .begin_compute_pass(&ComputePassDescriptor {
+                        label: Some("lightprobe_downsampling_first_pass"),
+                        timestamp_writes: None,
+                    });
+
+            let pass_span =
+                diagnostics.pass_span(&mut compute_pass, "lightprobe_downsampling_first_pass");
+
+            compute_pass.set_pipeline(downsample_first_pipeline);
+            compute_pass.set_bind_group(0, &bind_groups.downsampling_first, &[]);
+
+            let tex_size = env_map_light.environment_map.size;
+            let wg_x = tex_size.width.div_ceil(64);
+            let wg_y = tex_size.height.div_ceil(64);
+            compute_pass.dispatch_workgroups(wg_x, wg_y, 6); // 6 faces
+
+            pass_span.end(&mut compute_pass);
+        }
+
+        // Second pass - process mips 6-12
+        {
+            let mut compute_pass =
+                ctx.command_encoder()
+                    .begin_compute_pass(&ComputePassDescriptor {
+                        label: Some("lightprobe_downsampling_second_pass"),
+                        timestamp_writes: None,
+                    });
+
+            let pass_span =
+                diagnostics.pass_span(&mut compute_pass, "lightprobe_downsampling_second_pass");
+
+            compute_pass.set_pipeline(downsample_second_pipeline);
+            compute_pass.set_bind_group(0, &bind_groups.downsampling_second, &[]);
+
+            let tex_size = env_map_light.environment_map.size;
+            let wg_x = tex_size.width.div_ceil(256);
+            let wg_y = tex_size.height.div_ceil(256);
+            compute_pass.dispatch_workgroups(wg_x, wg_y, 6);
+
+            pass_span.end(&mut compute_pass);
+        }
+    }
+}
+
+pub fn filtering_system(
+    query: Query<(&GeneratorBindGroups, &RenderEnvironmentMap)>,
+    pipeline_cache: Res<PipelineCache>,
+    pipelines: Option<Res<GeneratorPipelines>>,
+    mut ctx: RenderContext,
+) {
+    let Some(pipelines) = pipelines else {
+        return;
+    };
+
+    let Some(radiance_pipeline) = pipeline_cache.get_compute_pipeline(pipelines.radiance) else {
+        return;
+    };
+    let Some(irradiance_pipeline) = pipeline_cache.get_compute_pipeline(pipelines.irradiance)
+    else {
+        return;
+    };
+
+    let diagnostics = ctx.diagnostic_recorder();
+    let diagnostics = diagnostics.as_deref();
+
+    for (bind_groups, env_map_light) in &query {
+        // Radiance convolution pass
+        {
+            let mut compute_pass =
+                ctx.command_encoder()
                     .begin_compute_pass(&ComputePassDescriptor {
                         label: Some("lightprobe_radiance_map"),
                         timestamp_writes: None,
@@ -1054,7 +990,6 @@ impl Node for FilteringNode {
 
             let base_size = env_map_light.specular_map.size.width;
 
-            // Radiance convolution pass
             // Process each mip at different roughness levels
             for (mip, bind_group) in bind_groups.radiance.iter().enumerate() {
                 compute_pass.set_bind_group(0, bind_group, &[]);
@@ -1066,35 +1001,31 @@ impl Node for FilteringNode {
                 // Dispatch for all 6 faces
                 compute_pass.dispatch_workgroups(workgroup_count, workgroup_count, 6);
             }
+
             pass_span.end(&mut compute_pass);
-            // End the compute pass before starting the next one
-            drop(compute_pass);
-
-            // Irradiance convolution pass
-            // Generate the diffuse environment map
-            {
-                let mut compute_pass =
-                    render_context
-                        .command_encoder()
-                        .begin_compute_pass(&ComputePassDescriptor {
-                            label: Some("lightprobe_irradiance_map"),
-                            timestamp_writes: None,
-                        });
-
-                let irr_span =
-                    diagnostics.pass_span(&mut compute_pass, "lightprobe_irradiance_map");
-
-                compute_pass.set_pipeline(irradiance_pipeline);
-                compute_pass.set_bind_group(0, &bind_groups.irradiance, &[]);
-
-                // 32×32 texture processed with 8×8 workgroups for all 6 faces
-                compute_pass.dispatch_workgroups(4, 4, 6);
-
-                irr_span.end(&mut compute_pass);
-            }
         }
 
-        Ok(())
+        // Irradiance convolution pass
+        // Generate the diffuse environment map
+        {
+            let mut compute_pass =
+                ctx.command_encoder()
+                    .begin_compute_pass(&ComputePassDescriptor {
+                        label: Some("lightprobe_irradiance_map"),
+                        timestamp_writes: None,
+                    });
+
+            let irr_span =
+                diagnostics.pass_span(&mut compute_pass, "lightprobe_irradiance_map");
+
+            compute_pass.set_pipeline(irradiance_pipeline);
+            compute_pass.set_bind_group(0, &bind_groups.irradiance, &[]);
+
+            // 32×32 texture processed with 8×8 workgroups for all 6 faces
+            compute_pass.dispatch_workgroups(4, 4, 6);
+
+            irr_span.end(&mut compute_pass);
+        }
     }
 }
 

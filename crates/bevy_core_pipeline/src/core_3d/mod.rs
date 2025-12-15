@@ -2,51 +2,6 @@ mod main_opaque_pass_3d_node;
 mod main_transmissive_pass_3d_node;
 mod main_transparent_pass_3d_node;
 
-pub mod graph {
-    use bevy_render::render_graph::{RenderLabel, RenderSubGraph};
-
-    #[derive(Debug, Hash, PartialEq, Eq, Clone, RenderSubGraph)]
-    pub struct Core3d;
-
-    pub mod input {
-        pub const VIEW_ENTITY: &str = "view_entity";
-    }
-
-    #[derive(Debug, Hash, PartialEq, Eq, Clone, RenderLabel)]
-    pub enum Node3d {
-        MsaaWriteback,
-        EarlyPrepass,
-        EarlyDownsampleDepth,
-        LatePrepass,
-        EarlyDeferredPrepass,
-        LateDeferredPrepass,
-        CopyDeferredLightingId,
-        EndPrepasses,
-        StartMainPass,
-        MainOpaquePass,
-        MainTransmissivePass,
-        MainTransparentPass,
-        EndMainPass,
-        Wireframe,
-        StartMainPassPostProcessing,
-        LateDownsampleDepth,
-        MotionBlur,
-        Taa,
-        DlssSuperResolution,
-        DlssRayReconstruction,
-        Bloom,
-        AutoExposure,
-        DepthOfField,
-        PostProcessing,
-        Tonemapping,
-        Fxaa,
-        Smaa,
-        Upscaling,
-        ContrastAdaptiveSharpening,
-        EndMainPassPostProcessing,
-    }
-}
-
 // PERF: vulkan docs recommend using 24 bit depth for better performance
 pub const CORE_3D_DEPTH_FORMAT: TextureFormat = TextureFormat::Depth32Float;
 
@@ -84,6 +39,7 @@ use bevy_render::{
     view::{prepare_view_targets, NoIndirectDrawing, RetainedViewEntity},
 };
 pub use main_opaque_pass_3d_node::*;
+pub use main_transmissive_pass_3d_node::*;
 pub use main_transparent_pass_3d_node::*;
 
 use bevy_app::{App, Plugin, PostUpdate};
@@ -97,7 +53,6 @@ use bevy_render::{
     camera::ExtractedCamera,
     extract_component::ExtractComponentPlugin,
     prelude::Msaa,
-    render_graph::{EmptyNode, RenderGraphExt, ViewNodeRunner},
     render_phase::{
         sort_phase_system, BinnedPhaseItem, CachedRenderPipelinePhaseItem, DrawFunctionId,
         DrawFunctions, PhaseItem, PhaseItemExtraIndex, SortedPhaseItem, ViewBinnedRenderPhases,
@@ -116,27 +71,20 @@ use bevy_render::{
 use nonmax::NonMaxU32;
 use tracing::warn;
 
-use crate::{
-    core_3d::main_transmissive_pass_3d_node::MainTransmissivePass3dNode,
-    deferred::{
-        copy_lighting_id::CopyDeferredLightingIdNode,
-        node::{EarlyDeferredGBufferPrepassNode, LateDeferredGBufferPrepassNode},
-        AlphaMask3dDeferred, Opaque3dDeferred, DEFERRED_LIGHTING_PASS_ID_FORMAT,
-        DEFERRED_PREPASS_FORMAT,
-    },
-    prepass::{
-        node::{EarlyPrepassNode, LatePrepassNode},
-        AlphaMask3dPrepass, DeferredPrepass, DeferredPrepassDoubleBuffer, DepthPrepass,
-        DepthPrepassDoubleBuffer, MotionVectorPrepass, NormalPrepass, Opaque3dPrepass,
-        OpaqueNoLightmap3dBatchSetKey, OpaqueNoLightmap3dBinKey, ViewPrepassTextures,
-        MOTION_VECTOR_PREPASS_FORMAT, NORMAL_PREPASS_FORMAT,
-    },
-    skybox::SkyboxPlugin,
-    tonemapping::{DebandDither, Tonemapping, TonemappingNode},
-    upscaling::UpscalingNode,
-};
-
-use self::graph::{Core3d, Node3d};
+use crate::{deferred::{
+    AlphaMask3dDeferred, Opaque3dDeferred, DEFERRED_LIGHTING_PASS_ID_FORMAT,
+    DEFERRED_PREPASS_FORMAT,
+}, prepass::{
+    AlphaMask3dPrepass, DeferredPrepass, DeferredPrepassDoubleBuffer, DepthPrepass,
+    DepthPrepassDoubleBuffer, MotionVectorPrepass, NormalPrepass, Opaque3dPrepass,
+    OpaqueNoLightmap3dBatchSetKey, OpaqueNoLightmap3dBinKey, ViewPrepassTextures,
+    MOTION_VECTOR_PREPASS_FORMAT, NORMAL_PREPASS_FORMAT,
+}, schedule::Core3d, skybox::SkyboxPlugin, tonemapping::{DebandDither, Tonemapping}, Core3dSystems};
+use crate::deferred::copy_lighting_id::copy_deferred_lighting_id;
+use crate::deferred::node::{early_deferred_prepass, late_deferred_prepass};
+use crate::prepass::node::{early_prepass, late_prepass};
+use crate::tonemapping::tonemapping;
+use crate::upscaling::upscaling;
 
 pub struct Core3dPlugin;
 
@@ -184,63 +132,42 @@ impl Plugin for Core3dPlugin {
                     prepare_core_3d_transmission_textures.in_set(RenderSystems::PrepareResources),
                     prepare_prepass_textures.in_set(RenderSystems::PrepareResources),
                 ),
-            );
-
-        render_app
-            .add_render_sub_graph(Core3d)
-            .add_render_graph_node::<ViewNodeRunner<EarlyPrepassNode>>(Core3d, Node3d::EarlyPrepass)
-            .add_render_graph_node::<ViewNodeRunner<LatePrepassNode>>(Core3d, Node3d::LatePrepass)
-            .add_render_graph_node::<ViewNodeRunner<EarlyDeferredGBufferPrepassNode>>(
-                Core3d,
-                Node3d::EarlyDeferredPrepass,
             )
-            .add_render_graph_node::<ViewNodeRunner<LateDeferredGBufferPrepassNode>>(
-                Core3d,
-                Node3d::LateDeferredPrepass,
-            )
-            .add_render_graph_node::<ViewNodeRunner<CopyDeferredLightingIdNode>>(
-                Core3d,
-                Node3d::CopyDeferredLightingId,
-            )
-            .add_render_graph_node::<EmptyNode>(Core3d, Node3d::EndPrepasses)
-            .add_render_graph_node::<EmptyNode>(Core3d, Node3d::StartMainPass)
-            .add_render_graph_node::<ViewNodeRunner<MainOpaquePass3dNode>>(
-                Core3d,
-                Node3d::MainOpaquePass,
-            )
-            .add_render_graph_node::<ViewNodeRunner<MainTransmissivePass3dNode>>(
-                Core3d,
-                Node3d::MainTransmissivePass,
-            )
-            .add_render_graph_node::<ViewNodeRunner<MainTransparentPass3dNode>>(
-                Core3d,
-                Node3d::MainTransparentPass,
-            )
-            .add_render_graph_node::<EmptyNode>(Core3d, Node3d::EndMainPass)
-            .add_render_graph_node::<EmptyNode>(Core3d, Node3d::StartMainPassPostProcessing)
-            .add_render_graph_node::<ViewNodeRunner<TonemappingNode>>(Core3d, Node3d::Tonemapping)
-            .add_render_graph_node::<EmptyNode>(Core3d, Node3d::EndMainPassPostProcessing)
-            .add_render_graph_node::<ViewNodeRunner<UpscalingNode>>(Core3d, Node3d::Upscaling)
-            .add_render_graph_edges(
-                Core3d,
-                (
-                    Node3d::EarlyPrepass,
-                    Node3d::EarlyDeferredPrepass,
-                    Node3d::LatePrepass,
-                    Node3d::LateDeferredPrepass,
-                    Node3d::CopyDeferredLightingId,
-                    Node3d::EndPrepasses,
-                    Node3d::StartMainPass,
-                    Node3d::MainOpaquePass,
-                    Node3d::MainTransmissivePass,
-                    Node3d::MainTransparentPass,
-                    Node3d::EndMainPass,
-                    Node3d::StartMainPassPostProcessing,
-                    Node3d::Tonemapping,
-                    Node3d::EndMainPassPostProcessing,
-                    Node3d::Upscaling,
-                ),
-            );
+            .add_schedule(Core3d::base_schedule())
+            .add_systems(
+            Core3d,
+            (
+                // Prepasses
+                early_prepass.before(Core3dSystems::EndPrepasses),
+                early_deferred_prepass
+                    .after(early_prepass)
+                    .before(Core3dSystems::EndPrepasses),
+                late_prepass
+                    .after(early_deferred_prepass)
+                    .before(Core3dSystems::EndPrepasses),
+                late_deferred_prepass
+                    .after(late_prepass)
+                    .before(Core3dSystems::EndPrepasses),
+                copy_deferred_lighting_id
+                    .after(late_deferred_prepass)
+                    .before(Core3dSystems::EndPrepasses),
+                // Main passes
+                main_opaque_pass_3d
+                    .after(Core3dSystems::StartMainPass)
+                    .before(Core3dSystems::EndMainPass),
+                main_transmissive_pass_3d
+                    .after(main_opaque_pass_3d)
+                    .before(Core3dSystems::EndMainPass),
+                main_transparent_pass_3d
+                    .after(main_transmissive_pass_3d)
+                    .before(Core3dSystems::EndMainPass),
+                // Post-processing
+                tonemapping
+                    .after(Core3dSystems::StartMainPassPostProcessing)
+                    .before(Core3dSystems::PostProcessing),
+                upscaling.after(Core3dSystems::EndMainPassPostProcessing),
+            ),
+        );
     }
 }
 

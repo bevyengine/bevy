@@ -6,7 +6,7 @@
 //!
 //! To create a depth-only camera, we create a [`Camera3d`] and set its
 //! [`RenderTarget`] to [`RenderTarget::None`] to disable creation of a color
-//! buffer. Then we add a new node to the render graph that copies the
+//! buffer. Then we add a system to the Core3d schedule that copies the
 //! [`bevy::render::view::ViewDepthTexture`] that Bevy creates for that camera
 //! to a texture. This texture can then be attached to a material and sampled in
 //! the shader.
@@ -21,11 +21,7 @@ use bevy::{
     asset::RenderAssetUsages,
     camera::RenderTarget,
     color::palettes::css::LIME,
-    core_pipeline::{
-        core_3d::graph::{Core3d, Node3d},
-        prepass::DepthPrepass,
-    },
-    ecs::{query::QueryItem, system::lifetimeless::Read},
+    core_pipeline::{prepass::DepthPrepass, schedule::Core3d, Core3dSystems},
     image::{ImageCompareFunction, ImageSampler, ImageSamplerDescriptor},
     math::ops::{acos, atan2, sin_cos},
     prelude::*,
@@ -33,15 +29,11 @@ use bevy::{
         camera::ExtractedCamera,
         extract_resource::{ExtractResource, ExtractResourcePlugin},
         render_asset::RenderAssets,
-        render_graph::{
-            NodeRunError, RenderGraphContext, RenderGraphExt as _, RenderLabel, ViewNode,
-            ViewNodeRunner,
-        },
         render_resource::{
-            AsBindGroup, CommandEncoderDescriptor, Extent3d, Origin3d, TexelCopyTextureInfo,
-            TextureAspect, TextureDimension, TextureFormat,
+            AsBindGroup, Extent3d, Origin3d, TexelCopyTextureInfo, TextureAspect, TextureDimension,
+            TextureFormat,
         },
-        renderer::RenderContext,
+        renderer::{RenderContext, ViewQuery},
         texture::GpuImage,
         view::ViewDepthTexture,
         RenderApp,
@@ -63,16 +55,6 @@ struct ShowDepthTextureMaterial {
     #[sampler(1, sampler_type = "comparison")]
     depth_texture: Option<Handle<Image>>,
 }
-
-/// A label for the render node that copies the depth buffer from that of the
-/// camera to the [`DemoDepthTexture`].
-#[derive(Clone, PartialEq, Eq, Hash, Debug, RenderLabel)]
-struct CopyDepthTexturePass;
-
-/// The render node that copies the depth buffer from that of the camera to the
-/// [`DemoDepthTexture`].
-#[derive(Default)]
-struct CopyDepthTextureNode;
 
 /// Holds a copy of the depth buffer that the depth-only camera produces.
 ///
@@ -128,27 +110,66 @@ fn main() {
         .add_systems(Update, draw_camera_gizmo)
         .add_systems(Update, move_camera);
 
-    // Add the `CopyDepthTextureNode` to the render app.
     let render_app = app
         .get_sub_app_mut(RenderApp)
         .expect("Render app should be present");
-    render_app.add_render_graph_node::<ViewNodeRunner<CopyDepthTextureNode>>(
+
+    render_app.add_systems(
         Core3d,
-        CopyDepthTexturePass,
-    );
-    // We have the texture copy operation run in between the prepasses and
-    // the opaque pass. Since the depth rendering is part of the prepass, this
-    // is a reasonable time to perform the operation.
-    render_app.add_render_graph_edges(
-        Core3d,
-        (
-            Node3d::EndPrepasses,
-            CopyDepthTexturePass,
-            Node3d::MainOpaquePass,
-        ),
+        copy_depth_texture_system
+            .after(Core3dSystems::EndPrepasses)
+            .before(Core3dSystems::StartMainPass),
     );
 
     app.run();
+}
+
+fn copy_depth_texture_system(
+    view: ViewQuery<(&ExtractedCamera, &ViewDepthTexture)>,
+    demo_depth_texture: Option<Res<DemoDepthTexture>>,
+    image_assets: Res<RenderAssets<GpuImage>>,
+    mut ctx: RenderContext,
+) {
+    let Some(demo_depth_texture) = demo_depth_texture else {
+        return;
+    };
+
+    let (camera, depth_texture) = view.into_inner();
+
+    // Make sure we only run on the depth-only camera.
+    // We could make a marker component for that camera and extract it to
+    // the render world, but using `order` as a tag to tell the main camera
+    // and the depth-only camera apart works in a pinch.
+    if camera.order >= 0 {
+        return;
+    }
+
+    let Some(demo_depth_image) = image_assets.get(demo_depth_texture.0.id()) else {
+        return;
+    };
+
+    let command_encoder = ctx.command_encoder();
+    command_encoder.push_debug_group("copy depth to demo texture");
+    command_encoder.copy_texture_to_texture(
+        TexelCopyTextureInfo {
+            texture: &depth_texture.texture,
+            mip_level: 0,
+            origin: Origin3d::default(),
+            aspect: TextureAspect::DepthOnly,
+        },
+        TexelCopyTextureInfo {
+            texture: &demo_depth_image.texture,
+            mip_level: 0,
+            origin: Origin3d::default(),
+            aspect: TextureAspect::DepthOnly,
+        },
+        Extent3d {
+            width: DEPTH_TEXTURE_SIZE,
+            height: DEPTH_TEXTURE_SIZE,
+            depth_or_array_layers: 1,
+        },
+    );
+    command_encoder.pop_debug_group();
 }
 
 /// Creates the scene.
@@ -282,69 +303,6 @@ impl Material for ShowDepthTextureMaterial {
     }
 }
 
-impl ViewNode for CopyDepthTextureNode {
-    type ViewQuery = (Read<ExtractedCamera>, Read<ViewDepthTexture>);
-
-    fn run<'w>(
-        &self,
-        _: &mut RenderGraphContext,
-        render_context: &mut RenderContext<'w>,
-        (camera, depth_texture): QueryItem<'w, '_, Self::ViewQuery>,
-        world: &'w World,
-    ) -> Result<(), NodeRunError> {
-        // Make sure we only run on the depth-only camera.
-        // We could make a marker component for that camera and extract it to
-        // the render world, but using `order` as a tag to tell the main camera
-        // and the depth-only camera apart works in a pinch.
-        if camera.order >= 0 {
-            return Ok(());
-        }
-
-        // Grab the texture we're going to copy to.
-        let demo_depth_texture = world.resource::<DemoDepthTexture>();
-        let image_assets = world.resource::<RenderAssets<GpuImage>>();
-        let Some(demo_depth_image) = image_assets.get(demo_depth_texture.0.id()) else {
-            return Ok(());
-        };
-
-        // Perform the copy.
-        render_context.add_command_buffer_generation_task(move |render_device| {
-            let mut command_encoder =
-                render_device.create_command_encoder(&CommandEncoderDescriptor {
-                    label: Some("copy depth to demo texture command encoder"),
-                });
-            command_encoder.push_debug_group("copy depth to demo texture");
-
-            // Copy from the view's depth texture to the destination depth
-            // texture.
-            command_encoder.copy_texture_to_texture(
-                TexelCopyTextureInfo {
-                    texture: &depth_texture.texture,
-                    mip_level: 0,
-                    origin: Origin3d::default(),
-                    aspect: TextureAspect::DepthOnly,
-                },
-                TexelCopyTextureInfo {
-                    texture: &demo_depth_image.texture,
-                    mip_level: 0,
-                    origin: Origin3d::default(),
-                    aspect: TextureAspect::DepthOnly,
-                },
-                Extent3d {
-                    width: DEPTH_TEXTURE_SIZE,
-                    height: DEPTH_TEXTURE_SIZE,
-                    depth_or_array_layers: 1,
-                },
-            );
-
-            command_encoder.pop_debug_group();
-            command_encoder.finish()
-        });
-
-        Ok(())
-    }
-}
-
 impl FromWorld for DemoDepthTexture {
     fn from_world(world: &mut World) -> Self {
         let mut images = world.resource_mut::<Assets<Image>>();
@@ -379,7 +337,7 @@ impl ExtractResource for DemoDepthTexture {
 
     fn extract_resource(source: &Self::Source) -> Self {
         // Share the `DemoDepthTexture` resource over to the render world so
-        // that our `CopyDepthTextureNode` can access it.
+        // that our system can access it.
         (*source).clone()
     }
 }

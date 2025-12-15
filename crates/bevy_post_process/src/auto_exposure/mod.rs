@@ -4,7 +4,6 @@ use bevy_ecs::prelude::*;
 use bevy_render::{
     extract_component::ExtractComponentPlugin,
     render_asset::RenderAssetPlugin,
-    render_graph::RenderGraphExt,
     render_resource::{
         Buffer, BufferDescriptor, BufferUsages, PipelineCache, SpecializedComputePipelines,
     },
@@ -20,14 +19,16 @@ mod settings;
 
 use buffers::{extract_buffers, prepare_buffers, AutoExposureBuffers};
 pub use compensation_curve::{AutoExposureCompensationCurve, AutoExposureCompensationCurveError};
-use node::AutoExposureNode;
 use pipeline::{AutoExposurePass, AutoExposurePipeline, ViewAutoExposurePipeline};
 pub use settings::AutoExposure;
 
 use crate::auto_exposure::{
     compensation_curve::GpuAutoExposureCompensationCurve, pipeline::init_auto_exposure_pipeline,
 };
-use bevy_core_pipeline::core_3d::graph::{Core3d, Node3d};
+use bevy_core_pipeline::{
+    schedule::{Core3d, Core3dSystems},
+    tonemapping::tonemapping,
+};
 
 /// Plugin for the auto exposure feature.
 ///
@@ -72,14 +73,12 @@ impl Plugin for AutoExposurePlugin {
                     queue_view_auto_exposure_pipelines.in_set(RenderSystems::Queue),
                 ),
             )
-            .add_render_graph_node::<AutoExposureNode>(Core3d, node::AutoExposure)
-            .add_render_graph_edges(
+            // Add auto_exposure to the 3d schedule
+            .add_systems(
                 Core3d,
-                (
-                    Node3d::StartMainPassPostProcessing,
-                    node::AutoExposure,
-                    Node3d::Tonemapping,
-                ),
+                node::auto_exposure
+                    .after(Core3dSystems::StartMainPassPostProcessing)
+                    .before(tonemapping),
             );
     }
 }
