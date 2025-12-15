@@ -30,8 +30,8 @@ use crate::{
     resource::Resource,
     schedule::ScheduleLabel,
     system::{
-        Deferred, IntoObserverSystem, IntoSystem, RegisteredSystem, SystemId, SystemInput,
-        SystemParamValidationError,
+        Deferred, IntoObserverSystem, IntoSystem, ReborrowSystemParam, RegisteredSystem, SystemId,
+        SystemInput, SystemParamValidationError,
     },
     world::{
         command_queue::RawCommandQueue, unsafe_world_cell::UnsafeWorldCell, CommandQueue,
@@ -215,6 +215,14 @@ const _: () = {
         Deferred<'s, CommandQueue>: bevy_ecs::system::ReadOnlySystemParam,
         &'w Entities: bevy_ecs::system::ReadOnlySystemParam,
     {
+    }
+
+    impl<'w, 's> ReborrowSystemParam for Commands<'w, 's> {
+        fn reborrow<'wlong: 'short, 'slong: 'short, 'short>(
+            item: &'short mut Self::Item<'wlong, 'slong>,
+        ) -> Self::Item<'short, 'short> {
+            item.reborrow()
+        }
     }
 };
 

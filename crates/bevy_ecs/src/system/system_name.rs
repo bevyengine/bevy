@@ -2,7 +2,9 @@ use crate::{
     change_detection::Tick,
     prelude::World,
     query::FilteredAccessSet,
-    system::{ExclusiveSystemParam, ReadOnlySystemParam, SystemMeta, SystemParam},
+    system::{
+        ExclusiveSystemParam, ReadOnlySystemParam, ReborrowSystemParam, SystemMeta, SystemParam,
+    },
     world::unsafe_world_cell::UnsafeWorldCell,
 };
 use bevy_utils::prelude::DebugName;
@@ -34,7 +36,7 @@ use derive_more::derive::{Display, Into};
 ///     logger.log("Hello");
 /// }
 /// ```
-#[derive(Debug, Into, Display)]
+#[derive(Debug, Into, Display, Clone)]
 pub struct SystemName(DebugName);
 
 impl SystemName {
@@ -67,6 +69,14 @@ unsafe impl SystemParam for SystemName {
         _change_tick: Tick,
     ) -> Self::Item<'w, 's> {
         SystemName(system_meta.name.clone())
+    }
+}
+
+impl ReborrowSystemParam for SystemName {
+    fn reborrow<'wlong: 'short, 'slong: 'short, 'short>(
+        item: &'short mut Self::Item<'wlong, 'slong>,
+    ) -> Self::Item<'short, 'short> {
+        item.clone()
     }
 }
 

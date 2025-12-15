@@ -20,8 +20,8 @@ use proc_macro::TokenStream;
 use proc_macro2::{Ident, Span};
 use quote::{format_ident, quote, ToTokens};
 use syn::{
-    parse_macro_input, parse_quote, punctuated::Punctuated, token::Comma, ConstParam, Data,
-    DeriveInput, GenericParam, TypeParam,
+    parse_macro_input, parse_quote, punctuated::Punctuated, token::Comma, visit_mut::VisitMut,
+    ConstParam, Data, DeriveInput, GenericParam, TypeParam,
 };
 
 enum BundleFieldKind {
@@ -229,6 +229,16 @@ pub fn derive_map_entities(input: TokenStream) -> TokenStream {
     })
 }
 
+struct LifetimeEraser {
+    erased_ident: Ident,
+}
+
+impl VisitMut for LifetimeEraser {
+    fn visit_lifetime_mut(&mut self, i: &mut syn::Lifetime) {
+        i.ident = self.erased_ident.clone();
+    }
+}
+
 /// Implement `SystemParam` to use a struct as a parameter in a system
 #[proc_macro_derive(SystemParam, attributes(system_param))]
 pub fn derive_system_param(input: TokenStream) -> TokenStream {
@@ -240,6 +250,7 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
         Err(e) => e.into_compile_error().into(),
     }
 }
+
 fn derive_system_param_impl(
     token_stream: TokenStream,
     ast: DeriveInput,
@@ -253,6 +264,17 @@ fn derive_system_param_impl(
         .collect::<Vec<_>>();
     let field_members = fields.members().collect::<Vec<_>>();
     let field_types = fields.iter().map(|f| &f.ty).collect::<Vec<_>>();
+    let shadowed_lifetime_field_types = fields
+        .iter()
+        .map(|f| {
+            let mut ty = f.ty.clone();
+            let mut eraser = LifetimeEraser {
+                erased_ident: format_ident!("static"),
+            };
+            syn::visit_mut::visit_type_mut(&mut eraser, &mut ty);
+            ty
+        })
+        .collect::<Vec<_>>();
 
     let field_validation_names = fields.members().map(|m| format!("::{}", quote! { #m }));
     let mut field_validation_messages = Vec::with_capacity(fields.len());
@@ -354,6 +376,18 @@ fn derive_system_param_impl(
         read_only_where_clause
             .predicates
             .push(syn::parse_quote!(#field_type: #path::system::ReadOnlySystemParam));
+    }
+
+    // Create a where clause for the `ReborrowSystemParam` impl.
+    // Ensure that each field implements `ReborrowSystemParam`.
+    let mut reborrow_generics = generics.clone();
+    let reborrow_where_clause = reborrow_generics.make_where_clause();
+    for (shadowed_lifetime_field_type, field_type) in
+        shadowed_lifetime_field_types.iter().zip(&field_types)
+    {
+        reborrow_where_clause
+            .predicates
+            .push(syn::parse_quote!(for<'w, 's> #shadowed_lifetime_field_type: #path::system::ReborrowSystemParam<Item<'w, 's> = #field_type>));
     }
 
     let fields_alias =
@@ -481,6 +515,19 @@ fn derive_system_param_impl(
 
             // Safety: Each field is `ReadOnlySystemParam`, so this can only read from the `World`
             unsafe impl<'w, 's, #punctuated_generics> #path::system::ReadOnlySystemParam for #struct_name #ty_generics #read_only_where_clause {}
+
+            impl<#punctuated_generics> #path::system::ReborrowSystemParam for #struct_name <#(#shadowed_lifetimes,)* #punctuated_generic_idents> #reborrow_where_clause {
+                fn reborrow<'wlong: 'short, 'slong: 'short, 'short>(
+                    item: &'short mut Self::Item<'wlong, 'slong>,
+                ) -> Self::Item<'short, 'short> {
+                    #(
+                        let #field_locals = <#shadowed_lifetime_field_types as #path::system::ReborrowSystemParam>::reborrow(&mut item.#field_members);
+                    )*
+                    #struct_name {
+                        #(#field_members: #field_locals,)*
+                    }
+                }
+            }
 
             #builder_impl
         };
