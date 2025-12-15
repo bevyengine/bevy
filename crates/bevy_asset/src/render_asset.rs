@@ -1,5 +1,8 @@
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
 use serde::{Deserialize, Serialize};
+use thiserror::Error;
+
+use crate::Asset;
 
 bitflags::bitflags! {
     /// Defines where the asset will be used.
@@ -49,4 +52,37 @@ impl Default for RenderAssetUsages {
     fn default() -> Self {
         RenderAssetUsages::MAIN_WORLD | RenderAssetUsages::RENDER_WORLD
     }
+}
+
+/// Error returned when an asset due for extraction has already been extracted
+#[derive(Debug, Error, Clone, Copy)]
+pub enum AssetExtractionError {
+    #[error("The asset has already been extracted")]
+    AlreadyExtracted,
+    #[error("The asset type does not support extraction. To clone the asset to the renderworld, use `RenderAssetUsages::default()`")]
+    NoExtractionImplementation,
+}
+
+/// Error returned when an asset due for extraction has already been extracted
+#[derive(Debug, Error, Clone, Copy)]
+pub enum ExtractableAssetAccessError {
+    #[error("The data has been extracted to the RenderWorld")]
+    ExtractedToRenderWorld,
+}
+
+pub trait ExtractableAsset: Asset + Sized {
+    type Data;
+
+    /// Access the extractable data.
+    fn extractable_data_ref(&self) -> Result<&Self::Data, ExtractableAssetAccessError>;
+
+    /// Mutably access the extractable data.
+    fn extractable_data_mut(&mut self) -> Result<&mut Self::Data, ExtractableAssetAccessError>;
+
+    /// Make a copy of the asset to be moved to the `RenderWorld` / gpu. Heavy internal data (pixels, vertex attributes)
+    /// should be moved into the copy, leaving this asset with only metadata.
+    /// An error may be returned to indicate that the asset has already been extracted, and should not
+    /// have been modified on the CPU side (as it cannot be transferred to GPU again).
+    /// The previous GPU asset is also provided, which can be used to check if the modification is valid.
+    fn take_gpu_data(&mut self) -> Result<Self, AssetExtractionError>;
 }

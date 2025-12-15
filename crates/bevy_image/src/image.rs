@@ -12,7 +12,9 @@ use bevy_reflect::TypePath;
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 
-use bevy_asset::{uuid_handle, Asset, AssetApp, Assets, Handle, RenderAssetUsages};
+use bevy_asset::{
+    uuid_handle, Asset, AssetApp, Assets, ExtractableAsset, Handle, RenderAssetUsages,
+};
 use bevy_color::{Color, ColorToComponents, Gray, LinearRgba, Srgba, Xyza};
 use bevy_ecs::resource::Resource;
 use bevy_math::{AspectRatio, UVec2, UVec3, Vec2};
@@ -609,6 +611,43 @@ pub struct Image {
     pub asset_usage: RenderAssetUsages,
     /// Whether this image should be copied on the GPU when resized.
     pub copy_on_resize: bool,
+    /// Whether this image has been extracted to the render world.
+    pub is_extracted_to_render_world: bool,
+}
+
+impl ExtractableAsset for Image {
+    type Data = Option<Vec<u8>>;
+
+    fn extractable_data_ref(&self) -> Result<&Self::Data, bevy_asset::ExtractableAssetAccessError> {
+        if self.is_extracted_to_render_world {
+            Err(bevy_asset::ExtractableAssetAccessError::ExtractedToRenderWorld)
+        } else {
+            Ok(&self.data)
+        }
+    }
+
+    fn extractable_data_mut(
+        &mut self,
+    ) -> Result<&mut Self::Data, bevy_asset::ExtractableAssetAccessError> {
+        if self.is_extracted_to_render_world {
+            Err(bevy_asset::ExtractableAssetAccessError::ExtractedToRenderWorld)
+        } else {
+            Ok(&mut self.data)
+        }
+    }
+
+    fn take_gpu_data(&mut self) -> Result<Self, bevy_asset::AssetExtractionError> {
+        if self.is_extracted_to_render_world {
+            Err(bevy_asset::AssetExtractionError::AlreadyExtracted)
+        } else {
+            self.is_extracted_to_render_world = true;
+            let data = self.data.take();
+            Ok(Image {
+                data,
+                ..self.clone()
+            })
+        }
+    }
 }
 
 /// Used in [`Image`], this determines what image sampler to use when rendering. The default setting,
@@ -1049,6 +1088,7 @@ impl Image {
             texture_view_descriptor: None,
             asset_usage,
             copy_on_resize: false,
+            is_extracted_to_render_world: false,
         }
     }
 
@@ -1180,6 +1220,7 @@ impl Image {
             }),
             asset_usage: RenderAssetUsages::default(),
             copy_on_resize: true,
+            is_extracted_to_render_world: false,
         }
     }
 
