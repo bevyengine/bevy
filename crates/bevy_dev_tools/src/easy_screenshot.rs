@@ -15,7 +15,7 @@ use bevy_math::{Quat, StableInterpolate, Vec3};
 use bevy_render::view::screenshot::ScreenshotCaptured;
 use bevy_render::view::screenshot::{save_to_disk, Screenshot};
 use bevy_time::Time;
-use bevy_transform::components::Transform;
+use bevy_transform::{components::Transform, TransformSystems};
 use bevy_window::{PrimaryWindow, Window};
 #[cfg(feature = "screenrecording")]
 use tracing::info;
@@ -286,19 +286,25 @@ impl Plugin for EasyCameraMovementPlugin {
         let decay_rate = self.decay_rate;
         app.add_systems(
             PostUpdate,
-            move |mut query: Single<(&mut Transform, &CameraMovement), With<Camera>>,
-                  time: Res<Time>| {
-                let target = query.1;
-                query.0.translation.smooth_nudge(
-                    &target.translation,
-                    decay_rate,
-                    time.delta_secs(),
-                );
-                query
-                    .0
-                    .rotation
-                    .smooth_nudge(&target.rotation, decay_rate, time.delta_secs());
-            },
+            (move |mut query: Single<(&mut Transform, &CameraMovement), With<Camera>>,
+                   time: Res<Time>| {
+                {
+                    {
+                        let target = query.1;
+                        query.0.translation.smooth_nudge(
+                            &target.translation,
+                            decay_rate,
+                            time.delta_secs(),
+                        );
+                        query.0.rotation.smooth_nudge(
+                            &target.rotation,
+                            decay_rate,
+                            time.delta_secs(),
+                        );
+                    }
+                }
+            })
+            .before(TransformSystems::Propagate),
         );
     }
 }
