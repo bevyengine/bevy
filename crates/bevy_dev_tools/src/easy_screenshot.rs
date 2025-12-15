@@ -7,8 +7,6 @@ use bevy_ecs::prelude::*;
 use bevy_input::{common_conditions::input_just_pressed, keyboard::KeyCode};
 use bevy_render::view::screenshot::{save_to_disk, Screenshot};
 use bevy_window::{PrimaryWindow, Window};
-#[cfg(feature = "screenrecording")]
-use tracing::info;
 #[cfg(all(not(target_os = "windows"), feature = "screenrecording"))]
 pub use x264::{Preset, Tune};
 
@@ -160,7 +158,7 @@ impl Plugin for EasyScreenRecordPlugin {
     fn build(&self, app: &mut App) {
         #[cfg(target_os = "windows")]
         {
-            warn!("Screen recording is not supported on Windows");
+            tracing::warn!("Screen recording is not supported on Windows");
         }
         #[cfg(not(target_os = "windows"))]
         {
@@ -168,6 +166,7 @@ impl Plugin for EasyScreenRecordPlugin {
             use bevy_render::view::screenshot::ScreenshotCaptured;
             use bevy_time::Time;
             use std::{fs::File, io::Write, sync::mpsc::channel};
+            use tracing::info;
             use x264::{Colorspace, Encoder, Setup};
 
             enum RecordCommand {
