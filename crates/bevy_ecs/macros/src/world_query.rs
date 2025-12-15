@@ -156,6 +156,15 @@ pub(crate) fn world_query_impl(
                 #( <#field_types>::update_component_access(&state.#field_aliases, _access); )*
             }
 
+            fn init_nested_access(
+                state: &Self::State,
+                _system_name: Option<&str>,
+                _component_access_set: &mut #path::query::FilteredAccessSet,
+                _world: #path::world::unsafe_world_cell::UnsafeWorldCell,
+            ) {
+                #( <#field_types>::init_nested_access(&state.#field_aliases, _system_name, _component_access_set, _world); )*
+            }
+
             fn init_state(world: &mut #path::world::World) -> #state_struct_name #user_ty_generics {
                 #state_struct_name {
                     #(#field_aliases: <#field_types>::init_state(world),)*
@@ -170,6 +179,10 @@ pub(crate) fn world_query_impl(
 
             fn matches_component_set(state: &Self::State, _set_contains_id: &impl Fn(#path::component::ComponentId) -> bool) -> bool {
                 true #(&& <#field_types>::matches_component_set(&state.#field_aliases, _set_contains_id))*
+            }
+
+            fn update_archetypes(_state: &mut Self::State, _world: #path::world::unsafe_world_cell::UnsafeWorldCell) {
+                #(<#field_types>::update_archetypes(&mut _state.#field_aliases, _world);)*
             }
         }
     }

@@ -282,8 +282,8 @@ mod render_entities_world_query_impls {
         component::{ComponentId, Components},
         entity::Entity,
         query::{
-            ArchetypeQueryData, FilteredAccess, QueryData, ReadOnlyQueryData,
-            ReleaseStateQueryData, WorldQuery,
+            ArchetypeQueryData, FilteredAccess, IterQueryData, QueryData, ReadOnlyQueryData,
+            ReleaseStateQueryData, SingleEntityQueryData, WorldQuery,
         },
         storage::{Table, TableRow},
         world::{unsafe_world_cell::UnsafeWorldCell, World},
@@ -393,8 +393,14 @@ mod render_entities_world_query_impls {
         }
     }
 
-    // SAFETY: the underlying `Entity` is copied, and no mutable access is provided.
+    /// SAFETY: access is read only and only on the current entity
+    unsafe impl IterQueryData for RenderEntity {}
+
+    /// SAFETY: access is read only
     unsafe impl ReadOnlyQueryData for RenderEntity {}
+
+    /// SAFETY: access is only on the current entity
+    unsafe impl SingleEntityQueryData for RenderEntity {}
 
     impl ArchetypeQueryData for RenderEntity {}
 
@@ -508,8 +514,14 @@ mod render_entities_world_query_impls {
         }
     }
 
-    // SAFETY: the underlying `Entity` is copied, and no mutable access is provided.
+    /// SAFETY: access is read only and only on the current entity
+    unsafe impl IterQueryData for MainEntity {}
+
+    /// SAFETY: access is read only
     unsafe impl ReadOnlyQueryData for MainEntity {}
+
+    /// SAFETY: access is only on the current entity
+    unsafe impl SingleEntityQueryData for MainEntity {}
 
     impl ArchetypeQueryData for MainEntity {}
 
