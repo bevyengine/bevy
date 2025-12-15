@@ -156,6 +156,8 @@ pub mod prelude {
     pub use crate::{assets::Gltf, assets::GltfExtras, label::GltfAssetLabel};
 }
 
+use crate::extensions::GltfExtensionHandlers;
+
 pub use {assets::*, label::GltfAssetLabel, loader::*};
 
 // Has to store an Arc<Mutex<...>> as there is no other way to mutate fields of asset loaders.
@@ -272,7 +274,8 @@ impl Plugin for GltfPlugin {
             .init_asset::<GltfPrimitive>()
             .init_asset::<GltfMesh>()
             .init_asset::<GltfSkin>()
-            .preregister_asset_loader::<GltfLoader>(&["gltf", "glb"]);
+            .preregister_asset_loader::<GltfLoader>(&["gltf", "glb"])
+            .init_resource::<GltfExtensionHandlers>();
     }
 
     fn finish(&self, app: &mut App) {
@@ -290,11 +293,14 @@ impl Plugin for GltfPlugin {
         let default_sampler = default_sampler_resource.get_internal();
         app.insert_resource(default_sampler_resource);
 
+        let extensions = app.world().resource::<GltfExtensionHandlers>();
+
         app.register_asset_loader(GltfLoader {
             supported_compressed_formats,
             custom_vertex_attributes: self.custom_vertex_attributes.clone(),
             default_sampler,
             default_use_model_forward_direction: self.use_model_forward_direction,
+            extensions: extensions.0.clone(),
             default_skinned_mesh_bounds_policy: self.skinned_mesh_bounds_policy,
         });
     }

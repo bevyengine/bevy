@@ -535,13 +535,15 @@ impl BundleInfo {
                 };
             };
             // SAFETY: ids in self must be valid
-            let (new_archetype_id, is_new_created) = archetypes.get_id_or_insert(
-                components,
-                observers,
-                table_id,
-                table_components,
-                sparse_set_components,
-            );
+            let (new_archetype_id, is_new_created) = unsafe {
+                archetypes.get_id_or_insert(
+                    components,
+                    observers,
+                    table_id,
+                    table_components,
+                    sparse_set_components,
+                )
+            };
 
             // Add an edge from the old archetype to the new archetype.
             archetypes[archetype_id]

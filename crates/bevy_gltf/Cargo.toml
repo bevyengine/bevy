@@ -55,6 +55,7 @@ gltf = { version = "1.4.0", default-features = false, features = [
   "names",
   "utils",
 ] }
+async-lock = { version = "3.0", default-features = false }
 thiserror = { version = "2", default-features = false }
 base64 = "0.22.0"
 fixedbitset = "0.5"
