@@ -60,7 +60,7 @@
 
 use alloc::vec::Vec;
 use bevy_app::prelude::*;
-use bevy_camera::visibility::Visibility;
+use bevy_camera::visibility::{Visibility, InheritedVisibility};
 use bevy_ecs::{
     entity::{EntityHashMap, EntityHashSet},
     prelude::*,
@@ -749,6 +749,7 @@ fn auto_rebuild_ui_navigation_graph(
             &ComputedNode,
             &UiGlobalTransform,
             Option<&Visibility>,
+            Option<&InheritedVisibility>
         ),
         With<AutoDirectionalNavigation>,
     >,
@@ -759,9 +760,10 @@ fn auto_rebuild_ui_navigation_graph(
 
     let nodes: Vec<FocusableArea> = all_nodes
         .iter()
-        .filter_map(|(entity, computed, transform, visibility)| {
+        .filter_map(|(entity, computed, transform, visibility, inherited_visibility)| {
             // Skip hidden or zero-size nodes
-            if computed.is_empty() || matches!(visibility, Some(Visibility::Hidden)) {
+            if computed.is_empty() || matches!(visibility, Some(Visibility::Hidden)) || 
+            (matches!(visibility, Some(Visibility::Inherited)) && matches!(inherited_visibility, Some(&InheritedVisibility::HIDDEN))) {
                 return None;
             }
             let (_scale, _rotation, translation) = transform.to_scale_angle_translation();
