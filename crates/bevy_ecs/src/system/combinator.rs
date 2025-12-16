@@ -403,11 +403,14 @@ where
         input: SystemIn<'_, Self>,
         world: UnsafeWorldCell,
     ) -> Result<Self::Out, RunSystemError> {
-        let value = self.a.run_unsafe(input, world)?;
-        // `Self::validate_param_unsafe` already validated the first system,
-        // but we still need to validate the second system once the first one runs.
-        self.b.validate_param_unsafe(world)?;
-        self.b.run_unsafe(value, world)
+        // SAFETY: Upheld by caller
+        unsafe {
+            let value = self.a.run_unsafe(input, world)?;
+            // `Self::validate_param_unsafe` already validated the first system,
+            // but we still need to validate the second system once the first one runs.
+            self.b.validate_param_unsafe(world)?;
+            self.b.run_unsafe(value, world)
+        }
     }
 
     #[cfg(feature = "hotpatching")]

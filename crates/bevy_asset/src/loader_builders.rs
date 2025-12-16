@@ -9,7 +9,6 @@ use crate::{
 };
 use alloc::{borrow::ToOwned, boxed::Box, sync::Arc};
 use core::any::TypeId;
-use tracing::debug;
 
 // Utility type for handling the sources of reader references
 enum ReaderRef<'a> {
@@ -305,8 +304,6 @@ impl NestedLoader<'_, '_, StaticTyped, Deferred> {
     /// [`with_unknown_type`]: Self::with_unknown_type
     pub fn load<'c, A: Asset>(self, path: impl Into<AssetPath<'c>>) -> Handle<A> {
         let path = path.into().to_owned();
-
-        let is_self_path = *self.load_context.path() == path;
         let handle = if self.load_context.should_load_dependencies {
             self.load_context.asset_server.load_with_meta_transform(
                 path,
@@ -321,15 +318,8 @@ impl NestedLoader<'_, '_, StaticTyped, Deferred> {
         };
         // `load_with_meta_transform` and `get_or_create_path_handle` always returns a Strong
         // variant, so we are safe to unwrap.
-        if !is_self_path {
-            let index = (&handle).try_into().unwrap();
-            self.load_context.dependencies.insert(index);
-        } else {
-            debug!(
-                "Asset from path `{:?}` loaded its self path",
-                self.load_context.path()
-            );
-        }
+        let index = (&handle).try_into().unwrap();
+        self.load_context.dependencies.insert(index);
         handle
     }
 }
@@ -377,7 +367,6 @@ impl NestedLoader<'_, '_, UnknownTyped, Deferred> {
     /// This will infer the asset type from metadata.
     pub fn load<'p>(self, path: impl Into<AssetPath<'p>>) -> Handle<LoadedUntypedAsset> {
         let path = path.into().to_owned();
-        let is_self_path = *self.load_context.path() == path;
         let handle = if self.load_context.should_load_dependencies {
             self.load_context
                 .asset_server
@@ -390,15 +379,7 @@ impl NestedLoader<'_, '_, UnknownTyped, Deferred> {
         // `load_unknown_type_with_meta_transform` and `get_or_create_path_handle` always returns a
         // Strong variant, so we are safe to unwrap.
         let index = (&handle).try_into().unwrap();
-
-        if !is_self_path {
-            self.load_context.dependencies.insert(index);
-        } else {
-            debug!(
-                "Asset from path `{:?}` of unknown type loaded its self path",
-                self.load_context.path()
-            );
-        }
+        self.load_context.dependencies.insert(index);
         handle
     }
 }
@@ -420,9 +401,6 @@ impl<'builder, 'reader, T> NestedLoader<'_, '_, T, Immediate<'builder, 'reader>>
     ) -> Result<(Arc<dyn ErasedAssetLoader>, ErasedLoadedAsset), LoadDirectError> {
         if path.label().is_some() {
             return Err(LoadDirectError::RequestedSubasset(path.clone()));
-        }
-        if self.load_context.path() == path {
-            return Err(LoadDirectError::RequestedSelfPath(path.clone()));
         }
         self.load_context
             .asset_server
@@ -470,7 +448,13 @@ impl<'builder, 'reader, T> NestedLoader<'_, '_, T, Immediate<'builder, 'reader>>
 
         let asset = self
             .load_context
-            .load_direct_internal(path.clone(), meta.as_ref(), &*loader, reader.as_mut())
+            .load_direct_internal(
+                path.clone(),
+                meta.loader_settings().expect("meta corresponds to a load"),
+                &*loader,
+                reader.as_mut(),
+                meta.processed_info().as_ref(),
+            )
             .await?;
         Ok((loader, asset))
     }
@@ -503,7 +487,7 @@ impl NestedLoader<'_, '_, StaticTyped, Immediate<'_, '_>> {
                             path,
                             requested: TypeId::of::<A>(),
                             actual_asset_name: loader.asset_type_name(),
-                            loader_name: loader.type_name(),
+                            loader_name: loader.type_path(),
                         },
                     })
             })
