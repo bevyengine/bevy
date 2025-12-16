@@ -259,7 +259,7 @@ impl<P: Process> ErasedProcessor for P {
 
     fn default_meta(&self) -> Box<dyn AssetMetaDyn> {
         Box::new(AssetMeta::<(), P>::new(AssetAction::Process {
-            processor: P::type_path().to_string(),
+            processor: P::short_type_path().to_string(),
             settings: P::Settings::default(),
         }))
     }
