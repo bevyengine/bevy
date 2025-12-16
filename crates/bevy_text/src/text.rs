@@ -398,7 +398,7 @@ impl From<FontWeight> for cosmic_text::Weight {
     }
 }
 
-/// https://docs.microsoft.com/en-us/typography/opentype/spec/os2#uswidthclass
+/// `<https://docs.microsoft.com/en-us/typography/opentype/spec/os2#uswidthclass>`
 #[derive(Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Debug, Hash, Reflect)]
 pub struct FontWidth(u16);
 
