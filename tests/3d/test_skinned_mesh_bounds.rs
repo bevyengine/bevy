@@ -130,7 +130,9 @@ fn spawn_custom_meshes(
     let mesh_handle = mesh_assets.add(
         Mesh::new(
             PrimitiveTopology::TriangleStrip,
-            RenderAssetUsages::default(),
+            // Test that skinned mesh bounds work even if the mesh is render
+            // world only.
+            RenderAssetUsages::RENDER_WORLD,
         )
         .with_inserted_attribute(
             Mesh::ATTRIBUTE_POSITION,
