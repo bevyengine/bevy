@@ -15,6 +15,7 @@ fn main() {
         .add_systems(OnEnter(Scene::Bloom), bloom::setup)
         .add_systems(OnEnter(Scene::Text), text::setup)
         .add_systems(OnEnter(Scene::Sprite), sprite::setup)
+        .add_systems(OnEnter(Scene::SpriteSlicing), sprite_slicing::setup)
         .add_systems(OnEnter(Scene::Gizmos), gizmos::setup)
         .add_systems(Update, switch_scene)
         .add_systems(Update, gizmos::draw_gizmos.run_if(in_state(Scene::Gizmos)));
@@ -32,6 +33,7 @@ enum Scene {
     Bloom,
     Text,
     Sprite,
+    SpriteSlicing,
     Gizmos,
 }
 
@@ -41,7 +43,8 @@ impl Next for Scene {
             Scene::Shapes => Scene::Bloom,
             Scene::Bloom => Scene::Text,
             Scene::Text => Scene::Sprite,
-            Scene::Sprite => Scene::Gizmos,
+            Scene::Sprite => Scene::SpriteSlicing,
+            Scene::SpriteSlicing => Scene::Gizmos,
             Scene::Gizmos => Scene::Shapes,
         }
     }
@@ -277,6 +280,64 @@ mod sprite {
                 DespawnOnExit(super::Scene::Sprite),
             ));
         }
+    }
+}
+
+mod sprite_slicing {
+    use bevy::prelude::*;
+    use bevy::sprite::{BorderRect, SliceScaleMode, SpriteImageMode, TextureSlicer};
+
+    pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+        commands.spawn((Camera2d, DespawnOnExit(super::Scene::SpriteSlicing)));
+
+        let texture = asset_server.load("textures/slice_square_2.png");
+        let font = asset_server.load("fonts/FiraSans-Bold.ttf");
+
+        commands.spawn((
+            Sprite {
+                image: texture.clone(),
+                ..default()
+            },
+            Transform::from_translation(Vec3::new(-150.0, 50.0, 0.0)).with_scale(Vec3::splat(2.0)),
+            DespawnOnExit(super::Scene::SpriteSlicing),
+        ));
+
+        commands.spawn((
+            Sprite {
+                image: texture,
+                image_mode: SpriteImageMode::Sliced(TextureSlicer {
+                    border: BorderRect::all(20.0),
+                    center_scale_mode: SliceScaleMode::Stretch,
+                    ..default()
+                }),
+                custom_size: Some(Vec2::new(200.0, 200.0)),
+                ..default()
+            },
+            Transform::from_translation(Vec3::new(150.0, 50.0, 0.0)),
+            DespawnOnExit(super::Scene::SpriteSlicing),
+        ));
+
+        commands.spawn((
+            Text2d::new("Original"),
+            TextFont {
+                font: font.clone(),
+                font_size: 20.0,
+                ..default()
+            },
+            Transform::from_translation(Vec3::new(-150.0, -80.0, 0.0)),
+            DespawnOnExit(super::Scene::SpriteSlicing),
+        ));
+
+        commands.spawn((
+            Text2d::new("Sliced"),
+            TextFont {
+                font,
+                font_size: 20.0,
+                ..default()
+            },
+            Transform::from_translation(Vec3::new(150.0, -80.0, 0.0)),
+            DespawnOnExit(super::Scene::SpriteSlicing),
+        ));
     }
 }
 

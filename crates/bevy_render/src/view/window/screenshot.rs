@@ -278,7 +278,9 @@ fn prepare_screenshots(
                     warn!("Unknown window for screenshot, skipping: {}", window);
                     continue;
                 };
-                let format = surface_data.configuration.format.add_srgb_suffix();
+                let view_format = surface_data
+                    .texture_view_format
+                    .unwrap_or(surface_data.configuration.format);
                 let size = Extent3d {
                     width: surface_data.configuration.width,
                     height: surface_data.configuration.height,
@@ -286,7 +288,7 @@ fn prepare_screenshots(
                 };
                 let (texture_view, state) = prepare_screenshot_state(
                     size,
-                    format,
+                    view_format,
                     &render_device,
                     &screenshot_pipeline,
                     &pipeline_cache,
@@ -295,7 +297,7 @@ fn prepare_screenshots(
                 prepared.insert(*entity, state);
                 view_target_attachments.insert(
                     target.clone(),
-                    OutputColorAttachment::new(texture_view.clone(), format.add_srgb_suffix()),
+                    OutputColorAttachment::new(texture_view.clone(), view_format),
                 );
             }
             NormalizedRenderTarget::Image(image) => {
@@ -303,10 +305,12 @@ fn prepare_screenshots(
                     warn!("Unknown image for screenshot, skipping: {:?}", image);
                     continue;
                 };
-                let format = gpu_image.texture_format;
+                let view_format = gpu_image
+                    .texture_view_format
+                    .unwrap_or(gpu_image.texture_format);
                 let (texture_view, state) = prepare_screenshot_state(
                     gpu_image.size,
-                    format,
+                    view_format,
                     &render_device,
                     &screenshot_pipeline,
                     &pipeline_cache,
@@ -315,7 +319,7 @@ fn prepare_screenshots(
                 prepared.insert(*entity, state);
                 view_target_attachments.insert(
                     target.clone(),
-                    OutputColorAttachment::new(texture_view.clone(), format.add_srgb_suffix()),
+                    OutputColorAttachment::new(texture_view.clone(), view_format),
                 );
             }
             NormalizedRenderTarget::TextureView(texture_view) => {
@@ -326,11 +330,11 @@ fn prepare_screenshots(
                     );
                     continue;
                 };
-                let format = manual_texture_view.format;
+                let view_format = manual_texture_view.view_format;
                 let size = manual_texture_view.size.to_extents();
                 let (texture_view, state) = prepare_screenshot_state(
                     size,
-                    format,
+                    view_format,
                     &render_device,
                     &screenshot_pipeline,
                     &pipeline_cache,
@@ -339,7 +343,7 @@ fn prepare_screenshots(
                 prepared.insert(*entity, state);
                 view_target_attachments.insert(
                     target.clone(),
-                    OutputColorAttachment::new(texture_view.clone(), format.add_srgb_suffix()),
+                    OutputColorAttachment::new(texture_view.clone(), view_format),
                 );
             }
             NormalizedRenderTarget::None { .. } => {
@@ -502,13 +506,12 @@ pub(crate) fn submit_screenshot_commands(world: &World, encoder: &mut CommandEnc
                 };
                 let width = window.physical_width;
                 let height = window.physical_height;
-                let Some(texture_format) = window.swap_chain_texture_format else {
+                let Some(texture_format) = window.swap_chain_texture_view_format else {
                     continue;
                 };
-                let Some(swap_chain_texture) = window.swap_chain_texture.as_ref() else {
+                let Some(swap_chain_texture_view) = window.swap_chain_texture_view.as_ref() else {
                     continue;
                 };
-                let texture_view = swap_chain_texture.texture.create_view(&Default::default());
                 render_screenshot(
                     encoder,
                     prepared,
@@ -517,7 +520,7 @@ pub(crate) fn submit_screenshot_commands(world: &World, encoder: &mut CommandEnc
                     width,
                     height,
                     texture_format,
-                    &texture_view,
+                    swap_chain_texture_view,
                 );
             }
             NormalizedRenderTarget::Image(image) => {
@@ -550,7 +553,7 @@ pub(crate) fn submit_screenshot_commands(world: &World, encoder: &mut CommandEnc
                 };
                 let width = texture_view.size.x;
                 let height = texture_view.size.y;
-                let texture_format = texture_view.format;
+                let texture_format = texture_view.view_format;
                 let texture_view = texture_view.texture_view.deref();
                 render_screenshot(
                     encoder,
