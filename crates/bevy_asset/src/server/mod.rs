@@ -1802,13 +1802,6 @@ pub fn handle_internal_asset_events(world: &mut World) {
         ) {
             if let Some(dependents) = infos.loader_dependents.get(asset_path) {
                 for dependent in dependents {
-                    assert_ne!(
-                        asset_path, dependent,
-                        "The asset path `{}` contains itself as a dependent.",
-                        &asset_path
-                    );
-                    // If the above assertion fails, the following code would
-                    // cause a stackoverflow.
                     paths_to_reload.insert(dependent.to_owned());
                     queue_ancestors(dependent, infos, paths_to_reload);
                 }
