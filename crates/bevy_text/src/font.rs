@@ -68,7 +68,6 @@ pub fn load_font_assets_into_fontdb_system(
                     new_fonts_added = true;
                 }
             }
-            AssetEvent::Removed { id } => {}
             _ => {}
         }
     }

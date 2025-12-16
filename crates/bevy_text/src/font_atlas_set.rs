@@ -1,7 +1,6 @@
-use crate::{Font, FontAtlas, FontSmoothing};
-use bevy_asset::{AssetEvent, AssetId};
+use crate::{FontAtlas, FontSmoothing};
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::{message::MessageReader, resource::Resource, system::ResMut};
+use bevy_ecs::resource::Resource;
 use bevy_platform::collections::HashMap;
 use cosmic_text::fontdb::ID;
 
