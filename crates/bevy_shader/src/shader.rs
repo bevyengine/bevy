@@ -1,9 +1,6 @@
 use super::ShaderDefVal;
 use alloc::borrow::Cow;
-use bevy_asset::{
-    io::{Reader, ReaderRequiredFeatures},
-    Asset, AssetLoader, AssetPath, Handle, LoadContext,
-};
+use bevy_asset::{io::Reader, Asset, AssetLoader, AssetPath, Handle, LoadContext};
 use bevy_reflect::TypePath;
 use core::{marker::Copy, num::NonZero};
 use thiserror::Error;
@@ -415,10 +412,6 @@ impl AssetLoader for ShaderLoader {
             }
         }
         Ok(shader)
-    }
-
-    fn reader_required_features(_settings: &Self::Settings) -> ReaderRequiredFeatures {
-        ReaderRequiredFeatures::default()
     }
 
     fn extensions(&self) -> &[&str] {

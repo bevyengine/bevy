@@ -1,10 +1,7 @@
 //! Implements loader for a custom asset type.
 
 use bevy::{
-    asset::{
-        io::{Reader, ReaderRequiredFeatures},
-        AssetLoader, LoadContext,
-    },
+    asset::{io::Reader, AssetLoader, LoadContext},
     prelude::*,
     reflect::TypePath,
 };
@@ -49,10 +46,6 @@ impl AssetLoader for CustomAssetLoader {
         reader.read_to_end(&mut bytes).await?;
         let custom_asset = ron::de::from_bytes::<CustomAsset>(&bytes)?;
         Ok(custom_asset)
-    }
-
-    fn reader_required_features(_settings: &Self::Settings) -> ReaderRequiredFeatures {
-        ReaderRequiredFeatures::default()
     }
 
     fn extensions(&self) -> &[&str] {

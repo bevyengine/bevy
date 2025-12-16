@@ -827,10 +827,6 @@ mod tests {
             })
         }
 
-        fn reader_required_features(_settings: &Self::Settings) -> ReaderRequiredFeatures {
-            ReaderRequiredFeatures::default()
-        }
-
         fn extensions(&self) -> &[&str] {
             &["cool.ron"]
         }
@@ -1964,10 +1960,6 @@ mod tests {
                 Ok(TestAsset)
             }
 
-            fn reader_required_features(_: &Self::Settings) -> ReaderRequiredFeatures {
-                ReaderRequiredFeatures::default()
-            }
-
             fn extensions(&self) -> &[&str] {
                 &["txt"]
             }
@@ -2184,10 +2176,6 @@ mod tests {
             self.in_loader_sender.send_blocking(()).unwrap();
             let _ = self.gate_receiver.recv().await;
             Ok(TestAsset)
-        }
-
-        fn reader_required_features(_: &Self::Settings) -> ReaderRequiredFeatures {
-            ReaderRequiredFeatures::default()
         }
 
         fn extensions(&self) -> &[&str] {
@@ -2488,10 +2476,6 @@ mod tests {
                 Ok(U8Asset(settings.0))
             }
 
-            fn reader_required_features(_: &Self::Settings) -> ReaderRequiredFeatures {
-                ReaderRequiredFeatures::default()
-            }
-
             fn extensions(&self) -> &[&str] {
                 &["u8"]
             }
@@ -2572,10 +2556,6 @@ mod tests {
                 Ok(TestAsset)
             }
 
-            fn reader_required_features(_: &Self::Settings) -> ReaderRequiredFeatures {
-                ReaderRequiredFeatures::default()
-            }
-
             fn extensions(&self) -> &[&str] {
                 &["txt"]
             }
@@ -2612,10 +2592,6 @@ mod tests {
             _load_context: &mut LoadContext<'_>,
         ) -> Result<Self::Asset, Self::Error> {
             Ok(TestAsset)
-        }
-
-        fn reader_required_features(_: &Self::Settings) -> ReaderRequiredFeatures {
-            ReaderRequiredFeatures::default()
         }
 
         fn extensions(&self) -> &[&str] {

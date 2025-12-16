@@ -76,10 +76,6 @@ impl AssetLoader for ExrTextureLoader {
         ))
     }
 
-    fn reader_required_features(_settings: &Self::Settings) -> ReaderRequiredFeatures {
-        ReaderRequiredFeatures::default()
-    }
-
     fn extensions(&self) -> &[&str] {
         &["exr"]
     }

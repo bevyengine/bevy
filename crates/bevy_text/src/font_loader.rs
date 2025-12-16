@@ -1,8 +1,5 @@
 use crate::Font;
-use bevy_asset::{
-    io::{Reader, ReaderRequiredFeatures},
-    AssetLoader, LoadContext,
-};
+use bevy_asset::{io::Reader, AssetLoader, LoadContext};
 use cosmic_text::skrifa::raw::ReadError;
 use thiserror::Error;
 
@@ -36,10 +33,6 @@ impl AssetLoader for FontLoader {
         reader.read_to_end(&mut bytes).await?;
         let font = Font::try_from_bytes(bytes)?;
         Ok(font)
-    }
-
-    fn reader_required_features(_settings: &Self::Settings) -> ReaderRequiredFeatures {
-        ReaderRequiredFeatures::default()
     }
 
     fn extensions(&self) -> &[&str] {

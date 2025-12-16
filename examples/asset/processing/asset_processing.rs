@@ -3,7 +3,7 @@
 use bevy::{
     asset::{
         embedded_asset,
-        io::{Reader, ReaderRequiredFeatures, Writer},
+        io::{Reader, Writer},
         processor::LoadTransformAndSave,
         saver::{AssetSaver, SavedAsset},
         transformer::{AssetTransformer, TransformedAsset},
@@ -95,10 +95,6 @@ impl AssetLoader for TextLoader {
             String::from_utf8(bytes).unwrap()
         };
         Ok(Text(value))
-    }
-
-    fn reader_required_features(_settings: &Self::Settings) -> ReaderRequiredFeatures {
-        ReaderRequiredFeatures::default()
     }
 
     fn extensions(&self) -> &[&str] {

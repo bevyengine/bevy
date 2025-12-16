@@ -1,8 +1,5 @@
 use alloc::sync::Arc;
-use bevy_asset::{
-    io::{Reader, ReaderRequiredFeatures},
-    Asset, AssetLoader, LoadContext,
-};
+use bevy_asset::{io::Reader, Asset, AssetLoader, LoadContext};
 use bevy_reflect::TypePath;
 use std::io::Cursor;
 
@@ -56,10 +53,6 @@ impl AssetLoader for AudioLoader {
         Ok(AudioSource {
             bytes: bytes.into(),
         })
-    }
-
-    fn reader_required_features(_settings: &Self::Settings) -> ReaderRequiredFeatures {
-        ReaderRequiredFeatures::default()
     }
 
     fn extensions(&self) -> &[&str] {

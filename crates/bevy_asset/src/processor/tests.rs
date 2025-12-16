@@ -554,10 +554,6 @@ impl AssetLoader for FakeGltfLoader {
             .map_err(|err| Error::new(ErrorKind::InvalidData, err.to_string()))
     }
 
-    fn reader_required_features(_: &Self::Settings) -> ReaderRequiredFeatures {
-        ReaderRequiredFeatures::default()
-    }
-
     fn extensions(&self) -> &[&str] {
         &["gltf"]
     }
@@ -609,10 +605,6 @@ impl AssetLoader for FakeBsnLoader {
             new_bsn.nodes.insert(name, node);
         }
         Ok(new_bsn)
-    }
-
-    fn reader_required_features(_: &Self::Settings) -> ReaderRequiredFeatures {
-        ReaderRequiredFeatures::default()
     }
 
     fn extensions(&self) -> &[&str] {
@@ -804,10 +796,6 @@ fn asset_processor_loading_can_read_source_assets() {
             }
 
             Ok(FakeGltfx { gltfs })
-        }
-
-        fn reader_required_features(_: &Self::Settings) -> ReaderRequiredFeatures {
-            ReaderRequiredFeatures::default()
         }
 
         fn extensions(&self) -> &[&str] {

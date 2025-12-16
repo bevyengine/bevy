@@ -406,10 +406,6 @@ mod tests {
             ))
         }
 
-        fn reader_required_features(_: &Self::Settings) -> ReaderRequiredFeatures {
-            ReaderRequiredFeatures::default()
-        }
-
         fn extensions(&self) -> &[&str] {
             self.sender.send(()).unwrap();
 

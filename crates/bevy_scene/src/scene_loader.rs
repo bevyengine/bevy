@@ -8,10 +8,7 @@ use thiserror::Error;
 #[cfg(feature = "serialize")]
 use {
     crate::{serde::SceneDeserializer, DynamicScene},
-    bevy_asset::{
-        io::{Reader, ReaderRequiredFeatures},
-        AssetLoader, LoadContext,
-    },
+    bevy_asset::{io::Reader, AssetLoader, LoadContext},
     serde::de::DeserializeSeed,
 };
 
@@ -69,10 +66,6 @@ impl AssetLoader for SceneLoader {
         Ok(scene_deserializer
             .deserialize(&mut deserializer)
             .map_err(|e| deserializer.span_error(e))?)
-    }
-
-    fn reader_required_features(_settings: &Self::Settings) -> ReaderRequiredFeatures {
-        ReaderRequiredFeatures::default()
     }
 
     fn extensions(&self) -> &[&str] {

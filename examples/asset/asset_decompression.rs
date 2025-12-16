@@ -2,7 +2,7 @@
 
 use bevy::{
     asset::{
-        io::{Reader, ReaderRequiredFeatures, VecReader},
+        io::{Reader, VecReader},
         AssetLoader, ErasedLoadedAsset, LoadContext, LoadDirectError,
     },
     prelude::*,
@@ -83,10 +83,6 @@ impl AssetLoader for GzAssetLoader {
             .await?;
 
         Ok(GzAsset { uncompressed })
-    }
-
-    fn reader_required_features(_settings: &Self::Settings) -> ReaderRequiredFeatures {
-        ReaderRequiredFeatures::default()
     }
 
     fn extensions(&self) -> &[&str] {

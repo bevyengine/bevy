@@ -1,6 +1,6 @@
 use alloc::sync::Arc;
 use bevy_asset::{
-    io::{Reader, ReaderRequiredFeatures, Writer},
+    io::{Reader, Writer},
     saver::{AssetSaver, SavedAsset},
     Asset, AssetLoader, AsyncReadExt, AsyncWriteExt, LoadContext,
 };
@@ -246,10 +246,6 @@ impl AssetLoader for MeshletMeshLoader {
             aabb,
             bvh_depth,
         })
-    }
-
-    fn reader_required_features(_settings: &Self::Settings) -> ReaderRequiredFeatures {
-        ReaderRequiredFeatures::default()
     }
 
     fn extensions(&self) -> &[&str] {

@@ -2,10 +2,7 @@ use crate::{
     image::{Image, ImageFormat, ImageType, TextureError},
     TextureReinterpretationError,
 };
-use bevy_asset::{
-    io::{Reader, ReaderRequiredFeatures},
-    AssetLoader, LoadContext, RenderAssetUsages,
-};
+use bevy_asset::{io::Reader, AssetLoader, LoadContext, RenderAssetUsages};
 use thiserror::Error;
 
 use super::{CompressedImageFormats, ImageSampler};
@@ -234,10 +231,6 @@ impl AssetLoader for ImageLoader {
         }
 
         Ok(image)
-    }
-
-    fn reader_required_features(_settings: &Self::Settings) -> ReaderRequiredFeatures {
-        ReaderRequiredFeatures::default()
     }
 
     fn extensions(&self) -> &[&str] {
