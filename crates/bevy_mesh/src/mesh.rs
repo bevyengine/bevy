@@ -188,6 +188,8 @@ impl ExtractableAsset for Mesh {
                 max = Vec3::max(max, v);
             }
             self.final_aabb = Some(Aabb3d::new(min, max));
+        } else {
+            self.final_aabb = None;
         }
         Ok(Self {
             extractable_data: Some(data),
