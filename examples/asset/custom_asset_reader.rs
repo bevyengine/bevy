@@ -4,8 +4,8 @@
 
 use bevy::{
     asset::io::{
-        AssetReader, AssetReaderError, AssetSource, AssetSourceId, ErasedAssetReader, PathStream,
-        Reader,
+        AssetReader, AssetReaderError, AssetSource, AssetSourceBuilder, AssetSourceId,
+        ErasedAssetReader, PathStream, Reader,
     },
     prelude::*,
 };
@@ -42,7 +42,7 @@ impl Plugin for CustomAssetReaderPlugin {
     fn build(&self, app: &mut App) {
         app.register_asset_source(
             AssetSourceId::Default,
-            AssetSource::build().with_reader(|| {
+            AssetSourceBuilder::new(|| {
                 Box::new(CustomAssetReader(
                     // This is the default reader for the current platform
                     AssetSource::get_default_reader("assets".to_string())(),

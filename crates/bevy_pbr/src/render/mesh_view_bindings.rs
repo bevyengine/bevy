@@ -43,7 +43,9 @@ use crate::{
     irradiance_volume::{
         self, RenderViewIrradianceVolumeBindGroupEntries, IRRADIANCE_VOLUMES_ARE_USABLE,
     },
-    prepass, EnvironmentMapUniformBuffer, FogMeta, GlobalClusterableObjectMeta,
+    prepass,
+    resources::{AtmosphereBuffer, AtmosphereData, AtmosphereSampler, AtmosphereTextures},
+    EnvironmentMapUniformBuffer, ExtractedAtmosphere, FogMeta, GlobalClusterableObjectMeta,
     GpuClusterableObjects, GpuFog, GpuLights, LightMeta, LightProbesBuffer, LightProbesUniform,
     MeshPipeline, MeshPipelineKey, RenderViewLightProbes, ScreenSpaceAmbientOcclusionResources,
     ScreenSpaceReflectionsBuffer, ScreenSpaceReflectionsUniform, ShadowSamplers,
@@ -58,9 +60,9 @@ use {crate::MESH_PIPELINE_VIEW_LAYOUT_SAFE_MAX_TEXTURES, bevy_utils::once, traci
 
 #[derive(Clone)]
 pub struct MeshPipelineViewLayout {
-    pub main_layout: BindGroupLayout,
-    pub binding_array_layout: BindGroupLayout,
-    pub empty_layout: BindGroupLayout,
+    pub main_layout: BindGroupLayoutDescriptor,
+    pub binding_array_layout: BindGroupLayoutDescriptor,
+    pub empty_layout: BindGroupLayoutDescriptor,
 
     #[cfg(debug_assertions)]
     pub texture_count: usize,
@@ -81,6 +83,7 @@ bitflags::bitflags! {
         const MOTION_VECTOR_PREPASS       = 1 << 3;
         const DEFERRED_PREPASS            = 1 << 4;
         const OIT_ENABLED                 = 1 << 5;
+        const ATMOSPHERE                  = 1 << 6;
     }
 }
 
@@ -93,7 +96,7 @@ impl MeshPipelineViewLayoutKey {
         use MeshPipelineViewLayoutKey as Key;
 
         format!(
-            "mesh_view_layout{}{}{}{}{}{}",
+            "mesh_view_layout{}{}{}{}{}{}{}",
             if self.contains(Key::MULTISAMPLED) {
                 "_multisampled"
             } else {
@@ -124,6 +127,11 @@ impl MeshPipelineViewLayoutKey {
             } else {
                 Default::default()
             },
+            if self.contains(Key::ATMOSPHERE) {
+                "_atmosphere"
+            } else {
+                Default::default()
+            },
         )
     }
 }
@@ -149,6 +157,9 @@ impl From<MeshPipelineKey> for MeshPipelineViewLayoutKey {
         }
         if value.contains(MeshPipelineKey::OIT_ENABLED) {
             result |= MeshPipelineViewLayoutKey::OIT_ENABLED;
+        }
+        if value.contains(MeshPipelineKey::ATMOSPHERE) {
+            result |= MeshPipelineViewLayoutKey::ATMOSPHERE;
         }
 
         result
@@ -385,6 +396,20 @@ fn layout_entries(
         }
     }
 
+    // Atmosphere
+    if layout_key.contains(MeshPipelineViewLayoutKey::ATMOSPHERE) {
+        entries = entries.extend_with_indices((
+            // transmittance LUT
+            (
+                29,
+                texture_2d(TextureSampleType::Float { filterable: true }),
+            ),
+            (30, sampler(SamplerBindingType::Filtering)),
+            // atmosphere data buffer
+            (31, storage_buffer_read_only::<AtmosphereData>(false)),
+        ));
+    }
+
     let mut binding_array_entries = DynamicBindGroupLayoutEntries::new(ShaderStages::FRAGMENT);
     binding_array_entries = binding_array_entries.extend_with_indices((
         (0, environment_map_entries[0]),
@@ -457,14 +482,12 @@ impl FromWorld for MeshPipelineViewLayouts {
                 .count();
 
             MeshPipelineViewLayout {
-                main_layout: render_device
-                    .create_bind_group_layout(key.label().as_str(), &entries[0]),
-                binding_array_layout: render_device.create_bind_group_layout(
-                    format!("{}_binding_array", key.label()).as_str(),
+                main_layout: BindGroupLayoutDescriptor::new(key.label(), &entries[0]),
+                binding_array_layout: BindGroupLayoutDescriptor::new(
+                    format!("{}_binding_array", key.label()),
                     &entries[1],
                 ),
-                empty_layout: render_device
-                    .create_bind_group_layout(format!("{}_empty", key.label()).as_str(), &[]),
+                empty_layout: BindGroupLayoutDescriptor::new(format!("{}_empty", key.label()), &[]),
                 #[cfg(debug_assertions)]
                 texture_count,
             }
@@ -518,13 +541,12 @@ pub fn generate_view_layouts(
             .count();
 
         MeshPipelineViewLayout {
-            main_layout: render_device.create_bind_group_layout(key.label().as_str(), &entries[0]),
-            binding_array_layout: render_device.create_bind_group_layout(
-                format!("{}_binding_array", key.label()).as_str(),
+            main_layout: BindGroupLayoutDescriptor::new(key.label(), &entries[0]),
+            binding_array_layout: BindGroupLayoutDescriptor::new(
+                format!("{}_binding_array", key.label()),
                 &entries[1],
             ),
-            empty_layout: render_device
-                .create_bind_group_layout(format!("{}_empty", key.label()).as_str(), &[]),
+            empty_layout: BindGroupLayoutDescriptor::new(format!("{}_empty", key.label()), &[]),
             #[cfg(debug_assertions)]
             texture_count,
         }
@@ -540,7 +562,11 @@ pub struct MeshViewBindGroup {
 
 pub fn prepare_mesh_view_bind_groups(
     mut commands: Commands,
-    (render_device, render_adapter): (Res<RenderDevice>, Res<RenderAdapter>),
+    (render_device, pipeline_cache, render_adapter): (
+        Res<RenderDevice>,
+        Res<PipelineCache>,
+        Res<RenderAdapter>,
+    ),
     mesh_pipeline: Res<MeshPipeline>,
     shadow_samplers: Res<ShadowSamplers>,
     (light_meta, global_light_meta): (Res<LightMeta>, Res<GlobalClusterableObjectMeta>),
@@ -558,6 +584,8 @@ pub fn prepare_mesh_view_bind_groups(
         Option<&RenderViewLightProbes<EnvironmentMapLight>>,
         Option<&RenderViewLightProbes<IrradianceVolume>>,
         Has<OrderIndependentTransparencySettings>,
+        Option<&AtmosphereTextures>,
+        Has<ExtractedAtmosphere>,
     )>,
     (images, mut fallback_images, fallback_image, fallback_image_zero): (
         Res<RenderAssets<GpuImage>>,
@@ -571,7 +599,12 @@ pub fn prepare_mesh_view_bind_groups(
     visibility_ranges: Res<RenderVisibilityRanges>,
     ssr_buffer: Res<ScreenSpaceReflectionsBuffer>,
     oit_buffers: Res<OitBuffers>,
-    (decals_buffer, render_decals): (Res<DecalsBuffer>, Res<RenderClusteredDecals>),
+    (decals_buffer, render_decals, atmosphere_buffer, atmosphere_sampler): (
+        Res<DecalsBuffer>,
+        Res<RenderClusteredDecals>,
+        Option<Res<AtmosphereBuffer>>,
+        Option<Res<AtmosphereSampler>>,
+    ),
 ) {
     if let (
         Some(view_binding),
@@ -606,6 +639,8 @@ pub fn prepare_mesh_view_bind_groups(
             render_view_environment_maps,
             render_view_irradiance_volumes,
             has_oit,
+            atmosphere_textures,
+            has_atmosphere,
         ) in &views
         {
             let fallback_ssao = fallback_images
@@ -620,6 +655,9 @@ pub fn prepare_mesh_view_bind_groups(
                 | MeshPipelineViewLayoutKey::from(prepass_textures);
             if has_oit {
                 layout_key |= MeshPipelineViewLayoutKey::OIT_ENABLED;
+            }
+            if has_atmosphere {
+                layout_key |= MeshPipelineViewLayoutKey::ATMOSPHERE;
             }
 
             let layout = mesh_pipeline.get_view_layout(layout_key);
@@ -698,6 +736,19 @@ pub fn prepare_mesh_view_bind_groups(
                     (26, oit_layers_binding.clone()),
                     (27, oit_layer_ids_binding.clone()),
                     (28, oit_settings_binding.clone()),
+                ));
+            }
+
+            if has_atmosphere
+                && let Some(atmosphere_textures) = atmosphere_textures
+                && let Some(atmosphere_buffer) = atmosphere_buffer.as_ref()
+                && let Some(atmosphere_sampler) = atmosphere_sampler.as_ref()
+                && let Some(atmosphere_buffer_binding) = atmosphere_buffer.buffer.binding()
+            {
+                entries = entries.extend_with_indices((
+                    (29, &atmosphere_textures.transmittance_lut.default_view),
+                    (30, &***atmosphere_sampler),
+                    (31, atmosphere_buffer_binding),
                 ));
             }
 
@@ -799,17 +850,17 @@ pub fn prepare_mesh_view_bind_groups(
             commands.entity(entity).insert(MeshViewBindGroup {
                 main: render_device.create_bind_group(
                     "mesh_view_bind_group",
-                    &layout.main_layout,
+                    &pipeline_cache.get_bind_group_layout(&layout.main_layout),
                     &entries,
                 ),
                 binding_array: render_device.create_bind_group(
                     "mesh_view_bind_group_binding_array",
-                    &layout.binding_array_layout,
+                    &pipeline_cache.get_bind_group_layout(&layout.binding_array_layout),
                     &entries_binding_array,
                 ),
                 empty: render_device.create_bind_group(
                     "mesh_view_bind_group_empty",
-                    &layout.empty_layout,
+                    &pipeline_cache.get_bind_group_layout(&layout.empty_layout),
                     &[],
                 ),
             });

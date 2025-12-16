@@ -6,7 +6,7 @@ use bevy_camera::{visibility::Visibility, Camera, RenderTarget};
 use bevy_color::{Alpha, Color};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{prelude::*, system::SystemParam};
-use bevy_math::{vec4, Rect, UVec2, Vec2, Vec4Swizzles};
+use bevy_math::{vec4, BVec2, Rect, UVec2, Vec2, Vec4Swizzles};
 use bevy_reflect::prelude::*;
 use bevy_sprite::BorderRect;
 use bevy_utils::once;
@@ -29,65 +29,65 @@ pub struct ComputedNode {
     /// The order of the node in the UI layout.
     /// Nodes with a higher stack index are drawn on top of and receive interactions before nodes with lower stack indices.
     ///
-    /// Automatically calculated in [`super::UiSystems::Stack`].
+    /// Automatically calculated in [`UiSystems::Stack`](`super::UiSystems::Stack`).
     pub stack_index: u32,
     /// The size of the node as width and height in physical pixels.
     ///
-    /// Automatically calculated by [`super::layout::ui_layout_system`].
+    /// Automatically calculated by [`ui_layout_system`](`super::layout::ui_layout_system`).
     pub size: Vec2,
     /// Size of this node's content.
     ///
-    /// Automatically calculated by [`super::layout::ui_layout_system`].
+    /// Automatically calculated by [`ui_layout_system`](`super::layout::ui_layout_system`).
     pub content_size: Vec2,
     /// Space allocated for scrollbars.
     ///
-    /// Automatically calculated by [`super::layout::ui_layout_system`].
+    /// Automatically calculated by [`ui_layout_system`](`super::layout::ui_layout_system`).
     pub scrollbar_size: Vec2,
     /// Resolved offset of scrolled content
     ///
-    /// Automatically calculated by [`super::layout::ui_layout_system`].
+    /// Automatically calculated by [`ui_layout_system`](`super::layout::ui_layout_system`).
     pub scroll_position: Vec2,
     /// The width of this node's outline.
     /// If this value is `Auto`, negative or `0.` then no outline will be rendered.
     /// Outline updates bypass change detection.
     ///
-    /// Automatically calculated by [`super::layout::ui_layout_system`].
+    /// Automatically calculated by [`ui_layout_system`](`super::layout::ui_layout_system`).
     pub outline_width: f32,
     /// The amount of space between the outline and the edge of the node.
     /// Outline updates bypass change detection.
     ///
-    /// Automatically calculated by [`super::layout::ui_layout_system`].
+    /// Automatically calculated by [`ui_layout_system`](`super::layout::ui_layout_system`).
     pub outline_offset: f32,
     /// The unrounded size of the node as width and height in physical pixels.
     ///
-    /// Automatically calculated by [`super::layout::ui_layout_system`].
+    /// Automatically calculated by [`ui_layout_system`](`super::layout::ui_layout_system`).
     pub unrounded_size: Vec2,
     /// Resolved border values in physical pixels.
     /// Border updates bypass change detection.
     ///
-    /// Automatically calculated by [`super::layout::ui_layout_system`].
+    /// Automatically calculated by [`ui_layout_system`](`super::layout::ui_layout_system`).
     pub border: BorderRect,
     /// Resolved border radius values in physical pixels.
     /// Border radius updates bypass change detection.
     ///
-    /// Automatically calculated by [`super::layout::ui_layout_system`].
+    /// Automatically calculated by [`ui_layout_system`](`super::layout::ui_layout_system`).
     pub border_radius: ResolvedBorderRadius,
     /// Resolved padding values in physical pixels.
     /// Padding updates bypass change detection.
     ///
-    /// Automatically calculated by [`super::layout::ui_layout_system`].
+    /// Automatically calculated by [`ui_layout_system`](`super::layout::ui_layout_system`).
     pub padding: BorderRect,
     /// Inverse scale factor for this Node.
     /// Multiply physical coordinates by the inverse scale factor to give logical coordinates.
     ///
-    /// Automatically calculated by [`super::layout::ui_layout_system`].
+    /// Automatically calculated by [`ui_layout_system`](`super::layout::ui_layout_system`).
     pub inverse_scale_factor: f32,
 }
 
 impl ComputedNode {
     /// The calculated node size as width and height in physical pixels.
     ///
-    /// Automatically calculated by [`super::layout::ui_layout_system`].
+    /// Automatically calculated by [`ui_layout_system`](`super::layout::ui_layout_system`).
     #[inline]
     pub const fn size(&self) -> Vec2 {
         self.size
@@ -95,7 +95,7 @@ impl ComputedNode {
 
     /// The calculated node content size as width and height in physical pixels.
     ///
-    /// Automatically calculated by [`super::layout::ui_layout_system`].
+    /// Automatically calculated by [`ui_layout_system`](`super::layout::ui_layout_system`).
     #[inline]
     pub const fn content_size(&self) -> Vec2 {
         self.content_size
@@ -111,14 +111,14 @@ impl ComputedNode {
     /// The order of the node in the UI layout.
     /// Nodes with a higher stack index are drawn on top of and receive interactions before nodes with lower stack indices.
     ///
-    /// Automatically calculated by [`super::layout::ui_layout_system`].
+    /// Automatically calculated in [`UiSystems::Stack`](super::UiSystems::Stack).
     pub const fn stack_index(&self) -> u32 {
         self.stack_index
     }
 
     /// The calculated node size as width and height in physical pixels before rounding.
     ///
-    /// Automatically calculated by [`super::layout::ui_layout_system`].
+    /// Automatically calculated by [`ui_layout_system`](`super::layout::ui_layout_system`).
     #[inline]
     pub const fn unrounded_size(&self) -> Vec2 {
         self.unrounded_size
@@ -127,7 +127,7 @@ impl ComputedNode {
     /// Returns the thickness of the UI node's outline in physical pixels.
     /// If this value is negative or `0.` then no outline will be rendered.
     ///
-    /// Automatically calculated by [`super::layout::ui_layout_system`].
+    /// Automatically calculated by [`ui_layout_system`](`super::layout::ui_layout_system`).
     #[inline]
     pub const fn outline_width(&self) -> f32 {
         self.outline_width
@@ -135,7 +135,7 @@ impl ComputedNode {
 
     /// Returns the amount of space between the outline and the edge of the node in physical pixels.
     ///
-    /// Automatically calculated by [`super::layout::ui_layout_system`].
+    /// Automatically calculated by [`ui_layout_system`](`super::layout::ui_layout_system`).
     #[inline]
     pub const fn outline_offset(&self) -> f32 {
         self.outline_offset
@@ -143,7 +143,7 @@ impl ComputedNode {
 
     /// Returns the size of the node when including its outline.
     ///
-    /// Automatically calculated by [`super::layout::ui_layout_system`].
+    /// Automatically calculated by [`ui_layout_system`](`super::layout::ui_layout_system`).
     #[inline]
     pub const fn outlined_node_size(&self) -> Vec2 {
         let offset = 2. * (self.outline_offset + self.outline_width);
@@ -154,7 +154,7 @@ impl ComputedNode {
     /// An outline's border radius is derived from the node's border-radius
     /// so that the outline wraps the border equally at all points.
     ///
-    /// Automatically calculated by [`super::layout::ui_layout_system`].
+    /// Automatically calculated by [`ui_layout_system`](`super::layout::ui_layout_system`).
     #[inline]
     pub const fn outline_radius(&self) -> ResolvedBorderRadius {
         let outer_distance = self.outline_width + self.outline_offset;
@@ -175,7 +175,7 @@ impl ComputedNode {
 
     /// Returns the thickness of the node's border on each edge in physical pixels.
     ///
-    /// Automatically calculated by [`super::layout::ui_layout_system`].
+    /// Automatically calculated by [`ui_layout_system`](`super::layout::ui_layout_system`).
     #[inline]
     pub const fn border(&self) -> BorderRect {
         self.border
@@ -183,7 +183,7 @@ impl ComputedNode {
 
     /// Returns the border radius for each of the node's corners in physical pixels.
     ///
-    /// Automatically calculated by [`super::layout::ui_layout_system`].
+    /// Automatically calculated by [`ui_layout_system`](`super::layout::ui_layout_system`).
     #[inline]
     pub const fn border_radius(&self) -> ResolvedBorderRadius {
         self.border_radius
@@ -213,7 +213,7 @@ impl ComputedNode {
 
     /// Returns the thickness of the node's padding on each edge in physical pixels.
     ///
-    /// Automatically calculated by [`super::layout::ui_layout_system`].
+    /// Automatically calculated by [`ui_layout_system`](`super::layout::ui_layout_system`).
     #[inline]
     pub const fn padding(&self) -> BorderRect {
         self.padding
@@ -221,13 +221,11 @@ impl ComputedNode {
 
     /// Returns the combined inset on each edge including both padding and border thickness in physical pixels.
     #[inline]
-    pub const fn content_inset(&self) -> BorderRect {
-        BorderRect {
-            left: self.border.left + self.padding.left,
-            right: self.border.right + self.padding.right,
-            top: self.border.top + self.padding.top,
-            bottom: self.border.bottom + self.padding.bottom,
-        }
+    pub fn content_inset(&self) -> BorderRect {
+        let mut content_inset = self.border + self.padding;
+        content_inset.right += self.scrollbar_size.x;
+        content_inset.bottom += self.scrollbar_size.y;
+        content_inset
     }
 
     /// Returns the inverse of the scale factor for this node.
@@ -303,6 +301,106 @@ impl ComputedNode {
 
         clip_rect
     }
+
+    /// Returns the node's border-box in object-centered physical coordinates.
+    /// This is the full rectangle enclosing the node.
+    #[inline]
+    pub fn border_box(&self) -> Rect {
+        Rect::from_center_size(Vec2::ZERO, self.size)
+    }
+
+    /// Returns the node's padding-box in object-centered physical coordinates.
+    /// This is the region inside the border containing the node's padding and content areas.
+    #[inline]
+    pub fn padding_box(&self) -> Rect {
+        let mut out = self.border_box();
+        out.min.x += self.border.left;
+        out.max.x -= self.border.right;
+        out.min.y += self.border.top;
+        out.max.y -= self.border.bottom;
+        out
+    }
+
+    /// Returns the node's content-box in object-centered physical coordinates.
+    /// This is the innermost region of the node, where its content is placed.
+    #[inline]
+    pub fn content_box(&self) -> Rect {
+        let mut out = self.border_box();
+        let content_inset = self.content_inset();
+        out.min.x += content_inset.left;
+        out.max.x -= content_inset.right;
+        out.min.y += content_inset.top;
+        out.max.y -= content_inset.bottom;
+        out
+    }
+
+    const fn compute_thumb(
+        gutter_min: f32,
+        content_length: f32,
+        gutter_length: f32,
+        scroll_position: f32,
+    ) -> [f32; 2] {
+        if content_length <= gutter_length {
+            return [gutter_min, gutter_min + gutter_length];
+        }
+        let thumb_len = gutter_length * gutter_length / content_length;
+        let thumb_min = gutter_min + scroll_position * gutter_length / content_length;
+        [thumb_min, thumb_min + thumb_len]
+    }
+
+    /// Compute the bounds of the horizontal scrollbar and the thumb
+    /// in object-centered coordinates.
+    pub fn horizontal_scrollbar(&self) -> Option<(Rect, [f32; 2])> {
+        if self.scrollbar_size.y <= 0. {
+            return None;
+        }
+        let content_inset = self.content_inset();
+        let half_size = 0.5 * self.size;
+        let min_x = -half_size.x + content_inset.left;
+        let max_x = half_size.x - content_inset.right;
+        let min_y = half_size.y - content_inset.bottom;
+        let max_y = min_y + self.scrollbar_size.y;
+        let gutter = Rect {
+            min: Vec2::new(min_x, min_y),
+            max: Vec2::new(max_x, max_y),
+        };
+        Some((
+            gutter,
+            Self::compute_thumb(
+                gutter.min.x,
+                self.content_size.x,
+                gutter.size().x,
+                self.scroll_position.x,
+            ),
+        ))
+    }
+
+    /// Compute the bounds of the vertical scrollbar and the thumb
+    /// in object-centered coordinates.
+    pub fn vertical_scrollbar(&self) -> Option<(Rect, [f32; 2])> {
+        if self.scrollbar_size.x <= 0. {
+            return None;
+        }
+        let content_inset = self.content_inset();
+        let half_size = 0.5 * self.size;
+        let min_x = half_size.x - content_inset.right;
+        let max_x = min_x + self.scrollbar_size.x;
+        let min_y = -half_size.y + content_inset.top;
+        let max_y = half_size.y - content_inset.bottom;
+        let gutter = Rect {
+            min: Vec2::new(min_x, min_y),
+            max: Vec2::new(max_x, max_y),
+        };
+        Some((
+            gutter,
+            Self::compute_thumb(
+                gutter.min.y,
+                self.content_size.y,
+                gutter.size().y,
+                self.scroll_position.y,
+            ),
+        ))
+    }
 }
 
 impl ComputedNode {
@@ -352,6 +450,21 @@ impl From<Vec2> for ScrollPosition {
     }
 }
 
+/// Controls whether a UI element ignores its parent's [`ScrollPosition`] along specific axes.
+///
+/// When an axis is set to `true`, the node will not have the parent’s scroll position applied
+/// on that axis. This can be used to keep an element visually fixed along one or both axes
+/// even when its parent UI element is scrolled.
+#[derive(Component, Debug, Clone, Default, Deref, DerefMut, Reflect)]
+#[reflect(Component, Default, Clone)]
+pub struct IgnoreScroll(pub BVec2);
+
+impl From<BVec2> for IgnoreScroll {
+    fn from(value: BVec2) -> Self {
+        Self(value)
+    }
+}
+
 /// The base component for UI entities. It describes UI layout and style properties.
 ///
 /// When defining new types of UI entities, require [`Node`] to make them behave like UI nodes.
@@ -385,7 +498,6 @@ impl From<Vec2> for ScrollPosition {
     UiTransform,
     BackgroundColor,
     BorderColor,
-    BorderRadius,
     FocusPolicy,
     ScrollPosition,
     Visibility,
@@ -601,6 +713,45 @@ pub struct Node {
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/border-width>
     pub border: UiRect,
 
+    /// Used to add rounded corners to a UI node. You can set a UI node to have uniformly
+    /// rounded corners or specify different radii for each corner. If a given radius exceeds half
+    /// the length of the smallest dimension between the node's height or width, the radius will
+    /// calculated as half the smallest dimension.
+    ///
+    /// Elliptical nodes are not supported yet. Percentage values are based on the node's smallest
+    /// dimension, either width or height.
+    ///
+    /// # Example
+    /// ```rust
+    /// # use bevy_ecs::prelude::*;
+    /// # use bevy_ui::prelude::*;
+    /// # use bevy_color::palettes::basic::{BLUE};
+    /// fn setup_ui(mut commands: Commands) {
+    ///     commands.spawn((
+    ///         Node {
+    ///             width: Val::Px(100.),
+    ///             height: Val::Px(100.),
+    ///             border: UiRect::all(Val::Px(2.)),
+    ///             border_radius: BorderRadius::new(
+    ///                 // top left
+    ///                 Val::Px(10.),
+    ///                 // top right
+    ///                 Val::Px(20.),
+    ///                 // bottom right
+    ///                 Val::Px(30.),
+    ///                 // bottom left
+    ///                 Val::Px(40.),
+    ///             ),
+    ///             ..Default::default()
+    ///         },
+    ///         BackgroundColor(BLUE.into()),
+    ///     ));
+    /// }
+    /// ```
+    ///
+    /// <https://developer.mozilla.org/en-US/docs/Web/CSS/border-radius>
+    pub border_radius: BorderRadius,
+
     /// Whether a Flexbox container should be a row or a column. This property has no effect on Grid nodes.
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/flex-direction>
@@ -702,6 +853,7 @@ impl Node {
         margin: UiRect::DEFAULT,
         padding: UiRect::DEFAULT,
         border: UiRect::DEFAULT,
+        border_radius: BorderRadius::DEFAULT,
         flex_grow: 0.0,
         flex_shrink: 1.0,
         flex_basis: Val::Auto,
@@ -857,7 +1009,7 @@ impl Default for AlignSelf {
 }
 
 /// Used to control how the specified item is aligned within the space it's given.
-/// - For Flexbox items, this property has no effect. See `justify_content` for main axis alignment of flex items.
+/// - For children of flex nodes, this property has no effect. See `justify_content` for main axis alignment of flex items.
 /// - For CSS Grid items, controls inline (horizontal) axis alignment of a grid item within its grid area.
 ///
 /// <https://developer.mozilla.org/en-US/docs/Web/CSS/justify-self>
@@ -2303,26 +2455,26 @@ pub struct GlobalZIndex(pub i32);
 ///             width: Val::Px(100.),
 ///             height: Val::Px(100.),
 ///             border: UiRect::all(Val::Px(2.)),
+///             border_radius: BorderRadius::new(
+///                 // top left
+///                 Val::Px(10.),
+///                 // top right
+///                 Val::Px(20.),
+///                 // bottom right
+///                 Val::Px(30.),
+///                 // bottom left
+///                 Val::Px(40.),
+///             ),
 ///             ..Default::default()
 ///         },
 ///         BackgroundColor(BLUE.into()),
-///         BorderRadius::new(
-///             // top left
-///             Val::Px(10.),
-///             // top right
-///             Val::Px(20.),
-///             // bottom right
-///             Val::Px(30.),
-///             // bottom left
-///             Val::Px(40.),
-///         ),
 ///     ));
 /// }
 /// ```
 ///
 /// <https://developer.mozilla.org/en-US/docs/Web/CSS/border-radius>
-#[derive(Component, Copy, Clone, Debug, PartialEq, Reflect)]
-#[reflect(Component, PartialEq, Default, Debug, Clone)]
+#[derive(Copy, Clone, Debug, PartialEq, Reflect)]
+#[reflect(PartialEq, Default, Debug, Clone)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -2765,9 +2917,9 @@ impl UiTargetCamera {
 ///     commands.spawn((
 ///         Camera2d,
 ///         Camera {
-///             target: RenderTarget::Window(WindowRef::Entity(another_window)),
 ///             ..Default::default()
 ///         },
+///         RenderTarget::Window(WindowRef::Entity(another_window)),
 ///         // We add the Marker here so all Ui will spawn in
 ///         // another window if no UiTargetCamera is specified
 ///         IsDefaultUiCamera
@@ -2779,7 +2931,7 @@ pub struct IsDefaultUiCamera;
 
 #[derive(SystemParam)]
 pub struct DefaultUiCamera<'w, 's> {
-    cameras: Query<'w, 's, (Entity, &'static Camera)>,
+    cameras: Query<'w, 's, (Entity, &'static Camera, &'static RenderTarget)>,
     default_cameras: Query<'w, 's, Entity, (With<Camera>, With<IsDefaultUiCamera>)>,
     primary_window: Query<'w, 's, Entity, With<PrimaryWindow>>,
 }
@@ -2793,15 +2945,15 @@ impl<'w, 's> DefaultUiCamera<'w, 's> {
             }
             self.cameras
                 .iter()
-                .filter(|(_, c)| match c.target {
+                .filter(|(_, _, render_target)| match render_target {
                     RenderTarget::Window(WindowRef::Primary) => true,
                     RenderTarget::Window(WindowRef::Entity(w)) => {
-                        self.primary_window.get(w).is_ok()
+                        self.primary_window.get(*w).is_ok()
                     }
                     _ => false,
                 })
-                .max_by_key(|(e, c)| (c.order, *e))
-                .map(|(e, _)| e)
+                .max_by_key(|(e, c, _)| (c.order, *e))
+                .map(|(e, _, _)| e)
         })
     }
 }
@@ -2867,7 +3019,10 @@ impl ComputedUiRenderTargetInfo {
 
 #[cfg(test)]
 mod tests {
+    use crate::ComputedNode;
     use crate::GridPlacement;
+    use bevy_math::{Rect, Vec2};
+    use bevy_sprite::BorderRect;
 
     #[test]
     fn invalid_grid_placement_values() {
@@ -2893,5 +3048,151 @@ mod tests {
         assert_eq!(GridPlacement::start_end(11, 21).get_span(), None);
         assert_eq!(GridPlacement::start_span(3, 5).get_end(), None);
         assert_eq!(GridPlacement::end_span(-4, 12).get_start(), None);
+    }
+
+    #[test]
+    fn computed_node_both_scrollbars() {
+        let node = ComputedNode {
+            size: Vec2::splat(100.),
+            scrollbar_size: Vec2::splat(10.),
+            content_size: Vec2::splat(100.),
+            ..Default::default()
+        };
+
+        let (gutter, thumb) = node.horizontal_scrollbar().unwrap();
+        assert_eq!(
+            gutter,
+            Rect {
+                min: Vec2::new(-50., 40.),
+                max: Vec2::new(40., 50.)
+            }
+        );
+        assert_eq!(thumb, [-50., 31.]);
+
+        let (gutter, thumb) = node.vertical_scrollbar().unwrap();
+        assert_eq!(
+            gutter,
+            Rect {
+                min: Vec2::new(40., -50.),
+                max: Vec2::new(50., 40.)
+            }
+        );
+        assert_eq!(thumb, [-50., 31.]);
+    }
+
+    #[test]
+    fn computed_node_single_horizontal_scrollbar() {
+        let mut node = ComputedNode {
+            size: Vec2::splat(100.),
+            scrollbar_size: Vec2::new(0., 10.),
+            content_size: Vec2::new(200., 100.),
+            scroll_position: Vec2::new(0., 0.),
+            ..Default::default()
+        };
+
+        assert_eq!(None, node.vertical_scrollbar());
+
+        let (gutter, thumb) = node.horizontal_scrollbar().unwrap();
+        assert_eq!(
+            gutter,
+            Rect {
+                min: Vec2::new(-50., 40.),
+                max: Vec2::new(50., 50.)
+            }
+        );
+        assert_eq!(thumb, [-50., 0.]);
+
+        node.scroll_position.x += 100.;
+        let (gutter, thumb) = node.horizontal_scrollbar().unwrap();
+        assert_eq!(
+            gutter,
+            Rect {
+                min: Vec2::new(-50., 40.),
+                max: Vec2::new(50., 50.)
+            }
+        );
+        assert_eq!(thumb, [0., 50.]);
+    }
+
+    #[test]
+    fn computed_node_single_vertical_scrollbar() {
+        let mut node = ComputedNode {
+            size: Vec2::splat(100.),
+            scrollbar_size: Vec2::new(10., 0.),
+            content_size: Vec2::new(100., 200.),
+            scroll_position: Vec2::new(0., 0.),
+            ..Default::default()
+        };
+
+        assert_eq!(None, node.horizontal_scrollbar());
+
+        let (gutter, thumb) = node.vertical_scrollbar().unwrap();
+        assert_eq!(
+            gutter,
+            Rect {
+                min: Vec2::new(40., -50.),
+                max: Vec2::new(50., 50.)
+            }
+        );
+        assert_eq!(thumb, [-50., 0.]);
+
+        node.scroll_position.y += 100.;
+        let (gutter, thumb) = node.vertical_scrollbar().unwrap();
+        assert_eq!(
+            gutter,
+            Rect {
+                min: Vec2::new(40., -50.),
+                max: Vec2::new(50., 50.)
+            }
+        );
+        assert_eq!(thumb, [0., 50.]);
+    }
+
+    #[test]
+    fn border_box_is_centered_rect_of_node_size() {
+        let node = ComputedNode {
+            size: Vec2::new(100.0, 50.0),
+            ..Default::default()
+        };
+        let border_box = node.border_box();
+
+        assert_eq!(border_box.min, Vec2::new(-50.0, -25.0));
+        assert_eq!(border_box.max, Vec2::new(50.0, 25.0));
+    }
+
+    #[test]
+    fn padding_box_subtracts_border_thickness() {
+        let node = ComputedNode {
+            size: Vec2::new(100.0, 60.0),
+            border: BorderRect {
+                left: 5.0,
+                right: 7.0,
+                top: 3.0,
+                bottom: 9.0,
+            },
+            ..Default::default()
+        };
+        let padding_box = node.padding_box();
+
+        assert_eq!(padding_box.min, Vec2::new(-50.0 + 5.0, -30.0 + 3.0));
+        assert_eq!(padding_box.max, Vec2::new(50.0 - 7.0, 30.0 - 9.0));
+    }
+
+    #[test]
+    fn content_box_uses_content_inset() {
+        let node = ComputedNode {
+            size: Vec2::new(80.0, 40.0),
+            padding: BorderRect {
+                left: 4.0,
+                right: 6.0,
+                top: 2.0,
+                bottom: 8.0,
+            },
+            ..Default::default()
+        };
+        let content_box = node.content_box();
+
+        assert_eq!(content_box.min, Vec2::new(-40.0 + 4.0, -20.0 + 2.0));
+        assert_eq!(content_box.max, Vec2::new(40.0 - 6.0, 20.0 - 8.0));
     }
 }

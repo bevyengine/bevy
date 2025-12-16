@@ -14,7 +14,7 @@ use bevy::{
     },
     core_pipeline::core_3d::{Opaque3d, Opaque3dBatchSetKey, Opaque3dBinKey, CORE_3D_DEPTH_FORMAT},
     ecs::{
-        component::Tick,
+        change_detection::Tick,
         query::ROQueryItem,
         system::{lifetimeless::SRes, SystemParamItem},
     },
@@ -93,7 +93,6 @@ where
                 .buffer()
                 .unwrap()
                 .slice(..),
-            0,
             IndexFormat::Uint32,
         );
 

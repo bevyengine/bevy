@@ -8,6 +8,7 @@ use bevy_math::Mat4;
 use bevy_mesh::skinning::{SkinnedMesh, SkinnedMeshInverseBindposes};
 use bevy_platform::collections::hash_map::Entry;
 use bevy_render::render_resource::{Buffer, BufferDescriptor};
+use bevy_render::settings::WgpuLimits;
 use bevy_render::sync_world::{MainEntity, MainEntityHashMap, MainEntityHashSet};
 use bevy_render::{
     batching::NoAutomaticBatching,
@@ -118,7 +119,7 @@ pub struct SkinUniforms {
 impl FromWorld for SkinUniforms {
     fn from_world(world: &mut World) -> Self {
         let device = world.resource::<RenderDevice>();
-        let buffer_usages = (if skins_use_uniform_buffers(device) {
+        let buffer_usages = (if skins_use_uniform_buffers(&device.limits()) {
             BufferUsages::UNIFORM
         } else {
             BufferUsages::STORAGE
@@ -190,10 +191,9 @@ impl SkinUniformInfo {
 
 /// Returns true if skinning must use uniforms (and dynamic offsets) because
 /// storage buffers aren't supported on the current platform.
-pub fn skins_use_uniform_buffers(render_device: &RenderDevice) -> bool {
+pub fn skins_use_uniform_buffers(limits: &WgpuLimits) -> bool {
     static SKINS_USE_UNIFORM_BUFFERS: OnceLock<bool> = OnceLock::new();
-    *SKINS_USE_UNIFORM_BUFFERS
-        .get_or_init(|| render_device.limits().max_storage_buffers_per_shader_stage == 0)
+    *SKINS_USE_UNIFORM_BUFFERS.get_or_init(|| limits.max_storage_buffers_per_shader_stage == 0)
 }
 
 /// Uploads the buffers containing the joints to the GPU.
@@ -224,7 +224,7 @@ pub fn prepare_skins(
         }
 
         // Create the new buffers.
-        let buffer_usages = if skins_use_uniform_buffers(&render_device) {
+        let buffer_usages = if skins_use_uniform_buffers(&render_device.limits()) {
             BufferUsages::UNIFORM
         } else {
             BufferUsages::STORAGE
@@ -613,7 +613,7 @@ pub fn no_automatic_skin_batching(
     query: Query<Entity, (With<SkinnedMesh>, Without<NoAutomaticBatching>)>,
     render_device: Res<RenderDevice>,
 ) {
-    if !skins_use_uniform_buffers(&render_device) {
+    if !skins_use_uniform_buffers(&render_device.limits()) {
         return;
     }
 

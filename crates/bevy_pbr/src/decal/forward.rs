@@ -41,8 +41,6 @@ impl Plugin for ForwardDecalPlugin {
         app.insert_resource(ForwardDecalMesh(mesh));
 
         app.add_plugins(MaterialPlugin::<ForwardDecalMaterial<StandardMaterial>> {
-            prepass_enabled: false,
-            shadows_enabled: false,
             debug_flags: RenderDebugFlags::default(),
             ..Default::default()
         });
@@ -60,6 +58,7 @@ impl Plugin for ForwardDecalPlugin {
 /// * Any camera rendering a forward decal must have the [`bevy_core_pipeline::prepass::DepthPrepass`] component.
 /// * Looking at forward decals at a steep angle can cause distortion. This can be mitigated by padding your decal's
 ///   texture with extra transparent pixels on the edges.
+/// * On Wasm, requires using WebGPU and disabling `Msaa` on your camera.
 #[derive(Component, Reflect)]
 #[require(Mesh3d)]
 #[component(on_add=forward_decal_set_mesh)]

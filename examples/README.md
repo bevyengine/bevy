@@ -60,7 +60,9 @@ git checkout v0.4.0
   - [Reflection](#reflection)
   - [Remote Protocol](#remote-protocol)
   - [Scene](#scene)
+  - [Shader Advanced](#shader-advanced)
   - [Shaders](#shaders)
+  - [Shaders Advanced](#shaders-advanced)
   - [State](#state)
   - [Stress Tests](#stress-tests)
   - [Time](#time)
@@ -69,6 +71,7 @@ git checkout v0.4.0
   - [UI (User Interface)](#ui-user-interface)
   - [Usage](#usage)
   - [Window](#window)
+  - [glTF](#gltf)
 
 - [Tests](#tests)
 - [Platform-Specific Examples](#platform-specific-examples)
@@ -112,13 +115,13 @@ Example | Description
 [2D Wireframe](../examples/2d/wireframe_2d.rs) | Showcases wireframes for 2d meshes
 [Arc 2D Meshes](../examples/2d/mesh2d_arcs.rs) | Demonstrates UV-mapping of the circular segment and sector primitives
 [CPU Drawing](../examples/2d/cpu_draw.rs) | Manually read/write the pixels of a texture
-[Custom glTF vertex attribute 2D](../examples/2d/custom_gltf_vertex_attribute.rs) | Renders a glTF mesh in 2D with a custom vertex attribute
 [Manual Mesh 2D](../examples/2d/mesh2d_manual.rs) | Renders a custom mesh "manually" with "mid-level" renderer apis
 [Mesh 2D](../examples/2d/mesh2d.rs) | Renders a 2d mesh
 [Mesh 2D With Vertex Colors](../examples/2d/mesh2d_vertex_color_texture.rs) | Renders a 2d mesh with vertex color attributes
 [Mesh2d Alpha Mode](../examples/2d/mesh2d_alpha_mode.rs) | Used to test alpha modes with mesh2d
 [Mesh2d Repeated Texture](../examples/2d/mesh2d_repeated_texture.rs) | Showcase of using `uv_transform` on the `ColorMaterial` of a `Mesh2d`
 [Move Sprite](../examples/2d/move_sprite.rs) | Changes the transform of a sprite
+[Multi-Window Text](../examples/window/multi_window_text.rs) | Renders text to multiple windows with different scale factors using both Text and Text2d
 [Pixel Grid Snapping](../examples/2d/pixel_grid_snap.rs) | Shows how to create graphics that snap to the pixel grid by rendering to a texture in 2D
 [Sprite](../examples/2d/sprite.rs) | Renders a sprite
 [Sprite Animation](../examples/2d/sprite_animation.rs) | Animates a sprite in response to an event
@@ -150,12 +153,12 @@ Example | Description
 [Built-in postprocessing](../examples/3d/post_processing.rs) | Demonstrates the built-in postprocessing features
 [Camera sub view](../examples/3d/camera_sub_view.rs) | Demonstrates using different sub view effects on a camera
 [Clearcoat](../examples/3d/clearcoat.rs) | Demonstrates the clearcoat PBR feature
+[Clustered Decal Maps](../examples/3d/clustered_decal_maps.rs) | Demonstrates normal and metallic-roughness maps of decals
 [Clustered Decals](../examples/3d/clustered_decals.rs) | Demonstrates clustered decals
 [Color grading](../examples/3d/color_grading.rs) | Demonstrates color grading
 [Decal](../examples/3d/decal.rs) | Decal rendering
 [Deferred Rendering](../examples/3d/deferred_rendering.rs) | Renders meshes with both forward and deferred pipelines
 [Depth of field](../examples/3d/depth_of_field.rs) | Demonstrates depth of field
-[Edit Gltf Material](../examples/3d/edit_material_on_gltf.rs) | Showcases changing materials of a Gltf after Scene spawn
 [Fog](../examples/3d/fog.rs) | A scene showcasing the distance fog effect
 [Fog volumes](../examples/3d/fog_volumes.rs) | Demonstrates fog volumes
 [Generate Custom Mesh](../examples/3d/generate_custom_mesh.rs) | Simple showcase of how to generate a custom mesh with a custom texture
@@ -164,11 +167,9 @@ Example | Description
 [Lighting](../examples/3d/lighting.rs) | Illustrates various lighting options in a simple scene
 [Lightmaps](../examples/3d/lightmaps.rs) | Rendering a scene with baked lightmaps
 [Lines](../examples/3d/lines.rs) | Create a custom material to draw 3d lines
-[Load glTF](../examples/3d/load_gltf.rs) | Loads and renders a glTF file as a scene
-[Load glTF extras](../examples/3d/load_gltf_extras.rs) | Loads and renders a glTF file as a scene, including the gltf extras
-[Manual Material Implementation](../examples/3d/manual_material.rs) | Demonstrates how to implement a material manually using the mid-level render APIs
 [Mesh Ray Cast](../examples/3d/mesh_ray_cast.rs) | Demonstrates ray casting with the `MeshRayCast` system parameter
 [Meshlet](../examples/3d/meshlet.rs) | Meshlet rendering for dense high-poly scenes (experimental)
+[Mirror](../examples/3d/mirror.rs) | Demonstrates how to create a mirror with a second camera
 [Mixed lighting](../examples/3d/mixed_lighting.rs) | Demonstrates how to combine baked and dynamic lighting
 [Motion Blur](../examples/3d/motion_blur.rs) | Demonstrates per-pixel motion blur
 [Occlusion Culling](../examples/3d/occlusion_culling.rs) | Demonstration of Occlusion Culling
@@ -178,7 +179,6 @@ Example | Description
 [Parenting](../examples/3d/parenting.rs) | Demonstrates parent->child relationships and relative transformations
 [Percentage-closer soft shadows](../examples/3d/pcss.rs) | Demonstrates percentage-closer soft shadows (PCSS)
 [Physically Based Rendering](../examples/3d/pbr.rs) | Demonstrates use of Physically Based Rendering (PBR) properties
-[Query glTF primitives](../examples/3d/query_gltf_primitives.rs) | Query primitives in a glTF scene
 [Reflection Probes](../examples/3d/reflection_probes.rs) | Demonstrates reflection probes
 [Render to Texture](../examples/3d/render_to_texture.rs) | Shows how to render to a texture, useful for mirrors, UI, or exporting images
 [Rotate Environment Map](../examples/3d/rotate_environment_map.rs) | Demonstrates how to rotate the skybox and the environment map simultaneously
@@ -198,7 +198,6 @@ Example | Description
 [Transmission](../examples/3d/transmission.rs) | Showcases light transmission in the PBR material
 [Transparency in 3D](../examples/3d/transparency_3d.rs) | Demonstrates transparency in 3d
 [Two Passes](../examples/3d/two_passes.rs) | Renders two 3d passes to the same window from different perspectives
-[Update glTF Scene](../examples/3d/update_gltf_scene.rs) | Update a scene from a glTF file, either by spawning the scene as a child of another entity, or by accessing the entities of the scene
 [Vertex Colors](../examples/3d/vertex_colors.rs) | Shows the use of vertex colors
 [Visibility range](../examples/3d/visibility_range.rs) | Demonstrates visibility ranges
 [Volumetric fog](../examples/3d/volumetric_fog.rs) | Demonstrates volumetric fog and lighting
@@ -221,7 +220,6 @@ Example | Description
 [Eased Motion](../examples/animation/eased_motion.rs) | Demonstrates the application of easing curves to animate an object
 [Easing Functions](../examples/animation/easing_functions.rs) | Showcases the built-in easing functions
 [Morph Targets](../examples/animation/morph_targets.rs) | Plays an animation from a glTF file with meshes with morph targets
-[glTF Skinned Mesh](../examples/animation/gltf_skinned_mesh.rs) | Skinned mesh example with mesh and joints data loaded from a glTF file
 
 ### Application
 
@@ -256,15 +254,17 @@ Example | Description
 [Custom Asset](../examples/asset/custom_asset.rs) | Implements a custom asset loader
 [Custom Asset IO](../examples/asset/custom_asset_reader.rs) | Implements a custom AssetReader
 [Embedded Asset](../examples/asset/embedded_asset.rs) | Embed an asset in the application binary and load it
-[Extra asset source](../examples/asset/extra_source.rs) | Load an asset from a non-standard asset source
+[Extra Asset Source](../examples/asset/extra_source.rs) | Load an asset from a non-standard asset source
 [Hot Reloading of Assets](../examples/asset/hot_asset_reloading.rs) | Demonstrates automatic reloading of assets when modified on disk
 [Multi-asset synchronization](../examples/asset/multi_asset_sync.rs) | Demonstrates how to wait for multiple assets to be loaded.
 [Repeated texture configuration](../examples/asset/repeated_texture.rs) | How to configure the texture to repeat instead of the default clamp to edges
+[Web Asset](../examples/asset/web_asset.rs) | Load an asset from the web
 
 ### Async Tasks
 
 Example | Description
 --- | ---
+[Async Channel Pattern](../examples/async_tasks/async_channel_pattern.rs) | An example showing how to offload work to background async tasks using channels for communication.
 [Async Compute](../examples/async_tasks/async_compute.rs) | How to use `AsyncComputeTaskPool` to complete longer running tasks
 [External Source of Data on an External Thread](../examples/async_tasks/external_source_external_thread.rs) | How to use an external thread to run an infinite task and communicate with a channel
 
@@ -289,6 +289,8 @@ Example | Description
 [Camera Orbit](../examples/camera/camera_orbit.rs) | Shows how to orbit a static scene using pitch, yaw, and roll.
 [Custom Projection](../examples/camera/custom_projection.rs) | Shows how to create custom camera projections.
 [First person view model](../examples/camera/first_person_view_model.rs) | A first-person camera that uses a world model and a view model with different field of views (FOV)
+[Free Camera controller](../examples/camera/free_camera_controller.rs) | Demonstrates the FreeCamera controller for 3D scenes.
+[Pan Camera](../examples/camera/pan_camera_controller.rs) | Example Pan-Camera Styled Camera Controller for 2D scenes
 [Projection Zoom](../examples/camera/projection_zoom.rs) | Shows how to zoom orthographic and perspective projection cameras.
 [Screen Shake](../examples/camera/2d_screen_shake.rs) | A simple 2D screen shake effect
 
@@ -318,7 +320,6 @@ Example | Description
 [ECS Guide](../examples/ecs/ecs_guide.rs) | Full guide to Bevy's ECS
 [Entity disabling](../examples/ecs/entity_disabling.rs) | Demonstrates how to hide entities from the ECS without deleting them
 [Error handling](../examples/ecs/error_handling.rs) | How to return and handle errors across the ECS
-[Event](../examples/ecs/event.rs) | Illustrates event creation, activation, and reception
 [Fallible System Parameters](../examples/ecs/fallible_params.rs) | Systems are skipped if their parameters cannot be acquired
 [Fixed Timestep](../examples/ecs/fixed_timestep.rs) | Shows how to create systems that run every fixed timestep, rather than every tick
 [Generic System](../examples/ecs/generic_system.rs) | Shows how to create systems that can be reused with different types
@@ -326,6 +327,7 @@ Example | Description
 [Hotpatching Systems](../examples/ecs/hotpatching_systems.rs) | Demonstrates how to hotpatch systems
 [Immutable Components](../examples/ecs/immutable_components.rs) | Demonstrates the creation and utility of immutable components
 [Iter Combinations](../examples/ecs/iter_combinations.rs) | Shows how to iterate over combinations of query results
+[Message](../examples/ecs/message.rs) | Illustrates message creation, activation, and reception
 [Nondeterministic System Order](../examples/ecs/nondeterministic_system_order.rs) | Systems run in parallel, but their order isn't always deterministic. Here's how to detect and fix this.
 [Observer Propagation](../examples/ecs/observer_propagation.rs) | Demonstrates event propagation with observers
 [Observers](../examples/ecs/observers.rs) | Demonstrates observers that react to events (both built-in life-cycle events and custom events)
@@ -334,7 +336,7 @@ Example | Description
 [Relationships](../examples/ecs/relationships.rs) | Define and work with custom relationships between entities
 [Removal Detection](../examples/ecs/removal_detection.rs) | Query for entities that had a specific component removed earlier in the current frame
 [Run Conditions](../examples/ecs/run_conditions.rs) | Run systems only when one or multiple conditions are met
-[Send and receive events](../examples/ecs/send_and_receive_events.rs) | Demonstrates how to send and receive events of the same type in a single system
+[Send and receive messages](../examples/ecs/send_and_receive_messages.rs) | Demonstrates how to send and receive messages of the same type in a single system
 [Startup System](../examples/ecs/startup_system.rs) | Demonstrates a startup system (one that runs once when the app starts up)
 [State Scoped](../examples/ecs/state_scoped.rs) | Shows how to spawn entities that are automatically despawned either when entering or exiting specific game states.
 [System Closure](../examples/ecs/system_closure.rs) | Show how to use closures as systems, and how to configure `Local` variables by capturing external state
@@ -372,7 +374,6 @@ Example | Description
 
 Example | Description
 --- | ---
-[Camera Controller](../examples/helpers/camera_controller.rs) | Example Free-Cam Styled Camera Controller
 [Widgets](../examples/helpers/widgets.rs) | Example UI Widgets
 
 ### Input
@@ -431,6 +432,7 @@ Example | Description
 [Generic Reflection](../examples/reflection/generic_reflection.rs) | Registers concrete instances of generic types that may be used with reflection
 [Reflection](../examples/reflection/reflection.rs) | Demonstrates how reflection in Bevy provides a way to dynamically interact with Rust types
 [Reflection Types](../examples/reflection/reflection_types.rs) | Illustrates the various reflection types available
+[Serialization](../examples/reflection/serialization.rs) | Demonstrates serialization and deserialization using reflection without serde's Serialize/Deserialize traits
 [Type Data](../examples/reflection/type_data.rs) | Demonstrates how to create and use type data
 
 ### Remote Protocol
@@ -445,6 +447,12 @@ Example | Description
 Example | Description
 --- | ---
 [Scene](../examples/scene/scene.rs) | Demonstrates loading from and saving scenes to files
+
+### Shader Advanced
+
+Example | Description
+--- | ---
+[Manual Material Implementation](../examples/shader_advanced/manual_material.rs) | Demonstrates how to implement a material manually using the mid-level render APIs
 
 ### Shaders
 
@@ -475,10 +483,17 @@ Example | Description
 [Material - WESL](../examples/shader/shader_material_wesl.rs) | A shader that uses WESL
 [Material Prepass](../examples/shader/shader_prepass.rs) | A shader that uses the various textures generated by the prepass
 [Post Processing - Custom Render Pass](../examples/shader_advanced/custom_post_processing.rs) | A custom post processing effect, using a custom render pass that runs after the main pass
+[Render Depth to Texture](../examples/shader_advanced/render_depth_to_texture.rs) | Demonstrates how to use depth-only cameras
 [Shader Defs](../examples/shader/shader_defs.rs) | A shader that uses "shaders defs" (a bevy tool to selectively toggle parts of a shader)
 [Specialized Mesh Pipeline](../examples/shader_advanced/specialized_mesh_pipeline.rs) | Demonstrates how to write a specialized mesh pipeline
 [Storage Buffer](../examples/shader/storage_buffer.rs) | A shader that shows how to bind a storage buffer using a custom material.
 [Texture Binding Array (Bindless Textures)](../examples/shader_advanced/texture_binding_array.rs) | A shader that shows how to bind and sample multiple textures as a binding array (a.k.a. bindless textures).
+
+### Shaders Advanced
+
+Example | Description
+--- | ---
+[Fullscreen Material](../examples/shader_advanced/fullscreen_material.rs) | Demonstrates how to write a fullscreen material
 
 ### State
 
@@ -547,15 +562,16 @@ Example | Description
 
 Example | Description
 --- | ---
+[Anchor Layout](../examples/ui/anchor_layout.rs) | Shows an 'anchor layout' style of ui layout
+[Automatic Directional Navigation](../examples/ui/auto_directional_navigation.rs) | Demonstration of automatic directional navigation graph generation based on UI element positions
 [Borders](../examples/ui/borders.rs) | Demonstrates how to create a node with a border
 [Box Shadow](../examples/ui/box_shadow.rs) | Demonstrates how to create a node with a shadow
 [Button](../examples/ui/button.rs) | Illustrates creating and updating a button
 [CSS Grid](../examples/ui/grid.rs) | An example for CSS Grid layout
-[Core Widgets](../examples/ui/core_widgets.rs) | Demonstrates use of core (headless) widgets in Bevy UI
-[Core Widgets (w/Observers)](../examples/ui/core_widgets_observers.rs) | Demonstrates use of core (headless) widgets in Bevy UI, with Observers
 [Directional Navigation](../examples/ui/directional_navigation.rs) | Demonstration of Directional Navigation between UI elements
 [Display and Visibility](../examples/ui/display_and_visibility.rs) | Demonstrates how Display and Visibility work in the UI.
 [Drag to Scroll](../examples/ui/drag_to_scroll.rs) | This example tests scale factor, dragging and scrolling
+[Feathers Widgets](../examples/ui/feathers.rs) | Gallery of Feathers Widgets
 [Flex Layout](../examples/ui/flex_layout.rs) | Demonstrates how the AlignItems and JustifyContent properties can be composed to layout nodes and position text
 [Font Atlas Debug](../examples/ui/font_atlas_debug.rs) | Illustrates how FontAtlases are populated (used to optimize text rendering internally)
 [Ghost Nodes](../examples/ui/ghost_nodes.rs) | Demonstrates the use of Ghost Nodes to skip entities in the UI layout hierarchy
@@ -569,20 +585,26 @@ Example | Description
 [Scrollbars](../examples/ui/scrollbars.rs) | Demonstrates use of core scrollbar in Bevy UI
 [Size Constraints](../examples/ui/size_constraints.rs) | Demonstrates how the to use the size constraints to control the size of a UI node.
 [Stacked Gradients](../examples/ui/stacked_gradients.rs) | An example demonstrating stacked gradients
+[Standard Widgets](../examples/ui/standard_widgets.rs) | Demonstrates use of core (headless) widgets in Bevy UI
+[Standard Widgets (w/Observers)](../examples/ui/standard_widgets_observers.rs) | Demonstrates use of core (headless) widgets in Bevy UI, with Observers
+[Strikethrough and Underline](../examples/ui/strikethrough_and_underline.rs) | Demonstrates how to display text with strikethrough and underline.
 [Tab Navigation](../examples/ui/tab_navigation.rs) | Demonstration of Tab Navigation between UI elements
 [Text](../examples/ui/text.rs) | Illustrates creating and updating text
 [Text Background Colors](../examples/ui/text_background_colors.rs) | Demonstrates text background colors
 [Text Debug](../examples/ui/text_debug.rs) | An example for debugging text layout
 [Text Wrap Debug](../examples/ui/text_wrap_debug.rs) | Demonstrates text wrapping
 [Transparency UI](../examples/ui/transparency_ui.rs) | Demonstrates transparency for UI
+[UI Drag and Drop](../examples/ui/ui_drag_and_drop.rs) | Demonstrates dragging and dropping UI nodes
 [UI Material](../examples/ui/ui_material.rs) | Demonstrates creating and using custom Ui materials
 [UI Scaling](../examples/ui/ui_scaling.rs) | Illustrates how to scale the UI
+[UI Target Camera](../examples/ui/ui_target_camera.rs) | Demonstrates how to use `UiTargetCamera` and camera ordering.
 [UI Texture Atlas](../examples/ui/ui_texture_atlas.rs) | Illustrates how to use TextureAtlases in UI
 [UI Texture Atlas Slice](../examples/ui/ui_texture_atlas_slice.rs) | Illustrates how to use 9 Slicing for TextureAtlases in UI
 [UI Texture Slice](../examples/ui/ui_texture_slice.rs) | Illustrates how to use 9 Slicing in UI
 [UI Texture Slice Flipping and Tiling](../examples/ui/ui_texture_slice_flip_and_tile.rs) | Illustrates how to flip and tile images with 9 Slicing in UI
 [UI Transform](../examples/ui/ui_transform.rs) | An example demonstrating how to translate, rotate and scale UI elements.
 [UI Z-Index](../examples/ui/z_index.rs) | Demonstrates how to control the relative depth (z-position) of UI elements
+[Vertical Slider](../examples/ui/vertical_slider.rs) | Simple example showing vertical and horizontal slider widgets with snap behavior and value labels
 [Viewport Debug](../examples/ui/viewport_debug.rs) | An example for debugging viewport coordinates
 [Viewport Node](../examples/ui/viewport_node.rs) | Demonstrates how to create a viewport node with picking support
 [Virtual Keyboard](../examples/ui/virtual_keyboard.rs) | Example demonstrating a virtual keyboard widget
@@ -611,6 +633,20 @@ Example | Description
 [Window Drag Move](../examples/window/window_drag_move.rs) | Demonstrates drag move and drag resize without window decoration
 [Window Resizing](../examples/window/window_resizing.rs) | Demonstrates resizing and responding to resizing a window
 [Window Settings](../examples/window/window_settings.rs) | Demonstrates customizing default window settings
+
+### glTF
+
+Example | Description
+--- | ---
+[Custom glTF vertex attribute 2D](../examples/gltf/custom_gltf_vertex_attribute.rs) | Renders a glTF mesh in 2D with a custom vertex attribute
+[Edit glTF Material](../examples/gltf/edit_material_on_gltf.rs) | Showcases changing materials of a glTF after Scene spawn
+[Load glTF](../examples/gltf/load_gltf.rs) | Loads and renders a glTF file as a scene
+[Load glTF extras](../examples/gltf/load_gltf_extras.rs) | Loads and renders a glTF file as a scene, including the gltf extras
+[Query glTF primitives](../examples/gltf/query_gltf_primitives.rs) | Query primitives in a glTF scene
+[Update glTF Scene](../examples/gltf/update_gltf_scene.rs) | Update a scene from a glTF file, either by spawning the scene as a child of another entity, or by accessing the entities of the scene
+[glTF Skinned Mesh](../examples/gltf/gltf_skinned_mesh.rs) | Skinned mesh example with mesh and joints data loaded from a glTF file
+[glTF extension AnimationGraph](../examples/gltf/gltf_extension_animation_graph.rs) | Uses glTF data to build an AnimationGraph via extension processing
+[glTF extension processing to build Mesh2ds from glTF data](../examples/gltf/gltf_extension_mesh_2d.rs) | Uses glTF extension data to convert incoming Mesh3d/MeshMaterial3d assets to 2d
 
 ## Tests
 

@@ -1,5 +1,5 @@
 use bevy_ecs::{
-    event::EventWriter,
+    message::MessageWriter,
     prelude::Schedule,
     schedule::IntoScheduleConfigs,
     system::{Commands, IntoSystem, ResMut},
@@ -47,16 +47,22 @@ pub trait FreelyMutableState: States {
 }
 
 fn apply_state_transition<S: FreelyMutableState>(
-    event: EventWriter<StateTransitionEvent<S>>,
+    event: MessageWriter<StateTransitionEvent<S>>,
     commands: Commands,
     current_state: Option<ResMut<State<S>>>,
     next_state: Option<ResMut<NextState<S>>>,
 ) {
-    let Some(next_state) = take_next_state(next_state) else {
+    let Some((next_state, allow_same_state_transitions)) = take_next_state(next_state) else {
         return;
     };
     let Some(current_state) = current_state else {
         return;
     };
-    internal_apply_state_transition(event, commands, Some(current_state), Some(next_state));
+    internal_apply_state_transition(
+        event,
+        commands,
+        Some(current_state),
+        Some(next_state),
+        allow_same_state_transitions,
+    );
 }

@@ -14,8 +14,8 @@ use crate::{
     define_label,
     intern::Interned,
     system::{
-        ExclusiveFunctionSystem, ExclusiveSystemParamFunction, FunctionSystem, IntoResult,
-        IsExclusiveFunctionSystem, IsFunctionSystem, SystemParamFunction,
+        ExclusiveFunctionSystem, ExclusiveSystemParamFunction, FromInput, FunctionSystem,
+        IntoResult, IsExclusiveFunctionSystem, IsFunctionSystem, SystemParamFunction,
     },
 };
 
@@ -291,14 +291,13 @@ impl<S: SystemSet> IntoSystemSet<()> for S {
 impl<Marker, F> IntoSystemSet<(IsFunctionSystem, Marker)> for F
 where
     Marker: 'static,
-    F::Out: IntoResult<()>,
-    F: SystemParamFunction<Marker>,
+    F: SystemParamFunction<Marker, In: FromInput<()>, Out: IntoResult<()>>,
 {
-    type Set = SystemTypeSet<FunctionSystem<Marker, (), F>>;
+    type Set = SystemTypeSet<FunctionSystem<Marker, (), (), F>>;
 
     #[inline]
     fn into_system_set(self) -> Self::Set {
-        SystemTypeSet::<FunctionSystem<Marker, (), F>>::new()
+        SystemTypeSet::<FunctionSystem<Marker, (), (), F>>::new()
     }
 }
 
@@ -373,9 +372,17 @@ mod tests {
             b: u32,
         }
 
+        #[expect(
+            dead_code,
+            reason = "This is a derive macro compilation test. It won't be constructed."
+        )]
         #[derive(ScheduleLabel, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
         struct EmptyTupleLabel();
 
+        #[expect(
+            dead_code,
+            reason = "This is a derive macro compilation test. It won't be constructed."
+        )]
         #[derive(ScheduleLabel, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
         struct EmptyStructLabel {}
 
@@ -473,9 +480,17 @@ mod tests {
             b: u32,
         }
 
+        #[expect(
+            dead_code,
+            reason = "This is a derive macro compilation test. It won't be constructed."
+        )]
         #[derive(SystemSet, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
         struct EmptyTupleSet();
 
+        #[expect(
+            dead_code,
+            reason = "This is a derive macro compilation test. It won't be constructed."
+        )]
         #[derive(SystemSet, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
         struct EmptyStructSet {}
 

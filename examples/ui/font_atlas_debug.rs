@@ -1,7 +1,7 @@
 //! This example illustrates how `FontAtlas`'s are populated.
 //! Bevy uses `FontAtlas`'s under the hood to optimize text rendering.
 
-use bevy::{color::palettes::basic::YELLOW, prelude::*, text::FontAtlasSets};
+use bevy::{color::palettes::basic::YELLOW, prelude::*, text::FontAtlasSet};
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;
 
@@ -38,12 +38,10 @@ struct SeededRng(ChaCha8Rng);
 fn atlas_render_system(
     mut commands: Commands,
     mut state: ResMut<State>,
-    font_atlas_sets: Res<FontAtlasSets>,
+    font_atlas_set: Res<FontAtlasSet>,
     images: Res<Assets<Image>>,
 ) {
-    if let Some(set) = font_atlas_sets.get(&state.handle)
-        && let Some((_size, font_atlases)) = set.iter().next()
-    {
+    if let Some(font_atlases) = font_atlas_set.values().next() {
         let x_offset = state.atlas_count as f32;
         if state.atlas_count == font_atlases.len() as u32 {
             return;
@@ -56,7 +54,7 @@ fn atlas_render_system(
             Node {
                 position_type: PositionType::Absolute,
                 top: Val::ZERO,
-                left: Val::Px(image.width() as f32 * x_offset),
+                left: px(image.width() as f32 * x_offset),
                 ..default()
             },
         ));

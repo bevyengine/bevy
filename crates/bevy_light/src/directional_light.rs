@@ -55,7 +55,7 @@ use super::{
 /// change the [`CascadeShadowConfig`] component of the entity with the [`DirectionalLight`].
 ///
 /// To control the resolution of the shadow maps, use the [`DirectionalLightShadowMap`] resource.
-#[derive(Component, Debug, Clone, Reflect)]
+#[derive(Component, Debug, Clone, Copy, Reflect)]
 #[reflect(Component, Default, Debug, Clone)]
 #[require(
     Cascades,
@@ -248,6 +248,9 @@ pub fn update_directional_light_frusta(
 /// By default, the atmosphere is rendered with [`SunDisk::EARTH`], which approximates the
 /// apparent size and brightness of the Sun as seen from Earth. You can also disable the sun
 /// disk entirely with [`SunDisk::OFF`].
+///
+/// In order to cause the sun to "glow" and light up the surrounding sky, enable bloom
+/// in your post-processing pipeline by adding a `Bloom` component to your camera.
 #[derive(Component, Clone)]
 #[require(DirectionalLight)]
 pub struct SunDisk {

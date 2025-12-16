@@ -328,10 +328,10 @@ pub(crate) fn assign_objects_to_clusters(
 
         let mut requested_cluster_dimensions = config.dimensions_for_screen_size(screen_size);
 
-        let world_from_view = camera_transform.to_matrix();
+        let world_from_view = camera_transform.affine();
         let view_from_world_scale = camera_transform.compute_transform().scale.recip();
         let view_from_world_scale_max = view_from_world_scale.abs().max_element();
-        let view_from_world = world_from_view.inverse();
+        let view_from_world = Mat4::from(world_from_view.inverse());
         let is_orthographic = camera.clip_from_view().w_axis.w == 1.0;
 
         let far_z = match config.far_z_mode() {

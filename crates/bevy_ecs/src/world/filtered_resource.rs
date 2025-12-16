@@ -1,11 +1,11 @@
 use crate::{
-    change_detection::{Mut, MutUntyped, Ref, Ticks, TicksMut},
-    component::{ComponentId, Tick},
+    change_detection::{ComponentTicksMut, ComponentTicksRef, Mut, MutUntyped, Ref, Tick},
+    component::ComponentId,
     query::Access,
     resource::Resource,
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
-use bevy_ptr::{Ptr, UnsafeCellDeref};
+use bevy_ptr::Ptr;
 
 use super::error::ResourceFetchError;
 
@@ -164,16 +164,16 @@ impl<'w, 's> FilteredResources<'w, 's> {
         }
 
         // SAFETY: We have read access to this resource
-        let (value, ticks, caller) = unsafe { self.world.get_resource_with_ticks(component_id) }
+        let (value, ticks) = unsafe { self.world.get_resource_with_ticks(component_id) }
             .ok_or(ResourceFetchError::DoesNotExist(component_id))?;
 
         Ok(Ref {
             // SAFETY: `component_id` was obtained from the type ID of `R`.
             value: unsafe { value.deref() },
             // SAFETY: We have read access to the resource, so no mutable reference can exist.
-            ticks: unsafe { Ticks::from_tick_cells(ticks, self.last_run, self.this_run) },
-            // SAFETY: We have read access to the resource, so no mutable reference can exist.
-            changed_by: unsafe { caller.map(|caller| caller.deref()) },
+            ticks: unsafe {
+                ComponentTicksRef::from_tick_cells(ticks, self.last_run, self.this_run)
+            },
         })
     }
 
@@ -494,16 +494,16 @@ impl<'w, 's> FilteredResourcesMut<'w, 's> {
         }
 
         // SAFETY: We have read access to this resource
-        let (value, ticks, caller) = unsafe { self.world.get_resource_with_ticks(component_id) }
+        let (value, ticks) = unsafe { self.world.get_resource_with_ticks(component_id) }
             .ok_or(ResourceFetchError::DoesNotExist(component_id))?;
 
         Ok(MutUntyped {
             // SAFETY: We have exclusive access to the underlying storage.
             value: unsafe { value.assert_unique() },
             // SAFETY: We have exclusive access to the underlying storage.
-            ticks: unsafe { TicksMut::from_tick_cells(ticks, self.last_run, self.this_run) },
-            // SAFETY: We have exclusive access to the underlying storage.
-            changed_by: unsafe { caller.map(|caller| caller.deref_mut()) },
+            ticks: unsafe {
+                ComponentTicksMut::from_tick_cells(ticks, self.last_run, self.this_run)
+            },
         })
     }
 }

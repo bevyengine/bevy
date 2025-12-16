@@ -92,8 +92,8 @@ fn setup(
     commands.spawn((
         LogDiagnosticsCommands,
         Node {
-            top: Val::Px(5.),
-            left: Val::Px(5.),
+            top: px(5),
+            left: px(5),
             flex_direction: FlexDirection::Column,
             ..default()
         },
@@ -199,7 +199,7 @@ fn update_commands(
             (
                 Node {
                     flex_direction: FlexDirection::Row,
-                    column_gap: Val::Px(5.),
+                    column_gap: px(5),
                     ..default()
                 },
                 children![
@@ -213,7 +213,7 @@ fn update_commands(
             (
                 Node {
                     flex_direction: FlexDirection::Row,
-                    column_gap: Val::Px(5.),
+                    column_gap: px(5),
                     ..default()
                 },
                 children![
@@ -230,7 +230,7 @@ fn update_commands(
             (
                 Node {
                     flex_direction: FlexDirection::Row,
-                    column_gap: Val::Px(5.),
+                    column_gap: px(5),
                     ..default()
                 },
                 children![
@@ -247,7 +247,7 @@ fn update_commands(
             (
                 Node {
                     flex_direction: FlexDirection::Row,
-                    column_gap: Val::Px(5.),
+                    column_gap: px(5),
                     ..default()
                 },
                 children![
@@ -264,7 +264,7 @@ fn update_commands(
             (
                 Node {
                     flex_direction: FlexDirection::Row,
-                    column_gap: Val::Px(5.),
+                    column_gap: px(5),
                     ..default()
                 },
                 children![

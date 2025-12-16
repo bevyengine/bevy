@@ -4,11 +4,8 @@
 use std::f32::consts::{FRAC_PI_2, PI};
 
 use bevy::{
-    color::palettes::css,
-    core_pipeline::{bloom::Bloom, tonemapping::Tonemapping},
-    math::vec3,
-    picking::backend::ray::RayMap,
-    prelude::*,
+    color::palettes::css, core_pipeline::tonemapping::Tonemapping, math::vec3,
+    picking::backend::ray::RayMap, post_process::bloom::Bloom, prelude::*,
 };
 
 fn main() {

@@ -1,6 +1,6 @@
 [package]
 name = "bevy_reflect"
-version = "0.17.0-dev"
+version = "0.18.0-dev"
 edition = "2024"
 description = "Dynamically interact with rust types"
 homepage = "https://bevy.org"
@@ -15,7 +15,7 @@ default = ["std", "smallvec", "debug", "auto_register_inventory"]
 # Features
 
 ## When enabled, allows documentation comments to be accessed via reflection
-documentation = ["bevy_reflect_derive/documentation"]
+reflect_documentation = ["bevy_reflect_derive/reflect_documentation"]
 
 ## Enables function reflection
 functions = ["bevy_reflect_derive/functions"]
@@ -68,7 +68,7 @@ std = [
 ## on all platforms, including `no_std`.
 critical-section = ["bevy_platform/critical-section"]
 
-# Enables automatic reflect registration. Does nothing by itself, 
+# Enables automatic reflect registration. Does nothing by itself,
 # must select `auto_register_inventory` or `auto_register_static` to make it work.
 auto_register = []
 ## Enables automatic reflect registration using inventory. Not supported on all platforms.
@@ -90,17 +90,17 @@ web = ["bevy_platform/web", "uuid?/js"]
 
 [dependencies]
 # bevy
-bevy_reflect_derive = { path = "derive", version = "0.17.0-dev" }
-bevy_utils = { path = "../bevy_utils", version = "0.17.0-dev", default-features = false }
-bevy_ptr = { path = "../bevy_ptr", version = "0.17.0-dev" }
-bevy_platform = { path = "../bevy_platform", version = "0.17.0-dev", default-features = false, features = [
+bevy_reflect_derive = { path = "derive", version = "0.18.0-dev" }
+bevy_utils = { path = "../bevy_utils", version = "0.18.0-dev", default-features = false }
+bevy_ptr = { path = "../bevy_ptr", version = "0.18.0-dev" }
+bevy_platform = { path = "../bevy_platform", version = "0.18.0-dev", default-features = false, features = [
   "alloc",
   "serialize",
 ] }
 
 # used by bevy-utils, but it also needs reflect impls
-foldhash = { version = "0.1.3", default-features = false }
-hashbrown = { version = "0.15.1", optional = true, default-features = false }
+foldhash = { version = "0.2.0", default-features = false }
+hashbrown = { version = "0.16.0", optional = true, default-features = false }
 
 # other
 erased-serde = { version = "0.4", default-features = false, features = [
@@ -113,7 +113,7 @@ derive_more = { version = "2", default-features = false, features = ["from"] }
 serde = { version = "1", default-features = false, features = ["alloc"] }
 assert_type_match = "0.1.1"
 smallvec = { version = "1", default-features = false, optional = true }
-glam = { version = "0.30.1", default-features = false, features = [
+glam = { version = "0.30.7", default-features = false, features = [
   "serde",
 ], optional = true }
 petgraph = { version = "0.8", features = ["serde-1"], optional = true }
@@ -125,7 +125,7 @@ uuid = { version = "1.13.1", default-features = false, optional = true, features
   "serde",
 ] }
 variadics_please = "1.1"
-wgpu-types = { version = "26", features = [
+wgpu-types = { version = "27", features = [
   "serde",
 ], optional = true, default-features = false }
 
@@ -133,7 +133,7 @@ wgpu-types = { version = "26", features = [
 inventory = { version = "0.3", optional = true }
 
 [dev-dependencies]
-ron = "0.10"
+ron = "0.12"
 rmp-serde = "1.1"
 bincode = { version = "2.0", features = ["serde"] }
 serde_json = "1.0.140"
@@ -143,7 +143,7 @@ static_assertions = "1.1.0"
 [[example]]
 name = "reflect_docs"
 path = "examples/reflect_docs.rs"
-required-features = ["documentation"]
+required-features = ["reflect_documentation"]
 
 [lints]
 workspace = true

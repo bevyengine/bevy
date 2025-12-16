@@ -1,13 +1,10 @@
-use bevy_text::{
-    ComputedTextBlock, CosmicFontSystem, Font, FontAtlasSets, LineBreak, SwashCache, TextBounds,
-    TextColor, TextError, TextFont, TextLayout, TextLayoutInfo, TextPipeline, TextReader, TextRoot,
-    TextSpanAccess, TextWriter,
-};
-
 use crate::{Anchor, Sprite};
 use bevy_asset::Assets;
 use bevy_camera::primitives::Aabb;
-use bevy_camera::visibility::{self, NoFrustumCulling, Visibility, VisibilityClass};
+use bevy_camera::visibility::{
+    self, NoFrustumCulling, RenderLayers, Visibility, VisibilityClass, VisibleEntities,
+};
+use bevy_camera::Camera;
 use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::entity::EntityHashSet;
@@ -15,15 +12,20 @@ use bevy_ecs::{
     change_detection::{DetectChanges, Ref},
     component::Component,
     entity::Entity,
-    prelude::{ReflectComponent, With},
+    prelude::ReflectComponent,
     query::{Changed, Without},
     system::{Commands, Local, Query, Res, ResMut},
 };
 use bevy_image::prelude::*;
-use bevy_math::{Vec2, Vec3};
+use bevy_math::{FloatOrd, Vec2, Vec3};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
+use bevy_text::{
+    ComputedTextBlock, CosmicFontSystem, Font, FontAtlasSet, LineBreak, LineHeight, SwashCache,
+    TextBounds, TextColor, TextError, TextFont, TextLayout, TextLayoutInfo, TextPipeline,
+    TextReader, TextRoot, TextSpanAccess, TextWriter,
+};
 use bevy_transform::components::Transform;
-use bevy_window::{PrimaryWindow, Window};
+use core::any::TypeId;
 
 /// The top-level 2D text component.
 ///
@@ -81,6 +83,7 @@ use bevy_window::{PrimaryWindow, Window};
     TextLayout,
     TextFont,
     TextColor,
+    LineHeight,
     TextBounds,
     Anchor,
     Visibility,
@@ -156,80 +159,146 @@ impl Default for Text2dShadow {
 /// [`ResMut<Assets<Image>>`](Assets<Image>) -- This system only adds new [`Image`] assets.
 /// It does not modify or observe existing ones.
 pub fn update_text2d_layout(
-    mut last_scale_factor: Local<Option<f32>>,
-    // Text items which should be reprocessed again, generally when the font hasn't loaded yet.
-    mut queue: Local<EntityHashSet>,
+    mut target_scale_factors: Local<Vec<(f32, RenderLayers)>>,
+    // Text2d entities from the previous frame which need to be reprocessed, usually because the font hadn't loaded yet.
+    mut reprocess_queue: Local<EntityHashSet>,
     mut textures: ResMut<Assets<Image>>,
     fonts: Res<Assets<Font>>,
-    windows: Query<&Window, With<PrimaryWindow>>,
+    camera_query: Query<(&Camera, &VisibleEntities, Option<&RenderLayers>)>,
     mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
-    mut font_atlas_sets: ResMut<FontAtlasSets>,
+    mut font_atlas_set: ResMut<FontAtlasSet>,
     mut text_pipeline: ResMut<TextPipeline>,
     mut text_query: Query<(
         Entity,
+        Option<&RenderLayers>,
         Ref<TextLayout>,
         Ref<TextBounds>,
         &mut TextLayoutInfo,
         &mut ComputedTextBlock,
     )>,
+    text_font_query: Query<&TextFont>,
     mut text_reader: Text2dReader,
     mut font_system: ResMut<CosmicFontSystem>,
     mut swash_cache: ResMut<SwashCache>,
 ) {
-    // TODO: Support window-independent scaling: https://github.com/bevyengine/bevy/issues/5621
-    let scale_factor = windows
-        .single()
-        .ok()
-        .map(|window| window.resolution.scale_factor())
-        .or(*last_scale_factor)
-        .unwrap_or(1.);
+    target_scale_factors.clear();
+    target_scale_factors.extend(
+        camera_query
+            .iter()
+            .filter(|(_, visible_entities, _)| {
+                !visible_entities.get(TypeId::of::<Sprite>()).is_empty()
+            })
+            .filter_map(|(camera, _, maybe_camera_mask)| {
+                camera.target_scaling_factor().map(|scale_factor| {
+                    (scale_factor, maybe_camera_mask.cloned().unwrap_or_default())
+                })
+            }),
+    );
 
-    let inverse_scale_factor = scale_factor.recip();
+    let mut previous_scale_factor = 0.;
+    let mut previous_mask = &RenderLayers::none();
 
-    let factor_changed = *last_scale_factor != Some(scale_factor);
-    *last_scale_factor = Some(scale_factor);
+    for (entity, maybe_entity_mask, block, bounds, mut text_layout_info, mut computed) in
+        &mut text_query
+    {
+        let entity_mask = maybe_entity_mask.unwrap_or_default();
 
-    for (entity, block, bounds, text_layout_info, mut computed) in &mut text_query {
-        if factor_changed
-            || computed.needs_rerender()
-            || bounds.is_changed()
-            || (!queue.is_empty() && queue.remove(&entity))
-        {
-            let text_bounds = TextBounds {
-                width: if block.linebreak == LineBreak::NoWrap {
-                    None
-                } else {
-                    bounds.width.map(|width| width * scale_factor)
-                },
-                height: bounds.height.map(|height| height * scale_factor),
+        let scale_factor = if entity_mask == previous_mask && 0. < previous_scale_factor {
+            previous_scale_factor
+        } else {
+            // `Text2d` only supports generating a single text layout per Text2d entity. If a `Text2d` entity has multiple
+            // render targets with different scale factors, then we use the maximum of the scale factors.
+            let Some((scale_factor, mask)) = target_scale_factors
+                .iter()
+                .filter(|(_, camera_mask)| camera_mask.intersects(entity_mask))
+                .max_by_key(|(scale_factor, _)| FloatOrd(*scale_factor))
+            else {
+                continue;
             };
+            previous_scale_factor = *scale_factor;
+            previous_mask = mask;
+            *scale_factor
+        };
 
-            let text_layout_info = text_layout_info.into_inner();
-            match text_pipeline.queue_text(
-                text_layout_info,
+        let text_changed = scale_factor != text_layout_info.scale_factor
+            || block.is_changed()
+            || computed.needs_rerender()
+            || (!reprocess_queue.is_empty() && reprocess_queue.remove(&entity));
+
+        if !(text_changed || bounds.is_changed()) {
+            continue;
+        }
+
+        let text_bounds = TextBounds {
+            width: if block.linebreak == LineBreak::NoWrap {
+                None
+            } else {
+                bounds.width.map(|width| width * scale_factor)
+            },
+            height: bounds.height.map(|height| height * scale_factor),
+        };
+
+        if text_changed {
+            match text_pipeline.update_buffer(
                 &fonts,
                 text_reader.iter(entity),
-                scale_factor.into(),
-                &block,
+                block.linebreak,
+                block.justify,
                 text_bounds,
-                &mut font_atlas_sets,
-                &mut texture_atlases,
-                &mut textures,
-                computed.as_mut(),
+                scale_factor as f64,
+                &mut computed,
                 &mut font_system,
-                &mut swash_cache,
             ) {
                 Err(TextError::NoSuchFont) => {
-                    // There was an error processing the text layout, let's add this entity to the
-                    // queue for further processing
-                    queue.insert(entity);
+                    // There was an error processing the text layout.
+                    // Add this entity to the queue and reprocess it in the following frame
+                    reprocess_queue.insert(entity);
+                    continue;
                 }
-                Err(e @ (TextError::FailedToAddGlyph(_) | TextError::FailedToGetGlyphImage(_))) => {
+                Err(
+                    e @ (TextError::FailedToAddGlyph(_)
+                    | TextError::FailedToGetGlyphImage(_)
+                    | TextError::MissingAtlasLayout
+                    | TextError::MissingAtlasTexture
+                    | TextError::InconsistentAtlasState),
+                ) => {
                     panic!("Fatal error when processing text: {e}.");
                 }
-                Ok(()) => {
-                    text_layout_info.size *= inverse_scale_factor;
-                }
+                Ok(()) => {}
+            }
+        }
+
+        match text_pipeline.update_text_layout_info(
+            &mut text_layout_info,
+            text_font_query,
+            scale_factor as f64,
+            &mut font_atlas_set,
+            &mut texture_atlases,
+            &mut textures,
+            &mut computed,
+            &mut font_system,
+            &mut swash_cache,
+            text_bounds,
+            block.justify,
+        ) {
+            Err(TextError::NoSuchFont) => {
+                // There was an error processing the text layout.
+                // Add this entity to the queue and reprocess it in the following frame.
+                reprocess_queue.insert(entity);
+                continue;
+            }
+            Err(
+                e @ (TextError::FailedToAddGlyph(_)
+                | TextError::FailedToGetGlyphImage(_)
+                | TextError::MissingAtlasLayout
+                | TextError::MissingAtlasTexture
+                | TextError::InconsistentAtlasState),
+            ) => {
+                panic!("Fatal error when processing text: {e}.");
+            }
+            Ok(()) => {
+                text_layout_info.scale_factor = scale_factor;
+                text_layout_info.size *= scale_factor.recip();
             }
         }
     }
@@ -277,7 +346,9 @@ mod tests {
 
     use bevy_app::{App, Update};
     use bevy_asset::{load_internal_binary_asset, Handle};
+    use bevy_camera::{ComputedCameraValues, RenderTargetInfo};
     use bevy_ecs::schedule::IntoScheduleConfigs;
+    use bevy_math::UVec2;
     use bevy_text::{detect_text_needs_rerender, TextIterScratch};
 
     use super::*;
@@ -290,7 +361,7 @@ mod tests {
         app.init_resource::<Assets<Font>>()
             .init_resource::<Assets<Image>>()
             .init_resource::<Assets<TextureAtlasLayout>>()
-            .init_resource::<FontAtlasSets>()
+            .init_resource::<FontAtlasSet>()
             .init_resource::<TextPipeline>()
             .init_resource::<CosmicFontSystem>()
             .init_resource::<SwashCache>()
@@ -304,6 +375,23 @@ mod tests {
                 )
                     .chain(),
             );
+
+        let mut visible_entities = VisibleEntities::default();
+        visible_entities.push(Entity::PLACEHOLDER, TypeId::of::<Sprite>());
+
+        app.world_mut().spawn((
+            Camera {
+                computed: ComputedCameraValues {
+                    target_info: Some(RenderTargetInfo {
+                        physical_size: UVec2::splat(1000),
+                        scale_factor: 1.,
+                    }),
+                    ..Default::default()
+                },
+                ..Default::default()
+            },
+            visible_entities,
+        ));
 
         // A font is needed to ensure the text is laid out with an actual size.
         load_internal_binary_asset!(

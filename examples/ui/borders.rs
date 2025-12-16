@@ -36,68 +36,63 @@ fn setup(mut commands: Commands) {
     // these correspond to the labels above
     let borders = [
         UiRect::default(),
-        UiRect::all(Val::Px(10.)),
-        UiRect::left(Val::Px(10.)),
-        UiRect::right(Val::Px(10.)),
-        UiRect::top(Val::Px(10.)),
-        UiRect::bottom(Val::Px(10.)),
-        UiRect::horizontal(Val::Px(10.)),
-        UiRect::vertical(Val::Px(10.)),
+        UiRect::all(px(10)),
+        UiRect::left(px(10)),
+        UiRect::right(px(10)),
+        UiRect::top(px(10)),
+        UiRect::bottom(px(10)),
+        UiRect::horizontal(px(10)),
+        UiRect::vertical(px(10)),
         UiRect {
-            left: Val::Px(20.),
-            top: Val::Px(10.),
+            left: px(20),
+            top: px(10),
             ..default()
         },
         UiRect {
-            left: Val::Px(10.),
-            bottom: Val::Px(20.),
+            left: px(10),
+            bottom: px(20),
             ..default()
         },
         UiRect {
-            right: Val::Px(20.),
-            top: Val::Px(10.),
+            right: px(20),
+            top: px(10),
             ..default()
         },
         UiRect {
-            right: Val::Px(10.),
-            bottom: Val::Px(10.),
+            right: px(10),
+            bottom: px(10),
             ..default()
         },
         UiRect {
-            right: Val::Px(10.),
-            top: Val::Px(20.),
-            bottom: Val::Px(10.),
+            right: px(10),
+            top: px(20),
+            bottom: px(10),
             ..default()
         },
         UiRect {
-            left: Val::Px(10.),
-            top: Val::Px(10.),
-            bottom: Val::Px(10.),
+            left: px(10),
+            top: px(10),
+            bottom: px(10),
             ..default()
         },
         UiRect {
-            left: Val::Px(20.),
-            right: Val::Px(10.),
-            top: Val::Px(10.),
+            left: px(20),
+            right: px(10),
+            top: px(10),
             ..default()
         },
         UiRect {
-            left: Val::Px(10.),
-            right: Val::Px(10.),
-            bottom: Val::Px(20.),
+            left: px(10),
+            right: px(10),
+            bottom: px(20),
             ..default()
         },
     ];
 
     let borders_examples = (
         Node {
-            margin: UiRect::all(Val::Px(25.0)),
-            align_self: AlignSelf::Stretch,
-            justify_self: JustifySelf::Stretch,
+            margin: px(25).all(),
             flex_wrap: FlexWrap::Wrap,
-            justify_content: JustifyContent::FlexStart,
-            align_items: AlignItems::FlexStart,
-            align_content: AlignContent::FlexStart,
             ..default()
         },
         Children::spawn(SpawnIter(border_labels.into_iter().zip(borders).map(
@@ -111,10 +106,10 @@ fn setup(mut commands: Commands) {
                     children![
                         (
                             Node {
-                                width: Val::Px(50.),
-                                height: Val::Px(50.),
+                                width: px(50),
+                                height: px(50),
                                 border,
-                                margin: UiRect::all(Val::Px(20.)),
+                                margin: px(20).all(),
                                 align_items: AlignItems::Center,
                                 justify_content: JustifyContent::Center,
                                 ..default()
@@ -127,14 +122,14 @@ fn setup(mut commands: Commands) {
                                 right: BLUE.into(),
                             },
                             Outline {
-                                width: Val::Px(6.),
-                                offset: Val::Px(6.),
+                                width: px(6),
+                                offset: px(6),
                                 color: Color::WHITE,
                             },
                             children![(
                                 Node {
-                                    width: Val::Px(10.),
-                                    height: Val::Px(10.),
+                                    width: px(10),
+                                    height: px(10),
                                     ..default()
                                 },
                                 BackgroundColor(YELLOW.into()),
@@ -147,7 +142,7 @@ fn setup(mut commands: Commands) {
         ))),
     );
 
-    let non_zero = |x, y| x != Val::Px(0.) && y != Val::Px(0.);
+    let non_zero = |x, y| x != px(0) && y != px(0);
     let border_size = move |x, y| {
         if non_zero(x, y) {
             f32::MAX
@@ -158,13 +153,8 @@ fn setup(mut commands: Commands) {
 
     let borders_examples_rounded = (
         Node {
-            margin: UiRect::all(Val::Px(25.0)),
-            align_self: AlignSelf::Stretch,
-            justify_self: JustifySelf::Stretch,
+            margin: px(25).all(),
             flex_wrap: FlexWrap::Wrap,
-            justify_content: JustifyContent::FlexStart,
-            align_items: AlignItems::FlexStart,
-            align_content: AlignContent::FlexStart,
             ..default()
         },
         Children::spawn(SpawnIter(border_labels.into_iter().zip(borders).map(
@@ -178,12 +168,18 @@ fn setup(mut commands: Commands) {
                     children![
                         (
                             Node {
-                                width: Val::Px(50.),
-                                height: Val::Px(50.),
+                                width: px(50),
+                                height: px(50),
                                 border,
-                                margin: UiRect::all(Val::Px(20.)),
+                                margin: px(20).all(),
                                 align_items: AlignItems::Center,
                                 justify_content: JustifyContent::Center,
+                                border_radius: BorderRadius::px(
+                                    border_size(border.left, border.top),
+                                    border_size(border.right, border.top),
+                                    border_size(border.right, border.bottom,),
+                                    border_size(border.left, border.bottom),
+                                ),
                                 ..default()
                             },
                             BackgroundColor(MAROON.into()),
@@ -193,24 +189,18 @@ fn setup(mut commands: Commands) {
                                 left: GREEN.into(),
                                 right: BLUE.into(),
                             },
-                            BorderRadius::px(
-                                border_size(border.left, border.top),
-                                border_size(border.right, border.top),
-                                border_size(border.right, border.bottom,),
-                                border_size(border.left, border.bottom),
-                            ),
                             Outline {
-                                width: Val::Px(6.),
-                                offset: Val::Px(6.),
+                                width: px(6),
+                                offset: px(6),
                                 color: Color::WHITE,
                             },
                             children![(
                                 Node {
-                                    width: Val::Px(10.),
-                                    height: Val::Px(10.),
+                                    width: px(10),
+                                    height: px(10),
+                                    border_radius: BorderRadius::MAX,
                                     ..default()
                                 },
-                                BorderRadius::MAX,
                                 BackgroundColor(YELLOW.into()),
                             )],
                         ),
@@ -223,14 +213,10 @@ fn setup(mut commands: Commands) {
 
     commands.spawn((
         Node {
-            margin: UiRect::all(Val::Px(25.0)),
+            margin: px(25).all(),
             flex_direction: FlexDirection::Column,
             align_self: AlignSelf::Stretch,
             justify_self: JustifySelf::Stretch,
-            flex_wrap: FlexWrap::Wrap,
-            justify_content: JustifyContent::FlexStart,
-            align_items: AlignItems::FlexStart,
-            align_content: AlignContent::FlexStart,
             ..default()
         },
         BackgroundColor(Color::srgb(0.25, 0.25, 0.25)),
@@ -248,7 +234,7 @@ fn setup(mut commands: Commands) {
 fn label(text: &str) -> impl Bundle {
     (
         Node {
-            margin: UiRect::all(Val::Px(25.0)),
+            margin: px(25).all(),
             ..default()
         },
         children![(Text::new(text), TextFont::from_font_size(20.0))],

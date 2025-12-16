@@ -1,6 +1,7 @@
 use crate::{
     archetype::{Archetype, ArchetypeGeneration, ArchetypeId},
-    component::{ComponentId, Tick},
+    change_detection::Tick,
+    component::ComponentId,
     entity::{Entity, EntityEquivalent, EntitySet, UniqueEntityArray},
     entity_disabling::DefaultQueryFilters,
     prelude::FromWorld,
@@ -676,11 +677,30 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             DebugName::type_name::<(NewD, NewF)>(), DebugName::type_name::<(D, F)>()
         );
 
+        // For transmuted queries, the dense-ness of the query is equal to the dense-ness of the original query.
+        //
+        // We ensure soundness using `FilteredAccess::required`.
+        //
+        // Any `WorldQuery` implementations that rely on a query being sparse for soundness,
+        // including `&`, `&mut`, `Ref`, and `Mut`, will add a sparse set component to the `required` set.
+        // (`Option<&Sparse>` and `Has<Sparse>` will incorrectly report a component as never being present
+        // when doing dense iteration, but are not unsound.  See https://github.com/bevyengine/bevy/issues/16397)
+        //
+        // And any query with a sparse set component in the `required` set must have `is_dense = false`.
+        // For static queries, the `WorldQuery` implementations ensure this.
+        // For dynamic queries, anything that adds a `required` component also adds a `with` filter.
+        //
+        // The `component_access.is_subset()` check ensures that if the new query has a sparse set component in the `required` set,
+        // then the original query must also have had that component in the `required` set.
+        // Therefore, if the `WorldQuery` implementations rely on a query being sparse for soundness,
+        // then there was a sparse set component in the `required` set, and the query has `is_dense = false`.
+        let is_dense = self.is_dense;
+
         QueryState {
             world_id: self.world_id,
             archetype_generation: self.archetype_generation,
             matched_storage_ids: self.matched_storage_ids.clone(),
-            is_dense: self.is_dense,
+            is_dense,
             fetch_state,
             filter_state,
             component_access: self_access,
@@ -890,7 +910,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     ///
     /// let wrong_entity = Entity::from_raw_u32(365).unwrap();
     ///
-    /// assert_eq!(match query_state.get_many(&mut world, [wrong_entity]).unwrap_err() {QueryEntityError::EntityDoesNotExist(error) => error.entity, _ => panic!()}, wrong_entity);
+    /// assert_eq!(match query_state.get_many(&mut world, [wrong_entity]).unwrap_err() {QueryEntityError::NotSpawned(error) => error.entity(), _ => panic!()}, wrong_entity);
     /// ```
     #[inline]
     pub fn get_many<'w, const N: usize>(
@@ -928,7 +948,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     ///
     /// let wrong_entity = Entity::from_raw_u32(365).unwrap();
     ///
-    /// assert_eq!(match query_state.get_many_unique(&mut world, UniqueEntityArray::from([wrong_entity])).unwrap_err() {QueryEntityError::EntityDoesNotExist(error) => error.entity, _ => panic!()}, wrong_entity);
+    /// assert_eq!(match query_state.get_many_unique(&mut world, UniqueEntityArray::from([wrong_entity])).unwrap_err() {QueryEntityError::NotSpawned(error) => error.entity(), _ => panic!()}, wrong_entity);
     /// ```
     #[inline]
     pub fn get_many_unique<'w, const N: usize>(
@@ -985,7 +1005,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// let wrong_entity = Entity::from_raw_u32(57).unwrap();
     /// let invalid_entity = world.spawn_empty().id();
     ///
-    /// assert_eq!(match query_state.get_many(&mut world, [wrong_entity]).unwrap_err() {QueryEntityError::EntityDoesNotExist(error) => error.entity, _ => panic!()}, wrong_entity);
+    /// assert_eq!(match query_state.get_many(&mut world, [wrong_entity]).unwrap_err() {QueryEntityError::NotSpawned(error) => error.entity(), _ => panic!()}, wrong_entity);
     /// assert_eq!(match query_state.get_many_mut(&mut world, [invalid_entity]).unwrap_err() {QueryEntityError::QueryDoesNotMatch(entity, _) => entity, _ => panic!()}, invalid_entity);
     /// assert_eq!(query_state.get_many_mut(&mut world, [entities[0], entities[0]]).unwrap_err(), QueryEntityError::AliasedMutability(entities[0]));
     /// ```
@@ -1031,7 +1051,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// let wrong_entity = Entity::from_raw_u32(57).unwrap();
     /// let invalid_entity = world.spawn_empty().id();
     ///
-    /// assert_eq!(match query_state.get_many_unique(&mut world, UniqueEntityArray::from([wrong_entity])).unwrap_err() {QueryEntityError::EntityDoesNotExist(error) => error.entity, _ => panic!()}, wrong_entity);
+    /// assert_eq!(match query_state.get_many_unique(&mut world, UniqueEntityArray::from([wrong_entity])).unwrap_err() {QueryEntityError::NotSpawned(error) => error.entity(), _ => panic!()}, wrong_entity);
     /// assert_eq!(match query_state.get_many_unique_mut(&mut world, UniqueEntityArray::from([invalid_entity])).unwrap_err() {QueryEntityError::QueryDoesNotMatch(entity, _) => entity, _ => panic!()}, invalid_entity);
     /// ```
     #[inline]
@@ -1079,7 +1099,8 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         world: UnsafeWorldCell<'w>,
         entity: Entity,
     ) -> Result<D::Item<'w, '_>, QueryEntityError> {
-        self.query_unchecked(world).get_inner(entity)
+        // SAFETY: Upheld by caller
+        unsafe { self.query_unchecked(world) }.get_inner(entity)
     }
 
     /// Returns an [`Iterator`] over the query results for the given [`World`].
@@ -1294,7 +1315,8 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         &'s mut self,
         world: UnsafeWorldCell<'w>,
     ) -> QueryIter<'w, 's, D, F> {
-        self.query_unchecked(world).into_iter()
+        // SAFETY: Upheld by caller
+        unsafe { self.query_unchecked(world) }.into_iter()
     }
 
     /// Returns an [`Iterator`] over all possible combinations of `K` query results for the
@@ -1313,7 +1335,8 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         &'s mut self,
         world: UnsafeWorldCell<'w>,
     ) -> QueryCombinationIter<'w, 's, D, F, K> {
-        self.query_unchecked(world).iter_combinations_inner()
+        // SAFETY: Upheld by caller
+        unsafe { self.query_unchecked(world) }.iter_combinations_inner()
     }
 
     /// Returns a parallel iterator over the query results for the given [`World`].
@@ -1365,7 +1388,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// # let wrong_entity = Entity::from_raw_u32(57).unwrap();
     /// # let invalid_entity = world.spawn_empty().id();
     ///
-    /// # assert_eq!(match query_state.get_many(&mut world, [wrong_entity]).unwrap_err() {QueryEntityError::EntityDoesNotExist(error) => error.entity, _ => panic!()}, wrong_entity);
+    /// # assert_eq!(match query_state.get_many(&mut world, [wrong_entity]).unwrap_err() {QueryEntityError::NotSpawned(error) => error.entity(), _ => panic!()}, wrong_entity);
     /// assert_eq!(match query_state.get_many_mut(&mut world, [invalid_entity]).unwrap_err() {QueryEntityError::QueryDoesNotMatch(entity, _) => entity, _ => panic!()}, invalid_entity);
     /// # assert_eq!(query_state.get_many_mut(&mut world, [entities[0], entities[0]]).unwrap_err(), QueryEntityError::AliasedMutability(entities[0]));
     /// ```
@@ -1735,7 +1758,8 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         &mut self,
         world: UnsafeWorldCell<'w>,
     ) -> Result<D::Item<'w, '_>, QuerySingleError> {
-        self.query_unchecked(world).single_inner()
+        // SAFETY: Upheld by caller
+        unsafe { self.query_unchecked(world) }.single_inner()
     }
 
     /// Returns a query result when there is exactly one entity matching the query,
@@ -1760,8 +1784,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         // SAFETY:
         // - The caller ensured we have the correct access to the world.
         // - The caller ensured that the world matches.
-        self.query_unchecked_manual_with_ticks(world, last_run, this_run)
-            .single_inner()
+        unsafe { self.query_unchecked_manual_with_ticks(world, last_run, this_run) }.single_inner()
     }
 }
 
@@ -1778,7 +1801,7 @@ mod tests {
         entity_disabling::DefaultQueryFilters,
         prelude::*,
         system::{QueryLens, RunSystemOnce},
-        world::{FilteredEntityMut, FilteredEntityRef},
+        world::{EntityRef, FilteredEntityMut, FilteredEntityRef},
     };
 
     #[test]
@@ -1820,6 +1843,9 @@ mod tests {
     #[derive(Component, PartialEq, Debug)]
     struct C(usize);
 
+    #[derive(Component)]
+    struct D;
+
     #[test]
     fn can_transmute_to_more_general() {
         let mut world = World::new();
@@ -1853,7 +1879,7 @@ mod tests {
         world.register_component::<A>();
         let entity = world.spawn(A(10)).id();
 
-        let q = world.query::<()>();
+        let q = world.query_filtered::<(), With<A>>();
         let mut q = q.transmute::<Entity>(&world);
         assert_eq!(q.single(&world).unwrap(), entity);
     }
@@ -2086,6 +2112,59 @@ mod tests {
     }
 
     #[test]
+    fn transmute_to_or_filter() {
+        let mut world = World::new();
+        world.spawn(());
+        world.spawn(A(0));
+
+        let mut query = world
+            .query::<Option<&A>>()
+            .transmute_filtered::<Entity, Or<(With<A>,)>>(&world);
+        let iter = query.iter(&world);
+        let len = iter.len();
+        let count = iter.count();
+        // `transmute_filtered` keeps the same matched tables, so it should match both entities
+        // More importantly, `count()` and `len()` should return the same result!
+        assert_eq!(len, 2);
+        assert_eq!(count, len);
+
+        let mut query = world
+            .query::<Option<&A>>()
+            .transmute_filtered::<Entity, Or<(Changed<A>,)>>(&world);
+        let iter = query.iter(&world);
+        let count = iter.count();
+        // The behavior of a non-archetypal filter like `Changed` should be the same as an archetypal one like `With`.
+        assert_eq!(count, 2);
+    }
+
+    #[test]
+    fn dense_query_over_option_is_buggy() {
+        #[derive(Component)]
+        #[component(storage = "SparseSet")]
+        struct Sparse;
+
+        let mut world = World::new();
+        world.spawn(Sparse);
+
+        let mut query =
+            QueryState::<EntityRef>::new(&mut world).transmute::<Option<&Sparse>>(&world);
+        // EntityRef always performs dense iteration
+        // But `Option<&Sparse>` will incorrectly report a component as never being present when doing dense iteration
+        // See https://github.com/bevyengine/bevy/issues/16397
+        assert!(query.is_dense);
+        let matched = query.iter(&world).filter(Option::is_some).count();
+        assert_eq!(matched, 0);
+
+        let mut query = QueryState::<EntityRef>::new(&mut world).transmute::<Has<Sparse>>(&world);
+        // EntityRef always performs dense iteration
+        // But `Has<Sparse>` will incorrectly report a component as never being present when doing dense iteration
+        // See https://github.com/bevyengine/bevy/issues/16397
+        assert!(query.is_dense);
+        let matched = query.iter(&world).filter(|&has| has).count();
+        assert_eq!(matched, 0);
+    }
+
+    #[test]
     fn join() {
         let mut world = World::new();
         world.spawn(A(0));
@@ -2168,30 +2247,30 @@ mod tests {
     #[test]
     fn query_respects_default_filters() {
         let mut world = World::new();
-        world.spawn((A(0), B(0)));
-        world.spawn((B(0), C(0)));
-        world.spawn(C(0));
+        world.spawn((A(0), B(0), D));
+        world.spawn((B(0), C(0), D));
+        world.spawn((C(0), D));
 
         world.register_disabling_component::<C>();
 
         // Without<C> only matches the first entity
-        let mut query = QueryState::<()>::new(&mut world);
+        let mut query = QueryState::<&D>::new(&mut world);
         assert_eq!(1, query.iter(&world).count());
 
         // With<C> matches the last two entities
-        let mut query = QueryState::<(), With<C>>::new(&mut world);
+        let mut query = QueryState::<&D, With<C>>::new(&mut world);
         assert_eq!(2, query.iter(&world).count());
 
         // Has should bypass the filter entirely
-        let mut query = QueryState::<Has<C>>::new(&mut world);
+        let mut query = QueryState::<(&D, Has<C>)>::new(&mut world);
         assert_eq!(3, query.iter(&world).count());
 
         // Allow should bypass the filter entirely
-        let mut query = QueryState::<(), Allow<C>>::new(&mut world);
+        let mut query = QueryState::<&D, Allow<C>>::new(&mut world);
         assert_eq!(3, query.iter(&world).count());
 
         // Other filters should still be respected
-        let mut query = QueryState::<Has<C>, Without<B>>::new(&mut world);
+        let mut query = QueryState::<(&D, Has<C>), Without<B>>::new(&mut world);
         assert_eq!(1, query.iter(&world).count());
     }
 
@@ -2202,23 +2281,26 @@ mod tests {
     #[component(storage = "SparseSet")]
     struct Sparse;
 
+    #[derive(Component)]
+    struct Dummy;
+
     #[test]
     fn query_default_filters_updates_is_dense() {
         let mut world = World::new();
-        world.spawn((Table, Sparse));
-        world.spawn(Table);
-        world.spawn(Sparse);
+        world.spawn((Dummy, Table, Sparse));
+        world.spawn((Dummy, Table));
+        world.spawn((Dummy, Sparse));
 
-        let mut query = QueryState::<()>::new(&mut world);
+        let mut query = QueryState::<&Dummy>::new(&mut world);
         // There are no sparse components involved thus the query is dense
         assert!(query.is_dense);
         assert_eq!(3, query.query(&world).count());
 
         world.register_disabling_component::<Sparse>();
 
-        let mut query = QueryState::<()>::new(&mut world);
+        let mut query = QueryState::<&Dummy>::new(&mut world);
         // The query doesn't ask for sparse components, but the default filters adds
-        // a sparse components thus it is NOT dense
+        // a sparse component thus it is NOT dense
         assert!(!query.is_dense);
         assert_eq!(1, query.query(&world).count());
 
@@ -2226,7 +2308,7 @@ mod tests {
         df.register_disabling_component(world.register_component::<Table>());
         world.insert_resource(df);
 
-        let mut query = QueryState::<()>::new(&mut world);
+        let mut query = QueryState::<&Dummy>::new(&mut world);
         // If the filter is instead a table components, the query can still be dense
         assert!(query.is_dense);
         assert_eq!(1, query.query(&world).count());

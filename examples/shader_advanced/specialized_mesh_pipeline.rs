@@ -10,7 +10,7 @@ use bevy::{
     asset::RenderAssetUsages,
     camera::visibility::{self, VisibilityClass},
     core_pipeline::core_3d::{Opaque3d, Opaque3dBatchSetKey, Opaque3dBinKey, CORE_3D_DEPTH_FORMAT},
-    ecs::component::Tick,
+    ecs::change_detection::Tick,
     math::{vec3, vec4},
     mesh::{Indices, MeshVertexBufferLayoutRef, PrimitiveTopology},
     pbr::{

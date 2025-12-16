@@ -14,6 +14,8 @@ pub mod memory;
 pub mod processor_gated;
 #[cfg(target_arch = "wasm32")]
 pub mod wasm;
+#[cfg(any(feature = "http", feature = "https"))]
+pub mod web;
 
 #[cfg(test)]
 pub mod gated;
@@ -48,7 +50,8 @@ pub enum AssetReaderError {
     Io(Arc<std::io::Error>),
 
     /// The HTTP request completed but returned an unhandled [HTTP response status code](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status).
-    /// If the request fails before getting a status code (e.g. request timeout, interrupted connection, etc), expect [`AssetReaderError::Io`].
+    /// - If the request returns a 404 error, expect [`AssetReaderError::NotFound`].
+    /// - If the request fails before getting a status code (e.g. request timeout, interrupted connection, etc), expect [`AssetReaderError::Io`].
     #[error("Encountered HTTP status {0:?} when loading asset")]
     HttpError(u16),
 }
@@ -764,11 +767,16 @@ impl Reader for SliceReader<'_> {
     }
 }
 
-/// Appends `.meta` to the given path.
+/// Appends `.meta` to the given path:
+/// - `foo` becomes `foo.meta`
+/// - `foo.bar` becomes `foo.bar.meta`
 pub(crate) fn get_meta_path(path: &Path) -> PathBuf {
     let mut meta_path = path.to_path_buf();
     let mut extension = path.extension().unwrap_or_default().to_os_string();
-    extension.push(".meta");
+    if !extension.is_empty() {
+        extension.push(".");
+    }
+    extension.push("meta");
     meta_path.set_extension(extension);
     meta_path
 }
@@ -783,5 +791,26 @@ impl Stream for EmptyPathStream {
 
     fn poll_next(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         Poll::Ready(None)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn get_meta_path_no_extension() {
+        assert_eq!(
+            get_meta_path(Path::new("foo")).to_str().unwrap(),
+            "foo.meta"
+        );
+    }
+
+    #[test]
+    fn get_meta_path_with_extension() {
+        assert_eq!(
+            get_meta_path(Path::new("foo.bar")).to_str().unwrap(),
+            "foo.bar.meta"
+        );
     }
 }

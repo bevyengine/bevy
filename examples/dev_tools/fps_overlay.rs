@@ -64,8 +64,8 @@ fn setup(mut commands: Commands) {
         )),
         Node {
             position_type: PositionType::Absolute,
-            bottom: Val::Px(12.),
-            left: Val::Px(12.),
+            bottom: px(12),
+            left: px(12),
             ..default()
         },
     ));

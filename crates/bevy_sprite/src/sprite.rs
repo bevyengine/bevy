@@ -1,4 +1,4 @@
-use bevy_asset::{Assets, Handle};
+use bevy_asset::{AsAssetId, AssetId, Assets, Handle};
 use bevy_camera::visibility::{self, Visibility, VisibilityClass};
 use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
@@ -152,6 +152,14 @@ impl From<Handle<Image>> for Sprite {
     }
 }
 
+impl AsAssetId for Sprite {
+    type Asset = Image;
+
+    fn as_asset_id(&self) -> AssetId<Self::Asset> {
+        self.image.id()
+    }
+}
+
 /// Controls how the image is altered when scaled.
 #[derive(Default, Debug, Clone, Reflect, PartialEq)]
 #[reflect(Debug, Default, Clone)]
@@ -161,7 +169,7 @@ pub enum SpriteImageMode {
     Auto,
     /// The texture will be scaled to fit the rect bounds defined in [`Sprite::custom_size`].
     /// Otherwise no scaling will be applied.
-    Scale(ScalingMode),
+    Scale(SpriteScalingMode),
     /// The texture will be cut in 9 slices, keeping the texture in proportions on resize
     Sliced(TextureSlicer),
     /// The texture will be repeated if stretched beyond `stretched_value`
@@ -186,10 +194,10 @@ impl SpriteImageMode {
         )
     }
 
-    /// Returns [`ScalingMode`] if scale is presented or [`Option::None`] otherwise.
+    /// Returns [`SpriteScalingMode`] if scale is presented or [`Option::None`] otherwise.
     #[inline]
     #[must_use]
-    pub const fn scale(&self) -> Option<ScalingMode> {
+    pub const fn scale(&self) -> Option<SpriteScalingMode> {
         if let SpriteImageMode::Scale(scale) = self {
             Some(*scale)
         } else {
@@ -203,7 +211,7 @@ impl SpriteImageMode {
 /// Can be used in [`SpriteImageMode::Scale`].
 #[derive(Debug, Clone, Copy, PartialEq, Default, Reflect)]
 #[reflect(Debug, Default, Clone)]
-pub enum ScalingMode {
+pub enum SpriteScalingMode {
     /// Scale the texture uniformly (maintain the texture's aspect ratio)
     /// so that both dimensions (width and height) of the texture will be equal
     /// to or larger than the corresponding dimension of the target rectangle.

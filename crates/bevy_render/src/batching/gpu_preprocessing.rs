@@ -33,10 +33,9 @@ use crate::{
         ViewSortedRenderPhases,
     },
     render_resource::{Buffer, GpuArrayBufferable, RawBufferVec, UninitBufferVec},
-    renderer::{RenderAdapter, RenderAdapterInfo, RenderDevice, RenderQueue},
+    renderer::{RenderAdapter, RenderAdapterInfo, RenderDevice, RenderQueue, WgpuWrapper},
     sync_world::MainEntity,
     view::{ExtractedView, NoIndirectDrawing, RetainedViewEntity},
-    wgpu_wrapper::WgpuWrapper,
     Render, RenderApp, RenderDebugFlags, RenderSystems,
 };
 
@@ -1110,11 +1109,9 @@ impl FromWorld for GpuPreprocessingSupport {
                 || crate::get_mali_driver_version(adapter_info).is_some_and(|version| version < 48)
         }
 
-        let culling_feature_support = device.features().contains(
-            Features::INDIRECT_FIRST_INSTANCE
-                | Features::MULTI_DRAW_INDIRECT
-                | Features::PUSH_CONSTANTS,
-        );
+        let culling_feature_support = device
+            .features()
+            .contains(Features::INDIRECT_FIRST_INSTANCE | Features::PUSH_CONSTANTS);
         // Depth downsampling for occlusion culling requires 12 textures
         let limit_support = device.limits().max_storage_textures_per_shader_stage >= 12 &&
             // Even if the adapter supports compute, we might be simulating a lack of

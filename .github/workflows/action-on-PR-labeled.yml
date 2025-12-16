@@ -14,9 +14,9 @@ permissions:
 jobs:
   comment-on-migration-guide-label:
     runs-on: ubuntu-latest
-    if: github.event.label.name == 'M-Needs-Migration-Guide'
+    if: github.event.label.name == 'M-Migration-Guide'
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 2
@@ -30,7 +30,7 @@ jobs:
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-      - uses: actions/github-script@v7
+      - uses: actions/github-script@v8
         if: steps.get_changes.outputs.found_changes == '0'
         with:
           script: |
@@ -44,9 +44,9 @@ jobs:
             })
   comment-on-release-note-label:
     runs-on: ubuntu-latest
-    if: github.event.label.name == 'M-Needs-Release-Note'
+    if: github.event.label.name == 'M-Release-Note'
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 2
@@ -60,7 +60,7 @@ jobs:
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-      - uses: actions/github-script@v7
+      - uses: actions/github-script@v8
         if: steps.get_changes.outputs.found_changes == '0'
         with:
           script: |

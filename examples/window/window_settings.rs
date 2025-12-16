@@ -140,7 +140,7 @@ fn toggle_cursor(mut cursor_options: Single<&mut CursorOptions>, input: Res<Butt
     }
 }
 
-// This system will toggle the color theme used by the window
+/// This system will toggle the color theme used by the window
 fn toggle_theme(mut window: Single<&mut Window>, input: Res<ButtonInput<KeyCode>>) {
     if input.just_pressed(KeyCode::KeyF)
         && let Some(current_theme) = window.window_theme
@@ -152,14 +152,16 @@ fn toggle_theme(mut window: Single<&mut Window>, input: Res<ButtonInput<KeyCode>
     }
 }
 
+/// Resource with a set of cursor icons we want to cycle through
 #[derive(Resource)]
 struct CursorIcons(Vec<CursorIcon>);
 
 fn init_cursor_icons(
     mut commands: Commands,
+    window: Single<Entity, With<Window>>,
     #[cfg(feature = "custom_cursor")] asset_server: Res<AssetServer>,
 ) {
-    commands.insert_resource(CursorIcons(vec![
+    let cursor_icons = CursorIcons(vec![
         SystemCursorIcon::Default.into(),
         SystemCursorIcon::Pointer.into(),
         SystemCursorIcon::Wait.into(),
@@ -171,30 +173,28 @@ fn init_cursor_icons(
             ..Default::default()
         })
         .into(),
-    ]));
+    ]);
+    // By default the Window entity does not have a CursorIcon component, so we add it here.
+    commands.entity(*window).insert(cursor_icons.0[0].clone());
+    commands.insert_resource(cursor_icons);
 }
 
 /// This system cycles the cursor's icon through a small set of icons when clicking
 fn cycle_cursor_icon(
-    mut commands: Commands,
-    window: Single<Entity, With<Window>>,
+    mut cursor: Single<&mut CursorIcon>,
     input: Res<ButtonInput<MouseButton>>,
     mut index: Local<usize>,
     cursor_icons: Res<CursorIcons>,
 ) {
     if input.just_pressed(MouseButton::Left) {
         *index = (*index + 1) % cursor_icons.0.len();
-        commands
-            .entity(*window)
-            .insert(cursor_icons.0[*index].clone());
+        **cursor = cursor_icons.0[*index].clone();
     } else if input.just_pressed(MouseButton::Right) {
         *index = if *index == 0 {
             cursor_icons.0.len() - 1
         } else {
             *index - 1
         };
-        commands
-            .entity(*window)
-            .insert(cursor_icons.0[*index].clone());
+        **cursor = cursor_icons.0[*index].clone();
     }
 }

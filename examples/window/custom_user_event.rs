@@ -6,7 +6,7 @@ use bevy::{
 };
 use std::fmt::Formatter;
 
-#[derive(Default, Debug, BufferedEvent)]
+#[derive(Default, Debug, Message)]
 enum CustomEvent {
     #[default]
     WakeUp,
@@ -70,7 +70,7 @@ fn send_event(
     }
 }
 
-fn handle_event(mut events: EventReader<CustomEvent>) {
+fn handle_event(mut events: MessageReader<CustomEvent>) {
     for evt in events.read() {
         info!("Received event: {evt:?}");
     }

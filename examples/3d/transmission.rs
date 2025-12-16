@@ -23,9 +23,10 @@ use std::f32::consts::PI;
 use bevy::{
     camera::{Exposure, ScreenSpaceTransmissionQuality},
     color::palettes::css::*,
-    core_pipeline::{bloom::Bloom, prepass::DepthPrepass, tonemapping::Tonemapping},
+    core_pipeline::{prepass::DepthPrepass, tonemapping::Tonemapping},
     light::{NotShadowCaster, PointLightShadowMap, TransmittedShadowReceiver},
     math::ops,
+    post_process::bloom::Bloom,
     prelude::*,
     render::{
         camera::TemporalJitter,
@@ -37,7 +38,7 @@ use bevy::{
 // it _greatly enhances_ the look of the resulting blur effects.
 // Sadly, it's not available under WebGL.
 #[cfg(any(feature = "webgpu", not(target_arch = "wasm32")))]
-use bevy::anti_aliasing::taa::TemporalAntiAliasing;
+use bevy::anti_alias::taa::TemporalAntiAliasing;
 
 use rand::random;
 
@@ -46,7 +47,7 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .insert_resource(ClearColor(Color::BLACK))
         .insert_resource(PointLightShadowMap { size: 2048 })
-        .insert_resource(AmbientLight {
+        .insert_resource(GlobalAmbientLight {
             brightness: 0.0,
             ..default()
         })
@@ -325,8 +326,8 @@ fn setup(
         Text::default(),
         Node {
             position_type: PositionType::Absolute,
-            top: Val::Px(12.0),
-            left: Val::Px(12.0),
+            top: px(12),
+            left: px(12),
             ..default()
         },
         ExampleDisplay,

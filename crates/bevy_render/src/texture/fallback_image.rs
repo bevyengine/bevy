@@ -89,7 +89,7 @@ fn fallback_image_new(
 
     let image_dimension = dimension.compatible_texture_dimension();
     let mut image = if create_texture_with_data {
-        let data = vec![value; format.pixel_size()];
+        let data = vec![value; format.pixel_size().unwrap_or(0)];
         Image::new_fill(
             extents,
             image_dimension,
@@ -135,9 +135,11 @@ fn fallback_image_new(
         texture,
         texture_view,
         texture_format: image.texture_descriptor.format,
+        texture_view_format: image.texture_view_descriptor.and_then(|v| v.format),
         sampler,
         size: image.texture_descriptor.size,
         mip_level_count: image.texture_descriptor.mip_level_count,
+        had_data: true,
     }
 }
 

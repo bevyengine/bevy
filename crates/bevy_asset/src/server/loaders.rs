@@ -326,7 +326,7 @@ impl<T: AssetLoader> AssetLoader for InstrumentedAssetLoader<T> {
         let span = info_span!(
             "asset loading",
             loader = core::any::type_name::<T>(),
-            asset = load_context.asset_path().to_string(),
+            asset = load_context.path().to_string(),
         );
         self.0.load(reader, settings, load_context).instrument(span)
     }

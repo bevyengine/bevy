@@ -1,5 +1,5 @@
 #![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
-#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![doc(
     html_logo_url = "https://bevy.org/assets/icon.png",
     html_favicon_url = "https://bevy.org/assets/icon.png"
@@ -16,12 +16,12 @@ pub mod update;
 pub mod widget;
 
 pub mod gradients;
-#[cfg(feature = "bevy_ui_picking_backend")]
+#[cfg(feature = "bevy_picking")]
 pub mod picking_backend;
 pub mod ui_transform;
 
 use bevy_derive::{Deref, DerefMut};
-#[cfg(feature = "bevy_ui_picking_backend")]
+#[cfg(feature = "bevy_picking")]
 use bevy_picking::PickingSystems;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 mod accessibility;
@@ -48,7 +48,7 @@ pub use ui_transform::*;
 /// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
     #[doc(hidden)]
-    #[cfg(feature = "bevy_ui_picking_backend")]
+    #[cfg(feature = "bevy_picking")]
     pub use crate::picking_backend::{UiPickingCamera, UiPickingPlugin, UiPickingSettings};
     #[doc(hidden)]
     pub use crate::widget::{Text, TextShadow, TextUiReader, TextUiWriter};
@@ -109,10 +109,6 @@ pub enum UiSystems {
     Stack,
 }
 
-/// Deprecated alias for [`UiSystems`].
-#[deprecated(since = "0.17.0", note = "Renamed to `UiSystems`.")]
-pub type UiSystem = UiSystems;
-
 /// The current scale of the UI.
 ///
 /// A multiplier to fixed-sized ui values.
@@ -171,7 +167,7 @@ impl Plugin for UiPlugin {
                 ui_focus_system.in_set(UiSystems::Focus).after(InputSystems),
             );
 
-        #[cfg(feature = "bevy_ui_picking_backend")]
+        #[cfg(feature = "bevy_picking")]
         app.add_plugins(picking_backend::UiPickingPlugin)
             .add_systems(
                 First,
@@ -246,7 +242,7 @@ fn build_text_interop(app: &mut App) {
                 .ambiguous_with(widget::update_image_content_size_system),
             widget::text_system
                 .in_set(UiSystems::PostLayout)
-                .after(bevy_text::remove_dropped_font_atlas_sets)
+                .after(bevy_text::free_unused_font_atlases_system)
                 .before(bevy_asset::AssetEventSystems)
                 // Text2d and bevy_ui text are entirely on separate entities
                 .ambiguous_with(bevy_text::detect_text_needs_rerender::<bevy_sprite::Text2d>)

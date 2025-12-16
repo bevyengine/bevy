@@ -1,4 +1,4 @@
-#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 
 //! Derive implementations for `bevy_gizmos`.
 
@@ -11,18 +11,20 @@ use syn::{parse_macro_input, parse_quote, DeriveInput, Path};
 #[proc_macro_derive(GizmoConfigGroup)]
 pub fn derive_gizmo_config_group(input: TokenStream) -> TokenStream {
     let mut ast = parse_macro_input!(input as DeriveInput);
-    let bevy_gizmos_path: Path = BevyManifest::shared().get_path("bevy_gizmos");
-    let bevy_reflect_path: Path = BevyManifest::shared().get_path("bevy_reflect");
+    BevyManifest::shared(|manifest| {
+        let bevy_gizmos_path: Path = manifest.get_path("bevy_gizmos");
+        let bevy_reflect_path: Path = manifest.get_path("bevy_reflect");
 
-    ast.generics.make_where_clause().predicates.push(
-        parse_quote! { Self: #bevy_reflect_path::Reflect + #bevy_reflect_path::TypePath + Default},
-    );
+        ast.generics.make_where_clause().predicates.push(
+            parse_quote! { Self: #bevy_reflect_path::Reflect + #bevy_reflect_path::TypePath + Default},
+        );
 
-    let struct_name = &ast.ident;
-    let (impl_generics, type_generics, where_clause) = &ast.generics.split_for_impl();
+        let struct_name = &ast.ident;
+        let (impl_generics, type_generics, where_clause) = &ast.generics.split_for_impl();
 
-    TokenStream::from(quote! {
-        impl #impl_generics #bevy_gizmos_path::config::GizmoConfigGroup for #struct_name #type_generics #where_clause {
-        }
+        TokenStream::from(quote! {
+            impl #impl_generics #bevy_gizmos_path::config::GizmoConfigGroup for #struct_name #type_generics #where_clause {
+            }
+        })
     })
 }

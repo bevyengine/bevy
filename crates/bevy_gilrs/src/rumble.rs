@@ -1,6 +1,6 @@
 //! Handle user specified rumble request events.
 use crate::{Gilrs, GilrsGamepads};
-use bevy_ecs::prelude::{EventReader, Res, ResMut, Resource};
+use bevy_ecs::prelude::{MessageReader, Res, ResMut, Resource};
 use bevy_input::gamepad::{GamepadRumbleIntensity, GamepadRumbleRequest};
 use bevy_platform::cell::SyncCell;
 use bevy_platform::collections::HashMap;
@@ -128,7 +128,7 @@ pub(crate) fn play_gilrs_rumble(
     time: Res<Time<Real>>,
     mut gilrs: ResMut<Gilrs>,
     gamepads: Res<GilrsGamepads>,
-    mut requests: EventReader<GamepadRumbleRequest>,
+    mut requests: MessageReader<GamepadRumbleRequest>,
     mut running_rumbles: ResMut<RunningRumbleEffects>,
 ) {
     gilrs.with(|gilrs| {

@@ -1,6 +1,6 @@
 [package]
 name = "bevy_asset"
-version = "0.17.0-dev"
+version = "0.18.0-dev"
 edition = "2024"
 description = "Provides asset functionality for Bevy Engine"
 homepage = "https://bevy.org"
@@ -14,24 +14,28 @@ keywords = ["bevy"]
 file_watcher = ["notify-debouncer-full", "watch", "multi_threaded"]
 embedded_watcher = ["file_watcher"]
 multi_threaded = ["bevy_tasks/multi_threaded"]
+http = ["blocking", "ureq"]
+https = ["blocking", "ureq", "ureq/rustls", "ureq/platform-verifier"]
+web_asset_cache = []
 asset_processor = []
 watch = []
 trace = []
 
 [dependencies]
-bevy_app = { path = "../bevy_app", version = "0.17.0-dev", default-features = false, features = [
+bevy_app = { path = "../bevy_app", version = "0.18.0-dev", default-features = false, features = [
   "bevy_reflect",
 ] }
-bevy_asset_macros = { path = "macros", version = "0.17.0-dev" }
-bevy_ecs = { path = "../bevy_ecs", version = "0.17.0-dev", default-features = false }
-bevy_reflect = { path = "../bevy_reflect", version = "0.17.0-dev", default-features = false, features = [
+bevy_asset_macros = { path = "macros", version = "0.18.0-dev" }
+bevy_diagnostic = { path = "../bevy_diagnostic", version = "0.18.0-dev", default-features = false }
+bevy_ecs = { path = "../bevy_ecs", version = "0.18.0-dev", default-features = false }
+bevy_reflect = { path = "../bevy_reflect", version = "0.18.0-dev", default-features = false, features = [
   "uuid",
 ] }
-bevy_tasks = { path = "../bevy_tasks", version = "0.17.0-dev", default-features = false, features = [
+bevy_tasks = { path = "../bevy_tasks", version = "0.18.0-dev", default-features = false, features = [
   "async_executor",
 ] }
-bevy_utils = { path = "../bevy_utils", version = "0.17.0-dev", default-features = false }
-bevy_platform = { path = "../bevy_platform", version = "0.17.0-dev", default-features = false, features = [
+bevy_utils = { path = "../bevy_utils", version = "0.18.0-dev", default-features = false }
+bevy_platform = { path = "../bevy_platform", version = "0.18.0-dev", default-features = false, features = [
   "std",
 ] }
 
@@ -41,20 +45,21 @@ async-broadcast = { version = "0.7.2", default-features = false }
 async-fs = { version = "2.0", default-features = false }
 async-lock = { version = "3.0", default-features = false }
 bitflags = { version = "2.3", default-features = false }
+async-channel = { version = "2", default-features = false }
 crossbeam-channel = { version = "0.5", default-features = false, features = [
   "std",
 ] }
 downcast-rs = { version = "2", default-features = false }
 disqualified = { version = "1.0", default-features = false }
 either = { version = "1.13", default-features = false }
+futures-util = { version = "0.3", default-features = false, features = [
+  "async-await-macro",
+  "alloc",
+] }
 futures-io = { version = "0.3", default-features = false }
 futures-lite = { version = "2.0.1", default-features = false }
-blake3 = { version = "1.5", default-features = false }
-parking_lot = { version = "0.12", default-features = false, features = [
-  "arc_lock",
-  "send_guard",
-] }
-ron = { version = "0.10", default-features = false }
+blake3 = { version = "1.8", default-features = false }
+ron = { version = "0.12", default-features = false }
 serde = { version = "1", default-features = false, features = ["derive"] }
 thiserror = { version = "2", default-features = false }
 derive_more = { version = "2", default-features = false, features = ["from"] }
@@ -65,7 +70,7 @@ uuid = { version = "1.13.1", default-features = false, features = [
 tracing = { version = "0.1", default-features = false }
 
 [target.'cfg(target_os = "android")'.dependencies]
-bevy_android = { path = "../bevy_android", version = "0.17.0-dev", default-features = false }
+bevy_android = { path = "../bevy_android", version = "0.18.0-dev", default-features = false }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 # TODO: Assuming all wasm builds are for the browser. Require `no_std` support to break assumption.
@@ -78,18 +83,18 @@ web-sys = { version = "0.3", features = [
 wasm-bindgen-futures = "0.4"
 js-sys = "0.3"
 uuid = { version = "1.13.1", default-features = false, features = ["js"] }
-bevy_app = { path = "../bevy_app", version = "0.17.0-dev", default-features = false, features = [
+bevy_app = { path = "../bevy_app", version = "0.18.0-dev", default-features = false, features = [
   "web",
 ] }
-bevy_reflect = { path = "../bevy_reflect", version = "0.17.0-dev", default-features = false, features = [
+bevy_reflect = { path = "../bevy_reflect", version = "0.18.0-dev", default-features = false, features = [
   "web",
 ] }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-notify-debouncer-full = { version = "0.5.0", default-features = false, optional = true }
-
-[dev-dependencies]
-async-channel = "2"
+notify-debouncer-full = { version = "0.6.0", default-features = false, optional = true }
+# updating ureq: while ureq is semver stable, it depends on rustls which is not, meaning unlikely but possible breaking changes on minor releases. https://github.com/bevyengine/bevy/pull/16366#issuecomment-2572890794
+ureq = { version = "3", optional = true, default-features = false }
+blocking = { version = "1.6", optional = true }
 
 [lints]
 workspace = true

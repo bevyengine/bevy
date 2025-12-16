@@ -9,6 +9,7 @@ use encase::{
     internal::{WriteInto, Writer},
     ShaderType,
 };
+use thiserror::Error;
 use wgpu::{BindingResource, BufferAddress, BufferUsages};
 
 use super::GpuArrayBufferable;
@@ -186,25 +187,30 @@ impl<T: NoUninit> RawBufferVec<T> {
     /// Queues writing of data from system RAM to VRAM using the [`RenderDevice`]
     /// and the provided [`RenderQueue`].
     ///
-    /// Before queuing the write, a [`reserve`](RawBufferVec::reserve) operation
-    /// is executed.
+    /// If the buffer is not initialized on the GPU or the range is bigger than the capacity it will
+    /// return an error. You'll need to either reserve a new buffer which will lose data on the GPU
+    /// or create a new buffer and copy the old data to it.
     ///
     /// This will only write the data contained in the given range. It is useful if you only want
     /// to update a part of the buffer.
     pub fn write_buffer_range(
         &mut self,
-        device: &RenderDevice,
         render_queue: &RenderQueue,
         range: core::ops::Range<usize>,
-    ) {
+    ) -> Result<(), WriteBufferRangeError> {
         if self.values.is_empty() {
-            return;
+            return Err(WriteBufferRangeError::NoValuesToUpload);
         }
-        self.reserve(self.values.len(), device);
+        if range.end > self.item_size * self.capacity {
+            return Err(WriteBufferRangeError::RangeBiggerThanBuffer);
+        }
         if let Some(buffer) = &self.buffer {
             // Cast only the bytes we need to write
             let bytes: &[u8] = must_cast_slice(&self.values[range.start..range.end]);
             render_queue.write_buffer(buffer, (range.start * self.item_size) as u64, bytes);
+            Ok(())
+        } else {
+            Err(WriteBufferRangeError::BufferNotInitialized)
         }
     }
 
@@ -417,25 +423,30 @@ where
     /// Queues writing of data from system RAM to VRAM using the [`RenderDevice`]
     /// and the provided [`RenderQueue`].
     ///
-    /// Before queuing the write, a [`reserve`](BufferVec::reserve) operation
-    /// is executed.
+    /// If the buffer is not initialized on the GPU or the range is bigger than the capacity it will
+    /// return an error. You'll need to either reserve a new buffer which will lose data on the GPU
+    /// or create a new buffer and copy the old data to it.
     ///
     /// This will only write the data contained in the given range. It is useful if you only want
     /// to update a part of the buffer.
     pub fn write_buffer_range(
         &mut self,
-        device: &RenderDevice,
         render_queue: &RenderQueue,
         range: core::ops::Range<usize>,
-    ) {
+    ) -> Result<(), WriteBufferRangeError> {
         if self.data.is_empty() {
-            return;
+            return Err(WriteBufferRangeError::NoValuesToUpload);
         }
         let item_size = u64::from(T::min_size()) as usize;
-        self.reserve(self.data.len() / item_size, device);
+        if range.end > item_size * self.capacity {
+            return Err(WriteBufferRangeError::RangeBiggerThanBuffer);
+        }
         if let Some(buffer) = &self.buffer {
             let bytes = &self.data[range.start..range.end];
             render_queue.write_buffer(buffer, (range.start * item_size) as u64, bytes);
+            Ok(())
+        } else {
+            Err(WriteBufferRangeError::BufferNotInitialized)
         }
     }
 
@@ -560,4 +571,17 @@ where
             self.reserve(self.len, device);
         }
     }
+}
+
+/// Error returned when `write_buffer_range` fails
+///
+/// See [`RawBufferVec::write_buffer_range`] [`BufferVec::write_buffer_range`]
+#[derive(Debug, Eq, PartialEq, Copy, Clone, Error)]
+pub enum WriteBufferRangeError {
+    #[error("the range is bigger than the capacity of the buffer")]
+    RangeBiggerThanBuffer,
+    #[error("the gpu buffer is not initialized")]
+    BufferNotInitialized,
+    #[error("there are no values to upload")]
+    NoValuesToUpload,
 }

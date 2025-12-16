@@ -32,8 +32,8 @@ fn setup(mut commands: Commands) {
 
     commands
         .spawn(Node {
-            width: Val::Percent(100.),
-            height: Val::Percent(100.),
+            width: percent(100),
+            height: percent(100),
             justify_content: JustifyContent::Center,
             align_items: AlignItems::Center,
             ..Default::default()
@@ -49,15 +49,30 @@ fn setup(mut commands: Commands) {
                 ))
                 .with_children(|commands| {
                     for (i, section_str) in message_text.iter().enumerate() {
-                        commands.spawn((
-                            TextSpan::new(*section_str),
-                            TextColor::BLACK,
-                            TextFont {
-                                font_size: 100.,
-                                ..default()
-                            },
-                            TextBackgroundColor(PALETTE[i % PALETTE.len()]),
-                        ));
+                        commands
+                            .spawn((
+                                TextSpan::new(*section_str),
+                                TextColor::BLACK,
+                                TextFont {
+                                    font_size: 100.,
+                                    ..default()
+                                },
+                                TextBackgroundColor(PALETTE[i % PALETTE.len()]),
+                            ))
+                            .observe(
+                                |event: On<Pointer<Over>>, mut query: Query<&mut TextColor>| {
+                                    if let Ok(mut text_color) = query.get_mut(event.entity) {
+                                        text_color.0 = Color::WHITE;
+                                    }
+                                },
+                            )
+                            .observe(
+                                |event: On<Pointer<Out>>, mut query: Query<&mut TextColor>| {
+                                    if let Ok(mut text_color) = query.get_mut(event.entity) {
+                                        text_color.0 = Color::BLACK;
+                                    }
+                                },
+                            );
                     }
                 });
         });

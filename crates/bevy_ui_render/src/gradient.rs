@@ -95,16 +95,12 @@ impl Default for GradientMeta {
 
 #[derive(Resource)]
 pub struct GradientPipeline {
-    pub view_layout: BindGroupLayout,
+    pub view_layout: BindGroupLayoutDescriptor,
     pub shader: Handle<Shader>,
 }
 
-pub fn init_gradient_pipeline(
-    mut commands: Commands,
-    render_device: Res<RenderDevice>,
-    asset_server: Res<AssetServer>,
-) {
-    let view_layout = render_device.create_bind_group_layout(
+pub fn init_gradient_pipeline(mut commands: Commands, asset_server: Res<AssetServer>) {
+    let view_layout = BindGroupLayoutDescriptor::new(
         "ui_gradient_view_layout",
         &BindGroupLayoutEntries::single(
             ShaderStages::VERTEX_FRAGMENT,
@@ -404,22 +400,22 @@ pub fn extract_gradients(
                                 NodeType::Rect => stack_z_offsets::GRADIENT,
                                 NodeType::Border(_) => stack_z_offsets::BORDER_GRADIENT,
                             },
-                        color: color.into(),
-                        rect: Rect {
-                            min: Vec2::ZERO,
-                            max: uinode.size,
-                        },
                         image: AssetId::default(),
                         clip: clip.map(|clip| clip.clip),
                         extracted_camera_entity,
+                        transform: transform.into(),
                         item: ExtractedUiItem::Node {
+                            color: color.into(),
+                            rect: Rect {
+                                min: Vec2::ZERO,
+                                max: uinode.size,
+                            },
                             atlas_scaling: None,
                             flip_x: false,
                             flip_y: false,
                             border_radius: uinode.border_radius,
                             border: uinode.border,
                             node_type,
-                            transform: transform.into(),
                         },
                         main_entity: entity.into(),
                         render_entity: commands.spawn(TemporaryRenderEntity).id(),
@@ -696,6 +692,7 @@ pub fn prepare_gradient(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
+    pipeline_cache: Res<PipelineCache>,
     mut ui_meta: ResMut<GradientMeta>,
     mut extracted_gradients: ResMut<ExtractedGradients>,
     mut extracted_color_stops: ResMut<ExtractedColorStops>,
@@ -711,7 +708,7 @@ pub fn prepare_gradient(
         ui_meta.indices.clear();
         ui_meta.view_bind_group = Some(render_device.create_bind_group(
             "gradient_view_bind_group",
-            &gradients_pipeline.view_layout,
+            &pipeline_cache.get_bind_group_layout(&gradients_pipeline.view_layout),
             &BindGroupEntries::single(view_binding),
         ));
 
@@ -966,7 +963,7 @@ impl<P: PhaseItem> RenderCommand<P> for DrawGradient {
         // Store the vertices
         pass.set_vertex_buffer(0, vertices.slice(..));
         // Define how to "connect" the vertices
-        pass.set_index_buffer(indices.slice(..), 0, IndexFormat::Uint32);
+        pass.set_index_buffer(indices.slice(..), IndexFormat::Uint32);
         // Draw the vertices
         pass.draw_indexed(batch.range.clone(), 0, 0..1);
         RenderCommandResult::Success

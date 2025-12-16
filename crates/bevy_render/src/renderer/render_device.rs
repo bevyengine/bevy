@@ -3,7 +3,7 @@ use crate::render_resource::{
     BindGroup, BindGroupLayout, Buffer, ComputePipeline, RawRenderPipelineDescriptor,
     RenderPipeline, Sampler, Texture,
 };
-use crate::WgpuWrapper;
+use crate::renderer::WgpuWrapper;
 use bevy_ecs::resource::Resource;
 use wgpu::{
     util::DeviceExt, BindGroupDescriptor, BindGroupEntry, BindGroupLayoutDescriptor,
@@ -61,19 +61,18 @@ impl RenderDevice {
             wgpu::ShaderSource::SpirV(source)
                 if self
                     .features()
-                    .contains(wgpu::Features::SPIRV_SHADER_PASSTHROUGH) =>
+                    .contains(wgpu::Features::EXPERIMENTAL_PASSTHROUGH_SHADERS) =>
             {
                 // SAFETY:
                 // This call passes binary data to the backend as-is and can potentially result in a driver crash or bogus behavior.
                 // No attempt is made to ensure that data is valid SPIR-V.
                 unsafe {
                     self.device.create_shader_module_passthrough(
-                        wgpu::ShaderModuleDescriptorPassthrough::SpirV(
-                            wgpu::ShaderModuleDescriptorSpirV {
-                                label: desc.label,
-                                source: source.clone(),
-                            },
-                        ),
+                        wgpu::ShaderModuleDescriptorPassthrough {
+                            label: desc.label,
+                            spirv: Some(source.clone()),
+                            ..Default::default()
+                        },
                     )
                 }
             }
