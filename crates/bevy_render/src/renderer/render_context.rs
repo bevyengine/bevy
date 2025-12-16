@@ -11,7 +11,6 @@ use bevy_ecs::system::{
 };
 use bevy_ecs::world::unsafe_world_cell::UnsafeWorldCell;
 use bevy_ecs::world::DeferredWorld;
-use bevy_tasks::ComputeTaskPool;
 use core::marker::PhantomData;
 use tracing::info_span;
 use wgpu::CommandBuffer;
@@ -32,16 +31,8 @@ impl PendingCommandBuffers {
     }
 
     pub fn take(&mut self) -> Vec<CommandBuffer> {
-        if !self.encoders.is_empty() {
-            let _span = info_span!("finish_encoders", count = self.encoders.len()).entered();
-            let encoders = core::mem::take(&mut self.encoders);
-            let task_pool = ComputeTaskPool::get();
-            let finished: Vec<CommandBuffer> = task_pool.scope(|scope| {
-                for encoder in encoders {
-                    scope.spawn(async move { encoder.finish() });
-                }
-            });
-            self.buffers.extend(finished);
+        for encoder in self.encoders.drain(..) {
+            self.buffers.push(encoder.finish());
         }
         core::mem::take(&mut self.buffers)
     }
