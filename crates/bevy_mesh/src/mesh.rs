@@ -374,7 +374,7 @@ impl Mesh {
     ///
     /// # Panics
     /// Panics when the mesh data has already been extracted to `RenderWorld`. To handle
-    /// this as an error use [`MeshExtractableData::attribute`] or [`MeshExtractableData::attribute_option`]
+    /// this as an error use [`MeshExtractableData::attribute`]
     #[inline]
     pub fn attribute(
         &self,
@@ -951,7 +951,7 @@ impl Mesh {
     ///
     /// # Panics
     /// Panics when the mesh data has already been extracted to `RenderWorld`. To handle
-    /// this as an error use [`MeshExtractableData::rotated_by`]
+    /// this as an error use [`MeshExtractableData::rotate_by`]
     pub fn rotated_by(mut self, rotation: Quat) -> Self {
         self.rotate_by(rotation);
         self
@@ -976,7 +976,7 @@ impl Mesh {
     ///
     /// # Panics
     /// Panics when the mesh data has already been extracted to `RenderWorld`. To handle
-    /// this as an error use [`MeshExtractableData::scaled_by`]
+    /// this as an error use [`MeshExtractableData::scale_by`]
     pub fn scaled_by(mut self, scale: Vec3) -> Self {
         self.scale_by(scale);
         self
