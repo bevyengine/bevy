@@ -547,7 +547,7 @@ pub fn prepare_deferred_lighting_pipelines(
     }
 }
 
-/// Component to skip running the deferred lighting pass in [`DeferredOpaquePass3dPbrLightingNode`] for a specific view.
+/// Component to skip running the deferred lighting pass in [`deferred_lighting`] for a specific view.
 ///
 /// This works like [`crate::PbrPlugin::add_default_deferred_lighting_plugin`], but is per-view instead of global.
 ///

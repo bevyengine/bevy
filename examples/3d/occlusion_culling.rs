@@ -9,19 +9,12 @@ use std::{
     any::TypeId,
     f32::consts::PI,
     fmt::Write as _,
-    result::Result,
     sync::{Arc, Mutex},
 };
 
 use bevy::{
     color::palettes::css::{SILVER, WHITE},
-    core_pipeline::{
-        core_3d::{
-            graph::{Core3d, Node3d},
-            Opaque3d,
-        },
-        prepass::DepthPrepass,
-    },
+    core_pipeline::{core_3d::Opaque3d, prepass::DepthPrepass, Core3dSystems},
     pbr::PbrPlugin,
     prelude::*,
     render::{
@@ -29,9 +22,8 @@ use bevy::{
             GpuPreprocessingSupport, IndirectParametersBuffers, IndirectParametersIndexed,
         },
         experimental::occlusion_culling::OcclusionCulling,
-        render_graph::{self, NodeRunError, RenderGraphContext, RenderGraphExt, RenderLabel},
         render_resource::{Buffer, BufferDescriptor, BufferUsages, MapMode},
-        renderer::{RenderContext, RenderDevice},
+        renderer::{RenderContext, RenderDevice, RenderGraph},
         settings::WgpuFeatures,
         Render, RenderApp, RenderDebugFlags, RenderPlugin, RenderStartup, RenderSystems,
     },
@@ -65,16 +57,6 @@ struct LargeCube;
 /// A plugin for the render app that reads the number of culled meshes from the
 /// GPU back to the CPU.
 struct ReadbackIndirectParametersPlugin;
-
-/// The node that we insert into the render graph in order to read the number of
-/// culled meshes from the GPU back to the CPU.
-#[derive(Default)]
-struct ReadbackIndirectParametersNode;
-
-/// The [`RenderLabel`] that we use to identify the
-/// [`ReadbackIndirectParametersNode`].
-#[derive(Clone, PartialEq, Eq, Hash, Debug, RenderLabel)]
-struct ReadbackIndirectParameters;
 
 /// The intermediate staging buffers that we use to read back the indirect
 /// parameters from the GPU to the CPU.
@@ -239,26 +221,20 @@ impl Plugin for ReadbackIndirectParametersPlugin {
                 create_indirect_parameters_staging_buffers
                     .in_set(RenderSystems::PrepareResourcesFlush),
             )
-            // Add the node that allows us to read the indirect parameters back
-            // from the GPU to the CPU, which allows us to determine how many
-            // meshes were culled.
-            .add_render_graph_node::<ReadbackIndirectParametersNode>(
-                Core3d,
-                ReadbackIndirectParameters,
-            )
-            // We read back the indirect parameters any time after
-            // `EndMainPass`. Readback doesn't particularly need to execute
-            // before `EndMainPassPostProcessing`, but we specify that anyway
-            // because we want to make the indirect parameters run before
-            // *something* in the graph, and `EndMainPassPostProcessing` is a
-            // good a node as any other.
-            .add_render_graph_edges(
-                Core3d,
-                (
-                    Node3d::EndMainPass,
-                    ReadbackIndirectParameters,
-                    Node3d::EndMainPassPostProcessing,
-                ),
+            .add_systems(
+                RenderGraph,
+                // Add the node that allows us to read the indirect parameters back
+                // from the GPU to the CPU, which allows us to determine how many
+                // meshes were culled.
+                readback_indirect_parameters_node
+                    // We read back the indirect parameters any time after
+                    // `EndMainPass`. Readback doesn't particularly need to execute
+                    // before `EndMainPassPostProcessing`, but we specify that anyway
+                    // because we want to make the indirect parameters run before
+                    // *something* in the graph, and `EndMainPassPostProcessing` is a
+                    // good a node as any other.
+                    .after(Core3dSystems::EndMainPass)
+                    .before(Core3dSystems::EndMainPassPostProcessing),
             );
     }
 }
@@ -412,70 +388,55 @@ fn spawn_help_text(commands: &mut Commands) {
     ));
 }
 
-impl render_graph::Node for ReadbackIndirectParametersNode {
-    fn run<'w>(
-        &self,
-        _: &mut RenderGraphContext,
-        render_context: &mut RenderContext<'w>,
-        world: &'w World,
-    ) -> Result<(), NodeRunError> {
-        // Extract the buffers that hold the GPU indirect draw parameters from
-        // the world resources. We're going to read those buffers to determine
-        // how many meshes were actually drawn.
-        let (Some(indirect_parameters_buffers), Some(indirect_parameters_mapping_buffers)) = (
-            world.get_resource::<IndirectParametersBuffers>(),
-            world.get_resource::<IndirectParametersStagingBuffers>(),
-        ) else {
-            return Ok(());
-        };
+fn readback_indirect_parameters_node(
+    mut render_context: RenderContext,
+    indirect_parameters_buffers: Res<IndirectParametersBuffers>,
+    indirect_parameters_mapping_buffers: Res<IndirectParametersStagingBuffers>,
+) {
+    // Get the indirect parameters buffers corresponding to the opaque 3D
+    // phase, since all our meshes are in that phase.
+    let Some(phase_indirect_parameters_buffers) =
+        indirect_parameters_buffers.get(&TypeId::of::<Opaque3d>())
+    else {
+        return;
+    };
 
-        // Get the indirect parameters buffers corresponding to the opaque 3D
-        // phase, since all our meshes are in that phase.
-        let Some(phase_indirect_parameters_buffers) =
-            indirect_parameters_buffers.get(&TypeId::of::<Opaque3d>())
-        else {
-            return Ok(());
-        };
+    // Grab both the buffers we're copying from and the staging buffers
+    // we're copying to. Remember that we can't map the indirect parameters
+    // buffers directly, so we have to copy their contents to a staging
+    // buffer.
+    let (
+        Some(indexed_data_buffer),
+        Some(indexed_batch_sets_buffer),
+        Some(indirect_parameters_staging_data_buffer),
+        Some(indirect_parameters_staging_batch_sets_buffer),
+    ) = (
+        phase_indirect_parameters_buffers.indexed.data_buffer(),
+        phase_indirect_parameters_buffers
+            .indexed
+            .batch_sets_buffer(),
+        indirect_parameters_mapping_buffers.data.as_ref(),
+        indirect_parameters_mapping_buffers.batch_sets.as_ref(),
+    )
+    else {
+        return;
+    };
 
-        // Grab both the buffers we're copying from and the staging buffers
-        // we're copying to. Remember that we can't map the indirect parameters
-        // buffers directly, so we have to copy their contents to a staging
-        // buffer.
-        let (
-            Some(indexed_data_buffer),
-            Some(indexed_batch_sets_buffer),
-            Some(indirect_parameters_staging_data_buffer),
-            Some(indirect_parameters_staging_batch_sets_buffer),
-        ) = (
-            phase_indirect_parameters_buffers.indexed.data_buffer(),
-            phase_indirect_parameters_buffers
-                .indexed
-                .batch_sets_buffer(),
-            indirect_parameters_mapping_buffers.data.as_ref(),
-            indirect_parameters_mapping_buffers.batch_sets.as_ref(),
-        )
-        else {
-            return Ok(());
-        };
-
-        // Copy from the indirect parameters buffers to the staging buffers.
-        render_context.command_encoder().copy_buffer_to_buffer(
-            indexed_data_buffer,
-            0,
-            indirect_parameters_staging_data_buffer,
-            0,
-            indexed_data_buffer.size(),
-        );
-        render_context.command_encoder().copy_buffer_to_buffer(
-            indexed_batch_sets_buffer,
-            0,
-            indirect_parameters_staging_batch_sets_buffer,
-            0,
-            indexed_batch_sets_buffer.size(),
-        );
-
-        Ok(())
-    }
+    // Copy from the indirect parameters buffers to the staging buffers.
+    render_context.command_encoder().copy_buffer_to_buffer(
+        indexed_data_buffer,
+        0,
+        indirect_parameters_staging_data_buffer,
+        0,
+        indexed_data_buffer.size(),
+    );
+    render_context.command_encoder().copy_buffer_to_buffer(
+        indexed_batch_sets_buffer,
+        0,
+        indirect_parameters_staging_batch_sets_buffer,
+        0,
+        indexed_batch_sets_buffer.size(),
+    );
 }
 
 /// Creates the staging buffers that we use to read back the indirect parameters
