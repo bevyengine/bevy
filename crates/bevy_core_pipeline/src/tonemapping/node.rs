@@ -59,9 +59,7 @@ pub fn tonemapping(
     let source = post_process.source;
     let destination = post_process.destination;
 
-    let tonemapping_changed = cache
-        .last_tonemapping
-        .map_or(true, |last| *tonemapping != last);
+    let tonemapping_changed = cache.last_tonemapping != Some(*tonemapping);
     if tonemapping_changed {
         cache.last_tonemapping = Some(*tonemapping);
     }

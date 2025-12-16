@@ -102,7 +102,10 @@ pub(crate) fn late_deferred_prepass(
     );
 }
 
-#[allow(clippy::too_many_arguments)]
+#[expect(
+    clippy::too_many_arguments,
+    reason = "render system with many view components"
+)]
 fn run_deferred_prepass_system(
     world: &World,
     view_entity: Entity,

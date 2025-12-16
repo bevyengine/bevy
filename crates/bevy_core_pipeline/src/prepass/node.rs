@@ -134,7 +134,10 @@ pub fn late_prepass(
 }
 
 /// Shared implementation for prepass systems.
-#[allow(clippy::too_many_arguments)]
+#[expect(
+    clippy::too_many_arguments,
+    reason = "render system with many view components"
+)]
 fn run_prepass_system(
     world: &World,
     view_entity: Entity,
@@ -235,28 +238,27 @@ fn run_prepass_system(
         skybox_prepass_pipeline,
         skybox_prepass_bind_group,
         view_prev_uniform_offset,
-    ) {
-        if let Some(pipeline) = pipeline_cache.get_render_pipeline(skybox_prepass_pipeline.0) {
-            render_pass.set_render_pipeline(pipeline);
-            render_pass.set_bind_group(
-                0,
-                &skybox_prepass_bind_group.0,
-                &[view_uniform_offset.offset, view_prev_uniform_offset.offset],
-            );
-            render_pass.draw(0..3, 0..1);
-        }
+    ) && let Some(pipeline) = pipeline_cache.get_render_pipeline(skybox_prepass_pipeline.0)
+    {
+        render_pass.set_render_pipeline(pipeline);
+        render_pass.set_bind_group(
+            0,
+            &skybox_prepass_bind_group.0,
+            &[view_uniform_offset.offset, view_prev_uniform_offset.offset],
+        );
+        render_pass.draw(0..3, 0..1);
     }
 
     pass_span.end(&mut render_pass);
     drop(render_pass);
 
-    if deferred_prepass.is_none() {
-        if let Some(prepass_depth_texture) = &view_prepass_textures.depth {
-            ctx.command_encoder().copy_texture_to_texture(
-                view_depth_texture.texture.as_image_copy(),
-                prepass_depth_texture.texture.texture.as_image_copy(),
-                view_prepass_textures.size,
-            );
-        }
+    if deferred_prepass.is_none()
+        && let Some(prepass_depth_texture) = &view_prepass_textures.depth
+    {
+        ctx.command_encoder().copy_texture_to_texture(
+            view_depth_texture.texture.as_image_copy(),
+            prepass_depth_texture.texture.texture.as_image_copy(),
+            view_prepass_textures.size,
+        );
     }
 }

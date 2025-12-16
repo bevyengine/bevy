@@ -24,7 +24,7 @@ use bevy_platform::time::Instant;
 use bevy_render::camera::ExtractedCamera;
 use bevy_time::TimeSender;
 use bevy_window::RawHandleWrapperHolder;
-use tracing::{debug, error, info, info_span, warn};
+use tracing::{debug, info, info_span, warn};
 use wgpu::{
     Adapter, AdapterInfo, Backends, DeviceType, Instance, Queue, RequestAdapterOptions, Trace,
 };
@@ -34,8 +34,7 @@ pub struct RenderGraph;
 
 impl RenderGraph {
     pub fn base_schedule() -> Schedule {
-        let schedule = Schedule::new(Self);
-        schedule
+        Schedule::new(Self)
     }
 }
 
