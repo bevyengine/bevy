@@ -46,6 +46,7 @@ jobs:
         with:
           wayland: true
           xkb: true
+          x264: true
 
       #  This does the following:
       #   - Replaces the docs icon with one that clearly denotes it's not the released package on crates.io
@@ -62,8 +63,6 @@ jobs:
           RUSTDOCFLAGS: -Zunstable-options --cfg=docsrs --generate-link-to-definition --html-after-content docs-rs/trait-tags.html
         run: |
           cargo doc \
-            -Zunstable-options \
-            -Zrustdoc-scrape-examples \
             --all-features \
             --workspace \
             --no-deps \
