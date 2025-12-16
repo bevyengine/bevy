@@ -1,7 +1,10 @@
 use crate::{
-    io::{AssetReaderError, MissingAssetSourceError, MissingProcessedAssetReaderError, Reader},
+    io::{
+        AssetReaderError, MissingAssetSourceError, MissingProcessedAssetReaderError, Reader,
+        ReaderRequiredFeatures,
+    },
     loader_builders::{Deferred, NestedLoader, StaticTyped},
-    meta::{AssetHash, AssetMeta, AssetMetaDyn, ProcessedInfoMinimal, Settings},
+    meta::{AssetHash, AssetMeta, AssetMetaDyn, ProcessedInfo, ProcessedInfoMinimal, Settings},
     path::AssetPath,
     Asset, AssetIndex, AssetLoadError, AssetServer, AssetServerMode, Assets, ErasedAssetIndex,
     Handle, UntypedHandle,
@@ -14,6 +17,7 @@ use alloc::{
 use atomicow::CowArc;
 use bevy_ecs::{error::BevyError, world::World};
 use bevy_platform::collections::{HashMap, HashSet};
+use bevy_reflect::TypePath;
 use bevy_tasks::{BoxedFuture, ConditionalSendFuture};
 use core::any::{Any, TypeId};
 use downcast_rs::{impl_downcast, Downcast};
@@ -28,7 +32,7 @@ use thiserror::Error;
 /// This trait is generally used in concert with [`AssetReader`](crate::io::AssetReader) to load assets from a byte source.
 ///
 /// For a complementary version of this trait that can save assets, see [`AssetSaver`](crate::saver::AssetSaver).
-pub trait AssetLoader: Send + Sync + 'static {
+pub trait AssetLoader: TypePath + Send + Sync + 'static {
     /// The top level [`Asset`] loaded by this [`AssetLoader`].
     type Asset: Asset;
     /// The settings type used by this [`AssetLoader`].
@@ -43,6 +47,11 @@ pub trait AssetLoader: Send + Sync + 'static {
         load_context: &mut LoadContext,
     ) -> impl ConditionalSendFuture<Output = Result<Self::Asset, Self::Error>>;
 
+    /// Returns the required features of the reader for this loader.
+    fn reader_required_features(_settings: &Self::Settings) -> ReaderRequiredFeatures {
+        ReaderRequiredFeatures::default()
+    }
+
     /// Returns a list of extensions supported by this [`AssetLoader`], without the preceding dot.
     /// Note that users of this [`AssetLoader`] may choose to load files with a non-matching extension.
     fn extensions(&self) -> &[&str] {
@@ -56,18 +65,21 @@ pub trait ErasedAssetLoader: Send + Sync + 'static {
     fn load<'a>(
         &'a self,
         reader: &'a mut dyn Reader,
-        meta: &'a dyn AssetMetaDyn,
+        settings: &'a dyn Settings,
         load_context: LoadContext<'a>,
     ) -> BoxedFuture<'a, Result<ErasedLoadedAsset, BevyError>>;
 
+    /// Returns the required features of the reader for this loader.
+    // Note: This takes &self just to be dyn compatible.
+    fn reader_required_features(&self, settings: &dyn Settings) -> ReaderRequiredFeatures;
     /// Returns a list of extensions supported by this asset loader, without the preceding dot.
     fn extensions(&self) -> &[&str];
     /// Deserializes metadata from the input `meta` bytes into the appropriate type (erased as [`Box<dyn AssetMetaDyn>`]).
     fn deserialize_meta(&self, meta: &[u8]) -> Result<Box<dyn AssetMetaDyn>, DeserializeMetaError>;
     /// Returns the default meta value for the [`AssetLoader`] (erased as [`Box<dyn AssetMetaDyn>`]).
     fn default_meta(&self) -> Box<dyn AssetMetaDyn>;
-    /// Returns the type name of the [`AssetLoader`].
-    fn type_name(&self) -> &'static str;
+    /// Returns the type path of the [`AssetLoader`].
+    fn type_path(&self) -> &'static str;
     /// Returns the [`TypeId`] of the [`AssetLoader`].
     fn type_id(&self) -> TypeId;
     /// Returns the type name of the top-level [`Asset`] loaded by the [`AssetLoader`].
@@ -84,13 +96,11 @@ where
     fn load<'a>(
         &'a self,
         reader: &'a mut dyn Reader,
-        meta: &'a dyn AssetMetaDyn,
+        settings: &'a dyn Settings,
         mut load_context: LoadContext<'a>,
     ) -> BoxedFuture<'a, Result<ErasedLoadedAsset, BevyError>> {
         Box::pin(async move {
-            let settings = meta
-                .loader_settings()
-                .expect("Loader settings should exist")
+            let settings = settings
                 .downcast_ref::<L::Settings>()
                 .expect("AssetLoader settings should match the loader type");
             let asset = <L as AssetLoader>::load(self, reader, settings, &mut load_context)
@@ -98,6 +108,13 @@ where
                 .map_err(Into::into)?;
             Ok(load_context.finish(asset).into())
         })
+    }
+
+    fn reader_required_features(&self, settings: &dyn Settings) -> ReaderRequiredFeatures {
+        let settings = settings
+            .downcast_ref::<L::Settings>()
+            .expect("AssetLoader settings should match the loader type");
+        <L as AssetLoader>::reader_required_features(settings)
     }
 
     fn extensions(&self) -> &[&str] {
@@ -111,13 +128,13 @@ where
 
     fn default_meta(&self) -> Box<dyn AssetMetaDyn> {
         Box::new(AssetMeta::<L, ()>::new(crate::meta::AssetAction::Load {
-            loader: self.type_name().to_string(),
+            loader: self.type_path().to_string(),
             settings: L::Settings::default(),
         }))
     }
 
-    fn type_name(&self) -> &'static str {
-        core::any::type_name::<L>()
+    fn type_path(&self) -> &'static str {
+        L::type_path()
     }
 
     fn type_id(&self) -> TypeId {
@@ -305,8 +322,6 @@ pub enum LoadDirectError {
         dependency: AssetPath<'static>,
         error: AssetLoadError,
     },
-    #[error("The asset at path `{0:?}` requested to immediately load itself recursively, but this is not supported")]
-    RequestedSelfPath(AssetPath<'static>),
 }
 
 /// An error that occurs while deserializing [`AssetMeta`].
@@ -487,7 +502,9 @@ impl<'a> LoadContext<'a> {
             AssetServerMode::Unprocessed => source.reader(),
             AssetServerMode::Processed => source.processed_reader()?,
         };
-        let mut reader = asset_reader.read(path.path()).await?;
+        let mut reader = asset_reader
+            .read(path.path(), ReaderRequiredFeatures::default())
+            .await?;
         let hash = if self.populate_hashes {
             // NOTE: ensure meta is read while the asset bytes reader is still active to ensure transactionality
             // See `ProcessorGatedReader` for more info
@@ -509,9 +526,7 @@ impl<'a> LoadContext<'a> {
                 path: path.path().to_path_buf(),
                 source,
             })?;
-        if self.asset_path != path {
-            self.loader_dependencies.insert(path.clone_owned(), hash);
-        }
+        self.loader_dependencies.insert(path.clone_owned(), hash);
         Ok(bytes)
     }
 
@@ -533,20 +548,16 @@ impl<'a> LoadContext<'a> {
     pub(crate) async fn load_direct_internal(
         &mut self,
         path: AssetPath<'static>,
-        meta: &dyn AssetMetaDyn,
+        settings: &dyn Settings,
         loader: &dyn ErasedAssetLoader,
         reader: &mut dyn Reader,
+        processed_info: Option<&ProcessedInfo>,
     ) -> Result<ErasedLoadedAsset, LoadDirectError> {
-        if self.asset_path == path {
-            return Err(LoadDirectError::RequestedSelfPath(
-                self.asset_path.clone_owned(),
-            ));
-        }
         let loaded_asset = self
             .asset_server
-            .load_with_meta_loader_and_reader(
+            .load_with_settings_loader_and_reader(
                 &path,
-                meta,
+                settings,
                 loader,
                 reader,
                 self.should_load_dependencies,
@@ -557,8 +568,7 @@ impl<'a> LoadContext<'a> {
                 dependency: path.clone(),
                 error,
             })?;
-        let info = meta.processed_info().as_ref();
-        let hash = info.map(|i| i.full_hash).unwrap_or_default();
+        let hash = processed_info.map(|i| i.full_hash).unwrap_or_default();
         self.loader_dependencies.insert(path, hash);
         Ok(loaded_asset)
     }
