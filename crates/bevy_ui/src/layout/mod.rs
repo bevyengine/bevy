@@ -357,25 +357,24 @@ pub fn ui_layout_system(
 
 #[cfg(test)]
 mod tests {
-    use crate::update::update_cameras_test_system;
     use crate::{
         layout::ui_surface::UiSurface, prelude::*, ui_layout_system,
         update::propagate_ui_target_cameras, ContentSize, LayoutContext,
     };
     use bevy_app::{App, HierarchyPropagatePlugin, PostUpdate, PropagateSet};
-    use bevy_camera::{Camera, Camera2d};
+    use bevy_camera::{Camera, Camera2d, ComputedCameraValues, RenderTargetInfo, Viewport};
     use bevy_ecs::{prelude::*, system::RunSystemOnce};
     use bevy_math::{Rect, UVec2, Vec2};
     use bevy_platform::collections::HashMap;
     use bevy_transform::systems::mark_dirty_trees;
     use bevy_transform::systems::{propagate_parent_transforms, sync_simple_transforms};
     use bevy_utils::prelude::default;
-    use bevy_window::{PrimaryWindow, Window, WindowResolution};
+
     use taffy::TraversePartialTree;
 
     // these window dimensions are easy to convert to and from percentage values
-    const WINDOW_WIDTH: u32 = 1000;
-    const WINDOW_HEIGHT: u32 = 100;
+    const TARGET_WIDTH: u32 = 1000;
+    const TARGET_HEIGHT: u32 = 100;
 
     fn setup_ui_test_app() -> App {
         let mut app = App::new();
@@ -395,9 +394,8 @@ mod tests {
         app.add_systems(
             PostUpdate,
             (
-                update_cameras_test_system,
-                propagate_ui_target_cameras,
                 ApplyDeferred,
+                propagate_ui_target_cameras,
                 ui_layout_system,
                 mark_dirty_trees,
                 sync_simple_transforms,
@@ -421,15 +419,24 @@ mod tests {
         );
 
         let world = app.world_mut();
-        // spawn a dummy primary window and camera
+        // spawn a camera with a dummy render target
         world.spawn((
-            Window {
-                resolution: WindowResolution::new(WINDOW_WIDTH, WINDOW_HEIGHT),
-                ..default()
+            Camera2d,
+            Camera {
+                computed: ComputedCameraValues {
+                    target_info: Some(RenderTargetInfo {
+                        physical_size: UVec2::new(TARGET_WIDTH, TARGET_HEIGHT),
+                        scale_factor: 1.,
+                    }),
+                    ..Default::default()
+                },
+                viewport: Some(Viewport {
+                    physical_size: UVec2::new(TARGET_WIDTH, TARGET_HEIGHT),
+                    ..default()
+                }),
+                ..Default::default()
             },
-            PrimaryWindow,
         ));
-        world.spawn(Camera2d);
 
         app
     }
@@ -465,8 +472,8 @@ mod tests {
 
         for ui_entity in [ui_root, ui_child] {
             let layout = ui_surface.get_layout(ui_entity, true).unwrap().0;
-            assert_eq!(layout.size.width, WINDOW_WIDTH as f32);
-            assert_eq!(layout.size.height, WINDOW_HEIGHT as f32);
+            assert_eq!(layout.size.width, TARGET_WIDTH as f32);
+            assert_eq!(layout.size.height, TARGET_HEIGHT as f32);
         }
     }
 
@@ -799,21 +806,14 @@ mod tests {
         #[derive(Component)]
         struct MovingUiNode;
 
-        fn update_camera_viewports(
-            primary_window_query: Query<&Window, With<PrimaryWindow>>,
-            mut cameras: Query<&mut Camera>,
-        ) {
-            let primary_window = primary_window_query
-                .single()
-                .expect("missing primary window");
+        fn update_camera_viewports(mut cameras: Query<&mut Camera>) {
             let camera_count = cameras.iter().len();
             for (camera_index, mut camera) in cameras.iter_mut().enumerate() {
-                let viewport_width =
-                    primary_window.resolution.physical_width() / camera_count as u32;
-                let viewport_height = primary_window.resolution.physical_height();
+                let target_size = camera.physical_target_size().unwrap();
+                let viewport_width = target_size.x / camera_count as u32;
                 let physical_position = UVec2::new(viewport_width * camera_index as u32, 0);
-                let physical_size = UVec2::new(viewport_width, viewport_height);
-                camera.viewport = Some(bevy_camera::Viewport {
+                let physical_size = UVec2::new(target_size.x / camera_count as u32, target_size.y);
+                camera.viewport = Some(Viewport {
                     physical_position,
                     physical_size,
                     ..default()
@@ -883,6 +883,17 @@ mod tests {
             Camera2d,
             Camera {
                 order: 1,
+                computed: ComputedCameraValues {
+                    target_info: Some(RenderTargetInfo {
+                        physical_size: UVec2::new(TARGET_WIDTH, TARGET_HEIGHT),
+                        scale_factor: 1.,
+                    }),
+                    ..default()
+                },
+                viewport: Some(Viewport {
+                    physical_size: UVec2::new(TARGET_WIDTH, TARGET_HEIGHT),
+                    ..default()
+                }),
                 ..default()
             },
         ));
