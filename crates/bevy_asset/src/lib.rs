@@ -712,7 +712,7 @@ mod tests {
             gated::{GateOpener, GatedReader},
             memory::{Dir, MemoryAssetReader},
             AssetReader, AssetReaderError, AssetSourceBuilder, AssetSourceEvent, AssetSourceId,
-            AssetWatcher, Reader,
+            AssetWatcher, Reader, ReaderRequiredFeatures,
         },
         loader::{AssetLoader, LoadContext},
         Asset, AssetApp, AssetEvent, AssetId, AssetLoadError, AssetLoadFailedEvent, AssetPath,
@@ -769,7 +769,7 @@ mod tests {
         pub sub_texts: Vec<String>,
     }
 
-    #[derive(Default)]
+    #[derive(Default, TypePath)]
     pub struct CoolTextLoader;
 
     #[derive(Error, Debug)]
@@ -868,7 +868,11 @@ mod tests {
         ) -> Result<impl Reader + 'a, AssetReaderError> {
             self.memory_reader.read_meta(path).await
         }
-        async fn read<'a>(&'a self, path: &'a Path) -> Result<impl Reader + 'a, AssetReaderError> {
+        async fn read<'a>(
+            &'a self,
+            path: &'a Path,
+            required_features: ReaderRequiredFeatures,
+        ) -> Result<impl Reader + 'a, AssetReaderError> {
             let attempt_number = {
                 let mut attempt_counters = self.attempt_counters.lock().unwrap();
                 if let Some(existing) = attempt_counters.get_mut(path) {
@@ -896,7 +900,7 @@ mod tests {
                 .await;
             }
 
-            self.memory_reader.read(path).await
+            self.memory_reader.read(path, required_features).await
         }
     }
 
@@ -1934,6 +1938,7 @@ mod tests {
             .init_asset::<SubText>()
             .register_asset_loader(CoolTextLoader);
 
+        #[derive(TypePath)]
         struct NestedLoadOfSubassetLoader;
 
         impl AssetLoader for NestedLoadOfSubassetLoader {
@@ -2153,6 +2158,7 @@ mod tests {
     // Note: we can't just use the GatedReader, since currently we hold the handle until after
     // we've selected the reader. The GatedReader blocks this process, so we need to wait until
     // we gate in the loader instead.
+    #[derive(TypePath)]
     struct GatedLoader {
         in_loader_sender: Sender<()>,
         gate_receiver: Receiver<()>,
@@ -2456,6 +2462,7 @@ mod tests {
         #[derive(Serialize, Deserialize, Default)]
         struct U8LoaderSettings(u8);
 
+        #[derive(TypePath)]
         struct U8Loader;
 
         impl AssetLoader for U8Loader {
@@ -2534,6 +2541,7 @@ mod tests {
         let (mut app, dir) = create_app();
         dir.insert_asset(Path::new("test.txt"), &[]);
 
+        #[derive(TypePath)]
         struct TwoSubassetLoader;
 
         impl AssetLoader for TwoSubassetLoader {
@@ -2574,6 +2582,7 @@ mod tests {
     }
 
     /// A loader that immediately returns a [`TestAsset`].
+    #[derive(TypePath)]
     struct TrivialLoader;
 
     impl AssetLoader for TrivialLoader {
@@ -2652,6 +2661,7 @@ mod tests {
         #[derive(Asset, TypePath)]
         struct DeferredNested(Handle<TestAsset>);
 
+        #[derive(TypePath)]
         struct DeferredNestedLoader;
 
         impl AssetLoader for DeferredNestedLoader {
@@ -2679,6 +2689,7 @@ mod tests {
         #[derive(Asset, TypePath)]
         struct ImmediateNested(Handle<TestAsset>);
 
+        #[derive(TypePath)]
         struct ImmediateNestedLoader;
 
         impl AssetLoader for ImmediateNestedLoader {

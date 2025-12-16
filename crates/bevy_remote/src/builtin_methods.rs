@@ -479,7 +479,7 @@ pub struct BrpQueryRow {
 }
 
 /// A helper function used to parse a `serde_json::Value`.
-fn parse<T: for<'de> Deserialize<'de>>(value: Value) -> Result<T, BrpError> {
+pub fn parse<T: for<'de> Deserialize<'de>>(value: Value) -> Result<T, BrpError> {
     serde_json::from_value(value).map_err(|err| BrpError {
         code: error_codes::INVALID_PARAMS,
         message: err.to_string(),
@@ -488,7 +488,7 @@ fn parse<T: for<'de> Deserialize<'de>>(value: Value) -> Result<T, BrpError> {
 }
 
 /// A helper function used to parse a `serde_json::Value` wrapped in an `Option`.
-fn parse_some<T: for<'de> Deserialize<'de>>(value: Option<Value>) -> Result<T, BrpError> {
+pub fn parse_some<T: for<'de> Deserialize<'de>>(value: Option<Value>) -> Result<T, BrpError> {
     match value {
         Some(value) => parse(value),
         None => Err(BrpError {
@@ -1690,8 +1690,6 @@ mod tests {
 
     #[test]
     fn insert_reflect_only_component() {
-        use bevy_ecs::prelude::Component;
-        use bevy_reflect::Reflect;
         #[derive(Reflect, Component)]
         #[reflect(Component)]
         struct Player {

@@ -467,13 +467,13 @@
 //!
 //! ## `bevy`
 //!
-//! | Default | Dependencies                              |
-//! | :-----: | :---------------------------------------: |
-//! | ❌      | [`bevy_math`], [`glam`], [`smallvec`]     |
+//! | Default | Dependencies                                        |
+//! | :-----: | :-------------------------------------------------: |
+//! | ❌      | [`bevy_math`], [`glam`], [`indexmap`], [`smallvec`] |
 //!
 //! This feature makes it so that the appropriate reflection traits are implemented on all the types
 //! necessary for the [Bevy] game engine.
-//! enables the optional dependencies: [`bevy_math`], [`glam`], and [`smallvec`].
+//! enables the optional dependencies: [`bevy_math`], [`glam`], [`indexmap`], and [`smallvec`].
 //! These dependencies are used by the [Bevy] game engine and must define their reflection implementations
 //! within this crate due to Rust's [orphan rule].
 //!
@@ -559,6 +559,7 @@
 //! [`bevy_math`]: https://docs.rs/bevy_math/latest/bevy_math/
 //! [`glam`]: https://docs.rs/glam/latest/glam/
 //! [`smallvec`]: https://docs.rs/smallvec/latest/smallvec/
+//! [`indexmap`]: https://docs.rs/indexmap/latest/indexmap/
 //! [orphan rule]: https://doc.rust-lang.org/book/ch10-02-traits.html#implementing-a-trait-on-a-type:~:text=But%20we%20can%E2%80%99t,implementation%20to%20use.
 //! [`bevy_reflect_derive/documentation`]: bevy_reflect_derive
 //! [`bevy_reflect_derive/functions`]: bevy_reflect_derive
@@ -612,6 +613,8 @@ mod impls {
 
     #[cfg(feature = "glam")]
     mod glam;
+    #[cfg(feature = "indexmap")]
+    mod indexmap;
     #[cfg(feature = "petgraph")]
     mod petgraph;
     #[cfg(feature = "smallvec")]
@@ -2343,6 +2346,31 @@ mod tests {
         let value: &dyn Reflect = &MyMap::default();
         let info = value.reflect_type_info();
         assert!(info.is::<MyMap>());
+
+        // Map (IndexMap)
+        #[cfg(feature = "indexmap")]
+        {
+            use std::hash::RandomState;
+
+            type MyIndexMap = indexmap::IndexMap<String, u32, RandomState>;
+
+            let info = MyIndexMap::type_info().as_map().unwrap();
+            assert!(info.is::<MyIndexMap>());
+            assert_eq!(MyIndexMap::type_path(), info.type_path());
+
+            assert!(info.key_ty().is::<String>());
+            assert!(info.key_info().unwrap().is::<String>());
+            assert_eq!(String::type_path(), info.key_ty().path());
+
+            assert!(info.value_ty().is::<u32>());
+            assert!(info.value_info().unwrap().is::<u32>());
+            assert_eq!(u32::type_path(), info.value_ty().path());
+
+            let value: MyIndexMap = MyIndexMap::with_capacity_and_hasher(10, RandomState::new());
+            let value: &dyn Reflect = &value;
+            let info = value.reflect_type_info();
+            assert!(info.is::<MyIndexMap>());
+        }
 
         // Value
         type MyValue = String;

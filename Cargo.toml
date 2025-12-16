@@ -732,6 +732,7 @@ event-listener = "5.3.0"
 anyhow = "1"
 accesskit = "0.21"
 nonmax = "0.5"
+gltf = "1.4"
 
 [target.'cfg(not(target_family = "wasm"))'.dev-dependencies]
 ureq = { version = "3.0.8", features = ["json"] }
@@ -3112,6 +3113,17 @@ description = "Demonstrates how to write a specialized mesh pipeline"
 category = "Shaders"
 wasm = true
 
+[[example]]
+name = "fullscreen_material"
+path = "examples/shader_advanced/fullscreen_material.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.fullscreen_material]
+name = "Fullscreen Material"
+description = "Demonstrates how to write a fullscreen material"
+category = "Shaders Advanced"
+wasm = true
+
 # Stress tests
 [[package.metadata.example_category]]
 name = "Stress Tests"
@@ -3826,17 +3838,6 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
-name = "viewport_debug"
-path = "examples/ui/viewport_debug.rs"
-doc-scrape-examples = true
-
-[package.metadata.example.viewport_debug]
-name = "Viewport Debug"
-description = "An example for debugging viewport coordinates"
-category = "UI (User Interface)"
-wasm = false
-
-[[example]]
 name = "viewport_node"
 path = "examples/ui/viewport_node.rs"
 doc-scrape-examples = true
@@ -3868,17 +3869,6 @@ required-features = ["custom_cursor"]
 [package.metadata.example.custom_cursor_image]
 name = "Custom Cursor Image"
 description = "Demonstrates creating an animated custom cursor from an image"
-category = "Window"
-wasm = true
-
-[[example]]
-name = "custom_user_event"
-path = "examples/window/custom_user_event.rs"
-doc-scrape-examples = true
-
-[package.metadata.example.custom_user_event]
-name = "Custom User Event"
-description = "Handles custom user events within the event loop"
 category = "Window"
 wasm = true
 
@@ -4002,6 +3992,9 @@ name = "fallback_image"
 path = "examples/shader/fallback_image.rs"
 doc-scrape-examples = true
 
+[package.metadata.example.fallback_image]
+hidden = true
+
 [[example]]
 name = "reflection_probes"
 path = "examples/3d/reflection_probes.rs"
@@ -4012,9 +4005,6 @@ name = "Reflection Probes"
 description = "Demonstrates reflection probes"
 category = "3D Rendering"
 wasm = false
-
-[package.metadata.example.fallback_image]
-hidden = true
 
 [package.metadata.example.window_resizing]
 name = "Window Resizing"
@@ -4209,6 +4199,28 @@ doc-scrape-examples = true
 [package.metadata.example.load_gltf_extras]
 name = "Load glTF extras"
 description = "Loads and renders a glTF file as a scene, including the gltf extras"
+category = "glTF"
+wasm = true
+
+[[example]]
+name = "gltf_extension_animation_graph"
+path = "examples/gltf/gltf_extension_animation_graph.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.gltf_extension_animation_graph]
+name = "glTF extension AnimationGraph"
+description = "Uses glTF data to build an AnimationGraph via extension processing"
+category = "glTF"
+wasm = true
+
+[[example]]
+name = "gltf_extension_mesh_2d"
+path = "examples/gltf/gltf_extension_mesh_2d.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.gltf_extension_mesh_2d]
+name = "glTF extension processing to build Mesh2ds from glTF data"
+description = "Uses glTF extension data to convert incoming Mesh3d/MeshMaterial3d assets to 2d"
 category = "glTF"
 wasm = true
 
@@ -4668,7 +4680,6 @@ rustdoc-args = [
   "docs-rs/trait-tags.html",
 ]
 all-features = true
-cargo-args = ["-Zunstable-options", "-Zrustdoc-scrape-examples"]
 
 [[example]]
 name = "monitor_info"

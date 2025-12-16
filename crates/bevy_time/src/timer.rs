@@ -206,6 +206,25 @@ impl Timer {
         self.tick(remaining);
     }
 
+    /// Almost finishes the timer leaving 1 ns of remaining time.
+    /// This can be useful when needing an immediate action without having
+    /// to wait for the set duration of the timer in the first tick.
+    ///
+    /// # Examples
+    /// ```
+    /// # use bevy_time::*;
+    /// use std::time::Duration;
+    /// let mut timer = Timer::from_seconds(1.5, TimerMode::Once);
+    /// timer.almost_finish();
+    /// assert!(!timer.is_finished());
+    /// assert_eq!(timer.remaining(), Duration::from_nanos(1));
+    /// ```
+    #[inline]
+    pub fn almost_finish(&mut self) {
+        let remaining = self.remaining() - Duration::from_nanos(1);
+        self.tick(remaining);
+    }
+
     /// Returns the mode of the timer.
     ///
     /// # Examples
@@ -626,6 +645,21 @@ mod tests {
         // total duration: 1.332 => 34 times finished
         t.tick(duration);
         assert_eq!(t.times_finished_this_tick(), 34);
+    }
+
+    #[test]
+    fn almost_finished_repeating() {
+        let mut t = Timer::from_seconds(10.0, TimerMode::Repeating);
+        let duration = Duration::from_nanos(1);
+
+        t.almost_finish();
+        assert!(!t.is_finished());
+        assert_eq!(t.times_finished_this_tick(), 0);
+        assert_eq!(t.remaining(), Duration::from_nanos(1));
+
+        t.tick(duration);
+        assert!(t.is_finished());
+        assert_eq!(t.times_finished_this_tick(), 1);
     }
 
     #[test]
