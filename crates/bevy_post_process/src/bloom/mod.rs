@@ -34,8 +34,6 @@ use downsampling_pipeline::{
     prepare_downsampling_pipeline, BloomDownsamplingPipeline, BloomDownsamplingPipelineIds,
     BloomUniforms,
 };
-#[cfg(feature = "trace")]
-use tracing::info_span;
 use upsampling_pipeline::{
     prepare_upsampling_pipeline, BloomUpsamplingPipeline, UpsamplingPipelineIds,
 };

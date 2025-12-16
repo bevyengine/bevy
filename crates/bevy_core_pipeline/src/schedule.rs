@@ -103,7 +103,11 @@ pub fn camera_driver(world: &mut World) {
 
     let mut camera_windows = HashSet::default();
 
-    for (camera_entity, order) in sorted_cameras {
+    for camera in sorted_cameras {
+        #[cfg(feature = "trace")]
+        let (camera_entity, order) = camera;
+        #[cfg(not(feature = "trace"))]
+        let (camera_entity, _) = camera;
         let Some(camera) = world.get::<ExtractedCamera>(camera_entity) else {
             continue;
         };
