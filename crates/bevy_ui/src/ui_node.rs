@@ -6,7 +6,7 @@ use bevy_camera::{visibility::Visibility, Camera, RenderTarget};
 use bevy_color::{Alpha, Color};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{prelude::*, system::SystemParam};
-use bevy_math::{vec4, BVec2, Rect, UVec2, Vec2, Vec4Swizzles};
+use bevy_math::{BVec2, Rect, UVec2, Vec2, Vec4, Vec4Swizzles};
 use bevy_reflect::prelude::*;
 use bevy_sprite::BorderRect;
 use bevy_utils::once;
@@ -196,12 +196,7 @@ impl ComputedNode {
             let sm = s.x.min(s.y);
             r.min(sm)
         }
-        let b = vec4(
-            self.border.left,
-            self.border.top,
-            self.border.right,
-            self.border.bottom,
-        );
+        let b = Vec4::from((self.border.min_inset, self.border.max_inset));
         let s = self.size() - b.xy() - b.zw();
         ResolvedBorderRadius {
             top_left: clamp_corner(self.border_radius.top_left, s, b.xy()),
@@ -223,8 +218,7 @@ impl ComputedNode {
     #[inline]
     pub fn content_inset(&self) -> BorderRect {
         let mut content_inset = self.border + self.padding;
-        content_inset.right += self.scrollbar_size.x;
-        content_inset.bottom += self.scrollbar_size.y;
+        content_inset.max_inset += self.scrollbar_size;
         content_inset
     }
 
@@ -285,10 +279,8 @@ impl ComputedNode {
             OverflowClipBox::PaddingBox => self.border(),
         };
 
-        clip_rect.min.x += clip_inset.left;
-        clip_rect.min.y += clip_inset.top;
-        clip_rect.max.x -= clip_inset.right;
-        clip_rect.max.y -= clip_inset.bottom;
+        clip_rect.min += clip_inset.min_inset;
+        clip_rect.max -= clip_inset.max_inset;
 
         if overflow.x == OverflowAxis::Visible {
             clip_rect.min.x = -f32::INFINITY;
@@ -314,10 +306,8 @@ impl ComputedNode {
     #[inline]
     pub fn padding_box(&self) -> Rect {
         let mut out = self.border_box();
-        out.min.x += self.border.left;
-        out.max.x -= self.border.right;
-        out.min.y += self.border.top;
-        out.max.y -= self.border.bottom;
+        out.min += self.border.min_inset;
+        out.max -= self.border.max_inset;
         out
     }
 
@@ -327,10 +317,8 @@ impl ComputedNode {
     pub fn content_box(&self) -> Rect {
         let mut out = self.border_box();
         let content_inset = self.content_inset();
-        out.min.x += content_inset.left;
-        out.max.x -= content_inset.right;
-        out.min.y += content_inset.top;
-        out.max.y -= content_inset.bottom;
+        out.min += content_inset.min_inset;
+        out.max -= content_inset.max_inset;
         out
     }
 
@@ -356,9 +344,9 @@ impl ComputedNode {
         }
         let content_inset = self.content_inset();
         let half_size = 0.5 * self.size;
-        let min_x = -half_size.x + content_inset.left;
-        let max_x = half_size.x - content_inset.right;
-        let min_y = half_size.y - content_inset.bottom;
+        let min_x = -half_size.x + content_inset.min_inset.x;
+        let max_x = half_size.x - content_inset.max_inset.x;
+        let min_y = half_size.y - content_inset.max_inset.y;
         let max_y = min_y + self.scrollbar_size.y;
         let gutter = Rect {
             min: Vec2::new(min_x, min_y),
@@ -383,10 +371,10 @@ impl ComputedNode {
         }
         let content_inset = self.content_inset();
         let half_size = 0.5 * self.size;
-        let min_x = half_size.x - content_inset.right;
+        let min_x = half_size.x - content_inset.max_inset.x;
         let max_x = min_x + self.scrollbar_size.x;
-        let min_y = -half_size.y + content_inset.top;
-        let max_y = half_size.y - content_inset.bottom;
+        let min_y = -half_size.y + content_inset.min_inset.y;
+        let max_y = half_size.y - content_inset.max_inset.y;
         let gutter = Rect {
             min: Vec2::new(min_x, min_y),
             max: Vec2::new(max_x, max_y),
@@ -3165,10 +3153,8 @@ mod tests {
         let node = ComputedNode {
             size: Vec2::new(100.0, 60.0),
             border: BorderRect {
-                left: 5.0,
-                right: 7.0,
-                top: 3.0,
-                bottom: 9.0,
+                min_inset: Vec2::new(5.0, 3.0),
+                max_inset: Vec2::new(7.0, 9.0),
             },
             ..Default::default()
         };
@@ -3183,10 +3169,8 @@ mod tests {
         let node = ComputedNode {
             size: Vec2::new(80.0, 40.0),
             padding: BorderRect {
-                left: 4.0,
-                right: 6.0,
-                top: 2.0,
-                bottom: 8.0,
+                min_inset: Vec2::new(4.0, 2.0),
+                max_inset: Vec2::new(6.0, 8.0),
             },
             ..Default::default()
         };
