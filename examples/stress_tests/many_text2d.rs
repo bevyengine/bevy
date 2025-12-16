@@ -171,14 +171,12 @@ fn print_counts(
     mut timer: Local<PrintingTimer>,
     texts: Query<&ViewVisibility, With<Text2d>>,
     font_atlas_set: Res<FontAtlasSet>,
-    font: Res<FontHandle>,
 ) {
     timer.tick(time.delta());
     if !timer.just_finished() {
         return;
     }
 
-    // let font_id = font.0.id();
     let num_atlases = font_atlas_set
         .iter()
         // Removed this filter for now as the keys no longer include the AssetIds
