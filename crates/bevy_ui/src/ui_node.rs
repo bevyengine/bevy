@@ -222,7 +222,10 @@ impl ComputedNode {
     /// Returns the combined inset on each edge including both padding and border thickness in physical pixels.
     #[inline]
     pub fn content_inset(&self) -> BorderRect {
-        self.border + self.padding
+        let mut content_inset = self.border + self.padding;
+        content_inset.right += self.scrollbar_size.x;
+        content_inset.bottom += self.scrollbar_size.y;
+        content_inset
     }
 
     /// Returns the inverse of the scale factor for this node.
@@ -299,6 +302,38 @@ impl ComputedNode {
         clip_rect
     }
 
+    /// Returns the node's border-box in object-centered physical coordinates.
+    /// This is the full rectangle enclosing the node.
+    #[inline]
+    pub fn border_box(&self) -> Rect {
+        Rect::from_center_size(Vec2::ZERO, self.size)
+    }
+
+    /// Returns the node's padding-box in object-centered physical coordinates.
+    /// This is the region inside the border containing the node's padding and content areas.
+    #[inline]
+    pub fn padding_box(&self) -> Rect {
+        let mut out = self.border_box();
+        out.min.x += self.border.left;
+        out.max.x -= self.border.right;
+        out.min.y += self.border.top;
+        out.max.y -= self.border.bottom;
+        out
+    }
+
+    /// Returns the node's content-box in object-centered physical coordinates.
+    /// This is the innermost region of the node, where its content is placed.
+    #[inline]
+    pub fn content_box(&self) -> Rect {
+        let mut out = self.border_box();
+        let content_inset = self.content_inset();
+        out.min.x += content_inset.left;
+        out.max.x -= content_inset.right;
+        out.min.y += content_inset.top;
+        out.max.y -= content_inset.bottom;
+        out
+    }
+
     const fn compute_thumb(
         gutter_min: f32,
         content_length: f32,
@@ -322,9 +357,9 @@ impl ComputedNode {
         let content_inset = self.content_inset();
         let half_size = 0.5 * self.size;
         let min_x = -half_size.x + content_inset.left;
-        let max_x = half_size.x - content_inset.right - self.scrollbar_size.x;
-        let max_y = half_size.y - content_inset.bottom;
-        let min_y = max_y - self.scrollbar_size.y;
+        let max_x = half_size.x - content_inset.right;
+        let min_y = half_size.y - content_inset.bottom;
+        let max_y = min_y + self.scrollbar_size.y;
         let gutter = Rect {
             min: Vec2::new(min_x, min_y),
             max: Vec2::new(max_x, max_y),
@@ -348,10 +383,10 @@ impl ComputedNode {
         }
         let content_inset = self.content_inset();
         let half_size = 0.5 * self.size;
-        let max_x = half_size.x - content_inset.right;
-        let min_x = max_x - self.scrollbar_size.x;
+        let min_x = half_size.x - content_inset.right;
+        let max_x = min_x + self.scrollbar_size.x;
         let min_y = -half_size.y + content_inset.top;
-        let max_y = half_size.y - content_inset.bottom - self.scrollbar_size.y;
+        let max_y = half_size.y - content_inset.bottom;
         let gutter = Rect {
             min: Vec2::new(min_x, min_y),
             max: Vec2::new(max_x, max_y),
@@ -2984,11 +3019,10 @@ impl ComputedUiRenderTargetInfo {
 
 #[cfg(test)]
 mod tests {
-    use bevy_math::Rect;
-    use bevy_math::Vec2;
-
     use crate::ComputedNode;
     use crate::GridPlacement;
+    use bevy_math::{Rect, Vec2};
+    use bevy_sprite::BorderRect;
 
     #[test]
     fn invalid_grid_placement_values() {
@@ -3112,5 +3146,53 @@ mod tests {
             }
         );
         assert_eq!(thumb, [0., 50.]);
+    }
+
+    #[test]
+    fn border_box_is_centered_rect_of_node_size() {
+        let node = ComputedNode {
+            size: Vec2::new(100.0, 50.0),
+            ..Default::default()
+        };
+        let border_box = node.border_box();
+
+        assert_eq!(border_box.min, Vec2::new(-50.0, -25.0));
+        assert_eq!(border_box.max, Vec2::new(50.0, 25.0));
+    }
+
+    #[test]
+    fn padding_box_subtracts_border_thickness() {
+        let node = ComputedNode {
+            size: Vec2::new(100.0, 60.0),
+            border: BorderRect {
+                left: 5.0,
+                right: 7.0,
+                top: 3.0,
+                bottom: 9.0,
+            },
+            ..Default::default()
+        };
+        let padding_box = node.padding_box();
+
+        assert_eq!(padding_box.min, Vec2::new(-50.0 + 5.0, -30.0 + 3.0));
+        assert_eq!(padding_box.max, Vec2::new(50.0 - 7.0, 30.0 - 9.0));
+    }
+
+    #[test]
+    fn content_box_uses_content_inset() {
+        let node = ComputedNode {
+            size: Vec2::new(80.0, 40.0),
+            padding: BorderRect {
+                left: 4.0,
+                right: 6.0,
+                top: 2.0,
+                bottom: 8.0,
+            },
+            ..Default::default()
+        };
+        let content_box = node.content_box();
+
+        assert_eq!(content_box.min, Vec2::new(-40.0 + 4.0, -20.0 + 2.0));
+        assert_eq!(content_box.max, Vec2::new(40.0 - 6.0, 20.0 - 8.0));
     }
 }
