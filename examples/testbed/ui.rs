@@ -9,22 +9,31 @@ use helpers::Next;
 
 fn main() {
     let mut app = App::new();
-    app.add_plugins((DefaultPlugins,))
-        .init_state::<Scene>()
-        .add_systems(OnEnter(Scene::Image), image::setup)
-        .add_systems(OnEnter(Scene::Text), text::setup)
-        .add_systems(OnEnter(Scene::Grid), grid::setup)
-        .add_systems(OnEnter(Scene::Borders), borders::setup)
-        .add_systems(OnEnter(Scene::BoxShadow), box_shadow::setup)
-        .add_systems(OnEnter(Scene::TextWrap), text_wrap::setup)
-        .add_systems(OnEnter(Scene::Overflow), overflow::setup)
-        .add_systems(OnEnter(Scene::Slice), slice::setup)
-        .add_systems(OnEnter(Scene::LayoutRounding), layout_rounding::setup)
-        .add_systems(OnEnter(Scene::LinearGradient), linear_gradient::setup)
-        .add_systems(OnEnter(Scene::RadialGradient), radial_gradient::setup)
-        .add_systems(OnEnter(Scene::Transformations), transformations::setup)
-        .add_systems(OnEnter(Scene::ViewportCoords), viewport_coords::setup)
-        .add_systems(Update, switch_scene);
+    app.add_plugins(DefaultPlugins.set(WindowPlugin {
+        primary_window: Some(Window {
+            // The ViewportCoords scene relies on these specific viewport dimensions,
+            // so let's explicitly define them and set resizable to false
+            resolution: (1280, 720).into(),
+            resizable: false,
+            ..Default::default()
+        }),
+        ..Default::default()
+    }))
+    .init_state::<Scene>()
+    .add_systems(OnEnter(Scene::Image), image::setup)
+    .add_systems(OnEnter(Scene::Text), text::setup)
+    .add_systems(OnEnter(Scene::Grid), grid::setup)
+    .add_systems(OnEnter(Scene::Borders), borders::setup)
+    .add_systems(OnEnter(Scene::BoxShadow), box_shadow::setup)
+    .add_systems(OnEnter(Scene::TextWrap), text_wrap::setup)
+    .add_systems(OnEnter(Scene::Overflow), overflow::setup)
+    .add_systems(OnEnter(Scene::Slice), slice::setup)
+    .add_systems(OnEnter(Scene::LayoutRounding), layout_rounding::setup)
+    .add_systems(OnEnter(Scene::LinearGradient), linear_gradient::setup)
+    .add_systems(OnEnter(Scene::RadialGradient), radial_gradient::setup)
+    .add_systems(OnEnter(Scene::Transformations), transformations::setup)
+    .add_systems(OnEnter(Scene::ViewportCoords), viewport_coords::setup)
+    .add_systems(Update, switch_scene);
 
     #[cfg(feature = "bevy_ui_debug")]
     {
