@@ -454,20 +454,15 @@ impl From<FontWidth> for Stretch {
 }
 
 /// The slant style of a font face: normal, italic, or oblique.
-#[derive(Clone, Copy, PartialEq, Eq, Debug, Hash, Reflect)]
+#[derive(Clone, Copy, Default, PartialEq, Eq, Debug, Hash, Reflect)]
 pub enum FontStyle {
     /// A face that is neither italic nor obliqued.
+    #[default]
     Normal,
     /// A form that is generally cursive in nature.
     Italic,
     /// A typically sloped version of the regular face.
     Oblique,
-}
-
-impl Default for FontStyle {
-    fn default() -> Self {
-        Self::Normal
-    }
 }
 
 impl From<FontStyle> for cosmic_text::Style {
