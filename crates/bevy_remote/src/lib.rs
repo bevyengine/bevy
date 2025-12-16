@@ -455,6 +455,16 @@
 //!
 //! `result`: An array of [fully-qualified type names] of registered resource types.
 //!
+//! ### `world.trigger_event`
+//!
+//! Triggers an event.
+//!
+//! `params`:
+//! - `event`: The [fully-qualified type name] of the event to trigger.
+//! - `value`: The value of the event to trigger.
+//!
+//! `result`: null.
+//!
 //! ### `registry.schema`
 //!
 //! Retrieve schema information about registered types in the Bevy app's type registry.
@@ -670,6 +680,10 @@ impl Default for RemotePlugin {
                 builtin_methods::process_remote_list_resources_request,
             )
             .with_method(
+                builtin_methods::BRP_TRIGGER_EVENT_METHOD,
+                builtin_methods::process_remote_trigger_event_request,
+            )
+            .with_method(
                 builtin_methods::BRP_REGISTRY_SCHEMA_METHOD,
                 builtin_methods::export_registry_types,
             )
@@ -734,10 +748,6 @@ pub enum RemoteSystems {
     /// Cleanup (remove closed watchers etc)
     Cleanup,
 }
-
-/// Deprecated alias for [`RemoteSystems`].
-#[deprecated(since = "0.17.0", note = "Renamed to `RemoteSystems`.")]
-pub type RemoteSet = RemoteSystems;
 
 /// A type to hold the allowed types of systems to be used as method handlers.
 #[derive(Debug)]
@@ -919,7 +929,7 @@ impl From<BrpResult> for BrpPayload {
 }
 
 /// An error a request might return.
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub struct BrpError {
     /// Defines the general type of the error.
     pub code: i16,

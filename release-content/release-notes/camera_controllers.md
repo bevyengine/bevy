@@ -1,7 +1,7 @@
 ---
 title: First-party camera controllers
-authors: ["@alice-i-cecile"]
-pull_requests: [20215]
+authors: ["@alice-i-cecile", "@syszery"]
+pull_requests: [20215, 21450, 21520]
 ---
 
 To understand a scene, you must look at it through the lens of a camera: explore it, and interact with it.
@@ -20,19 +20,32 @@ To that end, we've created `bevy_camera_controller`: giving us a place to store,
 that we need for easy development, and yes, an eventual Editor.
 We're kicking it off with a couple of camera controllers, detailed below.
 
-### `FreeCam`
+### `FreeCamera`
 
-The first camera controller that we've introduced is a "free cam", designed for quickly moving around a scene,
+The first camera controller that we've introduced is a "free camera", designed for quickly moving around a scene,
 completely ignoring both physics and geometry.
-You may have heard of a "flycam" controller before, which is a specialization of a "free cam" controller
+You may have heard of a "fly camera" controller before, which is a specialization of a "free camera" controller
 designed for fast and fluid movement for covering large amounts of terrain.
 
-To add a free cam controller to your project (typically under a `dev_mode` feature flag),
-add the `FreeCamPlugin` and the `FreeCam` component to your camera entity.
+To add a free camera controller to your project (typically under a `dev_mode` feature flag),
+add the `FreeCameraPlugin` and the `FreeCamera` component to your camera entity.
 
-To configure the settings (speed, behavior, keybindings) or enable / disable the controller modify the `FreeCam` component.
+To configure the settings (speed, behavior, keybindings) or enable / disable the controller modify the `FreeCamera` component.
 We've done our best to select good defaults, but the details of your scene (especially the scale!) will make a big
 difference to what feels right.
+
+### `PanCamera`
+
+The `PanCamera` controller is a simple and effective tool designed for 2D games or any project where you need
+to pan the camera and zoom in/out with ease. It allows you to move the camera using the WASD keys and zoom
+in and out with the mouse wheel or +/- keys.
+
+By adding the `PanCameraPlugin` and attaching the `PanCamera` component to your camera entity, you can quickly add
+this controller to your project.
+
+To configure the camera's zoom levels, speed, or keybindings, simply modify the `PanCamera` component. The default
+settings should work well for most use cases, but you can adjust them based on your specific needs, especially
+for large-scale or high-resolution 2D scenes.
 
 ### Using `bevy_camera_controller` in your own projects
 

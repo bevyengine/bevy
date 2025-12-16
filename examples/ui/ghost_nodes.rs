@@ -80,10 +80,10 @@ fn create_button() -> impl Bundle {
             justify_content: JustifyContent::Center,
             // vertically center child text
             align_items: AlignItems::Center,
+            border_radius: BorderRadius::MAX,
             ..default()
         },
         BorderColor::all(Color::BLACK),
-        BorderRadius::MAX,
         BackgroundColor(Color::srgb(0.15, 0.15, 0.15)),
     )
 }

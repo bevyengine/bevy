@@ -88,7 +88,7 @@ fn main() {
             (handle_weight_drag, update_ui, sync_weights).chain(),
         )
         .insert_resource(args)
-        .insert_resource(AmbientLight {
+        .insert_resource(GlobalAmbientLight {
             color: WHITE.into(),
             brightness: 100.0,
             ..default()

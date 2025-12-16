@@ -1,7 +1,7 @@
 //! This example demonstrates Bevy's immediate mode drawing API intended for visual debugging.
 
 use bevy::{
-    camera_controller::free_cam::{FreeCam, FreeCamPlugin},
+    camera_controller::free_camera::{FreeCamera, FreeCameraPlugin},
     color::palettes::css::*,
     prelude::*,
 };
@@ -9,7 +9,7 @@ use std::f32::consts::PI;
 
 fn main() {
     App::new()
-        .add_plugins((DefaultPlugins, FreeCamPlugin))
+        .add_plugins((DefaultPlugins, FreeCameraPlugin))
         .init_gizmo_group::<MyRoundGizmos>()
         .add_systems(Startup, setup)
         .add_systems(Update, (draw_example_collection, update_config))
@@ -52,7 +52,7 @@ fn setup(
     commands.spawn((
         Camera3d::default(),
         Transform::from_xyz(0., 1.5, 6.).looking_at(Vec3::ZERO, Vec3::Y),
-        FreeCam::default(),
+        FreeCamera::default(),
     ));
     // plane
     commands.spawn((

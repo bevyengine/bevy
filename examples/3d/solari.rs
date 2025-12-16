@@ -3,7 +3,7 @@
 use argh::FromArgs;
 use bevy::{
     camera::CameraMainTextureUsages,
-    camera_controller::free_cam::{FreeCam, FreeCamPlugin},
+    camera_controller::free_camera::{FreeCamera, FreeCameraPlugin},
     gltf::GltfMaterialName,
     prelude::*,
     render::render_resource::TextureUsages,
@@ -38,7 +38,7 @@ fn main() {
         "5417916c-0291-4e3f-8f65-326c1858ab96" // Don't copy paste this - generate your own UUID!
     )));
 
-    app.add_plugins((DefaultPlugins, SolariPlugins, FreeCamPlugin))
+    app.add_plugins((DefaultPlugins, SolariPlugins, FreeCameraPlugin))
         .insert_resource(args)
         .add_systems(Startup, setup);
 
@@ -115,7 +115,7 @@ fn setup(
             clear_color: ClearColorConfig::Custom(Color::BLACK),
             ..default()
         },
-        FreeCam {
+        FreeCamera {
             walk_speed: 3.0,
             run_speed: 10.0,
             ..Default::default()

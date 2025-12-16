@@ -7,8 +7,8 @@ use thiserror::Error;
 
 use crate::{
     bundle::BundleInfo,
-    change_detection::MaybeLocation,
-    component::{Component, ComponentId, Components, ComponentsRegistrator, Tick},
+    change_detection::{MaybeLocation, Tick},
+    component::{Component, ComponentId, Components, ComponentsRegistrator},
     entity::Entity,
     query::DebugCheckedUnwrap as _,
     storage::{SparseSets, Table, TableRow},
@@ -390,11 +390,12 @@ impl Components {
         let old_required_count = required_components.all.len();
 
         // SAFETY: the caller guarantees that `requiree` is valid in `self`.
-        self.required_components_scope(requiree, |this, required_components| {
-            // SAFETY: the caller guarantees that `required` is valid for type `R` in `self`
-            unsafe { required_components.register_by_id(required, this, constructor) };
-        });
-
+        unsafe {
+            self.required_components_scope(requiree, |this, required_components| {
+                // SAFETY: the caller guarantees that `required` is valid for type `R` in `self`
+                required_components.register_by_id(required, this, constructor);
+            });
+        }
         // Third step: update the required components and required_by of all the indirect requirements/requirees.
 
         // Borrow again otherwise it conflicts with the `self.required_components_scope` call.
@@ -435,11 +436,13 @@ impl Components {
         // Skip the first one (requiree) because we already updates it.
         for &indirect_requiree in &new_requiree_components[1..] {
             // SAFETY: `indirect_requiree` comes from `self` so it must be valid.
-            self.required_components_scope(indirect_requiree, |this, required_components| {
-                // Rebuild the inherited required components.
-                // SAFETY: `required_components` comes from `self`, so all its components must have be valid in `self`.
-                unsafe { required_components.rebuild_inherited_required_components(this) };
-            });
+            unsafe {
+                self.required_components_scope(indirect_requiree, |this, required_components| {
+                    // Rebuild the inherited required components.
+                    // SAFETY: `required_components` comes from `self`, so all its components must have be valid in `self`.
+                    required_components.rebuild_inherited_required_components(this);
+                });
+            }
         }
 
         // Update the `required_by` of all the components that were newly required (directly or indirectly).

@@ -6,6 +6,9 @@
   - [Overview](#overview)
   - [Adding your own spans](#adding-your-own-spans)
   - [Tracy profiler](#tracy-profiler)
+    - [Tracy Quickstart](#tracy-quickstart)
+    - [Commandline capture](#commandline-capture-less-overhead)
+    - [Using the Tracy UI](#using-the-tracy-ui)
   - [Chrome tracing format](#chrome-tracing-format)
   - [Perf flame graph](#perf-flame-graph)
 - [GPU runtime](#gpu-runtime)
@@ -65,30 +68,44 @@ The [Tracy profiling tool](https://github.com/wolfpld/tracy) is:
 
 > A real time, nanosecond resolution, remote telemetry, hybrid frame and sampling profiler for games and other applications.
 
-There are binaries available for Windows, and installation / build instructions for other operating systems can be found in the [Tracy documentation PDF](https://github.com/wolfpld/tracy/releases/latest/download/tracy.pdf).
+#### Tracy Quickstart
+
+1. Install the [correct Tracy version](#finding-the-correct-tracy-version)
+    - [Windows binaries (official)](https://github.com/wolfpld/tracy/releases)
+    - [Macos and Linux binaries (third-party builds)](https://github.com/tracy-builds/tracy-builds/releases)
+    - [Packages](https://repology.org/project/tracy/versions)
+2. Start the Tracy UI (called `tracy-profiler` in prebuilt binaries)
+3. In the Tracy UI, click `connect` to wait for a connection.
+   - Starting the Tracy UI first and letting it wait for connection ensures it doesn't have to catch up
+4. Run your bevy app with `--features bevy/trace_tracy --release`
+   - `--release` as theres little point to profiling unoptimized code
+   - You can capture memory usage as well with `--features bevy/trace_tracy_memory`, at the cost of increased overhead.
+
+#### Finding the correct Tracy version
 
 To determine which Tracy version to install
 
 1. Run `cargo tree --features bevy/trace_tracy | grep tracy` in your Bevy workspace root to see which tracy dep versions are used
 2. Cross reference the tracy dep versions with the [Version Support Table](https://github.com/nagisa/rust_tracy_client?tab=readme-ov-file#version-support-table)
 
-It has a command line capture tool that can record the execution of graphical applications, saving it as a profile file. Tracy has a GUI to inspect these profile files. The GUI app also supports live capture, showing you in real time the trace of your app.
+#### Commandline capture (less overhead)
 
-On macOS, Tracy can be installed through Homebrew by running `brew install tracy`, and the GUI client can be launched by running `tracy`. Note that `brew` does not always have the latest version of Tracy available, in which cases you may be required to build from source.
+Tracy has a command line capture tool that can record the execution of graphical applications, saving it as a profile file. This reduces potential inaccuracies, as running the live capture on the same machine will be a competing graphical application. Pre-recording the profile data through the CLI tool, while other applications are closed, is recommended for more accurate traces.
 
-In one terminal, run:
-`./capture-release -o my_capture.tracy`
+> [!NOTE]
+> The name and location of the Tracy command line tool will vary depending on how you installed it - the default executable name for the prebuilt binaries is `tracy-capture`.
+
+In a terminal, run:
+`./tracy-capture -o my_capture.tracy`
 This will sit and wait for a tracy-instrumented application to start, and when it does, it will automatically connect and start capturing.
-
-The name and location of the Tracy command line tool will vary depending on how you installed it - the default executable names are `capture-release` on Linux, `tracy` on macOS and `capture.exe` on Windows. In one terminal, run this tool: `./capture-release -o my_capture.tracy`. This will sit and wait for a tracy-instrumented application to start, and when it does, it will automatically connect and start capturing.
 
 Then run your application, enabling the `trace_tracy` feature: `cargo run --release --features bevy/trace_tracy`. If you also want to track memory allocations, at the cost of increased runtime overhead, then enable the `trace_tracy_memory` feature instead: `cargo run --release --features bevy/trace_tracy_memory`.
 
-After running your app, you can open the captured profile file (`my_capture.tracy` in the example above) in the Tracy GUI application to see a timeline of the executed spans.
+After running your app, you can open the captured profile file (`my_capture.tracy` in the example above) in the Tracy GUI application to see a timeline of the executed spans, or open multiple files to compare them.
 
-Alternatively, directly run the tracy GUI and then run your application, for live capture. However, beware that running the live capture on the same machine will be a competing graphical application, which may impact results. Pre-recording the profile data through the CLI tool is recommended for more accurate traces.
+#### Using the Tracy UI
 
-In any case, you'll see your trace in the GUI window:
+You'll see your trace in the GUI window:
 
 ![Tracy timeline demonstrating the performance breakdown of a Bevy app](https://user-images.githubusercontent.com/302146/163988636-25c017ab-64bc-4da7-a897-a80098b667ef.png)
 

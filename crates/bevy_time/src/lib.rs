@@ -61,10 +61,6 @@ pub struct TimePlugin;
 #[derive(Debug, PartialEq, Eq, Clone, Hash, SystemSet)]
 pub struct TimeSystems;
 
-/// Deprecated alias for [`TimeSystems`].
-#[deprecated(since = "0.17.0", note = "Renamed to `TimeSystems`.")]
-pub type TimeSystem = TimeSystems;
-
 impl Plugin for TimePlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<Time>()
@@ -118,6 +114,9 @@ pub enum TimeUpdateStrategy {
     ManualInstant(Instant),
     /// [`Time`] will be incremented by the specified [`Duration`] each frame.
     ManualDuration(Duration),
+    /// [`Time`] will be incremented by the fixed timestep each frame, multiplied by the specified factor `n`.
+    /// This means that a call to [`App::update`] will always run the fixed loop exactly n times.
+    FixedTimesteps(u32),
 }
 
 /// Channel resource used to receive time from the render world.
@@ -144,6 +143,7 @@ pub fn create_time_channels() -> (TimeSender, TimeReceiver) {
 pub fn time_system(
     mut real_time: ResMut<Time<Real>>,
     mut virtual_time: ResMut<Time<Virtual>>,
+    fixed_time: Res<Time<Fixed>>,
     mut time: ResMut<Time>,
     update_strategy: Res<TimeUpdateStrategy>,
     #[cfg(feature = "std")] time_recv: Option<Res<TimeReceiver>>,
@@ -175,6 +175,9 @@ pub fn time_system(
         }
         TimeUpdateStrategy::ManualInstant(instant) => real_time.update_with_instant(*instant),
         TimeUpdateStrategy::ManualDuration(duration) => real_time.update_with_duration(*duration),
+        TimeUpdateStrategy::FixedTimesteps(factor) => {
+            real_time.update_with_duration(fixed_time.timestep() * *factor);
+        }
     }
 
     update_virtual_time(&mut time, &mut virtual_time, &real_time);

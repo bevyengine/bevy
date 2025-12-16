@@ -1,8 +1,10 @@
 //! Load a cubemap texture onto a cube like a skybox and cycle through different compressed texture formats
 
+#[cfg(not(target_arch = "wasm32"))]
+use bevy::anti_alias::taa::TemporalAntiAliasing;
+
 use bevy::{
-    anti_alias::taa::TemporalAntiAliasing,
-    camera_controller::free_cam::{FreeCam, FreeCamPlugin},
+    camera_controller::free_camera::{FreeCamera, FreeCameraPlugin},
     core_pipeline::Skybox,
     image::CompressedImageFormats,
     pbr::ScreenSpaceAmbientOcclusion,
@@ -36,7 +38,7 @@ const CUBEMAPS: &[(&str, CompressedImageFormats)] = &[
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_plugins(FreeCamPlugin)
+        .add_plugins(FreeCameraPlugin)
         .add_systems(Startup, setup)
         .add_systems(
             Update,
@@ -71,10 +73,11 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn((
         Camera3d::default(),
         Msaa::Off,
+        #[cfg(not(target_arch = "wasm32"))]
         TemporalAntiAliasing::default(),
         ScreenSpaceAmbientOcclusion::default(),
         Transform::from_xyz(0.0, 0.0, 8.0).looking_at(Vec3::ZERO, Vec3::Y),
-        FreeCam::default(),
+        FreeCamera::default(),
         Skybox {
             image: skybox_handle.clone(),
             brightness: 1000.0,
@@ -85,7 +88,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // ambient light
     // NOTE: The ambient light is used to scale how bright the environment map is so with a bright
     // environment map, use an appropriate color and brightness to match
-    commands.insert_resource(AmbientLight {
+    commands.insert_resource(GlobalAmbientLight {
         color: Color::srgb_u8(210, 220, 240),
         brightness: 1.0,
         ..default()

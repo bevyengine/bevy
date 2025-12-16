@@ -17,12 +17,12 @@
 //! These features are all off by default; to enable them,
 //! you need to specify the desired features in your Cargo.toml file.
 //!
-//! For example, to enable the `free_cam` camera controller,
+//! For example, to enable the `free_camera` camera controller,
 //! you would add the following to your Cargo.toml:
 //!
 //! ```toml
 //! [dependencies]
-//! bevy = { version = "0.X", features = ["free_cam"] }
+//! bevy = { version = "0.X", features = ["free_camera"] }
 //! ```
 //!
 //! Once the correct feature is enabled,
@@ -38,5 +38,8 @@
 
 #![warn(missing_docs)]
 
-#[cfg(feature = "free_cam")]
-pub mod free_cam;
+#[cfg(feature = "free_camera")]
+pub mod free_camera;
+
+#[cfg(feature = "pan_camera")]
+pub mod pan_camera;

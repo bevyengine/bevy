@@ -56,7 +56,7 @@ use super::EntityIndexSet;
 pub trait MapEntities {
     /// Updates all [`Entity`] references stored inside using `entity_mapper`.
     ///
-    /// Implementors should look up any and all [`Entity`] values stored within `self` and
+    /// Implementers should look up any and all [`Entity`] values stored within `self` and
     /// update them to the mapped values via `entity_mapper`.
     fn map_entities<E: EntityMapper>(&mut self, entity_mapper: &mut E);
 }
@@ -202,7 +202,7 @@ impl<T: MapEntities, A: smallvec::Array<Item = T>> MapEntities for SmallVec<A> {
 ///
 /// More generally, this can be used to map [`Entity`] references between any two [`Worlds`](World).
 ///
-/// This is used by [`MapEntities`] implementors.
+/// This is used by [`MapEntities`] implementers.
 ///
 /// ## Example
 ///
@@ -276,8 +276,8 @@ impl EntityMapper for SceneEntityMapper<'_> {
         }
 
         // this new entity reference is specifically designed to never represent any living entity
-        let new = Entity::from_row_and_generation(
-            self.dead_start.row(),
+        let new = Entity::from_index_and_generation(
+            self.dead_start.index(),
             self.dead_start.generation.after_versions(self.generations),
         );
         self.generations = self.generations.wrapping_add(1);
@@ -336,14 +336,10 @@ impl<'m> SceneEntityMapper<'m> {
     }
 
     /// Creates a new [`SceneEntityMapper`], spawning a temporary base [`Entity`] in the provided [`World`]
-    pub fn new(map: &'m mut EntityHashMap<Entity>, world: &mut World) -> Self {
-        // We're going to be calling methods on `Entities` that require advance
-        // flushing, such as `alloc` and `free`.
-        world.flush_entities();
+    pub fn new(map: &'m mut EntityHashMap<Entity>, world: &World) -> Self {
         Self {
             map,
-            // SAFETY: Entities data is kept in a valid state via `EntityMapper::world_scope`
-            dead_start: unsafe { world.entities_mut().alloc() },
+            dead_start: world.allocator.alloc(),
             generations: 0,
         }
     }
@@ -352,10 +348,13 @@ impl<'m> SceneEntityMapper<'m> {
     /// [`Entity`] while reserving extra generations. Because this makes the [`SceneEntityMapper`] unable to
     /// safely allocate any more references, this method takes ownership of `self` in order to render it unusable.
     pub fn finish(self, world: &mut World) {
-        // SAFETY: Entities data is kept in a valid state via `EntityMap::world_scope`
-        let entities = unsafe { world.entities_mut() };
-        assert!(entities.free(self.dead_start).is_some());
-        assert!(entities.reserve_generations(self.dead_start.index(), self.generations));
+        // SAFETY: We never constructed the entity and never released it for something else to construct.
+        let reuse_row = unsafe {
+            world
+                .entities
+                .mark_free(self.dead_start.index(), self.generations)
+        };
+        world.allocator.free(reuse_row);
     }
 
     /// Creates an [`SceneEntityMapper`] from a provided [`World`] and [`EntityHashMap<Entity>`], then calls the
@@ -388,7 +387,7 @@ mod tests {
     fn entity_mapper() {
         let mut map = EntityHashMap::default();
         let mut world = World::new();
-        let mut mapper = SceneEntityMapper::new(&mut map, &mut world);
+        let mut mapper = SceneEntityMapper::new(&mut map, &world);
 
         let mapped_ent = Entity::from_raw_u32(1).unwrap();
         let dead_ref = mapper.get_mapped(mapped_ent);
@@ -430,22 +429,5 @@ mod tests {
             .generation()
             .cmp_approx(&dead_ref.generation())
             .is_gt());
-    }
-
-    #[test]
-    fn entity_mapper_no_panic() {
-        let mut world = World::new();
-        // "Dirty" the `Entities`, requiring a flush afterward.
-        world.entities.reserve_entity();
-        assert!(world.entities.needs_flush());
-
-        // Create and exercise a SceneEntityMapper - should not panic because it flushes
-        // `Entities` first.
-        SceneEntityMapper::world_scope(&mut Default::default(), &mut world, |_, m| {
-            m.get_mapped(Entity::PLACEHOLDER);
-        });
-
-        // The SceneEntityMapper should leave `Entities` in a flushed state.
-        assert!(!world.entities.needs_flush());
     }
 }

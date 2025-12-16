@@ -14,7 +14,7 @@ pub use self::multi_threaded::{MainThreadExecutor, MultiThreadedExecutor};
 use fixedbitset::FixedBitSet;
 
 use crate::{
-    component::{CheckChangeTicks, Tick},
+    change_detection::{CheckChangeTicks, Tick},
     error::{BevyError, ErrorContext, Result},
     prelude::{IntoSystemSet, SystemSet},
     query::FilteredAccessSet,
@@ -260,7 +260,8 @@ mod __rust_begin_short_backtrace {
         system: &mut ScheduleSystem,
         world: UnsafeWorldCell,
     ) -> Result<(), RunSystemError> {
-        let result = system.run_unsafe((), world);
+        // SAFETY: Upheld by caller
+        let result = unsafe { system.run_unsafe((), world) };
         // Call `black_box` to prevent this frame from being tail-call optimized away
         black_box(());
         result
@@ -276,7 +277,8 @@ mod __rust_begin_short_backtrace {
         world: UnsafeWorldCell,
     ) -> Result<O, RunSystemError> {
         // Call `black_box` to prevent this frame from being tail-call optimized away
-        black_box(system.run_unsafe((), world))
+        // SAFETY: Upheld by caller
+        black_box(unsafe { system.run_unsafe((), world) })
     }
 
     #[cfg(feature = "std")]

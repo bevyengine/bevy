@@ -10,7 +10,7 @@ keywords = ["game", "engine", "gamedev", "graphics", "bevy"]
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/bevyengine/bevy"
 documentation = "https://docs.rs/bevy"
-rust-version = "1.88.0"
+rust-version = "1.89.0"
 
 [workspace]
 resolver = "2"
@@ -125,69 +125,155 @@ unsafe_op_in_unsafe_fn = "warn"
 unused_qualifications = "warn"
 
 [features]
-default = [
-  "std",
+default = ["2d", "3d", "ui"]
+
+# PROFILE: The default 2D Bevy experience. This includes the core Bevy framework, 2D functionality, Bevy UI, scenes, audio, and picking.
+2d = [
+  "default_app",
+  "default_platform",
+  "2d_api",
+  "2d_bevy_render",
+  "ui",
+  "scene",
+  "audio",
+  "picking",
+]
+
+# PROFILE: The default 3D Bevy experience. This includes the core Bevy framework, 3D functionality, Bevy UI, scenes, audio, and picking.
+3d = [
+  "default_app",
+  "default_platform",
+  "3d_api",
+  "3d_bevy_render",
+  "ui",
+  "scene",
+  "audio",
+  "picking",
+]
+
+# PROFILE: The default Bevy UI experience.  This includes the core Bevy framework, Bevy UI, scenes, audio, and picking.
+ui = [
+  "default_app",
+  "default_platform",
+  "ui_api",
+  "ui_bevy_render",
+  "scene",
+  "audio",
+  "picking",
+]
+
+# COLLECTION: Enable this feature during development to improve the development experience. This adds features like asset hot-reloading and debugging tools. This should not be enabled for published apps!
+dev = [
+  "debug",          # TODO: rename this to something more specific ... this is a "debug ECS names" feature
+  "bevy_dev_tools",
+  "file_watcher",
+]
+
+# COLLECTION: Features used to build audio Bevy apps.
+audio = ["bevy_audio", "vorbis"]
+
+# COLLECTION: Features used to compose Bevy scenes.
+scene = ["bevy_scene"]
+
+# COLLECTION: Enables picking functionality
+picking = ["bevy_picking", "mesh_picking", "sprite_picking", "ui_picking"]
+
+# COLLECTION: The core pieces that most apps need. This serves as a baseline feature set for other higher level feature collections (such as "2d" and "3d"). It is also useful as a baseline feature set for scenarios like headless apps that require no rendering (ex: command line tools, servers, etc).
+default_app = [
   "async_executor",
-  "android-game-activity",
-  "android_shared_stdcxx",
-  "gltf_animation",
   "bevy_asset",
-  "bevy_audio",
-  "bevy_color",
-  "bevy_core_pipeline",
-  "bevy_post_process",
-  "bevy_anti_alias",
-  "bevy_gilrs",
-  "bevy_gizmos",
-  "bevy_gltf",
   "bevy_input_focus",
   "bevy_log",
-  "bevy_mesh_picking_backend",
-  "bevy_pbr",
-  "bevy_picking",
-  "bevy_render",
-  "bevy_scene",
-  "bevy_image",
-  "bevy_mesh",
-  "bevy_mikktspace",
-  "bevy_camera",
-  "bevy_light",
-  "bevy_shader",
-  "bevy_sprite",
-  "bevy_sprite_render",
   "bevy_state",
-  "bevy_text",
-  "bevy_ui",
-  "bevy_ui_render",
   "bevy_window",
-  "bevy_winit",
   "custom_cursor",
-  "default_font",
-  "hdr",
-  "ktx2",
-  "morph",
-  "morph_animation",
-  "multi_threaded",
-  "png",
   "reflect_auto_register",
-  "smaa_luts",
-  "sprite_picking",
-  "sysinfo_plugin",
-  "tonemapping_luts",
-  "ui_picking",
-  "vorbis",
+]
+
+# COLLECTION: These are platform support features, such as OS support/features, windowing and input backends, etc.
+default_platform = [
+  "std",
+  "android-game-activity",
+  "android_shared_stdcxx",
+  "bevy_gilrs",
+  "bevy_winit",
+  "default_font",
+  "multi_threaded",
   "webgl2",
   "x11",
   "wayland",
-  "debug",
+  "sysinfo_plugin",
+]
+
+# COLLECTION: Default scene definition features. Note that this does not include an actual renderer, such as bevy_render (Bevy's default render backend).
+common_api = [
+  "bevy_animation",
+  "bevy_camera",
+  "bevy_color",
+  "bevy_gizmos",
+  "bevy_image",
+  "bevy_mesh",
+  "bevy_shader",
+  "bevy_text",
+  "hdr",
+  "png",
+]
+
+# COLLECTION: Features used to build 2D Bevy apps (does not include a render backend). You generally don't need to worry about this unless you are using a custom renderer.
+2d_api = ["common_api", "bevy_sprite"]
+
+# COLLECTION: Bevy's built-in 2D renderer, built on top of `bevy_render`.
+2d_bevy_render = [
+  "2d_api",
+  "bevy_render",
+  "bevy_core_pipeline",
+  "bevy_post_process",
+  "bevy_sprite_render",
+  "bevy_gizmos_render",
+]
+
+# COLLECTION: Features used to build 3D Bevy apps (does not include a render backend). You generally don't need to worry about this unless you are using a custom renderer.
+3d_api = [
+  "common_api",
+  "bevy_light",
+  "bevy_mikktspace",
+  "ktx2",
+  "morph_animation",
+  "morph",
+  "smaa_luts",
+  "tonemapping_luts",
   "zstd_rust",
 ]
 
-# Recommended defaults for no_std applications
+# COLLECTION: Bevy's built-in 3D renderer, built on top of `bevy_render`.
+3d_bevy_render = [
+  "3d_api",
+  "bevy_render",
+  "bevy_core_pipeline",
+  "bevy_gizmos_render",
+  "bevy_anti_alias",
+  "bevy_gltf",
+  "bevy_pbr",
+  "bevy_post_process",
+  "gltf_animation",
+]
+
+# COLLECTION: Features used to build UI Bevy apps (does not include a render backend). You generally don't need to worry about this unless you are using a custom renderer.
+ui_api = ["default_app", "common_api", "bevy_ui"]
+
+# COLLECTION: Bevy's built-in UI renderer, built on top of `bevy_render`.
+ui_bevy_render = [
+  "ui_api",
+  "bevy_render",
+  "bevy_core_pipeline",
+  "bevy_ui_render",
+]
+
+# COLLECTION: Recommended defaults for no_std applications
 default_no_std = ["libm", "critical-section", "bevy_color", "bevy_state"]
 
 # Provides an implementation for picking meshes
-bevy_mesh_picking_backend = ["bevy_internal/bevy_mesh_picking_backend"]
+mesh_picking = ["bevy_internal/mesh_picking"]
 
 # Provides an implementation for picking sprites
 sprite_picking = ["bevy_internal/sprite_picking"]
@@ -285,8 +371,11 @@ bevy_light = ["bevy_internal/bevy_light"]
 # Provides shaders usable through asset handles.
 bevy_shader = ["bevy_internal/bevy_shader"]
 
-# Adds support for rendering gizmos
+# Adds support for gizmos
 bevy_gizmos = ["bevy_internal/bevy_gizmos"]
+
+# Adds support for rendering gizmos
+bevy_gizmos_render = ["bevy_internal/bevy_gizmos_render"]
 
 # Provides a collection of developer tools
 bevy_dev_tools = ["bevy_internal/bevy_dev_tools"]
@@ -295,7 +384,10 @@ bevy_dev_tools = ["bevy_internal/bevy_dev_tools"]
 bevy_camera_controller = ["bevy_internal/bevy_camera_controller"]
 
 # Enables the free cam from bevy_camera_controller
-free_cam = ["bevy_internal/free_cam"]
+free_camera = ["bevy_internal/free_camera"]
+
+# Enables the pan camera from bevy_camera_controller
+pan_camera = ["bevy_internal/pan_camera"]
 
 # Enable the Bevy Remote Protocol
 bevy_remote = ["bevy_internal/bevy_remote"]
@@ -569,7 +661,7 @@ track_location = ["bevy_internal/track_location"]
 # Enable function reflection
 reflect_functions = ["bevy_internal/reflect_functions"]
 
-# Enable documentation reflection
+# Enables bevy_reflect to access documentation comments of rust code at runtime
 reflect_documentation = ["bevy_internal/reflect_documentation"]
 
 # Enable automatic reflect registration
@@ -631,7 +723,7 @@ bevy_dylib = { path = "crates/bevy_dylib", version = "0.18.0-dev", default-featu
 [dev-dependencies]
 rand = "0.9.0"
 rand_chacha = "0.9.0"
-ron = "0.11"
+ron = "0.12"
 flate2 = "1.0"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1.0.140"
@@ -655,6 +747,7 @@ event-listener = "5.3.0"
 anyhow = "1"
 accesskit = "0.21"
 nonmax = "0.5"
+gltf = "1.4"
 
 [target.'cfg(not(target_family = "wasm"))'.dev-dependencies]
 ureq = { version = "3.0.8", features = ["json"] }
@@ -1110,17 +1203,6 @@ category = "3D Rendering"
 wasm = true
 
 [[example]]
-name = "manual_material"
-path = "examples/3d/manual_material.rs"
-doc-scrape-examples = true
-
-[package.metadata.example.manual_material]
-name = "Manual Material Implementation"
-description = "Demonstrates how to implement a material manually using the mid-level render APIs"
-category = "3D Rendering"
-wasm = true
-
-[[example]]
 name = "lighting"
 path = "examples/3d/lighting.rs"
 doc-scrape-examples = true
@@ -1181,7 +1263,7 @@ wasm = true
 name = "decal"
 path = "examples/3d/decal.rs"
 doc-scrape-examples = true
-required-features = ["free_cam"]
+required-features = ["free_camera"]
 
 [package.metadata.example.decal]
 name = "Decal"
@@ -1293,7 +1375,7 @@ wasm = true
 name = "shadow_biases"
 path = "examples/3d/shadow_biases.rs"
 doc-scrape-examples = true
-required-features = ["free_cam"]
+required-features = ["free_camera"]
 
 [package.metadata.example.shadow_biases]
 name = "Shadow Biases"
@@ -1316,7 +1398,7 @@ wasm = true
 name = "skybox"
 path = "examples/3d/skybox.rs"
 doc-scrape-examples = true
-required-features = ["free_cam"]
+required-features = ["free_camera"]
 
 [package.metadata.example.skybox]
 name = "Skybox"
@@ -1328,7 +1410,7 @@ wasm = true
 name = "solari"
 path = "examples/3d/solari.rs"
 doc-scrape-examples = true
-required-features = ["bevy_solari", "https"]
+required-features = ["bevy_solari", "https", "free_camera"]
 
 [package.metadata.example.solari]
 name = "Solari"
@@ -1442,7 +1524,7 @@ wasm = false
 name = "meshlet"
 path = "examples/3d/meshlet.rs"
 doc-scrape-examples = true
-required-features = ["meshlet", "https"]
+required-features = ["meshlet", "https", "free_camera"]
 
 [package.metadata.example.meshlet]
 name = "Meshlet"
@@ -1951,6 +2033,17 @@ category = "Async Tasks"
 wasm = false
 
 [[example]]
+name = "async_channel_pattern"
+path = "examples/async_tasks/async_channel_pattern.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.async_channel_pattern]
+name = "Async Channel Pattern"
+description = "An example showing how to offload work to background async tasks using channels for communication."
+category = "Async Tasks"
+wasm = true
+
+[[example]]
 name = "external_source_external_thread"
 path = "examples/async_tasks/external_source_external_thread.rs"
 doc-scrape-examples = true
@@ -2300,7 +2393,7 @@ wasm = false
 name = "error_handling"
 path = "examples/ecs/error_handling.rs"
 doc-scrape-examples = true
-required-features = ["bevy_mesh_picking_backend"]
+required-features = ["mesh_picking"]
 
 [package.metadata.example.error_handling]
 name = "Error handling"
@@ -2323,7 +2416,6 @@ wasm = false
 name = "states"
 path = "examples/state/states.rs"
 doc-scrape-examples = true
-required-features = ["bevy_dev_tools"]
 
 [package.metadata.example.states]
 name = "States"
@@ -3004,6 +3096,17 @@ category = "Shaders"
 wasm = true
 
 [[example]]
+name = "manual_material"
+path = "examples/shader_advanced/manual_material.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.manual_material]
+name = "Manual Material Implementation"
+description = "Demonstrates how to implement a material manually using the mid-level render APIs"
+category = "Shader Advanced"
+wasm = true
+
+[[example]]
 name = "texture_binding_array"
 path = "examples/shader_advanced/texture_binding_array.rs"
 doc-scrape-examples = true
@@ -3014,7 +3117,6 @@ description = "A shader that shows how to bind and sample multiple textures as a
 category = "Shaders"
 wasm = false
 
-
 [[example]]
 name = "specialized_mesh_pipeline"
 path = "examples/shader_advanced/specialized_mesh_pipeline.rs"
@@ -3024,6 +3126,17 @@ doc-scrape-examples = true
 name = "Specialized Mesh Pipeline"
 description = "Demonstrates how to write a specialized mesh pipeline"
 category = "Shaders"
+wasm = true
+
+[[example]]
+name = "fullscreen_material"
+path = "examples/shader_advanced/fullscreen_material.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.fullscreen_material]
+name = "Fullscreen Material"
+description = "Demonstrates how to write a fullscreen material"
+category = "Shaders Advanced"
 wasm = true
 
 # Stress tests
@@ -3220,7 +3333,7 @@ wasm = false
 name = "scene_viewer"
 path = "examples/tools/scene_viewer/main.rs"
 doc-scrape-examples = true
-required-features = ["free_cam"]
+required-features = ["free_camera"]
 
 [package.metadata.example.scene_viewer]
 name = "Scene Viewer"
@@ -3329,6 +3442,17 @@ wasm = true
 
 # UI (User Interface)
 [[example]]
+name = "anchor_layout"
+path = "examples/ui/anchor_layout.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.anchor_layout]
+name = "Anchor Layout"
+description = "Shows an 'anchor layout' style of ui layout"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "borders"
 path = "examples/ui/borders.rs"
 doc-scrape-examples = true
@@ -3393,6 +3517,18 @@ name = "Window Fallthrough"
 description = "Illustrates how to access `winit::window::Window`'s `hittest` functionality."
 category = "UI (User Interface)"
 wasm = false
+
+[[example]]
+name = "vertical_slider"
+path = "examples/ui/vertical_slider.rs"
+doc-scrape-examples = true
+required-features = ["experimental_bevy_ui_widgets"]
+
+[package.metadata.example.vertical_slider]
+name = "Vertical Slider"
+description = "Simple example showing vertical and horizontal slider widgets with snap behavior and value labels"
+category = "UI (User Interface)"
+wasm = true
 
 [[example]]
 name = "font_atlas_debug"
@@ -3469,6 +3605,17 @@ doc-scrape-examples = true
 [package.metadata.example.size_constraints]
 name = "Size Constraints"
 description = "Demonstrates how the to use the size constraints to control the size of a UI node."
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
+name = "strikethrough_and_underline"
+path = "examples/ui/strikethrough_and_underline.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.strikethrough_and_underline]
+name = "Strikethrough and Underline"
+description = "Demonstrates how to display text with strikethrough and underline."
 category = "UI (User Interface)"
 wasm = true
 
@@ -3703,7 +3850,7 @@ doc-scrape-examples = true
 name = "Viewport Debug"
 description = "An example for debugging viewport coordinates"
 category = "UI (User Interface)"
-wasm = true
+wasm = false
 
 [[example]]
 name = "viewport_node"
@@ -3737,17 +3884,6 @@ required-features = ["custom_cursor"]
 [package.metadata.example.custom_cursor_image]
 name = "Custom Cursor Image"
 description = "Demonstrates creating an animated custom cursor from an image"
-category = "Window"
-wasm = true
-
-[[example]]
-name = "custom_user_event"
-path = "examples/window/custom_user_event.rs"
-doc-scrape-examples = true
-
-[package.metadata.example.custom_user_event]
-name = "Custom User Event"
-description = "Handles custom user events within the event loop"
 category = "Window"
 wasm = true
 
@@ -3871,6 +4007,9 @@ name = "fallback_image"
 path = "examples/shader/fallback_image.rs"
 doc-scrape-examples = true
 
+[package.metadata.example.fallback_image]
+hidden = true
+
 [[example]]
 name = "reflection_probes"
 path = "examples/3d/reflection_probes.rs"
@@ -3881,9 +4020,6 @@ name = "Reflection Probes"
 description = "Demonstrates reflection probes"
 category = "3D Rendering"
 wasm = false
-
-[package.metadata.example.fallback_image]
-hidden = true
 
 [package.metadata.example.window_resizing]
 name = "Window Resizing"
@@ -3996,7 +4132,7 @@ wasm = true
 name = "3d_gizmos"
 path = "examples/gizmos/3d_gizmos.rs"
 doc-scrape-examples = true
-required-features = ["free_cam"]
+required-features = ["free_camera"]
 
 [package.metadata.example.3d_gizmos]
 name = "3D Gizmos"
@@ -4082,6 +4218,28 @@ category = "glTF"
 wasm = true
 
 [[example]]
+name = "gltf_extension_animation_graph"
+path = "examples/gltf/gltf_extension_animation_graph.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.gltf_extension_animation_graph]
+name = "glTF extension AnimationGraph"
+description = "Uses glTF data to build an AnimationGraph via extension processing"
+category = "glTF"
+wasm = true
+
+[[example]]
+name = "gltf_extension_mesh_2d"
+path = "examples/gltf/gltf_extension_mesh_2d.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.gltf_extension_mesh_2d]
+name = "glTF extension processing to build Mesh2ds from glTF data"
+description = "Uses glTF extension data to convert incoming Mesh3d/MeshMaterial3d assets to 2d"
+category = "glTF"
+wasm = true
+
+[[example]]
 name = "query_gltf_primitives"
 path = "examples/gltf/query_gltf_primitives.rs"
 doc-scrape-examples = true
@@ -4139,6 +4297,18 @@ doc-scrape-examples = true
 [package.metadata.example.first_person_view_model]
 name = "First person view model"
 description = "A first-person camera that uses a world model and a view model with different field of views (FOV)"
+category = "Camera"
+wasm = true
+
+[[example]]
+name = "free_camera_controller"
+path = "examples/camera/free_camera_controller.rs"
+doc-scrape-examples = true
+required-features = ["free_camera"]
+
+[package.metadata.example.free_camera_controller]
+name = "Free Camera controller"
+description = "Demonstrates the FreeCamera controller for 3D scenes."
 category = "Camera"
 wasm = true
 
@@ -4377,7 +4547,7 @@ wasm = false
 name = "mesh_picking"
 path = "examples/picking/mesh_picking.rs"
 doc-scrape-examples = true
-required-features = ["bevy_mesh_picking_backend"]
+required-features = ["mesh_picking"]
 
 [package.metadata.example.mesh_picking]
 name = "Mesh Picking"
@@ -4525,7 +4695,6 @@ rustdoc-args = [
   "docs-rs/trait-tags.html",
 ]
 all-features = true
-cargo-args = ["-Zunstable-options", "-Zrustdoc-scrape-examples"]
 
 [[example]]
 name = "monitor_info"
@@ -4591,6 +4760,17 @@ doc-scrape-examples = true
 [package.metadata.example.directional_navigation]
 name = "Directional Navigation"
 description = "Demonstration of Directional Navigation between UI elements"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
+name = "auto_directional_navigation"
+path = "examples/ui/auto_directional_navigation.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.auto_directional_navigation]
+name = "Automatic Directional Navigation"
+description = "Demonstration of automatic directional navigation graph generation based on UI element positions"
 category = "UI (User Interface)"
 wasm = true
 
@@ -4734,7 +4914,6 @@ name = "Feathers Widgets"
 description = "Gallery of Feathers Widgets"
 category = "UI (User Interface)"
 wasm = true
-hidden = true
 
 [[example]]
 name = "render_depth_to_texture"
@@ -4745,4 +4924,39 @@ doc-scrape-examples = true
 name = "Render Depth to Texture"
 description = "Demonstrates how to use depth-only cameras"
 category = "Shaders"
+wasm = true
+
+[[example]]
+name = "pan_camera_controller"
+path = "examples/camera/pan_camera_controller.rs"
+doc-scrape-examples = true
+required-features = ["pan_camera"]
+
+[package.metadata.example.pan_camera_controller]
+name = "Pan Camera"
+description = "Example Pan-Camera Styled Camera Controller for 2D scenes"
+category = "Camera"
+wasm = true
+
+[[example]]
+name = "clustered_decal_maps"
+path = "examples/3d/clustered_decal_maps.rs"
+doc-scrape-examples = true
+required-features = ["pbr_clustered_decals", "https"]
+
+[package.metadata.example.clustered_decal_maps]
+name = "Clustered Decal Maps"
+description = "Demonstrates normal and metallic-roughness maps of decals"
+category = "3D Rendering"
+wasm = false
+
+[[example]]
+name = "mirror"
+path = "examples/3d/mirror.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.mirror]
+name = "Mirror"
+description = "Demonstrates how to create a mirror with a second camera"
+category = "3D Rendering"
 wasm = true

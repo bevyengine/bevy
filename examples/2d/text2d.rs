@@ -96,6 +96,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 color: text_shadow_color,
                 ..default()
             },
+            Underline,
         )],
     ));
 

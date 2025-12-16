@@ -83,20 +83,20 @@ where
             justify_content: JustifyContent::Center,
             align_items: AlignItems::Center,
             padding: BUTTON_PADDING,
+            border_radius: BorderRadius::ZERO
+                .with_left(if is_first {
+                    BUTTON_BORDER_RADIUS_SIZE
+                } else {
+                    px(0)
+                })
+                .with_right(if is_last {
+                    BUTTON_BORDER_RADIUS_SIZE
+                } else {
+                    px(0)
+                }),
             ..default()
         },
         BUTTON_BORDER_COLOR,
-        BorderRadius::ZERO
-            .with_left(if is_first {
-                BUTTON_BORDER_RADIUS_SIZE
-            } else {
-                px(0)
-            })
-            .with_right(if is_last {
-                BUTTON_BORDER_RADIUS_SIZE
-            } else {
-                px(0)
-            }),
         BackgroundColor(bg_color),
         RadioButton,
         WidgetClickSender(option_value.clone()),

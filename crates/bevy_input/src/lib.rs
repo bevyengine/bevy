@@ -104,10 +104,6 @@ pub struct InputPlugin;
 #[derive(Debug, PartialEq, Eq, Clone, Hash, SystemSet)]
 pub struct InputSystems;
 
-/// Deprecated alias for [`InputSystems`].
-#[deprecated(since = "0.17.0", note = "Renamed to `InputSystems`.")]
-pub type InputSystem = InputSystems;
-
 impl Plugin for InputPlugin {
     #[expect(clippy::allow_attributes, reason = "this is only sometimes unused")]
     #[allow(unused, reason = "all features could be disabled")]

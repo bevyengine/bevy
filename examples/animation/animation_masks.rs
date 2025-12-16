@@ -105,7 +105,7 @@ fn main() {
         .add_systems(Update, setup_animation_graph_once_loaded)
         .add_systems(Update, handle_button_toggles)
         .add_systems(Update, update_ui)
-        .insert_resource(AmbientLight {
+        .insert_resource(GlobalAmbientLight {
             color: WHITE.into(),
             brightness: 100.0,
             ..default()
@@ -288,10 +288,10 @@ fn new_mask_group_control(label: &str, width: Val, mask_group_id: u32) -> impl B
             align_items: AlignItems::Center,
             padding: UiRect::ZERO,
             margin: UiRect::ZERO,
+            border_radius: BorderRadius::all(px(3)),
             ..default()
         },
         BorderColor::all(Color::WHITE),
-        BorderRadius::all(px(3)),
         BackgroundColor(Color::BLACK),
         children![
             (

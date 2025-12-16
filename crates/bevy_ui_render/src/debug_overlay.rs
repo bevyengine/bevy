@@ -7,6 +7,7 @@ use crate::shader_flags;
 use bevy_asset::AssetId;
 use bevy_camera::visibility::InheritedVisibility;
 use bevy_color::Hsla;
+use bevy_color::LinearRgba;
 use bevy_ecs::entity::Entity;
 use bevy_ecs::prelude::ReflectResource;
 use bevy_ecs::resource::Resource;
@@ -34,6 +35,8 @@ pub struct UiDebugOptions {
     pub enabled: bool,
     /// Width of the overlay's lines in logical pixels
     pub line_width: f32,
+    /// Override Color for the overlay's lines
+    pub line_color_override: Option<LinearRgba>,
     /// Show outlines for non-visible UI nodes
     pub show_hidden: bool,
     /// Show outlines for clipped sections of UI nodes
@@ -51,6 +54,7 @@ impl Default for UiDebugOptions {
         Self {
             enabled: false,
             line_width: 1.,
+            line_color_override: None,
             show_hidden: false,
             show_clipped: false,
         }
@@ -101,7 +105,9 @@ pub fn extract_debug_overlay(
             extracted_camera_entity,
             transform: transform.into(),
             item: ExtractedUiItem::Node {
-                color: Hsla::sequential_dispersed(entity.index()).into(),
+                color: debug_options
+                    .line_color_override
+                    .unwrap_or_else(|| Hsla::sequential_dispersed(entity.index_u32()).into()),
                 rect: Rect {
                     min: Vec2::ZERO,
                     max: uinode.size,

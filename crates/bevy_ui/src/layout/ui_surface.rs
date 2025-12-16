@@ -1,4 +1,5 @@
 use core::fmt;
+use core::ops::{Deref, DerefMut};
 
 use bevy_platform::collections::hash_map::Entry;
 use taffy::TaffyTree;
@@ -30,18 +31,41 @@ impl From<taffy::NodeId> for LayoutNode {
     }
 }
 
+pub(crate) struct UiTree<T>(TaffyTree<T>);
+
+#[expect(unsafe_code, reason = "TaffyTree is safe as long as calc is not used")]
+/// SAFETY: Taffy Tree becomes thread unsafe when you use the calc feature, which we do not implement
+unsafe impl Send for UiTree<NodeMeasure> {}
+
+#[expect(unsafe_code, reason = "TaffyTree is safe as long as calc is not used")]
+/// SAFETY: Taffy Tree becomes thread unsafe when you use the calc feature, which we do not implement
+unsafe impl Sync for UiTree<NodeMeasure> {}
+
+impl<T> Deref for UiTree<T> {
+    type Target = TaffyTree<T>;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl<T> DerefMut for UiTree<T> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
 #[derive(Resource)]
 pub struct UiSurface {
     pub root_entity_to_viewport_node: EntityHashMap<taffy::NodeId>,
     pub(super) entity_to_taffy: EntityHashMap<LayoutNode>,
-    pub(super) taffy: TaffyTree<NodeMeasure>,
+    pub(super) taffy: UiTree<NodeMeasure>,
     taffy_children_scratch: Vec<taffy::NodeId>,
 }
 
 fn _assert_send_sync_ui_surface_impl_safe() {
     fn _assert_send_sync<T: Send + Sync>() {}
     _assert_send_sync::<EntityHashMap<taffy::NodeId>>();
-    _assert_send_sync::<TaffyTree<NodeMeasure>>();
+    _assert_send_sync::<UiTree<NodeMeasure>>();
     _assert_send_sync::<UiSurface>();
 }
 
@@ -56,7 +80,7 @@ impl fmt::Debug for UiSurface {
 
 impl Default for UiSurface {
     fn default() -> Self {
-        let taffy: TaffyTree<NodeMeasure> = TaffyTree::new();
+        let taffy: UiTree<NodeMeasure> = UiTree(TaffyTree::new());
         Self {
             root_entity_to_viewport_node: Default::default(),
             entity_to_taffy: Default::default(),
@@ -166,8 +190,8 @@ impl UiSurface {
                         // Note: Taffy percentages are floats ranging from 0.0 to 1.0.
                         // So this is setting width:100% and height:100%
                         size: taffy::geometry::Size {
-                            width: taffy::style::Dimension::Percent(1.0),
-                            height: taffy::style::Dimension::Percent(1.0),
+                            width: taffy::style_helpers::percent(1.0),
+                            height: taffy::style_helpers::percent(1.0),
                         },
                         align_items: Some(taffy::style::AlignItems::Start),
                         justify_items: Some(taffy::style::JustifyItems::Start),

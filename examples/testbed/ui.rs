@@ -22,7 +22,14 @@ fn main() {
         .add_systems(OnEnter(Scene::LayoutRounding), layout_rounding::setup)
         .add_systems(OnEnter(Scene::LinearGradient), linear_gradient::setup)
         .add_systems(OnEnter(Scene::RadialGradient), radial_gradient::setup)
+        .add_systems(OnEnter(Scene::Transformations), transformations::setup)
         .add_systems(Update, switch_scene);
+
+    #[cfg(feature = "bevy_ui_debug")]
+    {
+        app.add_systems(OnEnter(Scene::DebugOutlines), debug_outlines::setup);
+        app.add_systems(OnExit(Scene::DebugOutlines), debug_outlines::teardown);
+    }
 
     #[cfg(feature = "bevy_ci_testing")]
     app.add_systems(Update, helpers::switch_scene_in_ci::<Scene>);
@@ -45,6 +52,9 @@ enum Scene {
     LayoutRounding,
     LinearGradient,
     RadialGradient,
+    Transformations,
+    #[cfg(feature = "bevy_ui_debug")]
+    DebugOutlines,
 }
 
 impl Next for Scene {
@@ -60,7 +70,13 @@ impl Next for Scene {
             Scene::Slice => Scene::LayoutRounding,
             Scene::LayoutRounding => Scene::LinearGradient,
             Scene::LinearGradient => Scene::RadialGradient,
-            Scene::RadialGradient => Scene::Image,
+            #[cfg(feature = "bevy_ui_debug")]
+            Scene::RadialGradient => Scene::DebugOutlines,
+            #[cfg(feature = "bevy_ui_debug")]
+            Scene::DebugOutlines => Scene::Transformations,
+            #[cfg(not(feature = "bevy_ui_debug"))]
+            Scene::RadialGradient => Scene::Transformations,
+            Scene::Transformations => Scene::Image,
         }
     }
 }
@@ -337,6 +353,16 @@ mod borders {
                             margin: UiRect::all(px(30)),
                             align_items: AlignItems::Center,
                             justify_content: JustifyContent::Center,
+                            border_radius: if rounded {
+                                BorderRadius::px(
+                                    border_size(border.left, border.top),
+                                    border_size(border.right, border.top),
+                                    border_size(border.right, border.bottom),
+                                    border_size(border.left, border.bottom),
+                                )
+                            } else {
+                                BorderRadius::ZERO
+                            },
                             ..default()
                         },
                         BackgroundColor(MAROON.into()),
@@ -348,16 +374,6 @@ mod borders {
                         },
                     ))
                     .id();
-
-                if rounded {
-                    let border_radius = BorderRadius::px(
-                        border_size(border.left, border.top),
-                        border_size(border.right, border.top),
-                        border_size(border.right, border.bottom),
-                        border_size(border.left, border.bottom),
-                    );
-                    commands.entity(border_node).insert(border_radius);
-                }
 
                 commands.entity(root).add_child(border_node);
             }
@@ -430,10 +446,10 @@ mod box_shadow {
                             width: px(size.x),
                             height: px(size.y),
                             border: UiRect::all(px(2)),
+                            border_radius,
                             ..default()
                         },
                         BorderColor::all(WHITE),
-                        border_radius,
                         BackgroundColor(BLUE.into()),
                         BoxShadow::new(
                             Color::BLACK.with_alpha(0.9),
@@ -880,5 +896,173 @@ mod radial_gradient {
                     }
                 }
             });
+    }
+}
+
+mod transformations {
+    use bevy::{color::palettes::css::*, prelude::*};
+
+    pub fn setup(mut commands: Commands) {
+        commands.spawn((Camera2d, DespawnOnExit(super::Scene::Transformations)));
+        commands
+            .spawn((
+                Node {
+                    width: percent(100),
+                    height: percent(100),
+                    display: Display::Block,
+                    ..default()
+                },
+                DespawnOnExit(super::Scene::Transformations),
+            ))
+            .with_children(|parent| {
+                for (transformation, label, background) in [
+                    (
+                        UiTransform::from_rotation(Rot2::degrees(45.)),
+                        "Rotate 45 degrees",
+                        RED,
+                    ),
+                    (
+                        UiTransform::from_scale(Vec2::new(2., 0.5)),
+                        "Scale 2.x 0.5y",
+                        GREEN,
+                    ),
+                    (
+                        UiTransform::from_translation(Val2::px(-50., 50.)),
+                        "Translate -50px x +50px y",
+                        BLUE,
+                    ),
+                    (
+                        UiTransform {
+                            translation: Val2::px(50., 0.),
+                            scale: Vec2::new(-1., 1.),
+                            rotation: Rot2::degrees(30.),
+                        },
+                        "T 50px x\nS -1.x (refl)\nR 30deg",
+                        DARK_CYAN,
+                    ),
+                ] {
+                    parent
+                        .spawn((Node {
+                            width: percent(100),
+                            margin: UiRect {
+                                top: px(50),
+                                bottom: px(50),
+                                ..default()
+                            },
+                            align_items: AlignItems::Center,
+                            justify_content: JustifyContent::SpaceAround,
+                            ..default()
+                        },))
+                        .with_children(|row| {
+                            row.spawn((
+                                Text::new("Before Tf"),
+                                Node {
+                                    width: px(100),
+                                    height: px(100),
+                                    border_radius: BorderRadius::bottom_right(px(25.)),
+                                    ..default()
+                                },
+                                BackgroundColor(background.into()),
+                                TextFont::default(),
+                            ));
+                            row.spawn((
+                                Text::new(label),
+                                Node {
+                                    width: px(100),
+                                    height: px(100),
+                                    border_radius: BorderRadius::bottom_right(px(25.)),
+                                    ..default()
+                                },
+                                BackgroundColor(background.into()),
+                                transformation,
+                                TextFont::default(),
+                            ));
+                        });
+                }
+            });
+    }
+}
+
+#[cfg(feature = "bevy_ui_debug")]
+mod debug_outlines {
+    use bevy::{
+        color::palettes::css::{BLUE, GRAY, RED},
+        prelude::*,
+        ui_render::UiDebugOptions,
+    };
+
+    pub fn setup(mut commands: Commands, mut debug_options: ResMut<UiDebugOptions>) {
+        debug_options.enabled = true;
+        debug_options.line_width = 5.;
+        debug_options.line_color_override = Some(LinearRgba::GREEN);
+        debug_options.show_hidden = true;
+        debug_options.show_clipped = true;
+        commands.spawn((Camera2d, DespawnOnExit(super::Scene::DebugOutlines)));
+        commands
+            .spawn((
+                Node {
+                    width: percent(100),
+                    height: percent(100),
+                    align_items: AlignItems::Center,
+                    justify_content: JustifyContent::SpaceAround,
+                    ..default()
+                },
+                DespawnOnExit(super::Scene::DebugOutlines),
+            ))
+            .with_children(|parent| {
+                parent.spawn((
+                    Node {
+                        width: px(100),
+                        height: px(100),
+                        ..default()
+                    },
+                    BackgroundColor(GRAY.into()),
+                    UiTransform::from_rotation(Rot2::degrees(45.)),
+                ));
+
+                parent.spawn((Text::new("Regular Text"), TextFont::default()));
+
+                parent.spawn((
+                    Node {
+                        width: px(100),
+                        height: px(100),
+                        ..default()
+                    },
+                    Text::new("Invisible"),
+                    BackgroundColor(GRAY.into()),
+                    TextFont::default(),
+                    Visibility::Hidden,
+                ));
+
+                parent
+                    .spawn((
+                        Node {
+                            width: px(100),
+                            height: px(100),
+                            padding: UiRect {
+                                left: px(25),
+                                top: px(25),
+                                ..Default::default()
+                            },
+                            overflow: Overflow::clip(),
+                            ..default()
+                        },
+                        BackgroundColor(RED.into()),
+                    ))
+                    .with_children(|child| {
+                        child.spawn((
+                            Node {
+                                min_width: px(100),
+                                min_height: px(100),
+                                ..default()
+                            },
+                            BackgroundColor(BLUE.into()),
+                        ));
+                    });
+            });
+    }
+
+    pub fn teardown(mut debug_options: ResMut<UiDebugOptions>) {
+        *debug_options = UiDebugOptions::default();
     }
 }

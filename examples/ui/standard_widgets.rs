@@ -10,15 +10,17 @@ use bevy::{
     color::palettes::basic::*,
     input_focus::{
         tab_navigation::{TabGroup, TabIndex, TabNavigationPlugin},
-        InputDispatchPlugin,
+        InputDispatchPlugin, InputFocus,
     },
     picking::hover::Hovered,
     prelude::*,
     ui::{Checked, InteractionDisabled, Pressed},
     ui_widgets::{
-        checkbox_self_update, observe, Activate, Button, Checkbox, CoreSliderDragState,
-        RadioButton, RadioGroup, Slider, SliderRange, SliderThumb, SliderValue, TrackClick,
-        UiWidgetsPlugins, ValueChange,
+        checkbox_self_update, observe,
+        popover::{Popover, PopoverAlign, PopoverPlacement, PopoverSide},
+        Activate, Button, Checkbox, CoreSliderDragState, MenuAction, MenuButton, MenuEvent,
+        MenuItem, MenuPopup, RadioButton, RadioGroup, Slider, SliderRange, SliderThumb,
+        SliderValue, TrackClick, UiWidgetsPlugins, ValueChange,
     },
 };
 
@@ -45,6 +47,8 @@ fn main() {
                 update_slider_style2.after(update_widget_values),
                 update_checkbox_or_radio_style.after(update_widget_values),
                 update_checkbox_or_radio_style2.after(update_widget_values),
+                update_menu_item_style,
+                update_menu_item_style2,
                 toggle_disabled,
             ),
         )
@@ -80,6 +84,18 @@ struct DemoCheckbox;
 /// behavior.
 #[derive(Component, Default)]
 struct DemoRadio(TrackClick);
+
+/// Menu anchor marker
+#[derive(Component)]
+struct DemoMenuAnchor;
+
+/// Menu button styling marker
+#[derive(Component)]
+struct DemoMenuButton;
+
+/// Menu item styling marker
+#[derive(Component)]
+struct DemoMenuItem;
 
 /// A struct to hold the state of various widgets shown in the demo.
 ///
@@ -172,6 +188,7 @@ fn demo_root(asset_server: &AssetServer) -> impl Bundle {
                     },
                 )
             ),
+            menu_button(asset_server),
             Text::new("Press 'D' to toggle widget disabled states"),
         ],
     )
@@ -183,6 +200,7 @@ fn button(asset_server: &AssetServer) -> impl Bundle {
             width: px(150),
             height: px(65),
             border: UiRect::all(px(5)),
+            border_radius: BorderRadius::MAX,
             justify_content: JustifyContent::Center,
             align_items: AlignItems::Center,
             ..default()
@@ -192,7 +210,6 @@ fn button(asset_server: &AssetServer) -> impl Bundle {
         Hovered::default(),
         TabIndex(0),
         BorderColor::all(Color::BLACK),
-        BorderRadius::MAX,
         BackgroundColor(NORMAL_BUTTON),
         children![(
             Text::new("Button"),
@@ -203,6 +220,53 @@ fn button(asset_server: &AssetServer) -> impl Bundle {
             },
             TextColor(Color::srgb(0.9, 0.9, 0.9)),
             TextShadow::default(),
+        )],
+    )
+}
+
+fn menu_button(asset_server: &AssetServer) -> impl Bundle {
+    (
+        Node { ..default() },
+        DemoMenuAnchor,
+        observe(on_menu_event),
+        children![(
+            Node {
+                width: px(200),
+                height: px(65),
+                border: UiRect::all(px(5)),
+                box_sizing: BoxSizing::BorderBox,
+                justify_content: JustifyContent::SpaceBetween,
+                align_items: AlignItems::Center,
+                padding: UiRect::axes(px(16), px(0)),
+                border_radius: BorderRadius::all(px(5)),
+                ..default()
+            },
+            DemoMenuButton,
+            MenuButton,
+            Hovered::default(),
+            TabIndex(0),
+            BorderColor::all(Color::BLACK),
+            BackgroundColor(NORMAL_BUTTON),
+            children![
+                (
+                    Text::new("Menu"),
+                    TextFont {
+                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                        font_size: 33.0,
+                        ..default()
+                    },
+                    TextColor(Color::srgb(0.9, 0.9, 0.9)),
+                    TextShadow::default(),
+                ),
+                (
+                    Node {
+                        width: px(12),
+                        height: px(12),
+                        ..default()
+                    },
+                    BackgroundColor(GRAY.into()),
+                )
+            ],
         )],
     )
 }
@@ -345,10 +409,10 @@ fn slider(min: f32, max: f32, value: f32) -> impl Bundle {
             Spawn((
                 Node {
                     height: px(6),
+                    border_radius: BorderRadius::all(px(3)),
                     ..default()
                 },
                 BackgroundColor(SLIDER_TRACK), // Border color for the slider
-                BorderRadius::all(px(3)),
             )),
             // Invisible track to allow absolute placement of thumb entity. This is narrower than
             // the actual slider, which allows us to position the thumb entity using simple
@@ -374,9 +438,9 @@ fn slider(min: f32, max: f32, value: f32) -> impl Bundle {
                         height: px(12),
                         position_type: PositionType::Absolute,
                         left: percent(0), // This will be updated by the slider's value
+                        border_radius: BorderRadius::MAX,
                         ..default()
                     },
-                    BorderRadius::MAX,
                     BackgroundColor(SLIDER_THUMB),
                 )],
             )),
@@ -483,10 +547,10 @@ fn checkbox(asset_server: &AssetServer, caption: &str) -> impl Bundle {
                     width: px(16),
                     height: px(16),
                     border: UiRect::all(px(2)),
+                    border_radius: BorderRadius::all(px(3)),
                     ..default()
                 },
                 BorderColor::all(ELEMENT_OUTLINE), // Border color for the checkbox
-                BorderRadius::all(px(3)),
                 children![
                     // Checkbox inner
                     (
@@ -695,10 +759,10 @@ fn radio(asset_server: &AssetServer, value: TrackClick, caption: &str) -> impl B
                     width: px(16),
                     height: px(16),
                     border: UiRect::all(px(2)),
+                    border_radius: BorderRadius::MAX,
                     ..default()
                 },
                 BorderColor::all(ELEMENT_OUTLINE), // Border color for the radio button
-                BorderRadius::MAX,
                 children![
                     // Radio inner
                     (
@@ -709,9 +773,9 @@ fn radio(asset_server: &AssetServer, value: TrackClick, caption: &str) -> impl B
                             position_type: PositionType::Absolute,
                             left: px(2),
                             top: px(2),
+                            border_radius: BorderRadius::MAX,
                             ..default()
                         },
-                        BorderRadius::MAX,
                         BackgroundColor(ELEMENT_FILL),
                     ),
                 ],
@@ -728,12 +792,188 @@ fn radio(asset_server: &AssetServer, value: TrackClick, caption: &str) -> impl B
     )
 }
 
+fn on_menu_event(
+    menu_event: On<MenuEvent>,
+    q_anchor: Single<(Entity, &Children), With<DemoMenuAnchor>>,
+    q_popup: Query<Entity, With<MenuPopup>>,
+    assets: Res<AssetServer>,
+    mut focus: ResMut<InputFocus>,
+    mut commands: Commands,
+) {
+    let (anchor, children) = q_anchor.into_inner();
+    let popup = children.iter().find_map(|c| q_popup.get(c).ok());
+    info!("Menu action: {:?}", menu_event.action);
+    match menu_event.action {
+        MenuAction::Open => {
+            if popup.is_none() {
+                spawn_menu(anchor, assets, commands);
+            }
+        }
+        MenuAction::Toggle => match popup {
+            Some(popup) => commands.entity(popup).despawn(),
+            None => spawn_menu(anchor, assets, commands),
+        },
+        MenuAction::Close | MenuAction::CloseAll => {
+            if let Some(popup) = popup {
+                commands.entity(popup).despawn();
+            }
+        }
+        MenuAction::FocusRoot => {
+            focus.0 = Some(anchor);
+        }
+    }
+}
+
+fn spawn_menu(anchor: Entity, assets: Res<AssetServer>, mut commands: Commands) {
+    let menu = commands
+        .spawn((
+            Node {
+                display: Display::Flex,
+                flex_direction: FlexDirection::Column,
+                min_height: px(10.),
+                min_width: Val::Percent(100.),
+                border: UiRect::all(px(1)),
+                position_type: PositionType::Absolute,
+                ..default()
+            },
+            MenuPopup::default(),
+            Visibility::Hidden, // Will be visible after positioning
+            BorderColor::all(GREEN),
+            BackgroundColor(GRAY.into()),
+            BoxShadow::new(
+                Srgba::BLACK.with_alpha(0.9).into(),
+                px(0),
+                px(0),
+                px(1),
+                px(4),
+            ),
+            GlobalZIndex(100),
+            Popover {
+                positions: vec![
+                    PopoverPlacement {
+                        side: PopoverSide::Bottom,
+                        align: PopoverAlign::Start,
+                        gap: 2.0,
+                    },
+                    PopoverPlacement {
+                        side: PopoverSide::Top,
+                        align: PopoverAlign::Start,
+                        gap: 2.0,
+                    },
+                ],
+                window_margin: 10.0,
+            },
+            OverrideClip,
+            children![
+                menu_item(&assets),
+                menu_item(&assets),
+                menu_item(&assets),
+                menu_item(&assets)
+            ],
+        ))
+        .id();
+    commands.entity(anchor).add_child(menu);
+}
+
+fn menu_item(asset_server: &AssetServer) -> impl Bundle {
+    (
+        Node {
+            padding: UiRect::axes(px(8), px(2)),
+            justify_content: JustifyContent::Center,
+            align_items: AlignItems::Start,
+            ..default()
+        },
+        DemoMenuItem,
+        MenuItem,
+        Hovered::default(),
+        TabIndex(0),
+        BackgroundColor(NORMAL_BUTTON),
+        children![(
+            Text::new("Menu Item"),
+            TextFont {
+                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                font_size: 33.0,
+                ..default()
+            },
+            TextColor(Color::srgb(0.9, 0.9, 0.9)),
+            TextShadow::default(),
+        )],
+    )
+}
+
+fn update_menu_item_style(
+    mut buttons: Query<
+        (
+            Has<Pressed>,
+            &Hovered,
+            Has<InteractionDisabled>,
+            &mut BackgroundColor,
+        ),
+        (
+            Or<(
+                Changed<Pressed>,
+                Changed<Hovered>,
+                Added<InteractionDisabled>,
+            )>,
+            With<DemoMenuItem>,
+        ),
+    >,
+) {
+    for (pressed, hovered, disabled, mut color) in &mut buttons {
+        set_menu_item_style(disabled, hovered.get(), pressed, &mut color);
+    }
+}
+
+/// Supplementary system to detect removed marker components
+fn update_menu_item_style2(
+    mut buttons: Query<
+        (
+            Has<Pressed>,
+            &Hovered,
+            Has<InteractionDisabled>,
+            &mut BackgroundColor,
+        ),
+        With<DemoMenuItem>,
+    >,
+    mut removed_depressed: RemovedComponents<Pressed>,
+    mut removed_disabled: RemovedComponents<InteractionDisabled>,
+) {
+    removed_depressed
+        .read()
+        .chain(removed_disabled.read())
+        .for_each(|entity| {
+            if let Ok((pressed, hovered, disabled, mut color)) = buttons.get_mut(entity) {
+                set_menu_item_style(disabled, hovered.get(), pressed, &mut color);
+            }
+        });
+}
+
+fn set_menu_item_style(disabled: bool, hovered: bool, pressed: bool, color: &mut BackgroundColor) {
+    match (disabled, hovered, pressed) {
+        // Pressed and hovered menu item
+        (false, true, true) => {
+            *color = PRESSED_BUTTON.into();
+        }
+
+        // Hovered, unpressed menu item
+        (false, true, false) => {
+            *color = HOVERED_BUTTON.into();
+        }
+
+        // Unhovered menu item (either pressed or not).
+        _ => {
+            *color = NORMAL_BUTTON.into();
+        }
+    }
+}
+
 fn toggle_disabled(
     input: Res<ButtonInput<KeyCode>>,
     mut interaction_query: Query<
         (Entity, Has<InteractionDisabled>),
         Or<(
             With<Button>,
+            With<MenuButton>,
             With<Slider>,
             With<Checkbox>,
             With<RadioButton>,

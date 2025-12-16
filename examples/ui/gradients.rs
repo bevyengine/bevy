@@ -84,9 +84,9 @@ fn setup(mut commands: Commands) {
                                                     width: px(w),
                                                     height: px(h),
                                                     border: UiRect::all(px(b)),
+                                                    border_radius: BorderRadius::all(px(20)),
                                                     ..default()
                                                 },
-                                                BorderRadius::all(px(20)),
                                                 BackgroundGradient::from(LinearGradient {
                                                     angle,
                                                     stops: stops.clone(),
@@ -114,9 +114,9 @@ fn setup(mut commands: Commands) {
                                 height: percent(100),
                                 border: UiRect::all(px(b)),
                                 margin: UiRect::left(px(20)),
+                                border_radius: BorderRadius::all(px(20)),
                                 ..default()
                             },
-                            BorderRadius::all(px(20)),
                             BackgroundGradient::from(LinearGradient {
                                 angle: 0.,
                                 stops: stops.clone(),
@@ -136,9 +136,9 @@ fn setup(mut commands: Commands) {
                                 height: percent(100),
                                 border: UiRect::all(px(b)),
                                 margin: UiRect::left(px(20)),
+                                border_radius: BorderRadius::all(px(20)),
                                 ..default()
                             },
-                            BorderRadius::all(px(20)),
                             BackgroundGradient::from(RadialGradient {
                                 stops: stops.clone(),
                                 shape: RadialGradientShape::ClosestSide,
@@ -158,9 +158,9 @@ fn setup(mut commands: Commands) {
                                 height: percent(100),
                                 border: UiRect::all(px(b)),
                                 margin: UiRect::left(px(20)),
+                                border_radius: BorderRadius::all(px(20)),
                                 ..default()
                             },
-                            BorderRadius::all(px(20)),
                             BackgroundGradient::from(ConicGradient {
                                 start: 0.,
                                 stops: stops
@@ -190,10 +190,10 @@ fn setup(mut commands: Commands) {
                             justify_content: JustifyContent::Center,
                             // vertically center child text
                             align_items: AlignItems::Center,
+                            border_radius: BorderRadius::MAX,
                             ..default()
                         },
                         BorderColor::all(Color::WHITE),
-                        BorderRadius::MAX,
                         BackgroundColor(Color::BLACK),
                         children![(
                             Text::new("next color space"),

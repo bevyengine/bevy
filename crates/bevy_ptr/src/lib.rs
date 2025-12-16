@@ -12,7 +12,6 @@ use core::{
     fmt::{self, Debug, Formatter, Pointer},
     marker::PhantomData,
     mem::{self, ManuallyDrop, MaybeUninit},
-    num::NonZeroUsize,
     ops::{Deref, DerefMut},
     ptr::{self, NonNull},
 };
@@ -162,6 +161,7 @@ mod sealed {
 /// A newtype around [`NonNull`] that only allows conversion to read-only borrows or pointers.
 ///
 /// This type can be thought of as the `*const T` to [`NonNull<T>`]'s `*mut T`.
+#[derive(Clone, Copy)]
 #[repr(transparent)]
 pub struct ConstNonNull<T: ?Sized>(NonNull<T>);
 
@@ -473,7 +473,7 @@ impl<'a, T, A: IsAligned> MovingPtr<'a, T, A> {
     ///
     /// # Safety
     /// - `inner` must point to valid value of `T`.
-    /// - If the `A` type parameter is [`Aligned`] then `inner` must be be [properly aligned] for `T`.
+    /// - If the `A` type parameter is [`Aligned`] then `inner` must be [properly aligned] for `T`.
     /// - `inner` must have correct provenance to allow read and writes of the pointee type.
     /// - The lifetime `'a` must be constrained such that this [`MovingPtr`] will stay valid and nothing
     ///   else can read or mutate the pointee while this [`MovingPtr`] is live.
@@ -624,7 +624,7 @@ impl<'a, T, A: IsAligned> MovingPtr<'a, T, A> {
     ///    for the same field, without first calling [`forget`] on it first.
     ///
     /// A result of the above invariants means that any operation that could cause `self` to be dropped while
-    /// the pointers to the fields are held will result in undefined behavior. This requires exctra caution
+    /// the pointers to the fields are held will result in undefined behavior. This requires extra caution
     /// around code that may panic. See the example below for an example of how to safely use this function.
     ///
     /// # Example
@@ -812,7 +812,7 @@ impl<'a, A: IsAligned> Ptr<'a, A> {
     ///
     /// # Safety
     /// - `inner` must point to valid value of whatever the pointee type is.
-    /// - If the `A` type parameter is [`Aligned`] then `inner` must be be [properly aligned]for the pointee type.
+    /// - If the `A` type parameter is [`Aligned`] then `inner` must be [properly aligned] for the pointee type.
     /// - `inner` must have correct provenance to allow reads of the pointee type.
     /// - The lifetime `'a` must be constrained such that this [`Ptr`] will stay valid and nothing
     ///   can mutate the pointee while this [`Ptr`] is live except through an [`UnsafeCell`].
@@ -838,7 +838,7 @@ impl<'a, A: IsAligned> Ptr<'a, A> {
     ///
     /// # Safety
     /// - `T` must be the erased pointee type for this [`Ptr`].
-    /// - If the type parameter `A` is [`Unaligned`] then this pointer must be be [properly aligned]
+    /// - If the type parameter `A` is [`Unaligned`] then this pointer must be [properly aligned]
     ///   for the pointee type `T`.
     ///
     /// [properly aligned]: https://doc.rust-lang.org/std/ptr/index.html#alignment
@@ -873,7 +873,7 @@ impl<'a, A: IsAligned> PtrMut<'a, A> {
     ///
     /// # Safety
     /// - `inner` must point to valid value of whatever the pointee type is.
-    /// - If the `A` type parameter is [`Aligned`] then `inner` must be be [properly aligned] for the pointee type.
+    /// - If the `A` type parameter is [`Aligned`] then `inner` must be [properly aligned] for the pointee type.
     /// - `inner` must have correct provenance to allow read and writes of the pointee type.
     /// - The lifetime `'a` must be constrained such that this [`PtrMut`] will stay valid and nothing
     ///   else can read or mutate the pointee while this [`PtrMut`] is live.
@@ -897,7 +897,7 @@ impl<'a, A: IsAligned> PtrMut<'a, A> {
     ///
     /// # Safety
     /// - `T` must be the erased pointee type for this [`PtrMut`].
-    /// - If the type parameter `A` is [`Unaligned`] then this pointer must be be [properly aligned]
+    /// - If the type parameter `A` is [`Unaligned`] then this pointer must be [properly aligned]
     ///   for the pointee type `T`.
     ///
     /// [properly aligned]: https://doc.rust-lang.org/std/ptr/index.html#alignment
@@ -983,7 +983,7 @@ impl<'a, A: IsAligned> OwningPtr<'a, A> {
     ///
     /// # Safety
     /// - `T` must be the erased pointee type for this [`OwningPtr`].
-    /// - If the type parameter `A` is [`Unaligned`] then this pointer must be be [properly aligned]
+    /// - If the type parameter `A` is [`Unaligned`] then this pointer must be [properly aligned]
     ///   for the pointee type `T`.
     ///
     /// [properly aligned]: https://doc.rust-lang.org/std/ptr/index.html#alignment
@@ -1007,7 +1007,7 @@ impl<'a, A: IsAligned> OwningPtr<'a, A> {
     ///
     /// # Safety
     /// - `T` must be the erased pointee type for this [`OwningPtr`].
-    /// - If the type parameter `A` is [`Unaligned`] then this pointer must be be [properly aligned]
+    /// - If the type parameter `A` is [`Unaligned`] then this pointer must be [properly aligned]
     ///   for the pointee type `T`.
     ///
     /// [properly aligned]: https://doc.rust-lang.org/std/ptr/index.html#alignment
@@ -1056,7 +1056,29 @@ impl<'a> OwningPtr<'a, Unaligned> {
     }
 }
 
-/// Conceptually equivalent to `&'a [T]` but with length information cut out for performance reasons
+/// Conceptually equivalent to `&'a [T]` but with length information cut out for performance
+/// reasons.
+///
+/// Because this type does not store the length of the slice, it is unable to do any sort of bounds
+/// checking. As such, only [`Self::get_unchecked()`] is available for indexing into the slice,
+/// where the user is responsible for checking the bounds.
+///
+/// When compiled in debug mode (`#[cfg(debug_assertion)]`), this type will store the length of the
+/// slice and perform bounds checking in [`Self::get_unchecked()`].
+///
+/// # Example
+///
+/// ```
+/// # use core::mem::size_of;
+/// # use bevy_ptr::ThinSlicePtr;
+/// #
+/// let slice: &[u32] = &[2, 4, 8];
+/// let thin_slice = ThinSlicePtr::from(slice);
+///
+/// assert_eq!(*unsafe { thin_slice.get_unchecked(0) }, 2);
+/// assert_eq!(*unsafe { thin_slice.get_unchecked(1) }, 4);
+/// assert_eq!(*unsafe { thin_slice.get_unchecked(2) }, 8);
+/// ```
 pub struct ThinSlicePtr<'a, T> {
     ptr: NonNull<T>,
     #[cfg(debug_assertions)]
@@ -1065,18 +1087,32 @@ pub struct ThinSlicePtr<'a, T> {
 }
 
 impl<'a, T> ThinSlicePtr<'a, T> {
-    #[inline]
-    /// Indexes the slice without doing bounds checks
+    /// Indexes the slice without performing bounds checks.
     ///
     /// # Safety
+    ///
     /// `index` must be in-bounds.
-    pub unsafe fn get(self, index: usize) -> &'a T {
+    #[inline]
+    pub unsafe fn get_unchecked(&self, index: usize) -> &'a T {
+        // We cannot use `debug_assert!` here because `self.len` does not exist when not in debug
+        // mode.
         #[cfg(debug_assertions)]
-        debug_assert!(index < self.len);
+        assert!(index < self.len, "tried to index out-of-bounds of a slice");
 
-        let ptr = self.ptr.as_ptr();
-        // SAFETY: `index` is in-bounds so the resulting pointer is valid to dereference.
-        unsafe { &*ptr.add(index) }
+        // SAFETY: The caller guarantees `index` is in-bounds so that the resulting pointer is
+        // valid to dereference.
+        unsafe { &*self.ptr.add(index).as_ptr() }
+    }
+
+    /// Indexes the slice without performing bounds checks.
+    ///
+    /// # Safety
+    ///
+    /// `index` must be in-bounds.
+    #[deprecated(since = "0.18.0", note = "use get_unchecked() instead")]
+    pub unsafe fn get(self, index: usize) -> &'a T {
+        // SAFETY: The caller guarantees that `index` is in-bounds.
+        unsafe { self.get_unchecked(index) }
     }
 }
 
@@ -1091,25 +1127,16 @@ impl<'a, T> Copy for ThinSlicePtr<'a, T> {}
 impl<'a, T> From<&'a [T]> for ThinSlicePtr<'a, T> {
     #[inline]
     fn from(slice: &'a [T]) -> Self {
-        let ptr = slice.as_ptr().cast_mut();
+        let ptr = slice.as_ptr().cast_mut().debug_ensure_aligned();
+
         Self {
-            // SAFETY: a reference can never be null
-            ptr: unsafe { NonNull::new_unchecked(ptr.debug_ensure_aligned()) },
+            // SAFETY: A reference can never be null.
+            ptr: unsafe { NonNull::new_unchecked(ptr) },
             #[cfg(debug_assertions)]
             len: slice.len(),
             _marker: PhantomData,
         }
     }
-}
-
-/// Creates a dangling pointer with specified alignment.
-/// See [`NonNull::dangling`].
-pub const fn dangling_with_align(align: NonZeroUsize) -> NonNull<u8> {
-    debug_assert!(align.is_power_of_two(), "Alignment must be power of two.");
-    // SAFETY: The pointer will not be null, since it was created
-    // from the address of a `NonZero<usize>`.
-    // TODO: use https://doc.rust-lang.org/std/ptr/struct.NonNull.html#method.with_addr once stabilized
-    unsafe { NonNull::new_unchecked(ptr::null_mut::<u8>().wrapping_add(align.get())) }
 }
 
 mod private {
@@ -1208,7 +1235,7 @@ macro_rules! move_as_ptr {
     };
 }
 
-/// Helper macro used by [`deconstruct_moving_ptr`] to to extract
+/// Helper macro used by [`deconstruct_moving_ptr`] to extract
 /// the pattern from `field: pattern` or `field` shorthand.
 #[macro_export]
 #[doc(hidden)]
