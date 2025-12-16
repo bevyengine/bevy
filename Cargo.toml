@@ -3482,6 +3482,17 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
+name = "font_query"
+path = "examples/ui/font_query.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.font_query]
+name = "Font Queries"
+description = "Demonstrates font querying"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "display_and_visibility"
 path = "examples/ui/display_and_visibility.rs"
 doc-scrape-examples = true
