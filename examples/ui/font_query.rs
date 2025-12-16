@@ -1,6 +1,7 @@
 //! This example demonstrates how to use font weights, widths and styles.
 
 use bevy::prelude::*;
+use bevy::text::CosmicFontSystem;
 
 fn main() {
     App::new()
@@ -9,9 +10,10 @@ fn main() {
         .run();
 }
 
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    // A variable font that supports both wdth and wght axes.
-    let font = asset_server.load("fonts/RobotoFlex-VariableFont_GRAD,XOPQ,XTRA,YOPQ,YTAS,YTDE,YTFI,YTLC,YTUC,opsz,slnt,wdth,wght.ttf");
+fn setup(mut commands: Commands, mut font_system: ResMut<CosmicFontSystem>) {
+    font_system.0.db_mut().load_system_fonts();
+
+    let font = Handle::<Font>::default();
 
     commands.spawn(Camera2d);
 
