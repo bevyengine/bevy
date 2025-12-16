@@ -252,7 +252,7 @@ impl AssetServer {
         loader.get().await.map_err(|_| error())
     }
 
-    /// Returns the registered [`AssetLoader`] associated with the given [`core::any::type_name`], if it exists.
+    /// Returns the registered [`AssetLoader`] associated with the given type name, if it exists.
     pub async fn get_asset_loader_with_type_name(
         &self,
         type_name: &str,
@@ -790,7 +790,7 @@ impl AssetServer {
                     path: path.into_owned(),
                     requested: asset_type_id,
                     actual_asset_name: loader.asset_type_name(),
-                    loader_name: loader.type_name(),
+                    loader_name: loader.type_path(),
                 });
             }
         }
@@ -1548,12 +1548,12 @@ impl AssetServer {
             .await
             .map_err(|_| AssetLoadError::AssetLoaderPanic {
                 path: asset_path.clone_owned(),
-                loader_name: loader.type_name(),
+                loader_name: loader.type_path(),
             })?
             .map_err(|e| {
                 AssetLoadError::AssetLoaderError(AssetLoaderError {
                     path: asset_path.clone_owned(),
-                    loader_name: loader.type_name(),
+                    loader_name: loader.type_path(),
                     error: e.into(),
                 })
             })
@@ -1802,6 +1802,13 @@ pub fn handle_internal_asset_events(world: &mut World) {
         ) {
             if let Some(dependents) = infos.loader_dependents.get(asset_path) {
                 for dependent in dependents {
+                    assert_ne!(
+                        asset_path, dependent,
+                        "The asset path `{}` contains itself as a dependent.",
+                        &asset_path
+                    );
+                    // If the above assertion fails, the following code would
+                    // cause a stackoverflow.
                     paths_to_reload.insert(dependent.to_owned());
                     queue_ancestors(dependent, infos, paths_to_reload);
                 }

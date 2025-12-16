@@ -46,6 +46,7 @@ jobs:
         with:
           wayland: true
           xkb: true
+          x264: true
 
       #  This does the following:
       #   - Replaces the docs icon with one that clearly denotes it's not the released package on crates.io

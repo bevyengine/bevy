@@ -17,6 +17,7 @@ use alloc::{
 use atomicow::CowArc;
 use bevy_ecs::{error::BevyError, world::World};
 use bevy_platform::collections::{HashMap, HashSet};
+use bevy_reflect::TypePath;
 use bevy_tasks::{BoxedFuture, ConditionalSendFuture};
 use core::any::{Any, TypeId};
 use downcast_rs::{impl_downcast, Downcast};
@@ -31,7 +32,7 @@ use thiserror::Error;
 /// This trait is generally used in concert with [`AssetReader`](crate::io::AssetReader) to load assets from a byte source.
 ///
 /// For a complementary version of this trait that can save assets, see [`AssetSaver`](crate::saver::AssetSaver).
-pub trait AssetLoader: Send + Sync + 'static {
+pub trait AssetLoader: TypePath + Send + Sync + 'static {
     /// The top level [`Asset`] loaded by this [`AssetLoader`].
     type Asset: Asset;
     /// The settings type used by this [`AssetLoader`].
@@ -77,8 +78,8 @@ pub trait ErasedAssetLoader: Send + Sync + 'static {
     fn deserialize_meta(&self, meta: &[u8]) -> Result<Box<dyn AssetMetaDyn>, DeserializeMetaError>;
     /// Returns the default meta value for the [`AssetLoader`] (erased as [`Box<dyn AssetMetaDyn>`]).
     fn default_meta(&self) -> Box<dyn AssetMetaDyn>;
-    /// Returns the type name of the [`AssetLoader`].
-    fn type_name(&self) -> &'static str;
+    /// Returns the type path of the [`AssetLoader`].
+    fn type_path(&self) -> &'static str;
     /// Returns the [`TypeId`] of the [`AssetLoader`].
     fn type_id(&self) -> TypeId;
     /// Returns the type name of the top-level [`Asset`] loaded by the [`AssetLoader`].
@@ -127,13 +128,13 @@ where
 
     fn default_meta(&self) -> Box<dyn AssetMetaDyn> {
         Box::new(AssetMeta::<L, ()>::new(crate::meta::AssetAction::Load {
-            loader: self.type_name().to_string(),
+            loader: self.type_path().to_string(),
             settings: L::Settings::default(),
         }))
     }
 
-    fn type_name(&self) -> &'static str {
-        core::any::type_name::<L>()
+    fn type_path(&self) -> &'static str {
+        L::type_path()
     }
 
     fn type_id(&self) -> TypeId {
@@ -321,6 +322,8 @@ pub enum LoadDirectError {
         dependency: AssetPath<'static>,
         error: AssetLoadError,
     },
+    #[error("The asset at path `{0:?}` requested to immediately load itself recursively, but this is not supported")]
+    RequestedSelfPath(AssetPath<'static>),
 }
 
 /// An error that occurs while deserializing [`AssetMeta`].
@@ -525,7 +528,9 @@ impl<'a> LoadContext<'a> {
                 path: path.path().to_path_buf(),
                 source,
             })?;
-        self.loader_dependencies.insert(path.clone_owned(), hash);
+        if self.asset_path != path {
+            self.loader_dependencies.insert(path.clone_owned(), hash);
+        }
         Ok(bytes)
     }
 
@@ -552,6 +557,11 @@ impl<'a> LoadContext<'a> {
         reader: &mut dyn Reader,
         processed_info: Option<&ProcessedInfo>,
     ) -> Result<ErasedLoadedAsset, LoadDirectError> {
+        if self.asset_path == path {
+            return Err(LoadDirectError::RequestedSelfPath(
+                self.asset_path.clone_owned(),
+            ));
+        }
         let loaded_asset = self
             .asset_server
             .load_with_settings_loader_and_reader(

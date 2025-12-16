@@ -15,7 +15,7 @@ use bevy_app::prelude::*;
 use bevy_asset::prelude::*;
 use bevy_camera::{
     visibility::{RenderLayers, ViewVisibility},
-    Camera, Projection,
+    Camera, Projection, RenderTarget,
 };
 use bevy_color::Alpha;
 use bevy_ecs::prelude::*;
@@ -88,6 +88,7 @@ fn sprite_picking(
     cameras: Query<(
         Entity,
         &Camera,
+        &RenderTarget,
         &GlobalTransform,
         &Projection,
         Has<SpritePickingCamera>,
@@ -135,6 +136,7 @@ fn sprite_picking(
         let Ok((
             cam_entity,
             camera,
+            render_target,
             cam_transform,
             Projection::Orthographic(cam_ortho),
             cam_can_pick,
@@ -156,8 +158,7 @@ fn sprite_picking(
             None
         })?;
 
-        if camera
-            .target
+        if render_target
             .normalize(primary_window)
             .is_none_or(|x| x != location.target)
         {

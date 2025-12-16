@@ -52,8 +52,11 @@ pub use text2d::*;
 pub use texture_slice::*;
 
 use bevy_app::prelude::*;
+use bevy_asset::prelude::AssetChanged;
+use bevy_camera::visibility::NoAutoAabb;
 use bevy_ecs::prelude::*;
 use bevy_image::{Image, TextureAtlasLayout, TextureAtlasPlugin};
+use bevy_math::Vec2;
 
 /// Adds support for 2D sprites.
 #[derive(Default)]
@@ -107,24 +110,62 @@ pub fn calculate_bounds_2d(
     meshes: Res<Assets<Mesh>>,
     images: Res<Assets<Image>>,
     atlases: Res<Assets<TextureAtlasLayout>>,
-    meshes_without_aabb: Query<(Entity, &Mesh2d), (Without<Aabb>, Without<NoFrustumCulling>)>,
-    sprites_to_recalculate_aabb: Query<
+    new_mesh_aabb: Query<
+        (Entity, &Mesh2d),
+        (
+            Without<Aabb>,
+            Without<NoFrustumCulling>,
+            Without<NoAutoAabb>,
+        ),
+    >,
+    mut update_mesh_aabb: Query<
+        (&Mesh2d, &mut Aabb),
+        (
+            Or<(AssetChanged<Mesh2d>, Changed<Mesh2d>)>,
+            Without<NoFrustumCulling>,
+            Without<NoAutoAabb>,
+            Without<Sprite>, // disjoint mutable query
+        ),
+    >,
+    new_sprite_aabb: Query<
         (Entity, &Sprite, &Anchor),
         (
-            Or<(Without<Aabb>, Changed<Sprite>, Changed<Anchor>)>,
+            Without<Aabb>,
             Without<NoFrustumCulling>,
+            Without<NoAutoAabb>,
+        ),
+    >,
+    mut update_sprite_aabb: Query<
+        (&Sprite, &mut Aabb, &Anchor),
+        (
+            Or<(Changed<Sprite>, Changed<Anchor>)>,
+            Without<NoFrustumCulling>,
+            Without<NoAutoAabb>,
+            Without<Mesh2d>, // disjoint mutable query
         ),
     >,
 ) {
-    for (entity, mesh_handle) in &meshes_without_aabb {
-        if let Some(mesh) = meshes.get(&mesh_handle.0)
+    // New meshes require inserting a component
+    for (entity, mesh_handle) in &new_mesh_aabb {
+        if let Some(mesh) = meshes.get(mesh_handle)
             && let Some(aabb) = mesh.compute_aabb()
         {
             commands.entity(entity).try_insert(aabb);
         }
     }
-    for (entity, sprite, anchor) in &sprites_to_recalculate_aabb {
-        if let Some(size) = sprite
+
+    // Updated meshes can take the fast path with parallel component mutation
+    update_mesh_aabb
+        .par_iter_mut()
+        .for_each(|(mesh_handle, mut aabb)| {
+            if let Some(new_aabb) = meshes.get(mesh_handle).and_then(MeshAabb::compute_aabb) {
+                aabb.set_if_neq(new_aabb);
+            }
+        });
+
+    // Sprite helper
+    let sprite_size = |sprite: &Sprite| -> Option<Vec2> {
+        sprite
             .custom_size
             .or_else(|| sprite.rect.map(|rect| rect.size()))
             .or_else(|| match &sprite.texture_atlas {
@@ -135,14 +176,31 @@ pub fn calculate_bounds_2d(
                     .texture_rect(&atlases)
                     .map(|rect| rect.size().as_vec2()),
             })
-        {
-            let aabb = Aabb {
-                center: (-anchor.as_vec() * size).extend(0.0).into(),
-                half_extents: (0.5 * size).extend(0.0).into(),
-            };
-            commands.entity(entity).try_insert(aabb);
-        }
+    };
+
+    // New sprites require inserting a component
+    for (size, (entity, anchor)) in new_sprite_aabb
+        .iter()
+        .filter_map(|(entity, sprite, anchor)| sprite_size(sprite).zip(Some((entity, anchor))))
+    {
+        let aabb = Aabb {
+            center: (-anchor.as_vec() * size).extend(0.0).into(),
+            half_extents: (0.5 * size).extend(0.0).into(),
+        };
+        commands.entity(entity).try_insert(aabb);
     }
+
+    // Updated sprites can take the fast path with parallel component mutation
+    update_sprite_aabb
+        .par_iter_mut()
+        .for_each(|(sprite, mut aabb, anchor)| {
+            if let Some(size) = sprite_size(sprite) {
+                aabb.set_if_neq(Aabb {
+                    center: (-anchor.as_vec() * size).extend(0.0).into(),
+                    half_extents: (0.5 * size).extend(0.0).into(),
+                });
+            }
+        });
 }
 
 #[cfg(test)]
