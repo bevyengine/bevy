@@ -62,8 +62,6 @@ pub struct FontFaceInfo {
     pub stretch: cosmic_text::fontdb::Stretch,
     /// Allows italic or oblique faces to be selected
     pub style: cosmic_text::fontdb::Style,
-    /// The degree of blackness or stroke thickness
-    pub weight: cosmic_text::fontdb::Weight,
     /// Font family name
     pub family_name: Arc<str>,
 }
@@ -86,7 +84,7 @@ pub struct TextPipeline {
         LineHeight,
     )>,
     /// Buffered vec for collecting info for glyph assembly.
-    glyph_info: Vec<(AssetId<Font>, FontSmoothing, f32, f32, f32, f32)>,
+    glyph_info: Vec<(AssetId<Font>, FontSmoothing, f32, f32, f32, f32, u16)>,
 }
 
 impl TextPipeline {
@@ -323,23 +321,19 @@ impl TextPipeline {
                 0.0,
                 0.0,
                 0.0,
+                text_font.weight.clamp().0,
             );
 
-            if let Some((id, _)) = self.map_handle_to_font_id.get(&section_info.0) {
-                let weight = font_system
-                    .db()
-                    .face(*id)
-                    .map(|f| f.weight)
-                    .unwrap_or(cosmic_text::Weight::NORMAL);
-                if let Some(font) = font_system.get_font(*id, weight) {
-                    let swash = font.as_swash();
-                    let metrics = swash.metrics(&[]);
-                    let upem = metrics.units_per_em as f32;
-                    let scalar = section_info.2 * scale_factor as f32 / upem;
-                    section_info.3 = (metrics.strikeout_offset * scalar).round();
-                    section_info.4 = (metrics.stroke_size * scalar).round().max(1.);
-                    section_info.5 = (metrics.underline_offset * scalar).round();
-                }
+            if let Some((id, _)) = self.map_handle_to_font_id.get(&section_info.0)
+                && let Some(font) = font_system.get_font(*id, cosmic_text::Weight(section_info.6))
+            {
+                let swash = font.as_swash();
+                let metrics = swash.metrics(&[]);
+                let upem = metrics.units_per_em as f32;
+                let scalar = section_info.2 * scale_factor as f32 / upem;
+                section_info.3 = (metrics.strikeout_offset * scalar).round();
+                section_info.4 = (metrics.stroke_size * scalar).round().max(1.);
+                section_info.5 = (metrics.underline_offset * scalar).round();
             }
             self.glyph_info.push(section_info);
         }
@@ -625,7 +619,6 @@ pub fn load_font_to_fontdb(
     FontFaceInfo {
         stretch: face.stretch,
         style: face.style,
-        weight: face.weight,
         family_name: family_name.clone(),
     }
 }
@@ -644,7 +637,7 @@ fn get_attrs<'a>(
         .family(Family::Name(&face_info.family_name))
         .stretch(face_info.stretch)
         .style(face_info.style)
-        .weight(face_info.weight)
+        .weight(text_font.weight.into())
         .metrics(
             Metrics {
                 font_size: text_font.font_size,

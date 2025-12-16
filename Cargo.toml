@@ -3493,6 +3493,17 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
+name = "font_weights"
+path = "examples/ui/font_weights.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.font_weights]
+name = "Font Weights"
+description = "Demonstrates how to use font weights."
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "window_fallthrough"
 path = "examples/ui/window_fallthrough.rs"
 doc-scrape-examples = true
