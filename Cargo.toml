@@ -3827,17 +3827,6 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
-name = "viewport_debug"
-path = "examples/ui/viewport_debug.rs"
-doc-scrape-examples = true
-
-[package.metadata.example.viewport_debug]
-name = "Viewport Debug"
-description = "An example for debugging viewport coordinates"
-category = "UI (User Interface)"
-wasm = false
-
-[[example]]
 name = "viewport_node"
 path = "examples/ui/viewport_node.rs"
 doc-scrape-examples = true
