@@ -3,10 +3,13 @@ use alloc::{
     string::{String, ToString},
     vec::Vec,
 };
+use futures_lite::AsyncReadExt;
 
 use crate::{
-    loader::AssetLoader, processor::Process, Asset, AssetPath, DeserializeMetaError,
-    VisitAssetDependencies,
+    io::{AssetReaderError, Reader},
+    loader::AssetLoader,
+    processor::Process,
+    Asset, AssetPath, DeserializeMetaError, VisitAssetDependencies,
 };
 use downcast_rs::{impl_downcast, Downcast};
 use ron::ser::PrettyConfig;
@@ -204,7 +207,7 @@ impl AssetLoader for () {
     type Error = std::io::Error;
     async fn load(
         &self,
-        _reader: &mut dyn crate::io::Reader,
+        _reader: &mut dyn Reader,
         _settings: &Self::Settings,
         _load_context: &mut crate::LoadContext<'_>,
     ) -> Result<Self::Asset, Self::Error> {
@@ -241,11 +244,22 @@ pub(crate) fn loader_settings_meta_transform<S: Settings>(
 pub type AssetHash = [u8; 32];
 
 /// NOTE: changing the hashing logic here is a _breaking change_ that requires a [`META_FORMAT_VERSION`] bump.
-pub(crate) fn get_asset_hash(meta_bytes: &[u8], asset_bytes: &[u8]) -> AssetHash {
+pub(crate) async fn get_asset_hash(
+    meta_bytes: &[u8],
+    asset_reader: &mut impl Reader,
+) -> Result<AssetHash, AssetReaderError> {
     let mut hasher = blake3::Hasher::new();
     hasher.update(meta_bytes);
-    hasher.update(asset_bytes);
-    *hasher.finalize().as_bytes()
+    let mut buffer = [0; blake3::CHUNK_LEN];
+    loop {
+        let bytes_read = asset_reader.read(&mut buffer).await?;
+        hasher.update(&buffer[..bytes_read]);
+        if bytes_read == 0 {
+            // This means we've reached EOF, so we're done consuming asset bytes.
+            break;
+        }
+    }
+    Ok(*hasher.finalize().as_bytes())
 }
 
 /// NOTE: changing the hashing logic here is a _breaking change_ that requires a [`META_FORMAT_VERSION`] bump.

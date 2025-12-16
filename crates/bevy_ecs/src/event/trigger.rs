@@ -301,7 +301,7 @@ unsafe impl<
                 return;
             }
             if let Ok(entity) = world.get_entity(current_entity)
-                && let Some(item) = entity.get_components::<T>()
+                && let Ok(item) = entity.get_components::<T>()
                 && let Some(traverse_to) = T::traverse(item, event)
             {
                 current_entity = traverse_to;

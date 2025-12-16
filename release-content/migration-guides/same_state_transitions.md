@@ -1,13 +1,15 @@
 ---
 title: Same State Transitions
-pull_requests: [19363]
+pull_requests: [19363, 21792]
 ---
 
-It is now possible to change to the same state, triggering state transitions.
+Setting the next state will now always trigger state transitions like `OnEnter` and `OnExit`, even if the state is already the same.
+If you depend on the previous behavior, you can use the `set_if_neq` method instead.
 
 ```rust
-// Before: did nothing if the state was already `State::Menu`
+// 0.17
 next_state.set(State::Menu);
-// After: trigger state transitions even if the state is already `State::Menu`
-next_state.set_forced(State::Menu);
+
+// 0.18
+next_state.set_if_neq(State::Menu);
 ```

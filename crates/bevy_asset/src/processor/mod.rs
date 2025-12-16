@@ -64,7 +64,7 @@ use bevy_platform::{
 };
 use bevy_tasks::IoTaskPool;
 use futures_io::ErrorKind;
-use futures_lite::{AsyncReadExt, AsyncWriteExt, StreamExt};
+use futures_lite::{AsyncWriteExt, StreamExt};
 use futures_util::{select_biased, FutureExt};
 use std::{
     path::{Path, PathBuf},
@@ -642,15 +642,20 @@ impl AssetProcessor {
     async fn handle_removed_asset(&self, source: &AssetSource, path: PathBuf) {
         let asset_path = AssetPath::from(path).with_source(source.id());
         debug!("Removing processed {asset_path} because source was removed");
-        let mut infos = self.data.processing_state.asset_infos.write().await;
-        if let Some(info) = infos.get(&asset_path) {
-            // we must wait for uncontested write access to the asset source to ensure existing readers / writers
-            // can finish their operations
-            let _write_lock = info.file_transaction_lock.write();
-            self.remove_processed_asset_and_meta(source, asset_path.path())
-                .await;
-        }
-        infos.remove(&asset_path).await;
+        let lock = {
+            // Scope the infos lock so we don't hold up other processing for too long.
+            let mut infos = self.data.processing_state.asset_infos.write().await;
+            infos.remove(&asset_path).await
+        };
+        let Some(lock) = lock else {
+            return;
+        };
+
+        // we must wait for uncontested write access to the asset source to ensure existing
+        // readers/writers can finish their operations
+        let _write_lock = lock.write();
+        self.remove_processed_asset_and_meta(source, asset_path.path())
+            .await;
     }
 
     /// Handles a renamed source asset by moving its processed results to the new location and updating in-memory paths + metadata.
@@ -662,24 +667,29 @@ impl AssetProcessor {
         new: PathBuf,
         new_task_sender: &async_channel::Sender<(AssetSourceId<'static>, PathBuf)>,
     ) {
-        let mut infos = self.data.processing_state.asset_infos.write().await;
         let old = AssetPath::from(old).with_source(source.id());
         let new = AssetPath::from(new).with_source(source.id());
         let processed_writer = source.processed_writer().unwrap();
-        if let Some(info) = infos.get(&old) {
-            // we must wait for uncontested write access to the asset source to ensure existing readers / writers
-            // can finish their operations
-            let _write_lock = info.file_transaction_lock.write();
-            processed_writer
-                .rename(old.path(), new.path())
-                .await
-                .unwrap();
-            processed_writer
-                .rename_meta(old.path(), new.path())
-                .await
-                .unwrap();
-        }
-        infos.rename(&old, &new, new_task_sender).await;
+        let result = {
+            // Scope the infos lock so we don't hold up other processing for too long.
+            let mut infos = self.data.processing_state.asset_infos.write().await;
+            infos.rename(&old, &new, new_task_sender).await
+        };
+        let Some((old_lock, new_lock)) = result else {
+            return;
+        };
+        // we must wait for uncontested write access to both assets to ensure existing
+        // readers/writers can finish their operations
+        let _old_write_lock = old_lock.write();
+        let _new_write_lock = new_lock.write();
+        processed_writer
+            .rename(old.path(), new.path())
+            .await
+            .unwrap();
+        processed_writer
+            .rename_meta(old.path(), new.path())
+            .await
+            .unwrap();
     }
 
     async fn queue_processing_tasks_for_folder(
@@ -966,9 +976,6 @@ impl AssetProcessor {
             err,
         };
 
-        // Note: we get the asset source reader first because we don't want to create meta files for assets that don't have source files
-        let mut byte_reader = reader.read(path).await.map_err(reader_err)?;
-
         let (mut source_meta, meta_bytes, processor) = match reader.read_meta_bytes(path).await {
             Ok(meta_bytes) => {
                 let minimal: AssetMetaMinimal = ron::de::from_bytes(&meta_bytes).map_err(|e| {
@@ -1023,19 +1030,14 @@ impl AssetProcessor {
 
         let processed_writer = source.processed_writer()?;
 
-        let mut asset_bytes = Vec::new();
-        byte_reader
-            .read_to_end(&mut asset_bytes)
-            .await
-            .map_err(|e| ProcessError::AssetReaderError {
-                path: asset_path.clone(),
-                err: AssetReaderError::Io(e.into()),
-            })?;
-
-        // PERF: in theory these hashes could be streamed if we want to avoid allocating the whole asset.
-        // The downside is that reading assets would need to happen twice (once for the hash and once for the asset loader)
-        // Hard to say which is worse
-        let new_hash = get_asset_hash(&meta_bytes, &asset_bytes);
+        let new_hash = {
+            // Create a reader just for computing the hash. Keep this scoped here so that we drop it
+            // as soon as the hash is computed.
+            let mut reader_for_hash = reader.read(path).await.map_err(reader_err)?;
+            get_asset_hash(&meta_bytes, &mut reader_for_hash)
+                .await
+                .map_err(reader_err)?
+        };
         let mut new_processed_info = ProcessedInfo {
             hash: new_hash,
             full_hash: new_hash,
@@ -1066,12 +1068,28 @@ impl AssetProcessor {
             }
         }
 
+        // Create a reader just for the actual process. Note: this means that we're performing two
+        // reads for the same file (but we avoid having to load the whole file into memory). For
+        // some sources (like local file systems), this is not a big deal, but for other sources
+        // like an HTTP asset sources, this could be an entire additional download (if the asset
+        // source doesn't do any caching). In practice, most sources being processed are likely to
+        // be local, and processing in general is a publish-time operation, so it's not likely to be
+        // too big a deal. If in the future, we decide we want to avoid this repeated read, we could
+        // "ask" the asset source if it prefers avoiding repeated reads or not.
+        let mut reader_for_process = reader.read(path).await.map_err(reader_err)?;
+
         // Note: this lock must remain alive until all processed asset and meta writes have finished (or failed)
         // See ProcessedAssetInfo::file_transaction_lock docs for more info
         let _transaction_lock = {
-            let mut infos = self.data.processing_state.asset_infos.write().await;
-            let info = infos.get_or_insert(asset_path.clone());
-            info.file_transaction_lock.write_arc().await
+            let lock = {
+                let mut infos = self.data.processing_state.asset_infos.write().await;
+                let info = infos.get_or_insert(asset_path.clone());
+                // Clone out the transaction lock first and then lock after we've dropped the
+                // asset_infos. Otherwise, trying to lock a single path can block all other paths to
+                // (leading to deadlocks).
+                info.file_transaction_lock.clone()
+            };
+            lock.write_arc().await
         };
 
         // NOTE: if processing the asset fails this will produce an "unfinished" log entry, forcing a rebuild on next run.
@@ -1081,8 +1099,12 @@ impl AssetProcessor {
         if let Some(processor) = processor {
             let mut writer = processed_writer.write(path).await.map_err(writer_err)?;
             let mut processed_meta = {
-                let mut context =
-                    ProcessContext::new(self, asset_path, &asset_bytes, &mut new_processed_info);
+                let mut context = ProcessContext::new(
+                    self,
+                    asset_path,
+                    reader_for_process,
+                    &mut new_processed_info,
+                );
                 processor
                     .process(&mut context, source_meta, &mut *writer)
                     .await?
@@ -1112,10 +1134,13 @@ impl AssetProcessor {
                 .await
                 .map_err(writer_err)?;
         } else {
-            processed_writer
-                .write_bytes(path, &asset_bytes)
+            let mut writer = processed_writer.write(path).await.map_err(writer_err)?;
+            futures_lite::io::copy(&mut reader_for_process, &mut writer)
                 .await
-                .map_err(writer_err)?;
+                .map_err(|err| ProcessError::AssetWriterError {
+                    path: asset_path.clone_owned(),
+                    err: err.into(),
+                })?;
             *source_meta.processed_info_mut() = Some(new_processed_info.clone());
             let meta_bytes = source_meta.serialize();
             processed_writer
@@ -1317,11 +1342,17 @@ impl ProcessingState {
         &self,
         path: &AssetPath<'static>,
     ) -> Result<RwLockReadGuardArc<()>, AssetReaderError> {
-        let infos = self.asset_infos.read().await;
-        let info = infos
-            .get(path)
-            .ok_or_else(|| AssetReaderError::NotFound(path.path().to_owned()))?;
-        Ok(info.file_transaction_lock.read_arc().await)
+        let lock = {
+            let infos = self.asset_infos.read().await;
+            let info = infos
+                .get(path)
+                .ok_or_else(|| AssetReaderError::NotFound(path.path().to_owned()))?;
+            // Clone out the transaction lock first and then lock after we've dropped the
+            // asset_infos. Otherwise, trying to lock a single path can block all other paths to
+            // (leading to deadlocks).
+            info.file_transaction_lock.clone()
+        };
+        Ok(lock.read_arc().await)
     }
 
     /// Returns a future that will not finish until the path has been processed.
@@ -1603,95 +1634,102 @@ impl ProcessorAssetInfos {
         }
     }
 
-    /// Remove the info for the given path. This should only happen if an asset's source is removed / non-existent
-    async fn remove(&mut self, asset_path: &AssetPath<'static>) {
-        let info = self.infos.remove(asset_path);
-        if let Some(info) = info {
-            if let Some(processed_info) = info.processed_info {
-                self.clear_dependencies(asset_path, processed_info);
-            }
-            // Tell all listeners this asset does not exist
-            info.status_sender
-                .broadcast(ProcessStatus::NonExistent)
-                .await
-                .unwrap();
-            if !info.dependents.is_empty() {
-                error!(
+    /// Remove the info for the given path. This should only happen if an asset's source is
+    /// removed/non-existent. Returns the transaction lock for the asset, or [`None`] if the asset
+    /// path does not exist.
+    async fn remove(
+        &mut self,
+        asset_path: &AssetPath<'static>,
+    ) -> Option<Arc<async_lock::RwLock<()>>> {
+        let info = self.infos.remove(asset_path)?;
+        if let Some(processed_info) = info.processed_info {
+            self.clear_dependencies(asset_path, processed_info);
+        }
+        // Tell all listeners this asset does not exist
+        info.status_sender
+            .broadcast(ProcessStatus::NonExistent)
+            .await
+            .unwrap();
+        if !info.dependents.is_empty() {
+            error!(
                     "The asset at {asset_path} was removed, but it had assets that depend on it to be processed. Consider updating the path in the following assets: {:?}",
                     info.dependents
                 );
-                self.non_existent_dependents
-                    .insert(asset_path.clone(), info.dependents);
-            }
+            self.non_existent_dependents
+                .insert(asset_path.clone(), info.dependents);
         }
+
+        Some(info.file_transaction_lock)
     }
 
-    /// Remove the info for the given path. This should only happen if an asset's source is removed / non-existent
+    /// Remove the info for the old path, and move over its info to the new path. This should only
+    /// happen if an asset's source is removed/non-existent. Returns the transaction locks for the
+    /// old and new assets respectively, or [`None`] if the old path does not exist.
     async fn rename(
         &mut self,
         old: &AssetPath<'static>,
         new: &AssetPath<'static>,
         new_task_sender: &async_channel::Sender<(AssetSourceId<'static>, PathBuf)>,
-    ) {
-        let info = self.infos.remove(old);
-        if let Some(mut info) = info {
-            if !info.dependents.is_empty() {
-                // TODO: We can't currently ensure "moved" folders with relative paths aren't broken because AssetPath
-                // doesn't distinguish between absolute and relative paths. We have "erased" relativeness. In the short term,
-                // we could do "remove everything in a folder and re-add", but that requires full rebuilds / destroying the cache.
-                // If processors / loaders could enumerate dependencies, we could check if the new deps line up with a rename.
-                // If deps encoded "relativeness" as part of loading, that would also work (this seems like the right call).
-                // TODO: it would be nice to log an error here for dependents that aren't also being moved + fixed.
-                // (see the remove impl).
-                error!(
+    ) -> Option<(Arc<async_lock::RwLock<()>>, Arc<async_lock::RwLock<()>>)> {
+        let mut info = self.infos.remove(old)?;
+        if !info.dependents.is_empty() {
+            // TODO: We can't currently ensure "moved" folders with relative paths aren't broken because AssetPath
+            // doesn't distinguish between absolute and relative paths. We have "erased" relativeness. In the short term,
+            // we could do "remove everything in a folder and re-add", but that requires full rebuilds / destroying the cache.
+            // If processors / loaders could enumerate dependencies, we could check if the new deps line up with a rename.
+            // If deps encoded "relativeness" as part of loading, that would also work (this seems like the right call).
+            // TODO: it would be nice to log an error here for dependents that aren't also being moved + fixed.
+            // (see the remove impl).
+            error!(
                     "The asset at {old} was removed, but it had assets that depend on it to be processed. Consider updating the path in the following assets: {:?}",
                     info.dependents
                 );
-                self.non_existent_dependents
-                    .insert(old.clone(), core::mem::take(&mut info.dependents));
-            }
-            if let Some(processed_info) = &info.processed_info {
-                // Update "dependent" lists for this asset's "process dependencies" to use new path.
-                for dep in &processed_info.process_dependencies {
-                    if let Some(info) = self.infos.get_mut(&dep.path) {
-                        info.dependents.remove(old);
-                        info.dependents.insert(new.clone());
-                    } else if let Some(dependents) = self.non_existent_dependents.get_mut(&dep.path)
-                    {
-                        dependents.remove(old);
-                        dependents.insert(new.clone());
-                    }
+            self.non_existent_dependents
+                .insert(old.clone(), core::mem::take(&mut info.dependents));
+        }
+        if let Some(processed_info) = &info.processed_info {
+            // Update "dependent" lists for this asset's "process dependencies" to use new path.
+            for dep in &processed_info.process_dependencies {
+                if let Some(info) = self.infos.get_mut(&dep.path) {
+                    info.dependents.remove(old);
+                    info.dependents.insert(new.clone());
+                } else if let Some(dependents) = self.non_existent_dependents.get_mut(&dep.path) {
+                    dependents.remove(old);
+                    dependents.insert(new.clone());
                 }
-            }
-            // Tell all listeners this asset no longer exists
-            info.status_sender
-                .broadcast(ProcessStatus::NonExistent)
-                .await
-                .unwrap();
-            let dependents: Vec<AssetPath<'static>> = {
-                let new_info = self.get_or_insert(new.clone());
-                new_info.processed_info = info.processed_info;
-                new_info.status = info.status;
-                // Ensure things waiting on the new path are informed of the status of this asset
-                if let Some(status) = new_info.status {
-                    new_info.status_sender.broadcast(status).await.unwrap();
-                }
-                new_info.dependents.iter().cloned().collect()
-            };
-            // Queue the asset for a reprocess check, in case it needs new meta.
-            let _ = new_task_sender
-                .send((new.source().clone_owned(), new.path().to_owned()))
-                .await;
-            for dependent in dependents {
-                // Queue dependents for reprocessing because they might have been waiting for this asset.
-                let _ = new_task_sender
-                    .send((
-                        dependent.source().clone_owned(),
-                        dependent.path().to_owned(),
-                    ))
-                    .await;
             }
         }
+        // Tell all listeners this asset no longer exists
+        info.status_sender
+            .broadcast(ProcessStatus::NonExistent)
+            .await
+            .unwrap();
+        let new_info = self.get_or_insert(new.clone());
+        new_info.processed_info = info.processed_info;
+        new_info.status = info.status;
+        // Ensure things waiting on the new path are informed of the status of this asset
+        if let Some(status) = new_info.status {
+            new_info.status_sender.broadcast(status).await.unwrap();
+        }
+        let dependents = new_info.dependents.iter().cloned().collect::<Vec<_>>();
+        // Queue the asset for a reprocess check, in case it needs new meta.
+        let _ = new_task_sender
+            .send((new.source().clone_owned(), new.path().to_owned()))
+            .await;
+        for dependent in dependents {
+            // Queue dependents for reprocessing because they might have been waiting for this asset.
+            let _ = new_task_sender
+                .send((
+                    dependent.source().clone_owned(),
+                    dependent.path().to_owned(),
+                ))
+                .await;
+        }
+
+        Some((
+            info.file_transaction_lock,
+            new_info.file_transaction_lock.clone(),
+        ))
     }
 
     fn clear_dependencies(&mut self, asset_path: &AssetPath<'static>, removed_info: ProcessedInfo) {

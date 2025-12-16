@@ -188,28 +188,27 @@ pub trait Relationship: Component + Sized {
             }
         }
         let target_entity = world.entity(entity).get::<Self>().unwrap().get();
-        if let Ok(mut target_entity_mut) = world.get_entity_mut(target_entity) {
-            if let Some(mut relationship_target) =
+        if let Ok(mut target_entity_mut) = world.get_entity_mut(target_entity)
+            && let Some(mut relationship_target) =
                 target_entity_mut.get_mut::<Self::RelationshipTarget>()
-            {
-                relationship_target.collection_mut_risky().remove(entity);
-                if relationship_target.len() == 0 {
-                    let command = |mut entity: EntityWorldMut| {
-                        // this "remove" operation must check emptiness because in the event that an identical
-                        // relationship is inserted on top, this despawn would result in the removal of that identical
-                        // relationship ... not what we want!
-                        if entity
-                            .get::<Self::RelationshipTarget>()
-                            .is_some_and(RelationshipTarget::is_empty)
-                        {
-                            entity.remove::<Self::RelationshipTarget>();
-                        }
-                    };
+        {
+            relationship_target.collection_mut_risky().remove(entity);
+            if relationship_target.len() == 0 {
+                let command = |mut entity: EntityWorldMut| {
+                    // this "remove" operation must check emptiness because in the event that an identical
+                    // relationship is inserted on top, this despawn would result in the removal of that identical
+                    // relationship ... not what we want!
+                    if entity
+                        .get::<Self::RelationshipTarget>()
+                        .is_some_and(RelationshipTarget::is_empty)
+                    {
+                        entity.remove::<Self::RelationshipTarget>();
+                    }
+                };
 
-                    world
-                        .commands()
-                        .queue_silenced(command.with_entity(target_entity));
-                }
+                world
+                    .commands()
+                    .queue_silenced(command.with_entity(target_entity));
             }
         }
     }

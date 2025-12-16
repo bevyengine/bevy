@@ -83,6 +83,7 @@ jobs:
         with:
           wayland: true
           xkb: true
+          x264: true
       - name: CI job
         # See tools/ci/src/main.rs for the commands this runs
         run: cargo run -p ci -- lints
@@ -304,7 +305,7 @@ jobs:
           # Full git history is needed to get a proper list of changed files within `super-linter`
           fetch-depth: 0
       - name: Run Markdown Lint
-        uses: super-linter/super-linter/slim@v8.2.1
+        uses: super-linter/super-linter/slim@v8.3.0
         env:
           MULTI_STATUS: false
           VALIDATE_ALL_CODEBASE: false
@@ -336,7 +337,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - name: Check for typos
-        uses: crate-ci/typos@v1.39.2
+        uses: crate-ci/typos@v1.40.0
       - name: Typos info
         if: failure()
         run: |
@@ -371,6 +372,7 @@ jobs:
         with:
           wayland: true
           xkb: true
+          x264: true
       - name: Build and check doc
         # See tools/ci/src/main.rs for the commands this runs
         run: cargo run -p ci -- doc

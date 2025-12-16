@@ -25,6 +25,12 @@ fn main() {
         .add_systems(OnEnter(Scene::Transformations), transformations::setup)
         .add_systems(Update, switch_scene);
 
+    #[cfg(feature = "bevy_ui_debug")]
+    {
+        app.add_systems(OnEnter(Scene::DebugOutlines), debug_outlines::setup);
+        app.add_systems(OnExit(Scene::DebugOutlines), debug_outlines::teardown);
+    }
+
     #[cfg(feature = "bevy_ci_testing")]
     app.add_systems(Update, helpers::switch_scene_in_ci::<Scene>);
 
@@ -47,6 +53,8 @@ enum Scene {
     LinearGradient,
     RadialGradient,
     Transformations,
+    #[cfg(feature = "bevy_ui_debug")]
+    DebugOutlines,
 }
 
 impl Next for Scene {
@@ -62,6 +70,11 @@ impl Next for Scene {
             Scene::Slice => Scene::LayoutRounding,
             Scene::LayoutRounding => Scene::LinearGradient,
             Scene::LinearGradient => Scene::RadialGradient,
+            #[cfg(feature = "bevy_ui_debug")]
+            Scene::RadialGradient => Scene::DebugOutlines,
+            #[cfg(feature = "bevy_ui_debug")]
+            Scene::DebugOutlines => Scene::Transformations,
+            #[cfg(not(feature = "bevy_ui_debug"))]
             Scene::RadialGradient => Scene::Transformations,
             Scene::Transformations => Scene::Image,
         }
@@ -967,5 +980,89 @@ mod transformations {
                         });
                 }
             });
+    }
+}
+
+#[cfg(feature = "bevy_ui_debug")]
+mod debug_outlines {
+    use bevy::{
+        color::palettes::css::{BLUE, GRAY, RED},
+        prelude::*,
+        ui_render::UiDebugOptions,
+    };
+
+    pub fn setup(mut commands: Commands, mut debug_options: ResMut<UiDebugOptions>) {
+        debug_options.enabled = true;
+        debug_options.line_width = 5.;
+        debug_options.line_color_override = Some(LinearRgba::GREEN);
+        debug_options.show_hidden = true;
+        debug_options.show_clipped = true;
+        commands.spawn((Camera2d, DespawnOnExit(super::Scene::DebugOutlines)));
+        commands
+            .spawn((
+                Node {
+                    width: percent(100),
+                    height: percent(100),
+                    align_items: AlignItems::Center,
+                    justify_content: JustifyContent::SpaceAround,
+                    ..default()
+                },
+                DespawnOnExit(super::Scene::DebugOutlines),
+            ))
+            .with_children(|parent| {
+                parent.spawn((
+                    Node {
+                        width: px(100),
+                        height: px(100),
+                        ..default()
+                    },
+                    BackgroundColor(GRAY.into()),
+                    UiTransform::from_rotation(Rot2::degrees(45.)),
+                ));
+
+                parent.spawn((Text::new("Regular Text"), TextFont::default()));
+
+                parent.spawn((
+                    Node {
+                        width: px(100),
+                        height: px(100),
+                        ..default()
+                    },
+                    Text::new("Invisible"),
+                    BackgroundColor(GRAY.into()),
+                    TextFont::default(),
+                    Visibility::Hidden,
+                ));
+
+                parent
+                    .spawn((
+                        Node {
+                            width: px(100),
+                            height: px(100),
+                            padding: UiRect {
+                                left: px(25),
+                                top: px(25),
+                                ..Default::default()
+                            },
+                            overflow: Overflow::clip(),
+                            ..default()
+                        },
+                        BackgroundColor(RED.into()),
+                    ))
+                    .with_children(|child| {
+                        child.spawn((
+                            Node {
+                                min_width: px(100),
+                                min_height: px(100),
+                                ..default()
+                            },
+                            BackgroundColor(BLUE.into()),
+                        ));
+                    });
+            });
+    }
+
+    pub fn teardown(mut debug_options: ResMut<UiDebugOptions>) {
+        *debug_options = UiDebugOptions::default();
     }
 }
