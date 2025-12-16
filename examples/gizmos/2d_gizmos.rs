@@ -158,6 +158,15 @@ fn update_config(
         };
     }
 
+    if keyboard.just_pressed(KeyCode::KeyK) {
+        config.line.joints = match config.line.joints {
+            GizmoLineJoint::Bevel => GizmoLineJoint::None,
+            GizmoLineJoint::Miter => GizmoLineJoint::Bevel,
+            GizmoLineJoint::Round(_) => GizmoLineJoint::Miter,
+            GizmoLineJoint::None => GizmoLineJoint::Round(4),
+        };
+    }
+
     let (my_config, _) = config_store.config_mut::<MyRoundGizmos>();
     if keyboard.pressed(KeyCode::ArrowUp) {
         my_config.line.width += 5. * time.delta_secs();
