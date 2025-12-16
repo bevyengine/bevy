@@ -390,7 +390,6 @@ impl TextPipeline {
 
                     let mut temp_glyph;
                     let span_index = layout_glyph.metadata;
-                    let font_id = self.glyph_info[span_index].0;
                     let font_smoothing = self.glyph_info[span_index].1;
 
                     let layout_glyph = if font_smoothing == FontSmoothing::None {
@@ -413,7 +412,7 @@ impl TextPipeline {
 
                     let font_atlases = font_atlas_set
                         .entry(FontAtlasKey(
-                            font_id,
+                            physical_glyph.cache_key.font_id,
                             physical_glyph.cache_key.font_size_bits,
                             font_smoothing,
                         ))

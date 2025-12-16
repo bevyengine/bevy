@@ -66,7 +66,7 @@ pub mod prelude {
 }
 
 use bevy_app::prelude::*;
-use bevy_asset::{AssetApp, AssetEventSystems};
+use bevy_asset::AssetApp;
 use bevy_ecs::prelude::*;
 
 /// The raw data for the default font used by `bevy_text`
@@ -93,10 +93,10 @@ impl Plugin for TextPlugin {
             .init_resource::<CosmicFontSystem>()
             .init_resource::<SwashCache>()
             .init_resource::<TextIterScratch>()
-            .add_systems(
-                PostUpdate,
-                free_unused_font_atlases_system.before(AssetEventSystems),
-            )
+            // .add_systems(
+            //     PostUpdate,
+            //     free_unused_font_atlases_system.before(AssetEventSystems),
+            // )
             .add_systems(Last, trim_cosmic_cache);
 
         #[cfg(feature = "default_font")]
