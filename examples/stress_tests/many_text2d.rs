@@ -178,10 +178,11 @@ fn print_counts(
         return;
     }
 
-    let font_id = font.0.id();
+    // let font_id = font.0.id();
     let num_atlases = font_atlas_set
         .iter()
-        .filter(|(key, _)| key.0 == font_id)
+        // Removed this filter for now as the keys no longer include the AssetIds
+        //        .filter(|(key, _)| key.0 == font_id)
         .map(|(_, atlases)| atlases.len())
         .sum::<usize>();
 
