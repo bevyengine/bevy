@@ -448,7 +448,9 @@ impl ExecutorState {
         }
 
         #[cfg(feature = "hotpatching")]
-        // SAFETY: No system should mutate `HotPatchChanges`
+        // SAFETY: This operation is not safe. It could create UB if a user creates a mutable reference
+        // to `HotPatchChanges` in a system. But this can only happen when the `hotpatching` feature is
+        // enabled.
         let hotpatch_tick = unsafe {
             context
                 .environment
