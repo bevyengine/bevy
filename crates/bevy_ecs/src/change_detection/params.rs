@@ -113,7 +113,7 @@ impl<'w, T: Resource> Res<'w, T> {
     pub fn clone(this: &Self) -> Self {
         Self {
             value: this.value,
-            ticks: this.ticks.clone(),
+            ticks: this.ticks,
         }
     }
 
