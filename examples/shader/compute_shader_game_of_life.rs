@@ -9,7 +9,6 @@ use bevy::{
     render::{
         extract_resource::{ExtractResource, ExtractResourcePlugin},
         render_asset::RenderAssets,
-        render_graph::{self, RenderGraph, RenderLabel},
         render_resource::{
             binding_types::{texture_storage_2d, uniform_buffer},
             *,
@@ -20,6 +19,7 @@ use bevy::{
     },
     shader::PipelineCacheError,
 };
+use bevy_render::renderer::RenderGraph;
 use std::borrow::Cow;
 
 /// This example uses a shader source file from the assets subdirectory
@@ -90,9 +90,6 @@ fn switch_textures(images: Res<GameOfLifeImages>, mut sprite: Single<&mut Sprite
 
 struct GameOfLifeComputePlugin;
 
-#[derive(Debug, Hash, PartialEq, Eq, Clone, RenderLabel)]
-struct GameOfLifeLabel;
-
 impl Plugin for GameOfLifeComputePlugin {
     fn build(&self, app: &mut App) {
         // Extract the game of life image resource from the main world into the render world
@@ -103,15 +100,14 @@ impl Plugin for GameOfLifeComputePlugin {
         ));
         let render_app = app.sub_app_mut(RenderApp);
         render_app
+            .init_resource::<GameOfLifeState>()
             .add_systems(RenderStartup, init_game_of_life_pipeline)
             .add_systems(
                 Render,
                 prepare_bind_group.in_set(RenderSystems::PrepareBindGroups),
-            );
-
-        let mut render_graph = render_app.world_mut().resource_mut::<RenderGraph>();
-        render_graph.add_node(GameOfLifeLabel, GameOfLifeNode::default());
-        render_graph.add_node_edge(GameOfLifeLabel, bevy::render::graph::CameraDriverLabel);
+            )
+            .add_systems(Render, update.in_set(RenderSystems::Prepare))
+            .add_systems(RenderGraph, game_of_life);
     }
 }
 
@@ -212,96 +208,80 @@ fn init_game_of_life_pipeline(
     });
 }
 
+#[derive(Resource, Default)]
 enum GameOfLifeState {
+    #[default]
     Loading,
     Init,
     Update(usize),
 }
 
-struct GameOfLifeNode {
-    state: GameOfLifeState,
-}
-
-impl Default for GameOfLifeNode {
-    fn default() -> Self {
-        Self {
-            state: GameOfLifeState::Loading,
+fn update(
+    pipeline: Res<GameOfLifePipeline>,
+    pipeline_cache: Res<PipelineCache>,
+    mut state: ResMut<GameOfLifeState>,
+) {
+    // if the corresponding pipeline has loaded, transition to the next stage
+    match *state {
+        GameOfLifeState::Loading => {
+            match pipeline_cache.get_compute_pipeline_state(pipeline.init_pipeline) {
+                CachedPipelineState::Ok(_) => {
+                    *state = GameOfLifeState::Init;
+                }
+                // If the shader hasn't loaded yet, just wait.
+                CachedPipelineState::Err(PipelineCacheError::ShaderNotLoaded(_)) => {}
+                CachedPipelineState::Err(err) => {
+                    panic!("Initializing assets/{SHADER_ASSET_PATH}:\n{err}")
+                }
+                _ => {}
+            }
         }
+        GameOfLifeState::Init => {
+            if let CachedPipelineState::Ok(_) =
+                pipeline_cache.get_compute_pipeline_state(pipeline.update_pipeline)
+            {
+                *state = GameOfLifeState::Update(1);
+            }
+        }
+        GameOfLifeState::Update(0) => {
+            *state = GameOfLifeState::Update(1);
+        }
+        GameOfLifeState::Update(1) => {
+            *state = GameOfLifeState::Update(0);
+        }
+        GameOfLifeState::Update(_) => unreachable!(),
     }
 }
 
-impl render_graph::Node for GameOfLifeNode {
-    fn update(&mut self, world: &mut World) {
-        let pipeline = world.resource::<GameOfLifePipeline>();
-        let pipeline_cache = world.resource::<PipelineCache>();
+fn game_of_life(
+    mut render_context: RenderContext,
+    bind_groups: Res<GameOfLifeImageBindGroups>,
+    pipeline_cache: Res<PipelineCache>,
+    pipeline: Res<GameOfLifePipeline>,
+    state: Res<GameOfLifeState>,
+) {
+    let mut pass = render_context
+        .command_encoder()
+        .begin_compute_pass(&ComputePassDescriptor::default());
 
-        // if the corresponding pipeline has loaded, transition to the next stage
-        match self.state {
-            GameOfLifeState::Loading => {
-                match pipeline_cache.get_compute_pipeline_state(pipeline.init_pipeline) {
-                    CachedPipelineState::Ok(_) => {
-                        self.state = GameOfLifeState::Init;
-                    }
-                    // If the shader hasn't loaded yet, just wait.
-                    CachedPipelineState::Err(PipelineCacheError::ShaderNotLoaded(_)) => {}
-                    CachedPipelineState::Err(err) => {
-                        panic!("Initializing assets/{SHADER_ASSET_PATH}:\n{err}")
-                    }
-                    _ => {}
-                }
-            }
-            GameOfLifeState::Init => {
-                if let CachedPipelineState::Ok(_) =
-                    pipeline_cache.get_compute_pipeline_state(pipeline.update_pipeline)
-                {
-                    self.state = GameOfLifeState::Update(1);
-                }
-            }
-            GameOfLifeState::Update(0) => {
-                self.state = GameOfLifeState::Update(1);
-            }
-            GameOfLifeState::Update(1) => {
-                self.state = GameOfLifeState::Update(0);
-            }
-            GameOfLifeState::Update(_) => unreachable!(),
+    // select the pipeline based on the current state
+    match *state {
+        GameOfLifeState::Loading => {}
+        GameOfLifeState::Init => {
+            let init_pipeline = pipeline_cache
+                .get_compute_pipeline(pipeline.init_pipeline)
+                .unwrap();
+            pass.set_bind_group(0, &bind_groups.0[0], &[]);
+            pass.set_pipeline(init_pipeline);
+            pass.dispatch_workgroups(SIZE.x / WORKGROUP_SIZE, SIZE.y / WORKGROUP_SIZE, 1);
         }
-    }
-
-    fn run(
-        &self,
-        _graph: &mut render_graph::RenderGraphContext,
-        render_context: &mut RenderContext,
-        world: &World,
-    ) -> Result<(), render_graph::NodeRunError> {
-        let bind_groups = &world.resource::<GameOfLifeImageBindGroups>().0;
-        let pipeline_cache = world.resource::<PipelineCache>();
-        let pipeline = world.resource::<GameOfLifePipeline>();
-
-        let mut pass = render_context
-            .command_encoder()
-            .begin_compute_pass(&ComputePassDescriptor::default());
-
-        // select the pipeline based on the current state
-        match self.state {
-            GameOfLifeState::Loading => {}
-            GameOfLifeState::Init => {
-                let init_pipeline = pipeline_cache
-                    .get_compute_pipeline(pipeline.init_pipeline)
-                    .unwrap();
-                pass.set_bind_group(0, &bind_groups[0], &[]);
-                pass.set_pipeline(init_pipeline);
-                pass.dispatch_workgroups(SIZE.x / WORKGROUP_SIZE, SIZE.y / WORKGROUP_SIZE, 1);
-            }
-            GameOfLifeState::Update(index) => {
-                let update_pipeline = pipeline_cache
-                    .get_compute_pipeline(pipeline.update_pipeline)
-                    .unwrap();
-                pass.set_bind_group(0, &bind_groups[index], &[]);
-                pass.set_pipeline(update_pipeline);
-                pass.dispatch_workgroups(SIZE.x / WORKGROUP_SIZE, SIZE.y / WORKGROUP_SIZE, 1);
-            }
+        GameOfLifeState::Update(index) => {
+            let update_pipeline = pipeline_cache
+                .get_compute_pipeline(pipeline.update_pipeline)
+                .unwrap();
+            pass.set_bind_group(0, &bind_groups.0[index], &[]);
+            pass.set_pipeline(update_pipeline);
+            pass.dispatch_workgroups(SIZE.x / WORKGROUP_SIZE, SIZE.y / WORKGROUP_SIZE, 1);
         }
-
-        Ok(())
     }
 }
