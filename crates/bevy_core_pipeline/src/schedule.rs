@@ -36,8 +36,6 @@ impl Core3d {
         let mut schedule = Schedule::new(Self);
 
         schedule.set_build_settings(ScheduleBuildSettings {
-            // TODO: yes/no?
-            auto_insert_apply_deferred: false,
             ..Default::default()
         });
 
@@ -77,7 +75,6 @@ impl Core2d {
         let mut schedule = Schedule::new(Self);
 
         schedule.set_build_settings(ScheduleBuildSettings {
-            auto_insert_apply_deferred: false,
             ..Default::default()
         });
 
