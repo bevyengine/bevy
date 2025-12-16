@@ -269,6 +269,8 @@ pub struct TextFont {
     /// How thick or bold the strokes of a font appear.
     ///
     /// Font weights can be any value between 1 and 1000, inclusive.
+    ///
+    /// Only supports variable weight fonts.
     pub weight: FontWeight,
     /// The antialiasing method to use when rendering text.
     pub font_smoothing: FontSmoothing,
