@@ -314,7 +314,6 @@ impl Plugin for PbrPlugin {
             (
                 early_shadow_pass
                     .after(early_prepass_build_indirect_parameters)
-                    .after(Core3dSystems::EndPrepasses)
                     .before(late_shadow_pass),
                 late_shadow_pass
                     .after(late_prepass_build_indirect_parameters)
