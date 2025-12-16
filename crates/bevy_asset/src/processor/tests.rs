@@ -26,9 +26,8 @@ use crate::{
     io::{
         memory::{Dir, MemoryAssetReader, MemoryAssetWriter},
         AssetReader, AssetReaderError, AssetSourceBuilder, AssetSourceBuilders, AssetSourceEvent,
-        AssetSourceId, AssetWatcher, PathStream, Reader,
+        AssetSourceId, AssetWatcher, PathStream, Reader, ReaderRequiredFeatures,
     },
-    meta::AssetMeta,
     processor::{
         AssetProcessor, GetProcessorError, LoadTransformAndSave, LogEntry, Process, ProcessContext,
         ProcessError, ProcessorState, ProcessorTransactionLog, ProcessorTransactionLogFactory,
@@ -49,7 +48,7 @@ impl<T: TypePath + 'static> Process for MyProcessor<T> {
     async fn process(
         &self,
         _context: &mut ProcessContext<'_>,
-        _meta: AssetMeta<(), Self>,
+        _settings: &Self::Settings,
         _writer: &mut crate::io::Writer,
     ) -> Result<(), ProcessError> {
         Ok(())
@@ -196,9 +195,13 @@ impl<R: AssetReader> LockGatedReader<R> {
 }
 
 impl<R: AssetReader> AssetReader for LockGatedReader<R> {
-    async fn read<'a>(&'a self, path: &'a Path) -> Result<impl Reader + 'a, AssetReaderError> {
+    async fn read<'a>(
+        &'a self,
+        path: &'a Path,
+        required_features: ReaderRequiredFeatures,
+    ) -> Result<impl Reader + 'a, AssetReaderError> {
         let _guard = self.gate.read().await;
-        self.reader.read(path).await
+        self.reader.read(path, required_features).await
     }
 
     async fn read_meta<'a>(&'a self, path: &'a Path) -> Result<impl Reader + 'a, AssetReaderError> {

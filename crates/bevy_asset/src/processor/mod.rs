@@ -48,6 +48,7 @@ use crate::{
     io::{
         AssetReaderError, AssetSource, AssetSourceBuilders, AssetSourceEvent, AssetSourceId,
         AssetSources, AssetWriterError, ErasedAssetReader, MissingAssetSourceError,
+        ReaderRequiredFeatures,
     },
     meta::{
         get_asset_hash, get_full_asset_hash, AssetAction, AssetActionMinimal, AssetHash, AssetMeta,
@@ -457,6 +458,7 @@ impl AssetProcessor {
         let reader = source.reader();
         match reader.read_meta_bytes(path.path()).await {
             Ok(_) => return Err(WriteDefaultMetaError::MetaAlreadyExists),
+            Err(AssetReaderError::UnsupportedFeature(feature)) => panic!("reading the meta file never requests a feature, but the following feature is unsupported: {feature}"),
             Err(AssetReaderError::NotFound(_)) => {
                 // The meta file couldn't be found so just fall through.
             }
@@ -557,6 +559,10 @@ impl AssetProcessor {
                     }
                     Err(err) => {
                         match err {
+                            // There is never a reason for a path check to return an
+                            // `UnsupportedFeature` error. This must be an incorrectly programmed
+                            // `AssetReader`, so just panic to make this clearly unsupported.
+                            AssetReaderError::UnsupportedFeature(feature) => panic!("checking whether a path is a file or folder resulted in unsupported feature: {feature}"),
                             AssetReaderError::NotFound(_) => {
                                 // if the path is not found, a processed version does not exist
                             }
@@ -628,6 +634,12 @@ impl AssetProcessor {
                 }
             }
             Err(err) => match err {
+                // There is never a reason for a directory read to return an `UnsupportedFeature`
+                // error. This must be an incorrectly programmed `AssetReader`, so just panic to
+                // make this clearly unsupported.
+                AssetReaderError::UnsupportedFeature(feature) => {
+                    panic!("reading a directory resulted in unsupported feature: {feature}")
+                }
                 AssetReaderError::NotFound(_err) => {
                     // The processed folder does not exist. No need to update anything
                 }
@@ -1098,7 +1110,11 @@ impl AssetProcessor {
         let new_hash = {
             // Create a reader just for computing the hash. Keep this scoped here so that we drop it
             // as soon as the hash is computed.
-            let mut reader_for_hash = reader.read(path).await.map_err(reader_err)?;
+            let mut reader_for_hash = reader
+                .read(path, ReaderRequiredFeatures::default())
+                .await
+                .map_err(reader_err)?;
+
             get_asset_hash(&meta_bytes, &mut reader_for_hash)
                 .await
                 .map_err(reader_err)?
@@ -1133,16 +1149,6 @@ impl AssetProcessor {
             }
         }
 
-        // Create a reader just for the actual process. Note: this means that we're performing two
-        // reads for the same file (but we avoid having to load the whole file into memory). For
-        // some sources (like local file systems), this is not a big deal, but for other sources
-        // like an HTTP asset sources, this could be an entire additional download (if the asset
-        // source doesn't do any caching). In practice, most sources being processed are likely to
-        // be local, and processing in general is a publish-time operation, so it's not likely to be
-        // too big a deal. If in the future, we decide we want to avoid this repeated read, we could
-        // "ask" the asset source if it prefers avoiding repeated reads or not.
-        let mut reader_for_process = reader.read(path).await.map_err(reader_err)?;
-
         // Note: this lock must remain alive until all processed asset and meta writes have finished (or failed)
         // See ProcessedAssetInfo::file_transaction_lock docs for more info
         let _transaction_lock = {
@@ -1162,6 +1168,25 @@ impl AssetProcessor {
         // TODO: this class of failure can be recovered via re-processing + smarter log validation that allows for duplicate transactions in the event of failures
         self.log_begin_processing(asset_path).await;
         if let Some(processor) = processor {
+            // Unwrap is ok since we have a processor, so the `AssetAction` must have been
+            // `AssetAction::Process` (which includes its settings).
+            let settings = source_meta.process_settings().unwrap();
+
+            let reader_features = processor.reader_required_features(settings)?;
+            // Create a reader just for the actual process. Note: this means that we're performing
+            // two reads for the same file (but we avoid having to load the whole file into memory).
+            // For some sources (like local file systems), this is not a big deal, but for other
+            // sources like an HTTP asset sources, this could be an entire additional download (if
+            // the asset source doesn't do any caching). In practice, most sources being processed
+            // are likely to be local, and processing in general is a publish-time operation, so
+            // it's not likely to be too big a deal. If in the future, we decide we want to avoid
+            // this repeated read, we could "ask" the asset source if it prefers avoiding repeated
+            // reads or not.
+            let reader_for_process = reader
+                .read(path, reader_features)
+                .await
+                .map_err(reader_err)?;
+
             let mut writer = processed_writer.write(path).await.map_err(writer_err)?;
             let mut processed_meta = {
                 let mut context = ProcessContext::new(
@@ -1171,7 +1196,7 @@ impl AssetProcessor {
                     &mut new_processed_info,
                 );
                 processor
-                    .process(&mut context, source_meta, &mut *writer)
+                    .process(&mut context, settings, &mut *writer)
                     .await?
             };
 
@@ -1199,8 +1224,13 @@ impl AssetProcessor {
                 .await
                 .map_err(writer_err)?;
         } else {
+            // See the reasoning for processing why it's ok to do a second read here.
+            let mut reader_for_copy = reader
+                .read(path, ReaderRequiredFeatures::default())
+                .await
+                .map_err(reader_err)?;
             let mut writer = processed_writer.write(path).await.map_err(writer_err)?;
-            futures_lite::io::copy(&mut reader_for_process, &mut writer)
+            futures_lite::io::copy(&mut reader_for_copy, &mut writer)
                 .await
                 .map_err(|err| ProcessError::AssetWriterError {
                     path: asset_path.clone_owned(),
@@ -1486,23 +1516,17 @@ impl<T: Process> Process for InstrumentedAssetProcessor<T> {
     fn process(
         &self,
         context: &mut ProcessContext,
-        meta: AssetMeta<(), Self>,
+        settings: &Self::Settings,
         writer: &mut crate::io::Writer,
     ) -> impl ConditionalSendFuture<
         Output = Result<<Self::OutputLoader as crate::AssetLoader>::Settings, ProcessError>,
     > {
-        // Change the processor type for the `AssetMeta`, which works because we share the `Settings` type.
-        let meta = AssetMeta {
-            meta_format_version: meta.meta_format_version,
-            processed_info: meta.processed_info,
-            asset: meta.asset,
-        };
         let span = info_span!(
             "asset processing",
             processor = T::type_path(),
             asset = context.path().to_string(),
         );
-        self.0.process(context, meta, writer).instrument(span)
+        self.0.process(context, settings, writer).instrument(span)
     }
 }
 

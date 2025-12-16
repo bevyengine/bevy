@@ -1,7 +1,8 @@
 use crate::{
     io::{
         AssetReaderError, AssetWriterError, MissingAssetWriterError,
-        MissingProcessedAssetReaderError, MissingProcessedAssetWriterError, Reader, Writer,
+        MissingProcessedAssetReaderError, MissingProcessedAssetWriterError, Reader,
+        ReaderRequiredFeatures, Writer,
     },
     meta::{AssetAction, AssetMeta, AssetMetaDyn, ProcessDependencyInfo, ProcessedInfo, Settings},
     processor::AssetProcessor,
@@ -37,11 +38,16 @@ pub trait Process: TypePath + Send + Sync + Sized + 'static {
     fn process(
         &self,
         context: &mut ProcessContext,
-        meta: AssetMeta<(), Self>,
+        settings: &Self::Settings,
         writer: &mut Writer,
     ) -> impl ConditionalSendFuture<
         Output = Result<<Self::OutputLoader as AssetLoader>::Settings, ProcessError>,
     >;
+
+    /// Gets the features of the reader required to process the asset.
+    fn reader_required_features(_settings: &Self::Settings) -> ReaderRequiredFeatures {
+        ReaderRequiredFeatures::default()
+    }
 }
 
 /// A flexible [`Process`] implementation that loads the source [`Asset`] using the `L` [`AssetLoader`], then transforms
@@ -181,18 +187,13 @@ where
     async fn process(
         &self,
         context: &mut ProcessContext<'_>,
-        meta: AssetMeta<(), Self>,
+        settings: &Self::Settings,
         writer: &mut Writer,
     ) -> Result<<Self::OutputLoader as AssetLoader>::Settings, ProcessError> {
-        let AssetAction::Process { settings, .. } = meta.asset else {
-            return Err(ProcessError::WrongMetaType);
-        };
-        let loader_meta = AssetMeta::<Loader, ()>::new(AssetAction::Load {
-            loader: Loader::type_path().to_string(),
-            settings: settings.loader_settings,
-        });
         let pre_transformed_asset = TransformedAsset::<Loader::Asset>::from_loaded(
-            context.load_source_asset(loader_meta).await?,
+            context
+                .load_source_asset::<Loader>(&settings.loader_settings)
+                .await?,
         )
         .unwrap();
 
@@ -212,6 +213,10 @@ where
             .map_err(|error| ProcessError::AssetSaveError(error.into()))?;
         Ok(output_settings)
     }
+
+    fn reader_required_features(settings: &Self::Settings) -> ReaderRequiredFeatures {
+        Loader::reader_required_features(&settings.loader_settings)
+    }
 }
 
 /// A type-erased variant of [`Process`] that enables interacting with processor implementations without knowing
@@ -221,9 +226,19 @@ pub trait ErasedProcessor: Send + Sync {
     fn process<'a>(
         &'a self,
         context: &'a mut ProcessContext,
-        meta: Box<dyn AssetMetaDyn>,
+        settings: &'a dyn Settings,
         writer: &'a mut Writer,
     ) -> BoxedFuture<'a, Result<Box<dyn AssetMetaDyn>, ProcessError>>;
+    /// Type-erased variant of [`Process::reader_required_features`].
+    // Note: This takes &self just to be dyn compatible.
+    #[expect(
+        clippy::result_large_err,
+        reason = "this is only an error here because this isn't a future"
+    )]
+    fn reader_required_features(
+        &self,
+        settings: &dyn Settings,
+    ) -> Result<ReaderRequiredFeatures, ProcessError>;
     /// Deserialized `meta` as type-erased [`AssetMeta`], operating under the assumption that it matches the meta
     /// for the underlying [`Process`] impl.
     fn deserialize_meta(&self, meta: &[u8]) -> Result<Box<dyn AssetMetaDyn>, DeserializeMetaError>;
@@ -235,14 +250,12 @@ impl<P: Process> ErasedProcessor for P {
     fn process<'a>(
         &'a self,
         context: &'a mut ProcessContext,
-        meta: Box<dyn AssetMetaDyn>,
+        settings: &'a dyn Settings,
         writer: &'a mut Writer,
     ) -> BoxedFuture<'a, Result<Box<dyn AssetMetaDyn>, ProcessError>> {
         Box::pin(async move {
-            let meta = meta
-                .downcast::<AssetMeta<(), P>>()
-                .map_err(|_e| ProcessError::WrongMetaType)?;
-            let loader_settings = <P as Process>::process(self, context, *meta, writer).await?;
+            let settings = settings.downcast_ref().ok_or(ProcessError::WrongMetaType)?;
+            let loader_settings = <P as Process>::process(self, context, settings, writer).await?;
             let output_meta: Box<dyn AssetMetaDyn> =
                 Box::new(AssetMeta::<P::OutputLoader, ()>::new(AssetAction::Load {
                     loader: P::OutputLoader::type_path().to_string(),
@@ -250,6 +263,14 @@ impl<P: Process> ErasedProcessor for P {
                 }));
             Ok(output_meta)
         })
+    }
+
+    fn reader_required_features(
+        &self,
+        settings: &dyn Settings,
+    ) -> Result<ReaderRequiredFeatures, ProcessError> {
+        let settings = settings.downcast_ref().ok_or(ProcessError::WrongMetaType)?;
+        Ok(P::reader_required_features(settings))
     }
 
     fn deserialize_meta(&self, meta: &[u8]) -> Result<Box<dyn AssetMetaDyn>, DeserializeMetaError> {
@@ -312,15 +333,15 @@ impl<'a> ProcessContext<'a> {
     /// current asset.
     pub async fn load_source_asset<L: AssetLoader>(
         &mut self,
-        meta: AssetMeta<L, ()>,
+        settings: &L::Settings,
     ) -> Result<ErasedLoadedAsset, AssetLoadError> {
         let server = &self.processor.server;
         let loader_name = L::type_path();
         let loader = server.get_asset_loader_with_type_name(loader_name).await?;
         let loaded_asset = server
-            .load_with_meta_loader_and_reader(
+            .load_with_settings_loader_and_reader(
                 self.path,
-                &meta,
+                settings,
                 &*loader,
                 &mut self.reader,
                 false,

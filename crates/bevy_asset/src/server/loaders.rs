@@ -15,6 +15,7 @@ use tracing::warn;
 
 #[cfg(feature = "trace")]
 use {
+    crate::io::ReaderRequiredFeatures,
     alloc::string::ToString,
     bevy_tasks::ConditionalSendFuture,
     tracing::{info_span, instrument::Instrument},
@@ -335,6 +336,10 @@ impl<T: AssetLoader> AssetLoader for InstrumentedAssetLoader<T> {
             asset = load_context.path().to_string(),
         );
         self.0.load(reader, settings, load_context).instrument(span)
+    }
+
+    fn reader_required_features(settings: &Self::Settings) -> ReaderRequiredFeatures {
+        T::reader_required_features(settings)
     }
 
     fn extensions(&self) -> &[&str] {

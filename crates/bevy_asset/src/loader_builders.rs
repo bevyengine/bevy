@@ -470,7 +470,13 @@ impl<'builder, 'reader, T> NestedLoader<'_, '_, T, Immediate<'builder, 'reader>>
 
         let asset = self
             .load_context
-            .load_direct_internal(path.clone(), meta.as_ref(), &*loader, reader.as_mut())
+            .load_direct_internal(
+                path.clone(),
+                meta.loader_settings().expect("meta corresponds to a load"),
+                &*loader,
+                reader.as_mut(),
+                meta.processed_info().as_ref(),
+            )
             .await?;
         Ok((loader, asset))
     }

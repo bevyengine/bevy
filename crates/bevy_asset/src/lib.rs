@@ -712,7 +712,7 @@ mod tests {
             gated::{GateOpener, GatedReader},
             memory::{Dir, MemoryAssetReader},
             AssetReader, AssetReaderError, AssetSourceBuilder, AssetSourceEvent, AssetSourceId,
-            AssetWatcher, Reader,
+            AssetWatcher, Reader, ReaderRequiredFeatures,
         },
         loader::{AssetLoader, LoadContext},
         Asset, AssetApp, AssetEvent, AssetId, AssetLoadError, AssetLoadFailedEvent, AssetPath,
@@ -868,7 +868,11 @@ mod tests {
         ) -> Result<impl Reader + 'a, AssetReaderError> {
             self.memory_reader.read_meta(path).await
         }
-        async fn read<'a>(&'a self, path: &'a Path) -> Result<impl Reader + 'a, AssetReaderError> {
+        async fn read<'a>(
+            &'a self,
+            path: &'a Path,
+            required_features: ReaderRequiredFeatures,
+        ) -> Result<impl Reader + 'a, AssetReaderError> {
             let attempt_number = {
                 let mut attempt_counters = self.attempt_counters.lock().unwrap();
                 if let Some(existing) = attempt_counters.get_mut(path) {
@@ -896,7 +900,7 @@ mod tests {
                 .await;
             }
 
-            self.memory_reader.read(path).await
+            self.memory_reader.read(path, required_features).await
         }
     }
 
