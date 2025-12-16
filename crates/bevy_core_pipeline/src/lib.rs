@@ -11,6 +11,7 @@ pub mod core_2d;
 pub mod core_3d;
 pub mod deferred;
 pub mod experimental;
+pub mod fullscreen_material;
 pub mod oit;
 pub mod prepass;
 pub mod tonemapping;

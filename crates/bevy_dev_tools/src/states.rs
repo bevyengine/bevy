@@ -16,10 +16,12 @@ pub fn log_transitions<S: States>(mut transitions: MessageReader<StateTransition
     let StateTransitionEvent {
         exited,
         entered,
-        same_state_enforced,
+        allow_same_state_transitions,
     } = transition;
-    info!(
-        "{} transition: {:?} => {:?} | same state enforced: {:?}",
-        name, exited, entered, same_state_enforced
-    );
+    let skip_text = if exited == entered && !*allow_same_state_transitions {
+        " (disallowing same-state transitions)"
+    } else {
+        ""
+    };
+    info!("{name} transition: {exited:?} => {entered:?}{skip_text}");
 }

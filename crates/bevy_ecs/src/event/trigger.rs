@@ -1,3 +1,4 @@
+use crate::event::SetEntityEventTarget;
 use crate::{
     component::ComponentId,
     entity::Entity,
@@ -267,7 +268,7 @@ impl<const AUTO_PROPAGATE: bool, E: EntityEvent, T: Traversal<E>> fmt::Debug
 // - `E`'s [`Event::Trigger`] is constrained to [`PropagateEntityTrigger<E>`]
 unsafe impl<
         const AUTO_PROPAGATE: bool,
-        E: EntityEvent + for<'a> Event<Trigger<'a> = Self>,
+        E: EntityEvent + SetEntityEventTarget + for<'a> Event<Trigger<'a> = Self>,
         T: Traversal<E>,
     > Trigger<E> for PropagateEntityTrigger<AUTO_PROPAGATE, E, T>
 {
@@ -301,7 +302,7 @@ unsafe impl<
                 return;
             }
             if let Ok(entity) = world.get_entity(current_entity)
-                && let Some(item) = entity.get_components::<T>()
+                && let Ok(item) = entity.get_components::<T>()
                 && let Some(traverse_to) = T::traverse(item, event)
             {
                 current_entity = traverse_to;
@@ -309,7 +310,7 @@ unsafe impl<
                 break;
             }
 
-            *event.event_target_mut() = current_entity;
+            event.set_event_target(current_entity);
             // SAFETY:
             // - `observers` come from `world` and match the event type `E`, enforced by the call to `trigger`
             // - the passed in event pointer comes from `event`, which is an `Event`

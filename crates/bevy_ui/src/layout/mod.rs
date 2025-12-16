@@ -25,7 +25,7 @@ use bevy_text::CosmicFontSystem;
 
 mod convert;
 pub mod debug;
-pub(crate) mod ui_surface;
+pub mod ui_surface;
 
 pub struct LayoutContext {
     pub scale_factor: f32,

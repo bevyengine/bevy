@@ -850,7 +850,7 @@ unsafe impl<T: Component> QueryFilter for Added<T> {
                 // SAFETY: set_table was previously called
                 let table = unsafe { table.debug_checked_unwrap() };
                 // SAFETY: The caller ensures `table_row` is in range.
-                let tick = unsafe { table.get(table_row.index()) };
+                let tick = unsafe { table.get_unchecked(table_row.index()) };
 
                 tick.deref().is_newer_than(fetch.last_run, fetch.this_run)
             },
@@ -1078,7 +1078,7 @@ unsafe impl<T: Component> QueryFilter for Changed<T> {
                 // SAFETY: set_table was previously called
                 let table = unsafe { table.debug_checked_unwrap() };
                 // SAFETY: The caller ensures `table_row` is in range.
-                let tick = unsafe { table.get(table_row.index()) };
+                let tick = unsafe { table.get_unchecked(table_row.index()) };
 
                 tick.deref().is_newer_than(fetch.last_run, fetch.this_run)
             },

@@ -110,20 +110,18 @@ pub fn component_clone_via_reflect(source: &SourceComponent, ctx: &mut Component
     // Try to clone using ReflectFromReflect
     if let Some(reflect_from_reflect) =
         registry.get_type_data::<bevy_reflect::ReflectFromReflect>(type_id)
-    {
-        if let Some(mut component) =
+        && let Some(mut component) =
             reflect_from_reflect.from_reflect(source_component_reflect.as_partial_reflect())
+    {
+        if let Some(reflect_component) =
+            registry.get_type_data::<crate::reflect::ReflectComponent>(type_id)
         {
-            if let Some(reflect_component) =
-                registry.get_type_data::<crate::reflect::ReflectComponent>(type_id)
-            {
-                reflect_component.map_entities(&mut *component, ctx.entity_mapper());
-            }
-            drop(registry);
-
-            ctx.write_target_component_reflect(component);
-            return;
+            reflect_component.map_entities(&mut *component, ctx.entity_mapper());
         }
+        drop(registry);
+
+        ctx.write_target_component_reflect(component);
+        return;
     }
     // Else, try to clone using ReflectDefault
     if let Some(reflect_default) =
