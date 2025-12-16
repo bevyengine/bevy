@@ -129,7 +129,7 @@ fn setup(mut commands: Commands, mut font_system: ResMut<CosmicFontSystem>) {
                         ]
                     ),
                     (
-                        // Right column: Widths (wdth axis)
+                        // Right column: Widths
                         Node {
                             flex_direction: FlexDirection::Column,
                             padding: px(8.).all(),
