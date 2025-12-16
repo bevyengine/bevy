@@ -324,16 +324,16 @@ impl TextPipeline {
                 text_font.weight.clamp().0,
             );
 
-            if let Some((id, _)) = self.map_handle_to_font_id.get(&section_info.0) {
-                if let Some(font) = font_system.get_font(*id, cosmic_text::Weight(section_info.6)) {
-                    let swash = font.as_swash();
-                    let metrics = swash.metrics(&[]);
-                    let upem = metrics.units_per_em as f32;
-                    let scalar = section_info.2 * scale_factor as f32 / upem;
-                    section_info.3 = (metrics.strikeout_offset * scalar).round();
-                    section_info.4 = (metrics.stroke_size * scalar).round().max(1.);
-                    section_info.5 = (metrics.underline_offset * scalar).round();
-                }
+            if let Some((id, _)) = self.map_handle_to_font_id.get(&section_info.0)
+                && let Some(font) = font_system.get_font(*id, cosmic_text::Weight(section_info.6))
+            {
+                let swash = font.as_swash();
+                let metrics = swash.metrics(&[]);
+                let upem = metrics.units_per_em as f32;
+                let scalar = section_info.2 * scale_factor as f32 / upem;
+                section_info.3 = (metrics.strikeout_offset * scalar).round();
+                section_info.4 = (metrics.stroke_size * scalar).round().max(1.);
+                section_info.5 = (metrics.underline_offset * scalar).round();
             }
             self.glyph_info.push(section_info);
         }
