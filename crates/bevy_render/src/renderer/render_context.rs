@@ -1,8 +1,3 @@
-//! System parameter-based render context for the schedule-driven render graph replacement.
-//!
-//! This module provides resources and system parameters for schedule-based rendering,
-//! replacing the node-based render graph approach.
-
 use crate::diagnostic::internal::DiagnosticsRecorder;
 use crate::render_phase::TrackedRenderPass;
 use crate::render_resource::{CommandEncoder, RenderPassDescriptor};
@@ -22,6 +17,7 @@ use wgpu::CommandBuffer;
 #[derive(Resource, Default)]
 pub struct PendingCommandBuffers {
     buffers: Vec<CommandBuffer>,
+    encoders: Vec<CommandEncoder>,
 }
 
 impl PendingCommandBuffers {
@@ -29,16 +25,23 @@ impl PendingCommandBuffers {
         self.buffers.extend(buffers);
     }
 
+    pub fn push_encoder(&mut self, encoder: CommandEncoder) {
+        self.encoders.push(encoder);
+    }
+
     pub fn take(&mut self) -> Vec<CommandBuffer> {
+        for encoder in self.encoders.drain(..) {
+            self.buffers.push(encoder.finish());
+        }
         core::mem::take(&mut self.buffers)
     }
 
     pub fn is_empty(&self) -> bool {
-        self.buffers.is_empty()
+        self.buffers.is_empty() && self.encoders.is_empty()
     }
 
     pub fn len(&self) -> usize {
-        self.buffers.len()
+        self.buffers.len() + self.encoders.len()
     }
 }
 
@@ -75,12 +78,18 @@ impl RenderContextState {
 
 impl SystemBuffer for RenderContextState {
     fn apply(&mut self, _system_meta: &SystemMeta, world: &mut World) {
-        if !self.command_buffers.is_empty() || self.command_encoder.is_some() {
-            let command_buffers = self.finish();
+        let has_buffers = !self.command_buffers.is_empty();
+        let has_encoder = self.command_encoder.is_some();
 
-            if !command_buffers.is_empty() {
-                let mut pending = world.resource_mut::<PendingCommandBuffers>();
-                pending.push(command_buffers);
+        if has_buffers || has_encoder {
+            let mut pending = world.resource_mut::<PendingCommandBuffers>();
+
+            if has_buffers {
+                pending.push(core::mem::take(&mut self.command_buffers));
+            }
+
+            if let Some(encoder) = self.command_encoder.take() {
+                pending.push_encoder(encoder);
             }
         }
 

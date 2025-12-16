@@ -312,7 +312,9 @@ impl Plugin for PbrPlugin {
         render_app.add_systems(
             Core3d,
             (
-                early_shadow_pass.before(late_shadow_pass),
+                early_shadow_pass
+                    .after(Core3dSystems::EndPrepasses)
+                    .before(late_shadow_pass),
                 late_shadow_pass.before(Core3dSystems::StartMainPass),
             ),
         );
