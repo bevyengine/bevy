@@ -33,7 +33,7 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@stable
 
-      - uses: actions/cache/restore@v4
+      - uses: actions/cache/restore@v5
         with:
           # key won't match, will rely on restore-keys
           key: ${{ runner.os }}-stable-aarch64-apple-ios-sim-${{ hashFiles('**/Cargo.toml') }}-
@@ -69,7 +69,7 @@ jobs:
           java-version: "17"
           distribution: "temurin"
 
-      - uses: actions/cache/restore@v4
+      - uses: actions/cache/restore@v5
         with:
           # key won't match, will rely on restore-keys
           key: ${{ runner.os }}-stable-aarch64-linux-android-${{ hashFiles('**/Cargo.toml') }}-
@@ -107,7 +107,7 @@ jobs:
         with:
           target: wasm32-unknown-unknown
 
-      - uses: actions/cache/restore@v4
+      - uses: actions/cache/restore@v5
         with:
           # key won't match, will rely on restore-keys
           key: ${{ runner.os }}-stable-wasm32-unknown-unknown-${{ hashFiles('**/Cargo.toml') }}-
@@ -193,7 +193,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ env.NIGHTLY_TOOLCHAIN }}
-      - uses: actions/cache/restore@v4
+      - uses: actions/cache/restore@v5
         with:
           # key won't match, will rely on restore-keys
           key: ${{ runner.os }}-${{ env.NIGHTLY_TOOLCHAIN }}--${{ hashFiles('**/Cargo.toml') }}-
@@ -221,7 +221,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - uses: dtolnay/rust-toolchain@stable
-      - uses: actions/cache/restore@v4
+      - uses: actions/cache/restore@v5
         with:
           # key won't match, will rely on restore-keys
           key: ${{ runner.os }}-stable--${{ hashFiles('**/Cargo.toml') }}-
