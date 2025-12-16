@@ -742,9 +742,10 @@ pub fn late_gpu_preprocess(
 }
 
 pub fn early_prepass_build_indirect_parameters(
-    _view: ViewQuery<
+    views: Query<
         (),
         (
+            With<PreprocessBindGroups>,
             Without<SkipGpuPreprocess>,
             Without<NoIndirectDrawing>,
             Or<(With<DepthPrepass>, With<ShadowView>)>,
@@ -756,6 +757,10 @@ pub fn early_prepass_build_indirect_parameters(
     indirect_parameters_buffers: Option<Res<IndirectParametersBuffers>>,
     mut ctx: RenderContext,
 ) {
+    if views.iter().next().is_none() {
+        return;
+    }
+
     run_build_indirect_parameters(
         &mut ctx,
         build_indirect_params_bind_groups.as_deref(),
@@ -767,9 +772,10 @@ pub fn early_prepass_build_indirect_parameters(
 }
 
 pub fn late_prepass_build_indirect_parameters(
-    _view: ViewQuery<
+    views: Query<
         (),
         (
+            With<PreprocessBindGroups>,
             Without<SkipGpuPreprocess>,
             Without<NoIndirectDrawing>,
             Or<(With<DepthPrepass>, With<ShadowView>)>,
@@ -782,6 +788,10 @@ pub fn late_prepass_build_indirect_parameters(
     indirect_parameters_buffers: Option<Res<IndirectParametersBuffers>>,
     mut ctx: RenderContext,
 ) {
+    if views.iter().next().is_none() {
+        return;
+    }
+
     run_build_indirect_parameters(
         &mut ctx,
         build_indirect_params_bind_groups.as_deref(),
@@ -793,13 +803,24 @@ pub fn late_prepass_build_indirect_parameters(
 }
 
 pub fn main_build_indirect_parameters(
-    _view: ViewQuery<(), (Without<SkipGpuPreprocess>, Without<NoIndirectDrawing>)>,
+    views: Query<
+        (),
+        (
+            With<PreprocessBindGroups>,
+            Without<SkipGpuPreprocess>,
+            Without<NoIndirectDrawing>,
+        ),
+    >,
     preprocess_pipelines: Res<PreprocessPipelines>,
     build_indirect_params_bind_groups: Option<Res<BuildIndirectParametersBindGroups>>,
     pipeline_cache: Res<PipelineCache>,
     indirect_parameters_buffers: Option<Res<IndirectParametersBuffers>>,
     mut ctx: RenderContext,
 ) {
+    if views.iter().next().is_none() {
+        return;
+    }
+
     run_build_indirect_parameters(
         &mut ctx,
         build_indirect_params_bind_groups.as_deref(),
