@@ -7,7 +7,7 @@ use bevy_reflect::prelude::*;
 use bevy_utils::{default, once};
 use core::fmt::{Debug, Formatter};
 use core::str::from_utf8;
-use cosmic_text::{Buffer, Metrics};
+use cosmic_text::{Buffer, Metrics, Stretch};
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
 use tracing::warn;
@@ -258,6 +258,8 @@ pub struct TextFont {
     /// * otherwise no text will be rendered, unless a custom font is loaded into the default font
     ///   handle.
     pub font: Handle<Font>,
+    /// Name of the font's family, overrides the `font` field.
+    pub family: Option<String>,
     /// The vertical height of rasterized glyphs in the font atlas in pixels.
     ///
     /// This is multiplied by the window scale factor and `UiScale`, but not the text entity
@@ -272,6 +274,11 @@ pub struct TextFont {
     ///
     /// Only supports variable weight fonts.
     pub weight: FontWeight,
+    /// How condensed or expanded the glyphs appear horizontally.
+    pub width: FontWidth,
+    /// The slant style of a font face: normal, italic, or oblique.
+    pub style: FontStyle,
+
     /// The antialiasing method to use when rendering text.
     pub font_smoothing: FontSmoothing,
     /// OpenType features for .otf fonts that support them.
@@ -313,8 +320,11 @@ impl Default for TextFont {
     fn default() -> Self {
         Self {
             font: Default::default(),
+            family: None,
             font_size: 20.0,
+            style: FontStyle::Normal,
             weight: FontWeight::NORMAL,
+            width: FontWidth::NORMAL,
             font_features: FontFeatures::default(),
             font_smoothing: Default::default(),
         }
@@ -386,6 +396,88 @@ impl Default for FontWeight {
 impl From<FontWeight> for cosmic_text::Weight {
     fn from(value: FontWeight) -> Self {
         cosmic_text::Weight(value.clamp().0)
+    }
+}
+
+/// https://docs.microsoft.com/en-us/typography/opentype/spec/os2#uswidthclass
+#[derive(Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Debug, Hash, Reflect)]
+pub struct FontWidth(u16);
+
+impl FontWidth {
+    /// 50% of normal width.
+    pub const ULTRA_CONDENSED: Self = Self(1);
+
+    /// 62.5% of normal width.
+    pub const EXTRA_CONDENSED: Self = Self(2);
+
+    /// 75% of normal width.
+    pub const CONDENSED: Self = Self(3);
+
+    /// 87.5% of normal width.
+    pub const SEMI_CONDENSED: Self = Self(4);
+
+    /// 100% of normal width. This is the default.
+    pub const NORMAL: Self = Self(5);
+
+    /// 112.5% of normal width.
+    pub const SEMI_EXPANDED: Self = Self(6);
+
+    /// 125% of normal width.
+    pub const EXPANDED: Self = Self(7);
+
+    /// 150% of normal width.
+    pub const EXTRA_EXPANDED: Self = Self(8);
+
+    /// 200% of normal width.
+    pub const ULTRA_EXPANDED: Self = Self(9);
+}
+
+impl Default for FontWidth {
+    fn default() -> Self {
+        Self::NORMAL
+    }
+}
+
+impl From<FontWidth> for Stretch {
+    fn from(value: FontWidth) -> Self {
+        match value.0 {
+            1 => Stretch::UltraCondensed,
+            2 => Stretch::ExtraCondensed,
+            3 => Stretch::Condensed,
+            4 => Stretch::SemiCondensed,
+            6 => Stretch::SemiExpanded,
+            7 => Stretch::Expanded,
+            8 => Stretch::ExtraExpanded,
+            9 => Stretch::UltraExpanded,
+            _ => Stretch::Normal,
+        }
+    }
+}
+
+/// The slant style of a font face: normal, italic, or oblique.
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Hash, Reflect)]
+pub enum FontStyle {
+    /// A face that is neither italic nor obliqued.
+    Normal,
+    /// A form that is generally cursive in nature.
+    Italic,
+    /// A typically sloped version of the regular face.
+    Oblique,
+}
+
+impl Default for FontStyle {
+    fn default() -> Self {
+        Self::Normal
+    }
+}
+
+impl From<FontStyle> for cosmic_text::Style {
+    fn from(value: FontStyle) -> Self {
+        match value {
+            FontStyle::Normal => cosmic_text::Style::Normal,
+            FontStyle::Italic => cosmic_text::Style::Italic,
+            FontStyle::Oblique => cosmic_text::Style::Oblique,
+        }
     }
 }
 
