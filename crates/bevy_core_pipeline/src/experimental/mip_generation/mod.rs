@@ -7,9 +7,11 @@
 
 use core::array;
 
-use crate::core_3d::{
-    graph::{Core3d, Node3d},
-    prepare_core_3d_depth_textures,
+use crate::{
+    core_3d::prepare_core_3d_depth_textures,
+    deferred::node::early_deferred_prepass,
+    prepass::node::late_prepass,
+    schedule::{Core3d, Core3dSystems},
 };
 use bevy_app::{App, Plugin};
 use bevy_asset::{embedded_asset, load_embedded_asset, Handle};
@@ -18,11 +20,10 @@ use bevy_ecs::{
     component::Component,
     entity::Entity,
     prelude::{resource_exists, Without},
-    query::{Or, QueryState, With},
+    query::{Or, With},
     resource::Resource,
     schedule::IntoScheduleConfigs as _,
-    system::{lifetimeless::Read, Commands, Local, Query, Res, ResMut},
-    world::{FromWorld, World},
+    system::{Commands, Local, Query, Res, ResMut},
 };
 use bevy_math::{uvec2, UVec2, Vec4Swizzles as _};
 use bevy_render::{
@@ -33,7 +34,6 @@ use bevy_render::{
     experimental::occlusion_culling::{
         OcclusionCulling, OcclusionCullingSubview, OcclusionCullingSubviewEntities,
     },
-    render_graph::{Node, NodeRunError, RenderGraphContext, RenderGraphExt},
     render_resource::{
         binding_types::{sampler, texture_2d, texture_2d_multisampled, texture_storage_2d},
         BindGroup, BindGroupEntries, BindGroupLayout, BindGroupLayoutEntries,
@@ -43,7 +43,7 @@ use bevy_render::{
         StorageTextureAccess, TextureAspect, TextureDescriptor, TextureDimension, TextureFormat,
         TextureSampleType, TextureUsages, TextureView, TextureViewDescriptor, TextureViewDimension,
     },
-    renderer::{RenderContext, RenderDevice},
+    renderer::{RenderContext, RenderDevice, ViewQuery},
     texture::TextureCache,
     view::{ExtractedView, NoIndirectDrawing, ViewDepthTexture},
     Render, RenderApp, RenderSystems,
@@ -83,26 +83,6 @@ impl Plugin for MipGenerationPlugin {
         render_app
             .insert_resource(DownsampleDepthShader(downsample_depth_shader))
             .init_resource::<SpecializedComputePipelines<DownsampleDepthPipeline>>()
-            .add_render_graph_node::<DownsampleDepthNode>(Core3d, Node3d::EarlyDownsampleDepth)
-            .add_render_graph_node::<DownsampleDepthNode>(Core3d, Node3d::LateDownsampleDepth)
-            .add_render_graph_edges(
-                Core3d,
-                (
-                    Node3d::EarlyPrepass,
-                    Node3d::EarlyDeferredPrepass,
-                    Node3d::EarlyDownsampleDepth,
-                    Node3d::LatePrepass,
-                    Node3d::LateDeferredPrepass,
-                ),
-            )
-            .add_render_graph_edges(
-                Core3d,
-                (
-                    Node3d::StartMainPassPostProcessing,
-                    Node3d::LateDownsampleDepth,
-                    Node3d::EndMainPassPostProcessing,
-                ),
-            )
             .add_systems(RenderStartup, init_depth_pyramid_dummy_texture)
             .add_systems(
                 Render,
@@ -119,127 +99,150 @@ impl Plugin for MipGenerationPlugin {
                     .run_if(resource_exists::<DownsampleDepthPipelines>)
                     .after(prepare_core_3d_depth_textures),
             );
-    }
-}
 
-/// The nodes that produce a hierarchical Z-buffer, also known as a depth
-/// pyramid.
-///
-/// This runs the single-pass downsampling (SPD) shader with the *min* filter in
-/// order to generate a series of mipmaps for the Z buffer. The resulting
-/// hierarchical Z-buffer can be used for occlusion culling.
-///
-/// There are two instances of this node. The *early* downsample depth pass is
-/// the first hierarchical Z-buffer stage, which runs after the early prepass
-/// and before the late prepass. It prepares the Z-buffer for the bounding box
-/// tests that the late mesh preprocessing stage will perform. The *late*
-/// downsample depth pass runs at the end of the main phase. It prepares the
-/// Z-buffer for the occlusion culling that the early mesh preprocessing phase
-/// of the *next* frame will perform.
-///
-/// This node won't do anything if occlusion culling isn't on.
-pub struct DownsampleDepthNode {
-    /// The query that we use to find views that need occlusion culling for
-    /// their Z-buffer.
-    main_view_query: QueryState<(
-        Read<ViewDepthPyramid>,
-        Read<ViewDownsampleDepthBindGroup>,
-        Read<ViewDepthTexture>,
-        Option<Read<OcclusionCullingSubviewEntities>>,
-    )>,
-    /// The query that we use to find shadow maps that need occlusion culling.
-    shadow_view_query: QueryState<(
-        Read<ViewDepthPyramid>,
-        Read<ViewDownsampleDepthBindGroup>,
-        Read<OcclusionCullingSubview>,
-    )>,
-}
-
-impl FromWorld for DownsampleDepthNode {
-    fn from_world(world: &mut World) -> Self {
-        Self {
-            main_view_query: QueryState::new(world),
-            shadow_view_query: QueryState::new(world),
-        }
-    }
-}
-
-impl Node for DownsampleDepthNode {
-    fn update(&mut self, world: &mut World) {
-        self.main_view_query.update_archetypes(world);
-        self.shadow_view_query.update_archetypes(world);
-    }
-
-    fn run<'w>(
-        &self,
-        render_graph_context: &mut RenderGraphContext,
-        render_context: &mut RenderContext<'w>,
-        world: &'w World,
-    ) -> Result<(), NodeRunError> {
-        let Ok((
-            view_depth_pyramid,
-            view_downsample_depth_bind_group,
-            view_depth_texture,
-            maybe_view_light_entities,
-        )) = self
-            .main_view_query
-            .get_manual(world, render_graph_context.view_entity())
-        else {
-            return Ok(());
-        };
-
-        // Downsample depth for the main Z-buffer.
-        downsample_depth(
-            render_graph_context,
-            render_context,
-            world,
-            view_depth_pyramid,
-            view_downsample_depth_bind_group,
-            uvec2(
-                view_depth_texture.texture.width(),
-                view_depth_texture.texture.height(),
+        render_app.add_systems(
+            Core3d,
+            (
+                early_downsample_depth
+                    .after(early_deferred_prepass)
+                    .before(late_prepass),
+                late_downsample_depth
+                    .after(Core3dSystems::StartMainPassPostProcessing)
+                    .before(Core3dSystems::EndMainPassPostProcessing),
             ),
-            view_depth_texture.texture.sample_count(),
-        )?;
+        );
+    }
+}
 
-        // Downsample depth for shadow maps that have occlusion culling enabled.
-        if let Some(view_light_entities) = maybe_view_light_entities {
-            for &view_light_entity in &view_light_entities.0 {
-                let Ok((view_depth_pyramid, view_downsample_depth_bind_group, occlusion_culling)) =
-                    self.shadow_view_query.get_manual(world, view_light_entity)
-                else {
-                    continue;
-                };
-                downsample_depth(
-                    render_graph_context,
-                    render_context,
-                    world,
-                    view_depth_pyramid,
-                    view_downsample_depth_bind_group,
-                    UVec2::splat(occlusion_culling.depth_texture_size),
-                    1,
-                )?;
-            }
+pub fn early_downsample_depth(
+    view: ViewQuery<(
+        &ViewDepthPyramid,
+        &ViewDownsampleDepthBindGroup,
+        &ViewDepthTexture,
+        Option<&OcclusionCullingSubviewEntities>,
+    )>,
+    shadow_view_query: Query<(
+        &ViewDepthPyramid,
+        &ViewDownsampleDepthBindGroup,
+        &OcclusionCullingSubview,
+    )>,
+    downsample_depth_pipelines: Option<Res<DownsampleDepthPipelines>>,
+    pipeline_cache: Res<PipelineCache>,
+    mut ctx: RenderContext,
+) {
+    run_downsample_depth_system(
+        "early_downsample_depth",
+        view.into_inner(),
+        &shadow_view_query,
+        downsample_depth_pipelines.as_deref(),
+        &pipeline_cache,
+        &mut ctx,
+    );
+}
+
+pub fn late_downsample_depth(
+    view: ViewQuery<(
+        &ViewDepthPyramid,
+        &ViewDownsampleDepthBindGroup,
+        &ViewDepthTexture,
+        Option<&OcclusionCullingSubviewEntities>,
+    )>,
+    shadow_view_query: Query<(
+        &ViewDepthPyramid,
+        &ViewDownsampleDepthBindGroup,
+        &OcclusionCullingSubview,
+    )>,
+    downsample_depth_pipelines: Option<Res<DownsampleDepthPipelines>>,
+    pipeline_cache: Res<PipelineCache>,
+    mut ctx: RenderContext,
+) {
+    run_downsample_depth_system(
+        "late_downsample_depth",
+        view.into_inner(),
+        &shadow_view_query,
+        downsample_depth_pipelines.as_deref(),
+        &pipeline_cache,
+        &mut ctx,
+    );
+}
+
+fn run_downsample_depth_system(
+    label: &'static str,
+    main_view_data: (
+        &ViewDepthPyramid,
+        &ViewDownsampleDepthBindGroup,
+        &ViewDepthTexture,
+        Option<&OcclusionCullingSubviewEntities>,
+    ),
+    shadow_view_query: &Query<(
+        &ViewDepthPyramid,
+        &ViewDownsampleDepthBindGroup,
+        &OcclusionCullingSubview,
+    )>,
+    downsample_depth_pipelines: Option<&DownsampleDepthPipelines>,
+    pipeline_cache: &PipelineCache,
+    ctx: &mut RenderContext,
+) {
+    let Some(downsample_depth_pipelines) = downsample_depth_pipelines else {
+        return;
+    };
+
+    let (
+        view_depth_pyramid,
+        view_downsample_depth_bind_group,
+        view_depth_texture,
+        maybe_view_light_entities,
+    ) = main_view_data;
+
+    // Downsample depth for the main Z-buffer.
+    downsample_depth(
+        label,
+        ctx,
+        downsample_depth_pipelines,
+        pipeline_cache,
+        view_depth_pyramid,
+        view_downsample_depth_bind_group,
+        uvec2(
+            view_depth_texture.texture.width(),
+            view_depth_texture.texture.height(),
+        ),
+        view_depth_texture.texture.sample_count(),
+    );
+
+    // Downsample depth for shadow maps that have occlusion culling enabled.
+    if let Some(view_light_entities) = maybe_view_light_entities {
+        for &view_light_entity in &view_light_entities.0 {
+            let Ok((view_depth_pyramid, view_downsample_depth_bind_group, occlusion_culling)) =
+                shadow_view_query.get(view_light_entity)
+            else {
+                continue;
+            };
+            downsample_depth(
+                label,
+                ctx,
+                downsample_depth_pipelines,
+                pipeline_cache,
+                view_depth_pyramid,
+                view_downsample_depth_bind_group,
+                UVec2::splat(occlusion_culling.depth_texture_size),
+                1,
+            );
         }
-
-        Ok(())
     }
 }
 
 /// Produces a depth pyramid from the current depth buffer for a single view.
 /// The resulting depth pyramid can be used for occlusion testing.
-fn downsample_depth<'w>(
-    render_graph_context: &mut RenderGraphContext,
-    render_context: &mut RenderContext<'w>,
-    world: &'w World,
+fn downsample_depth(
+    label: &str,
+    ctx: &mut RenderContext,
+    downsample_depth_pipelines: &DownsampleDepthPipelines,
+    pipeline_cache: &PipelineCache,
     view_depth_pyramid: &ViewDepthPyramid,
     view_downsample_depth_bind_group: &ViewDownsampleDepthBindGroup,
     view_size: UVec2,
     sample_count: u32,
-) -> Result<(), NodeRunError> {
-    let downsample_depth_pipelines = world.resource::<DownsampleDepthPipelines>();
-    let pipeline_cache = world.resource::<PipelineCache>();
-
+) {
     // Despite the name "single-pass downsampling", we actually need two
     // passes because of the lack of `coherent` buffers in WGPU/WGSL.
     // Between each pass, there's an implicit synchronization barrier.
@@ -259,7 +262,7 @@ fn downsample_depth<'w>(
             )
         })
     else {
-        return Ok(());
+        return;
     };
 
     // Fetch the pipelines for the two passes.
@@ -267,19 +270,18 @@ fn downsample_depth<'w>(
         pipeline_cache.get_compute_pipeline(first_downsample_depth_pipeline_id),
         pipeline_cache.get_compute_pipeline(second_downsample_depth_pipeline_id),
     ) else {
-        return Ok(());
+        return;
     };
 
     // Run the depth downsampling.
-    view_depth_pyramid.downsample_depth(
-        &format!("{:?}", render_graph_context.label()),
-        render_context,
+    view_depth_pyramid.downsample_depth_with_ctx(
+        label,
+        ctx,
         view_size,
         view_downsample_depth_bind_group,
         first_downsample_depth_pipeline,
         second_downsample_depth_pipeline,
     );
-    Ok(())
 }
 
 /// A single depth downsample pipeline.
@@ -675,19 +677,16 @@ impl ViewDepthPyramid {
         )
     }
 
-    /// Invokes the shaders to generate the hierarchical Z-buffer.
-    ///
-    /// This is intended to be invoked as part of a render node.
-    pub fn downsample_depth(
+    pub fn downsample_depth_with_ctx(
         &self,
         label: &str,
-        render_context: &mut RenderContext,
+        ctx: &mut RenderContext,
         view_size: UVec2,
         downsample_depth_bind_group: &BindGroup,
         downsample_depth_first_pipeline: &ComputePipeline,
         downsample_depth_second_pipeline: &ComputePipeline,
     ) {
-        let command_encoder = render_context.command_encoder();
+        let command_encoder = ctx.command_encoder();
         let mut downsample_pass = command_encoder.begin_compute_pass(&ComputePassDescriptor {
             label: Some(label),
             timestamp_writes: None,

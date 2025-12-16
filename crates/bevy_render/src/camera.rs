@@ -3,7 +3,6 @@ use crate::{
     extract_component::{ExtractComponent, ExtractComponentPlugin},
     extract_resource::{ExtractResource, ExtractResourcePlugin},
     render_asset::RenderAssets,
-    render_graph::{CameraDriverNode, InternedRenderSubGraph, RenderGraph, RenderSubGraph},
     render_resource::TextureView,
     sync_world::{RenderEntity, SyncToRenderWorld},
     texture::{GpuImage, ManualTextureViews},
@@ -35,7 +34,7 @@ use bevy_ecs::{
     query::{Has, QueryItem},
     reflect::ReflectComponent,
     resource::Resource,
-    schedule::IntoScheduleConfigs,
+    schedule::{InternedScheduleLabel, IntoScheduleConfigs, ScheduleLabel},
     system::{Commands, Query, Res, ResMut},
     world::DeferredWorld,
 };
@@ -78,9 +77,6 @@ impl Plugin for CameraPlugin {
                 .init_resource::<SortedCameras>()
                 .add_systems(ExtractSchedule, extract_cameras)
                 .add_systems(Render, sort_cameras.in_set(RenderSystems::ManageViews));
-            let camera_driver_node = CameraDriverNode::new(render_app.world_mut());
-            let mut render_graph = render_app.world_mut().resource_mut::<RenderGraph>();
-            render_graph.add_node(crate::graph::CameraDriverLabel, camera_driver_node);
         }
     }
 }
@@ -127,23 +123,23 @@ impl ExtractComponent for Camera3d {
     }
 }
 
-/// Configures the [`RenderGraph`] name assigned to be run for a given [`Camera`] entity.
+/// Configures the render schedule to be run for a given [`Camera`] entity.
 #[derive(Component, Debug, Deref, DerefMut, Reflect, Clone)]
 #[reflect(opaque)]
 #[reflect(Component, Debug, Clone)]
-pub struct CameraRenderGraph(InternedRenderSubGraph);
+pub struct CameraRenderGraph(pub InternedScheduleLabel);
 
 impl CameraRenderGraph {
-    /// Creates a new [`CameraRenderGraph`] from any string-like type.
+    /// Creates a new [`CameraRenderGraph`] from a schedule label.
     #[inline]
-    pub fn new<T: RenderSubGraph>(name: T) -> Self {
-        Self(name.intern())
+    pub fn new<T: ScheduleLabel>(schedule: T) -> Self {
+        Self(schedule.intern())
     }
 
-    /// Sets the graph name.
+    /// Sets the schedule.
     #[inline]
-    pub fn set<T: RenderSubGraph>(&mut self, name: T) {
-        self.0 = name.intern();
+    pub fn set<T: ScheduleLabel>(&mut self, schedule: T) {
+        self.0 = schedule.intern();
     }
 }
 
@@ -406,7 +402,7 @@ pub struct ExtractedCamera {
     pub physical_viewport_size: Option<UVec2>,
     pub physical_target_size: Option<UVec2>,
     pub viewport: Option<Viewport>,
-    pub render_graph: InternedRenderSubGraph,
+    pub schedule: InternedScheduleLabel,
     pub order: isize,
     pub output_mode: CameraOutputMode,
     pub msaa_writeback: MsaaWriteback,
@@ -533,7 +529,7 @@ pub fn extract_cameras(
                     viewport: camera.viewport.clone(),
                     physical_viewport_size: Some(viewport_size),
                     physical_target_size: Some(target_size),
-                    render_graph: camera_render_graph.0,
+                    schedule: camera_render_graph.0,
                     order: camera.order,
                     output_mode: camera.output_mode,
                     msaa_writeback: camera.msaa_writeback,

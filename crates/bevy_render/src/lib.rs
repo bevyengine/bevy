@@ -52,7 +52,6 @@ pub mod mesh;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod pipelined_rendering;
 pub mod render_asset;
-pub mod render_graph;
 pub mod render_phase;
 pub mod render_resource;
 pub mod renderer;
@@ -279,13 +278,6 @@ impl DerefMut for MainWorld {
     }
 }
 
-pub mod graph {
-    use crate::render_graph::RenderLabel;
-
-    #[derive(Debug, Hash, PartialEq, Eq, Clone, RenderLabel)]
-    pub struct CameraDriverLabel;
-}
-
 #[derive(Resource)]
 struct FutureRenderResources(Arc<Mutex<Option<RenderResources>>>);
 
@@ -483,7 +475,7 @@ unsafe fn initialize_render_app(app: &mut App) {
     render_app
         .add_schedule(extract_schedule)
         .add_schedule(Render::base_schedule())
-        .init_resource::<render_graph::RenderGraph>()
+        .init_resource::<renderer::PendingCommandBuffers>()
         .insert_resource(app.world().resource::<AssetServer>().clone())
         .add_systems(ExtractSchedule, PipelineCache::extract_shaders)
         .add_systems(
@@ -492,9 +484,8 @@ unsafe fn initialize_render_app(app: &mut App) {
                 // This set applies the commands from the extract schedule while the render schedule
                 // is running in parallel with the main app.
                 apply_extract_commands.in_set(RenderSystems::ExtractCommands),
-                (PipelineCache::process_pipeline_queue_system, render_system)
-                    .chain()
-                    .in_set(RenderSystems::Render),
+                render_system.in_set(RenderSystems::Render),
+                PipelineCache::process_pipeline_queue_system.in_set(RenderSystems::Render),
                 despawn_temporary_render_entities.in_set(RenderSystems::PostCleanup),
             ),
         );
