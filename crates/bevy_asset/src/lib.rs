@@ -1987,6 +1987,7 @@ mod tests {
         // Extension "rsp" for Recursive Self Path (RSP).
         dir.insert_asset_text(Path::new("abc.rsp"), "");
 
+        #[derive(TypePath)]
         struct ImmediateSelfLoader;
 
         impl AssetLoader for ImmediateSelfLoader {
@@ -2041,6 +2042,7 @@ mod tests {
 
         dir.insert_asset_text(Path::new("abc.rsp"), "");
 
+        #[derive(TypePath)]
         struct ImmediateSelfLoader;
 
         impl AssetLoader for ImmediateSelfLoader {
@@ -2104,6 +2106,8 @@ mod tests {
 
         #[derive(Asset, TypePath)]
         pub struct TestAsset(Handle<TestAsset>);
+
+        #[derive(TypePath)]
         struct DeferredSelfLoader;
 
         impl AssetLoader for DeferredSelfLoader {
@@ -2187,6 +2191,7 @@ mod tests {
 
         dir.insert_asset_text(Path::new("abc.rsp"), "");
 
+        #[derive(TypePath)]
         struct ReadBytesSelfLoader;
 
         impl AssetLoader for ReadBytesSelfLoader {
@@ -2271,6 +2276,8 @@ mod tests {
 
         #[derive(Asset, TypePath)]
         pub struct TestAssetUD(Handle<crate::LoadedUntypedAsset>);
+
+        #[derive(TypePath)]
         struct ImmediateSelfLoader;
 
         impl AssetLoader for ImmediateSelfLoader {
