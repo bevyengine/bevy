@@ -306,10 +306,8 @@ impl ComputedNode {
     #[inline]
     pub fn padding_box(&self) -> Rect {
         let mut out = self.border_box();
-        out.min.x += self.border.left;
-        out.max.x -= self.border.right;
-        out.min.y += self.border.top;
-        out.max.y -= self.border.bottom;
+        out.min += self.border.min_inset;
+        out.max -= self.border.max_inset;
         out
     }
 
@@ -319,10 +317,8 @@ impl ComputedNode {
     pub fn content_box(&self) -> Rect {
         let mut out = self.border_box();
         let content_inset = self.content_inset();
-        out.min.x += content_inset.left;
-        out.max.x -= content_inset.right;
-        out.min.y += content_inset.top;
-        out.max.y -= content_inset.bottom;
+        out.min += content_inset.min_inset;
+        out.max -= content_inset.max_inset;
         out
     }
 
@@ -3157,10 +3153,8 @@ mod tests {
         let node = ComputedNode {
             size: Vec2::new(100.0, 60.0),
             border: BorderRect {
-                left: 5.0,
-                right: 7.0,
-                top: 3.0,
-                bottom: 9.0,
+                min_inset: Vec2::new(5.0, 3.0),
+                max_inset: Vec2::new(7.0, 9.0),
             },
             ..Default::default()
         };
@@ -3175,10 +3169,8 @@ mod tests {
         let node = ComputedNode {
             size: Vec2::new(80.0, 40.0),
             padding: BorderRect {
-                left: 4.0,
-                right: 6.0,
-                top: 2.0,
-                bottom: 8.0,
+                min_inset: Vec2::new(4.0, 2.0),
+                max_inset: Vec2::new(6.0, 8.0),
             },
             ..Default::default()
         };
