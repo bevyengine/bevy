@@ -2285,6 +2285,18 @@ impl<P: Primitive2d + Clone + Inset> Ring<P> {
     }
 }
 
+impl<P: Primitive2d + Measured2d> Measured2d for Ring<P> {
+    #[inline]
+    fn area(&self) -> f32 {
+        self.outer_shape.area() - self.inner_shape.area()
+    }
+
+    #[inline]
+    fn perimeter(&self) -> f32 {
+        self.outer_shape.perimeter() + self.inner_shape.perimeter()
+    }
+}
+
 /// Provides a convenience method for converting a primitive to a [`Ring`], with a given thickness.
 ///
 /// The primitive must implement [`Inset`].

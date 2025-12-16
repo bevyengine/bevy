@@ -30,6 +30,7 @@ pub mod config;
 pub mod cross;
 pub mod curves;
 pub mod gizmos;
+mod global;
 pub mod grid;
 pub mod primitives;
 pub mod retained;
@@ -61,6 +62,7 @@ pub mod prelude {
             GizmoLineConfig, GizmoLineJoint, GizmoLineStyle,
         },
         gizmos::Gizmos,
+        global::gizmo,
         primitives::{dim2::GizmoPrimitive2d, dim3::GizmoPrimitive3d},
         retained::Gizmo,
         AppGizmoBuilder, GizmoAsset,
@@ -105,7 +107,7 @@ impl Plugin for GizmoPlugin {
             // We insert the Resource GizmoConfigStore into the world implicitly here if it does not exist.
             .init_gizmo_group::<DefaultGizmoConfigGroup>();
 
-        app.add_plugins(aabb::AabbGizmoPlugin);
+        app.add_plugins((aabb::AabbGizmoPlugin, global::GlobalGizmosPlugin));
 
         #[cfg(feature = "bevy_light")]
         app.add_plugins(LightGizmoPlugin);

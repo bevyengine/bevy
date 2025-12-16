@@ -128,7 +128,7 @@
 //! See the [glTF Extension Registry](https://github.com/KhronosGroup/glTF/blob/main/extensions/README.md) for more information on extensions.
 
 mod assets;
-mod convert_coordinates;
+pub mod convert_coordinates;
 mod label;
 mod loader;
 mod vertex_attributes;
@@ -156,7 +156,7 @@ pub mod prelude {
     pub use crate::{assets::Gltf, assets::GltfExtras, label::GltfAssetLabel};
 }
 
-use crate::extensions::GltfExtensionHandlers;
+use crate::{convert_coordinates::GltfConvertCoordinates, extensions::GltfExtensionHandlers};
 
 pub use {assets::*, label::GltfAssetLabel, loader::*};
 
@@ -217,19 +217,9 @@ pub struct GltfPlugin {
     /// Can be modified with the [`DefaultGltfImageSampler`] resource.
     pub default_sampler: ImageSamplerDescriptor,
 
-    /// _CAUTION: This is an experimental feature with [known issues](https://github.com/bevyengine/bevy/issues/20621). Behavior may change in future versions._
-    ///
-    /// How to convert glTF coordinates on import. Assuming glTF cameras, glTF lights, and glTF meshes had global identity transforms,
-    /// their Bevy [`Transform::forward`](bevy_transform::components::Transform::forward) will be pointing in the following global directions:
-    /// - When set to `false`
-    ///   - glTF cameras and glTF lights: global -Z,
-    ///   - glTF models: global +Z.
-    /// - When set to `true`
-    ///   - glTF cameras and glTF lights: global +Z,
-    ///   - glTF models: global -Z.
-    ///
-    /// The default is `false`.
-    pub use_model_forward_direction: bool,
+    /// The default glTF coordinate conversion setting. This can be overridden
+    /// per-load by [`GltfLoaderSettings::convert_coordinates`].
+    pub convert_coordinates: GltfConvertCoordinates,
 
     /// Registry for custom vertex attributes.
     ///
@@ -246,7 +236,7 @@ impl Default for GltfPlugin {
         GltfPlugin {
             default_sampler: ImageSamplerDescriptor::linear(),
             custom_vertex_attributes: HashMap::default(),
-            use_model_forward_direction: false,
+            convert_coordinates: GltfConvertCoordinates::default(),
             skinned_mesh_bounds_policy: Default::default(),
         }
     }
@@ -300,7 +290,7 @@ impl Plugin for GltfPlugin {
             supported_compressed_formats,
             custom_vertex_attributes: self.custom_vertex_attributes.clone(),
             default_sampler,
-            default_use_model_forward_direction: self.use_model_forward_direction,
+            default_convert_coordinates: self.convert_coordinates,
             extensions: extensions.0.clone(),
             default_skinned_mesh_bounds_policy: self.skinned_mesh_bounds_policy,
         });

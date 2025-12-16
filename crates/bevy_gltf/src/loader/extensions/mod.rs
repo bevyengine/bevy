@@ -7,7 +7,6 @@ mod khr_materials_specular;
 use alloc::sync::Arc;
 use async_lock::RwLock;
 
-use bevy_animation::AnimationClip;
 use bevy_asset::{Handle, LoadContext};
 use bevy_ecs::{
     entity::Entity,
@@ -15,8 +14,13 @@ use bevy_ecs::{
     world::{EntityWorldMut, World},
 };
 use bevy_pbr::StandardMaterial;
-use bevy_platform::collections::{HashMap, HashSet};
 use gltf::Node;
+
+#[cfg(feature = "bevy_animation")]
+use {
+    bevy_animation::AnimationClip,
+    bevy_platform::collections::{HashMap, HashSet},
+};
 
 use crate::GltfMesh;
 
@@ -95,18 +99,11 @@ pub trait GltfExtensionHandler: Send + Sync {
     }
 
     /// Called when an individual texture is processed
-    /// Unlike other hooks, this hook does not receive its glTF
-    /// object due to internal constraints.
     #[expect(
         unused,
         reason = "default trait implementations do not use the arguments because they are no-ops"
     )]
-    fn on_texture(
-        &mut self,
-        extension_data: Option<&serde_json::Map<String, serde_json::Value>>,
-        texture: Handle<bevy_image::Image>,
-    ) {
-    }
+    fn on_texture(&mut self, gltf_texture: &gltf::Texture, texture: Handle<bevy_image::Image>) {}
 
     /// Called when an individual material is processed
     #[expect(
