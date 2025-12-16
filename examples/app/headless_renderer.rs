@@ -24,13 +24,12 @@ use bevy::{
             Buffer, BufferDescriptor, BufferUsages, CommandEncoderDescriptor, Extent3d, MapMode,
             PollType, TexelCopyBufferInfo, TexelCopyBufferLayout, TextureFormat, TextureUsages,
         },
-        renderer::{RenderContext, RenderDevice, RenderQueue},
+        renderer::{RenderContext, RenderDevice, RenderGraph, RenderQueue},
         Extract, Render, RenderApp, RenderSystems,
     },
     window::ExitCondition,
     winit::WinitPlugin,
 };
-use bevy_render::renderer::RenderGraph;
 use crossbeam_channel::{Receiver, Sender};
 use std::{
     ops::{Deref, DerefMut},

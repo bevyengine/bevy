@@ -13,13 +13,12 @@ use bevy::{
             binding_types::{texture_storage_2d, uniform_buffer},
             *,
         },
-        renderer::{RenderContext, RenderDevice, RenderQueue},
+        renderer::{RenderContext, RenderDevice, RenderGraph, RenderQueue},
         texture::GpuImage,
         Render, RenderApp, RenderStartup, RenderSystems,
     },
     shader::PipelineCacheError,
 };
-use bevy_render::renderer::RenderGraph;
 use std::borrow::Cow;
 
 /// This example uses a shader source file from the assets subdirectory

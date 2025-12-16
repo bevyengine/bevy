@@ -12,13 +12,12 @@ use bevy::{
             binding_types::{storage_buffer, texture_storage_2d},
             *,
         },
-        renderer::{RenderContext, RenderDevice},
+        renderer::{RenderContext, RenderDevice, RenderGraph},
         storage::{GpuShaderStorageBuffer, ShaderStorageBuffer},
         texture::GpuImage,
         Render, RenderApp, RenderStartup, RenderSystems,
     },
 };
-use bevy_render::renderer::RenderGraph;
 
 /// This example uses a shader source file from the assets subdirectory
 const SHADER_ASSET_PATH: &str = "shaders/gpu_readback.wgsl";
