@@ -532,7 +532,7 @@ impl Mesh {
             .get_index_buffer_bytes()
     }
 
-    /// Get this `Mesh`'s [`MeshVertexBufferLayout`], used in `SpecializedMeshPipeline`.
+    /// Get this `Mesh`'s [`MeshVertexBufferLayout`](crate::MeshVertexBufferLayout), used in `SpecializedMeshPipeline`.
     ///
     /// # Panics
     /// Panics when the mesh data has already been extracted to `RenderWorld`.
@@ -901,7 +901,7 @@ impl Mesh {
     ///
     /// # Panics
     /// Panics when the mesh data has already been extracted to `RenderWorld`. To handle
-    /// this as an error use [`MeshExtractableData::transformed_by`]
+    /// this as an error use [`MeshExtractableData::transform_by`]
     pub fn transformed_by(mut self, transform: Transform) -> Self {
         self.transform_by(transform);
         self
@@ -926,7 +926,7 @@ impl Mesh {
     ///
     /// # Panics
     /// Panics when the mesh data has already been extracted to `RenderWorld`. To handle
-    /// this as an error use [`MeshExtractableData::translated_by`]
+    /// this as an error use [`MeshExtractableData::translate_by`]
     pub fn translated_by(mut self, translation: Vec3) -> Self {
         self.translate_by(translation);
         self
