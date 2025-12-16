@@ -388,7 +388,7 @@ impl ViewNode for DepthOfFieldNode {
                 };
                 render_context.render_device().create_bind_group(
                     Some(pipeline_render_info.view_bind_group_label),
-                    &pipeline_cache.get_bind_group_layout(dual_input_bind_group_layout),
+                    pipeline_cache.get_bind_group_layout(dual_input_bind_group_layout),
                     &BindGroupEntries::sequential((
                         view_uniforms_binding,
                         view_depth_texture.view(),
@@ -399,7 +399,7 @@ impl ViewNode for DepthOfFieldNode {
             } else {
                 render_context.render_device().create_bind_group(
                     Some(pipeline_render_info.view_bind_group_label),
-                    &pipeline_cache.get_bind_group_layout(&view_bind_group_layouts.single_input),
+                    pipeline_cache.get_bind_group_layout(&view_bind_group_layouts.single_input),
                     &BindGroupEntries::sequential((
                         view_uniforms_binding,
                         view_depth_texture.view(),
@@ -624,7 +624,7 @@ pub fn prepare_depth_of_field_global_bind_group(
 
     **dof_bind_group = Some(render_device.create_bind_group(
         Some("depth of field global bind group"),
-        &pipeline_cache.get_bind_group_layout(&global_bind_group_layout.layout),
+        pipeline_cache.get_bind_group_layout(&global_bind_group_layout.layout),
         &BindGroupEntries::sequential((
             depth_of_field_uniforms,                         // `dof_params`
             &global_bind_group_layout.color_texture_sampler, // `color_texture_sampler`

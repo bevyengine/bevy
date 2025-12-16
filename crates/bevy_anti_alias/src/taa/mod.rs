@@ -185,7 +185,7 @@ impl ViewNode for TemporalAntiAliasNode {
 
         let taa_bind_group = render_context.render_device().create_bind_group(
             "taa_bind_group",
-            &pipeline_cache.get_bind_group_layout(&pipelines.taa_bind_group_layout),
+            pipeline_cache.get_bind_group_layout(&pipelines.taa_bind_group_layout),
             &BindGroupEntries::sequential((
                 view_target.source,
                 &taa_history_textures.read.default_view,
