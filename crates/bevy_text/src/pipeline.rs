@@ -418,19 +418,20 @@ impl TextPipeline {
                         ))
                         .or_default();
 
-                    let atlas_info = get_glyph_atlas_info(font_atlases, physical_glyph.cache_key)
-                        .map(Ok)
-                        .unwrap_or_else(|| {
-                            add_glyph_to_atlas(
-                                font_atlases,
-                                texture_atlases,
-                                textures,
-                                &mut font_system.0,
-                                &mut swash_cache.0,
-                                layout_glyph,
-                                font_smoothing,
-                            )
-                        })?;
+                    let atlas_info =
+                        get_glyph_atlas_info(&mut font_atlases.1, physical_glyph.cache_key)
+                            .map(Ok)
+                            .unwrap_or_else(|| {
+                                add_glyph_to_atlas(
+                                    &mut font_atlases.1,
+                                    texture_atlases,
+                                    textures,
+                                    &mut font_system.0,
+                                    &mut swash_cache.0,
+                                    layout_glyph,
+                                    font_smoothing,
+                                )
+                            })?;
 
                     let texture_atlas = texture_atlases.get(atlas_info.texture_atlas).unwrap();
                     let location = atlas_info.location;

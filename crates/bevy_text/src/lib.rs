@@ -42,6 +42,7 @@ mod pipeline;
 mod text;
 mod text_access;
 
+use bevy_asset::AssetEventSystems;
 pub use bounds::*;
 pub use error::*;
 pub use font::*;
@@ -93,10 +94,10 @@ impl Plugin for TextPlugin {
             .init_resource::<CosmicFontSystem>()
             .init_resource::<SwashCache>()
             .init_resource::<TextIterScratch>()
-            // .add_systems(
-            //     PostUpdate,
-            //     free_unused_font_atlases_system.before(AssetEventSystems),
-            // )
+            .add_systems(
+                PostUpdate,
+                free_unused_font_atlases_system.before(AssetEventSystems),
+            )
             .add_systems(Last, trim_cosmic_cache);
 
         #[cfg(feature = "default_font")]
