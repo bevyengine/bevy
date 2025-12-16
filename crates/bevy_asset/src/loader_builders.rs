@@ -503,7 +503,7 @@ impl NestedLoader<'_, '_, StaticTyped, Immediate<'_, '_>> {
                             path,
                             requested: TypeId::of::<A>(),
                             actual_asset_name: loader.asset_type_name(),
-                            loader_name: loader.type_name(),
+                            loader_name: loader.type_path(),
                         },
                     })
             })

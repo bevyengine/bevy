@@ -14,7 +14,9 @@ use alloc::{
     borrow::ToOwned,
     boxed::Box,
     string::{String, ToString},
+    vec::Vec,
 };
+use bevy_reflect::TypePath;
 use bevy_tasks::{BoxedFuture, ConditionalSendFuture};
 use core::marker::PhantomData;
 use serde::{Deserialize, Serialize};
@@ -25,7 +27,7 @@ use thiserror::Error;
 ///
 /// This is a "low level", maximally flexible interface. Most use cases are better served by the [`LoadTransformAndSave`] implementation
 /// of [`Process`].
-pub trait Process: Send + Sync + Sized + 'static {
+pub trait Process: TypePath + Send + Sync + Sized + 'static {
     /// The configuration / settings used to process the asset. This will be stored in the [`AssetMeta`] and is user-configurable per-asset.
     type Settings: Settings + Default + Serialize + for<'a> Deserialize<'a>;
     /// The [`AssetLoader`] that will be used to load the final processed asset.
@@ -59,6 +61,7 @@ pub trait Process: Send + Sync + Sized + 'static {
 /// This uses [`LoadTransformAndSaveSettings`] to configure the processor.
 ///
 /// [`Asset`]: crate::Asset
+#[derive(TypePath)]
 pub struct LoadTransformAndSave<
     L: AssetLoader,
     T: AssetTransformer<AssetInput = L::Asset>,
@@ -120,6 +123,11 @@ pub enum ProcessError {
     #[error("The processor '{0}' does not exist")]
     #[from(ignore)]
     MissingProcessor(String),
+    #[error("The processor '{processor_short_name}' is ambiguous between several processors: {ambiguous_processor_names:?}")]
+    AmbiguousProcessor {
+        processor_short_name: String,
+        ambiguous_processor_names: Vec<&'static str>,
+    },
     #[error("Encountered an AssetReader error for '{path}': {err}")]
     #[from(ignore)]
     AssetReaderError {
@@ -180,7 +188,7 @@ where
             return Err(ProcessError::WrongMetaType);
         };
         let loader_meta = AssetMeta::<Loader, ()>::new(AssetAction::Load {
-            loader: core::any::type_name::<Loader>().to_string(),
+            loader: Loader::type_path().to_string(),
             settings: settings.loader_settings,
         });
         let pre_transformed_asset = TransformedAsset::<Loader::Asset>::from_loaded(
@@ -237,7 +245,7 @@ impl<P: Process> ErasedProcessor for P {
             let loader_settings = <P as Process>::process(self, context, *meta, writer).await?;
             let output_meta: Box<dyn AssetMetaDyn> =
                 Box::new(AssetMeta::<P::OutputLoader, ()>::new(AssetAction::Load {
-                    loader: core::any::type_name::<P::OutputLoader>().to_string(),
+                    loader: P::OutputLoader::type_path().to_string(),
                     settings: loader_settings,
                 }));
             Ok(output_meta)
@@ -251,7 +259,7 @@ impl<P: Process> ErasedProcessor for P {
 
     fn default_meta(&self) -> Box<dyn AssetMetaDyn> {
         Box::new(AssetMeta::<(), P>::new(AssetAction::Process {
-            processor: core::any::type_name::<P>().to_string(),
+            processor: P::type_path().to_string(),
             settings: P::Settings::default(),
         }))
     }
@@ -307,7 +315,7 @@ impl<'a> ProcessContext<'a> {
         meta: AssetMeta<L, ()>,
     ) -> Result<ErasedLoadedAsset, AssetLoadError> {
         let server = &self.processor.server;
-        let loader_name = core::any::type_name::<L>();
+        let loader_name = L::type_path();
         let loader = server.get_asset_loader_with_type_name(loader_name).await?;
         let loaded_asset = server
             .load_with_meta_loader_and_reader(

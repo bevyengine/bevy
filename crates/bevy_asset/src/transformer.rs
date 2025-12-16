@@ -2,6 +2,7 @@ use crate::{meta::Settings, Asset, ErasedLoadedAsset, Handle, LabeledAsset, Unty
 use alloc::boxed::Box;
 use atomicow::CowArc;
 use bevy_platform::collections::HashMap;
+use bevy_reflect::TypePath;
 use bevy_tasks::ConditionalSendFuture;
 use core::{
     borrow::Borrow,
@@ -15,7 +16,7 @@ use serde::{Deserialize, Serialize};
 /// Transforms an [`Asset`] of a given [`AssetTransformer::AssetInput`] type to an [`Asset`] of [`AssetTransformer::AssetOutput`] type.
 ///
 /// This trait is commonly used in association with [`LoadTransformAndSave`](crate::processor::LoadTransformAndSave) to accomplish common asset pipeline workflows.
-pub trait AssetTransformer: Send + Sync + 'static {
+pub trait AssetTransformer: TypePath + Send + Sync + 'static {
     /// The [`Asset`] type which this [`AssetTransformer`] takes as and input.
     type AssetInput: Asset;
     /// The [`Asset`] type which this [`AssetTransformer`] outputs.
@@ -249,6 +250,7 @@ impl<'a, A: Asset> TransformedSubAsset<'a, A> {
 }
 
 /// An identity [`AssetTransformer`] which infallibly returns the input [`Asset`] on transformation.]
+#[derive(TypePath)]
 pub struct IdentityAssetTransformer<A: Asset> {
     _phantom: PhantomData<fn(A) -> A>,
 }

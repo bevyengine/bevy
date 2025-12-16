@@ -3,8 +3,6 @@ mod gltf_ext;
 
 use alloc::sync::Arc;
 use async_lock::RwLock;
-use std::{io::Error, sync::Mutex};
-
 #[cfg(feature = "bevy_animation")]
 use bevy_animation::{prelude::*, AnimatedBy, AnimationTargetId};
 use bevy_asset::{
@@ -37,23 +35,22 @@ use bevy_mesh::{
 use bevy_pbr::UvChannel;
 use bevy_pbr::{MeshMaterial3d, StandardMaterial, MAX_JOINTS};
 use bevy_platform::collections::{HashMap, HashSet};
+use bevy_reflect::TypePath;
 use bevy_render::render_resource::Face;
 use bevy_scene::Scene;
 #[cfg(not(target_arch = "wasm32"))]
 use bevy_tasks::IoTaskPool;
 use bevy_transform::components::Transform;
-
 use gltf::{
     accessor::Iter,
     image::Source,
     mesh::{util::ReadIndices, Mode},
     Document, Material, Node, Semantic,
 };
-
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "bevy_animation")]
 use smallvec::SmallVec;
-
+use std::{io::Error, sync::Mutex};
 use thiserror::Error;
 use tracing::{error, info_span, warn};
 
@@ -140,6 +137,7 @@ pub enum GltfError {
 }
 
 /// Loads glTF files with all of their data as their corresponding bevy representations.
+#[derive(TypePath)]
 pub struct GltfLoader {
     /// List of compressed image formats handled by the loader.
     pub supported_compressed_formats: CompressedImageFormats,
@@ -1990,6 +1988,7 @@ mod test {
     use bevy_mesh::skinning::SkinnedMeshInverseBindposes;
     use bevy_mesh::MeshPlugin;
     use bevy_pbr::StandardMaterial;
+    use bevy_reflect::TypePath;
     use bevy_scene::ScenePlugin;
 
     fn test_app(dir: Dir) -> App {
@@ -2526,6 +2525,7 @@ mod test {
         dir.insert_asset_text(Path::new("abc.png"), "Sup");
 
         /// A fake loader to avoid actually loading any image data and just return an image.
+        #[derive(TypePath)]
         struct FakePngLoader;
 
         impl AssetLoader for FakePngLoader {
