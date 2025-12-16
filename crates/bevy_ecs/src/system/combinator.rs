@@ -492,8 +492,8 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::error::DefaultErrorHandler;
     use crate::prelude::*;
+    use crate::{error::DefaultErrorHandler, schedule::AndMarker};
     use bevy_utils::prelude::DebugName;
 
     use crate::{
@@ -523,6 +523,12 @@ mod tests {
 
         // `system` should not conflict with itself by mutably accessing the error handler resource.
         assert_system_does_not_conflict(system.clone());
+
+        let system = CombinatorSystem::<AndMarker, _, _>::new(
+            IntoSystem::into_system(a),
+            IntoSystem::into_system(a),
+            DebugName::borrowed("a AND a"),
+        );
 
         let mut schedule = Schedule::default();
         schedule.add_systems((my_system, system.pipe(asdf)));
