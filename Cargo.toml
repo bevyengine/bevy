@@ -691,6 +691,21 @@ libm = ["bevy_internal/libm"]
 # Enables use of browser APIs. Note this is currently only applicable on `wasm32` architectures.
 web = ["bevy_internal/web"]
 
+# Mouse support. Automatically enabled by `bevy_window`.
+mouse = ["bevy_internal/mouse"]
+
+# Keyboard support. Automatically enabled by `bevy_window`.
+keyboard = ["bevy_internal/keyboard"]
+
+# Gamepad support. Automatically enabled by `bevy_gilrs`.
+gamepad = ["bevy_internal/gamepad"]
+
+# Touch support. Automatically enabled by `bevy_window`.
+touch = ["bevy_internal/touch"]
+
+# Gestures support. Automatically enabled by `bevy_window`.
+gestures = ["bevy_internal/gestures"]
+
 # Enable hotpatching of Bevy systems
 hotpatching = ["bevy_internal/hotpatching"]
 

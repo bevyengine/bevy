@@ -278,7 +278,6 @@ pub struct TextFont {
     pub width: FontWidth,
     /// The slant style of a font face: normal, italic, or oblique.
     pub style: FontStyle,
-
     /// The antialiasing method to use when rendering text.
     pub font_smoothing: FontSmoothing,
     /// OpenType features for .otf fonts that support them.
