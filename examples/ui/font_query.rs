@@ -13,7 +13,7 @@ fn main() {
 fn setup(mut commands: Commands, mut font_system: ResMut<CosmicFontSystem>) {
     font_system.0.db_mut().load_system_fonts();
 
-    let font = Handle::<Font>::default();
+    let family = Some("Noto Sans".to_string());
 
     commands.spawn(Camera2d);
 
@@ -31,7 +31,7 @@ fn setup(mut commands: Commands, mut font_system: ResMut<CosmicFontSystem>) {
             (
                 Text::new("Font Weights, Widths & Styles"),
                 TextFont {
-                    font: font.clone(),
+                    family: family.clone(),
                     font_size: 32.0,
                     ..default()
                 },
@@ -57,7 +57,7 @@ fn setup(mut commands: Commands, mut font_system: ResMut<CosmicFontSystem>) {
                             (
                                 Text::new("Weight 100 (Thin)"),
                                 TextFont {
-                                    font: font.clone(),
+                                    family: family.clone(),
                                     weight: FontWeight::THIN,
                                     ..default()
                                 },
@@ -65,7 +65,7 @@ fn setup(mut commands: Commands, mut font_system: ResMut<CosmicFontSystem>) {
                             (
                                 Text::new("Weight 200 (Extra Light)"),
                                 TextFont {
-                                    font: font.clone(),
+                                    family: family.clone(),
                                     weight: FontWeight::EXTRA_LIGHT,
                                     ..default()
                                 },
@@ -73,7 +73,7 @@ fn setup(mut commands: Commands, mut font_system: ResMut<CosmicFontSystem>) {
                             (
                                 Text::new("Weight 300 (Light)"),
                                 TextFont {
-                                    font: font.clone(),
+                                    family: family.clone(),
                                     weight: FontWeight::LIGHT,
                                     ..default()
                                 },
@@ -81,7 +81,7 @@ fn setup(mut commands: Commands, mut font_system: ResMut<CosmicFontSystem>) {
                             (
                                 Text::new("Weight 400 (Normal)"),
                                 TextFont {
-                                    font: font.clone(),
+                                    family: family.clone(),
                                     weight: FontWeight::NORMAL,
                                     ..default()
                                 },
@@ -89,7 +89,7 @@ fn setup(mut commands: Commands, mut font_system: ResMut<CosmicFontSystem>) {
                             (
                                 Text::new("Weight 500 (Medium)"),
                                 TextFont {
-                                    font: font.clone(),
+                                    family: family.clone(),
                                     weight: FontWeight::MEDIUM,
                                     ..default()
                                 },
@@ -97,7 +97,7 @@ fn setup(mut commands: Commands, mut font_system: ResMut<CosmicFontSystem>) {
                             (
                                 Text::new("Weight 600 (Semibold)"),
                                 TextFont {
-                                    font: font.clone(),
+                                    family: family.clone(),
                                     weight: FontWeight::SEMIBOLD,
                                     ..default()
                                 },
@@ -105,7 +105,7 @@ fn setup(mut commands: Commands, mut font_system: ResMut<CosmicFontSystem>) {
                             (
                                 Text::new("Weight 700 (Bold)"),
                                 TextFont {
-                                    font: font.clone(),
+                                    family: family.clone(),
                                     weight: FontWeight::BOLD,
                                     ..default()
                                 },
@@ -113,7 +113,7 @@ fn setup(mut commands: Commands, mut font_system: ResMut<CosmicFontSystem>) {
                             (
                                 Text::new("Weight 800 (Extra Bold)"),
                                 TextFont {
-                                    font: font.clone(),
+                                    family: family.clone(),
                                     weight: FontWeight::EXTRA_BOLD,
                                     ..default()
                                 },
@@ -121,7 +121,7 @@ fn setup(mut commands: Commands, mut font_system: ResMut<CosmicFontSystem>) {
                             (
                                 Text::new("Weight 900 (Black)"),
                                 TextFont {
-                                    font: font.clone(),
+                                    family: family.clone(),
                                     weight: FontWeight::BLACK,
                                     ..default()
                                 },
@@ -140,7 +140,7 @@ fn setup(mut commands: Commands, mut font_system: ResMut<CosmicFontSystem>) {
                             (
                                 Text::new("FontWidth::ULTRA_CONDENSED"),
                                 TextFont {
-                                    font: font.clone(),
+                                    family: family.clone(),
                                     width: FontWidth::ULTRA_CONDENSED,
                                     ..default()
                                 },
@@ -148,7 +148,7 @@ fn setup(mut commands: Commands, mut font_system: ResMut<CosmicFontSystem>) {
                             (
                                 Text::new("FontWidth::EXTRA_CONDENSED"),
                                 TextFont {
-                                    font: font.clone(),
+                                    family: family.clone(),
                                     width: FontWidth::EXTRA_CONDENSED,
                                     ..default()
                                 },
@@ -156,7 +156,7 @@ fn setup(mut commands: Commands, mut font_system: ResMut<CosmicFontSystem>) {
                             (
                                 Text::new("FontWidth::CONDENSED"),
                                 TextFont {
-                                    font: font.clone(),
+                                    family: family.clone(),
                                     width: FontWidth::CONDENSED,
                                     ..default()
                                 },
@@ -164,7 +164,7 @@ fn setup(mut commands: Commands, mut font_system: ResMut<CosmicFontSystem>) {
                             (
                                 Text::new("FontWidth::SEMI_CONDENSED"),
                                 TextFont {
-                                    font: font.clone(),
+                                    family: family.clone(),
                                     width: FontWidth::SEMI_CONDENSED,
                                     ..default()
                                 },
@@ -172,7 +172,7 @@ fn setup(mut commands: Commands, mut font_system: ResMut<CosmicFontSystem>) {
                             (
                                 Text::new("FontWidth::NORMAL"),
                                 TextFont {
-                                    font: font.clone(),
+                                    family: family.clone(),
                                     width: FontWidth::NORMAL,
                                     ..default()
                                 },
@@ -180,7 +180,7 @@ fn setup(mut commands: Commands, mut font_system: ResMut<CosmicFontSystem>) {
                             (
                                 Text::new("FontWidth::SEMI_EXPANDED"),
                                 TextFont {
-                                    font: font.clone(),
+                                    family: family.clone(),
                                     width: FontWidth::SEMI_EXPANDED,
                                     ..default()
                                 },
@@ -188,7 +188,7 @@ fn setup(mut commands: Commands, mut font_system: ResMut<CosmicFontSystem>) {
                             (
                                 Text::new("FontWidth::EXPANDED"),
                                 TextFont {
-                                    font: font.clone(),
+                                    family: family.clone(),
                                     width: FontWidth::EXPANDED,
                                     ..default()
                                 },
@@ -196,7 +196,7 @@ fn setup(mut commands: Commands, mut font_system: ResMut<CosmicFontSystem>) {
                             (
                                 Text::new("FontWidth::EXTRA_EXPANDED"),
                                 TextFont {
-                                    font: font.clone(),
+                                    family: family.clone(),
                                     width: FontWidth::EXTRA_EXPANDED,
                                     ..default()
                                 },
@@ -204,7 +204,7 @@ fn setup(mut commands: Commands, mut font_system: ResMut<CosmicFontSystem>) {
                             (
                                 Text::new("FontWidth::ULTRA_EXPANDED"),
                                 TextFont {
-                                    font: font.clone(),
+                                    family: family.clone(),
                                     width: FontWidth::ULTRA_EXPANDED,
                                     ..default()
                                 },
@@ -223,7 +223,7 @@ fn setup(mut commands: Commands, mut font_system: ResMut<CosmicFontSystem>) {
                             (
                                 Text::new("FontStyle::Normal"),
                                 TextFont {
-                                    font: font.clone(),
+                                    family: family.clone(),
                                     style: FontStyle::Normal,
                                     ..default()
                                 },
@@ -231,7 +231,7 @@ fn setup(mut commands: Commands, mut font_system: ResMut<CosmicFontSystem>) {
                             (
                                 Text::new("FontStyle::Oblique"),
                                 TextFont {
-                                    font: font.clone(),
+                                    family: family.clone(),
                                     style: FontStyle::Oblique,
                                     ..default()
                                 },
@@ -239,7 +239,7 @@ fn setup(mut commands: Commands, mut font_system: ResMut<CosmicFontSystem>) {
                             (
                                 Text::new("FontStyle::Italic"),
                                 TextFont {
-                                    font: font.clone(),
+                                    family: family.clone(),
                                     style: FontStyle::Italic,
                                     ..default()
                                 },

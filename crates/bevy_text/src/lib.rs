@@ -96,7 +96,7 @@ impl Plugin for TextPlugin {
             .init_resource::<TextIterScratch>()
             .add_systems(
                 PostUpdate,
-                free_unused_font_atlases_system.before(AssetEventSystems),
+                load_font_assets_into_fontdb_system.after(AssetEventSystems),
             )
             .add_systems(Last, trim_cosmic_cache);
 

@@ -58,10 +58,6 @@ impl Default for SwashCache {
 /// Information about a font collected as part of preparing for text layout.
 #[derive(Clone)]
 pub struct FontFaceInfo {
-    /// Width class: <https://docs.microsoft.com/en-us/typography/opentype/spec/os2#uswidthclass>
-    pub stretch: cosmic_text::fontdb::Stretch,
-    /// Allows italic or oblique faces to be selected
-    pub style: cosmic_text::fontdb::Style,
     /// Font family name
     pub family_name: Arc<str>,
 }
@@ -418,20 +414,19 @@ impl TextPipeline {
                         ))
                         .or_default();
 
-                    let atlas_info =
-                        get_glyph_atlas_info(&mut font_atlases.1, physical_glyph.cache_key)
-                            .map(Ok)
-                            .unwrap_or_else(|| {
-                                add_glyph_to_atlas(
-                                    &mut font_atlases.1,
-                                    texture_atlases,
-                                    textures,
-                                    &mut font_system.0,
-                                    &mut swash_cache.0,
-                                    layout_glyph,
-                                    font_smoothing,
-                                )
-                            })?;
+                    let atlas_info = get_glyph_atlas_info(font_atlases, physical_glyph.cache_key)
+                        .map(Ok)
+                        .unwrap_or_else(|| {
+                            add_glyph_to_atlas(
+                                font_atlases,
+                                texture_atlases,
+                                textures,
+                                &mut font_system.0,
+                                &mut swash_cache.0,
+                                layout_glyph,
+                                font_smoothing,
+                            )
+                        })?;
 
                     let texture_atlas = texture_atlases.get(atlas_info.texture_atlas).unwrap();
                     let location = atlas_info.location;
@@ -596,30 +591,31 @@ pub fn load_font_to_fontdb(
     map_handle_to_font_id: &mut HashMap<AssetId<Font>, (cosmic_text::fontdb::ID, Arc<str>)>,
     fonts: &Assets<Font>,
 ) -> FontFaceInfo {
-    let font_id = text_font.font.id();
-    let (face_id, family_name) = map_handle_to_font_id.entry(font_id).or_insert_with(|| {
-        let font = fonts.get(font_id).expect(
-            "Tried getting a font that was not available, probably due to not being loaded yet",
-        );
-        let data = Arc::clone(&font.data);
-        let ids = font_system
-            .db_mut()
-            .load_font_source(cosmic_text::fontdb::Source::Binary(data));
+    if let Some(family) = text_font.family.as_ref() {
+        FontFaceInfo {
+            family_name: Arc::from(family.as_str()),
+        }
+    } else {
+        let font_id = text_font.font.id();
+        let (_face_id, family_name) = map_handle_to_font_id.entry(font_id).or_insert_with(|| {
+            let font = fonts.get(font_id).expect(
+                "Tried getting a font that was not available, probably due to not being loaded yet",
+            );
+            let data = Arc::clone(&font.data);
+            let ids = font_system
+                .db_mut()
+                .load_font_source(cosmic_text::fontdb::Source::Binary(data));
 
-        // TODO: it is assumed this is the right font face
-        let face_id = *ids.last().unwrap();
-        let face = font_system.db().face(face_id).unwrap();
+            // TODO: it is assumed this is the right font face
+            let face_id = *ids.last().unwrap();
+            let face = font_system.db().face(face_id).unwrap();
 
-        let family_name = Arc::from(face.families[0].0.as_str());
-        (face_id, family_name)
-    });
-
-    let face = font_system.db().face(*face_id).unwrap();
-
-    FontFaceInfo {
-        stretch: face.stretch,
-        style: face.style,
-        family_name: family_name.clone(),
+            let family_name = Arc::from(face.families[0].0.as_str());
+            (face_id, family_name)
+        });
+        FontFaceInfo {
+            family_name: family_name.clone(),
+        }
     }
 }
 
@@ -635,8 +631,8 @@ fn get_attrs<'a>(
     Attrs::new()
         .metadata(span_index)
         .family(Family::Name(&face_info.family_name))
-        .stretch(face_info.stretch)
-        .style(face_info.style)
+        .stretch(text_font.width.into())
+        .style(text_font.style.into())
         .weight(text_font.weight.into())
         .metrics(
             Metrics {
