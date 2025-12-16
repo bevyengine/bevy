@@ -37,7 +37,7 @@ impl LayoutContext {
         scale_factor: 1.0,
         physical_size: Vec2::ZERO,
     };
-    /// create new a [`LayoutContext`] from the window's physical size and scale factor
+    /// Create a new [`LayoutContext`] from the window's physical size and scale factor
     #[inline]
     const fn new(scale_factor: f32, physical_size: Vec2) -> Self {
         Self {
