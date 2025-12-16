@@ -13,6 +13,7 @@ use bevy_render::{
     renderer::{CurrentViewEntity, PendingCommandBuffers, RenderDevice, RenderQueue},
     view::ExtractedWindows,
 };
+use tracing::info_span;
 
 /// Schedule label for the Core 3D rendering pipeline.
 #[derive(ScheduleLabel, Debug, Clone, PartialEq, Eq, Hash, Default)]
@@ -36,6 +37,7 @@ impl Core3d {
         let mut schedule = Schedule::new(Self);
 
         schedule.set_build_settings(ScheduleBuildSettings {
+            auto_insert_apply_deferred: false,
             ..Default::default()
         });
 
@@ -145,9 +147,11 @@ pub fn camera_driver(world: &mut World) {
 
 fn submit_pending_command_buffers(world: &mut World) {
     let mut pending = world.resource_mut::<PendingCommandBuffers>();
+    let buffer_count = pending.len();
     let buffers = pending.take();
 
     if !buffers.is_empty() {
+        let _span = info_span!("queue_submit", count = buffer_count).entered();
         let queue = world.resource::<RenderQueue>();
         queue.submit(buffers);
     }
