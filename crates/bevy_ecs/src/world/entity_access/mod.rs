@@ -23,6 +23,7 @@ mod tests {
 
     use crate::change_detection::Tick;
     use crate::lifecycle::HookContext;
+    use crate::query::QueryAccessError;
     use crate::{
         change_detection::{MaybeLocation, MutUntyped},
         component::ComponentId,
@@ -815,11 +816,35 @@ mod tests {
         let e3 = world.spawn_empty().id();
 
         assert_eq!(
-            Some((&X(7), &Y(10))),
+            Ok((&X(7), &Y(10))),
             world.entity(e1).get_components::<(&X, &Y)>()
         );
-        assert_eq!(None, world.entity(e2).get_components::<(&X, &Y)>());
-        assert_eq!(None, world.entity(e3).get_components::<(&X, &Y)>());
+        assert_eq!(
+            Err(QueryAccessError::EntityDoesNotMatch),
+            world.entity(e2).get_components::<(&X, &Y)>()
+        );
+        assert_eq!(
+            Err(QueryAccessError::EntityDoesNotMatch),
+            world.entity(e3).get_components::<(&X, &Y)>()
+        );
+    }
+
+    #[test]
+    fn get_components_mut() {
+        let mut world = World::default();
+        let e1 = world.spawn((X(7), Y(10))).id();
+
+        let mut entity_mut_1 = world.entity_mut(e1);
+        let Ok((mut x, mut y)) = entity_mut_1.get_components_mut::<(&mut X, &mut Y)>() else {
+            panic!("could not get components");
+        };
+        x.0 += 1;
+        y.0 += 1;
+
+        assert_eq!(
+            Ok((&X(8), &Y(11))),
+            world.entity(e1).get_components::<(&X, &Y)>()
+        );
     }
 
     #[test]

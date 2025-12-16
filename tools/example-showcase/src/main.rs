@@ -596,6 +596,7 @@ code_path = \"content/examples{}/{}\"
 shader_code_paths = {:?}
 github_code_path = \"{}\"
 header_message = \"Examples ({})\"
+required_features = {:?}
 +++
 
 {}
@@ -637,6 +638,7 @@ header_message = \"Examples ({})\"
                                 WebApi::Webgpu => "WebGPU",
                                 WebApi::Webgl2 => "WebGL2",
                             },
+                            to_show.required_features,
                             docblock,
                         )
                         .as_bytes(),

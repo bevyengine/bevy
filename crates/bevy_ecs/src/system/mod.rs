@@ -418,8 +418,8 @@ mod tests {
             SystemCondition,
         },
         system::{
-            Commands, In, InMut, IntoSystem, Local, NonSend, NonSendMut, ParamSet, Query, Res,
-            ResMut, Single, StaticSystemParam, System, SystemState,
+            Commands, ExclusiveMarker, In, InMut, IntoSystem, Local, NonSend, NonSendMut, ParamSet,
+            Query, Res, ResMut, Single, StaticSystemParam, System, SystemState,
         },
         world::{DeferredWorld, EntityMut, FromWorld, World},
     };
@@ -1044,6 +1044,24 @@ mod tests {
         ) {
             *system_ran = SystemRan::Yes;
         }
+
+        run_system(&mut world, sys);
+        assert_eq!(*world.resource::<SystemRan>(), SystemRan::Yes);
+    }
+
+    #[test]
+    fn function_system_as_exclusive() {
+        let mut world = World::default();
+
+        world.insert_resource(SystemRan::No);
+
+        fn sys(_marker: ExclusiveMarker, mut system_ran: ResMut<SystemRan>) {
+            *system_ran = SystemRan::Yes;
+        }
+
+        let mut sys = IntoSystem::into_system(sys);
+        sys.initialize(&mut world);
+        assert!(sys.is_exclusive());
 
         run_system(&mut world, sys);
         assert_eq!(*world.resource::<SystemRan>(), SystemRan::Yes);

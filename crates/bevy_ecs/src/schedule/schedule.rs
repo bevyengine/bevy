@@ -2,21 +2,25 @@
     clippy::module_inception,
     reason = "This instance of module inception is being discussed; see #17344."
 )]
+
 use alloc::{
     boxed::Box,
-    collections::BTreeMap,
     format,
     string::{String, ToString},
     vec,
     vec::Vec,
 };
-use bevy_platform::collections::{HashMap, HashSet};
+use bevy_platform::{
+    collections::{HashMap, HashSet},
+    hash::NoOpHash,
+};
 use bevy_utils::{default, TypeIdMap};
 use core::{
     any::{Any, TypeId},
     fmt::Debug,
 };
 use fixedbitset::FixedBitSet;
+use indexmap::IndexMap;
 use log::warn;
 use pass::ScheduleBuildPassObj;
 use thiserror::Error;
@@ -442,7 +446,7 @@ impl Schedule {
 
     /// Remove a custom build pass.
     pub fn remove_build_pass<T: ScheduleBuildPass>(&mut self) {
-        self.graph.passes.remove(&TypeId::of::<T>());
+        self.graph.passes.shift_remove(&TypeId::of::<T>());
     }
 
     /// Changes miscellaneous build settings.
@@ -667,7 +671,7 @@ pub struct ScheduleGraph {
     anonymous_sets: usize,
     changed: bool,
     settings: ScheduleBuildSettings,
-    passes: BTreeMap<TypeId, Box<dyn ScheduleBuildPassObj>>,
+    passes: IndexMap<TypeId, Box<dyn ScheduleBuildPassObj>, NoOpHash>,
 }
 
 impl ScheduleGraph {
@@ -812,6 +816,8 @@ impl ScheduleGraph {
                             &previous_result.nodes
                         };
 
+                        self.dependency
+                            .reserve_edges(previous_nodes.len() * current_nodes.len());
                         for previous_node in previous_nodes {
                             for current_node in current_nodes {
                                 self.dependency.add_edge(*previous_node, *current_node);
@@ -905,6 +911,8 @@ impl ScheduleGraph {
         let in_nodes: Vec<_> = self.hierarchy.neighbors_directed(node, Incoming).collect();
         let out_nodes: Vec<_> = self.hierarchy.neighbors_directed(node, Outgoing).collect();
 
+        self.hierarchy
+            .reserve_edges(in_nodes.len() * out_nodes.len());
         for &in_node in &in_nodes {
             for &out_node in &out_nodes {
                 self.hierarchy.add_edge(in_node, out_node);
@@ -914,6 +922,8 @@ impl ScheduleGraph {
         let in_nodes: Vec<_> = self.dependency.neighbors_directed(node, Incoming).collect();
         let out_nodes: Vec<_> = self.dependency.neighbors_directed(node, Outgoing).collect();
 
+        self.dependency
+            .reserve_edges(in_nodes.len() * out_nodes.len());
         for &in_node in &in_nodes {
             for &out_node in &out_nodes {
                 self.dependency.add_edge(in_node, out_node);
@@ -1551,14 +1561,17 @@ pub struct ScheduleNotInitialized;
 
 #[cfg(test)]
 mod tests {
+    use alloc::{vec, vec::Vec};
+    use core::any::TypeId;
+
     use bevy_ecs_macros::ScheduleLabel;
 
     use crate::{
         error::{ignore, panic, DefaultErrorHandler, Result},
         prelude::{ApplyDeferred, IntoSystemSet, Res, Resource},
         schedule::{
-            tests::ResMut, IntoScheduleConfigs, Schedule, ScheduleBuildSettings,
-            ScheduleCleanupPolicy, SystemSet,
+            passes::AutoInsertApplyDeferredPass, tests::ResMut, IntoScheduleConfigs, Schedule,
+            ScheduleBuildPass, ScheduleBuildSettings, ScheduleCleanupPolicy, SystemSet,
         },
         system::Commands,
         world::World,
@@ -2535,5 +2548,56 @@ mod tests {
         assert!(result.is_ok());
         let conflicts = schedule.graph().conflicting_systems();
         assert!(conflicts.is_empty());
+    }
+
+    #[test]
+    fn build_pass_iteration_order() {
+        #[derive(Debug)]
+        struct Pass<const N: usize>;
+
+        impl<const N: usize> ScheduleBuildPass for Pass<N> {
+            type EdgeOptions = ();
+            fn add_dependency(
+                &mut self,
+                _from: crate::schedule::NodeId,
+                _to: crate::schedule::NodeId,
+                _options: Option<&Self::EdgeOptions>,
+            ) {
+            }
+            fn build(
+                &mut self,
+                _world: &mut World,
+                _graph: &mut super::ScheduleGraph,
+                _dependency_flattened: &mut crate::schedule::graph::Dag<crate::schedule::SystemKey>,
+            ) -> core::result::Result<(), crate::schedule::ScheduleBuildError> {
+                Ok(())
+            }
+            fn collapse_set(
+                &mut self,
+                _set: crate::schedule::SystemSetKey,
+                _systems: &bevy_platform::collections::HashSet<crate::schedule::SystemKey>,
+                _dependency_flattening: &crate::schedule::graph::DiGraph<crate::schedule::NodeId>,
+            ) -> impl Iterator<Item = (crate::schedule::NodeId, crate::schedule::NodeId)>
+            {
+                core::iter::empty()
+            }
+        }
+
+        let mut schedule = Schedule::default();
+        schedule.add_build_pass(Pass::<0>);
+        schedule.add_build_pass(Pass::<1>);
+        schedule.add_build_pass(Pass::<2>);
+
+        let pass_order: Vec<TypeId> = schedule.graph().passes.keys().cloned().collect();
+
+        assert_eq!(
+            pass_order,
+            vec![
+                TypeId::of::<AutoInsertApplyDeferredPass>(),
+                TypeId::of::<Pass<0>>(),
+                TypeId::of::<Pass<1>>(),
+                TypeId::of::<Pass<2>>()
+            ]
+        );
     }
 }

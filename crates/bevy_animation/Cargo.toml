@@ -33,7 +33,7 @@ bevy_platform = { path = "../bevy_platform", version = "0.18.0-dev", default-fea
 
 # other
 petgraph = { version = "0.8", features = ["serde-1"] }
-ron = "0.11"
+ron = "0.12"
 serde = "1"
 blake3 = { version = "1.0" }
 downcast-rs = { version = "2", default-features = false, features = ["std"] }
