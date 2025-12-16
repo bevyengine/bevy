@@ -359,7 +359,7 @@ mod tests {
     use bevy_reflect::TypePath;
     use bevy_tasks::block_on;
 
-    use crate::{io::ReaderRequiredFeatures, Asset};
+    use crate::Asset;
 
     use super::*;
 

@@ -22,7 +22,7 @@ impl AssetReader for AndroidAssetReader {
     async fn read<'a>(
         &'a self,
         path: &'a Path,
-        required_features: ReaderRequiredFeatures,
+        _required_features: ReaderRequiredFeatures,
     ) -> Result<impl Reader + 'a, AssetReaderError> {
         let asset_manager = bevy_android::ANDROID_APP
             .get()

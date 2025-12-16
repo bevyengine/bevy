@@ -28,7 +28,6 @@ use crate::{
         AssetReader, AssetReaderError, AssetSourceBuilder, AssetSourceBuilders, AssetSourceEvent,
         AssetSourceId, AssetWatcher, PathStream, Reader, ReaderRequiredFeatures,
     },
-    meta::AssetMeta,
     processor::{
         AssetProcessor, GetProcessorError, LoadTransformAndSave, LogEntry, Process, ProcessContext,
         ProcessError, ProcessorState, ProcessorTransactionLog, ProcessorTransactionLogFactory,
@@ -49,7 +48,7 @@ impl<T: TypePath + 'static> Process for MyProcessor<T> {
     async fn process(
         &self,
         _context: &mut ProcessContext<'_>,
-        _meta: AssetMeta<(), Self>,
+        _settings: &Self::Settings,
         _writer: &mut crate::io::Writer,
     ) -> Result<(), ProcessError> {
         Ok(())
