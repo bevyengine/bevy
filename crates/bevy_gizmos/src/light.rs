@@ -202,7 +202,7 @@ fn draw_lights(
     let color = |entity: Entity, gizmo_color: Option<LightGizmoColor>, light_color, type_color| {
         match gizmo_color.unwrap_or(gizmos.config_ext.color) {
             LightGizmoColor::Manual(color) => color,
-            LightGizmoColor::Varied => Oklcha::sequential_dispersed(entity.index()).into(),
+            LightGizmoColor::Varied => Oklcha::sequential_dispersed(entity.index_u32()).into(),
             LightGizmoColor::MatchLightColor => light_color,
             LightGizmoColor::ByLightType => type_color,
         }
@@ -258,7 +258,7 @@ fn draw_all_lights(
             }
         }
         LightGizmoColor::Varied => {
-            let color = |entity: Entity| Oklcha::sequential_dispersed(entity.index()).into();
+            let color = |entity: Entity| Oklcha::sequential_dispersed(entity.index_u32()).into();
             for (entity, light, transform) in &point_query {
                 point_light_gizmo(transform, light, color(entity), &mut gizmos);
             }

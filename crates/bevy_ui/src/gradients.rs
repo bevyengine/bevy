@@ -468,11 +468,11 @@ pub enum Gradient {
     Linear(LinearGradient),
     /// A radial gradient
     ///
-    /// <https://developer.mozilla.org/en-US/docs/Web/CSS/gradient/linear-gradient>
+    /// <https://developer.mozilla.org/en-US/docs/Web/CSS/gradient/radial-gradient>
     Radial(RadialGradient),
     /// A conic gradient
     ///
-    /// <https://developer.mozilla.org/en-US/docs/Web/CSS/gradient/radial-gradient>
+    /// <https://developer.mozilla.org/en-US/docs/Web/CSS/gradient/conic-gradient>
     Conic(ConicGradient),
 }
 

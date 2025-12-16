@@ -1,13 +1,15 @@
 use crate::{Image, ImageFormat, ImageFormatSetting, ImageLoader, ImageLoaderSettings};
 
 use bevy_asset::saver::{AssetSaver, SavedAsset};
+use bevy_reflect::TypePath;
 use futures_lite::AsyncWriteExt;
 use thiserror::Error;
 
+#[derive(TypePath)]
 pub struct CompressedImageSaver;
 
 #[non_exhaustive]
-#[derive(Debug, Error)]
+#[derive(Debug, Error, TypePath)]
 pub enum CompressedImageSaverError {
     #[error(transparent)]
     Io(#[from] std::io::Error),
@@ -70,6 +72,7 @@ impl AssetSaver for CompressedImageSaver {
             sampler: image.sampler.clone(),
             asset_usage: image.asset_usage,
             texture_format: None,
+            array_layout: None,
         })
     }
 }

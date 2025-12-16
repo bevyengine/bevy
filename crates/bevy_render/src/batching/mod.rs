@@ -20,7 +20,7 @@ pub mod gpu_preprocessing;
 pub mod no_gpu_preprocessing;
 
 /// Add this component to mesh entities to disable automatic batching
-#[derive(Component, Default)]
+#[derive(Component, Default, Clone, Copy)]
 pub struct NoAutomaticBatching;
 
 /// Data necessary to be equal for two draw commands to be mergeable

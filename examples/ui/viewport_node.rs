@@ -50,9 +50,9 @@ fn test(
             Camera {
                 // Render this camera before our UI camera
                 order: -1,
-                target: RenderTarget::Image(image_handle.clone().into()),
                 ..default()
             },
+            RenderTarget::Image(image_handle.clone().into()),
         ))
         .id();
 
@@ -65,7 +65,7 @@ fn test(
             Shape,
         ))
         // We can observe pointer events on our objects as normal, the
-        // `bevy::ui::widgets::viewport_picking` system will take care of ensuring our viewport
+        // `bevy::ui::widget::viewport_picking` system will take care of ensuring our viewport
         // clicks pass through
         .observe(on_drag_cuboid);
 

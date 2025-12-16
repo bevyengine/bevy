@@ -1,5 +1,5 @@
 use crate::{
-    component::Tick,
+    change_detection::Tick,
     prelude::World,
     query::FilteredAccessSet,
     system::{ExclusiveSystemParam, ReadOnlySystemParam, SystemMeta, SystemParam},
@@ -85,7 +85,7 @@ impl ExclusiveSystemParam for SystemName {
 }
 
 #[cfg(test)]
-#[cfg(feature = "trace")]
+#[cfg(all(feature = "trace", feature = "debug"))]
 mod tests {
     use crate::{
         system::{IntoSystem, RunSystemOnce, SystemName},

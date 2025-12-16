@@ -2,6 +2,8 @@ use alloc::sync::Arc;
 
 use bevy_asset::Asset;
 use bevy_reflect::TypePath;
+use cosmic_text::skrifa::raw::ReadError;
+use cosmic_text::skrifa::FontRef;
 
 /// An [`Asset`] that contains the data for a loaded font, if loaded as an asset.
 ///
@@ -23,11 +25,8 @@ pub struct Font {
 
 impl Font {
     /// Creates a [`Font`] from bytes
-    pub fn try_from_bytes(
-        font_data: Vec<u8>,
-    ) -> Result<Self, cosmic_text::ttf_parser::FaceParsingError> {
-        use cosmic_text::ttf_parser;
-        ttf_parser::Face::parse(&font_data, 0)?;
+    pub fn try_from_bytes(font_data: Vec<u8>) -> Result<Self, ReadError> {
+        let _ = FontRef::from_index(&font_data, 0)?;
         Ok(Self {
             data: Arc::new(font_data),
         })

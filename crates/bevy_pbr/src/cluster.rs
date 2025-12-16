@@ -87,7 +87,7 @@ pub struct GpuClusterableObjectsUniform {
 
 #[derive(ShaderType, Default)]
 pub struct GpuClusterableObjectsStorage {
-    #[size(runtime)]
+    #[shader(size(runtime))]
     data: Vec<GpuClusterableObject>,
 }
 
@@ -117,7 +117,7 @@ struct GpuClusterOffsetsAndCountsUniform {
 
 #[derive(ShaderType, Default)]
 struct GpuClusterableObjectIndexListsStorage {
-    #[size(runtime)]
+    #[shader(size(runtime))]
     data: Vec<u32>,
 }
 
@@ -126,7 +126,7 @@ struct GpuClusterOffsetsAndCountsStorage {
     /// The starting offset, followed by the number of point lights, spot
     /// lights, reflection probes, and irradiance volumes in each cluster, in
     /// that order. The remaining fields are filled with zeroes.
-    #[size(runtime)]
+    #[shader(size(runtime))]
     data: Vec<[UVec4; 2]>,
 }
 

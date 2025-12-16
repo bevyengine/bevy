@@ -111,8 +111,8 @@ fn update_clipping(
 
         clip_rect.min.x += clip_inset.left;
         clip_rect.min.y += clip_inset.top;
-        clip_rect.max.x -= clip_inset.right + computed_node.scrollbar_size.x;
-        clip_rect.max.y -= clip_inset.bottom + computed_node.scrollbar_size.y;
+        clip_rect.max.x -= clip_inset.right;
+        clip_rect.max.y -= clip_inset.bottom;
 
         clip_rect = clip_rect
             .inflate(node.overflow_clip_margin.margin.max(0.) / computed_node.inverse_scale_factor);
@@ -153,7 +153,7 @@ pub fn propagate_ui_target_cameras(
 
         commands
             .entity(root_entity)
-            .insert(Propagate(ComputedUiTargetCamera { camera }));
+            .try_insert(Propagate(ComputedUiTargetCamera { camera }));
 
         let (scale_factor, physical_size) = camera_query
             .get(camera)
@@ -168,7 +168,7 @@ pub fn propagate_ui_target_cameras(
 
         commands
             .entity(root_entity)
-            .insert(Propagate(ComputedUiRenderTargetInfo {
+            .try_insert(Propagate(ComputedUiRenderTargetInfo {
                 scale_factor,
                 physical_size,
             }));

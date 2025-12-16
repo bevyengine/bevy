@@ -11,7 +11,8 @@ pub use range::*;
 pub use render_layers::*;
 
 use bevy_app::{Plugin, PostUpdate};
-use bevy_asset::Assets;
+use bevy_asset::prelude::AssetChanged;
+use bevy_asset::{AssetEventSystems, Assets};
 use bevy_ecs::{hierarchy::validate_parent_has_component, prelude::*};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_transform::{components::GlobalTransform, TransformSystems};
@@ -150,11 +151,16 @@ impl InheritedVisibility {
 /// When adding a new renderable component, you'll typically want to write an
 /// add-component hook that adds the type ID of that component to the
 /// [`VisibilityClass`] array. See `custom_phase_item` for an example.
+///
+/// `VisibilityClass` is automatically added by a hook on the `Mesh3d` and
+/// `Mesh2d` components. To avoid duplicating the `VisibilityClass` and
+/// causing issues when cloning, we use `#[component(clone_behavior=Ignore)]`
 //
 // Note: This can't be a `ComponentId` because the visibility classes are copied
 // into the render world, and component IDs are per-world.
 #[derive(Clone, Component, Default, Reflect, Deref, DerefMut)]
 #[reflect(Component, Default, Clone)]
+#[component(clone_behavior=Ignore)]
 pub struct VisibilityClass(pub SmallVec<[TypeId; 1]>);
 
 /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering.
@@ -346,18 +352,22 @@ impl Plugin for VisibilityPlugin {
             .register_required_components::<Mesh2d, VisibilityClass>()
             .configure_sets(
                 PostUpdate,
-                (
-                    CalculateBounds
-                        .ambiguous_with(mark_3d_meshes_as_changed_if_their_assets_changed),
-                    UpdateFrusta,
-                    VisibilityPropagate,
-                )
+                (UpdateFrusta, VisibilityPropagate)
                     .before(CheckVisibility)
                     .after(TransformSystems::Propagate),
             )
             .configure_sets(
                 PostUpdate,
                 MarkNewlyHiddenEntitiesInvisible.after(CheckVisibility),
+            )
+            .configure_sets(
+                PostUpdate,
+                (CalculateBounds)
+                    .before(CheckVisibility)
+                    .after(TransformSystems::Propagate)
+                    .after(AssetEventSystems)
+                    .ambiguous_with(CalculateBounds)
+                    .ambiguous_with(mark_3d_meshes_as_changed_if_their_assets_changed),
             )
             .init_resource::<PreviousVisibleEntities>()
             .add_systems(
@@ -379,6 +389,14 @@ impl Plugin for VisibilityPlugin {
     }
 }
 
+/// Add this component to an entity to prevent its `AABB` from being automatically recomputed.
+///
+/// This is useful if entities are already spawned with a correct `Aabb` component, or you have
+/// many entities and want to avoid the cost of table scans searching for entities that need to have
+/// their AABB recomputed.
+#[derive(Component, Clone, Debug, Default, Reflect)]
+pub struct NoAutoAabb;
+
 /// Computes and adds an [`Aabb`] component to entities with a
 /// [`Mesh3d`] component and without a [`NoFrustumCulling`] component.
 ///
@@ -386,15 +404,38 @@ impl Plugin for VisibilityPlugin {
 pub fn calculate_bounds(
     mut commands: Commands,
     meshes: Res<Assets<Mesh>>,
-    without_aabb: Query<(Entity, &Mesh3d), (Without<Aabb>, Without<NoFrustumCulling>)>,
+    new_aabb: Query<
+        (Entity, &Mesh3d),
+        (
+            Without<Aabb>,
+            Without<NoFrustumCulling>,
+            Without<NoAutoAabb>,
+        ),
+    >,
+    mut update_aabb: Query<
+        (&Mesh3d, &mut Aabb),
+        (
+            Or<(AssetChanged<Mesh3d>, Changed<Mesh3d>)>,
+            Without<NoFrustumCulling>,
+            Without<NoAutoAabb>,
+        ),
+    >,
 ) {
-    for (entity, mesh_handle) in &without_aabb {
+    for (entity, mesh_handle) in &new_aabb {
         if let Some(mesh) = meshes.get(mesh_handle)
             && let Some(aabb) = mesh.compute_aabb()
         {
             commands.entity(entity).try_insert(aabb);
         }
     }
+
+    update_aabb
+        .par_iter_mut()
+        .for_each(|(mesh_handle, mut old_aabb)| {
+            if let Some(aabb) = meshes.get(mesh_handle).and_then(MeshAabb::compute_aabb) {
+                *old_aabb = aabb;
+            }
+        });
 }
 
 /// Updates [`Frustum`].
@@ -528,7 +569,7 @@ pub fn check_visibility(
         Entity,
         &InheritedVisibility,
         &mut ViewVisibility,
-        &VisibilityClass,
+        Option<&VisibilityClass>,
         Option<&RenderLayers>,
         Option<&Aabb>,
         &GlobalTransform,
@@ -611,10 +652,15 @@ pub fn check_visibility(
                     view_visibility.set();
                 }
 
-                // Add the entity to the queue for all visibility classes the
-                // entity is in.
-                for visibility_class_id in visibility_class.iter() {
-                    queue.entry(*visibility_class_id).or_default().push(entity);
+                // The visibility class may be None here because AABB gizmos can be enabled via
+                // config without a renderable component being added to the entity. This workaround
+                // allows view visibility to be set for entities without a renderable component but
+                // that still need to render gizmos.
+                if let Some(visibility_class) = visibility_class {
+                    // Add the entity to the queue for all visibility classes the entity is in.
+                    for visibility_class_id in visibility_class.iter() {
+                        queue.entry(*visibility_class_id).or_default().push(entity);
+                    }
                 }
             },
         );
@@ -987,5 +1033,28 @@ mod test {
     fn ensure_visibility_enum_size() {
         assert_eq!(1, size_of::<Visibility>());
         assert_eq!(1, size_of::<Option<Visibility>>());
+    }
+
+    #[derive(Component, Default, Clone, Reflect)]
+    #[require(VisibilityClass)]
+    #[reflect(Component, Default, Clone)]
+    #[component(on_add = add_visibility_class::<Self>)]
+    struct TestVisibilityClassHook;
+
+    #[test]
+    fn test_add_visibility_class_hook() {
+        let mut world = World::new();
+        let entity = world.spawn(TestVisibilityClassHook).id();
+        let entity_clone = world.spawn_empty().id();
+        world
+            .entity_mut(entity)
+            .clone_with_opt_out(entity_clone, |_| {});
+
+        let entity_visibility_class = world.entity(entity).get::<VisibilityClass>().unwrap();
+        assert_eq!(entity_visibility_class.len(), 1);
+
+        let entity_clone_visibility_class =
+            world.entity(entity_clone).get::<VisibilityClass>().unwrap();
+        assert_eq!(entity_clone_visibility_class.len(), 1);
     }
 }

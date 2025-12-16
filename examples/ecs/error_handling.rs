@@ -22,7 +22,7 @@ fn main() {
 
     app.add_plugins(DefaultPlugins);
 
-    #[cfg(feature = "bevy_mesh_picking_backend")]
+    #[cfg(feature = "mesh_picking")]
     app.add_plugins(MeshPickingPlugin);
 
     // Fallible systems can be used the same way as regular systems. The only difference is they

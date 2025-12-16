@@ -1,4 +1,5 @@
 use bevy_app::{App, Plugin};
+use bevy_camera::MsaaWriteback;
 use bevy_color::LinearRgba;
 use bevy_core_pipeline::{
     blit::{BlitPipeline, BlitPipelineKey},
@@ -103,8 +104,11 @@ impl ViewNode for MsaaWritebackNode {
             occlusion_query_set: None,
         };
 
-        let bind_group =
-            blit_pipeline.create_bind_group(render_context.render_device(), post_process.source);
+        let bind_group = blit_pipeline.create_bind_group(
+            render_context.render_device(),
+            post_process.source,
+            pipeline_cache,
+        );
 
         let mut render_pass = render_context
             .command_encoder()
@@ -132,10 +136,14 @@ fn prepare_msaa_writeback_pipelines(
     view_targets: Query<(Entity, &ViewTarget, &ExtractedCamera, &Msaa)>,
 ) {
     for (entity, view_target, camera, msaa) in view_targets.iter() {
-        // only do writeback if writeback is enabled for the camera and this isn't the first camera in the target,
-        // as there is nothing to write back for the first camera.
-        if msaa.samples() > 1 && camera.msaa_writeback && camera.sorted_camera_index_for_target > 0
-        {
+        // Determine if we should do MSAA writeback based on the camera's setting
+        let should_writeback = match camera.msaa_writeback {
+            MsaaWriteback::Off => false,
+            MsaaWriteback::Auto => camera.sorted_camera_index_for_target > 0,
+            MsaaWriteback::Always => true,
+        };
+
+        if msaa.samples() > 1 && should_writeback {
             let key = BlitPipelineKey {
                 texture_format: view_target.main_texture_format(),
                 samples: msaa.samples(),

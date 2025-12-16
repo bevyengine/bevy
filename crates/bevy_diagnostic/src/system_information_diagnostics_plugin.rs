@@ -74,14 +74,12 @@ mod internal {
         pin::Pin,
         task::{Context, Poll},
     };
-    use std::sync::{
-        mpsc::{self, Receiver, Sender},
-        Arc,
-    };
+    use std::sync::mpsc::{self, Receiver, Sender};
 
     use alloc::{
         format,
         string::{String, ToString},
+        sync::Arc,
     };
     use atomic_waker::AtomicWaker;
     use bevy_app::{App, First, Startup, Update};

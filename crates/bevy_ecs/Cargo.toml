@@ -1,6 +1,6 @@
 [package]
 name = "bevy_ecs"
-version = "0.17.0-dev"
+version = "0.18.0-dev"
 edition = "2024"
 description = "Bevy Engine's entity component system"
 homepage = "https://bevy.org"
@@ -8,7 +8,7 @@ repository = "https://github.com/bevyengine/bevy"
 license = "MIT OR Apache-2.0"
 keywords = ["ecs", "game", "bevy"]
 categories = ["game-engines", "data-structures"]
-rust-version = "1.86.0"
+rust-version = "1.89.0"
 
 [features]
 default = ["std", "bevy_reflect", "async_executor", "backtrace"]
@@ -36,7 +36,10 @@ backtrace = ["std"]
 
 ## Enables `tracing` integration, allowing spans and other metrics to be reported
 ## through that framework.
-trace = ["std", "dep:tracing", "bevy_utils/debug"]
+trace = ["std", "dep:tracing"]
+
+# Enable collecting debug information about systems and components to help with diagnostics
+debug = ["bevy_utils/debug", "bevy_reflect?/debug"]
 
 ## Enables a more detailed set of traces which may be noisy if left on by default.
 detailed_trace = ["trace"]
@@ -85,14 +88,15 @@ critical-section = [
 hotpatching = ["dep:subsecond"]
 
 [dependencies]
-bevy_ptr = { path = "../bevy_ptr", version = "0.17.0-dev" }
-bevy_reflect = { path = "../bevy_reflect", version = "0.17.0-dev", features = [
+bevy_ptr = { path = "../bevy_ptr", version = "0.18.0-dev" }
+bevy_reflect = { path = "../bevy_reflect", version = "0.18.0-dev", features = [
   "smallvec",
+  "indexmap",
 ], default-features = false, optional = true }
-bevy_tasks = { path = "../bevy_tasks", version = "0.17.0-dev", default-features = false }
-bevy_utils = { path = "../bevy_utils", version = "0.17.0-dev", default-features = false }
-bevy_ecs_macros = { path = "macros", version = "0.17.0-dev" }
-bevy_platform = { path = "../bevy_platform", version = "0.17.0-dev", default-features = false, features = [
+bevy_tasks = { path = "../bevy_tasks", version = "0.18.0-dev", default-features = false }
+bevy_utils = { path = "../bevy_utils", version = "0.18.0-dev", default-features = false }
+bevy_ecs_macros = { path = "macros", version = "0.18.0-dev" }
+bevy_platform = { path = "../bevy_platform", version = "0.18.0-dev", default-features = false, features = [
   "alloc",
 ] }
 
@@ -120,7 +124,7 @@ variadics_please = { version = "1.1", default-features = false }
 tracing = { version = "0.1", default-features = false, optional = true }
 log = { version = "0.4", default-features = false }
 bumpalo = "3"
-subsecond = { version = "0.7.0-alpha.1", optional = true }
+subsecond = { version = "0.7.0-rc.0", optional = true }
 slotmap = { version = "1.0.7", default-features = false }
 
 concurrent-queue = { version = "2.5.0", default-features = false }
@@ -152,3 +156,4 @@ workspace = true
 [package.metadata.docs.rs]
 rustdoc-args = ["-Zunstable-options", "--generate-link-to-definition"]
 all-features = true
+features = ["bevy_reflect/auto_register_static"]

@@ -90,7 +90,7 @@ pub struct ArrayInfo {
     item_info: fn() -> Option<&'static TypeInfo>,
     item_ty: Type,
     capacity: usize,
-    #[cfg(feature = "documentation")]
+    #[cfg(feature = "reflect_documentation")]
     docs: Option<&'static str>,
 }
 
@@ -109,13 +109,13 @@ impl ArrayInfo {
             item_info: TItem::maybe_type_info,
             item_ty: Type::of::<TItem>(),
             capacity,
-            #[cfg(feature = "documentation")]
+            #[cfg(feature = "reflect_documentation")]
             docs: None,
         }
     }
 
     /// Sets the docstring for this array.
-    #[cfg(feature = "documentation")]
+    #[cfg(feature = "reflect_documentation")]
     pub fn with_docs(self, docs: Option<&'static str>) -> Self {
         Self { docs, ..self }
     }
@@ -143,7 +143,7 @@ impl ArrayInfo {
     }
 
     /// The docstring of this array, if any.
-    #[cfg(feature = "documentation")]
+    #[cfg(feature = "reflect_documentation")]
     pub fn docs(&self) -> Option<&'static str> {
         self.docs
     }

@@ -2,20 +2,17 @@
 
 // Note: This example showcases the meshlet API, but is not the type of scene that would benefit from using meshlets.
 
-#[path = "../helpers/camera_controller.rs"]
-mod camera_controller;
-
 use bevy::{
+    camera_controller::free_camera::{FreeCamera, FreeCameraPlugin},
     light::{CascadeShadowConfigBuilder, DirectionalLightShadowMap},
     pbr::experimental::meshlet::{MeshletMesh3d, MeshletPlugin},
     prelude::*,
     render::render_resource::AsBindGroup,
 };
-use camera_controller::{CameraController, CameraControllerPlugin};
 use std::f32::consts::PI;
 
 const ASSET_URL: &str =
-    "https://github.com/bevyengine/bevy_asset_files/raw/9bf88c42b9d06a3634eed633d90ce5fab02c31da/meshlet/bunny.meshlet_mesh";
+    "https://github.com/bevyengine/bevy_asset_files/raw/6dccaef517bde74d1969734703709aead7211dbc/meshlet/bunny.meshlet_mesh";
 
 fn main() {
     App::new()
@@ -26,7 +23,7 @@ fn main() {
                 cluster_buffer_slots: 1 << 14,
             },
             MaterialPlugin::<MeshletDebugMaterial>::default(),
-            CameraControllerPlugin,
+            FreeCameraPlugin,
         ))
         .add_systems(Startup, setup)
         .run();
@@ -49,7 +46,7 @@ fn setup(
             intensity: 150.0,
             ..default()
         },
-        CameraController::default(),
+        FreeCamera::default(),
     ));
 
     commands.spawn((

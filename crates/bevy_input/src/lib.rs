@@ -1,4 +1,4 @@
-#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![forbid(unsafe_code)]
 #![doc(
     html_logo_url = "https://bevy.org/assets/icon.png",
@@ -74,10 +74,6 @@ pub struct InputPlugin;
 /// Label for systems that update the input data.
 #[derive(Debug, PartialEq, Eq, Clone, Hash, SystemSet)]
 pub struct InputSystems;
-
-/// Deprecated alias for [`InputSystems`].
-#[deprecated(since = "0.17.0", note = "Renamed to `InputSystems`.")]
-pub type InputSystem = InputSystems;
 
 impl Plugin for InputPlugin {
     fn build(&self, app: &mut App) {

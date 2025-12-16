@@ -6,18 +6,22 @@
 //!
 //! Clustered decals are the highest-quality types of decals that Bevy supports,
 //! but they require bindless textures. This means that they presently can't be
-//! used on WebGL 2, WebGPU, macOS, or iOS. Bevy's clustered decals can be used
+//! used on WebGL 2 or WebGPU. Bevy's clustered decals can be used
 //! with forward or deferred rendering and don't require a prepass.
 //!
-//! On their own, clustered decals only project the base color of a texture. You
-//! can, however, use the built-in *tag* field to customize the appearance of a
-//! clustered decal arbitrarily. See the documentation in `clustered.wgsl` for
-//! more information and the `clustered_decals` example for an example of use.
+//! Each clustered decal may contain up to 4 textures. By default, the 4
+//! textures correspond to the base color, a normal map, a metallic-roughness
+//! map, and an emissive map respectively. However, with a custom shader, you
+//! can use these 4 textures for whatever you wish. Additionally, you can use
+//! the built-in *tag* field to store additional application-specific data; by
+//! reading the tag in the shader, you can modify the appearance of a clustered
+//! decal arbitrarily. See the documentation in `clustered.wgsl` for more
+//! information and the `clustered_decals` example for an example of use.
 
 use core::{num::NonZero, ops::Deref};
 
 use bevy_app::{App, Plugin};
-use bevy_asset::AssetId;
+use bevy_asset::{AssetId, Handle};
 use bevy_camera::visibility::ViewVisibility;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
@@ -38,6 +42,7 @@ use bevy_render::{
         SamplerBindingType, ShaderType, TextureSampleType, TextureView,
     },
     renderer::{RenderAdapter, RenderDevice, RenderQueue},
+    settings::WgpuFeatures,
     sync_component::SyncComponentPlugin,
     sync_world::RenderEntity,
     texture::{FallbackImage, GpuImage},
@@ -49,12 +54,8 @@ use bytemuck::{Pod, Zeroable};
 
 use crate::{binding_arrays_are_usable, prepare_lights, GlobalClusterableObjectMeta};
 
-/// The maximum number of decals that can be present in a view.
-///
-/// This number is currently relatively low in order to work around the lack of
-/// first-class binding arrays in `wgpu`. When that feature is implemented, this
-/// limit can be increased.
-pub(crate) const MAX_VIEW_DECALS: usize = 8;
+/// The number of textures that can be associated with each clustered decal.
+const IMAGES_PER_DECAL: usize = 4;
 
 /// A plugin that adds support for clustered decals.
 ///
@@ -72,7 +73,7 @@ pub struct RenderClusteredDecals {
     /// Maps a decal image to the shader binding array.
     ///
     /// [`Self::binding_index_to_textures`] holds the inverse mapping.
-    texture_to_binding_index: HashMap<AssetId<Image>, u32>,
+    texture_to_binding_index: HashMap<AssetId<Image>, i32>,
     /// The information concerning each decal that we provide to the shader.
     decals: Vec<RenderClusteredDecal>,
     /// Maps the [`bevy_render::sync_world::RenderEntity`] of each decal to the
@@ -93,18 +94,22 @@ impl RenderClusteredDecals {
     pub fn insert_decal(
         &mut self,
         entity: Entity,
-        image: &AssetId<Image>,
+        images: [Option<AssetId<Image>>; IMAGES_PER_DECAL],
         local_from_world: Mat4,
         tag: u32,
     ) {
-        let image_index = self.get_or_insert_image(image);
+        let image_indices = images.map(|maybe_image_id| match maybe_image_id {
+            Some(ref image_id) => self.get_or_insert_image(image_id),
+            None => -1,
+        });
         let decal_index = self.decals.len();
         self.decals.push(RenderClusteredDecal {
             local_from_world,
-            image_index,
+            image_indices,
             tag,
             pad_a: 0,
             pad_b: 0,
+            pad_c: 0,
         });
         self.entity_to_decal_index.insert(entity, decal_index);
     }
@@ -189,14 +194,23 @@ pub struct RenderClusteredDecal {
     /// The shader uses this in order to back-transform world positions into
     /// model space.
     local_from_world: Mat4,
-    /// The index of the decal texture in the binding array.
-    image_index: u32,
+    /// The index of each decal texture in the binding array.
+    ///
+    /// These are in the order of the base color texture, the normal map
+    /// texture, the metallic-roughness map texture, and finally the emissive
+    /// texture.
+    ///
+    /// If the decal doesn't have a texture assigned to a slot, the index at
+    /// that slot will be -1.
+    image_indices: [i32; 4],
     /// A custom tag available for application-defined purposes.
     tag: u32,
     /// Padding.
     pad_a: u32,
     /// Padding.
     pad_b: u32,
+    /// Padding.
+    pad_c: u32,
 }
 
 /// Extracts decals from the main world into the render world.
@@ -238,58 +252,129 @@ pub fn extract_decals(
     // Clear out the `RenderDecals` in preparation for a new frame.
     render_decals.clear();
 
+    extract_clustered_decals(&decals, &mut render_decals);
+    extract_spot_light_textures(&spot_light_textures, &mut render_decals);
+    extract_point_light_textures(&point_light_textures, &mut render_decals);
+    extract_directional_light_textures(&directional_light_textures, &mut render_decals);
+}
+
+/// Extracts all clustered decals and light textures from the scene and transfers
+/// them to the render world.
+fn extract_clustered_decals(
+    decals: &Extract<
+        Query<(
+            RenderEntity,
+            &ClusteredDecal,
+            &GlobalTransform,
+            &ViewVisibility,
+        )>,
+    >,
+    render_decals: &mut RenderClusteredDecals,
+) {
     // Loop over each decal.
-    for (decal_entity, clustered_decal, global_transform, view_visibility) in &decals {
+    for (decal_entity, clustered_decal, global_transform, view_visibility) in decals {
         // If the decal is invisible, skip it.
         if !view_visibility.get() {
             continue;
         }
 
+        // Insert the decal, grabbing the ID of every associated texture as we
+        // do.
         render_decals.insert_decal(
             decal_entity,
-            &clustered_decal.image.id(),
+            [
+                clustered_decal.base_color_texture.as_ref().map(Handle::id),
+                clustered_decal.normal_map_texture.as_ref().map(Handle::id),
+                clustered_decal
+                    .metallic_roughness_texture
+                    .as_ref()
+                    .map(Handle::id),
+                clustered_decal.emissive_texture.as_ref().map(Handle::id),
+            ],
             global_transform.affine().inverse().into(),
             clustered_decal.tag,
         );
     }
+}
 
-    for (decal_entity, texture, global_transform, view_visibility) in &spot_light_textures {
-        // If the decal is invisible, skip it.
+/// Extracts all textures from spot lights from the main world to the render
+/// world as clustered decals.
+fn extract_spot_light_textures(
+    spot_light_textures: &Extract<
+        Query<(
+            RenderEntity,
+            &SpotLightTexture,
+            &GlobalTransform,
+            &ViewVisibility,
+        )>,
+    >,
+    render_decals: &mut RenderClusteredDecals,
+) {
+    for (decal_entity, texture, global_transform, view_visibility) in spot_light_textures {
+        // If the texture is invisible, skip it.
         if !view_visibility.get() {
             continue;
         }
 
         render_decals.insert_decal(
             decal_entity,
-            &texture.image.id(),
+            [Some(texture.image.id()), None, None, None],
             global_transform.affine().inverse().into(),
             0,
         );
     }
+}
 
-    for (decal_entity, texture, global_transform, view_visibility) in &point_light_textures {
-        // If the decal is invisible, skip it.
+/// Extracts all textures from point lights from the main world to the render
+/// world as clustered decals.
+fn extract_point_light_textures(
+    point_light_textures: &Extract<
+        Query<(
+            RenderEntity,
+            &PointLightTexture,
+            &GlobalTransform,
+            &ViewVisibility,
+        )>,
+    >,
+    render_decals: &mut RenderClusteredDecals,
+) {
+    for (decal_entity, texture, global_transform, view_visibility) in point_light_textures {
+        // If the texture is invisible, skip it.
         if !view_visibility.get() {
             continue;
         }
 
         render_decals.insert_decal(
             decal_entity,
-            &texture.image.id(),
+            [Some(texture.image.id()), None, None, None],
             global_transform.affine().inverse().into(),
             texture.cubemap_layout as u32,
         );
     }
+}
 
-    for (decal_entity, texture, global_transform, view_visibility) in &directional_light_textures {
-        // If the decal is invisible, skip it.
+/// Extracts all textures from directional lights from the main world to the
+/// render world as clustered decals.
+fn extract_directional_light_textures(
+    directional_light_textures: &Extract<
+        Query<(
+            RenderEntity,
+            &DirectionalLightTexture,
+            &GlobalTransform,
+            &ViewVisibility,
+        )>,
+    >,
+    render_decals: &mut RenderClusteredDecals,
+) {
+    for (decal_entity, texture, global_transform, view_visibility) in directional_light_textures {
+        // If the texture is invisible, skip it.
         if !view_visibility.get() {
             continue;
         }
 
         render_decals.insert_decal(
             decal_entity,
-            &texture.image.id(),
+            [Some(texture.image.id()), None, None, None],
             global_transform.affine().inverse().into(),
             if texture.tiled { 1 } else { 0 },
         );
@@ -328,7 +413,7 @@ pub(crate) fn get_bind_group_layout_entries(
         binding_types::storage_buffer_read_only::<RenderClusteredDecal>(false),
         // `decal_textures`
         binding_types::texture_2d(TextureSampleType::Float { filterable: true })
-            .count(NonZero::<u32>::new(MAX_VIEW_DECALS as u32).unwrap()),
+            .count(NonZero::<u32>::new(max_view_decals(render_device)).unwrap()),
         // `decal_sampler`
         binding_types::sampler(SamplerBindingType::Filtering),
     ])
@@ -372,9 +457,17 @@ impl<'a> RenderViewClusteredDecalBindGroupEntries<'a> {
             }
         }
 
-        // Pad out the binding array to its maximum length, which is
-        // required on some platforms.
-        while texture_views.len() < MAX_VIEW_DECALS {
+        // If required on this platform, pad out the binding array to its
+        // maximum length.
+        if !render_device
+            .features()
+            .contains(WgpuFeatures::PARTIALLY_BOUND_BINDING_ARRAY)
+        {
+            let max_view_decals = max_view_decals(render_device);
+            while texture_views.len() < max_view_decals as usize {
+                texture_views.push(&*fallback_image.d2.texture_view);
+            }
+        } else if texture_views.is_empty() {
             texture_views.push(&*fallback_image.d2.texture_view);
         }
 
@@ -389,12 +482,12 @@ impl<'a> RenderViewClusteredDecalBindGroupEntries<'a> {
 impl RenderClusteredDecals {
     /// Returns the index of the given image in the decal texture binding array,
     /// adding it to the list if necessary.
-    fn get_or_insert_image(&mut self, image_id: &AssetId<Image>) -> u32 {
+    fn get_or_insert_image(&mut self, image_id: &AssetId<Image>) -> i32 {
         *self
             .texture_to_binding_index
             .entry(*image_id)
             .or_insert_with(|| {
-                let index = self.binding_index_to_textures.len() as u32;
+                let index = self.binding_index_to_textures.len() as i32;
                 self.binding_index_to_textures.push(*image_id);
                 index
             })
@@ -437,6 +530,26 @@ pub fn clustered_decals_are_usable(
     // See issue #17553.
     // Re-enable this when `wgpu` has first-class bindless.
     binding_arrays_are_usable(render_device, render_adapter)
-        && cfg!(not(any(target_os = "macos", target_os = "ios")))
         && cfg!(feature = "pbr_clustered_decals")
+}
+
+/// Returns the maximum number of decals that can be in the scene, taking
+/// platform limitations into account.
+fn max_view_decals(render_device: &RenderDevice) -> u32 {
+    // If the current `wgpu` platform doesn't support partially-bound binding
+    // arrays, limit the number of decals to a low number. If we didn't do this,
+    // then on such platforms we'd pay the maximum overhead even if there are no
+    // decals are in the scene.
+    if render_device
+        .features()
+        .contains(WgpuFeatures::PARTIALLY_BOUND_BINDING_ARRAY)
+    {
+        // This number was determined arbitrarily as a reasonable value that
+        // would encompass most use cases (e.g. bullet holes in walls) while
+        // offering a failsafe to prevent shaders becoming too slow if there are
+        // extremely large numbers of decals.
+        1024
+    } else {
+        8
+    }
 }

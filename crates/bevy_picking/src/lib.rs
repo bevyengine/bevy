@@ -160,7 +160,7 @@ pub mod backend;
 pub mod events;
 pub mod hover;
 pub mod input;
-#[cfg(feature = "bevy_mesh_picking_backend")]
+#[cfg(feature = "mesh_picking")]
 pub mod mesh_picking;
 pub mod pointer;
 pub mod window;
@@ -174,7 +174,7 @@ use hover::{update_is_directly_hovered, update_is_hovered};
 ///
 /// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
-    #[cfg(feature = "bevy_mesh_picking_backend")]
+    #[cfg(feature = "mesh_picking")]
     #[doc(hidden)]
     pub use crate::mesh_picking::{
         ray_cast::{MeshRayCast, MeshRayCastSettings, RayCastBackfaces, RayCastVisibility},
@@ -274,10 +274,6 @@ pub enum PickingSystems {
     /// Runs after all other picking sets. In the [`PreUpdate`] schedule.
     Last,
 }
-
-/// Deprecated alias for [`PickingSystems`].
-#[deprecated(since = "0.17.0", note = "Renamed to `PickingSystems`.")]
-pub type PickSet = PickingSystems;
 
 /// One plugin that contains the [`PointerInputPlugin`](input::PointerInputPlugin), [`PickingPlugin`]
 /// and the [`InteractionPlugin`], this is probably the plugin that will be most used.

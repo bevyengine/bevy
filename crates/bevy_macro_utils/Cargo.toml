@@ -1,6 +1,6 @@
 [package]
 name = "bevy_macro_utils"
-version = "0.17.0-dev"
+version = "0.18.0-dev"
 edition = "2024"
 description = "A collection of utils for Bevy Engine"
 homepage = "https://bevy.org"
@@ -15,7 +15,6 @@ proc-macro2 = "1.0"
 toml_edit = { version = "0.23.2", default-features = false, features = [
   "parse",
 ] }
-parking_lot = { version = "0.12" }
 
 [lints]
 workspace = true

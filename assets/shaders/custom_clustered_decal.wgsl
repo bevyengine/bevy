@@ -22,11 +22,7 @@ fn fragment(
     pbr_input.material.base_color = alpha_discard(pbr_input.material, pbr_input.material.base_color);
 
     // Apply the normal decals.
-    pbr_input.material.base_color = clustered::apply_decal_base_color(
-        in.world_position.xyz,
-        in.position.xy,
-        pbr_input.material.base_color
-    );
+    clustered::apply_decals(&pbr_input);
 
     // Here we tint the color based on the tag of the decal.
     // We could optionally do other things, such as adjust the normal based on a normal map.
@@ -42,7 +38,7 @@ fn fragment(
     );
     while (clustered::clustered_decal_iterator_next(&decal_iterator)) {
         var decal_base_color = textureSampleLevel(
-            mesh_view_bindings::clustered_decal_textures[decal_iterator.texture_index],
+            mesh_view_bindings::clustered_decal_textures[decal_iterator.base_color_texture_index],
             mesh_view_bindings::clustered_decal_sampler,
             decal_iterator.uv,
             0.0

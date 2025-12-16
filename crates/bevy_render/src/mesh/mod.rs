@@ -1,13 +1,14 @@
 pub mod allocator;
 use crate::{
-    render_asset::{PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets},
-    render_resource::TextureView,
+    render_asset::{
+        AssetExtractionError, PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets,
+    },
     texture::GpuImage,
     RenderApp,
 };
 use allocator::MeshAllocatorPlugin;
-use bevy_app::{App, Plugin, PostUpdate};
-use bevy_asset::{AssetApp, AssetId, RenderAssetUsages};
+use bevy_app::{App, Plugin};
+use bevy_asset::{AssetId, RenderAssetUsages};
 use bevy_ecs::{
     prelude::*,
     system::{
@@ -15,16 +16,18 @@ use bevy_ecs::{
         SystemParamItem,
     },
 };
+#[cfg(feature = "morph")]
 use bevy_mesh::morph::{MeshMorphWeights, MorphWeights};
 use bevy_mesh::*;
 use wgpu::IndexFormat;
 
-/// Adds the [`Mesh`] as an asset and makes sure that they are extracted and prepared for the GPU.
-pub struct MeshPlugin;
+/// Makes sure that [`Mesh`]es are extracted and prepared for the GPU.
+/// Does *not* add the [`Mesh`] as an asset. Use [`MeshPlugin`] for that.
+pub struct MeshRenderAssetPlugin;
 
-impl Plugin for MeshPlugin {
+impl Plugin for MeshRenderAssetPlugin {
     fn build(&self, app: &mut App) {
-        app.init_asset::<skinning::SkinnedMeshInverseBindposes>()
+        app
             // 'Mesh' must be prepared after 'Image' as meshes rely on the morph target image being ready
             .add_plugins(RenderAssetPlugin::<RenderMesh, GpuImage>::default())
             .add_plugins(MeshAllocatorPlugin);
@@ -39,10 +42,15 @@ impl Plugin for MeshPlugin {
 
 /// [Inherit weights](inherit_weights) from glTF mesh parent entity to direct
 /// bevy mesh child entities (ie: glTF primitive).
+#[cfg(feature = "morph")]
 pub struct MorphPlugin;
+#[cfg(feature = "morph")]
 impl Plugin for MorphPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(PostUpdate, inherit_weights.in_set(InheritWeightSystems));
+        app.add_systems(
+            bevy_app::PostUpdate,
+            inherit_weights.in_set(InheritWeightSystems),
+        );
     }
 }
 
@@ -50,6 +58,7 @@ impl Plugin for MorphPlugin {
 /// should be inherited by children meshes.
 ///
 /// Only direct children are updated, to fulfill the expectations of glTF spec.
+#[cfg(feature = "morph")]
 pub fn inherit_weights(
     morph_nodes: Query<(&Children, &MorphWeights), (Without<Mesh3d>, Changed<MorphWeights>)>,
     mut morph_primitives: Query<&mut MeshMorphWeights, With<Mesh3d>>,
@@ -70,7 +79,8 @@ pub struct RenderMesh {
     pub vertex_count: u32,
 
     /// Morph targets for the mesh, if present.
-    pub morph_targets: Option<TextureView>,
+    #[cfg(feature = "morph")]
+    pub morph_targets: Option<crate::render_resource::TextureView>,
 
     /// Information about the mesh data buffers, including whether the mesh uses
     /// indices or not.
@@ -123,6 +133,15 @@ impl RenderAsset for RenderMesh {
         mesh.asset_usage
     }
 
+    fn take_gpu_data(
+        source: &mut Self::SourceAsset,
+        _previous_gpu_asset: Option<&Self>,
+    ) -> Result<Self::SourceAsset, AssetExtractionError> {
+        source
+            .take_gpu_data()
+            .map_err(|_| AssetExtractionError::AlreadyExtracted)
+    }
+
     fn byte_len(mesh: &Self::SourceAsset) -> Option<usize> {
         let mut vertex_size = 0;
         for attribute_data in mesh.attributes() {
@@ -139,12 +158,13 @@ impl RenderAsset for RenderMesh {
     fn prepare_asset(
         mesh: Self::SourceAsset,
         _: AssetId<Self::SourceAsset>,
-        (images, mesh_vertex_buffer_layouts): &mut SystemParamItem<Self::Param>,
+        (_images, mesh_vertex_buffer_layouts): &mut SystemParamItem<Self::Param>,
         _: Option<&Self>,
     ) -> Result<Self, PrepareAssetError<Self::SourceAsset>> {
+        #[cfg(feature = "morph")]
         let morph_targets = match mesh.morph_targets() {
             Some(mt) => {
-                let Some(target_image) = images.get(mt) else {
+                let Some(target_image) = _images.get(mt) else {
                     return Err(PrepareAssetError::RetryNextUpdate(mesh));
                 };
                 Some(target_image.texture_view.clone())
@@ -163,17 +183,20 @@ impl RenderAsset for RenderMesh {
         let mesh_vertex_buffer_layout =
             mesh.get_mesh_vertex_buffer_layout(mesh_vertex_buffer_layouts);
 
-        let mut key_bits = BaseMeshPipelineKey::from_primitive_topology(mesh.primitive_topology());
-        key_bits.set(
-            BaseMeshPipelineKey::MORPH_TARGETS,
-            mesh.morph_targets().is_some(),
-        );
+        let key_bits = BaseMeshPipelineKey::from_primitive_topology(mesh.primitive_topology());
+        #[cfg(feature = "morph")]
+        let key_bits = if mesh.morph_targets().is_some() {
+            key_bits | BaseMeshPipelineKey::MORPH_TARGETS
+        } else {
+            key_bits
+        };
 
         Ok(RenderMesh {
             vertex_count: mesh.count_vertices() as u32,
             buffer_info,
             key_bits,
             layout: mesh_vertex_buffer_layout,
+            #[cfg(feature = "morph")]
             morph_targets,
         })
     }

@@ -89,10 +89,10 @@ fn button(asset_server: &AssetServer) -> impl Bundle {
                 justify_content: JustifyContent::Center,
                 // vertically center child text
                 align_items: AlignItems::Center,
+                border_radius: BorderRadius::MAX,
                 ..default()
             },
             BorderColor::all(Color::WHITE),
-            BorderRadius::MAX,
             BackgroundColor(Color::BLACK),
             children![(
                 Text::new("Button"),

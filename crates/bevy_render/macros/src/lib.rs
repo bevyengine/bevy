@@ -1,5 +1,5 @@
 #![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
-#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 
 mod as_bind_group;
 mod extract_component;
@@ -12,11 +12,11 @@ use quote::format_ident;
 use syn::{parse_macro_input, DeriveInput};
 
 pub(crate) fn bevy_render_path() -> syn::Path {
-    BevyManifest::shared().get_path("bevy_render")
+    BevyManifest::shared(|manifest| manifest.get_path("bevy_render"))
 }
 
 pub(crate) fn bevy_ecs_path() -> syn::Path {
-    BevyManifest::shared().get_path("bevy_ecs")
+    BevyManifest::shared(|manifest| manifest.get_path("bevy_ecs"))
 }
 
 #[proc_macro_derive(ExtractResource)]

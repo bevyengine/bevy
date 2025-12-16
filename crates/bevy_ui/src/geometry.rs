@@ -1,4 +1,4 @@
-use bevy_math::Vec2;
+use bevy_math::{MismatchedUnitsError, StableInterpolate as _, TryStableInterpolate, Vec2};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_utils::default;
 use core::ops::{Div, DivAssign, Mul, MulAssign, Neg};
@@ -414,6 +414,30 @@ impl Val {
                 Ok(physical_target_size.x.max(physical_target_size.y) * value / 100.0)
             }
             Val::Auto => Err(ValArithmeticError::NonEvaluable),
+        }
+    }
+}
+
+impl TryStableInterpolate for Val {
+    type Error = MismatchedUnitsError;
+
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ui::Val;
+    /// # use bevy_math::TryStableInterpolate;
+    /// assert!(matches!(Val::Px(0.0).try_interpolate_stable(&Val::Px(10.0), 0.5), Ok(Val::Px(5.0))));
+    /// ```
+    fn try_interpolate_stable(&self, other: &Self, t: f32) -> Result<Self, Self::Error> {
+        match (self, other) {
+            (Val::Px(a), Val::Px(b)) => Ok(Val::Px(a.interpolate_stable(b, t))),
+            (Val::Percent(a), Val::Percent(b)) => Ok(Val::Percent(a.interpolate_stable(b, t))),
+            (Val::Vw(a), Val::Vw(b)) => Ok(Val::Vw(a.interpolate_stable(b, t))),
+            (Val::Vh(a), Val::Vh(b)) => Ok(Val::Vh(a.interpolate_stable(b, t))),
+            (Val::VMin(a), Val::VMin(b)) => Ok(Val::VMin(a.interpolate_stable(b, t))),
+            (Val::VMax(a), Val::VMax(b)) => Ok(Val::VMax(a.interpolate_stable(b, t))),
+            (Val::Auto, Val::Auto) => Ok(Val::Auto),
+            _ => Err(MismatchedUnitsError),
         }
     }
 }
@@ -1251,5 +1275,16 @@ mod tests {
         assert_eq!(r.right, Val::Percent(5.));
         assert_eq!(r.top, Val::Percent(20.));
         assert_eq!(r.bottom, Val::Percent(99.));
+    }
+
+    #[test]
+    fn val_constructor_fns_return_correct_val_variant() {
+        assert_eq!(auto(), Val::Auto);
+        assert_eq!(px(0.0), Val::Px(0.0));
+        assert_eq!(percent(0.0), Val::Percent(0.0));
+        assert_eq!(vw(0.0), Val::Vw(0.0));
+        assert_eq!(vh(0.0), Val::Vh(0.0));
+        assert_eq!(vmin(0.0), Val::VMin(0.0));
+        assert_eq!(vmax(0.0), Val::VMax(0.0));
     }
 }

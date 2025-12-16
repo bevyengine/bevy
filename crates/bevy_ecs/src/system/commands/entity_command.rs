@@ -4,15 +4,19 @@
 //! It also contains functions that return closures for use with
 //! [`EntityCommands`](crate::system::EntityCommands).
 
-use alloc::vec::Vec;
+use alloc::{string::ToString, vec::Vec};
+#[cfg(not(feature = "trace"))]
 use log::info;
+#[cfg(feature = "trace")]
+use tracing::info;
 
 use crate::{
     bundle::{Bundle, InsertMode},
     change_detection::MaybeLocation,
-    component::{Component, ComponentId, ComponentInfo},
+    component::{Component, ComponentId},
     entity::{Entity, EntityClonerBuilder, OptIn, OptOut},
     event::EntityEvent,
+    name::Name,
     relationship::RelationshipHookMode,
     system::IntoObserverSystem,
     world::{error::EntityMutableFetchError, EntityWorldMut, FromWorld},
@@ -323,12 +327,53 @@ pub fn move_components<B: Bundle>(target: Entity) -> impl EntityCommand {
 /// An [`EntityCommand`] that logs the components of an entity.
 pub fn log_components() -> impl EntityCommand {
     move |entity: EntityWorldMut| {
-        let debug_infos: Vec<_> = entity
+        let name = entity.get::<Name>().map(ToString::to_string);
+        let id = entity.id();
+        let mut components: Vec<_> = entity
             .world()
-            .inspect_entity(entity.id())
+            .inspect_entity(id)
             .expect("Entity existence is verified before an EntityCommand is executed")
-            .map(ComponentInfo::name)
+            .map(|info| info.name().to_string())
             .collect();
-        info!("Entity {}: {debug_infos:?}", entity.id());
+        components.sort();
+
+        #[cfg(not(feature = "debug"))]
+        {
+            let component_count = components.len();
+            #[cfg(feature = "trace")]
+            {
+                if let Some(name) = name {
+                    info!(id=?id, name=?name, ?component_count, "log_components. Enable the `debug` feature to log component names.");
+                } else {
+                    info!(id=?id, ?component_count, "log_components. Enable the `debug` feature to log component names.");
+                }
+            }
+            #[cfg(not(feature = "trace"))]
+            {
+                let name = name
+                    .map(|name| alloc::format!(" ({name})"))
+                    .unwrap_or_default();
+                info!("Entity {id}{name}: {component_count} components. Enable the `debug` feature to log component names.");
+            }
+        }
+
+        #[cfg(feature = "debug")]
+        {
+            #[cfg(feature = "trace")]
+            {
+                if let Some(name) = name {
+                    info!(id=?id, name=?name, ?components, "log_components");
+                } else {
+                    info!(id=?id, ?components, "log_components");
+                }
+            }
+            #[cfg(not(feature = "trace"))]
+            {
+                let name = name
+                    .map(|name| alloc::format!(" ({name})"))
+                    .unwrap_or_default();
+                info!("Entity {id}{name}: {components:?}");
+            }
+        }
     }
 }

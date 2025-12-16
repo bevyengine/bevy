@@ -1,0 +1,8 @@
+error: Lifetimes must be 'static
+ --> tests/ui/resource_derive.rs:5:10
+  |
+5 | struct A<'a> {
+  |          ^^
+
+error: aborting due to 1 previous error
+

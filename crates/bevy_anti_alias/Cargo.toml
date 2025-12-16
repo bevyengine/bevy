@@ -1,6 +1,6 @@
 [package]
 name = "bevy_anti_alias"
-version = "0.17.0-dev"
+version = "0.18.0-dev"
 edition = "2024"
 description = "Provides various anti aliasing implementations for Bevy Engine"
 homepage = "https://bevy.org"
@@ -18,23 +18,23 @@ force_disable_dlss = ["dlss_wgpu?/mock"]
 
 [dependencies]
 # bevy
-bevy_asset = { path = "../bevy_asset", version = "0.17.0-dev" }
-bevy_reflect = { path = "../bevy_reflect", version = "0.17.0-dev" }
-bevy_render = { path = "../bevy_render", version = "0.17.0-dev" }
-bevy_camera = { path = "../bevy_camera", version = "0.17.0-dev" }
-bevy_math = { path = "../bevy_math", version = "0.17.0-dev" }
-bevy_utils = { path = "../bevy_utils", version = "0.17.0-dev" }
-bevy_app = { path = "../bevy_app", version = "0.17.0-dev" }
-bevy_image = { path = "../bevy_image", version = "0.17.0-dev" }
-bevy_derive = { path = "../bevy_derive", version = "0.17.0-dev" }
-bevy_shader = { path = "../bevy_shader", version = "0.17.0-dev" }
-bevy_ecs = { path = "../bevy_ecs", version = "0.17.0-dev" }
-bevy_core_pipeline = { path = "../bevy_core_pipeline", version = "0.17.0-dev" }
-bevy_diagnostic = { path = "../bevy_diagnostic", version = "0.17.0-dev" }
+bevy_asset = { path = "../bevy_asset", version = "0.18.0-dev" }
+bevy_reflect = { path = "../bevy_reflect", version = "0.18.0-dev" }
+bevy_render = { path = "../bevy_render", version = "0.18.0-dev" }
+bevy_camera = { path = "../bevy_camera", version = "0.18.0-dev" }
+bevy_math = { path = "../bevy_math", version = "0.18.0-dev" }
+bevy_utils = { path = "../bevy_utils", version = "0.18.0-dev" }
+bevy_app = { path = "../bevy_app", version = "0.18.0-dev" }
+bevy_image = { path = "../bevy_image", version = "0.18.0-dev" }
+bevy_derive = { path = "../bevy_derive", version = "0.18.0-dev" }
+bevy_shader = { path = "../bevy_shader", version = "0.18.0-dev" }
+bevy_ecs = { path = "../bevy_ecs", version = "0.18.0-dev" }
+bevy_core_pipeline = { path = "../bevy_core_pipeline", version = "0.18.0-dev" }
+bevy_diagnostic = { path = "../bevy_diagnostic", version = "0.18.0-dev" }
 
 # other
 tracing = { version = "0.1", default-features = false, features = ["std"] }
-dlss_wgpu = { version = "1", optional = true }
+dlss_wgpu = { version = "2", optional = true }
 uuid = { version = "1", optional = true }
 
 [lints]
@@ -43,3 +43,4 @@ workspace = true
 [package.metadata.docs.rs]
 rustdoc-args = ["-Zunstable-options", "--generate-link-to-definition"]
 all-features = true
+features = ["bevy_image/zstd_rust"]

@@ -25,6 +25,7 @@ use crate::{
     entity::{Entity, EntityLocation},
     event::Event,
     observer::Observers,
+    query::DebugCheckedUnwrap,
     storage::{ImmutableSparseSet, SparseArray, SparseSet, TableId, TableRow},
 };
 use alloc::{boxed::Box, vec::Vec};
@@ -53,11 +54,6 @@ pub(crate) struct ArchetypeCreated(pub ArchetypeId);
 pub struct ArchetypeRow(NonMaxU32);
 
 impl ArchetypeRow {
-    /// Index indicating an invalid archetype row.
-    /// This is meant to be used as a placeholder.
-    // TODO: Deprecate in favor of options, since `INVALID` is, technically, valid.
-    pub const INVALID: ArchetypeRow = ArchetypeRow(NonMaxU32::MAX);
-
     /// Creates a `ArchetypeRow`.
     #[inline]
     pub const fn new(index: NonMaxU32) -> Self {
@@ -94,10 +90,6 @@ pub struct ArchetypeId(u32);
 impl ArchetypeId {
     /// The ID for the [`Archetype`] without any components.
     pub const EMPTY: ArchetypeId = ArchetypeId(0);
-    /// # Safety:
-    ///
-    /// This must always have an all-1s bit pattern to ensure soundness in fast entity id space allocation.
-    pub const INVALID: ArchetypeId = ArchetypeId(u32::MAX);
 
     /// Create an `ArchetypeId` from a plain value.
     ///
@@ -142,24 +134,27 @@ pub(crate) struct ArchetypeAfterBundleInsert {
     ///
     /// The initial values are determined based on the provided constructor, falling back to the `Default` trait if none is given.
     pub required_components: Box<[RequiredComponentConstructor]>,
-    /// The components added by this bundle. This includes any Required Components that are inserted when adding this bundle.
-    pub(crate) added: Box<[ComponentId]>,
-    /// The components that were explicitly contributed by this bundle, but already existed in the archetype. This _does not_ include any
-    /// Required Components.
-    pub(crate) existing: Box<[ComponentId]>,
+    /// The components inserted by this bundle, with added components before existing ones.
+    /// Added components includes any Required Components that are inserted when adding this bundle,
+    /// but existing components only includes ones explicitly contributed by this bundle.
+    inserted: Box<[ComponentId]>,
+    /// The number of components added by this bundle, including Required Components.
+    added_len: usize,
 }
 
 impl ArchetypeAfterBundleInsert {
-    pub(crate) fn iter_inserted(&self) -> impl Iterator<Item = ComponentId> + Clone + '_ {
-        self.added.iter().chain(self.existing.iter()).copied()
+    pub(crate) fn inserted(&self) -> &[ComponentId] {
+        &self.inserted
     }
 
-    pub(crate) fn iter_added(&self) -> impl Iterator<Item = ComponentId> + Clone + '_ {
-        self.added.iter().copied()
+    pub(crate) fn added(&self) -> &[ComponentId] {
+        // SAFETY: `added_len` is always in range `0..=inserted.len()`
+        unsafe { self.inserted.get(..self.added_len).debug_checked_unwrap() }
     }
 
-    pub(crate) fn iter_existing(&self) -> impl Iterator<Item = ComponentId> + Clone + '_ {
-        self.existing.iter().copied()
+    pub(crate) fn existing(&self) -> &[ComponentId] {
+        // SAFETY: `added_len` is always in range `0..=inserted.len()`
+        unsafe { self.inserted.get(self.added_len..).debug_checked_unwrap() }
     }
 }
 
@@ -244,17 +239,21 @@ impl Edges {
         archetype_id: ArchetypeId,
         bundle_status: impl Into<Box<[ComponentStatus]>>,
         required_components: impl Into<Box<[RequiredComponentConstructor]>>,
-        added: impl Into<Box<[ComponentId]>>,
-        existing: impl Into<Box<[ComponentId]>>,
+        mut added: Vec<ComponentId>,
+        existing: Vec<ComponentId>,
     ) {
+        let added_len = added.len();
+        // Make sure `extend` doesn't over-reserve, since the conversion to `Box<[_]>` would reallocate to shrink.
+        added.reserve_exact(existing.len());
+        added.extend(existing);
         self.insert_bundle.insert(
             bundle_id,
             ArchetypeAfterBundleInsert {
                 archetype_id,
                 bundle_status: bundle_status.into(),
                 required_components: required_components.into(),
-                added: added.into(),
-                existing: existing.into(),
+                added_len,
+                inserted: added.into(),
             },
         );
     }

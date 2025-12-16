@@ -1,6 +1,6 @@
 #![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
 #![forbid(unsafe_code)]
-#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![doc(
     html_logo_url = "https://bevy.org/assets/icon.png",
     html_favicon_url = "https://bevy.org/assets/icon.png"
@@ -11,6 +11,7 @@ pub mod core_2d;
 pub mod core_3d;
 pub mod deferred;
 pub mod experimental;
+pub mod fullscreen_material;
 pub mod oit;
 pub mod prepass;
 pub mod tonemapping;

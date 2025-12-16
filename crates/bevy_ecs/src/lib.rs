@@ -10,7 +10,7 @@
         reason = "rustdoc_internals is needed for fake_variadic"
     )
 )]
-#![cfg_attr(any(docsrs, docsrs_dep), feature(doc_auto_cfg, rustdoc_internals))]
+#![cfg_attr(any(docsrs, docsrs_dep), feature(doc_cfg, rustdoc_internals))]
 #![expect(unsafe_code, reason = "Unsafe code is used to improve performance.")]
 #![doc(
     html_logo_url = "https://bevy.org/assets/icon.png",
@@ -68,10 +68,6 @@ use message::Message;
 /// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
     #[doc(hidden)]
-    #[expect(
-        deprecated,
-        reason = "`Trigger` was deprecated in favor of `On`, and `OnX` lifecycle events were deprecated in favor of `X` events."
-    )]
     pub use crate::{
         bundle::Bundle,
         change_detection::{DetectChanges, DetectChangesMut, Mut, Ref},
@@ -79,15 +75,12 @@ pub mod prelude {
         component::Component,
         entity::{ContainsEntity, Entity, EntityMapper},
         error::{BevyError, Result},
-        event::{EntityEvent, Event, EventReader, EventWriter, Events},
+        event::{EntityEvent, Event},
         hierarchy::{ChildOf, ChildSpawner, ChildSpawnerCommands, Children},
-        lifecycle::{
-            Add, Despawn, Insert, OnAdd, OnDespawn, OnInsert, OnRemove, OnReplace, Remove,
-            RemovedComponents, Replace,
-        },
+        lifecycle::{Add, Despawn, Insert, Remove, RemovedComponents, Replace},
         message::{Message, MessageMutator, MessageReader, MessageWriter, Messages},
         name::{Name, NameOrEntity},
-        observer::{Observer, On, Trigger},
+        observer::{Observer, On},
         query::{Added, Allow, AnyOf, Changed, Has, Or, QueryBuilder, QueryState, With, Without},
         related,
         relationship::RelationshipTarget,
@@ -116,7 +109,7 @@ pub mod prelude {
     #[doc(hidden)]
     #[cfg(feature = "bevy_reflect")]
     pub use crate::reflect::{
-        AppTypeRegistry, ReflectComponent, ReflectFromWorld, ReflectResource,
+        AppTypeRegistry, ReflectComponent, ReflectEvent, ReflectFromWorld, ReflectResource,
     };
 
     #[doc(hidden)]
@@ -161,12 +154,12 @@ mod tests {
         bundle::Bundle,
         change_detection::Ref,
         component::Component,
-        entity::{Entity, EntityMapper},
+        entity::{Entity, EntityMapper, EntityNotSpawnedError},
         entity_disabling::DefaultQueryFilters,
         prelude::Or,
         query::{Added, Changed, FilteredAccess, QueryFilter, With, Without},
         resource::Resource,
-        world::{EntityMut, EntityRef, Mut, World},
+        world::{error::EntityDespawnError, EntityMut, EntityRef, Mut, World},
     };
     use alloc::{string::String, sync::Arc, vec, vec::Vec};
     use bevy_platform::collections::HashSet;
@@ -178,8 +171,10 @@ mod tests {
     };
     use std::sync::Mutex;
 
-    #[derive(Component, Resource, Debug, PartialEq, Eq, Hash, Clone, Copy)]
+    #[derive(Component, Debug, PartialEq, Eq, Hash, Clone, Copy)]
     struct A(usize);
+    #[derive(Resource, Debug, PartialEq, Eq)]
+    struct ResA(usize);
     #[derive(Component, Debug, PartialEq, Eq, Hash, Clone, Copy)]
     struct B(usize);
     #[derive(Component, Debug, PartialEq, Eq, Clone, Copy)]
@@ -249,10 +244,8 @@ mod tests {
             x: TableStored,
             y: SparseStored,
         }
-        let mut ids = Vec::new();
-        <FooBundle as Bundle>::component_ids(&mut world.components_registrator(), &mut |id| {
-            ids.push(id);
-        });
+        let ids: Vec<_> =
+            <FooBundle as Bundle>::component_ids(&mut world.components_registrator()).collect();
 
         assert_eq!(
             ids,
@@ -299,10 +292,8 @@ mod tests {
             b: B,
         }
 
-        let mut ids = Vec::new();
-        <NestedBundle as Bundle>::component_ids(&mut world.components_registrator(), &mut |id| {
-            ids.push(id);
-        });
+        let ids: Vec<_> =
+            <NestedBundle as Bundle>::component_ids(&mut world.components_registrator()).collect();
 
         assert_eq!(
             ids,
@@ -351,13 +342,9 @@ mod tests {
             ignored: Ignored,
         }
 
-        let mut ids = Vec::new();
-        <BundleWithIgnored as Bundle>::component_ids(
-            &mut world.components_registrator(),
-            &mut |id| {
-                ids.push(id);
-            },
-        );
+        let ids: Vec<_> =
+            <BundleWithIgnored as Bundle>::component_ids(&mut world.components_registrator())
+                .collect();
 
         assert_eq!(ids, &[world.register_component::<C>(),]);
 
@@ -378,6 +365,38 @@ mod tests {
                 ignored: Ignored,
             }
         );
+    }
+
+    #[test]
+    fn spawning_with_manual_entity_allocation() {
+        let mut world = World::new();
+        let e1 = world.entities_allocator_mut().alloc();
+        world.spawn_at(e1, (TableStored("abc"), A(123))).unwrap();
+
+        let e2 = world.entities_allocator_mut().alloc();
+        assert!(matches!(
+            world.try_despawn_no_free(e2),
+            Err(EntityDespawnError(
+                EntityNotSpawnedError::ValidButNotSpawned(_)
+            ))
+        ));
+        assert!(!world.despawn(e2));
+        world.entities_allocator_mut().free(e2);
+
+        let e3 = world.entities_allocator_mut().alloc();
+        let e3 = world
+            .spawn_at(e3, (TableStored("junk"), A(0)))
+            .unwrap()
+            .despawn_no_free();
+        world.spawn_at(e3, (TableStored("def"), A(456))).unwrap();
+
+        assert_eq!(world.entities.count_spawned(), 2);
+        assert!(world.despawn(e1));
+        assert_eq!(world.entities.count_spawned(), 1);
+        assert!(world.get::<TableStored>(e1).is_none());
+        assert!(world.get::<A>(e1).is_none());
+        assert_eq!(world.get::<TableStored>(e3).unwrap().0, "def");
+        assert_eq!(world.get::<A>(e3).unwrap().0, 456);
     }
 
     #[test]
@@ -1207,16 +1226,6 @@ mod tests {
     }
 
     #[test]
-    fn reserve_and_spawn() {
-        let mut world = World::default();
-        let e = world.entities().reserve_entity();
-        world.flush_entities();
-        let mut e_mut = world.entity_mut(e);
-        e_mut.insert(A(0));
-        assert_eq!(e_mut.get::<A>().unwrap(), &A(0));
-    }
-
-    #[test]
     fn changed_query() {
         let mut world = World::default();
         let e1 = world.spawn((A(0), B(0))).id();
@@ -1421,10 +1430,10 @@ mod tests {
     #[test]
     fn non_send_resource_points_to_distinct_data() {
         let mut world = World::default();
-        world.insert_resource(A(123));
-        world.insert_non_send_resource(A(456));
-        assert_eq!(*world.resource::<A>(), A(123));
-        assert_eq!(*world.non_send_resource::<A>(), A(456));
+        world.insert_resource(ResA(123));
+        world.insert_non_send_resource(ResA(456));
+        assert_eq!(*world.resource::<ResA>(), ResA(123));
+        assert_eq!(*world.non_send_resource::<ResA>(), ResA(456));
     }
 
     #[test]
@@ -1570,13 +1579,13 @@ mod tests {
     #[test]
     fn resource_scope() {
         let mut world = World::default();
-        assert!(world.try_resource_scope::<A, _>(|_, _| {}).is_none());
-        world.insert_resource(A(0));
-        world.resource_scope(|world: &mut World, mut value: Mut<A>| {
+        assert!(world.try_resource_scope::<ResA, _>(|_, _| {}).is_none());
+        world.insert_resource(ResA(0));
+        world.resource_scope(|world: &mut World, mut value: Mut<ResA>| {
             value.0 += 1;
-            assert!(!world.contains_resource::<A>());
+            assert!(!world.contains_resource::<ResA>());
         });
-        assert_eq!(world.resource::<A>().0, 1);
+        assert_eq!(world.resource::<ResA>().0, 1);
     }
 
     #[test]
@@ -1636,17 +1645,15 @@ mod tests {
     fn clear_entities() {
         let mut world = World::default();
 
-        world.insert_resource(A(0));
+        world.insert_resource(ResA(0));
         world.spawn(A(1));
         world.spawn(SparseStored(1));
 
         let mut q1 = world.query::<&A>();
         let mut q2 = world.query::<&SparseStored>();
-        let mut q3 = world.query::<()>();
 
         assert_eq!(q1.query(&world).count(), 1);
         assert_eq!(q2.query(&world).count(), 1);
-        assert_eq!(q3.query(&world).count(), 2);
 
         world.clear_entities();
 
@@ -1661,12 +1668,7 @@ mod tests {
             "world should not contain sparse set components"
         );
         assert_eq!(
-            q3.query(&world).count(),
-            0,
-            "world should not have any entities"
-        );
-        assert_eq!(
-            world.resource::<A>().0,
+            world.resource::<ResA>().0,
             0,
             "world should still contain resources"
         );
@@ -1794,7 +1796,7 @@ mod tests {
     fn try_insert_batch() {
         let mut world = World::default();
         let e0 = world.spawn(A(0)).id();
-        let e1 = Entity::from_raw_u32(1).unwrap();
+        let e1 = Entity::from_raw_u32(10_000).unwrap();
 
         let values = vec![(e0, (A(1), B(0))), (e1, (A(0), B(1)))];
 
@@ -1818,7 +1820,7 @@ mod tests {
     fn try_insert_batch_if_new() {
         let mut world = World::default();
         let e0 = world.spawn(A(0)).id();
-        let e1 = Entity::from_raw_u32(1).unwrap();
+        let e1 = Entity::from_raw_u32(10_000).unwrap();
 
         let values = vec![(e0, (A(1), B(0))), (e1, (A(0), B(1)))];
 
@@ -1946,9 +1948,17 @@ mod tests {
     #[derive(Bundle)]
     struct Simple(ComponentA);
 
+    #[expect(
+        dead_code,
+        reason = "This struct is used as a compilation test to test the derive macros, and as such is intentionally never constructed."
+    )]
     #[derive(Bundle)]
     struct Tuple(Simple, ComponentB);
 
+    #[expect(
+        dead_code,
+        reason = "This struct is used as a compilation test to test the derive macros, and as such is intentionally never constructed."
+    )]
     #[derive(Bundle)]
     struct Record {
         field0: Simple,

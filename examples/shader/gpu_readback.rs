@@ -153,6 +153,7 @@ fn prepare_bind_group(
     mut commands: Commands,
     pipeline: Res<ComputePipeline>,
     render_device: Res<RenderDevice>,
+    pipeline_cache: Res<PipelineCache>,
     buffer: Res<ReadbackBuffer>,
     image: Res<ReadbackImage>,
     buffers: Res<RenderAssets<GpuShaderStorageBuffer>>,
@@ -162,7 +163,7 @@ fn prepare_bind_group(
     let image = images.get(&image.0).unwrap();
     let bind_group = render_device.create_bind_group(
         None,
-        &pipeline.layout,
+        &pipeline_cache.get_bind_group_layout(&pipeline.layout),
         &BindGroupEntries::sequential((
             buffer.buffer.as_entire_buffer_binding(),
             image.texture_view.into_binding(),
@@ -173,18 +174,17 @@ fn prepare_bind_group(
 
 #[derive(Resource)]
 struct ComputePipeline {
-    layout: BindGroupLayout,
+    layout: BindGroupLayoutDescriptor,
     pipeline: CachedComputePipelineId,
 }
 
 fn init_compute_pipeline(
     mut commands: Commands,
-    render_device: Res<RenderDevice>,
     asset_server: Res<AssetServer>,
     pipeline_cache: Res<PipelineCache>,
 ) {
-    let layout = render_device.create_bind_group_layout(
-        None,
+    let layout = BindGroupLayoutDescriptor::new(
+        "",
         &BindGroupLayoutEntries::sequential(
             ShaderStages::COMPUTE,
             (

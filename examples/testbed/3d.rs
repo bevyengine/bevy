@@ -318,7 +318,7 @@ mod gizmos {
     }
 
     pub fn draw_gizmos(mut gizmos: Gizmos) {
-        gizmos.cuboid(
+        gizmos.cube(
             Transform::from_translation(Vec3::X * -1.75).with_scale(Vec3::splat(1.25)),
             RED,
         );
@@ -351,7 +351,10 @@ mod gizmos {
 
 mod gltf_coordinate_conversion {
     use bevy::{
-        color::palettes::basic::*, gltf::GltfLoaderSettings, prelude::*, scene::SceneInstanceReady,
+        color::palettes::basic::*,
+        gltf::{convert_coordinates::GltfConvertCoordinates, GltfLoaderSettings},
+        prelude::*,
+        scene::SceneInstanceReady,
     };
 
     const CURRENT_SCENE: super::Scene = super::Scene::GltfCoordinateConversion;
@@ -395,7 +398,10 @@ mod gltf_coordinate_conversion {
                 SceneRoot(asset_server.load_with_settings(
                     GltfAssetLabel::Scene(0).from_asset("models/Faces/faces.glb"),
                     |s: &mut GltfLoaderSettings| {
-                        s.use_model_forward_direction = Some(true);
+                        s.convert_coordinates = Some(GltfConvertCoordinates {
+                            rotate_scene_entity: true,
+                            rotate_meshes: true,
+                        });
                     },
                 )),
                 DespawnOnExit(CURRENT_SCENE),

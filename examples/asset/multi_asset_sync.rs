@@ -17,7 +17,7 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .init_state::<LoadingState>()
-        .insert_resource(AmbientLight {
+        .insert_resource(GlobalAmbientLight {
             color: Color::WHITE,
             brightness: 2000.,
             ..default()

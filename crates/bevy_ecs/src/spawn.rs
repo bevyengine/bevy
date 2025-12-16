@@ -5,7 +5,6 @@ use crate::{
     bundle::{Bundle, DynamicBundle, InsertMode, NoBundleEffect},
     change_detection::MaybeLocation,
     entity::Entity,
-    query::DebugCheckedUnwrap,
     relationship::{RelatedSpawner, Relationship, RelationshipHookMode, RelationshipTarget},
     world::{EntityWorldMut, World},
 };
@@ -77,15 +76,9 @@ impl<R: Relationship, B: Bundle> SpawnableList<R> for Spawn<B> {
         ) {
             let caller = MaybeLocation::caller();
 
-            // SAFETY:
-            //  - `Spawn<B>` has one field at index 0.
-            //  - if `this` is aligned, then its inner bundle must be as well.
-            let bundle = unsafe {
-                bevy_ptr::deconstruct_moving_ptr!(this => (
-                    0 => bundle,
-                ));
-                bundle.try_into().debug_checked_unwrap()
-            };
+            bevy_ptr::deconstruct_moving_ptr!({
+                let Spawn { 0: bundle } = this;
+            });
 
             let r = R::from(entity);
             move_as_ptr!(r);
@@ -268,14 +261,10 @@ macro_rules! spawnable_list_impl {
             where
                 Self: Sized,
             {
-                // SAFETY:
-                //  - The indices uniquely match the type definition and thus must point to the right fields.
-                //  - Rust tuples can never be `repr(packed)` so if `_this` is properly aligned, then all of the individual field
-                //    pointers must also be properly aligned.
-                unsafe {
-                    bevy_ptr::deconstruct_moving_ptr!(_this => ($($index => $alias,)*));
-                    $( SpawnableList::<R>::spawn($alias.try_into().debug_checked_unwrap(), _world, _entity); )*
-                }
+                bevy_ptr::deconstruct_moving_ptr!({
+                    let tuple { $($index: $alias),* } = _this;
+                });
+                $( SpawnableList::<R>::spawn($alias, _world, _entity); )*
             }
 
             fn size_hint(&self) -> usize {
@@ -311,16 +300,14 @@ unsafe impl<R: Relationship, L: SpawnableList<R> + Send + Sync + 'static> Bundle
 {
     fn component_ids(
         components: &mut crate::component::ComponentsRegistrator,
-        ids: &mut impl FnMut(crate::component::ComponentId),
-    ) {
-        <R::RelationshipTarget as Bundle>::component_ids(components, ids);
+    ) -> impl Iterator<Item = crate::component::ComponentId> + use<R, L> {
+        <R::RelationshipTarget as Bundle>::component_ids(components)
     }
 
     fn get_component_ids(
         components: &crate::component::Components,
-        ids: &mut impl FnMut(Option<crate::component::ComponentId>),
-    ) {
-        <R::RelationshipTarget as Bundle>::get_component_ids(components, ids);
+    ) -> impl Iterator<Item = Option<crate::component::ComponentId>> {
+        <R::RelationshipTarget as Bundle>::get_component_ids(components)
     }
 }
 
@@ -340,7 +327,7 @@ impl<R: Relationship, L: SpawnableList<R>> DynamicBundle for SpawnRelatedBundle<
         //   called exactly once for each component being fetched with the correct `StorageType`
         // - `Effect: !NoBundleEffect`, which means the caller is responsible for calling this type's `apply_effect`
         //   at least once before returning to safe code.
-        <R::RelationshipTarget as DynamicBundle>::get_components(target, func);
+        unsafe { <R::RelationshipTarget as DynamicBundle>::get_components(target, func) };
         // Forget the pointer so that the value is available in `apply_effect`.
         mem::forget(ptr);
     }
@@ -351,12 +338,11 @@ impl<R: Relationship, L: SpawnableList<R>> DynamicBundle for SpawnRelatedBundle<
         let effect = unsafe { ptr.assume_init() };
         let id = entity.id();
 
-        // SAFETY:
-        //  - `ptr` points to an instance of type `Self`
-        //  - The field names and types match with the type definition.
-        entity.world_scope(|world: &mut World| unsafe {
-            bevy_ptr::deconstruct_moving_ptr!(effect => { list, });
-            L::spawn(list.try_into().debug_checked_unwrap(), world, id);
+        entity.world_scope(|world: &mut World| {
+            bevy_ptr::deconstruct_moving_ptr!({
+                let Self { list, marker: _ } = effect;
+            });
+            L::spawn(list, world, id);
         });
     }
 }
@@ -386,7 +372,7 @@ impl<R: Relationship, B: Bundle> DynamicBundle for SpawnOneRelated<R, B> {
         //   called exactly once for each component being fetched with the correct `StorageType`
         // - `Effect: !NoBundleEffect`, which means the caller is responsible for calling this type's `apply_effect`
         //   at least once before returning to safe code.
-        <R::RelationshipTarget as DynamicBundle>::get_components(target, func);
+        unsafe { <R::RelationshipTarget as DynamicBundle>::get_components(target, func) };
         // Forget the pointer so that the value is available in `apply_effect`.
         mem::forget(ptr);
     }
@@ -404,16 +390,14 @@ impl<R: Relationship, B: Bundle> DynamicBundle for SpawnOneRelated<R, B> {
 unsafe impl<R: Relationship, B: Bundle> Bundle for SpawnOneRelated<R, B> {
     fn component_ids(
         components: &mut crate::component::ComponentsRegistrator,
-        ids: &mut impl FnMut(crate::component::ComponentId),
-    ) {
-        <R::RelationshipTarget as Bundle>::component_ids(components, ids);
+    ) -> impl Iterator<Item = crate::component::ComponentId> + use<R, B> {
+        <R::RelationshipTarget as Bundle>::component_ids(components)
     }
 
     fn get_component_ids(
         components: &crate::component::Components,
-        ids: &mut impl FnMut(Option<crate::component::ComponentId>),
-    ) {
-        <R::RelationshipTarget as Bundle>::get_component_ids(components, ids);
+    ) -> impl Iterator<Item = Option<crate::component::ComponentId>> {
+        <R::RelationshipTarget as Bundle>::get_component_ids(components)
     }
 }
 
@@ -513,6 +497,7 @@ macro_rules! related {
 #[doc(hidden)]
 macro_rules! recursive_spawn {
     // direct expansion
+    () => { () };
     ($a:expr) => {
         $crate::spawn::Spawn($a)
     };

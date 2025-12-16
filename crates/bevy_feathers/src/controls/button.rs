@@ -9,13 +9,13 @@ use bevy_ecs::{
     reflect::ReflectComponent,
     schedule::IntoScheduleConfigs,
     spawn::{SpawnRelated, SpawnableList},
-    system::{Commands, In, Query},
+    system::{Commands, Query},
 };
 use bevy_input_focus::tab_navigation::TabIndex;
 use bevy_picking::{hover::Hovered, PickingSystems};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_ui::{AlignItems, InteractionDisabled, JustifyContent, Node, Pressed, UiRect, Val};
-use bevy_ui_widgets::{Activate, Button, Callback};
+use bevy_ui_widgets::Button;
 
 use crate::{
     constants::{fonts, size},
@@ -47,8 +47,6 @@ pub struct ButtonProps {
     pub variant: ButtonVariant,
     /// Rounded corners options
     pub corners: RoundedCorners,
-    /// Click handler
-    pub on_click: Callback<In<Activate>>,
 }
 
 /// Template function to spawn a button.
@@ -57,6 +55,13 @@ pub struct ButtonProps {
 /// * `props` - construction properties for the button.
 /// * `overrides` - a bundle of components that are merged in with the normal button components.
 /// * `children` - a [`SpawnableList`] of child elements, such as a label or icon for the button.
+///
+/// # Emitted events
+/// * [`bevy_ui_widgets::Activate`] when any of the following happens:
+///     * the pointer is released while hovering over the button.
+///     * the ENTER or SPACE key is pressed while the button has keyboard focus.
+///
+///  These events can be disabled by adding an [`bevy_ui::InteractionDisabled`] component to the entity
 pub fn button<C: SpawnableList<ChildOf> + Send + Sync + 'static, B: Bundle>(
     props: ButtonProps,
     overrides: B,
@@ -69,16 +74,14 @@ pub fn button<C: SpawnableList<ChildOf> + Send + Sync + 'static, B: Bundle>(
             align_items: AlignItems::Center,
             padding: UiRect::axes(Val::Px(8.0), Val::Px(0.)),
             flex_grow: 1.0,
+            border_radius: props.corners.to_border_radius(4.0),
             ..Default::default()
         },
-        Button {
-            on_activate: props.on_click,
-        },
+        Button,
         props.variant,
         Hovered::default(),
         EntityCursor::System(bevy_window::SystemCursorIcon::Pointer),
         TabIndex(0),
-        props.corners.to_border_radius(4.0),
         ThemeBackgroundColor(tokens::BUTTON_BG),
         ThemeFontColor(tokens::BUTTON_TEXT),
         InheritableFont {

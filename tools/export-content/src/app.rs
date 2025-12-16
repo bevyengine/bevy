@@ -1,3 +1,8 @@
+#![expect(
+    unused_assignments,
+    reason = "Warnings from inside miette due to a rustc bug: https://github.com/rust-lang/rust/issues/147648"
+)]
+
 use std::{env, fs, io::Write, path::PathBuf};
 
 use miette::{diagnostic, Context, Diagnostic, IntoDiagnostic, NamedSource, Result};
@@ -245,7 +250,7 @@ impl App {
 
                     write!(
                         file,
-                        "## {title}\n{{% heading_metadata(authors=[{authors}] prs=[{pull_requests}]) %}}\n{content}\n\n"
+                        "## {title}\n\n{{{{ heading_metadata(authors=[{authors}] prs=[{pull_requests}]) }}}}\n\n{content}\n"
                     )
                     .into_diagnostic()?;
                 }
@@ -271,7 +276,7 @@ impl App {
 
                     write!(
                         file,
-                        "### {title}\n{{% heading_metadata(prs=[{pull_requests}]) %}}\n{content}\n\n"
+                        "### {title}\n\n{{{{ heading_metadata(prs=[{pull_requests}]) }}}}\n\n{content}\n"
                     )
                     .into_diagnostic()?;
                 }

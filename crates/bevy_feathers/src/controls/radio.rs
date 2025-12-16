@@ -47,6 +47,12 @@ struct RadioMark;
 /// * `props` - construction properties for the radio.
 /// * `overrides` - a bundle of components that are merged in with the normal radio components.
 /// * `label` - the label of the radio.
+///
+/// # Emitted events
+/// * [`bevy_ui_widgets::ValueChange<bool>`] with the value true when it becomes checked.
+/// * [`bevy_ui_widgets::ValueChange<Entity>`] with the selected entity's id when a new radio button is selected.
+///
+///  These events can be disabled by adding an [`bevy_ui::InteractionDisabled`] component to the entity
 pub fn radio<C: SpawnableList<ChildOf> + Send + Sync + 'static, B: Bundle>(
     overrides: B,
     label: C,
@@ -79,19 +85,19 @@ pub fn radio<C: SpawnableList<ChildOf> + Send + Sync + 'static, B: Bundle>(
                     width: size::RADIO_SIZE,
                     height: size::RADIO_SIZE,
                     border: UiRect::all(Val::Px(2.0)),
+                    border_radius: BorderRadius::MAX,
                     ..Default::default()
                 },
                 RadioOutline,
-                BorderRadius::MAX,
                 ThemeBorderColor(tokens::RADIO_BORDER),
                 children![(
                     // Cheesy checkmark: rotated node with L-shaped border.
                     Node {
                         width: Val::Px(8.),
                         height: Val::Px(8.),
+                        border_radius: BorderRadius::MAX,
                         ..Default::default()
                     },
-                    BorderRadius::MAX,
                     RadioMark,
                     ThemeBackgroundColor(tokens::RADIO_MARK),
                 )],
@@ -252,7 +258,7 @@ fn set_radio_styles(
 
     // Change mark visibility
     commands.entity(mark_ent).insert(match checked {
-        true => Visibility::Visible,
+        true => Visibility::Inherited,
         false => Visibility::Hidden,
     });
 
