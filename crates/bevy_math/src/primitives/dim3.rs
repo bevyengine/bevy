@@ -1025,6 +1025,67 @@ impl Default for ConicalFrustum {
     }
 }
 
+impl ConicalFrustum {
+    /// Get the bottom base of the conical frustum as a [`Circle`]
+    #[inline]
+    pub const fn bottom_base(&self) -> Circle {
+        Circle {
+            radius: self.radius_bottom,
+        }
+    }
+
+    /// Get the top base of the conical frustum as a [`Circle`]
+    #[inline]
+    pub const fn top_base(&self) -> Circle {
+        Circle {
+            radius: self.radius_top,
+        }
+    }
+
+    /// Get the slant height of the conical frustum, the length of the line segment
+    /// connecting a point on the base to the closest point on the top
+    #[inline]
+    #[doc(alias = "side_length")]
+    pub fn slant_height(&self) -> f32 {
+        ops::hypot(self.radius_bottom - self.radius_top, self.height)
+    }
+
+    /// Get the surface area of the side of the conical frustum,
+    /// also known as the lateral area
+    #[inline]
+    #[doc(alias = "side_area")]
+    pub fn lateral_area(&self) -> f32 {
+        PI * (self.radius_bottom + self.radius_top) * self.slant_height()
+    }
+
+    /// Get the surface area of the bottom base of the conical frustum
+    #[inline]
+    pub fn bottom_base_area(&self) -> f32 {
+        PI * self.radius_bottom.squared()
+    }
+
+    /// Get the surface area of the top base of the conical frustum
+    #[inline]
+    pub fn top_base_area(&self) -> f32 {
+        PI * self.radius_top.squared()
+    }
+}
+
+impl Measured3d for ConicalFrustum {
+    #[inline]
+    fn volume(&self) -> f32 {
+        FRAC_PI_3
+            * self.height
+            * (self.radius_bottom * self.radius_bottom
+                + self.radius_top * self.radius_top
+                + self.radius_top * self.radius_bottom)
+    }
+    #[inline]
+    fn area(&self) -> f32 {
+        self.bottom_base_area() + self.top_base_area() + self.lateral_area()
+    }
+}
+
 /// The type of torus determined by the minor and major radii
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum TorusKind {
@@ -1741,6 +1802,35 @@ mod tests {
         assert_eq!(cone.base_area(), 12.566371, "incorrect base area");
         assert_relative_eq!(cone.area(), 70.49447);
         assert_eq!(cone.volume(), 37.699111, "incorrect volume");
+    }
+
+    #[test]
+    fn conical_frustum_math() {
+        let frustum = ConicalFrustum {
+            height: 9.0,
+            radius_top: 1.0,
+            radius_bottom: 2.0,
+        };
+        assert_eq!(
+            frustum.bottom_base(),
+            Circle { radius: 2.0 },
+            "bottom base produces incorrect circle"
+        );
+        assert_eq!(
+            frustum.top_base(),
+            Circle { radius: 1.0 },
+            "top base produces incorrect circle"
+        );
+        assert_eq!(frustum.slant_height(), 9.055386, "incorrect slant height");
+        assert_eq!(frustum.lateral_area(), 85.345, "incorrect lateral area");
+        assert_eq!(
+            frustum.bottom_base_area(),
+            12.566371,
+            "incorrect bottom base area"
+        );
+        assert_eq!(frustum.top_base_area(), PI, "incorrect top base area");
+        assert_eq!(frustum.area(), 101.05296, "incorrect surface area");
+        assert_eq!(frustum.volume(), 65.97345, "incorrect volume");
     }
 
     #[test]
