@@ -299,6 +299,34 @@ pub trait IntoSystem<In: SystemInput, Out, Marker>: Sized {
         WithInputFromWrapper::new(self)
     }
 
+    /// Passes a clone of `value` as input to the system each run, turning it into
+    /// a system that takes no input.
+    ///
+    /// `Self` can have any [`SystemInput`] type that takes an owned value of `T`,
+    /// such as [`In`].
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    ///
+    /// fn my_system(In(data): In<usize>) {
+    ///    println!("Value is {}!", data);
+    /// }
+    ///
+    /// # let mut schedule = Schedule::default();
+    /// schedule.add_systems(my_system.with_cloned_input(10));
+    /// # bevy_ecs::system::assert_is_system(my_system.with_cloned_input::(10));
+    /// ```
+    fn with_cloned_input<T>(self, value: T) -> WithClonedInputWrapper<Self::System, T>
+    where
+        for<'i> In: SystemInput<Inner<'i> = T>,
+        T: FromWorld + Send + Sync + 'static,
+    {
+        WithClonedInputWrapper::new(self, value)
+    }
+
     /// Get the [`TypeId`] of the [`System`] produced after calling [`into_system`](`IntoSystem::into_system`).
     #[inline]
     fn system_type_id(&self) -> TypeId {
