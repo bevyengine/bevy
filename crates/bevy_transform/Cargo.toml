@@ -41,7 +41,7 @@ default = ["std", "bevy-support", "bevy_reflect", "async_executor"]
 ## systems for transform propagation and more.
 ## This exists because it allows opting out of all of this, leaving only a bare-bones transform struct,
 ## which enables users to depend on that without needing the larger Bevy dependency tree.
-bevy-support = ["alloc", "dep:bevy_app", "dep:bevy_ecs"]
+bevy-support = ["alloc", "dep:bevy_app", "dep:bevy_log", "dep:bevy_ecs"]
 
 ## Adds serialization support through `serde`.
 serialize = ["dep:serde", "bevy_math/serialize"]
@@ -69,7 +69,7 @@ async_executor = ["std", "bevy_tasks/async_executor"]
 std = [
   "alloc",
   "bevy_app?/std",
-  "bevy_log",
+  "bevy_log?/std",
   "bevy_ecs?/std",
   "bevy_math/std",
   "bevy_reflect?/std",

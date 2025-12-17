@@ -1,4 +1,4 @@
-use alloc::ffi::CString;
+use alloc::{ffi::CString, format, string::String, vec::Vec};
 use core::fmt::{Debug, Write};
 use tracing::{
     field::Field,

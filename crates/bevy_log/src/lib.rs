@@ -15,10 +15,11 @@
 //!
 //! For more fine-tuned control over logging behavior, set up the [`LogPlugin`] or
 //! `DefaultPlugins` during app initialization.
+#![no_std]
 
 extern crate alloc;
-
-use core::error::Error;
+#[cfg(feature = "std")]
+extern crate std;
 
 #[cfg(target_os = "android")]
 mod android_tracing;
@@ -51,6 +52,15 @@ pub use tracing::{
     warn_span, Level,
 };
 pub use tracing_subscriber;
+
+use alloc::{
+    boxed::Box,
+    format,
+    string::{String, ToString},
+};
+use core::error::Error;
+#[cfg(feature = "std")]
+use std::eprintln;
 
 use bevy_app::{App, Plugin};
 use tracing_log::LogTracer;
@@ -323,9 +333,10 @@ impl Plugin for LogPlugin {
                 _ = from_env_error
                     .source()
                     .and_then(|source| source.downcast_ref::<ParseError>())
-                    .map(|parse_err| {
+                    .inspect(|_parse_err| {
                         // we cannot use the `error!` macro here because the logger is not ready yet.
-                        eprintln!("LogPlugin failed to parse filter from env: {parse_err}");
+                        #[cfg(feature = "std")]
+                        eprintln!("LogPlugin failed to parse filter from env: {_parse_err}");
                     });
 
                 Ok::<EnvFilter, FromEnvError>(EnvFilter::builder().parse_lossy(&default_filter))
@@ -365,6 +376,7 @@ impl Plugin for LogPlugin {
             #[cfg(feature = "tracing-tracy")]
             let tracy_layer = tracing_tracy::TracyLayer::default();
 
+            #[cfg(feature = "std")]
             let fmt_layer = (self.fmt_layer)(app).unwrap_or_else(|| {
                 // note: the implementation of `Default` reads from the env var NO_COLOR
                 // to decide whether to use ANSI color codes, which is common convention
@@ -380,6 +392,7 @@ impl Plugin for LogPlugin {
                     meta.fields().field("tracy.frame_mark").is_none()
                 }));
 
+            #[cfg(any(feature = "std", feature = "tracing-tracy"))]
             let subscriber = subscriber.with(fmt_layer);
 
             #[cfg(all(feature = "tracing-chrome", not(target_os = "android")))]

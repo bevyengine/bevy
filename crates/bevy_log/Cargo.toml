@@ -9,25 +9,55 @@ license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
 [features]
-trace = ["tracing-error"]
-trace_tracy_memory = ["dep:tracy-client"]
+default = ["std"]
+trace = ["std", "dep:tracing-error"]
+trace_tracy_memory = ["std", "dep:tracy-client"]
+
+# Platform Compatibility
+
+# Allows access to the `std` crate. Enabling this feature will prevent compilation
+# on `no_std` targets, but provides access to certain additional features on
+# supported platforms.
+std = [
+  "bevy_app/std",
+  "bevy_utils/std",
+  "bevy_ecs/std",
+  "tracing/std",
+  "tracing-subscriber/std",
+  "tracing-log/std",
+]
+
+## `critical-section` provides the building blocks for synchronization primitives
+## on all platforms, including `no_std`.
+critical-section = [
+  # TODO: wait for `tracing-subscriber` release
+  # "tracing-subscriber/critical-section"
+]
+
+# Enables use of browser APIs.
+# Note this is currently only applicable on `wasm32` architectures.
+web = ["bevy_app/web", "dep:tracing-wasm"]
 
 [dependencies]
 # bevy
-bevy_app = { path = "../bevy_app", version = "0.18.0-dev" }
-bevy_utils = { path = "../bevy_utils", version = "0.18.0-dev" }
-bevy_platform = { path = "../bevy_platform", version = "0.18.0-dev" }
-bevy_ecs = { path = "../bevy_ecs", version = "0.18.0-dev" }
+bevy_app = { path = "../bevy_app", version = "0.18.0-dev", default-features = false }
+bevy_utils = { path = "../bevy_utils", version = "0.18.0-dev", default-features = false }
+bevy_platform = { path = "../bevy_platform", version = "0.18.0-dev", default-features = false }
+bevy_ecs = { path = "../bevy_ecs", version = "0.18.0-dev", default-features = false }
 
 # other
-tracing-subscriber = { version = "0.3.20", features = [
+tracing-subscriber = { version = "0.3.20", default-features = false, features = [
   "registry",
   "env-filter",
+  "fmt",
+  "tracing-log",
 ] }
 tracing-chrome = { version = "0.7.0", optional = true }
-tracing-log = "0.2.0"
+tracing-log = { version = "0.2.0", default-features = false, features = [
+  "log-tracer",
+] }
 tracing-error = { version = "0.2.0", optional = true }
-tracing = { version = "0.1", default-features = false, features = ["std"] }
+tracing = { version = "0.1", default-features = false }
 
 # Tracy dependency compatibility table:
 # https://github.com/nagisa/rust_tracy_client
@@ -38,14 +68,16 @@ tracy-client = { version = "0.18.3", optional = true }
 android_log-sys = "0.3.0"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-tracing-wasm = "0.2.1"
-# TODO: Assuming all wasm builds are for the browser. Require `no_std` support to break assumption.
-bevy_app = { path = "../bevy_app", version = "0.18.0-dev", default-features = false, features = [
-  "web",
-] }
+tracing-wasm = { version = "0.2.1", optional = true }
 
 [target.'cfg(target_os = "ios")'.dependencies]
 tracing-oslog = "0.3"
+
+[target.'cfg(not(all(target_has_atomic = "8", target_has_atomic = "16", target_has_atomic = "32", target_has_atomic = "64", target_has_atomic = "ptr")))'.dependencies]
+tracing-subscriber = { version = "0.3.1", default-features = false, features = [
+  # TODO: wait for `tracing-subscriber` release
+  # "portable-atomic",
+] }
 
 [lints]
 workspace = true
