@@ -72,6 +72,14 @@ impl Aabb3d {
         }
     }
 
+    /// Constructs an AABB from the its minimum and maximum extent.
+    #[inline]
+    pub fn from_min_max(min: impl Into<Vec3A>, max: impl Into<Vec3A>) -> Self {
+        let (min, max) = (min.into(), max.into());
+        debug_assert!(min.x <= max.x && min.y <= max.y && min.z <= max.z);
+        Self { min, max }
+    }
+
     /// Computes the smallest [`Aabb3d`] containing the given set of points,
     /// transformed by the rotation and translation of the given isometry.
     ///
