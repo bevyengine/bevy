@@ -230,6 +230,7 @@ fn build_text_interop(app: &mut App) {
                 widget::measure_text_system,
             )
                 .chain()
+                .after(bevy_text::load_font_assets_into_fontdb_system)
                 .in_set(UiSystems::Content)
                 // Text and Text2d are independent.
                 .ambiguous_with(bevy_text::detect_text_needs_rerender::<bevy_sprite::Text2d>)
@@ -242,8 +243,8 @@ fn build_text_interop(app: &mut App) {
                 .ambiguous_with(widget::update_image_content_size_system),
             widget::text_system
                 .in_set(UiSystems::PostLayout)
-                .after(bevy_text::free_unused_font_atlases_system)
-                .before(bevy_asset::AssetEventSystems)
+                .after(bevy_text::load_font_assets_into_fontdb_system)
+                .after(bevy_asset::AssetEventSystems)
                 // Text2d and bevy_ui text are entirely on separate entities
                 .ambiguous_with(bevy_text::detect_text_needs_rerender::<bevy_sprite::Text2d>)
                 .ambiguous_with(bevy_sprite::update_text2d_layout)

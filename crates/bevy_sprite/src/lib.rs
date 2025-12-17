@@ -84,12 +84,11 @@ impl Plugin for SpritePlugin {
             PostUpdate,
             (
                 bevy_text::detect_text_needs_rerender::<Text2d>,
-                update_text2d_layout
-                    .after(bevy_camera::CameraUpdateSystems)
-                    .after(bevy_text::free_unused_font_atlases_system),
+                update_text2d_layout.after(bevy_camera::CameraUpdateSystems),
                 calculate_bounds_text2d.in_set(VisibilitySystems::CalculateBounds),
             )
                 .chain()
+                .after(bevy_text::load_font_assets_into_fontdb_system)
                 .in_set(bevy_text::Text2dUpdateSystems)
                 .after(bevy_app::AnimationSystems),
         );

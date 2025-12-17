@@ -58,10 +58,6 @@ impl Default for SwashCache {
 /// Information about a font collected as part of preparing for text layout.
 #[derive(Clone)]
 pub struct FontFaceInfo {
-    /// Width class: <https://docs.microsoft.com/en-us/typography/opentype/spec/os2#uswidthclass>
-    pub stretch: cosmic_text::fontdb::Stretch,
-    /// Allows italic or oblique faces to be selected
-    pub style: cosmic_text::fontdb::Style,
     /// Font family name
     pub family_name: Arc<str>,
 }
@@ -129,8 +125,21 @@ impl TextPipeline {
             if span.is_empty() {
                 continue;
             }
-            // Return early if a font is not loaded yet.
-            if !fonts.contains(text_font.font.id()) {
+
+            let family_name = if let Some(family) = text_font.family.as_ref() {
+                Arc::from(family.as_str())
+            } else if let Some(font) = fonts.get(text_font.font.id()) {
+                let data = Arc::clone(&font.data);
+                let ids = font_system
+                    .db_mut()
+                    .load_font_source(cosmic_text::fontdb::Source::Binary(data));
+
+                // TODO: it is assumed this is the right font face
+                let face_id = *ids.last().unwrap();
+                let face = font_system.db().face(face_id).unwrap();
+                Arc::from(face.families[0].0.as_str())
+            } else {
+                // Return early if a font is not loaded yet.
                 spans.clear();
                 self.spans_buffer = spans
                     .into_iter()
@@ -144,17 +153,10 @@ impl TextPipeline {
                         ) { unreachable!() },
                     )
                     .collect();
-
                 return Err(TextError::NoSuchFont);
-            }
+            };
 
-            // Load Bevy fonts into cosmic-text's font system.
-            let face_info = load_font_to_fontdb(
-                text_font,
-                font_system,
-                &mut self.map_handle_to_font_id,
-                fonts,
-            );
+            let face_info = FontFaceInfo { family_name };
 
             // Save spans that aren't zero-sized.
             if scale_factor <= 0.0 || text_font.font_size <= 0.0 {
@@ -390,7 +392,6 @@ impl TextPipeline {
 
                     let mut temp_glyph;
                     let span_index = layout_glyph.metadata;
-                    let font_id = self.glyph_info[span_index].0;
                     let font_smoothing = self.glyph_info[span_index].1;
 
                     let layout_glyph = if font_smoothing == FontSmoothing::None {
@@ -413,7 +414,7 @@ impl TextPipeline {
 
                     let font_atlases = font_atlas_set
                         .entry(FontAtlasKey(
-                            font_id,
+                            physical_glyph.cache_key.font_id,
                             physical_glyph.cache_key.font_size_bits,
                             font_smoothing,
                         ))
@@ -589,40 +590,6 @@ impl TextMeasureInfo {
     }
 }
 
-/// Add the font to the cosmic text's `FontSystem`'s in-memory font database
-pub fn load_font_to_fontdb(
-    text_font: &TextFont,
-    font_system: &mut cosmic_text::FontSystem,
-    map_handle_to_font_id: &mut HashMap<AssetId<Font>, (cosmic_text::fontdb::ID, Arc<str>)>,
-    fonts: &Assets<Font>,
-) -> FontFaceInfo {
-    let font_id = text_font.font.id();
-    let (face_id, family_name) = map_handle_to_font_id.entry(font_id).or_insert_with(|| {
-        let font = fonts.get(font_id).expect(
-            "Tried getting a font that was not available, probably due to not being loaded yet",
-        );
-        let data = Arc::clone(&font.data);
-        let ids = font_system
-            .db_mut()
-            .load_font_source(cosmic_text::fontdb::Source::Binary(data));
-
-        // TODO: it is assumed this is the right font face
-        let face_id = *ids.last().unwrap();
-        let face = font_system.db().face(face_id).unwrap();
-
-        let family_name = Arc::from(face.families[0].0.as_str());
-        (face_id, family_name)
-    });
-
-    let face = font_system.db().face(*face_id).unwrap();
-
-    FontFaceInfo {
-        stretch: face.stretch,
-        style: face.style,
-        family_name: family_name.clone(),
-    }
-}
-
 /// Translates [`TextFont`] to [`Attrs`].
 fn get_attrs<'a>(
     span_index: usize,
@@ -635,8 +602,8 @@ fn get_attrs<'a>(
     Attrs::new()
         .metadata(span_index)
         .family(Family::Name(&face_info.family_name))
-        .stretch(face_info.stretch)
-        .style(face_info.style)
+        .stretch(text_font.width.into())
+        .style(text_font.style.into())
         .weight(text_font.weight.into())
         .metrics(
             Metrics {
