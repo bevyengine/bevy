@@ -33,7 +33,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v6
-      - uses: actions/cache/restore@v4
+      - uses: actions/cache/restore@v5
         with:
           # key won't match, will rely on restore-keys
           key: ${{ runner.os }}-stable--${{ hashFiles('**/Cargo.toml') }}-
@@ -61,7 +61,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v6
-      - uses: actions/cache/restore@v4
+      - uses: actions/cache/restore@v5
         with:
           # key won't match, will rely on restore-keys
           key: ${{ runner.os }}-stable--${{ hashFiles('**/Cargo.toml') }}-
@@ -93,7 +93,7 @@ jobs:
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v6
-      - uses: actions/cache/restore@v4
+      - uses: actions/cache/restore@v5
         with:
           # key won't match, will rely on restore-keys
           key: ${{ runner.os }}-${{ env.NIGHTLY_TOOLCHAIN }}--${{ hashFiles('**/Cargo.toml') }}-
@@ -129,7 +129,7 @@ jobs:
     needs: ci
     steps:
       - uses: actions/checkout@v6
-      - uses: actions/cache/restore@v4
+      - uses: actions/cache/restore@v5
         with:
           # key won't match, will rely on restore-keys
           key: ${{ runner.os }}-stable--${{ hashFiles('**/Cargo.toml') }}-
@@ -158,7 +158,7 @@ jobs:
     needs: ci
     steps:
       - uses: actions/checkout@v6
-      - uses: actions/cache/restore@v4
+      - uses: actions/cache/restore@v5
         with:
           # key won't match, will rely on restore-keys
           key: ${{ runner.os }}-stable-x86_64-unknown-none-${{ hashFiles('**/Cargo.toml') }}-
@@ -186,7 +186,7 @@ jobs:
     needs: ci
     steps:
       - uses: actions/checkout@v6
-      - uses: actions/cache/restore@v4
+      - uses: actions/cache/restore@v5
         with:
           # key won't match, will rely on restore-keys
           key: ${{ runner.os }}-stable-thumbv6m-none-eabi-${{ hashFiles('**/Cargo.toml') }}-
@@ -214,7 +214,7 @@ jobs:
     needs: ci
     steps:
       - uses: actions/checkout@v6
-      - uses: actions/cache/restore@v4
+      - uses: actions/cache/restore@v5
         with:
           # key won't match, will rely on restore-keys
           key: ${{ runner.os }}-stable-x86_64-unknown-none-${{ hashFiles('**/Cargo.toml') }}-
@@ -242,7 +242,7 @@ jobs:
     needs: build
     steps:
       - uses: actions/checkout@v6
-      - uses: actions/cache/restore@v4
+      - uses: actions/cache/restore@v5
         with:
           # key won't match, will rely on restore-keys
           key: ${{ runner.os }}-stable-wasm32-unknown-unknown-${{ hashFiles('**/Cargo.toml') }}-
@@ -270,7 +270,7 @@ jobs:
     needs: build
     steps:
       - uses: actions/checkout@v6
-      - uses: actions/cache/restore@v4
+      - uses: actions/cache/restore@v5
         with:
           # key won't match, will rely on restore-keys
           key: ${{ runner.os }}-${{ env.NIGHTLY_TOOLCHAIN }}-wasm32-unknown-unknown-${{ hashFiles('**/Cargo.toml') }}-
@@ -352,7 +352,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v6
-      - uses: actions/cache/restore@v4
+      - uses: actions/cache/restore@v5
         with:
           # key won't match, will rely on restore-keys
           key: ${{ runner.os }}-stable--${{ hashFiles('**/Cargo.toml') }}-
@@ -470,7 +470,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ steps.msrv.outputs.msrv }}
-      - uses: actions/cache/restore@v4
+      - uses: actions/cache/restore@v5
         with:
           # key won't match, will rely on restore-keys
           key: ${{ runner.os }}-${{ steps.msrv.outputs.msrv }}--${{ hashFiles('**/Cargo.toml') }}-
