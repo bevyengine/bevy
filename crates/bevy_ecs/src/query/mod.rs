@@ -890,6 +890,8 @@ mod tests {
         ) -> Self::Item<'wshort, 's> {
         }
 
+        fn reborrow<'a>(_item: &'a mut Self::Item<'_, '_>) -> Self::Item<'a, 'a> {}
+
         #[inline(always)]
         unsafe fn fetch<'w, 's>(
             _state: &'s Self::State,
