@@ -1,16 +1,21 @@
-//! Demonstrates how to make a mesh invisible but still cast shadows using `OnlyShadowCaster`.
+//! Demonstrates how to make an entity invisible to the main camera while still allowing it to cast
+//! shadows.
+//!
+//! This uses `RenderPasses(RenderPassMask::SHADOW)` to exclude entities from the main camera passes
+//! while keeping them in the shadow pass.
+//!
+//! This example also shows a simple “fake shadow caster” setup: the visible red cube is marked
+//! `NotShadowCaster`, while a shadow-only sphere is co-located with it so the cube appears to cast a
+//! sphere-shaped shadow.
 
 use std::f32::consts::PI;
 
-use bevy::camera::visibility::RenderLayers;
 use bevy::{
     color::palettes::basic::{BLUE, GREEN, RED},
-    light::{NotShadowCaster, OnlyShadowCaster},
+    light::NotShadowCaster,
     prelude::*,
+    render::{RenderPassMask, RenderPasses},
 };
-// Layer indices used to separate the main camera layer (0) from a shadow-only layer (1).
-const CAMERA_RENDER_LAYER: usize = 0;
-const SHADOW_CASTING_LAYER: usize = 1;
 
 fn main() {
     App::new()
@@ -35,7 +40,6 @@ fn setup(
     commands.spawn((
         Mesh3d(meshes.add(Plane3d::default().mesh().size(10.0, 10.0))),
         MeshMaterial3d(default_material.clone()),
-        RenderLayers::layer(CAMERA_RENDER_LAYER),
         Name::new("Ground Plane"),
     ));
 
@@ -48,21 +52,18 @@ fn setup(
         MeshMaterial3d(materials.add(Color::from(RED))),
         Transform::from_xyz(0.0, cube_edge * 0.5, 0.0),
         NotShadowCaster,
-        RenderLayers::layer(CAMERA_RENDER_LAYER),
         Name::new("Red Cube"),
     ));
 
     // Visible green cube that casts and receives shadows normally
-    commands
-        .spawn((
-            Mesh3d(meshes.add(Cuboid::new(cube_edge, cube_edge, cube_edge))),
-            MeshMaterial3d(materials.add(Color::from(GREEN))),
-            Transform::from_xyz(1.25, cube_edge * 0.5, 0.0),
-            Name::new("Green cube"),
-        ))
-        .insert(RenderLayers::layer(CAMERA_RENDER_LAYER));
+    commands.spawn((
+        Mesh3d(meshes.add(Cuboid::new(cube_edge, cube_edge, cube_edge))),
+        MeshMaterial3d(materials.add(Color::from(GREEN))),
+        Transform::from_xyz(1.25, cube_edge * 0.5, 0.0),
+        Name::new("Green cube"),
+    ));
 
-    // Visible blue cuboid that casts and receives shadows normally
+    // Visible blue rectilinear cuboid that casts and receives shadows normally
     let pillar_width = 0.50;
     let pillar_height = pillar_width * 2.75;
     let pillar_depth = pillar_width;
@@ -71,64 +72,43 @@ fn setup(
         MeshMaterial3d(materials.add(Color::from(BLUE))),
         Transform::from_xyz(0.25, pillar_height * 0.5, 1.25)
             .with_rotation(Quat::from_rotation_y(PI / 3.0)),
-        RenderLayers::layer(CAMERA_RENDER_LAYER),
         Name::new("Blue cuboid"),
     ));
 
-    // Invisible sphere that only casts a shadow so that the visible red cube appears to cast a sphere-shaped shadow
+    // A sphere that only casts a shadow so that the visible red cube appears to cast a
+    // sphere-shaped shadow.
     commands.spawn((
         Mesh3d(sphere_handle),
         MeshMaterial3d(default_material.clone()),
         Transform::from_xyz(0.0, sphere_radius, 0.0),
-        OnlyShadowCaster,
-        Visibility::Hidden,
-        RenderLayers::layer(CAMERA_RENDER_LAYER),
+        RenderPasses(RenderPassMask::SHADOW),
         Name::new("Invisible sphere"),
     ));
 
-    // Invisible tall cuboid that casts a shadow
-    commands
-        .spawn((
-            Mesh3d(meshes.add(Cuboid::new(pillar_width, pillar_height, pillar_depth))),
-            MeshMaterial3d(default_material.clone()),
-            Transform::from_xyz(-2.0, pillar_height * 0.5, 0.0),
-            OnlyShadowCaster,
-            Visibility::Hidden,
-            RenderLayers::layer(SHADOW_CASTING_LAYER),
-            Name::new("Invisible cuboid"),
-        ))
-        .insert(RenderLayers::layer(SHADOW_CASTING_LAYER));
+    // An invisible rectilinear cuboid that casts a shadow but is excluded from the main passes.
+    commands.spawn((
+        Mesh3d(meshes.add(Cuboid::new(pillar_width, pillar_height, pillar_depth))),
+        MeshMaterial3d(default_material.clone()),
+        Transform::from_xyz(-2.0, pillar_height * 0.5, 0.0),
+        RenderPasses(RenderPassMask::SHADOW),
+        Name::new("Invisible cuboid"),
+    ));
 
-    let light = commands
-        .spawn((
-            DirectionalLight {
-                illuminance: light_consts::lux::OVERCAST_DAY,
-                shadows_enabled: true,
-                ..default()
-            },
-            Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, PI / 2., -PI / 4.)),
-            Name::new("Light"),
-        ))
-        .id();
+    commands.spawn((
+        DirectionalLight {
+            illuminance: light_consts::lux::OVERCAST_DAY,
+            shadows_enabled: true,
+            ..default()
+        },
+        Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, PI / 2., -PI / 4.)),
+        Name::new("Light"),
+    ));
 
-    // Allow light to participate in both the camera view layer and the shadow-only layer.
-    commands.entity(light).insert(RenderLayers::from_layers(&[
-        CAMERA_RENDER_LAYER,
-        SHADOW_CASTING_LAYER,
-    ]));
-
-    let camera = commands
-        .spawn((
-            Camera3d::default(),
-            Transform::from_xyz(-3.0, 5.0, 3.0).looking_at(Vec3::new(0.0, 1.0, 1.0), Vec3::Y),
-            Name::new("Camera"),
-        ))
-        .id();
-
-    commands.entity(camera).insert(RenderLayers::from_layers(&[
-        CAMERA_RENDER_LAYER,
-        SHADOW_CASTING_LAYER,
-    ]));
+    commands.spawn((
+        Camera3d::default(),
+        Transform::from_xyz(-3.0, 5.0, 3.0).looking_at(Vec3::new(0.0, 1.0, 1.0), Vec3::Y),
+        Name::new("Camera"),
+    ));
 }
 
 fn animate_light_direction(

@@ -863,6 +863,7 @@ pub fn specialize_wireframes(
 fn queue_wireframes(
     custom_draw_functions: Res<DrawFunctions<Wireframe3d>>,
     render_mesh_instances: Res<RenderMeshInstances>,
+    render_passes: Query<&RenderPasses>,
     gpu_preprocessing_support: Res<GpuPreprocessingSupport>,
     mesh_allocator: Res<MeshAllocator>,
     specialized_wireframe_pipeline_cache: Res<SpecializedWireframePipelineCache>,
@@ -883,6 +884,12 @@ fn queue_wireframes(
         };
 
         for (render_entity, visible_entity) in visible_entities.iter::<Mesh3d>() {
+            if let Ok(render_passes) = render_passes.get(*render_entity)
+                && !render_passes.0.contains(RenderPassMask::MAIN)
+            {
+                continue;
+            }
+
             let Some(wireframe_instance) = render_wireframe_instances.get(visible_entity) else {
                 continue;
             };

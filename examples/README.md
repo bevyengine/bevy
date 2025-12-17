@@ -167,13 +167,14 @@ Example | Description
 [Lighting](../examples/3d/lighting.rs) | Illustrates various lighting options in a simple scene
 [Lightmaps](../examples/3d/lightmaps.rs) | Rendering a scene with baked lightmaps
 [Lines](../examples/3d/lines.rs) | Create a custom material to draw 3d lines
+[Main Pass Excluded](../examples/3d/main_pass_excluded.rs) | Excludes an entity from main camera passes while still casting shadows
 [Mesh Ray Cast](../examples/3d/mesh_ray_cast.rs) | Demonstrates ray casting with the `MeshRayCast` system parameter
 [Meshlet](../examples/3d/meshlet.rs) | Meshlet rendering for dense high-poly scenes (experimental)
 [Mirror](../examples/3d/mirror.rs) | Demonstrates how to create a mirror with a second camera
 [Mixed lighting](../examples/3d/mixed_lighting.rs) | Demonstrates how to combine baked and dynamic lighting
 [Motion Blur](../examples/3d/motion_blur.rs) | Demonstrates per-pixel motion blur
 [Occlusion Culling](../examples/3d/occlusion_culling.rs) | Demonstration of Occlusion Culling
-[Only Shadow Caster](../examples/3d/only_shadow_caster.rs) | Demonstrates how to make a mesh invisible but still cast shadows using `OnlyShadowCaster`.
+[Only Shadow Caster](../examples/3d/only_shadow_caster.rs) | Makes an entity invisible to the main camera while still casting shadows
 [Order Independent Transparency](../examples/3d/order_independent_transparency.rs) | Demonstrates how to use OIT
 [Orthographic View](../examples/3d/orthographic.rs) | Shows how to create a 3D orthographic view (for isometric-look in games or CAD applications)
 [Parallax Mapping](../examples/3d/parallax_mapping.rs) | Demonstrates use of a normal map and depth map for parallax mapping
@@ -181,6 +182,7 @@ Example | Description
 [Percentage-closer soft shadows](../examples/3d/pcss.rs) | Demonstrates percentage-closer soft shadows (PCSS)
 [Physically Based Rendering](../examples/3d/pbr.rs) | Demonstrates use of Physically Based Rendering (PBR) properties
 [Reflection Probes](../examples/3d/reflection_probes.rs) | Demonstrates reflection probes
+[Render Pass Viewer](../examples/3d/render_pass_viewer.rs) | Visualizes and toggles render pass participation using RenderPasses / RenderPassMask
 [Render to Texture](../examples/3d/render_to_texture.rs) | Shows how to render to a texture, useful for mirrors, UI, or exporting images
 [Rotate Environment Map](../examples/3d/rotate_environment_map.rs) | Demonstrates how to rotate the skybox and the environment map simultaneously
 [Screen Space Ambient Occlusion](../examples/3d/ssao.rs) | A scene showcasing screen space ambient occlusion

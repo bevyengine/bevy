@@ -26,8 +26,7 @@ use bevy_light::SunDisk;
 use bevy_light::{
     spot_light_clip_from_view, spot_light_world_from_view, AmbientLight, CascadeShadowConfig,
     Cascades, DirectionalLight, DirectionalLightShadowMap, GlobalAmbientLight, NotShadowCaster,
-    OnlyShadowCaster, PointLight, PointLightShadowMap, ShadowFilteringMethod, SpotLight,
-    VolumetricLight,
+    PointLight, PointLightShadowMap, ShadowFilteringMethod, SpotLight, VolumetricLight,
 };
 use bevy_math::{ops, Mat4, UVec4, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles};
 use bevy_platform::collections::{HashMap, HashSet};
@@ -42,6 +41,7 @@ use bevy_render::{
     camera::SortedCameras,
     mesh::allocator::MeshAllocator,
     view::{NoIndirectDrawing, RetainedViewEntity},
+    RenderPassMask, RenderPasses,
 };
 use bevy_render::{
     diagnostic::RecordDiagnostics,
@@ -1685,29 +1685,16 @@ fn despawn_entities(commands: &mut Commands, entities: Vec<Entity>) {
 // These will be extracted in the material extraction, which will also clear the needs_specialization
 // collection.
 pub fn check_light_entities_needing_specialization<M: Material>(
-    needs_specialization: Query<
-        Entity,
-        (
-            With<MeshMaterial3d<M>>,
-            Or<(Changed<NotShadowCaster>, Changed<OnlyShadowCaster>)>,
-        ),
-    >,
+    needs_specialization: Query<Entity, (With<MeshMaterial3d<M>>, Changed<NotShadowCaster>)>,
     mesh_materials: Query<Entity, With<MeshMaterial3d<M>>>,
     mut entities_needing_specialization: ResMut<EntitiesNeedingSpecialization<M>>,
     mut removed_components: RemovedComponents<NotShadowCaster>,
-    mut removed_only_shadow_caster_components: RemovedComponents<OnlyShadowCaster>,
 ) {
     for entity in &needs_specialization {
         entities_needing_specialization.push(entity);
     }
 
     for removed in removed_components.read() {
-        // Only require specialization if the entity still exists.
-        if mesh_materials.contains(removed) {
-            entities_needing_specialization.entities.push(removed);
-        }
-    }
-    for removed in removed_only_shadow_caster_components.read() {
         // Only require specialization if the entity still exists.
         if mesh_materials.contains(removed) {
             entities_needing_specialization.entities.push(removed);
@@ -1960,6 +1947,7 @@ pub fn queue_shadows(
     render_mesh_instances: Res<RenderMeshInstances>,
     render_materials: Res<ErasedRenderAssets<PreparedMaterial>>,
     render_material_instances: Res<RenderMaterialInstances>,
+    render_passes: Query<&RenderPasses>,
     mut shadow_render_phases: ResMut<ViewBinnedRenderPhases<Shadow>>,
     gpu_preprocessing_support: Res<GpuPreprocessingSupport>,
     mesh_allocator: Res<MeshAllocator>,
@@ -2017,6 +2005,12 @@ pub fn queue_shadows(
             };
 
             for (entity, main_entity) in visible_entities.iter().copied() {
+                if let Ok(render_passes) = render_passes.get(entity)
+                    && !render_passes.0.contains(RenderPassMask::SHADOW)
+                {
+                    continue;
+                }
+
                 let Some((current_change_tick, pipeline_id)) =
                     view_specialized_material_pipeline_cache.get(&main_entity)
                 else {
