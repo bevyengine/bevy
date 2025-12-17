@@ -2887,13 +2887,18 @@ mod tests {
         );
         mesh.insert_attribute(
             Mesh::ATTRIBUTE_POSITION,
-            vec![[0., 0., 0.], [-1., 0., 0.], [-1., -1., 0.], [0., -1., 0.]],
+            vec![
+                [-0.5, 0., 0.],
+                [-1., 0., 0.],
+                [-1., -1., 0.],
+                [-0.5, -1., 0.],
+            ],
         );
         mesh.insert_indices(Indices::U32(vec![0, 1, 2, 2, 3, 0]));
         mesh = mesh.take_gpu_data().unwrap();
         assert_eq!(
             mesh.final_aabb,
-            Some(Aabb3d::from_min_max([-1., -1., 0.], Vec3::ZERO))
+            Some(Aabb3d::from_min_max([-1., -1., 0.], [-0.5, 0., 0.]))
         );
     }
 
