@@ -905,7 +905,7 @@ mod tests {
     }
 
     /// Creates a basic asset app and an in-memory file system.
-    fn create_app() -> (App, Dir) {
+    pub(crate) fn create_app() -> (App, Dir) {
         let mut app = App::new();
         let dir = Dir::default();
         let dir_clone = dir.clone();
@@ -919,7 +919,11 @@ mod tests {
         )
         .add_plugins((
             TaskPoolPlugin::default(),
-            AssetPlugin::default(),
+            AssetPlugin {
+                watch_for_changes_override: Some(false),
+                use_asset_processor_override: Some(false),
+                ..Default::default()
+            },
             DiagnosticsPlugin,
         ));
         (app, dir)
@@ -934,7 +938,11 @@ mod tests {
         )
         .add_plugins((
             TaskPoolPlugin::default(),
-            AssetPlugin::default(),
+            AssetPlugin {
+                watch_for_changes_override: Some(false),
+                use_asset_processor_override: Some(false),
+                ..Default::default()
+            },
             DiagnosticsPlugin,
         ));
         (app, gate_opener)
@@ -1868,10 +1876,27 @@ mod tests {
 
         let mut app = App::new();
         app.register_asset_source(
+            AssetSourceId::Default,
+            AssetSourceBuilder::new(move || {
+                // This reader is unused, but we set it here so we don't accidentally use the
+                // filesystem.
+                Box::new(MemoryAssetReader {
+                    root: Dir::default(),
+                })
+            }),
+        )
+        .register_asset_source(
             "unstable",
             AssetSourceBuilder::new(move || Box::new(unstable_reader.clone())),
         )
-        .add_plugins((TaskPoolPlugin::default(), AssetPlugin::default()))
+        .add_plugins((
+            TaskPoolPlugin::default(),
+            AssetPlugin {
+                watch_for_changes_override: Some(false),
+                use_asset_processor_override: Some(false),
+                ..Default::default()
+            },
+        ))
         .init_asset::<CoolText>()
         .register_asset_loader(CoolTextLoader)
         .init_resource::<ErrorTracker>()
@@ -2060,6 +2085,8 @@ mod tests {
             TaskPoolPlugin::default(),
             AssetPlugin {
                 unapproved_path_mode: mode,
+                watch_for_changes_override: Some(false),
+                use_asset_processor_override: Some(false),
                 ..Default::default()
             },
         ));
@@ -2311,6 +2338,7 @@ mod tests {
             TaskPoolPlugin::default(),
             AssetPlugin {
                 watch_for_changes_override: Some(true),
+                use_asset_processor_override: Some(false),
                 ..Default::default()
             },
         ));

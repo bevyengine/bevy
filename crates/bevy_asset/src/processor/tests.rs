@@ -1675,6 +1675,7 @@ fn only_reprocesses_wrong_hash_on_startup() {
         AssetPlugin {
             mode: AssetMode::Processed,
             use_asset_processor_override: Some(true),
+            watch_for_changes_override: Some(true),
             ..Default::default()
         },
     ));
