@@ -777,7 +777,7 @@ fn auto_rebuild_ui_navigation_graph(
         })
         .collect();
 
-    auto_generate_navigation_edges(&mut directional_nav_map, &nodes, &config)
+    auto_generate_navigation_edges(&mut directional_nav_map, &nodes, &config);
 }
 
 #[cfg(test)]
