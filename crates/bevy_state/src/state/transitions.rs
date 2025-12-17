@@ -179,6 +179,8 @@ pub(crate) fn internal_apply_state_transition<S: States>(
                         allow_same_state_transitions,
                     });
 
+                    // When [`State<S>`] is initialized, there can be stale data in
+                    // [`PreviousState<S>`] from a prior transition to `None`, so we remove it.
                     if previous_state.is_some() {
                         commands.remove_resource::<PreviousState<S>>();
                     }
