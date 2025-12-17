@@ -231,9 +231,12 @@ pub trait ErasedProcessor: Send + Sync {
     ) -> BoxedFuture<'a, Result<Box<dyn AssetMetaDyn>, ProcessError>>;
     /// Type-erased variant of [`Process::reader_required_features`].
     // Note: This takes &self just to be dyn compatible.
-    #[expect(
-        clippy::result_large_err,
-        reason = "this is only an error here because this isn't a future"
+    #[cfg_attr(
+        not(target_arch = "wasm32"),
+        expect(
+            clippy::result_large_err,
+            reason = "this is only an error here because this isn't a future"
+        )
     )]
     fn reader_required_features(
         &self,
