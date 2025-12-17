@@ -412,11 +412,11 @@ impl TextPipeline {
                     let physical_glyph = layout_glyph.physical((0., 0.), 1.);
 
                     let font_atlases = font_atlas_set
-                        .entry(FontAtlasKey(
-                            font_id,
-                            physical_glyph.cache_key.font_size_bits,
+                        .entry(FontAtlasKey {
+                            id: font_id,
+                            font_size_bits: physical_glyph.cache_key.font_size_bits,
                             font_smoothing,
-                        ))
+                        })
                         .or_default();
 
                     let atlas_info = get_glyph_atlas_info(font_atlases, physical_glyph.cache_key)
