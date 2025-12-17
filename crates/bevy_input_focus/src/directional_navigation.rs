@@ -780,8 +780,6 @@ fn auto_rebuild_ui_navigation_graph(
         )
         .collect();
 
-    // clear the old nav map between rebuilds to ensure any removed entities' edges are pruned
-    directional_nav_map.clear();
     auto_generate_navigation_edges(&mut directional_nav_map, &nodes, &config);
 }
 
