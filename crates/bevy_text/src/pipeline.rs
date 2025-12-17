@@ -125,8 +125,21 @@ impl TextPipeline {
             if span.is_empty() {
                 continue;
             }
-            // Return early if a font is not loaded yet.
-            if !fonts.contains(text_font.font.id()) {
+
+            let family_name = if let Some(family) = text_font.family.as_ref() {
+                Arc::from(family.as_str())
+            } else if let Some(font) = fonts.get(text_font.font.id()) {
+                let data = Arc::clone(&font.data);
+                let ids = font_system
+                    .db_mut()
+                    .load_font_source(cosmic_text::fontdb::Source::Binary(data));
+
+                // TODO: it is assumed this is the right font face
+                let face_id = *ids.last().unwrap();
+                let face = font_system.db().face(face_id).unwrap();
+                Arc::from(face.families[0].0.as_str())
+            } else {
+                // Return early if a font is not loaded yet.
                 spans.clear();
                 self.spans_buffer = spans
                     .into_iter()
@@ -140,17 +153,10 @@ impl TextPipeline {
                         ) { unreachable!() },
                     )
                     .collect();
-
                 return Err(TextError::NoSuchFont);
-            }
+            };
 
-            // Load Bevy fonts into cosmic-text's font system.
-            let face_info = load_font_to_fontdb(
-                text_font,
-                font_system,
-                &mut self.map_handle_to_font_id,
-                fonts,
-            );
+            let face_info = FontFaceInfo { family_name };
 
             // Save spans that aren't zero-sized.
             if scale_factor <= 0.0 || text_font.font_size <= 0.0 {
@@ -581,41 +587,6 @@ impl TextMeasureInfo {
             .buffer
             .set_size(&mut font_system.0, bounds.width, bounds.height);
         buffer_dimensions(&computed.buffer)
-    }
-}
-
-/// Add the font to the cosmic text's `FontSystem`'s in-memory font database
-pub fn load_font_to_fontdb(
-    text_font: &TextFont,
-    font_system: &mut cosmic_text::FontSystem,
-    map_handle_to_font_id: &mut HashMap<AssetId<Font>, (cosmic_text::fontdb::ID, Arc<str>)>,
-    fonts: &Assets<Font>,
-) -> FontFaceInfo {
-    if let Some(family) = text_font.family.as_ref() {
-        FontFaceInfo {
-            family_name: Arc::from(family.as_str()),
-        }
-    } else {
-        let font_id = text_font.font.id();
-        let (_face_id, family_name) = map_handle_to_font_id.entry(font_id).or_insert_with(|| {
-            let font = fonts.get(font_id).expect(
-                "Tried getting a font that was not available, probably due to not being loaded yet",
-            );
-            let data = Arc::clone(&font.data);
-            let ids = font_system
-                .db_mut()
-                .load_font_source(cosmic_text::fontdb::Source::Binary(data));
-
-            // TODO: it is assumed this is the right font face
-            let face_id = *ids.last().unwrap();
-            let face = font_system.db().face(face_id).unwrap();
-
-            let family_name = Arc::from(face.families[0].0.as_str());
-            (face_id, family_name)
-        });
-        FontFaceInfo {
-            family_name: family_name.clone(),
-        }
     }
 }
 
