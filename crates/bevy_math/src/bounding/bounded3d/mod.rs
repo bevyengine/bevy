@@ -61,9 +61,20 @@ pub struct Aabb3d {
 }
 
 impl Aabb3d {
+    /// Constructs an AABB from the its minimum and maximum extent.
+    #[inline]
+    pub fn from_min_max(min: impl Into<Vec3A>, max: impl Into<Vec3A>) -> Self {
+        let (min, max) = (min.into(), max.into());
+        debug_assert!(min.x <= max.x && min.y <= max.y && min.z <= max.z);
+        Self {
+            min,
+            max,
+        }
+    }
+
     /// Constructs an AABB from its center and half-size.
     #[inline]
-    pub fn new(center: impl Into<Vec3A>, half_size: impl Into<Vec3A>) -> Self {
+    pub fn from_half_size(center: impl Into<Vec3A>, half_size: impl Into<Vec3A>) -> Self {
         let (center, half_size) = (center.into(), half_size.into());
         debug_assert!(half_size.x >= 0.0 && half_size.y >= 0.0 && half_size.z >= 0.0);
         Self {
@@ -261,7 +272,7 @@ impl BoundingVolume for Aabb3d {
     fn rotate_by(&mut self, rotation: impl Into<Self::Rotation>) {
         let rot_mat = Mat3::from_quat(rotation.into());
         let half_size = rot_mat.abs() * self.half_size();
-        *self = Self::new(rot_mat * self.center(), half_size);
+        *self = Self::from_half_size(rot_mat * self.center(), half_size);
     }
 }
 

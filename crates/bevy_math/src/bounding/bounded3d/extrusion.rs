@@ -65,7 +65,7 @@ impl BoundedExtrusion for Ellipse {
         });
 
         let half_size = Vec3A::new(max_x.x, max_y.y, max_z.z).abs() + (normal * half_depth).abs();
-        Aabb3d::new(isometry.translation, half_size)
+        Aabb3d::from_half_size(isometry.translation, half_size)
     }
 }
 
@@ -82,7 +82,7 @@ impl BoundedExtrusion for Line2d {
             if dir.z == 0. { half_depth.z } else { max },
         );
 
-        Aabb3d::new(isometry.translation, half_size)
+        Aabb3d::from_half_size(isometry.translation, half_size)
     }
 }
 
@@ -92,7 +92,7 @@ impl BoundedExtrusion for Segment2d {
         let half_size = isometry.rotation * Vec3A::from(self.point1().extend(0.));
         let depth = isometry.rotation * Vec3A::new(0., 0., half_depth);
 
-        Aabb3d::new(isometry.translation, half_size.abs() + depth.abs())
+        Aabb3d::from_half_size(isometry.translation, half_size.abs() + depth.abs())
     }
 }
 
@@ -161,7 +161,7 @@ impl BoundedExtrusion for Capsule2d {
 
         let up = isometry.rotation * Vec3A::new(0., self.half_length, 0.);
         let half_size = aabb.max + up.abs();
-        Aabb3d::new(isometry.translation, half_size)
+        Aabb3d::from_half_size(isometry.translation, half_size)
     }
 }
 
@@ -230,7 +230,7 @@ pub trait BoundedExtrusion: Primitive2d + Bounded2d {
         let cap_size = Vec3A::from_array(axis_values.map(|(max_val, _)| max_val)).abs();
         let depth = isometry.rotation * Vec3A::new(0., 0., half_depth);
 
-        Aabb3d::new(isometry.translation - offset, cap_size + depth.abs())
+        Aabb3d::from_half_size(isometry.translation - offset, cap_size + depth.abs())
     }
 
     /// Get a bounding sphere for an extrusion of the `base_shape` with the given `half_depth` with the given translation and rotation

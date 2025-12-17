@@ -315,37 +315,37 @@ mod tests {
             (
                 // Hit the center of a centered aabb
                 RayCast3d::new(Vec3::Y * -5., Dir3::Y, 90.),
-                Aabb3d::new(Vec3::ZERO, Vec3::ONE),
+                Aabb3d::from_half_size(Vec3::ZERO, Vec3::ONE),
                 4.,
             ),
             (
                 // Hit the center of a centered aabb, but from the other side
                 RayCast3d::new(Vec3::Y * 5., -Dir3::Y, 90.),
-                Aabb3d::new(Vec3::ZERO, Vec3::ONE),
+                Aabb3d::from_half_size(Vec3::ZERO, Vec3::ONE),
                 4.,
             ),
             (
                 // Hit the center of an offset aabb
                 RayCast3d::new(Vec3::ZERO, Dir3::Y, 90.),
-                Aabb3d::new(Vec3::Y * 3., Vec3::splat(2.)),
+                Aabb3d::from_half_size(Vec3::Y * 3., Vec3::splat(2.)),
                 1.,
             ),
             (
                 // Just barely hit the aabb before the max distance
                 RayCast3d::new(Vec3::X, Dir3::Y, 1.),
-                Aabb3d::new(Vec3::new(1., 1., 0.), Vec3::splat(0.01)),
+                Aabb3d::from_half_size(Vec3::new(1., 1., 0.), Vec3::splat(0.01)),
                 0.99,
             ),
             (
                 // Hit an aabb off-center
                 RayCast3d::new(Vec3::X, Dir3::Y, 90.),
-                Aabb3d::new(Vec3::Y * 5., Vec3::splat(2.)),
+                Aabb3d::from_half_size(Vec3::Y * 5., Vec3::splat(2.)),
                 3.,
             ),
             (
                 // Barely hit an aabb on corner
                 RayCast3d::new(Vec3::X * -0.001, Dir3::from_xyz(1., 1., 1.).unwrap(), 90.),
-                Aabb3d::new(Vec3::Y * 2., Vec3::ONE),
+                Aabb3d::from_half_size(Vec3::Y * 2., Vec3::ONE),
                 1.732,
             ),
         ] {
@@ -373,17 +373,17 @@ mod tests {
             (
                 // The ray doesn't go in the right direction
                 RayCast3d::new(Vec3::ZERO, Dir3::X, 90.),
-                Aabb3d::new(Vec3::Y * 2., Vec3::ONE),
+                Aabb3d::from_half_size(Vec3::Y * 2., Vec3::ONE),
             ),
             (
                 // Ray's alignment isn't enough to hit the aabb
                 RayCast3d::new(Vec3::ZERO, Dir3::from_xyz(1., 0.99, 1.).unwrap(), 90.),
-                Aabb3d::new(Vec3::Y * 2., Vec3::ONE),
+                Aabb3d::from_half_size(Vec3::Y * 2., Vec3::ONE),
             ),
             (
                 // The ray's maximum distance isn't high enough
                 RayCast3d::new(Vec3::ZERO, Dir3::Y, 0.5),
-                Aabb3d::new(Vec3::Y * 2., Vec3::ONE),
+                Aabb3d::from_half_size(Vec3::Y * 2., Vec3::ONE),
             ),
         ] {
             assert!(
@@ -395,7 +395,7 @@ mod tests {
 
     #[test]
     fn test_ray_intersection_aabb_inside() {
-        let volume = Aabb3d::new(Vec3::splat(0.5), Vec3::ONE);
+        let volume = Aabb3d::from_half_size(Vec3::splat(0.5), Vec3::ONE);
         for origin in &[Vec3::X, Vec3::Y, Vec3::ONE, Vec3::ZERO] {
             for direction in &[Dir3::X, Dir3::Y, Dir3::Z, -Dir3::X, -Dir3::Y, -Dir3::Z] {
                 for max in &[0., 1., 900.] {
@@ -422,41 +422,41 @@ mod tests {
         for (test, volume, expected_distance) in &[
             (
                 // Hit the center of the aabb, that a ray would've also hit
-                AabbCast3d::new(Aabb3d::new(Vec3::ZERO, Vec3::ONE), Vec3::ZERO, Dir3::Y, 90.),
-                Aabb3d::new(Vec3::Y * 5., Vec3::ONE),
+                AabbCast3d::new(Aabb3d::from_half_size(Vec3::ZERO, Vec3::ONE), Vec3::ZERO, Dir3::Y, 90.),
+                Aabb3d::from_half_size(Vec3::Y * 5., Vec3::ONE),
                 3.,
             ),
             (
                 // Hit the center of the aabb, but from the other side
                 AabbCast3d::new(
-                    Aabb3d::new(Vec3::ZERO, Vec3::ONE),
+                    Aabb3d::from_half_size(Vec3::ZERO, Vec3::ONE),
                     Vec3::Y * 10.,
                     -Dir3::Y,
                     90.,
                 ),
-                Aabb3d::new(Vec3::Y * 5., Vec3::ONE),
+                Aabb3d::from_half_size(Vec3::Y * 5., Vec3::ONE),
                 3.,
             ),
             (
                 // Hit the edge of the aabb, that a ray would've missed
                 AabbCast3d::new(
-                    Aabb3d::new(Vec3::ZERO, Vec3::ONE),
+                    Aabb3d::from_half_size(Vec3::ZERO, Vec3::ONE),
                     Vec3::X * 1.5,
                     Dir3::Y,
                     90.,
                 ),
-                Aabb3d::new(Vec3::Y * 5., Vec3::ONE),
+                Aabb3d::from_half_size(Vec3::Y * 5., Vec3::ONE),
                 3.,
             ),
             (
                 // Hit the edge of the aabb, by casting an off-center AABB
                 AabbCast3d::new(
-                    Aabb3d::new(Vec3::X * -2., Vec3::ONE),
+                    Aabb3d::from_half_size(Vec3::X * -2., Vec3::ONE),
                     Vec3::X * 3.,
                     Dir3::Y,
                     90.,
                 ),
-                Aabb3d::new(Vec3::Y * 5., Vec3::ONE),
+                Aabb3d::from_half_size(Vec3::Y * 5., Vec3::ONE),
                 3.,
             ),
         ] {

@@ -235,7 +235,7 @@ impl<'w, 's> MeshRayCast<'w, 's> {
                 if should_ray_cast
                     && let Some(distance) = ray_aabb_intersection_3d(
                         ray,
-                        &Aabb3d::new(aabb.center, aabb.half_extents),
+                        &Aabb3d::from_half_size(aabb.center, aabb.half_extents),
                         &transform.affine(),
                     )
                 {

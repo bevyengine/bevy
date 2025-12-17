@@ -18,7 +18,7 @@ use super::{Aabb3d, Bounded3d, BoundingSphere};
 impl Bounded3d for Sphere {
     fn aabb_3d(&self, isometry: impl Into<Isometry3d>) -> Aabb3d {
         let isometry = isometry.into();
-        Aabb3d::new(isometry.translation, Vec3::splat(self.radius))
+        Aabb3d::from_half_size(isometry.translation, Vec3::splat(self.radius))
     }
 
     fn bounding_sphere(&self, isometry: impl Into<Isometry3d>) -> BoundingSphere {
@@ -43,7 +43,7 @@ impl Bounded3d for InfinitePlane3d {
         let half_depth = if facing_z { 0.0 } else { f32::MAX / 2.0 };
         let half_size = Vec3A::new(half_width, half_height, half_depth);
 
-        Aabb3d::new(isometry.translation, half_size)
+        Aabb3d::from_half_size(isometry.translation, half_size)
     }
 
     fn bounding_sphere(&self, isometry: impl Into<Isometry3d>) -> BoundingSphere {
@@ -65,7 +65,7 @@ impl Bounded3d for Line3d {
         let half_depth = if direction.z == 0.0 { 0.0 } else { max };
         let half_size = Vec3A::new(half_width, half_height, half_depth);
 
-        Aabb3d::new(isometry.translation, half_size)
+        Aabb3d::from_half_size(isometry.translation, half_size)
     }
 
     fn bounding_sphere(&self, isometry: impl Into<Isometry3d>) -> BoundingSphere {
@@ -111,7 +111,7 @@ impl Bounded3d for Cuboid {
         );
         let half_size = abs_rot_mat * self.half_size;
 
-        Aabb3d::new(isometry.translation, half_size)
+        Aabb3d::from_half_size(isometry.translation, half_size)
     }
 
     fn bounding_sphere(&self, isometry: impl Into<Isometry3d>) -> BoundingSphere {
@@ -312,7 +312,7 @@ impl Bounded3d for Torus {
         // Expand the disc by the minor radius to get the torus half-size
         let half_size = disc_half_size + Vec3A::splat(self.minor_radius);
 
-        Aabb3d::new(isometry.translation, half_size)
+        Aabb3d::from_half_size(isometry.translation, half_size)
     }
 
     fn bounding_sphere(&self, isometry: impl Into<Isometry3d>) -> BoundingSphere {
@@ -337,7 +337,7 @@ impl Bounded3d for Triangle3d {
         let bounding_center = (max + min) / 2.0 + isometry.translation;
         let half_extents = (max - min) / 2.0;
 
-        Aabb3d::new(bounding_center, half_extents)
+        Aabb3d::from_half_size(bounding_center, half_extents)
     }
 
     /// Get the bounding sphere of the triangle.

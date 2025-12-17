@@ -892,7 +892,7 @@ impl BvhBuilder {
                         break;
                     }
 
-                    aabb = aabb.merge(&Aabb3d::new(
+                    aabb = aabb.merge(&Aabb3d::from_half_size(
                         child.aabbs[i].center,
                         child.aabbs[i].half_extent,
                     ));
@@ -963,7 +963,7 @@ impl BvhBuilder {
                     break;
                 }
 
-                aabb = aabb.merge(&Aabb3d::new(
+                aabb = aabb.merge(&Aabb3d::from_half_size(
                     root.aabbs[i].center,
                     root.aabbs[i].half_extent,
                 ));

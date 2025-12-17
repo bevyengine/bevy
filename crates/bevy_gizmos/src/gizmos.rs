@@ -626,7 +626,7 @@ where
     /// # use bevy_math::{bounding::Aabb3d, Vec3};
     /// # use bevy_color::palettes::basic::GREEN;
     /// fn system(mut gizmos: Gizmos) {
-    ///     gizmos.aabb_3d(Aabb3d::new(Vec3::ZERO, Vec3::ONE), Transform::IDENTITY, GREEN);
+    ///     gizmos.aabb_3d(Aabb3d::from_half_size(Vec3::ZERO, Vec3::ONE), Transform::IDENTITY, GREEN);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
