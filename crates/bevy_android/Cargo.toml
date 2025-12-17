@@ -1,6 +1,6 @@
 [package]
 name = "bevy_android"
-version = "0.18.0-dev"
+version = "0.18.0-rc.1"
 edition = "2024"
 description = "Provides android functionality for Bevy Engine."
 homepage = "https://bevy.org"
