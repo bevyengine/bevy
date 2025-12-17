@@ -2063,65 +2063,56 @@ mod tests {
                 ..Default::default()
             },
         ));
-        app.init_asset::<CoolText>();
+        app.init_asset::<CoolText>()
+            .register_asset_loader(CoolTextLoader);
 
         app
     }
 
-    fn load_a_asset(assets: Res<AssetServer>) {
-        let a = assets.load::<CoolText>("../a.cool.ron");
-        if a == Handle::default() {
-            panic!()
-        }
-    }
+    #[test]
+    fn unapproved_path_forbid_does_not_load_even_with_override() {
+        let app = unapproved_path_setup(UnapprovedPathMode::Forbid);
 
-    fn load_a_asset_override(assets: Res<AssetServer>) {
-        let a = assets.load_override::<CoolText>("../a.cool.ron");
-        if a == Handle::default() {
-            panic!()
-        }
+        let asset_server = app.world().resource::<AssetServer>().clone();
+        assert_eq!(
+            asset_server.load_override::<CoolText>("../a.cool.ron"),
+            Handle::default()
+        );
     }
 
     #[test]
-    #[should_panic]
-    fn unapproved_path_forbid_should_panic() {
-        let mut app = unapproved_path_setup(UnapprovedPathMode::Forbid);
+    fn unapproved_path_deny_does_not_load() {
+        let app = unapproved_path_setup(UnapprovedPathMode::Deny);
 
-        fn uses_assets(_asset: ResMut<Assets<CoolText>>) {}
-        app.add_systems(Update, (uses_assets, load_a_asset_override));
-
-        app.world_mut().run_schedule(Update);
+        let asset_server = app.world().resource::<AssetServer>().clone();
+        assert_eq!(
+            asset_server.load::<CoolText>("../a.cool.ron"),
+            Handle::default()
+        );
     }
 
     #[test]
-    #[should_panic]
-    fn unapproved_path_deny_should_panic() {
+    fn unapproved_path_deny_loads_with_override() {
         let mut app = unapproved_path_setup(UnapprovedPathMode::Deny);
 
-        fn uses_assets(_asset: ResMut<Assets<CoolText>>) {}
-        app.add_systems(Update, (uses_assets, load_a_asset));
+        let asset_server = app.world().resource::<AssetServer>().clone();
+        let handle = asset_server.load_override::<CoolText>("../a.cool.ron");
+        assert_ne!(handle, Handle::default());
 
-        app.world_mut().run_schedule(Update);
+        // Make sure this asset actually loads.
+        run_app_until(&mut app, |_| asset_server.is_loaded(&handle).then_some(()));
     }
 
     #[test]
-    fn unapproved_path_deny_should_finish() {
-        let mut app = unapproved_path_setup(UnapprovedPathMode::Deny);
-
-        fn uses_assets(_asset: ResMut<Assets<CoolText>>) {}
-        app.add_systems(Update, (uses_assets, load_a_asset_override));
-
-        app.world_mut().run_schedule(Update);
-    }
-
-    #[test]
-    fn unapproved_path_allow_should_finish() {
+    fn unapproved_path_allow_loads() {
         let mut app = unapproved_path_setup(UnapprovedPathMode::Allow);
 
-        fn uses_assets(_asset: ResMut<Assets<CoolText>>) {}
-        app.add_systems(Update, (uses_assets, load_a_asset));
+        let asset_server = app.world().resource::<AssetServer>().clone();
+        let handle = asset_server.load::<CoolText>("../a.cool.ron");
+        assert_ne!(handle, Handle::default());
 
-        app.world_mut().run_schedule(Update);
+        // Make sure this asset actually loads.
+        run_app_until(&mut app, |_| asset_server.is_loaded(&handle).then_some(()));
     }
 
     #[test]
