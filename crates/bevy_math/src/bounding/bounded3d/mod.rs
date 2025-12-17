@@ -66,10 +66,7 @@ impl Aabb3d {
     pub fn from_min_max(min: impl Into<Vec3A>, max: impl Into<Vec3A>) -> Self {
         let (min, max) = (min.into(), max.into());
         debug_assert!(min.x <= max.x && min.y <= max.y && min.z <= max.z);
-        Self {
-            min,
-            max,
-        }
+        Self { min, max }
     }
 
     /// Constructs an AABB from its center and half-size.

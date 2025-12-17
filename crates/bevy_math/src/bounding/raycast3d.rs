@@ -422,7 +422,12 @@ mod tests {
         for (test, volume, expected_distance) in &[
             (
                 // Hit the center of the aabb, that a ray would've also hit
-                AabbCast3d::new(Aabb3d::from_half_size(Vec3::ZERO, Vec3::ONE), Vec3::ZERO, Dir3::Y, 90.),
+                AabbCast3d::new(
+                    Aabb3d::from_half_size(Vec3::ZERO, Vec3::ONE),
+                    Vec3::ZERO,
+                    Dir3::Y,
+                    90.,
+                ),
                 Aabb3d::from_half_size(Vec3::Y * 5., Vec3::ONE),
                 3.,
             ),
