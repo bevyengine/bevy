@@ -15,7 +15,6 @@ use tracing::warn;
 
 #[cfg(feature = "trace")]
 use {
-    crate::io::ReaderRequiredFeatures,
     alloc::string::ToString,
     bevy_tasks::ConditionalSendFuture,
     tracing::{info_span, instrument::Instrument},

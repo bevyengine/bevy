@@ -94,21 +94,6 @@ pub use stackfuture::StackFuture;
 /// This is essentially a trait alias for types implementing [`AsyncRead`] and [`AsyncSeek`].
 /// The only reason a blanket implementation is not provided for applicable types is to allow
 /// implementors to override the provided implementation of [`Reader::read_to_end`].
-///
-/// # Reader features
-///
-/// This trait includes super traits. However, this **does not** mean that your type needs to
-/// support every feature of those super traits. If the caller never uses that feature, then a dummy
-/// implementation that just returns an error is sufficient.
-///
-/// The caller can request a compatible [`Reader`] using [`ReaderRequiredFeatures`] (when using the
-/// [`AssetReader`] trait). This allows the caller to state which features of the reader it will
-/// use, avoiding cases where the caller uses a feature that the reader does not support.
-///
-/// For example, the caller may set [`ReaderRequiredFeatures::seek`] to
-/// [`SeekKind::AnySeek`] to indicate that they may seek backward, or from the start/end. A reader
-/// implementation may choose to support that, or may just detect those kinds of seeks and return an
-/// error.
 pub trait Reader: AsyncRead + Unpin + Send + Sync {
     /// Reads the entire contents of this reader and appends them to a vec.
     ///
@@ -225,10 +210,10 @@ pub trait AssetReader: Send + Sync + 'static {
     ///
     /// ```no_run
     /// # use std::path::Path;
-    /// # use bevy_asset::{prelude::*, io::{AssetReader, PathStream, Reader, AssetReaderError, ReaderRequiredFeatures}};
+    /// # use bevy_asset::{prelude::*, io::{AssetReader, PathStream, Reader, AssetReaderError}};
     /// # struct MyReader;
     /// impl AssetReader for MyReader {
-    ///     async fn read<'a>(&'a self, path: &'a Path, required_features: ReaderRequiredFeatures) -> Result<impl Reader + 'a, AssetReaderError> {
+    ///     async fn read<'a>(&'a self, path: &'a Path) -> Result<impl Reader + 'a, AssetReaderError> {
     ///         // ...
     ///         # let val: Box<dyn Reader> = unimplemented!(); Ok(val)
     ///     }
