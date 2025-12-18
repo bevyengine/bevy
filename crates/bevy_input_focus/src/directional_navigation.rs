@@ -9,12 +9,15 @@
 //!
 //! Navigating between focusable entities (commonly UI nodes) is done by
 //! passing a [`CompassOctant`] into the [`navigate`](DirectionalNavigation::navigate) method
-//! from the [`DirectionalNavigation`] system parameter.
+//! from the [`DirectionalNavigation`] system parameter. Under the hood, an entity is found
+//! automatically via brute force search in the desired [`CompassOctant`] direction.
 //!
-//! Under the hood, the [`DirectionalNavigationMap`] stores a directed graph of focusable entities.
-//! Each entity can have up to 8 neighbors, one for each [`CompassOctant`], balancing flexibility and required precision.
+//! If some manual navigation is desired, a [`DirectionalNavigationMap`] will override the brute force
+//! search in a direction for a given entity. The [`DirectionalNavigationMap`] stores a directed graph
+//! of focusable entities. Each entity can have up to 8 neighbors, one for each [`CompassOctant`],
+//! balancing flexibility and required precision.
 //!
-//! # Creating a Navigation Graph
+//! # Setting up Directional Navigation
 //!
 //! ## Automatic Navigation (Recommended)
 //!
@@ -35,9 +38,6 @@
 //! }
 //! ```
 //!
-//! The navigation graph automatically updates when UI elements move, resize, or are added/removed.
-//! Configure the behavior using the [`AutoNavigationConfig`] resource.
-//!
 //! ## Manual Navigation
 //!
 //! You can also manually define navigation connections using methods like
@@ -46,7 +46,7 @@
 //!
 //! ## Combining Automatic and Manual
 //!
-//! Manual edges always take precedence over auto-generated ones, allowing you to use
+//! Following manual edges always take precedence, allowing you to use
 //! automatic navigation for most UI elements while overriding specific connections for
 //! special cases like wrapping menus or cross-layer navigation.
 //!
@@ -74,7 +74,7 @@ use crate::InputFocus;
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::{prelude::*, Reflect};
 
-/// A plugin that sets up the directional navigation systems and resources.
+/// A plugin that sets up the directional navigation resources.
 #[derive(Default)]
 pub struct DirectionalNavigationPlugin;
 
@@ -91,17 +91,10 @@ impl Plugin for DirectionalNavigationPlugin {
     }
 }
 
-/// Marker component to enable automatic directional navigation graph generation.
+/// Marker component to enable automatic directional navigation to and from the entity.
 ///
-/// Simply add this component to your UI entities and the navigation graph will be
-/// automatically computed and maintained! The [`DirectionalNavigationPlugin`] includes
-/// a built-in system that:
-/// - Detects when nodes with this component change position or size
-/// - Automatically rebuilds navigation edges based on spatial proximity
-/// - Respects manual edges (they always take precedence)
-///
-///
-/// Just add this component to `bevy_ui` entities:
+/// Simply add this component to your UI entities so that the navigation algorithm will
+/// consider this entity in its calculations:
 ///
 /// ```rust
 /// # use bevy_ecs::prelude::*;
@@ -114,11 +107,9 @@ impl Plugin for DirectionalNavigationPlugin {
 /// }
 /// ```
 ///
-/// The navigation graph updates automatically when nodes move, resize, or are added/removed.
-///
 /// # Multi-Layer UIs and Z-Index
 ///
-/// **Important**: The automatic navigation system is currently **z-index agnostic** and treats
+/// **Important**: Automatic navigation is currently **z-index agnostic** and treats
 /// all entities with `AutoDirectionalNavigation` as a flat set, regardless of which UI layer
 /// or z-index they belong to. This means navigation may jump between different layers (e.g.,
 /// from a background menu to an overlay popup).
@@ -179,7 +170,7 @@ pub struct AutoDirectionalNavigation {
     pub respect_tab_order: bool,
 }
 
-/// Configuration resource for automatic directional navigation graph generation.
+/// Configuration resource for automatic navigation.
 ///
 /// This resource controls how the automatic navigation system computes which
 /// nodes should be connected in each direction.
@@ -284,7 +275,7 @@ impl NavNeighbors {
     }
 }
 
-/// A resource that stores the traversable graph of focusable entities.
+/// A resource that stores the manually specified traversable graph of focusable entities.
 ///
 /// Each entity can have up to 8 neighbors, one for each [`CompassOctant`].
 ///
@@ -296,7 +287,8 @@ impl NavNeighbors {
 ///   although looping around the edges of the screen is also acceptable.
 /// - **Not self-connected**: An entity should not be a neighbor of itself; use [`None`] instead.
 ///
-/// For now, this graph must be built manually, and the developer is responsible for ensuring that it meets the above criteria.
+/// This graph must be built and maintained manually, and the developer is responsible for ensuring that it meets the above criteria.
+/// Notably, if the developer adds or removes the navigability of an entity, the developer should update the map as necessary.
 #[derive(Resource, Debug, Default, Clone, PartialEq)]
 #[cfg_attr(
     feature = "bevy_reflect",
@@ -312,8 +304,6 @@ pub struct DirectionalNavigationMap {
 }
 
 impl DirectionalNavigationMap {
-    /// Adds a new entity to the navigation map, overwriting any existing neighbors for that entity.
-    ///
     /// Removes an entity from the navigation map, including all connections to and from it.
     ///
     /// Note that this is an O(n) operation, where n is the number of entities in the map,
@@ -426,8 +416,8 @@ pub struct DirectionalNavigation<'w, 's> {
     /// The manual override navigation map containing pre-specified connections between entities.
     pub map: Res<'w, DirectionalNavigationMap>,
     /// Configuration for the automated portion of the navigation algorithm.
-    config: Res<'w, AutoNavigationConfig>,
-    /// The entities which can be navigated to automatically
+    pub config: Res<'w, AutoNavigationConfig>,
+    /// The entities which can possibly be navigated to automatically.
     navigable_entities_query: Query<
         'w,
         's,
@@ -458,6 +448,7 @@ impl<'w, 's> DirectionalNavigation<'w, 's> {
         if let Some(current_focus) = self.focus.0
             && let Some(origin) = self.entity_to_focusable_area(current_focus)
         {
+            // Respect manual edges first
             if let Some(new_focus) = self.map.get_neighbor(current_focus, direction) {
                 self.focus.set(new_focus);
                 Ok(new_focus)
@@ -475,6 +466,8 @@ impl<'w, 's> DirectionalNavigation<'w, 's> {
         }
     }
 
+    /// Finds the best entity to navigate to from the origin in the given direction.
+    /// For details on what "best" means here, refer to [`AutoNavigationConfig`].
     fn find_best_candidate(
         &self,
         origin: FocusableArea,
@@ -510,6 +503,7 @@ impl<'w, 's> DirectionalNavigation<'w, 's> {
     }
 
     /// Queries for all visible [`FocusableArea`] that are eligible to be automatically navigated to.
+    /// These are nodes with
     fn get_navigable_nodes(&self) -> Vec<FocusableArea> {
         self.navigable_entities_query
             .iter()
@@ -530,25 +524,18 @@ impl<'w, 's> DirectionalNavigation<'w, 's> {
     }
 
     /// Gets the [`FocusableArea`] of the provided entity, if it exists.
-    /// Returns None if there was a [`QueryEntityError`].
+    /// Returns None if there was a [`QueryEntityError`](bevy_ecs::query::QueryEntityError).
     fn entity_to_focusable_area(&self, entity: Entity) -> Option<FocusableArea> {
-        let query_result =
-            self.focusable_area_query
-                .get(entity)
-                .map(|(entity, computed, transform)| {
-                    let (_scale, _rotation, translation) = transform.to_scale_angle_translation();
-                    FocusableArea {
-                        entity,
-                        position: translation,
-                        size: computed.size(),
-                    }
-                });
-
-        if let Ok(focusable_area) = query_result {
-            Some(focusable_area)
-        } else {
-            None
-        }
+        self.focusable_area_query
+            .get(entity)
+            .map_or(None, |(entity, computed, transform)| {
+                let (_scale, _rotation, translation) = transform.to_scale_angle_translation();
+                Some(FocusableArea {
+                    entity,
+                    position: translation,
+                    size: computed.size(),
+                })
+            })
     }
 }
 
@@ -570,7 +557,7 @@ pub enum DirectionalNavigationError {
 
 /// A focusable area with position and size information.
 ///
-/// This struct represents a UI element in the automatic directional navigation system,
+/// This struct represents a UI element used during automatic directional navigation,
 /// containing its entity ID, center position, and size for spatial navigation calculations.
 ///
 /// The term "focusable area" avoids confusion with UI [`Node`](bevy_ui::Node) components.
@@ -725,7 +712,7 @@ fn score_candidate(
 ///
 /// This function takes a slice of navigation nodes with their positions and sizes, and populates
 /// the navigation map with edges to the nearest neighbor in each compass direction.
-/// Manual edges in the map are preserved and not overwritten.
+/// Manual edges already in the map are preserved and not overwritten.
 ///
 /// # Arguments
 ///
