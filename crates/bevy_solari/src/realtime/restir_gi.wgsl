@@ -7,7 +7,7 @@
 #import bevy_render::view::View
 #import bevy_solari::brdf::evaluate_diffuse_brdf
 #import bevy_solari::gbuffer_utils::{gpixel_resolve, pixel_dissimilar, permute_pixel}
-#import bevy_solari::sampling::{sample_random_light, trace_point_visibility}
+#import bevy_solari::sampling::{sample_random_light, trace_point_visibility, balance_heuristic}
 #import bevy_solari::scene_bindings::{trace_ray, resolve_ray_hit_full, RAY_T_MIN, RAY_T_MAX}
 #import bevy_solari::world_cache::{query_world_cache, WORLD_CACHE_CELL_LIFETIME}
 
@@ -152,21 +152,25 @@ fn load_temporal_reservoir_inner(temporal_pixel_id: vec2<u32>, depth: f32, world
 }
 
 fn load_spatial_reservoir(pixel_id: vec2<u32>, depth: f32, world_position: vec3<f32>, world_normal: vec3<f32>, rng: ptr<function, u32>) -> NeighborInfo {
-    let spatial_pixel_id = get_neighbor_pixel_id(pixel_id, rng);
+    for (var i = 0u; i < 5u; i++) {
+        let spatial_pixel_id = get_neighbor_pixel_id(pixel_id, rng);
 
-    let spatial_depth = textureLoad(depth_buffer, spatial_pixel_id, 0);
-    let spatial_surface = gpixel_resolve(textureLoad(gbuffer, spatial_pixel_id, 0), spatial_depth, spatial_pixel_id, view.main_pass_viewport.zw, view.world_from_clip);
-    let spatial_diffuse_brdf = spatial_surface.material.base_color / PI;
-    if pixel_dissimilar(depth, world_position, spatial_surface.world_position, world_normal, spatial_surface.world_normal, view) {
-        return NeighborInfo(empty_reservoir(), spatial_surface.world_position, spatial_surface.world_normal, spatial_diffuse_brdf);
+        let spatial_depth = textureLoad(depth_buffer, spatial_pixel_id, 0);
+        let spatial_surface = gpixel_resolve(textureLoad(gbuffer, spatial_pixel_id, 0), spatial_depth, spatial_pixel_id, view.main_pass_viewport.zw, view.world_from_clip);
+        let spatial_diffuse_brdf = spatial_surface.material.base_color / PI;
+        if pixel_dissimilar(depth, world_position, spatial_surface.world_position, world_normal, spatial_surface.world_normal, view) {
+            continue;
+        }
+
+        let spatial_pixel_index = spatial_pixel_id.x + spatial_pixel_id.y * u32(view.main_pass_viewport.z);
+        var spatial_reservoir = gi_reservoirs_b[spatial_pixel_index];
+
+        spatial_reservoir.radiance *= trace_point_visibility(world_position, spatial_reservoir.sample_point_world_position);
+
+        return NeighborInfo(spatial_reservoir, spatial_surface.world_position, spatial_surface.world_normal, spatial_diffuse_brdf);
     }
 
-    let spatial_pixel_index = spatial_pixel_id.x + spatial_pixel_id.y * u32(view.main_pass_viewport.z);
-    var spatial_reservoir = gi_reservoirs_b[spatial_pixel_index];
-
-    spatial_reservoir.radiance *= trace_point_visibility(world_position, spatial_reservoir.sample_point_world_position);
-
-    return NeighborInfo(spatial_reservoir, spatial_surface.world_position, spatial_surface.world_normal, spatial_diffuse_brdf);
+    return NeighborInfo(empty_reservoir(), world_position, world_normal, vec3(0.0));
 }
 
 fn get_neighbor_pixel_id(center_pixel_id: vec2<u32>, rng: ptr<function, u32>) -> vec2<u32> {
@@ -316,12 +320,4 @@ fn merge_reservoirs(
 
         return ReservoirMergeResult(combined_reservoir, canonical_sample_radiance);
     }
-}
-
-fn balance_heuristic(x: f32, y: f32) -> f32 {
-    let sum = x + y;
-    if sum == 0.0 {
-        return 0.0;
-    }
-    return x / sum;
 }

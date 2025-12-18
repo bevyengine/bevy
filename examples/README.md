@@ -62,6 +62,7 @@ git checkout v0.4.0
   - [Scene](#scene)
   - [Shader Advanced](#shader-advanced)
   - [Shaders](#shaders)
+  - [Shaders Advanced](#shaders-advanced)
   - [State](#state)
   - [Stress Tests](#stress-tests)
   - [Time](#time)
@@ -152,6 +153,7 @@ Example | Description
 [Built-in postprocessing](../examples/3d/post_processing.rs) | Demonstrates the built-in postprocessing features
 [Camera sub view](../examples/3d/camera_sub_view.rs) | Demonstrates using different sub view effects on a camera
 [Clearcoat](../examples/3d/clearcoat.rs) | Demonstrates the clearcoat PBR feature
+[Clustered Decal Maps](../examples/3d/clustered_decal_maps.rs) | Demonstrates normal and metallic-roughness maps of decals
 [Clustered Decals](../examples/3d/clustered_decals.rs) | Demonstrates clustered decals
 [Color grading](../examples/3d/color_grading.rs) | Demonstrates color grading
 [Decal](../examples/3d/decal.rs) | Decal rendering
@@ -167,6 +169,7 @@ Example | Description
 [Lines](../examples/3d/lines.rs) | Create a custom material to draw 3d lines
 [Mesh Ray Cast](../examples/3d/mesh_ray_cast.rs) | Demonstrates ray casting with the `MeshRayCast` system parameter
 [Meshlet](../examples/3d/meshlet.rs) | Meshlet rendering for dense high-poly scenes (experimental)
+[Mirror](../examples/3d/mirror.rs) | Demonstrates how to create a mirror with a second camera
 [Mixed lighting](../examples/3d/mixed_lighting.rs) | Demonstrates how to combine baked and dynamic lighting
 [Motion Blur](../examples/3d/motion_blur.rs) | Demonstrates per-pixel motion blur
 [Occlusion Culling](../examples/3d/occlusion_culling.rs) | Demonstration of Occlusion Culling
@@ -486,6 +489,12 @@ Example | Description
 [Storage Buffer](../examples/shader/storage_buffer.rs) | A shader that shows how to bind a storage buffer using a custom material.
 [Texture Binding Array (Bindless Textures)](../examples/shader_advanced/texture_binding_array.rs) | A shader that shows how to bind and sample multiple textures as a binding array (a.k.a. bindless textures).
 
+### Shaders Advanced
+
+Example | Description
+--- | ---
+[Fullscreen Material](../examples/shader_advanced/fullscreen_material.rs) | Demonstrates how to write a fullscreen material
+
 ### State
 
 Example | Description
@@ -553,6 +562,7 @@ Example | Description
 
 Example | Description
 --- | ---
+[Anchor Layout](../examples/ui/anchor_layout.rs) | Shows an 'anchor layout' style of ui layout
 [Automatic Directional Navigation](../examples/ui/auto_directional_navigation.rs) | Demonstration of automatic directional navigation graph generation based on UI element positions
 [Borders](../examples/ui/borders.rs) | Demonstrates how to create a node with a border
 [Box Shadow](../examples/ui/box_shadow.rs) | Demonstrates how to create a node with a shadow
@@ -564,6 +574,7 @@ Example | Description
 [Feathers Widgets](../examples/ui/feathers.rs) | Gallery of Feathers Widgets
 [Flex Layout](../examples/ui/flex_layout.rs) | Demonstrates how the AlignItems and JustifyContent properties can be composed to layout nodes and position text
 [Font Atlas Debug](../examples/ui/font_atlas_debug.rs) | Illustrates how FontAtlases are populated (used to optimize text rendering internally)
+[Font Weights](../examples/ui/font_weights.rs) | Demonstrates how to use font weights.
 [Ghost Nodes](../examples/ui/ghost_nodes.rs) | Demonstrates the use of Ghost Nodes to skip entities in the UI layout hierarchy
 [Gradients](../examples/ui/gradients.rs) | An example demonstrating gradients
 [Overflow](../examples/ui/overflow.rs) | Simple example demonstrating overflow behavior
@@ -594,7 +605,7 @@ Example | Description
 [UI Texture Slice Flipping and Tiling](../examples/ui/ui_texture_slice_flip_and_tile.rs) | Illustrates how to flip and tile images with 9 Slicing in UI
 [UI Transform](../examples/ui/ui_transform.rs) | An example demonstrating how to translate, rotate and scale UI elements.
 [UI Z-Index](../examples/ui/z_index.rs) | Demonstrates how to control the relative depth (z-position) of UI elements
-[Viewport Debug](../examples/ui/viewport_debug.rs) | An example for debugging viewport coordinates
+[Vertical Slider](../examples/ui/vertical_slider.rs) | Simple example showing vertical and horizontal slider widgets with snap behavior and value labels
 [Viewport Node](../examples/ui/viewport_node.rs) | Demonstrates how to create a viewport node with picking support
 [Virtual Keyboard](../examples/ui/virtual_keyboard.rs) | Example demonstrating a virtual keyboard widget
 [Window Fallthrough](../examples/ui/window_fallthrough.rs) | Illustrates how to access `winit::window::Window`'s `hittest` functionality.
@@ -612,7 +623,6 @@ Example | Description
 --- | ---
 [Clear Color](../examples/window/clear_color.rs) | Creates a solid color window
 [Custom Cursor Image](../examples/window/custom_cursor_image.rs) | Demonstrates creating an animated custom cursor from an image
-[Custom User Event](../examples/window/custom_user_event.rs) | Handles custom user events within the event loop
 [Low Power](../examples/window/low_power.rs) | Demonstrates settings to reduce power use for bevy applications
 [Monitor info](../examples/window/monitor_info.rs) | Displays information about available monitors (displays).
 [Multiple Windows](../examples/window/multiple_windows.rs) | Demonstrates creating multiple windows, and rendering to them
@@ -634,6 +644,8 @@ Example | Description
 [Query glTF primitives](../examples/gltf/query_gltf_primitives.rs) | Query primitives in a glTF scene
 [Update glTF Scene](../examples/gltf/update_gltf_scene.rs) | Update a scene from a glTF file, either by spawning the scene as a child of another entity, or by accessing the entities of the scene
 [glTF Skinned Mesh](../examples/gltf/gltf_skinned_mesh.rs) | Skinned mesh example with mesh and joints data loaded from a glTF file
+[glTF extension AnimationGraph](../examples/gltf/gltf_extension_animation_graph.rs) | Uses glTF data to build an AnimationGraph via extension processing
+[glTF extension processing to build Mesh2ds from glTF data](../examples/gltf/gltf_extension_mesh_2d.rs) | Uses glTF extension data to convert incoming Mesh3d/MeshMaterial3d assets to 2d
 
 ## Tests
 

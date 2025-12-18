@@ -16,7 +16,7 @@ use crate::{
     lifecycle::RemovedComponentMessages,
     observer::Observers,
     prelude::Component,
-    query::{DebugCheckedUnwrap, ReleaseStateQueryData},
+    query::{DebugCheckedUnwrap, QueryAccessError, ReleaseStateQueryData},
     resource::Resource,
     storage::{ComponentSparseSet, Storages, Table},
     world::RawCommandQueue,
@@ -697,7 +697,8 @@ impl<'w> UnsafeWorldCell<'w> {
     /// Must have read access to [`DefaultErrorHandler`].
     #[inline]
     pub unsafe fn default_error_handler(&self) -> ErrorHandler {
-        self.get_resource::<DefaultErrorHandler>()
+        // SAFETY: Upheld by caller
+        unsafe { self.get_resource::<DefaultErrorHandler>() }
             .copied()
             .unwrap_or_default()
             .0
@@ -983,11 +984,11 @@ impl<'w> UnsafeEntityCell<'w> {
     /// - The `QueryData` does not provide aliasing mutable references to the same component.
     pub(crate) unsafe fn get_components<Q: ReleaseStateQueryData>(
         &self,
-    ) -> Option<Q::Item<'w, 'static>> {
+    ) -> Result<Q::Item<'w, 'static>, QueryAccessError> {
         // SAFETY: World is only used to access query data and initialize query state
         let state = unsafe {
             let world = self.world().world();
-            Q::get_state(world.components())?
+            Q::get_state(world.components()).ok_or(QueryAccessError::ComponentNotRegistered)?
         };
         let location = self.location();
         // SAFETY: Location is guaranteed to exist
@@ -1015,8 +1016,9 @@ impl<'w> UnsafeEntityCell<'w> {
             // SAFETY: Called after set_archetype above. Entity and location are guaranteed to exist.
             let item = unsafe { Q::fetch(&state, &mut fetch, self.id(), location.table_row) };
             item.map(Q::release_state)
+                .ok_or(QueryAccessError::EntityDoesNotMatch)
         } else {
-            None
+            Err(QueryAccessError::EntityDoesNotMatch)
         }
     }
 

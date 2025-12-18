@@ -46,15 +46,19 @@ struct WorldCacheGeometryData {
 @group(1) @binding(23) var<storage, read_write> world_cache_active_cells_count: u32;
 
 #ifndef WORLD_CACHE_NON_ATOMIC_LIFE_BUFFER
-fn query_world_cache(world_position: vec3<f32>, world_normal: vec3<f32>, view_position: vec3<f32>, cell_lifetime: u32, rng: ptr<function, u32>) -> vec3<f32> {
-    let cell_size = get_cell_size(world_position, view_position);
+fn query_world_cache(world_position_in: vec3<f32>, world_normal: vec3<f32>, view_position: vec3<f32>, cell_lifetime: u32, rng: ptr<function, u32>) -> vec3<f32> {
+    var world_position = world_position_in;
+    var cell_size = get_cell_size(world_position, view_position);
 
     // https://tomclabault.github.io/blog/2025/regir, jitter_world_position_tangent_plane
+#ifndef NO_JITTER_WORLD_CACHE
     let TBN = orthonormalize(world_normal);
     let offset = (rand_vec2f(rng) * 2.0 - 1.0) * cell_size * 0.5;
-    let jittered_position = world_position + offset.x * TBN[0] + offset.y * TBN[1];
+    world_position += offset.x * TBN[0] + offset.y * TBN[1];
+    cell_size = get_cell_size(world_position, view_position);
+#endif
 
-    let world_position_quantized = bitcast<vec3<u32>>(quantize_position(jittered_position, cell_size));
+    let world_position_quantized = bitcast<vec3<u32>>(quantize_position(world_position, cell_size));
     let world_normal_quantized = bitcast<vec3<u32>>(quantize_normal(world_normal));
     var key = compute_key(world_position_quantized, world_normal_quantized);
     let checksum = compute_checksum(world_position_quantized, world_normal_quantized);
@@ -76,7 +80,7 @@ fn query_world_cache(world_position: vec3<f32>, world_normal: vec3<f32>, view_po
             return world_cache_radiance[key].rgb;
         } else if existing_checksum == WORLD_CACHE_EMPTY_CELL {
             // Cell is empty - initialize it
-            world_cache_geometry_data[key].world_position = jittered_position;
+            world_cache_geometry_data[key].world_position = world_position;
             world_cache_geometry_data[key].world_normal = world_normal;
             return vec3(0.0);
         } else {
@@ -121,7 +125,7 @@ fn compute_checksum(world_position: vec3<u32>, world_normal: vec3<u32>) -> u32 {
     key = iqint_hash(key + world_normal.x);
     key = iqint_hash(key + world_normal.y);
     key = iqint_hash(key + world_normal.z);
-    return key;
+    return max(key, 1u); // 0u is reserved for WORLD_CACHE_EMPTY_CELL
 }
 
 fn pcg_hash(input: u32) -> u32 {

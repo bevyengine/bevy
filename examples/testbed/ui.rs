@@ -9,21 +9,37 @@ use helpers::Next;
 
 fn main() {
     let mut app = App::new();
-    app.add_plugins((DefaultPlugins,))
-        .init_state::<Scene>()
-        .add_systems(OnEnter(Scene::Image), image::setup)
-        .add_systems(OnEnter(Scene::Text), text::setup)
-        .add_systems(OnEnter(Scene::Grid), grid::setup)
-        .add_systems(OnEnter(Scene::Borders), borders::setup)
-        .add_systems(OnEnter(Scene::BoxShadow), box_shadow::setup)
-        .add_systems(OnEnter(Scene::TextWrap), text_wrap::setup)
-        .add_systems(OnEnter(Scene::Overflow), overflow::setup)
-        .add_systems(OnEnter(Scene::Slice), slice::setup)
-        .add_systems(OnEnter(Scene::LayoutRounding), layout_rounding::setup)
-        .add_systems(OnEnter(Scene::LinearGradient), linear_gradient::setup)
-        .add_systems(OnEnter(Scene::RadialGradient), radial_gradient::setup)
-        .add_systems(OnEnter(Scene::Transformations), transformations::setup)
-        .add_systems(Update, switch_scene);
+    app.add_plugins(DefaultPlugins.set(WindowPlugin {
+        primary_window: Some(Window {
+            // The ViewportCoords scene relies on these specific viewport dimensions,
+            // so let's explicitly define them and set resizable to false
+            resolution: (1280, 720).into(),
+            resizable: false,
+            ..Default::default()
+        }),
+        ..Default::default()
+    }))
+    .init_state::<Scene>()
+    .add_systems(OnEnter(Scene::Image), image::setup)
+    .add_systems(OnEnter(Scene::Text), text::setup)
+    .add_systems(OnEnter(Scene::Grid), grid::setup)
+    .add_systems(OnEnter(Scene::Borders), borders::setup)
+    .add_systems(OnEnter(Scene::BoxShadow), box_shadow::setup)
+    .add_systems(OnEnter(Scene::TextWrap), text_wrap::setup)
+    .add_systems(OnEnter(Scene::Overflow), overflow::setup)
+    .add_systems(OnEnter(Scene::Slice), slice::setup)
+    .add_systems(OnEnter(Scene::LayoutRounding), layout_rounding::setup)
+    .add_systems(OnEnter(Scene::LinearGradient), linear_gradient::setup)
+    .add_systems(OnEnter(Scene::RadialGradient), radial_gradient::setup)
+    .add_systems(OnEnter(Scene::Transformations), transformations::setup)
+    .add_systems(OnEnter(Scene::ViewportCoords), viewport_coords::setup)
+    .add_systems(Update, switch_scene);
+
+    #[cfg(feature = "bevy_ui_debug")]
+    {
+        app.add_systems(OnEnter(Scene::DebugOutlines), debug_outlines::setup);
+        app.add_systems(OnExit(Scene::DebugOutlines), debug_outlines::teardown);
+    }
 
     #[cfg(feature = "bevy_ci_testing")]
     app.add_systems(Update, helpers::switch_scene_in_ci::<Scene>);
@@ -47,6 +63,9 @@ enum Scene {
     LinearGradient,
     RadialGradient,
     Transformations,
+    #[cfg(feature = "bevy_ui_debug")]
+    DebugOutlines,
+    ViewportCoords,
 }
 
 impl Next for Scene {
@@ -62,8 +81,14 @@ impl Next for Scene {
             Scene::Slice => Scene::LayoutRounding,
             Scene::LayoutRounding => Scene::LinearGradient,
             Scene::LinearGradient => Scene::RadialGradient,
+            #[cfg(feature = "bevy_ui_debug")]
+            Scene::RadialGradient => Scene::DebugOutlines,
+            #[cfg(feature = "bevy_ui_debug")]
+            Scene::DebugOutlines => Scene::Transformations,
+            #[cfg(not(feature = "bevy_ui_debug"))]
             Scene::RadialGradient => Scene::Transformations,
-            Scene::Transformations => Scene::Image,
+            Scene::Transformations => Scene::ViewportCoords,
+            Scene::ViewportCoords => Scene::Image,
         }
     }
 }
@@ -966,6 +991,175 @@ mod transformations {
                             ));
                         });
                 }
+            });
+    }
+}
+
+#[cfg(feature = "bevy_ui_debug")]
+mod debug_outlines {
+    use bevy::{
+        color::palettes::css::{BLUE, GRAY, RED},
+        prelude::*,
+        ui_render::UiDebugOptions,
+    };
+
+    pub fn setup(mut commands: Commands, mut debug_options: ResMut<UiDebugOptions>) {
+        debug_options.enabled = true;
+        debug_options.line_width = 5.;
+        debug_options.line_color_override = Some(LinearRgba::GREEN);
+        debug_options.show_hidden = true;
+        debug_options.show_clipped = true;
+        commands.spawn((Camera2d, DespawnOnExit(super::Scene::DebugOutlines)));
+        commands
+            .spawn((
+                Node {
+                    width: percent(100),
+                    height: percent(100),
+                    align_items: AlignItems::Center,
+                    justify_content: JustifyContent::SpaceAround,
+                    ..default()
+                },
+                DespawnOnExit(super::Scene::DebugOutlines),
+            ))
+            .with_children(|parent| {
+                parent.spawn((
+                    Node {
+                        width: px(100),
+                        height: px(100),
+                        ..default()
+                    },
+                    BackgroundColor(GRAY.into()),
+                    UiTransform::from_rotation(Rot2::degrees(45.)),
+                ));
+
+                parent.spawn((Text::new("Regular Text"), TextFont::default()));
+
+                parent.spawn((
+                    Node {
+                        width: px(100),
+                        height: px(100),
+                        ..default()
+                    },
+                    Text::new("Invisible"),
+                    BackgroundColor(GRAY.into()),
+                    TextFont::default(),
+                    Visibility::Hidden,
+                ));
+
+                parent
+                    .spawn((
+                        Node {
+                            width: px(100),
+                            height: px(100),
+                            padding: UiRect {
+                                left: px(25),
+                                top: px(25),
+                                ..Default::default()
+                            },
+                            overflow: Overflow::clip(),
+                            ..default()
+                        },
+                        BackgroundColor(RED.into()),
+                    ))
+                    .with_children(|child| {
+                        child.spawn((
+                            Node {
+                                min_width: px(100),
+                                min_height: px(100),
+                                ..default()
+                            },
+                            BackgroundColor(BLUE.into()),
+                        ));
+                    });
+            });
+    }
+
+    pub fn teardown(mut debug_options: ResMut<UiDebugOptions>) {
+        *debug_options = UiDebugOptions::default();
+    }
+}
+
+mod viewport_coords {
+    use bevy::{color::palettes::css::*, prelude::*};
+
+    const PALETTE: [Srgba; 9] = [RED, WHITE, BEIGE, AQUA, CRIMSON, NAVY, AZURE, LIME, BLACK];
+
+    pub fn setup(mut commands: Commands) {
+        commands.spawn((Camera2d, DespawnOnExit(super::Scene::ViewportCoords)));
+        commands
+            .spawn((
+                Node {
+                    width: vw(100),
+                    height: vh(100),
+                    border: UiRect::axes(vw(5), vh(5)),
+                    flex_wrap: FlexWrap::Wrap,
+                    ..default()
+                },
+                BorderColor::all(PALETTE[0]),
+                DespawnOnExit(super::Scene::ViewportCoords),
+            ))
+            .with_children(|builder| {
+                builder.spawn((
+                    Node {
+                        width: vw(30),
+                        height: vh(30),
+                        border: UiRect::all(vmin(5)),
+                        ..default()
+                    },
+                    BackgroundColor(PALETTE[1].into()),
+                    BorderColor::all(PALETTE[8]),
+                ));
+
+                builder.spawn((
+                    Node {
+                        width: vw(60),
+                        height: vh(30),
+                        ..default()
+                    },
+                    BackgroundColor(PALETTE[2].into()),
+                ));
+
+                builder.spawn((
+                    Node {
+                        width: vw(45),
+                        height: vh(30),
+                        border: UiRect::left(vmax(45. / 2.)),
+                        ..default()
+                    },
+                    BackgroundColor(PALETTE[3].into()),
+                    BorderColor::all(PALETTE[7]),
+                ));
+
+                builder.spawn((
+                    Node {
+                        width: vw(45),
+                        height: vh(30),
+                        border: UiRect::right(vmax(45. / 2.)),
+                        ..default()
+                    },
+                    BackgroundColor(PALETTE[4].into()),
+                    BorderColor::all(PALETTE[7]),
+                ));
+
+                builder.spawn((
+                    Node {
+                        width: vw(60),
+                        height: vh(30),
+                        ..default()
+                    },
+                    BackgroundColor(PALETTE[5].into()),
+                ));
+
+                builder.spawn((
+                    Node {
+                        width: vw(30),
+                        height: vh(30),
+                        border: UiRect::all(vmin(5)),
+                        ..default()
+                    },
+                    BackgroundColor(PALETTE[6].into()),
+                    BorderColor::all(PALETTE[8]),
+                ));
             });
     }
 }

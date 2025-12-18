@@ -29,7 +29,7 @@ bevy_platform = { path = "../bevy_platform", version = "0.18.0-dev", default-fea
 ] }
 
 # other
-wgpu-types = { version = "26", default-features = false }
+wgpu-types = { version = "27", default-features = false }
 cosmic-text = { version = "0.15", features = ["shape-run-cache"] }
 thiserror = { version = "2", default-features = false }
 serde = { version = "1", features = ["derive"] }

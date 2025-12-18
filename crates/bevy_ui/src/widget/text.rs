@@ -319,72 +319,67 @@ pub fn measure_text_system(
 /// It does not modify or observe existing ones. The exception is when adding new glyphs to a [`bevy_text::FontAtlas`].
 pub fn text_system(
     mut textures: ResMut<Assets<Image>>,
-    fonts: Res<Assets<Font>>,
     mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
     mut font_atlas_set: ResMut<FontAtlasSet>,
     mut text_pipeline: ResMut<TextPipeline>,
     mut text_query: Query<(
-        Entity,
         Ref<ComputedNode>,
         &TextLayout,
         &mut TextLayoutInfo,
         &mut TextNodeFlags,
         &mut ComputedTextBlock,
     )>,
-    mut text_reader: TextUiReader,
+    text_font_query: Query<&TextFont>,
     mut font_system: ResMut<CosmicFontSystem>,
     mut swash_cache: ResMut<SwashCache>,
 ) {
-    for (entity, node, block, text_layout_info, mut text_flags, mut computed) in &mut text_query {
-        // Skip the text node if it is waiting for a new measure func
-        if text_flags.needs_measure_fn {
-            continue;
-        }
-
-        if !(node.is_changed() || text_flags.needs_recompute) {
-            continue;
-        }
-
-        let physical_node_size = if block.linebreak == LineBreak::NoWrap {
-            // With `NoWrap` set, no constraints are placed on the width of the text.
-            TextBounds::UNBOUNDED
-        } else {
-            // `scale_factor` is already multiplied by `UiScale`
-            TextBounds::new(node.unrounded_size.x, node.unrounded_size.y)
-        };
-
-        let text_layout_info = text_layout_info.into_inner();
-        match text_pipeline.queue_text(
-            text_layout_info,
-            &fonts,
-            text_reader.iter(entity),
-            node.inverse_scale_factor.recip() as f64,
-            block,
-            physical_node_size,
-            &mut font_atlas_set,
-            &mut texture_atlases,
-            &mut textures,
-            &mut computed,
-            &mut font_system,
-            &mut swash_cache,
-        ) {
-            Err(TextError::NoSuchFont) => {
-                // There was an error processing the text layout, try again next frame
-                text_flags.needs_recompute = true;
+    for (node, block, mut text_layout_info, mut text_flags, mut computed) in &mut text_query {
+        if node.is_changed() || text_flags.needs_recompute {
+            // Skip the text node if it is waiting for a new measure func
+            if text_flags.needs_measure_fn {
+                continue;
             }
-            Err(
-                e @ (TextError::FailedToAddGlyph(_)
-                | TextError::FailedToGetGlyphImage(_)
-                | TextError::MissingAtlasLayout
-                | TextError::MissingAtlasTexture
-                | TextError::InconsistentAtlasState),
-            ) => {
-                panic!("Fatal error when processing text: {e}.");
-            }
-            Ok(()) => {
-                text_layout_info.scale_factor = node.inverse_scale_factor.recip();
-                text_layout_info.size *= node.inverse_scale_factor;
-                text_flags.needs_recompute = false;
+
+            let scale_factor = node.inverse_scale_factor().recip().into();
+            let physical_node_size = if block.linebreak == LineBreak::NoWrap {
+                // With `NoWrap` set, no constraints are placed on the width of the text.
+                TextBounds::UNBOUNDED
+            } else {
+                // `scale_factor` is already multiplied by `UiScale`
+                TextBounds::new(node.unrounded_size.x, node.unrounded_size.y)
+            };
+
+            match text_pipeline.update_text_layout_info(
+                &mut text_layout_info,
+                text_font_query,
+                scale_factor,
+                &mut font_atlas_set,
+                &mut texture_atlases,
+                &mut textures,
+                &mut computed,
+                &mut font_system,
+                &mut swash_cache,
+                physical_node_size,
+                block.justify,
+            ) {
+                Err(TextError::NoSuchFont) => {
+                    // There was an error processing the text layout, try again next frame
+                    text_flags.needs_recompute = true;
+                }
+                Err(
+                    e @ (TextError::FailedToAddGlyph(_)
+                    | TextError::FailedToGetGlyphImage(_)
+                    | TextError::MissingAtlasLayout
+                    | TextError::MissingAtlasTexture
+                    | TextError::InconsistentAtlasState),
+                ) => {
+                    panic!("Fatal error when processing text: {e}.");
+                }
+                Ok(()) => {
+                    text_layout_info.scale_factor = scale_factor as f32;
+                    text_layout_info.size *= node.inverse_scale_factor();
+                    text_flags.needs_recompute = false;
+                }
             }
         }
     }

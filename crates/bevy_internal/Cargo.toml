@@ -187,6 +187,7 @@ webgl = [
   "bevy_render?/webgl",
   "bevy_gizmos_render?/webgl",
   "bevy_sprite_render?/webgl",
+  "bevy_dev_tools?/webgl",
 ]
 
 webgpu = [
@@ -196,6 +197,7 @@ webgpu = [
   "bevy_render?/webgpu",
   "bevy_gizmos_render?/webgpu",
   "bevy_sprite_render?/webgpu",
+  "bevy_dev_tools?/webgpu",
 ]
 
 # Enable systems that allow for automated testing on CI
@@ -424,9 +426,18 @@ async_executor = [
 # Note this is currently only applicable on `wasm32` architectures.
 web = ["bevy_app/web", "bevy_platform/web", "bevy_reflect/web"]
 
+# Input sources.
+mouse = ["bevy_input/mouse"]
+keyboard = ["bevy_input/keyboard"]
+gamepad = ["bevy_input/gamepad"]
+touch = ["bevy_input/touch"]
+gestures = ["bevy_input/gestures"]
+
 hotpatching = ["bevy_app/hotpatching", "bevy_ecs/hotpatching"]
 
 debug = ["bevy_utils/debug", "bevy_ecs/debug"]
+
+screenrecording = ["bevy_dev_tools/screenrecording"]
 
 [dependencies]
 # bevy (no_std)

@@ -308,6 +308,17 @@ where
     Clear: 'static + Send + Sync,
 {
     fn default() -> Self {
+        GizmoBuffer::new()
+    }
+}
+
+impl<Config, Clear> GizmoBuffer<Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
+    /// Constructs an empty `GizmoBuffer`.
+    pub const fn new() -> Self {
         GizmoBuffer {
             enabled: true,
             list_positions: Vec::new(),
@@ -727,6 +738,46 @@ where
         self.linestrip(positions.into_iter().map(|vec2| vec2.extend(0.)), color);
     }
 
+    /// Draw a line in 2D made of straight segments between the points, with the first and last connected.
+    ///
+    /// # Example
+    /// ```
+    /// # use bevy_gizmos::prelude::*;
+    /// # use bevy_math::prelude::*;
+    /// # use bevy_color::palettes::basic::GREEN;
+    /// fn system(mut gizmos: Gizmos) {
+    ///     gizmos.lineloop_2d([Vec2::ZERO, Vec2::X, Vec2::Y], GREEN);
+    /// }
+    /// # bevy_ecs::system::assert_is_system(system);
+    /// ```
+    #[inline]
+    pub fn lineloop_2d(
+        &mut self,
+        positions: impl IntoIterator<Item = Vec2>,
+        color: impl Into<Color>,
+    ) {
+        if !self.enabled {
+            return;
+        }
+
+        // Loop back to the start; second is needed to ensure that
+        // the joint on the first corner is drawn.
+        let mut positions = positions.into_iter();
+        let first = positions.next();
+        let second = positions.next();
+
+        self.linestrip(
+            first
+                .into_iter()
+                .chain(second)
+                .chain(positions)
+                .chain(first)
+                .chain(second)
+                .map(|vec2| vec2.extend(0.)),
+            color,
+        );
+    }
+
     /// Draw a line in 2D made of straight segments between the points, with a color gradient.
     ///
     /// # Example
@@ -833,7 +884,7 @@ where
         }
         let isometry = isometry.into();
         let [tl, tr, br, bl] = rect_inner(size).map(|vec2| isometry * vec2);
-        self.linestrip_2d([tl, tr, br, bl, tl], color);
+        self.lineloop_2d([tl, tr, br, bl], color);
     }
 
     #[inline]
