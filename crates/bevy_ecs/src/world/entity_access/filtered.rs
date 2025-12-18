@@ -325,7 +325,8 @@ impl<'w, 's> UnsafeFilteredEntityMut<'w, 's> {
     /// - The user must ensure that no aliasing violations occur when using the returned `FilteredEntityMut`.
     #[inline]
     pub unsafe fn into_mut(self) -> FilteredEntityMut<'w, 's> {
-        FilteredEntityMut::new(self.entity, self.access)
+        // SAFETY: Upheld by caller.
+        unsafe { FilteredEntityMut::new(self.entity, self.access) }
     }
 }
 

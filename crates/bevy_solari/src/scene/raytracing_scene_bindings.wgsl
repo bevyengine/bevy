@@ -83,7 +83,7 @@ const LIGHT_NOT_PRESENT_THIS_FRAME = 0xFFFFFFFFu;
 @group(0) @binding(10) var<storage> directional_lights: array<DirectionalLight>;
 @group(0) @binding(11) var<storage> previous_frame_light_id_translations: array<u32>;
 
-const RAY_T_MIN = 0.01f;
+const RAY_T_MIN = 0.001f;
 const RAY_T_MAX = 100000.0f;
 
 const RAY_NO_CULL = 0xFFu;
@@ -142,7 +142,10 @@ fn resolve_material(material: Material, uv: vec2<f32>) -> ResolvedMaterial {
         m.perceptual_roughness *= metallic_roughness.g;
         m.metallic *= metallic_roughness.b;
     }
-    m.roughness = clamp(m.perceptual_roughness * m.perceptual_roughness, 0.001, 1.0);
+
+    // Clamp roughness to prevent NaNs
+    m.perceptual_roughness = clamp(m.perceptual_roughness, 0.0316227766, 1.0); // Clamp roughness to 0.001
+    m.roughness = m.perceptual_roughness * m.perceptual_roughness;
 
     return m;
 }

@@ -1217,7 +1217,7 @@ pub fn queue_material_meshes(
 
             match material.properties.render_phase_type {
                 RenderPhaseType::Transmissive => {
-                    let distance = rangefinder.distance_translation(&mesh_instance.translation)
+                    let distance = rangefinder.distance(&mesh_instance.center)
                         + material.properties.depth_bias;
                     let Some(draw_function) = material
                         .properties
@@ -1304,7 +1304,7 @@ pub fn queue_material_meshes(
                     );
                 }
                 RenderPhaseType::Transparent => {
-                    let distance = rangefinder.distance_translation(&mesh_instance.translation)
+                    let distance = rangefinder.distance(&mesh_instance.center)
                         + material.properties.depth_bias;
                     let Some(draw_function) = material
                         .properties

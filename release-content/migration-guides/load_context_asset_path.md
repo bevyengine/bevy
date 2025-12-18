@@ -7,7 +7,7 @@ pull_requests: [21713]
 migrations are:
 
 - `load_context.asset_path()` -> `load_context.path()`
-- `load_context.path()` -> `load_context.asset_path().path()`
+- `load_context.path()` -> `load_context.path().path()`
   - While this migration will keep your code running, seriously consider whether you need to use
     the `Path` itself. The `Path` does not support custom asset sources, so care needs to be taken
     when using it directly. Consider instead using the `AssetPath` instead, along with

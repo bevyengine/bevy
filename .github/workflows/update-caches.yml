@@ -29,7 +29,7 @@ jobs:
       NIGHTLY_TOOLCHAIN: ${{ steps.env.outputs.NIGHTLY_TOOLCHAIN }}
       MSRV: ${{ steps.msrv.outputs.MSRV }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - uses: dtolnay/rust-toolchain@stable
       - name: get MSRV
         id: msrv
@@ -94,7 +94,7 @@ jobs:
         shell: bash
 
       - name: Checkout Bevy main branch
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           repository: "bevyengine/bevy"
           ref: "main"
@@ -115,9 +115,10 @@ jobs:
         with:
           wayland: true
           xkb: true
+          x264: true
 
       # Fetch the cache using the complete key - to avoid rebuilding the cache if nothing changed
-      - uses: actions/cache/restore@v4
+      - uses: actions/cache/restore@v5
         id: cache
         with:
           path: |
@@ -140,7 +141,7 @@ jobs:
 
       - name: Save cache
         if: steps.cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v5
         with:
           path: |
             ~/.cargo/bin/

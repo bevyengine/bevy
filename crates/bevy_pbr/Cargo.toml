@@ -67,7 +67,7 @@ fixedbitset = "0.5"
 thiserror = { version = "2", default-features = false }
 derive_more = { version = "2", default-features = false, features = ["from"] }
 # meshlet
-lz4_flex = { version = "0.11", default-features = false, features = [
+lz4_flex = { version = "0.12", default-features = false, features = [
   "frame",
 ], optional = true }
 range-alloc = { version = "0.1", optional = true }

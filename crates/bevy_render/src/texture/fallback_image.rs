@@ -135,9 +135,11 @@ fn fallback_image_new(
         texture,
         texture_view,
         texture_format: image.texture_descriptor.format,
+        texture_view_format: image.texture_view_descriptor.and_then(|v| v.format),
         sampler,
         size: image.texture_descriptor.size,
         mip_level_count: image.texture_descriptor.mip_level_count,
+        had_data: true,
     }
 }
 

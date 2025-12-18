@@ -10,7 +10,17 @@ keywords = ["bevy"]
 rust-version = "1.85.0"
 
 [features]
-default = ["std", "bevy_reflect", "bevy_ecs/async_executor"]
+default = [
+  "std",
+  "bevy_reflect",
+  "bevy_ecs/async_executor",
+  "gamepad",
+  "keyboard",
+  "mouse",
+]
+gamepad = ["bevy_input/gamepad"]
+keyboard = ["bevy_input/keyboard"]
+mouse = ["bevy_input/mouse"]
 
 # Functionality
 

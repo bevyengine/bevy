@@ -40,7 +40,7 @@ jobs:
 
       - name: Download artifact
         if: ${{ fromJSON(env.PIXELEAGLE_TOKEN_EXISTS) }}
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v7
         with:
           pattern: ${{ inputs.artifact }}
 

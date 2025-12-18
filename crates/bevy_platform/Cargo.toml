@@ -50,7 +50,6 @@ critical-section = ["dep:critical-section", "portable-atomic/critical-section"]
 web = [
   "std",
   "dep:web-time",
-  "dep:getrandom",
   "dep:wasm-bindgen-futures",
   "dep:wasm-bindgen",
   "dep:js-sys",
@@ -67,7 +66,7 @@ spin = { version = "0.10.0", default-features = false, features = [
   "barrier",
 ] }
 foldhash = { version = "0.2.0", default-features = false }
-hashbrown = { version = "0.16.0", features = [
+hashbrown = { version = "0.16.1", features = [
   "equivalent",
   "raw-entry",
 ], optional = true, default-features = false }
@@ -76,9 +75,6 @@ rayon = { version = "1", default-features = false, optional = true }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 web-time = { version = "1.1", default-features = false, optional = true }
-getrandom = { version = "0.3.0", default-features = false, optional = true, features = [
-  "wasm_js",
-] }
 wasm-bindgen-futures = { version = "0.4", default-features = false, optional = true }
 futures-channel = { version = "0.3", default-features = false }
 js-sys = { version = "0.3", default-features = false, optional = true }

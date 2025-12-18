@@ -1099,7 +1099,8 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         world: UnsafeWorldCell<'w>,
         entity: Entity,
     ) -> Result<D::Item<'w, '_>, QueryEntityError> {
-        self.query_unchecked(world).get_inner(entity)
+        // SAFETY: Upheld by caller
+        unsafe { self.query_unchecked(world) }.get_inner(entity)
     }
 
     /// Returns an [`Iterator`] over the query results for the given [`World`].
@@ -1314,7 +1315,8 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         &'s mut self,
         world: UnsafeWorldCell<'w>,
     ) -> QueryIter<'w, 's, D, F> {
-        self.query_unchecked(world).into_iter()
+        // SAFETY: Upheld by caller
+        unsafe { self.query_unchecked(world) }.into_iter()
     }
 
     /// Returns an [`Iterator`] over all possible combinations of `K` query results for the
@@ -1333,7 +1335,8 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         &'s mut self,
         world: UnsafeWorldCell<'w>,
     ) -> QueryCombinationIter<'w, 's, D, F, K> {
-        self.query_unchecked(world).iter_combinations_inner()
+        // SAFETY: Upheld by caller
+        unsafe { self.query_unchecked(world) }.iter_combinations_inner()
     }
 
     /// Returns a parallel iterator over the query results for the given [`World`].
@@ -1755,7 +1758,8 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         &mut self,
         world: UnsafeWorldCell<'w>,
     ) -> Result<D::Item<'w, '_>, QuerySingleError> {
-        self.query_unchecked(world).single_inner()
+        // SAFETY: Upheld by caller
+        unsafe { self.query_unchecked(world) }.single_inner()
     }
 
     /// Returns a query result when there is exactly one entity matching the query,
@@ -1780,8 +1784,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         // SAFETY:
         // - The caller ensured we have the correct access to the world.
         // - The caller ensured that the world matches.
-        self.query_unchecked_manual_with_ticks(world, last_run, this_run)
-            .single_inner()
+        unsafe { self.query_unchecked_manual_with_ticks(world, last_run, this_run) }.single_inner()
     }
 }
 

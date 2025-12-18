@@ -11,7 +11,7 @@ For a full explanation of the new entity paradigm, errors and terms, see the new
 If you want more background for the justification of these changes or more information about where these new terms come from, see pr #19451.
 This opens up a lot of room for performance improvement but also caused a lot of breaking changes:
 
-### `Entities` rework
+## `Entities` rework
 
 A lot has changed here.
 First, `alloc`, `free`, `reserve`, `reserve_entity`, `reserve_entities`, `flush`, `flush_as_invalid`, `EntityDoesNotExistError`, `total_count`, `used_count`, and `total_prospective_count` have all been removed 😱.

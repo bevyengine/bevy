@@ -7,9 +7,9 @@
 #import bevy_render::view::View
 #import bevy_solari::brdf::evaluate_diffuse_brdf
 #import bevy_solari::gbuffer_utils::{gpixel_resolve, pixel_dissimilar, permute_pixel}
-#import bevy_solari::sampling::{sample_random_light, trace_point_visibility}
+#import bevy_solari::sampling::{sample_random_light, trace_point_visibility, balance_heuristic}
 #import bevy_solari::scene_bindings::{trace_ray, resolve_ray_hit_full, RAY_T_MIN, RAY_T_MAX}
-#import bevy_solari::world_cache::query_world_cache
+#import bevy_solari::world_cache::{query_world_cache, WORLD_CACHE_CELL_LIFETIME}
 
 @group(1) @binding(0) var view_output: texture_storage_2d<rgba16float, read_write>;
 @group(1) @binding(5) var<storage, read_write> gi_reservoirs_a: array<Reservoir>;
@@ -67,9 +67,7 @@ fn spatial_and_shade(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let spatial = load_spatial_reservoir(global_id.xy, depth, surface.world_position, surface.world_normal, &rng);
     let merge_result = merge_reservoirs(input_reservoir, surface.world_position, surface.world_normal, surface.material.base_color / PI,
         spatial.reservoir, spatial.world_position, spatial.world_normal, spatial.diffuse_brdf, &rng);
-    var combined_reservoir = merge_result.merged_reservoir;
-
-    combined_reservoir.radiance *= trace_point_visibility(surface.world_position, combined_reservoir.sample_point_world_position);
+    let combined_reservoir = merge_result.merged_reservoir;
 
     gi_reservoirs_a[pixel_index] = combined_reservoir;
 
@@ -105,7 +103,7 @@ fn generate_initial_reservoir(world_position: vec3<f32>, world_normal: vec3<f32>
     reservoir.radiance = direct_lighting.radiance;
     reservoir.unbiased_contribution_weight = direct_lighting.inverse_pdf * uniform_hemisphere_inverse_pdf();
 #else
-    reservoir.radiance = query_world_cache(sample_point.world_position, sample_point.geometric_world_normal, view.world_position, rng);
+    reservoir.radiance = query_world_cache(sample_point.world_position, sample_point.geometric_world_normal, view.world_position, WORLD_CACHE_CELL_LIFETIME, rng);
     reservoir.unbiased_contribution_weight = uniform_hemisphere_inverse_pdf();
 #endif
 
@@ -154,19 +152,25 @@ fn load_temporal_reservoir_inner(temporal_pixel_id: vec2<u32>, depth: f32, world
 }
 
 fn load_spatial_reservoir(pixel_id: vec2<u32>, depth: f32, world_position: vec3<f32>, world_normal: vec3<f32>, rng: ptr<function, u32>) -> NeighborInfo {
-    let spatial_pixel_id = get_neighbor_pixel_id(pixel_id, rng);
+    for (var i = 0u; i < 5u; i++) {
+        let spatial_pixel_id = get_neighbor_pixel_id(pixel_id, rng);
 
-    let spatial_depth = textureLoad(depth_buffer, spatial_pixel_id, 0);
-    let spatial_surface = gpixel_resolve(textureLoad(gbuffer, spatial_pixel_id, 0), spatial_depth, spatial_pixel_id, view.main_pass_viewport.zw, view.world_from_clip);
-    let spatial_diffuse_brdf = spatial_surface.material.base_color / PI;
-    if pixel_dissimilar(depth, world_position, spatial_surface.world_position, world_normal, spatial_surface.world_normal, view) {
-        return NeighborInfo(empty_reservoir(), spatial_surface.world_position, spatial_surface.world_normal, spatial_diffuse_brdf);
+        let spatial_depth = textureLoad(depth_buffer, spatial_pixel_id, 0);
+        let spatial_surface = gpixel_resolve(textureLoad(gbuffer, spatial_pixel_id, 0), spatial_depth, spatial_pixel_id, view.main_pass_viewport.zw, view.world_from_clip);
+        let spatial_diffuse_brdf = spatial_surface.material.base_color / PI;
+        if pixel_dissimilar(depth, world_position, spatial_surface.world_position, world_normal, spatial_surface.world_normal, view) {
+            continue;
+        }
+
+        let spatial_pixel_index = spatial_pixel_id.x + spatial_pixel_id.y * u32(view.main_pass_viewport.z);
+        var spatial_reservoir = gi_reservoirs_b[spatial_pixel_index];
+
+        spatial_reservoir.radiance *= trace_point_visibility(world_position, spatial_reservoir.sample_point_world_position);
+
+        return NeighborInfo(spatial_reservoir, spatial_surface.world_position, spatial_surface.world_normal, spatial_diffuse_brdf);
     }
 
-    let spatial_pixel_index = spatial_pixel_id.x + spatial_pixel_id.y * u32(view.main_pass_viewport.z);
-    let spatial_reservoir = gi_reservoirs_b[spatial_pixel_index];
-
-    return NeighborInfo(spatial_reservoir, spatial_surface.world_position, spatial_surface.world_normal, spatial_diffuse_brdf);
+    return NeighborInfo(empty_reservoir(), world_position, world_normal, vec3(0.0));
 }
 
 fn get_neighbor_pixel_id(center_pixel_id: vec2<u32>, rng: ptr<function, u32>) -> vec2<u32> {
@@ -274,7 +278,7 @@ fn merge_reservoirs(
     );
 
     // Don't merge samples with huge jacobians, as it explodes the variance
-    if canonical_target_function_other_sample_jacobian > 2.0 {
+    if canonical_target_function_other_sample_jacobian > 1.2 {
         return ReservoirMergeResult(canonical_reservoir, canonical_sample_radiance);
     }
 
@@ -316,12 +320,4 @@ fn merge_reservoirs(
 
         return ReservoirMergeResult(combined_reservoir, canonical_sample_radiance);
     }
-}
-
-fn balance_heuristic(x: f32, y: f32) -> f32 {
-    let sum = x + y;
-    if sum == 0.0 {
-        return 0.0;
-    }
-    return x / sum;
 }

@@ -301,6 +301,13 @@ impl Observer {
         self
     }
 
+    /// Observes the given `components`. This will cause the [`Observer`] to run whenever the [`Event`] has
+    /// an [`EntityComponentsTrigger`](crate::event::EntityComponentsTrigger) that targets any of the `components`.
+    pub fn with_components<I: IntoIterator<Item = ComponentId>>(mut self, components: I) -> Self {
+        self.descriptor.components.extend(components);
+        self
+    }
+
     /// Observes the given `event_key`. This will cause the [`Observer`] to run whenever an event with the given [`EventKey`]
     /// is triggered.
     /// # Safety

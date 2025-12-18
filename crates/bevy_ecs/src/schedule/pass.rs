@@ -1,9 +1,10 @@
 use alloc::{boxed::Box, vec::Vec};
+use bevy_platform::collections::HashSet;
 use core::any::{Any, TypeId};
 
 use super::{DiGraph, NodeId, ScheduleBuildError, ScheduleGraph};
 use crate::{
-    schedule::{SystemKey, SystemSetKey},
+    schedule::{graph::Dag, SystemKey, SystemSetKey},
     world::World,
 };
 use bevy_utils::TypeIdMap;
@@ -23,7 +24,7 @@ pub trait ScheduleBuildPass: Send + Sync + Debug + 'static {
     fn collapse_set(
         &mut self,
         set: SystemSetKey,
-        systems: &[SystemKey],
+        systems: &HashSet<SystemKey>,
         dependency_flattening: &DiGraph<NodeId>,
     ) -> impl Iterator<Item = (NodeId, NodeId)>;
 
@@ -32,7 +33,7 @@ pub trait ScheduleBuildPass: Send + Sync + Debug + 'static {
         &mut self,
         world: &mut World,
         graph: &mut ScheduleGraph,
-        dependency_flattened: &mut DiGraph<SystemKey>,
+        dependency_flattened: &mut Dag<SystemKey>,
     ) -> Result<(), ScheduleBuildError>;
 }
 
@@ -42,13 +43,13 @@ pub(super) trait ScheduleBuildPassObj: Send + Sync + Debug {
         &mut self,
         world: &mut World,
         graph: &mut ScheduleGraph,
-        dependency_flattened: &mut DiGraph<SystemKey>,
+        dependency_flattened: &mut Dag<SystemKey>,
     ) -> Result<(), ScheduleBuildError>;
 
     fn collapse_set(
         &mut self,
         set: SystemSetKey,
-        systems: &[SystemKey],
+        systems: &HashSet<SystemKey>,
         dependency_flattening: &DiGraph<NodeId>,
         dependencies_to_add: &mut Vec<(NodeId, NodeId)>,
     );
@@ -60,14 +61,14 @@ impl<T: ScheduleBuildPass> ScheduleBuildPassObj for T {
         &mut self,
         world: &mut World,
         graph: &mut ScheduleGraph,
-        dependency_flattened: &mut DiGraph<SystemKey>,
+        dependency_flattened: &mut Dag<SystemKey>,
     ) -> Result<(), ScheduleBuildError> {
         self.build(world, graph, dependency_flattened)
     }
     fn collapse_set(
         &mut self,
         set: SystemSetKey,
-        systems: &[SystemKey],
+        systems: &HashSet<SystemKey>,
         dependency_flattening: &DiGraph<NodeId>,
         dependencies_to_add: &mut Vec<(NodeId, NodeId)>,
     ) {

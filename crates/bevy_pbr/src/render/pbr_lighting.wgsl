@@ -3,7 +3,7 @@
 #import bevy_pbr::{
     mesh_view_types::POINT_LIGHT_FLAGS_SPOT_LIGHT_Y_NEGATIVE,
     mesh_view_bindings as view_bindings,
-    atmosphere::functions::calculate_visible_sun_ratio,
+    atmosphere::functions::{calculate_visible_sun_ratio, clamp_to_surface},
     atmosphere::bruneton_functions::transmittance_lut_r_mu_to_uv,
 }
 #import bevy_render::maths::PI
@@ -862,8 +862,9 @@ color *= (*light).color.rgb * texture_sample;
     let O = vec3(0.0, atmosphere.bottom_radius, 0.0);
     let P_scaled = P * vec3(view_bindings::atmosphere_data.settings.scene_units_to_m);
     let P_as = P_scaled + O;
-    let r = length(P_as);
-    let local_up = normalize(P_as);
+    let P_clamped = clamp_to_surface(atmosphere, P_as);
+    let r = length(P_clamped);
+    let local_up = normalize(P_clamped);
     let mu_light = dot(L, local_up);
 
     // Sample atmosphere

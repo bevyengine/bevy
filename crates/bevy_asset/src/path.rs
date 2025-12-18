@@ -648,7 +648,13 @@ pub(crate) fn normalize_path(path: &Path) -> PathBuf {
         if elt == "." {
             // Skip
         } else if elt == ".." {
-            if !result_path.pop() {
+            // Note: If the result_path ends in `..`, Path::file_name returns None, so we'll end up
+            // preserving it.
+            if result_path.file_name().is_some() {
+                // This assert is just a sanity check - we already know the path has a file_name, so
+                // we know there is something to pop.
+                assert!(result_path.pop());
+            } else {
                 // Preserve ".." if insufficient matches (per RFC 1808).
                 result_path.push(elt);
             }
@@ -993,6 +999,24 @@ mod tests {
         assert_eq!(
             base.resolve_embed("../../joe/next").unwrap(),
             AssetPath::from("../joe/next")
+        );
+    }
+
+    #[test]
+    fn resolve_embed_relative_to_external_path() {
+        let base = AssetPath::from("../../a/b.gltf");
+        assert_eq!(
+            base.resolve_embed("c.bin").unwrap(),
+            AssetPath::from("../../a/c.bin")
+        );
+    }
+
+    #[test]
+    fn resolve_relative_to_external_path() {
+        let base = AssetPath::from("../../a/b.gltf");
+        assert_eq!(
+            base.resolve("c.bin").unwrap(),
+            AssetPath::from("../../a/b.gltf/c.bin")
         );
     }
 

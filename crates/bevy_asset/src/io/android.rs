@@ -1,4 +1,7 @@
-use crate::io::{get_meta_path, AssetReader, AssetReaderError, PathStream, Reader, VecReader};
+use crate::io::{
+    get_meta_path, AssetReader, AssetReaderError, PathStream, Reader, ReaderRequiredFeatures,
+    VecReader,
+};
 use alloc::{borrow::ToOwned, boxed::Box, ffi::CString, vec::Vec};
 use futures_lite::stream;
 use std::path::Path;
@@ -16,7 +19,11 @@ use std::path::Path;
 pub struct AndroidAssetReader;
 
 impl AssetReader for AndroidAssetReader {
-    async fn read<'a>(&'a self, path: &'a Path) -> Result<impl Reader + 'a, AssetReaderError> {
+    async fn read<'a>(
+        &'a self,
+        path: &'a Path,
+        _required_features: ReaderRequiredFeatures,
+    ) -> Result<impl Reader + 'a, AssetReaderError> {
         let asset_manager = bevy_android::ANDROID_APP
             .get()
             .expect("Bevy must be setup with the #[bevy_main] macro on Android")

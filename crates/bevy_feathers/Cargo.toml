@@ -31,6 +31,7 @@ bevy_ui = { path = "../bevy_ui", version = "0.18.0-dev", features = [
 ] }
 bevy_ui_render = { path = "../bevy_ui_render", version = "0.18.0-dev" }
 bevy_window = { path = "../bevy_window", version = "0.18.0-dev" }
+bevy_derive = { path = "../bevy_derive", version = "0.18.0-dev" }
 smol_str = { version = "0.2", default-features = false }
 
 # other

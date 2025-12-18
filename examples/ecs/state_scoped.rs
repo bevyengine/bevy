@@ -3,6 +3,10 @@
 //!
 //! This pattern is useful for managing menus, levels, or other state-specific
 //! content that should only exist during certain states.
+//!
+//! If the entity was already despawned then no error will be logged. This means
+//! that you don't have to worry about duplicate [`DespawnOnExit`] and
+//! [`DespawnOnEnter`] components deep in your hierarchy.
 
 use bevy::prelude::*;
 
@@ -46,6 +50,7 @@ fn on_a_enter(mut commands: Commands) {
             left: px(0),
             ..default()
         },
+        (children![DespawnOnExit(GameState::A)]),
     ));
 }
 
@@ -65,6 +70,10 @@ fn on_a_exit(mut commands: Commands) {
             left: px(500),
             ..default()
         },
+        // You can apply this even when the parent has a state scoped component.
+        // It is unnecessary but in complex hierarchies it saves you from having to
+        // mentally track which components are found at the top level.
+        (children![DespawnOnEnter(GameState::A)]),
     ));
 }
 
@@ -84,6 +93,7 @@ fn on_b_enter(mut commands: Commands) {
             left: px(0),
             ..default()
         },
+        (children![DespawnOnExit(GameState::B)]),
     ));
 }
 
@@ -103,6 +113,7 @@ fn on_b_exit(mut commands: Commands) {
             left: px(500),
             ..default()
         },
+        (children![DespawnOnEnter(GameState::B)]),
     ));
 }
 

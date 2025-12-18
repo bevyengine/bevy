@@ -105,9 +105,11 @@ pub trait RecordDiagnostics: Send + Sync {
         P: Pass,
         N: Into<Cow<'static, str>>,
     {
-        self.begin_pass_span(pass, name.into());
+        let name = name.into();
+        self.begin_pass_span(pass, name.clone());
         PassSpanGuard {
             recorder: self,
+            name,
             marker: PhantomData,
         }
     }
@@ -152,6 +154,7 @@ impl<R: ?Sized, E> Drop for TimeSpanGuard<'_, R, E> {
 /// Will panic on drop unless [`PassSpanGuard::end`] is called.
 pub struct PassSpanGuard<'a, R: ?Sized, P> {
     recorder: &'a R,
+    name: Cow<'static, str>,
     marker: PhantomData<P>,
 }
 
@@ -165,7 +168,7 @@ impl<R: RecordDiagnostics + ?Sized, P: Pass> PassSpanGuard<'_, R, P> {
 
 impl<R: ?Sized, P> Drop for PassSpanGuard<'_, R, P> {
     fn drop(&mut self) {
-        panic!("PassSpanScope::end was never called")
+        panic!("PassSpanGuard::end was never called for {}", self.name)
     }
 }
 

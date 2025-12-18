@@ -69,7 +69,7 @@ impl Plugin for TextPlugin {
 #[derive(Asset, TypePath, Debug)]
 struct Text(String);
 
-#[derive(Default)]
+#[derive(Default, TypePath)]
 struct TextLoader;
 
 #[derive(Clone, Default, Serialize, Deserialize)]
@@ -120,7 +120,7 @@ struct CoolText {
     dependencies: Vec<Handle<Text>>,
 }
 
-#[derive(Default)]
+#[derive(Default, TypePath)]
 struct CoolTextLoader;
 
 #[derive(Debug, Error)]
@@ -182,7 +182,7 @@ impl AssetLoader for CoolTextLoader {
     }
 }
 
-#[derive(Default)]
+#[derive(Default, TypePath)]
 struct CoolTextTransformer;
 
 #[derive(Default, Serialize, Deserialize)]
@@ -206,6 +206,7 @@ impl AssetTransformer for CoolTextTransformer {
     }
 }
 
+#[derive(TypePath)]
 struct CoolTextSaver;
 
 impl AssetSaver for CoolTextSaver {

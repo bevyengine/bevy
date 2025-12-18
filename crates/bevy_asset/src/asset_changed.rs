@@ -288,13 +288,14 @@ unsafe impl<A: AsAssetId> QueryFilter for AssetChanged<A> {
 #[cfg(test)]
 #[expect(clippy::print_stdout, reason = "Allowed in tests.")]
 mod tests {
-    use crate::{AssetEventSystems, AssetPlugin, Handle};
+    use crate::tests::create_app;
+    use crate::{AssetEventSystems, Handle};
     use alloc::{vec, vec::Vec};
     use core::num::NonZero;
     use std::println;
 
     use crate::{AssetApp, Assets};
-    use bevy_app::{App, AppExit, PostUpdate, Startup, TaskPoolPlugin, Update};
+    use bevy_app::{App, AppExit, PostUpdate, Startup, Update};
     use bevy_ecs::schedule::IntoScheduleConfigs;
     use bevy_ecs::{
         component::Component,
@@ -321,10 +322,8 @@ mod tests {
     }
 
     fn run_app<Marker>(system: impl IntoSystem<(), (), Marker>) {
-        let mut app = App::new();
-        app.add_plugins((TaskPoolPlugin::default(), AssetPlugin::default()))
-            .init_asset::<MyAsset>()
-            .add_systems(Update, system);
+        let mut app = create_app().0;
+        app.init_asset::<MyAsset>().add_systems(Update, system);
         app.update();
     }
 
@@ -405,10 +404,9 @@ mod tests {
 
     #[test]
     fn added() {
-        let mut app = App::new();
+        let mut app = create_app().0;
 
-        app.add_plugins((TaskPoolPlugin::default(), AssetPlugin::default()))
-            .init_asset::<MyAsset>()
+        app.init_asset::<MyAsset>()
             .insert_resource(Counter(vec![0, 0, 0, 0]))
             .add_systems(Update, add_some)
             .add_systems(PostUpdate, count_update.after(AssetEventSystems));
@@ -428,10 +426,9 @@ mod tests {
 
     #[test]
     fn changed() {
-        let mut app = App::new();
+        let mut app = create_app().0;
 
-        app.add_plugins((TaskPoolPlugin::default(), AssetPlugin::default()))
-            .init_asset::<MyAsset>()
+        app.init_asset::<MyAsset>()
             .insert_resource(Counter(vec![0, 0]))
             .add_systems(
                 Startup,

@@ -221,7 +221,7 @@ impl<ShaderModule, RenderDevice> ShaderCache<ShaderModule, RenderDevice> {
                             for shader_def in shader_defs {
                                 match shader_def {
                                     ShaderDefVal::Bool(key, value) => {
-                                        compiler_options.features.insert(key.clone(), *value);
+                                        compiler_options.features.flags.insert(key.clone(), (*value).into());
                                     }
                                     _ => debug!(
                                         "ShaderDefVal::Int and ShaderDefVal::UInt are not supported in wesl",

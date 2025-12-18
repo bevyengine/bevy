@@ -60,7 +60,7 @@
 
 use alloc::vec::Vec;
 use bevy_app::prelude::*;
-use bevy_camera::visibility::Visibility;
+use bevy_camera::visibility::InheritedVisibility;
 use bevy_ecs::{
     entity::{EntityHashMap, EntityHashSet},
     prelude::*,
@@ -85,7 +85,9 @@ impl Plugin for DirectionalNavigationPlugin {
             .init_resource::<AutoNavigationConfig>()
             .add_systems(
                 PostUpdate,
-                auto_rebuild_ui_navigation_graph.in_set(UiSystems::PostLayout),
+                auto_rebuild_ui_navigation_graph
+                    .in_set(UiSystems::PostLayout)
+                    .after(bevy_camera::visibility::VisibilitySystems::VisibilityPropagate),
             );
     }
 }
@@ -740,6 +742,7 @@ fn auto_rebuild_ui_navigation_graph(
                 Added<AutoDirectionalNavigation>,
                 Changed<ComputedNode>,
                 Changed<UiGlobalTransform>,
+                Changed<InheritedVisibility>,
             )>,
         ),
     >,
@@ -748,7 +751,7 @@ fn auto_rebuild_ui_navigation_graph(
             Entity,
             &ComputedNode,
             &UiGlobalTransform,
-            Option<&Visibility>,
+            &InheritedVisibility,
         ),
         With<AutoDirectionalNavigation>,
     >,
@@ -759,11 +762,12 @@ fn auto_rebuild_ui_navigation_graph(
 
     let nodes: Vec<FocusableArea> = all_nodes
         .iter()
-        .filter_map(|(entity, computed, transform, visibility)| {
+        .filter_map(|(entity, computed, transform, inherited_visibility)| {
             // Skip hidden or zero-size nodes
-            if computed.is_empty() || matches!(visibility, Some(Visibility::Hidden)) {
+            if computed.is_empty() || !inherited_visibility.get() {
                 return None;
             }
+
             let (_scale, _rotation, translation) = transform.to_scale_angle_translation();
             Some(FocusableArea {
                 entity,

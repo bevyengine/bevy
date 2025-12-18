@@ -881,12 +881,12 @@ mod test {
         // cannot happen
         let mut a = unsafe { child_entity.get_mut_assume_mutable::<ChildOf>().unwrap() };
 
-        // SAFETY: ChildOf is not mutable but this is for a test to produce a scenario that
-        // cannot happen
         #[expect(
             unsafe_code,
             reason = "ChildOf is not mutable but this is for a test to produce a scenario that cannot happen"
         )]
+        // SAFETY: ChildOf is not mutable but this is for a test to produce a scenario that
+        // cannot happen
         let mut b = unsafe {
             grandchild_entity
                 .get_mut_assume_mutable::<ChildOf>()

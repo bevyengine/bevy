@@ -8,15 +8,22 @@ use bevy_platform::collections::HashMap;
 ///
 /// Allows an `f32` font size to be used as a key in a `HashMap`, by its binary representation.
 #[derive(Debug, Hash, PartialEq, Eq, Clone, Copy)]
-pub struct FontAtlasKey(pub AssetId<Font>, pub u32, pub FontSmoothing);
+pub struct FontAtlasKey {
+    /// Font asset id
+    pub id: AssetId<Font>,
+    /// Font size via `f32::to_bits`
+    pub font_size_bits: u32,
+    /// Antialiasing method
+    pub font_smoothing: FontSmoothing,
+}
 
 impl From<&TextFont> for FontAtlasKey {
     fn from(font: &TextFont) -> Self {
-        FontAtlasKey(
-            font.font.id(),
-            font.font_size.to_bits(),
-            font.font_smoothing,
-        )
+        Self {
+            id: font.font.id(),
+            font_size_bits: font.font_size.to_bits(),
+            font_smoothing: font.font_smoothing,
+        }
     }
 }
 
@@ -39,7 +46,7 @@ pub fn free_unused_font_atlases_system(
 ) {
     for event in font_events.read() {
         if let AssetEvent::Removed { id } = event {
-            font_atlas_sets.retain(|key, _| key.0 != *id);
+            font_atlas_sets.retain(|key, _| key.id != *id);
         }
     }
 }

@@ -471,6 +471,7 @@ impl<const C: usize> State<C> {
                 target_has_atomic = "64",
                 target_has_atomic = "ptr"
             )))]
+            #[allow(deprecated)]
             queue: heapless::mpmc::Queue::new(),
             waker: AtomicWaker::new(),
         }
@@ -481,7 +482,10 @@ impl<const C: usize> State<C> {
 mod different_executor_tests {
     use core::cell::Cell;
 
-    use bevy_tasks::{block_on, futures_lite::{pending, poll_once}};
+    use bevy_tasks::{
+        block_on,
+        futures_lite::{pending, poll_once},
+    };
     use futures_lite::pin;
 
     use super::LocalExecutor;

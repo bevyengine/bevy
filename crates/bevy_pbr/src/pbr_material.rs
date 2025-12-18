@@ -1531,15 +1531,19 @@ impl Material for StandardMaterial {
             }
         }
 
-        descriptor.primitive.cull_mode = if key
-            .bind_group_data
-            .contains(StandardMaterialKey::CULL_FRONT)
-        {
-            Some(Face::Front)
-        } else if key.bind_group_data.contains(StandardMaterialKey::CULL_BACK) {
-            Some(Face::Back)
-        } else {
-            None
+        // Generally, we want to cull front faces if `CULL_FRONT` is present and
+        // backfaces if `CULL_BACK` is present. However, if the view has
+        // `INVERT_CULLING` on (usually used for mirrors and the like), we do
+        // the opposite.
+        descriptor.primitive.cull_mode = match (
+            key.bind_group_data
+                .contains(StandardMaterialKey::CULL_FRONT),
+            key.bind_group_data.contains(StandardMaterialKey::CULL_BACK),
+            key.mesh_key.contains(MeshPipelineKey::INVERT_CULLING),
+        ) {
+            (true, false, false) | (false, true, true) => Some(Face::Front),
+            (false, true, false) | (true, false, true) => Some(Face::Back),
+            _ => None,
         };
 
         if let Some(label) = &mut descriptor.label {

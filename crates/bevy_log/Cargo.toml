@@ -32,7 +32,7 @@ tracing = { version = "0.1", default-features = false, features = ["std"] }
 # Tracy dependency compatibility table:
 # https://github.com/nagisa/rust_tracy_client
 tracing-tracy = { version = "0.11.4", optional = true }
-tracy-client = { version = "0.18.0", optional = true }
+tracy-client = { version = "0.18.3", optional = true }
 
 [target.'cfg(target_os = "android")'.dependencies]
 android_log-sys = "0.3.0"

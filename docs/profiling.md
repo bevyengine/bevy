@@ -70,7 +70,7 @@ The [Tracy profiling tool](https://github.com/wolfpld/tracy) is:
 
 #### Tracy Quickstart
 
-1. Install the [correct Tracy version](#finding-the-correct-tracy-version) (0.12.2 for Bevy 0.17)
+1. Install the [correct Tracy version](#finding-the-correct-tracy-version)
     - [Windows binaries (official)](https://github.com/wolfpld/tracy/releases)
     - [Macos and Linux binaries (third-party builds)](https://github.com/tracy-builds/tracy-builds/releases)
     - [Packages](https://repology.org/project/tracy/versions)

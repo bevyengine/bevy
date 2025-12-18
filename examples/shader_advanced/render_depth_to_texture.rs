@@ -221,17 +221,17 @@ fn spawn_depth_only_camera(commands: &mut Commands) {
         Camera3d::default(),
         Transform::from_xyz(-4.0, -5.0, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
         Camera {
-            // We specify no color render target, for maximum efficiency.
-            target: RenderTarget::None {
-                // When specifying no render target, we must manually specify
-                // the viewport size. Otherwise, Bevy won't know how big to make
-                // the depth buffer.
-                size: UVec2::splat(DEPTH_TEXTURE_SIZE),
-            },
             // Make sure that we render from this depth-only camera *before*
             // rendering from the main camera.
             order: -1,
             ..Camera::default()
+        },
+        // We specify no color render target, for maximum efficiency.
+        RenderTarget::None {
+            // When specifying no render target, we must manually specify
+            // the viewport size. Otherwise, Bevy won't know how big to make
+            // the depth buffer.
+            size: UVec2::splat(DEPTH_TEXTURE_SIZE),
         },
         // We need to disable multisampling or the depth texture will be
         // multisampled, which adds complexity we don't care about for this

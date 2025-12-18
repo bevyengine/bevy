@@ -21,7 +21,7 @@
 //!
 //! With the actual text bounds defined, the `bevy_ui::widget::text::text_system` system (in a UI context)
 //! or `bevy_sprite::text2d::update_text2d_layout` system (in a 2d world space context)
-//! passes it into [`TextPipeline::queue_text`], which:
+//! passes it into [`TextPipeline::update_text_layout_info`], which:
 //!
 //! 1. updates a [`Buffer`](cosmic_text::Buffer) from the [`TextSpan`]s, generating new [`FontAtlas`]es if necessary.
 //! 2. iterates over each glyph in the [`Buffer`](cosmic_text::Buffer) to create a [`PositionedGlyph`],
@@ -59,8 +59,8 @@ pub use text_access::*;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        Font, Justify, LineBreak, Strikethrough, StrikethroughColor, TextColor, TextError,
-        TextFont, TextLayout, TextSpan, Underline, UnderlineColor,
+        Font, FontWeight, Justify, LineBreak, Strikethrough, StrikethroughColor, TextColor,
+        TextError, TextFont, TextLayout, TextSpan, Underline, UnderlineColor,
     };
 }
 

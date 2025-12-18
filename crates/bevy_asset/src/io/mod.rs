@@ -27,20 +27,27 @@ pub use source::*;
 
 use alloc::{boxed::Box, sync::Arc, vec::Vec};
 use bevy_tasks::{BoxedFuture, ConditionalSendFuture};
-use core::future::Future;
 use core::{
     mem::size_of,
     pin::Pin,
     task::{Context, Poll},
 };
-use futures_io::{AsyncRead, AsyncWrite};
-use futures_lite::{ready, Stream};
-use std::path::{Path, PathBuf};
+use futures_io::{AsyncRead, AsyncSeek, AsyncWrite};
+use futures_lite::Stream;
+use std::{
+    io::SeekFrom,
+    path::{Path, PathBuf},
+};
 use thiserror::Error;
 
 /// Errors that occur while loading assets.
 #[derive(Error, Debug, Clone)]
 pub enum AssetReaderError {
+    #[error(
+        "A reader feature was required, but this AssetReader does not support that feature: {0}"
+    )]
+    UnsupportedFeature(#[from] UnsupportedReaderFeature),
+
     /// Path not found.
     #[error("Path not found: {}", _0.display())]
     NotFound(PathBuf),
@@ -61,6 +68,9 @@ impl PartialEq for AssetReaderError {
     #[inline]
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
+            (Self::UnsupportedFeature(feature), Self::UnsupportedFeature(other_feature)) => {
+                feature == other_feature
+            }
             (Self::NotFound(path), Self::NotFound(other_path)) => path == other_path,
             (Self::Io(error), Self::Io(other_error)) => error.kind() == other_error.kind(),
             (Self::HttpError(code), Self::HttpError(other_code)) => code == other_code,
@@ -77,6 +87,43 @@ impl From<std::io::Error> for AssetReaderError {
     }
 }
 
+/// An error for when a particular feature in [`ReaderRequiredFeatures`] is not supported.
+#[derive(Error, Debug, Clone, PartialEq, Eq)]
+pub enum UnsupportedReaderFeature {
+    /// The caller requested to be able to seek any way (forward, backward, from start/end), but
+    /// this is not supported by the [`AssetReader`].
+    #[error("the reader cannot seek in any direction")]
+    AnySeek,
+}
+
+/// The required features for a `Reader` that an `AssetLoader` may use.
+///
+/// This allows the asset loader to communicate with the asset source what features of the reader it
+/// will use. This allows the asset source to return an error early (if a feature is unsupported),
+/// or use a different reader implementation based on the required features to optimize reading
+/// (e.g., using a simpler reader implementation if some features are not required).
+///
+/// These features **only** apply to the asset itself, and not any nested loads - those loaders will
+/// request their own required features.
+#[derive(Clone, Copy, Default)]
+pub struct ReaderRequiredFeatures {
+    /// The kind of seek that the reader needs to support.
+    pub seek: SeekKind,
+}
+
+/// The kind of seeking that the reader supports.
+#[derive(Clone, Copy, Default)]
+pub enum SeekKind {
+    /// The reader can only seek forward.
+    ///
+    /// Seeking forward is always required, since at the bare minimum, the reader could choose to
+    /// just read that many bytes and then drop them (effectively seeking forward).
+    #[default]
+    OnlyForward,
+    /// The reader can seek forward, backward, seek from the start, and seek from the end.
+    AnySeek,
+}
+
 /// The maximum size of a future returned from [`Reader::read_to_end`].
 /// This is large enough to fit ten references.
 // Ideally this would be even smaller (ReadToEndFuture only needs space for two references based on its definition),
@@ -86,85 +133,28 @@ pub const STACK_FUTURE_SIZE: usize = 10 * size_of::<&()>();
 
 pub use stackfuture::StackFuture;
 
-/// Asynchronously advances the cursor position by a specified number of bytes.
-///
-/// This trait is a simplified version of the [`futures_io::AsyncSeek`] trait, providing
-/// support exclusively for the [`futures_io::SeekFrom::Current`] variant. It allows for relative
-/// seeking from the current cursor position.
-pub trait AsyncSeekForward {
-    /// Attempts to asynchronously seek forward by a specified number of bytes from the current cursor position.
-    ///
-    /// Seeking beyond the end of the stream is allowed and the behavior for this case is defined by the implementation.
-    /// The new position, relative to the beginning of the stream, should be returned upon successful completion
-    /// of the seek operation.
-    ///
-    /// If the seek operation completes successfully,
-    /// the new position relative to the beginning of the stream should be returned.
-    ///
-    /// # Implementation
-    ///
-    /// Implementations of this trait should handle [`Poll::Pending`] correctly, converting
-    /// [`std::io::ErrorKind::WouldBlock`] errors into [`Poll::Pending`] to indicate that the operation is not
-    /// yet complete and should be retried, and either internally retry or convert
-    /// [`std::io::ErrorKind::Interrupted`] into another error kind.
-    fn poll_seek_forward(
-        self: Pin<&mut Self>,
-        cx: &mut Context<'_>,
-        offset: u64,
-    ) -> Poll<futures_io::Result<u64>>;
-}
-
-impl<T: ?Sized + AsyncSeekForward + Unpin> AsyncSeekForward for Box<T> {
-    fn poll_seek_forward(
-        mut self: Pin<&mut Self>,
-        cx: &mut Context<'_>,
-        offset: u64,
-    ) -> Poll<futures_io::Result<u64>> {
-        Pin::new(&mut **self).poll_seek_forward(cx, offset)
-    }
-}
-
-/// Extension trait for [`AsyncSeekForward`].
-pub trait AsyncSeekForwardExt: AsyncSeekForward {
-    /// Seek by the provided `offset` in the forwards direction, using the [`AsyncSeekForward`] trait.
-    fn seek_forward(&mut self, offset: u64) -> SeekForwardFuture<'_, Self>
-    where
-        Self: Unpin,
-    {
-        SeekForwardFuture {
-            seeker: self,
-            offset,
-        }
-    }
-}
-
-impl<R: AsyncSeekForward + ?Sized> AsyncSeekForwardExt for R {}
-
-#[derive(Debug)]
-#[must_use = "futures do nothing unless you `.await` or poll them"]
-pub struct SeekForwardFuture<'a, S: Unpin + ?Sized> {
-    seeker: &'a mut S,
-    offset: u64,
-}
-
-impl<S: Unpin + ?Sized> Unpin for SeekForwardFuture<'_, S> {}
-
-impl<S: AsyncSeekForward + Unpin + ?Sized> Future for SeekForwardFuture<'_, S> {
-    type Output = futures_lite::io::Result<u64>;
-
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        let offset = self.offset;
-        Pin::new(&mut *self.seeker).poll_seek_forward(cx, offset)
-    }
-}
-
 /// A type returned from [`AssetReader::read`], which is used to read the contents of a file
 /// (or virtual file) corresponding to an asset.
 ///
-/// This is essentially a trait alias for types implementing [`AsyncRead`] and [`AsyncSeekForward`].
+/// This is essentially a trait alias for types implementing [`AsyncRead`] and [`AsyncSeek`].
 /// The only reason a blanket implementation is not provided for applicable types is to allow
 /// implementors to override the provided implementation of [`Reader::read_to_end`].
-pub trait Reader: AsyncRead + AsyncSeekForward + Unpin + Send + Sync {
+///
+/// # Reader features
+///
+/// This trait includes super traits. However, this **does not** mean that your type needs to
+/// support every feature of those super traits. If the caller never uses that feature, then a dummy
+/// implementation that just returns an error is sufficient.
+///
+/// The caller can request a compatible [`Reader`] using [`ReaderRequiredFeatures`] (when using the
+/// [`AssetReader`] trait). This allows the caller to state which features of the reader it will
+/// use, avoiding cases where the caller uses a feature that the reader does not support.
+///
+/// For example, the caller may set [`ReaderRequiredFeatures::seek`] to
+/// [`SeekKind::AnySeek`] to indicate that they may seek backward, or from the start/end. A reader
+/// implementation may choose to support that, or may just detect those kinds of seeks and return an
+/// error.
+pub trait Reader: AsyncRead + AsyncSeek + Unpin + Send + Sync {
     /// Reads the entire contents of this reader and appends them to a vec.
     ///
     /// # Note for implementors
@@ -214,15 +204,37 @@ where
 pub trait AssetReader: Send + Sync + 'static {
     /// Returns a future to load the full file data at the provided path.
     ///
+    /// # Required Features
+    ///
+    /// The `required_features` allows the caller to request that the returned reader implements
+    /// certain features, and consequently allows this trait to decide how to react to that request.
+    /// Namely, the implementor could:
+    ///
+    /// * Return an error if the caller requests an unsupported feature. This can give a nicer error
+    ///   message to make it clear that the caller (e.g., an asset loader) can't be used with this
+    ///   reader.
+    /// * Use a different implementation of a reader to ensure support of a feature (e.g., reading
+    ///   the entire asset into memory and then providing that buffer as a reader).
+    /// * Ignore the request and provide the regular reader anyway. Practically, if the caller never
+    ///   actually uses the feature, it's fine to continue using the reader. However the caller
+    ///   requesting a feature is a **strong signal** that they will use the given feature.
+    ///
+    /// The recommendation is to simply return an error for unsupported features. Callers can
+    /// generally work around this and have more understanding of their constraints. For example,
+    /// an asset loader may know that it will only load "small" assets, so reading the entire asset
+    /// into memory won't consume too much memory, and so it can use the regular [`AsyncRead`] API
+    /// to read the whole asset into memory. If this were done by this trait, the loader may
+    /// accidentally be allocating too much memory for a large asset without knowing it!
+    ///
     /// # Note for implementors
     /// The preferred style for implementing this method is an `async fn` returning an opaque type.
     ///
     /// ```no_run
     /// # use std::path::Path;
-    /// # use bevy_asset::{prelude::*, io::{AssetReader, PathStream, Reader, AssetReaderError}};
+    /// # use bevy_asset::{prelude::*, io::{AssetReader, PathStream, Reader, AssetReaderError, ReaderRequiredFeatures}};
     /// # struct MyReader;
     /// impl AssetReader for MyReader {
-    ///     async fn read<'a>(&'a self, path: &'a Path) -> Result<impl Reader + 'a, AssetReaderError> {
+    ///     async fn read<'a>(&'a self, path: &'a Path, required_features: ReaderRequiredFeatures) -> Result<impl Reader + 'a, AssetReaderError> {
     ///         // ...
     ///         # let val: Box<dyn Reader> = unimplemented!(); Ok(val)
     ///     }
@@ -233,7 +245,11 @@ pub trait AssetReader: Send + Sync + 'static {
     ///     # async fn read_meta_bytes<'a>(&'a self, path: &'a Path) -> Result<Vec<u8>, AssetReaderError> { unimplemented!() }
     /// }
     /// ```
-    fn read<'a>(&'a self, path: &'a Path) -> impl AssetReaderFuture<Value: Reader + 'a>;
+    fn read<'a>(
+        &'a self,
+        path: &'a Path,
+        required_features: ReaderRequiredFeatures,
+    ) -> impl AssetReaderFuture<Value: Reader + 'a>;
     /// Returns a future to load the full file data at the provided path.
     fn read_meta<'a>(&'a self, path: &'a Path) -> impl AssetReaderFuture<Value: Reader + 'a>;
     /// Returns an iterator of directory entry names at the provided path.
@@ -268,6 +284,7 @@ pub trait ErasedAssetReader: Send + Sync + 'static {
     fn read<'a>(
         &'a self,
         path: &'a Path,
+        required_features: ReaderRequiredFeatures,
     ) -> BoxedFuture<'a, Result<Box<dyn Reader + 'a>, AssetReaderError>>;
     /// Returns a future to load the full file data at the provided path.
     fn read_meta<'a>(
@@ -296,9 +313,10 @@ impl<T: AssetReader> ErasedAssetReader for T {
     fn read<'a>(
         &'a self,
         path: &'a Path,
+        required_features: ReaderRequiredFeatures,
     ) -> BoxedFuture<'a, Result<Box<dyn Reader + 'a>, AssetReaderError>> {
-        Box::pin(async {
-            let reader = Self::read(self, path).await?;
+        Box::pin(async move {
+            let reader = Self::read(self, path, required_features).await?;
             Ok(Box::new(reader) as Box<dyn Reader>)
         })
     }
@@ -638,40 +656,25 @@ impl VecReader {
 
 impl AsyncRead for VecReader {
     fn poll_read(
-        mut self: Pin<&mut Self>,
-        cx: &mut Context<'_>,
+        self: Pin<&mut Self>,
+        _cx: &mut Context<'_>,
         buf: &mut [u8],
     ) -> Poll<futures_io::Result<usize>> {
-        if self.bytes_read >= self.bytes.len() {
-            Poll::Ready(Ok(0))
-        } else {
-            let n = ready!(Pin::new(&mut &self.bytes[self.bytes_read..]).poll_read(cx, buf))?;
-            self.bytes_read += n;
-            Poll::Ready(Ok(n))
-        }
+        // Get the mut borrow to avoid trying to borrow the pin itself multiple times.
+        let this = self.get_mut();
+        Poll::Ready(Ok(slice_read(&this.bytes, &mut this.bytes_read, buf)))
     }
 }
 
-impl AsyncSeekForward for VecReader {
-    fn poll_seek_forward(
-        mut self: Pin<&mut Self>,
+impl AsyncSeek for VecReader {
+    fn poll_seek(
+        self: Pin<&mut Self>,
         _cx: &mut Context<'_>,
-        offset: u64,
+        pos: SeekFrom,
     ) -> Poll<std::io::Result<u64>> {
-        let result = self
-            .bytes_read
-            .try_into()
-            .map(|bytes_read: u64| bytes_read + offset);
-
-        if let Ok(new_pos) = result {
-            self.bytes_read = new_pos as _;
-            Poll::Ready(Ok(new_pos as _))
-        } else {
-            Poll::Ready(Err(std::io::Error::new(
-                std::io::ErrorKind::InvalidInput,
-                "seek position is out of range",
-            )))
-        }
+        // Get the mut borrow to avoid trying to borrow the pin itself multiple times.
+        let this = self.get_mut();
+        Poll::Ready(slice_seek(&this.bytes, &mut this.bytes_read, pos))
     }
 }
 
@@ -680,16 +683,7 @@ impl Reader for VecReader {
         &'a mut self,
         buf: &'a mut Vec<u8>,
     ) -> StackFuture<'a, std::io::Result<usize>, STACK_FUTURE_SIZE> {
-        StackFuture::from(async {
-            if self.bytes_read >= self.bytes.len() {
-                Ok(0)
-            } else {
-                buf.extend_from_slice(&self.bytes[self.bytes_read..]);
-                let n = self.bytes.len() - self.bytes_read;
-                self.bytes_read = self.bytes.len();
-                Ok(n)
-            }
-        })
+        read_to_end(&self.bytes, &mut self.bytes_read, buf)
     }
 }
 
@@ -712,40 +706,20 @@ impl<'a> SliceReader<'a> {
 impl<'a> AsyncRead for SliceReader<'a> {
     fn poll_read(
         mut self: Pin<&mut Self>,
-        cx: &mut Context<'_>,
+        _cx: &mut Context<'_>,
         buf: &mut [u8],
     ) -> Poll<std::io::Result<usize>> {
-        if self.bytes_read >= self.bytes.len() {
-            Poll::Ready(Ok(0))
-        } else {
-            let n = ready!(Pin::new(&mut &self.bytes[self.bytes_read..]).poll_read(cx, buf))?;
-            self.bytes_read += n;
-            Poll::Ready(Ok(n))
-        }
+        Poll::Ready(Ok(slice_read(self.bytes, &mut self.bytes_read, buf)))
     }
 }
 
-impl<'a> AsyncSeekForward for SliceReader<'a> {
-    fn poll_seek_forward(
+impl<'a> AsyncSeek for SliceReader<'a> {
+    fn poll_seek(
         mut self: Pin<&mut Self>,
         _cx: &mut Context<'_>,
-        offset: u64,
+        pos: SeekFrom,
     ) -> Poll<std::io::Result<u64>> {
-        let result = self
-            .bytes_read
-            .try_into()
-            .map(|bytes_read: u64| bytes_read + offset);
-
-        if let Ok(new_pos) = result {
-            self.bytes_read = new_pos as _;
-
-            Poll::Ready(Ok(new_pos as _))
-        } else {
-            Poll::Ready(Err(std::io::Error::new(
-                std::io::ErrorKind::InvalidInput,
-                "seek position is out of range",
-            )))
-        }
+        Poll::Ready(slice_seek(self.bytes, &mut self.bytes_read, pos))
     }
 }
 
@@ -754,17 +728,70 @@ impl Reader for SliceReader<'_> {
         &'a mut self,
         buf: &'a mut Vec<u8>,
     ) -> StackFuture<'a, std::io::Result<usize>, STACK_FUTURE_SIZE> {
-        StackFuture::from(async {
-            if self.bytes_read >= self.bytes.len() {
-                Ok(0)
-            } else {
-                buf.extend_from_slice(&self.bytes[self.bytes_read..]);
-                let n = self.bytes.len() - self.bytes_read;
-                self.bytes_read = self.bytes.len();
-                Ok(n)
-            }
-        })
+        read_to_end(self.bytes, &mut self.bytes_read, buf)
     }
+}
+
+/// Performs a read from the `slice` into `buf`.
+pub(crate) fn slice_read(slice: &[u8], bytes_read: &mut usize, buf: &mut [u8]) -> usize {
+    if *bytes_read >= slice.len() {
+        0
+    } else {
+        let n = std::io::Read::read(&mut &slice[(*bytes_read)..], buf).unwrap();
+        *bytes_read += n;
+        n
+    }
+}
+
+/// Performs a "seek" and updates the cursor of `bytes_read`. Returns the new byte position.
+pub(crate) fn slice_seek(
+    slice: &[u8],
+    bytes_read: &mut usize,
+    pos: SeekFrom,
+) -> std::io::Result<u64> {
+    let make_error = || {
+        Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            "seek position is out of range",
+        ))
+    };
+    let (origin, offset) = match pos {
+        SeekFrom::Current(offset) => (*bytes_read, Ok(offset)),
+        SeekFrom::Start(offset) => (0, offset.try_into()),
+        SeekFrom::End(offset) => (slice.len(), Ok(offset)),
+    };
+    let Ok(offset) = offset else {
+        return make_error();
+    };
+    let Ok(origin): Result<i64, _> = origin.try_into() else {
+        return make_error();
+    };
+    let Ok(new_pos) = (origin + offset).try_into() else {
+        return make_error();
+    };
+    *bytes_read = new_pos;
+    Ok(new_pos as _)
+}
+
+/// Copies bytes from source to dest, keeping track of where in the source it starts copying from.
+///
+/// This is effectively the impl for [`SliceReader::read_to_end`], but this is provided here so the
+/// lifetimes are only tied to the buffer and not the [`SliceReader`] itself.
+pub(crate) fn read_to_end<'a>(
+    source: &'a [u8],
+    bytes_read: &'a mut usize,
+    dest: &'a mut Vec<u8>,
+) -> StackFuture<'a, std::io::Result<usize>, STACK_FUTURE_SIZE> {
+    StackFuture::from(async {
+        if *bytes_read >= source.len() {
+            Ok(0)
+        } else {
+            dest.extend_from_slice(&source[*bytes_read..]);
+            let n = source.len() - *bytes_read;
+            *bytes_read = source.len();
+            Ok(n)
+        }
+    })
 }
 
 /// Appends `.meta` to the given path:

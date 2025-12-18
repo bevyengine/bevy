@@ -127,7 +127,11 @@ pub fn extract_morphs(
         }
         let start = uniform.current_buffer.len();
         let weights = morph_weights.weights();
-        let legal_weights = weights.iter().take(MAX_MORPH_WEIGHTS).copied();
+        let legal_weights = weights
+            .iter()
+            .chain(iter::repeat(&0.0))
+            .take(MAX_MORPH_WEIGHTS)
+            .copied();
         uniform.current_buffer.extend(legal_weights);
         add_to_alignment::<f32>(&mut uniform.current_buffer);
 

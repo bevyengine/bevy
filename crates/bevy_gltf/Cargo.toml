@@ -18,7 +18,9 @@ pbr_specular_textures = ["bevy_pbr/pbr_specular_textures"]
 
 [dependencies]
 # bevy
-bevy_animation = { path = "../bevy_animation", version = "0.18.0-dev", optional = true }
+bevy_animation = { path = "../bevy_animation", version = "0.18.0-dev", optional = true, features = [
+  "bevy_mesh",
+] }
 bevy_app = { path = "../bevy_app", version = "0.18.0-dev" }
 bevy_asset = { path = "../bevy_asset", version = "0.18.0-dev" }
 bevy_color = { path = "../bevy_color", version = "0.18.0-dev" }
@@ -53,6 +55,7 @@ gltf = { version = "1.4.0", default-features = false, features = [
   "names",
   "utils",
 ] }
+async-lock = { version = "3.0", default-features = false }
 thiserror = { version = "2", default-features = false }
 base64 = "0.22.0"
 fixedbitset = "0.5"

@@ -331,8 +331,8 @@ pub fn init_prepass_pipeline(
 }
 
 pub struct PrepassPipelineSpecializer {
-    pub(crate) pipeline: PrepassPipeline,
-    pub(crate) properties: Arc<MaterialProperties>,
+    pub pipeline: PrepassPipeline,
+    pub properties: Arc<MaterialProperties>,
 }
 
 impl SpecializedMeshPipeline for PrepassPipelineSpecializer {
@@ -897,7 +897,7 @@ pub fn specialize_prepass_material_meshes(
             let Some(material) = render_materials.get(material_instance.asset_id) else {
                 continue;
             };
-            if !material.properties.prepass_enabled && !material.properties.shadows_enabled {
+            if !material.properties.prepass_enabled {
                 // If the material was previously specialized for prepass, remove it
                 view_specialized_material_pipeline_cache.remove(visible_entity);
                 continue;

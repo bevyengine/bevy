@@ -1,3 +1,8 @@
+#![expect(
+    unused_assignments,
+    reason = "Warnings from inside miette due to a rustc bug: https://github.com/rust-lang/rust/issues/147648"
+)]
+
 use std::{env, fs, io::Write, path::PathBuf};
 
 use miette::{diagnostic, Context, Diagnostic, IntoDiagnostic, NamedSource, Result};

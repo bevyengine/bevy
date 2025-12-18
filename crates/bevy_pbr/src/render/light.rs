@@ -1354,6 +1354,7 @@ pub fn prepare_lights(
                         clip_from_view: cube_face_projection,
                         hdr: false,
                         color_grading: Default::default(),
+                        invert_culling: false,
                     },
                     *frustum,
                     LightEntity::Point {
@@ -1456,6 +1457,7 @@ pub fn prepare_lights(
                     clip_from_world: None,
                     hdr: false,
                     color_grading: Default::default(),
+                    invert_culling: false,
                 },
                 *spot_light_frustum.unwrap(),
                 LightEntity::Spot { light_entity },
@@ -1604,6 +1606,7 @@ pub fn prepare_lights(
                         clip_from_world: Some(cascade.clip_from_world),
                         hdr: false,
                         color_grading: Default::default(),
+                        invert_culling: false,
                     },
                     frustum,
                     LightEntity::Directional {
