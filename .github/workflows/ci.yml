@@ -179,6 +179,11 @@ jobs:
         uses: ./.github/actions/install-linux-deps
       - name: Check Compile
         run: cargo check -p bevy --no-default-features --features default_no_std --target x86_64-unknown-none
+      # Check for regression in "web" feature breaking no_std builds.
+      # This is not a separate CI job because the added feature should mostly have no effect
+      # and be able to reuse the prior build.
+      - name: Check Compile with --features=web
+        run: cargo check -p bevy --no-default-features --features default_no_std,web --target x86_64-unknown-none
 
   check-compiles-no-std-portable-atomic:
     runs-on: ubuntu-latest
