@@ -237,7 +237,7 @@ impl SpecializedMeshPipeline for CustomMeshPipeline {
             }),
             primitive: PrimitiveState {
                 topology: mesh_key.primitive_topology(),
-                strip_index_format: key.strip_index_format(),
+                strip_index_format: mesh_key.strip_index_format(),
                 front_face: FrontFace::Ccw,
                 cull_mode: Some(Face::Back),
                 polygon_mode: PolygonMode::Fill,
