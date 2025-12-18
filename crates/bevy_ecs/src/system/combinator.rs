@@ -1,8 +1,3 @@
-#![expect(
-    unsafe_op_in_unsafe_fn,
-    reason = "See #11590. To be removed once all applicable unsafe code has an unsafe block with a safety comment."
-)]
-
 use alloc::{format, vec::Vec};
 use bevy_utils::prelude::DebugName;
 use core::marker::PhantomData;
@@ -172,8 +167,6 @@ where
             input: SystemIn<S>,
             world: &mut PrivateUnsafeWorldCell,
         ) -> Result<S::Out, RunSystemError> {
-            #![deny(unsafe_op_in_unsafe_fn)]
-
             // SAFETY: see comment on `Func::combine` call
             match (|| unsafe {
                 system.validate_param_unsafe(world.0)?;
