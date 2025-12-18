@@ -72,7 +72,7 @@ impl Aabb3d {
         }
     }
 
-    /// Constructs an AABB from the its minimum and maximum extent.
+    /// Constructs an AABB from its minimum and maximum extent.
     #[inline]
     pub fn from_min_max(min: impl Into<Vec3A>, max: impl Into<Vec3A>) -> Self {
         let (min, max) = (min.into(), max.into());
