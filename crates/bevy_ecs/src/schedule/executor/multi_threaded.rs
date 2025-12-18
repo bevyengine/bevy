@@ -448,9 +448,13 @@ impl ExecutorState {
         }
 
         #[cfg(feature = "hotpatching")]
-        // SAFETY: This operation is not safe. It could create UB if a user creates a mutable reference
-        // to `HotPatchChanges` in a system. But this can only happen when the `hotpatching` feature is
-        // enabled.
+        #[expect(
+            clippy::undocumented_unsafe_blocks,
+            reason = "This actually could result in UB if a system tries to mutate
+            `HotPatchChanges`. We allow this as the resource only exists with the `hotpatching` feature.
+            and `hotpatching` should never be enabled in release."
+        )]
+        #[cfg(feature = "hotpatching")]
         let hotpatch_tick = unsafe {
             context
                 .environment
