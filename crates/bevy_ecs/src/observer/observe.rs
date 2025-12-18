@@ -1,10 +1,10 @@
-// TODO: This probably doesn't belong in bevy_ui_widgets, but I am not sure where it should go.
-// It is certainly a useful thing to have.
+//! Helper utilities for adding observers as bundle effects.
+
 #![expect(unsafe_code, reason = "Unsafe code is used to improve performance.")]
 
 use core::{marker::PhantomData, mem};
 
-use bevy_ecs::{
+use crate::{
     bundle::{Bundle, DynamicBundle},
     event::EntityEvent,
     system::IntoObserverSystem,
@@ -26,16 +26,16 @@ unsafe impl<
 {
     #[inline]
     fn component_ids(
-        _components: &mut bevy_ecs::component::ComponentsRegistrator,
-    ) -> impl Iterator<Item = bevy_ecs::component::ComponentId> + use<E, B, M, I> {
+        _components: &mut crate::component::ComponentsRegistrator,
+    ) -> impl Iterator<Item = crate::component::ComponentId> + use<E, B, M, I> {
         // SAFETY: Empty iterator
         core::iter::empty()
     }
 
     #[inline]
     fn get_component_ids(
-        _components: &bevy_ecs::component::Components,
-    ) -> impl Iterator<Item = Option<bevy_ecs::component::ComponentId>> {
+        _components: &crate::component::Components,
+    ) -> impl Iterator<Item = Option<crate::component::ComponentId>> {
         // SAFETY: Empty iterator
         core::iter::empty()
     }
@@ -48,8 +48,8 @@ impl<E: EntityEvent, B: Bundle, M, I: IntoObserverSystem<E, B, M>> DynamicBundle
 
     #[inline]
     unsafe fn get_components(
-        ptr: bevy_ecs::ptr::MovingPtr<'_, Self>,
-        _func: &mut impl FnMut(bevy_ecs::component::StorageType, bevy_ecs::ptr::OwningPtr<'_>),
+        ptr: crate::ptr::MovingPtr<'_, Self>,
+        _func: &mut impl FnMut(crate::component::StorageType, crate::ptr::OwningPtr<'_>),
     ) {
         // SAFETY: We must not drop the pointer here, or it will be uninitialized in `apply_effect`
         // below.
@@ -58,8 +58,8 @@ impl<E: EntityEvent, B: Bundle, M, I: IntoObserverSystem<E, B, M>> DynamicBundle
 
     #[inline]
     unsafe fn apply_effect(
-        ptr: bevy_ecs::ptr::MovingPtr<'_, mem::MaybeUninit<Self>>,
-        entity: &mut bevy_ecs::world::EntityWorldMut,
+        ptr: crate::ptr::MovingPtr<'_, mem::MaybeUninit<Self>>,
+        entity: &mut crate::world::EntityWorldMut,
     ) {
         // SAFETY: The pointer was not dropped in `get_components`, so the allocation is still
         // initialized.

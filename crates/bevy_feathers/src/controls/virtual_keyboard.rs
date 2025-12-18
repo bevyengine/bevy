@@ -1,9 +1,10 @@
+use bevy_ecs::observer::observe;
 use bevy_ecs::prelude::*;
 use bevy_input_focus::tab_navigation::TabGroup;
 use bevy_ui::Node;
 use bevy_ui::Val;
 use bevy_ui::{widget::Text, FlexDirection};
-use bevy_ui_widgets::{observe, Activate};
+use bevy_ui_widgets::Activate;
 
 use crate::controls::{button, ButtonProps};
 

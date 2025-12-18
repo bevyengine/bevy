@@ -6,11 +6,13 @@
 mod centralized_storage;
 mod distributed_storage;
 mod entity_cloning;
+mod observe;
 mod runner;
 mod system_param;
 
 pub use centralized_storage::*;
 pub use distributed_storage::*;
+pub use observe::*;
 pub use runner::*;
 pub use system_param::*;
 
