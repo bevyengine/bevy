@@ -43,11 +43,6 @@ use thiserror::Error;
 /// Errors that occur while loading assets.
 #[derive(Error, Debug, Clone)]
 pub enum AssetReaderError {
-    #[error(
-        "A reader feature was required, but this AssetReader does not support that feature: {0}"
-    )]
-    UnsupportedFeature(#[from] UnsupportedReaderFeature),
-
     /// Path not found.
     #[error("Path not found: {}", _0.display())]
     NotFound(PathBuf),
@@ -68,9 +63,6 @@ impl PartialEq for AssetReaderError {
     #[inline]
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
-            (Self::UnsupportedFeature(feature), Self::UnsupportedFeature(other_feature)) => {
-                feature == other_feature
-            }
             (Self::NotFound(path), Self::NotFound(other_path)) => path == other_path,
             (Self::Io(error), Self::Io(other_error)) => error.kind() == other_error.kind(),
             (Self::HttpError(code), Self::HttpError(other_code)) => code == other_code,
@@ -85,43 +77,6 @@ impl From<std::io::Error> for AssetReaderError {
     fn from(value: std::io::Error) -> Self {
         Self::Io(Arc::new(value))
     }
-}
-
-/// An error for when a particular feature in [`ReaderRequiredFeatures`] is not supported.
-#[derive(Error, Debug, Clone, PartialEq, Eq)]
-pub enum UnsupportedReaderFeature {
-    /// The caller requested to be able to seek any way (forward, backward, from start/end), but
-    /// this is not supported by the [`AssetReader`].
-    #[error("the reader cannot seek in any direction")]
-    AnySeek,
-}
-
-/// The required features for a `Reader` that an `AssetLoader` may use.
-///
-/// This allows the asset loader to communicate with the asset source what features of the reader it
-/// will use. This allows the asset source to return an error early (if a feature is unsupported),
-/// or use a different reader implementation based on the required features to optimize reading
-/// (e.g., using a simpler reader implementation if some features are not required).
-///
-/// These features **only** apply to the asset itself, and not any nested loads - those loaders will
-/// request their own required features.
-#[derive(Clone, Copy, Default)]
-pub struct ReaderRequiredFeatures {
-    /// The kind of seek that the reader needs to support.
-    pub seek: SeekKind,
-}
-
-/// The kind of seeking that the reader supports.
-#[derive(Clone, Copy, Default)]
-pub enum SeekKind {
-    /// The reader can only seek forward.
-    ///
-    /// Seeking forward is always required, since at the bare minimum, the reader could choose to
-    /// just read that many bytes and then drop them (effectively seeking forward).
-    #[default]
-    OnlyForward,
-    /// The reader can seek forward, backward, seek from the start, and seek from the end.
-    AnySeek,
 }
 
 /// The maximum size of a future returned from [`Reader::read_to_end`].
@@ -154,7 +109,7 @@ pub use stackfuture::StackFuture;
 /// [`SeekKind::AnySeek`] to indicate that they may seek backward, or from the start/end. A reader
 /// implementation may choose to support that, or may just detect those kinds of seeks and return an
 /// error.
-pub trait Reader: AsyncRead + AsyncSeek + Unpin + Send + Sync {
+pub trait Reader: AsyncRead + Unpin + Send + Sync {
     /// Reads the entire contents of this reader and appends them to a vec.
     ///
     /// # Note for implementors
@@ -168,7 +123,21 @@ pub trait Reader: AsyncRead + AsyncSeek + Unpin + Send + Sync {
         let future = futures_lite::AsyncReadExt::read_to_end(self, buf);
         StackFuture::from(future)
     }
+
+    /// Casts this [`Reader`] as a [`SeekableReader`], which layers on [`AsyncSeek`] functionality.
+    /// Returns [`Some`] if this [`Reader`] supports seeking. Otherwise returns [`None`].
+    fn seekable(&mut self) -> Result<&mut dyn SeekableReader, ReaderNotSeekableError>;
 }
+
+pub trait SeekableReader: Reader + AsyncSeek {}
+
+impl<T: Reader + AsyncSeek> SeekableReader for T {}
+
+#[derive(Error, Debug, Copy, Clone)]
+#[error(
+    "The `Reader` returned by the current `AssetReader` does not support `AsyncSeek` behavior."
+)]
+pub struct ReaderNotSeekableError;
 
 impl Reader for Box<dyn Reader + '_> {
     fn read_to_end<'a>(
@@ -176,6 +145,10 @@ impl Reader for Box<dyn Reader + '_> {
         buf: &'a mut Vec<u8>,
     ) -> StackFuture<'a, std::io::Result<usize>, STACK_FUTURE_SIZE> {
         (**self).read_to_end(buf)
+    }
+
+    fn seekable(&mut self) -> Result<&mut dyn SeekableReader, ReaderNotSeekableError> {
+        (**self).seekable()
     }
 }
 
@@ -245,11 +218,7 @@ pub trait AssetReader: Send + Sync + 'static {
     ///     # async fn read_meta_bytes<'a>(&'a self, path: &'a Path) -> Result<Vec<u8>, AssetReaderError> { unimplemented!() }
     /// }
     /// ```
-    fn read<'a>(
-        &'a self,
-        path: &'a Path,
-        required_features: ReaderRequiredFeatures,
-    ) -> impl AssetReaderFuture<Value: Reader + 'a>;
+    fn read<'a>(&'a self, path: &'a Path) -> impl AssetReaderFuture<Value: Reader + 'a>;
     /// Returns a future to load the full file data at the provided path.
     fn read_meta<'a>(&'a self, path: &'a Path) -> impl AssetReaderFuture<Value: Reader + 'a>;
     /// Returns an iterator of directory entry names at the provided path.
@@ -284,7 +253,6 @@ pub trait ErasedAssetReader: Send + Sync + 'static {
     fn read<'a>(
         &'a self,
         path: &'a Path,
-        required_features: ReaderRequiredFeatures,
     ) -> BoxedFuture<'a, Result<Box<dyn Reader + 'a>, AssetReaderError>>;
     /// Returns a future to load the full file data at the provided path.
     fn read_meta<'a>(
@@ -313,10 +281,9 @@ impl<T: AssetReader> ErasedAssetReader for T {
     fn read<'a>(
         &'a self,
         path: &'a Path,
-        required_features: ReaderRequiredFeatures,
     ) -> BoxedFuture<'a, Result<Box<dyn Reader + 'a>, AssetReaderError>> {
         Box::pin(async move {
-            let reader = Self::read(self, path, required_features).await?;
+            let reader = Self::read(self, path).await?;
             Ok(Box::new(reader) as Box<dyn Reader>)
         })
     }
@@ -640,7 +607,7 @@ pub trait AssetWatcher: Send + Sync + 'static {}
 
 /// An [`AsyncRead`] implementation capable of reading a [`Vec<u8>`].
 pub struct VecReader {
-    bytes: Vec<u8>,
+    pub bytes: Vec<u8>,
     bytes_read: usize,
 }
 
@@ -684,6 +651,10 @@ impl Reader for VecReader {
         buf: &'a mut Vec<u8>,
     ) -> StackFuture<'a, std::io::Result<usize>, STACK_FUTURE_SIZE> {
         read_to_end(&self.bytes, &mut self.bytes_read, buf)
+    }
+
+    fn seekable(&mut self) -> Result<&mut dyn SeekableReader, ReaderNotSeekableError> {
+        Ok(self)
     }
 }
 
@@ -729,6 +700,10 @@ impl Reader for SliceReader<'_> {
         buf: &'a mut Vec<u8>,
     ) -> StackFuture<'a, std::io::Result<usize>, STACK_FUTURE_SIZE> {
         read_to_end(self.bytes, &mut self.bytes_read, buf)
+    }
+
+    fn seekable(&mut self) -> Result<&mut dyn SeekableReader, ReaderNotSeekableError> {
+        Ok(self)
     }
 }
 
