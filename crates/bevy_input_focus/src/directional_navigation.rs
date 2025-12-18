@@ -57,7 +57,6 @@
 //! - **Precise control**: Define exact navigation flow, including non-obvious connections like looping edges
 //! - **Cross-layer navigation**: Connect elements across different UI layers or z-index levels
 //! - **Custom behavior**: Implement domain-specific navigation patterns (e.g., spreadsheet-style wrapping)
-
 use alloc::vec::Vec;
 use bevy_app::prelude::*;
 use bevy_camera::visibility::InheritedVisibility;
@@ -421,14 +420,31 @@ impl DirectionalNavigationMap {
 
 /// A system parameter for navigating between focusable entities in a directional way.
 #[derive(SystemParam, Debug)]
-pub struct DirectionalNavigation<'w> {
+pub struct DirectionalNavigation<'w, 's> {
     /// The currently focused entity.
     pub focus: ResMut<'w, InputFocus>,
-    /// The navigation map containing the connections between entities.
+    /// The manual override navigation map containing pre-specified connections between entities.
     pub map: Res<'w, DirectionalNavigationMap>,
+    /// Configuration for the automated portion of the navigation algorithm.
+    config: Res<'w, AutoNavigationConfig>,
+    /// The entities which can be navigated to automatically
+    navigable_entities_query: Query<
+        'w,
+        's,
+        (
+            Entity,
+            &'static ComputedNode,
+            &'static UiGlobalTransform,
+            &'static InheritedVisibility,
+        ),
+        With<AutoDirectionalNavigation>,
+    >,
+    /// A query used to get the [`FocusableArea`] for a given entity
+    focusable_area_query:
+        Query<'w, 's, (Entity, &'static ComputedNode, &'static UiGlobalTransform)>,
 }
 
-impl DirectionalNavigation<'_> {
+impl<'w, 's> DirectionalNavigation<'w, 's> {
     /// Navigates to the neighbor in a given direction from the current focus, if any.
     ///
     /// Returns the new focus if successful.
@@ -439,8 +455,13 @@ impl DirectionalNavigation<'_> {
         &mut self,
         direction: CompassOctant,
     ) -> Result<Entity, DirectionalNavigationError> {
-        if let Some(current_focus) = self.focus.0 {
+        if let Some(current_focus) = self.focus.0
+            && let Some(origin) = self.entity_to_focusable_area(current_focus)
+        {
             if let Some(new_focus) = self.map.get_neighbor(current_focus, direction) {
+                self.focus.set(new_focus);
+                Ok(new_focus)
+            } else if let Some(new_focus) = self.find_best_candidate(origin, direction) {
                 self.focus.set(new_focus);
                 Ok(new_focus)
             } else {
@@ -451,6 +472,82 @@ impl DirectionalNavigation<'_> {
             }
         } else {
             Err(DirectionalNavigationError::NoFocus)
+        }
+    }
+
+    fn find_best_candidate(
+        &self,
+        origin: FocusableArea,
+        direction: CompassOctant,
+    ) -> Option<Entity> {
+        // Find best candidate in this direction
+        let mut best_candidate = None;
+        let mut best_score = f32::INFINITY;
+
+        for candidate in self.get_navigable_nodes() {
+            // Skip self
+            if candidate.entity == origin.entity {
+                continue;
+            }
+
+            // Score the candidate
+            let score = score_candidate(
+                origin.position,
+                origin.size,
+                candidate.position,
+                candidate.size,
+                direction,
+                &self.config,
+            );
+
+            if score < best_score {
+                best_score = score;
+                best_candidate = Some(candidate.entity);
+            }
+        }
+
+        best_candidate
+    }
+
+    /// Queries for all visible [`FocusableArea`] that are eligible to be automatically navigated to.
+    fn get_navigable_nodes(&self) -> Vec<FocusableArea> {
+        self.navigable_entities_query
+            .iter()
+            .filter_map(|(entity, computed, transform, inherited_visibility)| {
+                // Skip hidden or zero-size nodes
+                if computed.is_empty() || !inherited_visibility.get() {
+                    return None;
+                }
+
+                let (_scale, _rotation, translation) = transform.to_scale_angle_translation();
+                Some(FocusableArea {
+                    entity,
+                    position: translation,
+                    size: computed.size(),
+                })
+            })
+            .collect()
+    }
+
+    /// Gets the [`FocusableArea`] of the provided entity, if it exists.
+    /// Returns None if there was a [`QueryEntityError`].
+    fn entity_to_focusable_area(&self, entity: Entity) -> Option<FocusableArea> {
+        let query_result =
+            self.focusable_area_query
+                .get(entity)
+                .map(|(entity, computed, transform)| {
+                    let (_scale, _rotation, translation) = transform.to_scale_angle_translation();
+                    FocusableArea {
+                        entity,
+                        position: translation,
+                        size: computed.size(),
+                    }
+                });
+
+        if let Ok(focusable_area) = query_result {
+            Some(focusable_area)
+        } else {
+            None
         }
     }
 }
