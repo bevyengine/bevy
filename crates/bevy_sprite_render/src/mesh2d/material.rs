@@ -759,7 +759,10 @@ pub fn specialize_material2d_meshes<M: Material2d>(
                 continue;
             };
             let mesh_key = *view_key
-                | Mesh2dPipelineKey::from_primitive_topology(mesh.primitive_topology())
+                | Mesh2dPipelineKey::from_primitive_topology_and_index(
+                    mesh.primitive_topology(),
+                    mesh.index_format(),
+                )
                 | material_2d.properties.mesh_pipeline_key_bits;
 
             let pipeline_id = pipelines.specialize(
