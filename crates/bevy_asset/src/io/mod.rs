@@ -183,28 +183,6 @@ where
 pub trait AssetReader: Send + Sync + 'static {
     /// Returns a future to load the full file data at the provided path.
     ///
-    /// # Required Features
-    ///
-    /// The `required_features` allows the caller to request that the returned reader implements
-    /// certain features, and consequently allows this trait to decide how to react to that request.
-    /// Namely, the implementor could:
-    ///
-    /// * Return an error if the caller requests an unsupported feature. This can give a nicer error
-    ///   message to make it clear that the caller (e.g., an asset loader) can't be used with this
-    ///   reader.
-    /// * Use a different implementation of a reader to ensure support of a feature (e.g., reading
-    ///   the entire asset into memory and then providing that buffer as a reader).
-    /// * Ignore the request and provide the regular reader anyway. Practically, if the caller never
-    ///   actually uses the feature, it's fine to continue using the reader. However the caller
-    ///   requesting a feature is a **strong signal** that they will use the given feature.
-    ///
-    /// The recommendation is to simply return an error for unsupported features. Callers can
-    /// generally work around this and have more understanding of their constraints. For example,
-    /// an asset loader may know that it will only load "small" assets, so reading the entire asset
-    /// into memory won't consume too much memory, and so it can use the regular [`AsyncRead`] API
-    /// to read the whole asset into memory. If this were done by this trait, the loader may
-    /// accidentally be allocating too much memory for a large asset without knowing it!
-    ///
     /// # Note for implementors
     /// The preferred style for implementing this method is an `async fn` returning an opaque type.
     ///
