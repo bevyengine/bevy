@@ -119,18 +119,22 @@ pub trait Reader: AsyncRead + Unpin + Send + Sync {
     /// when it fails, such as reading into a seek-able [`Vec`] (or [`AsyncSeek`]-able [`VecReader`]):
     ///
     /// ```
-    /// # use bevy_asset::io::{VecReader, Reader, AsyncSeekExt};
+    /// # use bevy_asset::{io::{VecReader, Reader}, AsyncSeekExt};
     /// # use std::{io::SeekFrom, vec::Vec};
-    /// # let mut vec_reader = VecReader::new(Vec::new());
-    /// # let reader: &mut dyn Reader = &mut vec_reader;
+    /// # async {
+    /// # let mut original_reader = VecReader::new(Vec::new());
+    /// # let reader: &mut dyn Reader = &mut original_reader;
+    /// let mut fallback_reader;
     /// let reader = match reader.seekable() {
     ///     Ok(seek) => seek,
     ///     Err(_) => {
-    ///         reader.read_to_end(&mut data.bytes).await.unwrap();
-    ///         &mut data
+    ///         fallback_reader = VecReader::new(Vec::new());
+    ///         reader.read_to_end(&mut fallback_reader.bytes).await.unwrap();
+    ///         &mut fallback_reader
     ///     }
     /// };
     /// reader.seek(SeekFrom::Start(10)).await.unwrap();
+    /// # };
     /// ```
     fn seekable(&mut self) -> Result<&mut dyn SeekableReader, ReaderNotSeekableError>;
 }
