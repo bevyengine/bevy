@@ -338,10 +338,6 @@ impl<T: AssetLoader> AssetLoader for InstrumentedAssetLoader<T> {
         self.0.load(reader, settings, load_context).instrument(span)
     }
 
-    fn reader_required_features(settings: &Self::Settings) -> ReaderRequiredFeatures {
-        T::reader_required_features(settings)
-    }
-
     fn extensions(&self) -> &[&str] {
         self.0.extensions()
     }
