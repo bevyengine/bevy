@@ -50,9 +50,9 @@ fn test(
             Camera {
                 // Render this camera before our UI camera
                 order: -1,
-                target: RenderTarget::Image(image_handle.clone().into()),
                 ..default()
             },
+            RenderTarget::Image(image_handle.clone().into()),
         ))
         .id();
 

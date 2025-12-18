@@ -20,7 +20,7 @@ pub mod ui_texture_slice_pipeline;
 mod debug_overlay;
 
 use bevy_camera::visibility::InheritedVisibility;
-use bevy_camera::{Camera, Camera2d, Camera3d};
+use bevy_camera::{Camera, Camera2d, Camera3d, RenderTarget};
 use bevy_reflect::prelude::ReflectDefault;
 use bevy_reflect::Reflect;
 use bevy_shader::load_shader_library;
@@ -839,7 +839,7 @@ pub fn extract_ui_camera_view(
 pub fn extract_viewport_nodes(
     mut commands: Commands,
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
-    camera_query: Extract<Query<&Camera>>,
+    camera_query: Extract<Query<(&Camera, &RenderTarget)>>,
     uinode_query: Extract<
         Query<(
             Entity,
@@ -869,7 +869,7 @@ pub fn extract_viewport_nodes(
         let Some(image) = camera_query
             .get(viewport_node.camera)
             .ok()
-            .and_then(|camera| camera.target.as_image())
+            .and_then(|(_, render_target)| render_target.as_image())
         else {
             continue;
         };
@@ -1705,7 +1705,12 @@ pub fn prepare_uinodes(
                                 color,
                                 flags: flags | shader_flags::CORNERS[i],
                                 radius: (*border_radius).into(),
-                                border: [border.left, border.top, border.right, border.bottom],
+                                border: [
+                                    border.min_inset.x,
+                                    border.min_inset.y,
+                                    border.max_inset.x,
+                                    border.max_inset.y,
+                                ],
                                 size: rect_size.into(),
                                 point: points[i].into(),
                             });

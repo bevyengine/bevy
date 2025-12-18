@@ -1,9 +1,8 @@
-mod extensions;
+pub mod extensions;
 mod gltf_ext;
 
 use alloc::sync::Arc;
-use std::{io::Error, sync::Mutex};
-
+use async_lock::RwLock;
 #[cfg(feature = "bevy_animation")]
 use bevy_animation::{prelude::*, AnimatedBy, AnimationTargetId};
 use bevy_asset::{
@@ -36,29 +35,29 @@ use bevy_mesh::{
 use bevy_pbr::UvChannel;
 use bevy_pbr::{MeshMaterial3d, StandardMaterial, MAX_JOINTS};
 use bevy_platform::collections::{HashMap, HashSet};
+use bevy_reflect::TypePath;
 use bevy_render::render_resource::Face;
 use bevy_scene::Scene;
 #[cfg(not(target_arch = "wasm32"))]
 use bevy_tasks::IoTaskPool;
 use bevy_transform::components::Transform;
-
 use gltf::{
     accessor::Iter,
     image::Source,
     mesh::{util::ReadIndices, Mode},
     Document, Material, Node, Semantic,
 };
-
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "bevy_animation")]
 use smallvec::SmallVec;
-
+use std::{io::Error, sync::Mutex};
 use thiserror::Error;
 use tracing::{error, info_span, warn};
 
 use crate::{
-    vertex_attributes::convert_attribute, Gltf, GltfAssetLabel, GltfExtras, GltfMaterialExtras,
-    GltfMaterialName, GltfMeshExtras, GltfMeshName, GltfNode, GltfSceneExtras, GltfSkin,
+    convert_coordinates::ConvertCoordinates as _, vertex_attributes::convert_attribute, Gltf,
+    GltfAssetLabel, GltfExtras, GltfMaterialExtras, GltfMaterialName, GltfMeshExtras, GltfMeshName,
+    GltfNode, GltfSceneExtras, GltfSkin,
 };
 
 #[cfg(feature = "bevy_animation")]
@@ -76,7 +75,7 @@ use self::{
         texture::{texture_handle, texture_sampler, texture_transform_to_affine2},
     },
 };
-use crate::convert_coordinates::ConvertCoordinates as _;
+use crate::convert_coordinates::GltfConvertCoordinates;
 
 /// An error that occurs when loading a glTF file.
 #[derive(Error, Debug)]
@@ -138,6 +137,7 @@ pub enum GltfError {
 }
 
 /// Loads glTF files with all of their data as their corresponding bevy representations.
+#[derive(TypePath)]
 pub struct GltfLoader {
     /// List of compressed image formats handled by the loader.
     pub supported_compressed_formats: CompressedImageFormats,
@@ -149,17 +149,13 @@ pub struct GltfLoader {
     pub custom_vertex_attributes: HashMap<Box<str>, MeshVertexAttribute>,
     /// Arc to default [`ImageSamplerDescriptor`].
     pub default_sampler: Arc<Mutex<ImageSamplerDescriptor>>,
-    /// How to convert glTF coordinates on import. Assuming glTF cameras, glTF lights, and glTF meshes had global identity transforms,
-    /// their Bevy [`Transform::forward`](bevy_transform::components::Transform::forward) will be pointing in the following global directions:
-    /// - When set to `false`
-    ///   - glTF cameras and glTF lights: global -Z,
-    ///   - glTF models: global +Z.
-    /// - When set to `true`
-    ///   - glTF cameras and glTF lights: global +Z,
-    ///   - glTF models: global -Z.
-    ///
-    /// The default is `false`.
-    pub default_use_model_forward_direction: bool,
+    /// The default glTF coordinate conversion setting. This can be overridden
+    /// per-load by [`GltfLoaderSettings::convert_coordinates`].
+    pub default_convert_coordinates: GltfConvertCoordinates,
+    /// glTF extension data processors.
+    /// These are Bevy-side processors designed to access glTF
+    /// extension data during the loading process.
+    pub extensions: Arc<RwLock<Vec<Box<dyn extensions::GltfExtensionHandler>>>>,
 }
 
 /// Specifies optional settings for processing gltfs at load time. By default, all recognized contents of
@@ -205,19 +201,10 @@ pub struct GltfLoaderSettings {
     pub default_sampler: Option<ImageSamplerDescriptor>,
     /// If true, the loader will ignore sampler data from gltf and use the default sampler.
     pub override_sampler: bool,
-    /// _CAUTION: This is an experimental feature with [known issues](https://github.com/bevyengine/bevy/issues/20621). Behavior may change in future versions._
+    /// Overrides the default glTF coordinate conversion setting.
     ///
-    /// How to convert glTF coordinates on import. Assuming glTF cameras, glTF lights, and glTF meshes had global unit transforms,
-    /// their Bevy [`Transform::forward`](bevy_transform::components::Transform::forward) will be pointing in the following global directions:
-    /// - When set to `false`
-    ///   - glTF cameras and glTF lights: global -Z,
-    ///   - glTF models: global +Z.
-    /// - When set to `true`
-    ///   - glTF cameras and glTF lights: global +Z,
-    ///   - glTF models: global -Z.
-    ///
-    /// If `None`, uses the global default set by [`GltfPlugin::use_model_forward_direction`](crate::GltfPlugin::use_model_forward_direction).
-    pub use_model_forward_direction: Option<bool>,
+    /// If `None`, uses the global default set by [`GltfPlugin::convert_coordinates`](crate::GltfPlugin::convert_coordinates).
+    pub convert_coordinates: Option<GltfConvertCoordinates>,
 }
 
 impl Default for GltfLoaderSettings {
@@ -231,7 +218,7 @@ impl Default for GltfLoaderSettings {
             include_source: false,
             default_sampler: None,
             override_sampler: false,
-            use_model_forward_direction: None,
+            convert_coordinates: None,
         }
     }
 }
@@ -245,6 +232,16 @@ impl GltfLoader {
         settings: &'b GltfLoaderSettings,
     ) -> Result<Gltf, GltfError> {
         let gltf = gltf::Gltf::from_slice(bytes)?;
+
+        // clone extensions to start with a fresh processing state
+        let mut extensions = loader.extensions.read().await.clone();
+
+        // Extensions can have data on the "root" of the glTF data.
+        // Let extensions process the root data for the extension ids
+        // they've subscribed to.
+        for extension in extensions.iter_mut() {
+            extension.on_root(&gltf);
+        }
 
         let file_name = load_context
             .path()
@@ -273,9 +270,9 @@ impl GltfLoader {
             Default::default()
         };
 
-        let convert_coordinates = match settings.use_model_forward_direction {
+        let convert_coordinates = match settings.convert_coordinates {
             Some(convert_coordinates) => convert_coordinates,
-            None => loader.default_use_model_forward_direction,
+            None => loader.default_convert_coordinates,
         };
 
         #[cfg(feature = "bevy_animation")]
@@ -321,16 +318,7 @@ impl GltfLoader {
                         match outputs {
                             ReadOutputs::Translations(tr) => {
                                 let translation_property = animated_field!(Transform::translation);
-                                let translations: Vec<Vec3> = tr
-                                    .map(Vec3::from)
-                                    .map(|verts| {
-                                        if convert_coordinates {
-                                            Vec3::convert_coordinates(verts)
-                                        } else {
-                                            verts
-                                        }
-                                    })
-                                    .collect();
+                                let translations: Vec<Vec3> = tr.map(Vec3::from).collect();
                                 if keyframe_timestamps.len() == 1 {
                                     Some(VariableCurve::new(AnimatableCurve::new(
                                         translation_property,
@@ -386,17 +374,8 @@ impl GltfLoader {
                             }
                             ReadOutputs::Rotations(rots) => {
                                 let rotation_property = animated_field!(Transform::rotation);
-                                let rotations: Vec<Quat> = rots
-                                    .into_f32()
-                                    .map(Quat::from_array)
-                                    .map(|quat| {
-                                        if convert_coordinates {
-                                            Quat::convert_coordinates(quat)
-                                        } else {
-                                            quat
-                                        }
-                                    })
-                                    .collect();
+                                let rotations: Vec<Quat> =
+                                    rots.into_f32().map(Quat::from_array).collect();
                                 if keyframe_timestamps.len() == 1 {
                                     Some(VariableCurve::new(AnimatableCurve::new(
                                         rotation_property,
@@ -577,8 +556,27 @@ impl GltfLoader {
                 if let Some(name) = animation.name() {
                     named_animations.insert(name.into(), handle.clone());
                 }
+
+                // let extensions handle extension data placed on animations
+                for extension in extensions.iter_mut() {
+                    extension.on_animation(&animation, handle.clone());
+                }
+
                 animations.push(handle);
             }
+
+            // let extensions process the collection of animation data
+            // this only happens once for each GltfExtensionHandler because
+            // it is a hook for Bevy's finalized representation of the animations
+            for extension in extensions.iter_mut() {
+                extension.on_animations_collected(
+                    load_context,
+                    &animations,
+                    &named_animations,
+                    &animation_roots,
+                );
+            }
+
             (animations, named_animations, animation_roots)
         } else {
             Default::default()
@@ -594,11 +592,11 @@ impl GltfLoader {
         // In theory we could store a mapping between texture.index() and handle to use
         // later in the loader when looking up handles for materials. However this would mean
         // that the material's load context would no longer track those images as dependencies.
-        let mut _texture_handles = Vec::new();
+        let mut texture_handles = Vec::new();
         if gltf.textures().len() == 1 || cfg!(target_arch = "wasm32") {
             for texture in gltf.textures() {
                 let image = load_image(
-                    texture,
+                    texture.clone(),
                     &buffer_data,
                     &linear_textures,
                     load_context.path(),
@@ -607,7 +605,11 @@ impl GltfLoader {
                     settings,
                 )
                 .await?;
-                image.process_loaded_texture(load_context, &mut _texture_handles);
+                image.process_loaded_texture(load_context, &mut texture_handles);
+                // let extensions handle texture data
+                for extension in extensions.iter_mut() {
+                    extension.on_texture(&texture, texture_handles.last().unwrap().clone());
+                }
             }
         } else {
             #[cfg(not(target_arch = "wasm32"))]
@@ -632,9 +634,15 @@ impl GltfLoader {
                     });
                 })
                 .into_iter()
-                .for_each(|result| match result {
+                // order is preserved if the futures are only spawned from the root scope
+                .zip(gltf.textures())
+                .for_each(|(result, texture)| match result {
                     Ok(image) => {
-                        image.process_loaded_texture(load_context, &mut _texture_handles);
+                        image.process_loaded_texture(load_context, &mut texture_handles);
+                        // let extensions handle texture data
+                        for extension in extensions.iter_mut() {
+                            extension.on_texture(&texture, texture_handles.last().unwrap().clone());
+                        }
                     }
                     Err(err) => {
                         warn!("Error loading glTF texture: {}", err);
@@ -652,6 +660,12 @@ impl GltfLoader {
                 if let Some(name) = material.name() {
                     named_materials.insert(name.into(), handle.clone());
                 }
+
+                // let extensions handle material data
+                for extension in extensions.iter_mut() {
+                    extension.on_material(load_context, &material, handle.clone());
+                }
+
                 materials.push(handle);
             }
         }
@@ -698,7 +712,7 @@ impl GltfLoader {
                         accessor,
                         &buffer_data,
                         &loader.custom_vertex_attributes,
-                        convert_coordinates,
+                        convert_coordinates.rotate_meshes,
                     ) {
                         Ok((attribute, values)) => mesh.insert_attribute(attribute, values),
                         Err(err) => warn!("{}", err),
@@ -725,7 +739,7 @@ impl GltfLoader {
                         };
                         let morph_target_image = MorphTargetImage::new(
                             morph_target_reader.map(|i| PrimitiveMorphAttributesIter {
-                                convert_coordinates,
+                                convert_coordinates: convert_coordinates.rotate_meshes,
                                 positions: i.0,
                                 normals: i.1,
                                 tangents: i.2,
@@ -815,6 +829,10 @@ impl GltfLoader {
             if let Some(name) = gltf_mesh.name() {
                 named_meshes.insert(name.into(), handle.clone());
             }
+            for extension in extensions.iter_mut() {
+                extension.on_gltf_mesh(load_context, &gltf_mesh, handle.clone());
+            }
+
             meshes.push(handle);
         }
 
@@ -825,15 +843,11 @@ impl GltfLoader {
                 let local_to_bone_bind_matrices: Vec<Mat4> = reader
                     .read_inverse_bind_matrices()
                     .map(|mats| {
-                        mats.map(|mat| Mat4::from_cols_array_2d(&mat))
-                            .map(|mat| {
-                                if convert_coordinates {
-                                    mat.convert_coordinates()
-                                } else {
-                                    mat
-                                }
-                            })
-                            .collect()
+                        mats.map(|mat| {
+                            Mat4::from_cols_array_2d(&mat)
+                                * convert_coordinates.mesh_conversion_mat4()
+                        })
+                        .collect()
                     })
                     .unwrap_or_else(|| {
                         core::iter::repeat_n(Mat4::IDENTITY, gltf_skin.joints().len()).collect()
@@ -916,7 +930,7 @@ impl GltfLoader {
                 &node,
                 children,
                 mesh,
-                node_transform(&node, convert_coordinates),
+                node_transform(&node),
                 skin,
                 node.extras().as_deref().map(GltfExtras::from),
             );
@@ -949,8 +963,10 @@ impl GltfLoader {
             let mut entity_to_skin_index_map = EntityHashMap::default();
             let mut scene_load_context = load_context.begin_labeled_asset();
 
+            let world_root_transform = convert_coordinates.scene_conversion_transform();
+
             let world_root_id = world
-                .spawn((Transform::default(), Visibility::default()))
+                .spawn((world_root_transform, Visibility::default()))
                 .with_children(|parent| {
                     for node in scene.nodes() {
                         let result = load_node(
@@ -968,7 +984,8 @@ impl GltfLoader {
                             #[cfg(feature = "bevy_animation")]
                             None,
                             &gltf.document,
-                            convert_coordinates,
+                            &convert_coordinates,
+                            &mut extensions,
                         );
                         if result.is_err() {
                             err = Some(result);
@@ -1014,6 +1031,17 @@ impl GltfLoader {
                     joints: joint_entities,
                 });
             }
+
+            // let extensions handle scene extension data
+            for extension in extensions.iter_mut() {
+                extension.on_scene_completed(
+                    &mut scene_load_context,
+                    &scene,
+                    world_root_id,
+                    &mut world,
+                );
+            }
+
             let loaded_scene = scene_load_context.finish(Scene::new(world));
             let scene_handle = load_context.add_loaded_labeled_asset(
                 GltfAssetLabel::Scene(scene.index()).to_string(),
@@ -1413,10 +1441,11 @@ fn load_node(
     #[cfg(feature = "bevy_animation")] animation_roots: &HashSet<usize>,
     #[cfg(feature = "bevy_animation")] mut animation_context: Option<AnimationContext>,
     document: &Document,
-    convert_coordinates: bool,
+    convert_coordinates: &GltfConvertCoordinates,
+    extensions: &mut [Box<dyn extensions::GltfExtensionHandler>],
 ) -> Result<(), GltfError> {
     let mut gltf_error = None;
-    let transform = node_transform(gltf_node, convert_coordinates);
+    let transform = node_transform(gltf_node);
     let world_transform = *parent_transform * transform;
     // according to https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#instantiation,
     // if the determinant of the transform is negative we must invert the winding order of
@@ -1532,12 +1561,18 @@ fn load_node(
                 };
                 let bounds = primitive.bounding_box();
 
+                // Apply the inverse of the conversion transform that's been
+                // applied to the mesh asset. This preserves the mesh's relation
+                // to the node transform.
+                let mesh_entity_transform = convert_coordinates.mesh_conversion_transform_inverse();
+
                 let mut mesh_entity = parent.spawn((
                     // TODO: handle missing label handle errors here?
                     Mesh3d(load_context.get_label_handle(primitive_label.to_string())),
                     MeshMaterial3d::<StandardMaterial>(
                         load_context.get_label_handle(&material_label),
                     ),
+                    mesh_entity_transform,
                 ));
 
                 let target_count = primitive.morph_targets().len();
@@ -1563,7 +1598,7 @@ fn load_node(
                 let mut bounds_min = Vec3::from_slice(&bounds.min);
                 let mut bounds_max = Vec3::from_slice(&bounds.max);
 
-                if convert_coordinates {
+                if convert_coordinates.rotate_meshes {
                     let converted_min = bounds_min.convert_coordinates();
                     let converted_max = bounds_max.convert_coordinates();
 
@@ -1605,6 +1640,18 @@ fn load_node(
                 if let Some(skin) = gltf_node.skin() {
                     entity_to_skin_index_map.insert(mesh_entity.id(), skin.index());
                 }
+
+                // enable extension processing for a Bevy-created construct
+                // that is the Mesh and Material merged on a single entity
+                for extension in extensions.iter_mut() {
+                    extension.on_spawn_mesh_and_material(
+                        load_context,
+                        &primitive,
+                        &mesh,
+                        &material,
+                        &mut mesh_entity,
+                    );
+                }
             }
         }
 
@@ -1628,6 +1675,9 @@ fn load_node(
                             value: extras.get().to_string(),
                         });
                     }
+                    for extension in extensions.iter_mut() {
+                        extension.on_spawn_light_directional(load_context, gltf_node, &mut entity);
+                    }
                 }
                 gltf::khr_lights_punctual::Kind::Point => {
                     let mut entity = parent.spawn(PointLight {
@@ -1647,6 +1697,9 @@ fn load_node(
                         entity.insert(GltfExtras {
                             value: extras.get().to_string(),
                         });
+                    }
+                    for extension in extensions.iter_mut() {
+                        extension.on_spawn_light_point(load_context, gltf_node, &mut entity);
                     }
                 }
                 gltf::khr_lights_punctual::Kind::Spot {
@@ -1673,6 +1726,9 @@ fn load_node(
                             value: extras.get().to_string(),
                         });
                     }
+                    for extension in extensions.iter_mut() {
+                        extension.on_spawn_light_spot(load_context, gltf_node, &mut entity);
+                    }
                 }
             }
         }
@@ -1695,6 +1751,7 @@ fn load_node(
                 animation_context.clone(),
                 document,
                 convert_coordinates,
+                extensions,
             ) {
                 gltf_error = Some(err);
                 return;
@@ -1713,6 +1770,15 @@ fn load_node(
         let first_mesh =
             primitive_label.map(|label| load_context.get_label_handle(label.to_string()));
         node.insert(MorphWeights::new(weights, first_mesh)?);
+    }
+
+    // let extensions process node data
+    // This can be *many* kinds of object, so we also
+    // give access to the gltf_node, which is needed for
+    // accessing Mesh and Material extension data, which
+    // are merged onto the same entity in Bevy
+    for extension in extensions.iter_mut() {
+        extension.on_gltf_node(load_context, gltf_node, &mut node);
     }
 
     if let Some(err) = gltf_error {
@@ -1922,6 +1988,7 @@ mod test {
     use bevy_mesh::skinning::SkinnedMeshInverseBindposes;
     use bevy_mesh::MeshPlugin;
     use bevy_pbr::StandardMaterial;
+    use bevy_reflect::TypePath;
     use bevy_scene::ScenePlugin;
 
     fn test_app(dir: Dir) -> App {
@@ -2458,6 +2525,7 @@ mod test {
         dir.insert_asset_text(Path::new("abc.png"), "Sup");
 
         /// A fake loader to avoid actually loading any image data and just return an image.
+        #[derive(TypePath)]
         struct FakePngLoader;
 
         impl AssetLoader for FakePngLoader {

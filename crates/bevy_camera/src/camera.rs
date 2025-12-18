@@ -343,7 +343,8 @@ pub enum ViewportConversionError {
     CameraMainTextureUsages,
     VisibleEntities,
     Transform,
-    Visibility
+    Visibility,
+    RenderTarget
 )]
 pub struct Camera {
     /// If set, this camera will render to the given [`Viewport`] rectangle within the configured [`RenderTarget`].
@@ -356,8 +357,7 @@ pub struct Camera {
     /// Computed values for this camera, such as the projection matrix and the render target size.
     #[reflect(ignore, clone)]
     pub computed: ComputedCameraValues,
-    /// The "target" that this camera will render to.
-    pub target: RenderTarget,
+    // todo: reflect this when #6042 lands
     /// The [`CameraOutputMode`] for this camera.
     pub output_mode: CameraOutputMode,
     /// Controls when MSAA writeback occurs for this camera.
@@ -385,7 +385,6 @@ impl Default for Camera {
             order: 0,
             viewport: None,
             computed: Default::default(),
-            target: Default::default(),
             output_mode: Default::default(),
             msaa_writeback: MsaaWriteback::default(),
             clear_color: Default::default(),
@@ -497,6 +496,42 @@ impl Camera {
         self.computed.clip_from_view
     }
 
+    /// Core conversion logic to compute viewport coordinates
+    ///
+    /// This function is shared by `world_to_viewport` and `world_to_viewport_with_depth`
+    /// to avoid code duplication.
+    ///
+    /// Returns a tuple `(viewport_position, depth)`.
+    fn world_to_viewport_core(
+        &self,
+        camera_transform: &GlobalTransform,
+        world_position: Vec3,
+    ) -> Result<(Vec2, f32), ViewportConversionError> {
+        let target_rect = self
+            .logical_viewport_rect()
+            .ok_or(ViewportConversionError::NoViewportSize)?;
+        let mut ndc_space_coords = self
+            .world_to_ndc(camera_transform, world_position)
+            .ok_or(ViewportConversionError::InvalidData)?;
+        // NDC z-values outside of 0 < z < 1 are outside the (implicit) camera frustum and are thus not in viewport-space
+        if ndc_space_coords.z < 0.0 {
+            return Err(ViewportConversionError::PastFarPlane);
+        }
+        if ndc_space_coords.z > 1.0 {
+            return Err(ViewportConversionError::PastNearPlane);
+        }
+
+        let depth = ndc_space_coords.z;
+
+        // Flip the Y co-ordinate origin from the bottom to the top.
+        ndc_space_coords.y = -ndc_space_coords.y;
+
+        // Once in NDC space, we can discard the z element and map x/y to the viewport rect
+        let viewport_position =
+            (ndc_space_coords.truncate() + Vec2::ONE) / 2.0 * target_rect.size() + target_rect.min;
+        Ok((viewport_position, depth))
+    }
+
     /// Given a position in world space, use the camera to compute the viewport-space coordinates.
     ///
     /// To get the coordinates in Normalized Device Coordinates, you should use
@@ -512,27 +547,9 @@ impl Camera {
         camera_transform: &GlobalTransform,
         world_position: Vec3,
     ) -> Result<Vec2, ViewportConversionError> {
-        let target_rect = self
-            .logical_viewport_rect()
-            .ok_or(ViewportConversionError::NoViewportSize)?;
-        let mut ndc_space_coords = self
-            .world_to_ndc(camera_transform, world_position)
-            .ok_or(ViewportConversionError::InvalidData)?;
-        // NDC z-values outside of 0 < z < 1 are outside the (implicit) camera frustum and are thus not in viewport-space
-        if ndc_space_coords.z < 0.0 {
-            return Err(ViewportConversionError::PastFarPlane);
-        }
-        if ndc_space_coords.z > 1.0 {
-            return Err(ViewportConversionError::PastNearPlane);
-        }
-
-        // Flip the Y co-ordinate origin from the bottom to the top.
-        ndc_space_coords.y = -ndc_space_coords.y;
-
-        // Once in NDC space, we can discard the z element and map x/y to the viewport rect
-        let viewport_position =
-            (ndc_space_coords.truncate() + Vec2::ONE) / 2.0 * target_rect.size() + target_rect.min;
-        Ok(viewport_position)
+        Ok(self
+            .world_to_viewport_core(camera_transform, world_position)?
+            .0)
     }
 
     /// Given a position in world space, use the camera to compute the viewport-space coordinates and depth.
@@ -550,30 +567,10 @@ impl Camera {
         camera_transform: &GlobalTransform,
         world_position: Vec3,
     ) -> Result<Vec3, ViewportConversionError> {
-        let target_rect = self
-            .logical_viewport_rect()
-            .ok_or(ViewportConversionError::NoViewportSize)?;
-        let mut ndc_space_coords = self
-            .world_to_ndc(camera_transform, world_position)
-            .ok_or(ViewportConversionError::InvalidData)?;
-        // NDC z-values outside of 0 < z < 1 are outside the (implicit) camera frustum and are thus not in viewport-space
-        if ndc_space_coords.z < 0.0 {
-            return Err(ViewportConversionError::PastFarPlane);
-        }
-        if ndc_space_coords.z > 1.0 {
-            return Err(ViewportConversionError::PastNearPlane);
-        }
-
+        let result = self.world_to_viewport_core(camera_transform, world_position)?;
         // Stretching ndc depth to value via near plane and negating result to be in positive room again.
-        let depth = -self.depth_ndc_to_view_z(ndc_space_coords.z);
-
-        // Flip the Y co-ordinate origin from the bottom to the top.
-        ndc_space_coords.y = -ndc_space_coords.y;
-
-        // Once in NDC space, we can discard the z element and map x/y to the viewport rect
-        let viewport_position =
-            (ndc_space_coords.truncate() + Vec2::ONE) / 2.0 * target_rect.size() + target_rect.min;
-        Ok(viewport_position.extend(depth))
+        let depth = -self.depth_ndc_to_view_z(result.1);
+        Ok(result.0.extend(depth))
     }
 
     /// Returns a ray originating from the camera, that passes through everything beyond `viewport_position`.
@@ -811,8 +808,8 @@ impl Default for CameraOutputMode {
 
 /// The "target" that a [`Camera`] will render to. For example, this could be a `Window`
 /// swapchain or an [`Image`].
-#[derive(Debug, Clone, Reflect, From)]
-#[reflect(Clone)]
+#[derive(Component, Debug, Clone, Reflect, From)]
+#[reflect(Clone, Component)]
 pub enum RenderTarget {
     /// Window to which the camera's view is rendered.
     Window(WindowRef),

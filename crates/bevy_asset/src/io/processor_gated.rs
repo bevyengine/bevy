@@ -1,5 +1,7 @@
 use crate::{
-    io::{AssetReader, AssetReaderError, AssetSourceId, PathStream, Reader},
+    io::{
+        AssetReader, AssetReaderError, AssetSourceId, PathStream, Reader, ReaderRequiredFeatures,
+    },
     processor::{ProcessStatus, ProcessingState},
     AssetPath,
 };
@@ -7,10 +9,10 @@ use alloc::{borrow::ToOwned, boxed::Box, sync::Arc, vec::Vec};
 use async_lock::RwLockReadGuardArc;
 use core::{pin::Pin, task::Poll};
 use futures_io::AsyncRead;
-use std::path::Path;
+use std::{io::SeekFrom, path::Path};
 use tracing::trace;
 
-use super::{AsyncSeekForward, ErasedAssetReader};
+use super::{AsyncSeek, ErasedAssetReader};
 
 /// An [`AssetReader`] that will prevent asset (and asset metadata) read futures from returning for a
 /// given path until that path has been processed by [`AssetProcessor`].
@@ -38,7 +40,11 @@ impl ProcessorGatedReader {
 }
 
 impl AssetReader for ProcessorGatedReader {
-    async fn read<'a>(&'a self, path: &'a Path) -> Result<impl Reader + 'a, AssetReaderError> {
+    async fn read<'a>(
+        &'a self,
+        path: &'a Path,
+        required_features: ReaderRequiredFeatures,
+    ) -> Result<impl Reader + 'a, AssetReaderError> {
         let asset_path = AssetPath::from(path.to_path_buf()).with_source(self.source.clone());
         trace!("Waiting for processing to finish before reading {asset_path}");
         let process_result = self
@@ -56,7 +62,7 @@ impl AssetReader for ProcessorGatedReader {
             .processing_state
             .get_transaction_lock(&asset_path)
             .await?;
-        let asset_reader = self.reader.read(path).await?;
+        let asset_reader = self.reader.read(path, required_features).await?;
         let reader = TransactionLockedReader::new(asset_reader, lock);
         Ok(reader)
     }
@@ -135,13 +141,13 @@ impl AsyncRead for TransactionLockedReader<'_> {
     }
 }
 
-impl AsyncSeekForward for TransactionLockedReader<'_> {
-    fn poll_seek_forward(
+impl AsyncSeek for TransactionLockedReader<'_> {
+    fn poll_seek(
         mut self: Pin<&mut Self>,
         cx: &mut core::task::Context<'_>,
-        offset: u64,
+        pos: SeekFrom,
     ) -> Poll<std::io::Result<u64>> {
-        Pin::new(&mut self.reader).poll_seek_forward(cx, offset)
+        Pin::new(&mut self.reader).poll_seek(cx, pos)
     }
 }
 
