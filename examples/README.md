@@ -574,6 +574,7 @@ Example | Description
 [Feathers Widgets](../examples/ui/feathers.rs) | Gallery of Feathers Widgets
 [Flex Layout](../examples/ui/flex_layout.rs) | Demonstrates how the AlignItems and JustifyContent properties can be composed to layout nodes and position text
 [Font Atlas Debug](../examples/ui/font_atlas_debug.rs) | Illustrates how FontAtlases are populated (used to optimize text rendering internally)
+[Font Weights](../examples/ui/font_weights.rs) | Demonstrates how to use font weights.
 [Ghost Nodes](../examples/ui/ghost_nodes.rs) | Demonstrates the use of Ghost Nodes to skip entities in the UI layout hierarchy
 [Gradients](../examples/ui/gradients.rs) | An example demonstrating gradients
 [Overflow](../examples/ui/overflow.rs) | Simple example demonstrating overflow behavior
@@ -605,7 +606,6 @@ Example | Description
 [UI Transform](../examples/ui/ui_transform.rs) | An example demonstrating how to translate, rotate and scale UI elements.
 [UI Z-Index](../examples/ui/z_index.rs) | Demonstrates how to control the relative depth (z-position) of UI elements
 [Vertical Slider](../examples/ui/vertical_slider.rs) | Simple example showing vertical and horizontal slider widgets with snap behavior and value labels
-[Viewport Debug](../examples/ui/viewport_debug.rs) | An example for debugging viewport coordinates
 [Viewport Node](../examples/ui/viewport_node.rs) | Demonstrates how to create a viewport node with picking support
 [Virtual Keyboard](../examples/ui/virtual_keyboard.rs) | Example demonstrating a virtual keyboard widget
 [Window Fallthrough](../examples/ui/window_fallthrough.rs) | Illustrates how to access `winit::window::Window`'s `hittest` functionality.
@@ -623,7 +623,6 @@ Example | Description
 --- | ---
 [Clear Color](../examples/window/clear_color.rs) | Creates a solid color window
 [Custom Cursor Image](../examples/window/custom_cursor_image.rs) | Demonstrates creating an animated custom cursor from an image
-[Custom User Event](../examples/window/custom_user_event.rs) | Handles custom user events within the event loop
 [Low Power](../examples/window/low_power.rs) | Demonstrates settings to reduce power use for bevy applications
 [Monitor info](../examples/window/monitor_info.rs) | Displays information about available monitors (displays).
 [Multiple Windows](../examples/window/multiple_windows.rs) | Demonstrates creating multiple windows, and rendering to them

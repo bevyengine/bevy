@@ -172,14 +172,17 @@ where
             input: SystemIn<S>,
             world: &mut PrivateUnsafeWorldCell,
         ) -> Result<S::Out, RunSystemError> {
+            #![deny(unsafe_op_in_unsafe_fn)]
+
             // SAFETY: see comment on `Func::combine` call
             match (|| unsafe {
                 system.validate_param_unsafe(world.0)?;
                 system.run_unsafe(input, world.0)
             })() {
+                // let the world's default error handler handle the error if `Failed(_)`
                 Err(RunSystemError::Failed(err)) => {
-                    // let the world's default error handler handle the error if `Failed(_)`
-                    (world.0.default_error_handler())(
+                    // SAFETY: We registered access to DefaultErrorHandler in `initialize`.
+                    (unsafe { world.0.default_error_handler() })(
                         err,
                         ErrorContext::System {
                             name: system.name(),
@@ -203,12 +206,15 @@ where
             input,
             &mut PrivateUnsafeWorldCell(world),
             // SAFETY: The world accesses for both underlying systems have been registered,
-            // so the caller will guarantee that no other systems will conflict with `a` or `b`.
+            // so the caller will guarantee that no other systems will conflict with (`a` or `b`) and the `DefaultErrorHandler` resource.
             // If either system has `is_exclusive()`, then the combined system also has `is_exclusive`.
             // Since we require a `combine` to pass in a mutable reference to `world` and that's a private type
             // passed to a function as an unbound non-'static generic argument, they can never be called in parallel
             // or re-entrantly because that would require forging another instance of `PrivateUnsafeWorldCell`.
             // This means that the world accesses in the two closures will not conflict with each other.
+            // The closure's access to the DefaultErrorHandler does not
+            // conflict with any potential access to the DefaultErrorHandler by
+            // the systems since the closures are not run in parallel.
             |input, world| unsafe { run_system(&mut self.a, input, world) },
             // SAFETY: See the comment above.
             |input, world| unsafe { run_system(&mut self.b, input, world) },
@@ -249,6 +255,11 @@ where
         let mut a_access = self.a.initialize(world);
         let b_access = self.b.initialize(world);
         a_access.extend(b_access);
+
+        // We might need to read the default error handler after the component
+        // systems have run to report failures.
+        let error_resource = world.register_resource::<crate::error::DefaultErrorHandler>();
+        a_access.add_unfiltered_resource_read(error_resource);
         a_access
     }
 
@@ -486,11 +497,50 @@ where
 
 #[cfg(test)]
 mod tests {
+    use crate::error::DefaultErrorHandler;
+    use crate::prelude::*;
+    use bevy_utils::prelude::DebugName;
+
+    use crate::{
+        schedule::OrMarker,
+        system::{assert_system_does_not_conflict, CombinatorSystem},
+    };
+
+    #[test]
+    fn combinator_with_error_handler_access() {
+        fn my_system(_: ResMut<DefaultErrorHandler>) {}
+        fn a() -> bool {
+            true
+        }
+        fn b(_: ResMut<DefaultErrorHandler>) -> bool {
+            true
+        }
+        fn asdf(_: In<bool>) {}
+
+        let mut world = World::new();
+        world.insert_resource(DefaultErrorHandler::default());
+
+        let system = CombinatorSystem::<OrMarker, _, _>::new(
+            IntoSystem::into_system(a),
+            IntoSystem::into_system(b),
+            DebugName::borrowed("a OR b"),
+        );
+
+        // `system` should not conflict with itself by mutably accessing the error handler resource.
+        assert_system_does_not_conflict(system.clone());
+
+        let mut schedule = Schedule::default();
+        schedule.add_systems((my_system, system.pipe(asdf)));
+        schedule.initialize(&mut world).unwrap();
+
+        // `my_system` should conflict with the combinator system because the combinator reads the error handler resource.
+        assert!(!schedule.graph().conflicting_systems().is_empty());
+
+        schedule.run(&mut world);
+    }
 
     #[test]
     fn exclusive_system_piping_is_possible() {
-        use crate::prelude::*;
-
         fn my_exclusive_system(_world: &mut World) -> u32 {
             1
         }

@@ -34,7 +34,12 @@ use bevy_app::{App, Plugin, PostStartup, PreUpdate};
 use bevy_ecs::{
     entity::Entities, prelude::*, query::QueryData, system::SystemParam, traversal::Traversal,
 };
-use bevy_input::{gamepad::GamepadButtonChangedEvent, keyboard::KeyboardInput, mouse::MouseWheel};
+#[cfg(feature = "gamepad")]
+use bevy_input::gamepad::GamepadButtonChangedEvent;
+#[cfg(feature = "keyboard")]
+use bevy_input::keyboard::KeyboardInput;
+#[cfg(feature = "mouse")]
+use bevy_input::mouse::MouseWheel;
 use bevy_window::{PrimaryWindow, Window};
 use core::fmt::Debug;
 
@@ -221,8 +226,11 @@ impl Plugin for InputDispatchPlugin {
             .add_systems(
                 PreUpdate,
                 (
+                    #[cfg(feature = "keyboard")]
                     dispatch_focused_input::<KeyboardInput>,
+                    #[cfg(feature = "gamepad")]
                     dispatch_focused_input::<GamepadButtonChangedEvent>,
+                    #[cfg(feature = "mouse")]
                     dispatch_focused_input::<MouseWheel>,
                 )
                     .in_set(InputFocusSystems::Dispatch),

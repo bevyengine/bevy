@@ -691,6 +691,21 @@ libm = ["bevy_internal/libm"]
 # Enables use of browser APIs. Note this is currently only applicable on `wasm32` architectures.
 web = ["bevy_internal/web"]
 
+# Mouse support. Automatically enabled by `bevy_window`.
+mouse = ["bevy_internal/mouse"]
+
+# Keyboard support. Automatically enabled by `bevy_window`.
+keyboard = ["bevy_internal/keyboard"]
+
+# Gamepad support. Automatically enabled by `bevy_gilrs`.
+gamepad = ["bevy_internal/gamepad"]
+
+# Touch support. Automatically enabled by `bevy_window`.
+touch = ["bevy_internal/touch"]
+
+# Gestures support. Automatically enabled by `bevy_window`.
+gestures = ["bevy_internal/gestures"]
+
 # Enable hotpatching of Bevy systems
 hotpatching = ["bevy_internal/hotpatching"]
 
@@ -3493,6 +3508,17 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
+name = "font_weights"
+path = "examples/ui/font_weights.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.font_weights]
+name = "Font Weights"
+description = "Demonstrates how to use font weights."
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "window_fallthrough"
 path = "examples/ui/window_fallthrough.rs"
 doc-scrape-examples = true
@@ -3827,17 +3853,6 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
-name = "viewport_debug"
-path = "examples/ui/viewport_debug.rs"
-doc-scrape-examples = true
-
-[package.metadata.example.viewport_debug]
-name = "Viewport Debug"
-description = "An example for debugging viewport coordinates"
-category = "UI (User Interface)"
-wasm = false
-
-[[example]]
 name = "viewport_node"
 path = "examples/ui/viewport_node.rs"
 doc-scrape-examples = true
@@ -3869,17 +3884,6 @@ required-features = ["custom_cursor"]
 [package.metadata.example.custom_cursor_image]
 name = "Custom Cursor Image"
 description = "Demonstrates creating an animated custom cursor from an image"
-category = "Window"
-wasm = true
-
-[[example]]
-name = "custom_user_event"
-path = "examples/window/custom_user_event.rs"
-doc-scrape-examples = true
-
-[package.metadata.example.custom_user_event]
-name = "Custom User Event"
-description = "Handles custom user events within the event loop"
 category = "Window"
 wasm = true
 
@@ -4691,7 +4695,6 @@ rustdoc-args = [
   "docs-rs/trait-tags.html",
 ]
 all-features = true
-cargo-args = ["-Zunstable-options", "-Zrustdoc-scrape-examples"]
 
 [[example]]
 name = "monitor_info"

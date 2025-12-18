@@ -20,13 +20,14 @@ use bevy_ui::{
     widget::{Text, TextUiWriter},
     FlexDirection, GlobalZIndex, Node, PositionType, Val,
 };
+#[cfg(not(all(target_arch = "wasm32", not(feature = "webgpu"))))]
 use bevy_ui_render::prelude::MaterialNode;
 use core::time::Duration;
 use tracing::warn;
 
-use crate::frame_time_graph::{
-    FrameTimeGraphConfigUniform, FrameTimeGraphPlugin, FrametimeGraphMaterial,
-};
+#[cfg(not(all(target_arch = "wasm32", not(feature = "webgpu"))))]
+use crate::frame_time_graph::FrameTimeGraphConfigUniform;
+use crate::frame_time_graph::{FrameTimeGraphPlugin, FrametimeGraphMaterial};
 
 /// [`GlobalZIndex`] used to render the fps overlay.
 ///
@@ -163,8 +164,14 @@ struct FrameTimeGraph;
 fn setup(
     mut commands: Commands,
     overlay_config: Res<FpsOverlayConfig>,
-    mut frame_time_graph_materials: ResMut<Assets<FrametimeGraphMaterial>>,
-    mut buffers: ResMut<Assets<ShaderStorageBuffer>>,
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(feature = "webgpu")),
+        expect(unused, reason = "Unused variables in wasm32 without webgpu feature")
+    )]
+    (mut frame_time_graph_materials, mut buffers): (
+        ResMut<Assets<FrametimeGraphMaterial>>,
+        ResMut<Assets<ShaderStorageBuffer>>,
+    ),
 ) {
     commands
         .spawn((

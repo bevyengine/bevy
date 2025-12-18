@@ -2165,7 +2165,7 @@ impl Mesh {
                 min = Vec3::min(min, v);
                 max = Vec3::max(max, v);
             }
-            self.final_aabb = Some(Aabb3d::new(min, max));
+            self.final_aabb = Some(Aabb3d::from_min_max(min, max));
         }
 
         Ok(Self {
@@ -2523,6 +2523,7 @@ mod tests {
     use crate::mesh::{Indices, MeshWindingInvertError, VertexAttributeValues};
     use crate::PrimitiveTopology;
     use bevy_asset::RenderAssetUsages;
+    use bevy_math::bounding::Aabb3d;
     use bevy_math::primitives::Triangle3d;
     use bevy_math::Vec3;
     use bevy_transform::components::Transform;
@@ -2875,6 +2876,29 @@ mod tests {
                 },
             ],
             mesh.triangles().unwrap().collect::<Vec<Triangle3d>>()
+        );
+    }
+
+    #[test]
+    fn take_gpu_data_calculates_aabb() {
+        let mut mesh = Mesh::new(
+            PrimitiveTopology::TriangleList,
+            RenderAssetUsages::default(),
+        );
+        mesh.insert_attribute(
+            Mesh::ATTRIBUTE_POSITION,
+            vec![
+                [-0.5, 0., 0.],
+                [-1., 0., 0.],
+                [-1., -1., 0.],
+                [-0.5, -1., 0.],
+            ],
+        );
+        mesh.insert_indices(Indices::U32(vec![0, 1, 2, 2, 3, 0]));
+        mesh = mesh.take_gpu_data().unwrap();
+        assert_eq!(
+            mesh.final_aabb,
+            Some(Aabb3d::from_min_max([-1., -1., 0.], [-0.5, 0., 0.]))
         );
     }
 
