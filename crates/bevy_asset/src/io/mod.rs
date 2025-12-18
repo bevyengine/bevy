@@ -125,7 +125,28 @@ pub trait Reader: AsyncRead + Unpin + Send + Sync {
     }
 
     /// Casts this [`Reader`] as a [`SeekableReader`], which layers on [`AsyncSeek`] functionality.
-    /// Returns [`Some`] if this [`Reader`] supports seeking. Otherwise returns [`None`].
+    /// Returns [`Ok`] if this [`Reader`] supports seeking. Otherwise returns [`Err`].
+    ///
+    /// Implementers of [`Reader`] are highly encouraged to provide this functionality, as it makes the
+    /// reader compatible with "seeking" [`AssetLoader`](crate::AssetLoader) implementations.
+    ///
+    /// [`AssetLoader`](crate::AssetLoader) implementations that call this are encouraged to provide fallback behavior
+    /// when it fails, such as reading into a seek-able [`Vec`] (or [`AsyncSeek`]-able [`VecReader`]):
+    ///
+    /// ```
+    /// # use bevy_asset::io::{VecReader, Reader, AsyncSeekExt};
+    /// # use std::{io::SeekFrom, vec::Vec};
+    /// # let mut vec_reader = VecReader::new(Vec::new());
+    /// # let reader: &mut dyn Reader = &mut vec_reader;
+    /// let reader = match reader.seekable() {
+    ///     Ok(seek) => seek,
+    ///     Err(_) => {
+    ///         reader.read_to_end(&mut data.bytes).await.unwrap();
+    ///         &mut data
+    ///     }
+    /// };
+    /// reader.seek(SeekFrom::Start(10)).await.unwrap();
+    /// ```
     fn seekable(&mut self) -> Result<&mut dyn SeekableReader, ReaderNotSeekableError>;
 }
 
