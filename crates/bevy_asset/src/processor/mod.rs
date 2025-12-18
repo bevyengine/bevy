@@ -48,7 +48,6 @@ use crate::{
     io::{
         AssetReaderError, AssetSource, AssetSourceBuilders, AssetSourceEvent, AssetSourceId,
         AssetSources, AssetWriterError, ErasedAssetReader, MissingAssetSourceError,
-        ReaderRequiredFeatures,
     },
     meta::{
         get_asset_hash, get_full_asset_hash, AssetAction, AssetActionMinimal, AssetHash, AssetMeta,
@@ -458,7 +457,6 @@ impl AssetProcessor {
         let reader = source.reader();
         match reader.read_meta_bytes(path.path()).await {
             Ok(_) => return Err(WriteDefaultMetaError::MetaAlreadyExists),
-            Err(AssetReaderError::UnsupportedFeature(feature)) => panic!("reading the meta file never requests a feature, but the following feature is unsupported: {feature}"),
             Err(AssetReaderError::NotFound(_)) => {
                 // The meta file couldn't be found so just fall through.
             }
@@ -559,10 +557,6 @@ impl AssetProcessor {
                     }
                     Err(err) => {
                         match err {
-                            // There is never a reason for a path check to return an
-                            // `UnsupportedFeature` error. This must be an incorrectly programmed
-                            // `AssetReader`, so just panic to make this clearly unsupported.
-                            AssetReaderError::UnsupportedFeature(feature) => panic!("checking whether a path is a file or folder resulted in unsupported feature: {feature}"),
                             AssetReaderError::NotFound(_) => {
                                 // if the path is not found, a processed version does not exist
                             }
@@ -634,12 +628,6 @@ impl AssetProcessor {
                 }
             }
             Err(err) => match err {
-                // There is never a reason for a directory read to return an `UnsupportedFeature`
-                // error. This must be an incorrectly programmed `AssetReader`, so just panic to
-                // make this clearly unsupported.
-                AssetReaderError::UnsupportedFeature(feature) => {
-                    panic!("reading a directory resulted in unsupported feature: {feature}")
-                }
                 AssetReaderError::NotFound(_err) => {
                     // The processed folder does not exist. No need to update anything
                 }
@@ -1110,10 +1098,7 @@ impl AssetProcessor {
         let new_hash = {
             // Create a reader just for computing the hash. Keep this scoped here so that we drop it
             // as soon as the hash is computed.
-            let mut reader_for_hash = reader
-                .read(path, ReaderRequiredFeatures::default())
-                .await
-                .map_err(reader_err)?;
+            let mut reader_for_hash = reader.read(path).await.map_err(reader_err)?;
 
             get_asset_hash(&meta_bytes, &mut reader_for_hash)
                 .await
@@ -1172,7 +1157,6 @@ impl AssetProcessor {
             // `AssetAction::Process` (which includes its settings).
             let settings = source_meta.process_settings().unwrap();
 
-            let reader_features = processor.reader_required_features(settings)?;
             // Create a reader just for the actual process. Note: this means that we're performing
             // two reads for the same file (but we avoid having to load the whole file into memory).
             // For some sources (like local file systems), this is not a big deal, but for other
@@ -1182,10 +1166,7 @@ impl AssetProcessor {
             // it's not likely to be too big a deal. If in the future, we decide we want to avoid
             // this repeated read, we could "ask" the asset source if it prefers avoiding repeated
             // reads or not.
-            let reader_for_process = reader
-                .read(path, reader_features)
-                .await
-                .map_err(reader_err)?;
+            let reader_for_process = reader.read(path).await.map_err(reader_err)?;
 
             let mut writer = processed_writer.write(path).await.map_err(writer_err)?;
             let mut processed_meta = {
@@ -1225,10 +1206,7 @@ impl AssetProcessor {
                 .map_err(writer_err)?;
         } else {
             // See the reasoning for processing why it's ok to do a second read here.
-            let mut reader_for_copy = reader
-                .read(path, ReaderRequiredFeatures::default())
-                .await
-                .map_err(reader_err)?;
+            let mut reader_for_copy = reader.read(path).await.map_err(reader_err)?;
             let mut writer = processed_writer.write(path).await.map_err(writer_err)?;
             futures_lite::io::copy(&mut reader_for_copy, &mut writer)
                 .await

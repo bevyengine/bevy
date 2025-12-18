@@ -26,7 +26,7 @@ use crate::{
     io::{
         memory::{Dir, MemoryAssetReader, MemoryAssetWriter},
         AssetReader, AssetReaderError, AssetSourceBuilder, AssetSourceBuilders, AssetSourceEvent,
-        AssetSourceId, AssetWatcher, PathStream, Reader, ReaderRequiredFeatures,
+        AssetSourceId, AssetWatcher, PathStream, Reader,
     },
     processor::{
         AssetProcessor, GetProcessorError, LoadTransformAndSave, LogEntry, Process, ProcessContext,
@@ -195,13 +195,9 @@ impl<R: AssetReader> LockGatedReader<R> {
 }
 
 impl<R: AssetReader> AssetReader for LockGatedReader<R> {
-    async fn read<'a>(
-        &'a self,
-        path: &'a Path,
-        required_features: ReaderRequiredFeatures,
-    ) -> Result<impl Reader + 'a, AssetReaderError> {
+    async fn read<'a>(&'a self, path: &'a Path) -> Result<impl Reader + 'a, AssetReaderError> {
         let _guard = self.gate.read().await;
-        self.reader.read(path, required_features).await
+        self.reader.read(path).await
     }
 
     async fn read_meta<'a>(&'a self, path: &'a Path) -> Result<impl Reader + 'a, AssetReaderError> {
