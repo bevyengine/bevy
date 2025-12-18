@@ -149,10 +149,11 @@ impl SphereMeshBuilder {
             generated.get_indices(i, &mut indices_u32);
         }
 
-        let indices = if points.len() > u16::MAX as usize + 1 {
-            Indices::U32(indices_u32)
-        } else {
+        // Index value < [`u16::MAX`]. primitive restart value needs to be skipped.
+        let indices = if points.len() <= u16::MAX as usize {
             Indices::U16(indices_u32.iter().map(|i| *i as u16).collect())
+        } else {
+            Indices::U32(indices_u32)
         };
 
         Ok(Mesh::new(
