@@ -44,7 +44,7 @@ pub(crate) fn extract_linegizmos(
     >,
 ) {
     let mut values = Vec::with_capacity(*previous_len);
-    
+
     #[cfg_attr(
         not(any(feature = "bevy_pbr", feature = "bevy_sprite_render")),
         expect(
