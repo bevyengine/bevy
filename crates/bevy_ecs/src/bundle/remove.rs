@@ -142,11 +142,20 @@ impl<'w> BundleRemover<'w> {
             // SAFETY: We only keep access to archetype/bundle data.
             let mut deferred_world = self.world.into_deferred();
             let bundle_components_in_archetype = || {
-                self.bundle_info
-                    .as_ref()
+                // SAFETY:
+                // * Pointer was created from a reference in `Self::new_with_id` and so is `dereferencable`.
+                // * `Self`'s lifetime is tied to an exclusive reference to `World` and it does not make structural
+                // changes to the world, so the data is valid for the lifetime of `Self`
+                let (bundle_info, old_archetype) =
+                    (self.bundle_info.as_ref(), self.old_archetype.as_ref());
+                bundle_info
                     .iter_explicit_components()
-                    .filter(|component_id| self.old_archetype.as_ref().contains(*component_id))
+                    .filter(|component_id| old_archetype.contains(*component_id))
             };
+            // SAFETY:
+            // * Pointer was created from a reference in `Self::new_with_id` and so is `dereferencable`.
+            // * `Self`'s lifetime is tied to an exclusive reference to `World` and it does not make structural
+            // changes to the world, so the data is valid for the lifetime of `Self`
             if self.old_archetype.as_ref().has_replace_observer() {
                 let components = bundle_components_in_archetype().collect::<Vec<_>>();
                 // SAFETY: the REPLACE event_key corresponds to the Replace event's type
@@ -160,12 +169,20 @@ impl<'w> BundleRemover<'w> {
                 );
             }
             deferred_world.trigger_on_replace(
+                // SAFETY:
+                // * Pointer was created from a reference in `Self::new_with_id` and so is `dereferencable`.
+                // * `Self`'s lifetime is tied to an exclusive reference to `World` and it does not make structural
+                // changes to the world, so the data is valid for the lifetime of `Self`
                 self.old_archetype.as_ref(),
                 entity,
                 bundle_components_in_archetype(),
                 caller,
                 self.relationship_hook_mode,
             );
+            // SAFETY:
+            // * Pointer was created from a reference in `Self::new_with_id` and so is `dereferencable`.
+            // * `Self`'s lifetime is tied to an exclusive reference to `World` and it does not make structural
+            // changes to the world, so the data is valid for the lifetime of `Self`
             if self.old_archetype.as_ref().has_remove_observer() {
                 let components = bundle_components_in_archetype().collect::<Vec<_>>();
                 // SAFETY: the REMOVE event_key corresponds to the Remove event's type
@@ -179,6 +196,10 @@ impl<'w> BundleRemover<'w> {
                 );
             }
             deferred_world.trigger_on_remove(
+                // SAFETY:
+                // * Pointer was created from a reference in `Self::new_with_id` and so is `dereferencable`.
+                // * `Self`'s lifetime is tied to an exclusive reference to `World` and it does not make structural
+                // changes to the world, so the data is valid for the lifetime of `Self`
                 self.old_archetype.as_ref(),
                 entity,
                 bundle_components_in_archetype(),
@@ -196,18 +217,34 @@ impl<'w> BundleRemover<'w> {
                 // SAFETY: There is no conflicting access for this scope.
                 .map(|(old, _)| unsafe { &mut *old.as_ptr() }),
             &world.components,
-            self.bundle_info.as_ref().explicit_components(),
+            // SAFETY:
+            // * Pointer was created from a reference in `Self::new_with_id` and so is `dereferencable`.
+            // * `Self`'s lifetime is tied to an exclusive reference to `World` and it does not make structural
+            // changes to the world, so the data is valid for the lifetime of `Self`
+            unsafe { self.bundle_info.as_ref() }.explicit_components(),
         );
 
         // Handle sparse set removes
-        for component_id in self.bundle_info.as_ref().iter_explicit_components() {
-            if self.old_archetype.as_ref().contains(component_id) {
+        // SAFETY:
+        // * Pointer was created from a reference in `Self::new_with_id` and so is `dereferencable`.
+        // * `Self`'s lifetime is tied to an exclusive reference to `World` and it does not make structural
+        // changes to the world, so the data is valid for the lifetime of `Self`
+        for component_id in unsafe { self.bundle_info.as_ref() }.iter_explicit_components() {
+            // SAFETY:
+            // * Pointer was created from a reference in `Self::new_with_id` and so is `dereferencable`.
+            // * `Self`'s lifetime is tied to an exclusive reference to `World` and it does not make structural
+            // changes to the world, so the data is valid for the lifetime of `Self`
+            if unsafe { self.old_archetype.as_ref() }.contains(component_id) {
                 world.removed_components.write(component_id, entity);
 
                 // Make sure to drop components stored in sparse sets.
                 // Dense components are dropped later in `move_to_and_drop_missing_unchecked`.
                 if let Some(StorageType::SparseSet) =
-                    self.old_archetype.as_ref().get_storage_type(component_id)
+                    // SAFETY:
+                    // * Pointer was created from a reference in `Self::new_with_id` and so is `dereferencable`.
+                    // * `Self`'s lifetime is tied to an exclusive reference to `World` and it does not make structural
+                    // changes to the world, so the data is valid for the lifetime of `Self`
+                    unsafe { self.old_archetype.as_ref() }.get_storage_type(component_id)
                 {
                     world
                         .storages
@@ -222,10 +259,12 @@ impl<'w> BundleRemover<'w> {
         }
 
         // Handle archetype change
-        let remove_result = self
-            .old_archetype
-            .as_mut()
-            .swap_remove(location.archetype_row);
+        let remove_result =
+            // SAFETY:
+            // * Pointer was created from a reference in `Self::new_with_id` and so is `dereferencable`.
+            // * `Self`'s lifetime is tied to an exclusive reference to `World` and it does not make structural
+            // changes to the world, so the data is valid for the lifetime of `Self`
+            unsafe { self.old_archetype.as_mut() }.swap_remove(location.archetype_row);
         // if an entity was moved into this entity's archetype row, update its archetype row
         if let Some(swapped_entity) = remove_result.swapped_entity {
             let swapped_location = world.entities.get_spawned(swapped_entity).unwrap();
@@ -244,28 +283,36 @@ impl<'w> BundleRemover<'w> {
         // Handle table change
         let new_location = if let Some((mut old_table, mut new_table)) = self.old_and_new_table {
             let move_result = if needs_drop {
+                // SAFETY:
+                // * Pointer was created from a reference in `Self::new_with_id` and so is `dereferencable`.
+                // * `Self`'s lifetime is tied to an exclusive reference to `World` and it does not make structural
+                // changes to the world, so the data is valid for the lifetime of `Self`
+                let old_table = unsafe { old_table.as_mut() };
+
                 // SAFETY: old_table_row exists
                 unsafe {
                     old_table
-                        .as_mut()
                         .move_to_and_drop_missing_unchecked(location.table_row, new_table.as_mut())
                 }
             } else {
+                // SAFETY:
+                // * Pointer was created from a reference in `Self::new_with_id` and so is `dereferencable`.
+                // * `Self`'s lifetime is tied to an exclusive reference to `World` and it does not make structural
+                // changes to the world, so the data is valid for the lifetime of `Self`
+                let (old_table, new_table) = unsafe { (old_table.as_mut(), new_table.as_mut()) };
                 // SAFETY: old_table_row exists
                 unsafe {
-                    old_table.as_mut().move_to_and_forget_missing_unchecked(
-                        location.table_row,
-                        new_table.as_mut(),
-                    )
+                    old_table.move_to_and_forget_missing_unchecked(location.table_row, new_table)
                 }
             };
 
+            // SAFETY:
+            // * Pointer was created from a reference in `Self::new_with_id` and so is `dereferencable`.
+            // * `Self`'s lifetime is tied to an exclusive reference to `World` and it does not make structural
+            // changes to the world, so the data is valid for the lifetime of `Self`
+            let new_archetype = unsafe { self.new_archetype.as_mut() };
             // SAFETY: move_result.new_row is a valid position in new_archetype's table
-            let new_location = unsafe {
-                self.new_archetype
-                    .as_mut()
-                    .allocate(entity, move_result.new_row)
-            };
+            let new_location = unsafe { new_archetype.allocate(entity, move_result.new_row) };
 
             // if an entity was moved into this entity's table row, update its table row
             if let Some(swapped_entity) = move_result.swapped_entity {
@@ -286,10 +333,13 @@ impl<'w> BundleRemover<'w> {
 
             new_location
         } else {
+            // SAFETY:
+            // * Pointer was created from a reference in `Self::new_with_id` and so is `dereferencable`.
+            // * `Self`'s lifetime is tied to an exclusive reference to `World` and it does not make structural
+            // changes to the world, so the data is valid for the lifetime of `Self`
+            let new_archetype = unsafe { self.new_archetype.as_mut() };
             // The tables are the same
-            self.new_archetype
-                .as_mut()
-                .allocate(entity, location.table_row)
+            new_archetype.allocate(entity, location.table_row)
         };
 
         // SAFETY: The entity is valid and has been moved to the new location already.
