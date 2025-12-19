@@ -144,7 +144,7 @@ impl SerializedImage {
                 .map(SerializedTextureViewDescriptor::into_texture_view_descriptor),
             asset_usage: RenderAssetUsages::RENDER_WORLD,
             copy_on_resize: false,
-            is_extracted_to_render_world: true,
+            is_extracted_to_render_world: false,
         }
     }
 }

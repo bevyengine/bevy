@@ -32,13 +32,16 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<CustomMaterial>>,
 ) {
-    let mut mesh = Mesh::from(Cuboid::default());
-    // Sets the custom attribute
-    mesh.extractable_data_mut().unwrap().insert_attribute(
-        ATTRIBUTE_BLEND_COLOR,
-        // The cube mesh has 24 vertices (6 faces, 4 vertices per face), so we insert one BlendColor for each
-        vec![[1.0, 0.0, 0.0, 1.0]; 24],
-    );
+    let mesh = Mesh::from(Cuboid::default())
+        .with_extractable_data(|d| {
+            // Sets the custom attribute
+            d.with_inserted_attribute(
+                ATTRIBUTE_BLEND_COLOR,
+                // The cube mesh has 24 vertices (6 faces, 4 vertices per face), so we insert one BlendColor for each
+                vec![[1.0, 0.0, 0.0, 1.0]; 24],
+            )
+        })
+        .unwrap();
 
     // cube
     commands.spawn((

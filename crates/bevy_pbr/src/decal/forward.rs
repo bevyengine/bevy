@@ -29,13 +29,17 @@ impl Plugin for ForwardDecalPlugin {
     fn build(&self, app: &mut App) {
         load_shader_library!(app, "forward_decal.wgsl");
 
-        let mesh = app.world_mut().resource_mut::<Assets<Mesh>>().add({
-            let mut mesh = Rectangle::from_size(Vec2::ONE).mesh().build();
-            let m = mesh.extractable_data_mut().unwrap();
-            m.rotate_by(Quat::from_rotation_arc(Vec3::Z, Vec3::Y));
-            m.generate_tangents().unwrap();
-            mesh
-        });
+        let mesh = app.world_mut().resource_mut::<Assets<Mesh>>().add(
+            Rectangle::from_size(Vec2::ONE)
+                .mesh()
+                .build()
+                .with_extractable_data(|d| {
+                    d.rotated_by(Quat::from_rotation_arc(Vec3::Z, Vec3::Y))
+                        .with_generated_tangents()
+                        .unwrap()
+                })
+                .unwrap(),
+        );
 
         app.insert_resource(ForwardDecalMesh(mesh));
 
