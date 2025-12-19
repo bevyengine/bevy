@@ -618,6 +618,18 @@ pub struct Image {
 impl ExtractableAsset for Image {
     type Data = Option<Vec<u8>>;
 
+    fn with_extractable_data(
+        mut self,
+        f: impl FnOnce(Self::Data) -> Self::Data,
+    ) -> Result<Self, bevy_asset::ExtractableAssetAccessError> {
+        if self.is_extracted_to_render_world {
+            Err(bevy_asset::ExtractableAssetAccessError::ExtractedToRenderWorld)
+        } else {
+            self.data = f(self.data.take());
+            Ok(self)
+        }
+    }
+
     fn extractable_data_ref(&self) -> Result<&Self::Data, bevy_asset::ExtractableAssetAccessError> {
         if self.is_extracted_to_render_world {
             Err(bevy_asset::ExtractableAssetAccessError::ExtractedToRenderWorld)

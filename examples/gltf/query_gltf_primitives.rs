@@ -4,6 +4,7 @@
 use std::f32::consts::PI;
 
 use bevy::{gltf::GltfMaterialName, mesh::VertexAttributeValues, prelude::*};
+use bevy_asset::ExtractableAsset;
 
 fn main() {
     App::new()
@@ -35,8 +36,10 @@ fn find_top_material_and_mesh(
             }
 
             if let Some(mesh) = meshes.get_mut(mesh_handle)
-                && let Some(VertexAttributeValues::Float32x3(positions)) =
-                    mesh.attribute_mut(Mesh::ATTRIBUTE_POSITION)
+                && let Some(VertexAttributeValues::Float32x3(positions)) = mesh
+                    .extractable_data_mut()
+                    .unwrap()
+                    .attribute_mut(Mesh::ATTRIBUTE_POSITION)
             {
                 for position in positions {
                     *position = (

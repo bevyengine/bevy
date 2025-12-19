@@ -3,11 +3,11 @@
 //! and how to change the UV mapping at run-time.
 
 use bevy::{
-    asset::RenderAssetUsages,
-    mesh::{Indices, VertexAttributeValues},
+    mesh::{Indices, MeshExtractableData, VertexAttributeValues},
     prelude::*,
     render::render_resource::PrimitiveTopology,
 };
+use bevy_asset::ExtractableAsset;
 
 // Define a "marker" component to mark the custom mesh. Marker components are often used in Bevy for
 // filtering entities in queries with `With`, they're usually not queried directly since they don't
@@ -105,7 +105,7 @@ fn input_handler(
 #[rustfmt::skip]
 fn create_cube_mesh() -> Mesh {
     // Keep the mesh data accessible in future frames to be able to mutate it in toggle_texture.
-    Mesh::new(PrimitiveTopology::TriangleList, RenderAssetUsages::MAIN_WORLD | RenderAssetUsages::RENDER_WORLD)
+    Mesh::from(MeshExtractableData::new(PrimitiveTopology::TriangleList)
     .with_inserted_attribute(
         Mesh::ATTRIBUTE_POSITION,
         // Each array is an [x, y, z] coordinate in local space.
@@ -247,13 +247,17 @@ fn create_cube_mesh() -> Mesh {
         12,13,15 , 13,14,15, // left (-x)
         16,19,17 , 17,19,18, // back (+z)
         20,21,23 , 21,22,23, // forward (-z)
-    ]))
+    ])))
 }
 
 // Function that changes the UV mapping of the mesh, to apply the other texture.
 fn toggle_texture(mesh_to_change: &mut Mesh) {
     // Get a mutable reference to the values of the UV attribute, so we can iterate over it.
-    let uv_attribute = mesh_to_change.attribute_mut(Mesh::ATTRIBUTE_UV_0).unwrap();
+    let uv_attribute = mesh_to_change
+        .extractable_data_mut()
+        .unwrap()
+        .attribute_mut(Mesh::ATTRIBUTE_UV_0)
+        .unwrap();
     // The format of the UV coordinates should be Float32x2.
     let VertexAttributeValues::Float32x2(uv_attribute) = uv_attribute else {
         panic!("Unexpected vertex format, expected Float32x2.");

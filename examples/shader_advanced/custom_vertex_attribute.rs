@@ -10,6 +10,7 @@ use bevy::{
     },
     shader::ShaderRef,
 };
+use bevy_asset::ExtractableAsset;
 
 /// This example uses a shader source file from the assets subdirectory
 const SHADER_ASSET_PATH: &str = "shaders/custom_vertex_attribute.wgsl";
@@ -32,13 +33,13 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<CustomMaterial>>,
 ) {
-    let mesh = Mesh::from(Cuboid::default())
-        // Sets the custom attribute
-        .with_inserted_attribute(
-            ATTRIBUTE_BLEND_COLOR,
-            // The cube mesh has 24 vertices (6 faces, 4 vertices per face), so we insert one BlendColor for each
-            vec![[1.0, 0.0, 0.0, 1.0]; 24],
-        );
+    let mut mesh = Mesh::from(Cuboid::default());
+    // Sets the custom attribute
+    mesh.extractable_data_mut().unwrap().insert_attribute(
+        ATTRIBUTE_BLEND_COLOR,
+        // The cube mesh has 24 vertices (6 faces, 4 vertices per face), so we insert one BlendColor for each
+        vec![[1.0, 0.0, 0.0, 1.0]; 24],
+    );
 
     // cube
     commands.spawn((

@@ -189,6 +189,7 @@ impl From<Cone> for Mesh {
 #[cfg(test)]
 mod tests {
     use crate::{Mesh, MeshBuilder, Meshable, VertexAttributeValues};
+    use bevy_asset::ExtractableAsset;
     use bevy_math::{primitives::Cone, Vec2};
 
     /// Rounds floats to handle floating point error in tests.
@@ -212,6 +213,7 @@ mod tests {
         .mesh()
         .resolution(4)
         .build();
+        let mesh = mesh.extractable_data_mut().unwrap();
 
         let Some(VertexAttributeValues::Float32x3(mut positions)) =
             mesh.remove_attribute(Mesh::ATTRIBUTE_POSITION)

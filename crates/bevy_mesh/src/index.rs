@@ -8,7 +8,7 @@ use thiserror::Error;
 use wgpu_types::IndexFormat;
 
 /// A disjunction of four iterators. This is necessary to have a well-formed type for the output
-/// of [`Mesh::triangles`](super::Mesh::triangles), which produces iterators of four different types depending on the
+/// of [`MeshExtractableData::triangles`](crate::MeshExtractableData::triangles), which produces iterators of four different types depending on the
 /// branch taken.
 pub(crate) enum FourIterators<A, B, C, D> {
     First(A),

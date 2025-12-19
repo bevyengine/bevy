@@ -9,6 +9,7 @@ use bevy::{
     prelude::*,
     time::Stopwatch,
 };
+use bevy_asset::ExtractableAsset;
 
 /// The initial position of the camera.
 const CAMERA_INITIAL_POSITION: Vec3 = vec3(-0.4, 0.0, 0.0);
@@ -115,7 +116,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, app_status: Res
         Mesh3d(
             asset_server.add(
                 Mesh::from(Sphere::new(0.1))
-                    .with_generated_tangents()
+                    .with_extractable_data(|d| d.with_generated_tangents().unwrap())
                     .unwrap(),
             ),
         ),

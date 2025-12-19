@@ -1521,6 +1521,7 @@ where
 
 #[cfg(test)]
 mod tests {
+    use bevy_asset::ExtractableAsset;
     use bevy_math::{prelude::Annulus, primitives::RegularPolygon, FloatOrd};
     use bevy_platform::collections::HashSet;
 
@@ -1537,6 +1538,7 @@ mod tests {
     #[test]
     fn test_annulus() {
         let mesh = Annulus::new(1.0, 1.2).mesh().resolution(16).build();
+        let mesh = mesh.extractable_data_ref().unwrap();
 
         assert_eq!(
             32,
@@ -1565,6 +1567,7 @@ mod tests {
     #[test]
     fn test_regular_polygon() {
         let mut mesh = Mesh::from(RegularPolygon::new(7.0, 4));
+        let mesh = mesh.extractable_data_mut().unwrap();
 
         let Some(VertexAttributeValues::Float32x3(mut positions)) =
             mesh.remove_attribute(Mesh::ATTRIBUTE_POSITION)

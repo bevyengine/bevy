@@ -133,7 +133,7 @@ impl MorphWeights {
         })
     }
     /// The first child [`Mesh3d`](crate::Mesh3d) primitive controlled by these weights.
-    /// This can be used to look up metadata information such as [`Mesh::morph_target_names`].
+    /// This can be used to look up metadata information such as [`crate::MeshExtractableData::morph_target_names`].
     pub fn first_mesh(&self) -> Option<&Handle<Mesh>> {
         self.first_mesh.as_ref()
     }

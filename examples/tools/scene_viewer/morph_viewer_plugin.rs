@@ -10,6 +10,7 @@
 
 use crate::scene_viewer_plugin::SceneHandle;
 use bevy::prelude::*;
+use bevy_asset::ExtractableAsset;
 use std::fmt;
 
 const FONT_SIZE: f32 = 13.0;
@@ -260,7 +261,7 @@ fn detect_morphs(
         let target_names = weights
             .first_mesh()
             .and_then(|h| meshes.get(h))
-            .and_then(|m| m.morph_target_names());
+            .and_then(|m| m.extractable_data_ref().unwrap().morph_target_names());
         let targets = Target::new(name, weights.weights(), target_names, entity);
         detected.extend(targets);
     }

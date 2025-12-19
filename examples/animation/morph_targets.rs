@@ -3,6 +3,7 @@
 //! Also illustrates how to read morph target names in `name_morphs`.
 
 use bevy::{prelude::*, scene::SceneInstanceReady};
+use bevy_asset::ExtractableAsset;
 use std::f32::consts::PI;
 
 const GLTF_PATH: &str = "models/animated/MorphStressTest.gltf";
@@ -86,7 +87,7 @@ fn name_morphs(
         if let AssetEvent::<Mesh>::Added { id } = event
             && let Some(path) = asset_server.get_path(*id)
             && let Some(mesh) = meshes.get(*id)
-            && let Some(names) = mesh.morph_target_names()
+            && let Some(names) = mesh.extractable_data_ref().unwrap().morph_target_names()
         {
             info!("Morph target names for {path:?}:");
 

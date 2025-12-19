@@ -37,35 +37,45 @@ pub const VERTEX_ATTRIBUTE_BUFFER_ID: u64 = 10;
 /// `StandardMaterial` or `ColorMaterial`:
 ///
 /// ```
-/// # use bevy_mesh::{Mesh, Indices, PrimitiveTopology};
-/// # use bevy_asset::RenderAssetUsages;
+/// # use bevy_mesh::{Mesh, Indices, PrimitiveTopology, MeshExtractableData};
 /// fn create_simple_parallelogram() -> Mesh {
 ///     // Create a new mesh using a triangle list topology, where each set of 3 vertices composes a triangle.
-///     Mesh::new(PrimitiveTopology::TriangleList, RenderAssetUsages::default())
-///         // Add 4 vertices, each with its own position attribute (coordinate in
-///         // 3D space), for each of the corners of the parallelogram.
-///         .with_inserted_attribute(
-///             Mesh::ATTRIBUTE_POSITION,
-///             vec![[0.0, 0.0, 0.0], [1.0, 2.0, 0.0], [2.0, 2.0, 0.0], [1.0, 0.0, 0.0]]
-///         )
-///         // Assign a UV coordinate to each vertex.
-///         .with_inserted_attribute(
-///             Mesh::ATTRIBUTE_UV_0,
-///             vec![[0.0, 1.0], [0.5, 0.0], [1.0, 0.0], [0.5, 1.0]]
-///         )
-///         // Assign normals (everything points outwards)
-///         .with_inserted_attribute(
-///             Mesh::ATTRIBUTE_NORMAL,
-///             vec![[0.0, 0.0, 1.0], [0.0, 0.0, 1.0], [0.0, 0.0, 1.0], [0.0, 0.0, 1.0]]
-///         )
-///         // After defining all the vertices and their attributes, build each triangle using the
-///         // indices of the vertices that make it up in a counter-clockwise order.
-///         .with_inserted_indices(Indices::U32(vec![
-///             // First triangle
-///             0, 3, 1,
-///             // Second triangle
-///             1, 3, 2
-///         ]))
+///     Mesh::from(
+///         MeshExtractableData::new(PrimitiveTopology::TriangleList)
+///             // Add 4 vertices, each with its own position attribute (coordinate in
+///             // 3D space), for each of the corners of the parallelogram.
+///             .with_inserted_attribute(
+///                 Mesh::ATTRIBUTE_POSITION,
+///                 vec![
+///                     [0.0, 0.0, 0.0],
+///                     [1.0, 2.0, 0.0],
+///                     [2.0, 2.0, 0.0],
+///                     [1.0, 0.0, 0.0],
+///                 ],
+///             )
+///             // Assign a UV coordinate to each vertex.
+///             .with_inserted_attribute(
+///                 Mesh::ATTRIBUTE_UV_0,
+///                 vec![[0.0, 1.0], [0.5, 0.0], [1.0, 0.0], [0.5, 1.0]],
+///             )
+///             // Assign normals (everything points outwards)
+///             .with_inserted_attribute(
+///                 Mesh::ATTRIBUTE_NORMAL,
+///                 vec![
+///                     [0.0, 0.0, 1.0],
+///                     [0.0, 0.0, 1.0],
+///                     [0.0, 0.0, 1.0],
+///                     [0.0, 0.0, 1.0],
+///                 ],
+///             )
+///             // After defining all the vertices and their attributes, build each triangle using the
+///             // indices of the vertices that make it up in a counter-clockwise order.
+///             .with_inserted_indices(Indices::U32(vec![
+///                 // First triangle
+///                 0, 3, 1, // Second triangle
+///                 1, 3, 2,
+///             ])),
+///     )
 /// }
 /// ```
 ///
@@ -148,16 +158,31 @@ impl From<MeshExtractableData> for Mesh {
 
 impl ExtractableAsset for Mesh {
     type Data = MeshExtractableData;
+
+    fn with_extractable_data(
+        mut self,
+        f: impl FnOnce(Self::Data) -> Self::Data,
+    ) -> Result<Self, ExtractableAssetAccessError> {
+        let data = self
+            .extractable_data
+            .take()
+            .ok_or(ExtractableAssetAccessError::ExtractedToRenderWorld)?;
+        self.extractable_data = Some(f(data));
+        Ok(self)
+    }
+
     fn extractable_data_ref(&self) -> Result<&Self::Data, ExtractableAssetAccessError> {
         self.extractable_data
             .as_ref()
             .ok_or(ExtractableAssetAccessError::ExtractedToRenderWorld)
     }
+
     fn extractable_data_mut(&mut self) -> Result<&mut Self::Data, ExtractableAssetAccessError> {
         self.extractable_data
             .as_mut()
             .ok_or(ExtractableAssetAccessError::ExtractedToRenderWorld)
     }
+
     fn take_gpu_data(&mut self) -> Result<Self, AssetExtractionError> {
         let data = self
             .extractable_data
@@ -188,22 +213,22 @@ impl ExtractableAsset for Mesh {
 }
 
 impl Mesh {
-    /// Where the vertex is located in space. Use in conjunction with [`Mesh::insert_attribute`]
-    /// or [`Mesh::with_inserted_attribute`].
+    /// Where the vertex is located in space. Use in conjunction with [`MeshExtractableData::insert_attribute`]
+    /// or [`MeshExtractableData::with_inserted_attribute`].
     ///
     /// The format of this attribute is [`VertexFormat::Float32x3`].
     pub const ATTRIBUTE_POSITION: MeshVertexAttribute =
         MeshVertexAttribute::new("Vertex_Position", 0, VertexFormat::Float32x3);
 
     /// The direction the vertex normal is facing in.
-    /// Use in conjunction with [`Mesh::insert_attribute`] or [`Mesh::with_inserted_attribute`].
+    /// Use in conjunction with [`MeshExtractableData::insert_attribute`] or [`MeshExtractableData::with_inserted_attribute`].
     ///
     /// The format of this attribute is [`VertexFormat::Float32x3`].
     pub const ATTRIBUTE_NORMAL: MeshVertexAttribute =
         MeshVertexAttribute::new("Vertex_Normal", 1, VertexFormat::Float32x3);
 
-    /// Texture coordinates for the vertex. Use in conjunction with [`Mesh::insert_attribute`]
-    /// or [`Mesh::with_inserted_attribute`].
+    /// Texture coordinates for the vertex. Use in conjunction with [`MeshExtractableData::insert_attribute`]
+    /// or [`MeshExtractableData::with_inserted_attribute`].
     ///
     /// Generally `[0.,0.]` is mapped to the top left of the texture, and `[1.,1.]` to the bottom-right.
     ///
@@ -220,7 +245,7 @@ impl Mesh {
         MeshVertexAttribute::new("Vertex_Uv", 2, VertexFormat::Float32x2);
 
     /// Alternate texture coordinates for the vertex. Use in conjunction with
-    /// [`Mesh::insert_attribute`] or [`Mesh::with_inserted_attribute`].
+    /// [`MeshExtractableData::insert_attribute`] or [`MeshExtractableData::with_inserted_attribute`].
     ///
     /// Typically, these are used for lightmaps, textures that provide
     /// precomputed illumination.
@@ -230,29 +255,29 @@ impl Mesh {
         MeshVertexAttribute::new("Vertex_Uv_1", 3, VertexFormat::Float32x2);
 
     /// The direction of the vertex tangent. Used for normal mapping.
-    /// Usually generated with [`generate_tangents`](Mesh::generate_tangents) or
-    /// [`with_generated_tangents`](Mesh::with_generated_tangents).
+    /// Usually generated with [`generate_tangents`](MeshExtractableData::generate_tangents) or
+    /// [`with_generated_tangents`](MeshExtractableData::with_generated_tangents).
     ///
     /// The format of this attribute is [`VertexFormat::Float32x4`].
     pub const ATTRIBUTE_TANGENT: MeshVertexAttribute =
         MeshVertexAttribute::new("Vertex_Tangent", 4, VertexFormat::Float32x4);
 
-    /// Per vertex coloring. Use in conjunction with [`Mesh::insert_attribute`]
-    /// or [`Mesh::with_inserted_attribute`].
+    /// Per vertex coloring. Use in conjunction with [`MeshExtractableData::insert_attribute`]
+    /// or [`MeshExtractableData::with_inserted_attribute`].
     ///
     /// The format of this attribute is [`VertexFormat::Float32x4`].
     pub const ATTRIBUTE_COLOR: MeshVertexAttribute =
         MeshVertexAttribute::new("Vertex_Color", 5, VertexFormat::Float32x4);
 
-    /// Per vertex joint transform matrix weight. Use in conjunction with [`Mesh::insert_attribute`]
-    /// or [`Mesh::with_inserted_attribute`].
+    /// Per vertex joint transform matrix weight. Use in conjunction with [`MeshExtractableData::insert_attribute`]
+    /// or [`MeshExtractableData::with_inserted_attribute`].
     ///
     /// The format of this attribute is [`VertexFormat::Float32x4`].
     pub const ATTRIBUTE_JOINT_WEIGHT: MeshVertexAttribute =
         MeshVertexAttribute::new("Vertex_JointWeight", 6, VertexFormat::Float32x4);
 
-    /// Per vertex joint transform matrix index. Use in conjunction with [`Mesh::insert_attribute`]
-    /// or [`Mesh::with_inserted_attribute`].
+    /// Per vertex joint transform matrix index. Use in conjunction with [`MeshExtractableData::insert_attribute`]
+    /// or [`MeshExtractableData::with_inserted_attribute`].
     ///
     /// The format of this attribute is [`VertexFormat::Uint16x4`].
     pub const ATTRIBUTE_JOINT_INDEX: MeshVertexAttribute =
@@ -278,6 +303,11 @@ impl Mesh {
     /// Returns the topology of the mesh.
     pub fn primitive_topology(&self) -> PrimitiveTopology {
         self.primitive_topology
+    }
+
+    pub fn with_asset_usage(mut self, asset_usage: RenderAssetUsages) -> Self {
+        self.asset_usage = asset_usage;
+        self
     }
 }
 
@@ -420,7 +450,7 @@ impl MeshDeserializer {
     }
 }
 
-/// Error that can occur when calling [`Mesh::merge`].
+/// Error that can occur when calling [`MeshExtractableData::merge`].
 #[derive(Error, Debug, Clone)]
 pub enum MeshMergeError {
     #[error("Incompatible vertex attribute types: {} and {}", self_attribute.name, other_attribute.map(|a| a.name).unwrap_or("None"))]

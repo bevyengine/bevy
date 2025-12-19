@@ -4,8 +4,8 @@ use criterion::{criterion_group, Criterion};
 use rand::random;
 use std::time::{Duration, Instant};
 
-use bevy_asset::RenderAssetUsages;
-use bevy_mesh::{Indices, Mesh, PrimitiveTopology};
+use bevy_asset::{ExtractableAsset, RenderAssetUsages};
+use bevy_mesh::{Indices, Mesh, MeshExtractableData, PrimitiveTopology};
 
 const GRID_SIZE: usize = 256;
 
@@ -28,12 +28,12 @@ fn compute_normals(c: &mut Criterion) {
             .flat_map(|i| std::iter::repeat(i).zip(0..GRID_SIZE))
             .map(|(i, j)| [i as f32, j as f32, random::<f32>()])
             .collect::<Vec<_>>();
-        Mesh::new(
-            PrimitiveTopology::TriangleList,
-            RenderAssetUsages::MAIN_WORLD,
+        Mesh::from(
+            MeshExtractableData::new(PrimitiveTopology::TriangleList)
+                .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
+                .with_inserted_indices(indices.clone()),
         )
-        .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
-        .with_inserted_indices(indices.clone())
+        .with_asset_usage(RenderAssetUsages::MAIN_WORLD)
     };
 
     c.bench_function("smooth_normals", |b| {
@@ -41,6 +41,7 @@ fn compute_normals(c: &mut Criterion) {
             let mut total = Duration::default();
             for _ in 0..iters {
                 let mut mesh = new_mesh();
+                let mesh = mesh.extractable_data_mut().unwrap();
                 black_box(mesh.attribute(Mesh::ATTRIBUTE_NORMAL));
                 let start = Instant::now();
                 mesh.compute_smooth_normals();
@@ -57,6 +58,7 @@ fn compute_normals(c: &mut Criterion) {
             let mut total = Duration::default();
             for _ in 0..iters {
                 let mut mesh = new_mesh();
+                let mesh = mesh.extractable_data_mut().unwrap();
                 black_box(mesh.attribute(Mesh::ATTRIBUTE_NORMAL));
                 let start = Instant::now();
                 mesh.compute_smooth_normals();
@@ -73,6 +75,7 @@ fn compute_normals(c: &mut Criterion) {
             let mut total = Duration::default();
             for _ in 0..iters {
                 let mut mesh = new_mesh();
+                let mesh = mesh.extractable_data_mut().unwrap();
                 black_box(mesh.attribute(Mesh::ATTRIBUTE_NORMAL));
                 let start = Instant::now();
                 mesh.compute_area_weighted_normals();
@@ -84,13 +87,18 @@ fn compute_normals(c: &mut Criterion) {
         });
     });
 
-    let new_mesh = || new_mesh().with_duplicated_vertices();
+    let new_mesh = || {
+        new_mesh()
+            .with_extractable_data(|d| d.with_duplicated_vertices())
+            .unwrap()
+    };
 
     c.bench_function("flat_normals", |b| {
         b.iter_custom(|iters| {
             let mut total = Duration::default();
             for _ in 0..iters {
                 let mut mesh = new_mesh();
+                let mesh = mesh.extractable_data_mut().unwrap();
                 black_box(mesh.attribute(Mesh::ATTRIBUTE_NORMAL));
                 let start = Instant::now();
                 mesh.compute_flat_normals();

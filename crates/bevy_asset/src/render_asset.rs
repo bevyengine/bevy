@@ -73,6 +73,12 @@ pub enum ExtractableAssetAccessError {
 pub trait ExtractableAsset: Asset + Sized {
     type Data;
 
+    /// Take `self` and previous gpu data, replace the data in place, then returns the asset.
+    fn with_extractable_data(
+        self,
+        f: impl FnOnce(Self::Data) -> Self::Data,
+    ) -> Result<Self, ExtractableAssetAccessError>;
+
     /// Access the extractable data.
     fn extractable_data_ref(&self) -> Result<&Self::Data, ExtractableAssetAccessError>;
 

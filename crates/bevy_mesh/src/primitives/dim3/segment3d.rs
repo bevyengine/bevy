@@ -40,12 +40,14 @@ impl From<Segment3d> for Mesh {
 mod tests {
     use super::*;
     use crate::Meshable;
+    use bevy_asset::ExtractableAsset;
     use bevy_math::Vec3;
 
     #[test]
     fn segment3d_mesh_builder() {
         let segment = Segment3d::new(Vec3::ZERO, Vec3::X);
         let mesh = segment.mesh().build();
+        let mesh = mesh.extractable_data_ref().unwrap();
         assert_eq!(mesh.attribute(Mesh::ATTRIBUTE_POSITION).unwrap().len(), 2);
         assert_eq!(mesh.indices().unwrap().len(), 2);
     }

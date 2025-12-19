@@ -7,6 +7,7 @@ use bevy::{
     post_process::motion_blur::MotionBlur,
     prelude::*,
 };
+use bevy_asset::ExtractableAsset;
 
 fn main() {
     let mut app = App::new();
@@ -85,7 +86,10 @@ fn setup_scene(
     let mut plane: Mesh = Plane3d::default().into();
     let uv_size = 4000.0;
     let uvs = vec![[uv_size, 0.0], [0.0, 0.0], [0.0, uv_size], [uv_size; 2]];
-    plane.insert_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
+    plane
+        .extractable_data_mut()
+        .unwrap()
+        .insert_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
     commands.spawn((
         Mesh3d(meshes.add(plane)),
         MeshMaterial3d(materials.add(StandardMaterial {

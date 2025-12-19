@@ -36,6 +36,7 @@ use bevy::{
         Render, RenderApp, RenderDebugFlags, RenderPlugin, RenderStartup, RenderSystems,
     },
 };
+use bevy_asset::ExtractableAsset;
 use bytemuck::Pod;
 
 /// The radius of the spinning sphere of cubes.
@@ -315,7 +316,11 @@ fn spawn_small_cubes(
         .mesh()
         .ico(OUTER_SUBDIVISION_COUNT)
         .unwrap();
-    let sphere_positions = sphere.attribute(Mesh::ATTRIBUTE_POSITION).unwrap();
+    let sphere_positions = sphere
+        .extractable_data_ref()
+        .unwrap()
+        .attribute(Mesh::ATTRIBUTE_POSITION)
+        .unwrap();
 
     // At each vertex, create a small cube.
     for sphere_position in sphere_positions.as_float3().unwrap() {

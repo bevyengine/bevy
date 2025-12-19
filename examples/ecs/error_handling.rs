@@ -5,6 +5,7 @@ use bevy::ecs::{error::warn, world::DeferredWorld};
 use bevy::math::sampling::UniformMeshSampler;
 use bevy::prelude::*;
 
+use bevy_asset::ExtractableAsset;
 use rand::distr::Distribution;
 use rand::SeedableRng;
 use rand_chacha::ChaCha8Rng;
@@ -87,7 +88,10 @@ fn setup(
 
     // Create a new sphere mesh:
     let mut sphere_mesh = Sphere::new(1.0).mesh().ico(7)?;
-    sphere_mesh.generate_tangents()?;
+    sphere_mesh
+        .extractable_data_mut()
+        .unwrap()
+        .generate_tangents()?;
 
     // Spawn the mesh into the scene:
     let mut sphere = commands.spawn((
@@ -97,7 +101,7 @@ fn setup(
     ));
 
     // Generate random sample points:
-    let triangles = sphere_mesh.triangles()?;
+    let triangles = sphere_mesh.extractable_data_ref().unwrap().triangles()?;
     let distribution = UniformMeshSampler::try_new(triangles)?;
 
     // Setup sample points:

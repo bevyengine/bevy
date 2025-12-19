@@ -4,6 +4,7 @@
 use std::fmt;
 
 use bevy::{image::ImageLoaderSettings, math::ops, prelude::*};
+use bevy_asset::ExtractableAsset;
 
 fn main() {
     App::new()
@@ -267,7 +268,7 @@ fn setup(
                 // NOTE: for normal maps and depth maps to work, the mesh
                 // needs tangents generated.
                 Mesh::from(Cuboid::default())
-                    .with_generated_tangents()
+                    .with_extractable_data(|d| d.with_generated_tangents().unwrap())
                     .unwrap(),
             ),
         ),
@@ -277,7 +278,7 @@ fn setup(
 
     let background_cube = meshes.add(
         Mesh::from(Cuboid::new(40.0, 40.0, 40.0))
-            .with_generated_tangents()
+            .with_extractable_data(|d| d.with_generated_tangents().unwrap())
             .unwrap(),
     );
 

@@ -2,6 +2,7 @@
 //! Adds a texture and colored vertices, giving per-vertex tinting.
 
 use bevy::prelude::*;
+use bevy_asset::ExtractableAsset;
 
 fn main() {
     App::new()
@@ -28,7 +29,9 @@ fn setup(
         LinearRgba::WHITE.to_f32_array(),
     ];
     // Insert the vertex colors as an attribute
-    mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, vertex_colors);
+    mesh.extractable_data_mut()
+        .unwrap()
+        .insert_attribute(Mesh::ATTRIBUTE_COLOR, vertex_colors);
 
     let mesh_handle = meshes.add(mesh);
 

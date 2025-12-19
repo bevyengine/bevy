@@ -11,6 +11,7 @@ use bevy::{
     prelude::*,
     render::view::Hdr,
 };
+use bevy_asset::ExtractableAsset;
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;
 
@@ -198,9 +199,12 @@ fn spawn_plane_mesh(
         }
         .mesh()
         .build()
-        .with_duplicated_vertices()
-        .with_computed_flat_normals()
-        .with_generated_tangents()
+        .with_extractable_data(|d| {
+            d.with_duplicated_vertices()
+                .with_computed_flat_normals()
+                .with_generated_tangents()
+                .unwrap()
+        })
         .unwrap(),
     );
 

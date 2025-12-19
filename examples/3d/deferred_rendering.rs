@@ -13,6 +13,7 @@ use bevy::{
     pbr::{DefaultOpaqueRendererMethod, OpaqueRendererMethod},
     prelude::*,
 };
+use bevy_asset::ExtractableAsset;
 
 fn main() {
     App::new()
@@ -228,7 +229,10 @@ fn setup_parallax(
 
     // NOTE: for normal maps and depth maps to work, the mesh
     // needs tangents generated.
-    cube.generate_tangents().unwrap();
+    cube.extractable_data_mut()
+        .unwrap()
+        .generate_tangents()
+        .unwrap();
 
     let parallax_material = materials.add(StandardMaterial {
         perceptual_roughness: 0.4,

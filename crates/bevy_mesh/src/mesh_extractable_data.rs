@@ -272,7 +272,7 @@ impl MeshExtractableData {
     /// the length of the smallest.
     ///
     /// This is a convenience method which allocates a Vec.
-    /// Prefer pre-allocating and using [`Mesh::write_packed_vertex_buffer_data`] when possible.
+    /// Prefer pre-allocating and using [`MeshExtractableData::write_packed_vertex_buffer_data`] when possible.
     pub fn create_packed_vertex_buffer_data(&self) -> Vec<u8> {
         let mut attributes_interleaved_buffer = vec![0; self.get_vertex_buffer_size()];
         self.write_packed_vertex_buffer_data(&mut attributes_interleaved_buffer);
@@ -439,7 +439,7 @@ impl MeshExtractableData {
     /// # Panics
     /// Panics if [`Indices`] are set or [`Mesh::ATTRIBUTE_POSITION`] is not of type `float3`.
     /// Panics if the mesh has any other topology than [`PrimitiveTopology::TriangleList`].
-    /// Consider calling [`Mesh::duplicate_vertices`] or exporting your mesh with normal
+    /// Consider calling [`MeshExtractableData::duplicate_vertices`] or exporting your mesh with normal
     /// attributes.
     ///
     /// FIXME: This should handle more cases since this is called as a part of gltf
@@ -449,7 +449,7 @@ impl MeshExtractableData {
         let topology = self.primitive_topology();
         assert!(
             self.indices().is_none(),
-            "`compute_flat_normals` can't work on indexed geometry. Consider calling either `Mesh::compute_smooth_normals` or `Mesh::duplicate_vertices` followed by `Mesh::compute_flat_normals`."
+            "`compute_flat_normals` can't work on indexed geometry. Consider calling either `MeshExtractableData::compute_smooth_normals` or `Mesh::duplicate_vertices` followed by `MeshExtractableData::compute_flat_normals`."
         );
         assert!(
             matches!(topology, PrimitiveTopology::TriangleList),
@@ -476,12 +476,12 @@ impl MeshExtractableData {
     ///
     /// This method weights normals by the angles of the corners of connected triangles, thus
     /// eliminating triangle area and count as factors in the final normal. This does make it
-    /// somewhat slower than [`Mesh::compute_area_weighted_normals`] which does not need to
+    /// somewhat slower than [`MeshExtractableData::compute_area_weighted_normals`] which does not need to
     /// greedily normalize each triangle's normal or calculate corner angles.
     ///
     /// If you would rather have the computed normals be weighted by triangle area, see
-    /// [`Mesh::compute_area_weighted_normals`] instead. If you need to weight them in some other
-    /// way, see [`Mesh::compute_custom_smooth_normals`].
+    /// [`MeshExtractableData::compute_area_weighted_normals`] instead. If you need to weight them in some other
+    /// way, see [`MeshExtractableData::compute_custom_smooth_normals`].
     ///
     /// # Panics
     /// Panics if [`Mesh::ATTRIBUTE_POSITION`] is not of type `float3`.
@@ -532,12 +532,12 @@ impl MeshExtractableData {
     /// larger triangles will skew the normals of their vertices towards their own normal more
     /// than smaller triangles will.
     ///
-    /// This method is actually somewhat faster than [`Mesh::compute_smooth_normals`] because an
+    /// This method is actually somewhat faster than [`MeshExtractableData::compute_smooth_normals`] because an
     /// intermediate result of triangle normal calculation is already scaled by the triangle's area.
     ///
     /// If you would rather have the computed normals be influenced only by the angles of connected
-    /// edges, see [`Mesh::compute_smooth_normals`] instead. If you need to weight them in some
-    /// other way, see [`Mesh::compute_custom_smooth_normals`].
+    /// edges, see [`MeshExtractableData::compute_smooth_normals`] instead. If you need to weight them in some
+    /// other way, see [`MeshExtractableData::compute_custom_smooth_normals`].
     ///
     /// # Panics
     /// Panics if [`Mesh::ATTRIBUTE_POSITION`] is not of type `float3`.
@@ -566,17 +566,18 @@ impl MeshExtractableData {
     /// - A mutable reference to the sums of all normals so far.
     ///
     /// See also the standard methods included in Bevy for calculating smooth normals:
-    /// - [`Mesh::compute_smooth_normals`]
-    /// - [`Mesh::compute_area_weighted_normals`]
+    /// - [`MeshExtractableData::compute_smooth_normals`]
+    /// - [`MeshExtractableData::compute_area_weighted_normals`]
     ///
     /// An example that would weight each connected triangle's normal equally, thus skewing normals
     /// towards the planes divided into the most triangles:
     /// ```
-    /// # use bevy_asset::RenderAssetUsages;
+    /// # use bevy_asset::ExtractableAsset;
     /// # use bevy_mesh::{Mesh, PrimitiveTopology, Meshable, MeshBuilder};
     /// # use bevy_math::{Vec3, primitives::Cuboid};
     /// # let mut mesh = Cuboid::default().mesh().build();
-    /// mesh.compute_custom_smooth_normals(|[a, b, c], positions, normals| {
+    /// # let mesh_data = mesh.extractable_data_mut().unwrap();
+    /// mesh_data.compute_custom_smooth_normals(|[a, b, c], positions, normals| {
     ///     let normal = Vec3::from(bevy_mesh::triangle_normal(positions[a], positions[b], positions[c]));
     ///     for idx in [a, b, c] {
     ///         normals[idx] += normal;
@@ -594,10 +595,10 @@ impl MeshExtractableData {
     // not conform to the limitations here!
     //
     // When fixed, also update "Panics" sections of
-    // - [Mesh::compute_smooth_normals]
-    // - [Mesh::with_computed_smooth_normals]
-    // - [Mesh::compute_area_weighted_normals]
-    // - [Mesh::with_computed_area_weighted_normals]
+    // - [MeshExtractableData::compute_smooth_normals]
+    // - [MeshExtractableData::with_computed_smooth_normals]
+    // - [MeshExtractableData::compute_area_weighted_normals]
+    // - [MeshExtractableData::with_computed_area_weighted_normals]
     pub fn compute_custom_smooth_normals(
         &mut self,
         mut per_triangle: impl FnMut([usize; 3], &[[f32; 3]], &mut [Vec3]),
@@ -1005,7 +1006,7 @@ impl MeshExtractableData {
     /// Consumes the mesh and returns a mesh with data set for a vertex attribute (position, normal, etc.).
     /// The name will often be one of the associated constants such as [`Mesh::ATTRIBUTE_POSITION`].
     ///
-    /// (Alternatively, you can use [`Mesh::insert_attribute`] to mutate an existing mesh in-place)
+    /// (Alternatively, you can use [`MeshExtractableData::insert_attribute`] to mutate an existing mesh in-place)
     ///
     /// `Aabb` of entities with modified mesh are not updated automatically.
     #[must_use]
@@ -1021,7 +1022,7 @@ impl MeshExtractableData {
 
     /// Consumes the mesh and returns a mesh without the data for a vertex attribute
     ///
-    /// (Alternatively, you can use [`Mesh::remove_attribute`] to mutate an existing mesh in-place)
+    /// (Alternatively, you can use [`MeshExtractableData::remove_attribute`] to mutate an existing mesh in-place)
     #[must_use]
     pub fn with_removed_attribute(mut self, attribute: impl Into<MeshVertexAttributeId>) -> Self {
         self.remove_attribute(attribute);
@@ -1032,7 +1033,7 @@ impl MeshExtractableData {
     /// are constructed out of the vertex attributes and are therefore only useful for the
     /// [`PrimitiveTopology`] variants that use triangles.
     ///
-    /// (Alternatively, you can use [`Mesh::insert_indices`] to mutate an existing mesh in-place)
+    /// (Alternatively, you can use [`MeshExtractableData::insert_indices`] to mutate an existing mesh in-place)
     #[must_use]
     #[inline]
     pub fn with_inserted_indices(mut self, indices: Indices) -> Self {
@@ -1042,7 +1043,7 @@ impl MeshExtractableData {
 
     /// Consumes the mesh and returns a mesh without the vertex `indices` of the mesh.
     ///
-    /// (Alternatively, you can use [`Mesh::remove_indices`] to mutate an existing mesh in-place)
+    /// (Alternatively, you can use [`MeshExtractableData::remove_indices`] to mutate an existing mesh in-place)
     #[must_use]
     pub fn with_removed_indices(mut self) -> Self {
         self.remove_indices();
@@ -1054,7 +1055,7 @@ impl MeshExtractableData {
     /// This can dramatically increase the vertex count, so make sure this is what you want.
     /// Does nothing if no [`Indices`] are set.
     ///
-    /// (Alternatively, you can use [`Mesh::duplicate_vertices`] to mutate an existing mesh in-place)
+    /// (Alternatively, you can use [`MeshExtractableData::duplicate_vertices`] to mutate an existing mesh in-place)
     #[must_use]
     pub fn with_duplicated_vertices(mut self) -> Self {
         self.duplicate_vertices();
@@ -1073,7 +1074,7 @@ impl MeshExtractableData {
     /// If the mesh is indexed, this defaults to smooth normals. Otherwise, it defaults to flat
     /// normals.
     ///
-    /// (Alternatively, you can use [`Mesh::compute_normals`] to mutate an existing mesh in-place)
+    /// (Alternatively, you can use [`MeshExtractableData::compute_normals`] to mutate an existing mesh in-place)
     ///
     /// # Panics
     /// Panics if [`Mesh::ATTRIBUTE_POSITION`] is not of type `float3`.
@@ -1086,7 +1087,7 @@ impl MeshExtractableData {
 
     /// Consumes the mesh and returns a mesh with calculated [`Mesh::ATTRIBUTE_NORMAL`].
     ///
-    /// (Alternatively, you can use [`Mesh::compute_flat_normals`] to mutate an existing mesh in-place)
+    /// (Alternatively, you can use [`MeshExtractableData::compute_flat_normals`] to mutate an existing mesh in-place)
     ///
     /// # Panics
     /// Panics if [`Mesh::ATTRIBUTE_POSITION`] is not of type `float3`.
@@ -1099,11 +1100,11 @@ impl MeshExtractableData {
 
     /// Consumes the mesh and returns a mesh with calculated [`Mesh::ATTRIBUTE_NORMAL`].
     ///
-    /// (Alternatively, you can use [`Mesh::compute_smooth_normals`] to mutate an existing mesh in-place)
+    /// (Alternatively, you can use [`MeshExtractableData::compute_smooth_normals`] to mutate an existing mesh in-place)
     ///
     /// This method weights normals by the angles of triangle corners connected to each vertex. If
     /// you would rather have the computed normals be weighted by triangle area, see
-    /// [`Mesh::with_computed_area_weighted_normals`] instead.
+    /// [`MeshExtractableData::with_computed_area_weighted_normals`] instead.
     ///
     /// # Panics
     /// Panics if [`Mesh::ATTRIBUTE_POSITION`] is not of type `float3`.
@@ -1116,12 +1117,12 @@ impl MeshExtractableData {
 
     /// Consumes the mesh and returns a mesh with calculated [`Mesh::ATTRIBUTE_NORMAL`].
     ///
-    /// (Alternatively, you can use [`Mesh::compute_area_weighted_normals`] to mutate an existing mesh in-place)
+    /// (Alternatively, you can use [`MeshExtractableData::compute_area_weighted_normals`] to mutate an existing mesh in-place)
     ///
     /// This method weights normals by the area of each triangle containing the vertex. Thus,
     /// larger triangles will skew the normals of their vertices towards their own normal more
     /// than smaller triangles will. If you would rather have the computed normals be influenced
-    /// only by the angles of connected edges, see [`Mesh::with_computed_smooth_normals`] instead.
+    /// only by the angles of connected edges, see [`MeshExtractableData::with_computed_smooth_normals`] instead.
     ///
     /// # Panics
     /// Panics if [`Mesh::ATTRIBUTE_POSITION`] is not of type `float3`.
@@ -1136,7 +1137,7 @@ impl MeshExtractableData {
     ///
     /// The resulting mesh will have the [`Mesh::ATTRIBUTE_TANGENT`] attribute if successful.
     ///
-    /// (Alternatively, you can use [`Mesh::generate_tangents`] to mutate an existing mesh in-place)
+    /// (Alternatively, you can use [`MeshExtractableData::generate_tangents`] to mutate an existing mesh in-place)
     ///
     /// Requires a [`PrimitiveTopology::TriangleList`] topology and the [`Mesh::ATTRIBUTE_POSITION`], [`Mesh::ATTRIBUTE_NORMAL`] and [`Mesh::ATTRIBUTE_UV_0`] attributes set.
     #[cfg(feature = "bevy_mikktspace")]
@@ -1219,7 +1220,7 @@ impl MeshExtractableData {
     ///
     /// This requires a "morph target image". See [`MorphTargetImage`](crate::morph::MorphTargetImage) for info.
     ///
-    /// (Alternatively, you can use [`Mesh::set_morph_targets`] to mutate an existing mesh in-place)
+    /// (Alternatively, you can use [`MeshExtractableData::set_morph_targets`] to mutate an existing mesh in-place)
     ///
     /// [morph targets]: https://en.wikipedia.org/wiki/Morph_target_animation
     #[must_use]
@@ -1231,7 +1232,7 @@ impl MeshExtractableData {
     /// Consumes the mesh and returns a mesh with morph target names.
     /// Names should correspond to the order of the morph targets in `set_morph_targets`.
     ///
-    /// (Alternatively, you can use [`Mesh::set_morph_target_names`] to mutate an existing mesh in-place)
+    /// (Alternatively, you can use [`MeshExtractableData::set_morph_target_names`] to mutate an existing mesh in-place)
     #[must_use]
     pub fn with_morph_target_names(mut self, names: Vec<String>) -> Self {
         self.set_morph_target_names(names);

@@ -13,6 +13,7 @@ use bevy::{
         prelude::{RaytracingMesh3d, SolariLighting, SolariPlugins},
     },
 };
+use bevy_asset::ExtractableAsset;
 use std::f32::consts::PI;
 
 #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
@@ -172,13 +173,17 @@ fn add_raytracing_meshes_on_scene_load(
         if let Ok((Mesh3d(mesh_handle), MeshMaterial3d(material_handle), material_name)) =
             mesh_query.get(descendant)
         {
+            // Ensure meshes are Solari compatible
+            let mesh = meshes.get_mut(mesh_handle).unwrap();
+            let Ok(mesh) = mesh.extractable_data_mut() else {
+                continue;
+            };
+
             // Add raytracing mesh component
             commands
                 .entity(descendant)
                 .insert(RaytracingMesh3d(mesh_handle.clone()));
 
-            // Ensure meshes are Solari compatible
-            let mesh = meshes.get_mut(mesh_handle).unwrap();
             if !mesh.contains_attribute(Mesh::ATTRIBUTE_UV_0) {
                 let vertex_count = mesh.count_vertices();
                 mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, vec![[0.0, 0.0]; vertex_count]);
