@@ -1004,6 +1004,149 @@ impl MeshExtractableData {
             })
         }
     }
+
+    /// Consumes the mesh and returns a mesh with data set for a vertex attribute (position, normal, etc.).
+    /// The name will often be one of the associated constants such as [`Mesh::ATTRIBUTE_POSITION`].
+    ///
+    /// (Alternatively, you can use [`Mesh::insert_attribute`] to mutate an existing mesh in-place)
+    ///
+    /// `Aabb` of entities with modified mesh are not updated automatically.
+    #[must_use]
+    #[inline]
+    pub fn with_inserted_attribute(
+        mut self,
+        attribute: MeshVertexAttribute,
+        values: impl Into<VertexAttributeValues>,
+    ) -> Self {
+        self.insert_attribute(attribute, values);
+        self
+    }
+
+    /// Consumes the mesh and returns a mesh without the data for a vertex attribute
+    ///
+    /// (Alternatively, you can use [`Mesh::remove_attribute`] to mutate an existing mesh in-place)
+    #[must_use]
+    pub fn with_removed_attribute(mut self, attribute: impl Into<MeshVertexAttributeId>) -> Self {
+        self.remove_attribute(attribute);
+        self
+    }
+
+    /// Consumes the mesh and returns a mesh with the given vertex indices. They describe how triangles
+    /// are constructed out of the vertex attributes and are therefore only useful for the
+    /// [`PrimitiveTopology`] variants that use triangles.
+    ///
+    /// (Alternatively, you can use [`Mesh::insert_indices`] to mutate an existing mesh in-place)
+    #[must_use]
+    #[inline]
+    pub fn with_inserted_indices(mut self, indices: Indices) -> Self {
+        self.insert_indices(indices);
+        self
+    }
+
+    /// Consumes the mesh and returns a mesh without the vertex `indices` of the mesh.
+    ///
+    /// (Alternatively, you can use [`Mesh::remove_indices`] to mutate an existing mesh in-place)
+    #[must_use]
+    pub fn with_removed_indices(mut self) -> Self {
+        self.remove_indices();
+        self
+    }
+
+    /// Consumes the mesh and returns a mesh with no shared vertices.
+    ///
+    /// This can dramatically increase the vertex count, so make sure this is what you want.
+    /// Does nothing if no [`Indices`] are set.
+    ///
+    /// (Alternatively, you can use [`Mesh::duplicate_vertices`] to mutate an existing mesh in-place)
+    #[must_use]
+    pub fn with_duplicated_vertices(mut self) -> Self {
+        self.duplicate_vertices();
+        self
+    }
+
+    /// Consumes the mesh and returns a mesh with inverted winding of the indices such
+    /// that all counter-clockwise triangles are now clockwise and vice versa.
+    ///
+    /// Does nothing if no [`Indices`] are set.
+    pub fn with_inverted_winding(mut self) -> Result<Self, MeshWindingInvertError> {
+        self.invert_winding().map(|_| self)
+    }
+
+    /// Consumes the mesh and returns a mesh with calculated [`Mesh::ATTRIBUTE_NORMAL`].
+    /// If the mesh is indexed, this defaults to smooth normals. Otherwise, it defaults to flat
+    /// normals.
+    ///
+    /// (Alternatively, you can use [`Mesh::compute_normals`] to mutate an existing mesh in-place)
+    ///
+    /// # Panics
+    /// Panics if [`Mesh::ATTRIBUTE_POSITION`] is not of type `float3`.
+    /// Panics if the mesh has any other topology than [`PrimitiveTopology::TriangleList`].
+    #[must_use]
+    pub fn with_computed_normals(mut self) -> Self {
+        self.compute_normals();
+        self
+    }
+
+    /// Consumes the mesh and returns a mesh with calculated [`Mesh::ATTRIBUTE_NORMAL`].
+    ///
+    /// (Alternatively, you can use [`Mesh::compute_flat_normals`] to mutate an existing mesh in-place)
+    ///
+    /// # Panics
+    /// Panics if [`Mesh::ATTRIBUTE_POSITION`] is not of type `float3`.
+    /// Panics if the mesh has any other topology than [`PrimitiveTopology::TriangleList`].
+    /// Panics if the mesh has indices defined
+    pub fn with_computed_flat_normals(mut self) -> Self {
+        self.compute_flat_normals();
+        self
+    }
+
+    /// Consumes the mesh and returns a mesh with calculated [`Mesh::ATTRIBUTE_NORMAL`].
+    ///
+    /// (Alternatively, you can use [`Mesh::compute_smooth_normals`] to mutate an existing mesh in-place)
+    ///
+    /// This method weights normals by the angles of triangle corners connected to each vertex. If
+    /// you would rather have the computed normals be weighted by triangle area, see
+    /// [`Mesh::with_computed_area_weighted_normals`] instead.
+    ///
+    /// # Panics
+    /// Panics if [`Mesh::ATTRIBUTE_POSITION`] is not of type `float3`.
+    /// Panics if the mesh has any other topology than [`PrimitiveTopology::TriangleList`].
+    /// Panics if the mesh does not have indices defined.
+    pub fn with_computed_smooth_normals(mut self) -> Self {
+        self.compute_smooth_normals();
+        self
+    }
+
+    /// Consumes the mesh and returns a mesh with calculated [`Mesh::ATTRIBUTE_NORMAL`].
+    ///
+    /// (Alternatively, you can use [`Mesh::compute_area_weighted_normals`] to mutate an existing mesh in-place)
+    ///
+    /// This method weights normals by the area of each triangle containing the vertex. Thus,
+    /// larger triangles will skew the normals of their vertices towards their own normal more
+    /// than smaller triangles will. If you would rather have the computed normals be influenced
+    /// only by the angles of connected edges, see [`Mesh::with_computed_smooth_normals`] instead.
+    ///
+    /// # Panics
+    /// Panics if [`Mesh::ATTRIBUTE_POSITION`] is not of type `float3`.
+    /// Panics if the mesh has any other topology than [`PrimitiveTopology::TriangleList`].
+    /// Panics if the mesh does not have indices defined.
+    pub fn with_computed_area_weighted_normals(mut self) -> Self {
+        self.compute_area_weighted_normals();
+        self
+    }
+
+    /// Consumes the mesh and returns a mesh with tangents generated using the `mikktspace` algorithm.
+    ///
+    /// The resulting mesh will have the [`Mesh::ATTRIBUTE_TANGENT`] attribute if successful.
+    ///
+    /// (Alternatively, you can use [`Mesh::generate_tangents`] to mutate an existing mesh in-place)
+    ///
+    /// Requires a [`PrimitiveTopology::TriangleList`] topology and the [`Mesh::ATTRIBUTE_POSITION`], [`Mesh::ATTRIBUTE_NORMAL`] and [`Mesh::ATTRIBUTE_UV_0`] attributes set.
+    #[cfg(feature = "bevy_mikktspace")]
+    pub fn with_generated_tangents(mut self) -> Result<Mesh, super::GenerateTangentsError> {
+        self.generate_tangents()?;
+        Ok(self)
+    }
 }
 
 #[cfg(feature = "morph")]
@@ -1041,6 +1184,29 @@ impl MeshExtractableData {
     /// if the morph targets do not exist.
     pub fn morph_target_names(&self) -> Option<&[String]> {
         self.morph_target_names.as_deref()
+    }
+
+    /// Consumes the mesh and returns a mesh with the given [morph targets].
+    ///
+    /// This requires a "morph target image". See [`MorphTargetImage`](crate::morph::MorphTargetImage) for info.
+    ///
+    /// (Alternatively, you can use [`Mesh::set_morph_targets`] to mutate an existing mesh in-place)
+    ///
+    /// [morph targets]: https://en.wikipedia.org/wiki/Morph_target_animation
+    #[must_use]
+    pub fn with_morph_targets(mut self, morph_targets: Handle<Image>) -> Self {
+        self.set_morph_targets(morph_targets);
+        self
+    }
+
+    /// Consumes the mesh and returns a mesh with morph target names.
+    /// Names should correspond to the order of the morph targets in `set_morph_targets`.
+    ///
+    /// (Alternatively, you can use [`Mesh::set_morph_target_names`] to mutate an existing mesh in-place)
+    #[must_use]
+    pub fn with_morph_target_names(mut self, names: Vec<String>) -> Self {
+        self.set_morph_target_names(names);
+        self
     }
 }
 
