@@ -6,8 +6,8 @@ use async_lock::RwLock;
 #[cfg(feature = "bevy_animation")]
 use bevy_animation::{prelude::*, AnimatedBy, AnimationTargetId};
 use bevy_asset::{
-    io::Reader, AssetLoadError, AssetLoader, AssetPath, Handle, LoadContext, ParseAssetPathError,
-    ReadAssetBytesError, RenderAssetUsages,
+    io::Reader, AssetLoadError, AssetLoader, AssetPath, ExtractableAsset, Handle, LoadContext,
+    ParseAssetPathError, ReadAssetBytesError, RenderAssetUsages,
 };
 use bevy_camera::{
     primitives::Aabb, visibility::Visibility, Camera, Camera3d, OrthographicProjection,
@@ -691,8 +691,8 @@ impl GltfLoader {
                 };
                 let primitive_topology = primitive_topology(primitive.mode())?;
 
-                let mut mesh = Mesh::new(primitive_topology, settings.load_meshes);
-
+                let mut mesh_asset = Mesh::new(primitive_topology, settings.load_meshes);
+                let mesh = mesh_asset.extractable_data_mut().unwrap();
                 // Read vertex attributes
                 for (semantic, accessor) in primitive.attributes() {
                     if [Semantic::Joints(0), Semantic::Weights(0)].contains(&semantic) {
@@ -801,7 +801,8 @@ impl GltfLoader {
                     });
                 }
 
-                let mesh_handle = load_context.add_labeled_asset(primitive_label.to_string(), mesh);
+                let mesh_handle =
+                    load_context.add_labeled_asset(primitive_label.to_string(), mesh_asset);
                 primitives.push(super::GltfPrimitive::new(
                     &gltf_mesh,
                     &primitive,

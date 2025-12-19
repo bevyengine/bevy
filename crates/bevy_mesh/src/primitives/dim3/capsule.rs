@@ -1,5 +1,4 @@
-use crate::{Indices, Mesh, MeshBuilder, Meshable, PrimitiveTopology};
-use bevy_asset::RenderAssetUsages;
+use crate::{Indices, Mesh, MeshBuilder, MeshExtractableData, Meshable, PrimitiveTopology};
 use bevy_math::{ops, primitives::Capsule3d, Vec2, Vec3};
 use bevy_reflect::prelude::*;
 
@@ -407,14 +406,13 @@ impl MeshBuilder for Capsule3dMeshBuilder {
         assert_eq!(vs.len(), vert_len);
         assert_eq!(tris.len(), fs_len as usize);
 
-        Mesh::new(
-            PrimitiveTopology::TriangleList,
-            RenderAssetUsages::default(),
+        Mesh::from(
+            MeshExtractableData::new(PrimitiveTopology::TriangleList)
+                .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, vs)
+                .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, vns)
+                .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, vts)
+                .with_inserted_indices(Indices::U32(tris)),
         )
-        .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, vs)
-        .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, vns)
-        .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, vts)
-        .with_inserted_indices(Indices::U32(tris))
     }
 }
 

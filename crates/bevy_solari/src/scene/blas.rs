@@ -1,5 +1,5 @@
 use alloc::collections::VecDeque;
-use bevy_asset::AssetId;
+use bevy_asset::{AssetId, ExtractableAsset};
 use bevy_ecs::{
     resource::Resource,
     system::{Res, ResMut},
@@ -171,13 +171,17 @@ fn allocate_blas(
 }
 
 fn is_mesh_raytracing_compatible(mesh: &Mesh) -> bool {
+    let mesh_data = mesh.extractable_data_ref().unwrap();
     let triangle_list = mesh.primitive_topology() == PrimitiveTopology::TriangleList;
-    let vertex_attributes = mesh.attributes().map(|(attribute, _)| attribute.id).eq([
-        Mesh::ATTRIBUTE_POSITION.id,
-        Mesh::ATTRIBUTE_NORMAL.id,
-        Mesh::ATTRIBUTE_UV_0.id,
-        Mesh::ATTRIBUTE_TANGENT.id,
-    ]);
-    let indexed_32 = matches!(mesh.indices(), Some(Indices::U32(..)));
+    let vertex_attributes = mesh_data
+        .attributes()
+        .map(|(attribute, _)| attribute.id)
+        .eq([
+            Mesh::ATTRIBUTE_POSITION.id,
+            Mesh::ATTRIBUTE_NORMAL.id,
+            Mesh::ATTRIBUTE_UV_0.id,
+            Mesh::ATTRIBUTE_TANGENT.id,
+        ]);
+    let indexed_32 = matches!(mesh_data.indices(), Some(Indices::U32(..)));
     mesh.enable_raytracing && triangle_list && vertex_attributes && indexed_32
 }

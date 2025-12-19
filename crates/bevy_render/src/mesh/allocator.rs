@@ -1,7 +1,7 @@
 //! Manages mesh vertex and index buffers.
 
 use alloc::vec::Vec;
-use bevy_mesh::Indices;
+use bevy_mesh::{Indices, MeshExtractableData};
 use core::{
     fmt::{self, Display, Formatter},
     ops::Range,
@@ -9,7 +9,7 @@ use core::{
 use nonmax::NonMaxU32;
 
 use bevy_app::{App, Plugin};
-use bevy_asset::AssetId;
+use bevy_asset::{AssetId, ExtractableAsset};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     resource::Resource,
@@ -476,6 +476,7 @@ impl MeshAllocator {
 
         // Allocate.
         for (mesh_id, mesh) in &extracted_meshes.extracted {
+            let mesh = mesh.extractable_data_ref().unwrap();
             let vertex_buffer_size = mesh.get_vertex_buffer_size() as u64;
             if vertex_buffer_size == 0 {
                 continue;
@@ -516,6 +517,7 @@ impl MeshAllocator {
 
         // Copy new mesh data in.
         for (mesh_id, mesh) in &extracted_meshes.extracted {
+            let mesh = mesh.extractable_data_ref().unwrap();
             self.copy_mesh_vertex_data(mesh_id, mesh, render_device, render_queue);
             self.copy_mesh_index_data(mesh_id, mesh, render_device, render_queue);
         }
@@ -526,7 +528,7 @@ impl MeshAllocator {
     fn copy_mesh_vertex_data(
         &mut self,
         mesh_id: &AssetId<Mesh>,
-        mesh: &Mesh,
+        mesh: &MeshExtractableData,
         render_device: &RenderDevice,
         render_queue: &RenderQueue,
     ) {
@@ -551,7 +553,7 @@ impl MeshAllocator {
     fn copy_mesh_index_data(
         &mut self,
         mesh_id: &AssetId<Mesh>,
-        mesh: &Mesh,
+        mesh: &MeshExtractableData,
         render_device: &RenderDevice,
         render_queue: &RenderQueue,
     ) {
@@ -1016,7 +1018,7 @@ impl ElementLayout {
     /// data.
     fn vertex(
         mesh_vertex_buffer_layouts: &mut MeshVertexBufferLayouts,
-        mesh: &Mesh,
+        mesh: &MeshExtractableData,
     ) -> ElementLayout {
         let mesh_vertex_buffer_layout =
             mesh.get_mesh_vertex_buffer_layout(mesh_vertex_buffer_layouts);
@@ -1028,7 +1030,7 @@ impl ElementLayout {
 
     /// Creates the appropriate [`ElementLayout`] for the given mesh's index
     /// data.
-    fn index(mesh: &Mesh) -> Option<ElementLayout> {
+    fn index(mesh: &MeshExtractableData) -> Option<ElementLayout> {
         let size = match mesh.indices()? {
             Indices::U16(_) => 2,
             Indices::U32(_) => 4,

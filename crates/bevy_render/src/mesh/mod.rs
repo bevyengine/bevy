@@ -138,6 +138,7 @@ impl RenderAsset for RenderMesh {
     }
 
     fn byte_len(mesh: &Self::SourceAsset) -> Option<usize> {
+        let mesh = mesh.extractable_data_ref().unwrap();
         let mut vertex_size = 0;
         for attribute_data in mesh.attributes() {
             let vertex_format = attribute_data.0.format;
@@ -151,16 +152,18 @@ impl RenderAsset for RenderMesh {
 
     /// Converts the extracted mesh into a [`RenderMesh`].
     fn prepare_asset(
-        mesh: Self::SourceAsset,
+        mesh_source: Self::SourceAsset,
         _: AssetId<Self::SourceAsset>,
         (_images, mesh_vertex_buffer_layouts): &mut SystemParamItem<Self::Param>,
         _: Option<&Self>,
     ) -> Result<Self, PrepareAssetError<Self::SourceAsset>> {
+        let mesh = mesh_source.extractable_data_ref().unwrap();
+
         #[cfg(feature = "morph")]
         let morph_targets = match mesh.morph_targets() {
             Some(mt) => {
                 let Some(target_image) = _images.get(mt) else {
-                    return Err(PrepareAssetError::RetryNextUpdate(mesh));
+                    return Err(PrepareAssetError::RetryNextUpdate(mesh_source));
                 };
                 Some(target_image.texture_view.clone())
             }

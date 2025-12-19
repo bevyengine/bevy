@@ -3,7 +3,7 @@ use crate::{
     MaterialPlugin, StandardMaterial,
 };
 use bevy_app::{App, Plugin};
-use bevy_asset::{Asset, Assets, Handle};
+use bevy_asset::{Asset, Assets, ExtractableAsset, Handle};
 use bevy_ecs::{
     component::Component, lifecycle::HookContext, resource::Resource, world::DeferredWorld,
 };
@@ -29,14 +29,13 @@ impl Plugin for ForwardDecalPlugin {
     fn build(&self, app: &mut App) {
         load_shader_library!(app, "forward_decal.wgsl");
 
-        let mesh = app.world_mut().resource_mut::<Assets<Mesh>>().add(
-            Rectangle::from_size(Vec2::ONE)
-                .mesh()
-                .build()
-                .rotated_by(Quat::from_rotation_arc(Vec3::Z, Vec3::Y))
-                .with_generated_tangents()
-                .unwrap(),
-        );
+        let mesh = app.world_mut().resource_mut::<Assets<Mesh>>().add({
+            let mut mesh = Rectangle::from_size(Vec2::ONE).mesh().build();
+            let m = mesh.extractable_data_mut().unwrap();
+            m.rotate_by(Quat::from_rotation_arc(Vec3::Z, Vec3::Y));
+            m.generate_tangents().unwrap();
+            mesh
+        });
 
         app.insert_resource(ForwardDecalMesh(mesh));
 
