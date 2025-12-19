@@ -57,6 +57,7 @@
 //! - **Precise control**: Define exact navigation flow, including non-obvious connections like looping edges
 //! - **Cross-layer navigation**: Connect elements across different UI layers or z-index levels
 //! - **Custom behavior**: Implement domain-specific navigation patterns (e.g., spreadsheet-style wrapping)
+
 use alloc::vec::Vec;
 use bevy_app::prelude::*;
 use bevy_camera::visibility::InheritedVisibility;
@@ -407,7 +408,7 @@ impl DirectionalNavigationMap {
 pub struct DirectionalNavigation<'w, 's> {
     /// The currently focused entity.
     pub focus: ResMut<'w, InputFocus>,
-    /// The manual override navigation map containing pre-specified connections between entities.
+    /// The directional navigation map containing manually defined connections between entities.
     pub map: Res<'w, DirectionalNavigationMap>,
     /// Configuration for the automated portion of the navigation algorithm.
     pub config: Res<'w, AutoNavigationConfig>,
@@ -449,7 +450,12 @@ impl<'w, 's> DirectionalNavigation<'w, 's> {
                 self.focus.set(new_focus);
                 Ok(new_focus)
             } else if let Some(origin) = self.entity_to_focusable_area(current_focus)
-                && let Some(new_focus) = self.find_best_candidate(origin, direction)
+                && let Some(new_focus) = find_best_candidate(
+                    &origin,
+                    direction,
+                    &self.get_navigable_nodes(),
+                    &self.config,
+                )
             {
                 self.focus.set(new_focus);
                 Ok(new_focus)
@@ -464,44 +470,7 @@ impl<'w, 's> DirectionalNavigation<'w, 's> {
         }
     }
 
-    /// Finds the best entity to navigate to from the origin in the given direction.
-    /// For details on what "best" means here, refer to [`AutoNavigationConfig`].
-    fn find_best_candidate(
-        &self,
-        origin: FocusableArea,
-        direction: CompassOctant,
-    ) -> Option<Entity> {
-        // Find best candidate in this direction
-        let mut best_candidate = None;
-        let mut best_score = f32::INFINITY;
-
-        for candidate in self.get_navigable_nodes() {
-            // Skip self
-            if candidate.entity == origin.entity {
-                continue;
-            }
-
-            // Score the candidate
-            let score = score_candidate(
-                origin.position,
-                origin.size,
-                candidate.position,
-                candidate.size,
-                direction,
-                &self.config,
-            );
-
-            if score < best_score {
-                best_score = score;
-                best_candidate = Some(candidate.entity);
-            }
-        }
-
-        best_candidate
-    }
-
-    /// Queries for all visible [`FocusableArea`] that are eligible to be automatically navigated to.
-    /// These are nodes with
+    /// Returns a vec of [`FocusableArea`] representing nodes that are eligible to be automatically navigated to.
     fn get_navigable_nodes(&self) -> Vec<FocusableArea> {
         self.navigable_entities_query
             .iter()
@@ -522,6 +491,7 @@ impl<'w, 's> DirectionalNavigation<'w, 's> {
     }
 
     /// Gets the [`FocusableArea`] of the provided entity, if it exists.
+    ///
     /// Returns None if there was a [`QueryEntityError`](bevy_ecs::query::QueryEntityError).
     fn entity_to_focusable_area(&self, entity: Entity) -> Option<FocusableArea> {
         self.focusable_area_query
@@ -706,6 +676,44 @@ fn score_candidate(
     distance + alignment_penalty
 }
 
+/// Finds the best entity to navigate to from the origin towards the given direction.
+///
+/// For details on what "best" means here, refer to [`AutoNavigationConfig`].
+fn find_best_candidate(
+    origin: &FocusableArea,
+    direction: CompassOctant,
+    candidates: &[FocusableArea],
+    config: &AutoNavigationConfig,
+) -> Option<Entity> {
+    // Find best candidate in this direction
+    let mut best_candidate = None;
+    let mut best_score = f32::INFINITY;
+
+    for candidate in candidates {
+        // Skip self
+        if candidate.entity == origin.entity {
+            continue;
+        }
+
+        // Score the candidate
+        let score = score_candidate(
+            origin.position,
+            origin.size,
+            candidate.position,
+            candidate.size,
+            direction,
+            config,
+        );
+
+        if score < best_score {
+            best_score = score;
+            best_candidate = Some(candidate.entity);
+        }
+    }
+
+    best_candidate
+}
+
 /// Automatically generates directional navigation edges for a collection of nodes.
 ///
 /// This function takes a slice of navigation nodes with their positions and sizes, and populates
@@ -761,30 +769,7 @@ pub fn auto_generate_navigation_edges(
             }
 
             // Find best candidate in this direction
-            let mut best_candidate = None;
-            let mut best_score = f32::INFINITY;
-
-            for candidate in nodes {
-                // Skip self
-                if candidate.entity == origin.entity {
-                    continue;
-                }
-
-                // Score the candidate
-                let score = score_candidate(
-                    origin.position,
-                    origin.size,
-                    candidate.position,
-                    candidate.size,
-                    octant,
-                    config,
-                );
-
-                if score < best_score {
-                    best_score = score;
-                    best_candidate = Some(candidate.entity);
-                }
-            }
+            let best_candidate = find_best_candidate(origin, octant, nodes, config);
 
             // Add edge if we found a valid candidate
             if let Some(neighbor) = best_candidate {
