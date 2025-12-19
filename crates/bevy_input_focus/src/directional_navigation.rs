@@ -423,9 +423,13 @@ pub struct DirectionalNavigation<'w, 's> {
         ),
         With<AutoDirectionalNavigation>,
     >,
-    /// A query used to get the [`FocusableArea`] for a given entity
-    focusable_area_query:
-        Query<'w, 's, (Entity, &'static ComputedNode, &'static UiGlobalTransform)>,
+    /// A query used to get the [`FocusableArea`] for a given entity to be used in automatic navigation.
+    focusable_area_query: Query<
+        'w,
+        's,
+        (Entity, &'static ComputedNode, &'static UiGlobalTransform),
+        With<AutoDirectionalNavigation>,
+    >,
 }
 
 impl<'w, 's> DirectionalNavigation<'w, 's> {
@@ -439,14 +443,14 @@ impl<'w, 's> DirectionalNavigation<'w, 's> {
         &mut self,
         direction: CompassOctant,
     ) -> Result<Entity, DirectionalNavigationError> {
-        if let Some(current_focus) = self.focus.0
-            && let Some(origin) = self.entity_to_focusable_area(current_focus)
-        {
+        if let Some(current_focus) = self.focus.0 {
             // Respect manual edges first
             if let Some(new_focus) = self.map.get_neighbor(current_focus, direction) {
                 self.focus.set(new_focus);
                 Ok(new_focus)
-            } else if let Some(new_focus) = self.find_best_candidate(origin, direction) {
+            } else if let Some(origin) = self.entity_to_focusable_area(current_focus)
+                && let Some(new_focus) = self.find_best_candidate(origin, direction)
+            {
                 self.focus.set(new_focus);
                 Ok(new_focus)
             } else {
@@ -928,7 +932,7 @@ mod tests {
     }
 
     #[test]
-    fn nav_with_system_param() {
+    fn manual_nav_with_system_param() {
         let mut world = World::new();
         let a = world.spawn_empty().id();
         let b = world.spawn_empty().id();
@@ -942,6 +946,9 @@ mod tests {
         let mut focus = InputFocus::default();
         focus.set(a);
         world.insert_resource(focus);
+
+        let config = AutoNavigationConfig::default();
+        world.insert_resource(config);
 
         assert_eq!(world.resource::<InputFocus>().get(), Some(a));
 
