@@ -1,7 +1,6 @@
 use crate::MeshExtractableData;
 
 use super::{Indices, Mesh, VertexAttributeValues};
-use bevy_asset::ExtractableAssetAccessError;
 use thiserror::Error;
 use wgpu_types::{PrimitiveTopology, VertexFormat};
 
@@ -73,8 +72,6 @@ pub enum GenerateTangentsError {
     InvalidVertexAttributeFormat(&'static str, VertexFormat),
     #[error("mesh not suitable for tangent generation")]
     MikktspaceError(#[from] bevy_mikktspace::GenerateTangentSpaceError),
-    #[error("Mesh access error: {0}")]
-    MeshAccessError(#[from] ExtractableAssetAccessError),
 }
 
 pub(crate) fn generate_tangents_for_mesh(

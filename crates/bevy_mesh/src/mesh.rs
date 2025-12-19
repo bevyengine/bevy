@@ -467,6 +467,4 @@ pub enum MeshMergeError {
         self_primitive_topology: PrimitiveTopology,
         other_primitive_topology: PrimitiveTopology,
     },
-    #[error("Mesh access error: {0}")]
-    MeshAccessError(#[from] ExtractableAssetAccessError),
 }

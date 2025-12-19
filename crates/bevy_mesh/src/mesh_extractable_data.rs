@@ -17,6 +17,8 @@ use bytemuck::cast_slice;
 use tracing::warn;
 use wgpu_types::{PrimitiveTopology, VertexAttribute, VertexFormat, VertexStepMode};
 
+/// The data held by a Mesh that can be extracted to `RenderWorld` (if the asset usage is [`RenderAssetUsages::RENDER_WORLD`](bevy_asset::RenderAssetUsages) only),
+/// use the methods in [`ExtractableAsset`](bevy_asset::ExtractableAsset) to handle errors and access or mutate it.
 #[derive(Asset, Debug, Clone, Reflect, PartialEq)]
 #[reflect(Clone)]
 pub struct MeshExtractableData {

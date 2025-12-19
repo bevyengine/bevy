@@ -34,6 +34,7 @@ pub struct ShaderStorageBuffer {
     pub buffer_description: wgpu::BufferDescriptor<'static>,
     /// The asset usage of the storage buffer.
     pub asset_usage: RenderAssetUsages,
+    /// Whether this storage buffer has been extracted to the render world.
     pub is_extracted_to_render_world: bool,
 }
 
