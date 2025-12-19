@@ -533,6 +533,48 @@ mod text {
                 ),
             ],
         ));
+
+        top += 35.;
+        commands.spawn((
+            Node {
+                left: px(100.),
+                top: px(top),
+                ..Default::default()
+            },
+            Text::new("FiraSans\t"),
+            TextFont {
+                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                font_size: 25.,
+                ..default()
+            },
+            DespawnOnExit(super::Scene::Text),
+            children![
+                (
+                    TextSpan::new("MonaSans\t"),
+                    TextFont {
+                        font: asset_server.load("fonts/MonaSans-VariableFont.ttf"),
+                        font_size: 25.,
+                        ..default()
+                    }
+                ),
+                (
+                    TextSpan::new("EBGaramond\t"),
+                    TextFont {
+                        font: asset_server.load("fonts/EBGaramond12-Regular.otf"),
+                        font_size: 25.,
+                        ..default()
+                    },
+                ),
+                (
+                    TextSpan::new("FiraMono"),
+                    TextFont {
+                        font: asset_server.load("fonts/FiraMono-Medium.ttf"),
+                        font_size: 25.,
+                        ..default()
+                    },
+                ),
+            ],
+        ));
     }
 }
 
