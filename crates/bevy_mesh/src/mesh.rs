@@ -187,7 +187,7 @@ impl ExtractableAsset for Mesh {
                 min = Vec3::min(min, v);
                 max = Vec3::max(max, v);
             }
-            self.final_aabb = Some(Aabb3d::new(min, max));
+            self.final_aabb = Some(Aabb3d::from_min_max(min, max));
         } else {
             self.final_aabb = None;
         }
