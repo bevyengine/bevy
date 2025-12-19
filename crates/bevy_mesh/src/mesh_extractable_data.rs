@@ -913,10 +913,7 @@ impl MeshExtractableData {
     ///
     /// [primitive topology]: PrimitiveTopology
     /// [triangles]: Triangle3d
-    pub fn triangles(
-        &self,
-        topology: PrimitiveTopology,
-    ) -> Result<impl Iterator<Item = Triangle3d> + '_, MeshTrianglesError> {
+    pub fn triangles(&self) -> Result<impl Iterator<Item = Triangle3d> + '_, MeshTrianglesError> {
         let Some(position_data) = self.attribute(Mesh::ATTRIBUTE_POSITION) else {
             return Err(MeshTrianglesError::BadPositions);
         };
@@ -929,7 +926,7 @@ impl MeshExtractableData {
             return Err(MeshTrianglesError::BadIndices);
         };
 
-        match topology {
+        match self.primitive_topology() {
             PrimitiveTopology::TriangleList => {
                 // When indices reference out-of-bounds vertex data, the triangle is omitted.
                 // This implicitly truncates the indices to a multiple of 3.
@@ -1143,9 +1140,41 @@ impl MeshExtractableData {
     ///
     /// Requires a [`PrimitiveTopology::TriangleList`] topology and the [`Mesh::ATTRIBUTE_POSITION`], [`Mesh::ATTRIBUTE_NORMAL`] and [`Mesh::ATTRIBUTE_UV_0`] attributes set.
     #[cfg(feature = "bevy_mikktspace")]
-    pub fn with_generated_tangents(mut self) -> Result<Mesh, super::GenerateTangentsError> {
+    pub fn with_generated_tangents(mut self) -> Result<Self, super::GenerateTangentsError> {
         self.generate_tangents()?;
         Ok(self)
+    }
+
+    /// Transforms the vertex positions, normals, and tangents of the mesh by the given [`Transform`].
+    ///
+    /// `Aabb` of entities with modified mesh are not updated automatically.
+    pub fn transformed_by(mut self, transform: Transform) -> Self {
+        self.transform_by(transform);
+        self
+    }
+
+    /// Translates the vertex positions of the mesh by the given [`Vec3`].
+    ///
+    /// `Aabb` of entities with modified mesh are not updated automatically.
+    pub fn translated_by(mut self, translation: Vec3) -> Self {
+        self.translate_by(translation);
+        self
+    }
+
+    /// Rotates the vertex positions, normals, and tangents of the mesh by the given [`Quat`].
+    ///
+    /// `Aabb` of entities with modified mesh are not updated automatically.
+    pub fn rotated_by(mut self, rotation: Quat) -> Self {
+        self.rotate_by(rotation);
+        self
+    }
+
+    /// Scales the vertex positions, normals, and tangents of the mesh by the given [`Vec3`].
+    ///
+    /// `Aabb` of entities with modified mesh are not updated automatically.
+    pub fn scaled_by(mut self, scale: Vec3) -> Self {
+        self.scale_by(scale);
+        self
     }
 }
 
@@ -1210,6 +1239,14 @@ impl MeshExtractableData {
     }
 }
 
+impl core::ops::Mul<MeshExtractableData> for Transform {
+    type Output = MeshExtractableData;
+
+    fn mul(self, rhs: MeshExtractableData) -> Self::Output {
+        rhs.transformed_by(self)
+    }
+}
+
 /// Correctly scales and renormalizes an already normalized `normal` by the scale determined by its reciprocal `scale_recip`
 pub(crate) fn scale_normal(normal: Vec3, scale_recip: Vec3) -> Vec3 {
     // This is basically just `normal * scale_recip` but with the added rule that `0. * anything == 0.`
@@ -1222,5 +1259,381 @@ pub(crate) fn scale_normal(normal: Vec3, scale_recip: Vec3) -> Vec3 {
         n.normalize_or_zero()
     } else {
         Vec3::select(n.abs().cmpeq(Vec3::INFINITY), n.signum(), Vec3::ZERO).normalize()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::Mesh;
+    #[cfg(feature = "serialize")]
+    use crate::SerializedMesh;
+    use crate::{Indices, MeshWindingInvertError, VertexAttributeValues};
+    use crate::{MeshExtractableData, PrimitiveTopology};
+    use bevy_asset::ExtractableAsset;
+    use bevy_math::bounding::Aabb3d;
+    use bevy_math::primitives::Triangle3d;
+    use bevy_math::Vec3;
+    use bevy_transform::components::Transform;
+
+    #[test]
+    #[should_panic]
+    fn panic_invalid_format() {
+        let _mesh = MeshExtractableData::new(PrimitiveTopology::TriangleList)
+            .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, vec![[0.0, 0.0, 0.0]]);
+    }
+
+    #[test]
+    fn transform_mesh() {
+        let mesh = MeshExtractableData::new(PrimitiveTopology::TriangleList)
+            .with_inserted_attribute(
+                Mesh::ATTRIBUTE_POSITION,
+                vec![[-1., -1., 2.], [1., -1., 2.], [0., 1., 2.]],
+            )
+            .with_inserted_attribute(
+                Mesh::ATTRIBUTE_NORMAL,
+                vec![
+                    Vec3::new(-1., -1., 1.).normalize().to_array(),
+                    Vec3::new(1., -1., 1.).normalize().to_array(),
+                    [0., 0., 1.],
+                ],
+            )
+            .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, vec![[0., 0.], [1., 0.], [0.5, 1.]]);
+
+        let mesh = mesh.transformed_by(
+            Transform::from_translation(Vec3::splat(-2.)).with_scale(Vec3::new(2., 0., -1.)),
+        );
+
+        if let Some(VertexAttributeValues::Float32x3(positions)) =
+            mesh.attribute(Mesh::ATTRIBUTE_POSITION)
+        {
+            // All positions are first scaled resulting in `vec![[-2, 0., -2.], [2., 0., -2.], [0., 0., -2.]]`
+            // and then shifted by `-2.` along each axis
+            assert_eq!(
+                positions,
+                &vec![[-4.0, -2.0, -4.0], [0.0, -2.0, -4.0], [-2.0, -2.0, -4.0]]
+            );
+        } else {
+            panic!("Mesh does not have a position attribute");
+        }
+
+        if let Some(VertexAttributeValues::Float32x3(normals)) =
+            mesh.attribute(Mesh::ATTRIBUTE_NORMAL)
+        {
+            assert_eq!(normals, &vec![[0., -1., 0.], [0., -1., 0.], [0., 0., -1.]]);
+        } else {
+            panic!("Mesh does not have a normal attribute");
+        }
+
+        if let Some(VertexAttributeValues::Float32x2(uvs)) = mesh.attribute(Mesh::ATTRIBUTE_UV_0) {
+            assert_eq!(uvs, &vec![[0., 0.], [1., 0.], [0.5, 1.]]);
+        } else {
+            panic!("Mesh does not have a uv attribute");
+        }
+    }
+
+    #[test]
+    fn point_list_mesh_invert_winding() {
+        let mesh = MeshExtractableData::new(PrimitiveTopology::PointList)
+            .with_inserted_indices(Indices::U32(vec![]));
+        assert!(matches!(
+            mesh.with_inverted_winding(),
+            Err(MeshWindingInvertError::WrongTopology)
+        ));
+    }
+
+    #[test]
+    fn line_list_mesh_invert_winding() {
+        let mesh = MeshExtractableData::new(PrimitiveTopology::LineList)
+            .with_inserted_indices(Indices::U32(vec![0, 1, 1, 2, 2, 3]));
+        let mesh = mesh.with_inverted_winding().unwrap();
+        assert_eq!(
+            mesh.indices().unwrap().iter().collect::<Vec<usize>>(),
+            vec![3, 2, 2, 1, 1, 0]
+        );
+    }
+
+    #[test]
+    fn line_list_mesh_invert_winding_fail() {
+        let mesh = MeshExtractableData::new(PrimitiveTopology::LineList)
+            .with_inserted_indices(Indices::U32(vec![0, 1, 1]));
+        assert!(matches!(
+            mesh.with_inverted_winding(),
+            Err(MeshWindingInvertError::AbruptIndicesEnd)
+        ));
+    }
+
+    #[test]
+    fn line_strip_mesh_invert_winding() {
+        let mesh = MeshExtractableData::new(PrimitiveTopology::LineStrip)
+            .with_inserted_indices(Indices::U32(vec![0, 1, 2, 3]));
+        let mesh = mesh.with_inverted_winding().unwrap();
+        assert_eq!(
+            mesh.indices().unwrap().iter().collect::<Vec<usize>>(),
+            vec![3, 2, 1, 0]
+        );
+    }
+
+    #[test]
+    fn triangle_list_mesh_invert_winding() {
+        let mesh = MeshExtractableData::new(PrimitiveTopology::TriangleList).with_inserted_indices(
+            Indices::U32(vec![
+                0, 3, 1, // First triangle
+                1, 3, 2, // Second triangle
+            ]),
+        );
+        let mesh = mesh.with_inverted_winding().unwrap();
+        assert_eq!(
+            mesh.indices().unwrap().iter().collect::<Vec<usize>>(),
+            vec![
+                0, 1, 3, // First triangle
+                1, 2, 3, // Second triangle
+            ]
+        );
+    }
+
+    #[test]
+    fn triangle_list_mesh_invert_winding_fail() {
+        let mesh = MeshExtractableData::new(PrimitiveTopology::TriangleList)
+            .with_inserted_indices(Indices::U32(vec![0, 3, 1, 2]));
+        assert!(matches!(
+            mesh.with_inverted_winding(),
+            Err(MeshWindingInvertError::AbruptIndicesEnd)
+        ));
+    }
+
+    #[test]
+    fn triangle_strip_mesh_invert_winding() {
+        let mesh = MeshExtractableData::new(PrimitiveTopology::TriangleStrip)
+            .with_inserted_indices(Indices::U32(vec![0, 1, 2, 3]));
+        let mesh = mesh.with_inverted_winding().unwrap();
+        assert_eq!(
+            mesh.indices().unwrap().iter().collect::<Vec<usize>>(),
+            vec![3, 2, 1, 0]
+        );
+    }
+
+    #[test]
+    fn compute_area_weighted_normals() {
+        let mut mesh = MeshExtractableData::new(PrimitiveTopology::TriangleList);
+
+        //  z      y
+        //  |    /
+        //  3---2
+        //  | /  \
+        //  0-----1--x
+
+        mesh.insert_attribute(
+            Mesh::ATTRIBUTE_POSITION,
+            vec![[0., 0., 0.], [1., 0., 0.], [0., 1., 0.], [0., 0., 1.]],
+        );
+        mesh.insert_indices(Indices::U16(vec![0, 1, 2, 0, 2, 3]));
+        mesh.compute_area_weighted_normals();
+        let normals = mesh
+            .attribute(Mesh::ATTRIBUTE_NORMAL)
+            .unwrap()
+            .as_float3()
+            .unwrap();
+        assert_eq!(4, normals.len());
+        // 0
+        assert_eq!(Vec3::new(1., 0., 1.).normalize().to_array(), normals[0]);
+        // 1
+        assert_eq!([0., 0., 1.], normals[1]);
+        // 2
+        assert_eq!(Vec3::new(1., 0., 1.).normalize().to_array(), normals[2]);
+        // 3
+        assert_eq!([1., 0., 0.], normals[3]);
+    }
+
+    #[test]
+    fn compute_area_weighted_normals_proportionate() {
+        let mut mesh = MeshExtractableData::new(PrimitiveTopology::TriangleList);
+
+        //  z      y
+        //  |    /
+        //  3---2..
+        //  | /    \
+        //  0-------1---x
+
+        mesh.insert_attribute(
+            Mesh::ATTRIBUTE_POSITION,
+            vec![[0., 0., 0.], [2., 0., 0.], [0., 1., 0.], [0., 0., 1.]],
+        );
+        mesh.insert_indices(Indices::U16(vec![0, 1, 2, 0, 2, 3]));
+        mesh.compute_area_weighted_normals();
+        let normals = mesh
+            .attribute(Mesh::ATTRIBUTE_NORMAL)
+            .unwrap()
+            .as_float3()
+            .unwrap();
+        assert_eq!(4, normals.len());
+        // 0
+        assert_eq!(Vec3::new(1., 0., 2.).normalize().to_array(), normals[0]);
+        // 1
+        assert_eq!([0., 0., 1.], normals[1]);
+        // 2
+        assert_eq!(Vec3::new(1., 0., 2.).normalize().to_array(), normals[2]);
+        // 3
+        assert_eq!([1., 0., 0.], normals[3]);
+    }
+
+    #[test]
+    fn compute_angle_weighted_normals() {
+        // CuboidMeshBuilder duplicates vertices (even though it is indexed)
+
+        //   5---------4
+        //  /|        /|
+        // 1-+-------0 |
+        // | 6-------|-7
+        // |/        |/
+        // 2---------3
+        let verts = vec![
+            [1.0, 1.0, 1.0],
+            [-1.0, 1.0, 1.0],
+            [-1.0, -1.0, 1.0],
+            [1.0, -1.0, 1.0],
+            [1.0, 1.0, -1.0],
+            [-1.0, 1.0, -1.0],
+            [-1.0, -1.0, -1.0],
+            [1.0, -1.0, -1.0],
+        ];
+
+        let indices = Indices::U16(vec![
+            0, 1, 2, 2, 3, 0, // front
+            5, 4, 7, 7, 6, 5, // back
+            1, 5, 6, 6, 2, 1, // left
+            4, 0, 3, 3, 7, 4, // right
+            4, 5, 1, 1, 0, 4, // top
+            3, 2, 6, 6, 7, 3, // bottom
+        ]);
+        let mut mesh = MeshExtractableData::new(PrimitiveTopology::TriangleList);
+        mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, verts);
+        mesh.insert_indices(indices);
+        mesh.compute_smooth_normals();
+
+        let normals = mesh
+            .attribute(Mesh::ATTRIBUTE_NORMAL)
+            .unwrap()
+            .as_float3()
+            .unwrap();
+
+        for new in normals.iter().copied().flatten() {
+            // std impl is unstable
+            const FRAC_1_SQRT_3: f32 = 0.57735026;
+            const MIN: f32 = FRAC_1_SQRT_3 - f32::EPSILON;
+            const MAX: f32 = FRAC_1_SQRT_3 + f32::EPSILON;
+            assert!(new.abs() >= MIN, "{new} < {MIN}");
+            assert!(new.abs() <= MAX, "{new} > {MAX}");
+        }
+    }
+
+    #[test]
+    fn triangles_from_triangle_list() {
+        let mut mesh = MeshExtractableData::new(PrimitiveTopology::TriangleList);
+        mesh.insert_attribute(
+            Mesh::ATTRIBUTE_POSITION,
+            vec![[0., 0., 0.], [1., 0., 0.], [1., 1., 0.], [0., 1., 0.]],
+        );
+        mesh.insert_indices(Indices::U32(vec![0, 1, 2, 2, 3, 0]));
+        assert_eq!(
+            vec![
+                Triangle3d {
+                    vertices: [
+                        Vec3::new(0., 0., 0.),
+                        Vec3::new(1., 0., 0.),
+                        Vec3::new(1., 1., 0.),
+                    ]
+                },
+                Triangle3d {
+                    vertices: [
+                        Vec3::new(1., 1., 0.),
+                        Vec3::new(0., 1., 0.),
+                        Vec3::new(0., 0., 0.),
+                    ]
+                }
+            ],
+            mesh.triangles().unwrap().collect::<Vec<Triangle3d>>()
+        );
+    }
+
+    #[test]
+    fn triangles_from_triangle_strip() {
+        let mut mesh = MeshExtractableData::new(PrimitiveTopology::TriangleStrip);
+        // Triangles: (0, 1, 2), (2, 1, 3), (2, 3, 4), (4, 3, 5)
+        //
+        // 4 - 5
+        // | \ |
+        // 2 - 3
+        // | \ |
+        // 0 - 1
+        let positions: Vec<Vec3> = [
+            [0., 0., 0.],
+            [1., 0., 0.],
+            [0., 1., 0.],
+            [1., 1., 0.],
+            [0., 2., 0.],
+            [1., 2., 0.],
+        ]
+        .into_iter()
+        .map(Vec3::from_array)
+        .collect();
+        mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions.clone());
+        mesh.insert_indices(Indices::U32(vec![0, 1, 2, 3, 4, 5]));
+        assert_eq!(
+            vec![
+                Triangle3d {
+                    vertices: [positions[0], positions[1], positions[2]]
+                },
+                Triangle3d {
+                    vertices: [positions[2], positions[1], positions[3]]
+                },
+                Triangle3d {
+                    vertices: [positions[2], positions[3], positions[4]]
+                },
+                Triangle3d {
+                    vertices: [positions[4], positions[3], positions[5]]
+                },
+            ],
+            mesh.triangles().unwrap().collect::<Vec<Triangle3d>>()
+        );
+    }
+
+    #[test]
+    fn take_gpu_data_calculates_aabb() {
+        let mut mesh = MeshExtractableData::new(PrimitiveTopology::TriangleList);
+        mesh.insert_attribute(
+            Mesh::ATTRIBUTE_POSITION,
+            vec![
+                [-0.5, 0., 0.],
+                [-1., 0., 0.],
+                [-1., -1., 0.],
+                [-0.5, -1., 0.],
+            ],
+        );
+        mesh.insert_indices(Indices::U32(vec![0, 1, 2, 2, 3, 0]));
+        let mesh = Mesh::from(mesh).take_gpu_data().unwrap();
+        assert_eq!(
+            mesh.final_aabb,
+            Some(Aabb3d::from_min_max([-1., -1., 0.], [-0.5, 0., 0.]))
+        );
+    }
+
+    #[cfg(feature = "serialize")]
+    #[test]
+    fn serialize_deserialize_mesh() {
+        let mut mesh = MeshExtractableData::new(PrimitiveTopology::TriangleList);
+
+        mesh.insert_attribute(
+            Mesh::ATTRIBUTE_POSITION,
+            vec![[0., 0., 0.], [2., 0., 0.], [0., 1., 0.], [0., 0., 1.]],
+        );
+        mesh.insert_indices(Indices::U16(vec![0, 1, 2, 0, 2, 3]));
+
+        let mesh = Mesh::from(mesh);
+        let serialized_mesh = SerializedMesh::from_mesh(mesh.clone());
+        let serialized_string = serde_json::to_string(&serialized_mesh).unwrap();
+        let serialized_mesh_from_string: SerializedMesh =
+            serde_json::from_str(&serialized_string).unwrap();
+        let deserialized_mesh = serialized_mesh_from_string.into_mesh();
+        assert_eq!(mesh, deserialized_mesh);
     }
 }
