@@ -66,7 +66,7 @@ use bevy_ecs::{
     system::SystemParam,
 };
 use bevy_math::{CompassOctant, Dir2, Vec2};
-use bevy_ui::{ComputedNode, UiGlobalTransform, UiSystems};
+use bevy_ui::{ComputedNode, UiGlobalTransform};
 use thiserror::Error;
 
 use crate::InputFocus;
@@ -81,13 +81,7 @@ pub struct DirectionalNavigationPlugin;
 impl Plugin for DirectionalNavigationPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<DirectionalNavigationMap>()
-            .init_resource::<AutoNavigationConfig>()
-            .add_systems(
-                PostUpdate,
-                auto_rebuild_ui_navigation_graph
-                    .in_set(UiSystems::PostLayout)
-                    .after(bevy_camera::visibility::VisibilitySystems::VisibilityPropagate),
-            );
+            .init_resource::<AutoNavigationConfig>();
     }
 }
 
@@ -794,74 +788,6 @@ pub fn auto_generate_navigation_edges(
             }
         }
     }
-}
-
-/// Built-in system that automatically rebuilds the navigation graph for `bevy_ui` nodes.
-///
-/// This system runs in `PostUpdate` in the `UiSystems::PostLayout` system set and automatically updates
-/// the navigation graph when nodes with [`AutoDirectionalNavigation`] component change
-/// their position or size.
-///
-/// # How it works
-///
-/// 1. Detects nodes with [`AutoDirectionalNavigation`] that have changed
-/// 2. Extracts position/size from [`ComputedNode`] and [`UiGlobalTransform`]
-/// 3. Calls [`auto_generate_navigation_edges`] to rebuild connections
-///
-/// This system is automatically added by [`DirectionalNavigationPlugin`], so users
-/// only need to add the [`AutoDirectionalNavigation`] component to their UI entities.
-///
-/// # Note
-///
-/// This system only works with `bevy_ui` nodes. For custom UI systems, call
-/// [`auto_generate_navigation_edges`] directly in your own system.
-fn auto_rebuild_ui_navigation_graph(
-    mut directional_nav_map: ResMut<DirectionalNavigationMap>,
-    config: Res<AutoNavigationConfig>,
-    changed_nodes: Query<
-        (),
-        (
-            With<AutoDirectionalNavigation>,
-            Or<(
-                Added<AutoDirectionalNavigation>,
-                Changed<ComputedNode>,
-                Changed<UiGlobalTransform>,
-                Changed<InheritedVisibility>,
-            )>,
-        ),
-    >,
-    all_nodes: Query<
-        (
-            Entity,
-            &ComputedNode,
-            &UiGlobalTransform,
-            &InheritedVisibility,
-        ),
-        With<AutoDirectionalNavigation>,
-    >,
-) {
-    if changed_nodes.is_empty() {
-        return;
-    }
-
-    let nodes: Vec<FocusableArea> = all_nodes
-        .iter()
-        .filter_map(|(entity, computed, transform, inherited_visibility)| {
-            // Skip hidden or zero-size nodes
-            if computed.is_empty() || !inherited_visibility.get() {
-                return None;
-            }
-
-            let (_scale, _rotation, translation) = transform.to_scale_angle_translation();
-            Some(FocusableArea {
-                entity,
-                position: translation,
-                size: computed.size(),
-            })
-        })
-        .collect();
-
-    auto_generate_navigation_edges(&mut directional_nav_map, &nodes, &config);
 }
 
 #[cfg(test)]
