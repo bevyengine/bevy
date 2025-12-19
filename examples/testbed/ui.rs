@@ -134,7 +134,7 @@ mod text {
         commands.spawn((
             Node {
                 left: px(100.),
-                top: px(250.),
+                top: px(230.),
                 ..Default::default()
             },
             Text::new("white "),
@@ -162,7 +162,7 @@ mod text {
         commands.spawn((
             Node {
                 left: px(100.),
-                top: px(300.),
+                top: px(260.),
                 ..Default::default()
             },
             Text::new(""),
@@ -197,7 +197,7 @@ mod text {
         commands.spawn((
             Node {
                 left: px(100.),
-                top: px(350.),
+                top: px(290.),
                 ..Default::default()
             },
             Text::new(""),
@@ -240,7 +240,7 @@ mod text {
         commands.spawn((
             Node {
                 left: px(100.),
-                top: px(400.),
+                top: px(350.),
                 ..Default::default()
             },
             Text::new("FiraSans_"),
@@ -280,7 +280,7 @@ mod text {
         commands.spawn((
             Node {
                 left: px(100.),
-                top: px(450.),
+                top: px(400.),
                 ..Default::default()
             },
             Text::new("FiraSans "),
@@ -321,7 +321,7 @@ mod text {
         commands.spawn((
             Node {
                 left: px(100.),
-                top: px(500.),
+                top: px(450.),
                 ..Default::default()
             },
             Text::new("FiraSans "),
@@ -362,7 +362,7 @@ mod text {
         commands.spawn((
             Node {
                 left: px(100.),
-                top: px(550.),
+                top: px(500.),
                 ..Default::default()
             },
             Text::new("FiraSans"),
@@ -406,7 +406,7 @@ mod text {
         commands.spawn((
             Node {
                 left: px(100.),
-                top: px(600.),
+                top: px(550.),
                 ..Default::default()
             },
             Text::new("Fira Sans_"),
@@ -438,6 +438,42 @@ mod text {
                     TextFont {
                         font: asset_server.load("fonts/FiraMono-Medium.ttf"),
                         font_size: 40.,
+                        ..default()
+                    },
+                ),
+            ],
+        ));
+
+        commands.spawn((
+            Node {
+                left: px(100.),
+                top: px(600.),
+                ..Default::default()
+            },
+            Text::new("FontWeight(100)_"),
+            TextFont {
+                font: asset_server.load("fonts/MonaSans-VariableFont.ttf"),
+                font_size: 40.,
+                weight: FontWeight(100),
+                ..default()
+            },
+            DespawnOnExit(super::Scene::Text),
+            children![
+                (
+                    TextSpan::new("FontWeight(500)_"),
+                    TextFont {
+                        font: asset_server.load("fonts/MonaSans-VariableFont.ttf"),
+                        font_size: 40.,
+                        weight: FontWeight(500),
+                        ..default()
+                    }
+                ),
+                (
+                    TextSpan::new("FontWeight(900)"),
+                    TextFont {
+                        font: asset_server.load("fonts/MonaSans-VariableFont.ttf"),
+                        font_size: 40.,
+                        weight: FontWeight(900),
                         ..default()
                     },
                 ),
