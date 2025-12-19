@@ -17,7 +17,7 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use intersections::*;
 pub use intersections::{ray_aabb_intersection_3d, ray_mesh_intersection, RayMeshHit};
 
-use bevy_asset::{Assets, Handle};
+use bevy_asset::{Assets, ExtractableAsset, Handle};
 use bevy_ecs::{prelude::*, system::lifetimeless::Read, system::SystemParam};
 use bevy_math::FloatOrd;
 use bevy_transform::components::GlobalTransform;
@@ -282,6 +282,10 @@ impl<'w, 's> MeshRayCast<'w, 's> {
                     return;
                 };
 
+                let Ok(data) = mesh.extractable_data_ref() else {
+                    return;
+                };
+
                 // Backfaces of 2d meshes are never culled, unlike 3d meshes.
                 let backfaces = match (has_backfaces, mesh2d.is_some()) {
                     (false, false) => Backfaces::Cull,
@@ -291,7 +295,7 @@ impl<'w, 's> MeshRayCast<'w, 's> {
                 // Perform the actual ray cast.
                 let _ray_cast_guard = ray_cast_guard.enter();
                 let transform = transform.affine();
-                let intersection = ray_intersection_over_mesh(mesh, &transform, ray, backfaces);
+                let intersection = ray_intersection_over_mesh(data, &transform, ray, backfaces);
 
                 if let Some(intersection) = intersection {
                     let distance = FloatOrd(intersection.distance);
