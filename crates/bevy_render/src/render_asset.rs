@@ -85,9 +85,7 @@ pub trait RenderAsset: Send + Sync + 'static + Sized {
 
     /// Make a copy of the asset to be moved to the `RenderWorld` / gpu. Heavy internal data (pixels, vertex attributes)
     /// should be moved into the copy, leaving this asset with only metadata.
-    /// An error may be returned to indicate that the asset has already been extracted, and should not
-    /// have been modified on the CPU side (as it cannot be transferred to GPU again).
-    /// The previous GPU asset is also provided, which can be used to check if the modification is valid.
+    /// An error may be returned to indicate that the asset has already been extracted.
     fn take_gpu_data(
         _source: &mut Self::SourceAsset,
     ) -> Result<Self::SourceAsset, AssetExtractionError> {

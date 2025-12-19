@@ -73,13 +73,20 @@ pub enum ExtractableAssetAccessError {
 pub trait ExtractableAsset: Asset + Sized {
     type Data;
 
-    /// Take `self` and call `f` with previous gpu data, or error if it has been extracted, replace the data in place and returns the asset.
-    ///
-    /// Then the asset will be re-extracted to the `RenderWorld`.
+    /// Take `self` and call `f` with previous gpu data, or error if it has been extracted, replace the data in place and returns the asset which can be extracted to the `RenderWorld`.
     fn with_extractable_data(
-        self,
+        mut self,
         f: impl FnOnce(Result<Self::Data, ExtractableAssetAccessError>) -> Self::Data,
-    ) -> Self;
+    ) -> Self {
+        self.extractable_data_replace(f);
+        self
+    }
+
+    /// Call `f` with previous gpu data, or error if it has been extracted, replace the data with a new value. Then this asset will be re-extracted to the `RenderWorld`.
+    fn extractable_data_replace(
+        &mut self,
+        f: impl FnOnce(Result<Self::Data, ExtractableAssetAccessError>) -> Self::Data,
+    );
 
     /// Access the extractable data. Returns error if the data has been extracted.
     fn extractable_data_ref(&self) -> Result<&Self::Data, ExtractableAssetAccessError>;
@@ -89,8 +96,8 @@ pub trait ExtractableAsset: Asset + Sized {
 
     /// Make a copy of the asset to be moved to the `RenderWorld` / gpu. Heavy internal data (pixels, vertex attributes)
     /// should be moved into the copy, leaving this asset with only metadata.
-    /// An error may be returned to indicate that the asset has already been extracted, and should not
-    /// have been modified on the CPU side (as it cannot be transferred to GPU again).
-    /// The previous GPU asset is also provided, which can be used to check if the modification is valid.
+    /// An error may be returned to indicate that the asset has already been extracted.
+    ///
+    /// This can be called in `RenderAsset::take_gpu_data`.
     fn take_gpu_data(&mut self) -> Result<Self, AssetExtractionError>;
 }

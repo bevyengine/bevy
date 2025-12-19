@@ -41,17 +41,16 @@ pub struct ShaderStorageBuffer {
 impl ExtractableAsset for ShaderStorageBuffer {
     type Data = Option<Vec<u8>>;
 
-    fn with_extractable_data(
-        mut self,
+    fn extractable_data_replace(
+        &mut self,
         f: impl FnOnce(Result<Self::Data, bevy_asset::ExtractableAssetAccessError>) -> Self::Data,
-    ) -> Self {
+    ) {
         self.data = f(if self.is_extracted_to_render_world {
             Err(bevy_asset::ExtractableAssetAccessError::ExtractedToRenderWorld)
         } else {
             Ok(self.data.take())
         });
         self.is_extracted_to_render_world = false;
-        self
     }
 
     fn extractable_data_ref(&self) -> Result<&Self::Data, bevy_asset::ExtractableAssetAccessError> {
