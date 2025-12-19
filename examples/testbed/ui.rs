@@ -341,7 +341,7 @@ mod text {
                     }
                 ),
                 (
-                    TextSpan::new("EBGaramond_"),
+                    TextSpan::new("EBGaramond "),
                     TextFont {
                         font: asset_server.load("fonts/EBGaramond12-Regular.otf"),
                         font_size: 40.,
@@ -349,7 +349,7 @@ mod text {
                     },
                 ),
                 (
-                    TextSpan::new(" FiraMono "),
+                    TextSpan::new("FiraMono"),
                     TextFont {
                         font: asset_server.load("fonts/FiraMono-Medium.ttf"),
                         font_size: 40.,
