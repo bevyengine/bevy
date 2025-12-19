@@ -115,8 +115,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, app_status: Res
         Mesh3d(
             asset_server.add(
                 Mesh::from(Sphere::new(0.1))
-                    .with_extractable_data(|d| d.with_generated_tangents().unwrap())
-                    .unwrap(),
+                    .with_extractable_data(|d| d.unwrap().with_generated_tangents().unwrap()),
             ),
         ),
         MeshMaterial3d(asset_server.add(StandardMaterial {

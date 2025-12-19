@@ -161,14 +161,14 @@ impl ExtractableAsset for Mesh {
 
     fn with_extractable_data(
         mut self,
-        f: impl FnOnce(Self::Data) -> Self::Data,
-    ) -> Result<Self, ExtractableAssetAccessError> {
+        f: impl FnOnce(Result<Self::Data, ExtractableAssetAccessError>) -> Self::Data,
+    ) -> Self {
         let data = self
             .extractable_data
             .take()
-            .ok_or(ExtractableAssetAccessError::ExtractedToRenderWorld)?;
+            .ok_or(ExtractableAssetAccessError::ExtractedToRenderWorld);
         self.extractable_data = Some(f(data));
-        Ok(self)
+        self
     }
 
     fn extractable_data_ref(&self) -> Result<&Self::Data, ExtractableAssetAccessError> {

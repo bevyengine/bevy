@@ -50,14 +50,11 @@ fn create_sphere_mesh(meshes: &mut Assets<Mesh>) -> Handle<Mesh> {
     // We're going to use normal maps, so make sure we've generated tangents, or
     // else the normal maps won't show up.
 
-    let sphere_mesh = Sphere::new(1.0)
-        .mesh()
-        .build()
-        .with_extractable_data(|d| {
-            d.with_generated_tangents()
-                .expect("Failed to generate tangents")
-        })
-        .unwrap();
+    let sphere_mesh = Sphere::new(1.0).mesh().build().with_extractable_data(|d| {
+        d.unwrap()
+            .with_generated_tangents()
+            .expect("Failed to generate tangents")
+    });
     meshes.add(sphere_mesh)
 }
 

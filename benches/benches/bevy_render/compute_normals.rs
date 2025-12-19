@@ -87,11 +87,7 @@ fn compute_normals(c: &mut Criterion) {
         });
     });
 
-    let new_mesh = || {
-        new_mesh()
-            .with_extractable_data(MeshExtractableData::with_duplicated_vertices)
-            .unwrap()
-    };
+    let new_mesh = || new_mesh().with_extractable_data(|d| d.unwrap().with_duplicated_vertices());
 
     c.bench_function("flat_normals", |b| {
         b.iter_custom(|iters| {

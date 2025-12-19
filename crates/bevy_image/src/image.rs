@@ -620,14 +620,15 @@ impl ExtractableAsset for Image {
 
     fn with_extractable_data(
         mut self,
-        f: impl FnOnce(Self::Data) -> Self::Data,
-    ) -> Result<Self, bevy_asset::ExtractableAssetAccessError> {
-        if self.is_extracted_to_render_world {
+        f: impl FnOnce(Result<Self::Data, bevy_asset::ExtractableAssetAccessError>) -> Self::Data,
+    ) -> Self {
+        self.data = f(if self.is_extracted_to_render_world {
             Err(bevy_asset::ExtractableAssetAccessError::ExtractedToRenderWorld)
         } else {
-            self.data = f(self.data.take());
-            Ok(self)
-        }
+            Ok(self.data.take())
+        });
+        self.is_extracted_to_render_world = false;
+        self
     }
 
     fn extractable_data_ref(&self) -> Result<&Self::Data, bevy_asset::ExtractableAssetAccessError> {

@@ -199,12 +199,12 @@ fn spawn_plane_mesh(
         .mesh()
         .build()
         .with_extractable_data(|d| {
-            d.with_duplicated_vertices()
+            d.unwrap()
+                .with_duplicated_vertices()
                 .with_computed_flat_normals()
                 .with_generated_tangents()
                 .unwrap()
-        })
-        .unwrap(),
+        }),
     );
 
     // Give the plane some texture.

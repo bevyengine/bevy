@@ -115,10 +115,9 @@ fn setup_meshes(
     );
 
     // Copy the mesh and add skinning attributes that bind each rectangle to a joint.
-    let skinned_mesh = unskinned_mesh
-        .clone()
-        .with_extractable_data(|d| {
-            d.with_inserted_attribute(
+    let skinned_mesh = unskinned_mesh.clone().with_extractable_data(|d| {
+        d.unwrap()
+            .with_inserted_attribute(
                 Mesh::ATTRIBUTE_JOINT_INDEX,
                 VertexAttributeValues::Uint16x4(vec![
                     [0, 0, 0, 0],
@@ -135,8 +134,7 @@ fn setup_meshes(
                 Mesh::ATTRIBUTE_JOINT_WEIGHT,
                 vec![[1.00, 0.00, 0.0, 0.0]; 8],
             )
-        })
-        .unwrap();
+    });
 
     let unskinned_mesh_handle = mesh_assets.add(unskinned_mesh);
     let skinned_mesh_handle = mesh_assets.add(skinned_mesh);

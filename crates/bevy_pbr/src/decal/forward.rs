@@ -34,11 +34,11 @@ impl Plugin for ForwardDecalPlugin {
                 .mesh()
                 .build()
                 .with_extractable_data(|d| {
-                    d.rotated_by(Quat::from_rotation_arc(Vec3::Z, Vec3::Y))
+                    d.unwrap()
+                        .rotated_by(Quat::from_rotation_arc(Vec3::Z, Vec3::Y))
                         .with_generated_tangents()
                         .unwrap()
-                })
-                .unwrap(),
+                }),
         );
 
         app.insert_resource(ForwardDecalMesh(mesh));

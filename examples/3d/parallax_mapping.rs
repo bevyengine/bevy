@@ -267,8 +267,7 @@ fn setup(
                 // NOTE: for normal maps and depth maps to work, the mesh
                 // needs tangents generated.
                 Mesh::from(Cuboid::default())
-                    .with_extractable_data(|d| d.with_generated_tangents().unwrap())
-                    .unwrap(),
+                    .with_extractable_data(|d| d.unwrap().with_generated_tangents().unwrap()),
             ),
         ),
         MeshMaterial3d(parallax_material.clone()),
@@ -277,8 +276,7 @@ fn setup(
 
     let background_cube = meshes.add(
         Mesh::from(Cuboid::new(40.0, 40.0, 40.0))
-            .with_extractable_data(|d| d.with_generated_tangents().unwrap())
-            .unwrap(),
+            .with_extractable_data(|d| d.unwrap().with_generated_tangents().unwrap()),
     );
 
     let background_cube_bundle = |translation| {
