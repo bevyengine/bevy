@@ -89,7 +89,7 @@ fn compute_normals(c: &mut Criterion) {
 
     let new_mesh = || {
         new_mesh()
-            .with_extractable_data(|d| d.with_duplicated_vertices())
+            .with_extractable_data(MeshExtractableData::with_duplicated_vertices)
             .unwrap()
     };
 
