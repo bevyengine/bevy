@@ -10,7 +10,6 @@ use bevy::{
     },
     shader::ShaderRef,
 };
-use bevy_asset::ExtractableAsset;
 
 /// This example uses a shader source file from the assets subdirectory
 const SHADER_ASSET_PATH: &str = "shaders/custom_vertex_attribute.wgsl";

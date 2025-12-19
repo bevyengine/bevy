@@ -9,7 +9,6 @@ use bevy::{
     prelude::*,
     render::view::Hdr,
 };
-use bevy_asset::ExtractableAsset;
 
 /// Entry point.
 pub fn main() {

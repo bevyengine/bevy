@@ -4,7 +4,6 @@
 use std::f32::consts::PI;
 
 use bevy::{gltf::GltfMaterialName, mesh::VertexAttributeValues, prelude::*};
-use bevy_asset::ExtractableAsset;
 
 fn main() {
     App::new()

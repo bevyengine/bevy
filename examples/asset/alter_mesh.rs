@@ -4,7 +4,6 @@ use bevy::{
     asset::RenderAssetUsages, gltf::GltfLoaderSettings,
     input::common_conditions::input_just_pressed, mesh::VertexAttributeValues, prelude::*,
 };
-use bevy_asset::ExtractableAsset;
 
 fn main() {
     App::new()

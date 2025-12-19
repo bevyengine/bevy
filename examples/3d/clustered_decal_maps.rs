@@ -11,7 +11,6 @@ use bevy::{
     prelude::*,
     render::view::Hdr,
 };
-use bevy_asset::ExtractableAsset;
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;
 

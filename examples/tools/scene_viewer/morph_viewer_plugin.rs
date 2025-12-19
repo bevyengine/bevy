@@ -10,7 +10,6 @@
 
 use crate::scene_viewer_plugin::SceneHandle;
 use bevy::prelude::*;
-use bevy_asset::ExtractableAsset;
 use std::fmt;
 
 const FONT_SIZE: f32 = 13.0;

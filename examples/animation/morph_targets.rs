@@ -3,7 +3,6 @@
 //! Also illustrates how to read morph target names in `name_morphs`.
 
 use bevy::{prelude::*, scene::SceneInstanceReady};
-use bevy_asset::ExtractableAsset;
 use std::f32::consts::PI;
 
 const GLTF_PATH: &str = "models/animated/MorphStressTest.gltf";

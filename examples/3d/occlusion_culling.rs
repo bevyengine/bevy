@@ -36,7 +36,6 @@ use bevy::{
         Render, RenderApp, RenderDebugFlags, RenderPlugin, RenderStartup, RenderSystems,
     },
 };
-use bevy_asset::ExtractableAsset;
 use bytemuck::Pod;
 
 /// The radius of the spinning sphere of cubes.

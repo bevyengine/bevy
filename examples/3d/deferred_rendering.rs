@@ -13,7 +13,6 @@ use bevy::{
     pbr::{DefaultOpaqueRendererMethod, OpaqueRendererMethod},
     prelude::*,
 };
-use bevy_asset::ExtractableAsset;
 
 fn main() {
     App::new()

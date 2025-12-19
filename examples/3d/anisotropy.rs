@@ -9,7 +9,6 @@ use bevy::{
     prelude::*,
     time::Stopwatch,
 };
-use bevy_asset::ExtractableAsset;
 
 /// The initial position of the camera.
 const CAMERA_INITIAL_POSITION: Vec3 = vec3(-0.4, 0.0, 0.0);

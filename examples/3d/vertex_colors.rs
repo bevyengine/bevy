@@ -1,7 +1,6 @@
 //! Illustrates the use of vertex colors.
 
 use bevy::{mesh::VertexAttributeValues, prelude::*};
-use bevy_asset::ExtractableAsset;
 
 fn main() {
     App::new()

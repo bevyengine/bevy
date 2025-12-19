@@ -27,7 +27,6 @@ use bevy::{
     prelude::*,
     render::view::Hdr,
 };
-use bevy_asset::ExtractableAsset;
 
 /// The size of each sphere.
 const SPHERE_SCALE: f32 = 0.9;

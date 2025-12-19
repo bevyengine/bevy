@@ -37,7 +37,6 @@ use bevy::{
         SetMesh2dViewBindGroup,
     },
 };
-use bevy_asset::ExtractableAsset;
 use std::f32::consts::PI;
 
 fn main() {

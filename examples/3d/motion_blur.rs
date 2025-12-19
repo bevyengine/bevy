@@ -7,7 +7,6 @@ use bevy::{
     post_process::motion_blur::MotionBlur,
     prelude::*,
 };
-use bevy_asset::ExtractableAsset;
 
 fn main() {
     let mut app = App::new();

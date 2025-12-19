@@ -4,7 +4,6 @@
 use std::fmt;
 
 use bevy::{image::ImageLoaderSettings, math::ops, prelude::*};
-use bevy_asset::ExtractableAsset;
 
 fn main() {
     App::new()
