@@ -175,6 +175,7 @@ impl ViewNode for RenderSkyNode {
         Read<AtmosphereTransformsOffset>,
         Read<ViewUniformOffset>,
         Read<ViewLightsUniformOffset>,
+        Read<DynamicUniformIndex<CloudLayer>>,
         Read<RenderSkyPipelineId>,
         Option<Read<MainPassResolutionOverride>>,
     );
@@ -192,6 +193,7 @@ impl ViewNode for RenderSkyNode {
             atmosphere_transforms_offset,
             view_uniforms_offset,
             lights_uniforms_offset,
+            cloud_layer_uniforms_offset,
             render_sky_pipeline_id,
             resolution_override,
         ): QueryItem<'w, '_, Self::ViewQuery>,
