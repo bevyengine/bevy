@@ -7,34 +7,31 @@ pull_requests: [20323]
 
 ## Audio Feature Flags
 
-Audio format related features were reworked and now `symphonia` will be the default backend for most of them.
+Audio format related features were reworked with this update.
 
 By default, Bevy will enable the `vorbis` feature, which supports OGG/VORBIS files through `lewton`.
 
 If you are not using Bevy's default features, here's a list you can use for reference:
 
 - `vorbis`: OGG/VORBIS audio format support (through `lewton`).
-- `wav`: WAV audio format support (through `symphonia`).
+- `wav`: WAV audio format support (through `hound`).
 - `mp3`: MP3 audio format support (through `symphonia`).
 - `mp4`: MP4 audio format support (through `symphonia`). It also enables AAC support.
-- `flac`: FLAC audio format support (through `symphonia`).
+- `flac`: FLAC audio format support (through `claxon`).
 - `aac`: AAC audio format support (through `symphonia`).
 
-There are also "fallback" backend flags you can use for certain formats:
+There are also specific `symphonia` backend flags you can use for certain formats instead of the default flags:
 
-- `fallback-flac`: FLAC audio format support (through `claxon`).
-- `fallback-vorbis`: OGG/VORBIS audio format support (through `symphonia`).
-- `fallback-wav`: WAV audio format support (through `hound`).
+- `symphonia-flac`
+- `symphonia-vorbis`
+- `symphonia-wav`
 
-Notice that OGG/VORBIS support through `symphonia` is not the default due to issues with buffering, reverb, looping and spatial audio. Check the following issues/PRs for additional context:
+Notice that OGG/VORBIS support through `symphonia` is currently subject to issues with buffering, reverb, looping and spatial audio. Check the following issues/PRs for additional context:
 
 - <https://github.com/RustAudio/rodio/issues/775>
 - <https://github.com/RustAudio/rodio/pull/786>
 
-The `audio-all` feature was added for convenience. It will enable all the available audio formats. Here's the full list and the corresponding backend for each format:
-
-- AAC, FLAC, MP3, MP4, and WAV: `symphonia`.
-- OGG/VORBIS: `lewton`.
+The `audio-all` feature was added for convenience. It will enable all the available audio formats through their default backends.
 
 ## Audio Traits
 
