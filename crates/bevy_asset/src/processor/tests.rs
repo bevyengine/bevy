@@ -33,7 +33,7 @@ use crate::{
         ProcessError, ProcessorState, ProcessorTransactionLog, ProcessorTransactionLogFactory,
     },
     saver::AssetSaver,
-    tests::{run_app_until, CoolText, CoolTextLoader, CoolTextRon, SubText},
+    tests::{read_asset_as_string, run_app_until, CoolText, CoolTextLoader, CoolTextRon, SubText},
     transformer::{AssetTransformer, TransformedAsset},
     Asset, AssetApp, AssetLoader, AssetMode, AssetPath, AssetPlugin, LoadContext,
 };
@@ -498,11 +498,6 @@ impl MutateAsset<CoolText> for AddText {
     fn mutate(&self, text: &mut CoolText) {
         text.text.push_str(&self.0);
     }
-}
-
-fn read_asset_as_string(dir: &Dir, path: &Path) -> String {
-    let bytes = dir.get_asset(path).unwrap();
-    str::from_utf8(bytes.value()).unwrap().to_string()
 }
 
 #[test]
