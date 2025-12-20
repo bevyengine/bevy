@@ -176,6 +176,7 @@ Example | Description
 [Order Independent Transparency](../examples/3d/order_independent_transparency.rs) | Demonstrates how to use OIT
 [Orthographic View](../examples/3d/orthographic.rs) | Shows how to create a 3D orthographic view (for isometric-look in games or CAD applications)
 [Parallax Mapping](../examples/3d/parallax_mapping.rs) | Demonstrates use of a normal map and depth map for parallax mapping
+[Parallax-Corrected Cubemaps](../examples/3d/pccm.rs) | Demonstrates parallax-corrected cubemap reflections
 [Parenting](../examples/3d/parenting.rs) | Demonstrates parent->child relationships and relative transformations
 [Percentage-closer soft shadows](../examples/3d/pcss.rs) | Demonstrates percentage-closer soft shadows (PCSS)
 [Physically Based Rendering](../examples/3d/pbr.rs) | Demonstrates use of Physically Based Rendering (PBR) properties

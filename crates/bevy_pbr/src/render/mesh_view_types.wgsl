@@ -121,14 +121,19 @@ struct ClusterOffsetsAndCounts {
 };
 #endif
 
+// Whether this light probe contributes diffuse light to lightmapped meshes.
+const LIGHT_PROBE_FLAG_AFFECTS_LIGHTMAPPED_MESH_DIFFUSE: u32 = 1;
+// Whether this light probe has parallax correction enabled.
+const LIGHT_PROBE_FLAG_PARALLAX_CORRECT:                 u32 = 2;
+
 struct LightProbe {
     // This is stored as the transpose in order to save space in this structure.
     // It'll be transposed in the `environment_map_light` function.
     light_from_world_transposed: mat3x4<f32>,
     cubemap_index: i32,
     intensity: f32,
-    // Whether this light probe contributes diffuse light to lightmapped meshes.
-    affects_lightmapped_mesh_diffuse: u32,
+    // Various flags that apply to this light probe.
+    flags: u32,
 };
 
 struct LightProbes {

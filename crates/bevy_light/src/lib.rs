@@ -29,7 +29,7 @@ pub use ambient_light::{AmbientLight, GlobalAmbientLight};
 mod probe;
 pub use probe::{
     AtmosphereEnvironmentMapLight, EnvironmentMapLight, GeneratedEnvironmentMapLight,
-    IrradianceVolume, LightProbe,
+    IrradianceVolume, LightProbe, ParallaxCorrect,
 };
 mod volumetric;
 pub use volumetric::{FogVolume, VolumetricFog, VolumetricLight};
