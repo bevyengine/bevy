@@ -64,7 +64,7 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 |asset_processor|Enables the built-in asset processor for processed assets.|
 |async-io|Use async-io's implementation of block_on instead of futures-lite's implementation. This is preferred if your application uses async-io.|
 |async_executor|Uses `async-executor` as a task execution backend.|
-|audio-all|AAC, FLAC, MP3, MP4, WAV (through `symphonia`) and OGG/VORBIS (through `lewton`) audio formats support|
+|audio-all|AAC, MP3, MP4 (`symphonia`), WAV (`hound`), FLAC (`claxon`) and OGG/VORBIS (`lewton`) audio formats support|
 |basis-universal|Basis Universal compressed texture support|
 |bevy_animation|Provides animation functionality|
 |bevy_anti_alias|Provides various anti aliasing solutions|
@@ -121,9 +121,6 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 |experimental_bevy_ui_widgets|Experimental headless widget collection for Bevy UI.|
 |experimental_pbr_pcss|Enable support for PCSS, at the risk of blowing past the global, per-shader sampler limit on older/lower-end GPUs|
 |exr|EXR image format support|
-|fallback-flac|FLAC audio format support (through `claxon`)|
-|fallback-vorbis|OGG/VORBIS audio format support (through `symphonia`)|
-|fallback-wav|WAV audio format support (through `hound`)|
 |ff|Farbfeld image format support|
 |file_watcher|Enables watching the filesystem for Bevy Asset hot-reloading|
 |flac|FLAC audio format support (through `symphonia`)|
@@ -177,6 +174,9 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 |sprite_picking|Provides an implementation for picking sprites|
 |statically-linked-dxc|Statically linked DXC shader compiler for DirectX 12|
 |std|Allows access to the `std` crate.|
+|symphonia-flac|FLAC audio format support (through `symphonia`)|
+|symphonia-vorbis|OGG/VORBIS audio format support (through `symphonia`)|
+|symphonia-wav|WAV audio format support (through `symphonia`)|
 |sysinfo_plugin|Enables system information diagnostic plugin|
 |tga|TGA image format support|
 |tiff|TIFF image format support|

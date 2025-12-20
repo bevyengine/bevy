@@ -38,22 +38,20 @@ bevy_reflect = { path = "../bevy_reflect", version = "0.18.0-dev", default-featu
 ] }
 
 [features]
-fallback-flac = ["rodio/claxon"]
-fallback-wav = ["rodio/hound"]
-# TODO: Swap fallback-vorbis and vorbis features
-# once https://github.com/RustAudio/rodio/issues/775 is resolved
-fallback-vorbis = ["rodio/vorbis"]
+aac = ["rodio/symphonia-aac"]
+flac = ["rodio/claxon"]
 mp3 = ["rodio/mp3"]
 mp4 = ["rodio/mp4"]
-flac = ["rodio/flac"]
-wav = ["rodio/wav"]
 vorbis = ["rodio/lewton"]
-aac = ["rodio/symphonia-aac"]
+wav = ["rodio/hound"]
+symphonia-flac = ["rodio/flac"]
+symphonia-vorbis = ["rodio/vorbis"]
+symphonia-wav = ["rodio/wav"]
 audio-all = [
   "rodio/flac",
   "rodio/mp3",
   "rodio/mp4",
-  "rodio/lewton",
+  "rodio/vorbis",
   "rodio/wav",
 ]
 
