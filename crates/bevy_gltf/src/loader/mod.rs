@@ -154,10 +154,14 @@ pub struct GltfLoader {
     ///
     /// Setting any of these values to true will result in the relevant entities
     /// moving in the opposite direction when using the forward direction.
-    /// This means that within a scene, different entities will move in different
-    /// directions when using the forward direction.
-    /// There is no combination of flags that will make all entities in a scene
-    /// move in the same foward direction.
+    /// This means that within a scene, different entities in a hierarchy will
+    /// move in different global directions when using the forward direction
+    /// for that `Entity`.
+    ///
+    /// For example, a parent `Entity` with a child that has a `Mesh3d`
+    /// component will move "backwards" when using its forward direction, and the
+    /// `Entity` holding the `Mesh3d` will move in the opposite direction when using
+    /// its forward direction.
     pub default_convert_coordinates: GltfConvertCoordinates,
     /// glTF extension data processors.
     /// These are Bevy-side processors designed to access glTF
@@ -211,6 +215,17 @@ pub struct GltfLoaderSettings {
     /// Overrides the default glTF coordinate conversion setting.
     ///
     /// If `None`, uses the global default set by [`GltfPlugin::convert_coordinates`](crate::GltfPlugin::convert_coordinates).
+    ///
+    /// Setting any of these values to true will result in the relevant entities
+    /// moving in the opposite direction when using the forward direction.
+    /// This means that within a scene, different entities in a hierarchy will
+    /// move in different global directions when using the forward direction
+    /// for that `Entity`.
+    ///
+    /// For example, a parent `Entity` with a child that has a `Mesh3d`
+    /// component will move "backwards" when using its forward direction, and the
+    /// `Entity` holding the `Mesh3d` will move in the opposite direction when using
+    /// its forward direction.
     pub convert_coordinates: Option<GltfConvertCoordinates>,
 }
 
