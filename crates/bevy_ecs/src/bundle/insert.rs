@@ -167,7 +167,7 @@ impl<'w> BundleInserter<'w> {
 
             if insert_mode == InsertMode::Replace {
                 // SAFETY:
-                // * Pointer was created from a reference in `Self::new_with_id` and so is `dereferencable`.
+                // * Pointer was created from a reference in `Self::new_with_id` and so is `dereferenceable`.
                 // * `Self`'s lifetime is tied to an exclusive reference to `World` and it does not make structural
                 // changes to the world, so the data is valid for the lifetime of `Self`
                 let archetype = archetype.as_ref();
@@ -193,7 +193,7 @@ impl<'w> BundleInserter<'w> {
         }
 
         // SAFETY:
-        // * Pointer was created from a reference in `Self::new_with_id` and so is `dereferencable`.
+        // * Pointer was created from a reference in `Self::new_with_id` and so is `dereferenceable`.
         // * `Self`'s lifetime is tied to an exclusive reference to `World` and it does not make structural
         // changes to the world, so the data is valid for the lifetime of `Self`
         let table = unsafe { table.as_mut() };
@@ -201,7 +201,7 @@ impl<'w> BundleInserter<'w> {
         // SAFETY:
         // * Archetype gets borrowed when running the on_replace observers above,
         // so this reference can only be promoted from shared to &mut down here, after they have been ran
-        // * Pointer was created from a reference in `Self::new_with_id` and so is `dereferencable`.
+        // * Pointer was created from a reference in `Self::new_with_id` and so is `dereferenceable`.
         // * `Self`'s lifetime is tied to an exclusive reference to `World` and it does not make structural
         // changes to the world, so the data is valid for the lifetime of `Self`
         let archetype = unsafe { archetype.as_mut() };
@@ -356,7 +356,7 @@ impl<'w> BundleInserter<'w> {
         relationship_hook_mode: RelationshipHookMode,
     ) -> EntityLocation {
         // SAFETY:
-        // * Pointer was created from a reference in `Self::new_with_id` and so is `dereferencable`.
+        // * Pointer was created from a reference in `Self::new_with_id` and so is `dereferenceable`.
         // * `Self`'s lifetime is tied to an exclusive reference to `World` and it does not make structural
         // changes to the world, so the data is valid for the lifetime of `Self`
         let archetype_after_insert = unsafe { self.archetype_after_insert.as_ref() };
@@ -377,7 +377,7 @@ impl<'w> BundleInserter<'w> {
             );
 
             // SAFETY:
-            // * Pointer was created from a reference in `Self::new_with_id` and so is `dereferencable`.
+            // * Pointer was created from a reference in `Self::new_with_id` and so is `dereferenceable`.
             // * `Self`'s lifetime is tied to an exclusive reference to `World` and it does not make structural
             // changes to the world, so the data is valid for the lifetime of `Self`
             let bundle_info = unsafe { self.bundle_info.as_ref() };

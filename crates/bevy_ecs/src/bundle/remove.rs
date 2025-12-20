@@ -143,7 +143,7 @@ impl<'w> BundleRemover<'w> {
             let mut deferred_world = self.world.into_deferred();
             let bundle_components_in_archetype = || {
                 // SAFETY:
-                // * Pointer was created from a reference in `Self::new_with_id` and so is `dereferencable`.
+                // * Pointer was created from a reference in `Self::new_with_id` and so is `dereferenceable`.
                 // * `Self`'s lifetime is tied to an exclusive reference to `World` and it does not make structural
                 // changes to the world, so the data is valid for the lifetime of `Self`
                 let (bundle_info, old_archetype) =
@@ -153,7 +153,7 @@ impl<'w> BundleRemover<'w> {
                     .filter(|component_id| old_archetype.contains(*component_id))
             };
             // SAFETY:
-            // * Pointer was created from a reference in `Self::new_with_id` and so is `dereferencable`.
+            // * Pointer was created from a reference in `Self::new_with_id` and so is `dereferenceable`.
             // * `Self`'s lifetime is tied to an exclusive reference to `World` and it does not make structural
             // changes to the world, so the data is valid for the lifetime of `Self`
             if self.old_archetype.as_ref().has_replace_observer() {
@@ -170,7 +170,7 @@ impl<'w> BundleRemover<'w> {
             }
             deferred_world.trigger_on_replace(
                 // SAFETY:
-                // * Pointer was created from a reference in `Self::new_with_id` and so is `dereferencable`.
+                // * Pointer was created from a reference in `Self::new_with_id` and so is `dereferenceable`.
                 // * `Self`'s lifetime is tied to an exclusive reference to `World` and it does not make structural
                 // changes to the world, so the data is valid for the lifetime of `Self`
                 self.old_archetype.as_ref(),
@@ -180,7 +180,7 @@ impl<'w> BundleRemover<'w> {
                 self.relationship_hook_mode,
             );
             // SAFETY:
-            // * Pointer was created from a reference in `Self::new_with_id` and so is `dereferencable`.
+            // * Pointer was created from a reference in `Self::new_with_id` and so is `dereferenceable`.
             // * `Self`'s lifetime is tied to an exclusive reference to `World` and it does not make structural
             // changes to the world, so the data is valid for the lifetime of `Self`
             if self.old_archetype.as_ref().has_remove_observer() {
@@ -197,7 +197,7 @@ impl<'w> BundleRemover<'w> {
             }
             deferred_world.trigger_on_remove(
                 // SAFETY:
-                // * Pointer was created from a reference in `Self::new_with_id` and so is `dereferencable`.
+                // * Pointer was created from a reference in `Self::new_with_id` and so is `dereferenceable`.
                 // * `Self`'s lifetime is tied to an exclusive reference to `World` and it does not make structural
                 // changes to the world, so the data is valid for the lifetime of `Self`
                 self.old_archetype.as_ref(),
@@ -218,7 +218,7 @@ impl<'w> BundleRemover<'w> {
                 .map(|(old, _)| unsafe { &mut *old.as_ptr() }),
             &world.components,
             // SAFETY:
-            // * Pointer was created from a reference in `Self::new_with_id` and so is `dereferencable`.
+            // * Pointer was created from a reference in `Self::new_with_id` and so is `dereferenceable`.
             // * `Self`'s lifetime is tied to an exclusive reference to `World` and it does not make structural
             // changes to the world, so the data is valid for the lifetime of `Self`
             unsafe { self.bundle_info.as_ref() }.explicit_components(),
@@ -226,12 +226,12 @@ impl<'w> BundleRemover<'w> {
 
         // Handle sparse set removes
         // SAFETY:
-        // * Pointer was created from a reference in `Self::new_with_id` and so is `dereferencable`.
+        // * Pointer was created from a reference in `Self::new_with_id` and so is `dereferenceable`.
         // * `Self`'s lifetime is tied to an exclusive reference to `World` and it does not make structural
         // changes to the world, so the data is valid for the lifetime of `Self`
         for component_id in unsafe { self.bundle_info.as_ref() }.iter_explicit_components() {
             // SAFETY:
-            // * Pointer was created from a reference in `Self::new_with_id` and so is `dereferencable`.
+            // * Pointer was created from a reference in `Self::new_with_id` and so is `dereferenceable`.
             // * `Self`'s lifetime is tied to an exclusive reference to `World` and it does not make structural
             // changes to the world, so the data is valid for the lifetime of `Self`
             if unsafe { self.old_archetype.as_ref() }.contains(component_id) {
@@ -241,7 +241,7 @@ impl<'w> BundleRemover<'w> {
                 // Dense components are dropped later in `move_to_and_drop_missing_unchecked`.
                 if let Some(StorageType::SparseSet) =
                     // SAFETY:
-                    // * Pointer was created from a reference in `Self::new_with_id` and so is `dereferencable`.
+                    // * Pointer was created from a reference in `Self::new_with_id` and so is `dereferenceable`.
                     // * `Self`'s lifetime is tied to an exclusive reference to `World` and it does not make structural
                     // changes to the world, so the data is valid for the lifetime of `Self`
                     unsafe { self.old_archetype.as_ref() }.get_storage_type(component_id)
@@ -261,7 +261,7 @@ impl<'w> BundleRemover<'w> {
         // Handle archetype change
         let remove_result =
             // SAFETY:
-            // * Pointer was created from a reference in `Self::new_with_id` and so is `dereferencable`.
+            // * Pointer was created from a reference in `Self::new_with_id` and so is `dereferenceable`.
             // * `Self`'s lifetime is tied to an exclusive reference to `World` and it does not make structural
             // changes to the world, so the data is valid for the lifetime of `Self`
             unsafe { self.old_archetype.as_mut() }.swap_remove(location.archetype_row);
@@ -284,7 +284,7 @@ impl<'w> BundleRemover<'w> {
         let new_location = if let Some((mut old_table, mut new_table)) = self.old_and_new_table {
             let move_result = if needs_drop {
                 // SAFETY:
-                // * Pointer was created from a reference in `Self::new_with_id` and so is `dereferencable`.
+                // * Pointer was created from a reference in `Self::new_with_id` and so is `dereferenceable`.
                 // * `Self`'s lifetime is tied to an exclusive reference to `World` and it does not make structural
                 // changes to the world, so the data is valid for the lifetime of `Self`
                 let old_table = unsafe { old_table.as_mut() };
@@ -296,7 +296,7 @@ impl<'w> BundleRemover<'w> {
                 }
             } else {
                 // SAFETY:
-                // * Pointer was created from a reference in `Self::new_with_id` and so is `dereferencable`.
+                // * Pointer was created from a reference in `Self::new_with_id` and so is `dereferenceable`.
                 // * `Self`'s lifetime is tied to an exclusive reference to `World` and it does not make structural
                 // changes to the world, so the data is valid for the lifetime of `Self`
                 let (old_table, new_table) = unsafe { (old_table.as_mut(), new_table.as_mut()) };
@@ -307,7 +307,7 @@ impl<'w> BundleRemover<'w> {
             };
 
             // SAFETY:
-            // * Pointer was created from a reference in `Self::new_with_id` and so is `dereferencable`.
+            // * Pointer was created from a reference in `Self::new_with_id` and so is `dereferenceable`.
             // * `Self`'s lifetime is tied to an exclusive reference to `World` and it does not make structural
             // changes to the world, so the data is valid for the lifetime of `Self`
             let new_archetype = unsafe { self.new_archetype.as_mut() };
@@ -334,7 +334,7 @@ impl<'w> BundleRemover<'w> {
             new_location
         } else {
             // SAFETY:
-            // * Pointer was created from a reference in `Self::new_with_id` and so is `dereferencable`.
+            // * Pointer was created from a reference in `Self::new_with_id` and so is `dereferenceable`.
             // * `Self`'s lifetime is tied to an exclusive reference to `World` and it does not make structural
             // changes to the world, so the data is valid for the lifetime of `Self`
             let new_archetype = unsafe { self.new_archetype.as_mut() };

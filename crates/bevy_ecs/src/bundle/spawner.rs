@@ -95,13 +95,13 @@ impl<'w> BundleSpawner<'w> {
         caller: MaybeLocation,
     ) -> EntityLocation {
         // SAFETY:
-        // * Pointer was created from a reference in `Self::new_with_id` and so is `dereferencable`.
+        // * Pointer was created from a reference in `Self::new_with_id` and so is `dereferenceable`.
         // * `Self`'s lifetime is tied to an exclusive reference to `World` and it does not make structural
         // changes to the world, so the data is valid for the lifetime of `Self`
         let bundle_info = unsafe { self.bundle_info.as_ref() };
         let location = {
             // SAFETY:
-            // * Pointers are dereferencable because they were created from a reference in `Self::new_with_id`.
+            // * Pointers are dereferenceable because they were created from a reference in `Self::new_with_id`.
             // * `Self`'s lifetime is tied to an exclusive reference to `World` and it does not make structural
             // changes to the world, so the data is valid for the lifetime of `Self`
             let (table, archetype) = unsafe { (self.table.as_mut(), self.archetype.as_mut()) };
@@ -133,7 +133,7 @@ impl<'w> BundleSpawner<'w> {
         // SAFETY: We have no outstanding mutable references to world as they were dropped
         let mut deferred_world = unsafe { self.world.into_deferred() };
         // SAFETY:
-        // * Dereferencable because it was created from an exclusive reference in `Self::new_with_id`.
+        // * dereferenceable because it was created from an exclusive reference in `Self::new_with_id`.
         // * `DeferredWorld` does not provide mutable access to `Archetypes`, so it is safe to hold a reference to an archetype.
         let archetype = unsafe { self.archetype.as_ref() };
         // SAFETY: All components in the bundle are guaranteed to exist in the World
