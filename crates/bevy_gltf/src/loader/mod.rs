@@ -153,15 +153,18 @@ pub struct GltfLoader {
     /// per-load by [`GltfLoaderSettings::convert_coordinates`].
     ///
     /// Setting any of these values to true will result in the relevant entities
-    /// moving in the opposite direction when using the forward direction.
+    /// moving in opposite directions when using the forward direction.
     /// This means that within a scene, different entities in a hierarchy will
     /// move in different global directions when using the forward direction
     /// for that `Entity`.
     ///
-    /// For example, a parent `Entity` with a child that has a `Mesh3d`
-    /// component will move "backwards" when using its forward direction, and the
-    /// `Entity` holding the `Mesh3d` will move in the opposite direction when using
-    /// its forward direction.
+    /// For example, a parent `Entity` A, with a child `Entity` B that has a `Mesh3d`
+    /// component:
+    ///
+    /// - Entity A with a `Transform`
+    ///   - Entity B with a `Transform`, `Mesh3d`, `MeshMaterial3d`
+    ///
+    /// If A's forward moves "North", B's forward moves "South"
     pub default_convert_coordinates: GltfConvertCoordinates,
     /// glTF extension data processors.
     /// These are Bevy-side processors designed to access glTF
@@ -217,15 +220,18 @@ pub struct GltfLoaderSettings {
     /// If `None`, uses the global default set by [`GltfPlugin::convert_coordinates`](crate::GltfPlugin::convert_coordinates).
     ///
     /// Setting any of these values to true will result in the relevant entities
-    /// moving in the opposite direction when using the forward direction.
+    /// moving in opposite directions when using the forward direction.
     /// This means that within a scene, different entities in a hierarchy will
     /// move in different global directions when using the forward direction
     /// for that `Entity`.
     ///
-    /// For example, a parent `Entity` with a child that has a `Mesh3d`
-    /// component will move "backwards" when using its forward direction, and the
-    /// `Entity` holding the `Mesh3d` will move in the opposite direction when using
-    /// its forward direction.
+    /// For example, a parent `Entity` A, with a child `Entity` B that has a `Mesh3d`
+    /// component:
+    ///
+    /// - Entity A with a `Transform`
+    ///   - Entity B with a `Transform`, `Mesh3d`, `MeshMaterial3d`
+    ///
+    /// If A's forward moves "North", B's forward moves "South"
     pub convert_coordinates: Option<GltfConvertCoordinates>,
 }
 
