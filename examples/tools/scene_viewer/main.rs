@@ -9,6 +9,7 @@
 //! If you want to hot reload asset changes, enable the `file_watcher` cargo feature.
 
 use argh::FromArgs;
+use bevy::window::PresentMode;
 use bevy::{
     asset::UnapprovedPathMode,
     camera::primitives::{Aabb, Sphere},
@@ -84,6 +85,7 @@ fn main() {
             .set(WindowPlugin {
                 primary_window: Some(Window {
                     title: "bevy scene viewer".to_string(),
+                    present_mode: PresentMode::AutoNoVsync,
                     ..default()
                 }),
                 ..default()

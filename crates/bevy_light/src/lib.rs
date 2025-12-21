@@ -5,8 +5,8 @@ use bevy_camera::{
     primitives::{Aabb, CascadesFrusta, CubemapFrusta, Frustum, Sphere},
     visibility::{
         CascadesVisibleEntities, CubemapVisibleEntities, InheritedVisibility, NoFrustumCulling,
-        PreviousVisibleEntities, RenderLayers, ViewVisibility, VisibilityRange, VisibilitySystems,
-        VisibleEntityRanges, VisibleMeshEntities,
+        RenderLayers, ViewVisibility, VisibilityRange, VisibilitySystems, VisibleEntityRanges,
+        VisibleMeshEntities,
     },
     CameraUpdateSystems,
 };
@@ -26,6 +26,8 @@ use cluster::{
 };
 mod ambient_light;
 pub use ambient_light::{AmbientLight, GlobalAmbientLight};
+use bevy_camera::visibility::PreviouslyVisible;
+
 mod probe;
 pub use probe::{
     AtmosphereEnvironmentMapLight, EnvironmentMapLight, GeneratedEnvironmentMapLight,
@@ -450,23 +452,19 @@ pub fn check_dir_light_mesh_visibility(
     // TODO: use resource to avoid unnecessary memory alloc
     let mut defer_queue = core::mem::take(defer_visible_entities_queue.deref_mut());
     commands.queue(move |world: &mut World| {
-        world.resource_scope::<PreviousVisibleEntities, _>(
-            |world, mut previous_visible_entities| {
-                let mut query = world.query::<(Entity, &mut ViewVisibility)>();
-                for entities in defer_queue.iter_mut() {
-                    let mut iter = query.iter_many_mut(world, entities.iter());
-                    while let Some((entity, mut view_visibility)) = iter.fetch_next() {
-                        if !**view_visibility {
-                            view_visibility.set();
-                        }
-
-                        // Remove any entities that were discovered to be
-                        // visible from the `PreviousVisibleEntities` resource.
-                        previous_visible_entities.remove(&entity);
-                    }
+        let mut query = world.query::<(&mut ViewVisibility, &mut PreviouslyVisible)>();
+        for entities in defer_queue.iter_mut() {
+            let mut iter = query.iter_many_mut(world, entities.iter());
+            while let Some((mut view_visibility, mut previously_visible)) = iter.fetch_next() {
+                if !**view_visibility {
+                    view_visibility.set();
                 }
-            },
-        );
+
+                // Remove any entities that were discovered to be
+                // visible from the `PreviousVisibleEntities` resource.
+                **previously_visible = false;
+            }
+        }
     });
 }
 
@@ -504,12 +502,13 @@ pub fn check_point_light_mesh_visibility(
         ),
     >,
     visible_entity_ranges: Option<Res<VisibleEntityRanges>>,
-    mut previous_visible_entities: ResMut<PreviousVisibleEntities>,
+    mut previously_visible: Query<&mut PreviouslyVisible>,
     mut cubemap_visible_entities_queue: Local<Parallel<[Vec<Entity>; 6]>>,
     mut spot_visible_entities_queue: Local<Parallel<Vec<Entity>>>,
     mut checked_lights: Local<EntityHashSet>,
 ) {
     checked_lights.clear();
+    let previously_visible = &mut previously_visible;
 
     let visible_entity_ranges = visible_entity_ranges.as_deref();
     for visible_lights in &visible_point_lights {
@@ -612,7 +611,10 @@ pub fn check_point_light_mesh_visibility(
                         // Remove any entities that were discovered to be
                         // visible from the `PreviousVisibleEntities` resource.
                         for entity in source.iter() {
-                            previous_visible_entities.remove(entity);
+                            if let Ok(mut previously_visible) = previously_visible.get_mut(*entity)
+                            {
+                                **previously_visible = false;
+                            }
                         }
 
                         dst.entities.append(source);
@@ -702,8 +704,10 @@ pub fn check_point_light_mesh_visibility(
 
                     // Remove any entities that were discovered to be visible
                     // from the `PreviousVisibleEntities` resource.
-                    for entity in entities {
-                        previous_visible_entities.remove(entity);
+                    for entity in entities.iter() {
+                        if let Ok(mut previously_visible) = previously_visible.get_mut(*entity) {
+                            **previously_visible = false;
+                        }
                     }
                 }
 

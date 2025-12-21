@@ -3,7 +3,7 @@ mod render_layers;
 
 use core::any::TypeId;
 
-use bevy_ecs::entity::{EntityHashMap, EntityHashSet};
+use bevy_ecs::entity::EntityHashMap;
 use bevy_ecs::lifecycle::HookContext;
 use bevy_ecs::world::DeferredWorld;
 use derive_more::derive::{Deref, DerefMut};
@@ -175,6 +175,7 @@ pub struct VisibilityClass(pub SmallVec<[TypeId; 1]>);
 /// [`CheckVisibility`]: VisibilitySystems::CheckVisibility
 #[derive(Component, Deref, Debug, Default, Clone, Copy, Reflect, PartialEq, Eq)]
 #[reflect(Component, Default, Debug, PartialEq, Clone)]
+#[require(PreviouslyVisible)]
 pub struct ViewVisibility(bool);
 
 impl ViewVisibility {
@@ -369,7 +370,6 @@ impl Plugin for VisibilityPlugin {
                     .ambiguous_with(CalculateBounds)
                     .ambiguous_with(mark_3d_meshes_as_changed_if_their_assets_changed),
             )
-            .init_resource::<PreviousVisibleEntities>()
             .add_systems(
                 PostUpdate,
                 (
@@ -522,29 +522,22 @@ fn propagate_recursive(
     Ok(())
 }
 
-/// Stores all entities that were visible in the previous frame.
-///
-/// As systems that check visibility judge entities visible, they remove them
-/// from this set. Afterward, the `mark_newly_hidden_entities_invisible` system
-/// runs and marks every mesh still remaining in this set as hidden.
-#[derive(Resource, Default, Deref, DerefMut)]
-pub struct PreviousVisibleEntities(EntityHashSet);
+/// As systems that check visibility judge entities visible, they set this to `false`. Afterward,
+/// the `mark_newly_hidden_entities_invisible` system runs and marks every entity still true as hidden.
+#[derive(Component, Default, Reflect, Deref, DerefMut)]
+#[reflect(Component)]
+pub struct PreviouslyVisible(bool);
 
 /// Resets the view visibility of every entity.
 /// Entities that are visible will be marked as such later this frame
 /// by a [`VisibilitySystems::CheckVisibility`] system.
-fn reset_view_visibility(
-    mut query: Query<(Entity, &ViewVisibility)>,
-    mut previous_visible_entities: ResMut<PreviousVisibleEntities>,
-) {
-    previous_visible_entities.clear();
-
-    query.iter_mut().for_each(|(entity, view_visibility)| {
-        // Record the entities that were previously visible.
-        if view_visibility.get() {
-            previous_visible_entities.insert(entity);
-        }
-    });
+fn reset_view_visibility(mut query: Query<(&ViewVisibility, &mut PreviouslyVisible)>) {
+    query
+        .par_iter_mut()
+        .for_each(|(view_visibility, mut previously_visible)| {
+            // Record the entities that were previously visible.
+            **previously_visible = view_visibility.get();
+        });
 }
 
 /// System updating the visibility of entities each frame.
@@ -576,8 +569,8 @@ pub fn check_visibility(
         Has<NoFrustumCulling>,
         Has<VisibilityRange>,
     )>,
+    mut previously_visible: Query<&mut PreviouslyVisible>,
     visible_entity_ranges: Option<Res<VisibleEntityRanges>>,
-    mut previous_visible_entities: ResMut<PreviousVisibleEntities>,
 ) {
     let visible_entity_ranges = visible_entity_ranges.as_deref();
 
@@ -677,7 +670,9 @@ pub fn check_visibility(
                     // entities remaining in `previous_visible_entities` will be
                     // entities that were visible last frame but are no longer
                     // visible this frame.
-                    previous_visible_entities.remove(&entity);
+                    if let Ok(mut previously_visible) = previously_visible.get_mut(entity) {
+                        **previously_visible = false;
+                    }
 
                     visible_entities_for_class.push(entity);
                 }
@@ -694,16 +689,18 @@ pub fn check_visibility(
 /// be invisible. This system goes through those entities and marks them newly
 /// invisible (which sets the change flag for them).
 fn mark_newly_hidden_entities_invisible(
-    mut view_visibilities: Query<&mut ViewVisibility>,
-    mut previous_visible_entities: ResMut<PreviousVisibleEntities>,
+    mut view_visibilities: Query<(&mut ViewVisibility, &mut PreviouslyVisible)>,
 ) {
     // Whatever previous visible entities are left are entities that were
     // visible last frame but just became invisible.
-    for entity in previous_visible_entities.drain() {
-        if let Ok(mut view_visibility) = view_visibilities.get_mut(entity) {
-            *view_visibility = ViewVisibility::HIDDEN;
-        }
-    }
+    view_visibilities
+        .par_iter_mut()
+        .for_each(|(mut view_visibility, mut previously_visible)| {
+            if **previously_visible {
+                **previously_visible = false;
+                *view_visibility = ViewVisibility::HIDDEN;
+            }
+        })
 }
 
 /// A generic component add hook that automatically adds the appropriate
