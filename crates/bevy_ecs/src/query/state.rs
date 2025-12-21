@@ -64,7 +64,7 @@ pub(super) union StorageId {
 ///
 /// Note:
 ///
-/// Constructing a [`QueryState`] for query execution can be made straightfoward with the use of [`World::try_query`] or
+/// Constructing a [`QueryState`] for query execution can be made straightforward with the use of [`World::try_query`] or
 /// [`World::try_query_filtered`].
 ///
 /// Example:
