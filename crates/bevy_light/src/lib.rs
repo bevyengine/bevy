@@ -217,13 +217,6 @@ pub struct NotShadowCaster;
 #[derive(Debug, Component, Reflect, Default)]
 #[reflect(Component, Default, Debug)]
 pub struct NotShadowReceiver;
-/// Add this component to make a [`Mesh3d`] only cast shadows, without being visible to cameras.
-///
-/// Entities with this component will be included in shadow map rendering for lights, even if they
-/// are not visible to camera views (e.g., due to `Visibility::Hidden`).
-#[derive(Debug, Component, Reflect, Default)]
-#[reflect(Component, Default, Debug)]
-pub struct OnlyShadowCaster;
 /// Add this component to make a [`Mesh3d`] using a PBR material with `StandardMaterial::diffuse_transmission > 0.0`
 /// receive shadows on its diffuse transmission lobe. (i.e. its “backside”)
 ///
@@ -324,7 +317,6 @@ pub fn check_dir_light_mesh_visibility(
             Option<&GlobalTransform>,
             Has<VisibilityRange>,
             Has<NoFrustumCulling>,
-            Has<OnlyShadowCaster>,
         ),
         (
             Without<NotShadowCaster>,
@@ -385,9 +377,8 @@ pub fn check_dir_light_mesh_visibility(
                     maybe_transform,
                     has_visibility_range,
                     has_no_frustum_culling,
-                    has_only_shadow_caster,
                 )| {
-                    if !inherited_visibility.get() && !has_only_shadow_caster {
+                    if !inherited_visibility.get() {
                         return;
                     }
 
@@ -505,7 +496,6 @@ pub fn check_point_light_mesh_visibility(
             Option<&GlobalTransform>,
             Has<VisibilityRange>,
             Has<NoFrustumCulling>,
-            Has<OnlyShadowCaster>,
         ),
         (
             Without<NotShadowCaster>,
@@ -564,9 +554,8 @@ pub fn check_point_light_mesh_visibility(
                         maybe_transform,
                         has_visibility_range,
                         has_no_frustum_culling,
-                        has_only_shadow_caster,
                     )| {
-                        if !inherited_visibility.get() && !has_only_shadow_caster {
+                        if !inherited_visibility.get() {
                             return;
                         }
                         let entity_mask = maybe_entity_mask.unwrap_or_default();
@@ -598,14 +587,14 @@ pub fn check_point_light_mesh_visibility(
                                 if has_no_frustum_culling
                                     || frustum.intersects_obb(aabb, &model_to_world, true, true)
                                 {
-                                    if !has_only_shadow_caster && !**view_visibility {
+                                    if !**view_visibility {
                                         view_visibility.set();
                                     }
                                     visible_entities.push(entity);
                                 }
                             }
                         } else {
-                            if !has_only_shadow_caster && !**view_visibility {
+                            if !**view_visibility {
                                 view_visibility.set();
                             }
                             for visible_entities in cubemap_visible_entities_local_queue.iter_mut()
@@ -664,9 +653,8 @@ pub fn check_point_light_mesh_visibility(
                         maybe_transform,
                         has_visibility_range,
                         has_no_frustum_culling,
-                        has_only_shadow_caster,
                     )| {
-                        if !inherited_visibility.get() && !has_only_shadow_caster {
+                        if !inherited_visibility.get() {
                             return;
                         }
 
@@ -695,13 +683,13 @@ pub fn check_point_light_mesh_visibility(
                             if has_no_frustum_culling
                                 || frustum.intersects_obb(aabb, &model_to_world, true, true)
                             {
-                                if !has_only_shadow_caster && !**view_visibility {
+                                if !**view_visibility {
                                     view_visibility.set();
                                 }
                                 spot_visible_entities_local_queue.push(entity);
                             }
                         } else {
-                            if !has_only_shadow_caster && !**view_visibility {
+                            if !**view_visibility {
                                 view_visibility.set();
                             }
                             spot_visible_entities_local_queue.push(entity);
