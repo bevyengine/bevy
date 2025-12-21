@@ -1938,25 +1938,8 @@ mod tests {
         dir.insert_asset_text(Path::new(a_path), a_ron);
         let unstable_reader = UnstableMemoryAssetReader::new(dir, 2);
 
-        let mut app = App::new();
-        app.add_plugins((
-            TaskPoolPlugin::default(),
-            AssetPlugin {
-                default_source: DefaultAssetSource::from_builder(
-                    // This reader is unused, but we set it here so we don't accidentally use the
-                    // filesystem.
-                    AssetSourceBuilder::new(move || {
-                        Box::new(MemoryAssetReader {
-                            root: Dir::default(),
-                        })
-                    }),
-                ),
-                watch_for_changes_override: Some(false),
-                use_asset_processor_override: Some(false),
-                ..Default::default()
-            },
-        ))
-        .register_asset_source(
+        let mut app = create_app().0;
+        app.register_asset_source(
             "unstable",
             AssetSourceBuilder::new(move || Box::new(unstable_reader.clone())),
         )
@@ -2902,16 +2885,7 @@ mod tests {
 
     #[test]
     fn can_load_asset_from_runtime_added_sources() {
-        let mut app = App::new();
-        let (default_source, _) = create_dir_source();
-        app.add_plugins((
-            TaskPoolPlugin::default(),
-            AssetPlugin {
-                default_source: DefaultAssetSource::from_builder(default_source),
-                ..Default::default()
-            },
-            DiagnosticsPlugin,
-        ));
+        let mut app = create_app().0;
 
         app.init_asset::<TestAsset>()
             .register_asset_loader(TrivialLoader);
