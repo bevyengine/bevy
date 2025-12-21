@@ -4,13 +4,22 @@
 
 mod helpers;
 
+use argh::FromArgs;
 use bevy::prelude::*;
 use helpers::Next;
 
+#[derive(FromArgs)]
+/// 3d testbed
+pub struct Args {
+    #[argh(positional)]
+    scene: Option<Scene>,
+}
+
 fn main() {
+    let args: Args = argh::from_env();
+
     let mut app = App::new();
     app.add_plugins((DefaultPlugins,))
-        .init_state::<Scene>()
         .add_systems(OnEnter(Scene::Light), light::setup)
         .add_systems(OnEnter(Scene::Bloom), bloom::setup)
         .add_systems(OnEnter(Scene::Gltf), gltf::setup)
@@ -28,6 +37,16 @@ fn main() {
                 .run_if(in_state(Scene::GltfCoordinateConversion)),
         );
 
+    match args.scene {
+        None => app.init_state::<Scene>(),
+        Some(Scene::Light) => app.insert_state(Scene::Light),
+        Some(Scene::Bloom) => app.insert_state(Scene::Bloom),
+        Some(Scene::Gltf) => app.insert_state(Scene::Gltf),
+        Some(Scene::Animation) => app.insert_state(Scene::Animation),
+        Some(Scene::Gizmos) => app.insert_state(Scene::Gizmos),
+        Some(Scene::GltfCoordinateConversion) => app.insert_state(Scene::GltfCoordinateConversion),
+    };
+
     #[cfg(feature = "bevy_ci_testing")]
     app.add_systems(Update, helpers::switch_scene_in_ci::<Scene>);
 
@@ -43,6 +62,34 @@ enum Scene {
     Animation,
     Gizmos,
     GltfCoordinateConversion,
+}
+
+impl std::str::FromStr for Scene {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_lowercase().as_str() {
+            "light" => Ok(Scene::Light),
+            "bloom" => Ok(Scene::Bloom),
+            "gltf" => Ok(Scene::Gltf),
+            "animation" => Ok(Scene::Animation),
+            "gizmos" => Ok(Scene::Gizmos),
+            "gltfcoordinateconversion" => Ok(Scene::GltfCoordinateConversion),
+            _ => Err(format!(
+                "Scene '{}' doesn't exist. Available scenes:\n\t{}",
+                s,
+                [
+                    "Light",
+                    "Bloom",
+                    "Gltf",
+                    "Animation",
+                    "Gizmos",
+                    "GltfCoordinateConversion"
+                ]
+                .join("\n\t")
+            )),
+        }
+    }
 }
 
 impl Next for Scene {

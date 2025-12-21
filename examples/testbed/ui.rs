@@ -4,10 +4,20 @@
 
 mod helpers;
 
+use argh::FromArgs;
 use bevy::prelude::*;
 use helpers::Next;
 
+#[derive(FromArgs)]
+/// ui testbed
+pub struct Args {
+    #[argh(positional)]
+    scene: Option<Scene>,
+}
+
 fn main() {
+    let args: Args = argh::from_env();
+
     let mut app = App::new();
     app.add_plugins(DefaultPlugins.set(WindowPlugin {
         primary_window: Some(Window {
@@ -19,7 +29,6 @@ fn main() {
         }),
         ..Default::default()
     }))
-    .init_state::<Scene>()
     .add_systems(OnEnter(Scene::Image), image::setup)
     .add_systems(OnEnter(Scene::Text), text::setup)
     .add_systems(OnEnter(Scene::Grid), grid::setup)
@@ -34,6 +43,25 @@ fn main() {
     .add_systems(OnEnter(Scene::Transformations), transformations::setup)
     .add_systems(OnEnter(Scene::ViewportCoords), viewport_coords::setup)
     .add_systems(Update, switch_scene);
+
+    match args.scene {
+        None => app.init_state::<Scene>(),
+        Some(Scene::Image) => app.insert_state(Scene::Image),
+        Some(Scene::Text) => app.insert_state(Scene::Text),
+        Some(Scene::Grid) => app.insert_state(Scene::Grid),
+        Some(Scene::Borders) => app.insert_state(Scene::Borders),
+        Some(Scene::BoxShadow) => app.insert_state(Scene::BoxShadow),
+        Some(Scene::TextWrap) => app.insert_state(Scene::TextWrap),
+        Some(Scene::Overflow) => app.insert_state(Scene::Overflow),
+        Some(Scene::Slice) => app.insert_state(Scene::Slice),
+        Some(Scene::LayoutRounding) => app.insert_state(Scene::LayoutRounding),
+        Some(Scene::LinearGradient) => app.insert_state(Scene::LinearGradient),
+        Some(Scene::RadialGradient) => app.insert_state(Scene::RadialGradient),
+        Some(Scene::Transformations) => app.insert_state(Scene::Transformations),
+        #[cfg(feature = "bevy_ui_debug")]
+        Some(Scene::DebugOutlines) => app.insert_state(Scene::DebugOutlines),
+        Some(Scene::ViewportCoords) => app.insert_state(Scene::ViewportCoords),
+    };
 
     #[cfg(feature = "bevy_ui_debug")]
     {
@@ -66,6 +94,52 @@ enum Scene {
     #[cfg(feature = "bevy_ui_debug")]
     DebugOutlines,
     ViewportCoords,
+}
+
+impl std::str::FromStr for Scene {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_lowercase().as_str() {
+            "image" => Ok(Scene::Image),
+            "text" => Ok(Scene::Text),
+            "grid" => Ok(Scene::Grid),
+            "borders" => Ok(Scene::Borders),
+            "boxshadow" => Ok(Scene::BoxShadow),
+            "textwrap" => Ok(Scene::TextWrap),
+            "overflow" => Ok(Scene::Overflow),
+            "slice" => Ok(Scene::Slice),
+            "layoutrounding" => Ok(Scene::LayoutRounding),
+            "lineargradient" => Ok(Scene::LinearGradient),
+            "radialgradient" => Ok(Scene::RadialGradient),
+            "transformations" => Ok(Scene::Transformations),
+            #[cfg(feature = "bevy_ui_debug")]
+            "debugoutlines" => Ok(Scene::DebugOutlines),
+            "viewportcoords" => Ok(Scene::ViewportCoords),
+            _ => Err(format!(
+                "Scene '{}' doesn't exist. Available scenes:\n\t{}",
+                s,
+                [
+                    "Image",
+                    "Text",
+                    "Grid",
+                    "Borders",
+                    "BoxShadow",
+                    "TextWrap",
+                    "Overflow",
+                    "Slice",
+                    "LayoutRounding",
+                    "LinearGradient",
+                    "RadialGradient",
+                    "Transformations",
+                    #[cfg(feature = "bevy_ui_debug")]
+                    "DebugOutlines",
+                    "ViewportCoords",
+                ]
+                .join("\n\t")
+            )),
+        }
+    }
 }
 
 impl Next for Scene {

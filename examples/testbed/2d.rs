@@ -4,13 +4,22 @@
 
 mod helpers;
 
+use argh::FromArgs;
 use bevy::prelude::*;
 use helpers::Next;
 
+#[derive(FromArgs)]
+/// 2d testbed
+pub struct Args {
+    #[argh(positional)]
+    scene: Option<Scene>,
+}
+
 fn main() {
+    let args: Args = argh::from_env();
+
     let mut app = App::new();
     app.add_plugins((DefaultPlugins,))
-        .init_state::<Scene>()
         .add_systems(OnEnter(Scene::Shapes), shapes::setup)
         .add_systems(OnEnter(Scene::Bloom), bloom::setup)
         .add_systems(OnEnter(Scene::Text), text::setup)
@@ -19,6 +28,16 @@ fn main() {
         .add_systems(OnEnter(Scene::Gizmos), gizmos::setup)
         .add_systems(Update, switch_scene)
         .add_systems(Update, gizmos::draw_gizmos.run_if(in_state(Scene::Gizmos)));
+
+    match args.scene {
+        None => app.init_state::<Scene>(),
+        Some(Scene::Shapes) => app.insert_state(Scene::Shapes),
+        Some(Scene::Bloom) => app.insert_state(Scene::Bloom),
+        Some(Scene::Text) => app.insert_state(Scene::Text),
+        Some(Scene::Sprite) => app.insert_state(Scene::Sprite),
+        Some(Scene::SpriteSlicing) => app.insert_state(Scene::SpriteSlicing),
+        Some(Scene::Gizmos) => app.insert_state(Scene::Gizmos),
+    };
 
     #[cfg(feature = "bevy_ci_testing")]
     app.add_systems(Update, helpers::switch_scene_in_ci::<Scene>);
@@ -35,6 +54,34 @@ enum Scene {
     Sprite,
     SpriteSlicing,
     Gizmos,
+}
+
+impl std::str::FromStr for Scene {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_lowercase().as_str() {
+            "shapes" => Ok(Scene::Shapes),
+            "bloom" => Ok(Scene::Bloom),
+            "text" => Ok(Scene::Text),
+            "sprite" => Ok(Scene::Sprite),
+            "spriteslicing" => Ok(Scene::SpriteSlicing),
+            "gizmos" => Ok(Scene::Gizmos),
+            _ => Err(format!(
+                "Scene '{}' doesn't exist. Available scenes:\n\t{}",
+                s,
+                [
+                    "Shapes",
+                    "Bloom",
+                    "Text",
+                    "Sprite",
+                    "SpriteSlicing",
+                    "Gizmos"
+                ]
+                .join("\n\t")
+            )),
+        }
+    }
 }
 
 impl Next for Scene {
