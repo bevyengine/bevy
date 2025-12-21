@@ -43,15 +43,13 @@ impl ConvertCoordinates for [f32; 4] {
 ///   - up: +Y
 ///   - right: +X
 ///
-/// Note that some glTF files may not follow the glTF standard.
+/// Note that glTF files are not required to follow the glTF standard, so even
+/// with conversion the result might not have the forward directions you expect.
 ///
-/// If your glTF scene is +Z forward and you want it converted to match Bevy's
-/// `Transform::forward`, enable the `rotate_scene_entity` option. If you also want `Mesh`
-/// assets to be converted, enable the `rotate_meshes` option.
-///
-/// Cameras and lights in glTF files are an exception - they already use Bevy's
-/// coordinate system. This means cameras and lights will match
-/// `Transform::forward` even if conversion is disabled.
+/// The options are also limited to the scene entity and mesh entities. The
+/// entities that correspond to glTF nodes are not converted. This can lead
+/// to inconsistencies - you might find that the scene entity and mesh entities
+/// have the forward you want, but node entities are still wrong.
 #[derive(Copy, Clone, Default, Debug, Serialize, Deserialize)]
 pub struct GltfConvertCoordinates {
     /// If true, convert scenes by rotating the top-level transform of the scene entity.
