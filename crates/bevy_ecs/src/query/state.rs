@@ -61,6 +61,26 @@ pub(super) union StorageId {
 /// [`State`]: crate::query::world_query::WorldQuery::State
 /// [`Fetch`]: crate::query::world_query::WorldQuery::Fetch
 /// [`Table`]: crate::storage::Table
+///
+/// Note:
+///
+/// Constructing a [`QueryState`] for query execution can be made straightfoward with the use of [`World::try_query`] or
+/// [`World::try_query_filtered`].
+///
+/// Example:
+///
+/// ```rust
+/// # use bevy_ecs::{prelude::*, world::DeferredWorld};
+/// #[derive(Component)]
+/// struct MainCamera;
+///
+/// let mut world = World::new();
+/// let e1 = world.spawn((Camera2d::default(),MainCamera)).id();
+/// let query_state = world.try_query_filtered::<(Entity,&Camera), With<MainCamera>>().unwrap();
+/// let (camera_entity, camera) = world.query(&query_state).single().unwrap();
+/// # _world.flush();
+/// assert_eq!(camera_entity, e1);
+/// ```
 #[repr(C)]
 // SAFETY NOTE:
 // Do not add any new fields that use the `D` or `F` generic parameters as this may
