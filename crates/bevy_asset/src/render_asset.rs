@@ -70,23 +70,22 @@ pub enum ExtractableAssetAccessError {
     ExtractedToRenderWorld,
 }
 
-pub trait ExtractableAsset: Asset + Sized {
+pub trait ExtractableAsset: Asset + Sized + Clone {
     type Data;
 
     /// Take `self` and call `f` with previous gpu data, or error if it has been extracted, replace the data in place and returns the asset which can be extracted to the `RenderWorld`.
     fn with_extractable_data(
         mut self,
-        f: impl FnOnce(Result<Self::Data, ExtractableAssetAccessError>) -> Self::Data,
+        f: impl FnOnce(Result<Self::Data, AssetExtractionError>) -> Self::Data,
     ) -> Self {
-        self.extractable_data_replace(f);
+        let prev_data = self.extract();
+        let new_data = f(prev_data);
+        self.extractable_data_replace(new_data);
         self
     }
 
-    /// Call `f` with previous gpu data, or error if it has been extracted, replace the data with a new value. Then this asset will be re-extracted to the `RenderWorld`.
-    fn extractable_data_replace(
-        &mut self,
-        f: impl FnOnce(Result<Self::Data, ExtractableAssetAccessError>) -> Self::Data,
-    );
+    /// Replace the data with a new value and return the old value, or `None` if it has been extracted. Then this asset can be re-extracted to the `RenderWorld`.
+    fn extractable_data_replace(&mut self, data: Self::Data) -> Option<Self::Data>;
 
     /// Access the extractable data. Returns error if the data has been extracted.
     fn extractable_data_ref(&self) -> Result<&Self::Data, ExtractableAssetAccessError>;
@@ -94,10 +93,18 @@ pub trait ExtractableAsset: Asset + Sized {
     /// Mutably access the extractable data. Returns error if the data has been extracted.
     fn extractable_data_mut(&mut self) -> Result<&mut Self::Data, ExtractableAssetAccessError>;
 
+    /// Extract the data and return it, or error if the data has been extracted.
+    fn extract(&mut self) -> Result<Self::Data, AssetExtractionError>;
+
     /// Make a copy of the asset to be moved to the `RenderWorld` / gpu. Heavy internal data (pixels, vertex attributes)
     /// should be moved into the copy, leaving this asset with only metadata.
     /// An error may be returned to indicate that the asset has already been extracted.
     ///
     /// This can be called in `RenderAsset::take_gpu_data`.
-    fn take_gpu_data(&mut self) -> Result<Self, AssetExtractionError>;
+    fn take_gpu_data(&mut self) -> Result<Self, AssetExtractionError> {
+        let data = self.extract()?;
+        let mut new_asset = self.clone();
+        new_asset.extractable_data_replace(data);
+        Ok(new_asset)
+    }
 }

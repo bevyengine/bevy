@@ -159,15 +159,8 @@ impl From<MeshExtractableData> for Mesh {
 impl ExtractableAsset for Mesh {
     type Data = MeshExtractableData;
 
-    fn extractable_data_replace(
-        &mut self,
-        f: impl FnOnce(Result<Self::Data, ExtractableAssetAccessError>) -> Self::Data,
-    ) {
-        let data = self
-            .extractable_data
-            .take()
-            .ok_or(ExtractableAssetAccessError::ExtractedToRenderWorld);
-        self.extractable_data = Some(f(data));
+    fn extractable_data_replace(&mut self, data: Self::Data) -> Option<Self::Data> {
+        self.extractable_data.replace(data)
     }
 
     fn extractable_data_ref(&self) -> Result<&Self::Data, ExtractableAssetAccessError> {
@@ -182,7 +175,7 @@ impl ExtractableAsset for Mesh {
             .ok_or(ExtractableAssetAccessError::ExtractedToRenderWorld)
     }
 
-    fn take_gpu_data(&mut self) -> Result<Self, AssetExtractionError> {
+    fn extract(&mut self) -> Result<Self::Data, AssetExtractionError> {
         let data = self
             .extractable_data
             .take()
@@ -204,10 +197,7 @@ impl ExtractableAsset for Mesh {
         } else {
             self.final_aabb = None;
         }
-        Ok(Self {
-            extractable_data: Some(data),
-            ..self.clone()
-        })
+        Ok(data)
     }
 }
 

@@ -41,16 +41,15 @@ pub struct ShaderStorageBuffer {
 impl ExtractableAsset for ShaderStorageBuffer {
     type Data = Option<Vec<u8>>;
 
-    fn extractable_data_replace(
-        &mut self,
-        f: impl FnOnce(Result<Self::Data, bevy_asset::ExtractableAssetAccessError>) -> Self::Data,
-    ) {
-        self.data = f(if self.is_extracted_to_render_world {
-            Err(bevy_asset::ExtractableAssetAccessError::ExtractedToRenderWorld)
+    fn extractable_data_replace(&mut self, data: Self::Data) -> Option<Self::Data> {
+        let old_data = core::mem::replace(&mut self.data, data);
+        let old_data = if self.is_extracted_to_render_world {
+            None
         } else {
-            Ok(self.data.take())
-        });
+            Some(old_data)
+        };
         self.is_extracted_to_render_world = false;
+        old_data
     }
 
     fn extractable_data_ref(&self) -> Result<&Self::Data, bevy_asset::ExtractableAssetAccessError> {
@@ -71,16 +70,12 @@ impl ExtractableAsset for ShaderStorageBuffer {
         }
     }
 
-    fn take_gpu_data(&mut self) -> Result<Self, bevy_asset::AssetExtractionError> {
+    fn extract(&mut self) -> Result<Self::Data, bevy_asset::AssetExtractionError> {
         if self.is_extracted_to_render_world {
             Err(bevy_asset::AssetExtractionError::AlreadyExtracted)
         } else {
             self.is_extracted_to_render_world = true;
-            let data = self.data.take();
-            Ok(Self {
-                data,
-                ..self.clone()
-            })
+            Ok(self.data.take())
         }
     }
 }
