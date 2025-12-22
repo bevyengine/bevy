@@ -45,7 +45,7 @@ use gltf::{
     accessor::Iter,
     image::Source,
     mesh::{util::ReadIndices, Mode},
-    Document, Material, Node, Semantic,
+    Material, Node, Semantic,
 };
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "bevy_animation")]
@@ -986,7 +986,6 @@ impl GltfLoader {
                             &animation_roots,
                             #[cfg(feature = "bevy_animation")]
                             None,
-                            &gltf.document,
                             &texture_handles,
                             &convert_coordinates,
                             &mut extensions,
@@ -1448,7 +1447,6 @@ fn load_node(
     parent_transform: &Transform,
     #[cfg(feature = "bevy_animation")] animation_roots: &HashSet<usize>,
     #[cfg(feature = "bevy_animation")] mut animation_context: Option<AnimationContext>,
-    document: &Document,
     textures: &[Handle<Image>],
     convert_coordinates: &GltfConvertCoordinates,
     extensions: &mut [Box<dyn extensions::GltfExtensionHandler>],
@@ -1759,7 +1757,6 @@ fn load_node(
                 animation_roots,
                 #[cfg(feature = "bevy_animation")]
                 animation_context.clone(),
-                document,
                 textures,
                 convert_coordinates,
                 extensions,
