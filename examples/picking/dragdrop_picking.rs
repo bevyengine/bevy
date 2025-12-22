@@ -152,7 +152,7 @@ fn on_drag_drop(
             DroppedElement,
             Mesh2d(meshes.add(Circle::new(ELEMENT_SIZE))),
             MeshMaterial2d(materials.add(Color::srgb(1.0, 1.0, 0.6))),
-            Transform::from_translation(position),
+            Transform::from_translation(position + 2. * Vec3::Z),
             Pickable::IGNORE,
         ));
         event.propagate(false);
