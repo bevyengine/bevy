@@ -1,11 +1,10 @@
 mod range;
 mod render_layers;
 
-use core::any::TypeId;
-
 use bevy_ecs::entity::EntityHashMap;
 use bevy_ecs::lifecycle::HookContext;
 use bevy_ecs::world::DeferredWorld;
+use core::any::TypeId;
 use derive_more::derive::{Deref, DerefMut};
 pub use range::*;
 pub use render_layers::*;
@@ -173,20 +172,49 @@ pub struct VisibilityClass(pub SmallVec<[TypeId; 1]>);
 ///
 /// [`VisibilityPropagate`]: VisibilitySystems::VisibilityPropagate
 /// [`CheckVisibility`]: VisibilitySystems::CheckVisibility
-#[derive(Component, Deref, Debug, Default, Clone, Copy, Reflect, PartialEq, Eq)]
+#[derive(Component, Debug, Default, Clone, Copy, Reflect, PartialEq, Eq)]
 #[reflect(Component, Default, Debug, PartialEq, Clone)]
-#[require(PreviouslyVisible)]
-pub struct ViewVisibility(bool);
+pub struct ViewVisibility(u8);
 
 impl ViewVisibility {
     /// An entity that cannot be seen from any views.
-    pub const HIDDEN: Self = Self(false);
+    pub const HIDDEN: Self = Self(0);
+
+    #[inline]
+    fn previous_visibility_bit(self) -> bool {
+        (self.0 >> 1) & 1 != 0
+    }
+
+    #[inline]
+    fn set_previous_visibility_bit(&mut self) {
+        let value = self.get();
+        let mask = 1u8 << 1;
+        self.0 = (self.0 & !mask) | ((value as u8) << 1);
+    }
+
+    #[inline]
+    fn is_newly_hidden(self) -> bool {
+        const CURRENT: u8 = 1 << 0;
+        const PREV: u8 = 1 << 1;
+        let mask: u8 = CURRENT | PREV;
+
+        // if the current vis bit is false and the previous vis bit is true, it should be hidden
+        let expected: u8 = (0 * CURRENT) | (1 * PREV);
+
+        // Compare masked value against expected
+        (self.0 & mask) == expected
+    }
+
+    #[inline]
+    pub fn previous_visibility(&self) -> bool {
+        self.previous_visibility_bit()
+    }
 
     /// Returns `true` if the entity is visible in any view.
     /// Otherwise, returns `false`.
     #[inline]
     pub fn get(self) -> bool {
-        self.0
+        (self.0 >> 0) & 1 != 0
     }
 
     /// Sets the visibility to `true`. This should not be considered reversible for a given frame,
@@ -203,7 +231,11 @@ impl ViewVisibility {
     /// [`CheckVisibility`]: VisibilitySystems::CheckVisibility
     #[inline]
     pub fn set(&mut self) {
-        self.0 = true;
+        // Set the current and previous visibility to true. This avoids change detection when setting
+        // the previous visible to true next frame - instead we just set it to true the same frame,
+        // because this will not break anything. We only use these two bits to test when to hide things,
+        // not when to show them.
+        self.0 = 0b0000_0011;
     }
 }
 
@@ -522,22 +554,16 @@ fn propagate_recursive(
     Ok(())
 }
 
-/// As systems that check visibility judge entities visible, they set this to `false`. Afterward,
-/// the `mark_newly_hidden_entities_invisible` system runs and marks every entity still true as hidden.
-#[derive(Component, Default, Reflect, Deref, DerefMut)]
-#[reflect(Component)]
-pub struct PreviouslyVisible(bool);
-
 /// Resets the view visibility of every entity.
 /// Entities that are visible will be marked as such later this frame
 /// by a [`VisibilitySystems::CheckVisibility`] system.
-fn reset_view_visibility(mut query: Query<(&ViewVisibility, &mut PreviouslyVisible)>) {
-    query
-        .par_iter_mut()
-        .for_each(|(view_visibility, mut previously_visible)| {
-            // Record the entities that were previously visible.
-            **previously_visible = view_visibility.get();
-        });
+fn reset_view_visibility(mut query: Query<&mut ViewVisibility>) {
+    query.par_iter_mut().for_each(|mut view_visibility| {
+        // Record the entities that were previously visible.
+        if view_visibility.as_ref().get() != view_visibility.as_ref().previous_visibility_bit() {
+            view_visibility.set_previous_visibility_bit();
+        }
+    });
 }
 
 /// System updating the visibility of entities each frame.
@@ -569,7 +595,6 @@ pub fn check_visibility(
         Has<NoFrustumCulling>,
         Has<VisibilityRange>,
     )>,
-    mut previously_visible: Query<&mut PreviouslyVisible>,
     visible_entity_ranges: Option<Res<VisibleEntityRanges>>,
 ) {
     let visible_entity_ranges = visible_entity_ranges.as_deref();
@@ -641,7 +666,7 @@ pub fn check_visibility(
                 // Make sure we don't trigger changed notifications
                 // unnecessarily by checking whether the flag is set before
                 // setting it.
-                if !**view_visibility {
+                if !view_visibility.as_ref().get() {
                     view_visibility.set();
                 }
 
@@ -663,19 +688,7 @@ pub fn check_visibility(
         // Drain all the thread queues into the `visible_entities` list.
         for class_queues in thread_queues.iter_mut() {
             for (class, entities) in class_queues {
-                let visible_entities_for_class = visible_entities.get_mut(*class);
-                for entity in entities.drain(..) {
-                    // As we mark entities as visible, we remove them from the
-                    // `previous_visible_entities` list. At the end, all of the
-                    // entities remaining in `previous_visible_entities` will be
-                    // entities that were visible last frame but are no longer
-                    // visible this frame.
-                    if let Ok(mut previously_visible) = previously_visible.get_mut(entity) {
-                        **previously_visible = false;
-                    }
-
-                    visible_entities_for_class.push(entity);
-                }
+                visible_entities.get_mut(*class).extend(entities.drain(..));
             }
         }
     }
@@ -688,17 +701,17 @@ pub fn check_visibility(
 /// determination, all entities that remain in [`PreviousVisibleEntities`] must
 /// be invisible. This system goes through those entities and marks them newly
 /// invisible (which sets the change flag for them).
-fn mark_newly_hidden_entities_invisible(
-    mut view_visibilities: Query<(&mut ViewVisibility, &mut PreviouslyVisible)>,
-) {
+fn mark_newly_hidden_entities_invisible(mut view_visibilities: Query<&mut ViewVisibility>) {
     // Whatever previous visible entities are left are entities that were
     // visible last frame but just became invisible.
     view_visibilities
         .par_iter_mut()
-        .for_each(|(mut view_visibility, mut previously_visible)| {
-            if **previously_visible {
-                **previously_visible = false;
-                *view_visibility = ViewVisibility::HIDDEN;
+        .for_each(|mut view_visibility| {
+            if view_visibility.as_ref().previous_visibility_bit() && !view_visibility.as_ref().get()
+            {
+                if view_visibility.as_ref().is_newly_hidden() {
+                    *view_visibility = ViewVisibility::HIDDEN;
+                }
             }
         });
 }
