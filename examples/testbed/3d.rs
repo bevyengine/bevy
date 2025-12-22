@@ -39,12 +39,7 @@ fn main() {
 
     match args.scene {
         None => app.init_state::<Scene>(),
-        Some(Scene::Light) => app.insert_state(Scene::Light),
-        Some(Scene::Bloom) => app.insert_state(Scene::Bloom),
-        Some(Scene::Gltf) => app.insert_state(Scene::Gltf),
-        Some(Scene::Animation) => app.insert_state(Scene::Animation),
-        Some(Scene::Gizmos) => app.insert_state(Scene::Gizmos),
-        Some(Scene::GltfCoordinateConversion) => app.insert_state(Scene::GltfCoordinateConversion),
+        Some(scene) => app.insert_state(scene),
     };
 
     #[cfg(feature = "bevy_ci_testing")]
