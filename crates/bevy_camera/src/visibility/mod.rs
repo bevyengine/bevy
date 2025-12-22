@@ -169,13 +169,15 @@ pub struct VisibilityClass(pub SmallVec<[TypeId; 1]>);
 /// Later in the frame, systems in [`CheckVisibility`] will mark any visible entities using [`ViewVisibility::set`].
 /// Because of this, values of this type will be marked as changed every frame, even when they do not change.
 ///
-/// If you wish to add custom visibility system that sets this value, make sure you add it to the [`CheckVisibility`] set.
+/// If you wish to add custom visibility system that sets this value, make sure you add it to the
+/// [`CheckVisibility`] set, and be sure to set [`WasVisibleNowHidden`] to false when `set`ting the
+/// [`ViewVisibility`]
 ///
 /// [`VisibilityPropagate`]: VisibilitySystems::VisibilityPropagate
 /// [`CheckVisibility`]: VisibilitySystems::CheckVisibility
 #[derive(Component, Deref, Debug, Default, Clone, Copy, Reflect, PartialEq, Eq)]
 #[reflect(Component, Default, Debug, PartialEq, Clone)]
-#[require(PreviouslyVisible)]
+#[require(WasVisibleNowHidden)]
 pub struct ViewVisibility(bool);
 
 impl ViewVisibility {
@@ -522,16 +524,28 @@ fn propagate_recursive(
     Ok(())
 }
 
-/// As systems that check visibility judge entities visible, they set this to `false`. Afterward,
-/// the `mark_newly_hidden_entities_invisible` system runs and marks every entity still true as hidden.
+/// Used as a scratch space to ensure that [`ViewVisibility`] is only mutated (triggering change
+/// detection) when necessary.
+///
+/// This is needed because an entity might be seen by many views (cameras, lights that cast shadows,
+/// etc.), so it is easy to know if an entity is visible to something, but hard to know if it is
+/// *globally* non-visible to any view. To solve this, we set this component to `true` every frame
+/// that the entity's `ViewVisibility` was also `true` the previous frame. Then, during the
+/// [`VisibilitySystems::CheckVisibility`] system set, it is the responsibility of those systems to
+/// mark this component `false` if the entity is currently visible. Once this is done, the only
+/// entities with this entity set to `true` are entities that were visible last frame, but are not
+/// visible this frame. Finally, we can use this to set the `ViewVisibility` of these entities to
+/// hidden, ensuring that we have only triggered change detection where necessary.
+///
+/// Consider if we did the simplest approach of setting all entities to hidden, then marking visible
+/// entities. Every single [`ViwVisibility`] would trigger change detection.
 #[derive(Component, Default, Reflect, Deref, DerefMut)]
 #[reflect(Component)]
-pub struct PreviouslyVisible(bool);
+pub struct WasVisibleNowHidden(bool);
 
-/// Resets the view visibility of every entity.
-/// Entities that are visible will be marked as such later this frame
-/// by a [`VisibilitySystems::CheckVisibility`] system.
-fn reset_view_visibility(mut query: Query<(&ViewVisibility, &mut PreviouslyVisible)>) {
+/// Track entities that were visible last frame, used to granularly update [`ViewVisibility`] this
+/// frame. See [`WasVisibleNowHidden`] for details.
+fn reset_view_visibility(mut query: Query<(&ViewVisibility, &mut WasVisibleNowHidden)>) {
     query
         .par_iter_mut()
         .for_each(|(view_visibility, mut previously_visible)| {
@@ -562,6 +576,7 @@ pub fn check_visibility(
         Entity,
         &InheritedVisibility,
         &mut ViewVisibility,
+        &mut WasVisibleNowHidden,
         Option<&VisibilityClass>,
         Option<&RenderLayers>,
         Option<&Aabb>,
@@ -569,7 +584,6 @@ pub fn check_visibility(
         Has<NoFrustumCulling>,
         Has<VisibilityRange>,
     )>,
-    mut previously_visible: Query<&mut PreviouslyVisible>,
     visible_entity_ranges: Option<Res<VisibleEntityRanges>>,
 ) {
     let visible_entity_ranges = visible_entity_ranges.as_deref();
@@ -590,6 +604,7 @@ pub fn check_visibility(
                     entity,
                     inherited_visibility,
                     mut view_visibility,
+                    mut was_visible_now_hidden,
                     visibility_class,
                     maybe_entity_mask,
                     maybe_model_aabb,
@@ -644,11 +659,13 @@ pub fn check_visibility(
                 if !**view_visibility {
                     view_visibility.set();
                 }
+                // The entity is visible, so we must set this to false.
+                **was_visible_now_hidden = false;
 
                 // The visibility class may be None here because AABB gizmos can be enabled via
                 // config without a renderable component being added to the entity. This workaround
-                // allows view visibility to be set for entities without a renderable component but
-                // that still need to render gizmos.
+                // allows view visibility to be set for entities without a renderable component, but
+                // still need to render gizmos.
                 if let Some(visibility_class) = visibility_class {
                     // Add the entity to the queue for all visibility classes the entity is in.
                     for visibility_class_id in visibility_class.iter() {
@@ -663,19 +680,7 @@ pub fn check_visibility(
         // Drain all the thread queues into the `visible_entities` list.
         for class_queues in thread_queues.iter_mut() {
             for (class, entities) in class_queues {
-                let visible_entities_for_class = visible_entities.get_mut(*class);
-                for entity in entities.drain(..) {
-                    // As we mark entities as visible, we remove them from the
-                    // `previous_visible_entities` list. At the end, all of the
-                    // entities remaining in `previous_visible_entities` will be
-                    // entities that were visible last frame but are no longer
-                    // visible this frame.
-                    if let Ok(mut previously_visible) = previously_visible.get_mut(entity) {
-                        **previously_visible = false;
-                    }
-
-                    visible_entities_for_class.push(entity);
-                }
+                visible_entities.get_mut(*class).append(entities);
             }
         }
     }
@@ -689,7 +694,7 @@ pub fn check_visibility(
 /// be invisible. This system goes through those entities and marks them newly
 /// invisible (which sets the change flag for them).
 fn mark_newly_hidden_entities_invisible(
-    mut view_visibilities: Query<(&mut ViewVisibility, &mut PreviouslyVisible)>,
+    mut view_visibilities: Query<(&mut ViewVisibility, &mut WasVisibleNowHidden)>,
 ) {
     // Whatever previous visible entities are left are entities that were
     // visible last frame but just became invisible.

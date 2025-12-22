@@ -26,7 +26,7 @@ use cluster::{
 };
 mod ambient_light;
 pub use ambient_light::{AmbientLight, GlobalAmbientLight};
-use bevy_camera::visibility::PreviouslyVisible;
+use bevy_camera::visibility::WasVisibleNowHidden;
 
 mod probe;
 pub use probe::{
@@ -452,17 +452,15 @@ pub fn check_dir_light_mesh_visibility(
     // TODO: use resource to avoid unnecessary memory alloc
     let mut defer_queue = core::mem::take(defer_visible_entities_queue.deref_mut());
     commands.queue(move |world: &mut World| {
-        let mut query = world.query::<(&mut ViewVisibility, &mut PreviouslyVisible)>();
+        let mut query = world.query::<(&mut ViewVisibility, &mut WasVisibleNowHidden)>();
         for entities in defer_queue.iter_mut() {
             let mut iter = query.iter_many_mut(world, entities.iter());
-            while let Some((mut view_visibility, mut previously_visible)) = iter.fetch_next() {
+            while let Some((mut view_visibility, mut was_visible_now_hidden)) = iter.fetch_next() {
                 if !**view_visibility {
                     view_visibility.set();
                 }
-
-                // Remove any entities that were discovered to be
-                // visible from the `PreviousVisibleEntities` resource.
-                **previously_visible = false;
+                // Unset any entities that were discovered to be visible
+                **was_visible_now_hidden = false;
             }
         }
     });
@@ -489,6 +487,7 @@ pub fn check_point_light_mesh_visibility(
             Entity,
             &InheritedVisibility,
             &mut ViewVisibility,
+            &mut WasVisibleNowHidden,
             Option<&RenderLayers>,
             Option<&Aabb>,
             Option<&GlobalTransform>,
@@ -502,13 +501,11 @@ pub fn check_point_light_mesh_visibility(
         ),
     >,
     visible_entity_ranges: Option<Res<VisibleEntityRanges>>,
-    mut previously_visible: Query<&mut PreviouslyVisible>,
     mut cubemap_visible_entities_queue: Local<Parallel<[Vec<Entity>; 6]>>,
     mut spot_visible_entities_queue: Local<Parallel<Vec<Entity>>>,
     mut checked_lights: Local<EntityHashSet>,
 ) {
     checked_lights.clear();
-    let previously_visible = &mut previously_visible;
 
     let visible_entity_ranges = visible_entity_ranges.as_deref();
     for visible_lights in &visible_point_lights {
@@ -548,6 +545,7 @@ pub fn check_point_light_mesh_visibility(
                         entity,
                         inherited_visibility,
                         mut view_visibility,
+                        mut was_visible_now_hidden,
                         maybe_entity_mask,
                         maybe_aabb,
                         maybe_transform,
@@ -589,6 +587,7 @@ pub fn check_point_light_mesh_visibility(
                                     if !**view_visibility {
                                         view_visibility.set();
                                     }
+                                    **was_visible_now_hidden = false;
                                     visible_entities.push(entity);
                                 }
                             }
@@ -596,6 +595,7 @@ pub fn check_point_light_mesh_visibility(
                             if !**view_visibility {
                                 view_visibility.set();
                             }
+                            **was_visible_now_hidden = false;
                             for visible_entities in cubemap_visible_entities_local_queue.iter_mut()
                             {
                                 visible_entities.push(entity);
@@ -608,15 +608,6 @@ pub fn check_point_light_mesh_visibility(
                     for (dst, source) in
                         cubemap_visible_entities.iter_mut().zip(entities.iter_mut())
                     {
-                        // Remove any entities that were discovered to be
-                        // visible from the `PreviousVisibleEntities` resource.
-                        for entity in source.iter() {
-                            if let Ok(mut previously_visible) = previously_visible.get_mut(*entity)
-                            {
-                                **previously_visible = false;
-                            }
-                        }
-
                         dst.entities.append(source);
                     }
                 }
@@ -650,6 +641,7 @@ pub fn check_point_light_mesh_visibility(
                         entity,
                         inherited_visibility,
                         mut view_visibility,
+                        mut was_visible_now_hidden,
                         maybe_entity_mask,
                         maybe_aabb,
                         maybe_transform,
@@ -688,12 +680,14 @@ pub fn check_point_light_mesh_visibility(
                                 if !**view_visibility {
                                     view_visibility.set();
                                 }
+                                **was_visible_now_hidden = false;
                                 spot_visible_entities_local_queue.push(entity);
                             }
                         } else {
                             if !**view_visibility {
                                 view_visibility.set();
                             }
+                            **was_visible_now_hidden = false;
                             spot_visible_entities_local_queue.push(entity);
                         }
                     },
@@ -701,14 +695,6 @@ pub fn check_point_light_mesh_visibility(
 
                 for entities in spot_visible_entities_queue.iter_mut() {
                     visible_entities.append(entities);
-
-                    // Remove any entities that were discovered to be visible
-                    // from the `PreviousVisibleEntities` resource.
-                    for entity in entities.iter() {
-                        if let Ok(mut previously_visible) = previously_visible.get_mut(*entity) {
-                            **previously_visible = false;
-                        }
-                    }
                 }
 
                 shrink_entities(visible_entities.deref_mut());
