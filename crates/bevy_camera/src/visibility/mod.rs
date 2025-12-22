@@ -700,7 +700,7 @@ fn mark_newly_hidden_entities_invisible(
                 **previously_visible = false;
                 *view_visibility = ViewVisibility::HIDDEN;
             }
-        })
+        });
 }
 
 /// A generic component add hook that automatically adds the appropriate
