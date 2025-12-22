@@ -31,12 +31,7 @@ fn main() {
 
     match args.scene {
         None => app.init_state::<Scene>(),
-        Some(Scene::Shapes) => app.insert_state(Scene::Shapes),
-        Some(Scene::Bloom) => app.insert_state(Scene::Bloom),
-        Some(Scene::Text) => app.insert_state(Scene::Text),
-        Some(Scene::Sprite) => app.insert_state(Scene::Sprite),
-        Some(Scene::SpriteSlicing) => app.insert_state(Scene::SpriteSlicing),
-        Some(Scene::Gizmos) => app.insert_state(Scene::Gizmos),
+        Some(scene) => app.insert_state(scene),
     };
 
     #[cfg(feature = "bevy_ci_testing")]
