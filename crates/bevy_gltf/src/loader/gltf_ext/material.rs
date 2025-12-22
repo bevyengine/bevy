@@ -11,6 +11,7 @@ use crate::GltfAssetLabel;
 use super::texture::texture_transform_to_affine2;
 
 #[cfg(any(
+    feature = "pbr_anisotropy_texture",
     feature = "pbr_specular_textures",
     feature = "pbr_multi_layer_material_textures"
 ))]
@@ -25,6 +26,7 @@ use {
 /// Parses a texture that's part of a material extension block and returns its
 /// UV channel and image reference.
 #[cfg(any(
+    feature = "pbr_anisotropy_texture",
     feature = "pbr_specular_textures",
     feature = "pbr_multi_layer_material_textures"
 ))]
