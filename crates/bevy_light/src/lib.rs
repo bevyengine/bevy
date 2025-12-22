@@ -26,6 +26,7 @@ use cluster::{
 };
 mod ambient_light;
 pub use ambient_light::{AmbientLight, GlobalAmbientLight};
+use bevy_camera::visibility::PreviouslyVisible;
 
 mod probe;
 pub use probe::{
@@ -451,13 +452,17 @@ pub fn check_dir_light_mesh_visibility(
     // TODO: use resource to avoid unnecessary memory alloc
     let mut defer_queue = core::mem::take(defer_visible_entities_queue.deref_mut());
     commands.queue(move |world: &mut World| {
-        let mut query = world.query::<&mut ViewVisibility>();
+        let mut query = world.query::<(&mut ViewVisibility, &mut PreviouslyVisible)>();
         for entities in defer_queue.iter_mut() {
             let mut iter = query.iter_many_mut(world, entities.iter());
-            while let Some(mut view_visibility) = iter.fetch_next() {
-                if !view_visibility.as_ref().get() {
+            while let Some((mut view_visibility, mut previously_visible)) = iter.fetch_next() {
+                if !**view_visibility {
                     view_visibility.set();
                 }
+
+                // Remove any entities that were discovered to be
+                // visible from the `PreviousVisibleEntities` resource.
+                **previously_visible = false;
             }
         }
     });
@@ -497,11 +502,13 @@ pub fn check_point_light_mesh_visibility(
         ),
     >,
     visible_entity_ranges: Option<Res<VisibleEntityRanges>>,
+    mut previously_visible: Query<&mut PreviouslyVisible>,
     mut cubemap_visible_entities_queue: Local<Parallel<[Vec<Entity>; 6]>>,
     mut spot_visible_entities_queue: Local<Parallel<Vec<Entity>>>,
     mut checked_lights: Local<EntityHashSet>,
 ) {
     checked_lights.clear();
+    let previously_visible = &mut previously_visible;
 
     let visible_entity_ranges = visible_entity_ranges.as_deref();
     for visible_lights in &visible_point_lights {
@@ -579,14 +586,14 @@ pub fn check_point_light_mesh_visibility(
                                 if has_no_frustum_culling
                                     || frustum.intersects_obb(aabb, &model_to_world, true, true)
                                 {
-                                    if !view_visibility.as_ref().get() {
+                                    if !**view_visibility {
                                         view_visibility.set();
                                     }
                                     visible_entities.push(entity);
                                 }
                             }
                         } else {
-                            if !view_visibility.as_ref().get() {
+                            if !**view_visibility {
                                 view_visibility.set();
                             }
                             for visible_entities in cubemap_visible_entities_local_queue.iter_mut()
@@ -601,6 +608,15 @@ pub fn check_point_light_mesh_visibility(
                     for (dst, source) in
                         cubemap_visible_entities.iter_mut().zip(entities.iter_mut())
                     {
+                        // Remove any entities that were discovered to be
+                        // visible from the `PreviousVisibleEntities` resource.
+                        for entity in source.iter() {
+                            if let Ok(mut previously_visible) = previously_visible.get_mut(*entity)
+                            {
+                                **previously_visible = false;
+                            }
+                        }
+
                         dst.entities.append(source);
                     }
                 }
@@ -669,13 +685,13 @@ pub fn check_point_light_mesh_visibility(
                             if has_no_frustum_culling
                                 || frustum.intersects_obb(aabb, &model_to_world, true, true)
                             {
-                                if !view_visibility.as_ref().get() {
+                                if !**view_visibility {
                                     view_visibility.set();
                                 }
                                 spot_visible_entities_local_queue.push(entity);
                             }
                         } else {
-                            if !view_visibility.as_ref().get() {
+                            if !**view_visibility {
                                 view_visibility.set();
                             }
                             spot_visible_entities_local_queue.push(entity);
@@ -685,6 +701,14 @@ pub fn check_point_light_mesh_visibility(
 
                 for entities in spot_visible_entities_queue.iter_mut() {
                     visible_entities.append(entities);
+
+                    // Remove any entities that were discovered to be visible
+                    // from the `PreviousVisibleEntities` resource.
+                    for entity in entities.iter() {
+                        if let Ok(mut previously_visible) = previously_visible.get_mut(*entity) {
+                            **previously_visible = false;
+                        }
+                    }
                 }
 
                 shrink_entities(visible_entities.deref_mut());
