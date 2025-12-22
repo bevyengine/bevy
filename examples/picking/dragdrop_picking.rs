@@ -85,17 +85,18 @@ fn setup(
             Mesh2d(meshes.add(Rectangle::new(AREA_SIZE, AREA_SIZE))),
             MeshMaterial2d(materials.add(Color::srgb(0.1, 0.4, 0.1))),
             Transform::IDENTITY,
+            children![(
+                Text2d::new("Drop here"),
+                TextFont::from_font_size(50.),
+                TextColor(Color::BLACK),
+                Pickable::IGNORE,
+                Transform::from_translation(Vec3::Z),
+            )],
         ))
         .observe(on_drag_enter)
         .observe(on_drag_over)
         .observe(on_drag_drop)
         .observe(on_drag_leave);
-
-    commands.spawn((
-        Text2d::new("Drop here"),
-        TextColor(Color::WHITE),
-        Pickable::IGNORE,
-    ));
 }
 
 fn on_drag_enter(
