@@ -38,14 +38,14 @@ use bevy_render::{
     },
     render_graph::{NodeRunError, RenderGraphContext, RenderGraphExt, ViewNode, ViewNodeRunner},
     render_phase::{
-        AddRenderCommand, BinnedPhaseItem, BinnedRenderPhasePlugin, BinnedRenderPhaseType,
-        CachedRenderPipelinePhaseItem, DrawFunctionId, DrawFunctions, InputUniformIndex, PhaseItem,
-        PhaseItemBatchSetKey, PhaseItemExtraIndex, RenderCommand, RenderCommandResult,
-        SetItemPipeline, TrackedRenderPass, ViewBinnedRenderPhases,
+        AddRenderCommand, BinnedPhaseItem, BinnedRenderPhase, BinnedRenderPhasePlugin,
+        BinnedRenderPhaseType, CachedRenderPipelinePhaseItem, DrawFunctionId, DrawFunctions,
+        InputUniformIndex, PhaseItem, PhaseItemBatchSetKey, PhaseItemExtraIndex, RenderCommand,
+        RenderCommandResult, SetItemPipeline, TrackedRenderPass,
     },
     render_resource::*,
     renderer::RenderContext,
-    sync_world::{MainEntity, MainEntityHashMap},
+    sync_world::{MainEntity, MainEntityHashMap, RenderEntity},
     view::{
         ExtractedView, RenderVisibleEntities, RetainedViewEntity, ViewDepthTexture, ViewTarget,
     },
@@ -360,28 +360,18 @@ struct Wireframe2dNode;
 impl ViewNode for Wireframe2dNode {
     type ViewQuery = (
         &'static ExtractedCamera,
-        &'static ExtractedView,
         &'static ViewTarget,
         &'static ViewDepthTexture,
+        &'static BinnedRenderPhase<Wireframe2dPhaseItem>,
     );
 
     fn run<'w>(
         &self,
         graph: &mut RenderGraphContext,
         render_context: &mut RenderContext<'w>,
-        (camera, view, target, depth): QueryItem<'w, '_, Self::ViewQuery>,
+        (camera, target, depth, wireframe_phase): QueryItem<'w, '_, Self::ViewQuery>,
         world: &'w World,
     ) -> Result<(), NodeRunError> {
-        let Some(wireframe_phase) =
-            world.get_resource::<ViewBinnedRenderPhases<Wireframe2dPhaseItem>>()
-        else {
-            return Ok(());
-        };
-
-        let Some(wireframe_phase) = wireframe_phase.get(&view.retained_view_entity) else {
-            return Ok(());
-        };
-
         let diagnostics = render_context.diagnostic_recorder();
 
         let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
@@ -665,22 +655,27 @@ fn get_wireframe_material(
 }
 
 fn extract_wireframe_2d_camera(
-    mut wireframe_2d_phases: ResMut<ViewBinnedRenderPhases<Wireframe2dPhaseItem>>,
-    cameras: Extract<Query<(Entity, &Camera), With<Camera2d>>>,
-    mut live_entities: Local<HashSet<RetainedViewEntity>>,
+    mut commands: Commands,
+    cameras: Extract<Query<(RenderEntity, &Camera), With<Camera2d>>>,
+    mut phases: Query<&mut BinnedRenderPhase<Wireframe2dPhaseItem>>,
 ) {
-    live_entities.clear();
-    for (main_entity, camera) in &cameras {
+    for (entity, camera) in &cameras {
         if !camera.is_active {
+            commands
+                .entity(entity)
+                .remove::<BinnedRenderPhase<Wireframe2dPhaseItem>>();
             continue;
         }
-        let retained_view_entity = RetainedViewEntity::new(main_entity.into(), None, 0);
-        wireframe_2d_phases.prepare_for_new_frame(retained_view_entity, GpuPreprocessingMode::None);
-        live_entities.insert(retained_view_entity);
+        if let Ok(mut phase) = phases.get_mut(entity) {
+            phase.prepare_for_new_frame();
+        } else {
+            commands
+                .entity(entity)
+                .insert(BinnedRenderPhase::<Wireframe2dPhaseItem>::new(
+                    GpuPreprocessingMode::None,
+                ));
+        }
     }
-
-    // Clear out all dead views.
-    wireframe_2d_phases.retain(|camera_entity, _| live_entities.contains(camera_entity));
 }
 
 pub fn extract_wireframe_entities_needing_specialization(
@@ -729,8 +724,10 @@ pub fn specialize_wireframes(
     render_meshes: Res<RenderAssets<RenderMesh>>,
     render_mesh_instances: Res<RenderMesh2dInstances>,
     render_wireframe_instances: Res<RenderWireframeInstances>,
-    wireframe_phases: Res<ViewBinnedRenderPhases<Wireframe2dPhaseItem>>,
-    views: Query<(&ExtractedView, &RenderVisibleEntities)>,
+    views: Query<
+        (&ExtractedView, &RenderVisibleEntities),
+        With<BinnedRenderPhase<Wireframe2dPhaseItem>>,
+    >,
     view_key_cache: Res<ViewKeyCache>,
     entity_specialization_ticks: Res<WireframeEntitySpecializationTicks>,
     view_specialization_ticks: Res<ViewSpecializationTicks>,
@@ -746,10 +743,6 @@ pub fn specialize_wireframes(
 
     for (view, visible_entities) in &views {
         all_views.insert(view.retained_view_entity);
-
-        if !wireframe_phases.contains_key(&view.retained_view_entity) {
-            continue;
-        }
 
         let Some(view_key) = view_key_cache.get(&view.retained_view_entity.main_entity) else {
             continue;
@@ -813,13 +806,13 @@ fn queue_wireframes(
     mesh_allocator: Res<MeshAllocator>,
     specialized_wireframe_pipeline_cache: Res<SpecializedWireframePipelineCache>,
     render_wireframe_instances: Res<RenderWireframeInstances>,
-    mut wireframe_2d_phases: ResMut<ViewBinnedRenderPhases<Wireframe2dPhaseItem>>,
-    mut views: Query<(&ExtractedView, &RenderVisibleEntities)>,
+    mut views: Query<(
+        &ExtractedView,
+        &RenderVisibleEntities,
+        &mut BinnedRenderPhase<Wireframe2dPhaseItem>,
+    )>,
 ) {
-    for (view, visible_entities) in &mut views {
-        let Some(wireframe_phase) = wireframe_2d_phases.get_mut(&view.retained_view_entity) else {
-            continue;
-        };
+    for (view, visible_entities, mut wireframe_phase) in &mut views {
         let draw_wireframe = custom_draw_functions.read().id::<DrawWireframe2d>();
 
         let Some(view_specialized_material_pipeline_cache) =

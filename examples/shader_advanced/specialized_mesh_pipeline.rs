@@ -24,8 +24,8 @@ use bevy::{
         mesh::{allocator::MeshAllocator, RenderMesh},
         render_asset::RenderAssets,
         render_phase::{
-            AddRenderCommand, BinnedRenderPhaseType, DrawFunctions, SetItemPipeline,
-            ViewBinnedRenderPhases,
+            AddRenderCommand, BinnedRenderPhase, BinnedRenderPhaseType, DrawFunctions,
+            SetItemPipeline,
         },
         render_resource::{
             ColorTargetState, ColorWrites, CompareFunction, DepthStencilState, Face, FragmentState,
@@ -267,12 +267,14 @@ impl SpecializedMeshPipeline for CustomMeshPipeline {
 fn queue_custom_mesh_pipeline(
     pipeline_cache: Res<PipelineCache>,
     custom_mesh_pipeline: Res<CustomMeshPipeline>,
-    (mut opaque_render_phases, opaque_draw_functions): (
-        ResMut<ViewBinnedRenderPhases<Opaque3d>>,
-        Res<DrawFunctions<Opaque3d>>,
-    ),
+    opaque_draw_functions: Res<DrawFunctions<Opaque3d>>,
     mut specialized_mesh_pipelines: ResMut<SpecializedMeshPipelines<CustomMeshPipeline>>,
-    views: Query<(&RenderVisibleEntities, &ExtractedView, &Msaa)>,
+    mut views: Query<(
+        &RenderVisibleEntities,
+        &ExtractedView,
+        &Msaa,
+        &mut BinnedRenderPhase<Opaque3d>,
+    )>,
     (render_meshes, render_mesh_instances): (
         Res<RenderAssets<RenderMesh>>,
         Res<RenderMeshInstances>,
@@ -289,11 +291,7 @@ fn queue_custom_mesh_pipeline(
     // Render phases are per-view, so we need to iterate over all views so that
     // the entity appears in them. (In this example, we have only one view, but
     // it's good practice to loop over all views anyway.)
-    for (view_visible_entities, view, msaa) in views.iter() {
-        let Some(opaque_phase) = opaque_render_phases.get_mut(&view.retained_view_entity) else {
-            continue;
-        };
-
+    for (view_visible_entities, view, msaa, mut opaque_phase) in views.iter_mut() {
         // Create the key based on the view. In this case we only care about MSAA and HDR
         let view_key = MeshPipelineKey::from_msaa_samples(msaa.samples())
             | MeshPipelineKey::from_hdr(view.hdr);

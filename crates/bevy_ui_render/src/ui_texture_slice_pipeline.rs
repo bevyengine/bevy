@@ -302,17 +302,12 @@ pub fn extract_ui_texture_slices(
     }
 }
 
-#[expect(
-    clippy::too_many_arguments,
-    reason = "it's a system that needs a lot of them"
-)]
 pub fn queue_ui_slices(
     extracted_ui_slicers: ResMut<ExtractedUiTextureSlices>,
     ui_slicer_pipeline: Res<UiTextureSlicePipeline>,
     mut pipelines: ResMut<SpecializedRenderPipelines<UiTextureSlicePipeline>>,
-    mut transparent_render_phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
     mut render_views: Query<&UiCameraView, With<ExtractedView>>,
-    camera_views: Query<&ExtractedView>,
+    mut camera_views: Query<(&ExtractedView, &mut SortedRenderPhase<TransparentUi>)>,
     pipeline_cache: Res<PipelineCache>,
     draw_functions: Res<DrawFunctions<TransparentUi>>,
 ) {
@@ -324,12 +319,7 @@ pub fn queue_ui_slices(
             continue;
         };
 
-        let Ok(view) = camera_views.get(default_camera_view.0) else {
-            continue;
-        };
-
-        let Some(transparent_phase) = transparent_render_phases.get_mut(&view.retained_view_entity)
-        else {
+        let Ok((view, mut transparent_phase)) = camera_views.get_mut(default_camera_view.0) else {
             continue;
         };
 
@@ -363,7 +353,7 @@ pub fn prepare_ui_slices(
     texture_slicer_pipeline: Res<UiTextureSlicePipeline>,
     mut image_bind_groups: ResMut<UiTextureSliceImageBindGroups>,
     gpu_images: Res<RenderAssets<GpuImage>>,
-    mut phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
+    mut phases: Query<&mut SortedRenderPhase<TransparentUi>>,
     events: Res<SpriteAssetEvents>,
     mut previous_len: Local<usize>,
 ) {
@@ -395,7 +385,7 @@ pub fn prepare_ui_slices(
         let mut vertices_index = 0;
         let mut indices_index = 0;
 
-        for ui_phase in phases.values_mut() {
+        for mut ui_phase in phases.iter_mut() {
             let mut batch_item_index = 0;
             let mut batch_image_handle = AssetId::invalid();
             let mut batch_image_size = Vec2::ZERO;

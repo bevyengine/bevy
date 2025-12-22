@@ -386,7 +386,7 @@ pub fn prepare_uimaterial_nodes<M: UiMaterial>(
     view_uniforms: Res<ViewUniforms>,
     globals_buffer: Res<GlobalsBuffer>,
     ui_material_pipeline: Res<UiMaterialPipeline<M>>,
-    mut phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
+    mut phases: Query<&mut SortedRenderPhase<TransparentUi>>,
     mut previous_len: Local<usize>,
 ) {
     if let (Some(view_binding), Some(globals_binding)) = (
@@ -403,7 +403,7 @@ pub fn prepare_uimaterial_nodes<M: UiMaterial>(
         ));
         let mut index = 0;
 
-        for ui_phase in phases.values_mut() {
+        for mut ui_phase in phases.iter_mut() {
             let mut batch_item_index = 0;
             let mut batch_shader_handle = AssetId::invalid();
 
@@ -591,9 +591,8 @@ pub fn queue_ui_material_nodes<M: UiMaterial>(
     mut pipelines: ResMut<SpecializedRenderPipelines<UiMaterialPipeline<M>>>,
     pipeline_cache: Res<PipelineCache>,
     render_materials: Res<RenderAssets<PreparedUiMaterial<M>>>,
-    mut transparent_render_phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
     mut render_views: Query<&UiCameraView, With<ExtractedView>>,
-    camera_views: Query<&ExtractedView>,
+    mut camera_views: Query<(&ExtractedView, &mut SortedRenderPhase<TransparentUi>)>,
 ) where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
@@ -610,14 +609,10 @@ pub fn queue_ui_material_nodes<M: UiMaterial>(
             continue;
         };
 
-        let Ok(view) = camera_views.get(default_camera_view.0) else {
+        let Ok((view, mut transparent_phase)) = camera_views.get_mut(default_camera_view.0) else {
             continue;
         };
-
-        let Some(transparent_phase) = transparent_render_phases.get_mut(&view.retained_view_entity)
-        else {
-            continue;
-        };
+        let transparent_phase = transparent_phase.as_mut();
 
         let pipeline = pipelines.specialize(
             &pipeline_cache,

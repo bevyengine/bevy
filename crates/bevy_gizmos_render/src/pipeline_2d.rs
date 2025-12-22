@@ -20,8 +20,7 @@ use bevy_math::FloatOrd;
 use bevy_render::{
     render_asset::{prepare_assets, RenderAssets},
     render_phase::{
-        AddRenderCommand, DrawFunctions, PhaseItemExtraIndex, SetItemPipeline,
-        ViewSortedRenderPhases,
+        AddRenderCommand, DrawFunctions, PhaseItemExtraIndex, SetItemPipeline, SortedRenderPhase,
     },
     render_resource::*,
     view::{ExtractedView, Msaa, ViewTarget},
@@ -294,8 +293,12 @@ fn queue_line_gizmos_2d(
     pipeline_cache: Res<PipelineCache>,
     line_gizmos: Query<(Entity, &MainEntity, &GizmoMeshConfig)>,
     line_gizmo_assets: Res<RenderAssets<GpuLineGizmo>>,
-    mut transparent_render_phases: ResMut<ViewSortedRenderPhases<Transparent2d>>,
-    mut views: Query<(&ExtractedView, &Msaa, Option<&RenderLayers>)>,
+    mut views: Query<(
+        &ExtractedView,
+        &Msaa,
+        Option<&RenderLayers>,
+        &mut SortedRenderPhase<Transparent2d>,
+    )>,
 ) {
     let draw_function = draw_functions.read().get_id::<DrawLineGizmo2d>().unwrap();
     let draw_function_strip = draw_functions
@@ -303,12 +306,7 @@ fn queue_line_gizmos_2d(
         .get_id::<DrawLineGizmo2dStrip>()
         .unwrap();
 
-    for (view, msaa, render_layers) in &mut views {
-        let Some(transparent_phase) = transparent_render_phases.get_mut(&view.retained_view_entity)
-        else {
-            continue;
-        };
-
+    for (view, msaa, render_layers, mut transparent_phase) in views.iter_mut() {
         let mesh_key = Mesh2dPipelineKey::from_msaa_samples(msaa.samples())
             | Mesh2dPipelineKey::from_hdr(view.hdr);
 
@@ -375,20 +373,19 @@ fn queue_line_joint_gizmos_2d(
     pipeline_cache: Res<PipelineCache>,
     line_gizmos: Query<(Entity, &MainEntity, &GizmoMeshConfig)>,
     line_gizmo_assets: Res<RenderAssets<GpuLineGizmo>>,
-    mut transparent_render_phases: ResMut<ViewSortedRenderPhases<Transparent2d>>,
-    mut views: Query<(&ExtractedView, &Msaa, Option<&RenderLayers>)>,
+    mut views: Query<(
+        &ExtractedView,
+        &Msaa,
+        Option<&RenderLayers>,
+        &mut SortedRenderPhase<Transparent2d>,
+    )>,
 ) {
     let draw_function = draw_functions
         .read()
         .get_id::<DrawLineJointGizmo2d>()
         .unwrap();
 
-    for (view, msaa, render_layers) in &mut views {
-        let Some(transparent_phase) = transparent_render_phases.get_mut(&view.retained_view_entity)
-        else {
-            continue;
-        };
-
+    for (view, msaa, render_layers, mut transparent_phase) in views.iter_mut() {
         let mesh_key = Mesh2dPipelineKey::from_msaa_samples(msaa.samples())
             | Mesh2dPipelineKey::from_hdr(view.hdr);
 

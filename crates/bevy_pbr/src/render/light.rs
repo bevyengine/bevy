@@ -723,12 +723,11 @@ pub fn prepare_lights(
     ambient_light: Res<GlobalAmbientLight>,
     point_light_shadow_map: Res<PointLightShadowMap>,
     directional_light_shadow_map: Res<DirectionalLightShadowMap>,
-    mut shadow_render_phases: ResMut<ViewBinnedRenderPhases<Shadow>>,
-    (
-        mut max_directional_lights_warning_emitted,
-        mut max_cascades_per_light_warning_emitted,
-        mut live_shadow_mapping_lights,
-    ): (Local<bool>, Local<bool>, Local<HashSet<RetainedViewEntity>>),
+    mut shadow_render_phases: Query<&mut BinnedRenderPhase<Shadow>>,
+    (mut max_directional_lights_warning_emitted, mut max_cascades_per_light_warning_emitted): (
+        Local<bool>,
+        Local<bool>,
+    ),
     point_lights: Query<(
         Entity,
         &MainEntity,
@@ -1015,8 +1014,6 @@ pub fn prepare_lights(
     global_light_meta
         .gpu_clusterable_objects
         .write_buffer(&render_device, &render_queue);
-
-    live_shadow_mapping_lights.clear();
 
     let mut point_light_depth_attachments = HashMap::<u32, DepthAttachment>::default();
     let mut directional_light_depth_attachments = HashMap::<u32, DepthAttachment>::default();
@@ -1361,9 +1358,13 @@ pub fn prepare_lights(
 
                 if first {
                     // Subsequent views with the same light entity will reuse the same shadow map
-                    shadow_render_phases
-                        .prepare_for_new_frame(retained_view_entity, gpu_preprocessing_mode);
-                    live_shadow_mapping_lights.insert(retained_view_entity);
+                    if let Ok(mut phase) = shadow_render_phases.get_mut(view_light_entity) {
+                        phase.prepare_for_new_frame();
+                    } else {
+                        commands
+                            .entity(view_light_entity)
+                            .insert(BinnedRenderPhase::<Shadow>::new(gpu_preprocessing_mode));
+                    }
                 }
             }
         }
@@ -1461,9 +1462,13 @@ pub fn prepare_lights(
 
             if first {
                 // Subsequent views with the same light entity will reuse the same shadow map
-                shadow_render_phases
-                    .prepare_for_new_frame(retained_view_entity, gpu_preprocessing_mode);
-                live_shadow_mapping_lights.insert(retained_view_entity);
+                if let Ok(mut phase) = shadow_render_phases.get_mut(view_light_entity) {
+                    phase.prepare_for_new_frame();
+                } else {
+                    commands
+                        .entity(view_light_entity)
+                        .insert(BinnedRenderPhase::<Shadow>::new(gpu_preprocessing_mode));
+                }
             }
         }
 
@@ -1626,9 +1631,13 @@ pub fn prepare_lights(
                 // Subsequent views with the same light entity will **NOT** reuse the same shadow map
                 // (Because the cascades are unique to each view)
                 // TODO: Implement GPU culling for shadow passes.
-                shadow_render_phases
-                    .prepare_for_new_frame(retained_view_entity, gpu_preprocessing_mode);
-                live_shadow_mapping_lights.insert(retained_view_entity);
+                if let Ok(mut phase) = shadow_render_phases.get_mut(view_light_entity) {
+                    phase.prepare_for_new_frame();
+                } else {
+                    commands
+                        .entity(view_light_entity)
+                        .insert(BinnedRenderPhase::<Shadow>::new(gpu_preprocessing_mode));
+                }
             }
         }
 
@@ -1666,8 +1675,6 @@ pub fn prepare_lights(
             despawn_entities(&mut commands, light_view_entities);
         }
     }
-
-    shadow_render_phases.retain(|entity, _| live_shadow_mapping_lights.contains(entity));
 }
 
 fn despawn_entities(commands: &mut Commands, entities: Vec<Entity>) {
@@ -1722,8 +1729,7 @@ pub struct SpecializedShadowMaterialViewPipelineCache {
 
 pub fn check_views_lights_need_specialization(
     view_lights: Query<&ViewLightEntities, With<ExtractedView>>,
-    view_light_entities: Query<(&LightEntity, &ExtractedView)>,
-    shadow_render_phases: Res<ViewBinnedRenderPhases<Shadow>>,
+    view_light_entities: Query<(&LightEntity, &ExtractedView), With<BinnedRenderPhase<Shadow>>>,
     mut light_key_cache: ResMut<LightKeyCache>,
     mut light_specialization_ticks: ResMut<LightSpecializationTicks>,
     ticks: SystemChangeTick,
@@ -1735,9 +1741,6 @@ pub fn check_views_lights_need_specialization(
             else {
                 continue;
             };
-            if !shadow_render_phases.contains_key(&extracted_view_light.retained_view_entity) {
-                continue;
-            }
 
             let is_directional_light = matches!(light_entity, LightEntity::Directional { .. });
             let mut light_key = MeshPipelineKey::DEPTH_PREPASS;
@@ -1767,12 +1770,11 @@ pub fn specialize_shadows(
         Res<ErasedRenderAssets<PreparedMaterial>>,
         Res<RenderMaterialInstances>,
     ),
-    shadow_render_phases: Res<ViewBinnedRenderPhases<Shadow>>,
-    mut pipelines: ResMut<SpecializedMeshPipelines<PrepassPipelineSpecializer>>,
+    mut pipelines: ResMut<MeshPassSpecializedMeshPipelines<Prepass, PrepassPipelineSpecializer>>,
     pipeline_cache: Res<PipelineCache>,
     render_lightmaps: Res<RenderLightmaps>,
     view_lights: Query<(Entity, &ViewLightEntities), With<ExtractedView>>,
-    view_light_entities: Query<(&LightEntity, &ExtractedView)>,
+    view_light_entities: Query<(&LightEntity, &ExtractedView), With<BinnedRenderPhase<Shadow>>>,
     point_light_entities: Query<&RenderCubemapVisibleEntities, With<ExtractedPointLight>>,
     directional_light_entities: Query<
         &RenderCascadesVisibleEntities,
@@ -1799,9 +1801,6 @@ pub fn specialize_shadows(
 
             all_shadow_views.insert(extracted_view_light.retained_view_entity);
 
-            if !shadow_render_phases.contains_key(&extracted_view_light.retained_view_entity) {
-                continue;
-            }
             let Some(light_key) = light_key_cache.get(&extracted_view_light.retained_view_entity)
             else {
                 continue;
@@ -1910,6 +1909,7 @@ pub fn specialize_shadows(
                     mesh_key,
                     material_key: material.properties.material_key.clone(),
                     type_id: material_instance.asset_id.type_id(),
+                    pass_id: PassId::of::<Prepass>(),
                 };
                 let material_pipeline_specializer = PrepassPipelineSpecializer {
                     pipeline: prepass_pipeline.clone(),
@@ -1946,11 +1946,10 @@ pub fn queue_shadows(
     render_mesh_instances: Res<RenderMeshInstances>,
     render_materials: Res<ErasedRenderAssets<PreparedMaterial>>,
     render_material_instances: Res<RenderMaterialInstances>,
-    mut shadow_render_phases: ResMut<ViewBinnedRenderPhases<Shadow>>,
     gpu_preprocessing_support: Res<GpuPreprocessingSupport>,
     mesh_allocator: Res<MeshAllocator>,
     view_lights: Query<(Entity, &ViewLightEntities, Option<&RenderLayers>), With<ExtractedView>>,
-    view_light_entities: Query<(&LightEntity, &ExtractedView)>,
+    mut view_light_entities: Query<(&LightEntity, &ExtractedView, &mut BinnedRenderPhase<Shadow>)>,
     point_light_entities: Query<&RenderCubemapVisibleEntities, With<ExtractedPointLight>>,
     directional_light_entities: Query<
         &RenderCascadesVisibleEntities,
@@ -1961,13 +1960,8 @@ pub fn queue_shadows(
 ) {
     for (entity, view_lights, camera_layers) in &view_lights {
         for view_light_entity in view_lights.lights.iter().copied() {
-            let Ok((light_entity, extracted_view_light)) =
-                view_light_entities.get(view_light_entity)
-            else {
-                continue;
-            };
-            let Some(shadow_phase) =
-                shadow_render_phases.get_mut(&extracted_view_light.retained_view_entity)
+            let Ok((light_entity, extracted_view_light, mut shadow_phase)) =
+                view_light_entities.get_mut(view_light_entity)
             else {
                 continue;
             };
@@ -2221,7 +2215,11 @@ pub struct ShadowPassNode {
     /// The query that finds cameras in which shadows are visible.
     main_view_query: QueryState<Read<ViewLightEntities>>,
     /// The query that finds shadow cascades.
-    view_light_query: QueryState<(Read<ShadowView>, Read<ExtractedView>, Has<OcclusionCulling>)>,
+    view_light_query: QueryState<(
+        Read<ShadowView>,
+        Has<OcclusionCulling>,
+        Read<BinnedRenderPhase<Shadow>>,
+    )>,
 }
 
 impl FromWorld for EarlyShadowPassNode {
@@ -2292,14 +2290,9 @@ impl ShadowPassNode {
         world: &'w World,
         is_late: bool,
     ) -> Result<(), NodeRunError> {
-        let Some(shadow_render_phases) = world.get_resource::<ViewBinnedRenderPhases<Shadow>>()
-        else {
-            return Ok(());
-        };
-
         if let Ok(view_lights) = self.main_view_query.get_manual(world, graph.view_entity()) {
             for view_light_entity in view_lights.lights.iter().copied() {
-                let Ok((view_light, extracted_light_view, occlusion_culling)) =
+                let Ok((view_light, occlusion_culling, shadow_phase)) =
                     self.view_light_query.get_manual(world, view_light_entity)
                 else {
                     continue;
@@ -2310,12 +2303,6 @@ impl ShadowPassNode {
                 if is_late && !occlusion_culling {
                     continue;
                 }
-
-                let Some(shadow_phase) =
-                    shadow_render_phases.get(&extracted_light_view.retained_view_entity)
-                else {
-                    continue;
-                };
 
                 let depth_stencil_attachment =
                     Some(view_light.depth_attachment.get_attachment(StoreOp::Store));

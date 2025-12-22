@@ -4,10 +4,10 @@ use bevy_render::{
     camera::ExtractedCamera,
     diagnostic::RecordDiagnostics,
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
-    render_phase::{TrackedRenderPass, ViewSortedRenderPhases},
+    render_phase::{SortedRenderPhase, TrackedRenderPass},
     render_resource::{CommandEncoderDescriptor, RenderPassDescriptor, StoreOp},
     renderer::RenderContext,
-    view::{ExtractedView, ViewDepthTexture, ViewTarget},
+    view::{ViewDepthTexture, ViewTarget},
 };
 use tracing::error;
 #[cfg(feature = "trace")]
@@ -19,28 +19,23 @@ pub struct MainTransparentPass2dNode {}
 impl ViewNode for MainTransparentPass2dNode {
     type ViewQuery = (
         &'static ExtractedCamera,
-        &'static ExtractedView,
         &'static ViewTarget,
         &'static ViewDepthTexture,
+        &'static SortedRenderPhase<Transparent2d>,
     );
 
     fn run<'w>(
         &self,
         graph: &mut RenderGraphContext,
         render_context: &mut RenderContext<'w>,
-        (camera, view, target, depth): bevy_ecs::query::QueryItem<'w, '_, Self::ViewQuery>,
+        (camera, target, depth, transparent_phase): bevy_ecs::query::QueryItem<
+            'w,
+            '_,
+            Self::ViewQuery,
+        >,
         world: &'w World,
     ) -> Result<(), NodeRunError> {
-        let Some(transparent_phases) =
-            world.get_resource::<ViewSortedRenderPhases<Transparent2d>>()
-        else {
-            return Ok(());
-        };
-
         let view_entity = graph.view_entity();
-        let Some(transparent_phase) = transparent_phases.get(&view.retained_view_entity) else {
-            return Ok(());
-        };
 
         let diagnostics = render_context.diagnostic_recorder();
 

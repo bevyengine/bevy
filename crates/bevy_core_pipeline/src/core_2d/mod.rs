@@ -36,12 +36,12 @@ use core::ops::Range;
 use bevy_asset::UntypedAssetId;
 use bevy_camera::{Camera, Camera2d};
 use bevy_image::ToExtents;
-use bevy_platform::collections::{HashMap, HashSet};
+use bevy_platform::collections::HashMap;
 use bevy_render::{
     batching::gpu_preprocessing::GpuPreprocessingMode,
     camera::CameraRenderGraph,
-    render_phase::PhaseItemBatchSetKey,
-    view::{ExtractedView, RetainedViewEntity},
+    render_phase::{BinnedRenderPhase, PhaseItemBatchSetKey, SortedRenderPhase},
+    sync_world::RenderEntity,
 };
 pub use main_opaque_pass_2d_node::*;
 pub use main_transparent_pass_2d_node::*;
@@ -59,8 +59,7 @@ use bevy_render::{
     render_graph::{EmptyNode, RenderGraphExt, ViewNodeRunner},
     render_phase::{
         sort_phase_system, BinnedPhaseItem, CachedRenderPipelinePhaseItem, DrawFunctionId,
-        DrawFunctions, PhaseItem, PhaseItemExtraIndex, SortedPhaseItem, ViewBinnedRenderPhases,
-        ViewSortedRenderPhases,
+        DrawFunctions, PhaseItem, PhaseItemExtraIndex, SortedPhaseItem,
     },
     render_resource::{
         BindGroupId, CachedRenderPipelineId, TextureDescriptor, TextureDimension, TextureFormat,
@@ -95,9 +94,6 @@ impl Plugin for Core2dPlugin {
             .init_resource::<DrawFunctions<Opaque2d>>()
             .init_resource::<DrawFunctions<AlphaMask2d>>()
             .init_resource::<DrawFunctions<Transparent2d>>()
-            .init_resource::<ViewSortedRenderPhases<Transparent2d>>()
-            .init_resource::<ViewBinnedRenderPhases<Opaque2d>>()
-            .init_resource::<ViewBinnedRenderPhases<AlphaMask2d>>()
             .add_systems(ExtractSchedule, extract_core_2d_camera_phases)
             .add_systems(
                 Render,
@@ -432,52 +428,55 @@ impl CachedRenderPipelinePhaseItem for Transparent2d {
 }
 
 pub fn extract_core_2d_camera_phases(
-    mut transparent_2d_phases: ResMut<ViewSortedRenderPhases<Transparent2d>>,
-    mut opaque_2d_phases: ResMut<ViewBinnedRenderPhases<Opaque2d>>,
-    mut alpha_mask_2d_phases: ResMut<ViewBinnedRenderPhases<AlphaMask2d>>,
-    cameras_2d: Extract<Query<(Entity, &Camera), With<Camera2d>>>,
-    mut live_entities: Local<HashSet<RetainedViewEntity>>,
+    mut commands: Commands,
+    cameras_2d: Extract<Query<(RenderEntity, &Camera), With<Camera2d>>>,
+    mut phases: Query<(
+        &mut BinnedRenderPhase<Opaque2d>,
+        &mut BinnedRenderPhase<AlphaMask2d>,
+        &mut SortedRenderPhase<Transparent2d>,
+    )>,
 ) {
-    live_entities.clear();
-
-    for (main_entity, camera) in &cameras_2d {
+    for (entity, camera) in &cameras_2d {
         if !camera.is_active {
+            commands.entity(entity).remove::<(
+                BinnedRenderPhase<Opaque2d>,
+                BinnedRenderPhase<AlphaMask2d>,
+                SortedRenderPhase<Transparent2d>,
+            )>();
             continue;
         }
 
-        // This is the main 2D camera, so we use the first subview index (0).
-        let retained_view_entity = RetainedViewEntity::new(main_entity.into(), None, 0);
-
-        transparent_2d_phases.insert_or_clear(retained_view_entity);
-        opaque_2d_phases.prepare_for_new_frame(retained_view_entity, GpuPreprocessingMode::None);
-        alpha_mask_2d_phases
-            .prepare_for_new_frame(retained_view_entity, GpuPreprocessingMode::None);
-
-        live_entities.insert(retained_view_entity);
+        if let Ok((mut opaque_2d_phase, mut alpha_mask_2d_phase, mut transparent_2d_phase)) =
+            phases.get_mut(entity)
+        {
+            opaque_2d_phase.prepare_for_new_frame();
+            alpha_mask_2d_phase.prepare_for_new_frame();
+            transparent_2d_phase.clear();
+        } else {
+            commands.entity(entity).insert((
+                BinnedRenderPhase::<Opaque2d>::new(GpuPreprocessingMode::None),
+                BinnedRenderPhase::<AlphaMask2d>::new(GpuPreprocessingMode::None),
+                SortedRenderPhase::<Transparent2d>::default(),
+            ));
+        }
     }
-
-    // Clear out all dead views.
-    transparent_2d_phases.retain(|camera_entity, _| live_entities.contains(camera_entity));
-    opaque_2d_phases.retain(|camera_entity, _| live_entities.contains(camera_entity));
-    alpha_mask_2d_phases.retain(|camera_entity, _| live_entities.contains(camera_entity));
 }
 
 pub fn prepare_core_2d_depth_textures(
     mut commands: Commands,
     mut texture_cache: ResMut<TextureCache>,
     render_device: Res<RenderDevice>,
-    transparent_2d_phases: Res<ViewSortedRenderPhases<Transparent2d>>,
-    opaque_2d_phases: Res<ViewBinnedRenderPhases<Opaque2d>>,
-    views_2d: Query<(Entity, &ExtractedCamera, &ExtractedView, &Msaa), (With<Camera2d>,)>,
+    views_2d: Query<
+        (Entity, &ExtractedCamera, &Msaa),
+        (
+            With<Camera2d>,
+            With<BinnedRenderPhase<Opaque2d>>,
+            With<SortedRenderPhase<Transparent2d>>,
+        ),
+    >,
 ) {
     let mut textures = <HashMap<_, _>>::default();
-    for (view, camera, extracted_view, msaa) in &views_2d {
-        if !opaque_2d_phases.contains_key(&extracted_view.retained_view_entity)
-            || !transparent_2d_phases.contains_key(&extracted_view.retained_view_entity)
-        {
-            continue;
-        };
-
+    for (view, camera, msaa) in &views_2d {
         let Some(physical_target_size) = camera.physical_target_size else {
             continue;
         };

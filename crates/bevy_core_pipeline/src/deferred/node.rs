@@ -1,18 +1,16 @@
 use bevy_camera::{MainPassResolutionOverride, Viewport};
 use bevy_ecs::{prelude::*, query::QueryItem};
-use bevy_render::experimental::occlusion_culling::OcclusionCulling;
-use bevy_render::render_graph::ViewNode;
-
-use bevy_render::view::{ExtractedView, NoIndirectDrawing};
 use bevy_render::{
     camera::ExtractedCamera,
     diagnostic::RecordDiagnostics,
-    render_graph::{NodeRunError, RenderGraphContext},
-    render_phase::{TrackedRenderPass, ViewBinnedRenderPhases},
+    experimental::occlusion_culling::OcclusionCulling,
+    render_graph::{NodeRunError, RenderGraphContext, ViewNode},
+    render_phase::{BinnedRenderPhase, TrackedRenderPass},
     render_resource::{CommandEncoderDescriptor, RenderPassDescriptor, StoreOp},
     renderer::RenderContext,
-    view::ViewDepthTexture,
+    view::{NoIndirectDrawing, ViewDepthTexture},
 };
+
 use tracing::error;
 #[cfg(feature = "trace")]
 use tracing::info_span;
@@ -65,9 +63,10 @@ pub struct LateDeferredGBufferPrepassNode;
 impl ViewNode for LateDeferredGBufferPrepassNode {
     type ViewQuery = (
         &'static ExtractedCamera,
-        &'static ExtractedView,
         &'static ViewDepthTexture,
         &'static ViewPrepassTextures,
+        &'static BinnedRenderPhase<Opaque3dDeferred>,
+        &'static BinnedRenderPhase<AlphaMask3dDeferred>,
         Option<&'static MainPassResolutionOverride>,
         Has<OcclusionCulling>,
         Has<NoIndirectDrawing>,
@@ -108,29 +107,20 @@ impl ViewNode for LateDeferredGBufferPrepassNode {
 fn run_deferred_prepass<'w>(
     graph: &mut RenderGraphContext,
     render_context: &mut RenderContext<'w>,
-    (camera, extracted_view, view_depth_texture, view_prepass_textures, resolution_override, _, _): QueryItem<
-        'w,
-        '_,
-        <LateDeferredGBufferPrepassNode as ViewNode>::ViewQuery,
-    >,
+    (
+        camera,
+        view_depth_texture,
+        view_prepass_textures,
+        opaque_deferred_phase,
+        alpha_mask_deferred_phase,
+        resolution_override,
+        _,
+        _,
+    ): QueryItem<'w, '_, <LateDeferredGBufferPrepassNode as ViewNode>::ViewQuery>,
     is_late: bool,
     world: &'w World,
     label: &'static str,
 ) -> Result<(), NodeRunError> {
-    let (Some(opaque_deferred_phases), Some(alpha_mask_deferred_phases)) = (
-        world.get_resource::<ViewBinnedRenderPhases<Opaque3dDeferred>>(),
-        world.get_resource::<ViewBinnedRenderPhases<AlphaMask3dDeferred>>(),
-    ) else {
-        return Ok(());
-    };
-
-    let (Some(opaque_deferred_phase), Some(alpha_mask_deferred_phase)) = (
-        opaque_deferred_phases.get(&extracted_view.retained_view_entity),
-        alpha_mask_deferred_phases.get(&extracted_view.retained_view_entity),
-    ) else {
-        return Ok(());
-    };
-
     let diagnostic = render_context.diagnostic_recorder();
 
     let mut color_attachments = vec![];
