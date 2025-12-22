@@ -93,7 +93,7 @@ wgpu = { version = "27", default-features = false, features = [
   "naga-ir",
   "fragile-send-sync-non-atomic-wasm",
 ] }
-naga = { version = "27", features = ["wgsl-in"] }
+naga = { version = "28", features = ["wgsl-in"] }
 bytemuck = { version = "1.5", features = ["derive", "must_cast"] }
 downcast-rs = { version = "2", default-features = false, features = ["std"] }
 thiserror = { version = "2", default-features = false }
