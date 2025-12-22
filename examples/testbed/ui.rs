@@ -46,21 +46,7 @@ fn main() {
 
     match args.scene {
         None => app.init_state::<Scene>(),
-        Some(Scene::Image) => app.insert_state(Scene::Image),
-        Some(Scene::Text) => app.insert_state(Scene::Text),
-        Some(Scene::Grid) => app.insert_state(Scene::Grid),
-        Some(Scene::Borders) => app.insert_state(Scene::Borders),
-        Some(Scene::BoxShadow) => app.insert_state(Scene::BoxShadow),
-        Some(Scene::TextWrap) => app.insert_state(Scene::TextWrap),
-        Some(Scene::Overflow) => app.insert_state(Scene::Overflow),
-        Some(Scene::Slice) => app.insert_state(Scene::Slice),
-        Some(Scene::LayoutRounding) => app.insert_state(Scene::LayoutRounding),
-        Some(Scene::LinearGradient) => app.insert_state(Scene::LinearGradient),
-        Some(Scene::RadialGradient) => app.insert_state(Scene::RadialGradient),
-        Some(Scene::Transformations) => app.insert_state(Scene::Transformations),
-        #[cfg(feature = "bevy_ui_debug")]
-        Some(Scene::DebugOutlines) => app.insert_state(Scene::DebugOutlines),
-        Some(Scene::ViewportCoords) => app.insert_state(Scene::ViewportCoords),
+        Some(scene) => app.insert_state(scene),
     };
 
     #[cfg(feature = "bevy_ui_debug")]
