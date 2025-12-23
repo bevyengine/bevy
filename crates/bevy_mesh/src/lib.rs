@@ -42,7 +42,7 @@ bitflags! {
     /// downward. The PBR mesh pipeline key bits start from the lowest bit and
     /// go upward. This allows the PBR bits in the downstream crate `bevy_pbr`
     /// to coexist in the same field without any shifts.
-    #[derive(Clone, Debug)]
+    #[derive(Copy, Clone, Debug)]
     pub struct BaseMeshPipelineKey: u64 {
         const MORPH_TARGETS = 1 << (u64::BITS - 1);
     }
