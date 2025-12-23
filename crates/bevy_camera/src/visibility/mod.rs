@@ -538,7 +538,7 @@ fn propagate_recursive(
 /// hidden, ensuring that we have only triggered change detection where necessary.
 ///
 /// Consider if we did the simplest approach of setting all entities to hidden, then marking visible
-/// entities. Every single [`ViwVisibility`] would trigger change detection.
+/// entities. Every single [`ViewVisibility`] would trigger change detection.
 #[derive(Component, Default, Reflect, Deref, DerefMut)]
 #[reflect(Component)]
 pub struct WasVisibleNowHidden(bool);
