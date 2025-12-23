@@ -182,7 +182,7 @@ fn on_insert_tilemap_chunk(mut world: DeferredWorld, HookContext { entity, .. }:
         .insert((Mesh2d(mesh), MeshMaterial2d(material)));
 }
 
-fn update_tilemap_chunk_indices(
+pub fn update_tilemap_chunk_indices(
     query: Query<
         (
             Entity,
