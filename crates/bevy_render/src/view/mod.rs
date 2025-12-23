@@ -16,7 +16,7 @@ use crate::{
     render_asset::RenderAssets,
     render_phase::ViewRangefinder3d,
     render_resource::{DynamicUniformBuffer, ShaderType, Texture, TextureView},
-    renderer::{RenderDevice, RenderQueue},
+    renderer::{RenderAdapterInfo, RenderDevice, RenderQueue},
     sync_world::MainEntity,
     texture::{
         CachedTexture, ColorAttachment, DepthAttachment, GpuImage, ManualTextureViews,
@@ -1035,9 +1035,25 @@ pub fn prepare_view_attachments(
     }
 }
 
-/// Clears the view target [`OutputColorAttachment`]s.
-pub fn clear_view_attachments(mut view_target_attachments: ResMut<ViewTargetAttachments>) {
+/// Clears the view target [`OutputColorAttachment`]s and drops texture views for windows
+/// that need reconfiguration on software renderers.
+pub fn clear_view_attachments(
+    mut view_target_attachments: ResMut<ViewTargetAttachments>,
+    mut windows: ResMut<ExtractedWindows>,
+    render_adapter_info: Res<RenderAdapterInfo>,
+) {
     view_target_attachments.clear();
+
+    // On software renderers (CPU device type), drop `swap_chain_texture_view` for windows
+    // that need reconfiguration. This must happen BEFORE `create_surfaces` runs, otherwise
+    // wgpu/DX12 will error with "surface is in use" when trying to resize.
+    if render_adapter_info.device_type == wgpu::DeviceType::Cpu {
+        for window in windows.values_mut() {
+            if window.size_changed || window.present_mode_changed {
+                drop(window.swap_chain_texture_view.take());
+            }
+        }
+    }
 }
 
 pub fn prepare_view_targets(

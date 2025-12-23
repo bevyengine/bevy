@@ -82,19 +82,47 @@ pub fn render_system(
     {
         let _span = info_span!("present_frames").entered();
 
-        world.resource_scope(|world, mut windows: Mut<ExtractedWindows>| {
+        let is_cpu = world
+            .get_resource::<RenderAdapterInfo>()
+            .is_some_and(|info| info.device_type == DeviceType::Cpu);
+
+        // Collect windows that need presenting BEFORE removing `ViewTarget`
+        let windows_to_present: Vec<Entity> = {
             let views = state.get(world);
-            for (view_target, camera) in views.iter() {
-                if let Some(NormalizedRenderTarget::Window(window)) = camera.target
-                    && view_target.needs_present()
-                {
-                    let Some(window) = windows.get_mut(&window.entity()) else {
-                        continue;
-                    };
-                    window.present();
-                }
+            views
+                .iter()
+                .filter_map(|(view_target, camera)| {
+                    if let Some(NormalizedRenderTarget::Window(window)) = camera.target
+                        && view_target.needs_present()
+                    {
+                        return Some(window.entity());
+                    }
+                    None
+                })
+                .collect()
+        };
+
+        // On software renderers (CPU device type), remove `ViewTarget` components to ensure
+        // the cloned `TextureView`s they hold are dropped. This prepares for surface
+        // reconfiguration on the next frame. (The original `swap_chain_texture_view` is
+        // dropped in `clear_view_attachments` which runs before `create_surfaces`.)
+        if is_cpu {
+            let view_entities: Vec<Entity> = world
+                .query_filtered::<Entity, With<ViewTarget>>()
+                .iter(world)
+                .collect();
+            for entity in view_entities {
+                world.entity_mut(entity).remove::<ViewTarget>();
             }
-        });
+        }
+
+        // Present the windows that were marked for presentation
+        let mut windows = world.resource_mut::<ExtractedWindows>();
+        for window_entity in windows_to_present {
+            if let Some(window) = windows.get_mut(&window_entity) {
+                window.present();
+            }
+        }
 
         #[cfg(feature = "tracing-tracy")]
         tracing::event!(
