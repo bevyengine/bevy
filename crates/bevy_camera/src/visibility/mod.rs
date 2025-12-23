@@ -686,23 +686,17 @@ pub fn check_visibility(
     }
 }
 
-/// Marks any entities that weren't judged visible this frame as invisible.
-///
-/// As visibility-determining systems run, they remove entities that they judge
-/// visible from [`PreviousVisibleEntities`]. At the end of visibility
-/// determination, all entities that remain in [`PreviousVisibleEntities`] must
-/// be invisible. This system goes through those entities and marks them newly
-/// invisible (which sets the change flag for them).
+/// The last step in the visibility pipeline. Looks at entities that were visible last frame but not
+/// marked as visible this frame ([`WasVisibleNowHidden`]), and marks them as hidden by setting the
+/// [`ViewVisibility`]. This process is needed to ensure we only trigger change detection on
+/// [`ViewVisibility`] when necessary. See the docs on [`WasVisibleNowHidden`] for more details.
 fn mark_newly_hidden_entities_invisible(
-    mut view_visibilities: Query<(&mut ViewVisibility, &mut WasVisibleNowHidden)>,
+    mut view_visibilities: Query<(&mut ViewVisibility, &WasVisibleNowHidden)>,
 ) {
-    // Whatever previous visible entities are left are entities that were
-    // visible last frame but just became invisible.
     view_visibilities
         .par_iter_mut()
-        .for_each(|(mut view_visibility, mut previously_visible)| {
+        .for_each(|(mut view_visibility, previously_visible)| {
             if **previously_visible {
-                **previously_visible = false;
                 *view_visibility = ViewVisibility::HIDDEN;
             }
         });
