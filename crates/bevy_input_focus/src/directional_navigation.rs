@@ -66,7 +66,7 @@ use bevy_ecs::{
     prelude::*,
     system::SystemParam,
 };
-use bevy_math::{CompassOctant, Dir2, Vec2};
+use bevy_math::{CompassOctant, Dir2, Rect, Vec2};
 use bevy_ui::{ComputedNode, ComputedUiTargetCamera, UiGlobalTransform};
 use thiserror::Error;
 
@@ -658,7 +658,6 @@ fn score_candidate(
     // Get direction in mathematical coordinates, then flip Y for UI coordinates
     let dir = Dir2::from(octant).as_vec2() * Vec2::new(1.0, -1.0);
     let to_candidate = candidate_pos - origin_pos;
-    let distance = to_candidate.length();
 
     // Check direction first
     // Convert UI coordinates (Y+ = down) to mathematical coordinates (Y+ = up) by flipping Y
@@ -681,6 +680,17 @@ fn score_candidate(
         return f32::INFINITY;
     }
 
+    // Calculate distance between rectangle edges, not centers
+    let origin_rect = Rect::from_center_size(origin_pos, origin_size);
+    let candidate_rect = Rect::from_center_size(candidate_pos, candidate_size);
+    let dx = (candidate_rect.min.x - origin_rect.max.x)
+        .max(origin_rect.min.x - candidate_rect.max.x)
+        .max(0.0);
+    let dy = (candidate_rect.min.y - origin_rect.max.y)
+        .max(origin_rect.min.y - candidate_rect.max.y)
+        .max(0.0);
+    let distance = (dx * dx + dy * dy).sqrt();
+
     // Check max distance
     if let Some(max_dist) = config.max_search_distance {
         if distance > max_dist {
@@ -688,8 +698,9 @@ fn score_candidate(
         }
     }
 
-    // Calculate alignment score
-    let alignment = if distance > 0.0 {
+    // Calculate alignment score using center-to-center direction
+    let center_distance = to_candidate.length();
+    let alignment = if center_distance > 0.0 {
         to_candidate.normalize().dot(dir).max(0.0)
     } else {
         1.0
@@ -1201,6 +1212,44 @@ mod tests {
         assert_eq!(
             nav_map.get_neighbor(node_a, CompassOctant::East),
             Some(node_c)
+        );
+    }
+
+    #[test]
+    fn test_edge_distance_vs_center_distance() {
+        let mut nav_map = DirectionalNavigationMap::default();
+        let config = AutoNavigationConfig::default();
+
+        let left = Entity::from_bits(1);
+        let wide_top = Entity::from_bits(2);
+        let bottom = Entity::from_bits(3);
+
+        let left_node = FocusableArea {
+            entity: left,
+            position: Vec2::new(100.0, 200.0),
+            size: Vec2::new(100.0, 100.0),
+        };
+
+        let wide_top_node = FocusableArea {
+            entity: wide_top,
+            position: Vec2::new(350.0, 150.0),
+            size: Vec2::new(300.0, 80.0),
+        };
+
+        let bottom_node = FocusableArea {
+            entity: bottom,
+            position: Vec2::new(270.0, 300.0),
+            size: Vec2::new(100.0, 80.0),
+        };
+
+        let nodes = vec![left_node, wide_top_node, bottom_node];
+
+        auto_generate_navigation_edges(&mut nav_map, &nodes, &config);
+
+        assert_eq!(
+            nav_map.get_neighbor(left, CompassOctant::East),
+            Some(wide_top),
+            "Should navigate to wide_top not bottom, even though bottom's center is closer."
         );
     }
 }
