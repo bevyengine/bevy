@@ -177,7 +177,7 @@ fn load_module(
         source: shader_source,
     };
 
-    render_device
+    let scope = render_device
         .wgpu_device()
         .push_error_scope(wgpu::ErrorFilter::Validation);
 
@@ -193,7 +193,7 @@ fn load_module(
         },
     });
 
-    let error = render_device.wgpu_device().pop_error_scope();
+    let error = scope.pop();
 
     // `now_or_never` will return Some if the future is ready and None otherwise.
     // On native platforms, wgpu will yield the error immediately while on wasm it may take longer since the browser APIs are asynchronous.
