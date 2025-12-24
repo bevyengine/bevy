@@ -1,12 +1,16 @@
 use crate::asset_changed::AssetChanges;
-use crate::{Asset, AssetEvent, AssetHandleProvider, AssetId, AssetServer, Handle, UntypedHandle};
+use crate::{
+    Asset, AssetEvent, AssetHandleProvider, AssetId, AssetServer, ErasedAssetIndex, Handle,
+    HandleEvent, UntypedHandle,
+};
 use alloc::{sync::Arc, vec::Vec};
+use bevy_ecs::system::Local;
 use bevy_ecs::{
     message::MessageWriter,
     resource::Resource,
     system::{Res, ResMut, SystemChangeTick},
 };
-use bevy_platform::collections::HashMap;
+use bevy_platform::collections::{HashMap, HashSet};
 use bevy_reflect::{Reflect, TypePath};
 use core::{any::TypeId, iter::Enumerate, marker::PhantomData, sync::atomic::AtomicU32};
 use crossbeam_channel::{Receiver, Sender};
@@ -289,9 +293,8 @@ pub struct Assets<A: Asset> {
     hash_map: HashMap<Uuid, A>,
     handle_provider: AssetHandleProvider,
     queued_events: Vec<AssetEvent<A>>,
-    /// Assets managed by the `Assets` struct with live strong `Handle`s
-    /// originating from `get_strong_handle`.
-    duplicate_handles: HashMap<AssetIndex, u16>,
+    /// Maps each asset index to the number of currently living handles.
+    index_to_live_handles: HashMap<AssetIndex, u16>,
 }
 
 impl<A: Asset> Default for Assets<A> {
@@ -304,7 +307,7 @@ impl<A: Asset> Default for Assets<A> {
             handle_provider,
             hash_map: Default::default(),
             queued_events: Default::default(),
-            duplicate_handles: Default::default(),
+            index_to_live_handles: Default::default(),
         }
     }
 }
@@ -417,7 +420,6 @@ impl<A: Asset> Assets<A> {
             // We don't support strong handles for Uuid assets.
             AssetId::Uuid { .. } => return None,
         };
-        *self.duplicate_handles.entry(index).or_insert(0) += 1;
         Some(Handle::Strong(
             self.handle_provider.get_handle(index, false, None, None),
         ))
@@ -479,23 +481,28 @@ impl<A: Asset> Assets<A> {
         let id: AssetId<A> = id.into();
         match id {
             AssetId::Index { index, .. } => {
-                self.duplicate_handles.remove(&index);
+                self.index_to_live_handles.remove(&index);
                 self.dense_storage.remove_still_alive(index)
             }
             AssetId::Uuid { uuid } => self.hash_map.remove(&uuid),
         }
     }
 
-    /// Removes the [`Asset`] with the given `id`.
-    pub(crate) fn remove_dropped(&mut self, index: AssetIndex) {
-        match self.duplicate_handles.get_mut(&index) {
-            None => {}
-            Some(0) => {
-                self.duplicate_handles.remove(&index);
-            }
-            Some(value) => {
-                *value -= 1;
-                return;
+    /// Attempts to remove an [`Asset`] with the given `id`, if it has no more living handles.
+    ///
+    /// Returns true if the asset's entry was removed. This is not the same as removing the asset
+    /// itself - an asset which has not been inserted may still have its entry removed.
+    pub(crate) fn try_remove_dropped(&mut self, index: AssetIndex) -> bool {
+        use bevy_platform::collections::hash_map::Entry;
+        match self.index_to_live_handles.entry(index) {
+            Entry::Vacant(_) => unreachable!(
+                "we dropped a handle, so there must have been at least one live handle"
+            ),
+            Entry::Occupied(entry) => {
+                if *entry.get() > 0 {
+                    return false;
+                }
+                entry.remove();
             }
         }
 
@@ -507,6 +514,7 @@ impl<A: Asset> Assets<A> {
             self.queued_events
                 .push(AssetEvent::Removed { id: index.into() });
         }
+        true
     }
 
     /// Returns `true` if there are no assets in this collection.
@@ -565,23 +573,57 @@ impl<A: Asset> Assets<A> {
 
     /// A system that synchronizes the state of assets in this collection with the [`AssetServer`]. This manages
     /// [`Handle`] drop events.
-    pub fn track_assets(mut assets: ResMut<Self>, asset_server: Res<AssetServer>) {
+    pub fn track_assets(
+        mut assets: ResMut<Self>,
+        asset_server: Res<AssetServer>,
+        mut maybe_drop_indices: Local<HashSet<AssetIndex>>,
+    ) {
         let assets = &mut *assets;
         // note that we must hold this lock for the entire duration of this function to ensure
         // that `asset_server.load` calls that occur during it block, which ensures that
         // re-loads are kicked off appropriately. This function must be "transactional" relative
         // to other asset info operations
         let mut infos = asset_server.write_infos();
-        while let Ok(drop_event) = assets.handle_provider.drop_receiver.try_recv() {
-            if drop_event.asset_server_managed {
-                // the process_handle_drop call checks whether new handles have been created since the drop event was fired, before removing the asset
-                if !infos.process_handle_drop(drop_event.index) {
-                    // a new handle has been created, or the asset doesn't exist
-                    continue;
+
+        // Keep looping until we haven't dropped an asset entry. This way, if we also drop the
+        // asset, any handles it was holding may also result in dropping assets (so we clean up all
+        // these assets on the same frame).
+        let mut dropped_entry = true;
+        while dropped_entry {
+            dropped_entry = false;
+            assert!(maybe_drop_indices.is_empty());
+
+            while let Ok(handle_event) = assets.handle_provider.event_receiver.try_recv() {
+                match handle_event {
+                    HandleEvent::New(index) => {
+                        *assets.index_to_live_handles.entry(index).or_default() += 1;
+                    }
+                    HandleEvent::Drop(index) => {
+                        let live_handles = assets.index_to_live_handles.get_mut(&index).expect(
+                            "we must have processed this handle's new event before the drop event",
+                        );
+                        *live_handles -= 1;
+                        if *live_handles == 0 {
+                            // Defer the actual drop until later, so that if a `HandleEvent::New` for
+                            // this asset comes later, we don't drop the asset too early.
+                            maybe_drop_indices.insert(index);
+                        }
+                    }
                 }
             }
 
-            assets.remove_dropped(drop_event.index.index);
+            for index in maybe_drop_indices.drain() {
+                if !assets.try_remove_dropped(index) {
+                    // We didn't actually drop the asset entry, so there's nothing more to do.
+                    continue;
+                }
+                // Notify the AssetServer of the asset entry drop.
+                infos.process_asset_entry_drop(ErasedAssetIndex {
+                    index,
+                    type_id: TypeId::of::<A>(),
+                });
+                dropped_entry = true;
+            }
         }
     }
 

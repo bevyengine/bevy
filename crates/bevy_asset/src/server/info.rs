@@ -1,7 +1,7 @@
 use crate::{
     meta::{AssetHash, MetaTransform},
     Asset, AssetHandleProvider, AssetIndex, AssetLoadError, AssetPath, DependencyLoadState,
-    ErasedAssetIndex, ErasedLoadedAsset, Handle, InternalAssetEvent, LoadState,
+    ErasedAssetIndex, ErasedLoadedAsset, Handle, HandleEvent, InternalAssetEvent, LoadState,
     RecursiveDependencyLoadState, StrongHandle, UntypedHandle,
 };
 use alloc::{
@@ -383,9 +383,9 @@ impl AssetInfos {
         }
     }
 
-    /// Returns `true` if the asset should be removed from the collection.
-    pub(crate) fn process_handle_drop(&mut self, index: ErasedAssetIndex) -> bool {
-        Self::process_handle_drop_internal(
+    /// Handles when an asset entry has been dropped from [`crate::Assets`].
+    pub(crate) fn process_asset_entry_drop(&mut self, index: ErasedAssetIndex) {
+        Self::process_asset_entry_drop_internal(
             &mut self.infos,
             &mut self.path_to_index,
             &mut self.loader_dependents,
@@ -393,7 +393,7 @@ impl AssetInfos {
             &mut self.pending_tasks,
             self.watching_for_changes,
             index,
-        )
+        );
     }
 
     /// Updates [`AssetInfo`] / load state for an asset that has finished loading (and relevant dependencies / dependents).
@@ -710,7 +710,7 @@ impl AssetInfos {
         }
     }
 
-    fn process_handle_drop_internal(
+    fn process_asset_entry_drop_internal(
         infos: &mut HashMap<ErasedAssetIndex, AssetInfo>,
         path_to_id: &mut HashMap<AssetPath<'static>, TypeIdMap<AssetIndex>>,
         loader_dependents: &mut HashMap<AssetPath<'static>, HashSet<AssetPath<'static>>>,
@@ -718,17 +718,12 @@ impl AssetInfos {
         pending_tasks: &mut HashMap<ErasedAssetIndex, Task<()>>,
         watching_for_changes: bool,
         index: ErasedAssetIndex,
-    ) -> bool {
-        let Entry::Occupied(mut entry) = infos.entry(index) else {
-            // Either the asset was already dropped, it doesn't exist, or it isn't managed by the asset server
-            // None of these cases should result in a removal from the Assets collection
-            return false;
+    ) {
+        let Entry::Occupied(entry) = infos.entry(index) else {
+            // Either the asset was already dropped, it doesn't exist, or it isn't managed by the
+            // asset server. In any of these cases, there's nothing more to do.
+            return;
         };
-
-        if entry.get_mut().handle_drops_to_skip > 0 {
-            entry.get_mut().handle_drops_to_skip -= 1;
-            return false;
-        }
 
         pending_tasks.remove(&index);
 
@@ -736,7 +731,7 @@ impl AssetInfos {
 
         let info = entry.remove();
         let Some(path) = &info.path else {
-            return true;
+            return;
         };
 
         if watching_for_changes {
@@ -755,8 +750,6 @@ impl AssetInfos {
                 path_to_id.remove(path);
             }
         };
-
-        true
     }
 
     /// Consumes all current handle drop events. This will update information in [`AssetInfos`], but it
@@ -766,18 +759,23 @@ impl AssetInfos {
     /// [`Assets`]: crate::Assets
     pub(crate) fn consume_handle_drop_events(&mut self) {
         for provider in self.handle_providers.values() {
-            while let Ok(drop_event) = provider.drop_receiver.try_recv() {
-                let id = drop_event.index;
-                if drop_event.asset_server_managed {
-                    Self::process_handle_drop_internal(
-                        &mut self.infos,
-                        &mut self.path_to_index,
-                        &mut self.loader_dependents,
-                        &mut self.living_labeled_assets,
-                        &mut self.pending_tasks,
-                        self.watching_for_changes,
-                        id,
-                    );
+            while let Ok(handle_event) = provider.event_receiver.try_recv() {
+                match handle_event {
+                    HandleEvent::New(_) => {}
+                    HandleEvent::Drop(index) => {
+                        Self::process_asset_entry_drop_internal(
+                            &mut self.infos,
+                            &mut self.path_to_index,
+                            &mut self.loader_dependents,
+                            &mut self.living_labeled_assets,
+                            &mut self.pending_tasks,
+                            self.watching_for_changes,
+                            ErasedAssetIndex {
+                                index,
+                                type_id: provider.type_id,
+                            },
+                        );
+                    }
                 }
             }
         }
