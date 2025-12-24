@@ -513,7 +513,7 @@ impl PluginGroupBuilder {
     ///
     /// # Panics
     ///
-    /// Panics if one of the plugin in the group was already added to the application.
+    /// Panics if one of the plugins in the group was already added to the application.
     #[track_caller]
     pub fn finish(mut self, app: &mut App) {
         for ty in &self.order {
@@ -529,6 +529,33 @@ impl PluginGroupBuilder {
                         plugin_name,
                         self.group_name
                     );
+                }
+            }
+        }
+    }
+
+    /// Consumes the [`PluginGroupBuilder`] and dynamically [builds](Plugin::build) the contained [`Plugin`]s
+    /// in the order specified.
+    ///
+    /// # Panics
+    ///
+    /// Panics if one of the plugins in the group was already added to the application, or if one of the
+    /// plugins is not dynamic.
+    #[track_caller]
+    pub fn finish_dynamic(mut self, app: &mut App) {
+        for ty in &self.order {
+            if let Some(entry) = self.plugins.remove(ty)
+                && entry.enabled
+            {
+                debug!("added plugin: {}", entry.plugin.name());
+                match app.add_boxed_dynamic_plugin(entry.plugin) {
+                    Ok(_) => (),
+                    Err(AppError::DuplicatePlugin { plugin_name }) => panic!(
+                        "Error dynamically adding plugin {plugin_name}: : plugin was already added in application"
+                    ),
+                    Err(AppError::ExpectedDynamicPlugin { plugin_name }) => panic!(
+                        "Error dynamically adding plugin {plugin_name}: : plugin is not dynamic"
+                    )
                 }
             }
         }
