@@ -204,7 +204,7 @@ impl Time<Virtual> {
         self.context_mut().relative_speed = ratio;
     }
 
-    /// Stop the clock if it is running, otherwise resume the clock.
+    /// Stops the clock if it is running, otherwise resumes the clock.
     #[inline]
     pub fn toggle(&mut self) {
         self.context_mut().paused ^= true;
