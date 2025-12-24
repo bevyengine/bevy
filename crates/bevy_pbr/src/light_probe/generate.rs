@@ -379,7 +379,7 @@ pub fn initialize_generated_environment_map_resources(
     let downsample_first = pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
         label: Some("downsampling_first_pipeline".into()),
         layout: vec![layouts.downsampling_first.clone()],
-        push_constant_ranges: vec![],
+        immediate_size: 0,
         shader: downsampling_shader.clone(),
         shader_defs: {
             let mut defs = shader_defs.clone();
@@ -395,7 +395,7 @@ pub fn initialize_generated_environment_map_resources(
     let downsample_second = pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
         label: Some("downsampling_second_pipeline".into()),
         layout: vec![layouts.downsampling_second.clone()],
-        push_constant_ranges: vec![],
+        immediate_size: 0,
         shader: downsampling_shader,
         shader_defs: {
             let mut defs = shader_defs.clone();
@@ -412,7 +412,7 @@ pub fn initialize_generated_environment_map_resources(
     let radiance = pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
         label: Some("radiance_pipeline".into()),
         layout: vec![layouts.radiance.clone()],
-        push_constant_ranges: vec![],
+        immediate_size: 0,
         shader: env_filter_shader.clone(),
         shader_defs: shader_defs.clone(),
         entry_point: Some("generate_radiance_map".into()),
@@ -423,7 +423,7 @@ pub fn initialize_generated_environment_map_resources(
     let irradiance = pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
         label: Some("irradiance_pipeline".into()),
         layout: vec![layouts.irradiance.clone()],
-        push_constant_ranges: vec![],
+        immediate_size: 0,
         shader: env_filter_shader,
         shader_defs: shader_defs.clone(),
         entry_point: Some("generate_irradiance_map".into()),
@@ -434,7 +434,7 @@ pub fn initialize_generated_environment_map_resources(
     let copy_pipeline = pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
         label: Some("copy_pipeline".into()),
         layout: vec![layouts.copy.clone()],
-        push_constant_ranges: vec![],
+        immediate_size: 0,
         shader: copy_shader,
         shader_defs: vec![],
         entry_point: Some("copy".into()),

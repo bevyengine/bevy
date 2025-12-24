@@ -440,8 +440,8 @@ pub enum PipelineCacheError {
 fn get_capabilities(features: Features, downlevel: DownlevelFlags) -> Capabilities {
     let mut capabilities = Capabilities::empty();
     capabilities.set(
-        Capabilities::PUSH_CONSTANT,
-        features.contains(Features::PUSH_CONSTANTS),
+        Capabilities::IMMEDIATES,
+        features.contains(Features::IMMEDIATES),
     );
     capabilities.set(
         Capabilities::FLOAT64,

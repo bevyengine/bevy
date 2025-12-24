@@ -374,9 +374,9 @@ pub async fn initialize_renderer(
             max_vertex_buffer_array_stride: limits
                 .max_vertex_buffer_array_stride
                 .min(constrained_limits.max_vertex_buffer_array_stride),
-            max_push_constant_size: limits
-                .max_push_constant_size
-                .min(constrained_limits.max_push_constant_size),
+            max_immediate_size: limits
+                .max_immediate_size
+                .min(constrained_limits.max_immediate_size),
             min_uniform_buffer_offset_alignment: limits
                 .min_uniform_buffer_offset_alignment
                 .max(constrained_limits.min_uniform_buffer_offset_alignment),

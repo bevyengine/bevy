@@ -9,7 +9,6 @@ use core::ops::Deref;
 use thiserror::Error;
 use wgpu::{
     BindGroupLayoutEntry, ColorTargetState, DepthStencilState, MultisampleState, PrimitiveState,
-    PushConstantRange,
 };
 
 define_atomic_id!(RenderPipelineId);
@@ -110,9 +109,9 @@ pub struct RenderPipelineDescriptor {
     pub label: Option<Cow<'static, str>>,
     /// The layout of bind groups for this pipeline.
     pub layout: Vec<BindGroupLayoutDescriptor>,
-    /// The push constant ranges for this pipeline.
-    /// Supply an empty vector if the pipeline doesn't use push constants.
-    pub push_constant_ranges: Vec<PushConstantRange>,
+    /// The immediate size for this pipeline.
+    /// Supply 0 if the pipeline doesn't use immediates.
+    pub immediate_size: u32,
     /// The compiled vertex stage, its entry point, and the input buffers layout.
     pub vertex: VertexState,
     /// The properties of the pipeline at the primitive assembly and rasterization level.
@@ -178,7 +177,7 @@ impl FragmentState {
 pub struct ComputePipelineDescriptor {
     pub label: Option<Cow<'static, str>>,
     pub layout: Vec<BindGroupLayoutDescriptor>,
-    pub push_constant_ranges: Vec<PushConstantRange>,
+    pub immediate_size: u32,
     /// The compiled shader module for this stage.
     pub shader: Handle<Shader>,
     pub shader_defs: Vec<ShaderDefVal>,
