@@ -124,7 +124,7 @@ fn sample_light(rng: ptr<function, u32>, light_id: u32) -> LightSample {
     if light_source.kind == LIGHT_SOURCE_KIND_DIRECTIONAL {
         let directional_light = directional_lights[light_source.id];
 
-#ifdef DIRECTIONAL_LIGHT_SOFT_SHADOWS
+#ifndef NO_DIRECTIONAL_LIGHT_SOFT_SHADOWS
         // Sample a random direction within a cone whose base is the sun approximated as a disk
         // https://www.realtimerendering.com/raytracinggems/unofficial_RayTracingGems_v1.9.pdf#0004286901.INDD%3ASec30%3A305
         let random = rand_vec2f(rng);
