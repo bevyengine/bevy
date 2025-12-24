@@ -16,7 +16,7 @@ use crate::{
     render_asset::RenderAssets,
     render_phase::ViewRangefinder3d,
     render_resource::{DynamicUniformBuffer, ShaderType, Texture, TextureView},
-    renderer::{RenderDevice, RenderQueue},
+    renderer::{RenderAdapterInfo, RenderDevice, RenderQueue},
     sync_world::MainEntity,
     texture::{
         CachedTexture, ColorAttachment, DepthAttachment, GpuImage, ManualTextureViews,
@@ -115,6 +115,9 @@ impl Plugin for ViewPlugin {
                 (
                     // `TextureView`s need to be dropped before reconfiguring window surfaces.
                     clear_view_attachments
+                        .in_set(RenderSystems::ManageViews)
+                        .before(create_surfaces),
+                    cleanup_view_targets_for_resize
                         .in_set(RenderSystems::ManageViews)
                         .before(create_surfaces),
                     prepare_view_attachments
@@ -1038,6 +1041,22 @@ pub fn prepare_view_attachments(
 /// Clears the view target [`OutputColorAttachment`]s.
 pub fn clear_view_attachments(mut view_target_attachments: ResMut<ViewTargetAttachments>) {
     view_target_attachments.clear();
+}
+
+pub fn cleanup_view_targets_for_resize(
+    mut commands: Commands,
+    windows: Res<ExtractedWindows>,
+    cameras: Query<(Entity, &ExtractedCamera), With<ViewTarget>>,
+) {
+    for (entity, camera) in &cameras {
+        if let Some(NormalizedRenderTarget::Window(window_ref)) = &camera.target {
+            if let Some(window) = windows.get(&window_ref.entity()) {
+                if window.size_changed || window.present_mode_changed {
+                    commands.entity(entity).remove::<ViewTarget>();
+                }
+            }
+        }
+    }
 }
 
 pub fn prepare_view_targets(
