@@ -32,10 +32,10 @@ use bevy_render::{
     render_resource::{
         binding_types::*, AddressMode, BindGroup, BindGroupEntries, BindGroupLayoutDescriptor,
         BindGroupLayoutEntries, CachedComputePipelineId, ComputePassDescriptor,
-        ComputePipelineDescriptor, DownlevelFlags, Extent3d, FilterMode, PipelineCache, Sampler,
-        SamplerBindingType, SamplerDescriptor, ShaderStages, ShaderType, StorageTextureAccess,
-        Texture, TextureAspect, TextureDescriptor, TextureDimension, TextureFormat,
-        TextureFormatFeatureFlags, TextureSampleType, TextureUsages, TextureView,
+        ComputePipelineDescriptor, DownlevelFlags, Extent3d, FilterMode, MipmapFilterMode,
+        PipelineCache, Sampler, SamplerBindingType, SamplerDescriptor, ShaderStages, ShaderType,
+        StorageTextureAccess, Texture, TextureAspect, TextureDescriptor, TextureDimension,
+        TextureFormat, TextureFormatFeatureFlags, TextureSampleType, TextureUsages, TextureView,
         TextureViewDescriptor, TextureViewDimension, UniformBuffer,
     },
     renderer::{RenderAdapter, RenderContext, RenderDevice, RenderQueue},
@@ -351,7 +351,7 @@ pub fn initialize_generated_environment_map_resources(
         address_mode_w: AddressMode::ClampToEdge,
         mag_filter: FilterMode::Linear,
         min_filter: FilterMode::Linear,
-        mipmap_filter: FilterMode::Linear,
+        mipmap_filter: MipmapFilterMode::Linear,
         ..Default::default()
     });
 

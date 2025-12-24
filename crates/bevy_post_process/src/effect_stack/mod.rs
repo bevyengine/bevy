@@ -31,9 +31,9 @@ use bevy_render::{
         binding_types::{sampler, texture_2d, uniform_buffer},
         BindGroupEntries, BindGroupLayoutDescriptor, BindGroupLayoutEntries,
         CachedRenderPipelineId, ColorTargetState, ColorWrites, DynamicUniformBuffer, Extent3d,
-        FilterMode, FragmentState, Operations, PipelineCache, RenderPassColorAttachment,
-        RenderPassDescriptor, RenderPipelineDescriptor, Sampler, SamplerBindingType,
-        SamplerDescriptor, ShaderStages, ShaderType, SpecializedRenderPipeline,
+        FilterMode, FragmentState, MipmapFilterMode, Operations, PipelineCache,
+        RenderPassColorAttachment, RenderPassDescriptor, RenderPipelineDescriptor, Sampler,
+        SamplerBindingType, SamplerDescriptor, ShaderStages, ShaderType, SpecializedRenderPipeline,
         SpecializedRenderPipelines, TextureDimension, TextureFormat, TextureSampleType,
     },
     renderer::{RenderContext, RenderDevice, RenderQueue},
@@ -286,14 +286,14 @@ pub fn init_post_processing_pipeline(
     // bilinearly.
 
     let source_sampler = render_device.create_sampler(&SamplerDescriptor {
-        mipmap_filter: FilterMode::Linear,
+        mipmap_filter: MipmapFilterMode::Linear,
         min_filter: FilterMode::Linear,
         mag_filter: FilterMode::Linear,
         ..default()
     });
 
     let chromatic_aberration_lut_sampler = render_device.create_sampler(&SamplerDescriptor {
-        mipmap_filter: FilterMode::Linear,
+        mipmap_filter: MipmapFilterMode::Linear,
         min_filter: FilterMode::Linear,
         mag_filter: FilterMode::Linear,
         ..default()

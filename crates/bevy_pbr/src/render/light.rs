@@ -209,7 +209,7 @@ pub fn init_shadow_samplers(mut commands: Commands, render_device: Res<RenderDev
         address_mode_w: AddressMode::ClampToEdge,
         mag_filter: FilterMode::Linear,
         min_filter: FilterMode::Linear,
-        mipmap_filter: FilterMode::Nearest,
+        mipmap_filter: MipmapFilterMode::Nearest,
         ..default()
     };
 
