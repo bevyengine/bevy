@@ -55,6 +55,27 @@ impl Ray2d {
     }
 }
 
+/// Represents the side of the plane intersected by a ray.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Clone)
+)]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
+    reflect(Deserialize, Serialize)
+)]
+pub enum HitSide {
+    /// The ray intersected the front side of the plane.
+    /// (the side from which the plane normal points towards the ray).
+    Front,
+    /// The ray intersected the back side of the plane.
+    /// (the side opposite to the normal).
+    Back,
+}
+
 /// An infinite half-line starting at `origin` and going in `direction` in 3D space.
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
@@ -87,14 +108,23 @@ impl Ray3d {
         self.origin + *self.direction * distance
     }
 
-    /// Get the distance to a plane if the ray intersects it
+    /// Get the distance to a plane and intersection side if the ray intersects it
     #[inline]
-    pub fn intersect_plane(&self, plane_origin: Vec3, plane: InfinitePlane3d) -> Option<f32> {
+    pub fn intersect_plane(
+        &self,
+        plane_origin: Vec3,
+        plane: InfinitePlane3d,
+    ) -> Option<(f32, HitSide)> {
         let denominator = plane.normal.dot(*self.direction);
         if ops::abs(denominator) > f32::EPSILON {
             let distance = (plane_origin - self.origin).dot(*plane.normal) / denominator;
             if distance > f32::EPSILON {
-                return Some(distance);
+                let side = match denominator < 0.0 {
+                    true => HitSide::Front,
+                    false => HitSide::Back,
+                };
+
+                return Some((distance, side));
             }
         }
         None
@@ -152,11 +182,11 @@ mod tests {
         // Orthogonal, and test that an inverse plane_normal has the same result
         assert_eq!(
             ray.intersect_plane(Vec3::Z, InfinitePlane3d::new(Vec3::Z)),
-            Some(1.0)
+            Some((1.0, HitSide::Back))
         );
         assert_eq!(
             ray.intersect_plane(Vec3::Z, InfinitePlane3d::new(Vec3::NEG_Z)),
-            Some(1.0)
+            Some((1.0, HitSide::Front))
         );
         assert!(ray
             .intersect_plane(Vec3::NEG_Z, InfinitePlane3d::new(Vec3::Z))
@@ -168,7 +198,7 @@ mod tests {
         // Diagonal
         assert_eq!(
             ray.intersect_plane(Vec3::Z, InfinitePlane3d::new(Vec3::ONE)),
-            Some(1.0)
+            Some((1.0, HitSide::Back))
         );
         assert!(ray
             .intersect_plane(Vec3::NEG_Z, InfinitePlane3d::new(Vec3::ONE))

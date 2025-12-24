@@ -22,7 +22,7 @@ fn draw_cursor(
         // Calculate a ray pointing from the camera into the world based on the cursor's position.
         && let Ok(ray) = camera.viewport_to_world(camera_transform, cursor_position)
         // Calculate if and at what distance the ray is hitting the ground plane.
-        && let Some(distance) =
+        && let Some((distance, _)) =
             ray.intersect_plane(ground.translation(), InfinitePlane3d::new(ground.up()))
     {
         let point = ray.get_point(distance);
