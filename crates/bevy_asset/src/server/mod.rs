@@ -282,9 +282,9 @@ impl AssetServer {
                 };
             };
 
-            let mut extensions = vec![full_extension.clone()];
+            let mut extensions = vec![full_extension.to_owned()];
             extensions.extend(
-                AssetPath::iter_secondary_extensions(&full_extension).map(ToString::to_string),
+                AssetPath::iter_secondary_extensions(full_extension).map(ToString::to_string),
             );
 
             MissingAssetLoaderForExtensionError { extensions }
