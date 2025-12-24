@@ -405,6 +405,7 @@ fn interact_with_focused_button(
                     normal: None,
                 },
                 duration: Duration::from_secs_f32(0.1),
+                dragged: false,
             },
         });
     }
