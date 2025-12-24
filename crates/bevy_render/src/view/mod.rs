@@ -16,7 +16,7 @@ use crate::{
     render_asset::RenderAssets,
     render_phase::ViewRangefinder3d,
     render_resource::{DynamicUniformBuffer, ShaderType, Texture, TextureView},
-    renderer::{RenderAdapterInfo, RenderDevice, RenderQueue},
+    renderer::{RenderDevice, RenderQueue},
     sync_world::MainEntity,
     texture::{
         CachedTexture, ColorAttachment, DepthAttachment, GpuImage, ManualTextureViews,
