@@ -428,27 +428,45 @@ pub async fn initialize_renderer(
             max_color_attachment_bytes_per_sample: limits
                 .max_color_attachment_bytes_per_sample
                 .min(constrained_limits.max_color_attachment_bytes_per_sample),
-            min_subgroup_size: limits
-                .min_subgroup_size
-                .max(constrained_limits.min_subgroup_size),
-            max_subgroup_size: limits
-                .max_subgroup_size
-                .min(constrained_limits.max_subgroup_size),
-            max_acceleration_structures_per_shader_stage: limits
-                .max_acceleration_structures_per_shader_stage
-                .min(constrained_limits.max_acceleration_structures_per_shader_stage),
-            max_task_workgroup_total_count: limits
-                .max_task_workgroup_total_count
-                .min(constrained_limits.max_task_workgroup_total_count),
-            max_task_workgroups_per_dimension: limits
-                .max_task_workgroups_per_dimension
-                .min(constrained_limits.max_task_workgroups_per_dimension),
+            max_task_mesh_workgroup_total_count: limits
+                .max_task_mesh_workgroup_total_count
+                .min(constrained_limits.max_task_mesh_workgroup_total_count),
+            max_task_mesh_workgroups_per_dimension: limits
+                .max_task_mesh_workgroups_per_dimension
+                .min(constrained_limits.max_task_mesh_workgroups_per_dimension),
+            max_task_invocations_per_workgroup: limits
+                .max_task_invocations_per_workgroup
+                .min(constrained_limits.max_task_invocations_per_workgroup),
+            max_task_invocations_per_dimension: limits
+                .max_task_invocations_per_dimension
+                .min(constrained_limits.max_task_invocations_per_dimension),
+            max_mesh_invocations_per_workgroup: limits
+                .max_mesh_invocations_per_workgroup
+                .min(constrained_limits.max_mesh_invocations_per_workgroup),
+            max_mesh_invocations_per_dimension: limits
+                .max_mesh_invocations_per_dimension
+                .min(constrained_limits.max_mesh_invocations_per_dimension),
+            max_task_payload_size: limits
+                .max_task_payload_size
+                .min(constrained_limits.max_task_payload_size),
+            max_mesh_output_vertices: limits
+                .max_mesh_output_vertices
+                .min(constrained_limits.max_mesh_output_vertices),
+            max_mesh_output_primitives: limits
+                .max_mesh_output_primitives
+                .min(constrained_limits.max_mesh_output_primitives),
             max_mesh_output_layers: limits
                 .max_mesh_output_layers
                 .min(constrained_limits.max_mesh_output_layers),
-            max_mesh_multiview_count: limits
-                .max_mesh_multiview_count
-                .min(constrained_limits.max_mesh_multiview_count),
+            max_mesh_multiview_view_count: limits
+                .max_mesh_multiview_view_count
+                .min(constrained_limits.max_mesh_multiview_view_count),
+            max_acceleration_structures_per_shader_stage: limits
+                .max_acceleration_structures_per_shader_stage
+                .min(constrained_limits.max_acceleration_structures_per_shader_stage),
+            max_multiview_view_count: limits
+                .max_multiview_view_count
+                .min(constrained_limits.max_multiview_view_count),
         };
     }
 
