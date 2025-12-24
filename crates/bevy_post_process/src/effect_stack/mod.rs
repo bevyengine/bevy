@@ -391,6 +391,7 @@ impl ViewNode for PostProcessingNode {
             depth_stencil_attachment: None,
             timestamp_writes: None,
             occlusion_query_set: None,
+            multiview_mask: None,
         };
 
         let bind_group = render_context.render_device().create_bind_group(

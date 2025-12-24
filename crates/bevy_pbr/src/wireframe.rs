@@ -394,6 +394,7 @@ impl ViewNode for Wireframe3dNode {
             depth_stencil_attachment: Some(depth.get_attachment(StoreOp::Store)),
             timestamp_writes: None,
             occlusion_query_set: None,
+            multiview_mask: None,
         });
         let pass_span = diagnostics.pass_span(&mut render_pass, "wireframe_3d");
 

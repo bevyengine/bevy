@@ -182,6 +182,7 @@ fn run_prepass<'w>(
             depth_stencil_attachment,
             timestamp_writes: None,
             occlusion_query_set: None,
+            multiview_mask: None,
         });
 
         let mut render_pass = TrackedRenderPass::new(&render_device, render_pass);
