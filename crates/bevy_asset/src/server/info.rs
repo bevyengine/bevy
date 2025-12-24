@@ -150,7 +150,7 @@ impl AssetInfos {
             }
         }
 
-        let handle = provider.reserve_handle_internal(true, path.clone(), meta_transform);
+        let handle = provider.reserve_handle_internal(path.clone(), meta_transform);
         let mut info = AssetInfo::new(Arc::downgrade(&handle), path);
         if loading {
             info.load_state = LoadState::Loading;
@@ -261,7 +261,7 @@ impl AssetInfos {
                         .handle_providers
                         .get(&type_id)
                         .ok_or(MissingHandleProviderError(type_id))?;
-                    let handle = provider.get_handle(index, true, Some(path), meta_transform);
+                    let handle = provider.get_handle(index, Some(path), meta_transform);
                     info.weak_handle = Arc::downgrade(&handle);
                     Ok((UntypedHandle::Strong(handle), should_load))
                 }
