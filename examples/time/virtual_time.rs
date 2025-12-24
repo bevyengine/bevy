@@ -21,7 +21,7 @@ fn main() {
                 change_time_speed::<1>.run_if(input_just_pressed(KeyCode::ArrowUp)),
                 change_time_speed::<-1>.run_if(input_just_pressed(KeyCode::ArrowDown)),
                 (update_virtual_time_info_text, update_real_time_info_text)
-                    // update the texts on a timer to make them more readable
+                    // update the texts on a timer to make them more readable.
                     // `on_timer` run condition uses `Virtual` time meaning it's scaled
                     // and would result in the UI updating at different intervals based
                     // on `Time<Virtual>::relative_speed` and `Time<Virtual>::is_paused()`
@@ -163,13 +163,9 @@ fn change_time_speed<const DELTA: i8>(mut time: ResMut<Time<Virtual>>) {
     time.set_relative_speed(time_speed);
 }
 
-/// pause or resume `Relative` time
+/// Pause or resume `Relative` time
 fn toggle_pause(mut time: ResMut<Time<Virtual>>) {
-    if time.is_paused() {
-        time.unpause();
-    } else {
-        time.pause();
-    }
+    time.toggle();
 }
 
 /// Update the `Real` time info text
