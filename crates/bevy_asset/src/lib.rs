@@ -2699,12 +2699,7 @@ mod tests {
         let _other_handle: Handle<TestAsset> = asset_server.load("test.txt");
         app.update();
         // The asset server should **not** have started a new load, since the asset is still alive.
-
-        // Due to https://github.com/bevyengine/bevy/issues/20651, we do get a second load. Once
-        // #20651 is fixed, we should swap these asserts.
-        //
-        // assert_eq!(get_started_load_count(app.world()), 1);
-        assert_eq!(get_started_load_count(app.world()), 2);
+        assert_eq!(get_started_load_count(app.world()), 1);
     }
 
     #[test]
