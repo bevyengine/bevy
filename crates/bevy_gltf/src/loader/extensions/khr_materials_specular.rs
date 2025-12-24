@@ -1,4 +1,4 @@
-use bevy_asset::Handle;
+use bevy_asset::{AssetPath, Handle};
 use bevy_image::Image;
 
 use gltf::Material;
@@ -47,7 +47,11 @@ impl SpecularExtension {
         unused_variables,
         reason = "Depending on what features are used to compile this crate, certain parameters may end up unused."
     )]
-    pub(crate) fn parse(material: &Material, textures: &[Handle<Image>]) -> Option<Self> {
+    pub(crate) fn parse(
+        material: &Material,
+        textures: &[Handle<Image>],
+        asset_path: AssetPath<'_>,
+    ) -> Option<Self> {
         let extension = material
             .extensions()?
             .get("KHR_materials_specular")?
@@ -60,6 +64,7 @@ impl SpecularExtension {
             "specularTexture",
             "specular",
             textures,
+            asset_path.clone(),
         );
 
         #[cfg(feature = "pbr_specular_textures")]
@@ -69,6 +74,7 @@ impl SpecularExtension {
             "specularColorTexture",
             "specular color",
             textures,
+            asset_path,
         );
 
         Some(SpecularExtension {

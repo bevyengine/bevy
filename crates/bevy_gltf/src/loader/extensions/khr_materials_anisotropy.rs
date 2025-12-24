@@ -1,4 +1,4 @@
-use bevy_asset::Handle;
+use bevy_asset::{AssetPath, Handle};
 use bevy_image::Image;
 
 use gltf::Material;
@@ -34,6 +34,7 @@ impl AnisotropyExtension {
     pub(crate) fn parse(
         material: &Material,
         textures: &[Handle<Image>],
+        asset_path: AssetPath<'_>,
     ) -> Option<AnisotropyExtension> {
         let extension = material
             .extensions()?
@@ -47,6 +48,7 @@ impl AnisotropyExtension {
             "anisotropyTexture",
             "anisotropy",
             textures,
+            asset_path,
         );
 
         Some(AnisotropyExtension {

@@ -657,7 +657,12 @@ impl GltfLoader {
             // NOTE: materials must be loaded after textures because image load() calls will happen before load_with_settings, preventing is_srgb from being set properly
             for material in gltf.materials() {
                 let handle = {
-                    let (label, material) = load_material(&material, &texture_handles, false);
+                    let (label, material) = load_material(
+                        &material,
+                        &texture_handles,
+                        false,
+                        load_context.path().clone(),
+                    );
                     load_context.add_labeled_asset(label, material)
                 };
                 if let Some(name) = material.name() {
@@ -1183,6 +1188,7 @@ fn load_material(
     material: &Material,
     textures: &[Handle<Image>],
     is_scale_inverted: bool,
+    asset_path: AssetPath<'_>,
 ) -> (String, StandardMaterial) {
     let pbr = material.pbr_metallic_roughness();
 
@@ -1327,13 +1333,16 @@ fn load_material(
     let ior = material.ior().unwrap_or(1.5);
 
     // Parse the `KHR_materials_clearcoat` extension data if necessary.
-    let clearcoat = ClearcoatExtension::parse(material, textures).unwrap_or_default();
+    let clearcoat =
+        ClearcoatExtension::parse(material, textures, asset_path.clone()).unwrap_or_default();
 
     // Parse the `KHR_materials_anisotropy` extension data if necessary.
-    let anisotropy = AnisotropyExtension::parse(material, textures).unwrap_or_default();
+    let anisotropy =
+        AnisotropyExtension::parse(material, textures, asset_path.clone()).unwrap_or_default();
 
     // Parse the `KHR_materials_specular` extension data if necessary.
-    let specular = SpecularExtension::parse(material, textures).unwrap_or_default();
+    let specular =
+        SpecularExtension::parse(material, textures, asset_path.clone()).unwrap_or_default();
 
     // We need to operate in the Linear color space and be willing to exceed 1.0 in our channels
     let base_emissive = LinearRgba::rgb(emissive[0], emissive[1], emissive[2]);
@@ -1559,7 +1568,12 @@ fn load_node(
                 if !root_load_context.has_labeled_asset(&material_label)
                     && !load_context.has_labeled_asset(&material_label)
                 {
-                    let (label, material) = load_material(&material, textures, is_scale_inverted);
+                    let (label, material) = load_material(
+                        &material,
+                        textures,
+                        is_scale_inverted,
+                        load_context.path().clone(),
+                    );
                     load_context.add_labeled_asset(label, material);
                 }
 

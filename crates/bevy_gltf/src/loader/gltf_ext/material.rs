@@ -16,7 +16,7 @@ use super::texture::texture_transform_to_affine2;
     feature = "pbr_multi_layer_material_textures"
 ))]
 use {
-    bevy_asset::Handle,
+    bevy_asset::{AssetPath, Handle},
     bevy_image::Image,
     serde_json::{Map, Value},
 };
@@ -34,6 +34,7 @@ pub(crate) fn parse_material_extension_texture(
     texture_name: &str,
     texture_kind: &str,
     textures: &[Handle<Image>],
+    asset_path: AssetPath<'_>,
 ) -> (UvChannel, Option<Handle<Image>>) {
     match extension
         .get(texture_name)
@@ -41,12 +42,15 @@ pub(crate) fn parse_material_extension_texture(
     {
         Some(json_info) => (
             uv_channel(material, texture_kind, json_info.tex_coord),
-            Some(
-                textures
-                    .get(json_info.index.value())
-                    .cloned()
-                    .unwrap_or_default(),
-            ),
+            Some({
+                match textures.get(json_info.index.value()).cloned() {
+                    None => {
+                        tracing::warn!("Gltf at path \"{asset_path}\" contains invalid texture index <{}> for texture {texture_name}. Using default image.", json_info.index.value());
+                        Handle::default()
+                    }
+                    Some(handle) => handle,
+                }
+            }),
         ),
         None => (UvChannel::default(), None),
     }

@@ -1,4 +1,4 @@
-use bevy_asset::Handle;
+use bevy_asset::{AssetPath, Handle};
 use bevy_image::Image;
 
 use gltf::Material;
@@ -42,6 +42,7 @@ impl ClearcoatExtension {
     pub(crate) fn parse(
         material: &Material,
         textures: &[Handle<Image>],
+        asset_path: AssetPath<'_>,
     ) -> Option<ClearcoatExtension> {
         let extension = material
             .extensions()?
@@ -55,6 +56,7 @@ impl ClearcoatExtension {
             "clearcoatTexture",
             "clearcoat",
             textures,
+            asset_path.clone(),
         );
 
         #[cfg(feature = "pbr_multi_layer_material_textures")]
@@ -65,6 +67,7 @@ impl ClearcoatExtension {
                 "clearcoatRoughnessTexture",
                 "clearcoat roughness",
                 textures,
+                asset_path.clone(),
             );
 
         #[cfg(feature = "pbr_multi_layer_material_textures")]
@@ -74,6 +77,7 @@ impl ClearcoatExtension {
             "clearcoatNormalTexture",
             "clearcoat normal",
             textures,
+            asset_path,
         );
 
         Some(ClearcoatExtension {
