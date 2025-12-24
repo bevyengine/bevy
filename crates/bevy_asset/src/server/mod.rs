@@ -1543,9 +1543,19 @@ impl AssetServer {
         let asset_path = asset_path.clone_owned();
         let load_context =
             LoadContext::new(self, asset_path.clone(), load_dependencies, populate_hashes);
-        AssertUnwindSafe(loader.load(reader, settings, load_context))
-            .catch_unwind()
-            .await
+        let load = AssertUnwindSafe(loader.load(reader, settings, load_context)).catch_unwind();
+        #[cfg(feature = "trace")]
+        let load = {
+            use tracing::Instrument;
+
+            let span = tracing::info_span!(
+                "asset loading",
+                loader = loader.type_path(),
+                asset = asset_path.to_string()
+            );
+            load.instrument(span)
+        };
+        load.await
             .map_err(|_| AssetLoadError::AssetLoaderPanic {
                 path: asset_path.clone_owned(),
                 loader_name: loader.type_path(),
