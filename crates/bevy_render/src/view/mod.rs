@@ -1049,12 +1049,11 @@ pub fn cleanup_view_targets_for_resize(
     cameras: Query<(Entity, &ExtractedCamera), With<ViewTarget>>,
 ) {
     for (entity, camera) in &cameras {
-        if let Some(NormalizedRenderTarget::Window(window_ref)) = &camera.target {
-            if let Some(window) = windows.get(&window_ref.entity()) {
-                if window.size_changed || window.present_mode_changed {
-                    commands.entity(entity).remove::<ViewTarget>();
-                }
-            }
+        if let Some(NormalizedRenderTarget::Window(window_ref)) = &camera.target
+            && let Some(window) = windows.get(&window_ref.entity())
+            && (window.size_changed || window.present_mode_changed)
+        {
+            commands.entity(entity).remove::<ViewTarget>();
         }
     }
 }
