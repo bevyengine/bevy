@@ -40,9 +40,6 @@ pub(crate) struct AssetInfo {
     ///
     /// [`LoadedAsset`]: crate::loader::LoadedAsset
     loader_dependencies: HashMap<AssetPath<'static>, AssetHash>,
-    /// The number of handle drops to skip for this asset.
-    /// See usage (and comments) in `get_or_create_path_handle` for context.
-    handle_drops_to_skip: usize,
     /// List of tasks waiting for this asset to complete loading
     pub(crate) waiting_tasks: Vec<Waker>,
 }
@@ -62,7 +59,6 @@ impl AssetInfo {
             loader_dependencies: HashMap::default(),
             dependents_waiting_on_load: HashSet::default(),
             dependents_waiting_on_recursive_dep_load: HashSet::default(),
-            handle_drops_to_skip: 0,
             waiting_tasks: Vec::new(),
         }
     }
@@ -254,9 +250,7 @@ impl AssetInfos {
                     // (note that this is guaranteed to be transactional with the `track_assets` system
                     // because it locks the AssetInfos collection)
 
-                    // We must create a new strong handle for the existing id and ensure that the drop of the old
-                    // strong handle doesn't remove the asset from the Assets collection
-                    info.handle_drops_to_skip += 1;
+                    // We must create a new strong handle for the existing id.
                     let provider = self
                         .handle_providers
                         .get(&type_id)
