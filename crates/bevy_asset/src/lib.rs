@@ -1583,6 +1583,35 @@ mod tests {
     }
 
     #[test]
+    fn one_load_for_reacquired_asset() {
+        let (mut app, dir) = create_app();
+
+        dir.insert_asset_text(Path::new("dep.cool.ron"), SIMPLE_TEXT);
+
+        app.init_asset::<CoolText>()
+            .init_asset::<SubText>()
+            .register_asset_loader(CoolTextLoader);
+
+        let asset_server = app.world().resource::<AssetServer>().clone();
+
+        let handle = asset_server.load::<CoolText>("dep.cool.ron");
+        run_app_until(&mut app, |_| asset_server.is_loaded(&handle).then_some(()));
+
+        // Dropping the handle and then reacquiring it through a load should **not** result in the
+        // asset being dropped. Note: we won't reload the asset in any case since we only try to
+        // drop on the next update.
+        drop(handle);
+        let new_handle = asset_server.load::<CoolText>("dep.cool.ron");
+
+        app.update();
+
+        assert!(app
+            .world()
+            .resource::<Assets<CoolText>>()
+            .contains(&new_handle));
+    }
+
+    #[test]
     fn manual_asset_management() {
         let dir = Dir::default();
         let dep_path = "dep.cool.ron";
