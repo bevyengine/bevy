@@ -96,7 +96,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut time: ResMu
                 RealTime,
             ),
             (
-                Text::new("CONTROLS\nUn/Pause: Space\nSpeed+: Up\nSpeed-: Down"),
+                Text::new("CONTROLS\n(Un)pause: Space\nSpeed+: Up\nSpeed-: Down"),
                 TextFont {
                     font_size,
                     ..default()
