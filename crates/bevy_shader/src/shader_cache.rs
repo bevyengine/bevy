@@ -448,24 +448,49 @@ fn get_capabilities(features: Features, downlevel: DownlevelFlags) -> Capabiliti
         features.contains(Features::SHADER_F64),
     );
     capabilities.set(
+        Capabilities::SHADER_FLOAT16,
+        features.contains(Features::SHADER_F16),
+    );
+    capabilities.set(
+        Capabilities::SHADER_FLOAT16_IN_FLOAT32,
+        downlevel.contains(DownlevelFlags::SHADER_F16_IN_F32),
+    );
+    capabilities.set(
         Capabilities::PRIMITIVE_INDEX,
         features.contains(Features::SHADER_PRIMITIVE_INDEX),
     );
     capabilities.set(
-        Capabilities::SAMPLED_TEXTURE_AND_STORAGE_BUFFER_ARRAY_NON_UNIFORM_INDEXING,
+        Capabilities::TEXTURE_AND_SAMPLER_BINDING_ARRAY,
+        features.contains(Features::TEXTURE_BINDING_ARRAY),
+    );
+    capabilities.set(
+        Capabilities::BUFFER_BINDING_ARRAY,
+        features.contains(Features::BUFFER_BINDING_ARRAY),
+    );
+    capabilities.set(
+        Capabilities::STORAGE_TEXTURE_BINDING_ARRAY,
+        features.contains(Features::TEXTURE_BINDING_ARRAY)
+            && features.contains(Features::STORAGE_RESOURCE_BINDING_ARRAY),
+    );
+    capabilities.set(
+        Capabilities::STORAGE_BUFFER_BINDING_ARRAY,
+        features.contains(Features::BUFFER_BINDING_ARRAY)
+            && features.contains(Features::STORAGE_RESOURCE_BINDING_ARRAY),
+    );
+    capabilities.set(
+        Capabilities::TEXTURE_AND_SAMPLER_BINDING_ARRAY_NON_UNIFORM_INDEXING,
         features.contains(Features::SAMPLED_TEXTURE_AND_STORAGE_BUFFER_ARRAY_NON_UNIFORM_INDEXING),
     );
     capabilities.set(
-        Capabilities::STORAGE_TEXTURE_ARRAY_NON_UNIFORM_INDEXING,
+        Capabilities::BUFFER_BINDING_ARRAY_NON_UNIFORM_INDEXING,
+        features.contains(Features::UNIFORM_BUFFER_BINDING_ARRAYS),
+    );
+    capabilities.set(
+        Capabilities::STORAGE_TEXTURE_BINDING_ARRAY_NON_UNIFORM_INDEXING,
         features.contains(Features::STORAGE_TEXTURE_ARRAY_NON_UNIFORM_INDEXING),
     );
     capabilities.set(
-        Capabilities::UNIFORM_BUFFER_ARRAY_NON_UNIFORM_INDEXING,
-        features.contains(Features::UNIFORM_BUFFER_BINDING_ARRAYS),
-    );
-    // TODO: This needs a proper wgpu feature
-    capabilities.set(
-        Capabilities::SAMPLER_NON_UNIFORM_INDEXING,
+        Capabilities::STORAGE_BUFFER_BINDING_ARRAY_NON_UNIFORM_INDEXING,
         features.contains(Features::SAMPLED_TEXTURE_AND_STORAGE_BUFFER_ARRAY_NON_UNIFORM_INDEXING),
     );
     capabilities.set(
@@ -495,12 +520,20 @@ fn get_capabilities(features: Features, downlevel: DownlevelFlags) -> Capabiliti
         features.contains(Features::SHADER_INT64_ATOMIC_ALL_OPS),
     );
     capabilities.set(
-        Capabilities::MULTISAMPLED_SHADING,
-        downlevel.contains(DownlevelFlags::MULTISAMPLED_SHADING),
+        Capabilities::TEXTURE_ATOMIC,
+        features.contains(Features::TEXTURE_ATOMIC),
     );
     capabilities.set(
-        Capabilities::RAY_QUERY,
-        features.contains(Features::EXPERIMENTAL_RAY_QUERY),
+        Capabilities::TEXTURE_INT64_ATOMIC,
+        features.contains(Features::TEXTURE_INT64_ATOMIC),
+    );
+    capabilities.set(
+        Capabilities::SHADER_FLOAT32_ATOMIC,
+        features.contains(Features::SHADER_FLOAT32_ATOMIC),
+    );
+    capabilities.set(
+        Capabilities::MULTISAMPLED_SHADING,
+        downlevel.contains(DownlevelFlags::MULTISAMPLED_SHADING),
     );
     capabilities.set(
         Capabilities::DUAL_SOURCE_BLENDING,
@@ -523,28 +556,32 @@ fn get_capabilities(features: Features, downlevel: DownlevelFlags) -> Capabiliti
         features.intersects(Features::SUBGROUP_BARRIER),
     );
     capabilities.set(
+        Capabilities::RAY_QUERY,
+        features.intersects(Features::EXPERIMENTAL_RAY_QUERY),
+    );
+    capabilities.set(
         Capabilities::SUBGROUP_VERTEX_STAGE,
         features.contains(Features::SUBGROUP_VERTEX),
     );
     capabilities.set(
-        Capabilities::SHADER_FLOAT32_ATOMIC,
-        features.contains(Features::SHADER_FLOAT32_ATOMIC),
-    );
-    capabilities.set(
-        Capabilities::TEXTURE_ATOMIC,
-        features.contains(Features::TEXTURE_ATOMIC),
-    );
-    capabilities.set(
-        Capabilities::TEXTURE_INT64_ATOMIC,
-        features.contains(Features::TEXTURE_INT64_ATOMIC),
-    );
-    capabilities.set(
-        Capabilities::SHADER_FLOAT16,
-        features.contains(Features::SHADER_F16),
-    );
-    capabilities.set(
         Capabilities::RAY_HIT_VERTEX_POSITION,
         features.intersects(Features::EXPERIMENTAL_RAY_HIT_VERTEX_RETURN),
+    );
+    capabilities.set(
+        Capabilities::TEXTURE_EXTERNAL,
+        features.intersects(Features::EXTERNAL_TEXTURE),
+    );
+    capabilities.set(
+        Capabilities::SHADER_BARYCENTRICS,
+        features.intersects(Features::SHADER_BARYCENTRICS),
+    );
+    capabilities.set(
+        Capabilities::MESH_SHADER,
+        features.intersects(Features::EXPERIMENTAL_MESH_SHADER),
+    );
+    capabilities.set(
+        Capabilities::MESH_SHADER_POINT_TOPOLOGY,
+        features.intersects(Features::EXPERIMENTAL_MESH_SHADER_POINTS),
     );
 
     capabilities
