@@ -35,7 +35,7 @@ Two new examples show off use cases:
 - The first builds an `AnimationGraph` and inserts it onto the animation root in a Scene, which means it is now accessible to play animations using the `AnimationPlayer` on the same `Entity` later when that Scene is spawned.
 - The second uses a `GltfExtensionHandler` to switch the 3d Mesh and Material components for their 2d counterparts. This is useful if you're using software like Blender to build 2d worlds.
 
-```
+```shell
 cargo run --example gltf_extension_animation_graph
 cargo run --example gltf_extension_mesh_2d
 ```
