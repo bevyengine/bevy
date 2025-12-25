@@ -258,15 +258,20 @@ pub fn prepare_windows(
         // and https://github.com/gfx-rs/wgpu/issues/1218
         #[cfg(target_os = "linux")]
         let may_erroneously_timeout = || {
-            render_instance
-                .enumerate_adapters(wgpu::Backends::VULKAN)
-                .iter()
-                .any(|adapter| {
-                    let name = adapter.get_info().name;
-                    name.starts_with("Radeon")
-                        || name.starts_with("AMD")
-                        || name.starts_with("Intel")
+            bevy_tasks::IoTaskPool::get().scope(|scope| {
+                scope.spawn(async {
+                    render_instance
+                        .enumerate_adapters(wgpu::Backends::VULKAN)
+                        .await
+                        .iter()
+                        .any(|adapter| {
+                            let name = adapter.get_info().name;
+                            name.starts_with("Radeon")
+                                || name.starts_with("AMD")
+                                || name.starts_with("Intel")
+                        })
                 })
+            })[0]
         };
 
         let surface = &surface_data.surface;
