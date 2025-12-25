@@ -29,7 +29,7 @@ These components are then inserted on entities in a scene at the same time built
 Using glTF Extensions for this data means that other level editors like Trenchbroom can also write the same format.
 Any third party software that writes component data into a glTF file can use Skein's `GltfExtensionHandler`, resulting in components being "ready-to-go" when spawning `Scene`s.
 
-Procesing glTF Extension data is only half the story because to process Extension data you also have to be able to process the non-extension data.
+Processing glTF Extension data is only half the story because to process Extension data you also have to be able to process the non-extension data.
 Two new examples show off use cases:
 
 - The first builds an `AnimationGraph` and inserts it onto the animation root in a Scene, which means it is now accessible to play animations using the `AnimationPlayer` on the same `Entity` later when that Scene is spawned.
