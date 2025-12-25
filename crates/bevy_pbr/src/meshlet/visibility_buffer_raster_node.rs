@@ -619,6 +619,7 @@ fn raster_pass(
         depth_stencil_attachment: None,
         timestamp_writes: None,
         occlusion_query_set: None,
+        multiview_mask: None,
     });
     if let Some(viewport) = camera.and_then(|camera| camera.viewport.as_ref()) {
         hardware_pass.set_camera_viewport(viewport);
@@ -658,6 +659,7 @@ fn resolve_depth(
         depth_stencil_attachment: Some(depth_stencil_attachment),
         timestamp_writes: None,
         occlusion_query_set: None,
+        multiview_mask: None,
     });
     if let Some(viewport) = &camera.viewport {
         resolve_pass.set_camera_viewport(viewport);
@@ -691,6 +693,7 @@ fn resolve_material_depth(
             }),
             timestamp_writes: None,
             occlusion_query_set: None,
+            multiview_mask: None,
         });
         if let Some(viewport) = &camera.viewport {
             resolve_pass.set_camera_viewport(viewport);
