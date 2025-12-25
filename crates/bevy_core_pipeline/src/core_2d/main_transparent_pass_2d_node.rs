@@ -108,6 +108,7 @@ impl ViewNode for MainTransparentPass2dNode {
                     depth_stencil_attachment: None,
                     timestamp_writes: None,
                     occlusion_query_set: None,
+                    multiview_mask: None,
                 };
 
                 command_encoder.begin_render_pass(&pass_descriptor);
