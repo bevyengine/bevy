@@ -145,16 +145,17 @@ const GPU_NOT_FOUND_ERROR_MESSAGE: &str = if cfg!(target_os = "linux") {
 };
 
 #[cfg(not(target_family = "wasm"))]
-fn find_adapter_by_name(
+async fn find_adapter_by_name(
     instance: &Instance,
     options: &WgpuSettings,
     compatible_surface: Option<&wgpu::Surface<'_>>,
     adapter_name: &str,
 ) -> Option<Adapter> {
-    for adapter in
-        instance.enumerate_adapters(options.backends.expect(
+    for adapter in instance
+        .enumerate_adapters(options.backends.expect(
             "The `backends` field of `WgpuSettings` must be set to use a specific adapter.",
         ))
+        .await
     {
         tracing::trace!("Checking adapter: {:?}", adapter.get_info());
         let info = adapter.get_info();
@@ -248,14 +249,17 @@ pub async fn initialize_renderer(
     };
 
     #[cfg(not(target_family = "wasm"))]
-    let mut selected_adapter = desired_adapter_name.and_then(|adapter_name| {
+    let mut selected_adapter = if let Some(adapter_name) = desired_adapter_name {
         find_adapter_by_name(
             &instance,
             options,
             request_adapter_options.compatible_surface,
             &adapter_name,
         )
-    });
+        .await
+    } else {
+        None
+    };
     #[cfg(target_family = "wasm")]
     let mut selected_adapter = None;
 
