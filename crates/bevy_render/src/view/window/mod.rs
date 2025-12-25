@@ -270,7 +270,7 @@ pub fn prepare_windows(
                                 || name.starts_with("AMD")
                                 || name.starts_with("Intel")
                         })
-                })
+                });
             })[0]
         };
 
