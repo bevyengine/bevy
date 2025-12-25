@@ -25,7 +25,7 @@
 @group(0) @binding(12) var mip_12: texture_storage_2d<r32float, write>;
 @group(0) @binding(13) var samplr: sampler;
 struct Constants { max_mip_level: u32 }
-var<push_constant> constants: Constants;
+var<immediate> constants: Constants;
 
 /// Generates a hierarchical depth buffer.
 /// Based on FidelityFX SPD v2.1 https://github.com/GPUOpen-LibrariesAndSDKs/FidelityFX-SDK/blob/d7531ae47d8b36a5d4025663e731a47a38be882f/sdk/include/FidelityFX/gpu/spd/ffx_spd.h#L528
