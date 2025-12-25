@@ -1,8 +1,8 @@
 ---
-
 title: "Userspace glTF Extension Handling"
 authors: ["@christopherbiscardi"]
 pull_requests: [22106]
+---
 
 glTF has two mechanisms for extending glTF files with additional user data: Extras and Extensions.
 
