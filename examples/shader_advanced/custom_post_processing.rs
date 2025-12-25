@@ -204,6 +204,7 @@ impl ViewNode for PostProcessNode {
             depth_stencil_attachment: None,
             timestamp_writes: None,
             occlusion_query_set: None,
+            multiview_mask: None,
         });
 
         // This is mostly just wgpu boilerplate for drawing a fullscreen triangle,
