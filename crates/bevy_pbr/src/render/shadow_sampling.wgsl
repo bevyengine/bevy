@@ -208,6 +208,8 @@ fn sample_shadow_map_jimenez_fourteen(
     return sum / 8.0;
 }
 
+const PENUMBRA_FILTER_SIZE: vec2<f32> = vec2(128.0f);
+
 // Performs the blocker search portion of percentage-closer soft shadows (PCSS).
 // This is the variation used for directional lights.
 //
@@ -224,16 +226,17 @@ fn search_for_blockers_in_shadow_map(
     array_index: i32,
 ) -> f32 {
     let shadow_map_size = vec2<f32>(textureDimensions(view_bindings::directional_shadow_textures));
+    let rotation_matrix = random_rotation_matrix(light_local * shadow_map_size, false);
     let uv_offset_scale = PENUMBRA_FILTER_SIZE / shadow_map_size;
 
-    let offset0 = D3D_SAMPLE_POINT_POSITIONS[0] * uv_offset_scale;
-    let offset1 = D3D_SAMPLE_POINT_POSITIONS[1] * uv_offset_scale;
-    let offset2 = D3D_SAMPLE_POINT_POSITIONS[2] * uv_offset_scale;
-    let offset3 = D3D_SAMPLE_POINT_POSITIONS[3] * uv_offset_scale;
-    let offset4 = D3D_SAMPLE_POINT_POSITIONS[4] * uv_offset_scale;
-    let offset5 = D3D_SAMPLE_POINT_POSITIONS[5] * uv_offset_scale;
-    let offset6 = D3D_SAMPLE_POINT_POSITIONS[6] * uv_offset_scale;
-    let offset7 = D3D_SAMPLE_POINT_POSITIONS[7] * uv_offset_scale;
+    let offset0 = rotation_matrix * D3D_SAMPLE_POINT_POSITIONS[0] * uv_offset_scale;
+    let offset1 = rotation_matrix * D3D_SAMPLE_POINT_POSITIONS[1] * uv_offset_scale;
+    let offset2 = rotation_matrix * D3D_SAMPLE_POINT_POSITIONS[2] * uv_offset_scale;
+    let offset3 = rotation_matrix * D3D_SAMPLE_POINT_POSITIONS[3] * uv_offset_scale;
+    let offset4 = rotation_matrix * D3D_SAMPLE_POINT_POSITIONS[4] * uv_offset_scale;
+    let offset5 = rotation_matrix * D3D_SAMPLE_POINT_POSITIONS[5] * uv_offset_scale;
+    let offset6 = rotation_matrix * D3D_SAMPLE_POINT_POSITIONS[6] * uv_offset_scale;
+    let offset7 = rotation_matrix * D3D_SAMPLE_POINT_POSITIONS[7] * uv_offset_scale;
 
     var sum = vec2(0.0);
     sum += search_for_blockers_in_shadow_map_hardware(light_local + offset0, depth, array_index);
