@@ -46,10 +46,12 @@ pub mod prelude {
         commands::BuildChildrenTransformExt,
         helper::TransformHelper,
         plugins::{TransformPlugin, TransformSystems},
-        traits::TransformPoint,
         systems::StaticTransformOptimizations,
+        traits::TransformPoint,
     };
 }
 
 #[cfg(feature = "bevy-support")]
-pub use prelude::{TransformPlugin, TransformPoint, TransformSystems, StaticTransformOptimizations};
+pub use prelude::{
+    StaticTransformOptimizations, TransformPlugin, TransformPoint, TransformSystems,
+};
