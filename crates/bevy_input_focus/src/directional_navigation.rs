@@ -771,8 +771,8 @@ fn auto_rebuild_ui_navigation_graph(
             let (_scale, _rotation, translation) = transform.to_scale_angle_translation();
             Some(FocusableArea {
                 entity,
-                position: translation,
-                size: computed.size(),
+                position: translation * computed.inverse_scale_factor(),
+                size: computed.size() * computed.inverse_scale_factor(),
             })
         })
         .collect();
