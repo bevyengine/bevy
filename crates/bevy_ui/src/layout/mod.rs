@@ -4,6 +4,8 @@ use crate::{
     ComputedNode, ComputedUiRenderTargetInfo, ContentSize, Display, IgnoreScroll, LayoutConfig,
     Node, Outline, OverflowAxis, ScrollPosition,
 };
+use crate::{UiContainer, UiContainerTarget};
+
 use bevy_ecs::{
     change_detection::{DetectChanges, DetectChangesMut},
     entity::Entity,
@@ -14,14 +16,13 @@ use bevy_ecs::{
     world::Ref,
 };
 
-use bevy_math::{Affine2, Vec2};
-use bevy_sprite::BorderRect;
+use bevy_math::{Affine2, Vec2, Vec3Swizzles};
+use bevy_sprite::{Anchor, BorderRect};
+use bevy_text::ComputedTextBlock;
+use bevy_text::CosmicFontSystem;
+use bevy_transform::components::GlobalTransform;
 use thiserror::Error;
 use ui_surface::UiSurface;
-
-use bevy_text::ComputedTextBlock;
-
-use bevy_text::CosmicFontSystem;
 
 mod convert;
 pub mod debug;
@@ -90,12 +91,14 @@ pub fn ui_layout_system(
         Option<&Outline>,
         Option<&ScrollPosition>,
         Option<&IgnoreScroll>,
+        Option<&UiContainerTarget>,
     )>,
     mut buffer_query: Query<&mut ComputedTextBlock>,
     mut font_system: ResMut<CosmicFontSystem>,
     mut removed_children: RemovedComponents<Children>,
     mut removed_content_sizes: RemovedComponents<ContentSize>,
     mut removed_nodes: RemovedComponents<Node>,
+    container_query: Query<(&GlobalTransform, &UiContainer, &Anchor)>,
 ) {
     // When a `ContentSize` component is removed from an entity, we need to remove the measure from the corresponding taffy node.
     for entity in removed_content_sizes.read() {
@@ -126,7 +129,6 @@ pub fn ui_layout_system(
         ui_surface.try_remove_children(entity);
     }
 
-    // clean up removed nodes after syncing children to avoid potential panic (invalid SlotMap key used)
     ui_surface.remove_entities(
         removed_nodes
             .read()
@@ -182,6 +184,7 @@ pub fn ui_layout_system(
             computed_target.scale_factor.recip(),
             Vec2::ZERO,
             Vec2::ZERO,
+            &container_query,
         );
     }
 
@@ -201,11 +204,13 @@ pub fn ui_layout_system(
             Option<&Outline>,
             Option<&ScrollPosition>,
             Option<&IgnoreScroll>,
+            Option<&UiContainerTarget>,
         )>,
         ui_children: &UiChildren,
         inverse_target_scale_factor: f32,
         parent_size: Vec2,
         parent_scroll_position: Vec2,
+        container_query: &Query<(&GlobalTransform, &UiContainer, &Anchor)>,
     ) {
         if let Ok((
             mut node,
@@ -216,6 +221,7 @@ pub fn ui_layout_system(
             maybe_outline,
             maybe_scroll_position,
             maybe_scroll_sticky,
+            container_target,
         )) = node_update_query.get_mut(entity)
         {
             let use_rounding = maybe_layout_config
@@ -267,8 +273,31 @@ pub fn ui_layout_system(
                 layout_size,
                 target_size,
             );
-            local_transform.translation += local_center;
-            inherited_transform *= local_transform;
+
+            if let Some(target) = container_target
+                && let Ok((global, contain, anchor)) = container_query.get(target.0)
+            {
+                // Coordinate correction for root node
+                if ui_children.get_parent(entity).is_none() {
+                    local_transform.translation += global.translation().xy();
+
+                    // Transform Coordinate System
+                    let offset = contain.0.as_vec2() * Vec2::new(1.0, -1.0);
+                    // Root node center offset
+                    local_transform.translation -= offset / 2.0;
+
+                    // Anchor offset
+                    let offset_anchor = anchor.as_vec() * contain.0.as_vec2();
+                    local_transform.translation -= offset_anchor;
+                }
+
+                // Transform Coordinate System
+                local_transform.translation += Vec2::new(local_center.x, -local_center.y);
+                inherited_transform *= local_transform;
+            } else {
+                local_transform.translation += local_center;
+                inherited_transform *= local_transform;
+            }
 
             if inherited_transform != **global_transform {
                 *global_transform = inherited_transform.into();
@@ -349,6 +378,7 @@ pub fn ui_layout_system(
                     inverse_target_scale_factor,
                     layout_size,
                     physical_scroll_position,
+                    container_query,
                 );
             }
         }
@@ -1229,5 +1259,61 @@ mod tests {
             world.resource_mut::<UiSurface>().taffy.total_node_count(),
             3
         );
+    }
+
+    mod container {
+        use super::*;
+
+        #[test]
+        fn node_switches_between_ui_container_and_camera() {
+            let mut app = setup_ui_test_app();
+            let world = app.world_mut();
+
+            let ui_container = world
+                .spawn(UiContainer(UVec2::new(WINDOW_WIDTH, WINDOW_HEIGHT)))
+                .id();
+
+            let ui_root = world
+                .spawn((
+                    Node {
+                        width: Val::Percent(100.),
+                        height: Val::Percent(100.),
+                        ..default()
+                    },
+                    UiContainerTarget(ui_container),
+                ))
+                .id();
+
+            app.update();
+            let world = app.world_mut();
+
+            let ui_surface = world.resource::<UiSurface>();
+
+            assert!(ui_surface.entity_to_taffy.contains_key(&ui_root));
+            assert!(ui_surface
+                .root_entity_to_viewport_node
+                .contains_key(&ui_root));
+
+            world.entity_mut(ui_root).remove::<UiContainerTarget>();
+
+            app.update();
+            let world = app.world_mut();
+
+            let ui_surface = world.resource::<UiSurface>();
+
+            assert!(!ui_surface.entity_to_taffy.is_empty());
+            assert!(!ui_surface.root_entity_to_viewport_node.is_empty());
+
+            world
+                .entity_mut(ui_root)
+                .insert(UiContainerTarget(ui_container));
+
+            app.update();
+            let world = app.world_mut();
+
+            let ui_surface = world.resource::<UiSurface>();
+
+            assert!(ui_surface.entity_to_taffy.contains_key(&ui_root));
+        }
     }
 }

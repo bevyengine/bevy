@@ -23,9 +23,11 @@ use bevy_camera::visibility::InheritedVisibility;
 use bevy_camera::{Camera, Camera2d, Camera3d, RenderTarget};
 use bevy_reflect::prelude::ReflectDefault;
 use bevy_reflect::Reflect;
+use bevy_render::view::ColorGrading;
 use bevy_shader::load_shader_library;
 use bevy_sprite_render::SpriteAssetEvents;
 use bevy_ui::widget::{ImageNode, TextShadow, ViewportNode};
+use bevy_ui::UiContainerTarget;
 use bevy_ui::{
     BackgroundColor, BorderColor, CalculatedClip, ComputedNode, ComputedUiTargetCamera, Display,
     Node, Outline, ResolvedBorderRadius, UiGlobalTransform,
@@ -355,6 +357,7 @@ pub struct ExtractedUiNode {
     pub main_entity: MainEntity,
     pub render_entity: Entity,
     pub transform: Affine2,
+    pub is_container: bool,
 }
 
 /// The type of UI node.
@@ -426,7 +429,9 @@ impl RenderGraphNode for RunUiSubgraphOnUiViewNode {
         };
 
         // Run the subgraph on the UI view.
-        graph.run_sub_graph(SubGraphUi, vec![], Some(ui_camera_view.0), None)?;
+        graph.run_sub_graph(SubGraphUi, vec![], Some(ui_camera_view.ui_container), None)?;
+        graph.run_sub_graph(SubGraphUi, vec![], Some(ui_camera_view.ui_camera), None)?;
+
         Ok(())
     }
 }
@@ -443,14 +448,23 @@ pub fn extract_uinode_background_colors(
             Option<&CalculatedClip>,
             &ComputedUiTargetCamera,
             &BackgroundColor,
+            Has<UiContainerTarget>,
         )>,
     >,
     camera_map: Extract<UiCameraMap>,
 ) {
     let mut camera_mapper = camera_map.get_mapper();
 
-    for (entity, uinode, transform, inherited_visibility, clip, camera, background_color) in
-        &uinode_query
+    for (
+        entity,
+        uinode,
+        transform,
+        inherited_visibility,
+        clip,
+        camera,
+        background_color,
+        is_container,
+    ) in &uinode_query
     {
         // Skip invisible backgrounds
         if !inherited_visibility.get()
@@ -485,6 +499,7 @@ pub fn extract_uinode_background_colors(
                 node_type: NodeType::Rect,
             },
             main_entity: entity.into(),
+            is_container,
         });
     }
 }
@@ -502,12 +517,15 @@ pub fn extract_uinode_images(
             Option<&CalculatedClip>,
             &ComputedUiTargetCamera,
             &ImageNode,
+            Has<UiContainerTarget>,
         )>,
     >,
     camera_map: Extract<UiCameraMap>,
 ) {
     let mut camera_mapper = camera_map.get_mapper();
-    for (entity, uinode, transform, inherited_visibility, clip, camera, image) in &uinode_query {
+    for (entity, uinode, transform, inherited_visibility, clip, camera, image, is_container) in
+        &uinode_query
+    {
         // Skip invisible images
         if !inherited_visibility.get()
             || image.color.is_fully_transparent()
@@ -569,6 +587,7 @@ pub fn extract_uinode_images(
                 node_type: NodeType::Rect,
             },
             main_entity: entity.into(),
+            is_container,
         });
     }
 }
@@ -586,6 +605,7 @@ pub fn extract_uinode_borders(
             Option<&CalculatedClip>,
             &ComputedUiTargetCamera,
             AnyOf<(&BorderColor, &Outline)>,
+            Has<UiContainerTarget>,
         )>,
     >,
     camera_map: Extract<UiCameraMap>,
@@ -602,6 +622,7 @@ pub fn extract_uinode_borders(
         maybe_clip,
         camera,
         (maybe_border_color, maybe_outline),
+        is_container,
     ) in &uinode_query
     {
         // Skip invisible borders and removed nodes
@@ -671,6 +692,7 @@ pub fn extract_uinode_borders(
                     },
                     main_entity: entity.into(),
                     render_entity: commands.spawn(TemporaryRenderEntity).id(),
+                    is_container,
                 });
             }
         }
@@ -703,6 +725,7 @@ pub fn extract_uinode_borders(
                     node_type: NodeType::Border(shader_flags::BORDER_ALL),
                 },
                 main_entity: entity.into(),
+                is_container,
             });
         }
     }
@@ -733,7 +756,10 @@ const UI_CAMERA_SUBVIEW: u32 = 1;
 /// the 3D camera and contains the entity corresponding to the UI view.
 #[derive(Component)]
 /// Entity id of the temporary render entity with the corresponding extracted UI view.
-pub struct UiCameraView(pub Entity);
+pub struct UiCameraView {
+    pub ui_camera: Entity,
+    pub ui_container: Entity,
+}
 
 /// A render-world component that lives on the UI view and specifies the
 /// corresponding main render target view.
@@ -744,6 +770,10 @@ pub struct UiCameraView(pub Entity);
 /// This is the inverse of [`UiCameraView`].
 #[derive(Component)]
 pub struct UiViewTarget(pub Entity);
+
+/// Marker component used to distinguish between rendering in world space and camera space
+#[derive(Component)]
+pub struct UiContainerViewTarget;
 
 /// Extracts all UI elements associated with a camera into the render world.
 pub fn extract_ui_camera_view(
@@ -758,6 +788,8 @@ pub fn extract_ui_camera_view(
                 Has<Hdr>,
                 Option<&UiAntiAlias>,
                 Option<&BoxShadowSamples>,
+                &'static GlobalTransform,
+                Option<&'static ColorGrading>,
             ),
             Or<(With<Camera2d>, With<Camera3d>)>,
         >,
@@ -766,7 +798,17 @@ pub fn extract_ui_camera_view(
 ) {
     live_entities.clear();
 
-    for (main_entity, render_entity, camera, hdr, ui_anti_alias, shadow_samples) in &query {
+    for (
+        main_entity,
+        render_entity,
+        camera,
+        hdr,
+        ui_anti_alias,
+        shadow_samples,
+        transform,
+        color_grading,
+    ) in &query
+    {
         // ignore inactive cameras
         if !camera.is_active {
             commands
@@ -776,7 +818,9 @@ pub fn extract_ui_camera_view(
             continue;
         }
 
-        if let Some(physical_viewport_rect) = camera.physical_viewport_rect() {
+        if let Some(physical_viewport_rect) = camera.physical_viewport_rect()
+            && let Some(viewport_size) = camera.physical_viewport_size()
+        {
             // use a projection matrix with the origin in the top left instead of the bottom left that comes with OrthographicProjection
             let projection_matrix = Mat4::orthographic_rh(
                 0.0,
@@ -816,20 +860,53 @@ pub fn extract_ui_camera_view(
                 ))
                 .id();
 
+            let color_grading = color_grading.unwrap_or(&ColorGrading::default()).clone();
+
+            let retained_view_entity_contain = RetainedViewEntity::new(main_entity.into(), None, 0);
+
+            let ui_contain_camera_view = commands
+                .spawn((
+                    ExtractedView {
+                        retained_view_entity: retained_view_entity_contain,
+                        clip_from_view: camera.clip_from_view(),
+                        world_from_view: *transform,
+                        clip_from_world: None,
+                        hdr,
+                        viewport: UVec4::new(
+                            physical_viewport_rect.min.x,
+                            physical_viewport_rect.min.y,
+                            viewport_size.x,
+                            viewport_size.y,
+                        ),
+                        color_grading,
+                    },
+                    // Link to the main camera view.
+                    UiViewTarget(render_entity),
+                    UiContainerViewTarget,
+                    TemporaryRenderEntity,
+                ))
+                .id();
+
             let mut entity_commands = commands
                 .get_entity(render_entity)
                 .expect("Camera entity wasn't synced.");
             // Link from the main 2D/3D camera view to the UI view.
-            entity_commands.insert(UiCameraView(ui_camera_view));
+            entity_commands.insert(UiCameraView {
+                ui_camera: ui_camera_view,
+                ui_container: ui_contain_camera_view,
+            });
             if let Some(ui_anti_alias) = ui_anti_alias {
                 entity_commands.insert(*ui_anti_alias);
             }
             if let Some(shadow_samples) = shadow_samples {
                 entity_commands.insert(*shadow_samples);
             }
+
             transparent_render_phases.insert_or_clear(retained_view_entity);
+            transparent_render_phases.insert_or_clear(retained_view_entity_contain);
 
             live_entities.insert(retained_view_entity);
+            live_entities.insert(retained_view_entity_contain);
         }
     }
 
@@ -849,13 +926,22 @@ pub fn extract_viewport_nodes(
             Option<&CalculatedClip>,
             &ComputedUiTargetCamera,
             &ViewportNode,
+            Has<UiContainerTarget>,
         )>,
     >,
     camera_map: Extract<UiCameraMap>,
 ) {
     let mut camera_mapper = camera_map.get_mapper();
-    for (entity, uinode, transform, inherited_visibility, clip, camera, viewport_node) in
-        &uinode_query
+    for (
+        entity,
+        uinode,
+        transform,
+        inherited_visibility,
+        clip,
+        camera,
+        viewport_node,
+        is_container,
+    ) in &uinode_query
     {
         // Skip invisible images
         if !inherited_visibility.get() || uinode.is_empty() {
@@ -895,6 +981,7 @@ pub fn extract_viewport_nodes(
                 node_type: NodeType::Rect,
             },
             main_entity: entity.into(),
+            is_container,
         });
     }
 }
@@ -914,6 +1001,7 @@ pub fn extract_text_sections(
             &ComputedTextBlock,
             &TextColor,
             &TextLayoutInfo,
+            Has<UiContainerTarget>,
         )>,
     >,
     text_styles: Extract<Query<&TextColor>>,
@@ -933,6 +1021,7 @@ pub fn extract_text_sections(
         computed_block,
         text_color,
         text_layout_info,
+        is_container,
     ) in &uinode_query
     {
         // Skip if not visible or if size is set to zero (e.g. when a parent is set to `Display::None`)
@@ -996,6 +1085,7 @@ pub fn extract_text_sections(
                     item: ExtractedUiItem::Glyphs { range: start..end },
                     main_entity: entity.into(),
                     transform,
+                    is_container,
                 });
                 start = end;
             }
@@ -1020,6 +1110,7 @@ pub fn extract_text_shadows(
             &TextLayoutInfo,
             &TextShadow,
             &ComputedTextBlock,
+            Has<UiContainerTarget>,
         )>,
     >,
     text_decoration_query: Extract<Query<(Has<Strikethrough>, Has<Underline>)>>,
@@ -1039,6 +1130,7 @@ pub fn extract_text_shadows(
         text_layout_info,
         shadow,
         computed_block,
+        is_container,
     ) in &uinode_query
     {
         // Skip if not visible or if size is set to zero (e.g. when a parent is set to `Display::None`)
@@ -1088,6 +1180,7 @@ pub fn extract_text_shadows(
                     extracted_camera_entity,
                     item: ExtractedUiItem::Glyphs { range: start..end },
                     main_entity: entity.into(),
+                    is_container,
                 });
                 start = end;
             }
@@ -1125,6 +1218,7 @@ pub fn extract_text_shadows(
                         node_type: NodeType::Rect,
                     },
                     main_entity: entity.into(),
+                    is_container,
                 });
             }
 
@@ -1150,6 +1244,7 @@ pub fn extract_text_shadows(
                         node_type: NodeType::Rect,
                     },
                     main_entity: entity.into(),
+                    is_container,
                 });
             }
         }
@@ -1169,6 +1264,7 @@ pub fn extract_text_decorations(
             Option<&CalculatedClip>,
             &ComputedUiTargetCamera,
             &TextLayoutInfo,
+            Has<UiContainerTarget>,
         )>,
     >,
     text_background_colors_query: Extract<
@@ -1191,6 +1287,7 @@ pub fn extract_text_decorations(
         clip,
         camera,
         text_layout_info,
+        is_container,
     ) in &uinode_query
     {
         // Skip if not visible or if size is set to zero (e.g. when a parent is set to `Display::None`)
@@ -1239,6 +1336,7 @@ pub fn extract_text_decorations(
                         node_type: NodeType::Rect,
                     },
                     main_entity: entity.into(),
+                    is_container,
                 });
             }
 
@@ -1269,6 +1367,7 @@ pub fn extract_text_decorations(
                         node_type: NodeType::Rect,
                     },
                     main_entity: entity.into(),
+                    is_container,
                 });
             }
 
@@ -1299,6 +1398,7 @@ pub fn extract_text_decorations(
                         node_type: NodeType::Rect,
                     },
                     main_entity: entity.into(),
+                    is_container,
                 });
             }
         }
@@ -1389,50 +1489,82 @@ pub fn queue_uinodes(
 ) {
     let draw_function = draw_functions.read().id::<DrawUi>();
     let mut current_camera_entity = Entity::PLACEHOLDER;
-    let mut current_phase = None;
+    let mut current_phase_camera = None;
+    let mut current_phase_container = None;
 
     for (index, extracted_uinode) in extracted_uinodes.uinodes.iter().enumerate() {
         if current_camera_entity != extracted_uinode.extracted_camera_entity {
-            current_phase = render_views
-                .get(extracted_uinode.extracted_camera_entity)
-                .ok()
-                .and_then(|(default_camera_view, ui_anti_alias)| {
-                    camera_views
-                        .get(default_camera_view.0)
-                        .ok()
-                        .and_then(|view| {
-                            transparent_render_phases
-                                .get_mut(&view.retained_view_entity)
-                                .map(|transparent_phase| (view, ui_anti_alias, transparent_phase))
-                        })
-                });
+            if let Ok((default_camera_view, ui_anti_alias)) =
+                render_views.get(extracted_uinode.extracted_camera_entity)
+                && let Ok([camera_view, container_view]) = camera_views.get_many([
+                    default_camera_view.ui_camera,
+                    default_camera_view.ui_container,
+                ])
+            {
+                let [camera_transparent_phase, container_transparent_phase] =
+                    transparent_render_phases.get_disjoint_mut([
+                        &camera_view.retained_view_entity,
+                        &container_view.retained_view_entity,
+                    ]);
+                current_phase_camera = camera_transparent_phase
+                    .map(|transparent_phase| (camera_view, ui_anti_alias, transparent_phase));
+
+                current_phase_container = container_transparent_phase
+                    .map(|transparent_phase| (container_view, ui_anti_alias, transparent_phase));
+            };
+
             current_camera_entity = extracted_uinode.extracted_camera_entity;
         }
 
-        let Some((view, ui_anti_alias, transparent_phase)) = current_phase.as_mut() else {
-            continue;
+        if let Some((view, ui_anti_alias, transparent_phase)) = current_phase_camera.as_mut()
+            && !extracted_uinode.is_container
+        {
+            let pipeline = pipelines.specialize(
+                &pipeline_cache,
+                &ui_pipeline,
+                UiPipelineKey {
+                    hdr: view.hdr,
+                    anti_alias: matches!(ui_anti_alias, None | Some(UiAntiAlias::On)),
+                },
+            );
+
+            transparent_phase.add(TransparentUi {
+                draw_function,
+                pipeline,
+                entity: (extracted_uinode.render_entity, extracted_uinode.main_entity),
+                sort_key: FloatOrd(extracted_uinode.z_order),
+                index,
+                // batch_range will be calculated in prepare_uinodes
+                batch_range: 0..0,
+                extra_index: PhaseItemExtraIndex::None,
+                indexed: true,
+            });
         };
 
-        let pipeline = pipelines.specialize(
-            &pipeline_cache,
-            &ui_pipeline,
-            UiPipelineKey {
-                hdr: view.hdr,
-                anti_alias: matches!(ui_anti_alias, None | Some(UiAntiAlias::On)),
-            },
-        );
+        if let Some((view, ui_anti_alias, transparent_phase)) = current_phase_container.as_mut()
+            && extracted_uinode.is_container
+        {
+            let pipeline = pipelines.specialize(
+                &pipeline_cache,
+                &ui_pipeline,
+                UiPipelineKey {
+                    hdr: view.hdr,
+                    anti_alias: matches!(ui_anti_alias, None | Some(UiAntiAlias::On)),
+                },
+            );
 
-        transparent_phase.add(TransparentUi {
-            draw_function,
-            pipeline,
-            entity: (extracted_uinode.render_entity, extracted_uinode.main_entity),
-            sort_key: FloatOrd(extracted_uinode.z_order),
-            index,
-            // batch_range will be calculated in prepare_uinodes
-            batch_range: 0..0,
-            extra_index: PhaseItemExtraIndex::None,
-            indexed: true,
-        });
+            transparent_phase.add(TransparentUi {
+                draw_function,
+                pipeline,
+                entity: (extracted_uinode.render_entity, extracted_uinode.main_entity),
+                sort_key: FloatOrd(extracted_uinode.z_order + 0.1),
+                index,
+                // batch_range will be calculated in prepare_uinodes
+                batch_range: 0..0,
+                extra_index: PhaseItemExtraIndex::None,
+                indexed: true,
+            });
+        };
     }
 }
 
@@ -1590,6 +1722,7 @@ pub fn prepare_uinodes(
                         // Specify the corners of the node
                         let positions = QUAD_VERTEX_POSITIONS
                             .map(|pos| transform.transform_point2(pos * rect_size).extend(0.));
+
                         let points = QUAD_VERTEX_POSITIONS.map(|pos| pos * rect_size);
 
                         // Calculate the effect of clipping
@@ -1649,7 +1782,11 @@ pub fn prepare_uinodes(
                             }
                         }
                         let uvs = if flags == shader_flags::UNTEXTURED {
-                            [Vec2::ZERO, Vec2::X, Vec2::ONE, Vec2::Y]
+                            if extracted_uinode.is_container {
+                                [Vec2::Y, Vec2::ONE, Vec2::X, Vec2::ZERO]
+                            } else {
+                                [Vec2::ZERO, Vec2::X, Vec2::ONE, Vec2::Y]
+                            }
                         } else {
                             let image = gpu_images
                                 .get(extracted_uinode.image)
@@ -1672,25 +1809,48 @@ pub fn prepare_uinodes(
                                 positions_diff[2].y *= -1.;
                                 positions_diff[3].y *= -1.;
                             }
-                            [
-                                Vec2::new(
-                                    uinode_rect.min.x + positions_diff[0].x,
-                                    uinode_rect.min.y + positions_diff[0].y,
-                                ),
-                                Vec2::new(
-                                    uinode_rect.max.x + positions_diff[1].x,
-                                    uinode_rect.min.y + positions_diff[1].y,
-                                ),
-                                Vec2::new(
-                                    uinode_rect.max.x + positions_diff[2].x,
-                                    uinode_rect.max.y + positions_diff[2].y,
-                                ),
-                                Vec2::new(
-                                    uinode_rect.min.x + positions_diff[3].x,
-                                    uinode_rect.max.y + positions_diff[3].y,
-                                ),
-                            ]
-                            .map(|pos| pos / atlas_extent)
+
+                            if extracted_uinode.is_container {
+                                [
+                                    Vec2::new(
+                                        uinode_rect.min.x + positions_diff[3].x,
+                                        uinode_rect.max.y + positions_diff[3].y,
+                                    ),
+                                    Vec2::new(
+                                        uinode_rect.max.x + positions_diff[2].x,
+                                        uinode_rect.max.y + positions_diff[2].y,
+                                    ),
+                                    Vec2::new(
+                                        uinode_rect.max.x + positions_diff[1].x,
+                                        uinode_rect.min.y + positions_diff[1].y,
+                                    ),
+                                    Vec2::new(
+                                        uinode_rect.min.x + positions_diff[0].x,
+                                        uinode_rect.min.y + positions_diff[0].y,
+                                    ),
+                                ]
+                                .map(|pos| pos / atlas_extent)
+                            } else {
+                                [
+                                    Vec2::new(
+                                        uinode_rect.min.x + positions_diff[0].x,
+                                        uinode_rect.min.y + positions_diff[0].y,
+                                    ),
+                                    Vec2::new(
+                                        uinode_rect.max.x + positions_diff[1].x,
+                                        uinode_rect.min.y + positions_diff[1].y,
+                                    ),
+                                    Vec2::new(
+                                        uinode_rect.max.x + positions_diff[2].x,
+                                        uinode_rect.max.y + positions_diff[2].y,
+                                    ),
+                                    Vec2::new(
+                                        uinode_rect.min.x + positions_diff[3].x,
+                                        uinode_rect.max.y + positions_diff[3].y,
+                                    ),
+                                ]
+                                .map(|pos| pos / atlas_extent)
+                            }
                         };
 
                         let color = color.to_f32_array();
@@ -1712,7 +1872,13 @@ pub fn prepare_uinodes(
                                     border.max_inset.y,
                                 ],
                                 size: rect_size.into(),
-                                point: points[i].into(),
+                                point: if extracted_uinode.is_container {
+                                    Affine2::from_scale(Vec2::new(1.0, -1.0))
+                                        .transform_point2(points[i])
+                                        .into()
+                                } else {
+                                    points[i].into()
+                                },
                             });
                         }
 

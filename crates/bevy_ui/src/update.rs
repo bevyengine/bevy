@@ -6,6 +6,7 @@ use crate::{
     CalculatedClip, ComputedUiRenderTargetInfo, ComputedUiTargetCamera, DefaultUiCamera, Display,
     Node, OverflowAxis, OverrideClip, UiScale, UiTargetCamera,
 };
+use crate::{UiContainer, UiContainerOverflow, UiContainerTarget};
 
 use super::ComputedNode;
 use bevy_app::Propagate;
@@ -15,8 +16,10 @@ use bevy_ecs::{
     query::Has,
     system::{Commands, Query, Res},
 };
-use bevy_math::{Rect, UVec2};
+use bevy_math::{Rect, UVec2, Vec3Swizzles};
+use bevy_sprite::Anchor;
 use bevy_sprite::BorderRect;
+use bevy_transform::components::GlobalTransform;
 
 /// Updates clipping for all nodes
 pub fn update_clipping_system(
@@ -30,14 +33,46 @@ pub fn update_clipping_system(
         Has<OverrideClip>,
     )>,
     ui_children: UiChildren,
+    contain_target_query: Query<&UiContainerTarget>,
+    contain_query: Query<(
+        &UiContainer,
+        &UiContainerOverflow,
+        &Anchor,
+        &GlobalTransform,
+    )>,
 ) {
     for root_node in root_nodes.iter() {
+        let clip = {
+            if let Ok(target) = contain_target_query.get(root_node)
+                && let Ok((size, overflow, anchor, global)) = contain_query.get(target.0)
+            {
+                // Computes the clipping region for the current UI container.
+                let mut clip_rect = Rect::from_center_size(
+                    global.translation().xy() - anchor.as_vec() * size.0.as_vec2(),
+                    size.0.as_vec2(),
+                );
+
+                if overflow.0.x == OverflowAxis::Visible {
+                    clip_rect.min.x = -f32::INFINITY;
+                    clip_rect.max.x = f32::INFINITY;
+                }
+                if overflow.0.y == OverflowAxis::Visible {
+                    clip_rect.min.y = -f32::INFINITY;
+                    clip_rect.max.y = f32::INFINITY;
+                }
+
+                Some(clip_rect)
+            } else {
+                None
+            }
+        };
+
         update_clipping(
             &mut commands,
             &ui_children,
             &mut node_query,
             root_node,
-            None,
+            clip,
         );
     }
 }
@@ -138,6 +173,8 @@ pub fn propagate_ui_target_cameras(
     camera_query: Query<&Camera>,
     target_camera_query: Query<&UiTargetCamera>,
     ui_root_nodes: UiRootNodes,
+    query_ui_scale: Query<(&UiScale, &UiContainer)>,
+    query_target: Query<&UiContainerTarget>,
 ) {
     let default_camera_entity = default_ui_camera.get();
 
@@ -153,16 +190,23 @@ pub fn propagate_ui_target_cameras(
             .entity(root_entity)
             .try_insert(Propagate(ComputedUiTargetCamera { camera }));
 
-        let (scale_factor, physical_size) = camera_query
-            .get(camera)
-            .ok()
-            .map(|camera| {
-                (
-                    camera.target_scaling_factor().unwrap_or(1.) * ui_scale.0,
-                    camera.physical_viewport_size().unwrap_or(UVec2::ZERO),
-                )
-            })
-            .unwrap_or((1., UVec2::ZERO));
+        let (scale_factor, physical_size) = if let Ok(container_target) =
+            query_target.get(root_entity)
+            && let Ok((scale, size)) = query_ui_scale.get(container_target.0)
+        {
+            (scale.0, size.0)
+        } else {
+            camera_query
+                .get(camera)
+                .ok()
+                .map(|camera| {
+                    (
+                        camera.target_scaling_factor().unwrap_or(1.) * ui_scale.0,
+                        camera.physical_viewport_size().unwrap_or(UVec2::ZERO),
+                    )
+                })
+                .unwrap_or((1., UVec2::ZERO))
+        };
 
         commands
             .entity(root_entity)
