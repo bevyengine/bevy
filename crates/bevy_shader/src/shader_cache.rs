@@ -65,7 +65,7 @@ pub struct ShaderCache<ShaderModule, RenderDevice> {
         &ValidateShader,
     ) -> Result<ShaderModule, PipelineCacheError>,
     #[cfg(feature = "shader_format_wesl")]
-    asset_paths: HashMap<wesl::syntax::ModulePath, AssetId<Shader>>,
+    module_path_to_asset_id: HashMap<wesl::syntax::ModulePath, AssetId<Shader>>,
     shaders: HashMap<AssetId<Shader>, Shader>,
     import_path_shaders: HashMap<ShaderImport, AssetId<Shader>>,
     waiting_on_import: HashMap<ShaderImport, Vec<AssetId<Shader>>>,
@@ -124,7 +124,7 @@ impl<ShaderModule, RenderDevice> ShaderCache<ShaderModule, RenderDevice> {
             load_module,
             data: Default::default(),
             #[cfg(feature = "shader_format_wesl")]
-            asset_paths: Default::default(),
+            module_path_to_asset_id: Default::default(),
             shaders: Default::default(),
             import_path_shaders: Default::default(),
             waiting_on_import: Default::default(),
@@ -209,7 +209,7 @@ impl<ShaderModule, RenderDevice> ShaderCache<ShaderModule, RenderDevice> {
                     Source::Wesl(_) => {
                         if let ShaderImport::AssetPath(path) = shader.import_path() {
                             let shader_resolver =
-                                ShaderResolver::new(&self.asset_paths, &self.shaders);
+                                ShaderResolver::new(&self.module_path_to_asset_id, &self.shaders);
                             let module_path = wesl::syntax::ModulePath::from_path(path);
                             let mut compiler_options = wesl::CompileOptions {
                                 imports: true,
@@ -360,7 +360,7 @@ impl<ShaderModule, RenderDevice> ShaderCache<ShaderModule, RenderDevice> {
         if let Source::Wesl(_) = shader.source
             && let ShaderImport::AssetPath(path) = shader.import_path()
         {
-            self.asset_paths
+            self.module_path_to_asset_id
                 .insert(wesl::syntax::ModulePath::from_path(path), id);
         }
         self.shaders.insert(id, shader);
@@ -379,18 +379,18 @@ impl<ShaderModule, RenderDevice> ShaderCache<ShaderModule, RenderDevice> {
 
 #[cfg(feature = "shader_format_wesl")]
 pub struct ShaderResolver<'a> {
-    asset_paths: &'a HashMap<wesl::syntax::ModulePath, AssetId<Shader>>,
+    module_path_to_asset_id: &'a HashMap<wesl::syntax::ModulePath, AssetId<Shader>>,
     shaders: &'a HashMap<AssetId<Shader>, Shader>,
 }
 
 #[cfg(feature = "shader_format_wesl")]
 impl<'a> ShaderResolver<'a> {
     pub fn new(
-        asset_paths: &'a HashMap<wesl::syntax::ModulePath, AssetId<Shader>>,
+        module_path_to_asset_id: &'a HashMap<wesl::syntax::ModulePath, AssetId<Shader>>,
         shaders: &'a HashMap<AssetId<Shader>, Shader>,
     ) -> Self {
         Self {
-            asset_paths,
+            module_path_to_asset_id,
             shaders,
         }
     }
@@ -402,9 +402,15 @@ impl<'a> wesl::Resolver for ShaderResolver<'a> {
         &self,
         module_path: &wesl::syntax::ModulePath,
     ) -> Result<alloc::borrow::Cow<'_, str>, wesl::ResolveError> {
-        let asset_id = self.asset_paths.get(module_path).ok_or_else(|| {
-            wesl::ResolveError::ModuleNotFound(module_path.clone(), "Invalid asset id".to_string())
-        })?;
+        let asset_id = self
+            .module_path_to_asset_id
+            .get(module_path)
+            .ok_or_else(|| {
+                wesl::ResolveError::ModuleNotFound(
+                    module_path.clone(),
+                    "Invalid asset id".to_string(),
+                )
+            })?;
 
         let shader = self.shaders.get(asset_id).unwrap();
         Ok(alloc::borrow::Cow::Borrowed(shader.source.as_str()))
