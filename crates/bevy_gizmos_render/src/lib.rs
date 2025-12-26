@@ -23,6 +23,7 @@ pub mod retained;
 mod pipeline_2d;
 #[cfg(feature = "bevy_pbr")]
 mod pipeline_3d;
+pub mod text;
 
 use bevy_app::{App, Plugin};
 use bevy_ecs::{
