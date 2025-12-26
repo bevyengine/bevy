@@ -11,7 +11,7 @@ use core::{
 
 /// Used by immutable query parameters (such as [`Ref`] and [`Res`])
 /// to store immutable access to the [`Tick`]s of a single component or resource.
-#[derive(Clone)]
+#[derive(Clone, Copy)]
 pub(crate) struct ComponentTicksRef<'w> {
     pub(crate) added: &'w Tick,
     pub(crate) changed: &'w Tick,
@@ -113,7 +113,7 @@ impl<'w, T: Resource> Res<'w, T> {
     pub fn clone(this: &Self) -> Self {
         Self {
             value: this.value,
-            ticks: this.ticks.clone(),
+            ticks: this.ticks,
         }
     }
 
@@ -361,6 +361,14 @@ impl<'w, T: ?Sized> Ref<'w, T> {
         self.ticks.this_run = this_run;
     }
 }
+
+impl<'w, T: ?Sized> Clone for Ref<'w, T> {
+    fn clone(&self) -> Self {
+        *self
+    }
+}
+
+impl<'w, T: ?Sized> Copy for Ref<'w, T> {}
 
 impl<'w, 'a, T> IntoIterator for &'a Ref<'w, T>
 where

@@ -247,6 +247,16 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
                         }
                     }
 
+                    fn reborrow<'a>(
+                        item: &'a mut Self::Item<'_, '_>,
+                    ) -> Self::Item<'a, 'a> {
+                        #read_only_item_struct_name {
+                            #(
+                                #field_members: <#read_only_field_types as #path::query::QueryData>::reborrow(&mut item.#field_members),
+                            )*
+                        }
+                    }
+
                     fn provide_extra_access(
                         state: &mut Self::State,
                         access: &mut #path::query::Access,
@@ -314,6 +324,16 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
                     #item_struct_name {
                         #(
                             #field_members: <#field_types>::shrink(item.#field_members),
+                        )*
+                    }
+                }
+
+                fn reborrow<'a>(
+                    item: &'a mut Self::Item<'_, '_>,
+                ) -> Self::Item<'a, 'a> {
+                    #item_struct_name {
+                        #(
+                            #field_members: <#field_types as #path::query::QueryData>::reborrow(&mut item.#field_members),
                         )*
                     }
                 }

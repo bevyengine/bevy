@@ -309,6 +309,9 @@ pub unsafe trait QueryData: WorldQuery {
         item: Self::Item<'wlong, 's>,
     ) -> Self::Item<'wshort, 's>;
 
+    /// Returns a `QueryData` item with a smaller lifetime.
+    fn reborrow<'a>(item: &'a mut Self::Item<'_, '_>) -> Self::Item<'a, 'a>;
+
     /// Offers additional access above what we requested in `update_component_access`.
     /// Implementations may add additional access that is a subset of `available_access`
     /// and does not conflict with anything in `access`,
@@ -449,6 +452,10 @@ unsafe impl QueryData for Entity {
         item
     }
 
+    fn reborrow<'a>(item: &'a mut Self::Item<'_, '_>) -> Self::Item<'a, 'a> {
+        *item
+    }
+
     #[inline(always)]
     unsafe fn fetch<'w, 's>(
         _state: &'s Self::State,
@@ -543,6 +550,10 @@ unsafe impl QueryData for EntityLocation {
         item: Self::Item<'wlong, 's>,
     ) -> Self::Item<'wshort, 's> {
         item
+    }
+
+    fn reborrow<'a>(item: &'a mut Self::Item<'_, '_>) -> Self::Item<'a, 'a> {
+        *item
     }
 
     #[inline(always)]
@@ -715,6 +726,10 @@ unsafe impl QueryData for SpawnDetails {
         item
     }
 
+    fn reborrow<'a>(item: &'a mut Self::Item<'_, '_>) -> Self::Item<'a, 'a> {
+        *item
+    }
+
     #[inline(always)]
     unsafe fn fetch<'w, 's>(
         _state: &'s Self::State,
@@ -766,7 +781,7 @@ pub struct EntityFetch<'w> {
 /// `fetch` accesses all components in a readonly way.
 /// This is sound because `update_component_access` sets read access for all components and panic when appropriate.
 /// Filters are unchanged.
-unsafe impl<'a> WorldQuery for EntityRef<'a> {
+unsafe impl WorldQuery for EntityRef<'_> {
     type Fetch<'w> = EntityFetch<'w>;
     type State = ();
 
@@ -829,7 +844,7 @@ unsafe impl<'a> WorldQuery for EntityRef<'a> {
 }
 
 /// SAFETY: `Self` is the same as `Self::ReadOnly`
-unsafe impl<'a> QueryData for EntityRef<'a> {
+unsafe impl QueryData for EntityRef<'_> {
     const IS_READ_ONLY: bool = true;
     const IS_ARCHETYPAL: bool = true;
     type ReadOnly = Self;
@@ -839,6 +854,10 @@ unsafe impl<'a> QueryData for EntityRef<'a> {
         item: Self::Item<'wlong, 's>,
     ) -> Self::Item<'wshort, 's> {
         item
+    }
+
+    fn reborrow<'a>(item: &'a mut Self::Item<'_, '_>) -> Self::Item<'a, 'a> {
+        *item
     }
 
     #[inline(always)]
@@ -876,7 +895,7 @@ impl ReleaseStateQueryData for EntityRef<'_> {
 impl ArchetypeQueryData for EntityRef<'_> {}
 
 /// SAFETY: The accesses of `Self::ReadOnly` are a subset of the accesses of `Self`
-unsafe impl<'a> WorldQuery for EntityMut<'a> {
+unsafe impl WorldQuery for EntityMut<'_> {
     type Fetch<'w> = EntityFetch<'w>;
     type State = ();
 
@@ -939,16 +958,20 @@ unsafe impl<'a> WorldQuery for EntityMut<'a> {
 }
 
 /// SAFETY: access of `EntityRef` is a subset of `EntityMut`
-unsafe impl<'a> QueryData for EntityMut<'a> {
+unsafe impl<'__w> QueryData for EntityMut<'__w> {
     const IS_READ_ONLY: bool = false;
     const IS_ARCHETYPAL: bool = true;
-    type ReadOnly = EntityRef<'a>;
+    type ReadOnly = EntityRef<'__w>;
     type Item<'w, 's> = EntityMut<'w>;
 
     fn shrink<'wlong: 'wshort, 'wshort, 's>(
         item: Self::Item<'wlong, 's>,
     ) -> Self::Item<'wshort, 's> {
         item
+    }
+
+    fn reborrow<'a>(item: &'a mut Self::Item<'_, '_>) -> Self::Item<'a, 'a> {
+        item.reborrow()
     }
 
     #[inline(always)]
@@ -1048,7 +1071,7 @@ unsafe impl WorldQuery for FilteredEntityRef<'_, '_> {
 }
 
 /// SAFETY: `Self` is the same as `Self::ReadOnly`
-unsafe impl<'a, 'b> QueryData for FilteredEntityRef<'a, 'b> {
+unsafe impl QueryData for FilteredEntityRef<'_, '_> {
     const IS_READ_ONLY: bool = true;
     const IS_ARCHETYPAL: bool = true;
     type ReadOnly = Self;
@@ -1058,6 +1081,10 @@ unsafe impl<'a, 'b> QueryData for FilteredEntityRef<'a, 'b> {
         item: Self::Item<'wlong, 's>,
     ) -> Self::Item<'wshort, 's> {
         item
+    }
+
+    fn reborrow<'a>(item: &'a mut Self::Item<'_, '_>) -> Self::Item<'a, 'a> {
+        *item
     }
 
     #[inline]
@@ -1173,16 +1200,20 @@ unsafe impl WorldQuery for FilteredEntityMut<'_, '_> {
 }
 
 /// SAFETY: access of `FilteredEntityRef` is a subset of `FilteredEntityMut`
-unsafe impl<'a, 'b> QueryData for FilteredEntityMut<'a, 'b> {
+unsafe impl<'__w, '__s> QueryData for FilteredEntityMut<'__w, '__s> {
     const IS_READ_ONLY: bool = false;
     const IS_ARCHETYPAL: bool = true;
-    type ReadOnly = FilteredEntityRef<'a, 'b>;
+    type ReadOnly = FilteredEntityRef<'__w, '__s>;
     type Item<'w, 's> = FilteredEntityMut<'w, 's>;
 
     fn shrink<'wlong: 'wshort, 'wshort, 's>(
         item: Self::Item<'wlong, 's>,
     ) -> Self::Item<'wshort, 's> {
         item
+    }
+
+    fn reborrow<'a>(item: &'a mut Self::Item<'_, '_>) -> Self::Item<'a, 'a> {
+        item.reborrow()
     }
 
     #[inline]
@@ -1230,7 +1261,7 @@ impl ArchetypeQueryData for FilteredEntityMut<'_, '_> {}
 /// SAFETY: `EntityRefExcept` guards access to all components in the bundle `B`
 /// and populates `Access` values so that queries that conflict with this access
 /// are rejected.
-unsafe impl<'a, 'b, B> WorldQuery for EntityRefExcept<'a, 'b, B>
+unsafe impl<B> WorldQuery for EntityRefExcept<'_, '_, B>
 where
     B: Bundle,
 {
@@ -1306,7 +1337,7 @@ where
 }
 
 /// SAFETY: `Self` is the same as `Self::ReadOnly`.
-unsafe impl<'a, 'b, B> QueryData for EntityRefExcept<'a, 'b, B>
+unsafe impl<B> QueryData for EntityRefExcept<'_, '_, B>
 where
     B: Bundle,
 {
@@ -1319,6 +1350,10 @@ where
         item: Self::Item<'wlong, 's>,
     ) -> Self::Item<'wshort, 's> {
         item
+    }
+
+    fn reborrow<'a>(item: &'a mut Self::Item<'_, '_>) -> Self::Item<'a, 'a> {
+        *item
     }
 
     unsafe fn fetch<'w, 's>(
@@ -1348,7 +1383,7 @@ impl<B: Bundle> ArchetypeQueryData for EntityRefExcept<'_, '_, B> {}
 /// SAFETY: `EntityMutExcept` guards access to all components in the bundle `B`
 /// and populates `Access` values so that queries that conflict with this access
 /// are rejected.
-unsafe impl<'a, 'b, B> WorldQuery for EntityMutExcept<'a, 'b, B>
+unsafe impl<B> WorldQuery for EntityMutExcept<'_, '_, B>
 where
     B: Bundle,
 {
@@ -1425,19 +1460,23 @@ where
 
 /// SAFETY: All accesses that `EntityRefExcept` provides are also accesses that
 /// `EntityMutExcept` provides.
-unsafe impl<'a, 'b, B> QueryData for EntityMutExcept<'a, 'b, B>
+unsafe impl<'__w, '__s, B> QueryData for EntityMutExcept<'__w, '__s, B>
 where
     B: Bundle,
 {
     const IS_READ_ONLY: bool = false;
     const IS_ARCHETYPAL: bool = true;
-    type ReadOnly = EntityRefExcept<'a, 'b, B>;
+    type ReadOnly = EntityRefExcept<'__w, '__s, B>;
     type Item<'w, 's> = EntityMutExcept<'w, 's, B>;
 
     fn shrink<'wlong: 'wshort, 'wshort, 's>(
         item: Self::Item<'wlong, 's>,
     ) -> Self::Item<'wshort, 's> {
         item
+    }
+
+    fn reborrow<'a>(item: &'a mut Self::Item<'_, '_>) -> Self::Item<'a, 'a> {
+        item.reborrow()
     }
 
     unsafe fn fetch<'w, 's>(
@@ -1528,6 +1567,10 @@ unsafe impl QueryData for &Archetype {
         item: Self::Item<'wlong, 's>,
     ) -> Self::Item<'wshort, 's> {
         item
+    }
+
+    fn reborrow<'a>(item: &'a mut Self::Item<'_, '_>) -> Self::Item<'a, 'a> {
+        *item
     }
 
     #[inline(always)]
@@ -1687,6 +1730,10 @@ unsafe impl<T: Component> QueryData for &T {
         item: Self::Item<'wlong, 's>,
     ) -> Self::Item<'wshort, 's> {
         item
+    }
+
+    fn reborrow<'a>(item: &'a mut Self::Item<'_, '_>) -> Self::Item<'a, 'a> {
+        *item
     }
 
     #[inline(always)]
@@ -1877,6 +1924,10 @@ unsafe impl<'__w, T: Component> QueryData for Ref<'__w, T> {
         item: Self::Item<'wlong, 's>,
     ) -> Self::Item<'wshort, 's> {
         item
+    }
+
+    fn reborrow<'a>(item: &'a mut Self::Item<'_, '_>) -> Self::Item<'a, 'a> {
+        *item
     }
 
     #[inline(always)]
@@ -2096,6 +2147,10 @@ unsafe impl<'__w, T: Component<Mutability = Mutable>> QueryData for &'__w mut T 
         item
     }
 
+    fn reborrow<'a>(item: &'a mut Self::Item<'_, '_>) -> Self::Item<'a, 'a> {
+        item.reborrow()
+    }
+
     #[inline(always)]
     unsafe fn fetch<'w, 's>(
         _state: &'s Self::State,
@@ -2257,6 +2312,10 @@ unsafe impl<'__w, T: Component<Mutability = Mutable>> QueryData for Mut<'__w, T>
         <&mut T as QueryData>::shrink(item)
     }
 
+    fn reborrow<'a>(item: &'a mut Self::Item<'_, '_>) -> Self::Item<'a, 'a> {
+        item.reborrow()
+    }
+
     #[inline(always)]
     // Forwarded to `&mut T`
     unsafe fn fetch<'w, 's>(
@@ -2404,6 +2463,10 @@ unsafe impl<T: QueryData> QueryData for Option<T> {
         item: Self::Item<'wlong, 's>,
     ) -> Self::Item<'wshort, 's> {
         item.map(T::shrink)
+    }
+
+    fn reborrow<'a>(item: &'a mut Self::Item<'_, '_>) -> Self::Item<'a, 'a> {
+        item.as_mut().map(T::reborrow)
     }
 
     #[inline(always)]
@@ -2592,6 +2655,10 @@ unsafe impl<T: Component> QueryData for Has<T> {
         item
     }
 
+    fn reborrow<'a>(item: &'a mut Self::Item<'_, '_>) -> Self::Item<'a, 'a> {
+        *item
+    }
+
     #[inline(always)]
     unsafe fn fetch<'w, 's>(
         _state: &'s Self::State,
@@ -2656,6 +2723,12 @@ macro_rules! impl_tuple_query_data {
                 ($(
                     $name::shrink($name),
                 )*)
+            }
+
+            fn reborrow<'a>(
+                ($($item,)*): &'a mut Self::Item<'_, '_>,
+            ) -> Self::Item<'a, 'a> {
+                ($($name::reborrow($item),)*)
             }
 
             #[inline]
@@ -2856,6 +2929,12 @@ macro_rules! impl_anytuple_fetch {
                 )*)
             }
 
+            fn reborrow<'a>(
+                ($($item,)*): &'a mut Self::Item<'_, '_>,
+            ) -> Self::Item<'a, 'a> {
+                ($(<Option<$name> as QueryData>::reborrow($item),)*)
+            }
+
             #[inline(always)]
             unsafe fn fetch<'w, 's>(
                 _state: &'s Self::State,
@@ -2999,6 +3078,8 @@ unsafe impl<D: QueryData> QueryData for NopWorldQuery<D> {
     ) -> Self::Item<'wshort, 's> {
     }
 
+    fn reborrow<'a>(_item: &'a mut Self::Item<'_, '_>) -> Self::Item<'a, 'a> {}
+
     #[inline(always)]
     unsafe fn fetch<'w, 's>(
         _state: &'s Self::State,
@@ -3088,6 +3169,8 @@ unsafe impl<T: ?Sized> QueryData for PhantomData<T> {
         _item: Self::Item<'wlong, 's>,
     ) -> Self::Item<'wshort, 's> {
     }
+
+    fn reborrow<'a>(_item: &'a mut Self::Item<'_, '_>) -> Self::Item<'a, 'a> {}
 
     unsafe fn fetch<'w, 's>(
         _state: &'s Self::State,
@@ -3299,6 +3382,8 @@ mod tests {
                 _item: Self::Item<'wlong, 's>,
             ) -> Self::Item<'wshort, 's> {
             }
+
+            fn reborrow<'a>(_item: &'a mut Self::Item<'_, '_>) -> Self::Item<'a, 'a> {}
 
             #[inline(always)]
             unsafe fn fetch<'w, 's>(
