@@ -104,21 +104,22 @@ pub fn mark_dirty_trees(
     mut orphaned: RemovedComponents<ChildOf>,
     mut transforms: Query<&mut TransformTreeChanged>,
     parents: Query<&ChildOf>,
-    mut settings: ResMut<StaticTransformOptimizations>,
+    mut static_optimizations: ResMut<StaticTransformOptimizations>,
 ) {
-    match settings.threshold {
-        0.0 => settings.enabled = false,
-        1.0 => settings.enabled = true,
+    let threshold = static_optimizations.threshold.clamp(0.0, 1.0);
+    match threshold {
+        0.0 => static_optimizations.enabled = false,
+        1.0 => static_optimizations.enabled = true,
         _ => {
-            settings.enabled = true;
+            static_optimizations.enabled = true;
             let n_dyn = changed_transforms.count() as f32;
             let total = transforms.count() as f32;
-            if n_dyn / total > settings.threshold {
-                settings.enabled = false;
+            if n_dyn / total > threshold {
+                static_optimizations.enabled = false;
             }
         }
     }
-    if !settings.enabled {
+    if !static_optimizations.enabled {
         return;
     }
 
