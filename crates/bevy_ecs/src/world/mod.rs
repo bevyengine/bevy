@@ -58,7 +58,7 @@ use crate::{
     query::{DebugCheckedUnwrap, QueryData, QueryFilter, QueryState},
     relationship::RelationshipHookMode,
     resource::Resource,
-    schedule::{Schedule, ScheduleLabel, Schedules},
+    schedule::{IgnoredAmbiguities, Schedule, ScheduleLabel, Schedules},
     storage::{ResourceData, Storages},
     system::Commands,
     world::{
@@ -3680,16 +3680,14 @@ impl World {
 
     /// Ignore system order ambiguities caused by conflicts on [`Component`]s of type `T`.
     pub fn allow_ambiguous_component<T: Component>(&mut self) {
-        let mut schedules = self.remove_resource::<Schedules>().unwrap_or_default();
-        schedules.allow_ambiguous_component::<T>(self);
-        self.insert_resource(schedules);
+        let id = self.register_component::<T>();
+        self.get_resource_or_init::<IgnoredAmbiguities>().insert(id);
     }
 
     /// Ignore system order ambiguities caused by conflicts on [`Resource`]s of type `T`.
     pub fn allow_ambiguous_resource<T: Resource>(&mut self) {
-        let mut schedules = self.remove_resource::<Schedules>().unwrap_or_default();
-        schedules.allow_ambiguous_resource::<T>(self);
-        self.insert_resource(schedules);
+        let id = self.components_registrator().register_resource::<T>();
+        self.get_resource_or_init::<IgnoredAmbiguities>().insert(id);
     }
 }
 

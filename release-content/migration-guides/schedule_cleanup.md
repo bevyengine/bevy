@@ -22,3 +22,8 @@ pull_requests: [21608, 21817]
 - `ScheduleBuildPass::collapse_set` now takes `&HashSet<SystemKey>` instead of a slice, to reduce redundant allocations.
 - `simple_cycles_in_component` has been changed from a free function into a method on `DiGraph`.
 - `DiGraph::try_into`/`UnGraph::try_into` was renamed to `DiGraph::try_convert`/`UnGraph::try_convert` to prevent overlap with the `TryInto` trait, and now makes use of `TryInto` instead of `TryFrom` for conversions.
+- Removed `Schedules::ignored_scheduling_ambiguities`: access the same info via the new `IgnoredAmbiguities` resource instead.
+- Deprecated `Schedules::allow_ambiguous_component` and `Schedules::allow_ambiguous_resource`: use the equivalent functions on `World` instead.
+- Removed `Schedules::iter_ignored_ambiguities`: use `IgnoredAmbiguities::iter` via Deref instead.
+- Removed `Schedules::print_ignored_ambiguities`: print the string returned by `IgnoredAmbiguities::to_string` yourself.
+- Removed the `ignored_ambiguities` parameter from `Schedule::build_schedule`, it is now fetched internally from the new `IgnoredAmbiguities` resource.
