@@ -26,7 +26,7 @@ use cluster::{
 };
 mod ambient_light;
 pub use ambient_light::{AmbientLight, GlobalAmbientLight};
-use bevy_camera::visibility::WasVisibleNowHidden;
+use bevy_camera::visibility::SetViewVisibility;
 
 mod probe;
 pub use probe::{
@@ -453,15 +453,11 @@ pub fn check_dir_light_mesh_visibility(
     // TODO: use resource to avoid unnecessary memory alloc
     let mut defer_queue = core::mem::take(defer_visible_entities_queue.deref_mut());
     commands.queue(move |world: &mut World| {
-        let mut query = world.query::<(&mut ViewVisibility, &mut WasVisibleNowHidden)>();
+        let mut query = world.query::<&mut ViewVisibility>();
         for entities in defer_queue.iter_mut() {
             let mut iter = query.iter_many_mut(world, entities.iter());
-            while let Some((mut view_visibility, mut was_visible_now_hidden)) = iter.fetch_next() {
-                if !**view_visibility {
-                    view_visibility.set();
-                }
-                // Unset any entities that were discovered to be visible
-                **was_visible_now_hidden = false;
+            while let Some(mut view_visibility) = iter.fetch_next() {
+                view_visibility.set_visible();
             }
         }
     });
@@ -488,7 +484,6 @@ pub fn check_point_light_mesh_visibility(
             Entity,
             &InheritedVisibility,
             &mut ViewVisibility,
-            &mut WasVisibleNowHidden,
             Option<&RenderLayers>,
             Option<&Aabb>,
             Option<&GlobalTransform>,
@@ -546,7 +541,6 @@ pub fn check_point_light_mesh_visibility(
                         entity,
                         inherited_visibility,
                         mut view_visibility,
-                        mut was_visible_now_hidden,
                         maybe_entity_mask,
                         maybe_aabb,
                         maybe_transform,
@@ -585,18 +579,12 @@ pub fn check_point_light_mesh_visibility(
                                 if has_no_frustum_culling
                                     || frustum.intersects_obb(aabb, &model_to_world, true, true)
                                 {
-                                    if !**view_visibility {
-                                        view_visibility.set();
-                                    }
-                                    **was_visible_now_hidden = false;
+                                    view_visibility.set_visible();
                                     visible_entities.push(entity);
                                 }
                             }
                         } else {
-                            if !**view_visibility {
-                                view_visibility.set();
-                            }
-                            **was_visible_now_hidden = false;
+                            view_visibility.set_visible();
                             for visible_entities in cubemap_visible_entities_local_queue.iter_mut()
                             {
                                 visible_entities.push(entity);
@@ -642,7 +630,6 @@ pub fn check_point_light_mesh_visibility(
                         entity,
                         inherited_visibility,
                         mut view_visibility,
-                        mut was_visible_now_hidden,
                         maybe_entity_mask,
                         maybe_aabb,
                         maybe_transform,
@@ -678,17 +665,11 @@ pub fn check_point_light_mesh_visibility(
                             if has_no_frustum_culling
                                 || frustum.intersects_obb(aabb, &model_to_world, true, true)
                             {
-                                if !**view_visibility {
-                                    view_visibility.set();
-                                }
-                                **was_visible_now_hidden = false;
+                                view_visibility.set_visible();
                                 spot_visible_entities_local_queue.push(entity);
                             }
                         } else {
-                            if !**view_visibility {
-                                view_visibility.set();
-                            }
-                            **was_visible_now_hidden = false;
+                            view_visibility.set_visible();
                             spot_visible_entities_local_queue.push(entity);
                         }
                     },
