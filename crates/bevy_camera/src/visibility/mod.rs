@@ -163,13 +163,15 @@ impl InheritedVisibility {
 #[component(clone_behavior=Ignore)]
 pub struct VisibilityClass(pub SmallVec<[TypeId; 1]>);
 
-/// Algorithmically computed indication of whether an entity is visible and should be extracted for rendering.
+/// Algorithmically computed indication of whether an entity is visible and should be extracted for
+/// rendering.
 ///
-/// Each frame, this will be reset to `false` during [`VisibilityPropagate`] systems in [`PostUpdate`].
-/// Later in the frame, systems in [`CheckVisibility`] will mark any visible entities using [`ViewVisibility::set`].
-/// Because of this, values of this type will be marked as changed every frame, even when they do not change.
+/// Each frame, this will be reset to `false` during [`VisibilityPropagate`] systems in
+/// [`PostUpdate`]. Later in the frame, systems in [`CheckVisibility`] will mark any visible
+/// entities using [`ViewVisibility::set`]. Because of this, values of this type will be marked as
+/// changed every frame, even when they do not change.
 ///
-/// If you wish to add custom visibility system that sets this value, make sure you add it to the
+/// If you wish to add a custom visibility system that sets this value, be sure to add it to the
 /// [`CheckVisibility`] set.
 ///
 /// [`VisibilityPropagate`]: VisibilitySystems::VisibilityPropagate
@@ -184,17 +186,13 @@ pub struct ViewVisibility(
     ///
     /// This is needed because an entity might be seen by many views (cameras, lights that cast
     /// shadows, etc.), so it is easy to know if an entity is visible to something, but hard to know
-    /// if it is *globally* non-visible to any view. To solve this, we set this component to `true`
-    /// every frame that the entity's `ViewVisibility` was also `true` the previous frame. Then,
-    /// during the [`VisibilitySystems::CheckVisibility`] system set, it is the responsibility of
-    /// those systems to mark this component `false` if the entity is currently visible. Once this
-    /// is done, the only entities with this entity set to `true` are entities that were visible
-    /// last frame, but are not visible this frame. Finally, we can use this to set the
-    /// `ViewVisibility` of these entities to hidden, ensuring that we have only triggered change
-    /// detection where necessary.
+    /// if it is *globally* non-visible to any view. To solve this, we track the visibility from the
+    /// previous frame. Then, during the [`VisibilitySystems::CheckVisibility`] system set, systems
+    /// call [`SetViewVisibility::set_visible`] to mark entities as visible.
     ///
-    /// Consider if we did the simplest approach of setting all entities to hidden, then marking
-    /// visible entities. Every single [`ViewVisibility`] would trigger change detection.
+    /// Finally, we can look for entities that were previously visible but are no longer visible
+    /// and set their current state to hidden, ensuring that we have only triggered change detection
+    /// when necessary.
     u8,
 );
 
