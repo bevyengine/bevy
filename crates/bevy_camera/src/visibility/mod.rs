@@ -163,24 +163,24 @@ impl InheritedVisibility {
 #[component(clone_behavior=Ignore)]
 pub struct VisibilityClass(pub SmallVec<[TypeId; 1]>);
 
-/// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering.
+/// Algorithmically computed indication of whether an entity is visible and should be extracted for rendering.
 ///
 /// Each frame, this will be reset to `false` during [`VisibilityPropagate`] systems in [`PostUpdate`].
 /// Later in the frame, systems in [`CheckVisibility`] will mark any visible entities using [`ViewVisibility::set`].
 /// Because of this, values of this type will be marked as changed every frame, even when they do not change.
 ///
 /// If you wish to add custom visibility system that sets this value, make sure you add it to the
-/// [`CheckVisibility`] set, and be sure to set [`WasVisibleNowHidden`] to false when `set`ting the
-/// [`ViewVisibility`]
+/// [`CheckVisibility`] set.
 ///
 /// [`VisibilityPropagate`]: VisibilitySystems::VisibilityPropagate
 /// [`CheckVisibility`]: VisibilitySystems::CheckVisibility
 #[derive(Component, Debug, Default, Clone, Copy, Reflect, PartialEq, Eq)]
 #[reflect(Component, Default, Debug, PartialEq, Clone)]
-pub struct ViewVisibility {
-    current: bool,
-    /// Used as a scratch space to ensure that [`ViewVisibility`] is only mutated (triggering change
-    /// detection) when necessary.
+pub struct ViewVisibility(
+    /// Bit packed booleans to track current and previous view visibility state.
+    ///
+    /// Previous visibility is used as a scratch space to ensure that [`ViewVisibility`] is only
+    /// mutated (triggering change detection) when necessary.
     ///
     /// This is needed because an entity might be seen by many views (cameras, lights that cast
     /// shadows, etc.), so it is easy to know if an entity is visible to something, but hard to know
@@ -195,25 +195,40 @@ pub struct ViewVisibility {
     ///
     /// Consider if we did the simplest approach of setting all entities to hidden, then marking
     /// visible entities. Every single [`ViewVisibility`] would trigger change detection.
-    previous: bool,
-}
+    u8,
+);
 
 impl ViewVisibility {
     /// An entity that cannot be seen from any views.
-    pub const HIDDEN: Self = Self {
-        current: false,
-        previous: false,
-    };
+    pub const HIDDEN: Self = Self(0);
 
     /// Returns `true` if the entity is visible in any view.
     /// Otherwise, returns `false`.
     #[inline]
     pub fn get(self) -> bool {
-        self.current
+        self.current()
     }
 
+    #[inline]
     fn was_visible_now_hidden(self) -> bool {
-        self.previous && !self.current
+        // The first bit is false (current), and the second bit is true (previous).
+        self.0 == 0b10
+    }
+
+    #[inline]
+    fn current(self) -> bool {
+        self.0 & 1 != 0
+    }
+
+    #[inline]
+    fn previous(self) -> bool {
+        self.0 & 2 != 0
+    }
+
+    fn update(&mut self) {
+        // Copy the first bit to the second bit position
+        // Clear the second bit, then set it based on the first bit
+        self.0 = (self.0 & !2) | ((self.0 & 1) << 1);
     }
 }
 
@@ -227,15 +242,15 @@ pub trait SetViewVisibility {
     /// For normal user-defined entity visibility, see [`Visibility`].
     ///
     /// [`CheckVisibility`]: VisibilitySystems::CheckVisibility
-    #[inline]
     fn set_visible(&mut self);
 }
 
 impl<'a> SetViewVisibility for Mut<'a, ViewVisibility> {
     #[inline]
     fn set_visible(&mut self) {
-        if !self.as_ref().current {
-            self.current = true;
+        if !self.as_ref().current() {
+            // Set the first bit (current vis) to true
+            self.0 |= 1;
         }
     }
 }
@@ -558,8 +573,8 @@ fn propagate_recursive(
 /// Track entities that were visible last frame, used to granularly update [`ViewVisibility`] this
 /// frame without spurious `Change` detecation.
 fn reset_view_visibility(mut query: Query<&mut ViewVisibility>) {
-    query.par_iter_mut().for_each(|(mut view_visibility)| {
-        view_visibility.bypass_change_detection().previous = view_visibility.current;
+    query.par_iter_mut().for_each(|mut view_visibility| {
+        view_visibility.bypass_change_detection().update();
     });
 }
 
