@@ -206,7 +206,7 @@ impl ViewVisibility {
     /// Otherwise, returns `false`.
     #[inline]
     pub fn get(self) -> bool {
-        self.current()
+        self.0 & 1 != 0
     }
 
     #[inline]
@@ -216,17 +216,8 @@ impl ViewVisibility {
     }
 
     #[inline]
-    fn current(self) -> bool {
-        self.0 & 1 != 0
-    }
-
-    #[inline]
-    fn previous(self) -> bool {
-        self.0 & 2 != 0
-    }
-
     fn update(&mut self) {
-        // Copy the first bit to the second bit position
+        // Copy the first bit (current) to the second bit position (previous)
         // Clear the second bit, then set it based on the first bit
         self.0 = (self.0 & !2) | ((self.0 & 1) << 1);
     }
@@ -248,7 +239,7 @@ pub trait SetViewVisibility {
 impl<'a> SetViewVisibility for Mut<'a, ViewVisibility> {
     #[inline]
     fn set_visible(&mut self) {
-        if !self.as_ref().current() {
+        if !self.as_ref().get() {
             // Set the first bit (current vis) to true
             self.0 |= 1;
         }
