@@ -57,7 +57,7 @@ fn setup(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>) {
         PrimitiveTopology::TriangleList,
         RenderAssetUsages::default(),
     )
-    .with_inserted_indices(Indices::U32(vec![0, 1, 2]))
+    .with_inserted_indices(Indices::U16(vec![0, 1, 2]))
     .with_inserted_attribute(
         Mesh::ATTRIBUTE_POSITION,
         vec![
