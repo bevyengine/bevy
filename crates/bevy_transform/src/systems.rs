@@ -49,8 +49,8 @@ pub struct DirtyTransformTreeSettings {
     /// If the percentage of moving objects exceeds this value, skip dirty tree marking.
     /// This is useful if your scene is mostly dynamic and static scene tracking is wasting CPU.
     ///
-    /// Setting this to `0.0` will disable static scene tracking unconditionally. Setting this to
-    /// `1.0` will always track static scenes.
+    /// - Setting this to `0.0` will disable static scene tracking.
+    /// - Setting this to `1.0` will always track static scenes.
     pub threshold: f32,
     enabled: bool,
 }
@@ -58,6 +58,8 @@ pub struct DirtyTransformTreeSettings {
 impl Default for DirtyTransformTreeSettings {
     fn default() -> Self {
         Self {
+            // Scenes with more than 30% moving objects are considered dynamic enough to skip static
+            // optimizations.
             threshold: 0.3,
             enabled: true,
         }
@@ -77,18 +79,19 @@ pub fn mark_dirty_trees(
     parents: Query<&ChildOf>,
     mut settings: ResMut<DirtyTransformTreeSettings>,
 ) {
-    settings.enabled = true;
-
-    let g = info_span!("count_things").entered();
-    let n_dyn = changed_transforms.count() as f32;
-    if n_dyn > 128.0 {
-        let total = transforms.count() as f32;
-        if n_dyn / total > settings.threshold {
-            settings.enabled = false;
-            return;
+    match settings.threshold {
+        0.0 => settings.enabled = false,
+        1.0 => settings.enabled = true,
+        _ => {
+            settings.enabled = true;
+            let n_dyn = changed_transforms.count() as f32;
+            let total = transforms.count() as f32;
+            if n_dyn / total > settings.threshold {
+                settings.enabled = false;
+            }
         }
     }
-    drop(g);
+    if !settings.enabled { return;}
 
     for entity in changed_transforms.iter().chain(orphaned.read()) {
         let mut next = entity;
