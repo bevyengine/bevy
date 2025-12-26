@@ -2392,6 +2392,11 @@ pub struct CalculatedClip {
 #[derive(Component)]
 pub struct OverrideClip;
 
+/// UI node entities with this component will ignore parent node clipping rect,
+/// instead the node will inherit the grandparent node clipping rect.
+#[derive(Component)]
+pub struct IgnoreParentClip;
+
 #[expect(
     rustdoc::redundant_explicit_links,
     reason = "To go around the `<code>` limitations, we put the link twice so we're \

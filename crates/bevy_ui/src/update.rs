@@ -4,7 +4,7 @@ use crate::{
     experimental::{UiChildren, UiRootNodes},
     ui_transform::UiGlobalTransform,
     CalculatedClip, ComputedUiRenderTargetInfo, ComputedUiTargetCamera, DefaultUiCamera, Display,
-    Node, OverflowAxis, OverrideClip, UiScale, UiTargetCamera,
+    IgnoreParentClip, Node, OverflowAxis, OverrideClip, UiScale, UiTargetCamera,
 };
 
 use super::ComputedNode;
@@ -28,6 +28,7 @@ pub fn update_clipping_system(
         &UiGlobalTransform,
         Option<&mut CalculatedClip>,
         Has<OverrideClip>,
+        Has<IgnoreParentClip>,
     )>,
     ui_children: UiChildren,
 ) {
@@ -37,6 +38,7 @@ pub fn update_clipping_system(
             &ui_children,
             &mut node_query,
             root_node,
+            None,
             None,
         );
     }
@@ -51,15 +53,27 @@ fn update_clipping(
         &UiGlobalTransform,
         Option<&mut CalculatedClip>,
         Has<OverrideClip>,
+        Has<IgnoreParentClip>,
     )>,
     entity: Entity,
+    maybe_grandparent_inherited_clip: Option<Rect>,
     mut maybe_inherited_clip: Option<Rect>,
 ) {
-    let Ok((node, computed_node, transform, maybe_calculated_clip, has_override_clip)) =
-        node_query.get_mut(entity)
+    let Ok((
+        node,
+        computed_node,
+        transform,
+        maybe_calculated_clip,
+        has_override_clip,
+        has_ignore_parent_clip,
+    )) = node_query.get_mut(entity)
     else {
         return;
     };
+
+    if has_ignore_parent_clip {
+        maybe_inherited_clip = maybe_grandparent_inherited_clip;
+    }
 
     // If the UI node entity has an `OverrideClip` component, discard any inherited clip rect
     if has_override_clip {
@@ -127,7 +141,14 @@ fn update_clipping(
     };
 
     for child in ui_children.iter_ui_children(entity) {
-        update_clipping(commands, ui_children, node_query, child, children_clip);
+        update_clipping(
+            commands,
+            ui_children,
+            node_query,
+            child,
+            maybe_inherited_clip,
+            children_clip,
+        );
     }
 }
 
