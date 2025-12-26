@@ -26,7 +26,8 @@ fn setup(mut commands: Commands) {
         Hold 'Up' or 'Down' to change the line width of round gizmos\n\
         Press '1' / '2' to toggle the visibility of straight / round gizmos\n\
         Press 'U' / 'I' to cycle through line styles\n\
-        Press 'J' / 'K' to cycle through line joins",
+        Press 'J' / 'K' to cycle through line joins\n\
+        Press 'Spacebar' to toggle pause",
         ),
         Node {
             position_type: PositionType::Absolute,
@@ -125,15 +126,16 @@ fn draw_example_collection(
 fn update_config(
     mut config_store: ResMut<GizmoConfigStore>,
     keyboard: Res<ButtonInput<KeyCode>>,
-    time: Res<Time>,
+    real_time: Res<Time<Real>>,
+    mut virtual_time: ResMut<Time<Virtual>>,
 ) {
     let (config, _) = config_store.config_mut::<DefaultGizmoConfigGroup>();
     if keyboard.pressed(KeyCode::ArrowRight) {
-        config.line.width += 5. * time.delta_secs();
+        config.line.width += 5. * real_time.delta_secs();
         config.line.width = config.line.width.clamp(0., 50.);
     }
     if keyboard.pressed(KeyCode::ArrowLeft) {
-        config.line.width -= 5. * time.delta_secs();
+        config.line.width -= 5. * real_time.delta_secs();
         config.line.width = config.line.width.clamp(0., 50.);
     }
     if keyboard.just_pressed(KeyCode::Digit1) {
@@ -179,11 +181,11 @@ fn update_config(
 
     let (my_config, _) = config_store.config_mut::<MyRoundGizmos>();
     if keyboard.pressed(KeyCode::ArrowUp) {
-        my_config.line.width += 5. * time.delta_secs();
+        my_config.line.width += 5. * real_time.delta_secs();
         my_config.line.width = my_config.line.width.clamp(0., 50.);
     }
     if keyboard.pressed(KeyCode::ArrowDown) {
-        my_config.line.width -= 5. * time.delta_secs();
+        my_config.line.width -= 5. * real_time.delta_secs();
         my_config.line.width = my_config.line.width.clamp(0., 50.);
     }
     if keyboard.just_pressed(KeyCode::Digit2) {
@@ -206,5 +208,12 @@ fn update_config(
             GizmoLineJoint::Round(_) => GizmoLineJoint::None,
             GizmoLineJoint::None => GizmoLineJoint::Bevel,
         };
+    }
+    if keyboard.just_pressed(KeyCode::Space) {
+        if virtual_time.is_paused() {
+            virtual_time.unpause();
+        } else {
+            virtual_time.pause();
+        }
     }
 }
