@@ -433,6 +433,12 @@ impl<A: Asset> Assets<A> {
         }
     }
 
+    #[inline]
+    /// Retrieves many references to the [`Asset`] with the given `id`s, if they exists.
+    pub fn get_many<const N: usize>(&self, ids: [AssetId<A>; N]) -> [Option<&A>; N] {
+        ids.map(|id| self.get(id))
+    }
+
     /// Retrieves a mutable reference to the [`Asset`] with the given `id`, if it exists.
     /// Note that this supports anything that implements `Into<AssetId<A>>`, which includes [`Handle`] and [`AssetId`].
     #[inline]
@@ -446,6 +452,36 @@ impl<A: Asset> Assets<A> {
             self.queued_events.push(AssetEvent::Modified { id });
         }
         result
+    }
+
+    #[inline]
+    #[expect(unsafe_code, reason = "Required to get several mutable references")]
+    /// Retrieves may mutable references to the [`Asset`]s with the given `id`s, if they exists.
+    /// Will return `None` if any `id`s alias.
+    pub fn get_many_mut<const N: usize>(
+        &mut self,
+        ids: [AssetId<A>; N],
+    ) -> Option<[Option<&mut A>; N]> {
+        use core::mem::MaybeUninit;
+
+        // SAFETY: Verify that all indices are unique
+        for i in 0..N {
+            for j in 0..i {
+                if ids[i] == ids[j] {
+                    return None;
+                }
+            }
+        }
+
+        let mut values = [(); N].map(|_| MaybeUninit::uninit());
+        for (value, asset) in core::iter::zip(&mut values, ids) {
+            let asset = self.get_mut(asset).map(|asset| core::ptr::from_mut(asset));
+            *value = MaybeUninit::new(asset);
+        }
+
+        // SAFETY: Each value has been fully initialized.
+        let values = values.map(|x| unsafe { x.assume_init().map(|raw| &mut *raw) });
+        Some(values)
     }
 
     /// Retrieves a mutable reference to the [`Asset`] with the given `id`, if it exists.
@@ -673,6 +709,8 @@ pub enum InvalidGenerationError {
 
 #[cfg(test)]
 mod test {
+    use crate::prelude::*;
+    use crate::tests::{SubText, TestAsset};
     use crate::AssetIndex;
 
     #[test]
@@ -683,5 +721,29 @@ mod test {
         };
         let roundtripped = AssetIndex::from_bits(asset_index.to_bits());
         assert_eq!(asset_index, roundtripped);
+    }
+
+    #[test]
+    fn get_many_mut_no_aliases() {
+        let mut assets: Assets<SubText> = Assets::default();
+
+        let one = "One";
+        let two = "Two";
+
+        let v = assets.add(SubText { text: one.into() }).id();
+        let w = assets.add(SubText { text: two.into() }).id();
+
+        let [x, y] = assets.get_many_mut([v, w]).unwrap();
+        assert_eq!(x.unwrap().text, one);
+        assert_eq!(y.unwrap().text, two);
+    }
+
+    #[test]
+    fn get_many_mut_aliases() {
+        let mut assets: Assets<TestAsset> = Assets::default();
+
+        let id = assets.add(TestAsset).id();
+        let result = assets.get_many_mut([id, id]);
+        assert!(result.is_none());
     }
 }
