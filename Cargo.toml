@@ -183,7 +183,6 @@ default_app = [
   "async_executor",
   "bevy_asset",
   "bevy_input_focus",
-  "bevy_log",
   "bevy_state",
   "bevy_window",
   "custom_cursor",
@@ -391,9 +390,6 @@ pan_camera = ["bevy_internal/pan_camera"]
 
 # Enable the Bevy Remote Protocol
 bevy_remote = ["bevy_internal/bevy_remote"]
-
-# Enable integration with `tracing` and `log`
-bevy_log = ["bevy_internal/bevy_log"]
 
 # Enable input focus subsystem
 bevy_input_focus = ["bevy_internal/bevy_input_focus"]
@@ -1737,7 +1733,6 @@ wasm = true
 name = "headless"
 path = "examples/app/headless.rs"
 doc-scrape-examples = true
-required-features = ["bevy_log"]
 
 [package.metadata.example.headless]
 name = "Headless"

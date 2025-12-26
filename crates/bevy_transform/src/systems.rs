@@ -332,7 +332,6 @@ mod parallel {
     /// children to the queue once it has propagated their [`GlobalTransform`].
     #[inline]
     fn propagation_worker(queue: &WorkQueue, nodes: &NodeQuery) {
-        #[cfg(feature = "std")]
         let _span = bevy_log::info_span!("transform propagation worker").entered();
 
         let mut outbox = queue.local_queue.borrow_local_mut();

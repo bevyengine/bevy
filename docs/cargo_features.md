@@ -83,7 +83,6 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 |bevy_image|Load and access image data. Usually added by an image format|
 |bevy_input_focus|Enable input focus subsystem|
 |bevy_light|Provides light types such as point lights, directional lights, spotlights.|
-|bevy_log|Enable integration with `tracing` and `log`|
 |bevy_mesh|Provides a mesh format and some primitive meshing routines.|
 |bevy_mikktspace|Provides vertex tangent generation for use with bevy_mesh.|
 |bevy_pbr|Adds PBR rendering|

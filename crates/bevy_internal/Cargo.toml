@@ -379,6 +379,7 @@ std = [
   "bevy_ecs/std",
   "bevy_input/std",
   "bevy_input_focus?/std",
+  "bevy_log/std",
   "bevy_math/std",
   "bevy_platform/std",
   "bevy_reflect/std",
@@ -395,6 +396,7 @@ critical-section = [
   "bevy_app/critical-section",
   "bevy_diagnostic/critical-section",
   "bevy_ecs/critical-section",
+  "bevy_log/critical-section",
   "bevy_input/critical-section",
   "bevy_input_focus?/critical-section",
   "bevy_platform/critical-section",
@@ -424,7 +426,7 @@ async_executor = [
 
 # Enables use of browser APIs.
 # Note this is currently only applicable on `wasm32` architectures.
-web = ["bevy_app/web", "bevy_platform/web", "bevy_reflect/web"]
+web = ["bevy_app/web", "bevy_log/web", "bevy_platform/web", "bevy_reflect/web"]
 
 # Input sources.
 mouse = ["bevy_input/mouse", "bevy_input_focus?/mouse"]
@@ -452,6 +454,7 @@ bevy_ecs = { path = "../bevy_ecs", version = "0.18.0-dev", default-features = fa
 bevy_input = { path = "../bevy_input", version = "0.18.0-dev", default-features = false, features = [
   "bevy_reflect",
 ] }
+bevy_log = { path = "../bevy_log", version = "0.18.0-dev", default-features = false }
 bevy_math = { path = "../bevy_math", version = "0.18.0-dev", default-features = false, features = [
   "bevy_reflect",
   "nostd-libm",
@@ -472,9 +475,6 @@ bevy_transform = { path = "../bevy_transform", version = "0.18.0-dev", default-f
 ] }
 bevy_utils = { path = "../bevy_utils", version = "0.18.0-dev", default-features = false }
 bevy_tasks = { path = "../bevy_tasks", version = "0.18.0-dev", default-features = false }
-
-# bevy (std required)
-bevy_log = { path = "../bevy_log", version = "0.18.0-dev", optional = true }
 
 # bevy (optional)
 bevy_a11y = { path = "../bevy_a11y", optional = true, version = "0.18.0-dev", features = [
