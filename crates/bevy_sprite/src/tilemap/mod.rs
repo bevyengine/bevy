@@ -1,17 +1,21 @@
 use bevy_app::{App, Plugin};
-use bevy_ecs::{component::Component, entity::Entity, name::Name, reflect::ReflectComponent};
+use bevy_ecs::{
+    component::Component, entity::Entity, name::Name, query::QueryData, reflect::ReflectComponent,
+};
 use bevy_math::{IVec2, UVec2};
 use bevy_platform::collections::HashMap;
 use bevy_reflect::Reflect;
 use bevy_transform::components::Transform;
 
 mod commands;
-mod storage;
 mod entity_tiles;
+mod query;
+mod storage;
 
 pub use commands::*;
-pub use storage::*;
 pub use entity_tiles::*;
+pub use query::*;
+pub use storage::*;
 
 /// Plugin that handles the initialization and updating of tilemap chunks.
 /// Adds systems for processing newly added tilemap chunks.
@@ -93,4 +97,6 @@ impl Tilemap {
     }
 }
 
-pub trait TileData: Send + Sync + 'static {}
+pub trait TileData: Send + Sync + 'static {
+    type Storage: QueryData;
+}
