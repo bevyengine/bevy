@@ -1,6 +1,7 @@
 use alloc::{
     boxed::Box,
     collections::BTreeMap,
+    format,
     string::{String, ToString},
     sync::Arc,
     vec,
@@ -30,7 +31,8 @@ use crate::{
     },
     processor::{
         AssetProcessor, GetProcessorError, LoadTransformAndSave, LogEntry, Process, ProcessContext,
-        ProcessError, ProcessorState, ProcessorTransactionLog, ProcessorTransactionLogFactory,
+        ProcessError, ProcessStatus, ProcessorState, ProcessorTransactionLog,
+        ProcessorTransactionLogFactory, WriterContext,
     },
     saver::AssetSaver,
     tests::{
@@ -38,22 +40,21 @@ use crate::{
         CoolTextRon, SubText,
     },
     transformer::{AssetTransformer, TransformedAsset},
-    Asset, AssetApp, AssetLoader, AssetMode, AssetPath, AssetPlugin, LoadContext,
-    WriteDefaultMetaError,
+    Asset, AssetApp, AssetLoader, AssetMode, AssetPath, AssetPlugin, AssetServer, Assets,
+    LoadContext, WriteDefaultMetaError,
 };
 
 #[derive(TypePath)]
 struct MyProcessor<T>(PhantomData<fn() -> T>);
 
 impl<T: TypePath + 'static> Process for MyProcessor<T> {
-    type OutputLoader = ();
     type Settings = ();
 
     async fn process(
         &self,
         _context: &mut ProcessContext<'_>,
         _settings: &Self::Settings,
-        _writer: &mut crate::io::Writer,
+        _writer: WriterContext<'_>,
     ) -> Result<(), ProcessError> {
         Ok(())
     }
@@ -732,6 +733,7 @@ fn asset_processor_transforms_asset_with_short_path_meta() {
 #[derive(Asset, TypePath, Serialize, Deserialize)]
 struct FakeGltf {
     gltf_nodes: BTreeMap<String, String>,
+    gltf_meshes: Vec<String>,
 }
 
 #[derive(TypePath)]
@@ -903,7 +905,8 @@ fn asset_processor_loading_can_read_processed_assets() {
     gltf_nodes: {
         "name": "thing",
         "position": "123",
-    }
+    },
+    gltf_meshes: [],
 )"#,
     );
     let bsn_path = Path::new("def.bsn");
@@ -1061,7 +1064,8 @@ fn asset_processor_loading_can_read_source_assets() {
     gltf_nodes: {
         "name": "thing",
         "position": "123",
-    }
+    },
+    gltf_meshes: [],
 )"#,
     );
     let gltf_path_2 = Path::new("def.gltf");
@@ -1071,7 +1075,8 @@ fn asset_processor_loading_can_read_source_assets() {
     gltf_nodes: {
         "velocity": "456",
         "color": "red",
-    }
+    },
+    gltf_meshes: [],
 )"#,
     );
 
@@ -1547,6 +1552,8 @@ fn only_reprocesses_wrong_hash_on_startup() {
     let source_changed_asset = Path::new("source_changed.cool.ron");
     let dep_unchanged_asset = Path::new("dep_unchanged.cool.ron");
     let dep_changed_asset = Path::new("dep_changed.cool.ron");
+    let multi_unchanged_asset = Path::new("multi_unchanged.gltf");
+    let multi_changed_asset = Path::new("multi_changed.gltf");
     let default_source_dir;
     let default_processed_dir;
 
@@ -1565,21 +1572,40 @@ fn only_reprocesses_wrong_hash_on_startup() {
     }
 
     #[derive(TypePath, Clone)]
-    struct Count<T>(Arc<Mutex<u32>>, T);
+    struct Count<P>(Arc<Mutex<u32>>, P);
 
-    impl<A: Asset, T: MutateAsset<A>> MutateAsset<A> for Count<T> {
-        fn mutate(&self, asset: &mut A) {
+    impl<P: Process> Process for Count<P> {
+        type Settings = P::Settings;
+
+        async fn process(
+            &self,
+            context: &mut ProcessContext<'_>,
+            settings: &Self::Settings,
+            writer_context: WriterContext<'_>,
+        ) -> Result<(), ProcessError> {
             *self.0.lock().unwrap_or_else(PoisonError::into_inner) += 1;
-            self.1.mutate(asset);
+            self.1.process(context, settings, writer_context).await
         }
     }
 
-    let transformer = Count(Arc::new(Mutex::new(0)), MergeEmbeddedAndAddText);
+    let counter = Arc::new(Mutex::new(0));
     type CoolTextProcessor = LoadTransformAndSave<
         CoolTextLoader,
-        RootAssetTransformer<Count<MergeEmbeddedAndAddText>, CoolText>,
+        RootAssetTransformer<MergeEmbeddedAndAddText, CoolText>,
         CoolTextSaver,
     >;
+
+    /// Assert that the `unsplit_path` gets split with `subpath` to contain a [`FakeGltf`] with just
+    /// one mesh.
+    fn assert_split_gltf(dir: &Dir, unsplit_path: &Path, subpath: &str, data: &str) {
+        assert_eq!(
+            read_asset_as_string(dir, &unsplit_path.join(subpath)),
+            serialize_gltf_to_string(&FakeGltf {
+                gltf_nodes: Default::default(),
+                gltf_meshes: vec![data.into()]
+            })
+        );
+    }
 
     // Create a scope so that the app is completely gone afterwards (and we can see what happens
     // after reinitializing).
@@ -1595,12 +1621,19 @@ fn only_reprocesses_wrong_hash_on_startup() {
 
         app.init_asset::<CoolText>()
             .init_asset::<SubText>()
+            .init_asset::<FakeGltf>()
             .register_asset_loader(CoolTextLoader)
-            .register_asset_processor(CoolTextProcessor::new(
-                RootAssetTransformer::new(transformer.clone()),
-                CoolTextSaver,
+            .register_asset_processor(Count(
+                counter.clone(),
+                CoolTextProcessor::new(
+                    RootAssetTransformer::new(MergeEmbeddedAndAddText),
+                    CoolTextSaver,
+                ),
             ))
-            .set_default_asset_processor::<CoolTextProcessor>("cool.ron");
+            .set_default_asset_processor::<Count<CoolTextProcessor>>("cool.ron")
+            .register_asset_loader(FakeGltfLoader)
+            .register_asset_processor(Count(counter.clone(), FakeGltfSplitProcessor))
+            .set_default_asset_processor::<Count<FakeGltfSplitProcessor>>("gltf");
 
         let guard = source_gate.write_blocking();
 
@@ -1628,6 +1661,21 @@ fn only_reprocesses_wrong_hash_on_startup() {
             &cool_text_with_embedded("dep_changed", source_changed_asset),
         );
 
+        default_source_dir.insert_asset_text(
+            multi_unchanged_asset,
+            &serialize_gltf_to_string(&FakeGltf {
+                gltf_nodes: Default::default(),
+                gltf_meshes: vec!["a1".into(), "a2".into(), "a3".into()],
+            }),
+        );
+        default_source_dir.insert_asset_text(
+            multi_changed_asset,
+            &serialize_gltf_to_string(&FakeGltf {
+                gltf_nodes: Default::default(),
+                gltf_meshes: vec!["b1".into(), "b2".into()],
+            }),
+        );
+
         run_app_until_finished_processing(&mut app, guard);
 
         assert_eq!(
@@ -1646,12 +1694,44 @@ fn only_reprocesses_wrong_hash_on_startup() {
             read_asset_as_string(&default_processed_dir, dep_changed_asset),
             serialize_as_cool_text("dep_changed processed source_changed processed")
         );
+
+        assert_split_gltf(
+            &default_processed_dir,
+            multi_unchanged_asset,
+            "Mesh0.gltf",
+            "a1",
+        );
+        assert_split_gltf(
+            &default_processed_dir,
+            multi_unchanged_asset,
+            "Mesh1.gltf",
+            "a2",
+        );
+        assert_split_gltf(
+            &default_processed_dir,
+            multi_unchanged_asset,
+            "Mesh2.gltf",
+            "a3",
+        );
+
+        assert_split_gltf(
+            &default_processed_dir,
+            multi_changed_asset,
+            "Mesh0.gltf",
+            "b1",
+        );
+        assert_split_gltf(
+            &default_processed_dir,
+            multi_changed_asset,
+            "Mesh1.gltf",
+            "b2",
+        );
     }
 
     // Assert and reset the processing count.
     assert_eq!(
-        core::mem::take(&mut *transformer.0.lock().unwrap_or_else(PoisonError::into_inner)),
-        4
+        core::mem::take(&mut *counter.lock().unwrap_or_else(PoisonError::into_inner)),
+        6
     );
 
     // Hand-make the app, since we need to pass in our already existing Dirs from the last app.
@@ -1693,26 +1773,39 @@ fn only_reprocesses_wrong_hash_on_startup() {
     app.init_asset::<CoolText>()
         .init_asset::<SubText>()
         .register_asset_loader(CoolTextLoader)
-        .register_asset_processor(CoolTextProcessor::new(
-            RootAssetTransformer::new(transformer.clone()),
-            CoolTextSaver,
+        .register_asset_processor(Count(
+            counter.clone(),
+            CoolTextProcessor::new(
+                RootAssetTransformer::new(MergeEmbeddedAndAddText),
+                CoolTextSaver,
+            ),
         ))
-        .set_default_asset_processor::<CoolTextProcessor>("cool.ron");
+        .set_default_asset_processor::<Count<CoolTextProcessor>>("cool.ron")
+        .register_asset_loader(FakeGltfLoader)
+        .register_asset_processor(Count(counter.clone(), FakeGltfSplitProcessor))
+        .set_default_asset_processor::<Count<FakeGltfSplitProcessor>>("gltf");
 
     let guard = source_gate.write_blocking();
 
     default_source_dir
         .insert_asset_text(source_changed_asset, &serialize_as_cool_text("DIFFERENT"));
+    default_source_dir.insert_asset_text(
+        multi_changed_asset,
+        &serialize_gltf_to_string(&FakeGltf {
+            gltf_nodes: Default::default(),
+            gltf_meshes: vec!["c1".into()],
+        }),
+    );
 
     run_app_until_finished_processing(&mut app, guard);
 
     // Only source_changed and dep_changed assets were reprocessed - all others still have the same
     // hashes.
-    let num_processes = *transformer.0.lock().unwrap_or_else(PoisonError::into_inner);
-    // TODO: assert_eq! (num_processes == 2) only after we prevent double processing assets
-    // == 3 happens when the initial processing of an asset and the re-processing that its dependency
+    let num_processes = *counter.lock().unwrap_or_else(PoisonError::into_inner);
+    // TODO: assert_eq! (num_processes == 3) only after we prevent double processing assets
+    // == 4 happens when the initial processing of an asset and the re-processing that its dependency
     // triggers are both able to proceed. (dep_changed_asset in this case is processed twice)
-    assert!(num_processes == 2 || num_processes == 3);
+    assert!(num_processes == 3 || num_processes == 4);
 
     assert_eq!(
         read_asset_as_string(&default_processed_dir, no_deps_asset),
@@ -1730,6 +1823,42 @@ fn only_reprocesses_wrong_hash_on_startup() {
         read_asset_as_string(&default_processed_dir, dep_changed_asset),
         serialize_as_cool_text("dep_changed processed DIFFERENT processed")
     );
+
+    assert_split_gltf(
+        &default_processed_dir,
+        multi_unchanged_asset,
+        "Mesh0.gltf",
+        "a1",
+    );
+    assert_split_gltf(
+        &default_processed_dir,
+        multi_unchanged_asset,
+        "Mesh1.gltf",
+        "a2",
+    );
+    assert_split_gltf(
+        &default_processed_dir,
+        multi_unchanged_asset,
+        "Mesh2.gltf",
+        "a3",
+    );
+
+    assert_split_gltf(
+        &default_processed_dir,
+        multi_changed_asset,
+        "Mesh0.gltf",
+        "c1",
+    );
+    // The multi-processing should have deleted the previous files.
+    assert!(default_processed_dir
+        .get_asset(&multi_changed_asset.join("Mesh1.gltf"))
+        .is_none());
+}
+
+/// Serializes the provided `gltf` into a string (pretty-ly).
+fn serialize_gltf_to_string(gltf: &FakeGltf) -> String {
+    ron::ser::to_string_pretty(gltf, PrettyConfig::new().new_line("\n"))
+        .expect("Conversion is safe")
 }
 
 #[test]
@@ -1809,4 +1938,548 @@ fn write_default_meta_does_not_overwrite() {
         read_meta_as_string(&source, Path::new(ASSET_PATH)),
         META_TEXT
     );
+}
+
+#[test]
+fn gates_asset_path_on_process() {
+    let AppWithProcessor {
+        mut app,
+        default_source_dirs:
+            ProcessingDirs {
+                source: default_source_dir,
+                ..
+            },
+        ..
+    } = create_app_with_asset_processor(&[]);
+
+    /// Gates processing on acquiring the provided lock.
+    ///
+    /// This has different behavior from [`LockGatedReader`]: [`LockGatedReader`] blocks the
+    /// processor from even initializing, and asset loads block on initialization before asset. By
+    /// blocking during processing, we ensure that the loader is actually blocking on the processing
+    /// of the particular path.
+    #[derive(TypePath)]
+    struct GatedProcess<P>(Arc<async_lock::Mutex<()>>, P);
+
+    impl<P: Process> Process for GatedProcess<P> {
+        type Settings = P::Settings;
+
+        async fn process(
+            &self,
+            context: &mut ProcessContext<'_>,
+            settings: &Self::Settings,
+            writer_context: WriterContext<'_>,
+        ) -> Result<(), ProcessError> {
+            let _guard = self.0.lock().await;
+            self.1.process(context, settings, writer_context).await
+        }
+    }
+
+    type CoolTextProcessor = LoadTransformAndSave<
+        CoolTextLoader,
+        RootAssetTransformer<AddText, CoolText>,
+        CoolTextSaver,
+    >;
+
+    let process_gate = Arc::new(async_lock::Mutex::new(()));
+    app.init_asset::<CoolText>()
+        .init_asset::<SubText>()
+        .register_asset_loader(CoolTextLoader)
+        .register_asset_processor::<GatedProcess<CoolTextProcessor>>(GatedProcess(
+            process_gate.clone(),
+            CoolTextProcessor::new(
+                RootAssetTransformer::new(AddText(" processed".into())),
+                CoolTextSaver,
+            ),
+        ))
+        .set_default_asset_processor::<GatedProcess<CoolTextProcessor>>("cool.ron")
+        .init_asset::<FakeGltf>()
+        .register_asset_loader(FakeGltfLoader)
+        .register_asset_processor(GatedProcess(process_gate.clone(), FakeGltfSplitProcessor))
+        .set_default_asset_processor::<GatedProcess<FakeGltfSplitProcessor>>("gltf");
+
+    // Lock the process gate so that we can't complete processing.
+    let guard = process_gate.lock_blocking();
+
+    default_source_dir.insert_asset_text(Path::new("abc.cool.ron"), &serialize_as_cool_text("abc"));
+    default_source_dir.insert_asset_text(
+        Path::new("def.gltf"),
+        &serialize_gltf_to_string(&FakeGltf {
+            gltf_nodes: Default::default(),
+            gltf_meshes: vec!["a".into(), "b".into()],
+        }),
+    );
+
+    let processor = app.world().resource::<AssetProcessor>().clone();
+    run_app_until(&mut app, |_| {
+        (bevy_tasks::block_on(processor.get_state()) == ProcessorState::Processing).then_some(())
+    });
+
+    let handle = app
+        .world()
+        .resource::<AssetServer>()
+        .load::<CoolText>("abc.cool.ron");
+    let handle_multi_a = app
+        .world()
+        .resource::<AssetServer>()
+        .load::<FakeGltf>("def.gltf/Mesh0.gltf");
+    let handle_multi_b = app
+        .world()
+        .resource::<AssetServer>()
+        .load::<FakeGltf>("def.gltf/Mesh1.gltf");
+    // Update an arbitrary number of times. If at any point, the asset loads, we know we're not
+    // blocked on processing the asset! Note: If we're not blocking on the processed asset (this
+    // feature is broken), this test would be flaky on multi_threaded (though it should still
+    // deterministically fail on single-threaded).
+    for _ in 0..100 {
+        app.update();
+        assert!(app
+            .world()
+            .resource::<Assets<CoolText>>()
+            .get(&handle)
+            .is_none());
+    }
+
+    // Now processing can finish!
+    drop(guard);
+    // Wait until the asset finishes loading, now that we're not blocked on the processor.
+    run_app_until(&mut app, |world| {
+        // Return None if any of these assets are still missing.
+        world.resource::<Assets<CoolText>>().get(&handle)?;
+        world.resource::<Assets<FakeGltf>>().get(&handle_multi_a)?;
+        world.resource::<Assets<FakeGltf>>().get(&handle_multi_b)?;
+        Some(())
+    });
+
+    assert_eq!(
+        app.world()
+            .resource::<Assets<CoolText>>()
+            .get(&handle)
+            .unwrap()
+            .text,
+        "abc processed"
+    );
+    let gltfs = app.world().resource::<Assets<FakeGltf>>();
+    assert_eq!(
+        gltfs.get(&handle_multi_a).unwrap().gltf_meshes,
+        ["a".to_string()]
+    );
+    assert_eq!(
+        gltfs.get(&handle_multi_b).unwrap().gltf_meshes,
+        ["b".to_string()]
+    );
+}
+
+/// A processor for [`FakeGltf`] that splits each mesh into its own [`FakeGltf`] file, and its nodes
+/// into a [`FakeBsn`] file.
+#[derive(TypePath)]
+struct FakeGltfSplitProcessor;
+
+impl Process for FakeGltfSplitProcessor {
+    type Settings = ();
+
+    async fn process(
+        &self,
+        context: &mut ProcessContext<'_>,
+        _settings: &Self::Settings,
+        writer_context: WriterContext<'_>,
+    ) -> Result<(), ProcessError> {
+        use ron::ser::PrettyConfig;
+
+        use crate::io::AssetWriterError;
+
+        let gltf = context.load_source_asset::<FakeGltfLoader>(&()).await?;
+        let Ok(gltf) = gltf.downcast::<FakeGltf>() else {
+            panic!("It should be impossible to downcast to the wrong type here")
+        };
+
+        let root_path = context.path().clone_owned();
+
+        let gltf = gltf.take();
+        for (index, buffer) in gltf.gltf_meshes.into_iter().enumerate() {
+            let mut writer = writer_context
+                .write_partial(Path::new(&format!("Mesh{index}.gltf")))
+                .await?;
+            let mesh_data = serialize_gltf_to_string(&FakeGltf {
+                gltf_meshes: vec![buffer],
+                gltf_nodes: Default::default(),
+            });
+            writer
+                .write_all(mesh_data.as_bytes())
+                .await
+                .map_err(|err| ProcessError::AssetWriterError {
+                    path: root_path.clone_owned(),
+                    err: AssetWriterError::Io(err),
+                })?;
+            writer.finish::<FakeGltfLoader>(()).await?;
+        }
+
+        let mut writer = writer_context
+            .write_partial(Path::new("Scene0.bsn"))
+            .await?;
+        let scene_data = ron::ser::to_string_pretty(
+            &FakeBsn {
+                parent_bsn: None,
+                nodes: gltf.gltf_nodes,
+            },
+            PrettyConfig::new().new_line("\n"),
+        )
+        .expect("Conversion is safe");
+        writer
+            .write_all(scene_data.as_bytes())
+            .await
+            .map_err(|err| ProcessError::AssetWriterError {
+                path: root_path.clone_owned(),
+                err: AssetWriterError::Io(err),
+            })?;
+        writer.finish::<FakeBsnLoader>(()).await?;
+        Ok(())
+    }
+}
+
+#[test]
+fn asset_processor_can_write_multiple_files() {
+    let AppWithProcessor {
+        mut app,
+        source_gate,
+        default_source_dirs:
+            ProcessingDirs {
+                source: source_dir,
+                processed: processed_dir,
+                ..
+            },
+        ..
+    } = create_app_with_asset_processor(&[]);
+
+    app.register_asset_loader(FakeGltfLoader)
+        .register_asset_loader(FakeBsnLoader)
+        .register_asset_processor(FakeGltfSplitProcessor)
+        .set_default_asset_processor::<FakeGltfSplitProcessor>("gltf");
+
+    let guard = source_gate.write_blocking();
+
+    let gltf_path = Path::new("abc.gltf");
+    source_dir.insert_asset_text(
+        gltf_path,
+        r#"(
+    gltf_nodes: {
+        "name": "thing",
+        "position": "123",
+    },
+    gltf_meshes: ["buffer1", "buffer2", "buffer3"],
+)"#,
+    );
+
+    run_app_until_finished_processing(&mut app, guard);
+
+    let path_to_data = |path| {
+        let data = processed_dir.get_asset(Path::new(path)).unwrap();
+        let data = str::from_utf8(data.value()).unwrap();
+        data.to_string()
+    };
+
+    // All the meshes were decomposed into separate asset files.
+    assert_eq!(
+        path_to_data("abc.gltf/Mesh0.gltf"),
+        r#"(
+    gltf_nodes: {},
+    gltf_meshes: [
+        "buffer1",
+    ],
+)"#
+    );
+    assert_eq!(
+        path_to_data("abc.gltf/Mesh1.gltf"),
+        r#"(
+    gltf_nodes: {},
+    gltf_meshes: [
+        "buffer2",
+    ],
+)"#
+    );
+    assert_eq!(
+        path_to_data("abc.gltf/Mesh2.gltf"),
+        r#"(
+    gltf_nodes: {},
+    gltf_meshes: [
+        "buffer3",
+    ],
+)"#
+    );
+
+    // The nodes should have been written to the scene file.
+    assert_eq!(
+        path_to_data("abc.gltf/Scene0.bsn"),
+        r#"(
+    parent_bsn: None,
+    nodes: {
+        "name": "thing",
+        "position": "123",
+    },
+)"#
+    );
+}
+
+#[test]
+fn error_on_no_writer() {
+    let AppWithProcessor {
+        mut app,
+        source_gate,
+        default_source_dirs: ProcessingDirs {
+            source: source_dir, ..
+        },
+        ..
+    } = create_app_with_asset_processor(&[]);
+
+    #[derive(TypePath)]
+    struct NoWriterProcess;
+
+    impl Process for NoWriterProcess {
+        type Settings = ();
+
+        async fn process(
+            &self,
+            _: &mut ProcessContext<'_>,
+            _: &Self::Settings,
+            _: WriterContext<'_>,
+        ) -> Result<(), ProcessError> {
+            // Don't start a writer!
+            Ok(())
+        }
+    }
+
+    app.register_asset_processor(NoWriterProcess)
+        .set_default_asset_processor::<NoWriterProcess>("txt");
+
+    let guard = source_gate.write_blocking();
+    source_dir.insert_asset_text(Path::new("whatever.txt"), "");
+
+    run_app_until_finished_processing(&mut app, guard);
+
+    let process_status = bevy_tasks::block_on(
+        app.world()
+            .resource::<AssetProcessor>()
+            .data()
+            .wait_until_processed("whatever.txt".into()),
+    );
+    // The process failed due to not having a writer.
+    assert_eq!(process_status, ProcessStatus::Failed);
+}
+
+#[test]
+fn error_on_unfinished_writer() {
+    let AppWithProcessor {
+        mut app,
+        source_gate,
+        default_source_dirs: ProcessingDirs {
+            source: source_dir, ..
+        },
+        ..
+    } = create_app_with_asset_processor(&[]);
+
+    #[derive(TypePath)]
+    struct UnfinishedWriterProcess;
+
+    impl Process for UnfinishedWriterProcess {
+        type Settings = ();
+
+        async fn process(
+            &self,
+            _: &mut ProcessContext<'_>,
+            _: &Self::Settings,
+            writer_context: WriterContext<'_>,
+        ) -> Result<(), ProcessError> {
+            let _writer = writer_context.write_full().await?;
+            // Don't call finish on the writer!
+            Ok(())
+        }
+    }
+
+    app.register_asset_processor(UnfinishedWriterProcess)
+        .set_default_asset_processor::<UnfinishedWriterProcess>("txt");
+
+    let guard = source_gate.write_blocking();
+    source_dir.insert_asset_text(Path::new("whatever.txt"), "");
+
+    run_app_until_finished_processing(&mut app, guard);
+
+    let process_status = bevy_tasks::block_on(
+        app.world()
+            .resource::<AssetProcessor>()
+            .data()
+            .wait_until_processed("whatever.txt".into()),
+    );
+    // The process failed due to having a writer that we didn't await finish on.
+    assert_eq!(process_status, ProcessStatus::Failed);
+}
+
+#[test]
+fn error_on_full_writer_after_partial_writer() {
+    let AppWithProcessor {
+        mut app,
+        source_gate,
+        default_source_dirs: ProcessingDirs {
+            source: source_dir, ..
+        },
+        ..
+    } = create_app_with_asset_processor(&[]);
+
+    #[derive(TypePath)]
+    struct FullAfterPartialWriterProcess;
+
+    impl Process for FullAfterPartialWriterProcess {
+        type Settings = ();
+
+        async fn process(
+            &self,
+            _: &mut ProcessContext<'_>,
+            _: &Self::Settings,
+            writer_context: WriterContext<'_>,
+        ) -> Result<(), ProcessError> {
+            // Properly write a "partial".
+            let writer = writer_context.write_partial(Path::new("multi.txt")).await?;
+            writer.finish::<CoolTextLoader>(()).await?;
+
+            // Now trying writing "full", which conflicts!
+            let writer = writer_context.write_full().await?;
+            writer.finish::<CoolTextLoader>(()).await?;
+
+            Ok(())
+        }
+    }
+
+    app.register_asset_processor(FullAfterPartialWriterProcess)
+        .set_default_asset_processor::<FullAfterPartialWriterProcess>("txt");
+
+    let guard = source_gate.write_blocking();
+    source_dir.insert_asset_text(Path::new("whatever.txt"), "");
+
+    run_app_until_finished_processing(&mut app, guard);
+
+    let process_status = bevy_tasks::block_on(
+        app.world()
+            .resource::<AssetProcessor>()
+            .data()
+            .wait_until_processed("whatever.txt".into()),
+    );
+    // The process failed due to having a full writer after a partial writer.
+    assert_eq!(process_status, ProcessStatus::Failed);
+}
+
+#[test]
+fn processor_can_parallelize_partial_writes() {
+    let AppWithProcessor {
+        mut app,
+        source_gate,
+        default_source_dirs:
+            ProcessingDirs {
+                source: source_dir,
+                processed: processed_dir,
+                ..
+            },
+        ..
+    } = create_app_with_asset_processor(&[]);
+
+    #[derive(TypePath)]
+    struct ParallelizedWriterProcess;
+
+    impl Process for ParallelizedWriterProcess {
+        type Settings = ();
+
+        async fn process(
+            &self,
+            _: &mut ProcessContext<'_>,
+            _: &Self::Settings,
+            writer_context: WriterContext<'_>,
+        ) -> Result<(), ProcessError> {
+            let mut writer_1 = writer_context.write_partial(Path::new("a.txt")).await?;
+            let mut writer_2 = writer_context.write_partial(Path::new("b.txt")).await?;
+
+            // Note: this call is blocking, so it's undesirable in production code using
+            // single-threaded mode (e.g., platforms like Wasm). For this test though, it's not a
+            // big deal.
+            bevy_tasks::IoTaskPool::get().scope(|scope| {
+                scope.spawn(async {
+                    writer_1.write_all(b"abc123").await.unwrap();
+                    writer_1.finish::<CoolTextLoader>(()).await.unwrap();
+                });
+                scope.spawn(async {
+                    writer_2.write_all(b"def456").await.unwrap();
+                    writer_2.finish::<CoolTextLoader>(()).await.unwrap();
+                });
+            });
+
+            Ok(())
+        }
+    }
+
+    app.register_asset_processor(ParallelizedWriterProcess)
+        .set_default_asset_processor::<ParallelizedWriterProcess>("txt");
+
+    let guard = source_gate.write_blocking();
+    source_dir.insert_asset_text(Path::new("whatever.txt"), "");
+
+    run_app_until_finished_processing(&mut app, guard);
+
+    assert_eq!(
+        &read_asset_as_string(&processed_dir, Path::new("whatever.txt/a.txt")),
+        "abc123"
+    );
+    assert_eq!(
+        &read_asset_as_string(&processed_dir, Path::new("whatever.txt/b.txt")),
+        "def456"
+    );
+}
+
+#[test]
+fn error_on_two_partial_writes_for_same_path() {
+    let AppWithProcessor {
+        mut app,
+        source_gate,
+        default_source_dirs: ProcessingDirs {
+            source: source_dir, ..
+        },
+        ..
+    } = create_app_with_asset_processor(&[]);
+
+    #[derive(TypePath)]
+    struct TwoPartialWritesForSamePathProcess;
+
+    impl Process for TwoPartialWritesForSamePathProcess {
+        type Settings = ();
+
+        async fn process(
+            &self,
+            _: &mut ProcessContext<'_>,
+            _: &Self::Settings,
+            writer_context: WriterContext<'_>,
+        ) -> Result<(), ProcessError> {
+            // Properly write a "partial".
+            let writer = writer_context.write_partial(Path::new("multi.txt")).await?;
+            writer.finish::<CoolTextLoader>(()).await?;
+
+            // Properly write to the same "partial".
+            let writer = writer_context.write_partial(Path::new("multi.txt")).await?;
+            writer.finish::<CoolTextLoader>(()).await?;
+
+            Ok(())
+        }
+    }
+
+    app.register_asset_processor(TwoPartialWritesForSamePathProcess)
+        .set_default_asset_processor::<TwoPartialWritesForSamePathProcess>("txt");
+
+    let guard = source_gate.write_blocking();
+    source_dir.insert_asset_text(Path::new("whatever.txt"), "");
+
+    run_app_until_finished_processing(&mut app, guard);
+
+    let process_status = bevy_tasks::block_on(
+        app.world()
+            .resource::<AssetProcessor>()
+            .data()
+            .wait_until_processed("whatever.txt".into()),
+    );
+    // The process failed due to writing "partial" to the same path twice.
+    assert_eq!(process_status, ProcessStatus::Failed);
 }

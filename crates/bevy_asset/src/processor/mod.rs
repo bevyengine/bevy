@@ -64,8 +64,9 @@ use bevy_platform::{
     sync::{PoisonError, RwLock},
 };
 use bevy_tasks::IoTaskPool;
+use core::sync::atomic::AtomicU32;
 use futures_io::ErrorKind;
-use futures_lite::{AsyncWriteExt, StreamExt};
+use futures_lite::StreamExt;
 use futures_util::{select_biased, FutureExt};
 use std::{
     path::{Path, PathBuf},
@@ -841,15 +842,31 @@ impl AssetProcessor {
         self.validate_transaction_log_and_recover().await;
         let mut asset_infos = self.data.processing_state.asset_infos.write().await;
 
-        /// Retrieves asset paths recursively. If `clean_empty_folders_writer` is Some, it will be used to clean up empty
-        /// folders when they are discovered.
+        /// Retrieves asset paths recursively. If `empty_dirs` is Some, it will be used to clean up
+        /// empty folders when they are discovered. If `check_directory_meta` is true, directories
+        /// with a meta file next their file path will be treated as an asset path (instead of its
+        /// contents).
         async fn get_asset_paths(
             reader: &dyn ErasedAssetReader,
             path: PathBuf,
+            check_directory_meta: bool,
             paths: &mut Vec<PathBuf>,
             mut empty_dirs: Option<&mut Vec<PathBuf>>,
         ) -> Result<bool, AssetReaderError> {
             if reader.is_directory(&path).await? {
+                if check_directory_meta
+                    && match reader.read_meta(&path).await {
+                        Ok(_) => true,
+                        Err(AssetReaderError::NotFound(_)) => false,
+                        Err(err) => return Err(err),
+                    }
+                {
+                    // If this directory has a meta file, then it is likely a processed asset using
+                    // `ProcessContext::write_partial`, so count the whole thing as an asset path.
+                    paths.push(path);
+                    return Ok(true);
+                }
+
                 let mut path_stream = reader.read_directory(&path).await?;
                 let mut contains_files = false;
 
@@ -857,6 +874,7 @@ impl AssetProcessor {
                     contains_files |= Box::pin(get_asset_paths(
                         reader,
                         child_path,
+                        check_directory_meta,
                         paths,
                         empty_dirs.as_deref_mut(),
                     ))
@@ -888,6 +906,7 @@ impl AssetProcessor {
             get_asset_paths(
                 source.reader(),
                 PathBuf::from(""),
+                /*check_directory_meta=*/ false,
                 &mut unprocessed_paths,
                 None,
             )
@@ -899,6 +918,7 @@ impl AssetProcessor {
             get_asset_paths(
                 processed_reader,
                 PathBuf::from(""),
+                /*check_directory_meta=*/ true,
                 &mut processed_paths,
                 Some(&mut empty_dirs),
             )
@@ -911,6 +931,10 @@ impl AssetProcessor {
             for empty_dir in empty_dirs {
                 // We don't care if this succeeds, since it's just a cleanup task. It is best-effort
                 let _ = processed_writer.remove_empty_directory(&empty_dir).await;
+                // The directory may also have been an asset that was processed - try to delete its
+                // meta. If it fails, that either means there was no meta (which is fine), or the
+                // delete itself failed, which is also fine like above.
+                let _ = processed_writer.remove_meta(&empty_dir).await;
             }
 
             for path in unprocessed_paths {
@@ -920,43 +944,42 @@ impl AssetProcessor {
             for path in processed_paths {
                 let mut dependencies = Vec::new();
                 let asset_path = AssetPath::from(path).with_source(source.id());
-                if let Some(info) = asset_infos.get_mut(&asset_path) {
-                    match processed_reader.read_meta_bytes(asset_path.path()).await {
-                        Ok(meta_bytes) => {
-                            match ron::de::from_bytes::<ProcessedInfoMinimal>(&meta_bytes) {
-                                Ok(minimal) => {
-                                    trace!(
-                                        "Populated processed info for asset {asset_path} {:?}",
-                                        minimal.processed_info
-                                    );
-
-                                    if let Some(processed_info) = &minimal.processed_info {
-                                        for process_dependency_info in
-                                            &processed_info.process_dependencies
-                                        {
-                                            dependencies.push(process_dependency_info.path.clone());
-                                        }
-                                    }
-                                    info.processed_info = minimal.processed_info;
-                                }
-                                Err(err) => {
-                                    trace!("Removing processed data for {asset_path} because meta could not be parsed: {err}");
-                                    self.remove_processed_asset_and_meta(source, asset_path.path())
-                                        .await;
-                                }
-                            }
-                        }
-                        Err(err) => {
-                            trace!("Removing processed data for {asset_path} because meta failed to load: {err}");
-                            self.remove_processed_asset_and_meta(source, asset_path.path())
-                                .await;
-                        }
-                    }
-                } else {
+                let Some(info) = asset_infos.get_mut(&asset_path) else {
                     trace!("Removing processed data for non-existent asset {asset_path}");
                     self.remove_processed_asset_and_meta(source, asset_path.path())
                         .await;
+                    continue;
+                };
+                let meta_bytes = match processed_reader.read_meta_bytes(asset_path.path()).await {
+                    Ok(meta_bytes) => meta_bytes,
+                    Err(err) => {
+                        trace!("Removing processed data for {asset_path} because meta failed to load: {err}");
+                        self.remove_processed_asset_and_meta(source, asset_path.path())
+                            .await;
+                        continue;
+                    }
+                };
+                let minimal = match ron::de::from_bytes::<ProcessedInfoMinimal>(&meta_bytes) {
+                    Ok(minimal) => minimal,
+                    Err(err) => {
+                        trace!("Removing processed data for {asset_path} because meta could not be parsed: {err}");
+                        self.remove_processed_asset_and_meta(source, asset_path.path())
+                            .await;
+                        continue;
+                    }
+                };
+
+                trace!(
+                    "Populated processed info for asset {asset_path} {:?}",
+                    minimal.processed_info
+                );
+
+                if let Some(processed_info) = &minimal.processed_info {
+                    for process_dependency_info in &processed_info.process_dependencies {
+                        dependencies.push(process_dependency_info.path.clone());
+                    }
                 }
+                info.processed_info = minimal.processed_info;
 
                 for dependency in dependencies {
                     asset_infos.add_dependent(&dependency, asset_path.clone());
@@ -975,16 +998,77 @@ impl AssetProcessor {
     /// Removes the processed version of an asset and its metadata, if it exists. This _is not_ transactional like `remove_processed_asset_transactional`, nor
     /// does it remove existing in-memory metadata.
     async fn remove_processed_asset_and_meta(&self, source: &AssetSource, path: &Path) {
-        if let Err(err) = source.processed_writer().unwrap().remove(path).await {
-            warn!("Failed to remove non-existent asset {path:?}: {err}");
+        let reader = source.ungated_processed_reader().unwrap();
+        let writer = source.processed_writer().unwrap();
+
+        // Even if we fail to delete the asset, we may still succeed at deleting its meta and
+        // ancestors.
+        'delete_asset: {
+            let is_directory = match reader.is_directory(path).await {
+                Ok(is_directory) => is_directory,
+                Err(err) => {
+                    warn!("Failed to determine whether asset {path:?} was processed into a directory or an asset: {err}");
+                    break 'delete_asset;
+                }
+            };
+            let asset_remove_result = if is_directory {
+                writer.remove_directory(path).await
+            } else {
+                writer.remove(path).await
+            };
+            if let Err(err) = asset_remove_result {
+                warn!("Failed to remove non-existent asset {path:?}: {err}");
+            }
         }
 
-        if let Err(err) = source.processed_writer().unwrap().remove_meta(path).await {
+        if let Err(err) = writer.remove_meta(path).await {
             warn!("Failed to remove non-existent meta {path:?}: {err}");
         }
 
         self.clean_empty_processed_ancestor_folders(source, path)
             .await;
+    }
+
+    /// Removes the processed version of an asset, if it exists.
+    ///
+    /// This does not delete its meta file, or any parent directories. This intends for the asset to
+    /// be overwritten afterwards.
+    async fn remove_processed_asset_for_overwrite(
+        &self,
+        source: &AssetSource,
+        path: &Path,
+    ) -> Result<(), ProcessError> {
+        let reader = source.ungated_processed_reader().unwrap();
+        let writer = source.processed_writer().unwrap();
+
+        let make_path = || {
+            AssetPath::from_path(path)
+                .with_source(source.id())
+                .into_owned()
+        };
+        let is_directory = match reader.is_directory(path).await {
+            Ok(is_directory) => is_directory,
+            // Ignore NotFound errors, since all we care about is that the processed asset isn't
+            // there anymore.
+            Err(AssetReaderError::NotFound(_)) => return Ok(()),
+            Err(err) => {
+                return Err(ProcessError::AssetReaderError {
+                    path: make_path(),
+                    err,
+                });
+            }
+        };
+        let err = if is_directory {
+            writer.remove_directory(path).await
+        } else {
+            writer.remove(path).await
+        };
+        // The is_directory call succeeded, so we should have something to delete, but it's possible
+        // the file gets deleted before we get to it here, so be lenient with the error.
+        if let Err(err) = err {
+            warn!("Failed to remove existing processed asset: {err}");
+        }
+        Ok(())
     }
 
     async fn clean_empty_processed_ancestor_folders(&self, source: &AssetSource, path: &Path) {
@@ -1067,7 +1151,7 @@ impl AssetProcessor {
                         let meta = processor.deserialize_meta(&meta_bytes)?;
                         (meta, Some(processor))
                     }
-                    AssetActionMinimal::Ignore => {
+                    AssetActionMinimal::Ignore | AssetActionMinimal::Decomposed => {
                         return Ok(ProcessResult::Ignored);
                     }
                 };
@@ -1163,6 +1247,11 @@ impl AssetProcessor {
         // Directly writing to the asset destination in the processor necessitates this behavior
         // TODO: this class of failure can be recovered via re-processing + smarter log validation that allows for duplicate transactions in the event of failures
         self.log_begin_processing(asset_path).await;
+
+        // First try to delete the asset if it already exists, so we don't fail to write the asset
+        // or merge the assets somehow.
+        self.remove_processed_asset_for_overwrite(source, asset_path.path())
+            .await?;
         if let Some(processor) = processor {
             // Unwrap is ok since we have a processor, so the `AssetAction` must have been
             // `AssetAction::Process` (which includes its settings).
@@ -1183,15 +1272,27 @@ impl AssetProcessor {
                 .await
                 .map_err(reader_err)?;
 
-            let mut writer = processed_writer.write(path).await.map_err(writer_err)?;
-            let mut processed_meta = {
+            let mut started_writes = 0;
+            let mut finished_writes = AtomicU32::new(0);
+            let mut full_meta = None;
+            {
                 let mut context = ProcessContext::new(
                     self,
                     asset_path,
                     reader_for_process,
                     &mut new_processed_info,
                 );
-                let process = processor.process(&mut context, settings, &mut *writer);
+                let process = processor.process(
+                    &mut context,
+                    settings,
+                    WriterContext::new(
+                        processed_writer,
+                        &mut started_writes,
+                        &mut finished_writes,
+                        &mut full_meta,
+                        asset_path,
+                    ),
+                );
                 #[cfg(feature = "trace")]
                 let process = {
                     let span = info_span!(
@@ -1201,17 +1302,15 @@ impl AssetProcessor {
                     );
                     process.instrument(span)
                 };
-                process.await?
-            };
+                process.await?;
+            }
 
-            writer
-                .flush()
-                .await
-                .map_err(|e| ProcessError::AssetWriterError {
-                    path: asset_path.clone(),
-                    err: AssetWriterError::Io(e),
-                })?;
-
+            if started_writes == 0 {
+                return Err(InvalidProcessOutput::NoWriter.into());
+            }
+            if started_writes != finished_writes.into_inner() {
+                return Err(InvalidProcessOutput::UnfinishedWriter.into());
+            }
             let full_hash = get_full_asset_hash(
                 new_hash,
                 new_processed_info
@@ -1219,6 +1318,9 @@ impl AssetProcessor {
                     .iter()
                     .map(|i| i.full_hash),
             );
+            let mut processed_meta = full_meta
+                .unwrap_or_else(|| Box::new(AssetMeta::<(), ()>::new(AssetAction::Decomposed)));
+
             new_processed_info.full_hash = full_hash;
             *processed_meta.processed_info_mut() = Some(new_processed_info.clone());
             let meta_bytes = processed_meta.serialize();
@@ -1443,7 +1545,7 @@ impl ProcessingState {
         let lock = {
             let infos = self.asset_infos.read().await;
             let info = infos
-                .get(path)
+                .get_recursive(path)
                 .ok_or_else(|| AssetReaderError::NotFound(path.path().to_owned()))?;
             // Clone out the transaction lock first and then lock after we've dropped the
             // asset_infos. Otherwise, trying to lock a single path can block all other paths to
@@ -1458,7 +1560,7 @@ impl ProcessingState {
         self.wait_until_initialized().await;
         let mut receiver = {
             let infos = self.asset_infos.write().await;
-            let info = infos.get(&path);
+            let info = infos.get_recursive(&path);
             match info {
                 Some(info) => match info.status {
                     Some(result) => return result,
@@ -1602,6 +1704,33 @@ impl ProcessorAssetInfos {
 
     pub(crate) fn get(&self, asset_path: &AssetPath<'static>) -> Option<&ProcessorAssetInfo> {
         self.infos.get(asset_path)
+    }
+
+    /// Gets the [`ProcessorAssetInfo`] associated with `asset_path`, but also looks for directories
+    /// above that are considered processed assets.
+    pub(crate) fn get_recursive(
+        &self,
+        asset_path: &AssetPath<'static>,
+    ) -> Option<&ProcessorAssetInfo> {
+        if let Some(info) = self.infos.get(asset_path) {
+            // Avoid cloning if the path we get has info.
+            return Some(info);
+        }
+
+        // Either the path isn't present at all, or the path is actually a subdirectory of a "multi"
+        // processed asset. So keep exploring up until we're sure there isn't a directory being
+        // processed.
+        let mut path_current = asset_path.clone_owned();
+
+        // PERF: This traverse up is expensive due to needing many allocations. We could use a more
+        // appropriate data structure like a trie instead.
+        while let Some(path_parent) = path_current.parent() {
+            path_current = path_parent;
+            if let Some(info) = self.infos.get(&path_current) {
+                return Some(info);
+            }
+        }
+        None
     }
 
     fn get_mut(&mut self, asset_path: &AssetPath<'static>) -> Option<&mut ProcessorAssetInfo> {
