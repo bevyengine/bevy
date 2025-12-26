@@ -687,6 +687,7 @@ mod test {
             )
                 .chain(),
         );
+        world.insert_resource(StaticTransformOptimizations::default());
 
         let mut command_queue = CommandQueue::default();
         let mut commands = Commands::new(&mut command_queue, &world);
@@ -745,6 +746,7 @@ mod test {
             )
                 .chain(),
         );
+        world.insert_resource(StaticTransformOptimizations::default());
 
         // Root entity
         world.spawn(Transform::from_xyz(1.0, 0.0, 0.0));
@@ -782,6 +784,7 @@ mod test {
             )
                 .chain(),
         );
+        world.insert_resource(StaticTransformOptimizations::default());
 
         // Root entity
         let mut queue = CommandQueue::default();
@@ -821,6 +824,7 @@ mod test {
             )
                 .chain(),
         );
+        world.insert_resource(StaticTransformOptimizations::default());
 
         // Add parent entities
         let mut children = Vec::new();
@@ -900,7 +904,8 @@ mod test {
                 propagate_parent_transforms,
             )
                 .chain(),
-        );
+        )
+        .insert_resource(StaticTransformOptimizations::default());
 
         let translation = vec3(1.0, 0.0, 0.0);
 
@@ -1020,6 +1025,7 @@ mod test {
             )
                 .chain(),
         );
+        world.insert_resource(StaticTransformOptimizations::default());
 
         // Spawn a `Transform` entity with a local translation of `Vec3::ONE`
         let mut spawn_transform_bundle =
