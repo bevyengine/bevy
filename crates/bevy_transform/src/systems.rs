@@ -1,6 +1,5 @@
 use crate::components::{GlobalTransform, Transform, TransformTreeChanged};
 use bevy_ecs::prelude::*;
-use bevy_log::info_span;
 use bevy_reflect::Reflect;
 #[cfg(feature = "std")]
 pub use parallel::propagate_parent_transforms;
@@ -91,7 +90,9 @@ pub fn mark_dirty_trees(
             }
         }
     }
-    if !settings.enabled { return;}
+    if !settings.enabled {
+        return;
+    }
 
     for entity in changed_transforms.iter().chain(orphaned.read()) {
         let mut next = entity;
