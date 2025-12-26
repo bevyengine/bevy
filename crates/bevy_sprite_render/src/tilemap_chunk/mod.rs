@@ -7,7 +7,15 @@ use bevy_camera::visibility::Visibility;
 use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
-    component::Component, entity::Entity, hierarchy::ChildOf, lifecycle::HookContext, query::Changed, reflect::{ReflectComponent, ReflectResource}, resource::Resource, system::{Command, Commands, Query, ResMut}, world::{DeferredWorld, World}
+    component::Component,
+    entity::Entity,
+    hierarchy::ChildOf,
+    lifecycle::HookContext,
+    query::Changed,
+    reflect::{ReflectComponent, ReflectResource},
+    resource::Resource,
+    system::{Command, Commands, Query, ResMut},
+    world::{DeferredWorld, World},
 };
 use bevy_image::Image;
 use bevy_math::{primitives::Rectangle, UVec2};
@@ -31,8 +39,13 @@ impl Plugin for TilemapChunkPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<TilemapChunkMeshCache>()
             .add_systems(Update, update_tilemap_chunk_indices);
-        app.world_mut().register_component_hooks::<TileStorage<TileRenderData>>().on_insert(on_insert_chunk_tile_render_data);
-        app.world_mut().register_component_hooks::<TileRenderData>().on_insert(on_insert_tile_render_data).on_remove(on_remove_tile_render_data);
+        app.world_mut()
+            .register_component_hooks::<TileStorage<TileRenderData>>()
+            .on_insert(on_insert_chunk_tile_render_data);
+        app.world_mut()
+            .register_component_hooks::<TileRenderData>()
+            .on_insert(on_insert_tile_render_data)
+            .on_remove(on_remove_tile_render_data);
     }
 }
 
@@ -97,7 +110,10 @@ impl TilemapChunkRenderData {
     }
 }
 
-fn on_insert_chunk_tile_render_data(mut world: DeferredWorld, HookContext { entity, .. }: HookContext){
+fn on_insert_chunk_tile_render_data(
+    mut world: DeferredWorld,
+    HookContext { entity, .. }: HookContext,
+) {
     let Ok(chunk) = world.get_entity(entity) else {
         warn!("Chunk {} not found", entity);
         return;
@@ -111,29 +127,38 @@ fn on_insert_chunk_tile_render_data(mut world: DeferredWorld, HookContext { enti
         return;
     };
     let Ok(tilemap) = world.get_entity(child_of.parent()) else {
-        warn!("Could not find chunk {}'s parent {}", entity, child_of.parent());
+        warn!(
+            "Could not find chunk {}'s parent {}",
+            entity,
+            child_of.parent()
+        );
         return;
     };
     let Some(tilemap_render_data) = tilemap.get::<TilemapRenderData>() else {
-        warn!("Could not find TilemapRenderData on chunk {}'s parent {}", entity, child_of.parent());
+        warn!(
+            "Could not find TilemapRenderData on chunk {}'s parent {}",
+            entity,
+            child_of.parent()
+        );
         return;
     };
     let Some(tilemap) = tilemap.get::<Tilemap>() else {
-        warn!("Could not find Tilemap on chunk {}'s parent {}", entity, child_of.parent());
+        warn!(
+            "Could not find Tilemap on chunk {}'s parent {}",
+            entity,
+            child_of.parent()
+        );
         return;
     };
 
     let data = TilemapChunkRenderData {
-            chunk_size: tilemap.chunk_size,
-            tile_display_size: tilemap.tile_display_size,
-            tileset: tilemap_render_data.tileset.clone(),
-            alpha_mode: tilemap_render_data.alpha_mode,
-        };
+        chunk_size: tilemap.chunk_size,
+        tile_display_size: tilemap.tile_display_size,
+        tileset: tilemap_render_data.tileset.clone(),
+        alpha_mode: tilemap_render_data.alpha_mode,
+    };
 
-    world
-        .commands()
-        .entity(entity)
-        .insert(data);
+    world.commands().entity(entity).insert(data);
 }
 
 /// Data for a single tile in the tilemap chunk.
@@ -149,7 +174,9 @@ pub struct TileRenderData {
     pub visible: bool,
 }
 
-impl TileData for TileRenderData {}
+impl TileData for TileRenderData {
+    type Storage = TileStorage<TileRenderData>;
+}
 
 impl TileRenderData {
     /// Creates a new `TileData` with the given tileset index and default values.
@@ -294,7 +321,7 @@ pub fn update_tilemap_chunk_indices(
     }
 }
 
-fn on_insert_tile_render_data(mut world: DeferredWorld, HookContext { entity, .. }: HookContext){
+fn on_insert_tile_render_data(mut world: DeferredWorld, HookContext { entity, .. }: HookContext) {
     let Ok(tile) = world.get_entity(entity) else {
         warn!("Tile {} not found", entity);
         return;
@@ -307,23 +334,22 @@ fn on_insert_tile_render_data(mut world: DeferredWorld, HookContext { entity, ..
         warn!("Tile {} has no tile coord.", entity);
         return;
     };
-    let Some(tile_render_data) = tile.get::<TileRenderData>().cloned()  else {
+    let Some(tile_render_data) = tile.get::<TileRenderData>().cloned() else {
         warn!("Tile {} does not have TileRenderData", entity);
         return;
     };
 
-    world
-        .commands()
-        .queue(move |world: &mut World| {
-            SetTile {
-                tilemap_id: in_map.0,
-                tile_position: tile_position.0,
-                maybe_tile: Some(tile_render_data),
-            }.apply(world);
-        });
+    world.commands().queue(move |world: &mut World| {
+        SetTile {
+            tilemap_id: in_map.0,
+            tile_position: tile_position.0,
+            maybe_tile: Some(tile_render_data),
+        }
+        .apply(world);
+    });
 }
 
-fn on_remove_tile_render_data(mut world: DeferredWorld, HookContext { entity, .. }: HookContext){
+fn on_remove_tile_render_data(mut world: DeferredWorld, HookContext { entity, .. }: HookContext) {
     let Ok(tile) = world.get_entity(entity) else {
         warn!("Tile {} not found", entity);
         return;
@@ -336,18 +362,17 @@ fn on_remove_tile_render_data(mut world: DeferredWorld, HookContext { entity, ..
         warn!("Tile {} has no tile coord.", entity);
         return;
     };
-    let Some(tile_render_data) = tile.get::<TileRenderData>().cloned()  else {
+    let Some(tile_render_data) = tile.get::<TileRenderData>().cloned() else {
         warn!("Tile {} does not have TileRenderData", entity);
         return;
     };
 
-    world
-        .commands()
-        .queue(move |world: &mut World| {
-            SetTile::<TileRenderData> {
-                tilemap_id: in_map.0,
-                tile_position: tile_position.0,
-                maybe_tile: None,
-            }.apply(world);
-        });
+    world.commands().queue(move |world: &mut World| {
+        SetTile::<TileRenderData> {
+            tilemap_id: in_map.0,
+            tile_position: tile_position.0,
+            maybe_tile: None,
+        }
+        .apply(world);
+    });
 }

@@ -1,11 +1,8 @@
-use std::marker::PhantomData;
-
 use crate::{
     tilemap::{TileData, TileStorage, Tilemap},
     TileStorages,
 };
 use bevy_ecs::{
-    change_detection::DetectChangesMut,
     entity::Entity,
     hierarchy::ChildOf,
     system::{Command, Commands},

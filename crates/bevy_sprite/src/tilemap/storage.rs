@@ -3,15 +3,13 @@ use std::ops::Deref;
 use bevy_ecs::{
     change_detection::{DetectChangesMut, MutUntyped},
     component::{Component, ComponentId},
-    entity::Entity,
     lifecycle::HookContext,
     name::Name,
-    ptr::PtrMut,
     reflect::ReflectComponent,
     world::{DeferredWorld, World},
 };
 use bevy_math::{URect, UVec2};
-use bevy_platform::collections::{HashMap, HashSet};
+use bevy_platform::collections::HashMap;
 use bevy_reflect::Reflect;
 use bevy_transform::components::Transform;
 use tracing::error;
@@ -65,37 +63,23 @@ impl<T: TileData> TileStorage<T> {
         self.set(tile_position, None)
     }
 
-    // pub fn iter(&self) -> impl Iterator<Item = Option<Entity>> {
-    //     self.tiles.iter().cloned()
-    // }
+    pub fn iter(&self) -> impl Iterator<Item = Option<&T>> {
+        self.tiles.iter().map(|item| item.as_ref())
+    }
 
-    // pub fn iter_sub_rect(&self, rect: URect) -> impl Iterator<Item = Option<Entity>> {
-    //     let URect { min, max } = rect;
+    pub fn iter_sub_rect(&self, rect: URect) -> impl Iterator<Item = Option<&T>> {
+        let URect { min, max } = rect;
 
-    //     (min.y..max.y).flat_map(move |y| {
-    //         (min.x..max.x).map(move |x| {
-    //             if x >= self.size.x || y >= self.size.y {
-    //                 return None;
-    //             }
+        (min.y..max.y).flat_map(move |y| {
+            (min.x..max.x).map(move |x| {
+                if x >= self.size.x || y >= self.size.y {
+                    return None;
+                }
 
-    //             let index = (y * self.size.x + x) as usize;
-    //             self.tiles.get(index).cloned().flatten()
-    //         })
-    //     })
-    // }
-
-    // pub fn iter_chunk_tiles(
-    //     &self,
-    //     chunk_position: UVec2,
-    //     chunk_size: UVec2,
-    // ) -> impl Iterator<Item = Option<Entity>> {
-    //     let chunk_rect = URect::from_corners(
-    //         chunk_position * chunk_size,
-    //         (chunk_position + UVec2::splat(1)) * chunk_size,
-    //     );
-
-    //     self.iter_sub_rect(chunk_rect)
-    // }
+                self.get(UVec2 { x, y })
+            })
+        })
+    }
 
     pub fn size(&self) -> UVec2 {
         self.size
@@ -127,16 +111,15 @@ fn on_add_tile_storage<T: TileData>(
                 .insert(component_id, remove_tile::<T>);
             tile_storage_entity.insert(tile_storages);
         }
-    })
+    });
 }
 
 fn remove_tile<T: TileData>(mut raw: MutUntyped<'_>, tile_coord: UVec2) {
+    let storage = raw.bypass_change_detection().reborrow();
+    // SAFETY: We only call this from entities that have a TileStorage<T>
+    // TODO: Maybe change this function to accept the enttity and do the component id look up here?
     #[expect(unsafe_code, reason = "testing")]
-    let storage = unsafe {
-        raw.bypass_change_detection()
-            .reborrow()
-            .deref_mut::<TileStorage<T>>()
-    };
+    let storage = unsafe { storage.deref_mut::<TileStorage<T>>() };
     if storage.remove(tile_coord).is_some() {
         raw.set_changed();
     }
