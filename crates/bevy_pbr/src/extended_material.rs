@@ -352,7 +352,7 @@ impl<B: Material, E: MaterialExtension> Material for ExtendedMaterial<B, E> {
     }
 
     fn enable_shadows() -> bool {
-        E::enable_prepass()
+        E::enable_shadows()
     }
 
     fn prepass_vertex_shader() -> ShaderRef {

@@ -115,6 +115,10 @@ impl MaterialExtension for ForwardDecalMaterialExt {
         Some(AlphaMode::Blend)
     }
 
+    fn enable_shadows() -> bool {
+        false
+    }
+
     fn specialize(
         _pipeline: &MaterialExtensionPipeline,
         descriptor: &mut RenderPipelineDescriptor,
