@@ -104,7 +104,7 @@ pub trait Relationship: Component + Sized {
     /// # Warning
     ///
     /// When `ALLOW_SELF` is `true`, be careful when using recursive traversal methods
-    /// like `iter_ancestors` or `root_ancestor`, as they may loop infinitely if an entity
+    /// like `iter_ancestors` or `root_ancestor`, as they will loop infinitely if an entity
     /// points to itself.
     const ALLOW_SELF: bool = false;
 
@@ -150,7 +150,7 @@ pub trait Relationship: Component + Sized {
         let target_entity = world.entity(entity).get::<Self>().unwrap().get();
         if !Self::ALLOW_SELF && target_entity == entity {
             warn!(
-                "{}The {}({target_entity:?}) relationship on entity {entity:?} points to itself. The invalid {} relationship has been removed.",
+                "{}The {}({target_entity:?}) relationship on entity {entity:?} points to itself. The invalid {} relationship has been removed.\nIf this is intended behavior self-referential relations can be enabled with the allow_self attribute: #[relationship(allow_self)]",
                 caller.map(|location|format!("{location}: ")).unwrap_or_default(),
                 DebugName::type_name::<Self>(),
                 DebugName::type_name::<Self>()

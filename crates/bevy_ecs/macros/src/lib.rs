@@ -639,8 +639,10 @@ pub fn derive_resource(input: TokenStream) -> TokenStream {
 /// #[relationship(relationship_target = PeopleILike, allow_self)]
 /// pub struct LikedBy(pub Entity);
 /// ```
-/// **Warning:** When `allow_self` is enabled, be careful when using recursive traversal methods
-/// like `iter_ancestors` or `root_ancestor`, as they may loop infinitely if an entity points to itself.
+/// ## Warning
+///
+/// When `allow_self` is enabled, be careful when using recursive traversal methods
+/// like `iter_ancestors` or `root_ancestor`, as they will loop infinitely if an entity points to itself.
 ///
 /// ## Hooks
 /// ```ignore
