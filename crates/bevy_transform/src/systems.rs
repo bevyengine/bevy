@@ -41,20 +41,45 @@ pub fn sync_simple_transforms(
     }
 }
 
-/// Configure the behavior of tracking static subtrees of [`Transform`]s as an optimization for
-/// large static scenes.
+/// Configure the behavior of static scene optimizations for [`Transform`] propagation.
+///
+/// For scenes with many static entities, it is much faster to track trees of unchanged
+/// [`Transform`]s and skip these during the expensive transform propagation step. If your scene is
+/// very dynamic, the cost of tracking these trees can exceed the performance benefits. By default,
+/// static scene optimization is disabled for worlds with more than 30% of its entities moving.
+///
+/// This resource allows you to configure that threshold at runtime.
 #[derive(Resource, Debug, Reflect)]
-pub struct DirtyTransformTreeSettings {
+pub struct StaticTransformOptimizations {
     /// If the percentage of moving objects exceeds this value, skip dirty tree marking.
-    /// This is useful if your scene is mostly dynamic and static scene tracking is wasting CPU.
-    ///
-    /// - Setting this to `0.0` will disable static scene tracking.
-    /// - Setting this to `1.0` will always track static scenes.
-    pub threshold: f32,
+    threshold: f32,
+    /// Updated every frame by [`mark_dirty_trees`].
     enabled: bool,
 }
 
-impl Default for DirtyTransformTreeSettings {
+impl StaticTransformOptimizations {
+    /// If the percentage of moving objects exceeds this threshold, disable static [`Transform`]
+    /// optimizations. This is done because the scene is so dynamic that the cost of tracking static
+    /// trees exceeds the performance benefit of skipping propagation for these trees.
+    ///
+    /// - Setting this to `0.0` will result in never running static scene tracking.
+    /// - Setting this to `1.0` will result in always tracking static transform trees.
+    pub fn set_threshold(&mut self, threshold: f32) {
+        self.threshold = threshold;
+    }
+
+    /// Unconditionally disable static scene optimizations.
+    pub fn disable(&mut self) {
+        self.threshold = 0.0;
+    }
+
+    /// Unconditionally enable static scene optimizations.
+    pub fn enable(&mut self) {
+        self.threshold = 1.0;
+    }
+}
+
+impl Default for StaticTransformOptimizations {
     fn default() -> Self {
         Self {
             // Scenes with more than 30% moving objects are considered dynamic enough to skip static
@@ -65,9 +90,12 @@ impl Default for DirtyTransformTreeSettings {
     }
 }
 
-/// Optimization for static scenes. Propagates a "dirty bit" up the hierarchy towards ancestors.
-/// Transform propagation can ignore entire subtrees of the hierarchy if it encounters an entity
-/// without the dirty bit.
+/// Optimization for static scenes.
+///
+/// Propagates a "dirty bit" up the hierarchy towards ancestors. Transform propagation can ignore
+/// entire subtrees of the hierarchy if it encounters an entity without the dirty bit.
+///
+/// Configure behavior with [`StaticTransformOptimizations`].
 pub fn mark_dirty_trees(
     changed_transforms: Query<
         Entity,
@@ -76,7 +104,7 @@ pub fn mark_dirty_trees(
     mut orphaned: RemovedComponents<ChildOf>,
     mut transforms: Query<&mut TransformTreeChanged>,
     parents: Query<&ChildOf>,
-    mut settings: ResMut<DirtyTransformTreeSettings>,
+    mut settings: ResMut<StaticTransformOptimizations>,
 ) {
     match settings.threshold {
         0.0 => settings.enabled = false,
@@ -293,7 +321,7 @@ mod serial {
 mod parallel {
     use crate::prelude::*;
     // TODO: this implementation could be used in no_std if there are equivalents of these.
-    use crate::systems::DirtyTransformTreeSettings;
+    use crate::systems::StaticTransformOptimizations;
     use alloc::{sync::Arc, vec::Vec};
     use bevy_ecs::{entity::UniqueEntityIter, prelude::*, system::lifetimeless::Read};
     use bevy_tasks::{ComputeTaskPool, TaskPool};
@@ -323,14 +351,14 @@ mod parallel {
             Without<ChildOf>,
         >,
         nodes: NodeQuery,
-        dirty_tracking: Res<DirtyTransformTreeSettings>,
+        static_optimizations: Res<StaticTransformOptimizations>,
     ) {
         // Process roots in parallel, seeding the work queue
         roots.par_iter_mut().for_each_init(
             || queue.local_queue.borrow_local_mut(),
             |outbox, (parent, transform, mut parent_transform, children, transform_tree)| {
-                if dirty_tracking.enabled && !transform_tree.is_changed() {
-                    // Early exit if the subtree is static and the dirty tree feature is enabled.
+                if static_optimizations.enabled && !transform_tree.is_changed() {
+                    // Early exit if the subtree is static and the optimization is enabled.
                     return;
                 }
 
@@ -348,7 +376,7 @@ mod parallel {
                         &nodes,
                         outbox,
                         &queue,
-                        &dirty_tracking,
+                        &static_optimizations,
                         // Need to revisit this single-max-depth by profiling more representative
                         // scenes. It's possible that it is actually beneficial to go deep into the
                         // hierarchy to build up a good task queue before starting the workers.
@@ -381,9 +409,9 @@ mod parallel {
         task_pool.scope(|s| {
             (1..task_pool.thread_num()) // First worker is run locally instead of the task pool.
                 .for_each(|_| {
-                    s.spawn(async { propagation_worker(&queue, &nodes, &dirty_tracking) })
+                    s.spawn(async { propagation_worker(&queue, &nodes, &static_optimizations) })
                 });
-            propagation_worker(&queue, &nodes, &dirty_tracking);
+            propagation_worker(&queue, &nodes, &static_optimizations);
         });
     }
 
@@ -393,7 +421,7 @@ mod parallel {
     fn propagation_worker(
         queue: &WorkQueue,
         nodes: &NodeQuery,
-        dirty_transform_settings: &DirtyTransformTreeSettings,
+        static_optimizations: &StaticTransformOptimizations,
     ) {
         #[cfg(feature = "std")]
         let _span = bevy_log::info_span!("transform propagation worker").entered();
@@ -449,7 +477,7 @@ mod parallel {
                         nodes,
                         &mut outbox,
                         queue,
-                        dirty_transform_settings,
+                        static_optimizations,
                         // Only affects performance. Trees deeper than this will still be fully
                         // propagated, but the work will be broken into multiple tasks. This number
                         // was chosen to be larger than any reasonable tree depth, while not being
@@ -490,7 +518,7 @@ mod parallel {
         nodes: &NodeQuery,
         outbox: &mut Vec<Entity>,
         queue: &WorkQueue,
-        dirty_transform_tree_settings: &DirtyTransformTreeSettings,
+        static_optimizations: &StaticTransformOptimizations,
         max_depth: usize,
     ) {
         // Create mutable copies of the input variables, used for iterative depth-first traversal.
@@ -513,7 +541,7 @@ mod parallel {
             let mut last_child = None;
             let new_children = children_iter.filter_map(
                 |(child, (transform, mut global_transform, tree), (children, child_of))| {
-                    if dirty_transform_tree_settings.enabled
+                    if static_optimizations.enabled
                         && !tree.is_changed()
                         && !p_global_transform.is_changed()
                     {
