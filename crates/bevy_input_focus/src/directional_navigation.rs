@@ -67,7 +67,7 @@ use bevy_ecs::{
     system::SystemParam,
 };
 use bevy_math::{CompassOctant, Dir2, Vec2};
-use bevy_ui::{ComputedNode, UiGlobalTransform, UiSystems};
+use bevy_ui::{ComputedNode, ComputedUiTargetCamera, UiGlobalTransform, UiSystems};
 use thiserror::Error;
 
 use crate::InputFocus;
@@ -741,6 +741,7 @@ fn auto_rebuild_ui_navigation_graph(
             Or<(
                 Added<AutoDirectionalNavigation>,
                 Changed<ComputedNode>,
+                Changed<ComputedUiTargetCamera>,
                 Changed<UiGlobalTransform>,
                 Changed<InheritedVisibility>,
             )>,
@@ -749,6 +750,7 @@ fn auto_rebuild_ui_navigation_graph(
     all_nodes: Query<
         (
             Entity,
+            &ComputedUiTargetCamera,
             &ComputedNode,
             &UiGlobalTransform,
             &InheritedVisibility,
@@ -760,24 +762,33 @@ fn auto_rebuild_ui_navigation_graph(
         return;
     }
 
-    let nodes: Vec<FocusableArea> = all_nodes
-        .iter()
-        .filter_map(|(entity, computed, transform, inherited_visibility)| {
-            // Skip hidden or zero-size nodes
-            if computed.is_empty() || !inherited_visibility.get() {
-                return None;
-            }
+    let mut auto_nodes: EntityHashMap<Vec<FocusableArea>> = EntityHashMap::new();
 
-            let (_scale, _rotation, translation) = transform.to_scale_angle_translation();
-            Some(FocusableArea {
-                entity,
-                position: translation,
-                size: computed.size(),
-            })
-        })
-        .collect();
+    for (entity, computed_target_camera, computed, transform, inherited_visibility) in
+        all_nodes.iter()
+    {
+        if computed.is_empty() || !inherited_visibility.get() {
+            continue;
+        }
 
-    auto_generate_navigation_edges(&mut directional_nav_map, &nodes, &config);
+        let Some(target_camera) = computed_target_camera.get() else {
+            continue;
+        };
+
+        let (_scale, _rotation, translation) = transform.to_scale_angle_translation();
+
+        let camera_nodes = auto_nodes.entry(target_camera).or_insert(Vec::new());
+
+        camera_nodes.push(FocusableArea {
+            entity,
+            position: translation,
+            size: computed.size(),
+        });
+    }
+
+    for nodes in auto_nodes.values() {
+        auto_generate_navigation_edges(&mut directional_nav_map, &nodes, &config);
+    }
 }
 
 #[cfg(test)]
