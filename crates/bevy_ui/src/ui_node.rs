@@ -1620,6 +1620,7 @@ impl GridTrack {
     }
 
     /// Create a grid track with a percentage size
+    /// Note that the percentage is represented as a value from 0.0 to 100.0
     pub fn percent<T: From<Self>>(value: f32) -> T {
         Self {
             min_sizing_function: MinTrackSizingFunction::Percent(value),
