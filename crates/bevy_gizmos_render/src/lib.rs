@@ -24,50 +24,45 @@ mod pipeline_2d;
 #[cfg(feature = "bevy_pbr")]
 mod pipeline_3d;
 
-use bevy_app::{App, Plugin};
-use bevy_ecs::{
-    resource::Resource,
-    schedule::{IntoScheduleConfigs, SystemSet},
-    system::Res,
-};
-
-use {bevy_gizmos::config::GizmoMeshConfig, bevy_mesh::VertexBufferLayout};
-
 use {
-    crate::retained::extract_linegizmos,
-    bevy_asset::AssetId,
+    crate::retained::{
+        calculate_bounds, extract_linegizmos, mark_gizmos_as_changed_if_their_assets_changed,
+    },
+    bevy_app::{App, Plugin, PostUpdate},
+    bevy_asset::{AssetEventSystems, AssetId},
+    bevy_camera::visibility::{self, Visibility, VisibilityClass, VisibilitySystems},
     bevy_ecs::{
         component::Component,
         entity::Entity,
         query::ROQueryItem,
+        resource::Resource,
+        schedule::{IntoScheduleConfigs, SystemSet},
         system::{
             lifetimeless::{Read, SRes},
-            Commands, SystemParamItem,
+            Commands, Res, SystemParamItem,
         },
     },
+    bevy_gizmos::{
+        config::{GizmoConfigStore, GizmoLineJoint, GizmoMeshConfig},
+        prelude::Gizmo,
+        GizmoAsset, GizmoHandles,
+    },
     bevy_math::{Affine3, Affine3A, Vec4},
+    bevy_mesh::VertexBufferLayout,
     bevy_render::{
         extract_component::{ComponentUniforms, DynamicUniformIndex, UniformComponentPlugin},
         render_asset::{PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets},
         render_phase::{PhaseItem, RenderCommand, RenderCommandResult, TrackedRenderPass},
         render_resource::{
-            binding_types::uniform_buffer, BindGroup, BindGroupEntries, BindGroupLayoutEntries,
-            Buffer, BufferInitDescriptor, BufferUsages, ShaderStages, ShaderType, VertexFormat,
+            binding_types::uniform_buffer, BindGroup, BindGroupEntries, BindGroupLayoutDescriptor,
+            BindGroupLayoutEntries, Buffer, BufferInitDescriptor, BufferUsages, PipelineCache,
+            ShaderStages, ShaderType, VertexAttribute, VertexFormat, VertexStepMode,
         },
         renderer::RenderDevice,
         sync_world::{MainEntity, TemporaryRenderEntity},
         Extract, ExtractSchedule, Render, RenderApp, RenderStartup, RenderSystems,
     },
     bytemuck::cast_slice,
-};
-
-use bevy_render::render_resource::{
-    BindGroupLayoutDescriptor, PipelineCache, VertexAttribute, VertexStepMode,
-};
-
-use bevy_gizmos::{
-    config::{GizmoConfigStore, GizmoLineJoint},
-    GizmoAsset, GizmoHandles,
 };
 
 /// A [`Plugin`] that provides an immediate mode drawing api for visual debugging.
@@ -85,7 +80,21 @@ impl Plugin for GizmoRenderPlugin {
         }
 
         app.add_plugins(UniformComponentPlugin::<LineGizmoUniform>::default())
-            .add_plugins(RenderAssetPlugin::<GpuLineGizmo>::default());
+            .add_plugins(RenderAssetPlugin::<GpuLineGizmo>::default())
+            .register_required_components::<Gizmo, Visibility>()
+            .register_required_components::<Gizmo, VisibilityClass>()
+            .add_systems(
+                PostUpdate,
+                (
+                    mark_gizmos_as_changed_if_their_assets_changed.after(AssetEventSystems),
+                    calculate_bounds.in_set(VisibilitySystems::CalculateBounds),
+                )
+                    .chain(),
+            );
+
+        app.world_mut()
+            .register_component_hooks::<Gizmo>()
+            .on_add(visibility::add_visibility_class::<Gizmo>);
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app.add_systems(RenderStartup, init_line_gizmo_uniform_bind_group_layout);
