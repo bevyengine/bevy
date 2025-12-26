@@ -691,9 +691,8 @@ pub fn check_visibility(
 }
 
 /// The last step in the visibility pipeline. Looks at entities that were visible last frame but not
-/// marked as visible this frame ([`WasVisibleNowHidden`]), and marks them as hidden by setting the
-/// [`ViewVisibility`]. This process is needed to ensure we only trigger change detection on
-/// [`ViewVisibility`] when necessary.
+/// marked as visible this frame and marks them as hidden by setting the [`ViewVisibility`]. This
+/// process is needed to ensure we only trigger change detection on [`ViewVisibility`] when needed.
 fn mark_newly_hidden_entities_invisible(mut view_visibilities: Query<&mut ViewVisibility>) {
     view_visibilities
         .par_iter_mut()
