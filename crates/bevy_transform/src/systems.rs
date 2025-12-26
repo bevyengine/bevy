@@ -1,5 +1,7 @@
 use crate::components::{GlobalTransform, Transform, TransformTreeChanged};
 use bevy_ecs::prelude::*;
+use bevy_log::info_span;
+use bevy_reflect::Reflect;
 #[cfg(feature = "std")]
 pub use parallel::propagate_parent_transforms;
 #[cfg(not(feature = "std"))]
@@ -40,6 +42,28 @@ pub fn sync_simple_transforms(
     }
 }
 
+/// Configure the behavior of tracking static subtrees of [`Transform`]s as an optimization for
+/// large static scenes.
+#[derive(Resource, Debug, Reflect)]
+pub struct DirtyTransformTreeSettings {
+    /// If the percentage of moving objects exceeds this value, skip dirty tree marking.
+    /// This is useful if your scene is mostly dynamic and static scene tracking is wasting CPU.
+    ///
+    /// Setting this to `0.0` will disable static scene tracking unconditionally. Setting this to
+    /// `1.0` will always track static scenes.
+    pub threshold: f32,
+    enabled: bool,
+}
+
+impl Default for DirtyTransformTreeSettings {
+    fn default() -> Self {
+        Self {
+            threshold: 0.3,
+            enabled: true,
+        }
+    }
+}
+
 /// Optimization for static scenes. Propagates a "dirty bit" up the hierarchy towards ancestors.
 /// Transform propagation can ignore entire subtrees of the hierarchy if it encounters an entity
 /// without the dirty bit.
@@ -49,18 +73,33 @@ pub fn mark_dirty_trees(
         Or<(Changed<Transform>, Changed<ChildOf>, Added<GlobalTransform>)>,
     >,
     mut orphaned: RemovedComponents<ChildOf>,
-    mut transforms: Query<(Option<&ChildOf>, &mut TransformTreeChanged)>,
+    mut transforms: Query<&mut TransformTreeChanged>,
+    parents: Query<&ChildOf>,
+    mut settings: ResMut<DirtyTransformTreeSettings>,
 ) {
+    settings.enabled = true;
+
+    let g = info_span!("count_things").entered();
+    let n_dyn = changed_transforms.count() as f32;
+    if n_dyn > 128.0 {
+        let total = transforms.count() as f32;
+        if n_dyn / total > settings.threshold {
+            settings.enabled = false;
+            return;
+        }
+    }
+    drop(g);
+
     for entity in changed_transforms.iter().chain(orphaned.read()) {
         let mut next = entity;
-        while let Ok((child_of, mut tree)) = transforms.get_mut(next) {
+        while let Ok(mut tree) = transforms.get_mut(next) {
             if tree.is_changed() && !tree.is_added() {
                 // If the component was changed, this part of the tree has already been processed.
                 // Ignore this if the change was caused by the component being added.
                 break;
             }
             tree.set_changed();
-            if let Some(parent) = child_of.map(ChildOf::parent) {
+            if let Ok(parent) = parents.get(next).map(ChildOf::parent) {
                 next = parent;
             } else {
                 break;
@@ -250,6 +289,7 @@ mod serial {
 mod parallel {
     use crate::prelude::*;
     // TODO: this implementation could be used in no_std if there are equivalents of these.
+    use crate::systems::DirtyTransformTreeSettings;
     use alloc::{sync::Arc, vec::Vec};
     use bevy_ecs::{entity::UniqueEntityIter, prelude::*, system::lifetimeless::Read};
     use bevy_tasks::{ComputeTaskPool, TaskPool};
@@ -269,15 +309,27 @@ mod parallel {
     pub fn propagate_parent_transforms(
         mut queue: Local<WorkQueue>,
         mut roots: Query<
-            (Entity, Ref<Transform>, &mut GlobalTransform, &Children),
-            (Without<ChildOf>, Changed<TransformTreeChanged>),
+            (
+                Entity,
+                Ref<Transform>,
+                &mut GlobalTransform,
+                &Children,
+                Ref<TransformTreeChanged>,
+            ),
+            Without<ChildOf>,
         >,
         nodes: NodeQuery,
+        dirty_tracking: Res<DirtyTransformTreeSettings>,
     ) {
         // Process roots in parallel, seeding the work queue
         roots.par_iter_mut().for_each_init(
             || queue.local_queue.borrow_local_mut(),
-            |outbox, (parent, transform, mut parent_transform, children)| {
+            |outbox, (parent, transform, mut parent_transform, children, transform_tree)| {
+                if dirty_tracking.enabled && !transform_tree.is_changed() {
+                    // Early exit if the subtree is static and the dirty tree feature is enabled.
+                    return;
+                }
+
                 *parent_transform = GlobalTransform::from(*transform);
 
                 // SAFETY: the parent entities passed into this function are taken from iterating
@@ -292,6 +344,7 @@ mod parallel {
                         &nodes,
                         outbox,
                         &queue,
+                        &dirty_tracking,
                         // Need to revisit this single-max-depth by profiling more representative
                         // scenes. It's possible that it is actually beneficial to go deep into the
                         // hierarchy to build up a good task queue before starting the workers.
@@ -323,15 +376,21 @@ mod parallel {
         let task_pool = ComputeTaskPool::get_or_init(TaskPool::default);
         task_pool.scope(|s| {
             (1..task_pool.thread_num()) // First worker is run locally instead of the task pool.
-                .for_each(|_| s.spawn(async { propagation_worker(&queue, &nodes) }));
-            propagation_worker(&queue, &nodes);
+                .for_each(|_| {
+                    s.spawn(async { propagation_worker(&queue, &nodes, &dirty_tracking) })
+                });
+            propagation_worker(&queue, &nodes, &dirty_tracking);
         });
     }
 
     /// A parallel worker that will consume processed parent entities from the queue, and push
     /// children to the queue once it has propagated their [`GlobalTransform`].
     #[inline]
-    fn propagation_worker(queue: &WorkQueue, nodes: &NodeQuery) {
+    fn propagation_worker(
+        queue: &WorkQueue,
+        nodes: &NodeQuery,
+        dirty_transform_settings: &DirtyTransformTreeSettings,
+    ) {
         #[cfg(feature = "std")]
         let _span = bevy_log::info_span!("transform propagation worker").entered();
 
@@ -386,6 +445,7 @@ mod parallel {
                         nodes,
                         &mut outbox,
                         queue,
+                        dirty_transform_settings,
                         // Only affects performance. Trees deeper than this will still be fully
                         // propagated, but the work will be broken into multiple tasks. This number
                         // was chosen to be larger than any reasonable tree depth, while not being
@@ -426,6 +486,7 @@ mod parallel {
         nodes: &NodeQuery,
         outbox: &mut Vec<Entity>,
         queue: &WorkQueue,
+        dirty_transform_tree_settings: &DirtyTransformTreeSettings,
         max_depth: usize,
     ) {
         // Create mutable copies of the input variables, used for iterative depth-first traversal.
@@ -448,7 +509,10 @@ mod parallel {
             let mut last_child = None;
             let new_children = children_iter.filter_map(
                 |(child, (transform, mut global_transform, tree), (children, child_of))| {
-                    if !tree.is_changed() && !p_global_transform.is_changed() {
+                    if dirty_transform_tree_settings.enabled
+                        && !tree.is_changed()
+                        && !p_global_transform.is_changed()
+                    {
                         // Static scene optimization
                         return None;
                     }
