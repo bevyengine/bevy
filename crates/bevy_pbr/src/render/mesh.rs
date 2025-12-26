@@ -2268,11 +2268,22 @@ impl MeshPipelineKey {
         1 << ((self.bits() >> Self::MSAA_SHIFT_BITS) & Self::MSAA_MASK_BITS)
     }
 
-    pub fn from_primitive_topology(primitive_topology: PrimitiveTopology) -> Self {
+    pub fn from_primitive_topology_and_index(
+        primitive_topology: PrimitiveTopology,
+        indices: Option<IndexFormat>,
+    ) -> Self {
+        let index_bits = match indices {
+            None => BaseMeshPipelineKey::INDEX_FORMAT_NONE,
+            Some(indices) => match indices {
+                IndexFormat::Uint16 => BaseMeshPipelineKey::INDEX_FORMAT_U16,
+                IndexFormat::Uint32 => BaseMeshPipelineKey::INDEX_FORMAT_U32,
+            },
+        }
+        .bits();
         let primitive_topology_bits = ((primitive_topology as u64)
             & BaseMeshPipelineKey::PRIMITIVE_TOPOLOGY_MASK_BITS)
             << BaseMeshPipelineKey::PRIMITIVE_TOPOLOGY_SHIFT_BITS;
-        Self::from_bits_retain(primitive_topology_bits)
+        Self::from_bits_retain(primitive_topology_bits | index_bits)
     }
 
     pub fn primitive_topology(&self) -> PrimitiveTopology {
@@ -2288,6 +2299,24 @@ impl MeshPipelineKey {
             _ => PrimitiveTopology::default(),
         }
     }
+
+    pub fn index_format(&self) -> Option<IndexFormat> {
+        let index_bits = self.bits() & BaseMeshPipelineKey::INDEX_FORMAT_RESERVED_BITS.bits();
+        match index_bits {
+            x if x == BaseMeshPipelineKey::INDEX_FORMAT_U16.bits() => Some(IndexFormat::Uint16),
+            x if x == BaseMeshPipelineKey::INDEX_FORMAT_U32.bits() => Some(IndexFormat::Uint32),
+            x if x == BaseMeshPipelineKey::INDEX_FORMAT_NONE.bits() => None,
+            _ => unreachable!(),
+        }
+    }
+
+    pub fn strip_index_format(&self) -> Option<IndexFormat> {
+        if self.primitive_topology().is_strip() {
+            self.index_format()
+        } else {
+            None
+        }
+    }
 }
 
 // Ensure that we didn't overflow the number of bits available in `MeshPipelineKey`.
@@ -2301,6 +2330,13 @@ const_assert_eq!(
 const_assert_eq!(
     (BaseMeshPipelineKey::PRIMITIVE_TOPOLOGY_MASK_BITS
         << BaseMeshPipelineKey::PRIMITIVE_TOPOLOGY_SHIFT_BITS)
+        & MeshPipelineKey::ALL_RESERVED_BITS.bits(),
+    0
+);
+
+// Ensure that the reserved bits don't overlap with the indices type bits
+const_assert_eq!(
+    BaseMeshPipelineKey::INDEX_FORMAT_RESERVED_BITS.bits()
         & MeshPipelineKey::ALL_RESERVED_BITS.bits(),
     0
 );
@@ -2711,6 +2747,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
                 cull_mode: Some(Face::Back),
                 unclipped_depth: false,
                 topology: key.primitive_topology(),
+                strip_index_format: key.strip_index_format(),
                 ..default()
             },
             depth_stencil: Some(DepthStencilState {

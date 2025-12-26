@@ -221,6 +221,7 @@ impl SpecializedMeshPipeline for StencilPipeline {
             }),
             primitive: PrimitiveState {
                 topology: key.primitive_topology(),
+                strip_index_format: key.strip_index_format(),
                 cull_mode: Some(Face::Back),
                 ..default()
             },
@@ -534,7 +535,10 @@ fn queue_custom_meshes(
             // For this example we only specialize based on the mesh topology
             // but you could have more complex keys and that's where you'd need to create those keys
             let mut mesh_key = view_key;
-            mesh_key |= MeshPipelineKey::from_primitive_topology(mesh.primitive_topology());
+            mesh_key |= MeshPipelineKey::from_primitive_topology_and_index(
+                mesh.primitive_topology(),
+                mesh.index_format(),
+            );
 
             let pipeline_id = pipelines.specialize(
                 &pipeline_cache,
