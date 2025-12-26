@@ -142,7 +142,7 @@ pub fn from_reflect_with_fallback<T: Reflect + TypePath>(
             );
         };
         assert_eq!(
-            value.as_any().type_id(),
+            value.type_id(),
             id,
             "The registration for the reflected `{source}` trait for the type `{name}` produced \
             a value of a different type",
