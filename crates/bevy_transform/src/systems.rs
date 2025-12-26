@@ -65,18 +65,27 @@ impl StaticTransformOptimizations {
     ///
     /// - Setting this to `0.0` will result in never running static scene tracking.
     /// - Setting this to `1.0` will result in always tracking static transform trees.
-    pub fn set_threshold(&mut self, threshold: f32) {
-        self.threshold = threshold;
+    pub fn from_threshold(threshold: f32) -> Self {
+        Self {
+            threshold,
+            enabled: true,
+        }
     }
 
     /// Unconditionally disable static scene optimizations.
-    pub fn disable(&mut self) {
-        self.threshold = 0.0;
+    pub fn disabled() -> Self {
+        Self {
+            threshold: 0.0,
+            enabled: false,
+        }
     }
 
     /// Unconditionally enable static scene optimizations.
-    pub fn enable(&mut self) {
-        self.threshold = 1.0;
+    pub fn enabled() -> Self {
+        Self {
+            threshold: 1.0,
+            enabled: true,
+        }
     }
 }
 

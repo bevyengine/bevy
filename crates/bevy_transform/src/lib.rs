@@ -47,8 +47,9 @@ pub mod prelude {
         helper::TransformHelper,
         plugins::{TransformPlugin, TransformSystems},
         traits::TransformPoint,
+        systems::StaticTransformOptimizations,
     };
 }
 
 #[cfg(feature = "bevy-support")]
-pub use prelude::{TransformPlugin, TransformPoint, TransformSystems};
+pub use prelude::{TransformPlugin, TransformPoint, TransformSystems, StaticTransformOptimizations};
