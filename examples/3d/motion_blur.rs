@@ -4,6 +4,7 @@
 use bevy::{
     image::{ImageAddressMode, ImageFilterMode, ImageSampler, ImageSamplerDescriptor},
     math::ops,
+    mesh::InfallibleMesh,
     post_process::motion_blur::MotionBlur,
     prelude::*,
 };
@@ -82,7 +83,7 @@ fn setup_scene(
         Transform::default().with_scale(Vec3::splat(-4000.0)),
     ));
     // Ground
-    let mut plane: Mesh = Plane3d::default().into();
+    let mut plane: InfallibleMesh = Plane3d::default().mesh().into();
     let uv_size = 4000.0;
     let uvs = vec![[uv_size, 0.0], [0.0, 0.0], [0.0, uv_size], [uv_size; 2]];
     plane.insert_attribute(Mesh::ATTRIBUTE_UV_0, uvs);

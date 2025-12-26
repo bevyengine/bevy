@@ -35,6 +35,8 @@ pub struct RayTriangleHit {
     pub barycentric_coords: (f32, f32),
 }
 
+const MESH_EXTRACTED_ERROR: &str = "Cannot pick on extracted mesh, the mesh `asset_usage` must include `RenderAssetUsages::MAIN_WORLD`";
+
 /// Casts a ray on a mesh, and returns the intersection.
 pub(super) fn ray_intersection_over_mesh(
     mesh: &Mesh,
@@ -46,21 +48,26 @@ pub(super) fn ray_intersection_over_mesh(
         return None; // ray_mesh_intersection assumes vertices are laid out in a triangle list
     }
     // Vertex positions are required
-    let positions = mesh.attribute(Mesh::ATTRIBUTE_POSITION)?.as_float3()?;
+    let positions = mesh
+        .attribute_option(Mesh::ATTRIBUTE_POSITION)
+        .expect(MESH_EXTRACTED_ERROR)?
+        .as_float3()?;
 
     // Normals are optional
     let normals = mesh
-        .attribute(Mesh::ATTRIBUTE_NORMAL)
+        .attribute_option(Mesh::ATTRIBUTE_NORMAL)
+        .expect("")
         .and_then(|normal_values| normal_values.as_float3());
 
     let uvs = mesh
-        .attribute(Mesh::ATTRIBUTE_UV_0)
+        .attribute_option(Mesh::ATTRIBUTE_UV_0)
+        .expect(MESH_EXTRACTED_ERROR)
         .and_then(|uvs| match uvs {
             VertexAttributeValues::Float32x2(uvs) => Some(uvs.as_slice()),
             _ => None,
         });
 
-    match mesh.indices() {
+    match mesh.indices_option().expect(MESH_EXTRACTED_ERROR) {
         Some(Indices::U16(indices)) => {
             ray_mesh_intersection(ray, transform, positions, normals, Some(indices), uvs, cull)
         }
