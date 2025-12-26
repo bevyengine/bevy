@@ -1,6 +1,6 @@
 use crate::components::{GlobalTransform, Transform, TransformTreeChanged};
 use bevy_ecs::prelude::*;
-use bevy_reflect::Reflect;
+
 #[cfg(feature = "std")]
 pub use parallel::propagate_parent_transforms;
 #[cfg(not(feature = "std"))]
@@ -49,7 +49,8 @@ pub fn sync_simple_transforms(
 /// static scene optimization is disabled for worlds with more than 30% of its entities moving.
 ///
 /// This resource allows you to configure that threshold at runtime.
-#[derive(Resource, Debug, Reflect)]
+#[derive(Resource, Debug)]
+#[cfg_attr(feature = "bevy_reflect", derive(bevy_reflect::Reflect))]
 pub struct StaticTransformOptimizations {
     /// If the percentage of moving objects exceeds this value, skip dirty tree marking.
     threshold: f32,
