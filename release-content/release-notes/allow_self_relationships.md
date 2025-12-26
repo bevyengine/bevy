@@ -1,7 +1,7 @@
 ---
 title: Self-Referential Relationships
 authors: ["@mrchantey"]
-pull_requests: []
+pull_requests: [22269]
 ---
 
 Relationships can now optionally point to their own entity by setting the `allow_self` attribute on the `#[relationship]` macro.
