@@ -711,7 +711,7 @@ fn point_light(
         let relative_position = (view_bindings::clustered_decals.decals[(*light).decal_index].local_from_world * vec4(P, 1.0)).xyz;
         let cubemap_type = view_bindings::clustered_decals.decals[(*light).decal_index].tag;
         let decal_uv = cubemap_uv(relative_position, cubemap_type);
-        let image_index = view_bindings::clustered_decals.decals[(*light).decal_index].image_index;
+        let image_index = view_bindings::clustered_decals.decals[(*light).decal_index].base_color_texture_index;
 
         texture_sample = textureSampleLevel(
             view_bindings::clustered_decal_textures[image_index],
@@ -759,7 +759,7 @@ fn spot_light(
             vec4((*input).P, 1.0)).xyz;
         if local_position.z < 0.0 {
             let decal_uv = (local_position.xy / (local_position.z * (*light).spot_light_tan_angle)) * vec2(-0.5, 0.5) + 0.5;
-            let image_index = view_bindings::clustered_decals.decals[(*light).decal_index].image_index;
+            let image_index = view_bindings::clustered_decals.decals[(*light).decal_index].base_color_texture_index;
 
             texture_sample = textureSampleLevel(
                 view_bindings::clustered_decal_textures[image_index],
@@ -840,7 +840,7 @@ fn directional_light(
         if (view_bindings::clustered_decals.decals[(*light).decal_index].tag != 0u)
                 || all(clamp(decal_uv, vec2(0.0), vec2(1.0)) == decal_uv)
         {
-            let image_index = view_bindings::clustered_decals.decals[(*light).decal_index].image_index;
+            let image_index = view_bindings::clustered_decals.decals[(*light).decal_index].base_color_texture_index;
 
             texture_sample = textureSampleLevel(
                 view_bindings::clustered_decal_textures[image_index],
