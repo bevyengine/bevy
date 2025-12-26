@@ -110,7 +110,7 @@ fn setup(
 
     // Add sample points as children of the sphere:
     for point in distribution.sample_iter(&mut seeded_rng).take(10000) {
-        sphere.with_child((
+        sphere.spawn_child((
             Mesh3d(point_mesh.clone()),
             MeshMaterial3d(point_material.clone()),
             Transform::from_translation(point),

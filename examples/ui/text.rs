@@ -65,7 +65,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 ..default()
             },
         ))
-        .with_child((
+        .spawn_child((
             TextSpan::default(),
             (
                 TextFont {

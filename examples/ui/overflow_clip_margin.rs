@@ -50,7 +50,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 },
                                 BackgroundColor(Color::srgb(0.25, 0.25, 0.25)),
                             ))
-                            .with_child(Text(format!("{overflow_clip_margin:#?}")));
+                            .spawn_child(Text(format!("{overflow_clip_margin:#?}")));
 
                         parent
                             .spawn((
@@ -77,7 +77,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                         },
                                         BackgroundColor(LIGHT_CYAN.into()),
                                     ))
-                                    .with_child((
+                                    .spawn_child((
                                         ImageNode::new(image.clone()),
                                         Node {
                                             min_width: px(100),
