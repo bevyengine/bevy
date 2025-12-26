@@ -777,7 +777,7 @@ fn auto_rebuild_ui_navigation_graph(
 
         let (_scale, _rotation, translation) = transform.to_scale_angle_translation();
 
-        let camera_nodes = auto_nodes.entry(target_camera).or_insert(Vec::new());
+        let camera_nodes = auto_nodes.entry(target_camera).or_default();
 
         camera_nodes.push(FocusableArea {
             entity,
@@ -787,7 +787,7 @@ fn auto_rebuild_ui_navigation_graph(
     }
 
     for nodes in auto_nodes.values() {
-        auto_generate_navigation_edges(&mut directional_nav_map, &nodes, &config);
+        auto_generate_navigation_edges(&mut directional_nav_map, nodes, &config);
     }
 }
 
