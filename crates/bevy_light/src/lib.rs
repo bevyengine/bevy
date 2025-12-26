@@ -190,9 +190,10 @@ impl Plugin for LightPlugin {
                         .after(VisibilitySystems::CalculateBounds)
                         .after(TransformSystems::Propagate)
                         .after(SimulationLightSystems::UpdateLightFrusta)
-                        // NOTE: This MUST be scheduled AFTER the core renderer visibility check
-                        // because that resets entity `ViewVisibility` for the first view
-                        // which would override any results from this otherwise
+                        // Lights can "see" entities and mark them as visible. This is done to
+                        // correctly render shadows for entities that are not in view of a camera,
+                        // but must be renderable to cast shadows. Because of this, we need to check
+                        // entity visibility and mark as visible before they can be hidden.
                         .after(VisibilitySystems::CheckVisibility)
                         .before(VisibilitySystems::MarkNewlyHiddenEntitiesInvisible),
                     build_directional_light_cascades
