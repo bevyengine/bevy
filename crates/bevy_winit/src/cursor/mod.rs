@@ -56,7 +56,7 @@ pub enum CursorSource {
 #[derive(Component, Debug)]
 pub struct PendingCursor(pub Option<CursorSource>);
 
-impl<M: Message> WinitAppRunnerState<M> {
+impl WinitAppRunnerState {
     pub(crate) fn update_cursors(
         &mut self,
         #[cfg(feature = "custom_cursor")] event_loop: &ActiveEventLoop,

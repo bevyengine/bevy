@@ -29,15 +29,15 @@ jobs:
     runs-on: macos-14
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - uses: dtolnay/rust-toolchain@stable
 
-      - uses: actions/cache/restore@v4
+      - uses: actions/cache/restore@v5
         with:
           # key won't match, will rely on restore-keys
           key: ${{ runner.os }}-stable-aarch64-apple-ios-sim-${{ hashFiles('**/Cargo.toml') }}-
-          # See .github/workflows/validation-jobs.yml for how keys are generated
+          # See .github/workflows/update-caches.yml for how keys are generated
           restore-keys: |
             ${{ runner.os }}-stable-aarch64-apple-ios-sim-${{ hashFiles('**/Cargo.toml') }}-
             ${{ runner.os }}-stable-aarch64-apple-ios-sim-
@@ -59,7 +59,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - uses: dtolnay/rust-toolchain@stable
 
@@ -69,11 +69,11 @@ jobs:
           java-version: "17"
           distribution: "temurin"
 
-      - uses: actions/cache/restore@v4
+      - uses: actions/cache/restore@v5
         with:
           # key won't match, will rely on restore-keys
           key: ${{ runner.os }}-stable-aarch64-linux-android-${{ hashFiles('**/Cargo.toml') }}-
-          # See .github/workflows/validation-jobs.yml for how keys are generated
+          # See .github/workflows/update-caches.yml for how keys are generated
           restore-keys: |
             ${{ runner.os }}-stable-aarch64-linux-android-${{ hashFiles('**/Cargo.toml') }}-
             ${{ runner.os }}-stable-aarch64-linux-android-
@@ -101,17 +101,17 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - uses: dtolnay/rust-toolchain@stable
         with:
           target: wasm32-unknown-unknown
 
-      - uses: actions/cache/restore@v4
+      - uses: actions/cache/restore@v5
         with:
           # key won't match, will rely on restore-keys
           key: ${{ runner.os }}-stable-wasm32-unknown-unknown-${{ hashFiles('**/Cargo.toml') }}-
-          # See .github/workflows/validation-jobs.yml for how keys are generated
+          # See .github/workflows/update-caches.yml for how keys are generated
           restore-keys: |
             ${{ runner.os }}-stable-wasm32-unknown-unknown-${{ hashFiles('**/Cargo.toml') }}-
             ${{ runner.os }}-stable-wasm32-unknown-unknown-
@@ -147,7 +147,7 @@ jobs:
           xvfb-run cargo run -p build-wasm-example -- --browsers chromium --browsers firefox --frames 25 --test 2d_shapes lighting text_debug breakout
 
       - name: Save screenshots
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: screenshots-wasm
           path: .github/start-wasm-example/screenshot-*.png
@@ -161,7 +161,7 @@ jobs:
         crate: [bevy_ecs, bevy_reflect, bevy]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - uses: dtolnay/rust-toolchain@stable
       - name: Install Linux dependencies
         uses: ./.github/actions/install-linux-deps
@@ -189,15 +189,15 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ env.NIGHTLY_TOOLCHAIN }}
-      - uses: actions/cache/restore@v4
+      - uses: actions/cache/restore@v5
         with:
           # key won't match, will rely on restore-keys
           key: ${{ runner.os }}-${{ env.NIGHTLY_TOOLCHAIN }}--${{ hashFiles('**/Cargo.toml') }}-
-          # See .github/workflows/validation-jobs.yml for how keys are generated
+          # See .github/workflows/update-caches.yml for how keys are generated
           restore-keys: |
             ${{ runner.os }}-${{ env.NIGHTLY_TOOLCHAIN }}--${{ hashFiles('**/Cargo.toml') }}-
             ${{ runner.os }}-${{ env.NIGHTLY_TOOLCHAIN }}--
@@ -219,13 +219,13 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - uses: dtolnay/rust-toolchain@stable
-      - uses: actions/cache/restore@v4
+      - uses: actions/cache/restore@v5
         with:
           # key won't match, will rely on restore-keys
           key: ${{ runner.os }}-stable--${{ hashFiles('**/Cargo.toml') }}-
-          # See .github/workflows/validation-jobs.yml for how keys are generated
+          # See .github/workflows/update-caches.yml for how keys are generated
           restore-keys: |
             ${{ runner.os }}-stable--${{ hashFiles('**/Cargo.toml') }}-
             ${{ runner.os }}-stable--

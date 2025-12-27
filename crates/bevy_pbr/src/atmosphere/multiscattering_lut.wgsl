@@ -1,22 +1,17 @@
 #import bevy_pbr::{
-    mesh_view_types::{Lights, DirectionalLight},
     atmosphere::{
-        types::{Atmosphere, AtmosphereSettings},
         bindings::{atmosphere, settings},
         functions::{
             multiscattering_lut_uv_to_r_mu, sample_transmittance_lut,
             get_local_r, get_local_up, sample_density_lut, FRAC_4_PI,
-            max_atmosphere_distance, rayleigh, henyey_greenstein,
-            zenith_azimuth_to_ray_dir, MIN_EXTINCTION, ABSORPTION_DENSITY,
-            SCATTERING_DENSITY,
+            max_atmosphere_distance,
+            MIN_EXTINCTION, ABSORPTION_DENSITY, SCATTERING_DENSITY,
         },
-        bruneton_functions::{
-            distance_to_top_atmosphere_boundary, distance_to_bottom_atmosphere_boundary, ray_intersects_ground
-        }
+        bruneton_functions::ray_intersects_ground
     }
 }
 
-#import bevy_render::maths::{PI,PI_2}
+#import bevy_render::maths::{PI, PI_2}
 
 const PHI_2: vec2<f32> = vec2(1.3247179572447460259609088, 1.7548776662466927600495087);
 

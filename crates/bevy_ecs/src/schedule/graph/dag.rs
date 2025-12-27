@@ -287,7 +287,9 @@ impl<N: GraphNodeId, S: BuildHasher> DagAnalysis<N, S> {
 
         // build a copy of the graph where the nodes and edges appear in topsorted order
         let mut map = <HashMap<_, _>>::with_capacity_and_hasher(n, Default::default());
-        let mut topsorted = DiGraph::<N>::default();
+        let mut topsorted =
+            DiGraph::<N>::with_capacity(topological_order.len(), graph.edge_count());
+
         // iterate nodes in topological order
         for (i, &node) in topological_order.iter().enumerate() {
             map.insert(node, i);
@@ -302,8 +304,8 @@ impl<N: GraphNodeId, S: BuildHasher> DagAnalysis<N, S> {
         let mut connected = HashSet::default();
         let mut disconnected = Vec::default();
         let mut transitive_edges = Vec::default();
-        let mut transitive_reduction = DiGraph::default();
-        let mut transitive_closure = DiGraph::default();
+        let mut transitive_reduction = DiGraph::with_capacity(topsorted.node_count(), 0);
+        let mut transitive_closure = DiGraph::with_capacity(topsorted.node_count(), 0);
 
         let mut visited = FixedBitSet::with_capacity(n);
 
@@ -605,6 +607,7 @@ impl<K: GraphNodeId, V: GraphNodeId, S: BuildHasher> DagGroups<K, V, S> {
             // Remove the key node from the graph.
             flattening.remove_node(N::from(key));
             // Add all previously collected edges.
+            flattening.reserve_edges(temp.len());
             for (a, b) in temp.drain(..) {
                 flattening.add_edge(a, b);
             }
@@ -636,20 +639,35 @@ impl<K: GraphNodeId, V: GraphNodeId, S: BuildHasher> DagGroups<K, V, S> {
                 }
                 (Err(lhs_key), Ok(rhs)) => {
                     // Edge from a key node to a value node, expand to all values in the key's group
-                    for &lhs in self.get(&lhs_key).into_iter().flatten() {
+                    let Some(lhs_group) = self.get(&lhs_key) else {
+                        continue;
+                    };
+                    flattened.reserve_edges(lhs_group.len());
+                    for &lhs in lhs_group {
                         flattened.add_edge(lhs, rhs);
                     }
                 }
                 (Ok(lhs), Err(rhs_key)) => {
                     // Edge from a value node to a key node, expand to all values in the key's group
-                    for &rhs in self.get(&rhs_key).into_iter().flatten() {
+                    let Some(rhs_group) = self.get(&rhs_key) else {
+                        continue;
+                    };
+                    flattened.reserve_edges(rhs_group.len());
+                    for &rhs in rhs_group {
                         flattened.add_edge(lhs, rhs);
                     }
                 }
                 (Err(lhs_key), Err(rhs_key)) => {
                     // Edge between two key nodes, expand to all combinations of their value nodes
-                    for &lhs in self.get(&lhs_key).into_iter().flatten() {
-                        for &rhs in self.get(&rhs_key).into_iter().flatten() {
+                    let Some(lhs_group) = self.get(&lhs_key) else {
+                        continue;
+                    };
+                    let Some(rhs_group) = self.get(&rhs_key) else {
+                        continue;
+                    };
+                    flattened.reserve_edges(lhs_group.len() * rhs_group.len());
+                    for &lhs in lhs_group {
+                        for &rhs in rhs_group {
                             flattened.add_edge(lhs, rhs);
                         }
                     }

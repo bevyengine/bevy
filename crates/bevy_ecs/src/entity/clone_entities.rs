@@ -1,3 +1,8 @@
+#![expect(
+    unsafe_op_in_unsafe_fn,
+    reason = "See #11590. To be removed once all applicable unsafe code has an unsafe block with a safety comment."
+)]
+
 use crate::{
     archetype::Archetype,
     bundle::{Bundle, BundleRemover, InsertMode},
@@ -1144,11 +1149,11 @@ impl OptOut {
     #[inline]
     fn filter_deny(&mut self, id: ComponentId, world: &World) {
         self.deny.insert(id);
-        if self.attach_required_by_components {
-            if let Some(required_by) = world.components().get_required_by(id) {
-                self.deny.extend(required_by.iter());
-            };
-        }
+        if self.attach_required_by_components
+            && let Some(required_by) = world.components().get_required_by(id)
+        {
+            self.deny.extend(required_by.iter());
+        };
     }
 }
 

@@ -42,7 +42,10 @@ impl BlobArray {
     ) -> Self {
         if capacity == 0 {
             let align = NonZeroUsize::new(item_layout.align()).expect("alignment must be > 0");
-            let data = bevy_ptr::dangling_with_align(align);
+
+            // Create a dangling pointer with the given alignment.
+            let data = NonNull::without_provenance(align);
+
             Self {
                 item_layout,
                 drop: drop_fn,
@@ -51,7 +54,8 @@ impl BlobArray {
                 capacity,
             }
         } else {
-            let mut arr = Self::with_capacity(item_layout, drop_fn, 0);
+            // SAFETY: Upheld by caller
+            let mut arr = unsafe { Self::with_capacity(item_layout, drop_fn, 0) };
             // SAFETY: `capacity` > 0
             unsafe { arr.alloc(NonZeroUsize::new_unchecked(capacity)) }
             arr
