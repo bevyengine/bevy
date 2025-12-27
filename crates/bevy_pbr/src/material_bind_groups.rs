@@ -18,9 +18,10 @@ use bevy_render::{
         BindGroup, BindGroupEntry, BindGroupLayoutDescriptor, BindingNumber, BindingResource,
         BindingResources, BindlessDescriptor, BindlessIndex, BindlessIndexTableDescriptor,
         BindlessResourceType, Buffer, BufferBinding, BufferDescriptor, BufferId,
-        BufferInitDescriptor, BufferUsages, CompareFunction, FilterMode, OwnedBindingResource,
-        PreparedBindGroup, RawBufferVec, Sampler, SamplerDescriptor, SamplerId, TextureView,
-        TextureViewDimension, TextureViewId, UnpreparedBindGroup, WgpuSampler, WgpuTextureView,
+        BufferInitDescriptor, BufferUsages, CompareFunction, FilterMode, MipmapFilterMode,
+        OwnedBindingResource, PreparedBindGroup, RawBufferVec, Sampler, SamplerDescriptor,
+        SamplerId, TextureView, TextureViewDimension, TextureViewId, UnpreparedBindGroup,
+        WgpuSampler, WgpuTextureView,
     },
     renderer::{RenderDevice, RenderQueue},
     settings::WgpuFeatures,
@@ -1802,7 +1803,7 @@ pub fn init_fallback_bindless_resources(mut commands: Commands, render_device: R
             label: Some("fallback non-filtering sampler"),
             mag_filter: FilterMode::Nearest,
             min_filter: FilterMode::Nearest,
-            mipmap_filter: FilterMode::Nearest,
+            mipmap_filter: MipmapFilterMode::Nearest,
             ..default()
         }),
         comparison_sampler: render_device.create_sampler(&SamplerDescriptor {

@@ -120,10 +120,7 @@ pub fn init_meshlet_pipelines(
         clear_visibility_buffer: pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
             label: Some("meshlet_clear_visibility_buffer_pipeline".into()),
             layout: vec![clear_visibility_buffer_bind_group_layout],
-            push_constant_ranges: vec![PushConstantRange {
-                stages: ShaderStages::COMPUTE,
-                range: 0..8,
-            }],
+            immediate_size: 8,
             shader: clear_visibility_buffer.clone(),
             shader_defs: vec!["MESHLET_VISIBILITY_BUFFER_RASTER_PASS_OUTPUT".into()],
             ..default()
@@ -133,10 +130,7 @@ pub fn init_meshlet_pipelines(
             ComputePipelineDescriptor {
                 label: Some("meshlet_clear_visibility_buffer_shadow_view_pipeline".into()),
                 layout: vec![clear_visibility_buffer_shadow_view_bind_group_layout],
-                push_constant_ranges: vec![PushConstantRange {
-                    stages: ShaderStages::COMPUTE,
-                    range: 0..8,
-                }],
+                immediate_size: 8,
                 shader: clear_visibility_buffer,
                 ..default()
             },
@@ -145,10 +139,7 @@ pub fn init_meshlet_pipelines(
         first_instance_cull: pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
             label: Some("meshlet_first_instance_cull_pipeline".into()),
             layout: vec![first_instance_cull_bind_group_layout.clone()],
-            push_constant_ranges: vec![PushConstantRange {
-                stages: ShaderStages::COMPUTE,
-                range: 0..4,
-            }],
+            immediate_size: 4,
             shader: cull_instances.clone(),
             shader_defs: vec![
                 "MESHLET_INSTANCE_CULLING_PASS".into(),
@@ -160,10 +151,7 @@ pub fn init_meshlet_pipelines(
         second_instance_cull: pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
             label: Some("meshlet_second_instance_cull_pipeline".into()),
             layout: vec![second_instance_cull_bind_group_layout.clone()],
-            push_constant_ranges: vec![PushConstantRange {
-                stages: ShaderStages::COMPUTE,
-                range: 0..4,
-            }],
+            immediate_size: 4,
             shader: cull_instances,
             shader_defs: vec![
                 "MESHLET_INSTANCE_CULLING_PASS".into(),
@@ -175,10 +163,7 @@ pub fn init_meshlet_pipelines(
         first_bvh_cull: pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
             label: Some("meshlet_first_bvh_cull_pipeline".into()),
             layout: vec![first_bvh_cull_bind_group_layout.clone()],
-            push_constant_ranges: vec![PushConstantRange {
-                stages: ShaderStages::COMPUTE,
-                range: 0..8,
-            }],
+            immediate_size: 8,
             shader: cull_bvh.clone(),
             shader_defs: vec![
                 "MESHLET_BVH_CULLING_PASS".into(),
@@ -190,10 +175,7 @@ pub fn init_meshlet_pipelines(
         second_bvh_cull: pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
             label: Some("meshlet_second_bvh_cull_pipeline".into()),
             layout: vec![second_bvh_cull_bind_group_layout.clone()],
-            push_constant_ranges: vec![PushConstantRange {
-                stages: ShaderStages::COMPUTE,
-                range: 0..8,
-            }],
+            immediate_size: 8,
             shader: cull_bvh,
             shader_defs: vec![
                 "MESHLET_BVH_CULLING_PASS".into(),
@@ -205,10 +187,7 @@ pub fn init_meshlet_pipelines(
         first_meshlet_cull: pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
             label: Some("meshlet_first_meshlet_cull_pipeline".into()),
             layout: vec![first_meshlet_cull_bind_group_layout.clone()],
-            push_constant_ranges: vec![PushConstantRange {
-                stages: ShaderStages::COMPUTE,
-                range: 0..4,
-            }],
+            immediate_size: 4,
             shader: cull_clusters.clone(),
             shader_defs: vec![
                 "MESHLET_CLUSTER_CULLING_PASS".into(),
@@ -220,10 +199,7 @@ pub fn init_meshlet_pipelines(
         second_meshlet_cull: pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
             label: Some("meshlet_second_meshlet_cull_pipeline".into()),
             layout: vec![second_meshlet_cull_bind_group_layout.clone()],
-            push_constant_ranges: vec![PushConstantRange {
-                stages: ShaderStages::COMPUTE,
-                range: 0..4,
-            }],
+            immediate_size: 4,
             shader: cull_clusters,
             shader_defs: vec![
                 "MESHLET_CLUSTER_CULLING_PASS".into(),
@@ -235,10 +211,7 @@ pub fn init_meshlet_pipelines(
         downsample_depth_first: pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
             label: Some("meshlet_downsample_depth_first_pipeline".into()),
             layout: vec![downsample_depth_layout.clone()],
-            push_constant_ranges: vec![PushConstantRange {
-                stages: ShaderStages::COMPUTE,
-                range: 0..4,
-            }],
+            immediate_size: 4,
             shader: downsample_depth_shader.clone(),
             shader_defs: vec![
                 "MESHLET_VISIBILITY_BUFFER_RASTER_PASS_OUTPUT".into(),
@@ -251,10 +224,7 @@ pub fn init_meshlet_pipelines(
         downsample_depth_second: pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
             label: Some("meshlet_downsample_depth_second_pipeline".into()),
             layout: vec![downsample_depth_layout.clone()],
-            push_constant_ranges: vec![PushConstantRange {
-                stages: ShaderStages::COMPUTE,
-                range: 0..4,
-            }],
+            immediate_size: 4,
             shader: downsample_depth_shader.clone(),
             shader_defs: vec![
                 "MESHLET_VISIBILITY_BUFFER_RASTER_PASS_OUTPUT".into(),
@@ -268,10 +238,7 @@ pub fn init_meshlet_pipelines(
             ComputePipelineDescriptor {
                 label: Some("meshlet_downsample_depth_first_pipeline".into()),
                 layout: vec![downsample_depth_shadow_view_layout.clone()],
-                push_constant_ranges: vec![PushConstantRange {
-                    stages: ShaderStages::COMPUTE,
-                    range: 0..4,
-                }],
+                immediate_size: 4,
                 shader: downsample_depth_shader.clone(),
                 shader_defs: vec!["MESHLET".into()],
                 entry_point: Some("downsample_depth_first".into()),
@@ -283,10 +250,7 @@ pub fn init_meshlet_pipelines(
             ComputePipelineDescriptor {
                 label: Some("meshlet_downsample_depth_second_pipeline".into()),
                 layout: vec![downsample_depth_shadow_view_layout],
-                push_constant_ranges: vec![PushConstantRange {
-                    stages: ShaderStages::COMPUTE,
-                    range: 0..4,
-                }],
+                immediate_size: 4,
                 shader: downsample_depth_shader,
                 shader_defs: vec!["MESHLET".into()],
                 entry_point: Some("downsample_depth_second".into()),
@@ -298,7 +262,7 @@ pub fn init_meshlet_pipelines(
             ComputePipelineDescriptor {
                 label: Some("meshlet_visibility_buffer_software_raster_pipeline".into()),
                 layout: vec![visibility_buffer_raster_layout.clone()],
-                push_constant_ranges: vec![],
+                immediate_size: 0,
                 shader: visibility_buffer_software_raster.clone(),
                 shader_defs: vec![
                     "MESHLET_VISIBILITY_BUFFER_RASTER_PASS".into(),
@@ -320,7 +284,7 @@ pub fn init_meshlet_pipelines(
                     "meshlet_visibility_buffer_software_raster_shadow_view_pipeline".into(),
                 ),
                 layout: vec![visibility_buffer_raster_shadow_view_layout.clone()],
-                push_constant_ranges: vec![],
+                immediate_size: 0,
                 shader: visibility_buffer_software_raster,
                 shader_defs: vec![
                     "MESHLET_VISIBILITY_BUFFER_RASTER_PASS".into(),
@@ -339,10 +303,7 @@ pub fn init_meshlet_pipelines(
             RenderPipelineDescriptor {
                 label: Some("meshlet_visibility_buffer_hardware_raster_pipeline".into()),
                 layout: vec![visibility_buffer_raster_layout.clone()],
-                push_constant_ranges: vec![PushConstantRange {
-                    stages: ShaderStages::VERTEX,
-                    range: 0..4,
-                }],
+                immediate_size: 4,
                 vertex: VertexState {
                     shader: visibility_buffer_hardware_raster.clone(),
                     shader_defs: vec![
@@ -374,10 +335,7 @@ pub fn init_meshlet_pipelines(
                     "meshlet_visibility_buffer_hardware_raster_shadow_view_pipeline".into(),
                 ),
                 layout: vec![visibility_buffer_raster_shadow_view_layout.clone()],
-                push_constant_ranges: vec![PushConstantRange {
-                    stages: ShaderStages::VERTEX,
-                    range: 0..4,
-                }],
+                immediate_size: 4,
                 vertex: VertexState {
                     shader: visibility_buffer_hardware_raster.clone(),
                     shader_defs: vec!["MESHLET_VISIBILITY_BUFFER_RASTER_PASS".into()],
@@ -404,10 +362,7 @@ pub fn init_meshlet_pipelines(
                         .into(),
                 ),
                 layout: vec![visibility_buffer_raster_shadow_view_layout],
-                push_constant_ranges: vec![PushConstantRange {
-                    stages: ShaderStages::VERTEX,
-                    range: 0..4,
-                }],
+                immediate_size: 4,
                 vertex: VertexState {
                     shader: visibility_buffer_hardware_raster.clone(),
                     shader_defs: vec!["MESHLET_VISIBILITY_BUFFER_RASTER_PASS".into()],
@@ -503,10 +458,7 @@ pub fn init_meshlet_pipelines(
             pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
                 label: Some("meshlet_remap_1d_to_2d_dispatch_pipeline".into()),
                 layout: vec![layout],
-                push_constant_ranges: vec![PushConstantRange {
-                    stages: ShaderStages::COMPUTE,
-                    range: 0..4,
-                }],
+                immediate_size: 4,
                 shader: remap_1d_to_2d_dispatch,
                 ..default()
             })

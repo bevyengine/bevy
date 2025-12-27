@@ -64,6 +64,7 @@ impl ViewNode for MainTransmissivePass3dNode {
             depth_stencil_attachment: Some(depth.get_attachment(StoreOp::Store)),
             timestamp_writes: None,
             occlusion_query_set: None,
+            multiview_mask: None,
         };
 
         // Run the transmissive pass, sorted back-to-front

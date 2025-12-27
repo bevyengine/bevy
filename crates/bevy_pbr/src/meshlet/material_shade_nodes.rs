@@ -106,6 +106,7 @@ impl ViewNode for MeshletMainOpaquePass3dNode {
             }),
             timestamp_writes: None,
             occlusion_query_set: None,
+            multiview_mask: None,
         });
         let pass_span = diagnostics.pass_span(&mut render_pass, "meshlet_material_opaque_3d_pass");
         if let Some(viewport) =
@@ -233,6 +234,7 @@ impl ViewNode for MeshletPrepassNode {
             }),
             timestamp_writes: None,
             occlusion_query_set: None,
+            multiview_mask: None,
         });
         let pass_span = diagnostics.pass_span(&mut render_pass, "meshlet_material_prepass");
         if let Some(viewport) =
@@ -370,6 +372,7 @@ impl ViewNode for MeshletDeferredGBufferPrepassNode {
             }),
             timestamp_writes: None,
             occlusion_query_set: None,
+            multiview_mask: None,
         });
         let pass_span =
             diagnostics.pass_span(&mut render_pass, "meshlet_material_deferred_prepass");

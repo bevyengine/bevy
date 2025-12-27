@@ -118,7 +118,8 @@ impl CachedPipelineState {
     }
 }
 
-type LayoutCacheKey = (Vec<BindGroupLayoutId>, Vec<PushConstantRange>);
+type ImmediateSize = u32;
+type LayoutCacheKey = (Vec<BindGroupLayoutId>, ImmediateSize);
 #[derive(Default)]
 struct LayoutCache {
     layouts: HashMap<LayoutCacheKey, Arc<WgpuWrapper<PipelineLayout>>>,
@@ -129,12 +130,12 @@ impl LayoutCache {
         &mut self,
         render_device: &RenderDevice,
         bind_group_layouts: &[BindGroupLayout],
-        push_constant_ranges: Vec<PushConstantRange>,
+        immediate_size: u32,
     ) -> Arc<WgpuWrapper<PipelineLayout>> {
         let bind_group_ids = bind_group_layouts.iter().map(BindGroupLayout::id).collect();
         self.layouts
-            .entry((bind_group_ids, push_constant_ranges))
-            .or_insert_with_key(|(_, push_constant_ranges)| {
+            .entry((bind_group_ids, immediate_size))
+            .or_insert_with_key(|(_, immediate_size)| {
                 let bind_group_layouts = bind_group_layouts
                     .iter()
                     .map(BindGroupLayout::value)
@@ -142,7 +143,7 @@ impl LayoutCache {
                 Arc::new(WgpuWrapper::new(render_device.create_pipeline_layout(
                     &PipelineLayoutDescriptor {
                         bind_group_layouts: &bind_group_layouts,
-                        push_constant_ranges,
+                        immediate_size: *immediate_size,
                         ..default()
                     },
                 )))
@@ -176,7 +177,7 @@ fn load_module(
         source: shader_source,
     };
 
-    render_device
+    let scope = render_device
         .wgpu_device()
         .push_error_scope(wgpu::ErrorFilter::Validation);
 
@@ -192,7 +193,7 @@ fn load_module(
         },
     });
 
-    let error = render_device.wgpu_device().pop_error_scope();
+    let error = scope.pop();
 
     // `now_or_never` will return Some if the future is ready and None otherwise.
     // On native platforms, wgpu will yield the error immediately while on wasm it may take longer since the browser APIs are asynchronous.
@@ -547,16 +548,11 @@ impl PipelineCache {
                     None => None,
                 };
 
-                let layout =
-                    if descriptor.layout.is_empty() && descriptor.push_constant_ranges.is_empty() {
-                        None
-                    } else {
-                        Some(layout_cache.get(
-                            &device,
-                            &bind_group_layout,
-                            descriptor.push_constant_ranges.to_vec(),
-                        ))
-                    };
+                let layout = if descriptor.layout.is_empty() && descriptor.immediate_size == 0 {
+                    None
+                } else {
+                    Some(layout_cache.get(&device, &bind_group_layout, descriptor.immediate_size))
+                };
 
                 drop((shader_cache, layout_cache));
 
@@ -586,7 +582,7 @@ impl PipelineCache {
                 };
 
                 let descriptor = RawRenderPipelineDescriptor {
-                    multiview: None,
+                    multiview_mask: None,
                     depth_stencil: descriptor.depth_stencil.clone(),
                     label: descriptor.label.as_deref(),
                     layout: layout.as_ref().map(|layout| -> &PipelineLayout { layout }),
@@ -651,16 +647,11 @@ impl PipelineCache {
                     Err(err) => return Err(err),
                 };
 
-                let layout =
-                    if descriptor.layout.is_empty() && descriptor.push_constant_ranges.is_empty() {
-                        None
-                    } else {
-                        Some(layout_cache.get(
-                            &device,
-                            &bind_group_layout,
-                            descriptor.push_constant_ranges.to_vec(),
-                        ))
-                    };
+                let layout = if descriptor.layout.is_empty() && descriptor.immediate_size == 0 {
+                    None
+                } else {
+                    Some(layout_cache.get(&device, &bind_group_layout, descriptor.immediate_size))
+                };
 
                 drop((shader_cache, layout_cache));
 
