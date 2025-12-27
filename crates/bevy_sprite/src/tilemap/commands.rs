@@ -1,5 +1,5 @@
 use crate::{
-    tilemap::{TileData, TileStorage, Tilemap},
+    tilemap::{TileStorage, Tilemap},
     TileStorages,
 };
 use bevy_ecs::{
@@ -12,7 +12,7 @@ use bevy_math::{IVec2, Vec2, Vec3};
 use bevy_transform::components::Transform;
 
 pub trait CommandsTilemapExt {
-    fn set_tile<T: TileData>(
+    fn set_tile<T: Send + Sync + 'static>(
         &mut self,
         tilemap_id: Entity,
         tile_position: IVec2,
@@ -23,7 +23,7 @@ pub trait CommandsTilemapExt {
 }
 
 impl CommandsTilemapExt for Commands<'_, '_> {
-    fn set_tile<T: TileData>(
+    fn set_tile<T: Send + Sync + 'static>(
         &mut self,
         tilemap_id: Entity,
         tile_position: IVec2,
@@ -50,18 +50,18 @@ impl CommandsTilemapExt for Commands<'_, '_> {
     }
 }
 
-pub struct SetTile<T: TileData> {
+pub struct SetTile<T: Send + Sync + 'static> {
     pub tilemap_id: Entity,
     pub tile_position: IVec2,
     pub maybe_tile: Option<T>,
 }
 
-pub struct SetTileResult<T: TileData> {
+pub struct SetTileResult<T: Send + Sync + 'static> {
     pub replaced_tile: Option<T>,
     pub chunk_id: Option<Entity>,
 }
 
-impl<T: TileData> Default for SetTileResult<T> {
+impl<T: Send + Sync + 'static> Default for SetTileResult<T> {
     fn default() -> Self {
         Self {
             replaced_tile: Default::default(),
@@ -70,7 +70,7 @@ impl<T: TileData> Default for SetTileResult<T> {
     }
 }
 
-impl<T: TileData> Command<SetTileResult<T>> for SetTile<T> {
+impl<T: Send + Sync + 'static> Command<SetTileResult<T>> for SetTile<T> {
     fn apply(self, world: &mut World) -> SetTileResult<T> {
         let Ok(mut tilemap_entity) = world.get_entity_mut(self.tilemap_id) else {
             tracing::warn!("Could not find Tilemap Entity {:?}", self.tilemap_id);
