@@ -127,7 +127,7 @@ fn resolve_light_sample(light_sample: LightSample, light_source: LightSource) ->
     if light_source.kind == LIGHT_SOURCE_KIND_DIRECTIONAL {
         let directional_light = directional_lights[light_source.id];
 
-#ifdef DIRECTIONAL_LIGHT_SOFT_SHADOWS
+#ifndef NO_DIRECTIONAL_LIGHT_SOFT_SHADOWS
         // Sample a random direction within a cone whose base is the sun approximated as a disk
         // https://www.realtimerendering.com/raytracinggems/unofficial_RayTracingGems_v1.9.pdf#0004286901.INDD%3ASec30%3A305
         var rng = light_sample.seed;
