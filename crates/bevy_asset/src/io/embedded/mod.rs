@@ -3,10 +3,11 @@ mod embedded_watcher;
 
 #[cfg(feature = "embedded_watcher")]
 pub use embedded_watcher::*;
+use tracing::error;
 
 use crate::io::{
     memory::{Dir, MemoryAssetReader, Value},
-    AssetSourceBuilder, AssetSourceBuilders,
+    AssetSourceBuilder, AssetSources,
 };
 use crate::AssetServer;
 use alloc::boxed::Box;
@@ -19,8 +20,7 @@ use std::path::{Path, PathBuf};
 #[cfg(feature = "embedded_watcher")]
 use alloc::borrow::ToOwned;
 
-/// The name of the `embedded` [`AssetSource`](crate::io::AssetSource),
-/// as stored in the [`AssetSourceBuilders`] resource.
+/// The name of the `embedded` [`AssetSource`](crate::io::AssetSource).
 pub const EMBEDDED: &str = "embedded";
 
 /// A [`Resource`] that manages "rust source files" in a virtual in memory [`Dir`], which is intended
@@ -83,18 +83,12 @@ impl EmbeddedAssetRegistry {
         self.dir.remove_asset(full_path)
     }
 
-    /// Registers the [`EMBEDDED`] [`AssetSource`](crate::io::AssetSource) with the given [`AssetSourceBuilders`].
-    pub fn register_source(&self, sources: &mut AssetSourceBuilders) {
+    /// Registers the [`EMBEDDED`] [`AssetSource`](crate::io::AssetSource) with the given
+    /// [`AssetSources`].
+    pub fn register_source(&self, sources: &mut AssetSources) {
         let dir = self.dir.clone();
         let processed_dir = self.dir.clone();
 
-        #[cfg_attr(
-            not(feature = "embedded_watcher"),
-            expect(
-                unused_mut,
-                reason = "Variable is only mutated when `embedded_watcher` feature is enabled."
-            )
-        )]
         let mut source =
             AssetSourceBuilder::new(move || Box::new(MemoryAssetReader { root: dir.clone() }))
                 .with_processed_reader(move || {
@@ -132,7 +126,9 @@ impl EmbeddedAssetRegistry {
                     )))
                 });
         }
-        sources.insert(EMBEDDED, source);
+        if let Err(err) = sources.add(EMBEDDED, &mut source) {
+            error!("Failed to register asset source: {err}");
+        }
     }
 }
 

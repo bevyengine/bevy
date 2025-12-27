@@ -187,6 +187,7 @@ mod render_asset;
 mod server;
 
 pub use assets::*;
+use atomicow::CowArc;
 pub use bevy_asset_macros::Asset;
 use bevy_diagnostic::{Diagnostic, DiagnosticsStore, RegisterDiagnostic};
 pub use direct_access_ext::DirectAssetAccessExt;
@@ -207,7 +208,7 @@ pub use server::*;
 pub use uuid;
 
 use crate::{
-    io::{embedded::EmbeddedAssetRegistry, AssetSourceBuilder, AssetSourceBuilders, AssetSourceId},
+    io::{embedded::EmbeddedAssetRegistry, AssetSourceBuilder, AssetSources},
     processor::{AssetProcessor, Process},
 };
 use alloc::{
@@ -225,6 +226,7 @@ use bevy_ecs::{
 use bevy_platform::collections::HashSet;
 use bevy_reflect::{FromReflect, GetTypeRegistration, Reflect, TypePath};
 use core::any::TypeId;
+use std::sync::{Mutex, PoisonError};
 use tracing::error;
 
 /// Provides "asset" loading and processing functionality. An [`Asset`] is a "runtime value" that is loaded from an [`AssetSource`],
@@ -235,10 +237,10 @@ use tracing::error;
 ///
 /// [`AssetSource`]: io::AssetSource
 pub struct AssetPlugin {
-    /// The default file path to use (relative to the project root) for unprocessed assets.
-    pub file_path: String,
-    /// The default file path to use (relative to the project root) for processed assets.
-    pub processed_file_path: String,
+    /// The default source for loading assets from.
+    ///
+    /// Note: this asset source cannot be removed later.
+    pub default_source: DefaultAssetSource,
     /// If set, will override the default "watch for changes" setting. By default "watch for changes" will be `false` unless
     /// the `watch` cargo feature is set. `watch` can be enabled manually, or it will be automatically enabled if a specific watcher
     /// like `file_watcher` is enabled.
@@ -256,17 +258,17 @@ pub struct AssetPlugin {
     pub mode: AssetMode,
     /// How/If asset meta files should be checked.
     pub meta_check: AssetMetaCheck,
-    /// How to handle load requests of files that are outside the approved directories.
+    /// How to handle load requests of files that are outside the approved paths.
     ///
-    /// Approved folders are [`AssetPlugin::file_path`] and the folder of each
-    /// [`AssetSource`](io::AssetSource). Subfolders within these folders are also valid.
+    /// Approved paths are those within a source, as opposed to paths that "escape" a source using
+    /// `../`. Subfolders within sources are also valid.
     pub unapproved_path_mode: UnapprovedPathMode,
 }
 
-/// Determines how to react to attempts to load assets not inside the approved folders.
+/// Determines how to react to attempts to load assets not inside the approved paths.
 ///
-/// Approved folders are [`AssetPlugin::file_path`] and the folder of each
-/// [`AssetSource`](io::AssetSource). Subfolders within these folders are also valid.
+/// Approved paths are those within a source, as opposed to paths that "escape" a source using
+/// `../`. Subfolders within these sources are also valid.
 ///
 /// It is strongly discouraged to use [`Allow`](UnapprovedPathMode::Allow) if your
 /// app will include scripts or modding support, as it could allow arbitrary file
@@ -330,12 +332,51 @@ pub enum AssetMetaCheck {
     Never,
 }
 
+/// Type to define how to create the default asset source.
+pub enum DefaultAssetSource {
+    /// Create the default asset source given these file paths.
+    Paths {
+        /// The path to the unprocessed assets.
+        file_path: String,
+        /// The path to the processed assets.
+        ///
+        /// If [`None`], the default file path is used when in [`AssetMode::Processed`].
+        processed_file_path: Option<String>,
+    },
+    /// Create the default asset source from the provided builder.
+    ///
+    /// Note: The Mutex is just an implementation detail for applying the
+    /// plugin.
+    Builder(Mutex<AssetSourceBuilder>),
+}
+
+impl DefaultAssetSource {
+    /// Creates an instance that will build the default source for the platform given the file
+    /// paths.
+    ///
+    /// If `processed_file_path` is [`None`], the default file path is used when in
+    /// [`AssetMode::Processed`].
+    pub fn from_paths(file_path: String, processed_file_path: Option<String>) -> Self {
+        Self::Paths {
+            file_path,
+            processed_file_path,
+        }
+    }
+
+    /// Creates an instance that will build the source from the provided builder.
+    pub fn from_builder(builder: AssetSourceBuilder) -> Self {
+        Self::Builder(Mutex::new(builder))
+    }
+}
+
 impl Default for AssetPlugin {
     fn default() -> Self {
         Self {
             mode: AssetMode::Unprocessed,
-            file_path: Self::DEFAULT_UNPROCESSED_FILE_PATH.to_string(),
-            processed_file_path: Self::DEFAULT_PROCESSED_FILE_PATH.to_string(),
+            default_source: DefaultAssetSource::Paths {
+                file_path: Self::DEFAULT_UNPROCESSED_FILE_PATH.to_string(),
+                processed_file_path: None,
+            },
             watch_for_changes_override: None,
             use_asset_processor_override: None,
             meta_check: AssetMetaCheck::default(),
@@ -353,29 +394,42 @@ impl AssetPlugin {
 
 impl Plugin for AssetPlugin {
     fn build(&self, app: &mut App) {
-        let embedded = EmbeddedAssetRegistry::default();
-        {
-            let mut sources = app
-                .world_mut()
-                .get_resource_or_init::<AssetSourceBuilders>();
-            sources.init_default_source(
-                &self.file_path,
-                (!matches!(self.mode, AssetMode::Unprocessed))
-                    .then_some(self.processed_file_path.as_str()),
-            );
-            embedded.register_source(&mut sources);
-        }
+        let mut lock;
+        let mut default_source_builder;
+        let default_source_builder_ref;
+        match &self.default_source {
+            DefaultAssetSource::Paths {
+                file_path,
+                processed_file_path,
+            } => {
+                let processed_file_path = (!matches!(self.mode, AssetMode::Unprocessed)).then_some(
+                    processed_file_path
+                        .as_ref()
+                        .map(String::as_ref)
+                        .unwrap_or(Self::DEFAULT_PROCESSED_FILE_PATH),
+                );
+                default_source_builder =
+                    AssetSourceBuilder::platform_default(file_path, processed_file_path);
+                default_source_builder_ref = &mut default_source_builder;
+            }
+            DefaultAssetSource::Builder(builder) => {
+                lock = builder.lock().unwrap_or_else(PoisonError::into_inner);
+                default_source_builder_ref = &mut *lock;
+            }
+        };
+
+        let asset_sources;
         {
             let watch = self
                 .watch_for_changes_override
                 .unwrap_or(cfg!(feature = "watch"));
             match self.mode {
                 AssetMode::Unprocessed => {
-                    let mut builders = app.world_mut().resource_mut::<AssetSourceBuilders>();
-                    let sources = builders.build_sources(watch, false);
+                    asset_sources =
+                        AssetSources::new(default_source_builder_ref, watch, false, None);
 
                     app.insert_resource(AssetServer::new_with_meta_check(
-                        Arc::new(sources),
+                        asset_sources.clone(),
                         AssetServerMode::Unprocessed,
                         self.meta_check.clone(),
                         watch,
@@ -387,11 +441,12 @@ impl Plugin for AssetPlugin {
                         .use_asset_processor_override
                         .unwrap_or(cfg!(feature = "asset_processor"));
                     if use_asset_processor {
-                        let mut builders = app.world_mut().resource_mut::<AssetSourceBuilders>();
-                        let (processor, sources) = AssetProcessor::new(&mut builders, watch);
+                        let (processor, sources) =
+                            AssetProcessor::new(default_source_builder_ref, watch);
+                        asset_sources = sources;
                         // the main asset server shares loaders with the processor asset server
                         app.insert_resource(AssetServer::new_with_loaders(
-                            sources,
+                            asset_sources.clone(),
                             processor.server().data.loaders.clone(),
                             AssetServerMode::Processed,
                             AssetMetaCheck::Always,
@@ -401,10 +456,11 @@ impl Plugin for AssetPlugin {
                         .insert_resource(processor)
                         .add_systems(bevy_app::Startup, AssetProcessor::start);
                     } else {
-                        let mut builders = app.world_mut().resource_mut::<AssetSourceBuilders>();
-                        let sources = builders.build_sources(false, watch);
+                        asset_sources =
+                            AssetSources::new(default_source_builder_ref, false, watch, None);
+
                         app.insert_resource(AssetServer::new_with_meta_check(
-                            Arc::new(sources),
+                            asset_sources.clone(),
                             AssetServerMode::Processed,
                             AssetMetaCheck::Always,
                             watch,
@@ -414,6 +470,12 @@ impl Plugin for AssetPlugin {
                 }
             }
         }
+        let embedded = EmbeddedAssetRegistry::default();
+        embedded.register_source(
+            &mut asset_sources
+                .write()
+                .unwrap_or_else(PoisonError::into_inner),
+        );
         app.insert_resource(embedded)
             .init_asset::<LoadedFolder>()
             .init_asset::<LoadedUntypedAsset>()
@@ -560,7 +622,7 @@ pub trait AssetApp {
     /// since registered asset sources are built at that point and not after.
     fn register_asset_source(
         &mut self,
-        id: impl Into<AssetSourceId<'static>>,
+        id: impl Into<CowArc<'static, str>>,
         source: AssetSourceBuilder,
     ) -> &mut Self;
     /// Sets the default asset processor for the given `extension`.
@@ -604,19 +666,17 @@ impl AssetApp for App {
 
     fn register_asset_source(
         &mut self,
-        id: impl Into<AssetSourceId<'static>>,
-        source: AssetSourceBuilder,
+        name: impl Into<CowArc<'static, str>>,
+        mut source: AssetSourceBuilder,
     ) -> &mut Self {
-        let id = id.into();
-        if self.world().get_resource::<AssetServer>().is_some() {
-            error!("{} must be registered before `AssetPlugin` (typically added as part of `DefaultPlugins`)", id);
-        }
+        let name = name.into();
+        let Some(asset_server) = self.world().get_resource::<AssetServer>() else {
+            error!("`register_asset_source` was called, but `AssetPlugin` has not been added. `AssetPlugin` should be added first (typically as part of `DefaultPlugins`). Source was \"{name}\".");
+            return self;
+        };
 
-        {
-            let mut sources = self
-                .world_mut()
-                .get_resource_or_init::<AssetSourceBuilders>();
-            sources.insert(id, source);
+        if let Err(err) = asset_server.add_source(name, &mut source) {
+            error!("Failed to register asset source: {err}");
         }
 
         self
@@ -716,8 +776,8 @@ mod tests {
         },
         loader::{AssetLoader, LoadContext},
         Asset, AssetApp, AssetEvent, AssetId, AssetLoadError, AssetLoadFailedEvent, AssetPath,
-        AssetPlugin, AssetServer, Assets, InvalidGenerationError, LoadState, LoadedAsset,
-        UnapprovedPathMode, UntypedHandle, WriteDefaultMetaError,
+        AssetPlugin, AssetServer, Assets, DefaultAssetSource, InvalidGenerationError, LoadState,
+        LoadedAsset, UnapprovedPathMode, UntypedHandle, WriteDefaultMetaError,
     };
     use alloc::{
         boxed::Box,
@@ -910,22 +970,21 @@ mod tests {
         let dir = Dir::default();
         let dir_clone = dir.clone();
         let dir_clone2 = dir.clone();
-        app.register_asset_source(
-            AssetSourceId::Default,
-            AssetSourceBuilder::new(move || {
-                Box::new(MemoryAssetReader {
-                    root: dir_clone.clone(),
-                })
-            })
-            .with_writer(move |_| {
-                Some(Box::new(MemoryAssetWriter {
-                    root: dir_clone2.clone(),
-                }))
-            }),
-        )
-        .add_plugins((
+        app.add_plugins((
             TaskPoolPlugin::default(),
             AssetPlugin {
+                default_source: DefaultAssetSource::from_builder(
+                    AssetSourceBuilder::new(move || {
+                        Box::new(MemoryAssetReader {
+                            root: dir_clone.clone(),
+                        })
+                    })
+                    .with_writer(move |_| {
+                        Some(Box::new(MemoryAssetWriter {
+                            root: dir_clone2.clone(),
+                        }))
+                    }),
+                ),
                 watch_for_changes_override: Some(false),
                 use_asset_processor_override: Some(false),
                 ..Default::default()
@@ -938,13 +997,12 @@ mod tests {
     fn create_app_with_gate(dir: Dir) -> (App, GateOpener) {
         let mut app = App::new();
         let (gated_memory_reader, gate_opener) = GatedReader::new(MemoryAssetReader { root: dir });
-        app.register_asset_source(
-            AssetSourceId::Default,
-            AssetSourceBuilder::new(move || Box::new(gated_memory_reader.clone())),
-        )
-        .add_plugins((
+        app.add_plugins((
             TaskPoolPlugin::default(),
             AssetPlugin {
+                default_source: DefaultAssetSource::from_builder(AssetSourceBuilder::new(
+                    move || Box::new(gated_memory_reader.clone()),
+                )),
                 watch_for_changes_override: Some(false),
                 use_asset_processor_override: Some(false),
                 ..Default::default()
@@ -1880,29 +1938,11 @@ mod tests {
         dir.insert_asset_text(Path::new(a_path), a_ron);
         let unstable_reader = UnstableMemoryAssetReader::new(dir, 2);
 
-        let mut app = App::new();
+        let mut app = create_app().0;
         app.register_asset_source(
-            AssetSourceId::Default,
-            AssetSourceBuilder::new(move || {
-                // This reader is unused, but we set it here so we don't accidentally use the
-                // filesystem.
-                Box::new(MemoryAssetReader {
-                    root: Dir::default(),
-                })
-            }),
-        )
-        .register_asset_source(
             "unstable",
             AssetSourceBuilder::new(move || Box::new(unstable_reader.clone())),
         )
-        .add_plugins((
-            TaskPoolPlugin::default(),
-            AssetPlugin {
-                watch_for_changes_override: Some(false),
-                use_asset_processor_override: Some(false),
-                ..Default::default()
-            },
-        ))
         .init_asset::<CoolText>()
         .register_asset_loader(CoolTextLoader)
         .init_resource::<ErrorTracker>()
@@ -2083,13 +2123,12 @@ mod tests {
 
         let mut app = App::new();
         let memory_reader = MemoryAssetReader { root: dir };
-        app.register_asset_source(
-            AssetSourceId::Default,
-            AssetSourceBuilder::new(move || Box::new(memory_reader.clone())),
-        )
-        .add_plugins((
+        app.add_plugins((
             TaskPoolPlugin::default(),
             AssetPlugin {
+                default_source: DefaultAssetSource::from_builder(AssetSourceBuilder::new(
+                    move || Box::new(memory_reader.clone()),
+                )),
                 unapproved_path_mode: mode,
                 watch_for_changes_override: Some(false),
                 use_asset_processor_override: Some(false),
@@ -2322,18 +2361,17 @@ mod tests {
         struct FakeWatcher;
         impl AssetWatcher for FakeWatcher {}
 
-        app.register_asset_source(
-            AssetSourceId::Default,
-            AssetSourceBuilder::new(move || Box::new(memory_reader.clone())).with_watcher(
-                move |sender| {
-                    sender_sender.send(sender).unwrap();
-                    Some(Box::new(FakeWatcher))
-                },
-            ),
-        )
-        .add_plugins((
+        app.add_plugins((
             TaskPoolPlugin::default(),
             AssetPlugin {
+                default_source: DefaultAssetSource::from_builder(
+                    AssetSourceBuilder::new(move || Box::new(memory_reader.clone())).with_watcher(
+                        move |sender| {
+                            sender_sender.send(sender).unwrap();
+                            Some(Box::new(FakeWatcher))
+                        },
+                    ),
+                ),
                 watch_for_changes_override: Some(true),
                 use_asset_processor_override: Some(false),
                 ..Default::default()
@@ -2829,5 +2867,86 @@ mod tests {
             read_meta_as_string(&source, Path::new(ASSET_PATH)),
             META_TEXT
         );
+    }
+
+    // Creates a new asset source that reads from the returned dir.
+    fn create_dir_source() -> (AssetSourceBuilder, Dir) {
+        let dir = Dir::default();
+        let dir_clone = dir.clone();
+        (
+            AssetSourceBuilder::new(move || {
+                Box::new(MemoryAssetReader {
+                    root: dir_clone.clone(),
+                })
+            }),
+            dir,
+        )
+    }
+
+    #[test]
+    fn can_load_asset_from_runtime_added_sources() {
+        let mut app = create_app().0;
+
+        app.init_asset::<TestAsset>()
+            .register_asset_loader(TrivialLoader);
+
+        let asset_server = app.world().resource::<AssetServer>().clone();
+        let custom_handle: Handle<TestAsset> = asset_server.load("custom://asset.txt");
+
+        run_app_until(&mut app, |_| {
+            match asset_server.get_load_state(&custom_handle).unwrap() {
+                LoadState::Loading => None,
+                LoadState::Failed(err) => match err.as_ref() {
+                    AssetLoadError::MissingAssetSourceError(_) => Some(()),
+                    err => panic!("Unexpected load error: {err}"),
+                },
+                err => panic!("Unexpected state for asset load: {err:?}"),
+            }
+        });
+
+        // Drop the handle, and let the app update to react to that.
+        drop(custom_handle);
+        app.update();
+
+        let (mut custom_source, custom_dir) = create_dir_source();
+        custom_dir.insert_asset_text(Path::new("asset.txt"), "");
+
+        asset_server
+            .add_source("custom", &mut custom_source)
+            .unwrap();
+
+        // Now that we have added the "custom" asset source, loading the asset should work!
+        let custom_handle: Handle<TestAsset> = asset_server.load("custom://asset.txt");
+        run_app_until(&mut app, |_| {
+            match asset_server.get_load_state(&custom_handle).unwrap() {
+                LoadState::Loading => None,
+                LoadState::Loaded => Some(()),
+                err => panic!("Unexpected state for asset load: {err:?}"),
+            }
+        });
+
+        // Removing the source shouldn't change anything about the asset, so it should still be alive.
+        asset_server.remove_source("custom").unwrap();
+        app.update();
+        assert!(app
+            .world()
+            .resource::<Assets<TestAsset>>()
+            .contains(&custom_handle));
+
+        drop(custom_handle);
+        app.update();
+
+        // After removing the "custom" asset source, trying to load the asset again should fail.
+        let custom_handle: Handle<TestAsset> = asset_server.load("custom://asset.txt");
+        run_app_until(&mut app, |_| {
+            match asset_server.get_load_state(&custom_handle).unwrap() {
+                LoadState::Loading => None,
+                LoadState::Failed(err) => match err.as_ref() {
+                    AssetLoadError::MissingAssetSourceError(_) => Some(()),
+                    err => panic!("Unexpected load error: {err}"),
+                },
+                err => panic!("Unexpected state for asset load: {err:?}"),
+            }
+        });
     }
 }
