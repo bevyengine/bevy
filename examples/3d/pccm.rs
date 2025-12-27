@@ -1,7 +1,6 @@
 //! Demonstrates parallax-corrected cubemap reflections.
 
-use bevy::{light::ParallaxCorrect, math::ops, prelude::*};
-use bevy_render::view::Hdr;
+use bevy::{light::ParallaxCorrect, math::ops, prelude::*, render::view::Hdr};
 
 use crate::widgets::{WidgetClickEvent, WidgetClickSender};
 
