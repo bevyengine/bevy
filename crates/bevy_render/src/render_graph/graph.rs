@@ -146,7 +146,7 @@ impl RenderGraph {
     /// Defining an edge that already exists is not considered an error with this api.
     /// It simply won't create a new edge.
     #[track_caller]
-    pub fn add_node_edges<const N: usize>(&mut self, edges: impl IntoRenderNodeArray<N>) {
+    pub fn add_node_edges(&mut self, edges: impl IntoRenderNodeArray) {
         for window in edges.into_array().windows(2) {
             let [a, b] = window else {
                 break;

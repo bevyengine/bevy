@@ -34,8 +34,8 @@ define_label!(
 /// A shorthand for `Interned<dyn RenderLabel>`.
 pub type InternedRenderLabel = Interned<dyn RenderLabel>;
 
-pub trait IntoRenderNodeArray<const N: usize> {
-    fn into_array(self) -> [InternedRenderLabel; N];
+pub trait IntoRenderNodeArray {
+    fn into_array(self) -> Vec<InternedRenderLabel>;
 }
 
 impl<const N: usize> IntoRenderNodeArray<N> for Vec<InternedRenderLabel> {
@@ -47,11 +47,11 @@ impl<const N: usize> IntoRenderNodeArray<N> for Vec<InternedRenderLabel> {
 macro_rules! impl_render_label_tuples {
     ($N: expr, $(#[$meta:meta])* $(($T: ident, $I: ident)),*) => {
         $(#[$meta])*
-        impl<$($T: RenderLabel),*> IntoRenderNodeArray<$N> for ($($T,)*) {
+        impl<$($T: RenderLabel),*> IntoRenderNodeArray for ($($T,)*) {
             #[inline]
-            fn into_array(self) -> [InternedRenderLabel; $N] {
+            fn into_array(self) -> Vec<InternedRenderLabel> {
                 let ($($I,)*) = self;
-                [$($I.intern(), )*]
+                vec![$($I.intern(), )*]
             }
         }
     }

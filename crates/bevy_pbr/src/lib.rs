@@ -84,7 +84,6 @@ pub mod prelude {
         mesh_material::MeshMaterial3d,
         parallax::ParallaxMappingMethod,
         pbr_material::StandardMaterial,
-        ssao::ScreenSpaceAmbientOcclusionPlugin,
     };
 }
 
@@ -143,6 +142,7 @@ use bevy_render::{
         Extent3d, TextureDataOrder, TextureDescriptor, TextureDimension, TextureFormat,
         TextureUsages,
     },
+    render_task::RenderTaskPlugin,
     sync_component::SyncComponentPlugin,
     ExtractSchedule, Render, RenderApp, RenderDebugFlags, RenderStartup, RenderSystems,
 };
@@ -229,7 +229,7 @@ impl Plugin for PbrPlugin {
                     debug_flags: self.debug_flags,
                     ..Default::default()
                 },
-                ScreenSpaceAmbientOcclusionPlugin,
+                RenderTaskPlugin::<ScreenSpaceAmbientOcclusion>::default(),
                 FogPlugin,
                 ExtractResourcePlugin::<DefaultOpaqueRendererMethod>::default(),
                 SyncComponentPlugin::<ShadowFilteringMethod>::default(),

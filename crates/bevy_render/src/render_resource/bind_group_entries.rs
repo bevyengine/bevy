@@ -182,6 +182,13 @@ impl<'a> IntoBinding<'a> for BindingResource<'a> {
     }
 }
 
+impl<'a> IntoBinding<'a> for &'a super::Buffer {
+    #[inline]
+    fn into_binding(self) -> BindingResource<'a> {
+        self.as_entire_binding()
+    }
+}
+
 impl<'a> IntoBinding<'a> for wgpu::BufferBinding<'a> {
     #[inline]
     fn into_binding(self) -> BindingResource<'a> {
