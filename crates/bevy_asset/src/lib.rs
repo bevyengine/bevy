@@ -2830,4 +2830,84 @@ mod tests {
             META_TEXT
         );
     }
+
+    #[test]
+    fn asset_dependency_is_tracked_when_not_loaded() {
+        let (mut app, dir) = create_app();
+
+        #[derive(Asset, TypePath)]
+        struct AssetWithDep {
+            #[dependency]
+            dep: Handle<TestAsset>,
+        }
+
+        #[derive(TypePath)]
+        struct AssetWithDepLoader;
+
+        impl AssetLoader for AssetWithDepLoader {
+            type Asset = TestAsset;
+            type Settings = ();
+            type Error = std::io::Error;
+
+            async fn load(
+                &self,
+                _reader: &mut dyn Reader,
+                _settings: &Self::Settings,
+                load_context: &mut LoadContext<'_>,
+            ) -> Result<Self::Asset, Self::Error> {
+                // Load the asset in the root context, but then put the handle in the subasset. So
+                // the subasset's (internal) load context never loaded `dep`.
+                let dep = load_context.load::<TestAsset>("abc.ron");
+                load_context.add_labeled_asset("subasset".into(), AssetWithDep { dep });
+                Ok(TestAsset)
+            }
+
+            fn extensions(&self) -> &[&str] {
+                &["with_deps"]
+            }
+        }
+
+        // Write some data so the loaders have something to load (even though they don't use the
+        // data).
+        dir.insert_asset_text(Path::new("abc.ron"), "");
+        dir.insert_asset_text(Path::new("blah.with_deps"), "");
+
+        let (in_loader_sender, in_loader_receiver) = async_channel::bounded(1);
+        let (gate_sender, gate_receiver) = async_channel::bounded(1);
+        app.init_asset::<TestAsset>()
+            .init_asset::<AssetWithDep>()
+            .register_asset_loader(GatedLoader {
+                in_loader_sender,
+                gate_receiver,
+            })
+            .register_asset_loader(AssetWithDepLoader);
+
+        let asset_server = app.world().resource::<AssetServer>().clone();
+        let subasset_handle: Handle<AssetWithDep> = asset_server.load("blah.with_deps#subasset");
+
+        run_app_until(&mut app, |_| {
+            asset_server.is_loaded(&subasset_handle).then_some(())
+        });
+        // Even though the subasset is loaded, and its load context never loaded its dependency, it
+        // still depends on its dependency, so that is tracked correctly here.
+        assert!(!asset_server.is_loaded_with_dependencies(&subasset_handle));
+
+        let dep_handle: Handle<TestAsset> = app
+            .world()
+            .resource::<Assets<AssetWithDep>>()
+            .get(&subasset_handle)
+            .unwrap()
+            .dep
+            .clone();
+
+        // Pass the gate in the dependency loader.
+        in_loader_receiver.recv_blocking().unwrap();
+        gate_sender.send_blocking(()).unwrap();
+
+        run_app_until(&mut app, |_| {
+            asset_server.is_loaded(&dep_handle).then_some(())
+        });
+        // Now that the dependency is loaded, the subasset is counted as loaded with dependencies!
+        assert!(asset_server.is_loaded_with_dependencies(&subasset_handle));
+    }
 }

@@ -7,7 +7,7 @@ use crate::{
     meta::{AssetHash, AssetMeta, AssetMetaDyn, ProcessedInfo, ProcessedInfoMinimal, Settings},
     path::AssetPath,
     Asset, AssetIndex, AssetLoadError, AssetServer, AssetServerMode, Assets, ErasedAssetIndex,
-    Handle, UntypedHandle,
+    Handle, UntypedAssetId, UntypedHandle,
 };
 use alloc::{
     boxed::Box,
@@ -477,7 +477,22 @@ impl<'a> LoadContext<'a> {
     }
 
     /// "Finishes" this context by populating the final [`Asset`] value.
-    pub fn finish<A: Asset>(self, value: A) -> LoadedAsset<A> {
+    pub fn finish<A: Asset>(mut self, value: A) -> LoadedAsset<A> {
+        // At this point, we assume the asset/subasset is "locked in" and won't be changed, so we
+        // can ensure all the dependencies are included (in case a handle was used without loading
+        // it through this `LoadContext`). If in the future we provide an API for mutating assets in
+        // `LoadedAsset`, `ErasedLoadedAsset`, or `LoadContext` (for mutating existing subassets),
+        // we should move this to some point after those mutations are not possible. This spot is
+        // convenient because we still have access to the static type of `A`.
+        value.visit_dependencies(&mut |asset_id| {
+            let (type_id, index) = match asset_id {
+                UntypedAssetId::Index { type_id, index } => (type_id, index),
+                // UUID assets can't be loaded anyway, so just ignore this ID.
+                UntypedAssetId::Uuid { .. } => return,
+            };
+            self.dependencies
+                .insert(ErasedAssetIndex { index, type_id });
+        });
         LoadedAsset {
             value,
             dependencies: self.dependencies,
