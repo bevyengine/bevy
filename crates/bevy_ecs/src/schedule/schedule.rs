@@ -20,7 +20,7 @@ use core::{
     fmt::{Debug, Write},
 };
 use fixedbitset::FixedBitSet;
-use indexmap::IndexMap;
+use indexmap::{IndexMap, IndexSet};
 use log::{info, warn};
 use pass::ScheduleBuildPassObj;
 use thiserror::Error;
@@ -924,7 +924,7 @@ impl ScheduleGraph {
     pub fn systems_in_set(
         &self,
         system_set: InternedSystemSet,
-    ) -> Result<&HashSet<SystemKey>, ScheduleError> {
+    ) -> Result<&IndexSet<SystemKey, FixedHasher>, ScheduleError> {
         if self.changed {
             return Err(ScheduleError::Uninitialized);
         }
@@ -1018,7 +1018,7 @@ impl ScheduleGraph {
         }
     }
 
-    fn remove_systems_by_keys(&mut self, keys: &HashSet<SystemKey>) {
+    fn remove_systems_by_keys(&mut self, keys: &IndexSet<SystemKey, FixedHasher>) {
         for &key in keys {
             self.systems.remove(key);
 
@@ -2604,7 +2604,10 @@ mod tests {
             fn collapse_set(
                 &mut self,
                 _set: crate::schedule::SystemSetKey,
-                _systems: &bevy_platform::collections::HashSet<crate::schedule::SystemKey>,
+                _systems: &indexmap::IndexSet<
+                    crate::schedule::SystemKey,
+                    bevy_platform::hash::FixedHasher,
+                >,
                 _dependency_flattening: &crate::schedule::graph::DiGraph<crate::schedule::NodeId>,
             ) -> impl Iterator<Item = (crate::schedule::NodeId, crate::schedule::NodeId)>
             {
