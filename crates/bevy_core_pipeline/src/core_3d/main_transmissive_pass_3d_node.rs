@@ -7,10 +7,10 @@ use bevy_render::{
     camera::ExtractedCamera,
     diagnostic::RecordDiagnostics,
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
-    render_phase::ViewSortedRenderPhases,
+    render_phase::SortedRenderPhase,
     render_resource::{RenderPassDescriptor, StoreOp},
     renderer::RenderContext,
-    view::{ExtractedView, ViewDepthTexture, ViewTarget},
+    view::{ViewDepthTexture, ViewTarget},
 };
 use core::ops::Range;
 use tracing::error;
@@ -18,16 +18,16 @@ use tracing::error;
 use tracing::info_span;
 
 /// A [`bevy_render::render_graph::Node`] that runs the [`Transmissive3d`]
-/// [`ViewSortedRenderPhases`].
+/// [`SortedRenderPhase`]s.
 #[derive(Default)]
 pub struct MainTransmissivePass3dNode;
 
 impl ViewNode for MainTransmissivePass3dNode {
     type ViewQuery = (
         &'static ExtractedCamera,
-        &'static ExtractedView,
         &'static Camera3d,
         &'static ViewTarget,
+        &'static SortedRenderPhase<Transmissive3d>,
         Option<&'static ViewTransmissionTexture>,
         &'static ViewDepthTexture,
         Option<&'static MainPassResolutionOverride>,
@@ -37,22 +37,18 @@ impl ViewNode for MainTransmissivePass3dNode {
         &self,
         graph: &mut RenderGraphContext,
         render_context: &mut RenderContext,
-        (camera, view, camera_3d, target, transmission, depth, resolution_override): QueryItem<
-            Self::ViewQuery,
-        >,
+        (
+            camera,
+            camera_3d,
+            target,
+            transmissive_phase,
+            transmission,
+            depth,
+            resolution_override,
+        ): QueryItem<Self::ViewQuery>,
         world: &World,
     ) -> Result<(), NodeRunError> {
         let view_entity = graph.view_entity();
-
-        let Some(transmissive_phases) =
-            world.get_resource::<ViewSortedRenderPhases<Transmissive3d>>()
-        else {
-            return Ok(());
-        };
-
-        let Some(transmissive_phase) = transmissive_phases.get(&view.retained_view_entity) else {
-            return Ok(());
-        };
 
         let diagnostics = render_context.diagnostic_recorder();
 

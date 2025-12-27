@@ -21,7 +21,10 @@ use bevy_render::{
 use tracing::error;
 
 pub struct UiPassNode {
-    ui_view_query: QueryState<(&'static ExtractedView, &'static UiViewTarget)>,
+    ui_view_query: QueryState<(
+        &'static UiViewTarget,
+        &'static SortedRenderPhase<TransparentUi>,
+    )>,
     ui_view_target_query: QueryState<(&'static ViewTarget, &'static ExtractedCamera)>,
     ui_camera_view_query: QueryState<&'static UiCameraView>,
 }
@@ -52,26 +55,9 @@ impl Node for UiPassNode {
         // Extract the UI view.
         let input_view_entity = graph.view_entity();
 
-        let Some(transparent_render_phases) =
-            world.get_resource::<ViewSortedRenderPhases<TransparentUi>>()
-        else {
-            return Ok(());
-        };
-
         // Query the UI view components.
-        let Ok((view, ui_view_target)) = self.ui_view_query.get_manual(world, input_view_entity)
-        else {
-            return Ok(());
-        };
-
-        let Ok((target, camera)) = self
-            .ui_view_target_query
-            .get_manual(world, ui_view_target.0)
-        else {
-            return Ok(());
-        };
-
-        let Some(transparent_phase) = transparent_render_phases.get(&view.retained_view_entity)
+        let Ok((ui_view_target, transparent_phase)) =
+            self.ui_view_query.get_manual(world, input_view_entity)
         else {
             return Ok(());
         };
@@ -79,6 +65,13 @@ impl Node for UiPassNode {
         if transparent_phase.items.is_empty() {
             return Ok(());
         }
+
+        let Ok((target, camera)) = self
+            .ui_view_target_query
+            .get_manual(world, ui_view_target.0)
+        else {
+            return Ok(());
+        };
 
         let diagnostics = render_context.diagnostic_recorder();
 

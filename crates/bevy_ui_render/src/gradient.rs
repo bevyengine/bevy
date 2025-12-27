@@ -575,17 +575,12 @@ pub fn extract_gradients(
     }
 }
 
-#[expect(
-    clippy::too_many_arguments,
-    reason = "it's a system that needs a lot of them"
-)]
 pub fn queue_gradient(
     extracted_gradients: ResMut<ExtractedGradients>,
     gradients_pipeline: Res<GradientPipeline>,
     mut pipelines: ResMut<SpecializedRenderPipelines<GradientPipeline>>,
-    mut transparent_render_phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
     mut render_views: Query<(&UiCameraView, Option<&UiAntiAlias>), With<ExtractedView>>,
-    camera_views: Query<&ExtractedView>,
+    mut camera_views: Query<(&ExtractedView, &mut SortedRenderPhase<TransparentUi>)>,
     pipeline_cache: Res<PipelineCache>,
     draw_functions: Res<DrawFunctions<TransparentUi>>,
 ) {
@@ -597,12 +592,7 @@ pub fn queue_gradient(
             continue;
         };
 
-        let Ok(view) = camera_views.get(default_camera_view.0) else {
-            continue;
-        };
-
-        let Some(transparent_phase) = transparent_render_phases.get_mut(&view.retained_view_entity)
-        else {
+        let Ok((view, mut transparent_phase)) = camera_views.get_mut(default_camera_view.0) else {
             continue;
         };
 
@@ -698,7 +688,7 @@ pub fn prepare_gradient(
     mut extracted_color_stops: ResMut<ExtractedColorStops>,
     view_uniforms: Res<ViewUniforms>,
     gradients_pipeline: Res<GradientPipeline>,
-    mut phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
+    mut phases: Query<&mut SortedRenderPhase<TransparentUi>>,
     mut previous_len: Local<usize>,
 ) {
     if let Some(view_binding) = view_uniforms.uniforms.binding() {
@@ -716,7 +706,7 @@ pub fn prepare_gradient(
         let mut vertices_index = 0;
         let mut indices_index = 0;
 
-        for ui_phase in phases.values_mut() {
+        for mut ui_phase in phases.iter_mut() {
             for item_index in 0..ui_phase.items.len() {
                 let item = &mut ui_phase.items[item_index];
                 if let Some(gradient) = extracted_gradients

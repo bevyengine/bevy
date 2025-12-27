@@ -24,6 +24,7 @@ use bevy_math::FloatOrd;
 use bevy_mesh::MeshVertexBufferLayoutRef;
 use bevy_platform::collections::HashMap;
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
+use bevy_render::render_phase::{BinnedRenderPhase, SortedRenderPhase};
 use bevy_render::render_resource::BindGroupLayoutDescriptor;
 use bevy_render::{
     camera::extract_cameras,
@@ -34,7 +35,7 @@ use bevy_render::{
     render_phase::{
         AddRenderCommand, BinnedRenderPhaseType, DrawFunctionId, DrawFunctions, InputUniformIndex,
         PhaseItem, PhaseItemExtraIndex, RenderCommand, RenderCommandResult, SetItemPipeline,
-        TrackedRenderPass, ViewBinnedRenderPhases, ViewSortedRenderPhases,
+        TrackedRenderPass,
     },
     render_resource::{
         AsBindGroup, AsBindGroupError, BindGroup, BindGroupId, BindingResources,
@@ -698,10 +699,15 @@ pub fn specialize_material2d_meshes<M: Material2d>(
     ),
     mut render_mesh_instances: ResMut<RenderMesh2dInstances>,
     render_material_instances: Res<RenderMaterial2dInstances<M>>,
-    transparent_render_phases: Res<ViewSortedRenderPhases<Transparent2d>>,
-    opaque_render_phases: Res<ViewBinnedRenderPhases<Opaque2d>>,
-    alpha_mask_render_phases: Res<ViewBinnedRenderPhases<AlphaMask2d>>,
-    views: Query<(&MainEntity, &ExtractedView, &RenderVisibleEntities)>,
+    views: Query<
+        (&MainEntity, &RenderVisibleEntities),
+        (
+            With<ExtractedView>,
+            With<BinnedRenderPhase<Opaque2d>>,
+            With<BinnedRenderPhase<AlphaMask2d>>,
+            With<SortedRenderPhase<Transparent2d>>,
+        ),
+    >,
     view_key_cache: Res<ViewKeyCache>,
     entity_specialization_ticks: Res<EntitySpecializationTickPair<M>>,
     view_specialization_ticks: Res<ViewSpecializationTicks>,
@@ -714,14 +720,7 @@ pub fn specialize_material2d_meshes<M: Material2d>(
         return;
     }
 
-    for (view_entity, view, visible_entities) in &views {
-        if !transparent_render_phases.contains_key(&view.retained_view_entity)
-            && !opaque_render_phases.contains_key(&view.retained_view_entity)
-            && !alpha_mask_render_phases.contains_key(&view.retained_view_entity)
-        {
-            continue;
-        }
-
+    for (view_entity, visible_entities) in &views {
         let Some(view_key) = view_key_cache.get(view_entity) else {
             continue;
         };
@@ -793,10 +792,13 @@ pub fn queue_material2d_meshes<M: Material2d>(
     ),
     mut render_mesh_instances: ResMut<RenderMesh2dInstances>,
     render_material_instances: Res<RenderMaterial2dInstances<M>>,
-    mut transparent_render_phases: ResMut<ViewSortedRenderPhases<Transparent2d>>,
-    mut opaque_render_phases: ResMut<ViewBinnedRenderPhases<Opaque2d>>,
-    mut alpha_mask_render_phases: ResMut<ViewBinnedRenderPhases<AlphaMask2d>>,
-    views: Query<(&MainEntity, &ExtractedView, &RenderVisibleEntities)>,
+    mut views: Query<(
+        &MainEntity,
+        &RenderVisibleEntities,
+        &mut BinnedRenderPhase<Opaque2d>,
+        &mut BinnedRenderPhase<AlphaMask2d>,
+        &mut SortedRenderPhase<Transparent2d>,
+    )>,
     specialized_material_pipeline_cache: ResMut<SpecializedMaterial2dPipelineCache<M>>,
 ) where
     M::Data: PartialEq + Eq + Hash + Clone,
@@ -805,21 +807,16 @@ pub fn queue_material2d_meshes<M: Material2d>(
         return;
     }
 
-    for (view_entity, view, visible_entities) in &views {
+    for (
+        view_entity,
+        visible_entities,
+        mut opaque_phase,
+        mut alpha_mask_phase,
+        mut transparent_phase,
+    ) in views.iter_mut()
+    {
         let Some(view_specialized_material_pipeline_cache) =
             specialized_material_pipeline_cache.get(view_entity)
-        else {
-            continue;
-        };
-
-        let Some(transparent_phase) = transparent_render_phases.get_mut(&view.retained_view_entity)
-        else {
-            continue;
-        };
-        let Some(opaque_phase) = opaque_render_phases.get_mut(&view.retained_view_entity) else {
-            continue;
-        };
-        let Some(alpha_mask_phase) = alpha_mask_render_phases.get_mut(&view.retained_view_entity)
         else {
             continue;
         };

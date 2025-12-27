@@ -23,9 +23,9 @@ use bevy::{
     render::{
         extract_component::{ExtractComponent, ExtractComponentPlugin},
         render_phase::{
-            AddRenderCommand, BinnedRenderPhaseType, DrawFunctions, InputUniformIndex, PhaseItem,
-            RenderCommand, RenderCommandResult, SetItemPipeline, TrackedRenderPass,
-            ViewBinnedRenderPhases,
+            AddRenderCommand, BinnedRenderPhase, BinnedRenderPhaseType, DrawFunctions,
+            InputUniformIndex, PhaseItem, RenderCommand, RenderCommandResult, SetItemPipeline,
+            TrackedRenderPass,
         },
         render_resource::{
             BufferUsages, Canonical, ColorTargetState, ColorWrites, CompareFunction,
@@ -34,7 +34,7 @@ use bevy::{
             Variants, VertexAttribute, VertexFormat, VertexState, VertexStepMode,
         },
         renderer::{RenderDevice, RenderQueue},
-        view::{ExtractedView, RenderVisibleEntities},
+        view::RenderVisibleEntities,
         Render, RenderApp, RenderSystems,
     },
 };
@@ -214,9 +214,12 @@ fn prepare_custom_phase_item_buffers(mut commands: Commands) {
 fn queue_custom_phase_item(
     pipeline_cache: Res<PipelineCache>,
     mut pipeline: ResMut<CustomPhasePipeline>,
-    mut opaque_render_phases: ResMut<ViewBinnedRenderPhases<Opaque3d>>,
     opaque_draw_functions: Res<DrawFunctions<Opaque3d>>,
-    views: Query<(&ExtractedView, &RenderVisibleEntities, &Msaa)>,
+    mut views: Query<(
+        &RenderVisibleEntities,
+        &Msaa,
+        &mut BinnedRenderPhase<Opaque3d>,
+    )>,
     mut next_tick: Local<Tick>,
 ) {
     let draw_custom_phase_item = opaque_draw_functions
@@ -226,11 +229,7 @@ fn queue_custom_phase_item(
     // Render phases are per-view, so we need to iterate over all views so that
     // the entity appears in them. (In this example, we have only one view, but
     // it's good practice to loop over all views anyway.)
-    for (view, view_visible_entities, msaa) in views.iter() {
-        let Some(opaque_phase) = opaque_render_phases.get_mut(&view.retained_view_entity) else {
-            continue;
-        };
-
+    for (view_visible_entities, msaa, mut opaque_phase) in views.iter_mut() {
         // Find all the custom rendered entities that are visible from this
         // view.
         for &entity in view_visible_entities.get::<CustomRenderedEntity>().iter() {

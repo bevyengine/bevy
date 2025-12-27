@@ -16,7 +16,10 @@ use bevy_render::{
 };
 use bevy_shader::ShaderRef;
 
-use crate::{Material, MaterialPipeline, MaterialPipelineKey, MeshPipeline, MeshPipelineKey};
+use crate::{
+    DeferredPass, MainPass, Material, MaterialPipeline, MaterialPipelineKey, MeshPass,
+    MeshPipeline, MeshPipelineKey, PassId, PassShaders, Prepass, ShaderSet,
+};
 
 pub struct MaterialExtensionPipeline {
     pub mesh_pipeline: MeshPipeline,
@@ -25,12 +28,27 @@ pub struct MaterialExtensionPipeline {
 pub struct MaterialExtensionKey<E: MaterialExtension> {
     pub mesh_key: MeshPipelineKey,
     pub bind_group_data: E::Data,
+    pub pass_id: PassId,
 }
 
 /// A subset of the `Material` trait for defining extensions to a base `Material`, such as the builtin `StandardMaterial`.
 ///
 /// A user type implementing the trait should be used as the `E` generic param in an `ExtendedMaterial` struct.
 pub trait MaterialExtension: Asset + AsBindGroup + Clone + Sized {
+    /// Returns this material's shaders for supported passes.
+    ///
+    /// When the traditional shader method is used, the corresponding pass's shader in the [`PassShaders`] will be ignored.
+    /// Currently, only [`MainPass`], [`DeferredPass`] and [`Prepass`] are supported out of the box.
+    fn shaders() -> PassShaders {
+        let mut pass_shaders = PassShaders::default();
+        pass_shaders.extend([
+            (Prepass::id(), ShaderSet::default()),
+            (DeferredPass::id(), ShaderSet::default()),
+            (MainPass::id(), ShaderSet::default()),
+        ]);
+        pass_shaders
+    }
+
     /// Returns this material's vertex shader. If [`ShaderRef::Default`] is returned, the base material mesh vertex shader
     /// will be used.
     fn vertex_shader() -> ShaderRef {
@@ -314,6 +332,10 @@ impl<B: Material, E: MaterialExtension> AsBindGroup for ExtendedMaterial<B, E> {
 }
 
 impl<B: Material, E: MaterialExtension> Material for ExtendedMaterial<B, E> {
+    fn shaders() -> PassShaders {
+        E::shaders()
+    }
+
     fn vertex_shader() -> ShaderRef {
         match E::vertex_shader() {
             ShaderRef::Default => B::vertex_shader(),
@@ -417,6 +439,7 @@ impl<B: Material, E: MaterialExtension> Material for ExtendedMaterial<B, E> {
         let base_key = MaterialPipelineKey::<B> {
             mesh_key: key.mesh_key,
             bind_group_data: key.bind_group_data.base,
+            pass_id: key.pass_id,
         };
         B::specialize(pipeline, descriptor, layout, base_key)?;
 
@@ -430,6 +453,7 @@ impl<B: Material, E: MaterialExtension> Material for ExtendedMaterial<B, E> {
             MaterialExtensionKey {
                 mesh_key: key.mesh_key,
                 bind_group_data: key.bind_group_data.extension,
+                pass_id: key.pass_id,
             },
         )
     }

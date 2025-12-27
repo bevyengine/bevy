@@ -8,10 +8,10 @@ use bevy_render::{
     camera::ExtractedCamera,
     diagnostic::RecordDiagnostics,
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
-    render_phase::{TrackedRenderPass, ViewBinnedRenderPhases},
+    render_phase::{BinnedRenderPhase, TrackedRenderPass},
     render_resource::{CommandEncoderDescriptor, PipelineCache, RenderPassDescriptor, StoreOp},
     renderer::RenderContext,
-    view::{ExtractedView, ViewDepthTexture, ViewTarget, ViewUniformOffset},
+    view::{ViewDepthTexture, ViewTarget, ViewUniformOffset},
 };
 use tracing::error;
 #[cfg(feature = "trace")]
@@ -20,15 +20,16 @@ use tracing::info_span;
 use super::AlphaMask3d;
 
 /// A [`bevy_render::render_graph::Node`] that runs the [`Opaque3d`] and [`AlphaMask3d`]
-/// [`ViewBinnedRenderPhases`]s.
+/// [`BinnedRenderPhase`]s.
 #[derive(Default)]
 pub struct MainOpaquePass3dNode;
 impl ViewNode for MainOpaquePass3dNode {
     type ViewQuery = (
         &'static ExtractedCamera,
-        &'static ExtractedView,
         &'static ViewTarget,
         &'static ViewDepthTexture,
+        &'static BinnedRenderPhase<Opaque3d>,
+        &'static BinnedRenderPhase<AlphaMask3d>,
         Option<&'static SkyboxPipelineId>,
         Option<&'static SkyboxBindGroup>,
         &'static ViewUniformOffset,
@@ -41,9 +42,10 @@ impl ViewNode for MainOpaquePass3dNode {
         render_context: &mut RenderContext<'w>,
         (
             camera,
-            extracted_view,
             target,
             depth,
+            opaque_phase,
+            alpha_mask_phase,
             skybox_pipeline,
             skybox_bind_group,
             view_uniform_offset,
@@ -51,20 +53,6 @@ impl ViewNode for MainOpaquePass3dNode {
         ): QueryItem<'w, '_, Self::ViewQuery>,
         world: &'w World,
     ) -> Result<(), NodeRunError> {
-        let (Some(opaque_phases), Some(alpha_mask_phases)) = (
-            world.get_resource::<ViewBinnedRenderPhases<Opaque3d>>(),
-            world.get_resource::<ViewBinnedRenderPhases<AlphaMask3d>>(),
-        ) else {
-            return Ok(());
-        };
-
-        let (Some(opaque_phase), Some(alpha_mask_phase)) = (
-            opaque_phases.get(&extracted_view.retained_view_entity),
-            alpha_mask_phases.get(&extracted_view.retained_view_entity),
-        ) else {
-            return Ok(());
-        };
-
         let diagnostics = render_context.diagnostic_recorder();
 
         let color_attachments = [Some(target.get_color_attachment())];

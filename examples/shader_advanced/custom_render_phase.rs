@@ -27,7 +27,6 @@ use bevy::{
         DrawMesh, MeshInputUniform, MeshPipeline, MeshPipelineKey, MeshPipelineViewLayoutKey,
         MeshUniform, RenderMeshInstances, SetMeshBindGroup, SetMeshViewBindGroup,
     },
-    platform::collections::HashSet,
     prelude::*,
     render::{
         batching::{
@@ -47,7 +46,7 @@ use bevy::{
         render_phase::{
             sort_phase_system, AddRenderCommand, CachedRenderPipelinePhaseItem, DrawFunctionId,
             DrawFunctions, PhaseItem, PhaseItemExtraIndex, SetItemPipeline, SortedPhaseItem,
-            SortedRenderPhasePlugin, ViewSortedRenderPhases,
+            SortedRenderPhase, SortedRenderPhasePlugin,
         },
         render_resource::{
             CachedRenderPipelineId, ColorTargetState, ColorWrites, Face, FragmentState,
@@ -56,8 +55,8 @@ use bevy::{
             TextureFormat, VertexState,
         },
         renderer::RenderContext,
-        sync_world::MainEntity,
-        view::{ExtractedView, RenderVisibleEntities, RetainedViewEntity, ViewTarget},
+        sync_world::{MainEntity, RenderEntity},
+        view::{ExtractedView, RenderVisibleEntities, ViewTarget},
         Extract, Render, RenderApp, RenderDebugFlags, RenderStartup, RenderSystems,
     },
 };
@@ -129,7 +128,6 @@ impl Plugin for MeshStencilPhasePlugin {
             .init_resource::<SpecializedMeshPipelines<StencilPipeline>>()
             .init_resource::<DrawFunctions<Stencil3d>>()
             .add_render_command::<Stencil3d, DrawMesh3dStencil>()
-            .init_resource::<ViewSortedRenderPhases<Stencil3d>>()
             .add_systems(RenderStartup, init_stencil_pipeline)
             .add_systems(ExtractSchedule, extract_camera_phases)
             .add_systems(
@@ -470,24 +468,26 @@ impl GetFullBatchData for StencilPipeline {
 // that will be used by the render world. We need to give that resource all views that will use
 // that phase
 fn extract_camera_phases(
-    mut stencil_phases: ResMut<ViewSortedRenderPhases<Stencil3d>>,
-    cameras: Extract<Query<(Entity, &Camera), With<Camera3d>>>,
-    mut live_entities: Local<HashSet<RetainedViewEntity>>,
+    mut commands: Commands,
+    mut phases: Query<&mut SortedRenderPhase<Stencil3d>>,
+    cameras: Extract<Query<(RenderEntity, &Camera), With<Camera3d>>>,
 ) {
-    live_entities.clear();
-    for (main_entity, camera) in &cameras {
+    for (entity, camera) in &cameras {
         if !camera.is_active {
+            commands
+                .entity(entity)
+                .remove::<SortedRenderPhase<Stencil3d>>();
             continue;
         }
-        // This is the main camera, so we use the first subview index (0)
-        let retained_view_entity = RetainedViewEntity::new(main_entity.into(), None, 0);
 
-        stencil_phases.insert_or_clear(retained_view_entity);
-        live_entities.insert(retained_view_entity);
+        if let Ok(mut phase) = phases.get_mut(entity) {
+            phase.clear();
+        } else {
+            commands
+                .entity(entity)
+                .insert(SortedRenderPhase::<Stencil3d>::default());
+        }
     }
-
-    // Clear out all dead views.
-    stencil_phases.retain(|camera_entity, _| live_entities.contains(camera_entity));
 }
 
 // This is a very important step when writing a custom phase.
@@ -500,14 +500,15 @@ fn queue_custom_meshes(
     custom_draw_pipeline: Res<StencilPipeline>,
     render_meshes: Res<RenderAssets<RenderMesh>>,
     render_mesh_instances: Res<RenderMeshInstances>,
-    mut custom_render_phases: ResMut<ViewSortedRenderPhases<Stencil3d>>,
-    mut views: Query<(&ExtractedView, &RenderVisibleEntities, &Msaa)>,
+    mut views: Query<(
+        &ExtractedView,
+        &RenderVisibleEntities,
+        &Msaa,
+        &mut SortedRenderPhase<Stencil3d>,
+    )>,
     has_marker: Query<(), With<DrawStencil>>,
 ) {
-    for (view, visible_entities, msaa) in &mut views {
-        let Some(custom_phase) = custom_render_phases.get_mut(&view.retained_view_entity) else {
-            continue;
-        };
+    for (view, visible_entities, msaa, mut custom_phase) in &mut views {
         let draw_custom = custom_draw_functions.read().id::<DrawMesh3dStencil>();
 
         // Create the key based on the view.
@@ -576,8 +577,8 @@ struct CustomDrawNode;
 impl ViewNode for CustomDrawNode {
     type ViewQuery = (
         &'static ExtractedCamera,
-        &'static ExtractedView,
         &'static ViewTarget,
+        &'static SortedRenderPhase<Stencil3d>,
         Option<&'static MainPassResolutionOverride>,
     );
 
@@ -585,21 +586,11 @@ impl ViewNode for CustomDrawNode {
         &self,
         graph: &mut RenderGraphContext,
         render_context: &mut RenderContext<'w>,
-        (camera, view, target, resolution_override): QueryItem<'w, '_, Self::ViewQuery>,
+        (camera, target, stencil_phase, resolution_override): QueryItem<'w, '_, Self::ViewQuery>,
         world: &'w World,
     ) -> Result<(), NodeRunError> {
-        // First, we need to get our phases resource
-        let Some(stencil_phases) = world.get_resource::<ViewSortedRenderPhases<Stencil3d>>() else {
-            return Ok(());
-        };
-
         // Get the view entity from the graph
         let view_entity = graph.view_entity();
-
-        // Get the phase for the current view running our node
-        let Some(stencil_phase) = stencil_phases.get(&view.retained_view_entity) else {
-            return Ok(());
-        };
 
         // Render pass setup
         let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {

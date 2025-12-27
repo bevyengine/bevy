@@ -23,6 +23,7 @@ use bevy_camera::visibility::InheritedVisibility;
 use bevy_camera::{Camera, Camera2d, Camera3d, RenderTarget};
 use bevy_reflect::prelude::ReflectDefault;
 use bevy_reflect::Reflect;
+use bevy_render::render_phase::SortedRenderPhase;
 use bevy_shader::load_shader_library;
 use bevy_sprite_render::SpriteAssetEvents;
 use bevy_ui::widget::{ImageNode, TextShadow, ViewportNode};
@@ -45,7 +46,6 @@ use bevy_render::{
     render_graph::{Node as RenderGraphNode, NodeRunError, RenderGraph, RenderGraphContext},
     render_phase::{
         sort_phase_system, AddRenderCommand, DrawFunctions, PhaseItem, PhaseItemExtraIndex,
-        ViewSortedRenderPhases,
     },
     render_resource::*,
     renderer::{RenderContext, RenderDevice, RenderQueue},
@@ -218,7 +218,6 @@ impl Plugin for UiRenderPlugin {
             .init_resource::<ExtractedUiNodes>()
             .allow_ambiguous_resource::<ExtractedUiNodes>()
             .init_resource::<DrawFunctions<TransparentUi>>()
-            .init_resource::<ViewSortedRenderPhases<TransparentUi>>()
             .add_render_command::<TransparentUi, DrawUi>()
             .configure_sets(
                 ExtractSchedule,
@@ -748,7 +747,6 @@ pub struct UiViewTarget(pub Entity);
 /// Extracts all UI elements associated with a camera into the render world.
 pub fn extract_ui_camera_view(
     mut commands: Commands,
-    mut transparent_render_phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
     query: Extract<
         Query<
             (
@@ -812,6 +810,7 @@ pub fn extract_ui_camera_view(
                     },
                     // Link to the main camera view.
                     UiViewTarget(render_entity),
+                    SortedRenderPhase::<TransparentUi>::default(),
                     TemporaryRenderEntity,
                 ))
                 .id();
@@ -827,13 +826,8 @@ pub fn extract_ui_camera_view(
             if let Some(shadow_samples) = shadow_samples {
                 entity_commands.insert(*shadow_samples);
             }
-            transparent_render_phases.insert_or_clear(retained_view_entity);
-
-            live_entities.insert(retained_view_entity);
         }
     }
-
-    transparent_render_phases.retain(|entity, _| live_entities.contains(entity));
 }
 
 pub fn extract_viewport_nodes(
@@ -1381,9 +1375,8 @@ pub fn queue_uinodes(
     extracted_uinodes: Res<ExtractedUiNodes>,
     ui_pipeline: Res<UiPipeline>,
     mut pipelines: ResMut<SpecializedRenderPipelines<UiPipeline>>,
-    mut transparent_render_phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
     render_views: Query<(&UiCameraView, Option<&UiAntiAlias>), With<ExtractedView>>,
-    camera_views: Query<&ExtractedView>,
+    mut camera_views: Query<(&ExtractedView, &mut SortedRenderPhase<TransparentUi>)>,
     pipeline_cache: Res<PipelineCache>,
     draw_functions: Res<DrawFunctions<TransparentUi>>,
 ) {
@@ -1398,18 +1391,14 @@ pub fn queue_uinodes(
                 .ok()
                 .and_then(|(default_camera_view, ui_anti_alias)| {
                     camera_views
-                        .get(default_camera_view.0)
+                        .get_mut(default_camera_view.0)
                         .ok()
-                        .and_then(|view| {
-                            transparent_render_phases
-                                .get_mut(&view.retained_view_entity)
-                                .map(|transparent_phase| (view, ui_anti_alias, transparent_phase))
-                        })
+                        .map(|(view, transparent_phase)| (view, ui_anti_alias, transparent_phase))
                 });
             current_camera_entity = extracted_uinode.extracted_camera_entity;
         }
 
-        let Some((view, ui_anti_alias, transparent_phase)) = current_phase.as_mut() else {
+        let Some((view, ui_anti_alias, ref mut transparent_phase)) = current_phase else {
             continue;
         };
 
@@ -1452,7 +1441,7 @@ pub fn prepare_uinodes(
     ui_pipeline: Res<UiPipeline>,
     mut image_bind_groups: ResMut<ImageNodeBindGroups>,
     gpu_images: Res<RenderAssets<GpuImage>>,
-    mut phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
+    mut phases: Query<&mut SortedRenderPhase<TransparentUi>>,
     events: Res<SpriteAssetEvents>,
     mut previous_len: Local<usize>,
 ) {
@@ -1484,7 +1473,7 @@ pub fn prepare_uinodes(
         let mut vertices_index = 0;
         let mut indices_index = 0;
 
-        for ui_phase in phases.values_mut() {
+        for mut ui_phase in phases.iter_mut() {
             let mut batch_item_index = 0;
             let mut batch_image_handle = AssetId::invalid();
 

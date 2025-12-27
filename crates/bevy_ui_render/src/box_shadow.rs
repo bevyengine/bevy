@@ -297,17 +297,12 @@ pub fn extract_shadows(
     }
 }
 
-#[expect(
-    clippy::too_many_arguments,
-    reason = "it's a system that needs a lot of them"
-)]
 pub fn queue_shadows(
     extracted_box_shadows: ResMut<ExtractedBoxShadows>,
     box_shadow_pipeline: Res<BoxShadowPipeline>,
     mut pipelines: ResMut<SpecializedRenderPipelines<BoxShadowPipeline>>,
-    mut transparent_render_phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
     mut render_views: Query<(&UiCameraView, Option<&BoxShadowSamples>), With<ExtractedView>>,
-    camera_views: Query<&ExtractedView>,
+    mut camera_views: Query<(&ExtractedView, &mut SortedRenderPhase<TransparentUi>)>,
     pipeline_cache: Res<PipelineCache>,
     draw_functions: Res<DrawFunctions<TransparentUi>>,
 ) {
@@ -320,12 +315,7 @@ pub fn queue_shadows(
             continue;
         };
 
-        let Ok(view) = camera_views.get(default_camera_view.0) else {
-            continue;
-        };
-
-        let Some(transparent_phase) = transparent_render_phases.get_mut(&view.retained_view_entity)
-        else {
+        let Ok((view, mut transparent_phase)) = camera_views.get_mut(default_camera_view.0) else {
             continue;
         };
 
@@ -361,7 +351,7 @@ pub fn prepare_shadows(
     mut extracted_shadows: ResMut<ExtractedBoxShadows>,
     view_uniforms: Res<ViewUniforms>,
     box_shadow_pipeline: Res<BoxShadowPipeline>,
-    mut phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
+    mut phases: Query<&mut SortedRenderPhase<TransparentUi>>,
     mut previous_len: Local<usize>,
 ) {
     if let Some(view_binding) = view_uniforms.uniforms.binding() {
@@ -379,7 +369,7 @@ pub fn prepare_shadows(
         let mut vertices_index = 0;
         let mut indices_index = 0;
 
-        for ui_phase in phases.values_mut() {
+        for mut ui_phase in phases.iter_mut() {
             for item_index in 0..ui_phase.items.len() {
                 let item = &mut ui_phase.items[item_index];
                 let Some(box_shadow) = extracted_shadows

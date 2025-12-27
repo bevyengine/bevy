@@ -21,12 +21,11 @@ use bevy_image::{BevyDefault, Image, TextureAtlasLayout};
 use bevy_math::{Affine3A, FloatOrd, Quat, Rect, Vec2, Vec4};
 use bevy_mesh::VertexBufferLayout;
 use bevy_platform::collections::HashMap;
-use bevy_render::view::{RenderVisibleEntities, RetainedViewEntity};
 use bevy_render::{
     render_asset::RenderAssets,
     render_phase::{
         DrawFunctions, PhaseItem, PhaseItemExtraIndex, RenderCommand, RenderCommandResult,
-        SetItemPipeline, TrackedRenderPass, ViewSortedRenderPhases,
+        SetItemPipeline, TrackedRenderPass,
     },
     render_resource::{
         binding_types::{sampler, texture_2d, uniform_buffer},
@@ -37,6 +36,10 @@ use bevy_render::{
     texture::{FallbackImage, GpuImage},
     view::{ExtractedView, Msaa, ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms},
     Extract,
+};
+use bevy_render::{
+    render_phase::SortedRenderPhase,
+    view::{RenderVisibleEntities, RetainedViewEntity},
 };
 use bevy_shader::{Shader, ShaderDefVal};
 use bevy_sprite::{Anchor, Sprite, SpriteScalingMode};
@@ -475,23 +478,18 @@ pub fn queue_sprites(
     mut pipelines: ResMut<SpecializedRenderPipelines<SpritePipeline>>,
     pipeline_cache: Res<PipelineCache>,
     extracted_sprites: Res<ExtractedSprites>,
-    mut transparent_render_phases: ResMut<ViewSortedRenderPhases<Transparent2d>>,
     mut views: Query<(
         &RenderVisibleEntities,
         &ExtractedView,
         &Msaa,
+        &mut SortedRenderPhase<Transparent2d>,
         Option<&Tonemapping>,
         Option<&DebandDither>,
     )>,
 ) {
     let draw_sprite_function = draw_functions.read().id::<DrawSprite>();
 
-    for (visible_entities, view, msaa, tonemapping, dither) in &mut views {
-        let Some(transparent_phase) = transparent_render_phases.get_mut(&view.retained_view_entity)
-        else {
-            continue;
-        };
-
+    for (visible_entities, view, msaa, mut transparent_phase, tonemapping, dither) in &mut views {
         let msaa_key = SpritePipelineKey::from_msaa_samples(msaa.samples());
         let mut view_key = SpritePipelineKey::from_hdr(view.hdr) | msaa_key;
 
@@ -600,7 +598,7 @@ pub fn prepare_sprite_image_bind_groups(
     gpu_images: Res<RenderAssets<GpuImage>>,
     extracted_sprites: Res<ExtractedSprites>,
     extracted_slices: Res<ExtractedSlices>,
-    mut phases: ResMut<ViewSortedRenderPhases<Transparent2d>>,
+    mut views: Query<(&ExtractedView, &mut SortedRenderPhase<Transparent2d>)>,
     events: Res<SpriteAssetEvents>,
     mut batches: ResMut<SpriteBatches>,
 ) {
@@ -626,11 +624,12 @@ pub fn prepare_sprite_image_bind_groups(
 
     let image_bind_groups = &mut *image_bind_groups;
 
-    for (retained_view, transparent_phase) in phases.iter_mut() {
+    for (view, mut transparent_phase) in views.iter_mut() {
         let mut current_batch = None;
         let mut batch_item_index = 0;
         let mut batch_image_size = Vec2::ZERO;
         let mut batch_image_handle = AssetId::invalid();
+        let retained_view = &view.retained_view_entity;
 
         // Iterate through the phase items and detect when successive sprites that can be batched.
         // Spawn an entity with a `SpriteBatch` component for each possible batch.

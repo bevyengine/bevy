@@ -9,11 +9,12 @@ use bevy::{
     },
     pbr::{
         late_sweep_material_instances, DrawMaterial, EntitiesNeedingSpecialization,
-        EntitySpecializationTickPair, EntitySpecializationTicks, MainPassOpaqueDrawFunction,
+        EntitySpecializationTickPair, EntitySpecializationTicks, MainPass,
         MaterialBindGroupAllocator, MaterialBindGroupAllocators,
         MaterialExtractEntitiesNeedingSpecializationSystems, MaterialExtractionSystems,
-        MaterialFragmentShader, MaterialProperties, PreparedMaterial, RenderMaterialBindings,
-        RenderMaterialInstance, RenderMaterialInstances, SpecializedMaterialPipelineCache,
+        MaterialFragmentShader, MaterialProperties, MeshPass, MeshPassDrawFunction,
+        PreparedMaterial, RenderMaterialBindings, RenderMaterialInstance, RenderMaterialInstances,
+        SpecializedMaterialPipelineCache,
     },
     platform::collections::hash_map::Entry,
     prelude::*,
@@ -200,8 +201,17 @@ impl ErasedRenderAsset for ImageMaterial {
             material_layout: Some(material_layout),
             ..Default::default()
         };
-        properties.add_draw_function(MainPassOpaqueDrawFunction, draw_function_id);
-        properties.add_shader(MaterialFragmentShader, asset_server.load(SHADER_ASSET_PATH));
+        properties.add_draw_function(
+            MeshPassDrawFunction {
+                pass_id: MainPass::id(),
+                phase_idx: 0,
+            },
+            draw_function_id,
+        );
+        properties.add_shader(
+            MaterialFragmentShader(MainPass::id()),
+            asset_server.load(SHADER_ASSET_PATH),
+        );
 
         Ok(PreparedMaterial {
             binding,
@@ -297,7 +307,7 @@ fn extract_image_materials_needing_specialization(
     entities_needing_specialization: Extract<Res<EntitiesNeedingSpecialization<ImageMaterial>>>,
     mut entity_specialization_ticks: ResMut<EntitySpecializationTicks>,
     mut removed_mesh_material_components: Extract<RemovedComponents<ImageMaterial3d>>,
-    mut specialized_material_pipeline_cache: ResMut<SpecializedMaterialPipelineCache>,
+    mut specialized_material_pipeline_cache: ResMut<SpecializedMaterialPipelineCache<MainPass>>,
     render_material_instances: Res<RenderMaterialInstances>,
     views: Query<&ExtractedView>,
     ticks: SystemChangeTick,
@@ -331,7 +341,7 @@ fn extract_image_materials_needing_specialization(
 fn sweep_image_materials_needing_specialization(
     mut entity_specialization_ticks: ResMut<EntitySpecializationTicks>,
     mut removed_mesh_material_components: Extract<RemovedComponents<ImageMaterial3d>>,
-    mut specialized_material_pipeline_cache: ResMut<SpecializedMaterialPipelineCache>,
+    mut specialized_material_pipeline_cache: ResMut<SpecializedMaterialPipelineCache<MainPass>>,
     render_material_instances: Res<RenderMaterialInstances>,
     views: Query<&ExtractedView>,
 ) {

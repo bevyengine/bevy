@@ -26,11 +26,10 @@ use wgpu::{BindingResource, BufferUsages, DownlevelFlags, Features};
 use crate::{
     experimental::occlusion_culling::OcclusionCulling,
     render_phase::{
-        BinnedPhaseItem, BinnedRenderPhaseBatch, BinnedRenderPhaseBatchSet,
+        BinnedPhaseItem, BinnedRenderPhase, BinnedRenderPhaseBatch, BinnedRenderPhaseBatchSet,
         BinnedRenderPhaseBatchSets, CachedRenderPipelinePhaseItem, PhaseItem,
         PhaseItemBatchSetKey as _, PhaseItemExtraIndex, RenderBin, SortedPhaseItem,
-        SortedRenderPhase, UnbatchableBinnedEntityIndices, ViewBinnedRenderPhases,
-        ViewSortedRenderPhases,
+        SortedRenderPhase, UnbatchableBinnedEntityIndices,
     },
     render_resource::{Buffer, GpuArrayBufferable, RawBufferVec, UninitBufferVec},
     renderer::{RenderAdapter, RenderAdapterInfo, RenderDevice, RenderQueue, WgpuWrapper},
@@ -1335,9 +1334,9 @@ pub fn delete_old_work_item_buffers<GFBD>(
 pub fn batch_and_prepare_sorted_render_phase<I, GFBD>(
     mut phase_batched_instance_buffers: ResMut<PhaseBatchedInstanceBuffers<I, GFBD::BufferData>>,
     mut phase_indirect_parameters_buffers: ResMut<PhaseIndirectParametersBuffers<I>>,
-    mut sorted_render_phases: ResMut<ViewSortedRenderPhases<I>>,
     mut views: Query<(
         &ExtractedView,
+        &mut SortedRenderPhase<I>,
         Has<NoIndirectDrawing>,
         Has<OcclusionCulling>,
     )>,
@@ -1354,11 +1353,8 @@ pub fn batch_and_prepare_sorted_render_phase<I, GFBD>(
         ref mut late_non_indexed_indirect_parameters_buffer,
     } = phase_batched_instance_buffers.buffers;
 
-    for (extracted_view, no_indirect_drawing, gpu_occlusion_culling) in &mut views {
-        let Some(phase) = sorted_render_phases.get_mut(&extracted_view.retained_view_entity) else {
-            continue;
-        };
-
+    for (extracted_view, mut phase, no_indirect_drawing, gpu_occlusion_culling) in &mut views {
+        let phase = phase.as_mut();
         // Create the work item buffer if necessary.
         let work_item_buffer = get_or_create_work_item_buffer::<I>(
             work_item_buffers,
@@ -1504,10 +1500,10 @@ pub fn batch_and_prepare_sorted_render_phase<I, GFBD>(
 pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
     mut phase_batched_instance_buffers: ResMut<PhaseBatchedInstanceBuffers<BPI, GFBD::BufferData>>,
     phase_indirect_parameters_buffers: ResMut<PhaseIndirectParametersBuffers<BPI>>,
-    mut binned_render_phases: ResMut<ViewBinnedRenderPhases<BPI>>,
     mut views: Query<
         (
             &ExtractedView,
+            &mut BinnedRenderPhase<BPI>,
             Has<NoIndirectDrawing>,
             Has<OcclusionCulling>,
         ),
@@ -1529,11 +1525,8 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
         ref mut late_non_indexed_indirect_parameters_buffer,
     } = phase_batched_instance_buffers.buffers;
 
-    for (extracted_view, no_indirect_drawing, gpu_occlusion_culling) in &mut views {
-        let Some(phase) = binned_render_phases.get_mut(&extracted_view.retained_view_entity) else {
-            continue;
-        };
-
+    for (extracted_view, mut phase, no_indirect_drawing, gpu_occlusion_culling) in &mut views {
+        let phase = phase.as_mut();
         // Create the work item buffer if necessary; otherwise, just mark it as
         // used this frame.
         let work_item_buffer = get_or_create_work_item_buffer::<BPI>(

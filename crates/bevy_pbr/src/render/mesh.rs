@@ -6,11 +6,10 @@ use bevy_asset::{embedded_asset, load_embedded_asset, AssetId};
 use bevy_camera::{
     primitives::Aabb,
     visibility::{NoFrustumCulling, RenderLayers, ViewVisibility, VisibilityRange},
-    Camera, Camera3d, Projection,
+    Camera,
 };
 use bevy_core_pipeline::{
-    core_3d::{AlphaMask3d, Opaque3d, Transmissive3d, Transparent3d, CORE_3D_DEPTH_FORMAT},
-    deferred::{AlphaMask3dDeferred, Opaque3dDeferred},
+    core_3d::CORE_3D_DEPTH_FORMAT,
     oit::{prepare_oit_buffers, OrderIndependentTransparencySettingsOffset},
     prepass::MotionVectorPrepass,
 };
@@ -24,10 +23,7 @@ use bevy_ecs::{
     system::{lifetimeless::*, SystemParamItem, SystemState},
 };
 use bevy_image::{BevyDefault, ImageSampler, TextureFormatPixelInfo};
-use bevy_light::{
-    EnvironmentMapLight, IrradianceVolume, NotShadowCaster, NotShadowReceiver,
-    ShadowFilteringMethod, TransmittedShadowReceiver,
-};
+use bevy_light::{NotShadowCaster, NotShadowReceiver, TransmittedShadowReceiver};
 use bevy_math::{Affine3, Rect, UVec2, Vec3, Vec4};
 use bevy_mesh::{
     skinning::SkinnedMesh, BaseMeshPipelineKey, Mesh, Mesh3d, MeshTag, MeshVertexBufferLayoutRef,
@@ -46,17 +42,14 @@ use bevy_render::{
     mesh::{allocator::MeshAllocator, RenderMesh, RenderMeshBufferInfo},
     render_asset::RenderAssets,
     render_phase::{
-        BinnedRenderPhasePlugin, InputUniformIndex, PhaseItem, PhaseItemExtraIndex, RenderCommand,
-        RenderCommandResult, SortedRenderPhasePlugin, TrackedRenderPass,
+        InputUniformIndex, PhaseItem, PhaseItemExtraIndex, RenderCommand, RenderCommandResult,
+        TrackedRenderPass,
     },
     render_resource::*,
     renderer::{RenderAdapter, RenderDevice, RenderQueue},
     sync_world::MainEntityHashSet,
     texture::{DefaultImageSampler, GpuImage},
-    view::{
-        self, NoIndirectDrawing, RenderVisibilityRanges, RetainedViewEntity, ViewTarget,
-        ViewUniformOffset,
-    },
+    view::{self, NoIndirectDrawing, RenderVisibilityRanges, ViewTarget, ViewUniformOffset},
     Extract,
 };
 use bevy_shader::{load_shader_library, Shader, ShaderDefVal, ShaderSettings};
@@ -78,17 +71,7 @@ use crate::{
     },
     *,
 };
-use bevy_core_pipeline::oit::OrderIndependentTransparencySettings;
-use bevy_core_pipeline::prepass::{DeferredPrepass, DepthPrepass, NormalPrepass};
-use bevy_core_pipeline::tonemapping::{DebandDither, Tonemapping};
-use bevy_ecs::change_detection::Tick;
-use bevy_ecs::system::SystemChangeTick;
-use bevy_render::camera::TemporalJitter;
-use bevy_render::prelude::Msaa;
 use bevy_render::sync_world::{MainEntity, MainEntityHashMap};
-use bevy_render::view::ExtractedView;
-use bevy_render::RenderSystems::PrepareAssets;
-
 use bytemuck::{Pod, Zeroable};
 use nonmax::{NonMaxU16, NonMaxU32};
 use smallvec::{smallvec, SmallVec};
@@ -158,16 +141,7 @@ impl Plugin for MeshRenderPlugin {
         app.add_systems(
             PostUpdate,
             (no_automatic_skin_batching, no_automatic_morph_batching),
-        )
-        .add_plugins((
-            BinnedRenderPhasePlugin::<Opaque3d, MeshPipeline>::new(self.debug_flags),
-            BinnedRenderPhasePlugin::<AlphaMask3d, MeshPipeline>::new(self.debug_flags),
-            BinnedRenderPhasePlugin::<Shadow, MeshPipeline>::new(self.debug_flags),
-            BinnedRenderPhasePlugin::<Opaque3dDeferred, MeshPipeline>::new(self.debug_flags),
-            BinnedRenderPhasePlugin::<AlphaMask3dDeferred, MeshPipeline>::new(self.debug_flags),
-            SortedRenderPhasePlugin::<Transmissive3d, MeshPipeline>::new(self.debug_flags),
-            SortedRenderPhasePlugin::<Transparent3d, MeshPipeline>::new(self.debug_flags),
-        ));
+        );
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
@@ -214,14 +188,8 @@ impl Plugin for MeshRenderPlugin {
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
-                .init_resource::<ViewKeyCache>()
-                .init_resource::<ViewSpecializationTicks>()
                 .init_resource::<GpuPreprocessingSupport>()
-                .init_resource::<SkinUniforms>()
-                .add_systems(
-                    Render,
-                    check_views_need_specialization.in_set(PrepareAssets),
-                );
+                .init_resource::<SkinUniforms>();
 
             let gpu_preprocessing_support =
                 render_app.world().resource::<GpuPreprocessingSupport>();
@@ -297,151 +265,6 @@ impl Plugin for MeshRenderPlugin {
             ShaderSettings {
                 shader_defs: mesh_bindings_shader_defs.clone(),
             });
-    }
-}
-
-#[derive(Resource, Deref, DerefMut, Default, Debug, Clone)]
-pub struct ViewKeyCache(HashMap<RetainedViewEntity, MeshPipelineKey>);
-
-#[derive(Resource, Deref, DerefMut, Default, Debug, Clone)]
-pub struct ViewSpecializationTicks(HashMap<RetainedViewEntity, Tick>);
-
-pub fn check_views_need_specialization(
-    mut view_key_cache: ResMut<ViewKeyCache>,
-    mut view_specialization_ticks: ResMut<ViewSpecializationTicks>,
-    mut views: Query<(
-        &ExtractedView,
-        &Msaa,
-        Option<&Tonemapping>,
-        Option<&DebandDither>,
-        Option<&ShadowFilteringMethod>,
-        Has<ScreenSpaceAmbientOcclusion>,
-        (
-            Has<NormalPrepass>,
-            Has<DepthPrepass>,
-            Has<MotionVectorPrepass>,
-            Has<DeferredPrepass>,
-        ),
-        Option<&Camera3d>,
-        Has<TemporalJitter>,
-        Option<&Projection>,
-        Has<DistanceFog>,
-        (
-            Has<RenderViewLightProbes<EnvironmentMapLight>>,
-            Has<RenderViewLightProbes<IrradianceVolume>>,
-        ),
-        Has<OrderIndependentTransparencySettings>,
-        Has<ExtractedAtmosphere>,
-    )>,
-    ticks: SystemChangeTick,
-) {
-    for (
-        view,
-        msaa,
-        tonemapping,
-        dither,
-        shadow_filter_method,
-        ssao,
-        (normal_prepass, depth_prepass, motion_vector_prepass, deferred_prepass),
-        camera_3d,
-        temporal_jitter,
-        projection,
-        distance_fog,
-        (has_environment_maps, has_irradiance_volumes),
-        has_oit,
-        has_atmosphere,
-    ) in views.iter_mut()
-    {
-        let mut view_key = MeshPipelineKey::from_msaa_samples(msaa.samples())
-            | MeshPipelineKey::from_hdr(view.hdr);
-
-        if normal_prepass {
-            view_key |= MeshPipelineKey::NORMAL_PREPASS;
-        }
-
-        if depth_prepass {
-            view_key |= MeshPipelineKey::DEPTH_PREPASS;
-        }
-
-        if motion_vector_prepass {
-            view_key |= MeshPipelineKey::MOTION_VECTOR_PREPASS;
-        }
-
-        if deferred_prepass {
-            view_key |= MeshPipelineKey::DEFERRED_PREPASS;
-        }
-
-        if temporal_jitter {
-            view_key |= MeshPipelineKey::TEMPORAL_JITTER;
-        }
-
-        if has_environment_maps {
-            view_key |= MeshPipelineKey::ENVIRONMENT_MAP;
-        }
-
-        if has_irradiance_volumes {
-            view_key |= MeshPipelineKey::IRRADIANCE_VOLUME;
-        }
-
-        if has_oit {
-            view_key |= MeshPipelineKey::OIT_ENABLED;
-        }
-
-        if has_atmosphere {
-            view_key |= MeshPipelineKey::ATMOSPHERE;
-        }
-
-        if view.invert_culling {
-            view_key |= MeshPipelineKey::INVERT_CULLING;
-        }
-
-        if let Some(projection) = projection {
-            view_key |= match projection {
-                Projection::Perspective(_) => MeshPipelineKey::VIEW_PROJECTION_PERSPECTIVE,
-                Projection::Orthographic(_) => MeshPipelineKey::VIEW_PROJECTION_ORTHOGRAPHIC,
-                Projection::Custom(_) => MeshPipelineKey::VIEW_PROJECTION_NONSTANDARD,
-            };
-        }
-
-        match shadow_filter_method.unwrap_or(&ShadowFilteringMethod::default()) {
-            ShadowFilteringMethod::Hardware2x2 => {
-                view_key |= MeshPipelineKey::SHADOW_FILTER_METHOD_HARDWARE_2X2;
-            }
-            ShadowFilteringMethod::Gaussian => {
-                view_key |= MeshPipelineKey::SHADOW_FILTER_METHOD_GAUSSIAN;
-            }
-            ShadowFilteringMethod::Temporal => {
-                view_key |= MeshPipelineKey::SHADOW_FILTER_METHOD_TEMPORAL;
-            }
-        }
-
-        if !view.hdr {
-            if let Some(tonemapping) = tonemapping {
-                view_key |= MeshPipelineKey::TONEMAP_IN_SHADER;
-                view_key |= tonemapping_pipeline_key(*tonemapping);
-            }
-            if let Some(DebandDither::Enabled) = dither {
-                view_key |= MeshPipelineKey::DEBAND_DITHER;
-            }
-        }
-        if ssao {
-            view_key |= MeshPipelineKey::SCREEN_SPACE_AMBIENT_OCCLUSION;
-        }
-        if distance_fog {
-            view_key |= MeshPipelineKey::DISTANCE_FOG;
-        }
-        if let Some(camera_3d) = camera_3d {
-            view_key |= screen_space_specular_transmission_pipeline_key(
-                camera_3d.screen_space_specular_transmission_quality,
-            );
-        }
-        if !view_key_cache
-            .get_mut(&view.retained_view_entity)
-            .is_some_and(|current_key| *current_key == view_key)
-        {
-            view_key_cache.insert(view.retained_view_entity, view_key);
-            view_specialization_ticks.insert(view.retained_view_entity, ticks.this_run());
-        }
     }
 }
 
@@ -2763,7 +2586,7 @@ pub enum MeshBindGroups {
     /// The bind groups for the meshes for the entire scene, if GPU mesh
     /// preprocessing isn't in use.
     CpuPreprocessing(MeshPhaseBindGroups),
-    /// A mapping from the type ID of a phase (e.g. [`Opaque3d`]) to the mesh
+    /// A mapping from the type ID of a phase (e.g. [`bevy_core_pipeline::core_3d::Opaque3d`]) to the mesh
     /// bind groups for that phase.
     GpuPreprocessing(TypeIdMap<MeshPhaseBindGroups>),
 }
