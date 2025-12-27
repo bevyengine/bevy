@@ -1,10 +1,8 @@
 ---
 title: Physics Types
 authors: ["@LizeLive"]
-pull_requests: [14791, 15458, 15269]
+pull_requests: [21912]
 ---
-
-# Physics Types for Bevy
 
 Add a crate that provides physics component types for Bevy ECS, enabling rigid body
 physics simulation representation.
@@ -21,14 +19,14 @@ enabling seamless interchange with USD-based pipelines and tools.
 
 ### Limitations
 
-Does not implmenet usd io. Only data standard.
+Does not implement usd io. Only data standard.
 
 ### Bevy Adaptations
 
 The following changes were made to align with Bevy conventions:
 
 | USD Physics | Bevy | Reason |
-|-------------|------|--------|
+| ------------- | ------ | -------- |
 | Angles in degrees | Angles in radians | Bevy and most game engines use radians |
 | `prim` terminology | `entity` terminology | Bevy ECS uses entities |
 | `stage` terminology | `scene` terminology | Bevy uses scenes |
