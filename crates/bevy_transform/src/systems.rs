@@ -420,9 +420,7 @@ mod parallel {
         task_pool.scope(|s| {
             (1..task_pool.thread_num()) // First worker is run locally instead of the task pool.
                 .for_each(|_| {
-                    s.spawn(async {
-                        propagation_worker(&queue, &nodes, &static_optimizations);
-                    })
+                    s.spawn(async { propagation_worker(&queue, &nodes, &static_optimizations) });
                 });
             propagation_worker(&queue, &nodes, &static_optimizations);
         });
