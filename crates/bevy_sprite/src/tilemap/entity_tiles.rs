@@ -11,7 +11,7 @@ use bevy_ecs::{
 use bevy_math::IVec2;
 use tracing::warn;
 
-use crate::{RemoveTile, SetTile, SetTileResult, TileData, TileStorage};
+use crate::{RemoveTile, SetTile, SetTileResult, TileQueryData, TileStorage};
 
 /// Plugin that handles the initialization and updating of tilemap chunks.
 /// Adds systems for processing newly added tilemap chunks.
@@ -31,10 +31,6 @@ impl Plugin for EntityTilePlugin {
 
 /// An Entity in the tilemap
 pub struct EntityTile(pub Entity);
-
-impl TileData for EntityTile {
-    type Storage = TileStorage<Entity>;
-}
 
 #[derive(Component, Clone, Debug, Deref)]
 #[component(immutable)]

@@ -22,7 +22,7 @@ use bevy_math::{primitives::Rectangle, UVec2};
 use bevy_mesh::{Mesh, Mesh2d};
 use bevy_platform::collections::HashMap;
 use bevy_reflect::{prelude::*, Reflect};
-use bevy_sprite::{InMap, RemoveTile, SetTile, TileCoord, TileData, TileStorage, Tilemap};
+use bevy_sprite::{InMap, RemoveTile, SetTile, TileCoord, TileQueryData, TileStorage, Tilemap};
 use bevy_transform::components::Transform;
 use bevy_utils::default;
 use tracing::{trace, warn};
@@ -172,10 +172,6 @@ pub struct TileRenderData {
     pub color: Color,
     /// The visibility of the tile.
     pub visible: bool,
-}
-
-impl TileData for TileRenderData {
-    type Storage = TileStorage<TileRenderData>;
 }
 
 impl TileRenderData {

@@ -4,8 +4,8 @@ use bevy::{
     color::palettes::tailwind::RED_400,
     image::{ImageArrayLayout, ImageLoaderSettings},
     prelude::*,
-    sprite_render::{TilemapChunkRenderData, TileRenderData},
-    sprite::TileStorage
+    sprite::TileStorage,
+    sprite_render::{TileRenderData, TilemapChunkRenderData},
 };
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;
@@ -127,16 +127,20 @@ fn update_tilemap(
         if timer.just_finished() {
             for _ in 0..50 {
                 let index = rng.random_range(0..tile_data.tiles.len());
-                tile_data.tiles[index] = Some(TileRenderData::from_tileset_index(rng.random_range(0..5)));
+                tile_data.tiles[index] =
+                    Some(TileRenderData::from_tileset_index(rng.random_range(0..5)));
             }
         }
     }
 }
 
 // find the data for an arbitrary tile in the chunk and log its data
-fn log_tile(tilemap: Single<(&TilemapChunkRenderData, &TileStorage<TileRenderData>)>, mut local: Local<u16>) {
+fn log_tile(
+    tilemap: Single<(&TilemapChunkRenderData, &TileStorage<TileRenderData>)>,
+    mut local: Local<u16>,
+) {
     let (_, data) = tilemap.into_inner();
-    let Some(tile_data) = data.get(UVec2::new(3, 4)) else {
+    let Some(tile_data) = data.get_at(UVec2::new(3, 4)) else {
         return;
     };
     // log when the tile changes

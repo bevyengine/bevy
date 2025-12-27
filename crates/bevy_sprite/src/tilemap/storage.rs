@@ -14,8 +14,6 @@ use bevy_reflect::Reflect;
 use bevy_transform::components::Transform;
 use tracing::error;
 
-use crate::TileData;
-
 #[derive(Component, Clone, Debug, Default)]
 #[require(Name::new("TileStorage"), Transform)]
 pub struct TileStorages {
@@ -27,12 +25,12 @@ pub struct TileStorages {
 #[reflect(Component)]
 #[require(Name::new("TileStorage"), TileStorages, Transform)]
 #[component(on_add = on_add_tile_storage::<T>)]
-pub struct TileStorage<T: TileData> {
+pub struct TileStorage<T: Send + Sync + 'static> {
     pub tiles: Vec<Option<T>>,
     size: UVec2,
 }
 
-impl<T: TileData> TileStorage<T> {
+impl<T: Send + Sync + 'static> TileStorage<T> {
     pub fn new(size: UVec2) -> Self {
         let mut tiles = Vec::new();
         tiles.resize_with(size.element_product() as usize, Default::default);
@@ -43,12 +41,12 @@ impl<T: TileData> TileStorage<T> {
         (tile_coord.y * self.size.x + tile_coord.x) as usize
     }
 
-    pub fn get(&self, tile_coord: UVec2) -> Option<&T> {
+    pub fn get_at(&self, tile_coord: UVec2) -> Option<&T> {
         let index = self.index(tile_coord);
         self.tiles.get(index).map(Option::as_ref).flatten()
     }
 
-    pub fn get_mut(&mut self, tile_coord: UVec2) -> Option<&mut T> {
+    pub fn get_at_mut(&mut self, tile_coord: UVec2) -> Option<&mut T> {
         let index = self.index(tile_coord);
         self.tiles.get_mut(index).map(Option::as_mut).flatten()
     }
@@ -76,7 +74,7 @@ impl<T: TileData> TileStorage<T> {
                     return None;
                 }
 
-                self.get(UVec2 { x, y })
+                self.get_at(UVec2 { x, y })
             })
         })
     }
@@ -86,7 +84,7 @@ impl<T: TileData> TileStorage<T> {
     }
 }
 
-fn on_add_tile_storage<T: TileData>(
+fn on_add_tile_storage<T: Send + Sync + 'static>(
     mut world: DeferredWorld<'_>,
     HookContext {
         component_id,
@@ -114,7 +112,7 @@ fn on_add_tile_storage<T: TileData>(
     });
 }
 
-fn remove_tile<T: TileData>(mut raw: MutUntyped<'_>, tile_coord: UVec2) {
+fn remove_tile<T: Send + Sync + 'static>(mut raw: MutUntyped<'_>, tile_coord: UVec2) {
     let storage = raw.bypass_change_detection().reborrow();
     // SAFETY: We only call this from entities that have a TileStorage<T>
     // TODO: Maybe change this function to accept the enttity and do the component id look up here?
