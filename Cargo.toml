@@ -4960,3 +4960,14 @@ name = "Mirror"
 description = "Demonstrates how to create a mirror with a second camera"
 category = "3D Rendering"
 wasm = true
+
+[[example]]
+name = "pccm"
+path = "examples/3d/pccm.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.pccm]
+name = "Parallax-Corrected Cubemaps"
+description = "Demonstrates parallax-corrected cubemap reflections"
+category = "3D Rendering"
+wasm = true
