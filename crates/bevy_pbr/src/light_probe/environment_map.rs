@@ -50,7 +50,7 @@ use bevy_ecs::{
     system::lifetimeless::Read,
 };
 use bevy_image::Image;
-use bevy_light::{EnvironmentMapLight, ParallaxCorrect};
+use bevy_light::{EnvironmentMapLight, NoParallaxCorrection};
 use bevy_render::{
     extract_instances::ExtractInstance,
     render_asset::RenderAssets,
@@ -245,7 +245,7 @@ impl LightProbeComponent for EnvironmentMapLight {
     // view.
     type ViewLightProbeInfo = EnvironmentMapViewLightProbeInfo;
 
-    type QueryData = Has<ParallaxCorrect>;
+    type QueryData = Has<NoParallaxCorrection>;
 
     fn id(&self, image_assets: &RenderAssets<GpuImage>) -> Option<Self::AssetId> {
         if image_assets.get(&self.diffuse_map).is_none()
@@ -266,13 +266,13 @@ impl LightProbeComponent for EnvironmentMapLight {
 
     fn flags(
         &self,
-        parallax_correct: <Self::QueryData as QueryData>::Item<'_, '_>,
+        no_parallax_correction: <Self::QueryData as QueryData>::Item<'_, '_>,
     ) -> RenderLightProbeFlags {
         let mut flags = RenderLightProbeFlags::empty();
         if self.affects_lightmapped_mesh_diffuse {
             flags.insert(RenderLightProbeFlags::AFFECTS_LIGHTMAPPED_MESH_DIFFUSE);
         }
-        if parallax_correct {
+        if !no_parallax_correction {
             flags.insert(RenderLightProbeFlags::ENABLE_PARALLAX_CORRECTION);
         }
         flags
