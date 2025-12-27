@@ -168,7 +168,7 @@ pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
         Asset, AssetApp, AssetEvent, AssetId, AssetMode, AssetPlugin, AssetServer, Assets,
-        DirectAssetAccessExt, Handle, UntypedHandle,
+        DirectAssetAccessExt, ExtractableAsset, Handle, UntypedHandle,
     };
 }
 

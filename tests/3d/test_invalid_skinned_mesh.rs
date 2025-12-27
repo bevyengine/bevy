@@ -1,12 +1,11 @@
 //! Test that the renderer can handle various invalid skinned meshes
 
 use bevy::{
-    asset::RenderAssetUsages,
     camera::ScalingMode,
     math::ops,
     mesh::{
         skinning::{SkinnedMesh, SkinnedMeshInverseBindposes},
-        Indices, PrimitiveTopology, VertexAttributeValues,
+        Indices, MeshExtractableData, PrimitiveTopology, VertexAttributeValues,
     },
     post_process::motion_blur::MotionBlur,
     prelude::*,
@@ -96,46 +95,46 @@ fn setup_meshes(
     mut inverse_bindposes_assets: ResMut<Assets<SkinnedMeshInverseBindposes>>,
 ) {
     // Create a mesh with two rectangles.
-    let unskinned_mesh = Mesh::new(
-        PrimitiveTopology::TriangleList,
-        RenderAssetUsages::default(),
-    )
-    .with_inserted_attribute(
-        Mesh::ATTRIBUTE_POSITION,
-        vec![
-            [-0.3, -0.3, 0.0],
-            [0.3, -0.3, 0.0],
-            [-0.3, 0.3, 0.0],
-            [0.3, 0.3, 0.0],
-            [-0.4, 0.8, 0.0],
-            [0.4, 0.8, 0.0],
-            [-0.4, 1.8, 0.0],
-            [0.4, 1.8, 0.0],
-        ],
-    )
-    .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, vec![[0.0, 0.0, 1.0]; 8])
-    .with_inserted_indices(Indices::U16(vec![0, 1, 3, 0, 3, 2, 4, 5, 7, 4, 7, 6]));
+    let unskinned_mesh = Mesh::from(
+        MeshExtractableData::new(PrimitiveTopology::TriangleList)
+            .with_inserted_attribute(
+                Mesh::ATTRIBUTE_POSITION,
+                vec![
+                    [-0.3, -0.3, 0.0],
+                    [0.3, -0.3, 0.0],
+                    [-0.3, 0.3, 0.0],
+                    [0.3, 0.3, 0.0],
+                    [-0.4, 0.8, 0.0],
+                    [0.4, 0.8, 0.0],
+                    [-0.4, 1.8, 0.0],
+                    [0.4, 1.8, 0.0],
+                ],
+            )
+            .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, vec![[0.0, 0.0, 1.0]; 8])
+            .with_inserted_indices(Indices::U16(vec![0, 1, 3, 0, 3, 2, 4, 5, 7, 4, 7, 6])),
+    );
 
     // Copy the mesh and add skinning attributes that bind each rectangle to a joint.
-    let skinned_mesh = unskinned_mesh
-        .clone()
-        .with_inserted_attribute(
-            Mesh::ATTRIBUTE_JOINT_INDEX,
-            VertexAttributeValues::Uint16x4(vec![
-                [0, 0, 0, 0],
-                [0, 0, 0, 0],
-                [0, 0, 0, 0],
-                [0, 0, 0, 0],
-                [1, 0, 0, 0],
-                [1, 0, 0, 0],
-                [1, 0, 0, 0],
-                [1, 0, 0, 0],
-            ]),
-        )
-        .with_inserted_attribute(
-            Mesh::ATTRIBUTE_JOINT_WEIGHT,
-            vec![[1.00, 0.00, 0.0, 0.0]; 8],
-        );
+    let skinned_mesh = unskinned_mesh.clone().with_extractable_data(|d| {
+        d.unwrap()
+            .with_inserted_attribute(
+                Mesh::ATTRIBUTE_JOINT_INDEX,
+                VertexAttributeValues::Uint16x4(vec![
+                    [0, 0, 0, 0],
+                    [0, 0, 0, 0],
+                    [0, 0, 0, 0],
+                    [0, 0, 0, 0],
+                    [1, 0, 0, 0],
+                    [1, 0, 0, 0],
+                    [1, 0, 0, 0],
+                    [1, 0, 0, 0],
+                ]),
+            )
+            .with_inserted_attribute(
+                Mesh::ATTRIBUTE_JOINT_WEIGHT,
+                vec![[1.00, 0.00, 0.0, 0.0]; 8],
+            )
+    });
 
     let unskinned_mesh_handle = mesh_assets.add(unskinned_mesh);
     let skinned_mesh_handle = mesh_assets.add(skinned_mesh);

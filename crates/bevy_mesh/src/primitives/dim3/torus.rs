@@ -1,5 +1,4 @@
-use crate::{Indices, Mesh, MeshBuilder, Meshable, PrimitiveTopology};
-use bevy_asset::RenderAssetUsages;
+use crate::{Indices, Mesh, MeshBuilder, MeshExtractableData, Meshable, PrimitiveTopology};
 use bevy_math::{ops, primitives::Torus, Vec3};
 use bevy_reflect::prelude::*;
 use core::ops::RangeInclusive;
@@ -147,14 +146,13 @@ impl MeshBuilder for TorusMeshBuilder {
             }
         }
 
-        Mesh::new(
-            PrimitiveTopology::TriangleList,
-            RenderAssetUsages::default(),
+        Mesh::from(
+            MeshExtractableData::new(PrimitiveTopology::TriangleList)
+                .with_inserted_indices(Indices::U32(indices))
+                .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
+                .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
+                .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs),
         )
-        .with_inserted_indices(Indices::U32(indices))
-        .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
-        .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
-        .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)
     }
 }
 

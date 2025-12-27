@@ -1,6 +1,5 @@
 use super::triangle3d;
-use crate::{Indices, Mesh, MeshBuilder, Meshable, PrimitiveTopology};
-use bevy_asset::RenderAssetUsages;
+use crate::{Indices, Mesh, MeshBuilder, MeshExtractableData, Meshable, PrimitiveTopology};
 use bevy_math::primitives::{Tetrahedron, Triangle3d};
 use bevy_reflect::prelude::*;
 
@@ -40,14 +39,13 @@ impl MeshBuilder for TetrahedronMeshBuilder {
         // There are four faces and none of them share vertices.
         let indices = Indices::U32(vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]);
 
-        Mesh::new(
-            PrimitiveTopology::TriangleList,
-            RenderAssetUsages::default(),
+        Mesh::from(
+            MeshExtractableData::new(PrimitiveTopology::TriangleList)
+                .with_inserted_indices(indices)
+                .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
+                .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
+                .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs),
         )
-        .with_inserted_indices(indices)
-        .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
-        .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
-        .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)
     }
 }
 

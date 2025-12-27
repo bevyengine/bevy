@@ -1,14 +1,12 @@
 pub mod allocator;
 use crate::{
-    render_asset::{
-        AssetExtractionError, PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets,
-    },
+    render_asset::{PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets},
     texture::GpuImage,
     RenderApp,
 };
 use allocator::MeshAllocatorPlugin;
 use bevy_app::{App, Plugin};
-use bevy_asset::{AssetId, RenderAssetUsages};
+use bevy_asset::{AssetId, ExtractableAsset, RenderAssetUsages};
 use bevy_ecs::{
     prelude::*,
     system::{
@@ -135,14 +133,12 @@ impl RenderAsset for RenderMesh {
 
     fn take_gpu_data(
         source: &mut Self::SourceAsset,
-        _previous_gpu_asset: Option<&Self>,
-    ) -> Result<Self::SourceAsset, AssetExtractionError> {
-        source
-            .take_gpu_data()
-            .map_err(|_| AssetExtractionError::AlreadyExtracted)
+    ) -> Result<Self::SourceAsset, bevy_asset::AssetExtractionError> {
+        source.take_gpu_data()
     }
 
     fn byte_len(mesh: &Self::SourceAsset) -> Option<usize> {
+        let mesh = mesh.extractable_data_ref().unwrap();
         let mut vertex_size = 0;
         for attribute_data in mesh.attributes() {
             let vertex_format = attribute_data.0.format;
@@ -156,16 +152,18 @@ impl RenderAsset for RenderMesh {
 
     /// Converts the extracted mesh into a [`RenderMesh`].
     fn prepare_asset(
-        mesh: Self::SourceAsset,
+        mesh_source: Self::SourceAsset,
         _: AssetId<Self::SourceAsset>,
         (_images, mesh_vertex_buffer_layouts): &mut SystemParamItem<Self::Param>,
         _: Option<&Self>,
     ) -> Result<Self, PrepareAssetError<Self::SourceAsset>> {
+        let mesh = mesh_source.extractable_data_ref().unwrap();
+
         #[cfg(feature = "morph")]
         let morph_targets = match mesh.morph_targets() {
             Some(mt) => {
                 let Some(target_image) = _images.get(mt) else {
-                    return Err(PrepareAssetError::RetryNextUpdate(mesh));
+                    return Err(PrepareAssetError::RetryNextUpdate(mesh_source));
                 };
                 Some(target_image.texture_view.clone())
             }

@@ -198,10 +198,13 @@ fn spawn_plane_mesh(
         }
         .mesh()
         .build()
-        .with_duplicated_vertices()
-        .with_computed_flat_normals()
-        .with_generated_tangents()
-        .unwrap(),
+        .with_extractable_data(|d| {
+            d.unwrap()
+                .with_duplicated_vertices()
+                .with_computed_flat_normals()
+                .with_generated_tangents()
+                .unwrap()
+        }),
     );
 
     // Give the plane some texture.
