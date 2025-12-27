@@ -4,7 +4,10 @@ use crate::{
     bundle::Bundle,
     change_detection::Tick,
     entity::{ContainsEntity, Entities, Entity, EntityEquivalent, EntitySet, EntitySetIterator},
-    query::{ArchetypeFilter, ArchetypeQueryData, DebugCheckedUnwrap, QueryState, StorageId},
+    query::{
+        ArchetypeFilter, ArchetypeQueryData, ContiguousQueryData, DebugCheckedUnwrap, QueryState,
+        StorageId,
+    },
     storage::{Table, TableRow, Tables},
     world::{
         unsafe_world_cell::UnsafeWorldCell, EntityMut, EntityMutExcept, EntityRef, EntityRefExcept,
@@ -900,6 +903,17 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
             )
         }
     }
+
+    /// Returns a contiguous iter or [`None`] if contiguous access is not supported
+    pub fn as_contiguous_iter(&mut self) -> Option<QueryContiguousIter<'_, 'w, 's, D, F>>
+    where
+        D: ContiguousQueryData,
+        F: ArchetypeFilter,
+    {
+        self.cursor
+            .is_dense
+            .then_some(QueryContiguousIter { iter: self })
+    }
 }
 
 impl<'w, 's, D: QueryData, F: QueryFilter> Iterator for QueryIter<'w, 's, D, F> {
@@ -990,6 +1004,45 @@ impl<'w, 's, D: ReadOnlyQueryData, F: QueryFilter> Clone for QueryIter<'w, 's, D
     fn clone(&self) -> Self {
         self.remaining()
     }
+}
+
+/// Iterator for contiguous chunks of memory
+pub struct QueryContiguousIter<'a, 'w, 's, D: ContiguousQueryData, F: ArchetypeFilter> {
+    iter: &'a mut QueryIter<'w, 's, D, F>,
+}
+
+impl<'a, 'w, 's, D: ContiguousQueryData, F: ArchetypeFilter> Iterator
+    for QueryContiguousIter<'a, 'w, 's, D, F>
+{
+    type Item = D::Contiguous<'w, 's>;
+
+    #[inline(always)]
+    fn next(&mut self) -> Option<Self::Item> {
+        // SAFETY:
+        // `tables` belongs to the same world that the cursor was initialized for.
+        // `query_state` is the state that was passed to `QueryIterationCursor::init`
+        unsafe {
+            self.iter
+                .cursor
+                .next_contiguous(self.iter.tables, self.iter.query_state)
+        }
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.iter.cursor.storage_id_iter.size_hint()
+    }
+}
+
+// [`QueryIterationCursor::next_contiguous`] always returns None when exhausted
+impl<'a, 'w, 's, D: ContiguousQueryData, F: ArchetypeFilter> FusedIterator
+    for QueryContiguousIter<'a, 'w, 's, D, F>
+{
+}
+
+// self.iter.cursor.storage_id_iter is a slice's iterator hence has an exact size
+impl<'a, 'w, 's, D: ContiguousQueryData, F: ArchetypeFilter> ExactSizeIterator
+    for QueryContiguousIter<'a, 'w, 's, D, F>
+{
 }
 
 /// An [`Iterator`] over sorted query results of a [`Query`](crate::system::Query).
@@ -2530,6 +2583,54 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
         remaining_matched + self.current_len - self.current_row
     }
 
+    /// Returns the next contiguous chunk of memory or [`None`] if it is impossible or there is none
+    ///
+    /// # Safety
+    /// - `tables` must belong to the same world that the [`QueryIterationCursor`] was initialized for.
+    /// - `query_state` must be the same [`QueryState`] that was passed to `init` or `init_empty`.
+    /// - Query must be dense
+    #[inline(always)]
+    unsafe fn next_contiguous(
+        &mut self,
+        tables: &'w Tables,
+        query_state: &'s QueryState<D, F>,
+    ) -> Option<D::Contiguous<'w, 's>>
+    where
+        D: ContiguousQueryData,
+        F: ArchetypeFilter,
+    {
+        // SAFETY: Refer to [`Self::next`]
+        loop {
+            if self.current_row == self.current_len {
+                let table_id = self.storage_id_iter.next()?.table_id;
+                let table = tables.get(table_id).debug_checked_unwrap();
+                if table.is_empty() {
+                    continue;
+                }
+                D::set_table(&mut self.fetch, &query_state.fetch_state, table);
+                F::set_table(&mut self.filter, &query_state.filter_state, table);
+                self.table_entities = table.entities();
+                self.current_len = table.entity_count();
+                self.current_row = 0;
+            }
+
+            let offset = self.current_row as usize;
+            self.current_row = self.current_len;
+
+            // no filtering because `F` implements `ArchetypeFilter` which ensures that `QueryFilter::fetch`
+            // always returns true
+
+            let item = D::fetch_contiguous(
+                &query_state.fetch_state,
+                &mut self.fetch,
+                self.table_entities,
+                offset,
+            );
+
+            return Some(item);
+        }
+    }
+
     // NOTE: If you are changing query iteration code, remember to update the following places, where relevant:
     // QueryIter, QueryIterationCursor, QuerySortedIter, QueryManyIter, QuerySortedManyIter, QueryCombinationIter,
     // QueryState::par_fold_init_unchecked_manual, QueryState::par_many_fold_init_unchecked_manual,
@@ -2546,6 +2647,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
         query_state: &'s QueryState<D, F>,
     ) -> Option<D::Item<'w, 's>> {
         if self.is_dense {
+            // NOTE: If you are changing this branch's code (the self.is_dense branch),
+            // don't forget to update [`Self::next_contiguous`]
             loop {
                 // we are on the beginning of the query, or finished processing a table, so skip to the next
                 if self.current_row == self.current_len {
