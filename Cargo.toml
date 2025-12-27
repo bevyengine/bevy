@@ -4592,6 +4592,18 @@ category = "Picking"
 wasm = true
 
 [[example]]
+name = "dragdrop_picking"
+path = "examples/picking/dragdrop_picking.rs"
+doc-scrape-examples = true
+required-features = ["mesh_picking"]
+
+[package.metadata.example.dragdrop_picking]
+name = "Drag and Drop"
+description = "Demonstrates drag and drop using picking events"
+category = "Picking"
+wasm = true
+
+[[example]]
 name = "animation_masks"
 path = "examples/animation/animation_masks.rs"
 doc-scrape-examples = true

@@ -416,6 +416,7 @@ Example | Description
 
 Example | Description
 --- | ---
+[Drag and Drop](../examples/picking/dragdrop_picking.rs) | Demonstrates drag and drop using picking events
 [Mesh Picking](../examples/picking/mesh_picking.rs) | Demonstrates picking meshes
 [Picking Debug Tools](../examples/picking/debug_picking.rs) | Demonstrates picking debug overlay
 [Showcases simple picking events and usage](../examples/picking/simple_picking.rs) | Demonstrates how to use picking events to spawn simple objects
