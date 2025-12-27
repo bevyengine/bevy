@@ -10,8 +10,8 @@ pub mod blit;
 pub mod core_2d;
 pub mod core_3d;
 pub mod deferred;
-pub mod experimental;
 pub mod fullscreen_material;
+pub mod mip_generation;
 pub mod oit;
 pub mod prepass;
 pub mod tonemapping;
@@ -25,9 +25,8 @@ mod skybox;
 
 use crate::{
     blit::BlitPlugin, core_2d::Core2dPlugin, core_3d::Core3dPlugin,
-    deferred::copy_lighting_id::CopyDeferredLightingIdPlugin,
-    experimental::mip_generation::MipGenerationPlugin, tonemapping::TonemappingPlugin,
-    upscaling::UpscalingPlugin,
+    deferred::copy_lighting_id::CopyDeferredLightingIdPlugin, mip_generation::MipGenerationPlugin,
+    tonemapping::TonemappingPlugin, upscaling::UpscalingPlugin,
 };
 use bevy_app::{App, Plugin};
 use bevy_asset::embedded_asset;

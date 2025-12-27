@@ -1,8 +1,7 @@
 use super::resource_manager::ResourceManager;
 use bevy_asset::{load_embedded_asset, AssetServer, Handle};
 use bevy_core_pipeline::{
-    core_3d::CORE_3D_DEPTH_FORMAT, experimental::mip_generation::DownsampleDepthShader,
-    FullscreenShader,
+    core_3d::CORE_3D_DEPTH_FORMAT, mip_generation::DownsampleShaders, FullscreenShader,
 };
 use bevy_ecs::{
     resource::Resource,
@@ -44,7 +43,7 @@ pub fn init_meshlet_pipelines(
     mut commands: Commands,
     resource_manager: Res<ResourceManager>,
     fullscreen_shader: Res<FullscreenShader>,
-    downsample_depth_shader: Res<DownsampleDepthShader>,
+    downsample_shaders: Res<DownsampleShaders>,
     pipeline_cache: Res<PipelineCache>,
     asset_server: Res<AssetServer>,
 ) {
@@ -91,7 +90,7 @@ pub fn init_meshlet_pipelines(
         .remap_1d_to_2d_dispatch_bind_group_layout
         .clone();
 
-    let downsample_depth_shader = (*downsample_depth_shader).clone();
+    let downsample_depth_shader = downsample_shaders.depth.clone();
     let vertex_state = fullscreen_shader.to_vertex_state();
     let fill_counts_layout = resource_manager.fill_counts_bind_group_layout.clone();
 
