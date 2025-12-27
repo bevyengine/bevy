@@ -1,6 +1,6 @@
 //! Demonstrates parallax-corrected cubemap reflections.
 
-use bevy::{light::ParallaxCorrect, math::ops, prelude::*, render::view::Hdr};
+use bevy::{light::NoParallaxCorrection, math::ops, prelude::*, render::view::Hdr};
 
 use crate::widgets::{WidgetClickEvent, WidgetClickSender};
 
@@ -135,7 +135,6 @@ fn spawn_reflection_probe(commands: &mut Commands, asset_server: &AssetServer) {
             ..default()
         },
         Transform::from_scale(Vec3::splat(5.0)),
-        ParallaxCorrect,
     ));
 }
 
@@ -188,15 +187,17 @@ fn handle_pccm_enable_change(
         // selected.
         app_status.pccm_enabled = **message;
 
-        // Add or remove the `ParallaxCorrect` component as appropriate.
+        // Add or remove the `NoParallaxCorrection` component as appropriate.
         match **message {
             PccmEnableStatus::Enabled => {
-                commands.entity(light_probe_entity).insert(ParallaxCorrect);
+                commands
+                    .entity(light_probe_entity)
+                    .remove::<NoParallaxCorrection>();
             }
             PccmEnableStatus::Disabled => {
                 commands
                     .entity(light_probe_entity)
-                    .remove::<ParallaxCorrect>();
+                    .insert(NoParallaxCorrection);
             }
         }
     }

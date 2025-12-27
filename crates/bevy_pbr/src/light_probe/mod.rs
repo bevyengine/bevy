@@ -178,7 +178,7 @@ bitflags! {
         const AFFECTS_LIGHTMAPPED_MESH_DIFFUSE = 1;
         /// Whether this light probe has parallax correction enabled.
         ///
-        /// See the comments in [`bevy_light::ParallaxCorrect`] for more
+        /// See the comments in [`bevy_light::NoParallaxCorrection`] for more
         /// information.
         const ENABLE_PARALLAX_CORRECTION = 2;
     }

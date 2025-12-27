@@ -291,16 +291,17 @@ impl Default for IrradianceVolume {
     }
 }
 
-/// Add this component to a reflection probe to mark it as *parallax corrected*.
+/// Add this component to a reflection probe to opt out of *parallax
+/// correction*.
 ///
-/// By default, Bevy renders the reflected scene that a cubemap captures as
-/// though it were infinitely far away. This is acceptable if the cubemap
-/// captures very distant objects, such as distant mountains in outdoor scenes.
-/// It's less ideal, however, if the cubemap reflects near objects, such as the
-/// interior of a room. In cases such as the latter, it's preferable to use a
-/// *parallax-corrected cubemap* (PCCM), which causes Bevy to treat the
-/// reflected scene as though it coincided with the boundaries of the light
-/// probe.
+/// For environment maps added directly to a camera, Bevy renders the reflected
+/// scene that a cubemap captures as though it were infinitely far away. This is
+/// acceptable if the cubemap captures very distant objects, such as distant
+/// mountains in outdoor scenes. It's less ideal, however, if the cubemap
+/// reflects near objects, such as the interior of a room. Therefore, by default
+/// for reflection probes Bevy uses *parallax-corrected cubemaps* (PCCM), which
+/// causes Bevy to treat the reflected scene as though it coincided with the
+/// boundaries of the light probe.
 ///
 /// As an example, for indoor scenes, it's common to place reflection probes
 /// inside each room and to make the boundaries of the reflection probe (as
@@ -309,12 +310,11 @@ impl Default for IrradianceVolume {
 /// (1) apply to the objects inside the room and (2) take the positions of those
 /// objects into account in order to create a realistic reflection.
 ///
-/// This component only has an effect when added to an entity that also has a
-/// [`LightProbe`] and [`EnvironmentMapLight`] component. Global environment map
-/// lights (those that are added directly to a [`bevy_camera::Camera`]) can't be
-/// parallax corrected.
+/// Place this component on an entity that has a [`LightProbe`] and
+/// [`EnvironmentMapLight`] component in order to opt out of parallax
+/// correction.
 ///
 /// See the `pccm` example for an example of usage.
 #[derive(Clone, Copy, Default, Component, Reflect)]
 #[reflect(Clone, Default, Component)]
-pub struct ParallaxCorrect;
+pub struct NoParallaxCorrection;
