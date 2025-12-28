@@ -2726,11 +2726,7 @@ impl World {
         let change_tick = self.change_tick();
 
         let component_id = self.components.get_valid_resource_id(TypeId::of::<R>())?;
-        let (ptr, ticks, caller) = self
-            .storages
-            .resources
-            .get_mut(component_id)?
-            .remove()?;
+        let (ptr, ticks, caller) = self.storages.resources.get_mut(component_id)?.remove()?;
 
         // Read the value onto the stack to avoid potential mut aliasing.
         // SAFETY: `ptr` was obtained from the TypeId of `R`.
@@ -2754,7 +2750,8 @@ impl World {
                 // SAFETY: drop semantics ensure that `self.value` will never be accessed again after this call
                 let value = unsafe { ManuallyDrop::take(&mut self.value) };
 
-                let Some(resource_data) = self.world.storages.resources.get_mut(self.component_id) else {
+                let Some(resource_data) = self.world.storages.resources.get_mut(self.component_id)
+                else {
                     return;
                 };
 
