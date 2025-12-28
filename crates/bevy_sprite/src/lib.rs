@@ -95,6 +95,8 @@ impl Plugin for SpritePlugin {
                 .after(bevy_app::AnimationSystems),
         );
 
+        app.add_plugins(TilemapPlugin);
+
         #[cfg(feature = "bevy_picking")]
         app.add_plugins(SpritePickingPlugin);
     }
