@@ -15,31 +15,31 @@ rust-version = "1.89.0"
 [workspace]
 resolver = "2"
 members = [
-  # All of Bevy's official crates are within the `crates` folder!
-  "crates/*",
-  # Several crates with macros have "compile fail" tests nested inside them, also known as UI
-  # tests, that verify diagnostic output does not accidentally change.
-  # TODO: Use a glob pattern once they are fixed in `dependabot-core`
-  # TODO: See https://github.com/bevyengine/bevy/issues/17876 for context.
-  "crates/bevy_derive/compile_fail",
-  "crates/bevy_ecs/compile_fail",
-  "crates/bevy_reflect/compile_fail",
-  # Examples of compiling Bevy for mobile platforms.
-  "examples/mobile",
-  # Examples of using Bevy on no_std platforms.
-  "examples/no_std/*",
-  # Examples of compiling Bevy with automatic reflect type registration for platforms without `inventory` support.
-  "examples/reflection/auto_register_static",
-  # Benchmarks
-  "benches",
-  # Internal tools that are not published.
-  "tools/*",
-  # Bevy's error codes. This is a crate so we can automatically check all of the code blocks.
-  "errors",
+    # All of Bevy's official crates are within the `crates` folder!
+    "crates/*",
+    # Several crates with macros have "compile fail" tests nested inside them, also known as UI
+    # tests, that verify diagnostic output does not accidentally change.
+    # TODO: Use a glob pattern once they are fixed in `dependabot-core`
+    # TODO: See https://github.com/bevyengine/bevy/issues/17876 for context.
+    "crates/bevy_derive/compile_fail",
+    "crates/bevy_ecs/compile_fail",
+    "crates/bevy_reflect/compile_fail",
+    # Examples of compiling Bevy for mobile platforms.
+    "examples/mobile",
+    # Examples of using Bevy on no_std platforms.
+    "examples/no_std/*",
+    # Examples of compiling Bevy with automatic reflect type registration for platforms without `inventory` support.
+    "examples/reflection/auto_register_static",
+    # Benchmarks
+    "benches",
+    # Internal tools that are not published.
+    "tools/*",
+    # Bevy's error codes. This is a crate so we can automatically check all of the code blocks.
+    "errors",
 ]
 exclude = [
-  # Integration tests are not part of the workspace
-  "tests-integration",
+    # Integration tests are not part of the workspace
+    "tests-integration",
 ]
 
 [workspace.lints.clippy]
@@ -129,44 +129,44 @@ default = ["2d", "3d", "ui"]
 
 # PROFILE: The default 2D Bevy experience. This includes the core Bevy framework, 2D functionality, Bevy UI, scenes, audio, and picking.
 2d = [
-  "default_app",
-  "default_platform",
-  "2d_api",
-  "2d_bevy_render",
-  "ui",
-  "scene",
-  "audio",
-  "picking",
+    "default_app",
+    "default_platform",
+    "2d_api",
+    "2d_bevy_render",
+    "ui",
+    "scene",
+    "audio",
+    "picking",
 ]
 
 # PROFILE: The default 3D Bevy experience. This includes the core Bevy framework, 3D functionality, Bevy UI, scenes, audio, and picking.
 3d = [
-  "default_app",
-  "default_platform",
-  "3d_api",
-  "3d_bevy_render",
-  "ui",
-  "scene",
-  "audio",
-  "picking",
+    "default_app",
+    "default_platform",
+    "3d_api",
+    "3d_bevy_render",
+    "ui",
+    "scene",
+    "audio",
+    "picking",
 ]
 
 # PROFILE: The default Bevy UI experience.  This includes the core Bevy framework, Bevy UI, scenes, audio, and picking.
 ui = [
-  "default_app",
-  "default_platform",
-  "ui_api",
-  "ui_bevy_render",
-  "scene",
-  "audio",
-  "picking",
+    "default_app",
+    "default_platform",
+    "ui_api",
+    "ui_bevy_render",
+    "scene",
+    "audio",
+    "picking",
 ]
 
 # COLLECTION: Enable this feature during development to improve the development experience. This adds features like asset hot-reloading and debugging tools. This should not be enabled for published apps!
 dev = [
-  "debug",          # TODO: rename this to something more specific ... this is a "debug ECS names" feature
-  "bevy_dev_tools",
-  "file_watcher",
+    "debug", # TODO: rename this to something more specific ... this is a "debug ECS names" feature
+    "bevy_dev_tools",
+    "file_watcher",
 ]
 
 # COLLECTION: Features used to build audio Bevy apps.
@@ -180,43 +180,43 @@ picking = ["bevy_picking", "mesh_picking", "sprite_picking", "ui_picking"]
 
 # COLLECTION: The core pieces that most apps need. This serves as a baseline feature set for other higher level feature collections (such as "2d" and "3d"). It is also useful as a baseline feature set for scenarios like headless apps that require no rendering (ex: command line tools, servers, etc).
 default_app = [
-  "async_executor",
-  "bevy_asset",
-  "bevy_input_focus",
-  "bevy_log",
-  "bevy_state",
-  "bevy_window",
-  "custom_cursor",
-  "reflect_auto_register",
+    "async_executor",
+    "bevy_asset",
+    "bevy_input_focus",
+    "bevy_log",
+    "bevy_state",
+    "bevy_window",
+    "custom_cursor",
+    "reflect_auto_register",
 ]
 
 # COLLECTION: These are platform support features, such as OS support/features, windowing and input backends, etc.
 default_platform = [
-  "std",
-  "android-game-activity",
-  "android_shared_stdcxx",
-  "bevy_gilrs",
-  "bevy_winit",
-  "default_font",
-  "multi_threaded",
-  "webgl2",
-  "x11",
-  "wayland",
-  "sysinfo_plugin",
+    "std",
+    "android-game-activity",
+    "android_shared_stdcxx",
+    "bevy_gilrs",
+    "bevy_winit",
+    "default_font",
+    "multi_threaded",
+    "webgl2",
+    "x11",
+    "wayland",
+    "sysinfo_plugin",
 ]
 
 # COLLECTION: Default scene definition features. Note that this does not include an actual renderer, such as bevy_render (Bevy's default render backend).
 common_api = [
-  "bevy_animation",
-  "bevy_camera",
-  "bevy_color",
-  "bevy_gizmos",
-  "bevy_image",
-  "bevy_mesh",
-  "bevy_shader",
-  "bevy_text",
-  "hdr",
-  "png",
+    "bevy_animation",
+    "bevy_camera",
+    "bevy_color",
+    "bevy_gizmos",
+    "bevy_image",
+    "bevy_mesh",
+    "bevy_shader",
+    "bevy_text",
+    "hdr",
+    "png",
 ]
 
 # COLLECTION: Features used to build 2D Bevy apps (does not include a render backend). You generally don't need to worry about this unless you are using a custom renderer.
@@ -224,38 +224,38 @@ common_api = [
 
 # COLLECTION: Bevy's built-in 2D renderer, built on top of `bevy_render`.
 2d_bevy_render = [
-  "2d_api",
-  "bevy_render",
-  "bevy_core_pipeline",
-  "bevy_post_process",
-  "bevy_sprite_render",
-  "bevy_gizmos_render",
+    "2d_api",
+    "bevy_render",
+    "bevy_core_pipeline",
+    "bevy_post_process",
+    "bevy_sprite_render",
+    "bevy_gizmos_render",
 ]
 
 # COLLECTION: Features used to build 3D Bevy apps (does not include a render backend). You generally don't need to worry about this unless you are using a custom renderer.
 3d_api = [
-  "common_api",
-  "bevy_light",
-  "bevy_mikktspace",
-  "ktx2",
-  "morph_animation",
-  "morph",
-  "smaa_luts",
-  "tonemapping_luts",
-  "zstd_rust",
+    "common_api",
+    "bevy_light",
+    "bevy_mikktspace",
+    "ktx2",
+    "morph_animation",
+    "morph",
+    "smaa_luts",
+    "tonemapping_luts",
+    "zstd_rust",
 ]
 
 # COLLECTION: Bevy's built-in 3D renderer, built on top of `bevy_render`.
 3d_bevy_render = [
-  "3d_api",
-  "bevy_render",
-  "bevy_core_pipeline",
-  "bevy_gizmos_render",
-  "bevy_anti_alias",
-  "bevy_gltf",
-  "bevy_pbr",
-  "bevy_post_process",
-  "gltf_animation",
+    "3d_api",
+    "bevy_render",
+    "bevy_core_pipeline",
+    "bevy_gizmos_render",
+    "bevy_anti_alias",
+    "bevy_gltf",
+    "bevy_pbr",
+    "bevy_post_process",
+    "gltf_animation",
 ]
 
 # COLLECTION: Features used to build UI Bevy apps (does not include a render backend). You generally don't need to worry about this unless you are using a custom renderer.
@@ -263,10 +263,10 @@ ui_api = ["default_app", "common_api", "bevy_ui"]
 
 # COLLECTION: Bevy's built-in UI renderer, built on top of `bevy_render`.
 ui_bevy_render = [
-  "ui_api",
-  "bevy_render",
-  "bevy_core_pipeline",
-  "bevy_ui_render",
+    "ui_api",
+    "bevy_render",
+    "bevy_core_pipeline",
+    "bevy_ui_render",
 ]
 
 # COLLECTION: Recommended defaults for no_std applications
@@ -403,8 +403,8 @@ experimental_bevy_ui_widgets = ["bevy_internal/bevy_ui_widgets"]
 
 # Feathers widget collection.
 experimental_bevy_feathers = [
-  "bevy_internal/bevy_feathers",
-  "experimental_bevy_ui_widgets",
+    "bevy_internal/bevy_feathers",
+    "experimental_bevy_ui_widgets",
 ]
 
 # Enable passthrough loading for SPIR-V shaders (Only supported on Vulkan, shader capabilities and extensions must agree with the platform implementation)
@@ -604,7 +604,7 @@ pbr_light_textures = ["bevy_internal/pbr_light_textures"]
 
 # Enable support for multi-layer material textures in the `StandardMaterial`, at the risk of blowing past the global, per-shader texture limit on older/lower-end GPUs
 pbr_multi_layer_material_textures = [
-  "bevy_internal/pbr_multi_layer_material_textures",
+    "bevy_internal/pbr_multi_layer_material_textures",
 ]
 
 # Enable support for anisotropy texture in the `StandardMaterial`, at the risk of blowing past the global, per-shader texture limit on older/lower-end GPUs
@@ -642,8 +642,8 @@ web_asset_cache = ["bevy_internal/web_asset_cache"]
 
 # Enable stepping-based debugging of Bevy systems
 bevy_debug_stepping = [
-  "bevy_internal/bevy_debug_stepping",
-  "bevy_internal/debug",
+    "bevy_internal/bevy_debug_stepping",
+    "bevy_internal/debug",
 ]
 
 # Enables the meshlet renderer for dense high-poly scenes (experimental)
@@ -754,7 +754,7 @@ ureq = { version = "3.0.8", features = ["json"] }
 
 [target.'cfg(target_arch = "wasm32")'.dev-dependencies]
 getrandom = { version = "0.3", default-features = false, features = [
-  "wasm_js",
+    "wasm_js",
 ] }
 wasm-bindgen = { version = "0.2" }
 web-sys = { version = "0.3", features = ["Window"] }
@@ -3164,6 +3164,17 @@ category = "Stress Tests"
 wasm = true
 
 [[example]]
+name = "bevymark_3d"
+path = "examples/stress_tests/bevymark_3d.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.bevymark_3d]
+name = "Bevymark 3D"
+description = "A heavy 3D cube rendering workload to benchmark your system with Bevy"
+category = "Stress Tests"
+wasm = true
+
+[[example]]
 name = "many_animated_sprites"
 path = "examples/stress_tests/many_animated_sprites.rs"
 doc-scrape-examples = true
@@ -4686,13 +4697,13 @@ panic = "abort"
 # with `--cfg docsrs` (and thus fail to compile) we use a different cfg.
 rustc-args = ["--cfg", "docsrs_dep"]
 rustdoc-args = [
-  "-Zunstable-options",
-  "--generate-link-to-definition",
-  # Embed tags to the top of documentation pages for common Bevy traits
-  # that are implemented by the current type, like `Component` or `Resource`.
-  # This makes it easier to see at a glance what types are used for.
-  "--html-after-content",
-  "docs-rs/trait-tags.html",
+    "-Zunstable-options",
+    "--generate-link-to-definition",
+    # Embed tags to the top of documentation pages for common Bevy traits
+    # that are implemented by the current type, like `Component` or `Resource`.
+    # This makes it easier to see at a glance what types are used for.
+    "--html-after-content",
+    "docs-rs/trait-tags.html",
 ]
 all-features = true
 
