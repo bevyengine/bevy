@@ -4,9 +4,10 @@ use argh::FromArgs;
 use bevy::{
     camera::CameraMainTextureUsages,
     camera_controller::free_camera::{FreeCamera, FreeCameraPlugin},
+    diagnostic::{Diagnostic, DiagnosticPath, DiagnosticsStore},
     gltf::GltfMaterialName,
     prelude::*,
-    render::render_resource::TextureUsages,
+    render::{diagnostic::RenderDiagnosticsPlugin, render_resource::TextureUsages},
     scene::SceneInstanceReady,
     solari::{
         pathtracer::{Pathtracer, PathtracingPlugin},
@@ -38,15 +39,20 @@ fn main() {
         "5417916c-0291-4e3f-8f65-326c1858ab96" // Don't copy paste this - generate your own UUID!
     )));
 
-    app.add_plugins((DefaultPlugins, SolariPlugins, FreeCameraPlugin))
-        .insert_resource(args)
-        .add_systems(Startup, setup);
+    app.add_plugins((
+        DefaultPlugins,
+        SolariPlugins,
+        FreeCameraPlugin,
+        RenderDiagnosticsPlugin,
+    ))
+    .insert_resource(args)
+    .add_systems(Startup, setup);
 
     if args.pathtracer == Some(true) {
         app.add_plugins(PathtracingPlugin);
     } else {
         app.add_systems(Update, (pause_scene, toggle_lights, patrol_path));
-        app.add_systems(PostUpdate, update_text);
+        app.add_systems(PostUpdate, (update_control_text, update_performance_text));
     }
 
     app.run();
@@ -145,6 +151,7 @@ fn setup(
     }
 
     commands.spawn((
+        ControlText,
         Text::default(),
         Node {
             position_type: PositionType::Absolute,
@@ -152,6 +159,25 @@ fn setup(
             left: Val::Px(12.0),
             ..default()
         },
+    ));
+
+    commands.spawn((
+        Node {
+            position_type: PositionType::Absolute,
+            right: Val::Px(0.0),
+            padding: UiRect::all(px(4.0)),
+            border_radius: BorderRadius::bottom_left(px(4.0)),
+            ..default()
+        },
+        BackgroundColor(Color::srgba(0.10, 0.10, 0.10, 0.8).into()),
+        children![(
+            PerformanceText,
+            Text::default(),
+            TextFont {
+                font_size: 8.0,
+                ..default()
+            },
+        )],
     ));
 }
 
@@ -305,8 +331,11 @@ fn patrol_path(mut query: Query<(&mut PatrolPath, &mut Transform)>, time: Res<Ti
     }
 }
 
-fn update_text(
-    mut text: Single<&mut Text>,
+#[derive(Component)]
+struct ControlText;
+
+fn update_control_text(
+    mut text: Single<&mut Text, With<ControlText>>,
     robot_light_material: Option<Res<RobotLightMaterial>>,
     materials: Res<Assets<StandardMaterial>>,
     directional_light: Query<Entity, With<DirectionalLight>>,
@@ -350,4 +379,46 @@ fn update_text(
     #[cfg(any(not(feature = "dlss"), feature = "force_disable_dlss"))]
     text.0
         .push_str("\nDenoising: App not compiled with DLSS support");
+}
+
+#[derive(Component)]
+struct PerformanceText;
+
+fn update_performance_text(
+    mut text: Single<&mut Text, With<PerformanceText>>,
+    diagnostics: Res<DiagnosticsStore>,
+) {
+    text.0.clear();
+
+    let mut total = 0.0;
+    let mut add_diagnostic = |name: &str, path: &'static str| {
+        let path = DiagnosticPath::new(path);
+        if let Some(average) = diagnostics.get(&path).and_then(Diagnostic::average) {
+            text.push_str(&format!("{name:17}  {average:.2} ms\n"));
+            total += average;
+        }
+    };
+
+    (add_diagnostic)(
+        "Light tiles",
+        "render/solari_lighting/presample_light_tiles/elapsed_gpu",
+    );
+    (add_diagnostic)(
+        "World cache",
+        "render/solari_lighting/world_cache/elapsed_gpu",
+    );
+    (add_diagnostic)(
+        "Direct lighting",
+        "render/solari_lighting/direct_lighting/elapsed_gpu",
+    );
+    (add_diagnostic)(
+        "Diffuse indirect",
+        "render/solari_lighting/diffuse_indirect_lighting/elapsed_gpu",
+    );
+    (add_diagnostic)(
+        "Specular indirect",
+        "render/solari_lighting/specular_indirect_lighting/elapsed_gpu",
+    );
+    text.push_str(&format!("{:17}     TODO\n", "DLSS-RR"));
+    text.push_str(&format!("\n{:17}  {total:.2} ms", "Total"));
 }
