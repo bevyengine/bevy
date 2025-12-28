@@ -12,7 +12,7 @@ use bevy_math::{URect, UVec2};
 use bevy_platform::collections::HashMap;
 use bevy_reflect::Reflect;
 use bevy_transform::components::Transform;
-use tracing::error;
+use tracing::{error, info};
 
 #[derive(Component, Clone, Debug, Default)]
 #[require(Name::new("TileStorage"), Transform)]
@@ -24,7 +24,7 @@ pub struct TileStorages {
 #[derive(Component, Clone, Debug, Default, Reflect)]
 #[reflect(Component)]
 #[require(Name::new("TileStorage"), TileStorages, Transform)]
-#[component(on_add = on_add_tile_storage::<T>)]
+#[component(on_add = on_add_tile_storage::<T>, on_remove = on_remove_tile_storage::<T>)]
 pub struct TileStorage<T: Send + Sync + 'static> {
     pub tiles: Vec<Option<T>>,
     size: UVec2,
@@ -94,7 +94,7 @@ fn on_add_tile_storage<T: Send + Sync + 'static>(
 ) {
     world.commands().queue(move |world: &mut World| {
         let Ok(mut tile_storage_entity) = world.get_entity_mut(entity) else {
-            error!("Could not fine Tile Storage {}", entity);
+            info!("Could not fine Tile Storage {}", entity);
             return;
         };
 
@@ -121,4 +121,30 @@ fn remove_tile<T: Send + Sync + 'static>(mut raw: MutUntyped<'_>, tile_coord: UV
     if storage.remove(tile_coord).is_some() {
         raw.set_changed();
     }
+}
+
+fn on_remove_tile_storage<T: Send + Sync + 'static>(
+    mut world: DeferredWorld<'_>,
+    HookContext {
+        component_id,
+        entity,
+        ..
+    }: HookContext,
+) {
+    world.commands().queue(move |world: &mut World| {
+        let Ok(mut tile_storage_entity) = world.get_entity_mut(entity) else {
+            error!("Could not fine Tile Storage {}", entity);
+            return;
+        };
+
+        if let Some(mut storages) = tile_storage_entity.get_mut::<TileStorages>() {
+            storages.removals.insert(component_id, remove_tile::<T>);
+        } else {
+            let mut tile_storages = TileStorages {
+                removals: HashMap::with_capacity(1),
+            };
+            tile_storages.removals.remove(&component_id);
+            tile_storage_entity.insert(tile_storages);
+        }
+    });
 }

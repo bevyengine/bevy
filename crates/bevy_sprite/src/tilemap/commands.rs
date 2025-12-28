@@ -85,6 +85,9 @@ impl<T: Send + Sync + 'static> Command<SetTileResult<T>> for SetTile<T> {
         let chunk_position = tilemap.tile_chunk_position(self.tile_position);
         let tile_relative_position = tilemap.tile_relative_position(self.tile_position);
 
+        let chunk_size = tilemap.chunk_size;
+        let tile_size = tilemap.tile_display_size;
+
         if let Some(tile_storage_id) = tilemap.chunks.get(&chunk_position).cloned() {
             let replaced_tile = tilemap_entity.world_scope(move |w| {
                 let Ok(mut tilestorage_entity) = w.get_entity_mut(tile_storage_id) else {
@@ -93,7 +96,9 @@ impl<T: Send + Sync + 'static> Command<SetTileResult<T>> for SetTile<T> {
                 };
 
                 let Some(mut tile_storage) = tilestorage_entity.get_mut::<TileStorage<T>>() else {
-                    tracing::warn!("Could not find TileStorage on Entity {:?}", tile_storage_id);
+                    let mut tile_storage = TileStorage::<T>::new(chunk_size);
+                    tile_storage.set(tile_relative_position, self.maybe_tile);
+                    tilestorage_entity.insert(tile_storage);
                     return None;
                 };
 
@@ -104,8 +109,6 @@ impl<T: Send + Sync + 'static> Command<SetTileResult<T>> for SetTile<T> {
                 replaced_tile,
             }
         } else {
-            let chunk_size = tilemap.chunk_size;
-            let tile_size = tilemap.tile_display_size;
             let tile_storage_id = tilemap_entity.world_scope(move |w| {
                 let mut tile_storage = TileStorage::<T>::new(chunk_size);
                 tile_storage.set(tile_relative_position, self.maybe_tile);
