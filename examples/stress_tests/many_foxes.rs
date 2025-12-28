@@ -241,9 +241,10 @@ fn setup_scene_once_loaded(
             if !foxes.sync {
                 playing_animation.seek_to(scene_ready.entity.index_u32() as f32 / 10.0);
             }
-            commands
-                .entity(child)
-                .insert(AnimationGraphHandle(animations.graph.clone()));
+            commands.entity(child).insert((
+                AnimationGraphHandle(animations.graph.clone()),
+                AnimationTransitions::default(),
+            ));
         }
     }
 }
