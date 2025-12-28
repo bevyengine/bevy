@@ -113,8 +113,8 @@ impl Tilemap {
             // minus 1/2 the tilechunk size, in terms of the tile_display_size,
             // to place the 0 at left of tilemapchunk
             + self.tile_display_size.x as f32 * self.chunk_size.x as f32 / 2.)
-            // times display size for a tile
-            / self.tile_display_size.x as f32) as i32,
+                // times display size for a tile
+                .div_euclid(self.tile_display_size.x as f32)) as i32,
             // tile position
             ((tile_position.y
             // minus 1/2 the tile_display_size to correct the center
@@ -122,8 +122,8 @@ impl Tilemap {
             // plus 1/2 the tilechunk size, in terms of the tile_display_size,
             // to place the 0 at top of tilemapchunk
             + self.tile_display_size.y as f32 * self.chunk_size.y as f32 / 2.)
-            // times display size for a tile
-            / self.tile_display_size.y as f32) as i32,
+                // times display size for a tile
+                .div_euclid(self.tile_display_size.y as f32)) as i32,
         )
     }
 }
