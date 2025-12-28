@@ -30,6 +30,8 @@ bevy_window = { path = "../bevy_window", version = "0.18.0-dev", optional = true
 bevy_derive = { path = "../bevy_derive", version = "0.18.0-dev" }
 bevy_text = { path = "../bevy_text", version = "0.18.0-dev", optional = true }
 
+variadics_please = { version = "1.1", default-features = false }
+
 # other
 radsort = "0.1"
 tracing = { version = "0.1", default-features = false, features = ["std"] }

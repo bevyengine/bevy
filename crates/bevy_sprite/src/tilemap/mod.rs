@@ -17,6 +17,7 @@ pub use commands::*;
 pub use entity_tiles::*;
 pub use query::*;
 pub use storage::*;
+use variadics_please::all_tuples_enumerated;
 
 /// Plugin that handles the initialization and updating of tilemap chunks.
 /// Adds systems for processing newly added tilemap chunks.
@@ -170,3 +171,24 @@ impl<T: Send + Sync + 'static> TileQueryData for &mut T {
             .and_then(Option::as_mut)
     }
 }
+
+macro_rules! impl_tile_query_data {
+    ($(($n:tt, $P:ident, $p:ident)),*) => {
+        impl<$($P: TileQueryData),*> TileQueryData for ($($P,)*) {
+            type Data<'w> = ($($P::Data<'w>),*);
+            type Storage = ($($P::Storage),*);
+            type ReadOnly = ($($P::ReadOnly),*);
+
+            fn get_at<'world, 'state>(
+                storage: <Self::Storage as QueryData>::Item<'world, 'state>,
+                index: usize,
+            ) -> Option<Self::Data<'world>> {
+                Some((
+                    $($P::get_at(storage.$n, index)?),*
+                ))
+            }
+        }
+    }
+}
+
+all_tuples_enumerated!(impl_tile_query_data, 2, 15, P, p);
