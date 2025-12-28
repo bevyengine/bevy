@@ -119,7 +119,7 @@ fn setup(
     ];
     let mut animation_graph = AnimationGraph::new();
     let node_indices = animation_graph
-        .add_clips(animation_clips.iter().cloned(), 1.0, animation_graph.root)
+        .add_clips(animation_clips.into_iter(), 1.0, animation_graph.root)
         .collect();
     commands.insert_resource(Animations {
         node_indices,
