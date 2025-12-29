@@ -242,44 +242,45 @@ fn setup(
         Transform::from_xyz(1.0, 2.0, 3.0).looking_at(Vec3::ZERO, Vec3::Y),
     ));
 
-    commands
-        .spawn((
-            Node {
-                position_type: PositionType::Absolute,
-                padding: UiRect::all(px(5)),
-                ..default()
-            },
-            BackgroundColor(Color::BLACK.with_alpha(0.75)),
-            GlobalZIndex(i32::MAX),
-        ))
-        .with_children(|p| {
-            p.spawn((Text::default(), StatsText)).with_children(|p| {
-                p.spawn((
+    commands.spawn((
+        Node {
+            position_type: PositionType::Absolute,
+            padding: UiRect::all(px(5)),
+            ..default()
+        },
+        BackgroundColor(Color::BLACK.with_alpha(0.75)),
+        GlobalZIndex(i32::MAX),
+        children![(
+            Text::default(),
+            StatsText,
+            children![
+                (
                     TextSpan::new("Cube Count: "),
                     font.clone(),
                     TextColor(LIME.into()),
-                ));
-                p.spawn((TextSpan::new(""), font.clone(), TextColor(AQUA.into())));
-                p.spawn((
+                ),
+                (TextSpan::new(""), font.clone(), TextColor(AQUA.into())),
+                (
                     TextSpan::new("\nFPS (raw): "),
                     font.clone(),
                     TextColor(LIME.into()),
-                ));
-                p.spawn((TextSpan::new(""), font.clone(), TextColor(AQUA.into())));
-                p.spawn((
+                ),
+                (TextSpan::new(""), font.clone(), TextColor(AQUA.into())),
+                (
                     TextSpan::new("\nFPS (SMA): "),
                     font.clone(),
                     TextColor(LIME.into()),
-                ));
-                p.spawn((TextSpan::new(""), font.clone(), TextColor(AQUA.into())));
-                p.spawn((
+                ),
+                (TextSpan::new(""), font.clone(), TextColor(AQUA.into())),
+                (
                     TextSpan::new("\nFPS (EMA): "),
                     font.clone(),
                     TextColor(LIME.into()),
-                ));
-                p.spawn((TextSpan::new(""), font.clone(), TextColor(AQUA.into())));
-            });
-        });
+                ),
+                (TextSpan::new(""), font.clone(), TextColor(AQUA.into()))
+            ]
+        )],
+    ));
 
     let mut scheduled = CubeScheduled {
         per_wave: args.per_wave,
