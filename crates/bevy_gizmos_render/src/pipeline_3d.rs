@@ -26,8 +26,7 @@ use bevy_pbr::{MeshPipeline, MeshPipelineKey, SetMeshViewBindGroup};
 use bevy_render::{
     render_asset::{prepare_assets, RenderAssets},
     render_phase::{
-        AddRenderCommand, DrawFunctions, PhaseItemExtraIndex, SetItemPipeline,
-        ViewSortedRenderPhases,
+        AddRenderCommand, DrawFunctions, PhaseItemExtraIndex, SetItemPipeline, SortedRenderPhase,
     },
     render_resource::*,
     view::{ExtractedView, Msaa, ViewTarget},
@@ -294,10 +293,10 @@ fn queue_line_gizmos_3d(
     pipeline_cache: Res<PipelineCache>,
     line_gizmos: Query<(Entity, &MainEntity, &GizmoMeshConfig)>,
     line_gizmo_assets: Res<RenderAssets<GpuLineGizmo>>,
-    mut transparent_render_phases: ResMut<ViewSortedRenderPhases<Transparent3d>>,
-    views: Query<(
+    mut views: Query<(
         &ExtractedView,
         &Msaa,
+        &mut SortedRenderPhase<Transparent3d>,
         Option<&RenderLayers>,
         (
             Has<NormalPrepass>,
@@ -317,15 +316,11 @@ fn queue_line_gizmos_3d(
     for (
         view,
         msaa,
+        mut transparent_phase,
         render_layers,
         (normal_prepass, depth_prepass, motion_vector_prepass, deferred_prepass, oit),
-    ) in &views
+    ) in &mut views
     {
-        let Some(transparent_phase) = transparent_render_phases.get_mut(&view.retained_view_entity)
-        else {
-            continue;
-        };
-
         let render_layers = render_layers.unwrap_or_default();
 
         let mut view_key = MeshPipelineKey::from_msaa_samples(msaa.samples())
@@ -414,10 +409,10 @@ fn queue_line_joint_gizmos_3d(
     pipeline_cache: Res<PipelineCache>,
     line_gizmos: Query<(Entity, &MainEntity, &GizmoMeshConfig)>,
     line_gizmo_assets: Res<RenderAssets<GpuLineGizmo>>,
-    mut transparent_render_phases: ResMut<ViewSortedRenderPhases<Transparent3d>>,
-    views: Query<(
+    mut views: Query<(
         &ExtractedView,
         &Msaa,
+        &mut SortedRenderPhase<Transparent3d>,
         Option<&RenderLayers>,
         (
             Has<NormalPrepass>,
@@ -435,15 +430,11 @@ fn queue_line_joint_gizmos_3d(
     for (
         view,
         msaa,
+        mut transparent_phase,
         render_layers,
         (normal_prepass, depth_prepass, motion_vector_prepass, deferred_prepass),
-    ) in &views
+    ) in &mut views
     {
-        let Some(transparent_phase) = transparent_render_phases.get_mut(&view.retained_view_entity)
-        else {
-            continue;
-        };
-
         let render_layers = render_layers.unwrap_or_default();
 
         let mut view_key = MeshPipelineKey::from_msaa_samples(msaa.samples())

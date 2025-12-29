@@ -54,6 +54,12 @@ pub enum DrawError {
 #[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Hash)]
 pub struct DrawFunctionId(u32);
 
+impl DrawFunctionId {
+    /// An draw function ID with a placeholder value. This may or may not correspond to an actual draw function,
+    /// and should be overwritten by a new value before being used.
+    pub const PLACEHOLDER: Self = Self(u32::MAX);
+}
+
 /// Stores all [`Draw`] functions for the [`PhaseItem`] type.
 ///
 /// For retrieval, the [`Draw`] functions are mapped to their respective [`TypeId`]s.

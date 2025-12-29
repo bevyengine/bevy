@@ -1,5 +1,5 @@
 use crate::{
-    DrawMesh, MeshPipeline, MeshPipelineKey, RenderLightmaps, RenderMeshInstanceFlags,
+    DrawMesh, MainPass, MeshPipeline, MeshPipelineKey, RenderLightmaps, RenderMeshInstanceFlags,
     RenderMeshInstances, SetMeshBindGroup, SetMeshViewBindGroup, SetMeshViewBindingArrayBindGroup,
     ViewKeyCache, ViewSpecializationTicks,
 };
@@ -39,14 +39,14 @@ use bevy_render::{
     },
     render_graph::{NodeRunError, RenderGraphContext, RenderGraphExt, ViewNode, ViewNodeRunner},
     render_phase::{
-        AddRenderCommand, BinnedPhaseItem, BinnedRenderPhasePlugin, BinnedRenderPhaseType,
-        CachedRenderPipelinePhaseItem, DrawFunctionId, DrawFunctions, PhaseItem,
-        PhaseItemBatchSetKey, PhaseItemExtraIndex, RenderCommand, RenderCommandResult,
-        SetItemPipeline, TrackedRenderPass, ViewBinnedRenderPhases,
+        AddRenderCommand, BinnedPhaseItem, BinnedRenderPhase, BinnedRenderPhasePlugin,
+        BinnedRenderPhaseType, CachedRenderPipelinePhaseItem, DrawFunctionId, DrawFunctions,
+        PhaseItem, PhaseItemBatchSetKey, PhaseItemExtraIndex, RenderCommand, RenderCommandResult,
+        SetItemPipeline, TrackedRenderPass,
     },
     render_resource::*,
     renderer::{RenderContext, RenderDevice},
-    sync_world::{MainEntity, MainEntityHashMap},
+    sync_world::{MainEntity, MainEntityHashMap, RenderEntity},
     view::{
         ExtractedView, NoIndirectDrawing, RenderVisibilityRanges, RenderVisibleEntities,
         RetainedViewEntity, ViewDepthTexture, ViewTarget,
@@ -372,27 +372,18 @@ struct Wireframe3dNode;
 impl ViewNode for Wireframe3dNode {
     type ViewQuery = (
         &'static ExtractedCamera,
-        &'static ExtractedView,
         &'static ViewTarget,
         &'static ViewDepthTexture,
+        &'static BinnedRenderPhase<Wireframe3d>,
     );
 
     fn run<'w>(
         &self,
         graph: &mut RenderGraphContext,
         render_context: &mut RenderContext<'w>,
-        (camera, view, target, depth): QueryItem<'w, '_, Self::ViewQuery>,
+        (camera, target, depth, wireframe_phase): QueryItem<'w, '_, Self::ViewQuery>,
         world: &'w World,
     ) -> Result<(), NodeRunError> {
-        let Some(wireframe_phase) = world.get_resource::<ViewBinnedRenderPhases<Wireframe3d>>()
-        else {
-            return Ok(());
-        };
-
-        let Some(wireframe_phase) = wireframe_phase.get(&view.retained_view_entity) else {
-            return Ok(());
-        };
-
         let diagnostics = render_context.diagnostic_recorder();
 
         let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
@@ -676,29 +667,35 @@ fn get_wireframe_material(
 }
 
 fn extract_wireframe_3d_camera(
-    mut wireframe_3d_phases: ResMut<ViewBinnedRenderPhases<Wireframe3d>>,
-    cameras: Extract<Query<(Entity, &Camera, Has<NoIndirectDrawing>), With<Camera3d>>>,
-    mut live_entities: Local<HashSet<RetainedViewEntity>>,
+    mut commands: Commands,
+    cameras: Extract<Query<(RenderEntity, &Camera, Has<NoIndirectDrawing>), With<Camera3d>>>,
+    mut phases: Query<&mut BinnedRenderPhase<Wireframe3d>>,
     gpu_preprocessing_support: Res<GpuPreprocessingSupport>,
 ) {
-    live_entities.clear();
-    for (main_entity, camera, no_indirect_drawing) in &cameras {
+    for (entity, camera, no_indirect_drawing) in &cameras {
         if !camera.is_active {
+            commands
+                .entity(entity)
+                .remove::<BinnedRenderPhase<Wireframe3d>>();
             continue;
         }
-        let gpu_preprocessing_mode = gpu_preprocessing_support.min(if !no_indirect_drawing {
-            GpuPreprocessingMode::Culling
+
+        if let Ok(mut phase) = phases.get_mut(entity) {
+            phase.prepare_for_new_frame();
         } else {
-            GpuPreprocessingMode::PreprocessingOnly
-        });
+            let gpu_preprocessing_mode = gpu_preprocessing_support.min(if !no_indirect_drawing {
+                GpuPreprocessingMode::Culling
+            } else {
+                GpuPreprocessingMode::PreprocessingOnly
+            });
 
-        let retained_view_entity = RetainedViewEntity::new(main_entity.into(), None, 0);
-        wireframe_3d_phases.prepare_for_new_frame(retained_view_entity, gpu_preprocessing_mode);
-        live_entities.insert(retained_view_entity);
+            commands
+                .entity(entity)
+                .insert(BinnedRenderPhase::<Wireframe3d>::new(
+                    gpu_preprocessing_mode,
+                ));
+        }
     }
-
-    // Clear out all dead views.
-    wireframe_3d_phases.retain(|camera_entity, _| live_entities.contains(camera_entity));
 }
 
 pub fn extract_wireframe_entities_needing_specialization(
@@ -748,11 +745,10 @@ pub fn specialize_wireframes(
     render_mesh_instances: Res<RenderMeshInstances>,
     render_wireframe_instances: Res<RenderWireframeInstances>,
     render_visibility_ranges: Res<RenderVisibilityRanges>,
-    wireframe_phases: Res<ViewBinnedRenderPhases<Wireframe3d>>,
-    views: Query<(&ExtractedView, &RenderVisibleEntities)>,
-    view_key_cache: Res<ViewKeyCache>,
+    views: Query<(&ExtractedView, &RenderVisibleEntities), With<BinnedRenderPhase<Wireframe3d>>>,
+    view_key_cache: Res<ViewKeyCache<MainPass>>,
     entity_specialization_ticks: Res<WireframeEntitySpecializationTicks>,
-    view_specialization_ticks: Res<ViewSpecializationTicks>,
+    view_specialization_ticks: Res<ViewSpecializationTicks<MainPass>>,
     mut specialized_material_pipeline_cache: ResMut<SpecializedWireframePipelineCache>,
     mut pipelines: ResMut<SpecializedMeshPipelines<Wireframe3dPipeline>>,
     pipeline: Res<Wireframe3dPipeline>,
@@ -766,10 +762,6 @@ pub fn specialize_wireframes(
 
     for (view, visible_entities) in &views {
         all_views.insert(view.retained_view_entity);
-
-        if !wireframe_phases.contains_key(&view.retained_view_entity) {
-            continue;
-        }
 
         let Some(view_key) = view_key_cache.get(&view.retained_view_entity) else {
             continue;
@@ -867,13 +859,13 @@ fn queue_wireframes(
     mesh_allocator: Res<MeshAllocator>,
     specialized_wireframe_pipeline_cache: Res<SpecializedWireframePipelineCache>,
     render_wireframe_instances: Res<RenderWireframeInstances>,
-    mut wireframe_3d_phases: ResMut<ViewBinnedRenderPhases<Wireframe3d>>,
-    mut views: Query<(&ExtractedView, &RenderVisibleEntities)>,
+    mut views: Query<(
+        &ExtractedView,
+        &RenderVisibleEntities,
+        &mut BinnedRenderPhase<Wireframe3d>,
+    )>,
 ) {
-    for (view, visible_entities) in &mut views {
-        let Some(wireframe_phase) = wireframe_3d_phases.get_mut(&view.retained_view_entity) else {
-            continue;
-        };
+    for (view, visible_entities, mut wireframe_phase) in &mut views {
         let draw_wireframe = custom_draw_functions.read().id::<DrawWireframe3d>();
 
         let Some(view_specialized_material_pipeline_cache) =

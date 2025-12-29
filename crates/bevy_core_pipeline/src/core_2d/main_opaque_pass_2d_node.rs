@@ -4,10 +4,10 @@ use bevy_render::{
     camera::ExtractedCamera,
     diagnostic::RecordDiagnostics,
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
-    render_phase::{TrackedRenderPass, ViewBinnedRenderPhases},
+    render_phase::{BinnedRenderPhase, TrackedRenderPass},
     render_resource::{CommandEncoderDescriptor, RenderPassDescriptor, StoreOp},
     renderer::RenderContext,
-    view::{ExtractedView, ViewDepthTexture, ViewTarget},
+    view::{ViewDepthTexture, ViewTarget},
 };
 use tracing::error;
 #[cfg(feature = "trace")]
@@ -16,43 +16,31 @@ use tracing::info_span;
 use super::AlphaMask2d;
 
 /// A [`bevy_render::render_graph::Node`] that runs the
-/// [`Opaque2d`] [`ViewBinnedRenderPhases`] and [`AlphaMask2d`] [`ViewBinnedRenderPhases`]
+/// [`Opaque2d`] [`BinnedRenderPhase`]s and the [`AlphaMask2d`] [`BinnedRenderPhase`]s.
 #[derive(Default)]
 pub struct MainOpaquePass2dNode;
 impl ViewNode for MainOpaquePass2dNode {
     type ViewQuery = (
         &'static ExtractedCamera,
-        &'static ExtractedView,
         &'static ViewTarget,
         &'static ViewDepthTexture,
+        &'static BinnedRenderPhase<Opaque2d>,
+        &'static BinnedRenderPhase<AlphaMask2d>,
     );
 
     fn run<'w>(
         &self,
         graph: &mut RenderGraphContext,
         render_context: &mut RenderContext<'w>,
-        (camera, view, target, depth): QueryItem<'w, '_, Self::ViewQuery>,
+        (camera, target, depth, opaque_phase, alpha_mask_phase): QueryItem<'w, '_, Self::ViewQuery>,
         world: &'w World,
     ) -> Result<(), NodeRunError> {
-        let (Some(opaque_phases), Some(alpha_mask_phases)) = (
-            world.get_resource::<ViewBinnedRenderPhases<Opaque2d>>(),
-            world.get_resource::<ViewBinnedRenderPhases<AlphaMask2d>>(),
-        ) else {
-            return Ok(());
-        };
-
         let diagnostics = render_context.diagnostic_recorder();
 
         let color_attachments = [Some(target.get_color_attachment())];
         let depth_stencil_attachment = Some(depth.get_attachment(StoreOp::Store));
 
         let view_entity = graph.view_entity();
-        let (Some(opaque_phase), Some(alpha_mask_phase)) = (
-            opaque_phases.get(&view.retained_view_entity),
-            alpha_mask_phases.get(&view.retained_view_entity),
-        ) else {
-            return Ok(());
-        };
         render_context.add_command_buffer_generation_task(move |render_device| {
             #[cfg(feature = "trace")]
             let _main_opaque_pass_2d_span = info_span!("main_opaque_pass_2d").entered();

@@ -735,6 +735,7 @@ bevy_image = { path = "crates/bevy_image", version = "0.18.0-dev", default-featu
 bevy_reflect = { path = "crates/bevy_reflect", version = "0.18.0-dev", default-features = false }
 bevy_render = { path = "crates/bevy_render", version = "0.18.0-dev", default-features = false }
 bevy_state = { path = "crates/bevy_state", version = "0.18.0-dev", default-features = false }
+bevy_pbr = { path = "crates/bevy_pbr", version = "0.18.0-dev", default-features = false }
 # Needed to poll Task examples
 futures-lite = "2.0.1"
 futures-timer = { version = "3", features = ["wasm-bindgen", "gloo-timers"] }
@@ -5253,4 +5254,15 @@ doc-scrape-examples = false
 name = "Mirror"
 description = "Demonstrates how to create a mirror with a second camera"
 category = "3D Rendering"
+wasm = true
+
+[[example]]
+name = "custom_mesh_pass"
+path = "examples/shader_advanced/custom_mesh_pass.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.custom_mesh_pass]
+name = "Custom Mesh Pass"
+description = "Demonstrates how to write a custom mesh pass"
+category = "Shaders"
 wasm = true

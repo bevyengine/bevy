@@ -32,7 +32,6 @@ use bevy_app::{App, Plugin};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::change_detection::Tick;
 use bevy_ecs::entity::EntityHash;
-use bevy_platform::collections::{hash_map::Entry, HashMap};
 use bevy_utils::default;
 pub use draw::*;
 pub use draw_state::*;
@@ -49,7 +48,6 @@ use crate::batching::gpu_preprocessing::{
 };
 use crate::renderer::RenderDevice;
 use crate::sync_world::{MainEntity, MainEntityHashMap};
-use crate::view::RetainedViewEntity;
 use crate::RenderDebugFlags;
 use crate::{
     batching::{
@@ -98,16 +96,6 @@ define_label!(
 
 pub type InternedDrawFunctionLabel = Interned<dyn DrawFunctionLabel>;
 
-/// Stores the rendering instructions for a single phase that uses bins in all
-/// views.
-///
-/// They're cleared out every frame, but storing them in a resource like this
-/// allows us to reuse allocations.
-#[derive(Resource, Deref, DerefMut)]
-pub struct ViewBinnedRenderPhases<BPI>(pub HashMap<RetainedViewEntity, BinnedRenderPhase<BPI>>)
-where
-    BPI: BinnedPhaseItem;
-
 /// A collection of all rendering instructions, that will be executed by the GPU, for a
 /// single render phase for a single view.
 ///
@@ -122,6 +110,7 @@ where
 /// This flavor of render phase is used for phases in which the ordering is less
 /// critical: for example, `Opaque3d`. It's generally faster than the
 /// alternative [`SortedRenderPhase`].
+#[derive(Component)]
 pub struct BinnedRenderPhase<BPI>
 where
     BPI: BinnedPhaseItem,
@@ -440,33 +429,6 @@ where
         UnbatchableBinnedEntityIndices {
             instance_index: value.index,
             extra_index: PhaseItemExtraIndex::maybe_dynamic_offset(value.dynamic_offset),
-        }
-    }
-}
-
-impl<BPI> Default for ViewBinnedRenderPhases<BPI>
-where
-    BPI: BinnedPhaseItem,
-{
-    fn default() -> Self {
-        Self(default())
-    }
-}
-
-impl<BPI> ViewBinnedRenderPhases<BPI>
-where
-    BPI: BinnedPhaseItem,
-{
-    pub fn prepare_for_new_frame(
-        &mut self,
-        retained_view_entity: RetainedViewEntity,
-        gpu_preprocessing: GpuPreprocessingMode,
-    ) {
-        match self.entry(retained_view_entity) {
-            Entry::Occupied(mut entry) => entry.get_mut().prepare_for_new_frame(),
-            Entry::Vacant(entry) => {
-                entry.insert(BinnedRenderPhase::<BPI>::new(gpu_preprocessing));
-            }
         }
     }
 }
@@ -1052,7 +1014,7 @@ impl<BPI> BinnedRenderPhase<BPI>
 where
     BPI: BinnedPhaseItem,
 {
-    fn new(gpu_preprocessing: GpuPreprocessingMode) -> Self {
+    pub fn new(gpu_preprocessing: GpuPreprocessingMode) -> Self {
         Self {
             multidrawable_meshes: IndexMap::default(),
             batchable_meshes: IndexMap::default(),
@@ -1156,7 +1118,6 @@ where
         };
 
         render_app
-            .init_resource::<ViewBinnedRenderPhases<BPI>>()
             .init_resource::<PhaseBatchedInstanceBuffers<BPI, GFBD::BufferData>>()
             .insert_resource(PhaseIndirectParametersBuffers::<BPI>::new(
                 self.debug_flags
@@ -1187,39 +1148,6 @@ where
                         .in_set(RenderSystems::PrepareResourcesCollectPhaseBuffers),
                 ),
             );
-    }
-}
-
-/// Stores the rendering instructions for a single phase that sorts items in all
-/// views.
-///
-/// They're cleared out every frame, but storing them in a resource like this
-/// allows us to reuse allocations.
-#[derive(Resource, Deref, DerefMut)]
-pub struct ViewSortedRenderPhases<SPI>(pub HashMap<RetainedViewEntity, SortedRenderPhase<SPI>>)
-where
-    SPI: SortedPhaseItem;
-
-impl<SPI> Default for ViewSortedRenderPhases<SPI>
-where
-    SPI: SortedPhaseItem,
-{
-    fn default() -> Self {
-        Self(default())
-    }
-}
-
-impl<SPI> ViewSortedRenderPhases<SPI>
-where
-    SPI: SortedPhaseItem,
-{
-    pub fn insert_or_clear(&mut self, retained_view_entity: RetainedViewEntity) {
-        match self.entry(retained_view_entity) {
-            Entry::Occupied(mut entry) => entry.get_mut().clear(),
-            Entry::Vacant(entry) => {
-                entry.insert(default());
-            }
-        }
     }
 }
 
@@ -1262,7 +1190,6 @@ where
         };
 
         render_app
-            .init_resource::<ViewSortedRenderPhases<SPI>>()
             .init_resource::<PhaseBatchedInstanceBuffers<SPI, GFBD::BufferData>>()
             .insert_resource(PhaseIndirectParametersBuffers::<SPI>::new(
                 self.debug_flags
@@ -1404,6 +1331,7 @@ impl UnbatchableBinnedEntityIndexSet {
 /// This flavor of render phase is used only for meshes that need to be sorted
 /// back-to-front, such as transparent meshes. For items that don't need strict
 /// sorting, [`BinnedRenderPhase`] is preferred, for performance.
+#[derive(Component)]
 pub struct SortedRenderPhase<I>
 where
     I: SortedPhaseItem,
@@ -1751,11 +1679,11 @@ impl<P: CachedRenderPipelinePhaseItem> RenderCommand<P> for SetItemPipeline {
 
 /// This system sorts the [`PhaseItem`]s of all [`SortedRenderPhase`]s of this
 /// type.
-pub fn sort_phase_system<I>(mut render_phases: ResMut<ViewSortedRenderPhases<I>>)
+pub fn sort_phase_system<I>(mut views: Query<&mut SortedRenderPhase<I>>)
 where
     I: SortedPhaseItem,
 {
-    for phase in render_phases.values_mut() {
+    for mut phase in views.iter_mut() {
         phase.sort();
     }
 }
@@ -1763,11 +1691,11 @@ where
 /// Removes entities that became invisible or changed phases from the bins.
 ///
 /// This must run after queuing.
-pub fn sweep_old_entities<BPI>(mut render_phases: ResMut<ViewBinnedRenderPhases<BPI>>)
+pub fn sweep_old_entities<BPI>(mut views: Query<&mut BinnedRenderPhase<BPI>>)
 where
     BPI: BinnedPhaseItem,
 {
-    for phase in render_phases.0.values_mut() {
+    for mut phase in views.iter_mut() {
         phase.sweep_old_entities();
     }
 }

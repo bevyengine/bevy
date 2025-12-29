@@ -5,46 +5,36 @@ use bevy_render::{
     camera::ExtractedCamera,
     diagnostic::RecordDiagnostics,
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
-    render_phase::ViewSortedRenderPhases,
+    render_phase::SortedRenderPhase,
     render_resource::{RenderPassDescriptor, StoreOp},
     renderer::RenderContext,
-    view::{ExtractedView, ViewDepthTexture, ViewTarget},
+    view::{ViewDepthTexture, ViewTarget},
 };
 use tracing::error;
 #[cfg(feature = "trace")]
 use tracing::info_span;
 
 /// A [`bevy_render::render_graph::Node`] that runs the [`Transparent3d`]
-/// [`ViewSortedRenderPhases`].
+/// [`SortedRenderPhase`]s.
 #[derive(Default)]
 pub struct MainTransparentPass3dNode;
 
 impl ViewNode for MainTransparentPass3dNode {
     type ViewQuery = (
         &'static ExtractedCamera,
-        &'static ExtractedView,
         &'static ViewTarget,
         &'static ViewDepthTexture,
+        &'static SortedRenderPhase<Transparent3d>,
         Option<&'static MainPassResolutionOverride>,
     );
     fn run(
         &self,
         graph: &mut RenderGraphContext,
         render_context: &mut RenderContext,
-        (camera, view, target, depth, resolution_override): QueryItem<Self::ViewQuery>,
+        (camera, target, depth, transparent_phase, resolution_override): QueryItem<Self::ViewQuery>,
         world: &World,
     ) -> Result<(), NodeRunError> {
         let view_entity = graph.view_entity();
-
-        let Some(transparent_phases) =
-            world.get_resource::<ViewSortedRenderPhases<Transparent3d>>()
-        else {
-            return Ok(());
-        };
-
-        let Some(transparent_phase) = transparent_phases.get(&view.retained_view_entity) else {
-            return Ok(());
-        };
 
         if !transparent_phase.items.is_empty() {
             // Run the transparent pass, sorted back-to-front

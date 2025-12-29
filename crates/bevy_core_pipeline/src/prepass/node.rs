@@ -5,10 +5,10 @@ use bevy_render::{
     diagnostic::RecordDiagnostics,
     experimental::occlusion_culling::OcclusionCulling,
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
-    render_phase::{TrackedRenderPass, ViewBinnedRenderPhases},
+    render_phase::{BinnedRenderPhase, TrackedRenderPass},
     render_resource::{CommandEncoderDescriptor, PipelineCache, RenderPassDescriptor, StoreOp},
     renderer::RenderContext,
-    view::{ExtractedView, NoIndirectDrawing, ViewDepthTexture, ViewUniformOffset},
+    view::{NoIndirectDrawing, ViewDepthTexture, ViewUniformOffset},
 };
 use tracing::error;
 #[cfg(feature = "trace")]
@@ -58,13 +58,13 @@ impl ViewNode for LatePrepassNode {
     type ViewQuery = (
         (
             &'static ExtractedCamera,
-            &'static ExtractedView,
             &'static ViewDepthTexture,
             &'static ViewPrepassTextures,
             &'static ViewUniformOffset,
+            &'static BinnedRenderPhase<Opaque3dPrepass>,
+            &'static BinnedRenderPhase<AlphaMask3dPrepass>,
         ),
         (
-            Option<&'static DeferredPrepass>,
             Option<&'static RenderSkyboxPrepassPipeline>,
             Option<&'static SkyboxPrepassBindGroup>,
             Option<&'static PreviousViewUniformOffset>,
@@ -108,9 +108,15 @@ fn run_prepass<'w>(
     graph: &mut RenderGraphContext,
     render_context: &mut RenderContext<'w>,
     (
-        (camera, extracted_view, view_depth_texture, view_prepass_textures, view_uniform_offset),
         (
-            deferred_prepass,
+            camera,
+            view_depth_texture,
+            view_prepass_textures,
+            view_uniform_offset,
+            opaque_prepass_phase,
+            alpha_mask_prepass_phase,
+        ),
+        (
             skybox_prepass_pipeline,
             skybox_prepass_bind_group,
             view_prev_uniform_offset,
@@ -127,20 +133,6 @@ fn run_prepass<'w>(
     if has_deferred {
         return Ok(());
     }
-
-    let (Some(opaque_prepass_phases), Some(alpha_mask_prepass_phases)) = (
-        world.get_resource::<ViewBinnedRenderPhases<Opaque3dPrepass>>(),
-        world.get_resource::<ViewBinnedRenderPhases<AlphaMask3dPrepass>>(),
-    ) else {
-        return Ok(());
-    };
-
-    let (Some(opaque_prepass_phase), Some(alpha_mask_prepass_phase)) = (
-        opaque_prepass_phases.get(&extracted_view.retained_view_entity),
-        alpha_mask_prepass_phases.get(&extracted_view.retained_view_entity),
-    ) else {
-        return Ok(());
-    };
 
     let diagnostics = render_context.diagnostic_recorder();
 
@@ -238,9 +230,7 @@ fn run_prepass<'w>(
         drop(render_pass);
 
         // After rendering to the view depth texture, copy it to the prepass depth texture if deferred isn't going to
-        if deferred_prepass.is_none()
-            && let Some(prepass_depth_texture) = &view_prepass_textures.depth
-        {
+        if !has_deferred && let Some(prepass_depth_texture) = &view_prepass_textures.depth {
             command_encoder.copy_texture_to_texture(
                 view_depth_texture.texture.as_image_copy(),
                 prepass_depth_texture.texture.texture.as_image_copy(),

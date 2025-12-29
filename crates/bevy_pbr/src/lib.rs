@@ -34,6 +34,7 @@ mod extended_material;
 mod fog;
 mod light_probe;
 mod lightmap;
+mod main_pass;
 mod material;
 mod material_bind_groups;
 mod medium;
@@ -53,6 +54,7 @@ use bevy_light::{
     AmbientLight, DirectionalLight, PointLight, ShadowFilteringMethod, SimulationLightSystems,
     SpotLight,
 };
+pub use bevy_pbr_macros::{BinnedPhaseItem, SortedPhaseItem};
 use bevy_shader::{load_shader_library, ShaderRef};
 pub use cluster::*;
 pub use components::*;
@@ -61,6 +63,7 @@ pub use extended_material::*;
 pub use fog::*;
 pub use light_probe::*;
 pub use lightmap::*;
+pub use main_pass::*;
 pub use material::*;
 pub use material_bind_groups::*;
 pub use medium::*;
@@ -222,7 +225,7 @@ impl Plugin for PbrPlugin {
                     use_gpu_instance_buffer_builder: self.use_gpu_instance_buffer_builder,
                     debug_flags: self.debug_flags,
                 },
-                MaterialsPlugin {
+                MainPassPlugin {
                     debug_flags: self.debug_flags,
                 },
                 MaterialPlugin::<StandardMaterial> {
@@ -327,7 +330,6 @@ impl Plugin for PbrPlugin {
                     extract_ambient_light_resource,
                     extract_ambient_light,
                     extract_shadow_filtering_method,
-                    late_sweep_material_instances,
                 ),
             )
             .add_systems(
