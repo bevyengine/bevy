@@ -4,7 +4,8 @@
 //!
 //! ```rust,no_run
 //! # use bevy_ecs::prelude::*;
-//! # use bevy_ui::{AutoDirectionalNavigation, Node};
+//! # use bevy_ui::Node;
+//! # use bevy_ui::directional_navigation::AutoDirectionalNavigation;
 //! fn spawn_button(mut commands: Commands) {
 //!     commands.spawn((
 //!         Node::default(),
@@ -38,10 +39,20 @@
 //! - **Custom behavior**: Implement domain-specific navigation patterns (e.g., spreadsheet-style wrapping)
 
 use crate::{ComputedNode, UiGlobalTransform, UiSystems};
-use alloc::vec::Vec;
+use bevy_app::{App, Plugin, PostUpdate};
 use bevy_camera::visibility::InheritedVisibility;
+use bevy_ecs::{
+    component::Component,
+    entity::Entity,
+    query::{Added, Changed, Or, With},
+    reflect::{ReflectComponent, ReflectResource},
+    resource::Resource,
+    schedule::IntoScheduleConfigs,
+    system::{Query, Res, ResMut},
+};
 use bevy_input_focus::directional_navigation::{DirectionalNavigationMap, FocusableArea};
 use bevy_math::{CompassOctant, Dir2, Vec2};
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 
 /// Marker component to enable automatic directional navigation graph generation.
 ///
@@ -57,7 +68,7 @@ use bevy_math::{CompassOctant, Dir2, Vec2};
 ///
 /// ```rust
 /// # use bevy_ecs::prelude::*;
-/// # use bevy_input_focus::directional_navigation::AutoDirectionalNavigation;
+/// # use bevy_ui::directional_navigation::AutoDirectionalNavigation;
 /// fn spawn_auto_nav_button(mut commands: Commands) {
 ///     commands.spawn((
 ///         // ... Button, Node, etc. ...
@@ -119,12 +130,8 @@ use bevy_math::{CompassOctant, Dir2, Vec2};
 ///
 /// For custom UI frameworks, you can call [`auto_generate_navigation_edges`] directly
 /// in your own system instead of using this component.
-#[derive(Component, Default, Debug, Clone, Copy, PartialEq)]
-#[cfg_attr(
-    feature = "bevy_reflect",
-    derive(Reflect),
-    reflect(Component, Default, Debug, PartialEq, Clone)
-)]
+#[derive(Component, Default, Debug, Clone, Copy, PartialEq, Reflect)]
+#[reflect(Component, Default, Debug, PartialEq, Clone)]
 pub struct AutoDirectionalNavigation {
     /// Whether to also consider `TabIndex` for navigation order hints.
     /// Currently unused but reserved for future functionality.
@@ -135,12 +142,8 @@ pub struct AutoDirectionalNavigation {
 ///
 /// This resource controls how the automatic navigation system computes which
 /// nodes should be connected in each direction.
-#[derive(Resource, Debug, Clone, PartialEq)]
-#[cfg_attr(
-    feature = "bevy_reflect",
-    derive(Reflect),
-    reflect(Resource, Debug, PartialEq, Clone)
-)]
+#[derive(Resource, Debug, Clone, PartialEq, Reflect)]
+#[reflect(Resource, Debug, PartialEq, Clone)]
 pub struct AutoNavigationConfig {
     /// Minimum overlap ratio (0.0-1.0) required along the perpendicular axis for cardinal directions.
     ///
@@ -338,6 +341,7 @@ fn score_candidate(
 ///
 /// ```rust
 /// # use bevy_input_focus::directional_navigation::*;
+/// # use bevy_ui::directional_navigation::{AutoNavigationConfig, auto_generate_navigation_edges};
 /// # use bevy_ecs::entity::Entity;
 /// # use bevy_math::Vec2;
 /// let mut nav_map = DirectionalNavigationMap::default();

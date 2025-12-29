@@ -10,6 +10,7 @@
 //! Spawn UI elements with [`widget::Button`], [`ImageNode`](widget::ImageNode), [`Text`](prelude::Text) and [`Node`]
 //! This UI is laid out with the Flexbox and CSS Grid layout models (see <https://cssreference.io/flexbox/>)
 
+pub mod directional_navigation;
 pub mod interaction_states;
 pub mod measurement;
 pub mod update;
@@ -25,7 +26,6 @@ use bevy_derive::{Deref, DerefMut};
 use bevy_picking::PickingSystems;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 mod accessibility;
-mod directional_navigation;
 // This module is not re-exported, but is instead made public.
 // This is intended to discourage accidental use of the experimental API.
 pub mod experimental;
@@ -35,7 +35,6 @@ mod layout;
 mod stack;
 mod ui_node;
 
-pub use directional_navigation::*;
 pub use focus::*;
 pub use geometry::*;
 pub use gradients::*;
