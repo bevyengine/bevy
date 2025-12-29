@@ -1,6 +1,7 @@
 //! This example provides a 3D benchmark.
 //!
-//! Usage: spawn more entities by clicking on the screen.
+//! Usage: spawn more entities by clicking with the left mouse button.
+//! Orbit with the right mouse button and zoom with scroll.
 
 use core::time::Duration;
 use std::str::FromStr;
@@ -10,6 +11,7 @@ use bevy::{
     asset::RenderAssetUsages,
     color::palettes::basic::*,
     diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
+    input::mouse::{AccumulatedMouseMotion, AccumulatedMouseScroll},
     prelude::*,
     render::render_resource::{Extent3d, TextureDimension, TextureFormat},
     window::{PresentMode, WindowResolution},
@@ -20,11 +22,12 @@ use rand_chacha::ChaCha8Rng;
 
 const CUBES_PER_SECOND: u32 = 10000;
 const GRAVITY: f32 = -9.8;
-const MAX_VELOCITY: f32 = 50.;
+const MAX_VELOCITY: f32 = 10.;
 const CUBE_SCALE: f32 = 1.0;
 const CUBE_TEXTURE_SIZE: usize = 256;
 const HALF_CUBE_SIZE: f32 = CUBE_SCALE * 0.5;
-const VOLUME_SIZE: Vec3 = Vec3::new(150.0, 150.0, 150.0);
+const VOLUME_WIDTH: usize = 50;
+const VOLUME_SIZE: Vec3 = Vec3::splat(VOLUME_WIDTH as f32);
 
 #[derive(Resource)]
 struct BevyCounter {
@@ -35,6 +38,11 @@ struct BevyCounter {
 #[derive(Component)]
 struct Cube {
     velocity: Vec3,
+}
+
+#[derive(Component)]
+struct CameraControl {
+    distance: f32,
 }
 
 #[derive(FromArgs, Resource)]
@@ -113,6 +121,7 @@ fn main() {
             FrameTimeDiagnosticsPlugin::default(),
             LogDiagnosticsPlugin::default(),
         ))
+        .insert_resource(StaticTransformOptimizations::disabled())
         .insert_resource(WinitSettings::continuous())
         .insert_resource(args)
         .insert_resource(BevyCounter {
@@ -125,6 +134,7 @@ fn main() {
             Update,
             (
                 mouse_handler,
+                camera_control_system,
                 movement_system,
                 collision_system,
                 counter_system,
@@ -205,9 +215,9 @@ fn setup(
         materials,
         cube_mesh: meshes.add(Cuboid::from_size(Vec3::splat(CUBE_SCALE))),
         color_rng: ChaCha8Rng::seed_from_u64(42),
-        material_rng: ChaCha8Rng::seed_from_u64(42),
-        velocity_rng: ChaCha8Rng::seed_from_u64(42),
-        transform_rng: ChaCha8Rng::seed_from_u64(42),
+        material_rng: ChaCha8Rng::seed_from_u64(12),
+        velocity_rng: ChaCha8Rng::seed_from_u64(97),
+        transform_rng: ChaCha8Rng::seed_from_u64(26),
     };
 
     let font = TextFont {
@@ -215,9 +225,13 @@ fn setup(
         ..Default::default()
     };
 
+    let camera_distance = (VOLUME_SIZE * 1.3).length();
     commands.spawn((
         Camera3d::default(),
         Transform::from_translation(VOLUME_SIZE * 1.3).looking_at(Vec3::ZERO, Vec3::Y),
+        CameraControl {
+            distance: camera_distance,
+        },
     ));
 
     commands.spawn((
@@ -292,6 +306,39 @@ fn setup(
     commands.insert_resource(scheduled);
 }
 
+fn camera_control_system(
+    mut camera_query: Query<(&mut Transform, &mut CameraControl), With<Camera3d>>,
+    mouse_button_input: Res<ButtonInput<MouseButton>>,
+    accumulated_mouse_motion: Res<AccumulatedMouseMotion>,
+    accumulated_mouse_scroll: Res<AccumulatedMouseScroll>,
+) {
+    let (mut transform, mut camera_control) = camera_query.single_mut().unwrap();
+
+    if mouse_button_input.pressed(MouseButton::Right) {
+        let delta = accumulated_mouse_motion.delta;
+
+        if delta != Vec2::ZERO {
+            let (yaw, pitch, _): (f32, f32, f32) = transform.rotation.to_euler(EulerRot::YXZ);
+            let yaw = yaw - delta.x * 0.003;
+            let pitch = (pitch - delta.y * 0.003).clamp(
+                -std::f32::consts::FRAC_PI_2 + 0.01,
+                std::f32::consts::FRAC_PI_2 - 0.01,
+            );
+
+            transform.rotation = Quat::from_euler(EulerRot::YXZ, yaw, pitch, 0.0);
+        }
+    }
+
+    let scroll = accumulated_mouse_scroll.delta.y * 0.05;
+    if scroll != 0.0 {
+        camera_control.distance -= scroll * camera_control.distance * 0.1;
+        camera_control.distance = camera_control.distance.max(1.0);
+    }
+
+    let forward = transform.forward();
+    transform.translation = -forward * camera_control.distance;
+}
+
 fn mouse_handler(
     mut commands: Commands,
     args: Res<Args>,
@@ -332,11 +379,7 @@ fn cube_velocity_transform(
     waves: Option<usize>,
     dt: f32,
 ) -> (Transform, Vec3) {
-    let mut velocity = Vec3::new(
-        MAX_VELOCITY * (velocity_rng.random::<f32>() - 0.5),
-        MAX_VELOCITY * (velocity_rng.random::<f32>() - 0.5),
-        MAX_VELOCITY * (velocity_rng.random::<f32>() - 0.5),
-    );
+    let mut velocity = Vec3::new(0., 0., MAX_VELOCITY * velocity_rng.random::<f32>());
 
     if let Some(waves) = waves {
         for _ in 0..(waves * (FIXED_TIMESTEP / dt).round() as usize) {
@@ -358,12 +401,17 @@ fn spawn_cubes(
     waves_to_simulate: Option<usize>,
     wave: usize,
 ) {
+    let batch_material = cube_resources.materials[wave % cube_resources.materials.len()].clone();
+
+    let spawn_y = VOLUME_SIZE.y / 2.0 - HALF_CUBE_SIZE;
+    let spawn_z = -VOLUME_SIZE.z / 2.0 + HALF_CUBE_SIZE;
+
     let batch = (0..spawn_count)
         .map(|_| {
             let spawn_pos = Vec3::new(
                 (cube_resources.transform_rng.random::<f32>() - 0.5) * VOLUME_SIZE.x,
-                (cube_resources.transform_rng.random::<f32>() - 0.5) * VOLUME_SIZE.y,
-                (cube_resources.transform_rng.random::<f32>() - 0.5) * VOLUME_SIZE.z,
+                spawn_y,
+                spawn_z,
             );
 
             let (transform, velocity) = cube_velocity_transform(
@@ -373,20 +421,15 @@ fn spawn_cubes(
                 FIXED_DELTA_TIME,
             );
 
-            let material = if args.vary_per_instance || args.material_texture_count > args.waves {
+            let material = if args.vary_per_instance {
                 cube_resources
                     .materials
                     .choose(&mut cube_resources.material_rng)
                     .unwrap()
                     .clone()
             } else {
-                cube_resources.materials[wave % cube_resources.materials.len()].clone()
+                batch_material.clone()
             };
-
-            // Use the counter color if not varying per instance
-            // Note: StandardMaterial doesn't have a simple way to set color per instance without creating new materials
-            // unless we use vertex colors or a custom shader.
-            // For this stress test, we'll stick to the materials created in init_materials.
 
             (
                 Mesh3d(cube_resources.cube_mesh.clone()),
@@ -508,12 +551,15 @@ fn init_materials(
     textures: &[Handle<Image>],
     assets: &mut Assets<StandardMaterial>,
 ) -> Vec<Handle<StandardMaterial>> {
-    let capacity = if args.vary_per_instance {
+    let mut capacity = if args.vary_per_instance {
         args.per_wave * args.waves
     } else {
         args.material_texture_count.max(args.waves)
+    };
+    if !args.benchmark {
+        capacity = capacity.max(256);
     }
-    .max(1);
+    capacity = capacity.max(1);
 
     let alpha_mode = match args.alpha_mode {
         AlphaMode::Opaque => bevy::prelude::AlphaMode::Opaque,
