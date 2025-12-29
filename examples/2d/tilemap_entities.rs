@@ -3,11 +3,10 @@
 use std::time::Duration;
 
 use bevy::{
-    color::palettes::tailwind::RED_400,
     image::{ImageArrayLayout, ImageLoaderSettings},
     prelude::*,
-    sprite::{CommandsTilemapExt, DespawnOnRemove, InMap, TileCoord, TileStorage, Tilemap},
-    sprite_render::{TileRenderData, TilemapChunkRenderData, TilemapRenderData},
+    sprite::{DespawnOnRemove, InMap, TileCoord, Tilemap},
+    sprite_render::{TileRenderData, TilemapRenderData},
 };
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;
@@ -29,7 +28,7 @@ struct SeededRng(ChaCha8Rng);
 fn setup(mut commands: Commands, assets: Res<AssetServer>) {
     // We're seeding the PRNG here to make this example deterministic for testing purposes.
     // This isn't strictly required in practical use unless you need your app to be deterministic.
-    let mut rng = ChaCha8Rng::seed_from_u64(42);
+    let rng = ChaCha8Rng::seed_from_u64(42);
 
     let chunk_size = UVec2::splat(16);
     let tile_display_size = UVec2::splat(8);

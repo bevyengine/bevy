@@ -161,7 +161,7 @@ impl<T: Send + Sync + 'static> TileQueryData for &mut T {
     type ReadOnly = &'static T;
 
     fn get_at<'world: 'world, 'state>(
-        mut storage: Mut<'world, TileStorage<T>>,
+        storage: Mut<'world, TileStorage<T>>,
         index: usize,
     ) -> Option<Self::Data<'world>> {
         storage

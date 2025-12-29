@@ -1,5 +1,3 @@
-use std::ops::Deref;
-
 use bevy_ecs::{
     change_detection::{DetectChangesMut, MutUntyped},
     component::{Component, ComponentId},
@@ -43,12 +41,12 @@ impl<T: Send + Sync + 'static> TileStorage<T> {
 
     pub fn get_at(&self, tile_coord: UVec2) -> Option<&T> {
         let index = self.index(tile_coord);
-        self.tiles.get(index).map(Option::as_ref).flatten()
+        self.tiles.get(index).and_then(Option::as_ref)
     }
 
     pub fn get_at_mut(&mut self, tile_coord: UVec2) -> Option<&mut T> {
         let index = self.index(tile_coord);
-        self.tiles.get_mut(index).map(Option::as_mut).flatten()
+        self.tiles.get_mut(index).and_then(Option::as_mut)
     }
 
     pub fn set(&mut self, tile_position: UVec2, maybe_tile: Option<T>) -> Option<T> {

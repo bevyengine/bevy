@@ -8,7 +8,7 @@ use bevy_math::IVec2;
 use crate::{EntityTile, TileCoord, TileQueryData, TileStorage, TileStorages, Tilemap};
 
 /// Query for looking up tilemaps.
-/// Contains a nested query for [`Tilemap`] entities and Chunk entitites.
+/// Contains a nested query for [`Tilemap`] entities and Chunk entities.
 #[derive(SystemParam)]
 pub struct TilemapQuery<'w, 's, D, F = ()>
 where
@@ -20,7 +20,7 @@ where
 }
 
 /// Query for looking up tiles in a tilemap.
-/// Contains a nested query for a [`Tilemap`] entity and Chunk entitites.
+/// Contains a nested query for a [`Tilemap`] entity and Chunk entities.
 pub struct TileQuery<'world, 'state, D, F = ()>
 where
     D: TileQueryData + 'static,
@@ -112,7 +112,7 @@ where
 }
 
 /// Query for looking up tilemaps.
-/// Contains a nested query for [`Tilemap`] entities and Chunk entitites.
+/// Contains a nested query for [`Tilemap`] entities and Chunk entities.
 #[derive(SystemParam)]
 pub struct TilemapEntityQuery<'w, 's, D, F = ()>
 where
@@ -125,7 +125,7 @@ where
 }
 
 /// Query for looking up tiles in a tilemap.
-/// Contains a nested query for a [`Tilemap`] entity and Chunk entitites.
+/// Contains a nested query for a [`Tilemap`] entity and Chunk entities.
 pub struct TileEntityQuery<'w, 's, D, F = ()>
 where
     D: QueryData + 'static,

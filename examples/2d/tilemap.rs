@@ -1,13 +1,12 @@
 //! Shows a tilemap chunk rendered with a single draw call.
 
 use bevy::{
-    color::palettes::tailwind::RED_400,
     image::{ImageArrayLayout, ImageLoaderSettings},
     prelude::*,
-    sprite::{CommandsTilemapExt, TileStorage, Tilemap, TilemapQuery},
-    sprite_render::{TileRenderData, TilemapChunkRenderData, TilemapRenderData},
+    sprite::{CommandsTilemapExt, Tilemap, TilemapQuery},
+    sprite_render::{TileRenderData, TilemapRenderData},
 };
-use rand::{Rng, SeedableRng};
+use rand::SeedableRng;
 use rand_chacha::ChaCha8Rng;
 
 fn main() {
@@ -18,16 +17,13 @@ fn main() {
         .run();
 }
 
-#[derive(Component, Deref, DerefMut)]
-struct UpdateTimer(Timer);
-
 #[derive(Resource, Deref, DerefMut)]
 struct SeededRng(ChaCha8Rng);
 
 fn setup(mut commands: Commands, assets: Res<AssetServer>) {
     // We're seeding the PRNG here to make this example deterministic for testing purposes.
     // This isn't strictly required in practical use unless you need your app to be deterministic.
-    let mut rng = ChaCha8Rng::seed_from_u64(42);
+    let rng = ChaCha8Rng::seed_from_u64(42);
 
     let chunk_size = UVec2::splat(16);
     let tile_display_size = UVec2::splat(32);

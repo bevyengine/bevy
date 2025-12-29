@@ -11,7 +11,7 @@ use bevy_ecs::{
 use bevy_math::IVec2;
 use tracing::warn;
 
-use crate::{RemoveTile, SetTile, SetTileResult, TileQueryData, TileStorage};
+use crate::{RemoveTile, SetTile, SetTileResult};
 
 /// Plugin that handles the initialization and updating of tilemap chunks.
 /// Adds systems for processing newly added tilemap chunks.

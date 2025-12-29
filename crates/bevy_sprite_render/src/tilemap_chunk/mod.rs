@@ -1,5 +1,3 @@
-use std::{any::type_name, marker::PhantomData};
-
 use crate::{AlphaMode2d, MeshMaterial2d};
 use bevy_app::{App, Plugin, Update};
 use bevy_asset::{Assets, Handle};
@@ -14,7 +12,7 @@ use bevy_ecs::{
     query::Changed,
     reflect::{ReflectComponent, ReflectResource},
     resource::Resource,
-    system::{Command, Commands, Query, ResMut},
+    system::{Command, Query, ResMut},
     world::{DeferredWorld, World},
 };
 use bevy_image::Image;
@@ -22,7 +20,7 @@ use bevy_math::{primitives::Rectangle, UVec2};
 use bevy_mesh::{Mesh, Mesh2d};
 use bevy_platform::collections::HashMap;
 use bevy_reflect::{prelude::*, Reflect};
-use bevy_sprite::{InMap, RemoveTile, SetTile, TileCoord, TileQueryData, TileStorage, Tilemap};
+use bevy_sprite::{InMap, SetTile, TileCoord, TileStorage, Tilemap};
 use bevy_transform::components::Transform;
 use bevy_utils::default;
 use tracing::{trace, warn};
@@ -197,8 +195,7 @@ impl Default for TileRenderData {
 fn on_insert_tilemap_chunk(mut world: DeferredWorld, HookContext { entity, .. }: HookContext) {
     let Some(tilemap_chunk) = world.get::<TilemapChunkRenderData>(entity) else {
         warn!(
-            "{} not found for tilemap chunk {}",
-            type_name::<TilemapChunkRenderData>(),
+            "TilemapChunkRenderData not found for tilemap chunk {}",
             entity
         );
         return;
@@ -210,8 +207,7 @@ fn on_insert_tilemap_chunk(mut world: DeferredWorld, HookContext { entity, .. }:
 
     let Some(tile_data) = world.get::<TileStorage<TileRenderData>>(entity) else {
         warn!(
-            "{} not found for tilemap chunk {}",
-            type_name::<TileStorage<TileRenderData>>(),
+            "TileStorage<TileRenderData> not found for tilemap chunk {}",
             entity
         );
         return;
@@ -356,10 +352,6 @@ fn on_remove_tile_render_data(mut world: DeferredWorld, HookContext { entity, ..
     };
     let Some(tile_position) = tile.get::<TileCoord>().cloned() else {
         warn!("Tile {} has no tile coord.", entity);
-        return;
-    };
-    let Some(tile_render_data) = tile.get::<TileRenderData>().cloned() else {
-        warn!("Tile {} does not have TileRenderData", entity);
         return;
     };
 
