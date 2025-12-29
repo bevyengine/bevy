@@ -48,6 +48,8 @@ jobs:
             ~/.cargo/git/db/
             target/
       - uses: dtolnay/rust-toolchain@stable
+      - name: override
+        run: rustup override set stable
       - name: Install Linux dependencies
         uses: ./.github/actions/install-linux-deps
       - name: Build & run tests
@@ -78,6 +80,8 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
+      - name: override
+        run: rustup override set stable
       - name: Install Linux dependencies
         uses: ./.github/actions/install-linux-deps
         with:
@@ -111,6 +115,8 @@ jobs:
         with:
           toolchain: ${{ env.NIGHTLY_TOOLCHAIN }}
           components: miri
+      - name: override
+        run: rustup override set ${{ env.NIGHTLY_TOOLCHAIN }}
       - name: CI job
         # To run the tests one item at a time for troubleshooting, use
         # cargo --quiet test --lib -- --list | sed 's/: test$//' | MIRIFLAGS="-Zmiri-disable-isolation -Zmiri-disable-weak-memory-emulation" xargs -n1 cargo miri test -p bevy_ecs --lib -- --exact
@@ -146,6 +152,8 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: stable
+      - name: override
+        run: rustup override set stable
       - name: Install Linux dependencies
         uses: ./.github/actions/install-linux-deps
       - name: Check Compile
@@ -175,6 +183,8 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: x86_64-unknown-none
+      - name: override
+        run: rustup override set stable
       - name: Install Linux dependencies
         uses: ./.github/actions/install-linux-deps
       - name: Check Compile
@@ -203,6 +213,8 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: thumbv6m-none-eabi
+      - name: override
+        run: rustup override set stable
       - name: Install Linux dependencies
         uses: ./.github/actions/install-linux-deps
       - name: Check Compile
@@ -231,6 +243,8 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: x86_64-unknown-none
+      - name: override
+        run: rustup override set stable
       - name: Install Linux dependencies
         uses: ./.github/actions/install-linux-deps
       - name: Check Compile
@@ -259,6 +273,8 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           target: wasm32-unknown-unknown
+      - name: override
+        run: rustup override set stable
       - name: Check wasm
         env:
           RUSTFLAGS: --cfg getrandom_backend="wasm_js"
@@ -289,6 +305,8 @@ jobs:
           toolchain: ${{ env.NIGHTLY_TOOLCHAIN }}
           targets: wasm32-unknown-unknown
           components: rust-src
+      - name: override
+        run: rustup override set ${{ env.NIGHTLY_TOOLCHAIN }}
       - name: Check wasm
         run: cargo check --target wasm32-unknown-unknown -Z build-std=std,panic_abort
         env:
