@@ -5,35 +5,37 @@
 
 @group(1) @binding(0) var view_output: texture_storage_2d<rgba16float, read_write>;
 @group(1) @binding(1) var<storage, read_write> light_tile_samples: array<LightSamplePacked>;
-@group(1) @binding(2) var<storage, read_write> gi_reservoirs_a: array<Reservoir>;
-@group(1) @binding(3) var<storage, read_write> gi_reservoirs_b: array<Reservoir>;
-@group(1) @binding(4) var gbuffer: texture_2d<u32>;
-@group(1) @binding(5) var depth_buffer: texture_depth_2d;
-@group(1) @binding(6) var motion_vectors: texture_2d<f32>;
-@group(1) @binding(7) var previous_gbuffer: texture_2d<u32>;
-@group(1) @binding(8) var previous_depth_buffer: texture_depth_2d;
-@group(1) @binding(9) var<uniform> view: View;
-@group(1) @binding(10) var<uniform> previous_view: PreviousViewUniforms;
-@group(1) @binding(11) var<storage, read_write> world_cache_checksums: array<atomic<u32>, #{WORLD_CACHE_SIZE}>;
+@group(1) @binding(2) var di_reservoirs_a: texture_storage_2d<rgba32uint, read_write>;
+@group(1) @binding(3) var di_reservoirs_b: texture_storage_2d<rgba32uint, read_write>;
+@group(1) @binding(4) var<storage, read_write> gi_reservoirs_a: array<Reservoir>;
+@group(1) @binding(5) var<storage, read_write> gi_reservoirs_b: array<Reservoir>;
+@group(1) @binding(6) var gbuffer: texture_2d<u32>;
+@group(1) @binding(7) var depth_buffer: texture_depth_2d;
+@group(1) @binding(8) var motion_vectors: texture_2d<f32>;
+@group(1) @binding(9) var previous_gbuffer: texture_2d<u32>;
+@group(1) @binding(10) var previous_depth_buffer: texture_depth_2d;
+@group(1) @binding(11) var<uniform> view: View;
+@group(1) @binding(12) var<uniform> previous_view: PreviousViewUniforms;
+@group(1) @binding(13) var<storage, read_write> world_cache_checksums: array<atomic<u32>, #{WORLD_CACHE_SIZE}>;
 #ifdef WORLD_CACHE_NON_ATOMIC_LIFE_BUFFER
-@group(1) @binding(12) var<storage, read_write> world_cache_life: array<u32, #{WORLD_CACHE_SIZE}>;
+@group(1) @binding(14) var<storage, read_write> world_cache_life: array<u32, #{WORLD_CACHE_SIZE}>;
 #else
-@group(1) @binding(12) var<storage, read_write> world_cache_life: array<atomic<u32>, #{WORLD_CACHE_SIZE}>;
+@group(1) @binding(14) var<storage, read_write> world_cache_life: array<atomic<u32>, #{WORLD_CACHE_SIZE}>;
 #endif
-@group(1) @binding(13) var<storage, read_write> world_cache_radiance: array<vec4<f32>, #{WORLD_CACHE_SIZE}>;
-@group(1) @binding(14) var<storage, read_write> world_cache_geometry_data: array<WorldCacheGeometryData, #{WORLD_CACHE_SIZE}>;
-@group(1) @binding(15) var<storage, read_write> world_cache_light_data: array<WorldCacheLightDataRead, #{WORLD_CACHE_SIZE}>;
+@group(1) @binding(15) var<storage, read_write> world_cache_radiance: array<vec4<f32>, #{WORLD_CACHE_SIZE}>;
+@group(1) @binding(16) var<storage, read_write> world_cache_geometry_data: array<WorldCacheGeometryData, #{WORLD_CACHE_SIZE}>;
+@group(1) @binding(17) var<storage, read_write> world_cache_light_data: array<WorldCacheLightDataRead, #{WORLD_CACHE_SIZE}>;
 #ifndef WORLD_CACHE_UPDATE_LIGHTS
-@group(1) @binding(16) var<storage, read_write> world_cache_light_data_new_lights: array<WorldCacheLightDataWrite, #{WORLD_CACHE_SIZE}>;
+@group(1) @binding(18) var<storage, read_write> world_cache_light_data_new_lights: array<WorldCacheLightDataWrite, #{WORLD_CACHE_SIZE}>;
 #else
-@group(1) @binding(16) var<storage, read_write> world_cache_light_data_new_lights: array<WorldCacheLightDataRead, #{WORLD_CACHE_SIZE}>;
+@group(1) @binding(18) var<storage, read_write> world_cache_light_data_new_lights: array<WorldCacheLightDataRead, #{WORLD_CACHE_SIZE}>;
 #endif
-@group(1) @binding(17) var<storage, read_write> world_cache_luminance_deltas: array<f32, #{WORLD_CACHE_SIZE}>;
-@group(1) @binding(18) var<storage, read_write> world_cache_active_cells_new_radiance: array<vec3<f32>, #{WORLD_CACHE_SIZE}>;
-@group(1) @binding(19) var<storage, read_write> world_cache_a: array<u32, #{WORLD_CACHE_SIZE}>;
-@group(1) @binding(20) var<storage, read_write> world_cache_b: array<u32, 1024u>;
-@group(1) @binding(21) var<storage, read_write> world_cache_active_cell_indices: array<u32, #{WORLD_CACHE_SIZE}>;
-@group(1) @binding(22) var<storage, read_write> world_cache_active_cells_count: u32;
+@group(1) @binding(19) var<storage, read_write> world_cache_luminance_deltas: array<f32, #{WORLD_CACHE_SIZE}>;
+@group(1) @binding(20) var<storage, read_write> world_cache_active_cells_new_radiance: array<vec3<f32>, #{WORLD_CACHE_SIZE}>;
+@group(1) @binding(21) var<storage, read_write> world_cache_a: array<u32, #{WORLD_CACHE_SIZE}>;
+@group(1) @binding(22) var<storage, read_write> world_cache_b: array<u32, 1024u>;
+@group(1) @binding(23) var<storage, read_write> world_cache_active_cell_indices: array<u32, #{WORLD_CACHE_SIZE}>;
+@group(1) @binding(24) var<storage, read_write> world_cache_active_cells_count: u32;
 struct PushConstants { frame_index: u32, reset: u32 }
 var<push_constant> constants: PushConstants;
 

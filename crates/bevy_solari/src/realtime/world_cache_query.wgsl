@@ -27,7 +27,7 @@
     WorldCacheLightDataRead,
 }
 #import bevy_solari::presample_light_tiles::unpack_light_sample
-#import bevy_solari::sampling::{light_contribution_no_trace, select_random_light, select_random_light_inverse_pdf, trace_light_visibility, calculate_light_contribution}
+#import bevy_solari::sampling::{light_contribution_no_trace, select_random_light, select_random_light_inverse_pdf, sample_light, trace_light_visibility, calculate_light_contribution, LightSample}
 #import bevy_solari::scene_bindings::{light_sources, LIGHT_SOURCE_KIND_DIRECTIONAL, ResolvedMaterial}
 
 /// How responsive the world cache is to changes in lighting (higher is less responsive, lower is more responsive)
@@ -200,6 +200,7 @@ fn write_world_cache_light(rng: ptr<function, u32>, cell: EvaluatedLighting, wor
 #endif
 
 struct EvaluatedLighting {
+    light_sample: LightSample,
     radiance: vec3<f32>,
     inverse_pdf: f32,
     data: WorldCacheSingleLightData,
@@ -243,16 +244,17 @@ fn evaluate_lighting_from_cache(
     }
 
     if weight_sum < 0.0001 {
-        return EvaluatedLighting(vec3(0.0), 0.0, WorldCacheSingleLightData(0, 0.0), vec3(0.0), false);
+        return EvaluatedLighting(LightSample(0, 0), vec3(0.0), 0.0, WorldCacheSingleLightData(0, 0.0), vec3(0.0), false);
     }
 
     // TODO: reuse the eval that we did for light selection somehow
-    let direct_lighting = light_contribution_no_trace(rng, sel, world_position, world_normal);
+    let light_sample = sample_light(rng, sel);
+    let direct_lighting = light_contribution_no_trace(light_sample, world_position, world_normal);
     let brdf = evaluate_brdf(world_normal, wo, direct_lighting.wi, material);
     let visibility = trace_light_visibility(world_position, direct_lighting.world_position);
     let radiance = direct_lighting.radiance * brdf;
     let final_inverse_pdf = direct_lighting.inverse_pdf * inverse_pdf * visibility;
-    return EvaluatedLighting(radiance, final_inverse_pdf, WorldCacheSingleLightData(sel, sel_weight * visibility), direct_lighting.wi, direct_lighting.brdf_rays_can_hit);
+    return EvaluatedLighting(light_sample, radiance, final_inverse_pdf, WorldCacheSingleLightData(sel, sel_weight * visibility), direct_lighting.wi, direct_lighting.brdf_rays_can_hit);
 }
 
 struct SelectedLight {
@@ -278,7 +280,7 @@ fn select_light_from_cache_cell(
     // WRS to select the light based on unshadowed contribution
     for (var i = 0u; i < cell.visible_light_count; i++) {
         let light_id = cell.visible_lights[i].light;
-        let direct_lighting = light_contribution_no_trace(rng, light_id, world_position, world_normal);
+        let direct_lighting = light_contribution_no_trace(sample_light(rng, light_id), world_position, world_normal);
         let brdf = evaluate_brdf(world_normal, wo, direct_lighting.wi, material);
         let radiance = direct_lighting.radiance * direct_lighting.inverse_pdf * brdf;
 

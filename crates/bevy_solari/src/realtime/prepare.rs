@@ -12,20 +12,17 @@ use bevy_ecs::{
     query::With,
     system::{Commands, Query, Res},
 };
-#[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
 use bevy_image::ToExtents;
 use bevy_math::UVec2;
+#[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
+use bevy_render::texture::CachedTexture;
 use bevy_render::{
     camera::ExtractedCamera,
-    render_resource::{Buffer, BufferDescriptor, BufferUsages},
-    renderer::RenderDevice,
-};
-#[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
-use bevy_render::{
     render_resource::{
-        TextureDescriptor, TextureDimension, TextureFormat, TextureUsages, TextureViewDescriptor,
+        Buffer, BufferDescriptor, BufferUsages, Texture, TextureDescriptor, TextureDimension,
+        TextureFormat, TextureUsages, TextureView, TextureViewDescriptor,
     },
-    texture::CachedTexture,
+    renderer::RenderDevice,
 };
 
 /// Size of the GI `Reservoir` shader struct in bytes.
@@ -45,6 +42,8 @@ pub const WORLD_CACHE_SIZE: u64 = 2u64.pow(20);
 #[derive(Component)]
 pub struct SolariLightingResources {
     pub light_tile_samples: Buffer,
+    pub di_reservoirs_a: (Texture, TextureView),
+    pub di_reservoirs_b: (Texture, TextureView),
     pub gi_reservoirs_a: Buffer,
     pub gi_reservoirs_b: Buffer,
     pub world_cache_checksums: Buffer,
@@ -112,6 +111,23 @@ pub fn prepare_solari_lighting_resources(
             usage: BufferUsages::STORAGE,
             mapped_at_creation: false,
         });
+
+        let di_reservoirs = |name| {
+            let tex = render_device.create_texture(&TextureDescriptor {
+                label: Some(name),
+                size: view_size.to_extents(),
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: TextureDimension::D2,
+                format: TextureFormat::Rgba32Uint,
+                usage: TextureUsages::STORAGE_BINDING,
+                view_formats: &[],
+            });
+            let view = tex.create_view(&TextureViewDescriptor::default());
+            (tex, view)
+        };
+        let di_reservoirs_a = di_reservoirs("solari_lighting_di_reservoirs_a");
+        let di_reservoirs_b = di_reservoirs("solari_lighting_di_reservoirs_b");
 
         let gi_reservoirs = |name| {
             render_device.create_buffer(&BufferDescriptor {
@@ -218,6 +234,8 @@ pub fn prepare_solari_lighting_resources(
 
         commands.entity(entity).insert(SolariLightingResources {
             light_tile_samples,
+            di_reservoirs_a,
+            di_reservoirs_b,
             gi_reservoirs_a,
             gi_reservoirs_b,
             world_cache_checksums,

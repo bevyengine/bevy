@@ -13,7 +13,7 @@ trace = []
 webgl = []
 webgpu = []
 smaa_luts = ["bevy_image/ktx2", "bevy_image/zstd"]
-dlss = ["dep:dlss_wgpu", "dep:uuid", "bevy_render/raw_vulkan_init", "dlss_wgpu/debug_overlay"]
+dlss = ["dep:dlss_wgpu", "dep:uuid", "bevy_render/raw_vulkan_init"]
 force_disable_dlss = ["dlss_wgpu?/mock"]
 
 [dependencies]
