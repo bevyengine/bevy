@@ -244,7 +244,12 @@ fn setup_many_lights(
                 base_color_texture: Some(
                     asset_server.load_with_settings::<Image, ImageLoaderSettings>(
                         "textures/uv_checker_bw.png",
-                        |settings| settings.sampler.set_address_mode(ImageAddressMode::Repeat),
+                        |settings| {
+                            settings
+                                .sampler
+                                .get_or_init_descriptor()
+                                .set_address_mode(ImageAddressMode::Repeat);
+                        },
                     ),
                 ),
                 perceptual_roughness: 0.0,
