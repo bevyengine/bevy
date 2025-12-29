@@ -1,33 +1,27 @@
 // This shader is used for the gpu_readback example
 // The actual work it does is not important for the example
 
+struct FirstIndex {
+    first_vertex_index: u32,
+    first_index_index: u32,
+}
+
 // This is the data that lives in the gpu only buffer
-@group(0) @binding(0) var<storage, read_write> vertex_data: array<f32>;
-@group(0) @binding(1) var<storage, read_write> index_data: array<u32>;
+@group(0) @binding(0) var<uniform> first_index: FirstIndex;
+@group(0) @binding(1) var<storage, read_write> vertex_data: array<f32>;
+@group(0) @binding(2) var<storage, read_write> index_data: array<u32>;
 
 @compute @workgroup_size(1)
 fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
-    // We use the global_id to index the array to make sure we don't
-    // access data used in another workgroup
-    // data[global_id.x] += 1u;
     for (var i = 0u; i < 192; i++) {
-        vertex_data[i] = vertices[i];
+        vertex_data[i + first_index.first_vertex_index * 32 ] = vertices[i ];
     }
     for (var i = 0u; i < 36; i++) {
-        index_data[i] = u32(indices[i]);
+        index_data[i + first_index.first_index_index * 6] = u32(indices[i]);
     }
-    // data[0] = -min.x;
-    // data[1] = min.y;
-    // data[2] = max.z;
-    // data[3] = 0.;
-    // data[4] = 0.;
-    // data[5] = 1.;
-    // data[6] = 0.;
-    // data[7] = 0.;
-    // Write the same data to the texture
-    // textureStore(texture, vec2<i32>(i32(global_id.x), 0), vec4<u32>(data[global_id.x], 0, 0, 0));
 }
 
+// hardcoded compute shader data.
 const half_size = vec3(2.);
 const min = -half_size;
 const max = half_size;
@@ -66,11 +60,6 @@ const vertices = array(
     min.x, min.y, min.z, 0.0, -1.0, 0.0, 1.0, 1.0,
     max.x, min.y, min.z, 0.0, -1.0, 0.0, 0.0, 1.0
 );
-
-
-// let positions: Vec<_> = vertices.iter().map(|(p, _, _)| *p).collect();
-// let normals: Vec<_> = vertices.iter().map(|(_, n, _)| *n).collect();
-// let uvs: Vec<_> = vertices.iter().map(|(_, _, uv)| *uv).collect();
 
 const indices = array(
     0, 1, 2, 2, 3, 0, // front

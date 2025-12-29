@@ -4,6 +4,7 @@
 use bevy::{
     asset::RenderAssetUsages,
     color::palettes::tailwind::RED_400,
+    mesh::{Indices, MeshVertexAttribute},
     prelude::*,
     render::{
         extract_resource::{ExtractResource, ExtractResourcePlugin},
@@ -23,65 +24,54 @@ use bevy::{
 use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin},
     mesh::{allocator::MeshAllocator, RenderMesh},
+    render_resource::binding_types::uniform_buffer,
+    renderer::RenderQueue,
 };
 
 /// This example uses a shader source file from the assets subdirectory
 const SHADER_ASSET_PATH: &str = "shaders/compute_mesh.wgsl";
 
-// The length of the buffer sent to the gpu
-const BUFFER_LEN: usize = 768;
-
 fn main() {
     App::new()
         .add_plugins((
             DefaultPlugins,
-            GpuReadbackPlugin,
-            ExtractResourcePlugin::<ComputedBuffers>::default(),
+            ComputeShaderMeshGeneratorPlugin,
             ExtractComponentPlugin::<GenerateMesh>::default(),
         ))
         .insert_resource(ClearColor(Color::BLACK))
         .add_systems(Startup, setup)
-        // .add_systems(Update, kick_meshes)
         .run();
 }
 
-fn kick_meshes(mut query: Query<&mut Mesh3d>) {
-    for mesh in &mut query {}
-}
 // We need a plugin to organize all the systems and render node required for this example
-struct GpuReadbackPlugin;
-impl Plugin for GpuReadbackPlugin {
+struct ComputeShaderMeshGeneratorPlugin;
+impl Plugin for ComputeShaderMeshGeneratorPlugin {
     fn build(&self, app: &mut App) {
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
+
         render_app
             .init_resource::<Chunks>()
             .add_systems(
                 RenderStartup,
                 (init_compute_pipeline, add_compute_render_graph_node),
             )
-            .add_systems(
-                Render,
-                (
-                    prepare_bind_group
-                        .in_set(RenderSystems::PrepareBindGroups)
-                        // We don't need to recreate the bind group every frame
-                        .run_if(not(resource_exists::<GpuBufferBindGroup>)),
-                    prepare_chunks,
-                ),
-            );
+            .add_systems(Render, prepare_chunks);
+    }
+    fn finish(&self, app: &mut App) {
+        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
+            return;
+        };
+        render_app
+            .world_mut()
+            .resource_mut::<MeshAllocator>()
+            .extra_buffer_usages = BufferUsages::STORAGE;
     }
 }
 
 #[derive(Component, ExtractComponent, Clone)]
 struct GenerateMesh(Handle<Mesh>);
-
-#[derive(Resource, ExtractResource, Clone)]
-struct ComputedBuffers {
-    vertex: Handle<ShaderStorageBuffer>,
-    index: Handle<ShaderStorageBuffer>,
-}
 
 fn setup(
     mut commands: Commands,
@@ -92,44 +82,18 @@ fn setup(
 ) {
     // a truly empty mesh will error if used in Mesh3d
     // so use a sphere for the example
-    let mut empty_mesh = Cuboid::new(0.1, 0.1, 0.1).mesh().build();
-    let num_indices = empty_mesh.indices().unwrap().len();
-    info!(
-        buffer_size=?empty_mesh.get_vertex_buffer_size(),
-        vertex_size=?empty_mesh.get_vertex_size(),
-        num_indices=?num_indices
+    let mut empty_mesh = Mesh::new(
+        PrimitiveTopology::TriangleList,
+        RenderAssetUsages::RENDER_WORLD,
     );
+    // set up what we want to output from the compute shader.
+    // We're using 36 indices, 24 vertices which is directly taken from
+    // the Bevy Cuboid mesh
+    empty_mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, vec![[0.; 3]; 24]);
+    empty_mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, vec![[0.; 3]; 24]);
+    empty_mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, vec![[0.; 2]; 24]);
+    empty_mesh.insert_indices(Indices::U32(vec![0; 36]));
     empty_mesh.asset_usage = RenderAssetUsages::RENDER_WORLD;
-
-    // Create a storage buffer with some data
-    let buffer: Vec<f32> = vec![0.; BUFFER_LEN];
-    let mut buffer = ShaderStorageBuffer::from(buffer);
-    // We need to enable the COPY_SRC usage so we can copy the buffer to the cpu
-    buffer.buffer_description.usage |= BufferUsages::COPY_SRC;
-    let vertex_buffer = buffers.add(buffer);
-
-    // Create a storage buffer with some data
-    let buffer: Vec<u32> = vec![0; 36 * 32];
-    let mut buffer = ShaderStorageBuffer::from(buffer);
-    // We need to enable the COPY_SRC usage so we can copy the buffer to the cpu
-    buffer.buffer_description.usage |= BufferUsages::COPY_SRC;
-    let index_buffer = buffers.add(buffer);
-
-    // Create a storage texture with some data
-    let size = Extent3d {
-        width: BUFFER_LEN as u32,
-        height: 1,
-        ..default()
-    };
-
-    commands.insert_resource(ComputedBuffers {
-        vertex: vertex_buffer,
-        index: index_buffer,
-    });
-    // let mut empty_mesh = Mesh::new(
-    //     PrimitiveTopology::TriangleList,
-    //     RenderAssetUsages::RENDER_WORLD,
-    // );
 
     let handle = meshes.add(empty_mesh);
     commands.spawn((
@@ -178,33 +142,8 @@ fn add_compute_render_graph_node(mut render_graph: ResMut<RenderGraph>) {
     render_graph.add_node(ComputeNodeLabel, ComputeNode::default());
 }
 
-#[derive(Resource)]
-struct GpuBufferBindGroup(BindGroup);
-
 #[derive(Resource, Default)]
 struct Chunks(Vec<AssetId<Mesh>>);
-
-fn prepare_bind_group(
-    mut commands: Commands,
-    pipeline: Res<ComputePipeline>,
-    render_device: Res<RenderDevice>,
-    pipeline_cache: Res<PipelineCache>,
-    computed_buffers: Res<ComputedBuffers>,
-    buffers: Res<RenderAssets<GpuShaderStorageBuffer>>,
-) {
-    let vertex_buffer = buffers.get(&computed_buffers.vertex).unwrap();
-    let index_buffer = buffers.get(&computed_buffers.index).unwrap();
-
-    let bind_group = render_device.create_bind_group(
-        None,
-        &pipeline_cache.get_bind_group_layout(&pipeline.layout),
-        &BindGroupEntries::sequential((
-            vertex_buffer.buffer.as_entire_buffer_binding(),
-            index_buffer.buffer.as_entire_buffer_binding(),
-        )),
-    );
-    commands.insert_resource(GpuBufferBindGroup(bind_group));
-}
 
 fn prepare_chunks(
     meshes_to_generate: Query<&GenerateMesh>,
@@ -237,6 +176,7 @@ fn init_compute_pipeline(
         &BindGroupLayoutEntries::sequential(
             ShaderStages::COMPUTE,
             (
+                uniform_buffer::<FirstIndex>(false),
                 // vertices
                 storage_buffer::<Vec<u32>>(false),
                 // indices
@@ -262,6 +202,12 @@ struct ComputeNodeLabel;
 #[derive(Default)]
 struct ComputeNode {}
 
+#[derive(ShaderType)]
+struct FirstIndex {
+    first_vertex_index: u32,
+    first_index_index: u32,
+}
+
 impl render_graph::Node for ComputeNode {
     fn run(
         &self,
@@ -273,12 +219,38 @@ impl render_graph::Node for ComputeNode {
             info!("no chunks");
             return Ok(());
         };
+        let mesh_allocator = world.resource::<MeshAllocator>();
+
         for mesh_id in &chunks.0 {
             let pipeline_cache = world.resource::<PipelineCache>();
             let pipeline = world.resource::<ComputePipeline>();
-            let bind_group = world.resource::<GpuBufferBindGroup>();
 
             if let Some(init_pipeline) = pipeline_cache.get_compute_pipeline(pipeline.pipeline) {
+                let vertex_buffer_slice = mesh_allocator.mesh_vertex_slice(mesh_id).unwrap();
+                let index_buffer_slice = mesh_allocator.mesh_index_slice(mesh_id).unwrap();
+
+                dbg!(&vertex_buffer_slice.range);
+                dbg!(&index_buffer_slice.range);
+
+                let first = FirstIndex {
+                    first_vertex_index: vertex_buffer_slice.range.start * 4,
+                    first_index_index: index_buffer_slice.range.start * 4,
+                };
+                let mut uniforms = UniformBuffer::from(first);
+                uniforms.write_buffer(
+                    render_context.render_device(),
+                    world.resource::<RenderQueue>(),
+                );
+                let bind_group = render_context.render_device().create_bind_group(
+                    None,
+                    &pipeline_cache.get_bind_group_layout(&pipeline.layout),
+                    &BindGroupEntries::sequential((
+                        &uniforms,
+                        vertex_buffer_slice.buffer.as_entire_buffer_binding(),
+                        index_buffer_slice.buffer.as_entire_buffer_binding(),
+                    )),
+                );
+
                 let mut pass =
                     render_context
                         .command_encoder()
@@ -287,52 +259,10 @@ impl render_graph::Node for ComputeNode {
                             ..default()
                         });
 
-                pass.set_bind_group(0, &bind_group.0, &[]);
+                pass.set_bind_group(0, &bind_group, &[]);
                 pass.set_pipeline(init_pipeline);
                 pass.dispatch_workgroups(1, 1, 1);
             }
-            let computed_buffers = world.resource::<ComputedBuffers>();
-            let buffers = world.resource::<RenderAssets<GpuShaderStorageBuffer>>();
-            let mesh_allocator = world.resource::<MeshAllocator>();
-
-            // these can be None, read the mesh allocator docs
-            // to understand when.
-            let (vertex, index) = mesh_allocator.mesh_slabs(&mesh_id);
-
-            let vertex_data_from_shader = buffers.get(&computed_buffers.vertex).unwrap();
-            let vertex_buffer_slice = mesh_allocator.mesh_vertex_slice(mesh_id).unwrap();
-            info_once!(
-                data_buffer_size=?vertex_data_from_shader.buffer.size(),
-                range_start=?vertex_buffer_slice.range.start,
-                range_end=?vertex_buffer_slice.range.end,
-                "vertex",
-            );
-
-            render_context.command_encoder().copy_buffer_to_buffer(
-                &vertex_data_from_shader.buffer,
-                0,
-                vertex_buffer_slice.buffer,
-                0,
-                // vertex_buffer_slice.range.start as u64,
-                vertex_data_from_shader.buffer.size(),
-            );
-
-            let index_data_from_shader = buffers.get(&computed_buffers.index).unwrap();
-            let index_buffer_slice = mesh_allocator.mesh_index_slice(mesh_id).unwrap();
-            info_once!(
-                data_buffer_size=?index_data_from_shader.buffer.size(),
-                range_start=?index_buffer_slice.range.start,
-                range_end=?index_buffer_slice.range.end,
-                "index"
-            );
-            render_context.command_encoder().copy_buffer_to_buffer(
-                &index_data_from_shader.buffer,
-                0,
-                index_buffer_slice.buffer,
-                0,
-                // index_buffer_slice.range.start as u64,
-                index_data_from_shader.buffer.size(),
-            );
         }
 
         Ok(())
