@@ -20,9 +20,9 @@ use bevy_image::prelude::*;
 use bevy_math::{FloatOrd, Vec2, Vec3};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_text::{
-    ComputedTextBlock, CosmicFontSystem, Font, FontAtlasSet, LineBreak, LineHeight, SwashCache,
-    TextBounds, TextColor, TextError, TextFont, TextLayout, TextLayoutInfo, TextPipeline,
-    TextReader, TextRoot, TextSpanAccess, TextWriter,
+    ComputedTextBlock, CosmicFontSystem, Font, FontAtlasSet, FontHinting, LineBreak, LineHeight,
+    SwashCache, TextBounds, TextColor, TextError, TextFont, TextLayout, TextLayoutInfo,
+    TextPipeline, TextReader, TextRoot, TextSpanAccess, TextWriter,
 };
 use bevy_transform::components::Transform;
 use core::any::TypeId;
@@ -88,7 +88,9 @@ use core::any::TypeId;
     Anchor,
     Visibility,
     VisibilityClass,
-    Transform
+    Transform,
+    // Disable hinting as `Text2d` text is not always pixel-aligned
+    FontHinting::Disabled
 )]
 #[component(on_add = visibility::add_visibility_class::<Sprite>)]
 pub struct Text2d(pub String);
@@ -175,6 +177,7 @@ pub fn update_text2d_layout(
         Ref<TextBounds>,
         &mut TextLayoutInfo,
         &mut ComputedTextBlock,
+        Ref<FontHinting>,
     )>,
     text_font_query: Query<&TextFont>,
     mut text_reader: Text2dReader,
@@ -198,7 +201,7 @@ pub fn update_text2d_layout(
     let mut previous_scale_factor = 0.;
     let mut previous_mask = &RenderLayers::none();
 
-    for (entity, maybe_entity_mask, block, bounds, mut text_layout_info, mut computed) in
+    for (entity, maybe_entity_mask, block, bounds, mut text_layout_info, mut computed, hinting) in
         &mut text_query
     {
         let entity_mask = maybe_entity_mask.unwrap_or_default();
@@ -222,6 +225,7 @@ pub fn update_text2d_layout(
 
         let text_changed = scale_factor != text_layout_info.scale_factor
             || block.is_changed()
+            || hinting.is_changed()
             || computed.needs_rerender()
             || (!reprocess_queue.is_empty() && reprocess_queue.remove(&entity));
 
@@ -248,8 +252,7 @@ pub fn update_text2d_layout(
                 scale_factor as f64,
                 &mut computed,
                 &mut font_system,
-                // Disable hinting as `Text2d` text is not pixel-aligned
-                bevy_text::Hinting::Disabled,
+                *hinting,
             ) {
                 Err(TextError::NoSuchFont) => {
                     // There was an error processing the text layout.

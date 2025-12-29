@@ -18,10 +18,9 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 
 use crate::{
     add_glyph_to_atlas, error::TextError, get_glyph_atlas_info, ComputedTextBlock, Font,
-    FontAtlasKey, FontAtlasSet, FontSmoothing, Justify, LineBreak, LineHeight, PositionedGlyph,
-    TextBounds, TextEntity, TextFont, TextLayout,
+    FontAtlasKey, FontAtlasSet, FontHinting, FontSmoothing, Justify, LineBreak, LineHeight,
+    PositionedGlyph, TextBounds, TextEntity, TextFont, TextLayout,
 };
-pub use cosmic_text::Hinting;
 use cosmic_text::{Attrs, Buffer, Family, Metrics, Shaping, Wrap};
 
 /// A wrapper resource around a [`cosmic_text::FontSystem`]
@@ -101,7 +100,7 @@ impl TextPipeline {
         scale_factor: f64,
         computed: &mut ComputedTextBlock,
         font_system: &mut CosmicFontSystem,
-        hinting: Hinting,
+        hinting: FontHinting,
     ) -> Result<(), TextError> {
         computed.needs_rerender = false;
 
@@ -194,7 +193,7 @@ impl TextPipeline {
         let buffer = &mut computed.buffer;
 
         // Set the metrics hinting strategy
-        buffer.set_hinting(font_system, hinting);
+        buffer.set_hinting(font_system, hinting.into());
 
         buffer.set_wrap(
             font_system,
@@ -252,7 +251,7 @@ impl TextPipeline {
         layout: &TextLayout,
         computed: &mut ComputedTextBlock,
         font_system: &mut CosmicFontSystem,
-        hinting: Hinting,
+        hinting: FontHinting,
     ) -> Result<TextMeasureInfo, TextError> {
         const MIN_WIDTH_CONTENT_BOUNDS: TextBounds = TextBounds::new_horizontal(0.0);
 
