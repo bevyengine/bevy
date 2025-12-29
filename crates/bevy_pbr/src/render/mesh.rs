@@ -65,7 +65,7 @@ use bevy_utils::{default, Parallel, TypeIdMap};
 use core::any::TypeId;
 use core::mem::size_of;
 use material_bind_groups::MaterialBindingId;
-use tracing::{error, warn};
+use tracing::{error, info_span, warn};
 
 use self::irradiance_volume::IRRADIANCE_VOLUMES_ARE_USABLE;
 use crate::{
@@ -88,6 +88,7 @@ use bevy_render::prelude::Msaa;
 use bevy_render::sync_world::{MainEntity, MainEntityHashMap};
 use bevy_render::view::ExtractedView;
 use bevy_render::RenderSystems::PrepareAssets;
+use bevy_tasks::ComputeTaskPool;
 
 use bytemuck::{Pod, Zeroable};
 use nonmax::{NonMaxU16, NonMaxU32};
@@ -1123,22 +1124,19 @@ impl RenderMeshInstanceGpuQueue {
 }
 
 impl RenderMeshInstanceGpuBuilder {
-    /// Flushes this mesh instance to the [`RenderMeshInstanceGpu`] and
-    /// [`MeshInputUniform`] tables, replacing the existing entry if applicable.
-    fn update(
-        mut self,
+    /// Prepares the data needed to update the mesh instance.
+    ///
+    /// This is the thread-safe part of the update.
+    fn prepare(
+        self,
         entity: MainEntity,
-        render_mesh_instances: &mut MainEntityHashMap<RenderMeshInstanceGpu>,
-        current_input_buffer: &mut InstanceInputUniformBuffer<MeshInputUniform>,
-        previous_input_buffer: &mut InstanceInputUniformBuffer<MeshInputUniform>,
         mesh_allocator: &MeshAllocator,
         mesh_material_ids: &RenderMaterialInstances,
         render_material_bindings: &RenderMaterialBindings,
         render_lightmaps: &RenderLightmaps,
         skin_uniforms: &SkinUniforms,
         timestamp: FrameCount,
-        meshes_to_reextract_next_frame: &mut MeshesToReextractNextFrame,
-    ) -> Option<u32> {
+    ) -> RenderMeshInstanceGpuPrepared {
         let (first_vertex_index, vertex_count) =
             match mesh_allocator.mesh_vertex_slice(&self.shared.mesh_asset_id) {
                 Some(mesh_vertex_slice) => (
@@ -1168,17 +1166,13 @@ impl RenderMeshInstanceGpuBuilder {
         let mesh_material = mesh_material_ids.mesh_material(entity);
         let mesh_material_binding_id = if mesh_material != DUMMY_MESH_MATERIAL.untyped() {
             match render_material_bindings.get(&mesh_material) {
-                Some(binding_id) => *binding_id,
-                None => {
-                    meshes_to_reextract_next_frame.insert(entity);
-                    return None;
-                }
+                Some(binding_id) => Some(*binding_id),
+                None => None,
             }
         } else {
             // Use a dummy material binding ID.
-            MaterialBindingId::default()
+            Some(MaterialBindingId::default())
         };
-        self.shared.material_bindings_index = mesh_material_binding_id;
 
         let lightmap_slot = match render_lightmaps.render_lightmaps.get(&entity) {
             Some(render_lightmap) => u16::from(*render_lightmap.slot_index),
@@ -1188,10 +1182,14 @@ impl RenderMeshInstanceGpuBuilder {
             .render_lightmaps
             .get(&entity)
             .map(|lightmap| lightmap.slab_index);
-        self.shared.lightmap_slab_index = lightmap_slab_index;
+
+        let mut shared = self.shared;
+        shared.lightmap_slab_index = lightmap_slab_index;
+
+        let material_bindings_index = mesh_material_binding_id.unwrap_or_default();
 
         // Create the mesh input uniform.
-        let mut mesh_input_uniform = MeshInputUniform {
+        let mesh_input_uniform = MeshInputUniform {
             world_from_local: self.world_from_local.to_transpose(),
             lightmap_uv_rect: self.lightmap_uv_rect,
             flags: self.mesh_flags.bits(),
@@ -1205,19 +1203,50 @@ impl RenderMeshInstanceGpuBuilder {
                 vertex_count
             },
             current_skin_index,
-            material_and_lightmap_bind_group_slot: u32::from(
-                self.shared.material_bindings_index.slot,
-            ) | ((lightmap_slot as u32) << 16),
-            tag: self.shared.tag,
+            material_and_lightmap_bind_group_slot: u32::from(material_bindings_index.slot)
+                | ((lightmap_slot as u32) << 16),
+            tag: shared.tag,
             pad: 0,
         };
 
-        // Did the last frame contain this entity as well?
-        let current_uniform_index;
         let world_from_local = &self.world_from_local;
         let center =
-            world_from_local.matrix3.mul_vec3(self.shared.center) + world_from_local.translation;
+            world_from_local.matrix3.mul_vec3(shared.center) + world_from_local.translation;
 
+        RenderMeshInstanceGpuPrepared {
+            shared,
+            mesh_input_uniform,
+            center,
+            material_ready: mesh_material_binding_id.is_some(),
+        }
+    }
+}
+
+pub struct RenderMeshInstanceGpuPrepared {
+    shared: RenderMeshInstanceShared,
+    mesh_input_uniform: MeshInputUniform,
+    center: Vec3,
+    material_ready: bool,
+}
+
+impl RenderMeshInstanceGpuPrepared {
+    /// Flushes this mesh instance to the [`RenderMeshInstanceGpu`] and
+    /// [`MeshInputUniform`] tables, replacing the existing entry if applicable.
+    fn update(
+        mut self,
+        entity: MainEntity,
+        render_mesh_instances: &mut MainEntityHashMap<RenderMeshInstanceGpu>,
+        current_input_buffer: &mut InstanceInputUniformBuffer<MeshInputUniform>,
+        previous_input_buffer: &mut InstanceInputUniformBuffer<MeshInputUniform>,
+        meshes_to_reextract_next_frame: &mut MeshesToReextractNextFrame,
+    ) -> Option<u32> {
+        if !self.material_ready {
+            meshes_to_reextract_next_frame.insert(entity);
+            return None;
+        }
+
+        // Did the last frame contain this entity as well?
+        let current_uniform_index;
         match render_mesh_instances.entry(entity) {
             Entry::Occupied(mut occupied_entry) => {
                 // Yes, it did. Replace its entry with the new one.
@@ -1230,15 +1259,15 @@ impl RenderMeshInstanceGpuBuilder {
                 let previous_mesh_input_uniform =
                     current_input_buffer.get_unchecked(current_uniform_index);
                 let previous_input_index = previous_input_buffer.add(previous_mesh_input_uniform);
-                mesh_input_uniform.previous_input_index = previous_input_index;
+                self.mesh_input_uniform.previous_input_index = previous_input_index;
 
                 // Write in the new mesh input uniform.
-                current_input_buffer.set(current_uniform_index, mesh_input_uniform);
+                current_input_buffer.set(current_uniform_index, self.mesh_input_uniform);
 
                 occupied_entry.replace_entry_with(|_, _| {
                     Some(RenderMeshInstanceGpu {
                         shared: self.shared,
-                        center,
+                        center: self.center,
                         current_uniform_index: NonMaxU32::new(current_uniform_index)
                             .unwrap_or_default(),
                     })
@@ -1247,11 +1276,11 @@ impl RenderMeshInstanceGpuBuilder {
 
             Entry::Vacant(vacant_entry) => {
                 // No, this is a new entity. Push its data on to the buffer.
-                current_uniform_index = current_input_buffer.add(mesh_input_uniform);
+                current_uniform_index = current_input_buffer.add(self.mesh_input_uniform);
 
                 vacant_entry.insert(RenderMeshInstanceGpu {
                     shared: self.shared,
-                    center,
+                    center: self.center,
                     current_uniform_index: NonMaxU32::new(current_uniform_index)
                         .unwrap_or_default(),
                 });
@@ -1768,80 +1797,143 @@ pub fn collect_meshes_for_gpu_building(
 
     previous_input_buffer.clear();
 
+    let (cpu_tx, cpu_rx) =
+        std::sync::mpsc::channel::<Vec<(MainEntity, RenderMeshInstanceGpuPrepared)>>();
+    let (gpu_tx, gpu_rx) = std::sync::mpsc::channel::<
+        Vec<(MainEntity, RenderMeshInstanceGpuPrepared, MeshCullingData)>,
+    >();
+    let (removed_tx, removed_rx) = std::sync::mpsc::channel::<Vec<MainEntity>>();
+
+    const CHUNK_SIZE: usize = 4096;
+
     // Build the [`RenderMeshInstance`]s and [`MeshInputUniform`]s.
+    ComputeTaskPool::get().scope(|scope| {
+        let cpu_culling_changed = cpu_tx;
+        let gpu_culling_changed = gpu_tx;
+        let mesh_allocator = &mesh_allocator;
+        let mesh_material_ids = &mesh_material_ids;
+        let render_material_bindings = &render_material_bindings;
+        let render_lightmaps = &render_lightmaps;
+        let skin_uniforms = &skin_uniforms;
+        let frame_count = *frame_count;
 
-    for queue in render_mesh_instance_queues.iter_mut() {
-        match *queue {
-            RenderMeshInstanceGpuQueue::None => {
-                // This can only happen if the queue is empty.
+        scope.spawn(async move {
+            let _g = info_span!("update_mesh_instances").entered();
+
+            for (entity, prepared) in cpu_rx.iter().flatten() {
+                prepared.update(
+                    entity,
+                    &mut *render_mesh_instances,
+                    current_input_buffer,
+                    previous_input_buffer,
+                    &mut meshes_to_reextract_next_frame,
+                );
             }
 
-            RenderMeshInstanceGpuQueue::CpuCulling {
-                ref mut changed,
-                ref mut removed,
-            } => {
-                for (entity, mesh_instance_builder) in changed.drain(..) {
-                    mesh_instance_builder.update(
-                        entity,
-                        &mut *render_mesh_instances,
-                        current_input_buffer,
-                        previous_input_buffer,
-                        &mesh_allocator,
-                        &mesh_material_ids,
-                        &render_material_bindings,
-                        &render_lightmaps,
-                        &skin_uniforms,
-                        *frame_count,
-                        &mut meshes_to_reextract_next_frame,
-                    );
-                }
-
-                for entity in removed.drain(..) {
-                    remove_mesh_input_uniform(
-                        entity,
-                        &mut *render_mesh_instances,
-                        current_input_buffer,
-                    );
-                }
+            for (entity, prepared, mesh_culling_builder) in gpu_rx.iter().flatten() {
+                let Some(instance_data_index) = prepared.update(
+                    entity,
+                    &mut *render_mesh_instances,
+                    current_input_buffer,
+                    previous_input_buffer,
+                    &mut meshes_to_reextract_next_frame,
+                ) else {
+                    continue;
+                };
+                mesh_culling_builder
+                    .update(&mut mesh_culling_data_buffer, instance_data_index as usize);
             }
 
-            RenderMeshInstanceGpuQueue::GpuCulling {
-                ref mut changed,
-                ref mut removed,
-            } => {
-                for (entity, mesh_instance_builder, mesh_culling_builder) in changed.drain(..) {
-                    let Some(instance_data_index) = mesh_instance_builder.update(
-                        entity,
-                        &mut *render_mesh_instances,
-                        current_input_buffer,
-                        previous_input_buffer,
-                        &mesh_allocator,
-                        &mesh_material_ids,
-                        &render_material_bindings,
-                        &render_lightmaps,
-                        &skin_uniforms,
-                        *frame_count,
-                        &mut meshes_to_reextract_next_frame,
-                    ) else {
-                        continue;
-                    };
-                    mesh_culling_builder
-                        .update(&mut mesh_culling_data_buffer, instance_data_index as usize);
+            for entity in removed_rx.iter().flatten() {
+                remove_mesh_input_uniform(
+                    entity,
+                    &mut *render_mesh_instances,
+                    current_input_buffer,
+                );
+            }
+
+            // Buffers can't be empty. Make sure there's something in the previous input buffer.
+            previous_input_buffer.ensure_nonempty();
+        });
+
+        for queue in render_mesh_instance_queues.iter_mut() {
+            match *queue {
+                RenderMeshInstanceGpuQueue::None => {
+                    // This can only happen if the queue is empty.
                 }
 
-                for entity in removed.drain(..) {
-                    remove_mesh_input_uniform(
-                        entity,
-                        &mut *render_mesh_instances,
-                        current_input_buffer,
-                    );
+                RenderMeshInstanceGpuQueue::CpuCulling {
+                    ref mut changed,
+                    ref mut removed,
+                } => {
+                    let _g = info_span!("scope_outer").entered();
+                    let cpu_culling = cpu_culling_changed.clone();
+                    if !removed.is_empty() {
+                        removed_tx.send(std::mem::take(removed)).ok();
+                    }
+                    scope.spawn(async move {
+                        let _g = info_span!("par_cpu_culling_scope").entered();
+                        while !changed.is_empty() {
+                            let chunk = changed
+                                .drain(..CHUNK_SIZE.min(changed.len()))
+                                .map(|(entity, mesh_instance_builder)| {
+                                    (
+                                        entity,
+                                        mesh_instance_builder.prepare(
+                                            entity,
+                                            mesh_allocator,
+                                            mesh_material_ids,
+                                            render_material_bindings,
+                                            render_lightmaps,
+                                            skin_uniforms,
+                                            frame_count,
+                                        ),
+                                    )
+                                })
+                                .collect();
+                            cpu_culling.send(chunk).ok();
+                        }
+                    });
+                }
+
+                RenderMeshInstanceGpuQueue::GpuCulling {
+                    ref mut changed,
+                    ref mut removed,
+                } => {
+                    let _g = info_span!("scope_outer").entered();
+                    let gpu_culling = gpu_culling_changed.clone();
+                    if !removed.is_empty() {
+                        removed_tx.send(std::mem::take(removed)).ok();
+                    }
+                    scope.spawn(async move {
+                        let _g = info_span!("par_gpu_culling_scope").entered();
+                        while !changed.is_empty() {
+                            let chunk = changed
+                                .drain(..CHUNK_SIZE.min(changed.len()))
+                                .map(|(entity, mesh_instance_builder, mesh_culling_builder)| {
+                                    (
+                                        entity,
+                                        mesh_instance_builder.prepare(
+                                            entity,
+                                            mesh_allocator,
+                                            mesh_material_ids,
+                                            render_material_bindings,
+                                            render_lightmaps,
+                                            skin_uniforms,
+                                            frame_count,
+                                        ),
+                                        mesh_culling_builder,
+                                    )
+                                })
+                                .collect();
+                            gpu_culling.send(chunk).ok();
+                        }
+                    });
                 }
             }
         }
-    }
-
-    // Buffers can't be empty. Make sure there's something in the previous input buffer.
-    previous_input_buffer.ensure_nonempty();
+        drop(removed_tx);
+    });
 }
 
 /// All data needed to construct a pipeline for rendering 3D meshes.

@@ -22,14 +22,14 @@ bluenoise_texture = ["bevy_image/ktx2", "bevy_image/zstd"]
 shader_format_glsl = ["bevy_shader/shader_format_glsl"]
 trace = ["bevy_render/trace"]
 # Enables the meshlet renderer for dense high-poly scenes (experimental)
-meshlet = ["dep:lz4_flex", "dep:range-alloc", "dep:bevy_tasks"]
+meshlet = ["dep:lz4_flex", "dep:range-alloc"]
 # Enables processing meshes into meshlet meshes
 meshlet_processor = [
-  "meshlet",
-  "dep:meshopt",
-  "dep:metis",
-  "dep:itertools",
-  "dep:bitvec",
+    "meshlet",
+    "dep:meshopt",
+    "dep:metis",
+    "dep:itertools",
+    "dep:bitvec",
 ]
 
 [dependencies]
@@ -44,21 +44,21 @@ bevy_ecs = { path = "../bevy_ecs", version = "0.18.0-dev" }
 bevy_light = { path = "../bevy_light", version = "0.18.0-dev" }
 bevy_image = { path = "../bevy_image", version = "0.18.0-dev" }
 bevy_mesh = { path = "../bevy_mesh", version = "0.18.0-dev", features = [
-  "morph",
-  "bevy_mikktspace",
+    "morph",
+    "bevy_mikktspace",
 ] }
 bevy_shader = { path = "../bevy_shader", version = "0.18.0-dev" }
 bevy_math = { path = "../bevy_math", version = "0.18.0-dev" }
 bevy_reflect = { path = "../bevy_reflect", version = "0.18.0-dev" }
 bevy_render = { path = "../bevy_render", version = "0.18.0-dev", features = [
-  "morph",
+    "morph",
 ] }
 bevy_camera = { path = "../bevy_camera", version = "0.18.0-dev" }
-bevy_tasks = { path = "../bevy_tasks", version = "0.18.0-dev", optional = true }
+bevy_tasks = { path = "../bevy_tasks", version = "0.18.0-dev" }
 bevy_transform = { path = "../bevy_transform", version = "0.18.0-dev" }
 bevy_utils = { path = "../bevy_utils", version = "0.18.0-dev" }
 bevy_platform = { path = "../bevy_platform", version = "0.18.0-dev", default-features = false, features = [
-  "std",
+    "std",
 ] }
 
 # other
@@ -68,7 +68,7 @@ thiserror = { version = "2", default-features = false }
 derive_more = { version = "2", default-features = false, features = ["from"] }
 # meshlet
 lz4_flex = { version = "0.12", default-features = false, features = [
-  "frame",
+    "frame",
 ], optional = true }
 range-alloc = { version = "0.1", optional = true }
 meshopt = { version = "0.6.2", optional = true }
