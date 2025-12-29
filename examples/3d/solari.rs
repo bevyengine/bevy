@@ -171,8 +171,8 @@ fn setup_pica_pica(
         Text::default(),
         Node {
             position_type: PositionType::Absolute,
-            bottom: Val::Px(12.0),
-            left: Val::Px(12.0),
+            bottom: px(12.0),
+            left: px(12.0),
             ..default()
         },
     ));
@@ -345,8 +345,8 @@ fn setup_many_lights(
     commands.spawn((
         Node {
             position_type: PositionType::Absolute,
-            right: Val::Px(0.0),
-            padding: UiRect::all(px(4.0)),
+            right: px(0.0),
+            padding: px(4.0).all(),
             border_radius: BorderRadius::bottom_left(px(4.0)),
             ..default()
         },
