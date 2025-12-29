@@ -4,9 +4,9 @@
 #import bevy_solari::brdf::{evaluate_brdf, evaluate_specular_brdf}
 #import bevy_solari::gbuffer_utils::gpixel_resolve
 #import bevy_solari::realtime_bindings::{view_output, gi_reservoirs_a, gbuffer, depth_buffer, view, constants}
-#import bevy_solari::sampling::{sample_ggx_vndf, ggx_vndf_pdf}
-#import bevy_solari::scene_bindings::{trace_ray, resolve_ray_hit_full, RAY_T_MIN, RAY_T_MAX}
-#import bevy_solari::world_cache::{query_world_cache_radiance, WORLD_CACHE_CELL_LIFETIME}
+#import bevy_solari::sampling::{sample_ggx_vndf, ggx_vndf_pdf, hit_random_light_pdf, power_heuristic}
+#import bevy_solari::scene_bindings::{trace_ray, resolve_ray_hit_full, ResolvedRayHitFull, RAY_T_MIN, RAY_T_MAX}
+#import bevy_solari::world_cache::{query_world_cache_radiance, query_world_cache_lights, evaluate_lighting_from_cache, write_world_cache_light, WORLD_CACHE_CELL_LIFETIME}
 
 const DIFFUSE_GI_REUSE_ROUGHNESS_THRESHOLD: f32 = 0.4;
 const WORLD_CACHE_TERMINATION_ROUGHNESS_THRESHOLD: f32 = 0.4;
@@ -84,7 +84,7 @@ fn trace_glossy_path(initial_ray_origin: vec3<f32>, initial_wi: vec3<f32>, rng: 
         let wo = -wi;
         let wo_tangent = vec3(dot(wo, T), dot(wo, B), dot(wo, N));
 
-        // Add emissive contribution (but not on the first bounce, since ReSTIR DI handles that)
+        // Add emissive contribution (but not on the first bounce, since DI handles that)
         if i != 0u {
             radiance += throughput * emissive_mis_weight(p_bounce, ray_hit, surface_perfectly_specular) * ray_hit.material.emissive;
         }
@@ -95,14 +95,16 @@ fn trace_glossy_path(initial_ray_origin: vec3<f32>, initial_wi: vec3<f32>, rng: 
         if ray_hit.material.roughness > WORLD_CACHE_TERMINATION_ROUGHNESS_THRESHOLD && i != 0u {
             // Surface is very rough, terminate path in the world cache
             let diffuse_brdf = ray_hit.material.base_color / PI;
-            radiance += throughput * diffuse_brdf * query_world_cache(ray_hit.world_position, ray_hit.geometric_world_normal, view.world_position, WORLD_CACHE_CELL_LIFETIME, rng);
+            radiance += throughput * diffuse_brdf * query_world_cache_radiance(rng, ray_hit.world_position, ray_hit.geometric_world_normal, view.world_position, WORLD_CACHE_CELL_LIFETIME);
             break;
         } else if !surface_perfectly_specular {
             // Sample direct lighting (NEE)
-            let direct_lighting = sample_random_light(ray_hit.world_position, ray_hit.world_normal, rng);
-            let direct_lighting_brdf = evaluate_brdf(ray_hit.world_normal, wo, direct_lighting.wi, ray_hit.material);
+            let cell = query_world_cache_lights(rng, ray_hit.world_position, ray_hit.world_normal, view.world_position);
+            let direct_lighting = evaluate_lighting_from_cache(rng, cell, ray_hit.world_position, ray_hit.world_normal, wo, ray_hit.material, view.exposure);
+            write_world_cache_light(rng, direct_lighting, ray_hit.world_position, ray_hit.world_normal, view.world_position, WORLD_CACHE_CELL_LIFETIME, view.exposure);
             let mis_weight = nee_mis_weight(direct_lighting.inverse_pdf, direct_lighting.brdf_rays_can_hit, wo_tangent, direct_lighting.wi, ray_hit, TBN);
-            radiance += throughput * mis_weight * direct_lighting.radiance * direct_lighting.inverse_pdf * direct_lighting_brdf;
+
+            radiance += throughput * mis_weight * direct_lighting.radiance * direct_lighting.inverse_pdf;
         }
 
         // Sample new ray direction from the GGX BRDF for next bounce
@@ -123,7 +125,7 @@ fn trace_glossy_path(initial_ray_origin: vec3<f32>, initial_wi: vec3<f32>, rng: 
 fn emissive_mis_weight(p_bounce: f32, ray_hit: ResolvedRayHitFull, previous_surface_perfectly_specular: bool) -> f32 {
     if previous_surface_perfectly_specular { return 1.0; }
 
-    let p_light = random_emissive_light_pdf(ray_hit);
+    let p_light = hit_random_light_pdf(ray_hit);
     return power_heuristic(p_bounce, p_light);
 }
 
@@ -140,14 +142,4 @@ fn nee_mis_weight(inverse_p_light: f32, brdf_rays_can_hit: bool, wo_tangent: vec
     let p_light = 1.0 / inverse_p_light;
     let p_bounce = ggx_vndf_pdf(wo_tangent, wi_tangent, ray_hit.material.roughness);
     return power_heuristic(p_light, p_bounce);
-}
-
-// Don't adjust the size of this struct without also adjusting GI_RESERVOIR_STRUCT_SIZE.
-struct Reservoir {
-    sample_point_world_position: vec3<f32>,
-    weight_sum: f32,
-    radiance: vec3<f32>,
-    confidence_weight: f32,
-    sample_point_world_normal: vec3<f32>,
-    unbiased_contribution_weight: f32,
 }

@@ -60,7 +60,7 @@ const WORLD_CACHE_EMPTY_CELL: u32 = 0u;
 struct WorldCacheHashData {
     key: u32,
     checksum: u32,
-    jittered_position: vec3<f32>,
+    position: vec3<f32>,
 }
 
 fn hash_for_cache(rng: ptr<function, u32>, world_position: vec3<f32>, world_normal: vec3<f32>, view_position: vec3<f32>) -> WorldCacheHashData {
@@ -74,12 +74,12 @@ fn hash_for_cache(rng: ptr<function, u32>, world_position: vec3<f32>, world_norm
     cell_size = get_cell_size(world_position, view_position);
 #endif
 
-    var world_position_quantized = quantize_position(jittered_position, cell_size);    
+    var world_position_quantized = quantize_position(world_position, cell_size);    
     let world_normal_quantized = quantize_normal(world_normal);
 
     let key = compute_key(world_position_quantized, world_normal_quantized);
     let checksum = compute_checksum(world_position_quantized, world_normal_quantized);
-    return WorldCacheHashData(key, checksum, jittered_position);
+    return WorldCacheHashData(key, checksum, world_position);
 }
 
 fn query_world_cache_radiance(rng: ptr<function, u32>, world_position: vec3<f32>, world_normal: vec3<f32>, view_position: vec3<f32>, cell_lifetime: u32) -> vec3<f32> {
@@ -102,7 +102,7 @@ fn query_world_cache_radiance(rng: ptr<function, u32>, world_position: vec3<f32>
             return world_cache_radiance[hash.key].rgb;
         } else if existing_checksum == WORLD_CACHE_EMPTY_CELL {
             // Cell is empty - initialize it
-            world_cache_geometry_data[hash.key].world_position = hash.jittered_position;
+            world_cache_geometry_data[hash.key].world_position = hash.position;
             world_cache_geometry_data[hash.key].world_normal = world_normal;
             world_cache_light_data[hash.key].visible_light_count = 0u;
             return vec3(0.0);
@@ -115,16 +115,20 @@ fn query_world_cache_radiance(rng: ptr<function, u32>, world_position: vec3<f32>
     return vec3(0.0);
 }
 
-fn query_world_cache_lights(rng: ptr<function, u32>, world_position: vec3<f32>, world_normal: vec3<f32>, view_position: vec3<f32>) -> WorldCacheLightDataRead {
+fn query_world_cache_lights(rng: ptr<function, u32>, world_position: vec3<f32>, world_normal: vec3<f32>, view_position: vec3<f32>) -> WorldCacheLightDataRead {    
     let cell_size = get_cell_size(world_position, view_position);
 
     // https://tomclabault.github.io/blog/2025/regir, jitter_world_position_tangent_plane
+#ifdef JITTER_WORLD_CACHE
     let TBN = orthonormalize(world_normal);
     let offset = (rand_vec2f(rng) * 2.0 - 1.0) * cell_size * 0.5;
-    let jittered_position = world_position + offset.x * TBN[0] + offset.y * TBN[1];
+    world_position += offset.x * TBN[0] + offset.y * TBN[1];
+    cell_size = get_cell_size(world_position, view_position);
+#endif
 
-    var world_position_quantized = quantize_position(jittered_position, cell_size);    
-    let center_offset = quantize_position_fract(jittered_position, cell_size) - vec3(0.5);
+    var world_position_quantized = quantize_position(world_position, cell_size);    
+
+    let center_offset = quantize_position_fract(world_position, cell_size) - vec3(0.5);
     let direction = vec3<i32>(sign(center_offset));
     let lerp = vec3(rand_f(rng), rand_f(rng), rand_f(rng));
     let p_lerp_away = abs(center_offset);
@@ -153,7 +157,7 @@ fn query_world_cache_lights(rng: ptr<function, u32>, world_position: vec3<f32>, 
             }
 
             atomicStore(&world_cache_life[key], WORLD_CACHE_CELL_LIFETIME);
-            world_cache_geometry_data[key].world_position = jittered_position;
+            world_cache_geometry_data[key].world_position = world_position;
             world_cache_geometry_data[key].world_normal = world_normal;
             world_cache_light_data[key].visible_light_count = 0u;
             return WorldCacheLightDataRead(0u, 0u, array<WorldCacheSingleLightData, WORLD_CACHE_CELL_LIGHT_COUNT>());
@@ -184,7 +188,7 @@ fn write_world_cache_light(rng: ptr<function, u32>, cell: EvaluatedLighting, wor
             atomicStore(&world_cache_light_data_new_lights[hash.key].visible_lights[index], packed);
 
             if existing_checksum == WORLD_CACHE_EMPTY_CELL {
-                world_cache_geometry_data[hash.key].world_position = hash.jittered_position;
+                world_cache_geometry_data[hash.key].world_position = hash.position;
                 world_cache_geometry_data[hash.key].world_normal = world_normal;
                 world_cache_light_data[hash.key].visible_light_count = 0u;
             }
@@ -199,6 +203,8 @@ struct EvaluatedLighting {
     radiance: vec3<f32>,
     inverse_pdf: f32,
     data: WorldCacheSingleLightData,
+    wi: vec3<f32>,
+    brdf_rays_can_hit: bool,
 }
 
 fn isnaninf(x: vec3<f32>) -> bool {
@@ -237,7 +243,7 @@ fn evaluate_lighting_from_cache(
     }
 
     if weight_sum < 0.0001 {
-        return EvaluatedLighting(vec3(0.0), 0.0, WorldCacheSingleLightData(0, 0.0));
+        return EvaluatedLighting(vec3(0.0), 0.0, WorldCacheSingleLightData(0, 0.0), vec3(0.0), false);
     }
 
     // TODO: reuse the eval that we did for light selection somehow
@@ -246,7 +252,7 @@ fn evaluate_lighting_from_cache(
     let visibility = trace_light_visibility(world_position, direct_lighting.world_position);
     let radiance = direct_lighting.radiance * brdf;
     let final_inverse_pdf = direct_lighting.inverse_pdf * inverse_pdf * visibility;
-    return EvaluatedLighting(radiance, final_inverse_pdf, WorldCacheSingleLightData(sel, sel_weight * visibility));
+    return EvaluatedLighting(radiance, final_inverse_pdf, WorldCacheSingleLightData(sel, sel_weight * visibility), direct_lighting.wi, direct_lighting.brdf_rays_can_hit);
 }
 
 struct SelectedLight {

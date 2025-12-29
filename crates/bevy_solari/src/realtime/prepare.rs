@@ -12,6 +12,8 @@ use bevy_ecs::{
     query::With,
     system::{Commands, Query, Res},
 };
+#[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
+use bevy_image::ToExtents;
 use bevy_math::UVec2;
 use bevy_render::{
     camera::ExtractedCamera,
@@ -19,7 +21,12 @@ use bevy_render::{
     renderer::RenderDevice,
 };
 #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
-use bevy_render::{render_resource::TextureFormat, texture::CachedTexture};
+use bevy_render::{
+    render_resource::{
+        TextureDescriptor, TextureDimension, TextureFormat, TextureUsages, TextureViewDescriptor,
+    },
+    texture::CachedTexture,
+};
 
 /// Size of the GI `Reservoir` shader struct in bytes.
 const GI_RESERVOIR_STRUCT_SIZE: u64 = 48;

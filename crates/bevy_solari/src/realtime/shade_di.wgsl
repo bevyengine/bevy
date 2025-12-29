@@ -40,7 +40,7 @@ fn shade(@builtin(workgroup_id) workgroup_id: vec3<u32>, @builtin(global_invocat
     let direct_lighting = evaluate_lighting_from_cache(&rng, cell, world_position, world_normal, wo, material, view.exposure);
     write_world_cache_light(&rng, direct_lighting, world_position, world_normal, view.world_position, WORLD_CACHE_CELL_LIFETIME, view.exposure);
 
-    let pixel_color = direct_lighting.radiance * direct_lighting.inverse_pdf * view.exposure + material.emissive;
+    let pixel_color = (direct_lighting.radiance * direct_lighting.inverse_pdf + material.emissive) * view.exposure;
     textureStore(view_output, global_id.xy, vec4(pixel_color, 1.0));
 }
 

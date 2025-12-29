@@ -181,7 +181,7 @@ fn calculate_light_contribution(light_sample: LightSample, ray_origin: vec3<f32>
 
     let radiance = light_sample.radiance * cos_theta_origin * (cos_theta_light / light_distance_squared);
 
-    return LightContribution(light_sample.light_id, light_sample.world_position, radiance, light_sample.inverse_pdf, wi);
+    return LightContribution(light_sample.light_id, light_sample.world_position, radiance, light_sample.inverse_pdf, wi, light_sample.world_position.w == 1.0);
 }
 
 fn trace_light_visibility(ray_origin: vec3<f32>, light_sample_world_position: vec4<f32>) -> f32 {
