@@ -164,7 +164,7 @@ ui = [
 
 # COLLECTION: Enable this feature during development to improve the development experience. This adds features like asset hot-reloading and debugging tools. This should not be enabled for published apps!
 dev = [
-  "debug", # TODO: rename this to something more specific ... this is a "debug ECS names" feature
+  "debug",          # TODO: rename this to something more specific ... this is a "debug ECS names" feature
   "bevy_dev_tools",
   "file_watcher",
 ]
