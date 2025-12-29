@@ -25,6 +25,7 @@ use bevy_derive::{Deref, DerefMut};
 use bevy_picking::PickingSystems;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 mod accessibility;
+mod directional_navigation;
 // This module is not re-exported, but is instead made public.
 // This is intended to discourage accidental use of the experimental API.
 pub mod experimental;
@@ -34,6 +35,7 @@ mod layout;
 mod stack;
 mod ui_node;
 
+pub use directional_navigation::*;
 pub use focus::*;
 pub use geometry::*;
 pub use gradients::*;
@@ -269,4 +271,6 @@ fn build_text_interop(app: &mut App) {
         PostUpdate,
         AmbiguousWithUpdateText2dLayout.ambiguous_with(bevy_sprite::update_text2d_layout),
     );
+
+    app.add_plugins(directional_navigation::AutoDirectionalNavigationPlugin::default());
 }
