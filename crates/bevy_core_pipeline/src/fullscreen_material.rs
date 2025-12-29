@@ -299,7 +299,7 @@ impl<T: FullscreenMaterial> ViewNode for FullscreenMaterialNode<T> {
 
         let bind_group = render_context.render_device().create_bind_group(
             "post_process_bind_group",
-            &pipeline_cache.get_bind_group_layout(&fullscreen_pipeline.layout),
+            pipeline_cache.get_bind_group_layout(&fullscreen_pipeline.layout),
             &BindGroupEntries::sequential((
                 post_process.source,
                 &fullscreen_pipeline.sampler,
