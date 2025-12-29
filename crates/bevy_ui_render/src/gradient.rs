@@ -249,6 +249,7 @@ pub struct ExtractedGradient {
     pub border: BorderRect,
     pub resolved_gradient: ResolvedGradient,
     pub color_space: InterpolationColorSpace,
+    pub is_container: bool,
 }
 
 #[derive(Resource, Default)]
@@ -354,6 +355,7 @@ pub fn extract_gradients(
             &InheritedVisibility,
             Option<&CalculatedClip>,
             AnyOf<(&BackgroundGradient, &BorderGradient)>,
+            Has<UiContainerTarget>,
         )>,
     >,
     camera_map: Extract<UiCameraMap>,
@@ -370,6 +372,7 @@ pub fn extract_gradients(
         inherited_visibility,
         clip,
         (gradient, gradient_border),
+        is_container,
     ) in &gradients_query
     {
         // Skip invisible images
@@ -419,6 +422,7 @@ pub fn extract_gradients(
                         },
                         main_entity: entity.into(),
                         render_entity: commands.spawn(TemporaryRenderEntity).id(),
+                        is_container,
                     });
                     continue;
                 }
@@ -458,6 +462,7 @@ pub fn extract_gradients(
                             border: uinode.border,
                             resolved_gradient: ResolvedGradient::Linear { angle: *angle },
                             color_space: *color_space,
+                            is_container,
                         });
                     }
                     Gradient::Radial(RadialGradient {
@@ -508,6 +513,7 @@ pub fn extract_gradients(
                             border: uinode.border,
                             resolved_gradient: ResolvedGradient::Radial { center: c, size },
                             color_space: *color_space,
+                            is_container,
                         });
                     }
                     Gradient::Conic(ConicGradient {
@@ -567,6 +573,7 @@ pub fn extract_gradients(
                                 center: g_start,
                             },
                             color_space: *color_space,
+                            is_container,
                         });
                     }
                 }
@@ -597,7 +604,13 @@ pub fn queue_gradient(
             continue;
         };
 
-        let Ok(view) = camera_views.get(default_camera_view.0) else {
+        let get_views = if gradient.is_container {
+            camera_views.get(default_camera_view.ui_container)
+        } else {
+            camera_views.get(default_camera_view.ui_camera)
+        };
+
+        let Ok(view) = get_views else {
             continue;
         };
 

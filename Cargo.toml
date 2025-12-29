@@ -4271,6 +4271,17 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
+name = "ui_container"
+path = "examples/ui/ui_container.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.ui_container]
+name = "UI Container"
+description = "Demonstrates using UiContainer"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "cubic_splines"
 path = "examples/math/cubic_splines.rs"
 # Causes an ICE on docs.rs

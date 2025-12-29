@@ -208,6 +208,7 @@ pub struct ExtractedUiTextureSlice {
     pub inverse_scale_factor: f32,
     pub main_entity: MainEntity,
     pub render_entity: Entity,
+    pub is_container: bool,
 }
 
 #[derive(Resource, Default)]
@@ -228,13 +229,16 @@ pub fn extract_ui_texture_slices(
             Option<&CalculatedClip>,
             &ComputedUiTargetCamera,
             &ImageNode,
+            Has<UiContainerTarget>,
         )>,
     >,
     camera_map: Extract<UiCameraMap>,
 ) {
     let mut camera_mapper = camera_map.get_mapper();
 
-    for (entity, uinode, transform, inherited_visibility, clip, camera, image) in &slicers_query {
+    for (entity, uinode, transform, inherited_visibility, clip, camera, image, is_container) in
+        &slicers_query
+    {
         // Skip invisible images
         if !inherited_visibility.get()
             || image.color.is_fully_transparent()
@@ -298,6 +302,7 @@ pub fn extract_ui_texture_slices(
             flip_y: image.flip_y,
             inverse_scale_factor: uinode.inverse_scale_factor,
             main_entity: entity.into(),
+            is_container,
         });
     }
 }
@@ -317,6 +322,7 @@ pub fn queue_ui_slices(
     draw_functions: Res<DrawFunctions<TransparentUi>>,
 ) {
     let draw_function = draw_functions.read().id::<DrawUiTextureSlices>();
+
     for (index, extracted_slicer) in extracted_ui_slicers.slices.iter().enumerate() {
         let Ok(default_camera_view) =
             render_views.get_mut(extracted_slicer.extracted_camera_entity)
@@ -324,7 +330,13 @@ pub fn queue_ui_slices(
             continue;
         };
 
-        let Ok(view) = camera_views.get(default_camera_view.0) else {
+        let get_view = if extracted_slicer.is_container {
+            camera_views.get(default_camera_view.ui_container)
+        } else {
+            camera_views.get(default_camera_view.ui_camera)
+        };
+
+        let Ok(view) = get_view else {
             continue;
         };
 
