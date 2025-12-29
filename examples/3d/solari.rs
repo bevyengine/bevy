@@ -6,6 +6,9 @@ use bevy::{
     camera_controller::free_camera::{FreeCamera, FreeCameraPlugin},
     diagnostic::{Diagnostic, DiagnosticPath, DiagnosticsStore},
     gltf::GltfMaterialName,
+    image::{ImageAddressMode, ImageLoaderSettings, ImageSampler, ImageSamplerDescriptor},
+    mesh::VertexAttributeValues,
+    post_process::bloom::Bloom,
     prelude::*,
     render::{diagnostic::RenderDiagnosticsPlugin, render_resource::TextureUsages},
     scene::SceneInstanceReady,
@@ -14,6 +17,8 @@ use bevy::{
         prelude::{RaytracingMesh3d, SolariLighting, SolariPlugins},
     },
 };
+use rand::{Rng, SeedableRng};
+use rand_chacha::ChaCha8Rng;
 use std::f32::consts::PI;
 
 #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
@@ -27,6 +32,9 @@ struct Args {
     /// use the reference pathtracer instead of the realtime lighting system.
     #[argh(switch)]
     pathtracer: Option<bool>,
+    /// stress test a scene with many lights.
+    #[argh(switch)]
+    many_lights: Option<bool>,
 }
 
 fn main() {
@@ -45,20 +53,28 @@ fn main() {
         FreeCameraPlugin,
         RenderDiagnosticsPlugin,
     ))
-    .insert_resource(args)
-    .add_systems(Startup, setup);
+    .insert_resource(args);
+
+    if args.many_lights == Some(true) {
+        app.add_systems(Startup, setup_many_lights);
+    } else {
+        app.add_systems(Startup, setup_pica_pica);
+    }
 
     if args.pathtracer == Some(true) {
         app.add_plugins(PathtracingPlugin);
     } else {
-        app.add_systems(Update, (pause_scene, toggle_lights, patrol_path));
-        app.add_systems(PostUpdate, (update_control_text, update_performance_text));
+        if args.many_lights != Some(true) {
+            app.add_systems(Update, (pause_scene, toggle_lights, patrol_path))
+                .add_systems(PostUpdate, update_control_text);
+        }
+        app.add_systems(PostUpdate, update_performance_text);
     }
 
     app.run();
 }
 
-fn setup(
+fn setup_pica_pica(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     args: Res<Args>,
@@ -160,6 +176,177 @@ fn setup(
             ..default()
         },
     ));
+
+    commands.spawn((
+        Node {
+            position_type: PositionType::Absolute,
+            right: Val::Px(0.0),
+            padding: UiRect::all(px(4.0)),
+            border_radius: BorderRadius::bottom_left(px(4.0)),
+            ..default()
+        },
+        BackgroundColor(Color::srgba(0.10, 0.10, 0.10, 0.8).into()),
+        children![(
+            PerformanceText,
+            Text::default(),
+            TextFont {
+                font_size: 8.0,
+                ..default()
+            },
+        )],
+    ));
+}
+
+fn setup_many_lights(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    args: Res<Args>,
+    #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))] dlss_rr_supported: Option<
+        Res<DlssRayReconstructionSupported>,
+    >,
+) {
+    let mut rng = ChaCha8Rng::seed_from_u64(42);
+
+    let mut plane_mesh = Plane3d::default()
+        .mesh()
+        .size(40.0, 40.0)
+        .build()
+        .with_generated_tangents()
+        .unwrap();
+    match plane_mesh.attribute_mut(Mesh::ATTRIBUTE_UV_0).unwrap() {
+        VertexAttributeValues::Float32x2(items) => {
+            items.iter_mut().flatten().for_each(|x| *x *= 3.0)
+        }
+        _ => unreachable!(),
+    }
+    let plane_mesh = meshes.add(plane_mesh);
+    let cube_mesh = meshes.add(
+        Cuboid::default()
+            .mesh()
+            .build()
+            .with_generated_tangents()
+            .unwrap(),
+    );
+    let sphere_mesh = meshes.add(
+        Sphere::default()
+            .mesh()
+            .build()
+            .with_generated_tangents()
+            .unwrap(),
+    );
+
+    commands
+        .spawn((
+            RaytracingMesh3d(plane_mesh.clone()),
+            MeshMaterial3d(materials.add(StandardMaterial {
+                base_color_texture: Some(
+                    asset_server.load_with_settings::<Image, ImageLoaderSettings>(
+                        "textures/uv_checker_bw.png",
+                        |settings| {
+                            settings.sampler = ImageSampler::Descriptor(ImageSamplerDescriptor {
+                                address_mode_u: ImageAddressMode::Repeat,
+                                address_mode_v: ImageAddressMode::Repeat,
+                                ..default()
+                            });
+                        },
+                    ),
+                ),
+                perceptual_roughness: 0.0,
+                ..default()
+            })),
+        ))
+        .insert_if(Mesh3d(plane_mesh), || args.pathtracer != Some(true));
+
+    for _ in 0..200 {
+        commands
+            .spawn((
+                RaytracingMesh3d(cube_mesh.clone()),
+                MeshMaterial3d(materials.add(StandardMaterial {
+                    base_color: Color::srgb(rng.random(), rng.random(), rng.random()),
+                    perceptual_roughness: rng.random(),
+                    ..default()
+                })),
+                Transform::default()
+                    .with_scale(Vec3 {
+                        x: rng.random_range(0.2..=2.0),
+                        y: rng.random_range(0.2..=2.0),
+                        z: rng.random_range(0.2..=2.0),
+                    })
+                    .with_translation(Vec3::new(
+                        rng.random_range(-18.0..=18.0),
+                        0.2,
+                        rng.random_range(-18.0..=18.0),
+                    )),
+            ))
+            .insert_if(Mesh3d(cube_mesh.clone()), || args.pathtracer != Some(true));
+    }
+
+    for _ in 0..100 {
+        commands
+            .spawn((
+                RaytracingMesh3d(sphere_mesh.clone()),
+                MeshMaterial3d(
+                    materials.add(StandardMaterial {
+                        emissive: Color::linear_rgb(
+                            rng.random::<f32>() * 20000.0,
+                            rng.random::<f32>() * 20000.0,
+                            rng.random::<f32>() * 20000.0,
+                        )
+                        .into(),
+                        ..default()
+                    }),
+                ),
+                Transform::default().with_translation(Vec3::new(
+                    rng.random_range(-18.0..=18.0),
+                    rng.random_range(6.0..=9.0),
+                    rng.random_range(-18.0..=18.0),
+                )),
+            ))
+            .insert_if(Mesh3d(sphere_mesh.clone()), || {
+                args.pathtracer != Some(true)
+            });
+    }
+
+    let mut camera = commands.spawn((
+        Camera3d::default(),
+        Camera {
+            clear_color: ClearColorConfig::Custom(Color::BLACK),
+            ..default()
+        },
+        FreeCamera {
+            walk_speed: 3.0,
+            run_speed: 10.0,
+            ..Default::default()
+        },
+        Transform::from_translation(Vec3::new(0.0919233, 7.5015035, 28.449198)).with_rotation(
+            Quat::from_xyzw(-0.18394549, 0.0019948867, 0.0003733214, 0.98293436),
+        ),
+        // Msaa::Off and CameraMainTextureUsages with STORAGE_BINDING are required for Solari
+        CameraMainTextureUsages::default().with(TextureUsages::STORAGE_BINDING),
+        Msaa::Off,
+        Bloom {
+            intensity: 0.1,
+            ..Bloom::NATURAL
+        },
+    ));
+
+    if args.pathtracer == Some(true) {
+        camera.insert(Pathtracer::default());
+    } else {
+        camera.insert(SolariLighting::default());
+    }
+
+    // Using DLSS Ray Reconstruction for denoising (and cheaper rendering via upscaling) is _highly_ recommended when using Solari
+    #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
+    if dlss_rr_supported.is_some() {
+        camera.insert(Dlss::<DlssRayReconstructionFeature> {
+            perf_quality_mode: Default::default(),
+            reset: Default::default(),
+            _phantom_data: Default::default(),
+        });
+    }
 
     commands.spawn((
         Node {
