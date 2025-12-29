@@ -828,6 +828,12 @@ python3 -m http.server --directory examples/wasm
 ruby -run -ehttpd examples/wasm
 ```
 
+On Unix platforms, you can utilize the `run-example.sh` script in the wasm directory.
+For example, to run the "many-foxes" example, you can run the following command from the root of the workspace:
+```sh
+./examples/wasm/run-example.sh many_foxes
+```
+
 ##### WebGL2 and WebGPU
 
 Bevy support for WebGPU is being worked on, but is currently experimental.
