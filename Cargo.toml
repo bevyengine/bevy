@@ -10,7 +10,7 @@ keywords = ["game", "engine", "gamedev", "graphics", "bevy"]
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/bevyengine/bevy"
 documentation = "https://docs.rs/bevy"
-rust-version = "1.88.0"
+rust-version = "1.89.0"
 
 [workspace]
 resolver = "2"
@@ -691,6 +691,21 @@ libm = ["bevy_internal/libm"]
 # Enables use of browser APIs. Note this is currently only applicable on `wasm32` architectures.
 web = ["bevy_internal/web"]
 
+# Mouse support. Automatically enabled by `bevy_window`.
+mouse = ["bevy_internal/mouse"]
+
+# Keyboard support. Automatically enabled by `bevy_window`.
+keyboard = ["bevy_internal/keyboard"]
+
+# Gamepad support. Automatically enabled by `bevy_gilrs`.
+gamepad = ["bevy_internal/gamepad"]
+
+# Touch support. Automatically enabled by `bevy_window`.
+touch = ["bevy_internal/touch"]
+
+# Gestures support. Automatically enabled by `bevy_window`.
+gestures = ["bevy_internal/gestures"]
+
 # Enable hotpatching of Bevy systems
 hotpatching = ["bevy_internal/hotpatching"]
 
@@ -708,7 +723,7 @@ bevy_dylib = { path = "crates/bevy_dylib", version = "0.18.0-dev", default-featu
 [dev-dependencies]
 rand = "0.9.0"
 rand_chacha = "0.9.0"
-ron = "0.11"
+ron = "0.12"
 flate2 = "1.0"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1.0.140"
@@ -732,6 +747,7 @@ event-listener = "5.3.0"
 anyhow = "1"
 accesskit = "0.21"
 nonmax = "0.5"
+gltf = "1.4"
 
 [target.'cfg(not(target_family = "wasm"))'.dev-dependencies]
 ureq = { version = "3.0.8", features = ["json"] }
@@ -3112,6 +3128,17 @@ description = "Demonstrates how to write a specialized mesh pipeline"
 category = "Shaders"
 wasm = true
 
+[[example]]
+name = "fullscreen_material"
+path = "examples/shader_advanced/fullscreen_material.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.fullscreen_material]
+name = "Fullscreen Material"
+description = "Demonstrates how to write a fullscreen material"
+category = "Shaders Advanced"
+wasm = true
+
 # Stress tests
 [[package.metadata.example_category]]
 name = "Stress Tests"
@@ -3415,6 +3442,17 @@ wasm = true
 
 # UI (User Interface)
 [[example]]
+name = "anchor_layout"
+path = "examples/ui/anchor_layout.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.anchor_layout]
+name = "Anchor Layout"
+description = "Shows an 'anchor layout' style of ui layout"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "borders"
 path = "examples/ui/borders.rs"
 doc-scrape-examples = true
@@ -3470,6 +3508,17 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
+name = "font_weights"
+path = "examples/ui/font_weights.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.font_weights]
+name = "Font Weights"
+description = "Demonstrates how to use font weights."
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "window_fallthrough"
 path = "examples/ui/window_fallthrough.rs"
 doc-scrape-examples = true
@@ -3479,6 +3528,18 @@ name = "Window Fallthrough"
 description = "Illustrates how to access `winit::window::Window`'s `hittest` functionality."
 category = "UI (User Interface)"
 wasm = false
+
+[[example]]
+name = "vertical_slider"
+path = "examples/ui/vertical_slider.rs"
+doc-scrape-examples = true
+required-features = ["experimental_bevy_ui_widgets"]
+
+[package.metadata.example.vertical_slider]
+name = "Vertical Slider"
+description = "Simple example showing vertical and horizontal slider widgets with snap behavior and value labels"
+category = "UI (User Interface)"
+wasm = true
 
 [[example]]
 name = "font_atlas_debug"
@@ -3792,17 +3853,6 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
-name = "viewport_debug"
-path = "examples/ui/viewport_debug.rs"
-doc-scrape-examples = true
-
-[package.metadata.example.viewport_debug]
-name = "Viewport Debug"
-description = "An example for debugging viewport coordinates"
-category = "UI (User Interface)"
-wasm = false
-
-[[example]]
 name = "viewport_node"
 path = "examples/ui/viewport_node.rs"
 doc-scrape-examples = true
@@ -3834,17 +3884,6 @@ required-features = ["custom_cursor"]
 [package.metadata.example.custom_cursor_image]
 name = "Custom Cursor Image"
 description = "Demonstrates creating an animated custom cursor from an image"
-category = "Window"
-wasm = true
-
-[[example]]
-name = "custom_user_event"
-path = "examples/window/custom_user_event.rs"
-doc-scrape-examples = true
-
-[package.metadata.example.custom_user_event]
-name = "Custom User Event"
-description = "Handles custom user events within the event loop"
 category = "Window"
 wasm = true
 
@@ -3968,6 +4007,9 @@ name = "fallback_image"
 path = "examples/shader/fallback_image.rs"
 doc-scrape-examples = true
 
+[package.metadata.example.fallback_image]
+hidden = true
+
 [[example]]
 name = "reflection_probes"
 path = "examples/3d/reflection_probes.rs"
@@ -3978,9 +4020,6 @@ name = "Reflection Probes"
 description = "Demonstrates reflection probes"
 category = "3D Rendering"
 wasm = false
-
-[package.metadata.example.fallback_image]
-hidden = true
 
 [package.metadata.example.window_resizing]
 name = "Window Resizing"
@@ -4175,6 +4214,28 @@ doc-scrape-examples = true
 [package.metadata.example.load_gltf_extras]
 name = "Load glTF extras"
 description = "Loads and renders a glTF file as a scene, including the gltf extras"
+category = "glTF"
+wasm = true
+
+[[example]]
+name = "gltf_extension_animation_graph"
+path = "examples/gltf/gltf_extension_animation_graph.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.gltf_extension_animation_graph]
+name = "glTF extension AnimationGraph"
+description = "Uses glTF data to build an AnimationGraph via extension processing"
+category = "glTF"
+wasm = true
+
+[[example]]
+name = "gltf_extension_mesh_2d"
+path = "examples/gltf/gltf_extension_mesh_2d.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.gltf_extension_mesh_2d]
+name = "glTF extension processing to build Mesh2ds from glTF data"
+description = "Uses glTF extension data to convert incoming Mesh3d/MeshMaterial3d assets to 2d"
 category = "glTF"
 wasm = true
 
@@ -4634,7 +4695,6 @@ rustdoc-args = [
   "docs-rs/trait-tags.html",
 ]
 all-features = true
-cargo-args = ["-Zunstable-options", "-Zrustdoc-scrape-examples"]
 
 [[example]]
 name = "monitor_info"
@@ -4876,4 +4936,27 @@ required-features = ["pan_camera"]
 name = "Pan Camera"
 description = "Example Pan-Camera Styled Camera Controller for 2D scenes"
 category = "Camera"
+wasm = true
+
+[[example]]
+name = "clustered_decal_maps"
+path = "examples/3d/clustered_decal_maps.rs"
+doc-scrape-examples = true
+required-features = ["pbr_clustered_decals", "https"]
+
+[package.metadata.example.clustered_decal_maps]
+name = "Clustered Decal Maps"
+description = "Demonstrates normal and metallic-roughness maps of decals"
+category = "3D Rendering"
+wasm = false
+
+[[example]]
+name = "mirror"
+path = "examples/3d/mirror.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.mirror]
+name = "Mirror"
+description = "Demonstrates how to create a mirror with a second camera"
+category = "3D Rendering"
 wasm = true

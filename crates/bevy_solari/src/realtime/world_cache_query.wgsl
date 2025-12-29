@@ -67,9 +67,12 @@ fn hash_for_cache(rng: ptr<function, u32>, world_position: vec3<f32>, world_norm
     let cell_size = get_cell_size(world_position, view_position);
 
     // https://tomclabault.github.io/blog/2025/regir, jitter_world_position_tangent_plane
+#ifndef NO_JITTER_WORLD_CACHE
     let TBN = orthonormalize(world_normal);
     let offset = (rand_vec2f(rng) * 2.0 - 1.0) * cell_size * 0.5;
-    let jittered_position = world_position + offset.x * TBN[0] + offset.y * TBN[1];
+    world_position += offset.x * TBN[0] + offset.y * TBN[1];
+    cell_size = get_cell_size(world_position, view_position);
+#endif
 
     var world_position_quantized = quantize_position(jittered_position, cell_size);    
     let world_normal_quantized = quantize_normal(world_normal);
@@ -406,7 +409,7 @@ fn compute_checksum(world_position: vec3<i32>, world_normal: vec3<i32>) -> u32 {
     key = iqint_hash(key + norm.x);
     key = iqint_hash(key + norm.y);
     key = iqint_hash(key + norm.z);
-    return u32(key);
+    return max(u32(key), 1u); // 0u is reserved for WORLD_CACHE_EMPTY_CELL
 }
 
 fn pcg_hash(input: u32) -> u32 {

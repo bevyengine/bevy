@@ -4,6 +4,7 @@ use core::marker::PhantomData;
 
 use crate::{
     change_detection::{CheckChangeTicks, Tick},
+    error::ErrorContext,
     prelude::World,
     query::FilteredAccessSet,
     schedule::InternedSystemSet,
@@ -157,24 +158,59 @@ where
     ) -> Result<Self::Out, RunSystemError> {
         struct PrivateUnsafeWorldCell<'w>(UnsafeWorldCell<'w>);
 
+        // Since control over handling system run errors is passed on to the
+        // implementation of `Func::combine`, which may run the two closures
+        // however it wants, errors must be intercepted here if they should be
+        // handled by the world's error handler.
+        unsafe fn run_system<S: System>(
+            system: &mut S,
+            input: SystemIn<S>,
+            world: &mut PrivateUnsafeWorldCell,
+        ) -> Result<S::Out, RunSystemError> {
+            // SAFETY: see comment on `Func::combine` call
+            match (|| unsafe {
+                system.validate_param_unsafe(world.0)?;
+                system.run_unsafe(input, world.0)
+            })() {
+                // let the world's default error handler handle the error if `Failed(_)`
+                Err(RunSystemError::Failed(err)) => {
+                    // SAFETY: We registered access to DefaultErrorHandler in `initialize`.
+                    (unsafe { world.0.default_error_handler() })(
+                        err,
+                        ErrorContext::System {
+                            name: system.name(),
+                            last_run: system.get_last_run(),
+                        },
+                    );
+
+                    // Since the error handler takes the error by value, create a new error:
+                    // The original error has already been handled, including
+                    // the reason for the failure here isn't important.
+                    Err(format!("System `{}` failed", system.name()).into())
+                }
+                // `Skipped(_)` and `Ok(_)` are passed through:
+                // system skipping is not an error, and isn't passed to the
+                // world's error handler by the executors.
+                result @ (Ok(_) | Err(RunSystemError::Skipped(_))) => result,
+            }
+        }
+
         Func::combine(
             input,
             &mut PrivateUnsafeWorldCell(world),
             // SAFETY: The world accesses for both underlying systems have been registered,
-            // so the caller will guarantee that no other systems will conflict with `a` or `b`.
+            // so the caller will guarantee that no other systems will conflict with (`a` or `b`) and the `DefaultErrorHandler` resource.
             // If either system has `is_exclusive()`, then the combined system also has `is_exclusive`.
             // Since we require a `combine` to pass in a mutable reference to `world` and that's a private type
             // passed to a function as an unbound non-'static generic argument, they can never be called in parallel
             // or re-entrantly because that would require forging another instance of `PrivateUnsafeWorldCell`.
             // This means that the world accesses in the two closures will not conflict with each other.
-            |input, world| unsafe { self.a.run_unsafe(input, world.0) },
-            // `Self::validate_param_unsafe` already validated the first system,
-            // but we still need to validate the second system once the first one runs.
+            // The closure's access to the DefaultErrorHandler does not
+            // conflict with any potential access to the DefaultErrorHandler by
+            // the systems since the closures are not run in parallel.
+            |input, world| unsafe { run_system(&mut self.a, input, world) },
             // SAFETY: See the comment above.
-            |input, world| unsafe {
-                self.b.validate_param_unsafe(world.0)?;
-                self.b.run_unsafe(input, world.0)
-            },
+            |input, world| unsafe { run_system(&mut self.b, input, world) },
         )
     }
 
@@ -200,20 +236,23 @@ where
     #[inline]
     unsafe fn validate_param_unsafe(
         &mut self,
-        world: UnsafeWorldCell,
+        _world: UnsafeWorldCell,
     ) -> Result<(), SystemParamValidationError> {
-        // We only validate parameters for the first system,
-        // since it may make changes to the world that affect
-        // whether the second system has valid parameters.
-        // The second system will be validated in `Self::run_unsafe`.
-        // SAFETY: Delegate to other `System` implementations.
-        unsafe { self.a.validate_param_unsafe(world) }
+        // Both systems are validated in `Self::run_unsafe`, so that we get the
+        // chance to run the second system even if the first one fails to
+        // validate.
+        Ok(())
     }
 
     fn initialize(&mut self, world: &mut World) -> FilteredAccessSet {
         let mut a_access = self.a.initialize(world);
         let b_access = self.b.initialize(world);
         a_access.extend(b_access);
+
+        // We might need to read the default error handler after the component
+        // systems have run to report failures.
+        let error_resource = world.register_resource::<crate::error::DefaultErrorHandler>();
+        a_access.add_unfiltered_resource_read(error_resource);
         a_access
     }
 
@@ -373,11 +412,14 @@ where
         input: SystemIn<'_, Self>,
         world: UnsafeWorldCell,
     ) -> Result<Self::Out, RunSystemError> {
-        let value = self.a.run_unsafe(input, world)?;
-        // `Self::validate_param_unsafe` already validated the first system,
-        // but we still need to validate the second system once the first one runs.
-        self.b.validate_param_unsafe(world)?;
-        self.b.run_unsafe(value, world)
+        // SAFETY: Upheld by caller
+        unsafe {
+            let value = self.a.run_unsafe(input, world)?;
+            // `Self::validate_param_unsafe` already validated the first system,
+            // but we still need to validate the second system once the first one runs.
+            self.b.validate_param_unsafe(world)?;
+            self.b.run_unsafe(value, world)
+        }
     }
 
     #[cfg(feature = "hotpatching")]
@@ -448,11 +490,50 @@ where
 
 #[cfg(test)]
 mod tests {
+    use crate::error::DefaultErrorHandler;
+    use crate::prelude::*;
+    use bevy_utils::prelude::DebugName;
+
+    use crate::{
+        schedule::OrMarker,
+        system::{assert_system_does_not_conflict, CombinatorSystem},
+    };
+
+    #[test]
+    fn combinator_with_error_handler_access() {
+        fn my_system(_: ResMut<DefaultErrorHandler>) {}
+        fn a() -> bool {
+            true
+        }
+        fn b(_: ResMut<DefaultErrorHandler>) -> bool {
+            true
+        }
+        fn asdf(_: In<bool>) {}
+
+        let mut world = World::new();
+        world.insert_resource(DefaultErrorHandler::default());
+
+        let system = CombinatorSystem::<OrMarker, _, _>::new(
+            IntoSystem::into_system(a),
+            IntoSystem::into_system(b),
+            DebugName::borrowed("a OR b"),
+        );
+
+        // `system` should not conflict with itself by mutably accessing the error handler resource.
+        assert_system_does_not_conflict(system.clone());
+
+        let mut schedule = Schedule::default();
+        schedule.add_systems((my_system, system.pipe(asdf)));
+        schedule.initialize(&mut world).unwrap();
+
+        // `my_system` should conflict with the combinator system because the combinator reads the error handler resource.
+        assert!(!schedule.graph().conflicting_systems().is_empty());
+
+        schedule.run(&mut world);
+    }
 
     #[test]
     fn exclusive_system_piping_is_possible() {
-        use crate::prelude::*;
-
         fn my_exclusive_system(_world: &mut World) -> u32 {
             1
         }

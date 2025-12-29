@@ -6,15 +6,23 @@
 #import bevy_solari::scene_bindings::{trace_ray, RAY_T_MIN, RAY_T_MAX, light_sources, directional_lights, LightSource, LIGHT_SOURCE_KIND_DIRECTIONAL, resolve_triangle_data_full, resolve_triangle_data_emissive, ResolvedRayHitFull}
 
 fn power_heuristic(f: f32, g: f32) -> f32 {
-    return f * f / (f * f + g * g);
+    return balance_heuristic(f * f, g * g);
 }
 
 fn balance_heuristic(f: f32, g: f32) -> f32 {
-    return f / (f + g);
+    let sum = f + g;
+    if sum == 0.0 {
+        return 0.0;
+    }
+    return max(0.0, f / sum);
 }
 
 // https://gpuopen.com/download/Bounded_VNDF_Sampling_for_Smith-GGX_Reflections.pdf (Listing 1)
 fn sample_ggx_vndf(wi_tangent: vec3<f32>, roughness: f32, rng: ptr<function, u32>) -> vec3<f32> {
+    if roughness <= 0.001 {
+        return vec3(-wi_tangent.xy, wi_tangent.z);
+    }
+
     let i = wi_tangent;
     let rand = rand_vec2f(rng);
     let i_std = normalize(vec3(i.xy * roughness, i.z));
@@ -67,6 +75,7 @@ struct LightContribution {
     radiance: vec3<f32>,
     inverse_pdf: f32,
     wi: vec3<f32>,
+    brdf_rays_can_hit: bool,
 }
 
 fn random_light_contribution(rng: ptr<function, u32>, ray_origin: vec3<f32>, origin_world_normal: vec3<f32>) -> LightContribution {

@@ -57,8 +57,13 @@ fn pathtrace(@builtin(global_invocation_id) global_id: vec3<u32>) {
             let is_perfectly_specular = ray_hit.material.roughness <= 0.001 && ray_hit.material.metallic > 0.9999;
             if !is_perfectly_specular {
                 let direct_lighting = random_light_contribution(&rng, ray_hit.world_position, ray_hit.world_normal);
-                let pdf_of_bounce = brdf_pdf(wo, direct_lighting.wi, ray_hit);
-                mis_weight = power_heuristic(1.0 / direct_lighting.inverse_pdf, pdf_of_bounce);
+
+                mis_weight = 1.0;
+                if direct_lighting.brdf_rays_can_hit {
+                    let pdf_of_bounce = brdf_pdf(wo, direct_lighting.wi, ray_hit);
+                    mis_weight = power_heuristic(1.0 / direct_lighting.inverse_pdf, pdf_of_bounce);
+                }
+
                 let direct_lighting_brdf = evaluate_brdf(ray_hit.world_normal, wo, direct_lighting.wi, ray_hit.material);
                 radiance += mis_weight * throughput * direct_lighting.radiance * direct_lighting.inverse_pdf * direct_lighting_brdf;
             }

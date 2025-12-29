@@ -125,6 +125,8 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 |flac|FLAC audio format support|
 |force_disable_dlss|Forcibly disable DLSS so that cargo build --all-features works without the DLSS SDK being installed. Not meant for users.|
 |free_camera|Enables the free cam from bevy_camera_controller|
+|gamepad|Gamepad support. Automatically enabled by `bevy_gilrs`.|
+|gestures|Gestures support. Automatically enabled by `bevy_window`.|
 |ghost_nodes|Experimental support for nodes that are ignored for UI layouting|
 |gif|GIF image format support|
 |glam_assert|Enable assertions to check the validity of parameters passed to glam|
@@ -135,6 +137,7 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 |https|Enables downloading assets from HTTPS sources. Warning: there are security implications. Read the docs on WebAssetPlugin.|
 |ico|ICO image format support|
 |jpeg|JPEG image format support|
+|keyboard|Keyboard support. Automatically enabled by `bevy_window`.|
 |ktx2|KTX2 compressed texture support|
 |libm|Uses the `libm` maths library instead of the one provided in `std` and `core`.|
 |mesh_picking|Provides an implementation for picking meshes|
@@ -142,6 +145,7 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 |meshlet_processor|Enables processing meshes into meshlet meshes for bevy_pbr|
 |morph|Enables support for morph target weights in bevy_mesh|
 |morph_animation|Enables bevy_mesh and bevy_animation morph weight support|
+|mouse|Mouse support. Automatically enabled by `bevy_window`.|
 |mp3|MP3 audio format support|
 |multi_threaded|Enables multithreaded parallelism in the engine. Disabling it forces all engine tasks to run on a single thread.|
 |pan_camera|Enables the pan camera from bevy_camera_controller|
@@ -178,6 +182,7 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 |tga|TGA image format support|
 |tiff|TIFF image format support|
 |tonemapping_luts|Include tonemapping Look Up Tables KTX2 files. If everything is pink, you need to enable this feature or change the `Tonemapping` method for your `Camera2d` or `Camera3d`.|
+|touch|Touch support. Automatically enabled by `bevy_window`.|
 |trace|Tracing support|
 |trace_chrome|Tracing support, saving a file in Chrome Tracing format|
 |trace_tracy|Tracing support, exposing a port for Tracy|

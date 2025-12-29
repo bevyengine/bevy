@@ -81,7 +81,7 @@ use crate::{
     gpu_readback::GpuReadbackPlugin,
     mesh::{MeshRenderAssetPlugin, RenderMesh},
     render_asset::prepare_assets,
-    render_resource::{init_empty_bind_group_layout, PipelineCache},
+    render_resource::PipelineCache,
     renderer::{render_system, RenderAdapterInfo},
     settings::RenderCreation,
     storage::StoragePlugin,
@@ -388,8 +388,6 @@ impl Plugin for RenderPlugin {
                     Render,
                     reset_render_asset_bytes_per_frame.in_set(RenderSystems::Cleanup),
                 );
-
-            render_app.add_systems(RenderStartup, init_empty_bind_group_layout);
         }
     }
 

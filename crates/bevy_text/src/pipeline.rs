@@ -62,8 +62,6 @@ pub struct FontFaceInfo {
     pub stretch: cosmic_text::fontdb::Stretch,
     /// Allows italic or oblique faces to be selected
     pub style: cosmic_text::fontdb::Style,
-    /// The degree of blackness or stroke thickness
-    pub weight: cosmic_text::fontdb::Weight,
     /// Font family name
     pub family_name: Arc<str>,
 }
@@ -86,7 +84,7 @@ pub struct TextPipeline {
         LineHeight,
     )>,
     /// Buffered vec for collecting info for glyph assembly.
-    glyph_info: Vec<(AssetId<Font>, FontSmoothing, f32, f32, f32, f32)>,
+    glyph_info: Vec<(AssetId<Font>, FontSmoothing, f32, f32, f32, f32, u16)>,
 }
 
 impl TextPipeline {
@@ -104,6 +102,8 @@ impl TextPipeline {
         computed: &mut ComputedTextBlock,
         font_system: &mut CosmicFontSystem,
     ) -> Result<(), TextError> {
+        computed.needs_rerender = false;
+
         let font_system = &mut font_system.0;
 
         // Collect span information into a vec. This is necessary because font loading requires mut access
@@ -235,216 +235,6 @@ impl TextPipeline {
         Ok(())
     }
 
-    /// Queues text for rendering
-    ///
-    /// Produces a [`TextLayoutInfo`], containing [`PositionedGlyph`]s
-    /// which contain information for rendering the text.
-    pub fn queue_text<'a>(
-        &mut self,
-        layout_info: &mut TextLayoutInfo,
-        fonts: &Assets<Font>,
-        text_spans: impl Iterator<Item = (Entity, usize, &'a str, &'a TextFont, Color, LineHeight)>,
-        scale_factor: f64,
-        layout: &TextLayout,
-        bounds: TextBounds,
-        font_atlas_set: &mut FontAtlasSet,
-        texture_atlases: &mut Assets<TextureAtlasLayout>,
-        textures: &mut Assets<Image>,
-        computed: &mut ComputedTextBlock,
-        font_system: &mut CosmicFontSystem,
-        swash_cache: &mut SwashCache,
-    ) -> Result<(), TextError> {
-        layout_info.clear();
-
-        // Clear this here at the focal point of text rendering to ensure the field's lifecycle has strong boundaries.
-        computed.needs_rerender = false;
-
-        // Extract font ids from the iterator while traversing it.
-        let mut glyph_info = core::mem::take(&mut self.glyph_info);
-        glyph_info.clear();
-        let text_spans = text_spans.inspect(|(_, _, _, text_font, _, _)| {
-            glyph_info.push((
-                text_font.font.id(),
-                text_font.font_smoothing,
-                text_font.font_size,
-                0.,
-                0.,
-                0.,
-            ));
-        });
-
-        let update_result = self.update_buffer(
-            fonts,
-            text_spans,
-            layout.linebreak,
-            layout.justify,
-            bounds,
-            scale_factor,
-            computed,
-            font_system,
-        );
-
-        self.glyph_info = glyph_info;
-
-        update_result?;
-
-        for (font, _, size, strikethrough_offset, stroke, underline_offset) in
-            self.glyph_info.iter_mut()
-        {
-            let Some((id, _)) = self.map_handle_to_font_id.get(font) else {
-                continue;
-            };
-            let weight = font_system
-                .db()
-                .face(*id)
-                .map(|f| f.weight)
-                .unwrap_or(cosmic_text::Weight::NORMAL);
-            if let Some(font) = font_system.get_font(*id, weight) {
-                let swash = font.as_swash();
-                let metrics = swash.metrics(&[]);
-                let upem = metrics.units_per_em as f32;
-                let scalar = *size * scale_factor as f32 / upem;
-                *strikethrough_offset = (metrics.strikeout_offset * scalar).round();
-                *stroke = (metrics.stroke_size * scalar).round().max(1.);
-                *underline_offset = (metrics.underline_offset * scalar).round();
-            }
-        }
-
-        let buffer = &mut computed.buffer;
-        let mut box_size = Vec2::ZERO;
-
-        let result = buffer.layout_runs().try_for_each(|run| {
-            box_size.x = box_size.x.max(run.line_w);
-            box_size.y += run.line_height;
-            let mut current_section: Option<usize> = None;
-            let mut start = 0.;
-            let mut end = 0.;
-            let result = run
-                .glyphs
-                .iter()
-                .map(move |layout_glyph| (layout_glyph, run.line_y, run.line_i))
-                .try_for_each(|(layout_glyph, line_y, line_i)| {
-                    match current_section {
-                        Some(section) => {
-                            if section != layout_glyph.metadata {
-                                layout_info.run_geometry.push(RunGeometry {
-                                    span_index: section,
-                                    bounds: Rect::new(
-                                        start,
-                                        run.line_top,
-                                        end,
-                                        run.line_top + run.line_height,
-                                    ),
-                                    strikethrough_y: (run.line_y - self.glyph_info[section].3)
-                                        .round(),
-                                    strikethrough_thickness: self.glyph_info[section].4,
-                                    underline_y: (run.line_y - self.glyph_info[section].5).round(),
-                                    underline_thickness: self.glyph_info[section].4,
-                                });
-                                start = end.max(layout_glyph.x);
-                                current_section = Some(layout_glyph.metadata);
-                            }
-                            end = layout_glyph.x + layout_glyph.w;
-                        }
-                        None => {
-                            current_section = Some(layout_glyph.metadata);
-                            start = layout_glyph.x;
-                            end = start + layout_glyph.w;
-                        }
-                    }
-
-                    let mut temp_glyph;
-                    let span_index = layout_glyph.metadata;
-                    let font_id = self.glyph_info[span_index].0;
-                    let font_smoothing = self.glyph_info[span_index].1;
-
-                    let layout_glyph = if font_smoothing == FontSmoothing::None {
-                        // If font smoothing is disabled, round the glyph positions and sizes,
-                        // effectively discarding all subpixel layout.
-                        temp_glyph = layout_glyph.clone();
-                        temp_glyph.x = temp_glyph.x.round();
-                        temp_glyph.y = temp_glyph.y.round();
-                        temp_glyph.w = temp_glyph.w.round();
-                        temp_glyph.x_offset = temp_glyph.x_offset.round();
-                        temp_glyph.y_offset = temp_glyph.y_offset.round();
-                        temp_glyph.line_height_opt = temp_glyph.line_height_opt.map(f32::round);
-
-                        &temp_glyph
-                    } else {
-                        layout_glyph
-                    };
-
-                    let physical_glyph = layout_glyph.physical((0., 0.), 1.);
-
-                    let font_atlases = font_atlas_set
-                        .entry(FontAtlasKey(
-                            font_id,
-                            physical_glyph.cache_key.font_size_bits,
-                            font_smoothing,
-                        ))
-                        .or_default();
-
-                    let atlas_info = get_glyph_atlas_info(font_atlases, physical_glyph.cache_key)
-                        .map(Ok)
-                        .unwrap_or_else(|| {
-                            add_glyph_to_atlas(
-                                font_atlases,
-                                texture_atlases,
-                                textures,
-                                &mut font_system.0,
-                                &mut swash_cache.0,
-                                layout_glyph,
-                                font_smoothing,
-                            )
-                        })?;
-
-                    let texture_atlas = texture_atlases.get(atlas_info.texture_atlas).unwrap();
-                    let location = atlas_info.location;
-                    let glyph_rect = texture_atlas.textures[location.glyph_index];
-                    let left = location.offset.x as f32;
-                    let top = location.offset.y as f32;
-                    let glyph_size = UVec2::new(glyph_rect.width(), glyph_rect.height());
-
-                    // offset by half the size because the origin is center
-                    let x = glyph_size.x as f32 / 2.0 + left + physical_glyph.x as f32;
-                    let y =
-                        line_y.round() + physical_glyph.y as f32 - top + glyph_size.y as f32 / 2.0;
-
-                    let position = Vec2::new(x, y);
-
-                    let pos_glyph = PositionedGlyph {
-                        position,
-                        size: glyph_size.as_vec2(),
-                        atlas_info,
-                        span_index,
-                        byte_index: layout_glyph.start,
-                        byte_length: layout_glyph.end - layout_glyph.start,
-                        line_index: line_i,
-                    };
-                    layout_info.glyphs.push(pos_glyph);
-                    Ok(())
-                });
-            if let Some(section) = current_section {
-                layout_info.run_geometry.push(RunGeometry {
-                    span_index: section,
-                    bounds: Rect::new(start, run.line_top, end, run.line_top + run.line_height),
-                    strikethrough_y: (run.line_y - self.glyph_info[section].3).round(),
-                    strikethrough_thickness: self.glyph_info[section].4,
-                    underline_y: (run.line_y - self.glyph_info[section].5).round(),
-                    underline_thickness: self.glyph_info[section].4,
-                });
-            }
-
-            result
-        });
-
-        // Check result.
-        result?;
-
-        layout_info.size = box_size.ceil();
-        Ok(())
-    }
-
     /// Queues text for measurement
     ///
     /// Produces a [`TextMeasureInfo`] which can be used by a layout system
@@ -513,7 +303,10 @@ impl TextPipeline {
         font_system: &mut CosmicFontSystem,
         swash_cache: &mut SwashCache,
         bounds: TextBounds,
+        justify: Justify,
     ) -> Result<(), TextError> {
+        computed.needs_rerender = false;
+
         layout_info.glyphs.clear();
         layout_info.run_geometry.clear();
         layout_info.size = Default::default();
@@ -528,29 +321,31 @@ impl TextPipeline {
                 0.0,
                 0.0,
                 0.0,
+                text_font.weight.clamp().0,
             );
 
-            if let Some((id, _)) = self.map_handle_to_font_id.get(&section_info.0) {
-                let weight = font_system
-                    .db()
-                    .face(*id)
-                    .map(|f| f.weight)
-                    .unwrap_or(cosmic_text::Weight::NORMAL);
-                if let Some(font) = font_system.get_font(*id, weight) {
-                    let swash = font.as_swash();
-                    let metrics = swash.metrics(&[]);
-                    let upem = metrics.units_per_em as f32;
-                    let scalar = section_info.2 * scale_factor as f32 / upem;
-                    section_info.3 = (metrics.strikeout_offset * scalar).round();
-                    section_info.4 = (metrics.stroke_size * scalar).round().max(1.);
-                    section_info.5 = (metrics.underline_offset * scalar).round();
-                }
+            if let Some((id, _)) = self.map_handle_to_font_id.get(&section_info.0)
+                && let Some(font) = font_system.get_font(*id, cosmic_text::Weight(section_info.6))
+            {
+                let swash = font.as_swash();
+                let metrics = swash.metrics(&[]);
+                let upem = metrics.units_per_em as f32;
+                let scalar = section_info.2 * scale_factor as f32 / upem;
+                section_info.3 = (metrics.strikeout_offset * scalar).round();
+                section_info.4 = (metrics.stroke_size * scalar).round().max(1.);
+                section_info.5 = (metrics.underline_offset * scalar).round();
             }
             self.glyph_info.push(section_info);
         }
 
         let buffer = &mut computed.buffer;
-        buffer.set_size(font_system, bounds.width, bounds.height);
+
+        // Workaround for alignment not working for unbounded text.
+        // See https://github.com/pop-os/cosmic-text/issues/343
+        let width = (bounds.width.is_none() && justify != Justify::Left)
+            .then(|| buffer_dimensions(buffer).x)
+            .or(bounds.width);
+        buffer.set_size(font_system, width, bounds.height);
         let mut box_size = Vec2::ZERO;
 
         let result = buffer.layout_runs().try_for_each(|run| {
@@ -617,11 +412,11 @@ impl TextPipeline {
                     let physical_glyph = layout_glyph.physical((0., 0.), 1.);
 
                     let font_atlases = font_atlas_set
-                        .entry(FontAtlasKey(
-                            font_id,
-                            physical_glyph.cache_key.font_size_bits,
+                        .entry(FontAtlasKey {
+                            id: font_id,
+                            font_size_bits: physical_glyph.cache_key.font_size_bits,
                             font_smoothing,
-                        ))
+                        })
                         .or_default();
 
                     let atlas_info = get_glyph_atlas_info(font_atlases, physical_glyph.cache_key)
@@ -681,14 +476,14 @@ impl TextPipeline {
         // Check result.
         result?;
 
-        layout_info.size = box_size;
+        layout_info.size = box_size.ceil();
         Ok(())
     }
 }
 
 /// Render information for a corresponding text block.
 ///
-/// Contains scaled glyphs and their size. Generated via [`TextPipeline::queue_text`] when an entity has
+/// Contains scaled glyphs and their size. Generated via [`TextPipeline::update_text_layout_info`] when an entity has
 /// [`TextLayout`] and [`ComputedTextBlock`] components.
 #[derive(Component, Clone, Default, Debug, Reflect)]
 #[reflect(Component, Default, Debug, Clone)]
@@ -824,7 +619,6 @@ pub fn load_font_to_fontdb(
     FontFaceInfo {
         stretch: face.stretch,
         style: face.style,
-        weight: face.weight,
         family_name: family_name.clone(),
     }
 }
@@ -843,7 +637,7 @@ fn get_attrs<'a>(
         .family(Family::Name(&face_info.family_name))
         .stretch(face_info.stretch)
         .style(face_info.style)
-        .weight(face_info.weight)
+        .weight(text_font.weight.into())
         .metrics(
             Metrics {
                 font_size: text_font.font_size,

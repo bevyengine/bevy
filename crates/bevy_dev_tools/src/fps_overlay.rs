@@ -20,13 +20,14 @@ use bevy_ui::{
     widget::{Text, TextUiWriter},
     FlexDirection, GlobalZIndex, Node, PositionType, Val,
 };
+#[cfg(not(all(target_arch = "wasm32", not(feature = "webgpu"))))]
 use bevy_ui_render::prelude::MaterialNode;
 use core::time::Duration;
 use tracing::warn;
 
-use crate::frame_time_graph::{
-    FrameTimeGraphConfigUniform, FrameTimeGraphPlugin, FrametimeGraphMaterial,
-};
+#[cfg(not(all(target_arch = "wasm32", not(feature = "webgpu"))))]
+use crate::frame_time_graph::FrameTimeGraphConfigUniform;
+use crate::frame_time_graph::{FrameTimeGraphPlugin, FrametimeGraphMaterial};
 
 /// [`GlobalZIndex`] used to render the fps overlay.
 ///
@@ -163,8 +164,14 @@ struct FrameTimeGraph;
 fn setup(
     mut commands: Commands,
     overlay_config: Res<FpsOverlayConfig>,
-    mut frame_time_graph_materials: ResMut<Assets<FrametimeGraphMaterial>>,
-    mut buffers: ResMut<Assets<ShaderStorageBuffer>>,
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(feature = "webgpu")),
+        expect(unused, reason = "Unused variables in wasm32 without webgpu feature")
+    )]
+    (mut frame_time_graph_materials, mut buffers): (
+        ResMut<Assets<FrametimeGraphMaterial>>,
+        ResMut<Assets<ShaderStorageBuffer>>,
+    ),
 ) {
     commands
         .spawn((
@@ -188,35 +195,46 @@ fn setup(
             ))
             .with_child((TextSpan::default(), overlay_config.text_config.clone()));
 
-            let font_size = overlay_config.text_config.font_size;
-            p.spawn((
-                Node {
-                    width: Val::Px(font_size * FRAME_TIME_GRAPH_WIDTH_SCALE),
-                    height: Val::Px(font_size * FRAME_TIME_GRAPH_HEIGHT_SCALE),
-                    display: if overlay_config.frame_time_graph_config.enabled {
-                        bevy_ui::Display::DEFAULT
-                    } else {
-                        bevy_ui::Display::None
-                    },
-                    ..Default::default()
-                },
-                Pickable::IGNORE,
-                MaterialNode::from(frame_time_graph_materials.add(FrametimeGraphMaterial {
-                    values: buffers.add(ShaderStorageBuffer {
-                        // Initialize with dummy data because the default (`data: None`) will
-                        // cause a panic in the shader if the frame time graph is constructed
-                        // with `enabled: false`.
-                        data: Some(vec![0, 0, 0, 0]),
+            #[cfg(all(target_arch = "wasm32", not(feature = "webgpu")))]
+            {
+                if overlay_config.frame_time_graph_config.enabled {
+                    use tracing::warn;
+
+                    warn!("Frame time graph is not supported with WebGL. Consider if WebGPU is viable for your usecase.");
+                }
+            }
+            #[cfg(not(all(target_arch = "wasm32", not(feature = "webgpu"))))]
+            {
+                let font_size = overlay_config.text_config.font_size;
+                p.spawn((
+                    Node {
+                        width: Val::Px(font_size * FRAME_TIME_GRAPH_WIDTH_SCALE),
+                        height: Val::Px(font_size * FRAME_TIME_GRAPH_HEIGHT_SCALE),
+                        display: if overlay_config.frame_time_graph_config.enabled {
+                            bevy_ui::Display::DEFAULT
+                        } else {
+                            bevy_ui::Display::None
+                        },
                         ..Default::default()
-                    }),
-                    config: FrameTimeGraphConfigUniform::new(
-                        overlay_config.frame_time_graph_config.target_fps,
-                        overlay_config.frame_time_graph_config.min_fps,
-                        true,
-                    ),
-                })),
-                FrameTimeGraph,
-            ));
+                    },
+                    Pickable::IGNORE,
+                    MaterialNode::from(frame_time_graph_materials.add(FrametimeGraphMaterial {
+                        values: buffers.add(ShaderStorageBuffer {
+                            // Initialize with dummy data because the default (`data: None`) will
+                            // cause a panic in the shader if the frame time graph is constructed
+                            // with `enabled: false`.
+                            data: Some(vec![0, 0, 0, 0]),
+                            ..Default::default()
+                        }),
+                        config: FrameTimeGraphConfigUniform::new(
+                            overlay_config.frame_time_graph_config.target_fps,
+                            overlay_config.frame_time_graph_config.min_fps,
+                            true,
+                        ),
+                    })),
+                    FrameTimeGraph,
+                ));
+            }
         });
 }
 

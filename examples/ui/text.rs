@@ -67,26 +67,16 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         ))
         .with_child((
             TextSpan::default(),
-            if cfg!(feature = "default_font") {
-                (
-                    TextFont {
-                        font_size: 33.0,
-                        // If no font is specified, the default font (a minimal subset of FiraMono) will be used.
-                        ..default()
-                    },
-                    TextColor(GOLD.into()),
-                )
-            } else {
-                (
-                    // "default_font" feature is unavailable, load a font to use instead.
-                    TextFont {
-                        font: asset_server.load("fonts/FiraMono-Medium.ttf"),
-                        font_size: 33.0,
-                        ..Default::default()
-                    },
-                    TextColor(GOLD.into()),
-                )
-            },
+            (
+                TextFont {
+                    // If the "default_font" feature is unavailable, load a font to use instead.
+                    #[cfg(not(feature = "default_font"))]
+                    font: asset_server.load("fonts/FiraMono-Medium.ttf"),
+                    font_size: 33.0,
+                    ..Default::default()
+                },
+                TextColor(GOLD.into()),
+            ),
             FpsText,
         ));
 

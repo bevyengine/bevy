@@ -5,8 +5,9 @@ use log::warn;
 
 use crate::{
     state::{
-        setup_state_transitions_in_world, ComputedStates, FreelyMutableState, NextState, State,
-        StateTransition, StateTransitionEvent, StateTransitionSystems, States, SubStates,
+        setup_state_transitions_in_world, ComputedStates, FreelyMutableState, NextState,
+        PreviousState, State, StateTransition, StateTransitionEvent, StateTransitionSystems,
+        States, SubStates,
     },
     state_scoped::{despawn_entities_on_enter_state, despawn_entities_on_exit_state},
 };
@@ -101,7 +102,8 @@ impl AppExtStates for SubApp {
             self.world_mut().write_message(StateTransitionEvent {
                 exited: None,
                 entered: Some(state),
-                same_state_enforced: false,
+                // makes no difference: the state didn't exist before anyways
+                allow_same_state_transitions: true,
             });
             enable_state_scoped_entities::<S>(self);
         } else {
@@ -125,7 +127,8 @@ impl AppExtStates for SubApp {
             self.world_mut().write_message(StateTransitionEvent {
                 exited: None,
                 entered: Some(state),
-                same_state_enforced: false,
+                // makes no difference: the state didn't exist before anyways
+                allow_same_state_transitions: true,
             });
             enable_state_scoped_entities::<S>(self);
         } else {
@@ -137,7 +140,9 @@ impl AppExtStates for SubApp {
             self.world_mut().write_message(StateTransitionEvent {
                 exited: None,
                 entered: Some(state),
-                same_state_enforced: false,
+                // Not configurable for the moment. This controls whether inserting a state with the same value as a pre-existing state should run state transitions.
+                // Leaving it at `true` makes state insertion idempotent. Neat!
+                allow_same_state_transitions: true,
             });
         }
 
@@ -162,7 +167,7 @@ impl AppExtStates for SubApp {
             self.world_mut().write_message(StateTransitionEvent {
                 exited: None,
                 entered: state,
-                same_state_enforced: false,
+                allow_same_state_transitions: S::ALLOW_SAME_STATE_TRANSITIONS,
             });
             enable_state_scoped_entities::<S>(self);
         } else {
@@ -192,7 +197,8 @@ impl AppExtStates for SubApp {
             self.world_mut().write_message(StateTransitionEvent {
                 exited: None,
                 entered: state,
-                same_state_enforced: false,
+                // makes no difference: the state didn't exist before anyways
+                allow_same_state_transitions: true,
             });
             enable_state_scoped_entities::<S>(self);
         } else {
@@ -210,6 +216,7 @@ impl AppExtStates for SubApp {
     {
         self.register_type::<S>();
         self.register_type::<State<S>>();
+        self.register_type::<PreviousState<S>>();
         self.register_type_data::<S, crate::reflect::ReflectState>();
         self
     }
@@ -222,6 +229,7 @@ impl AppExtStates for SubApp {
         self.register_type::<S>();
         self.register_type::<State<S>>();
         self.register_type::<NextState<S>>();
+        self.register_type::<PreviousState<S>>();
         self.register_type_data::<S, crate::reflect::ReflectState>();
         self.register_type_data::<S, crate::reflect::ReflectFreelyMutableState>();
         self
