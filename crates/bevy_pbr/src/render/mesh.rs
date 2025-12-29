@@ -1185,8 +1185,9 @@ impl RenderMeshInstanceGpuBuilder {
 
         let mut shared = self.shared;
         shared.lightmap_slab_index = lightmap_slab_index;
+        shared.material_bindings_index = mesh_material_binding_id.unwrap_or_default();
 
-        let material_bindings_index = mesh_material_binding_id.unwrap_or_default();
+        let material_bindings_index = shared.material_bindings_index;
 
         // Create the mesh input uniform.
         let mesh_input_uniform = MeshInputUniform {
