@@ -15,19 +15,16 @@ use bevy::{
     mesh::Indices,
     prelude::*,
     render::{
-        render_asset::RenderAssets,
+        extract_component::{ExtractComponent, ExtractComponentPlugin},
+        mesh::allocator::MeshAllocator,
         render_graph::{self, RenderGraph, RenderLabel},
-        render_resource::{binding_types::storage_buffer, *},
-        renderer::RenderContext,
-        storage::ShaderStorageBuffer,
+        render_resource::{
+            binding_types::{storage_buffer, uniform_buffer},
+            *,
+        },
+        renderer::{RenderContext, RenderQueue},
         Render, RenderApp, RenderStartup,
     },
-};
-use bevy_render::{
-    extract_component::{ExtractComponent, ExtractComponentPlugin},
-    mesh::{allocator::MeshAllocator, RenderMesh},
-    render_resource::binding_types::uniform_buffer,
-    renderer::RenderQueue,
 };
 
 /// This example uses a shader source file from the assets subdirectory
@@ -79,10 +76,8 @@ struct GenerateMesh(Handle<Mesh>);
 
 fn setup(
     mut commands: Commands,
-    mut images: ResMut<Assets<Image>>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    mut buffers: ResMut<Assets<ShaderStorageBuffer>>,
 ) {
     // a truly empty mesh will error if used in Mesh3d
     // so we set up the data to be what we want the compute shader to output
@@ -161,11 +156,7 @@ fn add_compute_render_graph_node(mut render_graph: ResMut<RenderGraph>) {
 #[derive(Resource, Default)]
 struct Chunks(Vec<AssetId<Mesh>>);
 
-fn prepare_chunks(
-    meshes_to_generate: Query<&GenerateMesh>,
-    mut chunks: ResMut<Chunks>,
-    mesh_handles: Res<RenderAssets<RenderMesh>>,
-) {
+fn prepare_chunks(meshes_to_generate: Query<&GenerateMesh>, mut chunks: ResMut<Chunks>) {
     // get the AssetId for each Handle<Mesh>
     // which we'll use later to get the relevant buffers
     // from the mesh_allocator

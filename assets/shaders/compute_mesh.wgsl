@@ -3,8 +3,8 @@
 // has been hardcoded to return a cube mesh
 
 struct FirstIndex {
-    first_vertex_index: u32,
-    first_index_index: u32,
+    vertex: u32,
+    vertex_index: u32,
 }
 
 @group(0) @binding(0) var<uniform> first_index: FirstIndex;
