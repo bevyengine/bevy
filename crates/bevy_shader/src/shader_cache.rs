@@ -65,7 +65,7 @@ pub struct ShaderCache<ShaderModule, RenderDevice> {
         &ValidateShader,
     ) -> Result<ShaderModule, PipelineCacheError>,
     #[cfg(feature = "shader_format_wesl")]
-    asset_paths: HashMap<wesl::syntax::ModulePath, AssetId<Shader>>,
+    asset_paths: HashMap<wesl::ModulePath, AssetId<Shader>>,
     shaders: HashMap<AssetId<Shader>, Shader>,
     import_path_shaders: HashMap<ShaderImport, AssetId<Shader>>,
     waiting_on_import: HashMap<ShaderImport, Vec<AssetId<Shader>>>,
@@ -210,7 +210,7 @@ impl<ShaderModule, RenderDevice> ShaderCache<ShaderModule, RenderDevice> {
                         if let ShaderImport::AssetPath(path) = shader.import_path() {
                             let shader_resolver =
                                 ShaderResolver::new(&self.asset_paths, &self.shaders);
-                            let module_path = wesl::syntax::ModulePath::from_path(path);
+                            let module_path = wesl_module_path_from_asset_path(path);
                             let mut compiler_options = wesl::CompileOptions {
                                 imports: true,
                                 condcomp: true,
@@ -361,7 +361,7 @@ impl<ShaderModule, RenderDevice> ShaderCache<ShaderModule, RenderDevice> {
             && let ShaderImport::AssetPath(path) = shader.import_path()
         {
             self.asset_paths
-                .insert(wesl::syntax::ModulePath::from_path(path), id);
+                .insert(wesl_module_path_from_asset_path(path), id);
         }
         self.shaders.insert(id, shader);
         pipelines_to_queue
@@ -371,6 +371,14 @@ impl<ShaderModule, RenderDevice> ShaderCache<ShaderModule, RenderDevice> {
         let pipelines_to_queue = self.clear(id);
         if let Some(shader) = self.shaders.remove(&id) {
             self.import_path_shaders.remove(shader.import_path());
+
+            #[cfg(feature = "shader_format_wesl")]
+            if let Source::Wesl(_) = shader.source
+                && let ShaderImport::AssetPath(path) = shader.import_path()
+            {
+                self.asset_paths
+                    .remove(&wesl_module_path_from_asset_path(path));
+            }
         }
 
         pipelines_to_queue
@@ -378,15 +386,15 @@ impl<ShaderModule, RenderDevice> ShaderCache<ShaderModule, RenderDevice> {
 }
 
 #[cfg(feature = "shader_format_wesl")]
-pub struct ShaderResolver<'a> {
-    asset_paths: &'a HashMap<wesl::syntax::ModulePath, AssetId<Shader>>,
+struct ShaderResolver<'a> {
+    asset_paths: &'a HashMap<wesl::ModulePath, AssetId<Shader>>,
     shaders: &'a HashMap<AssetId<Shader>, Shader>,
 }
 
 #[cfg(feature = "shader_format_wesl")]
 impl<'a> ShaderResolver<'a> {
     pub fn new(
-        asset_paths: &'a HashMap<wesl::syntax::ModulePath, AssetId<Shader>>,
+        asset_paths: &'a HashMap<wesl::ModulePath, AssetId<Shader>>,
         shaders: &'a HashMap<AssetId<Shader>, Shader>,
     ) -> Self {
         Self {
@@ -400,7 +408,7 @@ impl<'a> ShaderResolver<'a> {
 impl<'a> wesl::Resolver for ShaderResolver<'a> {
     fn resolve_source(
         &self,
-        module_path: &wesl::syntax::ModulePath,
+        module_path: &wesl::ModulePath,
     ) -> Result<alloc::borrow::Cow<'_, str>, wesl::ResolveError> {
         let asset_id = self.asset_paths.get(module_path).ok_or_else(|| {
             wesl::ResolveError::ModuleNotFound(module_path.clone(), "Invalid asset id".to_string())
@@ -408,6 +416,27 @@ impl<'a> wesl::Resolver for ShaderResolver<'a> {
 
         let shader = self.shaders.get(asset_id).unwrap();
         Ok(alloc::borrow::Cow::Borrowed(shader.source.as_str()))
+    }
+}
+
+#[cfg(feature = "shader_format_wesl")]
+fn wesl_module_path_from_asset_path(path: &String) -> wesl::ModulePath {
+    use bevy_asset::{io::AssetSourceId, AssetPath};
+    use std::path::PathBuf;
+
+    let asset_path = AssetPath::from(path);
+    if let AssetSourceId::Name(source) = asset_path.source() {
+        let mut comp = vec!["bevy_asset".to_string()];
+        let mut path = PathBuf::new();
+        path.push(source.as_ref());
+        path.push(asset_path.path());
+        comp.extend(wesl::ModulePath::from_path(path).components);
+        wesl::ModulePath {
+            origin: wesl::syntax::PathOrigin::Package,
+            components: comp,
+        }
+    } else {
+        wesl::ModulePath::from_path(asset_path.path())
     }
 }
 
