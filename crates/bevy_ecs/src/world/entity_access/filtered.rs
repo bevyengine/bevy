@@ -199,6 +199,42 @@ impl<'w, 's> FilteredEntityRef<'w, 's> {
             .flatten()
     }
 
+    /// Gets the "target" entity of this entity via the [`Relationship`] component with the given [`ComponentId`].
+    ///
+    /// **You should prefer to use the typed API where possible and only
+    /// use this in cases where the actual component types are not known at
+    /// compile time.**
+    ///
+    /// [`Relationship`]: crate::relationship::Relationship
+    pub fn get_relationship_by_id(&self, relationship_id: ComponentId) -> Option<Entity> {
+        self.access
+            .has_component_read(relationship_id)
+            // SAFETY: We have read access
+            .then(|| unsafe { self.entity.get_relationship_by_id(relationship_id) })
+            .flatten()
+    }
+
+    /// Gets an iterator to the "related" entities of this entity via the [`RelationshipTarget`] component with the given [`ComponentId`].
+    ///
+    /// **You should prefer to use the typed API where possible and only
+    /// use this in cases where the actual component types are not known at
+    /// compile time.**
+    ///
+    /// [`RelationshipTarget`]: crate::relationship::RelationshipTarget
+    pub fn get_relationship_targets_by_id(
+        &self,
+        relationship_target_id: ComponentId,
+    ) -> Option<impl Iterator<Item = Entity> + use<'w>> {
+        self.access
+            .has_component_read(relationship_target_id)
+            // SAFETY: We have read access
+            .then(|| unsafe {
+                self.entity
+                    .get_relationship_targets_by_id(relationship_target_id)
+            })
+            .flatten()
+    }
+
     /// Returns the source code location from which this entity has been spawned.
     pub fn spawned_by(&self) -> MaybeLocation {
         self.entity.spawned_by()
@@ -647,6 +683,32 @@ impl<'w, 's> FilteredEntityMut<'w, 's> {
             // and we promise to not create other references to the same component
             .then(|| unsafe { self.entity.get_mut_by_id(component_id).ok() })
             .flatten()
+    }
+
+    /// Gets the "target" entity of this entity via the [`Relationship`] component with the given [`ComponentId`].
+    ///
+    /// **You should prefer to use the typed API where possible and only
+    /// use this in cases where the actual component types are not known at
+    /// compile time.**
+    ///
+    /// [`Relationship`]: crate::relationship::Relationship
+    pub fn get_relationship_by_id(&self, relationship_id: ComponentId) -> Option<Entity> {
+        self.as_readonly().get_relationship_by_id(relationship_id)
+    }
+
+    /// Gets an iterator to the "related" entities of this entity via the [`RelationshipTarget`] component with the given [`ComponentId`].
+    ///
+    /// **You should prefer to use the typed API where possible and only
+    /// use this in cases where the actual component types are not known at
+    /// compile time.**
+    ///
+    /// [`RelationshipTarget`]: crate::relationship::RelationshipTarget
+    pub fn get_relationship_targets_by_id(
+        &self,
+        relationship_target_id: ComponentId,
+    ) -> Option<impl Iterator<Item = Entity> + use<'_>> {
+        self.as_readonly()
+            .get_relationship_targets_by_id(relationship_target_id)
     }
 
     /// Returns the source code location from which this entity has last been spawned.
