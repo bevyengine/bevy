@@ -1,5 +1,10 @@
-//! Simple example demonstrating the use of the [`Readback`] component to read back data from the GPU
-//! using both a storage buffer and texture.
+//! This example shows how to initialize an empty mesh with a Handle
+//! and a render-world only usage. That buffer is then filled by a
+//! compute shader on the GPU without transferring data back
+//! to the CPU.
+//!
+//! The mesh_allocator is used to get references to the relevant slabs
+//! that contain the mesh data we're interested in.
 
 use bevy::{
     asset::RenderAssetUsages,
@@ -81,21 +86,28 @@ fn setup(
     mut buffers: ResMut<Assets<ShaderStorageBuffer>>,
 ) {
     // a truly empty mesh will error if used in Mesh3d
-    // so use a sphere for the example
-    let mut empty_mesh = Mesh::new(
-        PrimitiveTopology::TriangleList,
-        RenderAssetUsages::RENDER_WORLD,
-    );
-    // set up what we want to output from the compute shader.
+    // so we set up the data to be what we want the compute shader to output
     // We're using 36 indices, 24 vertices which is directly taken from
-    // the Bevy Cuboid mesh
-    empty_mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, vec![[0.; 3]; 24]);
-    empty_mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, vec![[0.; 3]; 24]);
-    empty_mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, vec![[0.; 2]; 24]);
-    empty_mesh.insert_indices(Indices::U32(vec![0; 36]));
-    empty_mesh.asset_usage = RenderAssetUsages::RENDER_WORLD;
+    // the Bevy Cuboid mesh implementation
+    let empty_mesh = {
+        let mut mesh = Mesh::new(
+            PrimitiveTopology::TriangleList,
+            RenderAssetUsages::RENDER_WORLD,
+        )
+        .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, vec![[0.; 3]; 24])
+        .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, vec![[0.; 3]; 24])
+        .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, vec![[0.; 2]; 24])
+        .with_inserted_indices(Indices::U32(vec![0; 36]));
+
+        mesh.asset_usage = RenderAssetUsages::RENDER_WORLD;
+        mesh
+    };
 
     let handle = meshes.add(empty_mesh);
+
+    // we spawn two "users" of the mesh handle,
+    // but only insert `GenerateMesh` on one of them
+    // to show that the mesh handle works as usual
     commands.spawn((
         GenerateMesh(handle.clone()),
         Mesh3d(handle.clone()),
@@ -103,24 +115,27 @@ fn setup(
             base_color: RED_400.into(),
             ..default()
         })),
-        Transform::from_xyz(0., 1., 0.),
+        Transform::from_xyz(-2.5, 1., 0.),
     ));
 
-    // commands.spawn((
-    //     Mesh3d(handle),
-    //     MeshMaterial3d(materials.add(StandardMaterial {
-    //         base_color: RED_400.into(),
-    //         ..default()
-    //     })),
-    //     Transform::from_xyz(2., 1., 0.),
-    // ));
+    commands.spawn((
+        Mesh3d(handle),
+        MeshMaterial3d(materials.add(StandardMaterial {
+            base_color: RED_400.into(),
+            ..default()
+        })),
+        Transform::from_xyz(2.5, 1., 0.),
+    ));
 
-    // // spawn some scene
-    // commands.spawn((
-    //     Mesh3d(meshes.add(Circle::new(4.0))),
-    //     MeshMaterial3d(materials.add(Color::WHITE)),
-    //     Transform::from_rotation(Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2)),
-    // ));
+    // some additional scene elements.
+    // This mesh specifically is here so that we don't assume
+    // mesh_allocator offsets that would only work if we had
+    // one mesh in the scene.
+    commands.spawn((
+        Mesh3d(meshes.add(Circle::new(4.0))),
+        MeshMaterial3d(materials.add(Color::WHITE)),
+        Transform::from_rotation(Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2)),
+    ));
     commands.spawn((
         PointLight {
             shadows_enabled: true,
@@ -142,6 +157,8 @@ fn add_compute_render_graph_node(mut render_graph: ResMut<RenderGraph>) {
     render_graph.add_node(ComputeNodeLabel, ComputeNode::default());
 }
 
+/// This is called "Chunks" because this example originated
+/// from a use case of generating chunks of landscape or voxels
 #[derive(Resource, Default)]
 struct Chunks(Vec<AssetId<Mesh>>);
 
@@ -150,12 +167,13 @@ fn prepare_chunks(
     mut chunks: ResMut<Chunks>,
     mesh_handles: Res<RenderAssets<RenderMesh>>,
 ) {
+    // get the AssetId for each Handle<Mesh>
+    // which we'll use later to get the relevant buffers
+    // from the mesh_allocator
     let chunk_data: Vec<AssetId<Mesh>> = meshes_to_generate
         .iter()
-        // sometimes RenderMesh doesn't exist yet!
         .map(|gmesh| gmesh.0.id())
         .collect();
-    // dbg!(chunk_data);
     chunks.0 = chunk_data;
 }
 
@@ -176,6 +194,7 @@ fn init_compute_pipeline(
         &BindGroupLayoutEntries::sequential(
             ShaderStages::COMPUTE,
             (
+                // offsets
                 uniform_buffer::<FirstIndex>(false),
                 // vertices
                 storage_buffer::<Vec<u32>>(false),
@@ -202,10 +221,12 @@ struct ComputeNodeLabel;
 #[derive(Default)]
 struct ComputeNode {}
 
+// A uniform that holds the vertex and index offsets
+// for the vertex/index mesh_allocator buffer slabs
 #[derive(ShaderType)]
 struct FirstIndex {
-    first_vertex_index: u32,
-    first_index_index: u32,
+    vertex: u32,
+    vertex_index: u32,
 }
 
 impl render_graph::Node for ComputeNode {
@@ -226,21 +247,32 @@ impl render_graph::Node for ComputeNode {
             let pipeline = world.resource::<ComputePipeline>();
 
             if let Some(init_pipeline) = pipeline_cache.get_compute_pipeline(pipeline.pipeline) {
+                // the mesh_allocator holds slabs of meshes, so the buffers we get here
+                // can contain more data than just the mesh we're asking for.
+                // That's why there is a range field.
+                // You should *not* touch data in these buffers that is outside of the range.
                 let vertex_buffer_slice = mesh_allocator.mesh_vertex_slice(mesh_id).unwrap();
                 let index_buffer_slice = mesh_allocator.mesh_index_slice(mesh_id).unwrap();
 
-                dbg!(&vertex_buffer_slice.range);
-                dbg!(&index_buffer_slice.range);
-
                 let first = FirstIndex {
-                    first_vertex_index: vertex_buffer_slice.range.start * 4,
-                    first_index_index: index_buffer_slice.range.start * 4,
+                    // there are 8 vertex data values (pos, normal, uv) per vertex
+                    // and the vertex_buffer_slice.range.start is in "vertex elements"
+                    // which includes all of that data, so each index is worth 8 indices
+                    // to our shader code.
+                    vertex: vertex_buffer_slice.range.start * 8,
+                    // but each vertex index is a single value, so the index of the
+                    // vertex indices is exactly what the value is
+                    vertex_index: index_buffer_slice.range.start,
                 };
+
                 let mut uniforms = UniformBuffer::from(first);
                 uniforms.write_buffer(
                     render_context.render_device(),
                     world.resource::<RenderQueue>(),
                 );
+
+                // pass in the full mesh_allocator slabs as well as the first index
+                // offsets for the vertex and index buffers
                 let bind_group = render_context.render_device().create_bind_group(
                     None,
                     &pipeline_cache.get_bind_group_layout(&pipeline.layout),
@@ -258,10 +290,15 @@ impl render_graph::Node for ComputeNode {
                             label: Some("Mesh generation compute pass"),
                             ..default()
                         });
+                pass.push_debug_group("compute_mesh");
 
                 pass.set_bind_group(0, &bind_group, &[]);
                 pass.set_pipeline(init_pipeline);
+                // we only dispatch 1,1,1 workgroup here, but a real compute shader
+                // would take advantage of more workgroups
                 pass.dispatch_workgroups(1, 1, 1);
+
+                pass.pop_debug_group();
             }
         }
 

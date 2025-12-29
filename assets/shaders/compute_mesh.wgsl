@@ -1,12 +1,12 @@
-// This shader is used for the gpu_readback example
-// The actual work it does is not important for the example
+// This shader is used for the compute_mesh example
+// The actual work it does is not important for the example and
+// has been hardcoded to return a cube mesh
 
 struct FirstIndex {
     first_vertex_index: u32,
     first_index_index: u32,
 }
 
-// This is the data that lives in the gpu only buffer
 @group(0) @binding(0) var<uniform> first_index: FirstIndex;
 @group(0) @binding(1) var<storage, read_write> vertex_data: array<f32>;
 @group(0) @binding(2) var<storage, read_write> index_data: array<u32>;
@@ -14,10 +14,14 @@ struct FirstIndex {
 @compute @workgroup_size(1)
 fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     for (var i = 0u; i < 192; i++) {
-        vertex_data[i + first_index.first_vertex_index * 32 ] = vertices[i ];
+        // buffer is bigger than just our mesh, so we use the first_index.vertex
+        // to write to the correct range
+        vertex_data[i + first_index.vertex] = vertices[i];
     }
     for (var i = 0u; i < 36; i++) {
-        index_data[i + first_index.first_index_index * 6] = u32(indices[i]);
+        // buffer is bigger than just our mesh, so we use the first_index.vertex_index
+        // to write to the correct range
+        index_data[i + first_index.vertex_index] = u32(indices[i]);
     }
 }
 
