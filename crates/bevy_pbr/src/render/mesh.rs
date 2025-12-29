@@ -1165,10 +1165,9 @@ impl RenderMeshInstanceGpuBuilder {
         // `meshes_to_reextract_next_frame` and bail.
         let mesh_material = mesh_material_ids.mesh_material(entity);
         let mesh_material_binding_id = if mesh_material != DUMMY_MESH_MATERIAL.untyped() {
-            match render_material_bindings.get(&mesh_material) {
-                Some(binding_id) => Some(*binding_id),
-                None => None,
-            }
+            render_material_bindings
+                .get(&mesh_material)
+                .map(|binding_id| *binding_id)
         } else {
             // Use a dummy material binding ID.
             Some(MaterialBindingId::default())
@@ -1870,7 +1869,7 @@ pub fn collect_meshes_for_gpu_building(
                     let _g = info_span!("scope_outer").entered();
                     let cpu_culling = cpu_culling_changed.clone();
                     if !removed.is_empty() {
-                        removed_tx.send(std::mem::take(removed)).ok();
+                        removed_tx.send(core::mem::take(removed)).ok();
                     }
                     scope.spawn(async move {
                         let _g = info_span!("par_cpu_culling_scope").entered();
@@ -1904,7 +1903,7 @@ pub fn collect_meshes_for_gpu_building(
                     let _g = info_span!("scope_outer").entered();
                     let gpu_culling = gpu_culling_changed.clone();
                     if !removed.is_empty() {
-                        removed_tx.send(std::mem::take(removed)).ok();
+                        removed_tx.send(core::mem::take(removed)).ok();
                     }
                     scope.spawn(async move {
                         let _g = info_span!("par_gpu_culling_scope").entered();
