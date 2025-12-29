@@ -131,7 +131,6 @@ default = ["2d", "3d", "ui"]
 2d = [
   "default_app",
   "default_platform",
-  "2d_api",
   "2d_bevy_render",
   "ui",
   "scene",
@@ -143,7 +142,6 @@ default = ["2d", "3d", "ui"]
 3d = [
   "default_app",
   "default_platform",
-  "3d_api",
   "3d_bevy_render",
   "ui",
   "scene",
