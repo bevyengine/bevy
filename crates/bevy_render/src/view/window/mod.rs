@@ -64,6 +64,11 @@ pub struct ExtractedWindow {
     pub size_changed: bool,
     pub present_mode_changed: bool,
     pub alpha_mode: CompositeAlphaMode,
+    /// Whether this window needs an initial buffer commit.
+    ///
+    /// On Wayland, windows must present at least once before they are shown.
+    /// See <https://wayland.app/protocols/xdg-shell#xdg_surface>
+    pub needs_initial_present: bool,
 }
 
 impl ExtractedWindow {
@@ -145,6 +150,7 @@ fn extract_windows(
             swap_chain_texture_view_format: None,
             present_mode_changed: false,
             alpha_mode: window.composite_alpha_mode,
+            needs_initial_present: true,
         });
 
         if extracted_window.swap_chain_texture.is_none() {
