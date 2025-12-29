@@ -164,20 +164,16 @@ pub fn extract_debug_overlay(
 
         if debug_options.outline_padding_box {
             let mut padding_box = border_box;
-            padding_box.min.x += uinode.border.left;
-            padding_box.max.x -= uinode.border.right;
-            padding_box.min.y += uinode.border.top;
-            padding_box.max.y -= uinode.border.bottom;
+            padding_box.min += uinode.border.min_inset;
+            padding_box.max -= uinode.border.max_inset;
             push_outline(padding_box, uinode.inner_radius());
         }
 
         if debug_options.outline_content_box {
             let mut content_box = border_box;
             let content_inset = uinode.content_inset();
-            content_box.min.x += content_inset.left;
-            content_box.max.x -= content_inset.right;
-            content_box.min.y += content_inset.top;
-            content_box.max.y -= content_inset.bottom;
+            content_box.min += content_inset.min_inset;
+            content_box.max -= content_inset.max_inset;
             push_outline(content_box, ResolvedBorderRadius::ZERO);
         }
 
@@ -185,9 +181,9 @@ pub fn extract_debug_overlay(
             if 0. <= uinode.scrollbar_size.y {
                 let content_inset = uinode.content_inset();
                 let half_size = 0.5 * uinode.size;
-                let min_x = -half_size.x + content_inset.left;
-                let max_x = half_size.x - content_inset.right - uinode.scrollbar_size.x;
-                let max_y = half_size.y - content_inset.bottom;
+                let min_x = -half_size.x + content_inset.min_inset.x;
+                let max_x = half_size.x - content_inset.max_inset.x - uinode.scrollbar_size.x;
+                let max_y = half_size.y - content_inset.max_inset.y;
                 let min_y = max_y - uinode.scrollbar_size.y;
                 let gutter = Rect {
                     min: Vec2::new(min_x, min_y),
@@ -207,10 +203,10 @@ pub fn extract_debug_overlay(
             if 0. <= uinode.scrollbar_size.x {
                 let content_inset = uinode.content_inset();
                 let half_size = 0.5 * uinode.size;
-                let max_x = half_size.x - content_inset.right;
+                let max_x = half_size.x - content_inset.max_inset.x;
                 let min_x = max_x - uinode.scrollbar_size.x;
-                let min_y = -half_size.y + content_inset.top;
-                let max_y = half_size.y - content_inset.bottom - uinode.scrollbar_size.y;
+                let min_y = -half_size.y + content_inset.min_inset.y;
+                let max_y = half_size.y - content_inset.max_inset.y - uinode.scrollbar_size.y;
                 let gutter = Rect {
                     min: Vec2::new(min_x, min_y),
                     max: Vec2::new(max_x, max_y),
