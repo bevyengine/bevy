@@ -1165,9 +1165,7 @@ impl RenderMeshInstanceGpuBuilder {
         // `meshes_to_reextract_next_frame` and bail.
         let mesh_material = mesh_material_ids.mesh_material(entity);
         let mesh_material_binding_id = if mesh_material != DUMMY_MESH_MATERIAL.untyped() {
-            render_material_bindings
-                .get(&mesh_material)
-                .map(|binding_id| *binding_id)
+            render_material_bindings.get(&mesh_material).copied()
         } else {
             // Use a dummy material binding ID.
             Some(MaterialBindingId::default())
