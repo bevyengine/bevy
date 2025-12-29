@@ -33,9 +33,13 @@ use crate::{
         ProcessError, ProcessorState, ProcessorTransactionLog, ProcessorTransactionLogFactory,
     },
     saver::AssetSaver,
-    tests::{run_app_until, CoolText, CoolTextLoader, CoolTextRon, SubText},
+    tests::{
+        read_asset_as_string, read_meta_as_string, run_app_until, CoolText, CoolTextLoader,
+        CoolTextRon, SubText,
+    },
     transformer::{AssetTransformer, TransformedAsset},
     Asset, AssetApp, AssetLoader, AssetMode, AssetPath, AssetPlugin, LoadContext,
+    WriteDefaultMetaError,
 };
 
 #[derive(TypePath)]
@@ -237,101 +241,8 @@ fn serialize_as_cool_text(text: &str) -> String {
     ron::ser::to_string_pretty(&cool_text_ron, PrettyConfig::new().new_line("\n")).unwrap()
 }
 
-fn create_app_with_asset_processor(extra_sources: &[String]) -> AppWithProcessor {
-    let mut app = App::new();
-    let source_gate = Arc::new(RwLock::new(()));
-
-    struct UnfinishedProcessingDirs {
-        source: Dir,
-        processed: Dir,
-        // The receiver channel for the source event sender for the unprocessed source.
-        source_event_sender_receiver:
-            async_channel::Receiver<async_channel::Sender<AssetSourceEvent>>,
-    }
-
-    impl UnfinishedProcessingDirs {
-        fn finish(self) -> ProcessingDirs {
-            ProcessingDirs {
-                source: self.source,
-                processed: self.processed,
-                // The processor listens for events on the source unconditionally, and we enable
-                // watching for the processed source, so both of these channels will be filled.
-                source_event_sender: self.source_event_sender_receiver.recv_blocking().unwrap(),
-            }
-        }
-    }
-
-    fn create_source(
-        app: &mut App,
-        source_id: AssetSourceId<'static>,
-        source_gate: Arc<RwLock<()>>,
-    ) -> UnfinishedProcessingDirs {
-        let source_dir = Dir::default();
-        let processed_dir = Dir::default();
-
-        let source_memory_reader = LockGatedReader::new(
-            source_gate,
-            MemoryAssetReader {
-                root: source_dir.clone(),
-            },
-        );
-        let processed_memory_reader = MemoryAssetReader {
-            root: processed_dir.clone(),
-        };
-        let processed_memory_writer = MemoryAssetWriter {
-            root: processed_dir.clone(),
-        };
-
-        let (source_event_sender_sender, source_event_sender_receiver) = async_channel::bounded(1);
-
-        struct FakeWatcher;
-
-        impl AssetWatcher for FakeWatcher {}
-
-        app.register_asset_source(
-            source_id,
-            AssetSourceBuilder::new(move || Box::new(source_memory_reader.clone()))
-                .with_watcher(move |sender: async_channel::Sender<AssetSourceEvent>| {
-                    source_event_sender_sender.send_blocking(sender).unwrap();
-                    Some(Box::new(FakeWatcher))
-                })
-                .with_processed_reader(move || Box::new(processed_memory_reader.clone()))
-                .with_processed_writer(move |_| Some(Box::new(processed_memory_writer.clone()))),
-        );
-
-        UnfinishedProcessingDirs {
-            source: source_dir,
-            processed: processed_dir,
-            source_event_sender_receiver,
-        }
-    }
-
-    let default_source_dirs = create_source(&mut app, AssetSourceId::Default, source_gate.clone());
-
-    let extra_sources_dirs = extra_sources
-        .iter()
-        .map(|source_name| {
-            (
-                source_name.clone(),
-                create_source(
-                    &mut app,
-                    AssetSourceId::Name(source_name.clone().into()),
-                    source_gate.clone(),
-                ),
-            )
-        })
-        .collect::<Vec<_>>();
-
-    app.add_plugins((
-        TaskPoolPlugin::default(),
-        AssetPlugin {
-            mode: AssetMode::Processed,
-            use_asset_processor_override: Some(true),
-            watch_for_changes_override: Some(true),
-            ..Default::default()
-        },
-    ));
-
+/// Sets the transaction log for the app to a fake one to prevent touching the filesystem.
+fn set_fake_transaction_log(app: &mut App) {
     /// A dummy transaction log factory that just creates [`FakeTransactionLog`].
     struct FakeTransactionLogFactory;
 
@@ -377,6 +288,108 @@ fn create_app_with_asset_processor(extra_sources: &[String]) -> AppWithProcessor
         .data()
         .set_log_factory(Box::new(FakeTransactionLogFactory))
         .unwrap();
+}
+
+fn create_app_with_asset_processor(extra_sources: &[String]) -> AppWithProcessor {
+    let mut app = App::new();
+    let source_gate = Arc::new(RwLock::new(()));
+
+    struct UnfinishedProcessingDirs {
+        source: Dir,
+        processed: Dir,
+        // The receiver channel for the source event sender for the unprocessed source.
+        source_event_sender_receiver:
+            async_channel::Receiver<async_channel::Sender<AssetSourceEvent>>,
+    }
+
+    impl UnfinishedProcessingDirs {
+        fn finish(self) -> ProcessingDirs {
+            ProcessingDirs {
+                source: self.source,
+                processed: self.processed,
+                // The processor listens for events on the source unconditionally, and we enable
+                // watching for the processed source, so both of these channels will be filled.
+                source_event_sender: self.source_event_sender_receiver.recv_blocking().unwrap(),
+            }
+        }
+    }
+
+    fn create_source(
+        app: &mut App,
+        source_id: AssetSourceId<'static>,
+        source_gate: Arc<RwLock<()>>,
+    ) -> UnfinishedProcessingDirs {
+        let source_dir = Dir::default();
+        let processed_dir = Dir::default();
+
+        let source_memory_reader = LockGatedReader::new(
+            source_gate,
+            MemoryAssetReader {
+                root: source_dir.clone(),
+            },
+        );
+        let source_memory_writer = MemoryAssetWriter {
+            root: source_dir.clone(),
+        };
+        let processed_memory_reader = MemoryAssetReader {
+            root: processed_dir.clone(),
+        };
+        let processed_memory_writer = MemoryAssetWriter {
+            root: processed_dir.clone(),
+        };
+
+        let (source_event_sender_sender, source_event_sender_receiver) = async_channel::bounded(1);
+
+        struct FakeWatcher;
+
+        impl AssetWatcher for FakeWatcher {}
+
+        app.register_asset_source(
+            source_id,
+            AssetSourceBuilder::new(move || Box::new(source_memory_reader.clone()))
+                .with_writer(move |_| Some(Box::new(source_memory_writer.clone())))
+                .with_watcher(move |sender: async_channel::Sender<AssetSourceEvent>| {
+                    source_event_sender_sender.send_blocking(sender).unwrap();
+                    Some(Box::new(FakeWatcher))
+                })
+                .with_processed_reader(move || Box::new(processed_memory_reader.clone()))
+                .with_processed_writer(move |_| Some(Box::new(processed_memory_writer.clone()))),
+        );
+
+        UnfinishedProcessingDirs {
+            source: source_dir,
+            processed: processed_dir,
+            source_event_sender_receiver,
+        }
+    }
+
+    let default_source_dirs = create_source(&mut app, AssetSourceId::Default, source_gate.clone());
+
+    let extra_sources_dirs = extra_sources
+        .iter()
+        .map(|source_name| {
+            (
+                source_name.clone(),
+                create_source(
+                    &mut app,
+                    AssetSourceId::Name(source_name.clone().into()),
+                    source_gate.clone(),
+                ),
+            )
+        })
+        .collect::<Vec<_>>();
+
+    app.add_plugins((
+        TaskPoolPlugin::default(),
+        AssetPlugin {
+            mode: AssetMode::Processed,
+            use_asset_processor_override: Some(true),
+            watch_for_changes_override: Some(true),
+            ..Default::default()
+        },
+    ));
+
+    set_fake_transaction_log(&mut app);
 
     // Now that we've built the app, finish all the processing dirs.
 
@@ -493,11 +506,6 @@ impl MutateAsset<CoolText> for AddText {
     fn mutate(&self, text: &mut CoolText) {
         text.text.push_str(&self.0);
     }
-}
-
-fn read_asset_as_string(dir: &Dir, path: &Path) -> String {
-    let bytes = dir.get_asset(path).unwrap();
-    str::from_utf8(bytes.value()).unwrap().to_string()
 }
 
 #[test]
@@ -1675,9 +1683,12 @@ fn only_reprocesses_wrong_hash_on_startup() {
         AssetPlugin {
             mode: AssetMode::Processed,
             use_asset_processor_override: Some(true),
+            watch_for_changes_override: Some(true),
             ..Default::default()
         },
     ));
+
+    set_fake_transaction_log(&mut app);
 
     app.init_asset::<CoolText>()
         .init_asset::<SubText>()
@@ -1718,5 +1729,84 @@ fn only_reprocesses_wrong_hash_on_startup() {
     assert_eq!(
         read_asset_as_string(&default_processed_dir, dep_changed_asset),
         serialize_as_cool_text("dep_changed processed DIFFERENT processed")
+    );
+}
+
+#[test]
+fn writes_default_meta_for_processor() {
+    let AppWithProcessor {
+        mut app,
+        default_source_dirs: ProcessingDirs { source, .. },
+        ..
+    } = create_app_with_asset_processor(&[]);
+
+    type CoolTextProcessor = LoadTransformAndSave<
+        CoolTextLoader,
+        RootAssetTransformer<AddText, CoolText>,
+        CoolTextSaver,
+    >;
+
+    app.register_asset_processor(CoolTextProcessor::new(
+        RootAssetTransformer::new(AddText("blah".to_string())),
+        CoolTextSaver,
+    ))
+    .set_default_asset_processor::<CoolTextProcessor>("cool.ron");
+
+    const ASSET_PATH: &str = "abc.cool.ron";
+    source.insert_asset_text(Path::new(ASSET_PATH), &serialize_as_cool_text("blah"));
+
+    let processor = app.world().resource::<AssetProcessor>().clone();
+    bevy_tasks::block_on(processor.write_default_meta_file_for_path(ASSET_PATH)).unwrap();
+
+    assert_eq!(
+        read_meta_as_string(&source, Path::new(ASSET_PATH)),
+        r#"(
+    meta_format_version: "1.0",
+    asset: Process(
+        processor: "bevy_asset::processor::process::LoadTransformAndSave<bevy_asset::tests::CoolTextLoader, bevy_asset::processor::tests::RootAssetTransformer<bevy_asset::processor::tests::AddText, bevy_asset::tests::CoolText>, bevy_asset::processor::tests::CoolTextSaver>",
+        settings: (
+            loader_settings: (),
+            transformer_settings: (),
+            saver_settings: (),
+        ),
+    ),
+)"#
+    );
+}
+
+#[test]
+fn write_default_meta_does_not_overwrite() {
+    let AppWithProcessor {
+        mut app,
+        default_source_dirs: ProcessingDirs { source, .. },
+        ..
+    } = create_app_with_asset_processor(&[]);
+
+    type CoolTextProcessor = LoadTransformAndSave<
+        CoolTextLoader,
+        RootAssetTransformer<AddText, CoolText>,
+        CoolTextSaver,
+    >;
+
+    app.register_asset_processor(CoolTextProcessor::new(
+        RootAssetTransformer::new(AddText("blah".to_string())),
+        CoolTextSaver,
+    ))
+    .set_default_asset_processor::<CoolTextProcessor>("cool.ron");
+
+    const ASSET_PATH: &str = "abc.cool.ron";
+    source.insert_asset_text(Path::new(ASSET_PATH), &serialize_as_cool_text("blah"));
+    const META_TEXT: &str = "hey i'm walkin here!";
+    source.insert_meta_text(Path::new(ASSET_PATH), META_TEXT);
+
+    let processor = app.world().resource::<AssetProcessor>().clone();
+    assert!(matches!(
+        bevy_tasks::block_on(processor.write_default_meta_file_for_path(ASSET_PATH)),
+        Err(WriteDefaultMetaError::MetaAlreadyExists)
+    ));
+
+    assert_eq!(
+        read_meta_as_string(&source, Path::new(ASSET_PATH)),
+        META_TEXT
     );
 }

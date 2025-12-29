@@ -20,7 +20,7 @@ To that end, we've created `bevy_camera_controller`: giving us a place to store,
 that we need for easy development, and yes, an eventual Editor.
 We're kicking it off with a couple of camera controllers, detailed below.
 
-### `FreeCamera`
+## `FreeCamera`
 
 The first camera controller that we've introduced is a "free camera", designed for quickly moving around a scene,
 completely ignoring both physics and geometry.
@@ -34,7 +34,7 @@ To configure the settings (speed, behavior, keybindings) or enable / disable the
 We've done our best to select good defaults, but the details of your scene (especially the scale!) will make a big
 difference to what feels right.
 
-### `PanCamera`
+## `PanCamera`
 
 The `PanCamera` controller is a simple and effective tool designed for 2D games or any project where you need
 to pan the camera and zoom in/out with ease. It allows you to move the camera using the WASD keys and zoom
@@ -47,7 +47,7 @@ To configure the camera's zoom levels, speed, or keybindings, simply modify the 
 settings should work well for most use cases, but you can adjust them based on your specific needs, especially
 for large-scale or high-resolution 2D scenes.
 
-### Using `bevy_camera_controller` in your own projects
+## Using `bevy_camera_controller` in your own projects
 
 The provided camera controllers are designed to be functional, pleasant debug and dev tools:
 add the correct plugin and camera component and you're good to go!

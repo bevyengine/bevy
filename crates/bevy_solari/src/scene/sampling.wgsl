@@ -19,7 +19,7 @@ fn balance_heuristic(f: f32, g: f32) -> f32 {
 
 // https://gpuopen.com/download/Bounded_VNDF_Sampling_for_Smith-GGX_Reflections.pdf (Listing 1)
 fn sample_ggx_vndf(wi_tangent: vec3<f32>, roughness: f32, rng: ptr<function, u32>) -> vec3<f32> {
-    if roughness <= 0.01 {
+    if roughness <= 0.001 {
         return vec3(-wi_tangent.xy, wi_tangent.z);
     }
 
@@ -127,7 +127,7 @@ fn resolve_light_sample(light_sample: LightSample, light_source: LightSource) ->
     if light_source.kind == LIGHT_SOURCE_KIND_DIRECTIONAL {
         let directional_light = directional_lights[light_source.id];
 
-#ifdef DIRECTIONAL_LIGHT_SOFT_SHADOWS
+#ifndef NO_DIRECTIONAL_LIGHT_SOFT_SHADOWS
         // Sample a random direction within a cone whose base is the sun approximated as a disk
         // https://www.realtimerendering.com/raytracinggems/unofficial_RayTracingGems_v1.9.pdf#0004286901.INDD%3ASec30%3A305
         var rng = light_sample.seed;
