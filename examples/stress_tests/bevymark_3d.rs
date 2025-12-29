@@ -450,9 +450,9 @@ fn handle_collision(translation: &Vec3, velocity: &mut Vec3) {
 }
 
 fn collision_system(mut cube_query: Query<(&mut Cube, &Transform)>) {
-    for (mut cube, transform) in &mut cube_query {
+    cube_query.par_iter_mut().for_each(|(mut cube, transform)| {
         handle_collision(&transform.translation, &mut cube.velocity);
-    }
+    });
 }
 
 fn counter_system(
