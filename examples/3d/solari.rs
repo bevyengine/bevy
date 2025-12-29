@@ -180,8 +180,8 @@ fn setup_pica_pica(
     commands.spawn((
         Node {
             position_type: PositionType::Absolute,
-            right: Val::Px(0.0),
-            padding: UiRect::all(px(4.0)),
+            right: px(0.0),
+            padding: px(4.0).all(),
             border_radius: BorderRadius::bottom_left(px(4.0)),
             ..default()
         },
