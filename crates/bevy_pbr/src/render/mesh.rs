@@ -1804,7 +1804,7 @@ pub fn collect_meshes_for_gpu_building(
     >();
     let (removed_tx, removed_rx) = std::sync::mpsc::channel::<Vec<MainEntity>>();
 
-    const CHUNK_SIZE: usize = 4096;
+    const CHUNK_SIZE: usize = 10_000;
 
     // Build the [`RenderMeshInstance`]s and [`MeshInputUniform`]s.
     ComputeTaskPool::get().scope(|scope| {
