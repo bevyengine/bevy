@@ -51,7 +51,7 @@ fn query_world_cache(world_position_in: vec3<f32>, world_normal: vec3<f32>, view
     var cell_size = get_cell_size(world_position, view_position);
 
     // https://tomclabault.github.io/blog/2025/regir, jitter_world_position_tangent_plane
-#ifndef NO_JITTER_WORLD_CACHE
+#ifdef JITTER_WORLD_CACHE
     let TBN = orthonormalize(world_normal);
     let offset = (rand_vec2f(rng) * 2.0 - 1.0) * cell_size * 0.5;
     world_position += offset.x * TBN[0] + offset.y * TBN[1];

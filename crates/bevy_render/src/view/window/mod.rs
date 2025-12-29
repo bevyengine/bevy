@@ -413,6 +413,7 @@ pub fn create_surfaces(
             // normally this is dropped on present but we double check here to be safe as failure to
             // drop it will cause validation errors in wgpu
             drop(window.swap_chain_texture.take());
+            drop(window.swap_chain_texture_view.take());
 
             data.configuration.width = window.physical_width;
             data.configuration.height = window.physical_height;
