@@ -181,7 +181,7 @@ fn setup_pica_pica(
         Node {
             position_type: PositionType::Absolute,
             right: px(0.0),
-            padding: UiRect::all(px(4.0)),
+            padding: px(4.0).all(),
             border_radius: BorderRadius::bottom_left(px(4.0)),
             ..default()
         },
