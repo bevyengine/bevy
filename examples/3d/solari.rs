@@ -6,7 +6,7 @@ use bevy::{
     camera_controller::free_camera::{FreeCamera, FreeCameraPlugin},
     diagnostic::{Diagnostic, DiagnosticPath, DiagnosticsStore},
     gltf::GltfMaterialName,
-    image::{ImageAddressMode, ImageLoaderSettings, ImageSampler, ImageSamplerDescriptor},
+    image::{ImageAddressMode, ImageLoaderSettings},
     mesh::VertexAttributeValues,
     post_process::bloom::Bloom,
     prelude::*,
