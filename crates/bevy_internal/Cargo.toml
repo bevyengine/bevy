@@ -236,6 +236,7 @@ bevy_render = [
   "bevy_shader",
   "bevy_color/wgpu-types",
   "bevy_color/encase",
+  "bevy_winit?/bevy_render",
 ]
 bevy_core_pipeline = ["dep:bevy_core_pipeline", "bevy_render"]
 bevy_anti_alias = ["dep:bevy_anti_alias", "bevy_core_pipeline"]

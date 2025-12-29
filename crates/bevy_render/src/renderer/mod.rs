@@ -14,7 +14,7 @@ use crate::{
     render_phase::TrackedRenderPass,
     render_resource::RenderPassDescriptor,
     settings::{RenderResources, WgpuSettings, WgpuSettingsPriority},
-    view::{ExtractedWindows, ViewTarget},
+    view::{surface_target::SurfaceTargetSource, ExtractedWindows, ViewTarget},
 };
 use alloc::sync::Arc;
 use bevy_camera::NormalizedRenderTarget;
@@ -23,7 +23,6 @@ use bevy_ecs::{prelude::*, system::SystemState};
 use bevy_platform::time::Instant;
 use bevy_render::camera::ExtractedCamera;
 use bevy_time::TimeSender;
-use bevy_window::RawHandleWrapperHolder;
 use tracing::{debug, error, info, info_span, warn};
 use wgpu::{
     Adapter, AdapterInfo, Backends, CommandBuffer, CommandEncoder, DeviceType, Instance, Queue,
@@ -179,7 +178,7 @@ fn find_adapter_by_name(
 /// for the specified backend.
 pub async fn initialize_renderer(
     backends: Backends,
-    primary_window: Option<RawHandleWrapperHolder>,
+    primary_window: Option<SurfaceTargetSource>,
     options: &WgpuSettings,
     #[cfg(feature = "raw_vulkan_init")]
     raw_vulkan_init_settings: raw_vulkan_init::RawVulkanInitSettings,
@@ -214,23 +213,23 @@ pub async fn initialize_renderer(
         &mut additional_vulkan_features,
     );
 
-    let surface = primary_window.and_then(|wrapper| {
-        let maybe_handle = wrapper
-            .0
-            .lock()
-            .expect("Couldn't get the window handle in time for renderer initialization");
-        if let Some(wrapper) = maybe_handle.as_ref() {
-            // SAFETY: Plugins should be set up on the main thread.
-            let handle = unsafe { wrapper.get_handle() };
-            Some(
-                instance
-                    .create_surface(handle)
-                    .expect("Failed to create wgpu surface"),
-            )
-        } else {
-            None
-        }
-    });
+    let is_main_thread = true; // Plugins are set up on the main thread.
+    let surface = primary_window
+        .and_then(
+            |source| match source.create_surface(&instance, is_main_thread) {
+                Ok(surface) => Some(surface),
+                Err(err) => {
+                    warn!("Unable to create surface for adapter init: {:?}", err);
+                    None
+                }
+            },
+        )
+        .map(|render_surface| {
+            // SAFETY:
+            // - This surface is just used for compatibility checks when creating the adapter. It's not configured.
+            // - The surface is dropped at the end of this function; guaranteeing it does not outlive the window.
+            unsafe { render_surface.into_inner() }
+        });
 
     let force_fallback_adapter = std::env::var("WGPU_FORCE_FALLBACK_ADAPTER")
         .map_or(options.force_fallback_adapter, |v| {

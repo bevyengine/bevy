@@ -5,7 +5,7 @@ use bevy_ecs::entity::EntityHashMap;
 use bevy_platform::collections::HashMap;
 use bevy_window::{
     CursorGrabMode, CursorOptions, MonitorSelection, VideoModeSelection, Window, WindowMode,
-    WindowPosition, WindowResolution, WindowWrapper,
+    WindowPosition, WindowResolution,
 };
 use tracing::warn;
 
@@ -17,6 +17,7 @@ use winit::{
     window::{CursorGrabMode as WinitCursorGrabMode, Fullscreen, Window as WinitWindow, WindowId},
 };
 
+use crate::WinitWindowWrapper;
 use crate::{
     accessibility::{
         prepare_accessibility_for_window, AccessKitAdapters, WinitActionRequestHandlers,
@@ -30,7 +31,7 @@ use crate::{
 #[derive(Debug, Default)]
 pub struct WinitWindows {
     /// Stores [`winit`] windows by window identifier.
-    pub windows: HashMap<WindowId, WindowWrapper<WinitWindow>>,
+    pub windows: HashMap<WindowId, WinitWindowWrapper>,
     /// Maps entities to `winit` window identifiers.
     pub entity_to_winit: EntityHashMap<WindowId>,
     /// Maps `winit` window identifiers to entities.
@@ -63,7 +64,7 @@ impl WinitWindows {
         handlers: &mut WinitActionRequestHandlers,
         accessibility_requested: &AccessibilityRequested,
         monitors: &WinitMonitors,
-    ) -> &WindowWrapper<WinitWindow> {
+    ) -> &WinitWindowWrapper {
         let mut winit_window_attributes = WinitWindow::default_attributes();
 
         // Due to a UIA limitation, winit windows need to be invisible for the
@@ -338,12 +339,12 @@ impl WinitWindows {
 
         self.windows
             .entry(winit_window.id())
-            .insert(WindowWrapper::new(winit_window))
+            .insert(WinitWindowWrapper::new(winit_window))
             .into_mut()
     }
 
     /// Get the winit window that is associated with our entity.
-    pub fn get_window(&self, entity: Entity) -> Option<&WindowWrapper<WinitWindow>> {
+    pub fn get_window(&self, entity: Entity) -> Option<&WinitWindowWrapper> {
         self.entity_to_winit
             .get(&entity)
             .and_then(|winit_id| self.windows.get(winit_id))
@@ -359,7 +360,7 @@ impl WinitWindows {
     /// Remove a window from winit.
     ///
     /// This should mostly just be called when the window is closing.
-    pub fn remove_window(&mut self, entity: Entity) -> Option<WindowWrapper<WinitWindow>> {
+    pub fn remove_window(&mut self, entity: Entity) -> Option<WinitWindowWrapper> {
         let winit_id = self.entity_to_winit.remove(&entity)?;
         self.winit_to_entity.remove(&winit_id);
         self.windows.remove(&winit_id)

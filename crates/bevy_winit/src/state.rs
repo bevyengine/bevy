@@ -536,15 +536,24 @@ impl WinitAppRunnerState {
 
             #[cfg(target_os = "android")]
             {
-                // Remove the `RawHandleWrapper` from the primary window.
+                // Remove the `RawHandleWrapper` and `SurfaceTargetSource` from the primary window.
                 // This will trigger the surface destruction.
                 let mut query = self
                     .world_mut()
                     .query_filtered::<Entity, With<PrimaryWindow>>();
                 let entity = query.single(&self.world()).unwrap();
+
                 self.world_mut()
                     .entity_mut(entity)
                     .remove::<RawHandleWrapper>();
+
+                #[cfg(feature = "bevy_render")]
+                {
+                    use bevy_render::view::surface_target::SurfaceTargetSource;
+                    self.world_mut()
+                        .entity_mut(entity)
+                        .remove::<SurfaceTargetSource>();
+                }
             }
         }
 
@@ -557,9 +566,8 @@ impl WinitAppRunnerState {
 
             #[cfg(target_os = "android")]
             {
-                // Get windows that are cached but without raw handles. Those window were already created, but got their
-                // handle wrapper removed when the app was suspended.
-
+                // Get windows that are cached but without a surface target source / handle. These windows were already
+                // created, but got their surface target source and handle removed when the app was suspended.
                 let mut query = self.world_mut()
                     .query_filtered::<(Entity, &Window, &CursorOptions), (With<CachedWindow>, Without<RawHandleWrapper>)>();
                 if let Ok((entity, window, cursor_options)) = query.single(&self.world()) {
@@ -585,9 +593,24 @@ impl WinitAppRunnerState {
                                 &monitors,
                             );
 
-                            let wrapper = RawHandleWrapper::new(winit_window).unwrap();
+                            // Restore RawHandleWrapper (used by custom renderers)
+                            self.world_mut()
+                                .entity_mut(entity)
+                                .insert(bevy_window::RawHandleWrapper::new(winit_window.clone()));
 
-                            self.world_mut().entity_mut(entity).insert(wrapper);
+                            // Restore SurfaceTargetSource (used by bevy_render)
+                            #[cfg(feature = "bevy_render")]
+                            {
+                                use bevy_render::view::surface_target::{
+                                    SurfaceTargetSource, SurfaceTargetThreadConstraint,
+                                };
+                                let thread_constraint = SurfaceTargetThreadConstraint::None;
+                                let wrapper = SurfaceTargetSource::new(
+                                    thread_constraint,
+                                    winit_window.clone(),
+                                );
+                                self.world_mut().entity_mut(entity).insert(wrapper);
+                            }
                         });
                     });
                 }
