@@ -2,6 +2,8 @@
 // The actual work it does is not important for the example and
 // has been hardcoded to return a cube mesh
 
+// `vertex` is the starting offset of the mesh data in the *vertex_data* storage buffer
+// `vertex_index` is the starting offset of the *index* data in the *index_data* storage buffer
 struct FirstIndex {
     vertex: u32,
     vertex_index: u32,
@@ -13,14 +15,28 @@ struct FirstIndex {
 
 @compute @workgroup_size(1)
 fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
+    // this loop is iterating over the full list of (position, normal, uv)
+    // data what we have in `vertices`.
+    // `192` is used because arrayLength on const arrays doesn't work
     for (var i = 0u; i < 192; i++) {
-        // buffer is bigger than just our mesh, so we use the first_index.vertex
-        // to write to the correct range
+        // The vertex_data buffer is bigger than just the mesh we're
+        // processing because Bevy stores meshes in the mesh_allocator
+        // which allocates slabs that each can contain multiple meshes.
+        // This buffer is one slab, and first_index.vertex is the starting
+        // offset for the mesh we care about.
+        // So the 0 starting value in the for loop is added to first_index.vertex
+        // which means we start writing at the correct offset.
+        //
+        // The "end" of the available space to write into is known by us
+        // ahead of time in this example, but you may wish to also set the
+        // end of the range in the uniform buffer *because you should not
+        // write past the end of the range ever*. Doing this can overwrite
+        // other mesh data*.
         vertex_data[i + first_index.vertex] = vertices[i];
     }
+    // `36` is the length of the `indices` array
     for (var i = 0u; i < 36; i++) {
-        // buffer is bigger than just our mesh, so we use the first_index.vertex_index
-        // to write to the correct range
+        // This is doing the same as the vertex_data offset described above
         index_data[i + first_index.vertex_index] = u32(indices[i]);
     }
 }

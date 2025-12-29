@@ -65,6 +65,10 @@ impl Plugin for ComputeShaderMeshGeneratorPlugin {
         render_app
             .world_mut()
             .resource_mut::<MeshAllocator>()
+            // This allows using the mesh allocator slabs as
+            // storage buffers directly in the compute shader.
+            // Which means that we can write from our compute
+            // shader directly to the allocated mesh slabs.
             .extra_buffer_usages = BufferUsages::STORAGE;
     }
 }
@@ -83,6 +87,15 @@ fn setup(
     // so we set up the data to be what we want the compute shader to output
     // We're using 36 indices, 24 vertices which is directly taken from
     // the Bevy Cuboid mesh implementation
+    //
+    // It is *very important* that the amount of data allocated here is
+    // *bigger* than (or exactly equal to) the amount of data we intend to
+    // write from the compute shader. This amount of data defines how big
+    // the buffer we get from the mesh_allocator will be, which in turn
+    // defines how big the buffer is when we're in the compute shader.
+    //
+    // If it turns out you don't need all of the space when the compute shader
+    // is writing data, you can write NaN to the rest of the data.
     let empty_mesh = {
         let mut mesh = Mesh::new(
             PrimitiveTopology::TriangleList,
@@ -285,7 +298,7 @@ impl render_graph::Node for ComputeNode {
                 pass.set_bind_group(0, &bind_group, &[]);
                 pass.set_pipeline(init_pipeline);
                 // we only dispatch 1,1,1 workgroup here, but a real compute shader
-                // would take advantage of more workgroups
+                // would take advantage of more and larger size workgroups
                 pass.dispatch_workgroups(1, 1, 1);
 
                 pass.pop_debug_group();
