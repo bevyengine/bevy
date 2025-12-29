@@ -3,9 +3,9 @@ title: Nested query access
 pull_requests: [21557]
 ---
 
-Some queries may now access data from multiple entities.
-This will enable richer querying across relations,
-and supports accessing resources in queries now that resources are entities.
+Queries are now able to access data from multiple entities in the same query item.
+This will be used to support richer querying across relations,
+such as by querying components from an entity's parent.
 
 However, some query operations are not sound for queries that access multiple entities,
 and need additional trait bounds to ensure they are only used soundly.

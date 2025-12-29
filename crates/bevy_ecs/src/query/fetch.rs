@@ -362,11 +362,15 @@ pub unsafe trait QueryData: WorldQuery {
 /// This is how methods like [`Iterator::collect`] work.
 /// It is therefore unsound to offer an [`Iterator`] for a [`QueryData`] for which only one instance may be alive concurrently.
 ///
-/// All [`SingleEntityQueryData`] types are [`IterQueryData`],
-/// because queries on different entities would not alias.
+/// For `QueryData` that implement this trait, [`QueryData::fetch`] may be called for one entity while an item is still alive for a different entity.
 ///
-/// All [`ReadOnlyQueryData`] types are [`IterQueryData`],
-/// because it's sound for read-only queries to alias.
+/// All [`SingleEntityQueryData`] types are [`IterQueryData`].
+/// They only access data on the current entity, the one passed to [`QueryData::fetch`],
+/// so the access for different entities will always be disjoint.
+///
+/// All [`ReadOnlyQueryData`] types are [`IterQueryData`].
+/// Even if they access data on entities other than the current one,
+/// that access is read-only and it's sound for it to alias.
 ///
 /// Queries with a nested query that performs mutable access should generally *not* be [`IterQueryData`],
 /// although they can be if they have a way to prove that all accesses through the nested query are disjoint.
@@ -383,7 +387,10 @@ pub unsafe trait IterQueryData: QueryData {}
 /// This must only be implemented for read-only [`QueryData`]'s.
 pub unsafe trait ReadOnlyQueryData: IterQueryData<ReadOnly = Self> {}
 
-/// A [`QueryData`] that only accesses data from the current entity.
+/// A [`QueryData`] that only accesses data from the current entity, the one passed to [`QueryData::fetch`].
+///
+/// This is used as a bound in [`EntityRef::get_components`] and related APIs,
+/// since they only have access to a single entity.
 ///
 /// # Safety
 ///
