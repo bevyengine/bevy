@@ -301,10 +301,10 @@ fn score_candidate(
     }
 
     // Check max distance
-    if let Some(max_dist) = config.max_search_distance {
-        if distance > max_dist {
-            return f32::INFINITY;
-        }
+    if let Some(max_dist) = config.max_search_distance
+        && distance > max_dist
+    {
+        return f32::INFINITY;
     }
 
     // Calculate alignment score
