@@ -280,6 +280,7 @@ pub fn measure_text_system(
             &block,
             computed.as_mut(),
             &mut font_system,
+            bevy_text::Hinting::Disabled,
         ) {
             Ok(measure) => {
                 if block.linebreak == LineBreak::NoWrap {

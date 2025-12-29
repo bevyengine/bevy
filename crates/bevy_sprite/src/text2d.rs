@@ -248,6 +248,8 @@ pub fn update_text2d_layout(
                 scale_factor as f64,
                 &mut computed,
                 &mut font_system,
+                // Disable hinting as `Text2d` text is not pixel-aligned
+                bevy_text::Hinting::Disabled,
             ) {
                 Err(TextError::NoSuchFont) => {
                     // There was an error processing the text layout.
