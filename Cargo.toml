@@ -3021,6 +3021,17 @@ category = "Shaders"
 wasm = false
 
 [[example]]
+name = "compute_mesh"
+path = "examples/shader/compute_mesh.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.compute_mesh]
+name = "Compute Shader Mesh"
+description = "A compute shader that generates a mesh that is controlled by a Handle"
+category = "Shaders"
+wasm = false
+
+[[example]]
 name = "array_texture"
 path = "examples/shader/array_texture.rs"
 doc-scrape-examples = true
