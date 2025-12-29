@@ -5,25 +5,22 @@
 //!
 //! The mesh_allocator is used to get references to the relevant slabs
 //! that contain the mesh data we're interested in.
+//!
+//! This example does not remove the `GenerateMesh` component after
+//! generating the mesh.
 
 use bevy::{
     asset::RenderAssetUsages,
     color::palettes::tailwind::RED_400,
-    mesh::{Indices, MeshVertexAttribute},
+    mesh::Indices,
     prelude::*,
     render::{
-        extract_resource::{ExtractResource, ExtractResourcePlugin},
-        gpu_readback::{Readback, ReadbackComplete},
         render_asset::RenderAssets,
         render_graph::{self, RenderGraph, RenderLabel},
-        render_resource::{
-            binding_types::{storage_buffer, texture_storage_2d},
-            *,
-        },
-        renderer::{RenderContext, RenderDevice},
-        storage::{GpuShaderStorageBuffer, ShaderStorageBuffer},
-        texture::GpuImage,
-        Render, RenderApp, RenderStartup, RenderSystems,
+        render_resource::{binding_types::storage_buffer, *},
+        renderer::RenderContext,
+        storage::ShaderStorageBuffer,
+        Render, RenderApp, RenderStartup,
     },
 };
 use bevy_render::{
@@ -75,6 +72,8 @@ impl Plugin for ComputeShaderMeshGeneratorPlugin {
     }
 }
 
+/// Holds a handle to the empty mesh that should be filled
+/// by the compute shader.
 #[derive(Component, ExtractComponent, Clone)]
 struct GenerateMesh(Handle<Mesh>);
 
