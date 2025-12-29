@@ -22,22 +22,19 @@ pub mod gated;
 
 mod source;
 
+pub use futures_io::{AsyncRead, AsyncSeek, AsyncWrite, SeekFrom};
 pub use futures_lite::AsyncWriteExt;
 pub use source::*;
 
 use alloc::{boxed::Box, sync::Arc, vec::Vec};
-use bevy_tasks::{BoxedFuture, ConditionalSendFuture};
+use bevy_tasks::{BoxedFuture, ConditionalSend, ConditionalSendFuture};
 use core::{
     mem::size_of,
     pin::Pin,
     task::{Context, Poll},
 };
-use futures_io::{AsyncRead, AsyncSeek, AsyncWrite};
 use futures_lite::Stream;
-use std::{
-    io::SeekFrom,
-    path::{Path, PathBuf},
-};
+use std::path::{Path, PathBuf};
 use thiserror::Error;
 
 /// Errors that occur while loading assets.
@@ -131,7 +128,14 @@ pub enum SeekKind {
 // a higher maximum necessary.
 pub const STACK_FUTURE_SIZE: usize = 10 * size_of::<&()>();
 
-pub use stackfuture::StackFuture;
+pub use stackfuture::{LocalStackFuture, StackFuture};
+
+#[cfg(target_arch = "wasm32")]
+pub type ConditionalSendStackFuture<'a, T, const STACK_SIZE: usize> =
+    LocalStackFuture<'a, T, STACK_SIZE>;
+#[cfg(not(target_arch = "wasm32"))]
+pub type ConditionalSendStackFuture<'a, T, const STACK_SIZE: usize> =
+    StackFuture<'a, T, STACK_SIZE>;
 
 /// A type returned from [`AssetReader::read`], which is used to read the contents of a file
 /// (or virtual file) corresponding to an asset.
@@ -154,7 +158,7 @@ pub use stackfuture::StackFuture;
 /// [`SeekKind::AnySeek`] to indicate that they may seek backward, or from the start/end. A reader
 /// implementation may choose to support that, or may just detect those kinds of seeks and return an
 /// error.
-pub trait Reader: AsyncRead + AsyncSeek + Unpin + Send + Sync {
+pub trait Reader: AsyncRead + AsyncSeek + Unpin + ConditionalSend {
     /// Reads the entire contents of this reader and appends them to a vec.
     ///
     /// # Note for implementors
@@ -164,9 +168,9 @@ pub trait Reader: AsyncRead + AsyncSeek + Unpin + Send + Sync {
     fn read_to_end<'a>(
         &'a mut self,
         buf: &'a mut Vec<u8>,
-    ) -> StackFuture<'a, std::io::Result<usize>, STACK_FUTURE_SIZE> {
+    ) -> ConditionalSendStackFuture<'a, std::io::Result<usize>, STACK_FUTURE_SIZE> {
         let future = futures_lite::AsyncReadExt::read_to_end(self, buf);
-        StackFuture::from(future)
+        ConditionalSendStackFuture::from(future)
     }
 }
 
@@ -174,7 +178,7 @@ impl Reader for Box<dyn Reader + '_> {
     fn read_to_end<'a>(
         &'a mut self,
         buf: &'a mut Vec<u8>,
-    ) -> StackFuture<'a, std::io::Result<usize>, STACK_FUTURE_SIZE> {
+    ) -> ConditionalSendStackFuture<'a, std::io::Result<usize>, STACK_FUTURE_SIZE> {
         (**self).read_to_end(buf)
     }
 }
@@ -682,7 +686,7 @@ impl Reader for VecReader {
     fn read_to_end<'a>(
         &'a mut self,
         buf: &'a mut Vec<u8>,
-    ) -> StackFuture<'a, std::io::Result<usize>, STACK_FUTURE_SIZE> {
+    ) -> ConditionalSendStackFuture<'a, std::io::Result<usize>, STACK_FUTURE_SIZE> {
         read_to_end(&self.bytes, &mut self.bytes_read, buf)
     }
 }
@@ -727,7 +731,7 @@ impl Reader for SliceReader<'_> {
     fn read_to_end<'a>(
         &'a mut self,
         buf: &'a mut Vec<u8>,
-    ) -> StackFuture<'a, std::io::Result<usize>, STACK_FUTURE_SIZE> {
+    ) -> ConditionalSendStackFuture<'a, std::io::Result<usize>, STACK_FUTURE_SIZE> {
         read_to_end(self.bytes, &mut self.bytes_read, buf)
     }
 }
@@ -781,8 +785,8 @@ pub(crate) fn read_to_end<'a>(
     source: &'a [u8],
     bytes_read: &'a mut usize,
     dest: &'a mut Vec<u8>,
-) -> StackFuture<'a, std::io::Result<usize>, STACK_FUTURE_SIZE> {
-    StackFuture::from(async {
+) -> ConditionalSendStackFuture<'a, std::io::Result<usize>, STACK_FUTURE_SIZE> {
+    ConditionalSendStackFuture::from(async {
         if *bytes_read >= source.len() {
             Ok(0)
         } else {

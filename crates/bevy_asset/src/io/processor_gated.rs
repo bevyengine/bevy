@@ -1,6 +1,7 @@
 use crate::{
     io::{
-        AssetReader, AssetReaderError, AssetSourceId, PathStream, Reader, ReaderRequiredFeatures,
+        AssetReader, AssetReaderError, AssetSourceId, ConditionalSendStackFuture, PathStream,
+        Reader, ReaderRequiredFeatures,
     },
     processor::{ProcessStatus, ProcessingState},
     AssetPath,
@@ -155,7 +156,7 @@ impl Reader for TransactionLockedReader<'_> {
     fn read_to_end<'a>(
         &'a mut self,
         buf: &'a mut Vec<u8>,
-    ) -> stackfuture::StackFuture<'a, std::io::Result<usize>, { super::STACK_FUTURE_SIZE }> {
+    ) -> ConditionalSendStackFuture<'a, std::io::Result<usize>, { super::STACK_FUTURE_SIZE }> {
         self.reader.read_to_end(buf)
     }
 }

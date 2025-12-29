@@ -1,6 +1,6 @@
 use crate::io::{
-    AssetReader, AssetReaderError, AssetWriter, AssetWriterError, PathStream, Reader,
-    ReaderRequiredFeatures,
+    AssetReader, AssetReaderError, AssetWriter, AssetWriterError, ConditionalSendStackFuture,
+    PathStream, Reader, ReaderRequiredFeatures,
 };
 use alloc::{borrow::ToOwned, boxed::Box, sync::Arc, vec, vec::Vec};
 use bevy_platform::{
@@ -351,7 +351,7 @@ impl Reader for DataReader {
     fn read_to_end<'a>(
         &'a mut self,
         buf: &'a mut Vec<u8>,
-    ) -> stackfuture::StackFuture<'a, std::io::Result<usize>, { super::STACK_FUTURE_SIZE }> {
+    ) -> ConditionalSendStackFuture<'a, std::io::Result<usize>, { super::STACK_FUTURE_SIZE }> {
         crate::io::read_to_end(self.data.value(), &mut self.bytes_read, buf)
     }
 }

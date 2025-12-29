@@ -1,12 +1,14 @@
 use crate::io::{
-    get_meta_path, AssetReader, AssetReaderError, EmptyPathStream, PathStream, Reader,
-    ReaderRequiredFeatures, VecReader,
+    get_meta_path, AssetReader, AssetReaderError, AsyncRead, AsyncSeek, LocalStackFuture,
+    EmptyPathStream, PathStream, Reader, ReaderRequiredFeatures, SeekFrom, STACK_FUTURE_SIZE,
 };
-use alloc::{borrow::ToOwned, boxed::Box, format};
+use alloc::{borrow::ToOwned, boxed::Box, format, vec::Vec};
+use core::pin::Pin;
+use core::task::{Poll, Context};
 use js_sys::{Uint8Array, JSON};
 use std::path::{Path, PathBuf};
 use tracing::error;
-use wasm_bindgen::{prelude::wasm_bindgen, JsCast, JsValue};
+use wasm_bindgen::{prelude::wasm_bindgen, JsCast, JsValue, UnwrapThrowExt};
 use wasm_bindgen_futures::JsFuture;
 use web_sys::Response;
 
@@ -79,8 +81,8 @@ impl HttpWasmAssetReader {
         match resp.status() {
             200 => {
                 let data = JsFuture::from(resp.array_buffer().unwrap()).await.unwrap();
-                let bytes = Uint8Array::new(&data).to_vec();
-                let reader = VecReader::new(bytes);
+                let bytes = Uint8Array::new(&data);
+                let reader = Uint8ArrayReader::new(bytes);
                 Ok(reader)
             }
             // Some web servers, including itch.io's CDN, return 403 when a requested file isn't present.
@@ -119,5 +121,117 @@ impl AssetReader for HttpWasmAssetReader {
     async fn is_directory<'a>(&'a self, _path: &'a Path) -> Result<bool, AssetReaderError> {
         error!("Reading directories is not supported with the HttpWasmAssetReader");
         Ok(false)
+    }
+}
+
+/// An [`AsyncRead`] implementation capable of reading a [`Uint8Array`].
+pub struct Uint8ArrayReader {
+    array: Uint8Array,
+    initial_offset: u32,
+}
+
+impl Uint8ArrayReader {
+    /// Create a new [`Uint8ArrayReader`] for `bytes`.
+    pub fn new(array: Uint8Array) -> Self {
+        Self {
+            initial_offset: array.byte_offset(),
+            array,
+        }
+    }
+}
+
+impl AsyncRead for Uint8ArrayReader {
+    fn poll_read(
+        mut self: Pin<&mut Self>,
+        _cx: &mut Context,
+        buf: &mut [u8],
+    ) -> Poll<futures_io::Result<usize>> {
+        let array_len = self.array.length();
+        let n = u32::min(buf.len() as u32, array_len);
+        self.array.subarray(0, n).copy_to(&mut buf[..n as usize]); // NOTE: copy_to will panic if the lengths do not exactly match
+        self.array = self.array.subarray(n, array_len);
+        Poll::Ready(Ok(n as usize))
+    }
+}
+
+impl AsyncSeek for Uint8ArrayReader {
+    fn poll_seek(
+        mut self: Pin<&mut Self>,
+        _cx: &mut Context,
+        seek_from: SeekFrom,
+    ) -> Poll<std::io::Result<u64>> {
+        let array_len = self.array.length();
+        let current_array_buffer_offset = self.array.byte_offset();
+        let array_buffer_end = current_array_buffer_offset + array_len;
+        let new_array_buffer_offset = match seek_from {
+            SeekFrom::Start(from_start) => self
+                .initial_offset
+                .saturating_add(u32::try_from(from_start).unwrap_or(u32::MAX))
+                .min(array_buffer_end),
+            SeekFrom::End(from_end) => {
+                if from_end.is_negative() {
+                    array_buffer_end
+                        .saturating_sub(u32::try_from(from_end.abs()).unwrap_or(u32::MAX))
+                        .max(self.initial_offset)
+                } else {
+                    array_buffer_end
+                }
+            }
+            SeekFrom::Current(from_current) => {
+                if from_current.is_negative() {
+                    current_array_buffer_offset
+                        .saturating_sub(u32::try_from(from_current.abs()).unwrap_or(u32::MAX))
+                        .max(self.initial_offset)
+                } else {
+                    current_array_buffer_offset
+                        .saturating_add(u32::try_from(from_current).unwrap_or(u32::MAX))
+                        .min(array_buffer_end)
+                }
+            }
+        };
+        debug_assert!(new_array_buffer_offset >= self.initial_offset);
+        debug_assert!(new_array_buffer_offset <= array_buffer_end);
+        self.array = self
+            .array
+            .constructor()
+            .call3(
+                &JsValue::UNDEFINED,
+                &self.array.buffer(),
+                &new_array_buffer_offset.into(),
+                &array_buffer_end.into(),
+            )
+            .unwrap_throw()
+            .unchecked_into();
+        Poll::Ready(Ok((new_array_buffer_offset - self.initial_offset).into()))
+    }
+}
+
+impl Reader for Uint8ArrayReader {
+    fn read_to_end<'a>(
+        &'a mut self,
+        buf: &'a mut Vec<u8>,
+    ) -> LocalStackFuture<'a, std::io::Result<usize>, STACK_FUTURE_SIZE> {
+        #[expect(unsafe_code)]
+        LocalStackFuture::from(async {
+            let n = self.array.length();
+            let n_usize = n as usize;
+
+            buf.reserve_exact(n_usize);
+            let spare_capacity = buf.spare_capacity_mut();
+            debug_assert!(spare_capacity.len() >= n_usize);
+            // NOTE: `copy_to_uninit` requires the lengths to match exactly,
+            // and `reserve_exact` may reserve more capacity than required.
+            self.array.copy_to_uninit(&mut spare_capacity[..n_usize]);
+            // SAFETY:
+            // * the vector has enough spare capacity for `n` additional bytes due to `reserve_exact` above
+            // * the bytes have been initialized due to `copy_to_uninit` above.
+            unsafe {
+                let new_len = buf.len() + n_usize;
+                buf.set_len(new_len);
+            }
+            self.array = self.array.subarray(n, n);
+
+            Ok(n_usize)
+        })
     }
 }
