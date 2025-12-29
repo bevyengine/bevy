@@ -3,7 +3,7 @@
 //! compute shader on the GPU without transferring data back
 //! to the CPU.
 //!
-//! The mesh_allocator is used to get references to the relevant slabs
+//! The `mesh_allocator` is used to get references to the relevant slabs
 //! that contain the mesh data we're interested in.
 //!
 //! This example does not remove the `GenerateMesh` component after
