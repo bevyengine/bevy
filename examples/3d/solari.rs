@@ -185,7 +185,7 @@ fn setup_pica_pica(
             border_radius: BorderRadius::bottom_left(px(4.0)),
             ..default()
         },
-        BackgroundColor(Color::srgba(0.10, 0.10, 0.10, 0.8).into()),
+        BackgroundColor(Color::srgba(0.10, 0.10, 0.10, 0.8)),
         children![(
             PerformanceText,
             Text::default(),
@@ -217,7 +217,7 @@ fn setup_many_lights(
         .unwrap();
     match plane_mesh.attribute_mut(Mesh::ATTRIBUTE_UV_0).unwrap() {
         VertexAttributeValues::Float32x2(items) => {
-            items.iter_mut().flatten().for_each(|x| *x *= 3.0)
+            items.iter_mut().flatten().for_each(|x| *x *= 3.0);
         }
         _ => unreachable!(),
     }
@@ -356,7 +356,7 @@ fn setup_many_lights(
             border_radius: BorderRadius::bottom_left(px(4.0)),
             ..default()
         },
-        BackgroundColor(Color::srgba(0.10, 0.10, 0.10, 0.8).into()),
+        BackgroundColor(Color::srgba(0.10, 0.10, 0.10, 0.8)),
         children![(
             PerformanceText,
             Text::default(),
