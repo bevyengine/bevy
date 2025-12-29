@@ -1128,7 +1128,7 @@ impl RenderMeshInstanceGpuBuilder {
     ///
     /// This is the thread-safe part of the update.
     fn prepare(
-        self,
+        mut self,
         entity: MainEntity,
         mesh_allocator: &MeshAllocator,
         mesh_material_ids: &RenderMaterialInstances,
@@ -1171,6 +1171,8 @@ impl RenderMeshInstanceGpuBuilder {
             Some(MaterialBindingId::default())
         };
 
+        self.shared.material_bindings_index = mesh_material_binding_id.unwrap_or_default();
+
         let lightmap_slot = match render_lightmaps.render_lightmaps.get(&entity) {
             Some(render_lightmap) => u16::from(*render_lightmap.slot_index),
             None => u16::MAX,
@@ -1179,12 +1181,7 @@ impl RenderMeshInstanceGpuBuilder {
             .render_lightmaps
             .get(&entity)
             .map(|lightmap| lightmap.slab_index);
-
-        let mut shared = self.shared;
-        shared.lightmap_slab_index = lightmap_slab_index;
-        shared.material_bindings_index = mesh_material_binding_id.unwrap_or_default();
-
-        let material_bindings_index = shared.material_bindings_index;
+        self.shared.lightmap_slab_index = lightmap_slab_index;
 
         // Create the mesh input uniform.
         let mesh_input_uniform = MeshInputUniform {
@@ -1201,18 +1198,19 @@ impl RenderMeshInstanceGpuBuilder {
                 vertex_count
             },
             current_skin_index,
-            material_and_lightmap_bind_group_slot: u32::from(material_bindings_index.slot)
-                | ((lightmap_slot as u32) << 16),
-            tag: shared.tag,
+            material_and_lightmap_bind_group_slot: u32::from(
+                self.shared.material_bindings_index.slot,
+            ) | ((lightmap_slot as u32) << 16),
+            tag: self.shared.tag,
             pad: 0,
         };
 
         let world_from_local = &self.world_from_local;
         let center =
-            world_from_local.matrix3.mul_vec3(shared.center) + world_from_local.translation;
+            world_from_local.matrix3.mul_vec3(self.shared.center) + world_from_local.translation;
 
         RenderMeshInstanceGpuPrepared {
-            shared,
+            shared: self.shared,
             mesh_input_uniform,
             center,
             material_ready: mesh_material_binding_id.is_some(),
