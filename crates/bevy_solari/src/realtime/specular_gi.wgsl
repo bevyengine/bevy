@@ -101,17 +101,8 @@ fn trace_glossy_path(initial_ray_origin: vec3<f32>, initial_wi: vec3<f32>, initi
         let wo = -wi;
         let wo_tangent = vec3(dot(wo, T), dot(wo, B), dot(wo, N));
 
-        // Add emissive contribution (first bounce gets MIS weight 0.0 or 1.0 depending on if ReSTIR DI shaded using the specular lobe or not)
-        var mis_weight: f32;
-        if i != 0u {
-            mis_weight = emissive_mis_weight(p_bounce, ray_hit, surface_perfectly_specular);
-        } else {
-            if initial_roughness <= SPECULAR_GI_FOR_DI_ROUGHNESS_THRESHOLD {
-                mis_weight = 1.0;
-            } else {
-                mis_weight = 0.0;
-            }
-        }
+        // Add emissive contribution
+        let mis_weight = emissive_mis_weight(i, initial_roughness, p_bounce, ray_hit, surface_perfectly_specular);
         radiance += throughput * mis_weight * ray_hit.material.emissive;
 
         // Should not perform NEE for mirror-like surfaces
@@ -148,11 +139,20 @@ fn trace_glossy_path(initial_ray_origin: vec3<f32>, initial_wi: vec3<f32>, initi
     return radiance;
 }
 
-fn emissive_mis_weight(p_bounce: f32, ray_hit: ResolvedRayHitFull, previous_surface_perfectly_specular: bool) -> f32 {
-    if previous_surface_perfectly_specular { return 1.0; }
+fn emissive_mis_weight(i: u32, initial_roughness: f32, p_bounce: f32, ray_hit: ResolvedRayHitFull, previous_surface_perfectly_specular: bool) -> f32 {
+    if i != 0u {
+        if previous_surface_perfectly_specular { return 1.0; }
 
-    let p_light = random_emissive_light_pdf(ray_hit);
-    return power_heuristic(p_bounce, p_light);
+        let p_light = random_emissive_light_pdf(ray_hit);
+        return power_heuristic(p_bounce, p_light);
+    } else {
+        // The first bounce gets MIS weight 0.0 or 1.0 depending on if ReSTIR DI shaded using the specular lobe or not
+        if initial_roughness <= SPECULAR_GI_FOR_DI_ROUGHNESS_THRESHOLD {
+            return 1.0;
+        } else {
+            return 0.0;
+        }
+    }
 }
 
 fn nee_mis_weight(inverse_p_light: f32, brdf_rays_can_hit: bool, wo_tangent: vec3<f32>, wi: vec3<f32>, ray_hit: ResolvedRayHitFull, TBN: mat3x3<f32>) -> f32 {
