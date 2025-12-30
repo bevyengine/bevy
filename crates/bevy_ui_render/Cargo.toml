@@ -41,7 +41,7 @@ derive_more = { version = "2", default-features = false, features = ["from"] }
 tracing = { version = "0.1", default-features = false, features = ["std"] }
 
 [features]
-default = []
+default = ["bevy_ui_debug"]
 serialize = ["bevy_math/serialize", "bevy_platform/serialize"]
 bevy_ui_debug = []
 
