@@ -1,7 +1,6 @@
 //! This example provides a 3D benchmark.
 //!
 //! Usage: spawn more entities by clicking with the left mouse button.
-//! Orbit with the right mouse button and zoom with scroll.
 
 use core::time::Duration;
 use std::str::FromStr;
@@ -11,7 +10,6 @@ use bevy::{
     asset::RenderAssetUsages,
     color::palettes::basic::*,
     diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
-    input::mouse::{AccumulatedMouseMotion, AccumulatedMouseScroll},
     prelude::*,
     render::render_resource::{Extent3d, TextureDimension, TextureFormat},
     window::{PresentMode, WindowResolution},
@@ -38,11 +36,6 @@ struct BevyCounter {
 #[derive(Component)]
 struct Cube {
     velocity: Vec3,
-}
-
-#[derive(Component)]
-struct CameraControl {
-    distance: f32,
 }
 
 #[derive(FromArgs, Resource)]
@@ -133,7 +126,6 @@ fn main() {
             Update,
             (
                 mouse_handler,
-                camera_control_system,
                 movement_system,
                 collision_system,
                 counter_system,
@@ -224,13 +216,9 @@ fn setup(
         ..Default::default()
     };
 
-    let camera_distance = (VOLUME_SIZE * 1.3).length();
     commands.spawn((
         Camera3d::default(),
         Transform::from_translation(VOLUME_SIZE * 1.3).looking_at(Vec3::ZERO, Vec3::Y),
-        CameraControl {
-            distance: camera_distance,
-        },
     ));
 
     commands.spawn((
@@ -304,39 +292,6 @@ fn setup(
     }
     commands.insert_resource(cube_resources);
     commands.insert_resource(scheduled);
-}
-
-fn camera_control_system(
-    mut camera_query: Query<(&mut Transform, &mut CameraControl), With<Camera3d>>,
-    mouse_button_input: Res<ButtonInput<MouseButton>>,
-    accumulated_mouse_motion: Res<AccumulatedMouseMotion>,
-    accumulated_mouse_scroll: Res<AccumulatedMouseScroll>,
-) {
-    let (mut transform, mut camera_control) = camera_query.single_mut().unwrap();
-
-    if mouse_button_input.pressed(MouseButton::Right) {
-        let delta = accumulated_mouse_motion.delta;
-
-        if delta != Vec2::ZERO {
-            let (yaw, pitch, _): (f32, f32, f32) = transform.rotation.to_euler(EulerRot::YXZ);
-            let yaw = yaw - delta.x * 0.003;
-            let pitch = (pitch - delta.y * 0.003).clamp(
-                -std::f32::consts::FRAC_PI_2 + 0.01,
-                std::f32::consts::FRAC_PI_2 - 0.01,
-            );
-
-            transform.rotation = Quat::from_euler(EulerRot::YXZ, yaw, pitch, 0.0);
-        }
-    }
-
-    let scroll = accumulated_mouse_scroll.delta.y * 0.05;
-    if scroll != 0.0 {
-        camera_control.distance -= scroll * camera_control.distance * 0.1;
-        camera_control.distance = camera_control.distance.max(1.0);
-    }
-
-    let forward = transform.forward();
-    transform.translation = -forward * camera_control.distance;
 }
 
 fn mouse_handler(
