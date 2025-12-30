@@ -1,4 +1,3 @@
-use crate::renderer::WgpuWrapper;
 use crate::{
     render_resource::{SurfaceTexture, TextureView},
     renderer::{RenderAdapter, RenderDevice, RenderInstance},
@@ -6,21 +5,19 @@ use crate::{
 };
 use bevy_app::{App, Plugin};
 use bevy_ecs::{entity::EntityHashMap, prelude::*};
-use bevy_platform::collections::HashSet;
+use bevy_platform::collections::{hash_map::Entry, HashSet};
 use bevy_utils::default;
-use bevy_window::{
-    CompositeAlphaMode, PresentMode, PrimaryWindow, RawHandleWrapper, Window, WindowClosing,
-};
+use bevy_window::{CompositeAlphaMode, PresentMode, PrimaryWindow, Window, WindowClosing};
 use core::{
     num::NonZero,
     ops::{Deref, DerefMut},
 };
-use tracing::{debug, info, warn};
-use wgpu::{
-    SurfaceConfiguration, SurfaceTargetUnsafe, TextureFormat, TextureUsages, TextureViewDescriptor,
-};
+use surface_target::{RenderSurface, SurfaceCreationError, SurfaceTargetSource};
+use tracing::{debug, error, info, warn};
+use wgpu::{SurfaceConfiguration, TextureFormat, TextureUsages, TextureViewDescriptor};
 
 pub mod screenshot;
+pub mod surface_target;
 
 use screenshot::ScreenshotPlugin;
 
@@ -37,7 +34,8 @@ impl Plugin for WindowRenderPlugin {
                 .add_systems(ExtractSchedule, extract_windows)
                 .add_systems(
                     Render,
-                    create_surfaces
+                    (create_send_surfaces, create_non_send_surfaces)
+                        .chain()
                         .run_if(need_surface_configuration)
                         .before(prepare_windows),
                 )
@@ -49,7 +47,9 @@ impl Plugin for WindowRenderPlugin {
 pub struct ExtractedWindow {
     /// An entity that contains the components in [`Window`].
     pub entity: Entity,
-    pub handle: RawHandleWrapper,
+    pub surface_target_source: SurfaceTargetSource,
+    /// Set to `true` if surface creation failed. Repeated attempts will not be tried.
+    pub surface_failed: bool,
     pub physical_width: u32,
     pub physical_height: u32,
     pub present_mode: PresentMode,
@@ -117,11 +117,23 @@ impl DerefMut for ExtractedWindows {
 fn extract_windows(
     mut extracted_windows: ResMut<ExtractedWindows>,
     mut closing: Extract<MessageReader<WindowClosing>>,
-    windows: Extract<Query<(Entity, &Window, &RawHandleWrapper, Option<&PrimaryWindow>)>>,
-    mut removed: Extract<RemovedComponents<RawHandleWrapper>>,
+    windows: Extract<
+        Query<(
+            Entity,
+            &Window,
+            &SurfaceTargetSource,
+            Option<&PrimaryWindow>,
+        )>,
+    >,
+    mut removed: Extract<RemovedComponents<SurfaceTargetSource>>,
     mut window_surfaces: ResMut<WindowSurfaces>,
 ) {
-    for (entity, window, handle, primary) in windows.iter() {
+    for removed_window in removed.read() {
+        extracted_windows.remove(&removed_window);
+        window_surfaces.remove(&removed_window);
+    }
+
+    for (entity, window, surface_target_source, primary) in windows.iter() {
         if primary.is_some() {
             extracted_windows.primary = Some(entity);
         }
@@ -133,7 +145,8 @@ fn extract_windows(
 
         let extracted_window = extracted_windows.entry(entity).or_insert(ExtractedWindow {
             entity,
-            handle: handle.clone(),
+            surface_failed: false,
+            surface_target_source: surface_target_source.clone(),
             physical_width: new_width,
             physical_height: new_height,
             present_mode: window.present_mode,
@@ -184,15 +197,10 @@ fn extract_windows(
         extracted_windows.remove(&closing_window.window);
         window_surfaces.remove(&closing_window.window);
     }
-    for removed_window in removed.read() {
-        extracted_windows.remove(&removed_window);
-        window_surfaces.remove(&removed_window);
-    }
 }
 
 struct SurfaceData {
-    // TODO: what lifetime should this be?
-    surface: WgpuWrapper<wgpu::Surface<'static>>,
+    surface: RenderSurface,
     configuration: SurfaceConfiguration,
     texture_view_format: Option<TextureFormat>,
 }
@@ -307,9 +315,10 @@ pub fn need_surface_configuration(
     window_surfaces: Res<WindowSurfaces>,
 ) -> bool {
     for window in windows.windows.values() {
-        if !window_surfaces.configured_windows.contains(&window.entity)
+        if (!window_surfaces.configured_windows.contains(&window.entity)
             || window.size_changed
-            || window.present_mode_changed
+            || window.present_mode_changed)
+            && !window.surface_failed
         {
             return true;
         }
@@ -323,106 +332,198 @@ pub fn need_surface_configuration(
 // has to wait for the cpu to finish to start on the next frame.
 const DEFAULT_DESIRED_MAXIMUM_FRAME_LATENCY: u32 = 2;
 
-/// Creates window surfaces.
-pub fn create_surfaces(
-    // By accessing a NonSend resource, we tell the scheduler to put this system on the main thread,
-    // which is necessary for some OS's
-    #[cfg(any(target_os = "macos", target_os = "ios"))] _marker: bevy_ecs::system::NonSendMarker,
+fn create_window_surface(
+    is_main_thread: bool,
+    window: &ExtractedWindow,
+    render_instance: &RenderInstance,
+    render_device: &RenderDevice,
+    render_adapter: &RenderAdapter,
+) -> Result<SurfaceData, SurfaceCreationError> {
+    let surface = window
+        .surface_target_source
+        .create_surface(render_instance, is_main_thread)?;
+
+    let caps = surface.get_capabilities(render_adapter);
+    let formats = caps.formats;
+    // For future HDR output support, we'll need to request a format that supports HDR,
+    // but as of wgpu 0.15 that is not yet supported.
+    // Prefer sRGB formats for surfaces, but fall back to first available format if no sRGB formats are available.
+    let mut format = *formats.first().expect("No supported formats for surface");
+    for available_format in formats {
+        // Rgba8UnormSrgb and Bgra8UnormSrgb and the only sRGB formats wgpu exposes that we can use for surfaces.
+        if available_format == TextureFormat::Rgba8UnormSrgb
+            || available_format == TextureFormat::Bgra8UnormSrgb
+        {
+            format = available_format;
+            break;
+        }
+    }
+
+    let texture_view_format = if !format.is_srgb() {
+        Some(format.add_srgb_suffix())
+    } else {
+        None
+    };
+    let configuration = SurfaceConfiguration {
+        format,
+        width: window.physical_width,
+        height: window.physical_height,
+        usage: TextureUsages::RENDER_ATTACHMENT,
+        present_mode: match window.present_mode {
+            PresentMode::Fifo => wgpu::PresentMode::Fifo,
+            PresentMode::FifoRelaxed => wgpu::PresentMode::FifoRelaxed,
+            PresentMode::Mailbox => wgpu::PresentMode::Mailbox,
+            PresentMode::Immediate => wgpu::PresentMode::Immediate,
+            PresentMode::AutoVsync => wgpu::PresentMode::AutoVsync,
+            PresentMode::AutoNoVsync => wgpu::PresentMode::AutoNoVsync,
+        },
+        desired_maximum_frame_latency: window
+            .desired_maximum_frame_latency
+            .map(NonZero::<u32>::get)
+            .unwrap_or(DEFAULT_DESIRED_MAXIMUM_FRAME_LATENCY),
+        alpha_mode: match window.alpha_mode {
+            CompositeAlphaMode::Auto => wgpu::CompositeAlphaMode::Auto,
+            CompositeAlphaMode::Opaque => wgpu::CompositeAlphaMode::Opaque,
+            CompositeAlphaMode::PreMultiplied => wgpu::CompositeAlphaMode::PreMultiplied,
+            CompositeAlphaMode::PostMultiplied => wgpu::CompositeAlphaMode::PostMultiplied,
+            CompositeAlphaMode::Inherit => wgpu::CompositeAlphaMode::Inherit,
+        },
+        view_formats: match texture_view_format {
+            Some(format) => vec![format],
+            None => vec![],
+        },
+    };
+
+    render_device.configure_surface(&surface, &configuration);
+
+    Ok(SurfaceData {
+        surface,
+        configuration,
+        texture_view_format,
+    })
+}
+
+fn reconfigure_window_surface(
+    window: &mut ExtractedWindow,
+    data: &mut SurfaceData,
+    render_device: &RenderDevice,
+    render_adapter: &RenderAdapter,
+) {
+    // normally this is dropped on present but we double check here to be safe as failure to
+    // drop it will cause validation errors in wgpu
+    drop(window.swap_chain_texture.take());
+    drop(window.swap_chain_texture_view.take());
+
+    data.configuration.width = window.physical_width;
+    data.configuration.height = window.physical_height;
+    let caps = data.surface.get_capabilities(&render_adapter);
+    data.configuration.present_mode = present_mode(window, &caps);
+    render_device.configure_surface(&data.surface, &data.configuration);
+}
+
+/// Creates window surfaces that do not require the main thread.
+pub fn create_send_surfaces(
     mut windows: ResMut<ExtractedWindows>,
     mut window_surfaces: ResMut<WindowSurfaces>,
     render_instance: Res<RenderInstance>,
     render_adapter: Res<RenderAdapter>,
     render_device: Res<RenderDevice>,
 ) {
-    for window in windows.windows.values_mut() {
-        let data = window_surfaces
-            .surfaces
-            .entry(window.entity)
-            .or_insert_with(|| {
-                let surface_target = SurfaceTargetUnsafe::RawHandle {
-                    raw_display_handle: window.handle.get_display_handle(),
-                    raw_window_handle: window.handle.get_window_handle(),
-                };
-                // SAFETY: The window handles in ExtractedWindows will always be valid objects to create surfaces on
-                let surface = unsafe {
-                    // NOTE: On some OSes this MUST be called from the main thread.
-                    // As of wgpu 0.15, only fallible if the given window is a HTML canvas and obtaining a WebGPU or WebGL2 context fails.
-                    render_instance
-                        .create_surface_unsafe(surface_target)
-                        .expect("Failed to create wgpu surface")
-                };
-                let caps = surface.get_capabilities(&render_adapter);
-                let present_mode = present_mode(window, &caps);
-                let formats = caps.formats;
-                // For future HDR output support, we'll need to request a format that supports HDR,
-                // but as of wgpu 0.15 that is not yet supported.
-                // Prefer sRGB formats for surfaces, but fall back to first available format if no sRGB formats are available.
-                let mut format = *formats.first().expect("No supported formats for surface");
-                for available_format in formats {
-                    // Rgba8UnormSrgb and Bgra8UnormSrgb and the only sRGB formats wgpu exposes that we can use for surfaces.
-                    if available_format == TextureFormat::Rgba8UnormSrgb
-                        || available_format == TextureFormat::Bgra8UnormSrgb
-                    {
-                        format = available_format;
-                        break;
+    let render_instance = render_instance.as_ref();
+    let render_device = render_device.as_ref();
+    let render_adapter = render_adapter.as_ref();
+
+    let is_main_thread = false;
+    let send_windows = windows
+        .windows
+        .values_mut()
+        .filter(|window| !window.surface_target_source.requires_main_thread());
+
+    for window in send_windows {
+        match window_surfaces.surfaces.entry(window.entity) {
+            Entry::Vacant(entry) => {
+                match create_window_surface(
+                    is_main_thread,
+                    window,
+                    render_instance,
+                    render_device,
+                    render_adapter,
+                ) {
+                    Ok(data) => {
+                        entry.insert(data);
+                        window_surfaces.configured_windows.insert(window.entity);
+                    }
+                    Err(err) => {
+                        window.surface_failed = true;
+                        error!(
+                            "Window {:?} surface creation failed: {:?}",
+                            window.entity, err
+                        );
+                        continue;
                     }
                 }
-
-                let texture_view_format = if !format.is_srgb() {
-                    Some(format.add_srgb_suffix())
-                } else {
-                    None
-                };
-                let configuration = SurfaceConfiguration {
-                    format,
-                    width: window.physical_width,
-                    height: window.physical_height,
-                    usage: TextureUsages::RENDER_ATTACHMENT,
-                    present_mode,
-                    desired_maximum_frame_latency: window
-                        .desired_maximum_frame_latency
-                        .map(NonZero::<u32>::get)
-                        .unwrap_or(DEFAULT_DESIRED_MAXIMUM_FRAME_LATENCY),
-                    alpha_mode: match window.alpha_mode {
-                        CompositeAlphaMode::Auto => wgpu::CompositeAlphaMode::Auto,
-                        CompositeAlphaMode::Opaque => wgpu::CompositeAlphaMode::Opaque,
-                        CompositeAlphaMode::PreMultiplied => {
-                            wgpu::CompositeAlphaMode::PreMultiplied
-                        }
-                        CompositeAlphaMode::PostMultiplied => {
-                            wgpu::CompositeAlphaMode::PostMultiplied
-                        }
-                        CompositeAlphaMode::Inherit => wgpu::CompositeAlphaMode::Inherit,
-                    },
-                    view_formats: match texture_view_format {
-                        Some(format) => vec![format],
-                        None => vec![],
-                    },
-                };
-
-                render_device.configure_surface(&surface, &configuration);
-
-                SurfaceData {
-                    surface: WgpuWrapper::new(surface),
-                    configuration,
-                    texture_view_format,
+            }
+            Entry::Occupied(mut entry) => {
+                if window.size_changed || window.present_mode_changed {
+                    let data = entry.get_mut();
+                    reconfigure_window_surface(window, data, render_device, render_adapter);
                 }
-            });
+            }
+        };
+    }
+}
 
-        if window.size_changed || window.present_mode_changed {
-            // normally this is dropped on present but we double check here to be safe as failure to
-            // drop it will cause validation errors in wgpu
-            drop(window.swap_chain_texture.take());
-            drop(window.swap_chain_texture_view.take());
+/// Creates window surfaces that require the main thread.
+pub fn create_non_send_surfaces(
+    // By accessing a NonSend resource, we tell the scheduler to put this system on the main thread
+    _marker: bevy_ecs::system::NonSendMarker,
+    mut windows: ResMut<ExtractedWindows>,
+    mut window_surfaces: ResMut<WindowSurfaces>,
+    render_instance: Res<RenderInstance>,
+    render_adapter: Res<RenderAdapter>,
+    render_device: Res<RenderDevice>,
+) {
+    let render_instance = render_instance.as_ref();
+    let render_device = render_device.as_ref();
+    let render_adapter = render_adapter.as_ref();
 
-            data.configuration.width = window.physical_width;
-            data.configuration.height = window.physical_height;
-            let caps = data.surface.get_capabilities(&render_adapter);
-            data.configuration.present_mode = present_mode(window, &caps);
-            render_device.configure_surface(&data.surface, &data.configuration);
-        }
+    let is_main_thread: bool = true;
+    let non_send_windows = windows
+        .windows
+        .values_mut()
+        .filter(|window| window.surface_target_source.requires_main_thread());
 
-        window_surfaces.configured_windows.insert(window.entity);
+    for window in non_send_windows {
+        match window_surfaces.surfaces.entry(window.entity) {
+            Entry::Vacant(entry) => {
+                match create_window_surface(
+                    is_main_thread,
+                    window,
+                    render_instance,
+                    render_device,
+                    render_adapter,
+                ) {
+                    Ok(data) => {
+                        entry.insert(data);
+                        window_surfaces.configured_windows.insert(window.entity);
+                    }
+                    Err(err) => {
+                        window.surface_failed = true;
+                        error!(
+                            "Window {:?} surface creation failed: {:?}",
+                            window.entity, err
+                        );
+                        continue;
+                    }
+                }
+            }
+            Entry::Occupied(mut entry) => {
+                if window.size_changed || window.present_mode_changed {
+                    let data = entry.get_mut();
+                    reconfigure_window_surface(window, data, render_device, render_adapter);
+                }
+            }
+        };
     }
 }
 

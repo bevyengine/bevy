@@ -13,7 +13,7 @@ use bevy_input::keyboard::{Key, KeyCode, KeyboardFocusLost, KeyboardInput};
 use bevy_window::{
     ClosingWindow, CursorOptions, Monitor, PrimaryMonitor, RawHandleWrapper, VideoMode, Window,
     WindowClosed, WindowClosing, WindowCreated, WindowEvent, WindowFocused, WindowMode,
-    WindowResized, WindowWrapper,
+    WindowResized,
 };
 use tracing::{error, info, warn};
 
@@ -39,7 +39,7 @@ use crate::{
     get_selected_videomode, select_monitor,
     state::react_to_resize,
     winit_monitors::WinitMonitors,
-    CreateMonitorParams, CreateWindowParams, WINIT_WINDOWS,
+    CreateMonitorParams, CreateWindowParams, WinitWindowWrapper, WINIT_WINDOWS,
 };
 
 /// Creates new windows on the [`winit`] backend for each entity with a newly-added
@@ -60,7 +60,7 @@ pub fn create_windows(
 ) {
     WINIT_WINDOWS.with_borrow_mut(|winit_windows| {
         ACCESS_KIT_ADAPTERS.with_borrow_mut(|adapters| {
-            for (entity, mut window, cursor_options, handle_holder) in &mut created_windows {
+            for (entity, mut window, cursor_options) in &mut created_windows {
                 if winit_windows.get_window(entity).is_some() {
                     continue;
                 }
@@ -92,11 +92,26 @@ pub fn create_windows(
                     WinitWindowPressedKeys::default(),
                 ));
 
-                if let Ok(handle_wrapper) = RawHandleWrapper::new(winit_window) {
-                    commands.entity(entity).insert(handle_wrapper.clone());
-                    if let Some(handle_holder) = handle_holder {
-                        *handle_holder.0.lock().unwrap() = Some(handle_wrapper);
-                    }
+                // Bevy's renderer (bevy_render) does not use `RawHandleWrapper`, but we expose it for users
+                // who may want to use the display/window handle for their own renderer.
+                commands
+                    .entity(entity)
+                    .insert(RawHandleWrapper::new(winit_window.clone()).unwrap());
+
+                #[cfg(feature = "bevy_render")]
+                {
+                    use bevy_render::view::surface_target::{
+                        SurfaceTargetSource, SurfaceTargetThreadConstraint,
+                    };
+
+                    #[cfg(any(target_os = "ios", target_os = "macos", target_os = "windows"))]
+                    let thread_constraint = SurfaceTargetThreadConstraint::MainThread;
+                    #[cfg(not(any(target_os = "ios", target_os = "macos", target_os = "windows")))]
+                    let thread_constraint = SurfaceTargetThreadConstraint::None;
+
+                    let surface_target_source =
+                        SurfaceTargetSource::new(thread_constraint, winit_window.clone());
+                    commands.entity(entity).insert(surface_target_source);
                 }
 
                 #[cfg(target_arch = "wasm32")]
@@ -243,7 +258,7 @@ pub(crate) fn despawn_windows(
     window_entities: Query<Entity, With<Window>>,
     mut closing_event_writer: MessageWriter<WindowClosing>,
     mut closed_event_writer: MessageWriter<WindowClosed>,
-    mut windows_to_drop: Local<Vec<WindowWrapper<winit::window::Window>>>,
+    mut windows_to_drop: Local<Vec<WinitWindowWrapper>>,
     mut exit_event_reader: MessageReader<AppExit>,
     _non_send_marker: NonSendMarker,
 ) {
