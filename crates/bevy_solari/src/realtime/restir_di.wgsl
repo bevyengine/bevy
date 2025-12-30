@@ -1,8 +1,6 @@
 // https://intro-to-restir.cwyman.org/presentations/2023ReSTIR_Course_Notes.pdf
 // https://d1qx31qr3h6wln.cloudfront.net/publications/ReSTIR%20GI.pdf
 
-#define_import_path bevy_solari::restir_di
-
 #import bevy_core_pipeline::tonemapping::tonemapping_luminance as luminance
 #import bevy_pbr::prepass_bindings::PreviousViewUniforms
 #import bevy_pbr::utils::{rand_f, rand_range_u, sample_disk}
