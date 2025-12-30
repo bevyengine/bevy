@@ -11,7 +11,7 @@
 
 use bevy::{
     asset::RenderAssetUsages,
-    color::palettes::tailwind::RED_400,
+    color::palettes::tailwind::{RED_400, SKY_400},
     mesh::Indices,
     prelude::*,
     render::{
@@ -85,10 +85,11 @@ fn setup(
 ) {
     // a truly empty mesh will error if used in Mesh3d
     // so we set up the data to be what we want the compute shader to output
-    // We're using 36 indices, 24 vertices which is directly taken from
-    // the Bevy Cuboid mesh implementation
+    // We're using 36 indices and 24 vertices which is directly taken from
+    // the Bevy Cuboid mesh implementation.
     //
-    // It is *very important* that the amount of data allocated here is
+    // We allocate 50 spots for each attribute here because
+    // it is *very important* that the amount of data allocated here is
     // *bigger* than (or exactly equal to) the amount of data we intend to
     // write from the compute shader. This amount of data defines how big
     // the buffer we get from the mesh_allocator will be, which in turn
@@ -101,10 +102,10 @@ fn setup(
             PrimitiveTopology::TriangleList,
             RenderAssetUsages::RENDER_WORLD,
         )
-        .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, vec![[0.; 3]; 24])
-        .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, vec![[0.; 3]; 24])
-        .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, vec![[0.; 2]; 24])
-        .with_inserted_indices(Indices::U32(vec![0; 36]));
+        .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, vec![[0.; 3]; 50])
+        .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, vec![[0.; 3]; 50])
+        .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, vec![[0.; 2]; 50])
+        .with_inserted_indices(Indices::U32(vec![0; 50]));
 
         mesh.asset_usage = RenderAssetUsages::RENDER_WORLD;
         mesh
@@ -122,16 +123,16 @@ fn setup(
             base_color: RED_400.into(),
             ..default()
         })),
-        Transform::from_xyz(-2.5, 1., 0.),
+        Transform::from_xyz(-2.5, 1.5, 0.),
     ));
 
     commands.spawn((
         Mesh3d(handle),
         MeshMaterial3d(materials.add(StandardMaterial {
-            base_color: RED_400.into(),
+            base_color: SKY_400.into(),
             ..default()
         })),
-        Transform::from_xyz(2.5, 1., 0.),
+        Transform::from_xyz(2.5, 1.5, 0.),
     ));
 
     // some additional scene elements.
@@ -198,7 +199,7 @@ fn init_compute_pipeline(
             ShaderStages::COMPUTE,
             (
                 // offsets
-                uniform_buffer::<FirstIndex>(false),
+                uniform_buffer::<DataRanges>(false),
                 // vertices
                 storage_buffer::<Vec<u32>>(false),
                 // indices
@@ -227,9 +228,11 @@ struct ComputeNode {}
 // A uniform that holds the vertex and index offsets
 // for the vertex/index mesh_allocator buffer slabs
 #[derive(ShaderType)]
-struct FirstIndex {
-    vertex: u32,
-    vertex_index: u32,
+struct DataRanges {
+    vertex_start: u32,
+    vertex_end: u32,
+    index_start: u32,
+    index_end: u32,
 }
 
 impl render_graph::Node for ComputeNode {
@@ -257,15 +260,17 @@ impl render_graph::Node for ComputeNode {
                 let vertex_buffer_slice = mesh_allocator.mesh_vertex_slice(mesh_id).unwrap();
                 let index_buffer_slice = mesh_allocator.mesh_index_slice(mesh_id).unwrap();
 
-                let first = FirstIndex {
+                let first = DataRanges {
                     // there are 8 vertex data values (pos, normal, uv) per vertex
                     // and the vertex_buffer_slice.range.start is in "vertex elements"
                     // which includes all of that data, so each index is worth 8 indices
                     // to our shader code.
-                    vertex: vertex_buffer_slice.range.start * 8,
+                    vertex_start: vertex_buffer_slice.range.start * 8,
+                    vertex_end: vertex_buffer_slice.range.end * 8,
                     // but each vertex index is a single value, so the index of the
                     // vertex indices is exactly what the value is
-                    vertex_index: index_buffer_slice.range.start,
+                    index_start: index_buffer_slice.range.start,
+                    index_end: index_buffer_slice.range.end,
                 };
 
                 let mut uniforms = UniformBuffer::from(first);
