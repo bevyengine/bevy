@@ -1,8 +1,10 @@
 ---
 title: Solari Improvements
 authors: ["@JMS55", "@SparkyPotato"]
-pull_requests: ["Too many to list"]
+pull_requests: ["21391", "21355", "21810"]
 ---
+
+(Too many PRs to list in full - this is just a small selection!)
 
 Solari - Bevy's forward-looking realtime raytraced renderer - has seen many improvements in this release.
 
