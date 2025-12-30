@@ -4,9 +4,9 @@ mod loaders;
 use crate::{
     folder::LoadedFolder,
     io::{
-        AssetReaderError, AssetSource, AssetSourceEvent, AssetSourceId, AssetSources,
-        AssetWriterError, ErasedAssetReader, MissingAssetSourceError, MissingAssetWriterError,
-        MissingProcessedAssetReaderError, Reader,
+        AddSourceError, AssetReaderError, AssetSource, AssetSourceBuilder, AssetSourceEvent,
+        AssetSourceId, AssetSources, AssetWriterError, ErasedAssetReader, MissingAssetSourceError,
+        MissingAssetWriterError, MissingProcessedAssetReaderError, Reader, RemoveSourceError,
     },
     loader::{AssetLoader, ErasedAssetLoader, LoadContext, LoadedAsset},
     meta::{
@@ -69,7 +69,7 @@ pub(crate) struct AssetServerData {
     pub(crate) loaders: Arc<RwLock<AssetLoaders>>,
     asset_event_sender: Sender<InternalAssetEvent>,
     asset_event_receiver: Receiver<InternalAssetEvent>,
-    sources: Arc<AssetSources>,
+    sources: Arc<RwLock<AssetSources>>,
     mode: AssetServerMode,
     meta_check: AssetMetaCheck,
     unapproved_path_mode: UnapprovedPathMode,
@@ -91,7 +91,7 @@ impl AssetServer {
     /// Create a new instance of [`AssetServer`]. If `watch_for_changes` is true, the [`AssetReader`](crate::io::AssetReader) storage will watch for changes to
     /// asset sources and hot-reload them.
     pub fn new(
-        sources: Arc<AssetSources>,
+        sources: Arc<RwLock<AssetSources>>,
         mode: AssetServerMode,
         watching_for_changes: bool,
         unapproved_path_mode: UnapprovedPathMode,
@@ -109,7 +109,7 @@ impl AssetServer {
     /// Create a new instance of [`AssetServer`]. If `watch_for_changes` is true, the [`AssetReader`](crate::io::AssetReader) storage will watch for changes to
     /// asset sources and hot-reload them.
     pub fn new_with_meta_check(
-        sources: Arc<AssetSources>,
+        sources: Arc<RwLock<AssetSources>>,
         mode: AssetServerMode,
         meta_check: AssetMetaCheck,
         watching_for_changes: bool,
@@ -126,7 +126,7 @@ impl AssetServer {
     }
 
     pub(crate) fn new_with_loaders(
-        sources: Arc<AssetSources>,
+        sources: Arc<RwLock<AssetSources>>,
         loaders: Arc<RwLock<AssetLoaders>>,
         mode: AssetServerMode,
         meta_check: AssetMetaCheck,
@@ -182,8 +182,41 @@ impl AssetServer {
     pub fn get_source<'a>(
         &self,
         source: impl Into<AssetSourceId<'a>>,
-    ) -> Result<&AssetSource, MissingAssetSourceError> {
-        self.data.sources.get(source.into())
+    ) -> Result<Arc<AssetSource>, MissingAssetSourceError> {
+        self.data
+            .sources
+            .read()
+            .unwrap_or_else(PoisonError::into_inner)
+            .get(source.into())
+    }
+
+    /// Adds a new named asset source.
+    ///
+    /// Note: Default asset sources cannot be changed at runtime.
+    pub fn add_source(
+        &self,
+        name: impl Into<CowArc<'static, str>>,
+        source_builder: &mut AssetSourceBuilder,
+    ) -> Result<(), AddSourceError> {
+        self.data
+            .sources
+            .write()
+            .unwrap_or_else(PoisonError::into_inner)
+            .add(name.into(), source_builder)
+    }
+
+    /// Removes an existing named asset source.
+    ///
+    /// Note: Default asset sources cannot be removed at runtime.
+    pub fn remove_source(
+        &self,
+        name: impl Into<CowArc<'static, str>>,
+    ) -> Result<(), RemoveSourceError> {
+        self.data
+            .sources
+            .write()
+            .unwrap_or_else(PoisonError::into_inner)
+            .remove(name.into())
     }
 
     /// Returns true if the [`AssetServer`] watches for changes.
@@ -711,8 +744,19 @@ impl AssetServer {
 
         let path = path.into_owned();
         let path_clone = path.clone();
+        let source = self.get_source(path.source()).inspect_err(|e| {
+            // If there was an input handle, a "load" operation has already started, so we must
+            // produce a "failure" event, if we cannot find the source.
+            if let Some(handle) = &input_handle {
+                self.send_asset_event(InternalAssetEvent::Failed {
+                    index: handle.try_into().unwrap(),
+                    path: path.clone_owned(),
+                    error: e.clone().into(),
+                });
+            }
+        })?;
         let (mut meta, loader, mut reader) = self
-            .get_meta_loader_and_reader(&path_clone, input_handle_type_id)
+            .get_meta_loader_and_reader(&path_clone, input_handle_type_id, &source)
             .await
             .inspect_err(|e| {
                 // if there was an input handle, a "load" operation has already started, so we must produce a "failure" event, if
@@ -1428,6 +1472,7 @@ impl AssetServer {
         &'a self,
         asset_path: &'a AssetPath<'_>,
         asset_type_id: Option<TypeId>,
+        source: &'a AssetSource,
     ) -> Result<
         (
             Box<dyn AssetMetaDyn>,
@@ -1436,7 +1481,6 @@ impl AssetServer {
         ),
         AssetLoadError,
     > {
-        let source = self.get_source(asset_path.source())?;
         let asset_reader = match self.data.mode {
             AssetServerMode::Unprocessed => source.reader(),
             AssetServerMode::Processed => source.processed_reader()?,
@@ -1872,7 +1916,13 @@ pub fn handle_internal_asset_events(world: &mut World) {
             }
         };
 
-        for source in server.data.sources.iter() {
+        for source in server
+            .data
+            .sources
+            .read()
+            .unwrap_or_else(PoisonError::into_inner)
+            .iter()
+        {
             match server.data.mode {
                 AssetServerMode::Unprocessed => {
                     if let Some(receiver) = source.event_receiver() {

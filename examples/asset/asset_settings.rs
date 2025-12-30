@@ -1,6 +1,7 @@
 //! This example demonstrates the usage of '.meta' files and [`AssetServer::load_with_settings`] to override the default settings for loading an asset
 
 use bevy::{
+    asset::DefaultAssetSource,
     image::{ImageLoaderSettings, ImageSampler},
     prelude::*,
 };
@@ -10,7 +11,10 @@ fn main() {
         .add_plugins(
             // This just tells the asset server to look in the right examples folder
             DefaultPlugins.set(AssetPlugin {
-                file_path: "examples/asset/files".to_string(),
+                default_source: DefaultAssetSource::from_paths(
+                    "examples/asset/files".to_string(),
+                    None,
+                ),
                 ..Default::default()
             }),
         )

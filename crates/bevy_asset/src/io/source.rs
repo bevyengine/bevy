@@ -8,9 +8,12 @@ use alloc::{
     sync::Arc,
 };
 use atomicow::CowArc;
-use bevy_ecs::resource::Resource;
-use bevy_platform::collections::HashMap;
+use bevy_platform::collections::{
+    hash_map::{Entry, EntryRef},
+    HashMap,
+};
 use core::{fmt::Display, hash::Hash, time::Duration};
+use std::sync::{PoisonError, RwLock};
 use thiserror::Error;
 use tracing::warn;
 
@@ -165,14 +168,16 @@ impl AssetSourceBuilder {
         }
     }
 
-    /// Builds a new [`AssetSource`] with the given `id`. If `watch` is true, the unprocessed source will watch for changes.
-    /// If `watch_processed` is true, the processed source will watch for changes.
-    pub fn build(
+    /// Builds a new [`AssetSource`] with the given `id`. If `watch` is true, the unprocessed source
+    /// will watch for changes. If `watch_processed` is true, the processed source will watch for
+    /// changes. If `processing_state` is [`Some`], the processed reader will be gated on the state.
+    pub(crate) fn build(
         &mut self,
         id: AssetSourceId<'static>,
         watch: bool,
         watch_processed: bool,
-    ) -> AssetSource {
+        processing_state: Option<Arc<ProcessingState>>,
+    ) -> Arc<AssetSource> {
         let reader = self.reader.as_mut()();
         let writer = self.writer.as_mut().and_then(|w| w(false));
         let processed_writer = self.processed_writer.as_mut().and_then(|w| w(true));
@@ -222,7 +227,14 @@ impl AssetSourceBuilder {
                 }
             }
         }
-        source
+
+        if source.should_process()
+            && let Some(processing_state) = processing_state
+        {
+            source.gate_on_processor(processing_state);
+        }
+
+        Arc::new(source)
     }
 
     /// Will use the given `reader` function to construct unprocessed [`AssetReader`](crate::io::AssetReader) instances.
@@ -320,68 +332,6 @@ impl AssetSourceBuilder {
         } else {
             default
         }
-    }
-}
-
-/// A [`Resource`] that hold (repeatable) functions capable of producing new [`AssetReader`](crate::io::AssetReader) and [`AssetWriter`](crate::io::AssetWriter) instances
-/// for a given asset source.
-#[derive(Resource, Default)]
-pub struct AssetSourceBuilders {
-    sources: HashMap<CowArc<'static, str>, AssetSourceBuilder>,
-    default: Option<AssetSourceBuilder>,
-}
-
-impl AssetSourceBuilders {
-    /// Inserts a new builder with the given `id`
-    pub fn insert(&mut self, id: impl Into<AssetSourceId<'static>>, source: AssetSourceBuilder) {
-        match id.into() {
-            AssetSourceId::Default => {
-                self.default = Some(source);
-            }
-            AssetSourceId::Name(name) => {
-                self.sources.insert(name, source);
-            }
-        }
-    }
-
-    /// Gets a mutable builder with the given `id`, if it exists.
-    pub fn get_mut<'a, 'b>(
-        &'a mut self,
-        id: impl Into<AssetSourceId<'b>>,
-    ) -> Option<&'a mut AssetSourceBuilder> {
-        match id.into() {
-            AssetSourceId::Default => self.default.as_mut(),
-            AssetSourceId::Name(name) => self.sources.get_mut(&name.into_owned()),
-        }
-    }
-
-    /// Builds a new [`AssetSources`] collection. If `watch` is true, the unprocessed sources will watch for changes.
-    /// If `watch_processed` is true, the processed sources will watch for changes.
-    pub fn build_sources(&mut self, watch: bool, watch_processed: bool) -> AssetSources {
-        let mut sources = <HashMap<_, _>>::default();
-        for (id, source) in &mut self.sources {
-            let source = source.build(
-                AssetSourceId::Name(id.clone_owned()),
-                watch,
-                watch_processed,
-            );
-            sources.insert(id.clone_owned(), source);
-        }
-
-        AssetSources {
-            sources,
-            default: self
-                .default
-                .as_mut()
-                .map(|p| p.build(AssetSourceId::Default, watch, watch_processed))
-                .expect(MISSING_DEFAULT_SOURCE),
-        }
-    }
-
-    /// Initializes the default [`AssetSourceBuilder`] if it has not already been set.
-    pub fn init_default_source(&mut self, path: &str, processed_path: Option<&str>) {
-        self.default
-            .get_or_insert_with(|| AssetSourceBuilder::platform_default(path, processed_path));
     }
 }
 
@@ -591,43 +541,157 @@ impl AssetSource {
 
 /// A collection of [`AssetSource`]s.
 pub struct AssetSources {
-    sources: HashMap<CowArc<'static, str>, AssetSource>,
-    default: AssetSource,
+    /// The named sources.
+    sources: HashMap<CowArc<'static, str>, Arc<AssetSource>>,
+    /// The default source.
+    default: Arc<AssetSource>,
+    /// Whether sources should watch the unprocessed assets.
+    watch: bool,
+    /// Whether sources should watch the processed assets.
+    watch_processed: bool,
+    /// The processing state if these sources are being used with
+    /// [`AssetProcessor`](crate::AssetProcessor).
+    ///
+    /// If [`Some`], the processed reader will be gated on this state.
+    processing_state: Option<Arc<ProcessingState>>,
 }
 
 impl AssetSources {
+    /// Creates a new instance where the default asset source is created from `default`, and sources
+    /// are built with the other options.
+    pub(crate) fn new(
+        default: &mut AssetSourceBuilder,
+        watch: bool,
+        watch_processed: bool,
+        processing_state: Option<Arc<ProcessingState>>,
+    ) -> Arc<RwLock<Self>> {
+        Arc::new(RwLock::new(Self {
+            default: default.build(
+                AssetSourceId::Default,
+                watch,
+                watch_processed,
+                processing_state.clone(),
+            ),
+            sources: HashMap::new(),
+            watch,
+            watch_processed,
+            processing_state,
+        }))
+    }
+
     /// Gets the [`AssetSource`] with the given `id`, if it exists.
-    pub fn get<'a, 'b>(
-        &'a self,
-        id: impl Into<AssetSourceId<'b>>,
-    ) -> Result<&'a AssetSource, MissingAssetSourceError> {
+    pub fn get<'a>(
+        &self,
+        id: impl Into<AssetSourceId<'a>>,
+    ) -> Result<Arc<AssetSource>, MissingAssetSourceError> {
         match id.into().into_owned() {
-            AssetSourceId::Default => Ok(&self.default),
+            AssetSourceId::Default => Ok(self.default.clone()),
             AssetSourceId::Name(name) => self
                 .sources
                 .get(&name)
+                .cloned()
                 .ok_or(MissingAssetSourceError(AssetSourceId::Name(name))),
         }
     }
 
+    /// Adds a new named asset source.
+    ///
+    /// Note: Default asset sources cannot be changed at runtime.
+    pub fn add(
+        &mut self,
+        name: impl Into<CowArc<'static, str>>,
+        source_builder: &mut AssetSourceBuilder,
+    ) -> Result<(), AddSourceError> {
+        let name = name.into();
+
+        let entry = match self.sources.entry(name) {
+            Entry::Occupied(entry) => return Err(AddSourceError::NameInUse(entry.key().clone())),
+            Entry::Vacant(entry) => entry,
+        };
+
+        let name = entry.key().clone();
+        // Build the asset source. This does mean that we may build the source and then **not** add
+        // it (due to checks later on), but we need to build the source to know if it's processed.
+        let source = source_builder.build(
+            AssetSourceId::Name(name),
+            self.watch,
+            self.watch_processed,
+            self.processing_state.clone(),
+        );
+
+        // Hold the processor started lock until after we insert the source (so that the processor
+        // doesn't start between when we check and when we insert)
+        let started_lock;
+        // If the source wants to be processed, and the processor has already started, return an
+        // error.
+        // TODO: Remove this once the processor can handle newly added sources.
+        if source.should_process()
+            && let Some(processing_state) = self.processing_state.as_ref()
+        {
+            started_lock = processing_state
+                .started
+                .read()
+                .unwrap_or_else(PoisonError::into_inner);
+            if *started_lock {
+                let AssetSourceId::Name(name) = source.id() else {
+                    // We created this with the AssetSourceId::Name
+                    unreachable!()
+                };
+                return Err(AddSourceError::SourceIsProcessed(name));
+            }
+        }
+
+        entry.insert(source);
+        Ok(())
+    }
+
+    /// Removes an existing named asset source.
+    ///
+    /// Note: Default asset sources cannot be removed at runtime.
+    pub fn remove(
+        &mut self,
+        name: impl Into<CowArc<'static, str>>,
+    ) -> Result<(), RemoveSourceError> {
+        let name = name.into();
+
+        // Use entry_ref so we don't need to clone the name just to remove the entry.
+        let entry = match self.sources.entry_ref(&name) {
+            EntryRef::Vacant(_) => {
+                return Err(RemoveSourceError::MissingSource(name.clone_owned()))
+            }
+            EntryRef::Occupied(entry) => entry,
+        };
+
+        // Hold the processor started lock until after we remove the source (so that the processor
+        // doesn't start between when we check and when we remove)
+        let started_lock;
+        // If the source wants to be processed, and the processor has already started, return an
+        // error.
+        // TODO: Remove this once the processor can handle removed sources.
+        if entry.get().should_process()
+            && let Some(processing_state) = self.processing_state.as_ref()
+        {
+            started_lock = processing_state
+                .started
+                .read()
+                .unwrap_or_else(PoisonError::into_inner);
+            if *started_lock {
+                return Err(RemoveSourceError::SourceIsProcessed(name.clone_owned()));
+            }
+        }
+
+        entry.remove();
+        Ok(())
+    }
+
     /// Iterates all asset sources in the collection (including the default source).
-    pub fn iter(&self) -> impl Iterator<Item = &AssetSource> {
+    pub fn iter(&self) -> impl Iterator<Item = &Arc<AssetSource>> {
         self.sources.values().chain(Some(&self.default))
     }
 
-    /// Mutably iterates all asset sources in the collection (including the default source).
-    pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut AssetSource> {
-        self.sources.values_mut().chain(Some(&mut self.default))
-    }
-
     /// Iterates all processed asset sources in the collection (including the default source).
-    pub fn iter_processed(&self) -> impl Iterator<Item = &AssetSource> {
+    pub fn iter_processed(&self) -> impl Iterator<Item = &Arc<AssetSource>> {
         self.iter().filter(|p| p.should_process())
-    }
-
-    /// Mutably iterates all processed asset sources in the collection (including the default source).
-    pub fn iter_processed_mut(&mut self) -> impl Iterator<Item = &mut AssetSource> {
-        self.iter_mut().filter(|p| p.should_process())
     }
 
     /// Iterates over the [`AssetSourceId`] of every [`AssetSource`] in the collection (including the default source).
@@ -637,14 +701,30 @@ impl AssetSources {
             .map(|k| AssetSourceId::Name(k.clone_owned()))
             .chain(Some(AssetSourceId::Default))
     }
+}
 
-    /// This will cause processed [`AssetReader`](crate::io::AssetReader) futures (such as [`AssetReader::read`](crate::io::AssetReader::read)) to wait until
-    /// the [`AssetProcessor`](crate::AssetProcessor) has finished processing the requested asset.
-    pub(crate) fn gate_on_processor(&mut self, processing_state: Arc<ProcessingState>) {
-        for source in self.iter_processed_mut() {
-            source.gate_on_processor(processing_state.clone());
-        }
-    }
+/// An error when attempting to add a new asset source.
+#[derive(Error, Debug, Clone, PartialEq, Eq)]
+pub enum AddSourceError {
+    /// The provided asset source requires processing, and processing has already started, where adding is currently unsupported.
+    // TODO: Remove this once it's supported.
+    #[error("The provided asset source '{0}' requires processing, but the asset processor has already started. This is currently unsupported - sources needing to be processed can only be added at startup")]
+    SourceIsProcessed(CowArc<'static, str>),
+    /// An asset source with the given name already exists.
+    #[error("Asset Source '{0}' already exists")]
+    NameInUse(CowArc<'static, str>),
+}
+
+/// An error when attempting to remove an existing asset source.
+#[derive(Error, Debug, Clone, PartialEq, Eq)]
+pub enum RemoveSourceError {
+    /// The requested asset source requires processing, and processing has already started, where removing is currently unsupported.
+    // TODO: Remove this once it's supported.
+    #[error("The asset source being removed '{0}' requires processing, but the asset processor has already started. This is currently unsupported - sources needing to be processed can only be removed at startup")]
+    SourceIsProcessed(CowArc<'static, str>),
+    /// The requested source is missing, so it cannot be removed.
+    #[error("Asset Source '{0}' does not exist")]
+    MissingSource(CowArc<'static, str>),
 }
 
 /// An error returned when an [`AssetSource`] does not exist for a given id.
@@ -666,6 +746,3 @@ pub struct MissingProcessedAssetReaderError(AssetSourceId<'static>);
 #[derive(Error, Debug, Clone)]
 #[error("Asset Source '{0}' does not have a processed AssetWriter.")]
 pub struct MissingProcessedAssetWriterError(AssetSourceId<'static>);
-
-const MISSING_DEFAULT_SOURCE: &str =
-    "A default AssetSource is required. Add one to `AssetSourceBuilders`";
