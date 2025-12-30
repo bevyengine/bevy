@@ -96,9 +96,9 @@ fn spatial_and_shade(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let brdf = evaluate_brdf(surface.world_normal, wo, merge_result.wi, surface.material);
 
     var pixel_color = merge_result.selected_sample_radiance * combined_reservoir.unbiased_contribution_weight;
-    pixel_color *= view.exposure;
     pixel_color *= brdf;
     pixel_color += surface.material.emissive;
+    pixel_color *= view.exposure;
     textureStore(view_output, global_id.xy, vec4(pixel_color, 1.0));
 }
 
