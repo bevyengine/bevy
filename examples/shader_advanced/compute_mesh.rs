@@ -162,10 +162,9 @@ fn setup(
 }
 
 fn add_compute_render_graph_node(mut render_graph: ResMut<RenderGraph>) {
-    // Add the compute node as a top-level node to the render graph. This means it will only execute
-    // once per frame. Normally, adding a node would use the `RenderGraphApp::add_render_graph_node`
-    // method, but it does not allow adding as a top-level node.
     render_graph.add_node(ComputeNodeLabel, ComputeNode::default());
+    // add_node_edge guarantees that ComputeNodeLabel will run before CameraDriverLabel
+    render_graph.add_node_edge(ComputeNodeLabel, bevy::render::graph::CameraDriverLabel);
 }
 
 /// This is called "Chunks" because this example originated
