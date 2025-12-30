@@ -1797,7 +1797,7 @@ pub fn collect_meshes_for_gpu_building(
 
     /// The size of batches of data sent through the channel from parallel workers to the consumer.
     /// This was tuned based on benchmarks across a wide range of entity counts.
-    const CHUNK_SIZE: usize = 10_000;
+    const CHUNK_SIZE: usize = 1024;
 
     // Channels used by parallel workers to send data to the single consumer.
     let (prepared_tx, prepared_rx) = std::sync::mpsc::channel::<
