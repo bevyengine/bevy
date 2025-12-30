@@ -1,6 +1,6 @@
 ---
 title: Solari Improvements
-authors: ["@JMS55"]
+authors: ["@JMS55", "@SparkyPotato"]
 pull_requests: ["Too many to list"]
 ---
 
