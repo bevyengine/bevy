@@ -94,7 +94,7 @@ fn trace_glossy_path(initial_roughness: f32, initial_ray_origin: vec3<f32>, init
         let wo = -wi;
         let wo_tangent = vec3(dot(wo, T), dot(wo, B), dot(wo, N));
 
-        // Add emissive contribution (first bounce gets MIS weight 1.0 because DI doesn't eval the specular lobe if the surface is smooth)
+        // Add emissive contribution (first bounce gets MIS weight 0.0 or 1.0 depending on if ReSTIR DI shaded using the specular lobe or not)
         var mis_weight: f32;
         if i != 0u {
             let p_light = random_emissive_light_pdf(ray_hit);
