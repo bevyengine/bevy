@@ -1792,7 +1792,6 @@ pub fn collect_meshes_for_gpu_building(
         previous_input_buffer,
         ..
     } = batched_instance_buffers.into_inner();
-
     previous_input_buffer.clear();
 
     /// The size of batches of data sent through the channel from parallel workers to the consumer.
@@ -1810,17 +1809,8 @@ pub fn collect_meshes_for_gpu_building(
     let (removed_tx, removed_rx) = std::sync::mpsc::channel::<Vec<MainEntity>>();
     let (reextract_tx, reextract_rx) = std::sync::mpsc::channel::<Vec<MainEntity>>();
 
-    // Reference data shared between tasks
-    let prepared_chunk = &prepared_chunk;
-    let reextract_chunk = &reextract_chunk;
-    let mesh_allocator = &mesh_allocator;
-    let mesh_material_ids = &mesh_material_ids;
-    let render_material_bindings = &render_material_bindings;
-    let render_lightmaps = &render_lightmaps;
-    let skin_uniforms = &skin_uniforms;
-    let frame_count = *frame_count;
-
     // A single worker that consumes the meshes prepared in parallel by multiple producers.
+    // This part of the workload cannot be parallelized due to the shared mutable state.
     let mesh_consumer_worker = &mut Some(move || {
         let _span = info_span!("prepared_mesh_consumer").entered();
         for (entity, prepared, mesh_culling_builder) in prepared_rx.iter().flatten() {
@@ -1846,6 +1836,16 @@ pub fn collect_meshes_for_gpu_building(
         // Buffers can't be empty. Make sure there's something in the previous input buffer.
         previous_input_buffer.ensure_nonempty();
     });
+
+    // Reference data shared between tasks
+    let prepared_chunk = &prepared_chunk;
+    let reextract_chunk = &reextract_chunk;
+    let mesh_allocator = &mesh_allocator;
+    let mesh_material_ids = &mesh_material_ids;
+    let render_material_bindings = &render_material_bindings;
+    let render_lightmaps = &render_lightmaps;
+    let skin_uniforms = &skin_uniforms;
+    let frame_count = *frame_count;
 
     // Spawn workers on the taskpool to prepare and update meshes in parallel.
     let taskpool = ComputeTaskPool::get();
