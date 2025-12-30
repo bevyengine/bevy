@@ -52,7 +52,6 @@ pub struct SolariLightingNode {
     sample_for_world_cache_pipeline: CachedComputePipelineId,
     blend_new_world_cache_samples_pipeline: CachedComputePipelineId,
     presample_light_tiles_pipeline: CachedComputePipelineId,
-    di_shade_pipeline: CachedComputePipelineId,
     di_initial_and_temporal_pipeline: CachedComputePipelineId,
     di_spatial_and_shade_pipeline: CachedComputePipelineId,
     gi_initial_and_temporal_pipeline: CachedComputePipelineId,
@@ -120,7 +119,6 @@ impl ViewNode for SolariLightingNode {
             Some(sample_for_world_cache_pipeline),
             Some(blend_new_world_cache_samples_pipeline),
             Some(presample_light_tiles_pipeline),
-            Some(di_shade_pipeline),
             Some(di_initial_and_temporal_pipeline),
             Some(di_spatial_and_shade_pipeline),
             Some(gi_initial_and_temporal_pipeline),
@@ -144,7 +142,6 @@ impl ViewNode for SolariLightingNode {
             pipeline_cache.get_compute_pipeline(self.sample_for_world_cache_pipeline),
             pipeline_cache.get_compute_pipeline(self.blend_new_world_cache_samples_pipeline),
             pipeline_cache.get_compute_pipeline(self.presample_light_tiles_pipeline),
-            pipeline_cache.get_compute_pipeline(self.di_shade_pipeline),
             pipeline_cache.get_compute_pipeline(self.di_initial_and_temporal_pipeline),
             pipeline_cache.get_compute_pipeline(self.di_spatial_and_shade_pipeline),
             pipeline_cache.get_compute_pipeline(self.gi_initial_and_temporal_pipeline),
@@ -321,28 +318,19 @@ impl ViewNode for SolariLightingNode {
 
         let d = diagnostics.time_span(&mut pass, "solari_lighting/direct_lighting");
 
-        if false {
-            pass.set_pipeline(di_shade_pipeline);
-            pass.set_push_constants(
-                0,
-                bytemuck::cast_slice(&[frame_index, solari_lighting.reset as u32]),
-            );
-            pass.dispatch_workgroups(dx, dy, 1);
-        } else {
-            pass.set_pipeline(di_initial_and_temporal_pipeline);
-            pass.set_push_constants(
-                0,
-                bytemuck::cast_slice(&[frame_index, solari_lighting.reset as u32]),
-            );
-            pass.dispatch_workgroups(dx, dy, 1);
+        pass.set_pipeline(di_initial_and_temporal_pipeline);
+        pass.set_push_constants(
+            0,
+            bytemuck::cast_slice(&[frame_index, solari_lighting.reset as u32]),
+        );
+        pass.dispatch_workgroups(dx, dy, 1);
 
-            pass.set_pipeline(di_spatial_and_shade_pipeline);
-            pass.set_push_constants(
-                0,
-                bytemuck::cast_slice(&[frame_index, solari_lighting.reset as u32]),
-            );
-            pass.dispatch_workgroups(dx, dy, 1);
-        }
+        pass.set_pipeline(di_spatial_and_shade_pipeline);
+        pass.set_push_constants(
+            0,
+            bytemuck::cast_slice(&[frame_index, solari_lighting.reset as u32]),
+        );
+        pass.dispatch_workgroups(dx, dy, 1);
 
         d.end(&mut pass);
 
@@ -534,13 +522,6 @@ impl FromWorld for SolariLightingNode {
                 "solari_lighting_presample_light_tiles_pipeline",
                 "presample_light_tiles",
                 load_embedded_asset!(world, "presample_light_tiles.wgsl"),
-                None,
-                vec![],
-            ),
-            di_shade_pipeline: create_pipeline(
-                "solari_lighting_di_shade_pipeline",
-                "shade",
-                load_embedded_asset!(world, "shade_di.wgsl"),
                 None,
                 vec![],
             ),
