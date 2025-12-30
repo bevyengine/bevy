@@ -7,6 +7,7 @@ pull_requests: ["Too many to list"]
 Solari - Bevy's forward-looking realtime raytraced renderer - has seen many improvements in this release.
 
 Notably:
+
 - Support for specular materials and reflections
 - Faster-reacting lighting
 - A large amount of quality/accuracy improvements
