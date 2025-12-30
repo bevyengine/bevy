@@ -413,6 +413,10 @@ pub fn create_surfaces(
             // normally this is dropped on present but we double check here to be safe as failure to
             // drop it will cause validation errors in wgpu
             drop(window.swap_chain_texture.take());
+            #[cfg_attr(
+                target_arch = "wasm32",
+                expect(clippy::drop_non_drop, reason = "texture views are not drop on wasm")
+            )]
             drop(window.swap_chain_texture_view.take());
 
             data.configuration.width = window.physical_width;
