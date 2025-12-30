@@ -50,7 +50,7 @@ use bevy_ecs::{
     schedule::IntoScheduleConfigs,
     system::{Query, Res, ResMut},
 };
-use bevy_input_focus::directional_navigation::{DirectionalNavigationMap, FocusableArea};
+use bevy_input_focus::directional_navigation::DirectionalNavigationMap;
 use bevy_math::{CompassOctant, Dir2, Vec2};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 
@@ -205,6 +205,23 @@ impl Default for AutoNavigationConfig {
     }
 }
 
+/// A focusable area with position and size information.
+///
+/// This struct represents a UI element in the automatic directional navigation system,
+/// containing its entity ID, center position, and size for spatial navigation calculations.
+///
+/// The term "focusable area" avoids confusion with UI [`Node`](crate::Node) components.
+#[derive(Debug, Clone, Copy, PartialEq, Reflect)]
+#[reflect(Debug, PartialEq, Clone)]
+pub struct FocusableArea {
+    /// The entity identifier for this focusable area.
+    pub entity: Entity,
+    /// The center position in global coordinates.
+    pub position: Vec2,
+    /// The size (width, height) of the area.
+    pub size: Vec2,
+}
+
 /// Calculate 1D overlap between two ranges.
 ///
 /// Returns a value between 0.0 (no overlap) and 1.0 (perfect overlap).
@@ -341,7 +358,7 @@ fn score_candidate(
 ///
 /// ```rust
 /// # use bevy_input_focus::directional_navigation::*;
-/// # use bevy_ui::directional_navigation::{AutoNavigationConfig, auto_generate_navigation_edges};
+/// # use bevy_ui::directional_navigation::{AutoNavigationConfig, FocusableArea, auto_generate_navigation_edges};
 /// # use bevy_ecs::entity::Entity;
 /// # use bevy_math::Vec2;
 /// let mut nav_map = DirectionalNavigationMap::default();

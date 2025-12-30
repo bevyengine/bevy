@@ -20,7 +20,7 @@ use bevy_ecs::{
     prelude::*,
     system::SystemParam,
 };
-use bevy_math::{CompassOctant, Vec2};
+use bevy_math::CompassOctant;
 use thiserror::Error;
 
 use crate::InputFocus;
@@ -257,39 +257,6 @@ pub enum DirectionalNavigationError {
         direction: CompassOctant,
     },
 }
-
-/// A focusable area with position and size information.
-///
-/// This struct represents a UI element in the automatic directional navigation system,
-/// containing its entity ID, center position, and size for spatial navigation calculations.
-///
-/// The term "focusable area" avoids confusion with UI [`Node`](bevy_ui::Node) components.
-#[derive(Debug, Clone, Copy, PartialEq)]
-#[cfg_attr(
-    feature = "bevy_reflect",
-    derive(Reflect),
-    reflect(Debug, PartialEq, Clone)
-)]
-pub struct FocusableArea {
-    /// The entity identifier for this focusable area.
-    pub entity: Entity,
-    /// The center position in global coordinates.
-    pub position: Vec2,
-    /// The size (width, height) of the area.
-    pub size: Vec2,
-}
-
-/// Trait for extracting position and size from navigable UI components.
-///
-/// This allows the auto-navigation system to work with different UI implementations
-/// as long as they can provide position and size information.
-pub trait Navigable {
-    /// Returns the center position and size in global coordinates.
-    fn get_bounds(&self) -> (Vec2, Vec2);
-}
-
-// We can't directly implement this for `bevy_ui` types here without circular dependencies,
-// so we'll use a more generic approach with separate functions for different component sets.
 
 #[cfg(test)]
 mod tests {
