@@ -613,6 +613,23 @@ impl<A: Asset> Assets<A> {
             }
 
             for index in maybe_drop_indices.drain() {
+                // Try to drop the asset entry (including the asset) after handling all the events.
+                // There is a *potential* race condition here if we get a `HandleEvent::New` between
+                // the previous loop, and this call. But this can't happen since there are only
+                // three ways to send a `HandleEvent::New`.
+                //
+                // 1. The AssetServer creates a handle for an asset being loaded. Since we have the
+                //    asset server infos lock, this can't happen.
+                // 2. A user calls `Assets::get_strong_handle`. Since we have `ResMut<Self>`, this
+                //    can't happen.
+                // 3. A new handle is reserved through `AssetHandleProvider::reserve_handle`. This
+                //    can only be used to generate handles to new assets - it can't be used to
+                //    generate new handles to existing assets. So we can't have dropped a handle to
+                //    this asset yet, so we will never attempt to drop this asset too early.
+                //
+                // Therefore, there is no race condition here. If we ever add new ways to get strong
+                // handles to existing assets, we should reconsider this. Handles to new assets are
+                // always safe like above.
                 if !assets.try_remove_dropped(index) {
                     // We didn't actually drop the asset entry, so there's nothing more to do.
                     continue;
