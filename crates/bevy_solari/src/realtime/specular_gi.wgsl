@@ -32,7 +32,7 @@ fn specular_gi(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let surface = gpixel_resolve(textureLoad(gbuffer, global_id.xy, 0), depth, global_id.xy, view.main_pass_viewport.zw, view.world_from_clip);
 
     let wo_unnormalized = view.world_position - surface.world_position;
-    let wo = normalize(view.world_position - surface.world_position);
+    let wo = normalize(wo_unnormalized);
 
     var radiance: vec3<f32>;
     var wi: vec3<f32>;
