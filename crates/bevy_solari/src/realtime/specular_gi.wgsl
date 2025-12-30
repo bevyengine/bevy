@@ -1,3 +1,5 @@
+#define_import_path bevy_solari::specular_gi
+
 #import bevy_pbr::pbr_functions::calculate_tbn_mikktspace
 #import bevy_render::maths::{orthonormalize, PI}
 #import bevy_render::view::View
@@ -16,6 +18,7 @@ struct PushConstants { frame_index: u32, reset: u32 }
 var<push_constant> constants: PushConstants;
 
 const DIFFUSE_GI_REUSE_ROUGHNESS_THRESHOLD: f32 = 0.4;
+const SPECULAR_GI_FOR_DI_THRESHOLD: f32 = 0.0225;
 const WORLD_CACHE_TERMINATION_ROUGHNESS_THRESHOLD: f32 = 0.4;
 
 @compute @workgroup_size(8, 8, 1)
@@ -51,7 +54,7 @@ fn specular_gi(@builtin(global_invocation_id) global_id: vec3<u32>) {
         wi = wi_tangent.x * T + wi_tangent.y * B + wi_tangent.z * N;
         let pdf = ggx_vndf_pdf(wo_tangent, wi_tangent, surface.material.roughness);
 
-        radiance = trace_glossy_path(surface.world_position, wi, &rng) / pdf;
+        radiance = trace_glossy_path(surface.material.roughness, surface.world_position, wi, &rng) / pdf;
     }
 
     let brdf = evaluate_specular_brdf(surface.world_normal, wo, wi, surface.material.base_color, surface.material.metallic,
@@ -68,7 +71,7 @@ fn specular_gi(@builtin(global_invocation_id) global_id: vec3<u32>) {
 #endif
 }
 
-fn trace_glossy_path(initial_ray_origin: vec3<f32>, initial_wi: vec3<f32>, rng: ptr<function, u32>) -> vec3<f32> {
+fn trace_glossy_path(initial_roughness: f32, initial_ray_origin: vec3<f32>, initial_wi: vec3<f32>, rng: ptr<function, u32>) -> vec3<f32> {
     var ray_origin = initial_ray_origin;
     var wi = initial_wi;
     var surface_perfectly_specular = false;
@@ -91,10 +94,19 @@ fn trace_glossy_path(initial_ray_origin: vec3<f32>, initial_wi: vec3<f32>, rng: 
         let wo = -wi;
         let wo_tangent = vec3(dot(wo, T), dot(wo, B), dot(wo, N));
 
-        // Add emissive contribution (but not on the first bounce, since ReSTIR DI handles that)
+        // Add emissive contribution (first bounce gets MIS weight 1.0 because DI doesn't eval the specular lobe if the surface is smooth)
+        var mis_weight: f32;
         if i != 0u {
-            radiance += throughput * emissive_mis_weight(p_bounce, ray_hit, surface_perfectly_specular) * ray_hit.material.emissive;
+            let p_light = random_emissive_light_pdf(ray_hit);
+            mis_weight = emissive_mis_weight(p_bounce, p_light, ray_hit, surface_perfectly_specular);
+        } else {
+            if initial_roughness <= SPECULAR_GI_FOR_DI_THRESHOLD {
+                mis_weight = 1.0;
+            } else {
+                mis_weight = 0.0;
+            }
         }
+        radiance += throughput * mis_weight * ray_hit.material.emissive;
 
         // Should not perform NEE for mirror-like surfaces
         surface_perfectly_specular = ray_hit.material.roughness <= 0.001 && ray_hit.material.metallic > 0.9999;
@@ -127,10 +139,8 @@ fn trace_glossy_path(initial_ray_origin: vec3<f32>, initial_wi: vec3<f32>, rng: 
     return radiance;
 }
 
-fn emissive_mis_weight(p_bounce: f32, ray_hit: ResolvedRayHitFull, previous_surface_perfectly_specular: bool) -> f32 {
+fn emissive_mis_weight(p_bounce: f32, p_light: f32, ray_hit: ResolvedRayHitFull, previous_surface_perfectly_specular: bool) -> f32 {
     if previous_surface_perfectly_specular { return 1.0; }
-
-    let p_light = random_emissive_light_pdf(ray_hit);
     return power_heuristic(p_bounce, p_light);
 }
 
