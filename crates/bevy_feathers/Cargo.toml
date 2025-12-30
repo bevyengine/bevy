@@ -1,6 +1,6 @@
 [package]
 name = "bevy_feathers"
-version = "0.18.0-rc.1"
+version = "0.18.0-rc.2"
 edition = "2024"
 description = "A collection of UI widgets for building editors and utilities in Bevy"
 homepage = "https://bevy.org"
@@ -10,28 +10,28 @@ keywords = ["bevy"]
 
 [dependencies]
 # bevy
-bevy_a11y = { path = "../bevy_a11y", version = "0.18.0-rc.1" }
-bevy_app = { path = "../bevy_app", version = "0.18.0-rc.1" }
-bevy_asset = { path = "../bevy_asset", version = "0.18.0-rc.1" }
-bevy_camera = { path = "../bevy_camera", version = "0.18.0-rc.1" }
-bevy_color = { path = "../bevy_color", version = "0.18.0-rc.1" }
-bevy_ui_widgets = { path = "../bevy_ui_widgets", version = "0.18.0-rc.1" }
-bevy_ecs = { path = "../bevy_ecs", version = "0.18.0-rc.1" }
-bevy_input_focus = { path = "../bevy_input_focus", version = "0.18.0-rc.1" }
-bevy_log = { path = "../bevy_log", version = "0.18.0-rc.1" }
-bevy_math = { path = "../bevy_math", version = "0.18.0-rc.1" }
-bevy_picking = { path = "../bevy_picking", version = "0.18.0-rc.1" }
-bevy_shader = { path = "../bevy_shader", version = "0.18.0-rc.1" }
-bevy_platform = { path = "../bevy_platform", version = "0.18.0-rc.1" }
-bevy_reflect = { path = "../bevy_reflect", version = "0.18.0-rc.1" }
-bevy_render = { path = "../bevy_render", version = "0.18.0-rc.1" }
-bevy_text = { path = "../bevy_text", version = "0.18.0-rc.1" }
-bevy_ui = { path = "../bevy_ui", version = "0.18.0-rc.1", features = [
+bevy_a11y = { path = "../bevy_a11y", version = "0.18.0-rc.2" }
+bevy_app = { path = "../bevy_app", version = "0.18.0-rc.2" }
+bevy_asset = { path = "../bevy_asset", version = "0.18.0-rc.2" }
+bevy_camera = { path = "../bevy_camera", version = "0.18.0-rc.2" }
+bevy_color = { path = "../bevy_color", version = "0.18.0-rc.2" }
+bevy_ui_widgets = { path = "../bevy_ui_widgets", version = "0.18.0-rc.2" }
+bevy_ecs = { path = "../bevy_ecs", version = "0.18.0-rc.2" }
+bevy_input_focus = { path = "../bevy_input_focus", version = "0.18.0-rc.2" }
+bevy_log = { path = "../bevy_log", version = "0.18.0-rc.2" }
+bevy_math = { path = "../bevy_math", version = "0.18.0-rc.2" }
+bevy_picking = { path = "../bevy_picking", version = "0.18.0-rc.2" }
+bevy_shader = { path = "../bevy_shader", version = "0.18.0-rc.2" }
+bevy_platform = { path = "../bevy_platform", version = "0.18.0-rc.2" }
+bevy_reflect = { path = "../bevy_reflect", version = "0.18.0-rc.2" }
+bevy_render = { path = "../bevy_render", version = "0.18.0-rc.2" }
+bevy_text = { path = "../bevy_text", version = "0.18.0-rc.2" }
+bevy_ui = { path = "../bevy_ui", version = "0.18.0-rc.2", features = [
   "bevy_picking",
 ] }
-bevy_ui_render = { path = "../bevy_ui_render", version = "0.18.0-rc.1" }
-bevy_window = { path = "../bevy_window", version = "0.18.0-rc.1" }
-bevy_derive = { path = "../bevy_derive", version = "0.18.0-rc.1" }
+bevy_ui_render = { path = "../bevy_ui_render", version = "0.18.0-rc.2" }
+bevy_window = { path = "../bevy_window", version = "0.18.0-rc.2" }
+bevy_derive = { path = "../bevy_derive", version = "0.18.0-rc.2" }
 smol_str = { version = "0.2", default-features = false }
 
 # other

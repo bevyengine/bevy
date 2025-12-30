@@ -1,6 +1,6 @@
 [package]
 name = "bevy_reflect"
-version = "0.18.0-rc.1"
+version = "0.18.0-rc.2"
 edition = "2024"
 description = "Dynamically interact with rust types"
 homepage = "https://bevy.org"
@@ -93,10 +93,10 @@ web = ["bevy_platform/web", "uuid?/js"]
 
 [dependencies]
 # bevy
-bevy_reflect_derive = { path = "derive", version = "0.18.0-rc.1" }
-bevy_utils = { path = "../bevy_utils", version = "0.18.0-rc.1", default-features = false }
-bevy_ptr = { path = "../bevy_ptr", version = "0.18.0-rc.1" }
-bevy_platform = { path = "../bevy_platform", version = "0.18.0-rc.1", default-features = false, features = [
+bevy_reflect_derive = { path = "derive", version = "0.18.0-rc.2" }
+bevy_utils = { path = "../bevy_utils", version = "0.18.0-rc.2", default-features = false }
+bevy_ptr = { path = "../bevy_ptr", version = "0.18.0-rc.2" }
+bevy_platform = { path = "../bevy_platform", version = "0.18.0-rc.2", default-features = false, features = [
   "alloc",
   "serialize",
 ] }

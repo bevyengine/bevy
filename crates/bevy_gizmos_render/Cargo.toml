@@ -1,6 +1,6 @@
 [package]
 name = "bevy_gizmos_render"
-version = "0.18.0-rc.1"
+version = "0.18.0-rc.2"
 edition = "2024"
 description = "Provides gizmos rendering for Bevy Engine"
 homepage = "https://bevy.org"
@@ -14,21 +14,21 @@ webgpu = []
 
 [dependencies]
 # Bevy
-bevy_pbr = { path = "../bevy_pbr", version = "0.18.0-rc.1", optional = true }
-bevy_sprite_render = { path = "../bevy_sprite_render", version = "0.18.0-rc.1", optional = true }
-bevy_app = { path = "../bevy_app", version = "0.18.0-rc.1" }
-bevy_gizmos = { path = "../bevy_gizmos", version = "0.18.0-rc.1" }
-bevy_camera = { path = "../bevy_camera", version = "0.18.0-rc.1" }
-bevy_ecs = { path = "../bevy_ecs", version = "0.18.0-rc.1" }
-bevy_image = { path = "../bevy_image", version = "0.18.0-rc.1" }
-bevy_mesh = { path = "../bevy_mesh", version = "0.18.0-rc.1" }
-bevy_math = { path = "../bevy_math", version = "0.18.0-rc.1" }
-bevy_asset = { path = "../bevy_asset", version = "0.18.0-rc.1" }
-bevy_shader = { path = "../bevy_shader", version = "0.18.0-rc.1" }
-bevy_render = { path = "../bevy_render", version = "0.18.0-rc.1" }
-bevy_utils = { path = "../bevy_utils", version = "0.18.0-rc.1" }
-bevy_core_pipeline = { path = "../bevy_core_pipeline", version = "0.18.0-rc.1" }
-bevy_transform = { path = "../bevy_transform", version = "0.18.0-rc.1" }
+bevy_pbr = { path = "../bevy_pbr", version = "0.18.0-rc.2", optional = true }
+bevy_sprite_render = { path = "../bevy_sprite_render", version = "0.18.0-rc.2", optional = true }
+bevy_app = { path = "../bevy_app", version = "0.18.0-rc.2" }
+bevy_gizmos = { path = "../bevy_gizmos", version = "0.18.0-rc.2" }
+bevy_camera = { path = "../bevy_camera", version = "0.18.0-rc.2" }
+bevy_ecs = { path = "../bevy_ecs", version = "0.18.0-rc.2" }
+bevy_image = { path = "../bevy_image", version = "0.18.0-rc.2" }
+bevy_mesh = { path = "../bevy_mesh", version = "0.18.0-rc.2" }
+bevy_math = { path = "../bevy_math", version = "0.18.0-rc.2" }
+bevy_asset = { path = "../bevy_asset", version = "0.18.0-rc.2" }
+bevy_shader = { path = "../bevy_shader", version = "0.18.0-rc.2" }
+bevy_render = { path = "../bevy_render", version = "0.18.0-rc.2" }
+bevy_utils = { path = "../bevy_utils", version = "0.18.0-rc.2" }
+bevy_core_pipeline = { path = "../bevy_core_pipeline", version = "0.18.0-rc.2" }
+bevy_transform = { path = "../bevy_transform", version = "0.18.0-rc.2" }
 
 # other
 bytemuck = "1.0"

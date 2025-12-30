@@ -1,6 +1,6 @@
 [package]
 name = "bevy_app"
-version = "0.18.0-rc.1"
+version = "0.18.0-rc.2"
 edition = "2024"
 description = "Provides core App functionality for Bevy Engine"
 homepage = "https://bevy.org"
@@ -81,12 +81,12 @@ hotpatching = [
 
 [dependencies]
 # bevy
-bevy_derive = { path = "../bevy_derive", version = "0.18.0-rc.1" }
-bevy_ecs = { path = "../bevy_ecs", version = "0.18.0-rc.1", default-features = false }
-bevy_reflect = { path = "../bevy_reflect", version = "0.18.0-rc.1", default-features = false, optional = true }
-bevy_utils = { path = "../bevy_utils", version = "0.18.0-rc.1", default-features = false }
-bevy_tasks = { path = "../bevy_tasks", version = "0.18.0-rc.1", default-features = false }
-bevy_platform = { path = "../bevy_platform", version = "0.18.0-rc.1", default-features = false }
+bevy_derive = { path = "../bevy_derive", version = "0.18.0-rc.2" }
+bevy_ecs = { path = "../bevy_ecs", version = "0.18.0-rc.2", default-features = false }
+bevy_reflect = { path = "../bevy_reflect", version = "0.18.0-rc.2", default-features = false, optional = true }
+bevy_utils = { path = "../bevy_utils", version = "0.18.0-rc.2", default-features = false }
+bevy_tasks = { path = "../bevy_tasks", version = "0.18.0-rc.2", default-features = false }
+bevy_platform = { path = "../bevy_platform", version = "0.18.0-rc.2", default-features = false }
 
 # other
 downcast-rs = { version = "2", default-features = false }

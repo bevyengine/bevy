@@ -1,6 +1,6 @@
 [package]
 name = "bevy_shader"
-version = "0.18.0-rc.1"
+version = "0.18.0-rc.2"
 edition = "2024"
 description = "Provides shader asset types and import resolution for Bevy"
 homepage = "https://bevy.org"
@@ -10,9 +10,9 @@ keywords = ["bevy", "shader"]
 
 [dependencies]
 # bevy
-bevy_asset = { path = "../bevy_asset", version = "0.18.0-rc.1" }
-bevy_reflect = { path = "../bevy_reflect", version = "0.18.0-rc.1" }
-bevy_platform = { path = "../bevy_platform", version = "0.18.0-rc.1" }
+bevy_asset = { path = "../bevy_asset", version = "0.18.0-rc.2" }
+bevy_reflect = { path = "../bevy_reflect", version = "0.18.0-rc.2" }
+bevy_platform = { path = "../bevy_platform", version = "0.18.0-rc.2" }
 
 # other
 wgpu-types = { version = "27", default-features = false }

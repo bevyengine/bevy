@@ -1,6 +1,6 @@
 [package]
 name = "bevy_time"
-version = "0.18.0-rc.1"
+version = "0.18.0-rc.2"
 edition = "2024"
 description = "Provides time functionality for Bevy Engine"
 homepage = "https://bevy.org"
@@ -48,10 +48,10 @@ critical-section = [
 
 [dependencies]
 # bevy
-bevy_app = { path = "../bevy_app", version = "0.18.0-rc.1", default-features = false }
-bevy_ecs = { path = "../bevy_ecs", version = "0.18.0-rc.1", default-features = false }
-bevy_reflect = { path = "../bevy_reflect", version = "0.18.0-rc.1", default-features = false, optional = true }
-bevy_platform = { path = "../bevy_platform", version = "0.18.0-rc.1", default-features = false }
+bevy_app = { path = "../bevy_app", version = "0.18.0-rc.2", default-features = false }
+bevy_ecs = { path = "../bevy_ecs", version = "0.18.0-rc.2", default-features = false }
+bevy_reflect = { path = "../bevy_reflect", version = "0.18.0-rc.2", default-features = false, optional = true }
+bevy_platform = { path = "../bevy_platform", version = "0.18.0-rc.2", default-features = false }
 
 # other
 crossbeam-channel = { version = "0.5.0", default-features = false, features = [
