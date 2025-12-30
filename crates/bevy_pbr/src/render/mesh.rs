@@ -837,7 +837,7 @@ pub struct MeshesToReextractNextFrame(MainEntityHashSet);
 
 impl RenderMeshInstanceShared {
     /// A gpu builder will provide the mesh instance id
-    /// during [`RenderMeshInstanceGpuBuilder::update`].
+    /// during [`RenderMeshInstanceGpuPrepared::update`].
     fn for_gpu_building(
         previous_transform: Option<&PreviousGlobalTransform>,
         mesh: &Mesh3d,
@@ -859,7 +859,7 @@ impl RenderMeshInstanceShared {
         )
     }
 
-    /// The cpu builder does not have an equivalent [`RenderMeshInstanceGpuBuilder::update`].
+    /// The cpu builder does not have an equivalent [`RenderMeshInstanceGpuBuilder`].
     fn for_cpu_building(
         previous_transform: Option<&PreviousGlobalTransform>,
         mesh: &Mesh3d,
