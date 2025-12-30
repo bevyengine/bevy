@@ -96,9 +96,9 @@ fn spatial_and_shade(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let brdf = evaluate_brdf(surface.world_normal, wo, merge_result.wi, surface.material);
 
     var pixel_color = merge_result.selected_sample_radiance * combined_reservoir.unbiased_contribution_weight;
-    pixel_color *= view.exposure;
     pixel_color *= brdf;
     pixel_color += surface.material.emissive;
+    pixel_color *= view.exposure;
     textureStore(view_output, global_id.xy, vec4(pixel_color, 1.0));
 }
 
@@ -155,7 +155,7 @@ fn load_temporal_reservoir(pixel_id: vec2<u32>, depth: f32, world_position: vec3
         return NeighborInfo(empty_reservoir(), vec3(0.0), vec3(0.0), vec3(0.0));
     }
 
-    let permuted_temporal_pixel_id = permute_pixel(vec2<u32>(temporal_pixel_id_float), constants.frame_index, view.viewport.zw);
+    let permuted_temporal_pixel_id = permute_pixel(vec2<u32>(temporal_pixel_id_float), constants.frame_index, view.main_pass_viewport.zw);
     var temporal = load_temporal_reservoir_inner(permuted_temporal_pixel_id, depth, world_position, world_normal);
 
     // If permuted reprojection failed (tends to happen on object edges), try point reprojection

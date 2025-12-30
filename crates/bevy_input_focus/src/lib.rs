@@ -30,7 +30,9 @@ pub mod tab_navigation;
 mod autofocus;
 pub use autofocus::*;
 
-use bevy_app::{App, Plugin, PostStartup, PreUpdate};
+#[cfg(any(feature = "keyboard", feature = "gamepad", feature = "mouse"))]
+use bevy_app::PreUpdate;
+use bevy_app::{App, Plugin, PostStartup};
 use bevy_ecs::{
     entity::Entities, prelude::*, query::QueryData, system::SystemParam, traversal::Traversal,
 };
@@ -222,19 +224,21 @@ impl Plugin for InputDispatchPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(PostStartup, set_initial_focus)
             .init_resource::<InputFocus>()
-            .init_resource::<InputFocusVisible>()
-            .add_systems(
-                PreUpdate,
-                (
-                    #[cfg(feature = "keyboard")]
-                    dispatch_focused_input::<KeyboardInput>,
-                    #[cfg(feature = "gamepad")]
-                    dispatch_focused_input::<GamepadButtonChangedEvent>,
-                    #[cfg(feature = "mouse")]
-                    dispatch_focused_input::<MouseWheel>,
-                )
-                    .in_set(InputFocusSystems::Dispatch),
-            );
+            .init_resource::<InputFocusVisible>();
+
+        #[cfg(any(feature = "keyboard", feature = "gamepad", feature = "mouse"))]
+        app.add_systems(
+            PreUpdate,
+            (
+                #[cfg(feature = "keyboard")]
+                dispatch_focused_input::<KeyboardInput>,
+                #[cfg(feature = "gamepad")]
+                dispatch_focused_input::<GamepadButtonChangedEvent>,
+                #[cfg(feature = "mouse")]
+                dispatch_focused_input::<MouseWheel>,
+            )
+                .in_set(InputFocusSystems::Dispatch),
+        );
     }
 }
 
