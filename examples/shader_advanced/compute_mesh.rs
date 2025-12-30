@@ -9,10 +9,13 @@
 //! This example does not remove the `GenerateMesh` component after
 //! generating the mesh.
 
+use std::ops::Not;
+
 use bevy::{
     asset::RenderAssetUsages,
     color::palettes::tailwind::{RED_400, SKY_400},
     mesh::Indices,
+    platform::collections::HashSet,
     prelude::*,
     render::{
         extract_component::{ExtractComponent, ExtractComponentPlugin},
@@ -170,14 +173,31 @@ fn add_compute_render_graph_node(mut render_graph: ResMut<RenderGraph>) {
 #[derive(Resource, Default)]
 struct Chunks(Vec<AssetId<Mesh>>);
 
-fn prepare_chunks(meshes_to_generate: Query<&GenerateMesh>, mut chunks: ResMut<Chunks>) {
+fn prepare_chunks(
+    meshes_to_generate: Query<&GenerateMesh>,
+    mut chunks: ResMut<Chunks>,
+    // This HashSet contains the AssetIds that have been
+    // processed. We use that to remove asset_ids that have already
+    // been processed, which means each unique GenerateMesh will result
+    // in one compute shader mesh generation process instead of generating
+    // the mesh every frame.
+    mut processed: Local<HashSet<AssetId<Mesh>>>,
+) {
     // get the AssetId for each Handle<Mesh>
     // which we'll use later to get the relevant buffers
     // from the mesh_allocator
     let chunk_data: Vec<AssetId<Mesh>> = meshes_to_generate
         .iter()
-        .map(|gmesh| gmesh.0.id())
+        .filter_map(|gmesh| {
+            let id = gmesh.0.id();
+            processed.contains(&id).not().then_some(id)
+        })
         .collect();
+
+    for id in &chunk_data {
+        processed.insert(*id);
+    }
+
     chunks.0 = chunk_data;
 }
 
@@ -249,6 +269,7 @@ impl render_graph::Node for ComputeNode {
         let mesh_allocator = world.resource::<MeshAllocator>();
 
         for mesh_id in &chunks.0 {
+            info!(?mesh_id, "processing mesh");
             let pipeline_cache = world.resource::<PipelineCache>();
             let pipeline = world.resource::<ComputePipeline>();
 
