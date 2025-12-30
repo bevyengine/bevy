@@ -3022,7 +3022,7 @@ wasm = false
 
 [[example]]
 name = "compute_mesh"
-path = "examples/shader/compute_mesh.rs"
+path = "examples/shader_advanced/compute_mesh.rs"
 doc-scrape-examples = true
 
 [package.metadata.example.compute_mesh]
