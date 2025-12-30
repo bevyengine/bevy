@@ -850,17 +850,17 @@ pub fn prepare_mesh_view_bind_groups(
             commands.entity(entity).insert(MeshViewBindGroup {
                 main: render_device.create_bind_group(
                     "mesh_view_bind_group",
-                    &pipeline_cache.get_bind_group_layout(&layout.main_layout),
+                    pipeline_cache.get_bind_group_layout(&layout.main_layout),
                     &entries,
                 ),
                 binding_array: render_device.create_bind_group(
                     "mesh_view_bind_group_binding_array",
-                    &pipeline_cache.get_bind_group_layout(&layout.binding_array_layout),
+                    pipeline_cache.get_bind_group_layout(&layout.binding_array_layout),
                     &entries_binding_array,
                 ),
                 empty: render_device.create_bind_group(
                     "mesh_view_bind_group_empty",
-                    &pipeline_cache.get_bind_group_layout(&layout.empty_layout),
+                    pipeline_cache.get_bind_group_layout(&layout.empty_layout),
                     &[],
                 ),
             });

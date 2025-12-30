@@ -395,7 +395,7 @@ impl ViewNode for PostProcessingNode {
 
         let bind_group = render_context.render_device().create_bind_group(
             Some("postprocessing bind group"),
-            &pipeline_cache.get_bind_group_layout(&post_processing_pipeline.bind_group_layout),
+            pipeline_cache.get_bind_group_layout(&post_processing_pipeline.bind_group_layout),
             &BindGroupEntries::sequential((
                 post_process.source,
                 &post_processing_pipeline.source_sampler,

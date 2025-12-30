@@ -82,7 +82,7 @@ impl ViewNode for CopyDeferredLightingIdNode {
 
         let bind_group = render_context.render_device().create_bind_group(
             "copy_deferred_lighting_id_bind_group",
-            &pipeline_cache.get_bind_group_layout(&copy_deferred_lighting_id_pipeline.layout),
+            pipeline_cache.get_bind_group_layout(&copy_deferred_lighting_id_pipeline.layout),
             &BindGroupEntries::single(&deferred_lighting_pass_id_texture.texture.default_view),
         );
 

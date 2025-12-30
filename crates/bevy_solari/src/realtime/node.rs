@@ -168,7 +168,7 @@ impl ViewNode for SolariLightingNode {
         let s = solari_lighting_resources;
         let bind_group = render_context.render_device().create_bind_group(
             "solari_lighting_bind_group",
-            &pipeline_cache.get_bind_group_layout(&self.bind_group_layout),
+            pipeline_cache.get_bind_group_layout(&self.bind_group_layout),
             &BindGroupEntries::sequential((
                 view_target.view,
                 s.light_tile_samples.as_entire_binding(),
@@ -199,7 +199,7 @@ impl ViewNode for SolariLightingNode {
         let bind_group_world_cache_active_cells_dispatch =
             render_context.render_device().create_bind_group(
                 "solari_lighting_bind_group_world_cache_active_cells_dispatch",
-                &pipeline_cache.get_bind_group_layout(
+                pipeline_cache.get_bind_group_layout(
                     &self.bind_group_layout_world_cache_active_cells_dispatch,
                 ),
                 &BindGroupEntries::single(s.world_cache_active_cells_dispatch.as_entire_binding()),
@@ -208,7 +208,7 @@ impl ViewNode for SolariLightingNode {
         let bind_group_resolve_dlss_rr_textures = view_dlss_rr_textures.map(|d| {
             render_context.render_device().create_bind_group(
                 "solari_lighting_bind_group_resolve_dlss_rr_textures",
-                &pipeline_cache
+                pipeline_cache
                     .get_bind_group_layout(&self.bind_group_layout_resolve_dlss_rr_textures),
                 &BindGroupEntries::sequential((
                     &d.diffuse_albedo.default_view,

@@ -313,7 +313,7 @@ fn prepare_line_gizmo_bind_group(
         commands.insert_resource(LineGizmoUniformBindgroup {
             bindgroup: render_device.create_bind_group(
                 "LineGizmoUniform bindgroup",
-                &pipeline_cache.get_bind_group_layout(&line_gizmo_uniform_layout.layout),
+                pipeline_cache.get_bind_group_layout(&line_gizmo_uniform_layout.layout),
                 &BindGroupEntries::single(binding),
             ),
         });

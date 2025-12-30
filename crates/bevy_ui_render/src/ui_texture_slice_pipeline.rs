@@ -387,7 +387,7 @@ pub fn prepare_ui_slices(
         ui_meta.indices.clear();
         ui_meta.view_bind_group = Some(render_device.create_bind_group(
             "ui_texture_slice_view_bind_group",
-            &pipeline_cache.get_bind_group_layout(&texture_slicer_pipeline.view_layout),
+            pipeline_cache.get_bind_group_layout(&texture_slicer_pipeline.view_layout),
             &BindGroupEntries::single(view_binding),
         ));
 
@@ -433,7 +433,7 @@ pub fn prepare_ui_slices(
                                 .or_insert_with(|| {
                                     render_device.create_bind_group(
                                         "ui_texture_slice_image_layout",
-                                        &pipeline_cache.get_bind_group_layout(
+                                        pipeline_cache.get_bind_group_layout(
                                             &texture_slicer_pipeline.image_layout,
                                         ),
                                         &BindGroupEntries::sequential((
@@ -462,7 +462,7 @@ pub fn prepare_ui_slices(
                                 .or_insert_with(|| {
                                     render_device.create_bind_group(
                                         "ui_texture_slice_image_layout",
-                                        &pipeline_cache.get_bind_group_layout(
+                                        pipeline_cache.get_bind_group_layout(
                                             &texture_slicer_pipeline.image_layout,
                                         ),
                                         &BindGroupEntries::sequential((

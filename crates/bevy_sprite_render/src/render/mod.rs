@@ -580,7 +580,7 @@ pub fn prepare_sprite_view_bind_groups(
             get_lut_bindings(&images, &tonemapping_luts, tonemapping, &fallback_image);
         let view_bind_group = render_device.create_bind_group(
             "mesh2d_view_bind_group",
-            &pipeline_cache.get_bind_group_layout(&sprite_pipeline.view_layout),
+            pipeline_cache.get_bind_group_layout(&sprite_pipeline.view_layout),
             &BindGroupEntries::sequential((view_binding.clone(), lut_bindings.0, lut_bindings.1)),
         );
 
@@ -663,7 +663,7 @@ pub fn prepare_sprite_image_bind_groups(
                     .or_insert_with(|| {
                         render_device.create_bind_group(
                             "sprite_material_bind_group",
-                            &pipeline_cache.get_bind_group_layout(&sprite_pipeline.material_layout),
+                            pipeline_cache.get_bind_group_layout(&sprite_pipeline.material_layout),
                             &BindGroupEntries::sequential((
                                 &gpu_image.texture_view,
                                 &gpu_image.sampler,
