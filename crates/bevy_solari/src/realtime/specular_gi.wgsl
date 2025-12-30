@@ -18,7 +18,7 @@ struct PushConstants { frame_index: u32, reset: u32 }
 var<push_constant> constants: PushConstants;
 
 const DIFFUSE_GI_REUSE_ROUGHNESS_THRESHOLD: f32 = 0.4;
-const SPECULAR_GI_FOR_DI_THRESHOLD: f32 = 0.0225;
+const SPECULAR_GI_FOR_DI_ROUGHNESS_THRESHOLD: f32 = 0.0225;
 const WORLD_CACHE_TERMINATION_ROUGHNESS_THRESHOLD: f32 = 0.4;
 
 @compute @workgroup_size(8, 8, 1)
@@ -99,7 +99,7 @@ fn trace_glossy_path(initial_ray_origin: vec3<f32>, initial_wi: vec3<f32>, initi
         if i != 0u {
             mis_weight = emissive_mis_weight(p_bounce, ray_hit, surface_perfectly_specular);
         } else {
-            if initial_roughness <= SPECULAR_GI_FOR_DI_THRESHOLD {
+            if initial_roughness <= SPECULAR_GI_FOR_DI_ROUGHNESS_THRESHOLD {
                 mis_weight = 1.0;
             } else {
                 mis_weight = 0.0;

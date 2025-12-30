@@ -11,7 +11,7 @@
 #import bevy_solari::presample_light_tiles::{ResolvedLightSamplePacked, unpack_resolved_light_sample}
 #import bevy_solari::sampling::{LightSample, calculate_resolved_light_contribution, resolve_and_calculate_light_contribution, resolve_light_sample, trace_light_visibility, balance_heuristic}
 #import bevy_solari::scene_bindings::{light_sources, previous_frame_light_id_translations, LIGHT_NOT_PRESENT_THIS_FRAME}
-#import bevy_solari::specular_gi::SPECULAR_GI_FOR_DI_THRESHOLD
+#import bevy_solari::specular_gi::SPECULAR_GI_FOR_DI_ROUGHNESS_THRESHOLD
 
 @group(1) @binding(0) var view_output: texture_storage_2d<rgba16float, read_write>;
 @group(1) @binding(1) var<storage, read_write> light_tile_samples: array<LightSample>;
@@ -96,7 +96,7 @@ fn spatial_and_shade(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let wo = normalize(view.world_position - surface.world_position);
     var brdf: vec3<f32>;
     // If the surface is very smooth, let specular GI handle the specular lobe
-    if surface.material.roughness <= SPECULAR_GI_FOR_DI_THRESHOLD {
+    if surface.material.roughness <= SPECULAR_GI_FOR_DI_ROUGHNESS_THRESHOLD {
         brdf = evaluate_diffuse_brdf(surface.material.base_color, surface.material.metallic);
     } else {
         brdf = evaluate_brdf(surface.world_normal, wo, merge_result.wi, surface.material);
