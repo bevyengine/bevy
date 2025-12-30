@@ -86,45 +86,14 @@ impl std::str::FromStr for Scene {
     type Err = String;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s.to_lowercase().as_str() {
-            "image" => Ok(Scene::Image),
-            "text" => Ok(Scene::Text),
-            "grid" => Ok(Scene::Grid),
-            "borders" => Ok(Scene::Borders),
-            "boxshadow" => Ok(Scene::BoxShadow),
-            "textwrap" => Ok(Scene::TextWrap),
-            "overflow" => Ok(Scene::Overflow),
-            "slice" => Ok(Scene::Slice),
-            "layoutrounding" => Ok(Scene::LayoutRounding),
-            "lineargradient" => Ok(Scene::LinearGradient),
-            "radialgradient" => Ok(Scene::RadialGradient),
-            "transformations" => Ok(Scene::Transformations),
-            #[cfg(feature = "bevy_ui_debug")]
-            "debugoutlines" => Ok(Scene::DebugOutlines),
-            "viewportcoords" => Ok(Scene::ViewportCoords),
-            _ => Err(format!(
-                "Scene '{}' doesn't exist. Available scenes:\n\t{}",
-                s,
-                [
-                    "Image",
-                    "Text",
-                    "Grid",
-                    "Borders",
-                    "BoxShadow",
-                    "TextWrap",
-                    "Overflow",
-                    "Slice",
-                    "LayoutRounding",
-                    "LinearGradient",
-                    "RadialGradient",
-                    "Transformations",
-                    #[cfg(feature = "bevy_ui_debug")]
-                    "DebugOutlines",
-                    "ViewportCoords",
-                ]
-                .join("\n\t")
-            )),
+        let mut isit = Self::default();
+        while s.to_lowercase() != format!("{isit:?}").to_lowercase() {
+            isit = isit.next();
+            if isit == Self::default() {
+                return Err(format!("Invalid Scene name: {s}"));
+            }
         }
+        Ok(isit)
     }
 }
 

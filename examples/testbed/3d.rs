@@ -62,28 +62,15 @@ enum Scene {
 impl std::str::FromStr for Scene {
     type Err = String;
 
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s.to_lowercase().as_str() {
-            "light" => Ok(Scene::Light),
-            "bloom" => Ok(Scene::Bloom),
-            "gltf" => Ok(Scene::Gltf),
-            "animation" => Ok(Scene::Animation),
-            "gizmos" => Ok(Scene::Gizmos),
-            "gltfcoordinateconversion" => Ok(Scene::GltfCoordinateConversion),
-            _ => Err(format!(
-                "Scene '{}' doesn't exist. Available scenes:\n\t{}",
-                s,
-                [
-                    "Light",
-                    "Bloom",
-                    "Gltf",
-                    "Animation",
-                    "Gizmos",
-                    "GltfCoordinateConversion"
-                ]
-                .join("\n\t")
-            )),
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        let mut isit = Self::default();
+        while s.to_lowercase() != format!("{isit:?}").to_lowercase() {
+            isit = isit.next();
+            if isit == Self::default() {
+                return Err(format!("Invalid Scene name: {s}"));
+            }
         }
+        Ok(isit)
     }
 }
 
