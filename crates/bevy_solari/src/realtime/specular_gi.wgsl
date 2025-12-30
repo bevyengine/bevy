@@ -54,7 +54,7 @@ fn specular_gi(@builtin(global_invocation_id) global_id: vec3<u32>) {
         wi = wi_tangent.x * T + wi_tangent.y * B + wi_tangent.z * N;
         let pdf = ggx_vndf_pdf(wo_tangent, wi_tangent, surface.material.roughness);
 
-        radiance = trace_glossy_path(surface.material.roughness, surface.world_position, wi, &rng) / pdf;
+        radiance = trace_glossy_path(surface.world_position, wi, surface.material.roughness, &rng) / pdf;
     }
 
     let brdf = evaluate_specular_brdf(surface.world_normal, wo, wi, surface.material.base_color, surface.material.metallic,
@@ -71,7 +71,7 @@ fn specular_gi(@builtin(global_invocation_id) global_id: vec3<u32>) {
 #endif
 }
 
-fn trace_glossy_path(initial_roughness: f32, initial_ray_origin: vec3<f32>, initial_wi: vec3<f32>, rng: ptr<function, u32>) -> vec3<f32> {
+fn trace_glossy_path(initial_ray_origin: vec3<f32>, initial_wi: vec3<f32>, initial_roughness: f32, rng: ptr<function, u32>) -> vec3<f32> {
     var ray_origin = initial_ray_origin;
     var wi = initial_wi;
     var surface_perfectly_specular = false;
@@ -97,8 +97,7 @@ fn trace_glossy_path(initial_roughness: f32, initial_ray_origin: vec3<f32>, init
         // Add emissive contribution (first bounce gets MIS weight 1.0 because DI doesn't eval the specular lobe if the surface is smooth)
         var mis_weight: f32;
         if i != 0u {
-            let p_light = random_emissive_light_pdf(ray_hit);
-            mis_weight = emissive_mis_weight(p_bounce, p_light, ray_hit, surface_perfectly_specular);
+            mis_weight = emissive_mis_weight(p_bounce, ray_hit, surface_perfectly_specular);
         } else {
             if initial_roughness <= SPECULAR_GI_FOR_DI_THRESHOLD {
                 mis_weight = 1.0;
@@ -139,8 +138,10 @@ fn trace_glossy_path(initial_roughness: f32, initial_ray_origin: vec3<f32>, init
     return radiance;
 }
 
-fn emissive_mis_weight(p_bounce: f32, p_light: f32, ray_hit: ResolvedRayHitFull, previous_surface_perfectly_specular: bool) -> f32 {
+fn emissive_mis_weight(p_bounce: f32, ray_hit: ResolvedRayHitFull, previous_surface_perfectly_specular: bool) -> f32 {
     if previous_surface_perfectly_specular { return 1.0; }
+
+    let p_light = random_emissive_light_pdf(ray_hit);
     return power_heuristic(p_bounce, p_light);
 }
 
