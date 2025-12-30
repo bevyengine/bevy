@@ -224,11 +224,7 @@ fn add_raytracing_meshes_on_scene_load(
 
 fn pause_scene(mut time: ResMut<Time<Virtual>>, key_input: Res<ButtonInput<KeyCode>>) {
     if key_input.just_pressed(KeyCode::Space) {
-        if time.is_paused() {
-            time.unpause();
-        } else {
-            time.pause();
-        }
+        time.toggle();
     }
 }
 
