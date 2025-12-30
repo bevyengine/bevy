@@ -57,7 +57,7 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 /// Marker component to enable automatic directional navigation graph generation.
 ///
 /// Simply add this component to your UI entities and the navigation graph will be
-/// automatically computed and maintained! The [`DirectionalNavigationPlugin`] includes
+/// automatically computed and maintained! The [`AutoDirectionalNavigationPlugin`] includes
 /// a built-in system that:
 /// - Detects when nodes with this component change position or size
 /// - Automatically rebuilds navigation edges based on spatial proximity
@@ -443,7 +443,7 @@ pub fn auto_generate_navigation_edges(
 /// 2. Extracts position/size from [`ComputedNode`] and [`UiGlobalTransform`]
 /// 3. Calls [`auto_generate_navigation_edges`] to rebuild connections
 ///
-/// This system is automatically added by [`DirectionalNavigationPlugin`], so users
+/// This system is automatically added by [`AutoDirectionalNavigationPlugin`], so users
 /// only need to add the [`AutoDirectionalNavigation`] component to their UI entities.
 ///
 /// # Note
