@@ -1,5 +1,6 @@
 //! Contains APIs for ordering systems and executing them on a [`World`](crate::world::World)
 
+mod ambiguity;
 mod auto_insert_apply_deferred;
 mod condition;
 mod config;
@@ -12,7 +13,9 @@ mod set;
 mod stepping;
 
 pub use self::graph::GraphInfo;
-pub use self::{condition::*, config::*, error::*, executor::*, node::*, schedule::*, set::*};
+pub use self::{
+    ambiguity::*, condition::*, config::*, error::*, executor::*, node::*, schedule::*, set::*,
+};
 pub use pass::ScheduleBuildPass;
 
 /// An implementation of a graph data structure.
@@ -801,9 +804,6 @@ mod tests {
     }
 
     mod system_ambiguity {
-        #[cfg(feature = "trace")]
-        use alloc::collections::BTreeSet;
-
         use super::*;
         use crate::prelude::*;
 
@@ -1145,9 +1145,7 @@ mod tests {
             ));
 
             schedule.graph_mut().initialize(&mut world);
-            let _ = schedule
-                .graph_mut()
-                .build_schedule(&mut world, &BTreeSet::new());
+            let _ = schedule.graph_mut().build_schedule(&mut world);
 
             let ambiguities: Vec<_> = schedule
                 .graph()
@@ -1204,9 +1202,7 @@ mod tests {
 
             let mut world = World::new();
             schedule.graph_mut().initialize(&mut world);
-            let _ = schedule
-                .graph_mut()
-                .build_schedule(&mut world, &BTreeSet::new());
+            let _ = schedule.graph_mut().build_schedule(&mut world);
 
             let ambiguities: Vec<_> = schedule
                 .graph()

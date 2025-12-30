@@ -2,9 +2,9 @@
     clippy::module_inception,
     reason = "This instance of module inception is being discussed; see #17344."
 )]
+
 use alloc::{
     boxed::Box,
-    collections::BTreeSet,
     format,
     string::{String, ToString},
     vec,
@@ -12,30 +12,23 @@ use alloc::{
 };
 use bevy_platform::{
     collections::{HashMap, HashSet},
-    hash::FixedHasher,
+    hash::NoOpHash,
 };
 use bevy_utils::{default, TypeIdMap};
 use core::{
     any::{Any, TypeId},
-    fmt::{Debug, Write},
+    fmt::Debug,
 };
 use fixedbitset::FixedBitSet;
 use indexmap::IndexMap;
-use log::{info, warn};
+use log::warn;
 use pass::ScheduleBuildPassObj;
 use thiserror::Error;
 #[cfg(feature = "trace")]
 use tracing::info_span;
 
-use crate::{change_detection::CheckChangeTicks, system::System};
-use crate::{
-    component::{ComponentId, Components},
-    prelude::Component,
-    resource::Resource,
-    schedule::*,
-    system::ScheduleSystem,
-    world::World,
-};
+use crate::{change_detection::CheckChangeTicks, component::Component, system::System};
+use crate::{resource::Resource, schedule::*, system::ScheduleSystem, world::World};
 
 pub use stepping::Stepping;
 use Direction::{Incoming, Outgoing};
@@ -44,8 +37,6 @@ use Direction::{Incoming, Outgoing};
 #[derive(Default, Resource)]
 pub struct Schedules {
     inner: HashMap<InternedScheduleLabel, Schedule>,
-    /// List of [`ComponentId`]s to ignore when reporting system order ambiguity conflicts
-    pub ignored_scheduling_ambiguities: BTreeSet<ComponentId>,
 }
 
 impl Schedules {
@@ -140,35 +131,21 @@ impl Schedules {
     }
 
     /// Ignore system order ambiguities caused by conflicts on [`Component`]s of type `T`.
+    #[deprecated(
+        since = "0.18.0",
+        note = "Use `World::allow_ambiguous_component` instead"
+    )]
     pub fn allow_ambiguous_component<T: Component>(&mut self, world: &mut World) {
-        self.ignored_scheduling_ambiguities
-            .insert(world.register_component::<T>());
+        world.allow_ambiguous_component::<T>();
     }
 
     /// Ignore system order ambiguities caused by conflicts on [`Resource`]s of type `T`.
+    #[deprecated(
+        since = "0.18.0",
+        note = "Use `World::allow_ambiguous_resource` instead"
+    )]
     pub fn allow_ambiguous_resource<T: Resource>(&mut self, world: &mut World) {
-        self.ignored_scheduling_ambiguities
-            .insert(world.components_registrator().register_resource::<T>());
-    }
-
-    /// Iterate through the [`ComponentId`]'s that will be ignored.
-    pub fn iter_ignored_ambiguities(&self) -> impl Iterator<Item = &ComponentId> + '_ {
-        self.ignored_scheduling_ambiguities.iter()
-    }
-
-    /// Prints the names of the components and resources with [`info`]
-    ///
-    /// May panic or retrieve incorrect names if [`Components`] is not from the same
-    /// world
-    pub fn print_ignored_ambiguities(&self, components: &Components) {
-        let mut message =
-            "System order ambiguities caused by conflicts on the following types are ignored:\n"
-                .to_string();
-        for id in self.iter_ignored_ambiguities() {
-            writeln!(message, "{}", components.get_name(*id).unwrap()).unwrap();
-        }
-
-        info!("{message}");
+        world.allow_ambiguous_resource::<T>();
     }
 
     /// Adds one or more systems to the [`Schedule`] matching the provided [`ScheduleLabel`].
@@ -566,16 +543,9 @@ impl Schedule {
     pub fn initialize(&mut self, world: &mut World) -> Result<(), ScheduleBuildError> {
         if self.graph.changed {
             self.graph.initialize(world);
-            let ignored_ambiguities = world
-                .get_resource_or_init::<Schedules>()
-                .ignored_scheduling_ambiguities
-                .clone();
-            self.warnings = self.graph.update_schedule(
-                world,
-                &mut self.executable,
-                &ignored_ambiguities,
-                self.label,
-            )?;
+            self.warnings = self
+                .graph
+                .update_schedule(world, &mut self.executable, self.label)?;
             self.graph.changed = false;
             self.executor_initialized = false;
         }
@@ -701,7 +671,7 @@ pub struct ScheduleGraph {
     anonymous_sets: usize,
     changed: bool,
     settings: ScheduleBuildSettings,
-    passes: IndexMap<TypeId, Box<dyn ScheduleBuildPassObj>, FixedHasher>,
+    passes: IndexMap<TypeId, Box<dyn ScheduleBuildPassObj>, NoOpHash>,
 }
 
 impl ScheduleGraph {
@@ -1115,7 +1085,6 @@ impl ScheduleGraph {
     pub fn build_schedule(
         &mut self,
         world: &mut World,
-        ignored_ambiguities: &BTreeSet<ComponentId>,
     ) -> Result<(SystemSchedule, Vec<ScheduleBuildWarning>), ScheduleBuildError> {
         let mut warnings = Vec::new();
 
@@ -1199,7 +1168,10 @@ impl ScheduleGraph {
             &flat_dependency_analysis,
             &flat_ambiguous_with,
             &self.ambiguous_with_all,
-            ignored_ambiguities,
+            world
+                .get_resource::<IgnoredAmbiguities>()
+                .map(|ia| &ia.0)
+                .unwrap_or(&HashSet::new()),
         );
         // If there are any ambiguities, log warnings or return errors as configured.
         if self.settings.ambiguity_detection != LogLevel::Ignore
@@ -1319,7 +1291,6 @@ impl ScheduleGraph {
         &mut self,
         world: &mut World,
         schedule: &mut SystemSchedule,
-        ignored_ambiguities: &BTreeSet<ComponentId>,
         schedule_label: InternedScheduleLabel,
     ) -> Result<Vec<ScheduleBuildWarning>, ScheduleBuildError> {
         if !self.systems.is_initialized() || !self.system_sets.is_initialized() {
@@ -1352,7 +1323,7 @@ impl ScheduleGraph {
             }
         }
 
-        let (new_schedule, warnings) = self.build_schedule(world, ignored_ambiguities)?;
+        let (new_schedule, warnings) = self.build_schedule(world)?;
         *schedule = new_schedule;
 
         for warning in &warnings {
