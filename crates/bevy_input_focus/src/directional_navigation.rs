@@ -293,7 +293,6 @@ pub trait Navigable {
 
 #[cfg(test)]
 mod tests {
-    use alloc::vec;
     use bevy_ecs::system::RunSystemOnce;
 
     use super::*;

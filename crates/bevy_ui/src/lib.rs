@@ -270,6 +270,4 @@ fn build_text_interop(app: &mut App) {
         PostUpdate,
         AmbiguousWithUpdateText2dLayout.ambiguous_with(bevy_sprite::update_text2d_layout),
     );
-
-    app.add_plugins(directional_navigation::AutoDirectionalNavigationPlugin);
 }

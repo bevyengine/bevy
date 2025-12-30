@@ -17,10 +17,7 @@ use core::time::Duration;
 use bevy::{
     camera::NormalizedRenderTarget,
     input_focus::{
-        directional_navigation::{
-            AutoDirectionalNavigation, AutoNavigationConfig, DirectionalNavigation,
-            DirectionalNavigationPlugin,
-        },
+        directional_navigation::{DirectionalNavigation, DirectionalNavigationPlugin},
         InputDispatchPlugin, InputFocus, InputFocusVisible,
     },
     math::{CompassOctant, Dir2},
@@ -30,6 +27,9 @@ use bevy::{
     },
     platform::collections::HashSet,
     prelude::*,
+    ui::directional_navigation::{
+        AutoDirectionalNavigation, AutoDirectionalNavigationPlugin, AutoNavigationConfig,
+    },
 };
 
 fn main() {
@@ -39,6 +39,7 @@ fn main() {
             DefaultPlugins,
             InputDispatchPlugin,
             DirectionalNavigationPlugin,
+            AutoDirectionalNavigationPlugin,
         ))
         // This resource is canonically used to track whether or not to render a focus indicator
         // It starts as false, but we set it to true here as we would like to see the focus indicator

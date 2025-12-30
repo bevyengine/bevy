@@ -18,7 +18,16 @@ Now, you can simply add the `AutoDirectionalNavigation` component to your UI ent
 
 ## How to Use It
 
-Simply add the `AutoDirectionalNavigation` component to your UI entities:
+First add the directional navigation plugins:
+
+```rust
+use bevy_input_focus::directional_navigation::DirectionalNavigationPlugin;
+use bevy_ui::directional_navigation::AutoDirectionalNavigationPlugin;
+
+app.add_plugins((DirectionalNavigationPlugin, AutoDirectionalNavigationPlugin));
+```
+
+Then simply add the `AutoDirectionalNavigation` component to your UI entities:
 
 ```rust
 commands.spawn((
@@ -29,7 +38,7 @@ commands.spawn((
 ));
 ```
 
-That's it! The `DirectionalNavigationPlugin` includes a system that automatically maintains the navigation graph as your UI changes.
+That's it! The `AutoDirectionalNavigationPlugin` includes a system that automatically maintains the navigation graph as your UI changes.
 
 ### Configuration
 
