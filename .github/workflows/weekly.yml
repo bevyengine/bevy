@@ -42,8 +42,12 @@ jobs:
     if: github.repository == 'bevyengine/bevy'
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v6
-      - uses: dtolnay/rust-toolchain@beta
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@f7ccc83f9ed1e5b9c81d8a67d7ad1a747e22a561
+        with:
+          toolchain: beta
       - name: Install Linux dependencies
         uses: ./.github/actions/install-linux-deps
       - name: Build & run tests
@@ -58,9 +62,12 @@ jobs:
     if: github.repository == 'bevyengine/bevy'
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v6
-      - uses: dtolnay/rust-toolchain@beta
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@f7ccc83f9ed1e5b9c81d8a67d7ad1a747e22a561
+        with:
+          toolchain: beta
           components: rustfmt, clippy
       - name: Install Linux dependencies
         uses: ./.github/actions/install-linux-deps
@@ -79,8 +86,12 @@ jobs:
     timeout-minutes: 30
     needs: test
     steps:
-      - uses: actions/checkout@v6
-      - uses: dtolnay/rust-toolchain@beta
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@f7ccc83f9ed1e5b9c81d8a67d7ad1a747e22a561
+        with:
+          toolchain: beta
       - name: Install Linux dependencies
         uses: ./.github/actions/install-linux-deps
       - name: Check compile test
