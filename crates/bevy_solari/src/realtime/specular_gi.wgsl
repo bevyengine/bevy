@@ -16,7 +16,7 @@ struct PushConstants { frame_index: u32, reset: u32 }
 var<push_constant> constants: PushConstants;
 
 const DIFFUSE_GI_REUSE_ROUGHNESS_THRESHOLD: f32 = 0.4;
-const TERMINATE_IN_WORLD_CACHE_THRESHOLD: f32 = 0.3;
+const TERMINATE_IN_WORLD_CACHE_THRESHOLD: f32 = 0.03;
 
 @compute @workgroup_size(8, 8, 1)
 fn specular_gi(@builtin(global_invocation_id) global_id: vec3<u32>) {
@@ -31,6 +31,7 @@ fn specular_gi(@builtin(global_invocation_id) global_id: vec3<u32>) {
     }
     let surface = gpixel_resolve(textureLoad(gbuffer, global_id.xy, 0), depth, global_id.xy, view.main_pass_viewport.zw, view.world_from_clip);
 
+    let wo_unnormalized = view.world_position - surface.world_position;
     let wo = normalize(view.world_position - surface.world_position);
 
     var radiance: vec3<f32>;
@@ -53,7 +54,7 @@ fn specular_gi(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
         // https://d1qx31qr3h6wln.cloudfront.net/publications/mueller21realtime.pdf#subsection.3.4, equation (4)
         let cos_theta = saturate(dot(wo, surface.world_normal));
-        var a0 = dot(wi, wi) / (4.0 * PI * cos_theta);
+        var a0 = dot(wo_unnormalized, wo_unnormalized) / (4.0 * PI * cos_theta);
         a0 *= TERMINATE_IN_WORLD_CACHE_THRESHOLD;
 
         radiance = trace_glossy_path(surface.world_position, wi, pdf, a0, &rng) / pdf;
@@ -106,7 +107,7 @@ fn trace_glossy_path(initial_ray_origin: vec3<f32>, initial_wi: vec3<f32>, initi
         surface_perfectly_specular = ray_hit.material.roughness <= 0.001 && ray_hit.material.metallic > 0.9999;
 
         // https://d1qx31qr3h6wln.cloudfront.net/publications/mueller21realtime.pdf#subsection.3.4, equation (3)
-        path_spread += sqrt((ray.t * ray.t) / (p_bounce * saturate(dot(wo, N))));
+        path_spread += sqrt((ray.t * ray.t) / (p_bounce * wo_tangent.z));
 
         if path_spread * path_spread > a0 * get_cell_size(ray_hit.world_position, view.world_position) {
             // Path spread is wide enough, terminate path in the world cache
