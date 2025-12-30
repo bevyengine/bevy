@@ -1,7 +1,7 @@
 ---
 title: Solari Improvements
 authors: ["@JMS55", "@SparkyPotato"]
-pull_requests: ["21391", "21355", "21810"]
+pull_requests: [21391, 21355, 21810]
 ---
 
 (Too many PRs to list in full - this is just a small selection!)
