@@ -5288,9 +5288,3 @@ name = "Mirror"
 description = "Demonstrates how to create a mirror with a second camera"
 category = "3D Rendering"
 wasm = true
-
-# Patch to use the wgpu repo's naga implementation with the Vulkan atomic memory semantics fix
-# See: https://github.com/gfx-rs/wgpu/pull/8391
-[patch.crates-io]
-# Use the merged commit that removes atomic memory semantics to avoid VUID-StandaloneSpirv-MemorySemantics-10871
-naga = { git = "https://github.com/gfx-rs/wgpu.git", rev = "7a2afeb014cb30a976059717c4ae7c85f01d858e", package = "naga" }
