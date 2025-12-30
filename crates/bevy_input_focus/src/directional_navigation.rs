@@ -67,7 +67,7 @@ use bevy_ecs::{
     system::SystemParam,
 };
 use bevy_math::{CompassOctant, Dir2, Vec2};
-use bevy_ui::{ComputedNode, UiGlobalTransform};
+use bevy_ui::{ComputedNode, ComputedUiTargetCamera, UiGlobalTransform};
 use thiserror::Error;
 
 use crate::InputFocus;
@@ -418,17 +418,23 @@ pub struct DirectionalNavigation<'w, 's> {
         's,
         (
             Entity,
+            &'static ComputedUiTargetCamera,
             &'static ComputedNode,
             &'static UiGlobalTransform,
             &'static InheritedVisibility,
         ),
         With<AutoDirectionalNavigation>,
     >,
-    /// A query used to get the [`FocusableArea`] for a given entity to be used in automatic navigation.
-    focusable_area_query: Query<
+    /// A query used to get the target camera and the [`FocusableArea`] for a given entity to be used in automatic navigation.
+    camera_and_focusable_area_query: Query<
         'w,
         's,
-        (Entity, &'static ComputedNode, &'static UiGlobalTransform),
+        (
+            Entity,
+            &'static ComputedUiTargetCamera,
+            &'static ComputedNode,
+            &'static UiGlobalTransform,
+        ),
         With<AutoDirectionalNavigation>,
     >,
 }
@@ -449,11 +455,12 @@ impl<'w, 's> DirectionalNavigation<'w, 's> {
             if let Some(new_focus) = self.map.get_neighbor(current_focus, direction) {
                 self.focus.set(new_focus);
                 Ok(new_focus)
-            } else if let Some(origin) = self.entity_to_focusable_area(current_focus)
+            } else if let Some((target_camera, origin)) =
+                self.entity_to_camera_and_focusable_area(current_focus)
                 && let Some(new_focus) = find_best_candidate(
                     &origin,
                     direction,
-                    &self.get_navigable_nodes(),
+                    &self.get_navigable_nodes(target_camera),
                     &self.config,
                 )
             {
@@ -471,39 +478,62 @@ impl<'w, 's> DirectionalNavigation<'w, 's> {
     }
 
     /// Returns a vec of [`FocusableArea`] representing nodes that are eligible to be automatically navigated to.
-    fn get_navigable_nodes(&self) -> Vec<FocusableArea> {
+    /// The camera of any navigable nodes will equal the desired `target_camera`.
+    fn get_navigable_nodes(&self, target_camera: Entity) -> Vec<FocusableArea> {
         self.navigable_entities_query
             .iter()
-            .filter_map(|(entity, computed, transform, inherited_visibility)| {
-                // Skip hidden or zero-size nodes
-                if computed.is_empty() || !inherited_visibility.get() {
-                    return None;
-                }
-
-                let (_scale, _rotation, translation) = transform.to_scale_angle_translation();
-                Some(FocusableArea {
-                    entity,
-                    position: translation,
-                    size: computed.size(),
-                })
-            })
+            .filter_map(
+                |(entity, computed_target_camera, computed, transform, inherited_visibility)| {
+                    // Skip hidden or zero-size nodes
+                    if computed.is_empty() || !inherited_visibility.get() {
+                        return None;
+                    }
+                    // Accept nodes that have the same target camera as the desired target camera
+                    if let Some(tc) = computed_target_camera.get()
+                        && tc == target_camera
+                    {
+                        let (_scale, _rotation, translation) =
+                            transform.to_scale_angle_translation();
+                        Some(FocusableArea {
+                            entity,
+                            position: translation,
+                            size: computed.size(),
+                        })
+                    } else {
+                        // The node either does not have a target camera or it is not the same as the desired one.
+                        None
+                    }
+                },
+            )
             .collect()
     }
 
-    /// Gets the [`FocusableArea`] of the provided entity, if it exists.
+    /// Gets the target camera and the [`FocusableArea`] of the provided entity, if it exists.
     ///
-    /// Returns None if there was a [`QueryEntityError`](bevy_ecs::query::QueryEntityError).
-    fn entity_to_focusable_area(&self, entity: Entity) -> Option<FocusableArea> {
-        self.focusable_area_query
-            .get(entity)
-            .map_or(None, |(entity, computed, transform)| {
-                let (_scale, _rotation, translation) = transform.to_scale_angle_translation();
-                Some(FocusableArea {
-                    entity,
-                    position: translation,
-                    size: computed.size(),
-                })
-            })
+    /// Returns None if there was a [`QueryEntityError`](bevy_ecs::query::QueryEntityError) or
+    /// if the entity does not have a target camera.
+    fn entity_to_camera_and_focusable_area(
+        &self,
+        entity: Entity,
+    ) -> Option<(Entity, FocusableArea)> {
+        self.camera_and_focusable_area_query.get(entity).map_or(
+            None,
+            |(entity, computed_target_camera, computed, transform)| {
+                if let Some(target_camera) = computed_target_camera.get() {
+                    let (_scale, _rotation, translation) = transform.to_scale_angle_translation();
+                    Some((
+                        target_camera,
+                        FocusableArea {
+                            entity,
+                            position: translation,
+                            size: computed.size(),
+                        },
+                    ))
+                } else {
+                    None
+                }
+            },
+        )
     }
 }
 
