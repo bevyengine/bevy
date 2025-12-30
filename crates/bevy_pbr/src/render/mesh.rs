@@ -1136,7 +1136,21 @@ impl RenderMeshInstanceGpuBuilder {
         render_lightmaps: &RenderLightmaps,
         skin_uniforms: &SkinUniforms,
         timestamp: FrameCount,
-    ) -> RenderMeshInstanceGpuPrepared {
+    ) -> Option<RenderMeshInstanceGpuPrepared> {
+        // Look up the material index. If we couldn't fetch the material index,
+        // then the material hasn't been prepared yet, perhaps because it hasn't
+        // yet loaded. In that case, we return None so that
+        // `collect_meshes_for_gpu_building` will add the mesh to
+        // `meshes_to_reextract_next_frame` and bail.
+        let mesh_material = mesh_material_ids.mesh_material(entity);
+        let mesh_material_binding_id = if mesh_material != DUMMY_MESH_MATERIAL.untyped() {
+            render_material_bindings.get(&mesh_material).copied()?
+        } else {
+            // Use a dummy material binding ID.
+            MaterialBindingId::default()
+        };
+        self.shared.material_bindings_index = mesh_material_binding_id;
+
         let (first_vertex_index, vertex_count) =
             match mesh_allocator.mesh_vertex_slice(&self.shared.mesh_asset_id) {
                 Some(mesh_vertex_slice) => (
@@ -1158,20 +1172,6 @@ impl RenderMeshInstanceGpuBuilder {
             Some(skin_index) => skin_index.index(),
             None => u32::MAX,
         };
-
-        // Look up the material index. If we couldn't fetch the material index,
-        // then the material hasn't been prepared yet, perhaps because it hasn't
-        // yet loaded. In that case, add the mesh to
-        // `meshes_to_reextract_next_frame` and bail.
-        let mesh_material = mesh_material_ids.mesh_material(entity);
-        let mesh_material_binding_id = if mesh_material != DUMMY_MESH_MATERIAL.untyped() {
-            render_material_bindings.get(&mesh_material).copied()
-        } else {
-            // Use a dummy material binding ID.
-            Some(MaterialBindingId::default())
-        };
-
-        self.shared.material_bindings_index = mesh_material_binding_id.unwrap_or_default();
 
         let lightmap_slot = match render_lightmaps.render_lightmaps.get(&entity) {
             Some(render_lightmap) => u16::from(*render_lightmap.slot_index),
@@ -1209,12 +1209,11 @@ impl RenderMeshInstanceGpuBuilder {
         let center =
             world_from_local.matrix3.mul_vec3(self.shared.center) + world_from_local.translation;
 
-        RenderMeshInstanceGpuPrepared {
+        Some(RenderMeshInstanceGpuPrepared {
             shared: self.shared,
             mesh_input_uniform,
             center,
-            material_ready: mesh_material_binding_id.is_some(),
-        }
+        })
     }
 }
 
@@ -1222,7 +1221,6 @@ pub struct RenderMeshInstanceGpuPrepared {
     shared: RenderMeshInstanceShared,
     mesh_input_uniform: MeshInputUniform,
     center: Vec3,
-    material_ready: bool,
 }
 
 impl RenderMeshInstanceGpuPrepared {
@@ -1234,13 +1232,7 @@ impl RenderMeshInstanceGpuPrepared {
         render_mesh_instances: &mut MainEntityHashMap<RenderMeshInstanceGpu>,
         current_input_buffer: &mut InstanceInputUniformBuffer<MeshInputUniform>,
         previous_input_buffer: &mut InstanceInputUniformBuffer<MeshInputUniform>,
-        meshes_to_reextract_next_frame: &mut MeshesToReextractNextFrame,
     ) -> Option<u32> {
-        if !self.material_ready {
-            meshes_to_reextract_next_frame.insert(entity);
-            return None;
-        }
-
         // Did the last frame contain this entity as well?
         let current_uniform_index;
         match render_mesh_instances.entry(entity) {
@@ -1774,6 +1766,16 @@ pub fn collect_meshes_for_gpu_building(
     skin_uniforms: Res<SkinUniforms>,
     frame_count: Res<FrameCount>,
     mut meshes_to_reextract_next_frame: ResMut<MeshesToReextractNextFrame>,
+    prepared_chunk: Local<
+        Parallel<
+            Vec<(
+                MainEntity,
+                RenderMeshInstanceGpuPrepared,
+                Option<MeshCullingData>,
+            )>,
+        >,
+    >,
+    reextract_chunk: Local<Parallel<Vec<MainEntity>>>,
 ) {
     let RenderMeshInstances::GpuBuilding(render_mesh_instances) =
         render_mesh_instances.into_inner()
@@ -1793,65 +1795,74 @@ pub fn collect_meshes_for_gpu_building(
 
     previous_input_buffer.clear();
 
-    let (cpu_tx, cpu_rx) =
-        std::sync::mpsc::channel::<Vec<(MainEntity, RenderMeshInstanceGpuPrepared)>>();
-    let (gpu_tx, gpu_rx) = std::sync::mpsc::channel::<
-        Vec<(MainEntity, RenderMeshInstanceGpuPrepared, MeshCullingData)>,
-    >();
-    let (removed_tx, removed_rx) = std::sync::mpsc::channel::<Vec<MainEntity>>();
-
+    /// The size of batches of data sent through the channel from parallel workers to the consumer.
+    /// This was tuned based on benchmarks across a wide range of entity counts.
     const CHUNK_SIZE: usize = 10_000;
 
-    // Build the [`RenderMeshInstance`]s and [`MeshInputUniform`]s.
-    ComputeTaskPool::get().scope(|scope| {
-        let cpu_culling_changed = cpu_tx;
-        let gpu_culling_changed = gpu_tx;
-        let mesh_allocator = &mesh_allocator;
-        let mesh_material_ids = &mesh_material_ids;
-        let render_material_bindings = &render_material_bindings;
-        let render_lightmaps = &render_lightmaps;
-        let skin_uniforms = &skin_uniforms;
-        let frame_count = *frame_count;
+    // Channels used by parallel workers to send data to the single consumer.
+    let (prepared_tx, prepared_rx) = std::sync::mpsc::channel::<
+        Vec<(
+            MainEntity,
+            RenderMeshInstanceGpuPrepared,
+            Option<MeshCullingData>,
+        )>,
+    >();
+    let (removed_tx, removed_rx) = std::sync::mpsc::channel::<Vec<MainEntity>>();
+    let (reextract_tx, reextract_rx) = std::sync::mpsc::channel::<Vec<MainEntity>>();
 
-        scope.spawn(async move {
-            let _g = info_span!("update_mesh_instances").entered();
+    // Reference data shared between tasks
+    let prepared_chunk = &prepared_chunk;
+    let reextract_chunk = &reextract_chunk;
+    let mesh_allocator = &mesh_allocator;
+    let mesh_material_ids = &mesh_material_ids;
+    let render_material_bindings = &render_material_bindings;
+    let render_lightmaps = &render_lightmaps;
+    let skin_uniforms = &skin_uniforms;
+    let frame_count = *frame_count;
 
-            for (entity, prepared) in cpu_rx.iter().flatten() {
-                prepared.update(
-                    entity,
-                    &mut *render_mesh_instances,
-                    current_input_buffer,
-                    previous_input_buffer,
-                    &mut meshes_to_reextract_next_frame,
-                );
-            }
-
-            for (entity, prepared, mesh_culling_builder) in gpu_rx.iter().flatten() {
-                let Some(instance_data_index) = prepared.update(
-                    entity,
-                    &mut *render_mesh_instances,
-                    current_input_buffer,
-                    previous_input_buffer,
-                    &mut meshes_to_reextract_next_frame,
-                ) else {
-                    continue;
-                };
-                mesh_culling_builder
+    // A single worker that consumes the meshes prepared in parallel by multiple producers.
+    let mesh_consumer_worker = &mut Some(move || {
+        let _span = info_span!("prepared_mesh_consumer").entered();
+        for (entity, prepared, mesh_culling_builder) in prepared_rx.iter().flatten() {
+            let Some(instance_data_index) = prepared.update(
+                entity,
+                &mut *render_mesh_instances,
+                current_input_buffer,
+                previous_input_buffer,
+            ) else {
+                continue;
+            };
+            if let Some(mesh_culling_data) = mesh_culling_builder {
+                mesh_culling_data
                     .update(&mut mesh_culling_data_buffer, instance_data_index as usize);
             }
+        }
+        for entity in removed_rx.iter().flatten() {
+            remove_mesh_input_uniform(entity, &mut *render_mesh_instances, current_input_buffer);
+        }
+        for entity in reextract_rx.iter().flatten() {
+            meshes_to_reextract_next_frame.insert(entity);
+        }
+        // Buffers can't be empty. Make sure there's something in the previous input buffer.
+        previous_input_buffer.ensure_nonempty();
+    });
 
-            for entity in removed_rx.iter().flatten() {
-                remove_mesh_input_uniform(
-                    entity,
-                    &mut *render_mesh_instances,
-                    current_input_buffer,
-                );
-            }
+    // Spawn workers on the taskpool to prepare and update meshes in parallel.
+    let taskpool = ComputeTaskPool::get();
+    let is_single_threaded = taskpool.thread_num() == 1;
+    taskpool.scope(|scope| {
+        // If we have multiple threads available, we can spawn a dedicated consumer worker before
+        // the parallel producers start sending data without any risk of deadlocking.
+        //
+        // This worker is the bottleneck of mesh preparation and can only run serially, so we want
+        // it to start working immediately. As soon as the parallel workers produce chunks of
+        // prepared meshes, this worker will consume them and update the GPU buffers.
+        if !is_single_threaded && let Some(mut consumer_worker) = mesh_consumer_worker.take() {
+            scope.spawn(async move { consumer_worker() });
+        }
 
-            // Buffers can't be empty. Make sure there's something in the previous input buffer.
-            previous_input_buffer.ensure_nonempty();
-        });
-
+        // Iterate through each queue, spawning a task for each queue. This loop completes quickly
+        // as it does very little work, it is just spawning and moving data into tasks in a loop.
         for queue in render_mesh_instance_queues.iter_mut() {
             match *queue {
                 RenderMeshInstanceGpuQueue::None => {
@@ -1862,32 +1873,49 @@ pub fn collect_meshes_for_gpu_building(
                     ref mut changed,
                     ref mut removed,
                 } => {
-                    let _g = info_span!("scope_outer").entered();
-                    let cpu_culling = cpu_culling_changed.clone();
-                    if !removed.is_empty() {
-                        removed_tx.send(core::mem::take(removed)).ok();
-                    }
+                    let prepared_tx = prepared_tx.clone();
+                    let reextract_tx = reextract_tx.clone();
+                    let removed_tx = removed_tx.clone();
                     scope.spawn(async move {
-                        let _g = info_span!("par_cpu_culling_scope").entered();
-                        while !changed.is_empty() {
-                            let chunk = changed
-                                .drain(..CHUNK_SIZE.min(changed.len()))
-                                .map(|(entity, mesh_instance_builder)| {
-                                    (
-                                        entity,
-                                        mesh_instance_builder.prepare(
-                                            entity,
-                                            mesh_allocator,
-                                            mesh_material_ids,
-                                            render_material_bindings,
-                                            render_lightmaps,
-                                            skin_uniforms,
-                                            frame_count,
-                                        ),
-                                    )
-                                })
-                                .collect();
-                            cpu_culling.send(chunk).ok();
+                        let _span = info_span!("prepared_mesh_producer").entered();
+                        let prepared_chunk = &mut prepared_chunk.borrow_local_mut();
+                        let reextract_chunk = &mut reextract_chunk.borrow_local_mut();
+                        changed
+                            .drain(..)
+                            .for_each(|(entity, mesh_instance_builder)| {
+                                match mesh_instance_builder.prepare(
+                                    entity,
+                                    mesh_allocator,
+                                    mesh_material_ids,
+                                    render_material_bindings,
+                                    render_lightmaps,
+                                    skin_uniforms,
+                                    frame_count,
+                                ) {
+                                    Some(prepared) => prepared_chunk.push((entity, prepared, None)),
+                                    None => reextract_chunk.push(entity),
+                                }
+
+                                // Once a local batch of work has grown large enough, we send it to
+                                // the consumer to start processing immediately, so it does not need
+                                // to wait for us to process the entire queue.
+                                if prepared_chunk.len() >= CHUNK_SIZE {
+                                    prepared_tx.send(core::mem::take(prepared_chunk)).ok();
+                                }
+                                if reextract_chunk.len() >= CHUNK_SIZE {
+                                    reextract_tx.send(core::mem::take(reextract_chunk)).ok();
+                                }
+                            });
+
+                        // Send any remaining data to be processed
+                        if !prepared_chunk.is_empty() {
+                            prepared_tx.send(core::mem::take(prepared_chunk)).ok();
+                        }
+                        if !reextract_chunk.is_empty() {
+                            reextract_tx.send(core::mem::take(reextract_chunk)).ok();
+                        }
+                        if !removed.is_empty() {
+                            removed_tx.send(core::mem::take(removed)).ok();
                         }
                     });
                 }
@@ -1896,40 +1924,73 @@ pub fn collect_meshes_for_gpu_building(
                     ref mut changed,
                     ref mut removed,
                 } => {
-                    let _g = info_span!("scope_outer").entered();
-                    let gpu_culling = gpu_culling_changed.clone();
-                    if !removed.is_empty() {
-                        removed_tx.send(core::mem::take(removed)).ok();
-                    }
+                    let prepared_tx = prepared_tx.clone();
+                    let reextract_tx = reextract_tx.clone();
+                    let removed_tx = removed_tx.clone();
                     scope.spawn(async move {
-                        let _g = info_span!("par_gpu_culling_scope").entered();
-                        while !changed.is_empty() {
-                            let chunk = changed
-                                .drain(..CHUNK_SIZE.min(changed.len()))
-                                .map(|(entity, mesh_instance_builder, mesh_culling_builder)| {
-                                    (
+                        let _span = info_span!("prepared_mesh_producer").entered();
+                        let prepared_chunk = &mut prepared_chunk.borrow_local_mut();
+                        let reextract_chunk = &mut reextract_chunk.borrow_local_mut();
+                        changed.drain(..).for_each(
+                            |(entity, mesh_instance_builder, mesh_culling_builder)| {
+                                match mesh_instance_builder.prepare(
+                                    entity,
+                                    mesh_allocator,
+                                    mesh_material_ids,
+                                    render_material_bindings,
+                                    render_lightmaps,
+                                    skin_uniforms,
+                                    frame_count,
+                                ) {
+                                    Some(prepared) => prepared_chunk.push((
                                         entity,
-                                        mesh_instance_builder.prepare(
-                                            entity,
-                                            mesh_allocator,
-                                            mesh_material_ids,
-                                            render_material_bindings,
-                                            render_lightmaps,
-                                            skin_uniforms,
-                                            frame_count,
-                                        ),
-                                        mesh_culling_builder,
-                                    )
-                                })
-                                .collect();
-                            gpu_culling.send(chunk).ok();
+                                        prepared,
+                                        Some(mesh_culling_builder),
+                                    )),
+                                    None => reextract_chunk.push(entity),
+                                }
+
+                                // Once a local batch of work has grown large enough, we send it to
+                                // the consumer to start processing immediately, so it does not need
+                                // to wait for us to process the entire queue.
+                                if prepared_chunk.len() >= CHUNK_SIZE {
+                                    prepared_tx.send(core::mem::take(prepared_chunk)).ok();
+                                }
+                                if reextract_chunk.len() >= CHUNK_SIZE {
+                                    reextract_tx.send(core::mem::take(reextract_chunk)).ok();
+                                }
+                            },
+                        );
+
+                        // Send any remaining data to be processed
+                        if !prepared_chunk.is_empty() {
+                            prepared_tx.send(core::mem::take(prepared_chunk)).ok();
+                        }
+                        if !reextract_chunk.is_empty() {
+                            reextract_tx.send(core::mem::take(reextract_chunk)).ok();
+                        }
+                        if !removed.is_empty() {
+                            removed_tx.send(core::mem::take(removed)).ok();
                         }
                     });
                 }
             }
         }
+
+        // Drop the senders owned by the scope, so the only senders left are those captured by the
+        // spawned tasks. When the tasks are complete, the channels will close, and the consumer
+        // will finish. Without this, the scope would deadlock on the blocked consumer.
+        drop(prepared_tx);
+        drop(reextract_tx);
         drop(removed_tx);
     });
+
+    // In single threaded scenarios, we cannot spawn the worker first because it will deadlock,
+    // The worker would block the thread and prevent the mesh prepare tasks from ever starting and
+    // sending any data to be consumed.
+    if is_single_threaded && let Some(mut consumer_worker) = mesh_consumer_worker.take() {
+        consumer_worker();
+    }
 }
 
 /// All data needed to construct a pipeline for rendering 3D meshes.
