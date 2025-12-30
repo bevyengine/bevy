@@ -6,7 +6,7 @@
 #import bevy_core_pipeline::tonemapping::tonemapping_luminance as luminance
 #import bevy_pbr::prepass_bindings::PreviousViewUniforms
 #import bevy_pbr::utils::{rand_f, rand_range_u, sample_disk}
-#import bevy_render::maths::{PI, orthonormalize}
+#import bevy_render::maths::PI
 #import bevy_render::view::View
 #import bevy_solari::brdf::{evaluate_brdf, evaluate_diffuse_brdf}
 #import bevy_solari::gbuffer_utils::{gpixel_resolve, pixel_dissimilar, permute_pixel}
