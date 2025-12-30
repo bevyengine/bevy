@@ -1,14 +1,14 @@
 use crate::io::{
-    get_meta_path, AssetReader, AssetReaderError, AsyncRead, AsyncSeek, LocalStackFuture,
-    EmptyPathStream, PathStream, Reader, ReaderRequiredFeatures, SeekFrom, STACK_FUTURE_SIZE,
+    get_meta_path, AssetReader, AssetReaderError, AsyncRead, AsyncSeek, EmptyPathStream,
+    LocalStackFuture, PathStream, Reader, ReaderRequiredFeatures, SeekFrom, STACK_FUTURE_SIZE,
 };
 use alloc::{borrow::ToOwned, boxed::Box, format, vec::Vec};
 use core::pin::Pin;
-use core::task::{Poll, Context};
+use core::task::{Context, Poll};
 use js_sys::{Uint8Array, JSON};
 use std::path::{Path, PathBuf};
 use tracing::error;
-use wasm_bindgen::{prelude::wasm_bindgen, JsCast, JsValue, UnwrapThrowExt};
+use wasm_bindgen::{prelude::wasm_bindgen, JsCast, JsValue};
 use wasm_bindgen_futures::JsFuture;
 use web_sys::Response;
 
@@ -131,7 +131,7 @@ pub struct Uint8ArrayReader {
 }
 
 impl Uint8ArrayReader {
-    /// Create a new [`Uint8ArrayReader`] for `bytes`.
+    /// Create a new [`Uint8ArrayReader`] for `array`.
     pub fn new(array: Uint8Array) -> Self {
         Self {
             initial_offset: array.byte_offset(),
@@ -191,17 +191,11 @@ impl AsyncSeek for Uint8ArrayReader {
         };
         debug_assert!(new_array_buffer_offset >= self.initial_offset);
         debug_assert!(new_array_buffer_offset <= array_buffer_end);
-        self.array = self
-            .array
-            .constructor()
-            .call3(
-                &JsValue::UNDEFINED,
-                &self.array.buffer(),
-                &new_array_buffer_offset.into(),
-                &array_buffer_end.into(),
-            )
-            .unwrap_throw()
-            .unchecked_into();
+        self.array = Uint8Array::new_with_byte_offset_and_length(
+            self.array.buffer().unchecked_ref(),
+            new_array_buffer_offset,
+            array_buffer_end - new_array_buffer_offset,
+        );
         Poll::Ready(Ok((new_array_buffer_offset - self.initial_offset).into()))
     }
 }
