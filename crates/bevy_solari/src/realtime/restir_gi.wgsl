@@ -1,28 +1,16 @@
 // https://intro-to-restir.cwyman.org/presentations/2023ReSTIR_Course_Notes.pdf
 
 #import bevy_core_pipeline::tonemapping::tonemapping_luminance as luminance
-#import bevy_pbr::prepass_bindings::PreviousViewUniforms
 #import bevy_pbr::utils::{rand_f, sample_uniform_hemisphere, uniform_hemisphere_inverse_pdf, sample_disk}
 #import bevy_render::maths::PI
 #import bevy_render::view::View
 #import bevy_solari::brdf::evaluate_diffuse_brdf
 #import bevy_solari::gbuffer_utils::{gpixel_resolve, pixel_dissimilar, permute_pixel}
-#import bevy_solari::sampling::{sample_random_light, trace_point_visibility, balance_heuristic}
+#import bevy_solari::realtime_bindings::{view_output, gi_reservoirs_a, gi_reservoirs_b, gbuffer, depth_buffer, motion_vectors, previous_gbuffer, previous_depth_buffer, view, previous_view, constants, Reservoir}
 #import bevy_solari::scene_bindings::{trace_ray, resolve_ray_hit_full, RAY_T_MIN, RAY_T_MAX}
-#import bevy_solari::world_cache::{query_world_cache, WORLD_CACHE_CELL_LIFETIME}
+#import bevy_solari::sampling::{trace_point_visibility, balance_heuristic}
+#import bevy_solari::world_cache::{query_world_cache_radiance, query_world_cache_lights, evaluate_lighting_from_cache, write_world_cache_light, WORLD_CACHE_CELL_LIFETIME}
 
-@group(1) @binding(0) var view_output: texture_storage_2d<rgba16float, read_write>;
-@group(1) @binding(5) var<storage, read_write> gi_reservoirs_a: array<Reservoir>;
-@group(1) @binding(6) var<storage, read_write> gi_reservoirs_b: array<Reservoir>;
-@group(1) @binding(7) var gbuffer: texture_2d<u32>;
-@group(1) @binding(8) var depth_buffer: texture_depth_2d;
-@group(1) @binding(9) var motion_vectors: texture_2d<f32>;
-@group(1) @binding(10) var previous_gbuffer: texture_2d<u32>;
-@group(1) @binding(11) var previous_depth_buffer: texture_depth_2d;
-@group(1) @binding(12) var<uniform> view: View;
-@group(1) @binding(13) var<uniform> previous_view: PreviousViewUniforms;
-struct PushConstants { frame_index: u32, reset: u32 }
-var<push_constant> constants: PushConstants;
 
 const SPATIAL_REUSE_RADIUS_PIXELS = 30.0;
 const CONFIDENCE_WEIGHT_CAP = 8.0;
@@ -67,9 +55,19 @@ fn spatial_and_shade(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let spatial = load_spatial_reservoir(global_id.xy, depth, surface.world_position, surface.world_normal, &rng);
     let merge_result = merge_reservoirs(input_reservoir, surface.world_position, surface.world_normal, surface.material.base_color / PI,
         spatial.reservoir, spatial.world_position, spatial.world_normal, spatial.diffuse_brdf, &rng);
-    let combined_reservoir = merge_result.merged_reservoir;
+    var combined_reservoir = merge_result.merged_reservoir;
 
+    // More accuracy, less stability
+#ifndef BIASED_RESAMPLING
     gi_reservoirs_a[pixel_index] = combined_reservoir;
+#endif
+
+    combined_reservoir.unbiased_contribution_weight *= trace_point_visibility(surface.world_position, combined_reservoir.sample_point_world_position);
+
+    // More stability, less accuracy (shadows extend further out than they should)
+#ifdef BIASED_RESAMPLING
+    gi_reservoirs_a[pixel_index] = combined_reservoir;
+#endif
 
     let brdf = evaluate_diffuse_brdf(surface.material.base_color, surface.material.metallic);
 
@@ -99,11 +97,15 @@ fn generate_initial_reservoir(world_position: vec3<f32>, world_normal: vec3<f32>
     reservoir.confidence_weight = 1.0;
 
 #ifdef NO_WORLD_CACHE
-    let direct_lighting = sample_random_light(sample_point.world_position, sample_point.world_normal, rng);
+    let wo = normalize(sample_point.world_position - world_position);
+    let cell = query_world_cache_lights(rng, sample_point.world_position, sample_point.world_normal, view.world_position);
+    let direct_lighting = evaluate_lighting_from_cache(rng, cell, sample_point.world_position, sample_point.world_normal, wo, sample_point.material, view.exposure);
+    write_world_cache_light(rng, direct_lighting, sample_point.world_position, sample_point.world_normal, view.world_position, WORLD_CACHE_CELL_LIFETIME, view.exposure);
+    
     reservoir.radiance = direct_lighting.radiance;
-    reservoir.unbiased_contribution_weight = direct_lighting.inverse_pdf * uniform_hemisphere_inverse_pdf();
+    reservoir.unbiased_contribution_weight = direct_lighting.inverse_pdf * uniform_hemisphere_inverse_pdf();    
 #else
-    reservoir.radiance = query_world_cache(sample_point.world_position, sample_point.geometric_world_normal, view.world_position, WORLD_CACHE_CELL_LIFETIME, rng);
+    reservoir.radiance = query_world_cache_radiance(rng, sample_point.world_position, sample_point.geometric_world_normal, view.world_position, WORLD_CACHE_CELL_LIFETIME);
     reservoir.unbiased_contribution_weight = uniform_hemisphere_inverse_pdf();
 #endif
 
@@ -163,10 +165,7 @@ fn load_spatial_reservoir(pixel_id: vec2<u32>, depth: f32, world_position: vec3<
         }
 
         let spatial_pixel_index = spatial_pixel_id.x + spatial_pixel_id.y * u32(view.main_pass_viewport.z);
-        var spatial_reservoir = gi_reservoirs_b[spatial_pixel_index];
-
-        spatial_reservoir.radiance *= trace_point_visibility(world_position, spatial_reservoir.sample_point_world_position);
-
+        let spatial_reservoir = gi_reservoirs_b[spatial_pixel_index];
         return NeighborInfo(spatial_reservoir, spatial_surface.world_position, spatial_surface.world_normal, spatial_diffuse_brdf);
     }
 
@@ -208,16 +207,6 @@ fn isinf(x: f32) -> bool {
 
 fn isnan(x: f32) -> bool {
     return (bitcast<u32>(x) & 0x7fffffffu) > 0x7f800000u;
-}
-
-// Don't adjust the size of this struct without also adjusting GI_RESERVOIR_STRUCT_SIZE.
-struct Reservoir {
-    sample_point_world_position: vec3<f32>,
-    weight_sum: f32,
-    radiance: vec3<f32>,
-    confidence_weight: f32,
-    sample_point_world_normal: vec3<f32>,
-    unbiased_contribution_weight: f32,
 }
 
 fn empty_reservoir() -> Reservoir {

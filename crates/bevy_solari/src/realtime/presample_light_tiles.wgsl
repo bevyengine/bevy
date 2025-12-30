@@ -4,38 +4,24 @@
 
 #import bevy_pbr::rgb9e5::{vec3_to_rgb9e5_, rgb9e5_to_vec3_}
 #import bevy_pbr::utils::{octahedral_encode, octahedral_decode}
-#import bevy_render::view::View
-#import bevy_solari::sampling::{generate_random_light_sample, LightSample, ResolvedLightSample}
-
-@group(1) @binding(1) var<storage, read_write> light_tile_samples: array<LightSample>;
-@group(1) @binding(2) var<storage, read_write> light_tile_resolved_samples: array<ResolvedLightSamplePacked>;
-@group(1) @binding(12) var<uniform> view: View;
-struct PushConstants { frame_index: u32, reset: u32 }
-var<push_constant> constants: PushConstants;
+#import bevy_solari::realtime_bindings::{light_tile_samples, view, constants, LightSamplePacked}
+#import bevy_solari::sampling::{select_random_light, sample_light, resolve_light_sample, ResolvedLightSample}
 
 @compute @workgroup_size(1024, 1, 1)
 fn presample_light_tiles(@builtin(workgroup_id) workgroup_id: vec3<u32>, @builtin(local_invocation_index) sample_index: u32) {
     let tile_id = workgroup_id.x;
     var rng = (tile_id * 5782582u) + sample_index + constants.frame_index;
 
-    let sample = generate_random_light_sample(&rng);
+    let light = select_random_light(&rng);
+    let sample = resolve_light_sample(sample_light(&rng, light));
 
     let i = (tile_id * 1024u) + sample_index;
-    light_tile_samples[i] = sample.light_sample;
-    light_tile_resolved_samples[i] = pack_resolved_light_sample(sample.resolved_light_sample);
+    light_tile_samples[i] = pack_light_sample(sample);
 }
 
-struct ResolvedLightSamplePacked {
-    world_position_x: f32,
-    world_position_y: f32,
-    world_position_z: f32,
-    world_normal: u32,
-    radiance: u32,
-    inverse_pdf: f32,
-}
-
-fn pack_resolved_light_sample(sample: ResolvedLightSample) -> ResolvedLightSamplePacked {
-    return ResolvedLightSamplePacked(
+fn pack_light_sample(sample: ResolvedLightSample) -> LightSamplePacked {
+    return LightSamplePacked(
+        sample.light_id,
         sample.world_position.x,
         sample.world_position.y,
         sample.world_position.z,
@@ -45,11 +31,12 @@ fn pack_resolved_light_sample(sample: ResolvedLightSample) -> ResolvedLightSampl
     );
 }
 
-fn unpack_resolved_light_sample(packed: ResolvedLightSamplePacked, exposure: f32) -> ResolvedLightSample {
+fn unpack_light_sample(packed: LightSamplePacked) -> ResolvedLightSample {
     return ResolvedLightSample(
+        packed.light_id,
         vec4(packed.world_position_x, packed.world_position_y, packed.world_position_z, select(1.0, 0.0, packed.inverse_pdf < 0.0)),
         octahedral_decode(unpack2x16unorm(packed.world_normal)),
-        (exp2(rgb9e5_to_vec3_(packed.radiance)) - 1.0) / exposure,
+        (exp2(rgb9e5_to_vec3_(packed.radiance)) - 1.0) / view.exposure,
         abs(packed.inverse_pdf),
     );
 }

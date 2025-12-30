@@ -120,6 +120,13 @@ struct ResolvedRayHitFull {
     material: ResolvedMaterial,
 }
 
+struct ResolvedRayHitEmissive {
+    world_position: vec3<f32>,
+    world_normal: vec3<f32>,
+    triangle_area: f32,
+    emissive: vec3<f32>,
+}
+
 fn resolve_material(material: Material, uv: vec2<f32>) -> ResolvedMaterial {
     var m: ResolvedMaterial;
 
@@ -215,4 +222,38 @@ fn resolve_triangle_data_full(instance_id: u32, triangle_id: u32, barycentrics: 
     let resolved_material = resolve_material(material, uv);
 
     return ResolvedRayHitFull(world_position, world_normal, geometric_world_normal, world_tangent, uv, triangle_area, instance_geometry_ids.triangle_count, resolved_material);
+}
+
+fn resolve_triangle_data_emissive(instance_id: u32, triangle_id: u32, barycentrics: vec3<f32>) -> ResolvedRayHitEmissive {
+    let material_id = material_ids[instance_id];
+    let material = materials[material_id];
+
+    let instance_geometry_ids = geometry_ids[instance_id];
+    let vertices = load_vertices(instance_geometry_ids, triangle_id);
+    let transform = transforms[instance_id];
+    let world_vertices = transform_positions(transform, vertices);
+
+    let world_position = mat3x3(world_vertices[0], world_vertices[1], world_vertices[2]) * barycentrics;
+
+    let uv = mat3x2(vertices[0].uv, vertices[1].uv, vertices[2].uv) * barycentrics;
+
+    let local_tangent = mat3x3(vertices[0].tangent.xyz, vertices[1].tangent.xyz, vertices[2].tangent.xyz) * barycentrics;
+    let world_tangent = vec4(
+        normalize(mat3x3(transform[0].xyz, transform[1].xyz, transform[2].xyz) * local_tangent),
+        vertices[0].tangent.w,
+    );
+
+    let local_normal = mat3x3(vertices[0].normal, vertices[1].normal, vertices[2].normal) * barycentrics; // TODO: Use barycentric lerp, ray_hit.object_to_world, cross product geo normal
+    let world_normal = normalize(mat3x3(transform[0].xyz, transform[1].xyz, transform[2].xyz) * local_normal);
+
+    let triangle_edge0 = world_vertices[0] - world_vertices[1];
+    let triangle_edge1 = world_vertices[0] - world_vertices[2];
+    let triangle_area = length(cross(triangle_edge0, triangle_edge1)) / 2.0;
+
+    var emissive = material.emissive.rgb;
+    if material.emissive_texture_id != TEXTURE_MAP_NONE {
+        emissive *= sample_texture(material.emissive_texture_id, uv);
+    }
+
+    return ResolvedRayHitEmissive(world_position, world_normal, triangle_area, emissive);
 }

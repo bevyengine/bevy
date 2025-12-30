@@ -3,7 +3,7 @@
 #import bevy_pbr::lighting::D_GGX
 #import bevy_pbr::utils::{rand_f, rand_vec2f, rand_u, rand_range_u}
 #import bevy_render::maths::{PI_2, orthonormalize}
-#import bevy_solari::scene_bindings::{trace_ray, RAY_T_MIN, RAY_T_MAX, light_sources, directional_lights, LightSource, LIGHT_SOURCE_KIND_DIRECTIONAL, resolve_triangle_data_full, ResolvedRayHitFull}
+#import bevy_solari::scene_bindings::{trace_ray, RAY_T_MIN, RAY_T_MAX, light_sources, directional_lights, LightSource, LIGHT_SOURCE_KIND_DIRECTIONAL, resolve_triangle_data_full, resolve_triangle_data_emissive, ResolvedRayHitFull}
 
 fn power_heuristic(f: f32, g: f32) -> f32 {
     return balance_heuristic(f * f, g * g);
@@ -67,6 +67,7 @@ struct LightSample {
 }
 
 struct ResolvedLightSample {
+    light_id: u32,
     world_position: vec4<f32>,
     world_normal: vec3<f32>,
     radiance: vec3<f32>,
@@ -74,39 +75,35 @@ struct ResolvedLightSample {
 }
 
 struct LightContribution {
+    light_id: u32,
+    world_position: vec4<f32>,
     radiance: vec3<f32>,
     inverse_pdf: f32,
     wi: vec3<f32>,
     brdf_rays_can_hit: bool,
 }
 
-struct LightContributionNoPdf {
-    radiance: vec3<f32>,
-    wi: vec3<f32>,
-}
-
-struct GenerateRandomLightSampleResult {
-    light_sample: LightSample,
-    resolved_light_sample: ResolvedLightSample,
-}
-
-fn sample_random_light(ray_origin: vec3<f32>, origin_world_normal: vec3<f32>, rng: ptr<function, u32>) -> LightContribution {
-    let sample = generate_random_light_sample(rng);
-    var light_contribution = calculate_resolved_light_contribution(sample.resolved_light_sample, ray_origin, origin_world_normal);
-    light_contribution.radiance *= trace_light_visibility(ray_origin, sample.resolved_light_sample.world_position);
+fn random_light_contribution(rng: ptr<function, u32>, ray_origin: vec3<f32>, origin_world_normal: vec3<f32>) -> LightContribution {
+    let light_id = select_random_light(rng);
+    var light_contribution = light_contribution_no_trace(sample_light(rng, light_id), ray_origin, origin_world_normal);
+    light_contribution.radiance *= trace_light_visibility(ray_origin, light_contribution.world_position);
+    light_contribution.inverse_pdf *= select_random_light_inverse_pdf(light_id);
     return light_contribution;
 }
 
-fn random_emissive_light_pdf(hit: ResolvedRayHitFull) -> f32 {
+fn hit_random_light_pdf(hit: ResolvedRayHitFull) -> f32 {
     let light_count = arrayLength(&light_sources);
-    return 1.0 / (f32(light_count) * f32(hit.triangle_count) * hit.triangle_area);
+    return 1.0 / (hit.triangle_area * f32(hit.triangle_count) * f32(light_count));
 }
 
-fn generate_random_light_sample(rng: ptr<function, u32>) -> GenerateRandomLightSampleResult {
-    let light_count = arrayLength(&light_sources);
-    let light_id = rand_range_u(light_count, rng);
+fn light_contribution_no_trace(sample: LightSample, ray_origin: vec3<f32>, origin_world_normal: vec3<f32>) -> LightContribution {
+    return calculate_light_contribution(resolve_light_sample(sample), ray_origin, origin_world_normal);
+}
 
-    let light_source = light_sources[light_id];
+fn select_random_light(rng: ptr<function, u32>) -> u32 {
+    let light_count = arrayLength(&light_sources);
+    let light_index = rand_range_u(light_count, rng);
+    let light_source = light_sources[light_index];
 
     var triangle_id = 0u;
     if light_source.kind != LIGHT_SOURCE_KIND_DIRECTIONAL {
@@ -114,16 +111,25 @@ fn generate_random_light_sample(rng: ptr<function, u32>) -> GenerateRandomLightS
         triangle_id = rand_range_u(triangle_count, rng);
     }
 
-    let seed = rand_u(rng);
-    let light_sample = LightSample((light_id << 16u) | triangle_id, seed);
-
-    var resolved_light_sample = resolve_light_sample(light_sample, light_source);
-    resolved_light_sample.inverse_pdf *= f32(light_count);
-
-    return GenerateRandomLightSampleResult(light_sample, resolved_light_sample);
+    return (light_index << 16u) | triangle_id;
 }
 
-fn resolve_light_sample(light_sample: LightSample, light_source: LightSource) -> ResolvedLightSample {
+fn select_random_light_inverse_pdf(light_id: u32) -> f32 {
+    let light_count = arrayLength(&light_sources);
+    let light_source = light_sources[light_id >> 16u];
+    var triangle_count = 1u;
+    if light_source.kind != LIGHT_SOURCE_KIND_DIRECTIONAL {
+        triangle_count = light_source.kind >> 1u;
+    }
+    return f32(light_count) * f32(triangle_count);
+}
+
+fn sample_light(rng: ptr<function, u32>, light_id: u32) -> LightSample {
+    return LightSample(light_id, rand_u(rng));
+}
+
+fn resolve_light_sample(light_sample: LightSample) -> ResolvedLightSample {
+    let light_source = light_sources[light_sample.light_id >> 16u];
     if light_source.kind == LIGHT_SOURCE_KIND_DIRECTIONAL {
         let directional_light = directional_lights[light_source.id];
 
@@ -146,44 +152,47 @@ fn resolve_light_sample(light_sample: LightSample, light_source: LightSource) ->
 #endif
 
         return ResolvedLightSample(
+            light_sample.light_id,
             vec4(direction_to_light, 0.0),
             -direction_to_light,
             directional_light.luminance,
             directional_light.inverse_pdf,
         );
     } else {
-        let triangle_count = light_source.kind >> 1u;
+        var rng = light_sample.seed;
+        let barycentrics = sample_triangle(&rng);
         let triangle_id = light_sample.light_id & 0xFFFFu;
-        let barycentrics = triangle_barycentrics(light_sample.seed);
-        let triangle_data = resolve_triangle_data_full(light_source.id, triangle_id, barycentrics);
+        let triangle_data = resolve_triangle_data_emissive(light_source.id, triangle_id, barycentrics);
 
         return ResolvedLightSample(
+            light_sample.light_id,
             vec4(triangle_data.world_position, 1.0),
             triangle_data.world_normal,
-            triangle_data.material.emissive.rgb,
-            f32(triangle_count) * triangle_data.triangle_area,
+            triangle_data.emissive,
+            triangle_data.triangle_area,
         );
     }
 }
 
-fn calculate_resolved_light_contribution(resolved_light_sample: ResolvedLightSample, ray_origin: vec3<f32>, origin_world_normal: vec3<f32>) -> LightContribution {
-    let ray = resolved_light_sample.world_position.xyz - (resolved_light_sample.world_position.w * ray_origin);
+// https://www.realtimerendering.com/raytracinggems/unofficial_RayTracingGems_v1.9.pdf#0004286901.INDD%3ASec22%3A297
+fn sample_triangle(rng: ptr<function, u32>) -> vec3<f32> {
+    var barycentrics = rand_vec2f(rng);
+    if barycentrics.x + barycentrics.y > 1.0 { barycentrics = 1.0 - barycentrics; }
+    return vec3(1.0 - barycentrics.x - barycentrics.y, barycentrics);
+}
+
+fn calculate_light_contribution(light_sample: ResolvedLightSample, ray_origin: vec3<f32>, origin_world_normal: vec3<f32>) -> LightContribution {
+    let ray = light_sample.world_position.xyz - (light_sample.world_position.w * ray_origin);
     let light_distance = length(ray);
     let wi = ray / light_distance;
 
     let cos_theta_origin = saturate(dot(wi, origin_world_normal));
-    let cos_theta_light = saturate(dot(-wi, resolved_light_sample.world_normal));
+    let cos_theta_light = saturate(dot(-wi, light_sample.world_normal));
     let light_distance_squared = light_distance * light_distance;
 
-    let radiance = resolved_light_sample.radiance * cos_theta_origin * (cos_theta_light / light_distance_squared);
+    let radiance = light_sample.radiance * cos_theta_origin * (cos_theta_light / light_distance_squared);
 
-    return LightContribution(radiance, resolved_light_sample.inverse_pdf, wi, resolved_light_sample.world_position.w == 1.0);
-}
-
-fn resolve_and_calculate_light_contribution(light_sample: LightSample, ray_origin: vec3<f32>, origin_world_normal: vec3<f32>) -> LightContributionNoPdf {
-    let resolved_light_sample = resolve_light_sample(light_sample, light_sources[light_sample.light_id >> 16u]);
-    let light_contribution = calculate_resolved_light_contribution(resolved_light_sample, ray_origin, origin_world_normal);
-    return LightContributionNoPdf(light_contribution.radiance, light_contribution.wi);
+    return LightContribution(light_sample.light_id, light_sample.world_position, radiance, light_sample.inverse_pdf, wi, light_sample.world_position.w == 1.0);
 }
 
 fn trace_light_visibility(ray_origin: vec3<f32>, light_sample_world_position: vec4<f32>) -> f32 {
@@ -213,12 +222,4 @@ fn trace_point_visibility(ray_origin: vec3<f32>, point: vec3<f32>) -> f32 {
 
     let ray_hit = trace_ray(ray_origin, ray_direction, RAY_T_MIN, ray_t_max, RAY_FLAG_TERMINATE_ON_FIRST_HIT);
     return f32(ray_hit.kind == RAY_QUERY_INTERSECTION_NONE);
-}
-
-// https://www.realtimerendering.com/raytracinggems/unofficial_RayTracingGems_v1.9.pdf#0004286901.INDD%3ASec22%3A297
-fn triangle_barycentrics(seed: u32) -> vec3<f32> {
-    var rng = seed;
-    var barycentrics = rand_vec2f(&rng);
-    if barycentrics.x + barycentrics.y > 1.0 { barycentrics = 1.0 - barycentrics; }
-    return vec3(1.0 - barycentrics.x - barycentrics.y, barycentrics);
 }
