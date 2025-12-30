@@ -54,11 +54,6 @@ pub(crate) struct ArchetypeCreated(pub ArchetypeId);
 pub struct ArchetypeRow(NonMaxU32);
 
 impl ArchetypeRow {
-    /// Index indicating an invalid archetype row.
-    /// This is meant to be used as a placeholder.
-    // TODO: Deprecate in favor of options, since `INVALID` is, technically, valid.
-    pub const INVALID: ArchetypeRow = ArchetypeRow(NonMaxU32::MAX);
-
     /// Creates a `ArchetypeRow`.
     #[inline]
     pub const fn new(index: NonMaxU32) -> Self {
@@ -95,10 +90,6 @@ pub struct ArchetypeId(u32);
 impl ArchetypeId {
     /// The ID for the [`Archetype`] without any components.
     pub const EMPTY: ArchetypeId = ArchetypeId(0);
-    /// # Safety:
-    ///
-    /// This must always have an all-1s bit pattern to ensure soundness in fast entity id space allocation.
-    pub const INVALID: ArchetypeId = ArchetypeId(u32::MAX);
 
     /// Create an `ArchetypeId` from a plain value.
     ///

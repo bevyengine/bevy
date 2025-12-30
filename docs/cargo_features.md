@@ -30,7 +30,7 @@ By default, the `bevy` crate enables the  features.
 
 ### Collections
 
-"Collections" are mid-level groups of cargo features. These are used to compose the high-level "profiles". If the default profiles don'templated
+"Collections" are mid-level groups of cargo features. These are used to compose the high-level "profiles". If the default profiles don't
 suit your use case (ex: you want to use a custom renderer, you want to build a "headless" app, you want to target no_std, etc), then you can use these
 collections to build your own "profile" equivalent, without needing to manually manage _every single_ feature.
 
@@ -44,11 +44,11 @@ collections to build your own "profile" equivalent, without needing to manually 
 |default_platform|These are platform support features, such as OS support/features, windowing and input backends, etc.|
 |common_api|Default scene definition features. Note that this does not include an actual renderer, such as bevy_render (Bevy's default render backend).|
 |2d_api|Features used to build 2D Bevy apps (does not include a render backend). You generally don't need to worry about this unless you are using a custom renderer.|
-|2d_bevy_render|Bevy's built-in 2D renderer, built on top of `bevy_render` |
+|2d_bevy_render|Bevy's built-in 2D renderer, built on top of `bevy_render`.|
 |3d_api|Features used to build 3D Bevy apps (does not include a render backend). You generally don't need to worry about this unless you are using a custom renderer.|
-|3d_bevy_render|Bevy's built-in 3D renderer, built on top of `bevy_render` |
+|3d_bevy_render|Bevy's built-in 3D renderer, built on top of `bevy_render`.|
 |ui_api|Features used to build UI Bevy apps (does not include a render backend). You generally don't need to worry about this unless you are using a custom renderer.|
-|ui_bevy_render|Bevy's built-in UI renderer, built on top of `bevy_render` |
+|ui_bevy_render|Bevy's built-in UI renderer, built on top of `bevy_render`.|
 |default_no_std|Recommended defaults for no_std applications|
 
 ### Feature List
@@ -77,7 +77,8 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 |bevy_debug_stepping|Enable stepping-based debugging of Bevy systems|
 |bevy_dev_tools|Provides a collection of developer tools|
 |bevy_gilrs|Adds gamepad support|
-|bevy_gizmos|Adds support for rendering gizmos|
+|bevy_gizmos|Adds support for gizmos|
+|bevy_gizmos_render|Adds support for rendering gizmos|
 |bevy_gltf|[glTF](https://www.khronos.org/gltf/) support|
 |bevy_image|Load and access image data. Usually added by an image format|
 |bevy_input_focus|Enable input focus subsystem|
@@ -123,7 +124,9 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 |file_watcher|Enables watching the filesystem for Bevy Asset hot-reloading|
 |flac|FLAC audio format support|
 |force_disable_dlss|Forcibly disable DLSS so that cargo build --all-features works without the DLSS SDK being installed. Not meant for users.|
-|free_cam|Enables the free cam from bevy_camera_controller|
+|free_camera|Enables the free cam from bevy_camera_controller|
+|gamepad|Gamepad support. Automatically enabled by `bevy_gilrs`.|
+|gestures|Gestures support. Automatically enabled by `bevy_window`.|
 |ghost_nodes|Experimental support for nodes that are ignored for UI layouting|
 |gif|GIF image format support|
 |glam_assert|Enable assertions to check the validity of parameters passed to glam|
@@ -134,6 +137,7 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 |https|Enables downloading assets from HTTPS sources. Warning: there are security implications. Read the docs on WebAssetPlugin.|
 |ico|ICO image format support|
 |jpeg|JPEG image format support|
+|keyboard|Keyboard support. Automatically enabled by `bevy_window`.|
 |ktx2|KTX2 compressed texture support|
 |libm|Uses the `libm` maths library instead of the one provided in `std` and `core`.|
 |mesh_picking|Provides an implementation for picking meshes|
@@ -141,8 +145,10 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 |meshlet_processor|Enables processing meshes into meshlet meshes for bevy_pbr|
 |morph|Enables support for morph target weights in bevy_mesh|
 |morph_animation|Enables bevy_mesh and bevy_animation morph weight support|
+|mouse|Mouse support. Automatically enabled by `bevy_window`.|
 |mp3|MP3 audio format support|
 |multi_threaded|Enables multithreaded parallelism in the engine. Disabling it forces all engine tasks to run on a single thread.|
+|pan_camera|Enables the pan camera from bevy_camera_controller|
 |pbr_anisotropy_texture|Enable support for anisotropy texture in the `StandardMaterial`, at the risk of blowing past the global, per-shader texture limit on older/lower-end GPUs|
 |pbr_clustered_decals|Enable support for Clustered Decals|
 |pbr_light_textures|Enable support for Light Textures|
@@ -155,7 +161,7 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 |raw_vulkan_init|Forces the wgpu instance to be initialized using the raw Vulkan HAL, enabling additional configuration|
 |reflect_auto_register|Enable automatic reflect registration|
 |reflect_auto_register_static|Enable automatic reflect registration without inventory. See `reflect::load_type_registrations` for more info.|
-|reflect_documentation|Enable documentation reflection|
+|reflect_documentation|Enables bevy_reflect to access documentation comments of rust code at runtime|
 |reflect_functions|Enable function reflection|
 |serialize|Enable serialization support through serde|
 |shader_format_glsl|Enable support for shaders in GLSL|
@@ -176,6 +182,7 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 |tga|TGA image format support|
 |tiff|TIFF image format support|
 |tonemapping_luts|Include tonemapping Look Up Tables KTX2 files. If everything is pink, you need to enable this feature or change the `Tonemapping` method for your `Camera2d` or `Camera3d`.|
+|touch|Touch support. Automatically enabled by `bevy_window`.|
 |trace|Tracing support|
 |trace_chrome|Tracing support, saving a file in Chrome Tracing format|
 |trace_tracy|Tracing support, exposing a port for Tracy|

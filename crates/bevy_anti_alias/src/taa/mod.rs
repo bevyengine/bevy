@@ -1,5 +1,5 @@
 use bevy_app::{App, Plugin};
-use bevy_asset::{embedded_asset, load_embedded_asset, AssetServer, Handle};
+use bevy_asset::{embedded_asset, load_embedded_asset, AssetServer};
 use bevy_camera::{Camera, Camera3d};
 use bevy_core_pipeline::{
     core_3d::graph::{Core3d, Node3d},
@@ -8,6 +8,7 @@ use bevy_core_pipeline::{
 };
 use bevy_diagnostic::FrameCount;
 use bevy_ecs::{
+    error::BevyError,
     prelude::{Component, Entity, ReflectComponent},
     query::{QueryItem, With},
     resource::Resource,
@@ -24,12 +25,12 @@ use bevy_render::{
     render_graph::{NodeRunError, RenderGraphContext, RenderGraphExt, ViewNode, ViewNodeRunner},
     render_resource::{
         binding_types::{sampler, texture_2d, texture_depth_2d},
-        BindGroupEntries, BindGroupLayout, BindGroupLayoutEntries, CachedRenderPipelineId,
-        ColorTargetState, ColorWrites, FilterMode, FragmentState, Operations, PipelineCache,
-        RenderPassColorAttachment, RenderPassDescriptor, RenderPipelineDescriptor, Sampler,
-        SamplerBindingType, SamplerDescriptor, ShaderStages, SpecializedRenderPipeline,
-        SpecializedRenderPipelines, TextureDescriptor, TextureDimension, TextureFormat,
-        TextureSampleType, TextureUsages,
+        BindGroupEntries, BindGroupLayoutDescriptor, BindGroupLayoutEntries,
+        CachedRenderPipelineId, Canonical, ColorTargetState, ColorWrites, FilterMode,
+        FragmentState, Operations, PipelineCache, RenderPassColorAttachment, RenderPassDescriptor,
+        RenderPipeline, RenderPipelineDescriptor, Sampler, SamplerBindingType, SamplerDescriptor,
+        ShaderStages, Specializer, SpecializerKey, TextureDescriptor, TextureDimension,
+        TextureFormat, TextureSampleType, TextureUsages, Variants,
     },
     renderer::{RenderContext, RenderDevice},
     sync_component::SyncComponentPlugin,
@@ -38,7 +39,6 @@ use bevy_render::{
     view::{ExtractedView, Msaa, ViewTarget},
     ExtractSchedule, MainWorld, Render, RenderApp, RenderStartup, RenderSystems,
 };
-use bevy_shader::Shader;
 use bevy_utils::default;
 use tracing::warn;
 
@@ -58,7 +58,6 @@ impl Plugin for TemporalAntiAliasPlugin {
             return;
         };
         render_app
-            .init_resource::<SpecializedRenderPipelines<TaaPipeline>>()
             .add_systems(RenderStartup, init_taa_pipeline)
             .add_systems(ExtractSchedule, extract_taa_settings)
             .add_systems(
@@ -186,7 +185,7 @@ impl ViewNode for TemporalAntiAliasNode {
 
         let taa_bind_group = render_context.render_device().create_bind_group(
             "taa_bind_group",
-            &pipelines.taa_bind_group_layout,
+            &pipeline_cache.get_bind_group_layout(&pipelines.taa_bind_group_layout),
             &BindGroupEntries::sequential((
                 view_target.source,
                 &taa_history_textures.read.default_view,
@@ -236,11 +235,10 @@ impl ViewNode for TemporalAntiAliasNode {
 
 #[derive(Resource)]
 struct TaaPipeline {
-    taa_bind_group_layout: BindGroupLayout,
+    taa_bind_group_layout: BindGroupLayoutDescriptor,
     nearest_sampler: Sampler,
     linear_sampler: Sampler,
-    fullscreen_shader: FullscreenShader,
-    fragment_shader: Handle<Shader>,
+    variants: Variants<RenderPipeline, TaaPipelineSpecializer>,
 }
 
 fn init_taa_pipeline(
@@ -262,7 +260,7 @@ fn init_taa_pipeline(
         ..SamplerDescriptor::default()
     });
 
-    let taa_bind_group_layout = render_device.create_bind_group_layout(
+    let taa_bind_group_layout = BindGroupLayoutDescriptor::new(
         "taa_bind_group_layout",
         &BindGroupLayoutEntries::sequential(
             ShaderStages::FRAGMENT,
@@ -283,61 +281,68 @@ fn init_taa_pipeline(
         ),
     );
 
+    let fragment_shader = load_embedded_asset!(asset_server.as_ref(), "taa.wgsl");
+
+    let variants = Variants::new(
+        TaaPipelineSpecializer,
+        RenderPipelineDescriptor {
+            label: Some("taa_pipeline".into()),
+            layout: vec![taa_bind_group_layout.clone()],
+            vertex: fullscreen_shader.to_vertex_state(),
+            fragment: Some(FragmentState {
+                shader: fragment_shader,
+                ..default()
+            }),
+            ..default()
+        },
+    );
+
     commands.insert_resource(TaaPipeline {
         taa_bind_group_layout,
         nearest_sampler,
         linear_sampler,
-        fullscreen_shader: fullscreen_shader.clone(),
-        fragment_shader: load_embedded_asset!(asset_server.as_ref(), "taa.wgsl"),
+        variants,
     });
 }
 
-#[derive(PartialEq, Eq, Hash, Clone)]
+struct TaaPipelineSpecializer;
+
+#[derive(PartialEq, Eq, Hash, Clone, SpecializerKey)]
 struct TaaPipelineKey {
     hdr: bool,
     reset: bool,
 }
 
-impl SpecializedRenderPipeline for TaaPipeline {
+impl Specializer<RenderPipeline> for TaaPipelineSpecializer {
     type Key = TaaPipelineKey;
 
-    fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
-        let mut shader_defs = vec![];
-
+    fn specialize(
+        &self,
+        key: Self::Key,
+        descriptor: &mut RenderPipelineDescriptor,
+    ) -> Result<Canonical<Self::Key>, BevyError> {
+        let fragment = descriptor.fragment_mut()?;
         let format = if key.hdr {
-            shader_defs.push("TONEMAP".into());
+            fragment.shader_defs.push("TONEMAP".into());
             ViewTarget::TEXTURE_FORMAT_HDR
         } else {
             TextureFormat::bevy_default()
         };
 
         if key.reset {
-            shader_defs.push("RESET".into());
+            fragment.shader_defs.push("RESET".into());
         }
 
-        RenderPipelineDescriptor {
-            label: Some("taa_pipeline".into()),
-            layout: vec![self.taa_bind_group_layout.clone()],
-            vertex: self.fullscreen_shader.to_vertex_state(),
-            fragment: Some(FragmentState {
-                shader: self.fragment_shader.clone(),
-                shader_defs,
-                targets: vec![
-                    Some(ColorTargetState {
-                        format,
-                        blend: None,
-                        write_mask: ColorWrites::ALL,
-                    }),
-                    Some(ColorTargetState {
-                        format,
-                        blend: None,
-                        write_mask: ColorWrites::ALL,
-                    }),
-                ],
-                ..default()
-            }),
-            ..default()
-        }
+        let color_target_state = ColorTargetState {
+            format,
+            blend: None,
+            write_mask: ColorWrites::ALL,
+        };
+
+        fragment.set_target(0, color_target_state.clone());
+        fragment.set_target(1, color_target_state);
+
+        Ok(key)
     }
 }
 
@@ -455,25 +460,30 @@ pub struct TemporalAntiAliasPipelineId(CachedRenderPipelineId);
 fn prepare_taa_pipelines(
     mut commands: Commands,
     pipeline_cache: Res<PipelineCache>,
-    mut pipelines: ResMut<SpecializedRenderPipelines<TaaPipeline>>,
-    pipeline: Res<TaaPipeline>,
+    mut pipeline: ResMut<TaaPipeline>,
     views: Query<(Entity, &ExtractedView, &TemporalAntiAliasing)>,
-) {
+) -> Result<(), BevyError> {
     for (entity, view, taa_settings) in &views {
         let mut pipeline_key = TaaPipelineKey {
             hdr: view.hdr,
             reset: taa_settings.reset,
         };
-        let pipeline_id = pipelines.specialize(&pipeline_cache, &pipeline, pipeline_key.clone());
+        let pipeline_id = pipeline
+            .variants
+            .specialize(&pipeline_cache, pipeline_key.clone())?;
 
         // Prepare non-reset pipeline anyways - it will be necessary next frame
         if pipeline_key.reset {
             pipeline_key.reset = false;
-            pipelines.specialize(&pipeline_cache, &pipeline, pipeline_key);
+            pipeline
+                .variants
+                .specialize(&pipeline_cache, pipeline_key)?;
         }
 
         commands
             .entity(entity)
             .insert(TemporalAntiAliasPipelineId(pipeline_id));
     }
+
+    Ok(())
 }

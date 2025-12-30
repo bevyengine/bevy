@@ -67,7 +67,7 @@ pub(super) fn ray_intersection_over_mesh(
         Some(Indices::U32(indices)) => {
             ray_mesh_intersection(ray, transform, positions, normals, Some(indices), uvs, cull)
         }
-        None => ray_mesh_intersection::<usize>(ray, transform, positions, normals, None, uvs, cull),
+        None => ray_mesh_intersection::<u32>(ray, transform, positions, normals, None, uvs, cull),
     }
 }
 

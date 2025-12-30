@@ -57,7 +57,7 @@ bevy_asset = { path = "../bevy_asset", version = "0.18.0-dev", optional = true }
 ## used by custom_cursor
 bevy_image = { path = "../bevy_image", version = "0.18.0-dev", optional = true }
 ## used by custom_cursor
-wgpu-types = { version = "26", optional = true }
+wgpu-types = { version = "27", optional = true }
 ## used by custom_cursor
 bytemuck = { version = "1.5", optional = true }
 
@@ -78,6 +78,7 @@ bevy_android = { path = "../bevy_android", version = "0.18.0-dev", default-featu
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen = { version = "0.2" }
 web-sys = "0.3"
+js-sys = "0.3"
 # TODO: Assuming all wasm builds are for the browser. Require `no_std` support to break assumption.
 bevy_app = { path = "../bevy_app", version = "0.18.0-dev", default-features = false, features = [
   "web",

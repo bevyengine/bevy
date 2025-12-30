@@ -1,4 +1,7 @@
-use crate::systems::{mark_dirty_trees, propagate_parent_transforms, sync_simple_transforms};
+use crate::systems::{
+    mark_dirty_trees, propagate_parent_transforms, sync_simple_transforms,
+    StaticTransformOptimizations,
+};
 use bevy_app::{App, Plugin, PostStartup, PostUpdate};
 use bevy_ecs::schedule::{IntoScheduleConfigs, SystemSet};
 
@@ -9,17 +12,13 @@ pub enum TransformSystems {
     Propagate,
 }
 
-/// Deprecated alias for [`TransformSystems`].
-#[deprecated(since = "0.17.0", note = "Renamed to `TransformSystems`.")]
-pub type TransformSystem = TransformSystems;
-
 /// The base plugin for handling [`Transform`](crate::components::Transform) components
 #[derive(Default)]
 pub struct TransformPlugin;
 
 impl Plugin for TransformPlugin {
     fn build(&self, app: &mut App) {
-        app
+        app.init_resource::<StaticTransformOptimizations>()
             // add transform systems to startup so the first update is "correct"
             .add_systems(
                 PostStartup,

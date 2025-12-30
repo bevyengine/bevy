@@ -34,7 +34,14 @@ bevy_platform = { path = "../bevy_platform", version = "0.18.0-dev", default-fea
 ] }
 
 # other
-taffy = { version = "0.7" }
+taffy = { version = "0.9", default-features = false, features = [
+  "std",
+  "block_layout",
+  "flexbox",
+  "grid",
+  "content_size",
+  "taffy_tree",
+] }
 serde = { version = "1", features = ["derive"], optional = true }
 uuid = { version = "1.1", features = ["v4"], optional = true }
 thiserror = { version = "2", default-features = false }

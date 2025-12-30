@@ -1,22 +1,21 @@
-use crate::ron;
 use bevy_ecs::{
     reflect::AppTypeRegistry,
     world::{FromWorld, World},
 };
-use bevy_reflect::TypeRegistryArc;
-use thiserror::Error;
+use bevy_reflect::{TypePath, TypeRegistryArc};
 
 #[cfg(feature = "serialize")]
 use {
     crate::{serde::SceneDeserializer, DynamicScene},
     bevy_asset::{io::Reader, AssetLoader, LoadContext},
     serde::de::DeserializeSeed,
+    thiserror::Error,
 };
 
 /// Asset loader for a Bevy dynamic scene (`.scn` / `.scn.ron`).
 ///
 /// The loader handles assets serialized with [`DynamicScene::serialize`].
-#[derive(Debug)]
+#[derive(Debug, TypePath)]
 pub struct SceneLoader {
     #[cfg_attr(
         not(feature = "serialize"),
@@ -35,6 +34,7 @@ impl FromWorld for SceneLoader {
 }
 
 /// Possible errors that can be produced by [`SceneLoader`]
+#[cfg(feature = "serialize")]
 #[non_exhaustive]
 #[derive(Debug, Error)]
 pub enum SceneLoaderError {

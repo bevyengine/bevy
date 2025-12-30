@@ -8,7 +8,7 @@ const FOX_PATH: &str = "models/animated/Fox.glb";
 
 fn main() {
     App::new()
-        .insert_resource(AmbientLight {
+        .insert_resource(GlobalAmbientLight {
             color: Color::WHITE,
             brightness: 2000.,
             ..default()

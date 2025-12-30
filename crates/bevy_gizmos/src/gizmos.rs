@@ -9,7 +9,7 @@ use core::{
 
 use bevy_color::{Color, LinearRgba};
 use bevy_ecs::{
-    component::Tick,
+    change_detection::Tick,
     query::FilteredAccessSet,
     resource::Resource,
     system::{
@@ -290,10 +290,14 @@ where
     Clear: 'static + Send + Sync,
 {
     pub(crate) enabled: bool,
-    pub(crate) list_positions: Vec<Vec3>,
-    pub(crate) list_colors: Vec<LinearRgba>,
-    pub(crate) strip_positions: Vec<Vec3>,
-    pub(crate) strip_colors: Vec<LinearRgba>,
+    /// The positions of line segment endpoints.
+    pub list_positions: Vec<Vec3>,
+    /// The colors of line segment endpoints.
+    pub list_colors: Vec<LinearRgba>,
+    /// The positions of line strip vertices.
+    pub strip_positions: Vec<Vec3>,
+    /// The colors of line strip vertices.
+    pub strip_colors: Vec<LinearRgba>,
     #[reflect(ignore, clone)]
     pub(crate) marker: PhantomData<(Config, Clear)>,
 }
@@ -304,6 +308,17 @@ where
     Clear: 'static + Send + Sync,
 {
     fn default() -> Self {
+        GizmoBuffer::new()
+    }
+}
+
+impl<Config, Clear> GizmoBuffer<Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
+    /// Constructs an empty `GizmoBuffer`.
+    pub const fn new() -> Self {
         GizmoBuffer {
             enabled: true,
             list_positions: Vec::new(),
@@ -372,8 +387,6 @@ where
     }
     /// Draw a line in 3D from `start` to `end`.
     ///
-    /// This should be called for each frame the line needs to be rendered.
-    ///
     /// # Example
     /// ```
     /// # use bevy_gizmos::prelude::*;
@@ -394,8 +407,6 @@ where
     }
 
     /// Draw a line in 3D with a color gradient from `start` to `end`.
-    ///
-    /// This should be called for each frame the line needs to be rendered.
     ///
     /// # Example
     /// ```
@@ -424,8 +435,6 @@ where
 
     /// Draw a line in 3D from `start` to `start + vector`.
     ///
-    /// This should be called for each frame the line needs to be rendered.
-    ///
     /// # Example
     /// ```
     /// # use bevy_gizmos::prelude::*;
@@ -445,8 +454,6 @@ where
     }
 
     /// Draw a line in 3D with a color gradient from `start` to `start + vector`.
-    ///
-    /// This should be called for each frame the line needs to be rendered.
     ///
     /// # Example
     /// ```
@@ -473,8 +480,6 @@ where
     }
 
     /// Draw a line in 3D made of straight segments between the points.
-    ///
-    /// This should be called for each frame the line needs to be rendered.
     ///
     /// # Example
     /// ```
@@ -503,8 +508,6 @@ where
     }
 
     /// Draw a line in 3D made of straight segments between the points, with a color gradient.
-    ///
-    /// This should be called for each frame the lines need to be rendered.
     ///
     /// # Example
     /// ```
@@ -556,8 +559,6 @@ where
     /// - the center is at `Vec3::ZERO`
     /// - the sizes are aligned with the `Vec3::X` and `Vec3::Y` axes.
     ///
-    /// This should be called for each frame the rectangle needs to be rendered.
-    ///
     /// # Example
     /// ```
     /// # use bevy_gizmos::prelude::*;
@@ -579,8 +580,6 @@ where
     }
 
     /// Draw a wireframe cube in 3D.
-    ///
-    /// This should be called for each frame the cube needs to be rendered.
     ///
     /// # Example
     /// ```
@@ -619,8 +618,6 @@ where
     }
 
     /// Draw a wireframe aabb in 3D.
-    ///
-    /// This should be called for each frame the aabb needs to be rendered.
     ///
     /// # Example
     /// ```
@@ -673,8 +670,6 @@ where
 
     /// Draw a line in 2D from `start` to `end`.
     ///
-    /// This should be called for each frame the line needs to be rendered.
-    ///
     /// # Example
     /// ```
     /// # use bevy_gizmos::prelude::*;
@@ -694,8 +689,6 @@ where
     }
 
     /// Draw a line in 2D with a color gradient from `start` to `end`.
-    ///
-    /// This should be called for each frame the line needs to be rendered.
     ///
     /// # Example
     /// ```
@@ -723,8 +716,6 @@ where
 
     /// Draw a line in 2D made of straight segments between the points.
     ///
-    /// This should be called for each frame the line needs to be rendered.
-    ///
     /// # Example
     /// ```
     /// # use bevy_gizmos::prelude::*;
@@ -747,9 +738,47 @@ where
         self.linestrip(positions.into_iter().map(|vec2| vec2.extend(0.)), color);
     }
 
-    /// Draw a line in 2D made of straight segments between the points, with a color gradient.
+    /// Draw a line in 2D made of straight segments between the points, with the first and last connected.
     ///
-    /// This should be called for each frame the line needs to be rendered.
+    /// # Example
+    /// ```
+    /// # use bevy_gizmos::prelude::*;
+    /// # use bevy_math::prelude::*;
+    /// # use bevy_color::palettes::basic::GREEN;
+    /// fn system(mut gizmos: Gizmos) {
+    ///     gizmos.lineloop_2d([Vec2::ZERO, Vec2::X, Vec2::Y], GREEN);
+    /// }
+    /// # bevy_ecs::system::assert_is_system(system);
+    /// ```
+    #[inline]
+    pub fn lineloop_2d(
+        &mut self,
+        positions: impl IntoIterator<Item = Vec2>,
+        color: impl Into<Color>,
+    ) {
+        if !self.enabled {
+            return;
+        }
+
+        // Loop back to the start; second is needed to ensure that
+        // the joint on the first corner is drawn.
+        let mut positions = positions.into_iter();
+        let first = positions.next();
+        let second = positions.next();
+
+        self.linestrip(
+            first
+                .into_iter()
+                .chain(second)
+                .chain(positions)
+                .chain(first)
+                .chain(second)
+                .map(|vec2| vec2.extend(0.)),
+            color,
+        );
+    }
+
+    /// Draw a line in 2D made of straight segments between the points, with a color gradient.
     ///
     /// # Example
     /// ```
@@ -782,8 +811,6 @@ where
 
     /// Draw a line in 2D from `start` to `start + vector`.
     ///
-    /// This should be called for each frame the line needs to be rendered.
-    ///
     /// # Example
     /// ```
     /// # use bevy_gizmos::prelude::*;
@@ -803,8 +830,6 @@ where
     }
 
     /// Draw a line in 2D with a color gradient from `start` to `start + vector`.
-    ///
-    /// This should be called for each frame the line needs to be rendered.
     ///
     /// # Example
     /// ```
@@ -837,8 +862,6 @@ where
     /// - the center is at `Vec2::ZERO`
     /// - the sizes are aligned with the `Vec2::X` and `Vec2::Y` axes.
     ///
-    /// This should be called for each frame the rectangle needs to be rendered.
-    ///
     /// # Example
     /// ```
     /// # use bevy_gizmos::prelude::*;
@@ -861,7 +884,7 @@ where
         }
         let isometry = isometry.into();
         let [tl, tr, br, bl] = rect_inner(size).map(|vec2| isometry * vec2);
-        self.linestrip_2d([tl, tr, br, bl, tl], color);
+        self.lineloop_2d([tl, tr, br, bl], color);
     }
 
     #[inline]

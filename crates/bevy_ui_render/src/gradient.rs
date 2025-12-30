@@ -95,16 +95,12 @@ impl Default for GradientMeta {
 
 #[derive(Resource)]
 pub struct GradientPipeline {
-    pub view_layout: BindGroupLayout,
+    pub view_layout: BindGroupLayoutDescriptor,
     pub shader: Handle<Shader>,
 }
 
-pub fn init_gradient_pipeline(
-    mut commands: Commands,
-    render_device: Res<RenderDevice>,
-    asset_server: Res<AssetServer>,
-) {
-    let view_layout = render_device.create_bind_group_layout(
+pub fn init_gradient_pipeline(mut commands: Commands, asset_server: Res<AssetServer>) {
+    let view_layout = BindGroupLayoutDescriptor::new(
         "ui_gradient_view_layout",
         &BindGroupLayoutEntries::single(
             ShaderStages::VERTEX_FRAGMENT,
@@ -696,6 +692,7 @@ pub fn prepare_gradient(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
+    pipeline_cache: Res<PipelineCache>,
     mut ui_meta: ResMut<GradientMeta>,
     mut extracted_gradients: ResMut<ExtractedGradients>,
     mut extracted_color_stops: ResMut<ExtractedColorStops>,
@@ -711,7 +708,7 @@ pub fn prepare_gradient(
         ui_meta.indices.clear();
         ui_meta.view_bind_group = Some(render_device.create_bind_group(
             "gradient_view_bind_group",
-            &gradients_pipeline.view_layout,
+            &pipeline_cache.get_bind_group_layout(&gradients_pipeline.view_layout),
             &BindGroupEntries::single(view_binding),
         ));
 
@@ -867,10 +864,10 @@ pub fn prepare_gradient(
                                     gradient.border_radius.bottom_left,
                                 ],
                                 border: [
-                                    gradient.border.left,
-                                    gradient.border.top,
-                                    gradient.border.right,
-                                    gradient.border.bottom,
+                                    gradient.border.min_inset.x,
+                                    gradient.border.min_inset.y,
+                                    gradient.border.max_inset.x,
+                                    gradient.border.max_inset.y,
                                 ],
                                 size: rect_size.xy().into(),
                                 g_start,

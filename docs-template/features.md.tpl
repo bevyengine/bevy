@@ -27,7 +27,7 @@ By default, the `bevy` crate enables the {% for feature in features %}{% if feat
 
 ### Collections
 
-"Collections" are mid-level groups of cargo features. These are used to compose the high-level "profiles". If the default profiles don'templated
+"Collections" are mid-level groups of cargo features. These are used to compose the high-level "profiles". If the default profiles don't
 suit your use case (ex: you want to use a custom renderer, you want to build a "headless" app, you want to target no_std, etc), then you can use these
 collections to build your own "profile" equivalent, without needing to manually manage _every single_ feature.
 

@@ -182,6 +182,14 @@ impl Time<Fixed> {
         self.context().overstep
     }
 
+    /// Increase the overstep time accumulated towards new steps.
+    ///
+    /// This method is provided for use in tests. Ordinarily, the [`run_fixed_main_schedule`] system is responsible for calculating the overstep.
+    #[inline]
+    pub fn accumulate_overstep(&mut self, delta: Duration) {
+        self.context_mut().overstep += delta;
+    }
+
     /// Discard a part of the overstep amount.
     ///
     /// If `discard` is higher than overstep, the overstep becomes zero.
@@ -203,10 +211,6 @@ impl Time<Fixed> {
     #[inline]
     pub fn overstep_fraction_f64(&self) -> f64 {
         self.context().overstep.as_secs_f64() / self.context().timestep.as_secs_f64()
-    }
-
-    fn accumulate(&mut self, delta: Duration) {
-        self.context_mut().overstep += delta;
     }
 
     fn expend(&mut self) -> bool {
@@ -238,7 +242,9 @@ impl Default for Fixed {
 /// [`RunFixedMainLoopSystems`](bevy_app::prelude::RunFixedMainLoopSystems).
 pub fn run_fixed_main_schedule(world: &mut World) {
     let delta = world.resource::<Time<Virtual>>().delta();
-    world.resource_mut::<Time<Fixed>>().accumulate(delta);
+    world
+        .resource_mut::<Time<Fixed>>()
+        .accumulate_overstep(delta);
 
     // Run the schedule until we run out of accumulated time
     let _ = world.try_schedule_scope(FixedMain, |world, schedule| {
@@ -278,7 +284,7 @@ mod test {
         assert_eq!(time.delta(), Duration::ZERO);
         assert_eq!(time.elapsed(), Duration::ZERO);
 
-        time.accumulate(Duration::from_secs(1));
+        time.accumulate_overstep(Duration::from_secs(1));
 
         assert_eq!(time.delta(), Duration::ZERO);
         assert_eq!(time.elapsed(), Duration::ZERO);
@@ -294,7 +300,7 @@ mod test {
         assert_eq!(time.overstep_fraction(), 0.5);
         assert_eq!(time.overstep_fraction_f64(), 0.5);
 
-        time.accumulate(Duration::from_secs(1));
+        time.accumulate_overstep(Duration::from_secs(1));
 
         assert_eq!(time.delta(), Duration::ZERO);
         assert_eq!(time.elapsed(), Duration::ZERO);
@@ -318,7 +324,7 @@ mod test {
         assert_eq!(time.overstep_fraction(), 0.0);
         assert_eq!(time.overstep_fraction_f64(), 0.0);
 
-        time.accumulate(Duration::from_secs(1));
+        time.accumulate_overstep(Duration::from_secs(1));
 
         assert_eq!(time.delta(), Duration::from_secs(2));
         assert_eq!(time.elapsed(), Duration::from_secs(2));
@@ -339,7 +345,7 @@ mod test {
     fn test_expend_multiple() {
         let mut time = Time::<Fixed>::from_seconds(2.0);
 
-        time.accumulate(Duration::from_secs(7));
+        time.accumulate_overstep(Duration::from_secs(7));
         assert_eq!(time.overstep(), Duration::from_secs(7));
 
         assert!(time.expend()); // true

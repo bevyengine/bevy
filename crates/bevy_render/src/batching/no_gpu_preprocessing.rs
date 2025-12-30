@@ -6,7 +6,7 @@ use bevy_ecs::resource::Resource;
 use bevy_ecs::system::{Res, ResMut, StaticSystemParam};
 use smallvec::{smallvec, SmallVec};
 use tracing::error;
-use wgpu::BindingResource;
+use wgpu::{BindingResource, Limits};
 
 use crate::{
     render_phase::{
@@ -34,8 +34,8 @@ where
     BD: GpuArrayBufferable + Sync + Send + 'static,
 {
     /// Creates a new buffer.
-    pub fn new(render_device: &RenderDevice) -> Self {
-        BatchedInstanceBuffer(GpuArrayBuffer::new(render_device))
+    pub fn new(limits: &Limits) -> Self {
+        BatchedInstanceBuffer(GpuArrayBuffer::new(limits))
     }
 
     /// Returns the binding of the buffer that contains the per-instance data.

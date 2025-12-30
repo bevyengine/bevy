@@ -1,6 +1,9 @@
 use crate::{
-    change_detection::{MaybeLocation, MutUntyped, TicksMut},
-    component::{CheckChangeTicks, ComponentId, ComponentTicks, Components, Tick, TickCells},
+    change_detection::{
+        CheckChangeTicks, ComponentTickCells, ComponentTicks, ComponentTicksMut, MaybeLocation,
+        MutUntyped, Tick,
+    },
+    component::{ComponentId, Components},
     storage::{blob_array::BlobArray, SparseSet},
 };
 use bevy_ptr::{OwningPtr, Ptr, UnsafeCellDeref};
@@ -124,23 +127,17 @@ impl<const SEND: bool> ResourceData<SEND> {
     /// If `SEND` is false, this will panic if a value is present and is not accessed from the
     /// original thread it was inserted in.
     #[inline]
-    pub(crate) fn get_with_ticks(
-        &self,
-    ) -> Option<(
-        Ptr<'_>,
-        TickCells<'_>,
-        MaybeLocation<&UnsafeCell<&'static Location<'static>>>,
-    )> {
+    pub(crate) fn get_with_ticks(&self) -> Option<(Ptr<'_>, ComponentTickCells<'_>)> {
         self.is_present().then(|| {
             self.validate_access();
             (
                 // SAFETY: We've already checked if a value is present, and there should only be one.
                 unsafe { self.data.get_unchecked(Self::ROW) },
-                TickCells {
+                ComponentTickCells {
                     added: &self.added_ticks,
                     changed: &self.changed_ticks,
+                    changed_by: self.changed_by.as_ref(),
                 },
-                self.changed_by.as_ref(),
             )
         })
     }
@@ -151,14 +148,12 @@ impl<const SEND: bool> ResourceData<SEND> {
     /// If `SEND` is false, this will panic if a value is present and is not accessed from the
     /// original thread it was inserted in.
     pub(crate) fn get_mut(&mut self, last_run: Tick, this_run: Tick) -> Option<MutUntyped<'_>> {
-        let (ptr, ticks, caller) = self.get_with_ticks()?;
+        let (ptr, ticks) = self.get_with_ticks()?;
         Some(MutUntyped {
             // SAFETY: We have exclusive access to the underlying storage.
             value: unsafe { ptr.assert_unique() },
             // SAFETY: We have exclusive access to the underlying storage.
-            ticks: unsafe { TicksMut::from_tick_cells(ticks, last_run, this_run) },
-            // SAFETY: We have exclusive access to the underlying storage.
-            changed_by: unsafe { caller.map(|caller| caller.deref_mut()) },
+            ticks: unsafe { ComponentTicksMut::from_tick_cells(ticks, last_run, this_run) },
         })
     }
 

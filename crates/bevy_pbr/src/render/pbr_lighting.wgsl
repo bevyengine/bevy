@@ -3,6 +3,8 @@
 #import bevy_pbr::{
     mesh_view_types::POINT_LIGHT_FLAGS_SPOT_LIGHT_Y_NEGATIVE,
     mesh_view_bindings as view_bindings,
+    atmosphere::functions::{calculate_visible_sun_ratio, clamp_to_surface},
+    atmosphere::bruneton_functions::transmittance_lut_r_mu_to_uv,
 }
 #import bevy_render::maths::PI
 
@@ -709,7 +711,7 @@ fn point_light(
         let relative_position = (view_bindings::clustered_decals.decals[(*light).decal_index].local_from_world * vec4(P, 1.0)).xyz;
         let cubemap_type = view_bindings::clustered_decals.decals[(*light).decal_index].tag;
         let decal_uv = cubemap_uv(relative_position, cubemap_type);
-        let image_index = view_bindings::clustered_decals.decals[(*light).decal_index].image_index;
+        let image_index = view_bindings::clustered_decals.decals[(*light).decal_index].base_color_texture_index;
 
         texture_sample = textureSampleLevel(
             view_bindings::clustered_decal_textures[image_index],
@@ -757,7 +759,7 @@ fn spot_light(
             vec4((*input).P, 1.0)).xyz;
         if local_position.z < 0.0 {
             let decal_uv = (local_position.xy / (local_position.z * (*light).spot_light_tan_angle)) * vec2(-0.5, 0.5) + 0.5;
-            let image_index = view_bindings::clustered_decals.decals[(*light).decal_index].image_index;
+            let image_index = view_bindings::clustered_decals.decals[(*light).decal_index].base_color_texture_index;
 
             texture_sample = textureSampleLevel(
                 view_bindings::clustered_decal_textures[image_index],
@@ -838,7 +840,7 @@ fn directional_light(
         if (view_bindings::clustered_decals.decals[(*light).decal_index].tag != 0u)
                 || all(clamp(decal_uv, vec2(0.0), vec2(1.0)) == decal_uv)
         {
-            let image_index = view_bindings::clustered_decals.decals[(*light).decal_index].image_index;
+            let image_index = view_bindings::clustered_decals.decals[(*light).decal_index].base_color_texture_index;
 
             texture_sample = textureSampleLevel(
                 view_bindings::clustered_decal_textures[image_index],
@@ -852,5 +854,35 @@ fn directional_light(
     }
 #endif
 
-    return color * (*light).color.rgb * texture_sample;
+color *= (*light).color.rgb * texture_sample;
+
+#ifdef ATMOSPHERE
+    let P = (*input).P;
+    let atmosphere = view_bindings::atmosphere_data.atmosphere;
+    let O = vec3(0.0, atmosphere.bottom_radius, 0.0);
+    let P_scaled = P * vec3(view_bindings::atmosphere_data.settings.scene_units_to_m);
+    let P_as = P_scaled + O;
+    let P_clamped = clamp_to_surface(atmosphere, P_as);
+    let r = length(P_clamped);
+    let local_up = normalize(P_clamped);
+    let mu_light = dot(L, local_up);
+
+    // Sample atmosphere
+    let transmittance = sample_transmittance_lut(r, mu_light);
+    let sun_visibility = calculate_visible_sun_ratio(atmosphere, r, mu_light, (*light).sun_disk_angular_size);
+    
+    // Apply atmospheric effects
+    color *= transmittance * sun_visibility;
+#endif
+
+    return color;
 }
+
+#ifdef ATMOSPHERE
+fn sample_transmittance_lut(r: f32, mu: f32) -> vec3<f32> {
+    let uv = transmittance_lut_r_mu_to_uv(view_bindings::atmosphere_data.atmosphere, r, mu);
+    return textureSampleLevel(
+        view_bindings::atmosphere_transmittance_texture, 
+        view_bindings::atmosphere_transmittance_sampler, uv, 0.0).rgb;
+}
+#endif  // ATMOSPHERE

@@ -11,10 +11,9 @@ use indexmap::{IndexMap, IndexSet};
 use crate::{
     archetype::{Archetype, BundleComponentStatus, ComponentStatus},
     bundle::{Bundle, DynamicBundle},
-    change_detection::MaybeLocation,
+    change_detection::{MaybeLocation, Tick},
     component::{
         ComponentId, Components, ComponentsRegistrator, RequiredComponentConstructor, StorageType,
-        Tick,
     },
     entity::Entity,
     query::DebugCheckedUnwrap as _,
@@ -436,8 +435,7 @@ impl Bundles {
     ) -> BundleId {
         let bundle_infos = &mut self.bundle_infos;
         *self.bundle_ids.entry(TypeId::of::<T>()).or_insert_with(|| {
-            let mut component_ids= Vec::new();
-            T::component_ids(components, &mut |id| component_ids.push(id));
+            let component_ids = T::component_ids(components).collect::<Vec<_>>();
             let id = BundleId(bundle_infos.len());
             let bundle_info =
                 // SAFETY: T::component_id ensures:

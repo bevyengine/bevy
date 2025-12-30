@@ -14,7 +14,7 @@ use bevy_core_pipeline::{
     tonemapping::Tonemapping,
 };
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::component::Tick;
+use bevy_ecs::change_detection::Tick;
 use bevy_ecs::system::SystemChangeTick;
 use bevy_ecs::{
     prelude::*,
@@ -24,6 +24,7 @@ use bevy_math::FloatOrd;
 use bevy_mesh::MeshVertexBufferLayoutRef;
 use bevy_platform::collections::HashMap;
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
+use bevy_render::render_resource::BindGroupLayoutDescriptor;
 use bevy_render::{
     camera::extract_cameras,
     mesh::RenderMesh,
@@ -36,7 +37,7 @@ use bevy_render::{
         TrackedRenderPass, ViewBinnedRenderPhases, ViewSortedRenderPhases,
     },
     render_resource::{
-        AsBindGroup, AsBindGroupError, BindGroup, BindGroupId, BindGroupLayout, BindingResources,
+        AsBindGroup, AsBindGroupError, BindGroup, BindGroupId, BindingResources,
         CachedRenderPipelineId, PipelineCache, RenderPipelineDescriptor, SpecializedMeshPipeline,
         SpecializedMeshPipelineError, SpecializedMeshPipelines,
     },
@@ -283,7 +284,7 @@ where
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
-                .init_resource::<EntitySpecializationTicks<M>>()
+                .init_resource::<EntitySpecializationTickPair<M>>()
                 .init_resource::<SpecializedMaterial2dPipelineCache<M>>()
                 .add_render_command::<Opaque2d, DrawMaterial2d<M>>()
                 .add_render_command::<AlphaMask2d, DrawMaterial2d<M>>()
@@ -380,7 +381,7 @@ pub fn extract_mesh_materials_2d<M: Material2d>(
 #[derive(Resource)]
 pub struct Material2dPipeline<M: Material2d> {
     pub mesh2d_pipeline: Mesh2dPipeline,
-    pub material2d_layout: BindGroupLayout,
+    pub material2d_layout: BindGroupLayoutDescriptor,
     pub vertex_shader: Option<Handle<Shader>>,
     pub fragment_shader: Option<Handle<Shader>>,
     marker: PhantomData<M>,
@@ -478,11 +479,11 @@ where
 
 pub fn init_material_2d_pipeline<M: Material2d>(
     mut commands: Commands,
-    render_device: Res<RenderDevice>,
     asset_server: Res<AssetServer>,
+    render_device: Res<RenderDevice>,
     mesh_2d_pipeline: Res<Mesh2dPipeline>,
 ) {
-    let material2d_layout = M::bind_group_layout(&render_device);
+    let material2d_layout = M::bind_group_layout_descriptor(&render_device);
 
     commands.insert_resource(Material2dPipeline::<M> {
         mesh2d_pipeline: mesh_2d_pipeline.clone(),
@@ -566,7 +567,7 @@ pub const fn tonemapping_pipeline_key(tonemapping: Tonemapping) -> Mesh2dPipelin
 
 pub fn extract_entities_needs_specialization<M>(
     entities_needing_specialization: Extract<Res<EntitiesNeedingSpecialization<M>>>,
-    mut entity_specialization_ticks: ResMut<EntitySpecializationTicks<M>>,
+    mut entity_specialization_ticks: ResMut<EntitySpecializationTickPair<M>>,
     mut removed_mesh_material_components: Extract<RemovedComponents<MeshMaterial2d<M>>>,
     mut specialized_material2d_pipeline_cache: ResMut<SpecializedMaterial2dPipelineCache<M>>,
     views: Query<&MainEntity, With<ExtractedView>>,
@@ -608,13 +609,13 @@ impl<M> Default for EntitiesNeedingSpecialization<M> {
 }
 
 #[derive(Clone, Resource, Deref, DerefMut, Debug)]
-pub struct EntitySpecializationTicks<M> {
+pub struct EntitySpecializationTickPair<M> {
     #[deref]
     pub entities: MainEntityHashMap<Tick>,
     _marker: PhantomData<M>,
 }
 
-impl<M> Default for EntitySpecializationTicks<M> {
+impl<M> Default for EntitySpecializationTickPair<M> {
     fn default() -> Self {
         Self {
             entities: MainEntityHashMap::default(),
@@ -702,7 +703,7 @@ pub fn specialize_material2d_meshes<M: Material2d>(
     alpha_mask_render_phases: Res<ViewBinnedRenderPhases<AlphaMask2d>>,
     views: Query<(&MainEntity, &ExtractedView, &RenderVisibleEntities)>,
     view_key_cache: Res<ViewKeyCache>,
-    entity_specialization_ticks: Res<EntitySpecializationTicks<M>>,
+    entity_specialization_ticks: Res<EntitySpecializationTickPair<M>>,
     view_specialization_ticks: Res<ViewSpecializationTicks>,
     ticks: SystemChangeTick,
     mut specialized_material_pipeline_cache: ResMut<SpecializedMaterial2dPipelineCache<M>>,
@@ -962,6 +963,7 @@ impl<M: Material2d> RenderAsset for PreparedMaterial2d<M> {
 
     type Param = (
         SRes<RenderDevice>,
+        SRes<PipelineCache>,
         SRes<Material2dPipeline<M>>,
         SRes<DrawFunctions<Opaque2d>>,
         SRes<DrawFunctions<AlphaMask2d>>,
@@ -974,6 +976,7 @@ impl<M: Material2d> RenderAsset for PreparedMaterial2d<M> {
         _: AssetId<Self::SourceAsset>,
         (
             render_device,
+            pipeline_cache,
             pipeline,
             opaque_draw_functions,
             alpha_mask_draw_functions,
@@ -983,7 +986,12 @@ impl<M: Material2d> RenderAsset for PreparedMaterial2d<M> {
         _: Option<&Self>,
     ) -> Result<Self, PrepareAssetError<Self::SourceAsset>> {
         let bind_group_data = material.bind_group_data();
-        match material.as_bind_group(&pipeline.material2d_layout, render_device, material_param) {
+        match material.as_bind_group(
+            &pipeline.material2d_layout,
+            render_device,
+            pipeline_cache,
+            material_param,
+        ) {
             Ok(prepared) => {
                 let mut mesh_pipeline_key_bits = Mesh2dPipelineKey::empty();
                 mesh_pipeline_key_bits.insert(alpha_mode_pipeline_key(material.alpha_mode()));

@@ -15,7 +15,7 @@ const FOX_PATH: &str = "models/animated/Fox.glb";
 
 fn main() {
     App::new()
-        .insert_resource(AmbientLight {
+        .insert_resource(GlobalAmbientLight {
             color: Color::WHITE,
             brightness: 2000.,
             ..default()
@@ -49,9 +49,7 @@ fn observe_on_step(
     transforms: Query<&GlobalTransform>,
     mut seeded_rng: ResMut<SeededRng>,
 ) -> Result {
-    let translation = transforms
-        .get(step.trigger().animation_player)?
-        .translation();
+    let translation = transforms.get(step.trigger().target)?.translation();
     // Spawn a bunch of particles.
     for _ in 0..14 {
         let horizontal = seeded_rng.0.random::<Dir2>() * seeded_rng.0.random_range(8.0..12.0);

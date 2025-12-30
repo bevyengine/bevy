@@ -275,10 +275,6 @@ pub enum PickingSystems {
     Last,
 }
 
-/// Deprecated alias for [`PickingSystems`].
-#[deprecated(since = "0.17.0", note = "Renamed to `PickingSystems`.")]
-pub type PickSet = PickingSystems;
-
 /// One plugin that contains the [`PointerInputPlugin`](input::PointerInputPlugin), [`PickingPlugin`]
 /// and the [`InteractionPlugin`], this is probably the plugin that will be most used.
 ///

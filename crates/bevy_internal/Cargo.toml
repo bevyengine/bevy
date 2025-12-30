@@ -185,8 +185,9 @@ webgl = [
   "bevy_anti_alias?/webgl",
   "bevy_pbr?/webgl",
   "bevy_render?/webgl",
-  "bevy_gizmos?/webgl",
+  "bevy_gizmos_render?/webgl",
   "bevy_sprite_render?/webgl",
+  "bevy_dev_tools?/webgl",
 ]
 
 webgpu = [
@@ -194,8 +195,9 @@ webgpu = [
   "bevy_anti_alias?/webgpu",
   "bevy_pbr?/webgpu",
   "bevy_render?/webgpu",
-  "bevy_gizmos?/webgpu",
+  "bevy_gizmos_render?/webgpu",
   "bevy_sprite_render?/webgpu",
+  "bevy_dev_tools?/webgpu",
 ]
 
 # Enable systems that allow for automated testing on CI
@@ -227,14 +229,13 @@ bevy_window = ["dep:bevy_window", "dep:bevy_a11y", "bevy_image"]
 bevy_winit = ["dep:bevy_winit", "bevy_window"]
 bevy_camera = ["dep:bevy_camera", "bevy_mesh", "bevy_window"]
 bevy_scene = ["dep:bevy_scene", "bevy_asset"]
-bevy_light = ["dep:bevy_light", "bevy_camera"]
+bevy_light = ["dep:bevy_light", "bevy_camera", "bevy_gizmos?/bevy_light"]
 bevy_render = [
   "dep:bevy_render",
   "bevy_camera",
   "bevy_shader",
   "bevy_color/wgpu-types",
   "bevy_color/encase",
-  "bevy_gizmos?/bevy_render",
 ]
 bevy_core_pipeline = ["dep:bevy_core_pipeline", "bevy_render"]
 bevy_anti_alias = ["dep:bevy_anti_alias", "bevy_core_pipeline"]
@@ -243,17 +244,18 @@ bevy_pbr = [
   "dep:bevy_pbr",
   "bevy_light",
   "bevy_core_pipeline",
-  "bevy_gizmos?/bevy_pbr",
+  "bevy_gizmos_render?/bevy_pbr",
 ]
 bevy_sprite_render = [
   "dep:bevy_sprite_render",
   "bevy_sprite",
   "bevy_core_pipeline",
-  "bevy_gizmos?/bevy_sprite_render",
+  "bevy_gizmos_render?/bevy_sprite_render",
 ]
 bevy_ui_render = ["dep:bevy_ui_render", "bevy_sprite_render", "bevy_ui"]
 bevy_solari = ["dep:bevy_solari", "bevy_pbr"]
 bevy_gizmos = ["dep:bevy_gizmos", "bevy_camera"]
+bevy_gizmos_render = ["dep:bevy_gizmos_render", "bevy_gizmos"]
 bevy_gltf = ["dep:bevy_gltf", "bevy_scene", "bevy_pbr"]
 
 # Used to disable code that is unsupported when Bevy is dynamically linked
@@ -309,13 +311,14 @@ bevy_dev_tools = ["dep:bevy_dev_tools"]
 
 # Provides a collection of prebuilt camera controllers
 bevy_camera_controller = ["dep:bevy_camera_controller"]
-free_cam = ["bevy_camera_controller/free_cam"]
+free_camera = ["bevy_camera_controller/free_camera"]
+pan_camera = ["bevy_camera_controller/pan_camera"]
 
 # Enable support for the Bevy Remote Protocol
 bevy_remote = ["dep:bevy_remote", "serialize"]
 
 # Provides picking functionality
-bevy_picking = ["dep:bevy_picking"]
+bevy_picking = ["dep:bevy_picking", "bevy_input_focus?/bevy_picking"]
 
 # Provides a mesh picking backend
 mesh_picking = ["bevy_picking", "bevy_picking/mesh_picking"]
@@ -356,8 +359,8 @@ reflect_auto_register_static = [
   "bevy_ecs/reflect_auto_register",
 ]
 
-# Enable documentation reflection
-reflect_documentation = ["bevy_reflect/documentation"]
+# Enables bevy_reflect to access documentation comments of rust code at runtime
+reflect_documentation = ["bevy_reflect/reflect_documentation"]
 
 # Enable custom cursor support
 custom_cursor = ["bevy_window/custom_cursor", "bevy_winit/custom_cursor"]
@@ -423,9 +426,18 @@ async_executor = [
 # Note this is currently only applicable on `wasm32` architectures.
 web = ["bevy_app/web", "bevy_platform/web", "bevy_reflect/web"]
 
+# Input sources.
+mouse = ["bevy_input/mouse", "bevy_input_focus?/mouse"]
+keyboard = ["bevy_input/keyboard", "bevy_input_focus?/keyboard"]
+gamepad = ["bevy_input/gamepad", "bevy_input_focus?/gamepad"]
+touch = ["bevy_input/touch"]
+gestures = ["bevy_input/gestures"]
+
 hotpatching = ["bevy_app/hotpatching", "bevy_ecs/hotpatching"]
 
-debug = ["bevy_utils/debug"]
+debug = ["bevy_utils/debug", "bevy_ecs/debug"]
+
+screenrecording = ["bevy_dev_tools/screenrecording"]
 
 [dependencies]
 # bevy (no_std)
@@ -483,6 +495,7 @@ bevy_anti_alias = { path = "../bevy_anti_alias", optional = true, version = "0.1
 bevy_dev_tools = { path = "../bevy_dev_tools", optional = true, version = "0.18.0-dev" }
 bevy_gilrs = { path = "../bevy_gilrs", optional = true, version = "0.18.0-dev" }
 bevy_gizmos = { path = "../bevy_gizmos", optional = true, version = "0.18.0-dev", default-features = false }
+bevy_gizmos_render = { path = "../bevy_gizmos_render", optional = true, version = "0.18.0-dev", default-features = false }
 bevy_gltf = { path = "../bevy_gltf", optional = true, version = "0.18.0-dev" }
 bevy_feathers = { path = "../bevy_feathers", optional = true, version = "0.18.0-dev" }
 bevy_image = { path = "../bevy_image", optional = true, version = "0.18.0-dev" }

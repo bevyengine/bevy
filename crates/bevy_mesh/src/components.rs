@@ -12,8 +12,8 @@ use derive_more::derive::From;
 
 /// A component for 2D meshes. Requires a [`MeshMaterial2d`] to be rendered, commonly using a [`ColorMaterial`].
 ///
-/// [`MeshMaterial2d`]: <https://docs.rs/bevy/latest/bevy/sprite/struct.MeshMaterial2d.html>
-/// [`ColorMaterial`]: <https://docs.rs/bevy/latest/bevy/sprite/struct.ColorMaterial.html>
+/// [`MeshMaterial2d`]: <https://docs.rs/bevy/latest/bevy/prelude/struct.MeshMaterial2d.html>
+/// [`ColorMaterial`]: <https://docs.rs/bevy/latest/bevy/prelude/struct.ColorMaterial.html>
 ///
 /// # Example
 ///

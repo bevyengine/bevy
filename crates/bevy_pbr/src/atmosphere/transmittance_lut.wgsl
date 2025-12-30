@@ -1,10 +1,11 @@
 #import bevy_pbr::atmosphere::{
-    types::{Atmosphere, AtmosphereSettings},
-    bindings::{settings, atmosphere},
-    functions::{AtmosphereSample, sample_atmosphere, get_local_r, max_atmosphere_distance, MIDPOINT_RATIO},
-    bruneton_functions::{transmittance_lut_uv_to_r_mu, distance_to_bottom_atmosphere_boundary, distance_to_top_atmosphere_boundary},
+    bindings::settings,
+    functions::{
+        sample_density_lut, get_local_r, max_atmosphere_distance,
+        MIDPOINT_RATIO, ABSORPTION_DENSITY, SCATTERING_DENSITY
+    },
+    bruneton_functions::transmittance_lut_uv_to_r_mu,
 }
-
 
 #import bevy_core_pipeline::fullscreen_vertex_shader::FullscreenVertexOutput
 
@@ -38,10 +39,12 @@ fn ray_optical_depth(r: f32, mu: f32, sample_count: u32) -> vec3<f32> {
 
         let r_i = get_local_r(r, mu, t_i);
 
-        let atmosphere_sample = sample_atmosphere(r_i);
-        let sample_optical_depth = atmosphere_sample.extinction * dt;
-
-        optical_depth += sample_optical_depth;
+        // PERF: A possible later optimization would be to sample at `component = 0.5`
+        // (getting the average of the two rows) and then multiplying by 2 to find the sum. 
+        let absorption = sample_density_lut(r_i, ABSORPTION_DENSITY);
+        let scattering = sample_density_lut(r_i, SCATTERING_DENSITY);
+        let extinction = absorption + scattering;
+        optical_depth += extinction * dt;
     }
 
     return optical_depth;

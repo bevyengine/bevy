@@ -23,7 +23,7 @@ const ATTRIBUTE_BARYCENTRIC: MeshVertexAttribute =
 
 fn main() {
     App::new()
-        .insert_resource(AmbientLight {
+        .insert_resource(GlobalAmbientLight {
             color: Color::WHITE,
             brightness: 1.0 / 5.0f32,
             ..default()

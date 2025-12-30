@@ -109,10 +109,6 @@ pub enum UiSystems {
     Stack,
 }
 
-/// Deprecated alias for [`UiSystems`].
-#[deprecated(since = "0.17.0", note = "Renamed to `UiSystems`.")]
-pub type UiSystem = UiSystems;
-
 /// The current scale of the UI.
 ///
 /// A multiplier to fixed-sized ui values.
