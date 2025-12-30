@@ -182,7 +182,6 @@ Example | Description
 [Percentage-closer soft shadows](../examples/3d/pcss.rs) | Demonstrates percentage-closer soft shadows (PCSS)
 [Physically Based Rendering](../examples/3d/pbr.rs) | Demonstrates use of Physically Based Rendering (PBR) properties
 [Reflection Probes](../examples/3d/reflection_probes.rs) | Demonstrates reflection probes
-[Render Pass Viewer](../examples/3d/render_pass_viewer.rs) | Visualizes and toggles render pass participation using RenderPasses / RenderPassMask
 [Render to Texture](../examples/3d/render_to_texture.rs) | Shows how to render to a texture, useful for mirrors, UI, or exporting images
 [Rotate Environment Map](../examples/3d/rotate_environment_map.rs) | Demonstrates how to rotate the skybox and the environment map simultaneously
 [Screen Space Ambient Occlusion](../examples/3d/ssao.rs) | A scene showcasing screen space ambient occlusion

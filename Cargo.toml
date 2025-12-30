@@ -1184,17 +1184,6 @@ category = "3D Rendering"
 wasm = true
 
 [[example]]
-name = "render_pass_viewer"
-path = "examples/3d/render_pass_viewer.rs"
-doc-scrape-examples = true
-
-[package.metadata.example.render_pass_viewer]
-name = "Render Pass Viewer"
-description = "Visualizes and toggles render pass participation using RenderPasses / RenderPassMask"
-category = "3D Rendering"
-wasm = false
-
-[[example]]
 name = "atmospheric_fog"
 path = "examples/3d/atmospheric_fog.rs"
 # Causes an ICE on docs.rs
