@@ -3316,6 +3316,17 @@ category = "Stress Tests"
 wasm = true
 
 [[example]]
+name = "bevymark_3d"
+path = "examples/stress_tests/bevymark_3d.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.bevymark_3d]
+name = "Bevymark 3D"
+description = "A heavy 3D cube rendering workload to benchmark your system with Bevy"
+category = "Stress Tests"
+wasm = true
+
+[[example]]
 name = "many_animated_sprites"
 path = "examples/stress_tests/many_animated_sprites.rs"
 # Causes an ICE on docs.rs
