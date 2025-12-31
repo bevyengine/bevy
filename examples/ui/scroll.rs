@@ -78,6 +78,7 @@ fn on_scroll_handler(
         };
 
         if !max {
+            // Update the x portion of the scroll position with the scroll delta and clamp the value between 0.0 and the max x offset
             scroll_position.x = (scroll_position.x + delta.x).max(0.0).min(max_offset.x);
             // Consume the X portion of the scroll delta.
             delta.x = 0.;
@@ -93,6 +94,7 @@ fn on_scroll_handler(
         };
 
         if !max {
+            // Update the y portion of the scroll position with the scroll delta and clamp the value between 0.0 and the max y offset
             scroll_position.y = (scroll_position.y + delta.y).max(0.0).min(max_offset.y);
             // Consume the Y portion of the scroll delta.
             delta.y = 0.;
