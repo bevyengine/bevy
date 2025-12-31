@@ -197,7 +197,7 @@ fn item_rect(builder: &mut ChildSpawnerCommands, color: Srgba) {
 fn spawn_nested_text_bundle(builder: &mut ChildSpawnerCommands, font: Handle<Font>, text: &str) {
     builder.spawn((
         Text::new(text),
-        TextFont::from(font.clone())
+        TextFont::from(font.clone()),
         TextColor::BLACK,
     ));
 }

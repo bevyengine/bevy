@@ -41,7 +41,7 @@ fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
             (
                 TextSpan("text".repeat(i)),
                 TextFont {
-                    font: asset_server.load("fonts/FiraMono-Medium.ttf"),
+                    font: asset_server.load("fonts/FiraMono-Medium.ttf").into(),
                     font_size: (4 + i % 10) as f32,
                     ..Default::default()
                 },

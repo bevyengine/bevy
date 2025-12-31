@@ -203,7 +203,7 @@ fn random_text_font(rng: &mut ChaCha8Rng, args: &Args, font: Handle<Font>) -> Te
 
     TextFont {
         font_size,
-        font,
+        font: font.into(),
         ..default()
     }
 }

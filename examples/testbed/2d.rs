@@ -320,7 +320,7 @@ mod sprite_slicing {
         commands.spawn((
             Text2d::new("Original"),
             TextFont {
-                font: font.clone(),
+                font: FontSource::from(font.clone()),
                 font_size: 20.0,
                 ..default()
             },
@@ -331,7 +331,7 @@ mod sprite_slicing {
         commands.spawn((
             Text2d::new("Sliced"),
             TextFont {
-                font,
+                font: FontSource::from(font.clone()),
                 font_size: 20.0,
                 ..default()
             },
