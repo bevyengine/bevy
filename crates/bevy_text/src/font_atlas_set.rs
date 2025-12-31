@@ -1,4 +1,4 @@
-use crate::{FontAtlas, FontSmoothing, TextFont};
+use crate::{FontAtlas, FontSmoothing};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::resource::Resource;
 use bevy_platform::collections::HashMap;
