@@ -124,7 +124,7 @@ mod text {
         commands.spawn((
             Text::new("Hello World."),
             TextFont {
-                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
                 font_size: 200.,
                 ..default()
             },
@@ -139,7 +139,7 @@ mod text {
             },
             Text::new("white "),
             TextFont {
-                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
                 ..default()
             },
             DespawnOnExit(super::Scene::Text),
@@ -151,7 +151,7 @@ mod text {
                     TextSpan::new("black"),
                     TextColor(Color::BLACK),
                     TextFont {
-                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                        font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
                         ..default()
                     },
                     TextBackgroundColor(Color::WHITE)
@@ -167,7 +167,7 @@ mod text {
             },
             Text::new(""),
             TextFont {
-                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
                 ..default()
             },
             DespawnOnExit(super::Scene::Text),
@@ -175,7 +175,7 @@ mod text {
                 (
                     TextSpan::new("white "),
                     TextFont {
-                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                        font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
                         ..default()
                     }
                 ),
@@ -186,7 +186,7 @@ mod text {
                     TextSpan::new("black"),
                     TextColor(Color::BLACK),
                     TextFont {
-                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                        font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
                         ..default()
                     },
                     TextBackgroundColor(Color::WHITE)
@@ -203,7 +203,7 @@ mod text {
             },
             Text::new(""),
             TextFont {
-                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
                 ..default()
             },
             DespawnOnExit(super::Scene::Text),
@@ -213,7 +213,7 @@ mod text {
                 (
                     TextSpan::new("white "),
                     TextFont {
-                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                        font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
                         ..default()
                     }
                 ),
@@ -230,7 +230,7 @@ mod text {
                     TextSpan::new("black"),
                     TextColor(Color::BLACK),
                     TextFont {
-                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                        font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
                         ..default()
                     },
                     TextBackgroundColor(Color::WHITE)
@@ -248,7 +248,7 @@ mod text {
             },
             Text::new("FiraSans_"),
             TextFont {
-                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
                 font_size: 25.,
                 ..default()
             },
@@ -257,7 +257,7 @@ mod text {
                 (
                     TextSpan::new("MonaSans_"),
                     TextFont {
-                        font: asset_server.load("fonts/MonaSans-VariableFont.ttf"),
+                        font: asset_server.load("fonts/MonaSans-VariableFont.ttf").into(),
                         font_size: 25.,
                         ..default()
                     }
@@ -265,7 +265,7 @@ mod text {
                 (
                     TextSpan::new("EBGaramond_"),
                     TextFont {
-                        font: asset_server.load("fonts/EBGaramond12-Regular.otf"),
+                        font: asset_server.load("fonts/EBGaramond12-Regular.otf").into(),
                         font_size: 25.,
                         ..default()
                     },
@@ -273,7 +273,7 @@ mod text {
                 (
                     TextSpan::new("FiraMono"),
                     TextFont {
-                        font: asset_server.load("fonts/FiraMono-Medium.ttf"),
+                        font: asset_server.load("fonts/FiraMono-Medium.ttf").into(),
                         font_size: 25.,
                         ..default()
                     },
@@ -289,7 +289,7 @@ mod text {
             },
             Text::new("FiraSans "),
             TextFont {
-                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
                 font_size: 25.,
                 ..default()
             },
@@ -298,7 +298,7 @@ mod text {
                 (
                     TextSpan::new("MonaSans "),
                     TextFont {
-                        font: asset_server.load("fonts/MonaSans-VariableFont.ttf"),
+                        font: asset_server.load("fonts/MonaSans-VariableFont.ttf").into(),
                         font_size: 25.,
                         ..default()
                     }
@@ -306,7 +306,7 @@ mod text {
                 (
                     TextSpan::new("EBGaramond "),
                     TextFont {
-                        font: asset_server.load("fonts/EBGaramond12-Regular.otf"),
+                        font: asset_server.load("fonts/EBGaramond12-Regular.otf").into(),
                         font_size: 25.,
                         ..default()
                     },
@@ -314,7 +314,7 @@ mod text {
                 (
                     TextSpan::new("FiraMono"),
                     TextFont {
-                        font: asset_server.load("fonts/FiraMono-Medium.ttf"),
+                        font: asset_server.load("fonts/FiraMono-Medium.ttf").into(),
                         font_size: 25.,
                         ..default()
                     },
@@ -331,7 +331,7 @@ mod text {
             },
             Text::new("FiraSans "),
             TextFont {
-                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
                 font_size: 25.,
                 ..default()
             },
@@ -340,7 +340,7 @@ mod text {
                 (
                     TextSpan::new("MonaSans_"),
                     TextFont {
-                        font: asset_server.load("fonts/MonaSans-VariableFont.ttf"),
+                        font: asset_server.load("fonts/MonaSans-VariableFont.ttf").into(),
                         font_size: 25.,
                         ..default()
                     }
@@ -348,7 +348,7 @@ mod text {
                 (
                     TextSpan::new("EBGaramond "),
                     TextFont {
-                        font: asset_server.load("fonts/EBGaramond12-Regular.otf"),
+                        font: asset_server.load("fonts/EBGaramond12-Regular.otf").into(),
                         font_size: 25.,
                         ..default()
                     },
@@ -356,7 +356,7 @@ mod text {
                 (
                     TextSpan::new("FiraMono"),
                     TextFont {
-                        font: asset_server.load("fonts/FiraMono-Medium.ttf"),
+                        font: asset_server.load("fonts/FiraMono-Medium.ttf").into(),
                         font_size: 25.,
                         ..default()
                     },
@@ -373,7 +373,7 @@ mod text {
             },
             Text::new("FiraSans"),
             TextFont {
-                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
                 font_size: 25.,
                 ..default()
             },
@@ -383,7 +383,7 @@ mod text {
                 (
                     TextSpan::new("MonaSans"),
                     TextFont {
-                        font: asset_server.load("fonts/MonaSans-VariableFont.ttf"),
+                        font: asset_server.load("fonts/MonaSans-VariableFont.ttf").into(),
                         font_size: 25.,
                         ..default()
                     }
@@ -392,7 +392,7 @@ mod text {
                 (
                     TextSpan::new("EBGaramond"),
                     TextFont {
-                        font: asset_server.load("fonts/EBGaramond12-Regular.otf"),
+                        font: asset_server.load("fonts/EBGaramond12-Regular.otf").into(),
                         font_size: 25.,
                         ..default()
                     },
@@ -401,7 +401,7 @@ mod text {
                 (
                     TextSpan::new("FiraMono"),
                     TextFont {
-                        font: asset_server.load("fonts/FiraMono-Medium.ttf"),
+                        font: asset_server.load("fonts/FiraMono-Medium.ttf").into(),
                         font_size: 25.,
                         ..default()
                     },
@@ -418,7 +418,7 @@ mod text {
             },
             Text::new("Fira Sans_"),
             TextFont {
-                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
                 font_size: 25.,
                 ..default()
             },
@@ -427,7 +427,7 @@ mod text {
                 (
                     TextSpan::new("Mona Sans_"),
                     TextFont {
-                        font: asset_server.load("fonts/MonaSans-VariableFont.ttf"),
+                        font: asset_server.load("fonts/MonaSans-VariableFont.ttf").into(),
                         font_size: 25.,
                         ..default()
                     }
@@ -435,7 +435,7 @@ mod text {
                 (
                     TextSpan::new("EB Garamond_"),
                     TextFont {
-                        font: asset_server.load("fonts/EBGaramond12-Regular.otf"),
+                        font: asset_server.load("fonts/EBGaramond12-Regular.otf").into(),
                         font_size: 25.,
                         ..default()
                     },
@@ -443,7 +443,7 @@ mod text {
                 (
                     TextSpan::new("Fira Mono"),
                     TextFont {
-                        font: asset_server.load("fonts/FiraMono-Medium.ttf"),
+                        font: asset_server.load("fonts/FiraMono-Medium.ttf").into(),
                         font_size: 25.,
                         ..default()
                     },
@@ -460,7 +460,7 @@ mod text {
             },
             Text::new("FontWeight(100)_"),
             TextFont {
-                font: asset_server.load("fonts/MonaSans-VariableFont.ttf"),
+                font: asset_server.load("fonts/MonaSans-VariableFont.ttf").into(),
                 font_size: 25.,
                 weight: FontWeight(100),
                 ..default()
@@ -470,7 +470,7 @@ mod text {
                 (
                     TextSpan::new("FontWeight(500)_"),
                     TextFont {
-                        font: asset_server.load("fonts/MonaSans-VariableFont.ttf"),
+                        font: asset_server.load("fonts/MonaSans-VariableFont.ttf").into(),
                         font_size: 25.,
                         weight: FontWeight(500),
                         ..default()
@@ -479,7 +479,7 @@ mod text {
                 (
                     TextSpan::new("FontWeight(900)"),
                     TextFont {
-                        font: asset_server.load("fonts/MonaSans-VariableFont.ttf"),
+                        font: asset_server.load("fonts/MonaSans-VariableFont.ttf").into(),
                         font_size: 25.,
                         weight: FontWeight(900),
                         ..default()
@@ -497,7 +497,7 @@ mod text {
             },
             Text::new("FiraSans_"),
             TextFont {
-                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
                 font_size: 25.,
                 weight: FontWeight(900),
                 ..default()
@@ -507,7 +507,7 @@ mod text {
                 (
                     TextSpan::new("MonaSans_"),
                     TextFont {
-                        font: asset_server.load("fonts/MonaSans-VariableFont.ttf"),
+                        font: asset_server.load("fonts/MonaSans-VariableFont.ttf").into(),
                         font_size: 25.,
                         weight: FontWeight(700),
                         ..default()
@@ -516,7 +516,7 @@ mod text {
                 (
                     TextSpan::new("EBGaramond_"),
                     TextFont {
-                        font: asset_server.load("fonts/EBGaramond12-Regular.otf"),
+                        font: asset_server.load("fonts/EBGaramond12-Regular.otf").into(),
                         font_size: 25.,
                         weight: FontWeight(500),
                         ..default()
@@ -525,7 +525,7 @@ mod text {
                 (
                     TextSpan::new("FiraMono"),
                     TextFont {
-                        font: asset_server.load("fonts/FiraMono-Medium.ttf"),
+                        font: asset_server.load("fonts/FiraMono-Medium.ttf").into(),
                         font_size: 25.,
                         weight: FontWeight(300),
                         ..default()
@@ -543,7 +543,7 @@ mod text {
             },
             Text::new("FiraSans\t"),
             TextFont {
-                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
                 font_size: 25.,
                 ..default()
             },
@@ -552,7 +552,7 @@ mod text {
                 (
                     TextSpan::new("MonaSans\t"),
                     TextFont {
-                        font: asset_server.load("fonts/MonaSans-VariableFont.ttf"),
+                        font: asset_server.load("fonts/MonaSans-VariableFont.ttf").into(),
                         font_size: 25.,
                         ..default()
                     }
@@ -560,7 +560,7 @@ mod text {
                 (
                     TextSpan::new("EBGaramond\t"),
                     TextFont {
-                        font: asset_server.load("fonts/EBGaramond12-Regular.otf"),
+                        font: asset_server.load("fonts/EBGaramond12-Regular.otf").into(),
                         font_size: 25.,
                         ..default()
                     },
@@ -568,7 +568,7 @@ mod text {
                 (
                     TextSpan::new("FiraMono"),
                     TextFont {
-                        font: asset_server.load("fonts/FiraMono-Medium.ttf"),
+                        font: asset_server.load("fonts/FiraMono-Medium.ttf").into(),
                         font_size: 25.,
                         ..default()
                     },
