@@ -1,7 +1,6 @@
 //! This example demonstrates how to use font weights, widths and styles.
 
 use bevy::prelude::*;
-use bevy::text::CosmicFontSystem;
 use bevy::text::FontSource;
 
 fn main() {
@@ -11,10 +10,8 @@ fn main() {
         .run();
 }
 
-fn setup(mut commands: Commands, mut font_system: ResMut<CosmicFontSystem>) {
-    font_system.0.db_mut().load_system_fonts();
-
-    let family = FontSource::from("Mona Sans");
+fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+    let family = FontSource::from(asset_server.load("fonts/MonaSans-VariableFont.ttf"));
 
     commands.spawn(Camera2d);
 
