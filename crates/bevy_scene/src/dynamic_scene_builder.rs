@@ -5,9 +5,9 @@ use crate::{DynamicEntity, DynamicScene, SceneFilter};
 use alloc::collections::BTreeMap;
 use bevy_ecs::{
     component::{Component, ComponentId},
+    entity::{Entity, EntityHashMap, EntityMapper},
     entity_disabling::DefaultQueryFilters,
-    prelude::Entity,
-    reflect::{AppTypeRegistry, ReflectComponent, ReflectResource},
+    reflect::{AppTypeRegistry, ReflectComponent, ReflectMapEntities, ReflectResource},
     resource::Resource,
     world::World,
 };
@@ -33,6 +33,16 @@ use bevy_utils::default;
 /// [allowing](DynamicSceneBuilder::allow_resource)/[denying](DynamicSceneBuilder::deny_resource) certain resources.
 ///
 /// Extraction happens immediately and uses the filter as it exists during the time of extraction.
+///
+/// # Entity Mapping
+///
+/// When extracting from a world that contains entities loaded from a scene, you may want to remap the entity references
+/// in components and resources back to their original scene entity IDs. This can be done by providing an entity map
+/// using [`with_entity_map`](DynamicSceneBuilder::with_entity_map). The map should contain mappings from world entities
+/// to scene entities.
+///
+/// This is useful for creating a scene that is equivalent to an original scene after it has been loaded into a world
+/// and then extracted again.
 ///
 /// # Entity Order
 ///
@@ -64,6 +74,7 @@ pub struct DynamicSceneBuilder<'w> {
     component_filter: SceneFilter,
     resource_filter: SceneFilter,
     original_world: &'w World,
+    entity_map: Option<&'w mut EntityHashMap<Entity>>,
 }
 
 impl<'w> DynamicSceneBuilder<'w> {
@@ -75,7 +86,18 @@ impl<'w> DynamicSceneBuilder<'w> {
             component_filter: SceneFilter::default(),
             resource_filter: SceneFilter::default(),
             original_world: world,
+            entity_map: None,
         }
+    }
+
+    /// Set the entity map to use for remapping entities in components and resources.
+    ///
+    /// This is used when extracting from a world that was loaded from a scene, to map
+    /// the world entities back to the original scene entities.
+    #[must_use]
+    pub fn with_entity_map(mut self, entity_map: &'w mut EntityHashMap<Entity>) -> Self {
+        self.entity_map = Some(entity_map);
+        self
     }
 
     /// Specify a custom component [`SceneFilter`] to be used with this builder.
@@ -210,9 +232,21 @@ impl<'w> DynamicSceneBuilder<'w> {
     /// [`Self::remove_empty_entities`] before building the scene.
     #[must_use]
     pub fn build(self) -> DynamicScene {
+        let entities = if let Some(entity_map) = self.entity_map {
+            self.extracted_scene
+                .into_iter()
+                .map(|(entity, mut dynamic_entity)| {
+                    dynamic_entity.entity = entity_map.get_mapped(entity);
+                    dynamic_entity
+                })
+                .collect()
+        } else {
+            self.extracted_scene.into_values().collect()
+        };
+
         DynamicScene {
             resources: self.extracted_resources.into_values().collect(),
-            entities: self.extracted_scene.into_values().collect(),
+            entities,
         }
     }
 
@@ -304,8 +338,15 @@ impl<'w> DynamicSceneBuilder<'w> {
                         .data::<ReflectComponent>()?
                         .reflect(original_entity)?;
 
-                    let component =
+                    let mut component =
                         clone_reflect_value(component.as_partial_reflect(), type_registration);
+
+                    // Map entities in the component if an entity map is provided
+                    if let Some(entity_map) = self.entity_map.as_mut() {
+                        if let Some(map_entities) = type_registration.data::<ReflectMapEntities>() {
+                            map_entities.map_entities(component.as_partial_reflect_mut(), &mut **entity_map);
+                        }
+                    }
 
                     entry.components.push(component);
                     Some(())
@@ -379,8 +420,15 @@ impl<'w> DynamicSceneBuilder<'w> {
                     .reflect(self.original_world)
                     .ok()?;
 
-                let resource =
+                let mut resource =
                     clone_reflect_value(resource.as_partial_reflect(), type_registration);
+
+                // Map entities in the resource if an entity map is provided
+                if let Some(entity_map) = self.entity_map.as_mut() {
+                    if let Some(map_entities) = type_registration.data::<ReflectMapEntities>() {
+                        map_entities.map_entities(resource.as_partial_reflect_mut(), &mut **entity_map);
+                    }
+                }
 
                 self.extracted_resources.insert(component_id, resource);
                 Some(())
@@ -397,6 +445,7 @@ impl<'w> DynamicSceneBuilder<'w> {
 mod tests {
     use bevy_ecs::{
         component::Component,
+        entity::{EntityHashMap, EntityMapper, MapEntities},
         prelude::{Entity, Resource},
         query::With,
         reflect::{AppTypeRegistry, ReflectComponent, ReflectResource},
@@ -739,5 +788,79 @@ mod tests {
             .try_as_reflect()
             .expect("resource should be concrete due to `FromReflect`")
             .is::<SomeResource>());
+    }
+
+    #[test]
+    fn with_entity_map_remaps_entities() {
+        #[derive(Component, Reflect)]
+        #[reflect(Component)]
+        struct EntityRef(Entity);
+
+        impl MapEntities for EntityRef {
+            fn map_entities<E: EntityMapper>(&mut self, entity_mapper: &mut E) {
+                self.0 = entity_mapper.get_mapped(self.0);
+            }
+        }
+
+        let mut world = World::default();
+        let atr = AppTypeRegistry::default();
+        {
+            let mut register = atr.write();
+            register.register::<EntityRef>();
+        }
+        world.insert_resource(atr.clone());
+
+        let original_entity_a = world.spawn_empty().id();
+        let original_entity_b = world.spawn(EntityRef(original_entity_a)).id();
+
+        // Create the original scene
+        let original_scene = DynamicSceneBuilder::from_world(&world)
+            .extract_entities(vec![original_entity_a, original_entity_b].into_iter())
+            .build();
+
+        // Load the scene into a new world
+        let mut entity_map = EntityHashMap::default();
+        let mut new_world = World::new();
+        new_world.insert_resource(atr.clone());
+
+        original_scene
+            .write_to_world(&mut new_world, &mut entity_map)
+            .unwrap();
+
+        // Create reverse mapping: world -> scene
+        let mut reverse_map = EntityHashMap::default();
+        for (scene_entity, world_entity) in entity_map.iter() {
+            reverse_map.insert(*world_entity, *scene_entity);
+        }
+
+        // Extract from the new world using the reverse map
+        let recreated_scene = DynamicSceneBuilder::from_world(&new_world)
+            .with_entity_map(&mut reverse_map)
+            .extract_entities(
+                new_world
+                    .archetypes()
+                    .iter()
+                    .flat_map(bevy_ecs::archetype::Archetype::entities)
+                    .map(bevy_ecs::archetype::ArchetypeEntity::id),
+            )
+            .build();
+
+        // The recreated scene should have the same entity IDs as the original
+        assert_eq!(original_scene.entities.len(), recreated_scene.entities.len());
+        for original_entity in &original_scene.entities {
+            let recreated_entity = recreated_scene
+                .entities
+                .iter()
+                .find(|e| e.entity == original_entity.entity)
+                .expect("Entity should be present in recreated scene");
+
+            assert_eq!(original_entity.entity, recreated_entity.entity);
+            assert_eq!(original_entity.components.len(), recreated_entity.components.len());
+
+            // Check that the EntityRef component has been remapped correctly
+            for (orig_comp, recre_comp) in original_entity.components.iter().zip(&recreated_entity.components) {
+                assert!(orig_comp.reflect_partial_eq(recre_comp.as_partial_reflect()).unwrap_or(false));
+            }
+        }
     }
 }
