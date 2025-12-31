@@ -20,8 +20,8 @@ use cosmic_text::{Attrs, Buffer, Family, Metrics, Shaping, Wrap};
 
 use crate::{
     add_glyph_to_atlas, error::TextError, get_glyph_atlas_info, ComputedTextBlock, Font,
-    FontAtlasKey, FontAtlasSet, FontSmoothing, Justify, LineBreak, LineHeight, PositionedGlyph,
-    TextBounds, TextEntity, TextFont, TextLayout,
+    FontAtlasKey, FontAtlasSet, FontSmoothing, FontSource, Justify, LineBreak, LineHeight,
+    PositionedGlyph, TextBounds, TextEntity, TextFont, TextLayout,
 };
 
 /// A wrapper resource around a [`cosmic_text::FontSystem`]
@@ -126,34 +126,37 @@ impl TextPipeline {
                 continue;
             }
 
-            let family_name = if let Some(family) = text_font.family.as_ref() {
-                Arc::from(family.as_str())
-            } else if let Some(font) = fonts.get(text_font.font.id()) {
-                let data = Arc::clone(&font.data);
-                let ids = font_system
-                    .db_mut()
-                    .load_font_source(cosmic_text::fontdb::Source::Binary(data));
+            let family_name = match &text_font.font {
+                FontSource::Handle(handle) => {
+                    if let Some(font) = fonts.get(handle.id()) {
+                        let data = Arc::clone(&font.data);
+                        let ids = font_system
+                            .db_mut()
+                            .load_font_source(cosmic_text::fontdb::Source::Binary(data));
 
-                // TODO: it is assumed this is the right font face
-                let face_id = *ids.last().unwrap();
-                let face = font_system.db().face(face_id).unwrap();
-                Arc::from(face.families[0].0.as_str())
-            } else {
-                // Return early if a font is not loaded yet.
-                spans.clear();
-                self.spans_buffer = spans
-                    .into_iter()
-                    .map(
-                        |_| -> (
-                            usize,
-                            &'static str,
-                            &'static TextFont,
-                            FontFaceInfo,
-                            LineHeight,
-                        ) { unreachable!() },
-                    )
-                    .collect();
-                return Err(TextError::NoSuchFont);
+                        // TODO: it is assumed this is the right font face
+                        let face_id = *ids.last().unwrap();
+                        let face = font_system.db().face(face_id).unwrap();
+                        Arc::from(face.families[0].0.as_str())
+                    } else {
+                        // Return early if a font is not loaded yet.
+                        spans.clear();
+                        self.spans_buffer = spans
+                            .into_iter()
+                            .map(
+                                |_| -> (
+                                    usize,
+                                    &'static str,
+                                    &'static TextFont,
+                                    FontFaceInfo,
+                                    LineHeight,
+                                ) { unreachable!() },
+                            )
+                            .collect();
+                        return Err(TextError::NoSuchFont);
+                    }
+                }
+                FontSource::Family(family) => Arc::from(family.as_str()),
             };
 
             let face_info = FontFaceInfo { family_name };
@@ -317,7 +320,7 @@ impl TextPipeline {
 
         for text_font in text_font_query.iter_many(computed.entities.iter().map(|e| e.entity)) {
             let mut section_info = (
-                text_font.font.id(),
+                AssetId::default(),
                 text_font.font_smoothing,
                 text_font.font_size,
                 0.0,
@@ -326,7 +329,8 @@ impl TextPipeline {
                 text_font.weight.clamp().0,
             );
 
-            if let Some((id, _)) = self.map_handle_to_font_id.get(&section_info.0)
+            if let FontSource::Handle(handle) = &text_font.font
+                && let Some((id, _)) = self.map_handle_to_font_id.get(&handle.id())
                 && let Some(font) = font_system.get_font(*id, cosmic_text::Weight(section_info.6))
             {
                 let swash = font.as_swash();

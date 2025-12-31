@@ -10,6 +10,7 @@ use core::str::from_utf8;
 use cosmic_text::{Buffer, Metrics, Stretch};
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
+use smol_str::SmolStr;
 use tracing::warn;
 
 /// Wrapper for [`cosmic_text::Buffer`]
@@ -245,21 +246,55 @@ impl From<Justify> for cosmic_text::Align {
     }
 }
 
+#[derive(Component, Clone, Debug, Reflect, PartialEq)]
+/// Specifies how the font face for a text span is sourced.
+///
+/// A `FontSource` can either reference a font asset or identify a font by family name to be
+/// resolved by the font system.
+pub enum FontSource {
+    /// Use a specific font face referenced by a [`Font`] asset handle.
+    ///
+    /// If the default font handle is used, then
+    /// * if `default_font` feature is enabled (enabled by default in `bevy` crate),
+    ///   `FiraMono-subset.ttf` compiled into the library is used.
+    /// * otherwise no text will be rendered, unless a custom font is loaded into the default font
+    ///   handle.
+    Handle(Handle<Font>),
+    /// Resolve the font by family name using the font system.
+    Family(SmolStr),
+}
+
+impl Default for FontSource {
+    fn default() -> Self {
+        Self::Handle(Handle::default())
+    }
+}
+
+impl From<Handle<Font>> for FontSource {
+    fn from(handle: Handle<Font>) -> Self {
+        Self::Handle(handle)
+    }
+}
+
+impl From<SmolStr> for FontSource {
+    fn from(family: SmolStr) -> Self {
+        FontSource::Family(family)
+    }
+}
+
+impl From<&str> for FontSource {
+    fn from(family: &str) -> Self {
+        FontSource::Family(family.into())
+    }
+}
+
 /// `TextFont` determines the style of a text span within a [`ComputedTextBlock`], specifically
 /// the font face, the font size, the line height, and the antialiasing method.
 #[derive(Component, Clone, Debug, Reflect, PartialEq)]
 #[reflect(Component, Default, Debug, Clone)]
 pub struct TextFont {
-    /// The specific font face to use, as a `Handle` to a [`Font`] asset.
-    ///
-    /// If the `font` is not specified, then
-    /// * if `default_font` feature is enabled (enabled by default in `bevy` crate),
-    ///   `FiraMono-subset.ttf` compiled into the library is used.
-    /// * otherwise no text will be rendered, unless a custom font is loaded into the default font
-    ///   handle.
-    pub font: Handle<Font>,
     /// Name of the font's family, overrides the `font` field.
-    pub family: Option<String>,
+    pub font: FontSource,
     /// The vertical height of rasterized glyphs in the font atlas in pixels.
     ///
     /// This is multiplied by the window scale factor and `UiScale`, but not the text entity
@@ -292,7 +327,13 @@ impl TextFont {
 
     /// Returns this [`TextFont`] with the specified font face handle.
     pub fn with_font(mut self, font: Handle<Font>) -> Self {
-        self.font = font;
+        self.font = FontSource::Handle(font);
+        self
+    }
+
+    /// Returns this [`TextFont`] with the specified font family.
+    pub fn with_family(mut self, family: impl Into<SmolStr>) -> Self {
+        self.font = FontSource::Family(family.into());
         self
     }
 
@@ -309,9 +350,12 @@ impl TextFont {
     }
 }
 
-impl From<Handle<Font>> for TextFont {
-    fn from(font: Handle<Font>) -> Self {
-        Self { font, ..default() }
+impl<T: Into<FontSource>> From<T> for TextFont {
+    fn from(source: T) -> Self {
+        Self {
+            font: source.into(),
+            ..default()
+        }
     }
 }
 
@@ -319,7 +363,6 @@ impl Default for TextFont {
     fn default() -> Self {
         Self {
             font: Default::default(),
-            family: None,
             font_size: 20.0,
             style: FontStyle::Normal,
             weight: FontWeight::NORMAL,
