@@ -794,7 +794,7 @@ mod tests {
     fn with_entity_map_remaps_entities() {
         #[derive(Component, Reflect)]
         #[reflect(Component)]
-        struct EntityRef(Entity);
+        struct EntityRef(#[entities] Entity);
 
         impl MapEntities for EntityRef {
             fn map_entities<E: EntityMapper>(&mut self, entity_mapper: &mut E) {
