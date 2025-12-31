@@ -361,16 +361,14 @@ impl AssetInfos {
         Some(UntypedHandle::Strong(strong_handle))
     }
 
-    /// Returns `true` if the asset this path points to is still alive
-    pub(crate) fn is_path_alive<'a>(&self, path: impl Into<AssetPath<'a>>) -> bool {
-        self.get_path_indices(&path.into())
-            .filter_map(|id| self.infos.get(&id))
-            .any(|info| info.weak_handle.strong_count() > 0)
-    }
-
     /// Returns `true` if the asset at this path should be reloaded
     pub(crate) fn should_reload(&self, path: &AssetPath) -> bool {
-        if self.is_path_alive(path) {
+        // If any path indices still exist, that means they haven't been dropped yet, so we should
+        // try to reload this path. Technically, there's a race condition where all handles may have
+        // been dropped, but `Assets::track_assets` hasn't run yet, so we'd be reloading an asset
+        // that will be dropped soon. This will result in a load which is unfortunate, but not too
+        // big a deal, and should be very rare.
+        if self.get_path_indices(&path.into()).next().is_some() {
             return true;
         }
 
