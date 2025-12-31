@@ -106,11 +106,7 @@ pub struct FpsOverlayConfig {
 impl Default for FpsOverlayConfig {
     fn default() -> Self {
         FpsOverlayConfig {
-            text_config: TextFont {
-                font: Handle::<Font>::default(),
-                font_size: 32.0,
-                ..Default::default()
-            },
+            text_config: TextFont::from_font_size(32.),
             text_color: Color::WHITE,
             enabled: true,
             refresh_interval: Duration::from_millis(100),
