@@ -96,7 +96,9 @@ impl Plugin for TextPlugin {
                 PostUpdate,
                 free_unused_font_atlases_system.before(AssetEventSystems),
             )
-            .add_systems(Last, trim_cosmic_cache);
+            .add_systems(Last, trim_cosmic_cache)
+            .add_observer(enable_text_node_needs_rerender_detection::<TextSpan>)
+            .add_observer(enable_text_node_needs_rerender_detection::<Text2d>);
 
         #[cfg(feature = "default_font")]
         {

@@ -847,3 +847,44 @@ pub fn detect_text_needs_rerender<Root: Component>(
         }
     }
 }
+
+/// Observer system that ensures all entities with the `Tracked` [`Component`] will be able to trigger
+/// [`detect_text_needs_rerender_on_child_removed`].
+pub fn enable_text_node_needs_rerender_detection<Tracked: Component>(
+    trigger: On<Add, Tracked>,
+    mut commands: Commands,
+) {
+    let Ok(mut entity) = commands.get_entity(trigger.target()) else {
+        return;
+    };
+
+    entity.observe(detect_text_needs_rerender_on_child_removed);
+}
+
+/// Observer system that detects when text blocks get their last child removed and sets
+/// `ComputedTextBlock::should_rerender`.
+pub fn detect_text_needs_rerender_on_child_removed(
+    trigger: On<Remove, Children>,
+    // `With<TextFont>` included to bail on non-text nodes
+    mut texts: Query<(&ChildOf, Option<&mut ComputedTextBlock>), With<TextFont>>,
+) {
+    let mut entity = trigger.target();
+    let mut computed = loop {
+        match texts.get_mut(entity) {
+            // we stop at the first computed text block encountered
+            Ok((_, Some(computed))) => break computed,
+            Ok((parent, None)) => entity = parent.0,
+            Err(_) => {
+                // This warning is less useful than the one in `detect_text_needs_rerender`,
+                // we don't know the type name of the root
+                once!(warn!(
+                    "found entity {} with a TextFont that has no ancestor with a root text \
+                    component; this warning only prints once",
+                    entity,
+                ));
+                return;
+            }
+        }
+    };
+    computed.needs_rerender = true;
+}
