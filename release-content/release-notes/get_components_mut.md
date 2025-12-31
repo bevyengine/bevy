@@ -4,10 +4,16 @@ authors: ["@hymm"]
 pull_requests: [21780]
 ---
 
-A safe version of `EntityMut::get_components_mut` and `EntityWorldMut::get_components_mut`
-was added. Previously a unsafe version was added `get_components_mut_unchecked`. It needed
-to be unsafe because specifying (&mut T, &mut T) is possible which would return multiple
-mutable references to the same component. This was done by adding a O(n^2) check for
-conflicts which returns a `QueryAccessError::Conflict`. Because of the cost of the checks
-if your code is performance sensitive it may make sense to keep using
-`get_components_mut_unchecked`.
+Methods `EntityMut::get_components_mut` and `EntityWorldMut::get_components_mut` are now
+added, providing a safe API for retrieving mutable references to multiple components via
+these entity access APIs.
+
+Previously, only the unsafe variants of these methods, called
+`get_components_mut_unchecked`, were present. They are not safe because they allow
+retrieving `(&mut T, &mut T)` - two mutable references to a single component - which
+breaks Rust's pointer aliasing rules.
+
+The new methods work around this via performing a quadratic time complexity check between
+all specified components for conflicts, returning `QueryAccessError::Conflict` if such
+occurs. This potentially has a runtime performance cost, so it might be favorable to still
+use `get_components_mut_unchecked` if you can guarantee that no aliasing would occur.

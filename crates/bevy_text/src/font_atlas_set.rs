@@ -1,4 +1,4 @@
-use crate::{FontAtlas, FontSmoothing};
+use crate::{FontAtlas, FontSmoothing, TextFont};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::resource::Resource;
 use bevy_platform::collections::HashMap;
@@ -8,7 +8,14 @@ use cosmic_text::fontdb::ID;
 ///
 /// Allows an `f32` font size to be used as a key in a `HashMap`, by its binary representation.
 #[derive(Debug, Hash, PartialEq, Eq, Clone, Copy)]
-pub struct FontAtlasKey(pub ID, pub u32, pub FontSmoothing);
+pub struct FontAtlasKey {
+    /// Font asset id
+    pub id: ID,
+    /// Font size via `f32::to_bits`
+    pub font_size_bits: u32,
+    /// Antialiasing method
+    pub font_smoothing: FontSmoothing,
+}
 
 /// Set of rasterized fonts stored in [`FontAtlas`]es.
 #[derive(Debug, Default, Resource, Deref, DerefMut)]
