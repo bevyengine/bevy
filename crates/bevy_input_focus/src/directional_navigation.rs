@@ -496,8 +496,8 @@ impl<'w, 's> DirectionalNavigation<'w, 's> {
                             transform.to_scale_angle_translation();
                         Some(FocusableArea {
                             entity,
-                            position: translation,
-                            size: computed.size(),
+                            position: translation * computed.inverse_scale_factor(),
+                            size: computed.size() * computed.inverse_scale_factor(),
                         })
                     } else {
                         // The node either does not have a target camera or it is not the same as the desired one.
@@ -525,8 +525,8 @@ impl<'w, 's> DirectionalNavigation<'w, 's> {
                         target_camera,
                         FocusableArea {
                             entity,
-                            position: translation,
-                            size: computed.size(),
+                            position: translation * computed.inverse_scale_factor(),
+                            size: computed.size() * computed.inverse_scale_factor(),
                         },
                     ))
                 } else {
