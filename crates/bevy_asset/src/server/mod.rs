@@ -888,7 +888,7 @@ impl AssetServer {
                 let mut reloaded = false;
 
                 let requests = server
-                    .read_infos()
+                    .write_infos()
                     .get_path_handles(&path)
                     .map(|handle| server.load_internal(Some(handle), path.clone(), true, None))
                     .collect::<Vec<_>>();
@@ -1286,7 +1286,7 @@ impl AssetServer {
             // Always say we don't have Uuid assets.
             return None;
         };
-        self.read_infos().get_index_handle(index)
+        self.write_infos().get_index_handle(index)
     }
 
     /// Returns `true` if the given `id` corresponds to an asset that is managed by this [`AssetServer`].
@@ -1331,7 +1331,7 @@ impl AssetServer {
     /// [`get_handles_untyped`][Self::get_handles_untyped] for all handles.
     pub fn get_handle_untyped<'a>(&self, path: impl Into<AssetPath<'a>>) -> Option<UntypedHandle> {
         let path = path.into();
-        self.read_infos().get_path_handles(&path).next()
+        self.write_infos().get_path_handles(&path).next()
     }
 
     /// Returns all active untyped handles for the given path, if the assets at the given path have already started loading,
@@ -1339,7 +1339,7 @@ impl AssetServer {
     /// Multiple handles will be returned in the event that a single path is used by multiple [`AssetLoader`]'s.
     pub fn get_handles_untyped<'a>(&self, path: impl Into<AssetPath<'a>>) -> Vec<UntypedHandle> {
         let path = path.into();
-        self.read_infos().get_path_handles(&path).collect()
+        self.write_infos().get_path_handles(&path).collect()
     }
 
     /// Returns an active untyped handle for the given path and [`TypeId`], if the asset at the given path has already started loading,
@@ -1350,7 +1350,7 @@ impl AssetServer {
         type_id: TypeId,
     ) -> Option<UntypedHandle> {
         let path = path.into();
-        self.read_infos()
+        self.write_infos()
             .get_path_and_type_id_handle(&path, type_id)
     }
 
@@ -1818,7 +1818,12 @@ pub fn handle_internal_asset_events(world: &mut World) {
             }
         }
 
-        let reload_parent_folders = |path: &PathBuf, source: &AssetSourceId<'static>| {
+        fn reload_parent_folders(
+            path: &Path,
+            source: &AssetSourceId<'static>,
+            infos: &mut AssetInfos,
+            server: &AssetServer,
+        ) {
             for parent in path.ancestors().skip(1) {
                 let parent_asset_path =
                     AssetPath::from(parent.to_path_buf()).with_source(source.clone());
@@ -1829,34 +1834,40 @@ pub fn handle_internal_asset_events(world: &mut World) {
                     server.load_folder_internal(index, parent_asset_path.clone());
                 }
             }
-        };
+        }
 
         let mut paths_to_reload = <HashSet<_>>::default();
-        let mut reload_path = |path: PathBuf, source: &AssetSourceId<'static>| {
+
+        fn reload_path(
+            path: PathBuf,
+            source: &AssetSourceId<'static>,
+            infos: &AssetInfos,
+            paths_to_reload: &mut HashSet<AssetPath<'static>>,
+        ) {
             let path = AssetPath::from(path).with_source(source);
-            queue_ancestors(&path, &infos, &mut paths_to_reload);
+            queue_ancestors(&path, infos, paths_to_reload);
             paths_to_reload.insert(path);
-        };
+        }
 
         let mut handle_event = |source: AssetSourceId<'static>, event: AssetSourceEvent| {
             match event {
                 AssetSourceEvent::AddedAsset(path) => {
-                    reload_parent_folders(&path, &source);
-                    reload_path(path, &source);
+                    reload_parent_folders(&path, &source, &mut infos, &server);
+                    reload_path(path, &source, &infos, &mut paths_to_reload);
                 }
                 // TODO: if the asset was processed and the processed file was changed, the first modified event
                 // should be skipped?
                 AssetSourceEvent::ModifiedAsset(path) | AssetSourceEvent::ModifiedMeta(path) => {
-                    reload_path(path, &source);
+                    reload_path(path, &source, &infos, &mut paths_to_reload);
                 }
                 AssetSourceEvent::RenamedFolder { old, new } => {
-                    reload_parent_folders(&old, &source);
-                    reload_parent_folders(&new, &source);
+                    reload_parent_folders(&old, &source, &mut infos, &server);
+                    reload_parent_folders(&new, &source, &mut infos, &server);
                 }
                 AssetSourceEvent::RemovedAsset(path)
                 | AssetSourceEvent::RemovedFolder(path)
                 | AssetSourceEvent::AddedFolder(path) => {
-                    reload_parent_folders(&path, &source);
+                    reload_parent_folders(&path, &source, &mut infos, &server);
                 }
                 _ => {}
             }

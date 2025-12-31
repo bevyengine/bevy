@@ -300,7 +300,7 @@ impl AssetInfos {
     }
 
     pub(crate) fn get_path_and_type_id_handle(
-        &self,
+        &mut self,
         path: &AssetPath<'_>,
         type_id: TypeId,
     ) -> Option<UntypedHandle> {
@@ -320,16 +320,44 @@ impl AssetInfos {
     }
 
     pub(crate) fn get_path_handles<'a>(
-        &'a self,
+        &'a mut self,
         path: &'a AssetPath<'_>,
     ) -> impl Iterator<Item = UntypedHandle> + 'a {
-        self.get_path_indices(path)
-            .filter_map(|id| self.get_index_handle(id))
+        self.path_to_index
+            .get(path)
+            .into_iter()
+            .flat_map(|type_id_to_index| type_id_to_index.iter())
+            .map(|(type_id, index)| ErasedAssetIndex::new(*index, *type_id))
+            .filter_map(|index| {
+                Self::get_index_handle_internal(&mut self.infos, &self.handle_providers, index)
+            })
     }
 
-    pub(crate) fn get_index_handle(&self, index: ErasedAssetIndex) -> Option<UntypedHandle> {
-        let info = self.infos.get(&index)?;
-        let strong_handle = info.weak_handle.upgrade()?;
+    pub(crate) fn get_index_handle(&mut self, index: ErasedAssetIndex) -> Option<UntypedHandle> {
+        Self::get_index_handle_internal(&mut self.infos, &self.handle_providers, index)
+    }
+
+    /// Same as [`Self::get_index_handle`], but allows passing in only the required fields, to allow
+    /// holding borrows to other fields.
+    fn get_index_handle_internal(
+        infos: &mut HashMap<ErasedAssetIndex, AssetInfo>,
+        handle_providers: &TypeIdMap<AssetHandleProvider>,
+        index: ErasedAssetIndex,
+    ) -> Option<UntypedHandle> {
+        let info = infos.get_mut(&index)?;
+        let strong_handle = match info.weak_handle.upgrade() {
+            Some(handle) => handle,
+            None => {
+                // We still have this index's entry, so it hasn't been dropped yet, so we can
+                // allocate a new handle and return it.
+                let provider = handle_providers.get(&index.type_id).expect(
+                    "asset was loaded before, so we must have a corresponding handle_provider",
+                );
+                let handle = provider.get_handle(index.index, info.path.clone(), None);
+                info.weak_handle = Arc::downgrade(&handle);
+                handle
+            }
+        };
         Some(UntypedHandle::Strong(strong_handle))
     }
 
