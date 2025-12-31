@@ -312,35 +312,11 @@ impl AssetInfos {
         &'a self,
         path: &'a AssetPath<'_>,
     ) -> impl Iterator<Item = ErasedAssetIndex> + 'a {
-        /// Concrete type to allow returning an `impl Iterator` even if `self.path_to_id.get(&path)` is `None`
-        enum HandlesByPathIterator<T> {
-            None,
-            Some(T),
-        }
-
-        impl<T> Iterator for HandlesByPathIterator<T>
-        where
-            T: Iterator<Item = ErasedAssetIndex>,
-        {
-            type Item = ErasedAssetIndex;
-
-            fn next(&mut self) -> Option<Self::Item> {
-                match self {
-                    HandlesByPathIterator::None => None,
-                    HandlesByPathIterator::Some(iter) => iter.next(),
-                }
-            }
-        }
-
-        if let Some(type_id_to_id) = self.path_to_index.get(path) {
-            HandlesByPathIterator::Some(
-                type_id_to_id
-                    .iter()
-                    .map(|(type_id, index)| ErasedAssetIndex::new(*index, *type_id)),
-            )
-        } else {
-            HandlesByPathIterator::None
-        }
+        self.path_to_index
+            .get(path)
+            .into_iter()
+            .flat_map(|type_id_to_index| type_id_to_index.iter())
+            .map(|(type_id, index)| ErasedAssetIndex::new(*index, *type_id))
     }
 
     pub(crate) fn get_path_handles<'a>(
