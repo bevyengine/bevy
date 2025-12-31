@@ -160,7 +160,7 @@ impl RecordDiagnostics for DiagnosticsRecorder {
         );
 
         self.current_frame_lock()
-            .record_value(command_encoder, buffer, name.into(), true)
+            .record_value(command_encoder, buffer, name.into(), true);
     }
 
     fn record_u32<N>(&self, command_encoder: &mut CommandEncoder, buffer: &BufferSlice, name: N)
@@ -178,7 +178,7 @@ impl RecordDiagnostics for DiagnosticsRecorder {
         );
 
         self.current_frame_lock()
-            .record_value(command_encoder, buffer, name.into(), false)
+            .record_value(command_encoder, buffer, name.into(), false);
     }
 
     fn begin_time_span<E: WriteTimestamp>(&self, encoder: &mut E, span_name: Cow<'static, str>) {
