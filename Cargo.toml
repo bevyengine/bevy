@@ -5277,3 +5277,14 @@ name = "Mirror"
 description = "Demonstrates how to create a mirror with a second camera"
 category = "3D Rendering"
 wasm = true
+
+[[example]]
+name = "dynamic_mip_generation"
+path = "examples/2d/dynamic_mip_generation.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.dynamic_mip_generation]
+name = "Dynamic Mipmap Generation"
+description = "Demonstrates use of the mipmap generation plugin to generate mipmaps for a texture"
+category = "2D Rendering"
+wasm = false

@@ -1,43 +1,86 @@
-// Single pass downsampling shader for creating the mip chain for an array texture
+// Single pass downsampling shader for creating the mip chain for a texture
 // Ported from https://github.com/GPUOpen-LibrariesAndSDKs/FidelityFX-SDK/blob/c16b1d286b5b438b75da159ab51ff426bacea3d1/sdk/include/FidelityFX/gpu/spd/ffx_spd.h
 
 @group(0) @binding(0) var sampler_linear_clamp: sampler;
 @group(0) @binding(1) var<uniform> constants: Constants;
+
+#ifdef ARRAY_TEXTURE
+
 #ifdef COMBINE_BIND_GROUP
 @group(0) @binding(2) var mip_0: texture_2d_array<f32>;
-@group(0) @binding(3) var mip_1: texture_storage_2d_array<rgba16float, write>;
-@group(0) @binding(4) var mip_2: texture_storage_2d_array<rgba16float, write>;
-@group(0) @binding(5) var mip_3: texture_storage_2d_array<rgba16float, write>;
-@group(0) @binding(6) var mip_4: texture_storage_2d_array<rgba16float, write>;
-@group(0) @binding(7) var mip_5: texture_storage_2d_array<rgba16float, write>;
-@group(0) @binding(8) var mip_6: texture_storage_2d_array<rgba16float, read_write>;
-@group(0) @binding(9) var mip_7: texture_storage_2d_array<rgba16float, write>;
-@group(0) @binding(10) var mip_8: texture_storage_2d_array<rgba16float, write>;
-@group(0) @binding(11) var mip_9: texture_storage_2d_array<rgba16float, write>;
-@group(0) @binding(12) var mip_10: texture_storage_2d_array<rgba16float, write>;
-@group(0) @binding(13) var mip_11: texture_storage_2d_array<rgba16float, write>;
-@group(0) @binding(14) var mip_12: texture_storage_2d_array<rgba16float, write>;
-#endif
+@group(0) @binding(3) var mip_1: texture_storage_2d_array<##TEXTURE_FORMAT##, write>;
+@group(0) @binding(4) var mip_2: texture_storage_2d_array<##TEXTURE_FORMAT##, write>;
+@group(0) @binding(5) var mip_3: texture_storage_2d_array<##TEXTURE_FORMAT##, write>;
+@group(0) @binding(6) var mip_4: texture_storage_2d_array<##TEXTURE_FORMAT##, write>;
+@group(0) @binding(7) var mip_5: texture_storage_2d_array<##TEXTURE_FORMAT##, write>;
+@group(0) @binding(8) var mip_6: texture_storage_2d_array<##TEXTURE_FORMAT##, read_write>;
+@group(0) @binding(9) var mip_7: texture_storage_2d_array<##TEXTURE_FORMAT##, write>;
+@group(0) @binding(10) var mip_8: texture_storage_2d_array<##TEXTURE_FORMAT##, write>;
+@group(0) @binding(11) var mip_9: texture_storage_2d_array<##TEXTURE_FORMAT##, write>;
+@group(0) @binding(12) var mip_10: texture_storage_2d_array<##TEXTURE_FORMAT##, write>;
+@group(0) @binding(13) var mip_11: texture_storage_2d_array<##TEXTURE_FORMAT##, write>;
+@group(0) @binding(14) var mip_12: texture_storage_2d_array<##TEXTURE_FORMAT##, write>;
+#endif  // COMBINE_BIND_GROUP
 
 #ifdef FIRST_PASS
 @group(0) @binding(2) var mip_0: texture_2d_array<f32>;
-@group(0) @binding(3) var mip_1: texture_storage_2d_array<rgba16float, write>;
-@group(0) @binding(4) var mip_2: texture_storage_2d_array<rgba16float, write>;
-@group(0) @binding(5) var mip_3: texture_storage_2d_array<rgba16float, write>;
-@group(0) @binding(6) var mip_4: texture_storage_2d_array<rgba16float, write>;
-@group(0) @binding(7) var mip_5: texture_storage_2d_array<rgba16float, write>;
-@group(0) @binding(8) var mip_6: texture_storage_2d_array<rgba16float, write>;
-#endif
+@group(0) @binding(3) var mip_1: texture_storage_2d_array<##TEXTURE_FORMAT##, write>;
+@group(0) @binding(4) var mip_2: texture_storage_2d_array<##TEXTURE_FORMAT##, write>;
+@group(0) @binding(5) var mip_3: texture_storage_2d_array<##TEXTURE_FORMAT##, write>;
+@group(0) @binding(6) var mip_4: texture_storage_2d_array<##TEXTURE_FORMAT##, write>;
+@group(0) @binding(7) var mip_5: texture_storage_2d_array<##TEXTURE_FORMAT##, write>;
+@group(0) @binding(8) var mip_6: texture_storage_2d_array<##TEXTURE_FORMAT##, write>;
+#endif  // FIRST_PASS
 
 #ifdef SECOND_PASS
 @group(0) @binding(2) var mip_6: texture_2d_array<f32>;
-@group(0) @binding(3) var mip_7: texture_storage_2d_array<rgba16float, write>;
-@group(0) @binding(4) var mip_8: texture_storage_2d_array<rgba16float, write>;
-@group(0) @binding(5) var mip_9: texture_storage_2d_array<rgba16float, write>;
-@group(0) @binding(6) var mip_10: texture_storage_2d_array<rgba16float, write>;
-@group(0) @binding(7) var mip_11: texture_storage_2d_array<rgba16float, write>;
-@group(0) @binding(8) var mip_12: texture_storage_2d_array<rgba16float, write>;
-#endif
+@group(0) @binding(3) var mip_7: texture_storage_2d_array<##TEXTURE_FORMAT##, write>;
+@group(0) @binding(4) var mip_8: texture_storage_2d_array<##TEXTURE_FORMAT##, write>;
+@group(0) @binding(5) var mip_9: texture_storage_2d_array<##TEXTURE_FORMAT##, write>;
+@group(0) @binding(6) var mip_10: texture_storage_2d_array<##TEXTURE_FORMAT##, write>;
+@group(0) @binding(7) var mip_11: texture_storage_2d_array<##TEXTURE_FORMAT##, write>;
+@group(0) @binding(8) var mip_12: texture_storage_2d_array<##TEXTURE_FORMAT##, write>;
+#endif  // SECOND_PASS
+
+#else   // ARRAY_TEXTURE
+
+#ifdef COMBINE_BIND_GROUP
+@group(0) @binding(2) var mip_0: texture_2d<f32>;
+@group(0) @binding(3) var mip_1: texture_storage_2d<##TEXTURE_FORMAT##, write>;
+@group(0) @binding(4) var mip_2: texture_storage_2d<##TEXTURE_FORMAT##, write>;
+@group(0) @binding(5) var mip_3: texture_storage_2d<##TEXTURE_FORMAT##, write>;
+@group(0) @binding(6) var mip_4: texture_storage_2d<##TEXTURE_FORMAT##, write>;
+@group(0) @binding(7) var mip_5: texture_storage_2d<##TEXTURE_FORMAT##, write>;
+@group(0) @binding(8) var mip_6: texture_storage_2d<##TEXTURE_FORMAT##, read_write>;
+@group(0) @binding(9) var mip_7: texture_storage_2d<##TEXTURE_FORMAT##, write>;
+@group(0) @binding(10) var mip_8: texture_storage_2d<##TEXTURE_FORMAT##, write>;
+@group(0) @binding(11) var mip_9: texture_storage_2d<##TEXTURE_FORMAT##, write>;
+@group(0) @binding(12) var mip_10: texture_storage_2d<##TEXTURE_FORMAT##, write>;
+@group(0) @binding(13) var mip_11: texture_storage_2d<##TEXTURE_FORMAT##, write>;
+@group(0) @binding(14) var mip_12: texture_storage_2d<##TEXTURE_FORMAT##, write>;
+#endif  // COMBINE_BIND_GROUP
+
+#ifdef FIRST_PASS
+@group(0) @binding(2) var mip_0: texture_2d<f32>;
+@group(0) @binding(3) var mip_1: texture_storage_2d<##TEXTURE_FORMAT##, write>;
+@group(0) @binding(4) var mip_2: texture_storage_2d<##TEXTURE_FORMAT##, write>;
+@group(0) @binding(5) var mip_3: texture_storage_2d<##TEXTURE_FORMAT##, write>;
+@group(0) @binding(6) var mip_4: texture_storage_2d<##TEXTURE_FORMAT##, write>;
+@group(0) @binding(7) var mip_5: texture_storage_2d<##TEXTURE_FORMAT##, write>;
+@group(0) @binding(8) var mip_6: texture_storage_2d<##TEXTURE_FORMAT##, write>;
+#endif  // FIRST_PASS
+
+#ifdef SECOND_PASS
+@group(0) @binding(2) var mip_6: texture_2d<f32>;
+@group(0) @binding(3) var mip_7: texture_storage_2d<##TEXTURE_FORMAT##, write>;
+@group(0) @binding(4) var mip_8: texture_storage_2d<##TEXTURE_FORMAT##, write>;
+@group(0) @binding(5) var mip_9: texture_storage_2d<##TEXTURE_FORMAT##, write>;
+@group(0) @binding(6) var mip_10: texture_storage_2d<##TEXTURE_FORMAT##, write>;
+@group(0) @binding(7) var mip_11: texture_storage_2d<##TEXTURE_FORMAT##, write>;
+@group(0) @binding(8) var mip_12: texture_storage_2d<##TEXTURE_FORMAT##, write>;
+#endif  // SECOND_PASS
+
+#endif  // ARRAY_TEXTURE
 
 struct Constants { mips: u32, inverse_input_size: vec2f }
 
@@ -122,7 +165,7 @@ fn spd_downsample_mips_0_1(x: u32, y: u32, workgroup_id: vec2u, local_invocation
         spd_store((workgroup_id * 16u) + vec2(x / 2u + 8u, y / 2u + 8u), v[3], 1u, slice);
         spd_store_intermediate(x / 2u + 8u, y / 2u + 8u, v[3]);
     }
-#else
+#else   // SUBGROUP_SUPPORT
     for (var i = 0u; i < 4u; i++) {
         spd_store_intermediate(x, y, v[i]);
         workgroupBarrier();
@@ -144,7 +187,7 @@ fn spd_downsample_mips_0_1(x: u32, y: u32, workgroup_id: vec2u, local_invocation
         spd_store_intermediate(x + 0u, y + 8u, v[2]);
         spd_store_intermediate(x + 8u, y + 8u, v[3]);
     }
-#endif
+#endif  // SUBGROUP_SUPPORT
 }
 
 fn spd_downsample_next_four(x: u32, y: u32, workgroup_id: vec2u, local_invocation_index: u32, base_mip: u32, mips: u32, slice: u32) {
@@ -173,7 +216,7 @@ fn spd_downsample_mip_2(x: u32, y: u32, workgroup_id: vec2u, local_invocation_in
         spd_store((workgroup_id * 8u) + vec2(x / 2u, y / 2u), v, base_mip, slice);
         spd_store_intermediate(x + (y / 2u) % 2u, y, v);
     }
-#else
+#else   // SUBGROUP_SUPPORT
     if local_invocation_index < 64u {
         let v = spd_reduce_intermediate(
             vec2(x * 2u + 0u, y * 2u + 0u),
@@ -184,7 +227,7 @@ fn spd_downsample_mip_2(x: u32, y: u32, workgroup_id: vec2u, local_invocation_in
         spd_store((workgroup_id * 8u) + vec2(x, y), v, base_mip, slice);
         spd_store_intermediate(x * 2u + y % 2u, y * 2u, v);
     }
-#endif
+#endif  // SUBGROUP_SUPPORT
 }
 
 fn spd_downsample_mip_3(x: u32, y: u32, workgroup_id: vec2u, local_invocation_index: u32, base_mip: u32, slice: u32) {
@@ -197,7 +240,7 @@ fn spd_downsample_mip_3(x: u32, y: u32, workgroup_id: vec2u, local_invocation_in
             spd_store_intermediate(x * 2u + y / 2u, y * 2u, v);
         }
     }
-#else
+#else   // SUBGROUP_SUPPORT
     if local_invocation_index < 16u {
         let v = spd_reduce_intermediate(
             vec2(x * 4u + 0u + 0u, y * 4u + 0u),
@@ -208,7 +251,7 @@ fn spd_downsample_mip_3(x: u32, y: u32, workgroup_id: vec2u, local_invocation_in
         spd_store((workgroup_id * 4u) + vec2(x, y), v, base_mip, slice);
         spd_store_intermediate(x * 4u + y, y * 4u, v);
     }
-#endif
+#endif  // SUBGROUP_SUPPORT
 }
 
 fn spd_downsample_mip_4(x: u32, y: u32, workgroup_id: vec2u, local_invocation_index: u32, base_mip: u32, slice: u32) {
@@ -221,7 +264,7 @@ fn spd_downsample_mip_4(x: u32, y: u32, workgroup_id: vec2u, local_invocation_in
             spd_store_intermediate(x / 2u + y, 0u, v);
         }
     }
-#else
+#else   // SUBGROUP_SUPPORT
     if local_invocation_index < 4u {
         let v = spd_reduce_intermediate(
             vec2(x * 8u + 0u + 0u + y * 2u, y * 8u + 0u),
@@ -232,7 +275,7 @@ fn spd_downsample_mip_4(x: u32, y: u32, workgroup_id: vec2u, local_invocation_in
         spd_store((workgroup_id * 2u) + vec2(x, y), v, base_mip, slice);
         spd_store_intermediate(x + y * 2u, 0u, v);
     }
-#endif
+#endif  // SUBGROUP_SUPPORT
 }
 
 fn spd_downsample_mip_5(x: u32, y: u32, workgroup_id: vec2u, local_invocation_index: u32, base_mip: u32, slice: u32) {
@@ -244,12 +287,12 @@ fn spd_downsample_mip_5(x: u32, y: u32, workgroup_id: vec2u, local_invocation_in
             spd_store(workgroup_id, v, base_mip, slice);
         }
     }
-#else
+#else   // SUBGROUP_SUPPORT
     if local_invocation_index < 1u {
         let v = spd_reduce_intermediate(vec2(0u, 0u), vec2(1u, 0u), vec2(2u, 0u), vec2(3u, 0u));
         spd_store(workgroup_id, v, base_mip, slice);
     }
-#endif
+#endif  // SUBGROUP_SUPPORT
 }
 
 fn spd_downsample_mips_6_7(x: u32, y: u32, mips: u32, slice: u32) {
@@ -316,18 +359,20 @@ fn remap_for_wave_reduction(a: u32) -> vec2u {
     return vec2u(x, y);
 }
 
+#ifdef ARRAY_TEXTURE
+
 fn spd_reduce_load_source_image(uv: vec2u, slice: u32) -> vec4f {
     let texture_coord = (vec2f(uv) + 0.5) * constants.inverse_input_size;
 
     #ifdef COMBINE_BIND_GROUP
     let result = textureSampleLevel(mip_0, sampler_linear_clamp, texture_coord, slice, 0.0);
-    #endif
+    #endif  // COMBINE_BIND_GROUP
     #ifdef FIRST_PASS
     let result = textureSampleLevel(mip_0, sampler_linear_clamp, texture_coord, slice, 0.0);
-    #endif
+    #endif  // FIRST_PASS
     #ifdef SECOND_PASS
     let result = textureSampleLevel(mip_6, sampler_linear_clamp, texture_coord, slice, 0.0);
-    #endif
+    #endif  // SECOND_PASS
 
 #ifdef SRGB_CONVERSION
     return vec4(
@@ -336,12 +381,43 @@ fn spd_reduce_load_source_image(uv: vec2u, slice: u32) -> vec4f {
         srgb_from_linear(result.b),
         result.a
     );
-#else
+#else   // SRGB_CONVERSION
     return result;
-#endif
+#endif  // SRGB_CONVERSION
 
 }
 
+#else   // ARRAY_TEXTURE
+
+fn spd_reduce_load_source_image(uv: vec2u, slice: u32) -> vec4f {
+    let texture_coord = (vec2f(uv) + 0.5) * constants.inverse_input_size;
+
+    #ifdef COMBINE_BIND_GROUP
+    let result = textureSampleLevel(mip_0, sampler_linear_clamp, texture_coord, 0.0);
+    #endif  // COMBINE_BIND_GROUP
+    #ifdef FIRST_PASS
+    let result = textureSampleLevel(mip_0, sampler_linear_clamp, texture_coord, 0.0);
+    #endif  // FIRST_PASS
+    #ifdef SECOND_PASS
+    let result = textureSampleLevel(mip_6, sampler_linear_clamp, texture_coord, 0.0);
+    #endif  // SECOND_PASS
+
+#ifdef SRGB_CONVERSION
+    return vec4(
+        srgb_from_linear(result.r),
+        srgb_from_linear(result.g),
+        srgb_from_linear(result.b),
+        result.a
+    );
+#else   // SRGB_CONVERSION
+    return result;
+#endif  // SRGB_CONVERSION
+
+}
+
+#endif  // ARRAY_TEXTURE
+
+#ifdef ARRAY_TEXTURE
 fn spd_store(pix: vec2u, value: vec4f, mip: u32, slice: u32) {
     if mip >= constants.mips { return; }
     switch mip {
@@ -358,7 +434,7 @@ fn spd_store(pix: vec2u, value: vec4f, mip: u32, slice: u32) {
         case 9u: { textureStore(mip_10, pix, slice, value); }
         case 10u: { textureStore(mip_11, pix, slice, value); }
         case 11u: { textureStore(mip_12, pix, slice, value); }
-        #endif
+        #endif  // COMBINE_BIND_GROUP
         #ifdef FIRST_PASS
         case 0u: { textureStore(mip_1, pix, slice, value); }
         case 1u: { textureStore(mip_2, pix, slice, value); }
@@ -366,7 +442,7 @@ fn spd_store(pix: vec2u, value: vec4f, mip: u32, slice: u32) {
         case 3u: { textureStore(mip_4, pix, slice, value); }
         case 4u: { textureStore(mip_5, pix, slice, value); }
         case 5u: { textureStore(mip_6, pix, slice, value); }
-        #endif
+        #endif  // FIRST_PASS
         #ifdef SECOND_PASS
         case 6u: { textureStore(mip_7, pix, slice, value); }
         case 7u: { textureStore(mip_8, pix, slice, value); }
@@ -374,10 +450,48 @@ fn spd_store(pix: vec2u, value: vec4f, mip: u32, slice: u32) {
         case 9u: { textureStore(mip_10, pix, slice, value); }
         case 10u: { textureStore(mip_11, pix, slice, value); }
         case 11u: { textureStore(mip_12, pix, slice, value); }
-        #endif
+        #endif  // SECOND_PASS
         default: {}
     }
 }
+#else   // ARRAY_TEXTURE
+fn spd_store(pix: vec2u, value: vec4f, mip: u32, slice: u32) {
+    if mip >= constants.mips { return; }
+    switch mip {
+        #ifdef COMBINE_BIND_GROUP
+        case 0u: { textureStore(mip_1, pix, value); }
+        case 1u: { textureStore(mip_2, pix, value); }
+        case 2u: { textureStore(mip_3, pix, value); }
+        case 3u: { textureStore(mip_4, pix, value); }
+        case 4u: { textureStore(mip_5, pix, value); }
+        case 5u: { textureStore(mip_6, pix, value); }
+        case 6u: { textureStore(mip_7, pix, value); }
+        case 7u: { textureStore(mip_8, pix, value); }
+        case 8u: { textureStore(mip_9, pix, value); }
+        case 9u: { textureStore(mip_10, pix, value); }
+        case 10u: { textureStore(mip_11, pix, value); }
+        case 11u: { textureStore(mip_12, pix, value); }
+        #endif  // COMBINE_BIND_GROUP
+        #ifdef FIRST_PASS
+        case 0u: { textureStore(mip_1, pix, value); }
+        case 1u: { textureStore(mip_2, pix, value); }
+        case 2u: { textureStore(mip_3, pix, value); }
+        case 3u: { textureStore(mip_4, pix, value); }
+        case 4u: { textureStore(mip_5, pix, value); }
+        case 5u: { textureStore(mip_6, pix, value); }
+        #endif  // FIRST_PASS
+        #ifdef SECOND_PASS
+        case 6u: { textureStore(mip_7, pix, value); }
+        case 7u: { textureStore(mip_8, pix, value); }
+        case 8u: { textureStore(mip_9, pix, value); }
+        case 9u: { textureStore(mip_10, pix, value); }
+        case 10u: { textureStore(mip_11, pix, value); }
+        case 11u: { textureStore(mip_12, pix, value); }
+        #endif  // SECOND_PASS
+        default: {}
+    }
+}
+#endif  // ARRAY_TEXTURE
 
 fn spd_store_intermediate(x: u32, y: u32, value: vec4f) {
     spd_intermediate_r[x][y] = value.x;
@@ -398,6 +512,7 @@ fn spd_reduce_intermediate(i0: vec2u, i1: vec2u, i2: vec2u, i3: vec2u) -> vec4f 
     return spd_reduce_4(v0, v1, v2, v3);
 }
 
+#ifdef ARRAY_TEXTURE
 fn spd_reduce_load_4(i0: vec2u, i1: vec2u, i2: vec2u, i3: vec2u, slice: u32) -> vec4f {
     #ifdef COMBINE_BIND_GROUP
     let v0 = textureLoad(mip_6, i0, slice);
@@ -405,18 +520,39 @@ fn spd_reduce_load_4(i0: vec2u, i1: vec2u, i2: vec2u, i3: vec2u, slice: u32) -> 
     let v2 = textureLoad(mip_6, i2, slice);
     let v3 = textureLoad(mip_6, i3, slice);
     return spd_reduce_4(v0, v1, v2, v3);
-    #endif
+    #endif  // COMBINE_BIND_GROUP
     #ifdef FIRST_PASS
     return vec4(0.0, 0.0, 0.0, 0.0);
-    #endif
+    #endif  // FIRST_PASS
     #ifdef SECOND_PASS
     let v0 = textureLoad(mip_6, i0, slice, 0);
     let v1 = textureLoad(mip_6, i1, slice, 0);
     let v2 = textureLoad(mip_6, i2, slice, 0);
     let v3 = textureLoad(mip_6, i3, slice, 0);
     return spd_reduce_4(v0, v1, v2, v3);
-    #endif
+    #endif  // SECOND_PASS
 }
+#else   // ARRAY_TEXTURE
+fn spd_reduce_load_4(i0: vec2u, i1: vec2u, i2: vec2u, i3: vec2u, slice: u32) -> vec4f {
+    #ifdef COMBINE_BIND_GROUP
+    let v0 = textureLoad(mip_6, i0);
+    let v1 = textureLoad(mip_6, i1);
+    let v2 = textureLoad(mip_6, i2);
+    let v3 = textureLoad(mip_6, i3);
+    return spd_reduce_4(v0, v1, v2, v3);
+    #endif  // COMBINE_BIND_GROUP
+    #ifdef FIRST_PASS
+    return vec4(0.0, 0.0, 0.0, 0.0);
+    #endif  // FIRST_PASS
+    #ifdef SECOND_PASS
+    let v0 = textureLoad(mip_6, i0, 0);
+    let v1 = textureLoad(mip_6, i1, 0);
+    let v2 = textureLoad(mip_6, i2, 0);
+    let v3 = textureLoad(mip_6, i3, 0);
+    return spd_reduce_4(v0, v1, v2, v3);
+    #endif  // SECOND_PASS
+}
+#endif  // ARRAY_TEXTURE
 
 fn spd_reduce_4(v0: vec4f, v1: vec4f, v2: vec4f, v3: vec4f) -> vec4f {
     return (v0 + v1 + v2 + v3) * 0.25;
@@ -430,7 +566,7 @@ fn spd_reduce_quad(v: vec4f) -> vec4f {
     let v3 = quadSwapDiagonal(v);
     return spd_reduce_4(v0, v1, v2, v3);
 }
-#endif
+#endif  // SUBGROUP_SUPPORT
 
 fn srgb_from_linear(value: f32) -> f32 {
     let j = vec3(0.0031308 * 12.92, 12.92, 1.0 / 2.4);
