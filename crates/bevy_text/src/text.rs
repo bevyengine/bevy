@@ -276,6 +276,12 @@ impl From<Handle<Font>> for FontSource {
     }
 }
 
+impl From<&Handle<Font>> for FontSource {
+    fn from(handle: &Handle<Font>) -> Self {
+        Self::Handle(handle.clone())
+    }
+}
+
 impl From<SmolStr> for FontSource {
     fn from(family: SmolStr) -> Self {
         FontSource::Family(family)
