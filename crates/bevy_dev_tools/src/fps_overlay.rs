@@ -1,7 +1,7 @@
 //! Module containing logic for FPS overlay.
 
 use bevy_app::{Plugin, Startup, Update};
-use bevy_asset::{Assets, Handle};
+use bevy_asset::Assets;
 use bevy_color::Color;
 use bevy_diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin};
 use bevy_ecs::{
@@ -14,7 +14,7 @@ use bevy_ecs::{
 };
 use bevy_picking::Pickable;
 use bevy_render::storage::ShaderStorageBuffer;
-use bevy_text::{Font, TextColor, TextFont, TextSpan};
+use bevy_text::{TextColor, TextFont, TextSpan};
 use bevy_time::common_conditions::on_timer;
 use bevy_ui::{
     widget::{Text, TextUiWriter},
