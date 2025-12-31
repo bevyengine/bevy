@@ -9,6 +9,7 @@
 //! If you want to hot reload asset changes, enable the `file_watcher` cargo feature.
 
 use argh::FromArgs;
+use bevy::pbr::ScreenSpaceReflections;
 use bevy::{
     asset::UnapprovedPathMode,
     camera::primitives::{Aabb, Sphere},
@@ -211,6 +212,7 @@ fn setup_scene_after_load(
                 rotation: args.rotation(),
                 ..default()
             },
+            ScreenSpaceReflections::default(),
             camera_controller,
         ));
 

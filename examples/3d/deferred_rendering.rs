@@ -13,6 +13,7 @@ use bevy::{
     pbr::{DefaultOpaqueRendererMethod, OpaqueRendererMethod},
     prelude::*,
 };
+use bevy::pbr::ScreenSpaceReflections;
 
 fn main() {
     App::new()
@@ -53,6 +54,7 @@ fn setup(
         DepthPrepass,
         MotionVectorPrepass,
         DeferredPrepass,
+        ScreenSpaceReflections::default(),
         Fxaa::default(),
     ));
 

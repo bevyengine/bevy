@@ -613,23 +613,23 @@ fn apply_pbr_lighting(
     let use_ssr = false;
 #endif  // SCREEN_SPACE_REFLECTIONS
     
-    if (!use_ssr) {
 #ifdef STANDARD_MATERIAL_ANISOTROPY
-        var bent_normal_lighting_input = lighting_input;
-        bend_normal_for_anisotropy(&bent_normal_lighting_input);
-        let environment_map_lighting_input = &bent_normal_lighting_input;
+    var bent_normal_lighting_input = lighting_input;
+    bend_normal_for_anisotropy(&bent_normal_lighting_input);
+    let environment_map_lighting_input = &bent_normal_lighting_input;
 #else   // STANDARD_MATERIAL_ANISOTROPY
-        let environment_map_lighting_input = &lighting_input;
+    let environment_map_lighting_input = &lighting_input;
 #endif  // STANDARD_MATERIAL_ANISOTROPY
 
-        let environment_light = environment_map::environment_map_light(
-            environment_map_lighting_input,
-            &clusterable_object_index_ranges,
-            found_diffuse_indirect,
-        );
+    let environment_light = environment_map::environment_map_light(
+        environment_map_lighting_input,
+        &clusterable_object_index_ranges,
+        found_diffuse_indirect,
+    );
 
-        indirect_light += environment_light.diffuse * diffuse_occlusion +
-            environment_light.specular * specular_occlusion;
+    indirect_light += environment_light.diffuse * diffuse_occlusion;
+    if (!use_ssr) {
+        indirect_light += environment_light.specular * specular_occlusion;
     }
 #endif  // ENVIRONMENT_MAP
 
@@ -642,7 +642,7 @@ fn apply_pbr_lighting(
     let enable_ambient = true;
 #endif  // LIGHTMAP
     if (enable_ambient) {
-        indirect_light += ambient::ambient_light(in.world_position, in.N, in.V, NdotV, diffuse_color, F0, perceptual_roughness, diffuse_occlusion);
+        indirect_light += ambient::ambient_light(in.world_position, in.N, in.V, NdotV, diffuse_color, F0, perceptual_roughness, diffuse_occlusion, specular_occlusion);
     }
 
     // we'll use the specular component of the transmitted environment

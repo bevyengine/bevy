@@ -198,6 +198,7 @@ fn spawn_camera(commands: &mut Commands, asset_server: &AssetServer) {
                 ..default()
             }),
             Transform::from_xyz(0.0, 0.0, 10.0),
+            Sc
             AcesFitted,
         ))
         .insert(Skybox {

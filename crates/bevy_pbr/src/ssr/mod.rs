@@ -125,6 +125,12 @@ pub struct ScreenSpaceReflections {
     /// line-line intersection between the ray approach rate and the surface
     /// gradient.
     pub use_secant: bool,
+
+    /// The number of samples to take per pixel.
+    ///
+    /// Higher values result in higher-quality reflections, especially for
+    /// rough materials, but take more GPU time.
+    pub samples: u32,
 }
 
 /// A version of [`ScreenSpaceReflections`] for upload to the GPU.
@@ -140,6 +146,7 @@ pub struct ScreenSpaceReflectionsUniform {
     bisection_steps: u32,
     /// A boolean converted to a `u32`.
     use_secant: u32,
+    samples: u32,
 }
 
 /// The node in the render graph that traces screen space reflections.
@@ -180,6 +187,7 @@ pub struct ScreenSpaceReflectionsPipelineKey {
     is_hdr: bool,
     has_environment_maps: bool,
     has_atmosphere: bool,
+    has_ssao: bool,
 }
 
 impl Plugin for ScreenSpaceReflectionsPlugin {
@@ -240,12 +248,13 @@ impl Default for ScreenSpaceReflections {
     // <https://gist.github.com/h3r2tic/9c8356bdaefbe80b1a22ae0aaee192db?permalink_comment_id=4552149#gistcomment-4552149>.
     fn default() -> Self {
         Self {
-            perceptual_roughness_threshold: 0.1,
+            perceptual_roughness_threshold: 1.0,
             linear_steps: 16,
             bisection_steps: 4,
             use_secant: true,
             thickness: 0.25,
             linear_march_exponent: 1.0,
+            samples: 1,
         }
     }
 }
@@ -424,6 +433,7 @@ pub fn prepare_ssr_pipelines(
             Has<NormalPrepass>,
             Has<MotionVectorPrepass>,
             Has<ExtractedAtmosphere>,
+            Has<crate::ssao::ScreenSpaceAmbientOcclusion>,
         ),
         (
             With<ScreenSpaceReflectionsUniform>,
@@ -439,6 +449,7 @@ pub fn prepare_ssr_pipelines(
         has_normal_prepass,
         has_motion_vector_prepass,
         has_atmosphere,
+        has_ssao,
     ) in &views
     {
         // SSR is only supported in the deferred pipeline, which has no MSAA
@@ -465,6 +476,7 @@ pub fn prepare_ssr_pipelines(
                 is_hdr: extracted_view.hdr,
                 has_environment_maps,
                 has_atmosphere,
+                has_ssao,
             },
         );
 
@@ -555,6 +567,12 @@ impl SpecializedRenderPipeline for ScreenSpaceReflectionsPipeline {
         #[cfg(not(target_arch = "wasm32"))]
         shader_defs.push("USE_DEPTH_SAMPLERS".into());
 
+        if key.has_ssao {
+            shader_defs.push("SCREEN_SPACE_AMBIENT_OCCLUSION".into());
+        }
+
+        shader_defs.push("STANDARD_MATERIAL_CLEARCOAT".into());
+
         RenderPipelineDescriptor {
             label: Some("SSR pipeline".into()),
             layout,
@@ -587,6 +605,7 @@ impl From<ScreenSpaceReflections> for ScreenSpaceReflectionsUniform {
             linear_march_exponent: settings.linear_march_exponent,
             bisection_steps: settings.bisection_steps,
             use_secant: settings.use_secant as u32,
+            samples: settings.samples,
         }
     }
 }

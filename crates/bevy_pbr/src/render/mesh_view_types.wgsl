@@ -161,6 +161,7 @@ struct ScreenSpaceReflectionsSettings {
     linear_march_exponent: f32,
     bisection_steps: u32,
     use_secant: u32,
+    samples: u32,
 };
 
 struct EnvironmentMapUniform {
