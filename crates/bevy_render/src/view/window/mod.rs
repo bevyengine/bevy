@@ -64,6 +64,11 @@ pub struct ExtractedWindow {
     pub size_changed: bool,
     pub present_mode_changed: bool,
     pub alpha_mode: CompositeAlphaMode,
+    /// Whether this window needs an initial buffer commit.
+    ///
+    /// On Wayland, windows must present at least once before they are shown.
+    /// See <https://wayland.app/protocols/xdg-shell#xdg_surface>
+    pub needs_initial_present: bool,
 }
 
 impl ExtractedWindow {
@@ -145,6 +150,7 @@ fn extract_windows(
             swap_chain_texture_view_format: None,
             present_mode_changed: false,
             alpha_mode: window.composite_alpha_mode,
+            needs_initial_present: true,
         });
 
         if extracted_window.swap_chain_texture.is_none() {
@@ -413,6 +419,11 @@ pub fn create_surfaces(
             // normally this is dropped on present but we double check here to be safe as failure to
             // drop it will cause validation errors in wgpu
             drop(window.swap_chain_texture.take());
+            #[cfg_attr(
+                target_arch = "wasm32",
+                expect(clippy::drop_non_drop, reason = "texture views are not drop on wasm")
+            )]
+            drop(window.swap_chain_texture_view.take());
 
             data.configuration.width = window.physical_width;
             data.configuration.height = window.physical_height;
