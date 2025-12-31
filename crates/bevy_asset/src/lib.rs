@@ -1612,6 +1612,46 @@ mod tests {
     }
 
     #[test]
+    fn asset_is_live_after_reacquired_through_get_strong_handle() {
+        let (mut app, dir) = create_app();
+
+        dir.insert_asset_text(Path::new("dep.cool.ron"), SIMPLE_TEXT);
+
+        app.init_asset::<CoolText>()
+            .init_asset::<SubText>()
+            .register_asset_loader(CoolTextLoader);
+
+        let asset_server = app.world().resource::<AssetServer>().clone();
+
+        let handle = asset_server.load::<CoolText>("dep.cool.ron");
+        run_app_until(&mut app, |_| asset_server.is_loaded(&handle).then_some(()));
+        let id = handle.id();
+
+        // Getting a strong handle to an existing loaded asset should keep the asset loaded (even if
+        // all the handles from the `load` call are dropped).
+        drop(handle);
+        let new_handle = app
+            .world_mut()
+            .resource_mut::<Assets<CoolText>>()
+            .get_strong_handle(id)
+            .expect("should yield strong handle");
+
+        app.update();
+
+        assert!(app
+            .world()
+            .resource::<Assets<CoolText>>()
+            .contains(&new_handle));
+
+        assert!(asset_server.get_id_handle(new_handle.id()).is_some());
+
+        assert_eq!(get_started_load_count(app.world()), 1);
+        let _handle = asset_server.load::<CoolText>("dep.cool.ron");
+        // Loading the asset again should not start a new load, since the asset is still loaded.
+        assert_eq!(get_started_load_count(app.world()), 1);
+    }
+
+    #[test]
     fn manual_asset_management() {
         let dir = Dir::default();
         let dep_path = "dep.cool.ron";
