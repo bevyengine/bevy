@@ -23,8 +23,8 @@ use bevy_render::{
         },
         BindGroupEntries, BindGroupLayoutDescriptor, BindGroupLayoutEntries,
         CachedComputePipelineId, ComputePassDescriptor, ComputePipelineDescriptor, LoadOp,
-        PipelineCache, PushConstantRange, RenderPassDescriptor, ShaderStages, StorageTextureAccess,
-        TextureFormat, TextureSampleType,
+        PipelineCache, RenderPassDescriptor, ShaderStages, StorageTextureAccess, TextureFormat,
+        TextureSampleType,
     },
     renderer::RenderContext,
     view::{ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms},
@@ -233,6 +233,7 @@ impl ViewNode for SolariLightingNode {
                 depth_stencil_attachment: None,
                 timestamp_writes: None,
                 occlusion_query_set: None,
+                multiview_mask: None,
             });
         }
 
@@ -263,7 +264,7 @@ impl ViewNode for SolariLightingNode {
 
         let d = diagnostics.time_span(&mut pass, "solari_lighting/presample_light_tiles");
         pass.set_pipeline(presample_light_tiles_pipeline);
-        pass.set_push_constants(
+        pass.set_immediates(
             0,
             bytemuck::cast_slice(&[frame_index, solari_lighting.reset as u32]),
         );
@@ -289,7 +290,7 @@ impl ViewNode for SolariLightingNode {
         pass.set_bind_group(2, None, &[]);
 
         pass.set_pipeline(sample_for_world_cache_pipeline);
-        pass.set_push_constants(
+        pass.set_immediates(
             0,
             bytemuck::cast_slice(&[frame_index, solari_lighting.reset as u32]),
         );
@@ -309,14 +310,14 @@ impl ViewNode for SolariLightingNode {
         let d = diagnostics.time_span(&mut pass, "solari_lighting/direct_lighting");
 
         pass.set_pipeline(di_initial_and_temporal_pipeline);
-        pass.set_push_constants(
+        pass.set_immediates(
             0,
             bytemuck::cast_slice(&[frame_index, solari_lighting.reset as u32]),
         );
         pass.dispatch_workgroups(dx, dy, 1);
 
         pass.set_pipeline(di_spatial_and_shade_pipeline);
-        pass.set_push_constants(
+        pass.set_immediates(
             0,
             bytemuck::cast_slice(&[frame_index, solari_lighting.reset as u32]),
         );
@@ -327,14 +328,14 @@ impl ViewNode for SolariLightingNode {
         let d = diagnostics.time_span(&mut pass, "solari_lighting/diffuse_indirect_lighting");
 
         pass.set_pipeline(gi_initial_and_temporal_pipeline);
-        pass.set_push_constants(
+        pass.set_immediates(
             0,
             bytemuck::cast_slice(&[frame_index, solari_lighting.reset as u32]),
         );
         pass.dispatch_workgroups(dx, dy, 1);
 
         pass.set_pipeline(gi_spatial_and_shade_pipeline);
-        pass.set_push_constants(
+        pass.set_immediates(
             0,
             bytemuck::cast_slice(&[frame_index, solari_lighting.reset as u32]),
         );
@@ -344,7 +345,7 @@ impl ViewNode for SolariLightingNode {
 
         let d = diagnostics.time_span(&mut pass, "solari_lighting/specular_indirect_lighting");
         pass.set_pipeline(specular_gi_pipeline);
-        pass.set_push_constants(
+        pass.set_immediates(
             0,
             bytemuck::cast_slice(&[frame_index, solari_lighting.reset as u32]),
         );
@@ -440,10 +441,7 @@ impl FromWorld for SolariLightingNode {
             pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
                 label: Some(label.into()),
                 layout,
-                push_constant_ranges: vec![PushConstantRange {
-                    stages: ShaderStages::COMPUTE,
-                    range: 0..8,
-                }],
+                immediate_size: 8,
                 shader,
                 shader_defs,
                 entry_point: Some(entry_point.into()),
