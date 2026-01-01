@@ -535,7 +535,10 @@ impl FrameData {
             for (buffer, diagnostic_path, is_f32) in self.value_buffers.drain(..) {
                 let buffer = buffer.get_mapped_range(..);
                 diagnostics.push(RenderDiagnostic {
-                    path: DiagnosticPath::new(diagnostic_path),
+                    path: DiagnosticPath::from_components(
+                        core::iter::once("render")
+                            .chain(core::iter::once(diagnostic_path.as_ref())),
+                    ),
                     suffix: "",
                     value: if is_f32 {
                         f32::from_le_bytes((*buffer).try_into().unwrap()) as f64
@@ -668,7 +671,9 @@ impl FrameData {
         for (buffer, diagnostic_path, is_f32) in self.value_buffers.drain(..) {
             let buffer = buffer.get_mapped_range(..);
             diagnostics.push(RenderDiagnostic {
-                path: DiagnosticPath::new(diagnostic_path),
+                path: DiagnosticPath::from_components(
+                    core::iter::once("render").chain(core::iter::once(diagnostic_path.as_ref())),
+                ),
                 suffix: "",
                 value: if is_f32 {
                     f32::from_le_bytes((*buffer).try_into().unwrap()) as f64
