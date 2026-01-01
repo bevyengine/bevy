@@ -384,7 +384,7 @@ fn derive_system_param_impl(
         let builder_doc_comment = format!("A [`SystemParamBuilder`] for a [`{struct_name}`].");
         let builder_struct = quote! {
             #[doc = #builder_doc_comment]
-            struct #builder_name<#(#builder_type_parameters,)*> {
+            struct #builder_name<#(#[allow(non_camel_case_types, reason = "generated from snake-case field name")] #builder_type_parameters,)*> {
                 #(#field_members: #builder_type_parameters,)*
             }
         };
@@ -394,7 +394,7 @@ fn derive_system_param_impl(
             // SAFETY: This delegates to the `SystemParamBuilder` for tuples.
             unsafe impl<
                 #(#lifetimes,)*
-                #(#builder_type_parameters: #path::system::SystemParamBuilder<#field_types>,)*
+                #(#[allow(non_camel_case_types, reason = "generated from snake-case field name")] #builder_type_parameters: #path::system::SystemParamBuilder<#field_types>,)*
                 #punctuated_generics
             > #path::system::SystemParamBuilder<#generic_struct> for #builder_name<#(#builder_type_parameters,)*>
                 #where_clause
