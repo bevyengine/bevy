@@ -11,12 +11,22 @@ use crate::{Time, TimeDuration, TimeDurationPrecompute};
 pub struct Stepped;
 
 /// Stepped time, augmented by a relative speed every frame
-#[derive(Debug, Copy, Clone, Default)]
+#[derive(Debug, Copy, Clone)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Clone))]
 pub struct SteppedVirtual {
     paused: bool,
     relative_speed: u32,
     effective_speed: u32,
+}
+
+impl Default for SteppedVirtual {
+    fn default() -> Self {
+        Self {
+            paused: false,
+            relative_speed: 1,
+            effective_speed: 1,
+        }
+    }
 }
 
 impl TimeDuration for u32 {
