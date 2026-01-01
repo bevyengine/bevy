@@ -21,8 +21,10 @@
 //!
 //! ## Automatic Navigation (Recommended)
 //!
-//! The easiest way to set up navigation is to add the [`AutoDirectionalNavigation`] component to your UI entities.
-//! This component is available in the `bevy_ui` crate.
+//! The easiest way to set up navigation is to add the [`AutoDirectionalNavigation`] component 
+//! to your UI entities. This component is available in the `bevy_ui` crate. If you choose to 
+//! include automatic navigation, you should also use the [`AutoDirectionalNavigator`] system parameter 
+//! in that crate instead of [`DirectionalNavigation`].
 //!
 //! ## Manual Navigation
 //!

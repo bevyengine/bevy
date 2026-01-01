@@ -22,8 +22,8 @@ extern crate std;
 
 extern crate alloc;
 
-pub mod directional_navigation;
 pub mod navigator;
+pub mod directional_navigation;
 pub mod tab_navigation;
 
 // This module is too small / specific to be exported by the crate,
