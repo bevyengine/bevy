@@ -343,8 +343,10 @@ impl<'w> DynamicSceneBuilder<'w> {
 
                     // Map entities in the component if an entity map is provided
                     if let Some(entity_map) = self.entity_map.as_mut() {
-                        if let Some(map_entities) = type_registration.data::<ReflectMapEntities>() {
-                            map_entities.map_entities(component.as_partial_reflect_mut(), &mut **entity_map);
+                        if let Some(map_entities) = type_registration.data::<ReflectComponent>() {
+                            if let Some(component) = component.try_as_reflect_mut() {
+                                map_entities.map_entities(component, &mut **entity_map);
+                            }
                         }
                     }
 
@@ -445,7 +447,7 @@ impl<'w> DynamicSceneBuilder<'w> {
 mod tests {
     use bevy_ecs::{
         component::Component,
-        entity::{EntityHashMap, EntityMapper, MapEntities},
+        entity::{EntityHashMap},
         prelude::{Entity, Resource},
         query::With,
         reflect::{AppTypeRegistry, ReflectComponent, ReflectResource},
@@ -796,12 +798,6 @@ mod tests {
         #[reflect(Component)]
         struct EntityRef(#[entities] Entity);
 
-        impl MapEntities for EntityRef {
-            fn map_entities<E: EntityMapper>(&mut self, entity_mapper: &mut E) {
-                self.0 = entity_mapper.get_mapped(self.0);
-            }
-        }
-
         let mut world = World::default();
         let atr = AppTypeRegistry::default();
         {
@@ -821,6 +817,12 @@ mod tests {
         // Load the scene into a new world
         let mut entity_map = EntityHashMap::default();
         let mut new_world = World::new();
+        // random spawns to shift entity IDs
+        new_world.spawn(());
+        new_world.spawn(());
+        new_world.spawn(());
+        new_world.spawn(());
+
         new_world.insert_resource(atr.clone());
 
         original_scene
@@ -832,17 +834,14 @@ mod tests {
         for (scene_entity, world_entity) in entity_map.iter() {
             reverse_map.insert(*world_entity, *scene_entity);
         }
+        println!("Reverse map: {:?}", reverse_map);
 
+        let entities = 
+                reverse_map.keys().cloned().collect::<Vec<Entity>>();
         // Extract from the new world using the reverse map
         let recreated_scene = DynamicSceneBuilder::from_world(&new_world)
             .with_entity_map(&mut reverse_map)
-            .extract_entities(
-                new_world
-                    .archetypes()
-                    .iter()
-                    .flat_map(bevy_ecs::archetype::Archetype::entities)
-                    .map(bevy_ecs::archetype::ArchetypeEntity::id),
-            )
+            .extract_entities(entities.into_iter())
             .build();
 
         // The recreated scene should have the same entity IDs as the original
