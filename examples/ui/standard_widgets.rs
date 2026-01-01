@@ -42,13 +42,9 @@ fn main() {
             (
                 update_widget_values,
                 update_button_style,
-                update_button_style2,
                 update_slider_style.after(update_widget_values),
-                update_slider_style2.after(update_widget_values),
                 update_checkbox_or_radio_style.after(update_widget_values),
-                update_checkbox_or_radio_style2.after(update_widget_values),
                 update_menu_item_style,
-                update_menu_item_style2,
                 toggle_disabled,
             ),
         )
@@ -281,6 +277,10 @@ fn update_button_style(
             &mut BorderColor,
             &Children,
         ),
+        With<DemoButton>,
+    >,
+    updated: Query<
+        Entity,
         (
             Or<(
                 Changed<Pressed>,
@@ -290,56 +290,35 @@ fn update_button_style(
             With<DemoButton>,
         ),
     >,
+    mut removed_depressed: RemovedComponents<Pressed>,
+    mut removed_disabled: RemovedComponents<InteractionDisabled>,
     mut text_query: Query<&mut Text>,
 ) {
-    for (pressed, hovered, disabled, mut color, mut border_color, children) in &mut buttons {
-        let mut text = text_query.get_mut(children[0]).unwrap();
+    let chained = updated
+        .iter()
+        .chain(removed_depressed.read())
+        .chain(removed_disabled.read());
+
+    for entity in chained {
+        let Ok((pressed, Hovered(hovered), disabled, mut color, mut border_color, children)) =
+            buttons.get_mut(entity)
+        else {
+            continue;
+        };
+
+        let Ok(mut text) = text_query.get_mut(children[0]) else {
+            continue;
+        };
+
         set_button_style(
             disabled,
-            hovered.get(),
+            *hovered,
             pressed,
             &mut color,
             &mut border_color,
             &mut text,
         );
     }
-}
-
-/// Supplementary system to detect removed marker components
-fn update_button_style2(
-    mut buttons: Query<
-        (
-            Has<Pressed>,
-            &Hovered,
-            Has<InteractionDisabled>,
-            &mut BackgroundColor,
-            &mut BorderColor,
-            &Children,
-        ),
-        With<DemoButton>,
-    >,
-    mut removed_depressed: RemovedComponents<Pressed>,
-    mut removed_disabled: RemovedComponents<InteractionDisabled>,
-    mut text_query: Query<&mut Text>,
-) {
-    removed_depressed
-        .read()
-        .chain(removed_disabled.read())
-        .for_each(|entity| {
-            if let Ok((pressed, hovered, disabled, mut color, mut border_color, children)) =
-                buttons.get_mut(entity)
-            {
-                let mut text = text_query.get_mut(children[0]).unwrap();
-                set_button_style(
-                    disabled,
-                    hovered.get(),
-                    pressed,
-                    &mut color,
-                    &mut border_color,
-                    &mut text,
-                );
-            }
-        });
 }
 
 fn set_button_style(
@@ -452,13 +431,16 @@ fn slider(min: f32, max: f32, value: f32) -> impl Bundle {
 fn update_slider_style(
     sliders: Query<
         (
-            Entity,
-            &SliderValue,
+            Ref<SliderValue>,
             &SliderRange,
             &Hovered,
             &CoreSliderDragState,
             Has<InteractionDisabled>,
         ),
+        With<DemoSlider>,
+    >,
+    updated: Query<
+        Entity,
         (
             Or<(
                 Changed<SliderValue>,
@@ -470,46 +452,28 @@ fn update_slider_style(
             With<DemoSlider>,
         ),
     >,
+    mut removed_disabled: RemovedComponents<InteractionDisabled>,
     children: Query<&Children>,
     mut thumbs: Query<(&mut Node, &mut BackgroundColor, Has<DemoSliderThumb>), Without<DemoSlider>>,
 ) {
-    for (slider_ent, value, range, hovered, drag_state, disabled) in sliders.iter() {
-        for child in children.iter_descendants(slider_ent) {
+    let chained = updated.iter().chain(removed_disabled.read());
+
+    for entity in chained {
+        let Ok((value, range, Hovered(hovered), drag_state, disabled)) = sliders.get(entity) else {
+            continue;
+        };
+
+        for child in children.iter_descendants(entity) {
             if let Ok((mut thumb_node, mut thumb_bg, is_thumb)) = thumbs.get_mut(child)
                 && is_thumb
             {
-                thumb_node.left = percent(range.thumb_position(value.0) * 100.0);
-                thumb_bg.0 = thumb_color(disabled, hovered.0 | drag_state.dragging);
+                if value.is_changed() {
+                    thumb_node.left = percent(range.thumb_position(value.0) * 100.0);
+                }
+                thumb_bg.0 = thumb_color(disabled, hovered | drag_state.dragging);
             }
         }
     }
-}
-
-fn update_slider_style2(
-    sliders: Query<
-        (
-            Entity,
-            &Hovered,
-            &CoreSliderDragState,
-            Has<InteractionDisabled>,
-        ),
-        With<DemoSlider>,
-    >,
-    children: Query<&Children>,
-    mut thumbs: Query<(&mut BackgroundColor, Has<DemoSliderThumb>), Without<DemoSlider>>,
-    mut removed_disabled: RemovedComponents<InteractionDisabled>,
-) {
-    removed_disabled.read().for_each(|entity| {
-        if let Ok((slider_ent, hovered, drag_state, disabled)) = sliders.get(entity) {
-            for child in children.iter_descendants(slider_ent) {
-                if let Ok((mut thumb_bg, is_thumb)) = thumbs.get_mut(child)
-                    && is_thumb
-                {
-                    thumb_bg.0 = thumb_color(disabled, hovered.0 | drag_state.dragging);
-                }
-            }
-        }
-    });
 }
 
 fn thumb_color(disabled: bool, hovered: bool) -> Color {
@@ -581,25 +545,37 @@ fn checkbox(asset_server: &AssetServer, caption: &str) -> impl Bundle {
 
 // Update the element's styles.
 fn update_checkbox_or_radio_style(
-    mut q_checkbox: Query<
+    groups: Query<
         (Has<Checked>, &Hovered, Has<InteractionDisabled>, &Children),
-        (
-            Or<(With<DemoCheckbox>, With<DemoRadio>)>,
-            Or<(
-                Added<DemoCheckbox>,
-                Changed<Hovered>,
-                Added<Checked>,
-                Added<InteractionDisabled>,
-            )>,
-        ),
+        Or<(With<DemoCheckbox>, With<DemoRadio>)>,
     >,
+    updated: Query<
+        Entity,
+        Or<(
+            Added<DemoCheckbox>,
+            Changed<Hovered>,
+            Added<Checked>,
+            Added<InteractionDisabled>,
+        )>,
+    >,
+    mut removed_checked: RemovedComponents<Checked>,
+    mut removed_disabled: RemovedComponents<InteractionDisabled>,
     mut q_border_color: Query<
         (&mut BorderColor, &mut Children),
         (Without<DemoCheckbox>, Without<DemoRadio>),
     >,
     mut q_bg_color: Query<&mut BackgroundColor, (Without<DemoCheckbox>, Without<Children>)>,
 ) {
-    for (checked, Hovered(is_hovering), is_disabled, children) in q_checkbox.iter_mut() {
+    let chained = updated
+        .iter()
+        .chain(removed_checked.read())
+        .chain(removed_disabled.read());
+
+    for entity in chained {
+        let Ok((checked, Hovered(hovered), disabled, children)) = groups.get(entity) else {
+            continue;
+        };
+
         let Some(border_id) = children.first() else {
             continue;
         };
@@ -618,67 +594,8 @@ fn update_checkbox_or_radio_style(
             continue;
         };
 
-        set_checkbox_or_radio_style(
-            is_disabled,
-            *is_hovering,
-            checked,
-            &mut border_color,
-            &mut mark_bg,
-        );
+        set_checkbox_or_radio_style(disabled, *hovered, checked, &mut border_color, &mut mark_bg);
     }
-}
-
-fn update_checkbox_or_radio_style2(
-    mut q_checkbox: Query<
-        (Has<Checked>, &Hovered, Has<InteractionDisabled>, &Children),
-        Or<(With<DemoCheckbox>, With<DemoRadio>)>,
-    >,
-    mut q_border_color: Query<
-        (&mut BorderColor, &mut Children),
-        (Without<DemoCheckbox>, Without<DemoRadio>),
-    >,
-    mut q_bg_color: Query<
-        &mut BackgroundColor,
-        (Without<DemoCheckbox>, Without<DemoRadio>, Without<Children>),
-    >,
-    mut removed_checked: RemovedComponents<Checked>,
-    mut removed_disabled: RemovedComponents<InteractionDisabled>,
-) {
-    removed_checked
-        .read()
-        .chain(removed_disabled.read())
-        .for_each(|entity| {
-            if let Ok((checked, Hovered(is_hovering), is_disabled, children)) =
-                q_checkbox.get_mut(entity)
-            {
-                let Some(border_id) = children.first() else {
-                    return;
-                };
-
-                let Ok((mut border_color, border_children)) = q_border_color.get_mut(*border_id)
-                else {
-                    return;
-                };
-
-                let Some(mark_id) = border_children.first() else {
-                    warn!("Checkbox does not have a mark entity.");
-                    return;
-                };
-
-                let Ok(mut mark_bg) = q_bg_color.get_mut(*mark_id) else {
-                    warn!("Checkbox mark entity lacking a background color.");
-                    return;
-                };
-
-                set_checkbox_or_radio_style(
-                    is_disabled,
-                    *is_hovering,
-                    checked,
-                    &mut border_color,
-                    &mut mark_bg,
-                );
-            }
-        });
 }
 
 fn set_checkbox_or_radio_style(
@@ -909,6 +826,10 @@ fn update_menu_item_style(
             Has<InteractionDisabled>,
             &mut BackgroundColor,
         ),
+        With<DemoMenuItem>,
+    >,
+    updated: Query<
+        Entity,
         (
             Or<(
                 Changed<Pressed>,
@@ -918,34 +839,20 @@ fn update_menu_item_style(
             With<DemoMenuItem>,
         ),
     >,
-) {
-    for (pressed, hovered, disabled, mut color) in &mut buttons {
-        set_menu_item_style(disabled, hovered.get(), pressed, &mut color);
-    }
-}
-
-/// Supplementary system to detect removed marker components
-fn update_menu_item_style2(
-    mut buttons: Query<
-        (
-            Has<Pressed>,
-            &Hovered,
-            Has<InteractionDisabled>,
-            &mut BackgroundColor,
-        ),
-        With<DemoMenuItem>,
-    >,
     mut removed_depressed: RemovedComponents<Pressed>,
     mut removed_disabled: RemovedComponents<InteractionDisabled>,
 ) {
-    removed_depressed
-        .read()
-        .chain(removed_disabled.read())
-        .for_each(|entity| {
-            if let Ok((pressed, hovered, disabled, mut color)) = buttons.get_mut(entity) {
-                set_menu_item_style(disabled, hovered.get(), pressed, &mut color);
-            }
-        });
+    let chained = updated
+        .iter()
+        .chain(removed_depressed.read())
+        .chain(removed_disabled.read());
+
+    for entity in chained {
+        let Ok((pressed, Hovered(hovered), disabled, mut color)) = buttons.get_mut(entity) else {
+            continue;
+        };
+        set_menu_item_style(disabled, *hovered, pressed, &mut color);
+    }
 }
 
 fn set_menu_item_style(disabled: bool, hovered: bool, pressed: bool, color: &mut BackgroundColor) {
