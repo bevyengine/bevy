@@ -376,21 +376,21 @@ impl<T: Reflect + MaybeTyped + TypePath + GetTypeRegistration, const N: usize> P
 
     #[inline]
     fn reflect_hash(&self) -> Option<u64> {
-        crate::array_hash(self)
+        crate::array::array_hash(self)
     }
 
     #[inline]
     fn reflect_partial_eq(&self, value: &dyn PartialReflect) -> Option<bool> {
-        crate::array_partial_eq(self, value)
+        crate::array::array_partial_eq(self, value)
     }
 
     fn apply(&mut self, value: &dyn PartialReflect) {
-        crate::array_apply(self, value);
+        crate::array::array_apply(self, value);
     }
 
     #[inline]
     fn try_apply(&mut self, value: &dyn PartialReflect) -> Result<(), ApplyError> {
-        crate::array_try_apply(self, value)
+        crate::array::array_try_apply(self, value)
     }
 }
 

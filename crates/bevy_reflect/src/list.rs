@@ -19,7 +19,7 @@ use crate::{
 /// This corresponds to types, like [`Vec`], which contain an ordered sequence
 /// of elements that implement [`Reflect`].
 ///
-/// Unlike the [`Array`](crate::Array) trait, implementors of this trait are not expected to
+/// Unlike the [`Array`](crate::array::Array) trait, implementors of this trait are not expected to
 /// maintain a constant length.
 /// Methods like [insertion](List::insert) and [removal](List::remove) explicitly allow for their
 /// internal size to change.

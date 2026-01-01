@@ -541,7 +541,9 @@
 //! [the language feature for dyn upcasting coercion]: https://github.com/rust-lang/rust/issues/65991
 //! [derive macro]: derive@crate::Reflect
 //! [`'static` lifetime]: https://doc.rust-lang.org/rust-by-example/scope/lifetime/static_lifetime.html#trait-bound
+//! [`Array`]: crate::array::Array
 //! [`Function`]: crate::func::Function
+//! [`DynamicArray`]: crate::array::DynamicArray
 //! [derive macro documentation]: derive@crate::Reflect
 //! [deriving `Reflect`]: derive@crate::Reflect
 //! [type data]: TypeData
@@ -578,7 +580,7 @@ extern crate alloc;
 // Required to make proc macros work in bevy itself.
 extern crate self as bevy_reflect;
 
-mod array;
+pub mod array;
 mod error;
 mod fields;
 mod from_reflect;
@@ -653,7 +655,6 @@ pub mod prelude {
     pub use crate::func::{Function, IntoFunction, IntoFunctionMut};
 }
 
-pub use array::*;
 pub use enums::*;
 pub use error::*;
 pub use fields::*;
@@ -684,7 +685,7 @@ pub use erased_serde;
 #[doc(hidden)]
 pub mod __macro_exports {
     use crate::{
-        DynamicArray, DynamicEnum, DynamicList, DynamicMap, DynamicStruct, DynamicTuple,
+        array::DynamicArray, DynamicEnum, DynamicList, DynamicMap, DynamicStruct, DynamicTuple,
         DynamicTupleStruct, GetTypeRegistration, TypeRegistry,
     };
 
@@ -864,7 +865,7 @@ mod tests {
     };
     use static_assertions::{assert_impl_all, assert_not_impl_all};
 
-    use super::{prelude::*, *};
+    use super::{array::*, prelude::*, *};
     use crate::{
         serde::{ReflectDeserializer, ReflectSerializer},
         utility::GenericTypePathCell,

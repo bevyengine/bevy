@@ -1,5 +1,5 @@
 use crate::{
-    array_debug, enum_debug, list_debug, map_debug, set_debug, struct_debug, tuple_debug,
+    array::array_debug, enum_debug, list_debug, map_debug, set_debug, struct_debug, tuple_debug,
     tuple_struct_debug, DynamicTypePath, DynamicTyped, OpaqueInfo, ReflectCloneError, ReflectKind,
     ReflectKindMismatchError, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, TypePath, Typed,
 };
@@ -48,7 +48,7 @@ pub enum ApplyError {
     #[error("attempted to apply type with {from_size} size to a type with {to_size} size")]
     /// Attempted to apply an [array-like] type to another of different size, e.g. a [u8; 4] to [u8; 3].
     ///
-    /// [array-like]: crate::Array
+    /// [array-like]: crate::array::Array
     DifferentSize {
         /// Size of the value we attempted to apply, in elements.
         from_size: usize,
@@ -186,7 +186,7 @@ where
     /// [`Tuple`]: crate::Tuple
     /// [`Enum`]: crate::Enum
     /// [`List`]: crate::List
-    /// [`Array`]: crate::Array
+    /// [`Array`]: crate::array::Array
     /// [`Map`]: crate::Map
     /// [`Set`]: crate::Set
     /// [`list_apply`]: crate::list_apply

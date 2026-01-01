@@ -242,7 +242,7 @@ impl<'a> ReflectPath<'a> for &'a str {
 /// [`Tuple`]: crate::Tuple
 /// [`TupleStruct`]: crate::TupleStruct
 /// [`List`]: crate::List
-/// [`Array`]: crate::Array
+/// [`Array`]: crate::array::Array
 /// [`Enum`]: crate::Enum
 #[diagnostic::on_unimplemented(
     message = "`{Self}` does not implement `GetPath` so cannot be accessed by reflection path",

@@ -1,7 +1,8 @@
 use crate::{
-    ArrayInfo, DynamicArray, DynamicEnum, DynamicList, DynamicMap, DynamicStruct, DynamicTuple,
-    DynamicTupleStruct, EnumInfo, Generics, ListInfo, MapInfo, PartialReflect, Reflect,
-    ReflectKind, SetInfo, StructInfo, TupleInfo, TupleStructInfo, TypePath, TypePathTable,
+    array::{ArrayInfo, DynamicArray},
+    DynamicEnum, DynamicList, DynamicMap, DynamicStruct, DynamicTuple, DynamicTupleStruct,
+    EnumInfo, Generics, ListInfo, MapInfo, PartialReflect, Reflect, ReflectKind, SetInfo,
+    StructInfo, TupleInfo, TupleStructInfo, TypePath, TypePathTable,
 };
 use core::{
     any::{Any, TypeId},
@@ -219,7 +220,7 @@ pub enum TypeInfo {
     List(ListInfo),
     /// Type information for an [array-like] type.
     ///
-    /// [array-like]: crate::Array
+    /// [array-like]: crate::array::Array
     Array(ArrayInfo),
     /// Type information for a [map-like] type.
     ///

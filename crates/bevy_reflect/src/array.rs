@@ -1,3 +1,6 @@
+//! Traits and types used to power [array-like] operations via reflection.
+//!
+//! [array-like]: https://doc.rust-lang.org/book/ch03-02-data-types.html#the-array-type
 use crate::generics::impl_generic_info_methods;
 use crate::{
     type_info::impl_type_methods, utility::reflect_hasher, ApplyError, Generics, MaybeTyped,
@@ -31,7 +34,7 @@ use core::{
 /// # Example
 ///
 /// ```
-/// use bevy_reflect::{PartialReflect, Array};
+/// use bevy_reflect::{PartialReflect, array::Array};
 ///
 /// let foo: &dyn Array = &[123_u32, 456_u32, 789_u32];
 /// assert_eq!(foo.len(), 3);
