@@ -138,7 +138,7 @@ pub struct TimeTravel;
 impl Time<TimeTravel, Duration> {
     /// Set the time to a specific duration.
     pub fn set_to(&mut self, target: Duration) {
-        if self.elapsed >= target {
+        if self.elapsed <= target {
             self.advance_by(target - self.elapsed);
         } else {
             assert!(
