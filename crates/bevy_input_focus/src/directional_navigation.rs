@@ -67,8 +67,17 @@ use bevy_ecs::{
     system::SystemParam,
 };
 use bevy_math::{CompassOctant, Vec2};
+#[cfg_attr(
+    feature = "auto_nav",
+    expect(
+        unused_imports,
+        reason = "PhantomData is not used if auto_nav is enabled"
+    )
+)]
+use core::marker::PhantomData;
 use thiserror::Error;
 
+#[cfg(feature = "auto_nav")]
 use crate::auto_directional_navigation::AutoDirectionalNavigator;
 use crate::{
     navigator::{find_best_candidate, FocusableArea, NavigatorConfig},
@@ -263,8 +272,11 @@ pub struct DirectionalNavigation<'w, 's> {
     pub focus: ResMut<'w, InputFocus>,
     /// The directional navigation map containing manually defined connections between entities.
     pub map: Res<'w, DirectionalNavigationMap>,
+    #[cfg(feature = "auto_nav")]
     /// The system param that holds our automatic navigation system logic.
     pub(crate) auto_directional_navigator: AutoDirectionalNavigator<'w, 's>,
+    #[cfg(not(feature = "auto_nav"))]
+    marker: PhantomData<&'s ()>
 }
 
 impl<'w, 's> DirectionalNavigation<'w, 's> {
@@ -285,6 +297,7 @@ impl<'w, 's> DirectionalNavigation<'w, 's> {
                 return Ok(new_focus);
             }
 
+            #[cfg(feature = "auto_nav")]
             // If automatic navigation is enabled, try to get the result there as well.
             if let Some(new_focus) = self
                 .auto_directional_navigator

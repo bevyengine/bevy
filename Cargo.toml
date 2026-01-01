@@ -396,6 +396,9 @@ bevy_log = ["bevy_internal/bevy_log"]
 # Enable input focus subsystem
 bevy_input_focus = ["bevy_internal/bevy_input_focus"]
 
+# Enable the automatic navigation subsystem in bevy_input_focus
+auto_nav = ["bevy_internal/auto_nav"]
+
 # Experimental headless widget collection for Bevy UI.
 experimental_bevy_ui_widgets = ["bevy_internal/bevy_ui_widgets"]
 
@@ -5068,6 +5071,7 @@ name = "auto_directional_navigation"
 path = "examples/ui/auto_directional_navigation.rs"
 # Causes an ICE on docs.rs
 doc-scrape-examples = false
+required-features = ["auto_nav"]
 
 [package.metadata.example.auto_directional_navigation]
 name = "Automatic Directional Navigation"

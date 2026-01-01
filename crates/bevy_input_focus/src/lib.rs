@@ -24,6 +24,7 @@ extern crate alloc;
 
 mod navigator;
 pub use navigator::*;
+#[cfg(feature = "auto_nav")]
 pub mod auto_directional_navigation;
 pub mod directional_navigation;
 pub mod tab_navigation;

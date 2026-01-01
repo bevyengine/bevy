@@ -1,6 +1,6 @@
 //! An optional but recommended automatic directional navigation system, powered by
 //! the [`AutoDirectionalNavigation`] component.
-//! Prerequisites: Must have the `bevy_camera` and `bevy_ui` features enabled.
+//! Prerequisites: Must have the `auto_nav` feature enabled.
 
 use alloc::vec::Vec;
 use bevy_camera::visibility::InheritedVisibility;
@@ -39,7 +39,8 @@ use bevy_reflect::{prelude::*, Reflect};
 /// **Workarounds** for multi-layer UIs:
 ///
 /// 1. **Per-layer manual edge generation**: Query entities by layer and call
-///    [`auto_generate_navigation_edges()`] separately for each layer:
+///    [`auto_generate_navigation_edges()`](crate::directional_navigation::auto_generate_navigation_edges)
+///    separately for each layer:
 ///    ```rust,ignore
 ///    for layer in &layers {
 ///        let nodes: Vec<FocusableArea> = query_layer(layer).collect();
@@ -47,7 +48,8 @@ use bevy_reflect::{prelude::*, Reflect};
 ///    }
 ///    ```
 ///
-/// 2. **Manual cross-layer navigation**: Use [`DirectionalNavigationMap::add_edge()`]
+/// 2. **Manual cross-layer navigation**: Use 
+///   [`DirectionalNavigationMap::add_edge()`](crate::directional_navigation::DirectionalNavigationMap::add_edge)
 ///    to define explicit connections between layers (e.g., "Back" button to main menu).
 ///
 /// 3. **Remove component when layer is hidden**: Dynamically add/remove
@@ -65,10 +67,10 @@ use bevy_reflect::{prelude::*, Reflect};
 /// - **Dynamically toggle**: Remove/insert the component at runtime to enable/disable
 ///   automatic navigation as needed.
 ///
-/// Manual edges defined via [`DirectionalNavigationMap`] are completely independent and
-/// will continue to work regardless of this component.
+/// Manual edges defined via [`DirectionalNavigationMap`](crate::directional_navigation::DirectionalNavigationMap) 
+/// are completely independent and will continue to work regardless of this component.
 ///
-/// # Requirements (for `bevy_ui`)
+/// # Requirements for `bevy_ui`
 ///
 /// Entities must also have:
 /// - [`ComputedNode`] - for size information
@@ -78,8 +80,9 @@ use bevy_reflect::{prelude::*, Reflect};
 ///
 /// # Custom UI Systems
 ///
-/// For custom UI frameworks, you can call [`auto_generate_navigation_edges`] directly
-/// in your own system instead of using this component.
+/// For custom UI frameworks, you can call 
+/// [`auto_generate_navigation_edges`](crate::directional_navigation::auto_generate_navigation_edges) 
+/// directly in your own system instead of using this component.
 #[derive(Component, Default, Debug, Clone, Copy, PartialEq)]
 #[cfg_attr(
     feature = "bevy_reflect",
