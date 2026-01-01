@@ -207,6 +207,7 @@ impl ViewVisibility {
         self.0 & 1 != 0
     }
 
+    /// Returns `true` if this entity was visible in the previous frame but is now hidden.
     #[inline]
     fn was_visible_now_hidden(self) -> bool {
         // The first bit is false (current), and the second bit is true (previous).
