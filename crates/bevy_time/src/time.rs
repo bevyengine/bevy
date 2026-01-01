@@ -155,7 +155,7 @@ use {
 ///
 /// You can also replace the "generic" `Time` clock resource if the "default"
 /// time for your game should not be the default virtual time provided. You can
-/// get a "generic" snapshot of your clock by calling `as_generic()` and then
+/// get a "generic" snapshot of your clock by calling `as_other()` and then
 /// overwrite the [`Time`] resource with it. The default systems added by
 /// [`TimePlugin`](crate::TimePlugin) will overwrite the [`Time`] clock during
 /// [`First`](bevy_app::First) and [`FixedUpdate`](bevy_app::FixedUpdate)
