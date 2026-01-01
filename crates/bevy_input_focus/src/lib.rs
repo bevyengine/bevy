@@ -22,11 +22,8 @@ extern crate std;
 
 extern crate alloc;
 
-mod navigator;
-pub use navigator::*;
-#[cfg(feature = "auto_nav")]
-pub mod auto_directional_navigation;
 pub mod directional_navigation;
+pub mod navigator;
 pub mod tab_navigation;
 
 // This module is too small / specific to be exported by the crate,

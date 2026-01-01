@@ -1,16 +1,16 @@
 //! An optional but recommended automatic directional navigation system, powered by
 //! the [`AutoDirectionalNavigation`] component.
-//! Prerequisites: Must have the `auto_nav` feature enabled.
 
-use alloc::vec::Vec;
+use crate::{ComputedNode, ComputedUiTargetCamera, UiGlobalTransform};
 use bevy_camera::visibility::InheritedVisibility;
 use bevy_ecs::{prelude::*, system::SystemParam};
 use bevy_math::CompassOctant;
-use bevy_ui::{ComputedNode, ComputedUiTargetCamera, UiGlobalTransform};
 
-use crate::navigator::{find_best_candidate, FocusableArea, NavigatorConfig};
+use bevy_input_focus::{
+    directional_navigation::{DirectionalNavigation, DirectionalNavigationError},
+    navigator::*,
+};
 
-#[cfg(feature = "bevy_reflect")]
 use bevy_reflect::{prelude::*, Reflect};
 
 /// Marker component to enable automatic directional navigation to and from the entity.
@@ -20,7 +20,7 @@ use bevy_reflect::{prelude::*, Reflect};
 ///
 /// ```rust
 /// # use bevy_ecs::prelude::*;
-/// # use bevy_input_focus::auto_directional_navigation::AutoDirectionalNavigation;
+/// # use bevy_ui::directional_navigation::AutoDirectionalNavigation;
 /// fn spawn_auto_nav_button(mut commands: Commands) {
 ///     commands.spawn((
 ///         // ... Button, Node, etc. ...
@@ -39,7 +39,7 @@ use bevy_reflect::{prelude::*, Reflect};
 /// **Workarounds** for multi-layer UIs:
 ///
 /// 1. **Per-layer manual edge generation**: Query entities by layer and call
-///    [`auto_generate_navigation_edges()`](crate::directional_navigation::auto_generate_navigation_edges)
+///    [`auto_generate_navigation_edges()`](bevy_input_focus::directional_navigation::auto_generate_navigation_edges)
 ///    separately for each layer:
 ///    ```rust,ignore
 ///    for layer in &layers {
@@ -49,11 +49,11 @@ use bevy_reflect::{prelude::*, Reflect};
 ///    ```
 ///
 /// 2. **Manual cross-layer navigation**: Use
-///    [`DirectionalNavigationMap::add_edge()`](crate::directional_navigation::DirectionalNavigationMap::add_edge)
+///    [`DirectionalNavigationMap::add_edge()`](bevy_input_focus::directional_navigation::DirectionalNavigationMap::add_edge)
 ///    to define explicit connections between layers (e.g., "Back" button to main menu).
 ///
 /// 3. **Remove component when layer is hidden**: Dynamically add/remove
-///    `AutoDirectionalNavigation` based on which layers are currently active.
+///    [`AutoDirectionalNavigation`] based on which layers are currently active.
 ///
 /// See issue [#21679](https://github.com/bevyengine/bevy/issues/21679) for planned
 /// improvements to layer-aware automatic navigation.
@@ -62,15 +62,15 @@ use bevy_reflect::{prelude::*, Reflect};
 ///
 /// To disable automatic navigation for specific entities:
 ///
-/// - **Remove the component**: Simply don't add `AutoDirectionalNavigation` to entities
+/// - **Remove the component**: Simply don't add [`AutoDirectionalNavigation`] to entities
 ///   that should only use manual navigation edges.
 /// - **Dynamically toggle**: Remove/insert the component at runtime to enable/disable
 ///   automatic navigation as needed.
 ///
-/// Manual edges defined via [`DirectionalNavigationMap`](crate::directional_navigation::DirectionalNavigationMap)
+/// Manual edges defined via [`DirectionalNavigationMap`](bevy_input_focus::directional_navigation::DirectionalNavigationMap)
 /// are completely independent and will continue to work regardless of this component.
 ///
-/// # Requirements for `bevy_ui`
+/// # Additional Requirements
 ///
 /// Entities must also have:
 /// - [`ComputedNode`] - for size information
@@ -81,24 +81,26 @@ use bevy_reflect::{prelude::*, Reflect};
 /// # Custom UI Systems
 ///
 /// For custom UI frameworks, you can call
-/// [`auto_generate_navigation_edges`](crate::directional_navigation::auto_generate_navigation_edges)
+/// [`auto_generate_navigation_edges`](bevy_input_focus::directional_navigation::auto_generate_navigation_edges)
 /// directly in your own system instead of using this component.
-#[derive(Component, Default, Debug, Clone, Copy, PartialEq)]
-#[cfg_attr(
-    feature = "bevy_reflect",
-    derive(Reflect),
-    reflect(Component, Default, Debug, PartialEq, Clone)
-)]
+#[derive(Component, Default, Debug, Clone, Copy, PartialEq, Reflect)]
+#[reflect(Component, Default, Debug, PartialEq, Clone)]
 pub struct AutoDirectionalNavigation {
     /// Whether to also consider `TabIndex` for navigation order hints.
     /// Currently unused but reserved for future functionality.
     pub respect_tab_order: bool,
 }
 
-/// A system parameter for auto navigating between focusable entities in a directional way.
+/// A system parameter for combining manual and auto navigation between focusable entities in a directional way.
+/// This wraps the [`DirectionalNavigation`] system parameter provided by `bevy_input_focus` and 
+/// augments it with auto directional navigation.
+/// To use, the [`DirectionalNavigationPlugin`](bevy_input_focus::directional_navigation::DirectionalNavigationPlugin)
+/// must be added to the app.
 #[derive(SystemParam, Debug)]
-pub(crate) struct AutoDirectionalNavigator<'w, 's> {
-    /// Configuration for the automatic navigation system
+pub struct AutoDirectionalNavigator<'w, 's> {
+    /// A system parameter for the manual directional navigation system provided by `bevy_input_focus`
+    pub manual_directional_navigation: DirectionalNavigation<'w>,
+    /// Configuration for the automated portion of the navigation algorithm.
     pub config: Res<'w, NavigatorConfig>,
     /// The entities which can possibly be navigated to automatically.
     navigable_entities_query: Query<
@@ -132,22 +134,34 @@ impl<'w, 's> AutoDirectionalNavigator<'w, 's> {
     ///
     /// Returns a neighbor if successful.
     /// Returns None if there is no neighbor in the requested direction.
-    pub fn get_neighbor(
+    pub fn navigate(
         &mut self,
-        from_entity: Entity,
         direction: CompassOctant,
-    ) -> Option<Entity> {
-        if let Some((target_camera, origin)) = self.entity_to_camera_and_focusable_area(from_entity)
-            && let Some(new_focus) = find_best_candidate(
-                &origin,
-                direction,
-                &self.get_navigable_nodes(target_camera),
-                &self.config,
-            )
-        {
-            Some(new_focus)
+    ) -> Result<Entity, DirectionalNavigationError> {
+        if let Some(current_focus) = self.manual_directional_navigation.focus.0 {
+            // Respect manual edges first
+            if let Ok(new_focus) = self.manual_directional_navigation.navigate(direction) {
+                self.manual_directional_navigation.focus.set(new_focus);
+                Ok(new_focus)
+            } else if let Some((target_camera, origin)) =
+                self.entity_to_camera_and_focusable_area(current_focus)
+                && let Some(new_focus) = find_best_candidate(
+                    &origin,
+                    direction,
+                    &self.get_navigable_nodes(target_camera),
+                    &self.config,
+                )
+            {
+                self.manual_directional_navigation.focus.set(new_focus);
+                Ok(new_focus)
+            } else {
+                Err(DirectionalNavigationError::NoNeighborInDirection {
+                    current_focus,
+                    direction,
+                })
+            }
         } else {
-            None
+            Err(DirectionalNavigationError::NoFocus)
         }
     }
 

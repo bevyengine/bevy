@@ -1,5 +1,4 @@
 //! Demonstrates automatic directional navigation with zero configuration.
-//! You must have the `auto_nav` feature enabled
 //!
 //! Unlike the manual `directional_navigation` example, this shows how to use automatic
 //! navigation by simply adding the `AutoDirectionalNavigation` component to UI elements.
@@ -18,9 +17,8 @@ use core::time::Duration;
 use bevy::{
     camera::NormalizedRenderTarget,
     input_focus::{
-        auto_directional_navigation::AutoDirectionalNavigation,
-        directional_navigation::{DirectionalNavigation, DirectionalNavigationPlugin},
-        InputDispatchPlugin, InputFocus, InputFocusVisible, NavigatorConfig,
+        directional_navigation::DirectionalNavigationPlugin,
+        InputDispatchPlugin, InputFocus, InputFocusVisible, navigator::NavigatorConfig,
     },
     math::{CompassOctant, Dir2},
     picking::{
@@ -29,6 +27,7 @@ use bevy::{
     },
     platform::collections::HashSet,
     prelude::*,
+    ui::directional_navigation::{AutoDirectionalNavigation, AutoDirectionalNavigator},
 };
 
 fn main() {
@@ -323,7 +322,7 @@ fn process_inputs(
     }
 }
 
-fn navigate(action_state: Res<ActionState>, mut directional_navigation: DirectionalNavigation) {
+fn navigate(action_state: Res<ActionState>, mut auto_directional_navigator: AutoDirectionalNavigator) {
     let net_east_west = action_state
         .pressed_actions
         .contains(&DirectionalNavigationAction::Right) as i8
@@ -344,7 +343,7 @@ fn navigate(action_state: Res<ActionState>, mut directional_navigation: Directio
         .map(CompassOctant::from);
 
     if let Some(direction) = maybe_direction {
-        match directional_navigation.navigate(direction) {
+        match auto_directional_navigator.navigate(direction) {
             Ok(_entity) => {
                 // Successfully navigated
             }

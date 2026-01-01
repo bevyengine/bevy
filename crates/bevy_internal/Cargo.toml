@@ -432,8 +432,6 @@ keyboard = ["bevy_input/keyboard", "bevy_input_focus?/keyboard"]
 gamepad = ["bevy_input/gamepad", "bevy_input_focus?/gamepad"]
 touch = ["bevy_input/touch"]
 gestures = ["bevy_input/gestures"]
-# Enables automatic navigation 
-auto_nav = ["bevy_input_focus?/auto_nav"]
 
 hotpatching = ["bevy_app/hotpatching", "bevy_ecs/hotpatching"]
 

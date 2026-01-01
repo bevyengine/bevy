@@ -21,10 +21,8 @@
 //!
 //! ## Automatic Navigation (Recommended)
 //!
-//! The easiest way to set up navigation is to add the
-//! [`AutoDirectionalNavigation`](crate::auto_directional_navigation::AutoDirectionalNavigation) component
-//! to your UI entities. You must have the `auto_nav` feature enabled to leverage this navigation.
-//! For proper usage, refer to [`AutoDirectionalNavigation`](crate::auto_directional_navigation::AutoDirectionalNavigation)
+//! The easiest way to set up navigation is to add the [`AutoDirectionalNavigation`] component to your UI entities.
+//! This component is available in the `bevy_ui` crate.
 //!
 //! ## Manual Navigation
 //!
@@ -46,6 +44,10 @@
 //! - **Cross-layer navigation**: Connect elements across different UI layers or z-index levels
 //! - **Custom behavior**: Implement domain-specific navigation patterns (e.g., spreadsheet-style wrapping)
 
+use crate::{
+    navigator::{find_best_candidate, FocusableArea, NavigatorConfig},
+    InputFocus,
+};
 use bevy_app::prelude::*;
 use bevy_ecs::{
     entity::{EntityHashMap, EntityHashSet},
@@ -53,22 +55,7 @@ use bevy_ecs::{
     system::SystemParam,
 };
 use bevy_math::{CompassOctant, Vec2};
-#[cfg_attr(
-    feature = "auto_nav",
-    expect(
-        unused_imports,
-        reason = "PhantomData is not used if auto_nav is enabled"
-    )
-)]
-use core::marker::PhantomData;
 use thiserror::Error;
-
-#[cfg(feature = "auto_nav")]
-use crate::auto_directional_navigation::AutoDirectionalNavigator;
-use crate::{
-    navigator::{find_best_candidate, FocusableArea, NavigatorConfig},
-    InputFocus,
-};
 
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::{prelude::*, Reflect};
@@ -253,19 +240,14 @@ impl DirectionalNavigationMap {
 
 /// A system parameter for navigating between focusable entities in a directional way.
 #[derive(SystemParam, Debug)]
-pub struct DirectionalNavigation<'w, 's> {
+pub struct DirectionalNavigation<'w> {
     /// The currently focused entity.
     pub focus: ResMut<'w, InputFocus>,
     /// The directional navigation map containing manually defined connections between entities.
     pub map: Res<'w, DirectionalNavigationMap>,
-    #[cfg(feature = "auto_nav")]
-    /// The system param that holds our automatic navigation system logic.
-    pub(crate) auto_directional_navigator: AutoDirectionalNavigator<'w, 's>,
-    #[cfg(not(feature = "auto_nav"))]
-    marker: PhantomData<&'s ()>,
 }
 
-impl<'w, 's> DirectionalNavigation<'w, 's> {
+impl<'w> DirectionalNavigation<'w> {
     /// Navigates to the neighbor in a given direction from the current focus, if any.
     ///
     /// Returns the new focus if successful.
@@ -280,26 +262,16 @@ impl<'w, 's> DirectionalNavigation<'w, 's> {
             // Respect manual edges first
             if let Some(new_focus) = self.map.get_neighbor(current_focus, direction) {
                 self.focus.set(new_focus);
-                return Ok(new_focus);
+                Ok(new_focus)
+            } else {
+                Err(DirectionalNavigationError::NoNeighborInDirection {
+                    current_focus,
+                    direction,
+                })
             }
-
-            #[cfg(feature = "auto_nav")]
-            // If automatic navigation is enabled, try to get the result there as well.
-            if let Some(new_focus) = self
-                .auto_directional_navigator
-                .get_neighbor(current_focus, direction)
-            {
-                self.focus.set(new_focus);
-                return Ok(new_focus);
-            }
-
-            return Err(DirectionalNavigationError::NoNeighborInDirection {
-                current_focus,
-                direction,
-            });
+        } else {
+            Err(DirectionalNavigationError::NoFocus)
         }
-
-        Err(DirectionalNavigationError::NoFocus)
     }
 }
 

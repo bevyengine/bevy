@@ -1,4 +1,4 @@
-//! Common structs and functions used in both automatic navigators and manual navigators.
+//! Common structs and functions that can be used to create navigation systems.
 
 use bevy_ecs::prelude::*;
 use bevy_math::{CompassOctant, Dir2, Rect, Vec2};
@@ -235,7 +235,7 @@ fn score_candidate(
 /// Finds the best entity to navigate to from the origin towards the given direction.
 ///
 /// For details on what "best" means here, refer to [`NavigatorConfig`].
-pub(crate) fn find_best_candidate(
+pub fn find_best_candidate(
     origin: &FocusableArea,
     direction: CompassOctant,
     candidates: &[FocusableArea],
