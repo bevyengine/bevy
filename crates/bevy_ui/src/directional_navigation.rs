@@ -1,5 +1,7 @@
-//! An optional but recommended automatic directional navigation system, powered by
-//! the [`AutoDirectionalNavigation`] component.
+//! An automatic directional navigation system, powered by the [`AutoDirectionalNavigation`] component.
+//!
+//! [`AutoDirectionalNavigator`] expands on the manual directional navigation system
+//! provided by the [`DirectionalNavigation`] system parameter from `bevy_input_focus`.
 
 use crate::{ComputedNode, ComputedUiTargetCamera, UiGlobalTransform};
 use bevy_camera::visibility::InheritedVisibility;
