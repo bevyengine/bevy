@@ -21,9 +21,9 @@
 //!
 //! ## Automatic Navigation (Recommended)
 //!
-//! The easiest way to set up navigation is to add the [`AutoDirectionalNavigation`] component
+//! The easiest way to set up navigation is to add the `AutoDirectionalNavigation` component
 //! to your UI entities. This component is available in the `bevy_ui` crate. If you choose to
-//! include automatic navigation, you should also use the [`AutoDirectionalNavigator`] system parameter
+//! include automatic navigation, you should also use the `AutoDirectionalNavigator` system parameter
 //! in that crate instead of [`DirectionalNavigation`].
 //!
 //! ## Manual Navigation
@@ -317,7 +317,7 @@ pub trait Navigable {
 /// # Example
 ///
 /// ```rust
-/// # use bevy_input_focus::{directional_navigation::*, FocusableArea, NavigatorConfig};
+/// # use bevy_input_focus::{directional_navigation::*, navigator::{FocusableArea, NavigatorConfig}};
 /// # use bevy_ecs::entity::Entity;
 /// # use bevy_math::Vec2;
 /// let mut nav_map = DirectionalNavigationMap::default();

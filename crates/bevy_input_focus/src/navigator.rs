@@ -82,7 +82,7 @@ impl Default for NavigatorConfig {
 /// This struct represents a UI element used during directional navigation,
 /// containing its entity ID, center position, and size for spatial navigation calculations.
 ///
-/// The term "focusable area" avoids confusion with UI [`Node`](bevy_ui::Node) components.
+/// The term "focusable area" avoids confusion with UI `Node` components in `bevy_ui`.
 #[derive(Debug, Clone, Copy, PartialEq)]
 #[cfg_attr(
     feature = "bevy_reflect",
