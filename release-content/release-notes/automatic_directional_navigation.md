@@ -1,7 +1,7 @@
 ---
 title: Automatic Directional Navigation
 authors: ["@jbuehler23"]
-pull_requests: [21668]
+pull_requests: [21668, 22340]
 ---
 
 Bevy now supports **automatic directional navigation graph generation** for UI elements! No more tedious manual wiring of navigation connections for your menus and UI screens.
@@ -29,7 +29,9 @@ commands.spawn((
 ));
 ```
 
-That's it! The `DirectionalNavigationPlugin` includes a system that automatically maintains the navigation graph as your UI changes.
+To leverage automatic navigation, use the `AutoDirectionalNavigator` system parameter instead of the `DirectionalNavigation` system parameter.
+
+That's it! The `DirectionalNavigationPlugin` will set up the resources that `AutoDirectionalNavigator` uses to function.
 
 ### Configuration
 
@@ -77,6 +79,15 @@ directional_nav_map.add_edges(&column_entities, CompassOctant::South);
 // ... repeat for all rows and columns
 ```
 
+```rust
+// Use the DirectionalNavigation SystemParam to navigate in your system
+fn navigation_system(mut directional_navigation: DirectionalNavigation) {
+    // ...
+    directional_navigation.navigate(CompassOctant::East);
+    // ...
+}
+```
+
 **After:**
 
 ```rust
@@ -86,6 +97,15 @@ commands.spawn((
     Node { /* ... */ },
     AutoDirectionalNavigation::default(),
 ));
+```
+
+```rust
+// Use the AutoDirectionalNavigator SystemParam to navigate
+fn navigation_system(mut auto_directional_navigator: AutoDirectionalNavigator) {
+    // ...
+    auto_directional_navigator.navigate(CompassOctant::East);
+    // ...
+}
 ```
 
 Note: The automatic navigation system requires entities to have position and size information (`ComputedNode` and `UiGlobalTransform` for `bevy_ui` entities).
