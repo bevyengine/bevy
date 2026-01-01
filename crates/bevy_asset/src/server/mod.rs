@@ -1477,6 +1477,11 @@ impl AssetServer {
                                 path: asset_path.clone_owned(),
                             })
                         }
+                        AssetActionMinimal::Decomposed => {
+                            return Err(AssetLoadError::CannotLoadDecomposedAsset {
+                                path: asset_path.clone_owned(),
+                            })
+                        }
                         AssetActionMinimal::Ignore => {
                             return Err(AssetLoadError::CannotLoadIgnoredAsset {
                                 path: asset_path.clone_owned(),
@@ -2083,6 +2088,9 @@ pub enum AssetLoadError {
     #[error("Asset '{path}' is configured to be processed. It cannot be loaded directly.")]
     #[from(ignore)]
     CannotLoadProcessedAsset { path: AssetPath<'static> },
+    #[error("Asset '{path}' is the root of an asset that has been decomposed through processing. It cannot be loaded directly.")]
+    #[from(ignore)]
+    CannotLoadDecomposedAsset { path: AssetPath<'static> },
     #[error("Asset '{path}' is configured to be ignored. It cannot be loaded.")]
     #[from(ignore)]
     CannotLoadIgnoredAsset { path: AssetPath<'static> },
