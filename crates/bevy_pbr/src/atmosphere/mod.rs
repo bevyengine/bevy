@@ -105,6 +105,8 @@ fn init_default_cloud_layer(mut commands: bevy_ecs::system::Commands) {
         cloud_scattering: 0.0,
         noise_scale: 1.0,
         noise_offset: Vec3::ZERO,
+        detail_noise_scale: 1.0,
+        detail_strength: 0.0,
     });
 }
 
@@ -162,11 +164,11 @@ impl Plugin for AtmospherePlugin {
         }
 
         if !render_adapter
-            .get_texture_format_features(TextureFormat::Rgba16Float)
+            .get_texture_format_features(TextureFormat::R16Float)
             .allowed_usages
             .contains(TextureUsages::STORAGE_BINDING)
         {
-            warn!("AtmospherePlugin not loaded. GPU lacks support: TextureFormat::Rgba16Float does not support TextureUsages::STORAGE_BINDING.");
+            warn!("AtmospherePlugin not loaded. GPU lacks support: TextureFormat::R16Float does not support TextureUsages::STORAGE_BINDING.");
             return;
         }
 
@@ -524,6 +526,14 @@ pub struct CloudLayer {
 
     /// Offset for animating the noise texture
     pub noise_offset: Vec3,
+
+    /// Scale of the detail noise in world space (smaller = higher frequency detail).
+    /// units: m
+    pub detail_noise_scale: f32,
+
+    /// Strength of the detail noise modulation in [0,1].
+    /// 0 = disabled, 1 = full modulation.
+    pub detail_strength: f32,
 }
 
 impl Default for CloudLayer {
@@ -531,11 +541,13 @@ impl Default for CloudLayer {
         Self {
             cloud_layer_start: 6_361_000.0, // 1km above Earth's surface
             cloud_layer_end: 6_365_000.0,   // 5km above Earth's surface
-            cloud_density: 0.3,
-            cloud_absorption: 0.5,
-            cloud_scattering: 1.0,
-            noise_scale: 10000.0,
+            cloud_density: 1.0,
+            cloud_absorption: 0.00005, // Physically correct: ~0.00005 m^-1 per unit density
+            cloud_scattering: 0.0008, // Physically correct: ~0.0008 m^-1 per unit density
+            noise_scale: 20000.0,
             noise_offset: Vec3::ZERO,
+            detail_noise_scale: 4000.0,
+            detail_strength: 0.35,
         }
     }
 }

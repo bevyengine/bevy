@@ -34,7 +34,7 @@ struct GameState {
 
 fn main() {
     App::new()
-        .insert_resource(DefaultOpaqueRendererMethod::deferred())
+        // .insert_resource(DefaultOpaqueRendererMethod::deferred())
         .insert_resource(ClearColor(Color::BLACK))
         .insert_resource(GameState::default())
         .insert_resource(GlobalAmbientLight::NONE)
@@ -141,11 +141,16 @@ fn atmosphere_controls(
 }
 
 fn setup_camera_fog(mut commands: Commands, earth_atmosphere: Res<EarthlikeAtmosphere>) {
+
+    let mut earth = earth_atmosphere.get();
+    // experiment: decrease the top radius to bring the end of the ray termination closer
+    // earth.top_radius = earth.bottom_radius + 10000.0;
+
     commands.spawn((
         Camera3d::default(),
         Transform::from_xyz(-2.4, 0.04, 0.0).looking_at(Vec3::Y * 0.1, Vec3::Y),
         // get the default `Atmosphere` component
-        earth_atmosphere.get(),
+        earth,
         // Can be adjusted to change the scene scale and rendering quality
         AtmosphereSettings {
             rendering_method: AtmosphereMode::Raymarched,
@@ -163,12 +168,14 @@ fn setup_camera_fog(mut commands: Commands, earth_atmosphere: Res<EarthlikeAtmos
         //   Single-scattering albedo ≈ 0.94 (typical water clouds have albedo 0.95-0.99)
         CloudLayer {
             cloud_layer_start: 6_361_000.0, // 1km above Earth's surface
-            cloud_layer_end: 6_368_000.0,   // 7km above Earth's surface (7km thick layer)
+            cloud_layer_end: 6_369_000.0,   // 8km above Earth's surface (7km thick layer)
             cloud_density: 1.0, // Used for enabling/disabling, actual density comes from noise (normalized [0, 1])
             cloud_absorption: 0.00005, // Physically correct: ~0.00005 m^-1 per unit density
             cloud_scattering: 0.0008, // Physically correct: ~0.0008 m^-1 per unit density
-            noise_scale: 40_000.0, // Larger scale = larger cloud features
+            noise_scale: 8_000.0, // Larger scale = larger cloud features
             noise_offset: Vec3::ZERO,
+            detail_noise_scale: 2_000.0, // Smaller scale = higher-frequency breakup
+            detail_strength: 0.35,
         },
         // The directional light illuminance used in this scene
         // (the one recommended for use with this feature) is
@@ -188,9 +195,9 @@ fn setup_camera_fog(mut commands: Commands, earth_atmosphere: Res<EarthlikeAtmos
             ambient_intensity: 0.0,
             ..default()
         },
-        Msaa::Off,
-        Fxaa::default(),
-        ScreenSpaceReflections::default(),
+        // Msaa::Off,
+        // Fxaa::default(),
+        // ScreenSpaceReflections::default(),
     ));
 }
 
@@ -262,11 +269,11 @@ fn setup_terrain_scene(
         cascade_shadow_config,
     ));
 
-    // spawn the fog volume
-    commands.spawn((
-        FogVolume::default(),
-        Transform::from_scale(Vec3::new(10.0, 1.0, 10.0)).with_translation(Vec3::Y * 0.5),
-    ));
+    // // spawn the fog volume
+    // commands.spawn((
+    //     FogVolume::default(),
+    //     Transform::from_scale(Vec3::new(10.0, 1.0, 10.0)).with_translation(Vec3::Y * 0.5),
+    // ));
 
     let sphere_mesh = meshes.add(Mesh::from(Sphere { radius: 1.0 }));
 

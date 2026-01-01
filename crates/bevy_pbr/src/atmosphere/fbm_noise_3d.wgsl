@@ -1,12 +1,12 @@
-// 3D FBM (Fractional Brownian Motion) Noise Generator
-// Generates a 3D noise texture for atmospheric effects
+// 2D FBM (Fractional Brownian Motion) Noise Generator
+// Generates a 2D noise texture for cloud coverage
 
 #import bevy_pbr::atmosphere::{
     types::AtmosphereSettings,
     bindings::settings,
 }
 
-@group(0) @binding(13) var noise_texture_out: texture_storage_3d<rgba16float, write>;
+@group(0) @binding(13) var noise_texture_out: texture_storage_2d<r16float, write>;
 
 // Parameters for FBM noise generation
 struct FbmParams {
@@ -20,118 +20,60 @@ struct FbmParams {
 @group(0) @binding(14) var<uniform> fbm_params: FbmParams;
 
 @compute
-@workgroup_size(4, 4, 4)
-fn main(@builtin(global_invocation_id) idx: vec3<u32>) {
+@workgroup_size(8, 8, 1)
+fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     let texture_size = textureDimensions(noise_texture_out);
     
-    if (idx.x >= texture_size.x || idx.y >= texture_size.y || idx.z >= texture_size.z) {
+    if (gid.x >= texture_size.x || gid.y >= texture_size.y) {
         return;
     }
     
     // Normalized coordinates [0, 1]
-    let uvw = (vec3<f32>(idx) + 0.5) / vec3<f32>(texture_size);
+    let uv = (vec2<f32>(gid.xy) + 0.5) / vec2<f32>(texture_size);
     
     // Generate FBM noise
-    let noise_value = fbm_3d(uvw * fbm_params.frequency);
+    let noise_value = fbm_2d(uv * fbm_params.frequency);
     
-    // Store the noise value in all channels (can be used for different purposes)
-    textureStore(noise_texture_out, idx, vec4(noise_value, noise_value, noise_value, 1.0));
+    // Store the noise value in the R channel.
+    // (For single-channel storage textures, only `.x` is written/used.)
+    textureStore(noise_texture_out, vec2<i32>(gid.xy), vec4(noise_value, 0.0, 0.0, 1.0));
 }
 
-// 3D FBM noise function
-fn fbm_3d(p: vec3<f32>) -> f32 {
+// 2D FBM noise function
+fn fbm_2d(p: vec2<f32>) -> f32 {
     var value = 0.0;
     var amplitude = fbm_params.amplitude;
     var frequency = 1.0;
     var position = p;
     
     for (var i = 0u; i < fbm_params.octaves; i++) {
-        value += amplitude * perlin_noise_3d(position * frequency);
+        value += amplitude * value_noise_2d(position * frequency);
         frequency *= fbm_params.lacunarity;
         amplitude *= fbm_params.persistence;
     }
     
-    // Normalize to [0, 1] range
-    return value * 0.5 + 0.5;
+    // Normalize to [0, 1] range.
+    // Note: the underlying noise sum can overshoot slightly; clamp to keep downstream
+    // shaping (pow/smoothstep) well-defined.
+    return clamp(value * 0.5 + 0.5, 0.0, 1.0);
 }
 
-// 3D Perlin noise implementation
-fn perlin_noise_3d(p: vec3<f32>) -> f32 {
-    let pi = floor(p);
-    let pf = fract(p);
-    
-    // Fade curve
-    let u = fade(pf);
-    
-    // Hash coordinates of the 8 cube corners
-    let h000 = hash_3d(pi + vec3(0.0, 0.0, 0.0));
-    let h100 = hash_3d(pi + vec3(1.0, 0.0, 0.0));
-    let h010 = hash_3d(pi + vec3(0.0, 1.0, 0.0));
-    let h110 = hash_3d(pi + vec3(1.0, 1.0, 0.0));
-    let h001 = hash_3d(pi + vec3(0.0, 0.0, 1.0));
-    let h101 = hash_3d(pi + vec3(1.0, 0.0, 1.0));
-    let h011 = hash_3d(pi + vec3(0.0, 1.0, 1.0));
-    let h111 = hash_3d(pi + vec3(1.0, 1.0, 1.0));
-    
-    // Gradients
-    let g000 = gradient_3d(h000, pf - vec3(0.0, 0.0, 0.0));
-    let g100 = gradient_3d(h100, pf - vec3(1.0, 0.0, 0.0));
-    let g010 = gradient_3d(h010, pf - vec3(0.0, 1.0, 0.0));
-    let g110 = gradient_3d(h110, pf - vec3(1.0, 1.0, 0.0));
-    let g001 = gradient_3d(h001, pf - vec3(0.0, 0.0, 1.0));
-    let g101 = gradient_3d(h101, pf - vec3(1.0, 0.0, 1.0));
-    let g011 = gradient_3d(h011, pf - vec3(0.0, 1.0, 1.0));
-    let g111 = gradient_3d(h111, pf - vec3(1.0, 1.0, 1.0));
-    
-    // Trilinear interpolation
-    let x00 = mix(g000, g100, u.x);
-    let x10 = mix(g010, g110, u.x);
-    let x01 = mix(g001, g101, u.x);
-    let x11 = mix(g011, g111, u.x);
-    
-    let y0 = mix(x00, x10, u.y);
-    let y1 = mix(x01, x11, u.y);
-    
-    return mix(y0, y1, u.z);
+fn value_noise_2d(p: vec2<f32>) -> f32 {
+    let i = floor(p);
+    let f = fract(p);
+    let u = f * f * (3.0 - 2.0 * f);
+
+    let a = hash_2d(i + vec2(0.0, 0.0));
+    let b = hash_2d(i + vec2(1.0, 0.0));
+    let c = hash_2d(i + vec2(0.0, 1.0));
+    let d = hash_2d(i + vec2(1.0, 1.0));
+
+    return mix(mix(a, b, u.x), mix(c, d, u.x), u.y) * 2.0 - 1.0;
 }
 
-// Fade function for smooth interpolation
-fn fade(t: vec3<f32>) -> vec3<f32> {
-    return t * t * t * (t * (t * 6.0 - 15.0) + 10.0);
-}
-
-// Hash function for generating pseudo-random values
-fn hash_3d(p: vec3<f32>) -> f32 {
-    let p3 = fract(p * 0.1031);
-    var p_sum = p3.x + p3.y + p3.z;
-    p_sum = p3.x * p3.y * p3.z + p_sum;
-    return fract(sin(p_sum) * 43758.5453123);
-}
-
-// Gradient function for Perlin noise
-fn gradient_3d(hash: f32, p: vec3<f32>) -> f32 {
-    // Convert hash to gradient direction
-    let h = u32(hash * 16.0);
-    let u = select(p.y, p.x, (h & 8u) == 0u);
-    
-    var v: f32;
-    if ((h & 8u) == 0u) {
-        if ((h & 4u) == 0u) {
-            v = p.y;
-        } else {
-            v = p.z;
-        }
-    } else {
-        if ((h & 4u) == 0u) {
-            v = p.x;
-        } else {
-            v = p.z;
-        }
-    }
-    
-    let u_sign = select(-u, u, (h & 1u) == 0u);
-    let v_sign = select(-v, v, (h & 2u) == 0u);
-    
-    return u_sign + v_sign;
+fn hash_2d(p: vec2<f32>) -> f32 {
+    let p3 = fract(vec3(p.x, p.y, p.x) * 0.1031);
+    let s = dot(p3, p3.yzx + 33.33);
+    return fract((p3.x + p3.y) * (p3.z + s));
 }
 

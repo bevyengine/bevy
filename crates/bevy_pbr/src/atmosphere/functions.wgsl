@@ -18,7 +18,11 @@
 
 #ifdef CLOUDS_ENABLED
 #import bevy_pbr::atmosphere::clouds::{
-    get_cloud_density,
+    get_cloud_coverage,
+    get_cloud_medium_density,
+    sample_cloud_field_density_and_grad,
+    cloud_layer_segment,
+    get_cloud_absorption_coeff,
     get_cloud_scattering_coeff,
     sample_cloud_contribution,
     compute_cloud_shadow,
@@ -52,6 +56,18 @@ const FRAC_4_PI: f32 = 0.07957747154594767; // 1 / (4π)
 const ROOT_2: f32 = 1.41421356; // √2
 const EPSILON: f32 = 1.0; // 1 meter
 const MIN_EXTINCTION: vec3<f32> = vec3(1e-12);
+
+// Henyey-Greenstein phase function (normalized by 1/(4π)).
+fn hg_phase(cos_theta: f32, g: f32) -> f32 {
+    let gg = g * g;
+    // p(θ) = (1/4π) * (1 - g²) / (1 + g² - 2g*cos(θ))^(3/2)
+    return FRAC_4_PI * (1.0 - gg) / pow(max(1.0 + gg - 2.0 * g * cos_theta, 1e-6), 1.5);
+}
+
+// Dual-lobe HG phase (Frostbite-style): blend a forward and backward lobe.
+fn dual_lobe_hg_phase(cos_theta: f32, g_fwd: f32, g_bwd: f32, lobe_lerp: f32) -> f32 {
+    return mix(hg_phase(cos_theta, g_fwd), hg_phase(cos_theta, g_bwd), lobe_lerp);
+}
 
 // During raymarching, each segment is sampled at a single point. This constant determines
 // where in the segment that sample is taken (0.0 = start, 0.5 = middle, 1.0 = end).
@@ -219,8 +235,9 @@ fn sample_local_inscattering(local_scattering: vec3<f32>, ray_dir: vec3<f32>, wo
     var inscattering = vec3(0.0);
     
     #ifdef CLOUDS_ENABLED
-    // Sample cloud density at this point
-    let cloud_density = get_cloud_density(local_r, world_pos);
+    // Sample cloud *medium density* at this point (includes `cloud_layer.cloud_density`)
+    // so clouds respond consistently across scattering vs shadowing.
+    let cloud_density = get_cloud_medium_density(local_r, world_pos);
     #endif
     
     for (var light_i: u32 = 0u; light_i < lights.n_directional_lights; light_i++) {
@@ -228,8 +245,15 @@ fn sample_local_inscattering(local_scattering: vec3<f32>, ray_dir: vec3<f32>, wo
 
         let mu_light = dot((*light).direction_to_light, local_up);
 
-        // -(L . V) == (L . -V). -V here is our ray direction, which points away from the view
-        // instead of towards it (as is the convention for V)
+        // NOTE ON SIGN CONVENTIONS:
+        // `ray_dir` points *away* from the camera (camera -> sample).
+        // `direction_to_light` (L) points from the sample *towards the light* (sample -> sun).
+        //
+        // Many texts define phase in terms of propagation directions ωi (sun -> sample) and ωo (sample -> camera),
+        // in which case: ωi = -L and ωo = -ray_dir, so:
+        //   cos(theta) = dot(ωi, ωo) = dot(-L, -ray_dir) = dot(L, ray_dir)
+        //
+        // So for our phase functions, the correct cosine is simply dot(L, ray_dir).
         let neg_LdotV = dot((*light).direction_to_light, ray_dir);
 
         let transmittance_to_light = sample_transmittance_lut(local_r, mu_light);
@@ -241,6 +265,7 @@ fn sample_local_inscattering(local_scattering: vec3<f32>, ray_dir: vec3<f32>, wo
         // Clouds contribute to inscattering via Henyey-Greenstein phase function
         // Compute volumetric shadow from clouds (light transmittance through clouds)
         let cloud_shadow = compute_cloud_shadow(world_pos, (*light).direction_to_light, 8u, pixel_coords);
+        // temporarily disable cloud shadow to test the inscattering without the cloud shadow
         shadow_factor *= cloud_shadow;
         
         // Cloud scattering coefficient: σ_s_cloud = density * scattering_coeff
@@ -250,12 +275,17 @@ fn sample_local_inscattering(local_scattering: vec3<f32>, ray_dir: vec3<f32>, wo
         let cloud_scattering_coeff = cloud_density * get_cloud_scattering_coeff();
         
         // Henyey-Greenstein phase function for anisotropic cloud scattering
-        // g ≈ 0.7-0.9 for clouds (strong forward scattering)
-        let g = 0.85; // Typical asymmetry parameter for water droplets in clouds
-        let gg = g * g;
-        let mu = neg_LdotV; // cos(θ) where θ is angle between light and view
-        // Henyey-Greenstein: p(θ) = (1/4π) * (1 - g²) / (1 + g² - 2g*cos(θ))^(3/2)
-        let cloud_phase = FRAC_4_PI * (1.0 - gg) / pow(1.0 + gg - 2.0 * g * mu, 1.5);
+        // NUBIS/Frostbite-style: dual-lobe HG to better match real clouds.
+        //
+        // `neg_LdotV` here is dot(L, ray_dir); see sign convention note above.
+        let cos_theta = clamp(neg_LdotV, -1.0, 1.0);
+
+        // Forward lobe (strong forward scattering) and a weaker backward lobe.
+        // Matches the approach used in `bevy-volumetric-clouds` (Frostbite-inspired).
+        let g_fwd = 0.85;
+        let g_bwd = -0.2;
+        let lobe_lerp = 0.5;
+        let cloud_phase = dual_lobe_hg_phase(cos_theta, g_fwd, g_bwd, lobe_lerp);
         
         // Add cloud scattering contribution: σ_s_cloud * p(θ)
         scattering_coeff += cloud_scattering_coeff * cloud_phase;
@@ -496,10 +526,100 @@ fn raymarch_atmosphere(
         return result;
     }
 
-    var prev_t = t_start;
     var optical_depth = vec3(0.0);
+
+    // Convert the sample count into a hard budget.
+    let sample_budget = max(1u, u32(sample_count));
+
+    #ifdef CLOUDS_ENABLED
+    // NUBIS-like adaptive stepping:
+    // Allocate the fixed sample budget such that we take smaller steps inside the
+    // cloud layer shell, and larger steps outside it. Additionally, within the
+    // cloud layer we refine step size based on |∇density| to better capture sharp
+    // density transitions (cubed-style gradient guidance).
+    let seg = cloud_layer_segment(pos, ray_dir);
+    // Clamp to our current raymarch segment.
+    let cloud_start = clamp(seg.x, t_start, t_end);
+    let cloud_end = clamp(seg.y, t_start, t_end);
+    let has_cloud_layer = (seg.z > 0.5) && (cloud_end > cloud_start);
+
+    let base_dt = t_total / f32(sample_budget);
+    // Outside we allow larger steps; inside cloud layer we force smaller steps.
+    let outside_dt = base_dt * 3.0;
+    let inside_dt = base_dt * 0.75;
+    // Gradient scale factor (unit: meters) to turn |∇density| (1/m) into a dimensionless importance.
+    const GRAD_IMPORTANCE_M: f32 = 1500.0;
+
+    var t = t_start;
+    var steps_taken: u32 = 0u;
+    while (steps_taken < sample_budget && t < t_end) {
+        // Choose the region-based dt first.
+        var dt = outside_dt;
+        if (has_cloud_layer && t >= cloud_start && t < cloud_end) {
+            dt = inside_dt;
+        }
+
+        // Clamp dt to not step past the end.
+        dt = min(dt, t_end - t);
+
+        // Per-step jitter inside the segment to reduce banding / structured artifacts.
+        // We jitter around MIDPOINT_RATIO (stratified), and clamp away from endpoints.
+        let j = interleaved_gradient_noise(pixel_coords, 1u); // [0,1]
+        let sample_ratio = clamp(MIDPOINT_RATIO + (j - 0.5) * 0.8, 0.05, 0.95);
+        var sample_t = t + dt * sample_ratio;
+        var sample_pos = pos + ray_dir * sample_t;
+        var local_r = length(sample_pos);
+
+        // Gradient-guided refinement only inside the cloud layer shell.
+        if (has_cloud_layer && sample_t >= cloud_start && sample_t < cloud_end) {
+            let field = sample_cloud_field_density_and_grad(local_r, sample_pos);
+            let grad_mag = field.y;
+            // Higher gradient => smaller dt (more samples near sharp transitions).
+            // Use a smooth 1/(1+g) falloff (more stable than a linear scale).
+            let g = max(0.0, grad_mag * GRAD_IMPORTANCE_M);
+            let min_dt = base_dt * 0.05;
+            dt = max(min_dt, dt / (1.0 + g));
+            dt = min(dt, t_end - t);
+
+            // IMPORTANT: dt changed, so the segment sample position must be recomputed
+            // to keep the integrand evaluation consistent with the segment length.
+            sample_t = t + dt * sample_ratio;
+            sample_pos = pos + ray_dir * sample_t;
+            local_r = length(sample_pos);
+        }
+
+        // Compute media at the sample position.
+        let absorption = sample_density_lut(local_r, ABSORPTION_DENSITY);
+        let scattering = sample_density_lut(local_r, SCATTERING_DENSITY);
+        var extinction = absorption + scattering;
+
+        // Energy-preserving cloud extinction on the view ray.
+        let cloud_density = get_cloud_medium_density(local_r, sample_pos);
+        if (cloud_density > 0.0) {
+            let cloud_extinction = cloud_density * (get_cloud_scattering_coeff() + get_cloud_absorption_coeff());
+            extinction += vec3(cloud_extinction);
+        }
+
+        let sample_optical_depth = extinction * dt;
+        optical_depth += sample_optical_depth;
+        let sample_transmittance = exp(-sample_optical_depth);
+
+        let inscattering = sample_local_inscattering(scattering, ray_dir, sample_pos, pixel_coords);
+        let s_int = (inscattering - inscattering * sample_transmittance) / max(extinction, MIN_EXTINCTION);
+        result.inscattering += result.transmittance * s_int;
+        result.transmittance *= sample_transmittance;
+
+        if all(result.transmittance < vec3(0.001)) {
+            break;
+        }
+
+        t += dt;
+        steps_taken += 1u;
+    }
+    #else
+    // Default uniform stepping when clouds are disabled.
+    var prev_t = t_start;
     for (var s = 0.0; s < sample_count; s += 1.0) {
-        // Linear distribution from atmosphere entry to exit/ground with jitter
         let jitter = interleaved_gradient_noise(pixel_coords, u32(s)); // [0, 1]
         let t_i = t_start + t_total * (s + jitter) / sample_count;
         let dt_i = (t_i - prev_t);
@@ -507,36 +627,24 @@ fn raymarch_atmosphere(
 
         let sample_pos = pos + ray_dir * t_i;
         let local_r = length(sample_pos);
-        let local_up = normalize(sample_pos);
 
         let absorption = sample_density_lut(local_r, ABSORPTION_DENSITY);
         let scattering = sample_density_lut(local_r, SCATTERING_DENSITY);
-        var extinction = absorption + scattering;
+        let extinction = absorption + scattering;
 
-        var sample_optical_depth = extinction * dt_i;
+        let sample_optical_depth = extinction * dt_i;
         optical_depth += sample_optical_depth;
-
-        // Note: Cloud extinction is NOT added here - clouds are handled only in inscattering
-        // This follows NUBIS integration where clouds contribute to light scattering
-        // but are not part of the atmospheric extinction calculation
-
         let sample_transmittance = exp(-sample_optical_depth);
 
-        let inscattering = sample_local_inscattering(
-            scattering,
-            ray_dir,
-            sample_pos,
-            pixel_coords
-        );
-
+        let inscattering = sample_local_inscattering(scattering, ray_dir, sample_pos, pixel_coords);
         let s_int = (inscattering - inscattering * sample_transmittance) / max(extinction, MIN_EXTINCTION);
         result.inscattering += result.transmittance * s_int;
-
         result.transmittance *= sample_transmittance;
         if all(result.transmittance < vec3(0.001)) {
             break;
         }
     }
+    #endif
 
     // include reflected luminance from planet ground 
     if ground && ray_intersects_ground(r, mu) {

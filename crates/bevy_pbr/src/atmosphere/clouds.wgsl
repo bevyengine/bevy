@@ -1,7 +1,7 @@
 // Cloud rendering functions using 3D FBM noise
 #define_import_path bevy_pbr::atmosphere::clouds
 
-#import bevy_render::maths::ray_sphere_intersect
+#import bevy_render::maths::{PI, ray_sphere_intersect}
 #import bevy_pbr::utils::interleaved_gradient_noise
 #import bevy_pbr::atmosphere::{
     types::{Atmosphere, AtmosphereSettings},
@@ -19,19 +19,20 @@ struct CloudLayer {
     cloud_scattering: f32,
     noise_scale: f32,
     noise_offset: vec3<f32>,
+    detail_noise_scale: f32,
+    detail_strength: f32,
 }
 
 @group(0) @binding(14) var<uniform> cloud_layer: CloudLayer;
-@group(0) @binding(15) var noise_texture_3d: texture_3d<f32>;
+@group(0) @binding(15) var noise_texture_2d: texture_2d<f32>;
 @group(0) @binding(16) var noise_sampler_3d: sampler;
 
-/// Sample the 3D noise texture at a world position
-fn sample_cloud_noise(world_pos: vec3<f32>) -> f32 {
-    // Convert world position to noise texture coordinates
-    let noise_coords = (world_pos + cloud_layer.noise_offset) / cloud_layer.noise_scale;
-    
-    // Sample the 3D noise texture with wrapping
-    return textureSampleLevel(noise_texture_3d, noise_sampler_3d, noise_coords, 0.0).r;
+/// Sample the 2D cloud coverage texture (XZ plane) at a given world position.
+fn sample_cloud_coverage_noise_at_scale(world_pos: vec3<f32>, noise_scale: f32) -> f32 {
+    // Convert world position to noise texture coordinates in XZ.
+    // (Repeat wrapping is configured on the sampler.)
+    let uv = (world_pos.xz + cloud_layer.noise_offset.xz) / noise_scale;
+    return textureSampleLevel(noise_texture_2d, noise_sampler_3d, uv, 0.0).r;
 }
 
 /// Get cloud scattering coefficient per unit density
@@ -44,8 +45,10 @@ fn get_cloud_absorption_coeff() -> f32 {
     return cloud_layer.cloud_absorption;
 }
 
-/// Get cloud density at a given position (in local atmosphere space)
-fn get_cloud_density(r: f32, world_pos: vec3<f32>) -> f32 {
+/// Cloud shape / coverage term in [0, 1].
+/// This is *not* a physical density by itself: it is the normalized field used to
+/// shape the cloud volume (noise + height falloff).
+fn get_cloud_coverage(r: f32, world_pos: vec3<f32>) -> f32 {
     // Check if we're within the cloud layer
     if (r < cloud_layer.cloud_layer_start || r > cloud_layer.cloud_layer_end) {
         return 0.0;
@@ -56,128 +59,140 @@ fn get_cloud_density(r: f32, world_pos: vec3<f32>) -> f32 {
     let height_in_layer = r - cloud_layer.cloud_layer_start;
     let height_factor = height_in_layer / layer_thickness;
     
-    // Sample noise
-    var noise_value = sample_cloud_noise(world_pos);
-    noise_value = clamp(pow(noise_value, 3.0), 0.0, 1.0);
-    
-    // Apply contrast remapping to create sharper cloud boundaries
-    // This creates more contrast between cloud/no-cloud areas by remapping mid-values
-    let contrast_threshold = 0.3; // Controls how much contrast (lower = sharper edges, range: 0.0-0.5)
-    noise_value = smoothstep(contrast_threshold, 1.0 - contrast_threshold, noise_value);
-    
-    // Height-based density falloff (clouds denser in middle of layer)
+    // PERF/DEBUG: Hardcoded repeating sphere SDF volume (no texture fetches).
+    //
+    // This is intended for debugging raymarching performance and lighting/shadowing:
+    // - Deterministic shape
+    // - Cheap evaluation
+    // - Soft boundary (stable under undersampling)
+    //
+    // All parameters are intentionally hardcoded in shader code.
+    const CELL_SIZE_M: f32 = 16000.0;     // spacing between sphere centers (meters)
+    const RADIUS_M: f32 = 2500.0;        // sphere radius (meters)
+    const SOFTNESS_M: f32 = 100.0;       // boundary softness (meters)
+
+    // Use a "cloud-local" coordinate system:
+    // XZ are world XZ, Y is height above the cloud base.
+    let p = vec3(world_pos.x, height_in_layer, world_pos.z);
+
+    // Repeat in 3D cells, center each cell at the origin.
+    let cell = fract(p / CELL_SIZE_M) - vec3(0.5);
+    let q = cell * CELL_SIZE_M;
+
+    // Sphere SDF: negative inside, positive outside.
+    let sdf = length(q) - RADIUS_M;
+
+    // Convert SDF to density with a smooth boundary.
+    // sdf <= -SOFTNESS => ~1, sdf >= +SOFTNESS => ~0
+    let sphere_density = smoothstep(SOFTNESS_M, -SOFTNESS_M, sdf);
+
+    // Fade out near top/bottom of layer to reduce hard cuts.
     let height_gradient = 1.0 - abs(height_factor * 2.0 - 1.0);
-    let height_multiplier = smoothstep(0.0, 0.3, height_gradient) * smoothstep(1.0, 0.6, height_gradient);
-    
-    // Combine noise with height gradient
-    // Density is normalized to [0, 1] for physically correct scattering coefficients
-    // where coefficients represent values per unit density
-    let density = noise_value * height_multiplier;
+    let height_fade = smoothstep(0.0, 0.2, height_gradient);
+
+    let density = sphere_density * height_fade;
     
     return clamp(density, 0.0, 1.0);
 }
 
-struct CloudSample {
-    density: f32,
-    scattering: f32,
-    absorption: f32,
+/// Returns (density, grad_mag) for the current debug cloud field.
+/// - density is the normalized coverage term in [0,1]
+/// - grad_mag is an estimate of |∇density| in 1/m, useful for adaptive stepping.
+fn sample_cloud_field_density_and_grad(r: f32, world_pos: vec3<f32>) -> vec2<f32> {
+    // Outside cloud layer => empty and flat field.
+    if (r < cloud_layer.cloud_layer_start || r > cloud_layer.cloud_layer_end) {
+        return vec2(0.0, 0.0);
+    }
+
+    let layer_thickness = cloud_layer.cloud_layer_end - cloud_layer.cloud_layer_start;
+    let height_in_layer = r - cloud_layer.cloud_layer_start;
+    let height_factor = height_in_layer / layer_thickness;
+
+    // Must match the hardcoded debug SDF in get_cloud_coverage.
+    const CELL_SIZE_M: f32 = 16000.0;
+    const RADIUS_M: f32 = 2500.0;
+    const SOFTNESS_M: f32 = 100.0;
+
+    let p = vec3(world_pos.x, height_in_layer, world_pos.z);
+    let cell = fract(p / CELL_SIZE_M) - vec3(0.5);
+    let q = cell * CELL_SIZE_M;
+    let sdf = length(q) - RADIUS_M;
+
+    // density = smoothstep(SOFTNESS_M, -SOFTNESS_M, sdf)
+    // derivative of smoothstep(edge0, edge1, x) is:
+    // 6t(1-t)/(edge1-edge0), where t = clamp((x-edge0)/(edge1-edge0), 0,1)
+    let edge0 = SOFTNESS_M;
+    let edge1 = -SOFTNESS_M;
+    let denom = (edge1 - edge0); // -2*SOFTNESS_M
+    let t = clamp((sdf - edge0) / denom, 0.0, 1.0);
+    let sphere_density = t * t * (3.0 - 2.0 * t);
+    let d_sphere_density_dsdf = abs(6.0 * t * (1.0 - t) / denom);
+
+    let height_gradient = 1.0 - abs(height_factor * 2.0 - 1.0);
+    let height_fade = smoothstep(0.0, 0.2, height_gradient);
+
+    // ∇sdf has magnitude 1 almost everywhere (except at the exact center); so |∇density| ≈ |d density/d sdf|
+    // We ignore the (small) contribution from height_fade's gradient for this debug estimate.
+    let density = clamp(sphere_density * height_fade, 0.0, 1.0);
+    let grad_mag = d_sphere_density_dsdf * height_fade;
+
+    return vec2(density, grad_mag);
 }
 
-/// Ray march through the cloud layer
-fn raymarch_clouds(
-    ray_origin: vec3<f32>,
-    ray_dir: vec3<f32>,
-    max_distance: f32,
-    steps: u32,
-    pixel_coords: vec2<f32>,
-) -> vec4<f32> {
-    // Early exit if clouds are disabled (density is 0)
-    if (cloud_layer.cloud_density <= 0.0) {
-        return vec4(0.0);
-    }
-    
+/// Returns (start_t, end_t, valid) for the segment of the ray inside the cloud layer shell.
+/// - start_t/end_t are distances along the ray direction (meters), relative to ray_origin.
+/// - valid is 1.0 if the segment exists, 0.0 otherwise.
+fn cloud_layer_segment(ray_origin: vec3<f32>, ray_dir: vec3<f32>) -> vec3<f32> {
     let r = length(ray_origin);
-    let mu = dot(ray_dir, normalize(ray_origin));
-    
-    // Find intersection with cloud layer spheres
+    let up = normalize(ray_origin);
+    let mu = dot(ray_dir, up);
+
     // ray_sphere_intersect returns vec2(near_t, far_t)
-    let cloud_bottom_intersect = ray_sphere_intersect(r, mu, cloud_layer.cloud_layer_start);
-    let cloud_top_intersect = ray_sphere_intersect(r, mu, cloud_layer.cloud_layer_end);
-    
-    // Determine ray march bounds through the cloud layer
-    var march_start = 0.0;
-    var march_end = max_distance;
-    
+    let bottom_i = ray_sphere_intersect(r, mu, cloud_layer.cloud_layer_start);
+    let top_i = ray_sphere_intersect(r, mu, cloud_layer.cloud_layer_end);
+
+    var start_t = 0.0;
+    var end_t = 0.0;
+    var valid = false;
+
     if (r < cloud_layer.cloud_layer_start) {
-        // Below cloud layer - march from cloud bottom to cloud top
-        if (cloud_bottom_intersect.y < 0.0) {
-            return vec4(0.0); // Ray doesn't hit cloud layer
+        // Below layer: enter at bottom (far), exit at top (far)
+        if (bottom_i.y > 0.0 && top_i.y > bottom_i.y) {
+            start_t = bottom_i.y;
+            end_t = top_i.y;
+            valid = true;
         }
-        march_start = max(0.0, cloud_bottom_intersect.y);
-        march_end = min(max_distance, cloud_top_intersect.y);
     } else if (r < cloud_layer.cloud_layer_end) {
-        // Inside cloud layer
-        march_start = 0.0;
-        march_end = min(max_distance, select(cloud_top_intersect.y, cloud_bottom_intersect.x, mu < 0.0));
-    } else {
-        // Above cloud layer - march from cloud top to cloud bottom
-        if (cloud_top_intersect.x < 0.0) {
-            return vec4(0.0); // Ray doesn't hit cloud layer
-        }
-        march_start = max(0.0, cloud_top_intersect.x);
-        march_end = min(max_distance, cloud_bottom_intersect.x);
-    }
-    
-    if (march_start >= march_end) {
-        return vec4(0.0);
-    }
-    
-    let march_distance = march_end - march_start;
-    let step_size = march_distance / f32(steps);
-    
-    var cloud_color = vec3(0.0);
-    var transmittance = 1.0;
-    
-    // Generate noise offset for temporal jittering (reduces banding)
-    let jitter = interleaved_gradient_noise(pixel_coords, 0u);
-    
-    // Ray march through cloud layer
-    for (var i = 0u; i < steps; i++) {
-        if (transmittance < 0.01) {
-            break;
-        }
-        
-        // Add jitter to sample position to reduce banding artifacts
-        let t = march_start + (f32(i) + jitter) * step_size;
-        let sample_pos = ray_origin + ray_dir * t;
-        let r = length(sample_pos);
-        
-        let density = get_cloud_density(r, sample_pos);
-        
-        if (density > 0.01) {
-            // Physically correct coefficients (units: m^-1 per unit density)
-            // Density is normalized [0, 1], coefficients represent actual physical values
-            let extinction = density * (cloud_layer.cloud_scattering + cloud_layer.cloud_absorption);
-            let scattering = density * cloud_layer.cloud_scattering;
-            
-            // Beer's law for transmittance
-            let sample_transmittance = exp(-extinction * step_size);
-            
-            // Simple lighting (could be improved with light ray marching)
-            let light_energy = 1.0; // Simplified - should sample actual lighting
-            
-            // In-scattering contribution
-            // Use safe division to avoid divide-by-zero
-            if (extinction > 0.0001) {
-                cloud_color += light_energy * scattering * transmittance * (1.0 - sample_transmittance) / extinction;
+        // Inside layer: exit at top (far) if going outward, else exit at bottom (near)
+        if (mu >= 0.0) {
+            if (top_i.y > 0.0) {
+                start_t = 0.0;
+                end_t = top_i.y;
+                valid = true;
             }
-            
-            // Update transmittance
-            transmittance *= sample_transmittance;
+        } else {
+            if (bottom_i.x > 0.0) {
+                start_t = 0.0;
+                end_t = bottom_i.x;
+                valid = true;
+            }
+        }
+    } else {
+        // Above layer: enter at top (near), exit at bottom (near)
+        if (top_i.x > 0.0 && bottom_i.x > top_i.x) {
+            start_t = top_i.x;
+            end_t = bottom_i.x;
+            valid = true;
         }
     }
-    
-    return vec4(cloud_color, 1.0 - transmittance);
+
+    return vec3(start_t, end_t, select(0.0, 1.0, valid));
+}
+
+/// Cloud *medium density* used for extinction / scattering integration.
+/// This is the normalized coverage term scaled by `cloud_layer.cloud_density`.
+fn get_cloud_medium_density(r: f32, world_pos: vec3<f32>) -> f32 {
+    return get_cloud_coverage(r, world_pos) * cloud_layer.cloud_density;
 }
 
 /// Raymarch through clouds towards the sun to compute volumetric shadow
@@ -193,80 +208,49 @@ fn compute_cloud_shadow(
     if (cloud_layer.cloud_density <= 0.0) {
         return 1.0;
     }
-    
-    let r = length(world_pos);
-    let up = normalize(world_pos);
-    let mu = dot(sun_dir, up);
-    
-    // Find intersection with cloud layer spheres in sun direction
-    let cloud_bottom_intersect = ray_sphere_intersect(r, mu, cloud_layer.cloud_layer_start);
-    let cloud_top_intersect = ray_sphere_intersect(r, mu, cloud_layer.cloud_layer_end);
-    
-    // Determine actual march bounds through cloud layer toward sun
-    var march_start = 0.0;
-    var march_end = 0.0;
-    var valid_intersection = false;
-    
-    if (r < cloud_layer.cloud_layer_start) {
-        // Below clouds - march from cloud bottom to top
-        if (cloud_bottom_intersect.y > 0.0 && cloud_top_intersect.y > cloud_bottom_intersect.y) {
-            march_start = cloud_bottom_intersect.y;
-            march_end = cloud_top_intersect.y;
-            valid_intersection = true;
-        }
-    } else if (r < cloud_layer.cloud_layer_end) {
-        // Inside cloud layer - march to exit boundary in sun direction
-        if (mu >= 0.0) {
-            // Ray going upward/outward - exit at top
-            if (cloud_top_intersect.y > 0.0) {
-                march_start = 0.0;
-                march_end = cloud_top_intersect.y;
-                valid_intersection = true;
-            }
-        } else {
-            // Ray going downward/inward - exit at bottom
-            if (cloud_bottom_intersect.x > 0.0) {
-                march_start = 0.0;
-                march_end = cloud_bottom_intersect.x;
-                valid_intersection = true;
-            }
-        }
-    } else {
-        // Above clouds - march from cloud top to bottom (backward along ray)
-        if (cloud_top_intersect.x > 0.0 && cloud_bottom_intersect.x > cloud_top_intersect.x) {
-            march_start = cloud_top_intersect.x;
-            march_end = cloud_bottom_intersect.x;
-            valid_intersection = true;
-        }
-    }
-    
-    if (!valid_intersection || march_start >= march_end || march_end <= 0.0) {
+
+    // March bounds: only integrate within the cloud layer shell along the sun ray.
+    let seg = cloud_layer_segment(world_pos, sun_dir);
+    if (seg.z < 0.5) {
         return 1.0;
     }
-    
+
+    var march_start = max(seg.x, 0.0);
+    var march_end = seg.y;
+    if (march_start >= march_end || march_end <= 0.0) {
+        return 1.0;
+    }
+
     let march_distance = march_end - march_start;
-    let step_size = march_distance / f32(steps);
-    let jitter = interleaved_gradient_noise(pixel_coords, 1u);
-    
+
+    // Adaptive step count: long segments need more samples, otherwise we can miss small dense regions
+    // (especially with the repeating-sphere debug density field).
+    const TARGET_STEP_M: f32 = 1500.0;
+    const MAX_SHADOW_STEPS: f32 = 64.0;
+    let desired = clamp(ceil(march_distance / TARGET_STEP_M), f32(steps), MAX_SHADOW_STEPS);
+    let shadow_steps = max(1u, u32(desired));
+
+    let step_size = march_distance / f32(shadow_steps);
     var optical_depth = 0.0;
-    
-    // Raymarch through clouds towards sun
-    for (var i = 0u; i < steps; i++) {
-        let t = march_start + (f32(i) + jitter) * step_size;
+
+    // Raymarch through clouds towards sun with per-step jitter.
+    for (var i = 0u; i < shadow_steps; i++) {
+        let j = interleaved_gradient_noise(pixel_coords, 100u + i); // [0,1]
+        let t = march_start + (f32(i) + j) * step_size;
         let sample_pos = world_pos + sun_dir * t;
         let sample_r = length(sample_pos);
-        
-        // Sample density (get_cloud_density already handles bounds)
-        let density = get_cloud_density(sample_r, sample_pos);
-        
-        if (density > 0.01) {
-            // Physically correct coefficients (units: m^-1 per unit density)
+
+        let density = get_cloud_medium_density(sample_r, sample_pos);
+        if (density > 0.0) {
             let extinction = density * (cloud_layer.cloud_scattering + cloud_layer.cloud_absorption);
             optical_depth += extinction * step_size;
+            // Early out when essentially fully shadowed
+            if (optical_depth > 8.0) {
+                return 0.0;
+            }
         }
     }
-    
-    // Beer-Lambert law for shadow transmission
+
     return exp(-optical_depth);
 }
 
@@ -277,7 +261,7 @@ fn sample_cloud_contribution(
     step_size: f32,
 ) -> vec2<f32> {
     let r = length(world_pos);
-    let density = get_cloud_density(r, world_pos);
+    let density = get_cloud_medium_density(r, world_pos);
     
     if (density < 0.01) {
         return vec2(0.0, 1.0);

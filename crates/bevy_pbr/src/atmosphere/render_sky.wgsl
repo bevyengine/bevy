@@ -37,7 +37,7 @@ fn main(in: FullscreenVertexOutput) -> RenderSkyOutput {
     let r = length(world_pos);
     let up = normalize(world_pos);
     let mu = dot(ray_dir_ws, up);
-    let max_samples = 16u;
+    let max_samples = 256u;
     let should_raymarch = settings.rendering_method == 1u;
 
     var transmittance: vec3<f32>;

@@ -191,9 +191,9 @@ impl FromWorld for RenderSkyBindGroupLayouts {
                     (13, texture_2d(TextureSampleType::Depth)),
                     (14, uniform_buffer::<CloudLayer>(true)), // cloud layer parameters
                     (
-                        // 3D noise texture for clouds
+                        // 2D noise texture for cloud coverage
                         15,
-                        texture_3d(TextureSampleType::Float { filterable: true }),
+                        texture_2d(TextureSampleType::Float { filterable: true }),
                     ),
                     (16, sampler(SamplerBindingType::Filtering)), // noise sampler
                 ),
@@ -224,9 +224,9 @@ impl FromWorld for RenderSkyBindGroupLayouts {
                     (13, texture_2d_multisampled(TextureSampleType::Depth)),
                     (14, uniform_buffer::<CloudLayer>(true)), // cloud layer parameters
                     (
-                        // 3D noise texture for clouds
+                        // 2D noise texture for cloud coverage
                         15,
-                        texture_3d(TextureSampleType::Float { filterable: true }),
+                        texture_2d(TextureSampleType::Float { filterable: true }),
                     ),
                     (16, sampler(SamplerBindingType::Filtering)), // noise sampler
                 ),

@@ -9,7 +9,7 @@ use bevy_ecs::{
     system::{Res, ResMut},
     world::{FromWorld, World},
 };
-use bevy_math::UVec3;
+use bevy_math::UVec2;
 use bevy_render::{
     render_resource::{binding_types::*, *},
     renderer::{RenderDevice, RenderQueue},
@@ -45,16 +45,16 @@ impl Default for FbmNoiseParams {
     }
 }
 
-/// Size of the 3D noise texture
+/// Size of the 2D noise texture
 #[derive(Clone, Copy)]
 pub struct NoiseTextureSize {
-    pub size: UVec3,
+    pub size: UVec2,
 }
 
 impl Default for NoiseTextureSize {
     fn default() -> Self {
         Self {
-            size: UVec3::new(128, 128, 128),
+            size: UVec2::new(32, 32),
         }
     }
 }
@@ -75,10 +75,11 @@ impl FromWorld for FbmNoiseBindGroupLayout {
                 ShaderStages::COMPUTE,
                 (
                     (
-                        // 3D noise texture storage
+                        // 2D noise texture storage
                         13,
-                        texture_storage_3d(
-                            TextureFormat::Rgba16Float,
+                        texture_storage_2d(
+                            // Single-channel is enough: clouds sample only `.r`.
+                            TextureFormat::R16Float,
                             StorageTextureAccess::WriteOnly,
                         ),
                     ),
@@ -110,7 +111,7 @@ impl FromWorld for FbmNoisePipeline {
         let layout = world.resource::<FbmNoiseBindGroupLayout>();
 
         let pipeline = pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
-            label: Some("fbm_noise_3d_pipeline".into()),
+            label: Some("fbm_noise_2d_pipeline".into()),
             layout: vec![layout.descriptor.clone()],
             shader: load_embedded_asset!(world, "fbm_noise_3d.wgsl"),
             ..default()
@@ -120,11 +121,11 @@ impl FromWorld for FbmNoisePipeline {
     }
 }
 
-/// Resource containing the generated 3D noise texture
+/// Resource containing the generated 2D noise texture
 #[derive(Resource)]
 pub struct FbmNoiseTexture {
     pub texture: CachedTexture,
-    pub size: UVec3,
+    pub size: UVec2,
 }
 
 /// Resource containing the bind group for the noise generation pass
@@ -148,16 +149,17 @@ pub fn init_fbm_noise_texture(
     let size = NoiseTextureSize::default();
 
     let texture_descriptor = TextureDescriptor {
-        label: Some("fbm_noise_3d_texture"),
+        label: Some("fbm_noise_2d_texture"),
         size: Extent3d {
             width: size.size.x,
             height: size.size.y,
-            depth_or_array_layers: size.size.z,
+            depth_or_array_layers: 1,
         },
         mip_level_count: 1,
         sample_count: 1,
-        dimension: TextureDimension::D3,
-        format: TextureFormat::Rgba16Float,
+        dimension: TextureDimension::D2,
+        // Single-channel is enough: clouds sample only `.r`.
+        format: TextureFormat::R16Float,
         usage: TextureUsages::STORAGE_BINDING | TextureUsages::TEXTURE_BINDING,
         view_formats: &[],
     };
@@ -205,13 +207,12 @@ pub fn init_fbm_noise_params_buffer(
     commands.insert_resource(FbmNoiseParamsBuffer { buffer });
 }
 
-/// Returns the dispatch workgroup counts for the 3D noise texture based on its size
-pub fn get_noise_dispatch_size(texture_size: UVec3) -> UVec3 {
-    const WORKGROUP_SIZE: u32 = 4;
-    UVec3::new(
+/// Returns the dispatch workgroup counts for the 2D noise texture based on its size
+pub fn get_noise_dispatch_size(texture_size: UVec2) -> UVec2 {
+    const WORKGROUP_SIZE: u32 = 8;
+    UVec2::new(
         texture_size.x.div_ceil(WORKGROUP_SIZE),
         texture_size.y.div_ceil(WORKGROUP_SIZE),
-        texture_size.z.div_ceil(WORKGROUP_SIZE),
     )
 }
 
@@ -248,7 +249,7 @@ pub fn generate_fbm_noise_once(
 
     {
         let mut compute_pass = encoder.begin_compute_pass(&ComputePassDescriptor {
-            label: Some("fbm_noise_3d_pass"),
+            label: Some("fbm_noise_2d_pass"),
             timestamp_writes: None,
         });
 
@@ -256,7 +257,7 @@ pub fn generate_fbm_noise_once(
         compute_pass.set_bind_group(0, &bind_group.bind_group, &[]);
 
         let dispatch_size = get_noise_dispatch_size(texture.size);
-        compute_pass.dispatch_workgroups(dispatch_size.x, dispatch_size.y, dispatch_size.z);
+        compute_pass.dispatch_workgroups(dispatch_size.x, dispatch_size.y, 1);
     }
 
     let command_buffer = encoder.finish();
