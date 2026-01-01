@@ -85,6 +85,7 @@ fn navigation_system(mut directional_navigation: DirectionalNavigation) {
     // ...
     directional_navigation.navigate(CompassOctant::East);
     // ...
+}
 ```
 
 **After:**
@@ -104,6 +105,7 @@ fn navigation_system(mut auto_directional_navigator: AutoDirectionalNavigator) {
     // ...
     auto_directional_navigator.navigate(CompassOctant::East);
     // ...
+}
 ```
 
 Note: The automatic navigation system requires entities to have position and size information (`ComputedNode` and `UiGlobalTransform` for `bevy_ui` entities).

@@ -92,7 +92,7 @@ pub struct AutoDirectionalNavigation {
 }
 
 /// A system parameter for combining manual and auto navigation between focusable entities in a directional way.
-/// This wraps the [`DirectionalNavigation`] system parameter provided by `bevy_input_focus` and 
+/// This wraps the [`DirectionalNavigation`] system parameter provided by `bevy_input_focus` and
 /// augments it with auto directional navigation.
 /// To use, the [`DirectionalNavigationPlugin`](bevy_input_focus::directional_navigation::DirectionalNavigationPlugin)
 /// must be added to the app.
