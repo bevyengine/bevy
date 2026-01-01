@@ -64,7 +64,6 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 |asset_processor|Enables the built-in asset processor for processed assets.|
 |async-io|Use async-io's implementation of block_on instead of futures-lite's implementation. This is preferred if your application uses async-io.|
 |async_executor|Uses `async-executor` as a task execution backend.|
-|auto_nav|Enable the automatic navigation subsystem in bevy_input_focus|
 |basis-universal|Basis Universal compressed texture support|
 |bevy_animation|Provides animation functionality|
 |bevy_anti_alias|Provides various anti aliasing solutions|
