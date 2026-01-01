@@ -20,7 +20,7 @@ use bevy_reflect::{prelude::*, Reflect};
 ///
 /// ```rust
 /// # use bevy_ecs::prelude::*;
-/// # use bevy_input_focus::directional_navigation::AutoDirectionalNavigation;
+/// # use bevy_input_focus::auto_directional_navigation::AutoDirectionalNavigation;
 /// fn spawn_auto_nav_button(mut commands: Commands) {
 ///     commands.spawn((
 ///         // ... Button, Node, etc. ...
@@ -48,8 +48,8 @@ use bevy_reflect::{prelude::*, Reflect};
 ///    }
 ///    ```
 ///
-/// 2. **Manual cross-layer navigation**: Use 
-///   [`DirectionalNavigationMap::add_edge()`](crate::directional_navigation::DirectionalNavigationMap::add_edge)
+/// 2. **Manual cross-layer navigation**: Use
+///    [`DirectionalNavigationMap::add_edge()`](crate::directional_navigation::DirectionalNavigationMap::add_edge)
 ///    to define explicit connections between layers (e.g., "Back" button to main menu).
 ///
 /// 3. **Remove component when layer is hidden**: Dynamically add/remove
@@ -67,7 +67,7 @@ use bevy_reflect::{prelude::*, Reflect};
 /// - **Dynamically toggle**: Remove/insert the component at runtime to enable/disable
 ///   automatic navigation as needed.
 ///
-/// Manual edges defined via [`DirectionalNavigationMap`](crate::directional_navigation::DirectionalNavigationMap) 
+/// Manual edges defined via [`DirectionalNavigationMap`](crate::directional_navigation::DirectionalNavigationMap)
 /// are completely independent and will continue to work regardless of this component.
 ///
 /// # Requirements for `bevy_ui`
@@ -80,8 +80,8 @@ use bevy_reflect::{prelude::*, Reflect};
 ///
 /// # Custom UI Systems
 ///
-/// For custom UI frameworks, you can call 
-/// [`auto_generate_navigation_edges`](crate::directional_navigation::auto_generate_navigation_edges) 
+/// For custom UI frameworks, you can call
+/// [`auto_generate_navigation_edges`](crate::directional_navigation::auto_generate_navigation_edges)
 /// directly in your own system instead of using this component.
 #[derive(Component, Default, Debug, Clone, Copy, PartialEq)]
 #[cfg_attr(

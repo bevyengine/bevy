@@ -23,22 +23,8 @@
 //!
 //! The easiest way to set up navigation is to add the
 //! [`AutoDirectionalNavigation`](crate::auto_directional_navigation::AutoDirectionalNavigation) component
-//! to your UI entities. You must have the `bevy_camera` and `bevy_ui` feature enabled to leverage this navigation.
-//! The system will automatically compute the nearest neighbor in each direction
-//! based on position and size:
-//!
-//! ```rust,no_run
-//! # use bevy_ecs::prelude::*;
-//! # use bevy_input_focus::directional_navigation::AutoDirectionalNavigation;
-//! # use bevy_ui::Node;
-//! fn spawn_button(mut commands: Commands) {
-//!     commands.spawn((
-//!         Node::default(),
-//!         // ... other UI components ...
-//!         AutoDirectionalNavigation::default(), // That's it!
-//!     ));
-//! }
-//! ```
+//! to your UI entities. You must have the `auto_nav` feature enabled to leverage this navigation.
+//! For proper usage, refer to [`AutoDirectionalNavigation`](crate::auto_directional_navigation::AutoDirectionalNavigation)
 //!
 //! ## Manual Navigation
 //!
@@ -276,7 +262,7 @@ pub struct DirectionalNavigation<'w, 's> {
     /// The system param that holds our automatic navigation system logic.
     pub(crate) auto_directional_navigator: AutoDirectionalNavigator<'w, 's>,
     #[cfg(not(feature = "auto_nav"))]
-    marker: PhantomData<&'s ()>
+    marker: PhantomData<&'s ()>,
 }
 
 impl<'w, 's> DirectionalNavigation<'w, 's> {
@@ -357,7 +343,7 @@ pub trait Navigable {
 /// # Example
 ///
 /// ```rust
-/// # use bevy_input_focus::directional_navigation::*;
+/// # use bevy_input_focus::{directional_navigation::*, FocusableArea, NavigatorConfig};
 /// # use bevy_ecs::entity::Entity;
 /// # use bevy_math::Vec2;
 /// let mut nav_map = DirectionalNavigationMap::default();
