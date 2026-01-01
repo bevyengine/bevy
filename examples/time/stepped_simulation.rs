@@ -78,7 +78,7 @@ fn setup(mut commands: Commands, mut time: ResMut<Time<SteppedVirtual, u32>>) {
                     Task,
                     TextLayout::new_with_justify(Justify::Center),
                 ));
-            })
+            });
         });
 
     // info UI
@@ -164,7 +164,7 @@ fn apply_cost(
     } else {
         time.recede_by(tasks_cost.0[*last_task]);
     }
-    *last_task = current_task.0
+    *last_task = current_task.0;
 }
 
 fn manual_progress<const DELTA: i8>(mut current_task: ResMut<CurrentTask>) {
