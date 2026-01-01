@@ -1,5 +1,5 @@
 //! Demonstrates automatic directional navigation with zero configuration.
-//! You must have the auto_nav feature enabled
+//! You must have the `auto_nav` feature enabled
 //!
 //! Unlike the manual `directional_navigation` example, this shows how to use automatic
 //! navigation by simply adding the `AutoDirectionalNavigation` component to UI elements.
