@@ -1,3 +1,4 @@
+//! Helpers for mapping between winit and bevy types
 use bevy_ecs::entity::Entity;
 use bevy_input::{
     keyboard::{KeyCode, KeyboardInput, NativeKeyCode},
