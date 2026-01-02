@@ -16,13 +16,12 @@ use bevy_math::{Rect, UVec2, Vec2};
 use bevy_platform::collections::HashMap;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 
-use cosmic_text::{Attrs, Buffer, Family, Metrics, Shaping, Wrap};
-
 use crate::{
     add_glyph_to_atlas, error::TextError, get_glyph_atlas_info, ComputedTextBlock, Font,
-    FontAtlasKey, FontAtlasSet, FontSmoothing, FontSource, Justify, LineBreak, LineHeight,
-    PositionedGlyph, TextBounds, TextEntity, TextFont, TextLayout,
+    FontAtlasKey, FontAtlasSet, FontHinting, FontSmoothing, FontSource, Justify, LineBreak,
+    LineHeight, PositionedGlyph, TextBounds, TextEntity, TextFont, TextLayout,
 };
+use cosmic_text::{Attrs, Buffer, Family, Metrics, Shaping, Wrap};
 
 /// A wrapper resource around a [`cosmic_text::FontSystem`]
 ///
@@ -97,6 +96,7 @@ impl TextPipeline {
         scale_factor: f64,
         computed: &mut ComputedTextBlock,
         font_system: &mut CosmicFontSystem,
+        hinting: FontHinting,
     ) -> Result<(), TextError> {
         computed.needs_rerender = false;
 
@@ -197,6 +197,9 @@ impl TextPipeline {
         // Update the buffer.
         let buffer = &mut computed.buffer;
 
+        // Set the metrics hinting strategy
+        buffer.set_hinting(font_system, hinting.into());
+
         buffer.set_wrap(
             font_system,
             match linebreak {
@@ -253,6 +256,7 @@ impl TextPipeline {
         layout: &TextLayout,
         computed: &mut ComputedTextBlock,
         font_system: &mut CosmicFontSystem,
+        hinting: FontHinting,
     ) -> Result<TextMeasureInfo, TextError> {
         const MIN_WIDTH_CONTENT_BOUNDS: TextBounds = TextBounds::new_horizontal(0.0);
 
@@ -269,6 +273,7 @@ impl TextPipeline {
             scale_factor,
             computed,
             font_system,
+            hinting,
         )?;
 
         let buffer = &mut computed.buffer;
