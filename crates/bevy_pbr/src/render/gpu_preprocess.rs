@@ -12,7 +12,7 @@ use bevy_app::{App, Plugin};
 use bevy_asset::{embedded_asset, load_embedded_asset, Handle};
 use bevy_core_pipeline::{
     core_3d::graph::{Core3d, Node3d},
-    experimental::mip_generation::ViewDepthPyramid,
+    mip_generation::experimental::depth::ViewDepthPyramid,
     prepass::{DepthPrepass, PreviousViewData, PreviousViewUniformOffset, PreviousViewUniforms},
 };
 use bevy_derive::{Deref, DerefMut};
