@@ -250,7 +250,7 @@ impl From<Justify> for cosmic_text::Align {
 /// Specifies how the font face for a text span is sourced.
 ///
 /// A `FontSource` can either reference a font asset or identify a font by family name to be
-/// resolved by the font system.
+/// resolved by the font systems.
 pub enum FontSource {
     /// Use a specific font face referenced by a [`Font`] asset handle.
     ///
@@ -299,7 +299,10 @@ impl From<&str> for FontSource {
 #[derive(Component, Clone, Debug, Reflect, PartialEq)]
 #[reflect(Component, Default, Debug, Clone)]
 pub struct TextFont {
-    /// Name of the font's family, overrides the `font` field.
+    /// Specifies how the font face for a text span is sourced.
+    ///
+    /// A `FontSource` can either reference a font asset or identify a font by family name to be
+    /// resolved by the text systems.
     pub font: FontSource,
     /// The vertical height of rasterized glyphs in the font atlas in pixels.
     ///
