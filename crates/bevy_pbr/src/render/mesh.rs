@@ -1818,8 +1818,8 @@ pub fn collect_meshes_for_gpu_building(
         // prepared meshes, this worker will consume them and update the GPU buffers.
         scope.spawn(
             async move {
-                while let Ok(batch) = prepared_rx.recv().await {
-                    for (entity, prepared, mesh_culling_builder) in batch {
+                while let Ok(mut batch) = prepared_rx.recv().await {
+                    for (entity, prepared, mesh_culling_builder) in batch.drain() {
                         let Some(instance_data_index) = prepared.update(
                             entity,
                             &mut *render_mesh_instances,
@@ -1836,8 +1836,8 @@ pub fn collect_meshes_for_gpu_building(
                         }
                     }
                 }
-                while let Ok(batch) = removed_rx.recv().await {
-                    for entity in batch {
+                while let Ok(mut batch) = removed_rx.recv().await {
+                    for entity in batch.drain() {
                         remove_mesh_input_uniform(
                             entity,
                             &mut *render_mesh_instances,
@@ -1845,8 +1845,8 @@ pub fn collect_meshes_for_gpu_building(
                         );
                     }
                 }
-                while let Ok(batch) = reextract_rx.recv().await {
-                    for entity in batch {
+                while let Ok(mut batch) = reextract_rx.recv().await {
+                    for entity in batch.drain() {
                         meshes_to_reextract_next_frame.insert(entity);
                     }
                 }

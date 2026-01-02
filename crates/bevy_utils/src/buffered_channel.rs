@@ -36,7 +36,7 @@ use core::ops::{Deref, DerefMut};
 ///         scope.spawn(async move {
 ///             let mut total = 0;
 ///             let mut count = 0;
-///             while let Ok(chunk) = rx.recv().await {
+///             while let Ok(mut chunk) = rx.recv().await {
 ///                 count += chunk.len();
 ///                 total += chunk.iter().sum::<u64>();
 ///             }
@@ -121,6 +121,14 @@ pub struct RecycledVec<'a, T: Send> {
     channel: &'a BufferedChannel<T>,
 }
 
+impl<'a, T: Send> RecycledVec<'a, T> {
+    /// Drains the elements from the buffer as an iterator, keeping the allocation
+    /// so it can be recycled when this [`RecycledVec`] is dropped.
+    pub fn drain(&mut self) -> alloc::vec::Drain<'_, T> {
+        self.buffer.as_mut().unwrap().drain(..)
+    }
+}
+
 impl<'a, T: Send> Deref for RecycledVec<'a, T> {
     type Target = [T];
     fn deref(&self) -> &Self::Target {
@@ -131,15 +139,6 @@ impl<'a, T: Send> Deref for RecycledVec<'a, T> {
 impl<'a, T: Send> DerefMut for RecycledVec<'a, T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.buffer.as_mut().unwrap()
-    }
-}
-
-impl<'a, T: Send> IntoIterator for RecycledVec<'a, T> {
-    type Item = T;
-    type IntoIter = alloc::vec::IntoIter<T>;
-
-    fn into_iter(mut self) -> Self::IntoIter {
-        self.buffer.take().unwrap().into_iter()
     }
 }
 
