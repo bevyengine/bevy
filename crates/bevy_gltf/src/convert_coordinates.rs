@@ -33,7 +33,10 @@ impl ConvertCoordinates for [f32; 4] {
 /// Options for converting scenes and assets from glTF's [standard coordinate system](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#coordinate-system-and-units)
 /// (+Z forward) to Bevy's coordinate system (-Z forward).
 ///
+/// _CAUTION: This is an experimental feature. Behavior may change in future versions._
+///
 /// The exact coordinate system conversion is as follows:
+///
 /// - glTF:
 ///   - forward: +Z
 ///   - up: +Y
@@ -43,34 +46,39 @@ impl ConvertCoordinates for [f32; 4] {
 ///   - up: +Y
 ///   - right: +X
 ///
-/// Note that glTF files are not required to follow the glTF standard, so even
-/// with conversion the result might not have the forward directions you expect.
+/// Cameras and lights are an exception - they already use Bevy's coordinate
+/// system. This means cameras and lights will match Bevy's forward even if
+/// conversion is disabled.
 ///
-/// The options are also limited to the scene entity and mesh entities. The
-/// entities that correspond to glTF nodes are not converted. This can lead
-/// to inconsistencies - you might find that the scene entity and mesh entities
-/// have the forward you want, but node entities are still wrong.
+/// If a glTF file uses the standard coordinate system, then the conversion
+/// options will behave like so:
+///
+/// - `rotate_scene_entity` will make the glTF's scene forward align with the [`Transform::forward`]
+///   of the entity with the [`SceneInstance`](bevy_scene::SceneInstance) component.
+/// - `rotate_meshes` will do the same for entities with a `Mesh3d` component.
+///
+/// Other entities in the scene are not converted, so their forward may not
+/// match `Transform::forward`. In particular, the entities that correspond to
+/// glTF nodes are not converted.
 #[derive(Copy, Clone, Default, Debug, Serialize, Deserialize)]
 pub struct GltfConvertCoordinates {
     /// If true, convert scenes by rotating the top-level transform of the scene entity.
-    ///
     /// This will ensure that [`Transform::forward`] of the "root" entity (the one with [`SceneInstance`](bevy_scene::SceneInstance))
     /// aligns with the "forward" of the glTF scene.
     ///
-    /// The glTF loader creates an entity for each glTF scene. Entities are
-    /// then created for each node within the glTF scene. Nodes without a
-    /// parent in the glTF scene become children of the scene entity.
+    /// The scene entity is created by the glTF loader. Its parent is the entity
+    /// with the `SceneInstance` component, and its children are the root nodes
+    /// of the glTF scene.
     ///
     /// This option only changes the transform of the scene entity. It does not
     /// directly change the transforms of node entities - it only changes them
     /// indirectly through transform inheritance.
     pub rotate_scene_entity: bool,
 
-    /// If true, convert mesh assets. This includes skinned mesh bind poses.
+    /// If true, convert mesh assets and skinned mesh bind poses.
     ///
     /// This option only changes mesh assets and the transforms of entities that
-    /// instance meshes. It does not change the transforms of entities that
-    /// correspond to glTF nodes.
+    /// instance meshes through [`Mesh3d`](bevy_mesh::Mesh3d).
     pub rotate_meshes: bool,
 }
 
