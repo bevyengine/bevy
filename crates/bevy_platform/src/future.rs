@@ -11,7 +11,7 @@ crate::cfg::switch! {
         /// Blocks on the supplied `future`.
         /// This implementation will busy-wait until it is completed.
         /// Consider enabling the `async-io` or `futures-lite` features.
-        pub fn block_on<T>(future: impl core::future::Future<Output = T>) -> T {
+        pub fn block_on<T>(future: impl Future<Output = T>) -> T {
             use core::task::{Poll, Context};
 
             // Pin the future on the stack.
