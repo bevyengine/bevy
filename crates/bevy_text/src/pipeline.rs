@@ -349,10 +349,7 @@ impl TextPipeline {
                     let metrics = swash.metrics(&[]);
                     let upem = metrics.units_per_em as f32;
                     let scalar = layout_glyph.font_size as f32 / upem;
-
-                    let strikeout_offset = (metrics.strikeout_offset * scalar).round();
-                    let stroke_size = (metrics.stroke_size * scalar).round().max(1.);
-                    let underline_offset = (metrics.underline_offset * scalar).round();
+                    let stroke_size = (metrics.strikeout_offset * scalar).round().max(1.);
 
                     maybe_run_geometry = Some(RunGeometry {
                         span_index: layout_glyph.metadata,
@@ -360,20 +357,18 @@ impl TextPipeline {
                             end.max(layout_glyph.x),
                             run.line_top,
                             // Dummy value, must be updated before being pushed to the `run_geometry` list
-                            layout_glyph.x + layout_glyph.w,
+                            0.,
                             run.line_top + run.line_height,
                         ),
-                        strikethrough_y: (run.line_y - strikeout_offset).round(),
+                        strikethrough_y: (run.line_y - metrics.strikeout_offset * scalar).round(),
                         strikethrough_thickness: stroke_size,
-                        underline_y: (run.line_y - underline_offset),
+                        underline_y: (run.line_y - metrics.underline_offset * scalar).round(),
                         underline_thickness: stroke_size,
                     });
                 }
 
-                let current_run_geometry = maybe_run_geometry.as_mut().unwrap();
-
                 end = layout_glyph.x + layout_glyph.w;
-                current_run_geometry.bounds.max.x = end;
+                maybe_run_geometry.as_mut().unwrap().bounds.max.x = end;
 
                 let mut temp_glyph;
                 let span_index = layout_glyph.metadata;
