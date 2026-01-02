@@ -341,15 +341,14 @@ impl TextPipeline {
                 }
 
                 if maybe_run_geometry.is_none() {
-                    let font = font_system
+                    let metrics = font_system
                         .get_font(layout_glyph.font_id, layout_glyph.font_weight)
-                        .ok_or(TextError::NoSuchFont)?;
+                        .ok_or(TextError::NoSuchFont)?
+                        .as_swash()
+                        .metrics(&[]);
 
-                    let swash = font.as_swash();
-                    let metrics = swash.metrics(&[]);
-                    let upem = metrics.units_per_em as f32;
-                    let scalar = layout_glyph.font_size as f32 / upem;
-                    let stroke_size = (metrics.strikeout_offset * scalar).round().max(1.);
+                    let scalar = layout_glyph.font_size / metrics.units_per_em as f32;
+                    let stroke_size = (metrics.stroke_size * scalar).round().max(1.);
 
                     maybe_run_geometry = Some(RunGeometry {
                         span_index: layout_glyph.metadata,
