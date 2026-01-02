@@ -41,7 +41,6 @@ cfg::parallel! {
     pub use buffered_channel::*;
 }
 
-
 /// The utilities prelude.
 ///
 /// This includes the most common types in this crate, re-exported for your convenience.
