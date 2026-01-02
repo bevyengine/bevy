@@ -214,7 +214,7 @@ pub fn prepare_solari_lighting_resources(
         let world_cache_active_cells_count = render_device.create_buffer(&BufferDescriptor {
             label: Some("solari_lighting_world_cache_active_cells_count"),
             size: size_of::<u32>() as u64,
-            usage: BufferUsages::STORAGE,
+            usage: BufferUsages::STORAGE | BufferUsages::COPY_SRC,
             mapped_at_creation: false,
         });
 

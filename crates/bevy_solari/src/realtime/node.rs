@@ -48,7 +48,8 @@ pub struct SolariLightingNode {
     compact_world_cache_single_block_pipeline: CachedComputePipelineId,
     compact_world_cache_blocks_pipeline: CachedComputePipelineId,
     compact_world_cache_write_active_cells_pipeline: CachedComputePipelineId,
-    sample_for_world_cache_pipeline: CachedComputePipelineId,
+    sample_di_for_world_cache_pipeline: CachedComputePipelineId,
+    sample_gi_for_world_cache_pipeline: CachedComputePipelineId,
     blend_new_world_cache_samples_pipeline: CachedComputePipelineId,
     presample_light_tiles_pipeline: CachedComputePipelineId,
     di_initial_and_temporal_pipeline: CachedComputePipelineId,
@@ -114,7 +115,8 @@ impl ViewNode for SolariLightingNode {
             Some(compact_world_cache_single_block_pipeline),
             Some(compact_world_cache_blocks_pipeline),
             Some(compact_world_cache_write_active_cells_pipeline),
-            Some(sample_for_world_cache_pipeline),
+            Some(sample_di_for_world_cache_pipeline),
+            Some(sample_gi_for_world_cache_pipeline),
             Some(blend_new_world_cache_samples_pipeline),
             Some(presample_light_tiles_pipeline),
             Some(di_initial_and_temporal_pipeline),
@@ -136,7 +138,8 @@ impl ViewNode for SolariLightingNode {
             pipeline_cache.get_compute_pipeline(self.compact_world_cache_blocks_pipeline),
             pipeline_cache
                 .get_compute_pipeline(self.compact_world_cache_write_active_cells_pipeline),
-            pipeline_cache.get_compute_pipeline(self.sample_for_world_cache_pipeline),
+            pipeline_cache.get_compute_pipeline(self.sample_di_for_world_cache_pipeline),
+            pipeline_cache.get_compute_pipeline(self.sample_gi_for_world_cache_pipeline),
             pipeline_cache.get_compute_pipeline(self.blend_new_world_cache_samples_pipeline),
             pipeline_cache.get_compute_pipeline(self.presample_light_tiles_pipeline),
             pipeline_cache.get_compute_pipeline(self.di_initial_and_temporal_pipeline),
@@ -288,7 +291,17 @@ impl ViewNode for SolariLightingNode {
 
         pass.set_bind_group(2, None, &[]);
 
-        pass.set_pipeline(sample_for_world_cache_pipeline);
+        pass.set_pipeline(sample_di_for_world_cache_pipeline);
+        pass.set_push_constants(
+            0,
+            bytemuck::cast_slice(&[frame_index, solari_lighting.reset as u32]),
+        );
+        pass.dispatch_workgroups_indirect(
+            &solari_lighting_resources.world_cache_active_cells_dispatch,
+            0,
+        );
+
+        pass.set_pipeline(sample_gi_for_world_cache_pipeline);
         pass.set_push_constants(
             0,
             bytemuck::cast_slice(&[frame_index, solari_lighting.reset as u32]),
@@ -350,6 +363,14 @@ impl ViewNode for SolariLightingNode {
         );
         pass.dispatch_workgroups(dx, dy, 1);
         d.end(&mut pass);
+
+        drop(pass);
+
+        diagnostics.record_u32(
+            render_context.command_encoder(),
+            &s.world_cache_active_cells_count.slice(..),
+            "solari_lighting/world_cache_active_cells_count",
+        );
 
         Ok(())
     }
@@ -486,9 +507,16 @@ impl FromWorld for SolariLightingNode {
                 Some(&bind_group_layout_world_cache_active_cells_dispatch),
                 vec!["WORLD_CACHE_NON_ATOMIC_LIFE_BUFFER".into()],
             ),
-            sample_for_world_cache_pipeline: create_pipeline(
-                "solari_lighting_sample_for_world_cache_pipeline",
-                "sample_radiance",
+            sample_di_for_world_cache_pipeline: create_pipeline(
+                "solari_lighting_sample_di_for_world_cache_pipeline",
+                "sample_di",
+                load_embedded_asset!(world, "world_cache_update.wgsl"),
+                None,
+                vec![],
+            ),
+            sample_gi_for_world_cache_pipeline: create_pipeline(
+                "solari_lighting_sample_gi_for_world_cache_pipeline",
+                "sample_gi",
                 load_embedded_asset!(world, "world_cache_update.wgsl"),
                 None,
                 vec!["WORLD_CACHE_QUERY_ATOMIC_MAX_LIFETIME".into()],
