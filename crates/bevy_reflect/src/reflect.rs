@@ -1,7 +1,8 @@
 use crate::{
-    array::array_debug, enum_debug, list_debug, map_debug, set_debug, struct_debug, tuple_debug,
-    tuple_struct_debug, DynamicTypePath, DynamicTyped, OpaqueInfo, ReflectCloneError, ReflectKind,
-    ReflectKindMismatchError, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, TypePath, Typed,
+    array::array_debug, enums::enum_debug, list_debug, map_debug, set_debug, struct_debug,
+    tuple_debug, tuple_struct_debug, DynamicTypePath, DynamicTyped, OpaqueInfo, ReflectCloneError,
+    ReflectKind, ReflectKindMismatchError, ReflectMut, ReflectOwned, ReflectRef, TypeInfo,
+    TypePath, Typed,
 };
 use alloc::borrow::Cow;
 use alloc::boxed::Box;
@@ -90,7 +91,7 @@ impl From<ReflectKindMismatchError> for ApplyError {
 /// [the derive macro for `Reflect`]: bevy_reflect_derive::Reflect
 /// [`Struct`]: crate::Struct
 /// [`TupleStruct`]: crate::TupleStruct
-/// [`Enum`]: crate::Enum
+/// [`Enum`]: crate::enums::Enum
 /// [crate-level documentation]: crate
 #[diagnostic::on_unimplemented(
     message = "`{Self}` does not implement `PartialReflect` so cannot be introspected",
@@ -184,7 +185,7 @@ where
     /// [`Struct`]: crate::Struct
     /// [`TupleStruct`]: crate::TupleStruct
     /// [`Tuple`]: crate::Tuple
-    /// [`Enum`]: crate::Enum
+    /// [`Enum`]: crate::enums::Enum
     /// [`List`]: crate::List
     /// [`Array`]: crate::array::Array
     /// [`Map`]: crate::Map
@@ -405,7 +406,7 @@ where
 /// [the derive macro]: bevy_reflect_derive::Reflect
 /// [`Struct`]: crate::Struct
 /// [`TupleStruct`]: crate::TupleStruct
-/// [`Enum`]: crate::Enum
+/// [`Enum`]: crate::enums::Enum
 /// [`Reflectable`]: crate::Reflectable
 /// [crate-level documentation]: crate
 #[diagnostic::on_unimplemented(

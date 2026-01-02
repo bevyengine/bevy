@@ -229,7 +229,7 @@
 //! This is known as "patching" and is done using the [`PartialReflect::apply`] and [`PartialReflect::try_apply`] methods.
 //!
 //! ```
-//! # use bevy_reflect::{DynamicEnum, PartialReflect};
+//! # use bevy_reflect::{enums::DynamicEnum, PartialReflect};
 //! let mut value = Some(123_i32);
 //! let patch = DynamicEnum::new("None", ());
 //! value.apply(&patch);
@@ -542,8 +542,10 @@
 //! [derive macro]: derive@crate::Reflect
 //! [`'static` lifetime]: https://doc.rust-lang.org/rust-by-example/scope/lifetime/static_lifetime.html#trait-bound
 //! [`Array`]: crate::array::Array
+//! [`Enum`]: crate::enums::Enum
 //! [`Function`]: crate::func::Function
 //! [`DynamicArray`]: crate::array::DynamicArray
+//! [`DynamicEnum`]: crate::enums::DynamicEnum
 //! [derive macro documentation]: derive@crate::Reflect
 //! [deriving `Reflect`]: derive@crate::Reflect
 //! [type data]: TypeData
@@ -630,7 +632,7 @@ mod impls {
 }
 
 pub mod attributes;
-mod enums;
+pub mod enums;
 mod generics;
 pub mod serde;
 pub mod std_traits;
@@ -655,7 +657,6 @@ pub mod prelude {
     pub use crate::func::{Function, IntoFunction, IntoFunctionMut};
 }
 
-pub use enums::*;
 pub use error::*;
 pub use fields::*;
 pub use from_reflect::*;
@@ -685,8 +686,8 @@ pub use erased_serde;
 #[doc(hidden)]
 pub mod __macro_exports {
     use crate::{
-        array::DynamicArray, DynamicEnum, DynamicList, DynamicMap, DynamicStruct, DynamicTuple,
-        DynamicTupleStruct, GetTypeRegistration, TypeRegistry,
+        array::DynamicArray, enums::DynamicEnum, DynamicList, DynamicMap, DynamicStruct,
+        DynamicTuple, DynamicTupleStruct, GetTypeRegistration, TypeRegistry,
     };
 
     /// Re-exports of items from the [`alloc`] crate.
@@ -865,7 +866,7 @@ mod tests {
     };
     use static_assertions::{assert_impl_all, assert_not_impl_all};
 
-    use super::{array::*, prelude::*, *};
+    use super::{array::*, enums::*, prelude::*, *};
     use crate::{
         serde::{ReflectDeserializer, ReflectSerializer},
         utility::GenericTypePathCell,

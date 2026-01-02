@@ -1,4 +1,5 @@
 use crate::{
+    enums::StructVariantInfo,
     serde::{
         de::{
             error_utils::make_custom_error,
@@ -7,7 +8,7 @@ use crate::{
         },
         SerializationData, TypedReflectDeserializer,
     },
-    DynamicStruct, NamedField, StructInfo, StructVariantInfo, TypeRegistration, TypeRegistry,
+    DynamicStruct, NamedField, StructInfo, TypeRegistration, TypeRegistry,
 };
 use alloc::string::ToString;
 use core::slice::Iter;

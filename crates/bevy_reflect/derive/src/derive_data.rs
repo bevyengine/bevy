@@ -888,7 +888,7 @@ impl<'a> ReflectEnum<'a> {
             .map(|variant| variant.to_info_tokens(bevy_reflect_path));
 
         let mut info = quote! {
-            #bevy_reflect_path::EnumInfo::new::<Self>(&[
+            #bevy_reflect_path::enums::EnumInfo::new::<Self>(&[
                 #(#variants),*
             ])
         };
@@ -1015,7 +1015,7 @@ impl<'a> EnumVariant<'a> {
         };
 
         let mut info = quote! {
-            #bevy_reflect_path::#info_struct::new(#args)
+            #bevy_reflect_path::enums::#info_struct::new(#args)
         };
 
         let custom_attributes = &self.attrs.custom_attributes;
@@ -1037,7 +1037,7 @@ impl<'a> EnumVariant<'a> {
         }
 
         quote! {
-            #bevy_reflect_path::VariantInfo::#info_variant(#info)
+            #bevy_reflect_path::enums::VariantInfo::#info_variant(#info)
         }
     }
 }

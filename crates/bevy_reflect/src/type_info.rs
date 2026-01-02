@@ -1,8 +1,9 @@
 use crate::{
     array::{ArrayInfo, DynamicArray},
-    DynamicEnum, DynamicList, DynamicMap, DynamicStruct, DynamicTuple, DynamicTupleStruct,
-    EnumInfo, Generics, ListInfo, MapInfo, PartialReflect, Reflect, ReflectKind, SetInfo,
-    StructInfo, TupleInfo, TupleStructInfo, TypePath, TypePathTable,
+    enums::{DynamicEnum, EnumInfo},
+    DynamicList, DynamicMap, DynamicStruct, DynamicTuple, DynamicTupleStruct, Generics, ListInfo,
+    MapInfo, PartialReflect, Reflect, ReflectKind, SetInfo, StructInfo, TupleInfo, TupleStructInfo,
+    TypePath, TypePathTable,
 };
 use core::{
     any::{Any, TypeId},
@@ -232,7 +233,7 @@ pub enum TypeInfo {
     Set(SetInfo),
     /// Type information for an [enum-like] type.
     ///
-    /// [enum-like]: crate::Enum
+    /// [enum-like]: crate::enums::Enum
     Enum(EnumInfo),
     /// Type information for an opaque type - see the [`OpaqueInfo`] docs for
     /// a discussion of opaque types.

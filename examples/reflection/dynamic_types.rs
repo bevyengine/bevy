@@ -1,10 +1,13 @@
 //! This example demonstrates the use of dynamic types in Bevy's reflection system.
 
 use bevy::reflect::{
-    array::DynamicArray, reflect_trait, serde::TypedReflectDeserializer,
-    std_traits::ReflectDefault, DynamicEnum, DynamicList, DynamicMap, DynamicSet, DynamicStruct,
-    DynamicTuple, DynamicTupleStruct, DynamicVariant, FromReflect, PartialReflect, Reflect,
-    ReflectFromReflect, Set, TypeRegistry, Typed,
+    array::DynamicArray,
+    enums::{DynamicEnum, DynamicVariant},
+    reflect_trait,
+    serde::TypedReflectDeserializer,
+    std_traits::ReflectDefault,
+    DynamicList, DynamicMap, DynamicSet, DynamicStruct, DynamicTuple, DynamicTupleStruct,
+    FromReflect, PartialReflect, Reflect, ReflectFromReflect, Set, TypeRegistry, Typed,
 };
 use serde::de::DeserializeSeed;
 use std::collections::{HashMap, HashSet};

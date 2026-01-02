@@ -101,7 +101,7 @@ pub trait FromReflect: Reflect + Sized {
 /// ```
 ///
 /// [`DynamicStruct`]: crate::DynamicStruct
-/// [`DynamicEnum`]: crate::DynamicEnum
+/// [`DynamicEnum`]: crate::enums::DynamicEnum
 #[derive(Clone)]
 pub struct ReflectFromReflect {
     from_reflect: fn(&dyn PartialReflect) -> Option<Box<dyn Reflect>>,

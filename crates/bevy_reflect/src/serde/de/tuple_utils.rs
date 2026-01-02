@@ -1,10 +1,10 @@
 use crate::{
+    enums::TupleVariantInfo,
     serde::{
         de::{error_utils::make_custom_error, registration_utils::try_get_registration},
         SerializationData, TypedReflectDeserializer,
     },
-    DynamicTuple, TupleInfo, TupleStructInfo, TupleVariantInfo, TypeRegistration, TypeRegistry,
-    UnnamedField,
+    DynamicTuple, TupleInfo, TupleStructInfo, TypeRegistration, TypeRegistry, UnnamedField,
 };
 use alloc::string::ToString;
 use serde::de::{Error, SeqAccess};

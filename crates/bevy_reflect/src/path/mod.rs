@@ -243,7 +243,7 @@ impl<'a> ReflectPath<'a> for &'a str {
 /// [`TupleStruct`]: crate::TupleStruct
 /// [`List`]: crate::List
 /// [`Array`]: crate::array::Array
-/// [`Enum`]: crate::Enum
+/// [`Enum`]: crate::enums::Enum
 #[diagnostic::on_unimplemented(
     message = "`{Self}` does not implement `GetPath` so cannot be accessed by reflection path",
     note = "consider annotating `{Self}` with `#[derive(Reflect)]`"
@@ -519,7 +519,7 @@ impl core::ops::IndexMut<usize> for ParsedPath {
 )]
 mod tests {
     use super::*;
-    use crate::*;
+    use crate::{enums::VariantType, *};
     use alloc::vec;
 
     #[derive(Reflect, PartialEq, Debug)]
