@@ -327,64 +327,57 @@ impl TextPipeline {
         let result = buffer.layout_runs().try_for_each(|run| {
             box_size.x = box_size.x.max(run.line_w);
             box_size.y += run.line_height;
-            let mut current_section: Option<usize> = None;
-            let mut current_font_id: Option<(ID, cosmic_text::Weight, f32, usize)> = None;
-            let mut start = 0.;
-            let mut end = 0.;
+            let mut maybe_run_geometry: Option<RunGeometry> = None;
+            let mut end: f32 = 0.;
+
             let result = run
                 .glyphs
                 .iter()
-                .map(move |layout_glyph| (layout_glyph, run.line_y, run.line_i))
+                .map(|layout_glyph| (layout_glyph, run.line_y, run.line_i))
                 .try_for_each(|(layout_glyph, line_y, line_i)| {
-                    current_font_id = Some((
-                        layout_glyph.font_id,
-                        layout_glyph.font_weight,
-                        layout_glyph.font_size,
-                        layout_glyph.metadata,
-                    ));
-                    match current_section {
-                        Some(section) => {
-                            if section != layout_glyph.metadata {
-                                let section_info = if let Some(font) = font_system
-                                    .get_font(layout_glyph.font_id, layout_glyph.font_weight)
-                                {
-                                    let swash = font.as_swash();
-                                    let metrics = swash.metrics(&[]);
-                                    let upem = metrics.units_per_em as f32;
-                                    let scalar = layout_glyph.font_size as f32 / upem;
-                                    (
-                                        (metrics.strikeout_offset * scalar).round(),
-                                        (metrics.stroke_size * scalar).round().max(1.),
-                                        (metrics.underline_offset * scalar).round(),
-                                    )
-                                } else {
-                                    (0., 0., 0.)
-                                };
-
-                                layout_info.run_geometry.push(RunGeometry {
-                                    span_index: section,
-                                    bounds: Rect::new(
-                                        start,
-                                        run.line_top,
-                                        end,
-                                        run.line_top + run.line_height,
-                                    ),
-                                    strikethrough_y: (run.line_y - section_info.0).round(),
-                                    strikethrough_thickness: section_info.1,
-                                    underline_y: (run.line_y - section_info.2),
-                                    underline_thickness: section_info.1,
-                                });
-                                start = end.max(layout_glyph.x);
-                                current_section = Some(layout_glyph.metadata);
-                            }
-                            end = layout_glyph.x + layout_glyph.w;
-                        }
-                        None => {
-                            current_section = Some(layout_glyph.metadata);
-                            start = layout_glyph.x;
-                            end = start + layout_glyph.w;
-                        }
+                    if maybe_run_geometry.as_ref().is_some_and(|run_geometry| {
+                        run_geometry.span_index != layout_glyph.metadata
+                    }) {
+                        layout_info
+                            .run_geometry
+                            .push(maybe_run_geometry.take().unwrap());
                     }
+
+                    let current_run_geometry = maybe_run_geometry.get_or_insert_with(|| {
+                        let (strikeout_offset, stroke_size, underline_offset) = if let Some(font) =
+                            font_system.get_font(layout_glyph.font_id, layout_glyph.font_weight)
+                        {
+                            let swash = font.as_swash();
+                            let metrics = swash.metrics(&[]);
+                            let upem = metrics.units_per_em as f32;
+                            let scalar = layout_glyph.font_size as f32 / upem;
+                            (
+                                (metrics.strikeout_offset * scalar).round(),
+                                (metrics.stroke_size * scalar).round().max(1.),
+                                (metrics.underline_offset * scalar).round(),
+                            )
+                        } else {
+                            (0., 0., 0.)
+                        };
+
+                        RunGeometry {
+                            span_index: layout_glyph.metadata,
+                            bounds: Rect::new(
+                                end.max(layout_glyph.x),
+                                run.line_top,
+                                // Dummy value, must be updated before being pushed to the `run_geometry` list
+                                layout_glyph.x + layout_glyph.w,
+                                run.line_top + run.line_height,
+                            ),
+                            strikethrough_y: (run.line_y - strikeout_offset).round(),
+                            strikethrough_thickness: stroke_size,
+                            underline_y: (run.line_y - underline_offset),
+                            underline_thickness: stroke_size,
+                        }
+                    });
+
+                    end = layout_glyph.x + layout_glyph.w;
+                    current_run_geometry.bounds.max.x = end;
 
                     let mut temp_glyph;
                     let span_index = layout_glyph.metadata;
@@ -456,30 +449,9 @@ impl TextPipeline {
                     layout_info.glyphs.push(pos_glyph);
                     Ok(())
                 });
-            if current_section.is_some()
-                && let Some((font_id, font_weight, font_size, section)) = current_font_id
-            {
-                let section_info = if let Some(font) = font_system.get_font(font_id, font_weight) {
-                    let swash = font.as_swash();
-                    let metrics = swash.metrics(&[]);
-                    let upem = metrics.units_per_em as f32;
-                    let scalar = font_size / upem;
-                    (
-                        (metrics.strikeout_offset * scalar).round(),
-                        (metrics.stroke_size * scalar).round().max(1.),
-                        (metrics.underline_offset * scalar).round(),
-                    )
-                } else {
-                    (0., 0., 0.)
-                };
-                layout_info.run_geometry.push(RunGeometry {
-                    span_index: section,
-                    bounds: Rect::new(start, run.line_top, end, run.line_top + run.line_height),
-                    strikethrough_y: (run.line_y - section_info.0).round(),
-                    strikethrough_thickness: section_info.1,
-                    underline_y: (run.line_y - section_info.2).round(),
-                    underline_thickness: section_info.1,
-                });
+
+            if let Some(run_geometry) = maybe_run_geometry.take() {
+                layout_info.run_geometry.push(run_geometry);
             }
 
             result
