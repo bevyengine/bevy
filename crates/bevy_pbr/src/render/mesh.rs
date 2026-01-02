@@ -65,7 +65,7 @@ use bevy_utils::{default, BufferedChannel, Parallel, TypeIdMap};
 use core::any::TypeId;
 use core::mem::size_of;
 use material_bind_groups::MaterialBindingId;
-use tracing::{error, info_span, warn};
+use tracing::{error, info_span, warn, Instrument};
 
 use self::irradiance_volume::IRRADIANCE_VOLUMES_ARE_USABLE;
 use crate::{
@@ -1218,8 +1218,11 @@ impl RenderMeshInstanceGpuBuilder {
 }
 
 pub struct RenderMeshInstanceGpuPrepared {
+    /// Data shared between the CPU and GPU versions of this mesh instance.
     shared: RenderMeshInstanceShared,
+    /// The data that will be uploaded to the GPU as a [`MeshInputUniform`].
     mesh_input_uniform: MeshInputUniform,
+    /// The world-space center of the mesh instance, used for culling and sorting.
     center: Vec3,
 }
 
@@ -1800,47 +1803,6 @@ pub fn collect_meshes_for_gpu_building(
     let (reextract_rx, reextract_tx) = chunks.reextract.unbounded();
     let (removed_rx, removed_tx) = chunks.removed.unbounded();
 
-    // A single worker that consumes the meshes prepared in parallel by multiple producers.
-    // This part of the workload cannot be parallelized due to the shared mutable state.
-    let mesh_consumer_worker = &mut Some(move || {
-        let _span = info_span!("prepared_mesh_consumer").entered();
-        // In an ideal world, these three for loops would be a single loop, so we can process
-        // incoming batches no matter which channel they come into, instead of one at a time.
-        // Probably doable using async_channel and awaiting all three receivers at once.
-        while let Ok(batch) = prepared_rx.recv_blocking() {
-            for (entity, prepared, mesh_culling_builder) in batch {
-                let Some(instance_data_index) = prepared.update(
-                    entity,
-                    &mut *render_mesh_instances,
-                    current_input_buffer,
-                    previous_input_buffer,
-                ) else {
-                    continue;
-                };
-                if let Some(mesh_culling_data) = mesh_culling_builder {
-                    mesh_culling_data
-                        .update(&mut mesh_culling_data_buffer, instance_data_index as usize);
-                }
-            }
-        }
-        while let Ok(batch) = removed_rx.recv_blocking() {
-            for entity in batch {
-                remove_mesh_input_uniform(
-                    entity,
-                    &mut *render_mesh_instances,
-                    current_input_buffer,
-                );
-            }
-        }
-        while let Ok(batch) = reextract_rx.recv_blocking() {
-            for entity in batch {
-                meshes_to_reextract_next_frame.insert(entity);
-            }
-        }
-        // Buffers can't be empty. Make sure there's something in the previous input buffer.
-        previous_input_buffer.ensure_nonempty();
-    });
-
     // Reference data shared between tasks
     let mesh_allocator = &mesh_allocator;
     let mesh_material_ids = &mesh_material_ids;
@@ -1850,18 +1812,49 @@ pub fn collect_meshes_for_gpu_building(
     let frame_count = *frame_count;
 
     // Spawn workers on the taskpool to prepare and update meshes in parallel.
-    let taskpool = ComputeTaskPool::get();
-    let is_single_threaded = taskpool.thread_num() == 1;
-    taskpool.scope(|scope| {
-        // If we have multiple threads available, we can spawn a dedicated consumer worker before
-        // the parallel producers start sending data without any risk of deadlocking.
-        //
+    ComputeTaskPool::get().scope(|scope| {
         // This worker is the bottleneck of mesh preparation and can only run serially, so we want
         // it to start working immediately. As soon as the parallel workers produce chunks of
         // prepared meshes, this worker will consume them and update the GPU buffers.
-        if !is_single_threaded && let Some(mut consumer_worker) = mesh_consumer_worker.take() {
-            scope.spawn(async move { consumer_worker() });
-        }
+        scope.spawn(
+            async move {
+                while let Ok(batch) = prepared_rx.recv().await {
+                    for (entity, prepared, mesh_culling_builder) in batch {
+                        let Some(instance_data_index) = prepared.update(
+                            entity,
+                            &mut *render_mesh_instances,
+                            current_input_buffer,
+                            previous_input_buffer,
+                        ) else {
+                            continue;
+                        };
+                        if let Some(mesh_culling_data) = mesh_culling_builder {
+                            mesh_culling_data.update(
+                                &mut mesh_culling_data_buffer,
+                                instance_data_index as usize,
+                            );
+                        }
+                    }
+                }
+                while let Ok(batch) = removed_rx.recv().await {
+                    for entity in batch {
+                        remove_mesh_input_uniform(
+                            entity,
+                            &mut *render_mesh_instances,
+                            current_input_buffer,
+                        );
+                    }
+                }
+                while let Ok(batch) = reextract_rx.recv().await {
+                    for entity in batch {
+                        meshes_to_reextract_next_frame.insert(entity);
+                    }
+                }
+                // Buffers can't be empty. Make sure there's something in the previous input buffer.
+                previous_input_buffer.ensure_nonempty();
+            }
+            .instrument(info_span!("collect_meshes_consumer")),
+        );
 
         // Iterate through each queue, spawning a task for each queue. This loop completes quickly
         // as it does very little work, it is just spawning and moving data into tasks in a loop.
@@ -1894,12 +1887,10 @@ pub fn collect_meshes_for_gpu_building(
                                         frame_count,
                                     ) {
                                     Some(prepared) => {
-                                        prepared_tx
-                                            .send_blocking((entity, prepared, None))
-                                            .unwrap();
+                                        prepared_tx.send_blocking((entity, prepared, None)).ok();
                                     }
                                     None => {
-                                        reextract_tx.send_blocking(entity).unwrap();
+                                        reextract_tx.send_blocking(entity).ok();
                                     }
                                 },
                             );
@@ -1931,16 +1922,11 @@ pub fn collect_meshes_for_gpu_building(
                                     frame_count,
                                 ) {
                                     Some(prepared) => {
-                                        prepared_tx
-                                            .send_blocking((
-                                                entity,
-                                                prepared,
-                                                Some(mesh_culling_builder),
-                                            ))
-                                            .unwrap();
+                                        let data = (entity, prepared, Some(mesh_culling_builder));
+                                        prepared_tx.send_blocking(data).ok();
                                     }
                                     None => {
-                                        reextract_tx.send_blocking(entity).unwrap();
+                                        reextract_tx.send_blocking(entity).ok();
                                     }
                                 }
                             },
@@ -1961,13 +1947,6 @@ pub fn collect_meshes_for_gpu_building(
         drop(reextract_tx);
         drop(removed_tx);
     });
-
-    // In single threaded scenarios, we cannot spawn the worker first because it will deadlock,
-    // The worker would block the thread and prevent the mesh prepare tasks from ever starting and
-    // sending any data to be consumed.
-    if is_single_threaded && let Some(mut consumer_worker) = mesh_consumer_worker.take() {
-        consumer_worker();
-    }
 }
 
 /// All data needed to construct a pipeline for rendering 3D meshes.
