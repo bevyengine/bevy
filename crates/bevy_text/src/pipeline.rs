@@ -324,140 +324,131 @@ impl TextPipeline {
         buffer.set_size(font_system, width, bounds.height);
         let mut box_size = Vec2::ZERO;
 
-        let result = buffer.layout_runs().try_for_each(|run| {
+        for run in buffer.layout_runs() {
             box_size.x = box_size.x.max(run.line_w);
             box_size.y += run.line_height;
             let mut maybe_run_geometry: Option<RunGeometry> = None;
             let mut end: f32 = 0.;
 
-            let result = run
-                .glyphs
-                .iter()
-                .map(|layout_glyph| (layout_glyph, run.line_y, run.line_i))
-                .try_for_each(|(layout_glyph, line_y, line_i)| {
-                    if maybe_run_geometry.as_ref().is_some_and(|run_geometry| {
-                        run_geometry.span_index != layout_glyph.metadata
-                    }) {
-                        layout_info
-                            .run_geometry
-                            .push(maybe_run_geometry.take().unwrap());
-                    }
+            for layout_glyph in run.glyphs {
+                if maybe_run_geometry
+                    .as_ref()
+                    .is_some_and(|run_geometry| run_geometry.span_index != layout_glyph.metadata)
+                {
+                    layout_info
+                        .run_geometry
+                        .push(maybe_run_geometry.take().unwrap());
+                }
 
-                    if maybe_run_geometry.is_none() {
-                        let font = font_system
-                            .get_font(layout_glyph.font_id, layout_glyph.font_weight)
-                            .ok_or(TextError::NoSuchFont)?;
+                if maybe_run_geometry.is_none() {
+                    let font = font_system
+                        .get_font(layout_glyph.font_id, layout_glyph.font_weight)
+                        .ok_or(TextError::NoSuchFont)?;
 
-                        let swash = font.as_swash();
-                        let metrics = swash.metrics(&[]);
-                        let upem = metrics.units_per_em as f32;
-                        let scalar = layout_glyph.font_size as f32 / upem;
+                    let swash = font.as_swash();
+                    let metrics = swash.metrics(&[]);
+                    let upem = metrics.units_per_em as f32;
+                    let scalar = layout_glyph.font_size as f32 / upem;
 
-                        let strikeout_offset = (metrics.strikeout_offset * scalar).round();
-                        let stroke_size = (metrics.stroke_size * scalar).round().max(1.);
-                        let underline_offset = (metrics.underline_offset * scalar).round();
+                    let strikeout_offset = (metrics.strikeout_offset * scalar).round();
+                    let stroke_size = (metrics.stroke_size * scalar).round().max(1.);
+                    let underline_offset = (metrics.underline_offset * scalar).round();
 
-                        maybe_run_geometry = Some(RunGeometry {
-                            span_index: layout_glyph.metadata,
-                            bounds: Rect::new(
-                                end.max(layout_glyph.x),
-                                run.line_top,
-                                // Dummy value, must be updated before being pushed to the `run_geometry` list
-                                layout_glyph.x + layout_glyph.w,
-                                run.line_top + run.line_height,
-                            ),
-                            strikethrough_y: (run.line_y - strikeout_offset).round(),
-                            strikethrough_thickness: stroke_size,
-                            underline_y: (run.line_y - underline_offset),
-                            underline_thickness: stroke_size,
-                        });
-                    }
+                    maybe_run_geometry = Some(RunGeometry {
+                        span_index: layout_glyph.metadata,
+                        bounds: Rect::new(
+                            end.max(layout_glyph.x),
+                            run.line_top,
+                            // Dummy value, must be updated before being pushed to the `run_geometry` list
+                            layout_glyph.x + layout_glyph.w,
+                            run.line_top + run.line_height,
+                        ),
+                        strikethrough_y: (run.line_y - strikeout_offset).round(),
+                        strikethrough_thickness: stroke_size,
+                        underline_y: (run.line_y - underline_offset),
+                        underline_thickness: stroke_size,
+                    });
+                }
 
-                    let current_run_geometry = maybe_run_geometry.as_mut().unwrap();
+                let current_run_geometry = maybe_run_geometry.as_mut().unwrap();
 
-                    end = layout_glyph.x + layout_glyph.w;
-                    current_run_geometry.bounds.max.x = end;
+                end = layout_glyph.x + layout_glyph.w;
+                current_run_geometry.bounds.max.x = end;
 
-                    let mut temp_glyph;
-                    let span_index = layout_glyph.metadata;
-                    let font_smoothing = FontSmoothing::AntiAliased;
+                let mut temp_glyph;
+                let span_index = layout_glyph.metadata;
+                let font_smoothing = FontSmoothing::AntiAliased;
 
-                    let layout_glyph = if font_smoothing == FontSmoothing::None {
-                        // If font smoothing is disabled, round the glyph positions and sizes,
-                        // effectively discarding all subpixel layout.
-                        temp_glyph = layout_glyph.clone();
-                        temp_glyph.x = temp_glyph.x.round();
-                        temp_glyph.y = temp_glyph.y.round();
-                        temp_glyph.w = temp_glyph.w.round();
-                        temp_glyph.x_offset = temp_glyph.x_offset.round();
-                        temp_glyph.y_offset = temp_glyph.y_offset.round();
-                        temp_glyph.line_height_opt = temp_glyph.line_height_opt.map(f32::round);
+                let layout_glyph = if font_smoothing == FontSmoothing::None {
+                    // If font smoothing is disabled, round the glyph positions and sizes,
+                    // effectively discarding all subpixel layout.
+                    temp_glyph = layout_glyph.clone();
+                    temp_glyph.x = temp_glyph.x.round();
+                    temp_glyph.y = temp_glyph.y.round();
+                    temp_glyph.w = temp_glyph.w.round();
+                    temp_glyph.x_offset = temp_glyph.x_offset.round();
+                    temp_glyph.y_offset = temp_glyph.y_offset.round();
+                    temp_glyph.line_height_opt = temp_glyph.line_height_opt.map(f32::round);
 
-                        &temp_glyph
-                    } else {
-                        layout_glyph
-                    };
+                    &temp_glyph
+                } else {
+                    layout_glyph
+                };
 
-                    let physical_glyph = layout_glyph.physical((0., 0.), 1.);
+                let physical_glyph = layout_glyph.physical((0., 0.), 1.);
 
-                    let font_atlases = font_atlas_set
-                        .entry(FontAtlasKey {
-                            id: physical_glyph.cache_key.font_id,
-                            font_size_bits: physical_glyph.cache_key.font_size_bits,
+                let font_atlases = font_atlas_set
+                    .entry(FontAtlasKey {
+                        id: physical_glyph.cache_key.font_id,
+                        font_size_bits: physical_glyph.cache_key.font_size_bits,
+                        font_smoothing,
+                    })
+                    .or_default();
+
+                let atlas_info = get_glyph_atlas_info(font_atlases, physical_glyph.cache_key)
+                    .map(Ok)
+                    .unwrap_or_else(|| {
+                        add_glyph_to_atlas(
+                            font_atlases,
+                            texture_atlases,
+                            textures,
+                            &mut font_system.0,
+                            &mut swash_cache.0,
+                            layout_glyph,
                             font_smoothing,
-                        })
-                        .or_default();
+                        )
+                    })?;
 
-                    let atlas_info = get_glyph_atlas_info(font_atlases, physical_glyph.cache_key)
-                        .map(Ok)
-                        .unwrap_or_else(|| {
-                            add_glyph_to_atlas(
-                                font_atlases,
-                                texture_atlases,
-                                textures,
-                                &mut font_system.0,
-                                &mut swash_cache.0,
-                                layout_glyph,
-                                font_smoothing,
-                            )
-                        })?;
+                let texture_atlas = texture_atlases.get(atlas_info.texture_atlas).unwrap();
+                let location = atlas_info.location;
+                let glyph_rect = texture_atlas.textures[location.glyph_index];
+                let left = location.offset.x as f32;
+                let top = location.offset.y as f32;
+                let glyph_size = UVec2::new(glyph_rect.width(), glyph_rect.height());
 
-                    let texture_atlas = texture_atlases.get(atlas_info.texture_atlas).unwrap();
-                    let location = atlas_info.location;
-                    let glyph_rect = texture_atlas.textures[location.glyph_index];
-                    let left = location.offset.x as f32;
-                    let top = location.offset.y as f32;
-                    let glyph_size = UVec2::new(glyph_rect.width(), glyph_rect.height());
+                // offset by half the size because the origin is center
+                let x = glyph_size.x as f32 / 2.0 + left + physical_glyph.x as f32;
+                let y =
+                    run.line_y.round() + physical_glyph.y as f32 - top + glyph_size.y as f32 / 2.0;
 
-                    // offset by half the size because the origin is center
-                    let x = glyph_size.x as f32 / 2.0 + left + physical_glyph.x as f32;
-                    let y =
-                        line_y.round() + physical_glyph.y as f32 - top + glyph_size.y as f32 / 2.0;
+                let position = Vec2::new(x, y);
 
-                    let position = Vec2::new(x, y);
-
-                    let pos_glyph = PositionedGlyph {
-                        position,
-                        size: glyph_size.as_vec2(),
-                        atlas_info,
-                        span_index,
-                        byte_index: layout_glyph.start,
-                        byte_length: layout_glyph.end - layout_glyph.start,
-                        line_index: line_i,
-                    };
-                    layout_info.glyphs.push(pos_glyph);
-                    Ok(())
-                });
+                let pos_glyph = PositionedGlyph {
+                    position,
+                    size: glyph_size.as_vec2(),
+                    atlas_info,
+                    span_index,
+                    byte_index: layout_glyph.start,
+                    byte_length: layout_glyph.end - layout_glyph.start,
+                    line_index: run.line_i,
+                };
+                layout_info.glyphs.push(pos_glyph);
+            }
 
             if let Some(run_geometry) = maybe_run_geometry.take() {
                 layout_info.run_geometry.push(run_geometry);
             }
-
-            result
-        });
-
-        // Check result.
-        result?;
+        }
 
         layout_info.size = box_size.ceil();
         Ok(())
