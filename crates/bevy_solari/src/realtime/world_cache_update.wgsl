@@ -66,7 +66,7 @@ fn blend_new_samples(@builtin(global_invocation_id) active_cell_id: vec3<u32>) {
     let blend_amount = 1.0 / min(sample_count, max_sample_count);
 
     let blended_radiance = mix(old_radiance.rgb, new_radiance, blend_amount);
-    let blended_luminance_delta = mix(luminance_delta, luminance(blended_radiance) - luminance(old_radiance.rgb), 1.0 / 8.0);
+    let blended_luminance_delta = mix(luminance_delta, luminance(blended_radiance = old_radiance.rgb), 1.0 / 8.0);
 
     world_cache_radiance[cell_index] = vec4(blended_radiance, sample_count);
     world_cache_luminance_deltas[cell_index] = blended_luminance_delta;
