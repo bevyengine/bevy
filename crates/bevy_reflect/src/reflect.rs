@@ -1,8 +1,8 @@
 use crate::{
-    array::array_debug, enums::enum_debug, list::list_debug, map_debug, set_debug, struct_debug,
-    tuple_debug, tuple_struct_debug, DynamicTypePath, DynamicTyped, OpaqueInfo, ReflectCloneError,
-    ReflectKind, ReflectKindMismatchError, ReflectMut, ReflectOwned, ReflectRef, TypeInfo,
-    TypePath, Typed,
+    array::array_debug, enums::enum_debug, list::list_debug, map::map_debug, set_debug,
+    struct_debug, tuple_debug, tuple_struct_debug, DynamicTypePath, DynamicTyped, OpaqueInfo,
+    ReflectCloneError, ReflectKind, ReflectKindMismatchError, ReflectMut, ReflectOwned, ReflectRef,
+    TypeInfo, TypePath, Typed,
 };
 use alloc::borrow::Cow;
 use alloc::boxed::Box;
@@ -188,10 +188,10 @@ where
     /// [`Enum`]: crate::enums::Enum
     /// [`List`]: crate::list::List
     /// [`Array`]: crate::array::Array
-    /// [`Map`]: crate::Map
+    /// [`Map`]: crate::map::Map
     /// [`Set`]: crate::Set
     /// [`list_apply`]: crate::list::list_apply
-    /// [`map_apply`]: crate::map_apply
+    /// [`map_apply`]: crate::map::map_apply
     /// [`set_apply`]: crate::set_apply
     ///
     /// # Panics
@@ -353,7 +353,7 @@ where
     /// where `type_path` is the [type path] of the underlying type.
     ///
     /// [`List`]: crate::list::List
-    /// [`Map`]: crate::Map
+    /// [`Map`]: crate::map::Map
     /// [type path]: TypePath::type_path
     fn debug(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self.reflect_ref() {
