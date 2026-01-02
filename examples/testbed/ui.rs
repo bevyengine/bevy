@@ -16,7 +16,10 @@ pub struct Args {
 }
 
 fn main() {
+    #[cfg(not(target_arch = "wasm32"))]
     let args: Args = argh::from_env();
+    #[cfg(target_arch = "wasm32")]
+    let args: Args = Args::from_args(&[], &[]).unwrap();
 
     let mut app = App::new();
     app.add_plugins(DefaultPlugins.set(WindowPlugin {
