@@ -1,5 +1,5 @@
 use crate::{
-    array::array_debug, enums::enum_debug, list_debug, map_debug, set_debug, struct_debug,
+    array::array_debug, enums::enum_debug, list::list_debug, map_debug, set_debug, struct_debug,
     tuple_debug, tuple_struct_debug, DynamicTypePath, DynamicTyped, OpaqueInfo, ReflectCloneError,
     ReflectKind, ReflectKindMismatchError, ReflectMut, ReflectOwned, ReflectRef, TypeInfo,
     TypePath, Typed,
@@ -115,7 +115,7 @@ where
     /// performant for such use cases.
     ///
     /// [`DynamicStruct`]: crate::DynamicStruct
-    /// [`DynamicList`]: crate::DynamicList
+    /// [`DynamicList`]: crate::list::DynamicList
     /// [`TypeRegistry::get_type_info`]: crate::TypeRegistry::get_type_info
     fn get_represented_type_info(&self) -> Option<&'static TypeInfo>;
 
@@ -186,11 +186,11 @@ where
     /// [`TupleStruct`]: crate::TupleStruct
     /// [`Tuple`]: crate::Tuple
     /// [`Enum`]: crate::enums::Enum
-    /// [`List`]: crate::List
+    /// [`List`]: crate::list::List
     /// [`Array`]: crate::array::Array
     /// [`Map`]: crate::Map
     /// [`Set`]: crate::Set
-    /// [`list_apply`]: crate::list_apply
+    /// [`list_apply`]: crate::list::list_apply
     /// [`map_apply`]: crate::map_apply
     /// [`set_apply`]: crate::set_apply
     ///
@@ -265,9 +265,9 @@ where
     /// ```
     ///
     /// [kind]: PartialReflect::reflect_kind
-    /// [`List`]: crate::List
-    /// [`List::to_dynamic_list`]: crate::List::to_dynamic_list
-    /// [`DynamicList`]: crate::DynamicList
+    /// [`List`]: crate::list::List
+    /// [`List::to_dynamic_list`]: crate::list::List::to_dynamic_list
+    /// [`DynamicList`]: crate::list::DynamicList
     /// [`Struct`]: crate::Struct
     /// [`Struct::to_dynamic_struct`]: crate::Struct::to_dynamic_struct
     /// [`DynamicStruct`]: crate::DynamicStruct
@@ -352,7 +352,7 @@ where
     /// (e.g. [`List`], [`Map`]), will default to the format: `"Reflect(type_path)"`,
     /// where `type_path` is the [type path] of the underlying type.
     ///
-    /// [`List`]: crate::List
+    /// [`List`]: crate::list::List
     /// [`Map`]: crate::Map
     /// [type path]: TypePath::type_path
     fn debug(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
@@ -381,7 +381,7 @@ where
     /// By default, this method will return `false`.
     ///
     /// [`DynamicStruct`]: crate::DynamicStruct
-    /// [`DynamicList`]: crate::DynamicList
+    /// [`DynamicList`]: crate::list::DynamicList
     /// [`DynamicTuple`]: crate::DynamicTuple
     fn is_dynamic(&self) -> bool {
         false

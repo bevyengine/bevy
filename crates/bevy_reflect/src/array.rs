@@ -45,7 +45,7 @@ use core::{
 ///
 /// [array-like]: https://doc.rust-lang.org/book/ch03-02-data-types.html#the-array-type
 /// [reflection]: crate
-/// [`List`]: crate::List
+/// [`List`]: crate::list::List
 /// [type-erasing]: https://doc.rust-lang.org/book/ch17-02-trait-objects.html
 /// [`GetTypeRegistration`]: crate::GetTypeRegistration
 /// [limitation]: https://github.com/serde-rs/serde/issues/1937
@@ -162,7 +162,7 @@ impl ArrayInfo {
 /// This isn't to say that a [`DynamicArray`] is immutable— its items
 /// can be mutated— just that the _number_ of items cannot change.
 ///
-/// [`DynamicList`]: crate::DynamicList
+/// [`DynamicList`]: crate::list::DynamicList
 #[derive(Debug)]
 pub struct DynamicArray {
     pub(crate) represented_type: Option<&'static TypeInfo>,

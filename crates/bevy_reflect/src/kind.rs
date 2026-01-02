@@ -4,7 +4,7 @@ use thiserror::Error;
 #[cfg(feature = "functions")]
 use crate::func::Function;
 use crate::{
-    array::Array, enums::Enum, List, Map, PartialReflect, Set, Struct, Tuple, TupleStruct,
+    array::Array, enums::Enum, list::List, Map, PartialReflect, Set, Struct, Tuple, TupleStruct,
 };
 
 /// An enumeration of the "kinds" of a reflected type.

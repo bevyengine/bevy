@@ -241,7 +241,7 @@ impl<'a> ReflectPath<'a> for &'a str {
 /// [`Struct`]: crate::Struct
 /// [`Tuple`]: crate::Tuple
 /// [`TupleStruct`]: crate::TupleStruct
-/// [`List`]: crate::List
+/// [`List`]: crate::list::List
 /// [`Array`]: crate::array::Array
 /// [`Enum`]: crate::enums::Enum
 #[diagnostic::on_unimplemented(

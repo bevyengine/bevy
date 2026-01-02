@@ -39,7 +39,7 @@ pub trait FromReflect: Reflect + Sized {
     ///
     /// [`from_reflect`]: Self::from_reflect
     /// [`DynamicStruct`]: crate::DynamicStruct
-    /// [`DynamicList`]: crate::DynamicList
+    /// [`DynamicList`]: crate::list::DynamicList
     fn take_from_reflect(
         reflect: Box<dyn PartialReflect>,
     ) -> Result<Self, Box<dyn PartialReflect>> {

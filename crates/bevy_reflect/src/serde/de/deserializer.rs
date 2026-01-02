@@ -99,7 +99,7 @@ use super::ReflectDeserializerProcessor;
 /// [`ReflectKind::Opaque`]: crate::ReflectKind::Opaque
 /// [`ReflectDeserialize`]: crate::ReflectDeserialize
 /// [`Box<DynamicStruct>`]: crate::DynamicStruct
-/// [`Box<DynamicList>`]: crate::DynamicList
+/// [`Box<DynamicList>`]: crate::list::DynamicList
 /// [`FromReflect`]: crate::FromReflect
 /// [`ReflectFromReflect`]: crate::ReflectFromReflect
 /// [`with_processor`]: Self::with_processor
@@ -266,7 +266,7 @@ impl<'de, P: ReflectDeserializerProcessor> DeserializeSeed<'de> for ReflectDeser
 /// [`ReflectKind::Opaque`]: crate::ReflectKind::Opaque
 /// [`ReflectDeserialize`]: crate::ReflectDeserialize
 /// [`Box<DynamicStruct>`]: crate::DynamicStruct
-/// [`Box<DynamicList>`]: crate::DynamicList
+/// [`Box<DynamicList>`]: crate::list::DynamicList
 /// [`FromReflect`]: crate::FromReflect
 /// [`ReflectFromReflect`]: crate::ReflectFromReflect
 /// [`with_processor`]: Self::with_processor

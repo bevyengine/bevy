@@ -542,9 +542,11 @@
 //! [derive macro]: derive@crate::Reflect
 //! [`'static` lifetime]: https://doc.rust-lang.org/rust-by-example/scope/lifetime/static_lifetime.html#trait-bound
 //! [`Array`]: crate::array::Array
+//! [`List`]: crate::list::List
 //! [`Enum`]: crate::enums::Enum
 //! [`Function`]: crate::func::Function
 //! [`DynamicArray`]: crate::array::DynamicArray
+//! [`DynamicList`]: crate::list::DynamicList
 //! [`DynamicEnum`]: crate::enums::DynamicEnum
 //! [derive macro documentation]: derive@crate::Reflect
 //! [deriving `Reflect`]: derive@crate::Reflect
@@ -590,7 +592,7 @@ mod from_reflect;
 pub mod func;
 mod is;
 mod kind;
-mod list;
+pub mod list;
 mod map;
 mod path;
 mod reflect;
@@ -663,7 +665,6 @@ pub use from_reflect::*;
 pub use generics::*;
 pub use is::*;
 pub use kind::*;
-pub use list::*;
 pub use map::*;
 pub use path::*;
 pub use reflect::*;
@@ -686,7 +687,7 @@ pub use erased_serde;
 #[doc(hidden)]
 pub mod __macro_exports {
     use crate::{
-        array::DynamicArray, enums::DynamicEnum, DynamicList, DynamicMap, DynamicStruct,
+        array::DynamicArray, enums::DynamicEnum, list::DynamicList, DynamicMap, DynamicStruct,
         DynamicTuple, DynamicTupleStruct, GetTypeRegistration, TypeRegistry,
     };
 
@@ -866,7 +867,7 @@ mod tests {
     };
     use static_assertions::{assert_impl_all, assert_not_impl_all};
 
-    use super::{array::*, enums::*, prelude::*, *};
+    use super::{array::*, enums::*, list::*, prelude::*, *};
     use crate::{
         serde::{ReflectDeserializer, ReflectSerializer},
         utility::GenericTypePathCell,

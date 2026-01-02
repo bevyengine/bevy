@@ -3,11 +3,12 @@
 use bevy::reflect::{
     array::DynamicArray,
     enums::{DynamicEnum, DynamicVariant},
+    list::DynamicList,
     reflect_trait,
     serde::TypedReflectDeserializer,
     std_traits::ReflectDefault,
-    DynamicList, DynamicMap, DynamicSet, DynamicStruct, DynamicTuple, DynamicTupleStruct,
-    FromReflect, PartialReflect, Reflect, ReflectFromReflect, Set, TypeRegistry, Typed,
+    DynamicMap, DynamicSet, DynamicStruct, DynamicTuple, DynamicTupleStruct, FromReflect,
+    PartialReflect, Reflect, ReflectFromReflect, Set, TypeRegistry, Typed,
 };
 use serde::de::DeserializeSeed;
 use std::collections::{HashMap, HashSet};

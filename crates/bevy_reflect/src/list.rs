@@ -1,3 +1,6 @@
+//! Types and traits used to power [list-like] operations via reflection.
+//!
+//! [list-like]: https://doc.rust-lang.org/book/ch08-01-vectors.html
 use alloc::{boxed::Box, vec::Vec};
 use core::{
     any::Any,
@@ -39,7 +42,7 @@ use crate::{
 /// # Example
 ///
 /// ```
-/// use bevy_reflect::{PartialReflect, Reflect, List};
+/// use bevy_reflect::{PartialReflect, Reflect, list::List};
 ///
 /// let foo: &mut dyn List = &mut vec![123_u32, 456_u32, 789_u32];
 /// assert_eq!(foo.len(), 3);
