@@ -7,7 +7,7 @@ use core::ops::{Deref, DerefMut};
 ///
 /// This is a building block for efficient parallel worker tasks.
 ///
-/// Cache this channel in a system's [`Local`] to reuse allocated memory.
+/// Cache this channel in a system's `Local` to reuse allocated memory.
 ///
 /// This is faster than sending each message individually into a channel when communicating between
 /// tasks. Unlike `Parallel`, this allows you to execute a consuming task while producing tasks are
