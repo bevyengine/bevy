@@ -302,7 +302,7 @@ impl TextPipeline {
     }
 
     /// Update [`TextLayoutInfo`] with the new [`PositionedGlyph`] layout.
-    pub fn update_text_layout_info<'a>(
+    pub fn update_text_layout_info(
         &mut self,
         layout_info: &mut TextLayoutInfo,
         font_atlas_set: &mut FontAtlasSet,
