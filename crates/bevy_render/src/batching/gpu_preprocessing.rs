@@ -2044,7 +2044,7 @@ pub fn write_batched_instance_buffers<GFBD>(
             } = *phase_instance_buffers;
 
             scope.spawn(async {
-                let _span = tracing::info_span!("write_buffers").entered();
+                let _span = tracing::info_span!("write_phase_instance_buffers").entered();
                 data_buffer.write_buffer(render_device);
                 late_indexed_indirect_parameters_buffer.write_buffer(render_device, render_queue);
                 late_non_indexed_indirect_parameters_buffer
