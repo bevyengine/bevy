@@ -61,7 +61,7 @@ use bevy_render::{
 };
 use bevy_shader::{load_shader_library, Shader, ShaderDefVal, ShaderSettings};
 use bevy_transform::components::GlobalTransform;
-use bevy_utils::{default, Parallel, TypeIdMap};
+use bevy_utils::{default, BufferedChannel, Parallel, TypeIdMap};
 use core::any::TypeId;
 use core::mem::size_of;
 use material_bind_groups::MaterialBindingId;
@@ -1750,127 +1750,6 @@ pub fn set_mesh_motion_vector_flags(
     }
 }
 
-/// A channel that uses thread locals to buffer messages for efficient parallel processing.
-///
-/// Cache this channel in a [`Local`] between system runs to reuse allocated memory.
-///
-/// This is faster than sending each message individually into a channel when communicating between
-/// tasks. Unlike `Parallel`, this allows you to execute a consuming task while producing tasks are
-/// concurrently sending data into the channel, enabling you to run serial processing concurrently
-/// with the parallel processing step of an algorithm.
-///
-/// ### Usage
-///
-/// ```
-/// use bevy_app::{App, ScheduleRunnerPlugin, TaskPoolPlugin, Update};
-/// use bevy_diagnostic::FrameCountPlugin;
-/// use bevy_ecs::system::Local;
-/// use bevy_pbr::BufferedChannel;
-/// use bevy_tasks::{ComputeTaskPool, TaskPool, TaskPoolBuilder};
-///
-/// App::new().add_plugins(TaskPoolPlugin::default()).add_systems(Update, parallel_system).update();
-///
-/// fn parallel_system(channel: Local<BufferedChannel<u32>>) {
-///     // Every update, set up the channel to get a sender and receiver.
-///     let (rx, tx) = channel.setup();
-///
-///     ComputeTaskPool::get().scope(|scope| {
-///         // Spawn a few producing tasks in parallel that send data using a buffered channel
-///         for _ in 0..5 {
-///             let tx = tx.clone();
-///             scope.spawn(async move {
-///                 for i in 0..10_000 {
-///                     tx.send(i);
-///                 }
-///             });
-///         }
-///         drop(tx);
-///
-///         // Spawn a single consumer task that reads from the producers as
-///         scope.spawn(async move {
-///             // Note we have to `flatten()`, as we are receiving batches of values in `Vec`s.
-///             let total: u32 = rx.iter().flatten().sum();
-///             assert_eq!(total, 249_975_000);
-///         });
-///     });
-/// }
-/// ```
-pub struct BufferedChannel<T: Send> {
-    /// The size of batches of buffered data sent through the channel.
-    pub chunk_size: usize,
-    /// Thread-local buffer of `T`.
-    buffer: Parallel<Vec<T>>,
-}
-
-impl<T: Send> Default for BufferedChannel<T> {
-    fn default() -> Self {
-        Self {
-            // This was tuned based on benchmarks across a wide range of sizes.
-            chunk_size: 1024,
-            buffer: Parallel::default(),
-        }
-    }
-}
-
-/// A [`BufferedChannel`] sender that buffers messages in a thread local `Vec`, flushing messages
-/// from the thread local when the buffered sender is dropped.
-pub struct BufferedSender<'a, T: Send> {
-    chunk_size: usize,
-    parallel: &'a Parallel<Vec<T>>,
-    // Use a `std` channel, the speed doesn't matter much because we are buffering.
-    tx: std::sync::mpsc::Sender<Vec<T>>,
-}
-
-impl<T: Send> BufferedChannel<T> {
-    pub fn setup(&self) -> (std::sync::mpsc::Receiver<Vec<T>>, BufferedSender<'_, T>) {
-        let (tx, rx) = std::sync::mpsc::channel();
-        (
-            rx,
-            BufferedSender {
-                chunk_size: self.chunk_size,
-                parallel: &self.buffer,
-                tx,
-            },
-        )
-    }
-}
-
-impl<'a, T: Send> BufferedSender<'a, T> {
-    /// Send an item. This is buffered and will only be sent into the channel once the number of
-    /// items in the thread local has exceeded [`BufferedChannel::chunk_size`], or the sender is
-    /// dropped and the thread local buffer is automatically flushed.
-    pub fn send(&self, item: T) {
-        let mut local = self.parallel.borrow_local_mut();
-        local.push(item);
-        if local.len() >= self.chunk_size {
-            let _ = self.tx.send(core::mem::take(&mut *local));
-        }
-    }
-
-    fn flush(&self) {
-        let mut local = self.parallel.borrow_local_mut();
-        if !local.is_empty() {
-            let _ = self.tx.send(core::mem::take(&mut *local));
-        }
-    }
-}
-
-impl<'a, T: Send> Clone for BufferedSender<'a, T> {
-    fn clone(&self) -> Self {
-        Self {
-            chunk_size: self.chunk_size,
-            parallel: self.parallel,
-            tx: self.tx.clone(),
-        }
-    }
-}
-
-impl<'a, T: Send> Drop for BufferedSender<'a, T> {
-    fn drop(&mut self) {
-        self.flush();
-    }
-}
-
 #[derive(Default)]
 pub struct GpuMeshBuildingChunks {
     prepared: BufferedChannel<(
@@ -1917,9 +1796,9 @@ pub fn collect_meshes_for_gpu_building(
     previous_input_buffer.clear();
 
     // Channels used by parallel workers to send data to the single consumer.
-    let (prepared_rx, prepared_tx) = chunks.prepared.setup();
-    let (reextract_rx, reextract_tx) = chunks.reextract.setup();
-    let (removed_rx, removed_tx) = chunks.removed.setup();
+    let (prepared_rx, prepared_tx) = chunks.prepared.unbounded();
+    let (reextract_rx, reextract_tx) = chunks.reextract.unbounded();
+    let (removed_rx, removed_tx) = chunks.removed.unbounded();
 
     // A single worker that consumes the meshes prepared in parallel by multiple producers.
     // This part of the workload cannot be parallelized due to the shared mutable state.
@@ -1928,25 +1807,35 @@ pub fn collect_meshes_for_gpu_building(
         // In an ideal world, these three for loops would be a single loop, so we can process
         // incoming batches no matter which channel they come into, instead of one at a time.
         // Probably doable using async_channel and awaiting all three receivers at once.
-        for (entity, prepared, mesh_culling_builder) in prepared_rx.iter().flatten() {
-            let Some(instance_data_index) = prepared.update(
-                entity,
-                &mut *render_mesh_instances,
-                current_input_buffer,
-                previous_input_buffer,
-            ) else {
-                continue;
-            };
-            if let Some(mesh_culling_data) = mesh_culling_builder {
-                mesh_culling_data
-                    .update(&mut mesh_culling_data_buffer, instance_data_index as usize);
+        while let Ok(batch) = prepared_rx.recv_blocking() {
+            for (entity, prepared, mesh_culling_builder) in batch {
+                let Some(instance_data_index) = prepared.update(
+                    entity,
+                    &mut *render_mesh_instances,
+                    current_input_buffer,
+                    previous_input_buffer,
+                ) else {
+                    continue;
+                };
+                if let Some(mesh_culling_data) = mesh_culling_builder {
+                    mesh_culling_data
+                        .update(&mut mesh_culling_data_buffer, instance_data_index as usize);
+                }
             }
         }
-        for entity in removed_rx.iter().flatten() {
-            remove_mesh_input_uniform(entity, &mut *render_mesh_instances, current_input_buffer);
+        while let Ok(batch) = removed_rx.recv_blocking() {
+            for entity in batch {
+                remove_mesh_input_uniform(
+                    entity,
+                    &mut *render_mesh_instances,
+                    current_input_buffer,
+                );
+            }
         }
-        for entity in reextract_rx.iter().flatten() {
-            meshes_to_reextract_next_frame.insert(entity);
+        while let Ok(batch) = reextract_rx.recv_blocking() {
+            for entity in batch {
+                meshes_to_reextract_next_frame.insert(entity);
+            }
         }
         // Buffers can't be empty. Make sure there's something in the previous input buffer.
         previous_input_buffer.ensure_nonempty();
@@ -1986,9 +1875,9 @@ pub fn collect_meshes_for_gpu_building(
                     ref mut changed,
                     ref mut removed,
                 } => {
-                    let prepared_tx = prepared_tx.clone();
-                    let reextract_tx = reextract_tx.clone();
-                    let removed_tx = removed_tx.clone();
+                    let mut prepared_tx = prepared_tx.clone();
+                    let mut reextract_tx = reextract_tx.clone();
+                    let mut removed_tx = removed_tx.clone();
                     scope.spawn(async move {
                         let _span = info_span!("prepared_mesh_producer").entered();
                         changed
@@ -2005,14 +1894,18 @@ pub fn collect_meshes_for_gpu_building(
                                         frame_count,
                                     ) {
                                     Some(prepared) => {
-                                        prepared_tx.send((entity, prepared, None));
+                                        prepared_tx
+                                            .send_blocking((entity, prepared, None))
+                                            .unwrap();
                                     }
-                                    None => reextract_tx.send(entity),
+                                    None => {
+                                        reextract_tx.send_blocking(entity).unwrap();
+                                    }
                                 },
                             );
 
                         for entity in removed.drain(..) {
-                            removed_tx.send(entity);
+                            removed_tx.send_blocking(entity).unwrap();
                         }
                     });
                 }
@@ -2021,9 +1914,9 @@ pub fn collect_meshes_for_gpu_building(
                     ref mut changed,
                     ref mut removed,
                 } => {
-                    let prepared_tx = prepared_tx.clone();
-                    let reextract_tx = reextract_tx.clone();
-                    let removed_tx = removed_tx.clone();
+                    let mut prepared_tx = prepared_tx.clone();
+                    let mut reextract_tx = reextract_tx.clone();
+                    let mut removed_tx = removed_tx.clone();
                     scope.spawn(async move {
                         let _span = info_span!("prepared_mesh_producer").entered();
                         changed.drain(..).for_each(
@@ -2038,19 +1931,23 @@ pub fn collect_meshes_for_gpu_building(
                                     frame_count,
                                 ) {
                                     Some(prepared) => {
-                                        prepared_tx.send((
-                                            entity,
-                                            prepared,
-                                            Some(mesh_culling_builder),
-                                        ));
+                                        prepared_tx
+                                            .send_blocking((
+                                                entity,
+                                                prepared,
+                                                Some(mesh_culling_builder),
+                                            ))
+                                            .unwrap();
                                     }
-                                    None => reextract_tx.send(entity),
+                                    None => {
+                                        reextract_tx.send_blocking(entity).unwrap();
+                                    }
                                 }
                             },
                         );
 
                         for entity in removed.drain(..) {
-                            removed_tx.send(entity);
+                            removed_tx.send_blocking(entity).unwrap();
                         }
                     });
                 }

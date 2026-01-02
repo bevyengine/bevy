@@ -37,7 +37,10 @@ cfg::alloc! {
 cfg::parallel! {
     mod parallel_queue;
     pub use parallel_queue::*;
+    mod buffered_channel;
+    pub use buffered_channel::*;
 }
+
 
 /// The utilities prelude.
 ///
