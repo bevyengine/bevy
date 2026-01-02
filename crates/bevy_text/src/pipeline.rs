@@ -343,24 +343,21 @@ impl TextPipeline {
                             .push(maybe_run_geometry.take().unwrap());
                     }
 
-                    let current_run_geometry = maybe_run_geometry.get_or_insert_with(|| {
-                        let (strikeout_offset, stroke_size, underline_offset) = if let Some(font) =
-                            font_system.get_font(layout_glyph.font_id, layout_glyph.font_weight)
-                        {
-                            let swash = font.as_swash();
-                            let metrics = swash.metrics(&[]);
-                            let upem = metrics.units_per_em as f32;
-                            let scalar = layout_glyph.font_size as f32 / upem;
-                            (
-                                (metrics.strikeout_offset * scalar).round(),
-                                (metrics.stroke_size * scalar).round().max(1.),
-                                (metrics.underline_offset * scalar).round(),
-                            )
-                        } else {
-                            (0., 0., 0.)
-                        };
+                    if maybe_run_geometry.is_none() {
+                        let font = font_system
+                            .get_font(layout_glyph.font_id, layout_glyph.font_weight)
+                            .ok_or(TextError::NoSuchFont)?;
 
-                        RunGeometry {
+                        let swash = font.as_swash();
+                        let metrics = swash.metrics(&[]);
+                        let upem = metrics.units_per_em as f32;
+                        let scalar = layout_glyph.font_size as f32 / upem;
+
+                        let strikeout_offset = (metrics.strikeout_offset * scalar).round();
+                        let stroke_size = (metrics.stroke_size * scalar).round().max(1.);
+                        let underline_offset = (metrics.underline_offset * scalar).round();
+
+                        maybe_run_geometry = Some(RunGeometry {
                             span_index: layout_glyph.metadata,
                             bounds: Rect::new(
                                 end.max(layout_glyph.x),
@@ -373,8 +370,10 @@ impl TextPipeline {
                             strikethrough_thickness: stroke_size,
                             underline_y: (run.line_y - underline_offset),
                             underline_thickness: stroke_size,
-                        }
-                    });
+                        });
+                    }
+
+                    let current_run_geometry = maybe_run_geometry.as_mut().unwrap();
 
                     end = layout_glyph.x + layout_glyph.w;
                     current_run_geometry.bounds.max.x = end;
