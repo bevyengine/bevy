@@ -260,7 +260,7 @@ pub enum FontSource {
     /// * otherwise no text will be rendered, unless a custom font is loaded into the default font
     ///   handle.
     Handle(Handle<Font>),
-    /// Resolve the font by family name using the font system.
+    /// Resolve the font by family name using the font database.
     Family(SmolStr),
 }
 
