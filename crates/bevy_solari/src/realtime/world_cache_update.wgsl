@@ -25,50 +25,51 @@ var<push_constant> constants: PushConstants;
 
 @compute @workgroup_size(64, 1, 1)
 fn sample_radiance(@builtin(workgroup_id) workgroup_id: vec3<u32>, @builtin(global_invocation_id) active_cell_id: vec3<u32>) {
-    if active_cell_id.x < world_cache_active_cells_count {
-        let cell_index = world_cache_active_cell_indices[active_cell_id.x];
-        let geometry_data = world_cache_geometry_data[cell_index];
-        var rng = cell_index + constants.frame_index;
+    if active_cell_id.x >= world_cache_active_cells_count { return; }
 
-        // TODO: Initialize newly active cells with data from an adjacent LOD
+    let cell_index = world_cache_active_cell_indices[active_cell_id.x];
+    let geometry_data = world_cache_geometry_data[cell_index];
+    var rng = cell_index + constants.frame_index;
 
-        var new_radiance = sample_random_light_ris(geometry_data.world_position, geometry_data.world_normal, workgroup_id.xy, &rng);
+    var new_radiance = sample_random_light_ris(geometry_data.world_position, geometry_data.world_normal, workgroup_id.xy, &rng);
 
 #ifndef NO_MULTIBOUNCE
-        let ray_direction = sample_cosine_hemisphere(geometry_data.world_normal, &rng);
-        let ray_hit = trace_ray(geometry_data.world_position, ray_direction, RAY_T_MIN, WORLD_CACHE_MAX_GI_RAY_DISTANCE, RAY_FLAG_NONE);
-        if ray_hit.kind != RAY_QUERY_INTERSECTION_NONE {
-            let ray_hit = resolve_ray_hit_full(ray_hit);
-            let cell_life = atomicLoad(&world_cache_life[cell_index]);
-            new_radiance += ray_hit.material.base_color * query_world_cache(ray_hit.world_position, ray_hit.geometric_world_normal, view.world_position, cell_life, &rng);
-        }
+    let ray_direction = sample_cosine_hemisphere(geometry_data.world_normal, &rng);
+    let ray = trace_ray(geometry_data.world_position, ray_direction, RAY_T_MIN, WORLD_CACHE_MAX_GI_RAY_DISTANCE, RAY_FLAG_NONE);
+    if ray.kind != RAY_QUERY_INTERSECTION_NONE {
+        let ray_hit = resolve_ray_hit_full(ray);
+        let cell_life = atomicLoad(&world_cache_life[cell_index]);
+        new_radiance += ray_hit.material.base_color * query_world_cache(ray_hit.world_position, ray_hit.geometric_world_normal, view.world_position, ray.t, cell_life, &rng);
+    }
 #endif
 
-        world_cache_active_cells_new_radiance[active_cell_id.x] = new_radiance;
-    }
+    world_cache_active_cells_new_radiance[active_cell_id.x] = new_radiance;
 }
 
 @compute @workgroup_size(64, 1, 1)
 fn blend_new_samples(@builtin(global_invocation_id) active_cell_id: vec3<u32>) {
-    if active_cell_id.x < world_cache_active_cells_count {
-        let cell_index = world_cache_active_cell_indices[active_cell_id.x];
+    if active_cell_id.x >= world_cache_active_cells_count { return; }
 
-        let old_radiance = world_cache_radiance[cell_index];
-        let new_radiance = world_cache_active_cells_new_radiance[active_cell_id.x];
-        let luminance_delta = world_cache_luminance_deltas[cell_index];
+    let cell_index = world_cache_active_cell_indices[active_cell_id.x];
+    var rng = cell_index + constants.frame_index;
 
-        // https://bsky.app/profile/gboisse.bsky.social/post/3m5blga3ftk2a
-        let sample_count = min(old_radiance.a + 1.0, WORLD_CACHE_MAX_TEMPORAL_SAMPLES);
-        let alpha = abs(luminance_delta) / max(luminance(old_radiance.rgb), 0.001);
-        let max_sample_count = mix(WORLD_CACHE_MAX_TEMPORAL_SAMPLES, 1.0, pow(saturate(alpha), 1.0 / 8.0));
-        let blend_amount = 1.0 / min(sample_count, max_sample_count);
+    if rand_f(&rng) >= f32(WORLD_CACHE_TARGET_CELL_UPDATES) / f32(world_cache_active_cells_count) { return; }
 
-        let blended_radiance = mix(old_radiance.rgb, new_radiance, blend_amount);
-        let blended_luminance_delta = mix(luminance_delta, luminance(blended_radiance) - luminance(old_radiance.rgb), 1.0 / 8.0);
+    let old_radiance = world_cache_radiance[cell_index];
+    let new_radiance = world_cache_active_cells_new_radiance[active_cell_id.x];
+    let luminance_delta = world_cache_luminance_deltas[cell_index];
 
-        world_cache_radiance[cell_index] = vec4(blended_radiance, sample_count);
-        world_cache_luminance_deltas[cell_index] = blended_luminance_delta;
-    }
+    // https://bsky.app/profile/gboisse.bsky.social/post/3m5blga3ftk2a
+    let sample_count = min(old_radiance.a + 1.0, WORLD_CACHE_MAX_TEMPORAL_SAMPLES);
+    let alpha = abs(luminance_delta) / max(luminance(old_radiance.rgb), 0.001);
+    let max_sample_count = mix(WORLD_CACHE_MAX_TEMPORAL_SAMPLES, 1.0, pow(saturate(alpha), 1.0 / 8.0));
+    let blend_amount = 1.0 / min(sample_count, max_sample_count);
+
+    let blended_radiance = mix(old_radiance.rgb, new_radiance, blend_amount);
+    let blended_luminance_delta = mix(luminance_delta, luminance(blended_radiance) - luminance(old_radiance.rgb), 1.0 / 8.0);
+
+    world_cache_radiance[cell_index] = vec4(blended_radiance, sample_count);
+    world_cache_luminance_deltas[cell_index] = blended_luminance_delta;
 }
 
 fn sample_random_light_ris(world_position: vec3<f32>, world_normal: vec3<f32>, workgroup_id: vec2<u32>, rng: ptr<function, u32>) -> vec3<f32> {

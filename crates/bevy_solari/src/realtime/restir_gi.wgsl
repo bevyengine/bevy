@@ -92,13 +92,13 @@ fn generate_initial_reservoir(world_position: vec3<f32>, world_normal: vec3<f32>
     var reservoir = empty_reservoir();
 
     let ray_direction = sample_uniform_hemisphere(world_normal, rng);
-    let ray_hit = trace_ray(world_position, ray_direction, RAY_T_MIN, RAY_T_MAX, RAY_FLAG_NONE);
+    let ray = trace_ray(world_position, ray_direction, RAY_T_MIN, RAY_T_MAX, RAY_FLAG_NONE);
 
-    if ray_hit.kind == RAY_QUERY_INTERSECTION_NONE {
+    if ray.kind == RAY_QUERY_INTERSECTION_NONE {
         return reservoir;
     }
 
-    let sample_point = resolve_ray_hit_full(ray_hit);
+    let sample_point = resolve_ray_hit_full(ray);
 
     if all(sample_point.material.emissive != vec3(0.0)) {
         return reservoir;
