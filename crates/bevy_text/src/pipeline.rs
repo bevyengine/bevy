@@ -12,6 +12,7 @@ use bevy_log::{once, warn};
 use bevy_math::{Rect, UVec2, Vec2};
 use bevy_platform::collections::HashMap;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+use smol_str::SmolStr;
 
 use crate::{
     add_glyph_to_atlas, error::TextError, get_glyph_atlas_info, ComputedTextBlock, Font,
@@ -55,7 +56,7 @@ impl Default for SwashCache {
 #[derive(Clone)]
 pub struct FontFaceInfo {
     /// Font family name
-    pub family_name: Arc<str>,
+    pub family_name: SmolStr,
 }
 
 /// The `TextPipeline` is used to layout and render text blocks (see `Text`/`Text2d`).
@@ -121,7 +122,7 @@ impl TextPipeline {
                 continue;
             }
 
-            let family_name = match &text_font.font {
+            let family_name: SmolStr = match &text_font.font {
                 FontSource::Handle(handle) => {
                     if let Some(font) = fonts.get(handle.id()) {
                         let data = Arc::clone(&font.data);
@@ -130,9 +131,14 @@ impl TextPipeline {
                             .load_font_source(cosmic_text::fontdb::Source::Binary(data));
 
                         // TODO: it is assumed this is the right font face
-                        let face_id = *ids.last().unwrap();
-                        let face = font_system.db().face(face_id).unwrap();
-                        Arc::from(face.families[0].0.as_str())
+                        font_system
+                            .db()
+                            .face(*ids.last().unwrap())
+                            .unwrap()
+                            .families[0]
+                            .0
+                            .as_str()
+                            .into()
                     } else {
                         // Return early if a font is not loaded yet.
                         spans.clear();
@@ -151,7 +157,7 @@ impl TextPipeline {
                         return Err(TextError::NoSuchFont);
                     }
                 }
-                FontSource::Family(family) => Arc::from(family.as_str()),
+                FontSource::Family(family) => family.clone(),
             };
 
             let face_info = FontFaceInfo { family_name };
