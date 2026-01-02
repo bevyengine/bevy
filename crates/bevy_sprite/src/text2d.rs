@@ -274,7 +274,6 @@ pub fn update_text2d_layout(
 
         match text_pipeline.update_text_layout_info(
             &mut text_layout_info,
-            scale_factor as f64,
             &mut font_atlas_set,
             &mut texture_atlases,
             &mut textures,

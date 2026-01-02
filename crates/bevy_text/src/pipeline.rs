@@ -4,11 +4,8 @@ use bevy_asset::{AssetId, Assets};
 use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
-    component::Component,
-    entity::Entity,
-    reflect::ReflectComponent,
-    resource::Resource,
-    system::{Query, ResMut},
+    component::Component, entity::Entity, reflect::ReflectComponent, resource::Resource,
+    system::ResMut,
 };
 use bevy_image::prelude::*;
 use bevy_log::{once, warn};
@@ -67,7 +64,7 @@ pub struct FontFaceInfo {
 #[derive(Default, Resource)]
 pub struct TextPipeline {
     /// Identifies a font [`ID`](cosmic_text::fontdb::ID) by its [`Font`] [`Asset`](bevy_asset::Asset).
-    pub map_handle_to_font_id: HashMap<AssetId<Font>, (cosmic_text::fontdb::ID, Arc<str>)>,
+    pub map_handle_to_font_id: HashMap<AssetId<Font>, (ID, Arc<str>)>,
     /// Buffered vec for collecting spans.
     ///
     /// See [this dark magic](https://users.rust-lang.org/t/how-to-cache-a-vectors-capacity/94478/10).
@@ -293,7 +290,7 @@ impl TextPipeline {
     }
 
     /// Returns the [`cosmic_text::fontdb::ID`] for a given [`Font`] asset.
-    pub fn get_font_id(&self, asset_id: AssetId<Font>) -> Option<cosmic_text::fontdb::ID> {
+    pub fn get_font_id(&self, asset_id: AssetId<Font>) -> Option<ID> {
         self.map_handle_to_font_id
             .get(&asset_id)
             .cloned()
@@ -304,7 +301,6 @@ impl TextPipeline {
     pub fn update_text_layout_info<'a>(
         &mut self,
         layout_info: &mut TextLayoutInfo,
-        scale_factor: f64,
         font_atlas_set: &mut FontAtlasSet,
         texture_atlases: &mut Assets<TextureAtlasLayout>,
         textures: &mut Assets<Image>,
