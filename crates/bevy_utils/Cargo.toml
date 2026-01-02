@@ -9,10 +9,12 @@ license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
 [features]
-default = ["parallel"]
+default = ["parallel", "buffered_channel"]
 
 # Provides access to the `Parallel` type.
-parallel = ["bevy_platform/std", "dep:thread_local", "dep:async-channel"]
+parallel = ["bevy_platform/std", "dep:thread_local"]
+
+buffered_channel = ["bevy_platform/std", "dep:async-channel"]
 
 std = ["disqualified/alloc"]
 

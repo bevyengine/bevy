@@ -102,7 +102,11 @@ impl<'a, T: Send> BufferedReceiver<'a, T> {
     ///
     /// The returned [`RecycledVec`] will automatically return the buffer to the pool when dropped.
     pub fn recv_blocking(&self) -> Result<RecycledVec<'_, T>, async_channel::RecvError> {
+        #[cfg(all(feature = "std", not(target_family = "wasm")))]
         let buffer = self.rx.recv_blocking()?;
+        #[cfg(any(not(feature = "std"), target_family = "wasm"))]
+        let buffer = bevy_platform::future::block_on(self.rx.recv())?;
+
         Ok(RecycledVec {
             buffer: Some(buffer),
             channel: self.channel,
@@ -242,7 +246,10 @@ impl<'a, T: Send> BufferedSender<'a, T> {
         buffer.push(msg);
         if buffer.len() >= self.channel.chunk_size {
             let full_buffer = self.buffer.take().unwrap();
+            #[cfg(all(feature = "std", not(target_family = "wasm")))]
             self.tx.send_blocking(full_buffer)?;
+            #[cfg(any(not(feature = "std"), target_family = "wasm"))]
+            bevy_platform::future::block_on(self.tx.send(full_buffer))?;
         }
         Ok(())
     }
@@ -252,7 +259,10 @@ impl<'a, T: Send> BufferedSender<'a, T> {
         if let Some(buffer) = self.buffer.take() {
             if !buffer.is_empty() {
                 // The allocation is sent through the channel and will be reused when dropped.
+                #[cfg(all(feature = "std", not(target_family = "wasm")))]
                 let _ = self.tx.send_blocking(buffer);
+                #[cfg(any(not(feature = "std"), target_family = "wasm"))]
+                let _ = bevy_platform::future::block_on(self.tx.send(buffer));
             } else {
                 // If it's empty, just return it to the pool.
                 self.channel.pool.borrow_local_mut().push(buffer);
