@@ -86,7 +86,7 @@ pub struct TextPipeline {
     section_info_buffer: Vec<TextSectionInfo>,
 }
 
-/// Information for a text section extracted for use during layout
+/// Information for a text section collected for use during layout
 struct TextSectionInfo {
     asset_id: AssetId<Font>,
     font_size: f32,
