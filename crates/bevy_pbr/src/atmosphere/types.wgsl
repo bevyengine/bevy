@@ -22,6 +22,11 @@ struct AtmosphereSettings {
     scene_units_to_m: f32,
     sky_max_samples: u32,
     rendering_method: u32,
+    cloud_shadow_map_size: vec2<u32>,
+    cloud_shadow_map_extent: f32,
+    cloud_shadow_map_half_depth: f32,
+    cloud_shadow_map_samples: u32,
+    cloud_shadow_map_strength: f32,
 }
 
 // "Atmosphere space" is just the view position with y=0 and oriented horizontally,

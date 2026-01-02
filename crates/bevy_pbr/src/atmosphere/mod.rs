@@ -128,6 +128,7 @@ impl Plugin for AtmospherePlugin {
         embedded_asset!(app, "render_sky.wgsl");
         embedded_asset!(app, "environment.wgsl");
         embedded_asset!(app, "fbm_noise_3d.wgsl");
+        embedded_asset!(app, "cloud_shadow_map.wgsl");
 
         app.add_plugins((
             ExtractComponentPlugin::<Atmosphere>::default(),
@@ -393,6 +394,31 @@ pub struct AtmosphereSettings {
 
     /// The rendering method to use for the atmosphere.
     pub rendering_method: AtmosphereMode,
+
+    /// Resolution of the cloud shadow map used to shadow directional lights when
+    /// rendering in [`AtmosphereMode::Raymarched`].
+    ///
+    /// Higher resolution improves stability and reduces aliasing at grazing angles,
+    /// but increases compute cost.
+    pub cloud_shadow_map_size: UVec2,
+
+    /// Half-extent of the orthographic cloud shadow map volume in meters.
+    ///
+    /// The shadow map covers a square region of size \(2 \cdot extent\) around the view
+    /// position, oriented in light space.
+    pub cloud_shadow_map_extent: f32,
+
+    /// Half-depth of the orthographic cloud shadow map volume in meters.
+    ///
+    /// The shadow map traces along the light direction across a total depth of
+    /// \(2 \cdot half\_depth\).
+    pub cloud_shadow_map_half_depth: f32,
+
+    /// Number of samples used when building the cloud shadow map.
+    pub cloud_shadow_map_samples: u32,
+
+    /// Strength multiplier applied to the cloud shadow map's stored extinction / optical depth.
+    pub cloud_shadow_map_strength: f32,
 }
 
 impl Default for AtmosphereSettings {
@@ -411,6 +437,13 @@ impl Default for AtmosphereSettings {
             scene_units_to_m: 1.0,
             sky_max_samples: 16,
             rendering_method: AtmosphereMode::LookupTexture,
+
+            // Cloud shadow map defaults (only used by Raymarched mode).
+            cloud_shadow_map_size: UVec2::new(256, 256),
+            cloud_shadow_map_extent: 50_000.0,
+            cloud_shadow_map_half_depth: 100_000.0,
+            cloud_shadow_map_samples: 24,
+            cloud_shadow_map_strength: 1.0,
         }
     }
 }
@@ -431,6 +464,11 @@ pub struct GpuAtmosphereSettings {
     pub scene_units_to_m: f32,
     pub sky_max_samples: u32,
     pub rendering_method: u32,
+    pub cloud_shadow_map_size: UVec2,
+    pub cloud_shadow_map_extent: f32,
+    pub cloud_shadow_map_half_depth: f32,
+    pub cloud_shadow_map_samples: u32,
+    pub cloud_shadow_map_strength: f32,
 }
 
 impl Default for GpuAtmosphereSettings {
@@ -455,6 +493,11 @@ impl From<AtmosphereSettings> for GpuAtmosphereSettings {
             scene_units_to_m: s.scene_units_to_m,
             sky_max_samples: s.sky_max_samples,
             rendering_method: s.rendering_method as u32,
+            cloud_shadow_map_size: s.cloud_shadow_map_size,
+            cloud_shadow_map_extent: s.cloud_shadow_map_extent,
+            cloud_shadow_map_half_depth: s.cloud_shadow_map_half_depth,
+            cloud_shadow_map_samples: s.cloud_shadow_map_samples,
+            cloud_shadow_map_strength: s.cloud_shadow_map_strength,
         }
     }
 }

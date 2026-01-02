@@ -36,6 +36,7 @@ pub(crate) struct AtmosphereBindGroupLayouts {
     pub multiscattering_lut: BindGroupLayoutDescriptor,
     pub sky_view_lut: BindGroupLayoutDescriptor,
     pub aerial_view_lut: BindGroupLayoutDescriptor,
+    pub cloud_shadow_map: BindGroupLayoutDescriptor,
 }
 
 #[derive(Resource)]
@@ -156,11 +157,38 @@ impl AtmosphereBindGroupLayouts {
             ),
         );
 
+        let cloud_shadow_map = BindGroupLayoutDescriptor::new(
+            "cloud_shadow_map_bind_group_layout",
+            &BindGroupLayoutEntries::with_indices(
+                ShaderStages::COMPUTE,
+                (
+                    (0, uniform_buffer::<GpuAtmosphere>(true)),
+                    (1, uniform_buffer::<GpuAtmosphereSettings>(true)),
+                    (3, uniform_buffer::<ViewUniform>(true)),
+                    (4, uniform_buffer::<GpuLights>(true)),
+                    (14, uniform_buffer::<CloudLayer>(true)),
+                    (
+                        15,
+                        texture_2d(TextureSampleType::Float { filterable: true }),
+                    ),
+                    (16, sampler(SamplerBindingType::Filtering)),
+                    (
+                        13,
+                        texture_storage_2d(
+                            TextureFormat::Rgba16Float,
+                            StorageTextureAccess::WriteOnly,
+                        ),
+                    ),
+                ),
+            ),
+        );
+
         Self {
             transmittance_lut,
             multiscattering_lut,
             sky_view_lut,
             aerial_view_lut,
+            cloud_shadow_map,
         }
     }
 }
@@ -196,6 +224,11 @@ impl FromWorld for RenderSkyBindGroupLayouts {
                         texture_2d(TextureSampleType::Float { filterable: true }),
                     ),
                     (16, sampler(SamplerBindingType::Filtering)), // noise sampler
+                    // cloud shadow map
+                    (
+                        17,
+                        texture_2d(TextureSampleType::Float { filterable: true }),
+                    ),
                 ),
             ),
         );
@@ -229,6 +262,11 @@ impl FromWorld for RenderSkyBindGroupLayouts {
                         texture_2d(TextureSampleType::Float { filterable: true }),
                     ),
                     (16, sampler(SamplerBindingType::Filtering)), // noise sampler
+                    // cloud shadow map
+                    (
+                        17,
+                        texture_2d(TextureSampleType::Float { filterable: true }),
+                    ),
                 ),
             ),
         );
@@ -287,6 +325,7 @@ pub(crate) struct AtmosphereLutPipelines {
     pub multiscattering_lut: CachedComputePipelineId,
     pub sky_view_lut: CachedComputePipelineId,
     pub aerial_view_lut: CachedComputePipelineId,
+    pub cloud_shadow_map: CachedComputePipelineId,
 }
 
 impl FromWorld for AtmosphereLutPipelines {
@@ -325,11 +364,19 @@ impl FromWorld for AtmosphereLutPipelines {
             ..default()
         });
 
+        let cloud_shadow_map = pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
+            label: Some("cloud_shadow_map_pipeline".into()),
+            layout: vec![layouts.cloud_shadow_map.clone()],
+            shader: load_embedded_asset!(world, "cloud_shadow_map.wgsl"),
+            ..default()
+        });
+
         Self {
             transmittance_lut,
             multiscattering_lut,
             sky_view_lut,
             aerial_view_lut,
+            cloud_shadow_map,
         }
     }
 }
@@ -432,6 +479,7 @@ pub struct AtmosphereTextures {
     pub multiscattering_lut: CachedTexture,
     pub sky_view_lut: CachedTexture,
     pub aerial_view_lut: CachedTexture,
+    pub cloud_shadow_map: CachedTexture,
 }
 
 pub(super) fn prepare_atmosphere_textures(
@@ -497,12 +545,27 @@ pub(super) fn prepare_atmosphere_textures(
             },
         );
 
+        let cloud_shadow_map = texture_cache.get(
+            &render_device,
+            TextureDescriptor {
+                label: Some("cloud_shadow_map"),
+                size: lut_settings.cloud_shadow_map_size.to_extents(),
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: TextureDimension::D2,
+                format: TextureFormat::Rgba16Float,
+                usage: TextureUsages::STORAGE_BINDING | TextureUsages::TEXTURE_BINDING,
+                view_formats: &[],
+            },
+        );
+
         commands.entity(entity).insert({
             AtmosphereTextures {
                 transmittance_lut,
                 multiscattering_lut,
                 sky_view_lut,
                 aerial_view_lut,
+                cloud_shadow_map,
             }
         });
     }
@@ -609,6 +672,7 @@ pub(crate) struct AtmosphereBindGroups {
     pub multiscattering_lut: BindGroup,
     pub sky_view_lut: BindGroup,
     pub aerial_view_lut: BindGroup,
+    pub cloud_shadow_map: BindGroup,
     pub render_sky: BindGroup,
 }
 
@@ -768,6 +832,21 @@ pub(super) fn prepare_atmosphere_bind_groups(
             )),
         );
 
+        let cloud_shadow_map = render_device.create_bind_group(
+            "cloud_shadow_map_bind_group",
+            &pipeline_cache.get_bind_group_layout(&layouts.cloud_shadow_map),
+            &BindGroupEntries::with_indices((
+                (0, atmosphere_binding.clone()),
+                (1, settings_binding.clone()),
+                (3, view_binding.clone()),
+                (4, lights_binding.clone()),
+                (14, cloud_layer_binding.clone()),
+                (15, &fbm_noise_texture.texture.default_view),
+                (16, &**cloud_noise_sampler),
+                (13, &textures.cloud_shadow_map.default_view),
+            )),
+        );
+
         let render_sky = render_device.create_bind_group(
             "render_sky_bind_group",
             &pipeline_cache.get_bind_group_layout(if *msaa == Msaa::Off {
@@ -797,6 +876,7 @@ pub(super) fn prepare_atmosphere_bind_groups(
                 (14, cloud_layer_binding.clone()),
                 (15, &fbm_noise_texture.texture.default_view),
                 (16, &**cloud_noise_sampler),
+                (17, &textures.cloud_shadow_map.default_view),
             )),
         );
 
@@ -805,6 +885,7 @@ pub(super) fn prepare_atmosphere_bind_groups(
             multiscattering_lut,
             sky_view_lut,
             aerial_view_lut,
+            cloud_shadow_map,
             render_sky,
         });
     }

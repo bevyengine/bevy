@@ -9,6 +9,7 @@
         atmosphere, settings, view, lights, transmittance_lut, atmosphere_lut_sampler,
         multiscattering_lut, sky_view_lut, aerial_view_lut, atmosphere_transforms,
         medium_density_lut, medium_scattering_lut, medium_sampler,
+        cloud_shadow_map,
     },
     bruneton_functions::{
         transmittance_lut_r_mu_to_uv, ray_intersects_ground,
@@ -25,7 +26,6 @@
     get_cloud_absorption_coeff,
     get_cloud_scattering_coeff,
     sample_cloud_contribution,
-    compute_cloud_shadow,
 }
 #endif
 
@@ -228,6 +228,108 @@ fn sample_scattering_lut(r: f32, neg_LdotV: f32) -> vec3<f32> {
     return textureSampleLevel(medium_scattering_lut, medium_sampler, uv, 0.0).xyz;
 }
 
+#ifdef CLOUDS_ENABLED
+struct LightBasis {
+    x: vec3<f32>,
+    y: vec3<f32>,
+};
+
+fn safe_normalize(v: vec3<f32>) -> vec3<f32> {
+    let l2 = dot(v, v);
+    if (l2 <= 1e-12) {
+        return vec3(0.0, 1.0, 0.0);
+    }
+    return v * inverseSqrt(l2);
+}
+
+fn build_light_basis(light_dir: vec3<f32>) -> LightBasis {
+    // Pick a vector not parallel to `light_dir`, then build an orthonormal basis.
+    // IMPORTANT: keep this selection stable; switching too early causes the basis to “flip”
+    // when the light gets moderately close to zenith, which looks like the shadow map drifts/rotates.
+    let world_up = vec3(0.0, 1.0, 0.0);
+    let a = select(world_up, vec3(1.0, 0.0, 0.0), abs(dot(light_dir, world_up)) > 0.999);
+    let x = safe_normalize(cross(a, light_dir));
+    let y = cross(light_dir, x);
+    return LightBasis(x, y);
+}
+
+fn snap_anchor_to_texel_grid(anchor: vec3<f32>, basis: LightBasis, extent: f32, size: vec2<u32>) -> vec3<f32> {
+    // Keep producer/consumer aligned by snapping the anchor to the shadow-map texel grid.
+    let res = vec2<f32>(size);
+    let texel_size = (2.0 * extent) / max(res, vec2(1.0));
+
+    let ax = dot(anchor, basis.x);
+    let ay = dot(anchor, basis.y);
+
+    let snapped_ax = round(ax / texel_size.x) * texel_size.x;
+    let snapped_ay = round(ay / texel_size.y) * texel_size.y;
+
+    let dx = snapped_ax - ax;
+    let dy = snapped_ay - ay;
+    return anchor + basis.x * dx + basis.y * dy;
+}
+
+/// Unreal-style cloud shadow map evaluation.
+///
+/// The `cloud_shadow_map` stores:
+/// - R: front depth (meters) from the light-volume near plane
+/// - G: mean extinction (1/m)
+/// - B: max optical depth (unitless)
+///
+/// For a world-space sample point, we compute:
+///   tau = mean_ext * (d_sample - d_front), clamped by max_optical_depth
+///   T = exp(-tau)
+fn sample_cloud_shadow_map(world_pos: vec3<f32>, direction_to_light: vec3<f32>) -> f32 {
+    // Only meaningful in raymarched mode.
+    if (settings.rendering_method != 1u) {
+        return 1.0;
+    }
+
+    let extent = settings.cloud_shadow_map_extent;
+    let half_depth = settings.cloud_shadow_map_half_depth;
+    if (extent <= 0.0 || half_depth <= 0.0) {
+        return 1.0;
+    }
+
+    // IMPORTANT: use the same trace direction as the compute pass:
+    // light -> surface (opposite of Bevy's `direction_to_light` which is surface -> light).
+    let trace_dir = safe_normalize(-direction_to_light);
+    let basis = build_light_basis(trace_dir);
+
+    // Anchor must match the compute shader's anchor to keep lookups stable.
+    var anchor = get_view_position();
+    anchor = snap_anchor_to_texel_grid(anchor, basis, extent, settings.cloud_shadow_map_size);
+    let rel = world_pos - anchor;
+
+    // Map world point to the orthographic light volume.
+    let x = dot(rel, basis.x);
+    let y = dot(rel, basis.y);
+    if (abs(x) > extent || abs(y) > extent) {
+        return 1.0;
+    }
+
+    // Depth from near plane along light direction.
+    // Near plane is located at `anchor - light_dir * half_depth`.
+    let d_sample = dot(rel, trace_dir) + half_depth;
+    let max_t = 2.0 * half_depth;
+    if (d_sample <= 0.0 || d_sample >= max_t) {
+        return 1.0;
+    }
+
+    let uv = vec2(x, y) / (2.0 * extent) + vec2(0.5);
+    let data = textureSampleLevel(cloud_shadow_map, atmosphere_lut_sampler, uv, 0.0).rgb;
+    // Shadow map stores front depth in kilometers to fit fp16 range.
+    let front_depth = data.r * 1000.0;
+    let mean_ext = data.g;
+    let max_optical_depth = data.b;
+
+    let delta = max(0.0, d_sample - front_depth);
+    var tau = mean_ext * delta;
+    tau = min(tau, max_optical_depth);
+    return exp(-tau);
+}
+#endif
+
 /// evaluates L_scat, equation 3 in the paper, which gives the total single-order scattering towards the view at a single point
 fn sample_local_inscattering(local_scattering: vec3<f32>, ray_dir: vec3<f32>, world_pos: vec3<f32>, pixel_coords: vec2<f32>) -> vec3<f32> {
     let local_r = length(world_pos);
@@ -263,10 +365,8 @@ fn sample_local_inscattering(local_scattering: vec3<f32>, ray_dir: vec3<f32>, wo
         #ifdef CLOUDS_ENABLED
         // NUBIS: Add volumetric cloud scattering with proper physical integration
         // Clouds contribute to inscattering via Henyey-Greenstein phase function
-        // Compute volumetric shadow from clouds (light transmittance through clouds)
-        let cloud_shadow = compute_cloud_shadow(world_pos, (*light).direction_to_light, 8u, pixel_coords);
-        // temporarily disable cloud shadow to test the inscattering without the cloud shadow
-        shadow_factor *= cloud_shadow;
+        // Compute volumetric shadow from clouds via the cloud shadow map (stable at grazing angles).
+        shadow_factor *= sample_cloud_shadow_map(world_pos, (*light).direction_to_light);
         
         // Cloud scattering coefficient: σ_s_cloud = density * scattering_coeff
         // Using physically correct coefficients (units: m^-1 per unit density)

@@ -40,6 +40,7 @@ impl ViewNode for AtmosphereLutsNode {
         Read<AtmosphereTransformsOffset>,
         Read<ViewUniformOffset>,
         Read<ViewLightsUniformOffset>,
+        Read<DynamicUniformIndex<CloudLayer>>,
     );
 
     fn run(
@@ -54,6 +55,7 @@ impl ViewNode for AtmosphereLutsNode {
             atmosphere_transforms_offset,
             view_uniforms_offset,
             lights_uniforms_offset,
+            cloud_layer_uniforms_offset,
         ): QueryItem<Self::ViewQuery>,
         world: &World,
     ) -> Result<(), NodeRunError> {
@@ -64,11 +66,13 @@ impl ViewNode for AtmosphereLutsNode {
             Some(multiscattering_lut_pipeline),
             Some(sky_view_lut_pipeline),
             Some(aerial_view_lut_pipeline),
+            Some(cloud_shadow_map_pipeline),
         ) = (
             pipeline_cache.get_compute_pipeline(pipelines.transmittance_lut),
             pipeline_cache.get_compute_pipeline(pipelines.multiscattering_lut),
             pipeline_cache.get_compute_pipeline(pipelines.sky_view_lut),
             pipeline_cache.get_compute_pipeline(pipelines.aerial_view_lut),
+            pipeline_cache.get_compute_pipeline(pipelines.cloud_shadow_map),
         )
         else {
             return Ok(());
@@ -155,6 +159,24 @@ impl ViewNode for AtmosphereLutsNode {
         );
 
         dispatch_2d(&mut luts_pass, settings.aerial_view_lut_size.xy());
+
+        // Cloud shadow map (Unreal-style front depth + extinction stats)
+        // Only needed for the Raymarched mode.
+        if settings.rendering_method == 1 {
+            luts_pass.set_pipeline(cloud_shadow_map_pipeline);
+            luts_pass.set_bind_group(
+                0,
+                &bind_groups.cloud_shadow_map,
+                &[
+                    atmosphere_uniforms_offset.index(),
+                    settings_uniforms_offset.index(),
+                    view_uniforms_offset.offset,
+                    lights_uniforms_offset.offset,
+                    cloud_layer_uniforms_offset.index(),
+                ],
+            );
+            dispatch_2d(&mut luts_pass, settings.cloud_shadow_map_size);
+        }
 
         pass_span.end(&mut luts_pass);
 

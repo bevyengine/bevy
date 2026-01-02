@@ -45,6 +45,31 @@ fn get_cloud_absorption_coeff() -> f32 {
     return cloud_layer.cloud_absorption;
 }
 
+// PERF/DEBUG: Hardcoded repeating sphere SDF volume (no texture fetches).
+//
+// This is intended for debugging raymarching performance and lighting/shadowing:
+// - Deterministic shape
+// - Cheap evaluation
+// - Soft boundary (stable under undersampling)
+//
+// All parameters are intentionally hardcoded in shader code.
+
+const CELL_SIZE_M: f32 = 16000.0;     // spacing between sphere centers (meters)
+const RADIUS_M: f32 = 2500.0;        // sphere radius (meters)
+const SOFTNESS_M: f32 = 500.0;       // boundary softness (meters)
+
+// Debug toggle: when enabled, use a single sphere centered in the middle of the cloud layer
+// instead of a repeating cell volume. This is useful to validate coordinate systems and
+// shadow-map alignment.
+const CLOUD_DEBUG_SINGLE_SPHERE: bool = true;
+
+fn debug_sphere_center() -> vec3<f32> {
+    // Place the sphere at scene "origin" in XZ, and centered vertically in the cloud layer.
+    // Note: the atmosphere coordinate system is planet-centered; y points "up" locally.
+    let center_r = 0.5 * (cloud_layer.cloud_layer_start + cloud_layer.cloud_layer_end);
+    return vec3(0.0, center_r, 0.0);
+}
+
 /// Cloud shape / coverage term in [0, 1].
 /// This is *not* a physical density by itself: it is the normalized field used to
 /// shape the cloud volume (noise + height falloff).
@@ -54,45 +79,42 @@ fn get_cloud_coverage(r: f32, world_pos: vec3<f32>) -> f32 {
         return 0.0;
     }
     
-    // Calculate height factor within cloud layer (0 at bottom, 1 at top)
-    let layer_thickness = cloud_layer.cloud_layer_end - cloud_layer.cloud_layer_start;
-    let height_in_layer = r - cloud_layer.cloud_layer_start;
-    let height_factor = height_in_layer / layer_thickness;
-    
-    // PERF/DEBUG: Hardcoded repeating sphere SDF volume (no texture fetches).
-    //
-    // This is intended for debugging raymarching performance and lighting/shadowing:
-    // - Deterministic shape
-    // - Cheap evaluation
-    // - Soft boundary (stable under undersampling)
-    //
-    // All parameters are intentionally hardcoded in shader code.
-    const CELL_SIZE_M: f32 = 16000.0;     // spacing between sphere centers (meters)
-    const RADIUS_M: f32 = 2500.0;        // sphere radius (meters)
-    const SOFTNESS_M: f32 = 100.0;       // boundary softness (meters)
+    if (CLOUD_DEBUG_SINGLE_SPHERE) {
+        let c = debug_sphere_center();
+        let sdf = length(world_pos - c) - RADIUS_M;
+        // WGSL smoothstep is undefined if edge0 >= edge1, so use a standard form:
+        // inside (sdf << 0) => 1, outside (sdf >> 0) => 0.
+        let density = 1.0 - smoothstep(-SOFTNESS_M, SOFTNESS_M, sdf);
+        return clamp(density, 0.0, 1.0);
+    } else {
+        // Calculate height factor within cloud layer (0 at bottom, 1 at top)
+        let layer_thickness = cloud_layer.cloud_layer_end - cloud_layer.cloud_layer_start;
+        let height_in_layer = r - cloud_layer.cloud_layer_start;
+        let height_factor = height_in_layer / layer_thickness;
+        
+        // Use a "cloud-local" coordinate system:
+        // XZ are world XZ, Y is height above the cloud base.
+        let p = vec3(world_pos.x, height_in_layer, world_pos.z);
 
-    // Use a "cloud-local" coordinate system:
-    // XZ are world XZ, Y is height above the cloud base.
-    let p = vec3(world_pos.x, height_in_layer, world_pos.z);
+        // Repeat in 3D cells, center each cell at the origin.
+        let cell = fract(p / CELL_SIZE_M) - vec3(0.5);
+        let q = cell * CELL_SIZE_M;
 
-    // Repeat in 3D cells, center each cell at the origin.
-    let cell = fract(p / CELL_SIZE_M) - vec3(0.5);
-    let q = cell * CELL_SIZE_M;
+        // Sphere SDF: negative inside, positive outside.
+        let sdf = length(q) - RADIUS_M;
 
-    // Sphere SDF: negative inside, positive outside.
-    let sdf = length(q) - RADIUS_M;
+        // Convert SDF to density with a smooth boundary.
+        // sdf <= -SOFTNESS => ~1, sdf >= +SOFTNESS => ~0
+        let sphere_density = 1.0 - smoothstep(-SOFTNESS_M, SOFTNESS_M, sdf);
 
-    // Convert SDF to density with a smooth boundary.
-    // sdf <= -SOFTNESS => ~1, sdf >= +SOFTNESS => ~0
-    let sphere_density = smoothstep(SOFTNESS_M, -SOFTNESS_M, sdf);
+        // Fade out near top/bottom of layer to reduce hard cuts.
+        let height_gradient = 1.0 - abs(height_factor * 2.0 - 1.0);
+        let height_fade = smoothstep(0.0, 0.2, height_gradient);
 
-    // Fade out near top/bottom of layer to reduce hard cuts.
-    let height_gradient = 1.0 - abs(height_factor * 2.0 - 1.0);
-    let height_fade = smoothstep(0.0, 0.2, height_gradient);
-
-    let density = sphere_density * height_fade;
-    
-    return clamp(density, 0.0, 1.0);
+        let density = sphere_density * height_fade;
+        
+        return clamp(density, 0.0, 1.0);
+    }
 }
 
 /// Returns (density, grad_mag) for the current debug cloud field.
@@ -104,35 +126,40 @@ fn sample_cloud_field_density_and_grad(r: f32, world_pos: vec3<f32>) -> vec2<f32
         return vec2(0.0, 0.0);
     }
 
-    let layer_thickness = cloud_layer.cloud_layer_end - cloud_layer.cloud_layer_start;
-    let height_in_layer = r - cloud_layer.cloud_layer_start;
-    let height_factor = height_in_layer / layer_thickness;
+    var sdf: f32;
+    var height_fade: f32 = 1.0;
 
-    // Must match the hardcoded debug SDF in get_cloud_coverage.
-    const CELL_SIZE_M: f32 = 16000.0;
-    const RADIUS_M: f32 = 2500.0;
-    const SOFTNESS_M: f32 = 100.0;
+    if (CLOUD_DEBUG_SINGLE_SPHERE) {
+        let c = debug_sphere_center();
+        sdf = length(world_pos - c) - RADIUS_M;
+    } else {
+        let layer_thickness = cloud_layer.cloud_layer_end - cloud_layer.cloud_layer_start;
+        let height_in_layer = r - cloud_layer.cloud_layer_start;
+        let height_factor = height_in_layer / layer_thickness;
 
-    let p = vec3(world_pos.x, height_in_layer, world_pos.z);
-    let cell = fract(p / CELL_SIZE_M) - vec3(0.5);
-    let q = cell * CELL_SIZE_M;
-    let sdf = length(q) - RADIUS_M;
+        let p = vec3(world_pos.x, height_in_layer, world_pos.z);
+        let cell = fract(p / CELL_SIZE_M) - vec3(0.5);
+        let q = cell * CELL_SIZE_M;
+        sdf = length(q) - RADIUS_M;
+
+        let height_gradient = 1.0 - abs(height_factor * 2.0 - 1.0);
+        height_fade = smoothstep(0.0, 0.2, height_gradient);
+    }
 
     // density = smoothstep(SOFTNESS_M, -SOFTNESS_M, sdf)
     // derivative of smoothstep(edge0, edge1, x) is:
     // 6t(1-t)/(edge1-edge0), where t = clamp((x-edge0)/(edge1-edge0), 0,1)
-    let edge0 = SOFTNESS_M;
-    let edge1 = -SOFTNESS_M;
-    let denom = (edge1 - edge0); // -2*SOFTNESS_M
+    // We implement density = 1 - smoothstep(-SOFTNESS, +SOFTNESS, sdf) to avoid edge reversal.
+    let edge0 = -SOFTNESS_M;
+    let edge1 = SOFTNESS_M;
+    let denom = (edge1 - edge0); // 2*SOFTNESS_M
     let t = clamp((sdf - edge0) / denom, 0.0, 1.0);
-    let sphere_density = t * t * (3.0 - 2.0 * t);
-    let d_sphere_density_dsdf = abs(6.0 * t * (1.0 - t) / denom);
-
-    let height_gradient = 1.0 - abs(height_factor * 2.0 - 1.0);
-    let height_fade = smoothstep(0.0, 0.2, height_gradient);
+    let smoothen = t * t * (3.0 - 2.0 * t);
+    let sphere_density = 1.0 - smoothen;
+    // |d/dsdf (1 - smoothstep)| == |d/dsdf smoothstep|
+    let d_sphere_density_dsdf = 6.0 * t * (1.0 - t) / denom;
 
     // ∇sdf has magnitude 1 almost everywhere (except at the exact center); so |∇density| ≈ |d density/d sdf|
-    // We ignore the (small) contribution from height_fade's gradient for this debug estimate.
     let density = clamp(sphere_density * height_fade, 0.0, 1.0);
     let grad_mag = d_sphere_density_dsdf * height_fade;
 
@@ -221,12 +248,24 @@ fn compute_cloud_shadow(
         return 1.0;
     }
 
+    // Earth (planet) shadow term:
+    // If the sun ray hits the planet surface before it exits the cloud layer,
+    // the sun is fully occluded and there is no direct lighting.
+    let r0 = length(world_pos);
+    let up0 = normalize(world_pos);
+    let mu0 = dot(sun_dir, up0);
+    let ground_i = ray_sphere_intersect(r0, mu0, atmosphere.bottom_radius);
+    // `ground_i.x` is the nearest positive intersection along the ray, if any.
+    if (ground_i.x > 0.0 && ground_i.x < march_end) {
+        return 0.0;
+    }
+
     let march_distance = march_end - march_start;
 
     // Adaptive step count: long segments need more samples, otherwise we can miss small dense regions
     // (especially with the repeating-sphere debug density field).
     const TARGET_STEP_M: f32 = 1500.0;
-    const MAX_SHADOW_STEPS: f32 = 64.0;
+    const MAX_SHADOW_STEPS: f32 = 16.0;
     let desired = clamp(ceil(march_distance / TARGET_STEP_M), f32(steps), MAX_SHADOW_STEPS);
     let shadow_steps = max(1u, u32(desired));
 
