@@ -75,8 +75,6 @@ pub struct TextPipeline {
         FontFaceInfo,
         LineHeight,
     )>,
-    /// Buffered vec for collecting info for glyph assembly.
-    glyph_info: Vec<(AssetId<Font>, FontSmoothing, f32, f32, f32, f32, u16)>,
 }
 
 impl TextPipeline {
@@ -315,8 +313,6 @@ impl TextPipeline {
         layout_info.glyphs.clear();
         layout_info.run_geometry.clear();
         layout_info.size = Default::default();
-
-        self.glyph_info.clear();
 
         let buffer = &mut computed.buffer;
 
