@@ -310,9 +310,7 @@ impl TextPipeline {
     ) -> Result<(), TextError> {
         computed.needs_rerender = false;
 
-        layout_info.glyphs.clear();
-        layout_info.run_geometry.clear();
-        layout_info.size = Default::default();
+        layout_info.clear();
 
         let buffer = &mut computed.buffer;
 
