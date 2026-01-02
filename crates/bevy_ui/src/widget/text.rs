@@ -357,7 +357,6 @@ pub fn text_system(
 
             match text_pipeline.update_text_layout_info(
                 &mut text_layout_info,
-                text_font_query,
                 scale_factor,
                 &mut font_atlas_set,
                 &mut texture_atlases,

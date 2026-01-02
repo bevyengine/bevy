@@ -21,7 +21,7 @@ use crate::{
     FontAtlasKey, FontAtlasSet, FontHinting, FontSmoothing, FontSource, Justify, LineBreak,
     LineHeight, PositionedGlyph, TextBounds, TextEntity, TextFont, TextLayout,
 };
-use cosmic_text::{Attrs, Buffer, Family, Metrics, Shaping, Wrap};
+use cosmic_text::{fontdb::ID, Attrs, Buffer, Family, Metrics, Shaping, Wrap};
 
 /// A wrapper resource around a [`cosmic_text::FontSystem`]
 ///
@@ -304,7 +304,6 @@ impl TextPipeline {
     pub fn update_text_layout_info<'a>(
         &mut self,
         layout_info: &mut TextLayoutInfo,
-        text_font_query: Query<&'a TextFont>,
         scale_factor: f64,
         font_atlas_set: &mut FontAtlasSet,
         texture_atlases: &mut Assets<TextureAtlasLayout>,
@@ -323,32 +322,6 @@ impl TextPipeline {
 
         self.glyph_info.clear();
 
-        for text_font in text_font_query.iter_many(computed.entities.iter().map(|e| e.entity)) {
-            let mut section_info = (
-                AssetId::default(),
-                text_font.font_smoothing,
-                text_font.font_size,
-                0.0,
-                0.0,
-                0.0,
-                text_font.weight.clamp().0,
-            );
-
-            if let FontSource::Handle(handle) = &text_font.font
-                && let Some((id, _)) = self.map_handle_to_font_id.get(&handle.id())
-                && let Some(font) = font_system.get_font(*id, cosmic_text::Weight(section_info.6))
-            {
-                let swash = font.as_swash();
-                let metrics = swash.metrics(&[]);
-                let upem = metrics.units_per_em as f32;
-                let scalar = section_info.2 * scale_factor as f32 / upem;
-                section_info.3 = (metrics.strikeout_offset * scalar).round();
-                section_info.4 = (metrics.stroke_size * scalar).round().max(1.);
-                section_info.5 = (metrics.underline_offset * scalar).round();
-            }
-            self.glyph_info.push(section_info);
-        }
-
         let buffer = &mut computed.buffer;
 
         // Workaround for alignment not working for unbounded text.
@@ -363,6 +336,7 @@ impl TextPipeline {
             box_size.x = box_size.x.max(run.line_w);
             box_size.y += run.line_height;
             let mut current_section: Option<usize> = None;
+            let mut current_font_id: Option<(ID, cosmic_text::Weight, f32, usize)> = None;
             let mut start = 0.;
             let mut end = 0.;
             let result = run
@@ -370,9 +344,31 @@ impl TextPipeline {
                 .iter()
                 .map(move |layout_glyph| (layout_glyph, run.line_y, run.line_i))
                 .try_for_each(|(layout_glyph, line_y, line_i)| {
+                    current_font_id = Some((
+                        layout_glyph.font_id,
+                        layout_glyph.font_weight,
+                        layout_glyph.font_size,
+                        layout_glyph.metadata,
+                    ));
                     match current_section {
                         Some(section) => {
                             if section != layout_glyph.metadata {
+                                let section_info = if let Some(font) = font_system
+                                    .get_font(layout_glyph.font_id, layout_glyph.font_weight)
+                                {
+                                    let swash = font.as_swash();
+                                    let metrics = swash.metrics(&[]);
+                                    let upem = metrics.units_per_em as f32;
+                                    let scalar = layout_glyph.font_size as f32 / upem;
+                                    (
+                                        (metrics.strikeout_offset * scalar).round(),
+                                        (metrics.stroke_size * scalar).round().max(1.),
+                                        (metrics.underline_offset * scalar).round(),
+                                    )
+                                } else {
+                                    (0., 0., 0.)
+                                };
+
                                 layout_info.run_geometry.push(RunGeometry {
                                     span_index: section,
                                     bounds: Rect::new(
@@ -381,11 +377,10 @@ impl TextPipeline {
                                         end,
                                         run.line_top + run.line_height,
                                     ),
-                                    strikethrough_y: (run.line_y - self.glyph_info[section].3)
-                                        .round(),
-                                    strikethrough_thickness: self.glyph_info[section].4,
-                                    underline_y: (run.line_y - self.glyph_info[section].5).round(),
-                                    underline_thickness: self.glyph_info[section].4,
+                                    strikethrough_y: (run.line_y - section_info.0).round(),
+                                    strikethrough_thickness: section_info.1,
+                                    underline_y: (run.line_y - section_info.2),
+                                    underline_thickness: section_info.1,
                                 });
                                 start = end.max(layout_glyph.x);
                                 current_section = Some(layout_glyph.metadata);
@@ -401,7 +396,7 @@ impl TextPipeline {
 
                     let mut temp_glyph;
                     let span_index = layout_glyph.metadata;
-                    let font_smoothing = self.glyph_info[span_index].1;
+                    let font_smoothing = FontSmoothing::AntiAliased;
 
                     let layout_glyph = if font_smoothing == FontSmoothing::None {
                         // If font smoothing is disabled, round the glyph positions and sizes,
@@ -469,14 +464,29 @@ impl TextPipeline {
                     layout_info.glyphs.push(pos_glyph);
                     Ok(())
                 });
-            if let Some(section) = current_section {
+            if current_section.is_some()
+                && let Some((font_id, font_weight, font_size, section)) = current_font_id
+            {
+                let section_info = if let Some(font) = font_system.get_font(font_id, font_weight) {
+                    let swash = font.as_swash();
+                    let metrics = swash.metrics(&[]);
+                    let upem = metrics.units_per_em as f32;
+                    let scalar = font_size / upem;
+                    (
+                        (metrics.strikeout_offset * scalar).round(),
+                        (metrics.stroke_size * scalar).round().max(1.),
+                        (metrics.underline_offset * scalar).round(),
+                    )
+                } else {
+                    (0., 0., 0.)
+                };
                 layout_info.run_geometry.push(RunGeometry {
                     span_index: section,
                     bounds: Rect::new(start, run.line_top, end, run.line_top + run.line_height),
-                    strikethrough_y: (run.line_y - self.glyph_info[section].3).round(),
-                    strikethrough_thickness: self.glyph_info[section].4,
-                    underline_y: (run.line_y - self.glyph_info[section].5).round(),
-                    underline_thickness: self.glyph_info[section].4,
+                    strikethrough_y: (run.line_y - section_info.0).round(),
+                    strikethrough_thickness: section_info.1,
+                    underline_y: (run.line_y - section_info.2).round(),
+                    underline_thickness: section_info.1,
                 });
             }
 

@@ -7,15 +7,19 @@ use bevy::{
     color::palettes::css::GOLD,
     diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin},
     prelude::*,
-    text::{FontFeatureTag, FontFeatures, Underline},
+    text::{CosmicFontSystem, FontFeatureTag, FontFeatures, Underline},
 };
 
 fn main() {
-    App::new()
-        .add_plugins((DefaultPlugins, FrameTimeDiagnosticsPlugin::default()))
+    let mut app = App::new();
+    app.add_plugins((DefaultPlugins, FrameTimeDiagnosticsPlugin::default()))
         .add_systems(Startup, setup)
-        .add_systems(Update, (text_update_system, text_color_system))
-        .run();
+        .add_systems(Update, (text_update_system, text_color_system));
+
+    let mut f = app.world_mut().resource_mut::<CosmicFontSystem>();
+    f.db_mut().load_system_fonts();
+
+    app.run();
 }
 
 // Marker struct to help identify the FPS UI component, since there may be many Text components
@@ -36,10 +40,11 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         Underline,
         TextFont {
             // This font is loaded and will be used instead of the default font.
-            font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
+            font: "Comic Sans MS".into(),
             font_size: 67.0,
             ..default()
         },
+        Strikethrough,
         TextShadow::default(),
         // Set the justification of the Text
         TextLayout::new_with_justify(Justify::Center),
