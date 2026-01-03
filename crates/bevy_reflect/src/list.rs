@@ -1,4 +1,4 @@
-//! Types and traits used to power [list-like] operations via reflection.
+//! Traits and types used to power [list-like] operations via reflection.
 //!
 //! [list-like]: https://doc.rust-lang.org/book/ch08-01-vectors.html
 use alloc::{boxed::Box, vec::Vec};

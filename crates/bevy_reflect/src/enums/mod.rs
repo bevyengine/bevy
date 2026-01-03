@@ -1,4 +1,4 @@
-//! Types and traits used to power [enum-like] operations via reflection.
+//! Traits and types used to power [enum-like] operations via reflection.
 //!
 //! [enum-like]: https://doc.rust-lang.org/book/ch06-01-defining-an-enum.html
 mod dynamic_enum;
