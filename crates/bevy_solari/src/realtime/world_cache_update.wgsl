@@ -53,8 +53,6 @@ fn blend_new_samples(@builtin(global_invocation_id) active_cell_id: vec3<u32>) {
     let cell_index = world_cache_active_cell_indices[active_cell_id.x];
     var rng = cell_index + constants.frame_index;
 
-    if rand_f(&rng) >= f32(WORLD_CACHE_TARGET_CELL_UPDATES) / f32(world_cache_active_cells_count) { return; }
-
     let old_radiance = world_cache_radiance[cell_index];
     let new_radiance = world_cache_active_cells_new_radiance[active_cell_id.x];
     let luminance_delta = world_cache_luminance_deltas[cell_index];
