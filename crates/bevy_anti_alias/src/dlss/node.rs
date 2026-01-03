@@ -164,6 +164,7 @@ impl ViewNode for DlssNode<DlssRayReconstructionFeature> {
             .render(render_parameters, command_encoder, &adapter)
             .expect("Failed to render DLSS Ray Reconstruction");
 
+        #[cfg(not(target_os = "macos"))]
         time_span.end(command_encoder);
         command_encoder.pop_debug_group();
 
