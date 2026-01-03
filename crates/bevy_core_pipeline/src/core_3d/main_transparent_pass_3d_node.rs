@@ -1,9 +1,11 @@
 use crate::core_3d::Transparent3d;
 use bevy_camera::{MainPassResolutionOverride, Viewport};
 use bevy_ecs::{prelude::*, query::QueryItem};
+// render diagnostics are not supported on mac; gating to prevent potential flickering (GH Issue #22257)
+#[cfg(not(target_os = "macos"))]
+use bevy_render::diagnostic::RecordDiagnostics;
 use bevy_render::{
     camera::ExtractedCamera,
-    diagnostic::RecordDiagnostics,
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
     render_phase::ViewSortedRenderPhases,
     render_resource::{RenderPassDescriptor, StoreOp},
@@ -52,6 +54,7 @@ impl ViewNode for MainTransparentPass3dNode {
             #[cfg(feature = "trace")]
             let _main_transparent_pass_3d_span = info_span!("main_transparent_pass_3d").entered();
 
+            #[cfg(not(target_os = "macos"))]
             let diagnostics = render_context.diagnostic_recorder();
 
             let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
@@ -68,6 +71,7 @@ impl ViewNode for MainTransparentPass3dNode {
                 occlusion_query_set: None,
             });
 
+            #[cfg(not(target_os = "macos"))]
             let pass_span = diagnostics.pass_span(&mut render_pass, "main_transparent_pass_3d");
 
             if let Some(viewport) =
@@ -80,6 +84,7 @@ impl ViewNode for MainTransparentPass3dNode {
                 error!("Error encountered while rendering the transparent phase {err:?}");
             }
 
+            #[cfg(not(target_os = "macos"))]
             pass_span.end(&mut render_pass);
         }
 
