@@ -9,8 +9,9 @@ use bevy::reflect::{
     serde::TypedReflectDeserializer,
     set::{DynamicSet, Set},
     std_traits::ReflectDefault,
-    DynamicStruct, DynamicTuple, DynamicTupleStruct, FromReflect, PartialReflect, Reflect,
-    ReflectFromReflect, TypeRegistry, Typed,
+    structs::DynamicStruct,
+    DynamicTuple, DynamicTupleStruct, FromReflect, PartialReflect, Reflect, ReflectFromReflect,
+    TypeRegistry, Typed,
 };
 use serde::de::DeserializeSeed;
 use std::collections::{HashMap, HashSet};

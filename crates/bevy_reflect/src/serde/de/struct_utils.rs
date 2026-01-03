@@ -8,7 +8,8 @@ use crate::{
         },
         SerializationData, TypedReflectDeserializer,
     },
-    DynamicStruct, NamedField, StructInfo, TypeRegistration, TypeRegistry,
+    structs::{DynamicStruct, StructInfo},
+    NamedField, TypeRegistration, TypeRegistry,
 };
 use alloc::string::ToString;
 use core::slice::Iter;

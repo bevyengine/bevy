@@ -12,8 +12,9 @@ pub use type_data::*;
 mod tests {
     use super::*;
     use crate::{
-        type_registry::TypeRegistry, DynamicStruct, DynamicTupleStruct, FromReflect,
-        PartialReflect, Reflect, Struct,
+        structs::{DynamicStruct, Struct},
+        type_registry::TypeRegistry,
+        DynamicTupleStruct, FromReflect, PartialReflect, Reflect,
     };
     use serde::de::DeserializeSeed;
 

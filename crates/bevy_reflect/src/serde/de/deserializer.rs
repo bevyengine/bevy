@@ -55,7 +55,7 @@ use super::ReflectDeserializerProcessor;
 /// ```
 /// # use serde::de::DeserializeSeed;
 /// # use bevy_reflect::prelude::*;
-/// # use bevy_reflect::{DynamicStruct, TypeRegistry, serde::ReflectDeserializer};
+/// # use bevy_reflect::{structs::DynamicStruct, TypeRegistry, serde::ReflectDeserializer};
 /// #[derive(Reflect, PartialEq, Debug)]
 /// #[type_path = "my_crate"]
 /// struct MyStruct {
@@ -98,7 +98,7 @@ use super::ReflectDeserializerProcessor;
 /// [`Box<dyn Reflect>`]: crate::Reflect
 /// [`ReflectKind::Opaque`]: crate::ReflectKind::Opaque
 /// [`ReflectDeserialize`]: crate::ReflectDeserialize
-/// [`Box<DynamicStruct>`]: crate::DynamicStruct
+/// [`Box<DynamicStruct>`]: crate::structs::DynamicStruct
 /// [`Box<DynamicList>`]: crate::list::DynamicList
 /// [`FromReflect`]: crate::FromReflect
 /// [`ReflectFromReflect`]: crate::ReflectFromReflect
@@ -224,7 +224,7 @@ impl<'de, P: ReflectDeserializerProcessor> DeserializeSeed<'de> for ReflectDeser
 /// # use core::any::TypeId;
 /// # use serde::de::DeserializeSeed;
 /// # use bevy_reflect::prelude::*;
-/// # use bevy_reflect::{DynamicStruct, TypeRegistry, serde::TypedReflectDeserializer};
+/// # use bevy_reflect::{structs::DynamicStruct, TypeRegistry, serde::TypedReflectDeserializer};
 /// #[derive(Reflect, PartialEq, Debug)]
 /// struct MyStruct {
 ///   value: i32
@@ -265,7 +265,7 @@ impl<'de, P: ReflectDeserializerProcessor> DeserializeSeed<'de> for ReflectDeser
 /// [`Box<dyn Reflect>`]: crate::Reflect
 /// [`ReflectKind::Opaque`]: crate::ReflectKind::Opaque
 /// [`ReflectDeserialize`]: crate::ReflectDeserialize
-/// [`Box<DynamicStruct>`]: crate::DynamicStruct
+/// [`Box<DynamicStruct>`]: crate::structs::DynamicStruct
 /// [`Box<DynamicList>`]: crate::list::DynamicList
 /// [`FromReflect`]: crate::FromReflect
 /// [`ReflectFromReflect`]: crate::ReflectFromReflect

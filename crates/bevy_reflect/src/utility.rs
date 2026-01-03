@@ -56,7 +56,7 @@ mod sealed {
 ///
 /// ```
 /// # use core::any::Any;
-/// # use bevy_reflect::{DynamicTypePath, NamedField, PartialReflect, Reflect, ReflectMut, ReflectOwned, ReflectRef, StructInfo, Typed, TypeInfo, TypePath, ApplyError};
+/// # use bevy_reflect::{DynamicTypePath, NamedField, PartialReflect, Reflect, ReflectMut, ReflectOwned, ReflectRef, structs::StructInfo, Typed, TypeInfo, TypePath, ApplyError};
 /// use bevy_reflect::utility::NonGenericTypeInfoCell;
 ///
 /// struct Foo {

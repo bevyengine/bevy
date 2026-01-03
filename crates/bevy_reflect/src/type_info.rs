@@ -4,8 +4,9 @@ use crate::{
     list::{DynamicList, ListInfo},
     map::{DynamicMap, MapInfo},
     set::SetInfo,
-    DynamicStruct, DynamicTuple, DynamicTupleStruct, Generics, PartialReflect, Reflect,
-    ReflectKind, StructInfo, TupleInfo, TupleStructInfo, TypePath, TypePathTable,
+    structs::{DynamicStruct, StructInfo},
+    DynamicTuple, DynamicTupleStruct, Generics, PartialReflect, Reflect, ReflectKind, TupleInfo,
+    TupleStructInfo, TypePath, TypePathTable,
 };
 use core::{
     any::{Any, TypeId},
@@ -37,7 +38,7 @@ use thiserror::Error;
 ///
 /// ```
 /// # use core::any::Any;
-/// # use bevy_reflect::{DynamicTypePath, NamedField, PartialReflect, Reflect, ReflectMut, ReflectOwned, ReflectRef, StructInfo, TypeInfo, TypePath, OpaqueInfo, ApplyError};
+/// # use bevy_reflect::{DynamicTypePath, NamedField, PartialReflect, Reflect, ReflectMut, ReflectOwned, ReflectRef, structs::StructInfo, TypeInfo, TypePath, OpaqueInfo, ApplyError};
 /// # use bevy_reflect::utility::NonGenericTypeInfoCell;
 /// use bevy_reflect::Typed;
 ///
@@ -207,7 +208,7 @@ pub enum TypeInfoError {
 pub enum TypeInfo {
     /// Type information for a [struct-like] type.
     ///
-    /// [struct-like]: crate::Struct
+    /// [struct-like]: crate::structs::Struct
     Struct(StructInfo),
     /// Type information for a [tuple-struct-like] type.
     ///

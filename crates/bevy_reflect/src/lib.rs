@@ -135,7 +135,7 @@
 //! For example, we can access our struct's fields by name using the [`Struct::field`] method.
 //!
 //! ```
-//! # use bevy_reflect::{PartialReflect, Reflect, Struct};
+//! # use bevy_reflect::{PartialReflect, Reflect, structs::Struct};
 //! # #[derive(Reflect)]
 //! # struct MyStruct {
 //! #   foo: i32
@@ -195,7 +195,7 @@
 //! These dynamic types may contain any arbitrary reflected data.
 //!
 //! ```
-//! # use bevy_reflect::{DynamicStruct, Struct};
+//! # use bevy_reflect::structs::{DynamicStruct, Struct};
 //! let mut data = DynamicStruct::default();
 //! data.insert("foo", 123_i32);
 //! assert_eq!(Some(&123), data.field("foo").unwrap().try_downcast_ref::<i32>())
@@ -209,7 +209,7 @@
 //! we may pass them around just like most other reflected types.
 //!
 //! ```
-//! # use bevy_reflect::{DynamicStruct, PartialReflect, Reflect};
+//! # use bevy_reflect::{structs::DynamicStruct, PartialReflect, Reflect};
 //! # #[derive(Reflect)]
 //! # struct MyStruct {
 //! #   foo: i32
@@ -243,7 +243,7 @@
 //! or when trying to make use of a reflected trait which expects the actual type.
 //!
 //! ```should_panic
-//! # use bevy_reflect::{DynamicStruct, PartialReflect, Reflect};
+//! # use bevy_reflect::{structs::DynamicStruct, PartialReflect, Reflect};
 //! # #[derive(Reflect)]
 //! # struct MyStruct {
 //! #   foo: i32
@@ -545,11 +545,14 @@
 //! [`List`]: crate::list::List
 //! [`Set`]: crate::set::Set
 //! [`Map`]: crate::map::Map
+//! [`Struct`]: crate::structs::Struct
 //! [`Enum`]: crate::enums::Enum
 //! [`Function`]: crate::func::Function
+//! [`Struct::field`]: crate::structs::Struct::field
 //! [`DynamicArray`]: crate::array::DynamicArray
 //! [`DynamicList`]: crate::list::DynamicList
 //! [`DynamicMap`]: crate::map::DynamicMap
+//! [`DynamicStruct`]: crate::structs::DynamicStruct
 //! [`DynamicEnum`]: crate::enums::DynamicEnum
 //! [derive macro documentation]: derive@crate::Reflect
 //! [deriving `Reflect`]: derive@crate::Reflect
@@ -602,7 +605,7 @@ mod reflect;
 mod reflectable;
 mod remote;
 pub mod set;
-mod struct_trait;
+pub mod structs;
 mod tuple;
 mod tuple_struct;
 mod type_info;
@@ -653,9 +656,10 @@ pub mod prelude {
 
     #[doc(hidden)]
     pub use crate::{
-        reflect_trait, FromReflect, GetField, GetPath, GetTupleStructField, PartialReflect,
-        Reflect, ReflectDeserialize, ReflectFromReflect, ReflectPath, ReflectSerialize, Struct,
-        TupleStruct, TypePath,
+        reflect_trait,
+        structs::{GetField, Struct},
+        FromReflect, GetPath, GetTupleStructField, PartialReflect, Reflect, ReflectDeserialize,
+        ReflectFromReflect, ReflectPath, ReflectSerialize, TupleStruct, TypePath,
     };
 
     #[cfg(feature = "functions")]
@@ -672,7 +676,6 @@ pub use path::*;
 pub use reflect::*;
 pub use reflectable::*;
 pub use remote::*;
-pub use struct_trait::*;
 pub use tuple::*;
 pub use tuple_struct::*;
 pub use type_info::*;
@@ -688,8 +691,9 @@ pub use erased_serde;
 #[doc(hidden)]
 pub mod __macro_exports {
     use crate::{
-        array::DynamicArray, enums::DynamicEnum, list::DynamicList, map::DynamicMap, DynamicStruct,
-        DynamicTuple, DynamicTupleStruct, GetTypeRegistration, TypeRegistry,
+        array::DynamicArray, enums::DynamicEnum, list::DynamicList, map::DynamicMap,
+        structs::DynamicStruct, DynamicTuple, DynamicTupleStruct, GetTypeRegistration,
+        TypeRegistry,
     };
 
     /// Re-exports of items from the [`alloc`] crate.
@@ -868,7 +872,7 @@ mod tests {
     };
     use static_assertions::{assert_impl_all, assert_not_impl_all};
 
-    use super::{array::*, enums::*, list::*, map::*, prelude::*, *};
+    use super::{array::*, enums::*, list::*, map::*, prelude::*, structs::*, *};
     use crate::{
         serde::{ReflectDeserializer, ReflectSerializer},
         utility::GenericTypePathCell,

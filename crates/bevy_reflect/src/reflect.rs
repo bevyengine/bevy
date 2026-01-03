@@ -1,8 +1,8 @@
 use crate::{
     array::array_debug, enums::enum_debug, list::list_debug, map::map_debug, set::set_debug,
-    struct_debug, tuple_debug, tuple_struct_debug, DynamicTypePath, DynamicTyped, OpaqueInfo,
-    ReflectCloneError, ReflectKind, ReflectKindMismatchError, ReflectMut, ReflectOwned, ReflectRef,
-    TypeInfo, TypePath, Typed,
+    structs::struct_debug, tuple_debug, tuple_struct_debug, DynamicTypePath, DynamicTyped,
+    OpaqueInfo, ReflectCloneError, ReflectKind, ReflectKindMismatchError, ReflectMut, ReflectOwned,
+    ReflectRef, TypeInfo, TypePath, Typed,
 };
 use alloc::borrow::Cow;
 use alloc::boxed::Box;
@@ -89,7 +89,7 @@ impl From<ReflectKindMismatchError> for ApplyError {
 ///
 /// [`bevy_reflect`]: crate
 /// [the derive macro for `Reflect`]: bevy_reflect_derive::Reflect
-/// [`Struct`]: crate::Struct
+/// [`Struct`]: crate::structs::Struct
 /// [`TupleStruct`]: crate::TupleStruct
 /// [`Enum`]: crate::enums::Enum
 /// [crate-level documentation]: crate
@@ -114,7 +114,7 @@ where
     /// frequently, consider using [`TypeRegistry::get_type_info`] as it can be more
     /// performant for such use cases.
     ///
-    /// [`DynamicStruct`]: crate::DynamicStruct
+    /// [`DynamicStruct`]: crate::structs::DynamicStruct
     /// [`DynamicList`]: crate::list::DynamicList
     /// [`TypeRegistry::get_type_info`]: crate::TypeRegistry::get_type_info
     fn get_represented_type_info(&self) -> Option<&'static TypeInfo>;
@@ -182,7 +182,7 @@ where
     /// [`list_apply`], [`map_apply`], and [`set_apply`] helper functions when implementing this method.
     ///
     /// [reflection subtrait]: crate#the-reflection-subtraits
-    /// [`Struct`]: crate::Struct
+    /// [`Struct`]: crate::structs::Struct
     /// [`TupleStruct`]: crate::TupleStruct
     /// [`Tuple`]: crate::Tuple
     /// [`Enum`]: crate::enums::Enum
@@ -268,9 +268,9 @@ where
     /// [`List`]: crate::list::List
     /// [`List::to_dynamic_list`]: crate::list::List::to_dynamic_list
     /// [`DynamicList`]: crate::list::DynamicList
-    /// [`Struct`]: crate::Struct
-    /// [`Struct::to_dynamic_struct`]: crate::Struct::to_dynamic_struct
-    /// [`DynamicStruct`]: crate::DynamicStruct
+    /// [`Struct`]: crate::structs::Struct
+    /// [`Struct::to_dynamic_struct`]: crate::structs::Struct::to_dynamic_struct
+    /// [`DynamicStruct`]: crate::structs::DynamicStruct
     /// [opaque]: crate::ReflectKind::Opaque
     /// [`reflect_clone`]: PartialReflect::reflect_clone
     fn to_dynamic(&self) -> Box<dyn PartialReflect> {
@@ -380,7 +380,7 @@ where
     ///
     /// By default, this method will return `false`.
     ///
-    /// [`DynamicStruct`]: crate::DynamicStruct
+    /// [`DynamicStruct`]: crate::structs::DynamicStruct
     /// [`DynamicList`]: crate::list::DynamicList
     /// [`DynamicTuple`]: crate::DynamicTuple
     fn is_dynamic(&self) -> bool {
@@ -404,7 +404,7 @@ where
 ///
 /// [`bevy_reflect`]: crate
 /// [the derive macro]: bevy_reflect_derive::Reflect
-/// [`Struct`]: crate::Struct
+/// [`Struct`]: crate::structs::Struct
 /// [`TupleStruct`]: crate::TupleStruct
 /// [`Enum`]: crate::enums::Enum
 /// [`Reflectable`]: crate::Reflectable

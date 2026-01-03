@@ -20,7 +20,7 @@ use alloc::boxed::Box;
 /// See the [crate-level documentation] to see how this trait can be used.
 ///
 /// [derive macro]: bevy_reflect_derive::FromReflect
-/// [`DynamicStruct`]: crate::DynamicStruct
+/// [`DynamicStruct`]: crate::structs::DynamicStruct
 /// [crate-level documentation]: crate
 #[diagnostic::on_unimplemented(
     message = "`{Self}` does not implement `FromReflect` so cannot be created through reflection",
@@ -38,7 +38,7 @@ pub trait FromReflect: Reflect + Sized {
     /// rather than a boxed dynamic type (e.g. [`DynamicStruct`], [`DynamicList`], etc.).
     ///
     /// [`from_reflect`]: Self::from_reflect
-    /// [`DynamicStruct`]: crate::DynamicStruct
+    /// [`DynamicStruct`]: crate::structs::DynamicStruct
     /// [`DynamicList`]: crate::list::DynamicList
     fn take_from_reflect(
         reflect: Box<dyn PartialReflect>,
@@ -100,7 +100,7 @@ pub trait FromReflect: Reflect + Sized {
 /// assert_eq!(Foo(123), concrete.take::<Foo>().unwrap());
 /// ```
 ///
-/// [`DynamicStruct`]: crate::DynamicStruct
+/// [`DynamicStruct`]: crate::structs::DynamicStruct
 /// [`DynamicEnum`]: crate::enums::DynamicEnum
 #[derive(Clone)]
 pub struct ReflectFromReflect {

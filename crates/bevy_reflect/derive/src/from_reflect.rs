@@ -10,7 +10,7 @@ use bevy_macro_utils::as_member;
 use bevy_macro_utils::fq_std::{FQClone, FQDefault, FQOption};
 use proc_macro2::Span;
 use quote::{quote, ToTokens};
-use syn::{Field, Ident, Lit, LitInt, LitStr, Member};
+use syn::{parse_str, Field, Ident, Lit, LitInt, LitStr, Member, Path};
 
 /// Implements `FromReflect` for the given struct
 pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> proc_macro2::TokenStream {
@@ -126,14 +126,20 @@ fn impl_struct_internal(
     let bevy_reflect_path = reflect_struct.meta().bevy_reflect_path();
 
     let ref_struct = Ident::new("__ref_struct", Span::call_site());
-    let ref_struct_type = if is_tuple {
-        Ident::new("TupleStruct", Span::call_site())
+    let (ref_struct_type, ref_struct_path) = if is_tuple {
+        (
+            Ident::new("TupleStruct", Span::call_site()),
+            parse_str("TupleStruct").expect("should be a valid path"),
+        )
     } else {
-        Ident::new("Struct", Span::call_site())
+        (
+            Ident::new("Struct", Span::call_site()),
+            parse_str("structs::Struct").expect("should be a valid path"),
+        )
     };
 
     let MemberValuePair(active_members, active_values) =
-        get_active_fields(reflect_struct, &ref_struct, &ref_struct_type, is_tuple);
+        get_active_fields(reflect_struct, &ref_struct, &ref_struct_path, is_tuple);
 
     let is_defaultable = reflect_struct.meta().attrs().contains(REFLECT_DEFAULT);
 
@@ -236,7 +242,7 @@ fn get_ignored_fields(reflect_struct: &ReflectStruct) -> MemberValuePair {
 fn get_active_fields(
     reflect_struct: &ReflectStruct,
     dyn_struct_name: &Ident,
-    struct_type: &Ident,
+    struct_type: &Path,
     is_tuple: bool,
 ) -> MemberValuePair {
     let bevy_reflect_path = reflect_struct.meta().bevy_reflect_path();

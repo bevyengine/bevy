@@ -648,15 +648,15 @@ impl<'a> ReflectStruct<'a> {
     pub fn to_info_tokens(&self, is_tuple: bool) -> proc_macro2::TokenStream {
         let bevy_reflect_path = self.meta().bevy_reflect_path();
 
-        let (info_variant, info_struct) = if is_tuple {
+        let (info_variant, info_struct): (_, Path) = if is_tuple {
             (
                 Ident::new("TupleStruct", Span::call_site()),
-                Ident::new("TupleStructInfo", Span::call_site()),
+                parse_str("TupleStructInfo").expect("should be a valid path"),
             )
         } else {
             (
                 Ident::new("Struct", Span::call_site()),
-                Ident::new("StructInfo", Span::call_site()),
+                parse_str("structs::StructInfo").expect("should be a valid path"),
             )
         };
 

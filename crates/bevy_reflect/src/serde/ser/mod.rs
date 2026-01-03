@@ -22,7 +22,8 @@ mod tuples;
 mod tests {
     use crate::{
         serde::{ReflectSerializer, ReflectSerializerProcessor},
-        PartialReflect, Reflect, ReflectSerialize, Struct, TypeRegistry,
+        structs::Struct,
+        PartialReflect, Reflect, ReflectSerialize, TypeRegistry,
     };
     #[cfg(feature = "functions")]
     use alloc::boxed::Box;

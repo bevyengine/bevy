@@ -13,7 +13,7 @@ pub use variants::*;
 
 #[cfg(test)]
 mod tests {
-    use crate::{enums::*, *};
+    use crate::{enums::*, structs::*, *};
     use alloc::boxed::Box;
 
     #[derive(Reflect, Debug, PartialEq)]
