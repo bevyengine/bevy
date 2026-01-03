@@ -77,7 +77,8 @@ fn compact_world_cache_write_active_cells(
     }
 
     if thread_index == 1023u && workgroup_id.x == 1023u {
-        world_cache_active_cells_count = compacted_index + u32(cell_active);
-        world_cache_active_cells_dispatch = vec3((world_cache_active_cells_count + 63u) / 64u, 1u, 1u);
+        let active_cell_count = compacted_index + u32(cell_active);
+        world_cache_active_cells_count = active_cell_count;
+        world_cache_active_cells_dispatch = vec3((active_cell_count + 63u) / 64u, 1u, 1u);
     }
 }

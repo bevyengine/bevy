@@ -1,39 +1,34 @@
-//! Downsampling of textures to produce mipmap levels.
+//! Generation of hierarchical Z buffers for occlusion culling.
 //!
-//! Currently, this module only supports generation of hierarchical Z buffers
-//! for occlusion culling. It's marked experimental because the shader is
-//! designed only for power-of-two texture sizes and is slightly incorrect for
-//! non-power-of-two depth buffer sizes.
+//! This is marked experimental because the shader is designed only for
+//! power-of-two texture sizes and is slightly incorrect for non-power-of-two
+//! depth buffer sizes.
 
 use core::array;
 
-use crate::core_3d::{
-    graph::{Core3d, Node3d},
-    prepare_core_3d_depth_textures,
-};
-use bevy_app::{App, Plugin};
-use bevy_asset::{embedded_asset, load_embedded_asset, Handle};
+use crate::mip_generation::DownsampleShaders;
+
+use bevy_asset::Handle;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     component::Component,
     entity::Entity,
-    prelude::{resource_exists, Without},
+    prelude::Without,
     query::{Or, QueryState, With},
     resource::Resource,
-    schedule::IntoScheduleConfigs as _,
     system::{lifetimeless::Read, Commands, Local, Query, Res, ResMut},
     world::{FromWorld, World},
 };
 use bevy_math::{uvec2, UVec2, Vec4Swizzles as _};
 use bevy_render::{
     batching::gpu_preprocessing::GpuPreprocessingSupport,
-    render_resource::BindGroupLayoutDescriptor, RenderStartup,
+    render_resource::BindGroupLayoutDescriptor,
 };
 use bevy_render::{
     experimental::occlusion_culling::{
         OcclusionCulling, OcclusionCullingSubview, OcclusionCullingSubviewEntities,
     },
-    render_graph::{Node, NodeRunError, RenderGraphContext, RenderGraphExt},
+    render_graph::{Node, NodeRunError, RenderGraphContext},
     render_resource::{
         binding_types::{sampler, texture_2d, texture_2d_multisampled, texture_storage_2d},
         BindGroup, BindGroupEntries, BindGroupLayout, BindGroupLayoutEntries,
@@ -46,81 +41,17 @@ use bevy_render::{
     renderer::{RenderContext, RenderDevice},
     texture::TextureCache,
     view::{ExtractedView, NoIndirectDrawing, ViewDepthTexture},
-    Render, RenderApp, RenderSystems,
 };
 use bevy_shader::Shader;
 use bevy_utils::default;
 use bitflags::bitflags;
 use tracing::debug;
 
-/// Identifies the `downsample_depth.wgsl` shader.
-#[derive(Resource, Deref)]
-pub struct DownsampleDepthShader(Handle<Shader>);
-
 /// The maximum number of mip levels that we can produce.
 ///
 /// 2^12 is 4096, so that's the maximum size of the depth buffer that we
 /// support.
 pub const DEPTH_PYRAMID_MIP_COUNT: usize = 12;
-
-/// A plugin that allows Bevy to repeatedly downsample textures to create
-/// mipmaps.
-///
-/// Currently, this is only used for hierarchical Z buffer generation for the
-/// purposes of occlusion culling.
-pub struct MipGenerationPlugin;
-
-impl Plugin for MipGenerationPlugin {
-    fn build(&self, app: &mut App) {
-        embedded_asset!(app, "downsample_depth.wgsl");
-
-        let downsample_depth_shader = load_embedded_asset!(app, "downsample_depth.wgsl");
-
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
-
-        render_app
-            .insert_resource(DownsampleDepthShader(downsample_depth_shader))
-            .init_resource::<SpecializedComputePipelines<DownsampleDepthPipeline>>()
-            .add_render_graph_node::<DownsampleDepthNode>(Core3d, Node3d::EarlyDownsampleDepth)
-            .add_render_graph_node::<DownsampleDepthNode>(Core3d, Node3d::LateDownsampleDepth)
-            .add_render_graph_edges(
-                Core3d,
-                (
-                    Node3d::EarlyPrepass,
-                    Node3d::EarlyDeferredPrepass,
-                    Node3d::EarlyDownsampleDepth,
-                    Node3d::LatePrepass,
-                    Node3d::LateDeferredPrepass,
-                ),
-            )
-            .add_render_graph_edges(
-                Core3d,
-                (
-                    Node3d::StartMainPassPostProcessing,
-                    Node3d::LateDownsampleDepth,
-                    Node3d::EndMainPassPostProcessing,
-                ),
-            )
-            .add_systems(RenderStartup, init_depth_pyramid_dummy_texture)
-            .add_systems(
-                Render,
-                create_downsample_depth_pipelines.in_set(RenderSystems::Prepare),
-            )
-            .add_systems(
-                Render,
-                (
-                    prepare_view_depth_pyramids,
-                    prepare_downsample_depth_view_bind_groups,
-                )
-                    .chain()
-                    .in_set(RenderSystems::PrepareResources)
-                    .run_if(resource_exists::<DownsampleDepthPipelines>)
-                    .after(prepare_core_3d_depth_textures),
-            );
-    }
-}
 
 /// The nodes that produce a hierarchical Z-buffer, also known as a depth
 /// pyramid.
@@ -331,13 +262,13 @@ pub struct DownsampleDepthPipelines {
 
 /// Creates the [`DownsampleDepthPipelines`] if downsampling is supported on the
 /// current platform.
-fn create_downsample_depth_pipelines(
+pub(crate) fn create_downsample_depth_pipelines(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
     pipeline_cache: Res<PipelineCache>,
     mut specialized_compute_pipelines: ResMut<SpecializedComputePipelines<DownsampleDepthPipeline>>,
     gpu_preprocessing_support: Res<GpuPreprocessingSupport>,
-    downsample_depth_shader: Res<DownsampleDepthShader>,
+    downsample_depth_shader: Res<DownsampleShaders>,
     mut has_run: Local<bool>,
 ) {
     // Only run once.
@@ -371,19 +302,19 @@ fn create_downsample_depth_pipelines(
     let mut downsample_depth_pipelines = DownsampleDepthPipelines {
         first: DownsampleDepthPipeline::new(
             standard_bind_group_layout.clone(),
-            downsample_depth_shader.0.clone(),
+            downsample_depth_shader.depth.clone(),
         ),
         second: DownsampleDepthPipeline::new(
             standard_bind_group_layout.clone(),
-            downsample_depth_shader.0.clone(),
+            downsample_depth_shader.depth.clone(),
         ),
         first_multisample: DownsampleDepthPipeline::new(
             multisampled_bind_group_layout.clone(),
-            downsample_depth_shader.0.clone(),
+            downsample_depth_shader.depth.clone(),
         ),
         second_multisample: DownsampleDepthPipeline::new(
             multisampled_bind_group_layout.clone(),
-            downsample_depth_shader.0.clone(),
+            downsample_depth_shader.depth.clone(),
         ),
         sampler,
     };
@@ -734,7 +665,7 @@ pub struct ViewDownsampleDepthBindGroup(BindGroup);
 
 /// Creates the [`ViewDownsampleDepthBindGroup`]s for all views with occlusion
 /// culling enabled.
-fn prepare_downsample_depth_view_bind_groups(
+pub(crate) fn prepare_downsample_depth_view_bind_groups(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
     downsample_depth_pipelines: Res<DownsampleDepthPipelines>,

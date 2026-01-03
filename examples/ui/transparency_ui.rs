@@ -14,7 +14,7 @@ fn main() {
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2d);
 
-    let font_handle = asset_server.load("fonts/FiraSans-Bold.ttf");
+    let font_handle = FontSource::from(asset_server.load("fonts/FiraSans-Bold.ttf"));
 
     commands
         .spawn(Node {
