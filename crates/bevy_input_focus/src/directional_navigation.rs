@@ -71,7 +71,7 @@ impl Plugin for DirectionalNavigationPlugin {
 }
 
 /// Configuration resource for automatic directional navigation and for generating manual
-/// navigation edges via [`auto_generate_navigation_edges`](crate::directional_navigation::auto_generate_navigation_edges)
+/// navigation edges via [`auto_generate_navigation_edges`]
 ///
 /// This resource controls how nodes should be automatically connected in each direction.
 #[derive(Resource, Debug, Clone, PartialEq)]
