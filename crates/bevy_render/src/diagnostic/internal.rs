@@ -643,6 +643,13 @@ pub trait WriteTimestamp {
 
 impl WriteTimestamp for CommandEncoder {
     fn write_timestamp(&mut self, query_set: &QuerySet, index: u32) {
+        if cfg!(target_os = "macos") {
+            // When using tracy (and thus this function), rendering was flickering on macOS Tahoe.
+            // See: https://github.com/bevyengine/bevy/issues/22257
+            // The issue seems to be triggered when `write_timestamp` is called very close to frame
+            // presentation.
+            return;
+        }
         CommandEncoder::write_timestamp(self, query_set, index);
     }
 }
