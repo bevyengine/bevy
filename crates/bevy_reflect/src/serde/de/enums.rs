@@ -13,7 +13,8 @@ use crate::{
         TypedReflectDeserializer,
     },
     structs::DynamicStruct,
-    DynamicTuple, TypeRegistration, TypeRegistry,
+    tuple::DynamicTuple,
+    TypeRegistration, TypeRegistry,
 };
 use core::{fmt, fmt::Formatter};
 use serde::de::{DeserializeSeed, EnumAccess, Error, MapAccess, SeqAccess, VariantAccess, Visitor};

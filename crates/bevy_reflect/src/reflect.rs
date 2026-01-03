@@ -1,6 +1,6 @@
 use crate::{
     array::array_debug, enums::enum_debug, list::list_debug, map::map_debug, set::set_debug,
-    structs::struct_debug, tuple_debug, tuple_struct_debug, DynamicTypePath, DynamicTyped,
+    structs::struct_debug, tuple::tuple_debug, tuple_struct_debug, DynamicTypePath, DynamicTyped,
     OpaqueInfo, ReflectCloneError, ReflectKind, ReflectKindMismatchError, ReflectMut, ReflectOwned,
     ReflectRef, TypeInfo, TypePath, Typed,
 };
@@ -184,7 +184,7 @@ where
     /// [reflection subtrait]: crate#the-reflection-subtraits
     /// [`Struct`]: crate::structs::Struct
     /// [`TupleStruct`]: crate::TupleStruct
-    /// [`Tuple`]: crate::Tuple
+    /// [`Tuple`]: crate::tuple::Tuple
     /// [`Enum`]: crate::enums::Enum
     /// [`List`]: crate::list::List
     /// [`Array`]: crate::array::Array
@@ -382,7 +382,7 @@ where
     ///
     /// [`DynamicStruct`]: crate::structs::DynamicStruct
     /// [`DynamicList`]: crate::list::DynamicList
-    /// [`DynamicTuple`]: crate::DynamicTuple
+    /// [`DynamicTuple`]: crate::tuple::DynamicTuple
     fn is_dynamic(&self) -> bool {
         false
     }

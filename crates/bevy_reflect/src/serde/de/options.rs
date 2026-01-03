@@ -4,7 +4,8 @@ use crate::{
         de::{error_utils::make_custom_error, registration_utils::try_get_registration},
         TypedReflectDeserializer,
     },
-    DynamicTuple, TypeRegistry,
+    tuple::DynamicTuple,
+    TypeRegistry,
 };
 use core::{fmt, fmt::Formatter};
 use serde::de::{DeserializeSeed, Error, Visitor};

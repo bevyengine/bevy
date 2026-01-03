@@ -3,9 +3,10 @@ use bevy_reflect_derive::impl_type_path;
 use crate::generics::impl_generic_info_methods;
 use crate::{
     attributes::{impl_custom_attribute_methods, CustomAttributes},
+    tuple::{DynamicTuple, Tuple},
     type_info::impl_type_methods,
-    ApplyError, DynamicTuple, Generics, PartialReflect, Reflect, ReflectKind, ReflectMut,
-    ReflectOwned, ReflectRef, Tuple, Type, TypeInfo, TypePath, UnnamedField,
+    ApplyError, Generics, PartialReflect, Reflect, ReflectKind, ReflectMut, ReflectOwned,
+    ReflectRef, Type, TypeInfo, TypePath, UnnamedField,
 };
 use alloc::{boxed::Box, vec::Vec};
 use bevy_platform::sync::Arc;

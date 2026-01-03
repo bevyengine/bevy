@@ -4,7 +4,8 @@ use crate::{
         de::{error_utils::make_custom_error, registration_utils::try_get_registration},
         SerializationData, TypedReflectDeserializer,
     },
-    DynamicTuple, TupleInfo, TupleStructInfo, TypeRegistration, TypeRegistry, UnnamedField,
+    tuple::{DynamicTuple, TupleInfo},
+    TupleStructInfo, TypeRegistration, TypeRegistry, UnnamedField,
 };
 use alloc::string::ToString;
 use serde::de::{Error, SeqAccess};

@@ -3,8 +3,9 @@ use bevy_reflect_derive::impl_type_path;
 use crate::{
     enums::{enum_debug, enum_hash, enum_partial_eq, Enum, VariantFieldIter, VariantType},
     structs::{DynamicStruct, Struct},
-    ApplyError, DynamicTuple, PartialReflect, Reflect, ReflectKind, ReflectMut, ReflectOwned,
-    ReflectRef, Tuple, TypeInfo,
+    tuple::{DynamicTuple, Tuple},
+    ApplyError, PartialReflect, Reflect, ReflectKind, ReflectMut, ReflectOwned, ReflectRef,
+    TypeInfo,
 };
 
 use alloc::{boxed::Box, string::String};

@@ -541,6 +541,7 @@
 //! [the language feature for dyn upcasting coercion]: https://github.com/rust-lang/rust/issues/65991
 //! [derive macro]: derive@crate::Reflect
 //! [`'static` lifetime]: https://doc.rust-lang.org/rust-by-example/scope/lifetime/static_lifetime.html#trait-bound
+//! [`Tuple`]: crate::tuple::Tuple
 //! [`Array`]: crate::array::Array
 //! [`List`]: crate::list::List
 //! [`Set`]: crate::set::Set
@@ -549,6 +550,7 @@
 //! [`Enum`]: crate::enums::Enum
 //! [`Function`]: crate::func::Function
 //! [`Struct::field`]: crate::structs::Struct::field
+//! [`DynamicTuple`]: crate::tuple::DynamicTuple
 //! [`DynamicArray`]: crate::array::DynamicArray
 //! [`DynamicList`]: crate::list::DynamicList
 //! [`DynamicMap`]: crate::map::DynamicMap
@@ -606,7 +608,7 @@ mod reflectable;
 mod remote;
 pub mod set;
 pub mod structs;
-mod tuple;
+pub mod tuple;
 mod tuple_struct;
 mod type_info;
 mod type_path;
@@ -676,7 +678,6 @@ pub use path::*;
 pub use reflect::*;
 pub use reflectable::*;
 pub use remote::*;
-pub use tuple::*;
 pub use tuple_struct::*;
 pub use type_info::*;
 pub use type_path::*;
@@ -692,7 +693,7 @@ pub use erased_serde;
 pub mod __macro_exports {
     use crate::{
         array::DynamicArray, enums::DynamicEnum, list::DynamicList, map::DynamicMap,
-        structs::DynamicStruct, DynamicTuple, DynamicTupleStruct, GetTypeRegistration,
+        structs::DynamicStruct, tuple::DynamicTuple, DynamicTupleStruct, GetTypeRegistration,
         TypeRegistry,
     };
 
@@ -872,7 +873,7 @@ mod tests {
     };
     use static_assertions::{assert_impl_all, assert_not_impl_all};
 
-    use super::{array::*, enums::*, list::*, map::*, prelude::*, structs::*, *};
+    use super::{array::*, enums::*, list::*, map::*, prelude::*, structs::*, tuple::*, *};
     use crate::{
         serde::{ReflectDeserializer, ReflectSerializer},
         utility::GenericTypePathCell,

@@ -239,7 +239,7 @@ impl<'a> ReflectPath<'a> for &'a str {
 /// ```
 ///
 /// [`Struct`]: crate::structs::Struct
-/// [`Tuple`]: crate::Tuple
+/// [`Tuple`]: crate::tuple::Tuple
 /// [`TupleStruct`]: crate::TupleStruct
 /// [`List`]: crate::list::List
 /// [`Array`]: crate::array::Array
