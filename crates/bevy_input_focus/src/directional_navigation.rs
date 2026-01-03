@@ -47,7 +47,7 @@
 //! - **Custom behavior**: Implement domain-specific navigation patterns (e.g., spreadsheet-style wrapping)
 
 use crate::{
-    navigator::{find_best_candidate, FocusableArea, NavigatorConfig},
+    navigator::{find_best_candidate, FocusableArea, AutoNavigationConfig},
     InputFocus,
 };
 use bevy_app::prelude::*;
@@ -69,7 +69,7 @@ pub struct DirectionalNavigationPlugin;
 impl Plugin for DirectionalNavigationPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<DirectionalNavigationMap>()
-            .init_resource::<NavigatorConfig>();
+            .init_resource::<AutoNavigationConfig>();
     }
 }
 
@@ -317,11 +317,11 @@ pub trait Navigable {
 /// # Example
 ///
 /// ```rust
-/// # use bevy_input_focus::{directional_navigation::*, navigator::{FocusableArea, NavigatorConfig}};
+/// # use bevy_input_focus::{directional_navigation::*, navigator::{FocusableArea, AutoNavigationConfig}};
 /// # use bevy_ecs::entity::Entity;
 /// # use bevy_math::Vec2;
 /// let mut nav_map = DirectionalNavigationMap::default();
-/// let config = NavigatorConfig::default();
+/// let config = AutoNavigationConfig::default();
 ///
 /// let nodes = vec![
 ///     FocusableArea { entity: Entity::PLACEHOLDER, position: Vec2::new(100.0, 100.0), size: Vec2::new(50.0, 50.0) },
@@ -333,7 +333,7 @@ pub trait Navigable {
 pub fn auto_generate_navigation_edges(
     nav_map: &mut DirectionalNavigationMap,
     nodes: &[FocusableArea],
-    config: &NavigatorConfig,
+    config: &AutoNavigationConfig,
 ) {
     // For each node, find best neighbor in each direction
     for origin in nodes {
@@ -520,7 +520,7 @@ mod tests {
         focus.set(a);
         world.insert_resource(focus);
 
-        let config = NavigatorConfig::default();
+        let config = AutoNavigationConfig::default();
         world.insert_resource(config);
 
         assert_eq!(world.resource::<InputFocus>().get(), Some(a));
@@ -542,7 +542,7 @@ mod tests {
     #[test]
     fn test_auto_generate_navigation_edges() {
         let mut nav_map = DirectionalNavigationMap::default();
-        let config = NavigatorConfig::default();
+        let config = AutoNavigationConfig::default();
 
         // Create a 2x2 grid of nodes (using UI coordinates: smaller Y = higher on screen)
         let node_a = Entity::from_bits(1); // Top-left
@@ -605,7 +605,7 @@ mod tests {
     #[test]
     fn test_auto_generate_respects_manual_edges() {
         let mut nav_map = DirectionalNavigationMap::default();
-        let config = NavigatorConfig::default();
+        let config = AutoNavigationConfig::default();
 
         let node_a = Entity::from_bits(1);
         let node_b = Entity::from_bits(2);
@@ -644,7 +644,7 @@ mod tests {
     #[test]
     fn test_edge_distance_vs_center_distance() {
         let mut nav_map = DirectionalNavigationMap::default();
-        let config = NavigatorConfig::default();
+        let config = AutoNavigationConfig::default();
 
         let left = Entity::from_bits(1);
         let wide_top = Entity::from_bits(2);

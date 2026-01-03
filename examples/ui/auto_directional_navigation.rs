@@ -17,7 +17,7 @@ use core::time::Duration;
 use bevy::{
     camera::NormalizedRenderTarget,
     input_focus::{
-        directional_navigation::DirectionalNavigationPlugin, navigator::NavigatorConfig,
+        directional_navigation::DirectionalNavigationPlugin, navigator::AutoNavigationConfig,
         InputDispatchPlugin, InputFocus, InputFocusVisible,
     },
     math::{CompassOctant, Dir2},
@@ -42,7 +42,7 @@ fn main() {
         // It starts as false, but we set it to true here as we would like to see the focus indicator
         .insert_resource(InputFocusVisible(true))
         // Configure auto-navigation behavior
-        .insert_resource(NavigatorConfig {
+        .insert_resource(AutoNavigationConfig {
             // Require at least 10% overlap in perpendicular axis for cardinal directions
             min_alignment_factor: 0.1,
             // Don't connect nodes more than 500 pixels apart

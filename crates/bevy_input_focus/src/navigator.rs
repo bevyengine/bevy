@@ -16,7 +16,7 @@ use bevy_reflect::Reflect;
     derive(Reflect),
     reflect(Resource, Debug, PartialEq, Clone)
 )]
-pub struct NavigatorConfig {
+pub struct AutoNavigationConfig {
     /// Minimum overlap ratio (0.0-1.0) required along the perpendicular axis for cardinal directions.
     ///
     /// This parameter controls how much two UI elements must overlap in the perpendicular direction
@@ -67,7 +67,7 @@ pub struct NavigatorConfig {
     pub prefer_aligned: bool,
 }
 
-impl Default for NavigatorConfig {
+impl Default for AutoNavigationConfig {
     fn default() -> Self {
         Self {
             min_alignment_factor: 0.0, // Any overlap is acceptable
@@ -168,7 +168,7 @@ fn score_candidate(
     candidate_pos: Vec2,
     candidate_size: Vec2,
     octant: CompassOctant,
-    config: &NavigatorConfig,
+    config: &AutoNavigationConfig,
 ) -> f32 {
     // Get direction in mathematical coordinates, then flip Y for UI coordinates
     let dir = Dir2::from(octant).as_vec2() * Vec2::new(1.0, -1.0);
@@ -234,12 +234,12 @@ fn score_candidate(
 
 /// Finds the best entity to navigate to from the origin towards the given direction.
 ///
-/// For details on what "best" means here, refer to [`NavigatorConfig`].
+/// For details on what "best" means here, refer to [`AutoNavigationConfig`].
 pub fn find_best_candidate(
     origin: &FocusableArea,
     direction: CompassOctant,
     candidates: &[FocusableArea],
-    config: &NavigatorConfig,
+    config: &AutoNavigationConfig,
 ) -> Option<Entity> {
     // Find best candidate in this direction
     let mut best_candidate = None;
@@ -341,7 +341,7 @@ mod tests {
 
     #[test]
     fn test_score_candidate() {
-        let config = NavigatorConfig::default();
+        let config = AutoNavigationConfig::default();
         let origin_pos = Vec2::new(100.0, 100.0);
         let origin_size = Vec2::new(50.0, 50.0);
 

@@ -103,7 +103,7 @@ pub struct AutoDirectionalNavigator<'w, 's> {
     /// A system parameter for the manual directional navigation system provided by `bevy_input_focus`
     pub manual_directional_navigation: DirectionalNavigation<'w>,
     /// Configuration for the automated portion of the navigation algorithm.
-    pub config: Res<'w, NavigatorConfig>,
+    pub config: Res<'w, AutoNavigationConfig>,
     /// The entities which can possibly be navigated to automatically.
     navigable_entities_query: Query<
         'w,
