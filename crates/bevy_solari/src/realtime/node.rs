@@ -554,7 +554,7 @@ impl FromWorld for SolariLightingNode {
                 "initial_and_temporal",
                 load_embedded_asset!(world, "restir_gi.wgsl"),
                 None,
-                vec![],
+                vec!["WORLD_CACHE_FIRST_BOUNCE_LIGHT_LEAK_PREVENTION".into()],
             ),
             gi_spatial_and_shade_pipeline: create_pipeline(
                 "solari_lighting_gi_spatial_and_shade_pipeline",

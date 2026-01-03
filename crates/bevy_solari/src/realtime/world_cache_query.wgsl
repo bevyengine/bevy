@@ -52,10 +52,12 @@ fn query_world_cache(world_position_in: vec3<f32>, world_normal: vec3<f32>, view
     var world_position = world_position_in;
     var cell_size = get_cell_size(world_position, view_position);
 
+#ifdef WORLD_CACHE_FIRST_BOUNCE_LIGHT_LEAK_PREVENTION
     if ray_t < cell_size {
         // Prevent light leaks
         cell_size = WORLD_CACHE_POSITION_BASE_CELL_SIZE;
     }
+#endif
 
 #ifdef JITTER_WORLD_CACHE
     // Jitter query point, which essentially blurs the cache a bit so it's not so grid-like
