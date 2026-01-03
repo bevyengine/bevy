@@ -11,8 +11,8 @@ use bevy::reflect::{
     std_traits::ReflectDefault,
     structs::DynamicStruct,
     tuple::DynamicTuple,
-    DynamicTupleStruct, FromReflect, PartialReflect, Reflect, ReflectFromReflect, TypeRegistry,
-    Typed,
+    tuple_struct::DynamicTupleStruct,
+    FromReflect, PartialReflect, Reflect, ReflectFromReflect, TypeRegistry, Typed,
 };
 use serde::de::DeserializeSeed;
 use std::collections::{HashMap, HashSet};

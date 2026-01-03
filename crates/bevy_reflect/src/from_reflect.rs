@@ -62,7 +62,7 @@ pub trait FromReflect: Reflect + Sized {
 /// However, to do this, you normally need to specify the exact concrete type:
 ///
 /// ```
-/// # use bevy_reflect::{DynamicTupleStruct, FromReflect, Reflect};
+/// # use bevy_reflect::{tuple_struct::DynamicTupleStruct, FromReflect, Reflect};
 /// #[derive(Reflect, PartialEq, Eq, Debug)]
 /// struct Foo(#[reflect(default = "default_value")] usize);
 ///
@@ -82,7 +82,7 @@ pub trait FromReflect: Reflect + Sized {
 /// # Example
 ///
 /// ```
-/// # use bevy_reflect::{DynamicTupleStruct, Reflect, ReflectFromReflect, Typed, TypeRegistry, TypePath};
+/// # use bevy_reflect::{tuple_struct::DynamicTupleStruct, Reflect, ReflectFromReflect, Typed, TypeRegistry, TypePath};
 /// # #[derive(Reflect, PartialEq, Eq, Debug)]
 /// # struct Foo(#[reflect(default = "default_value")] usize);
 /// # fn default_value() -> usize { 123 }

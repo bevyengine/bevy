@@ -13,8 +13,9 @@ mod tests {
     use super::*;
     use crate::{
         structs::{DynamicStruct, Struct},
+        tuple_struct::DynamicTupleStruct,
         type_registry::TypeRegistry,
-        DynamicTupleStruct, FromReflect, PartialReflect, Reflect,
+        FromReflect, PartialReflect, Reflect,
     };
     use serde::de::DeserializeSeed;
 

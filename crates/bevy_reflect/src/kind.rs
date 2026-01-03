@@ -5,7 +5,7 @@ use thiserror::Error;
 use crate::func::Function;
 use crate::{
     array::Array, enums::Enum, list::List, map::Map, set::Set, structs::Struct, tuple::Tuple,
-    PartialReflect, TupleStruct,
+    tuple_struct::TupleStruct, PartialReflect,
 };
 
 /// An enumeration of the "kinds" of a reflected type.

@@ -547,6 +547,7 @@
 //! [`Set`]: crate::set::Set
 //! [`Map`]: crate::map::Map
 //! [`Struct`]: crate::structs::Struct
+//! [`TupleStruct`]: crate::tuple_struct::TupleStruct
 //! [`Enum`]: crate::enums::Enum
 //! [`Function`]: crate::func::Function
 //! [`Struct::field`]: crate::structs::Struct::field
@@ -555,6 +556,7 @@
 //! [`DynamicList`]: crate::list::DynamicList
 //! [`DynamicMap`]: crate::map::DynamicMap
 //! [`DynamicStruct`]: crate::structs::DynamicStruct
+//! [`DynamicTupleStruct`]: crate::tuple_struct::DynamicTupleStruct
 //! [`DynamicEnum`]: crate::enums::DynamicEnum
 //! [derive macro documentation]: derive@crate::Reflect
 //! [deriving `Reflect`]: derive@crate::Reflect
@@ -609,7 +611,7 @@ mod remote;
 pub mod set;
 pub mod structs;
 pub mod tuple;
-mod tuple_struct;
+pub mod tuple_struct;
 mod type_info;
 mod type_path;
 mod type_registry;
@@ -660,8 +662,9 @@ pub mod prelude {
     pub use crate::{
         reflect_trait,
         structs::{GetField, Struct},
-        FromReflect, GetPath, GetTupleStructField, PartialReflect, Reflect, ReflectDeserialize,
-        ReflectFromReflect, ReflectPath, ReflectSerialize, TupleStruct, TypePath,
+        tuple_struct::{GetTupleStructField, TupleStruct},
+        FromReflect, GetPath, PartialReflect, Reflect, ReflectDeserialize, ReflectFromReflect,
+        ReflectPath, ReflectSerialize, TypePath,
     };
 
     #[cfg(feature = "functions")]
@@ -678,7 +681,6 @@ pub use path::*;
 pub use reflect::*;
 pub use reflectable::*;
 pub use remote::*;
-pub use tuple_struct::*;
 pub use type_info::*;
 pub use type_path::*;
 pub use type_registry::*;
@@ -693,8 +695,8 @@ pub use erased_serde;
 pub mod __macro_exports {
     use crate::{
         array::DynamicArray, enums::DynamicEnum, list::DynamicList, map::DynamicMap,
-        structs::DynamicStruct, tuple::DynamicTuple, DynamicTupleStruct, GetTypeRegistration,
-        TypeRegistry,
+        structs::DynamicStruct, tuple::DynamicTuple, tuple_struct::DynamicTupleStruct,
+        GetTypeRegistration, TypeRegistry,
     };
 
     /// Re-exports of items from the [`alloc`] crate.
@@ -873,7 +875,9 @@ mod tests {
     };
     use static_assertions::{assert_impl_all, assert_not_impl_all};
 
-    use super::{array::*, enums::*, list::*, map::*, prelude::*, structs::*, tuple::*, *};
+    use super::{
+        array::*, enums::*, list::*, map::*, prelude::*, structs::*, tuple::*, tuple_struct::*, *,
+    };
     use crate::{
         serde::{ReflectDeserializer, ReflectSerializer},
         utility::GenericTypePathCell,

@@ -129,7 +129,7 @@ fn impl_struct_internal(
     let (ref_struct_type, ref_struct_path) = if is_tuple {
         (
             Ident::new("TupleStruct", Span::call_site()),
-            parse_str("TupleStruct").expect("should be a valid path"),
+            parse_str("tuple_struct::TupleStruct").expect("should be a valid path"),
         )
     } else {
         (

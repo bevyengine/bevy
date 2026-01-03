@@ -6,8 +6,8 @@ use crate::{
     set::SetInfo,
     structs::{DynamicStruct, StructInfo},
     tuple::{DynamicTuple, TupleInfo},
-    DynamicTupleStruct, Generics, PartialReflect, Reflect, ReflectKind, TupleStructInfo, TypePath,
-    TypePathTable,
+    tuple_struct::{DynamicTupleStruct, TupleStructInfo},
+    Generics, PartialReflect, Reflect, ReflectKind, TypePath, TypePathTable,
 };
 use core::{
     any::{Any, TypeId},
@@ -213,7 +213,7 @@ pub enum TypeInfo {
     Struct(StructInfo),
     /// Type information for a [tuple-struct-like] type.
     ///
-    /// [tuple-struct-like]: crate::TupleStruct
+    /// [tuple-struct-like]: crate::tuple_struct::TupleStruct
     TupleStruct(TupleStructInfo),
     /// Type information for a [tuple-like] type.
     ///

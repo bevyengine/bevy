@@ -651,7 +651,7 @@ impl<'a> ReflectStruct<'a> {
         let (info_variant, info_struct): (_, Path) = if is_tuple {
             (
                 Ident::new("TupleStruct", Span::call_site()),
-                parse_str("TupleStructInfo").expect("should be a valid path"),
+                parse_str("tuple_struct::TupleStructInfo").expect("should be a valid path"),
             )
         } else {
             (

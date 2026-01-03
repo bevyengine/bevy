@@ -1,8 +1,8 @@
 use crate::{
     array::array_debug, enums::enum_debug, list::list_debug, map::map_debug, set::set_debug,
-    structs::struct_debug, tuple::tuple_debug, tuple_struct_debug, DynamicTypePath, DynamicTyped,
-    OpaqueInfo, ReflectCloneError, ReflectKind, ReflectKindMismatchError, ReflectMut, ReflectOwned,
-    ReflectRef, TypeInfo, TypePath, Typed,
+    structs::struct_debug, tuple::tuple_debug, tuple_struct::tuple_struct_debug, DynamicTypePath,
+    DynamicTyped, OpaqueInfo, ReflectCloneError, ReflectKind, ReflectKindMismatchError, ReflectMut,
+    ReflectOwned, ReflectRef, TypeInfo, TypePath, Typed,
 };
 use alloc::borrow::Cow;
 use alloc::boxed::Box;
@@ -90,7 +90,7 @@ impl From<ReflectKindMismatchError> for ApplyError {
 /// [`bevy_reflect`]: crate
 /// [the derive macro for `Reflect`]: bevy_reflect_derive::Reflect
 /// [`Struct`]: crate::structs::Struct
-/// [`TupleStruct`]: crate::TupleStruct
+/// [`TupleStruct`]: crate::tuple_struct::TupleStruct
 /// [`Enum`]: crate::enums::Enum
 /// [crate-level documentation]: crate
 #[diagnostic::on_unimplemented(
@@ -183,7 +183,7 @@ where
     ///
     /// [reflection subtrait]: crate#the-reflection-subtraits
     /// [`Struct`]: crate::structs::Struct
-    /// [`TupleStruct`]: crate::TupleStruct
+    /// [`TupleStruct`]: crate::tuple_struct::TupleStruct
     /// [`Tuple`]: crate::tuple::Tuple
     /// [`Enum`]: crate::enums::Enum
     /// [`List`]: crate::list::List
@@ -405,7 +405,7 @@ where
 /// [`bevy_reflect`]: crate
 /// [the derive macro]: bevy_reflect_derive::Reflect
 /// [`Struct`]: crate::structs::Struct
-/// [`TupleStruct`]: crate::TupleStruct
+/// [`TupleStruct`]: crate::tuple_struct::TupleStruct
 /// [`Enum`]: crate::enums::Enum
 /// [`Reflectable`]: crate::Reflectable
 /// [crate-level documentation]: crate

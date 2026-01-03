@@ -5,7 +5,8 @@ use crate::{
         SerializationData, TypedReflectDeserializer,
     },
     tuple::{DynamicTuple, TupleInfo},
-    TupleStructInfo, TypeRegistration, TypeRegistry, UnnamedField,
+    tuple_struct::TupleStructInfo,
+    TypeRegistration, TypeRegistry, UnnamedField,
 };
 use alloc::string::ToString;
 use serde::de::{Error, SeqAccess};
