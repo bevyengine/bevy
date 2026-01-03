@@ -11,7 +11,7 @@ If you use `bevy_window` or `bevy_gilrs`, they will automatically
 enable the necessary features on `bevy_input`. If you don't depend
 on them (for example, if you are developing for a platform that
 isn't supported by these crates), you need to enable the required
-input sources on `bevy_input` manually:
+input sources on the `bevy_input` / `bevy` crate manually:
 
 ```toml
 # 0.17
