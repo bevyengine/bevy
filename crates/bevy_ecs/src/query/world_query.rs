@@ -1,11 +1,15 @@
+use core::ops::Range;
+
 use crate::{
     archetype::Archetype,
     change_detection::Tick,
     component::{ComponentId, Components},
+    entity::Entity,
     query::FilteredAccess,
-    storage::Table,
+    storage::{Table, TableRow},
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
+use nonmax::NonMaxU32;
 use variadics_please::all_tuples;
 
 /// Types that can be used as parameters in a [`Query`].
@@ -32,6 +36,11 @@ use variadics_please::all_tuples;
 ///
 /// When implementing [`update_component_access`], note that `add_read` and `add_write` both also add a `With` filter, whereas `extend_access` does not change the filters.
 ///
+/// When implementing [`find_table_chunk`] and [`find_archetype_chunk`], their return values must be
+/// subsets of `rows` and `indices` respectively, even if returning an empty range.
+///
+/// [`find_table_chunk`], [`find_archetype_chunk`], and [`matches`] must not mutably access any world data.
+///
 /// [`QueryData::provide_extra_access`]: crate::query::QueryData::provide_extra_access
 /// [`QueryData::fetch`]: crate::query::QueryData::fetch
 /// [`QueryFilter::filter_fetch`]: crate::query::QueryFilter::filter_fetch
@@ -41,6 +50,9 @@ use variadics_please::all_tuples;
 /// [`update_component_access`]: Self::update_component_access
 /// [`QueryData`]: crate::query::QueryData
 /// [`QueryFilter`]: crate::query::QueryFilter
+/// [`find_table_chunk`]: crate::query::WorldQuery::find_table_chunk
+/// [`find_archetype_chunk`]: crate::query::WorldQuery::find_archetype_chunk
+/// [`matches`]: crate::query::WorldQuery::matches
 pub unsafe trait WorldQuery {
     /// Per archetype/table state retrieved by this [`WorldQuery`] to compute [`Self::Item`](crate::query::QueryData::Item) for each entity.
     type Fetch<'w>: Clone;
@@ -131,6 +143,114 @@ pub unsafe trait WorldQuery {
         state: &Self::State,
         set_contains_id: &impl Fn(ComponentId) -> bool,
     ) -> bool;
+
+    /// TODO: docs
+    ///
+    /// # Safety
+    ///
+    /// Must always be called _after_ [`WorldQuery::set_table`].
+    /// `rows` must be in the range of the current table.
+    #[inline]
+    unsafe fn find_table_chunk(
+        state: &Self::State,
+        fetch: &Self::Fetch<'_>,
+        table: &Table,
+        indices: Range<u32>,
+    ) -> Range<u32> {
+        let entities = table.entities();
+        indices.find_chunk(|index| {
+            let table_row = TableRow::new(index);
+            // SAFETY: caller guarantees `indices` is in range of `table`
+            let entity = unsafe { *entities.get_unchecked(index.get() as usize) };
+            // SAFETY: invariants upheld by caller
+            unsafe { Self::matches(state, fetch, entity, table_row) }
+        })
+    }
+
+    /// TODO: docs
+    ///
+    /// # Safety
+    ///
+    /// Must always be called _after_ [`WorldQuery::set_archetype`].
+    /// `indices` must be in the range of the current archetype.
+    #[inline]
+    unsafe fn find_archetype_chunk(
+        state: &Self::State,
+        fetch: &Self::Fetch<'_>,
+        archetype: &Archetype,
+        indices: Range<u32>,
+    ) -> Range<u32> {
+        let archetype_entities = archetype.entities();
+        indices.find_chunk(|index| {
+            // SAFETY: caller guarantees `indices` is in range of `archetype`
+            let archetype_entity =
+                unsafe { archetype_entities.get_unchecked(index.get() as usize) };
+
+            // SAFETY: invariants upheld by caller
+            unsafe {
+                Self::matches(
+                    state,
+                    fetch,
+                    archetype_entity.id(),
+                    archetype_entity.table_row(),
+                )
+            }
+        })
+    }
+
+    /// Returns true if the provided [`Entity`] and [`TableRow`] should be included in the query results.
+    /// If false, the entity will be skipped.
+    ///
+    /// Note that this is called after already restricting the matched [`Table`]s and [`Archetype`]s to the
+    /// ones that are compatible with the Filter's access.
+    ///
+    /// Implementors of this method will generally either have a trivial `true` body (required for archetypal filters),
+    /// or access the necessary data within this function to make the final decision on filter inclusion.
+    ///
+    /// # Safety
+    ///
+    /// Must always be called _after_ [`WorldQuery::set_table`] or [`WorldQuery::set_archetype`]. `entity` and
+    /// `table_row` must be in the range of the current table and archetype.
+    unsafe fn matches(
+        state: &Self::State,
+        fetch: &Self::Fetch<'_>,
+        entity: Entity,
+        table_row: TableRow,
+    ) -> bool;
+}
+
+pub trait RangeExt {
+    fn find_chunk<F: FnMut(NonMaxU32) -> bool>(self, func: F) -> Self;
+}
+
+impl RangeExt for Range<u32> {
+    #[inline]
+    fn find_chunk<F: FnMut(NonMaxU32) -> bool>(mut self, mut func: F) -> Self {
+        let mut index = self.start;
+        while index < self.end {
+            // index is taken from an exclusive range, so it can't be max
+            let nonmax_index = unsafe { NonMaxU32::new_unchecked(index) };
+            let matches = func(nonmax_index);
+            if matches {
+                break;
+            }
+            index = index.wrapping_add(1);
+        }
+        self.start = index;
+
+        while index < self.end {
+            // index is taken from an exclusive range, so it can't be max
+            let nonmax_index = unsafe { NonMaxU32::new_unchecked(index) };
+            index = index.wrapping_add(1);
+            let matches = func(nonmax_index);
+            if !matches {
+                break;
+            }
+        }
+        self.end = index;
+
+        self
+    }
 }
 
 macro_rules! impl_tuple_world_query {
@@ -152,12 +272,18 @@ macro_rules! impl_tuple_world_query {
             clippy::unused_unit,
             reason = "Zero-length tuples will generate some function bodies equivalent to `()`; however, this macro is meant for all applicable tuples, and as such it makes no sense to rewrite it just for that case."
         )]
+        #[allow(
+            unused_mut,
+            reason = "Zero-length tuples will generate some function bodies that don't mutate their parameters; however, this macro is meant for all applicable tuples, and as such it makes no sense to rewrite it just for that case."
+        )]
         $(#[$meta])*
         /// SAFETY:
         /// `fetch` accesses are the conjunction of the subqueries' accesses
         /// This is sound because `update_component_access` adds accesses according to the implementations of all the subqueries.
         /// `update_component_access` adds all `With` and `Without` filters from the subqueries.
         /// This is sound because `matches_component_set` always returns `false` if any the subqueries' implementations return `false`.
+        /// `lookahead_table` and `lookahead_archetype` always return a subset of `rows`/`indices`
+        /// This is sound because each `lookahead_table` and `lookahead_archetype` each
         unsafe impl<$($name: WorldQuery),*> WorldQuery for ($($name,)*) {
             type Fetch<'w> = ($($name::Fetch<'w>,)*);
             type State = ($($name::State,)*);
@@ -215,6 +341,51 @@ macro_rules! impl_tuple_world_query {
             fn matches_component_set(state: &Self::State, set_contains_id: &impl Fn(ComponentId) -> bool) -> bool {
                 let ($($name,)*) = state;
                 true $(&& $name::matches_component_set($name, set_contains_id))*
+            }
+
+            #[inline]
+            unsafe fn find_table_chunk(
+                state: &Self::State,
+                fetch: &Self::Fetch<'_>,
+                table: &Table,
+                mut rows: Range<u32>,
+            ) -> Range<u32> {
+                let ($($name,)*) = fetch;
+                let ($($state,)*) = state;
+                // SAFETY: `rows` is only ever narrowed as we iterate subqueries, so it's
+                // always valid to pass to the next term. Other invariants are upheld by
+                // the caller.
+                $(rows = unsafe { $name::find_table_chunk($state, $name, table, rows) };)*
+                rows
+            }
+
+            #[inline]
+            unsafe fn find_archetype_chunk(
+                state: &Self::State,
+                fetch: &Self::Fetch<'_>,
+                table: &Archetype,
+                mut indices: Range<u32>,
+            ) -> Range<u32> {
+                let ($($name,)*) = fetch;
+                let ($($state,)*) = state;
+                // SAFETY: `indices` is only ever narrowed as we iterate subqueries, so it's
+                // always valid to pass to the next term. Other invariants are upheld by
+                // the caller.
+                $(indices = unsafe { $name::find_archetype_chunk($state, $name, table, indices) };)*
+                indices
+            }
+
+            #[inline]
+            unsafe fn matches(
+                state: &Self::State,
+                fetch: &Self::Fetch<'_>,
+                entity: Entity,
+                table_row: TableRow,
+            ) -> bool {
+                let ($($name,)*) = fetch;
+                let ($($state,)*) = state;
+                // SAFETY: invariants are upheld by the caller.
+                true $(&& unsafe { $name::matches($state, $name, entity, table_row) })*
             }
         }
     };

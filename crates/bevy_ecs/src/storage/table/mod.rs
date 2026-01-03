@@ -12,7 +12,7 @@ pub use column::*;
 use core::{
     cell::UnsafeCell,
     num::NonZeroUsize,
-    ops::{Index, IndexMut},
+    ops::{Index, IndexMut, Range},
     panic::Location,
 };
 use nonmax::NonMaxU32;
@@ -97,7 +97,7 @@ impl TableId {
 /// [`Archetype`]: crate::archetype::Archetype
 /// [`Archetype::entity_table_row`]: crate::archetype::Archetype::entity_table_row
 /// [`Archetype::table_id`]: crate::archetype::Archetype::table_id
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 #[repr(transparent)]
 pub struct TableRow(NonMaxU32);
 
