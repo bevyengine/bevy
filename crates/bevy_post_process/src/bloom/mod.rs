@@ -18,9 +18,11 @@ use bevy_core_pipeline::{
 };
 use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_math::{ops, UVec2};
+// render diagnostics are not supported on mac; gating to prevent potential flickering (GH Issue #22257)
+#[cfg(not(target_os = "macos"))]
+use bevy_render::diagnostic::RecordDiagnostics;
 use bevy_render::{
     camera::ExtractedCamera,
-    diagnostic::RecordDiagnostics,
     extract_component::{
         ComponentUniforms, DynamicUniformIndex, ExtractComponentPlugin, UniformComponentPlugin,
     },
@@ -160,6 +162,7 @@ impl ViewNode for BloomNode {
 
         let view_texture = view_target.main_texture_view();
         let view_texture_unsampled = view_target.get_unsampled_color_attachment();
+        #[cfg(not(target_os = "macos"))]
         let diagnostics = render_context.diagnostic_recorder();
 
         render_context.add_command_buffer_generation_task(move |render_device| {
@@ -171,6 +174,7 @@ impl ViewNode for BloomNode {
                     label: Some("bloom_command_encoder"),
                 });
             command_encoder.push_debug_group("bloom");
+            #[cfg(not(target_os = "macos"))]
             let time_span = diagnostics.time_span(&mut command_encoder, "bloom");
 
             // First downsample pass
@@ -304,6 +308,7 @@ impl ViewNode for BloomNode {
                 upsampling_final_pass.draw(0..3, 0..1);
             }
 
+            #[cfg(not(target_os = "macos"))]
             time_span.end(&mut command_encoder);
             command_encoder.pop_debug_group();
             command_encoder.finish()

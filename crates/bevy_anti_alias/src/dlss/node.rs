@@ -5,9 +5,11 @@ use super::{
 use bevy_camera::MainPassResolutionOverride;
 use bevy_core_pipeline::prepass::ViewPrepassTextures;
 use bevy_ecs::{query::QueryItem, world::World};
+// render diagnostics are not supported on mac; gating to prevent potential flickering (GH Issue #22257)
+#[cfg(not(target_os = "macos"))]
+use bevy_render::diagnostic::RecordDiagnostics;
 use bevy_render::{
     camera::TemporalJitter,
-    diagnostic::RecordDiagnostics,
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
     renderer::{RenderAdapter, RenderContext},
     view::ViewTarget,
@@ -70,17 +72,20 @@ impl ViewNode for DlssNode<DlssSuperResolutionFeature> {
             motion_vector_scale: Some(-render_resolution.as_vec2()),
         };
 
+        #[cfg(not(target_os = "macos"))]
         let diagnostics = render_context.diagnostic_recorder();
         let command_encoder = render_context.command_encoder();
         let mut dlss_context = dlss_context.context.lock().unwrap();
 
         command_encoder.push_debug_group("dlss_super_resolution");
+        #[cfg(not(target_os = "macos"))]
         let time_span = diagnostics.time_span(command_encoder, "dlss_super_resolution");
 
         dlss_context
             .render(render_parameters, command_encoder, &adapter)
             .expect("Failed to render DLSS Super Resolution");
 
+        #[cfg(not(target_os = "macos"))]
         time_span.end(command_encoder);
         command_encoder.pop_debug_group();
 
@@ -146,11 +151,13 @@ impl ViewNode for DlssNode<DlssRayReconstructionFeature> {
             motion_vector_scale: Some(-render_resolution.as_vec2()),
         };
 
+        #[cfg(not(target_os = "macos"))]
         let diagnostics = render_context.diagnostic_recorder();
         let command_encoder = render_context.command_encoder();
         let mut dlss_context = dlss_context.context.lock().unwrap();
 
         command_encoder.push_debug_group("dlss_ray_reconstruction");
+        #[cfg(not(target_os = "macos"))]
         let time_span = diagnostics.time_span(command_encoder, "dlss_ray_reconstruction");
 
         dlss_context

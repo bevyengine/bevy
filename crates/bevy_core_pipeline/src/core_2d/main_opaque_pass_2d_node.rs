@@ -1,8 +1,10 @@
 use crate::core_2d::Opaque2d;
 use bevy_ecs::{prelude::World, query::QueryItem};
+// render diagnostics are not supported on mac; gating to prevent potential flickering (GH Issue #22257)
+#[cfg(not(target_os = "macos"))]
+use bevy_render::diagnostic::RecordDiagnostics;
 use bevy_render::{
     camera::ExtractedCamera,
-    diagnostic::RecordDiagnostics,
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
     render_phase::{TrackedRenderPass, ViewBinnedRenderPhases},
     render_resource::{CommandEncoderDescriptor, RenderPassDescriptor, StoreOp},
@@ -41,6 +43,7 @@ impl ViewNode for MainOpaquePass2dNode {
             return Ok(());
         };
 
+        #[cfg(not(target_os = "macos"))]
         let diagnostics = render_context.diagnostic_recorder();
 
         let color_attachments = [Some(target.get_color_attachment())];
@@ -72,6 +75,7 @@ impl ViewNode for MainOpaquePass2dNode {
                 occlusion_query_set: None,
             });
             let mut render_pass = TrackedRenderPass::new(&render_device, render_pass);
+            #[cfg(not(target_os = "macos"))]
             let pass_span = diagnostics.pass_span(&mut render_pass, "main_opaque_pass_2d");
 
             if let Some(viewport) = camera.viewport.as_ref() {
@@ -96,6 +100,7 @@ impl ViewNode for MainOpaquePass2dNode {
                 }
             }
 
+            #[cfg(not(target_os = "macos"))]
             pass_span.end(&mut render_pass);
             drop(render_pass);
             command_encoder.finish()

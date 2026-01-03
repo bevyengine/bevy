@@ -1,8 +1,10 @@
 use bevy_camera::{MainPassResolutionOverride, Viewport};
 use bevy_ecs::{prelude::*, query::QueryItem};
+// render diagnostics are not supported on mac; gating to prevent potential flickering (GH Issue #22257)
+#[cfg(not(target_os = "macos"))]
+use bevy_render::diagnostic::RecordDiagnostics;
 use bevy_render::{
     camera::ExtractedCamera,
-    diagnostic::RecordDiagnostics,
     experimental::occlusion_culling::OcclusionCulling,
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
     render_phase::{TrackedRenderPass, ViewBinnedRenderPhases},
@@ -142,6 +144,7 @@ fn run_prepass<'w>(
         return Ok(());
     };
 
+    #[cfg(not(target_os = "macos"))]
     let diagnostics = render_context.diagnostic_recorder();
 
     let mut color_attachments = vec![
@@ -185,6 +188,7 @@ fn run_prepass<'w>(
         });
 
         let mut render_pass = TrackedRenderPass::new(&render_device, render_pass);
+        #[cfg(not(target_os = "macos"))]
         let pass_span = diagnostics.pass_span(&mut render_pass, label);
 
         if let Some(viewport) =
@@ -234,6 +238,7 @@ fn run_prepass<'w>(
             }
         }
 
+        #[cfg(not(target_os = "macos"))]
         pass_span.end(&mut render_pass);
         drop(render_pass);
 

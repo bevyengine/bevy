@@ -14,8 +14,10 @@ use bevy_ecs::{
     query::QueryItem,
     world::{FromWorld, World},
 };
+// render diagnostics are not supported on mac; gating to prevent potential flickering (GH Issue #22257)
+#[cfg(not(target_os = "macos"))]
+use bevy_render::diagnostic::RecordDiagnostics;
 use bevy_render::{
-    diagnostic::RecordDiagnostics,
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
     render_resource::{
         binding_types::{
@@ -222,6 +224,7 @@ impl ViewNode for SolariLightingNode {
         // Choice of number here is arbitrary
         let frame_index = frame_count.0.wrapping_mul(5782582);
 
+        #[cfg(not(target_os = "macos"))]
         let diagnostics = render_context.diagnostic_recorder();
         let command_encoder = render_context.command_encoder();
 
@@ -261,6 +264,7 @@ impl ViewNode for SolariLightingNode {
             pass.dispatch_workgroups(dx, dy, 1);
         }
 
+        #[cfg(not(target_os = "macos"))]
         let d = diagnostics.time_span(&mut pass, "solari_lighting/presample_light_tiles");
         pass.set_pipeline(presample_light_tiles_pipeline);
         pass.set_push_constants(
@@ -268,8 +272,10 @@ impl ViewNode for SolariLightingNode {
             bytemuck::cast_slice(&[frame_index, solari_lighting.reset as u32]),
         );
         pass.dispatch_workgroups(LIGHT_TILE_BLOCKS as u32, 1, 1);
+        #[cfg(not(target_os = "macos"))]
         d.end(&mut pass);
 
+        #[cfg(not(target_os = "macos"))]
         let d = diagnostics.time_span(&mut pass, "solari_lighting/world_cache");
 
         pass.set_bind_group(2, &bind_group_world_cache_active_cells_dispatch, &[]);
@@ -304,8 +310,10 @@ impl ViewNode for SolariLightingNode {
             0,
         );
 
+        #[cfg(not(target_os = "macos"))]
         d.end(&mut pass);
 
+        #[cfg(not(target_os = "macos"))]
         let d = diagnostics.time_span(&mut pass, "solari_lighting/direct_lighting");
 
         pass.set_pipeline(di_initial_and_temporal_pipeline);
@@ -322,8 +330,10 @@ impl ViewNode for SolariLightingNode {
         );
         pass.dispatch_workgroups(dx, dy, 1);
 
+        #[cfg(not(target_os = "macos"))]
         d.end(&mut pass);
 
+        #[cfg(not(target_os = "macos"))]
         let d = diagnostics.time_span(&mut pass, "solari_lighting/diffuse_indirect_lighting");
 
         pass.set_pipeline(gi_initial_and_temporal_pipeline);
@@ -340,8 +350,10 @@ impl ViewNode for SolariLightingNode {
         );
         pass.dispatch_workgroups(dx, dy, 1);
 
+        #[cfg(not(target_os = "macos"))]
         d.end(&mut pass);
 
+        #[cfg(not(target_os = "macos"))]
         let d = diagnostics.time_span(&mut pass, "solari_lighting/specular_indirect_lighting");
         pass.set_pipeline(specular_gi_pipeline);
         pass.set_push_constants(
@@ -349,6 +361,7 @@ impl ViewNode for SolariLightingNode {
             bytemuck::cast_slice(&[frame_index, solari_lighting.reset as u32]),
         );
         pass.dispatch_workgroups(dx, dy, 1);
+        #[cfg(not(target_os = "macos"))]
         d.end(&mut pass);
 
         Ok(())

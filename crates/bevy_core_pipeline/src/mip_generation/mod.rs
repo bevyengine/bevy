@@ -32,8 +32,10 @@ use bevy_image::Image;
 use bevy_log::error;
 use bevy_math::{vec2, Vec2};
 use bevy_platform::collections::{hash_map::Entry, HashMap, HashSet};
+// render diagnostics are not supported on mac; gating to prevent potential flickering (GH Issue #22257)
+#[cfg(not(target_os = "macos"))]
+use bevy_render::diagnostic::RecordDiagnostics as _;
 use bevy_render::{
-    diagnostic::RecordDiagnostics as _,
     render_asset::RenderAssets,
     render_resource::{
         binding_types::uniform_buffer, BindGroupLayoutDescriptor, FilterMode, ShaderType,
@@ -416,6 +418,7 @@ impl Node for MipGenerationNode {
         let mip_generation_bind_groups = world.resource::<MipGenerationPipelines>();
         let gpu_images = world.resource::<RenderAssets<GpuImage>>();
 
+        #[cfg(not(target_os = "macos"))]
         let diagnostics = render_context.diagnostic_recorder();
 
         for mip_generation_job in mip_generation_phase.iter() {
@@ -454,6 +457,7 @@ impl Node for MipGenerationNode {
                             label: Some("mip generation pass 1"),
                             timestamp_writes: None,
                         });
+                #[cfg(not(target_os = "macos"))]
                 let pass_span = diagnostics.pass_span(&mut compute_pass_1, "mip generation pass 1");
                 compute_pass_1.set_pipeline(mip_generation_pipeline_pass_1);
                 compute_pass_1.set_bind_group(
@@ -466,6 +470,7 @@ impl Node for MipGenerationNode {
                     gpu_image.size.height.div_ceil(64),
                     1,
                 );
+                #[cfg(not(target_os = "macos"))]
                 pass_span.end(&mut compute_pass_1);
             }
 
@@ -478,6 +483,7 @@ impl Node for MipGenerationNode {
                             label: Some("mip generation pass 2"),
                             timestamp_writes: None,
                         });
+                #[cfg(not(target_os = "macos"))]
                 let pass_span = diagnostics.pass_span(&mut compute_pass_2, "mip generation pass 2");
                 compute_pass_2.set_pipeline(mip_generation_pipeline_pass_2);
                 compute_pass_2.set_bind_group(
@@ -490,6 +496,7 @@ impl Node for MipGenerationNode {
                     gpu_image.size.height.div_ceil(256),
                     1,
                 );
+                #[cfg(not(target_os = "macos"))]
                 pass_span.end(&mut compute_pass_2);
             }
         }
