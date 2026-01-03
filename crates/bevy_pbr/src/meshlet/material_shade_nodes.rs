@@ -283,6 +283,7 @@ impl ViewNode for MeshletPrepassNode {
             }
         }
 
+        #[cfg(not(target_os = "macos"))]
         pass_span.end(&mut render_pass);
 
         Ok(())
