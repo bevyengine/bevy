@@ -29,7 +29,15 @@ commands.spawn((
 ));
 ```
 
-To leverage automatic navigation, use the `AutoDirectionalNavigator` system parameter instead of the `DirectionalNavigation` system parameter.
+To leverage automatic navigation, use the `AutoDirectionalNavigator` system parameter instead of the `DirectionalNavigation` system parameter:
+
+```rust
+fn my_navigation_system(mut auto_directional_navigator: AutoDirectionalNavigator) {
+    // ...
+    auto_directional_navigator.navigate(CompassOctant::East);
+    // ...
+}
+```
 
 That's it! The `DirectionalNavigationPlugin` will set up the resources that `AutoDirectionalNavigator` uses to function.
 
@@ -70,38 +78,30 @@ This is a non-breaking change. Existing manual navigation setups continue to wor
 
 If you want to convert existing manual navigation to automatic:
 
-**Before:**
-
 ```rust
+// 0.17
 // Manually define all edges
 directional_nav_map.add_looping_edges(&row_entities, CompassOctant::East);
 directional_nav_map.add_edges(&column_entities, CompassOctant::South);
 // ... repeat for all rows and columns
-```
 
-```rust
 // Use the DirectionalNavigation SystemParam to navigate in your system
-fn navigation_system(mut directional_navigation: DirectionalNavigation) {
+fn my_navigation_system(mut directional_navigation: DirectionalNavigation) {
     // ...
     directional_navigation.navigate(CompassOctant::East);
     // ...
 }
-```
 
-**After:**
-
-```rust
+// 0.18
 // Just add the component to your UI entities
 commands.spawn((
     Button,
     Node { /* ... */ },
     AutoDirectionalNavigation::default(),
 ));
-```
 
-```rust
-// Use the AutoDirectionalNavigator SystemParam to navigate
-fn navigation_system(mut auto_directional_navigator: AutoDirectionalNavigator) {
+// Use the AutoDirectionalNavigator SystemParam to navigate in your system
+fn my_navigation_system(mut auto_directional_navigator: AutoDirectionalNavigator) {
     // ...
     auto_directional_navigator.navigate(CompassOctant::East);
     // ...
