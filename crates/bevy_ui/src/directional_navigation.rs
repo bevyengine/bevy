@@ -9,8 +9,10 @@ use bevy_ecs::{prelude::*, system::SystemParam};
 use bevy_math::CompassOctant;
 
 use bevy_input_focus::{
-    directional_navigation::{DirectionalNavigation, DirectionalNavigationError},
-    navigator::*,
+    directional_navigation::{
+        AutoNavigationConfig, DirectionalNavigation, DirectionalNavigationError, FocusableArea,
+    },
+    navigator::find_best_candidate,
 };
 
 use bevy_reflect::{prelude::*, Reflect};

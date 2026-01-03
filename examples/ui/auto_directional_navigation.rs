@@ -17,7 +17,7 @@ use core::time::Duration;
 use bevy::{
     camera::NormalizedRenderTarget,
     input_focus::{
-        directional_navigation::DirectionalNavigationPlugin, navigator::AutoNavigationConfig,
+        directional_navigation::{AutoNavigationConfig, DirectionalNavigationPlugin},
         InputDispatchPlugin, InputFocus, InputFocusVisible,
     },
     math::{CompassOctant, Dir2},

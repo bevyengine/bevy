@@ -46,10 +46,7 @@
 //! - **Cross-layer navigation**: Connect elements across different UI layers or z-index levels
 //! - **Custom behavior**: Implement domain-specific navigation patterns (e.g., spreadsheet-style wrapping)
 
-use crate::{
-    navigator::{find_best_candidate, FocusableArea, AutoNavigationConfig},
-    InputFocus,
-};
+use crate::{navigator::find_best_candidate, InputFocus};
 use bevy_app::prelude::*;
 use bevy_ecs::{
     entity::{EntityHashMap, EntityHashSet},
@@ -70,6 +67,77 @@ impl Plugin for DirectionalNavigationPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<DirectionalNavigationMap>()
             .init_resource::<AutoNavigationConfig>();
+    }
+}
+
+/// Configuration resource for automatic directional navigation and for generating manual
+/// navigation edges via [`auto_generate_navigation_edges`](crate::directional_navigation::auto_generate_navigation_edges)
+///
+/// This resource controls how nodes should be automatically connected in each direction.
+#[derive(Resource, Debug, Clone, PartialEq)]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Resource, Debug, PartialEq, Clone)
+)]
+pub struct AutoNavigationConfig {
+    /// Minimum overlap ratio (0.0-1.0) required along the perpendicular axis for cardinal directions.
+    ///
+    /// This parameter controls how much two UI elements must overlap in the perpendicular direction
+    /// to be considered reachable neighbors. It only applies to cardinal directions (`North`, `South`, `East`, `West`);
+    /// diagonal directions (`NorthEast`, `SouthEast`, etc.) ignore this requirement entirely.
+    ///
+    /// # Calculation
+    ///
+    /// The overlap factor is calculated as:
+    /// ```text
+    /// overlap_factor = actual_overlap / min(origin_size, candidate_size)
+    /// ```
+    ///
+    /// For East/West navigation, this measures vertical overlap:
+    /// - `actual_overlap` = overlapping height between the two elements
+    /// - Sizes are the heights of the origin and candidate
+    ///
+    /// For North/South navigation, this measures horizontal overlap:
+    /// - `actual_overlap` = overlapping width between the two elements
+    /// - Sizes are the widths of the origin and candidate
+    ///
+    /// # Examples
+    ///
+    /// - `0.0` (default): Any overlap is sufficient. Even if elements barely touch, they can be neighbors.
+    /// - `0.5`: Elements must overlap by at least 50% of the smaller element's size.
+    /// - `1.0`: Perfect alignment required. The smaller element must be completely within the bounds
+    ///   of the larger element along the perpendicular axis.
+    ///
+    /// # Use Cases
+    ///
+    /// - **Sparse/irregular layouts** (e.g., star constellations): Use `0.0` to allow navigation
+    ///   between elements that don't directly align.
+    /// - **Grid layouts**: Use `0.5` or higher to ensure navigation only connects elements in
+    ///   the same row or column.
+    /// - **Strict alignment**: Use `1.0` to require perfect alignment, though this may result
+    ///   in disconnected navigation graphs if elements aren't precisely aligned.
+    pub min_alignment_factor: f32,
+
+    /// Maximum search distance in logical pixels.
+    ///
+    /// Nodes beyond this distance won't be connected. `None` means unlimited.
+    pub max_search_distance: Option<f32>,
+
+    /// Whether to prefer nodes that are more aligned with the exact direction.
+    ///
+    /// When `true`, nodes that are more directly in line with the requested direction
+    /// will be strongly preferred over nodes at an angle.
+    pub prefer_aligned: bool,
+}
+
+impl Default for AutoNavigationConfig {
+    fn default() -> Self {
+        Self {
+            min_alignment_factor: 0.0, // Any overlap is acceptable
+            max_search_distance: None, // No distance limit
+            prefer_aligned: true,      // Prefer well-aligned nodes
+        }
     }
 }
 
@@ -293,6 +361,27 @@ pub enum DirectionalNavigationError {
     },
 }
 
+/// A focusable area with position and size information.
+///
+/// This struct represents a UI element used during directional navigation,
+/// containing its entity ID, center position, and size for spatial navigation calculations.
+///
+/// The term "focusable area" avoids confusion with UI `Node` components in `bevy_ui`.
+#[derive(Debug, Clone, Copy, PartialEq)]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Clone)
+)]
+pub struct FocusableArea {
+    /// The entity identifier for this focusable area.
+    pub entity: Entity,
+    /// The center position in global coordinates.
+    pub position: Vec2,
+    /// The size (width, height) of the area.
+    pub size: Vec2,
+}
+
 /// Trait for extracting position and size from navigable UI components.
 ///
 /// This allows the auto-navigation system to work with different UI implementations
@@ -317,7 +406,7 @@ pub trait Navigable {
 /// # Example
 ///
 /// ```rust
-/// # use bevy_input_focus::{directional_navigation::*, navigator::{FocusableArea, AutoNavigationConfig}};
+/// # use bevy_input_focus::directional_navigation::*;
 /// # use bevy_ecs::entity::Entity;
 /// # use bevy_math::Vec2;
 /// let mut nav_map = DirectionalNavigationMap::default();
