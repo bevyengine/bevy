@@ -47,8 +47,6 @@ fn sample_gi(@builtin(workgroup_id) workgroup_id: vec3<u32>, @builtin(global_inv
     let geometry_data = world_cache_geometry_data[cell_index];
     var rng = cell_index + constants.frame_index;
 
-    var new_radiance = world_cache_active_cells_new_radiance[active_cell_id.x];
-
     if rand_f(&rng) >= f32(WORLD_CACHE_TARGET_CELL_UPDATES) / f32(world_cache_active_cells_count) { return; }
 
     let ray_direction = sample_cosine_hemisphere(geometry_data.world_normal, &rng);
@@ -56,10 +54,9 @@ fn sample_gi(@builtin(workgroup_id) workgroup_id: vec3<u32>, @builtin(global_inv
     if ray.kind != RAY_QUERY_INTERSECTION_NONE {
         let ray_hit = resolve_ray_hit_full(ray);
         let cell_life = atomicLoad(&world_cache_life[cell_index]);
-        new_radiance += ray_hit.material.base_color * query_world_cache(ray_hit.world_position, ray_hit.geometric_world_normal, view.world_position, ray.t, cell_life, &rng);
+        let radiance = query_world_cache(ray_hit.world_position, ray_hit.geometric_world_normal, view.world_position, ray.t, cell_life, &rng);
+        world_cache_active_cells_new_radiance[active_cell_id.x] += ray_hit.material.base_color * radiance;
     }
-
-    world_cache_active_cells_new_radiance[active_cell_id.x] = new_radiance;
 }
 
 @compute @workgroup_size(64, 1, 1)
