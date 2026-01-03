@@ -31,8 +31,10 @@ use bevy_ecs::{
 use bevy_image::BevyDefault as _;
 use bevy_math::ops;
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
+// render diagnostics are not supported on mac; gating to prevent potential flickering (GH Issue #22257)
+#[cfg(not(target_os = "macos"))]
+use bevy_render::diagnostic::RecordDiagnostics;
 use bevy_render::{
-    diagnostic::RecordDiagnostics,
     extract_component::{ComponentUniforms, DynamicUniformIndex, UniformComponentPlugin},
     render_graph::{
         NodeRunError, RenderGraphContext, RenderGraphExt as _, ViewNode, ViewNodeRunner,
@@ -355,6 +357,7 @@ impl ViewNode for DepthOfFieldNode {
         let view_uniforms = world.resource::<ViewUniforms>();
         let global_bind_group = world.resource::<DepthOfFieldGlobalBindGroup>();
 
+        #[cfg(not(target_os = "macos"))]
         let diagnostics = render_context.diagnostic_recorder();
 
         // We can be in either Gaussian blur or bokeh mode here. Both modes are
@@ -451,6 +454,7 @@ impl ViewNode for DepthOfFieldNode {
             let mut render_pass = render_context
                 .command_encoder()
                 .begin_render_pass(&render_pass_descriptor);
+            #[cfg(not(target_os = "macos"))]
             let pass_span =
                 diagnostics.pass_span(&mut render_pass, pipeline_render_info.pass_label);
 
@@ -466,6 +470,7 @@ impl ViewNode for DepthOfFieldNode {
             // Render the full-screen pass.
             render_pass.draw(0..3, 0..1);
 
+            #[cfg(not(target_os = "macos"))]
             pass_span.end(&mut render_pass);
         }
 

@@ -9,8 +9,10 @@ use bevy_ecs::{
     system::lifetimeless::Read,
     world::{FromWorld, World},
 };
+// render diagnostics are not supported on mac; gating to prevent potential flickering (GH Issue #22257)
+#[cfg(not(target_os = "macos"))]
+use bevy_render::diagnostic::RecordDiagnostics;
 use bevy_render::{
-    diagnostic::RecordDiagnostics,
     globals::GlobalsBuffer,
     render_asset::RenderAssets,
     render_graph::*,
@@ -99,6 +101,7 @@ impl Node for AutoExposureNode {
             return Ok(());
         };
 
+        #[cfg(not(target_os = "macos"))]
         let diagnostics = render_context.diagnostic_recorder();
 
         let compute_bind_group = render_context.render_device().create_bind_group(
@@ -128,6 +131,7 @@ impl Node for AutoExposureNode {
                     label: Some("auto_exposure"),
                     timestamp_writes: None,
                 });
+        #[cfg(not(target_os = "macos"))]
         let pass_span = diagnostics.pass_span(&mut compute_pass, "auto_exposure");
 
         compute_pass.set_bind_group(0, &compute_bind_group, &[view_uniform_offset.offset]);
@@ -140,6 +144,7 @@ impl Node for AutoExposureNode {
         compute_pass.set_pipeline(average_pipeline);
         compute_pass.dispatch_workgroups(1, 1, 1);
 
+        #[cfg(not(target_os = "macos"))]
         pass_span.end(&mut compute_pass);
 
         Ok(())
