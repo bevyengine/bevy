@@ -189,7 +189,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                                 Text(format!("Item {i}")),
                                                 TextFont {
                                                     font: asset_server
-                                                        .load("fonts/FiraSans-Bold.ttf"),
+                                                        .load("fonts/FiraSans-Bold.ttf")
+                                                        .into(),
                                                     ..default()
                                                 },
                                                 Label,
