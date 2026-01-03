@@ -8,9 +8,11 @@ use bevy_ecs::{
     system::{lifetimeless::*, SystemParamItem},
 };
 use bevy_math::FloatOrd;
+// render diagnostics are not supported on mac; gating to prevent potential flickering (GH Issue #22257)
+#[cfg(not(target_os = "macos"))]
+use bevy_render::diagnostic::RecordDiagnostics;
 use bevy_render::{
     camera::ExtractedCamera,
-    diagnostic::RecordDiagnostics,
     render_graph::*,
     render_phase::*,
     render_resource::{CachedRenderPipelineId, RenderPassDescriptor},
@@ -80,6 +82,7 @@ impl Node for UiPassNode {
             return Ok(());
         }
 
+        #[cfg(not(target_os = "macos"))]
         let diagnostics = render_context.diagnostic_recorder();
 
         // use the UI view entity if it is defined
@@ -98,6 +101,7 @@ impl Node for UiPassNode {
             timestamp_writes: None,
             occlusion_query_set: None,
         });
+        #[cfg(not(target_os = "macos"))]
         let pass_span = diagnostics.pass_span(&mut render_pass, "ui");
 
         if let Some(viewport) = camera.viewport.as_ref() {
@@ -107,6 +111,7 @@ impl Node for UiPassNode {
             error!("Error encountered while rendering the ui phase {err:?}");
         }
 
+        #[cfg(not(target_os = "macos"))]
         pass_span.end(&mut render_pass);
 
         Ok(())
