@@ -12,6 +12,9 @@ use bevy_ecs::{
     world::{FromWorld, World},
 };
 use bevy_math::UVec2;
+// render diagnostics are not supported on mac; gating to prevent potential flickering (GH Issue #22257)
+#[cfg(not(target_os = "macos"))]
+use bevy_render::diagnostic::RecordDiagnostics;
 use bevy_render::{
     camera::ExtractedCamera,
     render_graph::{Node, NodeRunError, RenderGraphContext},
@@ -104,11 +107,13 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
             return Ok(());
         };
 
+        #[cfg(not(target_os = "macos"))]
         let diagnostics = render_context.diagnostic_recorder();
 
         render_context
             .command_encoder()
             .push_debug_group("meshlet_visibility_buffer_raster");
+        #[cfg(not(target_os = "macos"))]
         let time_span = diagnostics.time_span(
             render_context.command_encoder(),
             "meshlet_visibility_buffer_raster",
@@ -245,6 +250,7 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
                 "meshlet_visibility_buffer_raster: {}",
                 shadow_view.pass_name
             ));
+            #[cfg(not(target_os = "macos"))]
             let time_span_shadow = diagnostics.time_span(
                 render_context.command_encoder(),
                 shadow_view.pass_name.clone(),
@@ -341,9 +347,11 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
                 downsample_depth_second_shadow_view_pipeline,
             );
             render_context.command_encoder().pop_debug_group();
+            #[cfg(not(target_os = "macos"))]
             time_span_shadow.end(render_context.command_encoder());
         }
 
+        #[cfg(not(target_os = "macos"))]
         time_span.end(render_context.command_encoder());
 
         Ok(())
