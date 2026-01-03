@@ -636,12 +636,12 @@ pub fn derive_resource(input: TokenStream) -> TokenStream {
 /// Allow relationships to point to their own entity:
 /// ```ignore
 /// #[derive(Component)]
-/// #[relationship(relationship_target = PeopleILike, allow_self)]
+/// #[relationship(relationship_target = PeopleILike, allow_self_referential)]
 /// pub struct LikedBy(pub Entity);
 /// ```
 /// ## Warning
 ///
-/// When `allow_self` is enabled, be careful when using recursive traversal methods
+/// When `allow_self_referential` is enabled, be careful when using recursive traversal methods
 /// like `iter_ancestors` or `root_ancestor`, as they will loop infinitely if an entity points to itself.
 ///
 /// ## Hooks
