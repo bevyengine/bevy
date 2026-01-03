@@ -3,9 +3,11 @@ use crate::core_3d::Transmissive3d;
 use bevy_camera::{Camera3d, MainPassResolutionOverride, Viewport};
 use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_image::ToExtents;
+// render diagnostics are not supported on mac; gating to prevent potential flickering (GH Issue #22257)
+#[cfg(not(target_os = "macos"))]
+use bevy_render::diagnostic::RecordDiagnostics;
 use bevy_render::{
     camera::ExtractedCamera,
-    diagnostic::RecordDiagnostics,
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
     render_phase::ViewSortedRenderPhases,
     render_resource::{RenderPassDescriptor, StoreOp},
@@ -54,6 +56,7 @@ impl ViewNode for MainTransmissivePass3dNode {
             return Ok(());
         };
 
+        #[cfg(not(target_os = "macos"))]
         let diagnostics = render_context.diagnostic_recorder();
 
         let physical_target_size = camera.physical_target_size.unwrap();
@@ -98,6 +101,7 @@ impl ViewNode for MainTransmissivePass3dNode {
 
                     let mut render_pass =
                         render_context.begin_tracked_render_pass(render_pass_descriptor.clone());
+                    #[cfg(not(target_os = "macos"))]
                     let pass_span =
                         diagnostics.pass_span(&mut render_pass, "main_transmissive_pass_3d");
 
@@ -112,11 +116,13 @@ impl ViewNode for MainTransmissivePass3dNode {
                         error!("Error encountered while rendering the transmissive phase {err:?}");
                     }
 
+                    #[cfg(not(target_os = "macos"))]
                     pass_span.end(&mut render_pass);
                 }
             } else {
                 let mut render_pass =
                     render_context.begin_tracked_render_pass(render_pass_descriptor);
+                #[cfg(not(target_os = "macos"))]
                 let pass_span =
                     diagnostics.pass_span(&mut render_pass, "main_transmissive_pass_3d");
 
@@ -131,6 +137,7 @@ impl ViewNode for MainTransmissivePass3dNode {
                     error!("Error encountered while rendering the transmissive phase {err:?}");
                 }
 
+                #[cfg(not(target_os = "macos"))]
                 pass_span.end(&mut render_pass);
             }
         }

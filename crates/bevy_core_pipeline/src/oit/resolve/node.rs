@@ -1,8 +1,10 @@
 use bevy_camera::{MainPassResolutionOverride, Viewport};
 use bevy_ecs::{prelude::*, query::QueryItem};
+// render diagnostics are not supported on mac; gating to prevent potential flickering (GH Issue #22257)
+#[cfg(not(target_os = "macos"))]
+use bevy_render::diagnostic::RecordDiagnostics;
 use bevy_render::{
     camera::ExtractedCamera,
-    diagnostic::RecordDiagnostics,
     render_graph::{NodeRunError, RenderGraphContext, RenderLabel, ViewNode},
     render_resource::{BindGroupEntries, PipelineCache, RenderPassDescriptor},
     renderer::RenderContext,
@@ -51,6 +53,7 @@ impl ViewNode for OitResolveNode {
                 return Ok(());
             };
 
+            #[cfg(not(target_os = "macos"))]
             let diagnostics = render_context.diagnostic_recorder();
 
             let depth_bind_group = render_context.render_device().create_bind_group(
@@ -67,6 +70,7 @@ impl ViewNode for OitResolveNode {
                 timestamp_writes: None,
                 occlusion_query_set: None,
             });
+            #[cfg(not(target_os = "macos"))]
             let pass_span = diagnostics.pass_span(&mut render_pass, "oit_resolve");
 
             if let Some(viewport) =
@@ -81,6 +85,7 @@ impl ViewNode for OitResolveNode {
 
             render_pass.draw(0..3, 0..1);
 
+            #[cfg(not(target_os = "macos"))]
             pass_span.end(&mut render_pass);
         }
 

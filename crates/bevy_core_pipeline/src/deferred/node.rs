@@ -4,9 +4,11 @@ use bevy_render::experimental::occlusion_culling::OcclusionCulling;
 use bevy_render::render_graph::ViewNode;
 
 use bevy_render::view::{ExtractedView, NoIndirectDrawing};
+// render diagnostics are not supported on mac; gating to prevent potential flickering (GH Issue #22257)
+#[cfg(not(target_os = "macos"))]
+use bevy_render::diagnostic::RecordDiagnostics;
 use bevy_render::{
     camera::ExtractedCamera,
-    diagnostic::RecordDiagnostics,
     render_graph::{NodeRunError, RenderGraphContext},
     render_phase::{TrackedRenderPass, ViewBinnedRenderPhases},
     render_resource::{CommandEncoderDescriptor, RenderPassDescriptor, StoreOp},
@@ -131,6 +133,7 @@ fn run_deferred_prepass<'w>(
         return Ok(());
     };
 
+    #[cfg(not(target_os = "macos"))]
     let diagnostic = render_context.diagnostic_recorder();
 
     let mut color_attachments = vec![];
@@ -225,6 +228,7 @@ fn run_deferred_prepass<'w>(
             occlusion_query_set: None,
         });
         let mut render_pass = TrackedRenderPass::new(&render_device, render_pass);
+        #[cfg(not(target_os = "macos"))]
         let pass_span = diagnostic.pass_span(&mut render_pass, label);
         if let Some(viewport) =
             Viewport::from_viewport_and_override(camera.viewport.as_ref(), resolution_override)
@@ -254,6 +258,7 @@ fn run_deferred_prepass<'w>(
             }
         }
 
+        #[cfg(not(target_os = "macos"))]
         pass_span.end(&mut render_pass);
         drop(render_pass);
 

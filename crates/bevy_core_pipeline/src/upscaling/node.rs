@@ -1,9 +1,11 @@
 use crate::{blit::BlitPipeline, upscaling::ViewUpscalingPipeline};
 use bevy_camera::{CameraOutputMode, ClearColor, ClearColorConfig};
 use bevy_ecs::{prelude::*, query::QueryItem};
+// render diagnostics are not supported on mac; gating to prevent potential flickering (GH Issue #22257)
+#[cfg(not(target_os = "macos"))]
+use bevy_render::diagnostic::RecordDiagnostics;
 use bevy_render::{
     camera::ExtractedCamera,
-    diagnostic::RecordDiagnostics,
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
     render_resource::{BindGroup, PipelineCache, RenderPassDescriptor, TextureViewId},
     renderer::RenderContext,
@@ -34,6 +36,7 @@ impl ViewNode for UpscalingNode {
         let blit_pipeline = world.resource::<BlitPipeline>();
         let clear_color_global = world.resource::<ClearColor>();
 
+        #[cfg(not(target_os = "macos"))]
         let diagnostics = render_context.diagnostic_recorder();
 
         let clear_color = if let Some(camera) = camera {
@@ -86,6 +89,7 @@ impl ViewNode for UpscalingNode {
         let mut render_pass = render_context
             .command_encoder()
             .begin_render_pass(&pass_descriptor);
+        #[cfg(not(target_os = "macos"))]
         let pass_span = diagnostics.pass_span(&mut render_pass, "upscaling");
 
         if let Some(camera) = camera
@@ -100,6 +104,7 @@ impl ViewNode for UpscalingNode {
         render_pass.set_bind_group(0, bind_group, &[]);
         render_pass.draw(0..3, 0..1);
 
+        #[cfg(not(target_os = "macos"))]
         pass_span.end(&mut render_pass);
 
         Ok(())
