@@ -22,8 +22,10 @@ use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_image::BevyDefault as _;
 use bevy_light::{EnvironmentMapLight, IrradianceVolume, ShadowFilteringMethod};
 use bevy_render::RenderStartup;
+// render diagnostics are not supported on mac; gating to prevent potential flickering (GH Issue #22257)
+#[cfg(not(target_os = "macos"))]
+use bevy_render::diagnostic::RecordDiagnostics;
 use bevy_render::{
-    diagnostic::RecordDiagnostics,
     extract_component::{
         ComponentUniforms, ExtractComponent, ExtractComponentPlugin, UniformComponentPlugin,
     },
@@ -181,6 +183,7 @@ impl ViewNode for DeferredOpaquePass3dPbrLightingNode {
             return Ok(());
         };
 
+        #[cfg(not(target_os = "macos"))]
         let diagnostics = render_context.diagnostic_recorder();
 
         let bind_group_2 = render_context.render_device().create_bind_group(
@@ -203,6 +206,7 @@ impl ViewNode for DeferredOpaquePass3dPbrLightingNode {
             timestamp_writes: None,
             occlusion_query_set: None,
         });
+        #[cfg(not(target_os = "macos"))]
         let pass_span = diagnostics.pass_span(&mut render_pass, "deferred_lighting");
 
         render_pass.set_render_pipeline(pipeline);
@@ -222,6 +226,7 @@ impl ViewNode for DeferredOpaquePass3dPbrLightingNode {
         render_pass.set_bind_group(2, &bind_group_2, &[]);
         render_pass.draw(0..3, 0..1);
 
+        #[cfg(not(target_os = "macos"))]
         pass_span.end(&mut render_pass);
 
         Ok(())

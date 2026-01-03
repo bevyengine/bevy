@@ -28,8 +28,10 @@ use bevy_ecs::{
 };
 use bevy_image::Image;
 use bevy_math::{Quat, UVec2, Vec2};
+// render diagnostics are not supported on mac; gating to prevent potential flickering (GH Issue #22257)
+#[cfg(not(target_os = "macos"))]
+use bevy_render::diagnostic::RecordDiagnostics;
 use bevy_render::{
-    diagnostic::RecordDiagnostics,
     render_asset::RenderAssets,
     render_graph::{Node, NodeRunError, RenderGraphContext, RenderGraphExt, RenderLabel},
     render_resource::{
@@ -901,6 +903,7 @@ impl Node for DownsamplingNode {
             return Ok(());
         };
 
+        #[cfg(not(target_os = "macos"))]
         let diagnostics = render_context.diagnostic_recorder();
 
         for (_, bind_groups, env_map_light) in self.query.iter_manual(world) {
@@ -918,6 +921,7 @@ impl Node for DownsamplingNode {
                             timestamp_writes: None,
                         });
 
+                #[cfg(not(target_os = "macos"))]
                 let pass_span = diagnostics.pass_span(&mut compute_pass, "lightprobe_copy");
 
                 compute_pass.set_pipeline(copy_pipeline);
@@ -928,6 +932,7 @@ impl Node for DownsamplingNode {
                 let wg_y = tex_size.height.div_ceil(8);
                 compute_pass.dispatch_workgroups(wg_x, wg_y, 6);
 
+                #[cfg(not(target_os = "macos"))]
                 pass_span.end(&mut compute_pass);
             }
 
@@ -941,6 +946,7 @@ impl Node for DownsamplingNode {
                             timestamp_writes: None,
                         });
 
+                #[cfg(not(target_os = "macos"))]
                 let pass_span =
                     diagnostics.pass_span(&mut compute_pass, "lightprobe_downsampling_first_pass");
 
@@ -952,6 +958,7 @@ impl Node for DownsamplingNode {
                 let wg_y = tex_size.height.div_ceil(64);
                 compute_pass.dispatch_workgroups(wg_x, wg_y, 6); // 6 faces
 
+                #[cfg(not(target_os = "macos"))]
                 pass_span.end(&mut compute_pass);
             }
 
@@ -965,6 +972,7 @@ impl Node for DownsamplingNode {
                             timestamp_writes: None,
                         });
 
+                #[cfg(not(target_os = "macos"))]
                 let pass_span =
                     diagnostics.pass_span(&mut compute_pass, "lightprobe_downsampling_second_pass");
 
@@ -976,6 +984,7 @@ impl Node for DownsamplingNode {
                 let wg_y = tex_size.height.div_ceil(256);
                 compute_pass.dispatch_workgroups(wg_x, wg_y, 6);
 
+                #[cfg(not(target_os = "macos"))]
                 pass_span.end(&mut compute_pass);
             }
         }
@@ -1024,6 +1033,7 @@ impl Node for FilteringNode {
             return Ok(());
         };
 
+        #[cfg(not(target_os = "macos"))]
         let diagnostics = render_context.diagnostic_recorder();
 
         for (_, bind_groups, env_map_light) in self.query.iter_manual(world) {
@@ -1035,6 +1045,7 @@ impl Node for FilteringNode {
                         timestamp_writes: None,
                     });
 
+            #[cfg(not(target_os = "macos"))]
             let pass_span = diagnostics.pass_span(&mut compute_pass, "lightprobe_radiance_map");
 
             compute_pass.set_pipeline(radiance_pipeline);
@@ -1053,6 +1064,7 @@ impl Node for FilteringNode {
                 // Dispatch for all 6 faces
                 compute_pass.dispatch_workgroups(workgroup_count, workgroup_count, 6);
             }
+            #[cfg(not(target_os = "macos"))]
             pass_span.end(&mut compute_pass);
             // End the compute pass before starting the next one
             drop(compute_pass);
@@ -1068,6 +1080,7 @@ impl Node for FilteringNode {
                             timestamp_writes: None,
                         });
 
+                #[cfg(not(target_os = "macos"))]
                 let irr_span =
                     diagnostics.pass_span(&mut compute_pass, "lightprobe_irradiance_map");
 
@@ -1077,6 +1090,7 @@ impl Node for FilteringNode {
                 // 32×32 texture processed with 8×8 workgroups for all 6 faces
                 compute_pass.dispatch_workgroups(4, 4, 6);
 
+                #[cfg(not(target_os = "macos"))]
                 irr_span.end(&mut compute_pass);
             }
         }

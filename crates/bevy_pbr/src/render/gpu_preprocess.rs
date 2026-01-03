@@ -26,6 +26,9 @@ use bevy_ecs::{
     system::{lifetimeless::Read, Commands, Query, Res, ResMut},
     world::{FromWorld, World},
 };
+// render diagnostics are not supported on mac; gating to prevent potential flickering (GH Issue #22257)
+#[cfg(not(target_os = "macos"))]
+use bevy_render::diagnostic::RecordDiagnostics;
 use bevy_render::{
     batching::gpu_preprocessing::{
         BatchedInstanceBuffers, GpuOcclusionCullingWorkItemBuffers, GpuPreprocessingMode,
@@ -35,7 +38,6 @@ use bevy_render::{
         PreprocessWorkItemBuffers, UntypedPhaseBatchedInstanceBuffers,
         UntypedPhaseIndirectParametersBuffers,
     },
-    diagnostic::RecordDiagnostics,
     experimental::occlusion_culling::OcclusionCulling,
     render_graph::{Node, NodeRunError, RenderGraphContext, RenderGraphExt},
     render_resource::{
@@ -582,6 +584,7 @@ impl Node for EarlyGpuPreprocessNode {
         render_context: &mut RenderContext<'w>,
         world: &'w World,
     ) -> Result<(), NodeRunError> {
+        #[cfg(not(target_os = "macos"))]
         let diagnostics = render_context.diagnostic_recorder();
 
         // Grab the [`BatchedInstanceBuffers`].
@@ -598,6 +601,7 @@ impl Node for EarlyGpuPreprocessNode {
                     label: Some("early_mesh_preprocessing"),
                     timestamp_writes: None,
                 });
+        #[cfg(not(target_os = "macos"))]
         let pass_span = diagnostics.pass_span(&mut compute_pass, "early_mesh_preprocessing");
 
         let mut all_views: SmallVec<[_; 8]> = SmallVec::new();
@@ -774,6 +778,7 @@ impl Node for EarlyGpuPreprocessNode {
             }
         }
 
+        #[cfg(not(target_os = "macos"))]
         pass_span.end(&mut compute_pass);
 
         Ok(())
@@ -823,6 +828,7 @@ impl Node for LateGpuPreprocessNode {
         render_context: &mut RenderContext<'w>,
         world: &'w World,
     ) -> Result<(), NodeRunError> {
+        #[cfg(not(target_os = "macos"))]
         let diagnostics = render_context.diagnostic_recorder();
 
         // Grab the [`BatchedInstanceBuffers`].
@@ -856,6 +862,7 @@ impl Node for LateGpuPreprocessNode {
                     timestamp_writes: None,
                 });
 
+        #[cfg(not(target_os = "macos"))]
         let pass_span = diagnostics.pass_span(&mut compute_pass, "late_mesh_preprocessing");
 
         // Run the compute passes.
@@ -948,6 +955,7 @@ impl Node for LateGpuPreprocessNode {
             }
         }
 
+        #[cfg(not(target_os = "macos"))]
         pass_span.end(&mut compute_pass);
 
         Ok(())
@@ -1044,6 +1052,7 @@ fn run_build_indirect_parameters_node(
         return Ok(());
     };
 
+    #[cfg(not(target_os = "macos"))]
     let diagnostics = render_context.diagnostic_recorder();
 
     let pipeline_cache = world.resource::<PipelineCache>();
@@ -1056,6 +1065,7 @@ fn run_build_indirect_parameters_node(
                 label: Some(label),
                 timestamp_writes: None,
             });
+    #[cfg(not(target_os = "macos"))]
     let pass_span = diagnostics.pass_span(&mut compute_pass, label);
 
     // Fetch the pipeline.
@@ -1076,6 +1086,7 @@ fn run_build_indirect_parameters_node(
     )
     else {
         warn!("The build indirect parameters pipelines weren't ready");
+        #[cfg(not(target_os = "macos"))]
         pass_span.end(&mut compute_pass);
         return Ok(());
     };
@@ -1091,6 +1102,7 @@ fn run_build_indirect_parameters_node(
     )
     else {
         // This will happen while the pipeline is being compiled and is fine.
+        #[cfg(not(target_os = "macos"))]
         pass_span.end(&mut compute_pass);
         return Ok(());
     };
@@ -1163,6 +1175,7 @@ fn run_build_indirect_parameters_node(
         }
     }
 
+    #[cfg(not(target_os = "macos"))]
     pass_span.end(&mut compute_pass);
 
     Ok(())

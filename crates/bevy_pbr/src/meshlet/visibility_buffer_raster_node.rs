@@ -14,7 +14,6 @@ use bevy_ecs::{
 use bevy_math::UVec2;
 use bevy_render::{
     camera::ExtractedCamera,
-    diagnostic::RecordDiagnostics,
     render_graph::{Node, NodeRunError, RenderGraphContext},
     render_resource::*,
     renderer::RenderContext,

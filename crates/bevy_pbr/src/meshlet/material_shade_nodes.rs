@@ -19,9 +19,11 @@ use bevy_ecs::{
     query::{Has, QueryItem},
     world::World,
 };
+// render diagnostics are not supported on mac; gating to prevent potential flickering (GH Issue #22257)
+#[cfg(not(target_os = "macos"))]
+use bevy_render::diagnostic::RecordDiagnostics;
 use bevy_render::{
     camera::ExtractedCamera,
-    diagnostic::RecordDiagnostics,
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
     render_resource::{
         LoadOp, Operations, PipelineCache, RenderPassDepthStencilAttachment, RenderPassDescriptor,
@@ -91,6 +93,7 @@ impl ViewNode for MeshletMainOpaquePass3dNode {
             return Ok(());
         };
 
+        #[cfg(not(target_os = "macos"))]
         let diagnostics = render_context.diagnostic_recorder();
 
         let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
@@ -107,6 +110,7 @@ impl ViewNode for MeshletMainOpaquePass3dNode {
             timestamp_writes: None,
             occlusion_query_set: None,
         });
+        #[cfg(not(target_os = "macos"))]
         let pass_span = diagnostics.pass_span(&mut render_pass, "meshlet_material_opaque_3d_pass");
         if let Some(viewport) =
             Viewport::from_viewport_and_override(camera.viewport.as_ref(), resolution_override)
@@ -144,6 +148,7 @@ impl ViewNode for MeshletMainOpaquePass3dNode {
             }
         }
 
+        #[cfg(not(target_os = "macos"))]
         pass_span.end(&mut render_pass);
 
         Ok(())
@@ -204,6 +209,7 @@ impl ViewNode for MeshletPrepassNode {
             return Ok(());
         };
 
+        #[cfg(not(target_os = "macos"))]
         let diagnostics = render_context.diagnostic_recorder();
 
         let color_attachments = vec![
@@ -234,6 +240,7 @@ impl ViewNode for MeshletPrepassNode {
             timestamp_writes: None,
             occlusion_query_set: None,
         });
+        #[cfg(not(target_os = "macos"))]
         let pass_span = diagnostics.pass_span(&mut render_pass, "meshlet_material_prepass");
         if let Some(viewport) =
             Viewport::from_viewport_and_override(camera.viewport.as_ref(), resolution_override)
@@ -355,6 +362,7 @@ impl ViewNode for MeshletDeferredGBufferPrepassNode {
                 .map(|deferred_lighting_pass_id| deferred_lighting_pass_id.get_attachment()),
         ];
 
+        #[cfg(not(target_os = "macos"))]
         let diagnostics = render_context.diagnostic_recorder();
 
         let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
@@ -371,6 +379,7 @@ impl ViewNode for MeshletDeferredGBufferPrepassNode {
             timestamp_writes: None,
             occlusion_query_set: None,
         });
+        #[cfg(not(target_os = "macos"))]
         let pass_span =
             diagnostics.pass_span(&mut render_pass, "meshlet_material_deferred_prepass");
         if let Some(viewport) =
@@ -414,6 +423,7 @@ impl ViewNode for MeshletDeferredGBufferPrepassNode {
             }
         }
 
+        #[cfg(not(target_os = "macos"))]
         pass_span.end(&mut render_pass);
 
         Ok(())

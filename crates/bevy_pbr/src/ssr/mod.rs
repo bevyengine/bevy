@@ -24,8 +24,10 @@ use bevy_ecs::{
 use bevy_image::BevyDefault as _;
 use bevy_light::EnvironmentMapLight;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+// render diagnostics are not supported on mac; gating to prevent potential flickering (GH Issue #22257)
+#[cfg(not(target_os = "macos"))]
+use bevy_render::diagnostic::RecordDiagnostics;
 use bevy_render::{
-    diagnostic::RecordDiagnostics,
     extract_component::{ExtractComponent, ExtractComponentPlugin},
     render_graph::{
         NodeRunError, RenderGraph, RenderGraphContext, RenderGraphExt, ViewNode, ViewNodeRunner,
@@ -286,6 +288,7 @@ impl ViewNode for ScreenSpaceReflectionsNode {
             return Ok(());
         };
 
+        #[cfg(not(target_os = "macos"))]
         let diagnostics = render_context.diagnostic_recorder();
 
         // Set up a standard pair of postprocessing textures.
@@ -317,6 +320,7 @@ impl ViewNode for ScreenSpaceReflectionsNode {
             timestamp_writes: None,
             occlusion_query_set: None,
         });
+        #[cfg(not(target_os = "macos"))]
         let pass_span = diagnostics.pass_span(&mut render_pass, "ssr");
 
         // Set bind groups.
@@ -339,6 +343,7 @@ impl ViewNode for ScreenSpaceReflectionsNode {
         render_pass.set_bind_group(2, &ssr_bind_group, &[]);
         render_pass.draw(0..3, 0..1);
 
+        #[cfg(not(target_os = "macos"))]
         pass_span.end(&mut render_pass);
 
         Ok(())

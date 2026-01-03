@@ -24,10 +24,12 @@ use bevy_platform::{
     hash::FixedHasher,
 };
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+// render diagnostics are not supported on mac; gating to prevent potential flickering (GH Issue #22257)
+#[cfg(not(target_os = "macos"))]
+use bevy_render::diagnostic::RecordDiagnostics;
 use bevy_render::{
     batching::gpu_preprocessing::{GpuPreprocessingMode, GpuPreprocessingSupport},
     camera::{extract_cameras, ExtractedCamera},
-    diagnostic::RecordDiagnostics,
     extract_resource::ExtractResource,
     mesh::{
         allocator::{MeshAllocator, SlabId},
@@ -393,6 +395,7 @@ impl ViewNode for Wireframe3dNode {
             return Ok(());
         };
 
+        #[cfg(not(target_os = "macos"))]
         let diagnostics = render_context.diagnostic_recorder();
 
         let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
@@ -402,6 +405,7 @@ impl ViewNode for Wireframe3dNode {
             timestamp_writes: None,
             occlusion_query_set: None,
         });
+        #[cfg(not(target_os = "macos"))]
         let pass_span = diagnostics.pass_span(&mut render_pass, "wireframe_3d");
 
         if let Some(viewport) = camera.viewport.as_ref() {
@@ -413,6 +417,7 @@ impl ViewNode for Wireframe3dNode {
             return Err(NodeRunError::DrawError(err));
         }
 
+        #[cfg(not(target_os = "macos"))]
         pass_span.end(&mut render_pass);
 
         Ok(())

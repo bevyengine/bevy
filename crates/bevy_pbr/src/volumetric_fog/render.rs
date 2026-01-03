@@ -21,8 +21,10 @@ use bevy_image::{BevyDefault, Image};
 use bevy_light::{FogVolume, VolumetricFog, VolumetricLight};
 use bevy_math::{vec4, Affine3A, Mat4, Vec3, Vec3A, Vec4};
 use bevy_mesh::{Mesh, MeshVertexBufferLayoutRef};
+// render diagnostics are not supported on mac; gating to prevent potential flickering (GH Issue #22257)
+#[cfg(not(target_os = "macos"))]
+use bevy_render::diagnostic::RecordDiagnostics;
 use bevy_render::{
-    diagnostic::RecordDiagnostics,
     mesh::{allocator::MeshAllocator, RenderMesh, RenderMeshBufferInfo},
     render_asset::RenderAssets,
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
@@ -359,10 +361,12 @@ impl ViewNode for VolumetricFogNode {
             return Ok(());
         };
 
+        #[cfg(not(target_os = "macos"))]
         let diagnostics = render_context.diagnostic_recorder();
         render_context
             .command_encoder()
             .push_debug_group("volumetric_lighting");
+        #[cfg(not(target_os = "macos"))]
         let time_span =
             diagnostics.time_span(render_context.command_encoder(), "volumetric_lighting");
 
@@ -501,6 +505,7 @@ impl ViewNode for VolumetricFogNode {
             }
         }
 
+        #[cfg(not(target_os = "macos"))]
         time_span.end(render_context.command_encoder());
         render_context.command_encoder().pop_debug_group();
 

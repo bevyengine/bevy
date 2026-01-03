@@ -1,9 +1,11 @@
 use bevy_camera::{MainPassResolutionOverride, Viewport};
 use bevy_ecs::{query::QueryItem, system::lifetimeless::Read, world::World};
 use bevy_math::{UVec2, Vec3Swizzles};
+// render diagnostics are not supported on mac; feature gating to prevent potential flickering (GH Issue #22257)
+#[cfg(not(target_os = "macos"))]
+use bevy_render::diagnostic::RecordDiagnostics;
 use bevy_render::{
     camera::ExtractedCamera,
-    diagnostic::RecordDiagnostics,
     extract_component::DynamicUniformIndex,
     render_graph::{NodeRunError, RenderGraphContext, RenderLabel, ViewNode},
     render_resource::{ComputePass, ComputePassDescriptor, PipelineCache, RenderPassDescriptor},
@@ -73,7 +75,7 @@ impl ViewNode for AtmosphereLutsNode {
         else {
             return Ok(());
         };
-
+        #[cfg(not(target_os = "macos"))]
         let diagnostics = render_context.diagnostic_recorder();
 
         let command_encoder = render_context.command_encoder();
@@ -82,6 +84,7 @@ impl ViewNode for AtmosphereLutsNode {
             label: Some("atmosphere_luts"),
             timestamp_writes: None,
         });
+        #[cfg(not(target_os = "macos"))]
         let pass_span = diagnostics.pass_span(&mut luts_pass, "atmosphere_luts");
 
         fn dispatch_2d(compute_pass: &mut ComputePass, size: UVec2) {
@@ -156,6 +159,7 @@ impl ViewNode for AtmosphereLutsNode {
 
         dispatch_2d(&mut luts_pass, settings.aerial_view_lut_size.xy());
 
+        #[cfg(not(target_os = "macos"))]
         pass_span.end(&mut luts_pass);
 
         Ok(())
@@ -204,6 +208,7 @@ impl ViewNode for RenderSkyNode {
             return Ok(());
         }; //TODO: warning
 
+        #[cfg(not(target_os = "macos"))]
         let diagnostics = render_context.diagnostic_recorder();
 
         let mut render_sky_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
@@ -213,6 +218,7 @@ impl ViewNode for RenderSkyNode {
             timestamp_writes: None,
             occlusion_query_set: None,
         });
+        #[cfg(not(target_os = "macos"))]
         let pass_span = diagnostics.pass_span(&mut render_sky_pass, "render_sky");
 
         if let Some(viewport) =
@@ -235,6 +241,7 @@ impl ViewNode for RenderSkyNode {
         );
         render_sky_pass.draw(0..3, 0..1);
 
+        #[cfg(not(target_os = "macos"))]
         pass_span.end(&mut render_sky_pass);
 
         Ok(())

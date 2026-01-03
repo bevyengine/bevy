@@ -17,9 +17,11 @@ use bevy_ecs::{
 };
 use bevy_image::ToExtents;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+// render diagnostics are not supported on mac; gating to prevent potential flickering (GH Issue #22257)
+#[cfg(not(target_os = "macos"))]
+use bevy_render::diagnostic::RecordDiagnostics;
 use bevy_render::{
     camera::{ExtractedCamera, TemporalJitter},
-    diagnostic::RecordDiagnostics,
     extract_component::ExtractComponent,
     globals::{GlobalsBuffer, GlobalsUniform},
     render_graph::{NodeRunError, RenderGraphContext, RenderGraphExt, ViewNode, ViewNodeRunner},
@@ -206,10 +208,12 @@ impl ViewNode for SsaoNode {
             return Ok(());
         };
 
+        #[cfg(not(target_os = "macos"))]
         let diagnostics = render_context.diagnostic_recorder();
 
         let command_encoder = render_context.command_encoder();
         command_encoder.push_debug_group("ssao");
+        #[cfg(not(target_os = "macos"))]
         let time_span = diagnostics.time_span(command_encoder, "ssao");
 
         {
@@ -267,6 +271,7 @@ impl ViewNode for SsaoNode {
             );
         }
 
+        #[cfg(not(target_os = "macos"))]
         time_span.end(command_encoder);
         command_encoder.pop_debug_group();
         Ok(())

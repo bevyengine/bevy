@@ -42,8 +42,14 @@ use bevy_render::{
     mesh::allocator::MeshAllocator,
     view::{NoIndirectDrawing, RetainedViewEntity},
 };
+// render diagnostics are not supported on mac; gating to prevent potential flickering (GH Issue #22257)
+#[cfg(not(target_os = "macos"))]
+use bevy_render::diagnostic::RecordDiagnostics;
 use bevy_render::{
-    diagnostic::RecordDiagnostics,
+    mesh::allocator::SlabId,
+    sync_world::{MainEntity, RenderEntity},
+};
+use bevy_render::{
     mesh::RenderMesh,
     render_asset::RenderAssets,
     render_graph::{Node, NodeRunError, RenderGraphContext},
@@ -53,10 +59,6 @@ use bevy_render::{
     texture::*,
     view::ExtractedView,
     Extract,
-};
-use bevy_render::{
-    mesh::allocator::SlabId,
-    sync_world::{MainEntity, RenderEntity},
 };
 use bevy_transform::{components::GlobalTransform, prelude::Transform};
 use bevy_utils::default;
@@ -2320,6 +2322,7 @@ impl ShadowPassNode {
                 let depth_stencil_attachment =
                     Some(view_light.depth_attachment.get_attachment(StoreOp::Store));
 
+                #[cfg(not(target_os = "macos"))]
                 let diagnostics = render_context.diagnostic_recorder();
                 render_context.add_command_buffer_generation_task(move |render_device| {
                     #[cfg(feature = "trace")]
@@ -2338,6 +2341,7 @@ impl ShadowPassNode {
                     });
 
                     let mut render_pass = TrackedRenderPass::new(&render_device, render_pass);
+                    #[cfg(not(target_os = "macos"))]
                     let pass_span =
                         diagnostics.pass_span(&mut render_pass, view_light.pass_name.clone());
 
@@ -2347,6 +2351,7 @@ impl ShadowPassNode {
                         error!("Error encountered while rendering the shadow phase {err:?}");
                     }
 
+                    #[cfg(not(target_os = "macos"))]
                     pass_span.end(&mut render_pass);
                     drop(render_pass);
                     command_encoder.finish()
