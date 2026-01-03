@@ -51,9 +51,11 @@ use bevy_ecs::{
 use bevy_image::{BevyDefault, Image, ToExtents};
 use bevy_math::{vec4, Vec4};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+// render diagnostics are not supported on mac; gating to prevent potential flickering (GH Issue #22257)
+#[cfg(not(target_os = "macos"))]
+use bevy_render::diagnostic::RecordDiagnostics;
 use bevy_render::{
     camera::ExtractedCamera,
-    diagnostic::RecordDiagnostics,
     extract_component::{ExtractComponent, ExtractComponentPlugin},
     render_asset::RenderAssets,
     render_graph::{
@@ -846,8 +848,10 @@ impl ViewNode for SmaaNode {
             return Ok(());
         };
 
+        #[cfg(not(target_os = "macos"))]
         let diagnostics = render_context.diagnostic_recorder();
         render_context.command_encoder().push_debug_group("smaa");
+        #[cfg(not(target_os = "macos"))]
         let time_span = diagnostics.time_span(render_context.command_encoder(), "smaa");
 
         // Fetch the framebuffer textures.
@@ -893,6 +897,7 @@ impl ViewNode for SmaaNode {
             destination,
         );
 
+        #[cfg(not(target_os = "macos"))]
         time_span.end(render_context.command_encoder());
         render_context.command_encoder().pop_debug_group();
 

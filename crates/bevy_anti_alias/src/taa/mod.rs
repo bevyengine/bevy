@@ -19,9 +19,11 @@ use bevy_ecs::{
 use bevy_image::{BevyDefault as _, ToExtents};
 use bevy_math::vec2;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+// render diagnostics are not supported on mac; gating to prevent potential flickering (GH Issue #22257)
+#[cfg(not(target_os = "macos"))]
+use bevy_render::diagnostic::RecordDiagnostics;
 use bevy_render::{
     camera::{ExtractedCamera, MipBias, TemporalJitter},
-    diagnostic::RecordDiagnostics,
     render_graph::{NodeRunError, RenderGraphContext, RenderGraphExt, ViewNode, ViewNodeRunner},
     render_resource::{
         binding_types::{sampler, texture_2d, texture_depth_2d},
@@ -179,6 +181,7 @@ impl ViewNode for TemporalAntiAliasNode {
             return Ok(());
         };
 
+        #[cfg(not(target_os = "macos"))]
         let diagnostics = render_context.diagnostic_recorder();
 
         let view_target = view_target.post_process_write();
@@ -217,6 +220,7 @@ impl ViewNode for TemporalAntiAliasNode {
                 timestamp_writes: None,
                 occlusion_query_set: None,
             });
+            #[cfg(not(target_os = "macos"))]
             let pass_span = diagnostics.pass_span(&mut taa_pass, "taa");
 
             taa_pass.set_render_pipeline(taa_pipeline);
@@ -226,6 +230,7 @@ impl ViewNode for TemporalAntiAliasNode {
             }
             taa_pass.draw(0..3, 0..1);
 
+            #[cfg(not(target_os = "macos"))]
             pass_span.end(&mut taa_pass);
         }
 
