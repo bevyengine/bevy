@@ -28,7 +28,8 @@ use bevy::{
     sprite_render::{AlphaMode2d, Material2d, Material2dPlugin},
     window::{PrimaryWindow, WindowResized},
 };
-use rand::{rngs::ThreadRng, Rng};
+use rand::{Rng, SeedableRng};
+use rand_chacha::ChaCha8Rng;
 
 use crate::widgets::{
     RadioButton, RadioButtonText, WidgetClickEvent, WidgetClickSender, BUTTON_BORDER,
@@ -68,6 +69,8 @@ struct AppStatus {
     image_width: ImageSize,
     /// The height of the image.
     image_height: ImageSize,
+    /// Seeded random generator.
+    rng: ChaCha8Rng,
 }
 
 impl Default for AppStatus {
@@ -76,6 +79,7 @@ impl Default for AppStatus {
             enable_mip_generation: EnableMipGeneration::On,
             image_width: ImageSize::Size640,
             image_height: ImageSize::Size480,
+            rng: ChaCha8Rng::seed_from_u64(19878367467713),
         }
     }
 }
@@ -537,7 +541,7 @@ fn regenerate_image_when_requested(
     image_views_query: Query<Entity, With<ImageView>>,
     windows_query: Query<&Window, With<PrimaryWindow>>,
     app_assets: Res<AppAssets>,
-    app_status: Res<AppStatus>,
+    mut app_status: ResMut<AppStatus>,
     mut images: ResMut<Assets<Image>>,
     mut single_mip_level_materials: ResMut<Assets<SingleMipLevelMaterial>>,
     mut color_materials: ResMut<Assets<ColorMaterial>>,
@@ -750,7 +754,7 @@ impl AppStatus {
 
     /// Regenerates the main image based on the image size selected by the user.
     fn regenerate_mipmap_source_image(
-        &self,
+        &mut self,
         commands: &mut Commands,
         images: &mut Assets<Image>,
     ) -> Handle<Image> {
@@ -779,11 +783,10 @@ impl AppStatus {
     /// Draws the concentric ellipses that make up the image.
     ///
     /// Returns the RGBA8 image data.
-    fn generate_image_data(&self) -> Vec<u8> {
+    fn generate_image_data(&mut self) -> Vec<u8> {
         // Select random colors for the inner and outer ellipses.
-        let mut rng = ThreadRng::default();
-        let outer_color: [u8; 3] = array::from_fn(|_| rng.random());
-        let inner_color: [u8; 3] = array::from_fn(|_| rng.random());
+        let outer_color: [u8; 3] = array::from_fn(|_| self.rng.random());
+        let inner_color: [u8; 3] = array::from_fn(|_| self.rng.random());
 
         let image_byte_size = 4usize
             * MipmapSizeIterator::new(self)
