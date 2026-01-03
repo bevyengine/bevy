@@ -1,6 +1,6 @@
 ---
 title: "`TextLayoutInfo`'s `section_rects` field has been replaced with `run_geometry`"
-pull_requests: []
+pull_requests: [21656]
 ---
 
 `TextLayoutInfo`'s `section_rects` field has been removed.

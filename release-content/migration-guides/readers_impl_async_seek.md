@@ -1,6 +1,6 @@
 ---
 title: Implementations of `Reader` now must implement `AsyncSeek`, and `AsyncSeekForward` is deleted.
-pull_requests: []
+pull_requests: [22104]
 ---
 
 The `Reader` trait no longer requires implementing `AsyncSeekForward` and instead requires

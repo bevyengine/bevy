@@ -1,6 +1,6 @@
 ---
 title: AssetSources now give an `async_channel::Sender` instead of a `crossbeam_channel::Sender`
-pull_requests: []
+pull_requests: [21626]
 ---
 
 Previously, when creating an asset source, `AssetSourceBuilder::with_watcher` would provide users

@@ -1,6 +1,6 @@
 ---
 title: The `AssetReader` trait now takes a `ReaderRequiredFeatures` argument.
-pull_requests: []
+pull_requests: [22104]
 ---
 
 The `AssetReader::read` method now takes an additional `ReaderRequiredFeatures` argument.
