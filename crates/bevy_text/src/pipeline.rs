@@ -353,14 +353,14 @@ impl TextPipeline {
 
                     let scalar = layout_glyph.font_size / metrics.units_per_em as f32;
                     let stroke_size = (metrics.stroke_size * scalar).round().max(1.);
+                    let start = end.max(layout_glyph.x);
 
                     maybe_run_geometry = Some(RunGeometry {
                         span_index: layout_glyph.metadata,
                         bounds: Rect::new(
-                            end.max(layout_glyph.x),
+                            start,
                             run.line_top,
-                            // Dummy value, must be updated before being pushed to the `run_geometry` list
-                            0.,
+                            start,
                             run.line_top + run.line_height,
                         ),
                         strikethrough_y: (run.line_y - metrics.strikeout_offset * scalar).round(),
