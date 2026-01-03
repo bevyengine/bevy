@@ -7,9 +7,10 @@ use bevy::reflect::{
     map::DynamicMap,
     reflect_trait,
     serde::TypedReflectDeserializer,
+    set::{DynamicSet, Set},
     std_traits::ReflectDefault,
-    DynamicSet, DynamicStruct, DynamicTuple, DynamicTupleStruct, FromReflect, PartialReflect,
-    Reflect, ReflectFromReflect, Set, TypeRegistry, Typed,
+    DynamicStruct, DynamicTuple, DynamicTupleStruct, FromReflect, PartialReflect, Reflect,
+    ReflectFromReflect, TypeRegistry, Typed,
 };
 use serde::de::DeserializeSeed;
 use std::collections::{HashMap, HashSet};

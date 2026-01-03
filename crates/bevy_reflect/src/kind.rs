@@ -4,7 +4,7 @@ use thiserror::Error;
 #[cfg(feature = "functions")]
 use crate::func::Function;
 use crate::{
-    array::Array, enums::Enum, list::List, map::Map, PartialReflect, Set, Struct, Tuple,
+    array::Array, enums::Enum, list::List, map::Map, set::Set, PartialReflect, Struct, Tuple,
     TupleStruct,
 };
 

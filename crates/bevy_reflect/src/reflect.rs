@@ -1,5 +1,5 @@
 use crate::{
-    array::array_debug, enums::enum_debug, list::list_debug, map::map_debug, set_debug,
+    array::array_debug, enums::enum_debug, list::list_debug, map::map_debug, set::set_debug,
     struct_debug, tuple_debug, tuple_struct_debug, DynamicTypePath, DynamicTyped, OpaqueInfo,
     ReflectCloneError, ReflectKind, ReflectKindMismatchError, ReflectMut, ReflectOwned, ReflectRef,
     TypeInfo, TypePath, Typed,
@@ -189,10 +189,10 @@ where
     /// [`List`]: crate::list::List
     /// [`Array`]: crate::array::Array
     /// [`Map`]: crate::map::Map
-    /// [`Set`]: crate::Set
+    /// [`Set`]: crate::set::Set
     /// [`list_apply`]: crate::list::list_apply
     /// [`map_apply`]: crate::map::map_apply
-    /// [`set_apply`]: crate::set_apply
+    /// [`set_apply`]: crate::set::set_apply
     ///
     /// # Panics
     ///

@@ -3,8 +3,9 @@ use crate::{
     enums::{DynamicEnum, EnumInfo},
     list::{DynamicList, ListInfo},
     map::{DynamicMap, MapInfo},
+    set::SetInfo,
     DynamicStruct, DynamicTuple, DynamicTupleStruct, Generics, PartialReflect, Reflect,
-    ReflectKind, SetInfo, StructInfo, TupleInfo, TupleStructInfo, TypePath, TypePathTable,
+    ReflectKind, StructInfo, TupleInfo, TupleStructInfo, TypePath, TypePathTable,
 };
 use core::{
     any::{Any, TypeId},
@@ -230,7 +231,7 @@ pub enum TypeInfo {
     Map(MapInfo),
     /// Type information for a [set-like] type.
     ///
-    /// [set-like]: crate::Set
+    /// [set-like]: crate::set::Set
     Set(SetInfo),
     /// Type information for an [enum-like] type.
     ///

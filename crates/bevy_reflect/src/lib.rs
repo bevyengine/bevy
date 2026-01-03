@@ -543,6 +543,7 @@
 //! [`'static` lifetime]: https://doc.rust-lang.org/rust-by-example/scope/lifetime/static_lifetime.html#trait-bound
 //! [`Array`]: crate::array::Array
 //! [`List`]: crate::list::List
+//! [`Set`]: crate::set::Set
 //! [`Map`]: crate::map::Map
 //! [`Enum`]: crate::enums::Enum
 //! [`Function`]: crate::func::Function
@@ -600,7 +601,7 @@ mod path;
 mod reflect;
 mod reflectable;
 mod remote;
-mod set;
+pub mod set;
 mod struct_trait;
 mod tuple;
 mod tuple_struct;
@@ -671,7 +672,6 @@ pub use path::*;
 pub use reflect::*;
 pub use reflectable::*;
 pub use remote::*;
-pub use set::*;
 pub use struct_trait::*;
 pub use tuple::*;
 pub use tuple_struct::*;
