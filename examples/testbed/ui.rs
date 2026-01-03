@@ -4,10 +4,23 @@
 
 mod helpers;
 
+use argh::FromArgs;
 use bevy::prelude::*;
 use helpers::Next;
 
+#[derive(FromArgs)]
+/// ui testbed
+pub struct Args {
+    #[argh(positional)]
+    scene: Option<Scene>,
+}
+
 fn main() {
+    #[cfg(not(target_arch = "wasm32"))]
+    let args: Args = argh::from_env();
+    #[cfg(target_arch = "wasm32")]
+    let args: Args = Args::from_args(&[], &[]).unwrap();
+
     let mut app = App::new();
     app.add_plugins(DefaultPlugins.set(WindowPlugin {
         primary_window: Some(Window {
@@ -19,7 +32,6 @@ fn main() {
         }),
         ..Default::default()
     }))
-    .init_state::<Scene>()
     .add_systems(OnEnter(Scene::Image), image::setup)
     .add_systems(OnEnter(Scene::Text), text::setup)
     .add_systems(OnEnter(Scene::Grid), grid::setup)
@@ -34,6 +46,11 @@ fn main() {
     .add_systems(OnEnter(Scene::Transformations), transformations::setup)
     .add_systems(OnEnter(Scene::ViewportCoords), viewport_coords::setup)
     .add_systems(Update, switch_scene);
+
+    match args.scene {
+        None => app.init_state::<Scene>(),
+        Some(scene) => app.insert_state(scene),
+    };
 
     #[cfg(feature = "bevy_ui_debug")]
     {
@@ -66,6 +83,21 @@ enum Scene {
     #[cfg(feature = "bevy_ui_debug")]
     DebugOutlines,
     ViewportCoords,
+}
+
+impl std::str::FromStr for Scene {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let mut isit = Self::default();
+        while s.to_lowercase() != format!("{isit:?}").to_lowercase() {
+            isit = isit.next();
+            if isit == Self::default() {
+                return Err(format!("Invalid Scene name: {s}"));
+            }
+        }
+        Ok(isit)
+    }
 }
 
 impl Next for Scene {

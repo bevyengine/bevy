@@ -268,10 +268,6 @@ fn update_config(
         config_store.config_mut::<AabbGizmoConfigGroup>().1.draw_all ^= true;
     }
     if keyboard.just_pressed(KeyCode::Space) {
-        if virtual_time.is_paused() {
-            virtual_time.unpause();
-        } else {
-            virtual_time.pause();
-        }
+        virtual_time.toggle();
     }
 }
