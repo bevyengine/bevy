@@ -8,11 +8,13 @@ use bevy_ecs::{
     component::Component,
     entity::Entity,
     query::{With, Without},
+    reflect::ReflectResource,
     resource::Resource,
     schedule::{common_conditions::resource_changed, IntoScheduleConfigs},
     system::{Commands, Query, Res, ResMut, Single},
 };
 use bevy_picking::Pickable;
+use bevy_reflect::Reflect;
 use bevy_render::storage::ShaderStorageBuffer;
 use bevy_text::{Font, TextColor, TextFont, TextSpan};
 use bevy_time::common_conditions::on_timer;
@@ -86,7 +88,8 @@ impl Plugin for FpsOverlayPlugin {
 }
 
 /// Configuration options for the FPS overlay.
-#[derive(Resource, Clone)]
+#[derive(Resource, Clone, Reflect)]
+#[reflect(Resource)]
 pub struct FpsOverlayConfig {
     /// Configuration of text in the overlay.
     pub text_config: TextFont,
@@ -120,7 +123,7 @@ impl Default for FpsOverlayConfig {
 }
 
 /// Configuration of the frame time graph
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Reflect)]
 pub struct FrameTimeGraphConfig {
     /// Is the graph visible
     pub enabled: bool,
