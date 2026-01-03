@@ -4,7 +4,7 @@ authors: ["@ickshonpe"]
 pull_requests: [22156]
 ---
 
-`TextFont` has been exanded to include new fields:
+`TextFont` has been expanded to include new fields:
 ```rust
 pub struct TextFont {
     pub font: FontSource,
