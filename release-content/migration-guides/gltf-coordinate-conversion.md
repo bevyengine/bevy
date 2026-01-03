@@ -25,16 +25,20 @@ In 0.18 there are two changes. Firstly, the `use_model_forward_direction` option
 has been renamed to `convert_coordinates`, and is now a struct with two separate
 options.
 
-```diff
- struct GltfPlugin {
-     ...
--    use_model_forward_direction: bool,
-+    convert_coordinates: GltfConvertCoordinates,
- }
-```
-
 ```rust
-struct GltfConvertCoordinates {
+// 0.17
+pub struct GltfPlugin {
+    use_model_forward_direction: bool,
+    // ...
+}
+
+// 0.17
+pub struct GltfPlugin {
+    convert_coordinates: GltfConvertCoordinates,
+    // ...
+}
+
+pub struct GltfConvertCoordinates {
     rotate_scene_entity: bool,
     rotate_meshes: bool,
 }

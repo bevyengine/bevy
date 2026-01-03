@@ -15,6 +15,7 @@ Code that requires queries to `impl ExactSizeIterator` may need to replace `Quer
 fn requires_exact_size<D: QueryData>(q: Query<D>) -> usize {
     q.into_iter().len()
 }
+
 // 0.18
 fn requires_exact_size<D: ArchetypeQueryData>(q: Query<D>) -> usize {
     q.into_iter().len()

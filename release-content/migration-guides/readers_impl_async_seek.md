@@ -22,7 +22,7 @@ impl AsyncSeek for MyReader {
             ),
         };
 
-        // Do whatever your previous `AsyncSeekForward` implementation did...
+        // ...
     }
 }
 ```
@@ -42,8 +42,7 @@ impl AssetReader for MyAssetReader {
             SeekKind::AnySeek => return Err(UnsupportedReaderFeature::AnySeek),
         }
 
-        // Do whatever your previous `AssetReader` implementation did, like...
-        Ok(MyReader)
+        // ...
     }
 }
 ```

@@ -9,13 +9,13 @@ been replaced by the `Material` methods `enable_prepass` and `enable_shadows`.
 Analogous methods have also been added to `MaterialExtension`
 
 ```rust
-/// before
+// 0.17
 MaterialPlugin::<MyMaterial> {
     prepass_enabled: false,
     shadows_enabled: false,
 }
 
-/// after
+// 0.18
 impl Material for MyMaterial {
     /// ...
 

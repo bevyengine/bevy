@@ -6,9 +6,10 @@ pull_requests: [14791, 15458, 15269]
 `Bundle::component_ids` and `Bundle::get_component_ids` were changed to return an iterator over
 `ComponentId` and `Option<ComponentId>` respectively. In some cases this can avoid allocating.
 
+For implementors:
+
 ```rust
-// For implementors
-// Before
+// 0.17
 unsafe impl<C: Component> Bundle for C {
     fn component_ids(components: &mut ComponentsRegistrator, ids: &mut impl FnMut(ComponentId)) {
         ids(components.register_component::<C>());
@@ -19,7 +20,7 @@ unsafe impl<C: Component> Bundle for C {
     }
 }
 
-// After
+// 0.18
 unsafe impl<C: Component> Bundle for C {
     fn component_ids<(
         components: &mut ComponentsRegistrator,
@@ -34,14 +35,15 @@ unsafe impl<C: Component> Bundle for C {
 }
 ```
 
+For consumers:
+
 ```rust
-// For Consumers
-// Before
+// 0.17
 let mut components = vec![];
 MyBundle::component_ids(&mut world.components_registrator(), &mut |id| {
     components.push(id);
 });
 
-// After
+// 0.18
 let components: Vec<_> = B::component_ids(&mut world.components_registrator()).collect();
 ```

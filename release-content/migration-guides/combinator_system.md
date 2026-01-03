@@ -30,9 +30,9 @@ fn is_true() -> bool {
 
 assert!(world.query::<&Vacant>().iter(&world).next().is_none());
 
-// previously:
+// 0.17
 assert!(world.run_system_once(is_true.or(vacant)).is_err());
 
-// now:
+// 0.18
 assert!(matches!(world.run_system_once(is_true.or(vacant)), Ok(true)));
 ```

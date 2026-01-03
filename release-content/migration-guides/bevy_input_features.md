@@ -14,9 +14,10 @@ isn't supported by these crates), you need to enable the required
 input sources on `bevy_input` manually:
 
 ```toml
-# Before:
+# 0.17
 bevy = { version = "0.17", default-features = false }
-# After (enable sources that you actually use):
+
+# 0.18 (enable sources that you actually use):
 bevy = { version = "0.18", default-features = false, features = [
   "mouse",
   "keyboard",

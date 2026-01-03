@@ -10,14 +10,10 @@ The `AnimationTarget` component has been split into two separate components.
 This change was made to add flexibility. It's now possible to calculate the
 `AnimationTargetId` first, but defer the choice of player until later.
 
-Before:
-
 ```rust
+// 0.17
 entity.insert(AnimationTarget { id: AnimationTargetId(id), player: player_entity });
-```
 
-After:
-
-```rust
+// 0.18
 entity.insert((AnimationTargetId(id), AnimatedBy(player_entity)));
 ```
