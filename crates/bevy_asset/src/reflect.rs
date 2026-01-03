@@ -264,8 +264,7 @@ mod tests {
     use alloc::{string::String, vec::Vec};
     use core::any::TypeId;
 
-    use crate::{Asset, AssetApp, AssetPlugin, ReflectAsset};
-    use bevy_app::App;
+    use crate::{tests::create_app, Asset, AssetApp, ReflectAsset};
     use bevy_ecs::reflect::AppTypeRegistry;
     use bevy_reflect::Reflect;
 
@@ -276,9 +275,8 @@ mod tests {
 
     #[test]
     fn test_reflect_asset_operations() {
-        let mut app = App::new();
-        app.add_plugins(AssetPlugin::default())
-            .init_asset::<AssetType>()
+        let mut app = create_app().0;
+        app.init_asset::<AssetType>()
             .register_asset_reflect::<AssetType>();
 
         let reflect_asset = {

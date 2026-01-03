@@ -793,14 +793,14 @@ pub mod __macro_exports {
                     if INIT_DONE.swap(true, Ordering::Relaxed) {
                         return;
                     };
-                    // SAFETY:
-                    // This will call constructors on wasm platforms at most once (as long as `init` is the only function that calls `__wasm_call_ctors`).
-                    //
-                    // For more information see: https://docs.rs/inventory/latest/inventory/#webassembly-and-constructors
                     #[expect(
                         unsafe_code,
                         reason = "This function must be called to use inventory on wasm."
                     )]
+                    // SAFETY:
+                    // This will call constructors on wasm platforms at most once (as long as `init` is the only function that calls `__wasm_call_ctors`).
+                    //
+                    // For more information see: https://docs.rs/inventory/latest/inventory/#webassembly-and-constructors
                     unsafe {
                         __wasm_call_ctors();
                     }

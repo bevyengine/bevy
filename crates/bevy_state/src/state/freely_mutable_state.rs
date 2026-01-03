@@ -5,7 +5,7 @@ use bevy_ecs::{
     system::{Commands, IntoSystem, ResMut},
 };
 
-use super::{states::States, take_next_state, transitions::*, NextState, State};
+use super::{states::States, take_next_state, transitions::*, NextState, PreviousState, State};
 
 /// This trait allows a state to be mutated directly using the [`NextState<S>`](crate::state::NextState) resource.
 ///
@@ -50,6 +50,7 @@ fn apply_state_transition<S: FreelyMutableState>(
     event: MessageWriter<StateTransitionEvent<S>>,
     commands: Commands,
     current_state: Option<ResMut<State<S>>>,
+    previous_state: Option<ResMut<PreviousState<S>>>,
     next_state: Option<ResMut<NextState<S>>>,
 ) {
     let Some((next_state, allow_same_state_transitions)) = take_next_state(next_state) else {
@@ -62,6 +63,7 @@ fn apply_state_transition<S: FreelyMutableState>(
         event,
         commands,
         Some(current_state),
+        previous_state,
         Some(next_state),
         allow_same_state_transitions,
     );

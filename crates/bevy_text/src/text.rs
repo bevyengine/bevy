@@ -266,6 +266,12 @@ pub struct TextFont {
     /// A new font atlas is generated for every combination of font handle and scaled font size
     /// which can have a strong performance impact.
     pub font_size: f32,
+    /// How thick or bold the strokes of a font appear.
+    ///
+    /// Font weights can be any value between 1 and 1000, inclusive.
+    ///
+    /// Only supports variable weight fonts.
+    pub weight: FontWeight,
     /// The antialiasing method to use when rendering text.
     pub font_smoothing: FontSmoothing,
     /// OpenType features for .otf fonts that support them.
@@ -308,9 +314,78 @@ impl Default for TextFont {
         Self {
             font: Default::default(),
             font_size: 20.0,
+            weight: FontWeight::NORMAL,
             font_features: FontFeatures::default(),
             font_smoothing: Default::default(),
         }
+    }
+}
+
+/// How thick or bold the strokes of a font appear.
+///
+/// Valid font weights range from 1 to 1000, inclusive.
+/// Weights above 1000 are clamped to 1000.
+/// A weight of 0 is treated as [`FontWeight::DEFAULT`].
+///
+/// `<https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Properties/font-weight>`
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Reflect)]
+pub struct FontWeight(pub u16);
+
+impl FontWeight {
+    /// Weight 100.
+    pub const THIN: FontWeight = FontWeight(100);
+
+    /// Weight 200.
+    pub const EXTRA_LIGHT: FontWeight = FontWeight(200);
+
+    /// Weight 300.
+    pub const LIGHT: FontWeight = FontWeight(300);
+
+    /// Weight 400.
+    pub const NORMAL: FontWeight = FontWeight(400);
+
+    /// Weight 500.
+    pub const MEDIUM: FontWeight = FontWeight(500);
+
+    /// Weight 600.
+    pub const SEMIBOLD: FontWeight = FontWeight(600);
+
+    /// Weight 700.
+    pub const BOLD: FontWeight = FontWeight(700);
+
+    /// Weight 800
+    pub const EXTRA_BOLD: FontWeight = FontWeight(800);
+
+    /// Weight 900.
+    pub const BLACK: FontWeight = FontWeight(900);
+
+    /// Weight 950.
+    pub const EXTRA_BLACK: FontWeight = FontWeight(950);
+
+    /// The default font weight.
+    pub const DEFAULT: FontWeight = Self::NORMAL;
+
+    /// Clamp the weight value to between 1 and 1000.
+    /// Values of 0 are mapped to `Weight::DEFAULT`.
+    pub const fn clamp(mut self) -> Self {
+        if self.0 == 0 {
+            self = Self::DEFAULT;
+        } else if 1000 < self.0 {
+            self.0 = 1000;
+        }
+        Self(self.0)
+    }
+}
+
+impl Default for FontWeight {
+    fn default() -> Self {
+        Self::DEFAULT
+    }
+}
+
+impl From<FontWeight> for cosmic_text::Weight {
+    fn from(value: FontWeight) -> Self {
+        cosmic_text::Weight(value.clamp().0)
     }
 }
 
@@ -769,6 +844,28 @@ pub fn detect_text_needs_rerender<Root: Component>(
                 break;
             };
             parent = next_child_of.parent();
+        }
+    }
+}
+
+#[derive(Component, Debug, Copy, Clone, Default, Reflect, PartialEq)]
+#[reflect(Component, Default, Debug, Clone, PartialEq)]
+/// Font hinting strategy.
+///
+/// <https://docs.rs/cosmic-text/latest/cosmic_text/enum.Hinting.html>
+pub enum FontHinting {
+    #[default]
+    /// Glyphs will have subpixel coordinates.
+    Disabled,
+    /// Glyphs will be snapped to integral coordinates in the X-axis during layout.
+    Enabled,
+}
+
+impl From<FontHinting> for cosmic_text::Hinting {
+    fn from(value: FontHinting) -> Self {
+        match value {
+            FontHinting::Disabled => cosmic_text::Hinting::Disabled,
+            FontHinting::Enabled => cosmic_text::Hinting::Enabled,
         }
     }
 }
