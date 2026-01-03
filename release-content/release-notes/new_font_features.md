@@ -20,9 +20,9 @@ pub struct TextFont {
 
 FontSource has two variants: Handle, which identifies a font by asset handle, and Family, which selects a font by its family name.
 
-`FontWidth` is a newtype struct representing OpenType font stretch classifications ranging from `ULTRA_CONDENSED` (50%) to `ULTRA_EXPANDED (200%). 
+`FontWidth` is a newtype struct representing OpenType font stretch classifications ranging from `ULTRA_CONDENSED` (50%) to `ULTRA_EXPANDED` (200%).
 
-`FontStyle` is an enum used to set the slant style of a font, either `Normal`, `Italic`, or `Oblique`.
+`FontStyle` is an enum used to set the slant style of a font, with variants `Normal`, `Italic`, or `Oblique`.
 
 The system font support is very basic for now. You load them using the `CosmicFontSystem` resource:
 
