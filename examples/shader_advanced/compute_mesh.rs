@@ -167,14 +167,14 @@ fn add_compute_render_graph_node(mut render_graph: ResMut<RenderGraph>) {
     render_graph.add_node_edge(ComputeNodeLabel, bevy::render::graph::CameraDriverLabel);
 }
 
-/// This is called "ChunksToProcess" because this example originated
+/// This is called `ChunksToProcess` because this example originated
 /// from a use case of generating chunks of landscape or voxels
 /// It only exists in the render world.
 #[derive(Resource, Default)]
 struct ChunksToProcess(Vec<AssetId<Mesh>>);
 
 /// `processed` is a `HashSet` contains the `AssetId`s that have been
-/// processed. We use that to remove asset_ids that have already
+/// processed. We use that to remove `AssetId`s that have already
 /// been processed, which means each unique `GenerateMesh` will result
 /// in one compute shader mesh generation process instead of generating
 /// the mesh every frame.
