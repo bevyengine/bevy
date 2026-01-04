@@ -240,7 +240,7 @@ impl Default for ScreenSpaceReflections {
     // <https://gist.github.com/h3r2tic/9c8356bdaefbe80b1a22ae0aaee192db?permalink_comment_id=4552149#gistcomment-4552149>.
     fn default() -> Self {
         Self {
-            perceptual_roughness_threshold: 0.1,
+            perceptual_roughness_threshold: 1.0,
             linear_steps: 16,
             bisection_steps: 4,
             use_secant: true,
