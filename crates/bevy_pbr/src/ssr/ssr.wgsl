@@ -61,9 +61,6 @@ fn sample_specular_brdf(wo: vec3<f32>, roughness: f32, F0: vec3<f32>, urand: vec
     var brdf_sample: BrdfSample;
     
     // Use VNDF sampling for the half-vector.
-    // wo is view direction. In sample_visible_ggx, view is from surface to eye.
-    // In our context, V is from surface to eye, so we use V.
-    // sample_visible_ggx handles world space if passed world space N and V.
     let wi = lighting::sample_visible_ggx(urand, roughness, N, wo);
     let H = normalize(wo + wi);
     let NdotL = max(dot(N, wi), 0.0001);
@@ -75,7 +72,6 @@ fn sample_specular_brdf(wo: vec3<f32>, roughness: f32, F0: vec3<f32>, urand: vec
     let G2 = lighting::G_Smith(NdotV, NdotL, roughness);
 
     brdf_sample.wi = wi;
-    // (BRDF * NdotL) / PDF = F * G2 / G1V
     brdf_sample.value_over_pdf = F * (G2 / G1V);
 
     return brdf_sample;
@@ -146,32 +142,20 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     let N = pbr_input.N;
     let V = pbr_input.V;
 
-    // Build a basis for sampling the BRDF, as BRDF sampling functions assume that the normal faces +Z.
+    // Build a basis for sampling the BRDF.
     let tangent_to_world = orthonormalize(N);
 
-    // Get a good quality sample from the BRDF, using VNDF.
     let roughness = lighting::perceptualRoughnessToRoughness(perceptual_roughness);
     let F0 = pbr_functions::calculate_F0(pbr_input.material.base_color.rgb, pbr_input.material.metallic, pbr_input.material.reflectance);
 
     // Get some random numbers.
-    // We use a custom seed to avoid the 64-frame cycle of interleaved_gradient_noise,
-    // which can cause visible flickering at high frame rates.
     var rng_seed = u32(in.position.x) + u32(in.position.y) * 16384u + globals.frame_count * 31337u;
     let urand = utils::rand_vec2f(&rng_seed);
     let raymarch_jitter = utils::rand_f(&rng_seed);
 
     // Sample the BRDF.
-    // wo = mul(V, tangent_to_world) if we were in tangent space.
-    // But sample_visible_ggx takes world space N and V.
-    // The h3r2tic example uses tangent space sampling.
-    // Let's stick to the example's structure as much as possible.
-    
-    // In tangent space, N is (0, 0, 1).
     let N_tangent = vec3(0.0, 0.0, 1.0);
-    let V_tangent = V * tangent_to_world; // Assuming mat3x3 * vec3 is what we want for world->tangent.
-    // Wait, if tangent_to_world columns are x_basis, y_basis, z_basis(N), then
-    // V_tangent = vec3(dot(V, x_basis), dot(V, y_basis), dot(V, N)).
-    // Which is V * tangent_to_world in WGSL (row-vector * matrix).
+    let V_tangent = V * tangent_to_world;
     
     let brdf_sample = sample_specular_brdf(V_tangent, roughness, F0, urand, N_tangent);
     let R = tangent_to_world * brdf_sample.wi;
