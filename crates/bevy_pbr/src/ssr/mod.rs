@@ -298,7 +298,9 @@ impl ViewNode for ScreenSpaceReflectionsNode {
         let ssr_pipeline = world.resource::<ScreenSpaceReflectionsPipeline>();
         let bluenoise = world.resource::<Bluenoise>();
         let render_images = world.resource::<RenderAssets<GpuImage>>();
-        let stbn_texture = render_images.get(&bluenoise.texture).unwrap();
+        let Some(stbn_texture) = render_images.get(&bluenoise.texture) else {
+            return Ok(());
+        };
         let stbn_view = stbn_texture.texture.create_view(&TextureViewDescriptor {
             label: Some("ssr_stbn_view"),
             dimension: Some(TextureViewDimension::D2Array),
