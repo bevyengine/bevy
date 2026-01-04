@@ -172,7 +172,12 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
         raymarch_jitter = stbn_noise.z;
     } else {
         // Fallback to PCG-based procedural noise.
-        var state = u32(in.position.x) + u32(in.position.y) * 16384u + globals.frame_count * 196613u;
+        // We use a XOR-sum of products with large primes to decorrelate the
+        // seed from the screen-space coordinates and frame count, avoiding
+        // visible "crawling" artifacts.
+        var state = (u32(in.position.x) * 2131358057u) ^
+                    (u32(in.position.y) * 3416869721u) ^
+                    (globals.frame_count * 1199786941u);
         urand = utils::rand_vec2f(&state);
         raymarch_jitter = utils::rand_f(&state);
     }
