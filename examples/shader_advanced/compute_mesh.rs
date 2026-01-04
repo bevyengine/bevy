@@ -54,7 +54,7 @@ impl Plugin for ComputeShaderMeshGeneratorPlugin {
         };
 
         render_app
-            .init_resource::<Chunks>()
+            .init_resource::<ChunksToProcess>()
             .add_systems(
                 RenderStartup,
                 (init_compute_pipeline, add_compute_render_graph_node),
@@ -167,37 +167,49 @@ fn add_compute_render_graph_node(mut render_graph: ResMut<RenderGraph>) {
     render_graph.add_node_edge(ComputeNodeLabel, bevy::render::graph::CameraDriverLabel);
 }
 
-/// This is called "Chunks" because this example originated
+/// This is called "ChunksToProcess" because this example originated
 /// from a use case of generating chunks of landscape or voxels
+/// It only exists in the render world.
 #[derive(Resource, Default)]
-struct Chunks(Vec<AssetId<Mesh>>);
+struct ChunksToProcess(Vec<AssetId<Mesh>>);
 
+/// `processed` is a `HashSet` contains the `AssetId`s that have been
+/// processed. We use that to remove asset_ids that have already
+/// been processed, which means each unique `GenerateMesh` will result
+/// in one compute shader mesh generation process instead of generating
+/// the mesh every frame.
 fn prepare_chunks(
     meshes_to_generate: Query<&GenerateMesh>,
-    mut chunks: ResMut<Chunks>,
-    // This HashSet contains the AssetIds that have been
-    // processed. We use that to remove asset_ids that have already
-    // been processed, which means each unique GenerateMesh will result
-    // in one compute shader mesh generation process instead of generating
-    // the mesh every frame.
+    mut chunks: ResMut<ChunksToProcess>,
+    pipeline_cache: Res<PipelineCache>,
+    pipeline: Res<ComputePipeline>,
     mut processed: Local<HashSet<AssetId<Mesh>>>,
 ) {
-    // get the AssetId for each Handle<Mesh>
-    // which we'll use later to get the relevant buffers
-    // from the mesh_allocator
-    let chunk_data: Vec<AssetId<Mesh>> = meshes_to_generate
-        .iter()
-        .filter_map(|gmesh| {
-            let id = gmesh.0.id();
-            processed.contains(&id).not().then_some(id)
-        })
-        .collect();
+    // If the pipeline isn't ready, then meshes
+    // won't be processed. So we want to wait until
+    // the pipeline is ready before considering any mesh processed.
+    if pipeline_cache
+        .get_compute_pipeline(pipeline.pipeline)
+        .is_some()
+    {
+        // get the AssetId for each Handle<Mesh>
+        // which we'll use later to get the relevant buffers
+        // from the mesh_allocator
+        let chunk_data: Vec<AssetId<Mesh>> = meshes_to_generate
+            .iter()
+            .filter_map(|gmesh| {
+                let id = gmesh.0.id();
+                processed.contains(&id).not().then_some(id)
+            })
+            .collect();
 
-    for id in &chunk_data {
-        processed.insert(*id);
+        // Cache any meshes we're going to process this frame
+        for id in &chunk_data {
+            processed.insert(*id);
+        }
+
+        chunks.0 = chunk_data;
     }
-
-    chunks.0 = chunk_data;
 }
 
 #[derive(Resource)]
@@ -261,10 +273,7 @@ impl render_graph::Node for ComputeNode {
         render_context: &mut RenderContext,
         world: &World,
     ) -> Result<(), render_graph::NodeRunError> {
-        let Some(chunks) = world.get_resource::<Chunks>() else {
-            info!("no chunks");
-            return Ok(());
-        };
+        let chunks = world.resource::<ChunksToProcess>();
         let mesh_allocator = world.resource::<MeshAllocator>();
 
         for mesh_id in &chunks.0 {
