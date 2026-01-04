@@ -4,7 +4,7 @@
 #import bevy_render::maths::{orthonormalize, PI}
 #import bevy_render::view::View
 #import bevy_solari::brdf::{evaluate_brdf, evaluate_specular_brdf}
-#import bevy_solari::gbuffer_utils::gpixel_resolve
+#import bevy_solari::gbuffer_utils::{gpixel_resolve, ResolvedGPixel}
 #import bevy_solari::sampling::{sample_random_light, random_emissive_light_pdf, sample_ggx_vndf, ggx_vndf_pdf, power_heuristic}
 #import bevy_solari::scene_bindings::{trace_ray, resolve_ray_hit_full, ResolvedRayHitFull, RAY_T_MIN, RAY_T_MAX}
 #import bevy_solari::world_cache::{query_world_cache, get_cell_size, WORLD_CACHE_CELL_LIFETIME}
@@ -77,16 +77,19 @@ fn specular_gi(@builtin(global_invocation_id) global_id: vec3<u32>) {
 #endif
 }
 
-fn trace_glossy_path(initial_ray_origin: vec3<f32>, initial_wi: vec3<f32>, initial_roughness: f32, initial_p_bounce: f32, a0: f32, rng: ptr<function, u32>) -> vec3<f32> {
-    var ray_origin = initial_ray_origin;
-    var wi = initial_wi;
-    var p_bounce = initial_p_bounce;
-    var surface_perfectly_specular = false;
-    var path_spread = 0.0;
-
-    // Trace up to three bounces, getting the net throughput from them
+fn trace_glossy_path(primary_surface: ResolvedGPixel, initial_wi: vec3<f32>, initial_p_bounce: f32, a0: f32, rng: ptr<function, u32>) -> vec3<f32> {
     var radiance = vec3(0.0);
     var throughput = vec3(1.0);
+
+    var ray_origin = primary_surface.world_position;
+    var wi = initial_wi;
+    var p_bounce = initial_p_bounce;
+    var surface_perfect_mirror = false;
+    var path_spread = 0.0;
+    var mirror_rotations = reflection_matrix(primary_surface.world_normal);
+    var psr_finished = false;
+
+    // Trace up to three bounces
     for (var i = 0u; i < 3u; i += 1u) {
         // Trace ray
         let ray = trace_ray(ray_origin, wi, RAY_T_MIN, RAY_T_MAX, RAY_FLAG_NONE);
@@ -102,21 +105,39 @@ fn trace_glossy_path(initial_ray_origin: vec3<f32>, initial_wi: vec3<f32>, initi
         let wo_tangent = vec3(dot(wo, T), dot(wo, B), dot(wo, N));
 
         // Add emissive contribution
-        let mis_weight = emissive_mis_weight(i, initial_roughness, p_bounce, ray_hit, surface_perfectly_specular);
+        let mis_weight = emissive_mis_weight(i, primary_surface.material.roughness, p_bounce, ray_hit, surface_perfect_mirror);
         radiance += throughput * mis_weight * ray_hit.material.emissive;
 
         // Should not perform NEE for mirror-like surfaces
-        surface_perfectly_specular = ray_hit.material.roughness <= 0.001 && ray_hit.material.metallic > 0.9999;
+        surface_perfect_mirror = ray_hit.material.roughness <= 0.001 && ray_hit.material.metallic > 0.9999;
 
         // https://d1qx31qr3h6wln.cloudfront.net/publications/mueller21realtime.pdf#subsection.3.4, equation (3)
         path_spread += sqrt((ray.t * ray.t) / (p_bounce * wo_tangent.z));
+
+        // Primary surface replacement for perfect mirrors
+        // https://developer.nvidia.com/blog/rendering-perfect-reflections-and-refractions-in-path-traced-games/#primary_surface_replacement
+        if !psr_finished && primary_surface.material.roughness <= 0.001 && primary_surface.material.metallic > 0.9999 {
+            if surface_perfect_mirror {
+                mirror_rotations = mirror_rotations * reflection_matrix(ray_hit.world_normal);
+            } else {
+                psr_finished = true;
+
+                // Simplification: Apply all rotations in the chain around the first mirror, rather than applying each rotation around its respective mirror
+                let previous_frame_position = todo;
+                let virtual_position = (mirror_rotations * (ray_hit.world_position - primary_surface.world_position)) + primary_surface.world_position;
+                let virtual_previous_frame_final_position = (mirror_rotations * (previous_frame_position - primary_surface.world_position)) + primary_surface.world_position;
+
+                // TODO: GBuffer and motion vectors replacement
+                let virtual_normal = normalize(mirror_rotations * ray_hit.world_normal);
+            }
+        }
 
         if path_spread * path_spread > a0 * get_cell_size(ray_hit.world_position, view.world_position) {
             // Path spread is wide enough, terminate path in the world cache
             let diffuse_brdf = ray_hit.material.base_color / PI;
             radiance += throughput * diffuse_brdf * query_world_cache(ray_hit.world_position, ray_hit.geometric_world_normal, view.world_position, WORLD_CACHE_CELL_LIFETIME, rng);
             break;
-        } else if !surface_perfectly_specular {
+        } else if !surface_perfect_mirror {
             // Sample direct lighting (NEE)
             let direct_lighting = sample_random_light(ray_hit.world_position, ray_hit.world_normal, rng);
             let direct_lighting_brdf = evaluate_brdf(ray_hit.world_normal, wo, direct_lighting.wi, ray_hit.material);
@@ -139,9 +160,9 @@ fn trace_glossy_path(initial_ray_origin: vec3<f32>, initial_wi: vec3<f32>, initi
     return radiance;
 }
 
-fn emissive_mis_weight(i: u32, initial_roughness: f32, p_bounce: f32, ray_hit: ResolvedRayHitFull, previous_surface_perfectly_specular: bool) -> f32 {
+fn emissive_mis_weight(i: u32, initial_roughness: f32, p_bounce: f32, ray_hit: ResolvedRayHitFull, previous_surface_perfect_mirror: bool) -> f32 {
     if i != 0u {
-        if previous_surface_perfectly_specular { return 1.0; }
+        if previous_surface_perfect_mirror { return 1.0; }
 
         let p_light = random_emissive_light_pdf(ray_hit);
         return power_heuristic(p_bounce, p_light);
@@ -168,6 +189,18 @@ fn nee_mis_weight(inverse_p_light: f32, brdf_rays_can_hit: bool, wo_tangent: vec
     let p_light = 1.0 / inverse_p_light;
     let p_bounce = ggx_vndf_pdf(wo_tangent, wi_tangent, ray_hit.material.roughness);
     return power_heuristic(p_light, p_bounce);
+}
+
+// https://en.wikipedia.org/wiki/Householder_transformation
+fn reflection_matrix(plane_normal: vec3f) -> mat3x3<f32> {
+    // N times Nᵀ.
+    let n_nt = mat3x3<f32>(
+        plane_normal * plane_normal.x,
+        plane_normal * plane_normal.y,
+        plane_normal * plane_normal.z,
+    );
+    let identity_matrix = mat3x3<f32>(1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0);
+    return identity_matrix - n_nt * 2.0;
 }
 
 // Don't adjust the size of this struct without also adjusting GI_RESERVOIR_STRUCT_SIZE.
