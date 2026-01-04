@@ -644,10 +644,16 @@ fn point_light(
     let normalizationFactor = a / a_prime;
     let specular_intensity = normalizationFactor * normalizationFactor;
 
+    // This is a modification to Karis 2013 for area lights to fix an issue where the specular reflection on smooth materials
+    // looks too rough and dim. We lerp between the base roughness and Karis2013 roughness with a lerp factor tuned by looking at reference renders.
+    // The goal is to preserve sharp specular highlights on smooth materials, without blowing out specular highlights on rough materials.
+    let lerp = 1.0 - (1.0 - a) * (1.0 - a) * (1.0 - a) * (1.0 - a);
+    let brdf_roughness = mix(a, a_prime, lerp);
+
 #ifdef STANDARD_MATERIAL_ANISOTROPY
-    let specular_light = specular_anisotropy(input, &specular_derived_input, L, a_prime, specular_intensity);
+    let specular_light = specular_anisotropy(input, &specular_derived_input, L, brdf_roughness, specular_intensity);
 #else   // STANDARD_MATERIAL_ANISOTROPY
-    let specular_light = specular(input, &specular_derived_input, a_prime, specular_intensity);
+    let specular_light = specular(input, &specular_derived_input, brdf_roughness, specular_intensity);
 #endif  // STANDARD_MATERIAL_ANISOTROPY
 
     // Clearcoat
@@ -676,12 +682,20 @@ fn point_light(
 
     // Calculate the specular light.
     let clearcoat_normalizationFactor = clearcoat_a / clearcoat_a_prime;
+
     let clearcoat_specular_intensity = clearcoat_normalizationFactor * clearcoat_normalizationFactor;
+
+    // This is a modification to Karis 2013 for area lights to fix an issue where the specular reflection on smooth materials
+    // looks too rough and dim. We lerp between the base roughness and Karis2013 roughness with a lerp factor tuned by looking at reference renders.
+    // The goal is to preserve sharp specular highlights on smooth materials, without blowing out specular highlights on rough materials.
+    let cc_lerp = 1.0 - (1.0 - clearcoat_a) * (1.0 - clearcoat_a) * (1.0 - clearcoat_a) * (1.0 - clearcoat_a);
+    let clearcoat_brdf_roughness = mix(clearcoat_a, clearcoat_a_prime, cc_lerp);
+
     let Fc_Frc = specular_clearcoat(
         input,
         &clearcoat_specular_derived_input,
         clearcoat_strength,
-        clearcoat_a_prime,
+        clearcoat_brdf_roughness,
         clearcoat_specular_intensity
     );
     let inv_Fc = 1.0 - Fc_Frc.r;    // Inverse Fresnel term.
