@@ -19,6 +19,7 @@
 
 use std::f32::consts::PI;
 
+use bevy::pbr::{DefaultOpaqueRendererMethod, ScreenSpaceReflections};
 use bevy::{
     color::palettes::css::{BLUE, GOLD, WHITE},
     core_pipeline::{tonemapping::Tonemapping::AcesFitted, Skybox},
@@ -50,6 +51,7 @@ struct ExampleSphere;
 pub fn main() {
     App::new()
         .init_resource::<LightMode>()
+        .insert_resource(DefaultOpaqueRendererMethod::deferred())
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
         .add_systems(Update, animate_light)
@@ -198,7 +200,10 @@ fn spawn_camera(commands: &mut Commands, asset_server: &AssetServer) {
                 ..default()
             }),
             Transform::from_xyz(0.0, 0.0, 10.0),
-            Sc
+            ScreenSpaceReflections {
+                samples: 1,
+                ..default()
+            },
             AcesFitted,
         ))
         .insert(Skybox {

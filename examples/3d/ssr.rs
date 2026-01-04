@@ -2,6 +2,7 @@
 
 use std::ops::Range;
 
+use bevy::pbr::ScreenSpaceAmbientOcclusion;
 use bevy::{
     anti_alias::fxaa::Fxaa,
     color::palettes::css::{BLACK, WHITE},
@@ -245,7 +246,11 @@ fn spawn_camera(commands: &mut Commands, asset_server: &AssetServer) {
             brightness: 5000.0,
             ..default()
         })
-        .insert(ScreenSpaceReflections::default())
+        .insert(ScreenSpaceReflections {
+            samples: 1,
+            ..default()
+        })
+        .insert(ScreenSpaceAmbientOcclusion::default())
         .insert(Fxaa::default());
 }
 
