@@ -4,24 +4,22 @@ use bevy_asset::{AssetId, Assets};
 use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
-    component::Component,
-    entity::Entity,
-    reflect::ReflectComponent,
-    resource::Resource,
-    system::{Query, ResMut},
+    component::Component, entity::Entity, reflect::ReflectComponent, resource::Resource,
+    system::ResMut,
 };
 use bevy_image::prelude::*;
 use bevy_log::{once, warn};
 use bevy_math::{Rect, UVec2, Vec2};
 use bevy_platform::collections::HashMap;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+use smol_str::SmolStr;
 
 use crate::{
     add_glyph_to_atlas, error::TextError, get_glyph_atlas_info, ComputedTextBlock, Font,
-    FontAtlasKey, FontAtlasSet, FontHinting, FontSmoothing, Justify, LineBreak, LineHeight,
-    PositionedGlyph, TextBounds, TextEntity, TextFont, TextLayout,
+    FontAtlasKey, FontAtlasSet, FontHinting, FontSmoothing, FontSource, Justify, LineBreak,
+    LineHeight, PositionedGlyph, TextBounds, TextEntity, TextFont, TextLayout,
 };
-use cosmic_text::{Attrs, Buffer, Family, Metrics, Shaping, Wrap};
+use cosmic_text::{fontdb::ID, Attrs, Buffer, Family, Metrics, Shaping, Wrap};
 
 /// A wrapper resource around a [`cosmic_text::FontSystem`]
 ///
@@ -57,12 +55,8 @@ impl Default for SwashCache {
 /// Information about a font collected as part of preparing for text layout.
 #[derive(Clone)]
 pub struct FontFaceInfo {
-    /// Width class: <https://docs.microsoft.com/en-us/typography/opentype/spec/os2#uswidthclass>
-    pub stretch: cosmic_text::fontdb::Stretch,
-    /// Allows italic or oblique faces to be selected
-    pub style: cosmic_text::fontdb::Style,
     /// Font family name
-    pub family_name: Arc<str>,
+    pub family_name: SmolStr,
 }
 
 /// The `TextPipeline` is used to layout and render text blocks (see `Text`/`Text2d`).
@@ -70,8 +64,8 @@ pub struct FontFaceInfo {
 /// See the [crate-level documentation](crate) for more information.
 #[derive(Default, Resource)]
 pub struct TextPipeline {
-    /// Identifies a font [`ID`](cosmic_text::fontdb::ID) by its [`Font`] [`Asset`](bevy_asset::Asset).
-    pub map_handle_to_font_id: HashMap<AssetId<Font>, (cosmic_text::fontdb::ID, Arc<str>)>,
+    /// Identifies a font [`ID`] by its [`Font`] [`Asset`](bevy_asset::Asset).
+    pub map_handle_to_font_id: HashMap<AssetId<Font>, (ID, Arc<str>)>,
     /// Buffered vec for collecting spans.
     ///
     /// See [this dark magic](https://users.rust-lang.org/t/how-to-cache-a-vectors-capacity/94478/10).
@@ -82,8 +76,6 @@ pub struct TextPipeline {
         FontFaceInfo,
         LineHeight,
     )>,
-    /// Buffered vec for collecting info for glyph assembly.
-    glyph_info: Vec<(AssetId<Font>, FontSmoothing, f32, f32, f32, f32, u16)>,
 }
 
 impl TextPipeline {
@@ -129,32 +121,46 @@ impl TextPipeline {
             if span.is_empty() {
                 continue;
             }
-            // Return early if a font is not loaded yet.
-            if !fonts.contains(text_font.font.id()) {
-                spans.clear();
-                self.spans_buffer = spans
-                    .into_iter()
-                    .map(
-                        |_| -> (
-                            usize,
-                            &'static str,
-                            &'static TextFont,
-                            FontFaceInfo,
-                            LineHeight,
-                        ) { unreachable!() },
-                    )
-                    .collect();
 
-                return Err(TextError::NoSuchFont);
-            }
+            let family_name: SmolStr = match &text_font.font {
+                FontSource::Handle(handle) => {
+                    if let Some(font) = fonts.get(handle.id()) {
+                        let data = Arc::clone(&font.data);
+                        let ids = font_system
+                            .db_mut()
+                            .load_font_source(cosmic_text::fontdb::Source::Binary(data));
 
-            // Load Bevy fonts into cosmic-text's font system.
-            let face_info = load_font_to_fontdb(
-                text_font,
-                font_system,
-                &mut self.map_handle_to_font_id,
-                fonts,
-            );
+                        // TODO: it is assumed this is the right font face
+                        font_system
+                            .db()
+                            .face(*ids.last().unwrap())
+                            .unwrap()
+                            .families[0]
+                            .0
+                            .as_str()
+                            .into()
+                    } else {
+                        // Return early if a font is not loaded yet.
+                        spans.clear();
+                        self.spans_buffer = spans
+                            .into_iter()
+                            .map(
+                                |_| -> (
+                                    usize,
+                                    &'static str,
+                                    &'static TextFont,
+                                    FontFaceInfo,
+                                    LineHeight,
+                                ) { unreachable!() },
+                            )
+                            .collect();
+                        return Err(TextError::NoSuchFont);
+                    }
+                }
+                FontSource::Family(family) => family.clone(),
+            };
+
+            let face_info = FontFaceInfo { family_name };
 
             // Save spans that aren't zero-sized.
             if scale_factor <= 0.0 || text_font.font_size <= 0.0 {
@@ -288,7 +294,7 @@ impl TextPipeline {
     }
 
     /// Returns the [`cosmic_text::fontdb::ID`] for a given [`Font`] asset.
-    pub fn get_font_id(&self, asset_id: AssetId<Font>) -> Option<cosmic_text::fontdb::ID> {
+    pub fn get_font_id(&self, asset_id: AssetId<Font>) -> Option<ID> {
         self.map_handle_to_font_id
             .get(&asset_id)
             .cloned()
@@ -296,11 +302,9 @@ impl TextPipeline {
     }
 
     /// Update [`TextLayoutInfo`] with the new [`PositionedGlyph`] layout.
-    pub fn update_text_layout_info<'a>(
+    pub fn update_text_layout_info(
         &mut self,
         layout_info: &mut TextLayoutInfo,
-        text_font_query: Query<&'a TextFont>,
-        scale_factor: f64,
         font_atlas_set: &mut FontAtlasSet,
         texture_atlases: &mut Assets<TextureAtlasLayout>,
         textures: &mut Assets<Image>,
@@ -312,36 +316,7 @@ impl TextPipeline {
     ) -> Result<(), TextError> {
         computed.needs_rerender = false;
 
-        layout_info.glyphs.clear();
-        layout_info.run_geometry.clear();
-        layout_info.size = Default::default();
-
-        self.glyph_info.clear();
-
-        for text_font in text_font_query.iter_many(computed.entities.iter().map(|e| e.entity)) {
-            let mut section_info = (
-                text_font.font.id(),
-                text_font.font_smoothing,
-                text_font.font_size,
-                0.0,
-                0.0,
-                0.0,
-                text_font.weight.clamp().0,
-            );
-
-            if let Some((id, _)) = self.map_handle_to_font_id.get(&section_info.0)
-                && let Some(font) = font_system.get_font(*id, cosmic_text::Weight(section_info.6))
-            {
-                let swash = font.as_swash();
-                let metrics = swash.metrics(&[]);
-                let upem = metrics.units_per_em as f32;
-                let scalar = section_info.2 * scale_factor as f32 / upem;
-                section_info.3 = (metrics.strikeout_offset * scalar).round();
-                section_info.4 = (metrics.stroke_size * scalar).round().max(1.);
-                section_info.5 = (metrics.underline_offset * scalar).round();
-            }
-            self.glyph_info.push(section_info);
-        }
+        layout_info.clear();
 
         let buffer = &mut computed.buffer;
 
@@ -353,133 +328,125 @@ impl TextPipeline {
         buffer.set_size(font_system, width, bounds.height);
         let mut box_size = Vec2::ZERO;
 
-        let result = buffer.layout_runs().try_for_each(|run| {
+        for run in buffer.layout_runs() {
             box_size.x = box_size.x.max(run.line_w);
             box_size.y += run.line_height;
-            let mut current_section: Option<usize> = None;
-            let mut start = 0.;
-            let mut end = 0.;
-            let result = run
-                .glyphs
-                .iter()
-                .map(move |layout_glyph| (layout_glyph, run.line_y, run.line_i))
-                .try_for_each(|(layout_glyph, line_y, line_i)| {
-                    match current_section {
-                        Some(section) => {
-                            if section != layout_glyph.metadata {
-                                layout_info.run_geometry.push(RunGeometry {
-                                    span_index: section,
-                                    bounds: Rect::new(
-                                        start,
-                                        run.line_top,
-                                        end,
-                                        run.line_top + run.line_height,
-                                    ),
-                                    strikethrough_y: (run.line_y - self.glyph_info[section].3)
-                                        .round(),
-                                    strikethrough_thickness: self.glyph_info[section].4,
-                                    underline_y: (run.line_y - self.glyph_info[section].5).round(),
-                                    underline_thickness: self.glyph_info[section].4,
-                                });
-                                start = end.max(layout_glyph.x);
-                                current_section = Some(layout_glyph.metadata);
-                            }
-                            end = layout_glyph.x + layout_glyph.w;
-                        }
-                        None => {
-                            current_section = Some(layout_glyph.metadata);
-                            start = layout_glyph.x;
-                            end = start + layout_glyph.w;
-                        }
-                    }
+            let mut maybe_run_geometry: Option<RunGeometry> = None;
+            let mut end: f32 = 0.;
 
-                    let mut temp_glyph;
-                    let span_index = layout_glyph.metadata;
-                    let font_id = self.glyph_info[span_index].0;
-                    let font_smoothing = self.glyph_info[span_index].1;
+            for layout_glyph in run.glyphs {
+                if maybe_run_geometry
+                    .as_ref()
+                    .is_some_and(|run_geometry| run_geometry.span_index != layout_glyph.metadata)
+                {
+                    layout_info
+                        .run_geometry
+                        .push(maybe_run_geometry.take().unwrap());
+                }
 
-                    let layout_glyph = if font_smoothing == FontSmoothing::None {
-                        // If font smoothing is disabled, round the glyph positions and sizes,
-                        // effectively discarding all subpixel layout.
-                        temp_glyph = layout_glyph.clone();
-                        temp_glyph.x = temp_glyph.x.round();
-                        temp_glyph.y = temp_glyph.y.round();
-                        temp_glyph.w = temp_glyph.w.round();
-                        temp_glyph.x_offset = temp_glyph.x_offset.round();
-                        temp_glyph.y_offset = temp_glyph.y_offset.round();
-                        temp_glyph.line_height_opt = temp_glyph.line_height_opt.map(f32::round);
+                if maybe_run_geometry.is_none() {
+                    let metrics = font_system
+                        .get_font(layout_glyph.font_id, layout_glyph.font_weight)
+                        .ok_or(TextError::NoSuchFont)?
+                        .as_swash()
+                        .metrics(&[]);
 
-                        &temp_glyph
-                    } else {
-                        layout_glyph
-                    };
+                    let scalar = layout_glyph.font_size / metrics.units_per_em as f32;
+                    let stroke_size = (metrics.stroke_size * scalar).round().max(1.);
+                    let start = end.max(layout_glyph.x);
 
-                    let physical_glyph = layout_glyph.physical((0., 0.), 1.);
+                    maybe_run_geometry = Some(RunGeometry {
+                        span_index: layout_glyph.metadata,
+                        bounds: Rect::new(
+                            start,
+                            run.line_top,
+                            start,
+                            run.line_top + run.line_height,
+                        ),
+                        strikethrough_y: (run.line_y - metrics.strikeout_offset * scalar).round(),
+                        strikethrough_thickness: stroke_size,
+                        underline_y: (run.line_y - metrics.underline_offset * scalar).round(),
+                        underline_thickness: stroke_size,
+                    });
+                }
 
-                    let font_atlases = font_atlas_set
-                        .entry(FontAtlasKey {
-                            id: font_id,
-                            font_size_bits: physical_glyph.cache_key.font_size_bits,
+                end = layout_glyph.x + layout_glyph.w;
+                maybe_run_geometry.as_mut().unwrap().bounds.max.x = end;
+
+                let mut temp_glyph;
+                let span_index = layout_glyph.metadata;
+                let font_smoothing = FontSmoothing::AntiAliased;
+
+                let layout_glyph = if font_smoothing == FontSmoothing::None {
+                    // If font smoothing is disabled, round the glyph positions and sizes,
+                    // effectively discarding all subpixel layout.
+                    temp_glyph = layout_glyph.clone();
+                    temp_glyph.x = temp_glyph.x.round();
+                    temp_glyph.y = temp_glyph.y.round();
+                    temp_glyph.w = temp_glyph.w.round();
+                    temp_glyph.x_offset = temp_glyph.x_offset.round();
+                    temp_glyph.y_offset = temp_glyph.y_offset.round();
+                    temp_glyph.line_height_opt = temp_glyph.line_height_opt.map(f32::round);
+
+                    &temp_glyph
+                } else {
+                    layout_glyph
+                };
+
+                let physical_glyph = layout_glyph.physical((0., 0.), 1.);
+
+                let font_atlases = font_atlas_set
+                    .entry(FontAtlasKey {
+                        id: physical_glyph.cache_key.font_id,
+                        font_size_bits: physical_glyph.cache_key.font_size_bits,
+                        font_smoothing,
+                    })
+                    .or_default();
+
+                let atlas_info = get_glyph_atlas_info(font_atlases, physical_glyph.cache_key)
+                    .map(Ok)
+                    .unwrap_or_else(|| {
+                        add_glyph_to_atlas(
+                            font_atlases,
+                            texture_atlases,
+                            textures,
+                            &mut font_system.0,
+                            &mut swash_cache.0,
+                            layout_glyph,
                             font_smoothing,
-                        })
-                        .or_default();
+                        )
+                    })?;
 
-                    let atlas_info = get_glyph_atlas_info(font_atlases, physical_glyph.cache_key)
-                        .map(Ok)
-                        .unwrap_or_else(|| {
-                            add_glyph_to_atlas(
-                                font_atlases,
-                                texture_atlases,
-                                textures,
-                                &mut font_system.0,
-                                &mut swash_cache.0,
-                                layout_glyph,
-                                font_smoothing,
-                            )
-                        })?;
+                let texture_atlas = texture_atlases.get(atlas_info.texture_atlas).unwrap();
+                let location = atlas_info.location;
+                let glyph_rect = texture_atlas.textures[location.glyph_index];
+                let left = location.offset.x as f32;
+                let top = location.offset.y as f32;
+                let glyph_size = UVec2::new(glyph_rect.width(), glyph_rect.height());
 
-                    let texture_atlas = texture_atlases.get(atlas_info.texture_atlas).unwrap();
-                    let location = atlas_info.location;
-                    let glyph_rect = texture_atlas.textures[location.glyph_index];
-                    let left = location.offset.x as f32;
-                    let top = location.offset.y as f32;
-                    let glyph_size = UVec2::new(glyph_rect.width(), glyph_rect.height());
+                // offset by half the size because the origin is center
+                let x = glyph_size.x as f32 / 2.0 + left + physical_glyph.x as f32;
+                let y =
+                    run.line_y.round() + physical_glyph.y as f32 - top + glyph_size.y as f32 / 2.0;
 
-                    // offset by half the size because the origin is center
-                    let x = glyph_size.x as f32 / 2.0 + left + physical_glyph.x as f32;
-                    let y =
-                        line_y.round() + physical_glyph.y as f32 - top + glyph_size.y as f32 / 2.0;
+                let position = Vec2::new(x, y);
 
-                    let position = Vec2::new(x, y);
-
-                    let pos_glyph = PositionedGlyph {
-                        position,
-                        size: glyph_size.as_vec2(),
-                        atlas_info,
-                        span_index,
-                        byte_index: layout_glyph.start,
-                        byte_length: layout_glyph.end - layout_glyph.start,
-                        line_index: line_i,
-                    };
-                    layout_info.glyphs.push(pos_glyph);
-                    Ok(())
-                });
-            if let Some(section) = current_section {
-                layout_info.run_geometry.push(RunGeometry {
-                    span_index: section,
-                    bounds: Rect::new(start, run.line_top, end, run.line_top + run.line_height),
-                    strikethrough_y: (run.line_y - self.glyph_info[section].3).round(),
-                    strikethrough_thickness: self.glyph_info[section].4,
-                    underline_y: (run.line_y - self.glyph_info[section].5).round(),
-                    underline_thickness: self.glyph_info[section].4,
-                });
+                let pos_glyph = PositionedGlyph {
+                    position,
+                    size: glyph_size.as_vec2(),
+                    atlas_info,
+                    span_index,
+                    byte_index: layout_glyph.start,
+                    byte_length: layout_glyph.end - layout_glyph.start,
+                    line_index: run.line_i,
+                };
+                layout_info.glyphs.push(pos_glyph);
             }
 
-            result
-        });
-
-        // Check result.
-        result?;
+            if let Some(run_geometry) = maybe_run_geometry.take() {
+                layout_info.run_geometry.push(run_geometry);
+            }
+        }
 
         layout_info.size = box_size.ceil();
         Ok(())
@@ -594,40 +561,6 @@ impl TextMeasureInfo {
     }
 }
 
-/// Add the font to the cosmic text's `FontSystem`'s in-memory font database
-pub fn load_font_to_fontdb(
-    text_font: &TextFont,
-    font_system: &mut cosmic_text::FontSystem,
-    map_handle_to_font_id: &mut HashMap<AssetId<Font>, (cosmic_text::fontdb::ID, Arc<str>)>,
-    fonts: &Assets<Font>,
-) -> FontFaceInfo {
-    let font_id = text_font.font.id();
-    let (face_id, family_name) = map_handle_to_font_id.entry(font_id).or_insert_with(|| {
-        let font = fonts.get(font_id).expect(
-            "Tried getting a font that was not available, probably due to not being loaded yet",
-        );
-        let data = Arc::clone(&font.data);
-        let ids = font_system
-            .db_mut()
-            .load_font_source(cosmic_text::fontdb::Source::Binary(data));
-
-        // TODO: it is assumed this is the right font face
-        let face_id = *ids.last().unwrap();
-        let face = font_system.db().face(face_id).unwrap();
-
-        let family_name = Arc::from(face.families[0].0.as_str());
-        (face_id, family_name)
-    });
-
-    let face = font_system.db().face(*face_id).unwrap();
-
-    FontFaceInfo {
-        stretch: face.stretch,
-        style: face.style,
-        family_name: family_name.clone(),
-    }
-}
-
 /// Translates [`TextFont`] to [`Attrs`].
 fn get_attrs<'a>(
     span_index: usize,
@@ -640,8 +573,8 @@ fn get_attrs<'a>(
     Attrs::new()
         .metadata(span_index)
         .family(Family::Name(&face_info.family_name))
-        .stretch(face_info.stretch)
-        .style(face_info.style)
+        .stretch(text_font.width.into())
+        .style(text_font.style.into())
         .weight(text_font.weight.into())
         .metrics(
             Metrics {

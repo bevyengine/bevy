@@ -179,7 +179,6 @@ pub fn update_text2d_layout(
         &mut ComputedTextBlock,
         Ref<FontHinting>,
     )>,
-    text_font_query: Query<&TextFont>,
     mut text_reader: Text2dReader,
     mut font_system: ResMut<CosmicFontSystem>,
     mut swash_cache: ResMut<SwashCache>,
@@ -275,8 +274,6 @@ pub fn update_text2d_layout(
 
         match text_pipeline.update_text_layout_info(
             &mut text_layout_info,
-            text_font_query,
-            scale_factor as f64,
             &mut font_atlas_set,
             &mut texture_atlases,
             &mut textures,
