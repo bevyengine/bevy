@@ -40,7 +40,7 @@ impl Ray2d {
     pub fn get_point(&self, distance: f32) -> Vec2 {
         self.origin + *self.direction * distance
     }
-
+    
     /// Get the distance to a plane if the ray intersects it
     #[inline]
     pub fn intersect_plane(&self, plane_origin: Vec2, plane: Plane2d) -> Option<f32> {
@@ -52,6 +52,13 @@ impl Ray2d {
             }
         }
         None
+    }
+    
+    /// Get the intersection point with a plane if the ray intersects it  
+    #[inline]
+    pub fn plane_intersection_point(&self, plane_origin: Vec2, plane: Plane2d) -> Option<Vec2> {
+        self.intersect_plane(plane_origin, plane).
+            map(|distance| self.get_point(distance))
     }
 }
 
@@ -98,6 +105,13 @@ impl Ray3d {
             }
         }
         None
+    }
+    
+    /// Get the intersection point with a plane if the ray intersects it  
+    #[inline]
+    pub fn plane_intersection_point(&self, plane_origin: Vec3, plane: InfinitePlane3d) -> Option<Vec3> {
+        self.intersect_plane(plane_origin, plane).
+            map(|distance| self.get_point(distance))
     }
 }
 
