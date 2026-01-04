@@ -1,6 +1,7 @@
 #define_import_path bevy_solari::specular_gi
 
 #import bevy_pbr::pbr_functions::calculate_tbn_mikktspace
+#import bevy_pbr::prepass_bindings::PreviousViewUniforms
 #import bevy_render::maths::{orthonormalize, PI}
 #import bevy_render::view::View
 #import bevy_solari::brdf::{evaluate_brdf, evaluate_specular_brdf}
@@ -14,6 +15,7 @@
 @group(1) @binding(7) var gbuffer: texture_2d<u32>;
 @group(1) @binding(8) var depth_buffer: texture_depth_2d;
 @group(1) @binding(12) var<uniform> view: View;
+@group(1) @binding(13) var<uniform> previous_view: PreviousViewUniforms;
 struct PushConstants { frame_index: u32, reset: u32 }
 var<push_constant> constants: PushConstants;
 
@@ -123,9 +125,8 @@ fn trace_glossy_path(primary_surface: ResolvedGPixel, initial_wi: vec3<f32>, ini
                 psr_finished = true;
 
                 // Simplification: Apply all rotations in the chain around the first mirror, rather than applying each rotation around its respective mirror
-                let previous_frame_position = todo;
                 let virtual_position = (mirror_rotations * (ray_hit.world_position - primary_surface.world_position)) + primary_surface.world_position;
-                let virtual_previous_frame_final_position = (mirror_rotations * (previous_frame_position - primary_surface.world_position)) + primary_surface.world_position;
+                let virtual_previous_frame_position = (mirror_rotations * (ray_hit.previous_frame_world_position - primary_surface.world_position)) + primary_surface.world_position;
 
                 // TODO: GBuffer and motion vectors replacement
                 let virtual_normal = normalize(mirror_rotations * ray_hit.world_normal);

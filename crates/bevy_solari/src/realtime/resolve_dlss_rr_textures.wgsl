@@ -16,12 +16,13 @@ fn resolve_dlss_rr_textures(@builtin(global_invocation_id) global_id: vec3<u32>)
     let pixel_id = global_id.xy;
     if any(pixel_id >= vec2u(view.main_pass_viewport.zw)) { return; }
 
+    textureStore(specular_motion_vectors, pixel_id, vec4(0.0));
+
     let depth = textureLoad(depth_buffer, global_id.xy, 0);
     if depth == 0.0 {
         textureStore(diffuse_albedo, pixel_id, vec4(0.0));
         textureStore(specular_albedo, pixel_id, vec4(0.5));
         textureStore(normal_roughness, pixel_id, vec4(0.0));
-        textureStore(specular_motion_vectors, pixel_id, vec4(0.0));
         return;
     }
 
@@ -32,7 +33,6 @@ fn resolve_dlss_rr_textures(@builtin(global_invocation_id) global_id: vec3<u32>)
     textureStore(diffuse_albedo, pixel_id, vec4(calculate_diffuse_color(surface.material.base_color, surface.material.metallic, 0.0, 0.0), 0.0));
     textureStore(specular_albedo, pixel_id, vec4(env_brdf_approx2(F0, surface.material.roughness, surface.world_normal, wo), 0.0));
     textureStore(normal_roughness, pixel_id, vec4(surface.world_normal, surface.material.perceptual_roughness));
-    textureStore(specular_motion_vectors, pixel_id, vec4(0.0)); // TODO
 }
 
 fn env_brdf_approx2(specular_color: vec3<f32>, alpha: f32, N: vec3<f32>, V: vec3<f32>) -> vec3<f32> {
