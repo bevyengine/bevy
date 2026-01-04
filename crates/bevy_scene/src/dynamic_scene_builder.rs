@@ -833,7 +833,6 @@ mod tests {
         for (scene_entity, world_entity) in entity_map.iter() {
             reverse_map.insert(*world_entity, *scene_entity);
         }
-        println!("Reverse map: {:?}", reverse_map);
 
         let entities = reverse_map.keys().cloned().collect::<Vec<Entity>>();
         // Extract from the new world using the reverse map
