@@ -24,8 +24,7 @@ static SHADER_ASSET_PATH: &str = "shaders/extended_material_bindless.wgsl";
 /// The `#[data(50, ExampleBindlessExtensionUniform, binding_array(101))]`
 /// attribute specifies that the plain old data
 /// [`ExampleBindlessExtensionUniform`] will be placed into an array with
-/// binding 101 and will occupy index 50 in the
-/// `ExampleBindlessExtendedMaterialIndices` structure. (See the shader for the
+/// binding 101 and that the index referencing it will be stored in slot 50 of the `ExampleBindlessExtendedMaterialIndices` structure. (See below or lookup the shader for the
 /// definition of that structure.) That corresponds to the following shader
 /// declaration:
 ///
