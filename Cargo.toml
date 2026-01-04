@@ -5104,6 +5104,18 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
+name = "navigation"
+path = "examples/ui/navigation.rs"
+# Causes an ICE on docs.rs
+doc-scrape-examples = false
+
+[package.metadata.example.navigation]
+name = "Navigation"
+description = "Demonstration of automatic and manual directional navigation between UI elements"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "clustered_decals"
 path = "examples/3d/clustered_decals.rs"
 # Causes an ICE on docs.rs
