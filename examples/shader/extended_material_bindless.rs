@@ -112,7 +112,7 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ExtendedMaterial<StandardMaterial, ExampleBindlessExtension>>>,
 ) {
-    // Create a gray sphere, modulated with a red-tinted Bevy logo.
+    // Create a gray sphere, modulated with a red-tinted checkerboard pattern.
     commands.spawn((
         Mesh3d(meshes.add(SphereMeshBuilder::new(
             1.0,
