@@ -428,7 +428,8 @@ impl<'w> DynamicSceneBuilder<'w> {
                 // Map entities in the resource if an entity map is provided
                 if let Some(entity_map) = self.entity_map.as_mut() {
                     if let Some(map_entities) = type_registration.data::<ReflectMapEntities>() {
-                        map_entities.map_entities(resource.as_partial_reflect_mut(), &mut **entity_map);
+                        map_entities
+                            .map_entities(resource.as_partial_reflect_mut(), &mut **entity_map);
                     }
                 }
 
@@ -447,7 +448,7 @@ impl<'w> DynamicSceneBuilder<'w> {
 mod tests {
     use bevy_ecs::{
         component::Component,
-        entity::{EntityHashMap},
+        entity::EntityHashMap,
         prelude::{Entity, Resource},
         query::With,
         reflect::{AppTypeRegistry, ReflectComponent, ReflectResource},
@@ -836,8 +837,7 @@ mod tests {
         }
         println!("Reverse map: {:?}", reverse_map);
 
-        let entities = 
-                reverse_map.keys().cloned().collect::<Vec<Entity>>();
+        let entities = reverse_map.keys().cloned().collect::<Vec<Entity>>();
         // Extract from the new world using the reverse map
         let recreated_scene = DynamicSceneBuilder::from_world(&new_world)
             .with_entity_map(&mut reverse_map)
@@ -845,7 +845,10 @@ mod tests {
             .build();
 
         // The recreated scene should have the same entity IDs as the original
-        assert_eq!(original_scene.entities.len(), recreated_scene.entities.len());
+        assert_eq!(
+            original_scene.entities.len(),
+            recreated_scene.entities.len()
+        );
         for original_entity in &original_scene.entities {
             let recreated_entity = recreated_scene
                 .entities
@@ -854,11 +857,20 @@ mod tests {
                 .expect("Entity should be present in recreated scene");
 
             assert_eq!(original_entity.entity, recreated_entity.entity);
-            assert_eq!(original_entity.components.len(), recreated_entity.components.len());
+            assert_eq!(
+                original_entity.components.len(),
+                recreated_entity.components.len()
+            );
 
             // Check that the EntityRef component has been remapped correctly
-            for (orig_comp, recre_comp) in original_entity.components.iter().zip(&recreated_entity.components) {
-                assert!(orig_comp.reflect_partial_eq(recre_comp.as_partial_reflect()).unwrap_or(false));
+            for (orig_comp, recre_comp) in original_entity
+                .components
+                .iter()
+                .zip(&recreated_entity.components)
+            {
+                assert!(orig_comp
+                    .reflect_partial_eq(recre_comp.as_partial_reflect())
+                    .unwrap_or(false));
             }
         }
     }
