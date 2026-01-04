@@ -349,6 +349,22 @@ impl SpecializedRenderPipeline for DeferredLightingLayout {
             shader_defs.push("MULTIPLE_LIGHTMAPS_IN_ARRAY".into());
         }
 
+        if cfg!(feature = "pbr_multi_layer_material_textures") {
+            shader_defs.push("PBR_MULTI_LAYER_MATERIAL_TEXTURES_SUPPORTED".into());
+        }
+
+        if cfg!(feature = "pbr_transmission_textures") {
+            shader_defs.push("PBR_TRANSMISSION_TEXTURES_SUPPORTED".into());
+        }
+
+        if cfg!(feature = "pbr_anisotropy_texture") {
+            shader_defs.push("PBR_ANISOTROPY_TEXTURE_SUPPORTED".into());
+        }
+
+        if cfg!(feature = "pbr_specular_textures") {
+            shader_defs.push("PBR_SPECULAR_TEXTURES_SUPPORTED".into());
+        }
+
         #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
         shader_defs.push("SIXTEEN_BYTE_ALIGNMENT".into());
 

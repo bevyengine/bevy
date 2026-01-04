@@ -1477,6 +1477,17 @@ impl Material for StandardMaterial {
                     StandardMaterialKey::ANISOTROPY,
                     "STANDARD_MATERIAL_ANISOTROPY",
                 ),
+            ] {
+                if key.bind_group_data.contains(flags) {
+                    shader_defs.push(shader_def.into());
+                }
+            }
+
+            if cfg!(feature = "pbr_multi_layer_material_textures") {
+                shader_defs.push("PBR_MULTI_LAYER_MATERIAL_TEXTURES_SUPPORTED".into());
+            }
+
+            for (flags, shader_def) in [
                 (
                     StandardMaterialKey::BASE_COLOR_UV,
                     "STANDARD_MATERIAL_BASE_COLOR_UV_B",

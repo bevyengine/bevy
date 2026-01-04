@@ -571,6 +571,22 @@ impl SpecializedRenderPipeline for ScreenSpaceReflectionsPipeline {
             shader_defs.push("SCREEN_SPACE_AMBIENT_OCCLUSION".into());
         }
 
+        if cfg!(feature = "pbr_multi_layer_material_textures") {
+            shader_defs.push("PBR_MULTI_LAYER_MATERIAL_TEXTURES_SUPPORTED".into());
+        }
+
+        if cfg!(feature = "pbr_transmission_textures") {
+            shader_defs.push("PBR_TRANSMISSION_TEXTURES_SUPPORTED".into());
+        }
+
+        if cfg!(feature = "pbr_anisotropy_texture") {
+            shader_defs.push("PBR_ANISOTROPY_TEXTURE_SUPPORTED".into());
+        }
+
+        if cfg!(feature = "pbr_specular_textures") {
+            shader_defs.push("PBR_SPECULAR_TEXTURES_SUPPORTED".into());
+        }
+
         shader_defs.push("STANDARD_MATERIAL_CLEARCOAT".into());
 
         RenderPipelineDescriptor {
