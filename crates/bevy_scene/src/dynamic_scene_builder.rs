@@ -342,12 +342,11 @@ impl<'w> DynamicSceneBuilder<'w> {
                         clone_reflect_value(component.as_partial_reflect(), type_registration);
 
                     // Map entities in the component if an entity map is provided
-                    if let Some(entity_map) = self.entity_map.as_mut() {
-                        if let Some(map_entities) = type_registration.data::<ReflectComponent>() {
-                            if let Some(component) = component.try_as_reflect_mut() {
-                                map_entities.map_entities(component, &mut **entity_map);
-                            }
-                        }
+                    if let Some(entity_map) = self.entity_map.as_mut()
+                        && let Some(map_entities) = type_registration.data::<ReflectComponent>()
+                        && let Some(component) = component.try_as_reflect_mut()
+                    {
+                        map_entities.map_entities(component, &mut **entity_map);
                     }
 
                     entry.components.push(component);
@@ -426,11 +425,10 @@ impl<'w> DynamicSceneBuilder<'w> {
                     clone_reflect_value(resource.as_partial_reflect(), type_registration);
 
                 // Map entities in the resource if an entity map is provided
-                if let Some(entity_map) = self.entity_map.as_mut() {
-                    if let Some(map_entities) = type_registration.data::<ReflectMapEntities>() {
-                        map_entities
-                            .map_entities(resource.as_partial_reflect_mut(), &mut **entity_map);
-                    }
+                if let Some(entity_map) = self.entity_map.as_mut()
+                    && let Some(map_entities) = type_registration.data::<ReflectMapEntities>()
+                {
+                    map_entities.map_entities(resource.as_partial_reflect_mut(), &mut **entity_map);
                 }
 
                 self.extracted_resources.insert(component_id, resource);
