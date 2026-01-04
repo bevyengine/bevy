@@ -52,6 +52,8 @@
 
 // Group 1, bindings 2 and 3 are in `raymarch.wgsl`.
 
+@group(2) @binding(4) var stbn_texture: texture_2d_array<f32>;
+
 struct BrdfSample {
     wi: vec3<f32>,
     value_over_pdf: vec3<f32>,
@@ -68,11 +70,14 @@ fn sample_specular_brdf(wo: vec3<f32>, roughness: f32, F0: vec3<f32>, urand: vec
     let VdotH = max(dot(wo, H), 0.0001);
 
     let F = lighting::F_Schlick_vec(F0, 1.0, VdotH);
-    let G1V = lighting::G_Smith(NdotV, NdotV, roughness);
-    let G2 = lighting::G_Smith(NdotV, NdotL, roughness);
+
+    // Height-correlated Smith G2 / G1(V)
+    let a2 = roughness * roughness;
+    let lambdaV = NdotL * sqrt((NdotV - a2 * NdotV) * NdotV + a2);
+    let lambdaL = NdotV * sqrt((NdotL - a2 * NdotL) * NdotL + a2);
 
     brdf_sample.wi = wi;
-    brdf_sample.value_over_pdf = F * (G2 / G1V);
+    brdf_sample.value_over_pdf = F * (NdotV * NdotL + lambdaV) / (lambdaV + lambdaL);
 
     return brdf_sample;
 }
@@ -148,10 +153,29 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     let roughness = lighting::perceptualRoughnessToRoughness(perceptual_roughness);
     let F0 = pbr_functions::calculate_F0(pbr_input.material.base_color.rgb, pbr_input.material.metallic, pbr_input.material.reflectance);
 
-    // Get some random numbers.
-    var rng_seed = u32(in.position.x) + u32(in.position.y) * 16384u + globals.frame_count * 31337u;
-    let urand = utils::rand_vec2f(&rng_seed);
-    let raymarch_jitter = utils::rand_f(&rng_seed);
+    // Get some random numbers. If the spatio-temporal blue noise (STBN) texture
+    // is available (i.e. not the 1x1 placeholder), we use it. Otherwise, we
+    // fall back to procedural noise.
+    let stbn_dims = textureDimensions(stbn_texture);
+    var urand: vec2<f32>;
+    var raymarch_jitter: f32;
+    if (all(stbn_dims > vec2(1u))) {
+        let stbn_layers = textureNumLayers(stbn_texture);
+        let stbn_noise = textureLoad(
+            stbn_texture,
+            vec2<u32>(in.position.xy) % stbn_dims,
+            i32(globals.frame_count % u32(stbn_layers)),
+            0
+        );
+        urand = stbn_noise.xy;
+        // Use the third channel for jitter to avoid correlation with BRDF sampling.
+        raymarch_jitter = stbn_noise.z;
+    } else {
+        // Fallback to PCG-based procedural noise.
+        var state = u32(in.position.x) + u32(in.position.y) * 16384u + globals.frame_count * 196613u;
+        urand = utils::rand_vec2f(&state);
+        raymarch_jitter = utils::rand_f(&state);
+    }
 
     // Sample the BRDF.
     let N_tangent = vec3(0.0, 0.0, 1.0);

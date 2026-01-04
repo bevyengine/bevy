@@ -27,6 +27,7 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     diagnostic::RecordDiagnostics,
     extract_component::{ExtractComponent, ExtractComponentPlugin},
+    render_asset::RenderAssets,
     render_graph::{
         NodeRunError, RenderGraph, RenderGraphContext, RenderGraphExt, ViewNode, ViewNodeRunner,
     },
@@ -36,9 +37,11 @@ use bevy_render::{
         DynamicUniformBuffer, FilterMode, FragmentState, Operations, PipelineCache,
         RenderPassColorAttachment, RenderPassDescriptor, RenderPipelineDescriptor, Sampler,
         SamplerBindingType, SamplerDescriptor, ShaderStages, ShaderType, SpecializedRenderPipeline,
-        SpecializedRenderPipelines, TextureFormat, TextureSampleType,
+        SpecializedRenderPipelines, TextureFormat, TextureSampleType, TextureViewDescriptor,
+        TextureViewDimension,
     },
     renderer::{RenderAdapter, RenderContext, RenderDevice, RenderQueue},
+    texture::GpuImage,
     view::{ExtractedView, Msaa, ViewTarget, ViewUniformOffset},
     Render, RenderApp, RenderStartup, RenderSystems,
 };
@@ -47,8 +50,8 @@ use bevy_utils::{once, prelude::default};
 use tracing::info;
 
 use crate::{
-    binding_arrays_are_usable, graph::NodePbr, ExtractedAtmosphere, MeshPipelineViewLayoutKey,
-    MeshPipelineViewLayouts, MeshViewBindGroup, RenderViewLightProbes,
+    binding_arrays_are_usable, graph::NodePbr, Bluenoise, ExtractedAtmosphere,
+    MeshPipelineViewLayoutKey, MeshPipelineViewLayouts, MeshViewBindGroup, RenderViewLightProbes,
     ViewEnvironmentMapUniformOffset, ViewFogUniformOffset, ViewLightProbesUniformOffset,
     ViewLightsUniformOffset,
 };
@@ -293,6 +296,15 @@ impl ViewNode for ScreenSpaceReflectionsNode {
 
         // Create the bind group for this view.
         let ssr_pipeline = world.resource::<ScreenSpaceReflectionsPipeline>();
+        let bluenoise = world.resource::<Bluenoise>();
+        let render_images = world.resource::<RenderAssets<GpuImage>>();
+        let stbn_texture = render_images.get(&bluenoise.texture).unwrap();
+        let stbn_view = stbn_texture.texture.create_view(&TextureViewDescriptor {
+            label: Some("ssr_stbn_view"),
+            dimension: Some(TextureViewDimension::D2Array),
+            ..default()
+        });
+
         let ssr_bind_group = render_context.render_device().create_bind_group(
             "SSR bind group",
             &pipeline_cache.get_bind_group_layout(&ssr_pipeline.bind_group_layout),
@@ -301,6 +313,7 @@ impl ViewNode for ScreenSpaceReflectionsNode {
                 &ssr_pipeline.color_sampler,
                 &ssr_pipeline.depth_linear_sampler,
                 &ssr_pipeline.depth_nearest_sampler,
+                &stbn_view,
             )),
         );
 
@@ -363,6 +376,7 @@ pub fn init_screen_space_reflections_pipeline(
                 binding_types::sampler(SamplerBindingType::Filtering),
                 binding_types::sampler(SamplerBindingType::Filtering),
                 binding_types::sampler(SamplerBindingType::NonFiltering),
+                binding_types::texture_2d_array(TextureSampleType::Float { filterable: false }),
             ),
         ),
     );
