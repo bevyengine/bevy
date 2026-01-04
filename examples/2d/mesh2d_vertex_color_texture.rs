@@ -1,7 +1,7 @@
 //! Shows how to render a polygonal [`Mesh`], generated from a [`Rectangle`] primitive, in a 2D scene.
 //! Adds a texture and colored vertices, giving per-vertex tinting.
 
-use bevy::prelude::*;
+use bevy::{mesh::InfallibleMesh, prelude::*};
 
 fn main() {
     App::new()
@@ -19,7 +19,7 @@ fn setup(
     // Load the Bevy logo as a texture
     let texture_handle = asset_server.load("branding/banner.png");
     // Build a default quad mesh
-    let mut mesh = Mesh::from(Rectangle::default());
+    let mut mesh = InfallibleMesh::from(Rectangle::default().mesh());
     // Build vertex colors for the quad. One entry per vertex (the corners of the quad)
     let vertex_colors: Vec<[f32; 4]> = vec![
         LinearRgba::RED.to_f32_array(),

@@ -1,4 +1,4 @@
-use crate::{Indices, Mesh, MeshBuilder, Meshable, PrimitiveTopology};
+use crate::{Indices, InfallibleMesh, Mesh, MeshBuilder, Meshable, PrimitiveTopology};
 use bevy_asset::RenderAssetUsages;
 use bevy_math::{primitives::Plane3d, Dir3, Quat, Vec2, Vec3};
 use bevy_reflect::prelude::*;
@@ -94,7 +94,7 @@ impl PlaneMeshBuilder {
 }
 
 impl MeshBuilder for PlaneMeshBuilder {
-    fn build(&self) -> Mesh {
+    fn build_infallible(&self) -> InfallibleMesh {
         let z_vertex_count = self.subdivisions + 2;
         let x_vertex_count = self.subdivisions + 2;
         let num_vertices = (z_vertex_count * x_vertex_count) as usize;
@@ -131,7 +131,7 @@ impl MeshBuilder for PlaneMeshBuilder {
             }
         }
 
-        Mesh::new(
+        InfallibleMesh::new(
             PrimitiveTopology::TriangleList,
             RenderAssetUsages::default(),
         )
@@ -145,16 +145,10 @@ impl MeshBuilder for PlaneMeshBuilder {
 impl Meshable for Plane3d {
     type Output = PlaneMeshBuilder;
 
-    fn mesh(&self) -> Self::Output {
+    fn mesh(self) -> Self::Output {
         PlaneMeshBuilder {
-            plane: *self,
+            plane: self,
             subdivisions: 0,
         }
-    }
-}
-
-impl From<Plane3d> for Mesh {
-    fn from(plane: Plane3d) -> Self {
-        plane.mesh().build()
     }
 }

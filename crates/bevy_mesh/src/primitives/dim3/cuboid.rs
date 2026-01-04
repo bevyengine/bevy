@@ -1,4 +1,4 @@
-use crate::{Indices, Mesh, MeshBuilder, Meshable, PrimitiveTopology};
+use crate::{Indices, InfallibleMesh, Mesh, MeshBuilder, Meshable, PrimitiveTopology};
 use bevy_asset::RenderAssetUsages;
 use bevy_math::{primitives::Cuboid, Vec3};
 use bevy_reflect::prelude::*;
@@ -20,7 +20,7 @@ impl Default for CuboidMeshBuilder {
 }
 
 impl MeshBuilder for CuboidMeshBuilder {
-    fn build(&self) -> Mesh {
+    fn build_infallible(&self) -> InfallibleMesh {
         let min = -self.half_size;
         let max = self.half_size;
 
@@ -71,7 +71,7 @@ impl MeshBuilder for CuboidMeshBuilder {
             20, 21, 22, 22, 23, 20, // bottom
         ]);
 
-        Mesh::new(
+        InfallibleMesh::new(
             PrimitiveTopology::TriangleList,
             RenderAssetUsages::default(),
         )
@@ -85,15 +85,9 @@ impl MeshBuilder for CuboidMeshBuilder {
 impl Meshable for Cuboid {
     type Output = CuboidMeshBuilder;
 
-    fn mesh(&self) -> Self::Output {
+    fn mesh(self) -> Self::Output {
         CuboidMeshBuilder {
             half_size: self.half_size,
         }
-    }
-}
-
-impl From<Cuboid> for Mesh {
-    fn from(cuboid: Cuboid) -> Self {
-        cuboid.mesh().build()
     }
 }

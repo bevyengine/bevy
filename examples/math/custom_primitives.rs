@@ -17,7 +17,7 @@ use bevy::{
         },
         Isometry2d,
     },
-    mesh::{Extrudable, ExtrusionBuilder, PerimeterSegment},
+    mesh::{Extrudable, ExtrusionBuilder, InfallibleMesh, PerimeterSegment},
     prelude::*,
 };
 
@@ -472,9 +472,9 @@ impl Meshable for Heart {
     // The `MeshBuilder` can be used to create the actual mesh for that primitive.
     type Output = HeartMeshBuilder;
 
-    fn mesh(&self) -> Self::Output {
+    fn mesh(self) -> Self::Output {
         Self::Output {
-            heart: *self,
+            heart: self,
             resolution: 32,
         }
     }
@@ -510,7 +510,7 @@ impl HeartBuilder for ExtrusionBuilder<Heart> {
 
 impl MeshBuilder for HeartMeshBuilder {
     // This is where you should build the actual mesh.
-    fn build(&self) -> Mesh {
+    fn build_infallible(&self) -> InfallibleMesh {
         let radius = self.heart.radius;
         // The curved parts of each wing (half) of the heart have an angle of `PI * 1.25` or 225°
         let wing_angle = PI * 1.25;
@@ -553,7 +553,7 @@ impl MeshBuilder for HeartMeshBuilder {
         }
 
         // Here, the actual `Mesh` is created. We set the indices, vertices, normals and UVs created above and specify the topology of the mesh.
-        Mesh::new(
+        InfallibleMesh::new(
             bevy::mesh::PrimitiveTopology::TriangleList,
             RenderAssetUsages::default(),
         )

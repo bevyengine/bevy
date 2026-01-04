@@ -1,4 +1,4 @@
-use crate::{Indices, Mesh, MeshBuilder, Meshable, PrimitiveTopology};
+use crate::{Indices, InfallibleMesh, Mesh, MeshBuilder, Meshable, PrimitiveTopology};
 use bevy_asset::RenderAssetUsages;
 use bevy_math::{ops, primitives::Sphere};
 use bevy_reflect::prelude::*;
@@ -81,7 +81,7 @@ impl SphereMeshBuilder {
     /// and an [`IcosphereError`] is returned.
     ///
     /// A good default is `5` subdivisions.
-    pub fn ico(&self, subdivisions: u32) -> Result<Mesh, IcosphereError> {
+    pub fn ico(&self, subdivisions: u32) -> Result<InfallibleMesh, IcosphereError> {
         if subdivisions >= 80 {
             /*
             Number of triangles:
@@ -151,7 +151,7 @@ impl SphereMeshBuilder {
 
         let indices = Indices::U32(indices);
 
-        Ok(Mesh::new(
+        Ok(InfallibleMesh::new(
             PrimitiveTopology::TriangleList,
             RenderAssetUsages::default(),
         )
@@ -165,7 +165,7 @@ impl SphereMeshBuilder {
     /// longitudinal sectors and latitudinal stacks, aka horizontal and vertical resolution.
     ///
     /// A good default is `32` sectors and `18` stacks.
-    pub fn uv(&self, sectors: u32, stacks: u32) -> Mesh {
+    pub fn uv(&self, sectors: u32, stacks: u32) -> InfallibleMesh {
         // Largely inspired from http://www.songho.ca/opengl/gl_sphere.html
 
         let sectors_f32 = sectors as f32;
@@ -220,7 +220,7 @@ impl SphereMeshBuilder {
             }
         }
 
-        Mesh::new(
+        InfallibleMesh::new(
             PrimitiveTopology::TriangleList,
             RenderAssetUsages::default(),
         )
@@ -238,7 +238,7 @@ impl MeshBuilder for SphereMeshBuilder {
     ///
     /// Panics if the sphere is a [`SphereKind::Ico`] with a subdivision count
     /// that is greater than or equal to `80` because there will be too many vertices.
-    fn build(&self) -> Mesh {
+    fn build_infallible(&self) -> InfallibleMesh {
         match self.kind {
             SphereKind::Ico { subdivisions } => self.ico(subdivisions).unwrap(),
             SphereKind::Uv { sectors, stacks } => self.uv(sectors, stacks),
@@ -249,16 +249,10 @@ impl MeshBuilder for SphereMeshBuilder {
 impl Meshable for Sphere {
     type Output = SphereMeshBuilder;
 
-    fn mesh(&self) -> Self::Output {
+    fn mesh(self) -> Self::Output {
         SphereMeshBuilder {
-            sphere: *self,
+            sphere: self,
             ..Default::default()
         }
-    }
-}
-
-impl From<Sphere> for Mesh {
-    fn from(sphere: Sphere) -> Self {
-        sphere.mesh().build()
     }
 }

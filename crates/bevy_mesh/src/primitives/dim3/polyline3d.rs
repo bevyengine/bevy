@@ -1,4 +1,4 @@
-use crate::{Indices, Mesh, MeshBuilder, Meshable, PrimitiveTopology};
+use crate::{Indices, InfallibleMesh, Mesh, MeshBuilder, Meshable, PrimitiveTopology};
 use bevy_asset::RenderAssetUsages;
 use bevy_math::primitives::Polyline3d;
 use bevy_reflect::prelude::*;
@@ -11,7 +11,7 @@ pub struct Polyline3dMeshBuilder {
 }
 
 impl MeshBuilder for Polyline3dMeshBuilder {
-    fn build(&self) -> Mesh {
+    fn build_infallible(&self) -> InfallibleMesh {
         let positions: Vec<_> = self.polyline.vertices.clone();
 
         let indices = Indices::U32(
@@ -20,7 +20,7 @@ impl MeshBuilder for Polyline3dMeshBuilder {
                 .collect(),
         );
 
-        Mesh::new(PrimitiveTopology::LineList, RenderAssetUsages::default())
+        InfallibleMesh::new(PrimitiveTopology::LineList, RenderAssetUsages::default())
             .with_inserted_indices(indices)
             .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
     }
@@ -29,15 +29,7 @@ impl MeshBuilder for Polyline3dMeshBuilder {
 impl Meshable for Polyline3d {
     type Output = Polyline3dMeshBuilder;
 
-    fn mesh(&self) -> Self::Output {
-        Polyline3dMeshBuilder {
-            polyline: self.clone(),
-        }
-    }
-}
-
-impl From<Polyline3d> for Mesh {
-    fn from(polyline: Polyline3d) -> Self {
-        polyline.mesh().build()
+    fn mesh(self) -> Self::Output {
+        Polyline3dMeshBuilder { polyline: self }
     }
 }

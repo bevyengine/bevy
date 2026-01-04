@@ -4,7 +4,7 @@ use bevy_math::{
 };
 
 use super::{MeshBuilder, Meshable};
-use crate::{Indices, Mesh, PrimitiveTopology, VertexAttributeValues};
+use crate::{Indices, InfallibleMesh, Mesh, PrimitiveTopology, VertexAttributeValues};
 
 /// A type representing a segment of the perimeter of an extrudable mesh.
 pub enum PerimeterSegment {
@@ -92,7 +92,7 @@ where
 {
     type Output = ExtrusionBuilder<P>;
 
-    fn mesh(&self) -> Self::Output {
+    fn mesh(self) -> Self::Output {
         ExtrusionBuilder {
             base_builder: self.base_shape.mesh(),
             half_depth: self.half_depth,
@@ -118,7 +118,7 @@ where
     P::Output: Extrudable,
 {
     /// Create a new `ExtrusionBuilder<P>` from a given `base_shape` and the full `depth` of the extrusion.
-    pub fn new(base_shape: &P, depth: f32) -> Self {
+    pub fn new(base_shape: P, depth: f32) -> Self {
         Self {
             base_builder: base_shape.mesh(),
             half_depth: depth / 2.,
@@ -177,12 +177,12 @@ where
     P: Primitive2d + Meshable,
     P::Output: Extrudable,
 {
-    fn build(&self) -> Mesh {
+    fn build_infallible(&self) -> InfallibleMesh {
         // Create and move the base mesh to the front
-        let mut front_face =
-            self.base_builder
-                .build()
-                .translated_by(Vec3::new(0., 0., self.half_depth));
+        let mut front_face = self
+            .base_builder
+            .build_infallible()
+            .translated_by(Vec3::new(0., 0., self.half_depth));
 
         // Move the uvs of the front face to be between (0., 0.) and (0.5, 0.5)
         if let Some(VertexAttributeValues::Float32x2(uvs)) =
@@ -413,7 +413,7 @@ where
                 }
             }
 
-            Mesh::new(PrimitiveTopology::TriangleList, front_face.asset_usage)
+            InfallibleMesh::new(PrimitiveTopology::TriangleList, front_face.asset_usage)
                 .with_inserted_indices(Indices::U32(indices))
                 .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
                 .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
@@ -423,15 +423,5 @@ where
         front_face.merge(&back_face).unwrap();
         front_face.merge(&mantel).unwrap();
         front_face
-    }
-}
-
-impl<P> From<Extrusion<P>> for Mesh
-where
-    P: Primitive2d + Meshable,
-    P::Output: Extrudable,
-{
-    fn from(value: Extrusion<P>) -> Self {
-        value.mesh().build()
     }
 }

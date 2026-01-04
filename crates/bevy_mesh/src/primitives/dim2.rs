@@ -1,6 +1,7 @@
 use core::f32::consts::FRAC_PI_2;
 use core::mem;
 
+use crate::InfallibleMesh;
 use crate::{primitives::dim3::triangle3d, Indices, Mesh, PerimeterSegment, VertexAttributeValues};
 use bevy_asset::RenderAssetUsages;
 
@@ -59,11 +60,11 @@ impl CircleMeshBuilder {
 }
 
 impl MeshBuilder for CircleMeshBuilder {
-    fn build(&self) -> Mesh {
+    fn build_infallible(&self) -> InfallibleMesh {
         Ellipse::new(self.circle.radius, self.circle.radius)
             .mesh()
             .resolution(self.resolution)
-            .build()
+            .build_infallible()
     }
 }
 
@@ -80,17 +81,11 @@ impl Extrudable for CircleMeshBuilder {
 impl Meshable for Circle {
     type Output = CircleMeshBuilder;
 
-    fn mesh(&self) -> Self::Output {
+    fn mesh(self) -> Self::Output {
         CircleMeshBuilder {
-            circle: *self,
+            circle: self,
             ..Default::default()
         }
-    }
-}
-
-impl From<Circle> for Mesh {
-    fn from(circle: Circle) -> Self {
-        circle.mesh().build()
     }
 }
 
@@ -175,7 +170,7 @@ impl CircularSectorMeshBuilder {
 }
 
 impl MeshBuilder for CircularSectorMeshBuilder {
-    fn build(&self) -> Mesh {
+    fn build_infallible(&self) -> InfallibleMesh {
         let resolution = self.resolution as usize;
         let mut indices = Vec::with_capacity((resolution - 1) * 3);
         let mut positions = Vec::with_capacity(resolution + 1);
@@ -210,7 +205,7 @@ impl MeshBuilder for CircularSectorMeshBuilder {
             indices.extend_from_slice(&[0, i, i + 1]);
         }
 
-        Mesh::new(
+        InfallibleMesh::new(
             PrimitiveTopology::TriangleList,
             RenderAssetUsages::default(),
         )
@@ -242,20 +237,11 @@ impl Extrudable for CircularSectorMeshBuilder {
 impl Meshable for CircularSector {
     type Output = CircularSectorMeshBuilder;
 
-    fn mesh(&self) -> Self::Output {
+    fn mesh(self) -> Self::Output {
         CircularSectorMeshBuilder {
-            sector: *self,
+            sector: self,
             ..Default::default()
         }
-    }
-}
-
-impl From<CircularSector> for Mesh {
-    /// Converts this sector into a [`Mesh`] using a default [`CircularSectorMeshBuilder`].
-    ///
-    /// See the documentation of [`CircularSectorMeshBuilder`] for more details.
-    fn from(sector: CircularSector) -> Self {
-        sector.mesh().build()
     }
 }
 
@@ -313,7 +299,7 @@ impl CircularSegmentMeshBuilder {
 }
 
 impl MeshBuilder for CircularSegmentMeshBuilder {
-    fn build(&self) -> Mesh {
+    fn build_infallible(&self) -> InfallibleMesh {
         let resolution = self.resolution as usize;
         let mut indices = Vec::with_capacity((resolution - 1) * 3);
         let mut positions = Vec::with_capacity(resolution + 1);
@@ -357,7 +343,7 @@ impl MeshBuilder for CircularSegmentMeshBuilder {
             indices.extend_from_slice(&[0, i, i + 1]);
         }
 
-        Mesh::new(
+        InfallibleMesh::new(
             PrimitiveTopology::TriangleList,
             RenderAssetUsages::default(),
         )
@@ -389,20 +375,11 @@ impl Extrudable for CircularSegmentMeshBuilder {
 impl Meshable for CircularSegment {
     type Output = CircularSegmentMeshBuilder;
 
-    fn mesh(&self) -> Self::Output {
+    fn mesh(self) -> Self::Output {
         CircularSegmentMeshBuilder {
-            segment: *self,
+            segment: self,
             ..Default::default()
         }
-    }
-}
-
-impl From<CircularSegment> for Mesh {
-    /// Converts this sector into a [`Mesh`] using a default [`CircularSegmentMeshBuilder`].
-    ///
-    /// See the documentation of [`CircularSegmentMeshBuilder`] for more details.
-    fn from(segment: CircularSegment) -> Self {
-        segment.mesh().build()
     }
 }
 
@@ -419,15 +396,15 @@ pub struct ConvexPolygonMeshBuilder {
 impl Meshable for ConvexPolygon {
     type Output = ConvexPolygonMeshBuilder;
 
-    fn mesh(&self) -> Self::Output {
+    fn mesh(self) -> Self::Output {
         Self::Output {
-            vertices: self.vertices().to_vec(),
+            vertices: self.vertices,
         }
     }
 }
 
 impl MeshBuilder for ConvexPolygonMeshBuilder {
-    fn build(&self) -> Mesh {
+    fn build_infallible(&self) -> InfallibleMesh {
         let len = self.vertices.len();
         let mut indices = Vec::with_capacity((len - 2) * 3);
         let mut positions = Vec::with_capacity(len);
@@ -438,7 +415,7 @@ impl MeshBuilder for ConvexPolygonMeshBuilder {
         for i in 2..len as u32 {
             indices.extend_from_slice(&[0, i - 1, i]);
         }
-        Mesh::new(
+        InfallibleMesh::new(
             PrimitiveTopology::TriangleList,
             RenderAssetUsages::default(),
         )
@@ -452,12 +429,6 @@ impl Extrudable for ConvexPolygonMeshBuilder {
         vec![PerimeterSegment::Flat {
             indices: (0..self.vertices.len() as u32).chain([0]).collect(),
         }]
-    }
-}
-
-impl From<ConvexPolygon> for Mesh {
-    fn from(polygon: ConvexPolygon) -> Self {
-        polygon.mesh().build()
     }
 }
 
@@ -503,7 +474,7 @@ impl RegularPolygonMeshBuilder {
 impl Meshable for RegularPolygon {
     type Output = RegularPolygonMeshBuilder;
 
-    fn mesh(&self) -> Self::Output {
+    fn mesh(self) -> Self::Output {
         Self::Output {
             circumradius: self.circumcircle.radius,
             sides: self.sides,
@@ -512,12 +483,12 @@ impl Meshable for RegularPolygon {
 }
 
 impl MeshBuilder for RegularPolygonMeshBuilder {
-    fn build(&self) -> Mesh {
+    fn build_infallible(&self) -> InfallibleMesh {
         // The ellipse mesh is just a regular polygon with two radii
         Ellipse::new(self.circumradius, self.circumradius)
             .mesh()
             .resolution(self.sides)
-            .build()
+            .build_infallible()
     }
 }
 
@@ -526,12 +497,6 @@ impl Extrudable for RegularPolygonMeshBuilder {
         vec![PerimeterSegment::Flat {
             indices: (0..self.sides).chain([0]).collect(),
         }]
-    }
-}
-
-impl From<RegularPolygon> for Mesh {
-    fn from(polygon: RegularPolygon) -> Self {
-        polygon.mesh().build()
     }
 }
 
@@ -576,7 +541,7 @@ impl EllipseMeshBuilder {
 }
 
 impl MeshBuilder for EllipseMeshBuilder {
-    fn build(&self) -> Mesh {
+    fn build_infallible(&self) -> InfallibleMesh {
         let resolution = self.resolution as usize;
         let mut indices = Vec::with_capacity((resolution - 2) * 3);
         let mut positions = Vec::with_capacity(resolution);
@@ -602,7 +567,7 @@ impl MeshBuilder for EllipseMeshBuilder {
             indices.extend_from_slice(&[0, i, i + 1]);
         }
 
-        Mesh::new(
+        InfallibleMesh::new(
             PrimitiveTopology::TriangleList,
             RenderAssetUsages::default(),
         )
@@ -626,17 +591,11 @@ impl Extrudable for EllipseMeshBuilder {
 impl Meshable for Ellipse {
     type Output = EllipseMeshBuilder;
 
-    fn mesh(&self) -> Self::Output {
+    fn mesh(self) -> Self::Output {
         EllipseMeshBuilder {
-            ellipse: *self,
+            ellipse: self,
             ..Default::default()
         }
-    }
-}
-
-impl From<Ellipse> for Mesh {
-    fn from(ellipse: Ellipse) -> Self {
-        ellipse.mesh().build()
     }
 }
 
@@ -655,11 +614,11 @@ impl Segment2dMeshBuilder {
 }
 
 impl MeshBuilder for Segment2dMeshBuilder {
-    fn build(&self) -> Mesh {
+    fn build_infallible(&self) -> InfallibleMesh {
         let positions = self.segment.vertices.map(|v| v.extend(0.0)).to_vec();
         let indices = Indices::U32(vec![0, 1]);
 
-        Mesh::new(PrimitiveTopology::LineList, RenderAssetUsages::default())
+        InfallibleMesh::new(PrimitiveTopology::LineList, RenderAssetUsages::default())
             .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
             .with_inserted_indices(indices)
     }
@@ -668,15 +627,8 @@ impl MeshBuilder for Segment2dMeshBuilder {
 impl Meshable for Segment2d {
     type Output = Segment2dMeshBuilder;
 
-    fn mesh(&self) -> Self::Output {
-        Segment2dMeshBuilder::new(*self)
-    }
-}
-
-impl From<Segment2d> for Mesh {
-    /// Converts this segment into a [`Mesh`] using a default [`Segment2dMeshBuilder`].
-    fn from(segment: Segment2d) -> Self {
-        segment.mesh().build()
+    fn mesh(self) -> Self::Output {
+        Segment2dMeshBuilder::new(self)
     }
 }
 
@@ -688,7 +640,7 @@ pub struct Polyline2dMeshBuilder {
 }
 
 impl MeshBuilder for Polyline2dMeshBuilder {
-    fn build(&self) -> Mesh {
+    fn build_infallible(&self) -> InfallibleMesh {
         let positions: Vec<_> = self
             .polyline
             .vertices
@@ -702,7 +654,7 @@ impl MeshBuilder for Polyline2dMeshBuilder {
                 .collect(),
         );
 
-        Mesh::new(PrimitiveTopology::LineList, RenderAssetUsages::default())
+        InfallibleMesh::new(PrimitiveTopology::LineList, RenderAssetUsages::default())
             .with_inserted_indices(indices)
             .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
     }
@@ -711,16 +663,8 @@ impl MeshBuilder for Polyline2dMeshBuilder {
 impl Meshable for Polyline2d {
     type Output = Polyline2dMeshBuilder;
 
-    fn mesh(&self) -> Self::Output {
-        Polyline2dMeshBuilder {
-            polyline: self.clone(),
-        }
-    }
-}
-
-impl From<Polyline2d> for Mesh {
-    fn from(polyline: Polyline2d) -> Self {
-        polyline.mesh().build()
+    fn mesh(self) -> Self::Output {
+        Polyline2dMeshBuilder { polyline: self }
     }
 }
 
@@ -764,7 +708,7 @@ impl AnnulusMeshBuilder {
 }
 
 impl MeshBuilder for AnnulusMeshBuilder {
-    fn build(&self) -> Mesh {
+    fn build_infallible(&self) -> InfallibleMesh {
         let inner_radius = self.annulus.inner_circle.radius;
         let outer_radius = self.annulus.outer_circle.radius;
 
@@ -811,7 +755,7 @@ impl MeshBuilder for AnnulusMeshBuilder {
             indices.extend_from_slice(&[next_outer, next_inner, inner_vertex]);
         }
 
-        Mesh::new(
+        InfallibleMesh::new(
             PrimitiveTopology::TriangleList,
             RenderAssetUsages::default(),
         )
@@ -843,17 +787,11 @@ impl Extrudable for AnnulusMeshBuilder {
 impl Meshable for Annulus {
     type Output = AnnulusMeshBuilder;
 
-    fn mesh(&self) -> Self::Output {
+    fn mesh(self) -> Self::Output {
         AnnulusMeshBuilder {
-            annulus: *self,
+            annulus: self,
             ..Default::default()
         }
-    }
-}
-
-impl From<Annulus> for Mesh {
-    fn from(annulus: Annulus) -> Self {
-        annulus.mesh().build()
     }
 }
 
@@ -896,7 +834,7 @@ impl RhombusMeshBuilder {
 }
 
 impl MeshBuilder for RhombusMeshBuilder {
-    fn build(&self) -> Mesh {
+    fn build_infallible(&self) -> InfallibleMesh {
         let [hhd, vhd] = [self.half_diagonals.x, self.half_diagonals.y];
         let positions = vec![
             [hhd, 0.0, 0.0],
@@ -908,7 +846,7 @@ impl MeshBuilder for RhombusMeshBuilder {
         let uvs = vec![[1.0, 0.5], [0.5, 0.0], [0.0, 0.5], [0.5, 1.0]];
         let indices = Indices::U32(vec![2, 0, 1, 2, 3, 0]);
 
-        Mesh::new(
+        InfallibleMesh::new(
             PrimitiveTopology::TriangleList,
             RenderAssetUsages::default(),
         )
@@ -930,16 +868,10 @@ impl Extrudable for RhombusMeshBuilder {
 impl Meshable for Rhombus {
     type Output = RhombusMeshBuilder;
 
-    fn mesh(&self) -> Self::Output {
+    fn mesh(self) -> Self::Output {
         Self::Output {
             half_diagonals: self.half_diagonals,
         }
-    }
-}
-
-impl From<Rhombus> for Mesh {
-    fn from(rhombus: Rhombus) -> Self {
-        rhombus.mesh().build()
     }
 }
 
@@ -962,13 +894,13 @@ impl Triangle2dMeshBuilder {
 impl Meshable for Triangle2d {
     type Output = Triangle2dMeshBuilder;
 
-    fn mesh(&self) -> Self::Output {
-        Self::Output { triangle: *self }
+    fn mesh(self) -> Self::Output {
+        Self::Output { triangle: self }
     }
 }
 
 impl MeshBuilder for Triangle2dMeshBuilder {
-    fn build(&self) -> Mesh {
+    fn build_infallible(&self) -> InfallibleMesh {
         let vertices_3d = self.triangle.vertices.map(|v| v.extend(0.));
 
         let positions: Vec<_> = vertices_3d.into();
@@ -988,7 +920,7 @@ impl MeshBuilder for Triangle2dMeshBuilder {
             Indices::U32(vec![2, 1, 0])
         };
 
-        Mesh::new(
+        InfallibleMesh::new(
             PrimitiveTopology::TriangleList,
             RenderAssetUsages::default(),
         )
@@ -1011,12 +943,6 @@ impl Extrudable for Triangle2dMeshBuilder {
                 indices: vec![2, 1, 0, 2],
             }]
         }
-    }
-}
-
-impl From<Triangle2d> for Mesh {
-    fn from(triangle: Triangle2d) -> Self {
-        triangle.mesh().build()
     }
 }
 
@@ -1053,7 +979,7 @@ impl RectangleMeshBuilder {
 }
 
 impl MeshBuilder for RectangleMeshBuilder {
-    fn build(&self) -> Mesh {
+    fn build_infallible(&self) -> InfallibleMesh {
         let [hw, hh] = [self.half_size.x, self.half_size.y];
         let positions = vec![
             [hw, hh, 0.0],
@@ -1065,7 +991,7 @@ impl MeshBuilder for RectangleMeshBuilder {
         let uvs = vec![[1.0, 0.0], [0.0, 0.0], [0.0, 1.0], [1.0, 1.0]];
         let indices = Indices::U32(vec![0, 1, 2, 0, 2, 3]);
 
-        Mesh::new(
+        InfallibleMesh::new(
             PrimitiveTopology::TriangleList,
             RenderAssetUsages::default(),
         )
@@ -1087,16 +1013,10 @@ impl Extrudable for RectangleMeshBuilder {
 impl Meshable for Rectangle {
     type Output = RectangleMeshBuilder;
 
-    fn mesh(&self) -> Self::Output {
+    fn mesh(self) -> Self::Output {
         RectangleMeshBuilder {
             half_size: self.half_size,
         }
-    }
-}
-
-impl From<Rectangle> for Mesh {
-    fn from(rectangle: Rectangle) -> Self {
-        rectangle.mesh().build()
     }
 }
 
@@ -1143,7 +1063,7 @@ impl Capsule2dMeshBuilder {
 }
 
 impl MeshBuilder for Capsule2dMeshBuilder {
-    fn build(&self) -> Mesh {
+    fn build_infallible(&self) -> InfallibleMesh {
         // The resolution is the number of vertices for one semicircle
         let resolution = self.resolution;
         let vertex_count = 2 * resolution;
@@ -1207,7 +1127,7 @@ impl MeshBuilder for Capsule2dMeshBuilder {
         // Add indices for bottom right triangle of the part between the semicircles
         indices.extend_from_slice(&[resolution, vertex_count - 1, 0]);
 
-        Mesh::new(
+        InfallibleMesh::new(
             PrimitiveTopology::TriangleList,
             RenderAssetUsages::default(),
         )
@@ -1247,17 +1167,11 @@ impl Extrudable for Capsule2dMeshBuilder {
 impl Meshable for Capsule2d {
     type Output = Capsule2dMeshBuilder;
 
-    fn mesh(&self) -> Self::Output {
+    fn mesh(self) -> Self::Output {
         Capsule2dMeshBuilder {
-            capsule: *self,
+            capsule: self,
             ..Default::default()
         }
-    }
-}
-
-impl From<Capsule2d> for Mesh {
-    fn from(capsule: Capsule2d) -> Self {
-        capsule.mesh().build()
     }
 }
 
@@ -1275,7 +1189,7 @@ where
     P: Primitive2d + Meshable,
 {
     /// Create a new `RingMeshBuilder<P>` from a given `Ring<P>` shape.
-    pub fn new(ring: &Ring<P>) -> Self {
+    pub fn new(ring: Ring<P>) -> Self {
         Self {
             outer_shape_builder: ring.outer_shape.mesh(),
             inner_shape_builder: ring.inner_shape.mesh(),
@@ -1290,7 +1204,7 @@ where
     }
 
     fn get_vertex_attributes(&self) -> Option<RingMeshBuilderVertexAttributes> {
-        fn get_positions(mesh: &mut Mesh) -> Option<&mut Vec<[f32; 3]>> {
+        fn get_positions(mesh: &mut InfallibleMesh) -> Option<&mut Vec<[f32; 3]>> {
             if let VertexAttributeValues::Float32x3(data) =
                 mesh.attribute_mut(Mesh::ATTRIBUTE_POSITION)?
             {
@@ -1300,7 +1214,7 @@ where
             }
         }
 
-        fn get_uvs(mesh: &mut Mesh) -> Option<&mut Vec<[f32; 2]>> {
+        fn get_uvs(mesh: &mut InfallibleMesh) -> Option<&mut Vec<[f32; 2]>> {
             if let VertexAttributeValues::Float32x2(data) =
                 mesh.attribute_mut(Mesh::ATTRIBUTE_UV_0)?
             {
@@ -1310,7 +1224,7 @@ where
             }
         }
 
-        fn get_normals(mesh: &mut Mesh) -> Option<&mut Vec<[f32; 3]>> {
+        fn get_normals(mesh: &mut InfallibleMesh) -> Option<&mut Vec<[f32; 3]>> {
             if let VertexAttributeValues::Float32x3(data) =
                 mesh.attribute_mut(Mesh::ATTRIBUTE_NORMAL)?
             {
@@ -1320,8 +1234,8 @@ where
             }
         }
 
-        let mut outer = self.outer_shape_builder.build();
-        let mut inner = self.inner_shape_builder.build();
+        let mut outer = self.outer_shape_builder.build_infallible();
+        let mut inner = self.inner_shape_builder.build_infallible();
 
         assert_eq!(
             outer.primitive_topology(),
@@ -1371,7 +1285,7 @@ where
     /// It is assumed that the `primitive_topology` of the mesh returned by
     /// the underlying builder is [`PrimitiveTopology::TriangleList`]
     /// and that the mesh has [`Mesh::ATTRIBUTE_POSITION`], [`Mesh::ATTRIBUTE_NORMAL`] and [`Mesh::ATTRIBUTE_UV_0`] attributes.
-    fn build(&self) -> Mesh {
+    fn build_infallible(&self) -> InfallibleMesh {
         if let Some(RingMeshBuilderVertexAttributes {
             outer_uvs,
             inner_uvs,
@@ -1424,7 +1338,7 @@ where
             let mut positions = outer_positions;
             positions.extend_from_slice(&inner_positions);
 
-            Mesh::new(
+            InfallibleMesh::new(
                 PrimitiveTopology::TriangleList,
                 RenderAssetUsages::default(),
             )
@@ -1510,17 +1424,8 @@ where
 {
     type Output = RingMeshBuilder<P>;
 
-    fn mesh(&self) -> Self::Output {
+    fn mesh(self) -> Self::Output {
         RingMeshBuilder::new(self)
-    }
-}
-
-impl<P> From<Ring<P>> for Mesh
-where
-    P: Primitive2d + Meshable,
-{
-    fn from(ring: Ring<P>) -> Self {
-        ring.mesh().build()
     }
 }
 
@@ -1569,7 +1474,7 @@ mod tests {
 
     #[test]
     fn test_regular_polygon() {
-        let mut mesh = Mesh::from(RegularPolygon::new(7.0, 4));
+        let mut mesh = RegularPolygon::new(7.0, 4).mesh().build_infallible();
 
         let Some(VertexAttributeValues::Float32x3(mut positions)) =
             mesh.remove_attribute(Mesh::ATTRIBUTE_POSITION)

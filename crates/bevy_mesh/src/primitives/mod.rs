@@ -28,6 +28,8 @@ pub use dim3::*;
 mod extrusion;
 pub use extrusion::*;
 
+use crate::InfallibleMesh;
+
 use super::Mesh;
 
 /// A trait for shapes that can be turned into a [`Mesh`].
@@ -36,17 +38,36 @@ pub trait Meshable {
     type Output: MeshBuilder;
 
     /// Creates a [`Mesh`] for a shape.
-    fn mesh(&self) -> Self::Output;
+    fn mesh(self) -> Self::Output;
 }
 
 /// A trait used to build [`Mesh`]es from a configuration
 pub trait MeshBuilder {
+    /// Builds an [`InfallibleMesh`] based on the configuration in `self`.
+    fn build_infallible(&self) -> InfallibleMesh;
+
     /// Builds a [`Mesh`] based on the configuration in `self`.
-    fn build(&self) -> Mesh;
+    fn build(&self) -> Mesh {
+        self.build_infallible().into()
+    }
 }
 
-impl<T: MeshBuilder> From<T> for Mesh {
-    fn from(builder: T) -> Self {
-        builder.build()
+impl<T: MeshBuilder> Meshable for T {
+    type Output = Self;
+
+    fn mesh(self) -> Self::Output {
+        self
+    }
+}
+
+impl<T: Meshable> From<T> for Mesh {
+    fn from(meshable: T) -> Self {
+        meshable.mesh().build()
+    }
+}
+
+impl<T: Meshable> From<T> for InfallibleMesh {
+    fn from(meshable: T) -> Self {
+        meshable.mesh().build_infallible()
     }
 }

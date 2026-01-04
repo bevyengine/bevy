@@ -8,7 +8,7 @@ use bevy::{
     math::ops,
     mesh::{
         skinning::{SkinnedMesh, SkinnedMeshInverseBindposes},
-        Indices, PrimitiveTopology, VertexAttributeValues,
+        Indices, InfallibleMesh, PrimitiveTopology, VertexAttributeValues,
     },
     prelude::*,
 };
@@ -54,7 +54,7 @@ fn setup(
     ]);
 
     // Create a mesh
-    let mesh = Mesh::new(
+    let mesh = InfallibleMesh::new(
         PrimitiveTopology::TriangleList,
         RenderAssetUsages::RENDER_WORLD,
     )

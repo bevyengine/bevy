@@ -391,19 +391,21 @@ fn add_raytracing_meshes_on_scene_load(
 
             // Ensure meshes are Solari compatible
             let mesh = meshes.get_mut(mesh_handle).unwrap();
-            if !mesh.contains_attribute(Mesh::ATTRIBUTE_UV_0) {
+            if !mesh.contains_attribute(Mesh::ATTRIBUTE_UV_0).unwrap() {
                 let vertex_count = mesh.count_vertices();
-                mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, vec![[0.0, 0.0]; vertex_count]);
+                mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, vec![[0.0, 0.0]; vertex_count])
+                    .unwrap();
                 mesh.insert_attribute(
                     Mesh::ATTRIBUTE_TANGENT,
                     vec![[0.0, 0.0, 0.0, 0.0]; vertex_count],
-                );
+                )
+                .unwrap();
             }
-            if !mesh.contains_attribute(Mesh::ATTRIBUTE_TANGENT) {
+            if !mesh.contains_attribute(Mesh::ATTRIBUTE_TANGENT).unwrap() {
                 mesh.generate_tangents().unwrap();
             }
-            if mesh.contains_attribute(Mesh::ATTRIBUTE_UV_1) {
-                mesh.remove_attribute(Mesh::ATTRIBUTE_UV_1);
+            if mesh.contains_attribute(Mesh::ATTRIBUTE_UV_1).unwrap() {
+                let _ = mesh.remove_attribute(Mesh::ATTRIBUTE_UV_1);
             }
 
             // Prevent rasterization if using pathtracer

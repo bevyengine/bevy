@@ -197,7 +197,7 @@ fn spawn_plane_mesh(
             half_size: Vec2::splat(PLANE_HALF_SIZE),
         }
         .mesh()
-        .build()
+        .build_infallible()
         .with_duplicated_vertices()
         .with_computed_flat_normals()
         .with_generated_tangents()
