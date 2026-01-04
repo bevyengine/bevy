@@ -24,14 +24,14 @@ static SHADER_ASSET_PATH: &str = "shaders/extended_material_bindless.wgsl";
 /// The `#[data(50, ExampleBindlessExtensionUniform, binding_array(101))]`
 /// attribute specifies that the plain old data
 /// [`ExampleBindlessExtensionUniform`] will be placed into an array with
-/// binding 100 and will occupy index 50 in the
+/// binding 101 and will occupy index 50 in the
 /// `ExampleBindlessExtendedMaterialIndices` structure. (See the shader for the
 /// definition of that structure.) That corresponds to the following shader
 /// declaration:
 ///
 /// ```wgsl
-/// @group(2) @binding(100) var<storage> example_extended_material_indices:
-///     array<ExampleBindlessExtendedMaterialIndices>;
+/// @group(#{MATERIAL_BIND_GROUP}) @binding(101) 
+/// var<storage> example_extended_material: array<ExampleBindlessExtendedMaterial>;
 /// ```
 ///
 /// The `#[bindless(index_table(range(50..53), binding(100)))]` attribute
@@ -48,8 +48,8 @@ static SHADER_ASSET_PATH: &str = "shaders/extended_material_bindless.wgsl";
 ///     modulate_texture_sampler: u32,      // 52
 /// }
 ///
-/// @group(2) @binding(100) var<storage> example_extended_material_indices:
-///     array<ExampleBindlessExtendedMaterialIndices>;
+/// @group(#{MATERIAL_BIND_GROUP}) @binding(100) 
+/// var<storage> example_extended_material_indices: array<ExampleBindlessExtendedMaterialIndices>;
 /// ```
 ///
 /// We need to use the `index_table` subattribute because the
