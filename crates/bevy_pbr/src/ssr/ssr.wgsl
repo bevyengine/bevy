@@ -141,7 +141,16 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     var ssr_specular = vec4(0.0);
     let noise = interleaved_gradient_noise(frag_coord.xy, globals.frame_count);
 
+    var sample_count = 0u;
     for (var i: u32 = 0u; i < ssr_settings.samples; i = i + 1u) {
+        sample_count += 1u;
+
+        // Adaptive sampling: if the surface is rough, we only take one sample for now
+        // to save performance, as we don't have a denoiser yet anyway.
+        if (perceptual_roughness > 0.4 && i > 0u) {
+             break;
+        }
+
         var R = reflect(-V, N);
         if (roughness > 0.0) {
             let xi = vec2(
@@ -152,9 +161,18 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
         }
 
         let sample_jitter = fract(noise + f32(i) * 0.61803398875);
-        ssr_specular += evaluate_ssr(R, world_position, sample_jitter);
+        let ssr_sample = evaluate_ssr(R, world_position, sample_jitter);
+        ssr_specular += ssr_sample;
+
+        // If the first sample hit nothing (sky), we often don't want to keep tracing
+        // because it's expensive and likely to hit nothing again for moderately smooth surfaces.
+        if (ssr_sample.a > 0.9 && i == 0u && perceptual_roughness < 0.2) {
+             // For smooth surfaces, we expect most rays to follow a similar path.
+             // If the first one missed, the others probably will too.
+             break;
+        }
     }
-    ssr_specular /= f32(ssr_settings.samples);
+    ssr_specular /= f32(sample_count);
 
     // Calculate various values needed for both SSR weighting and environment mapping.
     let diffuse_color = calculate_diffuse_color(
