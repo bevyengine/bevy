@@ -68,10 +68,7 @@ pub struct ScreenSpaceReflectionsPlugin;
 /// components, which are inserted automatically,
 /// but deferred rendering itself is not automatically enabled.
 ///
-/// SSR currently performs no roughness filtering for glossy reflections, so
-/// only very smooth surfaces will reflect objects in screen space. You can
-/// adjust the `perceptual_roughness_threshold` in order to tune the threshold
-/// below which screen-space reflections will be traced.
+/// Enable the `bluenoise_texture` feature to improve the quality of noise on rough reflections.
 ///
 /// As with all screen-space techniques, SSR can only reflect objects on screen.
 /// When objects leave the camera, they will disappear from reflections.
