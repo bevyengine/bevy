@@ -24,12 +24,13 @@ pub fn extract_raytracing_scene(
 ) {
     for (render_entity, mesh, material, transform, previous_frame_transform) in &instances {
         let mut commands = commands.entity(render_entity);
-        match previous_frame_transform {
+
+        match previous_frame_transform.cloned() {
             Some(previous_frame_transform) => commands.insert((
                 mesh.clone(),
                 material.clone(),
                 *transform,
-                previous_frame_transform.clone(),
+                previous_frame_transform,
             )),
             None => commands.insert((mesh.clone(), material.clone(), *transform)),
         };
