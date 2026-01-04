@@ -135,7 +135,7 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     let N = pbr_input.N;
     let V = pbr_input.V;
 
-    let roughness = lighting::perceptualRoughnessToRoughness(perceptual_roughness);
+    let roughness = perceptualRoughnessToRoughness(perceptual_roughness);
 
     // Do the raymarching.
     var ssr_specular = vec4(0.0);
@@ -190,7 +190,7 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     //
     // Note that we don't multiply by `view.exposure` here because the sampled
     // `ssr_specular.rgb` is already exposed.
-    var indirect_light = ssr_specular.rgb * FssEss * pbr_input.specular_occlusion * (1.0 - ssr_specular.a);
+    var indirect_light = ssr_specular.rgb * FssEss * pbr_input.specular_occlusion;
 
     // Sample the environment map if necessary.
     //

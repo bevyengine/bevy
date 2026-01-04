@@ -567,7 +567,7 @@ fn apply_pbr_lighting(
     // NdotV = 1.0;
     // F0 = vec3<f32>(0.0)
     // diffuse_occlusion = vec3<f32>(1.0)
-    transmitted_light += ambient::ambient_light(diffuse_transmissive_lobe_world_position, -in.N, -in.V, 1.0, diffuse_transmissive_color, vec3<f32>(0.0), 1.0, vec3<f32>(1.0));
+    transmitted_light += ambient::ambient_light(diffuse_transmissive_lobe_world_position, -in.N, -in.V, 1.0, diffuse_transmissive_color, vec3<f32>(0.0), 1.0, vec3<f32>(1.0), 1.0);
 #endif
 
     // Diffuse indirect lighting can come from a variety of sources. The
