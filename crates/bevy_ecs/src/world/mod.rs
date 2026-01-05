@@ -67,7 +67,7 @@ use alloc::{boxed::Box, vec::Vec};
 use bevy_platform::sync::atomic::{AtomicU32, Ordering};
 use bevy_ptr::{move_as_ptr, MovingPtr, OwningPtr, Ptr};
 use bevy_utils::prelude::DebugName;
-use core::{any::TypeId, fmt};
+use core::{any::TypeId, fmt, mem::ManuallyDrop};
 use log::warn;
 use unsafe_world_cell::UnsafeWorldCell;
 
@@ -2721,40 +2721,114 @@ impl World {
         let change_tick = self.change_tick();
 
         let component_id = self.components.get_valid_resource_id(TypeId::of::<R>())?;
-        let (ptr, mut ticks, mut caller) = self
-            .storages
-            .resources
-            .get_mut(component_id)
-            .and_then(ResourceData::remove)?;
+        let (ptr, ticks, caller) = self.storages.resources.get_mut(component_id)?.remove()?;
+
         // Read the value onto the stack to avoid potential mut aliasing.
         // SAFETY: `ptr` was obtained from the TypeId of `R`.
-        let mut value = unsafe { ptr.read::<R>() };
-        let value_mut = Mut {
-            value: &mut value,
-            ticks: ComponentTicksMut {
-                added: &mut ticks.added,
-                changed: &mut ticks.changed,
-                changed_by: caller.as_mut(),
-                last_run: last_change_tick,
-                this_run: change_tick,
-            },
-        };
-        let result = f(self, value_mut);
-        assert!(!self.contains_resource::<R>(),
-            "Resource `{}` was inserted during a call to World::resource_scope.\n\
-            This is not allowed as the original resource is reinserted to the world after the closure is invoked.",
-            DebugName::type_name::<R>());
+        let value = unsafe { ptr.read::<R>() };
 
-        OwningPtr::make(value, |ptr| {
-            // SAFETY: pointer is of type R
-            unsafe {
-                self.storages.resources.get_mut(component_id).map(|info| {
-                    info.insert_with_ticks(ptr, ticks, caller);
-                })
+        // type used to manage reinserting the resource at the end of the scope. use of a drop impl means that
+        // the resource is inserted even if the user-provided closure unwinds.
+        // this facilitates localized panic recovery and makes app shutdown in response to a panic more graceful
+        // by avoiding knock-on errors.
+        struct ReinsertGuard<'a, R> {
+            world: &'a mut World,
+            component_id: ComponentId,
+            value: ManuallyDrop<R>,
+            ticks: ComponentTicks,
+            caller: MaybeLocation,
+            was_successful: &'a mut bool,
+        }
+        impl<R> Drop for ReinsertGuard<'_, R> {
+            fn drop(&mut self) {
+                // take ownership of the value first so it'll get dropped if we return early
+                // SAFETY: drop semantics ensure that `self.value` will never be accessed again after this call
+                let value = unsafe { ManuallyDrop::take(&mut self.value) };
+
+                let Some(resource_data) = self.world.storages.resources.get_mut(self.component_id)
+                else {
+                    return;
+                };
+
+                // in debug mode, raise a panic if user code re-inserted a resource of this type within the scope.
+                // resource insertion usually indicates a logic error in user code, which is useful to catch at dev time,
+                // however it does not inherently lead to corrupted state, so we avoid introducing an unnecessary crash
+                // for production builds.
+                if resource_data.is_present() {
+                    #[cfg(debug_assertions)]
+                    {
+                        // if we're already panicking, log an error instead of panicking, as double-panics result in an abort
+                        #[cfg(feature = "std")]
+                        if std::thread::panicking() {
+                            log::error!("Resource `{}` was inserted during a call to World::resource_scope, which may result in unexpected behavior.\n\
+                                   In release builds, the value inserted will be overwritten at the end of the scope.",
+                                   DebugName::type_name::<R>());
+                            // return early to maintain consistent behavior with non-panicking calls in debug builds
+                            return;
+                        }
+
+                        panic!("Resource `{}` was inserted during a call to World::resource_scope, which may result in unexpected behavior.\n\
+                               In release builds, the value inserted will be overwritten at the end of the scope.",
+                               DebugName::type_name::<R>());
+                    }
+                    #[cfg(not(debug_assertions))]
+                    {
+                        #[cold]
+                        #[inline(never)]
+                        fn warn_reinsert(resource_name: &str) {
+                            warn!(
+                                "Resource `{resource_name}` was inserted during a call to World::resource_scope: the inserted value will be overwritten.",
+                            );
+                        }
+
+                        warn_reinsert(&DebugName::type_name::<R>());
+                    }
+                }
+
+                OwningPtr::make(value, |ptr| {
+                    // SAFETY: ptr is of type `R`, which corresponds to the same component ID used to retrieve the resource data.
+                    unsafe {
+                        resource_data.insert_with_ticks(ptr, self.ticks, self.caller);
+                    }
+                });
+
+                *self.was_successful = true;
             }
-        })?;
+        }
 
-        Some(result)
+        // used to track whether the guard's drop impl was able to successfully reinsert the value into the world.
+        // an alternative way to track success would be to have a separate `guard.apply()` method used
+        // in the happy path -- however this would require two code paths for panicking vs regular control flow
+        // which would have suboptimal codegen. `resource_scope` is a widely used primitive, both throughout the
+        // engine and in user code, so this measure is likely worth it.
+        let mut was_successful = false;
+        let result = {
+            let mut guard = ReinsertGuard {
+                world: self,
+                component_id,
+                value: ManuallyDrop::new(value),
+                ticks,
+                caller,
+                was_successful: &mut was_successful,
+            };
+
+            let value_mut = Mut {
+                value: &mut *guard.value,
+                ticks: ComponentTicksMut {
+                    added: &mut guard.ticks.added,
+                    changed: &mut guard.ticks.changed,
+                    changed_by: guard.caller.as_mut(),
+                    last_run: last_change_tick,
+                    this_run: change_tick,
+                },
+            };
+
+            f(guard.world, value_mut)
+
+            // guard's drop impl runs here
+        };
+
+        was_successful.then_some(result)
     }
 
     /// Writes a [`Message`].
