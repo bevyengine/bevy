@@ -134,10 +134,35 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     let gbuffer = textureLoad(deferred_prepass_texture, vec2<i32>(frag_coord.xy), 0);
     let pbr_input = pbr_input_from_deferred_gbuffer(frag_coord, gbuffer);
 
-    // Don't do anything if the surface is too rough, since we can't blur or do
-    // temporal accumulation yet.
+    // Don't do anything if the surface is too rough or too smooth, since we
+    // can't blur or do temporal accumulation yet.
     let perceptual_roughness = pbr_input.material.perceptual_roughness;
-    if (perceptual_roughness > ssr_settings.perceptual_roughness_threshold) {
+
+    var min_fade: f32;
+    if (ssr_settings.min_perceptual_roughness >= ssr_settings.min_perceptual_roughness_fully_active) {
+        min_fade = select(0.0, 1.0, perceptual_roughness >= ssr_settings.min_perceptual_roughness);
+    } else {
+        min_fade = smoothstep(
+            ssr_settings.min_perceptual_roughness,
+            ssr_settings.min_perceptual_roughness_fully_active,
+            perceptual_roughness
+        );
+    }
+
+    var max_fade: f32;
+    if (ssr_settings.max_perceptual_roughness_starts_to_fade >= ssr_settings.max_perceptual_roughness) {
+        max_fade = select(1.0, 0.0, perceptual_roughness > ssr_settings.max_perceptual_roughness);
+    } else {
+        max_fade = 1.0 - smoothstep(
+            ssr_settings.max_perceptual_roughness_starts_to_fade,
+            ssr_settings.max_perceptual_roughness,
+            perceptual_roughness
+        );
+    }
+
+    var fade = saturate(min_fade) * saturate(max_fade);
+
+    if (perceptual_roughness > ssr_settings.max_perceptual_roughness) {
         return fragment;
     }
 
@@ -188,11 +213,12 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     
     let brdf_sample = sample_specular_brdf(V_tangent, roughness, F0, urand, N_tangent);
     let R = tangent_to_world * brdf_sample.wi;
+    let brdf_sample_value_over_pdf = brdf_sample.value_over_pdf;
 
     // Do the raymarching.
     let ssr_specular = evaluate_ssr(R, world_position, raymarch_jitter);
-    var indirect_light = ssr_specular.rgb * brdf_sample.value_over_pdf;
-    specular_occlusion *= ssr_specular.a;
+    var indirect_light = ssr_specular.rgb * brdf_sample_value_over_pdf * fade;
+    specular_occlusion = mix(specular_occlusion, specular_occlusion * ssr_specular.a, fade);
 
     // Sample the environment map if necessary.
     //

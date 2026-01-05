@@ -1,5 +1,7 @@
 //! Screen space reflections implemented via raymarching.
 
+use core::ops::Range;
+
 use bevy_app::{App, Plugin};
 use bevy_asset::{load_embedded_asset, AssetServer, Handle};
 use bevy_core_pipeline::{
@@ -82,14 +84,22 @@ pub struct ScreenSpaceReflectionsPlugin;
 /// Screen-space reflections are presently unsupported on WebGL 2 because of a
 /// bug whereby Naga doesn't generate correct GLSL when sampling depth buffers,
 /// which is required for screen-space raymarching.
-#[derive(Clone, Copy, Component, Reflect)]
+#[derive(Clone, Component, Reflect)]
 #[reflect(Component, Default, Clone)]
 #[require(DepthPrepass, DeferredPrepass)]
 #[doc(alias = "Ssr")]
 pub struct ScreenSpaceReflections {
-    /// The maximum PBR roughness level that will enable screen space
-    /// reflections.
-    pub perceptual_roughness_threshold: f32,
+    /// The perceptual roughness range over which SSR begins to fade in.
+    ///
+    /// The first value is the roughness at which SSR begins to appear; the
+    /// second value is the roughness at which SSR is fully active.
+    pub min_perceptual_roughness: Range<f32>,
+
+    /// The perceptual roughness range over which SSR begins to fade out.
+    ///
+    /// The first value is the roughness at which SSR begins to fade out; the
+    /// second value is the roughness at which SSR is no longer active.
+    pub max_perceptual_roughness: Range<f32>,
 
     /// When marching the depth buffer, we only have 2.5D information and don't
     /// know how thick surfaces are. We shall assume that the depth buffer
@@ -133,13 +143,19 @@ pub struct ScreenSpaceReflections {
 /// [`ScreenSpaceReflections`].
 #[derive(Clone, Copy, Component, ShaderType)]
 pub struct ScreenSpaceReflectionsUniform {
-    perceptual_roughness_threshold: f32,
+    min_perceptual_roughness: f32,
+    min_perceptual_roughness_fully_active: f32,
+    max_perceptual_roughness_starts_to_fade: f32,
+    max_perceptual_roughness: f32,
     thickness: f32,
     linear_steps: u32,
     linear_march_exponent: f32,
     bisection_steps: u32,
     /// A boolean converted to a `u32`.
     use_secant: u32,
+    pad_a: u32,
+    pad_b: u32,
+    pad_c: u32,
 }
 
 /// The node in the render graph that traces screen space reflections.
@@ -240,7 +256,8 @@ impl Default for ScreenSpaceReflections {
     // <https://gist.github.com/h3r2tic/9c8356bdaefbe80b1a22ae0aaee192db?permalink_comment_id=4552149#gistcomment-4552149>.
     fn default() -> Self {
         Self {
-            perceptual_roughness_threshold: 1.0,
+            min_perceptual_roughness: 0.08..0.12,
+            max_perceptual_roughness: 0.55..0.7,
             linear_steps: 16,
             bisection_steps: 4,
             use_secant: true,
@@ -530,7 +547,7 @@ impl ExtractComponent for ScreenSpaceReflections {
             return None;
         }
 
-        Some((*settings).into())
+        Some(settings.clone().into())
     }
 }
 
@@ -594,12 +611,18 @@ impl SpecializedRenderPipeline for ScreenSpaceReflectionsPipeline {
 impl From<ScreenSpaceReflections> for ScreenSpaceReflectionsUniform {
     fn from(settings: ScreenSpaceReflections) -> Self {
         Self {
-            perceptual_roughness_threshold: settings.perceptual_roughness_threshold,
+            min_perceptual_roughness: settings.min_perceptual_roughness.start,
+            min_perceptual_roughness_fully_active: settings.min_perceptual_roughness.end,
+            max_perceptual_roughness_starts_to_fade: settings.max_perceptual_roughness.start,
+            max_perceptual_roughness: settings.max_perceptual_roughness.end,
             thickness: settings.thickness,
             linear_steps: settings.linear_steps,
             linear_march_exponent: settings.linear_march_exponent,
             bisection_steps: settings.bisection_steps,
             use_secant: settings.use_secant as u32,
+            pad_a: 0,
+            pad_b: 0,
+            pad_c: 0,
         }
     }
 }

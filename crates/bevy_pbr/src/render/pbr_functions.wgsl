@@ -609,7 +609,7 @@ fn apply_pbr_lighting(
     // will accumulate the specular part.
 #ifdef SCREEN_SPACE_REFLECTIONS
     let use_ssr = perceptual_roughness <=
-        view_bindings::ssr_settings.perceptual_roughness_threshold;
+        view_bindings::ssr_settings.max_perceptual_roughness;
 #else   // SCREEN_SPACE_REFLECTIONS
     let use_ssr = false;
 #endif  // SCREEN_SPACE_REFLECTIONS
