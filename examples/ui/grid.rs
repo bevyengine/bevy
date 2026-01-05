@@ -133,14 +133,11 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
                 ))
                 .with_children(|builder| {
                     builder.spawn((Text::new("Sidebar"),
-                        TextFont {
-                            font: font.clone(),
-                            ..default()
-                        },
+                        TextFont::from(font.clone()),
                     ));
                     builder.spawn((Text::new("A paragraph of text which ought to wrap nicely. A paragraph of text which ought to wrap nicely. A paragraph of text which ought to wrap nicely. A paragraph of text which ought to wrap nicely. A paragraph of text which ought to wrap nicely. A paragraph of text which ought to wrap nicely. A paragraph of text which ought to wrap nicely."),
                         TextFont {
-                            font: font.clone(),
+                            font: font.clone().into(),
                             font_size: 13.0,
                             ..default()
                         },
@@ -200,7 +197,7 @@ fn item_rect(builder: &mut ChildSpawnerCommands, color: Srgba) {
 fn spawn_nested_text_bundle(builder: &mut ChildSpawnerCommands, font: Handle<Font>, text: &str) {
     builder.spawn((
         Text::new(text),
-        TextFont { font, ..default() },
+        TextFont::from(font.clone()),
         TextColor::BLACK,
     ));
 }

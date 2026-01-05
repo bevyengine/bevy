@@ -42,6 +42,7 @@ mod pipeline;
 mod text;
 mod text_access;
 
+use bevy_asset::AssetEventSystems;
 pub use bounds::*;
 pub use error::*;
 pub use font::*;
@@ -59,13 +60,14 @@ pub use text_access::*;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        Font, FontWeight, Justify, LineBreak, Strikethrough, StrikethroughColor, TextColor,
-        TextError, TextFont, TextLayout, TextSpan, Underline, UnderlineColor,
+        Font, FontHinting, FontSource, FontStyle, FontWeight, FontWidth, Justify, LineBreak,
+        Strikethrough, StrikethroughColor, TextColor, TextError, TextFont, TextLayout, TextSpan,
+        Underline, UnderlineColor,
     };
 }
 
 use bevy_app::prelude::*;
-use bevy_asset::{AssetApp, AssetEventSystems};
+use bevy_asset::AssetApp;
 use bevy_ecs::prelude::*;
 
 /// The raw data for the default font used by `bevy_text`
@@ -94,7 +96,7 @@ impl Plugin for TextPlugin {
             .init_resource::<TextIterScratch>()
             .add_systems(
                 PostUpdate,
-                free_unused_font_atlases_system.before(AssetEventSystems),
+                load_font_assets_into_fontdb_system.after(AssetEventSystems),
             )
             .add_systems(Last, trim_cosmic_cache);
 

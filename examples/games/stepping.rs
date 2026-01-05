@@ -120,7 +120,7 @@ fn build_ui(
         text_spans.push((
             TextSpan(format!("{label:?}\n")),
             TextFont {
-                font: asset_server.load(FONT_BOLD),
+                font: asset_server.load(FONT_BOLD).into(),
                 ..default()
             },
             TextColor(FONT_COLOR),

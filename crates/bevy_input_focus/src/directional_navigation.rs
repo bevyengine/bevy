@@ -66,8 +66,8 @@ use bevy_ecs::{
     prelude::*,
     system::SystemParam,
 };
-use bevy_math::{CompassOctant, Dir2, Vec2};
-use bevy_ui::{ComputedNode, UiGlobalTransform};
+use bevy_math::{CompassOctant, Dir2, Rect, Vec2};
+use bevy_ui::{ComputedNode, ComputedUiTargetCamera, UiGlobalTransform};
 use thiserror::Error;
 
 use crate::InputFocus;
@@ -418,17 +418,23 @@ pub struct DirectionalNavigation<'w, 's> {
         's,
         (
             Entity,
+            &'static ComputedUiTargetCamera,
             &'static ComputedNode,
             &'static UiGlobalTransform,
             &'static InheritedVisibility,
         ),
         With<AutoDirectionalNavigation>,
     >,
-    /// A query used to get the [`FocusableArea`] for a given entity to be used in automatic navigation.
-    focusable_area_query: Query<
+    /// A query used to get the target camera and the [`FocusableArea`] for a given entity to be used in automatic navigation.
+    camera_and_focusable_area_query: Query<
         'w,
         's,
-        (Entity, &'static ComputedNode, &'static UiGlobalTransform),
+        (
+            Entity,
+            &'static ComputedUiTargetCamera,
+            &'static ComputedNode,
+            &'static UiGlobalTransform,
+        ),
         With<AutoDirectionalNavigation>,
     >,
 }
@@ -449,11 +455,12 @@ impl<'w, 's> DirectionalNavigation<'w, 's> {
             if let Some(new_focus) = self.map.get_neighbor(current_focus, direction) {
                 self.focus.set(new_focus);
                 Ok(new_focus)
-            } else if let Some(origin) = self.entity_to_focusable_area(current_focus)
+            } else if let Some((target_camera, origin)) =
+                self.entity_to_camera_and_focusable_area(current_focus)
                 && let Some(new_focus) = find_best_candidate(
                     &origin,
                     direction,
-                    &self.get_navigable_nodes(),
+                    &self.get_navigable_nodes(target_camera),
                     &self.config,
                 )
             {
@@ -471,39 +478,62 @@ impl<'w, 's> DirectionalNavigation<'w, 's> {
     }
 
     /// Returns a vec of [`FocusableArea`] representing nodes that are eligible to be automatically navigated to.
-    fn get_navigable_nodes(&self) -> Vec<FocusableArea> {
+    /// The camera of any navigable nodes will equal the desired `target_camera`.
+    fn get_navigable_nodes(&self, target_camera: Entity) -> Vec<FocusableArea> {
         self.navigable_entities_query
             .iter()
-            .filter_map(|(entity, computed, transform, inherited_visibility)| {
-                // Skip hidden or zero-size nodes
-                if computed.is_empty() || !inherited_visibility.get() {
-                    return None;
-                }
-
-                let (_scale, _rotation, translation) = transform.to_scale_angle_translation();
-                Some(FocusableArea {
-                    entity,
-                    position: translation,
-                    size: computed.size(),
-                })
-            })
+            .filter_map(
+                |(entity, computed_target_camera, computed, transform, inherited_visibility)| {
+                    // Skip hidden or zero-size nodes
+                    if computed.is_empty() || !inherited_visibility.get() {
+                        return None;
+                    }
+                    // Accept nodes that have the same target camera as the desired target camera
+                    if let Some(tc) = computed_target_camera.get()
+                        && tc == target_camera
+                    {
+                        let (_scale, _rotation, translation) =
+                            transform.to_scale_angle_translation();
+                        Some(FocusableArea {
+                            entity,
+                            position: translation * computed.inverse_scale_factor(),
+                            size: computed.size() * computed.inverse_scale_factor(),
+                        })
+                    } else {
+                        // The node either does not have a target camera or it is not the same as the desired one.
+                        None
+                    }
+                },
+            )
             .collect()
     }
 
-    /// Gets the [`FocusableArea`] of the provided entity, if it exists.
+    /// Gets the target camera and the [`FocusableArea`] of the provided entity, if it exists.
     ///
-    /// Returns None if there was a [`QueryEntityError`](bevy_ecs::query::QueryEntityError).
-    fn entity_to_focusable_area(&self, entity: Entity) -> Option<FocusableArea> {
-        self.focusable_area_query
-            .get(entity)
-            .map_or(None, |(entity, computed, transform)| {
-                let (_scale, _rotation, translation) = transform.to_scale_angle_translation();
-                Some(FocusableArea {
-                    entity,
-                    position: translation,
-                    size: computed.size(),
-                })
-            })
+    /// Returns None if there was a [`QueryEntityError`](bevy_ecs::query::QueryEntityError) or
+    /// if the entity does not have a target camera.
+    fn entity_to_camera_and_focusable_area(
+        &self,
+        entity: Entity,
+    ) -> Option<(Entity, FocusableArea)> {
+        self.camera_and_focusable_area_query.get(entity).map_or(
+            None,
+            |(entity, computed_target_camera, computed, transform)| {
+                if let Some(target_camera) = computed_target_camera.get() {
+                    let (_scale, _rotation, translation) = transform.to_scale_angle_translation();
+                    Some((
+                        target_camera,
+                        FocusableArea {
+                            entity,
+                            position: translation * computed.inverse_scale_factor(),
+                            size: computed.size() * computed.inverse_scale_factor(),
+                        },
+                    ))
+                } else {
+                    None
+                }
+            },
+        )
     }
 }
 
@@ -628,7 +658,6 @@ fn score_candidate(
     // Get direction in mathematical coordinates, then flip Y for UI coordinates
     let dir = Dir2::from(octant).as_vec2() * Vec2::new(1.0, -1.0);
     let to_candidate = candidate_pos - origin_pos;
-    let distance = to_candidate.length();
 
     // Check direction first
     // Convert UI coordinates (Y+ = down) to mathematical coordinates (Y+ = up) by flipping Y
@@ -651,6 +680,17 @@ fn score_candidate(
         return f32::INFINITY;
     }
 
+    // Calculate distance between rectangle edges, not centers
+    let origin_rect = Rect::from_center_size(origin_pos, origin_size);
+    let candidate_rect = Rect::from_center_size(candidate_pos, candidate_size);
+    let dx = (candidate_rect.min.x - origin_rect.max.x)
+        .max(origin_rect.min.x - candidate_rect.max.x)
+        .max(0.0);
+    let dy = (candidate_rect.min.y - origin_rect.max.y)
+        .max(origin_rect.min.y - candidate_rect.max.y)
+        .max(0.0);
+    let distance = (dx * dx + dy * dy).sqrt();
+
     // Check max distance
     if let Some(max_dist) = config.max_search_distance {
         if distance > max_dist {
@@ -658,8 +698,9 @@ fn score_candidate(
         }
     }
 
-    // Calculate alignment score
-    let alignment = if distance > 0.0 {
+    // Calculate alignment score using center-to-center direction
+    let center_distance = to_candidate.length();
+    let alignment = if center_distance > 0.0 {
         to_candidate.normalize().dot(dir).max(0.0)
     } else {
         1.0
@@ -1171,6 +1212,44 @@ mod tests {
         assert_eq!(
             nav_map.get_neighbor(node_a, CompassOctant::East),
             Some(node_c)
+        );
+    }
+
+    #[test]
+    fn test_edge_distance_vs_center_distance() {
+        let mut nav_map = DirectionalNavigationMap::default();
+        let config = AutoNavigationConfig::default();
+
+        let left = Entity::from_bits(1);
+        let wide_top = Entity::from_bits(2);
+        let bottom = Entity::from_bits(3);
+
+        let left_node = FocusableArea {
+            entity: left,
+            position: Vec2::new(100.0, 200.0),
+            size: Vec2::new(100.0, 100.0),
+        };
+
+        let wide_top_node = FocusableArea {
+            entity: wide_top,
+            position: Vec2::new(350.0, 150.0),
+            size: Vec2::new(300.0, 80.0),
+        };
+
+        let bottom_node = FocusableArea {
+            entity: bottom,
+            position: Vec2::new(270.0, 300.0),
+            size: Vec2::new(100.0, 80.0),
+        };
+
+        let nodes = vec![left_node, wide_top_node, bottom_node];
+
+        auto_generate_navigation_edges(&mut nav_map, &nodes, &config);
+
+        assert_eq!(
+            nav_map.get_neighbor(left, CompassOctant::East),
+            Some(wide_top),
+            "Should navigate to wide_top not bottom, even though bottom's center is closer."
         );
     }
 }

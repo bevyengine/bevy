@@ -1,20 +1,22 @@
 //! Module containing logic for FPS overlay.
 
 use bevy_app::{Plugin, Startup, Update};
-use bevy_asset::{Assets, Handle};
+use bevy_asset::Assets;
 use bevy_color::Color;
 use bevy_diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin};
 use bevy_ecs::{
     component::Component,
     entity::Entity,
     query::{With, Without},
+    reflect::ReflectResource,
     resource::Resource,
     schedule::{common_conditions::resource_changed, IntoScheduleConfigs},
     system::{Commands, Query, Res, ResMut, Single},
 };
 use bevy_picking::Pickable;
+use bevy_reflect::Reflect;
 use bevy_render::storage::ShaderStorageBuffer;
-use bevy_text::{Font, TextColor, TextFont, TextSpan};
+use bevy_text::{TextColor, TextFont, TextSpan};
 use bevy_time::common_conditions::on_timer;
 use bevy_ui::{
     widget::{Text, TextUiWriter},
@@ -87,7 +89,8 @@ impl Plugin for FpsOverlayPlugin {
 }
 
 /// Configuration options for the FPS overlay.
-#[derive(Resource, Clone)]
+#[derive(Resource, Clone, Reflect)]
+#[reflect(Resource)]
 pub struct FpsOverlayConfig {
     /// Configuration of text in the overlay.
     pub text_config: TextFont,
@@ -106,11 +109,7 @@ pub struct FpsOverlayConfig {
 impl Default for FpsOverlayConfig {
     fn default() -> Self {
         FpsOverlayConfig {
-            text_config: TextFont {
-                font: Handle::<Font>::default(),
-                font_size: 32.0,
-                ..Default::default()
-            },
+            text_config: TextFont::from_font_size(32.),
             text_color: Color::WHITE,
             enabled: true,
             refresh_interval: Duration::from_millis(100),
@@ -121,7 +120,7 @@ impl Default for FpsOverlayConfig {
 }
 
 /// Configuration of the frame time graph
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Reflect)]
 pub struct FrameTimeGraphConfig {
     /// Is the graph visible
     pub enabled: bool,
