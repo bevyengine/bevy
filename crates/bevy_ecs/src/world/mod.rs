@@ -2786,7 +2786,7 @@ impl World {
                             );
                         }
 
-                        warn_reinsert(DebugName::type_name::<R>());
+                        warn_reinsert(&DebugName::type_name::<R>());
                     }
                 }
 
