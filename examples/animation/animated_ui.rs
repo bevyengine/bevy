@@ -142,7 +142,7 @@ fn setup(
     entity.insert(children![(
         Text::new("Bevy"),
         TextFont {
-            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+            font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
             font_size: 24.0,
             ..default()
         },

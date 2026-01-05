@@ -1,3 +1,8 @@
+#![expect(
+    unsafe_op_in_unsafe_fn,
+    reason = "See #11590. To be removed once all applicable unsafe code has an unsafe block with a safety comment."
+)]
+
 //! Storage layouts for ECS data.
 //!
 //! This module implements the low-level collections that store data in a [`World`]. These all offer minimal and often

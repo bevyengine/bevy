@@ -167,8 +167,6 @@ where
             input: SystemIn<S>,
             world: &mut PrivateUnsafeWorldCell,
         ) -> Result<S::Out, RunSystemError> {
-            #![deny(unsafe_op_in_unsafe_fn)]
-
             // SAFETY: see comment on `Func::combine` call
             match (|| unsafe {
                 system.validate_param_unsafe(world.0)?;

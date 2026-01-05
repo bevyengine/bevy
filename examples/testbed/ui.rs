@@ -4,10 +4,23 @@
 
 mod helpers;
 
+use argh::FromArgs;
 use bevy::prelude::*;
 use helpers::Next;
 
+#[derive(FromArgs)]
+/// ui testbed
+pub struct Args {
+    #[argh(positional)]
+    scene: Option<Scene>,
+}
+
 fn main() {
+    #[cfg(not(target_arch = "wasm32"))]
+    let args: Args = argh::from_env();
+    #[cfg(target_arch = "wasm32")]
+    let args: Args = Args::from_args(&[], &[]).unwrap();
+
     let mut app = App::new();
     app.add_plugins(DefaultPlugins.set(WindowPlugin {
         primary_window: Some(Window {
@@ -19,7 +32,6 @@ fn main() {
         }),
         ..Default::default()
     }))
-    .init_state::<Scene>()
     .add_systems(OnEnter(Scene::Image), image::setup)
     .add_systems(OnEnter(Scene::Text), text::setup)
     .add_systems(OnEnter(Scene::Grid), grid::setup)
@@ -34,6 +46,11 @@ fn main() {
     .add_systems(OnEnter(Scene::Transformations), transformations::setup)
     .add_systems(OnEnter(Scene::ViewportCoords), viewport_coords::setup)
     .add_systems(Update, switch_scene);
+
+    match args.scene {
+        None => app.init_state::<Scene>(),
+        Some(scene) => app.insert_state(scene),
+    };
 
     #[cfg(feature = "bevy_ui_debug")]
     {
@@ -66,6 +83,21 @@ enum Scene {
     #[cfg(feature = "bevy_ui_debug")]
     DebugOutlines,
     ViewportCoords,
+}
+
+impl std::str::FromStr for Scene {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let mut isit = Self::default();
+        while s.to_lowercase() != format!("{isit:?}").to_lowercase() {
+            isit = isit.next();
+            if isit == Self::default() {
+                return Err(format!("Invalid Scene name: {s}"));
+            }
+        }
+        Ok(isit)
+    }
 }
 
 impl Next for Scene {
@@ -124,7 +156,7 @@ mod text {
         commands.spawn((
             Text::new("Hello World."),
             TextFont {
-                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
                 font_size: 200.,
                 ..default()
             },
@@ -134,12 +166,12 @@ mod text {
         commands.spawn((
             Node {
                 left: px(100.),
-                top: px(250.),
+                top: px(230.),
                 ..Default::default()
             },
             Text::new("white "),
             TextFont {
-                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
                 ..default()
             },
             DespawnOnExit(super::Scene::Text),
@@ -151,7 +183,7 @@ mod text {
                     TextSpan::new("black"),
                     TextColor(Color::BLACK),
                     TextFont {
-                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                        font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
                         ..default()
                     },
                     TextBackgroundColor(Color::WHITE)
@@ -162,12 +194,12 @@ mod text {
         commands.spawn((
             Node {
                 left: px(100.),
-                top: px(300.),
+                top: px(260.),
                 ..Default::default()
             },
             Text::new(""),
             TextFont {
-                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
                 ..default()
             },
             DespawnOnExit(super::Scene::Text),
@@ -175,7 +207,7 @@ mod text {
                 (
                     TextSpan::new("white "),
                     TextFont {
-                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                        font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
                         ..default()
                     }
                 ),
@@ -186,7 +218,7 @@ mod text {
                     TextSpan::new("black"),
                     TextColor(Color::BLACK),
                     TextFont {
-                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                        font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
                         ..default()
                     },
                     TextBackgroundColor(Color::WHITE)
@@ -194,15 +226,16 @@ mod text {
             ],
         ));
 
+        let mut top = 300.;
         commands.spawn((
             Node {
                 left: px(100.),
-                top: px(350.),
+                top: px(top),
                 ..Default::default()
             },
             Text::new(""),
             TextFont {
-                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
                 ..default()
             },
             DespawnOnExit(super::Scene::Text),
@@ -212,7 +245,7 @@ mod text {
                 (
                     TextSpan::new("white "),
                     TextFont {
-                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                        font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
                         ..default()
                     }
                 ),
@@ -229,12 +262,349 @@ mod text {
                     TextSpan::new("black"),
                     TextColor(Color::BLACK),
                     TextFont {
-                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                        font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
                         ..default()
                     },
                     TextBackgroundColor(Color::WHITE)
                 ),
                 TextSpan::new(""),
+            ],
+        ));
+
+        top += 35.;
+        commands.spawn((
+            Node {
+                left: px(100.),
+                top: px(top),
+                ..Default::default()
+            },
+            Text::new("FiraSans_"),
+            TextFont {
+                font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
+                font_size: 25.,
+                ..default()
+            },
+            DespawnOnExit(super::Scene::Text),
+            children![
+                (
+                    TextSpan::new("MonaSans_"),
+                    TextFont {
+                        font: asset_server.load("fonts/MonaSans-VariableFont.ttf").into(),
+                        font_size: 25.,
+                        ..default()
+                    }
+                ),
+                (
+                    TextSpan::new("EBGaramond_"),
+                    TextFont {
+                        font: asset_server.load("fonts/EBGaramond12-Regular.otf").into(),
+                        font_size: 25.,
+                        ..default()
+                    },
+                ),
+                (
+                    TextSpan::new("FiraMono"),
+                    TextFont {
+                        font: asset_server.load("fonts/FiraMono-Medium.ttf").into(),
+                        font_size: 25.,
+                        ..default()
+                    },
+                ),
+            ],
+        ));
+        top += 35.;
+        commands.spawn((
+            Node {
+                left: px(100.),
+                top: px(top),
+                ..Default::default()
+            },
+            Text::new("FiraSans "),
+            TextFont {
+                font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
+                font_size: 25.,
+                ..default()
+            },
+            DespawnOnExit(super::Scene::Text),
+            children![
+                (
+                    TextSpan::new("MonaSans "),
+                    TextFont {
+                        font: asset_server.load("fonts/MonaSans-VariableFont.ttf").into(),
+                        font_size: 25.,
+                        ..default()
+                    }
+                ),
+                (
+                    TextSpan::new("EBGaramond "),
+                    TextFont {
+                        font: asset_server.load("fonts/EBGaramond12-Regular.otf").into(),
+                        font_size: 25.,
+                        ..default()
+                    },
+                ),
+                (
+                    TextSpan::new("FiraMono"),
+                    TextFont {
+                        font: asset_server.load("fonts/FiraMono-Medium.ttf").into(),
+                        font_size: 25.,
+                        ..default()
+                    },
+                ),
+            ],
+        ));
+
+        top += 35.;
+        commands.spawn((
+            Node {
+                left: px(100.),
+                top: px(top),
+                ..Default::default()
+            },
+            Text::new("FiraSans "),
+            TextFont {
+                font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
+                font_size: 25.,
+                ..default()
+            },
+            DespawnOnExit(super::Scene::Text),
+            children![
+                (
+                    TextSpan::new("MonaSans_"),
+                    TextFont {
+                        font: asset_server.load("fonts/MonaSans-VariableFont.ttf").into(),
+                        font_size: 25.,
+                        ..default()
+                    }
+                ),
+                (
+                    TextSpan::new("EBGaramond "),
+                    TextFont {
+                        font: asset_server.load("fonts/EBGaramond12-Regular.otf").into(),
+                        font_size: 25.,
+                        ..default()
+                    },
+                ),
+                (
+                    TextSpan::new("FiraMono"),
+                    TextFont {
+                        font: asset_server.load("fonts/FiraMono-Medium.ttf").into(),
+                        font_size: 25.,
+                        ..default()
+                    },
+                ),
+            ],
+        ));
+
+        top += 35.;
+        commands.spawn((
+            Node {
+                left: px(100.),
+                top: px(top),
+                ..Default::default()
+            },
+            Text::new("FiraSans"),
+            TextFont {
+                font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
+                font_size: 25.,
+                ..default()
+            },
+            DespawnOnExit(super::Scene::Text),
+            children![
+                TextSpan::new(" "),
+                (
+                    TextSpan::new("MonaSans"),
+                    TextFont {
+                        font: asset_server.load("fonts/MonaSans-VariableFont.ttf").into(),
+                        font_size: 25.,
+                        ..default()
+                    }
+                ),
+                TextSpan::new(" "),
+                (
+                    TextSpan::new("EBGaramond"),
+                    TextFont {
+                        font: asset_server.load("fonts/EBGaramond12-Regular.otf").into(),
+                        font_size: 25.,
+                        ..default()
+                    },
+                ),
+                TextSpan::new(" "),
+                (
+                    TextSpan::new("FiraMono"),
+                    TextFont {
+                        font: asset_server.load("fonts/FiraMono-Medium.ttf").into(),
+                        font_size: 25.,
+                        ..default()
+                    },
+                ),
+            ],
+        ));
+
+        top += 35.;
+        commands.spawn((
+            Node {
+                left: px(100.),
+                top: px(top),
+                ..Default::default()
+            },
+            Text::new("Fira Sans_"),
+            TextFont {
+                font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
+                font_size: 25.,
+                ..default()
+            },
+            DespawnOnExit(super::Scene::Text),
+            children![
+                (
+                    TextSpan::new("Mona Sans_"),
+                    TextFont {
+                        font: asset_server.load("fonts/MonaSans-VariableFont.ttf").into(),
+                        font_size: 25.,
+                        ..default()
+                    }
+                ),
+                (
+                    TextSpan::new("EB Garamond_"),
+                    TextFont {
+                        font: asset_server.load("fonts/EBGaramond12-Regular.otf").into(),
+                        font_size: 25.,
+                        ..default()
+                    },
+                ),
+                (
+                    TextSpan::new("Fira Mono"),
+                    TextFont {
+                        font: asset_server.load("fonts/FiraMono-Medium.ttf").into(),
+                        font_size: 25.,
+                        ..default()
+                    },
+                ),
+            ],
+        ));
+
+        top += 35.;
+        commands.spawn((
+            Node {
+                left: px(100.),
+                top: px(top),
+                ..Default::default()
+            },
+            Text::new("FontWeight(100)_"),
+            TextFont {
+                font: asset_server.load("fonts/MonaSans-VariableFont.ttf").into(),
+                font_size: 25.,
+                weight: FontWeight(100),
+                ..default()
+            },
+            DespawnOnExit(super::Scene::Text),
+            children![
+                (
+                    TextSpan::new("FontWeight(500)_"),
+                    TextFont {
+                        font: asset_server.load("fonts/MonaSans-VariableFont.ttf").into(),
+                        font_size: 25.,
+                        weight: FontWeight(500),
+                        ..default()
+                    }
+                ),
+                (
+                    TextSpan::new("FontWeight(900)"),
+                    TextFont {
+                        font: asset_server.load("fonts/MonaSans-VariableFont.ttf").into(),
+                        font_size: 25.,
+                        weight: FontWeight(900),
+                        ..default()
+                    },
+                ),
+            ],
+        ));
+
+        top += 35.;
+        commands.spawn((
+            Node {
+                left: px(100.),
+                top: px(top),
+                ..Default::default()
+            },
+            Text::new("FiraSans_"),
+            TextFont {
+                font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
+                font_size: 25.,
+                weight: FontWeight(900),
+                ..default()
+            },
+            DespawnOnExit(super::Scene::Text),
+            children![
+                (
+                    TextSpan::new("MonaSans_"),
+                    TextFont {
+                        font: asset_server.load("fonts/MonaSans-VariableFont.ttf").into(),
+                        font_size: 25.,
+                        weight: FontWeight(700),
+                        ..default()
+                    }
+                ),
+                (
+                    TextSpan::new("EBGaramond_"),
+                    TextFont {
+                        font: asset_server.load("fonts/EBGaramond12-Regular.otf").into(),
+                        font_size: 25.,
+                        weight: FontWeight(500),
+                        ..default()
+                    },
+                ),
+                (
+                    TextSpan::new("FiraMono"),
+                    TextFont {
+                        font: asset_server.load("fonts/FiraMono-Medium.ttf").into(),
+                        font_size: 25.,
+                        weight: FontWeight(300),
+                        ..default()
+                    },
+                ),
+            ],
+        ));
+
+        top += 35.;
+        commands.spawn((
+            Node {
+                left: px(100.),
+                top: px(top),
+                ..Default::default()
+            },
+            Text::new("FiraSans\t"),
+            TextFont {
+                font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
+                font_size: 25.,
+                ..default()
+            },
+            DespawnOnExit(super::Scene::Text),
+            children![
+                (
+                    TextSpan::new("MonaSans\t"),
+                    TextFont {
+                        font: asset_server.load("fonts/MonaSans-VariableFont.ttf").into(),
+                        font_size: 25.,
+                        ..default()
+                    }
+                ),
+                (
+                    TextSpan::new("EBGaramond\t"),
+                    TextFont {
+                        font: asset_server.load("fonts/EBGaramond12-Regular.otf").into(),
+                        font_size: 25.,
+                        ..default()
+                    },
+                ),
+                (
+                    TextSpan::new("FiraMono"),
+                    TextFont {
+                        font: asset_server.load("fonts/FiraMono-Medium.ttf").into(),
+                        font_size: 25.,
+                        ..default()
+                    },
+                ),
             ],
         ));
     }
