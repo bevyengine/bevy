@@ -32,7 +32,7 @@ pub struct GltfPlugin {
     // ...
 }
 
-// 0.17
+// 0.18
 pub struct GltfPlugin {
     convert_coordinates: GltfConvertCoordinates,
     // ...
