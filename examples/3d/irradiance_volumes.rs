@@ -466,7 +466,9 @@ fn handle_mouse_clicks(
     let Ok(ray) = camera.viewport_to_world(camera_transform, mouse_position) else {
         return;
     };
-    let Some(plane_intersection) = ray.plane_intersection_point(Vec3::ZERO, InfinitePlane3d::new(Vec3::Y)) else {
+    let Some(plane_intersection) =
+        ray.plane_intersection_point(Vec3::ZERO, InfinitePlane3d::new(Vec3::Y))
+    else {
         return;
     };
     // Move all the main objects.
