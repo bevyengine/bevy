@@ -108,7 +108,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     let font = asset_server.load("fonts/FiraSans-Bold.ttf");
     let style = TextFont {
-        font: font.clone(),
+        font: font.into(),
         ..default()
     };
 
