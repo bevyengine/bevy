@@ -14,11 +14,10 @@ fn main() {
     let mut app = App::new();
     app.add_plugins((DefaultPlugins, FrameTimeDiagnosticsPlugin::default()))
         .add_systems(Startup, setup)
-        .add_systems(Update, (text_update_system, text_color_system));
+        .add_systems(Update, (text_update_system, text_color_system, update_text));
 
     let mut f = app.world_mut().resource_mut::<CosmicFontSystem>();
     f.db_mut().load_system_fonts();
-
     app.run();
 }
 
@@ -40,7 +39,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         Underline,
         TextFont {
             // This font is loaded and will be used instead of the default font.
-            font: "Comic Sans MS".into(),
+            font: asset_server.load("fonts/FiraMono-Medium.ttf").into(),
             font_size: 67.0,
             ..default()
         },
@@ -84,6 +83,34 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             ),
             FpsText,
         ));
+
+    commands.spawn((
+        Node {
+            flex_direction: FlexDirection::Column,
+            left: px(250),
+            top: px(250),
+            ..Default::default()
+        },
+        children![
+            (
+                Text::new("hello sans serif"),
+                TextFont::from(FontSource::SansSerif)
+            ),
+            (Text::new("hello serif"), TextFont::from(FontSource::Serif)),
+            (
+                Text::new("hello fantasy"),
+                TextFont::from(FontSource::Fantasy)
+            ),
+            (
+                Text::new("hello cursive"),
+                TextFont::from(FontSource::Cursive)
+            ),
+            (
+                Text::new("hello monospace"),
+                TextFont::from(FontSource::Monospace)
+            )
+        ],
+    ));
 
     // Text with OpenType features
     let opentype_font_handle: FontSource =
@@ -201,5 +228,11 @@ fn text_update_system(
             // Update the value of the second section
             **span = format!("{value:.2}");
         }
+    }
+}
+
+fn update_text(mut query: Query<&mut Text>) {
+    for mut t in query.iter_mut() {
+        t.set_changed();
     }
 }
