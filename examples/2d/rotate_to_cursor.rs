@@ -1,4 +1,4 @@
-//! Demonstrates sprites to face the cursor.
+//! Demonstrates rotating sprites to face the cursor.
 
 use bevy::prelude::*;
 use std::f32::consts::FRAC_PI_2;
@@ -15,7 +15,7 @@ fn main() {
 #[derive(Component)]
 struct Player;
 
-/// Add the game's entities to our world and creates an orthographic camera for 2D rendering.
+/// Add the game's entities to our world and create an orthographic camera for 2D rendering.
 ///
 /// The Bevy coordinate system is the same for 2D and 3D, in terms of 2D this means that:
 ///
