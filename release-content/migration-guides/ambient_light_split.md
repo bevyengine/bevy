@@ -9,19 +9,15 @@ The resource `GlobalAmbientLight` is the default ambient light for the entire wo
 Meanwhile, `AmbientLight` is a component that can be added to a `Camera` in order to override the default `GlobalAmbientLight`.
 When appropriate, rename `AmbientLight` to `GlobalAmbientLight`.
 
-Before:
-
 ```rust
+// 0.17
 app.insert_resource(AmbientLight {
     color: Color::WHITE,
     brightness: 2000.,
     ..default()
 });
-```
 
-After:
-
-```rust
+// 0.18
 app.insert_resource(GlobalAmbientLight {
     color: Color::WHITE,
     brightness: 2000.,

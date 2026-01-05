@@ -7,6 +7,7 @@ The `AssetLoader`, `AssetTransformer`, `AssetSaver`, and `Process` traits now in
 of `TypePath`. This means if you previously had a loader like:
 
 ```rust
+// 0.17
 struct MyFunkyLoader {
     add_funk: u32,
 }
@@ -15,6 +16,7 @@ struct MyFunkyLoader {
 You will need to add the following derive:
 
 ```rust
+// 0.18
 #[derive(TypePath)]
 struct MyFunkyLoader {
     add_funk: u32,

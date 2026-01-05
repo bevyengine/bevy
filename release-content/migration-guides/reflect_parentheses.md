@@ -8,19 +8,21 @@ supported parentheses, braces, or brackets, to standardize the syntax going
 forward, it now supports only parentheses.
 
 ```rust
-/// before
+/// 0.17
 #[derive(Clone, Reflect)]
 #[reflect[Clone]]
 
-/// after
+/// 0.18
 #[derive(Clone, Reflect)]
 #[reflect(Clone)]
+```
 
-/// before
+```rust
+/// 0.17
 #[derive(Clone, Reflect)]
 #[reflect{Clone}]
 
-/// after
+/// 0.18
 #[derive(Clone, Reflect)]
 #[reflect(Clone)]
 ```

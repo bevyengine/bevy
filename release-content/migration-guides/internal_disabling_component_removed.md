@@ -1,6 +1,6 @@
 ---
 title: "`Internal` has been removed"
-pull_requests: [ 21623 ]
+pull_requests: [21623]
 ---
 
 The `Internal` component, previously added as a required component to both one-shot systems and observer entities has been removed.

@@ -8,7 +8,12 @@ In previous versions of Bevy, the `label` of a `BindGroupLayout` was optional. T
 If you were previously omitting the `label` implementation from a `impl AsBindGroup`, you now must implement it:
 
 ```rust
-fn label() -> &'static str {
-    "my label"
+impl AsBindGroup for CoolMaterial {
+    // ...
+
+    fn label() -> &'static str {
+        // It is customary to make the label the name of the type.
+        "CoolMaterial"
+    }
 }
 ```

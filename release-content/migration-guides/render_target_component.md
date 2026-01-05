@@ -8,7 +8,7 @@ pull_requests: [20917]
 When spawning a camera, specify `RenderTarget` as a component instead of setting `camera.target`:
 
 ```rust
-// before
+// 0.17
 commands.spawn((
     Camera3d::default(),
     Camera {
@@ -17,7 +17,7 @@ commands.spawn((
     },
 ));
 
-// after
+// 0.18
 commands.spawn((
     Camera3d::default(),
     RenderTarget::Image(image_handle.into()),

@@ -1,6 +1,6 @@
 ---
 title: Implementations of `Reader` now must implement `AsyncSeek`, and `AsyncSeekForward` is deleted.
-pull_requests: []
+pull_requests: [22104]
 ---
 
 The `Reader` trait no longer requires implementing `AsyncSeekForward` and instead requires
@@ -22,7 +22,7 @@ impl AsyncSeek for MyReader {
             ),
         };
 
-        // Do whatever your previous `AsyncSeekForward` implementation did...
+        // ...
     }
 }
 ```
@@ -42,8 +42,7 @@ impl AssetReader for MyAssetReader {
             SeekKind::AnySeek => return Err(UnsupportedReaderFeature::AnySeek),
         }
 
-        // Do whatever your previous `AssetReader` implementation did, like...
-        Ok(MyReader)
+        // ...
     }
 }
 ```

@@ -11,12 +11,13 @@ If you use `bevy_window` or `bevy_gilrs`, they will automatically
 enable the necessary features on `bevy_input`. If you don't depend
 on them (for example, if you are developing for a platform that
 isn't supported by these crates), you need to enable the required
-input sources on `bevy_input` manually:
+input sources on the `bevy_input` / `bevy` crate manually:
 
 ```toml
-# Before:
+# 0.17
 bevy = { version = "0.17", default-features = false }
-# After (enable sources that you actually use):
+
+# 0.18 (enable sources that you actually use):
 bevy = { version = "0.18", default-features = false, features = [
   "mouse",
   "keyboard",
