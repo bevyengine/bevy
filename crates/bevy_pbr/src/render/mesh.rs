@@ -1,3 +1,4 @@
+use crate::contact_shadows::ViewContactShadowsUniformOffset;
 use crate::{
     material_bind_groups::{MaterialBindGroupIndex, MaterialBindGroupSlot},
     resources::write_atmosphere_buffer,
@@ -2997,6 +2998,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshViewBindGroup<I> 
         Read<ViewFogUniformOffset>,
         Read<ViewLightProbesUniformOffset>,
         Read<ViewScreenSpaceReflectionsUniformOffset>,
+        Read<ViewContactShadowsUniformOffset>,
         Read<ViewEnvironmentMapUniformOffset>,
         Read<MeshViewBindGroup>,
         Option<Read<OrderIndependentTransparencySettingsOffset>>,
@@ -3012,6 +3014,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshViewBindGroup<I> 
             view_fog,
             view_light_probes,
             view_ssr,
+            view_contact_shadows,
             view_environment_map,
             mesh_view_bind_group,
             maybe_oit_layers_count_offset,
@@ -3026,6 +3029,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshViewBindGroup<I> 
             view_fog.offset,
             **view_light_probes,
             **view_ssr,
+            **view_contact_shadows,
             **view_environment_map,
         ];
         if let Some(layers_count_offset) = maybe_oit_layers_count_offset {

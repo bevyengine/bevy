@@ -13,8 +13,12 @@
     ambient,
     irradiance_volume,
     view_transformations,
+    raymarch,
+    utils,
     mesh_types::{MESH_FLAGS_SHADOW_RECEIVER_BIT, MESH_FLAGS_TRANSMITTED_SHADOW_RECEIVER_BIT},
 }
+#import bevy_pbr::mesh_view_bindings::globals
+#import bevy_pbr::view_transformations::{position_world_to_ndc}
 #import bevy_render::maths::{E, powsafe}
 
 #ifdef MESHLET_MESH_MATERIAL_PASS
@@ -401,6 +405,9 @@ fn apply_pbr_lighting(
     var clusterable_object_index_ranges =
         clustering::unpack_clusterable_object_index_ranges(cluster_index);
 
+    let contact_shadow_steps = view_bindings::contact_shadows_settings.linear_steps;
+    let contact_shadow_enabled = contact_shadow_steps > 0u;
+
     // Point lights (direct)
     for (var i: u32 = clusterable_object_index_ranges.first_point_light_index_offset;
             i < clusterable_object_index_ranges.first_spot_light_index_offset;
@@ -422,6 +429,29 @@ fn apply_pbr_lighting(
                 && (view_bindings::clusterable_objects.data[light_id].flags & mesh_view_types::POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
             shadow = shadows::fetch_point_shadow(light_id, in.world_position, in.world_normal);
         }
+
+#ifdef DEPTH_PREPASS
+        if contact_shadow_enabled && shadow > 0.0 {
+            let L = normalize(view_bindings::clusterable_objects.data[light_id].position_radius.xyz - in.world_position.xyz);
+
+            let noise = utils::interleaved_gradient_noise(in.frag_coord.xy, view_bindings::globals.frame_count);
+            let normal_bias = in.world_normal * 0.005;
+
+            let depth_size = vec2<f32>(textureDimensions(view_bindings::depth_prepass_texture));
+            var rm = raymarch::depth_ray_march_new_from_depth(depth_size);
+            raymarch::depth_ray_march_from_cs(&rm, position_world_to_ndc(in.world_position.xyz + normal_bias));
+            raymarch::depth_ray_march_to_ws(&rm, in.world_position.xyz + normal_bias + L * view_bindings::contact_shadows_settings.length);
+            rm.linear_steps = contact_shadow_steps;
+            rm.depth_thickness_linear_z = view_bindings::contact_shadows_settings.thickness;
+            rm.march_behind_surfaces = true;
+            rm.jitter = noise;
+
+            let rm_result = raymarch::depth_ray_march_march(&rm);
+            if rm_result.hit {
+                shadow *= smoothstep(0.5, 1.0, rm_result.hit_penetration_frac);
+            }
+        }
+#endif
 
         let light_contrib = lighting::point_light(light_id, &lighting_input, enable_diffuse, true);
         direct_light += light_contrib * shadow;
@@ -476,6 +506,29 @@ fn apply_pbr_lighting(
             );
         }
 
+#ifdef DEPTH_PREPASS
+        if contact_shadow_enabled && shadow > 0.0 {
+            let L = normalize(view_bindings::clusterable_objects.data[light_id].position_radius.xyz - in.world_position.xyz);
+
+            let noise = utils::interleaved_gradient_noise(in.frag_coord.xy, view_bindings::globals.frame_count);
+            let normal_bias = in.world_normal * 0.005;
+
+            let depth_size = vec2<f32>(textureDimensions(view_bindings::depth_prepass_texture));
+            var rm = raymarch::depth_ray_march_new_from_depth(depth_size);
+            raymarch::depth_ray_march_from_cs(&rm, position_world_to_ndc(in.world_position.xyz + normal_bias));
+            raymarch::depth_ray_march_to_ws(&rm, in.world_position.xyz + normal_bias + L * view_bindings::contact_shadows_settings.length);
+            rm.linear_steps = contact_shadow_steps;
+            rm.depth_thickness_linear_z = view_bindings::contact_shadows_settings.thickness;
+            rm.march_behind_surfaces = true;
+            rm.jitter = noise;
+
+            let rm_result = raymarch::depth_ray_march_march(&rm);
+            if rm_result.hit {
+                shadow *= smoothstep(0.5, 1.0, rm_result.hit_penetration_frac);
+            }
+        }
+#endif
+
         let light_contrib = lighting::spot_light(light_id, &lighting_input, enable_diffuse);
         direct_light += light_contrib * shadow;
 
@@ -529,6 +582,29 @@ fn apply_pbr_lighting(
                 && (view_bindings::lights.directional_lights[i].flags & mesh_view_types::DIRECTIONAL_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
             shadow = shadows::fetch_directional_shadow(i, in.world_position, in.world_normal, view_z);
         }
+
+#ifdef DEPTH_PREPASS
+        if contact_shadow_enabled && shadow > 0.0 {
+            let L = view_bindings::lights.directional_lights[i].direction_to_light;
+
+            let noise = utils::interleaved_gradient_noise(in.frag_coord.xy, view_bindings::globals.frame_count);
+            let normal_bias = in.world_normal * 0.005;
+
+            let depth_size = vec2<f32>(textureDimensions(view_bindings::depth_prepass_texture));
+            var rm = raymarch::depth_ray_march_new_from_depth(depth_size);
+            raymarch::depth_ray_march_from_cs(&rm, position_world_to_ndc(in.world_position.xyz + normal_bias));
+            raymarch::depth_ray_march_to_ws(&rm, in.world_position.xyz + normal_bias + L * view_bindings::contact_shadows_settings.length);
+            rm.linear_steps = contact_shadow_steps;
+            rm.depth_thickness_linear_z = view_bindings::contact_shadows_settings.thickness;
+            rm.march_behind_surfaces = true;
+            rm.jitter = noise;
+
+            let rm_result = raymarch::depth_ray_march_march(&rm);
+            if rm_result.hit {
+                shadow *= smoothstep(0.5, 1.0, rm_result.hit_penetration_frac);
+            }
+        }
+#endif
 
         var light_contrib = lighting::directional_light(i, &lighting_input, enable_diffuse);
 
@@ -767,14 +843,6 @@ fn apply_fog(fog_params: mesh_view_types::Fog, input_color: vec4<f32>, fragment_
     // fog shape that remains consistent with camera rotation, instead of a "linear"
     // fog shape that looks a bit fake
     let distance = length(view_to_world);
-
-    // Calculate view_z for shadow cascade selection
-    let view_pos = view_transformations::position_world_to_view(fragment_world_position);
-    let view_z = view_pos.z;
-
-    // Approximate surface normal using view direction for shadow sampling
-    let view_direction_normal = normalize(-view_to_world);
-    let fragment_world_position_vec4 = vec4<f32>(fragment_world_position, 1.0);
 
     var scattering = vec3<f32>(0.0);
     if fog_params.directional_light_color.a > 0.0 {

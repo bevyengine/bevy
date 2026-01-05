@@ -163,6 +163,13 @@ struct ScreenSpaceReflectionsSettings {
     use_secant: u32,
 };
 
+// Settings for contact shadows.
+struct ContactShadowsSettings {
+    linear_steps: u32,
+    thickness: f32,
+    length: f32,
+};
+
 struct EnvironmentMapUniform {
     // Transformation matrix for the environment cubemaps in world space.
     transform: mat4x4<f32>,
