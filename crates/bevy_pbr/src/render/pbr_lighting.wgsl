@@ -651,10 +651,17 @@ fn point_light(
     let brdf_roughness = mix(a, a_prime, lerp);
 
 #ifdef STANDARD_MATERIAL_ANISOTROPY
-    let specular_light = specular_anisotropy(input, &specular_derived_input, L, brdf_roughness, specular_intensity);
+    var specular_light = specular_anisotropy(input, &specular_derived_input, L, brdf_roughness, specular_intensity);
 #else   // STANDARD_MATERIAL_ANISOTROPY
-    let specular_light = specular(input, &specular_derived_input, brdf_roughness, specular_intensity);
+    var specular_light = specular(input, &specular_derived_input, brdf_roughness, specular_intensity);
 #endif  // STANDARD_MATERIAL_ANISOTROPY
+
+    // Sphere area light visibility (solid-angle attenuation)
+    let light_radius = (*light).position_radius.w;
+    if light_radius > 0.0 {
+        let solid_angle = light_radius * light_radius / (distance * distance);
+        specular_light *= saturate(specular_derived_input.NdotL / max(specular_derived_input.NdotL + solid_angle, 1e-4));
+    }
 
     // Clearcoat
 
@@ -699,7 +706,13 @@ fn point_light(
         clearcoat_specular_intensity
     );
     let inv_Fc = 1.0 - Fc_Frc.r;    // Inverse Fresnel term.
-    let Frc = Fc_Frc.g;             // Clearcoat light.
+    var Frc = Fc_Frc.g;             // Clearcoat light.
+
+    // Sphere area light visibility (solid-angle attenuation) for clearcoat
+    if light_radius > 0.0 {
+        let solid_angle = light_radius * light_radius / (distance * distance);
+        Frc *= saturate(clearcoat_specular_derived_input.NdotL / max(clearcoat_specular_derived_input.NdotL + solid_angle, 1e-4));
+    }
 #endif  // STANDARD_MATERIAL_CLEARCOAT
 
     // Diffuse.
