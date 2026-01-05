@@ -1,6 +1,4 @@
-use alloc::sync::Arc;
-
-use bevy_asset::{AssetId, Assets};
+use bevy_asset::Assets;
 use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
@@ -10,7 +8,6 @@ use bevy_ecs::{
 use bevy_image::prelude::*;
 use bevy_log::{once, warn};
 use bevy_math::{Rect, UVec2, Vec2};
-use bevy_platform::collections::HashMap;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use smol_str::SmolStr;
 
@@ -19,7 +16,7 @@ use crate::{
     FontAtlasKey, FontAtlasSet, FontHinting, FontSmoothing, FontSource, Justify, LineBreak,
     LineHeight, PositionedGlyph, TextBounds, TextEntity, TextFont, TextLayout,
 };
-use cosmic_text::{fontdb::ID, Attrs, Buffer, Family, Metrics, Shaping, Wrap};
+use cosmic_text::{Attrs, Buffer, Family, Metrics, Shaping, Wrap};
 
 /// A wrapper resource around a [`cosmic_text::FontSystem`]
 ///
@@ -64,8 +61,6 @@ pub struct FontFaceInfo {
 /// See the [crate-level documentation](crate) for more information.
 #[derive(Default, Resource)]
 pub struct TextPipeline {
-    /// Identifies a font [`ID`] by its [`Font`] [`Asset`](bevy_asset::Asset).
-    pub map_handle_to_font_id: HashMap<AssetId<Font>, (ID, Arc<str>)>,
     /// Buffered vec for collecting spans.
     ///
     /// See [this dark magic](https://users.rust-lang.org/t/how-to-cache-a-vectors-capacity/94478/10).
@@ -124,22 +119,7 @@ impl TextPipeline {
 
             let family_name: SmolStr = match &text_font.font {
                 FontSource::Handle(handle) => {
-                    if let Some(font) = fonts.get(handle.id()) {
-                        let data = Arc::clone(&font.data);
-                        let ids = font_system
-                            .db_mut()
-                            .load_font_source(cosmic_text::fontdb::Source::Binary(data));
-
-                        // TODO: it is assumed this is the right font face
-                        font_system
-                            .db()
-                            .face(*ids.last().unwrap())
-                            .unwrap()
-                            .families[0]
-                            .0
-                            .as_str()
-                            .into()
-                    } else {
+                    let Some(font) = fonts.get(handle.id()) else {
                         // Return early if a font is not loaded yet.
                         spans.clear();
                         self.spans_buffer = spans
@@ -155,7 +135,9 @@ impl TextPipeline {
                             )
                             .collect();
                         return Err(TextError::NoSuchFont);
-                    }
+                    };
+
+                    font.family_name.clone()
                 }
                 FontSource::Family(family) => family.clone(),
             };
@@ -291,14 +273,6 @@ impl TextPipeline {
             max: max_width_content_size,
             entity,
         })
-    }
-
-    /// Returns the [`cosmic_text::fontdb::ID`] for a given [`Font`] asset.
-    pub fn get_font_id(&self, asset_id: AssetId<Font>) -> Option<ID> {
-        self.map_handle_to_font_id
-            .get(&asset_id)
-            .cloned()
-            .map(|(id, _)| id)
     }
 
     /// Update [`TextLayoutInfo`] with the new [`PositionedGlyph`] layout.

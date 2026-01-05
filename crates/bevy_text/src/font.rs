@@ -11,6 +11,7 @@ use cosmic_text::fontdb::ID;
 use cosmic_text::skrifa::raw::ReadError;
 use cosmic_text::skrifa::FontRef;
 use smallvec::SmallVec;
+use smol_str::SmolStr;
 
 use crate::ComputedTextBlock;
 use crate::CosmicFontSystem;
@@ -33,6 +34,8 @@ pub struct Font {
     pub data: Arc<Vec<u8>>,
     /// Ids for fonts in font file
     pub ids: SmallVec<[ID; 8]>,
+    /// Font family name
+    pub family_name: SmolStr,
 }
 
 impl Font {
@@ -42,6 +45,7 @@ impl Font {
         Ok(Self {
             data: Arc::new(font_data),
             ids: SmallVec::new(),
+            family_name: SmolStr::default(),
         })
     }
 }
@@ -65,6 +69,15 @@ pub fn load_font_assets_into_fontdb_system(
                 .load_font_source(cosmic_text::fontdb::Source::Binary(data))
                 .into_iter()
                 .collect();
+            // TODO: it is assumed this is the right font face
+            font.family_name = font_system
+                .db()
+                .face(*font.ids.last().unwrap())
+                .unwrap()
+                .families[0]
+                .0
+                .as_str()
+                .into();
             new_fonts_added = true;
         }
     }
