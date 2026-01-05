@@ -262,6 +262,31 @@ pub enum FontSource {
     Handle(Handle<Font>),
     /// Resolve the font by family name using the font database.
     Family(SmolStr),
+    /// Fonts with serifs — small decorative strokes at the ends of letterforms.
+    ///
+    /// Serif fonts are typically used for long passages of text and represent
+    /// a more traditional or formal typographic style.
+    Serif,
+    /// Fonts without serifs.
+    ///
+    /// Sans-serif fonts generally have low stroke contrast and plain stroke
+    /// endings, making them common for UI text and on-screen reading.
+    SansSerif,
+    /// Fonts that use a cursive or handwritten style.
+    ///
+    /// Glyphs often resemble connected or flowing pen or brush strokes rather
+    /// than printed letterforms.
+    Cursive,
+    /// Decorative or expressive fonts.
+    ///
+    /// Fantasy fonts are primarily intended for display purposes and may
+    /// prioritize visual style over readability.
+    Fantasy,
+    /// Fonts in which all glyphs have the same fixed advance width.
+    ///
+    /// Monospace fonts are commonly used for code, tabular data, and text
+    /// where vertical alignment is important.
+    Monospace,
 }
 
 impl Default for FontSource {
