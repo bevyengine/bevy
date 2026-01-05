@@ -44,6 +44,7 @@ static SWITCH_TO_CAPSULES_HELP_TEXT: &str = "Press Enter to switch to the row of
 static SWITCH_TO_CUBE_HELP_TEXT: &str = "Press Enter to switch to the single cube model";
 static MIN_ROUGHNESS_HELP_TEXT: &str = "Press U/I and O/P to adjust the minimum roughness range";
 static MAX_ROUGHNESS_HELP_TEXT: &str = "Press H/J and K/L to adjust the maximum roughness range";
+static EDGE_FADEOUT_HELP_TEXT: &str = "Press N/M and ,/. to adjust the edge fadeout range";
 
 /// A custom [`ExtendedMaterial`] that creates animated water ripples.
 #[derive(Asset, TypePath, AsBindGroup, Debug, Clone)]
@@ -83,6 +84,8 @@ struct AppSettings {
     min_perceptual_roughness: Range<f32>,
     /// The perceptual roughness range over which SSR begins to fade out.
     max_perceptual_roughness: Range<f32>,
+    /// The range over which SSR begins to fade out at the edges of the screen.
+    edge_fadeout: Range<f32>,
 }
 
 /// Which model is being displayed.
@@ -288,6 +291,7 @@ fn spawn_camera(commands: &mut Commands, asset_server: &AssetServer, app_setting
         ScreenSpaceReflections {
             min_perceptual_roughness: app_settings.min_perceptual_roughness.clone(),
             max_perceptual_roughness: app_settings.max_perceptual_roughness.clone(),
+            edge_fadeout: app_settings.edge_fadeout.clone(),
             ..default()
         },
         ScreenSpaceAmbientOcclusion::default(),
@@ -321,7 +325,7 @@ fn spawn_text(commands: &mut Commands, app_settings: &AppSettings) {
 // Creates or recreates the help text.
 fn create_text(app_settings: &AppSettings) -> Text {
     format!(
-        "{}\n{}\n{}\n{}\n{}\nSSR min roughness: {:.2}..{:.2}\nSSR max roughness: {:.2}..{:.2}",
+        "{}\n{}\n{}\n{}\n{}\n{}\nSSR min roughness: {:.2}..{:.2}\nSSR max roughness: {:.2}..{:.2}\nSSR edge fadeout: {:.2}..{:.2}",
         match app_settings.displayed_model {
             DisplayedModel::Cube => SWITCH_TO_FLIGHT_HELMET_HELP_TEXT,
             DisplayedModel::FlightHelmet => SWITCH_TO_CAPSULES_HELP_TEXT,
@@ -335,10 +339,13 @@ fn create_text(app_settings: &AppSettings) -> Text {
         MOVE_CAMERA_HELP_TEXT,
         MIN_ROUGHNESS_HELP_TEXT,
         MAX_ROUGHNESS_HELP_TEXT,
+        EDGE_FADEOUT_HELP_TEXT,
         app_settings.min_perceptual_roughness.start,
         app_settings.min_perceptual_roughness.end,
         app_settings.max_perceptual_roughness.start,
         app_settings.max_perceptual_roughness.end,
+        app_settings.edge_fadeout.start,
+        app_settings.edge_fadeout.end,
     )
     .into()
 }
@@ -501,6 +508,24 @@ fn adjust_app_settings(
         any_changes = true;
     }
 
+    // Adjust edge fadeout range.
+    if keyboard_input.pressed(KeyCode::KeyN) {
+        app_settings.edge_fadeout.start = (app_settings.edge_fadeout.start - 0.001).max(0.0);
+        any_changes = true;
+    }
+    if keyboard_input.pressed(KeyCode::KeyM) {
+        app_settings.edge_fadeout.start = (app_settings.edge_fadeout.start + 0.001).min(1.0);
+        any_changes = true;
+    }
+    if keyboard_input.pressed(KeyCode::Comma) {
+        app_settings.edge_fadeout.end = (app_settings.edge_fadeout.end - 0.001).max(0.0);
+        any_changes = true;
+    }
+    if keyboard_input.pressed(KeyCode::Period) {
+        app_settings.edge_fadeout.end = (app_settings.edge_fadeout.end + 0.001).min(1.0);
+        any_changes = true;
+    }
+
     // If there were no changes, bail.
     if !any_changes {
         return;
@@ -512,6 +537,7 @@ fn adjust_app_settings(
             commands.entity(camera).insert(ScreenSpaceReflections {
                 min_perceptual_roughness: app_settings.min_perceptual_roughness.clone(),
                 max_perceptual_roughness: app_settings.max_perceptual_roughness.clone(),
+                edge_fadeout: app_settings.edge_fadeout.clone(),
                 ..default()
             });
         } else {
@@ -556,6 +582,7 @@ impl Default for AppSettings {
             displayed_model: default(),
             min_perceptual_roughness: 0.0..0.0,
             max_perceptual_roughness: 0.55..0.7,
+            edge_fadeout: 0.0..0.0,
         }
     }
 }

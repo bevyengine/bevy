@@ -162,6 +162,29 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
 
     var fade = saturate(min_fade) * saturate(max_fade);
 
+    let ndc_position = frag_coord_to_ndc(vec4(in.position.xy, frag_coord.z, 1.0));
+    let uv = ndc_to_uv(ndc_position.xy);
+    let dist_x = min(uv.x, 1.0 - uv.x);
+    let dist_y = min(uv.y, 1.0 - uv.y);
+    var fade_x: f32;
+    var fade_y: f32;
+    if (ssr_settings.edge_fadeout_no_longer_active >= ssr_settings.edge_fadeout_fully_active) {
+        fade_x = select(0.0, 1.0, dist_x > ssr_settings.edge_fadeout_no_longer_active);
+        fade_y = select(0.0, 1.0, dist_y > ssr_settings.edge_fadeout_no_longer_active);
+    } else {
+        fade_x = smoothstep(
+            ssr_settings.edge_fadeout_no_longer_active,
+            ssr_settings.edge_fadeout_fully_active,
+            dist_x
+        );
+        fade_y = smoothstep(
+            ssr_settings.edge_fadeout_no_longer_active,
+            ssr_settings.edge_fadeout_fully_active,
+            dist_y
+        );
+    }
+    fade *= fade_x * fade_y;
+
     if (perceptual_roughness > ssr_settings.max_perceptual_roughness) {
         return fragment;
     }

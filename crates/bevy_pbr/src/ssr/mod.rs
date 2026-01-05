@@ -125,6 +125,14 @@ pub struct ScreenSpaceReflections {
     /// as 1 or 2.
     pub linear_march_exponent: f32,
 
+    /// The range over which SSR begins to fade out at the edges of the screen,
+    /// in terms of a percentage of the screen dimensions.
+    ///
+    /// The first value is the percentage from the edge at which SSR is no
+    /// longer active; the second value is the percentage at which SSR is fully
+    /// active.
+    pub edge_fadeout: Range<f32>,
+
     /// Number of steps in a bisection (binary search) to perform once the
     /// linear search has found an intersection. Helps narrow down the hit,
     /// increasing the chance of the secant method finding an accurate hit
@@ -147,6 +155,8 @@ pub struct ScreenSpaceReflectionsUniform {
     min_perceptual_roughness_fully_active: f32,
     max_perceptual_roughness_starts_to_fade: f32,
     max_perceptual_roughness: f32,
+    edge_fadeout_fully_active: f32,
+    edge_fadeout_no_longer_active: f32,
     thickness: f32,
     linear_steps: u32,
     linear_march_exponent: f32,
@@ -155,7 +165,6 @@ pub struct ScreenSpaceReflectionsUniform {
     use_secant: u32,
     pad_a: u32,
     pad_b: u32,
-    pad_c: u32,
 }
 
 /// The node in the render graph that traces screen space reflections.
@@ -263,6 +272,7 @@ impl Default for ScreenSpaceReflections {
             use_secant: true,
             thickness: 0.25,
             linear_march_exponent: 1.0,
+            edge_fadeout: 0.0..0.0,
         }
     }
 }
@@ -615,6 +625,8 @@ impl From<ScreenSpaceReflections> for ScreenSpaceReflectionsUniform {
             min_perceptual_roughness_fully_active: settings.min_perceptual_roughness.end,
             max_perceptual_roughness_starts_to_fade: settings.max_perceptual_roughness.start,
             max_perceptual_roughness: settings.max_perceptual_roughness.end,
+            edge_fadeout_no_longer_active: settings.edge_fadeout.start,
+            edge_fadeout_fully_active: settings.edge_fadeout.end,
             thickness: settings.thickness,
             linear_steps: settings.linear_steps,
             linear_march_exponent: settings.linear_march_exponent,
@@ -622,7 +634,6 @@ impl From<ScreenSpaceReflections> for ScreenSpaceReflectionsUniform {
             use_secant: settings.use_secant as u32,
             pad_a: 0,
             pad_b: 0,
-            pad_c: 0,
         }
     }
 }

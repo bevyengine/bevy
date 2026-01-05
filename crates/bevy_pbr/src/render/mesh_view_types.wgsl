@@ -159,11 +159,15 @@ struct ScreenSpaceReflectionsSettings {
     min_perceptual_roughness_fully_active: f32,
     max_perceptual_roughness_starts_to_fade: f32,
     max_perceptual_roughness: f32,
+    edge_fadeout_fully_active: f32,
+    edge_fadeout_no_longer_active: f32,
     thickness: f32,
     linear_steps: u32,
     linear_march_exponent: f32,
     bisection_steps: u32,
     use_secant: u32,
+    pad_a: u32,
+    pad_b: u32,
 };
 
 struct EnvironmentMapUniform {
