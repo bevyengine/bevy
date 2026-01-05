@@ -1,6 +1,6 @@
 //! Demonstrates sprites to face the cursor.
 
-use bevy::{math::ops, prelude::*};
+use bevy::prelude::*;
 use std::f32::consts::FRAC_PI_2;
 
 fn main() {
@@ -35,8 +35,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
 /// Demonstrates applying rotation and movement based on keyboard input.
 fn player_movement_system(
-    time: Res<Time>,
-    keyboard_input: Res<ButtonInput<KeyCode>>,
     mut player: Single<&mut Transform, With<Player>>,
     camera_query: Single<(&Camera, &GlobalTransform)>,
     window: Single<&Window>,
