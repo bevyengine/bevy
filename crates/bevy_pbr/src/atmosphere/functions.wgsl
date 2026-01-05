@@ -317,16 +317,35 @@ fn sample_cloud_shadow_map(world_pos: vec3<f32>, direction_to_light: vec3<f32>) 
     }
 
     let uv = vec2(x, y) / (2.0 * extent) + vec2(0.5);
-    let data = textureSampleLevel(cloud_shadow_map, atmosphere_lut_sampler, uv, 0.0).rgb;
-    // Shadow map stores front depth in kilometers to fit fp16 range.
-    let front_depth = data.r * 1000.0;
-    let mean_ext = data.g;
-    let max_optical_depth = data.b;
 
-    let delta = max(0.0, d_sample - front_depth);
-    var tau = mean_ext * delta;
-    tau = min(tau, max_optical_depth);
-    return exp(-tau);
+    // Mitigate aliasing/banding/noise:
+    // - Compute transmittance per tap, then average (PCF-like).
+    // - This avoids trying to "filter depth", which Unreal also avoids in its temporal pass.
+    let inv_size = 1.0 / vec2<f32>(settings.cloud_shadow_map_size);
+    let o = 0.75 * inv_size;
+
+    var sum_t = 0.0;
+    var taps: u32 = 0u;
+    // 3x3 tent-ish filter (more stable than 2x2 when the producer is jittered).
+    for (var dy: i32 = -1; dy <= 1; dy += 1) {
+        for (var dx: i32 = -1; dx <= 1; dx += 1) {
+            let w = select(1.0, 2.0, (dx == 0) || (dy == 0));
+            let uv_tap = uv + vec2<f32>(f32(dx) * o.x, f32(dy) * o.y);
+            let data = textureSampleLevel(cloud_shadow_map, atmosphere_lut_sampler, uv_tap, 0.0).rgb;
+            // Shadow map stores front depth in kilometers to fit fp16 range.
+            let front_depth = data.r * 1000.0;
+            let mean_ext = data.g;
+            let max_optical_depth = data.b;
+
+            let delta = max(0.0, d_sample - front_depth);
+            var tau = mean_ext * delta;
+            tau = min(tau, max_optical_depth);
+            sum_t += w * exp(-tau);
+            taps += u32(w);
+        }
+    }
+
+    return sum_t / max(1.0, f32(taps));
 }
 #endif
 
@@ -632,89 +651,198 @@ fn raymarch_atmosphere(
     let sample_budget = max(1u, u32(sample_count));
 
     #ifdef CLOUDS_ENABLED
-    // NUBIS-like adaptive stepping:
-    // Allocate the fixed sample budget such that we take smaller steps inside the
-    // cloud layer shell, and larger steps outside it. Additionally, within the
-    // cloud layer we refine step size based on |∇density| to better capture sharp
-    // density transitions (cubed-style gradient guidance).
+    // Robust cloud-aware sampling (NUBIS Cubed-style):
+    //
+    // Problem: when the ray goes to top-of-atmosphere, `t_total` becomes huge, but `sample_budget`
+    // is fixed (e.g. 16). If we distribute samples over the whole atmosphere segment, the cloud
+    // layer (a thin shell) gets under-sampled and becomes noisy/biased (often too opaque).
+    //
+    // Fix: explicitly split the ray into:
+    // - [t_start, cloud_start)   (outside)
+    // - [cloud_start, cloud_end) (inside cloud layer)
+    // - [cloud_end, t_end)       (outside)
+    //
+    // Then allocate a guaranteed portion of the fixed budget to the cloud segment based on a
+    // *target step length*, and spend the remainder outside.
+    //
+    // Additionally, inside the cloud segment we optionally sub-step near sharp density gradients
+    // (Cubed-style gradient guidance) while keeping the overall sample placement stable.
+
+    // Cloud segment in [t_start, t_end]
     let seg = cloud_layer_segment(pos, ray_dir);
-    // Clamp to our current raymarch segment.
     let cloud_start = clamp(seg.x, t_start, t_end);
     let cloud_end = clamp(seg.y, t_start, t_end);
     let has_cloud_layer = (seg.z > 0.5) && (cloud_end > cloud_start);
 
-    let base_dt = t_total / f32(sample_budget);
-    // Outside we allow larger steps; inside cloud layer we force smaller steps.
-    let outside_dt = base_dt * 3.0;
-    let inside_dt = base_dt * 0.75;
+    // Budgeting controls (units: meters)
+    const CLOUD_TARGET_STEP_M: f32 = 750.0;
+    const CLOUD_MIN_SAMPLES: u32 = 6u;
+    const CLOUD_MAX_SAMPLES: u32 = 32u;
+    const MIN_OUTSIDE_SAMPLES: u32 = 2u;
+
     // Gradient scale factor (unit: meters) to turn |∇density| (1/m) into a dimensionless importance.
     const GRAD_IMPORTANCE_M: f32 = 1500.0;
+    // Keep this small; sub-stepping is extra work on top of the fixed sample budget.
+    const CLOUD_MAX_SUBSTEPS: u32 = 2u;
 
-    var t = t_start;
-    var steps_taken: u32 = 0u;
-    while (steps_taken < sample_budget && t < t_end) {
-        // Choose the region-based dt first.
-        var dt = outside_dt;
-        if (has_cloud_layer && t >= cloud_start && t < cloud_end) {
-            dt = inside_dt;
+    let len_pre = select(0.0, cloud_start - t_start, has_cloud_layer);
+    let len_post = select(0.0, t_end - cloud_end, has_cloud_layer);
+    let len_outside = len_pre + len_post;
+
+    // Compute cloud budget (reserve a small outside budget if there is any outside segment).
+    var n_cloud: u32 = 0u;
+    if (has_cloud_layer) {
+        let desired = u32(ceil((cloud_end - cloud_start) / CLOUD_TARGET_STEP_M));
+        n_cloud = clamp(desired, CLOUD_MIN_SAMPLES, CLOUD_MAX_SAMPLES);
+
+        // Reserve some outside samples if there is outside length.
+        let reserve_outside = select(0u, MIN_OUTSIDE_SAMPLES, (len_outside > 0.0) && (sample_budget > MIN_OUTSIDE_SAMPLES));
+        n_cloud = min(n_cloud, sample_budget - reserve_outside);
+    }
+
+    // Distribute remaining samples to outside segments (proportional to length).
+    let remaining = sample_budget - n_cloud;
+    var n_pre: u32 = 0u;
+    var n_post: u32 = 0u;
+
+    if (!has_cloud_layer) {
+        // No cloud segment => just sample the whole atmosphere uniformly.
+        n_pre = sample_budget;
+        n_post = 0u;
+    } else if (remaining > 0u) {
+        if (len_outside > 0.0) {
+            let pre_share = len_pre / len_outside;
+            n_pre = min(remaining, u32(round(f32(remaining) * pre_share)));
+            n_post = remaining - n_pre;
+        } else {
+            // Degenerate case: cloud segment covers the whole segment.
+            n_pre = 0u;
+            n_post = remaining;
         }
+    }
 
-        // Clamp dt to not step past the end.
-        dt = min(dt, t_end - t);
+    // March segments in order with stable stratified samples.
+    var stop: bool = false;
 
-        // Per-step jitter inside the segment to reduce banding / structured artifacts.
-        // We jitter around MIDPOINT_RATIO (stratified), and clamp away from endpoints.
-        let j = interleaved_gradient_noise(pixel_coords, 1u); // [0,1]
-        let sample_ratio = clamp(MIDPOINT_RATIO + (j - 0.5) * 0.8, 0.05, 0.95);
-        var sample_t = t + dt * sample_ratio;
-        var sample_pos = pos + ray_dir * sample_t;
-        var local_r = length(sample_pos);
+    // Segment A: [t_start, cloud_start) or whole ray when no cloud segment.
+    {
+        let seg_a_start = t_start;
+        let seg_a_end = select(cloud_start, t_end, !has_cloud_layer);
+        if (n_pre > 0u && seg_a_end > seg_a_start) {
+            let dt = (seg_a_end - seg_a_start) / f32(n_pre);
+            for (var i = 0u; i < n_pre; i += 1u) {
+                if (stop) { break; }
+                let bin_start = seg_a_start + f32(i) * dt;
+                let j = interleaved_gradient_noise(pixel_coords, 10u + i); // [0,1]
+                let sample_ratio = clamp(MIDPOINT_RATIO + (j - 0.5) * 0.8, 0.05, 0.95);
+                let sample_t = bin_start + dt * sample_ratio;
+                let sample_pos = pos + ray_dir * sample_t;
+                let local_r = length(sample_pos);
 
-        // Gradient-guided refinement only inside the cloud layer shell.
-        if (has_cloud_layer && sample_t >= cloud_start && sample_t < cloud_end) {
-            let field = sample_cloud_field_density_and_grad(local_r, sample_pos);
+                let absorption = sample_density_lut(local_r, ABSORPTION_DENSITY);
+                let scattering = sample_density_lut(local_r, SCATTERING_DENSITY);
+                let extinction = absorption + scattering;
+
+                let sample_optical_depth = extinction * dt;
+                optical_depth += sample_optical_depth;
+                let sample_transmittance = exp(-sample_optical_depth);
+
+                let inscattering = sample_local_inscattering(scattering, ray_dir, sample_pos, pixel_coords);
+                let s_int = (inscattering - inscattering * sample_transmittance) / max(extinction, MIN_EXTINCTION);
+                result.inscattering += result.transmittance * s_int;
+                result.transmittance *= sample_transmittance;
+
+                if all(result.transmittance < vec3(0.001)) {
+                    stop = true;
+                }
+            }
+        }
+    }
+
+    // Segment B: [cloud_start, cloud_end) (cloud layer)
+    if (!stop && has_cloud_layer && n_cloud > 0u && cloud_end > cloud_start) {
+        let dt = (cloud_end - cloud_start) / f32(n_cloud);
+        for (var i = 0u; i < n_cloud; i += 1u) {
+            if (stop) { break; }
+            let bin_start = cloud_start + f32(i) * dt;
+            let j = interleaved_gradient_noise(pixel_coords, 100u + i); // [0,1]
+            let sample_ratio = clamp(MIDPOINT_RATIO + (j - 0.5) * 0.8, 0.05, 0.95);
+            let probe_t = bin_start + dt * sample_ratio;
+            let probe_pos = pos + ray_dir * probe_t;
+            let probe_r = length(probe_pos);
+
+            // Gradient-guided sub-stepping (stable): decide how many sub-steps we want,
+            // but integrate with midpoint samples to avoid adding extra noise.
+            let field = sample_cloud_field_density_and_grad(probe_r, probe_pos);
             let grad_mag = field.y;
-            // Higher gradient => smaller dt (more samples near sharp transitions).
-            // Use a smooth 1/(1+g) falloff (more stable than a linear scale).
             let g = max(0.0, grad_mag * GRAD_IMPORTANCE_M);
-            let min_dt = base_dt * 0.05;
-            dt = max(min_dt, dt / (1.0 + g));
-            dt = min(dt, t_end - t);
+            let desired_sub = u32(ceil(1.0 + g));
+            let sub_steps = min(CLOUD_MAX_SUBSTEPS, max(1u, desired_sub));
+            let sub_dt = dt / f32(sub_steps);
 
-            // IMPORTANT: dt changed, so the segment sample position must be recomputed
-            // to keep the integrand evaluation consistent with the segment length.
-            sample_t = t + dt * sample_ratio;
-            sample_pos = pos + ray_dir * sample_t;
-            local_r = length(sample_pos);
+            for (var k = 0u; k < sub_steps; k += 1u) {
+                if (stop) { break; }
+                let sub_start = bin_start + f32(k) * sub_dt;
+                let sample_t = sub_start + 0.5 * sub_dt;
+                let sample_pos = pos + ray_dir * sample_t;
+                let local_r = length(sample_pos);
+
+                let absorption = sample_density_lut(local_r, ABSORPTION_DENSITY);
+                let scattering = sample_density_lut(local_r, SCATTERING_DENSITY);
+                var extinction = absorption + scattering;
+
+                // Energy-preserving cloud extinction on the view ray.
+                let cloud_density = get_cloud_medium_density(local_r, sample_pos);
+                if (cloud_density > 0.0) {
+                    let cloud_extinction = cloud_density * (get_cloud_scattering_coeff() + get_cloud_absorption_coeff());
+                    extinction += vec3(cloud_extinction);
+                }
+
+                let sample_optical_depth = extinction * sub_dt;
+                optical_depth += sample_optical_depth;
+                let sample_transmittance = exp(-sample_optical_depth);
+
+                let inscattering = sample_local_inscattering(scattering, ray_dir, sample_pos, pixel_coords);
+                let s_int = (inscattering - inscattering * sample_transmittance) / max(extinction, MIN_EXTINCTION);
+                result.inscattering += result.transmittance * s_int;
+                result.transmittance *= sample_transmittance;
+
+                if all(result.transmittance < vec3(0.001)) {
+                    stop = true;
+                }
+            }
         }
+    }
 
-        // Compute media at the sample position.
-        let absorption = sample_density_lut(local_r, ABSORPTION_DENSITY);
-        let scattering = sample_density_lut(local_r, SCATTERING_DENSITY);
-        var extinction = absorption + scattering;
+    // Segment C: [cloud_end, t_end) (outside)
+    if (!stop && has_cloud_layer && n_post > 0u && t_end > cloud_end) {
+        let dt = (t_end - cloud_end) / f32(n_post);
+        for (var i = 0u; i < n_post; i += 1u) {
+            if (stop) { break; }
+            let bin_start = cloud_end + f32(i) * dt;
+            let j = interleaved_gradient_noise(pixel_coords, 200u + i); // [0,1]
+            let sample_ratio = clamp(MIDPOINT_RATIO + (j - 0.5) * 0.8, 0.05, 0.95);
+            let sample_t = bin_start + dt * sample_ratio;
+            let sample_pos = pos + ray_dir * sample_t;
+            let local_r = length(sample_pos);
 
-        // Energy-preserving cloud extinction on the view ray.
-        let cloud_density = get_cloud_medium_density(local_r, sample_pos);
-        if (cloud_density > 0.0) {
-            let cloud_extinction = cloud_density * (get_cloud_scattering_coeff() + get_cloud_absorption_coeff());
-            extinction += vec3(cloud_extinction);
+            let absorption = sample_density_lut(local_r, ABSORPTION_DENSITY);
+            let scattering = sample_density_lut(local_r, SCATTERING_DENSITY);
+            let extinction = absorption + scattering;
+
+            let sample_optical_depth = extinction * dt;
+            optical_depth += sample_optical_depth;
+            let sample_transmittance = exp(-sample_optical_depth);
+
+            let inscattering = sample_local_inscattering(scattering, ray_dir, sample_pos, pixel_coords);
+            let s_int = (inscattering - inscattering * sample_transmittance) / max(extinction, MIN_EXTINCTION);
+            result.inscattering += result.transmittance * s_int;
+            result.transmittance *= sample_transmittance;
+
+            if all(result.transmittance < vec3(0.001)) {
+                stop = true;
+            }
         }
-
-        let sample_optical_depth = extinction * dt;
-        optical_depth += sample_optical_depth;
-        let sample_transmittance = exp(-sample_optical_depth);
-
-        let inscattering = sample_local_inscattering(scattering, ray_dir, sample_pos, pixel_coords);
-        let s_int = (inscattering - inscattering * sample_transmittance) / max(extinction, MIN_EXTINCTION);
-        result.inscattering += result.transmittance * s_int;
-        result.transmittance *= sample_transmittance;
-
-        if all(result.transmittance < vec3(0.001)) {
-            break;
-        }
-
-        t += dt;
-        steps_taken += 1u;
     }
     #else
     // Default uniform stepping when clouds are disabled.

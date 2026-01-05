@@ -129,6 +129,7 @@ impl Plugin for AtmospherePlugin {
         embedded_asset!(app, "environment.wgsl");
         embedded_asset!(app, "fbm_noise_3d.wgsl");
         embedded_asset!(app, "cloud_shadow_map.wgsl");
+        embedded_asset!(app, "cloud_shadow_filter.wgsl");
 
         app.add_plugins((
             ExtractComponentPlugin::<Atmosphere>::default(),
@@ -419,6 +420,12 @@ pub struct AtmosphereSettings {
 
     /// Strength multiplier applied to the cloud shadow map's stored extinction / optical depth.
     pub cloud_shadow_map_strength: f32,
+
+    /// Number of spatial filter iterations applied to the cloud shadow map after tracing.
+    ///
+    /// This is the main knob to trade performance for stability once the shadow map uses jittered sampling.
+    /// Values above 4 are usually not worth it.
+    pub cloud_shadow_map_spatial_filter_iterations: u32,
 }
 
 impl Default for AtmosphereSettings {
@@ -439,11 +446,12 @@ impl Default for AtmosphereSettings {
             rendering_method: AtmosphereMode::LookupTexture,
 
             // Cloud shadow map defaults (only used by Raymarched mode).
-            cloud_shadow_map_size: UVec2::new(256, 256),
-            cloud_shadow_map_extent: 50_000.0,
-            cloud_shadow_map_half_depth: 100_000.0,
-            cloud_shadow_map_samples: 24,
+            cloud_shadow_map_size: UVec2::new(512, 512),
+            cloud_shadow_map_extent: 10_000.0,
+            cloud_shadow_map_half_depth: 50_000.0,
+            cloud_shadow_map_samples: 48,
             cloud_shadow_map_strength: 1.0,
+            cloud_shadow_map_spatial_filter_iterations: 6,
         }
     }
 }
@@ -469,6 +477,7 @@ pub struct GpuAtmosphereSettings {
     pub cloud_shadow_map_half_depth: f32,
     pub cloud_shadow_map_samples: u32,
     pub cloud_shadow_map_strength: f32,
+    pub cloud_shadow_map_spatial_filter_iterations: u32,
 }
 
 impl Default for GpuAtmosphereSettings {
@@ -498,6 +507,7 @@ impl From<AtmosphereSettings> for GpuAtmosphereSettings {
             cloud_shadow_map_half_depth: s.cloud_shadow_map_half_depth,
             cloud_shadow_map_samples: s.cloud_shadow_map_samples,
             cloud_shadow_map_strength: s.cloud_shadow_map_strength,
+            cloud_shadow_map_spatial_filter_iterations: s.cloud_shadow_map_spatial_filter_iterations,
         }
     }
 }

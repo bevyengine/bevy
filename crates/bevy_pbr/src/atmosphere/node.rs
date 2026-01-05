@@ -67,12 +67,14 @@ impl ViewNode for AtmosphereLutsNode {
             Some(sky_view_lut_pipeline),
             Some(aerial_view_lut_pipeline),
             Some(cloud_shadow_map_pipeline),
+            Some(cloud_shadow_filter_pipeline),
         ) = (
             pipeline_cache.get_compute_pipeline(pipelines.transmittance_lut),
             pipeline_cache.get_compute_pipeline(pipelines.multiscattering_lut),
             pipeline_cache.get_compute_pipeline(pipelines.sky_view_lut),
             pipeline_cache.get_compute_pipeline(pipelines.aerial_view_lut),
             pipeline_cache.get_compute_pipeline(pipelines.cloud_shadow_map),
+            pipeline_cache.get_compute_pipeline(pipelines.cloud_shadow_filter),
         )
         else {
             return Ok(());
@@ -82,12 +84,6 @@ impl ViewNode for AtmosphereLutsNode {
 
         let command_encoder = render_context.command_encoder();
 
-        let mut luts_pass = command_encoder.begin_compute_pass(&ComputePassDescriptor {
-            label: Some("atmosphere_luts"),
-            timestamp_writes: None,
-        });
-        let pass_span = diagnostics.pass_span(&mut luts_pass, "atmosphere_luts");
-
         fn dispatch_2d(compute_pass: &mut ComputePass, size: UVec2) {
             const WORKGROUP_SIZE: u32 = 16;
             let workgroups_x = size.x.div_ceil(WORKGROUP_SIZE);
@@ -95,90 +91,127 @@ impl ViewNode for AtmosphereLutsNode {
             compute_pass.dispatch_workgroups(workgroups_x, workgroups_y, 1);
         }
 
-        // Transmittance LUT
+        // Pass 1: build all LUTs (+ cloud shadow map tracing) in a single compute pass.
+        // This scope is important: `luts_pass` holds a mutable borrow of the command encoder.
+        {
+            let mut luts_pass = command_encoder.begin_compute_pass(&ComputePassDescriptor {
+                label: Some("atmosphere_luts"),
+                timestamp_writes: None,
+            });
+            let pass_span = diagnostics.pass_span(&mut luts_pass, "atmosphere_luts");
 
-        luts_pass.set_pipeline(transmittance_lut_pipeline);
-        luts_pass.set_bind_group(
-            0,
-            &bind_groups.transmittance_lut,
-            &[
-                atmosphere_uniforms_offset.index(),
-                settings_uniforms_offset.index(),
-            ],
-        );
-
-        dispatch_2d(&mut luts_pass, settings.transmittance_lut_size);
-
-        // Multiscattering LUT
-
-        luts_pass.set_pipeline(multiscattering_lut_pipeline);
-        luts_pass.set_bind_group(
-            0,
-            &bind_groups.multiscattering_lut,
-            &[
-                atmosphere_uniforms_offset.index(),
-                settings_uniforms_offset.index(),
-            ],
-        );
-
-        luts_pass.dispatch_workgroups(
-            settings.multiscattering_lut_size.x,
-            settings.multiscattering_lut_size.y,
-            1,
-        );
-
-        // Sky View LUT
-
-        luts_pass.set_pipeline(sky_view_lut_pipeline);
-        luts_pass.set_bind_group(
-            0,
-            &bind_groups.sky_view_lut,
-            &[
-                atmosphere_uniforms_offset.index(),
-                settings_uniforms_offset.index(),
-                atmosphere_transforms_offset.index(),
-                view_uniforms_offset.offset,
-                lights_uniforms_offset.offset,
-            ],
-        );
-
-        dispatch_2d(&mut luts_pass, settings.sky_view_lut_size);
-
-        // Aerial View LUT
-
-        luts_pass.set_pipeline(aerial_view_lut_pipeline);
-        luts_pass.set_bind_group(
-            0,
-            &bind_groups.aerial_view_lut,
-            &[
-                atmosphere_uniforms_offset.index(),
-                settings_uniforms_offset.index(),
-                view_uniforms_offset.offset,
-                lights_uniforms_offset.offset,
-            ],
-        );
-
-        dispatch_2d(&mut luts_pass, settings.aerial_view_lut_size.xy());
-
-        // Cloud shadow map (Unreal-style front depth + extinction stats)
-        // Only needed for the Raymarched mode.
-        if settings.rendering_method == 1 {
-            luts_pass.set_pipeline(cloud_shadow_map_pipeline);
+            // Transmittance LUT
+            luts_pass.set_pipeline(transmittance_lut_pipeline);
             luts_pass.set_bind_group(
                 0,
-                &bind_groups.cloud_shadow_map,
+                &bind_groups.transmittance_lut,
+                &[
+                    atmosphere_uniforms_offset.index(),
+                    settings_uniforms_offset.index(),
+                ],
+            );
+            dispatch_2d(&mut luts_pass, settings.transmittance_lut_size);
+
+            // Multiscattering LUT
+            luts_pass.set_pipeline(multiscattering_lut_pipeline);
+            luts_pass.set_bind_group(
+                0,
+                &bind_groups.multiscattering_lut,
+                &[
+                    atmosphere_uniforms_offset.index(),
+                    settings_uniforms_offset.index(),
+                ],
+            );
+            luts_pass.dispatch_workgroups(
+                settings.multiscattering_lut_size.x,
+                settings.multiscattering_lut_size.y,
+                1,
+            );
+
+            // Sky View LUT
+            luts_pass.set_pipeline(sky_view_lut_pipeline);
+            luts_pass.set_bind_group(
+                0,
+                &bind_groups.sky_view_lut,
+                &[
+                    atmosphere_uniforms_offset.index(),
+                    settings_uniforms_offset.index(),
+                    atmosphere_transforms_offset.index(),
+                    view_uniforms_offset.offset,
+                    lights_uniforms_offset.offset,
+                ],
+            );
+            dispatch_2d(&mut luts_pass, settings.sky_view_lut_size);
+
+            // Aerial View LUT
+            luts_pass.set_pipeline(aerial_view_lut_pipeline);
+            luts_pass.set_bind_group(
+                0,
+                &bind_groups.aerial_view_lut,
                 &[
                     atmosphere_uniforms_offset.index(),
                     settings_uniforms_offset.index(),
                     view_uniforms_offset.offset,
                     lights_uniforms_offset.offset,
-                    cloud_layer_uniforms_offset.index(),
                 ],
             );
-            dispatch_2d(&mut luts_pass, settings.cloud_shadow_map_size);
+            dispatch_2d(&mut luts_pass, settings.aerial_view_lut_size.xy());
+
+            // Cloud shadow map (Unreal-style front depth + extinction stats)
+            // Only needed for the Raymarched mode.
+            if settings.rendering_method == 1 {
+                luts_pass.set_pipeline(cloud_shadow_map_pipeline);
+                luts_pass.set_bind_group(
+                    0,
+                    &bind_groups.cloud_shadow_map,
+                    &[
+                        atmosphere_uniforms_offset.index(),
+                        settings_uniforms_offset.index(),
+                        view_uniforms_offset.offset,
+                        lights_uniforms_offset.offset,
+                        cloud_layer_uniforms_offset.index(),
+                    ],
+                );
+                dispatch_2d(&mut luts_pass, settings.cloud_shadow_map_size);
+            }
+
+            pass_span.end(&mut luts_pass);
         }
 
-        pass_span.end(&mut luts_pass);
+        // IMPORTANT:
+        // We run the cloud shadow *filter* in a separate compute pass so the backend can insert the
+        // required resource state transitions (storage-write -> sampled-read) between tracing and filtering.
+        // Without this, the filter can appear to do nothing on some backends.
+        if settings.rendering_method == 1 && settings.cloud_shadow_map_spatial_filter_iterations > 0 {
+            // Spatial filtering (ping-pong), Unreal-style:
+            // - Blur max optical depth in transmittance space
+            // - Keep depth mostly unfiltered
+            //
+            // Note: to keep the final texture consistent for sampling, we run an *even* number of passes,
+            // alternating A->B then B->A so we always end in A (`cloud_shadow_map`).
+            let iters = settings.cloud_shadow_map_spatial_filter_iterations;
+            let iters_even = (iters + 1) & !1;
+            if iters_even > 0 {
+                let mut filter_pass = command_encoder.begin_compute_pass(&ComputePassDescriptor {
+                    label: Some("cloud_shadow_filter"),
+                    timestamp_writes: None,
+                });
+                let filter_span = diagnostics.pass_span(&mut filter_pass, "cloud_shadow_filter");
+
+                filter_pass.set_pipeline(cloud_shadow_filter_pipeline);
+                for i in 0..iters_even {
+                    let bg = if (i & 1) == 0 {
+                        &bind_groups.cloud_shadow_filter_a_to_b
+                    } else {
+                        &bind_groups.cloud_shadow_filter_b_to_a
+                    };
+                    filter_pass.set_bind_group(0, bg, &[settings_uniforms_offset.index()]);
+                    dispatch_2d(&mut filter_pass, settings.cloud_shadow_map_size);
+                }
+
+                filter_span.end(&mut filter_pass);
+            }
+        }
 
         Ok(())
     }

@@ -22,6 +22,24 @@
 const EPSILON_M: f32 = 1.0;
 const CLOUD_SHADOW_DEBUG_WRITE_UV: bool = false;
 
+// Simple deterministic hash utilities (no frame index required).
+// Used to jitter integration per shadow-map texel to mitigate banding.
+fn hash_u32(x_in: u32) -> u32 {
+    var x = x_in;
+    x ^= x >> 16u;
+    x *= 0x7feb352du;
+    x ^= x >> 15u;
+    x *= 0x846ca68bu;
+    x ^= x >> 16u;
+    return x;
+}
+
+fn hash_2d_to_01(p: vec2<u32>, salt: u32) -> f32 {
+    let h = hash_u32(p.x ^ (hash_u32(p.y) + 0x9e3779b9u) ^ salt);
+    // Convert to [0,1). 2^32 as f32 is representable.
+    return f32(h) * (1.0 / 4294967296.0);
+}
+
 fn safe_normalize(v: vec3<f32>) -> vec3<f32> {
     let l2 = dot(v, v);
     if (l2 <= 1e-12) {
@@ -154,7 +172,11 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     const HIT_OPTICAL_DEPTH_THRESHOLD: f32 = 1e-3;
 
     for (var i = 0u; i < n; i += 1u) {
-        let t = t_start + (f32(i) + 0.5) * dt;
+        // Jittered + stratified: one sample per stratum, with *per-step* jitter.
+        // Per-step jitter reduces “streaky” structure compared to using a single phase shift
+        // across all steps in a texel.
+        let j = hash_2d_to_01(gid.xy, 0x1000u + i);
+        let t = t_start + (f32(i) + j) * dt;
         let p = ray_origin + trace_dir * t;
         let r = length(p);
         let density = get_cloud_medium_density(r, p);

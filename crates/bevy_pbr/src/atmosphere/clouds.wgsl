@@ -61,7 +61,7 @@ const SOFTNESS_M: f32 = 500.0;       // boundary softness (meters)
 // Debug toggle: when enabled, use a single sphere centered in the middle of the cloud layer
 // instead of a repeating cell volume. This is useful to validate coordinate systems and
 // shadow-map alignment.
-const CLOUD_DEBUG_SINGLE_SPHERE: bool = true;
+const CLOUD_DEBUG_SINGLE_SPHERE: bool = false;
 
 fn debug_sphere_center() -> vec3<f32> {
     // Place the sphere at scene "origin" in XZ, and centered vertically in the cloud layer.

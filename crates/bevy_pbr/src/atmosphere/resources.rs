@@ -37,6 +37,9 @@ pub(crate) struct AtmosphereBindGroupLayouts {
     pub sky_view_lut: BindGroupLayoutDescriptor,
     pub aerial_view_lut: BindGroupLayoutDescriptor,
     pub cloud_shadow_map: BindGroupLayoutDescriptor,
+    // Accessed from the render-world graph; some tooling can miss the cross-module usage.
+    #[allow(dead_code)]
+    pub cloud_shadow_filter: BindGroupLayoutDescriptor,
 }
 
 #[derive(Resource)]
@@ -183,12 +186,38 @@ impl AtmosphereBindGroupLayouts {
             ),
         );
 
+        // Cloud shadow spatial filter (ping-pong).
+        // Reads: sampled shadow map (rgba16f)
+        // Writes: storage shadow map (rgba16f)
+        let cloud_shadow_filter = BindGroupLayoutDescriptor::new(
+            "cloud_shadow_filter_bind_group_layout",
+            &BindGroupLayoutEntries::with_indices(
+                ShaderStages::COMPUTE,
+                (
+                    (1, uniform_buffer::<GpuAtmosphereSettings>(true)),
+                    (12, sampler(SamplerBindingType::Filtering)),
+                    (
+                        17,
+                        texture_2d(TextureSampleType::Float { filterable: true }),
+                    ),
+                    (
+                        13,
+                        texture_storage_2d(
+                            TextureFormat::Rgba16Float,
+                            StorageTextureAccess::WriteOnly,
+                        ),
+                    ),
+                ),
+            ),
+        );
+
         Self {
             transmittance_lut,
             multiscattering_lut,
             sky_view_lut,
             aerial_view_lut,
             cloud_shadow_map,
+            cloud_shadow_filter,
         }
     }
 }
@@ -326,6 +355,9 @@ pub(crate) struct AtmosphereLutPipelines {
     pub sky_view_lut: CachedComputePipelineId,
     pub aerial_view_lut: CachedComputePipelineId,
     pub cloud_shadow_map: CachedComputePipelineId,
+    // Accessed from the render-world graph; some tooling can miss the cross-module usage.
+    #[allow(dead_code)]
+    pub cloud_shadow_filter: CachedComputePipelineId,
 }
 
 impl FromWorld for AtmosphereLutPipelines {
@@ -371,12 +403,20 @@ impl FromWorld for AtmosphereLutPipelines {
             ..default()
         });
 
+        let cloud_shadow_filter = pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
+            label: Some("cloud_shadow_filter_pipeline".into()),
+            layout: vec![layouts.cloud_shadow_filter.clone()],
+            shader: load_embedded_asset!(world, "cloud_shadow_filter.wgsl"),
+            ..default()
+        });
+
         Self {
             transmittance_lut,
             multiscattering_lut,
             sky_view_lut,
             aerial_view_lut,
             cloud_shadow_map,
+            cloud_shadow_filter,
         }
     }
 }
@@ -480,6 +520,7 @@ pub struct AtmosphereTextures {
     pub sky_view_lut: CachedTexture,
     pub aerial_view_lut: CachedTexture,
     pub cloud_shadow_map: CachedTexture,
+    pub cloud_shadow_map_tmp: CachedTexture,
 }
 
 pub(super) fn prepare_atmosphere_textures(
@@ -559,6 +600,20 @@ pub(super) fn prepare_atmosphere_textures(
             },
         );
 
+        let cloud_shadow_map_tmp = texture_cache.get(
+            &render_device,
+            TextureDescriptor {
+                label: Some("cloud_shadow_map_tmp"),
+                size: lut_settings.cloud_shadow_map_size.to_extents(),
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: TextureDimension::D2,
+                format: TextureFormat::Rgba16Float,
+                usage: TextureUsages::STORAGE_BINDING | TextureUsages::TEXTURE_BINDING,
+                view_formats: &[],
+            },
+        );
+
         commands.entity(entity).insert({
             AtmosphereTextures {
                 transmittance_lut,
@@ -566,6 +621,7 @@ pub(super) fn prepare_atmosphere_textures(
                 sky_view_lut,
                 aerial_view_lut,
                 cloud_shadow_map,
+                cloud_shadow_map_tmp,
             }
         });
     }
@@ -673,6 +729,12 @@ pub(crate) struct AtmosphereBindGroups {
     pub sky_view_lut: BindGroup,
     pub aerial_view_lut: BindGroup,
     pub cloud_shadow_map: BindGroup,
+    // Accessed from the render-world graph; some tooling can miss the cross-module usage.
+    #[allow(dead_code)]
+    pub cloud_shadow_filter_a_to_b: BindGroup,
+    // Accessed from the render-world graph; some tooling can miss the cross-module usage.
+    #[allow(dead_code)]
+    pub cloud_shadow_filter_b_to_a: BindGroup,
     pub render_sky: BindGroup,
 }
 
@@ -847,6 +909,30 @@ pub(super) fn prepare_atmosphere_bind_groups(
             )),
         );
 
+        // Cloud shadow spatial filter ping-pong bind groups.
+        // A = `cloud_shadow_map`, B = `cloud_shadow_map_tmp`.
+        let cloud_shadow_filter_a_to_b = render_device.create_bind_group(
+            "cloud_shadow_filter_a_to_b_bind_group",
+            &pipeline_cache.get_bind_group_layout(&layouts.cloud_shadow_filter),
+            &BindGroupEntries::with_indices((
+                (1, settings_binding.clone()),
+                (12, &**atmosphere_sampler),
+                (17, &textures.cloud_shadow_map.default_view),
+                (13, &textures.cloud_shadow_map_tmp.default_view),
+            )),
+        );
+
+        let cloud_shadow_filter_b_to_a = render_device.create_bind_group(
+            "cloud_shadow_filter_b_to_a_bind_group",
+            &pipeline_cache.get_bind_group_layout(&layouts.cloud_shadow_filter),
+            &BindGroupEntries::with_indices((
+                (1, settings_binding.clone()),
+                (12, &**atmosphere_sampler),
+                (17, &textures.cloud_shadow_map_tmp.default_view),
+                (13, &textures.cloud_shadow_map.default_view),
+            )),
+        );
+
         let render_sky = render_device.create_bind_group(
             "render_sky_bind_group",
             &pipeline_cache.get_bind_group_layout(if *msaa == Msaa::Off {
@@ -886,6 +972,8 @@ pub(super) fn prepare_atmosphere_bind_groups(
             sky_view_lut,
             aerial_view_lut,
             cloud_shadow_map,
+            cloud_shadow_filter_a_to_b,
+            cloud_shadow_filter_b_to_a,
             render_sky,
         });
     }
