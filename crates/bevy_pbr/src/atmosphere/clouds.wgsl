@@ -90,15 +90,14 @@ fn get_cloud_coverage(r: f32, world_pos: vec3<f32>) -> f32 {
         // Calculate height factor within cloud layer (0 at bottom, 1 at top)
         let layer_thickness = cloud_layer.cloud_layer_end - cloud_layer.cloud_layer_start;
         let height_in_layer = r - cloud_layer.cloud_layer_start;
-        let height_factor = height_in_layer / layer_thickness;
-        
-        // Use a "cloud-local" coordinate system:
-        // XZ are world XZ, Y is height above the cloud base.
-        let p = vec3(world_pos.x, height_in_layer, world_pos.z);
+        // Repeat only in XZ (not Y): keep sphere centers at a fixed height inside the layer.
+        // This avoids spheres being “sliced” by the top/bottom of the cloud shell due to Y tiling.
+        let center_y = 0.5 * layer_thickness;
+        let y_rel = height_in_layer - center_y;
 
-        // Repeat in 3D cells, center each cell at the origin.
-        let cell = fract(p / CELL_SIZE_M) - vec3(0.5);
-        let q = cell * CELL_SIZE_M;
+        // Repeat in XZ cells, center each cell at the origin.
+        let cell_xz = fract(world_pos.xz / CELL_SIZE_M) - vec2(0.5);
+        let q = vec3(cell_xz * CELL_SIZE_M, y_rel);
 
         // Sphere SDF: negative inside, positive outside.
         let sdf = length(q) - RADIUS_M;
@@ -107,13 +106,7 @@ fn get_cloud_coverage(r: f32, world_pos: vec3<f32>) -> f32 {
         // sdf <= -SOFTNESS => ~1, sdf >= +SOFTNESS => ~0
         let sphere_density = 1.0 - smoothstep(-SOFTNESS_M, SOFTNESS_M, sdf);
 
-        // Fade out near top/bottom of layer to reduce hard cuts.
-        let height_gradient = 1.0 - abs(height_factor * 2.0 - 1.0);
-        let height_fade = smoothstep(0.0, 0.2, height_gradient);
-
-        let density = sphere_density * height_fade;
-        
-        return clamp(density, 0.0, 1.0);
+        return clamp(sphere_density, 0.0, 1.0);
     }
 }
 
@@ -135,15 +128,13 @@ fn sample_cloud_field_density_and_grad(r: f32, world_pos: vec3<f32>) -> vec2<f32
     } else {
         let layer_thickness = cloud_layer.cloud_layer_end - cloud_layer.cloud_layer_start;
         let height_in_layer = r - cloud_layer.cloud_layer_start;
-        let height_factor = height_in_layer / layer_thickness;
-
-        let p = vec3(world_pos.x, height_in_layer, world_pos.z);
-        let cell = fract(p / CELL_SIZE_M) - vec3(0.5);
-        let q = cell * CELL_SIZE_M;
+        // Repeat only in XZ (not Y), match `get_cloud_coverage()`.
+        let center_y = 0.5 * layer_thickness;
+        let y_rel = height_in_layer - center_y;
+        let cell_xz = fract(world_pos.xz / CELL_SIZE_M) - vec2(0.5);
+        let q = vec3(cell_xz * CELL_SIZE_M, y_rel);
         sdf = length(q) - RADIUS_M;
-
-        let height_gradient = 1.0 - abs(height_factor * 2.0 - 1.0);
-        height_fade = smoothstep(0.0, 0.2, height_gradient);
+        height_fade = 1.0;
     }
 
     // density = smoothstep(SOFTNESS_M, -SOFTNESS_M, sdf)
@@ -170,50 +161,53 @@ fn sample_cloud_field_density_and_grad(r: f32, world_pos: vec3<f32>) -> vec2<f32
 /// - start_t/end_t are distances along the ray direction (meters), relative to ray_origin.
 /// - valid is 1.0 if the segment exists, 0.0 otherwise.
 fn cloud_layer_segment(ray_origin: vec3<f32>, ray_dir: vec3<f32>) -> vec3<f32> {
-    let r = length(ray_origin);
+    // IMPORTANT: do the ray/sphere intersection math in kilometers to improve numerical stability.
+    // In meters, `r` is ~6.3e6 and for grazing angles the discriminant can become ill-conditioned,
+    // producing "banded" invalid intersections as the sun elevation changes.
+    // Doing the math in km keeps magnitudes ~6.3e3 and greatly reduces cancellation.
+    const M_TO_KM: f32 = 0.001;
+    const KM_TO_M: f32 = 1000.0;
+
+    let r_km = length(ray_origin) * M_TO_KM;
     let up = normalize(ray_origin);
     let mu = dot(ray_dir, up);
 
-    // ray_sphere_intersect returns vec2(near_t, far_t)
-    let bottom_i = ray_sphere_intersect(r, mu, cloud_layer.cloud_layer_start);
-    let top_i = ray_sphere_intersect(r, mu, cloud_layer.cloud_layer_end);
+    let bottom_radius_km = cloud_layer.cloud_layer_start * M_TO_KM;
+    let top_radius_km = cloud_layer.cloud_layer_end * M_TO_KM;
 
-    var start_t = 0.0;
-    var end_t = 0.0;
-    var valid = false;
+    // Unreal-style intersection selection:
+    // Compute intersections with the top and bottom spheres, then derive a single [TMin, TMax]
+    // interval from carefully selected roots. This avoids sign/branch issues at grazing angles.
+    let t_top = ray_sphere_intersect(r_km, mu, top_radius_km);
+    if (t_top.x < 0.0 && t_top.y < 0.0) {
+        return vec3(0.0, 0.0, 0.0);
+    }
+    let t_bottom = ray_sphere_intersect(r_km, mu, bottom_radius_km);
 
-    if (r < cloud_layer.cloud_layer_start) {
-        // Below layer: enter at bottom (far), exit at top (far)
-        if (bottom_i.y > 0.0 && top_i.y > bottom_i.y) {
-            start_t = bottom_i.y;
-            end_t = top_i.y;
-            valid = true;
+    var t_min = t_top.x;
+    var t_max = t_top.y;
+
+    // If we also intersect the bottom sphere, combine both.
+    if (!(t_bottom.x < 0.0 && t_bottom.y < 0.0)) {
+        // If we see both intersections in front of us, keep the min/closest, otherwise the max/furthest.
+        var temp_top = select(max(t_top.x, t_top.y), min(t_top.x, t_top.y), (t_top.x > 0.0) && (t_top.y > 0.0));
+        var temp_bottom = select(max(t_bottom.x, t_bottom.y), min(t_bottom.x, t_bottom.y), (t_bottom.x > 0.0) && (t_bottom.y > 0.0));
+
+        if ((t_bottom.x > 0.0) && (t_bottom.y > 0.0)) {
+            // If we can see the bottom of the layer, make sure we use the camera (0) or the closest top intersection.
+            temp_top = max(0.0, min(t_top.x, t_top.y));
         }
-    } else if (r < cloud_layer.cloud_layer_end) {
-        // Inside layer: exit at top (far) if going outward, else exit at bottom (near)
-        if (mu >= 0.0) {
-            if (top_i.y > 0.0) {
-                start_t = 0.0;
-                end_t = top_i.y;
-                valid = true;
-            }
-        } else {
-            if (bottom_i.x > 0.0) {
-                start_t = 0.0;
-                end_t = bottom_i.x;
-                valid = true;
-            }
-        }
-    } else {
-        // Above layer: enter at top (near), exit at bottom (near)
-        if (top_i.x > 0.0 && bottom_i.x > top_i.x) {
-            start_t = top_i.x;
-            end_t = bottom_i.x;
-            valid = true;
-        }
+
+        t_min = min(temp_bottom, temp_top);
+        t_max = max(temp_bottom, temp_top);
     }
 
-    return vec3(start_t, end_t, select(0.0, 1.0, valid));
+    t_min = max(0.0, t_min);
+    t_max = max(0.0, t_max);
+    let valid = (t_max > t_min);
+
+    // Convert km back to meters for callers.
+    return vec3(t_min * KM_TO_M, t_max * KM_TO_M, select(0.0, 1.0, valid));
 }
 
 /// Cloud *medium density* used for extinction / scattering integration.

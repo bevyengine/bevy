@@ -286,7 +286,8 @@ fn sample_cloud_shadow_map(world_pos: vec3<f32>, direction_to_light: vec3<f32>) 
     }
 
     let extent = settings.cloud_shadow_map_extent;
-    let half_depth = settings.cloud_shadow_map_half_depth;
+    // Keep consumer consistent with producer: half-depth is derived from extent (Unreal-style).
+    let half_depth = extent * 2.0;
     if (extent <= 0.0 || half_depth <= 0.0) {
         return 1.0;
     }

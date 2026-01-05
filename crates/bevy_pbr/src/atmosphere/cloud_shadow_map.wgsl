@@ -20,7 +20,6 @@
 @group(0) @binding(13) var out_cloud_shadow_map: texture_storage_2d<rgba16float, write>;
 
 const EPSILON_M: f32 = 1.0;
-const CLOUD_SHADOW_DEBUG_WRITE_UV: bool = false;
 
 // Simple deterministic hash utilities (no frame index required).
 // Used to jitter integration per shadow-map texel to mitigate banding.
@@ -107,7 +106,8 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
 
     // If there is no directional light, write "no clouds".
     if (lights.n_directional_lights == 0u) {
-        let far_depth_km = (2.0 * settings.cloud_shadow_map_half_depth) * 0.001;
+        let half_depth = settings.cloud_shadow_map_extent * 2.0;
+        let far_depth_km = (2.0 * half_depth) * 0.001;
         textureStore(out_cloud_shadow_map, vec2<i32>(gid.xy), vec4(far_depth_km, 0.0, 0.0, 0.0));
         return;
     }
@@ -119,7 +119,8 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     let basis = build_light_basis(trace_dir);
 
     let extent = settings.cloud_shadow_map_extent;
-    let half_depth = settings.cloud_shadow_map_half_depth;
+    // Unreal-style: derive depth range from extent (prevents pathological far near-plane positions at low sun).
+    let half_depth = extent * 2.0;
     let strength = settings.cloud_shadow_map_strength;
 
     // Map texel -> light-space XY in [-extent, extent].
@@ -131,16 +132,6 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     let ray_origin = anchor + basis.x * xy.x + basis.y * xy.y - trace_dir * half_depth;
     let max_t = 2.0 * half_depth;
     let max_t_km = max_t * 0.001;
-
-    // DEBUG: write a predictable gradient to validate dispatch + bindings + sampling.
-    // - R stores a *normalized* value in [0,1] (uv.x), so the debug view should show a full-width gradient
-    //   even if `cloud_shadow_map_half_depth` is being interpreted differently elsewhere.
-    // - G shows `uv.y`
-    // - B/A unused
-    if (CLOUD_SHADOW_DEBUG_WRITE_UV) {
-        textureStore(out_cloud_shadow_map, vec2<i32>(gid.xy), vec4(uv.x, uv.y, 0.0, 0.0));
-        return;
-    }
 
     // Intersect the ray with the cloud layer shell and clamp to our light volume depth.
     let seg = cloud_layer_segment(ray_origin, trace_dir);
@@ -156,7 +147,22 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
         return;
     }
 
-    let n = max(1u, settings.cloud_shadow_map_samples);
+    // More samples when the sun is near the horizon (Unreal-style):
+    // the ray travels a lot longer through the cloud shell, so a fixed sample count can miss
+    // density entirely, producing sweeping “no shadow” bands as the sun moves.
+    //
+    // Unreal uses:
+    //   HorizonFactor = clamp(0.2 / abs(dot(PlanetUp, -LightDir)), 0, 1)
+    //   SampleCount *= lerp(1, HorizonMultiplier, HorizonFactor)
+    //
+    // Here we approximate PlanetUp using the anchor up vector (good enough for ground/near-ground views).
+    let base_n = max(1u, settings.cloud_shadow_map_samples);
+    let anchor_up = safe_normalize(anchor);
+    let mu = abs(dot(anchor_up, trace_dir));
+    let horizon_factor = clamp(0.2 / max(mu, 1e-3), 0.0, 1.0);
+    const HORIZON_MULT: f32 = 2.0;
+    let n = min(96u, max(1u, u32(ceil(f32(base_n) * mix(1.0, HORIZON_MULT, horizon_factor)))));
+    // let n = 24u;
     let dt = (t_end - t_start) / f32(n);
 
     let sigma_t_per_density = get_cloud_scattering_coeff() + get_cloud_absorption_coeff();
@@ -200,7 +206,6 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     let out_mean_ext = mean_ext * strength;
     let out_max_od = max_optical_depth * strength;
 
-    // Store front depth in kilometers to avoid fp16 overflow at large volumes.
     textureStore(out_cloud_shadow_map, vec2<i32>(gid.xy), vec4(front_depth * 0.001, out_mean_ext, out_max_od, 0.0));
 }
 

@@ -35,22 +35,6 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     let p = vec2<i32>(gid.xy);
     let center = load_shadow(p);
 
-    // Conservative depth filtering (Unreal-style):
-    // We want to reduce noisy/stair-steppy "front depth" transitions without blurring depth like a color.
-    // A robust heuristic is:
-    //   depth_filtered = mean(depth) - mean(|depth - mean(depth)|)
-    // which biases the depth slightly toward the front (shallower), reducing light leaks and flicker.
-    //
-    // Depth is stored in kilometers (see `cloud_shadow_map.wgsl`).
-    let d0 = center.x;
-    let d1 = load_shadow(p + vec2<i32>(1, 0)).x;
-    let d2 = load_shadow(p + vec2<i32>(0, 1)).x;
-    let d3 = load_shadow(p + vec2<i32>(1, 1)).x;
-
-    let d_mean = 0.25 * (d0 + d1 + d2 + d3);
-    let d_dev = 0.25 * (abs(d0 - d_mean) + abs(d1 - d_mean) + abs(d2 - d_mean) + abs(d3 - d_mean));
-    let depth_out = max(0.0, d_mean - d_dev);
-
     // 3x3 tent-ish kernel weights:
     // 1 2 1
     // 2 4 2
@@ -78,7 +62,8 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     // Avoid -inf / NaN from log(0).
     let od_out = select(100.0, -log(max(vis_out, 1e-6)), vis_out > 0.0);
 
-    let out_rgb = vec3(depth_out, max(0.0, mean_ext_out), max(0.0, od_out));
+    // Depth: pass through unchanged in the transmittance blur pass.
+    let out_rgb = vec3(center.x, max(0.0, mean_ext_out), max(0.0, od_out));
     textureStore(cloud_shadow_dst, p, vec4(out_rgb, 0.0));
 }
 

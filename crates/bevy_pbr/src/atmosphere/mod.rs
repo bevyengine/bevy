@@ -409,12 +409,6 @@ pub struct AtmosphereSettings {
     /// position, oriented in light space.
     pub cloud_shadow_map_extent: f32,
 
-    /// Half-depth of the orthographic cloud shadow map volume in meters.
-    ///
-    /// The shadow map traces along the light direction across a total depth of
-    /// \(2 \cdot half\_depth\).
-    pub cloud_shadow_map_half_depth: f32,
-
     /// Number of samples used when building the cloud shadow map.
     pub cloud_shadow_map_samples: u32,
 
@@ -447,11 +441,10 @@ impl Default for AtmosphereSettings {
 
             // Cloud shadow map defaults (only used by Raymarched mode).
             cloud_shadow_map_size: UVec2::new(512, 512),
-            cloud_shadow_map_extent: 10_000.0,
-            cloud_shadow_map_half_depth: 50_000.0,
+            cloud_shadow_map_extent: 50_000.0,
             cloud_shadow_map_samples: 48,
             cloud_shadow_map_strength: 1.0,
-            cloud_shadow_map_spatial_filter_iterations: 6,
+            cloud_shadow_map_spatial_filter_iterations: 4,
         }
     }
 }
@@ -474,7 +467,6 @@ pub struct GpuAtmosphereSettings {
     pub rendering_method: u32,
     pub cloud_shadow_map_size: UVec2,
     pub cloud_shadow_map_extent: f32,
-    pub cloud_shadow_map_half_depth: f32,
     pub cloud_shadow_map_samples: u32,
     pub cloud_shadow_map_strength: f32,
     pub cloud_shadow_map_spatial_filter_iterations: u32,
@@ -504,7 +496,6 @@ impl From<AtmosphereSettings> for GpuAtmosphereSettings {
             rendering_method: s.rendering_method as u32,
             cloud_shadow_map_size: s.cloud_shadow_map_size,
             cloud_shadow_map_extent: s.cloud_shadow_map_extent,
-            cloud_shadow_map_half_depth: s.cloud_shadow_map_half_depth,
             cloud_shadow_map_samples: s.cloud_shadow_map_samples,
             cloud_shadow_map_strength: s.cloud_shadow_map_strength,
             cloud_shadow_map_spatial_filter_iterations: s.cloud_shadow_map_spatial_filter_iterations,
