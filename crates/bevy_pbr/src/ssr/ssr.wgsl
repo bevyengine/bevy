@@ -265,9 +265,7 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
         &lighting_input, &clusterable_object_index_ranges, false);
 
     // Accumulate the environment map light.
-    indirect_light += view.exposure *
-        (environment_light.diffuse * diffuse_occlusion +
-        environment_light.specular * specular_occlusion);
+    indirect_light += view.exposure * environment_light.specular * specular_occlusion;
 #endif
 
     // Write the results.
