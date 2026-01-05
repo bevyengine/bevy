@@ -371,6 +371,7 @@ mod tests {
             .add_systems(
                 Update,
                 (
+                    bevy_text::load_font_assets_into_fontdb_system,
                     detect_text_needs_rerender::<Text2d>,
                     update_text2d_layout,
                     calculate_bounds_text2d,
