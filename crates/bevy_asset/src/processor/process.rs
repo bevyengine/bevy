@@ -231,9 +231,12 @@ pub trait ErasedProcessor: Send + Sync {
     ) -> BoxedFuture<'a, Result<Box<dyn AssetMetaDyn>, ProcessError>>;
     /// Type-erased variant of [`Process::reader_required_features`].
     // Note: This takes &self just to be dyn compatible.
-    #[expect(
-        clippy::result_large_err,
-        reason = "this is only an error here because this isn't a future"
+    #[cfg_attr(
+        not(target_arch = "wasm32"),
+        expect(
+            clippy::result_large_err,
+            reason = "this is only an error here because this isn't a future"
+        )
     )]
     fn reader_required_features(
         &self,
@@ -242,6 +245,8 @@ pub trait ErasedProcessor: Send + Sync {
     /// Deserialized `meta` as type-erased [`AssetMeta`], operating under the assumption that it matches the meta
     /// for the underlying [`Process`] impl.
     fn deserialize_meta(&self, meta: &[u8]) -> Result<Box<dyn AssetMetaDyn>, DeserializeMetaError>;
+    /// Returns the type-path of the original [`Process`].
+    fn type_path(&self) -> &'static str;
     /// Returns the default type-erased [`AssetMeta`] for the underlying [`Process`] impl.
     fn default_meta(&self) -> Box<dyn AssetMetaDyn>;
 }
@@ -276,6 +281,10 @@ impl<P: Process> ErasedProcessor for P {
     fn deserialize_meta(&self, meta: &[u8]) -> Result<Box<dyn AssetMetaDyn>, DeserializeMetaError> {
         let meta: AssetMeta<(), P> = ron::de::from_bytes(meta)?;
         Ok(Box::new(meta))
+    }
+
+    fn type_path(&self) -> &'static str {
+        P::type_path()
     }
 
     fn default_meta(&self) -> Box<dyn AssetMetaDyn> {

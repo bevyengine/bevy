@@ -36,10 +36,11 @@ pub struct SolariLightingPlugin;
 impl Plugin for SolariLightingPlugin {
     fn build(&self, app: &mut App) {
         load_shader_library!(app, "gbuffer_utils.wgsl");
+        load_shader_library!(app, "realtime_bindings.wgsl");
         load_shader_library!(app, "presample_light_tiles.wgsl");
         embedded_asset!(app, "restir_di.wgsl");
         embedded_asset!(app, "restir_gi.wgsl");
-        embedded_asset!(app, "specular_gi.wgsl");
+        load_shader_library!(app, "specular_gi.wgsl");
         load_shader_library!(app, "world_cache_query.wgsl");
         embedded_asset!(app, "world_cache_compact.wgsl");
         embedded_asset!(app, "world_cache_update.wgsl");
