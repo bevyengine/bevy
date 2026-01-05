@@ -34,7 +34,8 @@ pub struct Font {
     pub data: Arc<Vec<u8>>,
     /// Ids for fonts in font file
     pub ids: SmallVec<[ID; 8]>,
-    /// Font family name
+    /// Font family name.
+    /// If the font file is a collection with multiple families, the first family name from the last font is used.
     pub family_name: SmolStr,
 }
 
