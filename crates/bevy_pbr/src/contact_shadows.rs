@@ -50,7 +50,7 @@ pub struct ContactShadows {
 impl Default for ContactShadows {
     fn default() -> Self {
         Self {
-            linear_steps: 2,
+            linear_steps: 16,
             thickness: 0.1,
             length: 0.3,
         }
