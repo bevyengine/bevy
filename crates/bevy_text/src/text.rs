@@ -7,9 +7,10 @@ use bevy_reflect::prelude::*;
 use bevy_utils::{default, once};
 use core::fmt::{Debug, Formatter};
 use core::str::from_utf8;
-use cosmic_text::{Buffer, Metrics};
+use cosmic_text::{Buffer, Metrics, Stretch};
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
+use smol_str::SmolStr;
 use tracing::warn;
 
 /// Wrapper for [`cosmic_text::Buffer`]
@@ -245,19 +246,64 @@ impl From<Justify> for cosmic_text::Align {
     }
 }
 
+#[derive(Component, Clone, Debug, Reflect, PartialEq)]
+/// Specifies how the font face for a text span is sourced.
+///
+/// A `FontSource` can either reference a font asset or identify a font by family name to be
+/// resolved by the font systems.
+pub enum FontSource {
+    /// Use a specific font face referenced by a [`Font`] asset handle.
+    ///
+    /// If the default font handle is used, then
+    /// * if `default_font` feature is enabled (enabled by default in `bevy` crate),
+    ///   `FiraMono-subset.ttf` compiled into the library is used.
+    /// * otherwise no text will be rendered, unless a custom font is loaded into the default font
+    ///   handle.
+    Handle(Handle<Font>),
+    /// Resolve the font by family name using the font database.
+    Family(SmolStr),
+}
+
+impl Default for FontSource {
+    fn default() -> Self {
+        Self::Handle(Handle::default())
+    }
+}
+
+impl From<Handle<Font>> for FontSource {
+    fn from(handle: Handle<Font>) -> Self {
+        Self::Handle(handle)
+    }
+}
+
+impl From<&Handle<Font>> for FontSource {
+    fn from(handle: &Handle<Font>) -> Self {
+        Self::Handle(handle.clone())
+    }
+}
+
+impl From<SmolStr> for FontSource {
+    fn from(family: SmolStr) -> Self {
+        FontSource::Family(family)
+    }
+}
+
+impl From<&str> for FontSource {
+    fn from(family: &str) -> Self {
+        FontSource::Family(family.into())
+    }
+}
+
 /// `TextFont` determines the style of a text span within a [`ComputedTextBlock`], specifically
 /// the font face, the font size, the line height, and the antialiasing method.
 #[derive(Component, Clone, Debug, Reflect, PartialEq)]
 #[reflect(Component, Default, Debug, Clone)]
 pub struct TextFont {
-    /// The specific font face to use, as a `Handle` to a [`Font`] asset.
+    /// Specifies how the font face for a text span is sourced.
     ///
-    /// If the `font` is not specified, then
-    /// * if `default_font` feature is enabled (enabled by default in `bevy` crate),
-    ///   `FiraMono-subset.ttf` compiled into the library is used.
-    /// * otherwise no text will be rendered, unless a custom font is loaded into the default font
-    ///   handle.
-    pub font: Handle<Font>,
+    /// A `FontSource` can either reference a font asset or identify a font by family name to be
+    /// resolved by the text systems.
+    pub font: FontSource,
     /// The vertical height of rasterized glyphs in the font atlas in pixels.
     ///
     /// This is multiplied by the window scale factor and `UiScale`, but not the text entity
@@ -272,6 +318,10 @@ pub struct TextFont {
     ///
     /// Only supports variable weight fonts.
     pub weight: FontWeight,
+    /// How condensed or expanded the glyphs appear horizontally.
+    pub width: FontWidth,
+    /// The slant style of a font face: normal, italic, or oblique.
+    pub style: FontStyle,
     /// The antialiasing method to use when rendering text.
     pub font_smoothing: FontSmoothing,
     /// OpenType features for .otf fonts that support them.
@@ -286,7 +336,13 @@ impl TextFont {
 
     /// Returns this [`TextFont`] with the specified font face handle.
     pub fn with_font(mut self, font: Handle<Font>) -> Self {
-        self.font = font;
+        self.font = FontSource::Handle(font);
+        self
+    }
+
+    /// Returns this [`TextFont`] with the specified font family.
+    pub fn with_family(mut self, family: impl Into<SmolStr>) -> Self {
+        self.font = FontSource::Family(family.into());
         self
     }
 
@@ -303,9 +359,12 @@ impl TextFont {
     }
 }
 
-impl From<Handle<Font>> for TextFont {
-    fn from(font: Handle<Font>) -> Self {
-        Self { font, ..default() }
+impl<T: Into<FontSource>> From<T> for TextFont {
+    fn from(source: T) -> Self {
+        Self {
+            font: source.into(),
+            ..default()
+        }
     }
 }
 
@@ -314,7 +373,9 @@ impl Default for TextFont {
         Self {
             font: Default::default(),
             font_size: 20.0,
+            style: FontStyle::Normal,
             weight: FontWeight::NORMAL,
+            width: FontWidth::NORMAL,
             font_features: FontFeatures::default(),
             font_smoothing: Default::default(),
         }
@@ -386,6 +447,83 @@ impl Default for FontWeight {
 impl From<FontWeight> for cosmic_text::Weight {
     fn from(value: FontWeight) -> Self {
         cosmic_text::Weight(value.clamp().0)
+    }
+}
+
+/// `<https://docs.microsoft.com/en-us/typography/opentype/spec/os2#uswidthclass>`
+#[derive(Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Debug, Hash, Reflect)]
+pub struct FontWidth(u16);
+
+impl FontWidth {
+    /// 50% of normal width.
+    pub const ULTRA_CONDENSED: Self = Self(1);
+
+    /// 62.5% of normal width.
+    pub const EXTRA_CONDENSED: Self = Self(2);
+
+    /// 75% of normal width.
+    pub const CONDENSED: Self = Self(3);
+
+    /// 87.5% of normal width.
+    pub const SEMI_CONDENSED: Self = Self(4);
+
+    /// 100% of normal width. This is the default.
+    pub const NORMAL: Self = Self(5);
+
+    /// 112.5% of normal width.
+    pub const SEMI_EXPANDED: Self = Self(6);
+
+    /// 125% of normal width.
+    pub const EXPANDED: Self = Self(7);
+
+    /// 150% of normal width.
+    pub const EXTRA_EXPANDED: Self = Self(8);
+
+    /// 200% of normal width.
+    pub const ULTRA_EXPANDED: Self = Self(9);
+}
+
+impl Default for FontWidth {
+    fn default() -> Self {
+        Self::NORMAL
+    }
+}
+
+impl From<FontWidth> for Stretch {
+    fn from(value: FontWidth) -> Self {
+        match value.0 {
+            1 => Stretch::UltraCondensed,
+            2 => Stretch::ExtraCondensed,
+            3 => Stretch::Condensed,
+            4 => Stretch::SemiCondensed,
+            6 => Stretch::SemiExpanded,
+            7 => Stretch::Expanded,
+            8 => Stretch::ExtraExpanded,
+            9 => Stretch::UltraExpanded,
+            _ => Stretch::Normal,
+        }
+    }
+}
+
+/// The slant style of a font face: normal, italic, or oblique.
+#[derive(Clone, Copy, Default, PartialEq, Eq, Debug, Hash, Reflect)]
+pub enum FontStyle {
+    /// A face that is neither italic nor obliqued.
+    #[default]
+    Normal,
+    /// A form that is generally cursive in nature.
+    Italic,
+    /// A typically sloped version of the regular face.
+    Oblique,
+}
+
+impl From<FontStyle> for cosmic_text::Style {
+    fn from(value: FontStyle) -> Self {
+        match value {
+            FontStyle::Normal => cosmic_text::Style::Normal,
+            FontStyle::Italic => cosmic_text::Style::Italic,
+            FontStyle::Oblique => cosmic_text::Style::Oblique,
+        }
     }
 }
 

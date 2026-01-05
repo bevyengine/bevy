@@ -102,7 +102,7 @@ fn setup(
                         parent.spawn((
                             Text::new("Button"),
                             TextFont {
-                                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                                font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
                                 font_size: 33.0,
                                 ..default()
                             },

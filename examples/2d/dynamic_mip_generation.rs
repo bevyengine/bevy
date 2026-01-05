@@ -285,7 +285,7 @@ impl FromWorld for AppAssets {
         let asset_server = world.resource::<AssetServer>();
         let font = asset_server.load("fonts/FiraSans-Bold.ttf");
         let text_font = TextFont {
-            font: font.clone(),
+            font: font.into(),
             font_size: FONT_SIZE,
             ..default()
         };
