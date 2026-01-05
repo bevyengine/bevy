@@ -23,7 +23,8 @@ struct Player;
 /// * `Y` axis goes from bottom to top (`+Y` point up)
 /// * `Z` axis goes from far to near (`+Z` points towards you, out of the screen)
 ///
-/// The origin is at the center of the screen.
+/// The world origin in this case is at the center of the screen, but the camera could
+/// move in which case the world origin would not be the center of the screen
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let ship_handle = asset_server.load("textures/simplespace/ship_C.png");
 
