@@ -403,12 +403,18 @@ mod tests {
             |bytes: &[u8], _path: String| { Font::try_from_bytes(bytes.to_vec()).unwrap() }
         );
 
-        let mut fonts = app.world_mut().resource_mut::<Assets<Font>>();
+        let world = app.world_mut();
 
-        fonts
-            .get_mut(bevy_asset::AssetId::default())
-            .unwrap()
-            .family_name = "Fira Mono".into();
+        let mut fonts = world.resource_mut::<Assets<Font>>();
+
+        let font = fonts.get_mut(bevy_asset::AssetId::default()).unwrap();
+        font.family_name = "Fira Mono".into();
+        let data = font.data.as_ref().clone();
+
+        app.world_mut()
+            .resource_mut::<CosmicFontSystem>()
+            .db_mut()
+            .load_font_data(data);
 
         let entity = app.world_mut().spawn(Text2d::new(FIRST_TEXT)).id();
 
