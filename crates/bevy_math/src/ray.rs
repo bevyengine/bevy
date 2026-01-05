@@ -42,6 +42,8 @@ impl Ray2d {
     }
 
     /// Returns the distance to a plane if the ray intersects it.
+    ///
+    /// Use [`plane_intersection_point`] to get the intersection point directly.
     #[inline]
     pub fn intersect_plane(&self, plane_origin: Vec2, plane: Plane2d) -> Option<f32> {
         let denominator = plane.normal.dot(*self.direction);
@@ -55,6 +57,8 @@ impl Ray2d {
     }
 
     /// Returns the intersection point with a plane, if it exists.
+    ///
+    ///  Calls [`get_point`] on the result of [`intersect_plane`].
     #[inline]
     pub fn plane_intersection_point(&self, plane_origin: Vec2, plane: Plane2d) -> Option<Vec2> {
         self.intersect_plane(plane_origin, plane)
@@ -95,6 +99,8 @@ impl Ray3d {
     }
 
     /// Returns the distance to a plane if the ray intersects it
+    ///
+    /// Use [`plane_intersection_point`] to get the intersection point directly.
     #[inline]
     pub fn intersect_plane(&self, plane_origin: Vec3, plane: InfinitePlane3d) -> Option<f32> {
         let denominator = plane.normal.dot(*self.direction);
@@ -108,6 +114,8 @@ impl Ray3d {
     }
 
     /// Returns the intersection point of the ray with a plane, if it exists.
+    ///
+    ///  Calls [`get_point`] on the result of [`intersect_plane`].
     #[inline]
     pub fn plane_intersection_point(
         &self,
