@@ -214,7 +214,7 @@ fn button(asset_server: &AssetServer) -> impl Bundle {
         children![(
             Text::new("Button"),
             TextFont {
-                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
                 font_size: 33.0,
                 ..default()
             },
@@ -251,7 +251,7 @@ fn menu_button(asset_server: &AssetServer) -> impl Bundle {
                 (
                     Text::new("Menu"),
                     TextFont {
-                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                        font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
                         font_size: 33.0,
                         ..default()
                     },
@@ -570,7 +570,7 @@ fn checkbox(asset_server: &AssetServer, caption: &str) -> impl Bundle {
             Spawn((
                 Text::new(caption),
                 TextFont {
-                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                    font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
                     font_size: 20.0,
                     ..default()
                 },
@@ -783,7 +783,7 @@ fn radio(asset_server: &AssetServer, value: TrackClick, caption: &str) -> impl B
             Spawn((
                 Text::new(caption),
                 TextFont {
-                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                    font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
                     font_size: 20.0,
                     ..default()
                 },
@@ -891,7 +891,7 @@ fn menu_item(asset_server: &AssetServer) -> impl Bundle {
         children![(
             Text::new("Menu Item"),
             TextFont {
-                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
                 font_size: 33.0,
                 ..default()
             },

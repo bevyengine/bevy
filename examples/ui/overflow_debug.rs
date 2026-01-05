@@ -160,7 +160,7 @@ fn spawn_text(
         parent.spawn((
             Text::new("Bevy"),
             TextFont {
-                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
                 font_size: 100.0,
                 ..default()
             },

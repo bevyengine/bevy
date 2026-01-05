@@ -139,7 +139,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2d);
 
     let text_style = TextFont {
-        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+        font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
         font_size: 60.0,
         ..default()
     };

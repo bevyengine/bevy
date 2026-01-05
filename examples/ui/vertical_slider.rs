@@ -72,7 +72,7 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
                     parent.spawn((
                         Text::new("Vertical"),
                         TextFont {
-                            font: assets.load("fonts/FiraSans-Bold.ttf"),
+                            font: assets.load("fonts/FiraSans-Bold.ttf").into(),
                             font_size: 20.0,
                             ..default()
                         },
@@ -83,7 +83,7 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
                         .spawn((
                             Text::new("50"),
                             TextFont {
-                                font: assets.load("fonts/FiraSans-Bold.ttf"),
+                                font: assets.load("fonts/FiraSans-Bold.ttf").into(),
                                 font_size: 24.0,
                                 ..default()
                             },
@@ -111,7 +111,7 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
                     parent.spawn((
                         Text::new("Horizontal"),
                         TextFont {
-                            font: assets.load("fonts/FiraSans-Bold.ttf"),
+                            font: assets.load("fonts/FiraSans-Bold.ttf").into(),
                             font_size: 20.0,
                             ..default()
                         },
@@ -122,7 +122,7 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
                         .spawn((
                             Text::new("50"),
                             TextFont {
-                                font: assets.load("fonts/FiraSans-Bold.ttf"),
+                                font: assets.load("fonts/FiraSans-Bold.ttf").into(),
                                 font_size: 24.0,
                                 ..default()
                             },

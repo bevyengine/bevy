@@ -81,8 +81,8 @@ fn text_update_system(
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut state: ResMut<State>) {
-    let font_handle = asset_server.load("fonts/FiraSans-Bold.ttf");
-    state.handle = font_handle.clone();
+    state.handle = asset_server.load("fonts/FiraSans-Bold.ttf");
+    let font = FontSource::from(state.handle.clone());
     commands.spawn(Camera2d);
     commands
         .spawn((
@@ -97,7 +97,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut state: ResM
             parent.spawn((
                 Text::new("a"),
                 TextFont {
-                    font: font_handle,
+                    font,
                     font_size: 50.0,
                     ..default()
                 },
