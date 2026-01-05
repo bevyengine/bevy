@@ -3,7 +3,7 @@
 use std::ops::Range;
 
 use bevy::{
-    anti_alias::fxaa::Fxaa,
+    anti_alias::taa::TemporalAntiAliasing,
     color::palettes::css::{BLACK, WHITE},
     core_pipeline::Skybox,
     image::{
@@ -13,7 +13,8 @@ use bevy::{
     input::mouse::MouseWheel,
     math::{vec3, vec4},
     pbr::{
-        DefaultOpaqueRendererMethod, ExtendedMaterial, MaterialExtension, ScreenSpaceReflections,
+        DefaultOpaqueRendererMethod, ExtendedMaterial, MaterialExtension,
+        ScreenSpaceAmbientOcclusion, ScreenSpaceReflections,
     },
     prelude::*,
     render::{
@@ -227,26 +228,26 @@ fn spawn_camera(commands: &mut Commands, asset_server: &AssetServer) {
     // something interesting to reflect, other than the cube. Enable deferred
     // rendering by adding depth and deferred prepasses. Turn on FXAA to make
     // the scene look a little nicer. Finally, add screen space reflections.
-    commands
-        .spawn((
-            Camera3d::default(),
-            Transform::from_translation(vec3(-1.25, 2.25, 4.5)).looking_at(Vec3::ZERO, Vec3::Y),
-            Hdr,
-            Msaa::Off,
-        ))
-        .insert(EnvironmentMapLight {
+    commands.spawn((
+        Camera3d::default(),
+        Transform::from_translation(vec3(-1.25, 2.25, 4.5)).looking_at(Vec3::ZERO, Vec3::Y),
+        Hdr,
+        Msaa::Off,
+        TemporalAntiAliasing::default(),
+        ScreenSpaceReflections::default(),
+        ScreenSpaceAmbientOcclusion::default(),
+        EnvironmentMapLight {
             diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
             specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
             intensity: 5000.0,
             ..default()
-        })
-        .insert(Skybox {
+        },
+        Skybox {
             image: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
             brightness: 5000.0,
             ..default()
-        })
-        .insert(ScreenSpaceReflections::default())
-        .insert(Fxaa::default());
+        },
+    ));
 }
 
 // Spawns the help text.

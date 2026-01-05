@@ -4,7 +4,7 @@ use bevy::camera_controller::free_camera::{FreeCamera, FreeCameraPlugin};
 use std::f32::consts::PI;
 
 use bevy::{
-    anti_alias::fxaa::Fxaa,
+    anti_alias::taa::TemporalAntiAliasing,
     camera::Exposure,
     color::palettes::css::BLACK,
     core_pipeline::tonemapping::Tonemapping,
@@ -19,7 +19,7 @@ use bevy::{
     },
     pbr::{
         AtmosphereMode, AtmosphereSettings, DefaultOpaqueRendererMethod, EarthlikeAtmosphere,
-        ExtendedMaterial, MaterialExtension, ScreenSpaceReflections,
+        ExtendedMaterial, MaterialExtension, ScreenSpaceAmbientOcclusion, ScreenSpaceReflections,
     },
     post_process::bloom::Bloom,
     prelude::*,
@@ -125,8 +125,9 @@ fn setup_camera_fog(mut commands: Commands, earth_atmosphere: Res<EarthlikeAtmos
             ..default()
         },
         Msaa::Off,
-        Fxaa::default(),
+        TemporalAntiAliasing::default(),
         ScreenSpaceReflections::default(),
+        ScreenSpaceAmbientOcclusion::default(),
     ));
 }
 
