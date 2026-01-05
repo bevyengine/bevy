@@ -94,6 +94,14 @@ impl TextPipeline {
         font_system: &mut CosmicFontSystem,
         hinting: FontHinting,
     ) -> Result<(), TextError> {
+        if scale_factor <= 0.0 {
+            once!(warn!(
+                "Text scale factor is <= 0.0. No text will be displayed.",
+            ));
+
+            return Err(TextError::DegenerateScaleFactor);
+        }
+
         computed.needs_rerender = false;
 
         let font_system = &mut font_system.0;
@@ -163,7 +171,7 @@ impl TextPipeline {
             let face_info = FontFaceInfo { family_name };
 
             // Save spans that aren't zero-sized.
-            if scale_factor <= 0.0 || text_font.font_size <= 0.0 {
+            if text_font.font_size <= 0.0 {
                 once!(warn!(
                     "Text span {entity} has a font size <= 0.0. Nothing will be displayed.",
                 ));
