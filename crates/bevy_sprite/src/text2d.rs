@@ -371,7 +371,6 @@ mod tests {
             .add_systems(
                 Update,
                 (
-                    bevy_text::load_font_assets_into_fontdb_system,
                     detect_text_needs_rerender::<Text2d>,
                     update_text2d_layout,
                     calculate_bounds_text2d,
@@ -403,6 +402,13 @@ mod tests {
             "../../bevy_text/src/FiraMono-subset.ttf",
             |bytes: &[u8], _path: String| { Font::try_from_bytes(bytes.to_vec()).unwrap() }
         );
+
+        let mut fonts = app.world_mut().resource_mut::<Assets<Font>>();
+
+        fonts
+            .get_mut(bevy_asset::AssetId::default())
+            .unwrap()
+            .family_name = "Fira Mono".into();
 
         let entity = app.world_mut().spawn(Text2d::new(FIRST_TEXT)).id();
 
