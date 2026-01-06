@@ -26,7 +26,7 @@ use bevy::{
     },
     platform::collections::HashSet,
     prelude::*,
-    ui::auto_directional_navigation::{AutoDirectionalNavigation, AutoDirectionalNavigator}
+    ui::auto_directional_navigation::{AutoDirectionalNavigation, AutoDirectionalNavigator},
 };
 
 fn main() {
@@ -364,7 +364,10 @@ fn process_inputs(
     }
 }
 
-fn navigate(action_state: Res<ActionState>, mut auto_directional_navigator: AutoDirectionalNavigator) {
+fn navigate(
+    action_state: Res<ActionState>,
+    mut auto_directional_navigator: AutoDirectionalNavigator,
+) {
     let net_east_west = action_state
         .pressed_actions
         .contains(&DirectionalNavigationAction::Right) as i8
