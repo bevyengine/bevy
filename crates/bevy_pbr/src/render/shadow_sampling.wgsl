@@ -209,6 +209,9 @@ fn sample_shadow_map_jimenez_fourteen(
 }
 
 const PENUMBRA_FILTER_SIZE: vec2<f32> = vec2(128.0f);
+// Offset for use with interleaved gradient noise and similar to avoid using the
+// same noise pattern for multiple algorithms
+const BLOCKER_SEARCH_OFFSET: vec2<f32> = vec2(17.23f);
 
 // Performs the blocker search portion of percentage-closer soft shadows (PCSS).
 // This is the variation used for directional lights.
@@ -224,9 +227,10 @@ fn search_for_blockers_in_shadow_map(
     light_local: vec2<f32>,
     depth: f32,
     array_index: i32,
+    frag_coord_xy: vec2<f32>,
 ) -> f32 {
     let shadow_map_size = vec2<f32>(textureDimensions(view_bindings::directional_shadow_textures));
-    let rotation_matrix = random_rotation_matrix(light_local * shadow_map_size, false);
+    let rotation_matrix = random_rotation_matrix(frag_coord_xy + BLOCKER_SEARCH_OFFSET, false);
     let uv_offset_scale = PENUMBRA_FILTER_SIZE / shadow_map_size;
 
     let offset0 = rotation_matrix * D3D_SAMPLE_POINT_POSITIONS[0] * uv_offset_scale;
@@ -297,7 +301,7 @@ fn sample_shadow_map_pcss(
     light_size: f32,
 ) -> f32 {
     // Determine the average Z value of the closest blocker.
-    let z_blocker = search_for_blockers_in_shadow_map(light_local, depth, array_index);
+    let z_blocker = search_for_blockers_in_shadow_map(light_local, depth, array_index, frag_coord_xy);
 
     // Don't let the blur size go below 0.5, or shadows will look unacceptably aliased.
     let blur_size = max((z_blocker - depth) * light_size / depth, 0.5);
