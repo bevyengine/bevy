@@ -9,6 +9,11 @@
     WORLD_CACHE_DIRECT_LIGHT_SAMPLE_COUNT,
     WORLD_CACHE_MAX_GI_RAY_DISTANCE,
     query_world_cache,
+}
+#import bevy_solari::realtime_bindings::{
+    light_tile_resolved_samples,
+    view,
+    constants,
     world_cache_active_cells_count,
     world_cache_active_cell_indices,
     world_cache_life,
@@ -17,11 +22,6 @@
     world_cache_luminance_deltas,
     world_cache_active_cells_new_radiance,
 }
-
-@group(1) @binding(2) var<storage, read_write> light_tile_resolved_samples: array<ResolvedLightSamplePacked>;
-@group(1) @binding(12) var<uniform> view: View;
-struct PushConstants { frame_index: u32, reset: u32 }
-var<push_constant> constants: PushConstants;
 
 @compute @workgroup_size(64, 1, 1)
 fn sample_radiance(@builtin(workgroup_id) workgroup_id: vec3<u32>, @builtin(global_invocation_id) active_cell_id: vec3<u32>) {
