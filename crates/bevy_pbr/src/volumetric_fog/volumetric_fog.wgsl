@@ -20,7 +20,7 @@
 }
 #import bevy_pbr::mesh_functions::{get_world_from_local, mesh_position_local_to_clip}
 #import bevy_pbr::mesh_view_bindings::{
-    globals, lights, view, clusterable_objects, 
+    globals, lights, view, clusterable_objects,
     atmosphere_data, atmosphere_transmittance_texture, atmosphere_transmittance_sampler
 }
 #import bevy_pbr::mesh_view_types::{
@@ -312,7 +312,7 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
                 let r = length(P_as);
                 let local_up = normalize(P_as);
                 let mu_light = dot(L, local_up);
-                
+
                 let transmittance = sample_transmittance_lut(r, mu_light);
                 let sun_visibility = calculate_visible_sun_ratio(atmosphere_data.atmosphere, r, mu_light, (*light).sun_disk_angular_size);
                 light_factors_per_step *= transmittance * sun_visibility;
@@ -369,7 +369,7 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
             if (i < clusterable_object_index_ranges.first_spot_light_index_offset) {
                 var shadow: f32 = 1.0;
                 if (((*light).flags & POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
-                    shadow = fetch_point_shadow_without_normal(light_id, vec4(P_world, 1.0));
+                    shadow = fetch_point_shadow_without_normal(light_id, vec4(P_world, 1.0), position.xy);
                 }
                 local_light_attenuation *= shadow;
             } else {
@@ -391,7 +391,7 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
 
                 var shadow: f32 = 1.0;
                 if (((*light).flags & POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
-                    shadow = fetch_spot_shadow_without_normal(light_id, vec4(P_world, 1.0));
+                    shadow = fetch_spot_shadow_without_normal(light_id, vec4(P_world, 1.0), position.xy);
                 }
                 local_light_attenuation *= spot_attenuation * shadow;
             }
@@ -422,7 +422,7 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
     return vec4(accumulated_color, 1.0 - background_alpha);
 }
 
-fn fetch_point_shadow_without_normal(light_id: u32, frag_position: vec4<f32>) -> f32 {
+fn fetch_point_shadow_without_normal(light_id: u32, frag_position: vec4<f32>, frag_coord_xy: vec2<f32>) -> f32 {
     let light = &clusterable_objects.data[light_id];
 
     // because the shadow maps align with the axes and the frustum planes are at 45 degrees
@@ -452,10 +452,10 @@ fn fetch_point_shadow_without_normal(light_id: u32, frag_position: vec4<f32>) ->
     // Do the lookup, using HW PCF and comparison. Cubemaps assume a left-handed coordinate space,
     // so we have to flip the z-axis when sampling.
     let flip_z = vec3(1.0, 1.0, -1.0);
-    return sample_shadow_cubemap(frag_ls * flip_z, distance_to_light, depth, light_id);
+    return sample_shadow_cubemap(frag_ls * flip_z, distance_to_light, depth, light_id, frag_coord_xy);
 }
 
-fn fetch_spot_shadow_without_normal(light_id: u32, frag_position: vec4<f32>) -> f32 {
+fn fetch_spot_shadow_without_normal(light_id: u32, frag_position: vec4<f32>, frag_coord_xy: vec2<f32>) -> f32 {
     let light = &clusterable_objects.data[light_id];
 
     let surface_to_light = (*light).position_radius.xyz - frag_position.xyz;
@@ -505,6 +505,7 @@ fn fetch_spot_shadow_without_normal(light_id: u32, frag_position: vec4<f32>) -> 
         shadow_uv,
         depth,
         i32(light_id) + lights.spot_light_shadowmap_offset,
+        frag_coord_xy,
         SPOT_SHADOW_TEXEL_SIZE
     );
 }
@@ -513,7 +514,7 @@ fn fetch_spot_shadow_without_normal(light_id: u32, frag_position: vec4<f32>) -> 
 fn sample_transmittance_lut(r: f32, mu: f32) -> vec3<f32> {
     let uv = transmittance_lut_r_mu_to_uv(atmosphere_data.atmosphere, r, mu);
     return textureSampleLevel(
-        atmosphere_transmittance_texture, 
+        atmosphere_transmittance_texture,
         atmosphere_transmittance_sampler, uv, 0.0).rgb;
 }
 #endif  // ATMOSPHERE
