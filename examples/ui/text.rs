@@ -227,9 +227,3 @@ fn text_update_system(
         }
     }
 }
-
-fn update_text(mut query: Query<&mut Text>) {
-    for mut t in query.iter_mut() {
-        t.set_changed();
-    }
-}
