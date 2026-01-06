@@ -64,6 +64,7 @@ fn setup(mut commands: Commands, font_system: Res<CosmicFontSystem>) {
                                 grid_template_columns: vec![
                                     GridTrack::flex(1.),
                                     GridTrack::flex(1.),
+                                    GridTrack::flex(1.),
                                 ],
                                 padding: px(6).all(),
                                 column_gap: px(50.),
@@ -74,11 +75,12 @@ fn setup(mut commands: Commands, font_system: Res<CosmicFontSystem>) {
                                 (
                                     Text::new(&family),
                                     TextFont {
-                                        font: FontSource::Family(family.into()),
+                                        font: FontSource::Family(family.as_str().into()),
                                         ..default()
                                     },
                                     TextLayout::new_with_no_wrap()
                                 ),
+                                (Text::new(family), TextLayout::new_with_no_wrap()),
                                 (
                                     Text::new(language),
                                     TextLayout::new_with_no_wrap(),
