@@ -354,7 +354,7 @@ fn compute_specular_layer_values_for_point_light(
     layer: u32,
     V: vec3<f32>,
     light_to_frag: vec3<f32>,
-    light_position_radius: f32,
+    light_radius: f32,
     distance: f32,
 ) -> vec4<f32> {
     // Unpack.
@@ -375,18 +375,17 @@ fn compute_specular_layer_values_for_point_light(
     // Any non-zero epsilon works here, it just has to be positive to avoid a singularity at zero.
     // However, this is still far from physically accurate. Deriving an exact solution would help,
     // but really we should adopt a superior solution to area lighting, such as:
-    // Physically Based Area Lights by Michal Drobot, or
     // Polygonal-Light Shading with Linearly Transformed Cosines by Eric Heitz et al.
     LtFdotR = max(0.0001, LtFdotR);
 
     let centerToRay = LtFdotR * R - light_to_frag;
     let closestPoint = light_to_frag + centerToRay * saturate(
-        light_position_radius * inverseSqrt(dot(centerToRay, centerToRay)));
+        light_radius * inverseSqrt(dot(centerToRay, centerToRay)));
     let LspecLengthInverse = inverseSqrt(dot(closestPoint, closestPoint));
 
-    // a' = saturate( a + sourceRadius / (2 * distance) )
-    // see Karis 2013
-    let a_prime = saturate(a + light_position_radius / (2.0 * distance));
+    // Karis 2013, page 14. The constant 2 (or 3) is hand tuned to fit reference.
+    // https://cdn2.unrealengine.com/Resources/files/2013SiggraphPresentationsNotes-26915738.pdf
+    let a_prime = saturate(a + light_radius / (2.0 * distance));
 
     let L: vec3<f32> = closestPoint * LspecLengthInverse; // normalize() equivalent?
     return vec4(L, a_prime);
@@ -607,6 +606,19 @@ fn cubemap_uv(direction: vec3<f32>, cubemap_type: u32) -> vec2<f32> {
     return (vec2<f32>(corner_uv) + face_uv) * face_size;
 }
 
+// This is a modification to Karis 2013 for area lights to fix an issue where the specular
+// reflection on smooth materials looks too rough and dim. We lerp between the base roughness
+// and Karis2013 roughness with a lerp factor tuned by looking at reference renders. The goal
+// is to preserve sharp specular highlights on smooth materials, without blowing out specular
+// highlights on rough materials.
+//
+// The ideal solution is to switch to Linearly Transformed Cosines, which is more accurate in
+// all cases, and a popular choice for realtime.
+fn specular_fix_remap(a: f32) -> f32 {
+    let inv_a_sq = (1.0 - a) * (1.0 - a);
+    return 1.0 - inv_a_sq * inv_a_sq;
+}
+
 fn point_light(
     light_id: u32,
     input: ptr<function, LightingInput>,
@@ -644,11 +656,7 @@ fn point_light(
     let normalizationFactor = a / a_prime;
     let specular_intensity = normalizationFactor * normalizationFactor;
 
-    // This is a modification to Karis 2013 for area lights to fix an issue where the specular reflection on smooth materials
-    // looks too rough and dim. We lerp between the base roughness and Karis2013 roughness with a lerp factor tuned by looking at reference renders.
-    // The goal is to preserve sharp specular highlights on smooth materials, without blowing out specular highlights on rough materials.
-    let lerp = 1.0 - (1.0 - a) * (1.0 - a) * (1.0 - a) * (1.0 - a);
-    let brdf_roughness = mix(a, a_prime, lerp);
+    let brdf_roughness = mix(a, a_prime, specular_fix_remap(a));
 
 #ifdef STANDARD_MATERIAL_ANISOTROPY
     var specular_light = specular_anisotropy(input, &specular_derived_input, L, brdf_roughness, specular_intensity);
@@ -692,11 +700,7 @@ fn point_light(
 
     let clearcoat_specular_intensity = clearcoat_normalizationFactor * clearcoat_normalizationFactor;
 
-    // This is a modification to Karis 2013 for area lights to fix an issue where the specular reflection on smooth materials
-    // looks too rough and dim. We lerp between the base roughness and Karis2013 roughness with a lerp factor tuned by looking at reference renders.
-    // The goal is to preserve sharp specular highlights on smooth materials, without blowing out specular highlights on rough materials.
-    let cc_lerp = 1.0 - (1.0 - clearcoat_a) * (1.0 - clearcoat_a) * (1.0 - clearcoat_a) * (1.0 - clearcoat_a);
-    let clearcoat_brdf_roughness = mix(clearcoat_a, clearcoat_a_prime, cc_lerp);
+    let clearcoat_brdf_roughness = mix(clearcoat_a, clearcoat_a_prime, specular_fix_remap(clearcoat_a));
 
     let Fc_Frc = specular_clearcoat(
         input,
