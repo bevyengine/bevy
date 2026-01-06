@@ -58,7 +58,7 @@ impl Ray2d {
 
     /// Returns the intersection point with a plane, if it exists.
     ///
-    ///  Calls [`Ray2d::get_point`] on the result of [`Ray2d::intersect_plane`].
+    /// Calls [`Ray2d::get_point`] on the result of [`Ray2d::intersect_plane`].
     #[inline]
     pub fn plane_intersection_point(&self, plane_origin: Vec2, plane: Plane2d) -> Option<Vec2> {
         self.intersect_plane(plane_origin, plane)
@@ -115,7 +115,7 @@ impl Ray3d {
 
     /// Returns the intersection point of the ray with a plane, if it exists.
     ///
-    ///  Calls [`Ray3d::get_point`] on the result of [`Ray3d::intersect_plane`].
+    /// Calls [`Ray3d::get_point`] on the result of [`Ray3d::intersect_plane`].
     #[inline]
     pub fn plane_intersection_point(
         &self,
