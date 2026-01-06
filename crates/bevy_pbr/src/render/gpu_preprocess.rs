@@ -52,7 +52,7 @@ use bevy_render::{
     Render, RenderApp, RenderSystems,
 };
 use bevy_shader::Shader;
-use bevy_utils::{default, TypeIdMap};
+use bevy_utils::{default, once, TypeIdMap};
 use bitflags::bitflags;
 use smallvec::{smallvec, SmallVec};
 use tracing::warn;
@@ -838,7 +838,7 @@ impl Node for LateGpuPreprocessNode {
 
         // Fetch the pipeline.
         let Some(preprocess_pipeline_id) = maybe_pipeline_id else {
-            warn!("The build mesh uniforms pipeline wasn't ready");
+            once!(warn!("The build mesh uniforms pipeline wasn't ready"));
             return Ok(());
         };
 
