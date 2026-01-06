@@ -1,6 +1,4 @@
-use alloc::sync::Arc;
-
-use bevy_asset::{AssetId, Assets};
+use bevy_asset::Assets;
 use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
@@ -10,7 +8,6 @@ use bevy_ecs::{
 use bevy_image::prelude::*;
 use bevy_log::{once, warn};
 use bevy_math::{Rect, UVec2, Vec2};
-use bevy_platform::collections::HashMap;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use smol_str::SmolStr;
 
@@ -19,7 +16,7 @@ use crate::{
     FontAtlasKey, FontAtlasSet, FontHinting, FontSmoothing, FontSource, Justify, LineBreak,
     LineHeight, PositionedGlyph, TextBounds, TextEntity, TextFont, TextLayout,
 };
-use cosmic_text::{fontdb::ID, Attrs, Buffer, Family, Metrics, Shaping, Wrap};
+use cosmic_text::{Attrs, Buffer, Family, Metrics, Shaping, Wrap};
 
 /// A wrapper resource around a [`cosmic_text::FontSystem`]
 ///
@@ -64,18 +61,10 @@ pub struct FontFaceInfo {
 /// See the [crate-level documentation](crate) for more information.
 #[derive(Default, Resource)]
 pub struct TextPipeline {
-    /// Identifies a font [`ID`] by its [`Font`] [`Asset`](bevy_asset::Asset).
-    pub map_handle_to_font_id: HashMap<AssetId<Font>, (ID, Arc<str>)>,
     /// Buffered vec for collecting spans.
     ///
     /// See [this dark magic](https://users.rust-lang.org/t/how-to-cache-a-vectors-capacity/94478/10).
-    spans_buffer: Vec<(
-        usize,
-        &'static str,
-        &'static TextFont,
-        FontFaceInfo,
-        LineHeight,
-    )>,
+    spans_buffer: Vec<(&'static str, Attrs<'static>)>,
 }
 
 impl TextPipeline {
@@ -100,15 +89,10 @@ impl TextPipeline {
 
         // Collect span information into a vec. This is necessary because font loading requires mut access
         // to FontSystem, which the cosmic-text Buffer also needs.
-        let mut spans: Vec<(usize, &str, &TextFont, FontFaceInfo, Color, LineHeight)> =
-            core::mem::take(&mut self.spans_buffer)
-                .into_iter()
-                .map(
-                    |_| -> (usize, &str, &TextFont, FontFaceInfo, Color, LineHeight) {
-                        unreachable!()
-                    },
-                )
-                .collect();
+        let mut spans: Vec<(&str, Attrs)> = core::mem::take(&mut self.spans_buffer)
+            .into_iter()
+            .map(|_| -> (&str, Attrs) { unreachable!() })
+            .collect();
 
         computed.entities.clear();
 
@@ -122,45 +106,27 @@ impl TextPipeline {
                 continue;
             }
 
-            let family_name: SmolStr = match &text_font.font {
+            let family: Family = match &text_font.font {
                 FontSource::Handle(handle) => {
-                    if let Some(font) = fonts.get(handle.id()) {
-                        let data = Arc::clone(&font.data);
-                        let ids = font_system
-                            .db_mut()
-                            .load_font_source(cosmic_text::fontdb::Source::Binary(data));
-
-                        // TODO: it is assumed this is the right font face
-                        font_system
-                            .db()
-                            .face(*ids.last().unwrap())
-                            .unwrap()
-                            .families[0]
-                            .0
-                            .as_str()
-                            .into()
-                    } else {
+                    let Some(font) = fonts.get(handle.id()) else {
                         // Return early if a font is not loaded yet.
                         spans.clear();
                         self.spans_buffer = spans
                             .into_iter()
-                            .map(
-                                |_| -> (
-                                    usize,
-                                    &'static str,
-                                    &'static TextFont,
-                                    FontFaceInfo,
-                                    LineHeight,
-                                ) { unreachable!() },
-                            )
+                            .map(|_| -> (&'static str, Attrs<'static>) { unreachable!() })
                             .collect();
                         return Err(TextError::NoSuchFont);
-                    }
-                }
-                FontSource::Family(family) => family.clone(),
-            };
+                    };
 
-            let face_info = FontFaceInfo { family_name };
+                    Family::Name(font.family_name.as_str())
+                }
+                FontSource::Family(family) => Family::Name(family.as_str()),
+                FontSource::Serif => Family::Serif,
+                FontSource::SansSerif => Family::SansSerif,
+                FontSource::Cursive => Family::Cursive,
+                FontSource::Fantasy => Family::Fantasy,
+                FontSource::Monospace => Family::Monospace,
+            };
 
             // Save spans that aren't zero-sized.
             if scale_factor <= 0.0 || text_font.font_size <= 0.0 {
@@ -170,30 +136,21 @@ impl TextPipeline {
 
                 continue;
             }
-            spans.push((span_index, span, text_font, face_info, color, line_height));
+
+            let attrs = get_attrs(
+                span_index,
+                text_font,
+                line_height,
+                color,
+                family,
+                scale_factor,
+            );
+
+            // spans.push((span_index, span, text_font, face_info, color, line_height));
+            spans.push((span, attrs));
         }
 
-        // Map text sections to cosmic-text spans, and ignore sections with negative or zero fontsizes,
-        // since they cannot be rendered by cosmic-text.
-        //
-        // The section index is stored in the metadata of the spans, and could be used
-        // to look up the section the span came from and is not used internally
-        // in cosmic-text.
-        let spans_iter = spans.iter().map(
-            |(span_index, span, text_font, font_info, color, line_height)| {
-                (
-                    *span,
-                    get_attrs(
-                        *span_index,
-                        text_font,
-                        *line_height,
-                        *color,
-                        font_info,
-                        scale_factor,
-                    ),
-                )
-            },
-        );
+        let spans_iter = spans.iter().map(|(span, attrs)| (*span, attrs.clone()));
 
         // Update the buffer.
         let buffer = &mut computed.buffer;
@@ -230,15 +187,7 @@ impl TextPipeline {
         spans.clear();
         self.spans_buffer = spans
             .into_iter()
-            .map(
-                |_| -> (
-                    usize,
-                    &'static str,
-                    &'static TextFont,
-                    FontFaceInfo,
-                    LineHeight,
-                ) { unreachable!() },
-            )
+            .map(|_| -> (&'static str, Attrs<'static>) { unreachable!() })
             .collect();
 
         Ok(())
@@ -291,14 +240,6 @@ impl TextPipeline {
             max: max_width_content_size,
             entity,
         })
-    }
-
-    /// Returns the [`cosmic_text::fontdb::ID`] for a given [`Font`] asset.
-    pub fn get_font_id(&self, asset_id: AssetId<Font>) -> Option<ID> {
-        self.map_handle_to_font_id
-            .get(&asset_id)
-            .cloned()
-            .map(|(id, _)| id)
     }
 
     /// Update [`TextLayoutInfo`] with the new [`PositionedGlyph`] layout.
@@ -567,12 +508,12 @@ fn get_attrs<'a>(
     text_font: &TextFont,
     line_height: LineHeight,
     color: Color,
-    face_info: &'a FontFaceInfo,
+    family: Family<'a>,
     scale_factor: f64,
 ) -> Attrs<'a> {
     Attrs::new()
         .metadata(span_index)
-        .family(Family::Name(&face_info.family_name))
+        .family(family)
         .stretch(text_font.width.into())
         .style(text_font.style.into())
         .weight(text_font.weight.into())

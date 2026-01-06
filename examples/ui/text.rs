@@ -81,6 +81,34 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             FpsText,
         ));
 
+    commands.spawn((
+        Node {
+            flex_direction: FlexDirection::Column,
+            left: px(250),
+            top: px(250),
+            ..Default::default()
+        },
+        children![
+            (
+                Text::new("hello sans serif"),
+                TextFont::from(FontSource::SansSerif)
+            ),
+            (Text::new("hello serif"), TextFont::from(FontSource::Serif)),
+            (
+                Text::new("hello fantasy"),
+                TextFont::from(FontSource::Fantasy)
+            ),
+            (
+                Text::new("hello cursive"),
+                TextFont::from(FontSource::Cursive)
+            ),
+            (
+                Text::new("hello monospace"),
+                TextFont::from(FontSource::Monospace)
+            )
+        ],
+    ));
+
     // Text with OpenType features
     let opentype_font_handle: FontSource =
         asset_server.load("fonts/EBGaramond12-Regular.otf").into();
