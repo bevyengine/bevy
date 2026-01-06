@@ -246,7 +246,7 @@ impl From<Justify> for cosmic_text::Align {
     }
 }
 
-#[derive(Component, Clone, Debug, Reflect, PartialEq)]
+#[derive(Clone, Debug, Reflect, PartialEq)]
 /// Specifies how the font face for a text span is sourced.
 ///
 /// A `FontSource` can either reference a font asset or identify a font by family name to be

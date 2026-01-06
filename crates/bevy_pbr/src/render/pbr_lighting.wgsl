@@ -348,13 +348,14 @@ fn derive_lighting_input(N: vec3<f32>, V: vec3<f32>, L: vec3<f32>) -> DerivedLig
     return input;
 }
 
-// Returns L in the `xyz` components and the specular intensity in the `w` component.
+// Returns L in the `xyz` components and the modified roughness in the `w` component.
 fn compute_specular_layer_values_for_point_light(
     input: ptr<function, LightingInput>,
     layer: u32,
     V: vec3<f32>,
     light_to_frag: vec3<f32>,
-    light_position_radius: f32,
+    light_radius: f32,
+    distance: f32,
 ) -> vec4<f32> {
     // Unpack.
     let R = (*input).layers[layer].R;
@@ -374,19 +375,20 @@ fn compute_specular_layer_values_for_point_light(
     // Any non-zero epsilon works here, it just has to be positive to avoid a singularity at zero.
     // However, this is still far from physically accurate. Deriving an exact solution would help,
     // but really we should adopt a superior solution to area lighting, such as:
-    // Physically Based Area Lights by Michal Drobot, or
     // Polygonal-Light Shading with Linearly Transformed Cosines by Eric Heitz et al.
     LtFdotR = max(0.0001, LtFdotR);
 
     let centerToRay = LtFdotR * R - light_to_frag;
     let closestPoint = light_to_frag + centerToRay * saturate(
-        light_position_radius * inverseSqrt(dot(centerToRay, centerToRay)));
+        light_radius * inverseSqrt(dot(centerToRay, centerToRay)));
     let LspecLengthInverse = inverseSqrt(dot(closestPoint, closestPoint));
-    let normalizationFactor = a / saturate(a + (light_position_radius * 0.5 * LspecLengthInverse));
-    let intensity = normalizationFactor * normalizationFactor;
+
+    // Karis 2013, page 14. The constant 2 (or 3) is hand tuned to fit reference.
+    // https://cdn2.unrealengine.com/Resources/files/2013SiggraphPresentationsNotes-26915738.pdf
+    let a_prime = saturate(a + light_radius / (2.0 * distance));
 
     let L: vec3<f32> = closestPoint * LspecLengthInverse; // normalize() equivalent?
-    return vec4(L, intensity);
+    return vec4(L, a_prime);
 }
 
 // Cook-Torrance approximation of the microfacet model integration using Fresnel law F to model f_m
@@ -394,10 +396,10 @@ fn compute_specular_layer_values_for_point_light(
 fn specular(
     input: ptr<function, LightingInput>,
     derived_input: ptr<function, DerivedLightingInput>,
+    roughness: f32,
     specular_intensity: f32,
 ) -> vec3<f32> {
     // Unpack.
-    let roughness = (*input).layers[LAYER_BASE].roughness;
     let NdotV = (*input).layers[LAYER_BASE].NdotV;
     let F0 = (*input).F0_;
     let NdotL = (*derived_input).NdotL;
@@ -425,10 +427,10 @@ fn specular_clearcoat(
     input: ptr<function, LightingInput>,
     derived_input: ptr<function, DerivedLightingInput>,
     clearcoat_strength: f32,
+    roughness: f32,
     specular_intensity: f32,
 ) -> vec2<f32> {
     // Unpack.
-    let roughness = (*input).layers[LAYER_CLEARCOAT].roughness;
     let NdotH = (*derived_input).NdotH;
     let LdotH = (*derived_input).LdotH;
 
@@ -449,10 +451,10 @@ fn specular_anisotropy(
     input: ptr<function, LightingInput>,
     derived_input: ptr<function, DerivedLightingInput>,
     L: vec3<f32>,
+    roughness: f32,
     specular_intensity: f32,
 ) -> vec3<f32> {
     // Unpack.
-    let roughness = (*input).layers[LAYER_BASE].roughness;
     let NdotV = (*input).layers[LAYER_BASE].NdotV;
     let V = (*input).V;
     let F0 = (*input).F0_;
@@ -604,6 +606,19 @@ fn cubemap_uv(direction: vec3<f32>, cubemap_type: u32) -> vec2<f32> {
     return (vec2<f32>(corner_uv) + face_uv) * face_size;
 }
 
+// This is a modification to Karis 2013 for area lights to fix an issue where the specular
+// reflection on smooth materials looks too rough and dim. We lerp between the base roughness
+// and Karis2013 roughness with a lerp factor tuned by looking at reference renders. The goal
+// is to preserve sharp specular highlights on smooth materials, without blowing out specular
+// highlights on rough materials.
+//
+// The ideal solution is to switch to Linearly Transformed Cosines, which is more accurate in
+// all cases, and a popular choice for realtime.
+fn specular_fix_remap(a: f32) -> f32 {
+    let inv_a_sq = (1.0 - a) * (1.0 - a);
+    return 1.0 - inv_a_sq * inv_a_sq;
+}
+
 fn point_light(
     light_id: u32,
     input: ptr<function, LightingInput>,
@@ -620,26 +635,41 @@ fn point_light(
     let light_to_frag = (*light).position_radius.xyz - P;
     let L = normalize(light_to_frag);
     let distance_square = dot(light_to_frag, light_to_frag);
+    let distance = sqrt(distance_square);
     let rangeAttenuation = getDistanceAttenuation(distance_square, (*light).color_inverse_square_range.w);
 
     // Base layer
 
-    let specular_L_intensity = compute_specular_layer_values_for_point_light(
+    let a = (*input).layers[LAYER_BASE].roughness;
+    let specular_L_a_prime = compute_specular_layer_values_for_point_light(
         input,
         LAYER_BASE,
         V,
         light_to_frag,
         (*light).position_radius.w,
+        distance,
     );
-    var specular_derived_input = derive_lighting_input(N, V, specular_L_intensity.xyz);
+    let L_spec = specular_L_a_prime.xyz;
+    let a_prime = specular_L_a_prime.w;
+    var specular_derived_input = derive_lighting_input(N, V, L_spec);
 
-    let specular_intensity = specular_L_intensity.w;
+    let normalizationFactor = a / a_prime;
+    let specular_intensity = normalizationFactor * normalizationFactor;
+
+    let brdf_roughness = mix(a, a_prime, specular_fix_remap(a));
 
 #ifdef STANDARD_MATERIAL_ANISOTROPY
-    let specular_light = specular_anisotropy(input, &specular_derived_input, L, specular_intensity);
+    var specular_light = specular_anisotropy(input, &specular_derived_input, L, brdf_roughness, specular_intensity);
 #else   // STANDARD_MATERIAL_ANISOTROPY
-    let specular_light = specular(input, &specular_derived_input, specular_intensity);
+    var specular_light = specular(input, &specular_derived_input, brdf_roughness, specular_intensity);
 #endif  // STANDARD_MATERIAL_ANISOTROPY
+
+    // Sphere area light visibility (solid-angle attenuation)
+    let light_radius = (*light).position_radius.w;
+    if light_radius > 0.0 {
+        let solid_angle = light_radius * light_radius / (distance * distance);
+        specular_light *= saturate(specular_derived_input.NdotL / max(specular_derived_input.NdotL + solid_angle, 1e-4));
+    }
 
     // Clearcoat
 
@@ -647,30 +677,46 @@ fn point_light(
     // Unpack.
     let clearcoat_N = (*input).layers[LAYER_CLEARCOAT].N;
     let clearcoat_strength = (*input).clearcoat_strength;
+    let clearcoat_a = (*input).layers[LAYER_CLEARCOAT].roughness;
 
     // Perform specular input calculations again for the clearcoat layer. We
     // can't reuse the above because the clearcoat normal might be different
     // from the main layer normal.
-    let clearcoat_specular_L_intensity = compute_specular_layer_values_for_point_light(
+    let clearcoat_specular_L_a_prime = compute_specular_layer_values_for_point_light(
         input,
         LAYER_CLEARCOAT,
         V,
         light_to_frag,
         (*light).position_radius.w,
+        distance,
     );
+    let L_clearcoat_spec = clearcoat_specular_L_a_prime.xyz;
+    let clearcoat_a_prime = clearcoat_specular_L_a_prime.w;
     var clearcoat_specular_derived_input =
-        derive_lighting_input(clearcoat_N, V, clearcoat_specular_L_intensity.xyz);
+        derive_lighting_input(clearcoat_N, V, L_clearcoat_spec);
 
     // Calculate the specular light.
-    let clearcoat_specular_intensity = clearcoat_specular_L_intensity.w;
+    let clearcoat_normalizationFactor = clearcoat_a / clearcoat_a_prime;
+
+    let clearcoat_specular_intensity = clearcoat_normalizationFactor * clearcoat_normalizationFactor;
+
+    let clearcoat_brdf_roughness = mix(clearcoat_a, clearcoat_a_prime, specular_fix_remap(clearcoat_a));
+
     let Fc_Frc = specular_clearcoat(
         input,
         &clearcoat_specular_derived_input,
         clearcoat_strength,
+        clearcoat_brdf_roughness,
         clearcoat_specular_intensity
     );
     let inv_Fc = 1.0 - Fc_Frc.r;    // Inverse Fresnel term.
-    let Frc = Fc_Frc.g;             // Clearcoat light.
+    var Frc = Fc_Frc.g;             // Clearcoat light.
+
+    // Sphere area light visibility (solid-angle attenuation) for clearcoat
+    if light_radius > 0.0 {
+        let solid_angle = light_radius * light_radius / (distance * distance);
+        Frc *= saturate(clearcoat_specular_derived_input.NdotL / max(clearcoat_specular_derived_input.NdotL + solid_angle, 1e-4));
+    }
 #endif  // STANDARD_MATERIAL_CLEARCOAT
 
     // Diffuse.
@@ -694,14 +740,14 @@ fn point_light(
 
     // NOTE: (*light).color.rgb is premultiplied with (*light).intensity / 4 π (which would be the luminous intensity) on the CPU
 
-    var color: vec3<f32>;
+    var color_times_NdotL: vec3<f32>;
 #ifdef STANDARD_MATERIAL_CLEARCOAT
     // Account for the Fresnel term from the clearcoat darkening the main layer.
     //
     // <https://google.github.io/filament/Filament.html#materialsystem/clearcoatmodel/integrationinthesurfaceresponse>
-    color = (diffuse + specular_light * inv_Fc) * inv_Fc + Frc;
+    color_times_NdotL = (diffuse * derived_input.NdotL + specular_light * specular_derived_input.NdotL * inv_Fc) * inv_Fc + Frc * clearcoat_specular_derived_input.NdotL;
 #else   // STANDARD_MATERIAL_CLEARCOAT
-    color = diffuse + specular_light;
+    color_times_NdotL = diffuse * derived_input.NdotL + specular_light * specular_derived_input.NdotL;
 #endif  // STANDARD_MATERIAL_CLEARCOAT
 
     var texture_sample = 1f;
@@ -722,8 +768,8 @@ fn point_light(
     }
 #endif
 
-    return color * (*light).color_inverse_square_range.rgb *
-        (rangeAttenuation * derived_input.NdotL) * texture_sample;
+    return color_times_NdotL * (*light).color_inverse_square_range.rgb *
+        rangeAttenuation * texture_sample;
 }
 
 fn spot_light(
@@ -797,14 +843,15 @@ fn directional_light(
     }
 
 #ifdef STANDARD_MATERIAL_ANISOTROPY
-    let specular_light = specular_anisotropy(input, &derived_input, L, 1.0);
+    let specular_light = specular_anisotropy(input, &derived_input, L, roughness, 1.0);
 #else   // STANDARD_MATERIAL_ANISOTROPY
-    let specular_light = specular(input, &derived_input, 1.0);
+    let specular_light = specular(input, &derived_input, roughness, 1.0);
 #endif  // STANDARD_MATERIAL_ANISOTROPY
 
 #ifdef STANDARD_MATERIAL_CLEARCOAT
     let clearcoat_N = (*input).layers[LAYER_CLEARCOAT].N;
     let clearcoat_strength = (*input).clearcoat_strength;
+    let clearcoat_roughness = (*input).layers[LAYER_CLEARCOAT].roughness;
 
     // Perform specular input calculations again for the clearcoat layer. We
     // can't reuse the above because the clearcoat normal might be different
@@ -812,7 +859,7 @@ fn directional_light(
     var derived_clearcoat_input = derive_lighting_input(clearcoat_N, V, L);
 
     let Fc_Frc =
-        specular_clearcoat(input, &derived_clearcoat_input, clearcoat_strength, 1.0);
+        specular_clearcoat(input, &derived_clearcoat_input, clearcoat_strength, clearcoat_roughness, 1.0);
     let inv_Fc = 1.0 - Fc_Frc.r;
     let Frc = Fc_Frc.g;
 #endif  // STANDARD_MATERIAL_CLEARCOAT
