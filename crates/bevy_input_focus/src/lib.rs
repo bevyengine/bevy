@@ -85,7 +85,7 @@ use bevy_reflect::{prelude::*, Reflect};
 ///     world.insert_resource(InputFocus::from_entity(entity));
 /// }
 /// ```
-#[derive(Clone, Debug, Default, Resource)]
+#[derive(Clone, Debug, Default, Resource, PartialEq)]
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
