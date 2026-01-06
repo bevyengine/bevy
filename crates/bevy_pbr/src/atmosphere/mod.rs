@@ -95,21 +95,6 @@ use self::{
     },
 };
 
-/// Creates a default CloudLayer entity to ensure there's always at least one uniform available
-fn init_default_cloud_layer(mut commands: bevy_ecs::system::Commands) {
-    commands.spawn(CloudLayer {
-        cloud_layer_start: 0.0,
-        cloud_layer_end: 0.0,
-        cloud_density: 0.0, // Disabled by default
-        cloud_absorption: 0.0,
-        cloud_scattering: 0.0,
-        noise_scale: 1.0,
-        noise_offset: Vec3::ZERO,
-        detail_noise_scale: 1.0,
-        detail_strength: 0.0,
-    });
-}
-
 #[doc(hidden)]
 pub struct AtmospherePlugin;
 
@@ -193,7 +178,6 @@ impl Plugin for AtmospherePlugin {
                     init_atmosphere_buffer,
                     init_fbm_noise_texture,
                     init_fbm_noise_params_buffer,
-                    init_default_cloud_layer,
                 )
                     .chain(),
             )

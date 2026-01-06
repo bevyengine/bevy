@@ -44,8 +44,13 @@ pub(crate) struct AtmosphereBindGroupLayouts {
 
 #[derive(Resource)]
 pub(crate) struct RenderSkyBindGroupLayouts {
-    pub render_sky: BindGroupLayoutDescriptor,
-    pub render_sky_msaa: BindGroupLayoutDescriptor,
+    // Two variants:
+    // - *_clouds: includes CloudLayer + cloud noise + cloud shadow map bindings
+    // - *_no_clouds: omits cloud-related bindings (cheaper, and works when CloudLayer is removed)
+    pub render_sky_clouds: BindGroupLayoutDescriptor,
+    pub render_sky_msaa_clouds: BindGroupLayoutDescriptor,
+    pub render_sky_no_clouds: BindGroupLayoutDescriptor,
+    pub render_sky_msaa_no_clouds: BindGroupLayoutDescriptor,
     pub fullscreen_shader: FullscreenShader,
     pub fragment_shader: Handle<Shader>,
 }
@@ -224,8 +229,8 @@ impl AtmosphereBindGroupLayouts {
 
 impl FromWorld for RenderSkyBindGroupLayouts {
     fn from_world(world: &mut World) -> Self {
-        let render_sky = BindGroupLayoutDescriptor::new(
-            "render_sky_bind_group_layout",
+        let render_sky_clouds = BindGroupLayoutDescriptor::new(
+            "render_sky_bind_group_layout_clouds",
             &BindGroupLayoutEntries::with_indices(
                 ShaderStages::FRAGMENT,
                 (
@@ -262,8 +267,8 @@ impl FromWorld for RenderSkyBindGroupLayouts {
             ),
         );
 
-        let render_sky_msaa = BindGroupLayoutDescriptor::new(
-            "render_sky_msaa_bind_group_layout",
+        let render_sky_msaa_clouds = BindGroupLayoutDescriptor::new(
+            "render_sky_msaa_bind_group_layout_clouds",
             &BindGroupLayoutEntries::with_indices(
                 ShaderStages::FRAGMENT,
                 (
@@ -300,9 +305,64 @@ impl FromWorld for RenderSkyBindGroupLayouts {
             ),
         );
 
+        // No-cloud layouts (omit CloudLayer + noise + cloud shadow map bindings).
+        let render_sky_no_clouds = BindGroupLayoutDescriptor::new(
+            "render_sky_bind_group_layout_no_clouds",
+            &BindGroupLayoutEntries::with_indices(
+                ShaderStages::FRAGMENT,
+                (
+                    (0, uniform_buffer::<GpuAtmosphere>(true)),
+                    (1, uniform_buffer::<GpuAtmosphereSettings>(true)),
+                    (2, uniform_buffer::<AtmosphereTransform>(true)),
+                    (3, uniform_buffer::<ViewUniform>(true)),
+                    (4, uniform_buffer::<GpuLights>(true)),
+                    // scattering medium luts and sampler
+                    (5, texture_2d(TextureSampleType::default())),
+                    (6, texture_2d(TextureSampleType::default())),
+                    (7, sampler(SamplerBindingType::Filtering)),
+                    // atmosphere luts and sampler
+                    (8, texture_2d(TextureSampleType::default())),  // transmittance
+                    (9, texture_2d(TextureSampleType::default())),  // multiscattering
+                    (10, texture_2d(TextureSampleType::default())), // sky view
+                    (11, texture_3d(TextureSampleType::default())), // aerial view
+                    (12, sampler(SamplerBindingType::Filtering)),
+                    // view depth texture
+                    (13, texture_2d(TextureSampleType::Depth)),
+                ),
+            ),
+        );
+
+        let render_sky_msaa_no_clouds = BindGroupLayoutDescriptor::new(
+            "render_sky_msaa_bind_group_layout_no_clouds",
+            &BindGroupLayoutEntries::with_indices(
+                ShaderStages::FRAGMENT,
+                (
+                    (0, uniform_buffer::<GpuAtmosphere>(true)),
+                    (1, uniform_buffer::<GpuAtmosphereSettings>(true)),
+                    (2, uniform_buffer::<AtmosphereTransform>(true)),
+                    (3, uniform_buffer::<ViewUniform>(true)),
+                    (4, uniform_buffer::<GpuLights>(true)),
+                    // scattering medium luts and sampler
+                    (5, texture_2d(TextureSampleType::default())),
+                    (6, texture_2d(TextureSampleType::default())),
+                    (7, sampler(SamplerBindingType::Filtering)),
+                    // atmosphere luts and sampler
+                    (8, texture_2d(TextureSampleType::default())),  // transmittance
+                    (9, texture_2d(TextureSampleType::default())),  // multiscattering
+                    (10, texture_2d(TextureSampleType::default())), // sky view
+                    (11, texture_3d(TextureSampleType::default())), // aerial view
+                    (12, sampler(SamplerBindingType::Filtering)),
+                    // view depth texture
+                    (13, texture_2d_multisampled(TextureSampleType::Depth)),
+                ),
+            ),
+        );
+
         Self {
-            render_sky,
-            render_sky_msaa,
+            render_sky_clouds,
+            render_sky_msaa_clouds,
+            render_sky_no_clouds,
+            render_sky_msaa_no_clouds,
             fullscreen_shader: world.resource::<FullscreenShader>().clone(),
             fragment_shader: load_embedded_asset!(world, "render_sky.wgsl"),
         }
@@ -428,6 +488,7 @@ pub(crate) struct RenderSkyPipelineId(pub CachedRenderPipelineId);
 pub(crate) struct RenderSkyPipelineKey {
     pub msaa_samples: u32,
     pub dual_source_blending: bool,
+    pub clouds_enabled: bool,
 }
 
 impl SpecializedRenderPipeline for RenderSkyBindGroupLayouts {
@@ -443,8 +504,10 @@ impl SpecializedRenderPipeline for RenderSkyBindGroupLayouts {
             shader_defs.push("DUAL_SOURCE_BLENDING".into());
         }
 
-        // Enable cloud rendering
-        shader_defs.push("CLOUDS_ENABLED".into());
+        // Enable cloud rendering only when a CloudLayer component is present.
+        if key.clouds_enabled {
+            shader_defs.push("CLOUDS_ENABLED".into());
+        }
 
         let dst_factor = if key.dual_source_blending {
             BlendFactor::Src1
@@ -454,10 +517,11 @@ impl SpecializedRenderPipeline for RenderSkyBindGroupLayouts {
 
         RenderPipelineDescriptor {
             label: Some(format!("render_sky_pipeline_{}", key.msaa_samples).into()),
-            layout: vec![if key.msaa_samples == 1 {
-                self.render_sky.clone()
-            } else {
-                self.render_sky_msaa.clone()
+            layout: vec![match (key.msaa_samples == 1, key.clouds_enabled) {
+                (true, true) => self.render_sky_clouds.clone(),
+                (false, true) => self.render_sky_msaa_clouds.clone(),
+                (true, false) => self.render_sky_no_clouds.clone(),
+                (false, false) => self.render_sky_msaa_no_clouds.clone(),
             }],
             vertex: self.fullscreen_shader.to_vertex_state(),
             fragment: Some(FragmentState {
@@ -491,14 +555,14 @@ impl SpecializedRenderPipeline for RenderSkyBindGroupLayouts {
 }
 
 pub(super) fn queue_render_sky_pipelines(
-    views: Query<(Entity, &Msaa), (With<Camera>, With<ExtractedAtmosphere>)>,
+    views: Query<(Entity, &Msaa, Option<&CloudLayer>), (With<Camera>, With<ExtractedAtmosphere>)>,
     pipeline_cache: Res<PipelineCache>,
     layouts: Res<RenderSkyBindGroupLayouts>,
     mut specializer: ResMut<SpecializedRenderPipelines<RenderSkyBindGroupLayouts>>,
     render_device: Res<RenderDevice>,
     mut commands: Commands,
 ) {
-    for (entity, msaa) in &views {
+    for (entity, msaa, cloud_layer) in &views {
         let id = specializer.specialize(
             &pipeline_cache,
             &layouts,
@@ -507,6 +571,7 @@ pub(super) fn queue_render_sky_pipelines(
                 dual_source_blending: render_device
                     .features()
                     .contains(WgpuFeatures::DUAL_SOURCE_BLENDING),
+                clouds_enabled: cloud_layer.is_some(),
             },
         );
         commands.entity(entity).insert(RenderSkyPipelineId(id));
@@ -728,14 +793,15 @@ pub(crate) struct AtmosphereBindGroups {
     pub multiscattering_lut: BindGroup,
     pub sky_view_lut: BindGroup,
     pub aerial_view_lut: BindGroup,
-    pub cloud_shadow_map: BindGroup,
+    pub cloud_shadow_map: Option<BindGroup>,
     // Accessed from the render-world graph; some tooling can miss the cross-module usage.
     #[allow(dead_code)]
-    pub cloud_shadow_filter_a_to_b: BindGroup,
+    pub cloud_shadow_filter_a_to_b: Option<BindGroup>,
     // Accessed from the render-world graph; some tooling can miss the cross-module usage.
     #[allow(dead_code)]
-    pub cloud_shadow_filter_b_to_a: BindGroup,
-    pub render_sky: BindGroup,
+    pub cloud_shadow_filter_b_to_a: Option<BindGroup>,
+    pub render_sky_clouds: Option<BindGroup>,
+    pub render_sky_no_clouds: BindGroup,
 }
 
 #[derive(Copy, Clone, Debug, thiserror::Error)]
@@ -808,7 +874,9 @@ pub(super) fn prepare_atmosphere_bind_groups(
         .binding()
         .ok_or(AtmosphereBindGroupError::LightUniforms)?;
 
-    let cloud_layer_binding = cloud_layer_uniforms.binding().unwrap();
+    // Optional: when no view has a CloudLayer component, the uniform buffer can be absent.
+    // We build no-cloud bind groups in that case.
+    let cloud_layer_binding = cloud_layer_uniforms.binding();
 
     for (entity, atmosphere, textures, view_depth_texture, msaa) in &views {
         let gpu_medium = gpu_media
@@ -894,51 +962,57 @@ pub(super) fn prepare_atmosphere_bind_groups(
             )),
         );
 
-        let cloud_shadow_map = render_device.create_bind_group(
-            "cloud_shadow_map_bind_group",
-            &pipeline_cache.get_bind_group_layout(&layouts.cloud_shadow_map),
-            &BindGroupEntries::with_indices((
-                (0, atmosphere_binding.clone()),
-                (1, settings_binding.clone()),
-                (3, view_binding.clone()),
-                (4, lights_binding.clone()),
-                (14, cloud_layer_binding.clone()),
-                (15, &fbm_noise_texture.texture.default_view),
-                (16, &**cloud_noise_sampler),
-                (13, &textures.cloud_shadow_map.default_view),
-            )),
-        );
+        let cloud_shadow_map = cloud_layer_binding.as_ref().map(|cloud_layer_binding| {
+            render_device.create_bind_group(
+                "cloud_shadow_map_bind_group",
+                &pipeline_cache.get_bind_group_layout(&layouts.cloud_shadow_map),
+                &BindGroupEntries::with_indices((
+                    (0, atmosphere_binding.clone()),
+                    (1, settings_binding.clone()),
+                    (3, view_binding.clone()),
+                    (4, lights_binding.clone()),
+                    (14, cloud_layer_binding.clone()),
+                    (15, &fbm_noise_texture.texture.default_view),
+                    (16, &**cloud_noise_sampler),
+                    (13, &textures.cloud_shadow_map.default_view),
+                )),
+            )
+        });
 
         // Cloud shadow spatial filter ping-pong bind groups.
         // A = `cloud_shadow_map`, B = `cloud_shadow_map_tmp`.
-        let cloud_shadow_filter_a_to_b = render_device.create_bind_group(
-            "cloud_shadow_filter_a_to_b_bind_group",
-            &pipeline_cache.get_bind_group_layout(&layouts.cloud_shadow_filter),
-            &BindGroupEntries::with_indices((
-                (1, settings_binding.clone()),
-                (12, &**atmosphere_sampler),
-                (17, &textures.cloud_shadow_map.default_view),
-                (13, &textures.cloud_shadow_map_tmp.default_view),
-            )),
-        );
+        let cloud_shadow_filter_a_to_b = cloud_shadow_map.as_ref().map(|_| {
+            render_device.create_bind_group(
+                "cloud_shadow_filter_a_to_b_bind_group",
+                &pipeline_cache.get_bind_group_layout(&layouts.cloud_shadow_filter),
+                &BindGroupEntries::with_indices((
+                    (1, settings_binding.clone()),
+                    (12, &**atmosphere_sampler),
+                    (17, &textures.cloud_shadow_map.default_view),
+                    (13, &textures.cloud_shadow_map_tmp.default_view),
+                )),
+            )
+        });
 
-        let cloud_shadow_filter_b_to_a = render_device.create_bind_group(
-            "cloud_shadow_filter_b_to_a_bind_group",
-            &pipeline_cache.get_bind_group_layout(&layouts.cloud_shadow_filter),
-            &BindGroupEntries::with_indices((
-                (1, settings_binding.clone()),
-                (12, &**atmosphere_sampler),
-                (17, &textures.cloud_shadow_map_tmp.default_view),
-                (13, &textures.cloud_shadow_map.default_view),
-            )),
-        );
+        let cloud_shadow_filter_b_to_a = cloud_shadow_map.as_ref().map(|_| {
+            render_device.create_bind_group(
+                "cloud_shadow_filter_b_to_a_bind_group",
+                &pipeline_cache.get_bind_group_layout(&layouts.cloud_shadow_filter),
+                &BindGroupEntries::with_indices((
+                    (1, settings_binding.clone()),
+                    (12, &**atmosphere_sampler),
+                    (17, &textures.cloud_shadow_map_tmp.default_view),
+                    (13, &textures.cloud_shadow_map.default_view),
+                )),
+            )
+        });
 
-        let render_sky = render_device.create_bind_group(
-            "render_sky_bind_group",
+        let render_sky_no_clouds = render_device.create_bind_group(
+            "render_sky_bind_group_no_clouds",
             &pipeline_cache.get_bind_group_layout(if *msaa == Msaa::Off {
-                &render_sky_layouts.render_sky
+                &render_sky_layouts.render_sky_no_clouds
             } else {
-                &render_sky_layouts.render_sky_msaa
+                &render_sky_layouts.render_sky_msaa_no_clouds
             }),
             &BindGroupEntries::with_indices((
                 // uniforms
@@ -959,12 +1033,43 @@ pub(super) fn prepare_atmosphere_bind_groups(
                 (12, &**atmosphere_sampler),
                 // view depth texture
                 (13, view_depth_texture.view()),
-                (14, cloud_layer_binding.clone()),
-                (15, &fbm_noise_texture.texture.default_view),
-                (16, &**cloud_noise_sampler),
-                (17, &textures.cloud_shadow_map.default_view),
             )),
         );
+
+        let render_sky_clouds = cloud_layer_binding.as_ref().map(|cloud_layer_binding| {
+            render_device.create_bind_group(
+                "render_sky_bind_group_clouds",
+                &pipeline_cache.get_bind_group_layout(if *msaa == Msaa::Off {
+                    &render_sky_layouts.render_sky_clouds
+                } else {
+                    &render_sky_layouts.render_sky_msaa_clouds
+                }),
+                &BindGroupEntries::with_indices((
+                    // uniforms
+                    (0, atmosphere_binding.clone()),
+                    (1, settings_binding.clone()),
+                    (2, transforms_binding.clone()),
+                    (3, view_binding.clone()),
+                    (4, lights_binding.clone()),
+                    // scattering medium luts and sampler
+                    (5, &gpu_medium.density_lut_view),
+                    (6, &gpu_medium.scattering_lut_view),
+                    (7, medium_sampler.sampler()),
+                    // atmosphere luts and sampler
+                    (8, &textures.transmittance_lut.default_view),
+                    (9, &textures.multiscattering_lut.default_view),
+                    (10, &textures.sky_view_lut.default_view),
+                    (11, &textures.aerial_view_lut.default_view),
+                    (12, &**atmosphere_sampler),
+                    // view depth texture
+                    (13, view_depth_texture.view()),
+                    (14, cloud_layer_binding.clone()),
+                    (15, &fbm_noise_texture.texture.default_view),
+                    (16, &**cloud_noise_sampler),
+                    (17, &textures.cloud_shadow_map.default_view),
+                )),
+            )
+        });
 
         commands.entity(entity).insert(AtmosphereBindGroups {
             transmittance_lut,
@@ -974,7 +1079,8 @@ pub(super) fn prepare_atmosphere_bind_groups(
             cloud_shadow_map,
             cloud_shadow_filter_a_to_b,
             cloud_shadow_filter_b_to_a,
-            render_sky,
+            render_sky_clouds,
+            render_sky_no_clouds,
         });
     }
 

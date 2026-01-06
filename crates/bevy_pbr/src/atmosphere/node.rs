@@ -40,7 +40,7 @@ impl ViewNode for AtmosphereLutsNode {
         Read<AtmosphereTransformsOffset>,
         Read<ViewUniformOffset>,
         Read<ViewLightsUniformOffset>,
-        Read<DynamicUniformIndex<CloudLayer>>,
+        Option<Read<DynamicUniformIndex<CloudLayer>>>,
     );
 
     fn run(
@@ -160,10 +160,17 @@ impl ViewNode for AtmosphereLutsNode {
             // Cloud shadow map (Unreal-style front depth + extinction stats)
             // Only needed for the Raymarched mode.
             if settings.rendering_method == 1 {
+                let (Some(cloud_layer_uniforms_offset), Some(cloud_shadow_map_bg)) =
+                    (cloud_layer_uniforms_offset.as_ref(), bind_groups.cloud_shadow_map.as_ref())
+                else {
+                    // No CloudLayer component => skip cloud shadow map generation.
+                    pass_span.end(&mut luts_pass);
+                    return Ok(());
+                };
                 luts_pass.set_pipeline(cloud_shadow_map_pipeline);
                 luts_pass.set_bind_group(
                     0,
-                    &bind_groups.cloud_shadow_map,
+                    cloud_shadow_map_bg,
                     &[
                         atmosphere_uniforms_offset.index(),
                         settings_uniforms_offset.index(),
@@ -182,7 +189,12 @@ impl ViewNode for AtmosphereLutsNode {
         // We run the cloud shadow *filter* in a separate compute pass so the backend can insert the
         // required resource state transitions (storage-write -> sampled-read) between tracing and filtering.
         // Without this, the filter can appear to do nothing on some backends.
-        if settings.rendering_method == 1 && settings.cloud_shadow_map_spatial_filter_iterations > 0 {
+        if settings.rendering_method == 1
+            && settings.cloud_shadow_map_spatial_filter_iterations > 0
+            && cloud_layer_uniforms_offset.is_some()
+            && bind_groups.cloud_shadow_filter_a_to_b.is_some()
+            && bind_groups.cloud_shadow_filter_b_to_a.is_some()
+        {
             // Spatial filtering (ping-pong), Unreal-style:
             // - Blur max optical depth in transmittance space
             // - Keep depth mostly unfiltered
@@ -201,9 +213,9 @@ impl ViewNode for AtmosphereLutsNode {
                 filter_pass.set_pipeline(cloud_shadow_filter_pipeline);
                 for i in 0..iters_even {
                     let bg = if (i & 1) == 0 {
-                        &bind_groups.cloud_shadow_filter_a_to_b
+                        bind_groups.cloud_shadow_filter_a_to_b.as_ref().unwrap()
                     } else {
-                        &bind_groups.cloud_shadow_filter_b_to_a
+                        bind_groups.cloud_shadow_filter_b_to_a.as_ref().unwrap()
                     };
                     filter_pass.set_bind_group(0, bg, &[settings_uniforms_offset.index()]);
                     dispatch_2d(&mut filter_pass, settings.cloud_shadow_map_size);
@@ -230,7 +242,7 @@ impl ViewNode for RenderSkyNode {
         Read<AtmosphereTransformsOffset>,
         Read<ViewUniformOffset>,
         Read<ViewLightsUniformOffset>,
-        Read<DynamicUniformIndex<CloudLayer>>,
+        Option<Read<DynamicUniformIndex<CloudLayer>>>,
         Read<RenderSkyPipelineId>,
         Option<Read<MainPassResolutionOverride>>,
     );
@@ -279,18 +291,41 @@ impl ViewNode for RenderSkyNode {
         }
 
         render_sky_pass.set_render_pipeline(render_sky_pipeline);
-        render_sky_pass.set_bind_group(
-            0,
-            &atmosphere_bind_groups.render_sky,
-            &[
-                atmosphere_uniforms_offset.index(),
-                settings_uniforms_offset.index(),
-                atmosphere_transforms_offset.index(),
-                view_uniforms_offset.offset,
-                lights_uniforms_offset.offset,
+
+        // Select correct bind group + dynamic offsets based on whether the view has CloudLayer.
+        // No-cloud variant omits the CloudLayer binding entirely.
+        //
+        // If cloud bind group isn't ready yet, skip this pass (pipeline cache will catch up next frame).
+        let (bind_group, cloud_layer_uniforms_offset) = match (
+            cloud_layer_uniforms_offset.as_ref(),
+            atmosphere_bind_groups.render_sky_clouds.as_ref(),
+        ) {
+            (Some(offset), Some(bg)) => (bg, Some(offset)),
+            _ => (&atmosphere_bind_groups.render_sky_no_clouds, None),
+        };
+
+        // Dynamic offset list must match the bind group layout.
+        let offsets_no_clouds = [
+            atmosphere_uniforms_offset.index(),
+            settings_uniforms_offset.index(),
+            atmosphere_transforms_offset.index(),
+            view_uniforms_offset.offset,
+            lights_uniforms_offset.offset,
+        ];
+
+        if let Some(cloud_layer_uniforms_offset) = cloud_layer_uniforms_offset {
+            let offsets_clouds = [
+                offsets_no_clouds[0],
+                offsets_no_clouds[1],
+                offsets_no_clouds[2],
+                offsets_no_clouds[3],
+                offsets_no_clouds[4],
                 cloud_layer_uniforms_offset.index(),
-            ],
-        );
+            ];
+            render_sky_pass.set_bind_group(0, bind_group, &offsets_clouds);
+        } else {
+            render_sky_pass.set_bind_group(0, bind_group, &offsets_no_clouds);
+        }
         render_sky_pass.draw(0..3, 0..1);
 
         pass_span.end(&mut render_sky_pass);
