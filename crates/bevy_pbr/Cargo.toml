@@ -42,6 +42,7 @@ bevy_derive = { path = "../bevy_derive", version = "0.18.0-dev" }
 bevy_diagnostic = { path = "../bevy_diagnostic", version = "0.18.0-dev" }
 bevy_ecs = { path = "../bevy_ecs", version = "0.18.0-dev" }
 bevy_light = { path = "../bevy_light", version = "0.18.0-dev" }
+bevy_log = { path = "../bevy_log", version = "0.18.0-dev" }
 bevy_image = { path = "../bevy_image", version = "0.18.0-dev" }
 bevy_mesh = { path = "../bevy_mesh", version = "0.18.0-dev", features = [
   "morph",
