@@ -4,13 +4,13 @@ authors: ["@jbuehler23"]
 pull_requests: [21668, 22340]
 ---
 
-Bevy now supports **automatic directional navigation graph generation** for UI elements! No more tedious manual wiring of navigation connections for your menus and UI screens.
+Bevy now supports **automatic directional navigation** for UI elements! No more tedious manual wiring of navigation connections for your menus and UI screens.
 
 ## What's New?
 
 Previously, creating directional navigation for UI required manually defining every connection between focusable elements using `DirectionalNavigationMap`. For dynamic UIs or complex layouts, this was time-consuming and error-prone.
 
-Now, you can simply add the `AutoDirectionalNavigation` component to your UI entities, and Bevy will automatically compute navigation connections based on spatial positioning. The system intelligently finds the nearest neighbor in each of the 8 compass directions (North, Northeast, East, etc.), considering:
+Now, you can simply add the `AutoDirectionalNavigation` component to your UI entities, and Bevy will automatically compute navigation connections based on spatial positioning. The system parameter intelligently finds the nearest neighbor in each of the 8 compass directions (North, Northeast, East, etc.), considering:
 
 - **Distance**: Closer elements are preferred
 - **Alignment**: Elements that are more directly in line with the navigation direction are favored
@@ -108,4 +108,4 @@ fn my_navigation_system(mut auto_directional_navigator: AutoDirectionalNavigator
 }
 ```
 
-Note: The automatic navigation system requires entities to have position and size information (`ComputedNode` and `UiGlobalTransform` for `bevy_ui` entities).
+Note: Automatic navigation requires entities to have position and size information (`ComputedNode` and `UiGlobalTransform` for `bevy_ui` entities).
