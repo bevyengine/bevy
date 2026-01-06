@@ -27,7 +27,7 @@ use bevy::{
     },
     platform::collections::HashSet,
     prelude::*,
-    ui::directional_navigation::{AutoDirectionalNavigation, AutoDirectionalNavigator},
+    ui::auto_directional_navigation::{AutoDirectionalNavigation, AutoDirectionalNavigator},
 };
 
 fn main() {

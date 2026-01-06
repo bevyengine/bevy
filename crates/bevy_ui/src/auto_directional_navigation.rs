@@ -24,7 +24,7 @@ use bevy_reflect::{prelude::*, Reflect};
 ///
 /// ```rust
 /// # use bevy_ecs::prelude::*;
-/// # use bevy_ui::directional_navigation::AutoDirectionalNavigation;
+/// # use bevy_ui::auto_directional_navigation::AutoDirectionalNavigation;
 /// fn spawn_auto_nav_button(mut commands: Commands) {
 ///     commands.spawn((
 ///         // ... Button, Node, etc. ...
