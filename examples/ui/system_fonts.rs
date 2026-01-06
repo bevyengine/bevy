@@ -99,14 +99,9 @@ fn setup(mut commands: Commands, font_system: Res<CosmicFontSystem>) {
                                 MouseScrollUnit::Line => on_scroll.y * 20.,
                                 MouseScrollUnit::Pixel => on_scroll.y,
                             };
-
                             let range = (node.content_size.y - node.size.y).max(0.)
                                 * node.inverse_scale_factor;
-                            println!("dy = {dy}");
-                            println!("range = {range}");
-                            println!("y (before) = {}", scroll_position.y);
                             scroll_position.y = (scroll_position.y - dy).clamp(0., range);
-                            println!("y (after) = {}", scroll_position.y);
                         }
                     },
                 );
