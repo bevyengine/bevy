@@ -36,7 +36,7 @@ fn setup(mut commands: Commands, font_system: Res<CosmicFontSystem>) {
         ))
         .with_children(|builder| {
             builder.spawn(Text::new(format!(
-                "Total fonts available: {}",
+                "Total available fonts: {}",
                 font_system.db().len(),
             )));
 
