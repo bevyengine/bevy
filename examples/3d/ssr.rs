@@ -581,7 +581,7 @@ impl Default for AppSettings {
             ssr_on: true,
             displayed_model: default(),
             min_perceptual_roughness: 0.0..0.0,
-            max_perceptual_roughness: 0.55..0.7,
+            max_perceptual_roughness: ScreenSpaceReflections::default().max_perceptual_roughness,
             edge_fadeout: 0.0..0.0,
         }
     }

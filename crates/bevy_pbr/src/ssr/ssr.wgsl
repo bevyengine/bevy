@@ -134,13 +134,12 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     let gbuffer = textureLoad(deferred_prepass_texture, vec2<i32>(frag_coord.xy), 0);
     let pbr_input = pbr_input_from_deferred_gbuffer(frag_coord, gbuffer);
 
-    // Don't do anything if the surface is too rough or too smooth, since we
-    // can't blur or do temporal accumulation yet.
+    // Don't do anything if the surface is too rough or too smooth
     let perceptual_roughness = pbr_input.material.perceptual_roughness;
 
     var min_fade: f32;
     if (ssr_settings.min_perceptual_roughness >= ssr_settings.min_perceptual_roughness_fully_active) {
-        min_fade = select(0.0, 1.0, perceptual_roughness >= ssr_settings.min_perceptual_roughness);
+        min_fade = step(ssr_settings.min_perceptual_roughness, perceptual_roughness);
     } else {
         min_fade = smoothstep(
             ssr_settings.min_perceptual_roughness,
@@ -151,7 +150,7 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
 
     var max_fade: f32;
     if (ssr_settings.max_perceptual_roughness_starts_to_fade >= ssr_settings.max_perceptual_roughness) {
-        max_fade = select(1.0, 0.0, perceptual_roughness > ssr_settings.max_perceptual_roughness);
+        max_fade = step(perceptual_roughness, ssr_settings.max_perceptual_roughness);
     } else {
         max_fade = 1.0 - smoothstep(
             ssr_settings.max_perceptual_roughness_starts_to_fade,
@@ -164,26 +163,18 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
 
     let ndc_position = frag_coord_to_ndc(vec4(in.position.xy, frag_coord.z, 1.0));
     let uv = ndc_to_uv(ndc_position.xy);
-    let dist_x = min(uv.x, 1.0 - uv.x);
-    let dist_y = min(uv.y, 1.0 - uv.y);
-    var fade_x: f32;
-    var fade_y: f32;
+    let dist = min(uv, vec2(1.0) - uv);
+    var fade_xy: vec2<f32>;
     if (ssr_settings.edge_fadeout_no_longer_active >= ssr_settings.edge_fadeout_fully_active) {
-        fade_x = select(0.0, 1.0, dist_x > ssr_settings.edge_fadeout_no_longer_active);
-        fade_y = select(0.0, 1.0, dist_y > ssr_settings.edge_fadeout_no_longer_active);
+        fade_xy = step(vec2(ssr_settings.edge_fadeout_no_longer_active), dist);
     } else {
-        fade_x = smoothstep(
-            ssr_settings.edge_fadeout_no_longer_active,
-            ssr_settings.edge_fadeout_fully_active,
-            dist_x
-        );
-        fade_y = smoothstep(
-            ssr_settings.edge_fadeout_no_longer_active,
-            ssr_settings.edge_fadeout_fully_active,
-            dist_y
+        fade_xy = smoothstep(
+            vec2(ssr_settings.edge_fadeout_no_longer_active),
+            vec2(ssr_settings.edge_fadeout_fully_active),
+            dist
         );
     }
-    fade *= fade_x * fade_y;
+    fade *= fade_xy.x * fade_xy.y;
 
     if (perceptual_roughness > ssr_settings.max_perceptual_roughness) {
         return fragment;
