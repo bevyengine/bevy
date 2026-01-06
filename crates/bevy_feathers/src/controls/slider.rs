@@ -12,7 +12,6 @@ use bevy_ecs::{
     query::{Added, Changed, Has, Or, Spawned, With},
     reflect::ReflectComponent,
     schedule::IntoScheduleConfigs,
-    spawn::SpawnRelated,
     system::{Commands, Query, Res},
 };
 use bevy_input_focus::tab_navigation::TabIndex;
