@@ -166,11 +166,11 @@ impl Plugin for AtmospherePlugin {
         }
 
         if !render_adapter
-            .get_texture_format_features(TextureFormat::R16Float)
+            .get_texture_format_features(TextureFormat::Rgba16Float)
             .allowed_usages
             .contains(TextureUsages::STORAGE_BINDING)
         {
-            warn!("AtmospherePlugin not loaded. GPU lacks support: TextureFormat::R16Float does not support TextureUsages::STORAGE_BINDING.");
+            warn!("AtmospherePlugin not loaded. GPU lacks support: TextureFormat::Rgba16Float does not support TextureUsages::STORAGE_BINDING.");
             return;
         }
 
@@ -440,8 +440,8 @@ impl Default for AtmosphereSettings {
             rendering_method: AtmosphereMode::LookupTexture,
 
             // Cloud shadow map defaults (only used by Raymarched mode).
-            cloud_shadow_map_size: UVec2::new(512, 512),
-            cloud_shadow_map_extent: 50_000.0,
+            cloud_shadow_map_size: UVec2::new(1024, 1024),
+            cloud_shadow_map_extent: 64_000.0,
             cloud_shadow_map_samples: 48,
             cloud_shadow_map_strength: 1.0,
             cloud_shadow_map_spatial_filter_iterations: 4,
@@ -583,15 +583,15 @@ pub struct CloudLayer {
 impl Default for CloudLayer {
     fn default() -> Self {
         Self {
-            cloud_layer_start: 6_361_000.0, // 1km above Earth's surface
-            cloud_layer_end: 6_365_000.0,   // 5km above Earth's surface
+            cloud_layer_start: 6_362_000.0, // 1km above Earth's surface
+            cloud_layer_end: 6_363_000.0,   // 5km above Earth's surface
             cloud_density: 1.0,
             cloud_absorption: 0.00005, // Physically correct: ~0.00005 m^-1 per unit density
             cloud_scattering: 0.0008, // Physically correct: ~0.0008 m^-1 per unit density
-            noise_scale: 20000.0,
+            noise_scale: 64_000.0,
             noise_offset: Vec3::ZERO,
-            detail_noise_scale: 4000.0,
-            detail_strength: 0.35,
+            detail_noise_scale: 16_000.0,
+            detail_strength: 1.0,
         }
     }
 }

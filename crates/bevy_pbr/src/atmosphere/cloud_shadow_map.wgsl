@@ -161,7 +161,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     let mu = abs(dot(anchor_up, trace_dir));
     let horizon_factor = clamp(0.2 / max(mu, 1e-3), 0.0, 1.0);
     const HORIZON_MULT: f32 = 2.0;
-    let n = min(96u, max(1u, u32(ceil(f32(base_n) * mix(1.0, HORIZON_MULT, horizon_factor)))));
+    let n = min(512u, max(1u, u32(ceil(f32(base_n) * mix(1.0, HORIZON_MULT, horizon_factor)))));
     // let n = 24u;
     let dt = (t_end - t_start) / f32(n);
 

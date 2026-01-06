@@ -135,9 +135,9 @@ fn atmosphere_controls(
     }
 
     // Animate clouds by updating noise offset
-    for mut cloud_layer in &mut cloud_layers {
-        cloud_layer.noise_offset.x += time.delta_secs() * 100.0;
-    }
+    // for mut cloud_layer in &mut cloud_layers {
+    //     cloud_layer.noise_offset.x += time.delta_secs() * 1000.0;
+    // }
 }
 
 fn setup_camera_fog(mut commands: Commands, earth_atmosphere: Res<EarthlikeAtmosphere>) {
@@ -167,15 +167,16 @@ fn setup_camera_fog(mut commands: Commands, earth_atmosphere: Res<EarthlikeAtmos
         // - cloud_absorption: 0.00005 m^-1 per unit density (realistic for water clouds)
         //   Single-scattering albedo ≈ 0.94 (typical water clouds have albedo 0.95-0.99)
         CloudLayer {
-            cloud_layer_start: 6_361_000.0, // 1km above Earth's surface
-            cloud_layer_end: 6_369_000.0,   // 8km above Earth's surface (7km thick layer)
+            cloud_layer_start: 6_362_000.0, // 2km above Earth's surface
+            cloud_layer_end: 6_363_000.0,   // 3km above Earth's surface (7km thick layer)
             cloud_density: 1.0, // Used for enabling/disabling, actual density comes from noise (normalized [0, 1])
             cloud_absorption: 0.00005, // Physically correct: ~0.00005 m^-1 per unit density
             cloud_scattering: 0.0008, // Physically correct: ~0.0008 m^-1 per unit density
-            noise_scale: 8_000.0, // Larger scale = larger cloud features
+            // Larger scale = larger cloud features (more “big cumulus”, less “small puffs”)
+            noise_scale: 64_000.0,
             noise_offset: Vec3::ZERO,
-            detail_noise_scale: 2_000.0, // Smaller scale = higher-frequency breakup
-            detail_strength: 0.35,
+            detail_noise_scale: 16_000.0, // Smaller scale = higher-frequency breakup
+            detail_strength: 1.0,
         },
         // The directional light illuminance used in this scene
         // (the one recommended for use with this feature) is

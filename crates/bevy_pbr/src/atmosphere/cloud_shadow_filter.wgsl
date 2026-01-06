@@ -19,6 +19,39 @@ fn load_shadow(coord: vec2<i32>) -> vec3<f32> {
     return textureSampleLevel(cloud_shadow_src, atmosphere_lut_sampler, uv, 0.0).rgb;
 }
 
+fn sort2(a: ptr<function, f32>, b: ptr<function, f32>) {
+    if ((*a) > (*b)) {
+        let t = (*a);
+        (*a) = (*b);
+        (*b) = t;
+    }
+}
+
+// Median of 9 values (3x3). Used to denoise front-depth without the “expanding rings”
+// you get from iterative min/max dilate/erode passes.
+fn median9(
+    v0: f32, v1: f32, v2: f32,
+    v3: f32, v4: f32, v5: f32,
+    v6: f32, v7: f32, v8: f32
+) -> f32 {
+    var a = v0; var b = v1; var c = v2;
+    var d = v3; var e = v4; var f = v5;
+    var g = v6; var h = v7; var i = v8;
+
+    sort2(&a, &b); sort2(&d, &e); sort2(&g, &h);
+    sort2(&b, &c); sort2(&e, &f); sort2(&h, &i);
+    sort2(&a, &b); sort2(&d, &e); sort2(&g, &h);
+
+    sort2(&a, &d); sort2(&d, &g);
+    sort2(&b, &e); sort2(&e, &h);
+    sort2(&c, &f); sort2(&f, &i);
+
+    sort2(&c, &e); sort2(&e, &g);
+    sort2(&c, &e); sort2(&e, &g);
+
+    return e;
+}
+
 // Spatial filter in transmittance space for max optical depth (Unreal-style idea):
 // - Filter visibility V = exp(-OD) with a small kernel
 // - Convert back: OD = -log(V)
@@ -62,8 +95,41 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     // Avoid -inf / NaN from log(0).
     let od_out = select(100.0, -log(max(vis_out, 1e-6)), vis_out > 0.0);
 
-    // Depth: pass through unchanged in the transmittance blur pass.
-    let out_rgb = vec3(center.x, max(0.0, mean_ext_out), max(0.0, od_out));
+    // Depth denoise:
+    // Use a conservative median filter on valid depth samples. This reduces noisy “salt-and-pepper”
+    // in the front-depth channel without the runaway growth you can get from repeated dilation.
+    //
+    // NOTE: This pass can run multiple iterations (ping-pong). To keep it stable over multiple
+    // passes, we only blend *partially* toward the median.
+    const DEPTH_INVALID: f32 = 1.0e9;
+    const DEPTH_DENOISE_ALPHA: f32 = 1.0;
+
+    let d00 = load_shadow(p + vec2(-1, -1)).x;
+    let d10 = load_shadow(p + vec2( 0, -1)).x;
+    let d20 = load_shadow(p + vec2( 1, -1)).x;
+    let d01 = load_shadow(p + vec2(-1,  0)).x;
+    let d11 = center.x;
+    let d21 = load_shadow(p + vec2( 1,  0)).x;
+    let d02 = load_shadow(p + vec2(-1,  1)).x;
+    let d12 = load_shadow(p + vec2( 0,  1)).x;
+    let d22 = load_shadow(p + vec2( 1,  1)).x;
+
+    // Treat non-positive depths as "invalid / no cloud" so they don't dominate the median.
+    let v00 = select(DEPTH_INVALID, d00, d00 > 0.0);
+    let v10 = select(DEPTH_INVALID, d10, d10 > 0.0);
+    let v20 = select(DEPTH_INVALID, d20, d20 > 0.0);
+    let v01 = select(DEPTH_INVALID, d01, d01 > 0.0);
+    let v11 = select(DEPTH_INVALID, d11, d11 > 0.0);
+    let v21 = select(DEPTH_INVALID, d21, d21 > 0.0);
+    let v02 = select(DEPTH_INVALID, d02, d02 > 0.0);
+    let v12 = select(DEPTH_INVALID, d12, d12 > 0.0);
+    let v22 = select(DEPTH_INVALID, d22, d22 > 0.0);
+
+    let med = median9(v00, v10, v20, v01, v11, v21, v02, v12, v22);
+    let depth_med = select(center.x, med, med < 1.0e8);
+    let depth_out = mix(center.x, depth_med, DEPTH_DENOISE_ALPHA);
+
+    let out_rgb = vec3(depth_out, max(0.0, mean_ext_out), max(0.0, od_out));
     textureStore(cloud_shadow_dst, p, vec4(out_rgb, 0.0));
 }
 

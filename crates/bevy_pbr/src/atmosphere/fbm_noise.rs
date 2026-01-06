@@ -54,6 +54,8 @@ pub struct NoiseTextureSize {
 impl Default for NoiseTextureSize {
     fn default() -> Self {
         Self {
+            // Higher resolution reduces visible repetition in cloud coverage.
+            // This is still cheap to generate once at startup.
             size: UVec2::new(32, 32),
         }
     }
@@ -78,8 +80,8 @@ impl FromWorld for FbmNoiseBindGroupLayout {
                         // 2D noise texture storage
                         13,
                         texture_storage_2d(
-                            // Single-channel is enough: clouds sample only `.r`.
-                            TextureFormat::R16Float,
+                            // Packed cloud noise (coverage + type controls + detail).
+                            TextureFormat::Rgba16Float,
                             StorageTextureAccess::WriteOnly,
                         ),
                     ),
@@ -158,8 +160,8 @@ pub fn init_fbm_noise_texture(
         mip_level_count: 1,
         sample_count: 1,
         dimension: TextureDimension::D2,
-        // Single-channel is enough: clouds sample only `.r`.
-        format: TextureFormat::R16Float,
+        // Packed cloud noise (coverage + type controls + detail).
+        format: TextureFormat::Rgba16Float,
         usage: TextureUsages::STORAGE_BINDING | TextureUsages::TEXTURE_BINDING,
         view_formats: &[],
     };
