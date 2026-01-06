@@ -228,6 +228,7 @@ fn setup_scattered_ui(mut commands: Commands, mut input_focus: ResMut<InputFocus
                     ..default()
                 },
                 // This is the key: just add this component for automatic navigation!
+                Transform::from_scale(Vec3::splat(2.0)),
                 AutoDirectionalNavigation::default(),
                 ResetTimer::default(),
                 BackgroundColor::from(NORMAL_BUTTON),
