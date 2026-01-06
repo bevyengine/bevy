@@ -26,6 +26,7 @@ use bevy_ecs::{
     system::{lifetimeless::Read, Commands, Query, Res, ResMut},
     world::{FromWorld, World},
 };
+use bevy_log::warn_once;
 use bevy_render::{
     batching::gpu_preprocessing::{
         BatchedInstanceBuffers, GpuOcclusionCullingWorkItemBuffers, GpuPreprocessingMode,
@@ -52,7 +53,7 @@ use bevy_render::{
     Render, RenderApp, RenderSystems,
 };
 use bevy_shader::Shader;
-use bevy_utils::{default, once, TypeIdMap};
+use bevy_utils::{default, TypeIdMap};
 use bitflags::bitflags;
 use smallvec::{smallvec, SmallVec};
 use tracing::warn;
@@ -838,7 +839,7 @@ impl Node for LateGpuPreprocessNode {
 
         // Fetch the pipeline.
         let Some(preprocess_pipeline_id) = maybe_pipeline_id else {
-            once!(warn!("The build mesh uniforms pipeline wasn't ready"));
+            warn_once!("The build mesh uniforms pipeline wasn't ready");
             return Ok(());
         };
 
