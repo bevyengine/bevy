@@ -407,7 +407,7 @@ pub fn generate_mips_texture(
             );
 
             if !loaded_from_cache {
-                new_image_data = generate_mips(&mut dyn_image, has_alpha, mip_count, &settings);
+                new_image_data = generate_mips(&mut dyn_image, has_alpha, mip_count, settings);
                 #[cfg(feature = "compress")]
                 if let Some(cache_path) = &settings.compressed_image_data_cache_path {
                     if compression_speed.is_some() && compressed_format.is_some() {
@@ -873,12 +873,10 @@ pub fn bcn_equivalent_format_of_dyn_image(
                 } else {
                     TextureFormat::Bc3RgbaUnorm
                 }
+            } else if is_srgb {
+                TextureFormat::Bc1RgbaUnormSrgb
             } else {
-                if is_srgb {
-                    TextureFormat::Bc1RgbaUnormSrgb
-                } else {
-                    TextureFormat::Bc1RgbaUnorm
-                }
+                TextureFormat::Bc1RgbaUnorm
             }),
             // Throw and error if conversion isn't supported
             dyn_image => Err(anyhow!(
