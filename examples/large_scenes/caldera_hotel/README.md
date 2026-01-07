@@ -6,6 +6,8 @@ Download scene from https://github.com/Activision/caldera
 
 Reexport `map_source/prefabs/br/wz_vg/mp_wz_island/commercial/hotel_01.usd` as `hotel_01.glb`
 
+[Alternate processed files applied animation base poses (glTF files on discord)](https://discord.com/channels/691052431525675048/1159383661062389790/1283123002346705018)
+
 When importing the USD file into blender, for `Object Types`, only select `Meshes`
 Note: many of the meshes in the original scene use an animation base pose to position the object. Consider applying these transformations before exporting from blender.
 
