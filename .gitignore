@@ -23,6 +23,8 @@ assets/**/*.meta
 crates/bevy_asset/imported_assets
 imported_assets
 .web-asset-cache
+examples/large_scenes/bistro/assets/*
+examples/large_scenes/caldera_hotel/assets/*
 
 # Bevy Examples
 example_showcase_config.ron
