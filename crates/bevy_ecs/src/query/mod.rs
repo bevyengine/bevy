@@ -881,6 +881,16 @@ mod tests {
         ) -> bool {
             true
         }
+
+        #[inline]
+        unsafe fn matches(
+            _state: &Self::State,
+            _fetch: &Self::Fetch<'_>,
+            _entity: Entity,
+            _table_row: TableRow,
+        ) -> bool {
+            true
+        }
     }
 
     /// SAFETY: `Self` is the same as `Self::ReadOnly`
