@@ -253,7 +253,7 @@ pub fn update_text2d_layout(
                 &mut font_system,
                 *hinting,
             ) {
-                Err(TextError::NoSuchFont) => {
+                Err(TextError::NoSuchFont | TextError::DegenerateScaleFactor) => {
                     // There was an error processing the text layout.
                     // Add this entity to the queue and reprocess it in the following frame
                     reprocess_queue.insert(entity);
@@ -294,7 +294,8 @@ pub fn update_text2d_layout(
                 | TextError::FailedToGetGlyphImage(_)
                 | TextError::MissingAtlasLayout
                 | TextError::MissingAtlasTexture
-                | TextError::InconsistentAtlasState),
+                | TextError::InconsistentAtlasState
+                | TextError::DegenerateScaleFactor),
             ) => {
                 panic!("Fatal error when processing text: {e}.");
             }
