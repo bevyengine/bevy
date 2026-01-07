@@ -43,7 +43,7 @@ use super::{IntoSystem, ReadOnlySystem, RunSystemError, System};
 ///         a: impl FnOnce(A::In, &mut T) -> Result<A::Out, RunSystemError>,
 ///         b: impl FnOnce(B::In, &mut T) -> Result<B::Out, RunSystemError>,
 ///     ) -> Result<Self::Out, RunSystemError> {
-///         Ok(a((), data)? ^ b((), data)?)
+///         Ok(a((), data).unwrap_or(false) ^ b((), data).unwrap_or(false))
 ///     }
 /// }
 ///
