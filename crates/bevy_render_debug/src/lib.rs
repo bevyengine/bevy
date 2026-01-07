@@ -1,3 +1,5 @@
+//! Renderer debugging overlay
+
 use bevy_app::{App, Plugin};
 use bevy_asset::{embedded_asset, Handle};
 use bevy_core_pipeline::{
@@ -45,20 +47,21 @@ use bevy_pbr::{
     ViewLightsUniformOffset, ViewScreenSpaceReflectionsUniformOffset,
 };
 
+/// Adds a rendering debug overlay to visualize various renderer buffers.
 #[derive(Default)]
-pub struct DebugBufferPlugin;
+pub struct DebugOverlayPlugin;
 
-impl Plugin for DebugBufferPlugin {
+impl Plugin for DebugOverlayPlugin {
     fn build(&self, app: &mut App) {
-        embedded_asset!(app, "render/debug_buffer.wgsl");
+        embedded_asset!(app, "debug_overlay.wgsl");
 
-        app.register_type::<DebugBufferConfig>()
-            .init_resource::<DebugBufferConfig>()
+        app.register_type::<RenderDebugOverlay>()
+            .init_resource::<RenderDebugOverlay>()
             .add_plugins((
-                ExtractResourcePlugin::<DebugBufferConfig>::default(),
-                ExtractComponentPlugin::<DebugBufferConfig>::default(),
+                ExtractResourcePlugin::<RenderDebugOverlay>::default(),
+                ExtractComponentPlugin::<RenderDebugOverlay>::default(),
             ))
-            .add_systems(bevy_app::Update, update_debug_buffer_config);
+            .add_systems(bevy_app::Update, update_overlay);
     }
 
     fn finish(&self, app: &mut App) {
@@ -67,22 +70,22 @@ impl Plugin for DebugBufferPlugin {
         };
 
         render_app
-            .init_resource::<DebugBufferPipeline>()
-            .init_resource::<SpecializedRenderPipelines<DebugBufferPipeline>>()
-            .init_resource::<DebugBufferUniforms>()
-            .add_render_graph_node::<ViewNodeRunner<DebugBufferNode>>(
+            .init_resource::<DebugOverlayPipeline>()
+            .init_resource::<SpecializedRenderPipelines<DebugOverlayPipeline>>()
+            .init_resource::<DebugOverlayUniforms>()
+            .add_render_graph_node::<ViewNodeRunner<DebugOverlayNode>>(
                 bevy_core_pipeline::core_3d::graph::Core3d,
-                DebugBufferLabel,
+                DebugOverlayLabel,
             )
             .add_render_graph_edge(
                 bevy_core_pipeline::core_3d::graph::Core3d,
                 bevy_core_pipeline::core_3d::graph::Node3d::Tonemapping,
-                DebugBufferLabel,
+                DebugOverlayLabel,
             )
             .add_systems(
                 Render,
                 (
-                    prepare_debug_buffer_pipelines.in_set(RenderSystems::Prepare),
+                    prepare_debug_overlay_pipelines.in_set(RenderSystems::Prepare),
                     prepare_debug_buffer_uniforms.in_set(RenderSystems::PrepareResources),
                     prepare_debug_buffer_bind_groups.in_set(RenderSystems::PrepareBindGroups),
                 ),
@@ -90,12 +93,14 @@ impl Plugin for DebugBufferPlugin {
     }
 }
 
-pub fn update_debug_buffer_config(
+/// Automatically attach keybinds to make renderer debugging tools immediately available without
+/// code changes.
+pub fn update_overlay(
     mut commands: Commands,
     keyboard: Res<ButtonInput<KeyCode>>,
-    mut config_res: ResMut<DebugBufferConfig>,
+    mut config_res: ResMut<RenderDebugOverlay>,
     cameras: Query<
-        (Entity, Option<&DebugBufferConfig>),
+        (Entity, Option<&RenderDebugOverlay>),
         bevy_ecs::query::With<bevy_camera::Camera>,
     >,
 ) {
@@ -105,18 +110,16 @@ pub fn update_debug_buffer_config(
         if !config_res.enabled {
             config_res.enabled = true;
             config_res.mode = DebugMode::Depth;
-            config_res.mip_level = 0;
         } else {
             match config_res.mode {
                 DebugMode::Depth => config_res.mode = DebugMode::Normal,
                 DebugMode::Normal => config_res.mode = DebugMode::MotionVectors,
                 DebugMode::MotionVectors => {
-                    config_res.mode = DebugMode::DepthPyramid;
-                    config_res.mip_level = 0;
+                    config_res.mode = DebugMode::DepthPyramid { mip_level: 0 };
                 }
-                DebugMode::DepthPyramid => {
-                    if config_res.mip_level < 7 {
-                        config_res.mip_level += 1;
+                DebugMode::DepthPyramid { ref mut mip_level } => {
+                    if *mip_level < 7 {
+                        *mip_level += 1;
                     } else {
                         config_res.enabled = false;
                     }
@@ -127,13 +130,9 @@ pub fn update_debug_buffer_config(
         changed = true;
 
         if config_res.enabled {
-            bevy_log::info!(
-                "Debug Buffer: {:?} (mip {})",
-                config_res.mode,
-                config_res.mip_level
-            );
+            bevy_log::info!("Debug Overlay: {:?}", config_res.mode);
         } else {
-            bevy_log::info!("Debug Buffer Disabled");
+            bevy_log::info!("Debug Overlay Disabled");
         }
     }
 
@@ -148,22 +147,7 @@ pub fn update_debug_buffer_config(
             0.8
         };
         changed = true;
-        bevy_log::info!("Debug Buffer Opacity: {}", config_res.opacity);
-    }
-
-    if keyboard.just_pressed(KeyCode::F12) {
-        config_res.enabled = !config_res.enabled;
-        changed = true;
-        bevy_log::info!("Debug Buffer Enabled: {}", config_res.enabled);
-    }
-
-    if keyboard.pressed(KeyCode::Equal) {
-        config_res.opacity = (config_res.opacity + 0.01).min(1.0);
-        changed = true;
-    }
-    if keyboard.pressed(KeyCode::Minus) {
-        config_res.opacity = (config_res.opacity - 0.01).max(0.0);
-        changed = true;
+        bevy_log::info!("Debug Overlay Opacity: {}", config_res.opacity);
     }
 
     for (entity, existing_config) in &cameras {
@@ -173,26 +157,30 @@ pub fn update_debug_buffer_config(
     }
 }
 
+/// Configure the render debug overlay.
 #[derive(Resource, Component, Clone, ExtractResource, ExtractComponent, Reflect, PartialEq)]
 #[reflect(Resource, Component, Default)]
-pub struct DebugBufferConfig {
+pub struct RenderDebugOverlay {
+    /// Enables or disables drawing the overlay.
     pub enabled: bool,
+    /// The kind of data to write to the overlay.
     pub mode: DebugMode,
+    /// The opacity of the overlay, to allow seeing the rendered image underneath.
     pub opacity: f32,
-    pub mip_level: u32,
 }
 
-impl Default for DebugBufferConfig {
+impl Default for RenderDebugOverlay {
     fn default() -> Self {
         Self {
             enabled: false,
             mode: DebugMode::Depth,
             opacity: 1.0,
-            mip_level: 0,
         }
     }
 }
 
+/// The kind of renderer data to visualize.
+#[allow(missing_docs)]
 #[derive(Default, Debug, Copy, Clone, PartialEq, Eq, Hash, Reflect)]
 pub enum DebugMode {
     #[default]
@@ -200,36 +188,38 @@ pub enum DebugMode {
     Normal,
     MotionVectors,
     Deferred,
-    DepthPyramid,
+    DepthPyramid {
+        mip_level: u32,
+    },
 }
 
 #[derive(ShaderType)]
-pub struct DebugBufferUniform {
+struct DebugOverlayUniform {
     pub opacity: f32,
     pub mip_level: u32,
 }
 
 #[derive(Resource, Default)]
-pub struct DebugBufferUniforms {
-    pub uniforms: DynamicUniformBuffer<DebugBufferUniform>,
+struct DebugOverlayUniforms {
+    pub uniforms: DynamicUniformBuffer<DebugOverlayUniform>,
 }
 
 #[derive(Component)]
-pub struct DebugBufferUniformOffset {
+struct DebugOverlayUniformOffset {
     pub offset: u32,
 }
 
 #[derive(Resource)]
-pub struct DebugBufferPipeline {
-    pub shader: Handle<Shader>,
-    pub mesh_view_layouts: MeshPipelineViewLayouts,
-    pub bind_group_layout: BindGroupLayout,
-    pub bind_group_layout_descriptor: BindGroupLayoutDescriptor,
-    pub sampler: Sampler,
-    pub fullscreen_vertex_shader: VertexState,
+struct DebugOverlayPipeline {
+    shader: Handle<Shader>,
+    mesh_view_layouts: MeshPipelineViewLayouts,
+    bind_group_layout: BindGroupLayout,
+    bind_group_layout_descriptor: BindGroupLayoutDescriptor,
+    sampler: Sampler,
+    fullscreen_vertex_shader: VertexState,
 }
 
-impl FromWorld for DebugBufferPipeline {
+impl FromWorld for DebugOverlayPipeline {
     fn from_world(world: &mut World) -> Self {
         let render_device = world.resource::<RenderDevice>();
         let asset_server = world.resource::<bevy_asset::AssetServer>();
@@ -239,11 +229,11 @@ impl FromWorld for DebugBufferPipeline {
         let sampler = render_device.create_sampler(&SamplerDescriptor::default());
 
         let bind_group_layout_descriptor = BindGroupLayoutDescriptor::new(
-            "debug_buffer_bind_group_layout",
+            "debug_overlay_bind_group_layout",
             &BindGroupLayoutEntries::sequential(
                 ShaderStages::FRAGMENT,
                 (
-                    binding_types::uniform_buffer::<DebugBufferUniform>(true),
+                    binding_types::uniform_buffer::<DebugOverlayUniform>(true),
                     binding_types::texture_2d(TextureSampleType::Float { filterable: true }),
                     binding_types::sampler(
                         bevy_render::render_resource::SamplerBindingType::Filtering,
@@ -258,7 +248,7 @@ impl FromWorld for DebugBufferPipeline {
         );
 
         Self {
-            shader: asset_server.load("embedded://bevy_render_debug/render/debug_buffer.wgsl"),
+            shader: asset_server.load("embedded://bevy_render_debug/debug_overlay.wgsl"),
             mesh_view_layouts,
             bind_group_layout,
             bind_group_layout_descriptor,
@@ -269,13 +259,13 @@ impl FromWorld for DebugBufferPipeline {
 }
 
 #[derive(PartialEq, Eq, Hash, Clone, Copy)]
-pub struct DebugBufferPipelineKey {
-    pub mode: DebugMode,
-    pub view_layout_key: MeshPipelineViewLayoutKey,
+struct DebugOverlayPipelineKey {
+    mode: DebugMode,
+    view_layout_key: MeshPipelineViewLayoutKey,
 }
 
-impl SpecializedRenderPipeline for DebugBufferPipeline {
-    type Key = DebugBufferPipelineKey;
+impl SpecializedRenderPipeline for DebugOverlayPipeline {
+    type Key = DebugOverlayPipelineKey;
 
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
         let mut shader_defs = Vec::new();
@@ -316,7 +306,7 @@ impl SpecializedRenderPipeline for DebugBufferPipeline {
                     shader_defs.push("DEFERRED_PREPASS".into());
                 }
             }
-            DebugMode::DepthPyramid => shader_defs.push("DEBUG_DEPTH_PYRAMID".into()),
+            DebugMode::DepthPyramid { .. } => shader_defs.push("DEBUG_DEPTH_PYRAMID".into()),
         }
 
         if key
@@ -333,7 +323,7 @@ impl SpecializedRenderPipeline for DebugBufferPipeline {
             .clone();
 
         RenderPipelineDescriptor {
-            label: Some("debug_buffer_pipeline".into()),
+            label: Some("debug_overlay_pipeline".into()),
             layout: vec![
                 mesh_view_layout_descriptor,
                 self.bind_group_layout_descriptor.clone(),
@@ -358,14 +348,14 @@ impl SpecializedRenderPipeline for DebugBufferPipeline {
     }
 }
 
-fn prepare_debug_buffer_pipelines(
+fn prepare_debug_overlay_pipelines(
     mut commands: Commands,
     pipeline_cache: Res<PipelineCache>,
-    mut pipelines: ResMut<SpecializedRenderPipelines<DebugBufferPipeline>>,
-    pipeline: Res<DebugBufferPipeline>,
+    mut pipelines: ResMut<SpecializedRenderPipelines<DebugOverlayPipeline>>,
+    pipeline: Res<DebugOverlayPipeline>,
     views: Query<(
         Entity,
-        &DebugBufferConfig,
+        &RenderDebugOverlay,
         &Msaa,
         Has<bevy_core_pipeline::prepass::DepthPrepass>,
         Has<bevy_core_pipeline::prepass::NormalPrepass>,
@@ -414,7 +404,7 @@ fn prepare_debug_buffer_pipelines(
         let pipeline_id = pipelines.specialize(
             &pipeline_cache,
             &pipeline,
-            DebugBufferPipelineKey {
+            DebugOverlayPipelineKey {
                 mode: config.mode,
                 view_layout_key,
             },
@@ -422,19 +412,19 @@ fn prepare_debug_buffer_pipelines(
 
         commands
             .entity(entity)
-            .insert(DebugBufferPipelineId(pipeline_id));
+            .insert(DebugOverlayPipelineId(pipeline_id));
     }
 }
 
 #[derive(Component)]
-pub struct DebugBufferPipelineId(CachedRenderPipelineId);
+struct DebugOverlayPipelineId(CachedRenderPipelineId);
 
 fn prepare_debug_buffer_uniforms(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
-    mut uniforms: ResMut<DebugBufferUniforms>,
-    views: Query<(Entity, &DebugBufferConfig)>,
+    mut uniforms: ResMut<DebugOverlayUniforms>,
+    views: Query<(Entity, &RenderDebugOverlay)>,
 ) {
     let len = views.iter().len();
     if len == 0 {
@@ -448,26 +438,34 @@ fn prepare_debug_buffer_uniforms(
         return;
     };
     for (entity, config) in &views {
-        let offset = writer.write(&DebugBufferUniform {
+        let offset = writer.write(&DebugOverlayUniform {
             opacity: config.opacity,
-            mip_level: config.mip_level,
+            mip_level: if let DebugMode::DepthPyramid { mip_level } = config.mode {
+                mip_level
+            } else {
+                0
+            },
         });
         commands
             .entity(entity)
-            .insert(DebugBufferUniformOffset { offset });
+            .insert(DebugOverlayUniformOffset { offset });
     }
 }
 
 #[derive(Component)]
-pub struct DebugBufferBindGroup(BindGroup);
+struct DebugOverlayBindGroup(BindGroup);
 
 fn prepare_debug_buffer_bind_groups(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
-    pipeline: Res<DebugBufferPipeline>,
-    uniforms: Res<DebugBufferUniforms>,
+    pipeline: Res<DebugOverlayPipeline>,
+    uniforms: Res<DebugOverlayUniforms>,
     fallback_image: Res<FallbackImage>,
-    views: Query<(Entity, &DebugBufferUniformOffset, Option<&ViewDepthPyramid>)>,
+    views: Query<(
+        Entity,
+        &DebugOverlayUniformOffset,
+        Option<&ViewDepthPyramid>,
+    )>,
 ) {
     let Some(uniform_binding) = uniforms.uniforms.binding() else {
         return;
@@ -490,23 +488,24 @@ fn prepare_debug_buffer_bind_groups(
         );
         commands
             .entity(entity)
-            .insert(DebugBufferBindGroup(bind_group));
+            .insert(DebugOverlayBindGroup(bind_group));
     }
 }
 
+/// The render debug overlay.
 #[derive(Debug, Hash, PartialEq, Eq, Clone, RenderLabel)]
-pub struct DebugBufferLabel;
+pub struct DebugOverlayLabel;
 
 #[derive(Default)]
-pub struct DebugBufferNode;
+struct DebugOverlayNode;
 
-impl ViewNode for DebugBufferNode {
+impl ViewNode for DebugOverlayNode {
     type ViewQuery = (
         &'static ViewTarget,
-        &'static DebugBufferConfig,
-        &'static DebugBufferPipelineId,
-        &'static DebugBufferUniformOffset,
-        &'static DebugBufferBindGroup,
+        &'static RenderDebugOverlay,
+        &'static DebugOverlayPipelineId,
+        &'static DebugOverlayUniformOffset,
+        &'static DebugOverlayBindGroup,
         &'static MeshViewBindGroup,
         &'static ViewUniformOffset,
         &'static ViewLightsUniformOffset,
