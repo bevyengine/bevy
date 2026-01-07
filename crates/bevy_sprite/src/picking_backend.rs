@@ -19,7 +19,8 @@ use bevy_camera::{
 };
 use bevy_color::Alpha;
 use bevy_ecs::prelude::*;
-use bevy_image::prelude::*;
+use bevy_image::{prelude::*, TextureAccessError};
+use bevy_log::warn;
 use bevy_math::{prelude::*, FloatExt};
 use bevy_picking::backend::prelude::*;
 use bevy_reflect::prelude::*;
@@ -243,12 +244,22 @@ fn sprite_picking(
                                     break 'valid_pixel true;
                                 };
                                 // grab pixel and check alpha
-                                let Ok(color) = image.get_color_at(
+                                let color = match image.get_color_at(
                                     cursor_pixel_space.x as u32,
                                     cursor_pixel_space.y as u32,
-                                ) else {
-                                    // We don't know how to interpret the pixel.
-                                    break 'valid_pixel false;
+                                ) {
+                                    Ok(color) => color,
+                                    Err(TextureAccessError::UnsupportedTextureFormat(format)) => {
+                                        warn!(
+                                            "Failed to get pixel color for sprite picking on entity {:?}: unsupported texture format {:?}. \
+                                            This is often caused by the use of a compressed texture format. \
+                                            Consider using `SpritePickingMode::BoundingBox`.",
+                                            entity,
+                                            format
+                                        );
+                                        break 'valid_pixel false;
+                                    }
+                                    Err(_) => break 'valid_pixel false,
                                 };
                                 // Check the alpha is above the cutoff.
                                 color.alpha() > cutoff

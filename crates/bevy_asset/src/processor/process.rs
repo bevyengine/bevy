@@ -222,6 +222,8 @@ pub trait ErasedProcessor: Send + Sync {
     /// Deserialized `meta` as type-erased [`AssetMeta`], operating under the assumption that it matches the meta
     /// for the underlying [`Process`] impl.
     fn deserialize_meta(&self, meta: &[u8]) -> Result<Box<dyn AssetMetaDyn>, DeserializeMetaError>;
+    /// Returns the type-path of the original [`Process`].
+    fn type_path(&self) -> &'static str;
     /// Returns the default type-erased [`AssetMeta`] for the underlying [`Process`] impl.
     fn default_meta(&self) -> Box<dyn AssetMetaDyn>;
 }
@@ -248,6 +250,10 @@ impl<P: Process> ErasedProcessor for P {
     fn deserialize_meta(&self, meta: &[u8]) -> Result<Box<dyn AssetMetaDyn>, DeserializeMetaError> {
         let meta: AssetMeta<(), P> = ron::de::from_bytes(meta)?;
         Ok(Box::new(meta))
+    }
+
+    fn type_path(&self) -> &'static str {
+        P::type_path()
     }
 
     fn default_meta(&self) -> Box<dyn AssetMetaDyn> {

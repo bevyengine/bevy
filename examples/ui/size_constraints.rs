@@ -44,7 +44,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     let text_font = (
         TextFont {
-            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+            font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
             font_size: 33.0,
             ..Default::default()
         },

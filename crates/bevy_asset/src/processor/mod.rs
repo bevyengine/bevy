@@ -76,8 +76,6 @@ use tracing::{debug, error, trace, warn};
 #[cfg(feature = "trace")]
 use {
     alloc::string::ToString,
-    bevy_reflect::TypePath,
-    bevy_tasks::ConditionalSendFuture,
     tracing::{info_span, instrument::Instrument},
 };
 
@@ -742,8 +740,6 @@ impl AssetProcessor {
             .processors
             .write()
             .unwrap_or_else(PoisonError::into_inner);
-        #[cfg(feature = "trace")]
-        let processor = InstrumentedAssetProcessor(processor);
         let processor = Arc::new(processor);
         processors
             .type_path_to_processor
@@ -1176,9 +1172,17 @@ impl AssetProcessor {
                     reader_for_process,
                     &mut new_processed_info,
                 );
-                processor
-                    .process(&mut context, settings, &mut *writer)
-                    .await?
+                let process = processor.process(&mut context, settings, &mut *writer);
+                #[cfg(feature = "trace")]
+                let process = {
+                    let span = info_span!(
+                        "asset processing",
+                        processor = processor.type_path(),
+                        asset = asset_path.to_string(),
+                    );
+                    process.instrument(span)
+                };
+                process.await?
             };
 
             writer
@@ -1479,32 +1483,6 @@ impl ProcessingState {
         if let Some(mut receiver) = receiver {
             receiver.recv().await.unwrap();
         }
-    }
-}
-
-#[cfg(feature = "trace")]
-#[derive(TypePath)]
-struct InstrumentedAssetProcessor<T>(T);
-
-#[cfg(feature = "trace")]
-impl<T: Process> Process for InstrumentedAssetProcessor<T> {
-    type Settings = T::Settings;
-    type OutputLoader = T::OutputLoader;
-
-    fn process(
-        &self,
-        context: &mut ProcessContext,
-        settings: &Self::Settings,
-        writer: &mut crate::io::Writer,
-    ) -> impl ConditionalSendFuture<
-        Output = Result<<Self::OutputLoader as crate::AssetLoader>::Settings, ProcessError>,
-    > {
-        let span = info_span!(
-            "asset processing",
-            processor = T::type_path(),
-            asset = context.path().to_string(),
-        );
-        self.0.process(context, settings, writer).instrument(span)
     }
 }
 

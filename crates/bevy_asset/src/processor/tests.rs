@@ -33,9 +33,13 @@ use crate::{
         ProcessError, ProcessorState, ProcessorTransactionLog, ProcessorTransactionLogFactory,
     },
     saver::AssetSaver,
-    tests::{run_app_until, CoolText, CoolTextLoader, CoolTextRon, SubText},
+    tests::{
+        read_asset_as_string, read_meta_as_string, run_app_until, CoolText, CoolTextLoader,
+        CoolTextRon, SubText,
+    },
     transformer::{AssetTransformer, TransformedAsset},
     Asset, AssetApp, AssetLoader, AssetMode, AssetPath, AssetPlugin, LoadContext,
+    WriteDefaultMetaError,
 };
 
 #[derive(TypePath)]
@@ -320,6 +324,9 @@ fn create_app_with_asset_processor(extra_sources: &[String]) -> AppWithProcessor
                 root: source_dir.clone(),
             },
         );
+        let source_memory_writer = MemoryAssetWriter {
+            root: source_dir.clone(),
+        };
         let processed_memory_reader = MemoryAssetReader {
             root: processed_dir.clone(),
         };
@@ -336,6 +343,7 @@ fn create_app_with_asset_processor(extra_sources: &[String]) -> AppWithProcessor
         app.register_asset_source(
             source_id,
             AssetSourceBuilder::new(move || Box::new(source_memory_reader.clone()))
+                .with_writer(move |_| Some(Box::new(source_memory_writer.clone())))
                 .with_watcher(move |sender: async_channel::Sender<AssetSourceEvent>| {
                     source_event_sender_sender.send_blocking(sender).unwrap();
                     Some(Box::new(FakeWatcher))
@@ -494,11 +502,6 @@ impl MutateAsset<CoolText> for AddText {
     fn mutate(&self, text: &mut CoolText) {
         text.text.push_str(&self.0);
     }
-}
-
-fn read_asset_as_string(dir: &Dir, path: &Path) -> String {
-    let bytes = dir.get_asset(path).unwrap();
-    str::from_utf8(bytes.value()).unwrap().to_string()
 }
 
 #[test]
@@ -1722,5 +1725,84 @@ fn only_reprocesses_wrong_hash_on_startup() {
     assert_eq!(
         read_asset_as_string(&default_processed_dir, dep_changed_asset),
         serialize_as_cool_text("dep_changed processed DIFFERENT processed")
+    );
+}
+
+#[test]
+fn writes_default_meta_for_processor() {
+    let AppWithProcessor {
+        mut app,
+        default_source_dirs: ProcessingDirs { source, .. },
+        ..
+    } = create_app_with_asset_processor(&[]);
+
+    type CoolTextProcessor = LoadTransformAndSave<
+        CoolTextLoader,
+        RootAssetTransformer<AddText, CoolText>,
+        CoolTextSaver,
+    >;
+
+    app.register_asset_processor(CoolTextProcessor::new(
+        RootAssetTransformer::new(AddText("blah".to_string())),
+        CoolTextSaver,
+    ))
+    .set_default_asset_processor::<CoolTextProcessor>("cool.ron");
+
+    const ASSET_PATH: &str = "abc.cool.ron";
+    source.insert_asset_text(Path::new(ASSET_PATH), &serialize_as_cool_text("blah"));
+
+    let processor = app.world().resource::<AssetProcessor>().clone();
+    bevy_tasks::block_on(processor.write_default_meta_file_for_path(ASSET_PATH)).unwrap();
+
+    assert_eq!(
+        read_meta_as_string(&source, Path::new(ASSET_PATH)),
+        r#"(
+    meta_format_version: "1.0",
+    asset: Process(
+        processor: "bevy_asset::processor::process::LoadTransformAndSave<bevy_asset::tests::CoolTextLoader, bevy_asset::processor::tests::RootAssetTransformer<bevy_asset::processor::tests::AddText, bevy_asset::tests::CoolText>, bevy_asset::processor::tests::CoolTextSaver>",
+        settings: (
+            loader_settings: (),
+            transformer_settings: (),
+            saver_settings: (),
+        ),
+    ),
+)"#
+    );
+}
+
+#[test]
+fn write_default_meta_does_not_overwrite() {
+    let AppWithProcessor {
+        mut app,
+        default_source_dirs: ProcessingDirs { source, .. },
+        ..
+    } = create_app_with_asset_processor(&[]);
+
+    type CoolTextProcessor = LoadTransformAndSave<
+        CoolTextLoader,
+        RootAssetTransformer<AddText, CoolText>,
+        CoolTextSaver,
+    >;
+
+    app.register_asset_processor(CoolTextProcessor::new(
+        RootAssetTransformer::new(AddText("blah".to_string())),
+        CoolTextSaver,
+    ))
+    .set_default_asset_processor::<CoolTextProcessor>("cool.ron");
+
+    const ASSET_PATH: &str = "abc.cool.ron";
+    source.insert_asset_text(Path::new(ASSET_PATH), &serialize_as_cool_text("blah"));
+    const META_TEXT: &str = "hey i'm walkin here!";
+    source.insert_meta_text(Path::new(ASSET_PATH), META_TEXT);
+
+    let processor = app.world().resource::<AssetProcessor>().clone();
+    assert!(matches!(
+        bevy_tasks::block_on(processor.write_default_meta_file_for_path(ASSET_PATH)),
+        Err(WriteDefaultMetaError::MetaAlreadyExists)
+    ));
+
+    assert_eq!(
+        read_meta_as_string(&source, Path::new(ASSET_PATH)),
+        META_TEXT
     );
 }
