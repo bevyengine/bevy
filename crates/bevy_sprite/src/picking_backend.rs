@@ -19,7 +19,7 @@ use bevy_camera::{
 };
 use bevy_color::Alpha;
 use bevy_ecs::prelude::*;
-use bevy_image::prelude::*;
+use bevy_image::{prelude::*, TextureAccessError};
 use bevy_log::warn;
 use bevy_math::{prelude::*, FloatExt};
 use bevy_picking::backend::prelude::*;
@@ -249,16 +249,17 @@ fn sprite_picking(
                                     cursor_pixel_space.y as u32,
                                 ) {
                                     Ok(color) => color,
-                                    Err(err) => {
+                                    Err(TextureAccessError::UnsupportedTextureFormat(format)) => {
                                         warn!(
-                                            "Failed to get pixel color for sprite picking on entity {:?}: {:?}. \
-                                            This is probably caused by the use of a compressed texture format. \
+                                            "Failed to get pixel color for sprite picking on entity {:?}: unsupported texture format {:?}. \
+                                            This is often caused by the use of a compressed texture format. \
                                             Consider using `SpritePickingMode::BoundingBox`.",
                                             entity,
-                                            err
+                                            format
                                         );
                                         break 'valid_pixel false;
                                     }
+                                    Err(_) => break 'valid_pixel false,
                                 };
                                 // Check the alpha is above the cutoff.
                                 color.alpha() > cutoff
