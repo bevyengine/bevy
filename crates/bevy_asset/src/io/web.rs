@@ -1,6 +1,4 @@
-use crate::io::{
-    AssetReader, AssetReaderError, AssetSourceBuilder, PathStream, Reader, ReaderRequiredFeatures,
-};
+use crate::io::{AssetReader, AssetReaderError, AssetSourceBuilder, PathStream, Reader};
 use crate::{AssetApp, AssetPlugin};
 use alloc::boxed::Box;
 use bevy_app::{App, Plugin};
@@ -193,7 +191,6 @@ impl AssetReader for WebAssetReader {
     fn read<'a>(
         &'a self,
         path: &'a Path,
-        _required_features: ReaderRequiredFeatures,
     ) -> impl ConditionalSendFuture<Output = Result<Box<dyn Reader>, AssetReaderError>> {
         get(self.make_uri(path))
     }

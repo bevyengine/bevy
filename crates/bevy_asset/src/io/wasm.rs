@@ -1,6 +1,5 @@
 use crate::io::{
-    get_meta_path, AssetReader, AssetReaderError, EmptyPathStream, PathStream, Reader,
-    ReaderRequiredFeatures, VecReader,
+    get_meta_path, AssetReader, AssetReaderError, EmptyPathStream, PathStream, Reader, VecReader,
 };
 use alloc::{borrow::ToOwned, boxed::Box, format};
 use js_sys::{Uint8Array, JSON};
@@ -93,11 +92,7 @@ impl HttpWasmAssetReader {
 }
 
 impl AssetReader for HttpWasmAssetReader {
-    async fn read<'a>(
-        &'a self,
-        path: &'a Path,
-        _required_features: ReaderRequiredFeatures,
-    ) -> Result<impl Reader + 'a, AssetReaderError> {
+    async fn read<'a>(&'a self, path: &'a Path) -> Result<impl Reader + 'a, AssetReaderError> {
         let path = self.root_path.join(path);
         self.fetch_bytes(path).await
     }
