@@ -139,6 +139,8 @@ pub trait Reader: AsyncRead + Unpin + Send + Sync {
     fn seekable(&mut self) -> Result<&mut dyn SeekableReader, ReaderNotSeekableError>;
 }
 
+/// A [`Reader`] that also has [`AsyncSeek`] functionality.
+/// See [`Reader::seekable`] for details.
 pub trait SeekableReader: Reader + AsyncSeek {}
 
 impl<T: Reader + AsyncSeek> SeekableReader for T {}
@@ -596,6 +598,7 @@ pub trait AssetWatcher: Send + Sync + 'static {}
 
 /// An [`AsyncRead`] implementation capable of reading a [`Vec<u8>`].
 pub struct VecReader {
+    /// The bytes being read. This is the full original list of bytes.
     pub bytes: Vec<u8>,
     bytes_read: usize,
 }
