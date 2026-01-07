@@ -35,6 +35,7 @@
 
 mod environment;
 pub mod fbm_noise;
+pub mod perlin_worley_noise;
 mod node;
 pub mod resources;
 
@@ -76,6 +77,11 @@ use fbm_noise::{
     generate_fbm_noise_once, init_fbm_noise_params_buffer, init_fbm_noise_texture,
     prepare_fbm_noise_bind_group, FbmNoiseBindGroupLayout, FbmNoisePipeline, NoiseGenerated,
 };
+use perlin_worley_noise::{
+    generate_perlin_worley_noise_once, init_perlin_worley_noise_params_buffer,
+    init_perlin_worley_noise_texture, prepare_perlin_worley_noise_bind_group,
+    PerlinWorleyNoiseBindGroupLayout, PerlinWorleyNoiseGenerated, PerlinWorleyNoisePipeline,
+};
 use resources::{
     prepare_atmosphere_transforms, prepare_atmosphere_uniforms, queue_render_sky_pipelines,
     AtmosphereTransforms, GpuAtmosphere, RenderSkyBindGroupLayouts,
@@ -113,6 +119,7 @@ impl Plugin for AtmospherePlugin {
         embedded_asset!(app, "render_sky.wgsl");
         embedded_asset!(app, "environment.wgsl");
         embedded_asset!(app, "fbm_noise_3d.wgsl");
+        embedded_asset!(app, "perlin_worley_noise_3d.wgsl");
         embedded_asset!(app, "cloud_shadow_map.wgsl");
         embedded_asset!(app, "cloud_shadow_filter.wgsl");
 
@@ -170,6 +177,9 @@ impl Plugin for AtmospherePlugin {
             .init_resource::<FbmNoiseBindGroupLayout>()
             .init_resource::<FbmNoisePipeline>()
             .init_resource::<NoiseGenerated>()
+            .init_resource::<PerlinWorleyNoiseBindGroupLayout>()
+            .init_resource::<PerlinWorleyNoisePipeline>()
+            .init_resource::<PerlinWorleyNoiseGenerated>()
             .add_systems(
                 RenderStartup,
                 (
@@ -178,6 +188,8 @@ impl Plugin for AtmospherePlugin {
                     init_atmosphere_buffer,
                     init_fbm_noise_texture,
                     init_fbm_noise_params_buffer,
+                    init_perlin_worley_noise_texture,
+                    init_perlin_worley_noise_params_buffer,
                 )
                     .chain(),
             )
@@ -197,7 +209,11 @@ impl Plugin for AtmospherePlugin {
                     prepare_atmosphere_transforms.in_set(RenderSystems::PrepareResources),
                     prepare_atmosphere_bind_groups.in_set(RenderSystems::PrepareBindGroups),
                     prepare_fbm_noise_bind_group.in_set(RenderSystems::PrepareBindGroups),
+                    prepare_perlin_worley_noise_bind_group.in_set(RenderSystems::PrepareBindGroups),
                     generate_fbm_noise_once
+                        .in_set(RenderSystems::Render)
+                        .after(RenderSystems::PrepareBindGroups),
+                    generate_perlin_worley_noise_once
                         .in_set(RenderSystems::Render)
                         .after(RenderSystems::PrepareBindGroups),
                     write_atmosphere_buffer.in_set(RenderSystems::PrepareResources),
@@ -424,11 +440,11 @@ impl Default for AtmosphereSettings {
             rendering_method: AtmosphereMode::LookupTexture,
 
             // Cloud shadow map defaults (only used by Raymarched mode).
-            cloud_shadow_map_size: UVec2::new(1024, 1024),
+            cloud_shadow_map_size: UVec2::new(512, 512),
             cloud_shadow_map_extent: 64_000.0,
             cloud_shadow_map_samples: 48,
             cloud_shadow_map_strength: 1.0,
-            cloud_shadow_map_spatial_filter_iterations: 4,
+            cloud_shadow_map_spatial_filter_iterations: 0,
         }
     }
 }

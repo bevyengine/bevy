@@ -168,7 +168,7 @@ fn setup_camera_fog(mut commands: Commands, earth_atmosphere: Res<EarthlikeAtmos
         //   Single-scattering albedo ≈ 0.94 (typical water clouds have albedo 0.95-0.99)
         CloudLayer {
             cloud_layer_start: 6_362_000.0, // 2km above Earth's surface
-            cloud_layer_end: 6_363_000.0,   // 3km above Earth's surface (7km thick layer)
+            cloud_layer_end: 6_364_000.0,   // 4km above Earth's surface (7km thick layer)
             cloud_density: 1.0, // Used for enabling/disabling, actual density comes from noise (normalized [0, 1])
             cloud_absorption: 0.00005, // Physically correct: ~0.00005 m^-1 per unit density
             cloud_scattering: 0.0008, // Physically correct: ~0.0008 m^-1 per unit density

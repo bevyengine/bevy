@@ -26,6 +26,7 @@ struct CloudLayer {
 @group(0) @binding(14) var<uniform> cloud_layer: CloudLayer;
 @group(0) @binding(15) var noise_texture_2d: texture_2d<f32>;
 @group(0) @binding(16) var noise_sampler_3d: sampler;
+@group(0) @binding(18) var perlin_worley_noise_3d: texture_3d<f32>;
 
 fn safe_normalize(v: vec3<f32>) -> vec3<f32> {
     let l2 = dot(v, v);
@@ -52,6 +53,21 @@ fn sample_cloud_noise_rgba_at_scale(world_pos: vec3<f32>, noise_scale: f32) -> v
     return textureSampleLevel(noise_texture_2d, noise_sampler_3d, uv, 0.0);
 }
 
+fn sample_perlin_worley_3d(world_pos: vec3<f32>, h: f32) -> vec4<f32> {
+    // Map world XZ into texture space, and use normalized layer height as the 3rd dimension.
+    // A small rotation helps break up axis-aligned repetition.
+    let rot = mat2x2<f32>(
+        0.8660254, -0.5,
+        0.5, 0.8660254
+    );
+    let xz = rot * world_pos.xz;
+    // Scale is tied to the existing noise scale for now to keep tuning surface area small.
+    let uv = (xz + cloud_layer.noise_offset.xz) / 1000.0;
+    let w = h + cloud_layer.noise_offset.y * 1e-5;
+    let uvw = vec3<f32>(uv, w);
+    return textureSampleLevel(perlin_worley_noise_3d, noise_sampler_3d, uvw, 0.0);
+}
+
 /// Get cloud scattering coefficient per unit density
 fn get_cloud_scattering_coeff() -> f32 {
     return cloud_layer.cloud_scattering;
@@ -71,9 +87,9 @@ fn get_cloud_absorption_coeff() -> f32 {
 //
 // All parameters are intentionally hardcoded in shader code.
 
-const CELL_SIZE_M: f32 = 16000.0;     // spacing between sphere centers (meters)
-const RADIUS_M: f32 = 2500.0;        // sphere radius (meters)
-const SOFTNESS_M: f32 = 500.0;       // boundary softness (meters)
+const CELL_SIZE_M: f32 = 4000.0;     // spacing between sphere centers (meters)
+const RADIUS_M: f32 = 750.0;        // sphere radius (meters)
+const SOFTNESS_M: f32 = 10.0;       // boundary softness (meters)
 
 // Debug toggle: when enabled, use a single sphere centered in the middle of the cloud layer
 // instead of a repeating cell volume. This is useful to validate coordinate systems and
@@ -88,11 +104,9 @@ const CLOUD_USE_NOISE_SHAPE: bool = true;
 // --- Cumulus tuning knobs (shader constants for now) ---
 // Increase density and sharpen cloud borders by tightening the coverage threshold band
 // and applying a contrast curve.
-const CUMULUS_EDGE_THRESHOLD: f32 = 0.7; // higher => fewer, more isolated clouds
+const CUMULUS_EDGE_THRESHOLD: f32 = 0.75; // higher => fewer, more isolated clouds
 const CUMULUS_EDGE_WIDTH: f32 = 0.1;     // smaller => sharper border
-const CUMULUS_EDGE_SHARPNESS: f32 = 1.0;  // >1 => steeper transition to "fully inside cloud"
-const CUMULUS_DENSITY_GAIN: f32 = 1.0;    // overall density boost
-const CUMULUS_DENSITY_GAMMA: f32 = 0.1;  // <1 => denser interior (raises mid values)
+const CUMULUS_EDGE_SHARPNESS: f32 = 16.0;  // >1 => steeper transition to "fully inside cloud"
 
 fn debug_sphere_center() -> vec3<f32> {
     // Place the sphere at scene "origin" in XZ, and centered vertically in the cloud layer.
@@ -176,32 +190,31 @@ fn sample_cumulus_shape(r: f32, world_pos: vec3<f32>) -> f32 {
     // We fix that by modulating the coverage threshold with height-varying erosion noise.
     var d = vertical_profile;
 
-    // "Up-rez" via erosion/detail.
-    // NOTE: We intentionally avoid height-dependent warping here because it can introduce
-    // direction-dependent banding when the mapping is too coherent with the raymarch.
+    // Keep the existing 2D detail channel for edge modulation / small-scale erosion.
     let micro = sample_cloud_noise_rgba_at_scale(world_pos, cloud_layer.detail_noise_scale);
     let detail_n = micro.a;
+
+    // 3D Perlin–Worley shaping: gives true volumetric breakup and avoids the "vertical walls"
+    // you get from purely 2D coverage fields.
+    let pw = sample_perlin_worley_3d(world_pos, h);
+    let worley = pw.yzw;
+    // Combine Worley FBM bands (matches the reference weights).
+    let wfbm = worley.x * 0.625 + worley.y * 0.125 + worley.z * 0.25;
+    var shape3 = remap(pw.x, wfbm - 1.0, 1.0, 0.0, 1.0);
+    shape3 = remap(shape3, 0.85, 1.0, 0.0, 1.0);
+    shape3 = clamp(shape3, 0.0, 1.0);
 
     // Coverage mask with height-varying threshold modulation (kills vertical walls).
     let edge0 = CUMULUS_EDGE_THRESHOLD - CUMULUS_EDGE_WIDTH;
     let edge1 = CUMULUS_EDGE_THRESHOLD + CUMULUS_EDGE_WIDTH;
     // Shift coverage by a small amount that varies with height/warped noise.
     // Higher values => more ragged/sculpted cloud boundaries.
-    let edge_mod = (detail_n - 0.5) * 0.18 * mix(0.6, 1.0, h);
-    let edge_raw = smoothstep(edge0, edge1, cov + edge_mod);
+    let edge_mod = (detail_n - 0.5) * 1.0 * smoothstep(0.0, 1.0, h);
+    // fake cov value for testing (xy sine wave)
+    let cov_fake = sin(world_pos.x * 0.0003) * sin(world_pos.z * 0.0003);
+    let edge_raw = smoothstep(edge0, edge1, cov + edge_mod + shape3 * .2);
     let edge = pow(edge_raw, CUMULUS_EDGE_SHARPNESS);
     d *= edge;
-
-    // Erode edges and add interior breakup (stronger erosion near top).
-    let erosion = remap(detail_n, 0.25, 0.85, 0.0, 1.0) * mix(0.35, 0.75, h);
-    d = clamp(d - (1.0 - detail_n) * erosion, 0.0, 1.0);
-
-    let breakup = (micro.r - 0.5) * 2.0; // [-1, 1]
-    d = clamp(d + breakup * cloud_layer.detail_strength * d, 0.0, 1.0);
-
-    // Final density shaping (crisper + denser).
-    d = clamp(d * CUMULUS_DENSITY_GAIN, 0.0, 1.0);
-    d = pow(d, CUMULUS_DENSITY_GAMMA);
 
     return d;
 }

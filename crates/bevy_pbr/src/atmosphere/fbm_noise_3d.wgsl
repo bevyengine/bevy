@@ -32,7 +32,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     let p = uv * vec2<f32>(texture_size) * fbm_params.frequency;
 
     // R: coverage (macro placement)
-    let coverage = fbm_2d(p);
+    let coverage = fbm_2d(p * 0.5);
 
     // G/B: "type" controls used to shape the vertical profile (NUBIS-style top/bottom types).
     // Use low-frequency tileable noise so types vary slowly over the world.

@@ -1,6 +1,7 @@
 use crate::{
-    fbm_noise::FbmNoiseTexture, CloudLayer, ExtractedAtmosphere, GpuLights, GpuScatteringMedium,
-    LightMeta, ScatteringMedium, ScatteringMediumSampler,
+    fbm_noise::FbmNoiseTexture, perlin_worley_noise::PerlinWorleyNoiseTexture, CloudLayer,
+    ExtractedAtmosphere, GpuLights, GpuScatteringMedium, LightMeta, ScatteringMedium,
+    ScatteringMediumSampler,
 };
 use bevy_asset::{load_embedded_asset, AssetId, Handle};
 use bevy_camera::{Camera, Camera3d};
@@ -180,6 +181,8 @@ impl AtmosphereBindGroupLayouts {
                         texture_2d(TextureSampleType::Float { filterable: true }),
                     ),
                     (16, sampler(SamplerBindingType::Filtering)),
+                    // 3D Perlin–Worley noise texture used by cloud density shaping
+                    (18, texture_3d(TextureSampleType::Float { filterable: true })),
                     (
                         13,
                         texture_storage_2d(
@@ -263,6 +266,8 @@ impl FromWorld for RenderSkyBindGroupLayouts {
                         17,
                         texture_2d(TextureSampleType::Float { filterable: true }),
                     ),
+                    // 3D Perlin–Worley noise texture for volumetric shaping
+                    (18, texture_3d(TextureSampleType::Float { filterable: true })),
                 ),
             ),
         );
@@ -301,6 +306,8 @@ impl FromWorld for RenderSkyBindGroupLayouts {
                         17,
                         texture_2d(TextureSampleType::Float { filterable: true }),
                     ),
+                    // 3D Perlin–Worley noise texture for volumetric shaping
+                    (18, texture_3d(TextureSampleType::Float { filterable: true })),
                 ),
             ),
         );
@@ -843,8 +850,11 @@ pub(super) fn prepare_atmosphere_bind_groups(
     gpu_media: Res<RenderAssets<GpuScatteringMedium>>,
     medium_sampler: Res<ScatteringMediumSampler>,
     pipeline_cache: Res<PipelineCache>,
-    cloud_layer_uniforms: Res<ComponentUniforms<CloudLayer>>,
-    fbm_noise_texture: Res<FbmNoiseTexture>,
+    (cloud_layer_uniforms, fbm_noise_texture, perlin_worley_noise_texture): (
+        Res<ComponentUniforms<CloudLayer>>,
+        Res<FbmNoiseTexture>,
+        Res<PerlinWorleyNoiseTexture>,
+    ),
     mut commands: Commands,
 ) -> Result<(), BevyError> {
     if views.iter().len() == 0 {
@@ -974,6 +984,7 @@ pub(super) fn prepare_atmosphere_bind_groups(
                     (14, cloud_layer_binding.clone()),
                     (15, &fbm_noise_texture.texture.default_view),
                     (16, &**cloud_noise_sampler),
+                    (18, &perlin_worley_noise_texture.texture.default_view),
                     (13, &textures.cloud_shadow_map.default_view),
                 )),
             )
@@ -1067,6 +1078,7 @@ pub(super) fn prepare_atmosphere_bind_groups(
                     (15, &fbm_noise_texture.texture.default_view),
                     (16, &**cloud_noise_sampler),
                     (17, &textures.cloud_shadow_map.default_view),
+                    (18, &perlin_worley_noise_texture.texture.default_view),
                 )),
             )
         });
