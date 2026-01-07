@@ -171,6 +171,45 @@ pub(crate) fn world_query_impl(
             fn matches_component_set(state: &Self::State, _set_contains_id: &impl Fn(#path::component::ComponentId) -> bool) -> bool {
                 true #(&& <#field_types>::matches_component_set(&state.#field_aliases, _set_contains_id))*
             }
+
+            #[inline]
+            unsafe fn find_table_chunk(
+                state: &Self::State,
+                fetch: &Self::Fetch<'_>,
+                table: &#path::storage::Table,
+                mut rows: core::ops::Range<u32>,
+            ) -> core::ops::Range<u32> {
+                // SAFETY: `rows` is only ever narrowed as we iterate subqueries, so it's
+                // always valid to pass to the next term. Other invariants are upheld by
+                // the caller.
+                #(rows = unsafe { <#field_types>::find_table_chunk(&state.#field_aliases, &fetch.#field_aliases, table, rows) };)*
+                rows
+            }
+
+            #[inline]
+            unsafe fn find_archetype_chunk(
+                state: &Self::State,
+                fetch: &Self::Fetch<'_>,
+                archetype: &#path::archetype::Archetype,
+                mut indices: core::ops::Range<u32>,
+            ) -> core::ops::Range<u32> {
+                // SAFETY: `indices` is only ever narrowed as we iterate subqueries, so it's
+                // always valid to pass to the next term. Other invariants are upheld by
+                // the caller.
+                #(indices = unsafe { <#field_types>::find_archetype_chunk(&state.#field_aliases, &fetch.#field_aliases, archetype, indices) };)*
+                indices
+            }
+
+            #[inline]
+            unsafe fn matches(
+                state: &Self::State,
+                fetch: &Self::Fetch<'_>,
+                entity: #path::entity::Entity,
+                table_row: #path::storage::TableRow,
+            ) -> bool {
+                // SAFETY: invariants are upheld by the caller.
+                true #(&& unsafe { <#field_types>::matches(&state.#field_aliases, &fetch.#field_aliases, entity, table_row) })*
+            }
         }
     }
 }
