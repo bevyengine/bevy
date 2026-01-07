@@ -26,6 +26,7 @@ use bevy_ecs::{
     system::{lifetimeless::Read, Commands, Query, Res, ResMut},
     world::{FromWorld, World},
 };
+use bevy_log::warn_once;
 use bevy_render::{
     batching::gpu_preprocessing::{
         BatchedInstanceBuffers, GpuOcclusionCullingWorkItemBuffers, GpuPreprocessingMode,
@@ -838,7 +839,7 @@ impl Node for LateGpuPreprocessNode {
 
         // Fetch the pipeline.
         let Some(preprocess_pipeline_id) = maybe_pipeline_id else {
-            warn!("The build mesh uniforms pipeline wasn't ready");
+            warn_once!("The build mesh uniforms pipeline wasn't ready");
             return Ok(());
         };
 
