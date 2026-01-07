@@ -45,6 +45,7 @@ When materials are created, mipmaps will be created for the images used in the m
 Mipmaps will not be generated for materials found on entities that also have the `NoMipmapGeneration` component.
 
 ## Custom Materials
+
 For use with custom materials, just implement the GetImages trait for the custom material.
 
 ```rust
