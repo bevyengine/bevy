@@ -3,6 +3,7 @@
 Optionally use the `compress` feature and corresponding setting in `MipmapGeneratorSettings` to enable BCn compression. Note: Compression can take a long time depending on the quantity and resolution of the images.
 
 Currently supported conversions:
+
 - R8Unorm -> Bc4RUnorm
 - Rg8Unorm -> Bc5RgUnorm
 - Rgba8Unorm -> Bc7RgbaUnorm
@@ -20,6 +21,7 @@ Bevy supports a [variety of compressed image formats](https://docs.rs/bevy/lates
 Instead of using this plugin, consider using the new [CompressedImageSaver](https://bevyengine.org/news/bevy-0-12/#compressedimagesaver).
 
 For generating compressed textures ahead of time also check out:
+
 - [klafsa](https://github.com/superdump/klafsa)
 - [kram](https://github.com/alecazam/kram)
 - [toktx](https://github.khronos.org/KTX-Software/ktxtools/toktx.html)
@@ -88,5 +90,6 @@ impl<T: GetImages + MaterialExtension> GetImages for ExtendedMaterial<StandardMa
 ```
 
 ## TODO
+
 - Support more texture formats.
 - Support re-running if images are updated.

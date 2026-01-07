@@ -2,7 +2,7 @@
 
 Currently only setup to load `hotel_01`.
 
-Download scene from https://github.com/Activision/caldera
+Download scene from [Activision github repo](https://github.com/Activision/caldera).
 
 Reexport `map_source/prefabs/br/wz_vg/mp_wz_island/commercial/hotel_01.usd` as `hotel_01.glb`
 
@@ -13,7 +13,7 @@ Note: many of the meshes in the original scene use an animation base pose to pos
 
 Press 1, 2, or 3 for various camera locations. Press B for benchmark (see console for results).
 
-```
+```console
 Options:
   --minimal         disable bloom, AO, AA, shadows
   --random-materials

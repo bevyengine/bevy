@@ -1,17 +1,17 @@
 # Bistro Example
 
-Download scene from https://developer.nvidia.com/orca/amazon-lumberyard-bistro (or see link below for processed glTF files with instancing)
+Download Amazon Lumberyard version of bistro [from developer.nvidia.com](<https://developer.nvidia.com/orca/amazon-lumberyard-bistro>) (or see link below for processed glTF files with instancing)
 
 Reexport BistroExterior.fbx and BistroInterior_Wine.fbx as GLTF files (in .gltf + .bin + textures format). Move the files into the respective bistro_exterior and bistro_interior_wine folders.
 
 - Press 1, 2 or 3 for various camera positions.
 - Press B for benchmark.
-- Press to animate camera along path. 
+- Press to animate camera along path.
 
 Run with texture compression while caching compressed images to disk for faster startup times:
 `cargo run -p bistro --release --features mipmap_generator/compress -- --cache`
 
-```
+```console
 Options:
 --no-gltf-lights  disable glTF lights
 --minimal         disable bloom, AO, AA, shadows
