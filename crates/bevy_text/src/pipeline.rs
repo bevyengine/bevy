@@ -94,7 +94,16 @@ impl TextPipeline {
         font_system: &mut CosmicFontSystem,
         hinting: FontHinting,
     ) -> Result<(), TextError> {
+        computed.entities.clear();
         computed.needs_rerender = false;
+
+        if scale_factor <= 0.0 {
+            once!(warn!(
+                "Text scale factor is <= 0.0. No text will be displayed.",
+            ));
+
+            return Err(TextError::DegenerateScaleFactor);
+        }
 
         let font_system = &mut font_system.0;
 
@@ -109,8 +118,6 @@ impl TextPipeline {
                     },
                 )
                 .collect();
-
-        computed.entities.clear();
 
         let result = {
             for (span_index, (entity, depth, span, text_font, color, line_height)) in
@@ -148,7 +155,7 @@ impl TextPipeline {
                 let face_info = FontFaceInfo { family_name };
 
                 // Save spans that aren't zero-sized.
-                if scale_factor <= 0.0 || text_font.font_size <= 0.0 {
+                if text_font.font_size <= 0.0 {
                     once!(warn!(
                         "Text span {entity} has a font size <= 0.0. Nothing will be displayed.",
                     ));
