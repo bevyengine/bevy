@@ -12,14 +12,15 @@
 //! The automatic system finds the nearest neighbor in each compass direction for every node,
 //! completely eliminating the need to manually specify navigation relationships.
 
-use bevy::ui::UiTransform;
+use core::time::Duration;
+
 use bevy::{
     camera::NormalizedRenderTarget,
     input_focus::{
         directional_navigation::{AutoNavigationConfig, DirectionalNavigationPlugin},
         InputDispatchPlugin, InputFocus, InputFocusVisible,
     },
-    math::{CompassOctant, Dir2},
+    math::{CompassOctant, Dir2, Rot2},
     picking::{
         backend::HitData,
         pointer::{Location, PointerId},
@@ -28,7 +29,6 @@ use bevy::{
     prelude::*,
     ui::auto_directional_navigation::{AutoDirectionalNavigation, AutoDirectionalNavigator},
 };
-use core::time::Duration;
 
 fn main() {
     App::new()
@@ -210,6 +210,15 @@ fn setup_scattered_ui(mut commands: Commands, mut input_focus: ResMut<InputFocus
 
     let mut first_button = None;
     for (i, (x, y)) in button_positions.iter().enumerate() {
+        let transform = if i == 4 {
+            UiTransform {
+                scale: Vec2::splat(1.2),
+                rotation: Rot2::FRAC_PI_2,
+                ..default()
+            }
+        } else {
+            UiTransform::IDENTITY
+        };
         let button_entity = commands
             .spawn((
                 Button,
@@ -225,8 +234,7 @@ fn setup_scattered_ui(mut commands: Commands, mut input_focus: ResMut<InputFocus
                     border_radius: BorderRadius::all(px(12)),
                     ..default()
                 },
-                // Apply a scale transform to demonstrate that navigation handles transforms
-                UiTransform::from_scale(Vec2::splat(2.0)),
+                transform,
                 // This is the key: just add this component for automatic navigation!
                 AutoDirectionalNavigation::default(),
                 ResetTimer::default(),
