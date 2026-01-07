@@ -16,7 +16,7 @@ functions should be changed to their `try_*` equivalent and handled appropriatel
 
 ```rust
 // assets: Res<'w, Assets<Mesh>>
-let mesh = assets.get(some_mesh_handle) // or assets.get_mut(some_mesh_handle)
+let mesh = assets.get(some_mesh_handle).unwrap() // or assets.get_mut(some_mesh_handle).unwrap()
 
 // 0.17
 mesh.insert_attribute(...)
