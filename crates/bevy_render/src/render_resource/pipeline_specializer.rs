@@ -251,9 +251,3 @@ impl<S: SpecializedMeshPipeline> SpecializedMeshPipelines<S> {
         }
     }
 }
-
-#[derive(Error, Debug)]
-pub enum SpecializedMeshPipelineError {
-    #[error(transparent)]
-    MissingVertexAttribute(#[from] MissingVertexAttributeError),
-}

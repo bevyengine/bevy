@@ -27,5 +27,7 @@ define_label!(
 
 pub type InternedDrawFunctionLabel = Interned<dyn DrawFunctionLabel>;
 
-// mod draw;
-// pub use draw::*;
+// TODO: make this generic?
+/// An identifier for a [`Draw`] function stored in [`DrawFunctions`].
+#[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Hash)]
+pub struct DrawFunctionId(u32);
