@@ -1,7 +1,7 @@
 use bevy_app::Plugin;
 use bevy_color::{Color, ColorToComponents};
 use bevy_image::Image;
-use bevy_math::{Affine2, Mat3, Vec2, Vec4};
+use bevy_math::{Affine2, Mat3, UVec2, Vec2, Vec4};
 
 use bevy_asset::{embedded_asset, embedded_path, Asset, AssetApp, AssetPath, Handle};
 
@@ -115,21 +115,23 @@ impl Material2d for SpriteMaterial {
     }
 }
 
-impl From<SpriteMesh> for SpriteMaterial {
-    fn from(value: SpriteMesh) -> Self {
-        // convert SpriteAlphaMode to AlphaMode2d (see the comment above SpriteAlphaMode)
-        let alpha_mode = match value.alpha_mode {
+impl SpriteMaterial {
+    /// Use the [`SpriteMesh`] and the size of the sprite image to build a new material.
+    pub fn from_sprite_mesh(sprite: SpriteMesh, image_size: UVec2) -> Self {
+        // convert SpriteAlphaMode to AlphaMode2d.
+        // (see the comment above SpriteAlphaMode for why these are different)
+        let alpha_mode = match sprite.alpha_mode {
             SpriteAlphaMode::Blend => AlphaMode2d::Blend,
             SpriteAlphaMode::Opaque => AlphaMode2d::Opaque,
             SpriteAlphaMode::Mask(x) => AlphaMode2d::Mask(x),
         };
 
         SpriteMaterial {
-            color: value.color,
-            uv_transform: Affine2::default(),
-            image: value.image,
+            color: sprite.color,
             alpha_mode,
-            scale: Vec2::default(),
+            uv_transform: Affine2::default(),
+            scale: image_size.as_vec2(),
+            image: sprite.image,
         }
     }
 }

@@ -23,11 +23,5 @@ fn setup(
     commands.spawn(Camera2d);
 
     let texture_handle = asset_server.load("branding/bevy_bird_dark.png");
-
-    commands.spawn(SpriteMesh {
-        image: texture_handle,
-        texture_atlas: None,
-        color: Color::WHITE,
-        alpha_mode: SpriteAlphaMode::Mask(0.5),
-    });
+    commands.spawn(SpriteMesh::from_image(texture_handle));
 }
