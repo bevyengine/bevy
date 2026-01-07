@@ -54,8 +54,8 @@ use bevy_ecs::{
     system::SystemParam,
 };
 
-use thiserror::Error;
 use bevy_math::{CompassOctant, Vec2};
+use thiserror::Error;
 
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::{prelude::*, Reflect};
@@ -343,7 +343,6 @@ impl<'w> DirectionalNavigation<'w> {
             Err(DirectionalNavigationError::NoFocus)
         }
     }
-
 }
 
 /// An error that can occur when navigating between focusable entities using [directional navigation](crate::directional_navigation).
