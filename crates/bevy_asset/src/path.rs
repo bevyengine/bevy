@@ -499,7 +499,7 @@ impl<'a> AssetPath<'a> {
     ) -> AssetPath<'static> {
         let mut base_path = PathBuf::from(self.path());
         if replace && !self.path.to_str().unwrap().ends_with('/') {
-            // No error if base is empty (per RFC 1808).
+            // No error if base is empty
             base_path.pop();
         }
 
