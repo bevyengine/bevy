@@ -438,7 +438,8 @@ impl<'a> AssetPath<'a> {
 
         if is_label_only {
             // Label-only: replace label on base path
-            self.clone_owned().with_label(path.label().unwrap().to_owned())
+            self.clone_owned()
+                .with_label(path.label().unwrap().to_owned())
         } else {
             // Determine if the input has an explicit (non-default) source
             let explicit_source = match path.source() {
@@ -464,7 +465,7 @@ impl<'a> AssetPath<'a> {
     /// the base path is removed before concatenation (RFC 1808 behavior).
     ///
     /// This method is additive and does not change the behavior of [`AssetPath::resolve_embed`].
-    
+
     pub fn resolve_embed_path(&self, path: &AssetPath<'_>) -> AssetPath<'static> {
         // Check if this is a "label-only" case: default source + empty path + label set
         let is_label_only = matches!(path.source(), AssetSourceId::Default)
@@ -473,7 +474,8 @@ impl<'a> AssetPath<'a> {
 
         if is_label_only {
             // Label-only: replace label on base path
-            self.clone_owned().with_label(path.label().unwrap().to_owned())
+            self.clone_owned()
+                .with_label(path.label().unwrap().to_owned())
         } else {
             // Determine if the input has an explicit (non-default) source
             let explicit_source = match path.source() {
@@ -1104,7 +1106,6 @@ mod tests {
         );
     }
 
-
     #[test]
     fn resolve_path_equivalence() {
         // Test that resolve_path(&AssetPath) is equivalent to resolve(&str)
@@ -1140,10 +1141,7 @@ mod tests {
 
         // Label-only (special case)
         let rel = AssetPath::parse("#NewLabel");
-        assert_eq!(
-            base.resolve_path(&rel),
-            base.resolve("#NewLabel").unwrap()
-        );
+        assert_eq!(base.resolve_path(&rel), base.resolve("#NewLabel").unwrap());
 
         // Full path with leading /
         let rel = AssetPath::parse("/c.bin");
@@ -1232,16 +1230,10 @@ mod tests {
         let base = AssetPath::parse("a/b");
         let rel = AssetPath::parse("c");
         // resolve_embed removes "b" before concatenating
-        assert_eq!(
-            base.resolve_embed_path(&rel),
-            AssetPath::parse("a/c")
-        );
+        assert_eq!(base.resolve_embed_path(&rel), AssetPath::parse("a/c"));
 
         // Verify different from resolve
-        assert_ne!(
-            base.resolve_path(&rel),
-            base.resolve_embed_path(&rel)
-        );
+        assert_ne!(base.resolve_path(&rel), base.resolve_embed_path(&rel));
     }
 
     #[test]
