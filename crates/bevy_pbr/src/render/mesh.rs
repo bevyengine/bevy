@@ -2292,7 +2292,7 @@ impl MeshPipelineKey {
 
 impl From<u64> for MeshPipelineKey {
     fn from(value: u64) -> Self {
-        MeshPipelineKey::from_bits_truncate(value)
+        MeshPipelineKey::from_bits_retain(value)
     }
 }
 

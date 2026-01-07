@@ -484,6 +484,15 @@ impl Hash for ErasedMeshPipelineKey {
     }
 }
 
+impl Default for ErasedMeshPipelineKey {
+    fn default() -> Self {
+        Self {
+            bits: 0,
+            type_id: TypeId::of::<u64>(),
+        }
+    }
+}
+
 impl core::fmt::Debug for ErasedMeshPipelineKey {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("ErasedMeshPipelineKey")
@@ -999,7 +1008,7 @@ pub struct EntitySpecializationTicks {
 ///
 /// We need two different types of ticks here for a subtle reason. First, we
 /// need the [`Self::system_tick`], which maps to Bevy's [`SystemChangeTick`],
-/// because that's what we use in [`specialize_material_meshes`] to check
+/// because that's what we use in `specialize_material_meshes` to check
 /// whether pipelines need specialization. But we also need
 /// [`Self::material_instances_tick`], which maps to the
 /// [`RenderMaterialInstances::current_change_tick`]. That's because the latter
@@ -1192,7 +1201,8 @@ pub(crate) fn specialize_material_meshes(
                     continue;
                 };
 
-                let mut mesh_pipeline_key_bits = material.properties.mesh_pipeline_key_bits;
+                let mut mesh_pipeline_key_bits: MeshPipelineKey =
+                    material.properties.mesh_pipeline_key_bits.downcast();
                 mesh_pipeline_key_bits.insert(alpha_mode_pipeline_key(
                     material.properties.alpha_mode,
                     &Msaa::from_samples(view_key.msaa_samples()),
@@ -1249,7 +1259,12 @@ pub(crate) fn specialize_material_meshes(
             material_key: item.properties.material_key.clone(),
         };
 
-        match (item.properties.base_specialize)(world, key, &item.layout, &item.properties) {
+        match (item.properties.base_specialize.unwrap_or(base_specialize))(
+            world,
+            key,
+            &item.layout,
+            &item.properties,
+        ) {
             Ok(pipeline_id) => {
                 world
                     .resource_mut::<SpecializedMaterialPipelineCache>()
@@ -1625,6 +1640,7 @@ impl Default for ErasedMaterialKey {
 }
 
 /// Common [`Material`] properties, calculated for a specific material instance.
+#[derive(Default)]
 pub struct MaterialProperties {
     /// Is this material should be rendered by the deferred renderer when.
     /// [`AlphaMode::Opaque`] or [`AlphaMode::Mask`]
@@ -1635,7 +1651,7 @@ pub struct MaterialProperties {
     ///
     /// These are precalculated so that we can just "or" them together in
     /// [`queue_material_meshes`].
-    pub mesh_pipeline_key_bits: MeshPipelineKey,
+    pub mesh_pipeline_key_bits: ErasedMeshPipelineKey,
     /// Add a bias to the view depth of the mesh which can be used to force a specific render order
     /// for meshes with equal depth, to avoid z-fighting.
     /// The bias is in depth-texture units so large values may be needed to overcome small depth differences.
@@ -1655,7 +1671,7 @@ pub struct MaterialProperties {
     /// Whether this material *actually* uses bindless resources, taking the
     /// platform support (or lack thereof) of bindless resources into account.
     pub bindless: bool,
-    pub base_specialize: BaseSpecializeFn,
+    pub base_specialize: Option<BaseSpecializeFn>,
     pub prepass_specialize: Option<PrepassSpecializeFn>,
     pub user_specialize: Option<
         fn(
@@ -1725,6 +1741,70 @@ pub struct RenderMaterialBindings(HashMap<UntypedAssetId, MaterialBindingId>);
 pub struct PreparedMaterial {
     pub binding: MaterialBindingId,
     pub properties: Arc<MaterialProperties>,
+}
+
+fn base_specialize(
+    world: &mut World,
+    key: ErasedMaterialPipelineKey,
+    layout: &MeshVertexBufferLayoutRef,
+    properties: &Arc<MaterialProperties>,
+) -> Result<CachedRenderPipelineId, SpecializedMeshPipelineError> {
+    world.resource_scope(
+        |world, mut pipelines: Mut<SpecializedMeshPipelines<MaterialPipelineSpecializer>>| {
+            let mesh_pipeline = world.resource::<MeshPipeline>().clone();
+            let pipeline_cache = world.resource::<PipelineCache>();
+
+            let specializer = MaterialPipelineSpecializer {
+                pipeline: MaterialPipeline { mesh_pipeline },
+                properties: properties.clone(),
+            };
+
+            pipelines.specialize(pipeline_cache, &specializer, key, layout)
+        },
+    )
+}
+fn prepass_specialize(
+    world: &mut World,
+    key: ErasedMaterialPipelineKey,
+    layout: &MeshVertexBufferLayoutRef,
+    properties: &Arc<MaterialProperties>,
+) -> Result<CachedRenderPipelineId, SpecializedMeshPipelineError> {
+    world.resource_scope(
+        |world, mut pipelines: Mut<SpecializedMeshPipelines<PrepassPipelineSpecializer>>| {
+            let prepass_pipeline = world.resource::<PrepassPipeline>().clone();
+            let pipeline_cache = world.resource::<PipelineCache>();
+
+            let specializer = PrepassPipelineSpecializer {
+                pipeline: prepass_pipeline,
+                properties: properties.clone(),
+            };
+
+            pipelines.specialize(pipeline_cache, &specializer, key, layout)
+        },
+    )
+}
+
+fn user_specialize<M: Material>(
+    pipeline: &dyn Any,
+    descriptor: &mut RenderPipelineDescriptor,
+    mesh_layout: &MeshVertexBufferLayoutRef,
+    erased_key: ErasedMaterialPipelineKey,
+) -> Result<(), SpecializedMeshPipelineError>
+where
+    M::Data: Hash + Clone,
+{
+    let pipeline = pipeline.downcast_ref::<MaterialPipeline>().unwrap();
+    let material_key = erased_key.material_key.to_key();
+    let mesh_key: MeshPipelineKey = erased_key.mesh_key.downcast();
+    M::specialize(
+        pipeline,
+        descriptor,
+        mesh_layout,
+        MaterialPipelineKey {
+            mesh_key,
+            bind_group_data: material_key,
+        },
+    )
 }
 
 // orphan rules T_T
@@ -1830,6 +1910,8 @@ where
         let reads_view_transmission_texture =
             mesh_pipeline_key_bits.contains(MeshPipelineKey::READS_VIEW_TRANSMISSION_TEXTURE);
 
+        let mesh_pipeline_key_bits = ErasedMeshPipelineKey::new(mesh_pipeline_key_bits);
+
         let render_phase_type = match material.alpha_mode() {
             AlphaMode::Blend | AlphaMode::Premultiplied | AlphaMode::Add | AlphaMode::Multiply => {
                 RenderPhaseType::Transparent
@@ -1880,70 +1962,6 @@ where
         let bind_group_data = material.bind_group_data();
         let material_key = ErasedMaterialKey::new(bind_group_data);
 
-        fn base_specialize(
-            world: &mut World,
-            key: ErasedMaterialPipelineKey,
-            layout: &MeshVertexBufferLayoutRef,
-            properties: &Arc<MaterialProperties>,
-        ) -> Result<CachedRenderPipelineId, SpecializedMeshPipelineError> {
-            world.resource_scope(
-                |world, mut pipelines: Mut<SpecializedMeshPipelines<MaterialPipelineSpecializer>>| {
-                    let mesh_pipeline = world.resource::<MeshPipeline>().clone();
-                    let pipeline_cache = world.resource::<PipelineCache>();
-
-                    let specializer = MaterialPipelineSpecializer {
-                        pipeline: MaterialPipeline { mesh_pipeline },
-                        properties: properties.clone(),
-                    };
-
-                    pipelines.specialize(pipeline_cache, &specializer, key, layout)
-                },
-            )
-        }
-        fn prepass_specialize(
-            world: &mut World,
-            key: ErasedMaterialPipelineKey,
-            layout: &MeshVertexBufferLayoutRef,
-            properties: &Arc<MaterialProperties>,
-        ) -> Result<CachedRenderPipelineId, SpecializedMeshPipelineError> {
-            world.resource_scope(
-                |world, mut pipelines: Mut<SpecializedMeshPipelines<PrepassPipelineSpecializer>>| {
-                    let prepass_pipeline = world.resource::<PrepassPipeline>().clone();
-                    let pipeline_cache = world.resource::<PipelineCache>();
-
-                    let specializer = PrepassPipelineSpecializer {
-                        pipeline: prepass_pipeline,
-                        properties: properties.clone(),
-                    };
-
-                    pipelines.specialize(pipeline_cache, &specializer, key, layout)
-                },
-            )
-        }
-
-        fn user_specialize<M: Material>(
-            pipeline: &dyn Any,
-            descriptor: &mut RenderPipelineDescriptor,
-            mesh_layout: &MeshVertexBufferLayoutRef,
-            erased_key: ErasedMaterialPipelineKey,
-        ) -> Result<(), SpecializedMeshPipelineError>
-        where
-            M::Data: Hash + Clone,
-        {
-            let pipeline = pipeline.downcast_ref::<MaterialPipeline>().unwrap();
-            let material_key = erased_key.material_key.to_key();
-            let mesh_key: MeshPipelineKey = erased_key.mesh_key.downcast();
-            M::specialize(
-                pipeline,
-                descriptor,
-                mesh_layout,
-                MaterialPipelineKey {
-                    mesh_key,
-                    bind_group_data: material_key,
-                },
-            )
-        }
-
         let material_layout = M::bind_group_layout_descriptor(render_device);
         let actual_material_layout = pipeline_cache.get_bind_group_layout(&material_layout);
 
@@ -1987,7 +2005,7 @@ where
                         draw_functions,
                         shaders,
                         bindless,
-                        base_specialize,
+                        base_specialize: Some(base_specialize),
                         prepass_specialize: Some(prepass_specialize),
                         user_specialize: Some(user_specialize::<M>),
                         material_key,
@@ -2033,7 +2051,7 @@ where
                                 draw_functions,
                                 shaders,
                                 bindless,
-                                base_specialize,
+                                base_specialize: Some(base_specialize),
                                 prepass_specialize: Some(prepass_specialize),
                                 user_specialize: Some(user_specialize::<M>),
                                 material_key,
