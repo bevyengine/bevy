@@ -65,7 +65,7 @@ fn create_test_image(size: u32, cx: f32, cy: f32) -> Image {
             iter::once(0xFF - (count * 2) as u8)
                 .chain(iter::once(0xFF - (count * 5) as u8))
                 .chain(iter::once(0xFF - (count * 13) as u8))
-                .chain(iter::once(std::u8::MAX))
+                .chain(iter::once(u8::MAX))
         })
         .collect();
 

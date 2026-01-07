@@ -36,7 +36,7 @@ fn main() {
         .insert_resource(MipmapGeneratorSettings {
             // Manually setting anisotropic filtering to 16x
             anisotropic_filtering: 16,
-            compression: Option::from(args.compress.then(Default::default)),
+            compression: args.compress.then(Default::default),
             compressed_image_data_cache_path: if args.cache {
                 Some(PathBuf::from("compressed_texture_cache"))
             } else {

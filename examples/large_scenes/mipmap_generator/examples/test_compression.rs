@@ -109,7 +109,7 @@ fn create_test_image(size: u32, cx: f32, cy: f32, channels: u32) -> Image {
             }
             if channels > 2 {
                 values.push(0xFF - (count * 13) as u8);
-                values.push(std::u8::MAX);
+                values.push(u8::MAX);
             }
             values
         })
