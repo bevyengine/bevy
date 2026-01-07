@@ -16,17 +16,7 @@ use bevy_input_focus::{
 };
 
 use bevy_reflect::{prelude::*, Reflect};
-fn get_rotated_bounds(size: Vec2, rotation: f32) -> Vec2 {
-    if rotation == 0.0 {
-        return size;
-    }
-    let cos_r = ops::cos(rotation).abs();
-    let sin_r = ops::sin(rotation).abs();
-    Vec2::new(
-        size.x * cos_r + size.y * sin_r,
-        size.x * sin_r + size.y * cos_r,
-    )
-}
+
 /// Marker component to enable automatic directional navigation to and from the entity.
 ///
 /// Simply add this component to your UI entities so that the navigation algorithm will
@@ -111,7 +101,6 @@ pub struct AutoDirectionalNavigation {
 /// To use, the [`DirectionalNavigationPlugin`](bevy_input_focus::directional_navigation::DirectionalNavigationPlugin)
 /// must be added to the app.
 #[derive(SystemParam, Debug)]
-
 pub struct AutoDirectionalNavigator<'w, 's> {
     /// A system parameter for the manual directional navigation system provided by `bevy_input_focus`
     pub manual_directional_navigation: DirectionalNavigation<'w>,
@@ -241,4 +230,16 @@ impl<'w, 's> AutoDirectionalNavigator<'w, 's> {
             },
         )
     }
+}
+
+fn get_rotated_bounds(size: Vec2, rotation: f32) -> Vec2 {
+    if rotation == 0.0 {
+        return size;
+    }
+    let cos_r = ops::cos(rotation).abs();
+    let sin_r = ops::sin(rotation).abs();
+    Vec2::new(
+        size.x * cos_r + size.y * sin_r,
+        size.x * sin_r + size.y * cos_r,
+    )
 }

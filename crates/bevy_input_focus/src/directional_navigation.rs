@@ -307,6 +307,7 @@ impl DirectionalNavigationMap {
         self.neighbors.get(&entity)
     }
 }
+
 /// A system parameter for navigating between focusable entities in a directional way.
 #[derive(SystemParam, Debug)]
 pub struct DirectionalNavigation<'w> {
