@@ -2000,7 +2000,7 @@ where
                         shaders,
                         bindless,
                         base_specialize,
-                        prepass_specialize,
+                        prepass_specialize: Some(prepass_specialize),
                         user_specialize: Some(user_specialize::<M>),
                         material_key,
                         shadows_enabled,

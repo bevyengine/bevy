@@ -55,7 +55,8 @@ use crate::meshlet::{
 use alloc::sync::Arc;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{change_detection::Tick, system::SystemChangeTick};
-use bevy_platform::collections::HashMap;
+use bevy_platform::collections::{HashMap, HashSet};
+use bevy_platform::hash::FixedHasher;
 use bevy_render::{
     erased_render_asset::ErasedRenderAssets,
     sync_world::{MainEntity, MainEntityHashMap},
@@ -854,9 +855,11 @@ pub(crate) fn specialize_prepass_material_meshes(
     state: &mut SystemState<SpecializePrepassSystemParam>,
     mut work_items: Local<Vec<PrepassSpecializationWorkItem>>,
     mut removals: Local<Vec<(RetainedViewEntity, MainEntity)>>,
+    mut all_views: Local<HashSet<RetainedViewEntity, FixedHasher>>,
 ) {
     work_items.clear();
     removals.clear();
+    all_views.clear();
 
     let this_run;
 
@@ -898,6 +901,8 @@ pub(crate) fn specialize_prepass_material_meshes(
             let Some(view_key) = view_key_cache.get(&extracted_view.retained_view_entity) else {
                 continue;
             };
+
+            all_views.insert(extracted_view.retained_view_entity);
 
             let view_tick = view_specialization_ticks
                 .get(&extracted_view.retained_view_entity)
@@ -1050,7 +1055,6 @@ pub(crate) fn specialize_prepass_material_meshes(
         }
     }
 
-    // Process removals
     if !removals.is_empty() {
         let mut cache = world.resource_mut::<SpecializedPrepassMaterialPipelineCache>();
         for (view, entity) in removals.drain(..) {
@@ -1059,6 +1063,10 @@ pub(crate) fn specialize_prepass_material_meshes(
             }
         }
     }
+
+    world
+        .resource_mut::<SpecializedPrepassMaterialPipelineCache>()
+        .retain(|view, _| all_views.contains(view));
 }
 
 pub fn queue_prepass_material_meshes(
