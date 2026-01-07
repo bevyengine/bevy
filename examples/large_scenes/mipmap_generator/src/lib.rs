@@ -388,14 +388,16 @@ pub fn generate_mips_texture(
             let mut new_image_data = Vec::new();
 
             #[cfg(feature = "compress")]
-            if compression_speed.is_some() && compressed_format.is_some()
-                && let Some(cache_path) = &settings.compressed_image_data_cache_path {
-                    input_hash = calculate_hash(image, settings);
-                    if let Some(compressed_image_data) = load_from_cache(input_hash, cache_path) {
-                        new_image_data = compressed_image_data;
-                        loaded_from_cache = true;
-                    }
+            if compression_speed.is_some()
+                && compressed_format.is_some()
+                && let Some(cache_path) = &settings.compressed_image_data_cache_path
+            {
+                input_hash = calculate_hash(image, settings);
+                if let Some(compressed_image_data) = load_from_cache(input_hash, cache_path) {
+                    new_image_data = compressed_image_data;
+                    loaded_from_cache = true;
                 }
+            }
 
             let mip_count = calculate_mip_count(
                 dyn_image.width(),
@@ -409,10 +411,12 @@ pub fn generate_mips_texture(
                 new_image_data = generate_mips(&mut dyn_image, has_alpha, mip_count, settings);
                 #[cfg(feature = "compress")]
                 if let Some(cache_path) = &settings.compressed_image_data_cache_path
-                    && compression_speed.is_some() && compressed_format.is_some() {
-                        *added_cache_size += new_image_data.len();
-                        save_to_cache(input_hash, &new_image_data, cache_path).unwrap();
-                    }
+                    && compression_speed.is_some()
+                    && compressed_format.is_some()
+                {
+                    *added_cache_size += new_image_data.len();
+                    save_to_cache(input_hash, &new_image_data, cache_path).unwrap();
+                }
             }
 
             image.texture_descriptor.mip_level_count = mip_count;
