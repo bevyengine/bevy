@@ -349,87 +349,29 @@ impl<'a> AssetPath<'a> {
         self.clone().into_owned()
     }
 
-    /// Resolves a relative asset path via concatenation. The result will be an `AssetPath` which
-    /// is resolved relative to this "base" path.
+    /// Resolves an already-parsed [`AssetPath`] relative to `self`.
+    ///
+    /// This is the primary, allocation-free API. Use the string-based
+    /// variant [`AssetPath::resolve`] when you need to parse from `&str`.
+    ///
+    /// Semantics (identical to the string-based variant):
+    /// - If `path` is label-only (default source, empty path, label set), replace `self`’s label.
+    /// - If `path` begins with `/`, treat it as rooted at the asset-source root (not the filesystem).
+    /// - If `path` has an explicit source (`name://…`), it replaces the base source.
+    /// - Relative segments are concatenated and normalized (`.`/`..` removal), preserving extra `..` if the base underflows.
     ///
     /// ```
     /// # use bevy_asset::AssetPath;
-    /// assert_eq!(AssetPath::parse("a/b").resolve("c"), Ok(AssetPath::parse("a/b/c")));
-    /// assert_eq!(AssetPath::parse("a/b").resolve("./c"), Ok(AssetPath::parse("a/b/c")));
-    /// assert_eq!(AssetPath::parse("a/b").resolve("../c"), Ok(AssetPath::parse("a/c")));
-    /// assert_eq!(AssetPath::parse("a/b").resolve("c.png"), Ok(AssetPath::parse("a/b/c.png")));
-    /// assert_eq!(AssetPath::parse("a/b").resolve("/c"), Ok(AssetPath::parse("c")));
-    /// assert_eq!(AssetPath::parse("a/b.png").resolve("#c"), Ok(AssetPath::parse("a/b.png#c")));
-    /// assert_eq!(AssetPath::parse("a/b.png#c").resolve("#d"), Ok(AssetPath::parse("a/b.png#d")));
+    /// let base = AssetPath::parse("a/b");
+    /// assert_eq!(base.resolve(&AssetPath::parse("c")), AssetPath::parse("a/b/c"));
+    /// assert_eq!(base.resolve(&AssetPath::parse("./c")), AssetPath::parse("a/b/c"));
+    /// assert_eq!(base.resolve(&AssetPath::parse("../c")), AssetPath::parse("a/c"));
+    /// assert_eq!(base.resolve(&AssetPath::parse("c.png")), AssetPath::parse("a/b/c.png"));
+    /// assert_eq!(base.resolve(&AssetPath::parse("/c")), AssetPath::parse("c"));
+    /// assert_eq!(AssetPath::parse("a/b.png").resolve(&AssetPath::parse("#c")), AssetPath::parse("a/b.png#c"));
+    /// assert_eq!(AssetPath::parse("a/b.png#c").resolve(&AssetPath::parse("#d")), AssetPath::parse("a/b.png#d"));
     /// ```
-    ///
-    /// There are several cases:
-    ///
-    /// If the `path` argument begins with `#`, then it is considered an asset label, in which case
-    /// the result is the base path with the label portion replaced.
-    ///
-    /// If the path argument begins with '/', then it is considered a 'full' path, in which
-    /// case the result is a new `AssetPath` consisting of the base path asset source
-    /// (if there is one) with the path and label portions of the relative path. Note that a 'full'
-    /// asset path is still relative to the asset source root, and not necessarily an absolute
-    /// filesystem path.
-    ///
-    /// If the `path` argument begins with an asset source (ex: `http://`) then the entire base
-    /// path is replaced - the result is the source, path and label (if any) of the `path`
-    /// argument.
-    ///
-    /// Otherwise, the `path` argument is considered a relative path. The result is concatenated
-    /// using the following algorithm:
-    ///
-    /// * The base path and the `path` argument are concatenated.
-    /// * Path elements consisting of "/." or "&lt;name&gt;/.." are removed.
-    ///
-    /// If there are insufficient segments in the base path to match the ".." segments,
-    /// then any left-over ".." segments are left as-is.
-    pub fn resolve(&self, path: &str) -> Result<AssetPath<'static>, ParseAssetPathError> {
-        self.resolve_internal(path, false)
-    }
-
-    /// Resolves an embedded asset path via concatenation. The result will be an `AssetPath` which
-    /// is resolved relative to this path. This is similar in operation to `resolve`, except that
-    /// the 'file' portion of the base path (that is, any characters after the last '/')
-    /// is removed before concatenation, in accordance with the behavior specified in
-    /// IETF RFC 1808 "Relative URIs".
-    ///
-    /// The reason for this behavior is that embedded URIs which start with "./" or "../" are
-    /// relative to the *directory* containing the asset, not the asset file. This is consistent
-    /// with the behavior of URIs in `JavaScript`, CSS, HTML and other web file formats. The
-    /// primary use case for this method is resolving relative paths embedded within asset files,
-    /// which are relative to the asset in which they are contained.
-    ///
-    /// ```
-    /// # use bevy_asset::AssetPath;
-    /// assert_eq!(AssetPath::parse("a/b").resolve_embed("c"), Ok(AssetPath::parse("a/c")));
-    /// assert_eq!(AssetPath::parse("a/b").resolve_embed("./c"), Ok(AssetPath::parse("a/c")));
-    /// assert_eq!(AssetPath::parse("a/b").resolve_embed("../c"), Ok(AssetPath::parse("c")));
-    /// assert_eq!(AssetPath::parse("a/b").resolve_embed("c.png"), Ok(AssetPath::parse("a/c.png")));
-    /// assert_eq!(AssetPath::parse("a/b").resolve_embed("/c"), Ok(AssetPath::parse("c")));
-    /// assert_eq!(AssetPath::parse("a/b.png").resolve_embed("#c"), Ok(AssetPath::parse("a/b.png#c")));
-    /// assert_eq!(AssetPath::parse("a/b.png#c").resolve_embed("#d"), Ok(AssetPath::parse("a/b.png#d")));
-    /// ```
-    pub fn resolve_embed(&self, path: &str) -> Result<AssetPath<'static>, ParseAssetPathError> {
-        self.resolve_internal(path, true)
-    }
-
-    /// Resolves `path` relative to `self`, using the same rules as [`AssetPath::resolve`],
-    /// but without reparsing from a string.
-    ///
-    /// This is equivalent to `self.resolve(&path.to_string())` for all `AssetPath` values.
-    ///
-    /// Notes / edge cases (kept consistent with `resolve`):
-    /// - If `path` formats as `#label` (default source, empty path, label set), this replaces
-    ///   `self`'s label while keeping the base path.
-    /// - If `path` formats as a "full" path like `/foo/bar`, this is treated as rooted at the
-    ///   asset source root (not the filesystem).
-    /// - If `path` includes an explicit source (`name://...`), it replaces the base source.
-    ///
-    /// This method is additive and does not change the behavior of [`AssetPath::resolve`].
-    pub fn resolve_path(&self, path: &AssetPath<'_>) -> AssetPath<'static> {
+    pub fn resolve(&self, path: &AssetPath<'_>) -> AssetPath<'static> {
         // Check if this is a "label-only" case: default source + empty path + label set
         let is_label_only = matches!(path.source(), AssetSourceId::Default)
             && path.path().as_os_str().is_empty()
@@ -455,16 +397,30 @@ impl<'a> AssetPath<'a> {
         }
     }
 
-    /// Resolves an embedded asset path relative to `self`, using the same rules as
-    /// [`AssetPath::resolve_embed`], but without reparsing from a string.
+    /// Resolves an already‑parsed [`AssetPath`] relative to `self` using embedded (RFC 1808) semantics.
     ///
-    /// This is equivalent to `self.resolve_embed(&path.to_string())` for all `AssetPath` values.
+    /// This is the primary, allocation‑free API. Use the string‑based variant
+    /// [`AssetPath::resolve_embed_str`] when you need to parse from `&str`.
     ///
-    /// Embedded resolution differs from [`AssetPath::resolve_path`] in that the "file portion" of
-    /// the base path is removed before concatenation (RFC 1808 behavior).
+    /// Semantics:
+    /// - Remove the “file portion” of the base before concatenation (unless the base ends with `/`).
+    /// - If `path` is label‑only (default source, empty path, label set), replace `self`’s label.
+    /// - If `path` begins with `/`, treat it as rooted at the asset‑source root (not the filesystem).
+    /// - If `path` has an explicit source (`name://…`), it replaces the base source.
+    /// - Relative segments are concatenated and normalized; extra `..` are preserved if the base underflows.
     ///
-    /// This method is additive and does not change the behavior of [`AssetPath::resolve_embed`].
-    pub fn resolve_embed_path(&self, path: &AssetPath<'_>) -> AssetPath<'static> {
+    /// ```
+    /// # use bevy_asset::AssetPath;
+    /// let base = AssetPath::parse("a/b");
+    /// assert_eq!(base.resolve_embed(&AssetPath::parse("c")), AssetPath::parse("a/c"));
+    /// assert_eq!(base.resolve_embed(&AssetPath::parse("./c")), AssetPath::parse("a/c"));
+    /// assert_eq!(base.resolve_embed(&AssetPath::parse("../c")), AssetPath::parse("c"));
+    /// assert_eq!(base.resolve_embed(&AssetPath::parse("c.png")), AssetPath::parse("a/c.png"));
+    /// assert_eq!(base.resolve_embed(&AssetPath::parse("/c")), AssetPath::parse("c"));
+    /// assert_eq!(AssetPath::parse("a/b.png").resolve_embed(&AssetPath::parse("#c")), AssetPath::parse("a/b.png#c"));
+    /// assert_eq!(AssetPath::parse("a/b.png#c").resolve_embed(&AssetPath::parse("#d")), AssetPath::parse("a/b.png#d"));
+    /// ```
+    pub fn resolve_embed(&self, path: &AssetPath<'_>) -> AssetPath<'static> {
         // Check if this is a "label-only" case: default source + empty path + label set
         let is_label_only = matches!(path.source(), AssetSourceId::Default)
             && path.path().as_os_str().is_empty()
@@ -490,6 +446,59 @@ impl<'a> AssetPath<'a> {
         }
     }
 
+    /// Parses `path` as an [`AssetPath`], then resolves it relative to `self`.
+    ///
+    /// Use this when starting from a string. For an allocation‑free variant that
+    /// takes an already‑parsed path, see [`AssetPath::resolve`].
+    ///
+    /// Semantics:
+    /// - If the string is label‑only (`#label`), replace `self`’s label.
+    /// - If it begins with `/`, treat it as rooted at the asset‑source root (not the filesystem).
+    /// - If it specifies a source (`name://…`), that source replaces the base source.
+    /// - Relative segments are concatenated and normalized; extra `..` are preserved if the base underflows.
+    ///
+    /// Returns an error if parsing fails.
+    ///
+    /// ```
+    /// # use bevy_asset::AssetPath;
+    /// assert_eq!(AssetPath::parse("a/b").resolve_str("c"), Ok(AssetPath::parse("a/b/c")));
+    /// assert_eq!(AssetPath::parse("a/b").resolve_str("./c"), Ok(AssetPath::parse("a/b/c")));
+    /// assert_eq!(AssetPath::parse("a/b").resolve_str("../c"), Ok(AssetPath::parse("a/c")));
+    /// assert_eq!(AssetPath::parse("a/b").resolve_str("c.png"), Ok(AssetPath::parse("a/b/c.png")));
+    /// assert_eq!(AssetPath::parse("a/b").resolve_str("/c"), Ok(AssetPath::parse("c")));
+    /// assert_eq!(AssetPath::parse("a/b.png").resolve_str("#c"), Ok(AssetPath::parse("a/b.png#c")));
+    /// assert_eq!(AssetPath::parse("a/b.png#c").resolve_str("#d"), Ok(AssetPath::parse("a/b.png#d")));
+    /// ```
+    pub fn resolve_str(&self, path: &str) -> Result<AssetPath<'static>, ParseAssetPathError> {
+        self.resolve_internal(path, false)
+    }
+
+    /// Parses `path` as an [`AssetPath`], then resolves it relative to `self`
+    /// using embedded (RFC 1808) semantics.
+    ///
+    /// Use this when starting from a string. For an allocation‑free variant that
+    /// takes an already‑parsed path, see [`AssetPath::resolve_embed`].
+    ///
+    /// Embedded semantics:
+    /// - Remove the “file portion” of the base before concatenation (unless the base ends with `/`).
+    /// - Label‑only, leading `/`, explicit source, and normalization rules match [`AssetPath::resolve_str`].
+    ///
+    /// Returns an error if parsing fails.
+    ///
+    /// ```
+    /// # use bevy_asset::AssetPath;
+    /// assert_eq!(AssetPath::parse("a/b").resolve_embed_str("c"), Ok(AssetPath::parse("a/c")));
+    /// assert_eq!(AssetPath::parse("a/b").resolve_embed_str("./c"), Ok(AssetPath::parse("a/c")));
+    /// assert_eq!(AssetPath::parse("a/b").resolve_embed_str("../c"), Ok(AssetPath::parse("c")));
+    /// assert_eq!(AssetPath::parse("a/b").resolve_embed_str("c.png"), Ok(AssetPath::parse("a/c.png")));
+    /// assert_eq!(AssetPath::parse("a/b").resolve_embed_str("/c"), Ok(AssetPath::parse("c")));
+    /// assert_eq!(AssetPath::parse("a/b.png").resolve_embed_str("#c"), Ok(AssetPath::parse("a/b.png#c")));
+    /// assert_eq!(AssetPath::parse("a/b.png#c").resolve_embed_str("#d"), Ok(AssetPath::parse("a/b.png#d")));
+    /// ```
+    pub fn resolve_embed_str(&self, path: &str) -> Result<AssetPath<'static>, ParseAssetPathError> {
+        self.resolve_internal(path, true)
+    }
+
     fn resolve_from_parts(
         &self,
         replace: bool,
@@ -499,7 +508,7 @@ impl<'a> AssetPath<'a> {
     ) -> AssetPath<'static> {
         let mut base_path = PathBuf::from(self.path());
         if replace && !self.path.to_str().unwrap().ends_with('/') {
-            // No error if base is empty
+            // No error if base is empty (per RFC 1808).
             base_path.pop();
         }
 
@@ -841,19 +850,19 @@ mod tests {
         // A "full" path should ignore the base path.
         let base = AssetPath::from("alice/bob#carol");
         assert_eq!(
-            base.resolve("/joe/next").unwrap(),
+            base.resolve_str("/joe/next").unwrap(),
             AssetPath::from("joe/next")
         );
         assert_eq!(
-            base.resolve_embed("/joe/next").unwrap(),
+            base.resolve_embed_str("/joe/next").unwrap(),
             AssetPath::from("joe/next")
         );
         assert_eq!(
-            base.resolve("/joe/next#dave").unwrap(),
+            base.resolve_str("/joe/next#dave").unwrap(),
             AssetPath::from("joe/next#dave")
         );
         assert_eq!(
-            base.resolve_embed("/joe/next#dave").unwrap(),
+            base.resolve_embed_str("/joe/next#dave").unwrap(),
             AssetPath::from("joe/next#dave")
         );
     }
@@ -863,19 +872,19 @@ mod tests {
         // A path with no initial directory separator should be considered relative.
         let base = AssetPath::from("alice/bob#carol");
         assert_eq!(
-            base.resolve("joe/next").unwrap(),
+            base.resolve_str("joe/next").unwrap(),
             AssetPath::from("alice/bob/joe/next")
         );
         assert_eq!(
-            base.resolve_embed("joe/next").unwrap(),
+            base.resolve_embed_str("joe/next").unwrap(),
             AssetPath::from("alice/joe/next")
         );
         assert_eq!(
-            base.resolve("joe/next#dave").unwrap(),
+            base.resolve_str("joe/next#dave").unwrap(),
             AssetPath::from("alice/bob/joe/next#dave")
         );
         assert_eq!(
-            base.resolve_embed("joe/next#dave").unwrap(),
+            base.resolve_embed_str("joe/next#dave").unwrap(),
             AssetPath::from("alice/joe/next#dave")
         );
     }
@@ -885,19 +894,19 @@ mod tests {
         // A path which begins with "./" or "../" is treated as relative
         let base = AssetPath::from("alice/bob#carol");
         assert_eq!(
-            base.resolve("./martin#dave").unwrap(),
+            base.resolve_str("./martin#dave").unwrap(),
             AssetPath::from("alice/bob/martin#dave")
         );
         assert_eq!(
-            base.resolve_embed("./martin#dave").unwrap(),
+            base.resolve_embed_str("./martin#dave").unwrap(),
             AssetPath::from("alice/martin#dave")
         );
         assert_eq!(
-            base.resolve("../martin#dave").unwrap(),
+            base.resolve_str("../martin#dave").unwrap(),
             AssetPath::from("alice/martin#dave")
         );
         assert_eq!(
-            base.resolve_embed("../martin#dave").unwrap(),
+            base.resolve_embed_str("../martin#dave").unwrap(),
             AssetPath::from("martin#dave")
         );
     }
@@ -907,19 +916,19 @@ mod tests {
         // A path which begins with "./" or "../" is treated as relative
         let base = AssetPath::from("alice/bob/");
         assert_eq!(
-            base.resolve("./martin#dave").unwrap(),
+            base.resolve_str("./martin#dave").unwrap(),
             AssetPath::from("alice/bob/martin#dave")
         );
         assert_eq!(
-            base.resolve_embed("./martin#dave").unwrap(),
+            base.resolve_embed_str("./martin#dave").unwrap(),
             AssetPath::from("alice/bob/martin#dave")
         );
         assert_eq!(
-            base.resolve("../martin#dave").unwrap(),
+            base.resolve_str("../martin#dave").unwrap(),
             AssetPath::from("alice/martin#dave")
         );
         assert_eq!(
-            base.resolve_embed("../martin#dave").unwrap(),
+            base.resolve_embed_str("../martin#dave").unwrap(),
             AssetPath::from("alice/martin#dave")
         );
     }
@@ -929,27 +938,27 @@ mod tests {
         // Test that ".." and "." are removed after concatenation.
         let base = AssetPath::from("alice/bob#carol");
         assert_eq!(
-            base.resolve("./martin/stephan/..#dave").unwrap(),
+            base.resolve_str("./martin/stephan/..#dave").unwrap(),
             AssetPath::from("alice/bob/martin#dave")
         );
         assert_eq!(
-            base.resolve_embed("./martin/stephan/..#dave").unwrap(),
+            base.resolve_embed_str("./martin/stephan/..#dave").unwrap(),
             AssetPath::from("alice/martin#dave")
         );
         assert_eq!(
-            base.resolve("../martin/.#dave").unwrap(),
+            base.resolve_str("../martin/.#dave").unwrap(),
             AssetPath::from("alice/martin#dave")
         );
         assert_eq!(
-            base.resolve_embed("../martin/.#dave").unwrap(),
+            base.resolve_embed_str("../martin/.#dave").unwrap(),
             AssetPath::from("martin#dave")
         );
         assert_eq!(
-            base.resolve("/martin/stephan/..#dave").unwrap(),
+            base.resolve_str("/martin/stephan/..#dave").unwrap(),
             AssetPath::from("martin#dave")
         );
         assert_eq!(
-            base.resolve_embed("/martin/stephan/..#dave").unwrap(),
+            base.resolve_embed_str("/martin/stephan/..#dave").unwrap(),
             AssetPath::from("martin#dave")
         );
     }
@@ -959,27 +968,27 @@ mod tests {
         // Test that ".." and "." are removed after concatenation even from the base path.
         let base = AssetPath::from("alice/../bob#carol");
         assert_eq!(
-            base.resolve("./martin/stephan/..#dave").unwrap(),
+            base.resolve_str("./martin/stephan/..#dave").unwrap(),
             AssetPath::from("bob/martin#dave")
         );
         assert_eq!(
-            base.resolve_embed("./martin/stephan/..#dave").unwrap(),
+            base.resolve_embed_str("./martin/stephan/..#dave").unwrap(),
             AssetPath::from("martin#dave")
         );
         assert_eq!(
-            base.resolve("../martin/.#dave").unwrap(),
+            base.resolve_str("../martin/.#dave").unwrap(),
             AssetPath::from("martin#dave")
         );
         assert_eq!(
-            base.resolve_embed("../martin/.#dave").unwrap(),
+            base.resolve_embed_str("../martin/.#dave").unwrap(),
             AssetPath::from("../martin#dave")
         );
         assert_eq!(
-            base.resolve("/martin/stephan/..#dave").unwrap(),
+            base.resolve_str("/martin/stephan/..#dave").unwrap(),
             AssetPath::from("martin#dave")
         );
         assert_eq!(
-            base.resolve_embed("/martin/stephan/..#dave").unwrap(),
+            base.resolve_embed_str("/martin/stephan/..#dave").unwrap(),
             AssetPath::from("martin#dave")
         );
     }
@@ -989,27 +998,27 @@ mod tests {
         // Test that ".." and "." are removed after concatenation.
         let base = AssetPath::from("source://alice/bob#carol");
         assert_eq!(
-            base.resolve("./martin/stephan/..#dave").unwrap(),
+            base.resolve_str("./martin/stephan/..#dave").unwrap(),
             AssetPath::from("source://alice/bob/martin#dave")
         );
         assert_eq!(
-            base.resolve_embed("./martin/stephan/..#dave").unwrap(),
+            base.resolve_embed_str("./martin/stephan/..#dave").unwrap(),
             AssetPath::from("source://alice/martin#dave")
         );
         assert_eq!(
-            base.resolve("../martin/.#dave").unwrap(),
+            base.resolve_str("../martin/.#dave").unwrap(),
             AssetPath::from("source://alice/martin#dave")
         );
         assert_eq!(
-            base.resolve_embed("../martin/.#dave").unwrap(),
+            base.resolve_embed_str("../martin/.#dave").unwrap(),
             AssetPath::from("source://martin#dave")
         );
         assert_eq!(
-            base.resolve("/martin/stephan/..#dave").unwrap(),
+            base.resolve_str("/martin/stephan/..#dave").unwrap(),
             AssetPath::from("source://martin#dave")
         );
         assert_eq!(
-            base.resolve_embed("/martin/stephan/..#dave").unwrap(),
+            base.resolve_embed_str("/martin/stephan/..#dave").unwrap(),
             AssetPath::from("source://martin#dave")
         );
     }
@@ -1019,19 +1028,19 @@ mod tests {
         // Paths beginning with '/' replace the base path
         let base = AssetPath::from("alice/bob#carol");
         assert_eq!(
-            base.resolve("/martin/stephan").unwrap(),
+            base.resolve_str("/martin/stephan").unwrap(),
             AssetPath::from("martin/stephan")
         );
         assert_eq!(
-            base.resolve_embed("/martin/stephan").unwrap(),
+            base.resolve_embed_str("/martin/stephan").unwrap(),
             AssetPath::from("martin/stephan")
         );
         assert_eq!(
-            base.resolve("/martin/stephan#dave").unwrap(),
+            base.resolve_str("/martin/stephan#dave").unwrap(),
             AssetPath::from("martin/stephan/#dave")
         );
         assert_eq!(
-            base.resolve_embed("/martin/stephan#dave").unwrap(),
+            base.resolve_embed_str("/martin/stephan#dave").unwrap(),
             AssetPath::from("martin/stephan/#dave")
         );
     }
@@ -1041,19 +1050,19 @@ mod tests {
         // Paths beginning with 'source://' replace the base path
         let base = AssetPath::from("alice/bob#carol");
         assert_eq!(
-            base.resolve("source://martin/stephan").unwrap(),
+            base.resolve_str("source://martin/stephan").unwrap(),
             AssetPath::from("source://martin/stephan")
         );
         assert_eq!(
-            base.resolve_embed("source://martin/stephan").unwrap(),
+            base.resolve_embed_str("source://martin/stephan").unwrap(),
             AssetPath::from("source://martin/stephan")
         );
         assert_eq!(
-            base.resolve("source://martin/stephan#dave").unwrap(),
+            base.resolve_str("source://martin/stephan#dave").unwrap(),
             AssetPath::from("source://martin/stephan/#dave")
         );
         assert_eq!(
-            base.resolve_embed("source://martin/stephan#dave").unwrap(),
+            base.resolve_embed_str("source://martin/stephan#dave").unwrap(),
             AssetPath::from("source://martin/stephan/#dave")
         );
     }
@@ -1063,11 +1072,11 @@ mod tests {
         // A relative path with only a label should replace the label portion
         let base = AssetPath::from("alice/bob#carol");
         assert_eq!(
-            base.resolve("#dave").unwrap(),
+            base.resolve_str("#dave").unwrap(),
             AssetPath::from("alice/bob#dave")
         );
         assert_eq!(
-            base.resolve_embed("#dave").unwrap(),
+            base.resolve_embed_str("#dave").unwrap(),
             AssetPath::from("alice/bob#dave")
         );
     }
@@ -1077,11 +1086,11 @@ mod tests {
         // Ensure that ".." segments are preserved if there are insufficient elements to remove them.
         let base = AssetPath::from("alice/bob#carol");
         assert_eq!(
-            base.resolve("../../joe/next").unwrap(),
+            base.resolve_str("../../joe/next").unwrap(),
             AssetPath::from("joe/next")
         );
         assert_eq!(
-            base.resolve_embed("../../joe/next").unwrap(),
+            base.resolve_embed_str("../../joe/next").unwrap(),
             AssetPath::from("../joe/next")
         );
     }
@@ -1090,7 +1099,7 @@ mod tests {
     fn resolve_embed_relative_to_external_path() {
         let base = AssetPath::from("../../a/b.gltf");
         assert_eq!(
-            base.resolve_embed("c.bin").unwrap(),
+            base.resolve_embed_str("c.bin").unwrap(),
             AssetPath::from("../../a/c.bin")
         );
     }
@@ -1099,139 +1108,139 @@ mod tests {
     fn resolve_relative_to_external_path() {
         let base = AssetPath::from("../../a/b.gltf");
         assert_eq!(
-            base.resolve("c.bin").unwrap(),
+            base.resolve_str("c.bin").unwrap(),
             AssetPath::from("../../a/b.gltf/c.bin")
         );
     }
 
     #[test]
     fn resolve_path_equivalence() {
-        // Test that resolve_path(&AssetPath) is equivalent to resolve(&str)
+        // Test that resolve(&AssetPath) is equivalent to resolve_str(&str)
         let base = AssetPath::parse("a/b.gltf");
 
         // Simple relative path
         let rel = AssetPath::parse("c.bin");
         assert_eq!(
-            base.resolve_path(&rel),
-            base.resolve(&rel.to_string()).unwrap()
+            base.resolve(&rel),
+            base.resolve_str(&rel.to_string()).unwrap()
         );
 
         // Relative with ./
         let rel = AssetPath::parse("./c.bin");
         assert_eq!(
-            base.resolve_path(&rel),
-            base.resolve(&rel.to_string()).unwrap()
+            base.resolve(&rel),
+            base.resolve_str(&rel.to_string()).unwrap()
         );
 
         // Relative with ../
         let rel = AssetPath::parse("../c.bin");
         assert_eq!(
-            base.resolve_path(&rel),
-            base.resolve(&rel.to_string()).unwrap()
+            base.resolve(&rel),
+            base.resolve_str(&rel.to_string()).unwrap()
         );
 
         // With label
         let rel = AssetPath::parse("c.bin#Mesh");
         assert_eq!(
-            base.resolve_path(&rel),
-            base.resolve(&rel.to_string()).unwrap()
+            base.resolve(&rel),
+            base.resolve_str(&rel.to_string()).unwrap()
         );
 
         // Label-only (special case)
         let rel = AssetPath::parse("#NewLabel");
-        assert_eq!(base.resolve_path(&rel), base.resolve("#NewLabel").unwrap());
+        assert_eq!(base.resolve(&rel), base.resolve_str("#NewLabel").unwrap());
 
         // Full path with leading /
         let rel = AssetPath::parse("/c.bin");
         assert_eq!(
-            base.resolve_path(&rel),
-            base.resolve(&rel.to_string()).unwrap()
+            base.resolve(&rel),
+            base.resolve_str(&rel.to_string()).unwrap()
         );
 
         // Full path with label
         let rel = AssetPath::parse("/c.bin#Mesh");
         assert_eq!(
-            base.resolve_path(&rel),
-            base.resolve(&rel.to_string()).unwrap()
+            base.resolve(&rel),
+            base.resolve_str(&rel.to_string()).unwrap()
         );
 
         // With explicit source
         let rel = AssetPath::parse("remote://c.bin");
         assert_eq!(
-            base.resolve_path(&rel),
-            base.resolve(&rel.to_string()).unwrap()
+            base.resolve(&rel),
+            base.resolve_str(&rel.to_string()).unwrap()
         );
 
         // With explicit source and label
         let rel = AssetPath::parse("remote://c.bin#Mesh");
         assert_eq!(
-            base.resolve_path(&rel),
-            base.resolve(&rel.to_string()).unwrap()
+            base.resolve(&rel),
+            base.resolve_str(&rel.to_string()).unwrap()
         );
     }
 
     #[test]
     fn resolve_embed_path_equivalence() {
-        // Test that resolve_embed_path(&AssetPath) is equivalent to resolve_embed(&str)
+        // Test that resolve_embed(&AssetPath) is equivalent to resolve_embed_str(&str)
         let base = AssetPath::parse("a/b.gltf");
 
         // Simple relative path
         let rel = AssetPath::parse("c.bin");
         assert_eq!(
-            base.resolve_embed_path(&rel),
-            base.resolve_embed(&rel.to_string()).unwrap()
+            base.resolve_embed(&rel),
+            base.resolve_embed_str(&rel.to_string()).unwrap()
         );
 
         // Relative with ./
         let rel = AssetPath::parse("./c.bin");
         assert_eq!(
-            base.resolve_embed_path(&rel),
-            base.resolve_embed(&rel.to_string()).unwrap()
+            base.resolve_embed(&rel),
+            base.resolve_embed_str(&rel.to_string()).unwrap()
         );
 
         // Relative with ../
         let rel = AssetPath::parse("../c.bin");
         assert_eq!(
-            base.resolve_embed_path(&rel),
-            base.resolve_embed(&rel.to_string()).unwrap()
+            base.resolve_embed(&rel),
+            base.resolve_embed_str(&rel.to_string()).unwrap()
         );
 
         // With label
         let rel = AssetPath::parse("c.bin#Mesh");
         assert_eq!(
-            base.resolve_embed_path(&rel),
-            base.resolve_embed(&rel.to_string()).unwrap()
+            base.resolve_embed(&rel),
+            base.resolve_embed_str(&rel.to_string()).unwrap()
         );
 
         // Label-only (special case)
         let rel = AssetPath::parse("#NewLabel");
         assert_eq!(
-            base.resolve_embed_path(&rel),
-            base.resolve_embed("#NewLabel").unwrap()
+            base.resolve_embed(&rel),
+            base.resolve_embed_str("#NewLabel").unwrap()
         );
 
         // Full path with leading /
         let rel = AssetPath::parse("/c.bin");
         assert_eq!(
-            base.resolve_embed_path(&rel),
-            base.resolve_embed(&rel.to_string()).unwrap()
+            base.resolve_embed(&rel),
+            base.resolve_embed_str(&rel.to_string()).unwrap()
         );
 
         // With explicit source
         let rel = AssetPath::parse("remote://c.bin");
         assert_eq!(
-            base.resolve_embed_path(&rel),
-            base.resolve_embed(&rel.to_string()).unwrap()
+            base.resolve_embed(&rel),
+            base.resolve_embed_str(&rel.to_string()).unwrap()
         );
 
         // Test the RFC 1808 "file portion removal" behavior
         let base = AssetPath::parse("a/b");
         let rel = AssetPath::parse("c");
         // resolve_embed removes "b" before concatenating
-        assert_eq!(base.resolve_embed_path(&rel), AssetPath::parse("a/c"));
+        assert_eq!(base.resolve_embed(&rel), AssetPath::parse("a/c"));
 
         // Verify different from resolve
-        assert_ne!(base.resolve_path(&rel), base.resolve_embed_path(&rel));
+        assert_ne!(base.resolve(&rel), base.resolve_embed(&rel));
     }
 
     #[test]
