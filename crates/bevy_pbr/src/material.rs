@@ -1192,7 +1192,8 @@ pub(crate) fn specialize_material_meshes(
                     continue;
                 };
 
-                let mut mesh_pipeline_key_bits = material.properties.mesh_pipeline_key_bits;
+                let mut mesh_pipeline_key_bits: MeshPipelineKey =
+                    material.properties.mesh_pipeline_key_bits.downcast();
                 mesh_pipeline_key_bits.insert(alpha_mode_pipeline_key(
                     material.properties.alpha_mode,
                     &Msaa::from_samples(view_key.msaa_samples()),
@@ -1635,7 +1636,7 @@ pub struct MaterialProperties {
     ///
     /// These are precalculated so that we can just "or" them together in
     /// [`queue_material_meshes`].
-    pub mesh_pipeline_key_bits: MeshPipelineKey,
+    pub mesh_pipeline_key_bits: ErasedMeshPipelineKey,
     /// Add a bias to the view depth of the mesh which can be used to force a specific render order
     /// for meshes with equal depth, to avoid z-fighting.
     /// The bias is in depth-texture units so large values may be needed to overcome small depth differences.
@@ -1829,6 +1830,8 @@ where
 
         let reads_view_transmission_texture =
             mesh_pipeline_key_bits.contains(MeshPipelineKey::READS_VIEW_TRANSMISSION_TEXTURE);
+
+        let mesh_pipeline_key_bits = ErasedMeshPipelineKey::new(mesh_pipeline_key_bits);
 
         let render_phase_type = match material.alpha_mode() {
             AlphaMode::Blend | AlphaMode::Premultiplied | AlphaMode::Add | AlphaMode::Multiply => {
