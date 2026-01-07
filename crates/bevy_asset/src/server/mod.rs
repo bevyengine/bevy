@@ -1522,11 +1522,7 @@ impl AssetServer {
             let meta = loader.default_meta();
             (meta, loader)
         };
-        let required_features =
-            loader.reader_required_features(meta.loader_settings().expect("meta specifies load"));
-        let reader = asset_reader
-            .read(asset_path.path(), required_features)
-            .await?;
+        let reader = asset_reader.read(asset_path.path()).await?;
         Ok((meta, loader, reader))
     }
 
@@ -1713,7 +1709,6 @@ impl AssetServer {
         let reader = source.reader();
         match reader.read_meta_bytes(path.path()).await {
             Ok(_) => return Err(WriteDefaultMetaError::MetaAlreadyExists),
-            Err(AssetReaderError::UnsupportedFeature(feature)) => panic!("reading the meta file never requests a feature, but the following feature is unsupported: {feature}"),
             Err(AssetReaderError::NotFound(_)) => {
                 // The meta file couldn't be found so just fall through.
             }
