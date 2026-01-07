@@ -761,7 +761,13 @@ fn apply_pbr_lighting(
 #endif // PREPASS_FRAGMENT
 
 #ifdef DISTANCE_FOG
-fn apply_fog(fog_params: mesh_view_types::Fog, input_color: vec4<f32>, fragment_world_position: vec3<f32>, view_world_position: vec3<f32>) -> vec4<f32> {
+fn apply_fog(
+    fog_params: mesh_view_types::Fog,
+    input_color: vec4<f32>,
+    fragment_world_position: vec3<f32>,
+    view_world_position: vec3<f32>,
+    frag_coord: vec2<f32>,
+) -> vec4<f32> {
     let view_to_world = fragment_world_position.xyz - view_world_position.xyz;
 
     // `length()` is used here instead of just `view_to_world.z` since that produces more
@@ -795,7 +801,7 @@ fn apply_fog(fog_params: mesh_view_types::Fog, input_color: vec4<f32>, fragment_
             // Sample shadow map to attenuate inscattering in shadowed areas
             var shadow: f32 = 1.0;
             if ((light.flags & mesh_view_types::DIRECTIONAL_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
-                shadow = shadows::fetch_directional_shadow(i, fragment_world_position_vec4, view_direction_normal, view_z, in.frag_coord.xy);
+                shadow = shadows::fetch_directional_shadow(i, fragment_world_position_vec4, view_direction_normal, view_z, frag_coord);
             }
             scattering += scattering_contribution * shadow;
         }
@@ -878,7 +884,13 @@ fn main_pass_post_lighting_processing(
 #ifdef DISTANCE_FOG
     // fog
     if ((pbr_input.material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_FOG_ENABLED_BIT) != 0u) {
-        output_color = apply_fog(view_bindings::fog, output_color, pbr_input.world_position.xyz, view_bindings::view.world_position.xyz);
+        output_color = apply_fog(
+            view_bindings::fog,
+            output_color,
+            pbr_input.world_position.xyz,
+            view_bindings::view.world_position.xyz,
+            pbr_input.frag_coord.xy,
+        );
     }
 #endif  // DISTANCE_FOG
 
