@@ -62,6 +62,7 @@ use core::{
     hash::{BuildHasher, Hash, Hasher},
     marker::PhantomData,
 };
+use log::warn;
 use smallvec::SmallVec;
 use tracing::error;
 
