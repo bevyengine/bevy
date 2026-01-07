@@ -1062,7 +1062,8 @@ mod tests {
             AssetPath::from("source://martin/stephan/#dave")
         );
         assert_eq!(
-            base.resolve_embed_str("source://martin/stephan#dave").unwrap(),
+            base.resolve_embed_str("source://martin/stephan#dave")
+                .unwrap(),
             AssetPath::from("source://martin/stephan/#dave")
         );
     }
