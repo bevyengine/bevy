@@ -8,12 +8,12 @@ edition = "2024"
 [dependencies]
 anyhow = "1"
 bevy = { path = "../../../", default-features = false, features = [
-    "bevy_asset",
-    "bevy_scene",
-    "bevy_pbr",
-    "ktx2",
-    "jpeg",
-    "multi_threaded",
+  "bevy_asset",
+  "bevy_scene",
+  "bevy_pbr",
+  "ktx2",
+  "jpeg",
+  "multi_threaded",
 ] }
 image = { version = "0.25.2", default-features = false }
 fast_image_resize = { version = "5.4", features = ["image"] }
