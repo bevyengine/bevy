@@ -1,16 +1,16 @@
 ---
 title: Automatic Directional Navigation
 authors: ["@jbuehler23"]
-pull_requests: [21668]
+pull_requests: [21668, 22340]
 ---
 
-Bevy now supports **automatic directional navigation graph generation** for UI elements! No more tedious manual wiring of navigation connections for your menus and UI screens.
+Bevy now supports **automatic directional navigation** for UI elements! No more tedious manual wiring of navigation connections for your menus and UI screens.
 
 ## What's New?
 
 Previously, creating directional navigation for UI required manually defining every connection between focusable elements using `DirectionalNavigationMap`. For dynamic UIs or complex layouts, this was time-consuming and error-prone.
 
-Now, you can simply add the `AutoDirectionalNavigation` component to your UI entities, and Bevy will automatically compute navigation connections based on spatial positioning. The system intelligently finds the nearest neighbor in each of the 8 compass directions (North, Northeast, East, etc.), considering:
+Now, you can simply add the `AutoDirectionalNavigation` component to your UI entities, and Bevy will automatically compute navigation connections based on spatial positioning. The system parameter intelligently finds the nearest neighbor in each of the 8 compass directions (North, Northeast, East, etc.), considering:
 
 - **Distance**: Closer elements are preferred
 - **Alignment**: Elements that are more directly in line with the navigation direction are favored
@@ -29,7 +29,17 @@ commands.spawn((
 ));
 ```
 
-That's it! The `DirectionalNavigationPlugin` includes a system that automatically maintains the navigation graph as your UI changes.
+To leverage automatic navigation, use the `AutoDirectionalNavigator` system parameter instead of the `DirectionalNavigation` system parameter:
+
+```rust
+fn my_navigation_system(mut auto_directional_navigator: AutoDirectionalNavigator) {
+    // ...
+    auto_directional_navigator.navigate(CompassOctant::East);
+    // ...
+}
+```
+
+That's it! The `DirectionalNavigationPlugin` will set up the resources that `AutoDirectionalNavigator` uses to function.
 
 ### Configuration
 
@@ -68,24 +78,34 @@ This is a non-breaking change. Existing manual navigation setups continue to wor
 
 If you want to convert existing manual navigation to automatic:
 
-**Before:**
-
 ```rust
+// 0.17
 // Manually define all edges
 directional_nav_map.add_looping_edges(&row_entities, CompassOctant::East);
 directional_nav_map.add_edges(&column_entities, CompassOctant::South);
 // ... repeat for all rows and columns
-```
 
-**After:**
+// Use the DirectionalNavigation SystemParam to navigate in your system
+fn my_navigation_system(mut directional_navigation: DirectionalNavigation) {
+    // ...
+    directional_navigation.navigate(CompassOctant::East);
+    // ...
+}
 
-```rust
+// 0.18
 // Just add the component to your UI entities
 commands.spawn((
     Button,
     Node { /* ... */ },
     AutoDirectionalNavigation::default(),
 ));
+
+// Use the AutoDirectionalNavigator SystemParam to navigate in your system
+fn my_navigation_system(mut auto_directional_navigator: AutoDirectionalNavigator) {
+    // ...
+    auto_directional_navigator.navigate(CompassOctant::East);
+    // ...
+}
 ```
 
-Note: The automatic navigation system requires entities to have position and size information (`ComputedNode` and `UiGlobalTransform` for `bevy_ui` entities).
+Note: Automatic navigation requires entities to have position and size information (`ComputedNode` and `UiGlobalTransform` for `bevy_ui` entities).
