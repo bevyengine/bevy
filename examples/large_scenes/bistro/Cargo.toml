@@ -1,0 +1,19 @@
+[package]
+name = "bistro"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+bevy = { path = "../../../", features = ["bevy_camera_controller", "free_camera"] }
+mipmap_generator = { path = "../mipmap_generator" }
+
+argh = "0.1.12"
+
+[features]
+
+default = ["debug_text"]
+debug_text = ["bevy/bevy_ui"]
+pbr_transmission_textures = ["bevy/pbr_transmission_textures"]
+pbr_multi_layer_material_textures = ["bevy/pbr_multi_layer_material_textures"]
+pbr_anisotropy_texture = ["bevy/pbr_anisotropy_texture"]
+pbr_specular_textures = ["bevy/pbr_specular_textures"]
