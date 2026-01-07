@@ -12,8 +12,7 @@
 //! The automatic system finds the nearest neighbor in each compass direction for every node,
 //! completely eliminating the need to manually specify navigation relationships.
 
-use core::time::Duration;
-
+use bevy::ui::UiTransform;
 use bevy::{
     camera::NormalizedRenderTarget,
     input_focus::{
@@ -29,6 +28,7 @@ use bevy::{
     prelude::*,
     ui::auto_directional_navigation::{AutoDirectionalNavigation, AutoDirectionalNavigator},
 };
+use core::time::Duration;
 
 fn main() {
     App::new()
@@ -226,7 +226,7 @@ fn setup_scattered_ui(mut commands: Commands, mut input_focus: ResMut<InputFocus
                     ..default()
                 },
                 // Apply a scale transform to demonstrate that navigation handles transforms
-                Transform::from_scale(Vec3::splat(2.0)),
+                UiTransform::from_scale(Vec2::splat(2.0)),
                 // This is the key: just add this component for automatic navigation!
                 AutoDirectionalNavigation::default(),
                 ResetTimer::default(),
