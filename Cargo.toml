@@ -4730,18 +4730,6 @@ category = "3D Rendering"
 wasm = true
 
 [[example]]
-name = "debug_buffer"
-path = "examples/3d/debug_buffer.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
-
-[package.metadata.example.debug_buffer]
-name = "Debug Buffer"
-description = "Demonstrates the debug buffer visualization system"
-category = "3D Rendering"
-wasm = false
-
-[[example]]
 name = "client"
 path = "examples/remote/client.rs"
 # Causes an ICE on docs.rs
