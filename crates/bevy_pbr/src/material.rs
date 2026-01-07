@@ -446,36 +446,24 @@ pub struct ErasedMeshPipelineKey {
 
 impl ErasedMeshPipelineKey {
     #[inline]
-    #[allow(unsafe_code)]
-    pub fn new<T: Copy + 'static>(key: T) -> Self {
-        assert_eq!(
-            size_of::<T>(),
-            size_of::<u64>(),
-            "ErasedMeshPipelineKey only supports types with size equal to u64"
-        );
-        // SAFETY: T has the same size as u64 and T is Copy.
-        let bits = unsafe { core::mem::transmute_copy::<T, u64>(&key) };
+    pub fn new<T: 'static>(key: T) -> Self
+    where
+        u64: From<T>,
+    {
         Self {
-            bits,
+            bits: key.into(),
             type_id: TypeId::of::<T>(),
         }
     }
 
     #[inline]
-    #[allow(unsafe_code)]
-    pub fn downcast<T: Copy + 'static>(&self) -> T {
+    pub fn downcast<T: 'static + From<u64>>(&self) -> T {
         assert_eq!(
             self.type_id,
             TypeId::of::<T>(),
             "ErasedMeshPipelineKey::downcast called with wrong type"
         );
-        assert_eq!(
-            size_of::<T>(),
-            size_of::<u64>(),
-            "ErasedMeshPipelineKey only supports types with size equal to u64"
-        );
-        // SAFETY: T matches the original type.
-        unsafe { core::mem::transmute_copy::<u64, T>(&self.bits) }
+        self.bits.into()
     }
 }
 

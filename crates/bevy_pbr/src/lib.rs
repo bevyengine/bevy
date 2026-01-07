@@ -1,7 +1,6 @@
 #![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
 #![cfg_attr(docsrs, feature(doc_cfg))]
-// TODO: reenable post https://github.com/bevyengine/bevy/pull/21543
-// #![forbid(unsafe_code)]
+#![forbid(unsafe_code)]
 #![doc(
     html_logo_url = "https://bevy.org/assets/icon.png",
     html_favicon_url = "https://bevy.org/assets/icon.png"
