@@ -766,7 +766,7 @@ fn apply_fog(
     input_color: vec4<f32>,
     fragment_world_position: vec3<f32>,
     view_world_position: vec3<f32>,
-    frag_coord: vec2<f32>,
+    frag_coord_xy: vec2<f32>,
 ) -> vec4<f32> {
     let view_to_world = fragment_world_position.xyz - view_world_position.xyz;
 
