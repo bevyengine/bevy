@@ -53,7 +53,6 @@ use bevy_ecs::{
     prelude::*,
     system::SystemParam,
 };
-
 use bevy_math::{CompassOctant, Vec2};
 use thiserror::Error;
 
