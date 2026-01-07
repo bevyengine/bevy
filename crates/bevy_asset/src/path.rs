@@ -429,7 +429,6 @@ impl<'a> AssetPath<'a> {
     /// - If `path` includes an explicit source (`name://...`), it replaces the base source.
     ///
     /// This method is additive and does not change the behavior of [`AssetPath::resolve`].
-
     pub fn resolve_path(&self, path: &AssetPath<'_>) -> AssetPath<'static> {
         // Check if this is a "label-only" case: default source + empty path + label set
         let is_label_only = matches!(path.source(), AssetSourceId::Default)
@@ -465,7 +464,6 @@ impl<'a> AssetPath<'a> {
     /// the base path is removed before concatenation (RFC 1808 behavior).
     ///
     /// This method is additive and does not change the behavior of [`AssetPath::resolve_embed`].
-
     pub fn resolve_embed_path(&self, path: &AssetPath<'_>) -> AssetPath<'static> {
         // Check if this is a "label-only" case: default source + empty path + label set
         let is_label_only = matches!(path.source(), AssetSourceId::Default)
