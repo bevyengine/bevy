@@ -3,7 +3,7 @@ use futures_lite::Stream;
 
 use crate::io::{
     get_meta_path, AssetReader, AssetReaderError, AssetWriter, AssetWriterError, AsyncSeek,
-    PathStream, Reader, ReaderRequiredFeatures, Writer,
+    ConditionalSendStackFuture, PathStream, Reader, ReaderRequiredFeatures, Writer,
 };
 
 use alloc::{borrow::ToOwned, boxed::Box, vec::Vec};
@@ -44,9 +44,9 @@ impl Reader for FileReader {
     fn read_to_end<'a>(
         &'a mut self,
         buf: &'a mut Vec<u8>,
-    ) -> stackfuture::StackFuture<'a, std::io::Result<usize>, { crate::io::STACK_FUTURE_SIZE }>
+    ) -> ConditionalSendStackFuture<'a, std::io::Result<usize>, { crate::io::STACK_FUTURE_SIZE }>
     {
-        stackfuture::StackFuture::from(async { self.0.read_to_end(buf) })
+        ConditionalSendStackFuture::from(async { self.0.read_to_end(buf) })
     }
 }
 
