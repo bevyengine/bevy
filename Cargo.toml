@@ -252,6 +252,7 @@ common_api = [
   "bevy_anti_alias",
   "bevy_gltf",
   "bevy_pbr",
+  "bevy_render_debug",
   "bevy_post_process",
   "gltf_animation",
 ]
@@ -317,6 +318,9 @@ bevy_gltf = ["bevy_internal/bevy_gltf"]
 
 # Adds PBR rendering
 bevy_pbr = ["bevy_internal/bevy_pbr"]
+
+# Provides debug visualization for the PBR render pipeline
+bevy_render_debug = ["bevy_internal/bevy_render_debug"]
 
 # Provides picking functionality
 bevy_picking = ["bevy_internal/bevy_picking"]
@@ -4724,6 +4728,18 @@ name = "Volumetric fog"
 description = "Demonstrates volumetric fog and lighting"
 category = "3D Rendering"
 wasm = true
+
+[[example]]
+name = "debug_buffer"
+path = "examples/3d/debug_buffer.rs"
+# Causes an ICE on docs.rs
+doc-scrape-examples = false
+
+[package.metadata.example.debug_buffer]
+name = "Debug Buffer"
+description = "Demonstrates the debug buffer visualization system"
+category = "3D Rendering"
+wasm = false
 
 [[example]]
 name = "client"
