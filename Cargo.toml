@@ -915,6 +915,12 @@ path = "examples/2d/sprite.rs"
 # Causes an ICE on docs.rs
 doc-scrape-examples = false
 
+[[example]]
+name = "sprite_material"
+path = "examples/2d/sprite_material.rs"
+# Causes an ICE on docs.rs
+doc-scrape-examples = false
+
 [package.metadata.example.sprite]
 name = "Sprite"
 description = "Renders a sprite"

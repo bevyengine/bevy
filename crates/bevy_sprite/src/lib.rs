@@ -13,6 +13,7 @@ extern crate alloc;
 #[cfg(feature = "bevy_picking")]
 mod picking_backend;
 mod sprite;
+mod sprite_mesh;
 #[cfg(feature = "bevy_text")]
 mod text2d;
 mod texture_slice;
@@ -32,6 +33,7 @@ pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
         sprite::{Sprite, SpriteImageMode},
+        sprite_mesh::SpriteMesh,
         texture_slice::{BorderRect, SliceScaleMode, TextureSlice, TextureSlicer},
         SpriteScalingMode,
     };
@@ -47,6 +49,7 @@ use bevy_mesh::{Mesh, Mesh2d};
 #[cfg(feature = "bevy_picking")]
 pub use picking_backend::*;
 pub use sprite::*;
+pub use sprite_mesh::*;
 #[cfg(feature = "bevy_text")]
 pub use text2d::*;
 pub use texture_slice::*;
