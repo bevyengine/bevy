@@ -62,6 +62,7 @@ use core::{
     hash::{BuildHasher, Hash, Hasher},
     marker::PhantomData,
 };
+use log::warn;
 use smallvec::SmallVec;
 use tracing::error;
 
@@ -488,7 +489,7 @@ impl Default for ErasedMeshPipelineKey {
     fn default() -> Self {
         Self {
             bits: 0,
-            type_id: TypeId::of::<u64>(),
+            type_id: TypeId::of::<()>(),
         }
     }
 }
@@ -1259,12 +1260,10 @@ pub(crate) fn specialize_material_meshes(
             material_key: item.properties.material_key.clone(),
         };
 
-        match (item.properties.base_specialize.unwrap_or(base_specialize))(
-            world,
-            key,
-            &item.layout,
-            &item.properties,
-        ) {
+        let Some(base_specialize) = item.properties.base_specialize else {
+            continue;
+        };
+        match base_specialize(world, key, &item.layout, &item.properties) {
             Ok(pipeline_id) => {
                 world
                     .resource_mut::<SpecializedMaterialPipelineCache>()
