@@ -34,7 +34,7 @@ struct GameState {
 
 fn main() {
     App::new()
-        // .insert_resource(DefaultOpaqueRendererMethod::deferred())
+        .insert_resource(DefaultOpaqueRendererMethod::deferred())
         .insert_resource(ClearColor(Color::BLACK))
         .insert_resource(GameState::default())
         .insert_resource(GlobalAmbientLight::NONE)
@@ -135,9 +135,9 @@ fn atmosphere_controls(
     }
 
     // Animate clouds by updating noise offset
-    // for mut cloud_layer in &mut cloud_layers {
-    //     cloud_layer.noise_offset.x += time.delta_secs() * 1000.0;
-    // }
+    for mut cloud_layer in &mut cloud_layers {
+        cloud_layer.noise_offset.x += time.delta_secs() * 100.0;
+    }
 }
 
 fn setup_camera_fog(mut commands: Commands, earth_atmosphere: Res<EarthlikeAtmosphere>) {
@@ -196,9 +196,9 @@ fn setup_camera_fog(mut commands: Commands, earth_atmosphere: Res<EarthlikeAtmos
             ambient_intensity: 0.0,
             ..default()
         },
-        // Msaa::Off,
-        // Fxaa::default(),
-        // ScreenSpaceReflections::default(),
+        Msaa::Off,
+        Fxaa::default(),
+        ScreenSpaceReflections::default(),
     ));
 }
 
@@ -271,10 +271,10 @@ fn setup_terrain_scene(
     ));
 
     // // spawn the fog volume
-    // commands.spawn((
-    //     FogVolume::default(),
-    //     Transform::from_scale(Vec3::new(10.0, 1.0, 10.0)).with_translation(Vec3::Y * 0.5),
-    // ));
+    commands.spawn((
+        FogVolume::default(),
+        Transform::from_scale(Vec3::new(10.0, 1.0, 10.0)).with_translation(Vec3::Y * 0.5),
+    ));
 
     let sphere_mesh = meshes.add(Mesh::from(Sphere { radius: 1.0 }));
 
@@ -312,12 +312,12 @@ fn setup_terrain_scene(
             .with_rotation(Quat::from_rotation_y(PI / 2.0)),
     ));
 
-    // spawn_water(
-    //     &mut commands,
-    //     &asset_server,
-    //     &mut meshes,
-    //     &mut water_materials,
-    // );
+    spawn_water(
+        &mut commands,
+        &asset_server,
+        &mut meshes,
+        &mut water_materials,
+    );
 }
 
 // Spawns the water plane.

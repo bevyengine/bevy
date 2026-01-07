@@ -1,6 +1,17 @@
 #import bevy_pbr::{
     atmosphere::{
-        functions::{direction_world_to_atmosphere, sample_sky_view_lut, get_view_position},
+        bindings::{
+            atmosphere, settings, view, lights,
+            transmittance_lut, sky_view_lut,
+        },
+        functions::{
+            direction_world_to_atmosphere,
+            sample_sky_view_lut,
+            sample_transmittance_lut,
+            get_view_position,
+            max_atmosphere_distance,
+            raymarch_atmosphere,
+        },
     },
     utils::sample_cube_dir
 }
@@ -30,9 +41,25 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let world_pos = get_view_position();
     let r = length(world_pos);
     let up = normalize(world_pos);
+    let mu = dot(ray_dir_ws, up);
 
     let ray_dir_as = direction_world_to_atmosphere(ray_dir_ws.xyz, up);
-    let inscattering = sample_sky_view_lut(r, ray_dir_as);
+    var transmittance = sample_transmittance_lut(r, mu);
+    var inscattering = sample_sky_view_lut(r, ray_dir_as);
+
+    // Match `render_sky.wgsl` behavior: if raymarch mode is enabled, integrate numerically.
+    // With CLOUDS_ENABLED this also includes volumetric clouds on the view ray.
+    if (settings.rendering_method == 1u) {
+        let t_max = max_atmosphere_distance(r, mu);
+        let max_samples = settings.sky_max_samples;
+        let result = raymarch_atmosphere(world_pos, ray_dir_ws, t_max, max_samples, uv, true);
+        inscattering = result.inscattering;
+        transmittance = result.transmittance;
+    }
+
+    // NOTE: We intentionally do NOT add the analytic sun-disk term here.
+    // `sample_sun_radiance()` uses `fwidth()` for anti-aliasing, which is forbidden in compute stages.
+
     let color = vec4<f32>(inscattering, 1.0);
 
     textureStore(output, vec2<i32>(global_id.xy), i32(slice_index), color);
