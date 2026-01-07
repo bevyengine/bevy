@@ -347,8 +347,8 @@ pub fn proc_scene(
 ) {
     for entity in children.iter_descendants(scene_ready.entity) {
         // Sponza needs flipped normals
-        if let Ok(mat_h) = has_std_mat.get(entity) {
-            if let Some(mat) = materials.get_mut(mat_h) {
+        if let Ok(mat_h) = has_std_mat.get(entity)
+            && let Some(mat) = materials.get_mut(mat_h) {
                 mat.flip_normal_map_y = true;
                 match mat.alpha_mode {
                     AlphaMode::Mask(_) => {
@@ -365,7 +365,6 @@ pub fn proc_scene(
                     _ => (),
                 }
             }
-        }
 
         if args.no_gltf_lights {
             // Has a bunch of lights by default
