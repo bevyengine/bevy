@@ -259,6 +259,7 @@ pub fn setup(
 
 // Go though each unique mesh and randomly generate a material.
 // Each unique so instances are maintained.
+#[allow(clippy::too_many_arguments)]
 pub fn assign_rng_materials(
     scene_ready: On<SceneInstanceReady>,
     mut commands: Commands,
