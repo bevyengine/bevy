@@ -143,6 +143,7 @@ pub trait SeekableReader: Reader + AsyncSeek {}
 
 impl<T: Reader + AsyncSeek> SeekableReader for T {}
 
+/// Error returned by [`Reader::seekable`] when the reader implementation does not support [`AsyncSeek`] behavior.
 #[derive(Error, Debug, Copy, Clone)]
 #[error(
     "The `Reader` returned by the current `AssetReader` does not support `AsyncSeek` behavior."
