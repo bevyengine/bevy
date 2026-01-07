@@ -17,10 +17,7 @@ use core::time::Duration;
 use bevy::{
     camera::NormalizedRenderTarget,
     input_focus::{
-        directional_navigation::{
-            AutoDirectionalNavigation, AutoNavigationConfig, DirectionalNavigation,
-            DirectionalNavigationPlugin,
-        },
+        directional_navigation::{AutoNavigationConfig, DirectionalNavigationPlugin},
         InputDispatchPlugin, InputFocus, InputFocusVisible,
     },
     math::{CompassOctant, Dir2},
@@ -30,6 +27,7 @@ use bevy::{
     },
     platform::collections::HashSet,
     prelude::*,
+    ui::auto_directional_navigation::{AutoDirectionalNavigation, AutoDirectionalNavigator},
 };
 
 fn main() {
@@ -326,7 +324,10 @@ fn process_inputs(
     }
 }
 
-fn navigate(action_state: Res<ActionState>, mut directional_navigation: DirectionalNavigation) {
+fn navigate(
+    action_state: Res<ActionState>,
+    mut auto_directional_navigator: AutoDirectionalNavigator,
+) {
     let net_east_west = action_state
         .pressed_actions
         .contains(&DirectionalNavigationAction::Right) as i8
@@ -347,7 +348,7 @@ fn navigate(action_state: Res<ActionState>, mut directional_navigation: Directio
         .map(CompassOctant::from);
 
     if let Some(direction) = maybe_direction {
-        match directional_navigation.navigate(direction) {
+        match auto_directional_navigator.navigate(direction) {
             Ok(_entity) => {
                 // Successfully navigated
             }
