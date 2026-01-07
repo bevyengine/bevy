@@ -109,7 +109,7 @@ impl MeshBuilder for CylinderMeshBuilder {
         let mut positions = Vec::with_capacity(num_vertices as usize);
         let mut normals = Vec::with_capacity(num_vertices as usize);
         let mut uvs = Vec::with_capacity(num_vertices as usize);
-        let mut indices = Vec::with_capacity(num_indices as usize);
+        let mut indices = Indices::with_capacity(num_indices as usize, num_vertices);
 
         let step_theta = core::f32::consts::TAU / resolution as f32;
         let step_y = 2.0 * self.cylinder.half_height / segments as f32;
@@ -139,7 +139,7 @@ impl MeshBuilder for CylinderMeshBuilder {
             let next_ring = (i + 1) * (resolution + 1);
 
             for j in 0..resolution {
-                indices.extend_from_slice(&[
+                indices.extend([
                     ring + j,
                     next_ring + j,
                     ring + j + 1,
@@ -170,11 +170,7 @@ impl MeshBuilder for CylinderMeshBuilder {
                 }
 
                 for i in 1..(self.resolution - 1) {
-                    indices.extend_from_slice(&[
-                        offset,
-                        offset + i + winding.0,
-                        offset + i + winding.1,
-                    ]);
+                    indices.extend([offset, offset + i + winding.0, offset + i + winding.1]);
                 }
             };
 
@@ -197,7 +193,7 @@ impl MeshBuilder for CylinderMeshBuilder {
             PrimitiveTopology::TriangleList,
             RenderAssetUsages::default(),
         )
-        .with_inserted_indices(Indices::U32(indices))
+        .with_inserted_indices(indices)
         .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
         .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
         .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)

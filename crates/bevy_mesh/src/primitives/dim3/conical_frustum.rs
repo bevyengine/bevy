@@ -80,7 +80,7 @@ impl MeshBuilder for ConicalFrustumMeshBuilder {
         let mut positions = Vec::with_capacity(num_vertices);
         let mut normals = Vec::with_capacity(num_vertices);
         let mut uvs = Vec::with_capacity(num_vertices);
-        let mut indices = Vec::with_capacity(num_indices);
+        let mut indices = Indices::with_capacity(num_indices, num_vertices as u32);
 
         let step_theta = core::f32::consts::TAU / self.resolution as f32;
         let step_y = height / self.segments as f32;
@@ -114,7 +114,7 @@ impl MeshBuilder for ConicalFrustumMeshBuilder {
             let next_ring = (i + 1) * (self.resolution + 1);
 
             for j in 0..self.resolution {
-                indices.extend_from_slice(&[
+                indices.extend([
                     ring + j,
                     next_ring + j,
                     ring + j + 1,
@@ -144,11 +144,7 @@ impl MeshBuilder for ConicalFrustumMeshBuilder {
             }
 
             for i in 1..(self.resolution - 1) {
-                indices.extend_from_slice(&[
-                    offset,
-                    offset + i + winding.0,
-                    offset + i + winding.1,
-                ]);
+                indices.extend([offset, offset + i + winding.0, offset + i + winding.1]);
             }
         };
 
@@ -159,7 +155,7 @@ impl MeshBuilder for ConicalFrustumMeshBuilder {
             PrimitiveTopology::TriangleList,
             RenderAssetUsages::default(),
         )
-        .with_inserted_indices(Indices::U32(indices))
+        .with_inserted_indices(indices)
         .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
         .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
         .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)

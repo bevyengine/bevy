@@ -256,7 +256,7 @@ where
                     });
             let mut positions = Vec::with_capacity(vert_count);
             let mut normals = Vec::with_capacity(vert_count);
-            let mut indices = Vec::with_capacity(index_count);
+            let mut indices = Indices::with_capacity(index_count, vert_count as u32);
             let mut uvs = Vec::with_capacity(vert_count);
 
             // Compute the amount of horizontal space allocated to each segment of the perimeter.
@@ -301,7 +301,7 @@ where
                             // Add the indices for the vertices created above to the mesh.
                             for i in 0..self.segments as u32 {
                                 let base_index = index + 2 * i;
-                                indices.extend_from_slice(&[
+                                indices.extend([
                                     base_index,
                                     base_index + 2,
                                     base_index + 1,
@@ -399,7 +399,7 @@ where
                         for s in 0..segments {
                             for column in 0..(columns - 1) {
                                 let index = base_index + s + column * layers;
-                                indices.extend_from_slice(&[
+                                indices.extend([
                                     index,
                                     index + 1,
                                     index + layers,
@@ -414,7 +414,7 @@ where
             }
 
             Mesh::new(PrimitiveTopology::TriangleList, front_face.asset_usage)
-                .with_inserted_indices(Indices::U32(indices))
+                .with_inserted_indices(indices)
                 .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
                 .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
                 .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)

@@ -19,7 +19,7 @@ impl MeshBuilder for Triangle3dMeshBuilder {
         let normal: Vec3 = normal_vec(&self.triangle);
         let normals = vec![normal; 3];
 
-        let indices = Indices::U32(vec![0, 1, 2]);
+        let indices = Indices::U16(vec![0, 1, 2]);
 
         Mesh::new(
             PrimitiveTopology::TriangleList,
