@@ -349,12 +349,12 @@ impl<'a> AssetPath<'a> {
         self.clone().into_owned()
     }
 
-    /// Resolves an already-parsed [`AssetPath`] relative to `self`.
+    /// Resolves an [`AssetPath`] relative to `self`.
     ///
-    /// This is the primary, allocation-free API. Use the string-based
-    /// variant [`AssetPath::resolve`] when you need to parse from `&str`.
+    /// Use this when you already have an [`AssetPath`]. If you have a string, see
+    /// [`AssetPath::resolve_str`].
     ///
-    /// Semantics (identical to the string-based variant):
+    /// Semantics (also for [`AssetPath::resolve_str`]):
     /// - If `path` is label-only (default source, empty path, label set), replace `self`’s label.
     /// - If `path` begins with `/`, treat it as rooted at the asset-source root (not the filesystem).
     /// - If `path` has an explicit source (`name://…`), it replaces the base source.
@@ -397,17 +397,14 @@ impl<'a> AssetPath<'a> {
         }
     }
 
-    /// Resolves an already‑parsed [`AssetPath`] relative to `self` using embedded (RFC 1808) semantics.
+    /// Resolves an [`AssetPath`] relative to `self` using embedded (RFC 1808) semantics.
     ///
-    /// This is the primary, allocation‑free API. Use the string‑based variant
-    /// [`AssetPath::resolve_embed_str`] when you need to parse from `&str`.
+    /// Use this when you already have an [`AssetPath`]. If you have a string, see
+    /// [`AssetPath::resolve_embed_str`].
     ///
     /// Semantics:
-    /// - Remove the “file portion” of the base before concatenation (unless the base ends with `/`).
-    /// - If `path` is label‑only (default source, empty path, label set), replace `self`’s label.
-    /// - If `path` begins with `/`, treat it as rooted at the asset‑source root (not the filesystem).
-    /// - If `path` has an explicit source (`name://…`), it replaces the base source.
-    /// - Relative segments are concatenated and normalized; extra `..` are preserved if the base underflows.
+    /// - Remove the "file portion" of the base before concatenation (unless the base ends with `/`).
+    /// - Otherwise identical to [`AssetPath::resolve`].
     ///
     /// ```
     /// # use bevy_asset::AssetPath;
@@ -448,53 +445,19 @@ impl<'a> AssetPath<'a> {
 
     /// Parses `path` as an [`AssetPath`], then resolves it relative to `self`.
     ///
-    /// Use this when starting from a string. For an allocation‑free variant that
-    /// takes an already‑parsed path, see [`AssetPath::resolve`].
-    ///
-    /// Semantics:
-    /// - If the string is label‑only (`#label`), replace `self`’s label.
-    /// - If it begins with `/`, treat it as rooted at the asset‑source root (not the filesystem).
-    /// - If it specifies a source (`name://…`), that source replaces the base source.
-    /// - Relative segments are concatenated and normalized; extra `..` are preserved if the base underflows.
+    /// For resolution semantics, see [`AssetPath::resolve`].
     ///
     /// Returns an error if parsing fails.
-    ///
-    /// ```
-    /// # use bevy_asset::AssetPath;
-    /// assert_eq!(AssetPath::parse("a/b").resolve_str("c"), Ok(AssetPath::parse("a/b/c")));
-    /// assert_eq!(AssetPath::parse("a/b").resolve_str("./c"), Ok(AssetPath::parse("a/b/c")));
-    /// assert_eq!(AssetPath::parse("a/b").resolve_str("../c"), Ok(AssetPath::parse("a/c")));
-    /// assert_eq!(AssetPath::parse("a/b").resolve_str("c.png"), Ok(AssetPath::parse("a/b/c.png")));
-    /// assert_eq!(AssetPath::parse("a/b").resolve_str("/c"), Ok(AssetPath::parse("c")));
-    /// assert_eq!(AssetPath::parse("a/b.png").resolve_str("#c"), Ok(AssetPath::parse("a/b.png#c")));
-    /// assert_eq!(AssetPath::parse("a/b.png#c").resolve_str("#d"), Ok(AssetPath::parse("a/b.png#d")));
-    /// ```
     pub fn resolve_str(&self, path: &str) -> Result<AssetPath<'static>, ParseAssetPathError> {
         self.resolve_internal(path, false)
     }
 
-    /// Parses `path` as an [`AssetPath`], then resolves it relative to `self`
-    /// using embedded (RFC 1808) semantics.
+    /// Parses `path` as an [`AssetPath`], then resolves it relative to `self` using embedded
+    /// (RFC 1808) semantics.
     ///
-    /// Use this when starting from a string. For an allocation‑free variant that
-    /// takes an already‑parsed path, see [`AssetPath::resolve_embed`].
-    ///
-    /// Embedded semantics:
-    /// - Remove the “file portion” of the base before concatenation (unless the base ends with `/`).
-    /// - Label‑only, leading `/`, explicit source, and normalization rules match [`AssetPath::resolve_str`].
+    /// For resolution semantics, see [`AssetPath::resolve_embed`].
     ///
     /// Returns an error if parsing fails.
-    ///
-    /// ```
-    /// # use bevy_asset::AssetPath;
-    /// assert_eq!(AssetPath::parse("a/b").resolve_embed_str("c"), Ok(AssetPath::parse("a/c")));
-    /// assert_eq!(AssetPath::parse("a/b").resolve_embed_str("./c"), Ok(AssetPath::parse("a/c")));
-    /// assert_eq!(AssetPath::parse("a/b").resolve_embed_str("../c"), Ok(AssetPath::parse("c")));
-    /// assert_eq!(AssetPath::parse("a/b").resolve_embed_str("c.png"), Ok(AssetPath::parse("a/c.png")));
-    /// assert_eq!(AssetPath::parse("a/b").resolve_embed_str("/c"), Ok(AssetPath::parse("c")));
-    /// assert_eq!(AssetPath::parse("a/b.png").resolve_embed_str("#c"), Ok(AssetPath::parse("a/b.png#c")));
-    /// assert_eq!(AssetPath::parse("a/b.png#c").resolve_embed_str("#d"), Ok(AssetPath::parse("a/b.png#d")));
-    /// ```
     pub fn resolve_embed_str(&self, path: &str) -> Result<AssetPath<'static>, ParseAssetPathError> {
         self.resolve_internal(path, true)
     }
