@@ -801,7 +801,7 @@ fn apply_fog(
             // Sample shadow map to attenuate inscattering in shadowed areas
             var shadow: f32 = 1.0;
             if ((light.flags & mesh_view_types::DIRECTIONAL_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
-                shadow = shadows::fetch_directional_shadow(i, fragment_world_position_vec4, view_direction_normal, view_z, frag_coord);
+                shadow = shadows::fetch_directional_shadow(i, fragment_world_position_vec4, view_direction_normal, view_z, frag_coord_xy);
             }
             scattering += scattering_contribution * shadow;
         }
