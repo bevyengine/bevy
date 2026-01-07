@@ -999,7 +999,7 @@ pub struct EntitySpecializationTicks {
 ///
 /// We need two different types of ticks here for a subtle reason. First, we
 /// need the [`Self::system_tick`], which maps to Bevy's [`SystemChangeTick`],
-/// because that's what we use in [`specialize_material_meshes`] to check
+/// because that's what we use in `specialize_material_meshes` to check
 /// whether pipelines need specialization. But we also need
 /// [`Self::material_instances_tick`], which maps to the
 /// [`RenderMaterialInstances::current_change_tick`]. That's because the latter
