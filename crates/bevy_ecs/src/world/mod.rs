@@ -3824,6 +3824,7 @@ pub trait FromWorld {
 
 impl<T: Default> FromWorld for T {
     /// Creates `Self` using [`default()`](`Default::default`).
+    #[track_caller]
     fn from_world(_world: &mut World) -> Self {
         T::default()
     }

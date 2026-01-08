@@ -1331,6 +1331,7 @@ unsafe impl<T: SystemBuffer> SystemParam for Deferred<'_, T> {
     type State = SyncCell<T>;
     type Item<'w, 's> = Deferred<'s, T>;
 
+    #[track_caller]
     fn init_state(world: &mut World) -> Self::State {
         SyncCell::new(T::from_world(world))
     }
@@ -2166,6 +2167,7 @@ macro_rules! impl_system_param_tuple {
             type Item<'w, 's> = ($($param::Item::<'w, 's>,)*);
 
             #[inline]
+            #[track_caller]
             fn init_state(world: &mut World) -> Self::State {
                 ($($param::init_state(world),)*)
             }
@@ -2211,6 +2213,7 @@ macro_rules! impl_system_param_tuple {
             }
 
             #[inline]
+            #[track_caller]
             unsafe fn get_param<'w, 's>(
                 state: &'s mut Self::State,
                 system_meta: &SystemMeta,
