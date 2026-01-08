@@ -134,8 +134,8 @@ use bevy_ecs::prelude::*;
 #[cfg(feature = "bluenoise_texture")]
 use bevy_image::{CompressedImageFormats, ImageType};
 use bevy_image::{Image, ImageSampler};
+use bevy_material::AlphaMode;
 use bevy_render::{
-    alpha::AlphaMode,
     camera::sort_cameras,
     extract_resource::ExtractResourcePlugin,
     render_graph::RenderGraph,

@@ -11,25 +11,24 @@ use smallvec::SmallVec;
 extern crate alloc;
 
 use crate::{
-    alpha::AlphaMode,
     descriptor::{BindGroupLayoutDescriptor, RenderPipelineDescriptor},
     key::{ErasedMaterialKey, ErasedMaterialPipelineKey, ErasedMeshPipelineKey},
     labels::{
         DrawFunctionId, DrawFunctionLabel, InternedDrawFunctionLabel, InternedShaderLabel,
         ShaderLabel,
     },
-    opaque::OpaqueRendererMethod,
-    phase::RenderPhaseType,
     specialize::{BaseSpecializeFn, PrepassSpecializeFn, SpecializedMeshPipelineError},
 };
 
-pub mod alpha;
+pub use crate::{alpha::AlphaMode, opaque::OpaqueRendererMethod, phase::RenderPhaseType};
+
+mod alpha;
 pub mod bind_group_layout_entries;
 pub mod descriptor;
 pub mod key;
 pub mod labels;
-pub mod opaque;
-pub mod phase;
+mod opaque;
+mod phase;
 pub mod specialize;
 
 /// The material prelude.
