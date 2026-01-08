@@ -354,10 +354,10 @@ impl<'a> AssetPath<'a> {
     /// Use this when you already have an [`AssetPath`]. If you have a string, see
     /// [`AssetPath::resolve_str`].
     ///
-    /// Semantics (also for [`AssetPath::resolve_str`]):
-    /// - If `path` is label-only (default source, empty path, label set), replace `self`’s label.
+    /// Semantics:
+    /// - If `path` is label-only (default source, empty path, label set), replace `self`'s label.
     /// - If `path` begins with `/`, treat it as rooted at the asset-source root (not the filesystem).
-    /// - If `path` has an explicit source (`name://…`), it replaces the base source.
+    /// - If `path` has an explicit source (`name://...`), it replaces the base source.
     /// - Relative segments are concatenated and normalized (`.`/`..` removal), preserving extra `..` if the base underflows.
     ///
     /// ```
@@ -371,29 +371,23 @@ impl<'a> AssetPath<'a> {
     /// assert_eq!(AssetPath::parse("a/b.png").resolve(&AssetPath::parse("#c")), AssetPath::parse("a/b.png#c"));
     /// assert_eq!(AssetPath::parse("a/b.png#c").resolve(&AssetPath::parse("#d")), AssetPath::parse("a/b.png#d"));
     /// ```
+    ///
+    /// See also [`AssetPath::resolve_str`].
     pub fn resolve(&self, path: &AssetPath<'_>) -> AssetPath<'static> {
-        // Check if this is a "label-only" case: default source + empty path + label set
         let is_label_only = matches!(path.source(), AssetSourceId::Default)
             && path.path().as_os_str().is_empty()
             && path.label().is_some();
 
         if is_label_only {
-            // Label-only: replace label on base path
             self.clone_owned()
                 .with_label(path.label().unwrap().to_owned())
         } else {
-            // Determine if the input has an explicit (non-default) source
             let explicit_source = match path.source() {
                 AssetSourceId::Default => None,
                 AssetSourceId::Name(name) => Some(name.as_ref()),
             };
 
-            self.resolve_from_parts(
-                false, // replace=false for resolve (not resolve_embed)
-                explicit_source,
-                path.path(),
-                path.label(),
-            )
+            self.resolve_from_parts(false, explicit_source, path.path(), path.label())
         }
     }
 
@@ -417,37 +411,31 @@ impl<'a> AssetPath<'a> {
     /// assert_eq!(AssetPath::parse("a/b.png").resolve_embed(&AssetPath::parse("#c")), AssetPath::parse("a/b.png#c"));
     /// assert_eq!(AssetPath::parse("a/b.png#c").resolve_embed(&AssetPath::parse("#d")), AssetPath::parse("a/b.png#d"));
     /// ```
+    ///
+    /// See also [`AssetPath::resolve_embed_str`].
     pub fn resolve_embed(&self, path: &AssetPath<'_>) -> AssetPath<'static> {
-        // Check if this is a "label-only" case: default source + empty path + label set
         let is_label_only = matches!(path.source(), AssetSourceId::Default)
             && path.path().as_os_str().is_empty()
             && path.label().is_some();
 
         if is_label_only {
-            // Label-only: replace label on base path
             self.clone_owned()
                 .with_label(path.label().unwrap().to_owned())
         } else {
-            // Determine if the input has an explicit (non-default) source
             let explicit_source = match path.source() {
                 AssetSourceId::Default => None,
                 AssetSourceId::Name(name) => Some(name.as_ref()),
             };
 
-            self.resolve_from_parts(
-                true, // replace=true for resolve_embed
-                explicit_source,
-                path.path(),
-                path.label(),
-            )
+            self.resolve_from_parts(true, explicit_source, path.path(), path.label())
         }
     }
 
     /// Parses `path` as an [`AssetPath`], then resolves it relative to `self`.
     ///
-    /// For resolution semantics, see [`AssetPath::resolve`].
-    ///
     /// Returns an error if parsing fails.
+    ///
+    /// For more details, see [`AssetPath::resolve`].
     pub fn resolve_str(&self, path: &str) -> Result<AssetPath<'static>, ParseAssetPathError> {
         self.resolve_internal(path, false)
     }
@@ -455,9 +443,9 @@ impl<'a> AssetPath<'a> {
     /// Parses `path` as an [`AssetPath`], then resolves it relative to `self` using embedded
     /// (RFC 1808) semantics.
     ///
-    /// For resolution semantics, see [`AssetPath::resolve_embed`].
-    ///
     /// Returns an error if parsing fails.
+    ///
+    /// For more details, see [`AssetPath::resolve_embed`].
     pub fn resolve_embed_str(&self, path: &str) -> Result<AssetPath<'static>, ParseAssetPathError> {
         self.resolve_internal(path, true)
     }
@@ -817,7 +805,15 @@ mod tests {
             AssetPath::from("joe/next")
         );
         assert_eq!(
+            base.resolve(&AssetPath::parse("/joe/next")),
+            AssetPath::from("joe/next")
+        );
+        assert_eq!(
             base.resolve_embed_str("/joe/next").unwrap(),
+            AssetPath::from("joe/next")
+        );
+        assert_eq!(
+            base.resolve_embed(&AssetPath::parse("/joe/next")),
             AssetPath::from("joe/next")
         );
         assert_eq!(
@@ -825,7 +821,15 @@ mod tests {
             AssetPath::from("joe/next#dave")
         );
         assert_eq!(
+            base.resolve(&AssetPath::parse("/joe/next#dave")),
+            AssetPath::from("joe/next#dave")
+        );
+        assert_eq!(
             base.resolve_embed_str("/joe/next#dave").unwrap(),
+            AssetPath::from("joe/next#dave")
+        );
+        assert_eq!(
+            base.resolve_embed(&AssetPath::parse("/joe/next#dave")),
             AssetPath::from("joe/next#dave")
         );
     }
@@ -839,7 +843,15 @@ mod tests {
             AssetPath::from("alice/bob/joe/next")
         );
         assert_eq!(
+            base.resolve(&AssetPath::parse("joe/next")),
+            AssetPath::from("alice/bob/joe/next")
+        );
+        assert_eq!(
             base.resolve_embed_str("joe/next").unwrap(),
+            AssetPath::from("alice/joe/next")
+        );
+        assert_eq!(
+            base.resolve_embed(&AssetPath::parse("joe/next")),
             AssetPath::from("alice/joe/next")
         );
         assert_eq!(
@@ -847,7 +859,15 @@ mod tests {
             AssetPath::from("alice/bob/joe/next#dave")
         );
         assert_eq!(
+            base.resolve(&AssetPath::parse("joe/next#dave")),
+            AssetPath::from("alice/bob/joe/next#dave")
+        );
+        assert_eq!(
             base.resolve_embed_str("joe/next#dave").unwrap(),
+            AssetPath::from("alice/joe/next#dave")
+        );
+        assert_eq!(
+            base.resolve_embed(&AssetPath::parse("joe/next#dave")),
             AssetPath::from("alice/joe/next#dave")
         );
     }
@@ -861,7 +881,15 @@ mod tests {
             AssetPath::from("alice/bob/martin#dave")
         );
         assert_eq!(
+            base.resolve(&AssetPath::parse("./martin#dave")),
+            AssetPath::from("alice/bob/martin#dave")
+        );
+        assert_eq!(
             base.resolve_embed_str("./martin#dave").unwrap(),
+            AssetPath::from("alice/martin#dave")
+        );
+        assert_eq!(
+            base.resolve_embed(&AssetPath::parse("./martin#dave")),
             AssetPath::from("alice/martin#dave")
         );
         assert_eq!(
@@ -869,7 +897,15 @@ mod tests {
             AssetPath::from("alice/martin#dave")
         );
         assert_eq!(
+            base.resolve(&AssetPath::parse("../martin#dave")),
+            AssetPath::from("alice/martin#dave")
+        );
+        assert_eq!(
             base.resolve_embed_str("../martin#dave").unwrap(),
+            AssetPath::from("martin#dave")
+        );
+        assert_eq!(
+            base.resolve_embed(&AssetPath::parse("../martin#dave")),
             AssetPath::from("martin#dave")
         );
     }
@@ -883,7 +919,15 @@ mod tests {
             AssetPath::from("alice/bob/martin#dave")
         );
         assert_eq!(
+            base.resolve(&AssetPath::parse("./martin#dave")),
+            AssetPath::from("alice/bob/martin#dave")
+        );
+        assert_eq!(
             base.resolve_embed_str("./martin#dave").unwrap(),
+            AssetPath::from("alice/bob/martin#dave")
+        );
+        assert_eq!(
+            base.resolve_embed(&AssetPath::parse("./martin#dave")),
             AssetPath::from("alice/bob/martin#dave")
         );
         assert_eq!(
@@ -891,7 +935,15 @@ mod tests {
             AssetPath::from("alice/martin#dave")
         );
         assert_eq!(
+            base.resolve(&AssetPath::parse("../martin#dave")),
+            AssetPath::from("alice/martin#dave")
+        );
+        assert_eq!(
             base.resolve_embed_str("../martin#dave").unwrap(),
+            AssetPath::from("alice/martin#dave")
+        );
+        assert_eq!(
+            base.resolve_embed(&AssetPath::parse("../martin#dave")),
             AssetPath::from("alice/martin#dave")
         );
     }
@@ -905,7 +957,15 @@ mod tests {
             AssetPath::from("alice/bob/martin#dave")
         );
         assert_eq!(
+            base.resolve(&AssetPath::parse("./martin/stephan/..#dave")),
+            AssetPath::from("alice/bob/martin#dave")
+        );
+        assert_eq!(
             base.resolve_embed_str("./martin/stephan/..#dave").unwrap(),
+            AssetPath::from("alice/martin#dave")
+        );
+        assert_eq!(
+            base.resolve_embed(&AssetPath::parse("./martin/stephan/..#dave")),
             AssetPath::from("alice/martin#dave")
         );
         assert_eq!(
@@ -913,7 +973,15 @@ mod tests {
             AssetPath::from("alice/martin#dave")
         );
         assert_eq!(
+            base.resolve(&AssetPath::parse("../martin/.#dave")),
+            AssetPath::from("alice/martin#dave")
+        );
+        assert_eq!(
             base.resolve_embed_str("../martin/.#dave").unwrap(),
+            AssetPath::from("martin#dave")
+        );
+        assert_eq!(
+            base.resolve_embed(&AssetPath::parse("../martin/.#dave")),
             AssetPath::from("martin#dave")
         );
         assert_eq!(
@@ -921,7 +989,15 @@ mod tests {
             AssetPath::from("martin#dave")
         );
         assert_eq!(
+            base.resolve(&AssetPath::parse("/martin/stephan/..#dave")),
+            AssetPath::from("martin#dave")
+        );
+        assert_eq!(
             base.resolve_embed_str("/martin/stephan/..#dave").unwrap(),
+            AssetPath::from("martin#dave")
+        );
+        assert_eq!(
+            base.resolve_embed(&AssetPath::parse("/martin/stephan/..#dave")),
             AssetPath::from("martin#dave")
         );
     }
@@ -935,7 +1011,15 @@ mod tests {
             AssetPath::from("bob/martin#dave")
         );
         assert_eq!(
+            base.resolve(&AssetPath::parse("./martin/stephan/..#dave")),
+            AssetPath::from("bob/martin#dave")
+        );
+        assert_eq!(
             base.resolve_embed_str("./martin/stephan/..#dave").unwrap(),
+            AssetPath::from("martin#dave")
+        );
+        assert_eq!(
+            base.resolve_embed(&AssetPath::parse("./martin/stephan/..#dave")),
             AssetPath::from("martin#dave")
         );
         assert_eq!(
@@ -943,7 +1027,15 @@ mod tests {
             AssetPath::from("martin#dave")
         );
         assert_eq!(
+            base.resolve(&AssetPath::parse("../martin/.#dave")),
+            AssetPath::from("martin#dave")
+        );
+        assert_eq!(
             base.resolve_embed_str("../martin/.#dave").unwrap(),
+            AssetPath::from("../martin#dave")
+        );
+        assert_eq!(
+            base.resolve_embed(&AssetPath::parse("../martin/.#dave")),
             AssetPath::from("../martin#dave")
         );
         assert_eq!(
@@ -951,7 +1043,15 @@ mod tests {
             AssetPath::from("martin#dave")
         );
         assert_eq!(
+            base.resolve(&AssetPath::parse("/martin/stephan/..#dave")),
+            AssetPath::from("martin#dave")
+        );
+        assert_eq!(
             base.resolve_embed_str("/martin/stephan/..#dave").unwrap(),
+            AssetPath::from("martin#dave")
+        );
+        assert_eq!(
+            base.resolve_embed(&AssetPath::parse("/martin/stephan/..#dave")),
             AssetPath::from("martin#dave")
         );
     }
@@ -965,7 +1065,15 @@ mod tests {
             AssetPath::from("source://alice/bob/martin#dave")
         );
         assert_eq!(
+            base.resolve(&AssetPath::parse("./martin/stephan/..#dave")),
+            AssetPath::from("source://alice/bob/martin#dave")
+        );
+        assert_eq!(
             base.resolve_embed_str("./martin/stephan/..#dave").unwrap(),
+            AssetPath::from("source://alice/martin#dave")
+        );
+        assert_eq!(
+            base.resolve_embed(&AssetPath::parse("./martin/stephan/..#dave")),
             AssetPath::from("source://alice/martin#dave")
         );
         assert_eq!(
@@ -973,7 +1081,15 @@ mod tests {
             AssetPath::from("source://alice/martin#dave")
         );
         assert_eq!(
+            base.resolve(&AssetPath::parse("../martin/.#dave")),
+            AssetPath::from("source://alice/martin#dave")
+        );
+        assert_eq!(
             base.resolve_embed_str("../martin/.#dave").unwrap(),
+            AssetPath::from("source://martin#dave")
+        );
+        assert_eq!(
+            base.resolve_embed(&AssetPath::parse("../martin/.#dave")),
             AssetPath::from("source://martin#dave")
         );
         assert_eq!(
@@ -981,7 +1097,15 @@ mod tests {
             AssetPath::from("source://martin#dave")
         );
         assert_eq!(
+            base.resolve(&AssetPath::parse("/martin/stephan/..#dave")),
+            AssetPath::from("source://martin#dave")
+        );
+        assert_eq!(
             base.resolve_embed_str("/martin/stephan/..#dave").unwrap(),
+            AssetPath::from("source://martin#dave")
+        );
+        assert_eq!(
+            base.resolve_embed(&AssetPath::parse("/martin/stephan/..#dave")),
             AssetPath::from("source://martin#dave")
         );
     }
@@ -995,7 +1119,15 @@ mod tests {
             AssetPath::from("martin/stephan")
         );
         assert_eq!(
+            base.resolve(&AssetPath::parse("/martin/stephan")),
+            AssetPath::from("martin/stephan")
+        );
+        assert_eq!(
             base.resolve_embed_str("/martin/stephan").unwrap(),
+            AssetPath::from("martin/stephan")
+        );
+        assert_eq!(
+            base.resolve_embed(&AssetPath::parse("/martin/stephan")),
             AssetPath::from("martin/stephan")
         );
         assert_eq!(
@@ -1003,7 +1135,15 @@ mod tests {
             AssetPath::from("martin/stephan/#dave")
         );
         assert_eq!(
+            base.resolve(&AssetPath::parse("/martin/stephan#dave")),
+            AssetPath::from("martin/stephan/#dave")
+        );
+        assert_eq!(
             base.resolve_embed_str("/martin/stephan#dave").unwrap(),
+            AssetPath::from("martin/stephan/#dave")
+        );
+        assert_eq!(
+            base.resolve_embed(&AssetPath::parse("/martin/stephan#dave")),
             AssetPath::from("martin/stephan/#dave")
         );
     }
@@ -1017,7 +1157,15 @@ mod tests {
             AssetPath::from("source://martin/stephan")
         );
         assert_eq!(
+            base.resolve(&AssetPath::parse("source://martin/stephan")),
+            AssetPath::from("source://martin/stephan")
+        );
+        assert_eq!(
             base.resolve_embed_str("source://martin/stephan").unwrap(),
+            AssetPath::from("source://martin/stephan")
+        );
+        assert_eq!(
+            base.resolve_embed(&AssetPath::parse("source://martin/stephan")),
             AssetPath::from("source://martin/stephan")
         );
         assert_eq!(
@@ -1025,8 +1173,16 @@ mod tests {
             AssetPath::from("source://martin/stephan/#dave")
         );
         assert_eq!(
+            base.resolve(&AssetPath::parse("source://martin/stephan#dave")),
+            AssetPath::from("source://martin/stephan/#dave")
+        );
+        assert_eq!(
             base.resolve_embed_str("source://martin/stephan#dave")
                 .unwrap(),
+            AssetPath::from("source://martin/stephan/#dave")
+        );
+        assert_eq!(
+            base.resolve_embed(&AssetPath::parse("source://martin/stephan#dave")),
             AssetPath::from("source://martin/stephan/#dave")
         );
     }
@@ -1040,7 +1196,15 @@ mod tests {
             AssetPath::from("alice/bob#dave")
         );
         assert_eq!(
+            base.resolve(&AssetPath::parse("#dave")),
+            AssetPath::from("alice/bob#dave")
+        );
+        assert_eq!(
             base.resolve_embed_str("#dave").unwrap(),
+            AssetPath::from("alice/bob#dave")
+        );
+        assert_eq!(
+            base.resolve_embed(&AssetPath::parse("#dave")),
             AssetPath::from("alice/bob#dave")
         );
     }
@@ -1054,7 +1218,15 @@ mod tests {
             AssetPath::from("joe/next")
         );
         assert_eq!(
+            base.resolve(&AssetPath::parse("../../joe/next")),
+            AssetPath::from("joe/next")
+        );
+        assert_eq!(
             base.resolve_embed_str("../../joe/next").unwrap(),
+            AssetPath::from("../joe/next")
+        );
+        assert_eq!(
+            base.resolve_embed(&AssetPath::parse("../../joe/next")),
             AssetPath::from("../joe/next")
         );
     }
@@ -1066,6 +1238,10 @@ mod tests {
             base.resolve_embed_str("c.bin").unwrap(),
             AssetPath::from("../../a/c.bin")
         );
+        assert_eq!(
+            base.resolve_embed(&AssetPath::parse("c.bin")),
+            AssetPath::from("../../a/c.bin")
+        );
     }
 
     #[test]
@@ -1075,136 +1251,10 @@ mod tests {
             base.resolve_str("c.bin").unwrap(),
             AssetPath::from("../../a/b.gltf/c.bin")
         );
-    }
-
-    #[test]
-    fn resolve_path_equivalence() {
-        // Test that resolve(&AssetPath) is equivalent to resolve_str(&str)
-        let base = AssetPath::parse("a/b.gltf");
-
-        // Simple relative path
-        let rel = AssetPath::parse("c.bin");
         assert_eq!(
-            base.resolve(&rel),
-            base.resolve_str(&rel.to_string()).unwrap()
+            base.resolve(&AssetPath::parse("c.bin")),
+            AssetPath::from("../../a/b.gltf/c.bin")
         );
-
-        // Relative with ./
-        let rel = AssetPath::parse("./c.bin");
-        assert_eq!(
-            base.resolve(&rel),
-            base.resolve_str(&rel.to_string()).unwrap()
-        );
-
-        // Relative with ../
-        let rel = AssetPath::parse("../c.bin");
-        assert_eq!(
-            base.resolve(&rel),
-            base.resolve_str(&rel.to_string()).unwrap()
-        );
-
-        // With label
-        let rel = AssetPath::parse("c.bin#Mesh");
-        assert_eq!(
-            base.resolve(&rel),
-            base.resolve_str(&rel.to_string()).unwrap()
-        );
-
-        // Label-only (special case)
-        let rel = AssetPath::parse("#NewLabel");
-        assert_eq!(base.resolve(&rel), base.resolve_str("#NewLabel").unwrap());
-
-        // Full path with leading /
-        let rel = AssetPath::parse("/c.bin");
-        assert_eq!(
-            base.resolve(&rel),
-            base.resolve_str(&rel.to_string()).unwrap()
-        );
-
-        // Full path with label
-        let rel = AssetPath::parse("/c.bin#Mesh");
-        assert_eq!(
-            base.resolve(&rel),
-            base.resolve_str(&rel.to_string()).unwrap()
-        );
-
-        // With explicit source
-        let rel = AssetPath::parse("remote://c.bin");
-        assert_eq!(
-            base.resolve(&rel),
-            base.resolve_str(&rel.to_string()).unwrap()
-        );
-
-        // With explicit source and label
-        let rel = AssetPath::parse("remote://c.bin#Mesh");
-        assert_eq!(
-            base.resolve(&rel),
-            base.resolve_str(&rel.to_string()).unwrap()
-        );
-    }
-
-    #[test]
-    fn resolve_embed_path_equivalence() {
-        // Test that resolve_embed(&AssetPath) is equivalent to resolve_embed_str(&str)
-        let base = AssetPath::parse("a/b.gltf");
-
-        // Simple relative path
-        let rel = AssetPath::parse("c.bin");
-        assert_eq!(
-            base.resolve_embed(&rel),
-            base.resolve_embed_str(&rel.to_string()).unwrap()
-        );
-
-        // Relative with ./
-        let rel = AssetPath::parse("./c.bin");
-        assert_eq!(
-            base.resolve_embed(&rel),
-            base.resolve_embed_str(&rel.to_string()).unwrap()
-        );
-
-        // Relative with ../
-        let rel = AssetPath::parse("../c.bin");
-        assert_eq!(
-            base.resolve_embed(&rel),
-            base.resolve_embed_str(&rel.to_string()).unwrap()
-        );
-
-        // With label
-        let rel = AssetPath::parse("c.bin#Mesh");
-        assert_eq!(
-            base.resolve_embed(&rel),
-            base.resolve_embed_str(&rel.to_string()).unwrap()
-        );
-
-        // Label-only (special case)
-        let rel = AssetPath::parse("#NewLabel");
-        assert_eq!(
-            base.resolve_embed(&rel),
-            base.resolve_embed_str("#NewLabel").unwrap()
-        );
-
-        // Full path with leading /
-        let rel = AssetPath::parse("/c.bin");
-        assert_eq!(
-            base.resolve_embed(&rel),
-            base.resolve_embed_str(&rel.to_string()).unwrap()
-        );
-
-        // With explicit source
-        let rel = AssetPath::parse("remote://c.bin");
-        assert_eq!(
-            base.resolve_embed(&rel),
-            base.resolve_embed_str(&rel.to_string()).unwrap()
-        );
-
-        // Test the RFC 1808 "file portion removal" behavior
-        let base = AssetPath::parse("a/b");
-        let rel = AssetPath::parse("c");
-        // resolve_embed removes "b" before concatenating
-        assert_eq!(base.resolve_embed(&rel), AssetPath::parse("a/c"));
-
-        // Verify different from resolve
-        assert_ne!(base.resolve(&rel), base.resolve_embed(&rel));
     }
 
     #[test]
