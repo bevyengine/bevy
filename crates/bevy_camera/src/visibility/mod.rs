@@ -217,8 +217,8 @@ impl ViewVisibility {
     #[inline]
     fn update(&mut self) {
         // Copy the first bit (current) to the second bit position (previous)
-        // Clear the second bit, then set it based on the first bit
-        self.0 = (self.0 & !2) | ((self.0 & 1) << 1);
+        // and clear the first bit (current).
+        self.0 = (self.0 & 1) << 1;
     }
 }
 
@@ -1054,5 +1054,123 @@ mod test {
         let entity_clone_visibility_class =
             world.entity(entity_clone).get::<VisibilityClass>().unwrap();
         assert_eq!(entity_clone_visibility_class.len(), 1);
+    }
+
+    #[test]
+    fn view_visibility_lifecycle() {
+        let mut app = App::new();
+        app.add_plugins((
+            TaskPoolPlugin::default(),
+            bevy_asset::AssetPlugin::default(),
+            bevy_mesh::MeshPlugin,
+            bevy_transform::TransformPlugin,
+            VisibilityPlugin,
+        ));
+
+        #[derive(Resource, Default)]
+        struct ManualMark(bool);
+        #[derive(Resource, Default)]
+        struct ObservedChanged(bool);
+        app.init_resource::<ManualMark>();
+        app.init_resource::<ObservedChanged>();
+
+        app.add_systems(
+            PostUpdate,
+            (
+                (|mut q: Query<&mut ViewVisibility>, mark: Res<ManualMark>| {
+                    if mark.0 {
+                        for mut v in &mut q {
+                            v.set_visible();
+                        }
+                    }
+                })
+                .in_set(VisibilitySystems::CheckVisibility),
+                (|q: Query<(), Changed<ViewVisibility>>, mut observed: ResMut<ObservedChanged>| {
+                    if !q.is_empty() {
+                        observed.0 = true;
+                    }
+                })
+                .after(VisibilitySystems::MarkNewlyHiddenEntitiesInvisible),
+            ),
+        );
+
+        let entity = app.world_mut().spawn(ViewVisibility::HIDDEN).id();
+
+        // Advance system ticks and clear spawn change
+        app.update();
+        app.world_mut().resource_mut::<ObservedChanged>().0 = false;
+
+        // Frame 1: do nothing
+        app.update();
+        {
+            assert!(
+                !app.world()
+                    .entity(entity)
+                    .get::<ViewVisibility>()
+                    .unwrap()
+                    .get(),
+                "Frame 1: should be hidden"
+            );
+            assert!(
+                !app.world().resource::<ObservedChanged>().0,
+                "Frame 1: should not be changed"
+            );
+        }
+
+        // Frame 2: set entity as visible
+        app.world_mut().resource_mut::<ManualMark>().0 = true;
+        app.update();
+        {
+            assert!(
+                app.world()
+                    .entity(entity)
+                    .get::<ViewVisibility>()
+                    .unwrap()
+                    .get(),
+                "Frame 2: should be visible"
+            );
+            assert!(
+                app.world().resource::<ObservedChanged>().0,
+                "Frame 2: should be changed"
+            );
+        }
+
+        // Frame 3: do nothing
+        app.world_mut().resource_mut::<ManualMark>().0 = false;
+        app.world_mut().resource_mut::<ObservedChanged>().0 = false;
+        app.update();
+        {
+            assert!(
+                !app.world()
+                    .entity(entity)
+                    .get::<ViewVisibility>()
+                    .unwrap()
+                    .get(),
+                "Frame 3: should be hidden"
+            );
+            assert!(
+                app.world().resource::<ObservedChanged>().0,
+                "Frame 3: should be changed"
+            );
+        }
+
+        // Frame 4: do nothing
+        app.world_mut().resource_mut::<ManualMark>().0 = false;
+        app.world_mut().resource_mut::<ObservedChanged>().0 = false;
+        app.update();
+        {
+            assert!(
+                !app.world()
+                    .entity(entity)
+                    .get::<ViewVisibility>()
+                    .unwrap()
+                    .get(),
+                "Frame 4: should be hidden"
+            );
+            assert!(
+                !app.world().resource::<ObservedChanged>().0,
+                "Frame 4: should not be changed"
+            );
+        }
     }
 }
