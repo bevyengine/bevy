@@ -127,6 +127,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let point_light = commands
         .spawn((
             PointLight {
+                intensity: light_consts::lumens::VERY_LARGE_CINEMA_LIGHT * 0.4,
                 shadow_maps_enabled: true,
                 contact_shadows_enabled: true,
                 ..default()
@@ -138,9 +139,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let spot_light = commands
         .spawn((
             SpotLight {
+                intensity: light_consts::lumens::VERY_LARGE_CINEMA_LIGHT * 0.4,
                 shadow_maps_enabled: true,
                 contact_shadows_enabled: true,
-                intensity: light_consts::lumens::VERY_LARGE_CINEMA_LIGHT * 0.25,
                 ..default()
             },
             Visibility::Hidden,
