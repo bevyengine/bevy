@@ -1,0 +1,6 @@
+{
+    "rust-analyzer.cargo.allTargets": false,
+    "rust-analyzer.check.extraArgs": [
+        "--tests"
+    ]
+}

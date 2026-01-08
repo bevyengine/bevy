@@ -65,10 +65,10 @@ fn vertex(vertex: Vertex) -> VertexOutput {
 
 struct SpriteMaterial {
     color: vec4<f32>,
-    uv_transform: mat3x3<f32>,
     flags: u32,
     alpha_cutoff: f32, 
     scale: vec2<f32>,
+    uv_transform: mat3x3<f32>,
 };
 
 const COLOR_MATERIAL_FLAGS_ALPHA_MODE_RESERVED_BITS: u32 = 3221225472u; // (0b11u32 << 30)
@@ -84,10 +84,18 @@ const COLOR_MATERIAL_FLAGS_ALPHA_MODE_BLEND: u32         = 2147483648u; // (2u32
 fn fragment(
     mesh: VertexOutput,
 ) -> @location(0) vec4<f32> {
-    let uv = (material.uv_transform * vec3(mesh.uv, 1.0)).xy;
+    var uv = (material.uv_transform * vec3(mesh.uv, 1.0)).xy;
+
     let sprite_color = textureSample(texture, texture_sampler, uv);
+
+    var output_color = alpha_discard(sprite_color * material.color); 
+
     
-    return alpha_discard(sprite_color * material.color); 
+    #ifdef TONEMAP_IN_SHADER
+        output_color = tonemapping::tone_mapping(output_color, view.color_grading);
+    #endif
+    
+    return output_color;
 }
 
 fn alpha_discard(output_color: vec4<f32>) -> vec4<f32> {

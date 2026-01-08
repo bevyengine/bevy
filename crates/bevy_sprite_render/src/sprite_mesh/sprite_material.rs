@@ -1,17 +1,23 @@
+use std::f32::consts::PI;
+
 use bevy_app::Plugin;
 use bevy_color::{Color, ColorToComponents};
-use bevy_image::Image;
-use bevy_math::{Affine2, Mat3, UVec2, Vec2, Vec4};
+use bevy_image::{Image, TextureAtlas};
+use bevy_math::{vec2, vec3, Affine2, Affine3, Affine3A, Mat3, Rect, Vec2, Vec4};
 
 use bevy_asset::{embedded_asset, embedded_path, Asset, AssetApp, AssetPath, Handle};
 
+use bevy_mesh::MeshVertexBufferLayoutRef;
 use bevy_reflect::Reflect;
 use bevy_render::{
     render_asset::RenderAssets,
-    render_resource::{AsBindGroup, AsBindGroupShaderType, ShaderType},
+    render_resource::{
+        binding_types::sampler, AsBindGroup, AsBindGroupShaderType, BindGroupLayoutDescriptor,
+        RenderPipelineDescriptor, SamplerBindingType, ShaderType, SpecializedMeshPipelineError,
+    },
 };
-use bevy_shader::ShaderRef;
-use bevy_sprite::{prelude::SpriteMesh, SpriteAlphaMode};
+use bevy_shader::{ShaderDefVal, ShaderRef};
+use bevy_sprite::{prelude::SpriteMesh, SpriteAlphaMode, SpriteImageMode};
 
 use crate::{AlphaMode2d, Material2d, Material2dPlugin};
 
@@ -30,13 +36,17 @@ impl Plugin for SpriteMaterialPlugin {
 #[reflect(Debug, Clone)]
 #[uniform(0, SpriteMaterialUniform)]
 pub struct SpriteMaterial {
-    pub color: Color,
-    pub alpha_mode: AlphaMode2d,
-    pub uv_transform: Affine2,
-    pub scale: Vec2,
     #[texture(1)]
     #[sampler(2)]
     pub image: Handle<Image>,
+    pub texture_atlas: Option<TextureAtlas>,
+    pub color: Color,
+    pub flip_x: bool,
+    pub flip_y: bool,
+    pub custom_size: Option<Vec2>,
+    pub rect: Option<Rect>,
+    pub image_mode: SpriteImageMode,
+    pub alpha_mode: AlphaMode2d,
 }
 
 // NOTE: These must match the bit flags in bevy_sprite_render/src/sprite_mesh/sprite_materials.wgsl!
@@ -60,20 +70,24 @@ impl SpriteMaterialFlags {
     const ALPHA_MODE_SHIFT_BITS: u32 = 32 - Self::ALPHA_MODE_MASK_BITS.count_ones();
 }
 
-#[derive(ShaderType)]
+#[derive(ShaderType, Default)]
 pub struct SpriteMaterialUniform {
     pub color: Vec4,
-    pub uv_transform: Mat3,
     pub flags: u32,
     pub alpha_cutoff: f32,
     pub scale: Vec2,
+    pub uv_transform: Mat3,
 }
 
 impl AsBindGroupShaderType<SpriteMaterialUniform> for SpriteMaterial {
     fn as_bind_group_shader_type(
         &self,
-        _images: &RenderAssets<bevy_render::texture::GpuImage>,
+        images: &RenderAssets<bevy_render::texture::GpuImage>,
     ) -> SpriteMaterialUniform {
+        let Some(image) = images.get(self.image.id()) else {
+            return SpriteMaterialUniform::default();
+        };
+
         let mut flags = SpriteMaterialFlags::NONE;
         let mut alpha_cutoff = 0.5;
         match self.alpha_mode {
@@ -85,12 +99,33 @@ impl AsBindGroupShaderType<SpriteMaterialUniform> for SpriteMaterial {
             AlphaMode2d::Blend => flags |= SpriteMaterialFlags::ALPHA_MODE_BLEND,
         };
 
+        let image_size = image.size_2d().as_vec2();
+
+        let mut scale = image_size;
+        let mut affine = Affine2::default();
+
+        if let Some(rect) = self.rect {
+            let ratio = rect.size() / image_size;
+
+            affine *= Affine2::from_scale(ratio);
+            affine *= Affine2::from_translation(vec2(
+                rect.min.x / rect.size().x,
+                rect.min.y / rect.size().y,
+            ));
+
+            scale = rect.size();
+        }
+
+        if let Some(custom_size) = self.custom_size {
+            scale = custom_size;
+        }
+
         SpriteMaterialUniform {
             color: self.color.to_linear().to_vec4(),
-            uv_transform: self.uv_transform.into(),
             flags: flags.bits(),
             alpha_cutoff,
-            scale: self.scale,
+            scale,
+            uv_transform: affine.into(),
         }
     }
 }
@@ -113,11 +148,20 @@ impl Material2d for SpriteMaterial {
     fn alpha_mode(&self) -> AlphaMode2d {
         self.alpha_mode
     }
+
+    fn specialize(
+        descriptor: &mut RenderPipelineDescriptor,
+        layout: &MeshVertexBufferLayoutRef,
+        key: crate::Material2dKey<Self>,
+    ) -> bevy_ecs::error::Result<(), SpecializedMeshPipelineError> {
+        // descriptor.fragment.unwrap().shader_defs.push(ShaderDefVal::);
+        Ok(())
+    }
 }
 
 impl SpriteMaterial {
-    /// Use the [`SpriteMesh`] and the size of the sprite image to build a new material.
-    pub fn from_sprite_mesh(sprite: SpriteMesh, image_size: UVec2) -> Self {
+    /// Use the [`SpriteMesh`] to build a new material.
+    pub fn from_sprite_mesh(sprite: SpriteMesh) -> Self {
         // convert SpriteAlphaMode to AlphaMode2d.
         // (see the comment above SpriteAlphaMode for why these are different)
         let alpha_mode = match sprite.alpha_mode {
@@ -127,11 +171,15 @@ impl SpriteMaterial {
         };
 
         SpriteMaterial {
-            color: sprite.color,
-            alpha_mode,
-            uv_transform: Affine2::default(),
-            scale: image_size.as_vec2(),
             image: sprite.image,
+            texture_atlas: sprite.texture_atlas,
+            color: sprite.color,
+            flip_x: sprite.flip_x,
+            flip_y: sprite.flip_y,
+            custom_size: sprite.custom_size,
+            rect: sprite.rect,
+            image_mode: sprite.image_mode,
+            alpha_mode,
         }
     }
 }

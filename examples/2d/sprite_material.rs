@@ -23,5 +23,23 @@ fn setup(
     commands.spawn(Camera2d);
 
     let texture_handle = asset_server.load("branding/bevy_bird_dark.png");
-    commands.spawn(SpriteMesh::from_image(texture_handle));
+
+    let mut sprite = SpriteMesh::from_image(texture_handle.clone());
+    sprite.alpha_mode = SpriteAlphaMode::Blend;
+
+    sprite.rect = Some(Rect {
+        min: vec2(50.0, 100.0),
+        max: vec2(150.0, 200.0),
+    });
+
+    commands.spawn((sprite, Transform::from_translation(vec3(-100.0, 0.0, 0.0))));
+
+    let mut sprite = Sprite::from_image(texture_handle.clone());
+
+    sprite.rect = Some(Rect {
+        min: vec2(50.0, 100.0),
+        max: vec2(150.0, 200.0),
+    });
+
+    commands.spawn((sprite, Transform::from_translation(vec3(100.0, 0.0, 0.0))));
 }
