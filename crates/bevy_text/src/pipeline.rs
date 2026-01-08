@@ -109,7 +109,7 @@ impl TextPipeline {
                 let family: Family = match &text_font.font {
                     FontSource::Handle(handle) => {
                         let font = fonts.get(handle.id()).ok_or(TextError::NoSuchFont)?;
-                        Family::Name(&font.family_name.as_str())
+                        Family::Name(font.family_name.as_str())
                     }
                     FontSource::Family(family) => Family::Name(family.as_str()),
                 };
