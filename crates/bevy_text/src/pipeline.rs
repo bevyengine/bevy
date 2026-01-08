@@ -1,6 +1,4 @@
-use alloc::sync::Arc;
-
-use bevy_asset::{AssetId, Assets};
+use bevy_asset::Assets;
 use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
@@ -10,7 +8,6 @@ use bevy_ecs::{
 use bevy_image::prelude::*;
 use bevy_log::{once, warn};
 use bevy_math::{Rect, UVec2, Vec2};
-use bevy_platform::collections::HashMap;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use smol_str::SmolStr;
 
@@ -19,7 +16,7 @@ use crate::{
     FontAtlasKey, FontAtlasSet, FontHinting, FontSmoothing, FontSource, Justify, LineBreak,
     LineHeight, PositionedGlyph, TextBounds, TextEntity, TextFont, TextLayout,
 };
-use cosmic_text::{fontdb::ID, Attrs, Buffer, Family, Metrics, Shaping, Wrap};
+use cosmic_text::{Attrs, Buffer, Family, Metrics, Shaping, Wrap};
 
 /// A wrapper resource around a [`cosmic_text::FontSystem`]
 ///
@@ -64,8 +61,6 @@ pub struct FontFaceInfo {
 /// See the [crate-level documentation](crate) for more information.
 #[derive(Default, Resource)]
 pub struct TextPipeline {
-    /// Identifies a font [`ID`] by its [`Font`] [`Asset`](bevy_asset::Asset).
-    pub map_handle_to_font_id: HashMap<AssetId<Font>, (ID, Arc<str>)>,
     /// Buffered vec for collecting spans.
     ///
     /// See [this dark magic](https://users.rust-lang.org/t/how-to-cache-a-vectors-capacity/94478/10).
@@ -94,7 +89,16 @@ impl TextPipeline {
         font_system: &mut CosmicFontSystem,
         hinting: FontHinting,
     ) -> Result<(), TextError> {
+        computed.entities.clear();
         computed.needs_rerender = false;
+
+        if scale_factor <= 0.0 {
+            once!(warn!(
+                "Text scale factor is <= 0.0. No text will be displayed.",
+            ));
+
+            return Err(TextError::DegenerateScaleFactor);
+        }
 
         let font_system = &mut font_system.0;
 
@@ -110,121 +114,96 @@ impl TextPipeline {
                 )
                 .collect();
 
-        computed.entities.clear();
+        let result = {
+            for (span_index, (entity, depth, span, text_font, color, line_height)) in
+                text_spans.enumerate()
+            {
+                // Save this span entity in the computed text block.
+                computed.entities.push(TextEntity { entity, depth });
 
-        for (span_index, (entity, depth, span, text_font, color, line_height)) in
-            text_spans.enumerate()
-        {
-            // Save this span entity in the computed text block.
-            computed.entities.push(TextEntity { entity, depth });
-
-            if span.is_empty() {
-                continue;
-            }
-
-            let family_name: SmolStr = match &text_font.font {
-                FontSource::Handle(handle) => {
-                    if let Some(font) = fonts.get(handle.id()) {
-                        let data = Arc::clone(&font.data);
-                        let ids = font_system
-                            .db_mut()
-                            .load_font_source(cosmic_text::fontdb::Source::Binary(data));
-
-                        // TODO: it is assumed this is the right font face
-                        font_system
-                            .db()
-                            .face(*ids.last().unwrap())
-                            .unwrap()
-                            .families[0]
-                            .0
-                            .as_str()
-                            .into()
-                    } else {
-                        // Return early if a font is not loaded yet.
-                        spans.clear();
-                        self.spans_buffer = spans
-                            .into_iter()
-                            .map(
-                                |_| -> (
-                                    usize,
-                                    &'static str,
-                                    &'static TextFont,
-                                    FontFaceInfo,
-                                    LineHeight,
-                                ) { unreachable!() },
-                            )
-                            .collect();
-                        return Err(TextError::NoSuchFont);
-                    }
+                if span.is_empty() {
+                    continue;
                 }
-                FontSource::Family(family) => family.clone(),
-            };
 
-            let face_info = FontFaceInfo { family_name };
+                let family_name: SmolStr = match &text_font.font {
+                    FontSource::Handle(handle) => {
+                        // Return early if a font is not loaded yet.
+                        fonts
+                            .get(handle.id())
+                            .ok_or(TextError::NoSuchFont)?
+                            .family_name
+                            .clone()
+                    }
+                    FontSource::Family(family) => family.clone(),
+                };
 
-            // Save spans that aren't zero-sized.
-            if scale_factor <= 0.0 || text_font.font_size <= 0.0 {
-                once!(warn!(
-                    "Text span {entity} has a font size <= 0.0. Nothing will be displayed.",
-                ));
+                let face_info = FontFaceInfo { family_name };
 
-                continue;
+                // Save spans that aren't zero-sized.
+                if text_font.font_size <= 0.0 {
+                    once!(warn!(
+                        "Text span {entity} has a font size <= 0.0. Nothing will be displayed.",
+                    ));
+
+                    continue;
+                }
+                spans.push((span_index, span, text_font, face_info, color, line_height));
             }
-            spans.push((span_index, span, text_font, face_info, color, line_height));
-        }
 
-        // Map text sections to cosmic-text spans, and ignore sections with negative or zero fontsizes,
-        // since they cannot be rendered by cosmic-text.
-        //
-        // The section index is stored in the metadata of the spans, and could be used
-        // to look up the section the span came from and is not used internally
-        // in cosmic-text.
-        let spans_iter = spans.iter().map(
-            |(span_index, span, text_font, font_info, color, line_height)| {
-                (
-                    *span,
-                    get_attrs(
-                        *span_index,
-                        text_font,
-                        *line_height,
-                        *color,
-                        font_info,
-                        scale_factor,
-                    ),
-                )
-            },
-        );
+            // Map text sections to cosmic-text spans, and ignore sections with negative or zero fontsizes,
+            // since they cannot be rendered by cosmic-text.
+            //
+            // The section index is stored in the metadata of the spans, and could be used
+            // to look up the section the span came from and is not used internally
+            // in cosmic-text.
+            let spans_iter = spans.iter().map(
+                |(span_index, span, text_font, font_info, color, line_height)| {
+                    (
+                        *span,
+                        get_attrs(
+                            *span_index,
+                            text_font,
+                            *line_height,
+                            *color,
+                            font_info,
+                            scale_factor,
+                        ),
+                    )
+                },
+            );
 
-        // Update the buffer.
-        let buffer = &mut computed.buffer;
+            // Update the buffer.
+            let buffer = &mut computed.buffer;
 
-        // Set the metrics hinting strategy
-        buffer.set_hinting(font_system, hinting.into());
+            // Set the metrics hinting strategy
+            buffer.set_hinting(font_system, hinting.into());
 
-        buffer.set_wrap(
-            font_system,
-            match linebreak {
-                LineBreak::WordBoundary => Wrap::Word,
-                LineBreak::AnyCharacter => Wrap::Glyph,
-                LineBreak::WordOrCharacter => Wrap::WordOrGlyph,
-                LineBreak::NoWrap => Wrap::None,
-            },
-        );
+            buffer.set_wrap(
+                font_system,
+                match linebreak {
+                    LineBreak::WordBoundary => Wrap::Word,
+                    LineBreak::AnyCharacter => Wrap::Glyph,
+                    LineBreak::WordOrCharacter => Wrap::WordOrGlyph,
+                    LineBreak::NoWrap => Wrap::None,
+                },
+            );
 
-        buffer.set_rich_text(
-            font_system,
-            spans_iter,
-            &Attrs::new(),
-            Shaping::Advanced,
-            Some(justify.into()),
-        );
+            buffer.set_rich_text(
+                font_system,
+                spans_iter,
+                &Attrs::new(),
+                Shaping::Advanced,
+                Some(justify.into()),
+            );
 
-        // Workaround for alignment not working for unbounded text.
-        // See https://github.com/pop-os/cosmic-text/issues/343
-        let width = (bounds.width.is_none() && justify != Justify::Left)
-            .then(|| buffer_dimensions(buffer).x)
-            .or(bounds.width);
-        buffer.set_size(font_system, width, bounds.height);
+            // Workaround for alignment not working for unbounded text.
+            // See https://github.com/pop-os/cosmic-text/issues/343
+            let width = (bounds.width.is_none() && justify != Justify::Left)
+                .then(|| buffer_dimensions(buffer).x)
+                .or(bounds.width);
+            buffer.set_size(font_system, width, bounds.height);
+            Ok(())
+        };
 
         // Recover the spans buffer.
         spans.clear();
@@ -241,7 +220,7 @@ impl TextPipeline {
             )
             .collect();
 
-        Ok(())
+        result
     }
 
     /// Queues text for measurement
@@ -291,14 +270,6 @@ impl TextPipeline {
             max: max_width_content_size,
             entity,
         })
-    }
-
-    /// Returns the [`cosmic_text::fontdb::ID`] for a given [`Font`] asset.
-    pub fn get_font_id(&self, asset_id: AssetId<Font>) -> Option<ID> {
-        self.map_handle_to_font_id
-            .get(&asset_id)
-            .cloned()
-            .map(|(id, _)| id)
     }
 
     /// Update [`TextLayoutInfo`] with the new [`PositionedGlyph`] layout.
