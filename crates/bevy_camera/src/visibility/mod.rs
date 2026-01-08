@@ -217,8 +217,8 @@ impl ViewVisibility {
     #[inline]
     fn update(&mut self) {
         // Copy the first bit (current) to the second bit position (previous)
-        // Clear the second bit, then set it based on the first bit
-        self.0 = (self.0 & !2) | ((self.0 & 1) << 1);
+        // and clear the first bit (current).
+        self.0 = (self.0 & 1) << 1;
     }
 }
 
@@ -1054,5 +1054,49 @@ mod test {
         let entity_clone_visibility_class =
             world.entity(entity_clone).get::<VisibilityClass>().unwrap();
         assert_eq!(entity_clone_visibility_class.len(), 1);
+    }
+
+    #[test]
+    fn view_visibility_lifecycle() {
+        let mut app = App::new();
+        app.add_systems(
+            PostUpdate,
+            (reset_view_visibility, mark_newly_hidden_entities_invisible).chain(),
+        );
+
+        let entity = app.world_mut().spawn(ViewVisibility::HIDDEN).id();
+
+        // Frame 0: Not visible
+        app.update();
+        assert!(!app
+            .world()
+            .entity(entity)
+            .get::<ViewVisibility>()
+            .unwrap()
+            .get());
+
+        // Frame 1: Mark as visible
+        app.world_mut()
+            .entity_mut(entity)
+            .get_mut::<ViewVisibility>()
+            .unwrap()
+            .set_visible();
+        assert!(app
+            .world()
+            .entity(entity)
+            .get::<ViewVisibility>()
+            .unwrap()
+            .get());
+
+        // Frame 2: Should become hidden if not marked visible this frame
+        app.update();
+        assert!(
+            !app.world()
+                .entity(entity)
+                .get::<ViewVisibility>()
+                .unwrap()
+                .get(),
+            "Entity should become hidden if not marked visible this frame"
+        );
     }
 }
