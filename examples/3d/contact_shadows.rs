@@ -72,7 +72,7 @@ fn main() {
                 }),
                 ..default()
             }),
-            MeshPickingPlugin::default(),
+            MeshPickingPlugin,
         ))
         .init_resource::<AppStatus>()
         .insert_resource(GlobalAmbientLight::NONE)
