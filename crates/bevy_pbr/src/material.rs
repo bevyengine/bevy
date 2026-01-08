@@ -29,7 +29,6 @@ use bevy_ecs::{
 use bevy_material::{
     key::{ErasedMaterialKey, ErasedMaterialPipelineKey, ErasedMeshPipelineKey},
     labels::{DrawFunctionLabel, InternedShaderLabel, ShaderLabel},
-    prelude::*,
     MaterialProperties, OpaqueRendererMethod, RenderPhaseType,
 };
 use bevy_mesh::{
