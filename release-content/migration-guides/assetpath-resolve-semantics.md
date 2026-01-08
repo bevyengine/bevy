@@ -19,32 +19,6 @@ This change avoids unnecessary string allocation and parsing when an `AssetPath`
 
 ## How do I migrate?
 
-### If you already have an `AssetPath`
-
-```rust
-let base = AssetPath::parse("a/b.gltf");
-let rel = AssetPath::parse("c.bin");
-let resolved = base.resolve(&rel.to_string()).unwrap();
-```
-
-```rust
-let base = AssetPath::parse("a/b.gltf");
-let rel = AssetPath::parse("c.bin");
-let resolved = base.resolve(&rel);
-```
-
-### If you need to resolve from a string
-
-```rust
-let base = AssetPath::parse("a/b.gltf");
-let rel = AssetPath::parse("c.bin");
-let resolved = base.resolve(&rel.to_string()).unwrap();
-```
-
-```rust
-let base = AssetPath::parse("a/b.gltf");
-let rel = AssetPath::parse("c.bin");
-let resolved = base.resolve_str(&rel.to_string()).unwrap();
-```
+If you already have an `AssetPath`, pass it directly to `resolve` or `resolve_embed` instead of converting it to a string. When starting from a string, use the new `resolve_str` or `resolve_embed_str` methods instead.
 
 The same change applies to `resolve_embed`, which now takes `&AssetPath`. Its string-based variant is `resolve_embed_str`. Semantics are unchanged.
