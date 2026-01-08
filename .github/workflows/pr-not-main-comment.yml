@@ -1,43 +1,29 @@
 name: PR Not Targeting Main - PR Comment
 
-permissions:
-  contents: "read"
+# This workflow has write permissions on the repo
+# It must not checkout a PR and run untrusted code
 
 on:
-  pull_request:
+  pull_request_target:
     types:
       - opened
     branches-ignore:
       - main
 
 jobs:
-  comment-on-pr:
+  not-targeting-main-comment-on-pr:
+    runs-on: ubuntu-latest
     permissions:
       pull-requests: "write"
-    name: Comment on PR
-    runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+      - uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         with:
-          persist-credentials: false
-      - name: "Check if last comment is already from actions"
-        id: check-last-comment
-        env:
-          PR: ${{ github.event.number }}
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          if [[ `gh api --jq '.[-1].user.login' /repos/bevyengine/bevy/issues/$PR/comments` == 'github-actions[bot' ]]
-          then
-            echo "result=true" >> $GITHUB_OUTPUT
-          else
-            echo "result=false" >> $GITHUB_OUTPUT
-          fi
-      - name: "Comment on PR"
-        if: ${{ steps.check-last-comment.outputs.result == 'false' }}
-        env:
-          PR: ${{ github.event.number }}
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          LF=$'\n'
-          COMMENT_BODY="This PR does not target the `main` branch. If this was a mistake, you can edit your pull request and set the `base` branch to `main`."
-          gh issue comment $PR --body "$COMMENT_BODY"
+          script: |
+            await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `Your pull request does not target the 'main' branch. 
+              
+              If this was a mistake, you can edit your pull request and set the 'base' branch to 'main'.`
+            })
