@@ -1,11 +1,10 @@
 //! Demonstrates contact shadows, also known as screen-space shadows.
 
-use bevy::{
-    core_pipeline::prepass::DepthPrepass, ecs::message::MessageReader, pbr::ContactShadows,
-    prelude::*,
-};
-
 use crate::widgets::{RadioButton, RadioButtonText, WidgetClickEvent, WidgetClickSender};
+use bevy::core_pipeline::Skybox;
+use bevy::post_process::bloom::Bloom;
+use bevy::{ecs::message::MessageReader, pbr::ContactShadows, prelude::*};
+use bevy_render::view::Hdr;
 
 #[path = "../helpers/widgets.rs"]
 mod widgets;
@@ -88,9 +87,25 @@ fn main() {
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn((
         Camera3d::default(),
-        Transform::from_xyz(0.6, 0.6, 0.6).looking_at(Vec3::new(0.0, 0.4, 0.0), Vec3::Y),
+        Transform::from_xyz(0.45, 0.6, 0.45).looking_at(Vec3::new(0.0, 0.5, 0.0), Vec3::Y),
         ContactShadows::default(),
-        DepthPrepass,
+        Bloom::default(),
+        Hdr::default(),
+        Skybox {
+            brightness: 500.0,
+            image: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
+            ..default()
+        },
+        EnvironmentMapLight {
+            diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
+            specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
+            intensity: 300.0,
+            ..default()
+        },
+        AmbientLight {
+            brightness: 0.0,
+            ..default()
+        },
     ));
 
     let directional_light = commands
@@ -99,7 +114,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 shadows_enabled: true,
                 ..default()
             },
-            Transform::from_xyz(1.0, 1.0, 1.0).looking_at(Vec3::ZERO, Vec3::Y),
+            Visibility::Visible,
         ))
         .id();
 
@@ -107,9 +122,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         .spawn((
             PointLight {
                 shadows_enabled: true,
+                intensity: light_consts::lumens::VERY_LARGE_CINEMA_LIGHT * 0.25,
                 ..default()
             },
-            Transform::from_xyz(1.0, 1.0, 1.0),
+            Visibility::Hidden,
         ))
         .id();
 
@@ -117,15 +133,16 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         .spawn((
             SpotLight {
                 shadows_enabled: true,
+                intensity: light_consts::lumens::VERY_LARGE_CINEMA_LIGHT * 0.25,
                 ..default()
             },
-            Transform::from_xyz(1.0, 1.0, 1.0).looking_at(Vec3::ZERO, Vec3::Y),
+            Visibility::Hidden,
         ))
         .id();
 
     commands
         .spawn((
-            Transform::from_xyz(5.0, 10.0, 0.0).looking_at(Vec3::ZERO, Vec3::Y),
+            Transform::from_xyz(-0.8, 2.0, 1.2).looking_at(Vec3::ZERO, Vec3::Y),
             Visibility::default(),
             LightContainer,
         ))
@@ -149,7 +166,7 @@ fn rotate_light(
     }
 
     for mut transform in lights.iter_mut() {
-        transform.rotate_y(LIGHT_ROTATION_SPEED);
+        transform.rotate_around(Vec3::ZERO, Quat::from_rotation_y(LIGHT_ROTATION_SPEED));
     }
 }
 
