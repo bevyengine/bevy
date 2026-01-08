@@ -33,10 +33,7 @@ fn fragment(@builtin(position) frag_coord: vec4<f32>) -> @location(0) vec4<f32> 
 #ifdef DEBUG_DEPTH
     #ifdef DEPTH_PREPASS
         let depth = textureLoad(depth_prepass_texture, vec2<i32>(frag_coord.xy), 0);
-        // Linearize depth for visualization
-        let linearized_depth = -depth_ndc_to_view_z(depth);
-        // Use a reasonable range for visualization, e.g. 0 to 20 units
-        output_color = vec4(vec3(linearized_depth / 20.0), 1.0);
+        output_color = vec4(vec3(depth), 1.0);
     #else
         output_color = vec4(1.0, 0.0, 1.0, 1.0);
     #endif
@@ -70,44 +67,44 @@ fn fragment(@builtin(position) frag_coord: vec4<f32>) -> @location(0) vec4<f32> 
 #endif
 
 #ifdef DEBUG_DEFERRED
-#ifdef DEFERRED_PREPASS
-    let deferred = textureLoad(deferred_prepass_texture, vec2<i32>(frag_coord.xy), 0);
-    output_color = vec4(vec3(f32(deferred.x) / 255.0, f32(deferred.y) / 255.0, f32(deferred.z) / 255.0), 1.0);
-#else
-    output_color = vec4(1.0, 0.0, 1.0, 1.0);
-#endif
+    #ifdef DEFERRED_PREPASS
+        let deferred = textureLoad(deferred_prepass_texture, vec2<i32>(frag_coord.xy), 0);
+        output_color = vec4(vec3(f32(deferred.x) / 255.0, f32(deferred.y) / 255.0, f32(deferred.z) / 255.0), 1.0);
+    #else
+        output_color = vec4(1.0, 0.0, 1.0, 1.0);
+    #endif
 #endif
 
 #ifdef DEBUG_DEFERRED_BASE_COLOR
-#ifdef DEFERRED_PREPASS
-    let deferred = textureLoad(deferred_prepass_texture, vec2<i32>(frag_coord.xy), 0);
-    let base_rough = unpack_unorm4x8_(deferred.x);
-    output_color = vec4(pow(base_rough.rgb, vec3(2.2)), 1.0);
-#else
-    output_color = vec4(1.0, 0.0, 1.0, 1.0);
-#endif
+    #ifdef DEFERRED_PREPASS
+        let deferred = textureLoad(deferred_prepass_texture, vec2<i32>(frag_coord.xy), 0);
+        let base_rough = unpack_unorm4x8_(deferred.x);
+        output_color = vec4(pow(base_rough.rgb, vec3(2.2)), 1.0);
+    #else
+        output_color = vec4(1.0, 0.0, 1.0, 1.0);
+    #endif
 #endif
 
 #ifdef DEBUG_DEFERRED_EMISSIVE
-#ifdef DEFERRED_PREPASS
-    let deferred = textureLoad(deferred_prepass_texture, vec2<i32>(frag_coord.xy), 0);
-    let emissive = rgb9e5_to_vec3_(deferred.y);
-    output_color = vec4(emissive, 1.0);
-#else
-    output_color = vec4(1.0, 0.0, 1.0, 1.0);
-#endif
+    #ifdef DEFERRED_PREPASS
+        let deferred = textureLoad(deferred_prepass_texture, vec2<i32>(frag_coord.xy), 0);
+        let emissive = rgb9e5_to_vec3_(deferred.y);
+        output_color = vec4(emissive, 1.0);
+    #else
+        output_color = vec4(1.0, 0.0, 1.0, 1.0);
+    #endif
 #endif
 
 #ifdef DEBUG_DEFERRED_METALLIC_ROUGHNESS
-#ifdef DEFERRED_PREPASS
-    let deferred = textureLoad(deferred_prepass_texture, vec2<i32>(frag_coord.xy), 0);
-    let base_rough = unpack_unorm4x8_(deferred.x);
-    let props = unpack_unorm4x8_(deferred.z);
-    // R: Reflectance, G: Metallic, B: Occlusion, A: Perceptual Roughness
-    output_color = vec4(props.r, props.g, props.b, base_rough.a);
-#else
-    output_color = vec4(1.0, 0.0, 1.0, 1.0);
-#endif
+    #ifdef DEFERRED_PREPASS
+        let deferred = textureLoad(deferred_prepass_texture, vec2<i32>(frag_coord.xy), 0);
+        let base_rough = unpack_unorm4x8_(deferred.x);
+        let props = unpack_unorm4x8_(deferred.z);
+        // R: Reflectance, G: Metallic, B: Occlusion, A: Perceptual Roughness
+        output_color = vec4(props.r, props.g, props.b, base_rough.a);
+    #else
+        output_color = vec4(1.0, 0.0, 1.0, 1.0);
+    #endif
 #endif
 
 #ifdef DEBUG_DEPTH_PYRAMID
