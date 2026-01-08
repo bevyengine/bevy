@@ -418,11 +418,11 @@ impl World {
         system.queue_deferred(self.into());
 
         // Return ownership of system trait object (if entity still exists)
-        if let Ok(mut entity) = self.get_entity_mut(id.entity) {
-            if let Some(mut registered_system) = entity.get_mut::<RegisteredSystem<I, O>>() {
-                registered_system.system = Some(system);
-                registered_system.initialized = true;
-            }
+        if let Ok(mut entity) = self.get_entity_mut(id.entity)
+            && let Some(mut registered_system) = entity.get_mut::<RegisteredSystem<I, O>>()
+        {
+            registered_system.system = Some(system);
+            registered_system.initialized = true;
         }
 
         // Run any commands enqueued by the system
@@ -541,7 +541,7 @@ pub enum RegisteredSystemError<I: SystemInput = (), O = ()> {
     /// Did you forget to register it?
     #[error("Cached system was not found")]
     SystemNotCached,
-    /// The [`RegisteredSystem`] component is missing.
+    /// The `RegisteredSystem` component is missing.
     #[error("System {0:?} does not have a RegisteredSystem component. This only happens if app code removed the component.")]
     MissingRegisteredSystemComponent(SystemId<I, O>),
     /// A system tried to remove itself.
@@ -557,7 +557,7 @@ pub enum RegisteredSystemError<I: SystemInput = (), O = ()> {
     /// [`SystemId`] had different input and/or output types than [`SystemIdMarker`]
     #[error("Could not get system from `{}`, entity was `SystemId<{}, {}>`", DebugName::type_name::<SystemId<I, O>>(), .1.input_type_id.name, .1.output_type_id.name)]
     IncorrectType(SystemId<I, O>, SystemIdMarker),
-    /// System is not present in the RegisteredSystem component.
+    /// System is not present in the `RegisteredSystem` component.
     // TODO: We should consider using catch_unwind to protect against the panic case.
     #[error("The system is not present in the RegisteredSystem component. This can happen if the system was called recursively or if the system panicked on the last run.")]
     SystemMissing(SystemId<I, O>),
