@@ -3,6 +3,7 @@
 use crate::widgets::{RadioButton, RadioButtonText, WidgetClickEvent, WidgetClickSender};
 use bevy::anti_alias::taa::TemporalAntiAliasing;
 use bevy::core_pipeline::tonemapping::Tonemapping;
+use bevy::pbr::ScreenSpaceAmbientOcclusion;
 use bevy::{
     core_pipeline::Skybox, ecs::message::MessageReader, pbr::ContactShadows,
     post_process::bloom::Bloom, prelude::*, render::view::Hdr,
@@ -108,7 +109,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             intensity: 1000.0,
             ..default()
         },
-        TemporalAntiAliasing::default(), //
+        ScreenSpaceAmbientOcclusion::default(),
+        TemporalAntiAliasing::default(), // Contact shadows and AO benefit from TAA
         Msaa::Off,
         Tonemapping::AcesFitted,
     ));
