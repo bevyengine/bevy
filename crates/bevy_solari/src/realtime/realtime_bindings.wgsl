@@ -34,7 +34,7 @@
 @group(1) @binding(22) var<storage, read_write> world_cache_active_cell_indices: array<u32, #{WORLD_CACHE_SIZE}>;
 @group(1) @binding(23) var<storage, read_write> world_cache_active_cells_count: u32;
 
-#ifdef DENOISER_GUIDE_BUFFERS
+#ifdef DLSS_RR_GUIDE_BUFFERS
 @group(2) @binding(0) var diffuse_albedo: texture_storage_2d<rgba8unorm, write>;
 @group(2) @binding(1) var specular_albedo: texture_storage_2d<rgba8unorm, write>;
 @group(2) @binding(2) var normal_roughness: texture_storage_2d<rgba16float, write>;

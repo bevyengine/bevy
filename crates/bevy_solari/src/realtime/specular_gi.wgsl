@@ -9,7 +9,10 @@
 #import bevy_solari::sampling::{sample_random_light, random_emissive_light_pdf, sample_ggx_vndf, ggx_vndf_pdf, power_heuristic}
 #import bevy_solari::scene_bindings::{trace_ray, resolve_ray_hit_full, ResolvedRayHitFull, RAY_T_MIN, RAY_T_MAX}
 #import bevy_solari::world_cache::{query_world_cache, get_cell_size, WORLD_CACHE_CELL_LIFETIME}
-#import bevy_solari::realtime_bindings::{view_output, gi_reservoirs_a, gbuffer, depth_buffer, view, previous_view, constants}
+#import bevy_solari::realtime_bindings::{view_output, gi_reservoirs_a, gbuffer, depth_buffer, view, constants}
+#ifdef DLSS_RR_GUIDE_BUFFERS
+#import bevy_solari::realtime_bindings::{diffuse_albedo, specular_albedo, normal_roughness, specular_motion_vectors, previous_view}
+#endif
 
 const DIFFUSE_GI_REUSE_ROUGHNESS_THRESHOLD: f32 = 0.4;
 const SPECULAR_GI_FOR_DI_ROUGHNESS_THRESHOLD: f32 = 0.0225;
@@ -80,8 +83,11 @@ fn trace_glossy_path(primary_surface: ResolvedGPixel, initial_wi: vec3<f32>, ini
     var p_bounce = initial_p_bounce;
     var surface_perfect_mirror = false;
     var path_spread = 0.0;
+
+#ifdef DLSS_RR_GUIDE_BUFFERS
     var mirror_rotations = reflection_matrix(primary_surface.world_normal);
     var psr_finished = false;
+#endif
 
     // Trace up to three bounces
     for (var i = 0u; i < 3u; i += 1u) {
@@ -109,7 +115,8 @@ fn trace_glossy_path(primary_surface: ResolvedGPixel, initial_wi: vec3<f32>, ini
         path_spread += sqrt((ray.t * ray.t) / (p_bounce * wo_tangent.z));
 
         // Primary surface replacement for perfect mirrors
-        // https://developer.nvidia.com/blog/rendering-perfect-reflections-and-refractions-in-path-traced-games/#primary_surface_replacement
+        // https://developer.nvidia.com/blog/rendering-perfect-reflections-and-refractions-in-path-traced-games/#DLSS_RR_GUIDE_BUFFERS
+#ifdef DLSS_RR_GUIDE_BUFFERS
         if !psr_finished && primary_surface.material.roughness <= 0.001 && primary_surface.material.metallic > 0.9999 {
             if surface_perfect_mirror {
                 mirror_rotations = mirror_rotations * reflection_matrix(ray_hit.world_normal);
@@ -119,11 +126,18 @@ fn trace_glossy_path(primary_surface: ResolvedGPixel, initial_wi: vec3<f32>, ini
                 // Simplification: Apply all rotations in the chain around the first mirror, rather than applying each rotation around its respective mirror
                 let virtual_position = (mirror_rotations * (ray_hit.world_position - primary_surface.world_position)) + primary_surface.world_position;
                 let virtual_previous_frame_position = (mirror_rotations * (ray_hit.previous_frame_world_position - primary_surface.world_position)) + primary_surface.world_position;
+                let specular_motion_vector = calculate_motion_vector(virtual_position, virtual_previous_frame_position);
 
-                // TODO: GBuffer and motion vectors replacement
+                // TODO
                 let virtual_normal = normalize(mirror_rotations * ray_hit.world_normal);
+                textureStore(gbuffer, pixel_id, vec4(0.0));
+                textureStore(specular_motion_vectors, pixel_id, vec4(0.0));
+                textureStore(diffuse_albedo, pixel_id, vec4(0.0));
+                textureStore(specular_albedo, pixel_id, vec4(0.5));
+                textureStore(normal_roughness, pixel_id, vec4(0.0));
             }
         }
+#endif
 
         if path_spread * path_spread > a0 * get_cell_size(ray_hit.world_position, view.world_position) {
             // Path spread is wide enough, terminate path in the world cache
@@ -184,6 +198,7 @@ fn nee_mis_weight(inverse_p_light: f32, brdf_rays_can_hit: bool, wo_tangent: vec
     return power_heuristic(p_light, p_bounce);
 }
 
+#ifdef DLSS_RR_GUIDE_BUFFERS
 // https://en.wikipedia.org/wiki/Householder_transformation
 fn reflection_matrix(plane_normal: vec3f) -> mat3x3<f32> {
     // N times Nᵀ.
@@ -195,3 +210,18 @@ fn reflection_matrix(plane_normal: vec3f) -> mat3x3<f32> {
     let identity_matrix = mat3x3<f32>(1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0);
     return identity_matrix - n_nt * 2.0;
 }
+
+fn calculate_motion_vector(world_position: vec3<f32>, previous_world_position: vec3<f32>) -> vec2<f32> {
+    let clip_position_t = view.unjittered_clip_from_world * vec4(world_position, 1.0);
+    let clip_position = clip_position_t.xy / clip_position_t.w;
+    let previous_clip_position_t = previous_view.clip_from_world * vec4(previous_world_position, 1.0);
+    let previous_clip_position = previous_clip_position_t.xy / previous_clip_position_t.w;
+    // These motion vectors are used as offsets to UV positions and are stored
+    // in the range -1,1 to allow offsetting from the one corner to the
+    // diagonally-opposite corner in UV coordinates, in either direction.
+    // A difference between diagonally-opposite corners of clip space is in the
+    // range -2,2, so this needs to be scaled by 0.5. And the V direction goes
+    // down where clip space y goes up, so y needs to be flipped.
+    return (clip_position - previous_clip_position) * vec2(0.5, -0.5);
+}
+#endif
