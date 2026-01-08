@@ -1234,6 +1234,18 @@ category = "3D Rendering"
 wasm = true
 
 [[example]]
+name = "contact_shadows"
+path = "examples/3d/contact_shadows.rs"
+# Causes an ICE on docs.rs
+doc-scrape-examples = false
+
+[package.metadata.example.contact_shadows]
+name = "Contact Shadows"
+description = "Showcases how contact shadows add shadow detail"
+category = "3D Rendering"
+wasm = true
+
+[[example]]
 name = "lighting"
 path = "examples/3d/lighting.rs"
 # Causes an ICE on docs.rs

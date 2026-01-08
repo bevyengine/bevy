@@ -163,7 +163,7 @@ struct ScreenSpaceReflectionsSettings {
     use_secant: u32,
 };
 
-// Settings for contact shadows.
+// See the `ContactShadows` rust struct.
 struct ContactShadowsSettings {
     linear_steps: u32,
     thickness: f32,
