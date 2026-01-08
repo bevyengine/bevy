@@ -1,10 +1,10 @@
 //! Demonstrates contact shadows, also known as screen-space shadows.
 
 use crate::widgets::{RadioButton, RadioButtonText, WidgetClickEvent, WidgetClickSender};
-use bevy::core_pipeline::Skybox;
-use bevy::post_process::bloom::Bloom;
-use bevy::{ecs::message::MessageReader, pbr::ContactShadows, prelude::*};
-use bevy_render::view::Hdr;
+use bevy::{
+    core_pipeline::Skybox, ecs::message::MessageReader, pbr::ContactShadows,
+    post_process::bloom::Bloom, prelude::*, render::view::Hdr,
+};
 
 #[path = "../helpers/widgets.rs"]
 mod widgets;
@@ -91,7 +91,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         Transform::from_xyz(0.6, 0.6, 0.6).looking_at(Vec3::new(0.0, 0.5, 0.0), Vec3::Y),
         ContactShadows::default(),
         Bloom::default(),
-        Hdr::default(),
+        Hdr,
         Skybox {
             brightness: 100.0,
             image: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
