@@ -19,15 +19,15 @@ enum ContactShadowState {
 
 #[derive(Clone, Copy, PartialEq, Default, Debug)]
 enum ShadowMaps {
-    Enabled,
     #[default]
+    Enabled,
     Disabled,
 }
 
 #[derive(Clone, Copy, PartialEq, Default, Debug)]
 enum LightRotation {
-    Stationary,
     #[default]
+    Stationary,
     Rotating,
 }
 
@@ -88,7 +88,7 @@ fn main() {
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn((
         Camera3d::default(),
-        Transform::from_xyz(0.5, 0.6, 0.5).looking_at(Vec3::new(0.0, 0.4, 0.0), Vec3::Y),
+        Transform::from_xyz(0.6, 0.6, 0.6).looking_at(Vec3::new(0.0, 0.4, 0.0), Vec3::Y),
         ContactShadows::default(),
         DepthPrepass,
     ));
