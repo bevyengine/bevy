@@ -71,37 +71,12 @@ use variadics_please::all_tuples;
 /// ```
 ///
 /// [`Query`]: crate::system::Query
-///
-/// # Safety
-///
-/// The [`WorldQuery`] implementation must not take any mutable access.
-/// This is the same safety requirement as [`ReadOnlyQueryData`](crate::query::ReadOnlyQueryData).
 #[diagnostic::on_unimplemented(
     message = "`{Self}` is not a valid `Query` filter",
     label = "invalid `Query` filter",
     note = "a `QueryFilter` typically uses a combination of `With<T>` and `Without<T>` statements"
 )]
-pub unsafe trait QueryFilter: WorldQuery {
-    /// Returns true if the provided [`Entity`] and [`TableRow`] should be included in the query results.
-    /// If false, the entity will be skipped.
-    ///
-    /// Note that this is called after already restricting the matched [`Table`]s and [`Archetype`]s to the
-    /// ones that are compatible with the Filter's access.
-    ///
-    /// Implementors of this method will generally either have a trivial `true` body (required for archetypal filters),
-    /// or access the necessary data within this function to make the final decision on filter inclusion.
-    ///
-    /// # Safety
-    ///
-    /// Must always be called _after_ [`WorldQuery::set_table`] or [`WorldQuery::set_archetype`]. `entity` and
-    /// `table_row` must be in the range of the current table and archetype.
-    unsafe fn filter_fetch(
-        state: &Self::State,
-        fetch: &mut Self::Fetch<'_>,
-        entity: Entity,
-        table_row: TableRow,
-    ) -> bool;
-}
+pub trait QueryFilter: WorldQuery {}
 
 /// Filter that selects entities with a component `T`.
 ///
@@ -203,18 +178,7 @@ unsafe impl<T: Component> WorldQuery for With<T> {
     }
 }
 
-// SAFETY: WorldQuery impl performs no access at all
-unsafe impl<T: Component> QueryFilter for With<T> {
-    #[inline(always)]
-    unsafe fn filter_fetch(
-        _state: &Self::State,
-        _fetch: &mut Self::Fetch<'_>,
-        _entity: Entity,
-        _table_row: TableRow,
-    ) -> bool {
-        true
-    }
-}
+impl<T: Component> QueryFilter for With<T> {}
 
 /// Filter that selects entities without a component `T`.
 ///
@@ -312,18 +276,8 @@ unsafe impl<T: Component> WorldQuery for Without<T> {
         true
     }
 }
-// SAFETY: WorldQuery impl performs no access at all
-unsafe impl<T: Component> QueryFilter for Without<T> {
-    #[inline(always)]
-    unsafe fn filter_fetch(
-        _state: &Self::State,
-        _fetch: &mut Self::Fetch<'_>,
-        _entity: Entity,
-        _table_row: TableRow,
-    ) -> bool {
-        true
-    }
-}
+
+impl<T: Component> QueryFilter for Without<T> {}
 
 /// A filter that tests if any of the given filters apply.
 ///
@@ -396,6 +350,8 @@ macro_rules! impl_or_query_filter {
             reason = "Zero-length tuples won't mutate any of the parameters."
         )]
         /// SAFETY:
+        /// [`WorldQuery::matches`], [`WorldQuery::find_table_chunk`], and [`WorldQuery::find_archetype_chunk`] only
+        /// call their respective methods on subqueries, so they can't perform mutable access unless subqueries are invalid.
         /// [`QueryFilter::filter_fetch`] accesses are a subset of the subqueries' accesses
         /// This is sound because `update_component_access` adds accesses according to the implementations of all the subqueries.
         /// `update_component_access` replace the filters with a disjunction where every element is a conjunction of the previous filters and the filters of one of the subqueries.
@@ -553,75 +509,15 @@ macro_rules! impl_or_query_filter {
             }
         }
 
-        #[expect(
-            clippy::allow_attributes,
-            reason = "This is a tuple-related macro; as such the lints below may not always apply."
-        )]
-        #[allow(
-            non_snake_case,
-            reason = "The names of some variables are provided by the macro's caller, not by us."
-        )]
-        #[allow(
-            unused_variables,
-            reason = "Zero-length tuples won't use any of the parameters."
-        )]
         $(#[$meta])*
-        // SAFETY: This only performs access that subqueries perform, and they impl `QueryFilter` and so perform no mutable access.
-        unsafe impl<$($filter: QueryFilter),*> QueryFilter for Or<($($filter,)*)> {
-            #[inline(always)]
-            unsafe fn filter_fetch(
-                state: &Self::State,
-                fetch: &mut Self::Fetch<'_>,
-                entity: Entity,
-                table_row: TableRow
-            ) -> bool {
-                let ($($state,)*) = state;
-                let ($($filter,)*) = fetch;
-                // If this is an archetypal query, then it is guaranteed to return true,
-                // and we can help the compiler remove branches by checking the const `IS_ARCHETYPAL` first.
-                (Self::IS_ARCHETYPAL
-                    // SAFETY: The invariants are upheld by the caller.
-                    $(|| ($filter.matches && unsafe { $filter::filter_fetch($state, &mut $filter.fetch, entity, table_row) }))*
-                    // If *none* of the subqueries matched the archetype, then this archetype was added in a transmute.
-                    // We must treat those as matching in order to be consistent with `size_hint` for archetypal queries,
-                    // so we treat them as matching for non-archetypal queries, as well.
-                    || !(false $(|| $filter.matches)*))
-            }
-        }
+        impl<$($filter: QueryFilter),*> QueryFilter for Or<($($filter,)*)> {}
     };
 }
 
 macro_rules! impl_tuple_query_filter {
-    ($(#[$meta:meta])* $(($name: ident, $state: ident)),*) => {
-        #[expect(
-            clippy::allow_attributes,
-            reason = "This is a tuple-related macro; as such the lints below may not always apply."
-        )]
-        #[allow(
-            non_snake_case,
-            reason = "The names of some variables are provided by the macro's caller, not by us."
-        )]
-        #[allow(
-            unused_variables,
-            reason = "Zero-length tuples won't use any of the parameters."
-        )]
+    ($(#[$meta:meta])* $($name: ident),*) => {
         $(#[$meta])*
-        // SAFETY: This only performs access that subqueries perform, and they impl `QueryFilter` and so perform no mutable access.
-        unsafe impl<$($name: QueryFilter),*> QueryFilter for ($($name,)*) {
-            #[inline(always)]
-            unsafe fn filter_fetch(
-                state: &Self::State,
-                fetch: &mut Self::Fetch<'_>,
-                entity: Entity,
-                table_row: TableRow
-            ) -> bool {
-                let ($($state,)*) = state;
-                let ($($name,)*) = fetch;
-                // SAFETY: The invariants are upheld by the caller.
-                true $(&& unsafe { $name::filter_fetch($state, $name, entity, table_row) })*
-            }
-        }
-
+        impl<$($name: QueryFilter),*> QueryFilter for ($($name,)*) {}
     };
 }
 
@@ -630,8 +526,7 @@ all_tuples!(
     impl_tuple_query_filter,
     0,
     15,
-    F,
-    S
+    F
 );
 all_tuples!(
     #[doc(fake_variadic)]
@@ -700,18 +595,7 @@ unsafe impl<T: Component> WorldQuery for Allow<T> {
     }
 }
 
-// SAFETY: WorldQuery impl performs no access at all
-unsafe impl<T: Component> QueryFilter for Allow<T> {
-    #[inline(always)]
-    unsafe fn filter_fetch(
-        _: &Self::State,
-        _: &mut Self::Fetch<'_>,
-        _: Entity,
-        _: TableRow,
-    ) -> bool {
-        true
-    }
-}
+impl<T: Component> QueryFilter for Allow<T> {}
 
 /// A filter on a component that only retains results the first time after they have been added.
 ///
@@ -804,7 +688,7 @@ impl<T: Component> Clone for AddedFetch<'_, T> {
 }
 
 /// SAFETY:
-/// [`QueryFilter::filter_fetch`] accesses a single component in a readonly way.
+/// [`WorldQuery::matches`] accesses a single component in a readonly way.
 /// This is sound because `update_component_access` adds read access for that component and panics when appropriate.
 /// `update_component_access` adds a `With` filter for a component.
 /// This is sound because `matches_component_set` returns whether the set contains that component.
@@ -933,39 +817,7 @@ unsafe impl<T: Component> WorldQuery for Added<T> {
     }
 }
 
-// SAFETY: WorldQuery impl performs only read access on ticks
-unsafe impl<T: Component> QueryFilter for Added<T> {
-    #[inline(always)]
-    unsafe fn filter_fetch(
-        _state: &Self::State,
-        fetch: &mut Self::Fetch<'_>,
-        entity: Entity,
-        table_row: TableRow,
-    ) -> bool {
-        // SAFETY: The invariants are upheld by the caller.
-        fetch.ticks.extract(
-            |table| {
-                // SAFETY: set_table was previously called
-                let table = unsafe { table.debug_checked_unwrap() };
-                // SAFETY: The caller ensures `table_row` is in range.
-                let tick = unsafe { table.get_unchecked(table_row.index()) };
-
-                tick.deref().is_newer_than(fetch.last_run, fetch.this_run)
-            },
-            |sparse_set| {
-                // SAFETY: The caller ensures `entity` is in range.
-                let tick = unsafe {
-                    sparse_set
-                        .debug_checked_unwrap()
-                        .get_added_tick(entity)
-                        .debug_checked_unwrap()
-                };
-
-                tick.deref().is_newer_than(fetch.last_run, fetch.this_run)
-            },
-        )
-    }
-}
+impl<T: Component> QueryFilter for Added<T> {}
 
 /// A filter on a component that only retains results the first time after they have been added or mutably dereferenced.
 ///
@@ -1062,7 +914,7 @@ impl<T: Component> Clone for ChangedFetch<'_, T> {
 }
 
 /// SAFETY:
-/// `fetch` accesses a single component in a readonly way.
+/// `matches` accesses a single component in a readonly way.
 /// This is sound because `update_component_access` add read access for that component and panics when appropriate.
 /// `update_component_access` adds a `With` filter for a component.
 /// This is sound because `matches_component_set` returns whether the set contains that component.
@@ -1191,39 +1043,7 @@ unsafe impl<T: Component> WorldQuery for Changed<T> {
     }
 }
 
-// SAFETY: WorldQuery impl performs only read access on ticks
-unsafe impl<T: Component> QueryFilter for Changed<T> {
-    #[inline(always)]
-    unsafe fn filter_fetch(
-        _state: &Self::State,
-        fetch: &mut Self::Fetch<'_>,
-        entity: Entity,
-        table_row: TableRow,
-    ) -> bool {
-        // SAFETY: The invariants are upheld by the caller.
-        fetch.ticks.extract(
-            |table| {
-                // SAFETY: set_table was previously called
-                let table = unsafe { table.debug_checked_unwrap() };
-                // SAFETY: The caller ensures `table_row` is in range.
-                let tick = unsafe { table.get_unchecked(table_row.index()) };
-
-                tick.deref().is_newer_than(fetch.last_run, fetch.this_run)
-            },
-            |sparse_set| {
-                // SAFETY: The caller ensures `entity` is in range.
-                let tick = unsafe {
-                    sparse_set
-                        .debug_checked_unwrap()
-                        .get_changed_tick(entity)
-                        .debug_checked_unwrap()
-                };
-
-                tick.deref().is_newer_than(fetch.last_run, fetch.this_run)
-            },
-        )
-    }
-}
+impl<T: Component> QueryFilter for Changed<T> {}
 
 /// A filter that only retains results the first time after the entity has been spawned.
 ///
@@ -1362,25 +1182,7 @@ unsafe impl WorldQuery for Spawned {
     }
 }
 
-// SAFETY: WorldQuery impl accesses no components or component ticks
-unsafe impl QueryFilter for Spawned {
-    #[inline(always)]
-    unsafe fn filter_fetch(
-        _state: &Self::State,
-        fetch: &mut Self::Fetch<'_>,
-        entity: Entity,
-        _table_row: TableRow,
-    ) -> bool {
-        // SAFETY: only living entities are queried
-        let spawned = unsafe {
-            fetch
-                .entities
-                .entity_get_spawned_or_despawned_unchecked(entity)
-                .1
-        };
-        spawned.is_newer_than(fetch.last_run, fetch.this_run)
-    }
-}
+impl QueryFilter for Spawned {}
 
 /// A marker trait to indicate that the filter works at an archetype level.
 ///
