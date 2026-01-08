@@ -1,47 +1,54 @@
 ---
-title: "AssetPath::resolve and resolve_embed renamed, new variants added"
+title: `AssetPath::resolve` and `resolve_embed` now take `&AssetPath`
 pull_requests: [22416]
 ---
-## AssetPath::resolve and resolve_embed renamed, new variants added
-`AssetPath::resolve` and `AssetPath::resolve_embed` now accept `&AssetPath` instead of `&str`. The string-based variants have been renamed to `resolve_str` and `resolve_embed_str`.
-## Breaking Changes
-**Method renames:**
-- `AssetPath::resolve(&str)` → `AssetPath::resolve_str(&str)`
-- `AssetPath::resolve_embed(&str)` → `AssetPath::resolve_embed_str(&str)`
-**New methods:**
-- `AssetPath::resolve(&AssetPath)` - allocation-free variant
-- `AssetPath::resolve_embed(&AssetPath)` - allocation-free variant
+
+# `AssetPath::resolve` and `resolve_embed` now take `&AssetPath`
+
+`AssetPath::resolve` and `AssetPath::resolve_embed` no longer accept `&str`. They now take `&AssetPath`. The string-based variants have been renamed to `resolve_str` and `resolve_embed_str`.
+
+## What changed?
+
+- `AssetPath::resolve` now takes `&AssetPath` instead of `&str`
+- `AssetPath::resolve_embed` now takes `&AssetPath` instead of `&str`
+- String-based variants are now `resolve_str` and `resolve_embed_str`
+
+## Why was this changed?
+
+This change avoids unnecessary string allocation and parsing when an `AssetPath` is already available.
+
 ## How do I migrate?
+
+### If you already have an `AssetPath`
+
 **Before:**
 ```rust
 let base = AssetPath::parse("a/b.gltf");
 let rel = AssetPath::parse("c.bin");
 let resolved = base.resolve(&rel.to_string()).unwrap();
 ```
+
 **After:**
 ```rust
 let base = AssetPath::parse("a/b.gltf");
 let rel = AssetPath::parse("c.bin");
 let resolved = base.resolve(&rel);
 ```
-If you're using string inputs
+
+### If you need to resolve from a string
+
 **Before:**
 ```rust
 let base = AssetPath::parse("a/b.gltf");
 let rel = AssetPath::parse("c.bin");
 let resolved = base.resolve(&rel.to_string()).unwrap();
 ```
-After:
+
+**After:**
 ```rust
 let base = AssetPath::parse("a/b.gltf");
 let rel = AssetPath::parse("c.bin");
 let resolved = base.resolve_str(&rel.to_string()).unwrap();
 ```
-Both variants have identical semantics:
-- Label-only paths (e.g. `#label`) replace the base label
-- Paths starting with `/` are rooted at the asset source root
-- Explicit sources (e.g. `name://...`) replace the base source
-- Path segments are normalized (`.` / `..` removal)
-> [!NOTE] Same internal and semantic change applies for `resolve_embed` and `resolve_embed_str`. They also additionally use RFC 1808-style "file portion removal" before concatenation (unless the base ends with `/`).
 
-**Note:** Semantics are unchanged - only method names changed. The new `&AssetPath` variants avoid string allocation and parsing overhead.
+The same change applies to `resolve_embed`, which now takes `&AssetPath`. Its string-based variant is `resolve_embed_str`. Semantics are unchanged.
