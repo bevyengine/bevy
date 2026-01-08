@@ -236,16 +236,31 @@ pub unsafe trait WorldQuery {
     ) -> bool;
 }
 
+/// Extension trait for `Range`, adding convenience methods for use with [`WorldQuery::find_table_chunk`]
+/// and [`WorldQuery::find_archetype_chunk`].
 pub trait RangeExt {
+    /// Returns the union of `self` and `other`, i.e. the smallest range which fully
+    /// covers each of them.
+    fn union_with(self, other: Self) -> Self;
+    /// Returns the next contiguous segment for which `func` returns true for all
+    /// indices in the segment.
     fn find_chunk<F: FnMut(NonMaxU32) -> bool>(self, func: F) -> Self;
 }
 
 impl RangeExt for Range<u32> {
     #[inline]
+    fn union_with(self, other: Self) -> Self {
+        Range {
+            start: self.start.min(other.start),
+            end: self.end.min(other.end),
+        }
+    }
+
+    #[inline]
     fn find_chunk<F: FnMut(NonMaxU32) -> bool>(mut self, mut func: F) -> Self {
         let mut index = self.start;
         while index < self.end {
-            // index is taken from an exclusive range, so it can't be max
+            // SAFETY: index is taken from an exclusive range, so it can't be max
             let nonmax_index = unsafe { NonMaxU32::new_unchecked(index) };
             let matches = func(nonmax_index);
             if matches {
@@ -256,7 +271,7 @@ impl RangeExt for Range<u32> {
         self.start = index;
 
         while index < self.end {
-            // index is taken from an exclusive range, so it can't be max
+            // SAFETY: index is taken from an exclusive range, so it can't be max
             let nonmax_index = unsafe { NonMaxU32::new_unchecked(index) };
             index = index.wrapping_add(1);
             let matches = func(nonmax_index);
@@ -385,7 +400,7 @@ macro_rules! impl_tuple_world_query {
             unsafe fn find_archetype_chunk(
                 state: &Self::State,
                 fetch: &Self::Fetch<'_>,
-                table: &Archetype,
+                archetype: &Archetype,
                 mut indices: Range<u32>,
             ) -> Range<u32> {
                 if Self::IS_ARCHETYPAL {
@@ -396,7 +411,7 @@ macro_rules! impl_tuple_world_query {
                     // SAFETY: `indices` is only ever narrowed as we iterate subqueries, so it's
                     // always valid to pass to the next term. Other invariants are upheld by
                     // the caller.
-                    $(indices = unsafe { $name::find_archetype_chunk($state, $name, table, indices) };)*
+                    $(indices = unsafe { $name::find_archetype_chunk($state, $name, archetype, indices) };)*
                     indices
                 }
             }

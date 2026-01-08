@@ -6,7 +6,7 @@ use crate::{
     entity::{Entities, Entity, EntityLocation},
     query::{
         access_iter::{EcsAccessLevel, EcsAccessType},
-        Access, DebugCheckedUnwrap, FilteredAccess, WorldQuery,
+        Access, DebugCheckedUnwrap, FilteredAccess, RangeExt, WorldQuery,
     },
     storage::{ComponentSparseSet, Table, TableRow},
     world::{
@@ -16,7 +16,7 @@ use crate::{
 };
 use bevy_ptr::{ThinSlicePtr, UnsafeCellDeref};
 use bevy_utils::prelude::DebugName;
-use core::{cell::UnsafeCell, iter, marker::PhantomData, panic::Location};
+use core::{cell::UnsafeCell, iter, marker::PhantomData, ops::Range, panic::Location};
 use variadics_please::all_tuples;
 
 /// Types that can be fetched from a [`World`] using a [`Query`].
@@ -425,6 +425,16 @@ unsafe impl WorldQuery for Entity {
     ) -> bool {
         true
     }
+
+    #[inline]
+    unsafe fn matches(
+        _state: &Self::State,
+        _fetch: &Self::Fetch<'_>,
+        _entity: Entity,
+        _table_row: TableRow,
+    ) -> bool {
+        true
+    }
 }
 
 /// SAFETY: `Self` is the same as `Self::ReadOnly`
@@ -519,6 +529,16 @@ unsafe impl WorldQuery for EntityLocation {
     fn matches_component_set(
         _state: &Self::State,
         _set_contains_id: &impl Fn(ComponentId) -> bool,
+    ) -> bool {
+        true
+    }
+
+    #[inline]
+    unsafe fn matches(
+        _state: &Self::State,
+        _fetch: &Self::Fetch<'_>,
+        _entity: Entity,
+        _table_row: TableRow,
     ) -> bool {
         true
     }
@@ -690,6 +710,16 @@ unsafe impl WorldQuery for SpawnDetails {
     ) -> bool {
         true
     }
+
+    #[inline]
+    unsafe fn matches(
+        _state: &Self::State,
+        _fetch: &Self::Fetch<'_>,
+        _entity: Entity,
+        _table_row: TableRow,
+    ) -> bool {
+        true
+    }
 }
 
 // SAFETY:
@@ -818,6 +848,16 @@ unsafe impl<'a> WorldQuery for EntityRef<'a> {
     ) -> bool {
         true
     }
+
+    #[inline]
+    unsafe fn matches(
+        _state: &Self::State,
+        _fetch: &Self::Fetch<'_>,
+        _entity: Entity,
+        _table_row: TableRow,
+    ) -> bool {
+        true
+    }
 }
 
 /// SAFETY: `Self` is the same as `Self::ReadOnly`
@@ -928,6 +968,16 @@ unsafe impl<'a> WorldQuery for EntityMut<'a> {
     ) -> bool {
         true
     }
+
+    #[inline]
+    unsafe fn matches(
+        _state: &Self::State,
+        _fetch: &Self::Fetch<'_>,
+        _entity: Entity,
+        _table_row: TableRow,
+    ) -> bool {
+        true
+    }
 }
 
 /// SAFETY: access of `EntityRef` is a subset of `EntityMut`
@@ -1034,6 +1084,16 @@ unsafe impl WorldQuery for FilteredEntityRef<'_, '_> {
     fn matches_component_set(
         _state: &Self::State,
         _set_contains_id: &impl Fn(ComponentId) -> bool,
+    ) -> bool {
+        true
+    }
+
+    #[inline]
+    unsafe fn matches(
+        _state: &Self::State,
+        _fetch: &Self::Fetch<'_>,
+        _entity: Entity,
+        _table_row: TableRow,
     ) -> bool {
         true
     }
@@ -1159,6 +1219,16 @@ unsafe impl WorldQuery for FilteredEntityMut<'_, '_> {
     fn matches_component_set(
         _state: &Self::State,
         _set_contains_id: &impl Fn(ComponentId) -> bool,
+    ) -> bool {
+        true
+    }
+
+    #[inline]
+    unsafe fn matches(
+        _state: &Self::State,
+        _fetch: &Self::Fetch<'_>,
+        _entity: Entity,
+        _table_row: TableRow,
     ) -> bool {
         true
     }
@@ -1295,6 +1365,16 @@ where
     fn matches_component_set(_: &Self::State, _: &impl Fn(ComponentId) -> bool) -> bool {
         true
     }
+
+    #[inline]
+    unsafe fn matches(
+        _state: &Self::State,
+        _fetch: &Self::Fetch<'_>,
+        _entity: Entity,
+        _table_row: TableRow,
+    ) -> bool {
+        true
+    }
 }
 
 /// SAFETY: `Self` is the same as `Self::ReadOnly`.
@@ -1413,6 +1493,16 @@ where
     fn matches_component_set(_: &Self::State, _: &impl Fn(ComponentId) -> bool) -> bool {
         true
     }
+
+    #[inline]
+    unsafe fn matches(
+        _state: &Self::State,
+        _fetch: &Self::Fetch<'_>,
+        _entity: Entity,
+        _table_row: TableRow,
+    ) -> bool {
+        true
+    }
 }
 
 /// SAFETY: All accesses that `EntityRefExcept` provides are also accesses that
@@ -1504,6 +1594,16 @@ unsafe impl WorldQuery for &Archetype {
     fn matches_component_set(
         _state: &Self::State,
         _set_contains_id: &impl Fn(ComponentId) -> bool,
+    ) -> bool {
+        true
+    }
+
+    #[inline]
+    unsafe fn matches(
+        _state: &Self::State,
+        _fetch: &Self::Fetch<'_>,
+        _entity: Entity,
+        _table_row: TableRow,
     ) -> bool {
         true
     }
@@ -1666,6 +1766,16 @@ unsafe impl<T: Component> WorldQuery for &T {
         set_contains_id: &impl Fn(ComponentId) -> bool,
     ) -> bool {
         set_contains_id(state)
+    }
+
+    #[inline]
+    unsafe fn matches(
+        _state: &Self::State,
+        _fetch: &Self::Fetch<'_>,
+        _entity: Entity,
+        _table_row: TableRow,
+    ) -> bool {
+        true
     }
 }
 
@@ -1856,6 +1966,16 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
         set_contains_id: &impl Fn(ComponentId) -> bool,
     ) -> bool {
         set_contains_id(state)
+    }
+
+    #[inline]
+    unsafe fn matches(
+        _state: &Self::State,
+        _fetch: &Self::Fetch<'_>,
+        _entity: Entity,
+        _table_row: TableRow,
+    ) -> bool {
+        true
     }
 }
 
@@ -2074,6 +2194,16 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
     ) -> bool {
         set_contains_id(state)
     }
+
+    #[inline]
+    unsafe fn matches(
+        _state: &Self::State,
+        _fetch: &Self::Fetch<'_>,
+        _entity: Entity,
+        _table_row: TableRow,
+    ) -> bool {
+        true
+    }
 }
 
 /// SAFETY: access of `&T` is a subset of `&mut T`
@@ -2234,6 +2364,16 @@ unsafe impl<'__w, T: Component> WorldQuery for Mut<'__w, T> {
     ) -> bool {
         <&mut T as WorldQuery>::matches_component_set(state, set_contains_id)
     }
+
+    #[inline]
+    unsafe fn matches(
+        _state: &Self::State,
+        _fetch: &Self::Fetch<'_>,
+        _entity: Entity,
+        _table_row: TableRow,
+    ) -> bool {
+        true
+    }
 }
 
 // SAFETY: access of `Ref<T>` is a subset of `Mut<T>`
@@ -2381,6 +2521,16 @@ unsafe impl<T: WorldQuery> WorldQuery for Option<T> {
     fn matches_component_set(
         _state: &T::State,
         _set_contains_id: &impl Fn(ComponentId) -> bool,
+    ) -> bool {
+        true
+    }
+
+    #[inline]
+    unsafe fn matches(
+        _state: &Self::State,
+        _fetch: &Self::Fetch<'_>,
+        _entity: Entity,
+        _table_row: TableRow,
     ) -> bool {
         true
     }
@@ -2570,6 +2720,16 @@ unsafe impl<T: Component> WorldQuery for Has<T> {
         // `Has<T>` always matches
         true
     }
+
+    #[inline]
+    unsafe fn matches(
+        _state: &Self::State,
+        _fetch: &Self::Fetch<'_>,
+        _entity: Entity,
+        _table_row: TableRow,
+    ) -> bool {
+        true
+    }
 }
 
 /// SAFETY: `Self` is the same as `Self::ReadOnly`
@@ -2721,6 +2881,10 @@ macro_rules! impl_anytuple_fetch {
             clippy::unused_unit,
             reason = "Zero-length tuples will generate some function bodies equivalent to `()`; however, this macro is meant for all applicable tuples, and as such it makes no sense to rewrite it just for that case."
         )]
+        #[allow(
+            unused_mut,
+            reason = "Zero-length tuples won't mutate any of the parameters."
+        )]
         /// SAFETY:
         /// `fetch` accesses are a subset of the subqueries' accesses
         /// This is sound because `update_component_access` adds accesses according to the implementations of all the subqueries.
@@ -2814,6 +2978,55 @@ macro_rules! impl_anytuple_fetch {
             fn matches_component_set(_state: &Self::State, _set_contains_id: &impl Fn(ComponentId) -> bool) -> bool {
                 let ($($name,)*) = _state;
                 false $(|| $name::matches_component_set($name, _set_contains_id))*
+            }
+
+            #[inline]
+            unsafe fn find_table_chunk(
+                state: &Self::State,
+                fetch: &Self::Fetch<'_>,
+                table: &Table,
+                rows: Range<u32>,
+            ) -> Range<u32> {
+                if Self::IS_ARCHETYPAL {
+                    rows
+                } else {
+                    let ($($name,)*) = fetch;
+                    let ($($state,)*) = state;
+                    let mut new_rows = rows.end..rows.end;
+                    // SAFETY: invariants are upheld by the caller.
+                    $(new_rows = new_rows.union_with(unsafe { $name::find_table_chunk($state, &$name.0, table, rows.clone()) });)*
+                    new_rows
+                }
+            }
+
+            #[inline]
+            unsafe fn find_archetype_chunk(
+                state: &Self::State,
+                fetch: &Self::Fetch<'_>,
+                archetype: &Archetype,
+                mut indices: Range<u32>,
+            ) -> Range<u32> {
+                if Self::IS_ARCHETYPAL {
+                    indices
+                } else {
+                    let ($($name,)*) = fetch;
+                    let ($($state,)*) = state;
+                    let mut new_indices = indices.end..indices.end;
+                    // SAFETY: invariants are upheld by the caller.
+                    $(new_indices = new_indices.union_with(unsafe { $name::find_archetype_chunk($state, &$name.0, archetype, indices.clone()) });)*
+                    new_indices
+                }
+            }
+
+            #[inline]
+            unsafe fn matches(
+                state: &Self::State,
+                fetch: &Self::Fetch<'_>,
+                entity: Entity,
+                table_row: TableRow,
+            ) -> bool {
+                todo!() // TODO: weirdness with `fetch` below. Make sure find_table_chunk and
+                        // find_archetype_chunk are fine too.
             }
         }
 
@@ -2977,6 +3190,16 @@ unsafe impl<D: QueryData> WorldQuery for NopWorldQuery<D> {
     ) -> bool {
         D::matches_component_set(state, set_contains_id)
     }
+
+    #[inline]
+    unsafe fn matches(
+        _state: &Self::State,
+        _fetch: &Self::Fetch<'_>,
+        _entity: Entity,
+        _table_row: TableRow,
+    ) -> bool {
+        true
+    }
 }
 
 /// SAFETY: `Self::ReadOnly` is `Self`
@@ -3064,6 +3287,16 @@ unsafe impl<T: ?Sized> WorldQuery for PhantomData<T> {
     fn matches_component_set(
         _state: &Self::State,
         _set_contains_id: &impl Fn(ComponentId) -> bool,
+    ) -> bool {
+        true
+    }
+
+    #[inline]
+    unsafe fn matches(
+        _state: &Self::State,
+        _fetch: &Self::Fetch<'_>,
+        _entity: Entity,
+        _table_row: TableRow,
     ) -> bool {
         true
     }
@@ -3274,6 +3507,16 @@ mod tests {
             fn matches_component_set(
                 _state: &Self::State,
                 _set_contains_id: &impl Fn(ComponentId) -> bool,
+            ) -> bool {
+                true
+            }
+
+            #[inline]
+            unsafe fn matches(
+                _state: &Self::State,
+                _fetch: &Self::Fetch<'_>,
+                _entity: Entity,
+                _table_row: TableRow,
             ) -> bool {
                 true
             }

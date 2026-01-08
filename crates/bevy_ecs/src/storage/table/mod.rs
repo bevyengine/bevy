@@ -12,7 +12,7 @@ pub use column::*;
 use core::{
     cell::UnsafeCell,
     num::NonZeroUsize,
-    ops::{Index, IndexMut, Range},
+    ops::{Index, IndexMut},
     panic::Location,
 };
 use nonmax::NonMaxU32;

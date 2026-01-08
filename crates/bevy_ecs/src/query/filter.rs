@@ -3,13 +3,13 @@ use crate::{
     change_detection::Tick,
     component::{Component, ComponentId, Components, StorageType},
     entity::{Entities, Entity},
-    query::{DebugCheckedUnwrap, FilteredAccess, StorageSwitch, WorldQuery},
+    query::{DebugCheckedUnwrap, FilteredAccess, RangeExt, StorageSwitch, WorldQuery},
     storage::{ComponentSparseSet, Table, TableRow},
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
 use bevy_ptr::{ThinSlicePtr, UnsafeCellDeref};
 use bevy_utils::prelude::DebugName;
-use core::{cell::UnsafeCell, marker::PhantomData};
+use core::{cell::UnsafeCell, marker::PhantomData, ops::Range};
 use variadics_please::all_tuples;
 
 /// Types that filter the results of a [`Query`].
@@ -191,6 +191,16 @@ unsafe impl<T: Component> WorldQuery for With<T> {
     ) -> bool {
         set_contains_id(id)
     }
+
+    #[inline]
+    unsafe fn matches(
+        _state: &Self::State,
+        _fetch: &Self::Fetch<'_>,
+        _entity: Entity,
+        _table_row: TableRow,
+    ) -> bool {
+        true
+    }
 }
 
 // SAFETY: WorldQuery impl performs no access at all
@@ -291,8 +301,17 @@ unsafe impl<T: Component> WorldQuery for Without<T> {
     ) -> bool {
         !set_contains_id(id)
     }
-}
 
+    #[inline]
+    unsafe fn matches(
+        _state: &Self::State,
+        _fetch: &Self::Fetch<'_>,
+        _entity: Entity,
+        _table_row: TableRow,
+    ) -> bool {
+        true
+    }
+}
 // SAFETY: WorldQuery impl performs no access at all
 unsafe impl<T: Component> QueryFilter for Without<T> {
     #[inline(always)]
@@ -371,6 +390,10 @@ macro_rules! impl_or_query_filter {
         #[allow(
             clippy::unused_unit,
             reason = "Zero-length tuples will generate some function bodies equivalent to `()`; however, this macro is meant for all applicable tuples, and as such it makes no sense to rewrite it just for that case."
+        )]
+        #[allow(
+            unused_mut,
+            reason = "Zero-length tuples won't mutate any of the parameters."
         )]
         /// SAFETY:
         /// [`QueryFilter::filter_fetch`] accesses are a subset of the subqueries' accesses
@@ -478,6 +501,55 @@ macro_rules! impl_or_query_filter {
             fn matches_component_set(state: &Self::State, set_contains_id: &impl Fn(ComponentId) -> bool) -> bool {
                 let ($($filter,)*) = state;
                 false $(|| $filter::matches_component_set($filter, set_contains_id))*
+            }
+
+            #[inline]
+            unsafe fn find_table_chunk(
+                state: &Self::State,
+                fetch: &Self::Fetch<'_>,
+                table: &Table,
+                rows: Range<u32>,
+            ) -> Range<u32> {
+                if Self::IS_ARCHETYPAL {
+                    rows
+                } else {
+                    let ($($filter,)*) = fetch;
+                    let ($($state,)*) = state;
+                    let mut new_rows = rows.end..rows.end;
+                    // SAFETY: invariants are upheld by the caller.
+                    $(new_rows = new_rows.union_with(unsafe { $filter::find_table_chunk($state, &$filter.fetch, table, rows.clone()) });)*
+                    new_rows
+                }
+            }
+
+            #[inline]
+            unsafe fn find_archetype_chunk(
+                state: &Self::State,
+                fetch: &Self::Fetch<'_>,
+                archetype: &Archetype,
+                mut indices: Range<u32>,
+            ) -> Range<u32> {
+                if Self::IS_ARCHETYPAL {
+                    indices
+                } else {
+                    let ($($filter,)*) = fetch;
+                    let ($($state,)*) = state;
+                    let mut new_indices = indices.end..indices.end;
+                    // SAFETY: invariants are upheld by the caller.
+                    $(new_indices = new_indices.union_with(unsafe { $filter::find_archetype_chunk($state, &$filter.fetch, archetype, indices.clone()) });)*
+                    new_indices
+                }
+            }
+
+            #[inline]
+            unsafe fn matches(
+                state: &Self::State,
+                fetch: &Self::Fetch<'_>,
+                entity: Entity,
+                table_row: TableRow,
+            ) -> bool {
+                todo!() // TODO: weirdness with `fetch` below. Make sure find_table_chunk and
+                        // find_archetype_chunk are fine too.
             }
         }
 
@@ -614,6 +686,16 @@ unsafe impl<T: Component> WorldQuery for Allow<T> {
 
     fn matches_component_set(_: &ComponentId, _: &impl Fn(ComponentId) -> bool) -> bool {
         // Allow<T> always matches
+        true
+    }
+
+    #[inline]
+    unsafe fn matches(
+        _state: &Self::State,
+        _fetch: &Self::Fetch<'_>,
+        _entity: Entity,
+        _table_row: TableRow,
+    ) -> bool {
         true
     }
 }
@@ -817,6 +899,37 @@ unsafe impl<T: Component> WorldQuery for Added<T> {
         set_contains_id: &impl Fn(ComponentId) -> bool,
     ) -> bool {
         set_contains_id(id)
+    }
+
+    #[inline]
+    unsafe fn matches(
+        _state: &Self::State,
+        fetch: &Self::Fetch<'_>,
+        entity: Entity,
+        table_row: TableRow,
+    ) -> bool {
+        // SAFETY: The invariants are upheld by the caller.
+        fetch.ticks.extract(
+            |table| {
+                // SAFETY: set_table was previously called
+                let table = unsafe { table.debug_checked_unwrap() };
+                // SAFETY: The caller ensures `table_row` is in range.
+                let tick = unsafe { table.get_unchecked(table_row.index()) };
+
+                tick.deref().is_newer_than(fetch.last_run, fetch.this_run)
+            },
+            |sparse_set| {
+                // SAFETY: The caller ensures `entity` is in range.
+                let tick = unsafe {
+                    sparse_set
+                        .debug_checked_unwrap()
+                        .get_added_tick(entity)
+                        .debug_checked_unwrap()
+                };
+
+                tick.deref().is_newer_than(fetch.last_run, fetch.this_run)
+            },
+        )
     }
 }
 
@@ -1045,6 +1158,37 @@ unsafe impl<T: Component> WorldQuery for Changed<T> {
     ) -> bool {
         set_contains_id(id)
     }
+
+    #[inline]
+    unsafe fn matches(
+        _state: &Self::State,
+        fetch: &Self::Fetch<'_>,
+        entity: Entity,
+        table_row: TableRow,
+    ) -> bool {
+        // SAFETY: The invariants are upheld by the caller.
+        fetch.ticks.extract(
+            |table| {
+                // SAFETY: set_table was previously called
+                let table = unsafe { table.debug_checked_unwrap() };
+                // SAFETY: The caller ensures `table_row` is in range.
+                let tick = unsafe { table.get_unchecked(table_row.index()) };
+
+                tick.deref().is_newer_than(fetch.last_run, fetch.this_run)
+            },
+            |sparse_set| {
+                // SAFETY: The caller ensures `entity` is in range.
+                let tick = unsafe {
+                    sparse_set
+                        .debug_checked_unwrap()
+                        .get_changed_tick(entity)
+                        .debug_checked_unwrap()
+                };
+
+                tick.deref().is_newer_than(fetch.last_run, fetch.this_run)
+            },
+        )
+    }
 }
 
 // SAFETY: WorldQuery impl performs only read access on ticks
@@ -1110,7 +1254,7 @@ unsafe impl<T: Component> QueryFilter for Changed<T> {
 /// # use bevy_ecs::query::SpawnDetails;
 ///
 /// fn system1(query: Query<Entity, Spawned>) {
-///     for entity in &query { /* entity spawned */ }
+///     for entity in &query { /* entity spawned*/ }
 /// }
 ///
 /// fn system2(query: Query<(Entity, SpawnDetails)>) {
@@ -1198,6 +1342,23 @@ unsafe impl WorldQuery for Spawned {
 
     fn matches_component_set(_state: &(), _set_contains_id: &impl Fn(ComponentId) -> bool) -> bool {
         true
+    }
+
+    #[inline]
+    unsafe fn matches(
+        _state: &Self::State,
+        fetch: &Self::Fetch<'_>,
+        entity: Entity,
+        _table_row: TableRow,
+    ) -> bool {
+        // SAFETY: only living entities are queried
+        let spawned = unsafe {
+            fetch
+                .entities
+                .entity_get_spawned_or_despawned_unchecked(entity)
+                .1
+        };
+        spawned.is_newer_than(fetch.last_run, fetch.this_run)
     }
 }
 
