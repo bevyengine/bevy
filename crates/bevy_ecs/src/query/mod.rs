@@ -911,8 +911,7 @@ mod tests {
             _fetch: &mut Self::Fetch<'w>,
             _entity: Entity,
             _table_row: TableRow,
-        ) -> Option<Self::Item<'w, 's>> {
-            Some(())
+        ) -> Self::Item<'w, 's> {
         }
 
         fn iter_access(
