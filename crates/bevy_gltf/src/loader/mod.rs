@@ -46,7 +46,7 @@ use gltf::{
     accessor::Iter,
     image::Source,
     mesh::{util::ReadIndices, Mode},
-    Document, Material, Node, Semantic,
+    Material, Node, Semantic,
 };
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "bevy_animation")]
@@ -73,7 +73,7 @@ use self::{
         },
         mesh::{primitive_name, primitive_topology},
         scene::{node_name, node_transform},
-        texture::{texture_handle, texture_sampler, texture_transform_to_affine2},
+        texture::{texture_sampler, texture_transform_to_affine2},
     },
 };
 use crate::convert_coordinates::GltfConvertCoordinates;
@@ -667,7 +667,15 @@ impl GltfLoader {
         if !settings.load_materials.is_empty() {
             // NOTE: materials must be loaded after textures because image load() calls will happen before load_with_settings, preventing is_srgb from being set properly
             for material in gltf.materials() {
-                let handle = load_material(&material, load_context, &gltf.document, false);
+                let handle = {
+                    let (label, material) = load_material(
+                        &material,
+                        &texture_handles,
+                        false,
+                        load_context.path().clone(),
+                    );
+                    load_context.add_labeled_asset(label, material)
+                };
                 if let Some(name) = material.name() {
                     named_materials.insert(name.into(), handle.clone());
                 }
@@ -1001,7 +1009,7 @@ impl GltfLoader {
                             &animation_roots,
                             #[cfg(feature = "bevy_animation")]
                             None,
-                            &gltf.document,
+                            &texture_handles,
                             &convert_coordinates,
                             &mut extensions,
                             skinned_mesh_bounds_policy,
@@ -1191,252 +1199,260 @@ async fn load_image<'a, 'b>(
     }
 }
 
-/// Loads a glTF material as a bevy [`StandardMaterial`] and returns it.
+/// Loads a glTF material as a bevy [`StandardMaterial`] and returns the label and material.
+// Note: this function intentionally **does not** take a `LoadContext` and insert the asset here,
+// since we don't use the `LoadContext` otherwise, and this prevents accidentally using the context
+// without `labeled_asset_scope`.
 fn load_material(
     material: &Material,
-    load_context: &mut LoadContext,
-    document: &Document,
+    textures: &[Handle<Image>],
     is_scale_inverted: bool,
-) -> Handle<StandardMaterial> {
-    let material_label = material_label(material, is_scale_inverted);
-    load_context
-        .labeled_asset_scope::<_, ()>(material_label.to_string(), |load_context| {
-            let pbr = material.pbr_metallic_roughness();
+    asset_path: AssetPath<'_>,
+) -> (String, StandardMaterial) {
+    let pbr = material.pbr_metallic_roughness();
 
-            // TODO: handle missing label handle errors here?
-            let color = pbr.base_color_factor();
-            let base_color_channel = pbr
-                .base_color_texture()
-                .map(|info| uv_channel(material, "base color", info.tex_coord()))
-                .unwrap_or_default();
-            let base_color_texture = pbr
-                .base_color_texture()
-                .map(|info| texture_handle(&info.texture(), load_context));
+    // TODO: handle missing label handle errors here?
+    let color = pbr.base_color_factor();
+    let base_color_channel = pbr
+        .base_color_texture()
+        .map(|info| uv_channel(material, "base color", info.tex_coord()))
+        .unwrap_or_default();
+    let base_color_texture = pbr.base_color_texture().map(|info| {
+        textures
+            .get(info.texture().index())
+            .cloned()
+            .unwrap_or_default()
+    });
 
-            let uv_transform = pbr
-                .base_color_texture()
-                .and_then(|info| info.texture_transform().map(texture_transform_to_affine2))
-                .unwrap_or_default();
+    let uv_transform = pbr
+        .base_color_texture()
+        .and_then(|info| info.texture_transform().map(texture_transform_to_affine2))
+        .unwrap_or_default();
 
-            let normal_map_channel = material
-                .normal_texture()
-                .map(|info| uv_channel(material, "normal map", info.tex_coord()))
-                .unwrap_or_default();
-            let normal_map_texture: Option<Handle<Image>> =
-                material.normal_texture().map(|normal_texture| {
-                    // TODO: handle normal_texture.scale
-                    texture_handle(&normal_texture.texture(), load_context)
-                });
+    let normal_map_channel = material
+        .normal_texture()
+        .map(|info| uv_channel(material, "normal map", info.tex_coord()))
+        .unwrap_or_default();
+    let normal_map_texture: Option<Handle<Image>> =
+        material.normal_texture().map(|normal_texture| {
+            // TODO: handle normal_texture.scale
+            textures
+                .get(normal_texture.texture().index())
+                .cloned()
+                .unwrap_or_default()
+        });
 
-            let metallic_roughness_channel = pbr
-                .metallic_roughness_texture()
-                .map(|info| uv_channel(material, "metallic/roughness", info.tex_coord()))
-                .unwrap_or_default();
-            let metallic_roughness_texture = pbr.metallic_roughness_texture().map(|info| {
-                warn_on_differing_texture_transforms(
-                    material,
-                    &info,
-                    uv_transform,
-                    "metallic/roughness",
-                );
-                texture_handle(&info.texture(), load_context)
-            });
+    let metallic_roughness_channel = pbr
+        .metallic_roughness_texture()
+        .map(|info| uv_channel(material, "metallic/roughness", info.tex_coord()))
+        .unwrap_or_default();
+    let metallic_roughness_texture = pbr.metallic_roughness_texture().map(|info| {
+        warn_on_differing_texture_transforms(material, &info, uv_transform, "metallic/roughness");
+        textures
+            .get(info.texture().index())
+            .cloned()
+            .unwrap_or_default()
+    });
 
-            let occlusion_channel = material
-                .occlusion_texture()
-                .map(|info| uv_channel(material, "occlusion", info.tex_coord()))
-                .unwrap_or_default();
-            let occlusion_texture = material.occlusion_texture().map(|occlusion_texture| {
-                // TODO: handle occlusion_texture.strength() (a scalar multiplier for occlusion strength)
-                texture_handle(&occlusion_texture.texture(), load_context)
-            });
+    let occlusion_channel = material
+        .occlusion_texture()
+        .map(|info| uv_channel(material, "occlusion", info.tex_coord()))
+        .unwrap_or_default();
+    let occlusion_texture = material.occlusion_texture().map(|occlusion_texture| {
+        // TODO: handle occlusion_texture.strength() (a scalar multiplier for occlusion strength)
+        textures
+            .get(occlusion_texture.texture().index())
+            .cloned()
+            .unwrap_or_default()
+    });
 
-            let emissive = material.emissive_factor();
-            let emissive_channel = material
-                .emissive_texture()
-                .map(|info| uv_channel(material, "emissive", info.tex_coord()))
-                .unwrap_or_default();
-            let emissive_texture = material.emissive_texture().map(|info| {
-                // TODO: handle occlusion_texture.strength() (a scalar multiplier for occlusion strength)
-                warn_on_differing_texture_transforms(material, &info, uv_transform, "emissive");
-                texture_handle(&info.texture(), load_context)
-            });
+    let emissive = material.emissive_factor();
+    let emissive_channel = material
+        .emissive_texture()
+        .map(|info| uv_channel(material, "emissive", info.tex_coord()))
+        .unwrap_or_default();
+    let emissive_texture = material.emissive_texture().map(|info| {
+        // TODO: handle occlusion_texture.strength() (a scalar multiplier for occlusion strength)
+        warn_on_differing_texture_transforms(material, &info, uv_transform, "emissive");
+        textures
+            .get(info.texture().index())
+            .cloned()
+            .unwrap_or_default()
+    });
 
-            #[cfg(feature = "pbr_transmission_textures")]
-            let (
-                specular_transmission,
-                specular_transmission_channel,
-                specular_transmission_texture,
-            ) = material
-                .transmission()
-                .map_or((0.0, UvChannel::Uv0, None), |transmission| {
-                    let specular_transmission_channel = transmission
-                        .transmission_texture()
-                        .map(|info| uv_channel(material, "specular/transmission", info.tex_coord()))
-                        .unwrap_or_default();
-                    let transmission_texture: Option<Handle<Image>> = transmission
-                        .transmission_texture()
-                        .map(|transmission_texture| {
-                            texture_handle(&transmission_texture.texture(), load_context)
-                        });
-
-                    (
-                        transmission.transmission_factor(),
-                        specular_transmission_channel,
-                        transmission_texture,
-                    )
-                });
-
-            #[cfg(not(feature = "pbr_transmission_textures"))]
-            let specular_transmission = material
-                .transmission()
-                .map_or(0.0, |transmission| transmission.transmission_factor());
-
-            #[cfg(feature = "pbr_transmission_textures")]
-            let (
-                thickness,
-                thickness_channel,
-                thickness_texture,
-                attenuation_distance,
-                attenuation_color,
-            ) = material.volume().map_or(
-                (0.0, UvChannel::Uv0, None, f32::INFINITY, [1.0, 1.0, 1.0]),
-                |volume| {
-                    let thickness_channel = volume
-                        .thickness_texture()
-                        .map(|info| uv_channel(material, "thickness", info.tex_coord()))
-                        .unwrap_or_default();
-                    let thickness_texture: Option<Handle<Image>> =
-                        volume.thickness_texture().map(|thickness_texture| {
-                            texture_handle(&thickness_texture.texture(), load_context)
-                        });
-
-                    (
-                        volume.thickness_factor(),
-                        thickness_channel,
-                        thickness_texture,
-                        volume.attenuation_distance(),
-                        volume.attenuation_color(),
-                    )
-                },
-            );
-
-            #[cfg(not(feature = "pbr_transmission_textures"))]
-            let (thickness, attenuation_distance, attenuation_color) =
-                material
-                    .volume()
-                    .map_or((0.0, f32::INFINITY, [1.0, 1.0, 1.0]), |volume| {
-                        (
-                            volume.thickness_factor(),
-                            volume.attenuation_distance(),
-                            volume.attenuation_color(),
-                        )
+    #[cfg(feature = "pbr_transmission_textures")]
+    let (specular_transmission, specular_transmission_channel, specular_transmission_texture) =
+        material
+            .transmission()
+            .map_or((0.0, UvChannel::Uv0, None), |transmission| {
+                let specular_transmission_channel = transmission
+                    .transmission_texture()
+                    .map(|info| uv_channel(material, "specular/transmission", info.tex_coord()))
+                    .unwrap_or_default();
+                let transmission_texture: Option<Handle<Image>> = transmission
+                    .transmission_texture()
+                    .map(|transmission_texture| {
+                        textures
+                            .get(transmission_texture.texture().index())
+                            .cloned()
+                            .unwrap_or_default()
                     });
 
-            let ior = material.ior().unwrap_or(1.5);
+                (
+                    transmission.transmission_factor(),
+                    specular_transmission_channel,
+                    transmission_texture,
+                )
+            });
 
-            // Parse the `KHR_materials_clearcoat` extension data if necessary.
-            let clearcoat =
-                ClearcoatExtension::parse(load_context, document, material).unwrap_or_default();
+    #[cfg(not(feature = "pbr_transmission_textures"))]
+    let specular_transmission = material
+        .transmission()
+        .map_or(0.0, |transmission| transmission.transmission_factor());
 
-            // Parse the `KHR_materials_anisotropy` extension data if necessary.
-            let anisotropy =
-                AnisotropyExtension::parse(load_context, document, material).unwrap_or_default();
+    #[cfg(feature = "pbr_transmission_textures")]
+    let (thickness, thickness_channel, thickness_texture, attenuation_distance, attenuation_color) =
+        material.volume().map_or(
+            (0.0, UvChannel::Uv0, None, f32::INFINITY, [1.0, 1.0, 1.0]),
+            |volume| {
+                let thickness_channel = volume
+                    .thickness_texture()
+                    .map(|info| uv_channel(material, "thickness", info.tex_coord()))
+                    .unwrap_or_default();
+                let thickness_texture: Option<Handle<Image>> =
+                    volume.thickness_texture().map(|thickness_texture| {
+                        textures
+                            .get(thickness_texture.texture().index())
+                            .cloned()
+                            .unwrap_or_default()
+                    });
 
-            // Parse the `KHR_materials_specular` extension data if necessary.
-            let specular =
-                SpecularExtension::parse(load_context, document, material).unwrap_or_default();
+                (
+                    volume.thickness_factor(),
+                    thickness_channel,
+                    thickness_texture,
+                    volume.attenuation_distance(),
+                    volume.attenuation_color(),
+                )
+            },
+        );
 
-            // We need to operate in the Linear color space and be willing to exceed 1.0 in our channels
-            let base_emissive = LinearRgba::rgb(emissive[0], emissive[1], emissive[2]);
-            let emissive = base_emissive * material.emissive_strength().unwrap_or(1.0);
+    #[cfg(not(feature = "pbr_transmission_textures"))]
+    let (thickness, attenuation_distance, attenuation_color) =
+        material
+            .volume()
+            .map_or((0.0, f32::INFINITY, [1.0, 1.0, 1.0]), |volume| {
+                (
+                    volume.thickness_factor(),
+                    volume.attenuation_distance(),
+                    volume.attenuation_color(),
+                )
+            });
 
-            Ok(StandardMaterial {
-                base_color: Color::linear_rgba(color[0], color[1], color[2], color[3]),
-                base_color_channel,
-                base_color_texture,
-                perceptual_roughness: pbr.roughness_factor(),
-                metallic: pbr.metallic_factor(),
-                metallic_roughness_channel,
-                metallic_roughness_texture,
-                normal_map_channel,
-                normal_map_texture,
-                double_sided: material.double_sided(),
-                cull_mode: if material.double_sided() {
-                    None
-                } else if is_scale_inverted {
-                    Some(Face::Front)
-                } else {
-                    Some(Face::Back)
-                },
-                occlusion_channel,
-                occlusion_texture,
-                emissive,
-                emissive_channel,
-                emissive_texture,
-                specular_transmission,
-                #[cfg(feature = "pbr_transmission_textures")]
-                specular_transmission_channel,
-                #[cfg(feature = "pbr_transmission_textures")]
-                specular_transmission_texture,
-                thickness,
-                #[cfg(feature = "pbr_transmission_textures")]
-                thickness_channel,
-                #[cfg(feature = "pbr_transmission_textures")]
-                thickness_texture,
-                ior,
-                attenuation_distance,
-                attenuation_color: Color::linear_rgb(
-                    attenuation_color[0],
-                    attenuation_color[1],
-                    attenuation_color[2],
-                ),
-                unlit: material.unlit(),
-                alpha_mode: alpha_mode(material),
-                uv_transform,
-                clearcoat: clearcoat.clearcoat_factor.unwrap_or_default() as f32,
-                clearcoat_perceptual_roughness: clearcoat
-                    .clearcoat_roughness_factor
-                    .unwrap_or_default() as f32,
-                #[cfg(feature = "pbr_multi_layer_material_textures")]
-                clearcoat_channel: clearcoat.clearcoat_channel,
-                #[cfg(feature = "pbr_multi_layer_material_textures")]
-                clearcoat_texture: clearcoat.clearcoat_texture,
-                #[cfg(feature = "pbr_multi_layer_material_textures")]
-                clearcoat_roughness_channel: clearcoat.clearcoat_roughness_channel,
-                #[cfg(feature = "pbr_multi_layer_material_textures")]
-                clearcoat_roughness_texture: clearcoat.clearcoat_roughness_texture,
-                #[cfg(feature = "pbr_multi_layer_material_textures")]
-                clearcoat_normal_channel: clearcoat.clearcoat_normal_channel,
-                #[cfg(feature = "pbr_multi_layer_material_textures")]
-                clearcoat_normal_texture: clearcoat.clearcoat_normal_texture,
-                anisotropy_strength: anisotropy.anisotropy_strength.unwrap_or_default() as f32,
-                anisotropy_rotation: anisotropy.anisotropy_rotation.unwrap_or_default() as f32,
-                #[cfg(feature = "pbr_anisotropy_texture")]
-                anisotropy_channel: anisotropy.anisotropy_channel,
-                #[cfg(feature = "pbr_anisotropy_texture")]
-                anisotropy_texture: anisotropy.anisotropy_texture,
-                // From the `KHR_materials_specular` spec:
-                // <https://github.com/KhronosGroup/glTF/tree/main/extensions/2.0/Khronos/KHR_materials_specular#materials-with-reflectance-parameter>
-                reflectance: specular.specular_factor.unwrap_or(1.0) as f32 * 0.5,
-                #[cfg(feature = "pbr_specular_textures")]
-                specular_channel: specular.specular_channel,
-                #[cfg(feature = "pbr_specular_textures")]
-                specular_texture: specular.specular_texture,
-                specular_tint: match specular.specular_color_factor {
-                    Some(color) => {
-                        Color::linear_rgb(color[0] as f32, color[1] as f32, color[2] as f32)
-                    }
-                    None => Color::WHITE,
-                },
-                #[cfg(feature = "pbr_specular_textures")]
-                specular_tint_channel: specular.specular_color_channel,
-                #[cfg(feature = "pbr_specular_textures")]
-                specular_tint_texture: specular.specular_color_texture,
-                ..Default::default()
-            })
-        })
-        .unwrap()
+    let ior = material.ior().unwrap_or(1.5);
+
+    // Parse the `KHR_materials_clearcoat` extension data if necessary.
+    let clearcoat =
+        ClearcoatExtension::parse(material, textures, asset_path.clone()).unwrap_or_default();
+
+    // Parse the `KHR_materials_anisotropy` extension data if necessary.
+    let anisotropy =
+        AnisotropyExtension::parse(material, textures, asset_path.clone()).unwrap_or_default();
+
+    // Parse the `KHR_materials_specular` extension data if necessary.
+    let specular =
+        SpecularExtension::parse(material, textures, asset_path.clone()).unwrap_or_default();
+
+    // We need to operate in the Linear color space and be willing to exceed 1.0 in our channels
+    let base_emissive = LinearRgba::rgb(emissive[0], emissive[1], emissive[2]);
+    let emissive = base_emissive * material.emissive_strength().unwrap_or(1.0);
+
+    let standard_material = StandardMaterial {
+        base_color: Color::linear_rgba(color[0], color[1], color[2], color[3]),
+        base_color_channel,
+        base_color_texture,
+        perceptual_roughness: pbr.roughness_factor(),
+        metallic: pbr.metallic_factor(),
+        metallic_roughness_channel,
+        metallic_roughness_texture,
+        normal_map_channel,
+        normal_map_texture,
+        double_sided: material.double_sided(),
+        cull_mode: if material.double_sided() {
+            None
+        } else if is_scale_inverted {
+            Some(Face::Front)
+        } else {
+            Some(Face::Back)
+        },
+        occlusion_channel,
+        occlusion_texture,
+        emissive,
+        emissive_channel,
+        emissive_texture,
+        specular_transmission,
+        #[cfg(feature = "pbr_transmission_textures")]
+        specular_transmission_channel,
+        #[cfg(feature = "pbr_transmission_textures")]
+        specular_transmission_texture,
+        thickness,
+        #[cfg(feature = "pbr_transmission_textures")]
+        thickness_channel,
+        #[cfg(feature = "pbr_transmission_textures")]
+        thickness_texture,
+        ior,
+        attenuation_distance,
+        attenuation_color: Color::linear_rgb(
+            attenuation_color[0],
+            attenuation_color[1],
+            attenuation_color[2],
+        ),
+        unlit: material.unlit(),
+        alpha_mode: alpha_mode(material),
+        uv_transform,
+        clearcoat: clearcoat.clearcoat_factor.unwrap_or_default() as f32,
+        clearcoat_perceptual_roughness: clearcoat.clearcoat_roughness_factor.unwrap_or_default()
+            as f32,
+        #[cfg(feature = "pbr_multi_layer_material_textures")]
+        clearcoat_channel: clearcoat.clearcoat_channel,
+        #[cfg(feature = "pbr_multi_layer_material_textures")]
+        clearcoat_texture: clearcoat.clearcoat_texture,
+        #[cfg(feature = "pbr_multi_layer_material_textures")]
+        clearcoat_roughness_channel: clearcoat.clearcoat_roughness_channel,
+        #[cfg(feature = "pbr_multi_layer_material_textures")]
+        clearcoat_roughness_texture: clearcoat.clearcoat_roughness_texture,
+        #[cfg(feature = "pbr_multi_layer_material_textures")]
+        clearcoat_normal_channel: clearcoat.clearcoat_normal_channel,
+        #[cfg(feature = "pbr_multi_layer_material_textures")]
+        clearcoat_normal_texture: clearcoat.clearcoat_normal_texture,
+        anisotropy_strength: anisotropy.anisotropy_strength.unwrap_or_default() as f32,
+        anisotropy_rotation: anisotropy.anisotropy_rotation.unwrap_or_default() as f32,
+        #[cfg(feature = "pbr_anisotropy_texture")]
+        anisotropy_channel: anisotropy.anisotropy_channel,
+        #[cfg(feature = "pbr_anisotropy_texture")]
+        anisotropy_texture: anisotropy.anisotropy_texture,
+        // From the `KHR_materials_specular` spec:
+        // <https://github.com/KhronosGroup/glTF/tree/main/extensions/2.0/Khronos/KHR_materials_specular#materials-with-reflectance-parameter>
+        reflectance: specular.specular_factor.unwrap_or(1.0) as f32 * 0.5,
+        #[cfg(feature = "pbr_specular_textures")]
+        specular_channel: specular.specular_channel,
+        #[cfg(feature = "pbr_specular_textures")]
+        specular_texture: specular.specular_texture,
+        specular_tint: match specular.specular_color_factor {
+            Some(color) => Color::linear_rgb(color[0] as f32, color[1] as f32, color[2] as f32),
+            None => Color::WHITE,
+        },
+        #[cfg(feature = "pbr_specular_textures")]
+        specular_tint_channel: specular.specular_color_channel,
+        #[cfg(feature = "pbr_specular_textures")]
+        specular_tint_texture: specular.specular_color_texture,
+        ..Default::default()
+    };
+
+    (
+        material_label(material, is_scale_inverted).to_string(),
+        standard_material,
+    )
 }
 
 /// Loads a glTF node.
@@ -1459,7 +1475,7 @@ fn load_node(
     parent_transform: &Transform,
     #[cfg(feature = "bevy_animation")] animation_roots: &HashSet<usize>,
     #[cfg(feature = "bevy_animation")] mut animation_context: Option<AnimationContext>,
-    document: &Document,
+    textures: &[Handle<Image>],
     convert_coordinates: &GltfConvertCoordinates,
     extensions: &mut [Box<dyn extensions::GltfExtensionHandler>],
     skinned_mesh_bounds_policy: GltfSkinnedMeshBoundsPolicy,
@@ -1572,7 +1588,13 @@ fn load_node(
                 if !root_load_context.has_labeled_asset(&material_label)
                     && !load_context.has_labeled_asset(&material_label)
                 {
-                    load_material(&material, load_context, document, is_scale_inverted);
+                    let (label, material) = load_material(
+                        &material,
+                        textures,
+                        is_scale_inverted,
+                        load_context.path().clone(),
+                    );
+                    load_context.add_labeled_asset(label, material);
                 }
 
                 let primitive_label = GltfAssetLabel::Primitive {
@@ -1781,7 +1803,7 @@ fn load_node(
                 animation_roots,
                 #[cfg(feature = "bevy_animation")]
                 animation_context.clone(),
-                document,
+                textures,
                 convert_coordinates,
                 extensions,
                 skinned_mesh_bounds_policy,

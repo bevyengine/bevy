@@ -41,9 +41,9 @@ fn pathtrace(@builtin(global_invocation_id) global_id: vec3<u32>) {
     var bounce_was_perfect_reflection = true;
     var previous_normal = vec3(0.0);
     loop {
-        let ray_hit = trace_ray(ray_origin, ray_direction, ray_t_min, RAY_T_MAX, RAY_FLAG_NONE);
-        if ray_hit.kind != RAY_QUERY_INTERSECTION_NONE {
-            let ray_hit = resolve_ray_hit_full(ray_hit);
+        let ray = trace_ray(ray_origin, ray_direction, ray_t_min, RAY_T_MAX, RAY_FLAG_NONE);
+        if ray.kind != RAY_QUERY_INTERSECTION_NONE {
+            let ray_hit = resolve_ray_hit_full(ray);
             let wo = -ray_direction;
 
             var mis_weight = 1.0;

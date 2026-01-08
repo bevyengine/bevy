@@ -1,5 +1,10 @@
+#[cfg(feature = "bevy_picking")]
+use crate::UiGlobalTransform;
+use crate::{ComputedNode, Node};
 use bevy_asset::Assets;
-use bevy_camera::{Camera, RenderTarget};
+#[cfg(feature = "bevy_picking")]
+use bevy_camera::Camera;
+use bevy_camera::RenderTarget;
 use bevy_ecs::{
     component::Component,
     entity::Entity,
@@ -21,10 +26,6 @@ use bevy_picking::{
     pointer::{Location, PointerId, PointerInput, PointerLocation},
 };
 use bevy_reflect::Reflect;
-
-#[cfg(feature = "bevy_picking")]
-use crate::UiGlobalTransform;
-use crate::{ComputedNode, Node};
 
 /// Component used to render a [`RenderTarget`]  to a node.
 ///

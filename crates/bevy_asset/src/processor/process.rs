@@ -1,8 +1,7 @@
 use crate::{
     io::{
         AssetReaderError, AssetWriterError, MissingAssetWriterError,
-        MissingProcessedAssetReaderError, MissingProcessedAssetWriterError, Reader,
-        ReaderRequiredFeatures, Writer,
+        MissingProcessedAssetReaderError, MissingProcessedAssetWriterError, Reader, Writer,
     },
     meta::{AssetAction, AssetMeta, AssetMetaDyn, ProcessDependencyInfo, ProcessedInfo, Settings},
     processor::AssetProcessor,
@@ -43,11 +42,6 @@ pub trait Process: TypePath + Send + Sync + Sized + 'static {
     ) -> impl ConditionalSendFuture<
         Output = Result<<Self::OutputLoader as AssetLoader>::Settings, ProcessError>,
     >;
-
-    /// Gets the features of the reader required to process the asset.
-    fn reader_required_features(_settings: &Self::Settings) -> ReaderRequiredFeatures {
-        ReaderRequiredFeatures::default()
-    }
 }
 
 /// A flexible [`Process`] implementation that loads the source [`Asset`] using the `L` [`AssetLoader`], then transforms
@@ -213,10 +207,6 @@ where
             .map_err(|error| ProcessError::AssetSaveError(error.into()))?;
         Ok(output_settings)
     }
-
-    fn reader_required_features(settings: &Self::Settings) -> ReaderRequiredFeatures {
-        Loader::reader_required_features(&settings.loader_settings)
-    }
 }
 
 /// A type-erased variant of [`Process`] that enables interacting with processor implementations without knowing
@@ -229,19 +219,11 @@ pub trait ErasedProcessor: Send + Sync {
         settings: &'a dyn Settings,
         writer: &'a mut Writer,
     ) -> BoxedFuture<'a, Result<Box<dyn AssetMetaDyn>, ProcessError>>;
-    /// Type-erased variant of [`Process::reader_required_features`].
-    // Note: This takes &self just to be dyn compatible.
-    #[expect(
-        clippy::result_large_err,
-        reason = "this is only an error here because this isn't a future"
-    )]
-    fn reader_required_features(
-        &self,
-        settings: &dyn Settings,
-    ) -> Result<ReaderRequiredFeatures, ProcessError>;
     /// Deserialized `meta` as type-erased [`AssetMeta`], operating under the assumption that it matches the meta
     /// for the underlying [`Process`] impl.
     fn deserialize_meta(&self, meta: &[u8]) -> Result<Box<dyn AssetMetaDyn>, DeserializeMetaError>;
+    /// Returns the type-path of the original [`Process`].
+    fn type_path(&self) -> &'static str;
     /// Returns the default type-erased [`AssetMeta`] for the underlying [`Process`] impl.
     fn default_meta(&self) -> Box<dyn AssetMetaDyn>;
 }
@@ -265,17 +247,13 @@ impl<P: Process> ErasedProcessor for P {
         })
     }
 
-    fn reader_required_features(
-        &self,
-        settings: &dyn Settings,
-    ) -> Result<ReaderRequiredFeatures, ProcessError> {
-        let settings = settings.downcast_ref().ok_or(ProcessError::WrongMetaType)?;
-        Ok(P::reader_required_features(settings))
-    }
-
     fn deserialize_meta(&self, meta: &[u8]) -> Result<Box<dyn AssetMetaDyn>, DeserializeMetaError> {
         let meta: AssetMeta<(), P> = ron::de::from_bytes(meta)?;
         Ok(Box::new(meta))
+    }
+
+    fn type_path(&self) -> &'static str {
+        P::type_path()
     }
 
     fn default_meta(&self) -> Box<dyn AssetMetaDyn> {

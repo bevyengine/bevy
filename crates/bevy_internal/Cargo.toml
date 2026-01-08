@@ -262,7 +262,7 @@ bevy_gltf = ["dep:bevy_gltf", "bevy_scene", "bevy_pbr"]
 dynamic_linking = ["bevy_diagnostic/dynamic_linking"]
 
 # Enable using a shared stdlib for cxx on Android.
-android_shared_stdcxx = ["bevy_audio/android_shared_stdcxx"]
+android_shared_stdcxx = ["bevy_audio?/android_shared_stdcxx"]
 
 # Enable AccessKit on Unix backends (currently only works with experimental
 # screen readers and forks.)
@@ -425,6 +425,13 @@ async_executor = [
 # Enables use of browser APIs.
 # Note this is currently only applicable on `wasm32` architectures.
 web = ["bevy_app/web", "bevy_platform/web", "bevy_reflect/web"]
+
+# Input sources.
+mouse = ["bevy_input/mouse", "bevy_input_focus?/mouse"]
+keyboard = ["bevy_input/keyboard", "bevy_input_focus?/keyboard"]
+gamepad = ["bevy_input/gamepad", "bevy_input_focus?/gamepad"]
+touch = ["bevy_input/touch"]
+gestures = ["bevy_input/gestures"]
 
 hotpatching = ["bevy_app/hotpatching", "bevy_ecs/hotpatching"]
 

@@ -81,7 +81,7 @@ pub struct PanCamera {
 /// - Pan speed: 500.0
 /// - Move up/down: W/S
 /// - Move left/right: A/D
-/// - Rotation speed: PI (radiradians per second)
+/// - Rotation speed: PI (radians per second)
 /// - Rotation ccw/cw: Q/E
 impl Default for PanCamera {
     /// Provides the default values for the `PanCamera` controller.
