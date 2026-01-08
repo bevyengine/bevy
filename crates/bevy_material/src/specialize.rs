@@ -11,7 +11,7 @@ use crate::{
 /// expected to:
 /// - Look up the appropriate specializer from the world
 /// - Downcast the erased key to the concrete key type
-/// - Call [`SpecializedMeshPipelines::specialize`] with the specializer and return the resulting pipeline id
+/// - Call `SpecializedMeshPipelines::specialize` with the specializer and return the resulting pipeline id
 pub type BaseSpecializeFn = fn(
     &mut World,
     ErasedMaterialPipelineKey,
@@ -23,7 +23,7 @@ pub type BaseSpecializeFn = fn(
 /// expected to:
 /// - Look up the appropriate specializer from the world
 /// - Downcast the erased key to the concrete key type
-/// - Call [`SpecializedMeshPipelines::specialize`] with the specializer and return the resulting pipeline id
+/// - Call `SpecializedMeshPipelines::specialize` with the specializer and return the resulting pipeline id
 pub type PrepassSpecializeFn = fn(
     &mut World,
     ErasedMaterialPipelineKey,
