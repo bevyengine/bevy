@@ -22,7 +22,7 @@ use bevy_shader::{
 };
 use bevy_tasks::Task;
 use bevy_utils::default;
-use core::{future::Future, hash::Hash, mem};
+use core::{future::Future, mem};
 use std::sync::{Mutex, PoisonError};
 use tracing::error;
 use wgpu::{PipelineCompilationOptions, VertexBufferLayout as RawVertexBufferLayout};

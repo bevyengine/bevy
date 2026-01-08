@@ -6,7 +6,7 @@ use bevy_material::descriptor::{
 use crate::render_resource::PipelineCache;
 use bevy_ecs::resource::Resource;
 use bevy_material::specialize::SpecializedMeshPipelineError;
-use bevy_mesh::{MeshVertexBufferLayoutRef, MissingVertexAttributeError, VertexBufferLayout};
+use bevy_mesh::{MeshVertexBufferLayoutRef, VertexBufferLayout};
 use bevy_platform::{
     collections::{
         hash_map::{Entry, RawEntryMut, VacantEntry},
@@ -15,8 +15,7 @@ use bevy_platform::{
     hash::FixedHasher,
 };
 use bevy_utils::default;
-use core::{fmt::Debug, hash::Hash};
-use thiserror::Error;
+use core::hash::Hash;
 use tracing::error;
 
 /// A trait that allows constructing different variants of a render pipeline from a key.

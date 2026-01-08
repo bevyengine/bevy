@@ -63,14 +63,13 @@ use bevy_render::{
 };
 use bevy_render::{mesh::allocator::MeshAllocator, sync_world::MainEntityHashMap};
 use bevy_render::{texture::FallbackImage, view::RenderVisibleEntities};
-use bevy_shader::{Shader, ShaderDefVal};
+use bevy_shader::ShaderDefVal;
 use bevy_utils::Parallel;
 use core::{
     any::{Any, TypeId},
-    hash::{BuildHasher, Hash, Hasher},
+    hash::Hash,
     marker::PhantomData,
 };
-use log::warn;
 use smallvec::SmallVec;
 use tracing::error;
 
