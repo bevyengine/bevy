@@ -1,6 +1,6 @@
 ---
 title: "New crate `bevy_material`"
-pull_requests: [21931]
+pull_requests: [22426]
 ---
 
 Various material-related machinery where extracted from `bevy_pbr` and `bevy_render` into a new crate called `bevy_material`.
