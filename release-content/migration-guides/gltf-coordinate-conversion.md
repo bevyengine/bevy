@@ -3,11 +3,14 @@ title: glTF Coordinate Conversion
 pull_requests: [20394]
 ---
 
-**Bevy 0.17** added experimental options for coordinate conversion of glTF
-files - `GltfPlugin::use_model_forward_direction` and
+**Bevy 0.17** added options for coordinate conversion of glTF files -
+`GltfPlugin::use_model_forward_direction` and
 `GltfLoaderSettings::use_model_forward_direction`. In **Bevy 0.18** these
 options have changed. The options are disabled by default, so if you haven't
 enabled them then your glTFs will work the same as before.
+
+_CAUTION: The options are experimental, and their behavior may change in
+future versions._
 
 The goal of coordinate conversion is to take objects that face forward in the
 glTF and change them to match the direction of Bevy's `Transform::forward`.
