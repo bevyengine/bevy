@@ -121,7 +121,7 @@ fn filling_set_at<T: Clone>(vec: &mut Vec<T>, index: usize, filler: T, value: T)
     vec[index] = value;
 }
 
-/// A descriptor for a [`Pipeline`].
+/// A descriptor for a [`Pipeline`](https://docs.rs/bevy/latest/bevy/render/render_resource/enum.Pipeline.html).
 ///
 /// Used to store a heterogenous collection of render and compute pipeline descriptors together.
 #[derive(Debug)]

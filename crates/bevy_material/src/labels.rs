@@ -28,6 +28,7 @@ define_label!(
 pub type InternedDrawFunctionLabel = Interned<dyn DrawFunctionLabel>;
 
 // TODO: make this generic?
-/// An identifier for a [`Draw`] function stored in [`DrawFunctions`].
+/// An identifier for a [`Draw`](https://docs.rs/bevy/latest/bevy/render/render_phase/trait.Draw.html)
+/// function stored in [`DrawFunctions`](https://docs.rs/bevy/latest/bevy/render/render_phase/struct.DrawFunctions.html).
 #[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Hash)]
 pub struct DrawFunctionId(pub u32);
