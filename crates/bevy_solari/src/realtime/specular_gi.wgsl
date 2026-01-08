@@ -62,7 +62,7 @@ fn specular_gi(@builtin(global_invocation_id) global_id: vec3<u32>) {
         var a0 = dot(wo_unnormalized, wo_unnormalized) / (4.0 * PI * cos_theta);
         a0 *= TERMINATE_IN_WORLD_CACHE_THRESHOLD;
 
-        radiance = trace_glossy_path(surface.world_position, wi, surface.material.roughness, pdf, a0, &rng) / pdf;
+        radiance = trace_glossy_path(surface, wi, pdf, a0, &rng) / pdf;
     }
 
     let brdf = evaluate_specular_brdf(surface.world_normal, wo, wi, surface.material.base_color, surface.material.metallic,
