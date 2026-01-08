@@ -1,9 +1,9 @@
 ---
-title: AssetPath::resolve and resolve_embed renamed, new variants added
+title: "AssetPath::resolve and resolve_embed renamed, new variants added"
 pull_requests: [22416]
 ---
 
-# AssetPath::resolve and resolve_embed renamed, new variants added
+## AssetPath::resolve and resolve_embed renamed, new variants added
 
 `AssetPath::resolve` and `AssetPath::resolve_embed` now accept `&AssetPath` instead of `&str`. The string-based variants have been renamed to `resolve_str` and `resolve_embed_str`.
 
