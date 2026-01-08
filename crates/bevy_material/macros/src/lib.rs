@@ -14,9 +14,7 @@ pub(crate) fn bevy_material_path() -> syn::Path {
 pub fn derive_shader_label(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     let mut trait_path = bevy_material_path();
-    trait_path
-        .segments
-        .push(format_ident!("render_phase").into());
+    trait_path.segments.push(format_ident!("labels").into());
     trait_path
         .segments
         .push(format_ident!("ShaderLabel").into());
@@ -27,9 +25,7 @@ pub fn derive_shader_label(input: TokenStream) -> TokenStream {
 pub fn derive_draw_function_label(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     let mut trait_path = bevy_material_path();
-    trait_path
-        .segments
-        .push(format_ident!("render_phase").into());
+    trait_path.segments.push(format_ident!("labels").into());
     trait_path
         .segments
         .push(format_ident!("DrawFunctionLabel").into());

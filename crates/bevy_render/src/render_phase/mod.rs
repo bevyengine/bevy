@@ -51,6 +51,8 @@ use crate::renderer::RenderDevice;
 use crate::sync_world::{MainEntity, MainEntityHashMap};
 use crate::view::RetainedViewEntity;
 use crate::RenderDebugFlags;
+use bevy_material::descriptor::CachedRenderPipelineId;
+
 use crate::{
     batching::{
         self,
@@ -58,20 +60,20 @@ use crate::{
         no_gpu_preprocessing::{self, BatchedInstanceBuffer},
         GetFullBatchData,
     },
-    render_resource::{CachedRenderPipelineId, GpuArrayBufferIndex, PipelineCache},
+    render_resource::{GpuArrayBufferIndex, PipelineCache},
     Render, RenderApp, RenderSystems,
 };
 use bevy_ecs::{
     prelude::*,
     system::{lifetimeless::SRes, SystemParamItem},
 };
+pub use bevy_material::labels::DrawFunctionId;
+pub use bevy_material_macros::DrawFunctionLabel;
 pub use bevy_material_macros::ShaderLabel;
 use bevy_render::renderer::RenderAdapterInfo;
 use core::{fmt::Debug, hash::Hash, iter, marker::PhantomData, ops::Range, slice::SliceIndex};
 use smallvec::SmallVec;
 use tracing::warn;
-
-pub use bevy_material_macros::DrawFunctionLabel;
 
 /// Stores the rendering instructions for a single phase that uses bins in all
 /// views.
