@@ -120,7 +120,7 @@ fn setup_pica_pica(
     commands.spawn((
         DirectionalLight {
             illuminance: light_consts::lux::FULL_DAYLIGHT,
-            shadows_enabled: false, // Solari replaces shadow mapping
+            shadow_maps_enabled: false, // Solari replaces shadow mapping
             ..default()
         },
         Transform::from_rotation(Quat::from_xyzw(
@@ -457,7 +457,7 @@ fn toggle_lights(
             commands.spawn((
                 DirectionalLight {
                     illuminance: light_consts::lux::FULL_DAYLIGHT,
-                    shadows_enabled: false, // Solari replaces shadow mapping
+                    shadow_maps_enabled: false, // Solari replaces shadow mapping
                     ..default()
                 },
                 Transform::from_rotation(Quat::from_xyzw(

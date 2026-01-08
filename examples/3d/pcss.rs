@@ -368,7 +368,7 @@ fn handle_pcss_toggle(
 /// Creates the [`DirectionalLight`] component with the appropriate settings.
 fn create_directional_light(app_status: &AppStatus) -> DirectionalLight {
     DirectionalLight {
-        shadows_enabled: true,
+        shadow_maps_enabled: true,
         soft_shadow_size: if app_status.soft_shadows {
             Some(LIGHT_RADIUS)
         } else {
@@ -384,7 +384,7 @@ fn create_point_light(app_status: &AppStatus) -> PointLight {
     PointLight {
         intensity: POINT_LIGHT_INTENSITY,
         range: POINT_LIGHT_RANGE,
-        shadows_enabled: true,
+        shadow_maps_enabled: true,
         radius: LIGHT_RADIUS,
         soft_shadows_enabled: app_status.soft_shadows,
         shadow_depth_bias: POINT_SHADOW_DEPTH_BIAS,
@@ -399,7 +399,7 @@ fn create_spot_light(app_status: &AppStatus) -> SpotLight {
         intensity: POINT_LIGHT_INTENSITY,
         range: POINT_LIGHT_RANGE,
         radius: LIGHT_RADIUS,
-        shadows_enabled: true,
+        shadow_maps_enabled: true,
         soft_shadows_enabled: app_status.soft_shadows,
         shadow_depth_bias: DIRECTIONAL_SHADOW_DEPTH_BIAS,
         shadow_map_near_z: SHADOW_MAP_NEAR_Z,

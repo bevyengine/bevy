@@ -74,7 +74,8 @@ pub struct ExtractedPointLight {
     pub range: f32,
     pub radius: f32,
     pub transform: GlobalTransform,
-    pub shadows_enabled: bool,
+    pub shadow_maps_enabled: bool,
+    pub contact_shadows_enabled: bool,
     pub shadow_depth_bias: f32,
     pub shadow_normal_bias: f32,
     pub shadow_map_near_z: f32,
@@ -90,7 +91,8 @@ pub struct ExtractedDirectionalLight {
     pub color: LinearRgba,
     pub illuminance: f32,
     pub transform: GlobalTransform,
-    pub shadows_enabled: bool,
+    pub shadow_maps_enabled: bool,
+    pub contact_shadows_enabled: bool,
     pub volumetric: bool,
     /// whether this directional light contributes diffuse light to lightmapped
     /// meshes
@@ -112,10 +114,12 @@ pub struct ExtractedDirectionalLight {
 bitflags::bitflags! {
     #[repr(transparent)]
     struct PointLightFlags: u32 {
-        const SHADOWS_ENABLED                   = 1 << 0;
+        const SHADOW_MAPS_ENABLED               = 1 << 0;
         const SPOT_LIGHT_Y_NEGATIVE             = 1 << 1;
         const VOLUMETRIC                        = 1 << 2;
         const AFFECTS_LIGHTMAPPED_MESH_DIFFUSE  = 1 << 3;
+        const CONTACT_SHADOWS_ENABLED           = 1 << 4;
+        const SHADOWS_ENABLED                   = 1 << 0;
         const NONE                              = 0;
         const UNINITIALIZED                     = 0xFFFF;
     }
@@ -149,9 +153,11 @@ pub struct GpuDirectionalLight {
 bitflags::bitflags! {
     #[repr(transparent)]
     struct DirectionalLightFlags: u32 {
-        const SHADOWS_ENABLED                   = 1 << 0;
+        const SHADOW_MAPS_ENABLED               = 1 << 0;
         const VOLUMETRIC                        = 1 << 1;
         const AFFECTS_LIGHTMAPPED_MESH_DIFFUSE  = 1 << 2;
+        const CONTACT_SHADOWS_ENABLED           = 1 << 3;
+        const SHADOWS_ENABLED                   = 1 << 0;
         const NONE                              = 0;
         const UNINITIALIZED                     = 0xFFFF;
     }
@@ -410,7 +416,8 @@ pub fn extract_lights(
             range: point_light.range,
             radius: point_light.radius,
             transform: *transform,
-            shadows_enabled: point_light.shadows_enabled,
+            shadow_maps_enabled: point_light.shadow_maps_enabled,
+            contact_shadows_enabled: point_light.contact_shadows_enabled,
             shadow_depth_bias: point_light.shadow_depth_bias,
             // The factor of SQRT_2 is for the worst-case diagonal offset
             shadow_normal_bias: point_light.shadow_normal_bias
@@ -475,7 +482,8 @@ pub fn extract_lights(
                         range: spot_light.range,
                         radius: spot_light.radius,
                         transform: *transform,
-                        shadows_enabled: spot_light.shadows_enabled,
+                        shadow_maps_enabled: spot_light.shadow_maps_enabled,
+                        contact_shadows_enabled: spot_light.contact_shadows_enabled,
                         shadow_depth_bias: spot_light.shadow_depth_bias,
                         // The factor of SQRT_2 is for the worst-case diagonal offset
                         shadow_normal_bias: spot_light.shadow_normal_bias
@@ -571,7 +579,8 @@ pub fn extract_lights(
                     soft_shadow_size: directional_light.soft_shadow_size,
                     #[cfg(not(feature = "experimental_pbr_pcss"))]
                     soft_shadow_size: None,
-                    shadows_enabled: directional_light.shadows_enabled,
+                    shadow_maps_enabled: directional_light.shadow_maps_enabled,
+                    contact_shadows_enabled: directional_light.contact_shadows_enabled,
                     shadow_depth_bias: directional_light.shadow_depth_bias,
                     // The factor of SQRT_2 is for the worst-case diagonal offset
                     shadow_normal_bias: directional_light.shadow_normal_bias
@@ -816,7 +825,7 @@ pub fn prepare_lights(
 
     let point_light_shadow_maps_count = point_lights
         .iter()
-        .filter(|light| light.2.shadows_enabled && light.2.spot_light_angles.is_none())
+        .filter(|light| light.2.shadow_maps_enabled && light.2.spot_light_angles.is_none())
         .count()
         .min(max_texture_cubes);
 
@@ -830,7 +839,7 @@ pub fn prepare_lights(
     let directional_shadow_enabled_count = directional_lights
         .iter()
         .take(MAX_DIRECTIONAL_LIGHTS)
-        .filter(|(_, _, light)| light.shadows_enabled)
+        .filter(|(_, _, light)| light.shadow_maps_enabled)
         .count()
         .min(max_texture_array_layers / MAX_CASCADES_PER_LIGHT);
 
@@ -848,7 +857,7 @@ pub fn prepare_lights(
 
     let spot_light_shadow_maps_count = point_lights
         .iter()
-        .filter(|(_, _, light, _)| light.shadows_enabled && light.spot_light_angles.is_some())
+        .filter(|(_, _, light, _)| light.shadow_maps_enabled && light.spot_light_angles.is_some())
         .count()
         .min(max_texture_array_layers - directional_shadow_enabled_count * MAX_CASCADES_PER_LIGHT);
 
@@ -875,7 +884,7 @@ pub fn prepare_lights(
     // - because entities are unique, we can use `sort_unstable_by_key`
     //   and still end up with a stable order.
     directional_lights.sort_unstable_by_key(|(entity, _, light)| {
-        (light.volumetric, light.shadows_enabled, *entity)
+        (light.volumetric, light.shadow_maps_enabled, *entity)
     });
 
     if global_light_meta.entity_to_index.capacity() < point_lights.len() {
@@ -889,12 +898,16 @@ pub fn prepare_lights(
         let mut flags = PointLightFlags::NONE;
 
         // Lights are sorted, shadow enabled lights are first
-        if light.shadows_enabled
+        if light.shadow_maps_enabled
             && (index < point_light_shadow_maps_count
                 || (light.spot_light_angles.is_some()
                     && index - point_light_count < spot_light_shadow_maps_count))
         {
-            flags |= PointLightFlags::SHADOWS_ENABLED;
+            flags |= PointLightFlags::SHADOW_MAPS_ENABLED;
+        }
+
+        if light.contact_shadows_enabled {
+            flags |= PointLightFlags::CONTACT_SHADOWS_ENABLED;
         }
 
         let cube_face_projection = Mat4::perspective_infinite_reverse_rh(
@@ -902,7 +915,7 @@ pub fn prepare_lights(
             1.0,
             light.shadow_map_near_z,
         );
-        if light.shadows_enabled
+        if light.shadow_maps_enabled
             && light.volumetric
             && (index < point_light_volumetric_enabled_count
                 || (light.spot_light_angles.is_some()
@@ -995,7 +1008,7 @@ pub fn prepare_lights(
         let render_layers = maybe_layers.unwrap_or_default();
 
         for (_light_entity, _, light) in directional_lights.iter() {
-            if light.shadows_enabled && light.render_layers.intersects(render_layers) {
+            if light.shadow_maps_enabled && light.render_layers.intersects(render_layers) {
                 num_directional_cascades_for_this_view += light
                     .cascade_shadow_config
                     .bounds
@@ -1172,7 +1185,7 @@ pub fn prepare_lights(
 
             // Lights are sorted, volumetric and shadow enabled lights are first
             if light.volumetric
-                && light.shadows_enabled
+                && light.shadow_maps_enabled
                 && (index < directional_volumetric_enabled_count)
             {
                 flags |= DirectionalLightFlags::VOLUMETRIC;
@@ -1180,7 +1193,7 @@ pub fn prepare_lights(
 
             // Shadow enabled lights are second
             let mut num_cascades = 0;
-            if light.shadows_enabled {
+            if light.shadow_maps_enabled {
                 let cascades = light
                     .cascade_shadow_config
                     .bounds
@@ -1190,9 +1203,13 @@ pub fn prepare_lights(
                 if num_directional_cascades_enabled_for_this_view + cascades
                     <= max_texture_array_layers
                 {
-                    flags |= DirectionalLightFlags::SHADOWS_ENABLED;
+                    flags |= DirectionalLightFlags::SHADOW_MAPS_ENABLED;
                     num_cascades += cascades;
                 }
+            }
+
+            if light.contact_shadows_enabled {
+                flags |= DirectionalLightFlags::CONTACT_SHADOWS_ENABLED;
             }
 
             if light.affects_lightmapped_mesh_diffuse {
@@ -1256,7 +1273,7 @@ pub fn prepare_lights(
                 continue;
             };
 
-            if !light.shadows_enabled {
+            if !light.shadow_maps_enabled {
                 if let Some(entities) = light_view_entities.remove(&entity) {
                     despawn_entities(&mut commands, entities);
                 }
@@ -1380,7 +1397,7 @@ pub fn prepare_lights(
                 continue;
             };
 
-            if !light.shadows_enabled {
+            if !light.shadow_maps_enabled {
                 if let Some(entities) = light_view_entities.remove(&entity) {
                     despawn_entities(&mut commands, entities);
                 }
@@ -2363,11 +2380,11 @@ fn point_or_spot_light_to_clusterable(point_light: &ExtractedPointLight) -> Clus
     match point_light.spot_light_angles {
         Some((_, outer_angle)) => ClusterableObjectType::SpotLight {
             outer_angle,
-            shadows_enabled: point_light.shadows_enabled,
+            shadow_maps_enabled: point_light.shadow_maps_enabled,
             volumetric: point_light.volumetric,
         },
         None => ClusterableObjectType::PointLight {
-            shadows_enabled: point_light.shadows_enabled,
+            shadow_maps_enabled: point_light.shadow_maps_enabled,
             volumetric: point_light.volumetric,
         },
     }

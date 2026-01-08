@@ -47,7 +47,7 @@ enum ExampleSetting {
     LightType(LightType),
 }
 
-const LIGHT_ROTATION_SPEED: f32 = 0.005;
+const LIGHT_ROTATION_SPEED: f32 = 0.002;
 
 #[derive(Resource, Default)]
 struct AppStatus {
@@ -70,6 +70,7 @@ fn main() {
             ..default()
         }))
         .init_resource::<AppStatus>()
+        .insert_resource(GlobalAmbientLight::NONE)
         .add_message::<WidgetClickEvent<ExampleSetting>>()
         .add_systems(Startup, setup)
         .add_systems(Update, rotate_light)
@@ -87,23 +88,19 @@ fn main() {
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn((
         Camera3d::default(),
-        Transform::from_xyz(0.45, 0.6, 0.45).looking_at(Vec3::new(0.0, 0.5, 0.0), Vec3::Y),
+        Transform::from_xyz(0.6, 0.6, 0.6).looking_at(Vec3::new(0.0, 0.5, 0.0), Vec3::Y),
         ContactShadows::default(),
         Bloom::default(),
         Hdr::default(),
         Skybox {
-            brightness: 500.0,
+            brightness: 100.0,
             image: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
             ..default()
         },
         EnvironmentMapLight {
             diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
             specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
-            intensity: 300.0,
-            ..default()
-        },
-        AmbientLight {
-            brightness: 0.0,
+            intensity: 200.0,
             ..default()
         },
     ));
@@ -111,7 +108,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let directional_light = commands
         .spawn((
             DirectionalLight {
-                shadows_enabled: true,
+                shadow_maps_enabled: true,
+                contact_shadows_enabled: true,
                 ..default()
             },
             Visibility::Visible,
@@ -121,7 +119,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let point_light = commands
         .spawn((
             PointLight {
-                shadows_enabled: true,
+                shadow_maps_enabled: true,
                 intensity: light_consts::lumens::VERY_LARGE_CINEMA_LIGHT * 0.25,
                 ..default()
             },
@@ -132,7 +130,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let spot_light = commands
         .spawn((
             SpotLight {
-                shadows_enabled: true,
+                shadow_maps_enabled: true,
                 intensity: light_consts::lumens::VERY_LARGE_CINEMA_LIGHT * 0.25,
                 ..default()
             },
@@ -142,7 +140,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     commands
         .spawn((
-            Transform::from_xyz(-0.8, 2.0, 1.2).looking_at(Vec3::ZERO, Vec3::Y),
+            Transform::from_xyz(-0.8, 1.5, 1.2).looking_at(Vec3::ZERO, Vec3::Y),
             Visibility::default(),
             LightContainer,
         ))
@@ -250,7 +248,6 @@ fn update_radio_buttons(
 }
 
 fn handle_setting_change(
-    mut cameras: Query<&mut ContactShadows>,
     mut lights: Query<
         (
             &mut Visibility,
@@ -267,12 +264,19 @@ fn handle_setting_change(
         match **event {
             ExampleSetting::ContactShadows(value) => {
                 app_status.contact_shadows = value;
-                for mut contact_shadows in cameras.iter_mut() {
-                    contact_shadows.linear_steps = if value == ContactShadowState::Enabled {
-                        16
-                    } else {
-                        0
-                    };
+                for (_, maybe_directional_light, maybe_point_light, maybe_spot_light) in
+                    lights.iter_mut()
+                {
+                    if let Some(mut directional_light) = maybe_directional_light {
+                        directional_light.contact_shadows_enabled =
+                            value == ContactShadowState::Enabled;
+                    }
+                    if let Some(mut point_light) = maybe_point_light {
+                        point_light.contact_shadows_enabled = value == ContactShadowState::Enabled;
+                    }
+                    if let Some(mut spot_light) = maybe_spot_light {
+                        spot_light.contact_shadows_enabled = value == ContactShadowState::Enabled;
+                    }
                 }
             }
             ExampleSetting::ShadowMaps(value) => {
@@ -281,13 +285,13 @@ fn handle_setting_change(
                     lights.iter_mut()
                 {
                     if let Some(mut directional_light) = maybe_directional_light {
-                        directional_light.shadows_enabled = value == ShadowMaps::Enabled;
+                        directional_light.shadow_maps_enabled = value == ShadowMaps::Enabled;
                     }
                     if let Some(mut point_light) = maybe_point_light {
-                        point_light.shadows_enabled = value == ShadowMaps::Enabled;
+                        point_light.shadow_maps_enabled = value == ShadowMaps::Enabled;
                     }
                     if let Some(mut spot_light) = maybe_spot_light {
-                        spot_light.shadows_enabled = value == ShadowMaps::Enabled;
+                        spot_light.shadow_maps_enabled = value == ShadowMaps::Enabled;
                     }
                 }
             }
