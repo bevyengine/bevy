@@ -139,7 +139,6 @@ inventory = { version = "0.3", optional = true }
 [dev-dependencies]
 ron = "0.12"
 rmp-serde = "1.1"
-# bincode = { version = "2.0", features = ["serde"] }
 postcard = { version = "1.0", features = ["alloc"] }
 serde_json = "1.0.140"
 serde = { version = "1", features = ["derive"] }
