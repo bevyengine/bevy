@@ -9,6 +9,7 @@ use bevy_core_pipeline::{
 use bevy_ecs::{
     component::Component,
     entity::Entity,
+    message::{Message, MessageReader, MessageWriter},
     prelude::{Has, ReflectComponent},
     query::QueryItem,
     reflect::ReflectResource,
@@ -19,6 +20,7 @@ use bevy_ecs::{
 };
 use bevy_image::BevyDefault;
 use bevy_input::{prelude::KeyCode, ButtonInput};
+use bevy_log::info;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin},
@@ -49,19 +51,20 @@ use bevy_pbr::{
 
 /// Adds a rendering debug overlay to visualize various renderer buffers.
 #[derive(Default)]
-pub struct DebugOverlayPlugin;
+pub struct RenderDebugOverlayPlugin;
 
-impl Plugin for DebugOverlayPlugin {
+impl Plugin for RenderDebugOverlayPlugin {
     fn build(&self, app: &mut App) {
         embedded_asset!(app, "debug_overlay.wgsl");
 
         app.register_type::<RenderDebugOverlay>()
             .init_resource::<RenderDebugOverlay>()
+            .add_message::<RenderDebugOverlayEvent>()
             .add_plugins((
                 ExtractResourcePlugin::<RenderDebugOverlay>::default(),
                 ExtractComponentPlugin::<RenderDebugOverlay>::default(),
             ))
-            .add_systems(bevy_app::Update, update_overlay);
+            .add_systems(bevy_app::Update, (handle_input, update_overlay).chain());
     }
 
     fn finish(&self, app: &mut App) {
@@ -70,17 +73,17 @@ impl Plugin for DebugOverlayPlugin {
         };
 
         render_app
-            .init_resource::<DebugOverlayPipeline>()
-            .init_resource::<SpecializedRenderPipelines<DebugOverlayPipeline>>()
-            .init_resource::<DebugOverlayUniforms>()
-            .add_render_graph_node::<ViewNodeRunner<DebugOverlayNode>>(
+            .init_resource::<RenderDebugOverlayPipeline>()
+            .init_resource::<SpecializedRenderPipelines<RenderDebugOverlayPipeline>>()
+            .init_resource::<RenderDebugOverlayUniforms>()
+            .add_render_graph_node::<ViewNodeRunner<RenderDebugOverlayNode>>(
                 bevy_core_pipeline::core_3d::graph::Core3d,
-                DebugOverlayLabel,
+                RenderDebugOverlayLabel,
             )
             .add_render_graph_edge(
                 bevy_core_pipeline::core_3d::graph::Core3d,
                 bevy_core_pipeline::core_3d::graph::Node3d::Tonemapping,
-                DebugOverlayLabel,
+                RenderDebugOverlayLabel,
             )
             .add_systems(
                 Render,
@@ -95,9 +98,23 @@ impl Plugin for DebugOverlayPlugin {
 
 /// Automatically attach keybinds to make renderer debugging tools immediately available without
 /// code changes.
+pub fn handle_input(
+    keyboard: Res<ButtonInput<KeyCode>>,
+    mut events: MessageWriter<RenderDebugOverlayEvent>,
+) {
+    if keyboard.just_pressed(KeyCode::F1) {
+        events.write(RenderDebugOverlayEvent::CycleMode);
+    }
+    if keyboard.just_pressed(KeyCode::F2) {
+        events.write(RenderDebugOverlayEvent::CycleOpacity);
+    }
+}
+
+/// Automatically attach keybinds to make renderer debugging tools immediately available without
+/// code changes.
 pub fn update_overlay(
     mut commands: Commands,
-    keyboard: Res<ButtonInput<KeyCode>>,
+    mut events: MessageReader<RenderDebugOverlayEvent>,
     mut config_res: ResMut<RenderDebugOverlay>,
     cameras: Query<
         (
@@ -115,113 +132,118 @@ pub fn update_overlay(
 ) {
     let mut changed = false;
 
-    if keyboard.just_pressed(KeyCode::F1) {
-        let modes = [
-            DebugMode::Depth,
-            DebugMode::Normal,
-            DebugMode::MotionVectors,
-            DebugMode::Deferred,
-            DebugMode::DeferredBaseColor,
-            DebugMode::DeferredEmissive,
-            DebugMode::DeferredMetallicRoughness,
-            DebugMode::DepthPyramid { mip_level: 0 },
-        ];
+    for event in events.read() {
+        match event {
+            RenderDebugOverlayEvent::CycleMode => {
+                let modes = [
+                    RenderDebugMode::Depth,
+                    RenderDebugMode::Normal,
+                    RenderDebugMode::MotionVectors,
+                    RenderDebugMode::Deferred,
+                    RenderDebugMode::DeferredBaseColor,
+                    RenderDebugMode::DeferredEmissive,
+                    RenderDebugMode::DeferredMetallicRoughness,
+                    RenderDebugMode::DepthPyramid { mip_level: 0 },
+                ];
 
-        let is_supported = |mode: &DebugMode| {
-            cameras
-                .iter()
-                .any(|(_, _, depth, normal, motion, deferred, occlusion, _ssr)| {
-                    match mode {
-                        DebugMode::Depth => depth || deferred,
-                        DebugMode::Normal => normal || deferred,
-                        DebugMode::MotionVectors => motion,
-                        DebugMode::Deferred
-                        | DebugMode::DeferredBaseColor
-                        | DebugMode::DeferredEmissive
-                        | DebugMode::DeferredMetallicRoughness => deferred,
-                        // We don't have a good way to check for DepthPyramid in the main world
-                        // but it usually depends on DepthPrepass.
-                        // However, we can at least check if OcclusionCulling is present.
-                        DebugMode::DepthPyramid { .. } => depth && occlusion,
-                    }
-                })
-        };
+                let is_supported = |mode: &RenderDebugMode| {
+                    cameras.iter().any(
+                        |(_, _, depth, normal, motion, deferred, occlusion, _ssr)| {
+                            match mode {
+                                RenderDebugMode::Depth => depth || deferred,
+                                RenderDebugMode::Normal => normal || deferred,
+                                RenderDebugMode::MotionVectors => motion,
+                                RenderDebugMode::Deferred
+                                | RenderDebugMode::DeferredBaseColor
+                                | RenderDebugMode::DeferredEmissive
+                                | RenderDebugMode::DeferredMetallicRoughness => deferred,
+                                // We don't have a good way to check for DepthPyramid in the main world
+                                // but it usually depends on DepthPrepass.
+                                // However, we can at least check if OcclusionCulling is present.
+                                RenderDebugMode::DepthPyramid { .. } => depth && occlusion,
+                            }
+                        },
+                    )
+                };
 
-        if !config_res.enabled {
-            for mode in modes {
-                if is_supported(&mode) {
-                    config_res.enabled = true;
-                    config_res.mode = mode;
-                    break;
-                }
-            }
-        } else {
-            let current_index = modes
-                .iter()
-                .position(|m| {
-                    core::mem::discriminant(m) == core::mem::discriminant(&config_res.mode)
-                })
-                .unwrap_or(0);
-
-            let mut next_mode = None;
-
-            // First check if we can increment mip level
-            if let DebugMode::DepthPyramid { mip_level } = config_res.mode {
-                if mip_level < 7 {
-                    config_res.mode = DebugMode::DepthPyramid {
-                        mip_level: mip_level + 1,
-                    };
-                    next_mode = Some(config_res.mode);
-                }
-            }
-
-            if next_mode.is_none() {
-                // Look for next supported mode
-                for i in 1..modes.len() {
-                    let idx = (current_index + i) % modes.len();
-                    if is_supported(&modes[idx]) {
-                        next_mode = Some(modes[idx]);
-                        break;
-                    }
-                }
-
-                if let Some(mode) = next_mode {
-                    let next_index = modes
-                        .iter()
-                        .position(|m| core::mem::discriminant(m) == core::mem::discriminant(&mode))
-                        .unwrap();
-
-                    if next_index <= current_index {
-                        config_res.enabled = false;
-                    } else {
-                        config_res.mode = mode;
+                if !config_res.enabled {
+                    for mode in modes {
+                        if is_supported(&mode) {
+                            config_res.enabled = true;
+                            config_res.mode = mode;
+                            break;
+                        }
                     }
                 } else {
-                    config_res.enabled = false;
+                    let current_index = modes
+                        .iter()
+                        .position(|m| {
+                            core::mem::discriminant(m) == core::mem::discriminant(&config_res.mode)
+                        })
+                        .unwrap_or(0);
+
+                    let mut next_mode = None;
+
+                    // First check if we can increment mip level
+                    if let RenderDebugMode::DepthPyramid { mip_level } = config_res.mode {
+                        if mip_level < 7 {
+                            config_res.mode = RenderDebugMode::DepthPyramid {
+                                mip_level: mip_level + 1,
+                            };
+                            next_mode = Some(config_res.mode);
+                        }
+                    }
+
+                    if next_mode.is_none() {
+                        // Look for next supported mode
+                        for i in 1..modes.len() {
+                            let idx = (current_index + i) % modes.len();
+                            if is_supported(&modes[idx]) {
+                                next_mode = Some(modes[idx]);
+                                break;
+                            }
+                        }
+
+                        if let Some(mode) = next_mode {
+                            let next_index = modes
+                                .iter()
+                                .position(|m| {
+                                    core::mem::discriminant(m) == core::mem::discriminant(&mode)
+                                })
+                                .unwrap();
+
+                            if next_index <= current_index {
+                                config_res.enabled = false;
+                            } else {
+                                config_res.mode = mode;
+                            }
+                        } else {
+                            config_res.enabled = false;
+                        }
+                    }
+                }
+                changed = true;
+
+                if config_res.enabled {
+                    info!("Debug Overlay: {:?}", config_res.mode);
+                } else {
+                    info!("Debug Overlay Disabled");
                 }
             }
+            RenderDebugOverlayEvent::CycleOpacity => {
+                config_res.opacity = if config_res.opacity < 0.8 {
+                    0.8
+                } else if config_res.opacity < 0.95 {
+                    0.95
+                } else if config_res.opacity < 1.0 {
+                    1.0
+                } else {
+                    0.8
+                };
+                changed = true;
+                info!("Debug Overlay Opacity: {}", config_res.opacity);
+            }
         }
-        changed = true;
-
-        if config_res.enabled {
-            bevy_log::info!("Debug Overlay: {:?}", config_res.mode);
-        } else {
-            bevy_log::info!("Debug Overlay Disabled");
-        }
-    }
-
-    if keyboard.just_pressed(KeyCode::F2) {
-        config_res.opacity = if config_res.opacity < 0.8 {
-            0.8
-        } else if config_res.opacity < 0.95 {
-            0.95
-        } else if config_res.opacity < 1.0 {
-            1.0
-        } else {
-            0.8
-        };
-        changed = true;
-        bevy_log::info!("Debug Overlay Opacity: {}", config_res.opacity);
     }
 
     for (entity, existing_config, ..) in &cameras {
@@ -232,13 +254,23 @@ pub fn update_overlay(
 }
 
 /// Configure the render debug overlay.
+#[derive(Message, Debug, Copy, Clone, PartialEq, Eq, Hash, Reflect)]
+#[reflect(Debug, PartialEq, Hash)]
+pub enum RenderDebugOverlayEvent {
+    /// Cycle to the next debug mode.
+    CycleMode,
+    /// Cycle to the next opacity level.
+    CycleOpacity,
+}
+
+/// Configure the render debug overlay.
 #[derive(Resource, Component, Clone, ExtractResource, ExtractComponent, Reflect, PartialEq)]
 #[reflect(Resource, Component, Default)]
 pub struct RenderDebugOverlay {
     /// Enables or disables drawing the overlay.
     pub enabled: bool,
     /// The kind of data to write to the overlay.
-    pub mode: DebugMode,
+    pub mode: RenderDebugMode,
     /// The opacity of the overlay, to allow seeing the rendered image underneath.
     pub opacity: f32,
 }
@@ -247,7 +279,7 @@ impl Default for RenderDebugOverlay {
     fn default() -> Self {
         Self {
             enabled: false,
-            mode: DebugMode::Depth,
+            mode: RenderDebugMode::Depth,
             opacity: 1.0,
         }
     }
@@ -256,7 +288,7 @@ impl Default for RenderDebugOverlay {
 /// The kind of renderer data to visualize.
 #[allow(missing_docs)]
 #[derive(Default, Debug, Copy, Clone, PartialEq, Eq, Hash, Reflect)]
-pub enum DebugMode {
+pub enum RenderDebugMode {
     #[default]
     Depth,
     Normal,
@@ -271,23 +303,23 @@ pub enum DebugMode {
 }
 
 #[derive(ShaderType)]
-struct DebugOverlayUniform {
+struct RenderDebugOverlayUniform {
     pub opacity: f32,
     pub mip_level: u32,
 }
 
 #[derive(Resource, Default)]
-struct DebugOverlayUniforms {
-    pub uniforms: DynamicUniformBuffer<DebugOverlayUniform>,
+struct RenderDebugOverlayUniforms {
+    pub uniforms: DynamicUniformBuffer<RenderDebugOverlayUniform>,
 }
 
 #[derive(Component)]
-struct DebugOverlayUniformOffset {
+struct RenderDebugOverlayUniformOffset {
     pub offset: u32,
 }
 
 #[derive(Resource)]
-struct DebugOverlayPipeline {
+struct RenderDebugOverlayPipeline {
     shader: Handle<Shader>,
     mesh_view_layouts: MeshPipelineViewLayouts,
     bind_group_layout: BindGroupLayout,
@@ -296,7 +328,7 @@ struct DebugOverlayPipeline {
     fullscreen_vertex_shader: VertexState,
 }
 
-impl FromWorld for DebugOverlayPipeline {
+impl FromWorld for RenderDebugOverlayPipeline {
     fn from_world(world: &mut World) -> Self {
         let render_device = world.resource::<RenderDevice>();
         let asset_server = world.resource::<bevy_asset::AssetServer>();
@@ -310,7 +342,7 @@ impl FromWorld for DebugOverlayPipeline {
             &BindGroupLayoutEntries::sequential(
                 ShaderStages::FRAGMENT,
                 (
-                    binding_types::uniform_buffer::<DebugOverlayUniform>(true),
+                    binding_types::uniform_buffer::<RenderDebugOverlayUniform>(true),
                     binding_types::texture_2d(TextureSampleType::Float { filterable: true }),
                     binding_types::sampler(
                         bevy_render::render_resource::SamplerBindingType::Filtering,
@@ -336,18 +368,18 @@ impl FromWorld for DebugOverlayPipeline {
 }
 
 #[derive(PartialEq, Eq, Hash, Clone, Copy)]
-struct DebugOverlayPipelineKey {
-    mode: DebugMode,
+struct RenderDebugOverlayPipelineKey {
+    mode: RenderDebugMode,
     view_layout_key: MeshPipelineViewLayoutKey,
 }
 
-impl SpecializedRenderPipeline for DebugOverlayPipeline {
-    type Key = DebugOverlayPipelineKey;
+impl SpecializedRenderPipeline for RenderDebugOverlayPipeline {
+    type Key = RenderDebugOverlayPipelineKey;
 
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
         let mut shader_defs = Vec::new();
         match key.mode {
-            DebugMode::Depth => {
+            RenderDebugMode::Depth => {
                 shader_defs.push("DEBUG_DEPTH".into());
                 if key
                     .view_layout_key
@@ -362,7 +394,7 @@ impl SpecializedRenderPipeline for DebugOverlayPipeline {
                     shader_defs.push("DEFERRED_PREPASS".into());
                 }
             }
-            DebugMode::Normal => {
+            RenderDebugMode::Normal => {
                 shader_defs.push("DEBUG_NORMAL".into());
                 if key
                     .view_layout_key
@@ -377,7 +409,7 @@ impl SpecializedRenderPipeline for DebugOverlayPipeline {
                     shader_defs.push("DEFERRED_PREPASS".into());
                 }
             }
-            DebugMode::MotionVectors => {
+            RenderDebugMode::MotionVectors => {
                 shader_defs.push("DEBUG_MOTION_VECTORS".into());
                 if key
                     .view_layout_key
@@ -386,7 +418,7 @@ impl SpecializedRenderPipeline for DebugOverlayPipeline {
                     shader_defs.push("MOTION_VECTOR_PREPASS".into());
                 }
             }
-            DebugMode::Deferred => {
+            RenderDebugMode::Deferred => {
                 shader_defs.push("DEBUG_DEFERRED".into());
                 if key
                     .view_layout_key
@@ -395,7 +427,7 @@ impl SpecializedRenderPipeline for DebugOverlayPipeline {
                     shader_defs.push("DEFERRED_PREPASS".into());
                 }
             }
-            DebugMode::DeferredBaseColor => {
+            RenderDebugMode::DeferredBaseColor => {
                 shader_defs.push("DEBUG_DEFERRED_BASE_COLOR".into());
                 if key
                     .view_layout_key
@@ -404,7 +436,7 @@ impl SpecializedRenderPipeline for DebugOverlayPipeline {
                     shader_defs.push("DEFERRED_PREPASS".into());
                 }
             }
-            DebugMode::DeferredEmissive => {
+            RenderDebugMode::DeferredEmissive => {
                 shader_defs.push("DEBUG_DEFERRED_EMISSIVE".into());
                 if key
                     .view_layout_key
@@ -413,7 +445,7 @@ impl SpecializedRenderPipeline for DebugOverlayPipeline {
                     shader_defs.push("DEFERRED_PREPASS".into());
                 }
             }
-            DebugMode::DeferredMetallicRoughness => {
+            RenderDebugMode::DeferredMetallicRoughness => {
                 shader_defs.push("DEBUG_DEFERRED_METALLIC_ROUGHNESS".into());
                 if key
                     .view_layout_key
@@ -422,7 +454,7 @@ impl SpecializedRenderPipeline for DebugOverlayPipeline {
                     shader_defs.push("DEFERRED_PREPASS".into());
                 }
             }
-            DebugMode::DepthPyramid { .. } => shader_defs.push("DEBUG_DEPTH_PYRAMID".into()),
+            RenderDebugMode::DepthPyramid { .. } => shader_defs.push("DEBUG_DEPTH_PYRAMID".into()),
         }
 
         if key
@@ -467,8 +499,8 @@ impl SpecializedRenderPipeline for DebugOverlayPipeline {
 fn prepare_debug_overlay_pipelines(
     mut commands: Commands,
     pipeline_cache: Res<PipelineCache>,
-    mut pipelines: ResMut<SpecializedRenderPipelines<DebugOverlayPipeline>>,
-    pipeline: Res<DebugOverlayPipeline>,
+    mut pipelines: ResMut<SpecializedRenderPipelines<RenderDebugOverlayPipeline>>,
+    pipeline: Res<RenderDebugOverlayPipeline>,
     views: Query<(
         Entity,
         &RenderDebugOverlay,
@@ -520,7 +552,7 @@ fn prepare_debug_overlay_pipelines(
         let pipeline_id = pipelines.specialize(
             &pipeline_cache,
             &pipeline,
-            DebugOverlayPipelineKey {
+            RenderDebugOverlayPipelineKey {
                 mode: config.mode,
                 view_layout_key,
             },
@@ -528,18 +560,18 @@ fn prepare_debug_overlay_pipelines(
 
         commands
             .entity(entity)
-            .insert(DebugOverlayPipelineId(pipeline_id));
+            .insert(RenderDebugOverlayPipelineId(pipeline_id));
     }
 }
 
 #[derive(Component)]
-struct DebugOverlayPipelineId(CachedRenderPipelineId);
+struct RenderDebugOverlayPipelineId(CachedRenderPipelineId);
 
 fn prepare_debug_buffer_uniforms(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
-    mut uniforms: ResMut<DebugOverlayUniforms>,
+    mut uniforms: ResMut<RenderDebugOverlayUniforms>,
     views: Query<(Entity, &RenderDebugOverlay)>,
 ) {
     let len = views.iter().len();
@@ -554,9 +586,9 @@ fn prepare_debug_buffer_uniforms(
         return;
     };
     for (entity, config) in &views {
-        let offset = writer.write(&DebugOverlayUniform {
+        let offset = writer.write(&RenderDebugOverlayUniform {
             opacity: config.opacity,
-            mip_level: if let DebugMode::DepthPyramid { mip_level } = config.mode {
+            mip_level: if let RenderDebugMode::DepthPyramid { mip_level } = config.mode {
                 mip_level
             } else {
                 0
@@ -564,22 +596,22 @@ fn prepare_debug_buffer_uniforms(
         });
         commands
             .entity(entity)
-            .insert(DebugOverlayUniformOffset { offset });
+            .insert(RenderDebugOverlayUniformOffset { offset });
     }
 }
 
 #[derive(Component)]
-struct DebugOverlayBindGroup(BindGroup);
+struct RenderDebugOverlayBindGroup(BindGroup);
 
 fn prepare_debug_buffer_bind_groups(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
-    pipeline: Res<DebugOverlayPipeline>,
-    uniforms: Res<DebugOverlayUniforms>,
+    pipeline: Res<RenderDebugOverlayPipeline>,
+    uniforms: Res<RenderDebugOverlayUniforms>,
     fallback_image: Res<FallbackImage>,
     views: Query<(
         Entity,
-        &DebugOverlayUniformOffset,
+        &RenderDebugOverlayUniformOffset,
         Option<&ViewDepthPyramid>,
     )>,
 ) {
@@ -604,24 +636,24 @@ fn prepare_debug_buffer_bind_groups(
         );
         commands
             .entity(entity)
-            .insert(DebugOverlayBindGroup(bind_group));
+            .insert(RenderDebugOverlayBindGroup(bind_group));
     }
 }
 
 /// The render debug overlay.
 #[derive(Debug, Hash, PartialEq, Eq, Clone, RenderLabel)]
-pub struct DebugOverlayLabel;
+pub struct RenderDebugOverlayLabel;
 
 #[derive(Default)]
-struct DebugOverlayNode;
+struct RenderDebugOverlayNode;
 
-impl ViewNode for DebugOverlayNode {
+impl ViewNode for RenderDebugOverlayNode {
     type ViewQuery = (
         &'static ViewTarget,
         &'static RenderDebugOverlay,
-        &'static DebugOverlayPipelineId,
-        &'static DebugOverlayUniformOffset,
-        &'static DebugOverlayBindGroup,
+        &'static RenderDebugOverlayPipelineId,
+        &'static RenderDebugOverlayUniformOffset,
+        &'static RenderDebugOverlayBindGroup,
         &'static MeshViewBindGroup,
         &'static ViewUniformOffset,
         &'static ViewLightsUniformOffset,

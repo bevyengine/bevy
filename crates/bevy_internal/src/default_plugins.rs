@@ -68,7 +68,7 @@ plugin_group! {
         #[cfg(feature = "bevy_pbr")]
         bevy_pbr:::PbrPlugin,
         #[cfg(feature = "bevy_render_debug")]
-        bevy_render_debug:::DebugOverlayPlugin,
+        bevy_render_debug:::RenderDebugOverlayPlugin,
         // NOTE: Load this after renderer initialization so that it knows about the supported
         // compressed texture formats.
         #[cfg(feature = "bevy_gltf")]
