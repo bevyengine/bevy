@@ -1238,6 +1238,7 @@ name = "contact_shadows"
 path = "examples/3d/contact_shadows.rs"
 # Causes an ICE on docs.rs
 doc-scrape-examples = false
+required-features = ["bluenoise_texture"]
 
 [package.metadata.example.contact_shadows]
 name = "Contact Shadows"
