@@ -2,17 +2,21 @@
 title: "`AssetPath::resolve` and `resolve_embed` now take `&AssetPath`"
 pull_requests: [22416]
 ---
-# `AssetPath::resolve` and `resolve_embed` now take `&AssetPath`
+
+## `AssetPath::resolve` and `resolve_embed` now take `&AssetPath`
 
 `AssetPath::resolve` and `AssetPath::resolve_embed` no longer accept `&str`. They now take `&AssetPath`. The string-based variants have been renamed to `resolve_str` and `resolve_embed_str`.
+
 ## What changed?
 
 - `AssetPath::resolve` now takes `&AssetPath` instead of `&str`
 - `AssetPath::resolve_embed` now takes `&AssetPath` instead of `&str`
 - String-based variants are now `resolve_str` and `resolve_embed_str`
+
 ## Why was this changed?
 
 This change avoids unnecessary string allocation and parsing when an `AssetPath` is already available.
+
 ## How do I migrate?
 
 ### If you already have an `AssetPath`
