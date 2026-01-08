@@ -9,8 +9,8 @@ use bevy_core_pipeline::{
 use bevy_ecs::{
     component::Component,
     entity::Entity,
-    prelude::ReflectComponent,
-    query::{Has, QueryItem},
+    prelude::{Has, ReflectComponent},
+    query::QueryItem,
     reflect::ReflectResource,
     resource::Resource,
     schedule::IntoScheduleConfigs,
@@ -100,31 +100,105 @@ pub fn update_overlay(
     keyboard: Res<ButtonInput<KeyCode>>,
     mut config_res: ResMut<RenderDebugOverlay>,
     cameras: Query<
-        (Entity, Option<&RenderDebugOverlay>),
+        (
+            Entity,
+            Option<&RenderDebugOverlay>,
+            Has<bevy_core_pipeline::prepass::DepthPrepass>,
+            Has<bevy_core_pipeline::prepass::NormalPrepass>,
+            Has<bevy_core_pipeline::prepass::MotionVectorPrepass>,
+            Has<bevy_core_pipeline::prepass::DeferredPrepass>,
+            Has<bevy_render::experimental::occlusion_culling::OcclusionCulling>,
+            Has<bevy_pbr::ScreenSpaceReflections>,
+        ),
         bevy_ecs::query::With<bevy_camera::Camera>,
     >,
 ) {
     let mut changed = false;
 
     if keyboard.just_pressed(KeyCode::F1) {
+        let modes = [
+            DebugMode::Depth,
+            DebugMode::Normal,
+            DebugMode::MotionVectors,
+            DebugMode::Deferred,
+            DebugMode::DeferredBaseColor,
+            DebugMode::DeferredEmissive,
+            DebugMode::DeferredMetallicRoughness,
+            DebugMode::DepthPyramid { mip_level: 0 },
+        ];
+
+        let is_supported = |mode: &DebugMode| {
+            cameras
+                .iter()
+                .any(|(_, _, depth, normal, motion, deferred, occlusion, _ssr)| {
+                    match mode {
+                        DebugMode::Depth => depth || deferred,
+                        DebugMode::Normal => normal || deferred,
+                        DebugMode::MotionVectors => motion,
+                        DebugMode::Deferred
+                        | DebugMode::DeferredBaseColor
+                        | DebugMode::DeferredEmissive
+                        | DebugMode::DeferredMetallicRoughness => deferred,
+                        // We don't have a good way to check for DepthPyramid in the main world
+                        // but it usually depends on DepthPrepass.
+                        // However, we can at least check if OcclusionCulling is present.
+                        DebugMode::DepthPyramid { .. } => depth && occlusion,
+                    }
+                })
+        };
+
         if !config_res.enabled {
-            config_res.enabled = true;
-            config_res.mode = DebugMode::Depth;
-        } else {
-            match config_res.mode {
-                DebugMode::Depth => config_res.mode = DebugMode::Normal,
-                DebugMode::Normal => config_res.mode = DebugMode::MotionVectors,
-                DebugMode::MotionVectors => {
-                    config_res.mode = DebugMode::DepthPyramid { mip_level: 0 };
+            for mode in modes {
+                if is_supported(&mode) {
+                    config_res.enabled = true;
+                    config_res.mode = mode;
+                    break;
                 }
-                DebugMode::DepthPyramid { ref mut mip_level } => {
-                    if *mip_level < 7 {
-                        *mip_level += 1;
-                    } else {
-                        config_res.enabled = false;
+            }
+        } else {
+            let current_index = modes
+                .iter()
+                .position(|m| {
+                    core::mem::discriminant(m) == core::mem::discriminant(&config_res.mode)
+                })
+                .unwrap_or(0);
+
+            let mut next_mode = None;
+
+            // First check if we can increment mip level
+            if let DebugMode::DepthPyramid { mip_level } = config_res.mode {
+                if mip_level < 7 {
+                    config_res.mode = DebugMode::DepthPyramid {
+                        mip_level: mip_level + 1,
+                    };
+                    next_mode = Some(config_res.mode);
+                }
+            }
+
+            if next_mode.is_none() {
+                // Look for next supported mode
+                for i in 1..modes.len() {
+                    let idx = (current_index + i) % modes.len();
+                    if is_supported(&modes[idx]) {
+                        next_mode = Some(modes[idx]);
+                        break;
                     }
                 }
-                DebugMode::Deferred => config_res.mode = DebugMode::Depth,
+
+                if let Some(mode) = next_mode {
+                    let next_index = modes
+                        .iter()
+                        .position(|m| core::mem::discriminant(m) == core::mem::discriminant(&mode))
+                        .unwrap();
+
+                    if next_index <= current_index {
+                        config_res.enabled = false;
+                    } else {
+                        config_res.mode = mode;
+                    }
+                } else {
+                    config_res.enabled = false;
+                }
             }
         }
         changed = true;
@@ -150,7 +224,7 @@ pub fn update_overlay(
         bevy_log::info!("Debug Overlay Opacity: {}", config_res.opacity);
     }
 
-    for (entity, existing_config) in &cameras {
+    for (entity, existing_config, ..) in &cameras {
         if existing_config.is_none() || (changed && Some(config_res.as_ref()) != existing_config) {
             commands.entity(entity).insert(config_res.clone());
         }
@@ -188,6 +262,9 @@ pub enum DebugMode {
     Normal,
     MotionVectors,
     Deferred,
+    DeferredBaseColor,
+    DeferredEmissive,
+    DeferredMetallicRoughness,
     DepthPyramid {
         mip_level: u32,
     },
@@ -278,6 +355,12 @@ impl SpecializedRenderPipeline for DebugOverlayPipeline {
                 {
                     shader_defs.push("DEPTH_PREPASS".into());
                 }
+                if key
+                    .view_layout_key
+                    .contains(MeshPipelineViewLayoutKey::DEFERRED_PREPASS)
+                {
+                    shader_defs.push("DEFERRED_PREPASS".into());
+                }
             }
             DebugMode::Normal => {
                 shader_defs.push("DEBUG_NORMAL".into());
@@ -286,6 +369,12 @@ impl SpecializedRenderPipeline for DebugOverlayPipeline {
                     .contains(MeshPipelineViewLayoutKey::NORMAL_PREPASS)
                 {
                     shader_defs.push("NORMAL_PREPASS".into());
+                }
+                if key
+                    .view_layout_key
+                    .contains(MeshPipelineViewLayoutKey::DEFERRED_PREPASS)
+                {
+                    shader_defs.push("DEFERRED_PREPASS".into());
                 }
             }
             DebugMode::MotionVectors => {
@@ -299,6 +388,33 @@ impl SpecializedRenderPipeline for DebugOverlayPipeline {
             }
             DebugMode::Deferred => {
                 shader_defs.push("DEBUG_DEFERRED".into());
+                if key
+                    .view_layout_key
+                    .contains(MeshPipelineViewLayoutKey::DEFERRED_PREPASS)
+                {
+                    shader_defs.push("DEFERRED_PREPASS".into());
+                }
+            }
+            DebugMode::DeferredBaseColor => {
+                shader_defs.push("DEBUG_DEFERRED_BASE_COLOR".into());
+                if key
+                    .view_layout_key
+                    .contains(MeshPipelineViewLayoutKey::DEFERRED_PREPASS)
+                {
+                    shader_defs.push("DEFERRED_PREPASS".into());
+                }
+            }
+            DebugMode::DeferredEmissive => {
+                shader_defs.push("DEBUG_DEFERRED_EMISSIVE".into());
+                if key
+                    .view_layout_key
+                    .contains(MeshPipelineViewLayoutKey::DEFERRED_PREPASS)
+                {
+                    shader_defs.push("DEFERRED_PREPASS".into());
+                }
+            }
+            DebugMode::DeferredMetallicRoughness => {
+                shader_defs.push("DEBUG_DEFERRED_METALLIC_ROUGHNESS".into());
                 if key
                     .view_layout_key
                     .contains(MeshPipelineViewLayoutKey::DEFERRED_PREPASS)
