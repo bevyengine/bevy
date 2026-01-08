@@ -28,11 +28,13 @@ let resolved = base.resolve(&rel);
 **Before:**
 ```rust
 let base = AssetPath::parse("a/b.gltf");
+let rel = AssetPath::parse("c.bin");
 let resolved = base.resolve(&rel.to_string()).unwrap();
 ```
 **After:**
 ```rust
 let base = AssetPath::parse("a/b.gltf");
+let rel = AssetPath::parse("c.bin");
 let resolved = base.resolve_str(&rel.to_string()).unwrap();
 ```
 Both variants have identical semantics:
@@ -40,6 +42,6 @@ Both variants have identical semantics:
 - Paths starting with `/` are rooted at the asset source root
 - Explicit sources (e.g. `name://...`) replace the base source
 - Path segments are normalized (`.` / `..` removal)
-Same internal and semantic change applies for `resolve_embed` and `resolve_embed_str`. They also additionally use RFC 1808-style "file portion removal" before concatenation (unless the base ends with `/`).
----
+> [!NOTE] Same internal and semantic change applies for `resolve_embed` and `resolve_embed_str`. They also additionally use RFC 1808-style "file portion removal" before concatenation (unless the base ends with `/`).
+
 **Note:** Semantics are unchanged - only method names changed. The new `&AssetPath` variants avoid string allocation and parsing overhead.
