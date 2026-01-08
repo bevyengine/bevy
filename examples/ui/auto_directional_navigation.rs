@@ -20,7 +20,7 @@ use bevy::{
         directional_navigation::{AutoNavigationConfig, DirectionalNavigationPlugin},
         InputDispatchPlugin, InputFocus, InputFocusVisible,
     },
-    math::{CompassOctant, Dir2},
+    math::{CompassOctant, Dir2, Rot2},
     picking::{
         backend::HitData,
         pointer::{Location, PointerId},
@@ -210,6 +210,15 @@ fn setup_scattered_ui(mut commands: Commands, mut input_focus: ResMut<InputFocus
 
     let mut first_button = None;
     for (i, (x, y)) in button_positions.iter().enumerate() {
+        let transform = if i == 4 {
+            UiTransform {
+                scale: Vec2::splat(1.2),
+                rotation: Rot2::FRAC_PI_2,
+                ..default()
+            }
+        } else {
+            UiTransform::IDENTITY
+        };
         let button_entity = commands
             .spawn((
                 Button,
@@ -225,6 +234,7 @@ fn setup_scattered_ui(mut commands: Commands, mut input_focus: ResMut<InputFocus
                     border_radius: BorderRadius::all(px(12)),
                     ..default()
                 },
+                transform,
                 // This is the key: just add this component for automatic navigation!
                 AutoDirectionalNavigation::default(),
                 ResetTimer::default(),

@@ -1,6 +1,6 @@
 use crate::io::{
     AssetReader, AssetReaderError, AssetWriter, AssetWriterError, PathStream, Reader,
-    ReaderRequiredFeatures,
+    ReaderNotSeekableError, SeekableReader,
 };
 use alloc::{borrow::ToOwned, boxed::Box, sync::Arc, vec, vec::Vec};
 use bevy_platform::{
@@ -354,14 +354,14 @@ impl Reader for DataReader {
     ) -> stackfuture::StackFuture<'a, std::io::Result<usize>, { super::STACK_FUTURE_SIZE }> {
         crate::io::read_to_end(self.data.value(), &mut self.bytes_read, buf)
     }
+
+    fn seekable(&mut self) -> Result<&mut dyn SeekableReader, ReaderNotSeekableError> {
+        Ok(self)
+    }
 }
 
 impl AssetReader for MemoryAssetReader {
-    async fn read<'a>(
-        &'a self,
-        path: &'a Path,
-        _required_features: ReaderRequiredFeatures,
-    ) -> Result<impl Reader + 'a, AssetReaderError> {
+    async fn read<'a>(&'a self, path: &'a Path) -> Result<impl Reader + 'a, AssetReaderError> {
         self.root
             .get_asset(path)
             .map(|data| DataReader {
