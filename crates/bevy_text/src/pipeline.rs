@@ -9,7 +9,6 @@ use bevy_image::prelude::*;
 use bevy_log::{once, warn};
 use bevy_math::{Rect, UVec2, Vec2};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use smol_str::SmolStr;
 
 use crate::{
     add_glyph_to_atlas, error::TextError, get_glyph_atlas_info, ComputedTextBlock, Font,
@@ -49,13 +48,6 @@ impl Default for SwashCache {
     }
 }
 
-/// Information about a font collected as part of preparing for text layout.
-#[derive(Clone)]
-pub struct FontFaceInfo {
-    /// Font family name
-    pub family_name: SmolStr,
-}
-
 /// The `TextPipeline` is used to layout and render text blocks (see `Text`/`Text2d`).
 ///
 /// See the [crate-level documentation](crate) for more information.
@@ -83,7 +75,16 @@ impl TextPipeline {
         font_system: &mut CosmicFontSystem,
         hinting: FontHinting,
     ) -> Result<(), TextError> {
+        computed.entities.clear();
         computed.needs_rerender = false;
+
+        if scale_factor <= 0.0 {
+            once!(warn!(
+                "Text scale factor is <= 0.0. No text will be displayed.",
+            ));
+
+            return Err(TextError::DegenerateScaleFactor);
+        }
 
         let font_system = &mut font_system.0;
 
@@ -94,94 +95,93 @@ impl TextPipeline {
             .map(|_| -> (&str, Attrs) { unreachable!() })
             .collect();
 
-        computed.entities.clear();
+        let result = {
+            for (span_index, (entity, depth, span, text_font, color, line_height)) in
+                text_spans.enumerate()
+            {
+                // Save this span entity in the computed text block.
+                computed.entities.push(TextEntity { entity, depth });
 
-        for (span_index, (entity, depth, span, text_font, color, line_height)) in
-            text_spans.enumerate()
-        {
-            // Save this span entity in the computed text block.
-            computed.entities.push(TextEntity { entity, depth });
-
-            if span.is_empty() {
-                continue;
-            }
-
-            let family: Family = match &text_font.font {
-                FontSource::Handle(handle) => {
-                    let Some(font) = fonts.get(handle.id()) else {
-                        // Return early if a font is not loaded yet.
-                        spans.clear();
-                        self.spans_buffer = spans
-                            .into_iter()
-                            .map(|_| -> (&'static str, Attrs<'static>) { unreachable!() })
-                            .collect();
-                        return Err(TextError::NoSuchFont);
-                    };
-
-                    Family::Name(font.family_name.as_str())
+                if span.is_empty() {
+                    continue;
                 }
-                FontSource::Family(family) => Family::Name(family.as_str()),
-                FontSource::Serif => Family::Serif,
-                FontSource::SansSerif => Family::SansSerif,
-                FontSource::Cursive => Family::Cursive,
-                FontSource::Fantasy => Family::Fantasy,
-                FontSource::Monospace => Family::Monospace,
-            };
 
-            // Save spans that aren't zero-sized.
-            if scale_factor <= 0.0 || text_font.font_size <= 0.0 {
-                once!(warn!(
-                    "Text span {entity} has a font size <= 0.0. Nothing will be displayed.",
-                ));
+                let family: Family = match &text_font.font {
+                    FontSource::Handle(handle) => {
+                        let Some(font) = fonts.get(handle.id()) else {
+                            // Return early if a font is not loaded yet.
+                            spans.clear();
+                            self.spans_buffer = spans
+                                .into_iter()
+                                .map(|_| -> (&'static str, Attrs<'static>) { unreachable!() })
+                                .collect();
+                            return Err(TextError::NoSuchFont);
+                        };
 
-                continue;
+                        Family::Name(font.family_name.as_str())
+                    }
+                    FontSource::Family(family) => Family::Name(family.as_str()),
+                    FontSource::Serif => Family::Serif,
+                    FontSource::SansSerif => Family::SansSerif,
+                    FontSource::Cursive => Family::Cursive,
+                    FontSource::Fantasy => Family::Fantasy,
+                    FontSource::Monospace => Family::Monospace,
+                };
+
+                // Save spans that aren't zero-sized.
+                if text_font.font_size <= 0.0 {
+                    once!(warn!(
+                        "Text span {entity} has a font size <= 0.0. Nothing will be displayed.",
+                    ));
+
+                    continue;
+                }
+
+                let attrs = get_attrs(
+                    span_index,
+                    text_font,
+                    line_height,
+                    color,
+                    family,
+                    scale_factor,
+                );
+
+                // spans.push((span_index, span, text_font, face_info, color, line_height));
+                spans.push((span, attrs));
             }
 
-            let attrs = get_attrs(
-                span_index,
-                text_font,
-                line_height,
-                color,
-                family,
-                scale_factor,
+            // Update the buffer.
+            let buffer = &mut computed.buffer;
+
+            // Set the metrics hinting strategy
+            buffer.set_hinting(font_system, hinting.into());
+
+            buffer.set_wrap(
+                font_system,
+                match linebreak {
+                    LineBreak::WordBoundary => Wrap::Word,
+                    LineBreak::AnyCharacter => Wrap::Glyph,
+                    LineBreak::WordOrCharacter => Wrap::WordOrGlyph,
+                    LineBreak::NoWrap => Wrap::None,
+                },
             );
 
-            // spans.push((span_index, span, text_font, face_info, color, line_height));
-            spans.push((span, attrs));
-        }
+            buffer.set_rich_text(
+                font_system,
+                spans.drain(..),
+                &Attrs::new(),
+                Shaping::Advanced,
+                Some(justify.into()),
+            );
 
-        let spans_iter = spans.iter().map(|(span, attrs)| (*span, attrs.clone()));
-
-        // Update the buffer.
-        let buffer = &mut computed.buffer;
-
-        // Set the metrics hinting strategy
-        buffer.set_hinting(font_system, hinting.into());
-
-        buffer.set_wrap(
-            font_system,
-            match linebreak {
-                LineBreak::WordBoundary => Wrap::Word,
-                LineBreak::AnyCharacter => Wrap::Glyph,
-                LineBreak::WordOrCharacter => Wrap::WordOrGlyph,
-                LineBreak::NoWrap => Wrap::None,
-            },
-        );
-
-        buffer.set_rich_text(
-            font_system,
-            spans_iter,
-            &Attrs::new(),
-            Shaping::Advanced,
-            Some(justify.into()),
-        );
-
-        // Workaround for alignment not working for unbounded text.
-        // See https://github.com/pop-os/cosmic-text/issues/343
-        let width = (bounds.width.is_none() && justify != Justify::Left)
-            .then(|| buffer_dimensions(buffer).x)
-            .or(bounds.width);
-        buffer.set_size(font_system, width, bounds.height);
+            // Workaround for alignment not working for unbounded text.
+            // See https://github.com/pop-os/cosmic-text/issues/343
+            let width = (bounds.width.is_none() && justify != Justify::Left)
+                .then(|| buffer_dimensions(buffer).x)
+                .or(bounds.width);
+            buffer.set_size(font_system, width, bounds.height);
+            Ok(())
+        };
 
         // Recover the spans buffer.
         spans.clear();
@@ -190,7 +190,7 @@ impl TextPipeline {
             .map(|_| -> (&'static str, Attrs<'static>) { unreachable!() })
             .collect();
 
-        Ok(())
+        result
     }
 
     /// Queues text for measurement
