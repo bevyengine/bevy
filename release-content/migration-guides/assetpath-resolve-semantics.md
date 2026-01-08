@@ -17,15 +17,11 @@ This change avoids unnecessary string allocation and parsing when an `AssetPath`
 
 ### If you already have an `AssetPath`
 
-**Before:**
-
 ```rust
 let base = AssetPath::parse("a/b.gltf");
 let rel = AssetPath::parse("c.bin");
 let resolved = base.resolve(&rel.to_string()).unwrap();
 ```
-
-**After:**
 
 ```rust
 let base = AssetPath::parse("a/b.gltf");
@@ -35,15 +31,11 @@ let resolved = base.resolve(&rel);
 
 ### If you need to resolve from a string
 
-**Before:**
-
 ```rust
 let base = AssetPath::parse("a/b.gltf");
 let rel = AssetPath::parse("c.bin");
 let resolved = base.resolve(&rel.to_string()).unwrap();
 ```
-
-**After:**
 
 ```rust
 let base = AssetPath::parse("a/b.gltf");
