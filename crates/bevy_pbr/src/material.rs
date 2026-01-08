@@ -29,10 +29,8 @@ use bevy_ecs::{
 use bevy_material::{
     key::{ErasedMaterialKey, ErasedMaterialPipelineKey, ErasedMeshPipelineKey},
     labels::{DrawFunctionLabel, InternedShaderLabel, ShaderLabel},
-    opaque::OpaqueRendererMethod,
-    phase::RenderPhaseType,
     prelude::*,
-    MaterialProperties,
+    MaterialProperties, OpaqueRendererMethod, RenderPhaseType,
 };
 use bevy_mesh::{
     mark_3d_meshes_as_changed_if_their_assets_changed, Mesh3d, MeshVertexBufferLayoutRef,

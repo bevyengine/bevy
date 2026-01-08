@@ -68,14 +68,9 @@ pub mod view;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        alpha::AlphaMode, camera::NormalizedRenderTargetExt as _, texture::ManualTextureViews,
-        view::Msaa, ExtractSchedule,
+        camera::NormalizedRenderTargetExt as _, texture::ManualTextureViews, view::Msaa,
+        ExtractSchedule,
     };
-}
-
-#[doc(hidden)]
-pub mod alpha {
-    pub use bevy_material::alpha::AlphaMode;
 }
 
 pub use extract_param::Extract;
