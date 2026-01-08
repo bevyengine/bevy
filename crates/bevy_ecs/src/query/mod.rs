@@ -841,6 +841,7 @@ mod tests {
         }
 
         const IS_DENSE: bool = true;
+        const IS_ARCHETYPAL: bool = true;
 
         #[inline]
         unsafe fn set_archetype<'w, 's>(
@@ -896,7 +897,6 @@ mod tests {
     /// SAFETY: `Self` is the same as `Self::ReadOnly`
     unsafe impl QueryData for ReadsRData {
         const IS_READ_ONLY: bool = true;
-        const IS_ARCHETYPAL: bool = true;
         type ReadOnly = Self;
         type Item<'w, 's> = ();
 

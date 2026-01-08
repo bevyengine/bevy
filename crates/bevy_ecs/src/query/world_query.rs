@@ -92,6 +92,15 @@ pub unsafe trait WorldQuery {
     /// iterators.
     const IS_DENSE: bool;
 
+    /// Returns true if (and only if) this query term relies strictly on archetypes to limit which
+    /// entities are accessed by the Query.
+    ///
+    /// This enables optimizations for [`QueryIter`](`crate::query::QueryIter`) that rely on knowing exactly how
+    /// many elements are being iterated (such as `Iterator::collect()`).
+    ///
+    /// If this is `true`, then [`WorldQuery::matches`] must always return `true`.
+    const IS_ARCHETYPAL: bool;
+
     /// Adjusts internal state to account for the next [`Archetype`]. This will always be called on
     /// archetypes that match this [`WorldQuery`].
     ///
@@ -155,16 +164,20 @@ pub unsafe trait WorldQuery {
         state: &Self::State,
         fetch: &Self::Fetch<'_>,
         table: &Table,
-        indices: Range<u32>,
+        rows: Range<u32>,
     ) -> Range<u32> {
-        let entities = table.entities();
-        indices.find_chunk(|index| {
-            let table_row = TableRow::new(index);
-            // SAFETY: caller guarantees `indices` is in range of `table`
-            let entity = unsafe { *entities.get_unchecked(index.get() as usize) };
-            // SAFETY: invariants upheld by caller
-            unsafe { Self::matches(state, fetch, entity, table_row) }
-        })
+        if Self::IS_ARCHETYPAL {
+            rows
+        } else {
+            let entities = table.entities();
+            rows.find_chunk(|index| {
+                let table_row = TableRow::new(index);
+                // SAFETY: caller guarantees `indices` is in range of `table`
+                let entity = unsafe { *entities.get_unchecked(index.get() as usize) };
+                // SAFETY: invariants upheld by caller
+                unsafe { Self::matches(state, fetch, entity, table_row) }
+            })
+        }
     }
 
     /// TODO: docs
@@ -180,22 +193,26 @@ pub unsafe trait WorldQuery {
         archetype: &Archetype,
         indices: Range<u32>,
     ) -> Range<u32> {
-        let archetype_entities = archetype.entities();
-        indices.find_chunk(|index| {
-            // SAFETY: caller guarantees `indices` is in range of `archetype`
-            let archetype_entity =
-                unsafe { archetype_entities.get_unchecked(index.get() as usize) };
+        if Self::IS_ARCHETYPAL {
+            indices
+        } else {
+            let archetype_entities = archetype.entities();
+            indices.find_chunk(|index| {
+                // SAFETY: caller guarantees `indices` is in range of `archetype`
+                let archetype_entity =
+                    unsafe { archetype_entities.get_unchecked(index.get() as usize) };
 
-            // SAFETY: invariants upheld by caller
-            unsafe {
-                Self::matches(
-                    state,
-                    fetch,
-                    archetype_entity.id(),
-                    archetype_entity.table_row(),
-                )
-            }
-        })
+                // SAFETY: invariants upheld by caller
+                unsafe {
+                    Self::matches(
+                        state,
+                        fetch,
+                        archetype_entity.id(),
+                        archetype_entity.table_row(),
+                    )
+                }
+            })
+        }
     }
 
     /// Returns true if the provided [`Entity`] and [`TableRow`] should be included in the query results.
@@ -304,6 +321,7 @@ macro_rules! impl_tuple_world_query {
             }
 
             const IS_DENSE: bool = true $(&& $name::IS_DENSE)*;
+            const IS_ARCHETYPAL: bool = true $(&& $name::IS_ARCHETYPAL)*;
 
             #[inline]
             unsafe fn set_archetype<'w, 's>(
@@ -350,13 +368,17 @@ macro_rules! impl_tuple_world_query {
                 table: &Table,
                 mut rows: Range<u32>,
             ) -> Range<u32> {
-                let ($($name,)*) = fetch;
-                let ($($state,)*) = state;
-                // SAFETY: `rows` is only ever narrowed as we iterate subqueries, so it's
-                // always valid to pass to the next term. Other invariants are upheld by
-                // the caller.
-                $(rows = unsafe { $name::find_table_chunk($state, $name, table, rows) };)*
-                rows
+                if Self::IS_ARCHETYPAL {
+                    rows
+                } else {
+                    let ($($name,)*) = fetch;
+                    let ($($state,)*) = state;
+                    // SAFETY: `rows` is only ever narrowed as we iterate subqueries, so it's
+                    // always valid to pass to the next term. Other invariants are upheld by
+                    // the caller.
+                    $(rows = unsafe { $name::find_table_chunk($state, $name, table, rows) };)*
+                    rows
+                }
             }
 
             #[inline]
@@ -366,13 +388,17 @@ macro_rules! impl_tuple_world_query {
                 table: &Archetype,
                 mut indices: Range<u32>,
             ) -> Range<u32> {
-                let ($($name,)*) = fetch;
-                let ($($state,)*) = state;
-                // SAFETY: `indices` is only ever narrowed as we iterate subqueries, so it's
-                // always valid to pass to the next term. Other invariants are upheld by
-                // the caller.
-                $(indices = unsafe { $name::find_archetype_chunk($state, $name, table, indices) };)*
-                indices
+                if Self::IS_ARCHETYPAL {
+                    indices
+                } else {
+                    let ($($name,)*) = fetch;
+                    let ($($state,)*) = state;
+                    // SAFETY: `indices` is only ever narrowed as we iterate subqueries, so it's
+                    // always valid to pass to the next term. Other invariants are upheld by
+                    // the caller.
+                    $(indices = unsafe { $name::find_archetype_chunk($state, $name, table, indices) };)*
+                    indices
+                }
             }
 
             #[inline]
@@ -382,10 +408,14 @@ macro_rules! impl_tuple_world_query {
                 entity: Entity,
                 table_row: TableRow,
             ) -> bool {
-                let ($($name,)*) = fetch;
-                let ($($state,)*) = state;
-                // SAFETY: invariants are upheld by the caller.
-                true $(&& unsafe { $name::matches($state, $name, entity, table_row) })*
+                if Self::IS_ARCHETYPAL {
+                    true
+                } else {
+                    let ($($name,)*) = fetch;
+                    let ($($state,)*) = state;
+                    // SAFETY: invariants are upheld by the caller.
+                    true $(&& unsafe { $name::matches($state, $name, entity, table_row) })*
+                }
             }
         }
     };

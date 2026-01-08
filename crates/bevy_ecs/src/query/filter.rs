@@ -82,15 +82,6 @@ use variadics_please::all_tuples;
     note = "a `QueryFilter` typically uses a combination of `With<T>` and `Without<T>` statements"
 )]
 pub unsafe trait QueryFilter: WorldQuery {
-    /// Returns true if (and only if) this Filter relies strictly on archetypes to limit which
-    /// components are accessed by the Query.
-    ///
-    /// This enables optimizations for [`QueryIter`](`crate::query::QueryIter`) that rely on knowing exactly how
-    /// many elements are being iterated (such as `Iterator::collect()`).
-    ///
-    /// If this is `true`, then [`QueryFilter::filter_fetch`] must always return true.
-    const IS_ARCHETYPAL: bool;
-
     /// Returns true if the provided [`Entity`] and [`TableRow`] should be included in the query results.
     /// If false, the entity will be skipped.
     ///
@@ -167,6 +158,7 @@ unsafe impl<T: Component> WorldQuery for With<T> {
             StorageType::SparseSet => false,
         }
     };
+    const IS_ARCHETYPAL: bool = true;
 
     #[inline]
     unsafe fn set_archetype(
@@ -203,8 +195,6 @@ unsafe impl<T: Component> WorldQuery for With<T> {
 
 // SAFETY: WorldQuery impl performs no access at all
 unsafe impl<T: Component> QueryFilter for With<T> {
-    const IS_ARCHETYPAL: bool = true;
-
     #[inline(always)]
     unsafe fn filter_fetch(
         _state: &Self::State,
@@ -268,6 +258,7 @@ unsafe impl<T: Component> WorldQuery for Without<T> {
             StorageType::SparseSet => false,
         }
     };
+    const IS_ARCHETYPAL: bool = true;
 
     #[inline]
     unsafe fn set_archetype(
@@ -304,8 +295,6 @@ unsafe impl<T: Component> WorldQuery for Without<T> {
 
 // SAFETY: WorldQuery impl performs no access at all
 unsafe impl<T: Component> QueryFilter for Without<T> {
-    const IS_ARCHETYPAL: bool = true;
-
     #[inline(always)]
     unsafe fn filter_fetch(
         _state: &Self::State,
@@ -403,6 +392,7 @@ macro_rules! impl_or_query_filter {
             }
 
             const IS_DENSE: bool = true $(&& $filter::IS_DENSE)*;
+            const IS_ARCHETYPAL: bool = true $(&& $filter::IS_ARCHETYPAL)*;
 
             #[inline]
             unsafe fn init_fetch<'w, 's>(world: UnsafeWorldCell<'w>, state: &'s Self::State, last_run: Tick, this_run: Tick) -> Self::Fetch<'w> {
@@ -506,8 +496,6 @@ macro_rules! impl_or_query_filter {
         $(#[$meta])*
         // SAFETY: This only performs access that subqueries perform, and they impl `QueryFilter` and so perform no mutable access.
         unsafe impl<$($filter: QueryFilter),*> QueryFilter for Or<($($filter,)*)> {
-            const IS_ARCHETYPAL: bool = true $(&& $filter::IS_ARCHETYPAL)*;
-
             #[inline(always)]
             unsafe fn filter_fetch(
                 state: &Self::State,
@@ -548,8 +536,6 @@ macro_rules! impl_tuple_query_filter {
         $(#[$meta])*
         // SAFETY: This only performs access that subqueries perform, and they impl `QueryFilter` and so perform no mutable access.
         unsafe impl<$($name: QueryFilter),*> QueryFilter for ($($name,)*) {
-            const IS_ARCHETYPAL: bool = true $(&& $name::IS_ARCHETYPAL)*;
-
             #[inline(always)]
             unsafe fn filter_fetch(
                 state: &Self::State,
@@ -605,6 +591,7 @@ unsafe impl<T: Component> WorldQuery for Allow<T> {
 
     // Even if the component is sparse, this implementation doesn't do anything with it
     const IS_DENSE: bool = true;
+    const IS_ARCHETYPAL: bool = true;
 
     #[inline]
     unsafe fn set_archetype(_: &mut (), _: &ComponentId, _: &Archetype, _: &Table) {}
@@ -633,8 +620,6 @@ unsafe impl<T: Component> WorldQuery for Allow<T> {
 
 // SAFETY: WorldQuery impl performs no access at all
 unsafe impl<T: Component> QueryFilter for Allow<T> {
-    const IS_ARCHETYPAL: bool = true;
-
     #[inline(always)]
     unsafe fn filter_fetch(
         _: &Self::State,
@@ -778,6 +763,7 @@ unsafe impl<T: Component> WorldQuery for Added<T> {
             StorageType::SparseSet => false,
         }
     };
+    const IS_ARCHETYPAL: bool = false;
 
     #[inline]
     unsafe fn set_archetype<'w, 's>(
@@ -836,7 +822,6 @@ unsafe impl<T: Component> WorldQuery for Added<T> {
 
 // SAFETY: WorldQuery impl performs only read access on ticks
 unsafe impl<T: Component> QueryFilter for Added<T> {
-    const IS_ARCHETYPAL: bool = false;
     #[inline(always)]
     unsafe fn filter_fetch(
         _state: &Self::State,
@@ -1005,6 +990,7 @@ unsafe impl<T: Component> WorldQuery for Changed<T> {
             StorageType::SparseSet => false,
         }
     };
+    const IS_ARCHETYPAL: bool = false;
 
     #[inline]
     unsafe fn set_archetype<'w, 's>(
@@ -1063,8 +1049,6 @@ unsafe impl<T: Component> WorldQuery for Changed<T> {
 
 // SAFETY: WorldQuery impl performs only read access on ticks
 unsafe impl<T: Component> QueryFilter for Changed<T> {
-    const IS_ARCHETYPAL: bool = false;
-
     #[inline(always)]
     unsafe fn filter_fetch(
         _state: &Self::State,
@@ -1189,6 +1173,7 @@ unsafe impl WorldQuery for Spawned {
     }
 
     const IS_DENSE: bool = true;
+    const IS_ARCHETYPAL: bool = false;
 
     #[inline]
     unsafe fn set_archetype<'w, 's>(
@@ -1218,8 +1203,6 @@ unsafe impl WorldQuery for Spawned {
 
 // SAFETY: WorldQuery impl accesses no components or component ticks
 unsafe impl QueryFilter for Spawned {
-    const IS_ARCHETYPAL: bool = false;
-
     #[inline(always)]
     unsafe fn filter_fetch(
         _state: &Self::State,

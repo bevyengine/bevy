@@ -130,6 +130,7 @@ pub(crate) fn world_query_impl(
             }
 
             const IS_DENSE: bool = true #(&& <#field_types>::IS_DENSE)*;
+            const IS_ARCHETYPAL: bool = true #(&& <#field_types>::IS_ARCHETYPAL)*;
 
             /// SAFETY: we call `set_archetype` for each member that implements `Fetch`
             #[inline]
@@ -179,11 +180,15 @@ pub(crate) fn world_query_impl(
                 table: &#path::storage::Table,
                 mut rows: core::ops::Range<u32>,
             ) -> core::ops::Range<u32> {
-                // SAFETY: `rows` is only ever narrowed as we iterate subqueries, so it's
-                // always valid to pass to the next term. Other invariants are upheld by
-                // the caller.
-                #(rows = unsafe { <#field_types>::find_table_chunk(&state.#field_aliases, &fetch.#field_aliases, table, rows) };)*
-                rows
+                if Self::IS_ARCHETYPAL {
+                    rows
+                } else {
+                    // SAFETY: `rows` is only ever narrowed as we iterate subqueries, so it's
+                    // always valid to pass to the next term. Other invariants are upheld by
+                    // the caller.
+                    #(rows = unsafe { <#field_types>::find_table_chunk(&state.#field_aliases, &fetch.#field_aliases, table, rows) };)*
+                    rows
+                }
             }
 
             #[inline]
@@ -193,11 +198,15 @@ pub(crate) fn world_query_impl(
                 archetype: &#path::archetype::Archetype,
                 mut indices: core::ops::Range<u32>,
             ) -> core::ops::Range<u32> {
-                // SAFETY: `indices` is only ever narrowed as we iterate subqueries, so it's
-                // always valid to pass to the next term. Other invariants are upheld by
-                // the caller.
-                #(indices = unsafe { <#field_types>::find_archetype_chunk(&state.#field_aliases, &fetch.#field_aliases, archetype, indices) };)*
-                indices
+                if Self::IS_ARCHETYPAL {
+                    indices
+                } else {
+                    // SAFETY: `indices` is only ever narrowed as we iterate subqueries, so it's
+                    // always valid to pass to the next term. Other invariants are upheld by
+                    // the caller.
+                    #(indices = unsafe { <#field_types>::find_archetype_chunk(&state.#field_aliases, &fetch.#field_aliases, archetype, indices) };)*
+                    indices
+                }
             }
 
             #[inline]
@@ -207,8 +216,12 @@ pub(crate) fn world_query_impl(
                 entity: #path::entity::Entity,
                 table_row: #path::storage::TableRow,
             ) -> bool {
-                // SAFETY: invariants are upheld by the caller.
-                true #(&& unsafe { <#field_types>::matches(&state.#field_aliases, &fetch.#field_aliases, entity, table_row) })*
+                if Self::IS_ARCHETYPAL {
+                    true
+                } else {
+                    // SAFETY: invariants are upheld by the caller.
+                    true #(&& unsafe { <#field_types>::matches(&state.#field_aliases, &fetch.#field_aliases, entity, table_row) })*
+                }
             }
         }
     }

@@ -287,15 +287,6 @@ pub unsafe trait QueryData: WorldQuery {
     /// True if this query is read-only and may not perform mutable access.
     const IS_READ_ONLY: bool;
 
-    /// Returns true if (and only if) this query data relies strictly on archetypes to limit which
-    /// entities are accessed by the Query.
-    ///
-    /// This enables optimizations for [`QueryIter`](`crate::query::QueryIter`) that rely on knowing exactly how
-    /// many elements are being iterated (such as `Iterator::collect()`).
-    ///
-    /// If this is `true`, then [`QueryData::fetch`] must always return `Some`.
-    const IS_ARCHETYPAL: bool;
-
     /// The read-only variant of this [`QueryData`], which satisfies the [`ReadOnlyQueryData`] trait.
     type ReadOnly: ReadOnlyQueryData<State = <Self as WorldQuery>::State>;
 
@@ -401,6 +392,7 @@ unsafe impl WorldQuery for Entity {
     }
 
     const IS_DENSE: bool = true;
+    const IS_ARCHETYPAL: bool = true;
 
     #[inline]
     unsafe fn set_archetype<'w, 's>(
@@ -438,7 +430,6 @@ unsafe impl WorldQuery for Entity {
 /// SAFETY: `Self` is the same as `Self::ReadOnly`
 unsafe impl QueryData for Entity {
     const IS_READ_ONLY: bool = true;
-    const IS_ARCHETYPAL: bool = true;
     type ReadOnly = Self;
 
     type Item<'w, 's> = Entity;
@@ -498,6 +489,7 @@ unsafe impl WorldQuery for EntityLocation {
     // This is set to true to avoid forcing archetypal iteration in compound queries, is likely to be slower
     // in most practical use case.
     const IS_DENSE: bool = true;
+    const IS_ARCHETYPAL: bool = true;
 
     #[inline]
     unsafe fn set_archetype<'w, 's>(
@@ -535,7 +527,6 @@ unsafe impl WorldQuery for EntityLocation {
 /// SAFETY: `Self` is the same as `Self::ReadOnly`
 unsafe impl QueryData for EntityLocation {
     const IS_READ_ONLY: bool = true;
-    const IS_ARCHETYPAL: bool = true;
     type ReadOnly = Self;
     type Item<'w, 's> = EntityLocation;
 
@@ -666,6 +657,7 @@ unsafe impl WorldQuery for SpawnDetails {
     }
 
     const IS_DENSE: bool = true;
+    const IS_ARCHETYPAL: bool = true;
 
     #[inline]
     unsafe fn set_archetype<'w, 's>(
@@ -705,7 +697,6 @@ unsafe impl WorldQuery for SpawnDetails {
 // Is its own ReadOnlyQueryData.
 unsafe impl QueryData for SpawnDetails {
     const IS_READ_ONLY: bool = true;
-    const IS_ARCHETYPAL: bool = true;
     type ReadOnly = Self;
     type Item<'w, 's> = Self;
 
@@ -788,6 +779,7 @@ unsafe impl<'a> WorldQuery for EntityRef<'a> {
     }
 
     const IS_DENSE: bool = true;
+    const IS_ARCHETYPAL: bool = true;
 
     #[inline]
     unsafe fn set_archetype<'w, 's>(
@@ -831,7 +823,6 @@ unsafe impl<'a> WorldQuery for EntityRef<'a> {
 /// SAFETY: `Self` is the same as `Self::ReadOnly`
 unsafe impl<'a> QueryData for EntityRef<'a> {
     const IS_READ_ONLY: bool = true;
-    const IS_ARCHETYPAL: bool = true;
     type ReadOnly = Self;
     type Item<'w, 's> = EntityRef<'w>;
 
@@ -898,6 +889,7 @@ unsafe impl<'a> WorldQuery for EntityMut<'a> {
     }
 
     const IS_DENSE: bool = true;
+    const IS_ARCHETYPAL: bool = true;
 
     #[inline]
     unsafe fn set_archetype<'w, 's>(
@@ -941,7 +933,6 @@ unsafe impl<'a> WorldQuery for EntityMut<'a> {
 /// SAFETY: access of `EntityRef` is a subset of `EntityMut`
 unsafe impl<'a> QueryData for EntityMut<'a> {
     const IS_READ_ONLY: bool = false;
-    const IS_ARCHETYPAL: bool = true;
     type ReadOnly = EntityRef<'a>;
     type Item<'w, 's> = EntityMut<'w>;
 
@@ -992,6 +983,7 @@ unsafe impl WorldQuery for FilteredEntityRef<'_, '_> {
     }
 
     const IS_DENSE: bool = true;
+    const IS_ARCHETYPAL: bool = true;
 
     unsafe fn init_fetch<'w, 's>(
         world: UnsafeWorldCell<'w>,
@@ -1050,7 +1042,6 @@ unsafe impl WorldQuery for FilteredEntityRef<'_, '_> {
 /// SAFETY: `Self` is the same as `Self::ReadOnly`
 unsafe impl<'a, 'b> QueryData for FilteredEntityRef<'a, 'b> {
     const IS_READ_ONLY: bool = true;
-    const IS_ARCHETYPAL: bool = true;
     type ReadOnly = Self;
     type Item<'w, 's> = FilteredEntityRef<'w, 's>;
 
@@ -1117,6 +1108,7 @@ unsafe impl WorldQuery for FilteredEntityMut<'_, '_> {
     }
 
     const IS_DENSE: bool = true;
+    const IS_ARCHETYPAL: bool = true;
 
     unsafe fn init_fetch<'w, 's>(
         world: UnsafeWorldCell<'w>,
@@ -1175,7 +1167,6 @@ unsafe impl WorldQuery for FilteredEntityMut<'_, '_> {
 /// SAFETY: access of `FilteredEntityRef` is a subset of `FilteredEntityMut`
 unsafe impl<'a, 'b> QueryData for FilteredEntityMut<'a, 'b> {
     const IS_READ_ONLY: bool = false;
-    const IS_ARCHETYPAL: bool = true;
     type ReadOnly = FilteredEntityRef<'a, 'b>;
     type Item<'w, 's> = FilteredEntityMut<'w, 's>;
 
@@ -1255,6 +1246,7 @@ where
     }
 
     const IS_DENSE: bool = true;
+    const IS_ARCHETYPAL: bool = true;
 
     unsafe fn set_archetype<'w, 's>(
         _: &mut Self::Fetch<'w>,
@@ -1311,7 +1303,6 @@ where
     B: Bundle,
 {
     const IS_READ_ONLY: bool = true;
-    const IS_ARCHETYPAL: bool = true;
     type ReadOnly = Self;
     type Item<'w, 's> = EntityRefExcept<'w, 's, B>;
 
@@ -1373,6 +1364,7 @@ where
     }
 
     const IS_DENSE: bool = true;
+    const IS_ARCHETYPAL: bool = true;
 
     unsafe fn set_archetype<'w, 's>(
         _: &mut Self::Fetch<'w>,
@@ -1430,7 +1422,6 @@ where
     B: Bundle,
 {
     const IS_READ_ONLY: bool = false;
-    const IS_ARCHETYPAL: bool = true;
     type ReadOnly = EntityRefExcept<'a, 'b, B>;
     type Item<'w, 's> = EntityMutExcept<'w, 's, B>;
 
@@ -1483,6 +1474,7 @@ unsafe impl WorldQuery for &Archetype {
     // This could probably be a non-dense query and just set a Option<&Archetype> fetch value in
     // set_archetypes, but forcing archetypal iteration is likely to be slower in any compound query.
     const IS_DENSE: bool = true;
+    const IS_ARCHETYPAL: bool = true;
 
     #[inline]
     unsafe fn set_archetype<'w, 's>(
@@ -1520,7 +1512,6 @@ unsafe impl WorldQuery for &Archetype {
 /// SAFETY: `Self` is the same as `Self::ReadOnly`
 unsafe impl QueryData for &Archetype {
     const IS_READ_ONLY: bool = true;
-    const IS_ARCHETYPAL: bool = true;
     type ReadOnly = Self;
     type Item<'w, 's> = &'w Archetype;
 
@@ -1620,6 +1611,8 @@ unsafe impl<T: Component> WorldQuery for &T {
         }
     };
 
+    const IS_ARCHETYPAL: bool = true;
+
     #[inline]
     unsafe fn set_archetype<'w>(
         fetch: &mut ReadFetch<'w, T>,
@@ -1679,7 +1672,6 @@ unsafe impl<T: Component> WorldQuery for &T {
 /// SAFETY: `Self` is the same as `Self::ReadOnly`
 unsafe impl<T: Component> QueryData for &T {
     const IS_READ_ONLY: bool = true;
-    const IS_ARCHETYPAL: bool = true;
     type ReadOnly = Self;
     type Item<'w, 's> = &'w T;
 
@@ -1802,6 +1794,7 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
             StorageType::SparseSet => false,
         }
     };
+    const IS_ARCHETYPAL: bool = true;
 
     #[inline]
     unsafe fn set_archetype<'w>(
@@ -1869,7 +1862,6 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
 /// SAFETY: `Self` is the same as `Self::ReadOnly`
 unsafe impl<'__w, T: Component> QueryData for Ref<'__w, T> {
     const IS_READ_ONLY: bool = true;
-    const IS_ARCHETYPAL: bool = true;
     type ReadOnly = Self;
     type Item<'w, 's> = Ref<'w, T>;
 
@@ -2019,6 +2011,7 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
             StorageType::SparseSet => false,
         }
     };
+    const IS_ARCHETYPAL: bool = true;
 
     #[inline]
     unsafe fn set_archetype<'w>(
@@ -2086,7 +2079,6 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
 /// SAFETY: access of `&T` is a subset of `&mut T`
 unsafe impl<'__w, T: Component<Mutability = Mutable>> QueryData for &'__w mut T {
     const IS_READ_ONLY: bool = false;
-    const IS_ARCHETYPAL: bool = true;
     type ReadOnly = &'__w T;
     type Item<'w, 's> = Mut<'w, T>;
 
@@ -2194,6 +2186,7 @@ unsafe impl<'__w, T: Component> WorldQuery for Mut<'__w, T> {
 
     // Forwarded to `&mut T`
     const IS_DENSE: bool = <&mut T as WorldQuery>::IS_DENSE;
+    const IS_ARCHETYPAL: bool = true;
 
     #[inline]
     // Forwarded to `&mut T`
@@ -2246,7 +2239,6 @@ unsafe impl<'__w, T: Component> WorldQuery for Mut<'__w, T> {
 // SAFETY: access of `Ref<T>` is a subset of `Mut<T>`
 unsafe impl<'__w, T: Component<Mutability = Mutable>> QueryData for Mut<'__w, T> {
     const IS_READ_ONLY: bool = false;
-    const IS_ARCHETYPAL: bool = true;
     type ReadOnly = Ref<'__w, T>;
     type Item<'w, 's> = Mut<'w, T>;
 
@@ -2328,6 +2320,9 @@ unsafe impl<T: WorldQuery> WorldQuery for Option<T> {
     }
 
     const IS_DENSE: bool = T::IS_DENSE;
+    // `Option` matches all entities, even if `T` does not,
+    // so it's always an `ArchetypeQueryData`, even for non-archetypal `T`.
+    const IS_ARCHETYPAL: bool = true;
 
     #[inline]
     unsafe fn set_archetype<'w, 's>(
@@ -2394,9 +2389,6 @@ unsafe impl<T: WorldQuery> WorldQuery for Option<T> {
 // SAFETY: defers to soundness of `T: WorldQuery` impl
 unsafe impl<T: QueryData> QueryData for Option<T> {
     const IS_READ_ONLY: bool = T::IS_READ_ONLY;
-    // `Option` matches all entities, even if `T` does not,
-    // so it's always an `ArchetypeQueryData`, even for non-archetypal `T`.
-    const IS_ARCHETYPAL: bool = true;
     type ReadOnly = Option<T::ReadOnly>;
     type Item<'w, 's> = Option<T::Item<'w, 's>>;
 
@@ -2538,6 +2530,7 @@ unsafe impl<T: Component> WorldQuery for Has<T> {
             StorageType::SparseSet => false,
         }
     };
+    const IS_ARCHETYPAL: bool = true;
 
     #[inline]
     unsafe fn set_archetype<'w, 's>(
@@ -2582,7 +2575,6 @@ unsafe impl<T: Component> WorldQuery for Has<T> {
 /// SAFETY: `Self` is the same as `Self::ReadOnly`
 unsafe impl<T: Component> QueryData for Has<T> {
     const IS_READ_ONLY: bool = true;
-    const IS_ARCHETYPAL: bool = true;
     type ReadOnly = Self;
     type Item<'w, 's> = bool;
 
@@ -2647,7 +2639,6 @@ macro_rules! impl_tuple_query_data {
         // SAFETY: defers to soundness `$name: WorldQuery` impl
         unsafe impl<$($name: QueryData),*> QueryData for ($($name,)*) {
             const IS_READ_ONLY: bool = true $(&& $name::IS_READ_ONLY)*;
-            const IS_ARCHETYPAL: bool = true $(&& $name::IS_ARCHETYPAL)*;
             type ReadOnly = ($($name::ReadOnly,)*);
             type Item<'w, 's> = ($($name::Item<'w, 's>,)*);
 
@@ -2754,6 +2745,7 @@ macro_rules! impl_anytuple_fetch {
             }
 
             const IS_DENSE: bool = true $(&& $name::IS_DENSE)*;
+            const IS_ARCHETYPAL: bool = true $(&& $name::IS_ARCHETYPAL)*;
 
             #[inline]
             unsafe fn set_archetype<'w, 's>(
@@ -2845,7 +2837,6 @@ macro_rules! impl_anytuple_fetch {
         // SAFETY: defers to soundness of `$name: WorldQuery` impl
         unsafe impl<$($name: QueryData),*> QueryData for AnyOf<($($name,)*)> {
             const IS_READ_ONLY: bool = true $(&& $name::IS_READ_ONLY)*;
-            const IS_ARCHETYPAL: bool = true $(&& $name::IS_ARCHETYPAL)*;
             type ReadOnly = AnyOf<($($name::ReadOnly,)*)>;
             type Item<'w, 's> = ($(Option<$name::Item<'w, 's>>,)*);
 
@@ -2956,6 +2947,7 @@ unsafe impl<D: QueryData> WorldQuery for NopWorldQuery<D> {
     }
 
     const IS_DENSE: bool = D::IS_DENSE;
+    const IS_ARCHETYPAL: bool = true;
 
     #[inline(always)]
     unsafe fn set_archetype(
@@ -2990,7 +2982,6 @@ unsafe impl<D: QueryData> WorldQuery for NopWorldQuery<D> {
 /// SAFETY: `Self::ReadOnly` is `Self`
 unsafe impl<D: QueryData> QueryData for NopWorldQuery<D> {
     const IS_READ_ONLY: bool = true;
-    const IS_ARCHETYPAL: bool = true;
     type ReadOnly = Self;
     type Item<'w, 's> = ();
 
@@ -3045,6 +3036,7 @@ unsafe impl<T: ?Sized> WorldQuery for PhantomData<T> {
     // `PhantomData` does not match any components, so all components it matches
     // are stored in a Table (vacuous truth).
     const IS_DENSE: bool = true;
+    const IS_ARCHETYPAL: bool = true;
 
     unsafe fn set_archetype<'w, 's>(
         _fetch: &mut Self::Fetch<'w>,
@@ -3080,7 +3072,6 @@ unsafe impl<T: ?Sized> WorldQuery for PhantomData<T> {
 /// SAFETY: `Self::ReadOnly` is `Self`
 unsafe impl<T: ?Sized> QueryData for PhantomData<T> {
     const IS_READ_ONLY: bool = true;
-    const IS_ARCHETYPAL: bool = true;
     type ReadOnly = Self;
     type Item<'w, 's> = ();
 
@@ -3253,6 +3244,7 @@ mod tests {
             }
 
             const IS_DENSE: bool = true;
+            const IS_ARCHETYPAL: bool = true;
 
             #[inline]
             unsafe fn set_archetype<'w, 's>(
@@ -3291,7 +3283,6 @@ mod tests {
         unsafe impl QueryData for NonReleaseQueryData {
             type ReadOnly = Self;
             const IS_READ_ONLY: bool = true;
-            const IS_ARCHETYPAL: bool = true;
 
             type Item<'w, 's> = ();
 
