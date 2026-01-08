@@ -1,5 +1,5 @@
 ---
-title: `AssetPath::resolve` and `resolve_embed` now take `&AssetPath`
+title: "AssetPath::resolve` and `resolve_embed` now take `&AssetPath"
 pull_requests: [22416]
 ---
 
