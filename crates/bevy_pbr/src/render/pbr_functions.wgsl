@@ -282,6 +282,32 @@ fn calculate_F0(base_color: vec3<f32>, metallic: f32, reflectance: vec3<f32>) ->
     return 0.16 * reflectance * reflectance * (1.0 - metallic) + base_color * metallic;
 }
 
+#ifdef DEPTH_PREPASS
+fn calculate_contact_shadow(
+    world_position: vec3<f32>,
+    frag_coord: vec2<f32>,
+    light_dir: vec3<f32>,
+    contact_shadow_steps: u32,
+) -> f32 {
+    let noise = utils::interleaved_gradient_noise(frag_coord, view_bindings::globals.frame_count);
+
+    let depth_size = vec2<f32>(textureDimensions(view_bindings::depth_prepass_texture));
+    var rm = raymarch::depth_ray_march_new_from_depth(depth_size);
+    raymarch::depth_ray_march_from_cs(&rm, position_world_to_ndc(world_position));
+    raymarch::depth_ray_march_to_ws(&rm, world_position + light_dir * view_bindings::contact_shadows_settings.length);
+    rm.linear_steps = contact_shadow_steps;
+    rm.depth_thickness_linear_z = view_bindings::contact_shadows_settings.thickness;
+    rm.march_behind_surfaces = true;
+    rm.jitter = noise;
+
+    let rm_result = raymarch::depth_ray_march_march(&rm);
+    if rm_result.hit {
+        return clamp((rm_result.hit_penetration_frac - 0.5) / (1.0 - 0.5), 0.0, 1.0);
+    }
+    return 1.0;
+}
+#endif
+
 #ifndef PREPASS_FRAGMENT
 fn apply_pbr_lighting(
     in: pbr_types::PbrInput,
@@ -433,22 +459,7 @@ fn apply_pbr_lighting(
 #ifdef DEPTH_PREPASS
         if contact_shadow_enabled && shadow > 0.0 {
             let L = normalize(view_bindings::clusterable_objects.data[light_id].position_radius.xyz - in.world_position.xyz);
-
-            let noise = utils::interleaved_gradient_noise(in.frag_coord.xy, view_bindings::globals.frame_count);
-
-            let depth_size = vec2<f32>(textureDimensions(view_bindings::depth_prepass_texture));
-            var rm = raymarch::depth_ray_march_new_from_depth(depth_size);
-            raymarch::depth_ray_march_from_cs(&rm, position_world_to_ndc(in.world_position.xyz));
-            raymarch::depth_ray_march_to_ws(&rm, in.world_position.xyz + L * view_bindings::contact_shadows_settings.length);
-            rm.linear_steps = contact_shadow_steps;
-            rm.depth_thickness_linear_z = view_bindings::contact_shadows_settings.thickness;
-            rm.march_behind_surfaces = true;
-            rm.jitter = noise;
-
-            let rm_result = raymarch::depth_ray_march_march(&rm);
-            if rm_result.hit {
-                shadow *= clamp((rm_result.hit_penetration_frac - 0.5) / (1.0 - 0.5), 0.0, 1.0);
-            }
+            shadow *= calculate_contact_shadow(in.world_position.xyz, in.frag_coord.xy, L, contact_shadow_steps);
         }
 #endif
 
@@ -508,22 +519,7 @@ fn apply_pbr_lighting(
 #ifdef DEPTH_PREPASS
         if contact_shadow_enabled && shadow > 0.0 {
             let L = normalize(view_bindings::clusterable_objects.data[light_id].position_radius.xyz - in.world_position.xyz);
-
-            let noise = utils::interleaved_gradient_noise(in.frag_coord.xy, view_bindings::globals.frame_count);
-
-            let depth_size = vec2<f32>(textureDimensions(view_bindings::depth_prepass_texture));
-            var rm = raymarch::depth_ray_march_new_from_depth(depth_size);
-            raymarch::depth_ray_march_from_cs(&rm, position_world_to_ndc(in.world_position.xyz));
-            raymarch::depth_ray_march_to_ws(&rm, in.world_position.xyz + L * view_bindings::contact_shadows_settings.length);
-            rm.linear_steps = contact_shadow_steps;
-            rm.depth_thickness_linear_z = view_bindings::contact_shadows_settings.thickness;
-            rm.march_behind_surfaces = true;
-            rm.jitter = noise;
-
-            let rm_result = raymarch::depth_ray_march_march(&rm);
-            if rm_result.hit {
-                shadow *= clamp((rm_result.hit_penetration_frac - 0.5) / (1.0 - 0.5), 0.0, 1.0);
-            }
+            shadow *= calculate_contact_shadow(in.world_position.xyz, in.frag_coord.xy, L, contact_shadow_steps);
         }
 #endif
 
@@ -584,22 +580,7 @@ fn apply_pbr_lighting(
 #ifdef DEPTH_PREPASS
         if contact_shadow_enabled && shadow > 0.0 {
             let L = view_bindings::lights.directional_lights[i].direction_to_light;
-
-            let noise = utils::interleaved_gradient_noise(in.frag_coord.xy, view_bindings::globals.frame_count);
-
-            let depth_size = vec2<f32>(textureDimensions(view_bindings::depth_prepass_texture));
-            var rm = raymarch::depth_ray_march_new_from_depth(depth_size);
-            raymarch::depth_ray_march_from_cs(&rm, position_world_to_ndc(in.world_position.xyz));
-            raymarch::depth_ray_march_to_ws(&rm, in.world_position.xyz + L * view_bindings::contact_shadows_settings.length);
-            rm.linear_steps = contact_shadow_steps;
-            rm.depth_thickness_linear_z = view_bindings::contact_shadows_settings.thickness;
-            rm.march_behind_surfaces = true;
-            rm.jitter = noise;
-
-            let rm_result = raymarch::depth_ray_march_march(&rm);
-            if rm_result.hit {
-                shadow *= clamp((rm_result.hit_penetration_frac - 0.5) / (1.0 - 0.5), 0.0, 1.0);
-            }
+            shadow *= calculate_contact_shadow(in.world_position.xyz, in.frag_coord.xy, L, contact_shadow_steps);
         }
 #endif
 
