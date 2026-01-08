@@ -166,6 +166,10 @@ impl<'w> BundleInserter<'w> {
             let mut deferred_world = world.into_deferred();
 
             if insert_mode == InsertMode::Replace {
+                // SAFETY:
+                // * Pointer was created from a reference in `Self::new_with_id` and so is `dereferenceable`.
+                // * `Self`'s lifetime is tied to an exclusive reference to `World` and it does not make structural
+                // changes to the world, so the data is valid for the lifetime of `Self`
                 let archetype = archetype.as_ref();
                 if archetype.has_replace_observer() {
                     // SAFETY: the REPLACE event_key corresponds to the Replace event's type
@@ -188,11 +192,19 @@ impl<'w> BundleInserter<'w> {
             }
         }
 
-        let table = table.as_mut();
+        // SAFETY:
+        // * Pointer was created from a reference in `Self::new_with_id` and so is `dereferenceable`.
+        // * `Self`'s lifetime is tied to an exclusive reference to `World` and it does not make structural
+        // changes to the world, so the data is valid for the lifetime of `Self`
+        let table = unsafe { table.as_mut() };
 
-        // SAFETY: Archetype gets borrowed when running the on_replace observers above,
+        // SAFETY:
+        // * Archetype gets borrowed when running the on_replace observers above,
         // so this reference can only be promoted from shared to &mut down here, after they have been ran
-        let archetype = archetype.as_mut();
+        // * Pointer was created from a reference in `Self::new_with_id` and so is `dereferenceable`.
+        // * `Self`'s lifetime is tied to an exclusive reference to `World` and it does not make structural
+        // changes to the world, so the data is valid for the lifetime of `Self`
+        let archetype = unsafe { archetype.as_mut() };
 
         match archetype_move_type {
             ArchetypeMoveType::SameArchetype => {
@@ -343,7 +355,11 @@ impl<'w> BundleInserter<'w> {
         caller: MaybeLocation,
         relationship_hook_mode: RelationshipHookMode,
     ) -> EntityLocation {
-        let archetype_after_insert = self.archetype_after_insert.as_ref();
+        // SAFETY:
+        // * Pointer was created from a reference in `Self::new_with_id` and so is `dereferenceable`.
+        // * `Self`'s lifetime is tied to an exclusive reference to `World` and it does not make structural
+        // changes to the world, so the data is valid for the lifetime of `Self`
+        let archetype_after_insert = unsafe { self.archetype_after_insert.as_ref() };
 
         let (new_archetype, new_location) = {
             // Non-generic prelude extracted to improve compile time by minimizing monomorphized code.
@@ -360,7 +376,12 @@ impl<'w> BundleInserter<'w> {
                 &mut self.archetype_move_type,
             );
 
-            self.bundle_info.as_ref().write_components(
+            // SAFETY:
+            // * Pointer was created from a reference in `Self::new_with_id` and so is `dereferenceable`.
+            // * `Self`'s lifetime is tied to an exclusive reference to `World` and it does not make structural
+            // changes to the world, so the data is valid for the lifetime of `Self`
+            let bundle_info = unsafe { self.bundle_info.as_ref() };
+            bundle_info.write_components(
                 table,
                 sparse_sets,
                 archetype_after_insert,
