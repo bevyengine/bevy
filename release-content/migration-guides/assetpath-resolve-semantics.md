@@ -24,14 +24,14 @@ let base = AssetPath::parse("a/b.gltf");
 let rel = AssetPath::parse("c.bin");
 let resolved = base.resolve(&rel);
 ```
-### If you're using string inputs
+If you're using string inputs
 **Before:**
 ```rust
 let base = AssetPath::parse("a/b.gltf");
 let rel = AssetPath::parse("c.bin");
 let resolved = base.resolve(&rel.to_string()).unwrap();
 ```
-**After:**
+After:
 ```rust
 let base = AssetPath::parse("a/b.gltf");
 let rel = AssetPath::parse("c.bin");
