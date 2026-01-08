@@ -16,15 +16,18 @@ struct DebugBufferConfig {
 }
 
 @group(1) @binding(0) var<uniform> config: DebugBufferConfig;
+@group(1) @binding(1) var background_texture: texture_2d<f32>;
+@group(1) @binding(2) var background_sampler: sampler;
 
 #ifdef DEBUG_DEPTH_PYRAMID
-@group(1) @binding(1) var depth_pyramid_texture: texture_2d<f32>;
-@group(1) @binding(2) var depth_pyramid_sampler: sampler;
+@group(1) @binding(3) var depth_pyramid_texture: texture_2d<f32>;
+@group(1) @binding(4) var depth_pyramid_sampler: sampler;
 #endif
 
 @fragment
 fn fragment(@builtin(position) frag_coord: vec4<f32>) -> @location(0) vec4<f32> {
     let uv = frag_coord.xy / view.viewport.zw;
+    let background = textureSampleLevel(background_texture, background_sampler, uv, 0.0);
     var output_color: vec4<f32> = vec4(0.0);
 
 #ifdef DEBUG_DEPTH
@@ -112,5 +115,6 @@ fn fragment(@builtin(position) frag_coord: vec4<f32>) -> @location(0) vec4<f32> 
     output_color = vec4(vec3(depth_pyramid), 1.0);
 #endif
 
-    return vec4(output_color.rgb, output_color.a * config.opacity);
+    let alpha = output_color.a * config.opacity;
+    return vec4(mix(background.rgb, output_color.rgb, alpha), 1.0);
 }

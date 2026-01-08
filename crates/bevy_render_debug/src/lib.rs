@@ -29,7 +29,7 @@ use bevy_render::{
         NodeRunError, RenderGraphContext, RenderGraphExt, RenderLabel, ViewNode, ViewNodeRunner,
     },
     render_resource::{
-        binding_types, BindGroup, BindGroupEntries, BindGroupLayout, BindGroupLayoutDescriptor,
+        binding_types, BindGroupEntries, BindGroupLayout, BindGroupLayoutDescriptor,
         BindGroupLayoutEntries, CachedRenderPipelineId, ColorTargetState, ColorWrites,
         DynamicUniformBuffer, FragmentState, Operations, PipelineCache, RenderPassColorAttachment,
         RenderPassDescriptor, RenderPipelineDescriptor, Sampler, SamplerDescriptor, ShaderStages,
@@ -89,8 +89,7 @@ impl Plugin for RenderDebugOverlayPlugin {
                 Render,
                 (
                     prepare_debug_overlay_pipelines.in_set(RenderSystems::Prepare),
-                    prepare_debug_buffer_uniforms.in_set(RenderSystems::PrepareResources),
-                    prepare_debug_buffer_bind_groups.in_set(RenderSystems::PrepareBindGroups),
+                    prepare_debug_overlay_resources.in_set(RenderSystems::PrepareResources),
                 ),
             );
     }
@@ -231,14 +230,14 @@ pub fn update_overlay(
                 }
             }
             RenderDebugOverlayEvent::CycleOpacity => {
-                config_res.opacity = if config_res.opacity < 0.8 {
+                config_res.opacity = if config_res.opacity < 0.5 {
+                    0.5
+                } else if config_res.opacity < 0.8 {
                     0.8
-                } else if config_res.opacity < 0.95 {
-                    0.95
                 } else if config_res.opacity < 1.0 {
                     1.0
                 } else {
-                    0.8
+                    0.5
                 };
                 changed = true;
                 info!("Debug Overlay Opacity: {}", config_res.opacity);
@@ -343,6 +342,10 @@ impl FromWorld for RenderDebugOverlayPipeline {
                 ShaderStages::FRAGMENT,
                 (
                     binding_types::uniform_buffer::<RenderDebugOverlayUniform>(true),
+                    binding_types::texture_2d(TextureSampleType::Float { filterable: true }),
+                    binding_types::sampler(
+                        bevy_render::render_resource::SamplerBindingType::Filtering,
+                    ),
                     binding_types::texture_2d(TextureSampleType::Float { filterable: true }),
                     binding_types::sampler(
                         bevy_render::render_resource::SamplerBindingType::Filtering,
@@ -483,7 +486,7 @@ impl SpecializedRenderPipeline for RenderDebugOverlayPipeline {
                 entry_point: Some("fragment".into()),
                 targets: vec![Some(ColorTargetState {
                     format: TextureFormat::bevy_default(),
-                    blend: Some(bevy_render::render_resource::BlendState::ALPHA_BLENDING),
+                    blend: None,
                     write_mask: ColorWrites::ALL,
                 })],
             }),
@@ -567,7 +570,7 @@ fn prepare_debug_overlay_pipelines(
 #[derive(Component)]
 struct RenderDebugOverlayPipelineId(CachedRenderPipelineId);
 
-fn prepare_debug_buffer_uniforms(
+fn prepare_debug_overlay_resources(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
@@ -585,6 +588,7 @@ fn prepare_debug_buffer_uniforms(
     else {
         return;
     };
+
     for (entity, config) in &views {
         let offset = writer.write(&RenderDebugOverlayUniform {
             opacity: config.opacity,
@@ -594,49 +598,10 @@ fn prepare_debug_buffer_uniforms(
                 0
             },
         });
+
         commands
             .entity(entity)
             .insert(RenderDebugOverlayUniformOffset { offset });
-    }
-}
-
-#[derive(Component)]
-struct RenderDebugOverlayBindGroup(BindGroup);
-
-fn prepare_debug_buffer_bind_groups(
-    mut commands: Commands,
-    render_device: Res<RenderDevice>,
-    pipeline: Res<RenderDebugOverlayPipeline>,
-    uniforms: Res<RenderDebugOverlayUniforms>,
-    fallback_image: Res<FallbackImage>,
-    views: Query<(
-        Entity,
-        &RenderDebugOverlayUniformOffset,
-        Option<&ViewDepthPyramid>,
-    )>,
-) {
-    let Some(uniform_binding) = uniforms.uniforms.binding() else {
-        return;
-    };
-    for (entity, _uniform_offset, depth_pyramid) in &views {
-        let depth_pyramid_view = if let Some(dp) = depth_pyramid {
-            &dp.all_mips
-        } else {
-            &fallback_image.d2.texture_view
-        };
-
-        let bind_group = render_device.create_bind_group(
-            "debug_buffer_bind_group",
-            &pipeline.bind_group_layout,
-            &BindGroupEntries::sequential((
-                uniform_binding.clone(),
-                depth_pyramid_view,
-                &pipeline.sampler,
-            )),
-        );
-        commands
-            .entity(entity)
-            .insert(RenderDebugOverlayBindGroup(bind_group));
     }
 }
 
@@ -653,7 +618,6 @@ impl ViewNode for RenderDebugOverlayNode {
         &'static RenderDebugOverlay,
         &'static RenderDebugOverlayPipelineId,
         &'static RenderDebugOverlayUniformOffset,
-        &'static RenderDebugOverlayBindGroup,
         &'static MeshViewBindGroup,
         &'static ViewUniformOffset,
         &'static ViewLightsUniformOffset,
@@ -663,6 +627,7 @@ impl ViewNode for RenderDebugOverlayNode {
         &'static ViewEnvironmentMapUniformOffset,
         Has<bevy_core_pipeline::oit::OrderIndependentTransparencySettings>,
         Option<&'static OrderIndependentTransparencySettingsOffset>,
+        Option<&'static ViewDepthPyramid>,
     );
 
     fn run(
@@ -674,7 +639,6 @@ impl ViewNode for RenderDebugOverlayNode {
             config,
             pipeline_id,
             uniform_offset,
-            debug_bind_group,
             mesh_view_bind_group,
             view_uniform_offset,
             view_lights_offset,
@@ -684,6 +648,7 @@ impl ViewNode for RenderDebugOverlayNode {
             view_environment_map_offset,
             has_oit,
             view_oit_offset,
+            depth_pyramid,
         ): QueryItem<Self::ViewQuery>,
         world: &World,
     ) -> Result<(), NodeRunError> {
@@ -692,11 +657,37 @@ impl ViewNode for RenderDebugOverlayNode {
         }
 
         let pipeline_cache = world.resource::<PipelineCache>();
+        let pipeline_res = world.resource::<RenderDebugOverlayPipeline>();
+        let uniforms = world.resource::<RenderDebugOverlayUniforms>();
+        let fallback_image = world.resource::<FallbackImage>();
+
         let Some(pipeline) = pipeline_cache.get_render_pipeline(pipeline_id.0) else {
             return Ok(());
         };
 
+        let Some(uniform_binding) = uniforms.uniforms.binding() else {
+            return Ok(());
+        };
+
         let post_process = target.post_process_write();
+
+        let depth_pyramid_view = if let Some(dp) = depth_pyramid {
+            &dp.all_mips
+        } else {
+            &fallback_image.d2.texture_view
+        };
+
+        let debug_bind_group = render_context.render_device().create_bind_group(
+            "debug_buffer_bind_group",
+            &pipeline_res.bind_group_layout,
+            &BindGroupEntries::sequential((
+                uniform_binding,
+                post_process.source,
+                &pipeline_res.sampler,
+                depth_pyramid_view,
+                &pipeline_res.sampler,
+            )),
+        );
 
         let pass_descriptor = RenderPassDescriptor {
             label: Some("debug_buffer_pass"),
@@ -705,7 +696,7 @@ impl ViewNode for RenderDebugOverlayNode {
                 depth_slice: None,
                 resolve_target: None,
                 ops: Operations {
-                    load: bevy_render::render_resource::LoadOp::Load,
+                    load: bevy_render::render_resource::LoadOp::Clear(Default::default()),
                     store: bevy_render::render_resource::StoreOp::Store,
                 },
             })],
@@ -735,7 +726,7 @@ impl ViewNode for RenderDebugOverlayNode {
         }
 
         render_pass.set_bind_group(0, &mesh_view_bind_group.main, &dynamic_offsets);
-        render_pass.set_bind_group(1, &debug_bind_group.0, &[uniform_offset.offset]);
+        render_pass.set_bind_group(1, &debug_bind_group, &[uniform_offset.offset]);
 
         render_pass.draw(0..3, 0..1);
 
