@@ -351,9 +351,6 @@ impl<'a> AssetPath<'a> {
 
     /// Resolves an [`AssetPath`] relative to `self`.
     ///
-    /// Use this when you already have an [`AssetPath`]. If you have a string, see
-    /// [`AssetPath::resolve_str`].
-    ///
     /// Semantics:
     /// - If `path` is label-only (default source, empty path, label set), replace `self`'s label.
     /// - If `path` begins with `/`, treat it as rooted at the asset-source root (not the filesystem).
@@ -392,9 +389,6 @@ impl<'a> AssetPath<'a> {
     }
 
     /// Resolves an [`AssetPath`] relative to `self` using embedded (RFC 1808) semantics.
-    ///
-    /// Use this when you already have an [`AssetPath`]. If you have a string, see
-    /// [`AssetPath::resolve_embed_str`].
     ///
     /// Semantics:
     /// - Remove the "file portion" of the base before concatenation (unless the base ends with `/`).
