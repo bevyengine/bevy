@@ -1,8 +1,10 @@
 ---
 title: The `AssetReader` trait can now (optionally) support seeking any direction.
-authors: ["@andriyDev"]
-pull_requests: []
+authors: ["@andriyDev", "@cart"]
+pull_requests: [22182]
 ---
+
+_TODO: This release note is not up to date with the changes in https://github.com/bevyengine/bevy/pull/22182._
 
 In Bevy 0.15, we replaced the `AsyncSeek` super trait on `Reader` with `AsyncSeekForward`. This
 allowed our `Reader` trait to apply to more cases (e.g., it could allow cases like an HTTP request,
