@@ -289,7 +289,18 @@ fn calculate_contact_shadow(
     light_dir: vec3<f32>,
     contact_shadow_steps: u32,
 ) -> f32 {
+#ifdef BLUE_NOISE_TEXTURE
+    let noise_size = textureDimensions(view_bindings::blue_noise_texture, 0);
+    let noise_layers = textureNumLayers(view_bindings::blue_noise_texture);
+    let noise = textureLoad(
+        view_bindings::blue_noise_texture,
+        vec2<i32>(frag_coord) % vec2<i32>(noise_size),
+        i32(view_bindings::globals.frame_count % noise_layers),
+        0
+    ).x;
+#else
     let noise = utils::interleaved_gradient_noise(frag_coord, view_bindings::globals.frame_count);
+#endif
 
     let depth_size = vec2<f32>(textureDimensions(view_bindings::depth_prepass_texture));
     var rm = raymarch::depth_ray_march_new_from_depth(depth_size);

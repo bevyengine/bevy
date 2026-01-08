@@ -2430,6 +2430,9 @@ impl SpecializedMeshPipeline for MeshPipeline {
         if cfg!(feature = "pbr_specular_textures") {
             shader_defs.push("PBR_SPECULAR_TEXTURES_SUPPORTED".into());
         }
+        if cfg!(feature = "bluenoise_texture") {
+            shader_defs.push("BLUE_NOISE_TEXTURE".into());
+        }
 
         let bind_group_layout = self.get_view_layout(key.into());
         let mut bind_group_layout = vec![

@@ -101,6 +101,9 @@ const VISIBILITY_RANGE_UNIFORM_BUFFER_SIZE: u32 = 64u;
 @group(0) @binding(31) var atmosphere_transmittance_sampler: sampler;
 @group(0) @binding(32) var<storage> atmosphere_data: atmosphere::AtmosphereData;
 #endif // ATMOSPHERE
+#ifdef BLUE_NOISE_TEXTURE
+@group(0) @binding(33) var blue_noise_texture: texture_2d_array<f32>;
+#endif // BLUE_NOISE_TEXTURE
 
 #ifdef MULTIPLE_LIGHT_PROBES_IN_ARRAY
 @group(1) @binding(0) var diffuse_environment_maps: binding_array<texture_cube<f32>, 8u>;
