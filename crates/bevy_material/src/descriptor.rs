@@ -1,5 +1,6 @@
 use alloc::borrow::Cow;
 use bevy_asset::Handle;
+use bevy_derive::Deref;
 use bevy_mesh::VertexBufferLayout;
 use bevy_shader::{CachedPipelineId, Shader, ShaderDefVal};
 use core::iter;
@@ -130,12 +131,17 @@ pub enum PipelineDescriptor {
 }
 
 /// Index of a cached render pipeline in a `PipelineCache`.
-#[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, PartialOrd, Ord)]
+#[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, PartialOrd, Ord, Deref)]
 pub struct CachedRenderPipelineId(CachedPipelineId);
 
 impl CachedRenderPipelineId {
     /// An invalid cached render pipeline index, often used to initialize a variable.
     pub const INVALID: Self = CachedRenderPipelineId(usize::MAX);
+
+    #[inline]
+    pub fn new(id: usize) -> Self {
+        Self(id)
+    }
 
     #[inline]
     pub fn id(&self) -> usize {
@@ -150,6 +156,11 @@ pub struct CachedComputePipelineId(CachedPipelineId);
 impl CachedComputePipelineId {
     /// An invalid cached compute pipeline index, often used to initialize a variable.
     pub const INVALID: Self = CachedComputePipelineId(usize::MAX);
+
+    #[inline]
+    pub fn new(id: usize) -> Self {
+        Self(id)
+    }
 
     #[inline]
     pub fn id(&self) -> usize {

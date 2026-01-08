@@ -1,3 +1,8 @@
+use bevy_material::descriptor::{
+    BindGroupLayoutDescriptor, CachedComputePipelineId, CachedRenderPipelineId,
+    ComputePipelineDescriptor, PipelineDescriptor, RenderPipelineDescriptor,
+};
+
 use crate::{
     render_resource::*,
     renderer::{RenderAdapter, RenderDevice, WgpuWrapper},
@@ -265,7 +270,7 @@ impl PipelineCache {
     pub fn get_render_pipeline_state(&self, id: CachedRenderPipelineId) -> &CachedPipelineState {
         // If the pipeline id isn't in `pipelines`, it's queued in `new_pipelines`
         self.pipelines
-            .get(id.0)
+            .get(id.id())
             .map_or(&CachedPipelineState::Queued, |pipeline| &pipeline.state)
     }
 
@@ -276,7 +281,7 @@ impl PipelineCache {
     pub fn get_compute_pipeline_state(&self, id: CachedComputePipelineId) -> &CachedPipelineState {
         // If the pipeline id isn't in `pipelines`, it's queued in `new_pipelines`
         self.pipelines
-            .get(id.0)
+            .get(id.id())
             .map_or(&CachedPipelineState::Queued, |pipeline| &pipeline.state)
     }
 
@@ -291,7 +296,7 @@ impl PipelineCache {
         &self,
         id: CachedRenderPipelineId,
     ) -> &RenderPipelineDescriptor {
-        match &self.pipelines[id.0].descriptor {
+        match &self.pipelines[id.id()].descriptor {
             PipelineDescriptor::RenderPipelineDescriptor(descriptor) => descriptor,
             PipelineDescriptor::ComputePipelineDescriptor(_) => unreachable!(),
         }
@@ -308,7 +313,7 @@ impl PipelineCache {
         &self,
         id: CachedComputePipelineId,
     ) -> &ComputePipelineDescriptor {
-        match &self.pipelines[id.0].descriptor {
+        match &self.pipelines[id.id()].descriptor {
             PipelineDescriptor::RenderPipelineDescriptor(_) => unreachable!(),
             PipelineDescriptor::ComputePipelineDescriptor(descriptor) => descriptor,
         }
@@ -324,7 +329,7 @@ impl PipelineCache {
     #[inline]
     pub fn get_render_pipeline(&self, id: CachedRenderPipelineId) -> Option<&RenderPipeline> {
         if let CachedPipelineState::Ok(Pipeline::RenderPipeline(pipeline)) =
-            &self.pipelines.get(id.0)?.state
+            &self.pipelines.get(id.id())?.state
         {
             Some(pipeline)
         } else {
@@ -335,11 +340,11 @@ impl PipelineCache {
     /// Wait for a render pipeline to finish compiling.
     #[inline]
     pub fn block_on_render_pipeline(&mut self, id: CachedRenderPipelineId) {
-        if self.pipelines.len() <= id.0 {
+        if self.pipelines.len() <= id.id() {
             self.process_queue();
         }
 
-        let state = &mut self.pipelines[id.0].state;
+        let state = &mut self.pipelines[id.id()].state;
         if let CachedPipelineState::Creating(task) = state {
             *state = match bevy_tasks::block_on(task) {
                 Ok(p) => CachedPipelineState::Ok(p),
@@ -358,7 +363,7 @@ impl PipelineCache {
     #[inline]
     pub fn get_compute_pipeline(&self, id: CachedComputePipelineId) -> Option<&ComputePipeline> {
         if let CachedPipelineState::Ok(Pipeline::ComputePipeline(pipeline)) =
-            &self.pipelines.get(id.0)?.state
+            &self.pipelines.get(id.id())?.state
         {
             Some(pipeline)
         } else {
@@ -387,7 +392,7 @@ impl PipelineCache {
             .new_pipelines
             .lock()
             .unwrap_or_else(PoisonError::into_inner);
-        let id = CachedRenderPipelineId(self.pipelines.len() + new_pipelines.len());
+        let id = CachedRenderPipelineId::new(self.pipelines.len() + new_pipelines.len());
         new_pipelines.push(CachedPipeline {
             descriptor: PipelineDescriptor::RenderPipelineDescriptor(Box::new(descriptor)),
             state: CachedPipelineState::Queued,
@@ -416,7 +421,7 @@ impl PipelineCache {
             .new_pipelines
             .lock()
             .unwrap_or_else(PoisonError::into_inner);
-        let id = CachedComputePipelineId(self.pipelines.len() + new_pipelines.len());
+        let id = CachedComputePipelineId::new(self.pipelines.len() + new_pipelines.len());
         new_pipelines.push(CachedPipeline {
             descriptor: PipelineDescriptor::ComputePipelineDescriptor(Box::new(descriptor)),
             state: CachedPipelineState::Queued,

@@ -30,7 +30,7 @@ encase = "0.12"
 offset-allocator = "0.2"
 tracing = { version = "0.1", default-features = false, features = ["std"] }
 thiserror = { version = "2", default-features = false }
-wgpu-types = { version = "26", default-features = false }
+wgpu-types = { version = "27", default-features = false }
 variadics_please = "1.1"
 bitflags = "2"
 static_assertions = "1"

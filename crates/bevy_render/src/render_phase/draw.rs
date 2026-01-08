@@ -1,3 +1,5 @@
+use bevy_material::labels::DrawFunctionId;
+
 use crate::render_phase::{PhaseItem, TrackedRenderPass};
 use bevy_app::{App, SubApp};
 use bevy_ecs::{
