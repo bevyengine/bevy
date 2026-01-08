@@ -30,7 +30,7 @@ let resolved = base.resolve_str(&rel.to_string()).unwrap();
 ```rust
 let base = AssetPath::parse("a/b.gltf");
 let rel = AssetPath::parse("c.bin");
-let resolved = base.resolve(&rel); //Behavior
+let resolved = base.resolve(&rel);
 ```
 
 ### If you're using string inputs
@@ -44,7 +44,7 @@ let resolved = base.resolve("c.bin").unwrap();
 **After:**
 ```rust
 let base = AssetPath::parse("a/b.gltf");
-let resolved = base.resolve_str("c.bin").unwrap(); //If you already have an AssetPath
+let resolved = base.resolve_str("c.bin").unwrap();
 ```
 
 Both variants have identical semantics:
