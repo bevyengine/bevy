@@ -156,8 +156,8 @@ pub fn update_overlay(
                                 | RenderDebugMode::DeferredBaseColor
                                 | RenderDebugMode::DeferredEmissive
                                 | RenderDebugMode::DeferredMetallicRoughness => deferred,
-                                // We don't have a good way to check for DepthPyramid in the main world
-                                // but it usually depends on DepthPrepass.
+                                // We don't have a good way to check for DepthPyramid in the main
+                                // world, but it usually depends on DepthPrepass.
                                 // However, we can at least check if OcclusionCulling is present.
                                 RenderDebugMode::DepthPyramid { .. } => depth && occlusion,
                             }
@@ -183,7 +183,6 @@ pub fn update_overlay(
 
                     let mut next_mode = None;
 
-                    // First check if we can increment mip level
                     if let RenderDebugMode::DepthPyramid { mip_level } = config_res.mode {
                         if mip_level < 7 {
                             config_res.mode = RenderDebugMode::DepthPyramid {
@@ -194,7 +193,6 @@ pub fn update_overlay(
                     }
 
                     if next_mode.is_none() {
-                        // Look for next supported mode
                         for i in 1..modes.len() {
                             let idx = (current_index + i) % modes.len();
                             if is_supported(&modes[idx]) {
