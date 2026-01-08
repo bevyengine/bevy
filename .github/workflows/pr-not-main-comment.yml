@@ -4,8 +4,9 @@ permissions:
   contents: "read"
 
 on:
-  merge_group:
   pull_request:
+    types:
+      - opened
     branches-ignore:
       - main
 
