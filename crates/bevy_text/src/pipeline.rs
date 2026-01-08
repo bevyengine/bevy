@@ -146,7 +146,6 @@ impl TextPipeline {
                     scale_factor,
                 );
 
-                // spans.push((span_index, span, text_font, face_info, color, line_height));
                 spans.push((span, attrs));
             }
 
@@ -184,7 +183,6 @@ impl TextPipeline {
         };
 
         // Recover the spans buffer.
-        spans.clear();
         self.spans_buffer = spans
             .into_iter()
             .map(|_| -> (&'static str, Attrs<'static>) { unreachable!() })
