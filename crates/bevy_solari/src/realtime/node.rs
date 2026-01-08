@@ -548,7 +548,7 @@ impl FromWorld for SolariLightingNode {
                 "resolve_dlss_rr_textures",
                 load_embedded_asset!(world, "resolve_dlss_rr_textures.wgsl"),
                 Some(&bind_group_layout_resolve_dlss_rr_textures),
-                vec![],
+                vec!["DENOISER_GUIDE_BUFFERS".into()],
             ),
         }
     }

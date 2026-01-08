@@ -1,12 +1,7 @@
 #import bevy_pbr::pbr_functions::{calculate_diffuse_color, calculate_F0}
 #import bevy_render::view::View
 #import bevy_solari::gbuffer_utils::gpixel_resolve
-#import bevy_solari::realtime_bindings::{gbuffer, depth_buffer, view}
-
-@group(2) @binding(0) var diffuse_albedo: texture_storage_2d<rgba8unorm, write>;
-@group(2) @binding(1) var specular_albedo: texture_storage_2d<rgba8unorm, write>;
-@group(2) @binding(2) var normal_roughness: texture_storage_2d<rgba16float, write>;
-@group(2) @binding(3) var specular_motion_vectors: texture_storage_2d<rg16float, write>;
+#import bevy_solari::realtime_bindings::{gbuffer, depth_buffer, view, diffuse_albedo, specular_albedo, normal_roughness, specular_motion_vectors}
 
 @compute @workgroup_size(8, 8, 1)
 fn resolve_dlss_rr_textures(@builtin(global_invocation_id) global_id: vec3<u32>) {
