@@ -24,7 +24,6 @@ bevy_image = { path = "../bevy_image", version = "0.18.0-dev" }
 bevy_camera = { path = "../bevy_camera", version = "0.18.0-dev" }
 bevy_mesh = { path = "../bevy_mesh", version = "0.18.0-dev" }
 bevy_math = { path = "../bevy_math", version = "0.18.0-dev" }
-bevy_material = { path = "../bevy_material", version = "0.18.0-dev" }
 bevy_shader = { path = "../bevy_shader", version = "0.18.0-dev" }
 bevy_sprite = { path = "../bevy_sprite", version = "0.18.0-dev" }
 bevy_text = { path = "../bevy_text", version = "0.18.0-dev", optional = true }

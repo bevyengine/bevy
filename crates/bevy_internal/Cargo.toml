@@ -248,12 +248,14 @@ bevy_post_process = ["dep:bevy_post_process", "bevy_core_pipeline"]
 bevy_pbr = [
   "dep:bevy_pbr",
   "bevy_light",
+  "bevy_material",
   "bevy_core_pipeline",
   "bevy_gizmos_render?/bevy_pbr",
 ]
 bevy_sprite_render = [
   "dep:bevy_sprite_render",
   "bevy_sprite",
+  "bevy_material",
   "bevy_core_pipeline",
   "bevy_gizmos_render?/bevy_sprite_render",
 ]
