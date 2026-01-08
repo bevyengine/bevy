@@ -22,6 +22,9 @@ multi_threaded = ["bevy_tasks/multi_threaded", "dep:arrayvec"]
 ## Adds serialization support through `serde`.
 serialize = ["dep:serde", "bevy_platform/serialize", "indexmap/serde"]
 
+## Supports relationship collections through `wordvec`.
+wordvec = ["dep:wordvec"]
+
 ## Adds runtime reflection support using `bevy_reflect`.
 bevy_reflect = ["dep:bevy_reflect"]
 
@@ -119,6 +122,7 @@ smallvec = { version = "1", default-features = false, features = [
   "union",
   "const_generics",
 ] }
+wordvec = { version = "0.1.0", optional = true }
 indexmap = { version = "2.5.0", default-features = false }
 variadics_please = { version = "1.1", default-features = false }
 tracing = { version = "0.1", default-features = false, optional = true }

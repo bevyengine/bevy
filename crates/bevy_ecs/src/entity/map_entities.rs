@@ -1,5 +1,7 @@
 pub use bevy_ecs_macros::MapEntities;
 use indexmap::{IndexMap, IndexSet};
+#[cfg(feature = "wordvec")]
+use wordvec::WordVec;
 
 use crate::{
     entity::{hash_map::EntityHashMap, Entity},
@@ -188,6 +190,15 @@ impl<T: MapEntities> MapEntities for VecDeque<T> {
 }
 
 impl<T: MapEntities, A: smallvec::Array<Item = T>> MapEntities for SmallVec<A> {
+    fn map_entities<E: EntityMapper>(&mut self, entity_mapper: &mut E) {
+        for entities in self.iter_mut() {
+            entities.map_entities(entity_mapper);
+        }
+    }
+}
+
+#[cfg(feature = "wordvec")]
+impl<T: MapEntities, const N: usize> MapEntities for WordVec<T, N> {
     fn map_entities<E: EntityMapper>(&mut self, entity_mapper: &mut E) {
         for entities in self.iter_mut() {
             entities.map_entities(entity_mapper);

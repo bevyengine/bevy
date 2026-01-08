@@ -8,6 +8,8 @@ use crate::entity::{Entity, EntityHashSet, EntityIndexSet};
 use alloc::vec::Vec;
 use indexmap::IndexSet;
 use smallvec::SmallVec;
+#[cfg(feature = "wordvec")]
+use wordvec::WordVec;
 
 /// The internal [`Entity`] collection used by a [`RelationshipTarget`](crate::relationship::RelationshipTarget) component.
 /// This is not intended to be modified directly by users, as it could invalidate the correctness of relationships.
@@ -331,6 +333,58 @@ impl<const N: usize> RelationshipSourceCollection for SmallVec<[Entity; N]> {
     }
 }
 
+#[cfg(feature = "wordvec")]
+impl<const N: usize> RelationshipSourceCollection for WordVec<Entity, N> {
+    type SourceIter<'a> = core::iter::Copied<core::slice::Iter<'a, Entity>>;
+
+    fn new() -> Self {
+        WordVec::new()
+    }
+
+    fn reserve(&mut self, additional: usize) {
+        WordVec::reserve(self, additional);
+    }
+
+    fn with_capacity(capacity: usize) -> Self {
+        WordVec::with_capacity(capacity)
+    }
+
+    fn add(&mut self, entity: Entity) -> bool {
+        WordVec::push(self, entity);
+
+        true
+    }
+
+    fn remove(&mut self, entity: Entity) -> bool {
+        if let Some(index) = <[Entity]>::iter(self).position(|e| *e == entity) {
+            WordVec::remove(self, index);
+            return true;
+        }
+
+        false
+    }
+
+    fn iter(&self) -> Self::SourceIter<'_> {
+        <[Entity]>::iter(self).copied()
+    }
+
+    fn len(&self) -> usize {
+        WordVec::len(self)
+    }
+
+    fn clear(&mut self) {
+        WordVec::clear(self);
+    }
+
+    fn shrink_to_fit(&mut self) {
+        WordVec::shrink_to_fit(self);
+    }
+
+    fn extend_from_iter(&mut self, entities: impl IntoIterator<Item = Entity>) {
+        self.extend(entities);
+    }
+}
+
 impl RelationshipSourceCollection for Entity {
     type SourceIter<'a> = core::option::IntoIter<Entity>;
 
@@ -441,6 +495,58 @@ impl<const N: usize> OrderedRelationshipSourceCollection for SmallVec<[Entity; N
             // The len is at least 1, so the subtraction is safe.
             let index = index.min(self.len() - 1);
             SmallVec::<[Entity; N]>::remove(self, current);
+            self.insert(index, entity);
+        };
+    }
+}
+
+#[cfg(feature = "wordvec")]
+impl<const N: usize> OrderedRelationshipSourceCollection for WordVec<Entity, N> {
+    fn insert(&mut self, index: usize, entity: Entity) {
+        self.push(entity);
+        let len = self.len();
+        if index < len {
+            self.swap(index, len - 1);
+        }
+    }
+
+    fn remove_at(&mut self, index: usize) -> Option<Entity> {
+        (index < self.len()).then(|| self.swap_remove(index))
+    }
+
+    fn insert_stable(&mut self, index: usize, entity: Entity) {
+        if index < self.len() {
+            WordVec::insert(self, index, entity);
+        } else {
+            self.push(entity);
+        }
+    }
+
+    fn remove_at_stable(&mut self, index: usize) -> Option<Entity> {
+        (index < self.len()).then(|| self.remove(index))
+    }
+
+    fn sort(&mut self) {
+        self.sort_unstable();
+    }
+
+    fn insert_sorted(&mut self, entity: Entity) {
+        let index = self.partition_point(|e| e <= &entity);
+        self.insert_stable(index, entity);
+    }
+
+    fn place_most_recent(&mut self, index: usize) {
+        if let Some(entity) = self.pop() {
+            let index = index.min(self.len() - 1);
+            self.insert(index, entity);
+        }
+    }
+
+    fn place(&mut self, entity: Entity, index: usize) {
+        if let Some(current) = <[Entity]>::iter(self).position(|e| *e == entity) {
+            // The len is at least 1, so the subtraction is safe.
+            let index = index.min(self.len() - 1);
+            WordVec::remove(self, current);
             self.insert(index, entity);
         };
     }
@@ -628,6 +734,28 @@ mod tests {
         let rel_target = world.get::<RelTarget>(b).unwrap();
         let collection = rel_target.collection();
         assert_eq!(collection, &SmallVec::from_buf([a]));
+    }
+
+    #[cfg(feature = "wordvec")]
+    #[test]
+    fn wordvec_relationship_source_collection() {
+        #[derive(Component)]
+        #[relationship(relationship_target = RelTarget)]
+        struct Rel(Entity);
+
+        #[derive(Component)]
+        #[relationship_target(relationship = Rel, linked_spawn)]
+        struct RelTarget(WordVec<Entity, 4>);
+
+        let mut world = World::new();
+        let a = world.spawn_empty().id();
+        let b = world.spawn_empty().id();
+
+        world.entity_mut(a).insert(Rel(b));
+
+        let rel_target = world.get::<RelTarget>(b).unwrap();
+        let collection = rel_target.collection();
+        assert_eq!(collection.as_slice(), &[a]);
     }
 
     #[test]
