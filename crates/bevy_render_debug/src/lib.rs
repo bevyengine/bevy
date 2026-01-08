@@ -183,13 +183,13 @@ pub fn update_overlay(
 
                     let mut next_mode = None;
 
-                    if let RenderDebugMode::DepthPyramid { mip_level } = config_res.mode {
-                        if mip_level < 7 {
-                            config_res.mode = RenderDebugMode::DepthPyramid {
-                                mip_level: mip_level + 1,
-                            };
-                            next_mode = Some(config_res.mode);
-                        }
+                    if let RenderDebugMode::DepthPyramid { mip_level } = config_res.mode
+                        && mip_level < 7
+                    {
+                        config_res.mode = RenderDebugMode::DepthPyramid {
+                            mip_level: mip_level + 1,
+                        };
+                        next_mode = Some(config_res.mode);
                     }
 
                     if next_mode.is_none() {
@@ -283,7 +283,7 @@ impl Default for RenderDebugOverlay {
 }
 
 /// The kind of renderer data to visualize.
-#[allow(missing_docs)]
+#[expect(missing_docs, reason = "Enum variants are self-explanatory")]
 #[derive(Default, Debug, Copy, Clone, PartialEq, Eq, Hash, Reflect)]
 pub enum RenderDebugMode {
     #[default]
@@ -717,10 +717,8 @@ impl ViewNode for RenderDebugOverlayNode {
             **view_ssr_offset,
             **view_environment_map_offset,
         ];
-        if has_oit {
-            if let Some(view_oit_offset) = view_oit_offset {
-                dynamic_offsets.push(view_oit_offset.offset);
-            }
+        if has_oit && let Some(view_oit_offset) = view_oit_offset {
+            dynamic_offsets.push(view_oit_offset.offset);
         }
 
         render_pass.set_bind_group(0, &mesh_view_bind_group.main, &dynamic_offsets);
