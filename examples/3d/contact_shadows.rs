@@ -1,6 +1,8 @@
 //! Demonstrates contact shadows, also known as screen-space shadows.
 
 use crate::widgets::{RadioButton, RadioButtonText, WidgetClickEvent, WidgetClickSender};
+use bevy::anti_alias::taa::TemporalAntiAliasing;
+use bevy::core_pipeline::tonemapping::Tonemapping;
 use bevy::{
     core_pipeline::Skybox, ecs::message::MessageReader, pbr::ContactShadows,
     post_process::bloom::Bloom, prelude::*, render::view::Hdr,
@@ -62,13 +64,16 @@ struct LightContainer;
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins.set(WindowPlugin {
-            primary_window: Some(Window {
-                title: "Bevy Contact Shadows Example".into(),
+        .add_plugins((
+            DefaultPlugins.set(WindowPlugin {
+                primary_window: Some(Window {
+                    title: "Bevy Contact Shadows Example".into(),
+                    ..default()
+                }),
                 ..default()
             }),
-            ..default()
-        }))
+            MeshPickingPlugin::default(),
+        ))
         .init_resource::<AppStatus>()
         .insert_resource(GlobalAmbientLight::NONE)
         .add_message::<WidgetClickEvent<ExampleSetting>>()
@@ -93,16 +98,19 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         Bloom::default(),
         Hdr,
         Skybox {
-            brightness: 100.0,
+            brightness: 500.0,
             image: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
             ..default()
         },
         EnvironmentMapLight {
             diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
             specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
-            intensity: 200.0,
+            intensity: 1000.0,
             ..default()
         },
+        TemporalAntiAliasing::default(), //
+        Msaa::Off,
+        Tonemapping::AcesFitted,
     ));
 
     let directional_light = commands
@@ -120,7 +128,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         .spawn((
             PointLight {
                 shadow_maps_enabled: true,
-                intensity: light_consts::lumens::VERY_LARGE_CINEMA_LIGHT * 0.25,
+                contact_shadows_enabled: true,
                 ..default()
             },
             Visibility::Hidden,
@@ -131,6 +139,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         .spawn((
             SpotLight {
                 shadow_maps_enabled: true,
+                contact_shadows_enabled: true,
                 intensity: light_consts::lumens::VERY_LARGE_CINEMA_LIGHT * 0.25,
                 ..default()
             },
@@ -148,11 +157,37 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         .add_child(point_light)
         .add_child(spot_light);
 
-    commands.spawn(SceneRoot(asset_server.load(
-        GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf"),
-    )));
+    commands
+        .spawn(SceneRoot(asset_server.load(
+            GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf"),
+        )))
+        .observe(
+            |event: On<Pointer<Drag>>, mut query: Query<&mut Transform, With<SceneRoot>>| {
+                for mut transform in query.iter_mut() {
+                    transform.rotate_y(event.delta.x * 0.005);
+                }
+            },
+        );
 
     spawn_buttons(&mut commands);
+
+    commands.spawn((
+        Node {
+            position_type: PositionType::Absolute,
+            top: px(12.0),
+            left: px(0.0),
+            right: px(0.0),
+            justify_content: JustifyContent::Center,
+            ..default()
+        },
+        children![(
+            Text::new("Drag model to spin"),
+            TextFont {
+                font_size: 18.0,
+                ..default()
+            },
+        )],
+    ));
 }
 
 fn rotate_light(
