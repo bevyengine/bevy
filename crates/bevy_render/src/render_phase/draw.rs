@@ -10,7 +10,7 @@ use bevy_ecs::{
     world::World,
 };
 use bevy_utils::TypeIdMap;
-use core::{any::TypeId, fmt::Debug, hash::Hash};
+use core::{any::TypeId, fmt::Debug};
 use std::sync::{PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard};
 use thiserror::Error;
 use variadics_please::all_tuples;
