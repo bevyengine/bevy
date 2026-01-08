@@ -8,10 +8,10 @@ on:
     types:
       - opened
     branches-ignore:
-      - main
+      - "main"
 
 jobs:
-  not-targeting-main-comment-on-pr:
+  comment-on-not-targeting-main:
     runs-on: ubuntu-latest
     permissions:
       pull-requests: "write"
