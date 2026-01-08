@@ -6,6 +6,8 @@ permissions:
 on:
   merge_group:
   pull_request:
+    branches:
+      - main
   # also run when pushed to main to update reference screenshots
   push:
     branches:
