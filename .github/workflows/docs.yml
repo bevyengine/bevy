@@ -53,10 +53,12 @@ jobs:
       #  This does the following:
       #   - Replaces the docs icon with one that clearly denotes it's not the released package on crates.io
       #   - Adds a meta tag that forces Google not to index any page on the site.
+      #   - Embeds metadata about which items implement which core Bevy traits
       - name: Pre-docs-build
         run: |
           sed -i.bak "s/icon.png/icon-docs-dev.png/" src/lib.rs
           echo "<meta name=\"robots\" content=\"noindex\">" > header.html
+          cargo run --package embed-trait-info-in-source
 
       - name: Build docs
         env:
