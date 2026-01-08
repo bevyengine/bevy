@@ -11,6 +11,9 @@ ignore = [
   # unmaintained: postcard -> heapless -> atomic-polyfill
   # See https://github.com/jamesmunns/postcard/issues/223
   "RUSTSEC-2023-0089",
+  # unmaintained: bincode
+  # The crate is complete and will not receive further updates unless security issues are reported on it.
+  "RUSTSEC-2025-0141",
 ]
 
 [licenses]
