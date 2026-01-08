@@ -217,6 +217,7 @@ common_api = [
   "bevy_image",
   "bevy_mesh",
   "bevy_shader",
+  "bevy_material",
   "bevy_text",
   "hdr",
   "png",

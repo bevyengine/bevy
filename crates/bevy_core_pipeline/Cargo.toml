@@ -25,7 +25,6 @@ bevy_ecs = { path = "../bevy_ecs", version = "0.18.0-dev" }
 bevy_image = { path = "../bevy_image", version = "0.18.0-dev" }
 bevy_log = { path = "../bevy_log", version = "0.18.0-dev" }
 bevy_camera = { path = "../bevy_camera", version = "0.18.0-dev" }
-bevy_material = { path = "../bevy_material", version = "0.18.0-dev" }
 bevy_reflect = { path = "../bevy_reflect", version = "0.18.0-dev" }
 bevy_shader = { path = "../bevy_shader", version = "0.18.0-dev" }
 bevy_render = { path = "../bevy_render", version = "0.18.0-dev" }
@@ -41,9 +40,6 @@ bevy_platform = { path = "../bevy_platform", version = "0.18.0-dev", default-fea
 bitflags = "2.3"
 radsort = "0.1"
 nonmax = "0.5"
-serde = { version = "1", default-features = false, features = ["derive"] }
-smallvec = { version = "1", default-features = false }
-thiserror = { version = "2", default-features = false }
 tracing = { version = "0.1", default-features = false, features = ["std"] }
 
 [lints]
