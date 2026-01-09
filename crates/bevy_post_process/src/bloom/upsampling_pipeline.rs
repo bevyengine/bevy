@@ -14,6 +14,7 @@ use bevy_render::{
         binding_types::{sampler, texture_2d, uniform_buffer},
         *,
     },
+    renderer::RenderDevice,
     view::ViewTarget,
 };
 use bevy_shader::Shader;
@@ -28,6 +29,7 @@ pub struct UpsamplingPipelineIds {
 #[derive(Resource)]
 pub struct BloomUpsamplingPipeline {
     pub bind_group_layout: BindGroupLayoutDescriptor,
+    pub sampler: Sampler,
     /// The asset handle for the fullscreen vertex shader.
     pub fullscreen_shader: FullscreenShader,
     /// The fragment shader asset handle.
@@ -38,10 +40,12 @@ pub struct BloomUpsamplingPipeline {
 pub struct BloomUpsamplingPipelineKeys {
     composite_mode: BloomCompositeMode,
     final_pipeline: bool,
+    high_quality: bool,
 }
 
 pub fn init_bloom_upscaling_pipeline(
     mut commands: Commands,
+    render_device: Res<RenderDevice>,
     fullscreen_shader: Res<FullscreenShader>,
     asset_server: Res<AssetServer>,
 ) {
@@ -60,8 +64,18 @@ pub fn init_bloom_upscaling_pipeline(
         ),
     );
 
+    // Sampler
+    let sampler = render_device.create_sampler(&SamplerDescriptor {
+        min_filter: FilterMode::Linear,
+        mag_filter: FilterMode::Linear,
+        address_mode_u: AddressMode::ClampToEdge,
+        address_mode_v: AddressMode::ClampToEdge,
+        ..Default::default()
+    });
+
     commands.insert_resource(BloomUpsamplingPipeline {
         bind_group_layout,
+        sampler,
         fullscreen_shader: fullscreen_shader.clone(),
         fragment_shader: load_embedded_asset!(asset_server.as_ref(), "bloom.wgsl"),
     });
@@ -76,6 +90,11 @@ impl SpecializedRenderPipeline for BloomUpsamplingPipeline {
         } else {
             BLOOM_TEXTURE_FORMAT
         };
+
+        let mut shader_defs = vec![];
+        if !key.high_quality {
+            shader_defs.push("FAST_BLUR".into());
+        }
 
         let color_blend = match key.composite_mode {
             BloomCompositeMode::EnergyConserving => {
@@ -115,6 +134,7 @@ impl SpecializedRenderPipeline for BloomUpsamplingPipeline {
             vertex: self.fullscreen_shader.to_vertex_state(),
             fragment: Some(FragmentState {
                 shader: self.fragment_shader.clone(),
+                shader_defs,
                 entry_point: Some("upsample".into()),
                 targets: vec![Some(ColorTargetState {
                     format: texture_format,
@@ -128,7 +148,6 @@ impl SpecializedRenderPipeline for BloomUpsamplingPipeline {
                     }),
                     write_mask: ColorWrites::ALL,
                 })],
-                ..default()
             }),
             ..default()
         }
@@ -149,6 +168,7 @@ pub fn prepare_upsampling_pipeline(
             BloomUpsamplingPipelineKeys {
                 composite_mode: bloom.composite_mode,
                 final_pipeline: false,
+                high_quality: bloom.high_quality,
             },
         );
 
@@ -158,6 +178,7 @@ pub fn prepare_upsampling_pipeline(
             BloomUpsamplingPipelineKeys {
                 composite_mode: bloom.composite_mode,
                 final_pipeline: true,
+                high_quality: bloom.high_quality,
             },
         );
 

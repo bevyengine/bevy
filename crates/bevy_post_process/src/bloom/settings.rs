@@ -115,14 +115,22 @@ pub struct Bloom {
     /// otherwise set to [`BloomCompositeMode::EnergyConserving`].
     pub composite_mode: BloomCompositeMode,
 
-    /// Maximum size of each dimension for the largest mipchain texture used in downscaling/upscaling.
-    /// Only tweak if you are seeing visual artifacts.
+    /// Maximum size of the short side for the largest mipchain texture used in downscaling/upscaling.
+    /// Lower values can improve performance but result in more aliasing.
     pub max_mip_dimension: u32,
+
+    /// Maximum number of mipmaps to use in downscaling/upscaling (default: [`u32::MAX`]).
+    /// Lower values can improve performance but lose some low frequency contributions.
+    pub max_mip_count: u32,
 
     /// Amount to stretch the bloom on each axis. Artistic control, can be used to emulate
     /// anamorphic blur by using a large x-value. For large values, you may need to increase
     /// [`Bloom::max_mip_dimension`] to reduce sampling artifacts.
     pub scale: Vec2,
+
+    // Whether to use a high quality bloom implementation (default: true).
+    // If false, bloom will use an implementation that significantly reduces the number of texture samples and improves performance, but at the cost of lower quality.
+    pub high_quality: bool,
 }
 
 impl Bloom {
@@ -143,6 +151,8 @@ impl Bloom {
         composite_mode: BloomCompositeMode::EnergyConserving,
         max_mip_dimension: Self::DEFAULT_MAX_MIP_DIMENSION,
         scale: Vec2::ONE,
+        high_quality: true,
+        max_mip_count: u32::MAX,
     };
 
     /// Emulates the look of stylized anamorphic bloom, stretched horizontally.
@@ -166,6 +176,8 @@ impl Bloom {
         composite_mode: BloomCompositeMode::Additive,
         max_mip_dimension: Self::DEFAULT_MAX_MIP_DIMENSION,
         scale: Vec2::ONE,
+        high_quality: true,
+        max_mip_count: u32::MAX,
     };
 
     /// A preset that applies a very strong bloom, and blurs the whole screen.
@@ -181,6 +193,8 @@ impl Bloom {
         composite_mode: BloomCompositeMode::EnergyConserving,
         max_mip_dimension: Self::DEFAULT_MAX_MIP_DIMENSION,
         scale: Vec2::ONE,
+        high_quality: true,
+        max_mip_count: u32::MAX,
     };
 }
 
