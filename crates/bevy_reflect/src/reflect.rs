@@ -7,8 +7,7 @@ use alloc::borrow::Cow;
 use alloc::boxed::Box;
 use alloc::string::ToString;
 use core::{
-    any::{Any, TypeId},
-    fmt::Debug,
+    any::{Any, TypeId}, cmp::Ordering, fmt::Debug
 };
 
 use thiserror::Error;
@@ -342,6 +341,14 @@ where
     ///
     /// If the underlying type does not support equality testing, returns `None`.
     fn reflect_partial_eq(&self, _value: &dyn PartialReflect) -> Option<bool> {
+        None
+    }
+
+    /// Returns a "partial comparison" result.
+    /// 
+    /// It only works for types that has registered ordering support via `#[reflect(PartialOrd)]`
+    /// No default reflection-based implementation is provided.
+    fn reflect_partial_cmp(&self, _value: &dyn PartialReflect) -> Option<Ordering> {
         None
     }
 

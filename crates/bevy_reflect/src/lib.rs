@@ -1447,6 +1447,52 @@ mod tests {
     }
 
     #[test]
+    fn reflect_partial_cmp_derive_support() {
+        use core::cmp::Ordering;
+
+        #[derive(PartialEq, PartialOrd, Reflect, Debug)]
+        #[reflect(PartialOrd)]
+        struct Foo(i32);
+
+        let a = Foo(1);
+        let b = Foo(2);
+
+        // direct same-type comparison should delegate to concrete PartialOrd
+        let ord = PartialReflect::reflect_partial_cmp(&a, &b);
+        assert_eq!(ord, Some(Ordering::Less));
+
+        // comparing against a different type should return None
+        let ord_mismatch = PartialReflect::reflect_partial_cmp(&a, &1i32);
+        assert_eq!(ord_mismatch, None);
+    }
+
+    #[test]
+    fn reflect_partial_cmp_custom_fn() {
+        use core::cmp::Ordering;
+
+        fn custom_cmp(a: &CustomFoo, b: &dyn PartialReflect) -> Option<Ordering> {
+            if let Some(b) = b.try_downcast_ref::<CustomFoo>() {
+                Some(::core::cmp::Ord::cmp(&a.0, &b.0))
+            } else {
+                Some(Ordering::Greater)
+            }
+        }
+
+        #[derive(PartialEq, PartialOrd, Reflect, Debug)]
+        #[reflect(PartialOrd(custom_cmp))]
+        struct CustomFoo(i32);
+
+        let a = CustomFoo(3);
+        let b = CustomFoo(5);
+
+        let ord = PartialReflect::reflect_partial_cmp(&a, &b);
+        assert_eq!(ord, Some(Ordering::Less));
+
+        let ord_mismatch = PartialReflect::reflect_partial_cmp(&a, &1i32);
+        assert_eq!(ord_mismatch, Some(Ordering::Greater));
+    }
+
+    #[test]
     fn should_call_from_reflect_dynamically() {
         #[derive(Reflect)]
         struct MyStruct {
