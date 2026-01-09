@@ -3,10 +3,13 @@
 use crate::widgets::{RadioButton, RadioButtonText, WidgetClickEvent, WidgetClickSender};
 use bevy::anti_alias::taa::TemporalAntiAliasing;
 use bevy::core_pipeline::tonemapping::Tonemapping;
-use bevy::pbr::ScreenSpaceAmbientOcclusion;
+use bevy::light::AtmosphereEnvironmentMapLight;
+use bevy::pbr::{AtmosphereSettings, EarthlikeAtmosphere, ScreenSpaceAmbientOcclusion};
+use bevy::post_process::motion_blur::MotionBlur;
+use bevy::window::{CursorIcon, PrimaryWindow, SystemCursorIcon};
 use bevy::{
-    core_pipeline::Skybox, ecs::message::MessageReader, pbr::ContactShadows,
-    post_process::bloom::Bloom, prelude::*, render::view::Hdr,
+    ecs::message::MessageReader, pbr::ContactShadows, post_process::bloom::Bloom, prelude::*,
+    render::view::Hdr,
 };
 
 #[path = "../helpers/widgets.rs"]
@@ -91,28 +94,29 @@ fn main() {
         .run();
 }
 
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn setup(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    earth_atmosphere: Res<EarthlikeAtmosphere>,
+) {
     commands.spawn((
         Camera3d::default(),
-        Transform::from_xyz(0.6, 0.6, 0.6).looking_at(Vec3::new(0.0, 0.5, 0.0), Vec3::Y),
+        Transform::from_xyz(0.8, 0.6, 0.8).looking_at(Vec3::new(0.0, 0.35, 0.0), Vec3::Y),
         ContactShadows::default(),
+        TemporalAntiAliasing::default(), // Contact shadows and AO benefit from TAA
+        // Everything past this point is extra to look pretty.
         Bloom::default(),
         Hdr,
-        Skybox {
-            brightness: 500.0,
-            image: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
-            ..default()
-        },
-        EnvironmentMapLight {
-            diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
-            specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
-            intensity: 1000.0,
-            ..default()
-        },
+        AtmosphereEnvironmentMapLight::default(),
+        AtmosphereSettings::default(),
+        earth_atmosphere.get(),
         ScreenSpaceAmbientOcclusion::default(),
-        TemporalAntiAliasing::default(), // Contact shadows and AO benefit from TAA
         Msaa::Off,
         Tonemapping::AcesFitted,
+        MotionBlur {
+            shutter_angle: 2.0, // This is really just for fun when spinning the model
+            ..default()
+        },
     ));
 
     let directional_light = commands
@@ -165,10 +169,43 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf"),
         )))
         .observe(
-            |event: On<Pointer<Drag>>, mut query: Query<&mut Transform, With<SceneRoot>>| {
+            |event: On<Pointer<Drag>>,
+             mut query: Query<&mut Transform, With<SceneRoot>>,
+             mut commands: Commands,
+             mut window: Query<Entity, With<PrimaryWindow>>| {
                 for mut transform in query.iter_mut() {
-                    transform.rotate_y(event.delta.x * 0.005);
+                    transform.rotate_y(event.delta.x * 0.01);
                 }
+                commands
+                    .entity(window.single_mut().unwrap())
+                    .insert(CursorIcon::System(SystemCursorIcon::Grabbing));
+            },
+        )
+        .observe(
+            |_: On<Pointer<Over>>,
+             mut commands: Commands,
+             mut window: Query<Entity, With<PrimaryWindow>>| {
+                commands
+                    .entity(window.single_mut().unwrap())
+                    .insert(CursorIcon::System(SystemCursorIcon::Grab));
+            },
+        )
+        .observe(
+            |_: On<Pointer<Out>>,
+             mut commands: Commands,
+             mut window: Query<Entity, With<PrimaryWindow>>| {
+                commands
+                    .entity(window.single_mut().unwrap())
+                    .insert(CursorIcon::System(SystemCursorIcon::Default));
+            },
+        )
+        .observe(
+            |_: On<Pointer<DragEnd>>,
+             mut commands: Commands,
+             mut window: Query<Entity, With<PrimaryWindow>>| {
+                commands
+                    .entity(window.single_mut().unwrap())
+                    .insert(CursorIcon::System(SystemCursorIcon::Default));
             },
         );
 
