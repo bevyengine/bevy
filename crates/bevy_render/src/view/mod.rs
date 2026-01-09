@@ -117,6 +117,9 @@ impl Plugin for ViewPlugin {
                     clear_view_attachments
                         .in_set(RenderSystems::ManageViews)
                         .before(create_surfaces),
+                    cleanup_view_targets_for_resize
+                        .in_set(RenderSystems::ManageViews)
+                        .before(create_surfaces),
                     prepare_view_attachments
                         .in_set(RenderSystems::ManageViews)
                         .before(prepare_view_targets)
@@ -847,8 +850,8 @@ impl ViewTarget {
 
     /// The format of the final texture this view will render to
     #[inline]
-    pub fn out_texture_format(&self) -> TextureFormat {
-        self.out_texture.format
+    pub fn out_texture_view_format(&self) -> TextureFormat {
+        self.out_texture.view_format
     }
 
     /// This will start a new "post process write", which assumes that the caller
@@ -1024,10 +1027,8 @@ pub fn prepare_view_attachments(
                 let Some(attachment) = target
                     .get_texture_view(&windows, &images, &manual_texture_views)
                     .cloned()
-                    .zip(target.get_texture_format(&windows, &images, &manual_texture_views))
-                    .map(|(view, format)| {
-                        OutputColorAttachment::new(view.clone(), format.add_srgb_suffix())
-                    })
+                    .zip(target.get_texture_view_format(&windows, &images, &manual_texture_views))
+                    .map(|(view, format)| OutputColorAttachment::new(view.clone(), format))
                 else {
                     continue;
                 };
@@ -1040,6 +1041,21 @@ pub fn prepare_view_attachments(
 /// Clears the view target [`OutputColorAttachment`]s.
 pub fn clear_view_attachments(mut view_target_attachments: ResMut<ViewTargetAttachments>) {
     view_target_attachments.clear();
+}
+
+pub fn cleanup_view_targets_for_resize(
+    mut commands: Commands,
+    windows: Res<ExtractedWindows>,
+    cameras: Query<(Entity, &ExtractedCamera), With<ViewTarget>>,
+) {
+    for (entity, camera) in &cameras {
+        if let Some(NormalizedRenderTarget::Window(window_ref)) = &camera.target
+            && let Some(window) = windows.get(&window_ref.entity())
+            && (window.size_changed || window.present_mode_changed)
+        {
+            commands.entity(entity).remove::<ViewTarget>();
+        }
+    }
 }
 
 pub fn prepare_view_targets(
@@ -1141,8 +1157,8 @@ pub fn prepare_view_targets(
         let converted_clear_color = clear_color.map(Into::into);
 
         let main_textures = MainTargetTextures {
-            a: ColorAttachment::new(a.clone(), sampled.clone(), converted_clear_color),
-            b: ColorAttachment::new(b.clone(), sampled.clone(), converted_clear_color),
+            a: ColorAttachment::new(a.clone(), sampled.clone(), None, converted_clear_color),
+            b: ColorAttachment::new(b.clone(), sampled.clone(), None, converted_clear_color),
             main_texture: main_texture.clone(),
         };
 

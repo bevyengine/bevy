@@ -18,9 +18,9 @@ use bevy_image::prelude::*;
 use bevy_math::Vec2;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_text::{
-    ComputedTextBlock, CosmicFontSystem, Font, FontAtlasSet, LineBreak, LineHeight, SwashCache,
-    TextBounds, TextColor, TextError, TextFont, TextLayout, TextLayoutInfo, TextMeasureInfo,
-    TextPipeline, TextReader, TextRoot, TextSpanAccess, TextWriter,
+    ComputedTextBlock, CosmicFontSystem, Font, FontAtlasSet, FontHinting, LineBreak, LineHeight,
+    SwashCache, TextBounds, TextColor, TextError, TextFont, TextLayout, TextLayoutInfo,
+    TextMeasureInfo, TextPipeline, TextReader, TextRoot, TextSpanAccess, TextWriter,
 };
 use taffy::style::AvailableSpace;
 use tracing::error;
@@ -102,7 +102,9 @@ impl Default for TextNodeFlags {
     TextColor,
     LineHeight,
     TextNodeFlags,
-    ContentSize
+    ContentSize,
+    // Enable hinting as UI text is normally pixel-aligned.
+    FontHinting::Enabled
 )]
 pub struct Text(pub String);
 
@@ -244,6 +246,7 @@ pub fn measure_text_system(
             &mut ComputedTextBlock,
             Ref<ComputedUiRenderTargetInfo>,
             &ComputedNode,
+            Ref<FontHinting>,
         ),
         With<Node>,
     >,
@@ -259,6 +262,7 @@ pub fn measure_text_system(
         mut computed,
         computed_target,
         computed_node,
+        hinting,
     ) in &mut text_query
     {
         // Note: the ComputedTextBlock::needs_rerender bool is cleared in create_text_measure().
@@ -267,7 +271,8 @@ pub fn measure_text_system(
             < (computed_target.scale_factor() - computed_node.inverse_scale_factor.recip()).abs()
             || computed.needs_rerender()
             || text_flags.needs_measure_fn
-            || content_size.is_added())
+            || content_size.is_added()
+            || hinting.is_changed())
         {
             continue;
         }
@@ -280,6 +285,7 @@ pub fn measure_text_system(
             &block,
             computed.as_mut(),
             &mut font_system,
+            *hinting,
         ) {
             Ok(measure) => {
                 if block.linebreak == LineBreak::NoWrap {
@@ -292,7 +298,7 @@ pub fn measure_text_system(
                 text_flags.needs_measure_fn = false;
                 text_flags.needs_recompute = true;
             }
-            Err(TextError::NoSuchFont) => {
+            Err(TextError::NoSuchFont | TextError::DegenerateScaleFactor) => {
                 // Try again next frame
                 text_flags.needs_measure_fn = true;
             }
@@ -329,7 +335,6 @@ pub fn text_system(
         &mut TextNodeFlags,
         &mut ComputedTextBlock,
     )>,
-    text_font_query: Query<&TextFont>,
     mut font_system: ResMut<CosmicFontSystem>,
     mut swash_cache: ResMut<SwashCache>,
 ) {
@@ -340,7 +345,6 @@ pub fn text_system(
                 continue;
             }
 
-            let scale_factor = node.inverse_scale_factor().recip().into();
             let physical_node_size = if block.linebreak == LineBreak::NoWrap {
                 // With `NoWrap` set, no constraints are placed on the width of the text.
                 TextBounds::UNBOUNDED
@@ -351,8 +355,6 @@ pub fn text_system(
 
             match text_pipeline.update_text_layout_info(
                 &mut text_layout_info,
-                text_font_query,
-                scale_factor,
                 &mut font_atlas_set,
                 &mut texture_atlases,
                 &mut textures,
@@ -362,7 +364,7 @@ pub fn text_system(
                 physical_node_size,
                 block.justify,
             ) {
-                Err(TextError::NoSuchFont) => {
+                Err(TextError::NoSuchFont | TextError::DegenerateScaleFactor) => {
                     // There was an error processing the text layout, try again next frame
                     text_flags.needs_recompute = true;
                 }
@@ -376,7 +378,7 @@ pub fn text_system(
                     panic!("Fatal error when processing text: {e}.");
                 }
                 Ok(()) => {
-                    text_layout_info.scale_factor = scale_factor as f32;
+                    text_layout_info.scale_factor = node.inverse_scale_factor().recip();
                     text_layout_info.size *= node.inverse_scale_factor();
                     text_flags.needs_recompute = false;
                 }

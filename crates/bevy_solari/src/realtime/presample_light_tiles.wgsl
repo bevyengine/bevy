@@ -6,12 +6,7 @@
 #import bevy_pbr::utils::{octahedral_encode, octahedral_decode}
 #import bevy_render::view::View
 #import bevy_solari::sampling::{generate_random_light_sample, LightSample, ResolvedLightSample}
-
-@group(1) @binding(1) var<storage, read_write> light_tile_samples: array<LightSample>;
-@group(1) @binding(2) var<storage, read_write> light_tile_resolved_samples: array<ResolvedLightSamplePacked>;
-@group(1) @binding(12) var<uniform> view: View;
-struct PushConstants { frame_index: u32, reset: u32 }
-var<push_constant> constants: PushConstants;
+#import bevy_solari::realtime_bindings::{light_tile_samples, light_tile_resolved_samples, view, constants, ResolvedLightSamplePacked}
 
 @compute @workgroup_size(1024, 1, 1)
 fn presample_light_tiles(@builtin(workgroup_id) workgroup_id: vec3<u32>, @builtin(local_invocation_index) sample_index: u32) {
@@ -23,15 +18,6 @@ fn presample_light_tiles(@builtin(workgroup_id) workgroup_id: vec3<u32>, @builti
     let i = (tile_id * 1024u) + sample_index;
     light_tile_samples[i] = sample.light_sample;
     light_tile_resolved_samples[i] = pack_resolved_light_sample(sample.resolved_light_sample);
-}
-
-struct ResolvedLightSamplePacked {
-    world_position_x: f32,
-    world_position_y: f32,
-    world_position_z: f32,
-    world_normal: u32,
-    radiance: u32,
-    inverse_pdf: f32,
 }
 
 fn pack_resolved_light_sample(sample: ResolvedLightSample) -> ResolvedLightSamplePacked {

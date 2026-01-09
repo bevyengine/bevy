@@ -130,6 +130,7 @@ const _: () = {
 
         type Item<'w, 's> = Commands<'w, 's>;
 
+        #[track_caller]
         fn init_state(world: &mut World) -> Self::State {
             FetchState {
                 state: <__StructFieldsAlias<'_, '_> as bevy_ecs::system::SystemParam>::init_state(
@@ -182,26 +183,33 @@ const _: () = {
             system_meta: &bevy_ecs::system::SystemMeta,
             world: UnsafeWorldCell,
         ) -> Result<(), SystemParamValidationError> {
-            <__StructFieldsAlias as bevy_ecs::system::SystemParam>::validate_param(
-                &mut state.state,
-                system_meta,
-                world,
-            )
+            // SAFETY: Upheld by caller
+            unsafe {
+                <__StructFieldsAlias as bevy_ecs::system::SystemParam>::validate_param(
+                    &mut state.state,
+                    system_meta,
+                    world,
+                )
+            }
         }
 
         #[inline]
+        #[track_caller]
         unsafe fn get_param<'w, 's>(
             state: &'s mut Self::State,
             system_meta: &bevy_ecs::system::SystemMeta,
             world: UnsafeWorldCell<'w>,
             change_tick: bevy_ecs::change_detection::Tick,
         ) -> Self::Item<'w, 's> {
-            let params = <__StructFieldsAlias as bevy_ecs::system::SystemParam>::get_param(
-                &mut state.state,
-                system_meta,
-                world,
-                change_tick,
-            );
+            // SAFETY: Upheld by caller
+            let params = unsafe {
+                <__StructFieldsAlias as bevy_ecs::system::SystemParam>::get_param(
+                    &mut state.state,
+                    system_meta,
+                    world,
+                    change_tick,
+                )
+            };
             Commands {
                 queue: InternalQueue::CommandQueue(params.0),
                 allocator: params.1,

@@ -71,7 +71,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             parent.spawn((
                                 Text::new("Text Example"),
                                 TextFont {
-                                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                                    font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
                                     font_size: 25.0,
                                     ..default()
                                 },
@@ -87,7 +87,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 parent.spawn((
                                     Text::new("Press Space to toggle debug outlines."),
                                     TextFont {
-                                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                                        font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
                                         ..default()
                                     },
                                     Label,
@@ -96,7 +96,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 parent.spawn((
                                     Text::new("V: toggle UI root's visibility"),
                                     TextFont {
-                                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                                        font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
                                         font_size: 12.,
                                         ..default()
                                     },
@@ -106,7 +106,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 parent.spawn((
                                     Text::new("S: toggle outlines for hidden nodes"),
                                     TextFont {
-                                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                                        font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
                                         font_size: 12.,
                                         ..default()
                                     },
@@ -115,7 +115,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 parent.spawn((
                                     Text::new("C: toggle outlines for clipped nodes"),
                                     TextFont {
-                                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                                        font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
                                         font_size: 12.,
                                         ..default()
                                     },
@@ -126,7 +126,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             parent.spawn((
                                 Text::new("Try enabling feature \"bevy_ui_debug\"."),
                                 TextFont {
-                                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                                    font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
                                     ..default()
                                 },
                                 Label,
@@ -147,7 +147,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     parent.spawn((
                         Text::new("Scrolling list"),
                         TextFont {
-                            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                            font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
                             font_size: 21.,
                             ..default()
                         },
@@ -189,7 +189,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                                 Text(format!("Item {i}")),
                                                 TextFont {
                                                     font: asset_server
-                                                        .load("fonts/FiraSans-Bold.ttf"),
+                                                        .load("fonts/FiraSans-Bold.ttf")
+                                                        .into(),
                                                     ..default()
                                                 },
                                                 Label,
