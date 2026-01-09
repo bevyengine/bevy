@@ -64,6 +64,7 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream 
         reflect_enum.meta(),
         || Some(quote!(#bevy_reflect_path::enum_partial_eq)),
         || Some(quote!(#bevy_reflect_path::enum_hash)),
+        || None,
     );
     let clone_fn = reflect_enum.get_clone_impl();
 

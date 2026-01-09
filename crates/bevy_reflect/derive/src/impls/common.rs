@@ -83,6 +83,7 @@ pub fn common_partial_reflect_methods(
     meta: &ReflectMeta,
     default_partial_eq_delegate: impl FnOnce() -> Option<proc_macro2::TokenStream>,
     default_hash_delegate: impl FnOnce() -> Option<proc_macro2::TokenStream>,
+    default_partial_ord_delegate: impl FnOnce() -> Option<proc_macro2::TokenStream>,
 ) -> proc_macro2::TokenStream {
     let bevy_reflect_path = meta.bevy_reflect_path();
 
@@ -109,6 +110,19 @@ pub fn common_partial_reflect_methods(
                 quote! {
                     fn reflect_hash(&self) -> #FQOption<u64> {
                         (#func)(self)
+                    }
+                }
+            })
+        });
+    let partial_ord_fn = meta
+        .attrs()
+        .get_partial_ord_impl(bevy_reflect_path)
+        .or_else(move || {
+            let default_delegate = default_partial_ord_delegate();
+            default_delegate.map(|func| {
+                quote! {
+                    fn reflect_partial_cmp(&self, value: &dyn #bevy_reflect_path::PartialReflect) -> #FQOption<::core::cmp::Ordering> {
+                        (#func)(self, value)
                     }
                 }
             })
@@ -150,6 +164,8 @@ pub fn common_partial_reflect_methods(
         #hash_fn
 
         #partial_eq_fn
+
+        #partial_ord_fn
 
         #debug_fn
     }
