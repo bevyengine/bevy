@@ -72,10 +72,13 @@ struct SpriteMaterial {
     uv_transform: mat3x3<f32>,
 };
 
-const COLOR_MATERIAL_FLAGS_ALPHA_MODE_RESERVED_BITS: u32 = 3221225472u; // (0b11u32 << 30)
-const COLOR_MATERIAL_FLAGS_ALPHA_MODE_OPAQUE: u32        = 0u;          // (0u32 << 30)
-const COLOR_MATERIAL_FLAGS_ALPHA_MODE_MASK: u32          = 1073741824u; // (1u32 << 30)
-const COLOR_MATERIAL_FLAGS_ALPHA_MODE_BLEND: u32         = 2147483648u; // (2u32 << 30)
+const SPRITE_MATERIAL_FLAGS_ALPHA_MODE_RESERVED_BITS: u32 = 3221225472u; // (0b11u32 << 30)
+const SPRITE_MATERIAL_FLAGS_ALPHA_MODE_OPAQUE: u32        = 0u;          // (0u32 << 30)
+const SPRITE_MATERIAL_FLAGS_ALPHA_MODE_MASK: u32          = 1073741824u; // (1u32 << 30)
+const SPRITE_MATERIAL_FLAGS_ALPHA_MODE_BLEND: u32         = 2147483648u; // (2u32 << 30)
+
+const SPRITE_MATERIAL_FLAGS_FLIP_X: u32                   = 1u;
+const SPRITE_MATERIAL_FLAGS_FLIP_Y: u32                   = 2u;
 
 @group(#{MATERIAL_BIND_GROUP}) @binding(0) var<uniform> material: SpriteMaterial;
 @group(#{MATERIAL_BIND_GROUP}) @binding(1) var texture: texture_2d<f32>;
@@ -85,13 +88,21 @@ const COLOR_MATERIAL_FLAGS_ALPHA_MODE_BLEND: u32         = 2147483648u; // (2u32
 fn fragment(
     mesh: VertexOutput,
 ) -> @location(0) vec4<f32> {
-    var uv = (material.uv_transform * vec3(mesh.uv, 1.0)).xy;
+
+    var uv = mesh.uv; 
+
+    if (material.flags & SPRITE_MATERIAL_FLAGS_FLIP_X) != 0u {
+        uv.x = 1.0 - uv.x;
+    }
+    if (material.flags & SPRITE_MATERIAL_FLAGS_FLIP_Y) != 0u {
+        uv.y = 1.0 - uv.y;
+    }
+
+    uv = (material.uv_transform * vec3(uv, 1.0)).xy;
 
     let sprite_color = textureSample(texture, texture_sampler, uv);
-
     var output_color = alpha_discard(sprite_color * material.color); 
 
-    
 #ifdef TONEMAP_IN_SHADER
     output_color = tonemapping::tone_mapping(output_color, view.color_grading);
 #endif
@@ -101,15 +112,15 @@ fn fragment(
 
 fn alpha_discard(output_color: vec4<f32>) -> vec4<f32> {
     var color = output_color;
-    let alpha_mode = material.flags & COLOR_MATERIAL_FLAGS_ALPHA_MODE_RESERVED_BITS;
+    let alpha_mode = material.flags & SPRITE_MATERIAL_FLAGS_ALPHA_MODE_RESERVED_BITS;
     
-    if alpha_mode == COLOR_MATERIAL_FLAGS_ALPHA_MODE_OPAQUE {
+    if alpha_mode == SPRITE_MATERIAL_FLAGS_ALPHA_MODE_OPAQUE {
         // NOTE: If rendering as opaque, alpha should be ignored so set to 1.0
         color.a = 1.0;
     }
     
 #ifdef MAY_DISCARD
-    else if alpha_mode == COLOR_MATERIAL_FLAGS_ALPHA_MODE_MASK {
+    else if alpha_mode == SPRITE_MATERIAL_FLAGS_ALPHA_MODE_MASK {
     if color.a >= material.alpha_cutoff {
             // NOTE: If rendering as masked alpha and >= the cutoff, render as fully opaque
             color.a = 1.0;

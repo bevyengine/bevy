@@ -1,4 +1,4 @@
-use std::f32::consts::PI;
+use std::{f32::consts::PI, num::NonZero};
 
 use bevy_app::Plugin;
 use bevy_color::{Color, ColorToComponents};
@@ -53,6 +53,8 @@ pub struct SpriteMaterial {
 bitflags::bitflags! {
     #[repr(transparent)]
     pub struct SpriteMaterialFlags: u32 {
+        const FLIP_X = 1;
+        const FLIP_Y = 2;
         /// Bitmask reserving bits for the [`AlphaMode2d`]
         /// Values are just sequential values bitshifted into
         /// the bitmask, and can range from 0 to 3.
@@ -80,6 +82,11 @@ pub struct SpriteMaterialUniform {
     pub uv_transform: Mat3,
 }
 
+#[derive(ShaderType, Default)]
+pub struct SpriteMaterialTile {
+    pub stretch_value: f32,
+}
+
 impl AsBindGroupShaderType<SpriteMaterialUniform> for SpriteMaterial {
     fn as_bind_group_shader_type(
         &self,
@@ -99,6 +106,13 @@ impl AsBindGroupShaderType<SpriteMaterialUniform> for SpriteMaterial {
             }
             AlphaMode2d::Blend => flags |= SpriteMaterialFlags::ALPHA_MODE_BLEND,
         };
+
+        if self.flip_x {
+            flags |= SpriteMaterialFlags::FLIP_X;
+        }
+        if self.flip_y {
+            flags |= SpriteMaterialFlags::FLIP_Y;
+        }
 
         let image_size = image.size_2d().as_vec2();
 
@@ -146,7 +160,7 @@ impl AsBindGroupShaderType<SpriteMaterialUniform> for SpriteMaterial {
 
                     match scaling_mode {
                         // Filling requires scaling the texture and cutting out the 'overflow'
-                        // which is why it requires manipulation of the UV.
+                        // which is why we need to manipulate the UV.
                         SpriteScalingMode::FillCenter => {
                             let fill_size = fill_size();
                             uv_transform *= Affine2::from_scale(custom_size / fill_size);
@@ -218,15 +232,6 @@ impl Material2d for SpriteMaterial {
 
     fn alpha_mode(&self) -> AlphaMode2d {
         self.alpha_mode
-    }
-
-    fn specialize(
-        descriptor: &mut RenderPipelineDescriptor,
-        layout: &MeshVertexBufferLayoutRef,
-        key: crate::Material2dKey<Self>,
-    ) -> bevy_ecs::error::Result<(), SpecializedMeshPipelineError> {
-        // descriptor.fragment.unwrap().shader_defs.push(ShaderDefVal::);
-        Ok(())
     }
 }
 
