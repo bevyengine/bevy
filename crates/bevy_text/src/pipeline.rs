@@ -1,6 +1,4 @@
-use alloc::sync::Arc;
-
-use bevy_asset::{AssetId, Assets};
+use bevy_asset::Assets;
 use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
@@ -10,7 +8,6 @@ use bevy_ecs::{
 use bevy_image::prelude::*;
 use bevy_log::{once, warn};
 use bevy_math::{Rect, UVec2, Vec2};
-use bevy_platform::collections::HashMap;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use smol_str::SmolStr;
 
@@ -19,7 +16,7 @@ use crate::{
     FontAtlasKey, FontAtlasSet, FontHinting, FontSmoothing, FontSource, Justify, LineBreak,
     LineHeight, PositionedGlyph, TextBounds, TextEntity, TextFont, TextLayout,
 };
-use cosmic_text::{fontdb::ID, Attrs, Buffer, Family, Metrics, Shaping, Wrap};
+use cosmic_text::{Attrs, Buffer, Family, Metrics, Shaping, Wrap};
 
 /// A wrapper resource around a [`cosmic_text::FontSystem`]
 ///
@@ -64,8 +61,6 @@ pub struct FontFaceInfo {
 /// See the [crate-level documentation](crate) for more information.
 #[derive(Default, Resource)]
 pub struct TextPipeline {
-    /// Identifies a font [`ID`] by its [`Font`] [`Asset`](bevy_asset::Asset).
-    pub map_handle_to_font_id: HashMap<AssetId<Font>, (ID, Arc<str>)>,
     /// Buffered vec for collecting spans.
     ///
     /// See [this dark magic](https://users.rust-lang.org/t/how-to-cache-a-vectors-capacity/94478/10).
@@ -94,7 +89,16 @@ impl TextPipeline {
         font_system: &mut CosmicFontSystem,
         hinting: FontHinting,
     ) -> Result<(), TextError> {
+        computed.entities.clear();
         computed.needs_rerender = false;
+
+        if scale_factor <= 0.0 {
+            once!(warn!(
+                "Text scale factor is <= 0.0. No text will be displayed.",
+            ));
+
+            return Err(TextError::DegenerateScaleFactor);
+        }
 
         let font_system = &mut font_system.0;
 
@@ -110,8 +114,6 @@ impl TextPipeline {
                 )
                 .collect();
 
-        computed.entities.clear();
-
         let result = {
             for (span_index, (entity, depth, span, text_font, color, line_height)) in
                 text_spans.enumerate()
@@ -126,21 +128,11 @@ impl TextPipeline {
                 let family_name: SmolStr = match &text_font.font {
                     FontSource::Handle(handle) => {
                         // Return early if a font is not loaded yet.
-                        let font = fonts.get(handle.id()).ok_or(TextError::NoSuchFont)?;
-                        let data = Arc::clone(&font.data);
-                        let ids = font_system
-                            .db_mut()
-                            .load_font_source(cosmic_text::fontdb::Source::Binary(data));
-
-                        // TODO: it is assumed this is the right font face
-                        font_system
-                            .db()
-                            .face(*ids.last().unwrap())
-                            .unwrap()
-                            .families[0]
-                            .0
-                            .as_str()
-                            .into()
+                        fonts
+                            .get(handle.id())
+                            .ok_or(TextError::NoSuchFont)?
+                            .family_name
+                            .clone()
                     }
                     FontSource::Family(family) => family.clone(),
                 };
@@ -148,7 +140,7 @@ impl TextPipeline {
                 let face_info = FontFaceInfo { family_name };
 
                 // Save spans that aren't zero-sized.
-                if scale_factor <= 0.0 || text_font.font_size <= 0.0 {
+                if text_font.font_size <= 0.0 {
                     once!(warn!(
                         "Text span {entity} has a font size <= 0.0. Nothing will be displayed.",
                     ));
@@ -278,14 +270,6 @@ impl TextPipeline {
             max: max_width_content_size,
             entity,
         })
-    }
-
-    /// Returns the [`cosmic_text::fontdb::ID`] for a given [`Font`] asset.
-    pub fn get_font_id(&self, asset_id: AssetId<Font>) -> Option<ID> {
-        self.map_handle_to_font_id
-            .get(&asset_id)
-            .cloned()
-            .map(|(id, _)| id)
     }
 
     /// Update [`TextLayoutInfo`] with the new [`PositionedGlyph`] layout.
