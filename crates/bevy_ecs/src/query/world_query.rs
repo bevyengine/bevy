@@ -253,7 +253,7 @@ impl RangeExt for Range<u32> {
         }
 
         if self.end >= other.start && self.end < other.end {
-            self.end = other.end
+            self.end = other.end;
         }
 
         self

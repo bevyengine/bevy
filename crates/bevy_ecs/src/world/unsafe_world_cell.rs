@@ -1012,10 +1012,16 @@ impl<'w> UnsafeEntityCell<'w> {
             };
             // SAFETY: Archetype and table are from the same world used to initialize state and fetch.
             // Table corresponds to archetype. State is the same state used to init fetch above.
-            unsafe { Q::set_archetype(&mut fetch, &state, archetype, table) }
-            // SAFETY: Called after set_archetype above. Entity and location are guaranteed to exist.
-            let item = unsafe { Q::fetch(&state, &mut fetch, self.id(), location.table_row) };
-            item.map(Q::release_state)
+            unsafe { Q::set_archetype(&mut fetch, &state, archetype, table) };
+            // SAFETY:
+            // - set_archetype was called previously
+            // - table_row is in range of the current archetype
+            unsafe { Q::matches(&state, &fetch, self.id(), location.table_row) }
+                .then(||
+                    // SAFETY: Called after set_archetype and above. Entity and location are
+                    // guaranteed to exist, and this is only called if `matches` returns `true`.
+                    unsafe { Q::fetch(&state, &mut fetch, self.id(), location.table_row) })
+                .map(Q::release_state)
                 .ok_or(QueryAccessError::EntityDoesNotMatch)
         } else {
             Err(QueryAccessError::EntityDoesNotMatch)
