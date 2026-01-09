@@ -2,7 +2,7 @@
 
 #import bevy_pbr::mesh_view_bindings::{view, oit_layers, oit_layer_ids, oit_settings}
 
-#ifdef OIT_VIEW
+#ifdef OIT_ENABLED
 // Add the fragment to the oit buffer
 fn oit_draw(position: vec4f, color: vec4f) {
     // Don't add fully transparent fragments to the list
@@ -33,7 +33,7 @@ fn oit_draw(position: vec4f, color: vec4f) {
     let depth_alpha = pack_24bit_depth_8bit_alpha(position.z, color.a);
     oit_layers[layer_index] = vec2(rgb9e5_color, depth_alpha);
 }
-#endif // OIT_VIEW
+#endif // OIT_ENABLED
 
 fn pack_24bit_depth_8bit_alpha(depth: f32, alpha: f32) -> u32 {
     let depth_bits = u32(saturate(depth) * f32(0xFFFFFFu) + 0.5);

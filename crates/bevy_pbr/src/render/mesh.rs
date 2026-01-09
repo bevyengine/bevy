@@ -2387,10 +2387,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
         let (label, blend, depth_write_enabled);
         let pass = key.intersection(MeshPipelineKey::BLEND_RESERVED_BITS);
         let (mut is_opaque, mut alpha_to_coverage_enabled) = (false, false);
-        if key.contains(MeshPipelineKey::OIT_VIEW)
-            && key.contains(MeshPipelineKey::OIT_ENABLED)
-            && pass == MeshPipelineKey::BLEND_ALPHA
-        {
+        if key.contains(MeshPipelineKey::OIT_ENABLED) && pass == MeshPipelineKey::BLEND_ALPHA {
             label = "oit_mesh_pipeline".into();
             // TODO tail blending would need alpha blending
             blend = None;

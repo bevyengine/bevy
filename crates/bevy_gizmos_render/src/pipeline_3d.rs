@@ -333,7 +333,7 @@ fn queue_line_gizmos_3d(
         }
 
         if oit {
-            view_key |= MeshPipelineKey::OIT_VIEW;
+            view_key |= MeshPipelineKey::OIT_ENABLED;
         }
 
         for (entity, main_entity, config) in &line_gizmos {
