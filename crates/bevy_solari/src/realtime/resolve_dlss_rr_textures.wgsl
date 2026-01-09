@@ -18,7 +18,7 @@ fn resolve_dlss_rr_textures(@builtin(global_invocation_id) global_id: vec3<u32>)
         return;
     }
 
-    let surface = gpixel_resolve(textureLoad(gbuffer, pixel_id, 0), depth, pixel_id, view.main_pass_viewport.zw, view.world_from_clip);
+    let surface = gpixel_resolve(textureLoad(gbuffer, pixel_id), depth, pixel_id, view.main_pass_viewport.zw, view.world_from_clip);
     let F0 = calculate_F0(surface.material.base_color, surface.material.metallic, surface.material.reflectance);
     let wo = normalize(view.world_position - surface.world_position);
 

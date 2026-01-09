@@ -29,7 +29,7 @@ fn specular_gi(@builtin(global_invocation_id) global_id: vec3<u32>) {
     if depth == 0.0 {
         return;
     }
-    let surface = gpixel_resolve(textureLoad(gbuffer, global_id.xy, 0), depth, global_id.xy, view.main_pass_viewport.zw, view.world_from_clip);
+    let surface = gpixel_resolve(textureLoad(gbuffer, global_id.xy), depth, global_id.xy, view.main_pass_viewport.zw, view.world_from_clip);
 
     let wo_unnormalized = view.world_position - surface.world_position;
     let wo = normalize(wo_unnormalized);
@@ -57,7 +57,7 @@ fn specular_gi(@builtin(global_invocation_id) global_id: vec3<u32>) {
         var a0 = dot(wo_unnormalized, wo_unnormalized) / (4.0 * PI * cos_theta);
         a0 *= TERMINATE_IN_WORLD_CACHE_THRESHOLD;
 
-        radiance = trace_glossy_path(surface, wi, pdf, a0, &rng) / pdf;
+        radiance = trace_glossy_path(global_id.xy, surface, wi, pdf, a0, &rng) / pdf;
     }
 
     let brdf = evaluate_specular_brdf(surface.world_normal, wo, wi, surface.material.base_color, surface.material.metallic,
@@ -74,7 +74,7 @@ fn specular_gi(@builtin(global_invocation_id) global_id: vec3<u32>) {
 #endif
 }
 
-fn trace_glossy_path(primary_surface: ResolvedGPixel, initial_wi: vec3<f32>, initial_p_bounce: f32, a0: f32, rng: ptr<function, u32>) -> vec3<f32> {
+fn trace_glossy_path(pixel_id: vec2<u32>, primary_surface: ResolvedGPixel, initial_wi: vec3<f32>, initial_p_bounce: f32, a0: f32, rng: ptr<function, u32>) -> vec3<f32> {
     var radiance = vec3(0.0);
     var throughput = vec3(1.0);
 
@@ -130,11 +130,11 @@ fn trace_glossy_path(primary_surface: ResolvedGPixel, initial_wi: vec3<f32>, ini
 
                 // TODO
                 let virtual_normal = normalize(mirror_rotations * ray_hit.world_normal);
-                textureStore(gbuffer, pixel_id, vec4(0.0));
-                textureStore(specular_motion_vectors, pixel_id, vec4(0.0));
-                textureStore(diffuse_albedo, pixel_id, vec4(0.0));
-                textureStore(specular_albedo, pixel_id, vec4(0.5));
-                textureStore(normal_roughness, pixel_id, vec4(0.0));
+                // textureStore(gbuffer, pixel_id, vec4(0.0));
+                // textureStore(specular_motion_vectors, pixel_id, vec4(0.0));
+                // textureStore(diffuse_albedo, pixel_id, vec4(0.0));
+                // textureStore(specular_albedo, pixel_id, vec4(0.5));
+                // textureStore(normal_roughness, pixel_id, vec4(0.0));
             }
         }
 #endif
