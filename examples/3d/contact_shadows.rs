@@ -4,8 +4,7 @@ use crate::widgets::{RadioButton, RadioButtonText, WidgetClickEvent, WidgetClick
 use bevy::anti_alias::taa::TemporalAntiAliasing;
 use bevy::core_pipeline::tonemapping::Tonemapping;
 use bevy::core_pipeline::Skybox;
-use bevy::light::AtmosphereEnvironmentMapLight;
-use bevy::pbr::{AtmosphereSettings, EarthlikeAtmosphere, ScreenSpaceAmbientOcclusion};
+use bevy::pbr::ScreenSpaceAmbientOcclusion;
 use bevy::post_process::motion_blur::MotionBlur;
 use bevy::window::{CursorIcon, PrimaryWindow, SystemCursorIcon};
 use bevy::{
