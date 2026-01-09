@@ -162,7 +162,7 @@ impl TextPipeline {
         };
 
         // Recover the sections buffer.
-        self.sections_buffer.clear();
+        sections.clear();
         self.sections_buffer = sections
             .into_iter()
             .map(|_| -> (&'static str, Attrs<'static>) { unreachable!() })
