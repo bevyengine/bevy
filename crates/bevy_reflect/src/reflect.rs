@@ -7,7 +7,9 @@ use alloc::borrow::Cow;
 use alloc::boxed::Box;
 use alloc::string::ToString;
 use core::{
-    any::{Any, TypeId}, cmp::Ordering, fmt::Debug
+    any::{Any, TypeId},
+    cmp::Ordering,
+    fmt::Debug,
 };
 
 use thiserror::Error;
@@ -345,11 +347,11 @@ where
     }
 
     /// Returns a "partial comparison" result.
-    /// 
+    ///
     /// If the underlying type does not support it, returns `None`.
-    /// 
+    ///
     /// Currently it's only implemented for primitive/opaque types that implement
-    /// [`PartialOrd`], and other custom types that have `#[reflect(PartialOrd)]`, 
+    /// [`PartialOrd`], and other custom types that have `#[reflect(PartialOrd)]`,
     fn reflect_partial_cmp(&self, _value: &dyn PartialReflect) -> Option<Ordering> {
         None
     }
