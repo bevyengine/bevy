@@ -1,5 +1,5 @@
 use crate::{
-    archetype::{Archetype, Archetypes},
+    archetype::{Archetype, ArchetypeEntity, Archetypes},
     bundle::Bundle,
     change_detection::{ComponentTicksMut, ComponentTicksRef, MaybeLocation, Tick},
     component::{Component, ComponentId, Components, Mutable, StorageType},
@@ -3006,7 +3006,7 @@ macro_rules! impl_anytuple_fetch {
             unsafe fn find_table_chunk(
                 state: &Self::State,
                 fetch: &Self::Fetch<'_>,
-                table: &Table,
+                table_entities: &[Entity],
                 rows: Range<u32>,
             ) -> Range<u32> {
                 // If this is an archetypal query, it must match all entities.
@@ -3020,7 +3020,7 @@ macro_rules! impl_anytuple_fetch {
                     let ($($state,)*) = state;
                     let mut next_chunk = rows.end..rows.end;
                     // SAFETY: invariants are upheld by the caller.
-                    $(next_chunk = next_chunk.union_or_first(unsafe { $name::find_table_chunk($state, &$name.fetch, table, rows.clone()) });)*
+                    $(next_chunk = next_chunk.union_or_first(unsafe { $name::find_table_chunk($state, &$name.fetch, table_entities, rows.clone()) });)*
                     next_chunk
                 }
             }
@@ -3029,7 +3029,7 @@ macro_rules! impl_anytuple_fetch {
             unsafe fn find_archetype_chunk(
                 state: &Self::State,
                 fetch: &Self::Fetch<'_>,
-                archetype: &Archetype,
+                archetype_entities: &[ArchetypeEntity],
                 mut indices: Range<u32>,
             ) -> Range<u32> {
                 // If this is an archetypal query, it must match all entities.
@@ -3043,7 +3043,7 @@ macro_rules! impl_anytuple_fetch {
                     let ($($state,)*) = state;
                     let mut next_chunk = indices.end..indices.end;
                     // SAFETY: invariants are upheld by the caller.
-                    $(next_chunk = next_chunk.union_or_first(unsafe { $name::find_archetype_chunk($state, &$name.fetch, archetype, indices.clone()) });)*
+                    $(next_chunk = next_chunk.union_or_first(unsafe { $name::find_archetype_chunk($state, &$name.fetch, archetype_entities, indices.clone()) });)*
                     next_chunk
                 }
             }

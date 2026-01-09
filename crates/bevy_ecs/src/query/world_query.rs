@@ -1,7 +1,7 @@
 use core::{mem, ops::Range};
 
 use crate::{
-    archetype::Archetype,
+    archetype::{Archetype, ArchetypeEntity},
     change_detection::Tick,
     component::{ComponentId, Components},
     entity::Entity,
@@ -163,17 +163,16 @@ pub unsafe trait WorldQuery {
     unsafe fn find_table_chunk(
         state: &Self::State,
         fetch: &Self::Fetch<'_>,
-        table: &Table,
+        table_entities: &[Entity],
         rows: Range<u32>,
     ) -> Range<u32> {
         if Self::IS_ARCHETYPAL {
             rows
         } else {
-            let entities = table.entities();
             rows.find_chunk(|index| {
                 let table_row = TableRow::new(index);
                 // SAFETY: caller guarantees `indices` is in range of `table`
-                let entity = unsafe { *entities.get_unchecked(index.get() as usize) };
+                let entity = unsafe { *table_entities.get_unchecked(index.get() as usize) };
                 // SAFETY: invariants upheld by caller
                 unsafe { Self::matches(state, fetch, entity, table_row) }
             })
@@ -190,13 +189,12 @@ pub unsafe trait WorldQuery {
     unsafe fn find_archetype_chunk(
         state: &Self::State,
         fetch: &Self::Fetch<'_>,
-        archetype: &Archetype,
+        archetype_entities: &[ArchetypeEntity],
         indices: Range<u32>,
     ) -> Range<u32> {
         if Self::IS_ARCHETYPAL {
             indices
         } else {
-            let archetype_entities = archetype.entities();
             indices.find_chunk(|index| {
                 // SAFETY: caller guarantees `indices` is in range of `archetype`
                 let archetype_entity =
@@ -385,7 +383,7 @@ macro_rules! impl_tuple_world_query {
             unsafe fn find_table_chunk(
                 state: &Self::State,
                 fetch: &Self::Fetch<'_>,
-                table: &Table,
+                table_entities: &[Entity],
                 mut rows: Range<u32>,
             ) -> Range<u32> {
                 if Self::IS_ARCHETYPAL {
@@ -396,7 +394,7 @@ macro_rules! impl_tuple_world_query {
                     // SAFETY: `rows` is only ever narrowed as we iterate subqueries, so it's
                     // always valid to pass to the next term. Other invariants are upheld by
                     // the caller.
-                    $(rows = unsafe { $name::find_table_chunk($state, $name, table, rows) };)*
+                    $(rows = unsafe { $name::find_table_chunk($state, $name, table_entities, rows) };)*
                     rows
                 }
             }
@@ -405,7 +403,7 @@ macro_rules! impl_tuple_world_query {
             unsafe fn find_archetype_chunk(
                 state: &Self::State,
                 fetch: &Self::Fetch<'_>,
-                archetype: &Archetype,
+                archetype_entities: &[ArchetypeEntity],
                 mut indices: Range<u32>,
             ) -> Range<u32> {
                 if Self::IS_ARCHETYPAL {
@@ -416,7 +414,7 @@ macro_rules! impl_tuple_world_query {
                     // SAFETY: `indices` is only ever narrowed as we iterate subqueries, so it's
                     // always valid to pass to the next term. Other invariants are upheld by
                     // the caller.
-                    $(indices = unsafe { $name::find_archetype_chunk($state, $name, archetype, indices) };)*
+                    $(indices = unsafe { $name::find_archetype_chunk($state, $name, archetype_entities, indices) };)*
                     indices
                 }
             }

@@ -177,7 +177,7 @@ pub(crate) fn world_query_impl(
             unsafe fn find_table_chunk(
                 state: &Self::State,
                 fetch: &Self::Fetch<'_>,
-                table: &#path::storage::Table,
+                table_entities: &[#path::entity::Entity],
                 mut rows: core::ops::Range<u32>,
             ) -> core::ops::Range<u32> {
                 if Self::IS_ARCHETYPAL {
@@ -186,7 +186,7 @@ pub(crate) fn world_query_impl(
                     // SAFETY: `rows` is only ever narrowed as we iterate subqueries, so it's
                     // always valid to pass to the next term. Other invariants are upheld by
                     // the caller.
-                    #(rows = unsafe { <#field_types>::find_table_chunk(&state.#field_aliases, &fetch.#field_aliases, table, rows) };)*
+                    #(rows = unsafe { <#field_types>::find_table_chunk(&state.#field_aliases, &fetch.#field_aliases, table_entities, rows) };)*
                     rows
                 }
             }
@@ -195,7 +195,7 @@ pub(crate) fn world_query_impl(
             unsafe fn find_archetype_chunk(
                 state: &Self::State,
                 fetch: &Self::Fetch<'_>,
-                archetype: &#path::archetype::Archetype,
+                archetype_entities: &[#path::archetype::ArchetypeEntity],
                 mut indices: core::ops::Range<u32>,
             ) -> core::ops::Range<u32> {
                 if Self::IS_ARCHETYPAL {
@@ -204,7 +204,7 @@ pub(crate) fn world_query_impl(
                     // SAFETY: `indices` is only ever narrowed as we iterate subqueries, so it's
                     // always valid to pass to the next term. Other invariants are upheld by
                     // the caller.
-                    #(indices = unsafe { <#field_types>::find_archetype_chunk(&state.#field_aliases, &fetch.#field_aliases, archetype, indices) };)*
+                    #(indices = unsafe { <#field_types>::find_archetype_chunk(&state.#field_aliases, &fetch.#field_aliases, archetype_entities, indices) };)*
                     indices
                 }
             }

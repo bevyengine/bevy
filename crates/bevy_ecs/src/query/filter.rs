@@ -1,5 +1,5 @@
 use crate::{
-    archetype::Archetype,
+    archetype::{Archetype, ArchetypeEntity},
     change_detection::Tick,
     component::{Component, ComponentId, Components, StorageType},
     entity::{Entities, Entity},
@@ -467,7 +467,7 @@ macro_rules! impl_or_query_filter {
             unsafe fn find_table_chunk(
                 state: &Self::State,
                 fetch: &Self::Fetch<'_>,
-                table: &Table,
+                table_entities: &[Entity],
                 rows: Range<u32>,
             ) -> Range<u32> {
                 // If this is an archetypal query, it must match all entities.
@@ -481,7 +481,7 @@ macro_rules! impl_or_query_filter {
                     let ($($state,)*) = state;
                     let mut new_rows = rows.end..rows.end;
                     // SAFETY: invariants are upheld by the caller.
-                    $(new_rows = new_rows.union_or_first(unsafe { $filter::find_table_chunk($state, &$filter.fetch, table, rows.clone()) });)*
+                    $(new_rows = new_rows.union_or_first(unsafe { $filter::find_table_chunk($state, &$filter.fetch, table_entities, rows.clone()) });)*
                     new_rows
                 }
             }
@@ -490,7 +490,7 @@ macro_rules! impl_or_query_filter {
             unsafe fn find_archetype_chunk(
                 state: &Self::State,
                 fetch: &Self::Fetch<'_>,
-                archetype: &Archetype,
+                archetype_entities: &[ArchetypeEntity],
                 mut indices: Range<u32>,
             ) -> Range<u32> {
                 // If this is an archetypal query, it must match all entities.
@@ -504,7 +504,7 @@ macro_rules! impl_or_query_filter {
                     let ($($state,)*) = state;
                     let mut new_indices = indices.end..indices.end;
                     // SAFETY: invariants are upheld by the caller.
-                    $(new_indices = new_indices.union_or_first(unsafe { $filter::find_archetype_chunk($state, &$filter.fetch, archetype, indices.clone()) });)*
+                    $(new_indices = new_indices.union_or_first(unsafe { $filter::find_archetype_chunk($state, &$filter.fetch, archetype_entities, indices.clone()) });)*
                     new_indices
                 }
             }
