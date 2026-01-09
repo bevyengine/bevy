@@ -88,7 +88,7 @@ bitflags::bitflags! {
         const DEFERRED_PREPASS            = 1 << 4;
         const OIT_ENABLED                 = 1 << 5;
         const ATMOSPHERE                  = 1 << 6;
-        const BLUE_NOISE_TEXTURE          = 1 << 7;
+        const STBN                        = 1 << 7;
     }
 }
 
@@ -101,7 +101,7 @@ impl MeshPipelineViewLayoutKey {
         use MeshPipelineViewLayoutKey as Key;
 
         format!(
-            "mesh_view_layout{}{}{}{}{}{}{}",
+            "mesh_view_layout{}{}{}{}{}{}{}{}",
             if self.contains(Key::MULTISAMPLED) {
                 "_multisampled"
             } else {
@@ -137,6 +137,11 @@ impl MeshPipelineViewLayoutKey {
             } else {
                 Default::default()
             },
+            if self.contains(Key::STBN) {
+                "_stbn"
+            } else {
+                Default::default()
+            },
         )
     }
 }
@@ -168,7 +173,7 @@ impl From<MeshPipelineKey> for MeshPipelineViewLayoutKey {
         }
 
         if cfg!(feature = "bluenoise_texture") {
-            result |= MeshPipelineViewLayoutKey::BLUE_NOISE_TEXTURE;
+            result |= MeshPipelineViewLayoutKey::STBN;
         }
 
         result
@@ -422,7 +427,7 @@ fn layout_entries(
     }
 
     // Blue noise
-    if layout_key.contains(MeshPipelineViewLayoutKey::BLUE_NOISE_TEXTURE) {
+    if layout_key.contains(MeshPipelineViewLayoutKey::STBN) {
         entries = entries.extend_with_indices(((
             33,
             texture_2d_array(TextureSampleType::Float { filterable: false }),
@@ -686,9 +691,8 @@ pub fn prepare_mesh_view_bind_groups(
             if has_atmosphere {
                 layout_key |= MeshPipelineViewLayoutKey::ATMOSPHERE;
             }
-
             if cfg!(feature = "bluenoise_texture") {
-                layout_key |= MeshPipelineViewLayoutKey::BLUE_NOISE_TEXTURE;
+                layout_key |= MeshPipelineViewLayoutKey::STBN;
             }
 
             let layout = mesh_pipeline.get_view_layout(layout_key);
@@ -784,7 +788,7 @@ pub fn prepare_mesh_view_bind_groups(
                 ));
             }
 
-            if layout_key.contains(MeshPipelineViewLayoutKey::BLUE_NOISE_TEXTURE) {
+            if layout_key.contains(MeshPipelineViewLayoutKey::STBN) {
                 let stbn_view = &images
                     .get(&blue_noise.texture)
                     .expect("STBN texture is added unconditionally with at least a placeholder")
