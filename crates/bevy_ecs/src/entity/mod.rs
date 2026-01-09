@@ -1192,10 +1192,10 @@ impl fmt::Display for EntityValidButNotSpawnedError {
 #[derive(thiserror::Error, Copy, Clone, Debug, Eq, PartialEq)]
 pub enum EntityNotSpawnedError {
     /// The entity was invalid.
-    #[error("Entity not spawned: {0}")]
+    #[error("Entity despawned: {0}\nNote that interacting with a despawned entity is the most common cause of this error but there are others")]
     Invalid(#[from] InvalidEntityError),
     /// The entity was valid but was not spawned.
-    #[error("{0}")]
+    #[error("Entity not yet spawned: {0}\nNote that interacting with a not-yet-spawned entity is the most common cause of this error but there are others")]
     ValidButNotSpawned(#[from] EntityValidButNotSpawnedError),
 }
 
