@@ -14,7 +14,6 @@ use bevy_ecs::{
     query::Has,
     resource::Resource,
     system::{Commands, Query, Res},
-    world::World,
 };
 use bevy_image::BevyDefault as _;
 use bevy_light::{EnvironmentMapLight, IrradianceVolume};
@@ -450,12 +449,13 @@ pub struct MeshPipelineViewLayouts(
     pub Arc<[MeshPipelineViewLayout; MeshPipelineViewLayoutKey::COUNT]>,
 );
 
-pub fn init_mesh_pipeline_view_layouts(world: &mut World) {
+pub fn init_mesh_pipeline_view_layouts(
+    mut commands: Commands,
+    render_device: Res<RenderDevice>,
+    render_adapter: Res<RenderAdapter>,
+) {
     // Generates all possible view layouts for the mesh pipeline, based on all combinations of
     // [`MeshPipelineViewLayoutKey`] flags.
-
-    let render_device = world.resource::<RenderDevice>();
-    let render_adapter = world.resource::<RenderAdapter>();
 
     let clustered_forward_buffer_binding_type =
         render_device.get_supported_read_only_binding_type(CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT);
@@ -468,8 +468,8 @@ pub fn init_mesh_pipeline_view_layouts(world: &mut World) {
             clustered_forward_buffer_binding_type,
             visibility_ranges_buffer_binding_type,
             key,
-            render_device,
-            render_adapter,
+            &render_device,
+            &render_adapter,
         );
         #[cfg(debug_assertions)]
         let texture_count: usize = entries
@@ -492,7 +492,7 @@ pub fn init_mesh_pipeline_view_layouts(world: &mut World) {
         }
     })));
 
-    world.insert_resource(res);
+    commands.insert_resource(res);
 }
 
 impl MeshPipelineViewLayouts {

@@ -3,7 +3,7 @@ use crate::{
     resources::write_atmosphere_buffer,
     skin::skin_uniforms_from_world,
 };
-use bevy_asset::{embedded_asset, load_embedded_asset, AssetId};
+use bevy_asset::{embedded_asset, load_embedded_asset, AssetId, AssetServer};
 use bevy_camera::{
     primitives::Aabb,
     visibility::{NoFrustumCulling, RenderLayers, ViewVisibility, VisibilityRange},
@@ -22,7 +22,7 @@ use bevy_ecs::{
     prelude::*,
     query::{QueryData, ROQueryItem},
     relationship::RelationshipSourceCollection,
-    system::{lifetimeless::*, SystemParamItem, SystemState},
+    system::{lifetimeless::*, SystemParamItem},
 };
 use bevy_image::{BevyDefault, ImageSampler, TextureFormatPixelInfo};
 use bevy_light::{
@@ -1887,14 +1887,14 @@ pub struct MeshPipeline {
     pub skins_use_uniform_buffers: bool,
 }
 
-fn init_mesh_pipeline(world: &mut World) {
-    let shader = load_embedded_asset!(world, "mesh.wgsl");
-    let mut system_state: SystemState<(
-        Res<RenderDevice>,
-        Res<RenderAdapter>,
-        Res<MeshPipelineViewLayouts>,
-    )> = SystemState::new(world);
-    let (render_device, render_adapter, view_layouts) = system_state.get_mut(world);
+fn init_mesh_pipeline(
+    mut commands: Commands,
+    render_device: Res<RenderDevice>,
+    render_adapter: Res<RenderAdapter>,
+    view_layouts: Res<MeshPipelineViewLayouts>,
+    asset_server: Res<AssetServer>,
+) {
+    let shader = load_embedded_asset!(asset_server.as_ref(), "mesh.wgsl");
 
     let clustered_forward_buffer_binding_type =
         render_device.get_supported_read_only_binding_type(CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT);
@@ -1915,7 +1915,7 @@ fn init_mesh_pipeline(world: &mut World) {
         skins_use_uniform_buffers: skins_use_uniform_buffers(&render_device.limits()),
     };
 
-    world.insert_resource(res);
+    commands.insert_resource(res);
 }
 
 impl MeshPipeline {
