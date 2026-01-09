@@ -1,0 +1,40 @@
+[package]
+name = "mipmap_generator"
+version = "0.1.0"
+edition = "2024"
+publish = false
+license = "MIT OR Apache-2.0"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+anyhow = "1"
+bevy = { path = "../../../", default-features = false, features = [
+  "bevy_asset",
+  "bevy_scene",
+  "bevy_pbr",
+  "ktx2",
+  "jpeg",
+  "multi_threaded",
+] }
+image = { version = "0.25.2", default-features = false }
+fast_image_resize = { version = "5.4", features = ["image"] }
+futures-lite = "2.0.1"
+tracing = "0.1"
+intel_tex_2 = { version = "0.4.0", optional = true }
+zstd = { version = "0.13.2", optional = true }
+
+[dev-dependencies]
+bevy = { path = "../../../" }
+argh = "0.1.12"
+
+[features]
+default = ["debug_text", "bevy_zstd_rust"]
+compress = ["dep:intel_tex_2", "dep:zstd"]
+debug_text = ["bevy/bevy_ui"]
+pbr_transmission_textures = ["bevy/pbr_transmission_textures"]
+pbr_multi_layer_material_textures = ["bevy/pbr_multi_layer_material_textures"]
+pbr_anisotropy_texture = ["bevy/pbr_anisotropy_texture"]
+pbr_specular_textures = ["bevy/pbr_specular_textures"]
+bevy_zstd_rust = ["bevy/zstd_rust"]
+bevy_zstd_c = ["bevy/zstd_c"]
