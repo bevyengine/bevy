@@ -30,6 +30,11 @@ members = [
   "examples/no_std/*",
   # Examples of compiling Bevy with automatic reflect type registration for platforms without `inventory` support.
   "examples/reflection/auto_register_static",
+  # Examples of large bevy scenes.
+  "examples/large_scenes/bistro",
+  "examples/large_scenes/caldera_hotel",
+  # Mipmap generator for testing large bevy scenes with mips and texture compression.
+  "examples/large_scenes/mipmap_generator",
   # Benchmarks
   "benches",
   # Internal tools that are not published.
@@ -814,13 +819,25 @@ category = "2D Rendering"
 wasm = true
 
 [[example]]
+name = "rotate_to_cursor"
+path = "examples/2d/rotate_to_cursor.rs"
+# Causes an ICE on docs.rs
+doc-scrape-examples = false
+
+[package.metadata.example.rotate_to_cursor]
+name = "2D Rotation to Cursor"
+description = "Demonstrates rotating entities in 2D to follow the cursor"
+category = "2D Rendering"
+wasm = true
+
+[[example]]
 name = "rotation"
 path = "examples/2d/rotation.rs"
 # Causes an ICE on docs.rs
 doc-scrape-examples = false
 
 [package.metadata.example.rotation]
-name = "2D Rotation"
+name = "Generic 2D Rotation"
 description = "Demonstrates rotating entities in 2D with quaternions"
 category = "2D Rendering"
 wasm = true
@@ -3685,6 +3702,17 @@ doc-scrape-examples = true
 [package.metadata.example.ui_drag_and_drop]
 name = "UI Drag and Drop"
 description = "Demonstrates dragging and dropping UI nodes"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
+name = "font_query"
+path = "examples/ui/font_query.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.font_query]
+name = "Font Queries"
+description = "Demonstrates font querying"
 category = "UI (User Interface)"
 wasm = true
 

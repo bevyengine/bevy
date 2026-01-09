@@ -1,3 +1,4 @@
+/// Defines an id type which guarantees global uniqueness via atomics on a static global.
 #[macro_export]
 macro_rules! define_atomic_id {
     ($atomic_id_type:ident) => {

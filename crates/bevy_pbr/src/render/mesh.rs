@@ -1,6 +1,7 @@
 use crate::{
     material_bind_groups::{MaterialBindGroupIndex, MaterialBindGroupSlot},
     resources::write_atmosphere_buffer,
+    skin::skin_uniforms_from_world,
 };
 use bevy_asset::{embedded_asset, load_embedded_asset, AssetId};
 use bevy_camera::{
@@ -218,7 +219,7 @@ impl Plugin for MeshRenderPlugin {
                 .init_resource::<ViewKeyCache>()
                 .init_resource::<ViewSpecializationTicks>()
                 .init_resource::<GpuPreprocessingSupport>()
-                .init_resource::<SkinUniforms>()
+                .add_systems(RenderStartup, skin_uniforms_from_world)
                 .add_systems(
                     Render,
                     check_views_need_specialization.in_set(PrepareAssets),

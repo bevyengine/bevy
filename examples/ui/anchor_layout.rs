@@ -135,11 +135,7 @@ fn anchored_node(font: Handle<Font>, node: Node, label: &str) -> impl Bundle {
                     ..node
                 },
                 BackgroundColor(Color::srgb(1., 0.066, 0.349)),
-                children![(
-                    Text::new(label),
-                    TextFont { font, ..default() },
-                    TextColor::BLACK,
-                )],
+                children![(Text::new(label), TextFont::from(font), TextColor::BLACK,)],
             )
         ],
     )

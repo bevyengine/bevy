@@ -109,13 +109,14 @@ Example | Description
 Example | Description
 --- | ---
 [2D Bloom](../examples/2d/bloom_2d.rs) | Illustrates bloom post-processing in 2d
-[2D Rotation](../examples/2d/rotation.rs) | Demonstrates rotating entities in 2D with quaternions
+[2D Rotation to Cursor](../examples/2d/rotate_to_cursor.rs) | Demonstrates rotating entities in 2D to follow the cursor
 [2D Shapes](../examples/2d/2d_shapes.rs) | Renders simple 2D primitive shapes like circles and polygons
 [2D Viewport To World](../examples/2d/2d_viewport_to_world.rs) | Demonstrates how to use the `Camera::viewport_to_world_2d` method with a dynamic viewport and camera.
 [2D Wireframe](../examples/2d/wireframe_2d.rs) | Showcases wireframes for 2d meshes
 [Arc 2D Meshes](../examples/2d/mesh2d_arcs.rs) | Demonstrates UV-mapping of the circular segment and sector primitives
 [CPU Drawing](../examples/2d/cpu_draw.rs) | Manually read/write the pixels of a texture
 [Dynamic Mipmap Generation](../examples/2d/dynamic_mip_generation.rs) | Demonstrates use of the mipmap generation plugin to generate mipmaps for a texture
+[Generic 2D Rotation](../examples/2d/rotation.rs) | Demonstrates rotating entities in 2D with quaternions
 [Manual Mesh 2D](../examples/2d/mesh2d_manual.rs) | Renders a custom mesh "manually" with "mid-level" renderer apis
 [Mesh 2D](../examples/2d/mesh2d.rs) | Renders a 2d mesh
 [Mesh 2D With Vertex Colors](../examples/2d/mesh2d_vertex_color_texture.rs) | Renders a 2d mesh with vertex color attributes
@@ -577,6 +578,7 @@ Example | Description
 [Feathers Widgets](../examples/ui/feathers.rs) | Gallery of Feathers Widgets
 [Flex Layout](../examples/ui/flex_layout.rs) | Demonstrates how the AlignItems and JustifyContent properties can be composed to layout nodes and position text
 [Font Atlas Debug](../examples/ui/font_atlas_debug.rs) | Illustrates how FontAtlases are populated (used to optimize text rendering internally)
+[Font Queries](../examples/ui/font_query.rs) | Demonstrates font querying
 [Font Weights](../examples/ui/font_weights.rs) | Demonstrates how to use font weights.
 [Ghost Nodes](../examples/ui/ghost_nodes.rs) | Demonstrates the use of Ghost Nodes to skip entities in the UI layout hierarchy
 [Gradients](../examples/ui/gradients.rs) | An example demonstrating gradients

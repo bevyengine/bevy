@@ -10,7 +10,7 @@ fn main() {
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    let font = asset_server.load("fonts/MonaSans-VariableFont.ttf");
+    let font: FontSource = asset_server.load("fonts/MonaSans-VariableFont.ttf").into();
 
     commands.spawn(Camera2d);
 

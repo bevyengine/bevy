@@ -10,19 +10,7 @@
 #import bevy_solari::sampling::{sample_random_light, trace_point_visibility, balance_heuristic}
 #import bevy_solari::scene_bindings::{trace_ray, resolve_ray_hit_full, RAY_T_MIN, RAY_T_MAX}
 #import bevy_solari::world_cache::{query_world_cache, WORLD_CACHE_CELL_LIFETIME}
-
-@group(1) @binding(0) var view_output: texture_storage_2d<rgba16float, read_write>;
-@group(1) @binding(5) var<storage, read_write> gi_reservoirs_a: array<Reservoir>;
-@group(1) @binding(6) var<storage, read_write> gi_reservoirs_b: array<Reservoir>;
-@group(1) @binding(7) var gbuffer: texture_2d<u32>;
-@group(1) @binding(8) var depth_buffer: texture_depth_2d;
-@group(1) @binding(9) var motion_vectors: texture_2d<f32>;
-@group(1) @binding(10) var previous_gbuffer: texture_2d<u32>;
-@group(1) @binding(11) var previous_depth_buffer: texture_depth_2d;
-@group(1) @binding(12) var<uniform> view: View;
-@group(1) @binding(13) var<uniform> previous_view: PreviousViewUniforms;
-struct PushConstants { frame_index: u32, reset: u32 }
-var<push_constant> constants: PushConstants;
+#import bevy_solari::realtime_bindings::{view_output, gi_reservoirs_a, gi_reservoirs_b, gbuffer, depth_buffer, motion_vectors, previous_gbuffer, previous_depth_buffer, view, previous_view, constants, Reservoir}
 
 const SPATIAL_REUSE_RADIUS_PIXELS = 30.0;
 const CONFIDENCE_WEIGHT_CAP = 8.0;
@@ -92,13 +80,13 @@ fn generate_initial_reservoir(world_position: vec3<f32>, world_normal: vec3<f32>
     var reservoir = empty_reservoir();
 
     let ray_direction = sample_uniform_hemisphere(world_normal, rng);
-    let ray_hit = trace_ray(world_position, ray_direction, RAY_T_MIN, RAY_T_MAX, RAY_FLAG_NONE);
+    let ray = trace_ray(world_position, ray_direction, RAY_T_MIN, RAY_T_MAX, RAY_FLAG_NONE);
 
-    if ray_hit.kind == RAY_QUERY_INTERSECTION_NONE {
+    if ray.kind == RAY_QUERY_INTERSECTION_NONE {
         return reservoir;
     }
 
-    let sample_point = resolve_ray_hit_full(ray_hit);
+    let sample_point = resolve_ray_hit_full(ray);
 
     if all(sample_point.material.emissive != vec3(0.0)) {
         return reservoir;
@@ -215,16 +203,6 @@ fn isinf(x: f32) -> bool {
 
 fn isnan(x: f32) -> bool {
     return (bitcast<u32>(x) & 0x7fffffffu) > 0x7f800000u;
-}
-
-// Don't adjust the size of this struct without also adjusting GI_RESERVOIR_STRUCT_SIZE.
-struct Reservoir {
-    sample_point_world_position: vec3<f32>,
-    weight_sum: f32,
-    radiance: vec3<f32>,
-    confidence_weight: f32,
-    sample_point_world_normal: vec3<f32>,
-    unbiased_contribution_weight: f32,
 }
 
 fn empty_reservoir() -> Reservoir {

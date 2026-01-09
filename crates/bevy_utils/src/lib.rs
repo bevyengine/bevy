@@ -57,6 +57,7 @@ pub mod prelude {
     pub use disqualified::ShortName;
 }
 
+mod atomic_id;
 mod debug_info;
 mod default;
 mod once;
