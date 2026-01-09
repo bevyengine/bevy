@@ -686,7 +686,7 @@ mod tests {
         let world = app.world_mut();
 
         // spawn an invalid UI root node
-        let root_node = world.spawn(()).with_child(Node::default()).id();
+        let root_node = world.spawn(()).spawn_child(Node::default()).id();
 
         app.update();
         let world = app.world_mut();

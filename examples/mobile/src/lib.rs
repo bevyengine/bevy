@@ -151,7 +151,7 @@ fn setup_scene(
                 ..default()
             },
         ))
-        .with_child((
+        .spawn_child((
             Text::new("Test Button"),
             TextFont {
                 font_size: 30.0,

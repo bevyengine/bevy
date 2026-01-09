@@ -81,7 +81,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             ..default()
                         },
                     ))
-                    .with_child((
+                    .spawn_child((
                         Text::new("Button"),
                         TextFont {
                             font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
