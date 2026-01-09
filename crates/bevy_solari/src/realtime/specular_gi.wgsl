@@ -123,20 +123,7 @@ fn trace_glossy_path(pixel_id: vec2<u32>, primary_surface: ResolvedGPixel, initi
                 mirror_rotations = mirror_rotations * reflection_matrix(ray_hit.world_normal);
             } else {
                 psr_finished = true;
-
-                // Simplification: Apply all rotations in the chain around the first mirror, rather than applying each rotation around its respective mirror
-                let virtual_position = (mirror_rotations * (ray_hit.world_position - primary_surface.world_position)) + primary_surface.world_position;
-                let virtual_previous_frame_position = (mirror_rotations * (ray_hit.previous_frame_world_position - primary_surface.world_position)) + primary_surface.world_position;
-                let specular_motion_vector = calculate_motion_vector(virtual_position, virtual_previous_frame_position);
-
-                let F0 = calculate_F0(ray_hit.material.base_color, ray_hit.material.metallic, ray_hit.material.reflectance);
-                let wo = normalize(view.world_position - virtual_position);
-                let virtual_normal = normalize(mirror_rotations * ray_hit.world_normal);
-
-                textureStore(specular_motion_vectors, pixel_id, vec4(specular_motion_vector, vec2(0.0)));
-                textureStore(diffuse_albedo, pixel_id, vec4(calculate_diffuse_color(ray_hit.material.base_color, ray_hit.material.metallic, 0.0, 0.0), 0.0));
-                textureStore(specular_albedo, pixel_id, vec4(env_brdf_approx2(F0, ray_hit.material.roughness, ray_hit.world_normal, wo), 0.0));
-                textureStore(normal_roughness, pixel_id, vec4(virtual_normal, ray_hit.material.perceptual_roughness));
+                replace_primary_surface(pixel_id, ray_hit, mirror_rotations, primary_surface.world_position);
             }
         }
 #endif
@@ -211,6 +198,22 @@ fn reflection_matrix(plane_normal: vec3f) -> mat3x3<f32> {
     );
     let identity_matrix = mat3x3<f32>(1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0);
     return identity_matrix - n_nt * 2.0;
+}
+
+fn replace_primary_surface(pixel_id: vec2<u32>, ray_hit: ResolvedRayHitFull, mirror_rotations: mat3x3<f32>, primary_surface_world_position: vec3<f32>) {
+    // Simplification: Apply all rotations in the chain around the first mirror, rather than applying each rotation around its respective mirror
+    let virtual_position = (mirror_rotations * (ray_hit.world_position - primary_surface_world_position)) + primary_surface_world_position;
+    let virtual_previous_frame_position = (mirror_rotations * (ray_hit.previous_frame_world_position - primary_surface_world_position)) + primary_surface_world_position;
+    let specular_motion_vector = calculate_motion_vector(virtual_position, virtual_previous_frame_position);
+
+    let F0 = calculate_F0(ray_hit.material.base_color, ray_hit.material.metallic, ray_hit.material.reflectance);
+    let wo = normalize(view.world_position - virtual_position);
+    let virtual_normal = normalize(mirror_rotations * ray_hit.world_normal);
+
+    textureStore(specular_motion_vectors, pixel_id, vec4(specular_motion_vector, vec2(0.0)));
+    textureStore(diffuse_albedo, pixel_id, vec4(calculate_diffuse_color(ray_hit.material.base_color, ray_hit.material.metallic, 0.0, 0.0), 0.0));
+    textureStore(specular_albedo, pixel_id, vec4(env_brdf_approx2(F0, ray_hit.material.roughness, ray_hit.world_normal, wo), 0.0));
+    textureStore(normal_roughness, pixel_id, vec4(virtual_normal, ray_hit.material.perceptual_roughness));
 }
 
 fn calculate_motion_vector(world_position: vec3<f32>, previous_world_position: vec3<f32>) -> vec2<f32> {
