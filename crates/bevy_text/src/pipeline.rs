@@ -119,7 +119,11 @@ impl TextPipeline {
                 text_spans.enumerate()
             {
                 // Save this span entity in the computed text block.
-                computed.entities.push(TextEntity { entity, depth });
+                computed.entities.push(TextEntity {
+                    entity,
+                    depth,
+                    font_smoothing: text_font.font_smoothing,
+                });
 
                 if span.is_empty() {
                     continue;
@@ -346,8 +350,7 @@ impl TextPipeline {
 
                 let mut temp_glyph;
                 let span_index = layout_glyph.metadata;
-                let font_smoothing = FontSmoothing::AntiAliased;
-
+                let font_smoothing = computed.entities[span_index].font_smoothing;
                 let layout_glyph = if font_smoothing == FontSmoothing::None {
                     // If font smoothing is disabled, round the glyph positions and sizes,
                     // effectively discarding all subpixel layout.
