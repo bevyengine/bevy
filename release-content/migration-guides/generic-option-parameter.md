@@ -20,9 +20,9 @@ fn my_system(single: Option<Single<&Player>>) {
 // 0.17
 fn my_system(query: Query<&Player>) {
     let result = query.single();
-    if matches!(r, Err(QuerySingleError(MultipleEntities(_)))) {
+    if matches!(result, Err(QuerySingleError(MultipleEntities(_)))) {
         return;
     }
-    let single: Option<&Player> = r.ok();
+    let single: Option<&Player> = result.ok();
 }
 ```
