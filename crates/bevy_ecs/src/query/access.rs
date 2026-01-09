@@ -1322,6 +1322,12 @@ impl FilteredAccessSet {
         &self.combined_access
     }
 
+    /// Returns a reference to the filtered accesses of the set.
+    #[inline]
+    pub fn filtered_accesses(&self) -> &[FilteredAccess] {
+        &self.filtered_accesses
+    }
+
     /// Returns `true` if this and `other` can be active at the same time.
     ///
     /// Access conflict resolution happen in two steps:
