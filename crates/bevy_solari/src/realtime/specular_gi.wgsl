@@ -63,8 +63,7 @@ fn specular_gi(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
     let brdf = evaluate_specular_brdf(surface.world_normal, wo, wi, surface.material.base_color, surface.material.metallic,
         surface.material.reflectance, surface.material.perceptual_roughness, surface.material.roughness);
-    let cos_theta = saturate(dot(wi, surface.world_normal));
-    radiance *= brdf * cos_theta * view.exposure;
+    radiance *= brdf * view.exposure;
 
     var pixel_color = textureLoad(view_output, global_id.xy);
     pixel_color += vec4(radiance, 0.0);
