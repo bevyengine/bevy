@@ -3946,6 +3946,17 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
+name = "mobile_list"
+path = "examples/ui/mobile_list.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.mobile_list]
+name = "Mobile Scrollable List with Clickable Items"
+description = "An example demonstrating a mobile scrollable list with clickable items"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "gradients"
 path = "examples/ui/gradients.rs"
 # Causes an ICE on docs.rs
