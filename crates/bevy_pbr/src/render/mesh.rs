@@ -127,6 +127,9 @@ impl MeshRenderPlugin {
 #[cfg(debug_assertions)]
 pub const MESH_PIPELINE_VIEW_LAYOUT_SAFE_MAX_TEXTURES: usize = 10;
 
+#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
+pub struct MeshPipelineSet;
+
 impl Plugin for MeshRenderPlugin {
     fn build(&self, app: &mut App) {
         load_shader_library!(app, "forward_io.wgsl");
@@ -287,9 +290,12 @@ impl Plugin for MeshRenderPlugin {
                 ));
             }
 
-            render_app
-                .add_systems(RenderStartup, init_mesh_pipeline_view_layouts)
-                .add_systems(RenderStartup, init_mesh_pipeline);
+            render_app.add_systems(
+                RenderStartup,
+                (init_mesh_pipeline_view_layouts, init_mesh_pipeline)
+                    .chain()
+                    .in_set(MeshPipelineSet),
+            );
         }
 
         // Load the mesh_bindings shader module here as it depends on runtime information about
