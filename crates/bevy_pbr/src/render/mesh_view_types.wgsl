@@ -183,10 +183,14 @@ struct OitFragmentNode {
 
 struct ClusteredDecal {
     local_from_world: mat4x4<f32>,
-    image_index: i32,
+    base_color_texture_index: i32,
+    normal_map_texture_index: i32,
+    metallic_roughness_texture_index: i32,
+    emissive_texture_index: i32,
     tag: u32,
     pad_a: u32,
     pad_b: u32,
+    pad_c: u32,
 }
 
 struct ClusteredDecals {

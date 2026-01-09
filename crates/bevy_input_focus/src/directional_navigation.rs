@@ -9,34 +9,22 @@
 //!
 //! Navigating between focusable entities (commonly UI nodes) is done by
 //! passing a [`CompassOctant`] into the [`navigate`](DirectionalNavigation::navigate) method
-//! from the [`DirectionalNavigation`] system parameter.
+//! from the [`DirectionalNavigation`] system parameter. Under the hood, an entity is found
+//! automatically via brute force search in the desired [`CompassOctant`] direction.
 //!
-//! Under the hood, the [`DirectionalNavigationMap`] stores a directed graph of focusable entities.
-//! Each entity can have up to 8 neighbors, one for each [`CompassOctant`], balancing flexibility and required precision.
+//! If some manual navigation is desired, a [`DirectionalNavigationMap`] will override the brute force
+//! search in a direction for a given entity. The [`DirectionalNavigationMap`] stores a directed graph
+//! of focusable entities. Each entity can have up to 8 neighbors, one for each [`CompassOctant`],
+//! balancing flexibility and required precision.
 //!
-//! # Creating a Navigation Graph
+//! # Setting up Directional Navigation
 //!
 //! ## Automatic Navigation (Recommended)
 //!
-//! The easiest way to set up navigation is to add the [`AutoDirectionalNavigation`] component
-//! to your UI entities. The system will automatically compute the nearest neighbor in each direction
-//! based on position and size:
-//!
-//! ```rust,no_run
-//! # use bevy_ecs::prelude::*;
-//! # use bevy_input_focus::directional_navigation::AutoDirectionalNavigation;
-//! # use bevy_ui::Node;
-//! fn spawn_button(mut commands: Commands) {
-//!     commands.spawn((
-//!         Node::default(),
-//!         // ... other UI components ...
-//!         AutoDirectionalNavigation::default(), // That's it!
-//!     ));
-//! }
-//! ```
-//!
-//! The navigation graph automatically updates when UI elements move, resize, or are added/removed.
-//! Configure the behavior using the [`AutoNavigationConfig`] resource.
+//! The easiest way to set up navigation is to add the `AutoDirectionalNavigation` component
+//! to your UI entities. This component is available in the `bevy_ui` crate. If you choose to
+//! include automatic navigation, you should also use the `AutoDirectionalNavigator` system parameter
+//! in that crate instead of [`DirectionalNavigation`].
 //!
 //! ## Manual Navigation
 //!
@@ -46,7 +34,7 @@
 //!
 //! ## Combining Automatic and Manual
 //!
-//! Manual edges always take precedence over auto-generated ones, allowing you to use
+//! Following manual edges always take precedence, allowing you to use
 //! automatic navigation for most UI elements while overriding specific connections for
 //! special cases like wrapping menus or cross-layer navigation.
 //!
@@ -58,130 +46,34 @@
 //! - **Cross-layer navigation**: Connect elements across different UI layers or z-index levels
 //! - **Custom behavior**: Implement domain-specific navigation patterns (e.g., spreadsheet-style wrapping)
 
-use alloc::vec::Vec;
+use crate::{navigator::find_best_candidate, InputFocus};
 use bevy_app::prelude::*;
-use bevy_camera::visibility::Visibility;
 use bevy_ecs::{
     entity::{EntityHashMap, EntityHashSet},
     prelude::*,
     system::SystemParam,
 };
-use bevy_math::{CompassOctant, Dir2, Vec2};
-use bevy_ui::{ComputedNode, UiGlobalTransform, UiSystems};
+use bevy_math::{CompassOctant, Vec2};
 use thiserror::Error;
-
-use crate::InputFocus;
 
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::{prelude::*, Reflect};
 
-/// A plugin that sets up the directional navigation systems and resources.
+/// A plugin that sets up the directional navigation resources.
 #[derive(Default)]
 pub struct DirectionalNavigationPlugin;
 
 impl Plugin for DirectionalNavigationPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<DirectionalNavigationMap>()
-            .init_resource::<AutoNavigationConfig>()
-            .add_systems(
-                PostUpdate,
-                auto_rebuild_ui_navigation_graph.in_set(UiSystems::PostLayout),
-            );
+            .init_resource::<AutoNavigationConfig>();
     }
 }
 
-/// Marker component to enable automatic directional navigation graph generation.
+/// Configuration resource for automatic directional navigation and for generating manual
+/// navigation edges via [`auto_generate_navigation_edges`]
 ///
-/// Simply add this component to your UI entities and the navigation graph will be
-/// automatically computed and maintained! The [`DirectionalNavigationPlugin`] includes
-/// a built-in system that:
-/// - Detects when nodes with this component change position or size
-/// - Automatically rebuilds navigation edges based on spatial proximity
-/// - Respects manual edges (they always take precedence)
-///
-///
-/// Just add this component to `bevy_ui` entities:
-///
-/// ```rust
-/// # use bevy_ecs::prelude::*;
-/// # use bevy_input_focus::directional_navigation::AutoDirectionalNavigation;
-/// fn spawn_auto_nav_button(mut commands: Commands) {
-///     commands.spawn((
-///         // ... Button, Node, etc. ...
-///         AutoDirectionalNavigation::default(), // That's it!
-///     ));
-/// }
-/// ```
-///
-/// The navigation graph updates automatically when nodes move, resize, or are added/removed.
-///
-/// # Multi-Layer UIs and Z-Index
-///
-/// **Important**: The automatic navigation system is currently **z-index agnostic** and treats
-/// all entities with `AutoDirectionalNavigation` as a flat set, regardless of which UI layer
-/// or z-index they belong to. This means navigation may jump between different layers (e.g.,
-/// from a background menu to an overlay popup).
-///
-/// **Workarounds** for multi-layer UIs:
-///
-/// 1. **Per-layer manual edge generation**: Query entities by layer and call
-///    [`auto_generate_navigation_edges()`] separately for each layer:
-///    ```rust,ignore
-///    for layer in &layers {
-///        let nodes: Vec<FocusableArea> = query_layer(layer).collect();
-///        auto_generate_navigation_edges(&mut nav_map, &nodes, &config);
-///    }
-///    ```
-///
-/// 2. **Manual cross-layer navigation**: Use [`DirectionalNavigationMap::add_edge()`]
-///    to define explicit connections between layers (e.g., "Back" button to main menu).
-///
-/// 3. **Remove component when layer is hidden**: Dynamically add/remove
-///    `AutoDirectionalNavigation` based on which layers are currently active.
-///
-/// See issue [#21679](https://github.com/bevyengine/bevy/issues/21679) for planned
-/// improvements to layer-aware automatic navigation.
-///
-/// # Opting Out
-///
-/// To disable automatic navigation for specific entities:
-///
-/// - **Remove the component**: Simply don't add `AutoDirectionalNavigation` to entities
-///   that should only use manual navigation edges.
-/// - **Dynamically toggle**: Remove/insert the component at runtime to enable/disable
-///   automatic navigation as needed.
-///
-/// Manual edges defined via [`DirectionalNavigationMap`] are completely independent and
-/// will continue to work regardless of this component.
-///
-/// # Requirements (for `bevy_ui`)
-///
-/// Entities must also have:
-/// - [`ComputedNode`] - for size information
-/// - [`UiGlobalTransform`] - for position information
-///
-/// These are automatically added by `bevy_ui` when you spawn UI entities.
-///
-/// # Custom UI Systems
-///
-/// For custom UI frameworks, you can call [`auto_generate_navigation_edges`] directly
-/// in your own system instead of using this component.
-#[derive(Component, Default, Debug, Clone, Copy, PartialEq)]
-#[cfg_attr(
-    feature = "bevy_reflect",
-    derive(Reflect),
-    reflect(Component, Default, Debug, PartialEq, Clone)
-)]
-pub struct AutoDirectionalNavigation {
-    /// Whether to also consider `TabIndex` for navigation order hints.
-    /// Currently unused but reserved for future functionality.
-    pub respect_tab_order: bool,
-}
-
-/// Configuration resource for automatic directional navigation graph generation.
-///
-/// This resource controls how the automatic navigation system computes which
-/// nodes should be connected in each direction.
+/// This resource controls how nodes should be automatically connected in each direction.
 #[derive(Resource, Debug, Clone, PartialEq)]
 #[cfg_attr(
     feature = "bevy_reflect",
@@ -283,7 +175,7 @@ impl NavNeighbors {
     }
 }
 
-/// A resource that stores the traversable graph of focusable entities.
+/// A resource that stores the manually specified traversable graph of focusable entities.
 ///
 /// Each entity can have up to 8 neighbors, one for each [`CompassOctant`].
 ///
@@ -295,7 +187,8 @@ impl NavNeighbors {
 ///   although looping around the edges of the screen is also acceptable.
 /// - **Not self-connected**: An entity should not be a neighbor of itself; use [`None`] instead.
 ///
-/// For now, this graph must be built manually, and the developer is responsible for ensuring that it meets the above criteria.
+/// This graph must be built and maintained manually, and the developer is responsible for ensuring that it meets the above criteria.
+/// Notably, if the developer adds or removes the navigability of an entity, the developer should update the map as necessary.
 #[derive(Resource, Debug, Default, Clone, PartialEq)]
 #[cfg_attr(
     feature = "bevy_reflect",
@@ -311,8 +204,6 @@ pub struct DirectionalNavigationMap {
 }
 
 impl DirectionalNavigationMap {
-    /// Adds a new entity to the navigation map, overwriting any existing neighbors for that entity.
-    ///
     /// Removes an entity from the navigation map, including all connections to and from it.
     ///
     /// Note that this is an O(n) operation, where n is the number of entities in the map,
@@ -422,11 +313,11 @@ impl DirectionalNavigationMap {
 pub struct DirectionalNavigation<'w> {
     /// The currently focused entity.
     pub focus: ResMut<'w, InputFocus>,
-    /// The navigation map containing the connections between entities.
+    /// The directional navigation map containing manually defined connections between entities.
     pub map: Res<'w, DirectionalNavigationMap>,
 }
 
-impl DirectionalNavigation<'_> {
+impl<'w> DirectionalNavigation<'w> {
     /// Navigates to the neighbor in a given direction from the current focus, if any.
     ///
     /// Returns the new focus if successful.
@@ -438,6 +329,7 @@ impl DirectionalNavigation<'_> {
         direction: CompassOctant,
     ) -> Result<Entity, DirectionalNavigationError> {
         if let Some(current_focus) = self.focus.0 {
+            // Respect manual edges first
             if let Some(new_focus) = self.map.get_neighbor(current_focus, direction) {
                 self.focus.set(new_focus);
                 Ok(new_focus)
@@ -471,10 +363,10 @@ pub enum DirectionalNavigationError {
 
 /// A focusable area with position and size information.
 ///
-/// This struct represents a UI element in the automatic directional navigation system,
+/// This struct represents a UI element used during directional navigation,
 /// containing its entity ID, center position, and size for spatial navigation calculations.
 ///
-/// The term "focusable area" avoids confusion with UI [`Node`](bevy_ui::Node) components.
+/// The term "focusable area" avoids confusion with UI `Node` components in `bevy_ui`.
 #[derive(Debug, Clone, Copy, PartialEq)]
 #[cfg_attr(
     feature = "bevy_reflect",
@@ -499,134 +391,11 @@ pub trait Navigable {
     fn get_bounds(&self) -> (Vec2, Vec2);
 }
 
-// We can't directly implement this for `bevy_ui` types here without circular dependencies,
-// so we'll use a more generic approach with separate functions for different component sets.
-
-/// Calculate 1D overlap between two ranges.
-///
-/// Returns a value between 0.0 (no overlap) and 1.0 (perfect overlap).
-fn calculate_1d_overlap(
-    origin_pos: f32,
-    origin_size: f32,
-    candidate_pos: f32,
-    candidate_size: f32,
-) -> f32 {
-    let origin_min = origin_pos - origin_size / 2.0;
-    let origin_max = origin_pos + origin_size / 2.0;
-    let cand_min = candidate_pos - candidate_size / 2.0;
-    let cand_max = candidate_pos + candidate_size / 2.0;
-
-    let overlap = (origin_max.min(cand_max) - origin_min.max(cand_min)).max(0.0);
-    let max_overlap = origin_size.min(candidate_size);
-    if max_overlap > 0.0 {
-        overlap / max_overlap
-    } else {
-        0.0
-    }
-}
-
-/// Calculate the overlap factor between two nodes in the perpendicular axis.
-///
-/// Returns a value between 0.0 (no overlap) and 1.0 (perfect overlap).
-/// For diagonal directions, always returns 1.0.
-fn calculate_overlap(
-    origin_pos: Vec2,
-    origin_size: Vec2,
-    candidate_pos: Vec2,
-    candidate_size: Vec2,
-    octant: CompassOctant,
-) -> f32 {
-    match octant {
-        CompassOctant::North | CompassOctant::South => {
-            // Check horizontal overlap
-            calculate_1d_overlap(
-                origin_pos.x,
-                origin_size.x,
-                candidate_pos.x,
-                candidate_size.x,
-            )
-        }
-        CompassOctant::East | CompassOctant::West => {
-            // Check vertical overlap
-            calculate_1d_overlap(
-                origin_pos.y,
-                origin_size.y,
-                candidate_pos.y,
-                candidate_size.y,
-            )
-        }
-        // Diagonal directions don't require strict overlap
-        _ => 1.0,
-    }
-}
-
-/// Score a candidate node for navigation in a given direction.
-///
-/// Lower score is better. Returns `f32::INFINITY` for unreachable nodes.
-fn score_candidate(
-    origin_pos: Vec2,
-    origin_size: Vec2,
-    candidate_pos: Vec2,
-    candidate_size: Vec2,
-    octant: CompassOctant,
-    config: &AutoNavigationConfig,
-) -> f32 {
-    // Get direction in mathematical coordinates, then flip Y for UI coordinates
-    let dir = Dir2::from(octant).as_vec2() * Vec2::new(1.0, -1.0);
-    let to_candidate = candidate_pos - origin_pos;
-    let distance = to_candidate.length();
-
-    // Check direction first
-    // Convert UI coordinates (Y+ = down) to mathematical coordinates (Y+ = up) by flipping Y
-    let origin_math = Vec2::new(origin_pos.x, -origin_pos.y);
-    let candidate_math = Vec2::new(candidate_pos.x, -candidate_pos.y);
-    if !octant.is_in_direction(origin_math, candidate_math) {
-        return f32::INFINITY;
-    }
-
-    // Check overlap for cardinal directions
-    let overlap_factor = calculate_overlap(
-        origin_pos,
-        origin_size,
-        candidate_pos,
-        candidate_size,
-        octant,
-    );
-
-    if overlap_factor < config.min_alignment_factor {
-        return f32::INFINITY;
-    }
-
-    // Check max distance
-    if let Some(max_dist) = config.max_search_distance {
-        if distance > max_dist {
-            return f32::INFINITY;
-        }
-    }
-
-    // Calculate alignment score
-    let alignment = if distance > 0.0 {
-        to_candidate.normalize().dot(dir).max(0.0)
-    } else {
-        1.0
-    };
-
-    // Combine distance and alignment
-    // Prefer aligned nodes by penalizing misalignment
-    let alignment_penalty = if config.prefer_aligned {
-        (1.0 - alignment) * distance * 2.0 // Misalignment scales with distance
-    } else {
-        0.0
-    };
-
-    distance + alignment_penalty
-}
-
 /// Automatically generates directional navigation edges for a collection of nodes.
 ///
 /// This function takes a slice of navigation nodes with their positions and sizes, and populates
 /// the navigation map with edges to the nearest neighbor in each compass direction.
-/// Manual edges in the map are preserved and not overwritten.
+/// Manual edges already in the map are preserved and not overwritten.
 ///
 /// # Arguments
 ///
@@ -677,30 +446,7 @@ pub fn auto_generate_navigation_edges(
             }
 
             // Find best candidate in this direction
-            let mut best_candidate = None;
-            let mut best_score = f32::INFINITY;
-
-            for candidate in nodes {
-                // Skip self
-                if candidate.entity == origin.entity {
-                    continue;
-                }
-
-                // Score the candidate
-                let score = score_candidate(
-                    origin.position,
-                    origin.size,
-                    candidate.position,
-                    candidate.size,
-                    octant,
-                    config,
-                );
-
-                if score < best_score {
-                    best_score = score;
-                    best_candidate = Some(candidate.entity);
-                }
-            }
+            let best_candidate = find_best_candidate(origin, octant, nodes, config);
 
             // Add edge if we found a valid candidate
             if let Some(neighbor) = best_candidate {
@@ -708,72 +454,6 @@ pub fn auto_generate_navigation_edges(
             }
         }
     }
-}
-
-/// Built-in system that automatically rebuilds the navigation graph for `bevy_ui` nodes.
-///
-/// This system runs in `PostUpdate` in the `UiSystems::PostLayout` system set and automatically updates
-/// the navigation graph when nodes with [`AutoDirectionalNavigation`] component change
-/// their position or size.
-///
-/// # How it works
-///
-/// 1. Detects nodes with [`AutoDirectionalNavigation`] that have changed
-/// 2. Extracts position/size from [`ComputedNode`] and [`UiGlobalTransform`]
-/// 3. Calls [`auto_generate_navigation_edges`] to rebuild connections
-///
-/// This system is automatically added by [`DirectionalNavigationPlugin`], so users
-/// only need to add the [`AutoDirectionalNavigation`] component to their UI entities.
-///
-/// # Note
-///
-/// This system only works with `bevy_ui` nodes. For custom UI systems, call
-/// [`auto_generate_navigation_edges`] directly in your own system.
-fn auto_rebuild_ui_navigation_graph(
-    mut directional_nav_map: ResMut<DirectionalNavigationMap>,
-    config: Res<AutoNavigationConfig>,
-    changed_nodes: Query<
-        (),
-        (
-            With<AutoDirectionalNavigation>,
-            Or<(
-                Added<AutoDirectionalNavigation>,
-                Changed<ComputedNode>,
-                Changed<UiGlobalTransform>,
-            )>,
-        ),
-    >,
-    all_nodes: Query<
-        (
-            Entity,
-            &ComputedNode,
-            &UiGlobalTransform,
-            Option<&Visibility>,
-        ),
-        With<AutoDirectionalNavigation>,
-    >,
-) {
-    if changed_nodes.is_empty() {
-        return;
-    }
-
-    let nodes: Vec<FocusableArea> = all_nodes
-        .iter()
-        .filter_map(|(entity, computed, transform, visibility)| {
-            // Skip hidden or zero-size nodes
-            if computed.is_empty() || matches!(visibility, Some(Visibility::Hidden)) {
-                return None;
-            }
-            let (_scale, _rotation, translation) = transform.to_scale_angle_translation();
-            Some(FocusableArea {
-                entity,
-                position: translation,
-                size: computed.size(),
-            })
-        })
-        .collect();
-
-    auto_generate_navigation_edges(&mut directional_nav_map, &nodes, &config);
 }
 
 #[cfg(test)]
@@ -914,7 +594,7 @@ mod tests {
     }
 
     #[test]
-    fn nav_with_system_param() {
+    fn manual_nav_with_system_param() {
         let mut world = World::new();
         let a = world.spawn_empty().id();
         let b = world.spawn_empty().id();
@@ -928,6 +608,9 @@ mod tests {
         let mut focus = InputFocus::default();
         focus.set(a);
         world.insert_resource(focus);
+
+        let config = AutoNavigationConfig::default();
+        world.insert_resource(config);
 
         assert_eq!(world.resource::<InputFocus>().get(), Some(a));
 
@@ -943,127 +626,6 @@ mod tests {
 
         world.run_system_once(navigate_east).unwrap();
         assert_eq!(world.resource::<InputFocus>().get(), Some(a));
-    }
-
-    // Tests for automatic navigation helpers
-    #[test]
-    fn test_is_in_direction() {
-        let origin = Vec2::new(100.0, 100.0);
-
-        // Node to the north (mathematically up) should have larger Y
-        let north_node = Vec2::new(100.0, 150.0);
-        assert!(CompassOctant::North.is_in_direction(origin, north_node));
-        assert!(!CompassOctant::South.is_in_direction(origin, north_node));
-
-        // Node to the south (mathematically down) should have smaller Y
-        let south_node = Vec2::new(100.0, 50.0);
-        assert!(CompassOctant::South.is_in_direction(origin, south_node));
-        assert!(!CompassOctant::North.is_in_direction(origin, south_node));
-
-        // Node to the east should be in East direction
-        let east_node = Vec2::new(150.0, 100.0);
-        assert!(CompassOctant::East.is_in_direction(origin, east_node));
-        assert!(!CompassOctant::West.is_in_direction(origin, east_node));
-
-        // Node to the northeast (mathematically up-right) should have larger Y, larger X
-        let ne_node = Vec2::new(150.0, 150.0);
-        assert!(CompassOctant::NorthEast.is_in_direction(origin, ne_node));
-        assert!(!CompassOctant::SouthWest.is_in_direction(origin, ne_node));
-    }
-
-    #[test]
-    fn test_calculate_overlap_horizontal() {
-        let origin_pos = Vec2::new(100.0, 100.0);
-        let origin_size = Vec2::new(50.0, 50.0);
-
-        // Fully overlapping node to the north
-        let north_pos = Vec2::new(100.0, 200.0);
-        let north_size = Vec2::new(50.0, 50.0);
-        let overlap = calculate_overlap(
-            origin_pos,
-            origin_size,
-            north_pos,
-            north_size,
-            CompassOctant::North,
-        );
-        assert_eq!(overlap, 1.0); // Full overlap
-
-        // Partially overlapping node to the north
-        let north_pos = Vec2::new(110.0, 200.0);
-        let partial_overlap = calculate_overlap(
-            origin_pos,
-            origin_size,
-            north_pos,
-            north_size,
-            CompassOctant::North,
-        );
-        assert!(partial_overlap > 0.0 && partial_overlap < 1.0);
-
-        // No overlap
-        let north_pos = Vec2::new(200.0, 200.0);
-        let no_overlap = calculate_overlap(
-            origin_pos,
-            origin_size,
-            north_pos,
-            north_size,
-            CompassOctant::North,
-        );
-        assert_eq!(no_overlap, 0.0);
-    }
-
-    #[test]
-    fn test_score_candidate() {
-        let config = AutoNavigationConfig::default();
-        let origin_pos = Vec2::new(100.0, 100.0);
-        let origin_size = Vec2::new(50.0, 50.0);
-
-        // Node directly to the north (up on screen = smaller Y)
-        let north_pos = Vec2::new(100.0, 0.0);
-        let north_size = Vec2::new(50.0, 50.0);
-        let north_score = score_candidate(
-            origin_pos,
-            origin_size,
-            north_pos,
-            north_size,
-            CompassOctant::North,
-            &config,
-        );
-        assert!(north_score < f32::INFINITY);
-        assert!(north_score < 150.0); // Should be close to the distance (100)
-
-        // Node in opposite direction (should be unreachable)
-        let south_pos = Vec2::new(100.0, 200.0);
-        let south_size = Vec2::new(50.0, 50.0);
-        let invalid_score = score_candidate(
-            origin_pos,
-            origin_size,
-            south_pos,
-            south_size,
-            CompassOctant::North,
-            &config,
-        );
-        assert_eq!(invalid_score, f32::INFINITY);
-
-        // Closer node should have better score than farther node
-        let close_pos = Vec2::new(100.0, 50.0);
-        let far_pos = Vec2::new(100.0, -100.0);
-        let close_score = score_candidate(
-            origin_pos,
-            origin_size,
-            close_pos,
-            north_size,
-            CompassOctant::North,
-            &config,
-        );
-        let far_score = score_candidate(
-            origin_pos,
-            origin_size,
-            far_pos,
-            north_size,
-            CompassOctant::North,
-            &config,
-        );
-        assert!(close_score < far_score);
     }
 
     #[test]
@@ -1165,6 +727,44 @@ mod tests {
         assert_eq!(
             nav_map.get_neighbor(node_a, CompassOctant::East),
             Some(node_c)
+        );
+    }
+
+    #[test]
+    fn test_edge_distance_vs_center_distance() {
+        let mut nav_map = DirectionalNavigationMap::default();
+        let config = AutoNavigationConfig::default();
+
+        let left = Entity::from_bits(1);
+        let wide_top = Entity::from_bits(2);
+        let bottom = Entity::from_bits(3);
+
+        let left_node = FocusableArea {
+            entity: left,
+            position: Vec2::new(100.0, 200.0),
+            size: Vec2::new(100.0, 100.0),
+        };
+
+        let wide_top_node = FocusableArea {
+            entity: wide_top,
+            position: Vec2::new(350.0, 150.0),
+            size: Vec2::new(300.0, 80.0),
+        };
+
+        let bottom_node = FocusableArea {
+            entity: bottom,
+            position: Vec2::new(270.0, 300.0),
+            size: Vec2::new(100.0, 80.0),
+        };
+
+        let nodes = vec![left_node, wide_top_node, bottom_node];
+
+        auto_generate_navigation_edges(&mut nav_map, &nodes, &config);
+
+        assert_eq!(
+            nav_map.get_neighbor(left, CompassOctant::East),
+            Some(wide_top),
+            "Should navigate to wide_top not bottom, even though bottom's center is closer."
         );
     }
 }

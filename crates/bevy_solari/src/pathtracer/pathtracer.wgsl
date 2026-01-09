@@ -4,7 +4,7 @@
 #import bevy_render::maths::PI
 #import bevy_render::view::View
 #import bevy_solari::brdf::evaluate_brdf
-#import bevy_solari::sampling::{sample_random_light, random_light_pdf, sample_ggx_vndf, ggx_vndf_pdf, balance_heuristic, power_heuristic}
+#import bevy_solari::sampling::{sample_random_light, random_emissive_light_pdf, sample_ggx_vndf, ggx_vndf_pdf, power_heuristic}
 #import bevy_solari::scene_bindings::{trace_ray, resolve_ray_hit_full, ResolvedRayHitFull, RAY_T_MIN, RAY_T_MAX}
 
 @group(1) @binding(0) var accumulation_texture: texture_storage_2d<rgba32float, read_write>;
@@ -41,14 +41,14 @@ fn pathtrace(@builtin(global_invocation_id) global_id: vec3<u32>) {
     var bounce_was_perfect_reflection = true;
     var previous_normal = vec3(0.0);
     loop {
-        let ray_hit = trace_ray(ray_origin, ray_direction, ray_t_min, RAY_T_MAX, RAY_FLAG_NONE);
-        if ray_hit.kind != RAY_QUERY_INTERSECTION_NONE {
-            let ray_hit = resolve_ray_hit_full(ray_hit);
+        let ray = trace_ray(ray_origin, ray_direction, ray_t_min, RAY_T_MAX, RAY_FLAG_NONE);
+        if ray.kind != RAY_QUERY_INTERSECTION_NONE {
+            let ray_hit = resolve_ray_hit_full(ray);
             let wo = -ray_direction;
 
             var mis_weight = 1.0;
             if !bounce_was_perfect_reflection {
-                let p_light = random_light_pdf(ray_hit);
+                let p_light = random_emissive_light_pdf(ray_hit);
                 mis_weight = power_heuristic(p_bounce, p_light);
             }
             radiance += mis_weight * throughput * ray_hit.material.emissive;
@@ -57,8 +57,13 @@ fn pathtrace(@builtin(global_invocation_id) global_id: vec3<u32>) {
             let is_perfectly_specular = ray_hit.material.roughness <= 0.001 && ray_hit.material.metallic > 0.9999;
             if !is_perfectly_specular {
                 let direct_lighting = sample_random_light(ray_hit.world_position, ray_hit.world_normal, &rng);
-                let pdf_of_bounce = brdf_pdf(wo, direct_lighting.wi, ray_hit);
-                mis_weight = power_heuristic(1.0 / direct_lighting.inverse_pdf, pdf_of_bounce);
+
+                mis_weight = 1.0;
+                if direct_lighting.brdf_rays_can_hit {
+                    let pdf_of_bounce = brdf_pdf(wo, direct_lighting.wi, ray_hit);
+                    mis_weight = power_heuristic(1.0 / direct_lighting.inverse_pdf, pdf_of_bounce);
+                }
+
                 let direct_lighting_brdf = evaluate_brdf(ray_hit.world_normal, wo, direct_lighting.wi, ray_hit.material);
                 radiance += mis_weight * throughput * direct_lighting.radiance * direct_lighting.inverse_pdf * direct_lighting_brdf;
             }

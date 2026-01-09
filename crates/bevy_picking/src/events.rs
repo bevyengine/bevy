@@ -632,7 +632,7 @@ pub fn pointer_events(
             PointerAction::Release(button) => {
                 let state = pointer_state.get_mut(pointer_id, button);
 
-                // Emit Click and Up events on all the previously hovered entities.
+                // Emit Click and Release events on all the previously hovered entities.
                 for (hovered_entity, hit) in previous_hover_map
                     .get(&pointer_id)
                     .iter()

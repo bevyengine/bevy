@@ -3,7 +3,7 @@ use crate::{
     change_detection::{ComponentTicks, MaybeLocation, Tick},
     component::{Component, ComponentId},
     entity::{ContainsEntity, Entity, EntityEquivalent, EntityLocation},
-    query::{Access, ReadOnlyQueryData, ReleaseStateQueryData},
+    query::{Access, QueryAccessError, ReadOnlyQueryData, ReleaseStateQueryData},
     world::{
         error::EntityComponentError, unsafe_world_cell::UnsafeEntityCell, DynamicComponentFetch,
         FilteredEntityRef, Ref,
@@ -270,7 +270,7 @@ impl<'w> EntityRef<'w> {
     /// or `None` if the entity does not have the components required by the query `Q`.
     pub fn get_components<Q: ReadOnlyQueryData + ReleaseStateQueryData>(
         &self,
-    ) -> Option<Q::Item<'w, 'static>> {
+    ) -> Result<Q::Item<'w, 'static>, QueryAccessError> {
         // SAFETY:
         // - We have read-only access to all components of this entity.
         // - The query is read-only, and read-only references cannot have conflicts.

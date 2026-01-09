@@ -58,8 +58,8 @@ futures-util = { version = "0.3", default-features = false, features = [
 ] }
 futures-io = { version = "0.3", default-features = false }
 futures-lite = { version = "2.0.1", default-features = false }
-blake3 = { version = "1.5", default-features = false }
-ron = { version = "0.11", default-features = false }
+blake3 = { version = "1.8", default-features = false }
+ron = { version = "0.12", default-features = false }
 serde = { version = "1", default-features = false, features = ["derive"] }
 thiserror = { version = "2", default-features = false }
 derive_more = { version = "2", default-features = false, features = ["from"] }

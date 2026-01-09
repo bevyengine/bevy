@@ -517,10 +517,10 @@ pub fn prepare_uimaterial_nodes<M: UiMaterial>(
                             size: extracted_uinode.rect.size().into(),
                             radius: extracted_uinode.border_radius,
                             border: [
-                                extracted_uinode.border.left,
-                                extracted_uinode.border.top,
-                                extracted_uinode.border.right,
-                                extracted_uinode.border.bottom,
+                                extracted_uinode.border.min_inset.x,
+                                extracted_uinode.border.min_inset.y,
+                                extracted_uinode.border.max_inset.x,
+                                extracted_uinode.border.max_inset.y,
                             ],
                         });
                     }
@@ -636,7 +636,7 @@ pub fn queue_ui_material_nodes<M: UiMaterial>(
             draw_function,
             pipeline,
             entity: (extracted_uinode.render_entity, extracted_uinode.main_entity),
-            sort_key: FloatOrd(extracted_uinode.stack_index as f32 + stack_z_offsets::MATERIAL),
+            sort_key: FloatOrd(extracted_uinode.stack_index as f32 + M::stack_z_offset()),
             batch_range: 0..0,
             extra_index: PhaseItemExtraIndex::None,
             index,
