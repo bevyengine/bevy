@@ -847,6 +847,14 @@ fn apply_fog(
     // fog shape that looks a bit fake
     let distance = length(view_to_world);
 
+    // Calculate view_z for shadow cascade selection
+    let view_pos = view_transformations::position_world_to_view(fragment_world_position);
+    let view_z = view_pos.z;
+
+    // Approximate surface normal using view direction for shadow sampling
+    let view_direction_normal = normalize(-view_to_world);
+    let fragment_world_position_vec4 = vec4<f32>(fragment_world_position, 1.0);
+
     var scattering = vec3<f32>(0.0);
     if fog_params.directional_light_color.a > 0.0 {
         let view_to_world_normalized = view_to_world / distance;

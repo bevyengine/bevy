@@ -119,7 +119,6 @@ bitflags::bitflags! {
         const VOLUMETRIC                        = 1 << 2;
         const AFFECTS_LIGHTMAPPED_MESH_DIFFUSE  = 1 << 3;
         const CONTACT_SHADOWS_ENABLED           = 1 << 4;
-        const SHADOWS_ENABLED                   = 1 << 0;
         const NONE                              = 0;
         const UNINITIALIZED                     = 0xFFFF;
     }
@@ -157,7 +156,6 @@ bitflags::bitflags! {
         const VOLUMETRIC                        = 1 << 1;
         const AFFECTS_LIGHTMAPPED_MESH_DIFFUSE  = 1 << 2;
         const CONTACT_SHADOWS_ENABLED           = 1 << 3;
-        const SHADOWS_ENABLED                   = 1 << 0;
         const NONE                              = 0;
         const UNINITIALIZED                     = 0xFFFF;
     }
@@ -1512,7 +1510,7 @@ pub fn prepare_lights(
             let gpu_light = &mut gpu_lights.directional_lights[light_index];
 
             // Only deal with cascades when shadows are enabled.
-            if (gpu_light.flags & DirectionalLightFlags::SHADOWS_ENABLED.bits()) == 0u32 {
+            if (gpu_light.flags & DirectionalLightFlags::SHADOW_MAPS_ENABLED.bits()) == 0u32 {
                 if let Some(entities) = light_view_entities.remove(&entity) {
                     despawn_entities(&mut commands, entities);
                 }
