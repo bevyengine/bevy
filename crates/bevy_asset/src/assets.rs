@@ -9,6 +9,7 @@ use bevy_ecs::{
 use bevy_platform::collections::HashMap;
 use bevy_reflect::{Reflect, TypePath};
 use core::{any::TypeId, iter::Enumerate, marker::PhantomData, sync::atomic::AtomicU32};
+use std::ops::{Deref, DerefMut};
 use crossbeam_channel::{Receiver, Sender};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -348,7 +349,7 @@ impl<A: Asset> Assets<A> {
         &mut self,
         id: impl Into<AssetId<A>>,
         insert_fn: impl FnOnce() -> A,
-    ) -> Result<&mut A, InvalidGenerationError> {
+    ) -> Result<AssetMut<'_, A>, InvalidGenerationError> {
         let id: AssetId<A> = id.into();
         if self.get(id).is_none() {
             self.insert(id, insert_fn())?;
@@ -436,16 +437,20 @@ impl<A: Asset> Assets<A> {
     /// Retrieves a mutable reference to the [`Asset`] with the given `id`, if it exists.
     /// Note that this supports anything that implements `Into<AssetId<A>>`, which includes [`Handle`] and [`AssetId`].
     #[inline]
-    pub fn get_mut(&mut self, id: impl Into<AssetId<A>>) -> Option<&mut A> {
+    pub fn get_mut(&mut self, id: impl Into<AssetId<A>>) -> Option<AssetMut<'_, A>> {
         let id: AssetId<A> = id.into();
         let result = match id {
             AssetId::Index { index, .. } => self.dense_storage.get_mut(index),
             AssetId::Uuid { uuid } => self.hash_map.get_mut(&uuid),
         };
-        if result.is_some() {
-            self.queued_events.push(AssetEvent::Modified { id });
-        }
-        result
+        Some(AssetMut {
+            asset: result?,
+            guard: AssetMutChangeNotifier {
+                changed: false,
+                asset_id: id,
+                queued_events: &mut self.queued_events,
+            },
+        })
     }
 
     /// Retrieves a mutable reference to the [`Asset`] with the given `id`, if it exists.
@@ -615,6 +620,61 @@ impl<A: Asset> Assets<A> {
     /// [`asset_events`]: Self::asset_events
     pub(crate) fn asset_events_condition(assets: Res<Self>) -> bool {
         !assets.queued_events.is_empty()
+    }
+}
+
+/// Unique mutable borrow of an asset.
+///
+/// [AssetEvent::Modified] events will be only triggered if an asset itself is mutably borrowed.
+///
+/// Just as an example, this allows checking if a material property has changed
+/// before modifying it to avoid unnecessary material extraction down the pipeline.
+pub struct AssetMut<'a, A: Asset> {
+    asset: &'a mut A,
+    guard: AssetMutChangeNotifier<'a, A>,
+}
+
+impl<'a, A: Asset> AssetMut<'a, A> {
+    /// Marks with inner asset as modified and returns reference to it.
+    pub fn into_inner(mut self) -> &'a mut A {
+        self.guard.changed = true;
+        self.asset
+    }
+
+    /// Returns reference to the inner asset but doesn't mark it as modified.
+    pub fn into_inner_untracked(self) -> &'a mut A {
+        self.asset
+    }
+}
+
+impl<'a, A: Asset> Deref for AssetMut<'a, A> {
+    type Target = A;
+
+    fn deref(&self) -> &Self::Target {
+        self.asset
+    }
+}
+
+impl<'a, A: Asset> DerefMut for AssetMut<'a, A> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        self.guard.changed = true;
+        self.asset
+    }
+}
+
+/// Helper struct to allow safe destructuring of the [AssetMut::into_inner]
+/// while also keeping strong change tracking guarantees.
+struct AssetMutChangeNotifier<'a, A: Asset> {
+    changed: bool,
+    asset_id: AssetId<A>,
+    queued_events: &'a mut Vec<AssetEvent<A>>,
+}
+
+impl<'a, A: Asset> Drop for AssetMutChangeNotifier<'a, A> {
+    fn drop(&mut self) {
+        if self.changed {
+            self.queued_events.push(AssetEvent::Modified { id: self.asset_id });
+        }
     }
 }
 

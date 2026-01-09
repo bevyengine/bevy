@@ -360,7 +360,7 @@ mod tests {
                 .iter()
                 .find_map(|(h, a)| (a.0 == i).then_some(h))
                 .unwrap();
-            let asset = assets.get_mut(id).unwrap();
+            let mut asset = assets.get_mut(id).unwrap();
             println!("setting new value for {}", asset.0);
             asset.1 = "new_value";
         };

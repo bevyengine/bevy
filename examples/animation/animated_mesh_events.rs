@@ -155,7 +155,7 @@ fn setup_scene_once_loaded(
             AnimationNodeType::Clip(handle) => clips.get_mut(handle),
             _ => unreachable!(),
         };
-        clip.unwrap()
+        clip.unwrap().into_inner()
     }
 
     for (entity, mut player) in &mut players {

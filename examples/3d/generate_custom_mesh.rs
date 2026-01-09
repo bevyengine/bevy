@@ -78,7 +78,7 @@ fn input_handler(
     if keyboard_input.just_pressed(KeyCode::Space) {
         let mesh_handle = mesh_query.single().expect("Query not successful");
         let mesh = meshes.get_mut(mesh_handle).unwrap();
-        toggle_texture(mesh);
+        toggle_texture(mesh.into_inner());
     }
     if keyboard_input.pressed(KeyCode::KeyX) {
         for mut transform in &mut query {
