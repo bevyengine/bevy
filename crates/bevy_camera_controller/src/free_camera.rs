@@ -29,6 +29,7 @@ use bevy_transform::prelude::Transform;
 use bevy_window::{CursorGrabMode, CursorOptions, Window};
 
 use core::{f32::consts::*, fmt};
+use std::cmp::PartialEq;
 
 /// A freecam-style camera controller plugin.
 ///
@@ -52,6 +53,17 @@ impl Plugin for FreeCameraPlugin {
 /// but we're guessing it is a misunderstanding between degrees/radians and then sticking with
 /// it because it felt nice.
 const RADIANS_PER_DOT: f32 = 1.0 / 180.0;
+
+/// Defines the coordinate system used for camera movement.
+#[derive(PartialEq, Eq, Debug, Copy, Clone)]
+pub enum RotationSystem {
+    /// Movement is relative to the camera's full orientation (Yaw, Pitch, and Roll).
+    /// For example, moving "forward" while looking up will move the camera upwards.
+    YawPitchRoll,
+    /// Movement is constrained to the horizontal plane (Yaw only).
+    /// Moving "forward" will keep the camera at the same elevation regardless of pitch.
+    Yaw,
+}
 
 /// Stores the settings for the [`FreeCamera`] controller.
 ///
@@ -99,6 +111,10 @@ pub struct FreeCamera {
     pub scroll_factor: f32,
     /// Friction factor used to exponentially decay [`velocity`](FreeCameraState::velocity) over time.
     pub friction: f32,
+    /// The strategy used to calculate the movement direction relative to the camera's orientation.
+    ///
+    /// Defaults to [`RotationSystem::YawPitchRoll`].
+    pub rotation_system: RotationSystem
 }
 
 impl Default for FreeCamera {
@@ -118,6 +134,7 @@ impl Default for FreeCamera {
             run_speed: 15.0,
             scroll_factor: 0.5,
             friction: 40.0,
+            rotation_system: RotationSystem::YawPitchRoll,
         }
     }
 }
@@ -246,10 +263,10 @@ pub fn run_freecamera_controller(
     // Handle key input
     let mut axis_input = Vec3::ZERO;
     if key_input.pressed(config.key_forward) {
-        axis_input.z += 1.0;
+        axis_input.z -= 1.0;
     }
     if key_input.pressed(config.key_back) {
-        axis_input.z -= 1.0;
+        axis_input.z += 1.0;
     }
     if key_input.pressed(config.key_right) {
         axis_input.x += 1.0;
@@ -297,11 +314,16 @@ pub fn run_freecamera_controller(
 
     // Apply movement update
     if state.velocity != Vec3::ZERO {
-        let forward = *transform.forward();
-        let right = *transform.right();
-        transform.translation += state.velocity.x * dt * right
-            + state.velocity.y * dt * Vec3::Y
-            + state.velocity.z * dt * forward;
+        let rotation = match config.rotation_system {
+            RotationSystem::YawPitchRoll => transform.rotation,
+            RotationSystem::Yaw => {
+                let (yaw, _, _) = transform.rotation.to_euler(EulerRot::YXZ);
+                Quat::from_rotation_y(yaw)
+            }
+            _ => panic!("Invalid rotation system"),
+        };
+
+        transform.translation += rotation * state.velocity * dt;
     }
 
     // Handle cursor grab
