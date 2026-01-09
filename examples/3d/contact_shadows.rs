@@ -8,8 +8,8 @@ use bevy::pbr::ScreenSpaceAmbientOcclusion;
 use bevy::post_process::motion_blur::MotionBlur;
 use bevy::window::{CursorIcon, PrimaryWindow, SystemCursorIcon};
 use bevy::{
-    ecs::message::MessageReader, pbr::ContactShadows, post_process::bloom::Bloom, prelude::*,
-    render::view::Hdr,
+    ecs::message::MessageReader, light::NotShadowReceiver, pbr::ContactShadows,
+    post_process::bloom::Bloom, prelude::*, render::view::Hdr,
 };
 
 #[path = "../helpers/widgets.rs"]
@@ -31,17 +31,24 @@ enum ShadowMaps {
 
 #[derive(Clone, Copy, PartialEq, Default, Debug)]
 enum LightRotation {
-    #[default]
     Stationary,
+    #[default]
     Rotating,
 }
 
 #[derive(Clone, Copy, PartialEq, Default, Debug)]
 enum LightType {
-    #[default]
     Directional,
+    #[default]
     Point,
     Spot,
+}
+
+#[derive(Clone, Copy, PartialEq, Default, Debug)]
+enum ReceiveShadows {
+    #[default]
+    Enabled,
+    Disabled,
 }
 
 /// Each example setting that can be toggled in the UI.
@@ -51,6 +58,7 @@ enum ExampleSetting {
     ShadowMaps(ShadowMaps),
     LightRotation(LightRotation),
     LightType(LightType),
+    ReceiveShadows(ReceiveShadows),
 }
 
 const LIGHT_ROTATION_SPEED: f32 = 0.002;
@@ -61,10 +69,14 @@ struct AppStatus {
     shadow_maps: ShadowMaps,
     light_rotation: LightRotation,
     light_type: LightType,
+    receive_shadows: ReceiveShadows,
 }
 
 #[derive(Component)]
 struct LightContainer;
+
+#[derive(Component)]
+struct GroundPlane;
 
 fn main() {
     App::new()
@@ -97,7 +109,7 @@ fn main() {
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn((
         Camera3d::default(),
-        Transform::from_xyz(0.8, 0.6, 0.8).looking_at(Vec3::new(0.0, 0.35, 0.0), Vec3::Y),
+        Transform::from_xyz(-0.8, 0.6, -0.8).looking_at(Vec3::new(0.0, 0.35, 0.0), Vec3::Y),
         ContactShadows::default(),
         TemporalAntiAliasing::default(), // Contact shadows and AO benefit from TAA
         // Everything past this point is extra to look pretty.
@@ -130,7 +142,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 contact_shadows_enabled: true,
                 ..default()
             },
-            Visibility::Visible,
+            Visibility::Hidden,
         ))
         .id();
 
@@ -142,7 +154,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 contact_shadows_enabled: true,
                 ..default()
             },
-            Visibility::Hidden,
+            Visibility::Visible,
         ))
         .id();
 
@@ -169,9 +181,12 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         .add_child(spot_light);
 
     commands
-        .spawn(SceneRoot(asset_server.load(
-            GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf"),
-        )))
+        .spawn((
+            SceneRoot(asset_server.load(
+                GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf"),
+            )),
+            Transform::from_rotation(Quat::from_rotation_y(std::f32::consts::PI)),
+        ))
         .observe(
             |event: On<Pointer<Drag>>,
              mut query: Query<&mut Transform, With<SceneRoot>>,
@@ -212,6 +227,16 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     .insert(CursorIcon::System(SystemCursorIcon::Default));
             },
         );
+
+    commands.spawn((
+        Mesh3d(asset_server.add(Circle::default().mesh().into())),
+        MeshMaterial3d(asset_server.add(StandardMaterial {
+            base_color: Color::srgb(0.06, 0.06, 0.06),
+            ..default()
+        })),
+        Transform::from_rotation(Quat::from_axis_angle(Vec3::X, -std::f32::consts::FRAC_PI_2)),
+        GroundPlane,
+    ));
 
     spawn_buttons(&mut commands);
 
@@ -292,6 +317,19 @@ fn spawn_buttons(commands: &mut Commands) {
                     (ExampleSetting::LightType(LightType::Spot), "Spot"),
                 ],
             ),
+            widgets::option_buttons(
+                "Receive Shadows",
+                &[
+                    (
+                        ExampleSetting::ReceiveShadows(ReceiveShadows::Enabled),
+                        "On"
+                    ),
+                    (
+                        ExampleSetting::ReceiveShadows(ReceiveShadows::Disabled),
+                        "Off"
+                    ),
+                ],
+            ),
         ],
     ));
 }
@@ -315,6 +353,7 @@ fn update_radio_buttons(
             ExampleSetting::ShadowMaps(value) => value == app_status.shadow_maps,
             ExampleSetting::LightRotation(value) => value == app_status.light_rotation,
             ExampleSetting::LightType(value) => value == app_status.light_type,
+            ExampleSetting::ReceiveShadows(value) => value == app_status.receive_shadows,
         };
 
         if let Some(mut background_color) = background_color {
@@ -336,8 +375,10 @@ fn handle_setting_change(
         ),
         Or<(With<DirectionalLight>, With<PointLight>, With<SpotLight>)>,
     >,
+    mut ground_plane: Query<Entity, With<GroundPlane>>,
     mut events: MessageReader<WidgetClickEvent<ExampleSetting>>,
     mut app_status: ResMut<AppStatus>,
+    mut commands: Commands,
 ) {
     for event in events.read() {
         match **event {
@@ -396,6 +437,19 @@ fn handle_setting_change(
                     } else {
                         Visibility::Hidden
                     };
+                }
+            }
+            ExampleSetting::ReceiveShadows(value) => {
+                app_status.receive_shadows = value;
+                for entity in ground_plane.iter_mut() {
+                    match value {
+                        ReceiveShadows::Enabled => {
+                            commands.entity(entity).remove::<NotShadowReceiver>();
+                        }
+                        ReceiveShadows::Disabled => {
+                            commands.entity(entity).insert(NotShadowReceiver);
+                        }
+                    }
                 }
             }
         }

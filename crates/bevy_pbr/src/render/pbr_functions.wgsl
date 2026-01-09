@@ -468,7 +468,7 @@ fn apply_pbr_lighting(
         }
 
 #ifdef DEPTH_PREPASS
-        if contact_shadow_enabled && shadow > 0.0 &&
+        if contact_shadow_enabled && (in.flags & MESH_FLAGS_SHADOW_RECEIVER_BIT) != 0u && shadow > 0.0 &&
                 (view_bindings::clusterable_objects.data[light_id].flags &
                     mesh_view_types::POINT_LIGHT_FLAGS_CONTACT_SHADOWS_ENABLED_BIT) != 0u {
             let L = normalize(view_bindings::clusterable_objects.data[light_id].position_radius.xyz - in.world_position.xyz);
@@ -531,7 +531,7 @@ fn apply_pbr_lighting(
         }
 
 #ifdef DEPTH_PREPASS
-        if contact_shadow_enabled && shadow > 0.0 &&
+        if contact_shadow_enabled && (in.flags & MESH_FLAGS_SHADOW_RECEIVER_BIT) != 0u && shadow > 0.0 &&
                 (view_bindings::clusterable_objects.data[light_id].flags &
                     mesh_view_types::POINT_LIGHT_FLAGS_CONTACT_SHADOWS_ENABLED_BIT) != 0u {
             let L = normalize(view_bindings::clusterable_objects.data[light_id].position_radius.xyz - in.world_position.xyz);
@@ -595,7 +595,7 @@ fn apply_pbr_lighting(
         }
 
 #ifdef DEPTH_PREPASS
-        if contact_shadow_enabled && shadow > 0.0 &&
+        if contact_shadow_enabled && (in.flags & MESH_FLAGS_SHADOW_RECEIVER_BIT) != 0u && shadow > 0.0 &&
                 (view_bindings::lights.directional_lights[i].flags &
                     mesh_view_types::DIRECTIONAL_LIGHT_FLAGS_CONTACT_SHADOWS_ENABLED_BIT) != 0u {
             let L = view_bindings::lights.directional_lights[i].direction_to_light;
