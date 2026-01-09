@@ -38,13 +38,12 @@ mod node;
 pub mod resources;
 
 use bevy_app::{App, Plugin, Update};
-use bevy_asset::{embedded_asset, AssetId, Assets, Handle};
+use bevy_asset::{embedded_asset, AssetId, Handle};
 use bevy_camera::Camera3d;
 use bevy_core_pipeline::core_3d::graph::Node3d;
 use bevy_ecs::{
     component::Component,
     query::{Changed, QueryItem, With},
-    resource::Resource,
     schedule::IntoScheduleConfigs,
     system::{lifetimeless::Read, Query},
 };
@@ -115,12 +114,6 @@ impl Plugin for AtmospherePlugin {
             UniformComponentPlugin::<GpuAtmosphereSettings>::default(),
         ))
         .add_systems(Update, prepare_atmosphere_probe_components);
-
-        let world = app.world_mut();
-        let earthlike_medium = world
-            .resource_mut::<Assets<ScatteringMedium>>()
-            .add(ScatteringMedium::earthlike(256, 256));
-        world.insert_resource(EarthlikeAtmosphere(Atmosphere::earthlike(earthlike_medium)));
     }
 
     fn finish(&self, app: &mut App) {
@@ -208,15 +201,6 @@ impl Plugin for AtmospherePlugin {
                     Node3d::MainTransparentPass,
                 ),
             );
-    }
-}
-
-#[derive(Resource)]
-pub struct EarthlikeAtmosphere(Atmosphere);
-
-impl EarthlikeAtmosphere {
-    pub fn get(&self) -> Atmosphere {
-        self.0.clone()
     }
 }
 

@@ -8,7 +8,7 @@ repository = "https://github.com/bevyengine/bevy"
 license = "MIT OR Apache-2.0"
 keywords = ["ecs", "game", "bevy"]
 categories = ["game-engines", "data-structures"]
-rust-version = "1.86.0"
+rust-version = "1.89.0"
 
 [features]
 default = ["std", "bevy_reflect", "async_executor", "backtrace"]
@@ -91,6 +91,7 @@ hotpatching = ["dep:subsecond"]
 bevy_ptr = { path = "../bevy_ptr", version = "0.18.0-dev" }
 bevy_reflect = { path = "../bevy_reflect", version = "0.18.0-dev", features = [
   "smallvec",
+  "indexmap",
 ], default-features = false, optional = true }
 bevy_tasks = { path = "../bevy_tasks", version = "0.18.0-dev", default-features = false }
 bevy_utils = { path = "../bevy_utils", version = "0.18.0-dev", default-features = false }

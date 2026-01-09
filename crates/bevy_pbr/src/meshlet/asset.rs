@@ -145,6 +145,7 @@ pub struct MeshletBoundingSphere {
 }
 
 /// An [`AssetSaver`] for `.meshlet_mesh` [`MeshletMesh`] assets.
+#[derive(TypePath)]
 pub struct MeshletMeshSaver;
 
 impl AssetSaver for MeshletMeshSaver {
@@ -193,6 +194,7 @@ impl AssetSaver for MeshletMeshSaver {
 }
 
 /// An [`AssetLoader`] for `.meshlet_mesh` [`MeshletMesh`] assets.
+#[derive(TypePath)]
 pub struct MeshletMeshLoader;
 
 impl AssetLoader for MeshletMeshLoader {

@@ -1,5 +1,4 @@
 use crate::{
-    define_atomic_id,
     render_asset::RenderAssets,
     render_resource::{BindGroupLayout, Buffer, PipelineCache, Sampler, TextureView},
     renderer::{RenderDevice, WgpuWrapper},
@@ -9,6 +8,7 @@ use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::system::{SystemParam, SystemParamItem};
 use bevy_render::render_resource::BindGroupLayoutDescriptor;
 pub use bevy_render_macros::AsBindGroup;
+use bevy_utils::define_atomic_id;
 use core::ops::Deref;
 use encase::ShaderType;
 use thiserror::Error;

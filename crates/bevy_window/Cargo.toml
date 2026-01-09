@@ -50,7 +50,12 @@ libm = ["bevy_math/libm"]
 # bevy
 bevy_app = { path = "../bevy_app", version = "0.18.0-dev", default-features = false }
 bevy_ecs = { path = "../bevy_ecs", version = "0.18.0-dev", default-features = false }
-bevy_input = { path = "../bevy_input", version = "0.18.0-dev", default-features = false }
+bevy_input = { path = "../bevy_input", version = "0.18.0-dev", default-features = false, features = [
+  "gestures",
+  "keyboard",
+  "mouse",
+  "touch",
+] }
 bevy_math = { path = "../bevy_math", version = "0.18.0-dev", default-features = false }
 bevy_platform = { path = "../bevy_platform", version = "0.18.0-dev", default-features = false }
 

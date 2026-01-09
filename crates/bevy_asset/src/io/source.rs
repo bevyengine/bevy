@@ -1,6 +1,6 @@
 use crate::{
     io::{processor_gated::ProcessorGatedReader, AssetSourceEvent, AssetWatcher},
-    processor::AssetProcessorData,
+    processor::ProcessingState,
 };
 use alloc::{
     boxed::Box,
@@ -180,7 +180,12 @@ impl AssetSourceBuilder {
             id: id.clone(),
             reader,
             writer,
-            processed_reader: self.processed_reader.as_mut().map(|r| r()),
+            processed_reader: self
+                .processed_reader
+                .as_mut()
+                .map(|r| r())
+                .map(Into::<Arc<_>>::into),
+            ungated_processed_reader: None,
             processed_writer,
             event_receiver: None,
             watcher: None,
@@ -386,7 +391,12 @@ pub struct AssetSource {
     id: AssetSourceId<'static>,
     reader: Box<dyn ErasedAssetReader>,
     writer: Option<Box<dyn ErasedAssetWriter>>,
-    processed_reader: Option<Box<dyn ErasedAssetReader>>,
+    processed_reader: Option<Arc<dyn ErasedAssetReader>>,
+    /// The ungated version of `processed_reader`.
+    ///
+    /// This allows the processor to read all the processed assets to initialize itself without
+    /// being gated on itself (causing a deadlock).
+    ungated_processed_reader: Option<Arc<dyn ErasedAssetReader>>,
     processed_writer: Option<Box<dyn ErasedAssetWriter>>,
     watcher: Option<Box<dyn AssetWatcher>>,
     processed_watcher: Option<Box<dyn AssetWatcher>>,
@@ -423,6 +433,13 @@ impl AssetSource {
         self.processed_reader
             .as_deref()
             .ok_or_else(|| MissingProcessedAssetReaderError(self.id.clone_owned()))
+    }
+
+    /// Return's this source's ungated processed [`AssetReader`](crate::io::AssetReader), if it
+    /// exists.
+    #[inline]
+    pub(crate) fn ungated_processed_reader(&self) -> Option<&dyn ErasedAssetReader> {
+        self.ungated_processed_reader.as_deref()
     }
 
     /// Return's this source's processed [`AssetWriter`](crate::io::AssetWriter), if it exists.
@@ -560,12 +577,13 @@ impl AssetSource {
 
     /// This will cause processed [`AssetReader`](crate::io::AssetReader) futures (such as [`AssetReader::read`](crate::io::AssetReader::read)) to wait until
     /// the [`AssetProcessor`](crate::AssetProcessor) has finished processing the requested asset.
-    pub fn gate_on_processor(&mut self, processor_data: Arc<AssetProcessorData>) {
+    pub(crate) fn gate_on_processor(&mut self, processing_state: Arc<ProcessingState>) {
         if let Some(reader) = self.processed_reader.take() {
-            self.processed_reader = Some(Box::new(ProcessorGatedReader::new(
+            self.ungated_processed_reader = Some(reader.clone());
+            self.processed_reader = Some(Arc::new(ProcessorGatedReader::new(
                 self.id(),
                 reader,
-                processor_data,
+                processing_state,
             )));
         }
     }
@@ -622,9 +640,9 @@ impl AssetSources {
 
     /// This will cause processed [`AssetReader`](crate::io::AssetReader) futures (such as [`AssetReader::read`](crate::io::AssetReader::read)) to wait until
     /// the [`AssetProcessor`](crate::AssetProcessor) has finished processing the requested asset.
-    pub fn gate_on_processor(&mut self, processor_data: Arc<AssetProcessorData>) {
+    pub(crate) fn gate_on_processor(&mut self, processing_state: Arc<ProcessingState>) {
         for source in self.iter_processed_mut() {
-            source.gate_on_processor(processor_data.clone());
+            source.gate_on_processor(processing_state.clone());
         }
     }
 }

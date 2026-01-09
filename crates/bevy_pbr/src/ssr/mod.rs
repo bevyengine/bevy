@@ -62,7 +62,8 @@ pub struct ScreenSpaceReflectionsPlugin;
 ///
 /// Screen-space reflections currently require deferred rendering in order to
 /// appear. Therefore, they also need the [`DepthPrepass`] and [`DeferredPrepass`]
-/// components, which are inserted automatically.
+/// components, which are inserted automatically,
+/// but deferred rendering itself is not automatically enabled.
 ///
 /// SSR currently performs no roughness filtering for glossy reflections, so
 /// only very smooth surfaces will reflect objects in screen space. You can
@@ -428,7 +429,6 @@ pub fn prepare_ssr_pipelines(
             With<ScreenSpaceReflectionsUniform>,
             With<DepthPrepass>,
             With<DeferredPrepass>,
-            With<ExtractedAtmosphere>,
         ),
     >,
 ) {
@@ -551,6 +551,9 @@ impl SpecializedRenderPipeline for ScreenSpaceReflectionsPipeline {
         if key.has_atmosphere {
             shader_defs.push("ATMOSPHERE".into());
         }
+
+        #[cfg(not(target_arch = "wasm32"))]
+        shader_defs.push("USE_DEPTH_SAMPLERS".into());
 
         RenderPipelineDescriptor {
             label: Some("SSR pipeline".into()),

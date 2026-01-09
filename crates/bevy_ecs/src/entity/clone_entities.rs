@@ -1,3 +1,8 @@
+#![expect(
+    unsafe_op_in_unsafe_fn,
+    reason = "See #11590. To be removed once all applicable unsafe code has an unsafe block with a safety comment."
+)]
+
 use crate::{
     archetype::Archetype,
     bundle::{Bundle, BundleRemover, InsertMode},
@@ -831,7 +836,7 @@ impl<'w, Filter: CloneByFilter> EntityClonerBuilder<'w, Filter> {
     /// Overrides the [`ComponentCloneBehavior`] for a component in this builder.
     /// This handler will be used to clone the component instead of the global one defined by the [`EntityCloner`].
     ///
-    /// See [Handlers section of `EntityClonerBuilder`](EntityClonerBuilder#handlers) to understand how this affects handler priority.
+    /// See [Clone Behaviors section of `EntityCloner`](EntityCloner#clone-behaviors) to understand how this affects handler priority.
     pub fn override_clone_behavior<T: Component>(
         &mut self,
         clone_behavior: ComponentCloneBehavior,
@@ -847,7 +852,7 @@ impl<'w, Filter: CloneByFilter> EntityClonerBuilder<'w, Filter> {
     /// Overrides the [`ComponentCloneBehavior`] for a component with the given `component_id` in this builder.
     /// This handler will be used to clone the component instead of the global one defined by the [`EntityCloner`].
     ///
-    /// See [Handlers section of `EntityClonerBuilder`](EntityClonerBuilder#handlers) to understand how this affects handler priority.
+    /// See [Clone Behaviors section of `EntityCloner`](EntityCloner#clone-behaviors) to understand how this affects handler priority.
     pub fn override_clone_behavior_with_id(
         &mut self,
         component_id: ComponentId,
@@ -1144,11 +1149,11 @@ impl OptOut {
     #[inline]
     fn filter_deny(&mut self, id: ComponentId, world: &World) {
         self.deny.insert(id);
-        if self.attach_required_by_components {
-            if let Some(required_by) = world.components().get_required_by(id) {
-                self.deny.extend(required_by.iter());
-            };
-        }
+        if self.attach_required_by_components
+            && let Some(required_by) = world.components().get_required_by(id)
+        {
+            self.deny.extend(required_by.iter());
+        };
     }
 }
 

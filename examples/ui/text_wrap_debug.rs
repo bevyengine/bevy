@@ -45,7 +45,7 @@ fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2d);
 
     let text_font = TextFont {
-        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+        font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
         font_size: 12.0,
         ..default()
     };
