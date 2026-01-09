@@ -72,6 +72,8 @@ pub struct SubApp {
     /// Panics if an update is attempted while plugins are building.
     pub(crate) plugin_build_depth: usize,
     pub(crate) plugins_state: PluginsState,
+    /// The schedule that will be run the first time [`update`](Self::update) is called.
+    pub startup_schedule: Option<InternedScheduleLabel>,
     /// The schedule that will be run by [`update`](Self::update).
     pub update_schedule: Option<InternedScheduleLabel>,
     /// A function that gives mutable access to two app worlds. This is primarily
@@ -95,6 +97,7 @@ impl Default for SubApp {
             plugin_names: HashSet::default(),
             plugin_build_depth: 0,
             plugins_state: PluginsState::Adding,
+            startup_schedule: None,
             update_schedule: None,
             extract: None,
         }
@@ -127,6 +130,21 @@ impl SubApp {
     /// Returns a mutable reference to the [`World`].
     pub fn world_mut(&mut self) -> &mut World {
         &mut self.world
+    }
+
+    /// Runs the default startup schedule.
+    ///
+    /// Does not clear internal trackers used for change detection.
+    pub fn run_default_startup_schedule(&mut self) {
+        if self.is_building_plugins() {
+            panic!(
+                "SubApp::run_default_startup_schedule() was called while a plugin was building."
+            );
+        }
+
+        if let Some(label) = self.startup_schedule {
+            self.world.run_schedule(label);
+        }
     }
 
     /// Runs the default schedule.
@@ -506,6 +524,14 @@ pub struct SubApps {
 }
 
 impl SubApps {
+    /// Runs the startup schedule of each subapps.
+    pub fn startup(&mut self) {
+        self.main.run_default_startup_schedule();
+        for sub_app in self.sub_apps.values_mut() {
+            sub_app.run_default_startup_schedule();
+        }
+    }
+
     /// Calls [`update`](SubApp::update) for the main sub-app, and then calls
     /// [`extract`](SubApp::extract) and [`update`](SubApp::update) for the rest.
     pub fn update(&mut self) {
