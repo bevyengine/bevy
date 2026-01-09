@@ -1,6 +1,6 @@
 #define_import_path bevy_solari::specular_gi
 
-#import bevy_pbr::pbr_functions::calculate_tbn_mikktspace
+#import bevy_pbr::pbr_functions::{calculate_tbn_mikktspace, calculate_diffuse_color, calculate_F0}
 #import bevy_pbr::prepass_bindings::PreviousViewUniforms
 #import bevy_render::maths::{orthonormalize, PI}
 #import bevy_render::view::View
@@ -12,6 +12,7 @@
 #import bevy_solari::realtime_bindings::{view_output, gi_reservoirs_a, gbuffer, depth_buffer, view, constants}
 #ifdef DLSS_RR_GUIDE_BUFFERS
 #import bevy_solari::realtime_bindings::{diffuse_albedo, specular_albedo, normal_roughness, specular_motion_vectors, previous_view}
+#import bevy_solari::resolve_dlss_rr_textures::env_brdf_approx2
 #endif
 
 const DIFFUSE_GI_REUSE_ROUGHNESS_THRESHOLD: f32 = 0.4;
@@ -29,7 +30,7 @@ fn specular_gi(@builtin(global_invocation_id) global_id: vec3<u32>) {
     if depth == 0.0 {
         return;
     }
-    let surface = gpixel_resolve(textureLoad(gbuffer, global_id.xy), depth, global_id.xy, view.main_pass_viewport.zw, view.world_from_clip);
+    let surface = gpixel_resolve(textureLoad(gbuffer, global_id.xy, 0), depth, global_id.xy, view.main_pass_viewport.zw, view.world_from_clip);
 
     let wo_unnormalized = view.world_position - surface.world_position;
     let wo = normalize(wo_unnormalized);
@@ -128,13 +129,14 @@ fn trace_glossy_path(pixel_id: vec2<u32>, primary_surface: ResolvedGPixel, initi
                 let virtual_previous_frame_position = (mirror_rotations * (ray_hit.previous_frame_world_position - primary_surface.world_position)) + primary_surface.world_position;
                 let specular_motion_vector = calculate_motion_vector(virtual_position, virtual_previous_frame_position);
 
-                // TODO
+                let F0 = calculate_F0(ray_hit.material.base_color, ray_hit.material.metallic, ray_hit.material.reflectance);
+                let wo = normalize(view.world_position - virtual_position); // TODO: Is this correct?
                 let virtual_normal = normalize(mirror_rotations * ray_hit.world_normal);
-                // textureStore(gbuffer, pixel_id, vec4(0.0));
-                // textureStore(specular_motion_vectors, pixel_id, vec4(0.0));
-                // textureStore(diffuse_albedo, pixel_id, vec4(0.0));
-                // textureStore(specular_albedo, pixel_id, vec4(0.5));
-                // textureStore(normal_roughness, pixel_id, vec4(0.0));
+
+                textureStore(specular_motion_vectors, pixel_id, vec4(specular_motion_vector, vec2(0.0)));
+                textureStore(diffuse_albedo, pixel_id, vec4(calculate_diffuse_color(ray_hit.material.base_color, ray_hit.material.metallic, 0.0, 0.0), 0.0));
+                textureStore(specular_albedo, pixel_id, vec4(env_brdf_approx2(F0, ray_hit.material.roughness, ray_hit.world_normal, wo), 0.0));
+                textureStore(normal_roughness, pixel_id, vec4(virtual_normal, ray_hit.material.perceptual_roughness));
             }
         }
 #endif

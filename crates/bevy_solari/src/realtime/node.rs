@@ -6,11 +6,8 @@ use crate::scene::RaytracingSceneBindings;
 #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
 use bevy_anti_alias::dlss::ViewDlssRayReconstructionTextures;
 use bevy_asset::{load_embedded_asset, Handle};
-use bevy_core_pipeline::{
-    deferred::DEFERRED_PREPASS_FORMAT,
-    prepass::{
-        PreviousViewData, PreviousViewUniformOffset, PreviousViewUniforms, ViewPrepassTextures,
-    },
+use bevy_core_pipeline::prepass::{
+    PreviousViewData, PreviousViewUniformOffset, PreviousViewUniforms, ViewPrepassTextures,
 };
 use bevy_diagnostic::FrameCount;
 use bevy_ecs::{
@@ -394,7 +391,7 @@ impl FromWorld for SolariLightingNode {
                     texture_storage_2d(TextureFormat::Rgba32Uint, StorageTextureAccess::ReadWrite),
                     storage_buffer_sized(false, None),
                     storage_buffer_sized(false, None),
-                    texture_storage_2d(DEFERRED_PREPASS_FORMAT, StorageTextureAccess::ReadWrite),
+                    texture_2d(TextureSampleType::Uint),
                     texture_depth_2d(),
                     texture_2d(TextureSampleType::Float { filterable: true }),
                     texture_2d(TextureSampleType::Uint),
@@ -566,7 +563,7 @@ impl FromWorld for SolariLightingNode {
                 "solari_lighting_specular_gi_with_psr_pipeline",
                 "specular_gi",
                 load_embedded_asset!(world, "specular_gi.wgsl"),
-                None,
+                Some(&bind_group_layout_resolve_dlss_rr_textures),
                 vec!["DLSS_RR_GUIDE_BUFFERS".into()],
             ),
             #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]

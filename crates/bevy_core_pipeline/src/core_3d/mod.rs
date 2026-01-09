@@ -1145,8 +1145,7 @@ pub fn prepare_prepass_textures(
                             dimension: TextureDimension::D2,
                             format: DEFERRED_PREPASS_FORMAT,
                             usage: TextureUsages::RENDER_ATTACHMENT
-                                | TextureUsages::TEXTURE_BINDING
-                                | TextureUsages::STORAGE_BINDING, // TODO: Configurable
+                                | TextureUsages::TEXTURE_BINDING,
                             view_formats: &[],
                         },
                     )
@@ -1168,8 +1167,7 @@ pub fn prepare_prepass_textures(
                             dimension: TextureDimension::D2,
                             format: DEFERRED_PREPASS_FORMAT,
                             usage: TextureUsages::RENDER_ATTACHMENT
-                                | TextureUsages::TEXTURE_BINDING
-                                | TextureUsages::STORAGE_BINDING, // TODO: Configurable
+                                | TextureUsages::TEXTURE_BINDING,
                             view_formats: &[],
                         },
                     )
