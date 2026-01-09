@@ -9,6 +9,7 @@ impl_reflect_opaque!(::core::time::Duration(
     Debug,
     Hash,
     PartialEq,
+    PartialOrd,
     Serialize,
     Deserialize,
     Default

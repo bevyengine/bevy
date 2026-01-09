@@ -22,6 +22,7 @@ impl_reflect_opaque!(bool(
     Debug,
     Hash,
     PartialEq,
+    PartialOrd,
     Serialize,
     Deserialize,
     Default
@@ -31,6 +32,7 @@ impl_reflect_opaque!(char(
     Debug,
     Hash,
     PartialEq,
+    PartialOrd,
     Serialize,
     Deserialize,
     Default
@@ -40,6 +42,7 @@ impl_reflect_opaque!(u8(
     Debug,
     Hash,
     PartialEq,
+    PartialOrd,
     Serialize,
     Deserialize,
     Default
@@ -49,6 +52,7 @@ impl_reflect_opaque!(u16(
     Debug,
     Hash,
     PartialEq,
+    PartialOrd,
     Serialize,
     Deserialize,
     Default
@@ -58,6 +62,7 @@ impl_reflect_opaque!(u32(
     Debug,
     Hash,
     PartialEq,
+    PartialOrd,
     Serialize,
     Deserialize,
     Default
@@ -67,6 +72,7 @@ impl_reflect_opaque!(u64(
     Debug,
     Hash,
     PartialEq,
+    PartialOrd,
     Serialize,
     Deserialize,
     Default
@@ -76,6 +82,7 @@ impl_reflect_opaque!(u128(
     Debug,
     Hash,
     PartialEq,
+    PartialOrd,
     Serialize,
     Deserialize,
     Default
@@ -85,6 +92,7 @@ impl_reflect_opaque!(usize(
     Debug,
     Hash,
     PartialEq,
+    PartialOrd,
     Serialize,
     Deserialize,
     Default
@@ -94,6 +102,7 @@ impl_reflect_opaque!(i8(
     Debug,
     Hash,
     PartialEq,
+    PartialOrd,
     Serialize,
     Deserialize,
     Default
@@ -103,6 +112,7 @@ impl_reflect_opaque!(i16(
     Debug,
     Hash,
     PartialEq,
+    PartialOrd,
     Serialize,
     Deserialize,
     Default
@@ -112,6 +122,7 @@ impl_reflect_opaque!(i32(
     Debug,
     Hash,
     PartialEq,
+    PartialOrd,
     Serialize,
     Deserialize,
     Default
@@ -121,6 +132,7 @@ impl_reflect_opaque!(i64(
     Debug,
     Hash,
     PartialEq,
+    PartialOrd,
     Serialize,
     Deserialize,
     Default
@@ -130,6 +142,7 @@ impl_reflect_opaque!(i128(
     Debug,
     Hash,
     PartialEq,
+    PartialOrd,
     Serialize,
     Deserialize,
     Default
@@ -139,6 +152,7 @@ impl_reflect_opaque!(isize(
     Debug,
     Hash,
     PartialEq,
+    PartialOrd,
     Serialize,
     Deserialize,
     Default
@@ -147,6 +161,7 @@ impl_reflect_opaque!(f32(
     Clone,
     Debug,
     PartialEq,
+    PartialOrd,
     Serialize,
     Deserialize,
     Default
@@ -155,6 +170,7 @@ impl_reflect_opaque!(f64(
     Clone,
     Debug,
     PartialEq,
+    PartialOrd,
     Serialize,
     Deserialize,
     Default
@@ -551,6 +567,21 @@ mod tests {
         let c: &dyn PartialReflect = &TAU;
         assert!(a.reflect_partial_eq(b).unwrap_or_default());
         assert!(!a.reflect_partial_eq(c).unwrap_or_default());
+    }
+
+    #[test]
+    fn should_partial_cmp_f32() {
+        use core::cmp::Ordering;
+
+        let a: &dyn PartialReflect = &1.0_f32;
+        let b: &dyn PartialReflect = &2.0_f32;
+
+        let ord = a.reflect_partial_cmp(b);
+        assert_eq!(ord, Some(Ordering::Less));
+
+        // mismatched type should return None
+        let ord_mismatch = a.reflect_partial_cmp(&1i32);
+        assert_eq!(ord_mismatch, None);
     }
 
     #[test]

@@ -24,6 +24,7 @@ impl_reflect_opaque!(::std::path::PathBuf(
     Debug,
     Hash,
     PartialEq,
+    PartialOrd,
     Serialize,
     Deserialize,
     Default

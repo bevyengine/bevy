@@ -171,6 +171,11 @@ fn match_reflect_impls(ast: DeriveInput, source: ReflectImplSource) -> TokenStre
 ///   A custom implementation may be provided using `#[reflect(PartialEq(my_partial_eq_func))]` where
 ///   `my_partial_eq_func` is the path to a function matching the signature:
 ///   `(&Self, value: &dyn #bevy_reflect_path::Reflect) -> bool`.
+/// * `#[reflect(PartialOrd)]` will let the implementation of `PartialReflect::reflect_partial_cmp`
+///   to rely on the type's [`PartialOrd`] implementation.
+///   A custom implementation may be provided using `#[reflect(PartialOrd(my_partial_cmp_fn))]` where
+///   `my_partial_cmp_fn` is the path to a function matching the signature:
+///   `(&Self, value: &dyn #bevy_reflect_path::PartialReflect) -> Option<::core::cmp::Ordering>`.
 /// * `#[reflect(Hash)]` will force the implementation of `Reflect::reflect_hash` to rely on
 ///   the type's [`Hash`] implementation.
 ///   A custom implementation may be provided using `#[reflect(Hash(my_hash_func))]` where

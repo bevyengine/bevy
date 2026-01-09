@@ -346,8 +346,10 @@ where
 
     /// Returns a "partial comparison" result.
     /// 
-    /// It only works for types that has registered ordering support via `#[reflect(PartialOrd)]`
-    /// No default reflection-based implementation is provided.
+    /// If the underlying type does not support it, returns `None`.
+    /// 
+    /// Currently it's only implemented for primitive/opaque types that implement
+    /// [`PartialOrd`], and other custom types that have `#[reflect(PartialOrd)]`, 
     fn reflect_partial_cmp(&self, _value: &dyn PartialReflect) -> Option<Ordering> {
         None
     }
