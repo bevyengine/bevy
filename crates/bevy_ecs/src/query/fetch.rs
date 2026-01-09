@@ -2776,6 +2776,13 @@ impl<T: Component> ArchetypeQueryData for Has<T> {}
 /// Entities are guaranteed to have at least one of the components in `T`.
 pub struct AnyOf<T>(PhantomData<T>);
 
+#[doc(hidden)]
+#[derive(Clone)]
+pub struct AnyOfFetch<T> {
+    fetch: T,
+    matches: bool,
+}
+
 macro_rules! impl_tuple_query_data {
     ($(#[$meta:meta])* $(($name: ident, $item: ident, $state: ident)),*) => {
         #[expect(
@@ -2890,21 +2897,33 @@ macro_rules! impl_anytuple_fetch {
         /// `update_component_access` replaces the filters with a disjunction where every element is a conjunction of the previous filters and the filters of one of the subqueries.
         /// This is sound because `matches_component_set` returns a disjunction of the results of the subqueries' implementations.
         unsafe impl<$($name: WorldQuery),*> WorldQuery for AnyOf<($($name,)*)> {
-            type Fetch<'w> = ($(($name::Fetch<'w>, bool),)*);
+            type Fetch<'w> = AnyOfFetch<($(AnyOfFetch<$name::Fetch<'w>>,)*)>;
             type State = ($($name::State,)*);
 
             fn shrink_fetch<'wlong: 'wshort, 'wshort>(fetch: Self::Fetch<'wlong>) -> Self::Fetch<'wshort> {
-                let ($($name,)*) = fetch;
-                ($(
-                    ($name::shrink_fetch($name.0), $name.1),
-                )*)
+                let ($($name,)*) = fetch.fetch;
+                AnyOfFetch {
+                    fetch:
+                        ($(AnyOfFetch {
+                            fetch: $name::shrink_fetch($name.fetch),
+                            matches: $name.matches,
+                        },)*),
+                    matches: fetch.matches,
+                }
             }
 
             #[inline]
             unsafe fn init_fetch<'w, 's>(_world: UnsafeWorldCell<'w>, state: &'s Self::State, _last_run: Tick, _this_run: Tick) -> Self::Fetch<'w> {
                 let ($($name,)*) = state;
-                // SAFETY: The invariants are upheld by the caller.
-                ($(( unsafe { $name::init_fetch(_world, $name, _last_run, _this_run) }, false),)*)
+                AnyOfFetch {
+                    fetch:
+                        ($(AnyOfFetch {
+                            // SAFETY: The invariants are upheld by the caller.
+                            fetch: unsafe { $name::init_fetch(_world, $name, _last_run, _this_run) },
+                            matches: false,
+                        },)*),
+                    matches: false,
+                }
             }
 
             const IS_DENSE: bool = true $(&& $name::IS_DENSE)*;
@@ -2917,26 +2936,30 @@ macro_rules! impl_anytuple_fetch {
                 _archetype: &'w Archetype,
                 _table: &'w Table
             ) {
-                let ($($name,)*) = _fetch;
+                let ($($name,)*) = &mut _fetch.fetch;
                 let ($($state,)*) = _state;
+                _fetch.matches = false;
                 $(
-                    $name.1 = $name::matches_component_set($state, &|id| _archetype.contains(id));
-                    if $name.1 {
+                    $name.matches = $name::matches_component_set($state, &|id| _archetype.contains(id));
+                    _fetch.matches = _fetch.matches || $name.matches;
+                    if $name.matches {
                         // SAFETY: The invariants are upheld by the caller.
-                        unsafe { $name::set_archetype(&mut $name.0, $state, _archetype, _table); }
+                        unsafe { $name::set_archetype(&mut $name.fetch, $state, _archetype, _table); }
                     }
                 )*
             }
 
             #[inline]
             unsafe fn set_table<'w, 's>(_fetch: &mut Self::Fetch<'w>, _state: &'s Self::State, _table: &'w Table) {
-                let ($($name,)*) = _fetch;
+                let ($($name,)*) = &mut _fetch.fetch;
                 let ($($state,)*) = _state;
+                _fetch.matches = false;
                 $(
-                    $name.1 = $name::matches_component_set($state, &|id| _table.has_column(id));
-                    if $name.1 {
+                    $name.matches = $name::matches_component_set($state, &|id| _table.has_column(id));
+                    _fetch.matches = _fetch.matches || $name.matches;
+                    if $name.matches {
                         // SAFETY: The invariants are required to be upheld by the caller.
-                        unsafe { $name::set_table(&mut $name.0, $state, _table); }
+                        unsafe { $name::set_table(&mut $name.fetch, $state, _table); }
                     }
                 )*
             }
@@ -2986,15 +3009,19 @@ macro_rules! impl_anytuple_fetch {
                 table: &Table,
                 rows: Range<u32>,
             ) -> Range<u32> {
-                if Self::IS_ARCHETYPAL {
+                // If this is an archetypal query, it must match all entities.
+                // If *none* of the subqueries matched the archetype, then this archetype was added in a transmute.
+                // We must treat those as matching in order to be consistent with `size_hint` for archetypal queries,
+                // so we treat them as matching for non-archetypal queries, as well.
+                if Self::IS_ARCHETYPAL || !fetch.matches {
                     rows
                 } else {
-                    let ($($name,)*) = fetch;
+                    let ($($name,)*) = &fetch.fetch;
                     let ($($state,)*) = state;
-                    let mut new_rows = rows.end..rows.end;
+                    let mut next_chunk = rows.end..rows.end;
                     // SAFETY: invariants are upheld by the caller.
-                    $(new_rows = new_rows.union_with(unsafe { $name::find_table_chunk($state, &$name.0, table, rows.clone()) });)*
-                    new_rows
+                    $(next_chunk = next_chunk.union_or_first(unsafe { $name::find_table_chunk($state, &$name.fetch, table, rows.clone()) });)*
+                    next_chunk
                 }
             }
 
@@ -3005,15 +3032,19 @@ macro_rules! impl_anytuple_fetch {
                 archetype: &Archetype,
                 mut indices: Range<u32>,
             ) -> Range<u32> {
-                if Self::IS_ARCHETYPAL {
+                // If this is an archetypal query, it must match all entities.
+                // If *none* of the subqueries matched the archetype, then this archetype was added in a transmute.
+                // We must treat those as matching in order to be consistent with `size_hint` for archetypal queries,
+                // so we treat them as matching for non-archetypal queries, as well.
+                if Self::IS_ARCHETYPAL || !fetch.matches {
                     indices
                 } else {
-                    let ($($name,)*) = fetch;
+                    let ($($name,)*) = &fetch.fetch;
                     let ($($state,)*) = state;
-                    let mut new_indices = indices.end..indices.end;
+                    let mut next_chunk = indices.end..indices.end;
                     // SAFETY: invariants are upheld by the caller.
-                    $(new_indices = new_indices.union_with(unsafe { $name::find_archetype_chunk($state, &$name.0, archetype, indices.clone()) });)*
-                    new_indices
+                    $(next_chunk = next_chunk.union_or_first(unsafe { $name::find_archetype_chunk($state, &$name.fetch, archetype, indices.clone()) });)*
+                    next_chunk
                 }
             }
 
@@ -3024,8 +3055,18 @@ macro_rules! impl_anytuple_fetch {
                 entity: Entity,
                 table_row: TableRow,
             ) -> bool {
-                todo!() // TODO: weirdness with `fetch` below. Make sure find_table_chunk and
-                        // find_archetype_chunk are fine too.
+                // If this is an archetypal query, it must match all entities.
+                // If *none* of the subqueries matched the archetype, then this archetype was added in a transmute.
+                // We must treat those as matching in order to be consistent with `size_hint` for archetypal queries,
+                // so we treat them as matching for non-archetypal queries, as well.
+                if Self::IS_ARCHETYPAL || !fetch.matches {
+                    true
+                } else {
+                    let ($($name,)*) = &fetch.fetch;
+                    let ($($state,)*) = state;
+                    // SAFETY: invariants are upheld by the caller.
+                    false $(|| unsafe { $name::matches(&$state, &$name.fetch, entity, table_row) })*
+                }
             }
         }
 
@@ -3066,24 +3107,16 @@ macro_rules! impl_anytuple_fetch {
                 _entity: Entity,
                 _table_row: TableRow
             ) -> Self::Item<'w, 's> {
-                let ($($name,)*) = _fetch;
+                let ($($name,)*) = &mut _fetch.fetch;
                 let ($($state,)*) = _state;
                 ($(
                     // SAFETY: The invariants are required to be upheld by the caller.
-                    $name.1.then(|| unsafe { $name::fetch($state, &mut $name.0, _entity, _table_row) }).flatten(),
-                )*);
-                // If this is an archetypal query, then it is guaranteed to return `Some`,
-                // and we can help the compiler remove branches by checking the const `IS_ARCHETYPAL` first.
-                (Self::IS_ARCHETYPAL
-                    // We want to return `Some` if the query matches this entity,
-                    // which happens if at least one subquery returns `Some`.
-                    // So, fetch everything as usual, but if all the subqueries return `None` then return `None` instead.
-                    || !matches!(result, ($(Option::<QueryItem<$name>>::None,)*))
-                    // If *none* of the subqueries matched the archetype, then this archetype was added in a transmute.
-                    // We must treat those as matching in order to be consistent with `size_hint` for archetypal queries,
-                    // so we treat them as matching for non-archetypal queries, as well.
-                    || !(false $(|| $name.1)*))
-                .then_some(result)
+                    unsafe { $name::matches(&$state, &$name.fetch, _entity, _table_row) }.then(||
+                        // SAFETY: the above guard verifies this subquery matches the given entity.
+                        // other invariants are upheld by the caller.
+                        unsafe { $name::fetch($state, &mut $name.fetch, _entity, _table_row) }
+                    ),
+                )*)
             }
 
             fn iter_access(state: &Self::State) -> impl Iterator<Item = EcsAccessType<'_>> {

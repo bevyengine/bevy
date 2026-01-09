@@ -312,18 +312,10 @@ impl<T: Component> QueryFilter for Without<T> {}
 pub struct Or<T>(PhantomData<T>);
 
 #[doc(hidden)]
-pub struct OrFetch<'w, T: WorldQuery> {
-    fetch: T::Fetch<'w>,
+#[derive(Clone)]
+pub struct OrFetch<T> {
+    fetch: T,
     matches: bool,
-}
-
-impl<T: WorldQuery> Clone for OrFetch<'_, T> {
-    fn clone(&self) -> Self {
-        Self {
-            fetch: self.fetch.clone(),
-            matches: self.matches,
-        }
-    }
 }
 
 macro_rules! impl_or_query_filter {
@@ -357,17 +349,21 @@ macro_rules! impl_or_query_filter {
         /// `update_component_access` replace the filters with a disjunction where every element is a conjunction of the previous filters and the filters of one of the subqueries.
         /// This is sound because `matches_component_set` returns a disjunction of the results of the subqueries' implementations.
         unsafe impl<$($filter: QueryFilter),*> WorldQuery for Or<($($filter,)*)> {
-            type Fetch<'w> = ($(OrFetch<'w, $filter>,)*);
+            type Fetch<'w> = OrFetch<($(OrFetch<$filter::Fetch<'w>>,)*)>;
             type State = ($($filter::State,)*);
 
             fn shrink_fetch<'wlong: 'wshort, 'wshort>(fetch: Self::Fetch<'wlong>) -> Self::Fetch<'wshort> {
-                let ($($filter,)*) = fetch;
-                ($(
-                    OrFetch {
-                        fetch: $filter::shrink_fetch($filter.fetch),
-                        matches: $filter.matches
-                    },
-                )*)
+                let ($($filter,)*) = fetch.fetch;
+                OrFetch {
+                    fetch:
+                        ($(
+                            OrFetch {
+                                fetch: $filter::shrink_fetch($filter.fetch),
+                                matches: $filter.matches
+                            },
+                        )*),
+                    matches: fetch.matches,
+                }
             }
 
             const IS_DENSE: bool = true $(&& $filter::IS_DENSE)*;
@@ -376,11 +372,15 @@ macro_rules! impl_or_query_filter {
             #[inline]
             unsafe fn init_fetch<'w, 's>(world: UnsafeWorldCell<'w>, state: &'s Self::State, last_run: Tick, this_run: Tick) -> Self::Fetch<'w> {
                 let ($($filter,)*) = state;
-                ($(OrFetch {
-                    // SAFETY: The invariants are upheld by the caller.
-                    fetch: unsafe { $filter::init_fetch(world, $filter, last_run, this_run) },
-                    matches: false,
-                },)*)
+                OrFetch {
+                    fetch:
+                        ($(OrFetch {
+                            // SAFETY: The invariants are upheld by the caller.
+                            fetch: unsafe { $filter::init_fetch(world, $filter, last_run, this_run) },
+                            matches: false,
+                        },)*),
+                    matches: false
+                }
             }
 
             #[inline]
@@ -390,10 +390,12 @@ macro_rules! impl_or_query_filter {
                 if Self::IS_ARCHETYPAL {
                     return;
                 }
-                let ($($filter,)*) = fetch;
+                let ($($filter,)*) = &mut fetch.fetch;
                 let ($($state,)*) = state;
+                fetch.matches = false;
                 $(
                     $filter.matches = $filter::matches_component_set($state, &|id| table.has_column(id));
+                    fetch.matches = fetch.matches || $filter.matches;
                     if $filter.matches {
                         // SAFETY: The invariants are upheld by the caller.
                         unsafe { $filter::set_table(&mut $filter.fetch, $state, table); }
@@ -413,10 +415,12 @@ macro_rules! impl_or_query_filter {
                 if Self::IS_ARCHETYPAL {
                     return;
                 }
-                let ($($filter,)*) = fetch;
+                let ($($filter,)*) = &mut fetch.fetch;
                 let ($($state,)*) = &state;
+                fetch.matches = false;
                 $(
                     $filter.matches = $filter::matches_component_set($state, &|id| archetype.contains(id));
+                    fetch.matches = fetch.matches || $filter.matches;
                     if $filter.matches {
                         // SAFETY: The invariants are upheld by the caller.
                        unsafe { $filter::set_archetype(&mut $filter.fetch, $state, archetype, table); }
@@ -466,14 +470,18 @@ macro_rules! impl_or_query_filter {
                 table: &Table,
                 rows: Range<u32>,
             ) -> Range<u32> {
-                if Self::IS_ARCHETYPAL {
+                // If this is an archetypal query, it must match all entities.
+                // If *none* of the subqueries matched the archetype, then this archetype was added in a transmute.
+                // We must treat those as matching in order to be consistent with `size_hint` for archetypal queries,
+                // so we treat them as matching for non-archetypal queries, as well.
+                if Self::IS_ARCHETYPAL || !fetch.matches {
                     rows
                 } else {
-                    let ($($filter,)*) = fetch;
+                    let ($($filter,)*) = &fetch.fetch;
                     let ($($state,)*) = state;
                     let mut new_rows = rows.end..rows.end;
                     // SAFETY: invariants are upheld by the caller.
-                    $(new_rows = new_rows.union_with(unsafe { $filter::find_table_chunk($state, &$filter.fetch, table, rows.clone()) });)*
+                    $(new_rows = new_rows.union_or_first(unsafe { $filter::find_table_chunk($state, &$filter.fetch, table, rows.clone()) });)*
                     new_rows
                 }
             }
@@ -485,14 +493,18 @@ macro_rules! impl_or_query_filter {
                 archetype: &Archetype,
                 mut indices: Range<u32>,
             ) -> Range<u32> {
-                if Self::IS_ARCHETYPAL {
+                // If this is an archetypal query, it must match all entities.
+                // If *none* of the subqueries matched the archetype, then this archetype was added in a transmute.
+                // We must treat those as matching in order to be consistent with `size_hint` for archetypal queries,
+                // so we treat them as matching for non-archetypal queries, as well.
+                if Self::IS_ARCHETYPAL || !fetch.matches {
                     indices
                 } else {
-                    let ($($filter,)*) = fetch;
+                    let ($($filter,)*) = &fetch.fetch;
                     let ($($state,)*) = state;
                     let mut new_indices = indices.end..indices.end;
                     // SAFETY: invariants are upheld by the caller.
-                    $(new_indices = new_indices.union_with(unsafe { $filter::find_archetype_chunk($state, &$filter.fetch, archetype, indices.clone()) });)*
+                    $(new_indices = new_indices.union_or_first(unsafe { $filter::find_archetype_chunk($state, &$filter.fetch, archetype, indices.clone()) });)*
                     new_indices
                 }
             }
@@ -504,8 +516,18 @@ macro_rules! impl_or_query_filter {
                 entity: Entity,
                 table_row: TableRow,
             ) -> bool {
-                todo!() // TODO: weirdness with `fetch` below. Make sure find_table_chunk and
-                        // find_archetype_chunk are fine too.
+                // If this is an archetypal query, it must match all entities.
+                // If *none* of the subqueries matched the archetype, then this archetype was added in a transmute.
+                // We must treat those as matching in order to be consistent with `size_hint` for archetypal queries,
+                // so we treat them as matching for non-archetypal queries, as well.
+                if Self::IS_ARCHETYPAL || !fetch.matches {
+                    true
+                } else {
+                    let ($($filter,)*) = &fetch.fetch;
+                    let ($($state,)*) = state;
+                    // SAFETY: invariants are upheld by the caller.
+                    false $(|| unsafe { $filter::matches(&$state, &$filter.fetch, entity, table_row) })*
+                }
             }
         }
 

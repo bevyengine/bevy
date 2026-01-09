@@ -1,4 +1,4 @@
-use core::ops::Range;
+use core::{mem, ops::Range};
 
 use crate::{
     archetype::Archetype,
@@ -239,9 +239,9 @@ pub unsafe trait WorldQuery {
 /// Extension trait for `Range`, adding convenience methods for use with [`WorldQuery::find_table_chunk`]
 /// and [`WorldQuery::find_archetype_chunk`].
 pub trait RangeExt {
-    /// Returns the union of `self` and `other`, i.e. the smallest range which fully
-    /// covers each of them.
-    fn union_with(self, other: Self) -> Self;
+    /// Returns the union of `self` and `other` if they overlap, otherwise returns
+    /// whichever is first.
+    fn union_or_first(self, other: Self) -> Self;
     /// Returns the next contiguous segment for which `func` returns true for all
     /// indices in the segment.
     fn find_chunk<F: FnMut(NonMaxU32) -> bool>(self, func: F) -> Self;
@@ -249,11 +249,16 @@ pub trait RangeExt {
 
 impl RangeExt for Range<u32> {
     #[inline]
-    fn union_with(self, other: Self) -> Self {
-        Range {
-            start: self.start.min(other.start),
-            end: self.end.min(other.end),
+    fn union_or_first(mut self, mut other: Self) -> Self {
+        if self.start > other.start {
+            mem::swap(&mut self, &mut other);
         }
+
+        if self.end >= other.start && self.end < other.end {
+            self.end = other.end
+        }
+
+        self
     }
 
     #[inline]
