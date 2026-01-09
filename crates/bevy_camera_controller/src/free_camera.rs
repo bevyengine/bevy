@@ -114,7 +114,7 @@ pub struct FreeCamera {
     /// The strategy used to calculate the movement direction relative to the camera's orientation.
     ///
     /// Defaults to [`RotationSystem::YawPitchRoll`].
-    pub rotation_system: RotationSystem
+    pub rotation_system: RotationSystem,
 }
 
 impl Default for FreeCamera {
