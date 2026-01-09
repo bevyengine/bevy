@@ -298,7 +298,7 @@ pub fn measure_text_system(
                 text_flags.needs_measure_fn = false;
                 text_flags.needs_recompute = true;
             }
-            Err(TextError::NoSuchFont) => {
+            Err(TextError::NoSuchFont | TextError::DegenerateScaleFactor) => {
                 // Try again next frame
                 text_flags.needs_measure_fn = true;
             }
@@ -364,7 +364,7 @@ pub fn text_system(
                 physical_node_size,
                 block.justify,
             ) {
-                Err(TextError::NoSuchFont) => {
+                Err(TextError::NoSuchFont | TextError::DegenerateScaleFactor) => {
                     // There was an error processing the text layout, try again next frame
                     text_flags.needs_recompute = true;
                 }

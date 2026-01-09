@@ -1167,7 +1167,7 @@ async fn load_image<'a, 'b>(
                 })
             } else {
                 let image_path = gltf_path
-                    .resolve_embed(uri)
+                    .resolve_embed_str(uri)
                     .map_err(|err| GltfError::InvalidImageUri(uri.to_owned(), err))?;
                 Ok(ImageOrPath::Path {
                     path: image_path,
@@ -1834,7 +1834,7 @@ async fn load_buffers(
                         // TODO: Remove this and add dep
                         let buffer_path = load_context
                             .path()
-                            .resolve_embed(uri)
+                            .resolve_embed_str(uri)
                             .map_err(|err| GltfError::InvalidBufferUri(uri.to_owned(), err))?;
                         load_context.read_asset_bytes(buffer_path).await?
                     }

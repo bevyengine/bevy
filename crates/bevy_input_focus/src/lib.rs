@@ -23,6 +23,7 @@ extern crate std;
 extern crate alloc;
 
 pub mod directional_navigation;
+pub mod navigator;
 pub mod tab_navigation;
 
 // This module is too small / specific to be exported by the crate,
@@ -85,7 +86,7 @@ use bevy_reflect::{prelude::*, Reflect};
 ///     world.insert_resource(InputFocus::from_entity(entity));
 /// }
 /// ```
-#[derive(Clone, Debug, Default, Resource)]
+#[derive(Clone, Debug, Default, Resource, PartialEq)]
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
