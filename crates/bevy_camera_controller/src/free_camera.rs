@@ -320,7 +320,6 @@ pub fn run_freecamera_controller(
                 let (yaw, _, _) = transform.rotation.to_euler(EulerRot::YXZ);
                 Quat::from_rotation_y(yaw)
             }
-            _ => panic!("Invalid rotation system"),
         };
 
         transform.translation += rotation * state.velocity * dt;
