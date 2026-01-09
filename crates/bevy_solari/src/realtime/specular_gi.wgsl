@@ -128,7 +128,7 @@ fn trace_glossy_path(pixel_id: vec2<u32>, primary_surface: ResolvedGPixel, initi
         }
 #endif
 
-        if i != 0u && path_spread * path_spread > a0 * get_cell_size(ray_hit.world_position, view.world_position) {
+        if path_spread * path_spread > a0 * get_cell_size(ray_hit.world_position, view.world_position) {
             // Path spread is wide enough, terminate path in the world cache
             let diffuse_brdf = ray_hit.material.base_color / PI;
             radiance += throughput * diffuse_brdf * query_world_cache(ray_hit.world_position, ray_hit.geometric_world_normal, view.world_position, WORLD_CACHE_CELL_LIFETIME, rng);
