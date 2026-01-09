@@ -34,6 +34,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             tile_y: true,
             stretch_value: 0.5, // The image will tile every 128px
         },
+        flip_x: true,
         ..default()
     });
 }

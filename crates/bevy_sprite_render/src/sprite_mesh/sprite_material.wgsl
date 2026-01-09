@@ -94,18 +94,18 @@ fn fragment(
 
     var uv = mesh.uv; 
 
-    if (material.flags & SPRITE_MATERIAL_FLAGS_TILE_X) != 0u {
-        uv.x = (uv.x - material.tile_stretch_value.x * floor(uv.x / material.tile_stretch_value.x)) / material.tile_stretch_value.x;
-    }
-    if (material.flags & SPRITE_MATERIAL_FLAGS_TILE_Y) != 0u {
-        uv.y = (uv.y - material.tile_stretch_value.y * floor(uv.y / material.tile_stretch_value.y)) / material.tile_stretch_value.y;
-    }
-
     if (material.flags & SPRITE_MATERIAL_FLAGS_FLIP_X) != 0u {
         uv.x = 1.0 - uv.x;
     }
     if (material.flags & SPRITE_MATERIAL_FLAGS_FLIP_Y) != 0u {
         uv.y = 1.0 - uv.y;
+    }
+
+    if (material.flags & SPRITE_MATERIAL_FLAGS_TILE_X) != 0u {
+        uv.x = (uv.x - material.tile_stretch_value.x * floor(uv.x / material.tile_stretch_value.x)) / material.tile_stretch_value.x;
+    }
+    if (material.flags & SPRITE_MATERIAL_FLAGS_TILE_Y) != 0u {
+        uv.y = (uv.y - material.tile_stretch_value.y * floor(uv.y / material.tile_stretch_value.y)) / material.tile_stretch_value.y;
     }
 
     uv = (material.uv_transform * vec3(uv, 1.0)).xy;
