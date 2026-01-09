@@ -111,10 +111,6 @@ impl AsBindGroupShaderType<ForwardDecalMaterialExtUniform> for ForwardDecalMater
 }
 
 impl MaterialExtension for ForwardDecalMaterialExt {
-    fn enable_shadows() -> bool {
-        false
-    }
-
     fn enable_prepass() -> bool {
         false
     }
