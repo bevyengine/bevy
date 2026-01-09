@@ -90,6 +90,7 @@ pub struct ForwardDecalMaterialExt {
     /// blending with more distant surfaces.
     ///
     /// Units are in meters.
+    ///
     /// This has no effect if alpha mode is `Opaque`.
     pub depth_fade_factor: f32,
 }
@@ -112,7 +113,7 @@ impl AsBindGroupShaderType<ForwardDecalMaterialExtUniform> for ForwardDecalMater
 
 impl MaterialExtension for ForwardDecalMaterialExt {
     fn enable_prepass() -> bool {
-        false
+        false // This is needed if alpha mode is `Opaque`.
     }
 
     fn enable_shadows() -> bool {
