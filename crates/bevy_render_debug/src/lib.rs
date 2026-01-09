@@ -95,8 +95,8 @@ impl Plugin for RenderDebugOverlayPlugin {
     }
 }
 
-/// Automatically attach keybinds to make renderer debugging tools immediately available without
-/// code changes.
+/// Automatically attach keybinds to make render debug overlays available to users without code 
+/// changes when the feature is enabled.
 pub fn handle_input(
     keyboard: Res<ButtonInput<KeyCode>>,
     mut events: MessageWriter<RenderDebugOverlayEvent>,
@@ -109,8 +109,7 @@ pub fn handle_input(
     }
 }
 
-/// Automatically attach keybinds to make renderer debugging tools immediately available without
-/// code changes.
+/// Listen to messages to update the debug overlay configuration.
 pub fn update_overlay(
     mut commands: Commands,
     mut events: MessageReader<RenderDebugOverlayEvent>,
