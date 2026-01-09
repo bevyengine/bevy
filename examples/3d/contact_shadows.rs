@@ -3,6 +3,7 @@
 use crate::widgets::{RadioButton, RadioButtonText, WidgetClickEvent, WidgetClickSender};
 use bevy::anti_alias::taa::TemporalAntiAliasing;
 use bevy::core_pipeline::tonemapping::Tonemapping;
+use bevy::core_pipeline::Skybox;
 use bevy::light::AtmosphereEnvironmentMapLight;
 use bevy::pbr::{AtmosphereSettings, EarthlikeAtmosphere, ScreenSpaceAmbientOcclusion};
 use bevy::post_process::motion_blur::MotionBlur;
@@ -94,11 +95,7 @@ fn main() {
         .run();
 }
 
-fn setup(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-    earth_atmosphere: Res<EarthlikeAtmosphere>,
-) {
+fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn((
         Camera3d::default(),
         Transform::from_xyz(0.8, 0.6, 0.8).looking_at(Vec3::new(0.0, 0.35, 0.0), Vec3::Y),
@@ -107,9 +104,17 @@ fn setup(
         // Everything past this point is extra to look pretty.
         Bloom::default(),
         Hdr,
-        AtmosphereEnvironmentMapLight::default(),
-        AtmosphereSettings::default(),
-        earth_atmosphere.get(),
+        Skybox {
+            brightness: 500.0,
+            image: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
+            ..default()
+        },
+        EnvironmentMapLight {
+            diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
+            specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
+            intensity: 1000.0,
+            ..default()
+        },
         ScreenSpaceAmbientOcclusion::default(),
         Msaa::Off,
         Tonemapping::AcesFitted,
