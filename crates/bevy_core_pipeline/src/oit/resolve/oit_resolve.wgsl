@@ -3,7 +3,7 @@
 
 @group(0) @binding(0) var<uniform> view: View;
 @group(0) @binding(1) var<storage, read> nodes: array<OitFragmentNode>;
-@group(0) @binding(2) var<storage, read_write> headers: array<u32>; // No need to be atomic
+@group(0) @binding(2) var<storage, read_write> heads: array<u32>; // No need to be atomic
 @group(0) @binding(3) var<storage, read_write> atomic_counter: u32; // No need to be atomic
 
 #ifndef DEPTH_PREPASS
@@ -29,8 +29,8 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     atomic_counter = 0u;
     let screen_index = u32(floor(in.position.x) + floor(in.position.y) * view.viewport.z);
 
-    let header = headers[screen_index];
-    if header == LINKED_LIST_END_SENTINEL {
+    let head = heads[screen_index];
+    if head == LINKED_LIST_END_SENTINEL {
         // https://github.com/gfx-rs/wgpu/issues/4416
         if true {
             discard;
@@ -46,13 +46,13 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
 #else
         let d = 0.0;
 #endif
-        let color = resolve(header, d);
-        headers[screen_index] = LINKED_LIST_END_SENTINEL;
+        let color = resolve(head, d);
+        heads[screen_index] = LINKED_LIST_END_SENTINEL;
         return color;
     }
 }
 
-fn resolve(header: u32, opaque_depth: f32) -> vec4<f32> {
+fn resolve(head: u32, opaque_depth: f32) -> vec4<f32> {
     // Contains all the colors and depth for this specific fragment
     // Fragments are sorted from front to back (depth values are in descending order)
     // This should make insertion sort slightly faster
@@ -61,7 +61,7 @@ fn resolve(header: u32, opaque_depth: f32) -> vec4<f32> {
     var final_color = vec4<f32>(0.0);
 
     // fill list
-    var current_node = header;
+    var current_node = head;
     var sorted_frag_count = 0u;
     while current_node != LINKED_LIST_END_SENTINEL {
         let fragment_node = nodes[current_node];

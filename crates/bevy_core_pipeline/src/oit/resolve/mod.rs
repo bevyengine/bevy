@@ -117,7 +117,7 @@ impl OitResolvePipeline {
                     uniform_buffer::<ViewUniform>(true),
                     // nodes
                     storage_buffer_read_only_sized(false, None),
-                    // headers
+                    // heads
                     storage_buffer_sized(false, None),
                     // atomic_counter
                     storage_buffer_sized(false, NonZero::<u64>::new(size_of::<u32>() as u64)),
@@ -253,15 +253,10 @@ pub fn prepare_oit_resolve_bind_group(
     pipeline_cache: Res<PipelineCache>,
     buffers: Res<OitBuffers>,
 ) {
-    if let (
-        Some(binding),
-        Some(nodes_binding),
-        Some(headers_binding),
-        Some(atomic_counter_binding),
-    ) = (
+    if let (Some(binding), Some(nodes_binding), Some(heads_binding), Some(atomic_counter_binding)) = (
         view_uniforms.uniforms.binding(),
         buffers.nodes.binding(),
-        buffers.headers.binding(),
+        buffers.heads.binding(),
         buffers.atomic_counter.binding(),
     ) {
         let bind_group = render_device.create_bind_group(
@@ -270,7 +265,7 @@ pub fn prepare_oit_resolve_bind_group(
             &BindGroupEntries::sequential((
                 binding.clone(),
                 nodes_binding,
-                headers_binding,
+                heads_binding,
                 atomic_counter_binding,
             )),
         );

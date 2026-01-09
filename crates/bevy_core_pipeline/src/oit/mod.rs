@@ -153,7 +153,7 @@ pub struct OitBuffers {
     /// This is essentially used as a 3d array where xy is the screen coordinate and z is
     /// the list of fragments rendered with OIT.
     pub nodes: BufferVec<OitFragmentNode>,
-    pub headers: BufferVec<u32>,
+    pub heads: BufferVec<u32>,
     pub atomic_counter: BufferVec<u32>,
 }
 
@@ -168,10 +168,10 @@ pub fn init_oit_buffers(
     nodes.set_label(Some("oit_nodes"));
     nodes.reserve(1, &render_device);
 
-    let mut headers = BufferVec::new(BufferUsages::COPY_DST | BufferUsages::STORAGE);
-    headers.set_label(Some("oit_headers"));
-    headers.push(u32::MAX);
-    headers.write_buffer(&render_device, &render_queue);
+    let mut heads = BufferVec::new(BufferUsages::COPY_DST | BufferUsages::STORAGE);
+    heads.set_label(Some("oit_heads"));
+    heads.push(u32::MAX);
+    heads.write_buffer(&render_device, &render_queue);
 
     let mut atomic_counter = BufferVec::new(BufferUsages::COPY_DST | BufferUsages::STORAGE);
     atomic_counter.set_label(Some("oit_atomic_counter"));
@@ -183,7 +183,7 @@ pub fn init_oit_buffers(
 
     commands.insert_resource(OitBuffers {
         nodes,
-        headers,
+        heads,
         atomic_counter,
         settings,
     });
@@ -223,20 +223,20 @@ pub fn prepare_oit_buffers(
             fragments_per_pixel_average.max(settings.fragments_per_pixel_average);
     }
 
-    // Create or update the headers texture based on the max size
-    let headers_size = (max_size.x * max_size.y) as usize;
-    if buffers.headers.capacity() < headers_size {
+    // Create or update the heads buffer based on the max size
+    let heads_size = (max_size.x * max_size.y) as usize;
+    if buffers.heads.capacity() < heads_size {
         let start = Instant::now();
-        buffers.headers.clear();
-        buffers.headers.reserve(headers_size, &render_device);
-        for _ in 0..headers_size {
-            buffers.headers.push(u32::MAX);
+        buffers.heads.clear();
+        buffers.heads.reserve(heads_size, &render_device);
+        for _ in 0..heads_size {
+            buffers.heads.push(u32::MAX);
         }
-        buffers.headers.write_buffer(&render_device, &render_queue);
+        buffers.heads.write_buffer(&render_device, &render_queue);
         trace!(
-            "OIT headers buffer updated in {:.01}ms with total size {} MiB",
+            "OIT heads buffer updated in {:.01}ms with total size {} MiB",
             start.elapsed().as_millis(),
-            buffers.headers.capacity() * size_of::<u32>() / 1024 / 1024,
+            buffers.heads.capacity() * size_of::<u32>() / 1024 / 1024,
         );
     }
 

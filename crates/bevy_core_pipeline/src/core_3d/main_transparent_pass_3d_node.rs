@@ -54,7 +54,7 @@ impl ViewNode for MainTransparentPass3dNode {
         if !transparent_phase.items.is_empty() {
             if has_oit {
                 // We can't run transparent phase if OitResolvePipelineId is not ready
-                // Otherwise we will write to `oit_atomic_counter` and `oit_headers` buffer without resetting them
+                // Otherwise we will write to `oit_atomic_counter` and `oit_heads` buffer without resetting them
                 // which causes corrupted linked list(can have circular references) on the next pass
                 let Some(oit_resolve_pipeline_id) = oit_resolve_pipeline_id else {
                     return Ok(());

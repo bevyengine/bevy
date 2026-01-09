@@ -389,7 +389,7 @@ fn layout_entries(
                 ),
                 // oit_nodes
                 (27, storage_buffer_sized(false, None)),
-                // oit_headers,
+                // oit_heads,
                 (28, storage_buffer_sized(false, None)),
                 // oit_atomic_counter
                 (
@@ -729,19 +729,19 @@ pub fn prepare_mesh_view_bind_groups(
                 && let (
                     Some(oit_settings_binding),
                     Some(oit_nodes),
-                    Some(oit_headers),
+                    Some(oit_heads),
                     Some(oit_atomic_counter),
                 ) = (
                     oit_buffers.settings.binding(),
                     oit_buffers.nodes.binding(),
-                    oit_buffers.headers.binding(),
+                    oit_buffers.heads.binding(),
                     oit_buffers.atomic_counter.binding(),
                 )
             {
                 entries = entries.extend_with_indices((
                     (26, oit_settings_binding.clone()),
                     (27, oit_nodes.clone()),
-                    (28, oit_headers.clone()),
+                    (28, oit_heads.clone()),
                     (29, oit_atomic_counter.clone()),
                 ));
             }
