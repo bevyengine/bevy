@@ -50,8 +50,8 @@ fn spawn_sprites(
             Vec2::new(100.0, 200.0),
             SpriteImageMode::Sliced(TextureSlicer {
                 border: BorderRect::all(slice_border),
-                center_scale_mode: SliceScaleMode::Tile { stretch_value: 0.5 },
-                sides_scale_mode: SliceScaleMode::Tile { stretch_value: 0.2 },
+                center_scale_mode: SliceScaleMode::Tile { stretch_value: 10. },
+                sides_scale_mode: SliceScaleMode::Tile { stretch_value: 20. },
                 ..default()
             }),
         ),

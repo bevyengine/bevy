@@ -30,18 +30,18 @@ struct Vertex {
 @vertex
 fn vertex(vertex: Vertex) -> VertexOutput {
     var out: VertexOutput;
+
 #ifdef VERTEX_UVS
     out.uv = vertex.uv;
 #endif
 
 #ifdef VERTEX_POSITIONS
     var world_from_local = mesh_functions::get_world_from_local(vertex.instance_index);
-    let scaled_position = vec4<f32>(vertex.position * vec3<f32>(material.scale, 1.0), 1.0);
-    // let scaled_position = vec4<f32>(vertex.position, 1.0);
+    let position = vec4<f32>(vertex.position * vec3<f32>(material.vertex_scale, 1.0) + vec3<f32>(material.vertex_offset, 0.0), 1.0);
 
     out.world_position = mesh_functions::mesh2d_position_local_to_world(
         world_from_local,
-        scaled_position
+        position
     );
     out.position = mesh_functions::mesh2d_position_world_to_clip(out.world_position);
 #endif
@@ -67,7 +67,8 @@ struct SpriteMaterial {
     color: vec4<f32>,
     flags: u32,
     alpha_cutoff: f32, 
-    scale: vec2<f32>,
+    vertex_scale: vec2<f32>,
+    vertex_offset: vec2<f32>,
     uv_transform: mat3x3<f32>,
 };
 
@@ -91,9 +92,9 @@ fn fragment(
     var output_color = alpha_discard(sprite_color * material.color); 
 
     
-    #ifdef TONEMAP_IN_SHADER
-        output_color = tonemapping::tone_mapping(output_color, view.color_grading);
-    #endif
+#ifdef TONEMAP_IN_SHADER
+    output_color = tonemapping::tone_mapping(output_color, view.color_grading);
+#endif
     
     return output_color;
 }
@@ -107,17 +108,17 @@ fn alpha_discard(output_color: vec4<f32>) -> vec4<f32> {
         color.a = 1.0;
     }
     
-    #ifdef MAY_DISCARD
-        else if alpha_mode == COLOR_MATERIAL_FLAGS_ALPHA_MODE_MASK {
-        if color.a >= material.alpha_cutoff {
-                // NOTE: If rendering as masked alpha and >= the cutoff, render as fully opaque
-                color.a = 1.0;
-            } else {
-                // NOTE: output_color.a < in.material.alpha_cutoff should not be rendered
-                discard;
-            }
+#ifdef MAY_DISCARD
+    else if alpha_mode == COLOR_MATERIAL_FLAGS_ALPHA_MODE_MASK {
+    if color.a >= material.alpha_cutoff {
+            // NOTE: If rendering as masked alpha and >= the cutoff, render as fully opaque
+            color.a = 1.0;
+        } else {
+            // NOTE: output_color.a < in.material.alpha_cutoff should not be rendered
+            discard;
         }
-    #endif // MAY_DISCARD
+    }
+#endif // MAY_DISCARD
 
     return color;
 }

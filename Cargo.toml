@@ -5149,6 +5149,13 @@ path = "examples/helpers/widgets.rs"
 doc-scrape-examples = false
 crate-type = ["lib"]
 
+[[example]]
+name = "mesh2d_visibility_test"
+path = "examples/2d/mesh2d_visibility_test.rs"
+# Causes an ICE on docs.rs
+doc-scrape-examples = false
+
+
 [package.metadata.example.widgets]
 name = "Widgets"
 description = "Example UI Widgets"

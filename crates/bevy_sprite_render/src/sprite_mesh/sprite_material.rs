@@ -3,7 +3,7 @@ use std::f32::consts::PI;
 use bevy_app::Plugin;
 use bevy_color::{Color, ColorToComponents};
 use bevy_image::{Image, TextureAtlas};
-use bevy_math::{vec2, vec3, Affine2, Affine3, Affine3A, Mat3, Rect, Vec2, Vec4};
+use bevy_math::{vec2, vec3, Affine2, Affine3, Affine3A, Mat3, Rect, Vec2, Vec4, VectorSpace};
 
 use bevy_asset::{embedded_asset, embedded_path, Asset, AssetApp, AssetPath, Handle};
 
@@ -17,7 +17,7 @@ use bevy_render::{
     },
 };
 use bevy_shader::{ShaderDefVal, ShaderRef};
-use bevy_sprite::{prelude::SpriteMesh, SpriteAlphaMode, SpriteImageMode};
+use bevy_sprite::{prelude::SpriteMesh, SpriteAlphaMode, SpriteImageMode, SpriteScalingMode};
 
 use crate::{AlphaMode2d, Material2d, Material2dPlugin};
 
@@ -75,7 +75,8 @@ pub struct SpriteMaterialUniform {
     pub color: Vec4,
     pub flags: u32,
     pub alpha_cutoff: f32,
-    pub scale: Vec2,
+    pub vertex_scale: Vec2,
+    pub vertex_offset: Vec2,
     pub uv_transform: Mat3,
 }
 
@@ -101,31 +102,101 @@ impl AsBindGroupShaderType<SpriteMaterialUniform> for SpriteMaterial {
 
         let image_size = image.size_2d().as_vec2();
 
-        let mut scale = image_size;
-        let mut affine = Affine2::default();
+        let mut quad_size = image_size;
+        let mut quad_offset = Vec2::ZERO;
+        let mut uv_transform = Affine2::default();
 
+        // rect selects a slice of the image to render, map the uv and change the quad scale to match the rect
         if let Some(rect) = self.rect {
             let ratio = rect.size() / image_size;
 
-            affine *= Affine2::from_scale(ratio);
-            affine *= Affine2::from_translation(vec2(
+            uv_transform *= Affine2::from_scale(ratio);
+            uv_transform *= Affine2::from_translation(vec2(
                 rect.min.x / rect.size().x,
                 rect.min.y / rect.size().y,
             ));
 
-            scale = rect.size();
+            quad_size = rect.size();
         }
 
         if let Some(custom_size) = self.custom_size {
-            scale = custom_size;
+            match self.image_mode {
+                SpriteImageMode::Auto => {
+                    quad_size = custom_size;
+                }
+                SpriteImageMode::Scale(scaling_mode) => {
+                    let quad_ratio = quad_size.x / quad_size.y;
+                    let custom_ratio = custom_size.x / custom_size.y;
+
+                    let fill_size = || {
+                        if quad_ratio > custom_ratio {
+                            vec2(custom_size.y * quad_ratio, custom_size.y)
+                        } else {
+                            vec2(custom_size.x, custom_size.x / quad_ratio)
+                        }
+                    };
+
+                    let fit_size = || {
+                        if quad_ratio > custom_ratio {
+                            vec2(custom_size.x, custom_size.x / quad_ratio)
+                        } else {
+                            vec2(custom_size.y * quad_ratio, custom_size.y)
+                        }
+                    };
+
+                    match scaling_mode {
+                        // Filling requires scaling the texture and cutting out the 'overflow'
+                        // which is why it requires manipulation of the UV.
+                        SpriteScalingMode::FillCenter => {
+                            let fill_size = fill_size();
+                            uv_transform *= Affine2::from_scale(custom_size / fill_size);
+                            uv_transform *= Affine2::from_translation(
+                                (fill_size - custom_size) * 0.5 / custom_size,
+                            );
+                            quad_size = custom_size;
+                        }
+                        SpriteScalingMode::FillStart => {
+                            let fill_size = fill_size();
+                            uv_transform *= Affine2::from_scale(custom_size / fill_size);
+                            quad_size = custom_size;
+                        }
+                        SpriteScalingMode::FillEnd => {
+                            let fill_size = fill_size();
+                            uv_transform *= Affine2::from_scale(custom_size / fill_size);
+                            uv_transform *=
+                                Affine2::from_translation((fill_size - custom_size) / custom_size);
+                            quad_size = custom_size;
+                        }
+
+                        // Fitting is easier since the whole texture will still be visible,
+                        // so it's enough to just translate the quad and keep the UV as is.
+                        SpriteScalingMode::FitCenter => {
+                            let fit_size = fit_size();
+                            quad_size = fit_size;
+                        }
+                        SpriteScalingMode::FitStart => {
+                            let fit_size = fit_size();
+                            quad_offset -= (custom_size - fit_size) * 0.5;
+                            quad_size = fit_size;
+                        }
+                        SpriteScalingMode::FitEnd => {
+                            let fit_size = fit_size();
+                            quad_offset += (custom_size - fit_size) * 0.5;
+                            quad_size = fit_size;
+                        }
+                    }
+                }
+                _ => {}
+            }
         }
 
         SpriteMaterialUniform {
             color: self.color.to_linear().to_vec4(),
             flags: flags.bits(),
             alpha_cutoff,
-            scale,
-            uv_transform: affine.into(),
+            vertex_scale: quad_size,
+            vertex_offset: quad_offset,
+            uv_transform: uv_transform.into(),
         }
     }
 }
