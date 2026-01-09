@@ -55,6 +55,8 @@ bitflags::bitflags! {
     pub struct SpriteMaterialFlags: u32 {
         const FLIP_X = 1;
         const FLIP_Y = 2;
+        const TILE_X = 4;
+        const TILE_Y = 8;
         /// Bitmask reserving bits for the [`AlphaMode2d`]
         /// Values are just sequential values bitshifted into
         /// the bitmask, and can range from 0 to 3.
@@ -80,6 +82,9 @@ pub struct SpriteMaterialUniform {
     pub vertex_scale: Vec2,
     pub vertex_offset: Vec2,
     pub uv_transform: Mat3,
+
+    // tile shader def
+    pub tile_stretch_value: Vec2,
 }
 
 #[derive(ShaderType, Default)]
@@ -132,6 +137,8 @@ impl AsBindGroupShaderType<SpriteMaterialUniform> for SpriteMaterial {
 
             quad_size = rect.size();
         }
+
+        let mut tile_stretch_value = Vec2::ZERO;
 
         if let Some(custom_size) = self.custom_size {
             match self.image_mode {
@@ -200,6 +207,21 @@ impl AsBindGroupShaderType<SpriteMaterialUniform> for SpriteMaterial {
                         }
                     }
                 }
+                SpriteImageMode::Tiled {
+                    tile_x,
+                    tile_y,
+                    stretch_value,
+                } => {
+                    if tile_x {
+                        flags |= SpriteMaterialFlags::TILE_X;
+                    }
+                    if tile_y {
+                        flags |= SpriteMaterialFlags::TILE_Y;
+                    }
+
+                    tile_stretch_value = (image_size * stretch_value) / custom_size;
+                    quad_size = custom_size;
+                }
                 _ => {}
             }
         }
@@ -211,6 +233,7 @@ impl AsBindGroupShaderType<SpriteMaterialUniform> for SpriteMaterial {
             vertex_scale: quad_size,
             vertex_offset: quad_offset,
             uv_transform: uv_transform.into(),
+            tile_stretch_value,
         }
     }
 }

@@ -70,6 +70,7 @@ struct SpriteMaterial {
     vertex_scale: vec2<f32>,
     vertex_offset: vec2<f32>,
     uv_transform: mat3x3<f32>,
+    tile_stretch_value: vec2<f32>,
 };
 
 const SPRITE_MATERIAL_FLAGS_ALPHA_MODE_RESERVED_BITS: u32 = 3221225472u; // (0b11u32 << 30)
@@ -79,6 +80,8 @@ const SPRITE_MATERIAL_FLAGS_ALPHA_MODE_BLEND: u32         = 2147483648u; // (2u3
 
 const SPRITE_MATERIAL_FLAGS_FLIP_X: u32                   = 1u;
 const SPRITE_MATERIAL_FLAGS_FLIP_Y: u32                   = 2u;
+const SPRITE_MATERIAL_FLAGS_TILE_X: u32                   = 4u;
+const SPRITE_MATERIAL_FLAGS_TILE_Y: u32                   = 8u;
 
 @group(#{MATERIAL_BIND_GROUP}) @binding(0) var<uniform> material: SpriteMaterial;
 @group(#{MATERIAL_BIND_GROUP}) @binding(1) var texture: texture_2d<f32>;
@@ -90,6 +93,13 @@ fn fragment(
 ) -> @location(0) vec4<f32> {
 
     var uv = mesh.uv; 
+
+    if (material.flags & SPRITE_MATERIAL_FLAGS_TILE_X) != 0u {
+        uv.x = (uv.x - material.tile_stretch_value.x * floor(uv.x / material.tile_stretch_value.x)) / material.tile_stretch_value.x;
+    }
+    if (material.flags & SPRITE_MATERIAL_FLAGS_TILE_Y) != 0u {
+        uv.y = (uv.y - material.tile_stretch_value.y * floor(uv.y / material.tile_stretch_value.y)) / material.tile_stretch_value.y;
+    }
 
     if (material.flags & SPRITE_MATERIAL_FLAGS_FLIP_X) != 0u {
         uv.x = 1.0 - uv.x;

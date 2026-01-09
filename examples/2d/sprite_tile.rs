@@ -27,7 +27,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         current: 128.0,
         speed: 50.0,
     });
-    commands.spawn(Sprite {
+    commands.spawn(SpriteMesh {
         image: asset_server.load("branding/icon.png"),
         image_mode: SpriteImageMode::Tiled {
             tile_x: true,
@@ -38,7 +38,11 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     });
 }
 
-fn animate(mut sprites: Query<&mut Sprite>, mut state: ResMut<AnimationState>, time: Res<Time>) {
+fn animate(
+    mut sprites: Query<&mut SpriteMesh>,
+    mut state: ResMut<AnimationState>,
+    time: Res<Time>,
+) {
     if state.current >= state.max || state.current <= state.min {
         state.speed = -state.speed;
     };
