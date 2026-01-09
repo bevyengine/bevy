@@ -33,7 +33,7 @@ fn setup(
             base: StandardMaterial {
                 base_color_texture: Some(asset_server.load("textures/uv_checker_bw.png")),
                 base_color: Color::srgba(1.0, 0.0, 0.0, 0.5),
-                // Alpha mode for decals, other modes are also supported
+                // Use alpha blending for decals
                 alpha_mode: AlphaMode::Blend,
                 depth_bias: 0.0,
                 ..default()
@@ -52,7 +52,7 @@ fn setup(
             base: StandardMaterial {
                 base_color_texture: Some(asset_server.load("textures/uv_checker_bw.png")),
                 base_color: Color::srgba(0.0, 1.0, 0.0, 0.5),
-                // Alpha mode for decals, other modes are also supported
+                // Use alpha blending for decals
                 alpha_mode: AlphaMode::Blend,
                 depth_bias: 2.0,
                 ..default()
@@ -71,7 +71,7 @@ fn setup(
             base: StandardMaterial {
                 base_color_texture: Some(asset_server.load("textures/uv_checker_bw.png")),
                 base_color: Color::srgba(0.0, 0.0, 1.0, 0.5),
-                // Alpha mode for decals, other modes are also supported.
+                // Use alpha blending for decals
                 alpha_mode: AlphaMode::Blend,
                 depth_bias: 4.0,
                 ..default()

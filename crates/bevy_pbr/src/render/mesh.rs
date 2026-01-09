@@ -382,7 +382,7 @@ pub fn check_views_need_specialization(
         }
 
         if has_oit {
-            view_key |= MeshPipelineKey::OIT_VIEW;
+            view_key |= MeshPipelineKey::OIT_ENABLED;
         }
 
         if has_atmosphere {
@@ -2102,11 +2102,10 @@ bitflags::bitflags! {
         const SCREEN_SPACE_REFLECTIONS          = 1 << 17;
         const HAS_PREVIOUS_SKIN                 = 1 << 18;
         const HAS_PREVIOUS_MORPH                = 1 << 19;
-        const OIT_VIEW                          = 1 << 20;
-        const OIT_ENABLED                       = 1 << 21;
-        const DISTANCE_FOG                      = 1 << 22;
-        const ATMOSPHERE                        = 1 << 23;
-        const INVERT_CULLING                    = 1 << 24;
+        const OIT_ENABLED                       = 1 << 20;
+        const DISTANCE_FOG                      = 1 << 21;
+        const ATMOSPHERE                        = 1 << 22;
+        const INVERT_CULLING                    = 1 << 23;
         const LAST_FLAG                         = Self::INVERT_CULLING.bits();
 
         // Bitfields
@@ -2378,10 +2377,6 @@ impl SpecializedMeshPipeline for MeshPipeline {
             shader_defs.push("SCREEN_SPACE_AMBIENT_OCCLUSION".into());
         }
 
-        if key.contains(MeshPipelineKey::OIT_VIEW) {
-            shader_defs.push("OIT_VIEW".into());
-        }
-
         let vertex_buffer_layout = layout.0.get_layout(&vertex_attributes)?;
 
         let (label, blend, depth_write_enabled);
@@ -2389,8 +2384,9 @@ impl SpecializedMeshPipeline for MeshPipeline {
         let (mut is_opaque, mut alpha_to_coverage_enabled) = (false, false);
         if key.contains(MeshPipelineKey::OIT_ENABLED) && pass == MeshPipelineKey::BLEND_ALPHA {
             label = "oit_mesh_pipeline".into();
-            // TODO tail blending would need alpha blending
-            blend = None;
+            // TODO tail blending would need to return color in shader to do alpha blending
+            // Alpha blending is also needed by forward decals.
+            blend = Some(BlendState::ALPHA_BLENDING);
             shader_defs.push("OIT_ENABLED".into());
             // TODO it should be possible to use this to combine MSAA and OIT
             // alpha_to_coverage_enabled = true;

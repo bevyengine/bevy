@@ -119,11 +119,6 @@ impl MaterialExtension for ForwardDecalMaterialExt {
         false
     }
 
-    // Forward decal is incompatible with OIT as it needs to be rendered even it's occluded by opaque objects, but OIT will do depth testing.
-    fn enable_oit() -> bool {
-        false
-    }
-
     fn specialize(
         _pipeline: &MaterialExtensionPipeline,
         descriptor: &mut RenderPipelineDescriptor,

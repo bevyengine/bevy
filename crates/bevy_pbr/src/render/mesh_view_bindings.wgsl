@@ -89,11 +89,11 @@ const VISIBILITY_RANGE_UNIFORM_BUFFER_SIZE: u32 = 64u;
 @group(0) @binding(24) var view_transmission_texture: texture_2d<f32>;
 @group(0) @binding(25) var view_transmission_sampler: sampler;
 
-#ifdef OIT_VIEW
+#ifdef OIT_ENABLED
 @group(0) @binding(26) var<storage, read_write> oit_layers: array<vec2<u32>>;
 @group(0) @binding(27) var<storage, read_write> oit_layer_ids: array<atomic<i32>>;
 @group(0) @binding(28) var<uniform> oit_settings: types::OrderIndependentTransparencySettings;
-#endif // OIT_VIEW
+#endif // OIT_ENABLED
 
 #ifdef ATMOSPHERE
 @group(0) @binding(29) var atmosphere_transmittance_texture: texture_2d<f32>;

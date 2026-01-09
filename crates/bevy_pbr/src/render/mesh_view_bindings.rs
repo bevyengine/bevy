@@ -82,7 +82,7 @@ bitflags::bitflags! {
         const NORMAL_PREPASS              = 1 << 2;
         const MOTION_VECTOR_PREPASS       = 1 << 3;
         const DEFERRED_PREPASS            = 1 << 4;
-        const OIT_VIEW                    = 1 << 5;
+        const OIT_ENABLED                 = 1 << 5;
         const ATMOSPHERE                  = 1 << 6;
     }
 }
@@ -122,7 +122,7 @@ impl MeshPipelineViewLayoutKey {
             } else {
                 Default::default()
             },
-            if self.contains(Key::OIT_VIEW) {
+            if self.contains(Key::OIT_ENABLED) {
                 "_oit"
             } else {
                 Default::default()
@@ -155,8 +155,8 @@ impl From<MeshPipelineKey> for MeshPipelineViewLayoutKey {
         if value.contains(MeshPipelineKey::DEFERRED_PREPASS) {
             result |= MeshPipelineViewLayoutKey::DEFERRED_PREPASS;
         }
-        if value.contains(MeshPipelineKey::OIT_VIEW) {
-            result |= MeshPipelineViewLayoutKey::OIT_VIEW;
+        if value.contains(MeshPipelineKey::OIT_ENABLED) {
+            result |= MeshPipelineViewLayoutKey::OIT_ENABLED;
         }
         if value.contains(MeshPipelineKey::ATMOSPHERE) {
             result |= MeshPipelineViewLayoutKey::ATMOSPHERE;
@@ -377,7 +377,7 @@ fn layout_entries(
     ));
 
     // OIT
-    if layout_key.contains(MeshPipelineViewLayoutKey::OIT_VIEW) {
+    if layout_key.contains(MeshPipelineViewLayoutKey::OIT_ENABLED) {
         // Check if we can use OIT. This is a hack to avoid errors on webgl --
         // the OIT plugin will warn the user that OIT is not supported on their
         // platform, so we don't need to do it here.
@@ -654,7 +654,7 @@ pub fn prepare_mesh_view_bind_groups(
             let mut layout_key = MeshPipelineViewLayoutKey::from(*msaa)
                 | MeshPipelineViewLayoutKey::from(prepass_textures);
             if has_oit {
-                layout_key |= MeshPipelineViewLayoutKey::OIT_VIEW;
+                layout_key |= MeshPipelineViewLayoutKey::OIT_ENABLED;
             }
             if has_atmosphere {
                 layout_key |= MeshPipelineViewLayoutKey::ATMOSPHERE;
