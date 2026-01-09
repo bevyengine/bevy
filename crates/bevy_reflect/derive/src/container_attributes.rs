@@ -359,7 +359,8 @@ impl ContainerAttributes {
             let content;
             parenthesized!(content in input);
             let path = content.parse::<Path>()?;
-            self.partial_ord.merge(TraitImpl::Custom(path, ident.span))?;
+            self.partial_ord
+                .merge(TraitImpl::Custom(path, ident.span))?;
         } else {
             self.partial_ord = TraitImpl::Implemented(ident.span);
         }
