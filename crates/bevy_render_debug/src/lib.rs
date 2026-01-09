@@ -95,7 +95,7 @@ impl Plugin for RenderDebugOverlayPlugin {
     }
 }
 
-/// Automatically attach keybinds to make render debug overlays available to users without code 
+/// Automatically attach keybinds to make render debug overlays available to users without code
 /// changes when the feature is enabled.
 pub fn handle_input(
     keyboard: Res<ButtonInput<KeyCode>>,
