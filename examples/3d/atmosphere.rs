@@ -105,7 +105,7 @@ fn setup_camera_fog(
     commands.spawn((
         Camera3d::default(),
         Transform::from_xyz(-2.4, 0.04, 0.0).looking_at(Vec3::Y * 0.1, Vec3::Y),
-        // get the default `Atmosphere` component
+        // Earthlike atmosphere
         Atmosphere::earthlike(scattering_mediums.add(ScatteringMedium::default())),
         // Can be adjusted to change the scene scale and rendering quality
         AtmosphereSettings::default(),
