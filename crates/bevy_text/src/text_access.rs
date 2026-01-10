@@ -77,7 +77,7 @@ pub struct TextReader<'w, 's, R: TextRoot> {
 
 impl<'w, 's, R: TextRoot> TextReader<'w, 's, R> {
     /// Returns an iterator over text spans in a text block, starting with the root entity.
-    pub fn iter(&mut self, root_entity: Entity) -> TextSpanIter<'_, R> {
+    pub fn iter(&mut self, root_entity: Entity) -> TextSpanIter<'_, 's, R> {
         let stack = self.scratch.take();
 
         TextSpanIter {
@@ -154,14 +154,14 @@ impl<'w, 's, R: TextRoot> TextReader<'w, 's, R> {
 /// Iterates all spans in a text block according to hierarchy traversal order.
 /// Does *not* flatten interspersed ghost nodes. Only contiguous spans are traversed.
 // TODO: Use this iterator design in UiChildrenIter to reduce allocations.
-pub struct TextSpanIter<'a, R: TextRoot> {
+pub struct TextSpanIter<'a, 's, R: TextRoot> {
     scratch: &'a mut TextIterScratch,
     root_entity: Option<Entity>,
     /// Stack of (children, next index into children).
     stack: Vec<(&'a Children, usize)>,
     roots: &'a Query<
         'a,
-        'a,
+        's,
         (
             &'static R,
             &'static TextFont,
@@ -172,7 +172,7 @@ pub struct TextSpanIter<'a, R: TextRoot> {
     >,
     spans: &'a Query<
         'a,
-        'a,
+        's,
         (
             &'static TextSpan,
             &'static TextFont,
@@ -183,7 +183,7 @@ pub struct TextSpanIter<'a, R: TextRoot> {
     >,
 }
 
-impl<'a, R: TextRoot> Iterator for TextSpanIter<'a, R> {
+impl<'a, R: TextRoot> Iterator for TextSpanIter<'a, '_, R> {
     /// Item = (entity in text block, hierarchy depth in the block, span text, span style).
     type Item = (Entity, usize, &'a str, &'a TextFont, Color, LineHeight);
     fn next(&mut self) -> Option<Self::Item> {
@@ -246,7 +246,7 @@ impl<'a, R: TextRoot> Iterator for TextSpanIter<'a, R> {
     }
 }
 
-impl<'a, R: TextRoot> Drop for TextSpanIter<'a, R> {
+impl<'a, R: TextRoot> Drop for TextSpanIter<'a, '_, R> {
     fn drop(&mut self) {
         // Return the internal stack.
         let stack = core::mem::take(&mut self.stack);
