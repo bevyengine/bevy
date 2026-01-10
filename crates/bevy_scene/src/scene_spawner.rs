@@ -17,6 +17,7 @@ use uuid::Uuid;
 
 use crate::{DynamicSceneRoot, SceneRoot};
 use bevy_derive::{Deref, DerefMut};
+use bevy_ecs::prelude::SystemSet;
 use bevy_ecs::{
     change_detection::ResMut,
     prelude::{Changed, Component, Without},
@@ -55,6 +56,13 @@ impl InstanceId {
     fn new() -> Self {
         InstanceId(Uuid::new_v4())
     }
+}
+
+/// Set enum for the systems relating to scene spawning
+#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
+pub enum SceneSpawnerSystems {
+    /// label for systems having to do with spawning the scene(s)
+    Spawn,
 }
 
 /// Handles spawning and despawning scenes in the world, either synchronously or batched through the [`scene_spawner_system`].
