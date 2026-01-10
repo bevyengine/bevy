@@ -49,9 +49,12 @@ pub use bevy_ecs::label::DynEq;
 pub type InternedAppLabel = Interned<dyn AppLabel>;
 
 #[derive(Debug, thiserror::Error)]
+#[non_exhaustive]
 pub(crate) enum AppError {
     #[error("duplicate plugin {plugin_name:?}")]
     DuplicatePlugin { plugin_name: String },
+    #[error("expected dynamic plugin, got non-dynamic {plugin_name:?}")]
+    ExpectedDynamicPlugin { plugin_name: String },
 }
 
 /// [`App`] is the primary API for writing user applications. It automates the setup of a
@@ -91,6 +94,11 @@ pub struct App {
     /// [`WinitPlugin`]: https://docs.rs/bevy/latest/bevy/winit/struct.WinitPlugin.html
     /// [`ScheduleRunnerPlugin`]: https://docs.rs/bevy/latest/bevy/app/struct.ScheduleRunnerPlugin.html
     pub(crate) runner: RunnerFn,
+    /// The list of hooks to run distributing exclusive app access to outside code.
+    pub(crate) hooks: HashMap<usize, RunnerHookFn>,
+    /// The next id that will be used for a newly registered hook.
+    /// This value does not track the currently active hook amount as it is never decremented.
+    pub(crate) hook_id_count: usize,
     default_error_handler: Option<ErrorHandler>,
 }
 
@@ -151,17 +159,48 @@ impl App {
                 sub_apps: HashMap::default(),
             },
             runner: Box::new(run_once),
+            hooks: HashMap::new(),
+            hook_id_count: 0,
             default_error_handler: None,
         }
     }
 
     /// Runs the default schedules of all sub-apps (starting with the "main" app) once.
+    ///
+    /// Also runs exclusive app hooks, see also [`App::add_exclusive_hook()`]
     pub fn update(&mut self) {
         if self.is_building_plugins() {
             panic!("App::update() was called while a plugin was building.");
         }
-
+        let mut hooks = core::mem::take(&mut self.hooks);
+        for hook in hooks.values_mut() {
+            hook(self);
+        }
+        self.hooks = hooks;
         self.sub_apps.update();
+    }
+
+    /// Adds a new exclusive hook to the App
+    ///
+    /// These hooks will get called on every [`App::update()`] call, but will not get called if its updated via subapps.
+    ///
+    /// The ID returned can be later used with [`App::remove_exclusive_hook()`]
+    ///
+    /// See also [`App::update()`]
+    pub fn add_exclusive_hook(&mut self, func: impl FnMut(&mut App) + 'static) -> usize {
+        let hook_id_count = self.hook_id_count;
+        self.hook_id_count += 1;
+
+        self.hooks.insert(hook_id_count, Box::new(func));
+
+        hook_id_count
+    }
+
+    /// Removes an already existing exclusive hook from the App, returning the hook
+    ///
+    /// See also [`App::add_exclusive_hook()`] and [`App::update()`]
+    pub fn remove_exclusive_hook(&mut self, id: usize) -> Option<RunnerHookFn> {
+        self.hooks.remove(&id)
     }
 
     /// Runs the [`App`] by calling its [runner](Self::set_runner).
@@ -273,6 +312,20 @@ impl App {
             hokeypokey.finish(self);
             core::mem::swap(&mut self.main_mut().plugin_registry[i], &mut hokeypokey);
         }
+        for i in 0..self.main().dynamic_plugin_registry.len() {
+            core::mem::swap(
+                &mut self.main_mut().dynamic_plugin_registry[i],
+                &mut hokeypokey,
+            );
+            #[cfg(feature = "trace")]
+            let _plugin_finish_span =
+                info_span!("plugin finish", plugin = hokeypokey.name()).entered();
+            hokeypokey.finish(self);
+            core::mem::swap(
+                &mut self.main_mut().dynamic_plugin_registry[i],
+                &mut hokeypokey,
+            );
+        }
         self.main_mut().plugins_state = PluginsState::Finished;
         self.sub_apps.iter_mut().skip(1).for_each(SubApp::finish);
     }
@@ -292,6 +345,20 @@ impl App {
                 info_span!("plugin cleanup", plugin = hokeypokey.name()).entered();
             hokeypokey.cleanup(self);
             core::mem::swap(&mut self.main_mut().plugin_registry[i], &mut hokeypokey);
+        }
+        for i in 0..self.main().dynamic_plugin_registry.len() {
+            core::mem::swap(
+                &mut self.main_mut().dynamic_plugin_registry[i],
+                &mut hokeypokey,
+            );
+            #[cfg(feature = "trace")]
+            let _plugin_finish_span =
+                info_span!("plugin finish", plugin = hokeypokey.name()).entered();
+            hokeypokey.cleanup(self);
+            core::mem::swap(
+                &mut self.main_mut().dynamic_plugin_registry[i],
+                &mut hokeypokey,
+            );
         }
         self.main_mut().plugins_state = PluginsState::Cleaned;
         self.sub_apps.iter_mut().skip(1).for_each(SubApp::cleanup);
@@ -550,6 +617,66 @@ impl App {
         Ok(self)
     }
 
+    pub(crate) fn add_boxed_dynamic_plugin(
+        &mut self,
+        plugin: Box<dyn Plugin>,
+    ) -> Result<&mut Self, AppError> {
+        debug!("added dynamic plugin: {}", plugin.name());
+
+        if !plugin.is_dynamic() {
+            Err(AppError::ExpectedDynamicPlugin {
+                plugin_name: plugin.name().to_string(),
+            })?;
+        }
+
+        if plugin.is_unique() && self.main_mut().plugin_names.contains(plugin.name()) {
+            Err(AppError::DuplicatePlugin {
+                plugin_name: plugin.name().to_string(),
+            })?;
+        }
+
+        let index = self.main().dynamic_plugin_registry.len();
+
+        self.main_mut()
+            .dynamic_plugin_registry
+            .push(Box::new(PlaceholderPlugin));
+
+        self.main_mut().plugin_build_depth += 1;
+
+        #[cfg(feature = "trace")]
+        let _plugin_build_span = info_span!("plugin build", plugin = plugin.name()).entered();
+
+        let f = AssertUnwindSafe(|| plugin.build(self));
+
+        #[cfg(feature = "std")]
+        let result = catch_unwind(f);
+
+        #[cfg(not(feature = "std"))]
+        f();
+
+        self.main_mut()
+            .plugin_names
+            .insert(plugin.name().to_string());
+        self.main_mut().plugin_build_depth -= 1;
+
+        #[cfg(feature = "std")]
+        if let Err(payload) = result {
+            resume_unwind(payload);
+        }
+
+        match self.plugins_state() {
+            PluginsState::Finished => plugin.finish(self),
+            PluginsState::Cleaned => {
+                plugin.finish(self);
+                plugin.cleanup(self);
+            }
+            _ => (),
+        }
+
+        self.main_mut().plugin_registry[index] = plugin;
+        Ok(self)
+    }
+
     /// Returns `true` if the [`Plugin`] has already been added.
     pub fn is_plugin_added<T>(&self) -> bool
     where
@@ -622,6 +749,8 @@ impl App {
     /// Panics if one of the plugins had already been added to the application.
     ///
     /// [`PluginGroup`]:super::PluginGroup
+    ///
+    /// See also [`App::add_dynamic_plugins()`]
     #[track_caller]
     pub fn add_plugins<M>(&mut self, plugins: impl Plugins<M>) -> &mut Self {
         if matches!(
@@ -634,6 +763,43 @@ impl App {
         }
         plugins.add_to_app(self);
         self
+    }
+    /// Installs a [`Plugin`] collection dynamically.
+    ///
+    /// # Panics
+    ///
+    /// Panics if one of the plugins had already been added to the application
+    ///
+    /// See also [`App::add_plugins()`]
+    #[track_caller]
+    pub fn add_dynamic_plugins<M>(&mut self, plugins: impl Plugins<M>) -> &mut Self {
+        plugins.add_to_app_dynamic(self);
+        self
+    }
+
+    /// Uninstalls a [`Plugin`] dynamically
+    ///
+    /// # Panics
+    ///
+    /// Panics if the plugin was not registered as dynamic.
+    ///
+    /// See also [`App::add_dynamic_plugins()`]
+    #[track_caller]
+    pub fn remove_dynamic_plugin<P: Plugin>(&mut self) {
+        let index = self
+            .main()
+            .dynamic_plugin_registry
+            .iter()
+            .enumerate()
+            .filter_map(|(i, p)| p.downcast_ref::<P>().map(|_| i))
+            .next_back();
+        if let Some(idx) = index {
+            let plugin = self.main_mut().dynamic_plugin_registry.remove(idx);
+            plugin.remove(self);
+            // drop plugin
+        } else {
+            panic!("dynamic plugin {:?} not found", core::any::type_name::<P>());
+        }
     }
 
     /// Registers the type `T` in the [`AppTypeRegistry`] resource,
@@ -1451,6 +1617,7 @@ impl Plugin for HokeyPokey {
 }
 
 type RunnerFn = Box<dyn FnOnce(App) -> AppExit>;
+type RunnerHookFn = Box<dyn FnMut(&mut App)>;
 
 fn run_once(mut app: App) -> AppExit {
     while app.plugins_state() == PluginsState::Adding {
