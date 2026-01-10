@@ -9,9 +9,9 @@ use bevy_ecs::{
 use bevy_platform::collections::HashMap;
 use bevy_reflect::{Reflect, TypePath};
 use core::{any::TypeId, iter::Enumerate, marker::PhantomData, sync::atomic::AtomicU32};
-use std::ops::{Deref, DerefMut};
 use crossbeam_channel::{Receiver, Sender};
 use serde::{Deserialize, Serialize};
+use std::ops::{Deref, DerefMut};
 use thiserror::Error;
 use uuid::Uuid;
 
@@ -673,7 +673,8 @@ struct AssetMutChangeNotifier<'a, A: Asset> {
 impl<'a, A: Asset> Drop for AssetMutChangeNotifier<'a, A> {
     fn drop(&mut self) {
         if self.changed {
-            self.queued_events.push(AssetEvent::Modified { id: self.asset_id });
+            self.queued_events
+                .push(AssetEvent::Modified { id: self.asset_id });
         }
     }
 }
@@ -733,7 +734,12 @@ pub enum InvalidGenerationError {
 
 #[cfg(test)]
 mod test {
-    use crate::AssetIndex;
+    use crate::{Asset, AssetApp, AssetEvent, AssetIndex, AssetPlugin, Assets};
+    use bevy_app::{App, Update};
+    use bevy_ecs::prelude::*;
+    use bevy_reflect::TypePath;
+    use std::sync::atomic::{AtomicU32, Ordering};
+    use std::sync::Arc;
 
     #[test]
     fn asset_index_round_trip() {
@@ -743,5 +749,68 @@ mod test {
         };
         let roundtripped = AssetIndex::from_bits(asset_index.to_bits());
         assert_eq!(asset_index, roundtripped);
+    }
+
+    #[test]
+    fn assets_mut_change_detection() {
+        #[derive(Asset, TypePath)]
+        struct MyAsset {
+            value: u32,
+        }
+
+        let mut app = App::new();
+        app.add_plugins(AssetPlugin::default());
+        app.init_asset::<MyAsset>();
+
+        let mut assets = app.world_mut().resource_mut::<Assets<MyAsset>>();
+        let my_asset_handle = assets.add(MyAsset { value: 0 });
+        let my_asset_value = Arc::new(AtomicU32::new(0));
+        let my_asset_change_counter = Arc::new(AtomicU32::new(0));
+
+        app.add_systems(Update, {
+            let my_asset_value = my_asset_value.clone();
+            let my_asset_id = my_asset_handle.id();
+
+            move |mut assets: ResMut<Assets<MyAsset>>| {
+                let mut asset = assets.get_mut(my_asset_id.clone()).unwrap();
+                let value = my_asset_value.load(Ordering::Relaxed);
+
+                if asset.value != value {
+                    asset.value = value;
+                }
+            }
+        });
+        app.add_systems(Update, {
+            let my_asset_change_counter = my_asset_change_counter.clone();
+            let my_asset_id = my_asset_handle.id();
+
+            move |mut message_reader: MessageReader<AssetEvent<MyAsset>>| {
+                for event in message_reader.read() {
+                    if event.is_modified(my_asset_id) {
+                        my_asset_change_counter.fetch_add(1, Ordering::Relaxed);
+                    }
+                }
+            }
+        });
+
+        // check a few times just in case there are some unexpected leftover events from previous runs
+        for _ in 0..3 {
+            my_asset_value.fetch_add(1, Ordering::Relaxed);
+            app.update();
+            app.update();
+            assert_eq!(
+                my_asset_change_counter.swap(0, Ordering::Relaxed),
+                1,
+                "Asset value was changed but AssetEvent::Modified was not triggered",
+            );
+
+            app.update();
+            app.update();
+            assert_eq!(
+                my_asset_change_counter.swap(0, Ordering::Relaxed),
+                0,
+                "Asset value was not changed but AssetEvent::Modified was triggered",
+            );
+        }
     }
 }
