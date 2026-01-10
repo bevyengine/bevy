@@ -62,7 +62,7 @@ pub fn load_font_assets_into_fontdb_system(
     let font_system = &mut cosmic_font_system.0;
     for event in events.read() {
         if let AssetEvent::Added { id } = event
-            && let Some(font) = fonts.get_mut(*id)
+            && let Some(mut font) = fonts.get_mut(*id)
         {
             let data = Arc::clone(&font.data);
             font.ids = font_system

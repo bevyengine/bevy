@@ -87,7 +87,7 @@ fn change_material(
                 // If you intend on creating multiple models with the same tint, it
                 // is best to cache the handle somewhere, as having multiple materials
                 // that are identical is expensive
-                let mut new_material = material.clone();
+                let mut new_material = material.into_inner_untracked().clone();
                 new_material.base_color = color_override.0;
 
                 // Override `MeshMaterial3d` with new material

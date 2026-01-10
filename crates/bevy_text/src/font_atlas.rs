@@ -87,16 +87,16 @@ impl FontAtlas {
         texture: &Image,
         offset: IVec2,
     ) -> Result<(), TextError> {
-        let atlas_layout = atlas_layouts
+        let mut atlas_layout = atlas_layouts
             .get_mut(&self.texture_atlas)
             .ok_or(TextError::MissingAtlasLayout)?;
-        let atlas_texture = textures
+        let mut atlas_texture = textures
             .get_mut(&self.texture)
             .ok_or(TextError::MissingAtlasTexture)?;
 
         if let Ok(glyph_index) =
             self.dynamic_texture_atlas_builder
-                .add_texture(atlas_layout, texture, atlas_texture)
+                .add_texture(&mut atlas_layout, texture, &mut atlas_texture)
         {
             self.glyph_to_atlas_index.insert(
                 cache_key,

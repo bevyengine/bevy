@@ -197,7 +197,7 @@ fn update_plane_color(
 
         if let Ok(material_node) = q_material_node.get(*inner_ent) {
             // Node component exists, update it
-            if let Some(material) = r_materials.get_mut(material_node.id()) {
+            if let Some(mut material) = r_materials.get_mut(material_node.id()) {
                 // Update properties
                 material.plane = *plane;
                 material.fixed_channel = plane_value.0.z;

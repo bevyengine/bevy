@@ -274,7 +274,7 @@ fn update_gizmo_meshes<Config: GizmoConfigGroup>(
         handles.handles.insert(TypeId::of::<Config>(), None);
     } else if let Some(handle) = handles.handles.get_mut(&TypeId::of::<Config>()) {
         if let Some(handle) = handle {
-            let gizmo = gizmo_assets.get_mut(handle.id()).unwrap();
+            let mut gizmo = gizmo_assets.get_mut(handle.id()).unwrap();
 
             gizmo.buffer.list_positions = mem::take(&mut storage.list_positions);
             gizmo.buffer.list_colors = mem::take(&mut storage.list_colors);

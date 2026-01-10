@@ -11,6 +11,7 @@ use bevy_reflect::{Reflect, TypePath};
 use core::{any::TypeId, iter::Enumerate, marker::PhantomData, sync::atomic::AtomicU32};
 use crossbeam_channel::{Receiver, Sender};
 use serde::{Deserialize, Serialize};
+use std::ops::{Deref, DerefMut};
 use thiserror::Error;
 use uuid::Uuid;
 
@@ -348,7 +349,7 @@ impl<A: Asset> Assets<A> {
         &mut self,
         id: impl Into<AssetId<A>>,
         insert_fn: impl FnOnce() -> A,
-    ) -> Result<&mut A, InvalidGenerationError> {
+    ) -> Result<AssetMut<'_, A>, InvalidGenerationError> {
         let id: AssetId<A> = id.into();
         if self.get(id).is_none() {
             self.insert(id, insert_fn())?;
@@ -436,16 +437,20 @@ impl<A: Asset> Assets<A> {
     /// Retrieves a mutable reference to the [`Asset`] with the given `id`, if it exists.
     /// Note that this supports anything that implements `Into<AssetId<A>>`, which includes [`Handle`] and [`AssetId`].
     #[inline]
-    pub fn get_mut(&mut self, id: impl Into<AssetId<A>>) -> Option<&mut A> {
+    pub fn get_mut(&mut self, id: impl Into<AssetId<A>>) -> Option<AssetMut<'_, A>> {
         let id: AssetId<A> = id.into();
         let result = match id {
             AssetId::Index { index, .. } => self.dense_storage.get_mut(index),
             AssetId::Uuid { uuid } => self.hash_map.get_mut(&uuid),
         };
-        if result.is_some() {
-            self.queued_events.push(AssetEvent::Modified { id });
-        }
-        result
+        Some(AssetMut {
+            asset: result?,
+            guard: AssetMutChangeNotifier {
+                changed: false,
+                asset_id: id,
+                queued_events: &mut self.queued_events,
+            },
+        })
     }
 
     /// Retrieves a mutable reference to the [`Asset`] with the given `id`, if it exists.
@@ -618,6 +623,62 @@ impl<A: Asset> Assets<A> {
     }
 }
 
+/// Unique mutable borrow of an asset.
+///
+/// [AssetEvent::Modified] events will be only triggered if an asset itself is mutably borrowed.
+///
+/// Just as an example, this allows checking if a material property has changed
+/// before modifying it to avoid unnecessary material extraction down the pipeline.
+pub struct AssetMut<'a, A: Asset> {
+    asset: &'a mut A,
+    guard: AssetMutChangeNotifier<'a, A>,
+}
+
+impl<'a, A: Asset> AssetMut<'a, A> {
+    /// Marks with inner asset as modified and returns reference to it.
+    pub fn into_inner(mut self) -> &'a mut A {
+        self.guard.changed = true;
+        self.asset
+    }
+
+    /// Returns reference to the inner asset but doesn't mark it as modified.
+    pub fn into_inner_untracked(self) -> &'a mut A {
+        self.asset
+    }
+}
+
+impl<'a, A: Asset> Deref for AssetMut<'a, A> {
+    type Target = A;
+
+    fn deref(&self) -> &Self::Target {
+        self.asset
+    }
+}
+
+impl<'a, A: Asset> DerefMut for AssetMut<'a, A> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        self.guard.changed = true;
+        self.asset
+    }
+}
+
+/// Helper struct to allow safe destructuring of the [AssetMut::into_inner]
+/// while also keeping strong change tracking guarantees.
+struct AssetMutChangeNotifier<'a, A: Asset> {
+    changed: bool,
+    asset_id: AssetId<A>,
+    queued_events: &'a mut Vec<AssetEvent<A>>,
+}
+
+impl<'a, A: Asset> Drop for AssetMutChangeNotifier<'a, A> {
+    fn drop(&mut self) {
+        if self.changed {
+            self.queued_events
+                .push(AssetEvent::Modified { id: self.asset_id });
+        }
+    }
+}
+
 /// A mutable iterator over [`Assets`].
 pub struct AssetsMutIterator<'a, A: Asset> {
     queued_events: &'a mut Vec<AssetEvent<A>>,
@@ -673,7 +734,12 @@ pub enum InvalidGenerationError {
 
 #[cfg(test)]
 mod test {
-    use crate::AssetIndex;
+    use crate::{Asset, AssetApp, AssetEvent, AssetIndex, AssetPlugin, Assets};
+    use bevy_app::{App, Update};
+    use bevy_ecs::prelude::*;
+    use bevy_reflect::TypePath;
+    use std::sync::atomic::{AtomicU32, Ordering};
+    use std::sync::Arc;
 
     #[test]
     fn asset_index_round_trip() {
@@ -683,5 +749,68 @@ mod test {
         };
         let roundtripped = AssetIndex::from_bits(asset_index.to_bits());
         assert_eq!(asset_index, roundtripped);
+    }
+
+    #[test]
+    fn assets_mut_change_detection() {
+        #[derive(Asset, TypePath)]
+        struct MyAsset {
+            value: u32,
+        }
+
+        let mut app = App::new();
+        app.add_plugins(AssetPlugin::default());
+        app.init_asset::<MyAsset>();
+
+        let mut assets = app.world_mut().resource_mut::<Assets<MyAsset>>();
+        let my_asset_handle = assets.add(MyAsset { value: 0 });
+        let my_asset_value = Arc::new(AtomicU32::new(0));
+        let my_asset_change_counter = Arc::new(AtomicU32::new(0));
+
+        app.add_systems(Update, {
+            let my_asset_value = my_asset_value.clone();
+            let my_asset_id = my_asset_handle.id();
+
+            move |mut assets: ResMut<Assets<MyAsset>>| {
+                let mut asset = assets.get_mut(my_asset_id.clone()).unwrap();
+                let value = my_asset_value.load(Ordering::Relaxed);
+
+                if asset.value != value {
+                    asset.value = value;
+                }
+            }
+        });
+        app.add_systems(Update, {
+            let my_asset_change_counter = my_asset_change_counter.clone();
+            let my_asset_id = my_asset_handle.id();
+
+            move |mut message_reader: MessageReader<AssetEvent<MyAsset>>| {
+                for event in message_reader.read() {
+                    if event.is_modified(my_asset_id) {
+                        my_asset_change_counter.fetch_add(1, Ordering::Relaxed);
+                    }
+                }
+            }
+        });
+
+        // check a few times just in case there are some unexpected leftover events from previous runs
+        for _ in 0..3 {
+            my_asset_value.fetch_add(1, Ordering::Relaxed);
+            app.update();
+            app.update();
+            assert_eq!(
+                my_asset_change_counter.swap(0, Ordering::Relaxed),
+                1,
+                "Asset value was changed but AssetEvent::Modified was not triggered",
+            );
+
+            app.update();
+            app.update();
+            assert_eq!(
+                my_asset_change_counter.swap(0, Ordering::Relaxed),
+                0,
+                "Asset value was not changed but AssetEvent::Modified was triggered",
+            );
+        }
     }
 }
