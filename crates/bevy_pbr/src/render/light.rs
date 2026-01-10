@@ -1200,7 +1200,8 @@ pub fn prepare_lights(
                 flags |= DirectionalLightFlags::AFFECTS_LIGHTMAPPED_MESH_DIFFUSE;
             }
 
-            // This is needed to bypass the limit of volumetric lights
+            // This is needed to bypass the `directional_volumetric_enabled_count`
+            // limit of volumetric lights
             if light.volumetric {
                 flags |= DirectionalLightFlags::ATMOSPHERIC_SCATTERING;
             }
