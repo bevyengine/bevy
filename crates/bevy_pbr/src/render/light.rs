@@ -106,8 +106,6 @@ pub struct ExtractedDirectionalLight {
     pub occlusion_culling: bool,
     pub sun_disk_angular_size: f32,
     pub sun_disk_intensity: f32,
-    /// This directional light is enabled for atmospheric scattering
-    pub atmospheric_scattering: bool,
 }
 
 // NOTE: These must match the bit flags in bevy_pbr/src/render/mesh_view_types.wgsl!
@@ -336,7 +334,6 @@ pub fn extract_lights(
                 Option<&VolumetricLight>,
                 Has<OcclusionCulling>,
                 Option<&SunDisk>,
-                Has<AtmosphericScattering>,
             ),
             Without<SpotLight>,
         >,
@@ -519,7 +516,6 @@ pub fn extract_lights(
         volumetric_light,
         occlusion_culling,
         sun_disk,
-        atmospheric_scattering,
     ) in &directional_lights
     {
         if !view_visibility.get() {
@@ -588,7 +584,6 @@ pub fn extract_lights(
                     occlusion_culling,
                     sun_disk_angular_size: sun_disk.unwrap_or_default().angular_size,
                     sun_disk_intensity: sun_disk.unwrap_or_default().intensity,
-                    atmospheric_scattering,
                 },
                 RenderCascadesVisibleEntities {
                     entities: cascade_visible_entities,
@@ -1205,7 +1200,8 @@ pub fn prepare_lights(
                 flags |= DirectionalLightFlags::AFFECTS_LIGHTMAPPED_MESH_DIFFUSE;
             }
 
-            if light.atmospheric_scattering {
+            // This is needed to bypass the limit of volumetric lights
+            if light.volumetric {
                 flags |= DirectionalLightFlags::ATMOSPHERIC_SCATTERING;
             }
 

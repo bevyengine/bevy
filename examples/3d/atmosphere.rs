@@ -18,9 +18,8 @@ use bevy::{
         VolumetricFog, VolumetricLight,
     },
     pbr::{
-        Atmosphere, AtmosphereMode, AtmosphereSettings, AtmosphericScattering,
-        DefaultOpaqueRendererMethod, ExtendedMaterial, MaterialExtension, ScatteringMedium,
-        ScreenSpaceReflections,
+        Atmosphere, AtmosphereMode, AtmosphereSettings, DefaultOpaqueRendererMethod,
+        ExtendedMaterial, MaterialExtension, ScatteringMedium, ScreenSpaceReflections,
     },
     post_process::bloom::Bloom,
     prelude::*,
@@ -199,7 +198,6 @@ fn setup_terrain_scene(
         },
         Transform::from_xyz(1.0, 0.4, 0.0).looking_at(Vec3::ZERO, Vec3::Y),
         VolumetricLight,
-        AtmosphericScattering,
         cascade_shadow_config,
     ));
 

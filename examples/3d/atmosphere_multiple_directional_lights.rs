@@ -6,8 +6,8 @@ use bevy::{
     camera::Exposure,
     core_pipeline::tonemapping::Tonemapping,
     input::common_conditions::input_just_pressed,
-    light::AtmosphereEnvironmentMapLight,
-    pbr::{AtmosphereSettings, AtmosphericScattering, EarthlikeAtmosphere},
+    light::{AtmosphereEnvironmentMapLight, VolumetricLight},
+    pbr::{Atmosphere, AtmosphereSettings, ScatteringMedium},
     post_process::bloom::Bloom,
     prelude::*,
 };
@@ -18,7 +18,7 @@ fn main() {
     app.add_plugins(DefaultPlugins);
 
     app.add_systems(Startup, setup);
-    // Setup systems to change which light will have the AtmosphericScattering
+    // Setup systems to change which light will have the VolumetricLight
     // component
     app.add_systems(
         Update,
@@ -52,13 +52,13 @@ fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    earth_atmosphere: Res<EarthlikeAtmosphere>,
+    mut scattering_mediums: ResMut<Assets<ScatteringMedium>>,
 ) {
     commands.spawn((
         Camera3d::default(),
         Transform::from_translation(Vec3::new(0., 5., 15.)),
         // get the default `Atmosphere` component
-        earth_atmosphere.get(),
+        Atmosphere::earthlike(scattering_mediums.add(ScatteringMedium::default())),
         // Can be adjusted to change the scene scale and rendering quality
         AtmosphereSettings::default(),
         // The directional light illuminance used in this scene
@@ -97,7 +97,7 @@ fn setup(
             ..Default::default()
         },
         Transform::from_translation(Vec3::new(0., 5., -15.)).looking_at(Vec3::ZERO, Vec3::Y),
-        AtmosphericScattering,
+        VolumetricLight,
         DirectionalLightFlag(0b1),
     ));
     commands.spawn((
@@ -130,15 +130,15 @@ fn setup(
             ..Default::default()
         },
         children![
-            Text::new("[1]~[7] Change directional light with AtmosphericScattering"),
-            Text::new("[0] Disable AtmosphericScattering for all lights")
+            Text::new("[1]~[7] Change directional light with VolumetricLight"),
+            Text::new("[0] Disable VolumetricLight for all lights")
         ],
     ));
 }
 
-/// Changes which [`DirectionalLight`] will have [`AtmosphericScattering`].
+/// Changes which [`DirectionalLight`] will have [`VolumetricLight`].
 /// The [`DirectionalLightFlag`] is compared with the generic N to determinate
-/// which of the lights will receive [`AtmosphericScattering`] and which will
+/// which of the lights will receive [`VolumetricLight`] and which will
 /// have it remove.
 fn change_directional_lights_with_scattering<const N: u8>(
     mut commands: Commands,
@@ -146,9 +146,9 @@ fn change_directional_lights_with_scattering<const N: u8>(
 ) {
     for (entity, flag) in directional_lights {
         if (flag.0 & N) != 0 {
-            commands.entity(entity).insert(AtmosphericScattering);
+            commands.entity(entity).insert(VolumetricLight);
         } else {
-            commands.entity(entity).remove::<AtmosphericScattering>();
+            commands.entity(entity).remove::<VolumetricLight>();
         }
     }
 }
