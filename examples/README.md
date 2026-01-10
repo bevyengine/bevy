@@ -149,7 +149,7 @@ Example | Description
 [Anisotropy](../examples/3d/anisotropy.rs) | Displays an example model with anisotropy
 [Anti-aliasing](../examples/3d/anti_aliasing.rs) | Compares different anti-aliasing techniques supported by Bevy
 [Atmosphere](../examples/3d/atmosphere.rs) | A scene showcasing pbr atmospheric scattering
-[Atmosphere with multiple Directional Lights](../examples/3d/atmosphere_multiple_directional_lights.rs) | Showcase atmosphere with multiple directional lights
+[Atmosphere with multiple Directional Lights](../examples/3d/atmosphere_multiple_lights.rs) | Showcase atmosphere with multiple directional lights
 [Atmospheric Fog](../examples/3d/atmospheric_fog.rs) | A scene showcasing the atmospheric fog effect
 [Auto Exposure](../examples/3d/auto_exposure.rs) | A scene showcasing auto exposure
 [Blend Modes](../examples/3d/blend_modes.rs) | Showcases different blend modes
