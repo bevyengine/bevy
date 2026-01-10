@@ -3,7 +3,7 @@
 use std::ops::Range;
 
 use bevy::{
-    anti_alias::fxaa::Fxaa,
+    anti_alias::taa::TemporalAntiAliasing,
     color::palettes::css::{BLACK, WHITE},
     core_pipeline::Skybox,
     image::{
@@ -13,7 +13,8 @@ use bevy::{
     input::mouse::MouseWheel,
     math::{vec3, vec4},
     pbr::{
-        DefaultOpaqueRendererMethod, ExtendedMaterial, MaterialExtension, ScreenSpaceReflections,
+        DefaultOpaqueRendererMethod, ExtendedMaterial, MaterialExtension,
+        ScreenSpaceAmbientOcclusion, ScreenSpaceReflections,
     },
     prelude::*,
     render::{
@@ -39,7 +40,11 @@ static TURN_SSR_ON_HELP_TEXT: &str = "Press Space to turn screen-space reflectio
 static MOVE_CAMERA_HELP_TEXT: &str =
     "Press WASD or use the mouse wheel to pan and orbit the camera";
 static SWITCH_TO_FLIGHT_HELMET_HELP_TEXT: &str = "Press Enter to switch to the flight helmet model";
-static SWITCH_TO_CUBE_HELP_TEXT: &str = "Press Enter to switch to the cube model";
+static SWITCH_TO_CAPSULES_HELP_TEXT: &str = "Press Enter to switch to the row of capsules model";
+static SWITCH_TO_CUBE_HELP_TEXT: &str = "Press Enter to switch to the single cube model";
+static MIN_ROUGHNESS_HELP_TEXT: &str = "Press U/I and O/P to adjust the minimum roughness range";
+static MAX_ROUGHNESS_HELP_TEXT: &str = "Press H/J and K/L to adjust the maximum roughness range";
+static EDGE_FADEOUT_HELP_TEXT: &str = "Press N/M and ,/. to adjust the edge fadeout range";
 
 /// A custom [`ExtendedMaterial`] that creates animated water ripples.
 #[derive(Asset, TypePath, AsBindGroup, Debug, Clone)]
@@ -75,6 +80,12 @@ struct AppSettings {
     ssr_on: bool,
     /// Which model is being displayed.
     displayed_model: DisplayedModel,
+    /// The perceptual roughness range over which SSR begins to fade in.
+    min_perceptual_roughness: Range<f32>,
+    /// The perceptual roughness range over which SSR begins to fade out.
+    max_perceptual_roughness: Range<f32>,
+    /// The range over which SSR begins to fade out at the edges of the screen.
+    edge_fadeout: Range<f32>,
 }
 
 /// Which model is being displayed.
@@ -85,15 +96,25 @@ enum DisplayedModel {
     Cube,
     /// The flight helmet is being displayed.
     FlightHelmet,
+    /// The capsules are being displayed.
+    Capsules,
 }
 
-/// A marker component for the cube model.
+/// A marker component for the single cube model.
 #[derive(Component)]
 struct CubeModel;
 
 /// A marker component for the flight helmet model.
 #[derive(Component)]
 struct FlightHelmetModel;
+
+/// A marker component for the row of capsules model.
+#[derive(Component)]
+struct CapsuleModel;
+
+/// A marker component for the row of capsules parent.
+#[derive(Component)]
+struct CapsulesParent;
 
 fn main() {
     // Enable deferred rendering, which is necessary for screen-space
@@ -133,13 +154,14 @@ fn setup(
         &mut standard_materials,
     );
     spawn_flight_helmet(&mut commands, &asset_server);
+    spawn_capsules(&mut commands, &mut meshes, &mut standard_materials);
     spawn_water(
         &mut commands,
         &asset_server,
         &mut meshes,
         &mut water_materials,
     );
-    spawn_camera(&mut commands, &asset_server);
+    spawn_camera(&mut commands, &asset_server, &app_settings);
     spawn_text(&mut commands, &app_settings);
 }
 
@@ -176,6 +198,39 @@ fn spawn_flight_helmet(commands: &mut Commands, asset_server: &AssetServer) {
     ));
 }
 
+// Spawns the row of capsules.
+fn spawn_capsules(
+    commands: &mut Commands,
+    meshes: &mut Assets<Mesh>,
+    standard_materials: &mut Assets<StandardMaterial>,
+) {
+    let capsule_mesh = meshes.add(Capsule3d::new(0.4, 0.5));
+    let parent = commands
+        .spawn((
+            Transform::from_xyz(0.0, 0.5, 0.0),
+            Visibility::Hidden,
+            CapsulesParent,
+        ))
+        .id();
+
+    for i in 0..5 {
+        let roughness = i as f32 * 0.25;
+        let child = commands
+            .spawn((
+                Mesh3d(capsule_mesh.clone()),
+                MeshMaterial3d(standard_materials.add(StandardMaterial {
+                    base_color: Color::BLACK,
+                    perceptual_roughness: roughness,
+                    ..default()
+                })),
+                Transform::from_xyz(i as f32 * 1.1 - (1.1 * 2.0), 0.5, 0.0),
+                CapsuleModel,
+            ))
+            .id();
+        commands.entity(parent).add_child(child);
+    }
+}
+
 // Spawns the water plane.
 fn spawn_water(
     commands: &mut Commands,
@@ -188,7 +243,7 @@ fn spawn_water(
         MeshMaterial3d(water_materials.add(ExtendedMaterial {
             base: StandardMaterial {
                 base_color: BLACK.into(),
-                perceptual_roughness: 0.0,
+                perceptual_roughness: 0.09,
                 ..default()
             },
             extension: Water {
@@ -222,31 +277,36 @@ fn spawn_water(
 }
 
 // Spawns the camera.
-fn spawn_camera(commands: &mut Commands, asset_server: &AssetServer) {
+fn spawn_camera(commands: &mut Commands, asset_server: &AssetServer, app_settings: &AppSettings) {
     // Create the camera. Add an environment map and skybox so the water has
     // something interesting to reflect, other than the cube. Enable deferred
     // rendering by adding depth and deferred prepasses. Turn on FXAA to make
     // the scene look a little nicer. Finally, add screen space reflections.
-    commands
-        .spawn((
-            Camera3d::default(),
-            Transform::from_translation(vec3(-1.25, 2.25, 4.5)).looking_at(Vec3::ZERO, Vec3::Y),
-            Hdr,
-            Msaa::Off,
-        ))
-        .insert(EnvironmentMapLight {
+    commands.spawn((
+        Camera3d::default(),
+        Transform::from_translation(vec3(-1.25, 2.25, 4.5)).looking_at(Vec3::ZERO, Vec3::Y),
+        Hdr,
+        Msaa::Off,
+        TemporalAntiAliasing::default(),
+        ScreenSpaceReflections {
+            min_perceptual_roughness: app_settings.min_perceptual_roughness.clone(),
+            max_perceptual_roughness: app_settings.max_perceptual_roughness.clone(),
+            edge_fadeout: app_settings.edge_fadeout.clone(),
+            ..default()
+        },
+        ScreenSpaceAmbientOcclusion::default(),
+        EnvironmentMapLight {
             diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
             specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
             intensity: 5000.0,
             ..default()
-        })
-        .insert(Skybox {
+        },
+        Skybox {
             image: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
             brightness: 5000.0,
             ..default()
-        })
-        .insert(ScreenSpaceReflections::default())
-        .insert(Fxaa::default());
+        },
+    ));
 }
 
 // Spawns the help text.
@@ -265,17 +325,27 @@ fn spawn_text(commands: &mut Commands, app_settings: &AppSettings) {
 // Creates or recreates the help text.
 fn create_text(app_settings: &AppSettings) -> Text {
     format!(
-        "{}\n{}\n{}",
+        "{}\n{}\n{}\n{}\n{}\n{}\nSSR min roughness: {:.2}..{:.2}\nSSR max roughness: {:.2}..{:.2}\nSSR edge fadeout: {:.2}..{:.2}",
         match app_settings.displayed_model {
             DisplayedModel::Cube => SWITCH_TO_FLIGHT_HELMET_HELP_TEXT,
-            DisplayedModel::FlightHelmet => SWITCH_TO_CUBE_HELP_TEXT,
+            DisplayedModel::FlightHelmet => SWITCH_TO_CAPSULES_HELP_TEXT,
+            DisplayedModel::Capsules => SWITCH_TO_CUBE_HELP_TEXT,
         },
         if app_settings.ssr_on {
             TURN_SSR_OFF_HELP_TEXT
         } else {
             TURN_SSR_ON_HELP_TEXT
         },
-        MOVE_CAMERA_HELP_TEXT
+        MOVE_CAMERA_HELP_TEXT,
+        MIN_ROUGHNESS_HELP_TEXT,
+        MAX_ROUGHNESS_HELP_TEXT,
+        EDGE_FADEOUT_HELP_TEXT,
+        app_settings.min_perceptual_roughness.start,
+        app_settings.min_perceptual_roughness.end,
+        app_settings.max_perceptual_roughness.start,
+        app_settings.max_perceptual_roughness.end,
+        app_settings.edge_fadeout.start,
+        app_settings.edge_fadeout.end,
     )
     .into()
 }
@@ -292,7 +362,8 @@ fn rotate_model(
     time: Res<Time>,
 ) {
     for mut transform in query.iter_mut() {
-        transform.rotation = Quat::from_euler(EulerRot::XYZ, 0.0, time.elapsed_secs(), 0.0);
+        // Models rotate on the Y axis.
+        transform.rotation = Quat::from_rotation_y(time.elapsed_secs());
     }
 }
 
@@ -345,8 +416,32 @@ fn adjust_app_settings(
     keyboard_input: Res<ButtonInput<KeyCode>>,
     mut app_settings: ResMut<AppSettings>,
     mut cameras: Query<Entity, With<Camera>>,
-    mut cube_models: Query<&mut Visibility, (With<CubeModel>, Without<FlightHelmetModel>)>,
-    mut flight_helmet_models: Query<&mut Visibility, (Without<CubeModel>, With<FlightHelmetModel>)>,
+    mut cube_models: Query<
+        &mut Visibility,
+        (
+            With<CubeModel>,
+            Without<FlightHelmetModel>,
+            Without<CapsuleModel>,
+            Without<CapsulesParent>,
+        ),
+    >,
+    mut flight_helmet_models: Query<
+        &mut Visibility,
+        (
+            Without<CubeModel>,
+            With<FlightHelmetModel>,
+            Without<CapsuleModel>,
+            Without<CapsulesParent>,
+        ),
+    >,
+    mut capsules_row_models: Query<
+        &mut Visibility,
+        (
+            Without<CubeModel>,
+            Without<FlightHelmetModel>,
+            Or<(With<CapsuleModel>, With<CapsulesParent>)>,
+        ),
+    >,
     mut text: Query<&mut Text>,
 ) {
     // If there are no changes, we're going to bail for efficiency. Record that
@@ -363,8 +458,71 @@ fn adjust_app_settings(
     if keyboard_input.just_pressed(KeyCode::Enter) {
         app_settings.displayed_model = match app_settings.displayed_model {
             DisplayedModel::Cube => DisplayedModel::FlightHelmet,
-            DisplayedModel::FlightHelmet => DisplayedModel::Cube,
+            DisplayedModel::FlightHelmet => DisplayedModel::Capsules,
+            DisplayedModel::Capsules => DisplayedModel::Cube,
         };
+        any_changes = true;
+    }
+
+    // Adjust min roughness range.
+    if keyboard_input.pressed(KeyCode::KeyU) {
+        app_settings.min_perceptual_roughness.start =
+            (app_settings.min_perceptual_roughness.start - 0.01).max(0.0);
+        any_changes = true;
+    }
+    if keyboard_input.pressed(KeyCode::KeyI) {
+        app_settings.min_perceptual_roughness.start =
+            (app_settings.min_perceptual_roughness.start + 0.01).min(1.0);
+        any_changes = true;
+    }
+    if keyboard_input.pressed(KeyCode::KeyO) {
+        app_settings.min_perceptual_roughness.end =
+            (app_settings.min_perceptual_roughness.end - 0.01).max(0.0);
+        any_changes = true;
+    }
+    if keyboard_input.pressed(KeyCode::KeyP) {
+        app_settings.min_perceptual_roughness.end =
+            (app_settings.min_perceptual_roughness.end + 0.01).min(1.0);
+        any_changes = true;
+    }
+
+    // Adjust max roughness range.
+    if keyboard_input.pressed(KeyCode::KeyH) {
+        app_settings.max_perceptual_roughness.start =
+            (app_settings.max_perceptual_roughness.start - 0.01).max(0.0);
+        any_changes = true;
+    }
+    if keyboard_input.pressed(KeyCode::KeyJ) {
+        app_settings.max_perceptual_roughness.start =
+            (app_settings.max_perceptual_roughness.start + 0.01).min(1.0);
+        any_changes = true;
+    }
+    if keyboard_input.pressed(KeyCode::KeyK) {
+        app_settings.max_perceptual_roughness.end =
+            (app_settings.max_perceptual_roughness.end - 0.01).max(0.0);
+        any_changes = true;
+    }
+    if keyboard_input.pressed(KeyCode::KeyL) {
+        app_settings.max_perceptual_roughness.end =
+            (app_settings.max_perceptual_roughness.end + 0.01).min(1.0);
+        any_changes = true;
+    }
+
+    // Adjust edge fadeout range.
+    if keyboard_input.pressed(KeyCode::KeyN) {
+        app_settings.edge_fadeout.start = (app_settings.edge_fadeout.start - 0.001).max(0.0);
+        any_changes = true;
+    }
+    if keyboard_input.pressed(KeyCode::KeyM) {
+        app_settings.edge_fadeout.start = (app_settings.edge_fadeout.start + 0.001).min(1.0);
+        any_changes = true;
+    }
+    if keyboard_input.pressed(KeyCode::Comma) {
+        app_settings.edge_fadeout.end = (app_settings.edge_fadeout.end - 0.001).max(0.0);
+        any_changes = true;
+    }
+    if keyboard_input.pressed(KeyCode::Period) {
+        app_settings.edge_fadeout.end = (app_settings.edge_fadeout.end + 0.001).min(1.0);
         any_changes = true;
     }
 
@@ -376,9 +534,12 @@ fn adjust_app_settings(
     // Update SSR settings.
     for camera in cameras.iter_mut() {
         if app_settings.ssr_on {
-            commands
-                .entity(camera)
-                .insert(ScreenSpaceReflections::default());
+            commands.entity(camera).insert(ScreenSpaceReflections {
+                min_perceptual_roughness: app_settings.min_perceptual_roughness.clone(),
+                max_perceptual_roughness: app_settings.max_perceptual_roughness.clone(),
+                edge_fadeout: app_settings.edge_fadeout.clone(),
+                ..default()
+            });
         } else {
             commands.entity(camera).remove::<ScreenSpaceReflections>();
         }
@@ -400,6 +561,14 @@ fn adjust_app_settings(
         };
     }
 
+    // Set row of capsules model visibility.
+    for mut capsules_row_visibility in capsules_row_models.iter_mut() {
+        *capsules_row_visibility = match app_settings.displayed_model {
+            DisplayedModel::Capsules => Visibility::Visible,
+            _ => Visibility::Hidden,
+        };
+    }
+
     // Update the help text.
     for mut text in text.iter_mut() {
         *text = create_text(&app_settings);
@@ -411,6 +580,9 @@ impl Default for AppSettings {
         Self {
             ssr_on: true,
             displayed_model: default(),
+            min_perceptual_roughness: 0.0..0.0,
+            max_perceptual_roughness: ScreenSpaceReflections::default().max_perceptual_roughness,
+            edge_fadeout: 0.0..0.0,
         }
     }
 }
