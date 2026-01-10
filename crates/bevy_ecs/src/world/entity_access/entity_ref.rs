@@ -49,6 +49,15 @@ impl<'w> EntityRef<'w> {
         Self { cell }
     }
 
+    /// Consumes `self` and returns a [`FilteredEntityRef`] which has read-only
+    /// access to all of the entity's components, with the world `'w` lifetime.
+    #[inline]
+    pub fn into_filtered(self) -> FilteredEntityRef<'w, 'static> {
+        // SAFETY:
+        // - `EntityRef` guarantees exclusive access to all components in the new `FilteredEntityRef`.
+        unsafe { FilteredEntityRef::new(self.cell, const { &Access::new_read_all() }) }
+    }
+
     /// Returns the [ID](Entity) of the current entity.
     #[inline]
     #[must_use = "Omit the .id() call if you do not need to store the `Entity` identifier."]
@@ -289,18 +298,16 @@ impl<'w> EntityRef<'w> {
 }
 
 impl<'a> From<EntityRef<'a>> for FilteredEntityRef<'a, 'static> {
+    #[inline]
     fn from(entity: EntityRef<'a>) -> Self {
-        // SAFETY:
-        // - `EntityRef` guarantees exclusive access to all components in the new `FilteredEntityRef`.
-        unsafe { FilteredEntityRef::new(entity.cell, const { &Access::new_read_all() }) }
+        entity.into_filtered()
     }
 }
 
 impl<'a> From<&'a EntityRef<'_>> for FilteredEntityRef<'a, 'static> {
+    #[inline]
     fn from(entity: &'a EntityRef<'_>) -> Self {
-        // SAFETY:
-        // - `EntityRef` guarantees exclusive access to all components in the new `FilteredEntityRef`.
-        unsafe { FilteredEntityRef::new(entity.cell, const { &Access::new_read_all() }) }
+        (*entity).into_filtered()
     }
 }
 
