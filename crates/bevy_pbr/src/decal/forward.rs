@@ -3,7 +3,7 @@ use crate::{
     MaterialPlugin, StandardMaterial,
 };
 use bevy_app::{App, Plugin};
-use bevy_asset::{Asset, Assets, Handle};
+use bevy_asset::{Asset, Assets, ExtractableAsset, Handle};
 use bevy_ecs::{
     component::Component, lifecycle::HookContext, resource::Resource, world::DeferredWorld,
 };
@@ -33,9 +33,12 @@ impl Plugin for ForwardDecalPlugin {
             Rectangle::from_size(Vec2::ONE)
                 .mesh()
                 .build()
-                .rotated_by(Quat::from_rotation_arc(Vec3::Z, Vec3::Y))
-                .with_generated_tangents()
-                .unwrap(),
+                .with_extractable_data(|d| {
+                    d.unwrap()
+                        .rotated_by(Quat::from_rotation_arc(Vec3::Z, Vec3::Y))
+                        .with_generated_tangents()
+                        .unwrap()
+                }),
         );
 
         app.insert_resource(ForwardDecalMesh(mesh));

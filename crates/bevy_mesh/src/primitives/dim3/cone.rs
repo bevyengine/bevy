@@ -1,5 +1,4 @@
-use crate::{Indices, Mesh, MeshBuilder, Meshable, PrimitiveTopology};
-use bevy_asset::RenderAssetUsages;
+use crate::{Indices, Mesh, MeshBuilder, MeshExtractableData, Meshable, PrimitiveTopology};
 use bevy_math::{ops, primitives::Cone, Vec3};
 use bevy_reflect::prelude::*;
 
@@ -160,14 +159,13 @@ impl MeshBuilder for ConeMeshBuilder {
             ConeAnchor::MidPoint => (),
         };
 
-        Mesh::new(
-            PrimitiveTopology::TriangleList,
-            RenderAssetUsages::default(),
+        Mesh::from(
+            MeshExtractableData::new(PrimitiveTopology::TriangleList)
+                .with_inserted_indices(Indices::U32(indices))
+                .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
+                .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
+                .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs),
         )
-        .with_inserted_indices(Indices::U32(indices))
-        .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
-        .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
-        .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)
     }
 }
 
@@ -191,6 +189,7 @@ impl From<Cone> for Mesh {
 #[cfg(test)]
 mod tests {
     use crate::{Mesh, MeshBuilder, Meshable, VertexAttributeValues};
+    use bevy_asset::ExtractableAsset;
     use bevy_math::{primitives::Cone, Vec2};
 
     /// Rounds floats to handle floating point error in tests.
@@ -214,6 +213,7 @@ mod tests {
         .mesh()
         .resolution(4)
         .build();
+        let mesh = mesh.extractable_data_mut().unwrap();
 
         let Some(VertexAttributeValues::Float32x3(mut positions)) =
             mesh.remove_attribute(Mesh::ATTRIBUTE_POSITION)

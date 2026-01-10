@@ -2,12 +2,13 @@ use crate::meshlet::asset::{MeshletAabb, MeshletAabbErrorOffset, MeshletCullData
 
 use super::asset::{BvhNode, Meshlet, MeshletBoundingSphere, MeshletMesh};
 use alloc::borrow::Cow;
+use bevy_asset::ExtractableAsset;
 use bevy_math::{
     bounding::{Aabb3d, BoundingSphere, BoundingVolume},
     ops::log2,
     IVec3, Isometry3d, Vec2, Vec3, Vec3A, Vec3Swizzles,
 };
-use bevy_mesh::{Indices, Mesh};
+use bevy_mesh::{Indices, Mesh, MeshExtractableData};
 use bevy_platform::collections::HashMap;
 use bevy_render::render_resource::PrimitiveTopology;
 use bevy_tasks::{AsyncComputeTaskPool, ParallelSlice};
@@ -71,6 +72,7 @@ impl MeshletMesh {
         let s = debug_span!("build meshlet mesh");
         let _e = s.enter();
 
+        let mesh = mesh.extractable_data_ref().unwrap();
         // Validate mesh format
         let indices = validate_input_mesh(mesh)?;
 
@@ -246,7 +248,9 @@ impl MeshletMesh {
     }
 }
 
-fn validate_input_mesh(mesh: &Mesh) -> Result<Cow<'_, [u32]>, MeshToMeshletMeshConversionError> {
+fn validate_input_mesh(
+    mesh: &MeshExtractableData,
+) -> Result<Cow<'_, [u32]>, MeshToMeshletMeshConversionError> {
     if mesh.primitive_topology() != PrimitiveTopology::TriangleList {
         return Err(MeshToMeshletMeshConversionError::WrongMeshPrimitiveTopology);
     }
