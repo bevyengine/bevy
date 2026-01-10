@@ -21,6 +21,12 @@ rayon = ["dep:rayon", "hashbrown/rayon"]
 
 # Platform Compatibility
 
+## Provides an implementation of `block_on` from `futures-lite`.
+futures-lite = ["std", "dep:futures-lite", "futures-lite?/std"]
+
+## Provides an implementation of `block_on` from `async-io`.
+async-io = ["std", "dep:async-io"]
+
 ## Allows access to the `std` crate. Enabling this feature will prevent compilation
 ## on `no_std` targets, but provides access to certain additional features on
 ## supported platforms.
@@ -72,6 +78,8 @@ hashbrown = { version = "0.16.1", features = [
 ], optional = true, default-features = false }
 serde = { version = "1", default-features = false, optional = true }
 rayon = { version = "1", default-features = false, optional = true }
+futures-lite = { version = "2.0.1", default-features = false, optional = true }
+async-io = { version = "2.0.0", optional = true }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 web-time = { version = "1.1", default-features = false, optional = true }

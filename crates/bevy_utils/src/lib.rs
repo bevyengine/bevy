@@ -20,6 +20,10 @@ pub mod cfg {
             /// Indicates the `Parallel` type is available.
             parallel
         }
+        #[cfg(feature = "buffered_channel")] => {
+            /// Indicates the `BufferedChannel` type is available.
+            buffered_channel
+        }
     }
 }
 
@@ -37,6 +41,11 @@ cfg::alloc! {
 cfg::parallel! {
     mod parallel_queue;
     pub use parallel_queue::*;
+}
+
+cfg::buffered_channel! {
+    mod buffered_channel;
+    pub use buffered_channel::*;
 }
 
 /// The utilities prelude.
