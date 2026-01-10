@@ -10,7 +10,9 @@ use bevy_render::{
     camera::ExtractedCamera,
     extract_component::{ExtractComponent, ExtractComponentPlugin},
     render_graph::{RenderGraphExt, ViewNodeRunner},
-    render_resource::{BufferUsages, BufferVec, DynamicUniformBuffer, ShaderType, TextureUsages},
+    render_resource::{
+        BufferUsages, DynamicUniformBuffer, ShaderType, TextureUsages, UninitBufferVec,
+    },
     renderer::{RenderDevice, RenderQueue},
     view::Msaa,
     Render, RenderApp, RenderStartup, RenderSystems,
@@ -152,31 +154,25 @@ pub struct OitBuffers {
     /// The OIT buffers containing color, depth and linked next node for each fragments.
     /// This is essentially used as a 3d array where xy is the screen coordinate and z is
     /// the list of fragments rendered with OIT.
-    pub nodes: BufferVec<OitFragmentNode>,
-    pub heads: BufferVec<u32>,
-    pub atomic_counter: BufferVec<u32>,
+    pub nodes: UninitBufferVec<OitFragmentNode>,
+    pub heads: UninitBufferVec<u32>,
+    pub atomic_counter: UninitBufferVec<u32>,
 }
 
-pub fn init_oit_buffers(
-    mut commands: Commands,
-    render_device: Res<RenderDevice>,
-    render_queue: Res<RenderQueue>,
-) {
+pub fn init_oit_buffers(mut commands: Commands, render_device: Res<RenderDevice>) {
     // initialize buffers with something so there's a valid binding
 
-    let mut nodes = BufferVec::new(BufferUsages::COPY_DST | BufferUsages::STORAGE);
+    let mut nodes = UninitBufferVec::new(BufferUsages::COPY_DST | BufferUsages::STORAGE);
     nodes.set_label(Some("oit_nodes"));
     nodes.reserve(1, &render_device);
 
-    let mut heads = BufferVec::new(BufferUsages::COPY_DST | BufferUsages::STORAGE);
+    let mut heads = UninitBufferVec::new(BufferUsages::COPY_DST | BufferUsages::STORAGE);
     heads.set_label(Some("oit_heads"));
-    heads.push(u32::MAX);
-    heads.write_buffer(&render_device, &render_queue);
+    heads.reserve(1, &render_device);
 
-    let mut atomic_counter = BufferVec::new(BufferUsages::COPY_DST | BufferUsages::STORAGE);
+    let mut atomic_counter = UninitBufferVec::new(BufferUsages::COPY_DST | BufferUsages::STORAGE);
     atomic_counter.set_label(Some("oit_atomic_counter"));
-    atomic_counter.push(0);
-    atomic_counter.write_buffer(&render_device, &render_queue);
+    atomic_counter.reserve(1, &render_device);
 
     let mut settings = DynamicUniformBuffer::default();
     settings.set_label(Some("oit_settings"));
@@ -227,12 +223,7 @@ pub fn prepare_oit_buffers(
     let heads_size = (max_size.x * max_size.y) as usize;
     if buffers.heads.capacity() < heads_size {
         let start = Instant::now();
-        buffers.heads.clear();
         buffers.heads.reserve(heads_size, &render_device);
-        for _ in 0..heads_size {
-            buffers.heads.push(u32::MAX);
-        }
-        buffers.heads.write_buffer(&render_device, &render_queue);
         trace!(
             "OIT heads buffer updated in {:.01}ms with total size {} MiB",
             start.elapsed().as_millis(),

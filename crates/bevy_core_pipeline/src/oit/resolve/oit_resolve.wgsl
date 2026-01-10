@@ -29,7 +29,7 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     atomic_counter = 0u;
     let screen_index = u32(floor(in.position.x) + floor(in.position.y) * view.viewport.z);
 
-    let head = heads[screen_index];
+    let head = heads[screen_index] - 1u;
     if head == LINKED_LIST_END_SENTINEL {
         // https://github.com/gfx-rs/wgpu/issues/4416
         if true {
@@ -47,7 +47,7 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
         let d = 0.0;
 #endif
         let color = resolve(head, d);
-        heads[screen_index] = LINKED_LIST_END_SENTINEL;
+        heads[screen_index] = 0u; // LINKED_LIST_END_SENTINEL + 1u;
         return color;
     }
 }

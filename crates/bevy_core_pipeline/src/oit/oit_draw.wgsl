@@ -22,7 +22,7 @@ fn oit_draw(position: vec4f, color: vec4f) {
     // get the size of oit_nodes. It's screen_size * fragments_per_pixel_average
     let buffer_size = u32(view.viewport.z * view.viewport.w * oit_settings.fragments_per_pixel_average);
 
-    var new_node_index = atomicAdd(&oit_atomic_counter, 1);
+    var new_node_index = atomicAdd(&oit_atomic_counter, 1u);
     // exit early if we've reached the maximum amount of fragments nodes
     if new_node_index >= buffer_size {
         // TODO for tail blending we should return the color here
@@ -30,7 +30,8 @@ fn oit_draw(position: vec4f, color: vec4f) {
     }
 
     var node: OitFragmentNode;
-    node.next = atomicExchange(&oit_heads[screen_index], new_node_index);
+    // In `oit_heads` buffer, index starts from 1, end sentinel is 0 so that we can avoid writing `u32::MAX` from CPU. wgpu guarantees buffers are zero-initialized.
+    node.next = atomicExchange(&oit_heads[screen_index], new_node_index + 1u) - 1u;
     node.color = bevy_pbr::rgb9e5::vec3_to_rgb9e5_(color.rgb);
     node.depth_alpha = pack_24bit_depth_8bit_alpha(position.z, color.a);
     oit_nodes[new_node_index] = node;
