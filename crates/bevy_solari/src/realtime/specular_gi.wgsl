@@ -17,7 +17,8 @@
 
 const DIFFUSE_GI_REUSE_ROUGHNESS_THRESHOLD: f32 = 0.4;
 const SPECULAR_GI_FOR_DI_ROUGHNESS_THRESHOLD: f32 = 0.0225;
-const TERMINATE_IN_WORLD_CACHE_THRESHOLD: f32 = 0.03;
+const TERMINATE_IN_WORLD_CACHE_THRESHOLD1: f32 = 0.03;
+const TERMINATE_IN_WORLD_CACHE_THRESHOLD2: f32 = 0.07;
 
 @compute @workgroup_size(8, 8, 1)
 fn specular_gi(@builtin(global_invocation_id) global_id: vec3<u32>) {
@@ -56,7 +57,7 @@ fn specular_gi(@builtin(global_invocation_id) global_id: vec3<u32>) {
         // https://d1qx31qr3h6wln.cloudfront.net/publications/mueller21realtime.pdf#subsection.3.4, equation (4)
         let cos_theta = saturate(dot(wo, surface.world_normal));
         var a0 = dot(wo_unnormalized, wo_unnormalized) / (4.0 * PI * cos_theta);
-        a0 *= TERMINATE_IN_WORLD_CACHE_THRESHOLD;
+        a0 *= TERMINATE_IN_WORLD_CACHE_THRESHOLD1;
 
         radiance = trace_glossy_path(global_id.xy, surface, wi, pdf, a0, &rng) / pdf;
     }
@@ -127,7 +128,9 @@ fn trace_glossy_path(pixel_id: vec2<u32>, primary_surface: ResolvedGPixel, initi
         }
 #endif
 
-        if path_spread * path_spread > a0 * get_cell_size(ray_hit.world_position, view.world_position) {
+        if (i != 0u || primary_surface.material.roughness > TERMINATE_IN_WORLD_CACHE_THRESHOLD2)
+            && !surface_perfect_mirror
+            && (path_spread * path_spread > a0 * get_cell_size(ray_hit.world_position, view.world_position)) {
             // Path spread is wide enough, terminate path in the world cache
             let diffuse_brdf = ray_hit.material.base_color / PI;
             radiance += throughput * diffuse_brdf * query_world_cache(ray_hit.world_position, ray_hit.geometric_world_normal, view.world_position, WORLD_CACHE_CELL_LIFETIME, rng);
