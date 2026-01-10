@@ -102,7 +102,8 @@ pub struct EnvironmentMapLight {
 
 impl EnvironmentMapLight {
     /// An environment map with a uniform color, useful for uniform ambient lighting.
-    pub fn solid_color(assets: &mut Assets<Image>, color: Color) -> Self {
+    pub fn solid_color(assets: &mut Assets<Image>, color: impl Into<Color>) -> Self {
+        let color = color.into();
         Self::hemispherical_gradient(assets, color, color, color)
     }
 
@@ -110,14 +111,14 @@ impl EnvironmentMapLight {
     /// at the horizon. Useful as a very simple 'sky'.
     pub fn hemispherical_gradient(
         assets: &mut Assets<Image>,
-        top_color: Color,
-        mid_color: Color,
-        bottom_color: Color,
+        top_color: impl Into<Color>,
+        mid_color: impl Into<Color>,
+        bottom_color: impl Into<Color>,
     ) -> Self {
         let handle = assets.add(Self::hemispherical_gradient_cubemap(
-            top_color,
-            mid_color,
-            bottom_color,
+            top_color.into(),
+            mid_color.into(),
+            bottom_color.into(),
         ));
 
         Self {
