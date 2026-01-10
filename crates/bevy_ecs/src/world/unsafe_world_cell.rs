@@ -1016,7 +1016,7 @@ impl<'w> UnsafeEntityCell<'w> {
             // SAFETY:
             // - set_archetype was called previously
             // - table_row is in range of the current archetype
-            unsafe { Q::matches(&state, &fetch, self.id(), location.table_row) }
+            unsafe { Q::matches(&state, &mut fetch, self.id(), location.table_row) }
                 .then(||
                     // SAFETY: Called after set_archetype and above. Entity and location are
                     // guaranteed to exist, and this is only called if `matches` returns `true`.

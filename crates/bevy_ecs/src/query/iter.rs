@@ -227,7 +227,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
             next_chunk = unsafe {
                 D::find_table_chunk(
                     &self.query_state.fetch_state,
-                    &self.cursor.fetch,
+                    &mut self.cursor.fetch,
                     table_entities,
                     next_chunk,
                 )
@@ -239,7 +239,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
             next_chunk = unsafe {
                 F::find_table_chunk(
                     &self.query_state.filter_state,
-                    &self.cursor.filter,
+                    &mut self.cursor.filter,
                     table_entities,
                     next_chunk,
                 )
@@ -315,7 +315,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
             next_chunk = unsafe {
                 D::find_archetype_chunk(
                     &self.query_state.fetch_state,
-                    &self.cursor.fetch,
+                    &mut self.cursor.fetch,
                     archetype_entities,
                     next_chunk,
                 )
@@ -327,7 +327,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
             next_chunk = unsafe {
                 F::find_archetype_chunk(
                     &self.query_state.filter_state,
-                    &self.cursor.filter,
+                    &mut self.cursor.filter,
                     archetype_entities,
                     next_chunk,
                 )
@@ -409,7 +409,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
             next_chunk = unsafe {
                 D::find_table_chunk(
                     &self.query_state.fetch_state,
-                    &self.cursor.fetch,
+                    &mut self.cursor.fetch,
                     table_entities,
                     next_chunk,
                 )
@@ -421,7 +421,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
             next_chunk = unsafe {
                 F::find_table_chunk(
                     &self.query_state.filter_state,
-                    &self.cursor.filter,
+                    &mut self.cursor.filter,
                     table_entities,
                     next_chunk,
                 )
@@ -1128,7 +1128,7 @@ where
         let matches = unsafe {
             D::matches(
                 &self.query_state.fetch_state,
-                &self.fetch,
+                &mut self.fetch,
                 entity,
                 location.table_row,
             )
@@ -2568,11 +2568,11 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
                 // SAFETY: set_table was called prior.
                 // `row` is a table row in range of the current table,
                 let matches_fetch =
-                    unsafe { D::matches(&query_state.fetch_state, &self.fetch, entity, row) };
+                    unsafe { D::matches(&query_state.fetch_state, &mut self.fetch, entity, row) };
                 // SAFETY: set_table was called prior.
                 // `row` is a table row in range of the current table,
                 let matches_filter =
-                    unsafe { F::matches(&query_state.filter_state, &self.filter, entity, row) };
+                    unsafe { F::matches(&query_state.filter_state, &mut self.filter, entity, row) };
 
                 (matches_fetch && matches_filter).then(|| 
                     // SAFETY:
@@ -2591,7 +2591,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
                 let matches_fetch = unsafe {
                     D::matches(
                         &query_state.fetch_state,
-                        &self.fetch,
+                        &mut self.fetch,
                         archetype_entity.id(),
                         archetype_entity.table_row(),
                     )
@@ -2601,7 +2601,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
                 let matches_filter = unsafe {
                     F::matches(
                         &query_state.filter_state,
-                        &self.filter,
+                        &mut self.filter,
                         archetype_entity.id(),
                         archetype_entity.table_row(),
                     )
@@ -2689,11 +2689,11 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
                 // SAFETY: set_table was called prior.
                 // `row` is a table row in range of the current table,
                 let matches_fetch =
-                    unsafe { D::matches(&query_state.fetch_state, &self.fetch, entity, row) };
+                    unsafe { D::matches(&query_state.fetch_state, &mut self.fetch, entity, row) };
                 // SAFETY: set_table was called prior.
                 // `row` is a table row in range of the current table,
                 let matches_filter =
-                    unsafe { F::matches(&query_state.filter_state, &self.filter, entity, row) };
+                    unsafe { F::matches(&query_state.filter_state, &mut self.filter, entity, row) };
 
                 if !(matches_fetch && matches_filter) {
                     continue;
@@ -2756,9 +2756,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
                 let matches_fetch = unsafe {
                     D::matches(
                         &query_state.fetch_state,
-                        &self.fetch,
+                        &mut self.fetch,
                         archetype_entity.id(),
                         archetype_entity.table_row(),
+
                     )
                 };
                 // SAFETY: set_archetype was called prior.
@@ -2766,9 +2767,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
                 let matches_filter = unsafe {
                     F::matches(
                         &query_state.filter_state,
-                        &self.filter,
+                        &mut self.filter,
                         archetype_entity.id(),
                         archetype_entity.table_row(),
+
                     )
                 };
 

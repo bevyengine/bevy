@@ -1581,11 +1581,15 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
             D::set_archetype(&mut fetch, &self.state.fetch_state, archetype, table);
             F::set_archetype(&mut filter, &self.state.filter_state, archetype, table);
 
-            let matches_fetch =
-                D::matches(&self.state.fetch_state, &fetch, entity, location.table_row);
+            let matches_fetch = D::matches(
+                &self.state.fetch_state,
+                &mut fetch,
+                entity,
+                location.table_row,
+            );
             let matches_filter = F::matches(
                 &self.state.filter_state,
-                &filter,
+                &mut filter,
                 entity,
                 location.table_row,
             );

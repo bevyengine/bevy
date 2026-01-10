@@ -886,7 +886,7 @@ mod tests {
         #[inline]
         unsafe fn matches(
             _state: &Self::State,
-            _fetch: &Self::Fetch<'_>,
+            _fetch: &mut Self::Fetch<'_>,
             _entity: Entity,
             _table_row: TableRow,
         ) -> bool {

@@ -431,7 +431,7 @@ unsafe impl WorldQuery for Entity {
     #[inline]
     unsafe fn matches(
         _state: &Self::State,
-        _fetch: &Self::Fetch<'_>,
+        _fetch: &mut Self::Fetch<'_>,
         _entity: Entity,
         _table_row: TableRow,
     ) -> bool {
@@ -538,7 +538,7 @@ unsafe impl WorldQuery for EntityLocation {
     #[inline]
     unsafe fn matches(
         _state: &Self::State,
-        _fetch: &Self::Fetch<'_>,
+        _fetch: &mut Self::Fetch<'_>,
         _entity: Entity,
         _table_row: TableRow,
     ) -> bool {
@@ -716,7 +716,7 @@ unsafe impl WorldQuery for SpawnDetails {
     #[inline]
     unsafe fn matches(
         _state: &Self::State,
-        _fetch: &Self::Fetch<'_>,
+        _fetch: &mut Self::Fetch<'_>,
         _entity: Entity,
         _table_row: TableRow,
     ) -> bool {
@@ -854,7 +854,7 @@ unsafe impl<'a> WorldQuery for EntityRef<'a> {
     #[inline]
     unsafe fn matches(
         _state: &Self::State,
-        _fetch: &Self::Fetch<'_>,
+        _fetch: &mut Self::Fetch<'_>,
         _entity: Entity,
         _table_row: TableRow,
     ) -> bool {
@@ -974,7 +974,7 @@ unsafe impl<'a> WorldQuery for EntityMut<'a> {
     #[inline]
     unsafe fn matches(
         _state: &Self::State,
-        _fetch: &Self::Fetch<'_>,
+        _fetch: &mut Self::Fetch<'_>,
         _entity: Entity,
         _table_row: TableRow,
     ) -> bool {
@@ -1093,7 +1093,7 @@ unsafe impl WorldQuery for FilteredEntityRef<'_, '_> {
     #[inline]
     unsafe fn matches(
         _state: &Self::State,
-        _fetch: &Self::Fetch<'_>,
+        _fetch: &mut Self::Fetch<'_>,
         _entity: Entity,
         _table_row: TableRow,
     ) -> bool {
@@ -1228,7 +1228,7 @@ unsafe impl WorldQuery for FilteredEntityMut<'_, '_> {
     #[inline]
     unsafe fn matches(
         _state: &Self::State,
-        _fetch: &Self::Fetch<'_>,
+        _fetch: &mut Self::Fetch<'_>,
         _entity: Entity,
         _table_row: TableRow,
     ) -> bool {
@@ -1371,7 +1371,7 @@ where
     #[inline]
     unsafe fn matches(
         _state: &Self::State,
-        _fetch: &Self::Fetch<'_>,
+        _fetch: &mut Self::Fetch<'_>,
         _entity: Entity,
         _table_row: TableRow,
     ) -> bool {
@@ -1499,7 +1499,7 @@ where
     #[inline]
     unsafe fn matches(
         _state: &Self::State,
-        _fetch: &Self::Fetch<'_>,
+        _fetch: &mut Self::Fetch<'_>,
         _entity: Entity,
         _table_row: TableRow,
     ) -> bool {
@@ -1603,7 +1603,7 @@ unsafe impl WorldQuery for &Archetype {
     #[inline]
     unsafe fn matches(
         _state: &Self::State,
-        _fetch: &Self::Fetch<'_>,
+        _fetch: &mut Self::Fetch<'_>,
         _entity: Entity,
         _table_row: TableRow,
     ) -> bool {
@@ -1773,7 +1773,7 @@ unsafe impl<T: Component> WorldQuery for &T {
     #[inline]
     unsafe fn matches(
         _state: &Self::State,
-        _fetch: &Self::Fetch<'_>,
+        _fetch: &mut Self::Fetch<'_>,
         _entity: Entity,
         _table_row: TableRow,
     ) -> bool {
@@ -1973,7 +1973,7 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
     #[inline]
     unsafe fn matches(
         _state: &Self::State,
-        _fetch: &Self::Fetch<'_>,
+        _fetch: &mut Self::Fetch<'_>,
         _entity: Entity,
         _table_row: TableRow,
     ) -> bool {
@@ -2200,7 +2200,7 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
     #[inline]
     unsafe fn matches(
         _state: &Self::State,
-        _fetch: &Self::Fetch<'_>,
+        _fetch: &mut Self::Fetch<'_>,
         _entity: Entity,
         _table_row: TableRow,
     ) -> bool {
@@ -2370,7 +2370,7 @@ unsafe impl<'__w, T: Component> WorldQuery for Mut<'__w, T> {
     #[inline]
     unsafe fn matches(
         _state: &Self::State,
-        _fetch: &Self::Fetch<'_>,
+        _fetch: &mut Self::Fetch<'_>,
         _entity: Entity,
         _table_row: TableRow,
     ) -> bool {
@@ -2530,7 +2530,7 @@ unsafe impl<T: WorldQuery> WorldQuery for Option<T> {
     #[inline]
     unsafe fn matches(
         _state: &Self::State,
-        _fetch: &Self::Fetch<'_>,
+        _fetch: &mut Self::Fetch<'_>,
         _entity: Entity,
         _table_row: TableRow,
     ) -> bool {
@@ -2723,7 +2723,7 @@ unsafe impl<T: Component> WorldQuery for Has<T> {
     #[inline]
     unsafe fn matches(
         _state: &Self::State,
-        _fetch: &Self::Fetch<'_>,
+        _fetch: &mut Self::Fetch<'_>,
         _entity: Entity,
         _table_row: TableRow,
     ) -> bool {
@@ -3005,7 +3005,7 @@ macro_rules! impl_anytuple_fetch {
             #[inline]
             unsafe fn find_table_chunk(
                 state: &Self::State,
-                fetch: &Self::Fetch<'_>,
+                fetch: &mut Self::Fetch<'_>,
                 table_entities: &[Entity],
                 rows: Range<u32>,
             ) -> Range<u32> {
@@ -3016,11 +3016,11 @@ macro_rules! impl_anytuple_fetch {
                 if Self::IS_ARCHETYPAL || !fetch.matches {
                     rows
                 } else {
-                    let ($($name,)*) = &fetch.fetch;
+                    let ($($name,)*) = &mut fetch.fetch;
                     let ($($state,)*) = state;
                     let mut next_chunk = rows.end..rows.end;
                     // SAFETY: invariants are upheld by the caller.
-                    $(next_chunk = next_chunk.union_or_first(unsafe { $name::find_table_chunk($state, &$name.fetch, table_entities, rows.clone()) });)*
+                    $(next_chunk = next_chunk.union_or_first(unsafe { $name::find_table_chunk($state, &mut $name.fetch, table_entities, rows.clone()) });)*
                     next_chunk
                 }
             }
@@ -3028,7 +3028,7 @@ macro_rules! impl_anytuple_fetch {
             #[inline]
             unsafe fn find_archetype_chunk(
                 state: &Self::State,
-                fetch: &Self::Fetch<'_>,
+                fetch: &mut Self::Fetch<'_>,
                 archetype_entities: &[ArchetypeEntity],
                 mut indices: Range<u32>,
             ) -> Range<u32> {
@@ -3039,11 +3039,11 @@ macro_rules! impl_anytuple_fetch {
                 if Self::IS_ARCHETYPAL || !fetch.matches {
                     indices
                 } else {
-                    let ($($name,)*) = &fetch.fetch;
+                    let ($($name,)*) = &mut fetch.fetch;
                     let ($($state,)*) = state;
                     let mut next_chunk = indices.end..indices.end;
                     // SAFETY: invariants are upheld by the caller.
-                    $(next_chunk = next_chunk.union_or_first(unsafe { $name::find_archetype_chunk($state, &$name.fetch, archetype_entities, indices.clone()) });)*
+                    $(next_chunk = next_chunk.union_or_first(unsafe { $name::find_archetype_chunk($state, &mut $name.fetch, archetype_entities, indices.clone()) });)*
                     next_chunk
                 }
             }
@@ -3051,7 +3051,7 @@ macro_rules! impl_anytuple_fetch {
             #[inline]
             unsafe fn matches(
                 state: &Self::State,
-                fetch: &Self::Fetch<'_>,
+                fetch: &mut Self::Fetch<'_>,
                 entity: Entity,
                 table_row: TableRow,
             ) -> bool {
@@ -3062,10 +3062,10 @@ macro_rules! impl_anytuple_fetch {
                 if Self::IS_ARCHETYPAL || !fetch.matches {
                     true
                 } else {
-                    let ($($name,)*) = &fetch.fetch;
+                    let ($($name,)*) = &mut fetch.fetch;
                     let ($($state,)*) = state;
                     // SAFETY: invariants are upheld by the caller.
-                    false $(|| unsafe { $name::matches(&$state, &$name.fetch, entity, table_row) })*
+                    false $(|| unsafe { $name::matches(&$state, &mut $name.fetch, entity, table_row) })*
                 }
             }
         }
@@ -3111,7 +3111,7 @@ macro_rules! impl_anytuple_fetch {
                 let ($($state,)*) = _state;
                 ($(
                     // SAFETY: The invariants are required to be upheld by the caller.
-                    unsafe { $name::matches(&$state, &$name.fetch, _entity, _table_row) }.then(||
+                    unsafe { $name::matches(&$state, &mut $name.fetch, _entity, _table_row) }.then(||
                         // SAFETY: the above guard verifies this subquery matches the given entity.
                         // other invariants are upheld by the caller.
                         unsafe { $name::fetch($state, &mut $name.fetch, _entity, _table_row) }
@@ -3226,7 +3226,7 @@ unsafe impl<D: QueryData> WorldQuery for NopWorldQuery<D> {
     #[inline]
     unsafe fn matches(
         _state: &Self::State,
-        _fetch: &Self::Fetch<'_>,
+        _fetch: &mut Self::Fetch<'_>,
         _entity: Entity,
         _table_row: TableRow,
     ) -> bool {
@@ -3325,7 +3325,7 @@ unsafe impl<T: ?Sized> WorldQuery for PhantomData<T> {
     #[inline]
     unsafe fn matches(
         _state: &Self::State,
-        _fetch: &Self::Fetch<'_>,
+        _fetch: &mut Self::Fetch<'_>,
         _entity: Entity,
         _table_row: TableRow,
     ) -> bool {
@@ -3544,7 +3544,7 @@ mod tests {
             #[inline]
             unsafe fn matches(
                 _state: &Self::State,
-                _fetch: &Self::Fetch<'_>,
+                _fetch: &mut Self::Fetch<'_>,
                 _entity: Entity,
                 _table_row: TableRow,
             ) -> bool {

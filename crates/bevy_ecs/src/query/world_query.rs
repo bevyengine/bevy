@@ -162,7 +162,7 @@ pub unsafe trait WorldQuery {
     #[inline]
     unsafe fn find_table_chunk(
         state: &Self::State,
-        fetch: &Self::Fetch<'_>,
+        fetch: &mut Self::Fetch<'_>,
         table_entities: &[Entity],
         rows: Range<u32>,
     ) -> Range<u32> {
@@ -188,7 +188,7 @@ pub unsafe trait WorldQuery {
     #[inline]
     unsafe fn find_archetype_chunk(
         state: &Self::State,
-        fetch: &Self::Fetch<'_>,
+        fetch: &mut Self::Fetch<'_>,
         archetype_entities: &[ArchetypeEntity],
         indices: Range<u32>,
     ) -> Range<u32> {
@@ -228,7 +228,7 @@ pub unsafe trait WorldQuery {
     /// `table_row` must be in the range of the current table and archetype.
     unsafe fn matches(
         state: &Self::State,
-        fetch: &Self::Fetch<'_>,
+        fetch: &mut Self::Fetch<'_>,
         entity: Entity,
         table_row: TableRow,
     ) -> bool;
@@ -382,7 +382,7 @@ macro_rules! impl_tuple_world_query {
             #[inline]
             unsafe fn find_table_chunk(
                 state: &Self::State,
-                fetch: &Self::Fetch<'_>,
+                fetch: &mut Self::Fetch<'_>,
                 table_entities: &[Entity],
                 mut rows: Range<u32>,
             ) -> Range<u32> {
@@ -402,7 +402,7 @@ macro_rules! impl_tuple_world_query {
             #[inline]
             unsafe fn find_archetype_chunk(
                 state: &Self::State,
-                fetch: &Self::Fetch<'_>,
+                fetch: &mut Self::Fetch<'_>,
                 archetype_entities: &[ArchetypeEntity],
                 mut indices: Range<u32>,
             ) -> Range<u32> {
@@ -422,7 +422,7 @@ macro_rules! impl_tuple_world_query {
             #[inline]
             unsafe fn matches(
                 state: &Self::State,
-                fetch: &Self::Fetch<'_>,
+                fetch: &mut Self::Fetch<'_>,
                 entity: Entity,
                 table_row: TableRow,
             ) -> bool {
