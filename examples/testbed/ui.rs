@@ -149,7 +149,7 @@ mod image {
 }
 
 mod text {
-    use bevy::{color::palettes::css::*, prelude::*};
+    use bevy::{color::palettes::css::*, prelude::*, text::FontSmoothing};
 
     pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         commands.spawn((Camera2d, DespawnOnExit(super::Scene::Text)));
@@ -607,6 +607,25 @@ mod text {
                 ),
             ],
         ));
+
+        for font_smoothing in [FontSmoothing::AntiAliased, FontSmoothing::None] {
+            top += 35.;
+            commands.spawn((
+                Node {
+                    left: px(100.),
+                    top: px(top),
+                    ..Default::default()
+                },
+                Text::new(format!("FontSmoothing::{:?}", font_smoothing)),
+                TextFont {
+                    font: asset_server.load("fonts/MonaSans-VariableFont.ttf").into(),
+                    font_size: 25.,
+                    font_smoothing,
+                    ..default()
+                },
+                DespawnOnExit(super::Scene::Text),
+            ));
+        }
     }
 }
 
