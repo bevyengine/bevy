@@ -98,7 +98,7 @@ fn generate_initial_reservoir(world_position: vec3<f32>, world_normal: vec3<f32>
 
 #ifdef NO_WORLD_CACHE
     let direct_lighting = sample_random_light(sample_point.world_position, sample_point.world_normal, rng);
-    reservoir.radiance = direct_lighting.radiance;
+    reservoir.radiance = direct_lighting.radiance * saturate(dot(direct_lighting.wi, sample_point.world_normal));
     reservoir.unbiased_contribution_weight = direct_lighting.inverse_pdf * uniform_hemisphere_inverse_pdf();
 #else
     reservoir.radiance = query_world_cache(sample_point.world_position, sample_point.geometric_world_normal, view.world_position, WORLD_CACHE_CELL_LIFETIME, rng);
