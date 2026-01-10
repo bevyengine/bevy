@@ -14,6 +14,7 @@ pub use integration_test_clean::*;
 pub use lints::*;
 pub use test::*;
 pub use test_check::*;
+pub use what_to_run::*;
 
 mod bench_check;
 mod clippy;
@@ -31,3 +32,4 @@ mod integration_test_clean;
 mod lints;
 mod test;
 mod test_check;
+mod what_to_run;
