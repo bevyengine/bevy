@@ -2,8 +2,8 @@
 // The actual work it does is not important for the example and
 // has been hardcoded to return a cube mesh
 
-// `vertex` is the starting offset of the mesh data in the *vertex_data* storage buffer
-// `vertex_index` is the starting offset of the *index* data in the *index_data* storage buffer
+// `vertex_start` is the starting offset of the mesh data in the *vertex_data* storage buffer
+// `index_start` is the starting offset of the index data in the *index_data* storage buffer
 struct DataRanges {
     vertex_start: u32,
     vertex_end: u32,
