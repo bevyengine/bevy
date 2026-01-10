@@ -115,7 +115,7 @@ fn trace_glossy_path(pixel_id: vec2<u32>, primary_surface: ResolvedGPixel, initi
         path_spread += sqrt((ray.t * ray.t) / (p_bounce * wo_tangent.z));
 
         // Primary surface replacement for perfect mirrors
-        // https://developer.nvidia.com/blog/rendering-perfect-reflections-and-refractions-in-path-traced-games/#DLSS_RR_GUIDE_BUFFERS
+        // https://developer.nvidia.com/blog/rendering-perfect-reflections-and-refractions-in-path-traced-games/#primary_surface_replacement
 #ifdef DLSS_RR_GUIDE_BUFFERS
         if !psr_finished && primary_surface.material.roughness <= 0.001 && primary_surface.material.metallic > 0.9999 {
             if surface_perfect_mirror {
