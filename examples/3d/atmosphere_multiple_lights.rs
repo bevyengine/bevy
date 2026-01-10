@@ -45,8 +45,9 @@ fn main() {
     app.run();
 }
 
+/// Controls when [`VolumetricLight`] is added to this [`DirectionalLight`]
 #[derive(Component)]
-struct DirectionalLightFlag(u8);
+struct KeyboadControlsFlag(u8);
 
 fn setup(
     mut commands: Commands,
@@ -98,7 +99,7 @@ fn setup(
         },
         Transform::from_translation(Vec3::new(0., 5., -15.)).looking_at(Vec3::ZERO, Vec3::Y),
         VolumetricLight,
-        DirectionalLightFlag(0b1),
+        KeyboadControlsFlag(0b1),
     ));
     commands.spawn((
         DirectionalLight {
@@ -107,7 +108,7 @@ fn setup(
             ..Default::default()
         },
         Transform::from_translation(Vec3::new(-5., 5., -15.)).looking_at(Vec3::ZERO, Vec3::Y),
-        DirectionalLightFlag(0b10),
+        KeyboadControlsFlag(0b10),
     ));
     commands.spawn((
         DirectionalLight {
@@ -116,7 +117,7 @@ fn setup(
             ..Default::default()
         },
         Transform::from_translation(Vec3::new(5., 5., -15.)).looking_at(Vec3::ZERO, Vec3::Y),
-        DirectionalLightFlag(0b100),
+        KeyboadControlsFlag(0b100),
     ));
 
     // Legend
@@ -142,7 +143,7 @@ fn setup(
 /// have it remove.
 fn change_directional_lights_with_scattering<const N: u8>(
     mut commands: Commands,
-    directional_lights: Query<(Entity, &DirectionalLightFlag), With<DirectionalLight>>,
+    directional_lights: Query<(Entity, &KeyboadControlsFlag), With<DirectionalLight>>,
 ) {
     for (entity, flag) in directional_lights {
         if (flag.0 & N) != 0 {
