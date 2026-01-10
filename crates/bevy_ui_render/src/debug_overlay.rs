@@ -178,49 +178,25 @@ pub fn extract_debug_overlay(
         }
 
         if debug_options.outline_scrollbars {
-            if 0. <= uinode.scrollbar_size.y {
-                let content_inset = uinode.content_inset();
-                let half_size = 0.5 * uinode.size;
-                let min_x = -half_size.x + content_inset.min_inset.x;
-                let max_x = half_size.x - content_inset.max_inset.x - uinode.scrollbar_size.x;
-                let max_y = half_size.y - content_inset.max_inset.y;
-                let min_y = max_y - uinode.scrollbar_size.y;
-                let gutter = Rect {
-                    min: Vec2::new(min_x, min_y),
-                    max: Vec2::new(max_x, max_y),
-                };
-                let gutter_length = gutter.size().x;
-                let thumb_min =
-                    gutter.min.x + gutter_length * uinode.scroll_position.x / uinode.content_size.x;
-                let thumb_max = thumb_min + gutter_length * gutter_length / uinode.content_size.x;
-                let thumb = Rect {
-                    min: Vec2::new(thumb_min, gutter.min.y),
-                    max: Vec2::new(thumb_max, gutter.max.y),
-                };
+            if let Some((gutter, [thumb_min, thumb_max])) = uinode.horizontal_scrollbar() {
                 push_outline(gutter, ResolvedBorderRadius::ZERO);
-                push_outline(thumb, ResolvedBorderRadius::ZERO);
+                push_outline(
+                    Rect {
+                        min: Vec2::new(thumb_min, gutter.min.y),
+                        max: Vec2::new(thumb_max, gutter.max.y),
+                    },
+                    ResolvedBorderRadius::ZERO,
+                );
             }
-            if 0. <= uinode.scrollbar_size.x {
-                let content_inset = uinode.content_inset();
-                let half_size = 0.5 * uinode.size;
-                let max_x = half_size.x - content_inset.max_inset.x;
-                let min_x = max_x - uinode.scrollbar_size.x;
-                let min_y = -half_size.y + content_inset.min_inset.y;
-                let max_y = half_size.y - content_inset.max_inset.y - uinode.scrollbar_size.y;
-                let gutter = Rect {
-                    min: Vec2::new(min_x, min_y),
-                    max: Vec2::new(max_x, max_y),
-                };
-                let gutter_length = gutter.size().y;
-                let thumb_min =
-                    gutter.min.y + gutter_length * uinode.scroll_position.y / uinode.content_size.y;
-                let thumb_max = thumb_min + gutter_length * gutter_length / uinode.content_size.y;
-                let thumb = Rect {
-                    min: Vec2::new(gutter.min.x, thumb_min),
-                    max: Vec2::new(gutter.max.x, thumb_max),
-                };
+            if let Some((gutter, [thumb_min, thumb_max])) = uinode.vertical_scrollbar() {
                 push_outline(gutter, ResolvedBorderRadius::ZERO);
-                push_outline(thumb, ResolvedBorderRadius::ZERO);
+                push_outline(
+                    Rect {
+                        min: Vec2::new(gutter.min.x, thumb_min),
+                        max: Vec2::new(gutter.max.x, thumb_max),
+                    },
+                    ResolvedBorderRadius::ZERO,
+                );
             }
         }
     }
