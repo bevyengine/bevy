@@ -1,6 +1,6 @@
-//! Traits and types used to power [tuple struct-like] operations via reflection.
+//! Traits and types used to power [tuple-struct-like] operations via reflection.
 //!
-//! [tuple struct-like]: https://doc.rust-lang.org/book/ch05-01-defining-structs.html#using-tuple-structs-without-named-fields-to-create-different-types
+//! [tuple-struct-like]: https://doc.rust-lang.org/book/ch05-01-defining-structs.html#using-tuple-structs-without-named-fields-to-create-different-types
 use bevy_reflect_derive::impl_type_path;
 
 use crate::generics::impl_generic_info_methods;
