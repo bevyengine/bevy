@@ -89,6 +89,11 @@ fn fragment(
     out.color = main_pass_post_lighting_processing(pbr_input, out.color);
 #endif
 
+#ifdef FORWARD_DECAL
+        out.color.a = min(forward_decal_info.alpha, out.color.a);
+#else
+// Forward decal is incompatible with OIT as it needs to be rendered
+// even it's occluded by opaque objects, but OIT will exclude the fragments.
 #ifdef OIT_ENABLED
     let alpha_mode = pbr_input.material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_ALPHA_MODE_RESERVED_BITS;
     if alpha_mode != pbr_types::STANDARD_MATERIAL_FLAGS_ALPHA_MODE_OPAQUE {
@@ -97,9 +102,6 @@ fn fragment(
         discard;
     }
 #endif // OIT_ENABLED
-
-#ifdef FORWARD_DECAL
-        out.color.a = min(forward_decal_info.alpha, out.color.a);
 #endif
 
         return out;
