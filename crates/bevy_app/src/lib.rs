@@ -56,7 +56,7 @@ pub use terminal_ctrl_c_handler::*;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        app::{App, AppExit},
+        app::{App, AppExit, AppLabel},
         main_schedule::{
             First, FixedFirst, FixedLast, FixedPostUpdate, FixedPreUpdate, FixedUpdate, Last, Main,
             PostStartup, PostUpdate, PreStartup, PreUpdate, RunFixedMainLoop,
