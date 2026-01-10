@@ -1153,6 +1153,7 @@ pub fn queue_material_meshes(
     render_materials: Res<ErasedRenderAssets<PreparedMaterial>>,
     render_mesh_instances: Res<RenderMeshInstances>,
     render_material_instances: Res<RenderMaterialInstances>,
+    render_passes: Query<&RenderPasses>,
     mesh_allocator: Res<MeshAllocator>,
     gpu_preprocessing_support: Res<GpuPreprocessingSupport>,
     mut opaque_render_phases: ResMut<ViewBinnedRenderPhases<Opaque3d>>,
@@ -1186,6 +1187,10 @@ pub fn queue_material_meshes(
 
         let rangefinder = view.rangefinder3d();
         for (render_entity, visible_entity) in visible_entities.iter::<Mesh3d>() {
+            let pass_mask = render_passes
+                .get(*render_entity)
+                .map_or(RenderPassMask::ALL, |passes| passes.0);
+
             let Some((current_change_tick, pipeline_id)) = view_specialized_material_pipeline_cache
                 .get(visible_entity)
                 .map(|(current_change_tick, pipeline_id)| (*current_change_tick, *pipeline_id))
@@ -1217,6 +1222,9 @@ pub fn queue_material_meshes(
 
             match material.properties.render_phase_type {
                 RenderPhaseType::Transmissive => {
+                    if !pass_mask.contains(RenderPassMask::TRANSMISSIVE_MAIN) {
+                        continue;
+                    }
                     let distance = rangefinder.distance(&mesh_instance.center)
                         + material.properties.depth_bias;
                     let Some(draw_function) = material
@@ -1236,6 +1244,9 @@ pub fn queue_material_meshes(
                     });
                 }
                 RenderPhaseType::Opaque => {
+                    if !pass_mask.contains(RenderPassMask::OPAQUE_MAIN) {
+                        continue;
+                    }
                     if material.properties.render_method == OpaqueRendererMethod::Deferred {
                         // Even though we aren't going to insert the entity into
                         // a bin, we still want to update its cache entry. That
@@ -1275,6 +1286,9 @@ pub fn queue_material_meshes(
                 }
                 // Alpha mask
                 RenderPhaseType::AlphaMask => {
+                    if !pass_mask.contains(RenderPassMask::ALPHA_MASK_MAIN) {
+                        continue;
+                    }
                     let Some(draw_function) = material
                         .properties
                         .get_draw_function(MainPassAlphaMaskDrawFunction)
@@ -1304,6 +1318,9 @@ pub fn queue_material_meshes(
                     );
                 }
                 RenderPhaseType::Transparent => {
+                    if !pass_mask.contains(RenderPassMask::TRANSPARENT_MAIN) {
+                        continue;
+                    }
                     let distance = rangefinder.distance(&mesh_instance.center)
                         + material.properties.depth_bias;
                     let Some(draw_function) = material
