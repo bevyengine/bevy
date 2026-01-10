@@ -245,6 +245,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
                 )
             };
 
+            if next_chunk.is_empty() {
+                break;
+            }
+
             for row in next_chunk.clone() {
                 // SAFETY: Caller assures `row` in range of the current archetype.
                 let entity = unsafe { table_entities.get_unchecked(row as usize) };
@@ -332,6 +336,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
                     next_chunk,
                 )
             };
+
+            if next_chunk.is_empty() {
+                break;
+            }
 
             for index in next_chunk.clone() {
                 // SAFETY: by induction (see above) index must be in range of the archetype.
@@ -427,6 +435,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
                 )
             };
 
+            if next_chunk.is_empty() {
+                break;
+            }
+
             for row in next_chunk.clone() {
                 // SAFETY: by induction (see above) `row` must be in range of the table.
                 let entity = unsafe { *table_entities.get_unchecked(row as usize) };
@@ -435,7 +447,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
 
                 // SAFETY:
                 // - `set_archetype` was called prior.
-                // - `find_archetype_chunk` was called prior, and `row` is in the returned range.
+                // - `find_table_chunk` was called prior, and `row` is in the returned range.
                 let item = unsafe {
                     D::fetch(
                         &self.query_state.fetch_state,

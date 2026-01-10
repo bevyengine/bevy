@@ -276,11 +276,11 @@ impl RangeExt for Range<u32> {
         while index < self.end {
             // SAFETY: index is taken from an exclusive range, so it can't be max
             let nonmax_index = unsafe { NonMaxU32::new_unchecked(index) };
-            index = index.wrapping_add(1);
             let matches = func(nonmax_index);
             if !matches {
                 break;
             }
+            index = index.wrapping_add(1);
         }
         self.end = index;
 
