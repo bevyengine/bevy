@@ -5244,6 +5244,17 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
+name = "system_fonts"
+path = "examples/ui/system_fonts.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.system_fonts]
+name = "system_fonts"
+description = "Demonstrates how to use system fonts"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "feathers"
 path = "examples/ui/feathers.rs"
 # Causes an ICE on docs.rs
