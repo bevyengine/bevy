@@ -440,6 +440,10 @@ bitflags::bitflags! {
         const TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM = 5 << Self::TONEMAP_METHOD_SHIFT_BITS;
         const TONEMAP_METHOD_TONY_MC_MAPFACE    = 6 << Self::TONEMAP_METHOD_SHIFT_BITS;
         const TONEMAP_METHOD_BLENDER_FILMIC     = 7 << Self::TONEMAP_METHOD_SHIFT_BITS;
+        const INDEX_FORMAT_RESERVED_BITS        = Self::INDEX_FORMAT_MASK_BITS << Self::INDEX_FORMAT_SHIFT_BITS;
+        const INDEX_FORMAT_NONE                 = 0 << Self::INDEX_FORMAT_SHIFT_BITS;
+        const INDEX_FORMAT_U32                  = 1 << Self::INDEX_FORMAT_SHIFT_BITS;
+        const INDEX_FORMAT_U16                  = 2 << Self::INDEX_FORMAT_SHIFT_BITS;
     }
 }
 
@@ -451,6 +455,9 @@ impl Mesh2dPipelineKey {
     const TONEMAP_METHOD_MASK_BITS: u32 = 0b111;
     const TONEMAP_METHOD_SHIFT_BITS: u32 =
         Self::PRIMITIVE_TOPOLOGY_SHIFT_BITS - Self::TONEMAP_METHOD_MASK_BITS.count_ones();
+    pub const INDEX_FORMAT_MASK_BITS: u32 = 0b11;
+    pub const INDEX_FORMAT_SHIFT_BITS: u32 =
+        Self::TONEMAP_METHOD_SHIFT_BITS - Self::TONEMAP_METHOD_MASK_BITS.count_ones();
 
     pub fn from_msaa_samples(msaa_samples: u32) -> Self {
         let msaa_bits =
@@ -470,11 +477,22 @@ impl Mesh2dPipelineKey {
         1 << ((self.bits() >> Self::MSAA_SHIFT_BITS) & Self::MSAA_MASK_BITS)
     }
 
-    pub fn from_primitive_topology(primitive_topology: PrimitiveTopology) -> Self {
+    pub fn from_primitive_topology_and_index(
+        primitive_topology: PrimitiveTopology,
+        indices: Option<IndexFormat>,
+    ) -> Self {
+        let index_bits = match indices {
+            None => Self::INDEX_FORMAT_NONE,
+            Some(indices) => match indices {
+                IndexFormat::Uint16 => Self::INDEX_FORMAT_U16,
+                IndexFormat::Uint32 => Self::INDEX_FORMAT_U32,
+            },
+        }
+        .bits();
         let primitive_topology_bits = ((primitive_topology as u32)
             & Self::PRIMITIVE_TOPOLOGY_MASK_BITS)
             << Self::PRIMITIVE_TOPOLOGY_SHIFT_BITS;
-        Self::from_bits_retain(primitive_topology_bits)
+        Self::from_bits_retain(primitive_topology_bits | index_bits)
     }
 
     pub fn primitive_topology(&self) -> PrimitiveTopology {
@@ -487,6 +505,24 @@ impl Mesh2dPipelineKey {
             x if x == PrimitiveTopology::TriangleList as u32 => PrimitiveTopology::TriangleList,
             x if x == PrimitiveTopology::TriangleStrip as u32 => PrimitiveTopology::TriangleStrip,
             _ => PrimitiveTopology::default(),
+        }
+    }
+
+    pub fn index_format(&self) -> Option<IndexFormat> {
+        let index_bits = self.bits() & Self::INDEX_FORMAT_RESERVED_BITS.bits();
+        match index_bits {
+            x if x == Self::INDEX_FORMAT_U16.bits() => Some(IndexFormat::Uint16),
+            x if x == Self::INDEX_FORMAT_U32.bits() => Some(IndexFormat::Uint32),
+            x if x == Self::INDEX_FORMAT_NONE.bits() => None,
+            _ => unreachable!(),
+        }
+    }
+
+    pub fn strip_index_format(&self) -> Option<IndexFormat> {
+        if self.primitive_topology().is_strip() {
+            self.index_format()
+        } else {
+            None
         }
     }
 }
@@ -620,7 +656,7 @@ impl SpecializedMeshPipeline for Mesh2dPipeline {
                 polygon_mode: PolygonMode::Fill,
                 conservative: false,
                 topology: key.primitive_topology(),
-                strip_index_format: None,
+                strip_index_format: key.strip_index_format(),
             },
             depth_stencil: Some(DepthStencilState {
                 format: CORE_2D_DEPTH_FORMAT,
