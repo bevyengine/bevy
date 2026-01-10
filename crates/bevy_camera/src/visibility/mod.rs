@@ -211,7 +211,7 @@ impl ViewVisibility {
     #[inline]
     fn was_visible_now_hidden(self) -> bool {
         // The first bit is false (current), and the second bit is true (previous).
-        self.0 == 0b10
+        (self.0 & 0b11) == 0b10
     }
 
     #[inline]
@@ -238,9 +238,18 @@ pub trait SetViewVisibility {
 impl<'a> SetViewVisibility for Mut<'a, ViewVisibility> {
     #[inline]
     fn set_visible(&mut self) {
-        if !self.as_ref().get() {
-            // Set the first bit (current vis) to true
-            self.0 |= 1;
+        // Only update if it's not already visible.
+        // This is important because `set_visible` may be called multiple times per frame.
+        if self.0 & 1 == 0 {
+            if self.0 & 2 != 0 {
+                // If it was already visible last frame, we don't want to trigger change detection
+                // because it's still visible this frame.
+                self.bypass_change_detection().0 |= 1;
+            } else {
+                // If it was NOT visible last frame, this is a transition from hidden to visible.
+                // We want to trigger change detection here.
+                self.0 |= 1;
+            }
         }
     }
 }
@@ -1135,26 +1144,26 @@ mod test {
             );
         }
 
-        // Frame 3: do nothing
-        app.world_mut().resource_mut::<ManualMark>().0 = false;
+        // Frame 3: still visible
+        app.world_mut().resource_mut::<ManualMark>().0 = true;
         app.world_mut().resource_mut::<ObservedChanged>().0 = false;
         app.update();
         {
             assert!(
-                !app.world()
+                app.world()
                     .entity(entity)
                     .get::<ViewVisibility>()
                     .unwrap()
                     .get(),
-                "Frame 3: should be hidden"
+                "Frame 3: should be visible"
             );
             assert!(
-                app.world().resource::<ObservedChanged>().0,
-                "Frame 3: should be changed"
+                !app.world().resource::<ObservedChanged>().0,
+                "Frame 3: should NOT be changed"
             );
         }
 
-        // Frame 4: do nothing
+        // Frame 4: do nothing (becomes hidden)
         app.world_mut().resource_mut::<ManualMark>().0 = false;
         app.world_mut().resource_mut::<ObservedChanged>().0 = false;
         app.update();
@@ -1168,8 +1177,27 @@ mod test {
                 "Frame 4: should be hidden"
             );
             assert!(
+                app.world().resource::<ObservedChanged>().0,
+                "Frame 4: should be changed"
+            );
+        }
+
+        // Frame 5: do nothing
+        app.world_mut().resource_mut::<ManualMark>().0 = false;
+        app.world_mut().resource_mut::<ObservedChanged>().0 = false;
+        app.update();
+        {
+            assert!(
+                !app.world()
+                    .entity(entity)
+                    .get::<ViewVisibility>()
+                    .unwrap()
+                    .get(),
+                "Frame 5: should be hidden"
+            );
+            assert!(
                 !app.world().resource::<ObservedChanged>().0,
-                "Frame 4: should not be changed"
+                "Frame 5: should NOT be changed"
             );
         }
     }
