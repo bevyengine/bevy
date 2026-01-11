@@ -570,7 +570,7 @@ pub fn struct_partial_cmp<S: Struct + ?Sized>(
 ///
 /// Tries best to:
 /// 1. when used on concrete types of actually same type, should be compatible
-///    with derived PartialOrd implementations.
+///    with derived `PartialOrd` implementations.
 /// 2. compatible with `reflect_partial_eq`: when `reflect_partial_eq(a, b) = Some(true)`,
 ///    then `partial_cmp(a, b) = Some(Ordering::Equal)`.
 /// 3. when used on dynamic types, provide a consistent ordering:
