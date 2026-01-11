@@ -30,6 +30,7 @@ use bevy_ecs::{
     schedule::{IntoScheduleConfigs, SystemSet},
     system::Res,
 };
+use bevy_pbr::MeshPipelineSet;
 
 use {bevy_gizmos::config::GizmoMeshConfig, bevy_mesh::VertexBufferLayout};
 
@@ -88,7 +89,10 @@ impl Plugin for GizmoRenderPlugin {
             .add_plugins(RenderAssetPlugin::<GpuLineGizmo>::default());
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app.add_systems(RenderStartup, init_line_gizmo_uniform_bind_group_layout);
+            render_app.add_systems(
+                RenderStartup,
+                init_line_gizmo_uniform_bind_group_layout.after(MeshPipelineSet),
+            );
 
             render_app.add_systems(
                 Render,

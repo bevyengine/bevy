@@ -47,8 +47,8 @@ use bevy_utils::{once, prelude::default};
 use tracing::info;
 
 use crate::{
-    binding_arrays_are_usable, graph::NodePbr, ExtractedAtmosphere, MeshPipelineViewLayoutKey,
-    MeshPipelineViewLayouts, MeshViewBindGroup, RenderViewLightProbes,
+    binding_arrays_are_usable, graph::NodePbr, ExtractedAtmosphere, MeshPipelineSet,
+    MeshPipelineViewLayoutKey, MeshPipelineViewLayouts, MeshViewBindGroup, RenderViewLightProbes,
     ViewEnvironmentMapUniformOffset, ViewFogUniformOffset, ViewLightProbesUniformOffset,
     ViewLightsUniformOffset,
 };
@@ -201,7 +201,8 @@ impl Plugin for ScreenSpaceReflectionsPlugin {
                 (
                     init_screen_space_reflections_pipeline,
                     add_screen_space_reflections_render_graph_edges,
-                ),
+                )
+                    .after(MeshPipelineSet),
             )
             .add_systems(Render, prepare_ssr_pipelines.in_set(RenderSystems::Prepare))
             .add_systems(
