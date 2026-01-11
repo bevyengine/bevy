@@ -32,7 +32,7 @@ use crate::types::float;
 use bevy_ecs::entity::EntityHashSet;
 use bevy_math::Dir3;
 
-usd_attribute! {
+make_attribute! {
     /// Gravity direction vector in simulation world space.
     ///
     /// When not set, implementations should use the negative scene upAxis as the
@@ -44,7 +44,7 @@ usd_attribute! {
     displayName = "Gravity Direction"
 }
 
-usd_attribute! {
+make_attribute! {
     /// Gravity acceleration magnitude in simulation world space.
     ///
     /// A negative sentinel value (the default -9.81 or -inf) is a request to use
@@ -58,7 +58,7 @@ usd_attribute! {
     displayName = "Gravity Magnitude"
 }
 
-usd_collection! {
+make_collection! {
     /// Relationship to the PhysicsSimulation that will simulate this entity.
     ///
     /// This component establishes which physics sim owns and simulates the

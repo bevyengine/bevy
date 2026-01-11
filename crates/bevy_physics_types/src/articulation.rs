@@ -56,7 +56,7 @@
 //! - **Ragdoll**: ArticulationRoot on pelvis → joints to spine, legs, arms
 //! - **Vehicle**: ArticulationRoot on chassis → wheel joints
 
-usd_marker! {
+make_marker! {
     /// Marks this subtree as an articulated rigid body hierarchy.
     ///
     /// Any joints found in this subtree will preferentially be simulated

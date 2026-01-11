@@ -38,7 +38,7 @@
 //!
 //! Some implementations may use faceted convex approximations for certain shapes.
 
-usd_marker! {
+make_marker! {
     /// Marks this entity as a collision shape for physics simulation.
     ///
     /// When present, this entity participates in collision detection. If any

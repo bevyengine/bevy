@@ -48,7 +48,7 @@
 
 use bevy_ecs::entity::EntityHashSet;
 
-usd_collection! {
+make_collection! {
     /// Membership in a collision group.
     ///
     /// Entities with this component belong to the referenced [`CollisionGroup`].
@@ -58,7 +58,7 @@ usd_collection! {
     apiName = "PhysicsCollisionGroup"
 }
 
-usd_attribute! {
+make_attribute! {
     /// Set of collision groups with which collisions should be ignored.
     ///
     /// By default, colliders in this group will not collide with colliders
@@ -70,7 +70,7 @@ usd_attribute! {
     displayName = "Filtered Groups"
 }
 
-usd_attribute! {
+make_attribute! {
     /// Name used to merge collision groups across composed scenes.
     ///
     /// All groups with a matching merge group name are considered part
@@ -86,7 +86,7 @@ usd_attribute! {
     displayName = "Merge With Groups"
 }
 
-usd_marker! {
+make_marker! {
     /// Inverts the collision filter behavior.
     ///
     /// When enabled, this group disables collisions against **all colliders

@@ -6,7 +6,7 @@
 use crate::axis::Axis;
 use crate::types::float;
 
-usd_global! {
+make_global! {
     /// Scene-level metadata that encodes the distance unit scaling.
     ///
     /// Defines how distance values in the scene relate to meters.
@@ -19,7 +19,7 @@ usd_global! {
     displayName = "Meters Per Unit"
 }
 
-usd_global! {
+make_global! {
     /// Scene-level metadata that specifies the up axis.
     ///
     /// Defines which axis represents "up" in the coordinate system.
@@ -30,7 +30,7 @@ usd_global! {
     displayName = "Up Axis"
 }
 
-usd_global! {
+make_global! {
     /// Scene-level metadata that encodes the mass unit scaling.
     ///
     /// Similar to `metersPerUnit` for distance, this defines how mass values

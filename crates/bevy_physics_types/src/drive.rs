@@ -148,56 +148,56 @@ impl Default for DriveConfig {
     }
 }
 
-usd_attribute! {
+make_attribute! {
     /// Drive for the X translation axis.
     DriveTransX(DriveConfig) = DriveConfig::DEFAULT;
     apiName = "drive:transX"
     displayName = "Drive Trans X"
 }
 
-usd_attribute! {
+make_attribute! {
     /// Drive for the Y translation axis.
     DriveTransY(DriveConfig) = DriveConfig::DEFAULT;
     apiName = "drive:transY"
     displayName = "Drive Trans Y"
 }
 
-usd_attribute! {
+make_attribute! {
     /// Drive for the Z translation axis.
     DriveTransZ(DriveConfig) = DriveConfig::DEFAULT;
     apiName = "drive:transZ"
     displayName = "Drive Trans Z"
 }
 
-usd_attribute! {
+make_attribute! {
     /// Drive for the X rotation axis.
     DriveRotX(DriveConfig) = DriveConfig::DEFAULT;
     apiName = "drive:rotX"
     displayName = "Drive Rot X"
 }
 
-usd_attribute! {
+make_attribute! {
     /// Drive for the Y rotation axis.
     DriveRotY(DriveConfig) = DriveConfig::DEFAULT;
     apiName = "drive:rotY"
     displayName = "Drive Rot Y"
 }
 
-usd_attribute! {
+make_attribute! {
     /// Drive for the Z rotation axis.
     DriveRotZ(DriveConfig) = DriveConfig::DEFAULT;
     apiName = "drive:rotZ"
     displayName = "Drive Rot Z"
 }
 
-usd_attribute! {
+make_attribute! {
     /// Drive for linear distance (used with prismatic joints).
     DriveLinear(DriveConfig) = DriveConfig::DEFAULT;
     apiName = "drive:linear"
     displayName = "Drive Linear"
 }
 
-usd_attribute! {
+make_attribute! {
     /// Drive for angular motion (used with revolute joints).
     DriveAngular(DriveConfig) = DriveConfig::DEFAULT;
     apiName = "drive:angular"

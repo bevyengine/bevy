@@ -44,7 +44,7 @@
 
 use crate::types::{float, point3f, quatf, vector3f};
 
-usd_attribute! {
+make_attribute! {
     /// Explicit mass of the object.
     ///
     /// If non-zero, directly specifies the mass. Note that child entities can
@@ -64,7 +64,7 @@ usd_attribute! {
     displayName = "Mass"
 }
 
-usd_attribute! {
+make_attribute! {
     /// Density of the object for implicit mass computation.
     ///
     /// If non-zero, specifies the density. In rigid body physics, density
@@ -88,7 +88,7 @@ usd_attribute! {
     displayName = "Density"
 }
 
-usd_attribute! {
+make_attribute! {
     /// Center of mass in the entity's local space.
     ///
     /// When specified, overrides the automatically computed center of mass.
@@ -101,7 +101,7 @@ usd_attribute! {
     displayName = "Center of Mass"
 }
 
-usd_attribute! {
+make_attribute! {
     /// Diagonalized inertia tensor along principal axes.
     ///
     /// If non-zero, specifies the diagonal components of the inertia tensor
@@ -118,7 +118,7 @@ usd_attribute! {
     displayName = "Diagonal Inertia"
 }
 
-usd_attribute! {
+make_attribute! {
     /// Orientation of the inertia tensor's principal axes.
     ///
     /// Specifies the rotation from the entity's local space to the principal

@@ -95,7 +95,7 @@ impl LimitRange {
     }
 }
 
-usd_attribute! {
+make_attribute! {
     /// Limit for the X translation axis.
     ///
     /// Units: distance.
@@ -104,7 +104,7 @@ usd_attribute! {
     displayName = "Limit Trans X"
 }
 
-usd_attribute! {
+make_attribute! {
     /// Limit for the Y translation axis.
     ///
     /// Units: distance.
@@ -113,7 +113,7 @@ usd_attribute! {
     displayName = "Limit Trans Y"
 }
 
-usd_attribute! {
+make_attribute! {
     /// Limit for the Z translation axis.
     ///
     /// Units: distance.
@@ -122,7 +122,7 @@ usd_attribute! {
     displayName = "Limit Trans Z"
 }
 
-usd_attribute! {
+make_attribute! {
     /// Limit for the X rotation axis.
     ///
     /// Units: radians.
@@ -131,7 +131,7 @@ usd_attribute! {
     displayName = "Limit Rot X"
 }
 
-usd_attribute! {
+make_attribute! {
     /// Limit for the Y rotation axis.
     ///
     /// Units: radians.
@@ -140,7 +140,7 @@ usd_attribute! {
     displayName = "Limit Rot Y"
 }
 
-usd_attribute! {
+make_attribute! {
     /// Limit for the Z rotation axis.
     ///
     /// Units: radians.
@@ -149,7 +149,7 @@ usd_attribute! {
     displayName = "Limit Rot Z"
 }
 
-usd_attribute! {
+make_attribute! {
     /// Limit for linear distance (used with prismatic joints).
     ///
     /// Units: distance.
@@ -158,7 +158,7 @@ usd_attribute! {
     displayName = "Limit Linear"
 }
 
-usd_attribute! {
+make_attribute! {
     /// Limit for angular motion (used with revolute joints).
     ///
     /// Units: radians.

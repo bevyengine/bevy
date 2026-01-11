@@ -51,7 +51,7 @@
 
 use crate::types::float;
 
-usd_asset! {
+make_asset! {
     /// Physics material asset defining collision response properties.
     ///
     /// All colliders with a relationship to this material will have their
@@ -59,7 +59,7 @@ usd_asset! {
     Material
 }
 
-usd_attribute! {
+make_attribute! {
     /// Dynamic (kinetic) friction coefficient.
     ///
     /// Applied when surfaces are sliding relative to each other. The friction
@@ -76,7 +76,7 @@ usd_attribute! {
     displayName = "Dynamic Friction"
 }
 
-usd_attribute! {
+make_attribute! {
     /// Static friction coefficient.
     ///
     /// Applied when surfaces are not sliding. An object won't start sliding
@@ -89,7 +89,7 @@ usd_attribute! {
     displayName = "Static Friction"
 }
 
-usd_attribute! {
+make_attribute! {
     /// Coefficient of restitution (bounciness).
     ///
     /// Ratio of separation velocity to approach velocity after collision:
@@ -105,7 +105,7 @@ usd_attribute! {
     displayName = "Restitution"
 }
 
-usd_attribute! {
+make_attribute! {
     /// Material density for implicit mass computation.
     ///
     /// If non-zero, this density can be used for body mass computation when

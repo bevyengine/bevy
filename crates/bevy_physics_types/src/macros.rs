@@ -1,4 +1,4 @@
-macro_rules! usd_global {
+macro_rules! make_global {
     (
         $(#[$meta:meta])*
         $name:ident($ty:ty) = $default:expr;
@@ -26,7 +26,7 @@ macro_rules! usd_global {
     };
 }
 
-macro_rules! usd_attribute {
+macro_rules! make_attribute {
     (
         $(#[$meta:meta])*
         $name:ident($ty:ty) = $default:expr;
@@ -54,7 +54,7 @@ macro_rules! usd_attribute {
     };
 }
 
-macro_rules! usd_marker {
+macro_rules! make_marker {
     (
         $(#[$meta:meta])*
         $name:ident;
@@ -72,7 +72,7 @@ macro_rules! usd_marker {
     };
 }
 
-macro_rules! usd_asset {
+macro_rules! make_asset {
     (
         $(#[$meta:meta])*
         $name:ident
@@ -82,7 +82,7 @@ macro_rules! usd_asset {
     };
 }
 
-macro_rules! usd_enum {
+macro_rules! make_enum {
     (
         $(#[$meta:meta])*
         $trait_name:ident {
@@ -112,7 +112,7 @@ macro_rules! usd_enum {
     };
 }
 
-macro_rules! usd_collection {
+macro_rules! make_collection {
     (
         $(#[$meta:meta])*
         $member:ident -> $collection:ident($ty:ty);

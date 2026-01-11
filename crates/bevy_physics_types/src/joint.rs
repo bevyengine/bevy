@@ -57,7 +57,7 @@
 use crate::types::{float, point3f, quatf};
 use bevy_ecs::entity::Entity;
 
-usd_marker! {
+make_marker! {
     /// Marks this entity as a physics joint.
     ///
     /// The base joint type represents a D6 joint with all degrees of freedom
@@ -70,7 +70,7 @@ usd_marker! {
     displayName = "Physics Joint"
 }
 
-usd_attribute! {
+make_attribute! {
     /// Relationship to the first connected body.
     ///
     /// This can reference any transformable entity. The actual rigid body is
@@ -82,7 +82,7 @@ usd_attribute! {
     displayName = "Body 0"
 }
 
-usd_attribute! {
+make_attribute! {
     /// Relationship to the second connected body.
     ///
     /// This can reference any transformable entity. The actual rigid body is
@@ -94,7 +94,7 @@ usd_attribute! {
     displayName = "Body 1"
 }
 
-usd_attribute! {
+make_attribute! {
     /// Position of the joint frame relative to body0.
     ///
     /// Defines where the joint attaches to body0 in body0's local space.
@@ -108,7 +108,7 @@ usd_attribute! {
     displayName = "Local Position 0"
 }
 
-usd_attribute! {
+make_attribute! {
     /// Orientation of the joint frame relative to body0.
     ///
     /// Defines the joint's rotational alignment relative to body0.
@@ -121,7 +121,7 @@ usd_attribute! {
     displayName = "Local Rotation 0"
 }
 
-usd_attribute! {
+make_attribute! {
     /// Position of the joint frame relative to body1.
     ///
     /// Defines where the joint attaches to body1 in body1's local space.
@@ -132,7 +132,7 @@ usd_attribute! {
     displayName = "Local Position 1"
 }
 
-usd_attribute! {
+make_attribute! {
     /// Orientation of the joint frame relative to body1.
     ///
     /// Defines the joint's rotational alignment relative to body1.
@@ -143,7 +143,7 @@ usd_attribute! {
     displayName = "Local Rotation 1"
 }
 
-usd_marker! {
+make_marker! {
     /// Excludes this joint from articulation reduced-coordinate solving.
     ///
     /// When a joint would create a loop in an articulation tree, it must
@@ -157,7 +157,7 @@ usd_marker! {
     displayName = "Exclude From Articulation"
 }
 
-usd_attribute! {
+make_attribute! {
     /// Force threshold at which the joint breaks.
     ///
     /// When the constraint force exceeds this value, the joint is destroyed.
@@ -170,7 +170,7 @@ usd_attribute! {
     displayName = "Break Force"
 }
 
-usd_attribute! {
+make_attribute! {
     /// Torque threshold at which the joint breaks.
     ///
     /// When the constraint torque exceeds this value, the joint is destroyed.

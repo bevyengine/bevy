@@ -45,7 +45,7 @@
 //! If an implementation doesn't support a particular approximation, it should
 //! fall back to the most similar supported option.
 
-usd_enum! {
+make_enum! {
     /// Determines the mesh's collision approximation method.
     ///
     /// This trait is implemented by marker components that specify how a mesh

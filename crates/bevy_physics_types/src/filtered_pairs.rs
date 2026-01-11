@@ -39,7 +39,7 @@
 
 use bevy_ecs::entity::EntityHashSet;
 
-usd_attribute! {
+make_attribute! {
     /// Set of entities that should not collide with this entity.
     ///
     /// This provides fine-grained pairwise collision filtering. Any entity

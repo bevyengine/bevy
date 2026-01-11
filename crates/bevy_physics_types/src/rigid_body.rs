@@ -37,12 +37,11 @@
 //! ## Velocity
 //!
 //! Velocities ([`Velocity`] and [`AngularVelocity`]) are specified in the entity's
-//! local space, consistent with USD's `UsdGeomPointInstancer` conventions and the
-//! entity's transform. Angular velocity uses degrees per second.
+//! local space. Angular velocity uses degrees per second.
 
 use crate::types::vector3f;
 
-usd_marker! {
+make_marker! {
     /// Marks the root of a rigid body hierarchy.
     ///
     /// When applied to an entity, this entity becomes the root of a rigid body
@@ -53,19 +52,19 @@ usd_marker! {
     displayName = "Rigid Body"
 }
 
-usd_marker! {
+make_marker! {
     /// Enables dynamic simulation for the rigid body.
     ///
     /// When present, the body responds to external forces, gravity, and collisions.
-    /// The physics simulation computes and updates the body's motion. When absent
-    /// (or set to false in USD), the body behaves as a static or kinematic body
-    /// depending on other properties.
+    /// The physics simulation computes and updates the body's motion.
+    // When absent the body behaves as a static or kinematic body,
+    // depending on other properties.
     Dynamic;
     apiName = "rigidBodyEnabled"
     displayName = "Rigid Body Enabled"
 }
 
-usd_marker! {
+make_marker! {
     /// Marks a body as kinematic (animation-driven).
     ///
     /// A kinematic body is moved through animated poses or user-defined poses
@@ -84,7 +83,7 @@ usd_marker! {
     displayName = "Kinematic Enabled"
 }
 
-usd_marker! {
+make_marker! {
     /// Indicates the body should start simulation in a sleeping state.
     ///
     /// Sleeping is a performance optimization where bodies at rest cease being
@@ -95,7 +94,7 @@ usd_marker! {
     displayName = "Starts as Asleep"
 }
 
-usd_attribute! {
+make_attribute! {
     /// Linear velocity in the body's local space.
     ///
     /// This velocity is specified relative to the entity's local coordinate frame.
@@ -106,7 +105,7 @@ usd_attribute! {
     displayName = "Linear Velocity"
 }
 
-usd_attribute! {
+make_attribute! {
     /// Angular velocity in the body's local space.
     ///
     /// This velocity is specified relative to the entity's local coordinate frame.
