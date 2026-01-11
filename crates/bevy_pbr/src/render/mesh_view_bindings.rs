@@ -84,6 +84,7 @@ bitflags::bitflags! {
         const DEFERRED_PREPASS            = 1 << 4;
         const OIT_ENABLED                 = 1 << 5;
         const ATMOSPHERE                  = 1 << 6;
+        const BLUE_NOISE_TEXTURE          = 1 << 7;
     }
 }
 
@@ -96,7 +97,7 @@ impl MeshPipelineViewLayoutKey {
         use MeshPipelineViewLayoutKey as Key;
 
         format!(
-            "mesh_view_layout{}{}{}{}{}{}{}",
+            "mesh_view_layout{}{}{}{}{}{}{}{}",
             if self.contains(Key::MULTISAMPLED) {
                 "_multisampled"
             } else {
@@ -132,6 +133,11 @@ impl MeshPipelineViewLayoutKey {
             } else {
                 Default::default()
             },
+            if self.contains(Key::BLUE_NOISE_TEXTURE) {
+                "_stbn"
+            } else {
+                Default::default()
+            },
         )
     }
 }
@@ -160,6 +166,10 @@ impl From<MeshPipelineKey> for MeshPipelineViewLayoutKey {
         }
         if value.contains(MeshPipelineKey::ATMOSPHERE) {
             result |= MeshPipelineViewLayoutKey::ATMOSPHERE;
+        }
+
+        if cfg!(feature = "bluenoise_texture") {
+            result |= MeshPipelineViewLayoutKey::BLUE_NOISE_TEXTURE;
         }
 
         result
@@ -410,6 +420,14 @@ fn layout_entries(
         ));
     }
 
+    // Blue noise
+    if layout_key.contains(MeshPipelineViewLayoutKey::BLUE_NOISE_TEXTURE) {
+        entries = entries.extend_with_indices(((
+            33,
+            texture_2d_array(TextureSampleType::Float { filterable: false }),
+        ),));
+    }
+
     let mut binding_array_entries = DynamicBindGroupLayoutEntries::new(ShaderStages::FRAGMENT);
     binding_array_entries = binding_array_entries.extend_with_indices((
         (0, environment_map_entries[0]),
@@ -586,6 +604,7 @@ pub fn prepare_mesh_view_bind_groups(
         Has<OrderIndependentTransparencySettings>,
         Option<&AtmosphereTextures>,
         Has<ExtractedAtmosphere>,
+        Option<&ViewContactShadowsUniformOffset>,
     )>,
     (images, mut fallback_images, fallback_image, fallback_image_zero): (
         Res<RenderAssets<GpuImage>>,
@@ -597,13 +616,17 @@ pub fn prepare_mesh_view_bind_groups(
     tonemapping_luts: Res<TonemappingLuts>,
     light_probes_buffer: Res<LightProbesBuffer>,
     visibility_ranges: Res<RenderVisibilityRanges>,
-    ssr_buffer: Res<ScreenSpaceReflectionsBuffer>,
+    (ssr_buffer, contact_shadows_buffer): (
+        Res<ScreenSpaceReflectionsBuffer>,
+        Res<ContactShadowsBuffer>,
+    ),
     oit_buffers: Res<OitBuffers>,
     (decals_buffer, render_decals, atmosphere_buffer, atmosphere_sampler): (
         Res<DecalsBuffer>,
         Res<RenderClusteredDecals>,
         Option<Res<AtmosphereBuffer>>,
         Option<Res<AtmosphereSampler>>,
+        Res<Bluenoise>,
     ),
 ) {
     if let (
@@ -658,6 +681,9 @@ pub fn prepare_mesh_view_bind_groups(
             }
             if has_atmosphere {
                 layout_key |= MeshPipelineViewLayoutKey::ATMOSPHERE;
+            }
+            if cfg!(feature = "bluenoise_texture") {
+                layout_key |= MeshPipelineViewLayoutKey::BLUE_NOISE_TEXTURE;
             }
 
             let layout = mesh_pipeline.get_view_layout(layout_key);
@@ -750,6 +776,14 @@ pub fn prepare_mesh_view_bind_groups(
                     (30, &***atmosphere_sampler),
                     (31, atmosphere_buffer_binding),
                 ));
+            }
+
+            if layout_key.contains(MeshPipelineViewLayoutKey::BLUE_NOISE_TEXTURE) {
+                let stbn_view = &images
+                    .get(&blue_noise.texture)
+                    .expect("STBN texture is added unconditionally with at least a placeholder")
+                    .texture_view;
+                entries = entries.extend_with_indices(((33, stbn_view),));
             }
 
             let mut entries_binding_array = DynamicBindGroupEntries::new();

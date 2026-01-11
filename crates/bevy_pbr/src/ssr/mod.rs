@@ -495,6 +495,9 @@ pub fn prepare_ssr_pipelines(
             has_motion_vector_prepass,
         );
         mesh_pipeline_view_key.set(MeshPipelineViewLayoutKey::ATMOSPHERE, has_atmosphere);
+        if cfg!(feature = "bluenoise_texture") {
+            mesh_pipeline_view_key |= MeshPipelineViewLayoutKey::BLUE_NOISE_TEXTURE;
+        }
 
         // Build the pipeline.
         let pipeline_id = pipelines.specialize(
@@ -590,6 +593,10 @@ impl SpecializedRenderPipeline for ScreenSpaceReflectionsPipeline {
 
         if key.has_atmosphere {
             shader_defs.push("ATMOSPHERE".into());
+        }
+
+        if cfg!(feature = "bluenoise_texture") {
+            shader_defs.push("BLUE_NOISE_TEXTURE".into());
         }
 
         #[cfg(not(target_arch = "wasm32"))]

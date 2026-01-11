@@ -236,8 +236,7 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
 
     // Sample the environment map if necessary.
     //
-    // This will take the specular part of the environment map into account if
-    // the ray missed. Otherwise, it only takes the diffuse part.
+    // This will take the specular part of the environment map into account.
     //
     // TODO: Merge this with the duplicated code in `apply_pbr_lighting`.
 #ifdef ENVIRONMENT_MAP
@@ -247,7 +246,6 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     let reflectance = pbr_input.material.reflectance;
     let specular_transmission = pbr_input.material.specular_transmission;
     let diffuse_transmission = pbr_input.material.diffuse_transmission;
-    let diffuse_occlusion = pbr_input.diffuse_occlusion;
 
 #ifdef STANDARD_MATERIAL_CLEARCOAT
     // Do the above calculations again for the clearcoat layer. Remember that
@@ -301,8 +299,12 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
         clustered_forward::unpack_clusterable_object_index_ranges(cluster_index);
 
     // Sample the environment map.
+    //
+    // We pass `true` for `found_diffuse_indirect` here because we only want
+    // the specular part; the diffuse part was already accumulated in the
+    // main PBR pass.
     let environment_light = environment_map::environment_map_light(
-        &lighting_input, &clusterable_object_index_ranges, false);
+        &lighting_input, &clusterable_object_index_ranges, true);
 
     // Accumulate the environment map light.
     indirect_light += view.exposure * environment_light.specular * specular_occlusion;
