@@ -358,7 +358,7 @@ pub fn check_dir_light_mesh_visibility(
         }
 
         // NOTE: If shadow mapping is disabled for the light then it must have no visible entities
-        if !directional_light.shadows_enabled || !light_view_visibility.get() {
+        if !directional_light.shadow_maps_enabled || !light_view_visibility.get() {
             continue;
         }
 
@@ -524,7 +524,7 @@ pub fn check_point_light_mesh_visibility(
                 }
 
                 // NOTE: If shadow mapping is disabled for the light then it must have no visible entities
-                if !point_light.shadows_enabled {
+                if !point_light.shadow_maps_enabled {
                     continue;
                 }
 
@@ -613,7 +613,7 @@ pub fn check_point_light_mesh_visibility(
                 visible_entities.clear();
 
                 // NOTE: If shadow mapping is disabled for the light then it must have no visible entities
-                if !point_light.shadows_enabled {
+                if !point_light.shadow_maps_enabled {
                     continue;
                 }
 

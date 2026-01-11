@@ -29,7 +29,7 @@ use tracing::warn;
 
 /// Raytraced direct and indirect lighting.
 ///
-/// When using this plugin, it's highly recommended to set `shadows_enabled: false` on all lights, as Solari replaces
+/// When using this plugin, it's highly recommended to set `shadow_maps_enabled: false` on all lights, as Solari replaces
 /// traditional shadow mapping.
 pub struct SolariLightingPlugin;
 

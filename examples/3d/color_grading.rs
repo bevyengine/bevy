@@ -360,7 +360,7 @@ fn add_basic_scene(commands: &mut Commands, asset_server: &AssetServer) {
     commands.spawn((
         DirectionalLight {
             illuminance: 15000.0,
-            shadows_enabled: true,
+            shadow_maps_enabled: true,
             ..default()
         },
         Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, PI * -0.15, PI * -0.15)),

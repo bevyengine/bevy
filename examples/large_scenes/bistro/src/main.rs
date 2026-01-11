@@ -9,6 +9,7 @@ use std::{
 };
 
 use argh::FromArgs;
+use bevy::pbr::ContactShadows;
 use bevy::{
     anti_alias::taa::TemporalAntiAliasing,
     camera::visibility::{NoCpuCulling, NoFrustumCulling},
@@ -241,7 +242,8 @@ pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>, args: Res<A
             DirectionalLight {
                 color: Color::srgb(1.0, 0.87, 0.78),
                 illuminance: lux::FULL_DAYLIGHT,
-                shadows_enabled: !args.minimal,
+                shadow_maps_enabled: !args.minimal,
+                contact_shadows_enabled: !args.minimal,
                 shadow_depth_bias: 0.1,
                 shadow_normal_bias: 0.2,
                 ..default()
@@ -281,6 +283,7 @@ pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>, args: Res<A
             intensity: 600.0,
             ..default()
         },
+        ContactShadows::default(),
         FreeCamera::default(),
         Spin,
     ));

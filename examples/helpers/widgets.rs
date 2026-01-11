@@ -139,9 +139,9 @@ where
         },
         Children::spawn((
             Spawn((
-                ui_text(title, Color::BLACK),
+                ui_text(title, Color::WHITE),
                 Node {
-                    width: px(125),
+                    width: px(150),
                     ..default()
                 },
             )),

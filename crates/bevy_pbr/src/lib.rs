@@ -27,6 +27,11 @@ pub mod experimental {
 mod atmosphere;
 mod cluster;
 mod components;
+pub mod contact_shadows;
+pub use contact_shadows::{
+    ContactShadows, ContactShadowsBuffer, ContactShadowsPlugin, ContactShadowsUniform,
+    ViewContactShadowsUniformOffset,
+};
 pub mod decal;
 pub mod deferred;
 pub mod diagnostic;
@@ -79,6 +84,7 @@ pub use volumetric_fog::VolumetricFogPlugin;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
+        contact_shadows::ContactShadowsPlugin,
         fog::{DistanceFog, FogFalloff},
         material::{Material, MaterialPlugin},
         mesh_material::MeshMaterial3d,
@@ -153,8 +159,8 @@ fn shader_ref(path: PathBuf) -> ShaderRef {
     ShaderRef::Path(AssetPath::from_path_buf(path).with_source("embedded"))
 }
 
-pub const TONEMAPPING_LUT_TEXTURE_BINDING_INDEX: u32 = 18;
-pub const TONEMAPPING_LUT_SAMPLER_BINDING_INDEX: u32 = 19;
+pub const TONEMAPPING_LUT_TEXTURE_BINDING_INDEX: u32 = 19;
+pub const TONEMAPPING_LUT_SAMPLER_BINDING_INDEX: u32 = 20;
 
 /// Sets up the entire PBR infrastructure of bevy.
 pub struct PbrPlugin {
@@ -241,6 +247,7 @@ impl Plugin for PbrPlugin {
                 VolumetricFogPlugin,
                 ScreenSpaceReflectionsPlugin,
                 ClusteredDecalPlugin,
+                ContactShadowsPlugin,
             ))
             .add_plugins((
                 decal::ForwardDecalPlugin,

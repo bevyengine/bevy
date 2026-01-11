@@ -60,7 +60,7 @@ pub enum ClusterableObjectType {
         /// Whether shadows are enabled for this point light.
         ///
         /// This is used for sorting the light list.
-        shadows_enabled: bool,
+        shadow_maps_enabled: bool,
 
         /// Whether this light interacts with volumetrics.
         ///
@@ -73,7 +73,7 @@ pub enum ClusterableObjectType {
         /// Whether shadows are enabled for this spot light.
         ///
         /// This is used for sorting the light list.
-        shadows_enabled: bool,
+        shadow_maps_enabled: bool,
 
         /// Whether this light interacts with volumetrics.
         ///
@@ -105,14 +105,14 @@ impl ClusterableObjectType {
     pub fn ordering(&self) -> (u8, bool, bool) {
         match *self {
             ClusterableObjectType::PointLight {
-                shadows_enabled,
+                shadow_maps_enabled,
                 volumetric,
-            } => (0, !shadows_enabled, !volumetric),
+            } => (0, !shadow_maps_enabled, !volumetric),
             ClusterableObjectType::SpotLight {
-                shadows_enabled,
+                shadow_maps_enabled,
                 volumetric,
                 ..
-            } => (1, !shadows_enabled, !volumetric),
+            } => (1, !shadow_maps_enabled, !volumetric),
             ClusterableObjectType::ReflectionProbe => (2, false, false),
             ClusterableObjectType::IrradianceVolume => (3, false, false),
             ClusterableObjectType::Decal => (4, false, false),
@@ -178,7 +178,7 @@ pub(crate) fn assign_objects_to_clusters(
                         transform: GlobalTransform::from_translation(transform.translation()),
                         range: point_light.range,
                         object_type: ClusterableObjectType::PointLight {
-                            shadows_enabled: point_light.shadows_enabled,
+                            shadow_maps_enabled: point_light.shadow_maps_enabled,
                             volumetric: volumetric.is_some(),
                         },
                         render_layers: maybe_layers.unwrap_or_default().clone(),
@@ -198,7 +198,7 @@ pub(crate) fn assign_objects_to_clusters(
                         range: spot_light.range,
                         object_type: ClusterableObjectType::SpotLight {
                             outer_angle: spot_light.outer_angle,
-                            shadows_enabled: spot_light.shadows_enabled,
+                            shadow_maps_enabled: spot_light.shadow_maps_enabled,
                             volumetric: volumetric.is_some(),
                         },
                         render_layers: maybe_layers.unwrap_or_default().clone(),
