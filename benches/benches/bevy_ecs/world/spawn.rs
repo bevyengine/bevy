@@ -36,9 +36,10 @@ pub fn world_spawn_batch(criterion: &mut Criterion) {
             let mut world = World::default();
             bencher.iter(|| {
                 for _ in 0..(10_000 / batch_count) {
-                    world.spawn_batch(
-                        (0..batch_count).map(|_| (A(Mat4::default()), B(Vec4::default()))),
-                    );
+                    world.spawn_batch(std::iter::repeat_n(
+                        (A(Mat4::default()), B(Vec4::default())),
+                        batch_count,
+                    ));
                 }
             });
         });
