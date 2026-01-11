@@ -22,6 +22,7 @@ impl_reflect_opaque!(bool(
     Debug,
     Hash,
     PartialEq,
+    PartialOrd,
     Serialize,
     Deserialize,
     Default
@@ -31,6 +32,7 @@ impl_reflect_opaque!(char(
     Debug,
     Hash,
     PartialEq,
+    PartialOrd,
     Serialize,
     Deserialize,
     Default
@@ -40,6 +42,7 @@ impl_reflect_opaque!(u8(
     Debug,
     Hash,
     PartialEq,
+    PartialOrd,
     Serialize,
     Deserialize,
     Default
@@ -49,6 +52,7 @@ impl_reflect_opaque!(u16(
     Debug,
     Hash,
     PartialEq,
+    PartialOrd,
     Serialize,
     Deserialize,
     Default
@@ -58,6 +62,7 @@ impl_reflect_opaque!(u32(
     Debug,
     Hash,
     PartialEq,
+    PartialOrd,
     Serialize,
     Deserialize,
     Default
@@ -67,6 +72,7 @@ impl_reflect_opaque!(u64(
     Debug,
     Hash,
     PartialEq,
+    PartialOrd,
     Serialize,
     Deserialize,
     Default
@@ -76,6 +82,7 @@ impl_reflect_opaque!(u128(
     Debug,
     Hash,
     PartialEq,
+    PartialOrd,
     Serialize,
     Deserialize,
     Default
@@ -85,6 +92,7 @@ impl_reflect_opaque!(usize(
     Debug,
     Hash,
     PartialEq,
+    PartialOrd,
     Serialize,
     Deserialize,
     Default
@@ -94,6 +102,7 @@ impl_reflect_opaque!(i8(
     Debug,
     Hash,
     PartialEq,
+    PartialOrd,
     Serialize,
     Deserialize,
     Default
@@ -103,6 +112,7 @@ impl_reflect_opaque!(i16(
     Debug,
     Hash,
     PartialEq,
+    PartialOrd,
     Serialize,
     Deserialize,
     Default
@@ -112,6 +122,7 @@ impl_reflect_opaque!(i32(
     Debug,
     Hash,
     PartialEq,
+    PartialOrd,
     Serialize,
     Deserialize,
     Default
@@ -121,6 +132,7 @@ impl_reflect_opaque!(i64(
     Debug,
     Hash,
     PartialEq,
+    PartialOrd,
     Serialize,
     Deserialize,
     Default
@@ -130,6 +142,7 @@ impl_reflect_opaque!(i128(
     Debug,
     Hash,
     PartialEq,
+    PartialOrd,
     Serialize,
     Deserialize,
     Default
@@ -139,6 +152,7 @@ impl_reflect_opaque!(isize(
     Debug,
     Hash,
     PartialEq,
+    PartialOrd,
     Serialize,
     Deserialize,
     Default
@@ -147,6 +161,7 @@ impl_reflect_opaque!(f32(
     Clone,
     Debug,
     PartialEq,
+    PartialOrd,
     Serialize,
     Deserialize,
     Default
@@ -155,6 +170,7 @@ impl_reflect_opaque!(f64(
     Clone,
     Debug,
     PartialEq,
+    PartialOrd,
     Serialize,
     Deserialize,
     Default
@@ -219,6 +235,14 @@ impl PartialReflect for &'static str {
             Some(PartialEq::eq(self, value))
         } else {
             Some(false)
+        }
+    }
+
+    fn reflect_partial_cmp(&self, value: &dyn PartialReflect) -> Option<core::cmp::Ordering> {
+        if let Some(value) = value.try_downcast_ref::<Self>() {
+            Some(PartialOrd::partial_cmp(self, value)?)
+        } else {
+            None
         }
     }
 
@@ -382,6 +406,11 @@ impl<T: Reflect + MaybeTyped + TypePath + GetTypeRegistration, const N: usize> P
     #[inline]
     fn reflect_partial_eq(&self, value: &dyn PartialReflect) -> Option<bool> {
         crate::array_partial_eq(self, value)
+    }
+
+    #[inline]
+    fn reflect_partial_cmp(&self, value: &dyn PartialReflect) -> Option<::core::cmp::Ordering> {
+        crate::array_partial_cmp(self, value)
     }
 
     fn apply(&mut self, value: &dyn PartialReflect) {
@@ -551,6 +580,28 @@ mod tests {
         let c: &dyn PartialReflect = &TAU;
         assert!(a.reflect_partial_eq(b).unwrap_or_default());
         assert!(!a.reflect_partial_eq(c).unwrap_or_default());
+    }
+
+    #[test]
+    fn should_partial_cmp_f32() {
+        use core::cmp::Ordering;
+
+        let a: &dyn PartialReflect = &1.0_f32;
+        let b: &dyn PartialReflect = &2.0_f32;
+
+        let ord = a.reflect_partial_cmp(b);
+        assert_eq!(ord, Some(Ordering::Less));
+
+        // mismatched type should return None
+        let ord_mismatch = a.reflect_partial_cmp(&1i32);
+        assert_eq!(ord_mismatch, None);
+    }
+
+    #[test]
+    fn reflect_partial_cmp_f32_nan() {
+        // NaN comparisons should return None
+        let nan = f32::NAN;
+        assert_eq!(PartialReflect::reflect_partial_cmp(&nan, &nan), None);
     }
 
     #[test]

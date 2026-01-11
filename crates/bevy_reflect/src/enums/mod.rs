@@ -689,5 +689,28 @@ mod tests {
             !a.reflect_partial_eq(b).unwrap_or_default(),
             "expected TestEnum::C{{value: 123}} != TestEnum::C2{{value: 1.23}}"
         );
+
+        #[derive(Reflect)]
+        enum TestEnum2 {
+            A,
+            A1,
+            B(usize, usize),
+            C { value: i32, value2: f32 },
+        }
+        let a: &dyn PartialReflect = &TestEnum::C { value: 123 };
+        let a2: &dyn PartialReflect = &TestEnum2::C {
+            value: 123,
+            value2: 1.23,
+        };
+        assert!(
+            !a.reflect_partial_eq(a2).unwrap_or_default(),
+            "expected TestEnum::C{{value: 123}} != TestEnum2::C{{value: 123, value2: 1.23}}"
+        );
+        let b: &dyn PartialReflect = &TestEnum::B(123);
+        let b2 = &TestEnum2::B(123, 321);
+        assert!(
+            !b.reflect_partial_eq(b2).unwrap_or_default(),
+            "expected TestEnum::C{{value: 123}} != TestEnum2::B(123, 321)"
+        );
     }
 }
