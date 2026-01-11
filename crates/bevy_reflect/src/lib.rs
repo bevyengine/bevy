@@ -1769,8 +1769,8 @@ mod tests {
             PartialReflect::reflect_partial_cmp(&concrete, &dyn_s),
             Some(core::cmp::Ordering::Greater)
         );
-         
-         let mut dyn_s = DynamicStruct::default();
+
+        let mut dyn_s = DynamicStruct::default();
         dyn_s.insert("b", 0i32);
         dyn_s.insert("a", 1i32);
         assert_eq!(
