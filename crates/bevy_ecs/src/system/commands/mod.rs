@@ -130,6 +130,7 @@ const _: () = {
 
         type Item<'w, 's> = Commands<'w, 's>;
 
+        #[track_caller]
         fn init_state(world: &mut World) -> Self::State {
             FetchState {
                 state: <__StructFieldsAlias<'_, '_> as bevy_ecs::system::SystemParam>::init_state(
@@ -193,6 +194,7 @@ const _: () = {
         }
 
         #[inline]
+        #[track_caller]
         unsafe fn get_param<'w, 's>(
             state: &'s mut Self::State,
             system_meta: &bevy_ecs::system::SystemMeta,
