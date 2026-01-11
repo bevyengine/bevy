@@ -161,7 +161,7 @@ fn match_reflect_impls(ast: DeriveInput, source: ReflectImplSource) -> TokenStre
 ///   A custom implementation may be provided using `#[reflect(Clone(my_clone_func))]` where
 ///   `my_clone_func` is the path to a function matching the signature:
 ///   `(&Self) -> Self`.
-/// * `#[reflect(Debug)]` will force the implementation of `Reflect::debug` to rely on
+/// * `#[reflect(Debug)]` will force the implementation of [`PartialReflect::debug`] to rely on
 ///   the type's [`Debug`] implementation.
 ///   A custom implementation may be provided using `#[reflect(Debug(my_debug_func))]` where
 ///   `my_debug_func` is the path to a function matching the signature:
