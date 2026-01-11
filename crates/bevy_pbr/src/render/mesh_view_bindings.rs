@@ -45,11 +45,12 @@ use crate::{
     },
     prepass,
     resources::{AtmosphereBuffer, AtmosphereData, AtmosphereSampler, AtmosphereTextures},
-    EnvironmentMapUniformBuffer, ExtractedAtmosphere, FogMeta, GlobalClusterableObjectMeta,
-    GpuClusterableObjects, GpuFog, GpuLights, LightMeta, LightProbesBuffer, LightProbesUniform,
-    MeshPipeline, MeshPipelineKey, RenderViewLightProbes, ScreenSpaceAmbientOcclusionResources,
-    ScreenSpaceReflectionsBuffer, ScreenSpaceReflectionsUniform, ShadowSamplers,
-    ViewClusterBindings, ViewShadowBindings, CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT,
+    Bluenoise, EnvironmentMapUniformBuffer, ExtractedAtmosphere, FogMeta,
+    GlobalClusterableObjectMeta, GpuClusterableObjects, GpuFog, GpuLights, LightMeta,
+    LightProbesBuffer, LightProbesUniform, MeshPipeline, MeshPipelineKey, RenderViewLightProbes,
+    ScreenSpaceAmbientOcclusionResources, ScreenSpaceReflectionsBuffer,
+    ScreenSpaceReflectionsUniform, ShadowSamplers, ViewClusterBindings, ViewShadowBindings,
+    CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT,
 };
 
 #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
@@ -604,7 +605,6 @@ pub fn prepare_mesh_view_bind_groups(
         Has<OrderIndependentTransparencySettings>,
         Option<&AtmosphereTextures>,
         Has<ExtractedAtmosphere>,
-        Option<&ViewContactShadowsUniformOffset>,
     )>,
     (images, mut fallback_images, fallback_image, fallback_image_zero): (
         Res<RenderAssets<GpuImage>>,
@@ -616,12 +616,9 @@ pub fn prepare_mesh_view_bind_groups(
     tonemapping_luts: Res<TonemappingLuts>,
     light_probes_buffer: Res<LightProbesBuffer>,
     visibility_ranges: Res<RenderVisibilityRanges>,
-    (ssr_buffer, contact_shadows_buffer): (
-        Res<ScreenSpaceReflectionsBuffer>,
-        Res<ContactShadowsBuffer>,
-    ),
+    ssr_buffer: Res<ScreenSpaceReflectionsBuffer>,
     oit_buffers: Res<OitBuffers>,
-    (decals_buffer, render_decals, atmosphere_buffer, atmosphere_sampler): (
+    (decals_buffer, render_decals, atmosphere_buffer, atmosphere_sampler, blue_noise): (
         Res<DecalsBuffer>,
         Res<RenderClusteredDecals>,
         Option<Res<AtmosphereBuffer>>,
