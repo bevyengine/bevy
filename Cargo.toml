@@ -30,6 +30,11 @@ members = [
   "examples/no_std/*",
   # Examples of compiling Bevy with automatic reflect type registration for platforms without `inventory` support.
   "examples/reflection/auto_register_static",
+  # Examples of large bevy scenes.
+  "examples/large_scenes/bistro",
+  "examples/large_scenes/caldera_hotel",
+  # Mipmap generator for testing large bevy scenes with mips and texture compression.
+  "examples/large_scenes/mipmap_generator",
   # Benchmarks
   "benches",
   # Internal tools that are not published.
@@ -5235,6 +5240,17 @@ required-features = ["experimental_bevy_ui_widgets"]
 [package.metadata.example.scrollbars]
 name = "Scrollbars"
 description = "Demonstrates use of core scrollbar in Bevy UI"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
+name = "system_fonts"
+path = "examples/ui/system_fonts.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.system_fonts]
+name = "system_fonts"
+description = "Demonstrates how to use system fonts"
 category = "UI (User Interface)"
 wasm = true
 
