@@ -1682,6 +1682,134 @@ mod tests {
     }
 
     #[test]
+    fn reflect_partial_cmp_btreemap_value_incomparable() {
+        use std::collections::BTreeMap;
+
+        let mut m1: BTreeMap<usize, f32> = BTreeMap::new();
+        m1.insert(1usize, 1.0f32);
+
+        let mut m2: BTreeMap<usize, f32> = BTreeMap::new();
+        m2.insert(1usize, core::f32::NAN);
+
+        // value comparison will be None due to NaN
+        assert_eq!(PartialReflect::reflect_partial_cmp(&m1, &m2), None);
+    }
+
+    #[test]
+    fn reflect_partial_cmp_array_length_difference() {
+        use core::cmp::Ordering;
+
+        let a = [1i32, 2i32];
+        let b = [1i32, 2i32, 3i32];
+
+        let ord = PartialReflect::reflect_partial_cmp(&a, &b);
+        assert_eq!(ord, Some(Ordering::Less));
+    }
+
+    #[test]
+    fn reflect_partial_cmp_nested_none() {
+        // inner NaN should cause overall None
+        let a = (1i32, (1f32, core::f32::NAN));
+        let b = (1i32, (1f32, 2f32));
+
+        assert_eq!(PartialReflect::reflect_partial_cmp(&a, &b), None);
+    }
+
+    #[test]
+    fn reflect_partial_cmp_struct_field_order_name_lookup() {
+        use core::cmp::Ordering;
+        use crate::DynamicStruct;
+
+        #[derive(PartialEq, PartialOrd, Reflect, Debug)]
+        struct S { a: i32, b: i32 }
+
+        let concrete = S { a: 1, b: 0 };
+
+        // dynamic struct with reversed insertion order
+        let mut dyn_s = DynamicStruct::default();
+        dyn_s.insert("b", 1i32);
+        dyn_s.insert("a", 0i32);
+
+        // Unfortunately, we currently iterate fields in the order or the argument
+        // this means you can have  a<b and b<a at same time.
+        assert_eq!(PartialReflect::reflect_partial_cmp(&concrete, &dyn_s), Some(Ordering::Less));
+        assert_eq!(PartialReflect::reflect_partial_cmp(&dyn_s, &concrete), Some(Ordering::Less));
+    }
+
+    #[test]
+    fn reflect_partial_cmp_enum_variant_type_mismatch() {
+        #[derive(PartialEq, PartialOrd, Reflect, Debug)]
+        enum E1 { Foo(i32) }
+
+        #[derive(PartialEq, PartialOrd, Reflect, Debug)]
+        enum E2 { Foo { x: i32 } }
+
+        let a = E1::Foo(1);
+        let b = E2::Foo { x: 1 };
+
+        // same variant name but different variant types -> None
+        assert_eq!(PartialReflect::reflect_partial_cmp(&a, &b), None);
+    }
+
+    #[test]
+    fn reflect_partial_cmp_dynamic_vs_concrete_struct_equal() {
+        use crate::DynamicStruct;
+
+        #[derive(PartialEq, PartialOrd, Reflect, Debug)]
+        struct S { a: i32, b: i32 }
+
+        let concrete = S { a: 5, b: 6 };
+
+        let mut dyn_s = DynamicStruct::default();
+        dyn_s.insert("a", 5i32);
+        dyn_s.insert("b", 6i32);
+
+        assert_eq!(PartialReflect::reflect_partial_cmp(&concrete, &dyn_s), Some(core::cmp::Ordering::Equal));
+    }
+
+    #[test]
+    fn reflect_partial_cmp_opaque_without_impl() {
+        #[derive(Reflect, Debug)]
+        struct Opaque(usize);
+
+        let o = Opaque(1);
+
+        // Derived tuple-struct comparison should succeed via default delegate
+        assert_eq!(PartialReflect::reflect_partial_cmp(&o, &o), Some(core::cmp::Ordering::Equal));
+    }
+
+    #[test]
+    fn reflect_partial_cmp_btreemap_equal_keys_diff_values() {
+        use core::cmp::Ordering;
+        use std::collections::BTreeMap;
+
+        let mut m1: BTreeMap<usize, i32> = BTreeMap::new();
+        m1.insert(1usize, 2i32);
+        m1.insert(2usize, 3i32);
+
+        let mut m2: BTreeMap<usize, i32> = BTreeMap::new();
+        m2.insert(1usize, 2i32);
+        m2.insert(2usize, 4i32);
+
+        let ord = PartialReflect::reflect_partial_cmp(&m1, &m2);
+        assert_eq!(ord, Some(Ordering::Less));
+    }
+
+    #[test]
+    fn reflect_partial_cmp_large_nested_stress_none() {
+        use std::collections::BTreeMap;
+
+        // BTreeMap<usize, Vec<(i32, f32)>> with deep NaN
+        let mut m1: BTreeMap<usize, Vec<(i32, f32)>> = BTreeMap::new();
+        m1.insert(1usize, vec![(1, 2.0f32), (2, 3.0f32)]);
+
+        let mut m2: BTreeMap<usize, Vec<(i32, f32)>> = BTreeMap::new();
+        m2.insert(1usize, vec![(1, 2.0f32), (2, core::f32::NAN)]);
+
+        assert_eq!(PartialReflect::reflect_partial_cmp(&m1, &m2), None);
+    }
+
+    #[test]
     fn reflect_partial_cmp_enum_variant() {
         use core::cmp::Ordering;
 
