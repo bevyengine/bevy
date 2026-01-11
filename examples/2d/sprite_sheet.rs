@@ -22,7 +22,7 @@ struct AnimationTimer(Timer);
 
 fn animate_sprite(
     time: Res<Time>,
-    mut query: Query<(&AnimationIndices, &mut AnimationTimer, &mut Sprite)>,
+    mut query: Query<(&AnimationIndices, &mut AnimationTimer, &mut SpriteMesh)>,
 ) {
     for (indices, mut timer, mut sprite) in &mut query {
         timer.tick(time.delta());
@@ -53,7 +53,7 @@ fn setup(
     commands.spawn(Camera2d);
 
     commands.spawn((
-        Sprite::from_atlas_image(
+        SpriteMesh::from_atlas_image(
             texture,
             TextureAtlas {
                 layout: texture_atlas_layout,

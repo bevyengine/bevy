@@ -1,19 +1,21 @@
 use bevy_app::{Plugin, Update};
 use bevy_ecs::{
     entity::Entity,
-    query::{Added, Changed},
-    system::{Commands, Local, Query, ResMut},
+    query::{Added, Changed, Or},
+    system::{Commands, Local, Query, Res, ResMut},
 };
 
 use bevy_asset::{Assets, Handle};
 
+use bevy_image::TextureAtlasLayout;
 use bevy_math::{primitives::Rectangle, vec2};
 use bevy_mesh::{Mesh, Mesh2d};
 
-use bevy_sprite::prelude::SpriteMesh;
+use bevy_sprite::{prelude::SpriteMesh, Anchor};
 
 mod sprite_material;
 pub use sprite_material::*;
+use tracing::warn;
 
 use crate::MeshMaterial2d;
 
@@ -27,12 +29,13 @@ impl Plugin for SpriteMeshPlugin {
     }
 }
 
-// Insert a Mesh2d quad each time the SpriteMesh component is added.
-// The mesh handle is kept locally so it can be cloned.
+// Insert a Mesh2d quad and a MeshMaterial2d each time the SpriteMesh component is added.
+// The mesh handle is kept locally so it can be cloned. The material is later mutated.
 fn add_mesh(
     sprites: Query<Entity, Added<SpriteMesh>>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut quad: Local<Option<Handle<Mesh>>>,
+    mut materials: ResMut<Assets<SpriteMaterial>>,
     mut commands: Commands,
 ) {
     if quad.is_none() {
@@ -40,23 +43,41 @@ fn add_mesh(
     }
 
     for entity in sprites {
-        commands
-            .entity(entity)
-            .insert(Mesh2d(quad.clone().unwrap()));
+        commands.entity(entity).insert((
+            Mesh2d(quad.clone().unwrap()),
+            MeshMaterial2d(materials.add(SpriteMaterial::default())),
+        ));
     }
 }
 
-// Insert the material when SpriteMesh is added / changed.
+// Mutate the material when SpriteMesh is added / changed.
+//
+// NOTE: This also adds the SpriteAtlasLayout into the SpriteMaterial,
+// but this should instead be read later, similar to the images, allowing
+// for hot reload.
 fn add_material(
-    sprites: Query<(Entity, &SpriteMesh), Changed<SpriteMesh>>,
+    sprites: Query<
+        (&SpriteMesh, &Anchor, &MeshMaterial2d<SpriteMaterial>),
+        Or<(Changed<SpriteMesh>, Changed<Anchor>)>,
+    >,
+    texture_atlas_layouts: Res<Assets<TextureAtlasLayout>>,
     mut materials: ResMut<Assets<SpriteMaterial>>,
-    mut commands: Commands,
 ) {
-    for (entity, sprite) in sprites {
-        let material = SpriteMaterial::from_sprite_mesh(sprite.clone());
+    for (sprite, anchor, material) in sprites {
+        let Some(material) = materials.get_mut(material.id()) else {
+            warn!("SpriteMesh material not found!");
+            continue;
+        };
 
-        commands
-            .entity(entity)
-            .insert(MeshMaterial2d(materials.add(material)));
+        *material = SpriteMaterial::from_sprite_mesh(sprite.clone());
+
+        material.anchor = **anchor;
+
+        if let Some(texture_atlas) = &sprite.texture_atlas
+            && let Some(texture_atlas_layout) = texture_atlas_layouts.get(texture_atlas.layout.id())
+        {
+            material.texture_atlas_layout = Some(texture_atlas_layout.clone());
+            material.texture_atlas_index = texture_atlas.index;
+        }
     }
 }

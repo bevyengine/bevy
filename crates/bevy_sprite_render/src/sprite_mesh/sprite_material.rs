@@ -1,23 +1,18 @@
 use core::f32;
-use std::{f32::consts::PI, num::NonZero};
 
 use bevy_app::Plugin;
 use bevy_color::{Color, ColorToComponents};
-use bevy_image::{Image, TextureAtlas};
-use bevy_math::{vec2, vec3, Affine2, Affine3, Affine3A, Mat3, Rect, Vec2, Vec4, VectorSpace};
+use bevy_image::{Image, TextureAtlas, TextureAtlasLayout};
+use bevy_math::{vec2, Affine2, Mat3, Rect, Vec2, Vec4};
 
 use bevy_asset::{embedded_asset, embedded_path, Asset, AssetApp, AssetPath, Handle};
 
-use bevy_mesh::MeshVertexBufferLayoutRef;
 use bevy_reflect::Reflect;
 use bevy_render::{
     render_asset::RenderAssets,
-    render_resource::{
-        binding_types::sampler, AsBindGroup, AsBindGroupShaderType, BindGroupLayoutDescriptor,
-        RenderPipelineDescriptor, SamplerBindingType, ShaderType, SpecializedMeshPipelineError,
-    },
+    render_resource::{AsBindGroup, AsBindGroupShaderType, ShaderType},
 };
-use bevy_shader::{ShaderDefVal, ShaderRef};
+use bevy_shader::ShaderRef;
 use bevy_sprite::{
     prelude::SpriteMesh, SliceScaleMode, SpriteAlphaMode, SpriteImageMode, SpriteScalingMode,
 };
@@ -35,7 +30,7 @@ impl Plugin for SpriteMaterialPlugin {
     }
 }
 
-#[derive(Asset, AsBindGroup, Reflect, Debug, Clone)]
+#[derive(Asset, AsBindGroup, Reflect, Debug, Clone, Default)]
 #[reflect(Debug, Clone)]
 #[uniform(0, SpriteMaterialUniform)]
 pub struct SpriteMaterial {
@@ -50,6 +45,9 @@ pub struct SpriteMaterial {
     pub rect: Option<Rect>,
     pub image_mode: SpriteImageMode,
     pub alpha_mode: AlphaMode2d,
+    pub anchor: Vec2,
+    pub texture_atlas_layout: Option<TextureAtlasLayout>,
+    pub texture_atlas_index: usize,
 }
 
 // NOTE: These must match the bit flags in bevy_sprite_render/src/sprite_mesh/sprite_materials.wgsl!
@@ -129,11 +127,30 @@ impl AsBindGroupShaderType<SpriteMaterialUniform> for SpriteMaterial {
             flags |= SpriteMaterialFlags::FLIP_Y;
         }
 
-        let image_size = image.size_2d().as_vec2();
+        let mut image_size = image.size_2d().as_vec2();
 
         let mut quad_size = image_size;
         let mut quad_offset = Vec2::ZERO;
         let mut uv_transform = Affine2::default();
+
+        if let Some(texture_atlas_layout) = &self.texture_atlas_layout {
+            let index = self
+                .texture_atlas_index
+                .clamp(0, texture_atlas_layout.textures.len() - 1);
+
+            let rect = texture_atlas_layout.textures[index].as_rect();
+
+            let ratio = rect.size() / image_size;
+
+            uv_transform *= Affine2::from_scale(ratio);
+            uv_transform *= Affine2::from_translation(vec2(
+                rect.min.x as f32 / rect.size().y as f32,
+                rect.min.y as f32 / rect.size().y as f32,
+            ));
+
+            quad_size = rect.size();
+            image_size = rect.size();
+        }
 
         // rect selects a slice of the image to render, map the uv and change the quad scale to match the rect
         if let Some(rect) = self.rect {
@@ -146,6 +163,7 @@ impl AsBindGroupShaderType<SpriteMaterialUniform> for SpriteMaterial {
             ));
 
             quad_size = rect.size();
+            image_size = rect.size();
         }
 
         let mut tile_stretch_value = Vec2::ZERO;
@@ -335,6 +353,9 @@ impl SpriteMaterial {
             rect: sprite.rect,
             image_mode: sprite.image_mode,
             alpha_mode,
+            texture_atlas_layout: None,
+            texture_atlas_index: 0,
+            anchor: Vec2::ZERO,
         }
     }
 }
