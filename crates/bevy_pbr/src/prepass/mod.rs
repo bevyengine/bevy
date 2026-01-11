@@ -205,7 +205,7 @@ pub fn update_previous_view_data(
     }
 }
 
-#[derive(Component, PartialEq, Default)]
+#[derive(Component, PartialEq, Clone, Default)]
 pub struct PreviousGlobalTransform(pub Affine3A);
 
 #[cfg(not(feature = "meshlet"))]
