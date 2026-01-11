@@ -1,8 +1,8 @@
 //! Demonstrates automatic directional navigation with zero configuration.
 //!
-//! Unlike the manual `directional_navigation` example, this shows how to use automatic
+//! Unlike the `manual_navigation` example, this shows how to use automatic
 //! navigation by simply adding the `AutoDirectionalNavigation` component to UI elements.
-//! The navigation graph is automatically built and maintained based on screen positions.
+//! Navigation is automatically calculated based on screen positions.
 //!
 //! This is especially useful for:
 //! - Dynamic UIs where elements may be added, removed, or repositioned
@@ -11,6 +11,9 @@
 //!
 //! The automatic system finds the nearest neighbor in each compass direction for every node,
 //! completely eliminating the need to manually specify navigation relationships.
+//!
+//! For an example that combines automatic and manual navigation, refer to the
+//! `combined_navigation` example.
 
 use core::time::Duration;
 
@@ -52,7 +55,6 @@ fn main() {
         })
         .init_resource::<ActionState>()
         .add_systems(Startup, setup_scattered_ui)
-        // Navigation graph is automatically maintained by DirectionalNavigationPlugin!
         // No manual system needed - just add AutoDirectionalNavigation to entities.
         // Input is generally handled during PreUpdate
         .add_systems(PreUpdate, (process_inputs, navigate).chain())

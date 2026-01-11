@@ -5080,38 +5080,38 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
-name = "directional_navigation"
-path = "examples/ui/directional_navigation.rs"
+name = "manual_navigation"
+path = "examples/ui/navigation/manual_navigation.rs"
 # Causes an ICE on docs.rs
 doc-scrape-examples = false
 
-[package.metadata.example.directional_navigation]
-name = "Directional Navigation"
-description = "Demonstration of Directional Navigation between UI elements"
+[package.metadata.example.manual_navigation]
+name = "Manual Directional Navigation"
+description = "Demonstration of manually-defined navigation between UI elements"
 category = "UI (User Interface)"
 wasm = true
 
 [[example]]
-name = "auto_directional_navigation"
-path = "examples/ui/auto_directional_navigation.rs"
+name = "auto_navigation"
+path = "examples/ui/navigation/auto_navigation.rs"
 # Causes an ICE on docs.rs
 doc-scrape-examples = false
 
-[package.metadata.example.auto_directional_navigation]
+[package.metadata.example.auto_navigation]
 name = "Automatic Directional Navigation"
-description = "Demonstration of automatic directional navigation graph generation based on UI element positions"
+description = "Demonstration of automatic navigation based on UI element positions"
 category = "UI (User Interface)"
 wasm = true
 
 [[example]]
-name = "navigation"
-path = "examples/ui/navigation.rs"
+name = "combined_navigation"
+path = "examples/ui/navigation/combined_navigation.rs"
 # Causes an ICE on docs.rs
 doc-scrape-examples = false
 
-[package.metadata.example.navigation]
-name = "Navigation"
-description = "Demonstration of automatic and manual directional navigation between UI elements"
+[package.metadata.example.combined_navigation]
+name = "Combined (Automatic + Manual) Directional Navigation"
+description = "Demonstration of combining both automatic and manual directional navigation between UI elements"
 category = "UI (User Interface)"
 wasm = true
 

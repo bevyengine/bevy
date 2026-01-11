@@ -1,12 +1,13 @@
-//! Demonstrates how to set up the directional navigation system to allow for navigation between widgets.
+//! Demonstrates how to set up a manual directional navigation system to allow for navigation between widgets.
 //!
 //! Directional navigation is generally used to move between widgets in a user interface using arrow keys or gamepad input.
 //! When compared to tab navigation, directional navigation is generally more direct, and less aware of the structure of the UI.
 //!
 //! In this example, we will set up a simple UI with a grid of buttons that can be navigated using the arrow keys or gamepad input.
 //!
-//! **Note:** This example shows manual graph construction for full control. For automatic graph generation
-//! based on node positions, see the `auto_directional_navigation` example.
+//! **Note:** This example shows manual graph construction for full control. For automatic navigation
+//! based on node positions, see the `auto_navigation` example. For combining both automatic and manual navigation,
+//! see the `combined_navigation` example.
 
 use std::time::Duration;
 
