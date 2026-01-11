@@ -17,19 +17,17 @@ use core::time::Duration;
 use bevy::{
     camera::NormalizedRenderTarget,
     input_focus::{
-        directional_navigation::{
-            AutoDirectionalNavigation, AutoNavigationConfig, DirectionalNavigation,
-            DirectionalNavigationPlugin,
-        },
+        directional_navigation::{AutoNavigationConfig, DirectionalNavigationPlugin},
         InputDispatchPlugin, InputFocus, InputFocusVisible,
     },
-    math::{CompassOctant, Dir2},
+    math::{CompassOctant, Dir2, Rot2},
     picking::{
         backend::HitData,
         pointer::{Location, PointerId},
     },
     platform::collections::HashSet,
     prelude::*,
+    ui::auto_directional_navigation::{AutoDirectionalNavigation, AutoDirectionalNavigator},
 };
 
 fn main() {
@@ -212,6 +210,15 @@ fn setup_scattered_ui(mut commands: Commands, mut input_focus: ResMut<InputFocus
 
     let mut first_button = None;
     for (i, (x, y)) in button_positions.iter().enumerate() {
+        let transform = if i == 4 {
+            UiTransform {
+                scale: Vec2::splat(1.2),
+                rotation: Rot2::FRAC_PI_2,
+                ..default()
+            }
+        } else {
+            UiTransform::IDENTITY
+        };
         let button_entity = commands
             .spawn((
                 Button,
@@ -227,6 +234,7 @@ fn setup_scattered_ui(mut commands: Commands, mut input_focus: ResMut<InputFocus
                     border_radius: BorderRadius::all(px(12)),
                     ..default()
                 },
+                transform,
                 // This is the key: just add this component for automatic navigation!
                 AutoDirectionalNavigation::default(),
                 ResetTimer::default(),
@@ -324,7 +332,10 @@ fn process_inputs(
     }
 }
 
-fn navigate(action_state: Res<ActionState>, mut directional_navigation: DirectionalNavigation) {
+fn navigate(
+    action_state: Res<ActionState>,
+    mut auto_directional_navigator: AutoDirectionalNavigator,
+) {
     let net_east_west = action_state
         .pressed_actions
         .contains(&DirectionalNavigationAction::Right) as i8
@@ -345,7 +356,7 @@ fn navigate(action_state: Res<ActionState>, mut directional_navigation: Directio
         .map(CompassOctant::from);
 
     if let Some(direction) = maybe_direction {
-        match directional_navigation.navigate(direction) {
+        match auto_directional_navigator.navigate(direction) {
             Ok(_entity) => {
                 // Successfully navigated
             }

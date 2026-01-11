@@ -1584,6 +1584,41 @@ mod tests {
         assert_eq!(world.resource::<ResA>().0, 1);
     }
 
+    #[cfg(feature = "std")]
+    #[test]
+    fn resource_scope_unwind() {
+        #[derive(Debug, PartialEq)]
+        struct Panic;
+
+        let mut world = World::default();
+        assert!(world.try_resource_scope::<ResA, _>(|_, _| {}).is_none());
+        world.insert_resource(ResA(0));
+        let panic = std::panic::catch_unwind(core::panic::AssertUnwindSafe(|| {
+            world.resource_scope(|world: &mut World, _value: Mut<ResA>| {
+                assert!(!world.contains_resource::<ResA>());
+                std::panic::panic_any(Panic);
+            });
+            unreachable!();
+        }));
+        assert_eq!(panic.unwrap_err().downcast_ref::<Panic>(), Some(&Panic));
+        assert!(world.contains_resource::<ResA>());
+    }
+
+    // NOTE: this test is meant to validate the current behavior of `{try_}resource_scope` when resource metadata is cleared
+    // within the scope. future contributors who wish to change this behavior should feel free to delete this test.
+    #[test]
+    fn resource_scope_resources_cleared() {
+        let mut world = World::default();
+        assert!(world.try_resource_scope::<ResA, _>(|_, _| {}).is_none());
+        world.insert_resource(ResA(0));
+        let r = world.try_resource_scope(|world: &mut World, _value: Mut<ResA>| {
+            assert!(!world.contains_resource::<ResA>());
+            world.clear_resources();
+        });
+        assert_eq!(r, None);
+        assert!(!world.contains_resource::<ResA>());
+    }
+
     #[test]
     #[should_panic]
     fn non_send_resource_drop_from_different_thread() {

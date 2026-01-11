@@ -461,7 +461,6 @@ impl<T: RelationshipTarget> SpawnRelated for T {
 /// # use bevy_ecs::name::Name;
 /// # use bevy_ecs::world::World;
 /// # use bevy_ecs::related;
-/// # use bevy_ecs::spawn::{Spawn, SpawnRelated};
 /// let mut world = World::new();
 /// world.spawn((
 ///     Name::new("Root"),
@@ -479,7 +478,7 @@ impl<T: RelationshipTarget> SpawnRelated for T {
 #[macro_export]
 macro_rules! related {
     ($relationship_target:ty [$($child:expr),*$(,)?]) => {
-       <$relationship_target>::spawn($crate::recursive_spawn!($($child),*))
+       <$relationship_target as $crate::spawn::SpawnRelated>::spawn($crate::recursive_spawn!($($child),*))
     };
 }
 

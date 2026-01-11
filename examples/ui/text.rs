@@ -11,11 +11,11 @@ use bevy::{
 };
 
 fn main() {
-    App::new()
-        .add_plugins((DefaultPlugins, FrameTimeDiagnosticsPlugin::default()))
+    let mut app = App::new();
+    app.add_plugins((DefaultPlugins, FrameTimeDiagnosticsPlugin::default()))
         .add_systems(Startup, setup)
-        .add_systems(Update, (text_update_system, text_color_system))
-        .run();
+        .add_systems(Update, (text_update_system, text_color_system));
+    app.run();
 }
 
 // Marker struct to help identify the FPS UI component, since there may be many Text components
@@ -36,7 +36,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         Underline,
         TextFont {
             // This font is loaded and will be used instead of the default font.
-            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+            font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
             font_size: 67.0,
             ..default()
         },
@@ -60,7 +60,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             Text::new("FPS: "),
             TextFont {
                 // This font is loaded and will be used instead of the default font.
-                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
                 font_size: 42.0,
                 ..default()
             },
@@ -71,7 +71,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 TextFont {
                     // If the "default_font" feature is unavailable, load a font to use instead.
                     #[cfg(not(feature = "default_font"))]
-                    font: asset_server.load("fonts/FiraMono-Medium.ttf"),
+                    font: asset_server.load("fonts/FiraMono-Medium.ttf").into(),
                     font_size: 33.0,
                     ..Default::default()
                 },
@@ -81,7 +81,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         ));
 
     // Text with OpenType features
-    let opentype_font_handle = asset_server.load("fonts/EBGaramond12-Regular.otf");
+    let opentype_font_handle: FontSource =
+        asset_server.load("fonts/EBGaramond12-Regular.otf").into();
     commands
         .spawn((
             Node {
