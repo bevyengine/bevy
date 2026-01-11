@@ -64,7 +64,8 @@ fn main() {
                 highlight_focused_element,
                 interact_with_focused_button,
                 reset_button_after_interaction,
-                update_focus_display,
+                update_focus_display
+                    .run_if(|input_focus: Res<InputFocus>| input_focus.is_changed()),
                 update_key_display,
             ),
         )
