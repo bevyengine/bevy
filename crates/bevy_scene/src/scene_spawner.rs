@@ -58,10 +58,10 @@ impl InstanceId {
     }
 }
 
-/// Set enum for the systems relating to scene spawning
+/// Set enum for the systems relating to scene spawning.
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub enum SceneSpawnerSystems {
-    /// label for systems having to do with spawning the scene(s)
+    /// Systems that spawn scenes.
     Spawn,
 }
 
