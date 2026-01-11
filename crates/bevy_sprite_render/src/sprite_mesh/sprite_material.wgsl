@@ -76,9 +76,8 @@ struct SpriteMaterial {
     scale: vec2<f32>,
     min_inset: vec2<f32>,
     max_inset: vec2<f32>,
-    side_stretch_value: f32,
-    center_stretch_value: f32,
-    corner_scale: f32,
+    side_stretch_value: vec2<f32>,
+    center_stretch_value: vec2<f32>,
 };
 
 const SPRITE_MATERIAL_FLAGS_ALPHA_MODE_RESERVED_BITS: u32 = 3221225472u; // (0b11u32 << 30)
@@ -134,48 +133,97 @@ fn fragment(
 }
 
 fn apply_slicing(uv: vec2<f32>) -> vec2<f32> {
-    let left = uv.x < material.min_inset.x * material.corner_scale;
-    let right = uv.x > 1.0 - material.max_inset.x * material.corner_scale;
-    let top = uv.y < material.max_inset.y * material.corner_scale; 
-    let bottom = uv.y > 1.0 - material.max_inset.y * material.corner_scale;
+    let min_inset_scaled = material.min_inset / material.scale;
+    let max_inset_scaled = material.max_inset / material.scale;
 
-    let corner_scale_value = material.scale / material.corner_scale;
+    let left = uv.x < min_inset_scaled.x;
+    let right = uv.x > 1.0 - max_inset_scaled.x;
+    let top = uv.y < min_inset_scaled.y; 
+    let bottom = uv.y > 1.0 - max_inset_scaled.y;
 
     // top-left corner
     if top && left {
-        return uv * corner_scale_value; 
+        return uv * material.scale; 
     } 
 
     // top-right corner
     if top && right { 
         return vec2<f32>(
-            1.0 - (1.0 - uv.x) * corner_scale_value.x,  
-            uv.y * corner_scale_value.y
+            1.0 - (1.0 - uv.x) * material.scale.x,  
+            uv.y * material.scale.y,
         );
     }
 
     // bottom-left corner
     if bottom && left {
         return vec2<f32>(
-            uv.x * corner_scale_value.x, 
-            1.0 - (1.0 - uv.y) * corner_scale_value.y
+            uv.x * material.scale.x, 
+            1.0 - (1.0 - uv.y) * material.scale.y
         );
     }
 
     // bottom-right corner
     if bottom && right {
-        return vec2<f32>(1.0) - (vec2<f32>(1.0) - uv) * corner_scale_value;
+        return vec2<f32>(1.0) - (vec2<f32>(1.0) - uv) * material.scale;
     }
 
     // top edge
     if top {
         return vec2<f32>(
-            (uv.x - material.min_inset.x * material.corner_scale) / (1.0 - material.max_inset.x * material.corner_scale - material.min_inset.x * material.corner_scale) * ((1.0 - material.max_inset.x * material.scale.x - material.min_inset.x * material.scale.x)) + material.min_inset.x * material.scale.x, // + material.min_inset.x,
-            uv.y * corner_scale_value.y
+            tile_or_stretch(uv.x, min_inset_scaled.x, 1.0 - max_inset_scaled.x, material.min_inset.x, 1.0 - material.max_inset.x, material.side_stretch_value.x),
+            uv.y * material.scale.y
         );
     }
 
-    return vec2<f32>(0.5);
+    // bottom edge
+    if bottom {
+        return vec2<f32>(
+            tile_or_stretch(uv.x, min_inset_scaled.x, 1.0 - max_inset_scaled.x, material.min_inset.x, 1.0 - material.max_inset.x, material.side_stretch_value.x),
+            1.0 - (1.0 - uv.y) * material.scale.y
+        );
+    }
+
+    // left edge
+    if left {
+        return vec2<f32>(
+            uv.x * material.scale.x, 
+            tile_or_stretch(uv.y, min_inset_scaled.y, 1.0 - max_inset_scaled.y, material.min_inset.y, 1.0 - material.max_inset.y, material.side_stretch_value.y)
+        );
+    }
+
+    // right edge
+    if right {
+        return vec2<f32>(
+            1.0 - (1.0 - uv.x) * material.scale.x,  
+            tile_or_stretch(uv.y, min_inset_scaled.y, 1.0 - max_inset_scaled.y, material.min_inset.y, 1.0 - material.max_inset.y, material.side_stretch_value.y)
+        );
+    }
+
+    // center
+    return vec2<f32>(
+        tile_or_stretch(uv.x, min_inset_scaled.x, 1.0 - max_inset_scaled.x, material.min_inset.x, 1.0 - material.max_inset.x, material.center_stretch_value.x),
+        tile_or_stretch(uv.y, min_inset_scaled.y, 1.0 - max_inset_scaled.y, material.min_inset.y, 1.0 - material.max_inset.y, material.center_stretch_value.y)
+    );
+}
+
+// Maps a point p from [a, b] to [c, d], tiling it if stretch_value is not 0. 
+fn tile_or_stretch(p: f32, a: f32, b: f32, c: f32, d: f32, stretch_value: f32) -> f32 {
+    if stretch_value == 0.0 {
+        return stretch_interval(p, a, b, c, d); 
+    }
+    return tile_interval(p, a, b, c, d, stretch_value);
+}
+
+// Takes a point p from an interval [a, b] and maps it to a portion of the tile [c, d]
+fn tile_interval(p: f32, a: f32, b: f32, c: f32, d: f32, stretch_value: f32) -> f32 {
+    let value = (p - a) / (b - a);
+    let tile_value = (value - stretch_value * floor(value / stretch_value)) / stretch_value; 
+    return tile_value * (d - c) + c; 
+}
+
+// Takes a point p from an interval [a, b] and translates it to the interval [c, d]
+fn stretch_interval(p: f32, a: f32, b: f32, c: f32, d: f32) -> f32 {
+    return (p - a) / (b - a) * (d - c) + c;
 }
 
 fn alpha_discard(output_color: vec4<f32>) -> vec4<f32> {

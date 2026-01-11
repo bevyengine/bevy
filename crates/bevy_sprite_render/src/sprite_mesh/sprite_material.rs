@@ -1,3 +1,4 @@
+use core::f32;
 use std::{f32::consts::PI, num::NonZero};
 
 use bevy_app::Plugin;
@@ -17,7 +18,9 @@ use bevy_render::{
     },
 };
 use bevy_shader::{ShaderDefVal, ShaderRef};
-use bevy_sprite::{prelude::SpriteMesh, SpriteAlphaMode, SpriteImageMode, SpriteScalingMode};
+use bevy_sprite::{
+    prelude::SpriteMesh, SliceScaleMode, SpriteAlphaMode, SpriteImageMode, SpriteScalingMode,
+};
 
 use crate::{AlphaMode2d, Material2d, Material2dPlugin};
 
@@ -90,9 +93,8 @@ pub struct SpriteMaterialUniform {
     pub scale: Vec2,
     pub min_inset: Vec2,
     pub max_inset: Vec2,
-    pub side_stretch_value: f32,
-    pub center_stretch_value: f32,
-    pub corner_scale: f32,
+    pub side_stretch_value: Vec2,
+    pub center_stretch_value: Vec2,
 }
 
 #[derive(ShaderType, Default)]
@@ -151,9 +153,8 @@ impl AsBindGroupShaderType<SpriteMaterialUniform> for SpriteMaterial {
         let mut scale = Vec2::ZERO;
         let mut min_inset = Vec2::ZERO;
         let mut max_inset = Vec2::ZERO;
-        let mut side_stretch_value = 0.0;
-        let mut center_stretch_value = 0.0;
-        let mut corner_scale = 1.0;
+        let mut side_stretch_value = Vec2::ZERO;
+        let mut center_stretch_value = Vec2::ZERO;
 
         if let Some(custom_size) = self.custom_size {
             match &self.image_mode {
@@ -254,10 +255,20 @@ impl AsBindGroupShaderType<SpriteMaterialUniform> for SpriteMaterial {
                     min_inset = slicer.border.min_inset / quad_size;
                     max_inset = slicer.border.max_inset / quad_size;
 
-                    min_inset /= scale;
-                    max_inset /= scale;
+                    let corner_scale = slicer.max_corner_scale.clamp(f32::EPSILON, 1.0);
+                    scale /= corner_scale;
 
-                    corner_scale = slicer.max_corner_scale.clamp(0.0, 1.0);
+                    if let SliceScaleMode::Tile { stretch_value } = slicer.sides_scale_mode {
+                        side_stretch_value = stretch_value
+                            * (image_size * (1.0 - max_inset - min_inset))
+                            / (custom_size * (1.0 - max_inset / scale - min_inset / scale));
+                    }
+
+                    if let SliceScaleMode::Tile { stretch_value } = slicer.center_scale_mode {
+                        center_stretch_value = stretch_value
+                            * (image_size * (1.0 - max_inset - min_inset))
+                            / (custom_size * (1.0 - max_inset / scale - min_inset / scale));
+                    }
 
                     quad_size = custom_size;
                 }
@@ -279,7 +290,6 @@ impl AsBindGroupShaderType<SpriteMaterialUniform> for SpriteMaterial {
             max_inset,
             side_stretch_value,
             center_stretch_value,
-            corner_scale,
         }
     }
 }
