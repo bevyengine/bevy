@@ -70,7 +70,15 @@ struct SpriteMaterial {
     vertex_scale: vec2<f32>,
     vertex_offset: vec2<f32>,
     uv_transform: mat3x3<f32>,
+    
     tile_stretch_value: vec2<f32>,
+
+    scale: vec2<f32>,
+    min_inset: vec2<f32>,
+    max_inset: vec2<f32>,
+    side_stretch_value: f32,
+    center_stretch_value: f32,
+    corner_scale: f32,
 };
 
 const SPRITE_MATERIAL_FLAGS_ALPHA_MODE_RESERVED_BITS: u32 = 3221225472u; // (0b11u32 << 30)
@@ -108,6 +116,11 @@ fn fragment(
         uv.y = (uv.y - material.tile_stretch_value.y * floor(uv.y / material.tile_stretch_value.y)) / material.tile_stretch_value.y;
     }
 
+    // using this as a temp check for slicing
+    if material.scale.x != 0.0 {
+        uv = apply_slicing(uv);
+    }
+
     uv = (material.uv_transform * vec3(uv, 1.0)).xy;
 
     let sprite_color = textureSample(texture, texture_sampler, uv);
@@ -118,6 +131,49 @@ fn fragment(
 #endif
     
     return output_color;
+}
+
+fn apply_slicing(uv: vec2<f32>) -> vec2<f32> {
+    let left = uv.x < material.min_inset.x * material.corner_scale;
+    let right = uv.x > 1.0 - material.max_inset.x * material.corner_scale;
+    let top = uv.y < material.max_inset.y * material.corner_scale; 
+    let bottom = uv.y > 1.0 - material.max_inset.y * material.corner_scale;
+
+    // top-left corner
+    if top && left {
+        return uv * material.scale; 
+    } 
+
+    // top-right corner
+    if top && right { 
+        return vec2<f32>(
+            1.0 - (1.0 - uv.x) * material.scale.x,  
+            uv.y * material.scale.y
+        );
+    }
+
+    // bottom-left corner
+    if bottom && left {
+        return vec2<f32>(
+            uv.x * material.scale.x, 
+            1.0 - (1.0 - uv.y) * material.scale.y
+        );
+    }
+
+    // bottom-right corner
+    if bottom && right {
+        return vec2<f32>(1.0) - (vec2<f32>(1.0) - uv) * material.scale;
+    }
+
+    // top edge
+    if top {
+        return vec2<f32>(
+            (uv.x - material.min_inset.x) / (1.0 - material.max_inset.x - material.min_inset.x) + material.min_inset.x, 
+            uv.y
+        );
+    }
+
+    return vec2<f32>(0.5);
 }
 
 fn alpha_discard(output_color: vec4<f32>) -> vec4<f32> {

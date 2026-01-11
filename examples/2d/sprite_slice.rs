@@ -50,8 +50,8 @@ fn spawn_sprites(
             Vec2::new(100.0, 200.0),
             SpriteImageMode::Sliced(TextureSlicer {
                 border: BorderRect::all(slice_border),
-                center_scale_mode: SliceScaleMode::Tile { stretch_value: 0.2 },
-                sides_scale_mode: SliceScaleMode::Tile { stretch_value: 0.3 },
+                center_scale_mode: SliceScaleMode::Tile { stretch_value: 0.5 },
+                sides_scale_mode: SliceScaleMode::Tile { stretch_value: 0.2 },
                 ..default()
             }),
         ),
@@ -76,7 +76,7 @@ fn spawn_sprites(
                 border: BorderRect::all(slice_border),
                 center_scale_mode: SliceScaleMode::Tile { stretch_value: 0.1 },
                 sides_scale_mode: SliceScaleMode::Tile { stretch_value: 0.2 },
-                max_corner_scale: 0.2,
+                max_corner_scale: 0.5,
             }),
         ),
     ];
@@ -84,7 +84,7 @@ fn spawn_sprites(
     for (label, text_style, size, scale_mode) in cases {
         position.x += 0.5 * size.x;
         commands.spawn((
-            Sprite {
+            SpriteMesh {
                 image: texture_handle.clone(),
                 custom_size: Some(size),
                 image_mode: scale_mode,

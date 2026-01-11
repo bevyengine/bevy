@@ -13,7 +13,7 @@ use crate::{Anchor, SpriteImageMode, TextureSlicer};
 /// This is a carbon copy of [`Sprite`](crate::sprite::Sprite) that uses the
 /// Mesh backend instead of the Sprite backend.
 ///
-/// The only difference is the added [`alpha mode`](SpriteMesh::alpha_mode).
+/// The only API difference is the added [`alpha mode`](SpriteMesh::alpha_mode).
 #[derive(Component, Debug, Default, Clone, Reflect)]
 #[require(Transform, Visibility, VisibilityClass, Anchor)]
 #[reflect(Component, Default, Debug, Clone)]

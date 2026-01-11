@@ -85,6 +85,14 @@ pub struct SpriteMaterialUniform {
 
     // tile shader def
     pub tile_stretch_value: Vec2,
+
+    // slice shader def
+    pub scale: Vec2,
+    pub min_inset: Vec2,
+    pub max_inset: Vec2,
+    pub side_stretch_value: f32,
+    pub center_stretch_value: f32,
+    pub corner_scale: f32,
 }
 
 #[derive(ShaderType, Default)]
@@ -140,8 +148,15 @@ impl AsBindGroupShaderType<SpriteMaterialUniform> for SpriteMaterial {
 
         let mut tile_stretch_value = Vec2::ZERO;
 
+        let mut scale = Vec2::ZERO;
+        let mut min_inset = Vec2::ZERO;
+        let mut max_inset = Vec2::ZERO;
+        let mut side_stretch_value = 0.0;
+        let mut center_stretch_value = 0.0;
+        let mut corner_scale = 1.0;
+
         if let Some(custom_size) = self.custom_size {
-            match self.image_mode {
+            match &self.image_mode {
                 SpriteImageMode::Auto => {
                     quad_size = custom_size;
                 }
@@ -212,17 +227,41 @@ impl AsBindGroupShaderType<SpriteMaterialUniform> for SpriteMaterial {
                     tile_y,
                     stretch_value,
                 } => {
-                    if tile_x {
+                    if *tile_x {
                         flags |= SpriteMaterialFlags::TILE_X;
                     }
-                    if tile_y {
+                    if *tile_y {
                         flags |= SpriteMaterialFlags::TILE_Y;
                     }
 
+                    // This is the [0-1] x and y of where the UV should start repeating.
+                    // E.g. if the stretch_value x is 0.2 and the UV x is 0.5, it will be mapped to 0.1 (0.5 - 0.2 * 2)
+                    // and then be stretched over [0, 0.2] by translating it to (0.1 / 0.2) = 0.5,
+                    // so it corresponds to the center of the texture.
                     tile_stretch_value = (image_size * stretch_value) / custom_size;
                     quad_size = custom_size;
                 }
-                _ => {}
+                SpriteImageMode::Sliced(slicer) => {
+                    let quad_ratio = quad_size.x / quad_size.y;
+                    let custom_ratio = custom_size.x / custom_size.y;
+
+                    if quad_ratio > custom_ratio {
+                        scale = vec2(1.0, quad_ratio / custom_ratio)
+                    } else {
+                        scale = vec2(custom_ratio / quad_ratio, 1.0)
+                    }
+
+                    if scale.x.max(scale.y) > slicer.max_corner_scale {
+                        corner_scale = slicer.max_corner_scale;
+                    }
+
+                    min_inset = slicer.border.min_inset / quad_size;
+                    max_inset = slicer.border.max_inset / quad_size;
+
+                    scale /= corner_scale;
+
+                    quad_size = custom_size;
+                }
             }
         }
 
@@ -233,7 +272,15 @@ impl AsBindGroupShaderType<SpriteMaterialUniform> for SpriteMaterial {
             vertex_scale: quad_size,
             vertex_offset: quad_offset,
             uv_transform: uv_transform.into(),
+
             tile_stretch_value,
+
+            scale,
+            min_inset,
+            max_inset,
+            side_stretch_value,
+            center_stretch_value,
+            corner_scale,
         }
     }
 }
