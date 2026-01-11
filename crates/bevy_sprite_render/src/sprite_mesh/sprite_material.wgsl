@@ -139,37 +139,39 @@ fn apply_slicing(uv: vec2<f32>) -> vec2<f32> {
     let top = uv.y < material.max_inset.y * material.corner_scale; 
     let bottom = uv.y > 1.0 - material.max_inset.y * material.corner_scale;
 
+    let corner_scale_value = material.scale / material.corner_scale;
+
     // top-left corner
     if top && left {
-        return uv * material.scale; 
+        return uv * corner_scale_value; 
     } 
 
     // top-right corner
     if top && right { 
         return vec2<f32>(
-            1.0 - (1.0 - uv.x) * material.scale.x,  
-            uv.y * material.scale.y
+            1.0 - (1.0 - uv.x) * corner_scale_value.x,  
+            uv.y * corner_scale_value.y
         );
     }
 
     // bottom-left corner
     if bottom && left {
         return vec2<f32>(
-            uv.x * material.scale.x, 
-            1.0 - (1.0 - uv.y) * material.scale.y
+            uv.x * corner_scale_value.x, 
+            1.0 - (1.0 - uv.y) * corner_scale_value.y
         );
     }
 
     // bottom-right corner
     if bottom && right {
-        return vec2<f32>(1.0) - (vec2<f32>(1.0) - uv) * material.scale;
+        return vec2<f32>(1.0) - (vec2<f32>(1.0) - uv) * corner_scale_value;
     }
 
     // top edge
     if top {
         return vec2<f32>(
-            (uv.x - material.min_inset.x) / (1.0 - material.max_inset.x - material.min_inset.x) + material.min_inset.x, 
-            uv.y
+            (uv.x - material.min_inset.x * material.corner_scale) / (1.0 - material.max_inset.x * material.corner_scale - material.min_inset.x * material.corner_scale) * ((1.0 - material.max_inset.x * material.scale.x - material.min_inset.x * material.scale.x)) + material.min_inset.x * material.scale.x, // + material.min_inset.x,
+            uv.y * corner_scale_value.y
         );
     }
 

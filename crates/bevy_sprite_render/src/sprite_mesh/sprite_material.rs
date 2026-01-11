@@ -251,14 +251,13 @@ impl AsBindGroupShaderType<SpriteMaterialUniform> for SpriteMaterial {
                         scale = vec2(custom_ratio / quad_ratio, 1.0)
                     }
 
-                    if scale.x.max(scale.y) > slicer.max_corner_scale {
-                        corner_scale = slicer.max_corner_scale;
-                    }
-
                     min_inset = slicer.border.min_inset / quad_size;
                     max_inset = slicer.border.max_inset / quad_size;
 
-                    scale /= corner_scale;
+                    min_inset /= scale;
+                    max_inset /= scale;
+
+                    corner_scale = slicer.max_corner_scale.clamp(0.0, 1.0);
 
                     quad_size = custom_size;
                 }
