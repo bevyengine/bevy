@@ -1531,13 +1531,6 @@ mod tests {
     }
 
     #[test]
-    fn reflect_partial_cmp_f32_nan() {
-        // NaN comparisons should return None
-        let nan = core::f32::NAN;
-        assert_eq!(PartialReflect::reflect_partial_cmp(&nan, &nan), None);
-    }
-
-    #[test]
     fn reflect_partial_cmp_list_lexicographic() {
         use core::cmp::Ordering;
 

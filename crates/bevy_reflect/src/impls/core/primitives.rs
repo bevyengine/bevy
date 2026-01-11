@@ -598,6 +598,13 @@ mod tests {
     }
 
     #[test]
+    fn reflect_partial_cmp_f32_nan() {
+        // NaN comparisons should return None
+        let nan = core::f32::NAN;
+        assert_eq!(PartialReflect::reflect_partial_cmp(&nan, &nan), None);
+    }
+
+    #[test]
     fn static_str_should_from_reflect() {
         let expected = "Hello, World!";
         let output = <&'static str as FromReflect>::from_reflect(&expected).unwrap();
