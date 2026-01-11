@@ -735,11 +735,9 @@ pub enum InvalidGenerationError {
 #[cfg(test)]
 mod test {
     use crate::{Asset, AssetApp, AssetEvent, AssetIndex, AssetPlugin, Assets};
-    use bevy_app::{App, Update};
+    use bevy_app::{App, Last, Update};
     use bevy_ecs::prelude::*;
     use bevy_reflect::TypePath;
-    use std::sync::atomic::{AtomicU32, Ordering};
-    use std::sync::Arc;
 
     #[test]
     fn asset_index_round_trip() {
@@ -753,61 +751,68 @@ mod test {
 
     #[test]
     fn assets_mut_change_detection() {
-        #[derive(Asset, TypePath)]
-        struct MyAsset {
+        #[derive(Asset, TypePath, Default)]
+        struct TestAsset {
             value: u32,
+        }
+
+        #[derive(Resource, Default)]
+        struct TestState {
+            asset_target_value: u32,
+            asset_modified_counter: u32,
         }
 
         let mut app = App::new();
         app.add_plugins(AssetPlugin::default());
-        app.init_asset::<MyAsset>();
+        app.init_asset::<TestAsset>();
+        app.insert_resource(TestState::default());
 
-        let mut assets = app.world_mut().resource_mut::<Assets<MyAsset>>();
-        let my_asset_handle = assets.add(MyAsset { value: 0 });
-        let my_asset_value = Arc::new(AtomicU32::new(0));
-        let my_asset_change_counter = Arc::new(AtomicU32::new(0));
+        let mut assets = app.world_mut().resource_mut::<Assets<TestAsset>>();
+        let my_asset_handle = assets.add(TestAsset::default());
+        let my_asset_id = my_asset_handle.id();
 
-        app.add_systems(Update, {
-            let my_asset_value = my_asset_value.clone();
-            let my_asset_id = my_asset_handle.id();
+        app.add_systems(
+            Update,
+            move |mut assets: ResMut<Assets<TestAsset>>, state: Res<TestState>| {
+                let mut asset = assets.get_mut(my_asset_id).unwrap();
 
-            move |mut assets: ResMut<Assets<MyAsset>>| {
-                let mut asset = assets.get_mut(my_asset_id.clone()).unwrap();
-                let value = my_asset_value.load(Ordering::Relaxed);
-
-                if asset.value != value {
-                    asset.value = value;
+                if asset.value != state.asset_target_value {
+                    asset.value = state.asset_target_value;
                 }
-            }
-        });
-        app.add_systems(Update, {
-            let my_asset_change_counter = my_asset_change_counter.clone();
-            let my_asset_id = my_asset_handle.id();
-
-            move |mut message_reader: MessageReader<AssetEvent<MyAsset>>| {
-                for event in message_reader.read() {
+            },
+        );
+        app.add_systems(
+            Last,
+            move |mut reader: MessageReader<AssetEvent<TestAsset>>,
+                  mut state: ResMut<TestState>| {
+                for event in reader.read() {
                     if event.is_modified(my_asset_id) {
-                        my_asset_change_counter.fetch_add(1, Ordering::Relaxed);
+                        state.asset_modified_counter += 1;
                     }
                 }
-            }
-        });
+            },
+        );
 
         // check a few times just in case there are some unexpected leftover events from previous runs
         for _ in 0..3 {
-            my_asset_value.fetch_add(1, Ordering::Relaxed);
+            let mut state = app.world_mut().resource_mut::<TestState>();
+            state.asset_target_value += 1;
+            state.asset_modified_counter = 0;
+
             app.update();
-            app.update();
+
+            let mut state = app.world_mut().resource_mut::<TestState>();
             assert_eq!(
-                my_asset_change_counter.swap(0, Ordering::Relaxed),
+                std::mem::take(&mut state.asset_modified_counter),
                 1,
                 "Asset value was changed but AssetEvent::Modified was not triggered",
             );
 
             app.update();
-            app.update();
+
+            let mut state = app.world_mut().resource_mut::<TestState>();
             assert_eq!(
-                my_asset_change_counter.swap(0, Ordering::Relaxed),
+                std::mem::take(&mut state.asset_modified_counter),
                 0,
                 "Asset value was not changed but AssetEvent::Modified was triggered",
             );
