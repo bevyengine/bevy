@@ -74,6 +74,8 @@ pub use bevy_reflect as reflect;
 pub use bevy_remote as remote;
 #[cfg(feature = "bevy_render")]
 pub use bevy_render as render;
+#[cfg(feature = "bevy_render_debug")]
+pub use bevy_render_debug as render_debug;
 #[cfg(feature = "bevy_scene")]
 pub use bevy_scene as scene;
 #[cfg(feature = "bevy_shader")]
