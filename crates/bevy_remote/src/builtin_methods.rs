@@ -18,7 +18,8 @@ use bevy_log::warn_once;
 use bevy_platform::collections::HashMap;
 use bevy_reflect::{
     serde::{ReflectSerializer, TypedReflectDeserializer},
-    DynamicStruct, GetPath, PartialReflect, TypeRegistration, TypeRegistry,
+    structs::DynamicStruct,
+    GetPath, PartialReflect, TypeRegistration, TypeRegistry,
 };
 use serde::{de::DeserializeSeed as _, de::IntoDeserializer, Deserialize, Serialize};
 use serde_json::{Map, Value};

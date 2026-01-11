@@ -1,7 +1,7 @@
 use core::{hint::black_box, iter, time::Duration};
 
 use benches::bench;
-use bevy_reflect::{DynamicList, List};
+use bevy_reflect::list::{DynamicList, List};
 use criterion::{
     criterion_group, measurement::Measurement, AxisScale, BatchSize, BenchmarkGroup, BenchmarkId,
     Criterion, PlotConfiguration, Throughput,

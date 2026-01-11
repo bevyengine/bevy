@@ -1,3 +1,6 @@
+//! Traits and types used to power [list-like] operations via reflection.
+//!
+//! [list-like]: https://doc.rust-lang.org/book/ch08-01-vectors.html
 use alloc::{boxed::Box, vec::Vec};
 use core::{
     any::Any,
@@ -19,7 +22,7 @@ use crate::{
 /// This corresponds to types, like [`Vec`], which contain an ordered sequence
 /// of elements that implement [`Reflect`].
 ///
-/// Unlike the [`Array`](crate::Array) trait, implementors of this trait are not expected to
+/// Unlike the [`Array`](crate::array::Array) trait, implementors of this trait are not expected to
 /// maintain a constant length.
 /// Methods like [insertion](List::insert) and [removal](List::remove) explicitly allow for their
 /// internal size to change.
@@ -39,7 +42,7 @@ use crate::{
 /// # Example
 ///
 /// ```
-/// use bevy_reflect::{PartialReflect, Reflect, List};
+/// use bevy_reflect::{PartialReflect, Reflect, list::List};
 ///
 /// let foo: &mut dyn List = &mut vec![123_u32, 456_u32, 789_u32];
 /// assert_eq!(foo.len(), 3);

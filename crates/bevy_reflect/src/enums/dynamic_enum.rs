@@ -1,9 +1,11 @@
 use bevy_reflect_derive::impl_type_path;
 
 use crate::{
-    enum_debug, enum_hash, enum_partial_eq, ApplyError, DynamicStruct, DynamicTuple, Enum,
-    PartialReflect, Reflect, ReflectKind, ReflectMut, ReflectOwned, ReflectRef, Struct, Tuple,
-    TypeInfo, VariantFieldIter, VariantType,
+    enums::{enum_debug, enum_hash, enum_partial_eq, Enum, VariantFieldIter, VariantType},
+    structs::{DynamicStruct, Struct},
+    tuple::{DynamicTuple, Tuple},
+    ApplyError, PartialReflect, Reflect, ReflectKind, ReflectMut, ReflectOwned, ReflectRef,
+    TypeInfo,
 };
 
 use alloc::{boxed::Box, string::String};
@@ -45,7 +47,7 @@ impl From<()> for DynamicVariant {
 /// # Example
 ///
 /// ```
-/// # use bevy_reflect::{DynamicEnum, DynamicVariant, Reflect, PartialReflect};
+/// # use bevy_reflect::{enums::{DynamicEnum, DynamicVariant}, Reflect, PartialReflect};
 ///
 /// // The original enum value
 /// let mut value: Option<usize> = Some(123);

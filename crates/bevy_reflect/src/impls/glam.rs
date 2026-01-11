@@ -517,9 +517,10 @@ mod tests {
     use static_assertions::assert_impl_all;
 
     use crate::{
+        enums::Enum,
         prelude::*,
         serde::{ReflectDeserializer, ReflectSerializer},
-        Enum, GetTypeRegistration, TypeRegistry,
+        GetTypeRegistration, TypeRegistry,
     };
 
     use super::*;
