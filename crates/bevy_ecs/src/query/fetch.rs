@@ -3019,8 +3019,12 @@ macro_rules! impl_anytuple_fetch {
                     let ($($name,)*) = &mut fetch.fetch;
                     let ($($state,)*) = state;
                     let mut next_chunk = rows.end..rows.end;
-                    // SAFETY: invariants are upheld by the caller.
-                    $(next_chunk = next_chunk.union_or_first(unsafe { $name::find_table_chunk($state, &mut $name.fetch, table_entities, rows.clone()) });)*
+                    $(
+                        if $name.matches {
+                            // SAFETY: invariants are upheld by the caller.
+                            next_chunk = next_chunk.union_or_first(unsafe { $name::find_table_chunk($state, &mut $name.fetch, table_entities, rows.clone()) });
+                        }
+                    )*
                     next_chunk
                 }
             }
@@ -3042,8 +3046,12 @@ macro_rules! impl_anytuple_fetch {
                     let ($($name,)*) = &mut fetch.fetch;
                     let ($($state,)*) = state;
                     let mut next_chunk = indices.end..indices.end;
-                    // SAFETY: invariants are upheld by the caller.
-                    $(next_chunk = next_chunk.union_or_first(unsafe { $name::find_archetype_chunk($state, &mut $name.fetch, archetype_entities, indices.clone()) });)*
+                    $(
+                        if $name.matches {
+                            // SAFETY: invariants are upheld by the caller.
+                            next_chunk = next_chunk.union_or_first(unsafe { $name::find_archetype_chunk($state, &mut $name.fetch, archetype_entities, indices.clone()) });
+                        }
+                    )*
                     next_chunk
                 }
             }
@@ -3065,7 +3073,7 @@ macro_rules! impl_anytuple_fetch {
                     let ($($name,)*) = &mut fetch.fetch;
                     let ($($state,)*) = state;
                     // SAFETY: invariants are upheld by the caller.
-                    false $(|| unsafe { $name::matches(&$state, &mut $name.fetch, entity, table_row) })*
+                    false $(|| ($name.matches && unsafe { $name::matches(&$state, &mut $name.fetch, entity, table_row) }))*
                 }
             }
         }
@@ -3107,16 +3115,20 @@ macro_rules! impl_anytuple_fetch {
                 _entity: Entity,
                 _table_row: TableRow
             ) -> Self::Item<'w, 's> {
-                let ($($name,)*) = &mut _fetch.fetch;
-                let ($($state,)*) = _state;
-                ($(
-                    // SAFETY: The invariants are required to be upheld by the caller.
-                    unsafe { $name::matches(&$state, &mut $name.fetch, _entity, _table_row) }.then(||
-                        // SAFETY: the above guard verifies this subquery matches the given entity.
-                        // other invariants are upheld by the caller.
-                        unsafe { $name::fetch($state, &mut $name.fetch, _entity, _table_row) }
-                    ),
-                )*)
+                if !_fetch.matches {
+                    ($(Option::<$name::Item<'w, 's>>::None,)*)
+                } else {
+                    let ($($name,)*) = &mut _fetch.fetch;
+                    let ($($state,)*) = _state;
+                    ($(
+                        // SAFETY: The invariants are required to be upheld by the caller.
+                        ( $name.matches && unsafe { $name::matches(&$state, &mut $name.fetch, _entity, _table_row) }).then(||
+                            // SAFETY: the above guard verifies this subquery matches the given entity.
+                            // other invariants are upheld by the caller.
+                            unsafe { $name::fetch($state, &mut $name.fetch, _entity, _table_row) }
+                        ),
+                    )*)
+                }
             }
 
             fn iter_access(state: &Self::State) -> impl Iterator<Item = EcsAccessType<'_>> {

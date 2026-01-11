@@ -480,8 +480,12 @@ macro_rules! impl_or_query_filter {
                     let ($($filter,)*) = &mut fetch.fetch;
                     let ($($state,)*) = state;
                     let mut new_rows = rows.end..rows.end;
-                    // SAFETY: invariants are upheld by the caller.
-                    $(new_rows = new_rows.union_or_first(unsafe { $filter::find_table_chunk($state, &mut $filter.fetch, table_entities, rows.clone()) });)*
+                    $(
+                        if $filter.matches {
+                            // SAFETY: invariants are upheld by the caller.
+                            new_rows = new_rows.union_or_first(unsafe { $filter::find_table_chunk($state, &mut $filter.fetch, table_entities, rows.clone()) });
+                        }
+                    )*
                     new_rows
                 }
             }
@@ -503,8 +507,12 @@ macro_rules! impl_or_query_filter {
                     let ($($filter,)*) = &mut fetch.fetch;
                     let ($($state,)*) = state;
                     let mut new_indices = indices.end..indices.end;
-                    // SAFETY: invariants are upheld by the caller.
-                    $(new_indices = new_indices.union_or_first(unsafe { $filter::find_archetype_chunk($state, &mut $filter.fetch, archetype_entities, indices.clone()) });)*
+                    $(
+                        if $filter.matches {
+                            // SAFETY: invariants are upheld by the caller.
+                            new_indices = new_indices.union_or_first(unsafe { $filter::find_archetype_chunk($state, &mut $filter.fetch, archetype_entities, indices.clone()) });
+                        }
+                    )*
                     new_indices
                 }
             }
@@ -526,7 +534,7 @@ macro_rules! impl_or_query_filter {
                     let ($($filter,)*) = &mut fetch.fetch;
                     let ($($state,)*) = state;
                     // SAFETY: invariants are upheld by the caller.
-                    false $(|| unsafe { $filter::matches(&$state, &mut $filter.fetch, entity, table_row) })*
+                    false $(|| ($filter.matches && unsafe { $filter::matches(&$state, &mut $filter.fetch, entity, table_row) }))*
                 }
             }
         }
