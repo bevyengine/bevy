@@ -9,7 +9,6 @@
 //! If you want to hot reload asset changes, enable the `file_watcher` cargo feature.
 
 use argh::FromArgs;
-use bevy::pbr::{ContactShadows, ScreenSpaceAmbientOcclusion, ScreenSpaceReflections};
 use bevy::{
     asset::UnapprovedPathMode,
     camera::primitives::{Aabb, Sphere},
