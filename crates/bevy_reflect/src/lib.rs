@@ -1516,7 +1516,7 @@ mod tests {
     #[test]
     fn reflect_partial_cmp_btreemap_lexicographic() {
         use core::cmp::Ordering;
-        use std::collections::BTreeMap;
+        use alloc::collections::BTreeMap;
 
         let mut m1: BTreeMap<usize, i32> = BTreeMap::new();
         m1.insert(1usize, 1i32);
@@ -1533,7 +1533,7 @@ mod tests {
     #[test]
     fn reflect_partial_cmp_btreemap_key_difference() {
         use core::cmp::Ordering;
-        use std::collections::BTreeMap;
+        use alloc::collections::BTreeMap;
 
         let mut m1: BTreeMap<usize, i32> = BTreeMap::new();
         m1.insert(1usize, 10i32);
@@ -1549,7 +1549,7 @@ mod tests {
     #[test]
     fn reflect_partial_cmp_btreemap_length_difference() {
         use core::cmp::Ordering;
-        use std::collections::BTreeMap;
+        use alloc::collections::BTreeMap;
 
         let mut m1: BTreeMap<usize, i32> = BTreeMap::new();
         m1.insert(1usize, 1i32);
@@ -1714,7 +1714,7 @@ mod tests {
         m1.insert(1usize, 1.0f32);
 
         let mut m2: BTreeMap<usize, f32> = BTreeMap::new();
-        m2.insert(1usize, core::f32::NAN);
+        m2.insert(1usize, f32::NAN);
 
         // value comparison will be None due to NaN
         assert_eq!(PartialReflect::reflect_partial_cmp(&m1, &m2), None);
@@ -1734,7 +1734,7 @@ mod tests {
     #[test]
     fn reflect_partial_cmp_nested_none() {
         // inner NaN should cause overall None
-        let a = (1i32, (1f32, core::f32::NAN));
+        let a = (1i32, (1f32, f32::NAN));
         let b = (1i32, (1f32, 2f32));
 
         assert_eq!(PartialReflect::reflect_partial_cmp(&a, &b), None);
@@ -1851,7 +1851,7 @@ mod tests {
         m1.insert(1usize, vec![(1, 2.0f32), (2, 3.0f32)]);
 
         let mut m2: BTreeMap<usize, Vec<(i32, f32)>> = BTreeMap::new();
-        m2.insert(1usize, vec![(1, 2.0f32), (2, core::f32::NAN)]);
+        m2.insert(1usize, vec![(1, 2.0f32), (2, f32::NAN)]);
 
         assert_eq!(PartialReflect::reflect_partial_cmp(&m1, &m2), None);
     }
