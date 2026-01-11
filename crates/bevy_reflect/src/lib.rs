@@ -1708,7 +1708,7 @@ mod tests {
 
     #[test]
     fn reflect_partial_cmp_btreemap_value_incomparable() {
-        use std::collections::BTreeMap;
+        use alloc::collections::BTreeMap;
 
         let mut m1: BTreeMap<usize, f32> = BTreeMap::new();
         m1.insert(1usize, 1.0f32);
@@ -1827,8 +1827,8 @@ mod tests {
 
     #[test]
     fn reflect_partial_cmp_btreemap_equal_keys_diff_values() {
+        use alloc::collections::BTreeMap;
         use core::cmp::Ordering;
-        use std::collections::BTreeMap;
 
         let mut m1: BTreeMap<usize, i32> = BTreeMap::new();
         m1.insert(1usize, 2i32);
@@ -1844,7 +1844,7 @@ mod tests {
 
     #[test]
     fn reflect_partial_cmp_large_nested_stress_none() {
-        use std::collections::BTreeMap;
+        use alloc::collections::BTreeMap;
 
         // BTreeMap<usize, Vec<(i32, f32)>> with deep NaN
         let mut m1: BTreeMap<usize, Vec<(i32, f32)>> = BTreeMap::new();
