@@ -83,9 +83,7 @@ pub fn enum_partial_eq<TEnum: Enum + ?Sized>(a: &TEnum, b: &dyn PartialReflect) 
 /// Returns [`None`] if the comparison couldn't be performed (e.g., kinds mismatch
 /// or an element comparison returns `None`).
 /// 
-/// When you `#[derive(Reflect)]` on an enum, the variants are ordered by the order
-/// they are defined in the enum. But a dynamic enum don't have that information, so
-/// we return `None` if the variant names are different.
+/// The ordering is same with `derive` macro. First order by variant index, then by fields.
 #[inline]
 pub fn enum_partial_cmp<TEnum: Enum + ?Sized>(a: &TEnum, b: &dyn PartialReflect) -> Option<::core::cmp::Ordering> {
     // Both enums?
