@@ -115,9 +115,8 @@ pub fn enum_partial_cmp<TEnum: Enum + ?Sized>(
                         Some(core::cmp::Ordering::Equal) => continue,
                         Some(ord) => return Some(ord),
                     }
-                } else {
-                    return None;
                 }
+                return None;
             }
             Some(core::cmp::Ordering::Equal)
         }
@@ -129,9 +128,8 @@ pub fn enum_partial_cmp<TEnum: Enum + ?Sized>(
                         Some(core::cmp::Ordering::Equal) => continue,
                         Some(ord) => return Some(ord),
                     }
-                } else {
-                    return None;
                 }
+                return None;
             }
             Some(core::cmp::Ordering::Equal)
         }

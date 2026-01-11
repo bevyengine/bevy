@@ -563,9 +563,8 @@ pub fn struct_partial_cmp<S: Struct + ?Sized>(
                 Some(core::cmp::Ordering::Equal) => continue,
                 Some(ord) => return Some(ord),
             }
-        } else {
-            return None;
         }
+        return None;
     }
 
     Some(core::cmp::Ordering::Equal)
