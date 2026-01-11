@@ -28,8 +28,7 @@ use bevy_time::{Real, Time};
 use bevy_transform::prelude::Transform;
 use bevy_window::{CursorGrabMode, CursorOptions, Window};
 
-use core::{f32::consts::*, fmt};
-use std::cmp::PartialEq;
+use core::{cmp::PartialEq, f32::consts::*, fmt};
 
 /// A freecam-style camera controller plugin.
 ///
