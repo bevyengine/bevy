@@ -20,7 +20,6 @@ use bevy::{
     prelude::*,
     render::experimental::occlusion_culling::OcclusionCulling,
 };
-use bevy::anti_alias::taa::TemporalAntiAliasing;
 
 #[cfg(feature = "gltf_animation")]
 mod animation_plugin;
@@ -108,8 +107,6 @@ fn main() {
         MorphViewerPlugin,
     ))
     .insert_resource(args)
-    .insert_resource(GlobalAmbientLight::NONE)
-    .insert_resource(DefaultOpaqueRendererMethod::deferred())
     .add_systems(Startup, setup)
     .add_systems(PreUpdate, setup_scene_after_load);
 
@@ -215,12 +212,7 @@ fn setup_scene_after_load(
                 rotation: args.rotation(),
                 ..default()
             },
-            ContactShadows::default(),
-            ScreenSpaceReflections::default(),
-            ScreenSpaceAmbientOcclusion::default(),
             camera_controller,
-            Msaa::Off,
-            TemporalAntiAliasing::default(),
         ));
 
         // If occlusion culling was requested, include the relevant components.
