@@ -1515,8 +1515,8 @@ mod tests {
 
     #[test]
     fn reflect_partial_cmp_btreemap_lexicographic() {
-        use core::cmp::Ordering;
         use alloc::collections::BTreeMap;
+        use core::cmp::Ordering;
 
         let mut m1: BTreeMap<usize, i32> = BTreeMap::new();
         m1.insert(1usize, 1i32);
@@ -1532,8 +1532,8 @@ mod tests {
 
     #[test]
     fn reflect_partial_cmp_btreemap_key_difference() {
-        use core::cmp::Ordering;
         use alloc::collections::BTreeMap;
+        use core::cmp::Ordering;
 
         let mut m1: BTreeMap<usize, i32> = BTreeMap::new();
         m1.insert(1usize, 10i32);
@@ -1548,8 +1548,8 @@ mod tests {
 
     #[test]
     fn reflect_partial_cmp_btreemap_length_difference() {
-        use core::cmp::Ordering;
         use alloc::collections::BTreeMap;
+        use core::cmp::Ordering;
 
         let mut m1: BTreeMap<usize, i32> = BTreeMap::new();
         m1.insert(1usize, 1i32);
