@@ -1493,6 +1493,193 @@ mod tests {
     }
 
     #[test]
+    fn reflect_partial_cmp_array() {
+        use core::cmp::Ordering;
+
+        let a = [1i32, 2];
+        let b = [1i32, 3];
+
+        let ord = PartialReflect::reflect_partial_cmp(&a, &b);
+        assert_eq!(ord, Some(Ordering::Less));
+    }
+
+    #[test]
+    fn reflect_partial_cmp_tuple_length_mismatch() {
+        // tuples with different lengths should return None
+        let a = (1i32, 2i32);
+        let b = (1i32, 2i32, 3i32);
+
+        let ord = PartialReflect::reflect_partial_cmp(&a, &b);
+        assert_eq!(ord, None);
+    }
+
+    #[test]
+    fn reflect_partial_cmp_btreemap_lexicographic() {
+        use core::cmp::Ordering;
+        use std::collections::BTreeMap;
+
+        let mut m1: BTreeMap<usize, i32> = BTreeMap::new();
+        m1.insert(1usize, 1i32);
+        m1.insert(2usize, 3i32);
+
+        let mut m2: BTreeMap<usize, i32> = BTreeMap::new();
+        m2.insert(1usize, 1i32);
+        m2.insert(2usize, 4i32);
+
+        let ord = PartialReflect::reflect_partial_cmp(&m1, &m2);
+        assert_eq!(ord, Some(Ordering::Less));
+    }
+
+    #[test]
+    fn reflect_partial_cmp_f32_nan() {
+        // NaN comparisons should return None
+        let nan = core::f32::NAN;
+        assert_eq!(PartialReflect::reflect_partial_cmp(&nan, &nan), None);
+    }
+
+    #[test]
+    fn reflect_partial_cmp_list_lexicographic() {
+        use core::cmp::Ordering;
+
+        let a = vec![1i32, 2];
+        let b = vec![1i32, 3];
+
+        let ord = PartialReflect::reflect_partial_cmp(&a, &b);
+        assert_eq!(ord, Some(Ordering::Less));
+    }
+
+    #[test]
+    fn reflect_partial_cmp_tuple_lexicographic() {
+        use core::cmp::Ordering;
+
+        let a = (1i32, 2i32);
+        let b = (1i32, 3i32);
+
+        let ord = PartialReflect::reflect_partial_cmp(&a, &b);
+        assert_eq!(ord, Some(Ordering::Less));
+    }
+
+    #[test]
+    fn reflect_partial_cmp_tuple_struct_and_mismatch() {
+        use core::cmp::Ordering;
+
+        #[derive(PartialEq, PartialOrd, Reflect, Debug)]
+        #[reflect(PartialOrd)]
+        struct TS(i32, i32);
+
+        let a = TS(1, 2);
+        let b = TS(1, 3);
+
+        let ord = PartialReflect::reflect_partial_cmp(&a, &b);
+        assert_eq!(ord, Some(Ordering::Less));
+
+        // Comparing against a bare tuple should return None
+        let ord_mismatch = PartialReflect::reflect_partial_cmp(&a, &(1i32, 2i32));
+        assert_eq!(ord_mismatch, None);
+
+        // Now test a tuple-struct *without* the `#[reflect(PartialOrd)]` attribute
+        // to exercise the runtime/dynamic `reflect_partial_cmp` implementation.
+        #[derive(PartialEq, PartialOrd, Reflect, Debug)]
+        struct TSNoAttr(i32, i32);
+
+        let a2 = TSNoAttr(1, 2);
+        let b2 = TSNoAttr(1, 3);
+
+        let ord2 = PartialReflect::reflect_partial_cmp(&a2, &b2);
+        assert_eq!(ord2, Some(Ordering::Less));
+
+        let ord2_mismatch = PartialReflect::reflect_partial_cmp(&a2, &(1i32, 2i32));
+        assert_eq!(ord2_mismatch, None);
+    }
+
+    #[test]
+    fn reflect_partial_cmp_struct_fields() {
+        use core::cmp::Ordering;
+
+        #[derive(PartialEq, PartialOrd, Reflect, Debug)]
+        #[reflect(PartialOrd)]
+        struct S { a: i32, b: i32 }
+
+        let a = S { a: 1, b: 2 };
+        let b = S { a: 1, b: 3 };
+
+        let ord = PartialReflect::reflect_partial_cmp(&a, &b);
+        assert_eq!(ord, Some(Ordering::Less));
+
+        // Also test a struct without the attribute to hit the dynamic path.
+        #[derive(PartialEq, PartialOrd, Reflect, Debug)]
+        struct SNoAttr { a: i32, b: i32 }
+
+        let a2 = SNoAttr { a: 1, b: 2 };
+        let b2 = SNoAttr { a: 1, b: 3 };
+
+        let ord2 = PartialReflect::reflect_partial_cmp(&a2, &b2);
+        assert_eq!(ord2, Some(Ordering::Less));
+    }
+
+    #[test]
+    fn enum_variant_index_ordering() {
+        use core::cmp::Ordering;
+
+        #[derive(PartialEq, PartialOrd, Reflect, Debug)]
+        enum MyEnum {
+            Top,
+            Center,
+            Bottom,
+        }
+
+        let a = MyEnum::Top;
+        let b = MyEnum::Center;
+        let c = MyEnum::Bottom;
+
+        // Variant ordering should follow variant index
+        assert_eq!(PartialReflect::reflect_partial_cmp(&a, &b), Some(Ordering::Less));
+        assert_eq!(PartialReflect::reflect_partial_cmp(&b, &a), Some(Ordering::Greater));
+        assert_eq!(PartialReflect::reflect_partial_cmp(&b, &c), Some(Ordering::Less));
+        assert_eq!(PartialReflect::reflect_partial_cmp(&a, &a), Some(Ordering::Equal));
+
+        #[derive(PartialEq, PartialOrd, Reflect, Debug)]
+        enum MyEnum2 {
+            A,
+            B,
+            C,
+        }
+        let a1 = MyEnum2::A;
+        let c1 = MyEnum2::C;
+
+        // Unfortunately, it means that enums that have different types can also be compared
+        assert_eq!(PartialReflect::reflect_partial_cmp(&a1, &a), Some(Ordering::Equal));
+        assert_eq!(PartialReflect::reflect_partial_cmp(&a1, &b), Some(Ordering::Less));
+        assert_eq!(PartialReflect::reflect_partial_cmp(&c1, &b), Some(Ordering::Greater));
+    }
+
+    #[test]
+    fn reflect_partial_cmp_enum_variant() {
+        use core::cmp::Ordering;
+
+        #[derive(PartialEq, PartialOrd, Reflect, Debug)]
+        #[reflect(PartialOrd)]
+        enum E { A(i32), B }
+
+        let a = E::A(1);
+        let b = E::A(2);
+
+        let ord = PartialReflect::reflect_partial_cmp(&a, &b);
+        assert_eq!(ord, Some(Ordering::Less));
+
+        // And the same enum without the attribute to ensure the dynamic enum
+        // comparison helpers are used.
+        #[derive(PartialEq, PartialOrd, Reflect, Debug)]
+        enum ENoAttr { A(i32), B }
+
+        let a2 = ENoAttr::A(1);
+        let b2 = ENoAttr::A(2);
+
+        let ord2 = PartialReflect::reflect_partial_cmp(&a2, &b2);
+        assert_eq!(ord2, Some(Ordering::Less));
+    }
+
+    #[test]
     fn should_call_from_reflect_dynamically() {
         #[derive(Reflect)]
         struct MyStruct {

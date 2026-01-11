@@ -101,19 +101,6 @@ pub fn common_partial_reflect_methods(
                 }
             })
         });
-    let hash_fn = meta
-        .attrs()
-        .get_hash_impl(bevy_reflect_path)
-        .or_else(move || {
-            let default_delegate = default_hash_delegate();
-            default_delegate.map(|func| {
-                quote! {
-                    fn reflect_hash(&self) -> #FQOption<u64> {
-                        (#func)(self)
-                    }
-                }
-            })
-        });
     let partial_ord_fn = meta
         .attrs()
         .get_partial_ord_impl(bevy_reflect_path)
@@ -123,6 +110,19 @@ pub fn common_partial_reflect_methods(
                 quote! {
                     fn reflect_partial_cmp(&self, value: &dyn #bevy_reflect_path::PartialReflect) -> #FQOption<::core::cmp::Ordering> {
                         (#func)(self, value)
+                    }
+                }
+            })
+        });
+    let hash_fn = meta
+        .attrs()
+        .get_hash_impl(bevy_reflect_path)
+        .or_else(move || {
+            let default_delegate = default_hash_delegate();
+            default_delegate.map(|func| {
+                quote! {
+                    fn reflect_hash(&self) -> #FQOption<u64> {
+                        (#func)(self)
                     }
                 }
             })

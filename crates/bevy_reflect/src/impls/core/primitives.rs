@@ -238,6 +238,14 @@ impl PartialReflect for &'static str {
         }
     }
 
+    fn reflect_partial_cmp(&self, value: &dyn PartialReflect) -> Option<core::cmp::Ordering> {
+        if let Some(value) = value.try_downcast_ref::<Self>() {
+            Some(PartialOrd::partial_cmp(self, value)?)
+        } else {
+            None
+        }
+    }
+
     fn debug(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt::Debug::fmt(&self, f)
     }
@@ -398,6 +406,11 @@ impl<T: Reflect + MaybeTyped + TypePath + GetTypeRegistration, const N: usize> P
     #[inline]
     fn reflect_partial_eq(&self, value: &dyn PartialReflect) -> Option<bool> {
         crate::array_partial_eq(self, value)
+    }
+
+    #[inline]
+    fn reflect_partial_cmp(&self, value: &dyn PartialReflect) -> Option<::core::cmp::Ordering> {
+        crate::array_partial_cmp(self, value)
     }
 
     fn apply(&mut self, value: &dyn PartialReflect) {

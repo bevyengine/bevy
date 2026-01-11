@@ -32,7 +32,7 @@ pub(crate) fn impl_tuple_struct(reflect_struct: &ReflectStruct) -> proc_macro2::
         reflect_struct.meta(),
         || Some(quote!(#bevy_reflect_path::tuple_struct_partial_eq)),
         || None,
-        || None,
+        || Some(quote!(#bevy_reflect_path::tuple_struct_partial_cmp)),
     );
     let clone_fn = reflect_struct.get_clone_impl();
 

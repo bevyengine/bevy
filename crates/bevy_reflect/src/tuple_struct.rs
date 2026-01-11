@@ -356,6 +356,10 @@ impl PartialReflect for DynamicTupleStruct {
         tuple_struct_partial_eq(self, value)
     }
 
+    fn reflect_partial_cmp(&self, value: &dyn PartialReflect) -> Option<::core::cmp::Ordering> {
+        tuple_struct_partial_cmp(self, value)
+    }
+
     fn debug(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         write!(f, "DynamicTupleStruct(")?;
         tuple_struct_debug(self, f)?;
@@ -445,6 +449,38 @@ pub fn tuple_struct_partial_eq<S: TupleStruct + ?Sized>(
     }
 
     Some(true)
+}
+
+/// Lexicographically compares two [`TupleStruct`] values and returns their ordering.
+///
+/// Returns [`None`] if the comparison couldn't be performed (e.g., kinds mismatch
+/// or an element comparison returns `None`).
+#[inline]
+pub fn tuple_struct_partial_cmp<S: TupleStruct + ?Sized>(
+    a: &S,
+    b: &dyn PartialReflect,
+) -> Option<::core::cmp::Ordering> {
+    let ReflectRef::TupleStruct(tuple_struct) = b.reflect_ref() else {
+        return None;
+    };
+
+    if a.field_len() != tuple_struct.field_len() {
+        return None;
+    }
+
+    for (i, value) in tuple_struct.iter_fields().enumerate() {
+        if let Some(field_value) = a.field(i) {
+            match field_value.reflect_partial_cmp(value) {
+                None => return None,
+                Some(core::cmp::Ordering::Equal) => continue,
+                Some(ord) => return Some(ord),
+            }
+        } else {
+            return None;
+        }
+    }
+
+    Some(core::cmp::Ordering::Equal)
 }
 
 /// The default debug formatter for [`TupleStruct`] types.

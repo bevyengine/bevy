@@ -265,6 +265,10 @@ impl PartialReflect for DynamicArray {
         array_partial_eq(self, value)
     }
 
+    fn reflect_partial_cmp(&self, value: &dyn PartialReflect) -> Option<::core::cmp::Ordering> {
+        array_partial_cmp(self, value)
+    }
+
     fn debug(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         write!(f, "DynamicArray(")?;
         array_debug(self, f)?;
@@ -461,6 +465,30 @@ pub fn array_partial_eq<A: Array + ?Sized>(
     }
 
     Some(true)
+}
+
+/// Lexicographically compares two [arrays](Array) and returns their ordering.
+///
+/// Returns [`None`] if the comparison couldn't be performed (e.g., kinds mismatch
+/// or an element comparison returns `None`).
+#[inline]
+pub fn array_partial_cmp<A: Array + ?Sized>(array: &A, reflect: &dyn PartialReflect) -> Option<::core::cmp::Ordering> {
+    let ReflectRef::Array(reflect_array) = reflect.reflect_ref() else {
+        return None;
+    };
+
+    let min_len = core::cmp::min(array.len(), reflect_array.len());
+
+    for (a, b) in array.iter().zip(reflect_array.iter()).take(min_len) {
+        match a.reflect_partial_cmp(b) {
+            None => return None,
+            Some(core::cmp::Ordering::Equal) => continue,
+            Some(ord) => return Some(ord),
+        }
+    }
+
+    // If all compared elements were equal, order by length
+    Some(array.len().cmp(&reflect_array.len()))
 }
 
 /// The default debug formatter for [`Array`] types.

@@ -492,6 +492,47 @@ pub fn map_partial_eq<M: Map + ?Sized>(a: &M, b: &dyn PartialReflect) -> Option<
     Some(true)
 }
 
+/// Lexicographically compares two [`Map`] values according to their iteration order
+/// (suitable for ordered maps like `BTreeMap`).
+///
+/// For each entry pair `(k_a, v_a)` and `(k_b, v_b)` in the iteration order,
+/// compare `k_a` to `k_b` using `reflect_partial_cmp`, returning the first
+/// non-equal ordering. If keys are equal, compare values similarly. If all
+/// compared entries are equal, the shorter map is `Less` and longer is `Greater`.
+///
+/// Returns [`None`] if the comparison couldn't be performed (kinds mismatch or
+/// an element comparison returns `None`).
+#[inline]
+pub fn map_partial_cmp<M: Map + ?Sized>(a: &M, b: &dyn PartialReflect) -> Option<::core::cmp::Ordering> {
+    let ReflectRef::Map(map) = b.reflect_ref() else {
+        return None;
+    };
+
+    let mut a_iter = a.iter();
+    let mut b_iter = map.iter();
+
+    loop {
+        match (a_iter.next(), b_iter.next()) {
+            (Some((a_k, a_v)), Some((b_k, b_v))) => {
+                match a_k.reflect_partial_cmp(b_k) {
+                    None => return None,
+                    Some(core::cmp::Ordering::Equal) => {}
+                    Some(ord) => return Some(ord),
+                }
+
+                match a_v.reflect_partial_cmp(b_v) {
+                    None => return None,
+                    Some(core::cmp::Ordering::Equal) => {}
+                    Some(ord) => return Some(ord),
+                }
+            }
+            (None, None) => return Some(::core::cmp::Ordering::Equal),
+            (None, Some(_)) => return Some(::core::cmp::Ordering::Less),
+            (Some(_), None) => return Some(::core::cmp::Ordering::Greater),
+        }
+    }
+}
+
 /// The default debug formatter for [`Map`] types.
 ///
 /// # Example

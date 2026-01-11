@@ -95,6 +95,14 @@ impl PartialReflect for &'static Path {
         }
     }
 
+    fn reflect_partial_cmp(&self, value: &dyn PartialReflect) -> Option<core::cmp::Ordering> {
+        if let Some(value) = value.try_downcast_ref::<Self>() {
+            Some(PartialOrd::partial_cmp(self, value)?)
+        } else {
+            None
+        }
+    }
+
     fn try_apply(&mut self, value: &dyn PartialReflect) -> Result<(), ApplyError> {
         if let Some(value) = value.try_downcast_ref::<Self>() {
             self.clone_from(value);
@@ -223,6 +231,14 @@ impl PartialReflect for Cow<'static, Path> {
             Some(PartialEq::eq(self, value))
         } else {
             Some(false)
+        }
+    }
+
+    fn reflect_partial_cmp(&self, value: &dyn PartialReflect) -> Option<core::cmp::Ordering> {
+        if let Some(value) = value.try_downcast_ref::<Self>() {
+            Some(PartialOrd::partial_cmp(self, value)?)
+        } else {
+            None
         }
     }
 

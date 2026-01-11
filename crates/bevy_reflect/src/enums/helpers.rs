@@ -78,6 +78,66 @@ pub fn enum_partial_eq<TEnum: Enum + ?Sized>(a: &TEnum, b: &dyn PartialReflect) 
     }
 }
 
+/// Compares two [`Enum`] values (by variant) and returns their ordering.
+///
+/// Returns [`None`] if the comparison couldn't be performed (e.g., kinds mismatch
+/// or an element comparison returns `None`).
+/// 
+/// When you `#[derive(Reflect)]` on an enum, the variants are ordered by the order
+/// they are defined in the enum. But a dynamic enum don't have that information, so
+/// we return `None` if the variant names are different.
+#[inline]
+pub fn enum_partial_cmp<TEnum: Enum + ?Sized>(a: &TEnum, b: &dyn PartialReflect) -> Option<::core::cmp::Ordering> {
+    // Both enums?
+    let ReflectRef::Enum(b) = b.reflect_ref() else {
+        return None;
+    };
+
+    // Same variant name?
+    if a.variant_name() != b.variant_name() {
+        // Different variant names, determining ordering by variant index
+        return Some(a.variant_index().cmp(&b.variant_index()));
+    }
+
+    // Same variant type?
+    if !a.is_variant(b.variant_type()) {
+        return None;
+    }
+
+    match a.variant_type() {
+        VariantType::Struct => {
+            for field in a.iter_fields() {
+                let field_name = field.name().unwrap();
+                if let Some(field_value) = b.field(field_name) {
+                    match field.value().reflect_partial_cmp(field_value) {
+                        None => return None,
+                        Some(core::cmp::Ordering::Equal) => continue,
+                        Some(ord) => return Some(ord),
+                    }
+                } else {
+                    return None;
+                }
+            }
+            Some(core::cmp::Ordering::Equal)
+        }
+        VariantType::Tuple => {
+            for (i, field) in a.iter_fields().enumerate() {
+                if let Some(field_value) = b.field_at(i) {
+                    match field.value().reflect_partial_cmp(field_value) {
+                        None => return None,
+                        Some(core::cmp::Ordering::Equal) => continue,
+                        Some(ord) => return Some(ord),
+                    }
+                } else {
+                    return None;
+                }
+            }
+            Some(core::cmp::Ordering::Equal)
+        }
+        _ => Some(core::cmp::Ordering::Equal),
+    }
+}
+
 /// The default debug formatter for [`Enum`] types.
 ///
 /// # Example

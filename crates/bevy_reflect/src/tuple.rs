@@ -340,6 +340,10 @@ impl PartialReflect for DynamicTuple {
         tuple_partial_eq(self, value)
     }
 
+    fn reflect_partial_cmp(&self, value: &dyn PartialReflect) -> Option<::core::cmp::Ordering> {
+        tuple_partial_cmp(self, value)
+    }
+
     fn debug(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         write!(f, "DynamicTuple(")?;
         tuple_debug(self, f)?;
@@ -439,6 +443,30 @@ pub fn tuple_partial_eq<T: Tuple + ?Sized>(a: &T, b: &dyn PartialReflect) -> Opt
     }
 
     Some(true)
+}
+
+/// Lexicographically compares two [`Tuple`] values and returns their ordering.
+///
+/// Returns [`None`] if the comparison couldn't be performed (e.g., kinds mismatch
+/// or an element comparison returns `None`).
+#[inline]
+pub fn tuple_partial_cmp<T: Tuple + ?Sized>(a: &T, b: &dyn PartialReflect) -> Option<::core::cmp::Ordering> {
+    let ReflectRef::Tuple(b) = b.reflect_ref() else {
+        return None;
+    };
+    if a.field_len() != b.field_len() {
+        return None;
+    }
+
+    for (a_field, b_field) in a.iter_fields().zip(b.iter_fields()) {
+        match a_field.reflect_partial_cmp(b_field) {
+            None => return None,
+            Some(core::cmp::Ordering::Equal) => continue,
+            Some(ord) => return Some(ord),
+        }
+    }
+
+    Some(core::cmp::Ordering::Equal)
 }
 
 /// The default debug formatter for [`Tuple`] types.
@@ -556,6 +584,9 @@ macro_rules! impl_reflect_tuple {
 
             fn reflect_partial_eq(&self, value: &dyn PartialReflect) -> Option<bool> {
                 crate::tuple_partial_eq(self, value)
+            }
+            fn reflect_partial_cmp(&self, value: &dyn PartialReflect) -> Option<::core::cmp::Ordering> {
+                crate::tuple_partial_cmp(self, value)
             }
 
             fn apply(&mut self, value: &dyn PartialReflect) {
