@@ -21,8 +21,8 @@ const WORLD_CACHE_MAX_TEMPORAL_SAMPLES: f32 = 32.0;
 const WORLD_CACHE_DIRECT_LIGHT_SAMPLE_COUNT: u32 = 32u;
 /// Maximum amount of distance to trace GI rays between two cache cells
 const WORLD_CACHE_MAX_GI_RAY_DISTANCE: f32 = 50.0;
-/// Target upper limit on the amount of cache cells to update each frame
-const WORLD_CACHE_TARGET_CELL_UPDATES: u32 = 40000u;
+/// Soft upper limit on the amount of cache cells to update each frame
+const WORLD_CACHE_CELL_UPDATES_SOFT_CAP: u32 = 40000u;
 
 /// Maximum amount of frames a cell can live for without being queried
 const WORLD_CACHE_CELL_LIFETIME: u32 = 10u;
