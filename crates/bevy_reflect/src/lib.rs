@@ -1741,9 +1741,8 @@ mod tests {
     }
 
     #[test]
-    fn reflect_partial_cmp_struct_field_order_name_lookup() {
+    fn reflect_partial_cmp_struct_named_field_reorder() {
         use crate::DynamicStruct;
-        use core::cmp::Ordering;
 
         #[derive(PartialEq, PartialOrd, Reflect, Debug)]
         struct S {
@@ -1758,16 +1757,10 @@ mod tests {
         dyn_s.insert("b", 1i32);
         dyn_s.insert("a", 0i32);
 
-        // Unfortunately, we currently iterate fields in the order of the argument
-        // this means you can have  a<b and b<a at same time.
-        assert_eq!(
-            PartialReflect::reflect_partial_cmp(&concrete, &dyn_s),
-            Some(Ordering::Less)
-        );
-        assert_eq!(
-            PartialReflect::reflect_partial_cmp(&dyn_s, &concrete),
-            Some(Ordering::Less)
-        );
+        // when fields are not in same order
+        // we cannot determine ordering if reorder fields make the result change
+        assert_eq!(PartialReflect::reflect_partial_cmp(&concrete, &dyn_s), None);
+        assert_eq!(PartialReflect::reflect_partial_cmp(&dyn_s, &concrete), None);
     }
 
     #[test]

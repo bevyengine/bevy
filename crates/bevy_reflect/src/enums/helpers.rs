@@ -44,6 +44,9 @@ pub fn enum_partial_eq<TEnum: Enum + ?Sized>(a: &TEnum, b: &dyn PartialReflect) 
 
     match a.variant_type() {
         VariantType::Struct => {
+            if a.field_len() != b.field_len() {
+                return Some(false);
+            }
             // Same struct fields?
             for field in a.iter_fields() {
                 let field_name = field.name().unwrap();
@@ -60,6 +63,9 @@ pub fn enum_partial_eq<TEnum: Enum + ?Sized>(a: &TEnum, b: &dyn PartialReflect) 
             Some(true)
         }
         VariantType::Tuple => {
+            if a.field_len() != b.field_len() {
+                return Some(false);
+            }
             // Same tuple fields?
             for (i, field) in a.iter_fields().enumerate() {
                 if let Some(field_value) = b.field_at(i) {
@@ -107,20 +113,22 @@ pub fn enum_partial_cmp<TEnum: Enum + ?Sized>(
 
     match a.variant_type() {
         VariantType::Struct => {
-            for field in a.iter_fields() {
-                let field_name = field.name().unwrap();
-                if let Some(field_value) = b.field(field_name) {
-                    match field.value().reflect_partial_cmp(field_value) {
-                        None => return None,
-                        Some(core::cmp::Ordering::Equal) => continue,
-                        Some(ord) => return Some(ord),
-                    }
-                }
+            if a.field_len() != b.field_len() {
                 return None;
             }
-            Some(core::cmp::Ordering::Equal)
+            crate::struct_trait::partial_cmp_by_field_names(
+                a.field_len(),
+                |i| a.name_at(i),
+                |i| a.field_at(i),
+                |i| b.name_at(i),
+                |i| b.field_at(i),
+                |name| b.field(name),
+            )
         }
         VariantType::Tuple => {
+            if a.field_len() != b.field_len() {
+                return None;
+            }
             for (i, field) in a.iter_fields().enumerate() {
                 if let Some(field_value) = b.field_at(i) {
                     match field.value().reflect_partial_cmp(field_value) {
