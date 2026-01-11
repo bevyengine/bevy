@@ -136,7 +136,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     parent.spawn((
                         Text::new("Horizontally Scrolling list (Ctrl + MouseWheel)"),
                         TextFont {
-                            font: font_handle.clone(),
+                            font: font_handle.clone().into(),
                             font_size: FONT_SIZE,
                             ..default()
                         },
@@ -161,7 +161,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     .spawn((
                                         Text(format!("Item {i}")),
                                         TextFont {
-                                            font: font_handle.clone(),
+                                            font: font_handle.clone().into(),
                                             ..default()
                                         },
                                         Label,
@@ -218,7 +218,7 @@ fn vertically_scrolling_list(font_handle: Handle<Font>) -> impl Bundle {
                 // Title
                 Text::new("Vertically Scrolling List"),
                 TextFont {
-                    font: font_handle.clone(),
+                    font: font_handle.clone().into(),
                     font_size: FONT_SIZE,
                     ..default()
                 },
@@ -258,7 +258,7 @@ fn vertically_scrolling_list(font_handle: Handle<Font>) -> impl Bundle {
                         children![(
                             Text(format!("Item {i}")),
                             TextFont {
-                                font: font_handle.clone(),
+                                font: font_handle.clone().into(),
                                 ..default()
                             },
                             Label,
@@ -284,7 +284,7 @@ fn bidirectional_scrolling_list(font_handle: Handle<Font>) -> impl Bundle {
             (
                 Text::new("Bidirectionally Scrolling List"),
                 TextFont {
-                    font: font_handle.clone(),
+                    font: font_handle.clone().into(),
                     font_size: FONT_SIZE,
                     ..default()
                 },
@@ -310,10 +310,7 @@ fn bidirectional_scrolling_list(font_handle: Handle<Font>) -> impl Bundle {
                             move |i| {
                                 (
                                     Text(format!("Item {}", (oi * 10) + i)),
-                                    TextFont {
-                                        font: value.clone(),
-                                        ..default()
-                                    },
+                                    TextFont::from(value.clone()),
                                     Label,
                                     AccessibilityNode(Accessible::new(Role::ListItem)),
                                 )
@@ -339,7 +336,7 @@ fn bidirectional_scrolling_list_with_sticky(font_handle: Handle<Font>) -> impl B
             (
                 Text::new("Bidirectionally Scrolling List With Sticky Nodes"),
                 TextFont {
-                    font: font_handle.clone(),
+                    font: font_handle.clone().into(),
                     font_size: FONT_SIZE,
                     ..default()
                 },
@@ -374,10 +371,7 @@ fn bidirectional_scrolling_list_with_sticky(font_handle: Handle<Font>) -> impl B
                             };
                             (
                                 Text(format!("|{},{}|", y, x)),
-                                TextFont {
-                                    font: value.clone(),
-                                    ..default()
-                                },
+                                TextFont::from(value.clone()),
                                 TextLayout {
                                     linebreak: LineBreak::NoWrap,
                                     ..default()
@@ -409,7 +403,7 @@ fn nested_scrolling_list(font_handle: Handle<Font>) -> impl Bundle {
                 // Title
                 Text::new("Nested Scrolling Lists"),
                 TextFont {
-                    font: font_handle.clone(),
+                    font: font_handle.clone().into(),
                     font_size: FONT_SIZE,
                     ..default()
                 },
@@ -442,10 +436,7 @@ fn nested_scrolling_list(font_handle: Handle<Font>) -> impl Bundle {
                             move |i| {
                                 (
                                     Text(format!("Item {}", (oi * 20) + i)),
-                                    TextFont {
-                                        font: value.clone(),
-                                        ..default()
-                                    },
+                                    TextFont::from(value.clone()),
                                     Label,
                                     AccessibilityNode(Accessible::new(Role::ListItem)),
                                 )

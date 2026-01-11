@@ -133,6 +133,9 @@ impl Schedules {
     }
 
     /// Applies the provided [`ScheduleBuildSettings`] to all schedules.
+    ///
+    /// This mutates all currently present schedules, but does not apply to schedules added
+    /// in the future.
     pub fn configure_schedules(&mut self, schedule_build_settings: ScheduleBuildSettings) {
         for (_, schedule) in &mut self.inner {
             schedule.set_build_settings(schedule_build_settings.clone());

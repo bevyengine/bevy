@@ -148,7 +148,7 @@ fn button(asset_server: &AssetServer) -> impl Bundle {
         children![(
             Text::new("Button"),
             TextFont {
-                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
                 font_size: 33.0,
                 ..default()
             },
@@ -379,7 +379,7 @@ fn checkbox(asset_server: &AssetServer, caption: &str) -> impl Bundle {
             Spawn((
                 Text::new(caption),
                 TextFont {
-                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                    font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
                     font_size: 20.0,
                     ..default()
                 },

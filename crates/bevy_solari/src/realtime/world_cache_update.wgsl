@@ -10,6 +10,11 @@
     WORLD_CACHE_MAX_GI_RAY_DISTANCE,
     WORLD_CACHE_TARGET_CELL_UPDATES,
     query_world_cache,
+}
+#import bevy_solari::realtime_bindings::{
+    light_tile_resolved_samples,
+    view,
+    constants,
     world_cache_active_cells_count,
     world_cache_active_cell_indices,
     world_cache_life,
@@ -18,11 +23,6 @@
     world_cache_luminance_deltas,
     world_cache_active_cells_new_radiance,
 }
-
-@group(1) @binding(2) var<storage, read_write> light_tile_resolved_samples: array<ResolvedLightSamplePacked>;
-@group(1) @binding(12) var<uniform> view: View;
-struct PushConstants { frame_index: u32, reset: u32 }
-var<push_constant> constants: PushConstants;
 
 @compute @workgroup_size(64, 1, 1)
 fn sample_di(@builtin(workgroup_id) workgroup_id: vec3<u32>, @builtin(global_invocation_id) active_cell_id: vec3<u32>) {
@@ -71,7 +71,15 @@ fn blend_new_samples(@builtin(global_invocation_id) active_cell_id: vec3<u32>) {
     let old_radiance = world_cache_radiance[cell_index];
     let new_radiance = world_cache_active_cells_new_radiance[active_cell_id.x];
     let luminance_delta = world_cache_luminance_deltas[cell_index];
+    let old_radiance = world_cache_radiance[cell_index];
+    let new_radiance = world_cache_active_cells_new_radiance[active_cell_id.x];
+    let luminance_delta = world_cache_luminance_deltas[cell_index];
 
+    // https://bsky.app/profile/gboisse.bsky.social/post/3m5blga3ftk2a
+    let sample_count = min(old_radiance.a + 1.0, WORLD_CACHE_MAX_TEMPORAL_SAMPLES);
+    let alpha = abs(luminance_delta) / max(luminance(old_radiance.rgb), 0.001);
+    let max_sample_count = mix(WORLD_CACHE_MAX_TEMPORAL_SAMPLES, 1.0, pow(saturate(alpha), 1.0 / 8.0));
+    let blend_amount = 1.0 / min(sample_count, max_sample_count);
     // https://bsky.app/profile/gboisse.bsky.social/post/3m5blga3ftk2a
     let sample_count = min(old_radiance.a + 1.0, WORLD_CACHE_MAX_TEMPORAL_SAMPLES);
     let alpha = abs(luminance_delta) / max(luminance(old_radiance.rgb), 0.001);
@@ -81,6 +89,8 @@ fn blend_new_samples(@builtin(global_invocation_id) active_cell_id: vec3<u32>) {
     let blended_radiance = mix(old_radiance.rgb, new_radiance, blend_amount);
     let blended_luminance_delta = mix(luminance_delta, luminance(blended_radiance) - luminance(old_radiance.rgb), 1.0 / 8.0);
 
+    world_cache_radiance[cell_index] = vec4(blended_radiance, sample_count);
+    world_cache_luminance_deltas[cell_index] = blended_luminance_delta;
     world_cache_radiance[cell_index] = vec4(blended_radiance, sample_count);
     world_cache_luminance_deltas[cell_index] = blended_luminance_delta;
 }

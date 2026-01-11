@@ -8,14 +8,7 @@
 #import bevy_solari::sampling::{sample_random_light, random_emissive_light_pdf, sample_ggx_vndf, ggx_vndf_pdf, power_heuristic}
 #import bevy_solari::scene_bindings::{trace_ray, resolve_ray_hit_full, ResolvedRayHitFull, RAY_T_MIN, RAY_T_MAX}
 #import bevy_solari::world_cache::{query_world_cache, get_cell_size, WORLD_CACHE_CELL_LIFETIME}
-
-@group(1) @binding(0) var view_output: texture_storage_2d<rgba16float, read_write>;
-@group(1) @binding(5) var<storage, read_write> gi_reservoirs_a: array<Reservoir>;
-@group(1) @binding(7) var gbuffer: texture_2d<u32>;
-@group(1) @binding(8) var depth_buffer: texture_depth_2d;
-@group(1) @binding(12) var<uniform> view: View;
-struct PushConstants { frame_index: u32, reset: u32 }
-var<push_constant> constants: PushConstants;
+#import bevy_solari::realtime_bindings::{view_output, gi_reservoirs_a, gbuffer, depth_buffer, view, constants}
 
 const DIFFUSE_GI_REUSE_ROUGHNESS_THRESHOLD: f32 = 0.4;
 const SPECULAR_GI_FOR_DI_ROUGHNESS_THRESHOLD: f32 = 0.0225;
