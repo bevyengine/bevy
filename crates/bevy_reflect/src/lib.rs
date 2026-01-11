@@ -1758,7 +1758,7 @@ mod tests {
         dyn_s.insert("b", 1i32);
         dyn_s.insert("a", 0i32);
 
-        // Unfortunately, we currently iterate fields in the order or the argument
+        // Unfortunately, we currently iterate fields in the order of the argument
         // this means you can have  a<b and b<a at same time.
         assert_eq!(
             PartialReflect::reflect_partial_cmp(&concrete, &dyn_s),
