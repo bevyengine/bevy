@@ -1564,6 +1564,20 @@ mod tests {
     }
 
     #[test]
+    fn reflect_partial_cmp_btreemap_value_incomparable() {
+        use alloc::collections::BTreeMap;
+
+        let mut m1: BTreeMap<usize, f32> = BTreeMap::new();
+        m1.insert(1usize, 1.0f32);
+
+        let mut m2: BTreeMap<usize, f32> = BTreeMap::new();
+        m2.insert(1usize, f32::NAN);
+
+        // value comparison will be None due to NaN
+        assert_eq!(PartialReflect::reflect_partial_cmp(&m1, &m2), None);
+    }
+
+    #[test]
     fn reflect_partial_cmp_list_lexicographic() {
         use core::cmp::Ordering;
 
@@ -1704,20 +1718,6 @@ mod tests {
             PartialReflect::reflect_partial_cmp(&c1, &b),
             Some(Ordering::Greater)
         );
-    }
-
-    #[test]
-    fn reflect_partial_cmp_btreemap_value_incomparable() {
-        use alloc::collections::BTreeMap;
-
-        let mut m1: BTreeMap<usize, f32> = BTreeMap::new();
-        m1.insert(1usize, 1.0f32);
-
-        let mut m2: BTreeMap<usize, f32> = BTreeMap::new();
-        m2.insert(1usize, f32::NAN);
-
-        // value comparison will be None due to NaN
-        assert_eq!(PartialReflect::reflect_partial_cmp(&m1, &m2), None);
     }
 
     #[test]
