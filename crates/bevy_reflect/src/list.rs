@@ -497,7 +497,10 @@ pub fn list_partial_eq<L: List + ?Sized>(a: &L, b: &dyn PartialReflect) -> Optio
 /// Returns [`None`] if the comparison couldn't be performed (e.g., kinds mismatch
 /// or an element comparison returns `None`).
 #[inline]
-pub fn list_partial_cmp<L: List + ?Sized>(a: &L, b: &dyn PartialReflect) -> Option<::core::cmp::Ordering> {
+pub fn list_partial_cmp<L: List + ?Sized>(
+    a: &L,
+    b: &dyn PartialReflect,
+) -> Option<::core::cmp::Ordering> {
     let ReflectRef::List(list) = b.reflect_ref() else {
         return None;
     };

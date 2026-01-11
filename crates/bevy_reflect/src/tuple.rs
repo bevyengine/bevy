@@ -450,7 +450,10 @@ pub fn tuple_partial_eq<T: Tuple + ?Sized>(a: &T, b: &dyn PartialReflect) -> Opt
 /// Returns [`None`] if the comparison couldn't be performed (e.g., kinds mismatch
 /// or an element comparison returns `None`).
 #[inline]
-pub fn tuple_partial_cmp<T: Tuple + ?Sized>(a: &T, b: &dyn PartialReflect) -> Option<::core::cmp::Ordering> {
+pub fn tuple_partial_cmp<T: Tuple + ?Sized>(
+    a: &T,
+    b: &dyn PartialReflect,
+) -> Option<::core::cmp::Ordering> {
     let ReflectRef::Tuple(b) = b.reflect_ref() else {
         return None;
     };

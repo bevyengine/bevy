@@ -82,10 +82,13 @@ pub fn enum_partial_eq<TEnum: Enum + ?Sized>(a: &TEnum, b: &dyn PartialReflect) 
 ///
 /// Returns [`None`] if the comparison couldn't be performed (e.g., kinds mismatch
 /// or an element comparison returns `None`).
-/// 
+///
 /// The ordering is same with `derive` macro. First order by variant index, then by fields.
 #[inline]
-pub fn enum_partial_cmp<TEnum: Enum + ?Sized>(a: &TEnum, b: &dyn PartialReflect) -> Option<::core::cmp::Ordering> {
+pub fn enum_partial_cmp<TEnum: Enum + ?Sized>(
+    a: &TEnum,
+    b: &dyn PartialReflect,
+) -> Option<::core::cmp::Ordering> {
     // Both enums?
     let ReflectRef::Enum(b) = b.reflect_ref() else {
         return None;

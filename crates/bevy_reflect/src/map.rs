@@ -503,7 +503,10 @@ pub fn map_partial_eq<M: Map + ?Sized>(a: &M, b: &dyn PartialReflect) -> Option<
 /// Returns [`None`] if the comparison couldn't be performed (kinds mismatch or
 /// an element comparison returns `None`).
 #[inline]
-pub fn map_partial_cmp<M: Map + ?Sized>(a: &M, b: &dyn PartialReflect) -> Option<::core::cmp::Ordering> {
+pub fn map_partial_cmp<M: Map + ?Sized>(
+    a: &M,
+    b: &dyn PartialReflect,
+) -> Option<::core::cmp::Ordering> {
     let ReflectRef::Map(map) = b.reflect_ref() else {
         return None;
     };

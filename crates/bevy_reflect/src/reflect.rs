@@ -349,7 +349,7 @@ where
     /// Returns a "partial comparison" result.
     ///
     /// If the underlying type does not support it, returns `None`.
-   fn reflect_partial_cmp(&self, _value: &dyn PartialReflect) -> Option<Ordering> {
+    fn reflect_partial_cmp(&self, _value: &dyn PartialReflect) -> Option<Ordering> {
         None
     }
 

@@ -472,7 +472,10 @@ pub fn array_partial_eq<A: Array + ?Sized>(
 /// Returns [`None`] if the comparison couldn't be performed (e.g., kinds mismatch
 /// or an element comparison returns `None`).
 #[inline]
-pub fn array_partial_cmp<A: Array + ?Sized>(array: &A, reflect: &dyn PartialReflect) -> Option<::core::cmp::Ordering> {
+pub fn array_partial_cmp<A: Array + ?Sized>(
+    array: &A,
+    reflect: &dyn PartialReflect,
+) -> Option<::core::cmp::Ordering> {
     let ReflectRef::Array(reflect_array) = reflect.reflect_ref() else {
         return None;
     };
