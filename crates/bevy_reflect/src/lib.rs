@@ -1531,6 +1531,41 @@ mod tests {
     }
 
     #[test]
+    fn reflect_partial_cmp_btreemap_key_difference() {
+        use core::cmp::Ordering;
+        use std::collections::BTreeMap;
+
+        let mut m1: BTreeMap<usize, i32> = BTreeMap::new();
+        m1.insert(1usize, 10i32);
+
+        let mut m2: BTreeMap<usize, i32> = BTreeMap::new();
+        m2.insert(2usize, 5i32);
+
+        // keys differ: ordering should be determined by key ordering
+        let ord = PartialReflect::reflect_partial_cmp(&m1, &m2);
+        assert_eq!(ord, Some(Ordering::Less));
+    }
+
+    #[test]
+    fn reflect_partial_cmp_btreemap_length_difference() {
+        use core::cmp::Ordering;
+        use std::collections::BTreeMap;
+
+        let mut m1: BTreeMap<usize, i32> = BTreeMap::new();
+        m1.insert(1usize, 1i32);
+        m1.insert(2usize, 2i32);
+
+        let mut m2: BTreeMap<usize, i32> = BTreeMap::new();
+        m2.insert(1usize, 1i32);
+
+        // m1 has extra entry, so lexicographic ordering should consider m1 > m2
+        let ord = PartialReflect::reflect_partial_cmp(&m1, &m2);
+        assert_eq!(ord, Some(Ordering::Greater));
+    }
+
+
+
+    #[test]
     fn reflect_partial_cmp_list_lexicographic() {
         use core::cmp::Ordering;
 
