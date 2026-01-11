@@ -159,7 +159,7 @@ pub fn prepare_material_meshlet_meshes_main_opaque_pass(
             }
 
             let erased_key = ErasedMaterialPipelineKey {
-                mesh_key: view_key,
+                mesh_key: ErasedMeshPipelineKey::new(view_key),
                 material_key: material.properties.material_key.clone(),
                 type_id: material_id.type_id(),
             };
@@ -331,7 +331,7 @@ pub fn prepare_material_meshlet_meshes_prepass(
             }
 
             let erased_key = ErasedMaterialPipelineKey {
-                mesh_key: view_key,
+                mesh_key: ErasedMeshPipelineKey::new(view_key),
                 material_key: material.properties.material_key.clone(),
                 type_id: material_id.type_id(),
             };
