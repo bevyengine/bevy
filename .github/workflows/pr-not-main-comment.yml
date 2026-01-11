@@ -1,0 +1,29 @@
+name: PR Not Targeting Main - PR Comment
+
+# This workflow has write permissions on the repo
+# It must not checkout a PR and run untrusted code
+
+on:
+  pull_request_target:
+    types:
+      - opened
+    branches-ignore:
+      - "main"
+
+jobs:
+  comment-on-not-targeting-main:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: "write"
+    steps:
+      - uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
+        with:
+          script: |
+            await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `Your pull request does not target the 'main' branch. 
+              
+              If this was a mistake, you can edit your pull request and set the 'base' branch to 'main'.`
+            })
