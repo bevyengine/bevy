@@ -11,7 +11,7 @@ fn evaluate_brdf(
     wi: vec3<f32>,
     material: ResolvedMaterial,
 ) -> vec3<f32> {
-    let diffuse_brdf = evaluate_diffuse_brdf(material.base_color, material.metallic);
+    let diffuse_brdf = evaluate_diffuse_brdf(world_normal, wi, material.base_color, material.metallic);
     let specular_brdf = evaluate_specular_brdf(
         world_normal,
         wo,
@@ -25,9 +25,9 @@ fn evaluate_brdf(
     return diffuse_brdf + specular_brdf;
 }
 
-fn evaluate_diffuse_brdf(base_color: vec3<f32>, metallic: f32) -> vec3<f32> {
-    let diffuse_color = calculate_diffuse_color(base_color, metallic, 0.0, 0.0);
-    return diffuse_color / PI;
+fn evaluate_diffuse_brdf(N: vec3<f32>, L: vec3<f32>, base_color: vec3<f32>, metallic: f32) -> vec3<f32> {
+    let diffuse_color = calculate_diffuse_color(base_color, metallic, 0.0, 0.0) / PI;
+    return diffuse_color * saturate(dot(N, L));
 }
 
 fn evaluate_specular_brdf(
@@ -47,10 +47,14 @@ fn evaluate_specular_brdf(
     let NdotV = max(dot(N, V), 0.0001);
 
     let F0 = calculate_F0(base_color, metallic, reflectance);
-    let F_ab = F_AB(perceptual_roughness, NdotV);
+    let F = fresnel(F0, LdotH);
+
+    if roughness <= 0.001 {
+        return F;
+    }
 
     let D = D_GGX(roughness, NdotH);
     let Vs = V_SmithGGXCorrelated(roughness, NdotV, NdotL);
-    let F = fresnel(F0, LdotH);
-    return specular_multiscatter(D, Vs, F, F0, F_ab, 1.0);
+    let F_ab = F_AB(perceptual_roughness, NdotV);
+    return specular_multiscatter(D, Vs, F, F0, F_ab, 1.0) * saturate(dot(N, L));
 }

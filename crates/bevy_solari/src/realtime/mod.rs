@@ -45,8 +45,7 @@ impl Plugin for SolariLightingPlugin {
         embedded_asset!(app, "world_cache_compact.wgsl");
         embedded_asset!(app, "world_cache_update.wgsl");
 
-        #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
-        embedded_asset!(app, "resolve_dlss_rr_textures.wgsl");
+        load_shader_library!(app, "resolve_dlss_rr_textures.wgsl");
 
         app.insert_resource(DefaultOpaqueRendererMethod::deferred());
     }

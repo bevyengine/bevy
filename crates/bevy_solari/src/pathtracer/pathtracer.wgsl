@@ -79,8 +79,7 @@ fn pathtrace(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
             // Update throughput for next bounce
             let brdf = evaluate_brdf(ray_hit.world_normal, wo, next_bounce.wi, ray_hit.material);
-            let cos_theta = dot(next_bounce.wi, ray_hit.world_normal);
-            throughput *= (brdf * cos_theta) / next_bounce.pdf;
+            throughput *= brdf / next_bounce.pdf;
 
             // Russian roulette for early termination
             let p = luminance(throughput);
