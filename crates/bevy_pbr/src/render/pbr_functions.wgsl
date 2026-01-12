@@ -612,8 +612,8 @@ fn apply_pbr_lighting(
     // will accumulate the specular part (including the environment map fallback
     // if SSR misses).
 #ifdef SCREEN_SPACE_REFLECTIONS
-    let use_ssr = perceptual_roughness <=
-        view_bindings::ssr_settings.max_perceptual_roughness;
+    let use_ssr = perceptual_roughness <= view_bindings::ssr_settings.max_perceptual_roughness
+        && perceptual_roughness >= view_bindings::ssr_settings.min_perceptual_roughness;
 #else   // SCREEN_SPACE_REFLECTIONS
     let use_ssr = false;
 #endif  // SCREEN_SPACE_REFLECTIONS
