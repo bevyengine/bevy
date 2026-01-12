@@ -51,7 +51,7 @@ fn main() {
             min_alignment_factor: 0.1,
             // Don't connect nodes more than 500 pixels apart
             max_search_distance: Some(500.0),
-            // Do not prefer nodes that are well-aligned. In a cascading layout, nodes may not be well-aligned.
+            // Prefer nodes that are well-aligned
             prefer_aligned: false,
         })
         .init_resource::<ActionState>()
@@ -113,7 +113,7 @@ struct FocusDisplay;
 #[derive(Component)]
 struct KeyDisplay;
 
-/// Component that stores what page a button is on
+/// Component that stores which page a button is on
 #[derive(Component)]
 struct Page(usize);
 
@@ -147,11 +147,11 @@ fn reset_button_after_interaction(
 
 /// Spawn pages of buttons to demonstrate automatic and manual navigation.
 ///
-/// This will create three grid of buttons. Within rows and columns, automatic navigation
-/// that calculates the closest neighbor will be used. Between rows of the same page, manual
+/// This will create three pages of buttons. Within the rows and columns of a page,
+/// automatic navigation will be utilized. Between rows of the same page, manual
 /// navigation will connect the end of one row with the beginning of the next row. Between
 /// pages themselves, manual navigation will connect the button on the bottom right with
-/// the next page's button on the top top.
+/// the next page's button on the top left.
 fn setup_paged_ui(
     mut commands: Commands,
     mut manual_directional_nav_map: ResMut<DirectionalNavigationMap>,
@@ -245,12 +245,12 @@ fn setup_paged_ui(
         [(500.0, 485.0), (700.0, 485.0), (900.0, 485.0)],
     ];
 
-    let mut pages = [
+    let mut pages_entities = [
         Vec::with_capacity(12),
         Vec::with_capacity(12),
         Vec::with_capacity(12),
     ];
-    for (page_num, page_button_entities) in pages.iter_mut().enumerate() {
+    for (page_num, page_button_entities) in pages_entities.iter_mut().enumerate() {
         setup_buttons_for_page(
             &mut commands,
             page_num,
@@ -325,7 +325,7 @@ fn setup_paged_ui(
             .add_children(&page_button_entities)
             .add_children(&[previous_page_node, next_page_node]);
     }
-    let first_button = Some(pages[0][0]);
+    let first_button = Some(pages_entities[0][0]);
 
     // Add manual edges within each page for navigation between rows
     let entity_pairs = [
@@ -336,7 +336,7 @@ fn setup_paged_ui(
         // the end of the third row should connect to the beginning of the fourth
         ((2, 2), (3, 0)),
     ];
-    for page_entities in pages.iter() {
+    for page_entities in pages_entities.iter() {
         for ((entity_a_row, entity_a_col), (entity_b_row, entity_b_col)) in entity_pairs.iter() {
             manual_directional_nav_map.add_symmetrical_edge(
                 page_entities[entity_a_row * 3 + entity_a_col],
@@ -346,10 +346,23 @@ fn setup_paged_ui(
         }
     }
 
-    // Add manual edges between pages.
-    manual_directional_nav_map.add_symmetrical_edge(pages[0][11], pages[1][0], CompassOctant::East);
-    manual_directional_nav_map.add_symmetrical_edge(pages[1][11], pages[2][0], CompassOctant::East);
-    manual_directional_nav_map.add_symmetrical_edge(pages[2][11], pages[0][0], CompassOctant::East);
+    // Add manual edges between pages. When navigating right (east) from the last button of a page,
+    // go to the first button of the next page.
+    manual_directional_nav_map.add_symmetrical_edge(
+        pages_entities[0][11],
+        pages_entities[1][0],
+        CompassOctant::East,
+    );
+    manual_directional_nav_map.add_symmetrical_edge(
+        pages_entities[1][11],
+        pages_entities[2][0],
+        CompassOctant::East,
+    );
+    manual_directional_nav_map.add_symmetrical_edge(
+        pages_entities[2][11],
+        pages_entities[0][0],
+        CompassOctant::East,
+    );
 
     commands.entity(root_node).add_children(&[instructions]);
 
@@ -359,6 +372,7 @@ fn setup_paged_ui(
     }
 }
 
+/// Creates the button entities for a page_num and places the entities into page_entities.
 fn setup_buttons_for_page(
     commands: &mut Commands,
     page_num: usize,
@@ -506,6 +520,7 @@ fn navigate(
         .ok()
         .map(CompassOctant::from);
 
+    // Store the previous focus in case navigation switches pages.
     let previous_focus = auto_directional_navigator
         .manual_directional_navigation
         .focus
@@ -513,9 +528,9 @@ fn navigate(
     if let Some(direction) = maybe_direction {
         match auto_directional_navigator.navigate(direction) {
             Ok(new_focus) => {
-                // Successfully navigated
+                // Successfully navigated!
 
-                // If navigation switches between pages, change the visibilities of pages as necessary.
+                // If navigation switches between pages, change the visibilities of pages
                 if let Ok(current_child_of) = parent_query.get(new_focus)
                     && let Ok(mut current_page_visibility) =
                         visibility_query.get_mut(current_child_of.parent())
