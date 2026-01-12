@@ -14,6 +14,7 @@ pub mod ci_testing;
 mod easy_screenshot;
 pub mod fps_overlay;
 pub mod frame_time_graph;
+pub mod render_assets_overlay;
 
 pub mod picking_debug;
 
