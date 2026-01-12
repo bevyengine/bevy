@@ -280,7 +280,6 @@ fn setup_paged_ui(
         let previous_page_node = commands
             .spawn((
                 Text::new(format!("Page {} << ", previous_page)),
-                KeyDisplay,
                 Node {
                     position_type: PositionType::Absolute,
                     left: px(360),
@@ -304,7 +303,6 @@ fn setup_paged_ui(
         let next_page_node = commands
             .spawn((
                 Text::new(format!(">> Page {}", (page_num + 1) % 3 + 1)),
-                KeyDisplay,
                 Node {
                     position_type: PositionType::Absolute,
                     left: px(1050),
