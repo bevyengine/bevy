@@ -18,8 +18,8 @@ use bevy::{
         VolumetricFog, VolumetricLight,
     },
     pbr::{
-        AtmosphereMode, AtmosphereSettings, DefaultOpaqueRendererMethod, EarthlikeAtmosphere,
-        ExtendedMaterial, MaterialExtension, ScreenSpaceReflections,
+        Atmosphere, AtmosphereMode, AtmosphereSettings, DefaultOpaqueRendererMethod,
+        ExtendedMaterial, MaterialExtension, ScatteringMedium, ScreenSpaceReflections,
     },
     post_process::bloom::Bloom,
     prelude::*,
@@ -98,12 +98,15 @@ fn atmosphere_controls(
     }
 }
 
-fn setup_camera_fog(mut commands: Commands, earth_atmosphere: Res<EarthlikeAtmosphere>) {
+fn setup_camera_fog(
+    mut commands: Commands,
+    mut scattering_mediums: ResMut<Assets<ScatteringMedium>>,
+) {
     commands.spawn((
         Camera3d::default(),
         Transform::from_xyz(-2.4, 0.04, 0.0).looking_at(Vec3::Y * 0.1, Vec3::Y),
-        // get the default `Atmosphere` component
-        earth_atmosphere.get(),
+        // Earthlike atmosphere
+        Atmosphere::earthlike(scattering_mediums.add(ScatteringMedium::default())),
         // Can be adjusted to change the scene scale and rendering quality
         AtmosphereSettings::default(),
         // The directional light illuminance used in this scene

@@ -29,6 +29,7 @@ criterion_group!(
     world_query_iter,
     world_query_for_each,
     world_spawn,
+    world_spawn_batch,
     world_despawn,
     world_despawn_recursive,
     query_get,
