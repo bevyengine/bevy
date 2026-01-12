@@ -142,9 +142,10 @@ fn blend(color_a: vec4<f32>, color_b: vec4<f32>) -> vec4<f32> {
 }
 
 fn packed_depth_alpha_get_alpha(packed: u32) -> f32 {
-    return unpack_24bit_depth_8bit_alpha(packed).y;
+    return bevy_core_pipeline::oit::unpack_24bit_depth_8bit_alpha(packed).y;
 }
 
+// This is for illustration and meant to be removed
 fn packed_depth_alpha_get_depth(packed: u32) -> u32 {
-    return packed & 0xFFFFFFu;
+    return packed;
 }

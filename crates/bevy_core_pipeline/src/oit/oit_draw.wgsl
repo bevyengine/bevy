@@ -38,14 +38,18 @@ fn oit_draw(position: vec4f, color: vec4f) {
 }
 #endif // OIT_ENABLED
 
+// The packing scheme puts depth in the higher bits so that
+//    depth(a) < depth(b) <=> packed(a) < packed(b)
+// irregardless of alpha(a) and alpha(b)
+// The property is used to optimize the resolve step
 fn pack_24bit_depth_8bit_alpha(depth: f32, alpha: f32) -> u32 {
     let depth_bits = u32(saturate(depth) * f32(0xFFFFFFu) + 0.5);
     let alpha_bits = u32(saturate(alpha) * f32(0xFFu) + 0.5);
-    return (depth_bits & 0xFFFFFFu) | ((alpha_bits & 0xFFu) << 24u);
+    return (depth_bits << 8u) | alpha_bits;
 }
 
 fn unpack_24bit_depth_8bit_alpha(packed: u32) -> vec2<f32> {
-    let depth_bits = packed & 0xFFFFFFu;
-    let alpha_bits = (packed >> 24u) & 0xFFu;
-    return vec2(f32(depth_bits) / f32(0xFFFFFFu), f32(alpha_bits) / f32(0xFFu));
+    let depth_bits = packed >> 8u;
+    let alpha_bits = packed & 0xFFu;
+    return vec2( f32(depth_bits) / f32(0xFFFFFFu), f32(alpha_bits) / f32(0xFFu));
 }
