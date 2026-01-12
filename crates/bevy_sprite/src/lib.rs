@@ -213,7 +213,7 @@ pub fn calculate_bounds_2d(
 // Will eventually be merged with Sprite in the system above.
 //
 // NOTE: this is separate from Mesh2d because sprites change their size
-// inside the vertex shader which doesn't interact with frustrum culling.
+// inside the vertex shader which isn't recognized by calculate_aabb().
 fn calculate_bounds_2d_sprite_mesh(
     mut commands: Commands,
     images: Res<Assets<Image>>,
