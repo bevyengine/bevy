@@ -51,5 +51,5 @@ fn pack_24bit_depth_8bit_alpha(depth: f32, alpha: f32) -> u32 {
 fn unpack_24bit_depth_8bit_alpha(packed: u32) -> vec2<f32> {
     let depth_bits = packed >> 8u;
     let alpha_bits = packed & 0xFFu;
-    return vec2( f32(depth_bits) / f32(0xFFFFFFu), f32(alpha_bits) / f32(0xFFu));
+    return vec2(f32(depth_bits) / f32(0xFFFFFFu), f32(alpha_bits) / f32(0xFFu));
 }
