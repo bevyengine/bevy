@@ -130,7 +130,6 @@ fn setup_camera_fog(
         Msaa::Off,
         TemporalAntiAliasing::default(),
         ScreenSpaceReflections::default(),
-        ScreenSpaceAmbientOcclusion::default(),
     ));
 }
 
