@@ -348,8 +348,8 @@ where
 
         // `extend` does not optimize for reallocation. Related `trusted_len` feature is unstable.
         self.data.reserve(self.data.len() + element_size);
-        // TODO: Consider using unsafe code to push uninitialized, to prevent
-        // the zeroing. It shows up in profiles.
+        // We can't optimize and push uninitialized data here (using e.g. spare_capacity_mut())
+        // because write_into() does not initialize inner padding bytes in T's expansion
         self.data.extend(iter::repeat_n(0, element_size));
 
         // Take a slice of the new data for `write_into` to use. This is
