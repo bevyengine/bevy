@@ -1712,6 +1712,18 @@ description = "Plays an animation from a glTF file with meshes with morph target
 category = "Animation"
 wasm = true
 
+
+[[example]]
+name = "animated_multiple_time_res"
+path = "examples/animation/animated_multiple_time_res.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.animated_multiple_time_res]
+name = "Animation with different Time resources"
+description = "Plays an animations where each of them is using a different Time resource"
+category = "Animation"
+wasm = true
+
 [[example]]
 name = "animated_transform"
 path = "examples/animation/animated_transform.rs"
