@@ -4160,6 +4160,17 @@ category = "Window"
 wasm = false
 
 [[example]]
+name = "multi_window_camera_ui"
+path = "examples/window/multi_window_camera_ui.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.multi_window_camera_ui]
+name = "Multi-Window Camera UI"
+description = "Demonstrates creating multiple windows with multiple cameras with different UIs"
+category = "Window"
+wasm = false
+
+[[example]]
 name = "scale_factor_override"
 path = "examples/window/scale_factor_override.rs"
 doc-scrape-examples = true
