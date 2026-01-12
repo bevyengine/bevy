@@ -136,7 +136,7 @@ pub struct AutoDirectionalNavigator<'w, 's> {
 impl<'w, 's> AutoDirectionalNavigator<'w, 's> {
     /// Returns the current input focus
     pub fn input_focus(&mut self) -> Option<Entity> {
-        return self.manual_directional_navigation.focus.0;
+        self.manual_directional_navigation.focus.0
     }
 
     /// Tries to find the neighbor in a given direction from the given entity. Assumes the entity is valid.
