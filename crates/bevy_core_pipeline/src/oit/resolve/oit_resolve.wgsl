@@ -70,7 +70,7 @@ fn resolve(head: u32, opaque_depth: f32) -> vec4<f32> {
 
 #ifndef DEPTH_PREPASS
         // depth testing
-        if packed_depth_alpha_get_depth(fragment_node.depth_alpha) < packed_opaque_depth {
+        if fragment_node.depth_alpha < packed_opaque_depth {
             continue;
         }
 #endif
@@ -81,7 +81,7 @@ fn resolve(head: u32, opaque_depth: f32) -> vec4<f32> {
             var i = sorted_frag_count;
             for(; i > 0; i -= 1) {
                 // short-circuit can't be used in for(;;;), https://github.com/gfx-rs/wgpu/issues/4394
-                if packed_depth_alpha_get_depth(fragment_node.depth_alpha) > packed_depth_alpha_get_depth(fragment_list[i - 1].depth_alpha) {
+                if fragment_node.depth_alpha > fragment_list[i - 1].depth_alpha {
                     fragment_list[i] = fragment_list[i - 1];
                 } else {
                     break;
@@ -90,7 +90,7 @@ fn resolve(head: u32, opaque_depth: f32) -> vec4<f32> {
             fragment_list[i].color = fragment_node.color;
             fragment_list[i].depth_alpha = fragment_node.depth_alpha;
             sorted_frag_count += 1;
-        } else if packed_depth_alpha_get_depth(fragment_list[0].depth_alpha) > packed_depth_alpha_get_depth(fragment_node.depth_alpha) {
+        } else if fragment_list[0].depth_alpha > fragment_node.depth_alpha {
             // The fragment is farther than the nearest sorted one.
             // First, make room by blending the nearest fragment from the sorted list.
             // Then, insert the fragment in the sorted list.
@@ -101,7 +101,7 @@ fn resolve(head: u32, opaque_depth: f32) -> vec4<f32> {
             var i = 0u;
             for(; i < SORTED_FRAGMENT_MAX_COUNT - 1; i += 1) {
                 // short-circuit can't be used in for(;;;), https://github.com/gfx-rs/wgpu/issues/4394
-                if packed_depth_alpha_get_depth(fragment_node.depth_alpha) < packed_depth_alpha_get_depth(fragment_list[i + 1].depth_alpha) {
+                if fragment_node.depth_alpha < fragment_list[i + 1].depth_alpha {
                     fragment_list[i] = fragment_list[i + 1];
                 } else {
                     break;
@@ -145,7 +145,3 @@ fn packed_depth_alpha_get_alpha(packed: u32) -> f32 {
     return bevy_core_pipeline::oit::unpack_24bit_depth_8bit_alpha(packed).y;
 }
 
-// This is for illustration and meant to be removed
-fn packed_depth_alpha_get_depth(packed: u32) -> u32 {
-    return packed;
-}
