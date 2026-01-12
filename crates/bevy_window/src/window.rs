@@ -754,6 +754,11 @@ pub struct CursorOptions {
     /// - **`macOS`** doesn't support [`CursorGrabMode::Confined`]
     /// - **`X11`** doesn't support [`CursorGrabMode::Locked`]
     /// - **`iOS/Android`** don't have cursors.
+    /// - **`Web`** doesn't support [`CursorGrabMode::Confined`]. On web, setting [`CursorGrabMode::Locked`]:
+    ///   - will not emit any events when the cursor is locked/unlocked, see [#8949](https://github.com/bevyengine/bevy/issues/8949).
+    ///   - can fail to lock the cursor if its not activated on a user gesture or has been recently unlocked.
+    ///   - doesn't emit keyboard events when unlocked (e.g. by the Escape key).
+    ///   - always hides the cursor.
     ///
     /// Since `macOS` and `X11` don't have full [`CursorGrabMode`] support, we first try to set the grab mode that was asked for. If it doesn't work then use the alternate grab mode.
     pub grab_mode: CursorGrabMode,
@@ -1055,6 +1060,11 @@ impl From<UVec2> for WindowResolution {
 /// - **`macOS`** doesn't support [`CursorGrabMode::Confined`]
 /// - **`X11`** doesn't support [`CursorGrabMode::Locked`]
 /// - **`iOS/Android`** don't have cursors.
+/// - **`Web`** doesn't support [`CursorGrabMode::Confined`]. On web, setting [`CursorGrabMode::Locked`]:
+///   - will not emit any events when the cursor is locked/unlocked, see [#8949](https://github.com/bevyengine/bevy/issues/8949).
+///   - can fail to lock the cursor if its not activated on a user gesture or has been recently unlocked.
+///   - doesn't emit keyboard events when unlocked (e.g. by the Escape key).
+///   - always hides the cursor.
 ///
 /// Since `macOS` and `X11` don't have full [`CursorGrabMode`] support, we first try to set the grab mode that was asked for. If it doesn't work then use the alternate grab mode.
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq)]
