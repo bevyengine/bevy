@@ -17,10 +17,10 @@ pub trait RenderGraphExt {
         node_label: impl RenderLabel,
     ) -> &mut Self;
     /// Automatically add the required node edges based on the given ordering
-    fn add_render_graph_edges<const N: usize>(
+    fn add_render_graph_edges(
         &mut self,
         sub_graph: impl RenderSubGraph,
-        edges: impl IntoRenderNodeArray<N>,
+        edges: impl IntoRenderNodeArray,
     ) -> &mut Self;
 
     /// Add node edge to the specified graph
@@ -54,10 +54,10 @@ impl RenderGraphExt for World {
     }
 
     #[track_caller]
-    fn add_render_graph_edges<const N: usize>(
+    fn add_render_graph_edges(
         &mut self,
         sub_graph: impl RenderSubGraph,
-        edges: impl IntoRenderNodeArray<N>,
+        edges: impl IntoRenderNodeArray,
     ) -> &mut Self {
         let sub_graph = sub_graph.intern();
         let mut render_graph = self.get_resource_mut::<RenderGraph>().expect(
@@ -123,10 +123,10 @@ impl RenderGraphExt for SubApp {
     }
 
     #[track_caller]
-    fn add_render_graph_edges<const N: usize>(
+    fn add_render_graph_edges(
         &mut self,
         sub_graph: impl RenderSubGraph,
-        edges: impl IntoRenderNodeArray<N>,
+        edges: impl IntoRenderNodeArray,
     ) -> &mut Self {
         World::add_render_graph_edges(self.world_mut(), sub_graph, edges);
         self
@@ -158,10 +158,11 @@ impl RenderGraphExt for App {
         self
     }
 
-    fn add_render_graph_edges<const N: usize>(
+    #[track_caller]
+    fn add_render_graph_edges(
         &mut self,
         sub_graph: impl RenderSubGraph,
-        edges: impl IntoRenderNodeArray<N>,
+        edges: impl IntoRenderNodeArray,
     ) -> &mut Self {
         World::add_render_graph_edges(self.world_mut(), sub_graph, edges);
         self
