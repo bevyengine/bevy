@@ -79,7 +79,9 @@ impl Plugin for SpritePlugin {
         }
         app.add_systems(
             PostUpdate,
-            calculate_bounds_2d.in_set(VisibilitySystems::CalculateBounds),
+            (calculate_bounds_2d, calculate_bounds_2d_sprite_mesh)
+                .chain()
+                .in_set(VisibilitySystems::CalculateBounds),
         );
 
         #[cfg(feature = "bevy_text")]
@@ -118,6 +120,7 @@ pub fn calculate_bounds_2d(
             Without<Aabb>,
             Without<NoFrustumCulling>,
             Without<NoAutoAabb>,
+            Without<SpriteMesh>, // temporary before merging SpriteMesh into Sprite,
         ),
     >,
     mut update_mesh_aabb: Query<
@@ -126,7 +129,8 @@ pub fn calculate_bounds_2d(
             Or<(AssetChanged<Mesh2d>, Changed<Mesh2d>)>,
             Without<NoFrustumCulling>,
             Without<NoAutoAabb>,
-            Without<Sprite>, // disjoint mutable query
+            Without<SpriteMesh>, // temporary before merging SpriteMesh into Sprite,
+            Without<Sprite>,     // disjoint mutable query
         ),
     >,
     new_sprite_aabb: Query<
@@ -189,6 +193,73 @@ pub fn calculate_bounds_2d(
             center: (-anchor.as_vec() * size).extend(0.0).into(),
             half_extents: (0.5 * size).extend(0.0).into(),
         };
+        commands.entity(entity).try_insert(aabb);
+    }
+
+    // Updated sprites can take the fast path with parallel component mutation
+    update_sprite_aabb
+        .par_iter_mut()
+        .for_each(|(sprite, mut aabb, anchor)| {
+            if let Some(size) = sprite_size(sprite) {
+                aabb.set_if_neq(Aabb {
+                    center: (-anchor.as_vec() * size).extend(0.0).into(),
+                    half_extents: (0.5 * size).extend(0.0).into(),
+                });
+            }
+        });
+}
+
+// Temporarily added this to calculate aabb for sprite meshes.
+// Will eventually be merged with Sprite in the system above.
+//
+// NOTE: this is separate from Mesh2d because sprites change their size
+// inside the vertex shader which doesn't interact with frustrum culling.
+fn calculate_bounds_2d_sprite_mesh(
+    mut commands: Commands,
+    images: Res<Assets<Image>>,
+    atlases: Res<Assets<TextureAtlasLayout>>,
+    new_sprite_aabb: Query<
+        (Entity, &SpriteMesh, &Anchor),
+        (
+            Without<Aabb>,
+            Without<NoFrustumCulling>,
+            Without<NoAutoAabb>,
+        ),
+    >,
+    mut update_sprite_aabb: Query<
+        (&SpriteMesh, &mut Aabb, &Anchor),
+        (
+            Or<(Changed<SpriteMesh>, Changed<Anchor>)>,
+            Without<NoFrustumCulling>,
+            Without<NoAutoAabb>,
+        ),
+    >,
+) {
+    // Sprite helper
+    let sprite_size = |sprite: &SpriteMesh| -> Option<Vec2> {
+        sprite
+            .custom_size
+            .or_else(|| sprite.rect.map(|rect| rect.size()))
+            .or_else(|| match &sprite.texture_atlas {
+                // We default to the texture size for regular sprites
+                None => images.get(&sprite.image).map(Image::size_f32),
+                // We default to the drawn rect for atlas sprites
+                Some(atlas) => atlas
+                    .texture_rect(&atlases)
+                    .map(|rect| rect.size().as_vec2()),
+            })
+    };
+
+    // New sprites require inserting a component
+    for (size, (entity, anchor)) in new_sprite_aabb
+        .iter()
+        .filter_map(|(entity, sprite, anchor)| sprite_size(sprite).zip(Some((entity, anchor))))
+    {
+        let aabb = Aabb {
+            center: (-anchor.as_vec() * size).extend(0.0).into(),
+            half_extents: (0.5 * size).extend(0.0).into(),
+        };
+        println!("{aabb:?}");
         commands.entity(entity).try_insert(aabb);
     }
 
