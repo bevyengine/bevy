@@ -44,16 +44,15 @@ pub struct SpriteMesh {
     pub alpha_mode: SpriteAlphaMode,
 }
 
-impl std::hash::Hash for SpriteMesh {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+impl core::hash::Hash for SpriteMesh {
+    fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
         self.image.hash(state);
     }
 }
 
 impl Eq for SpriteMesh {}
 
-// NOTE: The SpriteImageMode, SpriteScalingMode and Anchor are imported fom the sprite module.
-// No need redefining them.
+// NOTE: The SpriteImageMode, SpriteScalingMode and Anchor are imported from the sprite module.
 
 impl SpriteMesh {
     /// Create a Sprite with a custom size
