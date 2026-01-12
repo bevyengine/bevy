@@ -144,8 +144,8 @@ impl AsBindGroupShaderType<SpriteMaterialUniform> for SpriteMaterial {
 
             uv_transform *= Affine2::from_scale(ratio);
             uv_transform *= Affine2::from_translation(vec2(
-                rect.min.x as f32 / rect.size().y as f32,
-                rect.min.y as f32 / rect.size().y as f32,
+                rect.min.x / rect.size().y,
+                rect.min.y / rect.size().y,
             ));
 
             quad_size = rect.size();
@@ -265,9 +265,9 @@ impl AsBindGroupShaderType<SpriteMaterialUniform> for SpriteMaterial {
                     let custom_ratio = custom_size.x / custom_size.y;
 
                     if quad_ratio > custom_ratio {
-                        scale = vec2(1.0, quad_ratio / custom_ratio)
+                        scale = vec2(1.0, quad_ratio / custom_ratio);
                     } else {
-                        scale = vec2(custom_ratio / quad_ratio, 1.0)
+                        scale = vec2(custom_ratio / quad_ratio, 1.0);
                     }
 
                     min_inset = slicer.border.min_inset / quad_size;
