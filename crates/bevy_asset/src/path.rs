@@ -503,18 +503,17 @@ impl<'a> AssetPath<'a> {
     /// Ex: Returns `"config.ron"` for `"my_asset.config.ron"`
     ///
     /// Also strips out anything following a `?` to handle query parameters in URIs
-    pub fn get_full_extension(&self) -> Option<String> {
-        let file_name = self.path().file_name()?.to_str()?;
-        let index = file_name.find('.')?;
-        let mut extension = file_name[index + 1..].to_owned();
+    pub fn get_full_extension(&self) -> Option<&str> {
+        let file_name = self.path().file_name()?.as_encoded_bytes();
+        let index = file_name.iter().position(|b| *b == b'.')?;
+        let mut extension = &file_name[index + 1..];
 
         // Strip off any query parameters
-        let query = extension.find('?');
-        if let Some(offset) = query {
-            extension.truncate(offset);
+        if let Some(offset) = extension.iter().position(|b| *b == b'?') {
+            extension = &extension[..offset];
         }
 
-        Some(extension)
+        core::str::from_utf8(extension).ok()
     }
 
     pub(crate) fn iter_secondary_extensions(full_extension: &str) -> impl Iterator<Item = &str> {
@@ -706,7 +705,6 @@ pub(crate) fn normalize_path(path: &Path) -> PathBuf {
 #[cfg(test)]
 mod tests {
     use crate::AssetPath;
-    use alloc::string::ToString;
     use std::path::Path;
 
     #[test]
@@ -1254,15 +1252,28 @@ mod tests {
     #[test]
     fn test_get_extension() {
         let result = AssetPath::from("http://a.tar.gz#Foo");
-        assert_eq!(result.get_full_extension(), Some("tar.gz".to_string()));
+        assert_eq!(result.get_full_extension(), Some("tar.gz"));
 
         let result = AssetPath::from("http://a#Foo");
         assert_eq!(result.get_full_extension(), None);
 
         let result = AssetPath::from("http://a.tar.bz2?foo=bar#Baz");
-        assert_eq!(result.get_full_extension(), Some("tar.bz2".to_string()));
+        assert_eq!(result.get_full_extension(), Some("tar.bz2"));
 
         let result = AssetPath::from("asset.Custom");
-        assert_eq!(result.get_full_extension(), Some("Custom".to_string()));
+        assert_eq!(result.get_full_extension(), Some("Custom"));
+    }
+
+    // Regression test for non-UTF-8 file names. Creating an `OsStr` from bytes (without unsafe) is
+    // platform-dependent, so we just test Unix here.
+    #[test]
+    #[cfg(unix)]
+    fn test_get_full_extension_non_utf8() {
+        use std::ffi::OsStr;
+        use std::os::unix::ffi::OsStrExt;
+
+        let path = OsStr::from_bytes(b"imag\xe9.png");
+        let result = AssetPath::from_path(Path::new(path));
+        assert_eq!(result.get_full_extension(), Some("png"));
     }
 }
