@@ -5,7 +5,7 @@
 //! multiple pages of UI Buttons. When navigating within the button grid on a page (up, down, left
 //! and right), automatic navigation is used. However, to add more bespoke navigation that cannot
 //! be automatically detected by screen position proximity alone, manual navigation must be used.
-//! 
+//!
 //! Manual navigation is needed to create transitions between rows and between pages.
 //! These transitions are not created by the automatic navigation system. Moving right at the
 //! end of the previous row navigates to the beginning of the next row. At the end of a page
