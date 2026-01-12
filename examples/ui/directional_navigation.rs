@@ -185,7 +185,7 @@ fn setup_ui(
                     Name::new(button_name.clone()),
                 ))
                 // Add a text element to the button
-                .with_child((
+                .spawn_child((
                     Text::new(button_name),
                     // And center the text if it flows onto multiple lines
                     TextLayout {

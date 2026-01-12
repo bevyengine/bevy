@@ -66,7 +66,7 @@ fn setup_scene(mut commands: Commands) {
     // camera with the `IsDefaultUiCamera` marker component. When that fails (neither
     // camera spawned here has an `IsDefaultUiCamera`), it queries for the
     // first camera targeting the primary window and uses that.
-    commands.spawn(node.clone()).with_child((
+    commands.spawn(node.clone()).spawn_child((
         Text::new("UI Text Primary Window"),
         text_font.clone(),
         TextShadow::default(),
@@ -74,7 +74,7 @@ fn setup_scene(mut commands: Commands) {
 
     commands
         .spawn((node, UiTargetCamera(secondary_window_camera)))
-        .with_child((
+        .spawn_child((
             Text::new("UI Text Secondary Window"),
             text_font.clone(),
             TextShadow::default(),

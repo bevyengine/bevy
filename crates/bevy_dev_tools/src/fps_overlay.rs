@@ -192,7 +192,7 @@ fn setup(
                 FpsText,
                 Pickable::IGNORE,
             ))
-            .with_child((TextSpan::default(), overlay_config.text_config.clone()));
+            .spawn_child((TextSpan::default(), overlay_config.text_config.clone()));
 
             #[cfg(all(target_arch = "wasm32", not(feature = "webgpu")))]
             {

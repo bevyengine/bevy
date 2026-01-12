@@ -241,7 +241,7 @@ fn setup_scattered_ui(mut commands: Commands, mut input_focus: ResMut<InputFocus
                 BackgroundColor::from(NORMAL_BUTTON),
                 Name::new(format!("Button {}", i + 1)),
             ))
-            .with_child((
+            .spawn_child((
                 Text::new(format!("Button {}", i + 1)),
                 TextLayout {
                     justify: Justify::Center,

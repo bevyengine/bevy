@@ -107,7 +107,7 @@ fn generate_bodies(
             Transform::from_scale(Vec3::splat(star_radius)),
             Star,
         ))
-        .with_child(PointLight {
+        .spawn_child(PointLight {
             color: Color::WHITE,
             range: 100.0,
             radius: star_radius,

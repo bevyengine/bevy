@@ -176,7 +176,7 @@ fn spawn_button_row(
                             align_items: AlignItems::Center,
                             ..default()
                         },))
-                        .with_child((Text::new(label), text_style.clone()));
+                        .spawn_child((Text::new(label), text_style.clone()));
 
                     // spawn row buttons
                     parent.spawn(Node::default()).with_children(|parent| {
@@ -243,7 +243,7 @@ fn spawn_button(
                         INACTIVE_INNER_COLOR
                     }),
                 ))
-                .with_child((
+                .spawn_child((
                     Text::new(label),
                     text_style.0,
                     TextColor(if active {

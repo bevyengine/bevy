@@ -93,7 +93,7 @@ fn setup(mut commands: Commands) {
                                 core::mem::swap(&mut a.grid_column, &mut b.grid_column);
                             }
                         })
-                        .with_child((Text::new(format!("{i}")), Pickable::IGNORE));
+                        .spawn_child((Text::new(format!("{i}")), Pickable::IGNORE));
                 }
             }
         });
