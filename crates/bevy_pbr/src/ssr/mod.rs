@@ -266,9 +266,9 @@ impl Default for ScreenSpaceReflections {
     fn default() -> Self {
         Self {
             min_perceptual_roughness: 0.08..0.12,
-            max_perceptual_roughness: 0.55..0.7,
-            linear_steps: 16,
-            bisection_steps: 4,
+            max_perceptual_roughness: 0.55..0.6,
+            linear_steps: 10,
+            bisection_steps: 5,
             use_secant: true,
             thickness: 0.25,
             linear_march_exponent: 1.0,
