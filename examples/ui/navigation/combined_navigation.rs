@@ -3,15 +3,18 @@
 //! This example shows how to leverage both automatic navigation and manual navigation to create
 //! a desired user navigation experience without much boilerplate code. In this example, there are
 //! multiple pages of UI Buttons. When navigating within the button grid on a page (up, down, left
-//! and right), automatic navigation is used. Manual navigation is added to create transitions
-//! between rows i.e. moving right at the end of the previous row navigates to the beginning of
-//! the next row. At the end of a page (the bottom right most button), moving right navigates to
-//! the first button on the next page.
+//! and right), automatic navigation is used. However, to add more bespoke navigation that cannot
+//! be automatically detected by screen position proximity alone, manual navigation must be used.
+//! 
+//! Manual navigation is needed to create transitions between rows and between pages.
+//! These transitions are not created by the automatic navigation system. Moving right at the
+//! end of the previous row navigates to the beginning of the next row. At the end of a page
+//! (the bottom right most button), moving right navigates to the first button on the next page.
 //!
 //! The `AutoDirectionalNavigation` component is used to add basic, intuitive navigation to UI
 //! elements within a page. Manual edges between rows and between pages are added to the
-//! `DirectionalNavigationMap` to add special navigation rules. The `AutoDirectionalNavigator`
-//! system parameter navigates with the map and the components.
+//! `DirectionalNavigationMap` to allow special navigation rules. The `AutoDirectionalNavigator`
+//! system parameter navigates using manual navigation first and automatic navigation second.
 
 use core::time::Duration;
 
@@ -58,7 +61,7 @@ fn main() {
         // For automatic navigation, UI entities will have the component `AutoDirectionalNavigation`
         // and will be automatically connected by the navigation system.
         // We will also add some new edges that the automatic navigation system
-        // cannot create by itself.
+        // cannot create by itself by inserting them into `DirectionalNavigationMap`
         .add_systems(Startup, setup_paged_ui)
         // Input is generally handled during PreUpdate
         .add_systems(PreUpdate, (process_inputs, navigate).chain())
