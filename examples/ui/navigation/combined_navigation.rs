@@ -175,7 +175,7 @@ fn setup_paged_ui(
                 "Combined Navigation Demo\n\n\
                  Use arrow keys or D-pad to navigate.\n\
                  Press Enter or A button to interact.\n\n\
-                 Horizontal navigation within rows is defined automatically.\n\
+                 Horizontal navigation within rows is configured automatically.\n\
                  Horizontal navigation between rows is defined manually.\n\
                  Navigation between pages is defined manually.",
             ),
