@@ -2,12 +2,14 @@ use alloc::{boxed::Box, vec::Vec};
 use bevy_platform::cell::SyncUnsafeCell;
 use bevy_platform::sync::Arc;
 use bevy_tasks::{ComputeTaskPool, Scope, TaskPool, ThreadExecutor};
+use bevy_utils::prelude::DebugName;
 use concurrent_queue::ConcurrentQueue;
 use core::{any::Any, panic::AssertUnwindSafe};
 use fixedbitset::FixedBitSet;
 #[cfg(feature = "std")]
 use std::eprintln;
 use std::sync::{Mutex, MutexGuard};
+use thiserror::Error;
 
 #[cfg(feature = "trace")]
 use tracing::{info_span, Span};
@@ -140,6 +142,12 @@ struct Context<'scope, 'env, 'sys> {
     environment: &'env Environment<'env, 'sys>,
     scope: &'scope Scope<'scope, 'env, ()>,
     error_handler: ErrorHandler,
+}
+
+#[derive(Debug, Error)]
+#[error("Encountered panic in system `{name}`!")]
+pub struct SystemPanickedError {
+    pub name: DebugName,
 }
 
 impl Default for MultiThreadedExecutor {
@@ -339,11 +347,24 @@ impl<'scope, 'env: 'scope, 'sys> Context<'scope, 'env, 'sys> {
             .push(SystemResult { system_index })
             .unwrap_or_else(|error| unreachable!("{}", error));
         if let Err(payload) = res {
+            let error = SystemPanickedError {
+                name: system.name(),
+            };
+
             #[cfg(feature = "std")]
             #[expect(clippy::print_stderr, reason = "Allowed behind `std` feature gate.")]
             {
-                eprintln!("Encountered a panic in system `{}`!", system.name());
+                eprintln!("{}", error);
             }
+
+            (self.error_handler)(
+                error.into(),
+                ErrorContext::System {
+                    name: system.name(),
+                    last_run: system.get_last_run(),
+                },
+            );
+
             // set the payload to propagate the error
             {
                 let mut panic_payload = self.environment.executor.panic_payload.lock().unwrap();
