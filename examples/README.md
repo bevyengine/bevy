@@ -572,7 +572,7 @@ Example | Description
 [Box Shadow](../examples/ui/box_shadow.rs) | Demonstrates how to create a node with a shadow
 [Button](../examples/ui/button.rs) | Illustrates creating and updating a button
 [CSS Grid](../examples/ui/grid.rs) | An example for CSS Grid layout
-[Combined (Automatic + Manual) Directional Navigation](../examples/ui/navigation/combined_navigation.rs) | Demonstration of combining both automatic and manual directional navigation between UI elements
+[Combined (Automatic & Manual) Directional Navigation](../examples/ui/navigation/combined_navigation.rs) | Demonstration of combining both automatic and manual directional navigation between UI elements
 [Display and Visibility](../examples/ui/display_and_visibility.rs) | Demonstrates how Display and Visibility work in the UI.
 [Drag to Scroll](../examples/ui/drag_to_scroll.rs) | This example tests scale factor, dragging and scrolling
 [Feathers Widgets](../examples/ui/feathers.rs) | Gallery of Feathers Widgets

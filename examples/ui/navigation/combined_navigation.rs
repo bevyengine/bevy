@@ -322,7 +322,7 @@ fn setup_paged_ui(
 
         commands
             .entity(page)
-            .add_children(&page_button_entities)
+            .add_children(page_button_entities)
             .add_children(&[previous_page_node, next_page_node]);
     }
     let first_button = Some(pages_entities[0][0]);
@@ -372,7 +372,7 @@ fn setup_paged_ui(
     }
 }
 
-/// Creates the button entities for a page_num and places the entities into page_entities.
+/// Creates the button entities for a page and places the entities into `page_entities`.
 fn setup_buttons_for_page(
     commands: &mut Commands,
     page_num: usize,

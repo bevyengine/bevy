@@ -5110,7 +5110,7 @@ path = "examples/ui/navigation/combined_navigation.rs"
 doc-scrape-examples = false
 
 [package.metadata.example.combined_navigation]
-name = "Combined (Automatic + Manual) Directional Navigation"
+name = "Combined (Automatic & Manual) Directional Navigation"
 description = "Demonstration of combining both automatic and manual directional navigation between UI elements"
 category = "UI (User Interface)"
 wasm = true
