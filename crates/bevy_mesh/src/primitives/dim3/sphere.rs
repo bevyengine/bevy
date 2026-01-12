@@ -143,13 +143,18 @@ impl SphereMeshBuilder {
 
         let uvs = generated.raw_data().to_owned();
 
-        let mut indices = Vec::with_capacity(generated.indices_per_main_triangle() * 20);
+        let mut indices_u32 = Vec::with_capacity(generated.indices_per_main_triangle() * 20);
 
         for i in 0..20 {
-            generated.get_indices(i, &mut indices);
+            generated.get_indices(i, &mut indices_u32);
         }
 
-        let indices = Indices::U32(indices);
+        // Index value < [`u16::MAX`]. primitive restart value needs to be skipped.
+        let indices = if points.len() <= u16::MAX as usize {
+            Indices::U16(indices_u32.iter().map(|i| *i as u16).collect())
+        } else {
+            Indices::U32(indices_u32)
+        };
 
         Ok(Mesh::new(
             PrimitiveTopology::TriangleList,
@@ -178,7 +183,7 @@ impl SphereMeshBuilder {
         let mut vertices: Vec<[f32; 3]> = Vec::with_capacity(n_vertices);
         let mut normals: Vec<[f32; 3]> = Vec::with_capacity(n_vertices);
         let mut uvs: Vec<[f32; 2]> = Vec::with_capacity(n_vertices);
-        let mut indices: Vec<u32> = Vec::with_capacity(n_vertices * 2 * 3);
+        let mut indices = Indices::with_capacity(n_vertices * 2 * 3, n_vertices as u32);
 
         for i in 0..stacks + 1 {
             let stack_angle = PI / 2. - (i as f32) * stack_step;
@@ -224,7 +229,7 @@ impl SphereMeshBuilder {
             PrimitiveTopology::TriangleList,
             RenderAssetUsages::default(),
         )
-        .with_inserted_indices(Indices::U32(indices))
+        .with_inserted_indices(indices)
         .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, vertices)
         .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
         .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)

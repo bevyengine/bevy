@@ -80,7 +80,7 @@ impl MeshBuilder for ConeMeshBuilder {
         let mut positions = Vec::with_capacity(num_vertices);
         let mut normals = Vec::with_capacity(num_vertices);
         let mut uvs = Vec::with_capacity(num_vertices);
-        let mut indices = Vec::with_capacity(num_indices);
+        let mut indices = Indices::with_capacity(num_indices, num_vertices as u32);
 
         // Tip
         positions.push([0.0, half_height, 0.0]);
@@ -128,11 +128,11 @@ impl MeshBuilder for ConeMeshBuilder {
         // Add indices for the lateral surface. Each triangle is formed by the tip
         // and two vertices at the base.
         for j in 1..self.resolution {
-            indices.extend_from_slice(&[0, j + 1, j]);
+            indices.extend([0, j + 1, j]);
         }
 
         // Close the surface with a triangle between the tip, first base vertex, and last base vertex.
-        indices.extend_from_slice(&[0, 1, self.resolution]);
+        indices.extend([0, 1, self.resolution]);
 
         // Now we build the actual base of the cone.
 
@@ -150,7 +150,7 @@ impl MeshBuilder for ConeMeshBuilder {
 
         // Add base indices.
         for i in 1..(self.resolution - 1) {
-            indices.extend_from_slice(&[index_offset, index_offset + i, index_offset + i + 1]);
+            indices.extend([index_offset, index_offset + i, index_offset + i + 1]);
         }
 
         // Offset the vertex positions Y axis to match the anchor
@@ -164,7 +164,7 @@ impl MeshBuilder for ConeMeshBuilder {
             PrimitiveTopology::TriangleList,
             RenderAssetUsages::default(),
         )
-        .with_inserted_indices(Indices::U32(indices))
+        .with_inserted_indices(indices)
         .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
         .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
         .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)

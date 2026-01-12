@@ -62,7 +62,7 @@ impl MeshBuilder for CuboidMeshBuilder {
         let normals: Vec<_> = vertices.iter().map(|(_, n, _)| *n).collect();
         let uvs: Vec<_> = vertices.iter().map(|(_, _, uv)| *uv).collect();
 
-        let indices = Indices::U32(vec![
+        let indices = Indices::U16(vec![
             0, 1, 2, 2, 3, 0, // front
             4, 5, 6, 6, 7, 4, // back
             8, 9, 10, 10, 11, 8, // right

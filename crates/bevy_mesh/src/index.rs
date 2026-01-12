@@ -89,6 +89,18 @@ pub enum Indices {
 }
 
 impl Indices {
+    /// Create a empty indices with the given capacity and vertex count.
+    ///
+    /// It will be [`Indices::U16`] if the vertex count <= 65535 (i.e. index value < 65535)
+    /// because primitive restart value needs to be skipped, otherwise it will be [`Indices::U32`].
+    pub fn with_capacity(capacity: usize, vertex_count: u32) -> Self {
+        if vertex_count <= u16::MAX as u32 {
+            Indices::U16(Vec::with_capacity(capacity))
+        } else {
+            Indices::U32(Vec::with_capacity(capacity))
+        }
+    }
+
     /// Returns an iterator over the indices.
     pub fn iter(&self) -> impl Iterator<Item = usize> + '_ {
         match self {
@@ -118,11 +130,37 @@ impl Indices {
     pub fn push(&mut self, index: u32) {
         self.extend([index]);
     }
+
+    /// Resize the indices in place so that `len` is equal to `new_len`.
+    pub fn resize(&mut self, new_len: usize, value: u32) {
+        match self {
+            Indices::U16(indices) => {
+                indices.resize(new_len, value as u16);
+            }
+            Indices::U32(indices) => {
+                indices.resize(new_len, value);
+            }
+        }
+    }
+
+    /// Set a value of indices at the given index.
+    pub fn set(&mut self, index: usize, value: u32) {
+        match self {
+            Indices::U16(indices) => {
+                indices[index] = value as u16;
+            }
+            Indices::U32(indices) => {
+                indices[index] = value;
+            }
+        }
+    }
 }
 
 /// Extend the indices with indices from an iterator.
 /// Semantically equivalent to calling [`push`](Indices::push) for each element in the iterator,
 /// but more efficient.
+///
+/// [`Indices::U16`] will be changed to [`Indices::U32`] if there is primitive restart value [`u16::MAX`] or any value greater than [`u16::MAX`].
 impl Extend<u32> for Indices {
     fn extend<T: IntoIterator<Item = u32>>(&mut self, iter: T) {
         let mut iter = iter.into_iter();
@@ -131,18 +169,17 @@ impl Extend<u32> for Indices {
             Indices::U16(indices) => {
                 indices.reserve(iter.size_hint().0);
                 while let Some(index) = iter.next() {
-                    match u16::try_from(index) {
-                        Ok(index) => indices.push(index),
-                        Err(_) => {
-                            let new_vec = indices
-                                .iter()
-                                .map(|&index| u32::from(index))
-                                .chain(iter::once(index))
-                                .chain(iter)
-                                .collect::<Vec<u32>>();
-                            *self = Indices::U32(new_vec);
-                            break;
-                        }
+                    if index < u16::MAX as u32 {
+                        indices.push(index as u16);
+                    } else {
+                        let new_vec = indices
+                            .iter()
+                            .map(|&index| u32::from(index))
+                            .chain(iter::once(index))
+                            .chain(iter)
+                            .collect::<Vec<u32>>();
+                        *self = Indices::U32(new_vec);
+                        break;
                     }
                 }
             }
