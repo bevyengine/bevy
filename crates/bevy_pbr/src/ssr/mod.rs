@@ -163,8 +163,6 @@ pub struct ScreenSpaceReflectionsUniform {
     bisection_steps: u32,
     /// A boolean converted to a `u32`.
     use_secant: u32,
-    pad_a: u32,
-    pad_b: u32,
 }
 
 /// The node in the render graph that traces screen space reflections.
@@ -639,8 +637,6 @@ impl From<ScreenSpaceReflections> for ScreenSpaceReflectionsUniform {
             linear_march_exponent: settings.linear_march_exponent,
             bisection_steps: settings.bisection_steps,
             use_secant: settings.use_secant as u32,
-            pad_a: 0,
-            pad_b: 0,
         }
     }
 }
