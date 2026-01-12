@@ -609,7 +609,8 @@ fn apply_pbr_lighting(
 #ifdef ENVIRONMENT_MAP
     // If screen space reflections are going to be used for this material, only
     // accumulate the diffuse part of the environment map light. The SSR shader
-    // will accumulate the specular part.
+    // will accumulate the specular part (including the environment map fallback
+    // if SSR misses).
 #ifdef SCREEN_SPACE_REFLECTIONS
     let use_ssr = perceptual_roughness <=
         view_bindings::ssr_settings.max_perceptual_roughness;

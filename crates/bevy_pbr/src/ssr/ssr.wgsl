@@ -226,11 +226,11 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     let V_tangent = V * tangent_to_world;
     
     let brdf_sample = sample_specular_brdf(V_tangent, roughness, F0, urand, N_tangent);
-    let R = tangent_to_world * brdf_sample.wi;
+    let R_stochastic = tangent_to_world * brdf_sample.wi;
     let brdf_sample_value_over_pdf = brdf_sample.value_over_pdf;
 
     // Do the raymarching.
-    let ssr_specular = evaluate_ssr(R, world_position, raymarch_jitter);
+    let ssr_specular = evaluate_ssr(R_stochastic, world_position, raymarch_jitter);
     var indirect_light = ssr_specular.rgb * brdf_sample_value_over_pdf * fade;
     specular_occlusion = mix(specular_occlusion, specular_occlusion * ssr_specular.a, fade);
 
@@ -269,6 +269,10 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     let NdotV = max(dot(N, V), 0.0001);
     let F_ab = lighting::F_AB(perceptual_roughness, NdotV);
     let F0_env = pbr_functions::calculate_F0(base_color, metallic, reflectance);
+
+    // Don't add stochastic noise to hits that sample the prefiltered env map.
+    // The prefiltered env map already accounts for roughness.
+    let R = reflect(-V, N);
 
     // Pack all the values into a structure.
     var lighting_input: lighting::LightingInput;
