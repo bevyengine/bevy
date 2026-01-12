@@ -1,18 +1,23 @@
-//! Demonstrates a combination of automatic directional navigation and manual directional navigation.
+//! Demonstrates a combination of automatic and manual directional navigation.
 //!
 //! This example shows how to leverage both automatic navigation and manual navigation to create
-//! a desired user navigation experience without much boilerplate code. The `AutoDirectionalNavigation`
-//! component is used to add basic, intuitive navigation to UI elements. Manual edges between certain
-//! UI elements are added to the `DirectionalNavigationMap` to override auto navigation and to add
-//! special navigation rules.
-//!
-//! The directional navigation system provided by `AutoDirectionalNavigator` uses manually defined edges
-//! first. If no manual edge is defined, automatic navigation is used.
+//! a desired user navigation experience without much boilerplate code. In this example, there are
+//! multiple pages of UI Buttons. The desired navigation experience cycles through buttons like
+//! reading a book written in English: from left to right. Navigation transitions to a new row
+//! after moving right at the end of the previous row. At the end of a page, moving right goes
+//! to the next page. Navigation within a row uses automatic navigation. Navigation between rows
+//! and between pages can only be setup manually.
+//! 
+//! The `AutoDirectionalNavigation` component is used to add basic, intuitive navigation to UI
+//! elements within a page. Manual edges between rows and between pages are added to the 
+//! `DirectionalNavigationMap` to add special navigation rules. The `AutoDirectionalNavigator`
+//! system parameter navigates with the map and the components.
 
 use core::time::Duration;
 
 use bevy::{
     camera::NormalizedRenderTarget,
+    color::palettes::css::*,
     input_focus::{
         directional_navigation::{
             AutoNavigationConfig, DirectionalNavigationMap, DirectionalNavigationPlugin,
@@ -142,10 +147,9 @@ fn setup_cascading_ui(
                 "Navigation Demo\n\n\
                  Use arrow keys or D-pad to navigate.\n\
                  Press Enter or A button to interact.\n\n\
-                 Buttons are scattered in cascading rows:\n\
-                 Horizontal navigation within rows is automatic.\n\
-                 Horizontal navigation between rows is manual.\n\
-                 Vertical navigation between rows is inverted and manual.",
+                 Horizontal navigation within rows is defined automatically.\n\
+                 Horizontal navigation between rows is defined manually.\n\
+                 Navigation between pages is defined manually.",
             ),
             Node {
                 position_type: PositionType::Absolute,
@@ -204,19 +208,81 @@ fn setup_cascading_ui(
     // Auto-navigation will configure navigation within rows.
     let button_positions = [
         // Row 0
-        [(350.0, 80.0), (550.0, 125.0), (750.0, 170.0)],
+        [(500.0, 80.0), (700.0, 80.0), (900.0, 80.0)],
         // Row 1
-        [(350.0, 215.0), (550.0, 260.0), (750.0, 305.0)],
+        [(500.0, 215.0), (700.0, 215.0), (900.0, 215.0)],
         // Row 2
-        [(350.0, 350.0), (550.0, 395.0), (750.0, 440.0)],
+        [(500.0, 350.0), (700.0, 350.0), (900.0, 350.0)],
         // Row 3
-        [(350.0, 485.0), (550.0, 530.0), (750.0, 575.0)],
+        [(500.0, 485.0), (700.0, 485.0), (900.0, 485.0)],
     ];
 
-    let mut first_button = None;
-    let mut entities = Vec::with_capacity(4);
+    let mut pages = [Vec::with_capacity(12), Vec::with_capacity(12), Vec::with_capacity(12)];
+    for (page_num, page_entities) in pages.iter_mut().enumerate() {
+        setup_buttons_for_page(&mut commands, page_num, page_entities, &button_positions);
+
+        // Only the first page is visible at setup.
+        let visibility = if page_num == 0 {
+            Visibility::Visible
+        } else {
+            Visibility::Hidden
+        };
+        let page = commands.spawn((Node {
+            width: percent(100),
+            height: percent(100),
+            ..default()
+        }, visibility))
+        .id();
+        commands.entity(page).add_children(&page_entities);
+    }
+    let first_button = Some(pages[0][0]);
+
+    // Add manual edges within each page for navigation between rows
+    let entity_pairs = [
+        // the end of the first row should connect to the beginning of the second
+        ((0, 2), (1, 0)),
+        // the end of the second row should connect to the beginning of the third
+        ((1, 2), (2, 0)),
+        // the end of the third row should connect to the beginning of the fourth
+        ((2, 2), (3, 0)),
+    ];
+    for page_entities in pages.iter() {
+        for ((entity_a_row, entity_a_col), (entity_b_row, entity_b_col)) in entity_pairs.iter() {
+            manual_directional_nav_map.add_symmetrical_edge(
+                page_entities[entity_a_row * 3 + entity_a_col],
+                page_entities[entity_b_row * 3 + entity_b_col],
+                CompassOctant::East,
+            );
+        }
+    }
+
+    // Add manual edges between pages
+    manual_directional_nav_map.add_symmetrical_edge(pages[0][11], pages[1][0], CompassOctant::East); 
+    manual_directional_nav_map.add_symmetrical_edge(pages[1][11], pages[2][0], CompassOctant::East); 
+    manual_directional_nav_map.add_symmetrical_edge(pages[2][11], pages[0][0], CompassOctant::East); 
+
+    commands.entity(root_node).add_children(&[instructions]);
+
+    // Set initial focus
+    if let Some(button) = first_button {
+        input_focus.set(button);
+    }
+}
+
+fn setup_buttons_for_page(
+    commands: &mut Commands,
+    page_num: usize,
+    page_entities: &mut Vec<Entity>, 
+    button_positions: &[[(f64, f64); 3]; 4]) {
     for (i, row) in button_positions.iter().enumerate() {
         for (j, (x, y)) in row.iter().enumerate() {
+            let background_color = if page_num == 0 {
+                RED.into()
+            } else if page_num == 1 {
+                GREEN.into()
+            } else {
+                BLUE.into()
+            };
             let button_entity = commands
                 .spawn((
                     Button,
@@ -225,74 +291,29 @@ fn setup_cascading_ui(
                         left: px(*x),
                         top: px(*y),
                         width: px(140),
-                        height: px(90),
+                        height: px(100),
                         border: UiRect::all(px(4)),
                         justify_content: JustifyContent::Center,
                         align_items: AlignItems::Center,
                         border_radius: BorderRadius::all(px(12)),
                         ..default()
                     },
+                    BackgroundColor(background_color),
                     // This is the key: just add this component for automatic navigation!
                     AutoDirectionalNavigation::default(),
                     ResetTimer::default(),
-                    BackgroundColor::from(NORMAL_BUTTON),
-                    Name::new(format!("Row {}, Button {}", i + 1, j + 1)),
+                    Name::new(format!("Page {},\nRow {},\nButton {}", page_num + 1, i + 1, j + 1)),
                 ))
                 .with_child((
-                    Text::new(format!("Row {}, Button {}", i + 1, j + 1)),
+                    Text::new(format!("Page {},\nRow {},\nButton {}", page_num + 1, i + 1, j + 1)),
                     TextLayout {
                         justify: Justify::Center,
                         ..default()
                     },
                 ))
                 .id();
-
-            if first_button.is_none() {
-                first_button = Some(button_entity);
-            }
-            entities.push(button_entity);
+            page_entities.push(button_entity);
         }
-    }
-
-    // Add manual edges for inverted vertical navigation
-    // These manual edges override any automatic navigation vertically
-    let mut col = Vec::with_capacity(4);
-    for col_index in 0..=2 {
-        for (i, &entity) in entities.iter().enumerate() {
-            if i % 3 == col_index {
-                col.push(entity);
-            }
-        }
-        // edges are connected in the opposite vertical direction
-        manual_directional_nav_map.add_looping_edges(&col, CompassOctant::North);
-        col.clear();
-    }
-
-    // Add manual edges for navigation between rows
-    // These manual edges do not override any automatic navigation
-    let entity_pairs = [
-        // the end of the first row should connect to the beginning of the second
-        ((0, 2), (1, 0)),
-        // the end of the second row should connect to the beginning of the third
-        ((1, 2), (2, 0)),
-        // the end of the third row should connect to the beginning of the fourth
-        ((2, 2), (3, 0)),
-        // the end of the fourth row should connect to the beginning of the first (the end wraps to the beginning)
-        ((3, 2), (0, 0)),
-    ];
-    for ((entity_a_row, entity_a_col), (entity_b_row, entity_b_col)) in entity_pairs.iter() {
-        manual_directional_nav_map.add_symmetrical_edge(
-            entities[entity_a_row * 3 + entity_a_col],
-            entities[entity_b_row * 3 + entity_b_col],
-            CompassOctant::East,
-        );
-    }
-
-    commands.entity(root_node).add_children(&[instructions]);
-
-    // Set initial focus
-    if let Some(button) = first_button {
-        input_focus.set(button);
     }
 }
 
@@ -367,6 +388,8 @@ fn process_inputs(
 
 fn navigate(
     action_state: Res<ActionState>,
+    parent_query: Query<&ChildOf>,
+    mut visibility_query: Query<&mut Visibility>,
     mut auto_directional_navigator: AutoDirectionalNavigator,
 ) {
     let net_east_west = action_state
@@ -388,10 +411,25 @@ fn navigate(
         .ok()
         .map(CompassOctant::from);
 
+    let previous_focus = auto_directional_navigator.manual_directional_navigation.focus.0;
     if let Some(direction) = maybe_direction {
         match auto_directional_navigator.navigate(direction) {
-            Ok(_entity) => {
+            Ok(new_focus) => {
                 // Successfully navigated
+
+                // If switching between pages, change visibilities of pages.
+                if let Ok(current_child_of) = parent_query.get(new_focus) && 
+                   let Ok(mut current_page_visibility) = visibility_query.get_mut(current_child_of.parent())  {
+                    *current_page_visibility = Visibility::Visible;
+
+                    if let Some(previous_focus_entity) = previous_focus &&
+                    let Ok(previous_child_of) = parent_query.get(previous_focus_entity) && 
+                    previous_child_of.parent() != current_child_of.parent() &&
+                    let Ok(mut previous_page_visibility) = visibility_query.get_mut(previous_child_of.parent()) 
+                    {
+                        *previous_page_visibility = Visibility::Hidden;
+                    }
+                }
             }
             Err(_e) => {
                 // Navigation failed (no neighbor in that direction)
