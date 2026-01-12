@@ -225,10 +225,12 @@ pub fn update_mesh_previous_global_transforms(
     let should_run = views.iter().any(|camera| camera.is_active);
 
     if should_run {
+        // Initialize PreviousGlobalTransform for new mesh entities to current GlobalTransform
         for (entity, transform) in &new_meshes {
             let new_previous_transform = PreviousGlobalTransform(transform.affine());
             commands.entity(entity).try_insert(new_previous_transform);
         }
+        // Update previous transforms to current transform values for next frame
         meshes.par_iter_mut().for_each(|(transform, mut previous)| {
             previous.set_if_neq(PreviousGlobalTransform(transform.affine()));
         });

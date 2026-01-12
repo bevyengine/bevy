@@ -91,7 +91,7 @@ impl InstanceManager {
         aabb: MeshletAabb,
         bvh_depth: u32,
         transform: &GlobalTransform,
-        previous_transform: Option<&PreviousGlobalTransform>,
+        previous_transform: &PreviousGlobalTransform,
         render_layers: Option<&RenderLayers>,
         mesh_material_ids: &RenderMaterialInstances,
         render_material_bindings: &RenderMaterialBindings,
@@ -100,7 +100,7 @@ impl InstanceManager {
     ) {
         // Build a MeshUniform for the instance
         let transform = transform.affine();
-        let previous_transform = previous_transform.map(|t| t.0).unwrap_or(transform);
+        let previous_transform = previous_transform.0;
         let mut flags = if not_shadow_receiver {
             MeshFlags::empty()
         } else {
@@ -200,7 +200,7 @@ pub fn extract_meshlet_mesh_entities(
                     Entity,
                     &MeshletMesh3d,
                     &GlobalTransform,
-                    Option<&PreviousGlobalTransform>,
+                    &PreviousGlobalTransform,
                     Option<&RenderLayers>,
                     Has<NotShadowReceiver>,
                     Has<NotShadowCaster>,
