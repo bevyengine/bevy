@@ -2,14 +2,14 @@
 //!
 //! This example shows how to leverage both automatic navigation and manual navigation to create
 //! a desired user navigation experience without much boilerplate code. In this example, there are
-//! multiple pages of UI Buttons. The desired navigation experience cycles through buttons like
-//! reading a book written in English: from left to right. Navigation transitions to a new row
-//! after moving right at the end of the previous row. At the end of a page, moving right goes
-//! to the next page. Navigation within a row uses automatic navigation. Navigation between rows
-//! and between pages can only be setup manually.
-//! 
+//! multiple pages of UI Buttons. When navigating within the button grid on a page (up, down, left
+//! and right), automatic navigation is used. Manual navigation is added to create transitions
+//! between rows i.e. moving right at the end of the previous row navigates to the beginning of
+//! the next row. At the end of a page (the bottom right most button), moving right navigates to
+//! the first button on the next page.
+//!
 //! The `AutoDirectionalNavigation` component is used to add basic, intuitive navigation to UI
-//! elements within a page. Manual edges between rows and between pages are added to the 
+//! elements within a page. Manual edges between rows and between pages are added to the
 //! `DirectionalNavigationMap` to add special navigation rules. The `AutoDirectionalNavigator`
 //! system parameter navigates with the map and the components.
 
@@ -17,7 +17,6 @@ use core::time::Duration;
 
 use bevy::{
     camera::NormalizedRenderTarget,
-    color::palettes::css::*,
     input_focus::{
         directional_navigation::{
             AutoNavigationConfig, DirectionalNavigationMap, DirectionalNavigationPlugin,
@@ -58,10 +57,9 @@ fn main() {
         .init_resource::<ActionState>()
         // For automatic navigation, UI entities will have the component `AutoDirectionalNavigation`
         // and will be automatically connected by the navigation system.
-        // To override some automatically created navigation edges, manual edges are created
-        // in `setup_cascading_ui`. We will also add some new edges that the automatic navigation system
-        // does not create.
-        .add_systems(Startup, setup_cascading_ui)
+        // We will also add some new edges that the automatic navigation system
+        // cannot create by itself.
+        .add_systems(Startup, setup_paged_ui)
         // Input is generally handled during PreUpdate
         .add_systems(PreUpdate, (process_inputs, navigate).chain())
         .add_systems(
@@ -79,9 +77,33 @@ fn main() {
         .run();
 }
 
-const NORMAL_BUTTON: Srgba = bevy::color::palettes::tailwind::BLUE_400;
-const PRESSED_BUTTON: Srgba = bevy::color::palettes::tailwind::BLUE_500;
-const FOCUSED_BORDER: Srgba = bevy::color::palettes::tailwind::BLUE_50;
+const PAGE_1_NORMAL_BUTTON: Srgba = bevy::color::palettes::tailwind::BLUE_400;
+const PAGE_1_PRESSED_BUTTON: Srgba = bevy::color::palettes::tailwind::BLUE_500;
+const PAGE_1_FOCUSED_BORDER: Srgba = bevy::color::palettes::tailwind::BLUE_50;
+
+const PAGE_2_NORMAL_BUTTON: Srgba = bevy::color::palettes::tailwind::RED_400;
+const PAGE_2_PRESSED_BUTTON: Srgba = bevy::color::palettes::tailwind::RED_500;
+const PAGE_2_FOCUSED_BORDER: Srgba = bevy::color::palettes::tailwind::RED_50;
+
+const PAGE_3_NORMAL_BUTTON: Srgba = bevy::color::palettes::tailwind::GREEN_400;
+const PAGE_3_PRESSED_BUTTON: Srgba = bevy::color::palettes::tailwind::GREEN_500;
+const PAGE_3_FOCUSED_BORDER: Srgba = bevy::color::palettes::tailwind::GREEN_50;
+
+const NORMAL_BUTTON_COLORS: [Srgba; 3] = [
+    PAGE_1_NORMAL_BUTTON,
+    PAGE_2_NORMAL_BUTTON,
+    PAGE_3_NORMAL_BUTTON,
+];
+const PRESSED_BUTTON_COLORS: [Srgba; 3] = [
+    PAGE_1_PRESSED_BUTTON,
+    PAGE_2_PRESSED_BUTTON,
+    PAGE_3_PRESSED_BUTTON,
+];
+const FOCUSED_BORDER_COLORS: [Srgba; 3] = [
+    PAGE_1_FOCUSED_BORDER,
+    PAGE_2_FOCUSED_BORDER,
+    PAGE_3_FOCUSED_BORDER,
+];
 
 /// Marker component for the text that displays the currently focused button
 #[derive(Component)]
@@ -91,14 +113,18 @@ struct FocusDisplay;
 #[derive(Component)]
 struct KeyDisplay;
 
+/// Component that stores what page a button is on
+#[derive(Component)]
+struct Page(usize);
+
 // Observer for button clicks
 fn universal_button_click_behavior(
     mut click: On<Pointer<Click>>,
-    mut button_query: Query<(&mut BackgroundColor, &mut ResetTimer)>,
+    mut button_query: Query<(&mut BackgroundColor, &Page, &mut ResetTimer)>,
 ) {
     let button_entity = click.entity;
-    if let Ok((mut color, mut reset_timer)) = button_query.get_mut(button_entity) {
-        color.0 = PRESSED_BUTTON.into();
+    if let Ok((mut color, page, mut reset_timer)) = button_query.get_mut(button_entity) {
+        color.0 = PRESSED_BUTTON_COLORS[page.0].into();
         reset_timer.0 = Timer::from_seconds(0.3, TimerMode::Once);
         click.propagate(false);
     }
@@ -109,22 +135,24 @@ struct ResetTimer(Timer);
 
 fn reset_button_after_interaction(
     time: Res<Time>,
-    mut query: Query<(&mut ResetTimer, &mut BackgroundColor)>,
+    mut query: Query<(&mut ResetTimer, &mut BackgroundColor, &Page)>,
 ) {
-    for (mut reset_timer, mut color) in query.iter_mut() {
+    for (mut reset_timer, mut color, page) in query.iter_mut() {
         reset_timer.tick(time.delta());
         if reset_timer.just_finished() {
-            color.0 = NORMAL_BUTTON.into();
+            color.0 = NORMAL_BUTTON_COLORS[page.0].into();
         }
     }
 }
 
-/// Spawn a cascading layout of buttons to demonstrate automatic and manual navigation.
+/// Spawn pages of buttons to demonstrate automatic and manual navigation.
 ///
-/// This will create a grid of buttons, but each row cascades from the top left to the bottom right.
-/// Manual navigation will connect the end of one row with the beginning of the next row.
-/// Manual navigation will also make vertical navigation inverted (pressing down moves up)
-fn setup_cascading_ui(
+/// This will create three grid of buttons. Within rows and columns, automatic navigation
+/// that calculates the closest neighbor will be used. Between rows of the same page, manual
+/// navigation will connect the end of one row with the beginning of the next row. Between
+/// pages themselves, manual navigation will connect the button on the bottom right with
+/// the next page's button on the top top.
+fn setup_paged_ui(
     mut commands: Commands,
     mut manual_directional_nav_map: ResMut<DirectionalNavigationMap>,
     mut input_focus: ResMut<InputFocus>,
@@ -144,7 +172,7 @@ fn setup_cascading_ui(
     let instructions = commands
         .spawn((
             Text::new(
-                "Navigation Demo\n\n\
+                "Combined Navigation Demo\n\n\
                  Use arrow keys or D-pad to navigate.\n\
                  Press Enter or A button to interact.\n\n\
                  Horizontal navigation within rows is defined automatically.\n\
@@ -217,9 +245,18 @@ fn setup_cascading_ui(
         [(500.0, 485.0), (700.0, 485.0), (900.0, 485.0)],
     ];
 
-    let mut pages = [Vec::with_capacity(12), Vec::with_capacity(12), Vec::with_capacity(12)];
-    for (page_num, page_entities) in pages.iter_mut().enumerate() {
-        setup_buttons_for_page(&mut commands, page_num, page_entities, &button_positions);
+    let mut pages = [
+        Vec::with_capacity(12),
+        Vec::with_capacity(12),
+        Vec::with_capacity(12),
+    ];
+    for (page_num, page_button_entities) in pages.iter_mut().enumerate() {
+        setup_buttons_for_page(
+            &mut commands,
+            page_num,
+            page_button_entities,
+            &button_positions,
+        );
 
         // Only the first page is visible at setup.
         let visibility = if page_num == 0 {
@@ -227,13 +264,66 @@ fn setup_cascading_ui(
         } else {
             Visibility::Hidden
         };
-        let page = commands.spawn((Node {
-            width: percent(100),
-            height: percent(100),
-            ..default()
-        }, visibility))
-        .id();
-        commands.entity(page).add_children(&page_entities);
+        let page = commands
+            .spawn((
+                Node {
+                    width: percent(100),
+                    height: percent(100),
+                    ..default()
+                },
+                visibility,
+            ))
+            .id();
+
+        // Prompt to go to the previous page, placed left of the top-left button.
+        let previous_page = if page_num == 0 { 3 } else { page_num };
+        let previous_page_node = commands
+            .spawn((
+                Text::new(format!("Page {} << ", previous_page)),
+                KeyDisplay,
+                Node {
+                    position_type: PositionType::Absolute,
+                    left: px(360),
+                    top: px(120),
+                    width: px(140),
+                    padding: UiRect::all(px(12)),
+                    ..default()
+                },
+                TextLayout {
+                    justify: Justify::Right,
+                    ..default()
+                },
+                TextFont {
+                    font_size: 20.0,
+                    ..default()
+                },
+            ))
+            .id();
+
+        // Prompt to go to the next page, placed right of the bottom-right button.
+        let next_page_node = commands
+            .spawn((
+                Text::new(format!(">> Page {}", (page_num + 1) % 3 + 1)),
+                KeyDisplay,
+                Node {
+                    position_type: PositionType::Absolute,
+                    left: px(1050),
+                    top: px(525),
+                    width: px(140),
+                    padding: UiRect::all(px(12)),
+                    ..default()
+                },
+                TextFont {
+                    font_size: 20.0,
+                    ..default()
+                },
+            ))
+            .id();
+
+        commands
+            .entity(page)
+            .add_children(&page_button_entities)
+            .add_children(&[previous_page_node, next_page_node]);
     }
     let first_button = Some(pages[0][0]);
 
@@ -256,10 +346,10 @@ fn setup_cascading_ui(
         }
     }
 
-    // Add manual edges between pages
-    manual_directional_nav_map.add_symmetrical_edge(pages[0][11], pages[1][0], CompassOctant::East); 
-    manual_directional_nav_map.add_symmetrical_edge(pages[1][11], pages[2][0], CompassOctant::East); 
-    manual_directional_nav_map.add_symmetrical_edge(pages[2][11], pages[0][0], CompassOctant::East); 
+    // Add manual edges between pages.
+    manual_directional_nav_map.add_symmetrical_edge(pages[0][11], pages[1][0], CompassOctant::East);
+    manual_directional_nav_map.add_symmetrical_edge(pages[1][11], pages[2][0], CompassOctant::East);
+    manual_directional_nav_map.add_symmetrical_edge(pages[2][11], pages[0][0], CompassOctant::East);
 
     commands.entity(root_node).add_children(&[instructions]);
 
@@ -272,17 +362,11 @@ fn setup_cascading_ui(
 fn setup_buttons_for_page(
     commands: &mut Commands,
     page_num: usize,
-    page_entities: &mut Vec<Entity>, 
-    button_positions: &[[(f64, f64); 3]; 4]) {
+    page_entities: &mut Vec<Entity>,
+    button_positions: &[[(f64, f64); 3]; 4],
+) {
     for (i, row) in button_positions.iter().enumerate() {
         for (j, (x, y)) in row.iter().enumerate() {
-            let background_color = if page_num == 0 {
-                RED.into()
-            } else if page_num == 1 {
-                GREEN.into()
-            } else {
-                BLUE.into()
-            };
             let button_entity = commands
                 .spawn((
                     Button,
@@ -298,14 +382,25 @@ fn setup_buttons_for_page(
                         border_radius: BorderRadius::all(px(12)),
                         ..default()
                     },
-                    BackgroundColor(background_color),
+                    Page(page_num),
+                    BackgroundColor(NORMAL_BUTTON_COLORS[page_num].into()),
                     // This is the key: just add this component for automatic navigation!
                     AutoDirectionalNavigation::default(),
                     ResetTimer::default(),
-                    Name::new(format!("Page {},\nRow {},\nButton {}", page_num + 1, i + 1, j + 1)),
+                    Name::new(format!(
+                        "Page {},\nRow {},\nButton {}",
+                        page_num + 1,
+                        i + 1,
+                        j + 1
+                    )),
                 ))
                 .with_child((
-                    Text::new(format!("Page {},\nRow {},\nButton {}", page_num + 1, i + 1, j + 1)),
+                    Text::new(format!(
+                        "Page {},\nRow {},\nButton {}",
+                        page_num + 1,
+                        i + 1,
+                        j + 1
+                    )),
                     TextLayout {
                         justify: Justify::Center,
                         ..default()
@@ -411,21 +506,27 @@ fn navigate(
         .ok()
         .map(CompassOctant::from);
 
-    let previous_focus = auto_directional_navigator.manual_directional_navigation.focus.0;
+    let previous_focus = auto_directional_navigator
+        .manual_directional_navigation
+        .focus
+        .0;
     if let Some(direction) = maybe_direction {
         match auto_directional_navigator.navigate(direction) {
             Ok(new_focus) => {
                 // Successfully navigated
 
-                // If switching between pages, change visibilities of pages.
-                if let Ok(current_child_of) = parent_query.get(new_focus) && 
-                   let Ok(mut current_page_visibility) = visibility_query.get_mut(current_child_of.parent())  {
+                // If navigation switches between pages, change the visibilities of pages as necessary.
+                if let Ok(current_child_of) = parent_query.get(new_focus)
+                    && let Ok(mut current_page_visibility) =
+                        visibility_query.get_mut(current_child_of.parent())
+                {
                     *current_page_visibility = Visibility::Visible;
 
-                    if let Some(previous_focus_entity) = previous_focus &&
-                    let Ok(previous_child_of) = parent_query.get(previous_focus_entity) && 
-                    previous_child_of.parent() != current_child_of.parent() &&
-                    let Ok(mut previous_page_visibility) = visibility_query.get_mut(previous_child_of.parent()) 
+                    if let Some(previous_focus_entity) = previous_focus
+                        && let Ok(previous_child_of) = parent_query.get(previous_focus_entity)
+                        && previous_child_of.parent() != current_child_of.parent()
+                        && let Ok(mut previous_page_visibility) =
+                            visibility_query.get_mut(previous_child_of.parent())
                     {
                         *previous_page_visibility = Visibility::Hidden;
                     }
@@ -499,11 +600,11 @@ fn update_key_display(
 fn highlight_focused_element(
     input_focus: Res<InputFocus>,
     input_focus_visible: Res<InputFocusVisible>,
-    mut query: Query<(Entity, &mut BorderColor)>,
+    mut query: Query<(Entity, &mut BorderColor, &Page)>,
 ) {
-    for (entity, mut border_color) in query.iter_mut() {
+    for (entity, mut border_color, page) in query.iter_mut() {
         if input_focus.0 == Some(entity) && input_focus_visible.0 {
-            *border_color = BorderColor::all(FOCUSED_BORDER);
+            *border_color = BorderColor::all(FOCUSED_BORDER_COLORS[page.0]);
         } else {
             *border_color = BorderColor::DEFAULT;
         }
