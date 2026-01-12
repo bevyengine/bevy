@@ -11,7 +11,7 @@
 #endif
 
 struct OitFragment {
-    color: vec3<f32>,
+    color: u32,
     alpha: f32,
     depth: f32,
 }
@@ -65,8 +65,7 @@ fn resolve(head: u32, opaque_depth: f32) -> vec4<f32> {
     var sorted_frag_count = 0u;
     while current_node != LINKED_LIST_END_SENTINEL {
         let fragment_node = nodes[current_node];
-        // unpack color, alpha, depth
-        let color = bevy_pbr::rgb9e5::rgb9e5_to_vec3_(fragment_node.color);
+        // unpack alpha, depth, except color to save local memory.
         let depth_alpha = bevy_core_pipeline::oit::unpack_24bit_depth_8bit_alpha(fragment_node.depth_alpha);
         current_node = fragment_node.next;
 
@@ -89,7 +88,7 @@ fn resolve(head: u32, opaque_depth: f32) -> vec4<f32> {
                     break;
                 }
             }
-            fragment_list[i].color = color;
+            fragment_list[i].color = fragment_node.color;
             fragment_list[i].alpha = depth_alpha.y;
             fragment_list[i].depth = depth_alpha.x;
             sorted_frag_count += 1;
@@ -98,7 +97,7 @@ fn resolve(head: u32, opaque_depth: f32) -> vec4<f32> {
             // First, make room by blending the nearest fragment from the sorted list.
             // Then, insert the fragment in the sorted list.
             // This is an approximation.
-            let nearest_color = fragment_list[0].color;
+            let nearest_color = bevy_pbr::rgb9e5::rgb9e5_to_vec3_(fragment_list[0].color);
             let nearest_alpha = fragment_list[0].alpha;
             final_color = blend(final_color, vec4f(nearest_color * nearest_alpha, nearest_alpha));
             var i = 0u;
@@ -110,20 +109,21 @@ fn resolve(head: u32, opaque_depth: f32) -> vec4<f32> {
                     break;
                 }
             }
-            fragment_list[i].color = color;
+            fragment_list[i].color = fragment_node.color;
             fragment_list[i].alpha = depth_alpha.y;
             fragment_list[i].depth = depth_alpha.x;
         } else {
             // The next fragment is nearer than any of the sorted ones.
             // Blend it early.
             // This is an approximation.
+            let color = bevy_pbr::rgb9e5::rgb9e5_to_vec3_(fragment_node.color);
             final_color = blend(final_color, vec4f(color * depth_alpha.y, depth_alpha.y));
         }
     }
 
     // blend sorted fragments
     for (var i = 0u; i < sorted_frag_count; i += 1) {
-        let color = fragment_list[i].color;
+        let color = bevy_pbr::rgb9e5::rgb9e5_to_vec3_(fragment_list[i].color);
         let alpha = fragment_list[i].alpha;
         var base_color = vec4(color.rgb * alpha, alpha);
         final_color = blend(final_color, base_color);
