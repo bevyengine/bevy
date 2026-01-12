@@ -521,10 +521,7 @@ fn navigate(
         .map(CompassOctant::from);
 
     // Store the previous focus in case navigation switches pages.
-    let previous_focus = auto_directional_navigator
-        .manual_directional_navigation
-        .focus
-        .0;
+    let previous_focus = auto_directional_navigator.input_focus();
     if let Some(direction) = maybe_direction {
         match auto_directional_navigator.navigate(direction) {
             Ok(new_focus) => {
