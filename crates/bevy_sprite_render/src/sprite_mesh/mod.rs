@@ -2,6 +2,7 @@ use bevy_app::{Plugin, Update};
 use bevy_ecs::{
     entity::Entity,
     query::{Added, Changed, Or},
+    schedule::IntoScheduleConfigs,
     system::{Commands, Local, Query, Res, ResMut},
 };
 
@@ -25,7 +26,7 @@ impl Plugin for SpriteMeshPlugin {
     fn build(&self, app: &mut bevy_app::App) {
         app.add_plugins(SpriteMaterialPlugin);
 
-        app.add_systems(Update, (add_mesh, add_material));
+        app.add_systems(Update, (add_mesh, add_material).chain());
     }
 }
 
@@ -58,7 +59,11 @@ fn add_mesh(
 fn add_material(
     sprites: Query<
         (&SpriteMesh, &Anchor, &MeshMaterial2d<SpriteMaterial>),
-        Or<(Changed<SpriteMesh>, Changed<Anchor>)>,
+        Or<(
+            Changed<SpriteMesh>,
+            Changed<Anchor>,
+            Added<MeshMaterial2d<SpriteMaterial>>,
+        )>,
     >,
     texture_atlas_layouts: Res<Assets<TextureAtlasLayout>>,
     mut materials: ResMut<Assets<SpriteMaterial>>,
@@ -68,6 +73,7 @@ fn add_material(
             warn!("SpriteMesh material not found!");
             continue;
         };
+        warn!("hm..");
 
         *material = SpriteMaterial::from_sprite_mesh(sprite.clone());
 
