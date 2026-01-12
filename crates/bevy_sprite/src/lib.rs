@@ -259,7 +259,6 @@ fn calculate_bounds_2d_sprite_mesh(
             center: (-anchor.as_vec() * size).extend(0.0).into(),
             half_extents: (0.5 * size).extend(0.0).into(),
         };
-        println!("{aabb:?}");
         commands.entity(entity).try_insert(aabb);
     }
 
