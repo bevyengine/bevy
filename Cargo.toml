@@ -5192,6 +5192,17 @@ category = "Usage"
 wasm = true
 
 [[example]]
+name = "selection_menu"
+path = "examples/usage/control_flow/selection_menu.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.selection_menu]
+name = "Selection Menu"
+description = "Shows multiple types of selection menu"
+category = "Usage"
+wasm = true
+
+[[example]]
 name = "hotpatching_systems"
 path = "examples/ecs/hotpatching_systems.rs"
 # Causes an ICE on docs.rs

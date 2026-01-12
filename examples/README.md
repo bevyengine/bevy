@@ -622,6 +622,7 @@ Example | Description
 --- | ---
 [Context Menu](../examples/usage/context_menu.rs) | Example of a context menu
 [Cooldown](../examples/usage/cooldown.rs) | Example for cooldown on button clicks
+[Selection Menu](../examples/usage/control_flow/selection_menu.rs) | Shows multiple types of selection menu
 
 ### Window
 
