@@ -91,6 +91,11 @@ pub struct App {
     /// [`WinitPlugin`]: https://docs.rs/bevy/latest/bevy/winit/struct.WinitPlugin.html
     /// [`ScheduleRunnerPlugin`]: https://docs.rs/bevy/latest/bevy/app/struct.ScheduleRunnerPlugin.html
     pub(crate) runner: RunnerFn,
+    /// The list of hooks to run distributing exclusive app access to outside code.
+    pub(crate) hooks: HashMap<usize, RunnerHookFn>,
+    /// The next id that will be used for a newly registered hook.
+    /// This value does not track the currently active hook amount as it is never decremented.
+    pub(crate) hook_id_count: usize,
     default_error_handler: Option<ErrorHandler>,
 }
 
@@ -151,17 +156,48 @@ impl App {
                 sub_apps: HashMap::default(),
             },
             runner: Box::new(run_once),
+            hooks: HashMap::new(),
+            hook_id_count: 0,
             default_error_handler: None,
         }
     }
 
     /// Runs the default schedules of all sub-apps (starting with the "main" app) once.
+    ///
+    /// Also runs exclusive app hooks, see also [`App::add_exclusive_hook()`]
     pub fn update(&mut self) {
         if self.is_building_plugins() {
             panic!("App::update() was called while a plugin was building.");
         }
-
+        let mut hooks = core::mem::take(&mut self.hooks);
+        for hook in hooks.values_mut() {
+            hook(self);
+        }
+        self.hooks = hooks;
         self.sub_apps.update();
+    }
+
+    /// Adds a new exclusive hook to the App
+    ///
+    /// These hooks will get called on every [`App::update()`] call, but will not get called if its updated via subapps.
+    ///
+    /// The ID returned can be later used with [`App::remove_exclusive_hook()`]
+    ///
+    /// See also [`App::update()`]
+    pub fn add_exclusive_hook(&mut self, func: impl FnMut(&mut App) + 'static) -> usize {
+        let hook_id_count = self.hook_id_count;
+        self.hook_id_count += 1;
+
+        self.hooks.insert(hook_id_count, Box::new(func));
+
+        hook_id_count
+    }
+
+    /// Removes an already existing exclusive hook from the App, returning the hook
+    ///
+    /// See also [`App::add_exclusive_hook()`] and [`App::update()`]
+    pub fn remove_exclusive_hook(&mut self, id: usize) -> Option<RunnerHookFn> {
+        self.hooks.remove(&id)
     }
 
     /// Runs the [`App`] by calling its [runner](Self::set_runner).
@@ -1451,6 +1487,7 @@ impl Plugin for HokeyPokey {
 }
 
 type RunnerFn = Box<dyn FnOnce(App) -> AppExit>;
+type RunnerHookFn = Box<dyn FnMut(&mut App)>;
 
 fn run_once(mut app: App) -> AppExit {
     while app.plugins_state() == PluginsState::Adding {
