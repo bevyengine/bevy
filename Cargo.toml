@@ -5010,8 +5010,7 @@ cargo-args = ["-Zunstable-options", "-Zrustdoc-scrape-examples"]
 rustdoc-args = [
   "-Zunstable-options",
   "--generate-link-to-definition",
-  # Embed tags to the top of documentation pages for common Bevy traits
-  # that are implemented by the current type, like `Component` or `Resource`.
+  # Embed tags to the top of documentation pages and in listings for  Bevy implementations of common Bevy traits like `Component` or `Resource`.
   # This makes it easier to see at a glance what types are used for.
   "--html-after-content",
   "docs-rs/trait-tags.html",

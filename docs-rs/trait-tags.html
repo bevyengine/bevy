@@ -5,7 +5,7 @@
     // This extension is passed to `rustdoc` using the `--html-after-content` flag.
 
     // Traits that we want to show as tags.
-    // Order determines sort order of items in listings.
+    // Order determines order sections, as well as order of tags if multiple are implemented.
     const bevyTraits = [
         'Plugin',
         'PluginGroup',
@@ -77,6 +77,12 @@
             [...implementedTraits].filter(([traitName, _]) => bevyTraits.find((x) => x == traitName))
         );
 
+        // Every `Event` also implements `Component`, but it is extremely rare
+        // to actually use events as components, so we skip the component tag for them.
+        if (implementedBevyTraits.has('Event')) {
+            implementedBevyTraits.delete('Component')
+        }
+
         return implementedBevyTraits;
     }
 
@@ -109,6 +115,125 @@
         el.className = `bevy-tag ${kebabCaseName}-tag`;
         return el;
     }
+
+    const info_node = document.getElementById("bevy-traits-data");
+
+    if (info_node) {
+        const info = JSON.parse(info_node.innerText);
+
+        // Make sure sections are in the right order
+        for (const trait of bevyTraits) {
+            findOrCreateListing(trait + "s")
+        }
+
+        for (const item of findItems()) {
+            const traits = info[itemName(item)];
+            if (!traits) {
+                continue
+            }
+            const description = item.nextSibling;
+
+            // If item implements multiple Bevy traits, it gets
+            // added to multiple listings
+            for (const trait of traits) {
+                const listing = findOrCreateListing(trait + "s");
+                listing.appendChild(item.cloneNode(true));
+                if (description && description.nodeName == "DD") {
+                    listing.appendChild(description.cloneNode(true))
+                }
+            }
+
+            item.remove()
+            if (description) {
+                description.remove()
+            }
+        }
+
+        removeEmptySections();
+    }
+
+    // Collect and sort items that may implement Bevy traits
+    function findItems() {
+        const items = [];
+        for (const kind of ['structs', 'enums', 'unions', 'functions']) {
+            // Find the listing
+            const header = document.getElementById(kind);
+            if (!header) {
+                continue
+            }
+            const listing = header.nextSibling;
+
+            for (const item of listing.children) {
+                // Only look at items, not their description
+                if (item.nodeName == "DT") {
+                    items.push(item);
+                }
+            }
+        }
+        // Sort alphabetically as they aren't in order
+        items.sort((a, b) => itemName(a).localeCompare(itemName(b)));
+        return items
+    }
+
+    // Given an item of a listing, returns its name
+    function itemName(item) {
+        let url = item.firstChild.href;
+        let name_end = url.lastIndexOf(".");
+        let name_start = url.lastIndexOf(".", name_end - 1) + 1;
+        return url.substring(name_start, name_end);
+    }
+
+    // Requires there to be a structs, enums, unions or functions listing
+    function findOrCreateListing(tagName) {
+        // Try to find the listing
+        let header = document.getElementById(kebabCase(tagName));
+        if (header) {
+            return header.nextSibling;
+        }
+
+        // Insert the new heading between Modules and Structs
+        let next_header;
+        for (const kind of ['functions', 'unions', 'enums', 'structs']) {
+            next_header = document.getElementById(kind);
+        }
+
+        // Create new listing
+        const listing = document.createElement('dl');
+        next_header.before(listing);
+        listing.className = 'item-table';
+
+        header = document.createElement('h2');
+        listing.before(header);
+        header.id = kebabCase(tagName);
+        header.className = 'section-header'
+        header.innerText = tagName;
+
+        const anchor = document.createElement('a');
+        header.appendChild(anchor);
+        anchor.className = 'anchor';
+        anchor.href = '#' + kebabCase(tagName);
+        anchor.innerText = '§';
+
+        return listing;
+    }
+
+    function kebabCase(tagName) {
+        return tagName.toLowerCase().replace(' ', '-');
+    }
+
+    function removeEmptySections() {
+        let toRemove = []
+        for (const header of document.getElementsByClassName('section-header')) {
+            const listing = header.nextSibling;
+            if (listing.nodeName == "DL" & listing.childElementCount == 0) {
+                toRemove.push(header);
+                toRemove.push(listing);
+            }
+        }
+        for (const elem of toRemove) {
+            elem.remove()
+        }
+    }
 </script>
 
 <style>
@@ -129,9 +254,6 @@
         font-size: 1rem;
         font-weight: normal;
         color: white;
-    }
-
-    .bevy-tag {
         background-color: var(--tag-color);
     }
 
