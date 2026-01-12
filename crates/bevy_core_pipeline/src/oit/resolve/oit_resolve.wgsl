@@ -12,8 +12,7 @@
 
 struct OitFragment {
     color: u32,
-    alpha: f32,
-    depth: f32,
+    depth_alpha: u32,
 }
 
 struct FullscreenVertexOutput {
@@ -60,18 +59,18 @@ fn resolve(head: u32, opaque_depth: f32) -> vec4<f32> {
     var fragment_list: array<OitFragment, SORTED_FRAGMENT_MAX_COUNT>;
     var final_color = vec4<f32>(0.0);
 
+    var packed_opaque_depth = bevy_core_pipeline::oit::pack_24bit_depth_8bit_alpha(opaque_depth, 1.0);
+
     // fill list
     var current_node = head;
     var sorted_frag_count = 0u;
     while current_node != LINKED_LIST_END_SENTINEL {
         let fragment_node = nodes[current_node];
-        // unpack alpha, depth, except color to save local memory.
-        let depth_alpha = bevy_core_pipeline::oit::unpack_24bit_depth_8bit_alpha(fragment_node.depth_alpha);
         current_node = fragment_node.next;
 
 #ifndef DEPTH_PREPASS
         // depth testing
-        if depth_alpha.x < opaque_depth {
+        if packed_depth_alpha_get_depth(fragment_node.depth_alpha) < packed_opaque_depth {
             continue;
         }
 #endif
@@ -82,49 +81,48 @@ fn resolve(head: u32, opaque_depth: f32) -> vec4<f32> {
             var i = sorted_frag_count;
             for(; i > 0; i -= 1) {
                 // short-circuit can't be used in for(;;;), https://github.com/gfx-rs/wgpu/issues/4394
-                if depth_alpha.x > fragment_list[i - 1].depth {
+                if packed_depth_alpha_get_depth(fragment_node.depth_alpha) > packed_depth_alpha_get_depth(fragment_list[i - 1].depth_alpha) {
                     fragment_list[i] = fragment_list[i - 1];
                 } else {
                     break;
                 }
             }
             fragment_list[i].color = fragment_node.color;
-            fragment_list[i].alpha = depth_alpha.y;
-            fragment_list[i].depth = depth_alpha.x;
+            fragment_list[i].depth_alpha = fragment_node.depth_alpha;
             sorted_frag_count += 1;
-        } else if fragment_list[0].depth > depth_alpha.x {
+        } else if packed_depth_alpha_get_depth(fragment_list[0].depth_alpha) > packed_depth_alpha_get_depth(fragment_node.depth_alpha) {
             // The fragment is farther than the nearest sorted one.
             // First, make room by blending the nearest fragment from the sorted list.
             // Then, insert the fragment in the sorted list.
             // This is an approximation.
             let nearest_color = bevy_pbr::rgb9e5::rgb9e5_to_vec3_(fragment_list[0].color);
-            let nearest_alpha = fragment_list[0].alpha;
+            let nearest_alpha = packed_depth_alpha_get_alpha(fragment_list[0].depth_alpha);
             final_color = blend(final_color, vec4f(nearest_color * nearest_alpha, nearest_alpha));
             var i = 0u;
             for(; i < SORTED_FRAGMENT_MAX_COUNT - 1; i += 1) {
                 // short-circuit can't be used in for(;;;), https://github.com/gfx-rs/wgpu/issues/4394
-                if depth_alpha.x < fragment_list[i + 1].depth {
+                if packed_depth_alpha_get_depth(fragment_node.depth_alpha) < packed_depth_alpha_get_depth(fragment_list[i + 1].depth_alpha) {
                     fragment_list[i] = fragment_list[i + 1];
                 } else {
                     break;
                 }
             }
             fragment_list[i].color = fragment_node.color;
-            fragment_list[i].alpha = depth_alpha.y;
-            fragment_list[i].depth = depth_alpha.x;
+            fragment_list[i].depth_alpha = fragment_node.depth_alpha;
         } else {
             // The next fragment is nearer than any of the sorted ones.
             // Blend it early.
             // This is an approximation.
             let color = bevy_pbr::rgb9e5::rgb9e5_to_vec3_(fragment_node.color);
-            final_color = blend(final_color, vec4f(color * depth_alpha.y, depth_alpha.y));
+            let alpha = packed_depth_alpha_get_alpha(fragment_node.depth_alpha);
+            final_color = blend(final_color, vec4f(color * alpha, alpha));
         }
     }
 
     // blend sorted fragments
     for (var i = 0u; i < sorted_frag_count; i += 1) {
         let color = bevy_pbr::rgb9e5::rgb9e5_to_vec3_(fragment_list[i].color);
-        let alpha = fragment_list[i].alpha;
+        let alpha = packed_depth_alpha_get_alpha(fragment_list[i].depth_alpha);
         var base_color = vec4(color.rgb * alpha, alpha);
         final_color = blend(final_color, base_color);
         if final_color.a == 1.0 {
@@ -141,4 +139,12 @@ fn blend(color_a: vec4<f32>, color_b: vec4<f32>) -> vec4<f32> {
     let final_color = color_a.rgb + (1.0 - color_a.a) * color_b.rgb;
     let alpha = color_a.a + (1.0 - color_a.a) * color_b.a;
     return vec4(final_color.rgb, alpha);
+}
+
+fn packed_depth_alpha_get_alpha(packed: u32) -> f32 {
+    return unpack_24bit_depth_8bit_alpha(packed).y;
+}
+
+fn packed_depth_alpha_get_depth(packed: u32) -> u32 {
+    return packed & 0xFFFFFFu;
 }
