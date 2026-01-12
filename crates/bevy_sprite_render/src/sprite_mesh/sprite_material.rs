@@ -30,7 +30,7 @@ impl Plugin for SpriteMaterialPlugin {
     }
 }
 
-#[derive(Asset, AsBindGroup, Reflect, Debug, Clone, Default)]
+#[derive(Asset, AsBindGroup, Reflect, Debug, Clone, Default, PartialEq)]
 #[reflect(Debug, Clone)]
 #[uniform(0, SpriteMaterialUniform)]
 pub struct SpriteMaterial {

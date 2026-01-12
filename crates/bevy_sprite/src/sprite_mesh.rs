@@ -1,20 +1,19 @@
-use bevy_asset::{AsAssetId, AssetId, Assets, Handle};
-use bevy_camera::visibility::{self, Visibility, VisibilityClass};
+use bevy_asset::{Assets, Handle};
+use bevy_camera::visibility::{Visibility, VisibilityClass};
 use bevy_color::Color;
-use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{component::Component, reflect::ReflectComponent};
 use bevy_image::{Image, TextureAtlas, TextureAtlasLayout};
 use bevy_math::{Rect, UVec2, Vec2};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_transform::components::Transform;
 
-use crate::{Anchor, SpriteImageMode, TextureSlicer};
+use crate::{Anchor, SpriteImageMode};
 
 /// This is a carbon copy of [`Sprite`](crate::sprite::Sprite) that uses the
 /// Mesh backend instead of the Sprite backend.
 ///
 /// The only API difference is the added [`alpha mode`](SpriteMesh::alpha_mode).
-#[derive(Component, Debug, Default, Clone, Reflect)]
+#[derive(Component, Debug, Default, Clone, Reflect, PartialEq)]
 #[require(Transform, Visibility, VisibilityClass, Anchor)]
 #[reflect(Component, Default, Debug, Clone)]
 pub struct SpriteMesh {
@@ -44,6 +43,14 @@ pub struct SpriteMesh {
     /// set it to `Blend` instead (significantly worse for performance).
     pub alpha_mode: SpriteAlphaMode,
 }
+
+impl std::hash::Hash for SpriteMesh {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.image.hash(state);
+    }
+}
+
+impl Eq for SpriteMesh {}
 
 // NOTE: The SpriteImageMode, SpriteScalingMode and Anchor are imported fom the sprite module.
 // No need redefining them.
