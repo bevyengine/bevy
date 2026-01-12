@@ -14,7 +14,7 @@ use core::{
     marker::PhantomData,
     mem::{self, MaybeUninit},
 };
-use variadics_please::all_tuples_enumerated;
+use variadics_please::{all_tuples_enumerated, all_tuples_with_size};
 
 /// A wrapper over a [`Bundle`] indicating that an entity should be spawned with that [`Bundle`].
 /// This is intended to be used for hierarchical spawning via traits like [`SpawnableList`] and [`SpawnRelated`].
@@ -131,6 +131,68 @@ impl<R: Relationship, I: Iterator<Item = B> + Send + Sync + 'static, B: Bundle> 
         self.0.size_hint().0
     }
 }
+
+/// A [`SpawnableList`] that combines tuples of [`SpawnableList`] allowing for inserting multiple
+/// entities per iteration.
+///
+/// ```
+/// # use bevy_ecs::hierarchy::Children;
+/// # use bevy_ecs::spawn::{Spawn, FlatSpawnVec, SpawnRelated};
+/// # use bevy_ecs::name::Name;
+/// # use bevy_ecs::world::World;
+/// let mut world = World::new();
+/// world.spawn((
+///     Name::new("Root"),
+///     Children::spawn((
+///         FlatSpawnVec([1, 2].into_iter().map(|i| (
+///             Spawn(Name::new(format!("{i}.1"))),
+///             Spawn(Name::new(format!("{i}.2"))),
+///         )).collect())
+///     )),
+/// ));
+/// ```
+pub struct FlatSpawnVec<T>(pub Vec<T>);
+
+macro_rules! flat_spawn_vec_impl {
+    ($N:expr, $(#[$meta:meta])* $(($list:ident, $alias:ident)),*) => {
+        $(#[$meta])*
+        #[expect(
+            clippy::allow_attributes,
+            reason = "This is a tuple-related macro; as such, the lints below may not always apply."
+        )]
+        impl<R: Relationship, $($list: SpawnableList<R>),*> SpawnableList<R>
+            for FlatSpawnVec<($($list,)*)>
+        {
+            #[allow(
+                non_snake_case,
+                reason = "The names of these variables are provided by the caller, not by us."
+            )]
+            fn spawn(_this: MovingPtr<'_, Self>, _world: &mut World, _entity: Entity) {
+                for ($($alias,)*) in _this.read().0 {$(
+                    move_as_ptr!($alias);
+                    SpawnableList::<R>::spawn($alias, _world, _entity);
+                )*}
+            }
+
+            #[allow(
+                non_snake_case,
+                reason = "The names of these variables are provided by the caller, not by us."
+            )]
+            fn size_hint(&self) -> usize {
+                self.0.len() * $N
+            }
+        }
+    };
+}
+
+all_tuples_with_size!(
+    #[doc(fake_variadic)]
+    flat_spawn_vec_impl,
+    0,
+    12,
+    P,
+    field_
+);
 
 /// A [`SpawnableList`] that spawns entities using a [`FnOnce`] with a [`RelatedSpawner`] as an argument:
 ///
@@ -638,7 +700,9 @@ mod tests {
         world::World,
     };
 
-    use super::{Spawn, SpawnIter, SpawnRelated, SpawnWith, WithOneRelated, WithRelated};
+    use super::{
+        FlatSpawnVec, Spawn, SpawnIter, SpawnRelated, SpawnWith, WithOneRelated, WithRelated,
+    };
 
     #[test]
     fn spawn() {
@@ -680,6 +744,39 @@ mod tests {
             .expect("An entity with Children should exist");
 
         assert_eq!(children.iter().count(), 2);
+
+        for ChildOf(child) in world.query::<&ChildOf>().iter(&world) {
+            assert_eq!(child, &parent);
+        }
+    }
+
+    #[test]
+    fn flat_spawn_vec() {
+        let mut world = World::new();
+
+        let parent = world
+            .spawn((
+                Name::new("Parent"),
+                Children::spawn(FlatSpawnVec(
+                    [1, 2]
+                        .into_iter()
+                        .map(|i| {
+                            (
+                                Spawn(Name::new(std::format!("Child {i}.1"))),
+                                Spawn(Name::new(std::format!("Child {i}.2"))),
+                            )
+                        })
+                        .collect(),
+                )),
+            ))
+            .id();
+
+        let children = world
+            .query::<&Children>()
+            .get(&world, parent)
+            .expect("An entity with Children should exist");
+
+        assert_eq!(children.iter().count(), 4);
 
         for ChildOf(child) in world.query::<&ChildOf>().iter(&world) {
             assert_eq!(child, &parent);
