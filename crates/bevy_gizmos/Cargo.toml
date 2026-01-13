@@ -1,6 +1,6 @@
 [package]
 name = "bevy_gizmos"
-version = "0.18.0-rc.2"
+version = "0.18.0"
 edition = "2024"
 description = "Provides gizmos for Bevy Engine"
 homepage = "https://bevy.org"
@@ -10,18 +10,18 @@ keywords = ["bevy"]
 
 [dependencies]
 # Bevy
-bevy_app = { path = "../bevy_app", version = "0.18.0-rc.2" }
-bevy_camera = { path = "../bevy_camera", version = "0.18.0-rc.2" }
-bevy_light = { path = "../bevy_light", version = "0.18.0-rc.2", optional = true }
-bevy_color = { path = "../bevy_color", version = "0.18.0-rc.2" }
-bevy_ecs = { path = "../bevy_ecs", version = "0.18.0-rc.2" }
-bevy_math = { path = "../bevy_math", version = "0.18.0-rc.2" }
-bevy_asset = { path = "../bevy_asset", version = "0.18.0-rc.2" }
-bevy_utils = { path = "../bevy_utils", version = "0.18.0-rc.2" }
-bevy_reflect = { path = "../bevy_reflect", version = "0.18.0-rc.2" }
-bevy_transform = { path = "../bevy_transform", version = "0.18.0-rc.2" }
-bevy_gizmos_macros = { path = "macros", version = "0.18.0-rc.2" }
-bevy_time = { path = "../bevy_time", version = "0.18.0-rc.2" }
+bevy_app = { path = "../bevy_app", version = "0.18.0" }
+bevy_camera = { path = "../bevy_camera", version = "0.18.0" }
+bevy_light = { path = "../bevy_light", version = "0.18.0", optional = true }
+bevy_color = { path = "../bevy_color", version = "0.18.0" }
+bevy_ecs = { path = "../bevy_ecs", version = "0.18.0" }
+bevy_math = { path = "../bevy_math", version = "0.18.0" }
+bevy_asset = { path = "../bevy_asset", version = "0.18.0" }
+bevy_utils = { path = "../bevy_utils", version = "0.18.0" }
+bevy_reflect = { path = "../bevy_reflect", version = "0.18.0" }
+bevy_transform = { path = "../bevy_transform", version = "0.18.0" }
+bevy_gizmos_macros = { path = "macros", version = "0.18.0" }
+bevy_time = { path = "../bevy_time", version = "0.18.0" }
 
 [lints]
 workspace = true

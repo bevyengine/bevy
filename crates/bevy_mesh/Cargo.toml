@@ -1,6 +1,6 @@
 [package]
 name = "bevy_mesh"
-version = "0.18.0-rc.2"
+version = "0.18.0"
 edition = "2024"
 description = "Provides mesh types for Bevy Engine"
 homepage = "https://bevy.org"
@@ -10,16 +10,16 @@ keywords = ["bevy"]
 
 [dependencies]
 # bevy
-bevy_app = { path = "../bevy_app", version = "0.18.0-rc.2" }
-bevy_asset = { path = "../bevy_asset", version = "0.18.0-rc.2" }
-bevy_image = { path = "../bevy_image", version = "0.18.0-rc.2", optional = true }
-bevy_math = { path = "../bevy_math", version = "0.18.0-rc.2" }
-bevy_reflect = { path = "../bevy_reflect", version = "0.18.0-rc.2" }
-bevy_ecs = { path = "../bevy_ecs", version = "0.18.0-rc.2" }
-bevy_transform = { path = "../bevy_transform", version = "0.18.0-rc.2" }
+bevy_app = { path = "../bevy_app", version = "0.18.0" }
+bevy_asset = { path = "../bevy_asset", version = "0.18.0" }
+bevy_image = { path = "../bevy_image", version = "0.18.0", optional = true }
+bevy_math = { path = "../bevy_math", version = "0.18.0" }
+bevy_reflect = { path = "../bevy_reflect", version = "0.18.0" }
+bevy_ecs = { path = "../bevy_ecs", version = "0.18.0" }
+bevy_transform = { path = "../bevy_transform", version = "0.18.0" }
 bevy_mikktspace = { version = "0.17.0-dev", optional = true }
-bevy_derive = { path = "../bevy_derive", version = "0.18.0-rc.2" }
-bevy_platform = { path = "../bevy_platform", version = "0.18.0-rc.2", default-features = false, features = [
+bevy_derive = { path = "../bevy_derive", version = "0.18.0" }
+bevy_platform = { path = "../bevy_platform", version = "0.18.0", default-features = false, features = [
   "std",
   "serialize",
 ] }

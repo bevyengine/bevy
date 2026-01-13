@@ -1,6 +1,6 @@
 [package]
 name = "bevy_audio"
-version = "0.18.0-rc.2"
+version = "0.18.0"
 edition = "2024"
 description = "Provides audio functionality for Bevy Engine"
 homepage = "https://bevy.org"
@@ -10,12 +10,12 @@ keywords = ["bevy"]
 
 [dependencies]
 # bevy
-bevy_app = { path = "../bevy_app", version = "0.18.0-rc.2" }
-bevy_asset = { path = "../bevy_asset", version = "0.18.0-rc.2" }
-bevy_ecs = { path = "../bevy_ecs", version = "0.18.0-rc.2" }
-bevy_math = { path = "../bevy_math", version = "0.18.0-rc.2" }
-bevy_reflect = { path = "../bevy_reflect", version = "0.18.0-rc.2" }
-bevy_transform = { path = "../bevy_transform", version = "0.18.0-rc.2" }
+bevy_app = { path = "../bevy_app", version = "0.18.0" }
+bevy_asset = { path = "../bevy_asset", version = "0.18.0" }
+bevy_ecs = { path = "../bevy_ecs", version = "0.18.0" }
+bevy_math = { path = "../bevy_math", version = "0.18.0" }
+bevy_reflect = { path = "../bevy_reflect", version = "0.18.0" }
+bevy_transform = { path = "../bevy_transform", version = "0.18.0" }
 
 # other
 # TODO: Remove `coreaudio-sys` dep below when updating `cpal`.
@@ -35,10 +35,10 @@ coreaudio-sys = { version = "0.2.17", default-features = false }
 rodio = { version = "0.20", default-features = false, features = [
   "wasm-bindgen",
 ] }
-bevy_app = { path = "../bevy_app", version = "0.18.0-rc.2", default-features = false, features = [
+bevy_app = { path = "../bevy_app", version = "0.18.0", default-features = false, features = [
   "web",
 ] }
-bevy_reflect = { path = "../bevy_reflect", version = "0.18.0-rc.2", default-features = false, features = [
+bevy_reflect = { path = "../bevy_reflect", version = "0.18.0", default-features = false, features = [
   "web",
 ] }
 

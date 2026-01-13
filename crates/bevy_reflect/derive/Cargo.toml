@@ -1,6 +1,6 @@
 [package]
 name = "bevy_reflect_derive"
-version = "0.18.0-rc.2"
+version = "0.18.0"
 edition = "2024"
 description = "Derive implementations for bevy_reflect"
 homepage = "https://bevy.org"
@@ -26,7 +26,7 @@ auto_register_inventory = ["auto_register"]
 auto_register_static = ["auto_register", "dep:uuid"]
 
 [dependencies]
-bevy_macro_utils = { path = "../../bevy_macro_utils", version = "0.18.0-rc.2" }
+bevy_macro_utils = { path = "../../bevy_macro_utils", version = "0.18.0" }
 indexmap = "2.0"
 proc-macro2 = "1.0"
 quote = "1.0"
