@@ -151,11 +151,15 @@ fn reset_button_after_interaction(
 
 /// Spawn pages of buttons to demonstrate automatic and manual navigation.
 ///
-/// This will create three pages of buttons. Within the rows and columns of a page,
-/// automatic navigation will be utilized. Between rows of the same page, manual
-/// navigation will connect the end of one row with the beginning of the next row. Between
-/// pages themselves, manual navigation will connect the button on the bottom right with
-/// the next page's button on the top left.
+/// This function creates three pages of buttons. All buttons have automatic navigation.
+/// Manual navigation is specified with the DirectionalNavigationMap.
+/// Page 1 has a simple grid of buttons where transitions between rows is defined using
+/// the DirectionalNavigationMap.
+/// Page 2 has a cluster of buttons to the top left and a lonely button on the bottom right.
+/// Navigation between the cluster and the lonely button is defined using the
+/// DirectionalNavigationMap.
+/// Page 3 has the same simple grid of buttons as page 1, but automatic navigation has been
+/// overridden in the vertical direction with the DirectionalNavigationMap.
 fn setup_paged_ui(
     mut commands: Commands,
     mut manual_directional_nav_map: ResMut<DirectionalNavigationMap>,
