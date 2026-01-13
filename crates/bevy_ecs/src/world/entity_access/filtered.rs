@@ -384,7 +384,9 @@ impl<'w, 's> FilteredEntityMut<'w, 's> {
     /// This is useful if you have `&mut FilteredEntityMut`, but you need `FilteredEntityMut`.
     #[inline]
     pub fn reborrow(&mut self) -> FilteredEntityMut<'_, 's> {
-        // SAFETY: We have exclusive access to the entire entity and its components.
+        // SAFETY:
+        // - We have exclusive access to the entire entity and the applicable components.
+        // - `&mut self` ensures there are no other accesses to the applicable components.
         unsafe { Self::new(self.entity, self.access) }
     }
 
@@ -393,7 +395,8 @@ impl<'w, 's> FilteredEntityMut<'w, 's> {
     #[inline]
     pub fn into_readonly(self) -> FilteredEntityRef<'w, 's> {
         // SAFETY:
-        // - `FilteredEntityMut` guarantees exclusive access to all components in the new `FilteredEntityRef`.
+        // - We have exclusive access to the entire entity and the applicable components.
+        // - Consuming `self` ensures there are no other accesses to the applicable components.
         unsafe { FilteredEntityRef::new(self.entity, self.access) }
     }
 
@@ -401,7 +404,8 @@ impl<'w, 's> FilteredEntityMut<'w, 's> {
     #[inline]
     pub fn as_readonly(&self) -> FilteredEntityRef<'_, 's> {
         // SAFETY:
-        // - `FilteredEntityMut` guarantees exclusive access to all components in the new `FilteredEntityRef`.
+        // - We have exclusive access to the entire entity and the applicable components.
+        // - `&self` ensures there are no mutable accesses to the applicable components.
         unsafe { FilteredEntityRef::new(self.entity, self.access) }
     }
 

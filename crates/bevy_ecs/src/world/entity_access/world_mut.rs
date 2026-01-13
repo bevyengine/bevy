@@ -133,7 +133,8 @@ impl<'w> EntityWorldMut<'w> {
     /// components, with the world `'w` lifetime.
     pub fn into_readonly(self) -> EntityRef<'w> {
         // SAFETY:
-        // - `EntityWorldMut` guarantees exclusive access to the entire world.
+        // - We have exclusive access to the entire world.
+        // - Consuming `self` ensures no mutable accesses are active.
         unsafe { EntityRef::new(self.into_unsafe_entity_cell()) }
     }
 
@@ -141,22 +142,26 @@ impl<'w> EntityWorldMut<'w> {
     #[inline]
     pub fn as_readonly(&self) -> EntityRef<'_> {
         // SAFETY:
-        // - `EntityWorldMut` guarantees exclusive access to the entire world.
-        // - `&entity` ensures no mutable accesses are active.
+        // - We have exclusive access to the entire world.
+        // - `&self` ensures no mutable accesses are active.
         unsafe { EntityRef::new(self.as_unsafe_entity_cell_readonly()) }
     }
 
     /// Consumes `self` and returns non-structural mutable access to all of the
     /// entity's components, with the world `'w` lifetime.
     pub fn into_mutable(self) -> EntityMut<'w> {
-        // SAFETY: `EntityWorldMut` guarantees exclusive access to the entire world.
+        // SAFETY:
+        // - We have exclusive access to the entire world.
+        // - Consuming `self` ensures there are no other accesses.
         unsafe { EntityMut::new(self.into_unsafe_entity_cell()) }
     }
 
     /// Gets non-structural mutable access to all of the entity's components.
     #[inline]
     pub fn as_mutable(&mut self) -> EntityMut<'_> {
-        // SAFETY: `EntityWorldMut` guarantees exclusive access to the entire world.
+        // SAFETY:
+        // - We have exclusive access to the entire world.
+        // - `&mut self` ensures there are no other accesses.
         unsafe { EntityMut::new(self.as_unsafe_entity_cell()) }
     }
 

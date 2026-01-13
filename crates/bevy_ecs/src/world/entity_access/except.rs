@@ -302,8 +302,9 @@ where
     /// `EntityMutExcept`.
     #[inline]
     pub fn reborrow(&mut self) -> EntityMutExcept<'_, 's, B> {
-        // SAFETY: We have exclusive access to the entire entity and the
-        // applicable components.
+        // SAFETY:
+        // - We have exclusive access to the entire entity and the applicable components.
+        // - `&mut self` ensures there are no other accesses to the applicable components.
         unsafe { Self::new(self.entity, self.access) }
     }
 
@@ -311,8 +312,9 @@ where
     /// components, except for the ones in `B`.
     #[inline]
     pub fn into_readonly(self) -> EntityRefExcept<'w, 's, B> {
-        // SAFETY: All accesses that `EntityRefExcept` provides are also
-        // accesses that `EntityMutExcept` provides.
+        // SAFETY:
+        // - We have exclusive access to the entire entity and the applicable components.
+        // - Consuming `self` ensures there are no other accesses to the applicable components.
         unsafe { EntityRefExcept::new(self.entity, self.access) }
     }
 
@@ -320,8 +322,9 @@ where
     /// ones in `B`.
     #[inline]
     pub fn as_readonly(&self) -> EntityRefExcept<'_, 's, B> {
-        // SAFETY: All accesses that `EntityRefExcept` provides are also
-        // accesses that `EntityMutExcept` provides.
+        // SAFETY:
+        // - We have exclusive access to the entire entity and the applicable components.
+        // - `&self` ensures there are no mutable accesses to the applicable components.
         unsafe { EntityRefExcept::new(self.entity, self.access) }
     }
 
@@ -332,6 +335,7 @@ where
     pub fn into_filtered(self) -> FilteredEntityMut<'w, 's> {
         // SAFETY:
         // - The FilteredEntityMut has the same component access as the given EntityMutExcept.
+        // - Consuming `self` ensures there are no other accesses to the applicable components.
         unsafe { FilteredEntityMut::new(self.entity, self.access) }
     }
 
