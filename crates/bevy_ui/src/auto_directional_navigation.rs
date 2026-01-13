@@ -134,6 +134,11 @@ pub struct AutoDirectionalNavigator<'w, 's> {
 }
 
 impl<'w, 's> AutoDirectionalNavigator<'w, 's> {
+    /// Returns the current input focus
+    pub fn input_focus(&mut self) -> Option<Entity> {
+        self.manual_directional_navigation.focus.0
+    }
+
     /// Tries to find the neighbor in a given direction from the given entity. Assumes the entity is valid.
     ///
     /// Returns a neighbor if successful.
@@ -142,7 +147,7 @@ impl<'w, 's> AutoDirectionalNavigator<'w, 's> {
         &mut self,
         direction: CompassOctant,
     ) -> Result<Entity, DirectionalNavigationError> {
-        if let Some(current_focus) = self.manual_directional_navigation.focus.0 {
+        if let Some(current_focus) = self.input_focus() {
             // Respect manual edges first
             if let Ok(new_focus) = self.manual_directional_navigation.navigate(direction) {
                 self.manual_directional_navigation.focus.set(new_focus);
