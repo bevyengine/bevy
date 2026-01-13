@@ -1,14 +1,10 @@
 //! This example demonstrates generic font families
 
-use bevy::{
-    prelude::*,
-    text::{CosmicFontSystem, FontFeatureTag, FontFeatures, Underline},
-};
+use bevy::{prelude::*, text::CosmicFontSystem};
 
 fn main() {
     let mut app = App::new();
-    app.add_plugins((DefaultPlugins))
-        .add_systems(Startup, setup);
+    app.add_plugins(DefaultPlugins).add_systems(Startup, setup);
 
     app.world_mut()
         .resource_mut::<CosmicFontSystem>()
@@ -27,27 +23,28 @@ fn setup(mut commands: Commands) {
             flex_direction: FlexDirection::Column,
             left: px(250),
             top: px(250),
+            row_gap: px(10.),
             ..Default::default()
         },
         children![
             (
-                Text::new("sans serif"),
+                Text::new("generic sans serif font"),
                 TextFont::from(FontSource::SansSerif).with_font_size(30.)
             ),
             (
-                Text::new("serif"),
+                Text::new("generic serif font"),
                 TextFont::from(FontSource::Serif).with_font_size(30.)
             ),
             (
-                Text::new("fantasy"),
+                Text::new("generic fantasy font"),
                 TextFont::from(FontSource::Fantasy).with_font_size(30.)
             ),
             (
-                Text::new("cursive"),
+                Text::new("generic cursive font"),
                 TextFont::from(FontSource::Cursive).with_font_size(30.)
             ),
             (
-                Text::new("monospace"),
+                Text::new("generic monospace font"),
                 TextFont::from(FontSource::Monospace).with_font_size(30.)
             )
         ],
