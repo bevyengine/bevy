@@ -170,6 +170,9 @@ struct ContactShadowsSettings {
     linear_steps: u32,
     thickness: f32,
     length: f32,
+#ifdef SIXTEEN_BYTE_ALIGNMENT
+    _padding: f32,
+#endif
 };
 
 struct EnvironmentMapUniform {
