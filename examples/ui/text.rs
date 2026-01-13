@@ -89,20 +89,14 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         },
         children![
             (
-                Text::new("hello sans serif"),
+                Text::new("sans serif"),
                 TextFont::from(FontSource::SansSerif)
             ),
-            (Text::new("hello serif"), TextFont::from(FontSource::Serif)),
+            (Text::new("serif"), TextFont::from(FontSource::Serif)),
+            (Text::new("fantasy"), TextFont::from(FontSource::Fantasy)),
+            (Text::new("cursive"), TextFont::from(FontSource::Cursive)),
             (
-                Text::new("hello fantasy"),
-                TextFont::from(FontSource::Fantasy)
-            ),
-            (
-                Text::new("hello cursive"),
-                TextFont::from(FontSource::Cursive)
-            ),
-            (
-                Text::new("hello monospace"),
+                Text::new("monospace"),
                 TextFont::from(FontSource::Monospace)
             )
         ],
