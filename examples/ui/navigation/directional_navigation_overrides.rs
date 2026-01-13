@@ -1,21 +1,21 @@
-//! Demonstrates a combination of automatic and manual directional navigation.
+//! Demonstrates automatic directional navigation with manual navigation overrides.
 //!
-//! This example shows how to leverage both automatic navigation and manual navigation to create
+//! This example shows how to leverage both automatic navigation and manual overrides to create
 //! a desired user navigation experience without much boilerplate code. In this example, there are
 //! multiple pages of UI Buttons that depict different scenarios in which both automatic and manual
 //! navigation are leveraged to produce a desired navigation experience.
 //!
-//! Manual navigation can also be used to define navigation in any situation where automatic
+//! Manual overrides can be used to define navigation in any situation where automatic
 //! navigation fails to create an edge due to lack of proximity. For example, when creating
-//! navigation that loops around to an opposite side, manual navigation should be used to define
+//! navigation that loops around to an opposite side, manual overrides should be used to define
 //! this behavior. If one input is too far away from the others and `AutoNavigationConfig`
-//! cannot be tweaked, manual navigation can connect that input to the others. Manual navigation
-//! can also be used to override any undesired navigation.
+//! cannot be tweaked, manual overrides can connect that input to the others. Manual navigation
+//! can also be used to override any undesired automatic navigation.
 //!
 //! The `AutoDirectionalNavigation` component is used to create basic, intuitive navigation to UI
 //! elements within a page. Manual navigation edges are added to the `DirectionalNavigationMap`
 //! to create special navigation rules. The `AutoDirectionalNavigator` system parameter navigates
-//! using manual navigation rules first and automatic navigation second.
+//! using manual navigation rules/overrides first and automatic navigation second.
 
 use core::time::Duration;
 
@@ -244,7 +244,7 @@ fn setup_paged_ui(
         Vec::with_capacity(12),
         Vec::with_capacity(12),
     ];
-    let mut text_entities = Vec::with_capacity(6);
+    let mut text_entities = Vec::with_capacity(10);
     for (page_num, page_button_entities) in pages_entities.iter_mut().enumerate() {
         if page_num == 1 {
             // the second page

@@ -5080,38 +5080,26 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
-name = "manual_navigation"
-path = "examples/ui/navigation/manual_navigation.rs"
+name = "directional_navigation"
+path = "examples/ui/navigation/directional_navigation.rs"
 # Causes an ICE on docs.rs
 doc-scrape-examples = false
 
-[package.metadata.example.manual_navigation]
-name = "Manual Directional Navigation"
-description = "Demonstration of manually-defined navigation between UI elements"
+[package.metadata.example.directional_navigation]
+name = "Directional Navigation"
+description = "Demonstration of automatic directional navigation based on UI element positions"
 category = "UI (User Interface)"
 wasm = true
 
 [[example]]
-name = "auto_navigation"
-path = "examples/ui/navigation/auto_navigation.rs"
+name = "directional_navigation_overrides"
+path = "examples/ui/navigation/directional_navigation_overrides.rs"
 # Causes an ICE on docs.rs
 doc-scrape-examples = false
 
-[package.metadata.example.auto_navigation]
-name = "Automatic Directional Navigation"
-description = "Demonstration of automatic navigation based on UI element positions"
-category = "UI (User Interface)"
-wasm = true
-
-[[example]]
-name = "combined_navigation"
-path = "examples/ui/navigation/combined_navigation.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
-
-[package.metadata.example.combined_navigation]
-name = "Combined (Automatic & Manual) Directional Navigation"
-description = "Demonstration of combining both automatic and manual directional navigation between UI elements"
+[package.metadata.example.directional_navigation_overrides]
+name = "Directional Navigation Overrides"
+description = "Demonstration of automatic directional navigation between UI elements with manual overrides"
 category = "UI (User Interface)"
 wasm = true
 

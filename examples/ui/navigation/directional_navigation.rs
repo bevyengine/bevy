@@ -1,8 +1,7 @@
-//! Demonstrates automatic directional navigation with zero configuration.
+//! Demonstrates automatic directional navigation.
 //!
-//! Unlike the `manual_navigation` example, this shows how to use automatic
-//! navigation by simply adding the `AutoDirectionalNavigation` component to UI elements.
-//! Navigation is automatically calculated based on screen positions.
+//! This shows how to use automatic navigation by simply adding the `AutoDirectionalNavigation`
+//! component to UI elements. Navigation is automatically calculated based on screen positions.
 //!
 //! This is especially useful for:
 //! - Dynamic UIs where elements may be added, removed, or repositioned
@@ -12,8 +11,8 @@
 //! The automatic system finds the nearest neighbor in each compass direction for every node,
 //! completely eliminating the need to manually specify navigation relationships.
 //!
-//! For an example that combines automatic and manual navigation, refer to the
-//! `combined_navigation` example.
+//! For an example that demonstrates automatic directional navigation with manual overrides,
+//! refer to the `directional_navigation_overrides` example.
 
 use core::time::Duration;
 
