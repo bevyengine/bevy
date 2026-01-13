@@ -63,6 +63,8 @@ pub struct ContactShadowsUniform {
     pub linear_steps: u32,
     pub thickness: f32,
     pub length: f32,
+    #[cfg(feature = "webgl")]
+    pub _padding: f32,
 }
 
 impl From<ContactShadows> for ContactShadowsUniform {
@@ -71,6 +73,8 @@ impl From<ContactShadows> for ContactShadowsUniform {
             linear_steps: settings.linear_steps,
             thickness: settings.thickness,
             length: settings.length,
+            #[cfg(feature = "webgl")]
+            _padding: 0.0,
         }
     }
 }
