@@ -390,7 +390,7 @@ fn add_raytracing_meshes_on_scene_load(
                 .insert(RaytracingMesh3d(mesh_handle.clone()));
 
             // Ensure meshes are Solari compatible
-            let mesh = meshes.get_mut(mesh_handle).unwrap();
+            let mut mesh = meshes.get_mut(mesh_handle).unwrap();
             if !mesh.contains_attribute(Mesh::ATTRIBUTE_UV_0) {
                 let vertex_count = mesh.count_vertices();
                 mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, vec![[0.0, 0.0]; vertex_count]);
@@ -413,11 +413,11 @@ fn add_raytracing_meshes_on_scene_load(
 
             // Adjust scene materials to better demo Solari features
             if material_name.map(|s| s.0.as_str()) == Some("material") {
-                let material = materials.get_mut(material_handle).unwrap();
+                let mut material = materials.get_mut(material_handle).unwrap();
                 material.emissive = LinearRgba::BLACK;
             }
             if material_name.map(|s| s.0.as_str()) == Some("Lights") {
-                let material = materials.get_mut(material_handle).unwrap();
+                let mut material = materials.get_mut(material_handle).unwrap();
                 material.emissive =
                     LinearRgba::from(Color::srgb(0.941, 0.714, 0.043)) * 1_000_000.0;
                 material.alpha_mode = AlphaMode::Opaque;
@@ -426,7 +426,7 @@ fn add_raytracing_meshes_on_scene_load(
                 commands.insert_resource(RobotLightMaterial(material_handle.clone()));
             }
             if material_name.map(|s| s.0.as_str()) == Some("Glass_Dark_01") {
-                let material = materials.get_mut(material_handle).unwrap();
+                let mut material = materials.get_mut(material_handle).unwrap();
                 material.alpha_mode = AlphaMode::Opaque;
                 material.specular_transmission = 0.0;
             }
@@ -473,7 +473,7 @@ fn toggle_lights(
     if key_input.just_pressed(KeyCode::Digit2)
         && let Some(robot_light_material) = robot_light_material
     {
-        let material = materials.get_mut(&robot_light_material.0).unwrap();
+        let mut material = materials.get_mut(&robot_light_material.0).unwrap();
         if material.emissive == LinearRgba::BLACK {
             material.emissive = LinearRgba::from(Color::srgb(0.941, 0.714, 0.043)) * 1_000_000.0;
         } else {

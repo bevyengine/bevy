@@ -94,10 +94,11 @@ impl FontAtlas {
             .get_mut(&self.texture)
             .ok_or(TextError::MissingAtlasTexture)?;
 
-        if let Ok(glyph_index) =
-            self.dynamic_texture_atlas_builder
-                .add_texture(&mut atlas_layout, texture, &mut atlas_texture)
-        {
+        if let Ok(glyph_index) = self.dynamic_texture_atlas_builder.add_texture(
+            &mut atlas_layout,
+            texture,
+            &mut atlas_texture,
+        ) {
             self.glyph_to_atlas_index.insert(
                 cache_key,
                 GlyphAtlasLocation {

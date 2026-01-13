@@ -8,10 +8,10 @@ use bevy_ecs::{
 };
 use bevy_platform::collections::HashMap;
 use bevy_reflect::{Reflect, TypePath};
+use core::ops::{Deref, DerefMut};
 use core::{any::TypeId, iter::Enumerate, marker::PhantomData, sync::atomic::AtomicU32};
 use crossbeam_channel::{Receiver, Sender};
 use serde::{Deserialize, Serialize};
-use std::ops::{Deref, DerefMut};
 use thiserror::Error;
 use uuid::Uuid;
 
@@ -625,7 +625,7 @@ impl<A: Asset> Assets<A> {
 
 /// Unique mutable borrow of an asset.
 ///
-/// [AssetEvent::Modified] events will be only triggered if an asset itself is mutably borrowed.
+/// [`AssetEvent::Modified`] events will be only triggered if an asset itself is mutably borrowed.
 ///
 /// Just as an example, this allows checking if a material property has changed
 /// before modifying it to avoid unnecessary material extraction down the pipeline.
@@ -662,7 +662,7 @@ impl<'a, A: Asset> DerefMut for AssetMut<'a, A> {
     }
 }
 
-/// Helper struct to allow safe destructuring of the [AssetMut::into_inner]
+/// Helper struct to allow safe destructuring of the [`AssetMut::into_inner`]
 /// while also keeping strong change tracking guarantees.
 struct AssetMutChangeNotifier<'a, A: Asset> {
     changed: bool,
@@ -803,7 +803,7 @@ mod test {
 
             let mut state = app.world_mut().resource_mut::<TestState>();
             assert_eq!(
-                std::mem::take(&mut state.asset_modified_counter),
+                core::mem::take(&mut state.asset_modified_counter),
                 1,
                 "Asset value was changed but AssetEvent::Modified was not triggered",
             );
@@ -812,7 +812,7 @@ mod test {
 
             let mut state = app.world_mut().resource_mut::<TestState>();
             assert_eq!(
-                std::mem::take(&mut state.asset_modified_counter),
+                core::mem::take(&mut state.asset_modified_counter),
                 0,
                 "Asset value was not changed but AssetEvent::Modified was triggered",
             );

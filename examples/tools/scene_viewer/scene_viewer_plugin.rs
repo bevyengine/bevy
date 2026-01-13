@@ -112,7 +112,7 @@ fn scene_load_check(
                                 scene_handle.scene_index
                             )
                         });
-                let scene = scenes.get_mut(gltf_scene_handle).unwrap();
+                let mut scene = scenes.get_mut(gltf_scene_handle).unwrap();
 
                 let mut query = scene
                     .world
