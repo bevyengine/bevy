@@ -132,7 +132,7 @@ fn setup_scattered_ui(mut commands: Commands, mut input_focus: ResMut<InputFocus
     let instructions = commands
         .spawn((
             Text::new(
-                "Automatic Navigation Demo\n\n\
+                "Directional Navigation Demo\n\n\
                  Use arrow keys or D-pad to navigate.\n\
                  Press Enter or A button to interact.\n\n\
                  Buttons are scattered irregularly,\n\

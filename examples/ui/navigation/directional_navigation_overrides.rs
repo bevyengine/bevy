@@ -180,7 +180,7 @@ fn setup_paged_ui(
     let instructions = commands
         .spawn((
             Text::new(
-                "Combined Navigation Demo\n\n\
+                "Directional Navigation Overrides Demo\n\n\
                  Use arrow keys or D-pad to navigate.\n\
                  Press Enter or A button to interact.\n\n\
                  Navigation on each page is a combination of \
