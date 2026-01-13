@@ -6,7 +6,7 @@
 use crate::{ComputedNode, ComputedUiTargetCamera, UiGlobalTransform};
 use bevy_camera::visibility::InheritedVisibility;
 use bevy_ecs::{prelude::*, system::SystemParam};
-use bevy_math::CompassOctant;
+use bevy_math::{ops, CompassOctant, Vec2};
 
 use bevy_input_focus::{
     directional_navigation::{
@@ -134,6 +134,11 @@ pub struct AutoDirectionalNavigator<'w, 's> {
 }
 
 impl<'w, 's> AutoDirectionalNavigator<'w, 's> {
+    /// Returns the current input focus
+    pub fn input_focus(&mut self) -> Option<Entity> {
+        self.manual_directional_navigation.focus.0
+    }
+
     /// Tries to find the neighbor in a given direction from the given entity. Assumes the entity is valid.
     ///
     /// Returns a neighbor if successful.
@@ -142,7 +147,7 @@ impl<'w, 's> AutoDirectionalNavigator<'w, 's> {
         &mut self,
         direction: CompassOctant,
     ) -> Result<Entity, DirectionalNavigationError> {
-        if let Some(current_focus) = self.manual_directional_navigation.focus.0 {
+        if let Some(current_focus) = self.input_focus() {
             // Respect manual edges first
             if let Ok(new_focus) = self.manual_directional_navigation.navigate(direction) {
                 self.manual_directional_navigation.focus.set(new_focus);
@@ -184,12 +189,13 @@ impl<'w, 's> AutoDirectionalNavigator<'w, 's> {
                     if let Some(tc) = computed_target_camera.get()
                         && tc == target_camera
                     {
-                        let (_scale, _rotation, translation) =
-                            transform.to_scale_angle_translation();
+                        let (scale, rotation, translation) = transform.to_scale_angle_translation();
+                        let scaled_size = computed.size() * computed.inverse_scale_factor() * scale;
+                        let rotated_size = get_rotated_bounds(scaled_size, rotation);
                         Some(FocusableArea {
                             entity,
                             position: translation * computed.inverse_scale_factor(),
-                            size: computed.size() * computed.inverse_scale_factor(),
+                            size: rotated_size,
                         })
                     } else {
                         // The node either does not have a target camera or it is not the same as the desired one.
@@ -212,13 +218,15 @@ impl<'w, 's> AutoDirectionalNavigator<'w, 's> {
             None,
             |(entity, computed_target_camera, computed, transform)| {
                 if let Some(target_camera) = computed_target_camera.get() {
-                    let (_scale, _rotation, translation) = transform.to_scale_angle_translation();
+                    let (scale, rotation, translation) = transform.to_scale_angle_translation();
+                    let scaled_size = computed.size() * computed.inverse_scale_factor() * scale;
+                    let rotated_size = get_rotated_bounds(scaled_size, rotation);
                     Some((
                         target_camera,
                         FocusableArea {
                             entity,
                             position: translation * computed.inverse_scale_factor(),
-                            size: computed.size() * computed.inverse_scale_factor(),
+                            size: rotated_size,
                         },
                     ))
                 } else {
@@ -227,4 +235,16 @@ impl<'w, 's> AutoDirectionalNavigator<'w, 's> {
             },
         )
     }
+}
+
+fn get_rotated_bounds(size: Vec2, rotation: f32) -> Vec2 {
+    if rotation == 0.0 {
+        return size;
+    }
+    let cos_r = ops::cos(rotation).abs();
+    let sin_r = ops::sin(rotation).abs();
+    Vec2::new(
+        size.x * cos_r + size.y * sin_r,
+        size.x * sin_r + size.y * cos_r,
+    )
 }
