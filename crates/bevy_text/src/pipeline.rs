@@ -35,7 +35,7 @@ impl Default for CosmicFontSystem {
 }
 
 impl CosmicFontSystem {
-    /// get information about a font face
+    /// Get information about a font face, if it exists
     pub fn get_face_details(&self, id: cosmic_text::fontdb::ID) -> Option<FontFaceDetails> {
         self.0.db().face(id).map(FontFaceDetails::from)
     }
