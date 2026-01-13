@@ -14,7 +14,6 @@ pub mod graph {
 
     #[derive(Debug, Hash, PartialEq, Eq, Clone, RenderLabel)]
     pub enum Node3d {
-        MsaaWriteback,
         EarlyPrepass,
         EarlyDownsampleDepth,
         LatePrepass,
@@ -829,21 +828,20 @@ pub fn prepare_core_3d_depth_textures(
 
     let mut textures = <HashMap<_, _>>::default();
     for (entity, camera, _, _, camera_3d, msaa) in &views_3d {
-        let Some(physical_target_size) = camera.physical_target_size else {
+        let Some(physical_viewport_size) = camera.physical_viewport_size else {
             continue;
         };
+        let usage = *render_target_usage
+            .get(&camera.target.clone())
+            .expect("The depth texture usage should already exist for this target");
 
         let cached_texture = textures
-            .entry((camera.target.clone(), msaa))
+            .entry((camera.target.clone(), physical_viewport_size, usage, msaa))
             .or_insert_with(|| {
-                let usage = *render_target_usage
-                    .get(&camera.target.clone())
-                    .expect("The depth texture usage should already exist for this target");
-
                 let descriptor = TextureDescriptor {
                     label: Some("view_depth_texture"),
                     // The size of the depth texture
-                    size: physical_target_size.to_extents(),
+                    size: physical_viewport_size.to_extents(),
                     mip_level_count: 1,
                     sample_count: msaa.samples(),
                     dimension: TextureDimension::D2,
@@ -897,7 +895,7 @@ pub fn prepare_core_3d_transmission_textures(
             continue;
         };
 
-        let Some(physical_target_size) = camera.physical_target_size else {
+        let Some(physical_viewport_size) = camera.physical_viewport_size else {
             continue;
         };
 
@@ -925,7 +923,7 @@ pub fn prepare_core_3d_transmission_textures(
                 let descriptor = TextureDescriptor {
                     label: Some("view_transmission_texture"),
                     // The size of the transmission texture
-                    size: physical_target_size.to_extents(),
+                    size: physical_viewport_size.to_extents(),
                     mip_level_count: 1,
                     sample_count: 1, // No need for MSAA, as we'll only copy the main texture here
                     dimension: TextureDimension::D2,
@@ -1039,11 +1037,11 @@ pub fn prepare_prepass_textures(
             continue;
         };
 
-        let Some(physical_target_size) = camera.physical_target_size else {
+        let Some(physical_viewport_size) = camera.physical_viewport_size else {
             continue;
         };
 
-        let size = physical_target_size.to_extents();
+        let size = physical_viewport_size.to_extents();
 
         let cached_depth_texture1 = depth_prepass.then(|| {
             depth_textures1

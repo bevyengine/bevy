@@ -1,7 +1,6 @@
 use bevy_camera::{MainPassResolutionOverride, Viewport};
 use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_render::{
-    camera::ExtractedCamera,
     diagnostic::RecordDiagnostics,
     render_graph::{NodeRunError, RenderGraphContext, RenderLabel, ViewNode},
     render_resource::{BindGroupEntries, PipelineCache, RenderPassDescriptor},
@@ -20,7 +19,6 @@ pub struct OitResolvePass;
 pub struct OitResolveNode;
 impl ViewNode for OitResolveNode {
     type ViewQuery = (
-        &'static ExtractedCamera,
         &'static ViewTarget,
         &'static ViewUniformOffset,
         &'static OitResolvePipelineId,
@@ -32,7 +30,7 @@ impl ViewNode for OitResolveNode {
         &self,
         _graph: &mut RenderGraphContext,
         render_context: &mut RenderContext,
-        (camera, view_target, view_uniform, oit_resolve_pipeline_id, depth, resolution_override): QueryItem<
+        (view_target, view_uniform, oit_resolve_pipeline_id, depth, resolution_override): QueryItem<
             Self::ViewQuery,
         >,
         world: &World,
@@ -70,7 +68,7 @@ impl ViewNode for OitResolveNode {
             let pass_span = diagnostics.pass_span(&mut render_pass, "oit_resolve");
 
             if let Some(viewport) =
-                Viewport::from_viewport_and_override(camera.viewport.as_ref(), resolution_override)
+                Viewport::from_main_pass_resolution_override(resolution_override)
             {
                 render_pass.set_camera_viewport(&viewport);
             }

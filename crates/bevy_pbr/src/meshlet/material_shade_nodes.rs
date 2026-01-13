@@ -20,7 +20,6 @@ use bevy_ecs::{
     world::World,
 };
 use bevy_render::{
-    camera::ExtractedCamera,
     diagnostic::RecordDiagnostics,
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
     render_resource::{
@@ -36,7 +35,6 @@ use bevy_render::{
 pub struct MeshletMainOpaquePass3dNode;
 impl ViewNode for MeshletMainOpaquePass3dNode {
     type ViewQuery = (
-        &'static ExtractedCamera,
         &'static ViewTarget,
         &'static MeshViewBindGroup,
         &'static ViewUniformOffset,
@@ -56,7 +54,6 @@ impl ViewNode for MeshletMainOpaquePass3dNode {
         _graph: &mut RenderGraphContext,
         render_context: &mut RenderContext,
         (
-            camera,
             target,
             mesh_view_bind_group,
             view_uniform_offset,
@@ -108,9 +105,8 @@ impl ViewNode for MeshletMainOpaquePass3dNode {
             occlusion_query_set: None,
         });
         let pass_span = diagnostics.pass_span(&mut render_pass, "meshlet_material_opaque_3d_pass");
-        if let Some(viewport) =
-            Viewport::from_viewport_and_override(camera.viewport.as_ref(), resolution_override)
-        {
+
+        if let Some(viewport) = Viewport::from_main_pass_resolution_override(resolution_override) {
             render_pass.set_camera_viewport(&viewport);
         }
 
@@ -155,7 +151,6 @@ impl ViewNode for MeshletMainOpaquePass3dNode {
 pub struct MeshletPrepassNode;
 impl ViewNode for MeshletPrepassNode {
     type ViewQuery = (
-        &'static ExtractedCamera,
         &'static ViewPrepassTextures,
         &'static ViewUniformOffset,
         &'static PreviousViewUniformOffset,
@@ -171,7 +166,6 @@ impl ViewNode for MeshletPrepassNode {
         _graph: &mut RenderGraphContext,
         render_context: &mut RenderContext,
         (
-            camera,
             view_prepass_textures,
             view_uniform_offset,
             previous_view_uniform_offset,
@@ -235,9 +229,8 @@ impl ViewNode for MeshletPrepassNode {
             occlusion_query_set: None,
         });
         let pass_span = diagnostics.pass_span(&mut render_pass, "meshlet_material_prepass");
-        if let Some(viewport) =
-            Viewport::from_viewport_and_override(camera.viewport.as_ref(), resolution_override)
-        {
+
+        if let Some(viewport) = Viewport::from_main_pass_resolution_override(resolution_override) {
             render_pass.set_camera_viewport(&viewport);
         }
 
@@ -287,7 +280,6 @@ impl ViewNode for MeshletPrepassNode {
 pub struct MeshletDeferredGBufferPrepassNode;
 impl ViewNode for MeshletDeferredGBufferPrepassNode {
     type ViewQuery = (
-        &'static ExtractedCamera,
         &'static ViewPrepassTextures,
         &'static ViewUniformOffset,
         &'static PreviousViewUniformOffset,
@@ -303,7 +295,6 @@ impl ViewNode for MeshletDeferredGBufferPrepassNode {
         _graph: &mut RenderGraphContext,
         render_context: &mut RenderContext,
         (
-            camera,
             view_prepass_textures,
             view_uniform_offset,
             previous_view_uniform_offset,
@@ -373,9 +364,8 @@ impl ViewNode for MeshletDeferredGBufferPrepassNode {
         });
         let pass_span =
             diagnostics.pass_span(&mut render_pass, "meshlet_material_deferred_prepass");
-        if let Some(viewport) =
-            Viewport::from_viewport_and_override(camera.viewport.as_ref(), resolution_override)
-        {
+
+        if let Some(viewport) = Viewport::from_main_pass_resolution_override(resolution_override) {
             render_pass.set_camera_viewport(&viewport);
         }
 

@@ -19,9 +19,10 @@ use bevy_asset::{AssetEvent, AssetEventSystems, AssetId, Assets};
 use bevy_camera::{
     primitives::Frustum,
     visibility::{self, RenderLayers, VisibleEntities},
-    Camera, Camera2d, Camera3d, CameraMainTextureUsages, CameraOutputMode, CameraUpdateSystems,
-    ClearColor, ClearColorConfig, Exposure, ManualTextureViewHandle, MsaaWriteback,
-    NormalizedRenderTarget, Projection, RenderTarget, RenderTargetInfo, Viewport,
+    Camera, Camera2d, Camera3d, CameraMainTextureSizeConfig, CameraMainTextureUsages,
+    CameraOutputMode, CameraUpdateSystems, ClearColor, ClearColorConfig, Exposure,
+    ManualTextureViewHandle, NormalizedRenderTarget, Projection, RenderTarget, RenderTargetInfo,
+    Viewport,
 };
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
@@ -40,7 +41,7 @@ use bevy_ecs::{
     world::DeferredWorld,
 };
 use bevy_image::Image;
-use bevy_math::{uvec2, vec2, Mat4, URect, UVec2, UVec4, Vec2};
+use bevy_math::{uvec2, vec2, Mat4, UVec2, UVec4, Vec2};
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_reflect::prelude::*;
 use bevy_transform::components::GlobalTransform;
@@ -404,12 +405,10 @@ pub fn camera_system(
 pub struct ExtractedCamera {
     pub target: Option<NormalizedRenderTarget>,
     pub physical_viewport_size: Option<UVec2>,
-    pub physical_target_size: Option<UVec2>,
     pub viewport: Option<Viewport>,
     pub render_graph: InternedRenderSubGraph,
     pub order: isize,
     pub output_mode: CameraOutputMode,
-    pub msaa_writeback: MsaaWriteback,
     pub clear_color: ClearColorConfig,
     pub sorted_camera_index_for_target: usize,
     pub exposure: f32,
@@ -423,6 +422,7 @@ pub fn extract_cameras(
             Entity,
             RenderEntity,
             &Camera,
+            &CameraMainTextureSizeConfig,
             &RenderTarget,
             &CameraRenderGraph,
             &GlobalTransform,
@@ -460,6 +460,7 @@ pub fn extract_cameras(
         main_entity,
         render_entity,
         camera,
+        main_texture_size_config,
         render_target,
         camera_render_graph,
         transform,
@@ -486,15 +487,7 @@ pub fn extract_cameras(
 
         let color_grading = color_grading.unwrap_or(&ColorGrading::default()).clone();
 
-        if let (
-            Some(URect {
-                min: viewport_origin,
-                ..
-            }),
-            Some(viewport_size),
-            Some(target_size),
-        ) = (
-            camera.physical_viewport_rect(),
+        if let (Some(viewport_size), Some(target_size)) = (
             camera.physical_viewport_size(),
             camera.physical_target_size(),
         ) {
@@ -527,16 +520,16 @@ pub fn extract_cameras(
             };
 
             let mut commands = commands.entity(render_entity);
+            let scaled_viewport_size = main_texture_size_config.apply_size(viewport_size);
+
             commands.insert((
                 ExtractedCamera {
                     target: render_target.normalize(primary_window),
                     viewport: camera.viewport.clone(),
-                    physical_viewport_size: Some(viewport_size),
-                    physical_target_size: Some(target_size),
+                    physical_viewport_size: Some(scaled_viewport_size),
                     render_graph: camera_render_graph.0,
                     order: camera.order,
                     output_mode: camera.output_mode,
-                    msaa_writeback: camera.msaa_writeback,
                     clear_color: camera.clear_color,
                     // this will be set in sort_cameras
                     sorted_camera_index_for_target: 0,
@@ -551,12 +544,7 @@ pub fn extract_cameras(
                     world_from_view: *transform,
                     clip_from_world: None,
                     hdr,
-                    viewport: UVec4::new(
-                        viewport_origin.x,
-                        viewport_origin.y,
-                        viewport_size.x,
-                        viewport_size.y,
-                    ),
+                    viewport: UVec4::new(0, 0, scaled_viewport_size.x, scaled_viewport_size.y),
                     color_grading,
                     invert_culling: camera.invert_culling,
                 },

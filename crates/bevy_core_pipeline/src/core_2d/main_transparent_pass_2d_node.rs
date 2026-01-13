@@ -1,7 +1,6 @@
 use crate::core_2d::Transparent2d;
 use bevy_ecs::prelude::*;
 use bevy_render::{
-    camera::ExtractedCamera,
     diagnostic::RecordDiagnostics,
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
     render_phase::{TrackedRenderPass, ViewSortedRenderPhases},
@@ -18,7 +17,6 @@ pub struct MainTransparentPass2dNode {}
 
 impl ViewNode for MainTransparentPass2dNode {
     type ViewQuery = (
-        &'static ExtractedCamera,
         &'static ExtractedView,
         &'static ViewTarget,
         &'static ViewDepthTexture,
@@ -28,7 +26,7 @@ impl ViewNode for MainTransparentPass2dNode {
         &self,
         graph: &mut RenderGraphContext,
         render_context: &mut RenderContext<'w>,
-        (camera, view, target, depth): bevy_ecs::query::QueryItem<'w, '_, Self::ViewQuery>,
+        (view, target, depth): bevy_ecs::query::QueryItem<'w, '_, Self::ViewQuery>,
         world: &'w World,
     ) -> Result<(), NodeRunError> {
         let Some(transparent_phases) =
@@ -75,10 +73,6 @@ impl ViewNode for MainTransparentPass2dNode {
                 let mut render_pass = TrackedRenderPass::new(&render_device, render_pass);
 
                 let pass_span = diagnostics.pass_span(&mut render_pass, "main_transparent_pass_2d");
-
-                if let Some(viewport) = camera.viewport.as_ref() {
-                    render_pass.set_camera_viewport(viewport);
-                }
 
                 if !transparent_phase.items.is_empty() {
                     #[cfg(feature = "trace")]

@@ -9,7 +9,6 @@ use bevy_ecs::{
 };
 use bevy_math::FloatOrd;
 use bevy_render::{
-    camera::ExtractedCamera,
     diagnostic::RecordDiagnostics,
     render_graph::*,
     render_phase::*,
@@ -22,7 +21,7 @@ use tracing::error;
 
 pub struct UiPassNode {
     ui_view_query: QueryState<(&'static ExtractedView, &'static UiViewTarget)>,
-    ui_view_target_query: QueryState<(&'static ViewTarget, &'static ExtractedCamera)>,
+    ui_view_target_query: QueryState<&'static ViewTarget>,
     ui_camera_view_query: QueryState<&'static UiCameraView>,
 }
 
@@ -64,7 +63,7 @@ impl Node for UiPassNode {
             return Ok(());
         };
 
-        let Ok((target, camera)) = self
+        let Ok(target) = self
             .ui_view_target_query
             .get_manual(world, ui_view_target.0)
         else {
@@ -100,9 +99,6 @@ impl Node for UiPassNode {
         });
         let pass_span = diagnostics.pass_span(&mut render_pass, "ui");
 
-        if let Some(viewport) = camera.viewport.as_ref() {
-            render_pass.set_camera_viewport(viewport);
-        }
         if let Err(err) = transparent_phase.render(&mut render_pass, world, view_entity) {
             error!("Error encountered while rendering the ui phase {err:?}");
         }

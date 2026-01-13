@@ -93,7 +93,14 @@ impl ViewNode for UpscalingNode {
         {
             let size = viewport.physical_size;
             let position = viewport.physical_position;
-            render_pass.set_scissor_rect(position.x, position.y, size.x, size.y);
+            render_pass.set_viewport(
+                position.x as f32,
+                position.y as f32,
+                size.x as f32,
+                size.y as f32,
+                viewport.depth.start,
+                viewport.depth.end,
+            );
         }
 
         render_pass.set_pipeline(pipeline);

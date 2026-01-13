@@ -236,7 +236,7 @@ pub fn prepare_oit_buffers(
     let mut max_layer_ids_size = usize::MIN;
     let mut max_layers_size = usize::MIN;
     for (camera, settings) in &cameras {
-        let Some(size) = camera.physical_target_size else {
+        let Some(size) = camera.physical_viewport_size else {
             continue;
         };
 

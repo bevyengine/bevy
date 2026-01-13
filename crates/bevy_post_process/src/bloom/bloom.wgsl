@@ -8,9 +8,7 @@
 
 struct BloomUniforms {
     threshold_precomputations: vec4<f32>,
-    viewport: vec4<f32>,
     scale: vec2<f32>,
-    aspect: f32,
 };
 
 @group(0) @binding(0) var input_texture: texture_2d<f32>;
@@ -160,8 +158,7 @@ fn sample_input_3x3_tent(uv: vec2<f32>) -> vec3<f32> {
 #ifdef FIRST_DOWNSAMPLE
 @fragment
 fn downsample_first(@location(0) output_uv: vec2<f32>) -> @location(0) vec4<f32> {
-    let sample_uv = uniforms.viewport.xy + output_uv * uniforms.viewport.zw;
-    var sample = sample_input_13_tap(sample_uv);
+    var sample = sample_input_13_tap(output_uv);
     // Lower bound of 0.0001 is to avoid propagating multiplying by 0.0 through the
     // downscaling and upscaling which would result in black boxes.
     // The upper bound is to prevent NaNs.
