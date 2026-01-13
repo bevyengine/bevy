@@ -16,33 +16,6 @@ use tracing::error;
 #[cfg(feature = "trace")]
 use tracing::info_span;
 
-/// Splits a [`Range`] into at most `max_num_splits` sub-ranges without overlaps
-///
-/// Properly takes into account remainders of inexact divisions (by adding extra
-/// elements to the initial sub-ranges as needed)
-fn split_range(range: Range<usize>, max_num_splits: usize) -> impl Iterator<Item = Range<usize>> {
-    let len = range.end - range.start;
-    assert!(len > 0, "to be split, a range must not be empty");
-    assert!(max_num_splits > 0, "max_num_splits must be at least 1");
-    let num_splits = max_num_splits.min(len);
-    let step = len / num_splits;
-    let mut rem = len % num_splits;
-    let mut start = range.start;
-
-    (0..num_splits).map(move |_| {
-        let extra = if rem > 0 {
-            rem -= 1;
-            1
-        } else {
-            0
-        };
-        let end = (start + step + extra).min(range.end);
-        let result = start..end;
-        start = end;
-        result
-    })
-}
-
 pub fn main_transmissive_pass_3d(
     world: &World,
     view: ViewQuery<(
@@ -138,4 +111,31 @@ pub fn main_transmissive_pass_3d(
             pass_span.end(&mut render_pass);
         }
     }
+}
+
+/// Splits a [`Range`] into at most `max_num_splits` sub-ranges without overlaps
+///
+/// Properly takes into account remainders of inexact divisions (by adding extra
+/// elements to the initial sub-ranges as needed)
+fn split_range(range: Range<usize>, max_num_splits: usize) -> impl Iterator<Item = Range<usize>> {
+    let len = range.end - range.start;
+    assert!(len > 0, "to be split, a range must not be empty");
+    assert!(max_num_splits > 0, "max_num_splits must be at least 1");
+    let num_splits = max_num_splits.min(len);
+    let step = len / num_splits;
+    let mut rem = len % num_splits;
+    let mut start = range.start;
+
+    (0..num_splits).map(move |_| {
+        let extra = if rem > 0 {
+            rem -= 1;
+            1
+        } else {
+            0
+        };
+        let end = (start + step + extra).min(range.end);
+        let result = start..end;
+        start = end;
+        result
+    })
 }

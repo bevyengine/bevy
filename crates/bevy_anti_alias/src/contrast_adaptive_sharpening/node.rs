@@ -52,7 +52,7 @@ pub(crate) fn cas(
         cached => {
             let bind_group = ctx.render_device().create_bind_group(
                 "cas_bind_group",
-                &pipeline_cache.get_bind_group_layout(&sharpening_pipeline.texture_bind_group),
+                &pipeline_cache.get_bind_group_layout(&sharpening_pipeline.layout),
                 &BindGroupEntries::sequential((
                     view_target.source,
                     &sharpening_pipeline.sampler,

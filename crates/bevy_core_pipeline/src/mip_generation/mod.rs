@@ -46,7 +46,6 @@ use bevy_render::{
     RenderStartup,
 };
 use bevy_render::{
-    render_graph::{Node, NodeRunError, RenderGraphContext},
     render_resource::{
         binding_types::{sampler, texture_2d, texture_storage_2d},
         BindGroup, BindGroupEntries, BindGroupLayoutEntries, CachedComputePipelineId,
@@ -371,122 +370,108 @@ impl FromWorld for MipGenerationResources {
     }
 }
 
-/// A [`Node`] for use in the render graph that generates mipmaps for a single
-/// [`MipGenerationPhaseId`].
+/// Generates mipmaps for all images in a [`MipGenerationPhaseId`].
 ///
-/// In order to execute a job in [`MipGenerationJobs`], a [`MipGenerationNode`]
-/// for the phase that the job belongs to must be added to the
-/// [`bevy_render::render_graph::RenderGraph`]. The phased nature of mipmap
-/// generation allows precise control over the time when mipmaps are generated
-/// for each image. Your application should use
-/// [`bevy_render::render_graph::RenderGraph::add_node_edge`] to order each
-/// [`MipGenerationNode`] relative to other systems so that the mipmaps will be
-/// generated after any passes that *write* to the images in question but before
-/// any shaders that *read* from those images execute.
+/// This function should be called from within a render system to generate
+/// mipmaps for all images that have been enqueued for the specified phase.
+/// The phased nature of mipmap generation allows precise control over the time
+/// when mipmaps are generated for each image. Your system should be ordered
+/// so that the mipmaps will be generated after any passes that *write* to the
+/// images in question but before any shaders that *read* from those images
+/// execute.
 ///
 /// See `dynamic_mip_generation` for an example of use.
-#[derive(Deref, DerefMut)]
-pub struct MipGenerationNode(pub MipGenerationPhaseId);
+pub fn generate_mips_for_phase(
+    phase_id: MipGenerationPhaseId,
+    mip_generation_jobs: &MipGenerationJobs,
+    pipeline_cache: &PipelineCache,
+    mip_generation_bind_groups: &MipGenerationPipelines,
+    gpu_images: &RenderAssets<GpuImage>,
+    ctx: &mut RenderContext,
+) {
+    let Some(mip_generation_phase) = mip_generation_jobs.get(&phase_id) else {
+        return;
+    };
+    if mip_generation_phase.is_empty() {
+        // Quickly bail out if there's nothing to do.
+        return;
+    }
 
-impl Node for MipGenerationNode {
-    fn run<'w>(
-        &self,
-        _: &mut RenderGraphContext,
-        render_context: &mut RenderContext<'w>,
-        world: &'w World,
-    ) -> Result<(), NodeRunError> {
-        let mip_generation_jobs = world.resource::<MipGenerationJobs>();
-        let Some(mip_generation_phase) = mip_generation_jobs.get(&self.0) else {
-            return Ok(());
+    let diagnostics = ctx.diagnostic_recorder();
+    let diagnostics = diagnostics.as_deref();
+
+    for mip_generation_job in mip_generation_phase.iter() {
+        let Some(gpu_image) = gpu_images.get(*mip_generation_job) else {
+            continue;
         };
-        if mip_generation_phase.is_empty() {
-            // Quickly bail out if there's nothing to do.
-            return Ok(());
+        let Some(mip_generation_job_bind_groups) = mip_generation_bind_groups
+            .bind_groups
+            .get(mip_generation_job)
+        else {
+            continue;
+        };
+        let Some(mip_generation_pipelines) = mip_generation_bind_groups
+            .pipelines
+            .get(&gpu_image.texture_format)
+        else {
+            continue;
+        };
+
+        // Fetch the mip generation pipelines.
+        let (Some(mip_generation_pipeline_pass_1), Some(mip_generation_pipeline_pass_2)) = (
+            pipeline_cache
+                .get_compute_pipeline(mip_generation_pipelines.downsampling_pipeline_pass_1),
+            pipeline_cache
+                .get_compute_pipeline(mip_generation_pipelines.downsampling_pipeline_pass_2),
+        ) else {
+            continue;
+        };
+
+        // Perform the first downsampling pass.
+        {
+            let mut compute_pass_1 =
+                ctx.command_encoder()
+                    .begin_compute_pass(&ComputePassDescriptor {
+                        label: Some("mip generation pass 1"),
+                        timestamp_writes: None,
+                    });
+            let pass_span = diagnostics.pass_span(&mut compute_pass_1, "mip generation pass 1");
+            compute_pass_1.set_pipeline(mip_generation_pipeline_pass_1);
+            compute_pass_1.set_bind_group(
+                0,
+                &mip_generation_job_bind_groups.downsampling_bind_group_pass_1,
+                &[],
+            );
+            compute_pass_1.dispatch_workgroups(
+                gpu_image.size.width.div_ceil(64),
+                gpu_image.size.height.div_ceil(64),
+                1,
+            );
+            pass_span.end(&mut compute_pass_1);
         }
 
-        let pipeline_cache = world.resource::<PipelineCache>();
-        let mip_generation_bind_groups = world.resource::<MipGenerationPipelines>();
-        let gpu_images = world.resource::<RenderAssets<GpuImage>>();
-
-        let diagnostics = render_context.diagnostic_recorder();
-
-        for mip_generation_job in mip_generation_phase.iter() {
-            let Some(gpu_image) = gpu_images.get(*mip_generation_job) else {
-                continue;
-            };
-            let Some(mip_generation_job_bind_groups) = mip_generation_bind_groups
-                .bind_groups
-                .get(mip_generation_job)
-            else {
-                continue;
-            };
-            let Some(mip_generation_pipelines) = mip_generation_bind_groups
-                .pipelines
-                .get(&gpu_image.texture_format)
-            else {
-                continue;
-            };
-
-            // Fetch the mip generation pipelines.
-            let (Some(mip_generation_pipeline_pass_1), Some(mip_generation_pipeline_pass_2)) = (
-                pipeline_cache
-                    .get_compute_pipeline(mip_generation_pipelines.downsampling_pipeline_pass_1),
-                pipeline_cache
-                    .get_compute_pipeline(mip_generation_pipelines.downsampling_pipeline_pass_2),
-            ) else {
-                continue;
-            };
-
-            // Perform the first downsampling pass.
-            {
-                let mut compute_pass_1 =
-                    render_context
-                        .command_encoder()
-                        .begin_compute_pass(&ComputePassDescriptor {
-                            label: Some("mip generation pass 1"),
-                            timestamp_writes: None,
-                        });
-                let pass_span = diagnostics.pass_span(&mut compute_pass_1, "mip generation pass 1");
-                compute_pass_1.set_pipeline(mip_generation_pipeline_pass_1);
-                compute_pass_1.set_bind_group(
-                    0,
-                    &mip_generation_job_bind_groups.downsampling_bind_group_pass_1,
-                    &[],
-                );
-                compute_pass_1.dispatch_workgroups(
-                    gpu_image.size.width.div_ceil(64),
-                    gpu_image.size.height.div_ceil(64),
-                    1,
-                );
-                pass_span.end(&mut compute_pass_1);
-            }
-
-            // Perform the second downsampling pass.
-            {
-                let mut compute_pass_2 =
-                    render_context
-                        .command_encoder()
-                        .begin_compute_pass(&ComputePassDescriptor {
-                            label: Some("mip generation pass 2"),
-                            timestamp_writes: None,
-                        });
-                let pass_span = diagnostics.pass_span(&mut compute_pass_2, "mip generation pass 2");
-                compute_pass_2.set_pipeline(mip_generation_pipeline_pass_2);
-                compute_pass_2.set_bind_group(
-                    0,
-                    &mip_generation_job_bind_groups.downsampling_bind_group_pass_2,
-                    &[],
-                );
-                compute_pass_2.dispatch_workgroups(
-                    gpu_image.size.width.div_ceil(256),
-                    gpu_image.size.height.div_ceil(256),
-                    1,
-                );
-                pass_span.end(&mut compute_pass_2);
-            }
+        // Perform the second downsampling pass.
+        {
+            let mut compute_pass_2 =
+                ctx.command_encoder()
+                    .begin_compute_pass(&ComputePassDescriptor {
+                        label: Some("mip generation pass 2"),
+                        timestamp_writes: None,
+                    });
+            let pass_span = diagnostics.pass_span(&mut compute_pass_2, "mip generation pass 2");
+            compute_pass_2.set_pipeline(mip_generation_pipeline_pass_2);
+            compute_pass_2.set_bind_group(
+                0,
+                &mip_generation_job_bind_groups.downsampling_bind_group_pass_2,
+                &[],
+            );
+            compute_pass_2.dispatch_workgroups(
+                gpu_image.size.width.div_ceil(256),
+                gpu_image.size.height.div_ceil(256),
+                1,
+            );
+            pass_span.end(&mut compute_pass_2);
         }
-
-        Ok(())
     }
 }
 

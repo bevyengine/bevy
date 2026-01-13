@@ -67,60 +67,7 @@ pub fn early_downsample_depth(
     pipeline_cache: Res<PipelineCache>,
     mut ctx: RenderContext,
 ) {
-    run_downsample_depth_system(
-        "early_downsample_depth",
-        view.into_inner(),
-        &shadow_view_query,
-        downsample_depth_pipelines.as_deref(),
-        &pipeline_cache,
-        &mut ctx,
-    );
-}
-
-pub fn late_downsample_depth(
-    view: ViewQuery<(
-        &ViewDepthPyramid,
-        &ViewDownsampleDepthBindGroup,
-        &ViewDepthTexture,
-        Option<&OcclusionCullingSubviewEntities>,
-    )>,
-    shadow_view_query: Query<(
-        &ViewDepthPyramid,
-        &ViewDownsampleDepthBindGroup,
-        &OcclusionCullingSubview,
-    )>,
-    downsample_depth_pipelines: Option<Res<DownsampleDepthPipelines>>,
-    pipeline_cache: Res<PipelineCache>,
-    mut ctx: RenderContext,
-) {
-    run_downsample_depth_system(
-        "late_downsample_depth",
-        view.into_inner(),
-        &shadow_view_query,
-        downsample_depth_pipelines.as_deref(),
-        &pipeline_cache,
-        &mut ctx,
-    );
-}
-
-fn run_downsample_depth_system(
-    label: &'static str,
-    main_view_data: (
-        &ViewDepthPyramid,
-        &ViewDownsampleDepthBindGroup,
-        &ViewDepthTexture,
-        Option<&OcclusionCullingSubviewEntities>,
-    ),
-    shadow_view_query: &Query<(
-        &ViewDepthPyramid,
-        &ViewDownsampleDepthBindGroup,
-        &OcclusionCullingSubview,
-    )>,
-    downsample_depth_pipelines: Option<&DownsampleDepthPipelines>,
-    pipeline_cache: &PipelineCache,
-    ctx: &mut RenderContext,
-) {
-    let Some(downsample_depth_pipelines) = downsample_depth_pipelines else {
+    let Some(downsample_depth_pipelines) = downsample_depth_pipelines.as_deref() else {
         return;
     };
 
@@ -129,14 +76,14 @@ fn run_downsample_depth_system(
         view_downsample_depth_bind_group,
         view_depth_texture,
         maybe_view_light_entities,
-    ) = main_view_data;
+    ) = view.into_inner();
 
     // Downsample depth for the main Z-buffer.
     downsample_depth(
-        label,
-        ctx,
+        "early_downsample_depth",
+        &mut ctx,
         downsample_depth_pipelines,
-        pipeline_cache,
+        &pipeline_cache,
         view_depth_pyramid,
         view_downsample_depth_bind_group,
         uvec2(
@@ -155,10 +102,74 @@ fn run_downsample_depth_system(
                 continue;
             };
             downsample_depth(
-                label,
-                ctx,
+                "early_downsample_depth",
+                &mut ctx,
                 downsample_depth_pipelines,
-                pipeline_cache,
+                &pipeline_cache,
+                view_depth_pyramid,
+                view_downsample_depth_bind_group,
+                UVec2::splat(occlusion_culling.depth_texture_size),
+                1,
+            );
+        }
+    }
+}
+
+pub fn late_downsample_depth(
+    view: ViewQuery<(
+        &ViewDepthPyramid,
+        &ViewDownsampleDepthBindGroup,
+        &ViewDepthTexture,
+        Option<&OcclusionCullingSubviewEntities>,
+    )>,
+    shadow_view_query: Query<(
+        &ViewDepthPyramid,
+        &ViewDownsampleDepthBindGroup,
+        &OcclusionCullingSubview,
+    )>,
+    downsample_depth_pipelines: Option<Res<DownsampleDepthPipelines>>,
+    pipeline_cache: Res<PipelineCache>,
+    mut ctx: RenderContext,
+) {
+    let Some(downsample_depth_pipelines) = downsample_depth_pipelines.as_deref() else {
+        return;
+    };
+
+    let (
+        view_depth_pyramid,
+        view_downsample_depth_bind_group,
+        view_depth_texture,
+        maybe_view_light_entities,
+    ) = view.into_inner();
+
+    // Downsample depth for the main Z-buffer.
+    downsample_depth(
+        "late_downsample_depth",
+        &mut ctx,
+        downsample_depth_pipelines,
+        &pipeline_cache,
+        view_depth_pyramid,
+        view_downsample_depth_bind_group,
+        uvec2(
+            view_depth_texture.texture.width(),
+            view_depth_texture.texture.height(),
+        ),
+        view_depth_texture.texture.sample_count(),
+    );
+
+    // Downsample depth for shadow maps that have occlusion culling enabled.
+    if let Some(view_light_entities) = maybe_view_light_entities {
+        for &view_light_entity in &view_light_entities.0 {
+            let Ok((view_depth_pyramid, view_downsample_depth_bind_group, occlusion_culling)) =
+                shadow_view_query.get(view_light_entity)
+            else {
+                continue;
+            };
+            downsample_depth(
+                "late_downsample_depth",
+                &mut ctx,
+                downsample_depth_pipelines,
+                &pipeline_cache,
                 view_depth_pyramid,
                 view_downsample_depth_bind_group,
                 UVec2::splat(occlusion_culling.depth_texture_size),

@@ -31,6 +31,7 @@ use bevy_ecs::{
 };
 use bevy_log::warn_once;
 use bevy_render::{
+    diagnostic::RecordDiagnostics as _,
     batching::gpu_preprocessing::{
         BatchedInstanceBuffers, GpuOcclusionCullingWorkItemBuffers, GpuPreprocessingMode,
         GpuPreprocessingSupport, IndirectBatchSet, IndirectParametersBuffers,
@@ -57,7 +58,7 @@ use bevy_shader::Shader;
 use bevy_utils::{default, TypeIdMap};
 use bitflags::bitflags;
 use smallvec::{smallvec, SmallVec};
-use tracing::{warn, warn_once};
+use tracing::warn;
 
 use crate::{MeshCullingData, MeshCullingDataBuffer, MeshInputUniform, MeshUniform};
 

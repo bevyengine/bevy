@@ -36,6 +36,53 @@ impl Plugin for CopyDeferredLightingIdPlugin {
     }
 }
 
+pub(crate) fn copy_deferred_lighting_id(
+    view: ViewQuery<(
+        &ViewTarget,
+        &ViewPrepassTextures,
+        &DeferredLightingIdDepthTexture,
+    )>,
+    copy_pipeline: Res<CopyDeferredLightingIdPipeline>,
+    pipeline_cache: Res<PipelineCache>,
+    mut ctx: RenderContext,
+) {
+    let (_view_target, view_prepass_textures, deferred_lighting_id_depth_texture) =
+        view.into_inner();
+
+    let Some(pipeline) = pipeline_cache.get_render_pipeline(copy_pipeline.pipeline_id) else {
+        return;
+    };
+    let Some(deferred_lighting_pass_id_texture) = &view_prepass_textures.deferred_lighting_pass_id
+    else {
+        return;
+    };
+
+    let bind_group = ctx.render_device().create_bind_group(
+        "copy_deferred_lighting_id_bind_group",
+        &pipeline_cache.get_bind_group_layout(&copy_pipeline.layout),
+        &BindGroupEntries::single(&deferred_lighting_pass_id_texture.texture.default_view),
+    );
+
+    let mut render_pass = ctx.begin_tracked_render_pass(RenderPassDescriptor {
+        label: Some("copy_deferred_lighting_id"),
+        color_attachments: &[],
+        depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
+            view: &deferred_lighting_id_depth_texture.texture.default_view,
+            depth_ops: Some(Operations {
+                load: LoadOp::Clear(0.0),
+                store: StoreOp::Store,
+            }),
+            stencil_ops: None,
+        }),
+        timestamp_writes: None,
+        occlusion_query_set: None,
+    });
+
+    render_pass.set_render_pipeline(pipeline);
+    render_pass.set_bind_group(0, &bind_group, &[]);
+    render_pass.draw(0..3, 0..1);
+}
+
 #[derive(Resource)]
 pub(crate) struct CopyDeferredLightingIdPipeline {
     layout: BindGroupLayoutDescriptor,
@@ -112,51 +159,4 @@ fn prepare_deferred_lighting_id_textures(
                 .insert(DeferredLightingIdDepthTexture { texture });
         }
     }
-}
-
-pub(crate) fn copy_deferred_lighting_id(
-    view: ViewQuery<(
-        &ViewTarget,
-        &ViewPrepassTextures,
-        &DeferredLightingIdDepthTexture,
-    )>,
-    copy_pipeline: Res<CopyDeferredLightingIdPipeline>,
-    pipeline_cache: Res<PipelineCache>,
-    mut ctx: RenderContext,
-) {
-    let (_view_target, view_prepass_textures, deferred_lighting_id_depth_texture) =
-        view.into_inner();
-
-    let Some(pipeline) = pipeline_cache.get_render_pipeline(copy_pipeline.pipeline_id) else {
-        return;
-    };
-    let Some(deferred_lighting_pass_id_texture) = &view_prepass_textures.deferred_lighting_pass_id
-    else {
-        return;
-    };
-
-    let bind_group = ctx.render_device().create_bind_group(
-        "copy_deferred_lighting_id_bind_group",
-        &pipeline_cache.get_bind_group_layout(&copy_pipeline.layout),
-        &BindGroupEntries::single(&deferred_lighting_pass_id_texture.texture.default_view),
-    );
-
-    let mut render_pass = ctx.begin_tracked_render_pass(RenderPassDescriptor {
-        label: Some("copy_deferred_lighting_id"),
-        color_attachments: &[],
-        depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
-            view: &deferred_lighting_id_depth_texture.texture.default_view,
-            depth_ops: Some(Operations {
-                load: LoadOp::Clear(0.0),
-                store: StoreOp::Store,
-            }),
-            stencil_ops: None,
-        }),
-        timestamp_writes: None,
-        occlusion_query_set: None,
-    });
-
-    render_pass.set_render_pipeline(pipeline);
-    render_pass.set_bind_group(0, &bind_group, &[]);
-    render_pass.draw(0..3, 0..1);
 }

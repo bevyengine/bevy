@@ -12,6 +12,7 @@ use bevy_core_pipeline::prepass::{
 use bevy_diagnostic::FrameCount;
 use bevy_ecs::{prelude::*, resource::Resource, system::Commands};
 use bevy_render::{
+    diagnostic::RecordDiagnostics as _,
     render_resource::{
         binding_types::{
             storage_buffer_sized, texture_2d, texture_depth_2d, texture_storage_2d, uniform_buffer,
@@ -370,6 +371,9 @@ pub fn solari_lighting(
     // Choice of number here is arbitrary
     let frame_index = frame_count.0.wrapping_mul(5782582);
 
+    let diagnostics = ctx.diagnostic_recorder();
+    let diagnostics = diagnostics.as_deref();
+
     let command_encoder = ctx.command_encoder();
 
     // Clear the view target if we're the first node to write to it
@@ -382,9 +386,6 @@ pub fn solari_lighting(
             occlusion_query_set: None,
         });
     }
-
-    let diagnostics = ctx.diagnostic_recorder();
-    let diagnostics = diagnostics.as_deref();
 
     let mut pass = command_encoder.begin_compute_pass(&ComputePassDescriptor {
         label: Some("solari_lighting"),
@@ -640,6 +641,9 @@ pub fn solari_lighting(
     // Choice of number here is arbitrary
     let frame_index = frame_count.0.wrapping_mul(5782582);
 
+    let diagnostics = ctx.diagnostic_recorder();
+    let diagnostics = diagnostics.as_deref();
+
     let command_encoder = ctx.command_encoder();
 
     // Clear the view target if we're the first node to write to it
@@ -652,9 +656,6 @@ pub fn solari_lighting(
             occlusion_query_set: None,
         });
     }
-
-    let diagnostics = ctx.diagnostic_recorder();
-    let diagnostics = diagnostics.as_deref();
 
     let mut pass = command_encoder.begin_compute_pass(&ComputePassDescriptor {
         label: Some("solari_lighting"),

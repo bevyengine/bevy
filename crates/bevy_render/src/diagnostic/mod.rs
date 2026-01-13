@@ -230,6 +230,24 @@ impl<T: RecordDiagnostics> RecordDiagnostics for Option<Arc<T>> {
 }
 
 impl<'a, T: RecordDiagnostics> RecordDiagnostics for Option<&'a T> {
+    fn record_f32<N>(&self, command_encoder: &mut CommandEncoder, buffer: &BufferSlice, name: N)
+    where
+        N: Into<Cow<'static, str>>,
+    {
+        if let Some(recorder) = self {
+            recorder.record_f32(command_encoder, buffer, name);
+        }
+    }
+
+    fn record_u32<N>(&self, command_encoder: &mut CommandEncoder, buffer: &BufferSlice, name: N)
+    where
+        N: Into<Cow<'static, str>>,
+    {
+        if let Some(recorder) = self {
+            recorder.record_u32(command_encoder, buffer, name);
+        }
+    }
+
     fn begin_time_span<E: WriteTimestamp>(&self, encoder: &mut E, name: Cow<'static, str>) {
         if let Some(recorder) = self {
             recorder.begin_time_span(encoder, name);
