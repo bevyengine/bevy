@@ -4,7 +4,7 @@ authors: ["@hukasu"]
 pull_requests: [22486]
 ---
 
-Create a diagnostics overlay that presents in a visual manner the values of stored in the
+Create a diagnostics overlay that presents in a visual manner the values stored in the
 `DiagnosticStore`.
 
 An overlay can be built by spawning an entity with the [`DiagnosticsOverlay`] component
