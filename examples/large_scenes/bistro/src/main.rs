@@ -348,7 +348,7 @@ pub fn proc_scene(
     for entity in children.iter_descendants(scene_ready.entity) {
         // Sponza needs flipped normals
         if let Ok(mat_h) = has_std_mat.get(entity)
-            && let Some(mat) = materials.get_mut(mat_h)
+            && let Some(mut mat) = materials.get_mut(mat_h)
         {
             mat.flip_normal_map_y = true;
             match mat.alpha_mode {
