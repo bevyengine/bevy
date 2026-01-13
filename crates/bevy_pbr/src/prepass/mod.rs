@@ -38,7 +38,8 @@ use bevy_render::{
         ExtractedView, Msaa, RenderVisibilityRanges, RetainedViewEntity, ViewUniform,
         ViewUniformOffset, ViewUniforms, VISIBILITY_RANGES_STORAGE_BUFFER_COUNT,
     },
-    Extract, ExtractSchedule, Render, RenderApp, RenderDebugFlags, RenderStartup, RenderSystems,
+    Extract, ExtractSchedule, Render, RenderApp, RenderDebugFlags, RenderPassMask, RenderPasses,
+    RenderStartup, RenderSystems,
 };
 use bevy_shader::{load_shader_library, Shader, ShaderDefVal};
 use bevy_transform::prelude::GlobalTransform;
@@ -1009,6 +1010,7 @@ pub fn queue_prepass_material_meshes(
     render_mesh_instances: Res<RenderMeshInstances>,
     render_materials: Res<ErasedRenderAssets<PreparedMaterial>>,
     render_material_instances: Res<RenderMaterialInstances>,
+    render_passes: Query<&RenderPasses>,
     mesh_allocator: Res<MeshAllocator>,
     gpu_preprocessing_support: Res<GpuPreprocessingSupport>,
     mut opaque_prepass_render_phases: ResMut<ViewBinnedRenderPhases<Opaque3dPrepass>>,
@@ -1047,6 +1049,10 @@ pub fn queue_prepass_material_meshes(
         }
 
         for (render_entity, visible_entity) in visible_entities.iter::<Mesh3d>() {
+            let pass_mask = render_passes
+                .get(*render_entity)
+                .map_or(RenderPassMask::ALL, |passes| passes.0);
+
             let Some((current_change_tick, pipeline_id)) =
                 view_specialized_material_pipeline_cache.get(visible_entity)
             else {
@@ -1088,6 +1094,9 @@ pub fn queue_prepass_material_meshes(
             match material.properties.render_phase_type {
                 RenderPhaseType::Opaque => {
                     if deferred {
+                        if !pass_mask.contains(RenderPassMask::OPAQUE_MAIN) {
+                            continue;
+                        }
                         let Some(draw_function) = material
                             .properties
                             .get_draw_function(DeferredOpaqueDrawFunction)
@@ -1114,6 +1123,9 @@ pub fn queue_prepass_material_meshes(
                             *current_change_tick,
                         );
                     } else if let Some(opaque_phase) = opaque_phase.as_mut() {
+                        if !pass_mask.intersects(RenderPassMask::PREPASS) {
+                            continue;
+                        }
                         let (vertex_slab, index_slab) =
                             mesh_allocator.mesh_slabs(&mesh_instance.mesh_asset_id);
                         let Some(draw_function) = material
@@ -1145,6 +1157,9 @@ pub fn queue_prepass_material_meshes(
                 }
                 RenderPhaseType::AlphaMask => {
                     if deferred {
+                        if !pass_mask.contains(RenderPassMask::ALPHA_MASK_MAIN) {
+                            continue;
+                        }
                         let (vertex_slab, index_slab) =
                             mesh_allocator.mesh_slabs(&mesh_instance.mesh_asset_id);
                         let Some(draw_function) = material
@@ -1175,6 +1190,9 @@ pub fn queue_prepass_material_meshes(
                             *current_change_tick,
                         );
                     } else if let Some(alpha_mask_phase) = alpha_mask_phase.as_mut() {
+                        if !pass_mask.intersects(RenderPassMask::PREPASS) {
+                            continue;
+                        }
                         let (vertex_slab, index_slab) =
                             mesh_allocator.mesh_slabs(&mesh_instance.mesh_asset_id);
                         let Some(draw_function) = material

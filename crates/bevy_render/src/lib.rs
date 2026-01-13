@@ -69,8 +69,14 @@ pub mod view;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        alpha::AlphaMode, camera::NormalizedRenderTargetExt as _, texture::ManualTextureViews,
-        view::Msaa, ExtractSchedule,
+        alpha::AlphaMode,
+        camera::NormalizedRenderTargetExt as _,
+        texture::ManualTextureViews,
+        view::Msaa,
+        ExtractSchedule,
+        // Render pass participation mask component and flags
+        RenderPassMask,
+        RenderPasses,
     };
 }
 
@@ -92,6 +98,7 @@ use alloc::sync::Arc;
 use batching::gpu_preprocessing::BatchingPlugin;
 use bevy_app::{App, AppLabel, Plugin, SubApp};
 use bevy_asset::{AssetApp, AssetServer};
+use bevy_ecs::query::QueryItem;
 use bevy_ecs::{
     prelude::*,
     schedule::{ScheduleBuildSettings, ScheduleLabel},
@@ -140,6 +147,75 @@ bitflags! {
         /// This is a debugging feature that may reduce performance. It
         /// primarily exists for the `occlusion_culling` example.
         const ALLOW_COPIES_FROM_INDIRECT_PARAMETERS = 1;
+    }
+}
+
+bitflags! {
+    /// Which render passes an entity participates in.
+    ///
+    /// This mask can be used to exclude an entity from specific render
+    /// passes such as the main camera pass, prepasses, or shadow passes.
+    #[derive(Clone, Copy, PartialEq, Eq, Default, Debug)]
+    pub struct RenderPassMask: u8 {
+        /// No participation in any pass.
+        const NONE = 0;
+        /// Participation in the main opaque pass.
+        const OPAQUE_MAIN = 1 << 0;
+        /// Participation in the main alpha-mask pass.
+        const ALPHA_MASK_MAIN = 1 << 1;
+        /// Participation in the main transparent pass.
+        const TRANSPARENT_MAIN = 1 << 2;
+        /// Participation in the main transmissive pass.
+        const TRANSMISSIVE_MAIN = 1 << 3;
+
+        /// Participation in the depth prepass.
+        const DEPTH_PREPASS = 1 << 4;
+        /// Participation in the normal prepass.
+        const NORMAL_PREPASS = 1 << 5;
+        /// Participation in the motion vector prepass.
+        const MOTION_VECTOR_PREPASS = 1 << 6;
+
+        /// Participation in shadow-view passes.
+        const SHADOW = 1 << 7;
+
+        /// Participation in main camera passes.
+        const MAIN = Self::OPAQUE_MAIN.bits()
+            | Self::ALPHA_MASK_MAIN.bits()
+            | Self::TRANSPARENT_MAIN.bits()
+            | Self::TRANSMISSIVE_MAIN.bits();
+
+        /// Participation in prepasses (depth / normal / motion vectors).
+        ///
+        /// Note: today, Bevy's "prepass" is commonly executed as a single pass that can write
+        /// multiple outputs depending on view configuration. These bits exist to allow more
+        /// fine-grained control and future expansion.
+        const PREPASS = Self::DEPTH_PREPASS.bits()
+            | Self::NORMAL_PREPASS.bits()
+            | Self::MOTION_VECTOR_PREPASS.bits();
+        /// Participation in all known passes.
+        const ALL = Self::MAIN.bits() | Self::PREPASS.bits() | Self::SHADOW.bits();
+    }
+}
+
+/// Component to control which render passes this entity should be queued into.
+///
+/// Defaults to `RenderPassMask::ALL` (participates in all passes).
+#[derive(Component, Clone, Copy, PartialEq, Eq, Debug)]
+pub struct RenderPasses(pub RenderPassMask);
+
+impl Default for RenderPasses {
+    fn default() -> Self {
+        Self(RenderPassMask::ALL)
+    }
+}
+
+impl extract_component::ExtractComponent for RenderPasses {
+    type QueryData = &'static Self;
+    type QueryFilter = ();
+    type Out = Self;
+
+    fn extract_component(item: QueryItem<'_, '_, Self::QueryData>) -> Option<Self::Out> {
+        Some(*item)
     }
 }
 
@@ -363,6 +439,7 @@ impl Plugin for RenderPlugin {
             WindowRenderPlugin,
             CameraPlugin,
             ViewPlugin,
+            extract_component::ExtractComponentPlugin::<RenderPasses>::default(),
             MeshRenderAssetPlugin,
             GlobalsPlugin,
             #[cfg(feature = "morph")]
@@ -440,6 +517,30 @@ impl Plugin for RenderPlugin {
                 .insert_resource(render_adapter)
                 .insert_resource(adapter_info);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn render_passes_default_is_all() {
+        assert_eq!(RenderPasses::default().0, RenderPassMask::ALL);
+    }
+
+    #[test]
+    fn render_pass_mask_all_contains_expected_bits() {
+        assert!(RenderPassMask::ALL.contains(RenderPassMask::OPAQUE_MAIN));
+        assert!(RenderPassMask::ALL.contains(RenderPassMask::ALPHA_MASK_MAIN));
+        assert!(RenderPassMask::ALL.contains(RenderPassMask::TRANSPARENT_MAIN));
+        assert!(RenderPassMask::ALL.contains(RenderPassMask::TRANSMISSIVE_MAIN));
+        assert!(RenderPassMask::ALL.contains(RenderPassMask::MAIN));
+        assert!(RenderPassMask::ALL.contains(RenderPassMask::DEPTH_PREPASS));
+        assert!(RenderPassMask::ALL.contains(RenderPassMask::NORMAL_PREPASS));
+        assert!(RenderPassMask::ALL.contains(RenderPassMask::MOTION_VECTOR_PREPASS));
+        assert!(RenderPassMask::ALL.contains(RenderPassMask::PREPASS));
+        assert!(RenderPassMask::ALL.contains(RenderPassMask::SHADOW));
     }
 }
 

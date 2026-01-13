@@ -1190,6 +1190,17 @@ category = "3D Rendering"
 wasm = false
 
 [[example]]
+name = "only_shadow_caster"
+path = "examples/3d/only_shadow_caster.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.only_shadow_caster]
+name = "Only Shadow Caster"
+description = "Makes an entity invisible to the main camera while still casting shadows"
+category = "3D Rendering"
+wasm = true
+
+[[example]]
 name = "atmospheric_fog"
 path = "examples/3d/atmospheric_fog.rs"
 # Causes an ICE on docs.rs
