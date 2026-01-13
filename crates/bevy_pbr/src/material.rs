@@ -545,7 +545,6 @@ pub type UserSpecializeFn = fn(
     ErasedMaterialPipelineKey,
 ) -> Result<(), SpecializedMeshPipelineError>;
 
-
 /// Render pipeline data for a given [`Material`].
 #[derive(Resource, Clone)]
 pub struct MaterialPipeline {
