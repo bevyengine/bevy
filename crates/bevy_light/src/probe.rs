@@ -159,7 +159,7 @@ impl EnvironmentMapLight {
                 .into_iter()
                 .flat_map(Srgba::to_u8_array)
                 .collect(),
-                TextureFormat::Rgba8UnormSrgb,
+                TextureFormat::Rgba16Float,
                 RenderAssetUsages::RENDER_WORLD,
             )
         }
