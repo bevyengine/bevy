@@ -509,7 +509,7 @@ fn setup_buttons_for_triangle_page(
     // Text describing current page
     let current_page_entity = spawn_small_text_node(
         commands,
-        format!("Page {}", page_num + 1),
+        format!("Currently on Page {}", page_num + 1),
         650,
         20,
         Justify::Center,
