@@ -8,6 +8,7 @@ use bevy::{
         primitives::{CubemapFrusta, Frustum},
         visibility::{CubemapVisibleEntities, VisibleMeshEntities},
     },
+    camera_controller::free_camera::{FreeCamera, FreeCameraPlugin},
     core_pipeline::{
         prepass::{DepthPrepass, MotionVectorPrepass},
         Skybox,
@@ -114,13 +115,16 @@ enum AppSetting {
 fn main() {
     App::new()
         .init_resource::<AppStatus>()
-        .add_plugins(DefaultPlugins.set(WindowPlugin {
-            primary_window: Some(Window {
-                title: "Bevy Percentage Closer Soft Shadows Example".into(),
+        .add_plugins((
+            DefaultPlugins.set(WindowPlugin {
+                primary_window: Some(Window {
+                    title: "Bevy Percentage Closer Soft Shadows Example".into(),
+                    ..default()
+                }),
                 ..default()
             }),
-            ..default()
-        }))
+            FreeCameraPlugin,
+        ))
         .add_message::<WidgetClickEvent<AppSetting>>()
         .add_systems(Startup, setup)
         .add_systems(Update, widgets::handle_ui_interactions::<AppSetting>)
@@ -156,6 +160,7 @@ fn spawn_camera(commands: &mut Commands, asset_server: &AssetServer) {
             Transform::from_xyz(-12.912 * 0.7, 4.466 * 0.7, -10.624 * 0.7).with_rotation(
                 Quat::from_euler(EulerRot::YXZ, -134.76 / 180.0 * PI, -0.175, 0.0),
             ),
+            FreeCamera::default(),
         ))
         .insert(ShadowFilteringMethod::Gaussian)
         // `TemporalJitter` is needed for TAA. Note that it does nothing without
