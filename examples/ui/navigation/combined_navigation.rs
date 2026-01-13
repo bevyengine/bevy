@@ -152,14 +152,14 @@ fn reset_button_after_interaction(
 /// Spawn pages of buttons to demonstrate automatic and manual navigation.
 ///
 /// This function creates three pages of buttons. All buttons have automatic navigation.
-/// Manual navigation is specified with the DirectionalNavigationMap.
+/// Manual navigation is specified with the `DirectionalNavigationMap`.
 /// Page 1 has a simple grid of buttons where transitions between rows is defined using
-/// the DirectionalNavigationMap.
+/// the `DirectionalNavigationMap`.
 /// Page 2 has a cluster of buttons to the top left and a lonely button on the bottom right.
 /// Navigation between the cluster and the lonely button is defined using the
-/// DirectionalNavigationMap.
+/// `DirectionalNavigationMap`.
 /// Page 3 has the same simple grid of buttons as page 1, but automatic navigation has been
-/// overridden in the vertical direction with the DirectionalNavigationMap.
+/// overridden in the vertical direction with the `DirectionalNavigationMap`.
 fn setup_paged_ui(
     mut commands: Commands,
     mut manual_directional_nav_map: ResMut<DirectionalNavigationMap>,
@@ -486,7 +486,7 @@ fn setup_buttons_for_grid_page(
     }
 }
 
-/// Creates the buttons and text for a the "triangle" page and places the ids into their
+/// Creates the buttons and text for the triangle page (page 2) and places the ids into their
 /// respective Vecs in `entities`.
 fn setup_buttons_for_triangle_page(
     commands: &mut Commands,
@@ -582,7 +582,7 @@ fn spawn_auto_nav_button(
             },
             Page(page_num),
             BackgroundColor(NORMAL_BUTTON_COLORS[page_num].into()),
-            // This is the key: just add this component for automatic navigation!
+            // Just add this component for automatic navigation
             AutoDirectionalNavigation::default(),
             ResetTimer::default(),
             Name::new(text.clone()),
