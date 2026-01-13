@@ -15,6 +15,7 @@ use bevy_ecs::{
     world::Ref,
 };
 use bevy_image::prelude::*;
+use bevy_log::warn_once;
 use bevy_math::Vec2;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_text::{
@@ -369,9 +370,13 @@ pub fn text_system(
                     // There was an error processing the text layout, try again next frame
                     text_flags.needs_recompute = true;
                 }
+                Err(e @ TextError::FailedToGetGlyphImage(key)) => {
+                    warn_once!("{e}. Face: {:?}", font_system.get_face_details(key.font_id));
+                    text_flags.needs_recompute = false;
+                    text_layout_info.clear();
+                }
                 Err(
                     e @ (TextError::FailedToAddGlyph(_)
-                    | TextError::FailedToGetGlyphImage(_)
                     | TextError::MissingAtlasLayout
                     | TextError::MissingAtlasTexture
                     | TextError::InconsistentAtlasState),
