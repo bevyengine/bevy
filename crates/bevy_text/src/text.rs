@@ -990,12 +990,16 @@ pub fn detect_text_needs_rerender<Root: Component>(
 #[reflect(Component, Default, Debug, Clone, PartialEq)]
 /// Font hinting strategy.
 ///
+/// The text bounds can underflow or overflow slightly with `FontHinting::Enabled`.
+///
 /// <https://docs.rs/cosmic-text/latest/cosmic_text/enum.Hinting.html>
 pub enum FontHinting {
     #[default]
     /// Glyphs will have subpixel coordinates.
     Disabled,
     /// Glyphs will be snapped to integral coordinates in the X-axis during layout.
+    ///
+    /// The text bounds can underflow or overflow slightly with this enabled.
     Enabled,
 }
 
