@@ -62,7 +62,6 @@ use core::{
     hash::{BuildHasher, Hash, Hasher},
     marker::PhantomData,
 };
-use log::warn;
 use smallvec::SmallVec;
 use tracing::error;
 
@@ -533,6 +532,19 @@ pub type PrepassSpecializeFn = fn(
     &MeshVertexBufferLayoutRef,
     &Arc<MaterialProperties>,
 ) -> Result<CachedRenderPipelineId, SpecializedMeshPipelineError>;
+
+/// A type erased function pointer for specializing a material prepass pipeline. The implementation is
+/// expected to:
+/// - Look up the appropriate specializer from the world
+/// - Downcast the erased key to the concrete key type
+/// - Call [`SpecializedMeshPipelines::specialize`] with the specializer and return the resulting pipeline id
+pub type UserSpecializeFn = fn(
+    &dyn Any,
+    &mut RenderPipelineDescriptor,
+    &MeshVertexBufferLayoutRef,
+    ErasedMaterialPipelineKey,
+) -> Result<(), SpecializedMeshPipelineError>;
+
 
 /// Render pipeline data for a given [`Material`].
 #[derive(Resource, Clone)]
@@ -1672,14 +1684,7 @@ pub struct MaterialProperties {
     pub bindless: bool,
     pub base_specialize: Option<BaseSpecializeFn>,
     pub prepass_specialize: Option<PrepassSpecializeFn>,
-    pub user_specialize: Option<
-        fn(
-            &dyn Any,
-            &mut RenderPipelineDescriptor,
-            &MeshVertexBufferLayoutRef,
-            ErasedMaterialPipelineKey,
-        ) -> Result<(), SpecializedMeshPipelineError>,
-    >,
+    pub user_specialize: Option<UserSpecializeFn>,
     /// The key for this material, typically a bitfield of flags that are used to modify
     /// the pipeline descriptor used for this material.
     pub material_key: ErasedMaterialKey,
