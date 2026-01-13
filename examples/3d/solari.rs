@@ -602,5 +602,18 @@ fn update_performance_text(
         "render/solari_lighting/specular_indirect_lighting/elapsed_gpu",
     );
     text.push_str(&format!("{:17}     TODO\n", "DLSS-RR"));
-    text.push_str(&format!("\n{:17}  {total:.2} ms", "Total"));
+    text.push_str(&format!("{:17}  {total:.2} ms\n", "Total"));
+
+    if let Some(world_cache_active_cells_count) = diagnostics
+        .get(&DiagnosticPath::new(
+            "render/solari_lighting/world_cache_active_cells_count",
+        ))
+        .and_then(Diagnostic::average)
+    {
+        text.push_str(&format!(
+            "\nWorld cache cells {} ({:.0}%)",
+            world_cache_active_cells_count as u32,
+            (world_cache_active_cells_count * 100.0) / (2u64.pow(20) as f64)
+        ));
+    }
 }
