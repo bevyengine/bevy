@@ -81,6 +81,12 @@ pub struct ScatteringMedium {
     pub terms: SmallVec<[ScatteringTerm; 1]>,
 }
 
+impl Default for ScatteringMedium {
+    fn default() -> Self {
+        ScatteringMedium::earthlike(256, 256)
+    }
+}
+
 impl ScatteringMedium {
     // Returns a scattering medium with a default label and the
     // specified scattering terms.

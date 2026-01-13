@@ -63,9 +63,9 @@ pub struct ShaderCache<ShaderModule, RenderDevice> {
         &RenderDevice,
         ShaderCacheSource,
         &ValidateShader,
-    ) -> Result<ShaderModule, PipelineCacheError>,
+    ) -> Result<ShaderModule, ShaderCacheError>,
     #[cfg(feature = "shader_format_wesl")]
-    asset_paths: HashMap<wesl::syntax::ModulePath, AssetId<Shader>>,
+    module_path_to_asset_id: HashMap<wesl::syntax::ModulePath, AssetId<Shader>>,
     shaders: HashMap<AssetId<Shader>, Shader>,
     import_path_shaders: HashMap<ShaderImport, AssetId<Shader>>,
     waiting_on_import: HashMap<ShaderImport, Vec<AssetId<Shader>>>,
@@ -109,7 +109,7 @@ impl<ShaderModule, RenderDevice> ShaderCache<ShaderModule, RenderDevice> {
             &RenderDevice,
             ShaderCacheSource,
             &ValidateShader,
-        ) -> Result<ShaderModule, PipelineCacheError>,
+        ) -> Result<ShaderModule, ShaderCacheError>,
     ) -> Self {
         let capabilities = get_capabilities(features, downlevel);
         #[cfg(debug_assertions)]
@@ -124,23 +124,19 @@ impl<ShaderModule, RenderDevice> ShaderCache<ShaderModule, RenderDevice> {
             load_module,
             data: Default::default(),
             #[cfg(feature = "shader_format_wesl")]
-            asset_paths: Default::default(),
+            module_path_to_asset_id: Default::default(),
             shaders: Default::default(),
             import_path_shaders: Default::default(),
             waiting_on_import: Default::default(),
         }
     }
 
-    #[expect(
-        clippy::result_large_err,
-        reason = "See https://github.com/bevyengine/bevy/issues/19220"
-    )]
     fn add_import_to_composer(
         composer: &mut naga_oil::compose::Composer,
         import_path_shaders: &HashMap<ShaderImport, AssetId<Shader>>,
         shaders: &HashMap<AssetId<Shader>, Shader>,
         import: &ShaderImport,
-    ) -> Result<(), PipelineCacheError> {
+    ) -> Result<(), ShaderCacheError> {
         // Early out if we've already imported this module
         if composer.contains_module(&import.module_name()) {
             return Ok(());
@@ -150,34 +146,32 @@ impl<ShaderModule, RenderDevice> ShaderCache<ShaderModule, RenderDevice> {
         let shader = import_path_shaders
             .get(import)
             .and_then(|handle| shaders.get(handle))
-            .ok_or(PipelineCacheError::ShaderImportNotYetAvailable)?;
+            .ok_or(ShaderCacheError::ShaderImportNotYetAvailable)?;
 
         // Recurse down to ensure all import dependencies are met
         for import in &shader.imports {
             Self::add_import_to_composer(composer, import_path_shaders, shaders, import)?;
         }
 
-        composer.add_composable_module(shader.into())?;
+        composer
+            .add_composable_module(shader.into())
+            .map_err(Box::new)?;
         // if we fail to add a module the composer will tell us what is missing
 
         Ok(())
     }
 
-    #[expect(
-        clippy::result_large_err,
-        reason = "See https://github.com/bevyengine/bevy/issues/19220"
-    )]
     pub fn get(
         &mut self,
         render_device: &RenderDevice,
         pipeline: CachedPipelineId,
         id: AssetId<Shader>,
         shader_defs: &[ShaderDefVal],
-    ) -> Result<Arc<ShaderModule>, PipelineCacheError> {
+    ) -> Result<Arc<ShaderModule>, ShaderCacheError> {
         let shader = self
             .shaders
             .get(&id)
-            .ok_or(PipelineCacheError::ShaderNotLoaded(id))?;
+            .ok_or(ShaderCacheError::ShaderNotLoaded(id))?;
 
         let data = self.data.entry(id).or_default();
         let n_asset_imports = shader
@@ -190,7 +184,7 @@ impl<ShaderModule, RenderDevice> ShaderCache<ShaderModule, RenderDevice> {
             .filter(|import| matches!(import, ShaderImport::AssetPath(_)))
             .count();
         if n_asset_imports != n_resolved_asset_imports {
-            return Err(PipelineCacheError::ShaderImportNotYetAvailable);
+            return Err(ShaderCacheError::ShaderImportNotYetAvailable);
         }
 
         data.pipelines.insert(pipeline);
@@ -209,7 +203,7 @@ impl<ShaderModule, RenderDevice> ShaderCache<ShaderModule, RenderDevice> {
                     Source::Wesl(_) => {
                         if let ShaderImport::AssetPath(path) = shader.import_path() {
                             let shader_resolver =
-                                ShaderResolver::new(&self.asset_paths, &self.shaders);
+                                ShaderResolver::new(&self.module_path_to_asset_id, &self.shaders);
                             let module_path = wesl::syntax::ModulePath::from_path(path);
                             let mut compiler_options = wesl::CompileOptions {
                                 imports: true,
@@ -268,12 +262,13 @@ impl<ShaderModule, RenderDevice> ShaderCache<ShaderModule, RenderDevice> {
                             })
                             .collect::<std::collections::HashMap<_, _>>();
 
-                        let naga = self.composer.make_naga_module(
-                            naga_oil::compose::NagaModuleDescriptor {
+                        let naga = self
+                            .composer
+                            .make_naga_module(naga_oil::compose::NagaModuleDescriptor {
                                 shader_defs,
                                 ..shader.into()
-                            },
-                        )?;
+                            })
+                            .map_err(Box::new)?;
 
                         #[cfg(not(feature = "decoupled_naga"))]
                         {
@@ -360,7 +355,7 @@ impl<ShaderModule, RenderDevice> ShaderCache<ShaderModule, RenderDevice> {
         if let Source::Wesl(_) = shader.source
             && let ShaderImport::AssetPath(path) = shader.import_path()
         {
-            self.asset_paths
+            self.module_path_to_asset_id
                 .insert(wesl::syntax::ModulePath::from_path(path), id);
         }
         self.shaders.insert(id, shader);
@@ -379,18 +374,18 @@ impl<ShaderModule, RenderDevice> ShaderCache<ShaderModule, RenderDevice> {
 
 #[cfg(feature = "shader_format_wesl")]
 pub struct ShaderResolver<'a> {
-    asset_paths: &'a HashMap<wesl::syntax::ModulePath, AssetId<Shader>>,
+    module_path_to_asset_id: &'a HashMap<wesl::syntax::ModulePath, AssetId<Shader>>,
     shaders: &'a HashMap<AssetId<Shader>, Shader>,
 }
 
 #[cfg(feature = "shader_format_wesl")]
 impl<'a> ShaderResolver<'a> {
     pub fn new(
-        asset_paths: &'a HashMap<wesl::syntax::ModulePath, AssetId<Shader>>,
+        module_path_to_asset_id: &'a HashMap<wesl::syntax::ModulePath, AssetId<Shader>>,
         shaders: &'a HashMap<AssetId<Shader>, Shader>,
     ) -> Self {
         Self {
-            asset_paths,
+            module_path_to_asset_id,
             shaders,
         }
     }
@@ -402,9 +397,15 @@ impl<'a> wesl::Resolver for ShaderResolver<'a> {
         &self,
         module_path: &wesl::syntax::ModulePath,
     ) -> Result<alloc::borrow::Cow<'_, str>, wesl::ResolveError> {
-        let asset_id = self.asset_paths.get(module_path).ok_or_else(|| {
-            wesl::ResolveError::ModuleNotFound(module_path.clone(), "Invalid asset id".to_string())
-        })?;
+        let asset_id = self
+            .module_path_to_asset_id
+            .get(module_path)
+            .ok_or_else(|| {
+                wesl::ResolveError::ModuleNotFound(
+                    module_path.clone(),
+                    "Invalid asset id".to_string(),
+                )
+            })?;
 
         let shader = self.shaders.get(asset_id).unwrap();
         Ok(alloc::borrow::Cow::Borrowed(shader.source.as_str()))
@@ -412,21 +413,14 @@ impl<'a> wesl::Resolver for ShaderResolver<'a> {
 }
 
 /// Type of error returned by a `PipelineCache` when the creation of a GPU pipeline object failed.
-#[cfg_attr(
-    not(target_arch = "wasm32"),
-    expect(
-        clippy::large_enum_variant,
-        reason = "See https://github.com/bevyengine/bevy/issues/19220"
-    )
-)]
 #[derive(Error, Debug)]
-pub enum PipelineCacheError {
+pub enum ShaderCacheError {
     #[error(
         "Pipeline could not be compiled because the following shader could not be loaded: {0:?}"
     )]
     ShaderNotLoaded(AssetId<Shader>),
     #[error(transparent)]
-    ProcessShaderError(#[from] naga_oil::compose::ComposerError),
+    ProcessShaderError(#[from] Box<naga_oil::compose::ComposerError>),
     #[error("Shader import not yet available.")]
     ShaderImportNotYetAvailable,
     #[error("Could not create shader module: {0}")]

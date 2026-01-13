@@ -9,7 +9,6 @@ use bevy_ecs::{
     observer::On,
     query::{Changed, Has, Or, With},
     reflect::ReflectComponent,
-    spawn::SpawnRelated,
     system::{Commands, Query, Res, ResMut},
 };
 use bevy_math::{Vec2, Vec3};

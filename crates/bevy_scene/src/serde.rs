@@ -878,50 +878,6 @@ mod tests {
         assert_scene_eq(&scene, &deserialized_scene);
     }
 
-    #[test]
-    fn should_roundtrip_bincode() {
-        let mut world = create_world();
-
-        world.spawn(MyComponent {
-            foo: [1, 2, 3],
-            bar: (1.3, 3.7),
-            baz: MyEnum::Tuple("Hello World!".to_string()),
-        });
-
-        let registry = world.resource::<AppTypeRegistry>();
-        let registry = &registry.read();
-
-        let scene = DynamicScene::from_world(&world);
-
-        let config = bincode::config::standard().with_fixed_int_encoding();
-        let scene_serializer = SceneSerializer::new(&scene, registry);
-        let serialized_scene = bincode::serde::encode_to_vec(&scene_serializer, config).unwrap();
-
-        assert_eq!(
-            vec![
-                0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 255, 255, 255, 255, 0, 0, 0, 0, 1,
-                0, 0, 0, 0, 0, 0, 0, 37, 0, 0, 0, 0, 0, 0, 0, 98, 101, 118, 121, 95, 115, 99, 101,
-                110, 101, 58, 58, 115, 101, 114, 100, 101, 58, 58, 116, 101, 115, 116, 115, 58, 58,
-                77, 121, 67, 111, 109, 112, 111, 110, 101, 110, 116, 1, 0, 0, 0, 0, 0, 0, 0, 2, 0,
-                0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 102, 102, 166, 63, 205, 204, 108, 64, 1,
-                0, 0, 0, 12, 0, 0, 0, 0, 0, 0, 0, 72, 101, 108, 108, 111, 32, 87, 111, 114, 108,
-                100, 33
-            ],
-            serialized_scene
-        );
-
-        let scene_deserializer = SceneDeserializer {
-            type_registry: registry,
-        };
-
-        let (deserialized_scene, _read_bytes) =
-            bincode::serde::seed_decode_from_slice(scene_deserializer, &serialized_scene, config)
-                .unwrap();
-
-        assert_eq!(1, deserialized_scene.entities.len());
-        assert_scene_eq(&scene, &deserialized_scene);
-    }
-
     /// A crude equality checker for [`DynamicScene`], used solely for testing purposes.
     fn assert_scene_eq(expected: &DynamicScene, received: &DynamicScene) {
         assert_eq!(
