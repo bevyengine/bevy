@@ -149,7 +149,7 @@ impl Specializer<RenderPipeline> for LineGizmoPipelineSpecializer {
 
         let fragment = descriptor.fragment_mut()?;
 
-        #[cfg(feature = "webgl")]
+        #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
         fragment.shader_defs.push("SIXTEEN_BYTE_ALIGNMENT".into());
 
         if key.perspective {
@@ -203,7 +203,7 @@ impl SpecializedRenderPipeline for LineJointGizmoPipeline {
 
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
         let mut shader_defs = vec![
-            #[cfg(feature = "webgl")]
+            #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
             "SIXTEEN_BYTE_ALIGNMENT".into(),
         ];
 

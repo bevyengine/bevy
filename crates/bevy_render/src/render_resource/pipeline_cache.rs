@@ -12,7 +12,7 @@ use bevy_ecs::{
 };
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_shader::{
-    CachedPipelineId, PipelineCacheError, Shader, ShaderCache, ShaderCacheSource, ShaderDefVal,
+    CachedPipelineId, Shader, ShaderCache, ShaderCacheError, ShaderCacheSource, ShaderDefVal,
     ValidateShader,
 };
 use bevy_tasks::Task;
@@ -74,23 +74,16 @@ pub struct CachedPipeline {
 }
 
 /// State of a cached pipeline inserted into a [`PipelineCache`].
-#[cfg_attr(
-    not(target_arch = "wasm32"),
-    expect(
-        clippy::large_enum_variant,
-        reason = "See https://github.com/bevyengine/bevy/issues/19220"
-    )
-)]
 #[derive(Debug)]
 pub enum CachedPipelineState {
     /// The pipeline GPU object is queued for creation.
     Queued,
     /// The pipeline GPU object is being created.
-    Creating(Task<Result<Pipeline, PipelineCacheError>>),
+    Creating(Task<Result<Pipeline, ShaderCacheError>>),
     /// The pipeline GPU object was created successfully and is available (allocated on the GPU).
     Ok(Pipeline),
     /// An error occurred while trying to create the pipeline GPU object.
-    Err(PipelineCacheError),
+    Err(ShaderCacheError),
 }
 
 impl CachedPipelineState {
@@ -151,15 +144,11 @@ impl LayoutCache {
     }
 }
 
-#[expect(
-    clippy::result_large_err,
-    reason = "See https://github.com/bevyengine/bevy/issues/19220"
-)]
 fn load_module(
     render_device: &RenderDevice,
     shader_source: ShaderCacheSource,
     validate_shader: &ValidateShader,
-) -> Result<WgpuWrapper<ShaderModule>, PipelineCacheError> {
+) -> Result<WgpuWrapper<ShaderModule>, ShaderCacheError> {
     let shader_source = match shader_source {
         #[cfg(feature = "shader_format_spirv")]
         ShaderCacheSource::SpirV(data) => wgpu::util::make_spirv(data),
@@ -201,7 +190,7 @@ fn load_module(
     if let Some(Some(wgpu::Error::Validation { description, .. })) =
         bevy_tasks::futures::now_or_never(error)
     {
-        return Err(PipelineCacheError::CreateShaderModule(description));
+        return Err(ShaderCacheError::CreateShaderModule(description));
     }
 
     Ok(shader_module)
@@ -739,13 +728,13 @@ impl PipelineCache {
 
             CachedPipelineState::Err(err) => match err {
                 // Retry
-                PipelineCacheError::ShaderNotLoaded(_)
-                | PipelineCacheError::ShaderImportNotYetAvailable => {
+                ShaderCacheError::ShaderNotLoaded(_)
+                | ShaderCacheError::ShaderImportNotYetAvailable => {
                     cached_pipeline.state = CachedPipelineState::Queued;
                 }
 
                 // Shader could not be processed ... retrying won't help
-                PipelineCacheError::ProcessShaderError(err) => {
+                ShaderCacheError::ProcessShaderError(err) => {
                     let error_detail =
                         err.emit_to_string(&self.shader_cache.lock().unwrap().composer);
                     if std::env::var("VERBOSE_SHADER_ERROR")
@@ -756,7 +745,7 @@ impl PipelineCache {
                     error!("failed to process shader error:\n{}", error_detail);
                     return;
                 }
-                PipelineCacheError::CreateShaderModule(description) => {
+                ShaderCacheError::CreateShaderModule(description) => {
                     error!("failed to create shader module: {}", description);
                     return;
                 }
@@ -851,7 +840,7 @@ fn pipeline_error_context(cached_pipeline: &CachedPipeline) -> String {
     feature = "multi_threaded"
 ))]
 fn create_pipeline_task(
-    task: impl Future<Output = Result<Pipeline, PipelineCacheError>> + Send + 'static,
+    task: impl Future<Output = Result<Pipeline, ShaderCacheError>> + Send + 'static,
     sync: bool,
 ) -> CachedPipelineState {
     if !sync {
@@ -870,7 +859,7 @@ fn create_pipeline_task(
     not(feature = "multi_threaded")
 ))]
 fn create_pipeline_task(
-    task: impl Future<Output = Result<Pipeline, PipelineCacheError>> + Send + 'static,
+    task: impl Future<Output = Result<Pipeline, ShaderCacheError>> + Send + 'static,
     _sync: bool,
 ) -> CachedPipelineState {
     match bevy_tasks::block_on(task) {

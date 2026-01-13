@@ -2291,6 +2291,18 @@ impl MeshPipelineKey {
     }
 }
 
+impl From<u64> for MeshPipelineKey {
+    fn from(value: u64) -> Self {
+        MeshPipelineKey::from_bits_retain(value)
+    }
+}
+
+impl From<MeshPipelineKey> for u64 {
+    fn from(value: MeshPipelineKey) -> Self {
+        value.bits()
+    }
+}
+
 // Ensure that we didn't overflow the number of bits available in `MeshPipelineKey`.
 const_assert_eq!(
     (((MeshPipelineKey::LAST_FLAG.bits() << 1) - 1) | MeshPipelineKey::ALL_RESERVED_BITS.bits())
