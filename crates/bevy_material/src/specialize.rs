@@ -1,10 +1,13 @@
 use bevy_ecs::world::World;
 use bevy_mesh::{MeshVertexBufferLayoutRef, MissingVertexAttributeError};
 use bevy_platform::sync::Arc;
+use core::any::Any;
 use thiserror::Error;
 
 use crate::{
-    descriptor::CachedRenderPipelineId, key::ErasedMaterialPipelineKey, MaterialProperties,
+    descriptor::{CachedRenderPipelineId, RenderPipelineDescriptor},
+    key::ErasedMaterialPipelineKey,
+    MaterialProperties,
 };
 
 /// A type erased function pointer for specializing a material pipeline. The implementation is
@@ -42,3 +45,9 @@ pub type UserSpecializeFn = fn(
     &MeshVertexBufferLayoutRef,
     ErasedMaterialPipelineKey,
 ) -> Result<(), SpecializedMeshPipelineError>;
+
+#[derive(Error, Debug)]
+pub enum SpecializedMeshPipelineError {
+    #[error(transparent)]
+    MissingVertexAttribute(#[from] MissingVertexAttributeError),
+}

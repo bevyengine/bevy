@@ -1,23 +1,20 @@
 //! Provides a material abstraction for bevy
 #![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
 
-use core::any::Any;
-
 use bevy_asset::Handle;
-use bevy_mesh::MeshVertexBufferLayoutRef;
 use bevy_shader::Shader;
 use smallvec::SmallVec;
 
 extern crate alloc;
 
 use crate::{
-    descriptor::{BindGroupLayoutDescriptor, RenderPipelineDescriptor},
-    key::{ErasedMaterialKey, ErasedMaterialPipelineKey, ErasedMeshPipelineKey},
+    descriptor::BindGroupLayoutDescriptor,
+    key::{ErasedMaterialKey, ErasedMeshPipelineKey},
     labels::{
         DrawFunctionId, DrawFunctionLabel, InternedDrawFunctionLabel, InternedShaderLabel,
         ShaderLabel,
     },
-    specialize::{BaseSpecializeFn, PrepassSpecializeFn, SpecializedMeshPipelineError},
+    specialize::{BaseSpecializeFn, PrepassSpecializeFn, UserSpecializeFn},
 };
 
 pub use crate::{alpha::AlphaMode, opaque::OpaqueRendererMethod, phase::RenderPhaseType};
