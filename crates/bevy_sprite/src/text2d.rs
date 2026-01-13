@@ -408,9 +408,9 @@ mod tests {
 
         let mut fonts = world.resource_mut::<Assets<Font>>();
 
-        let font = fonts.get_mut(bevy_asset::AssetId::default()).unwrap();
+        let mut font = fonts.get_mut(bevy_asset::AssetId::default()).unwrap();
         font.family_name = "Fira Mono".into();
-        let data = font.data.as_ref().clone();
+        let data = font.into_inner().data.as_ref().clone();
 
         app.world_mut()
             .resource_mut::<CosmicFontSystem>()
