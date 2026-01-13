@@ -252,7 +252,7 @@ fn setup_paged_ui(
                 &mut commands,
                 page_num,
                 (page_button_entities, &mut text_entities),
-            )
+            );
         } else {
             // the first and third pages are regular grids
             setup_buttons_for_grid_page(
@@ -335,7 +335,7 @@ fn setup_paged_ui(
     let mut col_entities = Vec::with_capacity(4);
     for col in 0..=2 {
         for row in 0..=3 {
-            col_entities.push(pages_entities[2][row * 3 + col])
+            col_entities.push(pages_entities[2][row * 3 + col]);
         }
         manual_directional_nav_map.add_looping_edges(&col_entities, CompassOctant::North);
         col_entities.clear();
