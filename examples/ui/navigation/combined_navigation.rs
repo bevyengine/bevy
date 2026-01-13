@@ -2,19 +2,20 @@
 //!
 //! This example shows how to leverage both automatic navigation and manual navigation to create
 //! a desired user navigation experience without much boilerplate code. In this example, there are
-//! multiple pages of UI Buttons. When navigating within the button grid on a page (up, down, left
-//! and right), automatic navigation is used. However, to add more bespoke navigation that cannot
-//! be automatically detected by screen position proximity alone, manual navigation must be used.
+//! multiple pages of UI Buttons that depict different scenarios in which both automatic and manual
+//! navigation are leveraged to produce a desired navigation experience.
 //!
-//! Manual navigation is needed to create transitions between rows and between pages.
-//! These transitions are not created by the automatic navigation system. Moving right at the
-//! end of the previous row navigates to the beginning of the next row. At the end of a page
-//! (the bottom right most button), moving right navigates to the first button on the next page.
+//! Manual navigation can also be used to define navigation in any situation where automatic
+//! navigation fails to create an edge due to lack of proximity. For example, when creating
+//! navigation that loops around to an opposite side, manual navigation should be used to define
+//! this behavior. If one input is too far away from the others and `AutoNavigationConfig`
+//! cannot be tweaked, manual navigation can connect that input to the others. Manual navigation
+//! can also be used to override any undesired navigation.
 //!
-//! The `AutoDirectionalNavigation` component is used to add basic, intuitive navigation to UI
-//! elements within a page. Manual edges between rows and between pages are added to the
-//! `DirectionalNavigationMap` to allow special navigation rules. The `AutoDirectionalNavigator`
-//! system parameter navigates using manual navigation first and automatic navigation second.
+//! The `AutoDirectionalNavigation` component is used to create basic, intuitive navigation to UI
+//! elements within a page. Manual navigation edges are added to the `DirectionalNavigationMap`
+//! to create special navigation rules. The `AutoDirectionalNavigator` system parameter navigates
+//! using manual navigation rules first and automatic navigation second.
 
 use core::time::Duration;
 
@@ -52,10 +53,10 @@ fn main() {
         .insert_resource(AutoNavigationConfig {
             // Require at least 10% overlap in perpendicular axis for cardinal directions
             min_alignment_factor: 0.1,
-            // Don't connect nodes more than 500 pixels apart
-            max_search_distance: Some(500.0),
+            // Don't connect nodes more than 200 pixels apart
+            max_search_distance: Some(200.0),
             // Prefer nodes that are well-aligned
-            prefer_aligned: false,
+            prefer_aligned: true,
         })
         .init_resource::<ActionState>()
         // For automatic navigation, UI entities will have the component `AutoDirectionalNavigation`
@@ -178,9 +179,8 @@ fn setup_paged_ui(
                 "Combined Navigation Demo\n\n\
                  Use arrow keys or D-pad to navigate.\n\
                  Press Enter or A button to interact.\n\n\
-                 Horizontal navigation within rows is configured automatically.\n\
-                 Horizontal navigation between rows is defined manually.\n\
-                 Navigation between pages is defined manually.",
+                 Navigation on each page is a combination of \
+                 both automatic and manual navigation.",
             ),
             Node {
                 position_type: PositionType::Absolute,
@@ -235,31 +235,28 @@ fn setup_paged_ui(
         },
     ));
 
-    // Spawn buttons in cascading rows
-    // Auto-navigation will configure navigation within rows.
-    let button_positions = [
-        // Row 0
-        [(500.0, 80.0), (700.0, 80.0), (900.0, 80.0)],
-        // Row 1
-        [(500.0, 215.0), (700.0, 215.0), (900.0, 215.0)],
-        // Row 2
-        [(500.0, 350.0), (700.0, 350.0), (900.0, 350.0)],
-        // Row 3
-        [(500.0, 485.0), (700.0, 485.0), (900.0, 485.0)],
-    ];
-
     let mut pages_entities = [
         Vec::with_capacity(12),
         Vec::with_capacity(12),
         Vec::with_capacity(12),
     ];
+    let mut text_entities = Vec::with_capacity(6);
     for (page_num, page_button_entities) in pages_entities.iter_mut().enumerate() {
-        setup_buttons_for_page(
-            &mut commands,
-            page_num,
-            page_button_entities,
-            &button_positions,
-        );
+        if page_num == 1 {
+            // the second page
+            setup_buttons_for_triangle_page(
+                &mut commands,
+                page_num,
+                (page_button_entities, &mut text_entities),
+            )
+        } else {
+            // the first and third pages are regular grids
+            setup_buttons_for_grid_page(
+                &mut commands,
+                page_num,
+                (page_button_entities, &mut text_entities),
+            );
+        }
 
         // Only the first page is visible at setup.
         let visibility = if page_num == 0 {
@@ -278,57 +275,16 @@ fn setup_paged_ui(
             ))
             .id();
 
-        // Prompt to go to the previous page, placed left of the top-left button.
-        let previous_page = if page_num == 0 { 3 } else { page_num };
-        let previous_page_node = commands
-            .spawn((
-                Text::new(format!("Page {} << ", previous_page)),
-                Node {
-                    position_type: PositionType::Absolute,
-                    left: px(360),
-                    top: px(120),
-                    width: px(140),
-                    padding: UiRect::all(px(12)),
-                    ..default()
-                },
-                TextLayout {
-                    justify: Justify::Right,
-                    ..default()
-                },
-                TextFont {
-                    font_size: 20.0,
-                    ..default()
-                },
-            ))
-            .id();
-
-        // Prompt to go to the next page, placed right of the bottom-right button.
-        let next_page_node = commands
-            .spawn((
-                Text::new(format!(">> Page {}", (page_num + 1) % 3 + 1)),
-                Node {
-                    position_type: PositionType::Absolute,
-                    left: px(1050),
-                    top: px(525),
-                    width: px(140),
-                    padding: UiRect::all(px(12)),
-                    ..default()
-                },
-                TextFont {
-                    font_size: 20.0,
-                    ..default()
-                },
-            ))
-            .id();
-
         commands
             .entity(page)
             .add_children(page_button_entities)
-            .add_children(&[previous_page_node, next_page_node]);
+            .add_children(&text_entities);
+
+        text_entities.clear();
     }
     let first_button = Some(pages_entities[0][0]);
 
-    // Add manual edges within each page for navigation between rows
+    // For Pages 1 and 3, add manual edges within the grid page for navigation between rows.
     let entity_pairs = [
         // the end of the first row should connect to the beginning of the second
         ((0, 2), (1, 0)),
@@ -337,7 +293,11 @@ fn setup_paged_ui(
         // the end of the third row should connect to the beginning of the fourth
         ((2, 2), (3, 0)),
     ];
-    for page_entities in pages_entities.iter() {
+    for (page_num, page_entities) in pages_entities.iter().enumerate() {
+        // Skip Page 2; we are only adding these manual edges for the grid pages.
+        if page_num == 1 {
+            continue;
+        }
         for ((entity_a_row, entity_a_col), (entity_b_row, entity_b_col)) in entity_pairs.iter() {
             manual_directional_nav_map.add_symmetrical_edge(
                 page_entities[entity_a_row * 3 + entity_a_col],
@@ -347,18 +307,62 @@ fn setup_paged_ui(
         }
     }
 
-    // Add manual edges between pages. When navigating right (east) from the last button of a page,
-    // go to the first button of the next page.
+    // Add manual edges within the triangle page (Page 2) between buttons 3 and 4.
+    // The `AutoNavigationConfig` is set to our desired values, but automatic
+    // navigation does not connect Button 3 to Button 4, so we have to add
+    // this navigation manually.
+    manual_directional_nav_map.add_symmetrical_edge(
+        pages_entities[1][2],
+        pages_entities[1][3],
+        CompassOctant::East,
+    );
+    manual_directional_nav_map.add_symmetrical_edge(
+        pages_entities[1][2],
+        pages_entities[1][3],
+        CompassOctant::South,
+    );
+    manual_directional_nav_map.add_symmetrical_edge(
+        pages_entities[1][2],
+        pages_entities[1][3],
+        CompassOctant::SouthEast,
+    );
+
+    // For Page 3, we override the navigation North and South to be inverted.
+    let mut col_entities = Vec::with_capacity(4);
+    for col in 0..=2 {
+        for row in 0..=3 {
+            col_entities.push(pages_entities[2][row * 3 + col])
+        }
+        manual_directional_nav_map.add_looping_edges(&col_entities, CompassOctant::North);
+        col_entities.clear();
+    }
+
+    // Add manual edges between pages.
+    // When navigating east (right) from the last button of page 1,
+    // go to the first button of page 2. This edge is symmetrical.
     manual_directional_nav_map.add_symmetrical_edge(
         pages_entities[0][11],
         pages_entities[1][0],
         CompassOctant::East,
     );
-    manual_directional_nav_map.add_symmetrical_edge(
-        pages_entities[1][11],
+    // When navigating south (down) from the last button of page 2,
+    // go to the first button of page 3. This edge is NOT symmetrical.
+    // This means going north (up) from the first button of page 3 does
+    // NOT go to the last button of page 2.
+    manual_directional_nav_map.add_edge(
+        pages_entities[1][3],
         pages_entities[2][0],
-        CompassOctant::East,
+        CompassOctant::South,
     );
+    // When navigating west (left) from the first button of page 3,
+    // go back to the last button of page 2. This edge is NOT symmetrical.
+    manual_directional_nav_map.add_edge(
+        pages_entities[2][0],
+        pages_entities[1][3],
+        CompassOctant::West,
+    );
+    // When navigating east (right) from the last button of page 1,
+    // go to the first button of page 2. This edge is symmetrical.
     manual_directional_nav_map.add_symmetrical_edge(
         pages_entities[2][11],
         pages_entities[0][0],
@@ -373,58 +377,250 @@ fn setup_paged_ui(
     }
 }
 
-/// Creates the button entities for a page and places the entities into `page_entities`.
-fn setup_buttons_for_page(
+/// Creates the buttons and text for a grid page and places the ids into their
+/// respective Vecs in `entities`.
+fn setup_buttons_for_grid_page(
     commands: &mut Commands,
     page_num: usize,
-    page_entities: &mut Vec<Entity>,
-    button_positions: &[[(f64, f64); 3]; 4],
+    entities: (&mut Vec<Entity>, &mut Vec<Entity>),
 ) {
+    let (page_button_entities, text_entities) = entities;
+
+    // Spawn buttons in a grid
+    // Auto-navigation will automatically configure navigation within rows.
+    let button_positions = [
+        // Row 0
+        [(450.0, 80.0), (650.0, 80.0), (850.0, 80.0)],
+        // Row 1
+        [(450.0, 215.0), (650.0, 215.0), (850.0, 215.0)],
+        // Row 2
+        [(450.0, 350.0), (650.0, 350.0), (850.0, 350.0)],
+        // Row 3
+        [(450.0, 485.0), (650.0, 485.0), (850.0, 485.0)],
+    ];
     for (i, row) in button_positions.iter().enumerate() {
-        for (j, (x, y)) in row.iter().enumerate() {
-            let button_entity = commands
-                .spawn((
-                    Button,
-                    Node {
-                        position_type: PositionType::Absolute,
-                        left: px(*x),
-                        top: px(*y),
-                        width: px(140),
-                        height: px(100),
-                        border: UiRect::all(px(4)),
-                        justify_content: JustifyContent::Center,
-                        align_items: AlignItems::Center,
-                        border_radius: BorderRadius::all(px(12)),
-                        ..default()
-                    },
-                    Page(page_num),
-                    BackgroundColor(NORMAL_BUTTON_COLORS[page_num].into()),
-                    // This is the key: just add this component for automatic navigation!
-                    AutoDirectionalNavigation::default(),
-                    ResetTimer::default(),
-                    Name::new(format!(
-                        "Page {},\nRow {},\nButton {}",
-                        page_num + 1,
-                        i + 1,
-                        j + 1
-                    )),
-                ))
-                .with_child((
-                    Text::new(format!(
-                        "Page {},\nRow {},\nButton {}",
-                        page_num + 1,
-                        i + 1,
-                        j + 1
-                    )),
-                    TextLayout {
-                        justify: Justify::Center,
-                        ..default()
-                    },
-                ))
-                .id();
-            page_entities.push(button_entity);
+        for (j, (left, top)) in row.iter().enumerate() {
+            let button_entity = spawn_auto_nav_button(
+                commands,
+                format!("Btn {}-{}", i + 1, j + 1),
+                left,
+                top,
+                page_num,
+            );
+            page_button_entities.push(button_entity);
         }
     }
+
+    // Text describing current page
+    let current_page_entity = spawn_small_text_node(
+        commands,
+        format!("Currently on Page {}", page_num + 1),
+        650,
+        20,
+        Justify::Center,
+    );
+    text_entities.push(current_page_entity);
+
+    // Text describing direction to go to the previous page, placed left of the top-left button.
+    let previous_page = if page_num == 0 { 3 } else { page_num };
+    let previous_page_entity = spawn_small_text_node(
+        commands,
+        format!("Page {} << ", previous_page),
+        310,
+        120,
+        Justify::Right,
+    );
+    text_entities.push(previous_page_entity);
+
+    // Text describing direction to go to the next page, placed right of the bottom-right button.
+    let next_page_entity = spawn_small_text_node(
+        commands,
+        format!(">> Page {}", (page_num + 1) % 3 + 1),
+        1000,
+        525,
+        Justify::Left,
+    );
+    text_entities.push(next_page_entity);
+
+    // Texts describing that moving right wraps to the next row.
+    let right_1 = spawn_small_text_node(commands, "> Btn 2-1".into(), 1000, 120, Justify::Left);
+    let right_2 = spawn_small_text_node(commands, "> Btn 3-1".into(), 1000, 255, Justify::Left);
+    let right_3 = spawn_small_text_node(commands, "> Btn 4-1".into(), 1000, 390, Justify::Left);
+    let left_1 = spawn_small_text_node(commands, "Btn 1-3 < ".into(), 310, 255, Justify::Right);
+    let left_2 = spawn_small_text_node(commands, "Btn 2-3 < ".into(), 310, 390, Justify::Right);
+    let left_3 = spawn_small_text_node(commands, "Btn 3-3 < ".into(), 310, 525, Justify::Right);
+    text_entities.push(right_1);
+    text_entities.push(right_2);
+    text_entities.push(right_3);
+    text_entities.push(left_1);
+    text_entities.push(left_2);
+    text_entities.push(left_3);
+
+    // For the third page, add a notice about vertical navigation being inverted in the grid.
+    if page_num == 2 {
+        let footer_info = commands
+            .spawn((
+                Text::new(
+                    "Vertical Navigation has been manually overridden to be inverted! \
+                ^ moves down, and v (down) moves up.",
+                ),
+                Node {
+                    position_type: PositionType::Absolute,
+                    left: px(450),
+                    top: px(600),
+                    width: px(540),
+                    padding: UiRect::all(px(12)),
+                    ..default()
+                },
+                TextFont {
+                    font_size: 20.0,
+                    ..default()
+                },
+            ))
+            .id();
+        text_entities.push(footer_info);
+    }
+}
+
+/// Creates the buttons and text for a the "triangle" page and places the ids into their
+/// respective Vecs in `entities`.
+fn setup_buttons_for_triangle_page(
+    commands: &mut Commands,
+    page_num: usize,
+    entities: (&mut Vec<Entity>, &mut Vec<Entity>),
+) {
+    let button_positions = [
+        (450.0, 80.0),   // top left
+        (700.0, 80.0),   // top right
+        (575.0, 215.0),  // middle
+        (1050.0, 350.0), // bottom right
+    ];
+    let (page_button_entities, text_entities) = entities;
+    for (i, (left, top)) in button_positions.iter().enumerate() {
+        let button_entity =
+            spawn_auto_nav_button(commands, format!("Btn {}", i + 1), left, top, page_num);
+        page_button_entities.push(button_entity);
+    }
+
+    // Text describing current page
+    let current_page_entity = spawn_small_text_node(
+        commands,
+        format!("Page {}", page_num + 1),
+        650,
+        20,
+        Justify::Center,
+    );
+    text_entities.push(current_page_entity);
+
+    // Text describing direction to go to the previous page, placed left of the top-left button.
+    let previous_page = if page_num == 0 { 3 } else { page_num };
+    let previous_page_entity = spawn_small_text_node(
+        commands,
+        format!("Page {} << ", previous_page),
+        310,
+        120,
+        Justify::Right,
+    );
+    text_entities.push(previous_page_entity);
+
+    // Direction to navigate from button 3 to button 4, placed below center button
+    let below_button_three_entity =
+        spawn_small_text_node(commands, "v\nButton 4".into(), 575, 325, Justify::Center);
+    text_entities.push(below_button_three_entity);
+
+    // Direction to navigate from button 3 to button 4, placed right of center button
+    let right_of_button_three_entity =
+        spawn_small_text_node(commands, "> Button 4".into(), 735, 255, Justify::Left);
+    text_entities.push(right_of_button_three_entity);
+
+    // Direction to navigate from button 4 to button 3, placed above bottom right button
+    let below_button_three_entity =
+        spawn_small_text_node(commands, "Button 3\n^".into(), 1050, 300, Justify::Center);
+    text_entities.push(below_button_three_entity);
+
+    // Direction to navigate from button 4 to button 3, placed left of bottom right button
+    let right_of_button_three_entity =
+        spawn_small_text_node(commands, "Button 3 < ".into(), 910, 390, Justify::Right);
+    text_entities.push(right_of_button_three_entity);
+
+    // Direction to go to the next page, placed bottom of the bottom-right button.
+    let next_page_entity = spawn_small_text_node(
+        commands,
+        format!("V\nV\nPage {}", (page_num + 1) % 3 + 1),
+        1050,
+        460,
+        Justify::Center,
+    );
+    text_entities.push(next_page_entity);
+}
+
+fn spawn_auto_nav_button(
+    commands: &mut Commands,
+    text: String,
+    left: &f64,
+    top: &f64,
+    page_num: usize,
+) -> Entity {
+    commands
+        .spawn((
+            Button,
+            Node {
+                position_type: PositionType::Absolute,
+                left: px(*left),
+                top: px(*top),
+                width: px(140),
+                height: px(100),
+                border: UiRect::all(px(4)),
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
+                border_radius: BorderRadius::all(px(12)),
+                ..default()
+            },
+            Page(page_num),
+            BackgroundColor(NORMAL_BUTTON_COLORS[page_num].into()),
+            // This is the key: just add this component for automatic navigation!
+            AutoDirectionalNavigation::default(),
+            ResetTimer::default(),
+            Name::new(text.clone()),
+        ))
+        .with_child((
+            Text::new(text),
+            TextLayout {
+                justify: Justify::Center,
+                ..default()
+            },
+        ))
+        .id()
+}
+
+fn spawn_small_text_node(
+    commands: &mut Commands,
+    text: String,
+    left: i32,
+    top: i32,
+    justify: Justify,
+) -> Entity {
+    commands
+        .spawn((
+            Text::new(text),
+            Node {
+                position_type: PositionType::Absolute,
+                left: px(left),
+                top: px(top),
+                width: px(140),
+                padding: UiRect::all(px(12)),
+                ..default()
+            },
+            TextFont {
+                font_size: 20.0,
+                ..default()
+            },
+            TextLayout {
+                justify,
+                ..default()
+            },
+        ))
+        .id()
 }
 
 // Action state and input handling (same as the manual navigation example)
