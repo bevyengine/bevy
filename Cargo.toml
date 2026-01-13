@@ -185,11 +185,8 @@ picking = ["bevy_picking", "mesh_picking", "sprite_picking", "ui_picking"]
 default_app = [
   "async_executor",
   "bevy_asset",
-  "bevy_input_focus",
   "bevy_log",
   "bevy_state",
-  "bevy_window",
-  "custom_cursor",
   "reflect_auto_register",
 ]
 
@@ -215,9 +212,12 @@ common_api = [
   "bevy_color",
   "bevy_gizmos",
   "bevy_image",
+  "bevy_input_focus",
   "bevy_mesh",
   "bevy_shader",
   "bevy_text",
+  "bevy_window",
+  "custom_cursor",
   "hdr",
   "png",
 ]
