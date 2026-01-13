@@ -865,7 +865,7 @@ fn create_downsampling_pipelines(
         pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
             label: Some(format!("mip generation pipeline, pass 1 ({:?})", texture_format).into()),
             layout: vec![downsampling_bind_group_layout_pass_1.clone()],
-            push_constant_ranges: vec![],
+            immediate_size: 0,
             shader: downsample_shader.clone(),
             shader_defs: downsampling_first_shader_defs,
             entry_point: Some("downsample_first".into()),
@@ -878,7 +878,7 @@ fn create_downsampling_pipelines(
         pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
             label: Some(format!("mip generation pipeline, pass 2 ({:?})", texture_format).into()),
             layout: vec![downsampling_bind_group_layout_pass_2.clone()],
-            push_constant_ranges: vec![],
+            immediate_size: 0,
             shader: downsample_shader.clone(),
             shader_defs: downsampling_second_shader_defs,
             entry_point: Some("downsample_second".into()),

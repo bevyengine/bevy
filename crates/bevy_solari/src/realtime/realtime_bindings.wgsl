@@ -33,7 +33,7 @@
 @group(1) @binding(22) var<storage, read_write> world_cache_active_cell_indices: array<u32, #{WORLD_CACHE_SIZE}>;
 @group(1) @binding(23) var<storage, read_write> world_cache_active_cells_count: u32;
 struct PushConstants { frame_index: u32, reset: u32 }
-var<push_constant> constants: PushConstants;
+var<immediate> constants: PushConstants;
 
 // Don't adjust the size of this struct without also adjusting `prepare::RESOLVED_LIGHT_SAMPLE_STRUCT_SIZE`.
 struct ResolvedLightSamplePacked {
