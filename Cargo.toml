@@ -212,7 +212,6 @@ common_api = [
   "bevy_color",
   "bevy_gizmos",
   "bevy_image",
-  "bevy_input_focus",
   "bevy_mesh",
   "bevy_shader",
   "bevy_text",
@@ -262,7 +261,7 @@ common_api = [
 ]
 
 # COLLECTION: Features used to build UI Bevy apps (does not include a render backend). You generally don't need to worry about this unless you are using a custom renderer.
-ui_api = ["default_app", "common_api", "bevy_ui"]
+ui_api = ["default_app", "common_api", "bevy_input_focus" "bevy_ui"]
 
 # COLLECTION: Bevy's built-in UI renderer, built on top of `bevy_render`.
 ui_bevy_render = [
