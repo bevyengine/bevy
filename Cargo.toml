@@ -4516,7 +4516,7 @@ doc-scrape-examples = false
 name = "glTF extension AnimationGraph"
 description = "Uses glTF data to build an AnimationGraph via extension processing"
 category = "glTF"
-wasm = true
+wasm = false
 
 [[example]]
 name = "gltf_extension_mesh_2d"
@@ -4528,7 +4528,7 @@ doc-scrape-examples = false
 name = "glTF extension processing to build Mesh2ds from glTF data"
 description = "Uses glTF extension data to convert incoming Mesh3d/MeshMaterial3d assets to 2d"
 category = "glTF"
-wasm = true
+wasm = false
 
 [[example]]
 name = "query_gltf_primitives"
