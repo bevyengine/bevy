@@ -1,4 +1,9 @@
-//! A navigation framework for moving between focusable elements based on directional input.
+//! A manual navigation framework for moving between focusable elements based on directional input.
+//!
+//! Note: If using `bevy_ui`, this manual navigation framework is used to provide overrides
+//! for its automatic navigation framework based on the `AutoDirectionalNavigation` component.
+//! Most times, the automatic navigation framework alone should be sufficient.
+//! If not using `bevy_ui`, this manual navigation framework can still be used by itself.
 //!
 //! While virtual cursors are a common way to navigate UIs with a gamepad (or arrow keys!),
 //! they are generally both slow and frustrating to use.
@@ -7,15 +12,15 @@
 //! Like the rest of this crate, the [`InputFocus`] resource is manipulated to track
 //! the current focus.
 //!
+//! This module's [`DirectionalNavigationMap`] stores a directed graph of focusable entities.
+//! Each entity can have up to 8 neighbors, one for each [`CompassOctant`], balancing
+//! flexibility and required precision.
+//!
 //! Navigating between focusable entities (commonly UI nodes) is done by
 //! passing a [`CompassOctant`] into the [`navigate`](DirectionalNavigation::navigate) method
-//! from the [`DirectionalNavigation`] system parameter. Under the hood, an entity is found
-//! automatically via brute force search in the desired [`CompassOctant`] direction.
-//!
-//! If some manual navigation is desired, a [`DirectionalNavigationMap`] will override the brute force
-//! search in a direction for a given entity. The [`DirectionalNavigationMap`] stores a directed graph
-//! of focusable entities. Each entity can have up to 8 neighbors, one for each [`CompassOctant`],
-//! balancing flexibility and required precision.
+//! from the [`DirectionalNavigation`] system parameter. Under the hood, the
+//! [`DirectionalNavigationMap`] is used to return the focusable entity in a direction
+//! for a given entity.
 //!
 //! # Setting up Directional Navigation
 //!
@@ -26,21 +31,26 @@
 //! include automatic navigation, you should also use the `AutoDirectionalNavigator` system parameter
 //! in that crate instead of [`DirectionalNavigation`].
 //!
-//! ## Manual Navigation
-//!
-//! You can also manually define navigation connections using methods like
-//! [`add_edge`](DirectionalNavigationMap::add_edge) and
-//! [`add_looping_edges`](DirectionalNavigationMap::add_looping_edges).
-//!
-//! ## Combining Automatic and Manual
+//! ## Combining Automatic Navigation with Manual Overrides
 //!
 //! Following manual edges always take precedence, allowing you to use
 //! automatic navigation for most UI elements while overriding specific connections for
-//! special cases like wrapping menus or cross-layer navigation.
+//! special cases like wrapping menus or cross-layer navigation. If you need to override
+//! automatic navigation behavior, use the [`DirectionalNavigationMap`] to define
+//! overriding edges between UI entities.
 //!
-//! ## When to Use Manual Navigation
+//! ## Manual Navigation Only
 //!
-//! While automatic navigation is recommended for most use cases, manual navigation provides:
+//! Manually define your navigation using the [`DirectionalNavigationMap`], and use the
+//! [`DirectionalNavigation`] system parameter to navigate between components.
+//! You can define navigation connections using methods like
+//! [`add_edge`](DirectionalNavigationMap::add_edge) and
+//! [`add_looping_edges`](DirectionalNavigationMap::add_looping_edges).
+//!
+//! ## When to Use Manual Navigation or Manual Overrides
+//!
+//! While automatic navigation is recommended and satisfactory for most use cases,
+//! using manual navigation only or integrating manual overrides to automatic navigation provide:
 //!
 //! - **Precise control**: Define exact navigation flow, including non-obvious connections like looping edges
 //! - **Cross-layer navigation**: Connect elements across different UI layers or z-index levels
@@ -189,6 +199,11 @@ impl NavNeighbors {
 ///
 /// This graph must be built and maintained manually, and the developer is responsible for ensuring that it meets the above criteria.
 /// Notably, if the developer adds or removes the navigability of an entity, the developer should update the map as necessary.
+///
+/// If the automatic navigation system in `bevy_ui` is being used, this resource can be used to specify
+/// manual navigation overrides. Any navigation edges specified in this map take precedence over automatic
+/// navigation. For example, if navigation on one side of the window should wrap around to
+/// the other side of the window, this navigation behavior can be specified using this map.
 #[derive(Resource, Debug, Default, Clone, PartialEq)]
 #[cfg_attr(
     feature = "bevy_reflect",
