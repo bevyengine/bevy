@@ -529,22 +529,22 @@ fn setup_buttons_for_triangle_page(
 
     // Direction to navigate from button 3 to button 4, placed below center button
     let below_button_three_entity =
-        spawn_small_text_node(commands, "v\nButton 4".into(), 575, 325, Justify::Center);
+        spawn_small_text_node(commands, "v\nBtn 4".into(), 575, 325, Justify::Center);
     text_entities.push(below_button_three_entity);
 
     // Direction to navigate from button 3 to button 4, placed right of center button
     let right_of_button_three_entity =
-        spawn_small_text_node(commands, "> Button 4".into(), 735, 255, Justify::Left);
+        spawn_small_text_node(commands, "> Btn 4".into(), 735, 255, Justify::Left);
     text_entities.push(right_of_button_three_entity);
 
     // Direction to navigate from button 4 to button 3, placed above bottom right button
     let below_button_three_entity =
-        spawn_small_text_node(commands, "Button 3\n^".into(), 1050, 300, Justify::Center);
+        spawn_small_text_node(commands, "Btn 3\n^".into(), 1050, 300, Justify::Center);
     text_entities.push(below_button_three_entity);
 
     // Direction to navigate from button 4 to button 3, placed left of bottom right button
     let right_of_button_three_entity =
-        spawn_small_text_node(commands, "Button 3 < ".into(), 910, 390, Justify::Right);
+        spawn_small_text_node(commands, "Btn 3 < ".into(), 910, 390, Justify::Right);
     text_entities.push(right_of_button_three_entity);
 
     // Direction to go to the next page, placed bottom of the bottom-right button.
