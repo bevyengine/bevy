@@ -103,8 +103,9 @@ impl Default for TextNodeFlags {
     LineHeight,
     TextNodeFlags,
     ContentSize,
-    // Enable hinting as UI text is normally pixel-aligned.
-    FontHinting::Enabled
+    // Disable hinting.
+    // UI text is normally pixel-aligned, but with hinting enabled sometimes the text bounds are miscalculated slightly.
+    FontHinting::Disabled
 )]
 pub struct Text(pub String);
 
