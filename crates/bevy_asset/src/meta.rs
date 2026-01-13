@@ -130,6 +130,8 @@ pub trait AssetMetaDyn: Downcast + Send + Sync {
     fn loader_settings(&self) -> Option<&dyn Settings>;
     /// Returns a mutable reference to the [`AssetLoader`] settings, if they exist.
     fn loader_settings_mut(&mut self) -> Option<&mut dyn Settings>;
+    /// Returns a reference to the [`Process`] settings, if they exist.
+    fn process_settings(&self) -> Option<&dyn Settings>;
     /// Serializes the internal [`AssetMeta`].
     fn serialize(&self) -> Vec<u8>;
     /// Returns a reference to the [`ProcessedInfo`] if it exists.
@@ -153,10 +155,22 @@ impl<L: AssetLoader, P: Process> AssetMetaDyn for AssetMeta<L, P> {
             None
         }
     }
+    fn process_settings(&self) -> Option<&dyn Settings> {
+        if let AssetAction::Process { settings, .. } = &self.asset {
+            Some(settings)
+        } else {
+            None
+        }
+    }
     fn serialize(&self) -> Vec<u8> {
-        ron::ser::to_string_pretty(&self, PrettyConfig::default())
-            .expect("type is convertible to ron")
-            .into_bytes()
+        ron::ser::to_string_pretty(
+            &self,
+            // This defaults to \r\n on Windows, so hard-code it to \n so it's consistent for
+            // testing.
+            PrettyConfig::default().new_line("\n"),
+        )
+        .expect("type is convertible to ron")
+        .into_bytes()
     }
     fn processed_info(&self) -> &Option<ProcessedInfo> {
         &self.processed_info
@@ -185,7 +199,7 @@ impl Process for () {
     async fn process(
         &self,
         _context: &mut bevy_asset::processor::ProcessContext<'_>,
-        _meta: AssetMeta<(), Self>,
+        _settings: &Self::Settings,
         _writer: &mut bevy_asset::io::Writer,
     ) -> Result<(), bevy_asset::processor::ProcessError> {
         unreachable!()

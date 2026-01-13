@@ -6,6 +6,11 @@ updates:
       interval: weekly
     labels:
       - "C-Dependencies"
+    groups:
+      wgpu:
+        patterns:
+          - "*wgpu*"
+          - "naga*"
   - package-ecosystem: github-actions
     directory: /
     schedule:

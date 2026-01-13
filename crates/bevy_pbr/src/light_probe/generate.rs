@@ -13,6 +13,7 @@
 //! These components are intended to be added to a camera.
 use bevy_app::{App, Plugin, Update};
 use bevy_asset::{embedded_asset, load_embedded_asset, AssetServer, Assets, RenderAssetUsages};
+use bevy_core_pipeline::mip_generation::{self, DownsampleShaders, DownsamplingConstants};
 use bevy_ecs::{
     component::Component,
     entity::Entity,
@@ -32,8 +33,8 @@ use bevy_render::{
         ComputePipelineDescriptor, DownlevelFlags, Extent3d, FilterMode, PipelineCache, Sampler,
         SamplerBindingType, SamplerDescriptor, ShaderStages, ShaderType, StorageTextureAccess,
         Texture, TextureAspect, TextureDescriptor, TextureDimension, TextureFormat,
-        TextureFormatFeatureFlags, TextureSampleType, TextureUsages, TextureView,
-        TextureViewDescriptor, TextureViewDimension, UniformBuffer,
+        TextureSampleType, TextureUsages, TextureView, TextureViewDescriptor, TextureViewDimension,
+        UniformBuffer,
     },
     renderer::{RenderAdapter, RenderContext, RenderDevice, RenderQueue},
     settings::WgpuFeatures,
@@ -125,7 +126,6 @@ impl Plugin for EnvironmentMapGenerationPlugin {
         }
 
         embedded_asset!(app, "environment_filter.wgsl");
-        embedded_asset!(app, "downsample.wgsl");
         embedded_asset!(app, "copy.wgsl");
 
         app.add_plugins(SyncComponentPlugin::<GeneratedEnvironmentMapLight>::default())
@@ -160,9 +160,6 @@ impl Plugin for EnvironmentMapGenerationPlugin {
     }
 }
 
-// The number of storage textures required to combine the bind group
-const REQUIRED_STORAGE_TEXTURES: u32 = 12;
-
 /// Initializes all render-world resources used by the environment-map generator once on
 /// [`bevy_render::RenderStartup`].
 pub fn initialize_generated_environment_map_resources(
@@ -171,19 +168,11 @@ pub fn initialize_generated_environment_map_resources(
     render_adapter: Res<RenderAdapter>,
     pipeline_cache: Res<PipelineCache>,
     asset_server: Res<AssetServer>,
+    downsample_shaders: Res<DownsampleShaders>,
 ) {
-    // Determine whether we can use a single, large bind group for all mip outputs
-    let storage_texture_limit = render_device.limits().max_storage_textures_per_shader_stage;
-
-    // Determine whether we can read and write to the same rgba16f storage texture
-    let read_write_support = render_adapter
-        .get_texture_format_features(TextureFormat::Rgba16Float)
-        .flags
-        .contains(TextureFormatFeatureFlags::STORAGE_READ_WRITE);
-
     // Combine the bind group and use read-write storage if it is supported
     let combine_bind_group =
-        storage_texture_limit >= REQUIRED_STORAGE_TEXTURES && read_write_support;
+        mip_generation::can_combine_downsampling_bind_groups(&render_adapter, &render_device);
 
     // Output mips are write-only
     let mips =
@@ -348,14 +337,19 @@ pub fn initialize_generated_environment_map_resources(
     if combine_bind_group {
         shader_defs.push(ShaderDefVal::Int("COMBINE_BIND_GROUP".into(), 1));
     }
+    shader_defs.push(ShaderDefVal::Bool("ARRAY_TEXTURE".into(), true));
     #[cfg(feature = "bluenoise_texture")]
     {
         shader_defs.push(ShaderDefVal::Int("HAS_BLUE_NOISE".into(), 1));
     }
 
-    let downsampling_shader = load_embedded_asset!(asset_server.as_ref(), "downsample.wgsl");
     let env_filter_shader = load_embedded_asset!(asset_server.as_ref(), "environment_filter.wgsl");
     let copy_shader = load_embedded_asset!(asset_server.as_ref(), "copy.wgsl");
+
+    let downsampling_shader = downsample_shaders
+        .general
+        .get(&TextureFormat::Rgba16Float)
+        .expect("Mip generation shader should exist in the general downsampling shader table");
 
     // First pass for base mip Levels (0-5)
     let downsample_first = pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
@@ -378,7 +372,7 @@ pub fn initialize_generated_environment_map_resources(
         label: Some("downsampling_second_pipeline".into()),
         layout: vec![layouts.downsampling_second.clone()],
         push_constant_ranges: vec![],
-        shader: downsampling_shader,
+        shader: downsampling_shader.clone(),
         shader_defs: {
             let mut defs = shader_defs.clone();
             if !combine_bind_group {
@@ -539,15 +533,6 @@ pub fn prepare_generated_environment_map_intermediate_textures(
             .entity(entity)
             .insert(IntermediateTextures { environment_map });
     }
-}
-
-/// Shader constants for downsampling algorithm
-#[derive(Clone, Copy, ShaderType)]
-#[repr(C)]
-pub struct DownsamplingConstants {
-    mips: u32,
-    inverse_input_size: Vec2,
-    _padding: u32,
 }
 
 /// Constants for filtering

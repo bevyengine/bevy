@@ -11,6 +11,7 @@ mod tracy_gpu;
 
 use alloc::{borrow::Cow, sync::Arc};
 use core::marker::PhantomData;
+use wgpu::{BufferSlice, CommandEncoder};
 
 use bevy_app::{App, Plugin, PreUpdate};
 
@@ -103,12 +104,28 @@ pub trait RecordDiagnostics: Send + Sync {
         P: Pass,
         N: Into<Cow<'static, str>>,
     {
-        self.begin_pass_span(pass, name.into());
+        let name = name.into();
+        self.begin_pass_span(pass, name.clone());
         PassSpanGuard {
             recorder: self,
+            name,
             marker: PhantomData,
         }
     }
+
+    /// Reads a f32 from the specified buffer and uploads it as a diagnostic.
+    ///
+    /// The provided buffer slice must be 4 bytes long, and the buffer must have [`wgpu::BufferUsages::COPY_SRC`];
+    fn record_f32<N>(&self, command_encoder: &mut CommandEncoder, buffer: &BufferSlice, name: N)
+    where
+        N: Into<Cow<'static, str>>;
+
+    /// Reads a u32 from the specified buffer and uploads it as a diagnostic.
+    ///
+    /// The provided buffer slice must be 4 bytes long, and the buffer must have [`wgpu::BufferUsages::COPY_SRC`];
+    fn record_u32<N>(&self, command_encoder: &mut CommandEncoder, buffer: &BufferSlice, name: N)
+    where
+        N: Into<Cow<'static, str>>;
 
     #[doc(hidden)]
     fn begin_time_span<E: WriteTimestamp>(&self, encoder: &mut E, name: Cow<'static, str>);
@@ -150,6 +167,7 @@ impl<R: ?Sized, E> Drop for TimeSpanGuard<'_, R, E> {
 /// Will panic on drop unless [`PassSpanGuard::end`] is called.
 pub struct PassSpanGuard<'a, R: ?Sized, P> {
     recorder: &'a R,
+    name: Cow<'static, str>,
     marker: PhantomData<P>,
 }
 
@@ -163,11 +181,29 @@ impl<R: RecordDiagnostics + ?Sized, P: Pass> PassSpanGuard<'_, R, P> {
 
 impl<R: ?Sized, P> Drop for PassSpanGuard<'_, R, P> {
     fn drop(&mut self) {
-        panic!("PassSpanScope::end was never called")
+        panic!("PassSpanGuard::end was never called for {}", self.name)
     }
 }
 
 impl<T: RecordDiagnostics> RecordDiagnostics for Option<Arc<T>> {
+    fn record_f32<N>(&self, command_encoder: &mut CommandEncoder, buffer: &BufferSlice, name: N)
+    where
+        N: Into<Cow<'static, str>>,
+    {
+        if let Some(recorder) = &self {
+            recorder.record_f32(command_encoder, buffer, name);
+        }
+    }
+
+    fn record_u32<N>(&self, command_encoder: &mut CommandEncoder, buffer: &BufferSlice, name: N)
+    where
+        N: Into<Cow<'static, str>>,
+    {
+        if let Some(recorder) = &self {
+            recorder.record_u32(command_encoder, buffer, name);
+        }
+    }
+
     fn begin_time_span<E: WriteTimestamp>(&self, encoder: &mut E, name: Cow<'static, str>) {
         if let Some(recorder) = &self {
             recorder.begin_time_span(encoder, name);

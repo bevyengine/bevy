@@ -11,7 +11,7 @@ use core::num::{NonZero, NonZeroU64};
 use bevy_app::{App, Plugin};
 use bevy_asset::{embedded_asset, load_embedded_asset, Handle};
 use bevy_core_pipeline::{
-    experimental::mip_generation::{early_downsample_depth, ViewDepthPyramid},
+    mip_generation::experimental::depth::{early_downsample_depth, ViewDepthPyramid},
     prepass::{
         node::{early_prepass, late_prepass},
         DepthPrepass, PreviousViewData, PreviousViewUniformOffset, PreviousViewUniforms,
@@ -29,6 +29,7 @@ use bevy_ecs::{
     system::{Commands, Query, Res, ResMut},
     world::{FromWorld, World},
 };
+use bevy_log::warn_once;
 use bevy_render::{
     batching::gpu_preprocessing::{
         BatchedInstanceBuffers, GpuOcclusionCullingWorkItemBuffers, GpuPreprocessingMode,
@@ -56,7 +57,7 @@ use bevy_shader::Shader;
 use bevy_utils::{default, TypeIdMap};
 use bitflags::bitflags;
 use smallvec::{smallvec, SmallVec};
-use tracing::warn;
+use tracing::{warn, warn_once};
 
 use crate::{MeshCullingData, MeshCullingDataBuffer, MeshInputUniform, MeshUniform};
 
@@ -445,12 +446,17 @@ pub fn early_gpu_preprocess(
     preprocess_pipelines: Res<PreprocessPipelines>,
     mut ctx: RenderContext,
 ) {
+    let diagnostics = ctx.diagnostic_recorder();
+    let diagnostics = diagnostics.as_deref();
+
     let command_encoder = ctx.command_encoder();
 
     let mut compute_pass = command_encoder.begin_compute_pass(&ComputePassDescriptor {
         label: Some("early_mesh_preprocessing"),
         timestamp_writes: None,
     });
+
+    let pass_span = diagnostics.pass_span(&mut compute_pass, "early_mesh_preprocessing");
 
     let view_entity = current_view.entity();
     let shadow_cascade_views = current_view.into_inner();
@@ -612,6 +618,8 @@ pub fn early_gpu_preprocess(
             }
         }
     }
+
+    pass_span.end(&mut compute_pass);
 }
 
 pub fn late_gpu_preprocess(
@@ -631,20 +639,13 @@ pub fn late_gpu_preprocess(
 ) {
     let (view, bind_groups, view_uniform_offset) = current_view.into_inner();
 
-    let command_encoder = ctx.command_encoder();
-
-    let mut compute_pass = command_encoder.begin_compute_pass(&ComputePassDescriptor {
-        label: Some("late_mesh_preprocessing"),
-        timestamp_writes: None,
-    });
-
+    // Fetch the pipeline BEFORE starting diagnostic spans to avoid panic on early return
     let maybe_pipeline_id = preprocess_pipelines
         .late_gpu_occlusion_culling_preprocess
         .pipeline_id;
 
-    // Fetch the pipeline.
     let Some(preprocess_pipeline_id) = maybe_pipeline_id else {
-        warn!("The build mesh uniforms pipeline wasn't ready");
+        warn_once!("The build mesh uniforms pipeline wasn't ready");
         return;
     };
 
@@ -653,6 +654,18 @@ pub fn late_gpu_preprocess(
         // This will happen while the pipeline is being compiled and is fine.
         return;
     };
+
+    let diagnostics = ctx.diagnostic_recorder();
+    let diagnostics = diagnostics.as_deref();
+
+    let command_encoder = ctx.command_encoder();
+
+    let mut compute_pass = command_encoder.begin_compute_pass(&ComputePassDescriptor {
+        label: Some("late_mesh_preprocessing"),
+        timestamp_writes: None,
+    });
+
+    let pass_span = diagnostics.pass_span(&mut compute_pass, "late_mesh_preprocessing");
 
     compute_pass.set_pipeline(preprocess_pipeline);
 
@@ -739,6 +752,8 @@ pub fn late_gpu_preprocess(
             );
         }
     }
+
+    pass_span.end(&mut compute_pass);
 }
 
 pub fn early_prepass_build_indirect_parameters(

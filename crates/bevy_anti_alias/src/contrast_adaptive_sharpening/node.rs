@@ -84,10 +84,13 @@ pub(crate) fn cas(
 
     {
         let mut render_pass = ctx.command_encoder().begin_render_pass(&pass_descriptor);
+        let pass_span = diagnostics.pass_span(&mut render_pass, "contrast_adaptive_sharpening");
 
         render_pass.set_pipeline(pipeline);
         render_pass.set_bind_group(0, bind_group, &[uniform_index.index()]);
         render_pass.draw(0..3, 0..1);
+
+        pass_span.end(&mut render_pass);
     }
 
     time_span.end(ctx.command_encoder());

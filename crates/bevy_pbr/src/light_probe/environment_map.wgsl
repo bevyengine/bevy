@@ -238,11 +238,10 @@ fn environment_map_light(
     let specular_occlusion = saturate(dot(F0, vec3(50.0 * 0.33)));
 
     // Multiscattering approximation: https://www.jcgt.org/published/0008/01/03/paper.pdf
-    // Useful reference: https://bruop.github.io/ibl
-    let Fr = max(vec3(1.0 - roughness), F0) - F0;
-    let kS = F0 + Fr * pow(1.0 - NdotV, 5.0);
+    // We initially used this (https://bruop.github.io/ibl) reference with Roughness Dependent
+    // Fresnel, but it made fresnel very bright so we reverted to the "typical" fresnel term.
     let Ess = F_ab.x + F_ab.y;
-    let FssEss = kS * Ess * specular_occlusion;
+    let FssEss = (F0 * Ess) * specular_occlusion;
     let Ems = 1.0 - Ess;
     let Favg = F0 + (1.0 - F0) / 21.0;
     let Fms = FssEss * Favg / (1.0 - Ems * Favg);
