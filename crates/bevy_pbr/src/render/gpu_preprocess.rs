@@ -31,7 +31,6 @@ use bevy_ecs::{
 };
 use bevy_log::warn_once;
 use bevy_render::{
-    diagnostic::RecordDiagnostics as _,
     batching::gpu_preprocessing::{
         BatchedInstanceBuffers, GpuOcclusionCullingWorkItemBuffers, GpuPreprocessingMode,
         GpuPreprocessingSupport, IndirectBatchSet, IndirectParametersBuffers,
@@ -40,6 +39,7 @@ use bevy_render::{
         PreprocessWorkItemBuffers, UntypedPhaseBatchedInstanceBuffers,
         UntypedPhaseIndirectParametersBuffers,
     },
+    diagnostic::RecordDiagnostics as _,
     experimental::occlusion_culling::OcclusionCulling,
     render_resource::{
         binding_types::{storage_buffer, storage_buffer_read_only, texture_2d, uniform_buffer},

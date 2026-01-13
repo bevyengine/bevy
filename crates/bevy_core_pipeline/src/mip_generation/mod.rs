@@ -179,12 +179,12 @@ pub struct MipGenerationPhase(pub Vec<AssetId<Image>>);
 /// scene. In this case, the mipmaps must be generated after the first camera
 /// renders to the image rendered to but before the second camera's rendering
 /// samples the image. To express these kinds of dependencies, you group images
-/// into *phases* and schedule [`MipGenerationNode`]s in the render graph
+/// into *phases* and schedule systems that call [`generate_mips_for_phase`]
 /// targeting each phase at the appropriate time.
 ///
 /// Each phase has an ID, which is an arbitrary 32-bit integer. You may specify
-/// any value you wish as a phase ID, so long as the [`MipGenerationNode`] that
-/// generates mipmaps for the images in that phase uses the same ID.
+/// any value you wish as a phase ID, so long as the system that calls
+/// [`generate_mips_for_phase`] uses the same ID.
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub struct MipGenerationPhaseId(pub u32);
 
@@ -194,18 +194,18 @@ pub struct MipGenerationPhaseId(pub u32);
 /// The `prepare_mip_generator_pipelines` system populates this resource lazily
 /// as new textures are scheduled.
 #[derive(Resource, Default)]
-struct MipGenerationPipelines {
+pub struct MipGenerationPipelines {
     /// The pipeline for each texture format.
     ///
     /// Note that pipelines can be shared among all images that use a single
     /// texture format.
-    pipelines: HashMap<TextureFormat, MipGenerationTextureFormatPipelines>,
+    pub(crate) pipelines: HashMap<TextureFormat, MipGenerationTextureFormatPipelines>,
 
     /// The bind group for each image.
     ///
     /// These are cached from frame to frame if the same image needs mips
     /// generated for it on immediately-consecutive frames.
-    bind_groups: HashMap<AssetId<Image>, MipGenerationJobBindGroups>,
+    pub(crate) bind_groups: HashMap<AssetId<Image>, MipGenerationJobBindGroups>,
 }
 
 /// The compute pipelines and bind group layouts for the single-pass

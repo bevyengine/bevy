@@ -216,7 +216,10 @@ impl Plugin for EffectStackPlugin {
                 )
                     .in_set(RenderSystems::Prepare),
             )
-            .add_systems(Core3d, post_processing.after(depth_of_field).before(tonemapping))
+            .add_systems(
+                Core3d,
+                post_processing.after(depth_of_field).before(tonemapping),
+            )
             .add_systems(Core2d, post_processing.after(bloom).before(tonemapping));
     }
 }

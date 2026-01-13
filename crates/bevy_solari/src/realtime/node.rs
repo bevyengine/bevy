@@ -89,7 +89,7 @@ pub fn init_solari_lighting_pipelines(
                 storage_buffer_sized(false, None),
                 storage_buffer_sized(false, None),
                 storage_buffer_sized(false, None),
-                storage_buffer_sized(false, None),  // world_cache_active_cells_count - added from main
+                storage_buffer_sized(false, None), // world_cache_active_cells_count - added from main
             ),
         ),
     );
