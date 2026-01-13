@@ -29,7 +29,7 @@ const DEFAULT_PADDING: UiRect = UiRect::all(Val::Px(4.));
 
 /// Diagnostics overlay
 ///
-/// Spawning an entity with this component will create a draggable and collapsable window
+/// Spawning an entity with this component will create a draggable and collapsible window
 /// that presents the diagnostics passed to the constructor
 ///
 /// If any value is showing as missing, means that no value was stored to the [`DiagnosticPath`],
