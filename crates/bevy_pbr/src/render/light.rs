@@ -152,6 +152,7 @@ bitflags::bitflags! {
         const SHADOWS_ENABLED                   = 1 << 0;
         const VOLUMETRIC                        = 1 << 1;
         const AFFECTS_LIGHTMAPPED_MESH_DIFFUSE  = 1 << 2;
+        const ATMOSPHERIC_SCATTERING            = 1 << 3;
         const NONE                              = 0;
         const UNINITIALIZED                     = 0xFFFF;
     }
@@ -1197,6 +1198,12 @@ pub fn prepare_lights(
 
             if light.affects_lightmapped_mesh_diffuse {
                 flags |= DirectionalLightFlags::AFFECTS_LIGHTMAPPED_MESH_DIFFUSE;
+            }
+
+            // This is needed to bypass the `directional_volumetric_enabled_count`
+            // limit of volumetric lights
+            if light.volumetric {
+                flags |= DirectionalLightFlags::ATMOSPHERIC_SCATTERING;
             }
 
             gpu_directional_lights[index] = GpuDirectionalLight {

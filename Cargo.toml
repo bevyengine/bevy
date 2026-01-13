@@ -1214,6 +1214,17 @@ category = "3D Rendering"
 wasm = true
 
 [[example]]
+name = "atmosphere_multiple_lights"
+path = "examples/3d/atmosphere_multiple_lights.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.atmosphere_multiple_lights]
+name = "Atmosphere with multiple Directional Lights"
+description = "Showcase atmosphere with multiple directional lights"
+category = "3D Rendering"
+wasm = true
+
+[[example]]
 name = "fog"
 path = "examples/3d/fog.rs"
 # Causes an ICE on docs.rs
