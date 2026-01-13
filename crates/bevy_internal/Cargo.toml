@@ -229,11 +229,7 @@ bevy_window = ["dep:bevy_window", "dep:bevy_a11y", "bevy_image"]
 bevy_winit = ["dep:bevy_winit", "bevy_window"]
 bevy_camera = ["dep:bevy_camera", "bevy_mesh", "bevy_window"]
 bevy_scene = ["dep:bevy_scene", "bevy_asset"]
-bevy_material = [
-  "dep:bevy_material",
-  "bevy_image",
-  "bevy_shader",
-]
+bevy_material = ["dep:bevy_material", "bevy_image", "bevy_shader"]
 bevy_light = ["dep:bevy_light", "bevy_camera", "bevy_gizmos?/bevy_light"]
 bevy_render = [
   "dep:bevy_render",
