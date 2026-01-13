@@ -23,6 +23,7 @@ extern crate std;
 extern crate alloc;
 
 pub mod directional_navigation;
+pub mod navigator;
 pub mod tab_navigation;
 
 // This module is too small / specific to be exported by the crate,
@@ -30,11 +31,18 @@ pub mod tab_navigation;
 mod autofocus;
 pub use autofocus::*;
 
-use bevy_app::{App, Plugin, PostStartup, PreUpdate};
+#[cfg(any(feature = "keyboard", feature = "gamepad", feature = "mouse"))]
+use bevy_app::PreUpdate;
+use bevy_app::{App, Plugin, PostStartup};
 use bevy_ecs::{
     entity::Entities, prelude::*, query::QueryData, system::SystemParam, traversal::Traversal,
 };
-use bevy_input::{gamepad::GamepadButtonChangedEvent, keyboard::KeyboardInput, mouse::MouseWheel};
+#[cfg(feature = "gamepad")]
+use bevy_input::gamepad::GamepadButtonChangedEvent;
+#[cfg(feature = "keyboard")]
+use bevy_input::keyboard::KeyboardInput;
+#[cfg(feature = "mouse")]
+use bevy_input::mouse::MouseWheel;
 use bevy_window::{PrimaryWindow, Window};
 use core::fmt::Debug;
 
@@ -78,7 +86,7 @@ use bevy_reflect::{prelude::*, Reflect};
 ///     world.insert_resource(InputFocus::from_entity(entity));
 /// }
 /// ```
-#[derive(Clone, Debug, Default, Resource)]
+#[derive(Clone, Debug, Default, Resource, PartialEq)]
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
@@ -217,16 +225,21 @@ impl Plugin for InputDispatchPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(PostStartup, set_initial_focus)
             .init_resource::<InputFocus>()
-            .init_resource::<InputFocusVisible>()
-            .add_systems(
-                PreUpdate,
-                (
-                    dispatch_focused_input::<KeyboardInput>,
-                    dispatch_focused_input::<GamepadButtonChangedEvent>,
-                    dispatch_focused_input::<MouseWheel>,
-                )
-                    .in_set(InputFocusSystems::Dispatch),
-            );
+            .init_resource::<InputFocusVisible>();
+
+        #[cfg(any(feature = "keyboard", feature = "gamepad", feature = "mouse"))]
+        app.add_systems(
+            PreUpdate,
+            (
+                #[cfg(feature = "keyboard")]
+                dispatch_focused_input::<KeyboardInput>,
+                #[cfg(feature = "gamepad")]
+                dispatch_focused_input::<GamepadButtonChangedEvent>,
+                #[cfg(feature = "mouse")]
+                dispatch_focused_input::<MouseWheel>,
+            )
+                .in_set(InputFocusSystems::Dispatch),
+        );
     }
 }
 
@@ -238,10 +251,6 @@ pub enum InputFocusSystems {
     /// System which dispatches bubbled input events to the focused entity, or to the primary window.
     Dispatch,
 }
-
-/// Deprecated alias for [`InputFocusSystems`].
-#[deprecated(since = "0.17.0", note = "Renamed to `InputFocusSystems`.")]
-pub type InputFocusSet = InputFocusSystems;
 
 /// If no entity is focused, sets the focus to the primary window, if any.
 pub fn set_initial_focus(

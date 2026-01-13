@@ -243,7 +243,7 @@ impl AppSettings {
 
         format!(
             "Focal distance: {:.2} m (Press Up/Down to change)
-Aperture F-stops: f/{:.2} (Press Left/Right to change)
+Aperture F-stops: f/{:.3} (Press Left/Right to change)
 Sensor height: {:.2}mm
 Focal length: {:.2}mm
 Mode: {} (Press Space to change)",

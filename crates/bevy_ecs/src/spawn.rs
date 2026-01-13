@@ -300,16 +300,14 @@ unsafe impl<R: Relationship, L: SpawnableList<R> + Send + Sync + 'static> Bundle
 {
     fn component_ids(
         components: &mut crate::component::ComponentsRegistrator,
-        ids: &mut impl FnMut(crate::component::ComponentId),
-    ) {
-        <R::RelationshipTarget as Bundle>::component_ids(components, ids);
+    ) -> impl Iterator<Item = crate::component::ComponentId> + use<R, L> {
+        <R::RelationshipTarget as Bundle>::component_ids(components)
     }
 
     fn get_component_ids(
         components: &crate::component::Components,
-        ids: &mut impl FnMut(Option<crate::component::ComponentId>),
-    ) {
-        <R::RelationshipTarget as Bundle>::get_component_ids(components, ids);
+    ) -> impl Iterator<Item = Option<crate::component::ComponentId>> {
+        <R::RelationshipTarget as Bundle>::get_component_ids(components)
     }
 }
 
@@ -329,7 +327,7 @@ impl<R: Relationship, L: SpawnableList<R>> DynamicBundle for SpawnRelatedBundle<
         //   called exactly once for each component being fetched with the correct `StorageType`
         // - `Effect: !NoBundleEffect`, which means the caller is responsible for calling this type's `apply_effect`
         //   at least once before returning to safe code.
-        <R::RelationshipTarget as DynamicBundle>::get_components(target, func);
+        unsafe { <R::RelationshipTarget as DynamicBundle>::get_components(target, func) };
         // Forget the pointer so that the value is available in `apply_effect`.
         mem::forget(ptr);
     }
@@ -374,7 +372,7 @@ impl<R: Relationship, B: Bundle> DynamicBundle for SpawnOneRelated<R, B> {
         //   called exactly once for each component being fetched with the correct `StorageType`
         // - `Effect: !NoBundleEffect`, which means the caller is responsible for calling this type's `apply_effect`
         //   at least once before returning to safe code.
-        <R::RelationshipTarget as DynamicBundle>::get_components(target, func);
+        unsafe { <R::RelationshipTarget as DynamicBundle>::get_components(target, func) };
         // Forget the pointer so that the value is available in `apply_effect`.
         mem::forget(ptr);
     }
@@ -392,16 +390,14 @@ impl<R: Relationship, B: Bundle> DynamicBundle for SpawnOneRelated<R, B> {
 unsafe impl<R: Relationship, B: Bundle> Bundle for SpawnOneRelated<R, B> {
     fn component_ids(
         components: &mut crate::component::ComponentsRegistrator,
-        ids: &mut impl FnMut(crate::component::ComponentId),
-    ) {
-        <R::RelationshipTarget as Bundle>::component_ids(components, ids);
+    ) -> impl Iterator<Item = crate::component::ComponentId> + use<R, B> {
+        <R::RelationshipTarget as Bundle>::component_ids(components)
     }
 
     fn get_component_ids(
         components: &crate::component::Components,
-        ids: &mut impl FnMut(Option<crate::component::ComponentId>),
-    ) {
-        <R::RelationshipTarget as Bundle>::get_component_ids(components, ids);
+    ) -> impl Iterator<Item = Option<crate::component::ComponentId>> {
+        <R::RelationshipTarget as Bundle>::get_component_ids(components)
     }
 }
 
@@ -465,7 +461,6 @@ impl<T: RelationshipTarget> SpawnRelated for T {
 /// # use bevy_ecs::name::Name;
 /// # use bevy_ecs::world::World;
 /// # use bevy_ecs::related;
-/// # use bevy_ecs::spawn::{Spawn, SpawnRelated};
 /// let mut world = World::new();
 /// world.spawn((
 ///     Name::new("Root"),
@@ -483,7 +478,7 @@ impl<T: RelationshipTarget> SpawnRelated for T {
 #[macro_export]
 macro_rules! related {
     ($relationship_target:ty [$($child:expr),*$(,)?]) => {
-       <$relationship_target>::spawn($crate::recursive_spawn!($($child),*))
+       <$relationship_target as $crate::spawn::SpawnRelated>::spawn($crate::recursive_spawn!($($child),*))
     };
 }
 

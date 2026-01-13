@@ -1,10 +1,15 @@
-pub use crate::change_detection::{NonSendMut, Res, ResMut};
+#![expect(
+    unsafe_op_in_unsafe_fn,
+    reason = "See #11590. To be removed once all applicable unsafe code has an unsafe block with a safety comment."
+)]
+
+pub use crate::change_detection::{NonSend, NonSendMut, Res, ResMut};
 use crate::{
     archetype::Archetypes,
     bundle::Bundles,
-    change_detection::{MaybeLocation, Ticks, TicksMut},
-    component::{ComponentId, ComponentTicks, Components, Tick},
-    entity::Entities,
+    change_detection::{ComponentTicksMut, ComponentTicksRef, Tick},
+    component::{ComponentId, Components},
+    entity::{Entities, EntityAllocator},
     query::{
         Access, FilteredAccess, FilteredAccessSet, QueryData, QueryFilter, QuerySingleError,
         QueryState, ReadOnlyQueryData,
@@ -17,11 +22,7 @@ use crate::{
         FromWorld, World,
     },
 };
-use alloc::{
-    borrow::{Cow, ToOwned},
-    boxed::Box,
-    vec::Vec,
-};
+use alloc::{borrow::Cow, boxed::Box, vec::Vec};
 pub use bevy_ecs_macros::SystemParam;
 use bevy_platform::cell::SyncCell;
 use bevy_ptr::UnsafeCellDeref;
@@ -31,7 +32,6 @@ use core::{
     fmt::{Debug, Display},
     marker::PhantomData,
     ops::{Deref, DerefMut},
-    panic::Location,
 };
 use thiserror::Error;
 
@@ -708,7 +708,10 @@ macro_rules! impl_param_set {
                 system_meta: &SystemMeta,
                 world: UnsafeWorldCell<'w>,
             ) -> Result<(), SystemParamValidationError> {
-                <($($param,)*) as SystemParam>::validate_param(state, system_meta, world)
+                // SAFETY: Upheld by caller
+                unsafe {
+                    <($($param,)*) as SystemParam>::validate_param(state, system_meta, world)
+                }
             }
 
             #[inline]
@@ -806,25 +809,24 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
         world: UnsafeWorldCell<'w>,
         change_tick: Tick,
     ) -> Self::Item<'w, 's> {
-        let (ptr, ticks, caller) =
-            world
-                .get_resource_with_ticks(component_id)
-                .unwrap_or_else(|| {
-                    panic!(
-                        "Resource requested by {} does not exist: {}",
-                        system_meta.name,
-                        DebugName::type_name::<T>()
-                    );
-                });
+        let (ptr, ticks) = world
+            .get_resource_with_ticks(component_id)
+            .unwrap_or_else(|| {
+                panic!(
+                    "Resource requested by {} does not exist: {}",
+                    system_meta.name,
+                    DebugName::type_name::<T>()
+                );
+            });
         Res {
             value: ptr.deref(),
-            ticks: Ticks {
+            ticks: ComponentTicksRef {
                 added: ticks.added.deref(),
                 changed: ticks.changed.deref(),
+                changed_by: ticks.changed_by.map(|changed_by| changed_by.deref()),
                 last_run: system_meta.last_run,
                 this_run: change_tick,
             },
-            changed_by: caller.map(|caller| caller.deref()),
         }
     }
 }
@@ -896,13 +898,13 @@ unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
             });
         ResMut {
             value: value.value.deref_mut::<T>(),
-            ticks: TicksMut {
+            ticks: ComponentTicksMut {
                 added: value.ticks.added,
                 changed: value.ticks.changed,
+                changed_by: value.ticks.changed_by,
                 last_run: system_meta.last_run,
                 this_run: change_tick,
             },
-            changed_by: value.changed_by,
         }
     }
 }
@@ -974,11 +976,14 @@ unsafe impl<'w> SystemParam for DeferredWorld<'w> {
         world: UnsafeWorldCell<'world>,
         _change_tick: Tick,
     ) -> Self::Item<'world, 'state> {
-        world.into_deferred()
+        // SAFETY: Upheld by caller
+        unsafe { world.into_deferred() }
     }
 }
 
-/// A system local [`SystemParam`].
+/// A [`SystemParam`] that provides a system-private value of `T` that persists across system calls.
+///
+/// The initial value is created by calling `T`'s [`FromWorld::from_world`] (or [`Default::default`] if `T: Default`).
 ///
 /// A local may only be accessed by the system itself and is therefore not visible to other systems.
 /// If two or more systems specify the same local type each will have their own unique local.
@@ -988,6 +993,60 @@ unsafe impl<'w> SystemParam for DeferredWorld<'w> {
 /// The supplied lifetime parameter is the [`SystemParam`]s `'s` lifetime.
 ///
 /// # Examples
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// # let world = &mut World::default();
+/// fn counter(mut count: Local<u32>) -> u32 {
+///     *count += 1;
+///     *count
+/// }
+/// let mut counter_system = IntoSystem::into_system(counter);
+/// counter_system.initialize(world);
+///
+/// // Counter is initialized to u32's default value of 0, and increases to 1 on first run.
+/// assert_eq!(counter_system.run((), world).unwrap(), 1);
+/// // Counter gets the same value and increases to 2 on its second call.
+/// assert_eq!(counter_system.run((), world).unwrap(), 2);
+/// ```
+///
+/// A simple way to set a different default value for a local is by wrapping the value with an Option.
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// # let world = &mut World::default();
+/// fn counter_from_10(mut count: Local<Option<u32>>) -> u32 {
+///     let count = count.get_or_insert(10);
+///     *count += 1;
+///     *count
+/// }
+/// let mut counter_system = IntoSystem::into_system(counter_from_10);
+/// counter_system.initialize(world);
+///
+/// // Counter is initialized at 10, and increases to 11 on first run.
+/// assert_eq!(counter_system.run((), world).unwrap(), 11);
+/// // Counter is only increased by 1 on subsequent runs.
+/// assert_eq!(counter_system.run((), world).unwrap(), 12);
+/// ```
+///
+/// A system can have multiple `Local` values with the same type, each with distinct values.
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// # let world = &mut World::default();
+/// fn double_counter(mut count: Local<u32>, mut double_count: Local<u32>) -> (u32, u32) {
+///     *count += 1;
+///     *double_count += 2;
+///     (*count, *double_count)
+/// }
+/// let mut counter_system = IntoSystem::into_system(double_counter);
+/// counter_system.initialize(world);
+///
+/// assert_eq!(counter_system.run((), world).unwrap(), (1, 2));
+/// assert_eq!(counter_system.run((), world).unwrap(), (2, 4));
+/// ```
+///
+/// This example shows that two systems using the same type for their own `Local` get distinct locals.
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
@@ -1005,27 +1064,21 @@ unsafe impl<'w> SystemParam for DeferredWorld<'w> {
 ///
 /// assert_eq!(read_system.run((), world).unwrap(), 0);
 /// write_system.run((), world);
-/// // Note how the read local is still 0 due to the locals not being shared.
+/// // The read local is still 0 due to the locals not being shared.
 /// assert_eq!(read_system.run((), world).unwrap(), 0);
 /// ```
 ///
-/// A simple way to set a different default value for a local is by wrapping the value with an Option.
+/// You can use a `Local` to avoid reallocating memory every system call.
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
-/// # let world = &mut World::default();
-/// fn counter_from_10(mut count: Local<Option<usize>>) -> usize {
-///     let count = count.get_or_insert(10);
-///     *count += 1;
-///     *count
-/// }
-/// let mut counter_system = IntoSystem::into_system(counter_from_10);
-/// counter_system.initialize(world);
+/// fn some_system(mut vec: Local<Vec<u32>>) {
+///     // Do your regular system logic, using the vec, as normal.
 ///
-/// // Counter is initialized at 10, and increases to 11 on first run.
-/// assert_eq!(counter_system.run((), world).unwrap(), 11);
-/// // Counter is only increased by 1 on subsequent runs.
-/// assert_eq!(counter_system.run((), world).unwrap(), 12);
+///     // At end of function, clear the vec's contents so its empty for next system call.
+///     // If it's possible the capacity could get too large, you may want to check and resize that as well.
+///     vec.clear();
+/// }
 /// ```
 ///
 /// N.B. A [`Local`]s value cannot be read or written to outside of the containing system.
@@ -1283,6 +1336,7 @@ unsafe impl<T: SystemBuffer> SystemParam for Deferred<'_, T> {
     type State = SyncCell<T>;
     type Item<'w, 's> = Deferred<'s, T>;
 
+    #[track_caller]
     fn init_state(world: &mut World) -> Self::State {
         SyncCell::new(T::from_world(world))
     }
@@ -1314,6 +1368,40 @@ unsafe impl<T: SystemBuffer> SystemParam for Deferred<'_, T> {
         Deferred(state.get())
     }
 }
+
+/// A dummy type to tell the executor to run the system exclusively.
+pub struct ExclusiveMarker(PhantomData<()>);
+
+// SAFETY: No world access.
+unsafe impl SystemParam for ExclusiveMarker {
+    type State = ();
+    type Item<'w, 's> = Self;
+
+    #[inline]
+    fn init_state(_world: &mut World) -> Self::State {}
+
+    fn init_access(
+        _state: &Self::State,
+        system_meta: &mut SystemMeta,
+        _component_access_set: &mut FilteredAccessSet,
+        _world: &mut World,
+    ) {
+        system_meta.set_exclusive();
+    }
+
+    #[inline]
+    unsafe fn get_param<'world, 'state>(
+        _state: &'state mut Self::State,
+        _system_meta: &SystemMeta,
+        _world: UnsafeWorldCell<'world>,
+        _change_tick: Tick,
+    ) -> Self::Item<'world, 'state> {
+        Self(PhantomData)
+    }
+}
+
+// SAFETY: Does not read any world state
+unsafe impl ReadOnlySystemParam for ExclusiveMarker {}
 
 /// A dummy type that is [`!Send`](Send), to force systems to run on the main thread.
 pub struct NonSendMarker(PhantomData<*mut ()>);
@@ -1349,76 +1437,8 @@ unsafe impl SystemParam for NonSendMarker {
 // SAFETY: Does not read any world state
 unsafe impl ReadOnlySystemParam for NonSendMarker {}
 
-/// Shared borrow of a non-[`Send`] resource.
-///
-/// Only `Send` resources may be accessed with the [`Res`] [`SystemParam`]. In case that the
-/// resource does not implement `Send`, this `SystemParam` wrapper can be used. This will instruct
-/// the scheduler to instead run the system on the main thread so that it doesn't send the resource
-/// over to another thread.
-///
-/// This [`SystemParam`] fails validation if non-send resource doesn't exist.
-/// This will cause a panic, but can be configured to do nothing or warn once.
-///
-/// Use [`Option<NonSend<T>>`] instead if the resource might not always exist.
-pub struct NonSend<'w, T: 'static> {
-    pub(crate) value: &'w T,
-    ticks: ComponentTicks,
-    last_run: Tick,
-    this_run: Tick,
-    changed_by: MaybeLocation<&'w &'static Location<'static>>,
-}
-
 // SAFETY: Only reads a single World non-send resource
 unsafe impl<'w, T> ReadOnlySystemParam for NonSend<'w, T> {}
-
-impl<'w, T> Debug for NonSend<'w, T>
-where
-    T: Debug,
-{
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        f.debug_tuple("NonSend").field(&self.value).finish()
-    }
-}
-
-impl<'w, T: 'static> NonSend<'w, T> {
-    /// Returns `true` if the resource was added after the system last ran.
-    pub fn is_added(&self) -> bool {
-        self.ticks.is_added(self.last_run, self.this_run)
-    }
-
-    /// Returns `true` if the resource was added or mutably dereferenced after the system last ran.
-    pub fn is_changed(&self) -> bool {
-        self.ticks.is_changed(self.last_run, self.this_run)
-    }
-
-    /// The location that last caused this to change.
-    pub fn changed_by(&self) -> MaybeLocation {
-        self.changed_by.copied()
-    }
-}
-
-impl<'w, T> Deref for NonSend<'w, T> {
-    type Target = T;
-
-    fn deref(&self) -> &Self::Target {
-        self.value
-    }
-}
-
-impl<'a, T> From<NonSendMut<'a, T>> for NonSend<'a, T> {
-    fn from(nsm: NonSendMut<'a, T>) -> Self {
-        Self {
-            value: nsm.value,
-            ticks: ComponentTicks {
-                added: nsm.ticks.added.to_owned(),
-                changed: nsm.ticks.changed.to_owned(),
-            },
-            this_run: nsm.ticks.this_run,
-            last_run: nsm.ticks.last_run,
-            changed_by: nsm.changed_by.map(|changed_by| &*changed_by),
-        }
-    }
-}
 
 // SAFETY: NonSendComponentId access is applied to SystemMeta. If this
 // NonSend conflicts with any prior access, a panic will occur.
@@ -1475,23 +1495,18 @@ unsafe impl<'a, T: 'static> SystemParam for NonSend<'a, T> {
         world: UnsafeWorldCell<'w>,
         change_tick: Tick,
     ) -> Self::Item<'w, 's> {
-        let (ptr, ticks, caller) =
-            world
-                .get_non_send_with_ticks(component_id)
-                .unwrap_or_else(|| {
-                    panic!(
-                        "Non-send resource requested by {} does not exist: {}",
-                        system_meta.name,
-                        DebugName::type_name::<T>()
-                    )
-                });
-
+        let (ptr, ticks) = world
+            .get_non_send_with_ticks(component_id)
+            .unwrap_or_else(|| {
+                panic!(
+                    "Non-send resource requested by {} does not exist: {}",
+                    system_meta.name,
+                    DebugName::type_name::<T>()
+                );
+            });
         NonSend {
             value: ptr.deref(),
-            ticks: ticks.read(),
-            last_run: system_meta.last_run,
-            this_run: change_tick,
-            changed_by: caller.map(|caller| caller.deref()),
+            ticks: ComponentTicksRef::from_tick_cells(ticks, system_meta.last_run, change_tick),
         }
     }
 }
@@ -1554,20 +1569,18 @@ unsafe impl<'a, T: 'static> SystemParam for NonSendMut<'a, T> {
         world: UnsafeWorldCell<'w>,
         change_tick: Tick,
     ) -> Self::Item<'w, 's> {
-        let (ptr, ticks, caller) =
-            world
-                .get_non_send_with_ticks(component_id)
-                .unwrap_or_else(|| {
-                    panic!(
-                        "Non-send resource requested by {} does not exist: {}",
-                        system_meta.name,
-                        DebugName::type_name::<T>()
-                    );
-                });
+        let (ptr, ticks) = world
+            .get_non_send_with_ticks(component_id)
+            .unwrap_or_else(|| {
+                panic!(
+                    "Non-send resource requested by {} does not exist: {}",
+                    system_meta.name,
+                    DebugName::type_name::<T>()
+                );
+            });
         NonSendMut {
             value: ptr.assert_unique().deref_mut(),
-            ticks: TicksMut::from_tick_cells(ticks, system_meta.last_run, change_tick),
-            changed_by: caller.map(|caller| caller.deref_mut()),
+            ticks: ComponentTicksMut::from_tick_cells(ticks, system_meta.last_run, change_tick),
         }
     }
 }
@@ -1656,6 +1669,35 @@ unsafe impl<'a> SystemParam for &'a Entities {
         _change_tick: Tick,
     ) -> Self::Item<'w, 's> {
         world.entities()
+    }
+}
+
+// SAFETY: Only reads World entities
+unsafe impl<'a> ReadOnlySystemParam for &'a EntityAllocator {}
+
+// SAFETY: no component value access
+unsafe impl<'a> SystemParam for &'a EntityAllocator {
+    type State = ();
+    type Item<'w, 's> = &'w EntityAllocator;
+
+    fn init_state(_world: &mut World) -> Self::State {}
+
+    fn init_access(
+        _state: &Self::State,
+        _system_meta: &mut SystemMeta,
+        _component_access_set: &mut FilteredAccessSet,
+        _world: &mut World,
+    ) {
+    }
+
+    #[inline]
+    unsafe fn get_param<'w, 's>(
+        _state: &'s mut Self::State,
+        _system_meta: &SystemMeta,
+        world: UnsafeWorldCell<'w>,
+        _change_tick: Tick,
+    ) -> Self::Item<'w, 's> {
+        world.entities_allocator()
     }
 }
 
@@ -1775,9 +1817,12 @@ unsafe impl<T: SystemParam> SystemParam for Option<T> {
         world: UnsafeWorldCell<'world>,
         change_tick: Tick,
     ) -> Self::Item<'world, 'state> {
-        T::validate_param(state, system_meta, world)
-            .ok()
-            .map(|()| T::get_param(state, system_meta, world, change_tick))
+        // SAFETY: Upheld by caller
+        unsafe {
+            T::validate_param(state, system_meta, world)
+                .ok()
+                .map(|()| T::get_param(state, system_meta, world, change_tick))
+        }
     }
 
     fn apply(state: &mut Self::State, system_meta: &SystemMeta, world: &mut World) {
@@ -1818,8 +1863,11 @@ unsafe impl<T: SystemParam> SystemParam for Result<T, SystemParamValidationError
         world: UnsafeWorldCell<'world>,
         change_tick: Tick,
     ) -> Self::Item<'world, 'state> {
-        T::validate_param(state, system_meta, world)
-            .map(|()| T::get_param(state, system_meta, world, change_tick))
+        // SAFETY: Upheld by caller
+        unsafe {
+            T::validate_param(state, system_meta, world)
+                .map(|()| T::get_param(state, system_meta, world, change_tick))
+        }
     }
 
     fn apply(state: &mut Self::State, system_meta: &SystemMeta, world: &mut World) {
@@ -1912,7 +1960,8 @@ unsafe impl<T: SystemParam> SystemParam for If<T> {
         system_meta: &SystemMeta,
         world: UnsafeWorldCell,
     ) -> Result<(), SystemParamValidationError> {
-        T::validate_param(state, system_meta, world).map_err(|mut e| {
+        // SAFETY: Upheld by caller
+        unsafe { T::validate_param(state, system_meta, world) }.map_err(|mut e| {
             e.skipped = true;
             e
         })
@@ -1925,7 +1974,8 @@ unsafe impl<T: SystemParam> SystemParam for If<T> {
         world: UnsafeWorldCell<'world>,
         change_tick: Tick,
     ) -> Self::Item<'world, 'state> {
-        If(T::get_param(state, system_meta, world, change_tick))
+        // SAFETY: Upheld by caller.
+        If(unsafe { T::get_param(state, system_meta, world, change_tick) })
     }
 
     fn apply(state: &mut Self::State, system_meta: &SystemMeta, world: &mut World) {
@@ -1969,7 +2019,8 @@ unsafe impl<T: SystemParam> SystemParam for Vec<T> {
         world: UnsafeWorldCell,
     ) -> Result<(), SystemParamValidationError> {
         for state in state {
-            T::validate_param(state, system_meta, world)?;
+            // SAFETY: Upheld by caller
+            unsafe { T::validate_param(state, system_meta, world)? };
         }
         Ok(())
     }
@@ -2113,6 +2164,7 @@ macro_rules! impl_system_param_tuple {
             unused_variables,
             reason = "Zero-length tuples won't use some of the parameters."
         )]
+        #[allow(clippy::unused_unit, reason = "Zero length tuple is unit.")]
         $(#[$meta])*
         // SAFETY: implementers of each `SystemParam` in the tuple have validated their impls
         unsafe impl<$($param: SystemParam),*> SystemParam for ($($param,)*) {
@@ -2120,8 +2172,9 @@ macro_rules! impl_system_param_tuple {
             type Item<'w, 's> = ($($param::Item::<'w, 's>,)*);
 
             #[inline]
+            #[track_caller]
             fn init_state(world: &mut World) -> Self::State {
-                (($($param::init_state(world),)*))
+                ($($param::init_state(world),)*)
             }
 
             fn init_access(state: &Self::State, _system_meta: &mut SystemMeta, _component_access_set: &mut FilteredAccessSet, _world: &mut World) {
@@ -2150,13 +2203,22 @@ macro_rules! impl_system_param_tuple {
                 world: UnsafeWorldCell,
             ) -> Result<(), SystemParamValidationError> {
                 let ($($param,)*) = state;
-                $(
-                    $param::validate_param($param, system_meta, world)?;
-                )*
+
+                #[allow(
+                    unused_unsafe,
+                    reason = "Zero-length tuples won't have any params to validate."
+                )]
+                // SAFETY: Upheld by caller
+                unsafe {
+                    $(
+                        $param::validate_param($param, system_meta, world)?;
+                    )*
+                }
                 Ok(())
             }
 
             #[inline]
+            #[track_caller]
             unsafe fn get_param<'w, 's>(
                 state: &'s mut Self::State,
                 system_meta: &SystemMeta,
@@ -2164,11 +2226,19 @@ macro_rules! impl_system_param_tuple {
                 change_tick: Tick,
             ) -> Self::Item<'w, 's> {
                 let ($($param,)*) = state;
+
                 #[allow(
-                    clippy::unused_unit,
-                    reason = "Zero-length tuples won't have any params to get."
+                    unused_unsafe,
+                    reason = "Zero-length tuples won't have any params to validate."
                 )]
-                ($($param::get_param($param, system_meta, world, change_tick),)*)
+                // SAFETY: Upheld by caller
+                unsafe {
+                    #[allow(
+                        clippy::unused_unit,
+                        reason = "Zero-length tuples won't have any params to get."
+                    )]
+                    ($($param::get_param($param, system_meta, world, change_tick),)*)
+                }
             }
         }
     };
@@ -2321,7 +2391,8 @@ unsafe impl<P: SystemParam + 'static> SystemParam for StaticSystemParam<'_, '_, 
         system_meta: &SystemMeta,
         world: UnsafeWorldCell,
     ) -> Result<(), SystemParamValidationError> {
-        P::validate_param(state, system_meta, world)
+        // SAFETY: Upheld by caller
+        unsafe { P::validate_param(state, system_meta, world) }
     }
 
     #[inline]
@@ -2606,7 +2677,8 @@ impl<T: SystemParam + 'static> DynParamState for ParamState<T> {
         system_meta: &SystemMeta,
         world: UnsafeWorldCell,
     ) -> Result<(), SystemParamValidationError> {
-        T::validate_param(&mut self.0, system_meta, world)
+        // SAFETY: Upheld by caller
+        unsafe { T::validate_param(&mut self.0, system_meta, world) }
     }
 }
 
@@ -2637,7 +2709,8 @@ unsafe impl SystemParam for DynSystemParam<'_, '_> {
         system_meta: &SystemMeta,
         world: UnsafeWorldCell,
     ) -> Result<(), SystemParamValidationError> {
-        state.0.validate_param(system_meta, world)
+        // SAFETY: Upheld by caller.
+        unsafe { state.0.validate_param(system_meta, world) }
     }
 
     #[inline]

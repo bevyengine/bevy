@@ -47,7 +47,7 @@ fn main() {
             blue: 0.02,
             alpha: 1.0,
         })))
-        .insert_resource(AmbientLight::NONE)
+        .insert_resource(GlobalAmbientLight::NONE)
         .init_resource::<AppSettings>()
         .add_systems(Startup, setup)
         .add_systems(Update, tweak_scene)
@@ -89,7 +89,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, app_settings: R
             shadows_enabled: true,
             range: 150.0,
             color: RED.into(),
-            intensity: 1000.0,
+            intensity: 10_000.0,
             ..default()
         },
         VolumetricLight,
@@ -104,7 +104,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, app_settings: R
     commands.spawn((
         Transform::from_xyz(-1.8, 3.9, -2.7).looking_at(Vec3::ZERO, Vec3::Y),
         SpotLight {
-            intensity: 5000.0, // lumens
+            intensity: 50_000.0, // lumens
             color: Color::WHITE,
             shadows_enabled: true,
             inner_angle: 0.76,

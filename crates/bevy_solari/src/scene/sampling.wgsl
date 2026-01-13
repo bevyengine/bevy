@@ -6,15 +6,23 @@
 #import bevy_solari::scene_bindings::{trace_ray, RAY_T_MIN, RAY_T_MAX, light_sources, directional_lights, LightSource, LIGHT_SOURCE_KIND_DIRECTIONAL, resolve_triangle_data_full, ResolvedRayHitFull}
 
 fn power_heuristic(f: f32, g: f32) -> f32 {
-    return f * f / (f * f + g * g);
+    return balance_heuristic(f * f, g * g);
 }
 
 fn balance_heuristic(f: f32, g: f32) -> f32 {
-    return f / (f + g);
+    let sum = f + g;
+    if sum == 0.0 {
+        return 0.0;
+    }
+    return max(0.0, f / sum);
 }
 
 // https://gpuopen.com/download/Bounded_VNDF_Sampling_for_Smith-GGX_Reflections.pdf (Listing 1)
 fn sample_ggx_vndf(wi_tangent: vec3<f32>, roughness: f32, rng: ptr<function, u32>) -> vec3<f32> {
+    if roughness <= 0.001 {
+        return vec3(-wi_tangent.xy, wi_tangent.z);
+    }
+
     let i = wi_tangent;
     let rand = rand_vec2f(rng);
     let i_std = normalize(vec3(i.xy * roughness, i.z));
@@ -69,6 +77,7 @@ struct LightContribution {
     radiance: vec3<f32>,
     inverse_pdf: f32,
     wi: vec3<f32>,
+    brdf_rays_can_hit: bool,
 }
 
 struct LightContributionNoPdf {
@@ -88,10 +97,9 @@ fn sample_random_light(ray_origin: vec3<f32>, origin_world_normal: vec3<f32>, rn
     return light_contribution;
 }
 
-fn random_light_pdf(hit: ResolvedRayHitFull) -> f32 {
+fn random_emissive_light_pdf(hit: ResolvedRayHitFull) -> f32 {
     let light_count = arrayLength(&light_sources);
-    let p_light = 1.0 / f32(light_count);
-    return p_light / (hit.triangle_area * f32(hit.triangle_count));
+    return 1.0 / (f32(light_count) * f32(hit.triangle_count) * hit.triangle_area);
 }
 
 fn generate_random_light_sample(rng: ptr<function, u32>) -> GenerateRandomLightSampleResult {
@@ -119,7 +127,7 @@ fn resolve_light_sample(light_sample: LightSample, light_source: LightSource) ->
     if light_source.kind == LIGHT_SOURCE_KIND_DIRECTIONAL {
         let directional_light = directional_lights[light_source.id];
 
-#ifdef DIRECTIONAL_LIGHT_SOFT_SHADOWS
+#ifndef NO_DIRECTIONAL_LIGHT_SOFT_SHADOWS
         // Sample a random direction within a cone whose base is the sun approximated as a disk
         // https://www.realtimerendering.com/raytracinggems/unofficial_RayTracingGems_v1.9.pdf#0004286901.INDD%3ASec30%3A305
         var rng = light_sample.seed;
@@ -169,7 +177,7 @@ fn calculate_resolved_light_contribution(resolved_light_sample: ResolvedLightSam
 
     let radiance = resolved_light_sample.radiance * cos_theta_origin * (cos_theta_light / light_distance_squared);
 
-    return LightContribution(radiance, resolved_light_sample.inverse_pdf, wi);
+    return LightContribution(radiance, resolved_light_sample.inverse_pdf, wi, resolved_light_sample.world_position.w == 1.0);
 }
 
 fn resolve_and_calculate_light_contribution(light_sample: LightSample, ray_origin: vec3<f32>, origin_world_normal: vec3<f32>) -> LightContributionNoPdf {

@@ -6,6 +6,7 @@ use glam::Mat3;
 use super::{BoundingVolume, IntersectsVolume};
 use crate::{
     ops::{self, FloatPow},
+    primitives::Cuboid,
     Isometry3d, Quat, Vec3A,
 };
 
@@ -71,6 +72,14 @@ impl Aabb3d {
         }
     }
 
+    /// Constructs an AABB from its minimum and maximum extent.
+    #[inline]
+    pub fn from_min_max(min: impl Into<Vec3A>, max: impl Into<Vec3A>) -> Self {
+        let (min, max) = (min.into(), max.into());
+        debug_assert!(min.x <= max.x && min.y <= max.y && min.z <= max.z);
+        Self { min, max }
+    }
+
     /// Computes the smallest [`Aabb3d`] containing the given set of points,
     /// transformed by the rotation and translation of the given isometry.
     ///
@@ -116,6 +125,15 @@ impl Aabb3d {
     pub fn closest_point(&self, point: impl Into<Vec3A>) -> Vec3A {
         // Clamp point coordinates to the AABB
         point.into().clamp(self.min, self.max)
+    }
+}
+
+impl From<Cuboid> for Aabb3d {
+    fn from(value: Cuboid) -> Self {
+        Aabb3d {
+            min: (-value.half_size).into(),
+            max: value.half_size.into(),
+        }
     }
 }
 

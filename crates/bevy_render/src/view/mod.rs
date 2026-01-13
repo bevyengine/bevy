@@ -117,6 +117,9 @@ impl Plugin for ViewPlugin {
                     clear_view_attachments
                         .in_set(RenderSystems::ManageViews)
                         .before(create_surfaces),
+                    cleanup_view_targets_for_resize
+                        .in_set(RenderSystems::ManageViews)
+                        .before(create_surfaces),
                     prepare_view_attachments
                         .in_set(RenderSystems::ManageViews)
                         .before(prepare_view_targets)
@@ -302,6 +305,16 @@ pub struct ExtractedView {
     // uvec4(origin.x, origin.y, width, height)
     pub viewport: UVec4,
     pub color_grading: ColorGrading,
+
+    /// Whether to switch culling mode so that materials that request backface
+    /// culling cull front faces, and vice versa.
+    ///
+    /// This is typically used for cameras that mirror the world that they
+    /// render across a plane, because doing that flips the winding of each
+    /// polygon.
+    ///
+    /// This setting doesn't affect materials that disable backface culling.
+    pub invert_culling: bool,
 }
 
 impl ExtractedView {
@@ -601,7 +614,7 @@ pub struct ViewUniformOffset {
     pub offset: u32,
 }
 
-#[derive(Component)]
+#[derive(Component, Clone)]
 pub struct ViewTarget {
     main_textures: MainTargetTextures,
     main_texture_format: TextureFormat,
@@ -830,10 +843,15 @@ impl ViewTarget {
         self.out_texture.get_attachment(clear_color)
     }
 
+    /// Whether the final texture this view will render to needs to be presented.
+    pub fn needs_present(&self) -> bool {
+        self.out_texture.needs_present()
+    }
+
     /// The format of the final texture this view will render to
     #[inline]
-    pub fn out_texture_format(&self) -> TextureFormat {
-        self.out_texture.format
+    pub fn out_texture_view_format(&self) -> TextureFormat {
+        self.out_texture.view_format
     }
 
     /// This will start a new "post process write", which assumes that the caller
@@ -1009,10 +1027,8 @@ pub fn prepare_view_attachments(
                 let Some(attachment) = target
                     .get_texture_view(&windows, &images, &manual_texture_views)
                     .cloned()
-                    .zip(target.get_texture_format(&windows, &images, &manual_texture_views))
-                    .map(|(view, format)| {
-                        OutputColorAttachment::new(view.clone(), format.add_srgb_suffix())
-                    })
+                    .zip(target.get_texture_view_format(&windows, &images, &manual_texture_views))
+                    .map(|(view, format)| OutputColorAttachment::new(view.clone(), format))
                 else {
                     continue;
                 };
@@ -1025,6 +1041,21 @@ pub fn prepare_view_attachments(
 /// Clears the view target [`OutputColorAttachment`]s.
 pub fn clear_view_attachments(mut view_target_attachments: ResMut<ViewTargetAttachments>) {
     view_target_attachments.clear();
+}
+
+pub fn cleanup_view_targets_for_resize(
+    mut commands: Commands,
+    windows: Res<ExtractedWindows>,
+    cameras: Query<(Entity, &ExtractedCamera), With<ViewTarget>>,
+) {
+    for (entity, camera) in &cameras {
+        if let Some(NormalizedRenderTarget::Window(window_ref)) = &camera.target
+            && let Some(window) = windows.get(&window_ref.entity())
+            && (window.size_changed || window.present_mode_changed)
+        {
+            commands.entity(entity).remove::<ViewTarget>();
+        }
+    }
 }
 
 pub fn prepare_view_targets(
@@ -1043,12 +1074,18 @@ pub fn prepare_view_targets(
 ) {
     let mut textures = <HashMap<_, _>>::default();
     for (entity, camera, view, texture_usage, msaa) in cameras.iter() {
-        let (Some(target_size), Some(target)) = (camera.physical_target_size, &camera.target)
-        else {
-            continue;
-        };
+        let (Some(target_size), Some(out_attachment)) = (
+            camera.physical_target_size,
+            camera
+                .target
+                .as_ref()
+                .and_then(|target| view_target_attachments.get(target)),
+        ) else {
+            // If we can't find an output attachment we need to remove the ViewTarget
+            // component to make sure the camera doesn't try rendering to an invalid
+            // output attachment.
+            commands.entity(entity).try_remove::<ViewTarget>();
 
-        let Some(out_attachment) = view_target_attachments.get(target) else {
             continue;
         };
 
@@ -1120,8 +1157,8 @@ pub fn prepare_view_targets(
         let converted_clear_color = clear_color.map(Into::into);
 
         let main_textures = MainTargetTextures {
-            a: ColorAttachment::new(a.clone(), sampled.clone(), converted_clear_color),
-            b: ColorAttachment::new(b.clone(), sampled.clone(), converted_clear_color),
+            a: ColorAttachment::new(a.clone(), sampled.clone(), None, converted_clear_color),
+            b: ColorAttachment::new(b.clone(), sampled.clone(), None, converted_clear_color),
             main_texture: main_texture.clone(),
         };
 

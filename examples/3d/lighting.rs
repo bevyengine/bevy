@@ -120,7 +120,7 @@ fn setup(
 
     // ambient light
     // ambient lights' brightnesses are measured in candela per meter square, calculable as (color * brightness)
-    commands.insert_resource(AmbientLight {
+    commands.insert_resource(GlobalAmbientLight {
         color: ORANGE_RED.into(),
         brightness: 200.0,
         ..default()
@@ -290,7 +290,7 @@ fn update_exposure(
 
 fn toggle_ambient_light(
     key_input: Res<ButtonInput<KeyCode>>,
-    mut ambient_light: ResMut<AmbientLight>,
+    mut ambient_light: ResMut<GlobalAmbientLight>,
     text: Single<Entity, With<Text>>,
     mut writer: TextUiWriter,
 ) {

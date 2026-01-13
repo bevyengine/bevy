@@ -12,7 +12,7 @@ pub struct WidgetClickEvent<T>(T);
 /// A marker component that we place on all widgets that send
 /// [`WidgetClickEvent`]s of the given type.
 #[derive(Clone, Component, Deref, DerefMut)]
-pub struct WidgetClickSender<T>(T)
+pub struct WidgetClickSender<T>(pub T)
 where
     T: Clone + Send + Sync + 'static;
 
@@ -83,20 +83,20 @@ where
             justify_content: JustifyContent::Center,
             align_items: AlignItems::Center,
             padding: BUTTON_PADDING,
+            border_radius: BorderRadius::ZERO
+                .with_left(if is_first {
+                    BUTTON_BORDER_RADIUS_SIZE
+                } else {
+                    px(0)
+                })
+                .with_right(if is_last {
+                    BUTTON_BORDER_RADIUS_SIZE
+                } else {
+                    px(0)
+                }),
             ..default()
         },
         BUTTON_BORDER_COLOR,
-        BorderRadius::ZERO
-            .with_left(if is_first {
-                BUTTON_BORDER_RADIUS_SIZE
-            } else {
-                px(0)
-            })
-            .with_right(if is_last {
-                BUTTON_BORDER_RADIUS_SIZE
-            } else {
-                px(0)
-            }),
         BackgroundColor(bg_color),
         RadioButton,
         WidgetClickSender(option_value.clone()),
@@ -165,10 +165,7 @@ pub fn ui_text(label: &str, color: Color) -> impl Bundle + use<> {
 /// Checks for clicks on the radio buttons and sends `RadioButtonChangeEvent`s
 /// as necessary.
 pub fn handle_ui_interactions<T>(
-    mut interactions: Query<
-        (&Interaction, &WidgetClickSender<T>),
-        (With<Button>, With<RadioButton>),
-    >,
+    mut interactions: Query<(&Interaction, &WidgetClickSender<T>), With<Button>>,
     mut widget_click_events: MessageWriter<WidgetClickEvent<T>>,
 ) where
     T: Clone + Send + Sync + 'static,

@@ -178,7 +178,7 @@ impl ViewNode for PostProcessNode {
         // is to make sure you get it during the node execution.
         let bind_group = render_context.render_device().create_bind_group(
             "post_process_bind_group",
-            &post_process_pipeline.layout,
+            &pipeline_cache.get_bind_group_layout(&post_process_pipeline.layout),
             // It's important for this to match the BindGroupLayout defined in the PostProcessPipeline
             &BindGroupEntries::sequential((
                 // Make sure to use the source view
@@ -222,7 +222,7 @@ impl ViewNode for PostProcessNode {
 // This contains global data used by the render pipeline. This will be created once on startup.
 #[derive(Resource)]
 struct PostProcessPipeline {
-    layout: BindGroupLayout,
+    layout: BindGroupLayoutDescriptor,
     sampler: Sampler,
     pipeline_id: CachedRenderPipelineId,
 }
@@ -235,7 +235,7 @@ fn init_post_process_pipeline(
     pipeline_cache: Res<PipelineCache>,
 ) {
     // We need to define the bind group layout used for our pipeline
-    let layout = render_device.create_bind_group_layout(
+    let layout = BindGroupLayoutDescriptor::new(
         "post_process_bind_group_layout",
         &BindGroupLayoutEntries::sequential(
             // The layout entries will only be visible in the fragment stage
@@ -267,6 +267,7 @@ fn init_post_process_pipeline(
                 shader,
                 // Make sure this matches the entry point of your shader.
                 // It can be anything as long as it matches here and in the shader.
+                // Use `format: ViewTarget::TEXTURE_FORMAT_HDR` for HDR cameras.
                 targets: vec![Some(ColorTargetState {
                     format: TextureFormat::bevy_default(),
                     blend: None,
@@ -299,6 +300,8 @@ fn setup(
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     // camera
+    // Make sure you change the TextureFormat of the ColorTargetState
+    // if you enable Hdr directly or through features like Bloom.
     commands.spawn((
         Camera3d::default(),
         Transform::from_translation(Vec3::new(0.0, 0.0, 5.0)).looking_at(Vec3::default(), Vec3::Y),

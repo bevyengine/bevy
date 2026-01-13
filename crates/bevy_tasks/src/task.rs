@@ -11,7 +11,7 @@ use crate::cfg;
 ///
 /// Tasks are also futures themselves and yield the output of the spawned future.
 ///
-/// When a task is dropped, its gets canceled and won't be polled again. To cancel a task a bit
+/// When a task is dropped, it gets canceled and won't be polled again. To cancel a task a bit
 /// more gracefully and wait until it stops running, use the [`Task::cancel()`] method.
 ///
 /// Tasks that panic get immediately canceled. Awaiting a canceled task also causes a panic.

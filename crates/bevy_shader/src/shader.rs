@@ -2,36 +2,10 @@ use super::ShaderDefVal;
 use alloc::borrow::Cow;
 use bevy_asset::{io::Reader, Asset, AssetLoader, AssetPath, Handle, LoadContext};
 use bevy_reflect::TypePath;
-use core::{marker::Copy, num::NonZero};
+use bevy_utils::define_atomic_id;
 use thiserror::Error;
 
-#[derive(Copy, Clone, Hash, Eq, PartialEq, PartialOrd, Ord, Debug)]
-pub struct ShaderId(NonZero<u32>);
-
-impl ShaderId {
-    #[expect(
-        clippy::new_without_default,
-        reason = "Implementing the `Default` trait on atomic IDs would imply that two `<AtomicIdType>::default()` equal each other. By only implementing `new()`, we indicate that each atomic ID created will be unique."
-    )]
-    pub fn new() -> Self {
-        use core::sync::atomic::{AtomicU32, Ordering};
-        static COUNTER: AtomicU32 = AtomicU32::new(1);
-        let counter = COUNTER.fetch_add(1, Ordering::Relaxed);
-        Self(NonZero::<u32>::new(counter).unwrap_or_else(|| {
-            panic!("The system ran out of unique `{}`s.", stringify!(ShaderId));
-        }))
-    }
-}
-impl From<ShaderId> for NonZero<u32> {
-    fn from(value: ShaderId) -> Self {
-        value.0
-    }
-}
-impl From<NonZero<u32>> for ShaderId {
-    fn from(value: NonZero<u32>) -> Self {
-        Self(value)
-    }
-}
+define_atomic_id!(ShaderId);
 
 #[derive(Error, Debug)]
 pub enum ShaderReflectError {
@@ -338,7 +312,7 @@ impl From<&Source> for naga_oil::compose::ShaderType {
     }
 }
 
-#[derive(Default)]
+#[derive(Default, TypePath)]
 pub struct ShaderLoader;
 
 #[non_exhaustive]
@@ -367,8 +341,14 @@ impl AssetLoader for ShaderLoader {
         settings: &Self::Settings,
         load_context: &mut LoadContext<'_>,
     ) -> Result<Shader, Self::Error> {
-        let ext = load_context.path().extension().unwrap().to_str().unwrap();
-        let path = load_context.asset_path().to_string();
+        let ext = load_context
+            .path()
+            .path()
+            .extension()
+            .unwrap()
+            .to_str()
+            .unwrap();
+        let path = load_context.path().to_string();
         // On windows, the path will inconsistently use \ or /.
         // TODO: remove this once AssetPath forces cross-platform "slash" consistency. See #10511
         let path = path.replace(std::path::MAIN_SEPARATOR, "/");
@@ -381,7 +361,7 @@ impl AssetLoader for ShaderLoader {
             );
         }
         let mut shader = match ext {
-            "spv" => Shader::from_spirv(bytes, load_context.path().to_string_lossy()),
+            "spv" => Shader::from_spirv(bytes, load_context.path().path().to_string_lossy()),
             "wgsl" => Shader::from_wgsl_with_defs(
                 String::from_utf8(bytes)?,
                 path,

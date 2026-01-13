@@ -103,17 +103,13 @@ pub struct UiTextureSliceImageBindGroups {
 
 #[derive(Resource)]
 pub struct UiTextureSlicePipeline {
-    pub view_layout: BindGroupLayout,
-    pub image_layout: BindGroupLayout,
+    pub view_layout: BindGroupLayoutDescriptor,
+    pub image_layout: BindGroupLayoutDescriptor,
     pub shader: Handle<Shader>,
 }
 
-pub fn init_ui_texture_slice_pipeline(
-    mut commands: Commands,
-    render_device: Res<RenderDevice>,
-    asset_server: Res<AssetServer>,
-) {
-    let view_layout = render_device.create_bind_group_layout(
+pub fn init_ui_texture_slice_pipeline(mut commands: Commands, asset_server: Res<AssetServer>) {
+    let view_layout = BindGroupLayoutDescriptor::new(
         "ui_texture_slice_view_layout",
         &BindGroupLayoutEntries::single(
             ShaderStages::VERTEX_FRAGMENT,
@@ -121,7 +117,7 @@ pub fn init_ui_texture_slice_pipeline(
         ),
     );
 
-    let image_layout = render_device.create_bind_group_layout(
+    let image_layout = BindGroupLayoutDescriptor::new(
         "ui_texture_slice_image_layout",
         &BindGroupLayoutEntries::sequential(
             ShaderStages::FRAGMENT,
@@ -360,6 +356,7 @@ pub fn prepare_ui_slices(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
+    pipeline_cache: Res<PipelineCache>,
     mut ui_meta: ResMut<UiTextureSliceMeta>,
     mut extracted_slices: ResMut<ExtractedUiTextureSlices>,
     view_uniforms: Res<ViewUniforms>,
@@ -390,7 +387,7 @@ pub fn prepare_ui_slices(
         ui_meta.indices.clear();
         ui_meta.view_bind_group = Some(render_device.create_bind_group(
             "ui_texture_slice_view_bind_group",
-            &texture_slicer_pipeline.view_layout,
+            &pipeline_cache.get_bind_group_layout(&texture_slicer_pipeline.view_layout),
             &BindGroupEntries::single(view_binding),
         ));
 
@@ -436,7 +433,9 @@ pub fn prepare_ui_slices(
                                 .or_insert_with(|| {
                                     render_device.create_bind_group(
                                         "ui_texture_slice_image_layout",
-                                        &texture_slicer_pipeline.image_layout,
+                                        &pipeline_cache.get_bind_group_layout(
+                                            &texture_slicer_pipeline.image_layout,
+                                        ),
                                         &BindGroupEntries::sequential((
                                             &gpu_image.texture_view,
                                             &gpu_image.sampler,
@@ -463,7 +462,9 @@ pub fn prepare_ui_slices(
                                 .or_insert_with(|| {
                                     render_device.create_bind_group(
                                         "ui_texture_slice_image_layout",
-                                        &texture_slicer_pipeline.image_layout,
+                                        &pipeline_cache.get_bind_group_layout(
+                                            &texture_slicer_pipeline.image_layout,
+                                        ),
                                         &BindGroupEntries::sequential((
                                             &gpu_image.texture_view,
                                             &gpu_image.sampler,
@@ -731,18 +732,18 @@ fn compute_texture_slices(
 
             // calculate the normalized extents of the nine-patched image slices
             let slices = [
-                border_rect.left / image_size.x,
-                border_rect.top / image_size.y,
-                1. - border_rect.right / image_size.x,
-                1. - border_rect.bottom / image_size.y,
+                border_rect.min_inset.x / image_size.x,
+                border_rect.min_inset.y / image_size.y,
+                1. - border_rect.max_inset.x / image_size.x,
+                1. - border_rect.max_inset.y / image_size.y,
             ];
 
             // calculate the normalized extents of the target slices
             let border = [
-                (border_rect.left / target_size.x) * min_coeff,
-                (border_rect.top / target_size.y) * min_coeff,
-                1. - (border_rect.right / target_size.x) * min_coeff,
-                1. - (border_rect.bottom / target_size.y) * min_coeff,
+                (border_rect.min_inset.x / target_size.x) * min_coeff,
+                (border_rect.min_inset.y / target_size.y) * min_coeff,
+                1. - (border_rect.max_inset.x / target_size.x) * min_coeff,
+                1. - (border_rect.max_inset.y / target_size.y) * min_coeff,
             ];
 
             let image_side_width = image_size.x * (slices[2] - slices[0]);

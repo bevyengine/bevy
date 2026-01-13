@@ -1,3 +1,6 @@
+//! Traits and types used to power [map-like] operations via reflection.
+//!
+//! [map-like]: https://doc.rust-lang.org/book/ch08-03-hash-maps.html
 use core::fmt::{Debug, Formatter};
 
 use bevy_platform::collections::HashTable;
@@ -29,7 +32,7 @@ use alloc::{boxed::Box, format, vec::Vec};
 /// # Example
 ///
 /// ```
-/// use bevy_reflect::{PartialReflect, Reflect, Map};
+/// use bevy_reflect::{PartialReflect, Reflect, map::Map};
 /// use std::collections::HashMap;
 ///
 ///
@@ -118,7 +121,7 @@ pub struct MapInfo {
     key_ty: Type,
     value_info: fn() -> Option<&'static TypeInfo>,
     value_ty: Type,
-    #[cfg(feature = "documentation")]
+    #[cfg(feature = "reflect_documentation")]
     docs: Option<&'static str>,
 }
 
@@ -136,13 +139,13 @@ impl MapInfo {
             key_ty: Type::of::<TKey>(),
             value_info: TValue::maybe_type_info,
             value_ty: Type::of::<TValue>(),
-            #[cfg(feature = "documentation")]
+            #[cfg(feature = "reflect_documentation")]
             docs: None,
         }
     }
 
     /// Sets the docstring for this map.
-    #[cfg(feature = "documentation")]
+    #[cfg(feature = "reflect_documentation")]
     pub fn with_docs(self, docs: Option<&'static str>) -> Self {
         Self { docs, ..self }
     }
@@ -180,7 +183,7 @@ impl MapInfo {
     }
 
     /// The docstring of this map, if any.
-    #[cfg(feature = "documentation")]
+    #[cfg(feature = "reflect_documentation")]
     pub fn docs(&self) -> Option<&'static str> {
         self.docs
     }

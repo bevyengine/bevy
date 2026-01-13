@@ -19,7 +19,9 @@ bevy_derive = { path = "../bevy_derive", version = "0.18.0-dev" }
 bevy_ecs = { path = "../bevy_ecs", version = "0.18.0-dev" }
 bevy_image = { path = "../bevy_image", version = "0.18.0-dev" }
 bevy_input = { path = "../bevy_input", version = "0.18.0-dev" }
+bevy_input_focus = { path = "../bevy_input_focus", version = "0.18.0-dev" }
 bevy_math = { path = "../bevy_math", version = "0.18.0-dev" }
+bevy_log = { path = "../bevy_log", version = "0.18.0-dev" }
 bevy_reflect = { path = "../bevy_reflect", version = "0.18.0-dev" }
 bevy_sprite = { path = "../bevy_sprite", version = "0.18.0-dev", features = [
   "bevy_text",
@@ -34,7 +36,14 @@ bevy_platform = { path = "../bevy_platform", version = "0.18.0-dev", default-fea
 ] }
 
 # other
-taffy = { version = "0.7" }
+taffy = { version = "0.9", default-features = false, features = [
+  "std",
+  "block_layout",
+  "flexbox",
+  "grid",
+  "content_size",
+  "taffy_tree",
+] }
 serde = { version = "1", features = ["derive"], optional = true }
 uuid = { version = "1.1", features = ["v4"], optional = true }
 thiserror = { version = "2", default-features = false }
@@ -54,7 +63,7 @@ serialize = [
   "bevy_math/serialize",
   "bevy_platform/serialize",
 ]
-bevy_ui_picking_backend = ["bevy_picking", "dep:uuid"]
+bevy_picking = ["dep:bevy_picking", "dep:uuid"]
 
 # Experimental features
 ghost_nodes = []

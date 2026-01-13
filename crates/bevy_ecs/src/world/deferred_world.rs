@@ -72,7 +72,13 @@ impl<'w> DeferredWorld<'w> {
         // SAFETY: &mut self ensure that there are no outstanding accesses to the queue
         let command_queue = unsafe { self.world.get_raw_command_queue() };
         // SAFETY: command_queue is stored on world and always valid while the world exists
-        unsafe { Commands::new_raw_from_entities(command_queue, self.world.entities()) }
+        unsafe {
+            Commands::new_raw_from_entities(
+                command_queue,
+                self.world.entities_allocator(),
+                self.world.entities(),
+            )
+        }
     }
 
     /// Retrieves a mutable reference to the given `entity`'s [`Component`] of the given type.
@@ -242,7 +248,7 @@ impl<'w> DeferredWorld<'w> {
     ///
     /// # Errors
     ///
-    /// - Returns [`EntityMutableFetchError::EntityDoesNotExist`] if any of the given `entities` do not exist in the world.
+    /// - Returns [`EntityMutableFetchError::NotSpawned`] if any of the given `entities` do not exist in the world.
     ///     - Only the first entity found to be missing will be returned.
     /// - Returns [`EntityMutableFetchError::AliasedMutability`] if the same entity is requested multiple times.
     ///
@@ -433,7 +439,9 @@ impl<'w> DeferredWorld<'w> {
         // - Command queue access does not conflict with entity access.
         let raw_queue = unsafe { cell.get_raw_command_queue() };
         // SAFETY: `&mut self` ensures the commands does not outlive the world.
-        let commands = unsafe { Commands::new_raw_from_entities(raw_queue, cell.entities()) };
+        let commands = unsafe {
+            Commands::new_raw_from_entities(raw_queue, cell.entities_allocator(), cell.entities())
+        };
 
         (fetcher, commands)
     }
@@ -521,33 +529,12 @@ impl<'w> DeferredWorld<'w> {
         self.write_message_batch(core::iter::once(message))?.next()
     }
 
-    /// Writes a [`Message`].
-    /// This method returns the [ID](`MessageId`) of the written `event`,
-    /// or [`None`] if the `event` could not be written.
-    #[inline]
-    #[deprecated(since = "0.17.0", note = "Use `DeferredWorld::write_message` instead.")]
-    pub fn send_event<E: Message>(&mut self, event: E) -> Option<MessageId<E>> {
-        self.write_message(event)
-    }
-
     /// Writes the default value of the [`Message`] of type `E`.
     /// This method returns the [`MessageId`] of the written `event`,
     /// or [`None`] if the `event` could not be written.
     #[inline]
     pub fn write_message_default<E: Message + Default>(&mut self) -> Option<MessageId<E>> {
         self.write_message(E::default())
-    }
-
-    /// Writes the default value of the [`Message`] of type `E`.
-    /// This method returns the [ID](`MessageId`) of the written `event`,
-    /// or [`None`] if the `event` could not be written.
-    #[inline]
-    #[deprecated(
-        since = "0.17.0",
-        note = "Use `DeferredWorld::write_message_default` instead."
-    )]
-    pub fn send_event_default<E: Message + Default>(&mut self) -> Option<MessageId<E>> {
-        self.write_message_default::<E>()
     }
 
     /// Writes a batch of [`Message`]s from an iterator.
@@ -566,21 +553,6 @@ impl<'w> DeferredWorld<'w> {
             return None;
         };
         Some(events_resource.write_batch(events))
-    }
-
-    /// Writes a batch of [`Message`]s from an iterator.
-    /// This method returns the [IDs](`MessageId`) of the written `events`,
-    /// or [`None`] if the `event` could not be written.
-    #[inline]
-    #[deprecated(
-        since = "0.17.0",
-        note = "Use `DeferredWorld::write_message_batch` instead."
-    )]
-    pub fn send_event_batch<E: Message>(
-        &mut self,
-        events: impl IntoIterator<Item = E>,
-    ) -> Option<WriteBatchIds<E>> {
-        self.write_message_batch(events)
     }
 
     /// Gets a pointer to the resource with the id [`ComponentId`] if it exists.
@@ -831,7 +803,7 @@ impl<'w> DeferredWorld<'w> {
     /// # Safety
     /// - must only be used to make non-structural ECS changes
     #[inline]
-    pub(crate) fn as_unsafe_world_cell(&mut self) -> UnsafeWorldCell<'_> {
+    pub fn as_unsafe_world_cell(&mut self) -> UnsafeWorldCell<'_> {
         self.world
     }
 }

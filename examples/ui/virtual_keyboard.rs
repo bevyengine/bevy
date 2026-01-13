@@ -53,11 +53,11 @@ fn setup(mut commands: Commands) {
                 padding: px(5).into(),
                 align_items: AlignItems::Center,
                 margin: px(25).into(),
+                border_radius: BorderRadius::all(px(10)),
                 ..Default::default()
             },
             BackgroundColor(NAVY.into()),
             BorderColor::all(Color::WHITE),
-            BorderRadius::all(px(10)),
             children![
                 Text::new("virtual keyboard"),
                 (

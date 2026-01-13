@@ -16,7 +16,9 @@ bevy_asset = { path = "../bevy_asset", version = "0.18.0-dev" }
 bevy_color = { path = "../bevy_color", version = "0.18.0-dev" }
 bevy_derive = { path = "../bevy_derive", version = "0.18.0-dev" }
 bevy_math = { path = "../bevy_math", version = "0.18.0-dev" }
-bevy_mesh = { path = "../bevy_mesh", version = "0.18.0-dev" }
+bevy_mesh = { path = "../bevy_mesh", version = "0.18.0-dev", optional = true, features = [
+  "morph",
+] }
 bevy_reflect = { path = "../bevy_reflect", version = "0.18.0-dev", features = [
   "petgraph",
 ] }
@@ -31,7 +33,7 @@ bevy_platform = { path = "../bevy_platform", version = "0.18.0-dev", default-fea
 
 # other
 petgraph = { version = "0.8", features = ["serde-1"] }
-ron = "0.10"
+ron = "0.12"
 serde = "1"
 blake3 = { version = "1.0" }
 downcast-rs = { version = "2", default-features = false, features = ["std"] }

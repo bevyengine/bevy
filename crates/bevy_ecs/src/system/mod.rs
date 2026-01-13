@@ -418,8 +418,8 @@ mod tests {
             SystemCondition,
         },
         system::{
-            Commands, In, InMut, IntoSystem, Local, NonSend, NonSendMut, ParamSet, Query, Res,
-            ResMut, Single, StaticSystemParam, System, SystemState,
+            Commands, ExclusiveMarker, In, InMut, IntoSystem, Local, NonSend, NonSendMut, ParamSet,
+            Query, Res, ResMut, Single, StaticSystemParam, System, SystemState,
         },
         world::{DeferredWorld, EntityMut, FromWorld, World},
     };
@@ -432,18 +432,31 @@ mod tests {
         No,
     }
 
-    #[derive(Component, Resource, Debug, Eq, PartialEq, Default)]
+    #[derive(Component, Debug, Eq, PartialEq, Default)]
     struct A;
-    #[derive(Component, Resource)]
+    #[derive(Component)]
     struct B;
-    #[derive(Component, Resource)]
+    #[derive(Component)]
     struct C;
-    #[derive(Component, Resource)]
+    #[derive(Component)]
     struct D;
-    #[derive(Component, Resource)]
+    #[derive(Component)]
     struct E;
-    #[derive(Component, Resource)]
+    #[derive(Component)]
     struct F;
+
+    #[derive(Resource)]
+    struct ResA;
+    #[derive(Resource)]
+    struct ResB;
+    #[derive(Resource)]
+    struct ResC;
+    #[derive(Resource)]
+    struct ResD;
+    #[derive(Resource)]
+    struct ResE;
+    #[derive(Resource)]
+    struct ResF;
 
     #[derive(Component, Debug)]
     struct W<T>(T);
@@ -913,8 +926,8 @@ mod tests {
     fn test_for_conflicting_resources<Marker, S: IntoSystem<(), (), Marker>>(sys: S) {
         let mut world = World::default();
         world.insert_resource(BufferRes::default());
-        world.insert_resource(A);
-        world.insert_resource(B);
+        world.insert_resource(ResA);
+        world.insert_resource(ResB);
         run_system(&mut world, sys);
     }
 
@@ -941,7 +954,7 @@ mod tests {
 
     #[test]
     fn nonconflicting_system_resources() {
-        fn sys(_: Local<BufferRes>, _: ResMut<BufferRes>, _: Local<A>, _: ResMut<A>) {}
+        fn sys(_: Local<BufferRes>, _: ResMut<BufferRes>, _: Local<A>, _: ResMut<ResA>) {}
         test_for_conflicting_resources(sys);
     }
 
@@ -1037,6 +1050,24 @@ mod tests {
     }
 
     #[test]
+    fn function_system_as_exclusive() {
+        let mut world = World::default();
+
+        world.insert_resource(SystemRan::No);
+
+        fn sys(_marker: ExclusiveMarker, mut system_ran: ResMut<SystemRan>) {
+            *system_ran = SystemRan::Yes;
+        }
+
+        let mut sys = IntoSystem::into_system(sys);
+        sys.initialize(&mut world);
+        assert!(sys.is_exclusive());
+
+        run_system(&mut world, sys);
+        assert_eq!(*world.resource::<SystemRan>(), SystemRan::Yes);
+    }
+
+    #[test]
     fn removal_tracking() {
         let mut world = World::new();
 
@@ -1125,7 +1156,7 @@ mod tests {
         ) {
             assert_eq!(query.iter().count(), 1, "entity exists");
             for entity in &query {
-                let location = entities.get(entity).unwrap();
+                let location = entities.get_spawned(entity).unwrap();
                 let archetype = archetypes.get(location.archetype_id).unwrap();
                 let archetype_components = archetype.components();
                 let bundle_id = bundles
@@ -1156,9 +1187,9 @@ mod tests {
 
     #[test]
     fn get_system_conflicts() {
-        fn sys_x(_: Res<A>, _: Res<B>, _: Query<(&C, &D)>) {}
+        fn sys_x(_: Res<ResA>, _: Res<ResB>, _: Query<(&C, &D)>) {}
 
-        fn sys_y(_: Res<A>, _: ResMut<B>, _: Query<(&C, &mut D)>) {}
+        fn sys_y(_: Res<ResA>, _: ResMut<ResB>, _: Query<(&C, &mut D)>) {}
 
         let mut world = World::default();
         let mut x = IntoSystem::into_system(sys_x);
@@ -1169,7 +1200,7 @@ mod tests {
         let conflicts = x_access.get_conflicts(&y_access);
         let b_id = world
             .components()
-            .get_resource_id(TypeId::of::<B>())
+            .get_resource_id(TypeId::of::<ResB>())
             .unwrap();
         let d_id = world.components().get_id(TypeId::of::<D>()).unwrap();
         assert_eq!(conflicts, vec![b_id, d_id].into());
@@ -1202,12 +1233,12 @@ mod tests {
     #[test]
     fn can_have_16_parameters() {
         fn sys_x(
-            _: Res<A>,
-            _: Res<B>,
-            _: Res<C>,
-            _: Res<D>,
-            _: Res<E>,
-            _: Res<F>,
+            _: Res<ResA>,
+            _: Res<ResB>,
+            _: Res<ResC>,
+            _: Res<ResD>,
+            _: Res<ResE>,
+            _: Res<ResF>,
             _: Query<&A>,
             _: Query<&B>,
             _: Query<&C>,
@@ -1221,12 +1252,12 @@ mod tests {
         }
         fn sys_y(
             _: (
-                Res<A>,
-                Res<B>,
-                Res<C>,
-                Res<D>,
-                Res<E>,
-                Res<F>,
+                Res<ResA>,
+                Res<ResB>,
+                Res<ResC>,
+                Res<ResD>,
+                Res<ResE>,
+                Res<ResF>,
                 Query<&A>,
                 Query<&B>,
                 Query<&C>,
@@ -1329,14 +1360,14 @@ mod tests {
     #[test]
     fn system_state_spawned() {
         let mut world = World::default();
-        world.spawn_empty();
+        world.spawn(A);
         let spawn_tick = world.change_tick();
 
-        let mut system_state: SystemState<Option<Single<SpawnDetails, Spawned>>> =
+        let mut system_state: SystemState<Option<Single<(&A, SpawnDetails), Spawned>>> =
             SystemState::new(&mut world);
         {
             let query = system_state.get(&world);
-            assert_eq!(query.unwrap().spawn_tick(), spawn_tick);
+            assert_eq!(query.unwrap().1.spawn_tick(), spawn_tick);
         }
 
         {
@@ -1392,19 +1423,23 @@ mod tests {
         reason = "This test exists to show that read-only world-only queries can return data that lives as long as `'world`."
     )]
     fn long_life_test() {
+        struct ResourceHolder<'w> {
+            value: &'w ResA,
+        }
+
         struct Holder<'w> {
             value: &'w A,
         }
 
         struct State {
-            state: SystemState<Res<'static, A>>,
+            state: SystemState<Res<'static, ResA>>,
             state_q: SystemState<Query<'static, 'static, &'static A>>,
         }
 
         impl State {
-            fn hold_res<'w>(&mut self, world: &'w World) -> Holder<'w> {
+            fn hold_res<'w>(&mut self, world: &'w World) -> ResourceHolder<'w> {
                 let a = self.state.get(world);
-                Holder {
+                ResourceHolder {
                     value: a.into_inner(),
                 }
             }

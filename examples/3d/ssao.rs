@@ -11,7 +11,7 @@ use std::f32::consts::PI;
 
 fn main() {
     App::new()
-        .insert_resource(AmbientLight {
+        .insert_resource(GlobalAmbientLight {
             brightness: 1000.,
             ..default()
         })

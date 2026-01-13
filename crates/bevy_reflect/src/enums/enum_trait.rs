@@ -1,8 +1,9 @@
 use crate::generics::impl_generic_info_methods;
 use crate::{
     attributes::{impl_custom_attribute_methods, CustomAttributes},
+    enums::{DynamicEnum, VariantInfo, VariantType},
     type_info::impl_type_methods,
-    DynamicEnum, Generics, PartialReflect, Type, TypePath, VariantInfo, VariantType,
+    Generics, PartialReflect, Type, TypePath,
 };
 use alloc::{boxed::Box, format, string::String};
 use bevy_platform::collections::HashMap;
@@ -154,7 +155,7 @@ pub struct EnumInfo {
     variant_names: Box<[&'static str]>,
     variant_indices: HashMap<&'static str, usize>,
     custom_attributes: Arc<CustomAttributes>,
-    #[cfg(feature = "documentation")]
+    #[cfg(feature = "reflect_documentation")]
     docs: Option<&'static str>,
 }
 
@@ -180,13 +181,13 @@ impl EnumInfo {
             variant_names,
             variant_indices,
             custom_attributes: Arc::new(CustomAttributes::default()),
-            #[cfg(feature = "documentation")]
+            #[cfg(feature = "reflect_documentation")]
             docs: None,
         }
     }
 
     /// Sets the docstring for this enum.
-    #[cfg(feature = "documentation")]
+    #[cfg(feature = "reflect_documentation")]
     pub fn with_docs(self, docs: Option<&'static str>) -> Self {
         Self { docs, ..self }
     }
@@ -246,7 +247,7 @@ impl EnumInfo {
     impl_type_methods!(ty);
 
     /// The docstring of this enum, if any.
-    #[cfg(feature = "documentation")]
+    #[cfg(feature = "reflect_documentation")]
     pub fn docs(&self) -> Option<&'static str> {
         self.docs
     }
@@ -325,7 +326,7 @@ impl<'a> VariantField<'a> {
 // Tests that need access to internal fields have to go here rather than in mod.rs
 #[cfg(test)]
 mod tests {
-    use crate::*;
+    use crate::{enums::*, Reflect};
 
     #[derive(Reflect, Debug, PartialEq)]
     enum MyEnum {

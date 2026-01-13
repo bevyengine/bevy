@@ -58,10 +58,6 @@ pub enum SpriteSystems {
     ComputeSlices,
 }
 
-/// Deprecated alias for [`SpriteSystems`].
-#[deprecated(since = "0.17.0", note = "Renamed to `SpriteSystems`.")]
-pub type SpriteSystem = SpriteSystems;
-
 impl Plugin for SpriteRenderPlugin {
     fn build(&self, app: &mut App) {
         load_shader_library!(app, "render/sprite_view_bindings.wgsl");

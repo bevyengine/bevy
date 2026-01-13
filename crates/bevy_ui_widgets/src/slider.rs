@@ -264,22 +264,49 @@ pub(crate) fn slider_on_pointer_down(
             return;
         }
 
+        // Detect orientation: vertical if height > width
+        let is_vertical = node.size().y > node.size().x;
+
         // Find thumb size by searching descendants for the first entity with SliderThumb
         let thumb_size = q_children
             .iter_descendants(press.entity)
-            .find_map(|child_id| q_thumb.get(child_id).ok().map(|thumb| thumb.size().x))
+            .find_map(|child_id| {
+                q_thumb.get(child_id).ok().map(|thumb| {
+                    if is_vertical {
+                        thumb.size().y
+                    } else {
+                        thumb.size().x
+                    }
+                })
+            })
             .unwrap_or(0.0);
 
         // Detect track click.
         let local_pos = transform.try_inverse().unwrap().transform_point2(
             press.pointer_location.position * node_target.scale_factor() / ui_scale.0,
         );
-        let track_width = node.size().x - thumb_size;
-        // Avoid division by zero
-        let click_val = if track_width > 0. {
-            local_pos.x * range.span() / track_width + range.center()
+        let track_size = if is_vertical {
+            node.size().y - thumb_size
         } else {
-            0.
+            node.size().x - thumb_size
+        };
+
+        // Avoid division by zero
+        let click_val = if track_size > 0. {
+            if is_vertical {
+                // For vertical sliders: bottom-to-top (0 at bottom, max at top)
+                // local_pos.y ranges from -height/2 (top) to +height/2 (bottom)
+                let y_from_bottom = (node.size().y / 2.0) - local_pos.y;
+                let adjusted_y = y_from_bottom - thumb_size / 2.0;
+                adjusted_y * range.span() / track_size + range.start()
+            } else {
+                // For horizontal sliders: convert from center-origin to left-origin
+                let x_from_left = local_pos.x + node.size().x / 2.0;
+                let adjusted_x = x_from_left - thumb_size / 2.0;
+                adjusted_x * range.span() / track_size + range.start()
+            }
+        } else {
+            range.center()
         };
 
         // Compute new value from click position
@@ -348,18 +375,38 @@ pub(crate) fn slider_on_drag(
     {
         event.propagate(false);
         if drag.dragging && !disabled {
+            // Detect orientation: vertical if height > width
+            let is_vertical = node.size().y > node.size().x;
+
             let mut distance = event.distance / ui_scale.0;
             distance.y *= -1.;
             let distance = transform.transform_vector2(distance);
+
             // Find thumb size by searching descendants for the first entity with SliderThumb
             let thumb_size = q_children
                 .iter_descendants(event.entity)
-                .find_map(|child_id| q_thumb.get(child_id).ok().map(|thumb| thumb.size().x))
+                .find_map(|child_id| {
+                    q_thumb.get(child_id).ok().map(|thumb| {
+                        if is_vertical {
+                            thumb.size().y
+                        } else {
+                            thumb.size().x
+                        }
+                    })
+                })
                 .unwrap_or(0.0);
-            let slider_width = ((node.size().x - thumb_size) * node.inverse_scale_factor).max(1.0);
+
+            let slider_size = if is_vertical {
+                ((node.size().y - thumb_size) * node.inverse_scale_factor).max(1.0)
+            } else {
+                ((node.size().x - thumb_size) * node.inverse_scale_factor).max(1.0)
+            };
+
+            let drag_distance = if is_vertical { distance.y } else { distance.x };
+
             let span = range.span();
             let new_value = if span > 0. {
-                drag.offset + (distance.x * span) / slider_width
+                drag.offset + (drag_distance * span) / slider_size
             } else {
                 range.start() + span * 0.5
             };

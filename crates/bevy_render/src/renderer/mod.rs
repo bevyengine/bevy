@@ -17,9 +17,11 @@ use crate::{
     view::{ExtractedWindows, ViewTarget},
 };
 use alloc::sync::Arc;
+use bevy_camera::NormalizedRenderTarget;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{prelude::*, system::SystemState};
 use bevy_platform::time::Instant;
+use bevy_render::camera::ExtractedCamera;
 use bevy_time::TimeSender;
 use bevy_window::RawHandleWrapperHolder;
 use tracing::{debug, error, info, info_span, warn};
@@ -29,7 +31,10 @@ use wgpu::{
 };
 
 /// Updates the [`RenderGraph`] with all of its nodes and then runs it to render the entire frame.
-pub fn render_system(world: &mut World, state: &mut SystemState<Query<Entity, With<ViewTarget>>>) {
+pub fn render_system(
+    world: &mut World,
+    state: &mut SystemState<Query<(&ViewTarget, &ExtractedCamera)>>,
+) {
     world.resource_scope(|world, mut graph: Mut<RenderGraph>| {
         graph.update(world);
     });
@@ -77,23 +82,22 @@ pub fn render_system(world: &mut World, state: &mut SystemState<Query<Entity, Wi
     {
         let _span = info_span!("present_frames").entered();
 
-        // Remove ViewTarget components to ensure swap chain TextureViews are dropped.
-        // If all TextureViews aren't dropped before present, acquiring the next swap chain texture will fail.
-        let view_entities = state.get(world).iter().collect::<Vec<_>>();
-        for view_entity in view_entities {
-            world.entity_mut(view_entity).remove::<ViewTarget>();
-        }
+        world.resource_scope(|world, mut windows: Mut<ExtractedWindows>| {
+            let views = state.get(world);
+            for window in windows.values_mut() {
+                let view_needs_present = views.iter().any(|(view_target, camera)| {
+                    matches!(
+                        camera.target,
+                        Some(NormalizedRenderTarget::Window(w)) if w.entity() == window.entity
+                    ) && view_target.needs_present()
+                });
 
-        let mut windows = world.resource_mut::<ExtractedWindows>();
-        for window in windows.values_mut() {
-            if let Some(surface_texture) = window.swap_chain_texture.take() {
-                // TODO(clean): winit docs recommends calling pre_present_notify before this.
-                // though `present()` doesn't present the frame, it schedules it to be presented
-                // by wgpu.
-                // https://docs.rs/winit/0.29.9/wasm32-unknown-unknown/winit/window/struct.Window.html#method.pre_present_notify
-                surface_texture.present();
+                if view_needs_present || window.needs_initial_present {
+                    window.present();
+                    window.needs_initial_present = false;
+                }
             }
-        }
+        });
 
         #[cfg(feature = "tracing-tracy")]
         tracing::event!(
@@ -110,7 +114,7 @@ pub fn render_system(world: &mut World, state: &mut SystemState<Query<Entity, Wi
     if let Err(error) = time_sender.0.try_send(Instant::now()) {
         match error {
             bevy_time::TrySendError::Full(_) => {
-                panic!("The TimeSender channel should always be empty during render. You might need to add the bevy::core::time_system to your app.",);
+                panic!("The TimeSender channel should always be empty during render. You might need to add the bevy::core::time_system to your app.");
             }
             bevy_time::TrySendError::Disconnected(_) => {
                 // ignore disconnected errors, the main world probably just got dropped during shutdown
@@ -163,7 +167,11 @@ fn find_adapter_by_name(
             continue;
         }
 
-        if info.name.eq_ignore_ascii_case(adapter_name) {
+        if info
+            .name
+            .to_lowercase()
+            .contains(&adapter_name.to_lowercase())
+        {
             return Some(adapter);
         }
     }
@@ -190,6 +198,9 @@ pub async fn initialize_renderer(
             },
             dx12: wgpu::Dx12BackendOptions {
                 shader_compiler: options.dx12_shader_compiler.clone(),
+                presentation_system: wgpu::wgt::Dx12SwapchainKind::from_env().unwrap_or_default(),
+                latency_waitable_object: wgpu::wgt::Dx12UseFrameLatencyWaitableObject::from_env()
+                    .unwrap_or_default(),
             },
             noop: wgpu::NoopBackendOptions { enable: false },
         },
@@ -426,7 +437,21 @@ pub async fn initialize_renderer(
             max_subgroup_size: limits
                 .max_subgroup_size
                 .min(constrained_limits.max_subgroup_size),
-            max_acceleration_structures_per_shader_stage: 0,
+            max_acceleration_structures_per_shader_stage: limits
+                .max_acceleration_structures_per_shader_stage
+                .min(constrained_limits.max_acceleration_structures_per_shader_stage),
+            max_task_workgroup_total_count: limits
+                .max_task_workgroup_total_count
+                .min(constrained_limits.max_task_workgroup_total_count),
+            max_task_workgroups_per_dimension: limits
+                .max_task_workgroups_per_dimension
+                .min(constrained_limits.max_task_workgroups_per_dimension),
+            max_mesh_output_layers: limits
+                .max_mesh_output_layers
+                .min(constrained_limits.max_mesh_output_layers),
+            max_mesh_multiview_count: limits
+                .max_mesh_multiview_count
+                .min(constrained_limits.max_mesh_multiview_count),
         };
     }
 
@@ -434,6 +459,8 @@ pub async fn initialize_renderer(
         label: options.device_label.as_ref().map(AsRef::as_ref),
         required_features: features,
         required_limits: limits,
+        // SAFETY: TODO, see https://github.com/bevyengine/bevy/issues/22082
+        experimental_features: unsafe { wgpu::ExperimentalFeatures::enabled() },
         memory_hints: options.memory_hints.clone(),
         // See https://github.com/gfx-rs/wgpu/issues/5974
         trace: Trace::Off,
@@ -469,7 +496,7 @@ pub async fn initialize_renderer(
 /// The context with all information required to interact with the GPU.
 ///
 /// The [`RenderDevice`] is used to create render resources and the
-/// the [`CommandEncoder`] is used to record a series of GPU operations.
+/// [`CommandEncoder`] is used to record a series of GPU operations.
 pub struct RenderContext<'w> {
     render_device: RenderDevice,
     command_encoder: Option<CommandEncoder>,

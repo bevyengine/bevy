@@ -50,8 +50,8 @@
 //! For example, [`Add`] corresponds to [`ADD`].
 //! This is used to skip [`TypeId`](core::any::TypeId) lookups in hot paths.
 use crate::{
-    change_detection::MaybeLocation,
-    component::{Component, ComponentId, ComponentIdFor, Tick},
+    change_detection::{MaybeLocation, Tick},
+    component::{Component, ComponentId, ComponentIdFor},
     entity::Entity,
     event::{EntityComponentsTrigger, EntityEvent, EventKey},
     message::{
@@ -391,26 +391,6 @@ pub struct Despawn {
     pub entity: Entity,
 }
 
-/// Deprecated in favor of [`Add`].
-#[deprecated(since = "0.17.0", note = "Renamed to `Add`.")]
-pub type OnAdd = Add;
-
-/// Deprecated in favor of [`Insert`].
-#[deprecated(since = "0.17.0", note = "Renamed to `Insert`.")]
-pub type OnInsert = Insert;
-
-/// Deprecated in favor of [`Replace`].
-#[deprecated(since = "0.17.0", note = "Renamed to `Replace`.")]
-pub type OnReplace = Replace;
-
-/// Deprecated in favor of [`Remove`].
-#[deprecated(since = "0.17.0", note = "Renamed to `Remove`.")]
-pub type OnRemove = Remove;
-
-/// Deprecated in favor of [`Despawn`].
-#[deprecated(since = "0.17.0", note = "Renamed to `Despawn`.")]
-pub type OnDespawn = Despawn;
-
 /// Wrapper around [`Entity`] for [`RemovedComponents`].
 /// Internally, `RemovedComponents` uses these as an [`Messages<RemovedComponentEntity>`].
 #[derive(Message, Debug, Clone, Into)]
@@ -450,9 +430,6 @@ impl<T: Component> DerefMut for RemovedComponentReader<T> {
         &mut self.reader
     }
 }
-/// Renamed to [`RemovedComponentMessages`].
-#[deprecated(since = "0.17.0", note = "Use `RemovedComponentMessages` instead.")]
-pub type RemovedComponentEvents = RemovedComponentMessages;
 
 /// Stores the [`RemovedComponents`] event buffers for all types of component in a given [`World`].
 #[derive(Default, Debug)]
@@ -485,15 +462,6 @@ impl RemovedComponentMessages {
         component_id: impl Into<ComponentId>,
     ) -> Option<&Messages<RemovedComponentEntity>> {
         self.event_sets.get(component_id.into())
-    }
-
-    /// Sends a removal message for the specified component.
-    #[deprecated(
-        since = "0.17.0",
-        note = "Use `RemovedComponentMessages:write` instead."
-    )]
-    pub fn send(&mut self, component_id: impl Into<ComponentId>, entity: Entity) {
-        self.write(component_id, entity);
     }
 
     /// Writes a removal message for the specified component.
@@ -581,12 +549,6 @@ impl<'w, 's, T: Component> RemovedComponents<'w, 's, T> {
     }
 
     /// Fetch underlying [`Messages`].
-    #[deprecated(since = "0.17.0", note = "Renamed to `messages`.")]
-    pub fn events(&self) -> Option<&Messages<RemovedComponentEntity>> {
-        self.messages()
-    }
-
-    /// Fetch underlying [`Messages`].
     pub fn messages(&self) -> Option<&Messages<RemovedComponentEntity>> {
         self.message_sets.get(self.component_id.get())
     }
@@ -605,18 +567,6 @@ impl<'w, 's, T: Component> RemovedComponents<'w, 's, T> {
         self.message_sets
             .get(self.component_id.get())
             .map(|messages| (&mut *self.reader, messages))
-    }
-
-    /// Destructures to get a reference to the `MessageCursor`
-    /// and a reference to `Messages`.
-    #[deprecated(since = "0.17.0", note = "Renamed to `reader_mut_with_messages`.")]
-    pub fn reader_mut_with_events(
-        &mut self,
-    ) -> Option<(
-        &mut RemovedComponentReader<T>,
-        &Messages<RemovedComponentEntity>,
-    )> {
-        self.reader_mut_with_messages()
     }
 
     /// Iterates over the messages this [`RemovedComponents`] has not seen yet. This updates the

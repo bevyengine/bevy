@@ -97,7 +97,7 @@ fn setup(
         }
     }
 
-    commands.insert_resource(AmbientLight {
+    commands.insert_resource(GlobalAmbientLight {
         color: Color::WHITE,
         brightness: 0.0,
         ..default()

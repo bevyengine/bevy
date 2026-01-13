@@ -5,8 +5,8 @@ use bevy_camera::{
     primitives::{Aabb, CascadesFrusta, CubemapFrusta, Frustum, Sphere},
     visibility::{
         CascadesVisibleEntities, CubemapVisibleEntities, InheritedVisibility, NoFrustumCulling,
-        PreviousVisibleEntities, RenderLayers, ViewVisibility, VisibilityRange, VisibilitySystems,
-        VisibleEntityRanges, VisibleMeshEntities,
+        RenderLayers, ViewVisibility, VisibilityRange, VisibilitySystems, VisibleEntityRanges,
+        VisibleMeshEntities,
     },
     CameraUpdateSystems,
 };
@@ -25,7 +25,9 @@ use cluster::{
     VisibleClusterableObjects,
 };
 mod ambient_light;
-pub use ambient_light::AmbientLight;
+pub use ambient_light::{AmbientLight, GlobalAmbientLight};
+use bevy_camera::visibility::SetViewVisibility;
+
 mod probe;
 pub use probe::{
     AtmosphereEnvironmentMapLight, EnvironmentMapLight, GeneratedEnvironmentMapLight,
@@ -58,7 +60,7 @@ pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
         light_consts, AmbientLight, DirectionalLight, EnvironmentMapLight,
-        GeneratedEnvironmentMapLight, LightProbe, PointLight, SpotLight,
+        GeneratedEnvironmentMapLight, GlobalAmbientLight, LightProbe, PointLight, SpotLight,
     };
 }
 
@@ -133,7 +135,7 @@ pub struct LightPlugin;
 impl Plugin for LightPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<GlobalVisibleClusterableObjects>()
-            .init_resource::<AmbientLight>()
+            .init_resource::<GlobalAmbientLight>()
             .init_resource::<DirectionalLightShadowMap>()
             .init_resource::<PointLightShadowMap>()
             .configure_sets(
@@ -188,9 +190,10 @@ impl Plugin for LightPlugin {
                         .after(VisibilitySystems::CalculateBounds)
                         .after(TransformSystems::Propagate)
                         .after(SimulationLightSystems::UpdateLightFrusta)
-                        // NOTE: This MUST be scheduled AFTER the core renderer visibility check
-                        // because that resets entity `ViewVisibility` for the first view
-                        // which would override any results from this otherwise
+                        // Lights can "see" entities and mark them as visible. This is done to
+                        // correctly render shadows for entities that are not in view of a camera,
+                        // but must be renderable to cast shadows. Because of this, we need to check
+                        // entity visibility and mark as visible before they can be hidden.
                         .after(VisibilitySystems::CheckVisibility)
                         .before(VisibilitySystems::MarkNewlyHiddenEntitiesInvisible),
                     build_directional_light_cascades
@@ -450,23 +453,13 @@ pub fn check_dir_light_mesh_visibility(
     // TODO: use resource to avoid unnecessary memory alloc
     let mut defer_queue = core::mem::take(defer_visible_entities_queue.deref_mut());
     commands.queue(move |world: &mut World| {
-        world.resource_scope::<PreviousVisibleEntities, _>(
-            |world, mut previous_visible_entities| {
-                let mut query = world.query::<(Entity, &mut ViewVisibility)>();
-                for entities in defer_queue.iter_mut() {
-                    let mut iter = query.iter_many_mut(world, entities.iter());
-                    while let Some((entity, mut view_visibility)) = iter.fetch_next() {
-                        if !**view_visibility {
-                            view_visibility.set();
-                        }
-
-                        // Remove any entities that were discovered to be
-                        // visible from the `PreviousVisibleEntities` resource.
-                        previous_visible_entities.remove(&entity);
-                    }
-                }
-            },
-        );
+        let mut query = world.query::<&mut ViewVisibility>();
+        for entities in defer_queue.iter_mut() {
+            let mut iter = query.iter_many_mut(world, entities.iter());
+            while let Some(mut view_visibility) = iter.fetch_next() {
+                view_visibility.set_visible();
+            }
+        }
     });
 }
 
@@ -504,7 +497,6 @@ pub fn check_point_light_mesh_visibility(
         ),
     >,
     visible_entity_ranges: Option<Res<VisibleEntityRanges>>,
-    mut previous_visible_entities: ResMut<PreviousVisibleEntities>,
     mut cubemap_visible_entities_queue: Local<Parallel<[Vec<Entity>; 6]>>,
     mut spot_visible_entities_queue: Local<Parallel<Vec<Entity>>>,
     mut checked_lights: Local<EntityHashSet>,
@@ -587,16 +579,12 @@ pub fn check_point_light_mesh_visibility(
                                 if has_no_frustum_culling
                                     || frustum.intersects_obb(aabb, &model_to_world, true, true)
                                 {
-                                    if !**view_visibility {
-                                        view_visibility.set();
-                                    }
+                                    view_visibility.set_visible();
                                     visible_entities.push(entity);
                                 }
                             }
                         } else {
-                            if !**view_visibility {
-                                view_visibility.set();
-                            }
+                            view_visibility.set_visible();
                             for visible_entities in cubemap_visible_entities_local_queue.iter_mut()
                             {
                                 visible_entities.push(entity);
@@ -609,12 +597,6 @@ pub fn check_point_light_mesh_visibility(
                     for (dst, source) in
                         cubemap_visible_entities.iter_mut().zip(entities.iter_mut())
                     {
-                        // Remove any entities that were discovered to be
-                        // visible from the `PreviousVisibleEntities` resource.
-                        for entity in source.iter() {
-                            previous_visible_entities.remove(entity);
-                        }
-
                         dst.entities.append(source);
                     }
                 }
@@ -683,15 +665,11 @@ pub fn check_point_light_mesh_visibility(
                             if has_no_frustum_culling
                                 || frustum.intersects_obb(aabb, &model_to_world, true, true)
                             {
-                                if !**view_visibility {
-                                    view_visibility.set();
-                                }
+                                view_visibility.set_visible();
                                 spot_visible_entities_local_queue.push(entity);
                             }
                         } else {
-                            if !**view_visibility {
-                                view_visibility.set();
-                            }
+                            view_visibility.set_visible();
                             spot_visible_entities_local_queue.push(entity);
                         }
                     },
@@ -699,12 +677,6 @@ pub fn check_point_light_mesh_visibility(
 
                 for entities in spot_visible_entities_queue.iter_mut() {
                     visible_entities.append(entities);
-
-                    // Remove any entities that were discovered to be visible
-                    // from the `PreviousVisibleEntities` resource.
-                    for entity in entities {
-                        previous_visible_entities.remove(entity);
-                    }
                 }
 
                 shrink_entities(visible_entities.deref_mut());

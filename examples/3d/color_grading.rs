@@ -244,10 +244,10 @@ fn button_for_value(
             align_items: AlignItems::Center,
             padding: UiRect::axes(px(12), px(6)),
             margin: UiRect::right(px(12)),
+            border_radius: BorderRadius::MAX,
             ..default()
         },
         BorderColor::all(Color::WHITE),
-        BorderRadius::MAX,
         BackgroundColor(Color::BLACK),
         ColorGradingOptionWidget {
             widget_type: ColorGradingOptionWidgetType::Button,
@@ -292,7 +292,7 @@ fn add_help_text(
     commands.spawn((
         Text::new(create_help_text(currently_selected_option)),
         TextFont {
-            font: font.clone(),
+            font: FontSource::from(font),
             ..default()
         },
         Node {
@@ -310,7 +310,7 @@ fn text(label: &str, font: &Handle<Font>, color: Color) -> impl Bundle + use<> {
     (
         Text::new(label),
         TextFont {
-            font: font.clone(),
+            font: font.into(),
             font_size: 15.0,
             ..default()
         },

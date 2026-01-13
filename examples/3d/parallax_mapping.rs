@@ -29,7 +29,7 @@ struct Spin {
 
 /// The camera, used to move camera on click.
 #[derive(Component)]
-struct CameraController;
+struct FreeCameraController;
 
 const DEPTH_CHANGE_RATE: f32 = 0.1;
 const DEPTH_UPDATE_STEP: f32 = 0.03;
@@ -185,7 +185,7 @@ const CAMERA_POSITIONS: &[Transform] = &[
 ];
 
 fn move_camera(
-    mut camera: Single<&mut Transform, With<CameraController>>,
+    mut camera: Single<&mut Transform, With<FreeCameraController>>,
     mut current_view: Local<usize>,
     button: Res<ButtonInput<MouseButton>>,
 ) {
@@ -217,7 +217,7 @@ fn setup(
     commands.spawn((
         Camera3d::default(),
         Transform::from_xyz(1.5, 1.5, 1.5).looking_at(Vec3::ZERO, Vec3::Y),
-        CameraController,
+        FreeCameraController,
     ));
 
     // represent the light source as a sphere

@@ -58,7 +58,7 @@ pub(crate) fn on_changed_font(
         }
     {
         commands.entity(insert.entity).insert(Propagate(TextFont {
-            font,
+            font: font.into(),
             font_size: style.font_size,
             ..Default::default()
         }));

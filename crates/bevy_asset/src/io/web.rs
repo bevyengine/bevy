@@ -1,5 +1,4 @@
-use crate::io::{AssetReader, AssetReaderError, Reader};
-use crate::io::{AssetSource, PathStream};
+use crate::io::{AssetReader, AssetReaderError, AssetSourceBuilder, PathStream, Reader};
 use crate::{AssetApp, AssetPlugin};
 use alloc::boxed::Box;
 use bevy_app::{App, Plugin};
@@ -21,12 +20,12 @@ use tracing::warn;
 /// Example usage:
 ///
 /// ```rust
-/// # use bevy_app::{App, Startup};
-/// # use bevy_ecs::prelude::{Commands, Res};
-/// # use bevy_asset::web::{WebAssetPlugin, AssetServer};
+/// # use bevy_app::{App, Startup, TaskPoolPlugin};
+/// # use bevy_ecs::prelude::{Commands, Component, Res};
+/// # use bevy_asset::{Asset, AssetApp, AssetPlugin, AssetServer, Handle, io::web::WebAssetPlugin};
+/// # use bevy_reflect::TypePath;
 /// # struct DefaultPlugins;
-/// # impl DefaultPlugins { fn set(plugin: WebAssetPlugin) -> WebAssetPlugin { plugin } }
-/// # use bevy_asset::web::AssetServer;
+/// # impl DefaultPlugins { fn set(&self, plugin: WebAssetPlugin) -> WebAssetPlugin { plugin } }
 /// # #[derive(Asset, TypePath, Default)]
 /// # struct Image;
 /// # #[derive(Component)]
@@ -37,6 +36,8 @@ use tracing::warn;
 ///     .add_plugins(DefaultPlugins.set(WebAssetPlugin {
 ///         silence_startup_warning: true,
 ///     }))
+/// #   .add_plugins((TaskPoolPlugin::default(), AssetPlugin::default()))
+/// #   .init_asset::<Image>()
 /// #   .add_systems(Startup, setup).run();
 /// # }
 /// // ...
@@ -71,16 +72,14 @@ impl Plugin for WebAssetPlugin {
         #[cfg(feature = "http")]
         app.register_asset_source(
             "http",
-            AssetSource::build()
-                .with_reader(move || Box::new(WebAssetReader::Http))
+            AssetSourceBuilder::new(move || Box::new(WebAssetReader::Http))
                 .with_processed_reader(move || Box::new(WebAssetReader::Http)),
         );
 
         #[cfg(feature = "https")]
         app.register_asset_source(
             "https",
-            AssetSource::build()
-                .with_reader(move || Box::new(WebAssetReader::Https))
+            AssetSourceBuilder::new(move || Box::new(WebAssetReader::Https))
                 .with_processed_reader(move || Box::new(WebAssetReader::Https)),
         );
     }
@@ -138,9 +137,19 @@ async fn get(path: PathBuf) -> Result<Box<dyn Reader>, AssetReaderError> {
     if let Some(data) = web_asset_cache::try_load_from_cache(str_path).await? {
         return Ok(Box::new(VecReader::new(data)));
     }
+    use ureq::tls::{RootCerts, TlsConfig};
     use ureq::Agent;
 
-    static AGENT: LazyLock<Agent> = LazyLock::new(|| Agent::config_builder().build().new_agent());
+    static AGENT: LazyLock<Agent> = LazyLock::new(|| {
+        Agent::config_builder()
+            .tls_config(
+                TlsConfig::builder()
+                    .root_certs(RootCerts::PlatformVerifier)
+                    .build(),
+            )
+            .build()
+            .new_agent()
+    });
 
     let uri = str_path.to_owned();
     // Use [`unblock`] to run the http request on a separately spawned thread as to not block bevy's

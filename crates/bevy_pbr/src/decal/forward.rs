@@ -41,8 +41,6 @@ impl Plugin for ForwardDecalPlugin {
         app.insert_resource(ForwardDecalMesh(mesh));
 
         app.add_plugins(MaterialPlugin::<ForwardDecalMaterial<StandardMaterial>> {
-            prepass_enabled: false,
-            shadows_enabled: false,
             debug_flags: RenderDebugFlags::default(),
             ..Default::default()
         });
@@ -115,6 +113,10 @@ impl AsBindGroupShaderType<ForwardDecalMaterialExtUniform> for ForwardDecalMater
 impl MaterialExtension for ForwardDecalMaterialExt {
     fn alpha_mode() -> Option<AlphaMode> {
         Some(AlphaMode::Blend)
+    }
+
+    fn enable_shadows() -> bool {
+        false
     }
 
     fn specialize(
