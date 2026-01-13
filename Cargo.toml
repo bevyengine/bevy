@@ -217,6 +217,7 @@ common_api = [
   "bevy_image",
   "bevy_mesh",
   "bevy_shader",
+  "bevy_material",
   "bevy_text",
   "hdr",
   "png",
@@ -373,6 +374,9 @@ bevy_light = ["bevy_internal/bevy_light"]
 
 # Provides shaders usable through asset handles.
 bevy_shader = ["bevy_internal/bevy_shader"]
+
+# Provides materials.
+bevy_material = ["bevy_internal/bevy_material"]
 
 # Adds support for gizmos
 bevy_gizmos = ["bevy_internal/bevy_gizmos"]

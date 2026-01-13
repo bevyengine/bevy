@@ -1,0 +1,35 @@
+[package]
+name = "bevy_material"
+version = "0.18.0-dev"
+edition = "2024"
+description = "Provides a material abstraction for Bevy Engine"
+homepage = "https://bevy.org"
+repository = "https://github.com/bevyengine/bevy"
+license = "MIT OR Apache-2.0"
+keywords = ["bevy"]
+
+[dependencies]
+# bevy
+bevy_asset = { path = "../bevy_asset", version = "0.18.0-dev" }
+bevy_derive = { path = "../bevy_derive", version = "0.18.0-dev" }
+bevy_utils = { path = "../bevy_utils", version = "0.18.0-dev" }
+bevy_reflect = { path = "../bevy_reflect", version = "0.18.0-dev" }
+bevy_material_macros = { path = "macros", version = "0.18.0-dev" }
+bevy_mesh = { path = "../bevy_mesh", version = "0.18.0-dev" }
+bevy_shader = { path = "../bevy_shader", version = "0.18.0-dev" }
+bevy_ecs = { path = "../bevy_ecs", version = "0.18.0-dev" }
+bevy_platform = { path = "../bevy_platform", version = "0.18.0-dev" }
+
+encase = "0.12"
+tracing = { version = "0.1", default-features = false, features = ["std"] }
+thiserror = { version = "2", default-features = false }
+wgpu-types = { version = "27", default-features = false }
+variadics_please = "1.1"
+smallvec = { version = "1", default-features = false }
+
+[lints]
+workspace = true
+
+[package.metadata.docs.rs]
+rustdoc-args = ["-Zunstable-options", "--generate-link-to-definition"]
+all-features = true

@@ -9,8 +9,9 @@ use bevy::{
     light::{
         CascadeShadowConfigBuilder, DirectionalLightShadowMap, NotShadowCaster, NotShadowReceiver,
     },
+    material::OpaqueRendererMethod,
     math::ops,
-    pbr::{DefaultOpaqueRendererMethod, OpaqueRendererMethod},
+    pbr::DefaultOpaqueRendererMethod,
     prelude::*,
 };
 
