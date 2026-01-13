@@ -553,6 +553,9 @@ impl SpecializedRenderPipeline for ScreenSpaceReflectionsPipeline {
             shader_defs.push("ATMOSPHERE".into());
         }
 
+        #[cfg(not(target_arch = "wasm32"))]
+        shader_defs.push("USE_DEPTH_SAMPLERS".into());
+
         RenderPipelineDescriptor {
             label: Some("SSR pipeline".into()),
             layout,

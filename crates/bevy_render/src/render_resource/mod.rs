@@ -10,7 +10,6 @@ mod gpu_array_buffer;
 mod pipeline;
 mod pipeline_cache;
 mod pipeline_specializer;
-pub mod resource_macros;
 mod specializer;
 mod storage_buffer;
 mod texture;

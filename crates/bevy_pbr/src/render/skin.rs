@@ -116,41 +116,41 @@ pub struct SkinUniforms {
     total_joints: usize,
 }
 
-impl FromWorld for SkinUniforms {
-    fn from_world(world: &mut World) -> Self {
-        let device = world.resource::<RenderDevice>();
-        let buffer_usages = (if skins_use_uniform_buffers(&device.limits()) {
-            BufferUsages::UNIFORM
-        } else {
-            BufferUsages::STORAGE
-        }) | BufferUsages::COPY_DST;
+pub fn skin_uniforms_from_world(world: &mut World) {
+    let device = world.resource::<RenderDevice>();
+    let buffer_usages = (if skins_use_uniform_buffers(&device.limits()) {
+        BufferUsages::UNIFORM
+    } else {
+        BufferUsages::STORAGE
+    }) | BufferUsages::COPY_DST;
 
-        // Create the current and previous buffer with the minimum sizes.
-        //
-        // These will be swapped every frame.
-        let current_buffer = device.create_buffer(&BufferDescriptor {
-            label: Some("skin uniform buffer"),
-            size: MAX_JOINTS as u64 * size_of::<Mat4>() as u64,
-            usage: buffer_usages,
-            mapped_at_creation: false,
-        });
-        let prev_buffer = device.create_buffer(&BufferDescriptor {
-            label: Some("skin uniform buffer"),
-            size: MAX_JOINTS as u64 * size_of::<Mat4>() as u64,
-            usage: buffer_usages,
-            mapped_at_creation: false,
-        });
+    // Create the current and previous buffer with the minimum sizes.
+    //
+    // These will be swapped every frame.
+    let current_buffer = device.create_buffer(&BufferDescriptor {
+        label: Some("skin uniform buffer"),
+        size: MAX_JOINTS as u64 * size_of::<Mat4>() as u64,
+        usage: buffer_usages,
+        mapped_at_creation: false,
+    });
+    let prev_buffer = device.create_buffer(&BufferDescriptor {
+        label: Some("skin uniform buffer"),
+        size: MAX_JOINTS as u64 * size_of::<Mat4>() as u64,
+        usage: buffer_usages,
+        mapped_at_creation: false,
+    });
 
-        Self {
-            current_staging_buffer: vec![],
-            current_buffer,
-            prev_buffer,
-            allocator: Allocator::new(MAX_TOTAL_JOINTS),
-            skin_uniform_info: MainEntityHashMap::default(),
-            joint_to_skins: MainEntityHashMap::default(),
-            total_joints: 0,
-        }
-    }
+    let res = SkinUniforms {
+        current_staging_buffer: vec![],
+        current_buffer,
+        prev_buffer,
+        allocator: Allocator::new(MAX_TOTAL_JOINTS),
+        skin_uniform_info: MainEntityHashMap::default(),
+        joint_to_skins: MainEntityHashMap::default(),
+        total_joints: 0,
+    };
+
+    world.insert_resource(res);
 }
 
 impl SkinUniforms {

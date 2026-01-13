@@ -12,6 +12,7 @@
     shadows,
     ambient,
     irradiance_volume,
+    view_transformations,
     mesh_types::{MESH_FLAGS_SHADOW_RECEIVER_BIT, MESH_FLAGS_TRANSMITTED_SHADOW_RECEIVER_BIT},
 }
 #import bevy_render::maths::{E, powsafe}
@@ -419,7 +420,7 @@ fn apply_pbr_lighting(
         var shadow: f32 = 1.0;
         if ((in.flags & MESH_FLAGS_SHADOW_RECEIVER_BIT) != 0u
                 && (view_bindings::clusterable_objects.data[light_id].flags & mesh_view_types::POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
-            shadow = shadows::fetch_point_shadow(light_id, in.world_position, in.world_normal);
+            shadow = shadows::fetch_point_shadow(light_id, in.world_position, in.world_normal, in.frag_coord.xy);
         }
 
         let light_contrib = lighting::point_light(light_id, &lighting_input, enable_diffuse, true);
@@ -438,7 +439,7 @@ fn apply_pbr_lighting(
         var transmitted_shadow: f32 = 1.0;
         if ((in.flags & (MESH_FLAGS_SHADOW_RECEIVER_BIT | MESH_FLAGS_TRANSMITTED_SHADOW_RECEIVER_BIT)) == (MESH_FLAGS_SHADOW_RECEIVER_BIT | MESH_FLAGS_TRANSMITTED_SHADOW_RECEIVER_BIT)
                 && (view_bindings::clusterable_objects.data[light_id].flags & mesh_view_types::POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
-            transmitted_shadow = shadows::fetch_point_shadow(light_id, diffuse_transmissive_lobe_world_position, -in.world_normal);
+            transmitted_shadow = shadows::fetch_point_shadow(light_id, diffuse_transmissive_lobe_world_position, -in.world_normal, in.frag_coord.xy);
         }
 
         let transmitted_light_contrib =
@@ -472,6 +473,7 @@ fn apply_pbr_lighting(
                 in.world_position,
                 in.world_normal,
                 view_bindings::clusterable_objects.data[light_id].shadow_map_near_z,
+                in.frag_coord.xy,
             );
         }
 
@@ -496,6 +498,7 @@ fn apply_pbr_lighting(
                 diffuse_transmissive_lobe_world_position,
                 -in.world_normal,
                 view_bindings::clusterable_objects.data[light_id].shadow_map_near_z,
+                in.frag_coord.xy,
             );
         }
 
@@ -526,7 +529,7 @@ fn apply_pbr_lighting(
         var shadow: f32 = 1.0;
         if ((in.flags & MESH_FLAGS_SHADOW_RECEIVER_BIT) != 0u
                 && (view_bindings::lights.directional_lights[i].flags & mesh_view_types::DIRECTIONAL_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
-            shadow = shadows::fetch_directional_shadow(i, in.world_position, in.world_normal, view_z);
+            shadow = shadows::fetch_directional_shadow(i, in.world_position, in.world_normal, view_z, in.frag_coord.xy);
         }
 
         var light_contrib = lighting::directional_light(i, &lighting_input, enable_diffuse);
@@ -549,7 +552,7 @@ fn apply_pbr_lighting(
         var transmitted_shadow: f32 = 1.0;
         if ((in.flags & (MESH_FLAGS_SHADOW_RECEIVER_BIT | MESH_FLAGS_TRANSMITTED_SHADOW_RECEIVER_BIT)) == (MESH_FLAGS_SHADOW_RECEIVER_BIT | MESH_FLAGS_TRANSMITTED_SHADOW_RECEIVER_BIT)
                 && (view_bindings::lights.directional_lights[i].flags & mesh_view_types::DIRECTIONAL_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
-            transmitted_shadow = shadows::fetch_directional_shadow(i, diffuse_transmissive_lobe_world_position, -in.world_normal, view_z);
+            transmitted_shadow = shadows::fetch_directional_shadow(i, diffuse_transmissive_lobe_world_position, -in.world_normal, view_z, in.frag_coord.xy);
         }
 
         let transmitted_light_contrib =
@@ -612,7 +615,7 @@ fn apply_pbr_lighting(
 #else   // SCREEN_SPACE_REFLECTIONS
     let use_ssr = false;
 #endif  // SCREEN_SPACE_REFLECTIONS
-    
+
     if (!use_ssr) {
 #ifdef STANDARD_MATERIAL_ANISOTROPY
         var bent_normal_lighting_input = lighting_input;
@@ -758,7 +761,13 @@ fn apply_pbr_lighting(
 #endif // PREPASS_FRAGMENT
 
 #ifdef DISTANCE_FOG
-fn apply_fog(fog_params: mesh_view_types::Fog, input_color: vec4<f32>, fragment_world_position: vec3<f32>, view_world_position: vec3<f32>) -> vec4<f32> {
+fn apply_fog(
+    fog_params: mesh_view_types::Fog,
+    input_color: vec4<f32>,
+    fragment_world_position: vec3<f32>,
+    view_world_position: vec3<f32>,
+    frag_coord_xy: vec2<f32>,
+) -> vec4<f32> {
     let view_to_world = fragment_world_position.xyz - view_world_position.xyz;
 
     // `length()` is used here instead of just `view_to_world.z` since that produces more
@@ -767,19 +776,34 @@ fn apply_fog(fog_params: mesh_view_types::Fog, input_color: vec4<f32>, fragment_
     // fog shape that looks a bit fake
     let distance = length(view_to_world);
 
+    // Calculate view_z for shadow cascade selection
+    let view_pos = view_transformations::position_world_to_view(fragment_world_position);
+    let view_z = view_pos.z;
+
+    // Approximate surface normal using view direction for shadow sampling
+    let view_direction_normal = normalize(-view_to_world);
+    let fragment_world_position_vec4 = vec4<f32>(fragment_world_position, 1.0);
+
     var scattering = vec3<f32>(0.0);
     if fog_params.directional_light_color.a > 0.0 {
         let view_to_world_normalized = view_to_world / distance;
         let n_directional_lights = view_bindings::lights.n_directional_lights;
         for (var i: u32 = 0u; i < n_directional_lights; i = i + 1u) {
             let light = view_bindings::lights.directional_lights[i];
-            scattering += pow(
+            let scattering_contribution = pow(
                 max(
                     dot(view_to_world_normalized, light.direction_to_light),
                     0.0
                 ),
                 fog_params.directional_light_exponent
             ) * light.color.rgb * view_bindings::view.exposure;
+
+            // Sample shadow map to attenuate inscattering in shadowed areas
+            var shadow: f32 = 1.0;
+            if ((light.flags & mesh_view_types::DIRECTIONAL_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
+                shadow = shadows::fetch_directional_shadow(i, fragment_world_position_vec4, view_direction_normal, view_z, frag_coord_xy);
+            }
+            scattering += scattering_contribution * shadow;
         }
     }
 
@@ -860,7 +884,13 @@ fn main_pass_post_lighting_processing(
 #ifdef DISTANCE_FOG
     // fog
     if ((pbr_input.material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_FOG_ENABLED_BIT) != 0u) {
-        output_color = apply_fog(view_bindings::fog, output_color, pbr_input.world_position.xyz, view_bindings::view.world_position.xyz);
+        output_color = apply_fog(
+            view_bindings::fog,
+            output_color,
+            pbr_input.world_position.xyz,
+            view_bindings::view.world_position.xyz,
+            pbr_input.frag_coord.xy,
+        );
     }
 #endif  // DISTANCE_FOG
 

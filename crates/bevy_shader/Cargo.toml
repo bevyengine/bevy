@@ -13,6 +13,7 @@ keywords = ["bevy", "shader"]
 bevy_asset = { path = "../bevy_asset", version = "0.18.0-dev" }
 bevy_reflect = { path = "../bevy_reflect", version = "0.18.0-dev" }
 bevy_platform = { path = "../bevy_platform", version = "0.18.0-dev" }
+bevy_utils = { path = "../bevy_utils", version = "0.18.0-dev" }
 
 # other
 wgpu-types = { version = "28", default-features = false }

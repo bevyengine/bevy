@@ -1,9 +1,9 @@
-use crate::define_atomic_id;
 use crate::renderer::WgpuWrapper;
 use alloc::borrow::Cow;
 use bevy_asset::Handle;
 use bevy_mesh::VertexBufferLayout;
 use bevy_shader::{Shader, ShaderDefVal};
+use bevy_utils::define_atomic_id;
 use core::iter;
 use core::ops::Deref;
 use thiserror::Error;

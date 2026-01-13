@@ -173,8 +173,8 @@ impl ViewNode for SolariLightingNode {
                 view_target.view,
                 s.light_tile_samples.as_entire_binding(),
                 s.light_tile_resolved_samples.as_entire_binding(),
-                &s.di_reservoirs_a.1,
-                &s.di_reservoirs_b.1,
+                &s.di_reservoirs_a,
+                &s.di_reservoirs_b,
                 s.gi_reservoirs_a.as_entire_binding(),
                 s.gi_reservoirs_b.as_entire_binding(),
                 gbuffer,
@@ -241,7 +241,6 @@ impl ViewNode for SolariLightingNode {
             label: Some("solari_lighting"),
             timestamp_writes: None,
         });
-        let pass_span = diagnostics.pass_span(&mut pass, "solari_lighting");
 
         let dx = solari_lighting_resources.view_size.x.div_ceil(8);
         let dy = solari_lighting_resources.view_size.y.div_ceil(8);
@@ -263,12 +262,16 @@ impl ViewNode for SolariLightingNode {
             pass.dispatch_workgroups(dx, dy, 1);
         }
 
+        let d = diagnostics.time_span(&mut pass, "solari_lighting/presample_light_tiles");
         pass.set_pipeline(presample_light_tiles_pipeline);
         pass.set_immediates(
             0,
             bytemuck::cast_slice(&[frame_index, solari_lighting.reset as u32]),
         );
         pass.dispatch_workgroups(LIGHT_TILE_BLOCKS as u32, 1, 1);
+        d.end(&mut pass);
+
+        let d = diagnostics.time_span(&mut pass, "solari_lighting/world_cache");
 
         pass.set_bind_group(2, &bind_group_world_cache_active_cells_dispatch, &[]);
 
@@ -302,6 +305,10 @@ impl ViewNode for SolariLightingNode {
             0,
         );
 
+        d.end(&mut pass);
+
+        let d = diagnostics.time_span(&mut pass, "solari_lighting/direct_lighting");
+
         pass.set_pipeline(di_initial_and_temporal_pipeline);
         pass.set_immediates(
             0,
@@ -315,6 +322,10 @@ impl ViewNode for SolariLightingNode {
             bytemuck::cast_slice(&[frame_index, solari_lighting.reset as u32]),
         );
         pass.dispatch_workgroups(dx, dy, 1);
+
+        d.end(&mut pass);
+
+        let d = diagnostics.time_span(&mut pass, "solari_lighting/diffuse_indirect_lighting");
 
         pass.set_pipeline(gi_initial_and_temporal_pipeline);
         pass.set_immediates(
@@ -330,14 +341,16 @@ impl ViewNode for SolariLightingNode {
         );
         pass.dispatch_workgroups(dx, dy, 1);
 
+        d.end(&mut pass);
+
+        let d = diagnostics.time_span(&mut pass, "solari_lighting/specular_indirect_lighting");
         pass.set_pipeline(specular_gi_pipeline);
         pass.set_immediates(
             0,
             bytemuck::cast_slice(&[frame_index, solari_lighting.reset as u32]),
         );
         pass.dispatch_workgroups(dx, dy, 1);
-
-        pass_span.end(&mut pass);
+        d.end(&mut pass);
 
         Ok(())
     }
