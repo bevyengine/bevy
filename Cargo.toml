@@ -202,6 +202,7 @@ default_platform = [
   "webgl2",
   "x11",
   "wayland",
+  "custom_cursor",
   "sysinfo_plugin",
 ]
 
@@ -216,7 +217,6 @@ common_api = [
   "bevy_shader",
   "bevy_text",
   "bevy_window",
-  "custom_cursor",
   "hdr",
   "png",
 ]
