@@ -40,9 +40,6 @@ bevy_platform = { path = "../bevy_platform", version = "0.18.0-dev", default-fea
 bitflags = "2.3"
 radsort = "0.1"
 nonmax = "0.5"
-serde = { version = "1", default-features = false, features = ["derive"] }
-smallvec = { version = "1", default-features = false }
-thiserror = { version = "2", default-features = false }
 tracing = { version = "0.1", default-features = false, features = ["std"] }
 
 [lints]
