@@ -2716,7 +2716,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
                 // - `current_row` must be a table row in range of the current table,
                 //   because if it was not, then the above would have been executed.
                 // - fetch is only called once for each `entity`.
-                break unsafe {
+                return unsafe {
                     Some(D::fetch(
                         &query_state.fetch_state,
                         &mut self.fetch,
@@ -2796,7 +2796,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
                 //   because if it was not, then the if above would have been executed.
                 // - fetch is only called once for each `archetype_entity`.
                 // - `archetype_entity` matches both the fetch and filter
-                break unsafe {
+                return unsafe {
                     Some(D::fetch(
                         &query_state.fetch_state,
                         &mut self.fetch,
