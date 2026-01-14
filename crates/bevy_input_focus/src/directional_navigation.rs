@@ -132,6 +132,7 @@ pub struct AutoNavigationConfig {
     /// Maximum search distance in logical pixels.
     ///
     /// Nodes beyond this distance won't be connected. `None` means unlimited.
+    /// The distance between two UI elements is calculated using their closest edges.
     pub max_search_distance: Option<f32>,
 
     /// Whether to prefer nodes that are more aligned with the exact direction.

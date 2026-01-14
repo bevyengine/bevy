@@ -53,7 +53,7 @@ fn main() {
         .insert_resource(AutoNavigationConfig {
             // Require at least 10% overlap in perpendicular axis for cardinal directions
             min_alignment_factor: 0.1,
-            // Don't connect nodes more than 200 pixels apart
+            // Don't connect nodes more than 200 pixels apart between their closest edges
             max_search_distance: Some(200.0),
             // Prefer nodes that are well-aligned
             prefer_aligned: true,
