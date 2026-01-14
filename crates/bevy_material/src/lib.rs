@@ -30,7 +30,9 @@ use crate::{
     specialize::{BaseSpecializeFn, PrepassSpecializeFn, UserSpecializeFn},
 };
 
-pub use crate::{alpha::AlphaMode, opaque::OpaqueRendererMethod, phase::RenderPhaseType};
+pub use crate::{
+    alpha::AlphaMode, opaque::OpaqueRendererMethod, phase::RenderPhaseType, uv::UvChannel,
+};
 
 mod alpha;
 pub mod bind_group_layout_entries;
@@ -40,6 +42,7 @@ pub mod labels;
 mod opaque;
 mod phase;
 pub mod specialize;
+pub mod uv;
 
 /// The material prelude.
 ///
