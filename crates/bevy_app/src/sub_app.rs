@@ -66,6 +66,8 @@ pub struct SubApp {
     world: World,
     /// List of plugins that have been added.
     pub(crate) plugin_registry: Vec<Box<dyn Plugin>>,
+    /// List of dynamic plugins that have been added.
+    pub(crate) dynamic_plugin_registry: Vec<Box<dyn Plugin>>,
     /// The names of plugins that have been added to this app. (used to track duplicates and
     /// already-registered plugins)
     pub(crate) plugin_names: HashSet<String>,
@@ -92,6 +94,7 @@ impl Default for SubApp {
         Self {
             world,
             plugin_registry: Vec::default(),
+            dynamic_plugin_registry: Vec::default(),
             plugin_names: HashSet::default(),
             plugin_build_depth: 0,
             plugins_state: PluginsState::Adding,
@@ -368,6 +371,18 @@ impl SubApp {
         self
     }
 
+    /// See [`App::add_dynamic_plugins`].
+    pub fn add_dynamic_plugins<M>(&mut self, plugins: impl Plugins<M>) -> &mut Self {
+        self.run_as_app(|app| plugins.add_to_app_dynamic(app));
+        self
+    }
+
+    /// See [`App::remove_dynamic_plugin`].
+    pub fn remove_dynamic_plugin<P: Plugin>(&mut self) -> &mut Self {
+        self.run_as_app(|app| app.remove_dynamic_plugin::<P>());
+        self
+    }
+
     /// See [`App::is_plugin_added`].
     pub fn is_plugin_added<T>(&self) -> bool
     where
@@ -383,6 +398,7 @@ impl SubApp {
     {
         self.plugin_registry
             .iter()
+            .chain(self.dynamic_plugin_registry.iter())
             .filter_map(|p| p.downcast_ref())
             .collect()
     }

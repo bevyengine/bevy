@@ -230,9 +230,11 @@ Example | Description
 --- | ---
 [Advanced log layers](../examples/app/log_layers_ecs.rs) | Illustrate how to transfer data between log layers and Bevy's ECS
 [Custom Loop](../examples/app/custom_loop.rs) | Demonstrates how to create a custom runner (to update an app manually)
+[Custom SubApp](../examples/app/custom_subapp.rs) | Demonstratres how to create a custom subapp with its own extract fn
 [Drag and Drop](../examples/app/drag_and_drop.rs) | An example that shows how to handle drag and drop in an app
 [Empty](../examples/app/empty.rs) | An empty application (does nothing)
 [Empty with Defaults](../examples/app/empty_defaults.rs) | An empty application with default plugins
+[Exclusive App Hooks](../examples/app/exclusive_hook.rs) | A plugin that allows to access subapps during runtime.
 [Headless](../examples/app/headless.rs) | An application that runs without default plugins
 [Headless Renderer](../examples/app/headless_renderer.rs) | An application that runs with no window, but renders into image file
 [Log layers](../examples/app/log_layers.rs) | Illustrate how to add custom log layers

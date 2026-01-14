@@ -61,6 +61,8 @@ pub trait Plugin: Downcast + Any + Send + Sync {
     /// Has the plugin finished its setup? This can be useful for plugins that need something
     /// asynchronous to happen before they can finish their setup, like the initialization of a renderer.
     /// Once the plugin is ready, [`finish`](Plugin::finish) should be called.
+    /// # Panics
+    /// Panics if the plugin returns false and is currently being dynamically loaded.
     fn ready(&self, _app: &App) -> bool {
         true
     }
@@ -88,6 +90,21 @@ pub trait Plugin: Downcast + Any + Send + Sync {
     /// override this method to return `false`.
     fn is_unique(&self) -> bool {
         true
+    }
+
+    /// Is the plugin able to be dynamically loaded/unloaded? This can be useful
+    /// for plugins that load up as dynamic modifications / extensions of Bevy.
+    ///
+    /// NOTE: Dynamic plugins are expected to be allowed to be unloaded, for more info see [`remove`](Plugin::remove)
+    fn is_dynamic(&self) -> bool {
+        false
+    }
+
+    /// Removes a partially or completely added dynamic plugin.
+    /// # Panics
+    /// Panics if the plugin is not a dynamic plugin.
+    fn remove(&self, _app: &mut App) {
+        unimplemented!("Plugin is not dynamic.");
     }
 }
 
@@ -135,6 +152,7 @@ mod sealed {
 
     pub trait Plugins<Marker> {
         fn add_to_app(self, app: &mut App);
+        fn add_to_app_dynamic(self, app: &mut App);
     }
 
     pub struct PluginMarker;
@@ -152,12 +170,28 @@ mod sealed {
                 )
             }
         }
+        #[track_caller]
+        fn add_to_app_dynamic(self, app: &mut App) {
+            match app.add_boxed_dynamic_plugin(Box::new(self)) {
+                Ok(_) => (),
+                Err(AppError::DuplicatePlugin { plugin_name }) => panic!(
+                    "Error dynamically adding plugin {plugin_name}: : plugin was already added in application"
+                ),
+                Err(AppError::ExpectedDynamicPlugin { plugin_name }) => panic!(
+                    "Error dynamically adding plugin {plugin_name}: : plugin is not dynamic"
+                )
+            }
+        }
     }
 
     impl<P: PluginGroup> Plugins<PluginGroupMarker> for P {
         #[track_caller]
         fn add_to_app(self, app: &mut App) {
             self.build().finish(app);
+        }
+        #[track_caller]
+        fn add_to_app_dynamic(self, app: &mut App) {
+            self.build().finish_dynamic(app);
         }
     }
 
@@ -179,6 +213,18 @@ mod sealed {
                     let ($($plugins,)*) = self;
                     $($plugins.add_to_app(app);)*
                 }
+                #[expect(
+                    clippy::allow_attributes,
+                    reason = "This is inside a macro, and as such, may not trigger in all cases."
+                )]
+                #[allow(non_snake_case, reason = "`all_tuples!()` generates non-snake-case variable names.")]
+                #[allow(unused_variables, reason = "`app` is unused when implemented for the unit type `()`.")]
+                #[track_caller]
+                fn add_to_app_dynamic(self, app: &mut App) {
+                    let ($($plugins,)*) = self;
+                    $($plugins.add_to_app_dynamic(app);)*
+                }
+
             }
         }
     }

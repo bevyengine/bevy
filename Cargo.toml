@@ -737,6 +737,7 @@ serde_json = "1.0.140"
 bytemuck = "1"
 # The following explicit dependencies are needed for proc macros to work inside of examples as they are part of the bevy crate itself.
 bevy_animation = { path = "crates/bevy_animation", version = "0.18.0-dev", default-features = false }
+bevy_app = { path = "crates/bevy_app", version = "0.18.0-dev", default-features = false }
 bevy_asset = { path = "crates/bevy_asset", version = "0.18.0-dev", default-features = false }
 bevy_ecs = { path = "crates/bevy_ecs", version = "0.18.0-dev", default-features = false }
 bevy_gizmos = { path = "crates/bevy_gizmos", version = "0.18.0-dev", default-features = false }
@@ -1803,6 +1804,18 @@ category = "Application"
 wasm = false
 
 [[example]]
+name = "custom_subapp"
+path = "examples/app/custom_subapp.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.custom_subapp]
+name = "Custom SubApp"
+description = "Demonstratres how to create a custom subapp with its own extract fn"
+category = "Application"
+# Doesn't render anything, doesn't create a canvas
+wasm = false
+
+[[example]]
 name = "drag_and_drop"
 path = "examples/app/drag_and_drop.rs"
 doc-scrape-examples = true
@@ -1834,6 +1847,17 @@ doc-scrape-examples = true
 [package.metadata.example.empty_defaults]
 name = "Empty with Defaults"
 description = "An empty application with default plugins"
+category = "Application"
+wasm = true
+
+[[example]]
+name = "exclusive_hook"
+path = "examples/app/exclusive_hook.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.exclusive_hook]
+name = "Exclusive App Hooks"
+description = "A plugin that allows to access subapps during runtime."
 category = "Application"
 wasm = true
 
