@@ -7,8 +7,9 @@ use super::{
     InstanceManager,
 };
 use crate::{
-    MeshViewBindGroup, PrepassViewBindGroup, ViewEnvironmentMapUniformOffset, ViewFogUniformOffset,
-    ViewLightProbesUniformOffset, ViewLightsUniformOffset, ViewScreenSpaceReflectionsUniformOffset,
+    MeshViewBindGroup, PrepassViewBindGroup, ViewContactShadowsUniformOffset,
+    ViewEnvironmentMapUniformOffset, ViewFogUniformOffset, ViewLightProbesUniformOffset,
+    ViewLightsUniformOffset, ViewScreenSpaceReflectionsUniformOffset,
 };
 use bevy_camera::MainPassResolutionOverride;
 use bevy_camera::Viewport;
@@ -44,6 +45,7 @@ impl ViewNode for MeshletMainOpaquePass3dNode {
         &'static ViewFogUniformOffset,
         &'static ViewLightProbesUniformOffset,
         &'static ViewScreenSpaceReflectionsUniformOffset,
+        &'static ViewContactShadowsUniformOffset,
         &'static ViewEnvironmentMapUniformOffset,
         Option<&'static MainPassResolutionOverride>,
         &'static MeshletViewMaterialsMainOpaquePass,
@@ -64,6 +66,7 @@ impl ViewNode for MeshletMainOpaquePass3dNode {
             view_fog_offset,
             view_light_probes_offset,
             view_ssr_offset,
+            view_contact_shadows_offset,
             view_environment_map_offset,
             resolution_override,
             meshlet_view_materials,
@@ -123,6 +126,7 @@ impl ViewNode for MeshletMainOpaquePass3dNode {
                 view_fog_offset.offset,
                 **view_light_probes_offset,
                 **view_ssr_offset,
+                **view_contact_shadows_offset,
                 **view_environment_map_offset,
             ],
         );

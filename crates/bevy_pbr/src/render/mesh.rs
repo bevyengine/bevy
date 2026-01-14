@@ -1,6 +1,8 @@
+use crate::contact_shadows::ViewContactShadowsUniformOffset;
 use crate::{
     material_bind_groups::{MaterialBindGroupIndex, MaterialBindGroupSlot},
     resources::write_atmosphere_buffer,
+    skin::skin_uniforms_from_world,
 };
 use bevy_asset::{embedded_asset, load_embedded_asset, AssetId};
 use bevy_camera::{
@@ -17,8 +19,10 @@ use bevy_core_pipeline::{
 use bevy_derive::{Deref, DerefMut};
 use bevy_diagnostic::FrameCount;
 use bevy_ecs::{
+    entity::EntityHashSet,
     prelude::*,
     query::{QueryData, ROQueryItem},
+    relationship::RelationshipSourceCollection,
     system::{lifetimeless::*, SystemParamItem, SystemState},
 };
 use bevy_image::{BevyDefault, ImageSampler, TextureFormatPixelInfo};
@@ -215,7 +219,7 @@ impl Plugin for MeshRenderPlugin {
                 .init_resource::<ViewKeyCache>()
                 .init_resource::<ViewSpecializationTicks>()
                 .init_resource::<GpuPreprocessingSupport>()
-                .init_resource::<SkinUniforms>()
+                .add_systems(RenderStartup, skin_uniforms_from_world)
                 .add_systems(
                     Render,
                     check_views_need_specialization.in_set(PrepareAssets),
@@ -719,11 +723,11 @@ pub struct RenderMeshInstanceGpu {
     /// uniform building paths.
     #[deref]
     pub shared: RenderMeshInstanceShared,
-    /// The translation of the mesh.
+    /// The representative position of the mesh instance in world-space.
     ///
-    /// This is the only part of the transform that we have to keep on CPU (for
-    /// distance sorting).
-    pub translation: Vec3,
+    /// This world-space center is used as a spatial proxy for view-dependent
+    /// operations such as distance computation and render-order sorting.
+    pub center: Vec3,
     /// The index of the [`MeshInputUniform`] in the buffer.
     pub current_uniform_index: NonMaxU32,
 }
@@ -744,6 +748,12 @@ pub struct RenderMeshInstanceShared {
     pub tag: u32,
     /// Render layers that this mesh instance belongs to.
     pub render_layers: Option<RenderLayers>,
+    /// A representative position of the mesh instance in local space,
+    /// derived from its axis-aligned bounding box.
+    ///
+    /// This value is typically used as a spatial proxy for operations such as
+    /// view-dependent sorting (e.g., transparent object ordering).
+    pub center: Vec3,
 }
 
 /// Information that is gathered during the parallel portion of mesh extraction
@@ -836,6 +846,7 @@ impl RenderMeshInstanceShared {
         not_shadow_caster: bool,
         no_automatic_batching: bool,
         render_layers: Option<&RenderLayers>,
+        aabb: Option<&Aabb>,
     ) -> Self {
         Self::for_cpu_building(
             previous_transform,
@@ -845,6 +856,7 @@ impl RenderMeshInstanceShared {
             not_shadow_caster,
             no_automatic_batching,
             render_layers,
+            aabb,
         )
     }
 
@@ -857,6 +869,7 @@ impl RenderMeshInstanceShared {
         not_shadow_caster: bool,
         no_automatic_batching: bool,
         render_layers: Option<&RenderLayers>,
+        aabb: Option<&Aabb>,
     ) -> Self {
         let mut mesh_instance_flags = RenderMeshInstanceFlags::empty();
         mesh_instance_flags.set(RenderMeshInstanceFlags::SHADOW_CASTER, !not_shadow_caster);
@@ -876,6 +889,7 @@ impl RenderMeshInstanceShared {
             lightmap_slab_index: None,
             tag: tag.map_or(0, |i| **i),
             render_layers: render_layers.cloned(),
+            center: aabb.map_or(Vec3::ZERO, |aabb| aabb.center.into()),
         }
     }
 
@@ -963,12 +977,19 @@ impl RenderMeshInstancesCpu {
     }
 
     fn render_mesh_queue_data(&self, entity: MainEntity) -> Option<RenderMeshQueueData<'_>> {
-        self.get(&entity)
-            .map(|render_mesh_instance| RenderMeshQueueData {
+        self.get(&entity).map(|render_mesh_instance| {
+            let world_from_local = &render_mesh_instance.transforms.world_from_local;
+            let center = world_from_local
+                .matrix3
+                .mul_vec3(render_mesh_instance.shared.center)
+                + world_from_local.translation;
+
+            RenderMeshQueueData {
                 shared: &render_mesh_instance.shared,
-                translation: render_mesh_instance.transforms.world_from_local.translation,
+                center,
                 current_uniform_index: InputUniformIndex::default(),
-            })
+            }
+        })
     }
 
     /// Inserts the given flags into the render mesh instance data for the given
@@ -990,7 +1011,7 @@ impl RenderMeshInstancesGpu {
         self.get(&entity)
             .map(|render_mesh_instance| RenderMeshQueueData {
                 shared: &render_mesh_instance.shared,
-                translation: render_mesh_instance.translation,
+                center: render_mesh_instance.center,
                 current_uniform_index: InputUniformIndex(
                     render_mesh_instance.current_uniform_index.into(),
                 ),
@@ -1195,6 +1216,10 @@ impl RenderMeshInstanceGpuBuilder {
 
         // Did the last frame contain this entity as well?
         let current_uniform_index;
+        let world_from_local = &self.world_from_local;
+        let center =
+            world_from_local.matrix3.mul_vec3(self.shared.center) + world_from_local.translation;
+
         match render_mesh_instances.entry(entity) {
             Entry::Occupied(mut occupied_entry) => {
                 // Yes, it did. Replace its entry with the new one.
@@ -1214,8 +1239,8 @@ impl RenderMeshInstanceGpuBuilder {
 
                 occupied_entry.replace_entry_with(|_, _| {
                     Some(RenderMeshInstanceGpu {
-                        translation: self.world_from_local.translation,
                         shared: self.shared,
+                        center,
                         current_uniform_index: NonMaxU32::new(current_uniform_index)
                             .unwrap_or_default(),
                     })
@@ -1227,8 +1252,8 @@ impl RenderMeshInstanceGpuBuilder {
                 current_uniform_index = current_input_buffer.add(mesh_input_uniform);
 
                 vacant_entry.insert(RenderMeshInstanceGpu {
-                    translation: self.world_from_local.translation,
                     shared: self.shared,
+                    center,
                     current_uniform_index: NonMaxU32::new(current_uniform_index)
                         .unwrap_or_default(),
                 });
@@ -1300,8 +1325,11 @@ pub struct RenderMeshQueueData<'a> {
     /// General information about the mesh instance.
     #[deref]
     pub shared: &'a RenderMeshInstanceShared,
-    /// The translation of the mesh instance.
-    pub translation: Vec3,
+    /// The representative position of the mesh instance in world-space.
+    ///
+    /// This world-space center is used as a spatial proxy for view-dependent
+    /// operations such as distance computation and render-order sorting.
+    pub center: Vec3,
     /// The index of the [`MeshInputUniform`] in the GPU buffer for this mesh
     /// instance.
     pub current_uniform_index: InputUniformIndex,
@@ -1338,6 +1366,7 @@ pub fn extract_meshes_for_cpu_building(
             Has<NoAutomaticBatching>,
             Has<VisibilityRange>,
             Option<&RenderLayers>,
+            Option<&Aabb>,
         )>,
     >,
 ) {
@@ -1358,6 +1387,7 @@ pub fn extract_meshes_for_cpu_building(
             no_automatic_batching,
             visibility_range,
             render_layers,
+            aabb,
         )| {
             if !view_visibility.get() {
                 return;
@@ -1391,6 +1421,7 @@ pub fn extract_meshes_for_cpu_building(
                 not_shadow_caster,
                 no_automatic_batching,
                 render_layers,
+                aabb,
             );
 
             let world_from_local = transform.affine();
@@ -1480,11 +1511,39 @@ pub fn extract_meshes_for_gpu_building(
             )>,
         >,
     >,
+    (
+        mut removed_previous_global_transform_query,
+        mut removed_lightmap_query,
+        mut removed_aabb_query,
+        mut removed_mesh_tag_query,
+        mut removed_no_frustum_culling_query,
+        mut removed_not_shadow_receiver_query,
+        mut removed_transmitted_receiver_query,
+        mut removed_not_shadow_caster_query,
+        mut removed_no_automatic_batching_query,
+        mut removed_visibility_range_query,
+        mut removed_skinned_mesh_query,
+    ): (
+        Extract<RemovedComponents<PreviousGlobalTransform>>,
+        Extract<RemovedComponents<Lightmap>>,
+        Extract<RemovedComponents<Aabb>>,
+        Extract<RemovedComponents<MeshTag>>,
+        Extract<RemovedComponents<NoFrustumCulling>>,
+        Extract<RemovedComponents<NotShadowReceiver>>,
+        Extract<RemovedComponents<TransmittedShadowReceiver>>,
+        Extract<RemovedComponents<NotShadowCaster>>,
+        Extract<RemovedComponents<NoAutomaticBatching>>,
+        Extract<RemovedComponents<VisibilityRange>>,
+        Extract<RemovedComponents<SkinnedMesh>>,
+    ),
     all_meshes_query: Extract<Query<GpuMeshExtractionQuery>>,
     mut removed_meshes_query: Extract<RemovedComponents<Mesh3d>>,
     gpu_culling_query: Extract<Query<(), (With<Camera>, Without<NoIndirectDrawing>)>>,
     meshes_to_reextract_next_frame: ResMut<MeshesToReextractNextFrame>,
+    mut reextract_entities: Local<EntityHashSet>,
 ) {
+    reextract_entities.clear();
+
     let any_gpu_culling = !gpu_culling_query.is_empty();
 
     for render_mesh_instance_queue in render_mesh_instance_queues.iter_mut() {
@@ -1522,9 +1581,26 @@ pub fn extract_meshes_for_gpu_building(
     // because the material hadn't yet been loaded. We reextract such materials
     // on subsequent frames so that `collect_meshes_for_gpu_building` will check
     // to see if their materials have been prepared.
+    let iters = meshes_to_reextract_next_frame
+        .iter()
+        .map(|&e| *e)
+        .chain(removed_previous_global_transform_query.read())
+        .chain(removed_lightmap_query.read())
+        .chain(removed_aabb_query.read())
+        .chain(removed_mesh_tag_query.read())
+        .chain(removed_no_frustum_culling_query.read())
+        .chain(removed_not_shadow_receiver_query.read())
+        .chain(removed_transmitted_receiver_query.read())
+        .chain(removed_not_shadow_caster_query.read())
+        .chain(removed_no_automatic_batching_query.read())
+        .chain(removed_visibility_range_query.read())
+        .chain(removed_skinned_mesh_query.read());
+
+    reextract_entities.extend_from_iter(iters);
+
     let mut queue = render_mesh_instance_queues.borrow_local_mut();
-    for &mesh_entity in &**meshes_to_reextract_next_frame {
-        if let Ok(query_row) = all_meshes_query.get(*mesh_entity) {
+    for entity in &reextract_entities {
+        if let Ok(query_row) = all_meshes_query.get(*entity) {
             extract_mesh_for_gpu_building(
                 query_row,
                 &render_visibility_ranges,
@@ -1597,6 +1673,7 @@ fn extract_mesh_for_gpu_building(
         not_shadow_caster,
         no_automatic_batching,
         render_layers,
+        aabb,
     );
 
     let lightmap_uv_rect = pack_lightmap_uv_rect(lightmap.map(|lightmap| lightmap.uv_rect));
@@ -1878,9 +1955,11 @@ pub fn build_dummy_white_gpu_image(
         texture,
         texture_view,
         texture_format: image.texture_descriptor.format,
+        texture_view_format: image.texture_view_descriptor.and_then(|v| v.format),
         sampler,
         size: image.texture_descriptor.size,
         mip_level_count: image.texture_descriptor.mip_level_count,
+        had_data: true,
     }
 }
 
@@ -2213,6 +2292,18 @@ impl MeshPipelineKey {
     }
 }
 
+impl From<u64> for MeshPipelineKey {
+    fn from(value: u64) -> Self {
+        MeshPipelineKey::from_bits_retain(value)
+    }
+}
+
+impl From<MeshPipelineKey> for u64 {
+    fn from(value: MeshPipelineKey) -> Self {
+        value.bits()
+    }
+}
+
 // Ensure that we didn't overflow the number of bits available in `MeshPipelineKey`.
 const_assert_eq!(
     (((MeshPipelineKey::LAST_FLAG.bits() << 1) - 1) | MeshPipelineKey::ALL_RESERVED_BITS.bits())
@@ -2351,6 +2442,9 @@ impl SpecializedMeshPipeline for MeshPipeline {
         }
         if cfg!(feature = "pbr_specular_textures") {
             shader_defs.push("PBR_SPECULAR_TEXTURES_SUPPORTED".into());
+        }
+        if cfg!(feature = "bluenoise_texture") {
+            shader_defs.push("BLUE_NOISE_TEXTURE".into());
         }
 
         let bind_group_layout = self.get_view_layout(key.into());
@@ -2920,6 +3014,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshViewBindGroup<I> 
         Read<ViewFogUniformOffset>,
         Read<ViewLightProbesUniformOffset>,
         Read<ViewScreenSpaceReflectionsUniformOffset>,
+        Read<ViewContactShadowsUniformOffset>,
         Read<ViewEnvironmentMapUniformOffset>,
         Read<MeshViewBindGroup>,
         Option<Read<OrderIndependentTransparencySettingsOffset>>,
@@ -2935,6 +3030,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshViewBindGroup<I> 
             view_fog,
             view_light_probes,
             view_ssr,
+            view_contact_shadows,
             view_environment_map,
             mesh_view_bind_group,
             maybe_oit_layers_count_offset,
@@ -2949,6 +3045,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshViewBindGroup<I> 
             view_fog.offset,
             **view_light_probes,
             **view_ssr,
+            **view_contact_shadows,
             **view_environment_map,
         ];
         if let Some(layers_count_offset) = maybe_oit_layers_count_offset {

@@ -14,7 +14,6 @@ use bevy_ecs::{
     query::QueryItem,
     world::{FromWorld, World},
 };
-use bevy_image::ToExtents;
 use bevy_render::{
     diagnostic::RecordDiagnostics,
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
@@ -49,7 +48,8 @@ pub struct SolariLightingNode {
     compact_world_cache_single_block_pipeline: CachedComputePipelineId,
     compact_world_cache_blocks_pipeline: CachedComputePipelineId,
     compact_world_cache_write_active_cells_pipeline: CachedComputePipelineId,
-    sample_for_world_cache_pipeline: CachedComputePipelineId,
+    sample_di_for_world_cache_pipeline: CachedComputePipelineId,
+    sample_gi_for_world_cache_pipeline: CachedComputePipelineId,
     blend_new_world_cache_samples_pipeline: CachedComputePipelineId,
     presample_light_tiles_pipeline: CachedComputePipelineId,
     di_initial_and_temporal_pipeline: CachedComputePipelineId,
@@ -115,7 +115,8 @@ impl ViewNode for SolariLightingNode {
             Some(compact_world_cache_single_block_pipeline),
             Some(compact_world_cache_blocks_pipeline),
             Some(compact_world_cache_write_active_cells_pipeline),
-            Some(sample_for_world_cache_pipeline),
+            Some(sample_di_for_world_cache_pipeline),
+            Some(sample_gi_for_world_cache_pipeline),
             Some(blend_new_world_cache_samples_pipeline),
             Some(presample_light_tiles_pipeline),
             Some(di_initial_and_temporal_pipeline),
@@ -127,6 +128,8 @@ impl ViewNode for SolariLightingNode {
             Some(gbuffer),
             Some(depth_buffer),
             Some(motion_vectors),
+            Some(previous_gbuffer),
+            Some(previous_depth_buffer),
             Some(view_uniforms),
             Some(previous_view_uniforms),
         ) = (
@@ -135,7 +138,8 @@ impl ViewNode for SolariLightingNode {
             pipeline_cache.get_compute_pipeline(self.compact_world_cache_blocks_pipeline),
             pipeline_cache
                 .get_compute_pipeline(self.compact_world_cache_write_active_cells_pipeline),
-            pipeline_cache.get_compute_pipeline(self.sample_for_world_cache_pipeline),
+            pipeline_cache.get_compute_pipeline(self.sample_di_for_world_cache_pipeline),
+            pipeline_cache.get_compute_pipeline(self.sample_gi_for_world_cache_pipeline),
             pipeline_cache.get_compute_pipeline(self.blend_new_world_cache_samples_pipeline),
             pipeline_cache.get_compute_pipeline(self.presample_light_tiles_pipeline),
             pipeline_cache.get_compute_pipeline(self.di_initial_and_temporal_pipeline),
@@ -147,6 +151,8 @@ impl ViewNode for SolariLightingNode {
             view_prepass_textures.deferred_view(),
             view_prepass_textures.depth_view(),
             view_prepass_textures.motion_vectors_view(),
+            view_prepass_textures.previous_deferred_view(),
+            view_prepass_textures.previous_depth_view(),
             view_uniforms.uniforms.binding(),
             previous_view_uniforms.uniforms.binding(),
         )
@@ -170,15 +176,15 @@ impl ViewNode for SolariLightingNode {
                 view_target.view,
                 s.light_tile_samples.as_entire_binding(),
                 s.light_tile_resolved_samples.as_entire_binding(),
-                &s.di_reservoirs_a.1,
-                &s.di_reservoirs_b.1,
+                &s.di_reservoirs_a,
+                &s.di_reservoirs_b,
                 s.gi_reservoirs_a.as_entire_binding(),
                 s.gi_reservoirs_b.as_entire_binding(),
                 gbuffer,
                 depth_buffer,
                 motion_vectors,
-                &s.previous_gbuffer.1,
-                &s.previous_depth.1,
+                previous_gbuffer,
+                previous_depth_buffer,
                 view_uniforms,
                 previous_view_uniforms,
                 s.world_cache_checksums.as_entire_binding(),
@@ -237,7 +243,6 @@ impl ViewNode for SolariLightingNode {
             label: Some("solari_lighting"),
             timestamp_writes: None,
         });
-        let pass_span = diagnostics.pass_span(&mut pass, "solari_lighting");
 
         let dx = solari_lighting_resources.view_size.x.div_ceil(8);
         let dy = solari_lighting_resources.view_size.y.div_ceil(8);
@@ -259,12 +264,16 @@ impl ViewNode for SolariLightingNode {
             pass.dispatch_workgroups(dx, dy, 1);
         }
 
+        let d = diagnostics.time_span(&mut pass, "solari_lighting/presample_light_tiles");
         pass.set_pipeline(presample_light_tiles_pipeline);
         pass.set_push_constants(
             0,
             bytemuck::cast_slice(&[frame_index, solari_lighting.reset as u32]),
         );
         pass.dispatch_workgroups(LIGHT_TILE_BLOCKS as u32, 1, 1);
+        d.end(&mut pass);
+
+        let d = diagnostics.time_span(&mut pass, "solari_lighting/world_cache");
 
         pass.set_bind_group(2, &bind_group_world_cache_active_cells_dispatch, &[]);
 
@@ -282,7 +291,17 @@ impl ViewNode for SolariLightingNode {
 
         pass.set_bind_group(2, None, &[]);
 
-        pass.set_pipeline(sample_for_world_cache_pipeline);
+        pass.set_pipeline(sample_di_for_world_cache_pipeline);
+        pass.set_push_constants(
+            0,
+            bytemuck::cast_slice(&[frame_index, solari_lighting.reset as u32]),
+        );
+        pass.dispatch_workgroups_indirect(
+            &solari_lighting_resources.world_cache_active_cells_dispatch,
+            0,
+        );
+
+        pass.set_pipeline(sample_gi_for_world_cache_pipeline);
         pass.set_push_constants(
             0,
             bytemuck::cast_slice(&[frame_index, solari_lighting.reset as u32]),
@@ -298,6 +317,10 @@ impl ViewNode for SolariLightingNode {
             0,
         );
 
+        d.end(&mut pass);
+
+        let d = diagnostics.time_span(&mut pass, "solari_lighting/direct_lighting");
+
         pass.set_pipeline(di_initial_and_temporal_pipeline);
         pass.set_push_constants(
             0,
@@ -311,6 +334,10 @@ impl ViewNode for SolariLightingNode {
             bytemuck::cast_slice(&[frame_index, solari_lighting.reset as u32]),
         );
         pass.dispatch_workgroups(dx, dy, 1);
+
+        d.end(&mut pass);
+
+        let d = diagnostics.time_span(&mut pass, "solari_lighting/diffuse_indirect_lighting");
 
         pass.set_pipeline(gi_initial_and_temporal_pipeline);
         pass.set_push_constants(
@@ -326,38 +353,23 @@ impl ViewNode for SolariLightingNode {
         );
         pass.dispatch_workgroups(dx, dy, 1);
 
+        d.end(&mut pass);
+
+        let d = diagnostics.time_span(&mut pass, "solari_lighting/specular_indirect_lighting");
         pass.set_pipeline(specular_gi_pipeline);
         pass.set_push_constants(
             0,
             bytemuck::cast_slice(&[frame_index, solari_lighting.reset as u32]),
         );
         pass.dispatch_workgroups(dx, dy, 1);
+        d.end(&mut pass);
 
-        pass_span.end(&mut pass);
         drop(pass);
 
-        // TODO: Remove these copies, and double buffer instead
-        command_encoder.copy_texture_to_texture(
-            view_prepass_textures
-                .deferred
-                .clone()
-                .unwrap()
-                .texture
-                .texture
-                .as_image_copy(),
-            solari_lighting_resources.previous_gbuffer.0.as_image_copy(),
-            solari_lighting_resources.view_size.to_extents(),
-        );
-        command_encoder.copy_texture_to_texture(
-            view_prepass_textures
-                .depth
-                .clone()
-                .unwrap()
-                .texture
-                .texture
-                .as_image_copy(),
-            solari_lighting_resources.previous_depth.0.as_image_copy(),
-            solari_lighting_resources.view_size.to_extents(),
+        diagnostics.record_u32(
+            render_context.command_encoder(),
+            &s.world_cache_active_cells_count.slice(..),
+            "solari_lighting/world_cache_active_cells_count",
         );
 
         Ok(())
@@ -495,9 +507,16 @@ impl FromWorld for SolariLightingNode {
                 Some(&bind_group_layout_world_cache_active_cells_dispatch),
                 vec!["WORLD_CACHE_NON_ATOMIC_LIFE_BUFFER".into()],
             ),
-            sample_for_world_cache_pipeline: create_pipeline(
-                "solari_lighting_sample_for_world_cache_pipeline",
-                "sample_radiance",
+            sample_di_for_world_cache_pipeline: create_pipeline(
+                "solari_lighting_sample_di_for_world_cache_pipeline",
+                "sample_di",
+                load_embedded_asset!(world, "world_cache_update.wgsl"),
+                None,
+                vec![],
+            ),
+            sample_gi_for_world_cache_pipeline: create_pipeline(
+                "solari_lighting_sample_gi_for_world_cache_pipeline",
+                "sample_gi",
                 load_embedded_asset!(world, "world_cache_update.wgsl"),
                 None,
                 vec!["WORLD_CACHE_QUERY_ATOMIC_MAX_LIFETIME".into()],
@@ -535,7 +554,7 @@ impl FromWorld for SolariLightingNode {
                 "initial_and_temporal",
                 load_embedded_asset!(world, "restir_gi.wgsl"),
                 None,
-                vec![],
+                vec!["WORLD_CACHE_FIRST_BOUNCE_LIGHT_LEAK_PREVENTION".into()],
             ),
             gi_spatial_and_shade_pipeline: create_pipeline(
                 "solari_lighting_gi_spatial_and_shade_pipeline",

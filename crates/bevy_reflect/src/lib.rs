@@ -135,7 +135,7 @@
 //! For example, we can access our struct's fields by name using the [`Struct::field`] method.
 //!
 //! ```
-//! # use bevy_reflect::{PartialReflect, Reflect, Struct};
+//! # use bevy_reflect::{PartialReflect, Reflect, structs::Struct};
 //! # #[derive(Reflect)]
 //! # struct MyStruct {
 //! #   foo: i32
@@ -195,7 +195,7 @@
 //! These dynamic types may contain any arbitrary reflected data.
 //!
 //! ```
-//! # use bevy_reflect::{DynamicStruct, Struct};
+//! # use bevy_reflect::structs::{DynamicStruct, Struct};
 //! let mut data = DynamicStruct::default();
 //! data.insert("foo", 123_i32);
 //! assert_eq!(Some(&123), data.field("foo").unwrap().try_downcast_ref::<i32>())
@@ -209,7 +209,7 @@
 //! we may pass them around just like most other reflected types.
 //!
 //! ```
-//! # use bevy_reflect::{DynamicStruct, PartialReflect, Reflect};
+//! # use bevy_reflect::{structs::DynamicStruct, PartialReflect, Reflect};
 //! # #[derive(Reflect)]
 //! # struct MyStruct {
 //! #   foo: i32
@@ -229,7 +229,7 @@
 //! This is known as "patching" and is done using the [`PartialReflect::apply`] and [`PartialReflect::try_apply`] methods.
 //!
 //! ```
-//! # use bevy_reflect::{DynamicEnum, PartialReflect};
+//! # use bevy_reflect::{enums::DynamicEnum, PartialReflect};
 //! let mut value = Some(123_i32);
 //! let patch = DynamicEnum::new("None", ());
 //! value.apply(&patch);
@@ -243,7 +243,7 @@
 //! or when trying to make use of a reflected trait which expects the actual type.
 //!
 //! ```should_panic
-//! # use bevy_reflect::{DynamicStruct, PartialReflect, Reflect};
+//! # use bevy_reflect::{structs::DynamicStruct, PartialReflect, Reflect};
 //! # #[derive(Reflect)]
 //! # struct MyStruct {
 //! #   foo: i32
@@ -467,13 +467,13 @@
 //!
 //! ## `bevy`
 //!
-//! | Default | Dependencies                              |
-//! | :-----: | :---------------------------------------: |
-//! | ❌      | [`bevy_math`], [`glam`], [`smallvec`]     |
+//! | Default | Dependencies                                        |
+//! | :-----: | :-------------------------------------------------: |
+//! | ❌      | [`bevy_math`], [`glam`], [`indexmap`], [`smallvec`] |
 //!
 //! This feature makes it so that the appropriate reflection traits are implemented on all the types
 //! necessary for the [Bevy] game engine.
-//! enables the optional dependencies: [`bevy_math`], [`glam`], and [`smallvec`].
+//! enables the optional dependencies: [`bevy_math`], [`glam`], [`indexmap`], and [`smallvec`].
 //! These dependencies are used by the [Bevy] game engine and must define their reflection implementations
 //! within this crate due to Rust's [orphan rule].
 //!
@@ -541,7 +541,23 @@
 //! [the language feature for dyn upcasting coercion]: https://github.com/rust-lang/rust/issues/65991
 //! [derive macro]: derive@crate::Reflect
 //! [`'static` lifetime]: https://doc.rust-lang.org/rust-by-example/scope/lifetime/static_lifetime.html#trait-bound
+//! [`Tuple`]: crate::tuple::Tuple
+//! [`Array`]: crate::array::Array
+//! [`List`]: crate::list::List
+//! [`Set`]: crate::set::Set
+//! [`Map`]: crate::map::Map
+//! [`Struct`]: crate::structs::Struct
+//! [`TupleStruct`]: crate::tuple_struct::TupleStruct
+//! [`Enum`]: crate::enums::Enum
 //! [`Function`]: crate::func::Function
+//! [`Struct::field`]: crate::structs::Struct::field
+//! [`DynamicTuple`]: crate::tuple::DynamicTuple
+//! [`DynamicArray`]: crate::array::DynamicArray
+//! [`DynamicList`]: crate::list::DynamicList
+//! [`DynamicMap`]: crate::map::DynamicMap
+//! [`DynamicStruct`]: crate::structs::DynamicStruct
+//! [`DynamicTupleStruct`]: crate::tuple_struct::DynamicTupleStruct
+//! [`DynamicEnum`]: crate::enums::DynamicEnum
 //! [derive macro documentation]: derive@crate::Reflect
 //! [deriving `Reflect`]: derive@crate::Reflect
 //! [type data]: TypeData
@@ -559,6 +575,7 @@
 //! [`bevy_math`]: https://docs.rs/bevy_math/latest/bevy_math/
 //! [`glam`]: https://docs.rs/glam/latest/glam/
 //! [`smallvec`]: https://docs.rs/smallvec/latest/smallvec/
+//! [`indexmap`]: https://docs.rs/indexmap/latest/indexmap/
 //! [orphan rule]: https://doc.rust-lang.org/book/ch10-02-traits.html#implementing-a-trait-on-a-type:~:text=But%20we%20can%E2%80%99t,implementation%20to%20use.
 //! [`bevy_reflect_derive/documentation`]: bevy_reflect_derive
 //! [`bevy_reflect_derive/functions`]: bevy_reflect_derive
@@ -577,7 +594,7 @@ extern crate alloc;
 // Required to make proc macros work in bevy itself.
 extern crate self as bevy_reflect;
 
-mod array;
+pub mod array;
 mod error;
 mod fields;
 mod from_reflect;
@@ -585,16 +602,16 @@ mod from_reflect;
 pub mod func;
 mod is;
 mod kind;
-mod list;
-mod map;
+pub mod list;
+pub mod map;
 mod path;
 mod reflect;
 mod reflectable;
 mod remote;
-mod set;
-mod struct_trait;
-mod tuple;
-mod tuple_struct;
+pub mod set;
+pub mod structs;
+pub mod tuple;
+pub mod tuple_struct;
 mod type_info;
 mod type_path;
 mod type_registry;
@@ -612,6 +629,8 @@ mod impls {
 
     #[cfg(feature = "glam")]
     mod glam;
+    #[cfg(feature = "indexmap")]
+    mod indexmap;
     #[cfg(feature = "petgraph")]
     mod petgraph;
     #[cfg(feature = "smallvec")]
@@ -625,7 +644,7 @@ mod impls {
 }
 
 pub mod attributes;
-mod enums;
+pub mod enums;
 mod generics;
 pub mod serde;
 pub mod std_traits;
@@ -641,33 +660,27 @@ pub mod prelude {
 
     #[doc(hidden)]
     pub use crate::{
-        reflect_trait, FromReflect, GetField, GetPath, GetTupleStructField, PartialReflect,
-        Reflect, ReflectDeserialize, ReflectFromReflect, ReflectPath, ReflectSerialize, Struct,
-        TupleStruct, TypePath,
+        reflect_trait,
+        structs::{GetField, Struct},
+        tuple_struct::{GetTupleStructField, TupleStruct},
+        FromReflect, GetPath, PartialReflect, Reflect, ReflectDeserialize, ReflectFromReflect,
+        ReflectPath, ReflectSerialize, TypePath,
     };
 
     #[cfg(feature = "functions")]
     pub use crate::func::{Function, IntoFunction, IntoFunctionMut};
 }
 
-pub use array::*;
-pub use enums::*;
 pub use error::*;
 pub use fields::*;
 pub use from_reflect::*;
 pub use generics::*;
 pub use is::*;
 pub use kind::*;
-pub use list::*;
-pub use map::*;
 pub use path::*;
 pub use reflect::*;
 pub use reflectable::*;
 pub use remote::*;
-pub use set::*;
-pub use struct_trait::*;
-pub use tuple::*;
-pub use tuple_struct::*;
 pub use type_info::*;
 pub use type_path::*;
 pub use type_registry::*;
@@ -681,8 +694,9 @@ pub use erased_serde;
 #[doc(hidden)]
 pub mod __macro_exports {
     use crate::{
-        DynamicArray, DynamicEnum, DynamicList, DynamicMap, DynamicStruct, DynamicTuple,
-        DynamicTupleStruct, GetTypeRegistration, TypeRegistry,
+        array::DynamicArray, enums::DynamicEnum, list::DynamicList, map::DynamicMap,
+        structs::DynamicStruct, tuple::DynamicTuple, tuple_struct::DynamicTupleStruct,
+        GetTypeRegistration, TypeRegistry,
     };
 
     /// Re-exports of items from the [`alloc`] crate.
@@ -790,14 +804,14 @@ pub mod __macro_exports {
                     if INIT_DONE.swap(true, Ordering::Relaxed) {
                         return;
                     };
-                    // SAFETY:
-                    // This will call constructors on wasm platforms at most once (as long as `init` is the only function that calls `__wasm_call_ctors`).
-                    //
-                    // For more information see: https://docs.rs/inventory/latest/inventory/#webassembly-and-constructors
                     #[expect(
                         unsafe_code,
                         reason = "This function must be called to use inventory on wasm."
                     )]
+                    // SAFETY:
+                    // This will call constructors on wasm platforms at most once (as long as `init` is the only function that calls `__wasm_call_ctors`).
+                    //
+                    // For more information see: https://docs.rs/inventory/latest/inventory/#webassembly-and-constructors
                     unsafe {
                         __wasm_call_ctors();
                     }
@@ -861,7 +875,9 @@ mod tests {
     };
     use static_assertions::{assert_impl_all, assert_not_impl_all};
 
-    use super::{prelude::*, *};
+    use super::{
+        array::*, enums::*, list::*, map::*, prelude::*, structs::*, tuple::*, tuple_struct::*, *,
+    };
     use crate::{
         serde::{ReflectDeserializer, ReflectSerializer},
         utility::GenericTypePathCell,
@@ -2343,6 +2359,31 @@ mod tests {
         let value: &dyn Reflect = &MyMap::default();
         let info = value.reflect_type_info();
         assert!(info.is::<MyMap>());
+
+        // Map (IndexMap)
+        #[cfg(feature = "indexmap")]
+        {
+            use std::hash::RandomState;
+
+            type MyIndexMap = indexmap::IndexMap<String, u32, RandomState>;
+
+            let info = MyIndexMap::type_info().as_map().unwrap();
+            assert!(info.is::<MyIndexMap>());
+            assert_eq!(MyIndexMap::type_path(), info.type_path());
+
+            assert!(info.key_ty().is::<String>());
+            assert!(info.key_info().unwrap().is::<String>());
+            assert_eq!(String::type_path(), info.key_ty().path());
+
+            assert!(info.value_ty().is::<u32>());
+            assert!(info.value_info().unwrap().is::<u32>());
+            assert_eq!(u32::type_path(), info.value_ty().path());
+
+            let value: MyIndexMap = MyIndexMap::with_capacity_and_hasher(10, RandomState::new());
+            let value: &dyn Reflect = &value;
+            let info = value.reflect_type_info();
+            assert!(info.is::<MyIndexMap>());
+        }
 
         // Value
         type MyValue = String;

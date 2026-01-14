@@ -62,6 +62,7 @@ git checkout v0.4.0
   - [Scene](#scene)
   - [Shader Advanced](#shader-advanced)
   - [Shaders](#shaders)
+  - [Shaders Advanced](#shaders-advanced)
   - [State](#state)
   - [Stress Tests](#stress-tests)
   - [Time](#time)
@@ -108,12 +109,14 @@ Example | Description
 Example | Description
 --- | ---
 [2D Bloom](../examples/2d/bloom_2d.rs) | Illustrates bloom post-processing in 2d
-[2D Rotation](../examples/2d/rotation.rs) | Demonstrates rotating entities in 2D with quaternions
+[2D Rotation to Cursor](../examples/2d/rotate_to_cursor.rs) | Demonstrates rotating entities in 2D to follow the cursor
 [2D Shapes](../examples/2d/2d_shapes.rs) | Renders simple 2D primitive shapes like circles and polygons
 [2D Viewport To World](../examples/2d/2d_viewport_to_world.rs) | Demonstrates how to use the `Camera::viewport_to_world_2d` method with a dynamic viewport and camera.
 [2D Wireframe](../examples/2d/wireframe_2d.rs) | Showcases wireframes for 2d meshes
 [Arc 2D Meshes](../examples/2d/mesh2d_arcs.rs) | Demonstrates UV-mapping of the circular segment and sector primitives
 [CPU Drawing](../examples/2d/cpu_draw.rs) | Manually read/write the pixels of a texture
+[Dynamic Mipmap Generation](../examples/2d/dynamic_mip_generation.rs) | Demonstrates use of the mipmap generation plugin to generate mipmaps for a texture
+[Generic 2D Rotation](../examples/2d/rotation.rs) | Demonstrates rotating entities in 2D with quaternions
 [Manual Mesh 2D](../examples/2d/mesh2d_manual.rs) | Renders a custom mesh "manually" with "mid-level" renderer apis
 [Mesh 2D](../examples/2d/mesh2d.rs) | Renders a 2d mesh
 [Mesh 2D With Vertex Colors](../examples/2d/mesh2d_vertex_color_texture.rs) | Renders a 2d mesh with vertex color attributes
@@ -155,6 +158,7 @@ Example | Description
 [Clustered Decal Maps](../examples/3d/clustered_decal_maps.rs) | Demonstrates normal and metallic-roughness maps of decals
 [Clustered Decals](../examples/3d/clustered_decals.rs) | Demonstrates clustered decals
 [Color grading](../examples/3d/color_grading.rs) | Demonstrates color grading
+[Contact Shadows](../examples/3d/contact_shadows.rs) | Showcases how contact shadows add shadow detail
 [Decal](../examples/3d/decal.rs) | Decal rendering
 [Deferred Rendering](../examples/3d/deferred_rendering.rs) | Renders meshes with both forward and deferred pipelines
 [Depth of field](../examples/3d/depth_of_field.rs) | Demonstrates depth of field
@@ -415,6 +419,7 @@ Example | Description
 
 Example | Description
 --- | ---
+[Drag and Drop](../examples/picking/dragdrop_picking.rs) | Demonstrates drag and drop using picking events
 [Mesh Picking](../examples/picking/mesh_picking.rs) | Demonstrates picking meshes
 [Picking Debug Tools](../examples/picking/debug_picking.rs) | Demonstrates picking debug overlay
 [Showcases simple picking events and usage](../examples/picking/simple_picking.rs) | Demonstrates how to use picking events to spawn simple objects
@@ -488,6 +493,12 @@ Example | Description
 [Storage Buffer](../examples/shader/storage_buffer.rs) | A shader that shows how to bind a storage buffer using a custom material.
 [Texture Binding Array (Bindless Textures)](../examples/shader_advanced/texture_binding_array.rs) | A shader that shows how to bind and sample multiple textures as a binding array (a.k.a. bindless textures).
 
+### Shaders Advanced
+
+Example | Description
+--- | ---
+[Fullscreen Material](../examples/shader_advanced/fullscreen_material.rs) | Demonstrates how to write a fullscreen material
+
 ### State
 
 Example | Description
@@ -510,6 +521,7 @@ cargo run --release --example <example name>
 Example | Description
 --- | ---
 [Bevymark](../examples/stress_tests/bevymark.rs) | A heavy sprite rendering workload to benchmark your system with Bevy
+[Bevymark 3D](../examples/stress_tests/bevymark_3d.rs) | A heavy 3D cube rendering workload to benchmark your system with Bevy
 [Many Animated Materials](../examples/stress_tests/many_materials.rs) | Benchmark to test rendering many animated materials
 [Many Animated Sprites](../examples/stress_tests/many_animated_sprites.rs) | Displays many animated sprites in a grid arrangement with slight offsets to their animation timers. Used for performance testing.
 [Many Buttons](../examples/stress_tests/many_buttons.rs) | Test rendering of many UI elements
@@ -567,6 +579,8 @@ Example | Description
 [Feathers Widgets](../examples/ui/feathers.rs) | Gallery of Feathers Widgets
 [Flex Layout](../examples/ui/flex_layout.rs) | Demonstrates how the AlignItems and JustifyContent properties can be composed to layout nodes and position text
 [Font Atlas Debug](../examples/ui/font_atlas_debug.rs) | Illustrates how FontAtlases are populated (used to optimize text rendering internally)
+[Font Queries](../examples/ui/font_query.rs) | Demonstrates font querying
+[Font Weights](../examples/ui/font_weights.rs) | Demonstrates how to use font weights.
 [Ghost Nodes](../examples/ui/ghost_nodes.rs) | Demonstrates the use of Ghost Nodes to skip entities in the UI layout hierarchy
 [Gradients](../examples/ui/gradients.rs) | An example demonstrating gradients
 [Overflow](../examples/ui/overflow.rs) | Simple example demonstrating overflow behavior
@@ -598,10 +612,10 @@ Example | Description
 [UI Transform](../examples/ui/ui_transform.rs) | An example demonstrating how to translate, rotate and scale UI elements.
 [UI Z-Index](../examples/ui/z_index.rs) | Demonstrates how to control the relative depth (z-position) of UI elements
 [Vertical Slider](../examples/ui/vertical_slider.rs) | Simple example showing vertical and horizontal slider widgets with snap behavior and value labels
-[Viewport Debug](../examples/ui/viewport_debug.rs) | An example for debugging viewport coordinates
 [Viewport Node](../examples/ui/viewport_node.rs) | Demonstrates how to create a viewport node with picking support
 [Virtual Keyboard](../examples/ui/virtual_keyboard.rs) | Example demonstrating a virtual keyboard widget
 [Window Fallthrough](../examples/ui/window_fallthrough.rs) | Illustrates how to access `winit::window::Window`'s `hittest` functionality.
+[system_fonts](../examples/ui/system_fonts.rs) | Demonstrates how to use system fonts
 
 ### Usage
 
@@ -616,7 +630,6 @@ Example | Description
 --- | ---
 [Clear Color](../examples/window/clear_color.rs) | Creates a solid color window
 [Custom Cursor Image](../examples/window/custom_cursor_image.rs) | Demonstrates creating an animated custom cursor from an image
-[Custom User Event](../examples/window/custom_user_event.rs) | Handles custom user events within the event loop
 [Low Power](../examples/window/low_power.rs) | Demonstrates settings to reduce power use for bevy applications
 [Monitor info](../examples/window/monitor_info.rs) | Displays information about available monitors (displays).
 [Multiple Windows](../examples/window/multiple_windows.rs) | Demonstrates creating multiple windows, and rendering to them
@@ -638,6 +651,8 @@ Example | Description
 [Query glTF primitives](../examples/gltf/query_gltf_primitives.rs) | Query primitives in a glTF scene
 [Update glTF Scene](../examples/gltf/update_gltf_scene.rs) | Update a scene from a glTF file, either by spawning the scene as a child of another entity, or by accessing the entities of the scene
 [glTF Skinned Mesh](../examples/gltf/gltf_skinned_mesh.rs) | Skinned mesh example with mesh and joints data loaded from a glTF file
+[glTF extension AnimationGraph](../examples/gltf/gltf_extension_animation_graph.rs) | Uses glTF data to build an AnimationGraph via extension processing
+[glTF extension processing to build Mesh2ds from glTF data](../examples/gltf/gltf_extension_mesh_2d.rs) | Uses glTF extension data to convert incoming Mesh3d/MeshMaterial3d assets to 2d
 
 ## Tests
 

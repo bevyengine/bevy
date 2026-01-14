@@ -47,10 +47,10 @@ use bevy_utils::{once, prelude::default};
 use tracing::info;
 
 use crate::{
-    binding_arrays_are_usable, graph::NodePbr, ExtractedAtmosphere, MeshPipelineViewLayoutKey,
-    MeshPipelineViewLayouts, MeshViewBindGroup, RenderViewLightProbes,
-    ViewEnvironmentMapUniformOffset, ViewFogUniformOffset, ViewLightProbesUniformOffset,
-    ViewLightsUniformOffset,
+    binding_arrays_are_usable, contact_shadows::ViewContactShadowsUniformOffset, graph::NodePbr,
+    ExtractedAtmosphere, MeshPipelineViewLayoutKey, MeshPipelineViewLayouts, MeshViewBindGroup,
+    RenderViewLightProbes, ViewEnvironmentMapUniformOffset, ViewFogUniformOffset,
+    ViewLightProbesUniformOffset, ViewLightsUniformOffset,
 };
 
 /// Enables screen-space reflections for a camera.
@@ -258,6 +258,7 @@ impl ViewNode for ScreenSpaceReflectionsNode {
         Read<ViewFogUniformOffset>,
         Read<ViewLightProbesUniformOffset>,
         Read<ViewScreenSpaceReflectionsUniformOffset>,
+        Read<ViewContactShadowsUniformOffset>,
         Read<ViewEnvironmentMapUniformOffset>,
         Read<MeshViewBindGroup>,
         Read<ScreenSpaceReflectionsPipelineId>,
@@ -274,6 +275,7 @@ impl ViewNode for ScreenSpaceReflectionsNode {
             view_fog_offset,
             view_light_probes_offset,
             view_ssr_offset,
+            view_contact_shadows_offset,
             view_environment_map_offset,
             view_bind_group,
             ssr_pipeline_id,
@@ -330,6 +332,7 @@ impl ViewNode for ScreenSpaceReflectionsNode {
                 view_fog_offset.offset,
                 **view_light_probes_offset,
                 **view_ssr_offset,
+                **view_contact_shadows_offset,
                 **view_environment_map_offset,
             ],
         );
@@ -551,6 +554,9 @@ impl SpecializedRenderPipeline for ScreenSpaceReflectionsPipeline {
         if key.has_atmosphere {
             shader_defs.push("ATMOSPHERE".into());
         }
+
+        #[cfg(not(target_arch = "wasm32"))]
+        shader_defs.push("USE_DEPTH_SAMPLERS".into());
 
         RenderPipelineDescriptor {
             label: Some("SSR pipeline".into()),

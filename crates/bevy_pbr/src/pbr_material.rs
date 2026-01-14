@@ -1,5 +1,6 @@
 use bevy_asset::Asset;
 use bevy_color::{Alpha, ColorToComponents};
+use bevy_material::OpaqueRendererMethod;
 use bevy_math::{Affine2, Affine3, Mat2, Mat3, Vec2, Vec3, Vec4};
 use bevy_mesh::MeshVertexBufferLayoutRef;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
@@ -240,6 +241,7 @@ pub struct StandardMaterial {
     #[cfg_attr(feature = "pbr_transmission_textures", texture(19))]
     #[cfg_attr(feature = "pbr_transmission_textures", sampler(20))]
     #[cfg(feature = "pbr_transmission_textures")]
+    #[dependency]
     pub diffuse_transmission_texture: Option<Handle<Image>>,
 
     /// The amount of light transmitted _specularly_ through the material (i.e. via refraction).
@@ -281,6 +283,7 @@ pub struct StandardMaterial {
     #[cfg_attr(feature = "pbr_transmission_textures", texture(15))]
     #[cfg_attr(feature = "pbr_transmission_textures", sampler(16))]
     #[cfg(feature = "pbr_transmission_textures")]
+    #[dependency]
     pub specular_transmission_texture: Option<Handle<Image>>,
 
     /// Thickness of the volume beneath the material surface.
@@ -310,6 +313,7 @@ pub struct StandardMaterial {
     #[cfg_attr(feature = "pbr_transmission_textures", texture(17))]
     #[cfg_attr(feature = "pbr_transmission_textures", sampler(18))]
     #[cfg(feature = "pbr_transmission_textures")]
+    #[dependency]
     pub thickness_texture: Option<Handle<Image>>,
 
     /// The [index of refraction](https://en.wikipedia.org/wiki/Refractive_index) of the material.
@@ -464,6 +468,7 @@ pub struct StandardMaterial {
     #[cfg_attr(feature = "pbr_specular_textures", texture(27))]
     #[cfg_attr(feature = "pbr_specular_textures", sampler(28))]
     #[cfg(feature = "pbr_specular_textures")]
+    #[dependency]
     pub specular_texture: Option<Handle<Image>>,
 
     /// The UV channel to use for the
@@ -485,6 +490,7 @@ pub struct StandardMaterial {
     #[cfg_attr(feature = "pbr_specular_textures", texture(29))]
     #[cfg_attr(feature = "pbr_specular_textures", sampler(30))]
     #[cfg(feature = "pbr_specular_textures")]
+    #[dependency]
     pub specular_tint_texture: Option<Handle<Image>>,
 
     /// An extra thin translucent layer on top of the main PBR layer. This is
@@ -510,6 +516,7 @@ pub struct StandardMaterial {
     #[cfg_attr(feature = "pbr_multi_layer_material_textures", texture(21))]
     #[cfg_attr(feature = "pbr_multi_layer_material_textures", sampler(22))]
     #[cfg(feature = "pbr_multi_layer_material_textures")]
+    #[dependency]
     pub clearcoat_texture: Option<Handle<Image>>,
 
     /// The roughness of the clearcoat material. This is specified in exactly
@@ -535,6 +542,7 @@ pub struct StandardMaterial {
     #[cfg_attr(feature = "pbr_multi_layer_material_textures", texture(23))]
     #[cfg_attr(feature = "pbr_multi_layer_material_textures", sampler(24))]
     #[cfg(feature = "pbr_multi_layer_material_textures")]
+    #[dependency]
     pub clearcoat_roughness_texture: Option<Handle<Image>>,
 
     /// The UV channel to use for the [`StandardMaterial::clearcoat_normal_texture`].
@@ -557,6 +565,7 @@ pub struct StandardMaterial {
     #[cfg_attr(feature = "pbr_multi_layer_material_textures", texture(25))]
     #[cfg_attr(feature = "pbr_multi_layer_material_textures", sampler(26))]
     #[cfg(feature = "pbr_multi_layer_material_textures")]
+    #[dependency]
     pub clearcoat_normal_texture: Option<Handle<Image>>,
 
     /// Increases the roughness along a specific direction, so that the specular
@@ -627,6 +636,7 @@ pub struct StandardMaterial {
     #[cfg_attr(feature = "pbr_anisotropy_texture", texture(13))]
     #[cfg_attr(feature = "pbr_anisotropy_texture", sampler(14))]
     #[cfg(feature = "pbr_anisotropy_texture")]
+    #[dependency]
     pub anisotropy_texture: Option<Handle<Image>>,
 
     /// Support two-sided lighting by automatically flipping the normals for "back" faces

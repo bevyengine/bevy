@@ -1,10 +1,10 @@
 use crate::{
     io::{AssetReaderError, MissingAssetSourceError, MissingProcessedAssetReaderError, Reader},
     loader_builders::{Deferred, NestedLoader, StaticTyped},
-    meta::{AssetHash, AssetMeta, AssetMetaDyn, ProcessedInfoMinimal, Settings},
+    meta::{AssetHash, AssetMeta, AssetMetaDyn, ProcessedInfo, ProcessedInfoMinimal, Settings},
     path::AssetPath,
     Asset, AssetIndex, AssetLoadError, AssetServer, AssetServerMode, Assets, ErasedAssetIndex,
-    Handle, UntypedHandle,
+    Handle, UntypedAssetId, UntypedHandle,
 };
 use alloc::{
     boxed::Box,
@@ -14,6 +14,7 @@ use alloc::{
 use atomicow::CowArc;
 use bevy_ecs::{error::BevyError, world::World};
 use bevy_platform::collections::{HashMap, HashSet};
+use bevy_reflect::TypePath;
 use bevy_tasks::{BoxedFuture, ConditionalSendFuture};
 use core::any::{Any, TypeId};
 use downcast_rs::{impl_downcast, Downcast};
@@ -28,7 +29,7 @@ use thiserror::Error;
 /// This trait is generally used in concert with [`AssetReader`](crate::io::AssetReader) to load assets from a byte source.
 ///
 /// For a complementary version of this trait that can save assets, see [`AssetSaver`](crate::saver::AssetSaver).
-pub trait AssetLoader: Send + Sync + 'static {
+pub trait AssetLoader: TypePath + Send + Sync + 'static {
     /// The top level [`Asset`] loaded by this [`AssetLoader`].
     type Asset: Asset;
     /// The settings type used by this [`AssetLoader`].
@@ -56,7 +57,7 @@ pub trait ErasedAssetLoader: Send + Sync + 'static {
     fn load<'a>(
         &'a self,
         reader: &'a mut dyn Reader,
-        meta: &'a dyn AssetMetaDyn,
+        settings: &'a dyn Settings,
         load_context: LoadContext<'a>,
     ) -> BoxedFuture<'a, Result<ErasedLoadedAsset, BevyError>>;
 
@@ -66,8 +67,8 @@ pub trait ErasedAssetLoader: Send + Sync + 'static {
     fn deserialize_meta(&self, meta: &[u8]) -> Result<Box<dyn AssetMetaDyn>, DeserializeMetaError>;
     /// Returns the default meta value for the [`AssetLoader`] (erased as [`Box<dyn AssetMetaDyn>`]).
     fn default_meta(&self) -> Box<dyn AssetMetaDyn>;
-    /// Returns the type name of the [`AssetLoader`].
-    fn type_name(&self) -> &'static str;
+    /// Returns the type path of the [`AssetLoader`].
+    fn type_path(&self) -> &'static str;
     /// Returns the [`TypeId`] of the [`AssetLoader`].
     fn type_id(&self) -> TypeId;
     /// Returns the type name of the top-level [`Asset`] loaded by the [`AssetLoader`].
@@ -84,13 +85,11 @@ where
     fn load<'a>(
         &'a self,
         reader: &'a mut dyn Reader,
-        meta: &'a dyn AssetMetaDyn,
+        settings: &'a dyn Settings,
         mut load_context: LoadContext<'a>,
     ) -> BoxedFuture<'a, Result<ErasedLoadedAsset, BevyError>> {
         Box::pin(async move {
-            let settings = meta
-                .loader_settings()
-                .expect("Loader settings should exist")
+            let settings = settings
                 .downcast_ref::<L::Settings>()
                 .expect("AssetLoader settings should match the loader type");
             let asset = <L as AssetLoader>::load(self, reader, settings, &mut load_context)
@@ -111,13 +110,13 @@ where
 
     fn default_meta(&self) -> Box<dyn AssetMetaDyn> {
         Box::new(AssetMeta::<L, ()>::new(crate::meta::AssetAction::Load {
-            loader: self.type_name().to_string(),
+            loader: self.type_path().to_string(),
             settings: L::Settings::default(),
         }))
     }
 
-    fn type_name(&self) -> &'static str {
-        core::any::type_name::<L>()
+    fn type_path(&self) -> &'static str {
+        L::type_path()
     }
 
     fn type_id(&self) -> TypeId {
@@ -460,7 +459,22 @@ impl<'a> LoadContext<'a> {
     }
 
     /// "Finishes" this context by populating the final [`Asset`] value.
-    pub fn finish<A: Asset>(self, value: A) -> LoadedAsset<A> {
+    pub fn finish<A: Asset>(mut self, value: A) -> LoadedAsset<A> {
+        // At this point, we assume the asset/subasset is "locked in" and won't be changed, so we
+        // can ensure all the dependencies are included (in case a handle was used without loading
+        // it through this `LoadContext`). If in the future we provide an API for mutating assets in
+        // `LoadedAsset`, `ErasedLoadedAsset`, or `LoadContext` (for mutating existing subassets),
+        // we should move this to some point after those mutations are not possible. This spot is
+        // convenient because we still have access to the static type of `A`.
+        value.visit_dependencies(&mut |asset_id| {
+            let (type_id, index) = match asset_id {
+                UntypedAssetId::Index { type_id, index } => (type_id, index),
+                // UUID assets can't be loaded anyway, so just ignore this ID.
+                UntypedAssetId::Uuid { .. } => return,
+            };
+            self.dependencies
+                .insert(ErasedAssetIndex { index, type_id });
+        });
         LoadedAsset {
             value,
             dependencies: self.dependencies,
@@ -529,15 +543,16 @@ impl<'a> LoadContext<'a> {
     pub(crate) async fn load_direct_internal(
         &mut self,
         path: AssetPath<'static>,
-        meta: &dyn AssetMetaDyn,
+        settings: &dyn Settings,
         loader: &dyn ErasedAssetLoader,
         reader: &mut dyn Reader,
+        processed_info: Option<&ProcessedInfo>,
     ) -> Result<ErasedLoadedAsset, LoadDirectError> {
         let loaded_asset = self
             .asset_server
-            .load_with_meta_loader_and_reader(
+            .load_with_settings_loader_and_reader(
                 &path,
-                meta,
+                settings,
                 loader,
                 reader,
                 self.should_load_dependencies,
@@ -548,8 +563,7 @@ impl<'a> LoadContext<'a> {
                 dependency: path.clone(),
                 error,
             })?;
-        let info = meta.processed_info().as_ref();
-        let hash = info.map(|i| i.full_hash).unwrap_or_default();
+        let hash = processed_info.map(|i| i.full_hash).unwrap_or_default();
         self.loader_dependencies.insert(path, hash);
         Ok(loaded_asset)
     }

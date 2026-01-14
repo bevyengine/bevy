@@ -33,6 +33,7 @@ bevy_mesh = { path = "../bevy_mesh", version = "0.18.0-dev" }
 bevy_pbr = { path = "../bevy_pbr", version = "0.18.0-dev" }
 bevy_reflect = { path = "../bevy_reflect", version = "0.18.0-dev" }
 bevy_render = { path = "../bevy_render", version = "0.18.0-dev" }
+bevy_material = { path = "../bevy_material", version = "0.18.0-dev" }
 bevy_scene = { path = "../bevy_scene", version = "0.18.0-dev" }
 bevy_transform = { path = "../bevy_transform", version = "0.18.0-dev" }
 bevy_tasks = { path = "../bevy_tasks", version = "0.18.0-dev" }
@@ -55,6 +56,7 @@ gltf = { version = "1.4.0", default-features = false, features = [
   "names",
   "utils",
 ] }
+async-lock = { version = "3.0", default-features = false }
 thiserror = { version = "2", default-features = false }
 base64 = "0.22.0"
 fixedbitset = "0.5"
