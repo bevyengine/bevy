@@ -16,6 +16,7 @@ webgl = ["bevy_render/webgl"]
 webgpu = ["bevy_render/webgpu"]
 schedule_data = [
   "dep:serde",
+  "dep:ron",
   "dep:bevy_platform",
   "dep:bevy_utils",
   "dep:thiserror",
