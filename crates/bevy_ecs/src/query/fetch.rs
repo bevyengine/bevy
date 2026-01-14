@@ -10,8 +10,8 @@ use crate::{
     },
     storage::{ComponentSparseSet, Table, TableRow},
     world::{
-        unsafe_world_cell::UnsafeWorldCell, EntityMut, EntityMutExcept, EntityRef, EntityRefExcept,
-        FilteredEntityMut, FilteredEntityRef, Mut, Ref, World,
+        unsafe_world_cell::UnsafeWorldCell, All, EntityMut, EntityMutExcept, EntityRef,
+        EntityRefExcept, Except, Filtered, FilteredEntityMut, FilteredEntityRef, Mut, Ref, World,
     },
 };
 use bevy_ptr::{ThinSlicePtr, UnsafeCellDeref};
@@ -366,10 +366,11 @@ pub type ROQueryItem<'w, 's, D> = QueryItem<'w, 's, <D as QueryData>::ReadOnly>;
 
 /// A [`QueryData`] that does not borrow from its [`QueryState`](crate::query::QueryState).
 ///
-/// This is implemented by most `QueryData` types.
-/// The main exceptions are [`FilteredEntityRef`], [`FilteredEntityMut`], [`EntityRefExcept`], and [`EntityMutExcept`],
-/// which borrow an access list from their query state.
-/// Consider using a full [`EntityRef`] or [`EntityMut`] if you would need those.
+/// This is implemented by most `QueryData` types. The main exceptions are
+/// [`FilteredEntityRef`], [`FilteredEntityMut`], [`EntityRefExcept`], and
+/// [`EntityMutExcept`], which borrow an access list from their query state.
+/// Consider using a full [`EntityRef<All>`] or [`EntityMut<All>`] if you would
+/// need those.
 pub trait ReleaseStateQueryData: QueryData {
     /// Releases the borrow from the query state by converting an item to have a `'static` state lifetime.
     fn release_state<'w>(item: Self::Item<'w, '_>) -> Self::Item<'w, 'static>;
@@ -856,7 +857,7 @@ unsafe impl<'a> QueryData for EntityRef<'a> {
                 .debug_checked_unwrap()
         };
         // SAFETY: Read-only access to every component has been registered.
-        Some(unsafe { EntityRef::new(cell) })
+        Some(unsafe { EntityRef::new(cell, All) })
     }
 
     fn iter_access(_state: &Self::State) -> impl Iterator<Item = EcsAccessType<'_>> {
@@ -966,7 +967,7 @@ unsafe impl<'a> QueryData for EntityMut<'a> {
                 .debug_checked_unwrap()
         };
         // SAFETY: mutable access to every component has been registered.
-        Some(unsafe { EntityMut::new(cell) })
+        Some(unsafe { EntityMut::new(cell, All) })
     }
 
     fn iter_access(_state: &Self::State) -> impl Iterator<Item = EcsAccessType<'_>> {
@@ -1093,8 +1094,8 @@ unsafe impl<'a, 'b> QueryData for FilteredEntityRef<'a, 'b> {
                 .get_entity_with_ticks(entity, fetch.last_run, fetch.this_run)
                 .debug_checked_unwrap()
         };
-        // SAFETY: mutable access to every component has been registered.
-        Some(unsafe { FilteredEntityRef::new(cell, access) })
+        // SAFETY: read-only access to the components in `access` has been registered.
+        Some(unsafe { EntityRef::new(cell, Filtered(access)) })
     }
 
     fn iter_access(state: &Self::State) -> impl Iterator<Item = EcsAccessType<'_>> {
@@ -1216,8 +1217,8 @@ unsafe impl<'a, 'b> QueryData for FilteredEntityMut<'a, 'b> {
                 .get_entity_with_ticks(entity, fetch.last_run, fetch.this_run)
                 .debug_checked_unwrap()
         };
-        // SAFETY: mutable access to every component has been registered.
-        Some(unsafe { FilteredEntityMut::new(cell, access) })
+        // SAFETY: mutable access to the components in `access` has been registered.
+        Some(unsafe { EntityMut::new(cell, Filtered(access)) })
     }
 
     fn iter_access(state: &Self::State) -> impl Iterator<Item = EcsAccessType<'_>> {
@@ -1331,7 +1332,8 @@ where
             .world
             .get_entity_with_ticks(entity, fetch.last_run, fetch.this_run)
             .unwrap();
-        Some(EntityRefExcept::new(cell, access))
+        // SAFETY: `access` was constructed based on the components in `B`, and read-only access registered.
+        Some(unsafe { EntityRef::new(cell, Except::new(access)) })
     }
 
     fn iter_access(state: &Self::State) -> impl Iterator<Item = EcsAccessType<'_>> {
@@ -1450,7 +1452,8 @@ where
             .world
             .get_entity_with_ticks(entity, fetch.last_run, fetch.this_run)
             .unwrap();
-        Some(EntityMutExcept::new(cell, access))
+        // SAFETY: `access` was constructed based on the components in `B`, and mutable access registered.
+        Some(unsafe { EntityMut::new(cell, Except::new(access)) })
     }
 
     fn iter_access(state: &Self::State) -> impl Iterator<Item = EcsAccessType<'_>> {

@@ -157,7 +157,7 @@ fn main() {
                 let mut query = builder.build();
                 query.iter_mut(&mut world).for_each(|filtered_entity| {
                     let terms = filtered_entity
-                        .access()
+                        .scope()
                         .try_iter_component_access()
                         .unwrap()
                         .map(|component_access| {

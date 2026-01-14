@@ -18,7 +18,7 @@ use crate::{
     storage::{SparseSets, Table},
     system::IntoObserverSystem,
     world::{
-        error::EntityComponentError, unsafe_world_cell::UnsafeEntityCell, ComponentEntry,
+        error::EntityComponentError, unsafe_world_cell::UnsafeEntityCell, All, ComponentEntry,
         DynamicComponentFetch, EntityMut, EntityRef, FilteredEntityMut, FilteredEntityRef, Mut,
         OccupiedComponentEntry, Ref, VacantComponentEntry, World,
     },
@@ -131,11 +131,12 @@ impl<'w> EntityWorldMut<'w> {
 
     /// Consumes `self` and returns read-only access to all of the entity's
     /// components, with the world `'w` lifetime.
+    #[inline]
     pub fn into_readonly(self) -> EntityRef<'w> {
         // SAFETY:
         // - We have exclusive access to the entire world.
         // - Consuming `self` ensures no mutable accesses are active.
-        unsafe { EntityRef::new(self.into_unsafe_entity_cell()) }
+        unsafe { EntityRef::new(self.into_unsafe_entity_cell(), All) }
     }
 
     /// Gets read-only access to all of the entity's components.
@@ -144,16 +145,17 @@ impl<'w> EntityWorldMut<'w> {
         // SAFETY:
         // - We have exclusive access to the entire world.
         // - `&self` ensures no mutable accesses are active.
-        unsafe { EntityRef::new(self.as_unsafe_entity_cell_readonly()) }
+        unsafe { EntityRef::new(self.as_unsafe_entity_cell_readonly(), All) }
     }
 
     /// Consumes `self` and returns non-structural mutable access to all of the
     /// entity's components, with the world `'w` lifetime.
+    #[inline]
     pub fn into_mutable(self) -> EntityMut<'w> {
         // SAFETY:
         // - We have exclusive access to the entire world.
         // - Consuming `self` ensures there are no other accesses.
-        unsafe { EntityMut::new(self.into_unsafe_entity_cell()) }
+        unsafe { EntityMut::new(self.into_unsafe_entity_cell(), All) }
     }
 
     /// Gets non-structural mutable access to all of the entity's components.
@@ -162,7 +164,7 @@ impl<'w> EntityWorldMut<'w> {
         // SAFETY:
         // - We have exclusive access to the entire world.
         // - `&mut self` ensures there are no other accesses.
-        unsafe { EntityMut::new(self.as_unsafe_entity_cell()) }
+        unsafe { EntityMut::new(self.as_unsafe_entity_cell(), All) }
     }
 
     /// Returns the [ID](Entity) of the current entity.
@@ -614,8 +616,7 @@ impl<'w> EntityWorldMut<'w> {
     /// If the entity has been despawned while this `EntityWorldMut` is still alive.
     #[inline]
     pub fn into_mut<T: Component<Mutability = Mutable>>(self) -> Option<Mut<'w, T>> {
-        // SAFETY: consuming `self` implies exclusive access
-        unsafe { self.into_unsafe_entity_cell().get_mut() }
+        self.into_mutable().into_mut()
     }
 
     /// Consumes `self` and gets mutable access to the component of type `T`
@@ -631,8 +632,7 @@ impl<'w> EntityWorldMut<'w> {
     /// - `T` must be a mutable component
     #[inline]
     pub unsafe fn into_mut_assume_mutable<T: Component>(self) -> Option<Mut<'w, T>> {
-        // SAFETY: consuming `self` implies exclusive access
-        unsafe { self.into_unsafe_entity_cell().get_mut_assume_mutable() }
+        self.into_mutable().into_mut_assume_mutable()
     }
 
     /// Gets a reference to the resource of the given type

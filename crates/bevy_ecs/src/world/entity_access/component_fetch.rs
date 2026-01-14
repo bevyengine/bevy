@@ -1,7 +1,7 @@
 use crate::{
     change_detection::MutUntyped,
     component::ComponentId,
-    world::{error::EntityComponentError, unsafe_world_cell::UnsafeEntityCell},
+    world::{error::EntityComponentError, unsafe_world_cell::UnsafeEntityCell, AccessScope},
 };
 
 use alloc::vec::Vec;
@@ -44,35 +44,37 @@ pub unsafe trait DynamicComponentFetch {
     ///
     /// # Safety
     ///
-    /// It is the caller's responsibility to ensure that:
-    /// - The given [`UnsafeEntityCell`] has read-only access to the fetched components.
-    /// - No other mutable references to the fetched components exist at the same time.
+    /// Caller must ensure the provided [`AccessScope`] does not exceed the read
+    /// permissions of `cell` in a way that would violate Rust's aliasing rules,
+    /// including via copies of `cell` or other indirect means.
     ///
     /// # Errors
     ///
     /// - Returns [`EntityComponentError::MissingComponent`] if a component is missing from the entity.
-    unsafe fn fetch_ref(
+    unsafe fn fetch_ref<'w, 's>(
         self,
-        cell: UnsafeEntityCell<'_>,
-    ) -> Result<Self::Ref<'_>, EntityComponentError>;
+        cell: UnsafeEntityCell<'w>,
+        scope: &'s impl AccessScope,
+    ) -> Result<Self::Ref<'w>, EntityComponentError>;
 
     /// Returns untyped mutable reference(s) to the component(s) with the
     /// given [`ComponentId`]s, as determined by `self`.
     ///
     /// # Safety
     ///
-    /// It is the caller's responsibility to ensure that:
-    /// - The given [`UnsafeEntityCell`] has mutable access to the fetched components.
-    /// - No other references to the fetched components exist at the same time.
+    /// Caller must ensure the provided [`AccessScope`] does not exceed the write
+    /// permissions of `cell` in a way that would violate Rust's aliasing rules,
+    /// including via copies of `cell` or other indirect means.
     ///
     /// # Errors
     ///
     /// - Returns [`EntityComponentError::MissingComponent`] if a component is missing from the entity.
     /// - Returns [`EntityComponentError::AliasedMutability`] if a component is requested multiple times.
-    unsafe fn fetch_mut(
+    unsafe fn fetch_mut<'w, 's>(
         self,
-        cell: UnsafeEntityCell<'_>,
-    ) -> Result<Self::Mut<'_>, EntityComponentError>;
+        cell: UnsafeEntityCell<'w>,
+        scope: &'s impl AccessScope,
+    ) -> Result<Self::Mut<'w>, EntityComponentError>;
 
     /// Returns untyped mutable reference(s) to the component(s) with the
     /// given [`ComponentId`]s, as determined by `self`.
@@ -80,19 +82,21 @@ pub unsafe trait DynamicComponentFetch {
     ///
     /// # Safety
     ///
-    /// It is the caller's responsibility to ensure that:
-    /// - The given [`UnsafeEntityCell`] has mutable access to the fetched components.
-    /// - No other references to the fetched components exist at the same time.
+    /// Caller must ensure that:
+    /// - The provided [`AccessScope`] does not exceed the write permissions of
+    ///   `cell` in a way that would violate Rust's aliasing rules, including
+    ///   via copies of `cell` or other indirect means.
     /// - The requested components are all mutable.
     ///
     /// # Errors
     ///
     /// - Returns [`EntityComponentError::MissingComponent`] if a component is missing from the entity.
     /// - Returns [`EntityComponentError::AliasedMutability`] if a component is requested multiple times.
-    unsafe fn fetch_mut_assume_mutable(
+    unsafe fn fetch_mut_assume_mutable<'w, 's>(
         self,
-        cell: UnsafeEntityCell<'_>,
-    ) -> Result<Self::Mut<'_>, EntityComponentError>;
+        cell: UnsafeEntityCell<'w>,
+        scope: &'s impl AccessScope,
+    ) -> Result<Self::Mut<'w>, EntityComponentError>;
 }
 
 // SAFETY:
@@ -102,29 +106,32 @@ unsafe impl DynamicComponentFetch for ComponentId {
     type Ref<'w> = Ptr<'w>;
     type Mut<'w> = MutUntyped<'w>;
 
-    unsafe fn fetch_ref(
+    unsafe fn fetch_ref<'w, 's>(
         self,
-        cell: UnsafeEntityCell<'_>,
-    ) -> Result<Self::Ref<'_>, EntityComponentError> {
+        cell: UnsafeEntityCell<'w>,
+        scope: &'s impl AccessScope,
+    ) -> Result<Self::Ref<'w>, EntityComponentError> {
         // SAFETY: caller ensures that the cell has read access to the component.
-        unsafe { cell.get_by_id(self) }.ok_or(EntityComponentError::MissingComponent(self))
+        unsafe { cell.get_by_id(scope, self) }.ok_or(EntityComponentError::MissingComponent(self))
     }
 
-    unsafe fn fetch_mut(
+    unsafe fn fetch_mut<'w, 's>(
         self,
-        cell: UnsafeEntityCell<'_>,
-    ) -> Result<Self::Mut<'_>, EntityComponentError> {
+        cell: UnsafeEntityCell<'w>,
+        scope: &'s impl AccessScope,
+    ) -> Result<Self::Mut<'w>, EntityComponentError> {
         // SAFETY: caller ensures that the cell has mutable access to the component.
-        unsafe { cell.get_mut_by_id(self) }
+        unsafe { cell.get_mut_by_id(scope, self) }
             .map_err(|_| EntityComponentError::MissingComponent(self))
     }
 
-    unsafe fn fetch_mut_assume_mutable(
+    unsafe fn fetch_mut_assume_mutable<'w, 's>(
         self,
-        cell: UnsafeEntityCell<'_>,
-    ) -> Result<Self::Mut<'_>, EntityComponentError> {
+        cell: UnsafeEntityCell<'w>,
+        scope: &'s impl AccessScope,
+    ) -> Result<Self::Mut<'w>, EntityComponentError> {
         // SAFETY: caller ensures that the cell has mutable access to the component.
-        unsafe { cell.get_mut_assume_mutable_by_id(self) }
+        unsafe { cell.get_mut_assume_mutable_by_id(scope, self) }
             .map_err(|_| EntityComponentError::MissingComponent(self))
     }
 }
@@ -136,28 +143,28 @@ unsafe impl<const N: usize> DynamicComponentFetch for [ComponentId; N] {
     type Ref<'w> = [Ptr<'w>; N];
     type Mut<'w> = [MutUntyped<'w>; N];
 
-    unsafe fn fetch_ref(
+    unsafe fn fetch_ref<'w, 's>(
         self,
-        cell: UnsafeEntityCell<'_>,
-    ) -> Result<Self::Ref<'_>, EntityComponentError> {
-        // SAFETY: Uphelp by caller.
-        unsafe { <&Self>::fetch_ref(&self, cell) }
+        cell: UnsafeEntityCell<'w>,
+        scope: &'s impl AccessScope,
+    ) -> Result<Self::Ref<'w>, EntityComponentError> {
+        <&Self>::fetch_ref(&self, cell, scope)
     }
 
-    unsafe fn fetch_mut(
+    unsafe fn fetch_mut<'w, 's>(
         self,
-        cell: UnsafeEntityCell<'_>,
-    ) -> Result<Self::Mut<'_>, EntityComponentError> {
-        // SAFETY: Uphelp by caller.
-        unsafe { <&Self>::fetch_mut(&self, cell) }
+        cell: UnsafeEntityCell<'w>,
+        scope: &'s impl AccessScope,
+    ) -> Result<Self::Mut<'w>, EntityComponentError> {
+        <&Self>::fetch_mut(&self, cell, scope)
     }
 
-    unsafe fn fetch_mut_assume_mutable(
+    unsafe fn fetch_mut_assume_mutable<'w, 's>(
         self,
-        cell: UnsafeEntityCell<'_>,
-    ) -> Result<Self::Mut<'_>, EntityComponentError> {
-        // SAFETY: Uphelp by caller.
-        unsafe { <&Self>::fetch_mut_assume_mutable(&self, cell) }
+        cell: UnsafeEntityCell<'w>,
+        scope: &'s impl AccessScope,
+    ) -> Result<Self::Mut<'w>, EntityComponentError> {
+        <&Self>::fetch_mut_assume_mutable(&self, cell, scope)
     }
 }
 
@@ -168,15 +175,17 @@ unsafe impl<const N: usize> DynamicComponentFetch for &'_ [ComponentId; N] {
     type Ref<'w> = [Ptr<'w>; N];
     type Mut<'w> = [MutUntyped<'w>; N];
 
-    unsafe fn fetch_ref(
+    unsafe fn fetch_ref<'w, 's>(
         self,
-        cell: UnsafeEntityCell<'_>,
-    ) -> Result<Self::Ref<'_>, EntityComponentError> {
+        cell: UnsafeEntityCell<'w>,
+        scope: &'s impl AccessScope,
+    ) -> Result<Self::Ref<'w>, EntityComponentError> {
         let mut ptrs = [const { MaybeUninit::uninit() }; N];
         for (ptr, &id) in core::iter::zip(&mut ptrs, self) {
             *ptr = MaybeUninit::new(
                 // SAFETY: caller ensures that the cell has read access to the component.
-                unsafe { cell.get_by_id(id) }.ok_or(EntityComponentError::MissingComponent(id))?,
+                unsafe { cell.get_by_id(scope, id) }
+                    .ok_or(EntityComponentError::MissingComponent(id))?,
             );
         }
 
@@ -186,10 +195,11 @@ unsafe impl<const N: usize> DynamicComponentFetch for &'_ [ComponentId; N] {
         Ok(ptrs)
     }
 
-    unsafe fn fetch_mut(
+    unsafe fn fetch_mut<'w, 's>(
         self,
-        cell: UnsafeEntityCell<'_>,
-    ) -> Result<Self::Mut<'_>, EntityComponentError> {
+        cell: UnsafeEntityCell<'w>,
+        scope: &'s impl AccessScope,
+    ) -> Result<Self::Mut<'w>, EntityComponentError> {
         // Check for duplicate component IDs.
         for i in 0..self.len() {
             for j in 0..i {
@@ -203,7 +213,7 @@ unsafe impl<const N: usize> DynamicComponentFetch for &'_ [ComponentId; N] {
         for (ptr, &id) in core::iter::zip(&mut ptrs, self) {
             *ptr = MaybeUninit::new(
                 // SAFETY: caller ensures that the cell has mutable access to the component.
-                unsafe { cell.get_mut_by_id(id) }
+                unsafe { cell.get_mut_by_id(scope, id) }
                     .map_err(|_| EntityComponentError::MissingComponent(id))?,
             );
         }
@@ -214,10 +224,11 @@ unsafe impl<const N: usize> DynamicComponentFetch for &'_ [ComponentId; N] {
         Ok(ptrs)
     }
 
-    unsafe fn fetch_mut_assume_mutable(
+    unsafe fn fetch_mut_assume_mutable<'w, 's>(
         self,
-        cell: UnsafeEntityCell<'_>,
-    ) -> Result<Self::Mut<'_>, EntityComponentError> {
+        cell: UnsafeEntityCell<'w>,
+        scope: &'s impl AccessScope,
+    ) -> Result<Self::Mut<'w>, EntityComponentError> {
         // Check for duplicate component IDs.
         for i in 0..self.len() {
             for j in 0..i {
@@ -231,7 +242,7 @@ unsafe impl<const N: usize> DynamicComponentFetch for &'_ [ComponentId; N] {
         for (ptr, &id) in core::iter::zip(&mut ptrs, self) {
             *ptr = MaybeUninit::new(
                 // SAFETY: caller ensures that the cell has mutable access to the component.
-                unsafe { cell.get_mut_assume_mutable_by_id(id) }
+                unsafe { cell.get_mut_assume_mutable_by_id(scope, id) }
                     .map_err(|_| EntityComponentError::MissingComponent(id))?,
             );
         }
@@ -250,24 +261,27 @@ unsafe impl DynamicComponentFetch for &'_ [ComponentId] {
     type Ref<'w> = Vec<Ptr<'w>>;
     type Mut<'w> = Vec<MutUntyped<'w>>;
 
-    unsafe fn fetch_ref(
+    unsafe fn fetch_ref<'w, 's>(
         self,
-        cell: UnsafeEntityCell<'_>,
-    ) -> Result<Self::Ref<'_>, EntityComponentError> {
+        cell: UnsafeEntityCell<'w>,
+        scope: &'s impl AccessScope,
+    ) -> Result<Self::Ref<'w>, EntityComponentError> {
         let mut ptrs = Vec::with_capacity(self.len());
         for &id in self {
             ptrs.push(
                 // SAFETY: caller ensures that the cell has read access to the component.
-                unsafe { cell.get_by_id(id) }.ok_or(EntityComponentError::MissingComponent(id))?,
+                unsafe { cell.get_by_id(scope, id) }
+                    .ok_or(EntityComponentError::MissingComponent(id))?,
             );
         }
         Ok(ptrs)
     }
 
-    unsafe fn fetch_mut(
+    unsafe fn fetch_mut<'w, 's>(
         self,
-        cell: UnsafeEntityCell<'_>,
-    ) -> Result<Self::Mut<'_>, EntityComponentError> {
+        cell: UnsafeEntityCell<'w>,
+        scope: &'s impl AccessScope,
+    ) -> Result<Self::Mut<'w>, EntityComponentError> {
         // Check for duplicate component IDs.
         for i in 0..self.len() {
             for j in 0..i {
@@ -281,17 +295,18 @@ unsafe impl DynamicComponentFetch for &'_ [ComponentId] {
         for &id in self {
             ptrs.push(
                 // SAFETY: caller ensures that the cell has mutable access to the component.
-                unsafe { cell.get_mut_by_id(id) }
+                unsafe { cell.get_mut_by_id(scope, id) }
                     .map_err(|_| EntityComponentError::MissingComponent(id))?,
             );
         }
         Ok(ptrs)
     }
 
-    unsafe fn fetch_mut_assume_mutable(
+    unsafe fn fetch_mut_assume_mutable<'w, 's>(
         self,
-        cell: UnsafeEntityCell<'_>,
-    ) -> Result<Self::Mut<'_>, EntityComponentError> {
+        cell: UnsafeEntityCell<'w>,
+        scope: &'s impl AccessScope,
+    ) -> Result<Self::Mut<'w>, EntityComponentError> {
         // Check for duplicate component IDs.
         for i in 0..self.len() {
             for j in 0..i {
@@ -305,7 +320,7 @@ unsafe impl DynamicComponentFetch for &'_ [ComponentId] {
         for &id in self {
             ptrs.push(
                 // SAFETY: caller ensures that the cell has mutable access to the component.
-                unsafe { cell.get_mut_assume_mutable_by_id(id) }
+                unsafe { cell.get_mut_assume_mutable_by_id(scope, id) }
                     .map_err(|_| EntityComponentError::MissingComponent(id))?,
             );
         }
@@ -320,47 +335,51 @@ unsafe impl DynamicComponentFetch for &'_ HashSet<ComponentId> {
     type Ref<'w> = HashMap<ComponentId, Ptr<'w>>;
     type Mut<'w> = HashMap<ComponentId, MutUntyped<'w>>;
 
-    unsafe fn fetch_ref(
+    unsafe fn fetch_ref<'w, 's>(
         self,
-        cell: UnsafeEntityCell<'_>,
-    ) -> Result<Self::Ref<'_>, EntityComponentError> {
+        cell: UnsafeEntityCell<'w>,
+        scope: &'s impl AccessScope,
+    ) -> Result<Self::Ref<'w>, EntityComponentError> {
         let mut ptrs = HashMap::with_capacity_and_hasher(self.len(), Default::default());
         for &id in self {
             ptrs.insert(
                 id,
                 // SAFETY: caller ensures that the cell has read access to the component.
-                unsafe { cell.get_by_id(id) }.ok_or(EntityComponentError::MissingComponent(id))?,
+                unsafe { cell.get_by_id(scope, id) }
+                    .ok_or(EntityComponentError::MissingComponent(id))?,
             );
         }
         Ok(ptrs)
     }
 
-    unsafe fn fetch_mut(
+    unsafe fn fetch_mut<'w, 's>(
         self,
-        cell: UnsafeEntityCell<'_>,
-    ) -> Result<Self::Mut<'_>, EntityComponentError> {
+        cell: UnsafeEntityCell<'w>,
+        scope: &'s impl AccessScope,
+    ) -> Result<Self::Mut<'w>, EntityComponentError> {
         let mut ptrs = HashMap::with_capacity_and_hasher(self.len(), Default::default());
         for &id in self {
             ptrs.insert(
                 id,
                 // SAFETY: caller ensures that the cell has mutable access to the component.
-                unsafe { cell.get_mut_by_id(id) }
+                unsafe { cell.get_mut_by_id(scope, id) }
                     .map_err(|_| EntityComponentError::MissingComponent(id))?,
             );
         }
         Ok(ptrs)
     }
 
-    unsafe fn fetch_mut_assume_mutable(
+    unsafe fn fetch_mut_assume_mutable<'w, 's>(
         self,
-        cell: UnsafeEntityCell<'_>,
-    ) -> Result<Self::Mut<'_>, EntityComponentError> {
+        cell: UnsafeEntityCell<'w>,
+        scope: &'s impl AccessScope,
+    ) -> Result<Self::Mut<'w>, EntityComponentError> {
         let mut ptrs = HashMap::with_capacity_and_hasher(self.len(), Default::default());
         for &id in self {
             ptrs.insert(
                 id,
                 // SAFETY: caller ensures that the cell has mutable access to the component.
-                unsafe { cell.get_mut_assume_mutable_by_id(id) }
+                unsafe { cell.get_mut_assume_mutable_by_id(scope, id) }
                     .map_err(|_| EntityComponentError::MissingComponent(id))?,
             );
         }

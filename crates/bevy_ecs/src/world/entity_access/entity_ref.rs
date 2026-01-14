@@ -3,10 +3,9 @@ use crate::{
     change_detection::{ComponentTicks, MaybeLocation, Tick},
     component::{Component, ComponentId},
     entity::{ContainsEntity, Entity, EntityEquivalent, EntityLocation},
-    query::{Access, QueryAccessError, ReadOnlyQueryData, ReleaseStateQueryData},
     world::{
-        error::EntityComponentError, unsafe_world_cell::UnsafeEntityCell, DynamicComponentFetch,
-        FilteredEntityRef, Ref,
+        error::EntityComponentError, unsafe_world_cell::UnsafeEntityCell, AccessScope, All,
+        DynamicComponentFetch, Ref,
     },
 };
 
@@ -16,7 +15,18 @@ use core::{
     hash::{Hash, Hasher},
 };
 
-/// A read-only reference to a particular [`Entity`] and all of its components.
+/// Provides read-only access to a single [`Entity`] and the components allowed
+/// by the [`AccessScope`] `S`. Plain `EntityRef`s have an [`AccessScope`] of
+/// [`All`], providing access to all components of the entity.
+///
+/// # [`AccessScope`]s
+///
+/// Access scopes describe what you can access on an `EntityRef`. The default
+/// scope is [`All`], which provides access to all components of the entity.
+/// Other scopes, such as [`Filtered`] and [`Except`], can restrict access to
+/// only a subset of components.
+///
+/// See the documentation of [`AccessScope`] for more details.
 ///
 /// # Examples
 ///
@@ -34,28 +44,36 @@ use core::{
 /// }
 /// # bevy_ecs::system::assert_is_system(disjoint_system);
 /// ```
+///
+/// [`Filtered`]: crate::world::Filtered
+/// [`Except`]: crate::world::Except
 #[derive(Copy, Clone)]
-pub struct EntityRef<'w> {
-    cell: UnsafeEntityCell<'w>,
+pub struct EntityRef<'w, S: AccessScope = All> {
+    pub(super) cell: UnsafeEntityCell<'w>,
+    scope: S,
 }
 
-impl<'w> EntityRef<'w> {
+impl<'w, S: AccessScope> EntityRef<'w, S> {
     /// # Safety
-    /// - `cell` must have permission to read every component of the entity.
-    /// - No mutable accesses to any of the entity's components may exist
-    ///   at the same time as the returned [`EntityRef`].
+    ///
+    /// Caller must ensure `scope` does not exceed the read permissions of `cell`
+    /// in a way that would violate Rust's aliasing rules, including simultaneous
+    /// access of `cell` via an `EntityMut` or any other means.
     #[inline]
-    pub(crate) unsafe fn new(cell: UnsafeEntityCell<'w>) -> Self {
-        Self { cell }
+    pub(crate) unsafe fn new(cell: UnsafeEntityCell<'w>, scope: S) -> Self {
+        Self { cell, scope }
     }
 
-    /// Consumes `self` and returns a [`FilteredEntityRef`] which has read-only
-    /// access to all of the entity's components, with the world `'w` lifetime.
+    /// Returns a reference to the current [`AccessScope`].
     #[inline]
-    pub fn into_filtered(self) -> FilteredEntityRef<'w, 'static> {
-        // SAFETY:
-        // - `EntityRef` guarantees exclusive access to all components in the new `FilteredEntityRef`.
-        unsafe { FilteredEntityRef::new(self.cell, const { &Access::new_read_all() }) }
+    pub fn scope(&self) -> &S {
+        &self.scope
+    }
+
+    /// Consumes self and returns the current [`AccessScope`].
+    #[inline]
+    pub fn into_scope(self) -> S {
+        self.scope
     }
 
     /// Returns the [ID](Entity) of the current entity.
@@ -118,8 +136,9 @@ impl<'w> EntityRef<'w> {
     /// Returns `None` if the entity does not have a component of type `T`.
     #[inline]
     pub fn get<T: Component>(&self) -> Option<&'w T> {
-        // SAFETY: We have read-only access to all components of this entity.
-        unsafe { self.cell.get::<T>() }
+        // SAFETY: `self` was constructed with a `scope` that doesn't violate
+        // Rust's aliasing rules for `cell`.
+        unsafe { self.cell.get::<T>(&self.scope) }
     }
 
     /// Gets access to the component of type `T` for the current entity,
@@ -128,16 +147,18 @@ impl<'w> EntityRef<'w> {
     /// Returns `None` if the entity does not have a component of type `T`.
     #[inline]
     pub fn get_ref<T: Component>(&self) -> Option<Ref<'w, T>> {
-        // SAFETY: We have read-only access to all components of this entity.
-        unsafe { self.cell.get_ref::<T>() }
+        // SAFETY: `self` was constructed with a `scope` that doesn't violate
+        // Rust's aliasing rules for `cell`.
+        unsafe { self.cell.get_ref::<T>(&self.scope) }
     }
 
     /// Retrieves the change ticks for the given component. This can be useful for implementing change
     /// detection in custom runtimes.
     #[inline]
     pub fn get_change_ticks<T: Component>(&self) -> Option<ComponentTicks> {
-        // SAFETY: We have read-only access to all components of this entity.
-        unsafe { self.cell.get_change_ticks::<T>() }
+        // SAFETY: `self` was constructed with a `scope` that doesn't violate
+        // Rust's aliasing rules for `cell`.
+        unsafe { self.cell.get_change_ticks::<T>(&self.scope) }
     }
 
     /// Retrieves the change ticks for the given [`ComponentId`]. This can be useful for implementing change
@@ -148,8 +169,9 @@ impl<'w> EntityRef<'w> {
     /// compile time.**
     #[inline]
     pub fn get_change_ticks_by_id(&self, component_id: ComponentId) -> Option<ComponentTicks> {
-        // SAFETY: We have read-only access to all components of this entity.
-        unsafe { self.cell.get_change_ticks_by_id(component_id) }
+        // SAFETY: `self` was constructed with a `scope` that doesn't violate
+        // Rust's aliasing rules for `cell`.
+        unsafe { self.cell.get_change_ticks_by_id(&self.scope, component_id) }
     }
 
     /// Returns untyped read-only reference(s) to component(s) for the
@@ -261,29 +283,9 @@ impl<'w> EntityRef<'w> {
         &self,
         component_ids: F,
     ) -> Result<F::Ref<'w>, EntityComponentError> {
-        // SAFETY: We have read-only access to all components of this entity.
-        unsafe { component_ids.fetch_ref(self.cell) }
-    }
-
-    /// Returns read-only components for the current entity that match the query `Q`.
-    ///
-    /// # Panics
-    ///
-    /// If the entity does not have the components required by the query `Q`.
-    pub fn components<Q: ReadOnlyQueryData + ReleaseStateQueryData>(&self) -> Q::Item<'w, 'static> {
-        self.get_components::<Q>()
-            .expect("Query does not match the current entity")
-    }
-
-    /// Returns read-only components for the current entity that match the query `Q`,
-    /// or `None` if the entity does not have the components required by the query `Q`.
-    pub fn get_components<Q: ReadOnlyQueryData + ReleaseStateQueryData>(
-        &self,
-    ) -> Result<Q::Item<'w, 'static>, QueryAccessError> {
-        // SAFETY:
-        // - We have read-only access to all components of this entity.
-        // - The query is read-only, and read-only references cannot have conflicts.
-        unsafe { self.cell.get_components::<Q>() }
+        // SAFETY: `self` was constructed with a `scope` that doesn't violate
+        // Rust's aliasing rules for `cell`.
+        unsafe { component_ids.fetch_ref(self.cell, &self.scope) }
     }
 
     /// Returns the source code location from which this entity has been spawned.
@@ -297,29 +299,15 @@ impl<'w> EntityRef<'w> {
     }
 }
 
-impl<'a> From<EntityRef<'a>> for FilteredEntityRef<'a, 'static> {
-    #[inline]
-    fn from(entity: EntityRef<'a>) -> Self {
-        entity.into_filtered()
-    }
-}
-
-impl<'a> From<&EntityRef<'a>> for FilteredEntityRef<'a, 'static> {
-    #[inline]
-    fn from(entity: &EntityRef<'a>) -> Self {
-        entity.into_filtered()
-    }
-}
-
-impl PartialEq for EntityRef<'_> {
+impl<S: AccessScope> PartialEq for EntityRef<'_, S> {
     fn eq(&self, other: &Self) -> bool {
         self.entity() == other.entity()
     }
 }
 
-impl Eq for EntityRef<'_> {}
+impl<S: AccessScope> Eq for EntityRef<'_, S> {}
 
-impl PartialOrd for EntityRef<'_> {
+impl<S: AccessScope> PartialOrd for EntityRef<'_, S> {
     /// [`EntityRef`]'s comparison trait implementations match the underlying [`Entity`],
     /// and cannot discern between different worlds.
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
@@ -327,23 +315,23 @@ impl PartialOrd for EntityRef<'_> {
     }
 }
 
-impl Ord for EntityRef<'_> {
+impl<S: AccessScope> Ord for EntityRef<'_, S> {
     fn cmp(&self, other: &Self) -> Ordering {
         self.entity().cmp(&other.entity())
     }
 }
 
-impl Hash for EntityRef<'_> {
+impl<S: AccessScope> Hash for EntityRef<'_, S> {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.entity().hash(state);
     }
 }
 
-impl ContainsEntity for EntityRef<'_> {
+impl<S: AccessScope> ContainsEntity for EntityRef<'_, S> {
     fn entity(&self) -> Entity {
         self.id()
     }
 }
 
 // SAFETY: This type represents one Entity. We implement the comparison traits based on that Entity.
-unsafe impl EntityEquivalent for EntityRef<'_> {}
+unsafe impl<S: AccessScope> EntityEquivalent for EntityRef<'_, S> {}

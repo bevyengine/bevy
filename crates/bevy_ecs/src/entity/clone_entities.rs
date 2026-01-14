@@ -11,7 +11,7 @@ use crate::{
     entity::{hash_map::EntityHashMap, Entity, EntityAllocator, EntityMapper},
     query::DebugCheckedUnwrap,
     relationship::RelationshipHookMode,
-    world::World,
+    world::{All, World},
 };
 use alloc::{boxed::Box, collections::VecDeque, vec::Vec};
 use bevy_platform::collections::{hash_map::Entry, HashMap, HashSet};
@@ -633,8 +633,11 @@ impl EntityCloner {
                 // SAFETY:
                 // - There are no other mutable references to source entity.
                 // - `component` is from `source_entity`'s archetype
-                let source_component_ptr =
-                    unsafe { source_entity.get_by_id(component).debug_checked_unwrap() };
+                let source_component_ptr = unsafe {
+                    source_entity
+                        .get_by_id(&All, component)
+                        .debug_checked_unwrap()
+                };
 
                 let source_component = SourceComponent {
                     info,

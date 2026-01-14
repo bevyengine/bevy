@@ -9,7 +9,7 @@ use crate::{
     prelude::*,
     query::DebugCheckedUnwrap,
     system::{ObserverSystem, RunSystemError},
-    world::DeferredWorld,
+    world::{All, DeferredWorld},
 };
 use bevy_ptr::PtrMut;
 
@@ -44,7 +44,11 @@ pub(super) unsafe fn observer_system_runner<E: Event, B: Bundle, S: ObserverSyst
     // SAFETY: Observer was triggered so must still exist in world
     let observer_cell = unsafe { world.get_entity(observer).debug_checked_unwrap() };
     // SAFETY: Observer was triggered so must have an `Observer`
-    let mut state = unsafe { observer_cell.get_mut::<Observer>().debug_checked_unwrap() };
+    let mut state = unsafe {
+        observer_cell
+            .get_mut::<Observer>(&All)
+            .debug_checked_unwrap()
+    };
 
     // TODO: Move this check into the observer cache to avoid dynamic dispatch
     let last_trigger = world.last_trigger_id();
