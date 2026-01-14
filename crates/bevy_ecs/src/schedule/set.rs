@@ -14,8 +14,8 @@ use crate::{
     define_label,
     intern::Interned,
     system::{
-        ExclusiveFunctionSystem, ExclusiveSystemParamFunction, FromInput, FunctionSystem,
-        IntoResult, IsExclusiveFunctionSystem, IsFunctionSystem, SystemParamFunction,
+        ExclusiveSystemParamFunction, FromInput, IntoResult, IsExclusiveFunctionSystem,
+        IsFunctionSystem, SystemParamFunction,
     },
 };
 
@@ -293,11 +293,11 @@ where
     Marker: 'static,
     F: SystemParamFunction<Marker, In: FromInput<()>, Out: IntoResult<()>>,
 {
-    type Set = SystemTypeSet<FunctionSystem<Marker, (), (), F>>;
+    type Set = SystemTypeSet<F>;
 
     #[inline]
     fn into_system_set(self) -> Self::Set {
-        SystemTypeSet::<FunctionSystem<Marker, (), (), F>>::new()
+        SystemTypeSet::<F>::new()
     }
 }
 
@@ -308,11 +308,11 @@ where
     F::Out: IntoResult<()>,
     F: ExclusiveSystemParamFunction<Marker>,
 {
-    type Set = SystemTypeSet<ExclusiveFunctionSystem<Marker, (), F>>;
+    type Set = SystemTypeSet<F>;
 
     #[inline]
     fn into_system_set(self) -> Self::Set {
-        SystemTypeSet::<ExclusiveFunctionSystem<Marker, (), F>>::new()
+        SystemTypeSet::<F>::new()
     }
 }
 
