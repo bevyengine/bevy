@@ -5185,6 +5185,14 @@ category = "Embedded"
 wasm = true
 
 [[example]]
+name = "test_animation_transitions"
+path = "tests/animation/test_animation_transitions.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.test_animation_transitions]
+hidden = true
+
+[[example]]
 name = "extended_material_bindless"
 path = "examples/shader/extended_material_bindless.rs"
 # Causes an ICE on docs.rs
