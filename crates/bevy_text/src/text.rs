@@ -270,7 +270,7 @@ impl From<Justify> for cosmic_text::Align {
 ///
 /// // `CosmicFontSystem::get_family` can be used to look up the name
 /// // of a `FontSource`'s associated family
-/// let family_name = font_system.get_family(FontSource::Serif);
+/// let family_name = font_system.get_family(FontSource::Serif).unwrap();
 /// assert_eq!(family_name.as_str(), "Allegro");
 /// ```
 pub enum FontSource {
