@@ -498,9 +498,9 @@ pub fn map_partial_eq<M: Map + ?Sized>(a: &M, b: &dyn PartialReflect) -> Option<
 /// Lexicographically compares two [`Map`] values according to their iteration order
 /// (suitable for ordered maps like `BTreeMap`).
 ///
-/// For each entry pair `(k_a, v_a)` and `(k_b, v_b)` in the iteration order,
-/// compare `k_a` to `k_b` using `reflect_partial_cmp`, returning the first
-/// non-equal ordering. If keys are equal, compare values similarly. If all
+/// For each entry pair `(a_k, a_v)` and `(b_k, b_v)` in the iteration order,
+/// compare `a_k` to `b_k` using `reflect_partial_cmp`, returning the first
+/// non-equal ordering. If keys are equal, compare values `a_v` and `b_v `similarly. If all
 /// compared entries are equal, the shorter map is `Less` and longer is `Greater`.
 ///
 /// Returns [`None`] if the comparison couldn't be performed (kinds mismatch or
