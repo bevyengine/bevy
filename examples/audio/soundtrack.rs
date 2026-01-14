@@ -104,9 +104,8 @@ fn fade_in(
     timer: Res<GameStateTimer>,
 ) {
     for (mut audio, entity) in audio_sink.iter_mut() {
-        let current_volume = audio.volume();
         audio.set_volume(
-            current_volume.fade_towards(Volume::Linear(1.0), timer.0.elapsed_secs() / FADE_TIME),
+            Volume::SILENT.fade_towards(Volume::Linear(1.0), timer.0.elapsed_secs() / FADE_TIME),
         );
         if timer.0.elapsed_secs() >= FADE_TIME {
             audio.set_volume(Volume::Linear(1.0));
@@ -123,9 +122,8 @@ fn fade_out(
     timer: Res<GameStateTimer>,
 ) {
     for (mut audio, entity) in audio_sink.iter_mut() {
-        let current_volume = audio.volume();
         audio.set_volume(
-            current_volume.fade_towards(Volume::SILENT, timer.0.elapsed_secs() / FADE_TIME),
+            Volume::Linear(1.0).fade_towards(Volume::SILENT, timer.0.elapsed_secs() / FADE_TIME),
         );
         if timer.0.elapsed_secs() >= FADE_TIME {
             commands.entity(entity).despawn();
