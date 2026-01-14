@@ -1,5 +1,6 @@
 //! Demonstrates screen space reflections in deferred rendering.
 
+use std::fmt;
 use std::ops::Range;
 
 use bevy::{
@@ -24,6 +25,15 @@ use bevy::{
     shader::ShaderRef,
 };
 
+#[path = "../helpers/widgets.rs"]
+mod widgets;
+
+use widgets::{
+    handle_ui_interactions, main_ui_node, option_buttons, update_ui_radio_button,
+    update_ui_radio_button_text, RadioButton, RadioButtonText, WidgetClickEvent, WidgetClickSender,
+    BUTTON_BORDER, BUTTON_BORDER_COLOR, BUTTON_BORDER_RADIUS_SIZE, BUTTON_PADDING,
+};
+
 /// This example uses a shader source file from the assets subdirectory
 const SHADER_ASSET_PATH: &str = "shaders/water_material.wgsl";
 
@@ -34,17 +44,6 @@ const CAMERA_MOUSE_WHEEL_ZOOM_SPEED: f32 = 0.25;
 
 // We clamp camera distances to this range.
 const CAMERA_ZOOM_RANGE: Range<f32> = 2.0..12.0;
-
-static TURN_SSR_OFF_HELP_TEXT: &str = "Press Space to turn screen-space reflections off";
-static TURN_SSR_ON_HELP_TEXT: &str = "Press Space to turn screen-space reflections on";
-static MOVE_CAMERA_HELP_TEXT: &str =
-    "Press WASD or use the mouse wheel to pan and orbit the camera";
-static SWITCH_TO_FLIGHT_HELMET_HELP_TEXT: &str = "Press Enter to switch to the flight helmet model";
-static SWITCH_TO_CAPSULES_HELP_TEXT: &str = "Press Enter to switch to the row of capsules model";
-static SWITCH_TO_CUBE_HELP_TEXT: &str = "Press Enter to switch to the single cube model";
-static MIN_ROUGHNESS_HELP_TEXT: &str = "Press U/I and O/P to adjust the minimum roughness range";
-static MAX_ROUGHNESS_HELP_TEXT: &str = "Press H/J and K/L to adjust the maximum roughness range";
-static EDGE_FADEOUT_HELP_TEXT: &str = "Press N/M and ,/. to adjust the edge fadeout range";
 
 /// A custom [`ExtendedMaterial`] that creates animated water ripples.
 #[derive(Asset, TypePath, AsBindGroup, Debug, Clone)]
@@ -89,7 +88,7 @@ struct AppSettings {
 }
 
 /// Which model is being displayed.
-#[derive(Default)]
+#[derive(Default, PartialEq, Copy, Clone)]
 enum DisplayedModel {
     /// The cube is being displayed.
     #[default]
@@ -98,6 +97,35 @@ enum DisplayedModel {
     FlightHelmet,
     /// The capsules are being displayed.
     Capsules,
+}
+
+impl fmt::Display for DisplayedModel {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let name = match self {
+            DisplayedModel::Cube => "Cube",
+            DisplayedModel::FlightHelmet => "Flight Helmet",
+            DisplayedModel::Capsules => "Capsules",
+        };
+        write!(f, "{}", name)
+    }
+}
+
+#[derive(Clone, Copy, PartialEq)]
+enum ExampleSetting {
+    Ssr(bool),
+    Model(DisplayedModel),
+    MinRoughnessStart(Adjustment),
+    MinRoughnessEnd(Adjustment),
+    MaxRoughnessStart(Adjustment),
+    MaxRoughnessEnd(Adjustment),
+    EdgeFadeoutStart(Adjustment),
+    EdgeFadeoutEnd(Adjustment),
+}
+
+#[derive(Clone, Copy, PartialEq)]
+enum Adjustment {
+    Increase,
+    Decrease,
 }
 
 /// A marker component for the single cube model.
@@ -116,6 +144,17 @@ struct CapsuleModel;
 #[derive(Component)]
 struct CapsulesParent;
 
+/// A marker component for the text that displays a range value.
+#[derive(Component)]
+enum RangeValueText {
+    MinRoughnessStart,
+    MinRoughnessEnd,
+    MaxRoughnessStart,
+    MaxRoughnessEnd,
+    EdgeFadeoutStart,
+    EdgeFadeoutEnd,
+}
+
 fn main() {
     // Enable deferred rendering, which is necessary for screen-space
     // reflections at this time. Disable multisampled antialiasing, as deferred
@@ -131,10 +170,12 @@ fn main() {
             ..default()
         }))
         .add_plugins(MaterialPlugin::<ExtendedMaterial<StandardMaterial, Water>>::default())
+        .add_message::<WidgetClickEvent<ExampleSetting>>()
         .add_systems(Startup, setup)
         .add_systems(Update, rotate_model)
         .add_systems(Update, move_camera)
         .add_systems(Update, adjust_app_settings)
+        .add_systems(Update, handle_ui_interactions::<ExampleSetting>)
         .run();
 }
 
@@ -162,7 +203,7 @@ fn setup(
         &mut water_materials,
     );
     spawn_camera(&mut commands, &asset_server, &app_settings);
-    spawn_text(&mut commands, &app_settings);
+    spawn_buttons(&mut commands, &app_settings);
 }
 
 // Spawns the rotating cube.
@@ -309,54 +350,176 @@ fn spawn_camera(commands: &mut Commands, asset_server: &AssetServer, app_setting
     ));
 }
 
-// Spawns the help text.
-fn spawn_text(commands: &mut Commands, app_settings: &AppSettings) {
-    commands.spawn((
-        create_text(app_settings),
+fn spawn_buttons(commands: &mut Commands, app_settings: &AppSettings) {
+    commands.spawn(main_ui_node()).with_children(|parent| {
+        parent.spawn(option_buttons(
+            "SSR",
+            &[
+                (ExampleSetting::Ssr(true), "On"),
+                (ExampleSetting::Ssr(false), "Off"),
+            ],
+        ));
+
+        parent.spawn(option_buttons(
+            "Model",
+            &[
+                (ExampleSetting::Model(DisplayedModel::Cube), "Cube"),
+                (
+                    ExampleSetting::Model(DisplayedModel::FlightHelmet),
+                    "Flight Helmet",
+                ),
+                (ExampleSetting::Model(DisplayedModel::Capsules), "Capsules"),
+            ],
+        ));
+
+        parent.spawn(range_row(
+            "Min Roughness",
+            app_settings.min_perceptual_roughness.start,
+            app_settings.min_perceptual_roughness.end,
+            RangeValueText::MinRoughnessStart,
+            RangeValueText::MinRoughnessEnd,
+            ExampleSetting::MinRoughnessStart(Adjustment::Decrease),
+            ExampleSetting::MinRoughnessStart(Adjustment::Increase),
+            ExampleSetting::MinRoughnessEnd(Adjustment::Decrease),
+            ExampleSetting::MinRoughnessEnd(Adjustment::Increase),
+        ));
+
+        parent.spawn(range_row(
+            "Max Roughness",
+            app_settings.max_perceptual_roughness.start,
+            app_settings.max_perceptual_roughness.end,
+            RangeValueText::MaxRoughnessStart,
+            RangeValueText::MaxRoughnessEnd,
+            ExampleSetting::MaxRoughnessStart(Adjustment::Decrease),
+            ExampleSetting::MaxRoughnessStart(Adjustment::Increase),
+            ExampleSetting::MaxRoughnessEnd(Adjustment::Decrease),
+            ExampleSetting::MaxRoughnessEnd(Adjustment::Increase),
+        ));
+
+        parent.spawn(range_row(
+            "Edge Fadeout",
+            app_settings.edge_fadeout.start,
+            app_settings.edge_fadeout.end,
+            RangeValueText::EdgeFadeoutStart,
+            RangeValueText::EdgeFadeoutEnd,
+            ExampleSetting::EdgeFadeoutStart(Adjustment::Decrease),
+            ExampleSetting::EdgeFadeoutStart(Adjustment::Increase),
+            ExampleSetting::EdgeFadeoutEnd(Adjustment::Decrease),
+            ExampleSetting::EdgeFadeoutEnd(Adjustment::Increase),
+        ));
+    });
+}
+
+fn range_row(
+    title: &str,
+    start_value: f32,
+    end_value: f32,
+    start_marker: RangeValueText,
+    end_marker: RangeValueText,
+    start_dec: ExampleSetting,
+    start_inc: ExampleSetting,
+    end_dec: ExampleSetting,
+    end_inc: ExampleSetting,
+) -> impl Bundle {
+    (
         Node {
-            position_type: PositionType::Absolute,
-            bottom: px(12),
-            left: px(12),
+            align_items: AlignItems::Center,
             ..default()
         },
-    ));
-}
-
-// Creates or recreates the help text.
-fn create_text(app_settings: &AppSettings) -> Text {
-    format!(
-        "{}\n{}\n{}\n{}\n{}\n{}\nSSR min roughness: {:.2}..{:.2}\nSSR max roughness: {:.2}..{:.2}\nSSR edge fadeout: {:.2}..{:.2}",
-        match app_settings.displayed_model {
-            DisplayedModel::Cube => SWITCH_TO_FLIGHT_HELMET_HELP_TEXT,
-            DisplayedModel::FlightHelmet => SWITCH_TO_CAPSULES_HELP_TEXT,
-            DisplayedModel::Capsules => SWITCH_TO_CUBE_HELP_TEXT,
-        },
-        if app_settings.ssr_on {
-            TURN_SSR_OFF_HELP_TEXT
-        } else {
-            TURN_SSR_ON_HELP_TEXT
-        },
-        MOVE_CAMERA_HELP_TEXT,
-        MIN_ROUGHNESS_HELP_TEXT,
-        MAX_ROUGHNESS_HELP_TEXT,
-        EDGE_FADEOUT_HELP_TEXT,
-        app_settings.min_perceptual_roughness.start,
-        app_settings.min_perceptual_roughness.end,
-        app_settings.max_perceptual_roughness.start,
-        app_settings.max_perceptual_roughness.end,
-        app_settings.edge_fadeout.start,
-        app_settings.edge_fadeout.end,
+        Children::spawn((
+            Spawn((
+                widgets::ui_text(title, Color::WHITE),
+                Node {
+                    width: px(150),
+                    ..default()
+                },
+            )),
+            Spawn(range_controls(
+                start_value,
+                start_marker,
+                start_dec,
+                start_inc,
+            )),
+            Spawn((
+                widgets::ui_text("to", Color::WHITE),
+                Node {
+                    margin: UiRect::horizontal(px(10)),
+                    ..default()
+                },
+            )),
+            Spawn(range_controls(end_value, end_marker, end_dec, end_inc)),
+        )),
     )
-    .into()
 }
 
-impl MaterialExtension for Water {
-    fn deferred_fragment_shader() -> ShaderRef {
-        SHADER_ASSET_PATH.into()
-    }
+fn range_controls(
+    value: f32,
+    marker: RangeValueText,
+    dec_setting: ExampleSetting,
+    inc_setting: ExampleSetting,
+) -> impl Bundle {
+    (
+        Node {
+            align_items: AlignItems::Center,
+            ..default()
+        },
+        Children::spawn((
+            Spawn(adjustment_button(dec_setting, "<", Some(true))),
+            Spawn((
+                Node {
+                    width: px(50),
+                    height: px(33),
+                    justify_content: JustifyContent::Center,
+                    align_items: AlignItems::Center,
+                    border: BUTTON_BORDER.with_left(px(0)).with_right(px(0)),
+                    ..default()
+                },
+                BackgroundColor(Color::WHITE),
+                BUTTON_BORDER_COLOR,
+                marker,
+                children![(widgets::ui_text(&format!("{:.2}", value), Color::BLACK))],
+            )),
+            Spawn(adjustment_button(inc_setting, ">", Some(false))),
+        )),
+    )
 }
 
-/// Rotates the model on the Y axis a bit every frame.
+fn adjustment_button(
+    setting: ExampleSetting,
+    label: &str,
+    is_left_right: Option<bool>,
+) -> impl Bundle {
+    (
+        Button,
+        Node {
+            height: px(33),
+            border: if let Some(is_left) = is_left_right {
+                if is_left {
+                    BUTTON_BORDER.with_right(px(0))
+                } else {
+                    BUTTON_BORDER.with_left(px(0))
+                }
+            } else {
+                BUTTON_BORDER
+            },
+            justify_content: JustifyContent::Center,
+            align_items: AlignItems::Center,
+            padding: BUTTON_PADDING,
+            border_radius: match is_left_right {
+                Some(true) => BorderRadius::ZERO.with_left(BUTTON_BORDER_RADIUS_SIZE),
+                Some(false) => BorderRadius::ZERO.with_right(BUTTON_BORDER_RADIUS_SIZE),
+                None => BorderRadius::all(BUTTON_BORDER_RADIUS_SIZE),
+            },
+            ..default()
+        },
+        BUTTON_BORDER_COLOR,
+        BackgroundColor(Color::BLACK),
+        RadioButton,
+        WidgetClickSender(setting),
+        children![(widgets::ui_text(label, Color::WHITE), RadioButtonText)],
+    )
+}
+
 fn rotate_model(
     mut query: Query<&mut Transform, Or<(With<CubeModel>, With<FlightHelmetModel>)>>,
     time: Res<Time>,
@@ -413,120 +576,61 @@ fn move_camera(
 // Adjusts app settings per user input.
 fn adjust_app_settings(
     mut commands: Commands,
-    keyboard_input: Res<ButtonInput<KeyCode>>,
     mut app_settings: ResMut<AppSettings>,
     mut cameras: Query<Entity, With<Camera>>,
-    mut cube_models: Query<
-        &mut Visibility,
+    mut visibilities: Query<&mut Visibility>,
+    cube_models: Query<Entity, With<CubeModel>>,
+    flight_helmet_models: Query<Entity, With<FlightHelmetModel>>,
+    capsule_models: Query<Entity, Or<(With<CapsuleModel>, With<CapsulesParent>)>>,
+    mut widget_click_events: MessageReader<WidgetClickEvent<ExampleSetting>>,
+    mut background_colors: Query<&mut BackgroundColor>,
+    radio_buttons: Query<
         (
-            With<CubeModel>,
-            Without<FlightHelmetModel>,
-            Without<CapsuleModel>,
-            Without<CapsulesParent>,
+            Entity,
+            Has<BackgroundColor>,
+            Has<Text>,
+            &WidgetClickSender<ExampleSetting>,
         ),
+        Or<(With<RadioButton>, With<RadioButtonText>)>,
     >,
-    mut flight_helmet_models: Query<
-        &mut Visibility,
-        (
-            Without<CubeModel>,
-            With<FlightHelmetModel>,
-            Without<CapsuleModel>,
-            Without<CapsulesParent>,
-        ),
-    >,
-    mut capsules_row_models: Query<
-        &mut Visibility,
-        (
-            Without<CubeModel>,
-            Without<FlightHelmetModel>,
-            Or<(With<CapsuleModel>, With<CapsulesParent>)>,
-        ),
-    >,
-    mut text: Query<&mut Text>,
+    range_value_text: Query<(Entity, &RangeValueText)>,
+    text_children: Query<&Children>,
+    mut writer: TextUiWriter,
+    text_query: Query<Entity, With<Text>>,
 ) {
-    // If there are no changes, we're going to bail for efficiency. Record that
-    // here.
     let mut any_changes = false;
 
-    // If the user pressed Space, toggle SSR.
-    if keyboard_input.just_pressed(KeyCode::Space) {
-        app_settings.ssr_on = !app_settings.ssr_on;
+    for event in widget_click_events.read() {
         any_changes = true;
+        match **event {
+            ExampleSetting::Ssr(on) => app_settings.ssr_on = on,
+            ExampleSetting::Model(model) => app_settings.displayed_model = model,
+            ExampleSetting::MinRoughnessStart(adj) => {
+                app_settings.min_perceptual_roughness.start =
+                    adjust(app_settings.min_perceptual_roughness.start, adj, 0.005);
+            }
+            ExampleSetting::MinRoughnessEnd(adj) => {
+                app_settings.min_perceptual_roughness.end =
+                    adjust(app_settings.min_perceptual_roughness.end, adj, 0.005);
+            }
+            ExampleSetting::MaxRoughnessStart(adj) => {
+                app_settings.max_perceptual_roughness.start =
+                    adjust(app_settings.max_perceptual_roughness.start, adj, 0.005);
+            }
+            ExampleSetting::MaxRoughnessEnd(adj) => {
+                app_settings.max_perceptual_roughness.end =
+                    adjust(app_settings.max_perceptual_roughness.end, adj, 0.005);
+            }
+            ExampleSetting::EdgeFadeoutStart(adj) => {
+                app_settings.edge_fadeout.start =
+                    adjust(app_settings.edge_fadeout.start, adj, 0.001);
+            }
+            ExampleSetting::EdgeFadeoutEnd(adj) => {
+                app_settings.edge_fadeout.end = adjust(app_settings.edge_fadeout.end, adj, 0.001);
+            }
+        }
     }
 
-    // If the user pressed Enter, switch models.
-    if keyboard_input.just_pressed(KeyCode::Enter) {
-        app_settings.displayed_model = match app_settings.displayed_model {
-            DisplayedModel::Cube => DisplayedModel::FlightHelmet,
-            DisplayedModel::FlightHelmet => DisplayedModel::Capsules,
-            DisplayedModel::Capsules => DisplayedModel::Cube,
-        };
-        any_changes = true;
-    }
-
-    // Adjust min roughness range.
-    if keyboard_input.pressed(KeyCode::KeyU) {
-        app_settings.min_perceptual_roughness.start =
-            (app_settings.min_perceptual_roughness.start - 0.01).max(0.0);
-        any_changes = true;
-    }
-    if keyboard_input.pressed(KeyCode::KeyI) {
-        app_settings.min_perceptual_roughness.start =
-            (app_settings.min_perceptual_roughness.start + 0.01).min(1.0);
-        any_changes = true;
-    }
-    if keyboard_input.pressed(KeyCode::KeyO) {
-        app_settings.min_perceptual_roughness.end =
-            (app_settings.min_perceptual_roughness.end - 0.01).max(0.0);
-        any_changes = true;
-    }
-    if keyboard_input.pressed(KeyCode::KeyP) {
-        app_settings.min_perceptual_roughness.end =
-            (app_settings.min_perceptual_roughness.end + 0.01).min(1.0);
-        any_changes = true;
-    }
-
-    // Adjust max roughness range.
-    if keyboard_input.pressed(KeyCode::KeyH) {
-        app_settings.max_perceptual_roughness.start =
-            (app_settings.max_perceptual_roughness.start - 0.01).max(0.0);
-        any_changes = true;
-    }
-    if keyboard_input.pressed(KeyCode::KeyJ) {
-        app_settings.max_perceptual_roughness.start =
-            (app_settings.max_perceptual_roughness.start + 0.01).min(1.0);
-        any_changes = true;
-    }
-    if keyboard_input.pressed(KeyCode::KeyK) {
-        app_settings.max_perceptual_roughness.end =
-            (app_settings.max_perceptual_roughness.end - 0.01).max(0.0);
-        any_changes = true;
-    }
-    if keyboard_input.pressed(KeyCode::KeyL) {
-        app_settings.max_perceptual_roughness.end =
-            (app_settings.max_perceptual_roughness.end + 0.01).min(1.0);
-        any_changes = true;
-    }
-
-    // Adjust edge fadeout range.
-    if keyboard_input.pressed(KeyCode::KeyN) {
-        app_settings.edge_fadeout.start = (app_settings.edge_fadeout.start - 0.001).max(0.0);
-        any_changes = true;
-    }
-    if keyboard_input.pressed(KeyCode::KeyM) {
-        app_settings.edge_fadeout.start = (app_settings.edge_fadeout.start + 0.001).min(1.0);
-        any_changes = true;
-    }
-    if keyboard_input.pressed(KeyCode::Comma) {
-        app_settings.edge_fadeout.end = (app_settings.edge_fadeout.end - 0.001).max(0.0);
-        any_changes = true;
-    }
-    if keyboard_input.pressed(KeyCode::Period) {
-        app_settings.edge_fadeout.end = (app_settings.edge_fadeout.end + 0.001).min(1.0);
-        any_changes = true;
-    }
-
-    // If there were no changes, bail.
     if !any_changes {
         return;
     }
@@ -545,33 +649,96 @@ fn adjust_app_settings(
         }
     }
 
-    // Set cube model visibility.
-    for mut cube_visibility in cube_models.iter_mut() {
-        *cube_visibility = match app_settings.displayed_model {
-            DisplayedModel::Cube => Visibility::Visible,
-            _ => Visibility::Hidden,
+    // Set model visibility.
+    for entity in cube_models.iter() {
+        if let Ok(mut visibility) = visibilities.get_mut(entity) {
+            *visibility = if app_settings.displayed_model == DisplayedModel::Cube {
+                Visibility::Visible
+            } else {
+                Visibility::Hidden
+            };
+        }
+    }
+    for entity in flight_helmet_models.iter() {
+        if let Ok(mut visibility) = visibilities.get_mut(entity) {
+            *visibility = if app_settings.displayed_model == DisplayedModel::FlightHelmet {
+                Visibility::Visible
+            } else {
+                Visibility::Hidden
+            };
+        }
+    }
+    for entity in capsule_models.iter() {
+        if let Ok(mut visibility) = visibilities.get_mut(entity) {
+            *visibility = if app_settings.displayed_model == DisplayedModel::Capsules {
+                Visibility::Visible
+            } else {
+                Visibility::Hidden
+            };
         }
     }
 
-    // Set flight helmet model visibility.
-    for mut flight_helmet_visibility in flight_helmet_models.iter_mut() {
-        *flight_helmet_visibility = match app_settings.displayed_model {
-            DisplayedModel::FlightHelmet => Visibility::Visible,
-            _ => Visibility::Hidden,
+    // Update radio buttons.
+    for (entity, has_background, has_text, sender) in radio_buttons.iter() {
+        let selected = match **sender {
+            ExampleSetting::Ssr(on) => app_settings.ssr_on == on,
+            ExampleSetting::Model(model) => app_settings.displayed_model == model,
+            _ => {
+                if has_background {
+                    if let Ok(mut background_color) = background_colors.get_mut(entity) {
+                        *background_color = BackgroundColor(Color::BLACK);
+                    }
+                }
+                if has_text {
+                    update_ui_radio_button_text(entity, &mut writer, false);
+                }
+                continue;
+            }
         };
+
+        if has_background {
+            if let Ok(mut background_color) = background_colors.get_mut(entity) {
+                update_ui_radio_button(&mut background_color, selected);
+            }
+        }
+        if has_text {
+            update_ui_radio_button_text(entity, &mut writer, selected);
+        }
     }
 
-    // Set row of capsules model visibility.
-    for mut capsules_row_visibility in capsules_row_models.iter_mut() {
-        *capsules_row_visibility = match app_settings.displayed_model {
-            DisplayedModel::Capsules => Visibility::Visible,
-            _ => Visibility::Hidden,
+    // Update range value text.
+    for (parent, marker) in range_value_text.iter() {
+        let val = match marker {
+            RangeValueText::MinRoughnessStart => app_settings.min_perceptual_roughness.start,
+            RangeValueText::MinRoughnessEnd => app_settings.min_perceptual_roughness.end,
+            RangeValueText::MaxRoughnessStart => app_settings.max_perceptual_roughness.start,
+            RangeValueText::MaxRoughnessEnd => app_settings.max_perceptual_roughness.end,
+            RangeValueText::EdgeFadeoutStart => app_settings.edge_fadeout.start,
+            RangeValueText::EdgeFadeoutEnd => app_settings.edge_fadeout.end,
         };
+        if let Ok(children) = text_children.get(parent) {
+            for child in children.iter() {
+                if text_query.get(child).is_ok() {
+                    *writer.text(child, 0) = format!("{:.2}", val);
+                    writer.for_each_color(child, |mut color| {
+                        color.0 = Color::BLACK;
+                    });
+                }
+            }
+        }
     }
+}
 
-    // Update the help text.
-    for mut text in text.iter_mut() {
-        *text = create_text(&app_settings);
+impl MaterialExtension for Water {
+    fn deferred_fragment_shader() -> ShaderRef {
+        SHADER_ASSET_PATH.into()
+    }
+}
+
+fn adjust(val: f32, adj: Adjustment, amount: f32) -> f32 {
+    match adj {
+        Adjustment::Increase => (val + amount).min(1.0),
+        Adjustment::Decrease => (val - amount).max(0.0),
     }
 }
 
