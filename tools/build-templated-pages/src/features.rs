@@ -87,6 +87,18 @@ fn parse_features(panic_on_missing: bool) -> Vec<Feature> {
                         } else {
                             false
                         };
+
+                    if is_collection {
+                        let features = value
+                            .as_array()
+                            .unwrap()
+                            .iter()
+                            .flat_map(|v| v.as_str().map(|s| format!("`{}`", s)))
+                            .collect::<Vec<_>>()
+                            .join(", ");
+                        description.push_str(&format!("<br><br>**Feature set:** {}.", &features));
+                    }
+
                     Some(Feature {
                         is_profile,
                         is_collection,
