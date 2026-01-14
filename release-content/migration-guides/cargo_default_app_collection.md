@@ -1,9 +1,17 @@
 ---
-title: "`bevy_window`, `bevy_input_focus`, `custom_cursor` features moved to `common_api` collection"
+title: "`bevy_window`, `bevy_input_focus`, `custom_cursor` features moved to alternate feature collections"
 pull_requests: [22488]
 ---
 
-In Bevy 0.18, [feature collections were introduced](https://bevy.org/learn/migration-guides/0-17-to-0-18/#cargo-feature-collections). In Bevy 0.19, the `bevy_window`, `bevy_input_focus`, & `custom_cursor` features were moved from the `default_app` collection to mid-level `common_api` collection.
+In Bevy 0.18, [feature collections were introduced](https://bevy.org/learn/migration-guides/0-17-to-0-18/#cargo-feature-collections). The `bevy_window`, `bevy_input_focus`, & `custom_cursor` features were included in the `default_app` collection.
+
+In Bevy 0.19, these have been moved from `default_app`:
+
+|Feature           |is included in... |
+|:----------------:|:-----------------|
+|`bevy_window`     |`common_api`      |
+|`bevy_input_focus`|`ui_api`          |
+|`custom_cursor`   |`default_platform`|
 
 This change was made because:
 
