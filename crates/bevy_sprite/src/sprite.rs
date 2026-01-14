@@ -257,7 +257,7 @@ pub struct Anchor(pub Vec2);
 
 impl Eq for Anchor {}
 impl Hash for Anchor {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+    fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
         self.0.reflect_hash().hash(state);
     }
 }
