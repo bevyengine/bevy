@@ -123,7 +123,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMu
         DespawnOnExit(GameState::Playing),
         PointLight {
             intensity: 2_000_000.0,
-            shadows_enabled: true,
+            shadow_maps_enabled: true,
             range: 30.0,
             ..default()
         },

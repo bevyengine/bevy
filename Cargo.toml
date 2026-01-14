@@ -30,6 +30,11 @@ members = [
   "examples/no_std/*",
   # Examples of compiling Bevy with automatic reflect type registration for platforms without `inventory` support.
   "examples/reflection/auto_register_static",
+  # Examples of large bevy scenes.
+  "examples/large_scenes/bistro",
+  "examples/large_scenes/caldera_hotel",
+  # Mipmap generator for testing large bevy scenes with mips and texture compression.
+  "examples/large_scenes/mipmap_generator",
   # Benchmarks
   "benches",
   # Internal tools that are not published.
@@ -212,6 +217,7 @@ common_api = [
   "bevy_image",
   "bevy_mesh",
   "bevy_shader",
+  "bevy_material",
   "bevy_text",
   "hdr",
   "png",
@@ -368,6 +374,9 @@ bevy_light = ["bevy_internal/bevy_light"]
 
 # Provides shaders usable through asset handles.
 bevy_shader = ["bevy_internal/bevy_shader"]
+
+# Provides materials.
+bevy_material = ["bevy_internal/bevy_material"]
 
 # Adds support for gizmos
 bevy_gizmos = ["bevy_internal/bevy_gizmos"]
@@ -1242,6 +1251,19 @@ doc-scrape-examples = false
 [package.metadata.example.blend_modes]
 name = "Blend Modes"
 description = "Showcases different blend modes"
+category = "3D Rendering"
+wasm = true
+
+[[example]]
+name = "contact_shadows"
+path = "examples/3d/contact_shadows.rs"
+# Causes an ICE on docs.rs
+doc-scrape-examples = false
+required-features = ["bluenoise_texture"]
+
+[package.metadata.example.contact_shadows]
+name = "Contact Shadows"
+description = "Showcases how contact shadows add shadow detail"
 category = "3D Rendering"
 wasm = true
 
@@ -4494,7 +4516,7 @@ doc-scrape-examples = false
 name = "glTF extension AnimationGraph"
 description = "Uses glTF data to build an AnimationGraph via extension processing"
 category = "glTF"
-wasm = true
+wasm = false
 
 [[example]]
 name = "gltf_extension_mesh_2d"
@@ -4506,7 +4528,7 @@ doc-scrape-examples = false
 name = "glTF extension processing to build Mesh2ds from glTF data"
 description = "Uses glTF extension data to convert incoming Mesh3d/MeshMaterial3d assets to 2d"
 category = "glTF"
-wasm = true
+wasm = false
 
 [[example]]
 name = "query_gltf_primitives"
@@ -5243,6 +5265,17 @@ required-features = ["experimental_bevy_ui_widgets"]
 [package.metadata.example.scrollbars]
 name = "Scrollbars"
 description = "Demonstrates use of core scrollbar in Bevy UI"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
+name = "system_fonts"
+path = "examples/ui/system_fonts.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.system_fonts]
+name = "system_fonts"
+description = "Demonstrates how to use system fonts"
 category = "UI (User Interface)"
 wasm = true
 

@@ -160,7 +160,7 @@ fn update_lights(
 ) {
     for (_, mut light) in &mut query {
         if key_input.just_pressed(KeyCode::KeyU) {
-            light.shadows_enabled = !light.shadows_enabled;
+            light.shadow_maps_enabled = !light.shadow_maps_enabled;
         }
     }
 

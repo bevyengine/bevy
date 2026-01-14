@@ -289,7 +289,7 @@ fn setup(
             intensity: 4_000.0,
             radius: 0.2,
             range: 5.0,
-            shadows_enabled: true,
+            shadow_maps_enabled: true,
             ..default()
         },
         Flicker,

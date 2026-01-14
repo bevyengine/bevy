@@ -588,7 +588,7 @@ impl FontFeatureTag {
     /// same width.
     pub const TABULAR_FIGURES: FontFeatureTag = FontFeatureTag::new(b"tnum");
 
-    /// Varies the stroke thickness. Values must be in the range of 0 to 1000.
+    /// Varies the stroke thickness. Valid values are in the range of 1 to 1000, inclusive.
     pub const WEIGHT: FontFeatureTag = FontFeatureTag::new(b"wght");
 
     /// Varies the width of text from narrower to wider. Must be a value greater than 0. A value of
@@ -990,12 +990,16 @@ pub fn detect_text_needs_rerender<Root: Component>(
 #[reflect(Component, Default, Debug, Clone, PartialEq)]
 /// Font hinting strategy.
 ///
+/// The text bounds can underflow or overflow slightly with `FontHinting::Enabled`.
+///
 /// <https://docs.rs/cosmic-text/latest/cosmic_text/enum.Hinting.html>
 pub enum FontHinting {
     #[default]
     /// Glyphs will have subpixel coordinates.
     Disabled,
     /// Glyphs will be snapped to integral coordinates in the X-axis during layout.
+    ///
+    /// The text bounds can underflow or overflow slightly with this enabled.
     Enabled,
 }
 
