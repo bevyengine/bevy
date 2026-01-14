@@ -258,9 +258,7 @@ impl From<Justify> for cosmic_text::Align {
 /// # use bevy_ecs::world::World;
 /// # use bevy_text::CosmicFontSystem;
 /// # use bevy_ui::prelude::Text;
-///
 /// # let mut world = World::default();
-///
 /// let mut font_system = world.resource_mut::<CosmicFontSystem>();
 ///
 /// font_system.db_mut().set_serif_family("Allegro");
@@ -272,7 +270,7 @@ impl From<Justify> for cosmic_text::Align {
 /// // `CosmicFontSystem::get_family` can be used to look up the name
 /// // of a `FontSource`'s associated family
 /// let family_name = font_system.get_family(FontSource::Serif);
-/// assert_eq!(family_name, "Allegro");
+/// assert_eq!(family_name.as_str(), "Allegro");
 /// ```
 pub enum FontSource {
     /// Use a specific font face referenced by a [`Font`] asset handle.
