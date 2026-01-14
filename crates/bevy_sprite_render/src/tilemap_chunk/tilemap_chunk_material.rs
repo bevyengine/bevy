@@ -1,4 +1,4 @@
-use crate::{AlphaMode2d, Material2d, Material2dPlugin, TileData};
+use crate::{AlphaMode2d, Material2d, Material2dPlugin, TileRenderData};
 use bevy_app::{App, Plugin};
 use bevy_asset::{embedded_asset, embedded_path, Asset, AssetPath, Handle, RenderAssetUsages};
 use bevy_color::ColorToPacked;
@@ -68,13 +68,13 @@ impl PackedTileData {
     }
 }
 
-impl From<TileData> for PackedTileData {
+impl From<TileRenderData> for PackedTileData {
     fn from(
-        TileData {
+        TileRenderData {
             tileset_index,
             color,
             visible,
-        }: TileData,
+        }: TileRenderData,
     ) -> Self {
         Self {
             tileset_index,
@@ -84,8 +84,8 @@ impl From<TileData> for PackedTileData {
     }
 }
 
-impl From<Option<TileData>> for PackedTileData {
-    fn from(maybe_tile_data: Option<TileData>) -> Self {
+impl From<Option<TileRenderData>> for PackedTileData {
+    fn from(maybe_tile_data: Option<TileRenderData>) -> Self {
         maybe_tile_data
             .map(Into::into)
             .unwrap_or(PackedTileData::empty())

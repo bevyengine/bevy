@@ -1038,6 +1038,17 @@ category = "2D Rendering"
 wasm = false
 
 [[example]]
+name = "tilemap_entities"
+path = "examples/2d/tilemap_entities.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.tilemap_entities]
+name = "Tilemap Entities"
+description = "Renders a tilemap where each tile is an entity"
+category = "2D Rendering"
+wasm = true
+
+[[example]]
 name = "tilemap_chunk"
 path = "examples/2d/tilemap_chunk.rs"
 # Causes an ICE on docs.rs
@@ -1046,6 +1057,17 @@ doc-scrape-examples = false
 [package.metadata.example.tilemap_chunk]
 name = "Tilemap Chunk"
 description = "Renders a tilemap chunk"
+category = "2D Rendering"
+wasm = true
+
+[[example]]
+name = "tilemap"
+path = "examples/2d/tilemap.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.tilemap]
+name = "Tilemap"
+description = "Renders a tilemap"
 category = "2D Rendering"
 wasm = true
 
