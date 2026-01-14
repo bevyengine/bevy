@@ -35,7 +35,7 @@ use crate::{
 ///
 /// ## Shadows
 ///
-/// To enable shadows, set the `shadows_enabled` property to `true`.
+/// To enable shadows, set the `shadow_maps_enabled` property to `true`.
 ///
 /// To control the resolution of the shadow maps, use the [`PointLightShadowMap`] resource.
 #[derive(Component, Debug, Clone, Copy, Reflect)]
@@ -70,7 +70,10 @@ pub struct PointLight {
     pub radius: f32,
 
     /// Whether this light casts shadows.
-    pub shadows_enabled: bool,
+    pub shadow_maps_enabled: bool,
+
+    /// Whether this light casts contact shadows.
+    pub contact_shadows_enabled: bool,
 
     /// Whether soft shadows are enabled.
     ///
@@ -132,7 +135,8 @@ impl Default for PointLight {
             intensity: light_consts::lumens::VERY_LARGE_CINEMA_LIGHT,
             range: 20.0,
             radius: 0.0,
-            shadows_enabled: false,
+            shadow_maps_enabled: false,
+            contact_shadows_enabled: false,
             affects_lightmapped_mesh_diffuse: true,
             shadow_depth_bias: Self::DEFAULT_SHADOW_DEPTH_BIAS,
             shadow_normal_bias: Self::DEFAULT_SHADOW_NORMAL_BIAS,
@@ -214,7 +218,7 @@ pub fn update_point_light_frusta(
         // not needed.
         // Also, if the light is not relevant for any cluster, it will not be in the
         // global lights set and so there is no need to update its frusta.
-        if !point_light.shadows_enabled || !global_lights.entities.contains(&entity) {
+        if !point_light.shadow_maps_enabled || !global_lights.entities.contains(&entity) {
             continue;
         }
 
