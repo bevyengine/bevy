@@ -247,10 +247,28 @@ impl From<Justify> for cosmic_text::Align {
 }
 
 #[derive(Clone, Debug, Reflect, PartialEq)]
-/// Specifies how the font face for a text span is sourced.
+/// Determines how the font face for a text sections is selected.
 ///
-/// A `FontSource` can either reference a font asset or identify a font by family name to be
-/// resolved by the font systems.
+/// A `FontSource` can be a handle to a font asset, a font family name,
+/// or a generic font category that is resolved using Cosmic Text's font database.
+///
+/// The `CosmicFontSystem` resource can be used to change the font family
+/// associated to a generic font variant:
+/// ```
+/// # use bevy_ecs::world::World;
+/// # use bevy_text::CosmicFontSystem;
+/// # use bevy_ui::prelude::Text;
+///
+/// # let mut world = World::default();
+///
+/// let mut font_system = world.resource_mut::<CosmicFontSystem>();
+///
+/// font_system.db_mut().set_serif_family("Allegro");
+/// font_system.db_mut().set_sans_serif_family("Encode Sans");
+/// font_system.db_mut().set_cursive_family("Cedarville Cursive");
+/// font_system.db_mut().set_fantasy_family("Argusho");
+/// font_system.db_mut().set_monospace_family("Lucida Console");
+/// ```
 pub enum FontSource {
     /// Use a specific font face referenced by a [`Font`] asset handle.
     ///
@@ -324,10 +342,10 @@ impl From<&str> for FontSource {
 #[derive(Component, Clone, Debug, Reflect, PartialEq)]
 #[reflect(Component, Default, Debug, Clone)]
 pub struct TextFont {
-    /// Specifies how the font face for a text span is sourced.
+    /// Specifies the font face used for this text section.
     ///
-    /// A `FontSource` can either reference a font asset or identify a font by family name to be
-    /// resolved by the text systems.
+    /// A `FontSource` can be a handle to a font asset, a font family name,
+    /// or a generic font category that is resolved using Cosmic Text's font database.
     pub font: FontSource,
     /// The vertical height of rasterized glyphs in the font atlas in pixels.
     ///
