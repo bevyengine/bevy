@@ -258,7 +258,7 @@ impl From<Justify> for cosmic_text::Align {
 /// # use bevy_ecs::world::World;
 /// # use bevy_text::CosmicFontSystem;
 /// # use bevy_ui::prelude::Text;
-/// # use bevy_text::text::FontSource;
+/// # use bevy_text::FontSource;
 /// # let mut world = World::default();
 /// let mut font_system = world.resource_mut::<CosmicFontSystem>();
 ///
