@@ -212,16 +212,13 @@ pub fn ui_picking(
                         *cursor_position,
                         text_layout_info,
                         text_block,
+                    ) && clip_check_recursive(
+                        *cursor_position,
+                        node_entity,
+                        &clipping_query,
+                        &child_of_query,
                     ) {
-                        if settings.require_markers
-                            && !pickable_query.contains(text_entity)
-                            && !clip_check_recursive(
-                                *cursor_position,
-                                node_entity,
-                                &clipping_query,
-                                &child_of_query,
-                            )
-                        {
+                        if settings.require_markers && !pickable_query.contains(text_entity) {
                             continue;
                         }
 
