@@ -23,7 +23,7 @@ bevy_reflect = { path = "../bevy_reflect", version = "0.19.0-dev" }
 bevy_ui = { path = "../bevy_ui", version = "0.19.0-dev" }
 
 # other
-accesskit = "0.21"
+accesskit = "0.22"
 
 [features]
 default = []
