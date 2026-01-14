@@ -1,4 +1,8 @@
-use crate::{utility::reflect_hasher, Enum, PartialReflect, ReflectRef, VariantType};
+use crate::{
+    enums::{Enum, VariantType},
+    utility::reflect_hasher,
+    PartialReflect, ReflectRef,
+};
 use core::{
     fmt::Debug,
     hash::{Hash, Hasher},
@@ -116,7 +120,7 @@ pub fn enum_partial_cmp<TEnum: Enum + ?Sized>(
             if a.field_len() != b.field_len() {
                 return None;
             }
-            crate::struct_trait::partial_cmp_by_field_names(
+            crate::structs::partial_cmp_by_field_names(
                 a.field_len(),
                 |i| a.name_at(i),
                 |i| a.field_at(i),

@@ -1,11 +1,15 @@
+//! Traits and types used to power [tuple-struct-like] operations via reflection.
+//!
+//! [tuple-struct-like]: https://doc.rust-lang.org/book/ch05-01-defining-structs.html#using-tuple-structs-without-named-fields-to-create-different-types
 use bevy_reflect_derive::impl_type_path;
 
 use crate::generics::impl_generic_info_methods;
 use crate::{
     attributes::{impl_custom_attribute_methods, CustomAttributes},
+    tuple::{DynamicTuple, Tuple},
     type_info::impl_type_methods,
-    ApplyError, DynamicTuple, Generics, PartialReflect, Reflect, ReflectKind, ReflectMut,
-    ReflectOwned, ReflectRef, Tuple, Type, TypeInfo, TypePath, UnnamedField,
+    ApplyError, Generics, PartialReflect, Reflect, ReflectKind, ReflectMut, ReflectOwned,
+    ReflectRef, Type, TypeInfo, TypePath, UnnamedField,
 };
 use alloc::{boxed::Box, vec::Vec};
 use bevy_platform::sync::Arc;
@@ -25,7 +29,7 @@ use core::{
 /// # Example
 ///
 /// ```
-/// use bevy_reflect::{PartialReflect, Reflect, TupleStruct};
+/// use bevy_reflect::{PartialReflect, Reflect, tuple_struct::TupleStruct};
 ///
 /// #[derive(Reflect)]
 /// struct Foo(u32);
@@ -178,7 +182,7 @@ impl<'a> ExactSizeIterator for TupleStructFieldIter<'a> {}
 /// # Example
 ///
 /// ```
-/// use bevy_reflect::{GetTupleStructField, Reflect};
+/// use bevy_reflect::{tuple_struct::GetTupleStructField, Reflect};
 ///
 /// #[derive(Reflect)]
 /// struct Foo(String);
@@ -518,7 +522,8 @@ pub fn tuple_struct_debug(
 
 #[cfg(test)]
 mod tests {
-    use crate::*;
+    use super::TupleStruct;
+    use crate::Reflect;
     #[derive(Reflect)]
     struct Ts(u8, u8, u8, u8, u8, u8, u8, u8, u8, u8, u8, u8);
     #[test]

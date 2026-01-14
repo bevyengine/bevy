@@ -135,7 +135,7 @@
 //! For example, we can access our struct's fields by name using the [`Struct::field`] method.
 //!
 //! ```
-//! # use bevy_reflect::{PartialReflect, Reflect, Struct};
+//! # use bevy_reflect::{PartialReflect, Reflect, structs::Struct};
 //! # #[derive(Reflect)]
 //! # struct MyStruct {
 //! #   foo: i32
@@ -195,7 +195,7 @@
 //! These dynamic types may contain any arbitrary reflected data.
 //!
 //! ```
-//! # use bevy_reflect::{DynamicStruct, Struct};
+//! # use bevy_reflect::structs::{DynamicStruct, Struct};
 //! let mut data = DynamicStruct::default();
 //! data.insert("foo", 123_i32);
 //! assert_eq!(Some(&123), data.field("foo").unwrap().try_downcast_ref::<i32>())
@@ -209,7 +209,7 @@
 //! we may pass them around just like most other reflected types.
 //!
 //! ```
-//! # use bevy_reflect::{DynamicStruct, PartialReflect, Reflect};
+//! # use bevy_reflect::{structs::DynamicStruct, PartialReflect, Reflect};
 //! # #[derive(Reflect)]
 //! # struct MyStruct {
 //! #   foo: i32
@@ -229,7 +229,7 @@
 //! This is known as "patching" and is done using the [`PartialReflect::apply`] and [`PartialReflect::try_apply`] methods.
 //!
 //! ```
-//! # use bevy_reflect::{DynamicEnum, PartialReflect};
+//! # use bevy_reflect::{enums::DynamicEnum, PartialReflect};
 //! let mut value = Some(123_i32);
 //! let patch = DynamicEnum::new("None", ());
 //! value.apply(&patch);
@@ -243,7 +243,7 @@
 //! or when trying to make use of a reflected trait which expects the actual type.
 //!
 //! ```should_panic
-//! # use bevy_reflect::{DynamicStruct, PartialReflect, Reflect};
+//! # use bevy_reflect::{structs::DynamicStruct, PartialReflect, Reflect};
 //! # #[derive(Reflect)]
 //! # struct MyStruct {
 //! #   foo: i32
@@ -541,7 +541,23 @@
 //! [the language feature for dyn upcasting coercion]: https://github.com/rust-lang/rust/issues/65991
 //! [derive macro]: derive@crate::Reflect
 //! [`'static` lifetime]: https://doc.rust-lang.org/rust-by-example/scope/lifetime/static_lifetime.html#trait-bound
+//! [`Tuple`]: crate::tuple::Tuple
+//! [`Array`]: crate::array::Array
+//! [`List`]: crate::list::List
+//! [`Set`]: crate::set::Set
+//! [`Map`]: crate::map::Map
+//! [`Struct`]: crate::structs::Struct
+//! [`TupleStruct`]: crate::tuple_struct::TupleStruct
+//! [`Enum`]: crate::enums::Enum
 //! [`Function`]: crate::func::Function
+//! [`Struct::field`]: crate::structs::Struct::field
+//! [`DynamicTuple`]: crate::tuple::DynamicTuple
+//! [`DynamicArray`]: crate::array::DynamicArray
+//! [`DynamicList`]: crate::list::DynamicList
+//! [`DynamicMap`]: crate::map::DynamicMap
+//! [`DynamicStruct`]: crate::structs::DynamicStruct
+//! [`DynamicTupleStruct`]: crate::tuple_struct::DynamicTupleStruct
+//! [`DynamicEnum`]: crate::enums::DynamicEnum
 //! [derive macro documentation]: derive@crate::Reflect
 //! [deriving `Reflect`]: derive@crate::Reflect
 //! [type data]: TypeData
@@ -578,7 +594,7 @@ extern crate alloc;
 // Required to make proc macros work in bevy itself.
 extern crate self as bevy_reflect;
 
-mod array;
+pub mod array;
 mod error;
 mod fields;
 mod from_reflect;
@@ -586,16 +602,16 @@ mod from_reflect;
 pub mod func;
 mod is;
 mod kind;
-mod list;
-mod map;
+pub mod list;
+pub mod map;
 mod path;
 mod reflect;
 mod reflectable;
 mod remote;
-mod set;
-mod struct_trait;
-mod tuple;
-mod tuple_struct;
+pub mod set;
+pub mod structs;
+pub mod tuple;
+pub mod tuple_struct;
 mod type_info;
 mod type_path;
 mod type_registry;
@@ -628,7 +644,7 @@ mod impls {
 }
 
 pub mod attributes;
-mod enums;
+pub mod enums;
 mod generics;
 pub mod serde;
 pub mod std_traits;
@@ -644,33 +660,27 @@ pub mod prelude {
 
     #[doc(hidden)]
     pub use crate::{
-        reflect_trait, FromReflect, GetField, GetPath, GetTupleStructField, PartialReflect,
-        Reflect, ReflectDeserialize, ReflectFromReflect, ReflectPath, ReflectSerialize, Struct,
-        TupleStruct, TypePath,
+        reflect_trait,
+        structs::{GetField, Struct},
+        tuple_struct::{GetTupleStructField, TupleStruct},
+        FromReflect, GetPath, PartialReflect, Reflect, ReflectDeserialize, ReflectFromReflect,
+        ReflectPath, ReflectSerialize, TypePath,
     };
 
     #[cfg(feature = "functions")]
     pub use crate::func::{Function, IntoFunction, IntoFunctionMut};
 }
 
-pub use array::*;
-pub use enums::*;
 pub use error::*;
 pub use fields::*;
 pub use from_reflect::*;
 pub use generics::*;
 pub use is::*;
 pub use kind::*;
-pub use list::*;
-pub use map::*;
 pub use path::*;
 pub use reflect::*;
 pub use reflectable::*;
 pub use remote::*;
-pub use set::*;
-pub use struct_trait::*;
-pub use tuple::*;
-pub use tuple_struct::*;
 pub use type_info::*;
 pub use type_path::*;
 pub use type_registry::*;
@@ -684,8 +694,9 @@ pub use erased_serde;
 #[doc(hidden)]
 pub mod __macro_exports {
     use crate::{
-        DynamicArray, DynamicEnum, DynamicList, DynamicMap, DynamicStruct, DynamicTuple,
-        DynamicTupleStruct, GetTypeRegistration, TypeRegistry,
+        array::DynamicArray, enums::DynamicEnum, list::DynamicList, map::DynamicMap,
+        structs::DynamicStruct, tuple::DynamicTuple, tuple_struct::DynamicTupleStruct,
+        GetTypeRegistration, TypeRegistry,
     };
 
     /// Re-exports of items from the [`alloc`] crate.
@@ -864,7 +875,9 @@ mod tests {
     };
     use static_assertions::{assert_impl_all, assert_not_impl_all};
 
-    use super::{prelude::*, *};
+    use super::{
+        array::*, enums::*, list::*, map::*, prelude::*, structs::*, tuple::*, tuple_struct::*, *,
+    };
     use crate::{
         serde::{ReflectDeserializer, ReflectSerializer},
         utility::GenericTypePathCell,
@@ -1742,7 +1755,7 @@ mod tests {
 
     #[test]
     fn reflect_partial_cmp_struct_named_field_reorder() {
-        use crate::DynamicStruct;
+        use crate::structs::DynamicStruct;
 
         #[derive(PartialEq, PartialOrd, Reflect, Debug)]
         struct S {
@@ -1800,7 +1813,7 @@ mod tests {
 
     #[test]
     fn reflect_partial_cmp_dynamic_vs_concrete_struct_equal() {
-        use crate::DynamicStruct;
+        use crate::structs::DynamicStruct;
 
         #[derive(PartialEq, PartialOrd, Reflect, Debug)]
         struct S {

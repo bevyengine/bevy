@@ -1,3 +1,6 @@
+//! Traits and types used to power [tuple-like] operations via reflection.
+//!
+//! [tuple-like]: https://doc.rust-lang.org/book/ch03-02-data-types.html#the-tuple-type
 use bevy_reflect_derive::impl_type_path;
 use variadics_please::all_tuples;
 
@@ -26,7 +29,7 @@ use core::{
 /// # Example
 ///
 /// ```
-/// use bevy_reflect::{PartialReflect, Tuple};
+/// use bevy_reflect::{PartialReflect, tuple::Tuple};
 ///
 /// let foo = (123_u32, true);
 /// assert_eq!(foo.field_len(), 2);
@@ -108,7 +111,7 @@ impl<'a> ExactSizeIterator for TupleFieldIter<'a> {}
 /// # Example
 ///
 /// ```
-/// use bevy_reflect::GetTupleField;
+/// use bevy_reflect::tuple::GetTupleField;
 ///
 /// # fn main() {
 /// let foo = ("blue".to_string(), 42_i32);
@@ -586,18 +589,18 @@ macro_rules! impl_reflect_tuple {
             }
 
             fn reflect_partial_eq(&self, value: &dyn PartialReflect) -> Option<bool> {
-                crate::tuple_partial_eq(self, value)
+                crate::tuple::tuple_partial_eq(self, value)
             }
             fn reflect_partial_cmp(&self, value: &dyn PartialReflect) -> Option<::core::cmp::Ordering> {
-                crate::tuple_partial_cmp(self, value)
+                crate::tuple::tuple_partial_cmp(self, value)
             }
 
             fn apply(&mut self, value: &dyn PartialReflect) {
-                crate::tuple_apply(self, value);
+                crate::tuple::tuple_apply(self, value);
             }
 
             fn try_apply(&mut self, value: &dyn PartialReflect) -> Result<(), ApplyError> {
-                crate::tuple_try_apply(self, value)
+                crate::tuple::tuple_try_apply(self, value)
             }
 
             fn reflect_clone(&self) -> Result<Box<dyn Reflect>, ReflectCloneError> {

@@ -1,7 +1,8 @@
 use crate::{
-    array_debug, enum_debug, list_debug, map_debug, set_debug, struct_debug, tuple_debug,
-    tuple_struct_debug, DynamicTypePath, DynamicTyped, OpaqueInfo, ReflectCloneError, ReflectKind,
-    ReflectKindMismatchError, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, TypePath, Typed,
+    array::array_debug, enums::enum_debug, list::list_debug, map::map_debug, set::set_debug,
+    structs::struct_debug, tuple::tuple_debug, tuple_struct::tuple_struct_debug, DynamicTypePath,
+    DynamicTyped, OpaqueInfo, ReflectCloneError, ReflectKind, ReflectKindMismatchError, ReflectMut,
+    ReflectOwned, ReflectRef, TypeInfo, TypePath, Typed,
 };
 use alloc::borrow::Cow;
 use alloc::boxed::Box;
@@ -49,7 +50,7 @@ pub enum ApplyError {
     #[error("attempted to apply type with {from_size} size to a type with {to_size} size")]
     /// Attempted to apply an [array-like] type to another of different size, e.g. a [u8; 4] to [u8; 3].
     ///
-    /// [array-like]: crate::Array
+    /// [array-like]: crate::array::Array
     DifferentSize {
         /// Size of the value we attempted to apply, in elements.
         from_size: usize,
@@ -89,9 +90,9 @@ impl From<ReflectKindMismatchError> for ApplyError {
 ///
 /// [`bevy_reflect`]: crate
 /// [the derive macro for `Reflect`]: bevy_reflect_derive::Reflect
-/// [`Struct`]: crate::Struct
-/// [`TupleStruct`]: crate::TupleStruct
-/// [`Enum`]: crate::Enum
+/// [`Struct`]: crate::structs::Struct
+/// [`TupleStruct`]: crate::tuple_struct::TupleStruct
+/// [`Enum`]: crate::enums::Enum
 /// [crate-level documentation]: crate
 #[diagnostic::on_unimplemented(
     message = "`{Self}` does not implement `PartialReflect` so cannot be introspected",
@@ -114,8 +115,8 @@ where
     /// frequently, consider using [`TypeRegistry::get_type_info`] as it can be more
     /// performant for such use cases.
     ///
-    /// [`DynamicStruct`]: crate::DynamicStruct
-    /// [`DynamicList`]: crate::DynamicList
+    /// [`DynamicStruct`]: crate::structs::DynamicStruct
+    /// [`DynamicList`]: crate::list::DynamicList
     /// [`TypeRegistry::get_type_info`]: crate::TypeRegistry::get_type_info
     fn get_represented_type_info(&self) -> Option<&'static TypeInfo>;
 
@@ -182,17 +183,17 @@ where
     /// [`list_apply`], [`map_apply`], and [`set_apply`] helper functions when implementing this method.
     ///
     /// [reflection subtrait]: crate#the-reflection-subtraits
-    /// [`Struct`]: crate::Struct
-    /// [`TupleStruct`]: crate::TupleStruct
-    /// [`Tuple`]: crate::Tuple
-    /// [`Enum`]: crate::Enum
-    /// [`List`]: crate::List
-    /// [`Array`]: crate::Array
-    /// [`Map`]: crate::Map
-    /// [`Set`]: crate::Set
-    /// [`list_apply`]: crate::list_apply
-    /// [`map_apply`]: crate::map_apply
-    /// [`set_apply`]: crate::set_apply
+    /// [`Struct`]: crate::structs::Struct
+    /// [`TupleStruct`]: crate::tuple_struct::TupleStruct
+    /// [`Tuple`]: crate::tuple::Tuple
+    /// [`Enum`]: crate::enums::Enum
+    /// [`List`]: crate::list::List
+    /// [`Array`]: crate::array::Array
+    /// [`Map`]: crate::map::Map
+    /// [`Set`]: crate::set::Set
+    /// [`list_apply`]: crate::list::list_apply
+    /// [`map_apply`]: crate::map::map_apply
+    /// [`set_apply`]: crate::set::set_apply
     ///
     /// # Panics
     ///
@@ -265,12 +266,12 @@ where
     /// ```
     ///
     /// [kind]: PartialReflect::reflect_kind
-    /// [`List`]: crate::List
-    /// [`List::to_dynamic_list`]: crate::List::to_dynamic_list
-    /// [`DynamicList`]: crate::DynamicList
-    /// [`Struct`]: crate::Struct
-    /// [`Struct::to_dynamic_struct`]: crate::Struct::to_dynamic_struct
-    /// [`DynamicStruct`]: crate::DynamicStruct
+    /// [`List`]: crate::list::List
+    /// [`List::to_dynamic_list`]: crate::list::List::to_dynamic_list
+    /// [`DynamicList`]: crate::list::DynamicList
+    /// [`Struct`]: crate::structs::Struct
+    /// [`Struct::to_dynamic_struct`]: crate::structs::Struct::to_dynamic_struct
+    /// [`DynamicStruct`]: crate::structs::DynamicStruct
     /// [opaque]: crate::ReflectKind::Opaque
     /// [`reflect_clone`]: PartialReflect::reflect_clone
     fn to_dynamic(&self) -> Box<dyn PartialReflect> {
@@ -359,8 +360,8 @@ where
     /// (e.g. [`List`], [`Map`]), will default to the format: `"Reflect(type_path)"`,
     /// where `type_path` is the [type path] of the underlying type.
     ///
-    /// [`List`]: crate::List
-    /// [`Map`]: crate::Map
+    /// [`List`]: crate::list::List
+    /// [`Map`]: crate::map::Map
     /// [type path]: TypePath::type_path
     fn debug(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self.reflect_ref() {
@@ -387,9 +388,9 @@ where
     ///
     /// By default, this method will return `false`.
     ///
-    /// [`DynamicStruct`]: crate::DynamicStruct
-    /// [`DynamicList`]: crate::DynamicList
-    /// [`DynamicTuple`]: crate::DynamicTuple
+    /// [`DynamicStruct`]: crate::structs::DynamicStruct
+    /// [`DynamicList`]: crate::list::DynamicList
+    /// [`DynamicTuple`]: crate::tuple::DynamicTuple
     fn is_dynamic(&self) -> bool {
         false
     }
@@ -411,9 +412,9 @@ where
 ///
 /// [`bevy_reflect`]: crate
 /// [the derive macro]: bevy_reflect_derive::Reflect
-/// [`Struct`]: crate::Struct
-/// [`TupleStruct`]: crate::TupleStruct
-/// [`Enum`]: crate::Enum
+/// [`Struct`]: crate::structs::Struct
+/// [`TupleStruct`]: crate::tuple_struct::TupleStruct
+/// [`Enum`]: crate::enums::Enum
 /// [`Reflectable`]: crate::Reflectable
 /// [crate-level documentation]: crate
 #[diagnostic::on_unimplemented(

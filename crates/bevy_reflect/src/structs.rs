@@ -1,3 +1,6 @@
+//! Traits and types used to power [struct-like] operations via reflection.
+//!
+//! [struct-like]: https://doc.rust-lang.org/book/ch05-01-defining-structs.html
 use crate::generics::impl_generic_info_methods;
 use crate::{
     attributes::{impl_custom_attribute_methods, CustomAttributes},
@@ -26,7 +29,7 @@ use core::{
 /// # Example
 ///
 /// ```
-/// use bevy_reflect::{PartialReflect, Reflect, Struct};
+/// use bevy_reflect::{PartialReflect, Reflect, structs::Struct};
 ///
 /// #[derive(Reflect)]
 /// struct Foo {
@@ -225,7 +228,7 @@ impl<'a> ExactSizeIterator for FieldIter<'a> {}
 /// # Example
 ///
 /// ```
-/// use bevy_reflect::{GetField, Reflect};
+/// use bevy_reflect::{structs::GetField, Reflect};
 ///
 /// #[derive(Reflect)]
 /// struct Foo {
@@ -685,7 +688,7 @@ pub fn struct_debug(dyn_struct: &dyn Struct, f: &mut Formatter<'_>) -> core::fmt
 
 #[cfg(test)]
 mod tests {
-    use crate::*;
+    use crate::{structs::*, *};
     #[derive(Reflect, Default)]
     struct MyStruct {
         a: (),

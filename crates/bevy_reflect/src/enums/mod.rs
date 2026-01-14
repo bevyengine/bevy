@@ -1,3 +1,6 @@
+//! Traits and types used to power [enum-like] operations via reflection.
+//!
+//! [enum-like]: https://doc.rust-lang.org/book/ch06-01-defining-an-enum.html
 mod dynamic_enum;
 mod enum_trait;
 mod helpers;
@@ -10,7 +13,7 @@ pub use variants::*;
 
 #[cfg(test)]
 mod tests {
-    use crate::*;
+    use crate::{enums::*, structs::*, tuple::*, *};
     use alloc::boxed::Box;
 
     #[derive(Reflect, Debug, PartialEq)]
