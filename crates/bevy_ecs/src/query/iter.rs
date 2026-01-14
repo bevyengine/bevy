@@ -2586,13 +2586,12 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
                 let matches_filter =
                     unsafe { F::matches(&query_state.filter_state, &mut self.filter, entity, row) };
 
-                (matches_fetch && matches_filter).then(|| 
+                (matches_fetch && matches_filter).then(||
                     // SAFETY:
                     //  - `set_table` must have been called previously either in `next` or before it.
                     //  - `*entity` and `index` are in the current table.
                     //  - `row` matches both the fetch and filter
-                    unsafe { D::fetch(&query_state.fetch_state, &mut self.fetch, entity, row) }
-                )
+                    unsafe { D::fetch(&query_state.fetch_state, &mut self.fetch, entity, row) })
             } else {
                 // SAFETY: This must have been called previously in `next` as `current_row > 0`
                 let archetype_entity =
@@ -2619,7 +2618,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
                     )
                 };
 
-                (matches_fetch && matches_filter).then(|| 
+                (matches_fetch && matches_filter).then(||
                     // SAFETY:
                     //  - `set_archetype` must have been called previously either in `next` or before it.
                     //  - `archetype_entity.id()` and `archetype_entity.table_row()` are in the current archetype.
@@ -2631,8 +2630,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
                             archetype_entity.id(),
                             archetype_entity.table_row(),
                         )
-                    }
-                )
+                    })
             }
         } else {
             None
@@ -2771,7 +2769,6 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
                         &mut self.fetch,
                         archetype_entity.id(),
                         archetype_entity.table_row(),
-
                     )
                 };
                 // SAFETY: set_archetype was called prior.
@@ -2782,7 +2779,6 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
                         &mut self.filter,
                         archetype_entity.id(),
                         archetype_entity.table_row(),
-
                     )
                 };
 
