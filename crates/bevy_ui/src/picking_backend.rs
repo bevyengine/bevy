@@ -215,7 +215,7 @@ pub fn ui_picking(
                     ) {
                         if settings.require_markers
                             && !pickable_query.contains(text_entity)
-                            && clip_check_recursive(
+                            && !clip_check_recursive(
                                 *cursor_position,
                                 node_entity,
                                 &clipping_query,
