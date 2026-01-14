@@ -96,11 +96,6 @@ pub struct SpriteMaterialUniform {
     pub center_stretch_value: Vec2,
 }
 
-#[derive(ShaderType, Default)]
-pub struct SpriteMaterialTile {
-    pub stretch_value: f32,
-}
-
 impl AsBindGroupShaderType<SpriteMaterialUniform> for SpriteMaterial {
     fn as_bind_group_shader_type(
         &self,
