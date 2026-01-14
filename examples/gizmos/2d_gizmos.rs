@@ -39,11 +39,11 @@ fn setup(mut commands: Commands) {
 }
 
 fn draw_example_collection(
-    mut gizmos: Gizmos,
-    mut my_gizmos: Gizmos<MyRoundGizmos>,
+    mut gizmos_set: ParamSet<(Gizmos, Gizmos<MyRoundGizmos>)>,
     time: Res<Time>,
 ) {
     let sin_t_scaled = ops::sin(time.elapsed_secs()) * 50.;
+    let mut gizmos = gizmos_set.p0();
     gizmos.line_2d(Vec2::Y * -sin_t_scaled, Vec2::splat(-80.), RED);
     gizmos.ray_2d(Vec2::Y * sin_t_scaled, Vec2::splat(80.), LIME);
 
@@ -78,6 +78,7 @@ fn draw_example_collection(
         .map(|t| (t, TEAL.mix(&HOT_PINK, (t + 300.0) / 600.0)));
     gizmos.curve_gradient_2d(curve, times_and_colors);
 
+    let mut my_gizmos = gizmos_set.p1();
     my_gizmos
         .rounded_rect_2d(Isometry2d::IDENTITY, Vec2::splat(630.), BLACK)
         .corner_radius(ops::cos(time.elapsed_secs() / 3.) * 100.);
@@ -106,6 +107,7 @@ fn draw_example_collection(
     my_gizmos.long_arc_2d_between(Vec2::ZERO, Vec2::X * 20.0, Vec2::Y * 20.0, ORANGE_RED);
     my_gizmos.short_arc_2d_between(Vec2::ZERO, Vec2::X * 40.0, Vec2::Y * 40.0, ORANGE_RED);
 
+    let mut gizmos = gizmos_set.p0();
     gizmos.arrow_2d(
         Vec2::ZERO,
         Vec2::from_angle(sin_t_scaled / -10. + PI / 2.) * 50.,
@@ -121,6 +123,8 @@ fn draw_example_collection(
         )
         .with_double_end()
         .with_tip_length(10.);
+
+    gizmos.text_2d(Vec2::ZERO, "Text Gizmo".to_string(), 20., RED);
 }
 
 fn update_config(
