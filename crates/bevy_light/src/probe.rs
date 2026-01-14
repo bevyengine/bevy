@@ -1,6 +1,6 @@
 use bevy_asset::{Assets, Handle, RenderAssetUsages};
 use bevy_camera::visibility::Visibility;
-use bevy_color::{Color, ColorToPacked, Srgba};
+use bevy_color::{Color, ColorToComponents, Srgba};
 use bevy_ecs::prelude::*;
 use bevy_image::Image;
 use bevy_math::{Quat, UVec2};
@@ -157,7 +157,8 @@ impl EnvironmentMapLight {
                     mid_color,
                 ]
                 .into_iter()
-                .flat_map(Srgba::to_u8_array)
+                .flat_map(|c| c.to_f32_array().map(half::f16::from_f32))
+                .flat_map(half::f16::to_le_bytes)
                 .collect(),
                 TextureFormat::Rgba16Float,
                 RenderAssetUsages::RENDER_WORLD,
