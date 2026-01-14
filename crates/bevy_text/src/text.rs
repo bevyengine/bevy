@@ -7,7 +7,7 @@ use bevy_reflect::prelude::*;
 use bevy_utils::{default, once};
 use core::fmt::{Debug, Formatter};
 use core::str::from_utf8;
-use cosmic_text::{Buffer, Metrics, Stretch};
+use cosmic_text::{Buffer, Family, Metrics, Stretch};
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
 use smol_str::SmolStr;
@@ -305,6 +305,22 @@ pub enum FontSource {
     /// Monospace fonts are commonly used for code, tabular data, and text
     /// where vertical alignment is important.
     Monospace,
+}
+
+impl FontSource {
+    /// Returns this `FontSource` as a `fontdb` family, or `None`
+    /// if this source is a `Handle`.
+    pub(crate) fn as_family<'a>(&'a self) -> Option<Family<'a>> {
+        Some(match self {
+            FontSource::Family(family) => Family::Name(family.as_str()),
+            FontSource::Serif => Family::Serif,
+            FontSource::SansSerif => Family::SansSerif,
+            FontSource::Cursive => Family::Cursive,
+            FontSource::Fantasy => Family::Fantasy,
+            FontSource::Monospace => Family::Monospace,
+            _ => return None,
+        })
+    }
 }
 
 impl Default for FontSource {
