@@ -5098,25 +5098,25 @@ wasm = true
 
 [[example]]
 name = "directional_navigation"
-path = "examples/ui/directional_navigation.rs"
+path = "examples/ui/navigation/directional_navigation.rs"
 # Causes an ICE on docs.rs
 doc-scrape-examples = false
 
 [package.metadata.example.directional_navigation]
 name = "Directional Navigation"
-description = "Demonstration of Directional Navigation between UI elements"
+description = "Demonstration of automatic directional navigation based on UI element positions"
 category = "UI (User Interface)"
 wasm = true
 
 [[example]]
-name = "auto_directional_navigation"
-path = "examples/ui/auto_directional_navigation.rs"
+name = "directional_navigation_overrides"
+path = "examples/ui/navigation/directional_navigation_overrides.rs"
 # Causes an ICE on docs.rs
 doc-scrape-examples = false
 
-[package.metadata.example.auto_directional_navigation]
-name = "Automatic Directional Navigation"
-description = "Demonstration of automatic directional navigation graph generation based on UI element positions"
+[package.metadata.example.directional_navigation_overrides]
+name = "Directional Navigation Overrides"
+description = "Demonstration of automatic directional navigation between UI elements with manual overrides"
 category = "UI (User Interface)"
 wasm = true
 
