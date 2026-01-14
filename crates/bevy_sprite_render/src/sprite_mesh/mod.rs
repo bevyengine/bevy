@@ -59,12 +59,12 @@ fn add_material(
         Or<(Changed<SpriteMesh>, Changed<Anchor>, Added<Mesh2d>)>,
     >,
     texture_atlas_layouts: Res<Assets<TextureAtlasLayout>>,
-    mut cached_materials: Local<HashMap<SpriteMesh, Handle<SpriteMaterial>>>,
+    mut cached_materials: Local<HashMap<(SpriteMesh, Anchor), Handle<SpriteMaterial>>>,
     mut materials: ResMut<Assets<SpriteMaterial>>,
     mut commands: Commands,
 ) {
     for (entity, sprite, anchor) in sprites {
-        if let Some(handle) = cached_materials.get(sprite) {
+        if let Some(handle) = cached_materials.get(&(sprite.clone(), *anchor)) {
             commands
                 .entity(entity)
                 .insert(MeshMaterial2d(handle.clone()));
@@ -81,7 +81,7 @@ fn add_material(
             }
 
             let handle = materials.add(material);
-            cached_materials.insert(sprite.clone(), handle.clone());
+            cached_materials.insert((sprite.clone(), *anchor), handle.clone());
 
             commands
                 .entity(entity)

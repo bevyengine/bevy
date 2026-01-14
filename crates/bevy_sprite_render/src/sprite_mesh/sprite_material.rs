@@ -18,6 +18,7 @@ use bevy_sprite::{
 };
 
 use crate::{AlphaMode2d, Material2d, Material2dPlugin};
+use core::hash::Hash;
 
 pub struct SpriteMaterialPlugin;
 
@@ -292,6 +293,8 @@ impl AsBindGroupShaderType<SpriteMaterialUniform> for SpriteMaterial {
                 }
             }
         }
+
+        quad_offset -= quad_size * self.anchor;
 
         SpriteMaterialUniform {
             color: self.color.to_linear().to_vec4(),
