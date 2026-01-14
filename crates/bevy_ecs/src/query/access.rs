@@ -161,8 +161,8 @@ impl Access {
         access
     }
 
-    /// Creates an [`Access`] with read access to all components.
-    /// This is equivalent to calling `read_all()` on `Access::new()`,
+    /// Creates an [`Access`] with read and write access to all components.
+    /// This is equivalent to calling `write_all()` on `Access::new()`,
     /// but is available in a `const` context.
     pub(crate) const fn new_write_all() -> Self {
         let mut access = Self::new();
