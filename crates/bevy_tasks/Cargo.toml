@@ -1,6 +1,6 @@
 [package]
 name = "bevy_tasks"
-version = "0.18.0-dev"
+version = "0.19.0-dev"
 edition = "2024"
 description = "A task executor for Bevy Engine"
 homepage = "https://bevy.org"
@@ -32,7 +32,7 @@ futures-lite = ["bevy_platform/std", "futures-lite/std"]
 async-io = ["bevy_platform/std", "dep:async-io"]
 
 [dependencies]
-bevy_platform = { path = "../bevy_platform", version = "0.18.0-dev", default-features = false, features = [
+bevy_platform = { path = "../bevy_platform", version = "0.19.0-dev", default-features = false, features = [
   "alloc",
 ] }
 

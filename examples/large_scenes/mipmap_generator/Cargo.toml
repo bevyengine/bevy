@@ -1,6 +1,6 @@
 [package]
 name = "mipmap_generator"
-version = "0.1.0"
+version = "0.19.0-dev"
 edition = "2024"
 publish = false
 license = "MIT OR Apache-2.0"
