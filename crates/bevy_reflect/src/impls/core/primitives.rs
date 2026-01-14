@@ -240,7 +240,7 @@ impl PartialReflect for &'static str {
 
     fn reflect_partial_cmp(&self, value: &dyn PartialReflect) -> Option<core::cmp::Ordering> {
         if let Some(value) = value.try_downcast_ref::<Self>() {
-            Some(PartialOrd::partial_cmp(self, value)?)
+            PartialOrd::partial_cmp(self, value)
         } else {
             None
         }
