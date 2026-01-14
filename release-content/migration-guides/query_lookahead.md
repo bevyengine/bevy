@@ -1,6 +1,6 @@
 ---
 title: "WorldQuery, QueryData, and QueryFilter trait methods rearranged"
-pull_requests: [todo!()]
+pull_requests: [22500]
 ---
 
 - `QueryData::IS_ARCHETYPAL`, `QueryFilter::IS_ARCHETYPAL` have been moved to `WorldQuery`.
