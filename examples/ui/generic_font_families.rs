@@ -3,7 +3,7 @@
 use bevy::{
     color::palettes::{
         css::{WHEAT, YELLOW},
-        tailwind::{ZINC_600, ZINC_800},
+        tailwind::ZINC_600,
     },
     prelude::*,
     text::CosmicFontSystem,
