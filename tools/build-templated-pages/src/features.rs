@@ -96,7 +96,7 @@ fn parse_features(panic_on_missing: bool) -> Vec<Feature> {
                             .flat_map(|v| v.as_str().map(|s| format!("`{}`", s)))
                             .collect::<Vec<_>>()
                             .join(", ");
-                        description.push_str(&format!("<br><br>**Feature set:** {}.", &features));
+                        description.push_str(&format!(" **Feature set:** {}.", &features));
                     }
 
                     Some(Feature {
