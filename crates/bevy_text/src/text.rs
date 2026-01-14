@@ -268,6 +268,11 @@ impl From<Justify> for cosmic_text::Align {
 /// font_system.db_mut().set_cursive_family("Cedarville Cursive");
 /// font_system.db_mut().set_fantasy_family("Argusho");
 /// font_system.db_mut().set_monospace_family("Lucida Console");
+///
+/// // `CosmicFontSystem::get_family` can be used to look up the name
+/// // of a `FontSource`'s associated family
+/// let family_name = font_system.get_family(FontSource::Serif);
+/// assert_eq!(family_name, "Allegro");
 /// ```
 pub enum FontSource {
     /// Use a specific font face referenced by a [`Font`] asset handle.
