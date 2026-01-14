@@ -12,9 +12,9 @@
 //! cannot be tweaked, manual overrides can connect that input to the others. Manual navigation
 //! can also be used to override any undesired automatic navigation.
 //!
-//! The `AutoDirectionalNavigation` component is used to create basic, intuitive navigation to UI
-//! elements within a page. Manual navigation edges are added to the `DirectionalNavigationMap`
-//! to create special navigation rules. The `AutoDirectionalNavigator` system parameter navigates
+//! The [`AutoDirectionalNavigation`] component is used to create basic, intuitive navigation to UI
+//! elements within a page. Manual navigation edges are added to the [`DirectionalNavigationMap`]
+//! to create special navigation rules. The [`AutoDirectionalNavigator`] system parameter navigates
 //! using manual navigation rules/overrides first and automatic navigation second.
 
 use core::time::Duration;
@@ -151,15 +151,16 @@ fn reset_button_after_interaction(
 
 /// Spawn pages of buttons to demonstrate automatic and manual navigation.
 ///
-/// This function creates three pages of buttons. All buttons have automatic navigation.
-/// Manual navigation is specified with the `DirectionalNavigationMap`.
+/// This function creates three pages of buttons. All buttons have automatic navigation
+/// enabled by having the [`AutoDirectionalNavigation`] component.
+/// Manual navigation is specified with the [`DirectionalNavigationMap`].
 /// Page 1 has a simple grid of buttons where transitions between rows is defined using
-/// the `DirectionalNavigationMap`.
+/// the [`DirectionalNavigationMap`].
 /// Page 2 has a cluster of buttons to the top left and a lonely button on the bottom right.
 /// Navigation between the cluster and the lonely button is defined using the
-/// `DirectionalNavigationMap`.
+/// [`DirectionalNavigationMap`].
 /// Page 3 has the same simple grid of buttons as page 1, but automatic navigation has been
-/// overridden in the vertical direction with the `DirectionalNavigationMap`.
+/// overridden in the vertical direction with the [`DirectionalNavigationMap`].
 fn setup_paged_ui(
     mut commands: Commands,
     mut manual_directional_nav_map: ResMut<DirectionalNavigationMap>,
@@ -198,6 +199,7 @@ fn setup_paged_ui(
             BackgroundColor(Color::srgba(0.1, 0.1, 0.1, 0.8)),
         ))
         .id();
+    commands.entity(root_node).add_children(&[instructions]);
 
     // Focus display - shows which button is currently focused
     commands.spawn((
@@ -239,6 +241,7 @@ fn setup_paged_ui(
         },
     ));
 
+    // Setup the pages with buttons and helper text
     let mut pages_entities = [
         Vec::with_capacity(12),
         Vec::with_capacity(12),
@@ -286,7 +289,6 @@ fn setup_paged_ui(
 
         text_entities.clear();
     }
-    let first_button = Some(pages_entities[0][0]);
 
     // For Pages 1 and 3, add manual edges within the grid page for navigation between rows.
     let entity_pairs = [
@@ -373,12 +375,8 @@ fn setup_paged_ui(
         CompassOctant::East,
     );
 
-    commands.entity(root_node).add_children(&[instructions]);
-
     // Set initial focus
-    if let Some(button) = first_button {
-        input_focus.set(button);
-    }
+    input_focus.set(pages_entities[0][0]);
 }
 
 /// Creates the buttons and text for a grid page and places the ids into their

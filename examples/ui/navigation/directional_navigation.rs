@@ -1,6 +1,6 @@
 //! Demonstrates automatic directional navigation.
 //!
-//! This shows how to use automatic navigation by simply adding the `AutoDirectionalNavigation`
+//! This shows how to use automatic navigation by simply adding the [`AutoDirectionalNavigation`]
 //! component to UI elements. Navigation is automatically calculated based on screen positions.
 //!
 //! This is especially useful for:
