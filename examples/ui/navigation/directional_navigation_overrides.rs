@@ -625,7 +625,7 @@ fn spawn_small_text_node(
         .id()
 }
 
-// Action state and input handling (same as the manual navigation example)
+// Action state and input handling
 #[derive(Debug, PartialEq, Eq, Hash)]
 enum DirectionalNavigationAction {
     Up,
