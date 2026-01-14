@@ -255,17 +255,15 @@ impl From<Justify> for cosmic_text::Align {
 /// The `CosmicFontSystem` resource can be used to change the font family
 /// associated to a generic font variant:
 /// ```
-/// # use bevy_ecs::world::World;
 /// # use bevy_text::CosmicFontSystem;
 /// # use bevy_text::FontSource;
-/// # let mut world = World::default();
-/// let mut font_system = world.resource_mut::<CosmicFontSystem>();
-///
-/// font_system.db_mut().set_serif_family("Allegro");
-/// font_system.db_mut().set_sans_serif_family("Encode Sans");
-/// font_system.db_mut().set_cursive_family("Cedarville Cursive");
-/// font_system.db_mut().set_fantasy_family("Argusho");
-/// font_system.db_mut().set_monospace_family("Lucida Console");
+/// let mut font_system = CosmicFontSystem::default();
+/// let mut font_database = font_system.db_mut();
+/// font_database.set_serif_family("Allegro");
+/// font_database.set_sans_serif_family("Encode Sans");
+/// font_database.set_cursive_family("Cedarville Cursive");
+/// font_database.set_fantasy_family("Argusho");
+/// font_database.set_monospace_family("Lucida Console");
 ///
 /// // `CosmicFontSystem::get_family` can be used to look up the name
 /// // of a `FontSource`'s associated family
