@@ -91,6 +91,7 @@ pub mod prelude {
 use crate::deferred::DeferredPbrLightingPlugin;
 use bevy_app::prelude::*;
 use bevy_asset::{AssetApp, AssetPath, Assets, Handle, RenderAssetUsages};
+use bevy_core_pipeline::mip_generation::experimental::depth::early_downsample_depth;
 use bevy_core_pipeline::schedule::{Core3d, Core3dSystems};
 use bevy_ecs::prelude::*;
 #[cfg(feature = "bluenoise_texture")]
@@ -314,6 +315,7 @@ impl Plugin for PbrPlugin {
             (
                 early_shadow_pass
                     .after(early_prepass_build_indirect_parameters)
+                    .before(early_downsample_depth)
                     .before(late_shadow_pass),
                 late_shadow_pass
                     .after(late_prepass_build_indirect_parameters)

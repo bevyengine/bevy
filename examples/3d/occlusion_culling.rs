@@ -14,7 +14,7 @@ use std::{
 
 use bevy::{
     color::palettes::css::{SILVER, WHITE},
-    core_pipeline::{core_3d::Opaque3d, prepass::DepthPrepass, Core3dSystems},
+    core_pipeline::{core_3d::Opaque3d, prepass::DepthPrepass, Core3d, Core3dSystems},
     pbr::PbrPlugin,
     prelude::*,
     render::{
@@ -23,7 +23,7 @@ use bevy::{
         },
         experimental::occlusion_culling::OcclusionCulling,
         render_resource::{Buffer, BufferDescriptor, BufferUsages, MapMode},
-        renderer::{RenderContext, RenderDevice, RenderGraph},
+        renderer::{RenderContext, RenderDevice},
         settings::WgpuFeatures,
         Render, RenderApp, RenderDebugFlags, RenderPlugin, RenderStartup, RenderSystems,
     },
@@ -222,7 +222,7 @@ impl Plugin for ReadbackIndirectParametersPlugin {
                     .in_set(RenderSystems::PrepareResourcesFlush),
             )
             .add_systems(
-                RenderGraph,
+                Core3d,
                 // Add the node that allows us to read the indirect parameters back
                 // from the GPU to the CPU, which allows us to determine how many
                 // meshes were culled.

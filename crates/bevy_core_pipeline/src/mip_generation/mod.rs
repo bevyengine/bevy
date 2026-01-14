@@ -199,13 +199,13 @@ pub struct MipGenerationPipelines {
     ///
     /// Note that pipelines can be shared among all images that use a single
     /// texture format.
-    pub(crate) pipelines: HashMap<TextureFormat, MipGenerationTextureFormatPipelines>,
+    pipelines: HashMap<TextureFormat, MipGenerationTextureFormatPipelines>,
 
     /// The bind group for each image.
     ///
     /// These are cached from frame to frame if the same image needs mips
     /// generated for it on immediately-consecutive frames.
-    pub(crate) bind_groups: HashMap<AssetId<Image>, MipGenerationJobBindGroups>,
+    bind_groups: HashMap<AssetId<Image>, MipGenerationJobBindGroups>,
 }
 
 /// The compute pipelines and bind group layouts for the single-pass

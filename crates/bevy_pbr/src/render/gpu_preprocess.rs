@@ -11,6 +11,7 @@ use core::num::{NonZero, NonZeroU64};
 use bevy_app::{App, Plugin};
 use bevy_asset::{embedded_asset, load_embedded_asset, Handle};
 use bevy_core_pipeline::{
+    deferred::node::late_deferred_prepass,
     mip_generation::experimental::depth::{early_downsample_depth, ViewDepthPyramid},
     prepass::{
         node::{early_prepass, late_prepass},
@@ -363,27 +364,22 @@ impl Plugin for GpuMeshPreprocessPlugin {
             .add_systems(
                 Core3d,
                 (
-                    // Clear indirect parameters metadata first, before early prepass
                     clear_indirect_parameters_metadata.before(early_prepass),
-                    // Early GPU preprocess runs before early prepasses
                     early_gpu_preprocess
                         .after(clear_indirect_parameters_metadata)
                         .before(early_prepass),
-                    // Early prepass build indirect parameters
                     early_prepass_build_indirect_parameters
                         .after(early_gpu_preprocess)
                         .before(early_prepass),
-                    // Late GPU preprocess runs after early prepasses, before late prepasses
                     late_gpu_preprocess
                         .after(early_downsample_depth)
                         .before(late_prepass),
-                    // Late prepass build indirect parameters
                     late_prepass_build_indirect_parameters
                         .after(late_gpu_preprocess)
                         .before(late_prepass),
-                    // Main build indirect parameters runs before main pass
                     main_build_indirect_parameters
                         .after(late_prepass_build_indirect_parameters)
+                        .after(late_deferred_prepass)
                         .before(Core3dSystems::StartMainPass),
                 ),
             );

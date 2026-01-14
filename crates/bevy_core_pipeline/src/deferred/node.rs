@@ -64,7 +64,7 @@ pub(crate) fn early_deferred_prepass(
     );
 }
 
-pub(crate) fn late_deferred_prepass(
+pub fn late_deferred_prepass(
     world: &World,
     view: ViewQuery<DeferredPrepassViewQueryData>,
     opaque_deferred_phases: Res<ViewBinnedRenderPhases<Opaque3dDeferred>>,
