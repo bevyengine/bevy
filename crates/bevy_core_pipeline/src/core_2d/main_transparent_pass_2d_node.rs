@@ -89,23 +89,6 @@ impl ViewNode for MainTransparentPass2dNode {
                 pass_span.end(&mut render_pass);
             }
 
-            // WebGL2 quirk: if ending with a render pass with a custom viewport, the viewport isn't
-            // reset for the next render pass so add an empty render pass without a custom viewport
-            #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
-            if camera.viewport.is_some() {
-                #[cfg(feature = "trace")]
-                let _reset_viewport_pass_2d = info_span!("reset_viewport_pass_2d").entered();
-                let pass_descriptor = RenderPassDescriptor {
-                    label: Some("reset_viewport_pass_2d"),
-                    color_attachments: &[Some(target.get_color_attachment())],
-                    depth_stencil_attachment: None,
-                    timestamp_writes: None,
-                    occlusion_query_set: None,
-                };
-
-                command_encoder.begin_render_pass(&pass_descriptor);
-            }
-
             command_encoder.finish()
         });
 
