@@ -2,6 +2,8 @@
 
 use std::{f32::consts::PI, fmt::Write};
 
+#[cfg(any(not(feature = "dlss"), feature = "force_disable_dlss"))]
+use bevy::anti_alias::fsr3::Fsr3;
 use bevy::{
     anti_alias::{
         contrast_adaptive_sharpening::ContrastAdaptiveSharpening,
@@ -44,6 +46,14 @@ fn main() {
     app.run();
 }
 
+type Fsr3Components = (
+    TemporalJitter,
+    MipBias,
+    DepthPrepass,
+    MotionVectorPrepass,
+    Fsr3,
+);
+
 type TaaComponents = (
     TemporalAntiAliasing,
     TemporalJitter,
@@ -82,6 +92,7 @@ fn modify_aa(
             Option<&mut Fxaa>,
             Option<&mut Smaa>,
             Option<&TemporalAntiAliasing>,
+            Option<&Fsr3>,
             &mut Msaa,
         ),
         With<Camera>,
@@ -94,7 +105,7 @@ fn modify_aa(
     #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
     let (camera_entity, fxaa, smaa, taa, mut msaa, dlss) = camera.into_inner();
     #[cfg(any(not(feature = "dlss"), feature = "force_disable_dlss"))]
-    let (camera_entity, fxaa, smaa, taa, mut msaa) = camera.into_inner();
+    let (camera_entity, fxaa, smaa, taa, fsr3, mut msaa) = camera.into_inner();
     let mut camera = commands.entity(camera_entity);
 
     // No AA
@@ -104,6 +115,7 @@ fn modify_aa(
             .remove::<Fxaa>()
             .remove::<Smaa>()
             .remove::<TaaComponents>()
+            .remove::<Fsr3>()
             .remove::<DlssComponents>();
     }
 
@@ -113,6 +125,7 @@ fn modify_aa(
             .remove::<Fxaa>()
             .remove::<Smaa>()
             .remove::<TaaComponents>()
+            .remove::<Fsr3Components>()
             .remove::<DlssComponents>();
 
         *msaa = Msaa::Sample4;
@@ -137,6 +150,7 @@ fn modify_aa(
         camera
             .remove::<Smaa>()
             .remove::<TaaComponents>()
+            .remove::<Fsr3Components>()
             .remove::<DlssComponents>()
             .insert(Fxaa::default());
     }
@@ -171,6 +185,7 @@ fn modify_aa(
         camera
             .remove::<Fxaa>()
             .remove::<TaaComponents>()
+            .remove::<Fsr3Components>()
             .remove::<DlssComponents>()
             .insert(Smaa::default());
     }
@@ -197,13 +212,25 @@ fn modify_aa(
         camera
             .remove::<Fxaa>()
             .remove::<Smaa>()
+            .remove::<Fsr3>()
             .remove::<DlssComponents>()
             .insert(TemporalAntiAliasing::default());
     }
 
+    // FSR3
+    if keys.just_pressed(KeyCode::Digit6) && fsr3.is_none() {
+        *msaa = Msaa::Off;
+        camera
+            .remove::<Fxaa>()
+            .remove::<Smaa>()
+            .remove::<TaaComponents>()
+            .remove::<DlssComponents>()
+            .insert(Fsr3::default());
+    }
+
     // DLSS
     #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
-    if keys.just_pressed(KeyCode::Digit6) && dlss.is_none() && dlss_supported.is_some() {
+    if keys.just_pressed(KeyCode::Digit7) && dlss.is_none() && dlss_supported.is_some() {
         *msaa = Msaa::Off;
         camera
             .remove::<Fxaa>()
@@ -296,6 +323,7 @@ fn update_ui(
             &Projection,
             Option<&Fxaa>,
             Option<&Smaa>,
+            Option<&Fsr3>,
             Option<&TemporalAntiAliasing>,
             &ContrastAdaptiveSharpening,
             &Msaa,
@@ -310,7 +338,7 @@ fn update_ui(
     #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
     let (projection, fxaa, smaa, taa, cas, msaa, dlss) = *camera;
     #[cfg(any(not(feature = "dlss"), feature = "force_disable_dlss"))]
-    let (projection, fxaa, smaa, taa, cas, msaa) = *camera;
+    let (projection, fxaa, smaa, fsr3, taa, cas, msaa) = *camera;
 
     let ui = &mut ui.0;
     *ui = "Antialias Method\n".to_string();
@@ -324,15 +352,21 @@ fn update_ui(
         ui,
         "No AA",
         '1',
-        *msaa == Msaa::Off && fxaa.is_none() && taa.is_none() && smaa.is_none() && dlss_none,
+        *msaa == Msaa::Off
+            && fxaa.is_none()
+            && taa.is_none()
+            && smaa.is_none()
+            && fsr3.is_none()
+            && dlss_none,
     );
     draw_selectable_menu_item(ui, "MSAA", '2', *msaa != Msaa::Off);
     draw_selectable_menu_item(ui, "FXAA", '3', fxaa.is_some());
     draw_selectable_menu_item(ui, "SMAA", '4', smaa.is_some());
     draw_selectable_menu_item(ui, "TAA", '5', taa.is_some());
+    draw_selectable_menu_item(ui, "FSR3", '6', fsr3.is_some());
     #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
     if dlss_supported.is_some() {
-        draw_selectable_menu_item(ui, "DLSS", '6', dlss.is_some());
+        draw_selectable_menu_item(ui, "DLSS", '7', dlss.is_some());
     }
 
     if *msaa != Msaa::Off {
