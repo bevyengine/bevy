@@ -36,8 +36,12 @@ use variadics_please::all_tuples;
 ///
 /// When implementing [`update_component_access`], note that `add_read` and `add_write` both also add a `With` filter, whereas `extend_access` does not change the filters.
 ///
+/// If [`IS_ARCHETYPAL`] is `true`, [`matches`] must return `true` for all inputs.
+///
 /// When implementing [`find_table_chunk`] and [`find_archetype_chunk`], their return values must be
-/// subsets of `rows` and `indices` respectively, even if returning an empty range.
+/// subsets of `rows` and `indices` respectively, even if returning an empty range. Additionally,
+/// they must match the behavior of [`matches`], i.e. calling that method on any
+/// row/index in the returned range should return `true`.
 ///
 /// [`find_table_chunk`], [`find_archetype_chunk`], and [`matches`] must not mutably access any world data.
 ///
@@ -53,6 +57,7 @@ use variadics_please::all_tuples;
 /// [`find_table_chunk`]: crate::query::WorldQuery::find_table_chunk
 /// [`find_archetype_chunk`]: crate::query::WorldQuery::find_archetype_chunk
 /// [`matches`]: crate::query::WorldQuery::matches
+/// [`IS_ARCHETYPAL`]: crate::query::WorldQuery::IS_ARCHETYPAL
 pub unsafe trait WorldQuery {
     /// Per archetype/table state retrieved by this [`WorldQuery`] to compute [`Self::Item`](crate::query::QueryData::Item) for each entity.
     type Fetch<'w>: Clone;
@@ -153,12 +158,21 @@ pub unsafe trait WorldQuery {
         set_contains_id: &impl Fn(ComponentId) -> bool,
     ) -> bool;
 
-    /// TODO: docs
+    /// Searches `rows` for the next contiguous range of indices
+    /// this `WorldQuery` matches.
+    ///
+    /// This can be used to speed up query iteration for custom [`WorldQuery`]
+    /// implementations, for example by using an acceleration structure
+    /// to seek ahead in the query for the next valid entity.
+    ///
+    /// The default implementation will simply defer to [`WorldQuery::matches`],
+    /// calling the method for each row until it finds the next whole chunk.
+    /// Custom implementations should match this behavior, i.e. calling [`WorldQuery::matches`]
+    /// on any row in the returned range should return `true`.
     ///
     /// # Safety
-    ///
-    /// Must always be called _after_ [`WorldQuery::set_table`].
-    /// `rows` must be in the range of the current table.
+    /// - Must always be called _after_ [`WorldQuery::set_table`].
+    /// - `rows` must be in the range of the current table.
     #[inline]
     unsafe fn find_table_chunk(
         state: &Self::State,
@@ -179,12 +193,21 @@ pub unsafe trait WorldQuery {
         }
     }
 
-    /// TODO: docs
+    /// Searches `indices` for the next contiguous range of indices
+    /// this `WorldQuery` matches.
+    ///
+    /// This can be used to speed up query iteration for custom [`WorldQuery`]
+    /// implementations, for example by using an acceleration structure
+    /// to seek ahead in the query for the next valid entity.
+    ///
+    /// The default implementation will simply defer to [`WorldQuery::matches`],
+    /// calling the method for each row until it finds the next whole chunk.
+    /// Custom implementations should match this behavior, i.e. calling [`WorldQuery::matches`]
+    /// on any index in the returned range should return `true`.
     ///
     /// # Safety
-    ///
-    /// Must always be called _after_ [`WorldQuery::set_archetype`].
-    /// `indices` must be in the range of the current archetype.
+    /// - Must always be called _after_ [`WorldQuery::set_archetype`].
+    /// - `indices` must be in the range of the current archetype.
     #[inline]
     unsafe fn find_archetype_chunk(
         state: &Self::State,

@@ -329,8 +329,9 @@ pub unsafe trait QueryData: WorldQuery {
     ///
     /// - Must always be called _after_ [`WorldQuery::set_table`] or [`WorldQuery::set_archetype`]. `entity` and
     ///   `table_row` must be in the range of the current table and archetype.
-    /// - Must always be called _after_ [`WorldQuery::matches`], or after one of [`WorldQuery::find_table_chunk`]
-    ///   or [`WorldQuery::find_archetype_chunk`] and the provided table row/index is within the range returned.
+    /// - Must always be called _after_ [`WorldQuery::matches`] if and only if it returns `true`,
+    ///   or after one of [`WorldQuery::find_table_chunk`] or [`WorldQuery::find_archetype_chunk`]
+    ///   and the provided table row/index is within the range returned.
     /// - There must not be simultaneous conflicting component access registered in `update_component_access`.
     unsafe fn fetch<'w, 's>(
         state: &'s Self::State,
@@ -373,7 +374,7 @@ pub trait ReleaseStateQueryData: QueryData {
 /// This is needed to implement [`ExactSizeIterator`] for
 /// [`QueryIter`](crate::query::QueryIter) that contains archetype-level filters.
 ///
-/// The trait must only be implemented for query data where its corresponding [`QueryData::IS_ARCHETYPAL`] is [`prim@true`].
+/// The trait must only be implemented for query data where its corresponding [`WorldQuery::IS_ARCHETYPAL`] is [`prim@true`].
 pub trait ArchetypeQueryData: QueryData {}
 
 /// SAFETY:
