@@ -116,7 +116,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         Bloom::default(),
         Hdr,
         Skybox {
-            brightness: 500.0,
+            brightness: 1000.0,
             image: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
             ..default()
         },
