@@ -40,11 +40,11 @@ impl CosmicFontSystem {
         self.0.db().face(id).map(FontFaceDetails::from)
     }
 
-    /// Resolve a `FontSource` to its family name.
+    /// Get the family name associated with a `FontSource`.
     ///
     /// Returns `None` for a `FontSource::Handle`. Instead, a font asset's family name
     /// can be read from its `family` field.
-    pub fn resolve_font_source(&self, source: &FontSource) -> Option<smol_str::SmolStr> {
+    pub fn get_family(&self, source: &FontSource) -> Option<smol_str::SmolStr> {
         source
             .as_family()
             .map(|family| self.db().family_name(&family).into())
