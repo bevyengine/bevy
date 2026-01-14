@@ -144,7 +144,6 @@ impl Plugin for Core3dPlugin {
             .add_systems(
                 Core3d,
                 (
-                    // Prepasses
                     early_prepass.before(Core3dSystems::EndPrepasses),
                     early_deferred_prepass
                         .after(early_prepass)
@@ -158,7 +157,6 @@ impl Plugin for Core3dPlugin {
                     copy_deferred_lighting_id
                         .after(late_deferred_prepass)
                         .before(Core3dSystems::EndPrepasses),
-                    // Main passes
                     main_opaque_pass_3d
                         .after(Core3dSystems::StartMainPass)
                         .before(Core3dSystems::EndMainPass),
@@ -168,7 +166,6 @@ impl Plugin for Core3dPlugin {
                     main_transparent_pass_3d
                         .after(main_transmissive_pass_3d)
                         .before(Core3dSystems::EndMainPass),
-                    // Post-processing
                     tonemapping
                         .after(Core3dSystems::StartMainPassPostProcessing)
                         .before(Core3dSystems::PostProcessing),

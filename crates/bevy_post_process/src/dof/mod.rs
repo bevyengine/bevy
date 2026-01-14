@@ -238,7 +238,6 @@ impl Plugin for DepthOfFieldPlugin {
                 Render,
                 prepare_depth_of_field_global_bind_group.in_set(RenderSystems::PrepareBindGroups),
             )
-            // Add depth_of_field to the 3d schedule
             .add_systems(Core3d, depth_of_field.after(bloom).before(tonemapping));
     }
 }

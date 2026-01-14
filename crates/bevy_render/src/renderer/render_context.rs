@@ -262,7 +262,6 @@ unsafe impl<'a, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
         _system_meta: &SystemMeta,
         world: UnsafeWorldCell,
     ) -> Result<(), SystemParamValidationError> {
-        // Check if CurrentViewEntity resource exists and get the entity
         // SAFETY: We have registered resource read access in init_access
         let current_view = unsafe { world.get_resource::<CurrentViewEntity>() };
 
@@ -274,7 +273,6 @@ unsafe impl<'a, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
 
         let entity = current_view.entity();
 
-        // Check if the current view entity matches the query
         // SAFETY: Query state access is properly registered in init_access.
         // The caller ensures the world matches the one used in init_state.
         let result = unsafe { state.query_state.get_unchecked(world, entity) };

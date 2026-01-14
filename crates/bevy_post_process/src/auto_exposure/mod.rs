@@ -73,7 +73,6 @@ impl Plugin for AutoExposurePlugin {
                     queue_view_auto_exposure_pipelines.in_set(RenderSystems::Queue),
                 ),
             )
-            // Add auto_exposure to the 3d schedule
             .add_systems(
                 Core3d,
                 node::auto_exposure

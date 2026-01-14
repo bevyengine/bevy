@@ -74,14 +74,12 @@ impl Plugin for BloomPlugin {
                     prepare_bloom_bind_groups.in_set(RenderSystems::PrepareBindGroups),
                 ),
             )
-            // Add bloom to the 3d schedule
             .add_systems(
                 Core3d,
                 bloom
                     .after(Core3dSystems::StartMainPassPostProcessing)
                     .before(tonemapping),
             )
-            // Add bloom to the 2d schedule
             .add_systems(
                 Core2d,
                 bloom

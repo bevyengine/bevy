@@ -16,7 +16,8 @@ use bevy::{
     asset::RenderAssetUsages,
     core_pipeline::{
         mip_generation::{
-            generate_mips_for_phase, MipGenerationJobs, MipGenerationPhaseId, MipGenerationPipelines,
+            generate_mips_for_phase, MipGenerationJobs, MipGenerationPhaseId,
+            MipGenerationPipelines,
         },
         schedule::Core2d,
     },
@@ -24,7 +25,9 @@ use bevy::{
     reflect::TypePath,
     render::{
         render_asset::RenderAssets,
-        render_resource::{AsBindGroup, Extent3d, PipelineCache, TextureDimension, TextureFormat, TextureUsages},
+        render_resource::{
+            AsBindGroup, Extent3d, PipelineCache, TextureDimension, TextureFormat, TextureUsages,
+        },
         renderer::RenderContext,
         texture::GpuImage,
         Extract, RenderApp,
