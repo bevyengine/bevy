@@ -41,6 +41,7 @@ naga_oil = { git = "https://github.com/ChristopherBiscardi/naga_oil.git", branch
 shader_format_glsl = ["naga/glsl-in", "naga/wgsl-out", "naga_oil/glsl"]
 shader_format_spirv = ["naga/spv-in", "naga/spv-out"]
 shader_format_wesl = ["wesl"]
+solari = ["naga_oil/override_enable_ray_query"]
 
 # Bevy users should _never_ turn this feature on.
 #

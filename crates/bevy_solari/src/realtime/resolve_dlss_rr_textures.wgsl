@@ -1,3 +1,5 @@
+enable wgpu_ray_query;
+
 #import bevy_pbr::pbr_functions::{calculate_diffuse_color, calculate_F0}
 #import bevy_render::view::View
 #import bevy_solari::gbuffer_utils::gpixel_resolve
