@@ -1,5 +1,14 @@
 //! Provides a material abstraction for bevy
 #![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
+#![cfg_attr(
+    any(docsrs, docsrs_dep),
+    expect(
+        internal_features,
+        reason = "rustdoc_internals is needed for fake_variadic"
+    )
+)]
+#![cfg_attr(any(docsrs, docsrs_dep), feature(rustdoc_internals))]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 
 use bevy_asset::Handle;
 use bevy_shader::Shader;
