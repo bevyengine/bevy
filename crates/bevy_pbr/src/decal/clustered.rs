@@ -68,7 +68,7 @@ pub struct ClusteredDecalPlugin;
 pub struct RenderClusteredDecals {
     /// Maps an index in the shader binding array to the associated decal image.
     ///
-    /// [`Self::texture_to_binding_index`] holds the inverse mapping.
+    /// The `texture_to_binding_index` field holds the inverse mapping.
     pub binding_index_to_textures: Vec<AssetId<Image>>,
     /// Maps a decal image to the shader binding array.
     ///
