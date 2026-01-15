@@ -320,11 +320,8 @@ fn calculate_contact_shadow(
 #endif
 
 #ifndef PREPASS_FRAGMENT
-fn apply_pbr_lighting(
-    in: pbr_types::PbrInput,
-) -> vec4<f32> {
-    var output_color: vec4<f32> = in.material.base_color;
-
+// This also accumulates transmissive light if applicable.
+fn apply_pbr_lighting_direct(in: pbr_types::PbrInput) -> vec3<f32> {
     let emissive = in.material.emissive;
 
     // calculate non-linear roughness from linear perceptualRoughness
@@ -358,19 +355,19 @@ fn apply_pbr_lighting(
 #endif  // STANDARD_MATERIAL_CLEARCOAT
 
     let diffuse_color = calculate_diffuse_color(
-        output_color.rgb,
+        in.material.base_color.rgb,
         metallic,
         specular_transmission,
         diffuse_transmission
     );
 
     // Diffuse transmissive strength is inversely related to metallicity and specular transmission, but directly related to diffuse transmission
-    let diffuse_transmissive_color = output_color.rgb * (1.0 - metallic) * (1.0 - specular_transmission) * diffuse_transmission;
+    let diffuse_transmissive_color = in.material.base_color.rgb * (1.0 - metallic) * (1.0 - specular_transmission) * diffuse_transmission;
 
     // Calculate the world position of the second Lambertian lobe used for diffuse transmission, by subtracting material thickness
     let diffuse_transmissive_lobe_world_position = in.world_position - vec4<f32>(in.world_normal, 0.0) * thickness;
 
-    let F0 = calculate_F0(output_color.rgb, metallic, reflectance);
+    let F0 = calculate_F0(in.material.base_color.rgb, metallic, reflectance);
     let F_ab = lighting::F_AB(perceptual_roughness, NdotV);
 
     var direct_light: vec3<f32> = vec3<f32>(0.0);
@@ -644,16 +641,59 @@ fn apply_pbr_lighting(
     transmitted_light += ambient::ambient_light(diffuse_transmissive_lobe_world_position, -in.N, -in.V, 1.0, diffuse_transmissive_color, vec3<f32>(0.0), 1.0, vec3<f32>(1.0));
 #endif
 
-    // Diffuse indirect lighting can come from a variety of sources. The
-    // priority goes like this:
-    //
-    // 1. Lightmap (highest)
-    // 2. Irradiance volume
-    // 3. Environment map (lowest)
-    //
-    // When we find a source of diffuse indirect lighting, we stop accumulating
-    // any more diffuse indirect light. This avoids double-counting if, for
-    // example, both lightmaps and irradiance volumes are present.
+    return transmitted_light + direct_light;
+}
+
+fn apply_pbr_lighting_indirect(in: pbr_types::PbrInput) -> vec3<f32> {
+    let metallic = in.material.metallic;
+    let perceptual_roughness = in.material.perceptual_roughness;
+    let roughness = lighting::perceptualRoughnessToRoughness(perceptual_roughness);
+    let ior = in.material.ior;
+    let reflectance = in.material.reflectance;
+    let diffuse_transmission = in.material.diffuse_transmission;
+    let specular_transmission = in.material.specular_transmission;
+
+    let diffuse_occlusion = in.diffuse_occlusion;
+
+    // Neubelt and Pettineo 2013, "Crafting a Next-gen Material Pipeline for The Order: 1886"
+    let NdotV = max(dot(in.N, in.V), 0.0001);
+    let R = reflect(-in.V, in.N);
+
+    let F0 = calculate_F0(in.material.base_color.rgb, metallic, reflectance);
+    let F_ab = lighting::F_AB(perceptual_roughness, NdotV);
+
+    let diffuse_color = calculate_diffuse_color(
+        in.material.base_color.rgb,
+        metallic,
+        specular_transmission,
+        diffuse_transmission
+    );
+
+    // Pack all the values into a structure.
+    var lighting_input: lighting::LightingInput;
+    lighting_input.layers[LAYER_BASE].NdotV = NdotV;
+    lighting_input.layers[LAYER_BASE].N = in.N;
+    lighting_input.layers[LAYER_BASE].R = R;
+    lighting_input.layers[LAYER_BASE].perceptual_roughness = perceptual_roughness;
+    lighting_input.layers[LAYER_BASE].roughness = roughness;
+    lighting_input.P = in.world_position.xyz;
+    lighting_input.V = in.V;
+    lighting_input.diffuse_color = diffuse_color;
+    lighting_input.F0_ = F0;
+    lighting_input.F_ab = F_ab;
+#ifdef STANDARD_MATERIAL_CLEARCOAT
+    lighting_input.layers[LAYER_CLEARCOAT].NdotV = clearcoat_NdotV;
+    lighting_input.layers[LAYER_CLEARCOAT].N = clearcoat_N;
+    lighting_input.layers[LAYER_CLEARCOAT].R = clearcoat_R;
+    lighting_input.layers[LAYER_CLEARCOAT].perceptual_roughness = clearcoat_perceptual_roughness;
+    lighting_input.layers[LAYER_CLEARCOAT].roughness = clearcoat_roughness;
+    lighting_input.clearcoat_strength = clearcoat;
+#endif  // STANDARD_MATERIAL_CLEARCOAT
+#ifdef STANDARD_MATERIAL_ANISOTROPY
+    lighting_input.anisotropy = in.anisotropy_strength;
+    lighting_input.Ta = in.anisotropy_T;
+    lighting_input.Ba = in.anisotropy_B;
+#endif  // STANDARD_MATERIAL_ANISOTROPY
 
     var indirect_light = vec3(0.0f);
     var found_diffuse_indirect = false;
@@ -782,7 +822,15 @@ fn apply_pbr_lighting(
 
 #endif  // ENVIRONMENT_MAP
 
-    var emissive_light = emissive.rgb * output_color.a;
+    return indirect_light;
+}
+
+fn apply_pbr_lighting_emissive(in: pbr_types::PbrInput) -> vec3<f32> {
+    let emissive = in.material.emissive;
+
+    let thickness = in.material.thickness;
+
+    var emissive_light = emissive.rgb * in.material.base_color.a;
 
     // "The clearcoat layer is on top of emission in the layering stack.
     // Consequently, the emission is darkened by the Fresnel term."
@@ -813,12 +861,34 @@ fn apply_pbr_lighting(
     }
 #endif
 
+    return emissive_light;
+}
+
+fn apply_pbr_lighting(
+    in: pbr_types::PbrInput,
+) -> vec4<f32> {
+    let direct_and_transmitted_light = apply_pbr_lighting_direct(in);
+    let indirect_light = apply_pbr_lighting_indirect(in);
+    let emissive_light = apply_pbr_lighting_emissive(in);
+
     // Total light
-    output_color = vec4<f32>(
-        (view_bindings::view.exposure * (transmitted_light + direct_light + indirect_light)) + emissive_light,
-        output_color.a
+    let exposure = view_bindings::view.exposure;
+    var output_color = vec4<f32>(
+        (exposure * (direct_and_transmitted_light + indirect_light)) + emissive_light,
+        in.material.base_color.a
     );
 
+    // Clustering debugging.
+#ifdef CLUSTERED_FORWARD_DEBUG
+    let view_z = dot(vec4<f32>(
+        view_bindings::view.view_from_world[0].z,
+        view_bindings::view.view_from_world[1].z,
+        view_bindings::view.view_from_world[2].z,
+        view_bindings::view.view_from_world[3].z
+    ), in.world_position);
+    let cluster_index = clustering::fragment_cluster_index(in.frag_coord.xy, view_z, in.is_orthographic);
+    var clusterable_object_index_ranges =
+        clustering::unpack_clusterable_object_index_ranges(cluster_index);
     output_color = clustering::cluster_debug_visualization(
         output_color,
         view_z,
@@ -826,6 +896,7 @@ fn apply_pbr_lighting(
         clusterable_object_index_ranges,
         cluster_index,
     );
+#endif  // CLUSTERED_FORWARD_DEBUG
 
     return output_color;
 }
