@@ -734,9 +734,9 @@ pub enum InvalidGenerationError {
 
 #[cfg(test)]
 mod test {
-    use crate::{Asset, AssetApp, AssetEvent, AssetIndex, AssetPlugin, Assets};
-    use bevy_app::{App, Last, Update};
-    use bevy_ecs::prelude::*;
+    use crate::tests::create_app;
+    use crate::{Asset, AssetApp, AssetEvent, AssetIndex, Assets};
+    use bevy_ecs::prelude::Messages;
     use bevy_reflect::TypePath;
 
     #[test]
@@ -756,64 +756,54 @@ mod test {
             value: u32,
         }
 
-        #[derive(Resource, Default)]
-        struct TestState {
-            asset_target_value: u32,
-            asset_modified_counter: u32,
-        }
-
-        let mut app = App::new();
-        app.add_plugins(AssetPlugin::default());
+        let mut app = create_app().0;
         app.init_asset::<TestAsset>();
-        app.insert_resource(TestState::default());
 
         let mut assets = app.world_mut().resource_mut::<Assets<TestAsset>>();
         let my_asset_handle = assets.add(TestAsset::default());
         let my_asset_id = my_asset_handle.id();
 
-        app.add_systems(
-            Update,
-            move |mut assets: ResMut<Assets<TestAsset>>, state: Res<TestState>| {
-                let mut asset = assets.get_mut(my_asset_id).unwrap();
-
-                if asset.value != state.asset_target_value {
-                    asset.value = state.asset_target_value;
-                }
-            },
-        );
-        app.add_systems(
-            Last,
-            move |mut reader: MessageReader<AssetEvent<TestAsset>>,
-                  mut state: ResMut<TestState>| {
-                for event in reader.read() {
-                    if event.is_modified(my_asset_id) {
-                        state.asset_modified_counter += 1;
-                    }
-                }
-            },
-        );
-
         // check a few times just in case there are some unexpected leftover events from previous runs
         for _ in 0..3 {
-            let mut state = app.world_mut().resource_mut::<TestState>();
-            state.asset_target_value += 1;
-            state.asset_modified_counter = 0;
+            // check that modifying the asset value triggers an event
+            {
+                let mut assets = app.world_mut().resource_mut::<Assets<TestAsset>>();
+                let mut asset = assets.get_mut(my_asset_id).unwrap();
+                asset.value += 1;
+            }
 
             app.update();
 
-            let mut state = app.world_mut().resource_mut::<TestState>();
+            let modified_count = app
+                .world_mut()
+                .resource_mut::<Messages<AssetEvent<TestAsset>>>()
+                .drain()
+                .filter(|event| event.is_modified(my_asset_id))
+                .count();
+
             assert_eq!(
-                core::mem::take(&mut state.asset_modified_counter),
-                1,
+                modified_count, 1,
                 "Asset value was changed but AssetEvent::Modified was not triggered",
             );
 
+            // check that reading the asset value doesn't trigger an event
+            {
+                let mut assets = app.world_mut().resource_mut::<Assets<TestAsset>>();
+                let asset = assets.get_mut(my_asset_id).unwrap();
+                let _temp = asset.value;
+            }
+
             app.update();
 
-            let mut state = app.world_mut().resource_mut::<TestState>();
+            let modified_count = app
+                .world_mut()
+                .resource_mut::<Messages<AssetEvent<TestAsset>>>()
+                .drain()
+                .filter(|event| event.is_modified(my_asset_id))
+                .count();
+
             assert_eq!(
-                core::mem::take(&mut state.asset_modified_counter),
-                0,
+                modified_count, 0,
                 "Asset value was not changed but AssetEvent::Modified was triggered",
             );
         }
