@@ -7,7 +7,9 @@ use bevy_ecs::{
     system::{Query, Res, ResMut},
 };
 use bevy_math::{ops::cos, Mat4, Vec3};
-use bevy_pbr::{ExtractedDirectionalLight, MeshMaterial3d, StandardMaterial};
+use bevy_pbr::{
+    ExtractedDirectionalLight, MeshMaterial3d, PreviousGlobalTransform, StandardMaterial,
+};
 use bevy_platform::{collections::HashMap, hash::FixedHasher};
 use bevy_render::{
     mesh::allocator::MeshAllocator,
@@ -38,6 +40,7 @@ pub fn prepare_raytracing_scene_bindings(
         &RaytracingMesh3d,
         &MeshMaterial3d<StandardMaterial>,
         &GlobalTransform,
+        Option<&PreviousGlobalTransform>,
     )>,
     directional_lights_query: Query<(Entity, &ExtractedDirectionalLight)>,
     mesh_allocator: Res<MeshAllocator>,
@@ -76,6 +79,7 @@ pub fn prepare_raytracing_scene_bindings(
             max_instances: instances_query.iter().len() as u32,
         });
     let mut transforms = StorageBufferList::<Mat4>::default();
+    let mut previous_frame_transforms = StorageBufferList::<Mat4>::default();
     let mut geometry_ids = StorageBufferList::<GpuInstanceGeometryIds>::default();
     let mut material_ids = StorageBufferList::<u32>::default();
     let mut light_sources = StorageBufferList::<GpuLightSource>::default();
@@ -145,7 +149,7 @@ pub fn prepare_raytracing_scene_bindings(
     }
 
     let mut instance_id = 0;
-    for (entity, mesh, material, transform) in &instances_query {
+    for (entity, mesh, material, transform, previous_frame_transform) in &instances_query {
         let Some(blas) = blas_manager.get(&mesh.id()) else {
             continue;
         };
@@ -171,6 +175,11 @@ pub fn prepare_raytracing_scene_bindings(
         ));
 
         transforms.get_mut().push(transform);
+        previous_frame_transforms.get_mut().push(
+            previous_frame_transform
+                .map(|t| Mat4::from(t.0))
+                .unwrap_or(transform),
+        );
 
         let (vertex_buffer_id, _) = vertex_buffers.push_if_absent(
             vertex_slice.buffer.as_entire_buffer_binding(),
@@ -244,6 +253,7 @@ pub fn prepare_raytracing_scene_bindings(
 
     materials.write_buffer(&render_device, &render_queue);
     transforms.write_buffer(&render_device, &render_queue);
+    previous_frame_transforms.write_buffer(&render_device, &render_queue);
     geometry_ids.write_buffer(&render_device, &render_queue);
     material_ids.write_buffer(&render_device, &render_queue);
     light_sources.write_buffer(&render_device, &render_queue);
@@ -267,6 +277,7 @@ pub fn prepare_raytracing_scene_bindings(
             materials.binding().unwrap(),
             tlas.as_binding(),
             transforms.binding().unwrap(),
+            previous_frame_transforms.binding().unwrap(),
             geometry_ids.binding().unwrap(),
             material_ids.binding().unwrap(),
             light_sources.binding().unwrap(),
@@ -292,6 +303,7 @@ impl RaytracingSceneBindings {
                         sampler(SamplerBindingType::Filtering).count(MAX_TEXTURE_COUNT),
                         storage_buffer_read_only_sized(false, None),
                         acceleration_structure(),
+                        storage_buffer_read_only_sized(false, None),
                         storage_buffer_read_only_sized(false, None),
                         storage_buffer_read_only_sized(false, None),
                         storage_buffer_read_only_sized(false, None),

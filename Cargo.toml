@@ -1,6 +1,6 @@
 [package]
 name = "bevy"
-version = "0.18.0-dev"
+version = "0.19.0-dev"
 edition = "2024"
 categories = ["game-engines", "graphics", "gui", "rendering"]
 description = "A refreshingly simple data-driven game engine and app framework"
@@ -178,7 +178,7 @@ audio = ["bevy_audio", "vorbis"]
 # COLLECTION: Features used to compose Bevy scenes.
 scene = ["bevy_scene"]
 
-# COLLECTION: Enables picking functionality
+# COLLECTION: Enables picking functionality.
 picking = ["bevy_picking", "mesh_picking", "sprite_picking", "ui_picking"]
 
 # COLLECTION: The core pieces that most apps need. This serves as a baseline feature set for other higher level feature collections (such as "2d" and "3d"). It is also useful as a baseline feature set for scenarios like headless apps that require no rendering (ex: command line tools, servers, etc).
@@ -273,7 +273,7 @@ ui_bevy_render = [
   "bevy_ui_render",
 ]
 
-# COLLECTION: Recommended defaults for no_std applications
+# COLLECTION: Recommended defaults for no_std applications.
 default_no_std = ["libm", "critical-section", "bevy_color", "bevy_state"]
 
 # Provides an implementation for picking meshes
@@ -720,12 +720,12 @@ hotpatching = ["bevy_internal/hotpatching"]
 debug = ["bevy_internal/debug"]
 
 [dependencies]
-bevy_internal = { path = "crates/bevy_internal", version = "0.18.0-dev", default-features = false }
+bevy_internal = { path = "crates/bevy_internal", version = "0.19.0-dev", default-features = false }
 tracing = { version = "0.1", default-features = false, optional = true }
 
 # Wasm does not support dynamic linking.
 [target.'cfg(not(target_family = "wasm"))'.dependencies]
-bevy_dylib = { path = "crates/bevy_dylib", version = "0.18.0-dev", default-features = false, optional = true }
+bevy_dylib = { path = "crates/bevy_dylib", version = "0.19.0-dev", default-features = false, optional = true }
 
 [dev-dependencies]
 rand = "0.9.0"
@@ -736,14 +736,14 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1.0.140"
 bytemuck = "1"
 # The following explicit dependencies are needed for proc macros to work inside of examples as they are part of the bevy crate itself.
-bevy_animation = { path = "crates/bevy_animation", version = "0.18.0-dev", default-features = false }
-bevy_asset = { path = "crates/bevy_asset", version = "0.18.0-dev", default-features = false }
-bevy_ecs = { path = "crates/bevy_ecs", version = "0.18.0-dev", default-features = false }
-bevy_gizmos = { path = "crates/bevy_gizmos", version = "0.18.0-dev", default-features = false }
-bevy_image = { path = "crates/bevy_image", version = "0.18.0-dev", default-features = false }
-bevy_reflect = { path = "crates/bevy_reflect", version = "0.18.0-dev", default-features = false }
-bevy_render = { path = "crates/bevy_render", version = "0.18.0-dev", default-features = false }
-bevy_state = { path = "crates/bevy_state", version = "0.18.0-dev", default-features = false }
+bevy_animation = { path = "crates/bevy_animation", version = "0.19.0-dev", default-features = false }
+bevy_asset = { path = "crates/bevy_asset", version = "0.19.0-dev", default-features = false }
+bevy_ecs = { path = "crates/bevy_ecs", version = "0.19.0-dev", default-features = false }
+bevy_gizmos = { path = "crates/bevy_gizmos", version = "0.19.0-dev", default-features = false }
+bevy_image = { path = "crates/bevy_image", version = "0.19.0-dev", default-features = false }
+bevy_reflect = { path = "crates/bevy_reflect", version = "0.19.0-dev", default-features = false }
+bevy_render = { path = "crates/bevy_render", version = "0.19.0-dev", default-features = false }
+bevy_state = { path = "crates/bevy_state", version = "0.19.0-dev", default-features = false }
 # Needed to poll Task examples
 futures-lite = "2.0.1"
 futures-timer = { version = "3", features = ["wasm-bindgen", "gloo-timers"] }
@@ -752,7 +752,7 @@ argh = "0.1.12"
 thiserror = "2.0"
 event-listener = "5.3.0"
 anyhow = "1"
-accesskit = "0.21"
+accesskit = "0.22"
 nonmax = "0.5"
 gltf = "1.4"
 
@@ -5110,25 +5110,25 @@ wasm = true
 
 [[example]]
 name = "directional_navigation"
-path = "examples/ui/directional_navigation.rs"
+path = "examples/ui/navigation/directional_navigation.rs"
 # Causes an ICE on docs.rs
 doc-scrape-examples = false
 
 [package.metadata.example.directional_navigation]
 name = "Directional Navigation"
-description = "Demonstration of Directional Navigation between UI elements"
+description = "Demonstration of automatic directional navigation based on UI element positions"
 category = "UI (User Interface)"
 wasm = true
 
 [[example]]
-name = "auto_directional_navigation"
-path = "examples/ui/auto_directional_navigation.rs"
+name = "directional_navigation_overrides"
+path = "examples/ui/navigation/directional_navigation_overrides.rs"
 # Causes an ICE on docs.rs
 doc-scrape-examples = false
 
-[package.metadata.example.auto_directional_navigation]
-name = "Automatic Directional Navigation"
-description = "Demonstration of automatic directional navigation graph generation based on UI element positions"
+[package.metadata.example.directional_navigation_overrides]
+name = "Directional Navigation Overrides"
+description = "Demonstration of automatic directional navigation between UI elements with manual overrides"
 category = "UI (User Interface)"
 wasm = true
 
