@@ -258,7 +258,7 @@ fn spawn_light(commands: &mut Commands) {
     commands.spawn((
         PointLight {
             intensity: 250000.0,
-            shadows_enabled: true,
+            shadow_maps_enabled: true,
             ..default()
         },
         Transform::from_xyz(4.0762, 5.9039, 1.0055),
@@ -466,11 +466,11 @@ fn handle_mouse_clicks(
     let Ok(ray) = camera.viewport_to_world(camera_transform, mouse_position) else {
         return;
     };
-    let Some(ray_distance) = ray.intersect_plane(Vec3::ZERO, InfinitePlane3d::new(Vec3::Y)) else {
+    let Some(plane_intersection) =
+        ray.plane_intersection_point(Vec3::ZERO, InfinitePlane3d::new(Vec3::Y))
+    else {
         return;
     };
-    let plane_intersection = ray.origin + ray.direction.normalize() * ray_distance;
-
     // Move all the main objects.
     for mut transform in main_objects.iter_mut() {
         transform.translation = vec3(

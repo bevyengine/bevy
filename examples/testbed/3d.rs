@@ -140,7 +140,7 @@ mod light {
             PointLight {
                 intensity: 100_000.0,
                 color: RED.into(),
-                shadows_enabled: true,
+                shadow_maps_enabled: true,
                 ..default()
             },
             Transform::from_xyz(1.0, 2.0, 0.0),
@@ -151,7 +151,7 @@ mod light {
             SpotLight {
                 intensity: 100_000.0,
                 color: LIME.into(),
-                shadows_enabled: true,
+                shadow_maps_enabled: true,
                 inner_angle: 0.6,
                 outer_angle: 0.8,
                 ..default()
@@ -163,7 +163,7 @@ mod light {
         commands.spawn((
             DirectionalLight {
                 illuminance: light_consts::lux::OVERCAST_DAY,
-                shadows_enabled: true,
+                shadow_maps_enabled: true,
                 ..default()
             },
             Transform {
@@ -248,7 +248,7 @@ mod gltf {
 
         commands.spawn((
             DirectionalLight {
-                shadows_enabled: true,
+                shadow_maps_enabled: true,
                 ..default()
             },
             DespawnOnExit(CURRENT_SCENE),
@@ -300,7 +300,7 @@ mod animation {
         commands.spawn((
             Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, 1.0, -PI / 4.)),
             DirectionalLight {
-                shadows_enabled: true,
+                shadow_maps_enabled: true,
                 ..default()
             },
             DespawnOnExit(CURRENT_SCENE),

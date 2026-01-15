@@ -352,7 +352,7 @@ fn update_directional_light(
     for mut light in &mut lights {
         light.affects_lightmapped_mesh_diffuse = scenery_is_lit_in_real_time;
         // Don't bother enabling shadows if they won't show up on the scenery.
-        light.shadows_enabled = scenery_is_lit_in_real_time;
+        light.shadow_maps_enabled = scenery_is_lit_in_real_time;
     }
 }
 

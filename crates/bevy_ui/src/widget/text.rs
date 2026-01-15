@@ -15,6 +15,7 @@ use bevy_ecs::{
     world::Ref,
 };
 use bevy_image::prelude::*;
+use bevy_log::warn_once;
 use bevy_math::Vec2;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_text::{
@@ -103,8 +104,9 @@ impl Default for TextNodeFlags {
     LineHeight,
     TextNodeFlags,
     ContentSize,
-    // Enable hinting as UI text is normally pixel-aligned.
-    FontHinting::Enabled
+    // Disable hinting.
+    // UI text is normally pixel-aligned, but with hinting enabled sometimes the text bounds are miscalculated slightly.
+    FontHinting::Disabled
 )]
 pub struct Text(pub String);
 
@@ -298,7 +300,7 @@ pub fn measure_text_system(
                 text_flags.needs_measure_fn = false;
                 text_flags.needs_recompute = true;
             }
-            Err(TextError::NoSuchFont) => {
+            Err(TextError::NoSuchFont | TextError::DegenerateScaleFactor) => {
                 // Try again next frame
                 text_flags.needs_measure_fn = true;
             }
@@ -364,13 +366,17 @@ pub fn text_system(
                 physical_node_size,
                 block.justify,
             ) {
-                Err(TextError::NoSuchFont) => {
+                Err(TextError::NoSuchFont | TextError::DegenerateScaleFactor) => {
                     // There was an error processing the text layout, try again next frame
                     text_flags.needs_recompute = true;
                 }
+                Err(e @ TextError::FailedToGetGlyphImage(key)) => {
+                    warn_once!("{e}. Face: {:?}", font_system.get_face_details(key.font_id));
+                    text_flags.needs_recompute = false;
+                    text_layout_info.clear();
+                }
                 Err(
                     e @ (TextError::FailedToAddGlyph(_)
-                    | TextError::FailedToGetGlyphImage(_)
                     | TextError::MissingAtlasLayout
                     | TextError::MissingAtlasTexture
                     | TextError::InconsistentAtlasState),
