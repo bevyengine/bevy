@@ -16,7 +16,7 @@ use bevy::camera::Viewport;
 use bevy::pbr::SetMeshViewEmptyBindGroup;
 use bevy::{
     camera::MainPassResolutionOverride,
-    core_pipeline::{schedule::Core3d, Core3dSystems},
+    core_pipeline::{core_3d::main_opaque_pass_3d, schedule::Core3d, Core3dSystems},
     ecs::system::{lifetimeless::SRes, SystemParamItem},
     math::FloatOrd,
     mesh::MeshVertexBufferLayoutRef,
@@ -138,7 +138,7 @@ impl Plugin for MeshStencilPhasePlugin {
             .add_systems(
                 Core3d,
                 custom_draw_system
-                    .after(Core3dSystems::StartMainPass)
+                    .after(main_opaque_pass_3d)
                     .before(Core3dSystems::EndMainPass),
             );
     }
