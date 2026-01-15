@@ -1,6 +1,6 @@
 [package]
 name = "bevy_sprite_render"
-version = "0.18.0-dev"
+version = "0.19.0-dev"
 edition = "2024"
 description = "Provides sprite rendering functionality for Bevy Engine"
 homepage = "https://bevy.org"
@@ -15,25 +15,25 @@ bevy_text = ["dep:bevy_text", "bevy_sprite/bevy_text"]
 
 [dependencies]
 # bevy
-bevy_app = { path = "../bevy_app", version = "0.18.0-dev" }
-bevy_asset = { path = "../bevy_asset", version = "0.18.0-dev" }
-bevy_color = { path = "../bevy_color", version = "0.18.0-dev" }
-bevy_core_pipeline = { path = "../bevy_core_pipeline", version = "0.18.0-dev" }
-bevy_ecs = { path = "../bevy_ecs", version = "0.18.0-dev" }
-bevy_image = { path = "../bevy_image", version = "0.18.0-dev" }
-bevy_camera = { path = "../bevy_camera", version = "0.18.0-dev" }
-bevy_mesh = { path = "../bevy_mesh", version = "0.18.0-dev" }
-bevy_math = { path = "../bevy_math", version = "0.18.0-dev" }
-bevy_shader = { path = "../bevy_shader", version = "0.18.0-dev" }
-bevy_material = { path = "../bevy_material", version = "0.18.0-dev" }
-bevy_sprite = { path = "../bevy_sprite", version = "0.18.0-dev" }
-bevy_text = { path = "../bevy_text", version = "0.18.0-dev", optional = true }
-bevy_reflect = { path = "../bevy_reflect", version = "0.18.0-dev" }
-bevy_render = { path = "../bevy_render", version = "0.18.0-dev" }
-bevy_transform = { path = "../bevy_transform", version = "0.18.0-dev" }
-bevy_utils = { path = "../bevy_utils", version = "0.18.0-dev" }
-bevy_derive = { path = "../bevy_derive", version = "0.18.0-dev" }
-bevy_platform = { path = "../bevy_platform", version = "0.18.0-dev", default-features = false, features = [
+bevy_app = { path = "../bevy_app", version = "0.19.0-dev" }
+bevy_asset = { path = "../bevy_asset", version = "0.19.0-dev" }
+bevy_color = { path = "../bevy_color", version = "0.19.0-dev" }
+bevy_core_pipeline = { path = "../bevy_core_pipeline", version = "0.19.0-dev" }
+bevy_ecs = { path = "../bevy_ecs", version = "0.19.0-dev" }
+bevy_image = { path = "../bevy_image", version = "0.19.0-dev" }
+bevy_camera = { path = "../bevy_camera", version = "0.19.0-dev" }
+bevy_mesh = { path = "../bevy_mesh", version = "0.19.0-dev" }
+bevy_math = { path = "../bevy_math", version = "0.19.0-dev" }
+bevy_shader = { path = "../bevy_shader", version = "0.19.0-dev" }
+bevy_material = { path = "../bevy_material", version = "0.19.0-dev" }
+bevy_sprite = { path = "../bevy_sprite", version = "0.19.0-dev" }
+bevy_text = { path = "../bevy_text", version = "0.19.0-dev", optional = true }
+bevy_reflect = { path = "../bevy_reflect", version = "0.19.0-dev" }
+bevy_render = { path = "../bevy_render", version = "0.19.0-dev" }
+bevy_transform = { path = "../bevy_transform", version = "0.19.0-dev" }
+bevy_utils = { path = "../bevy_utils", version = "0.19.0-dev" }
+bevy_derive = { path = "../bevy_derive", version = "0.19.0-dev" }
+bevy_platform = { path = "../bevy_platform", version = "0.19.0-dev", default-features = false, features = [
   "std",
 ] }
 
