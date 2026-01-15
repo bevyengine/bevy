@@ -18,11 +18,11 @@ use variadics_please::all_tuples;
 /// # Safety
 ///
 /// Implementor must ensure that
-/// [`update_component_access`], [`QueryData::provide_extra_access`], [`matches_component_set`], [`QueryData::fetch`], [`QueryFilter::filter_fetch`] and [`init_fetch`]
+/// [`update_component_access`], [`QueryData::provide_extra_access`], [`matches_component_set`], [`QueryData::fetch`], [`matches`] and [`init_fetch`]
 /// obey the following:
 ///
 /// - For each component mutably accessed by [`QueryData::fetch`], [`update_component_access`] or [`QueryData::provide_extra_access`] should add write access unless read or write access has already been added, in which case it should panic.
-/// - For each component readonly accessed by [`QueryData::fetch`] or [`QueryFilter::filter_fetch`], [`update_component_access`] or [`QueryData::provide_extra_access`] should add read access unless write access has already been added, in which case it should panic.
+/// - For each component readonly accessed by [`QueryData::fetch`] or [`matches`], [`update_component_access`] or [`QueryData::provide_extra_access`] should add read access unless write access has already been added, in which case it should panic.
 /// - If `fetch` mutably accesses the same component twice, [`update_component_access`] should panic.
 /// - [`update_component_access`] may not add a `Without` filter for a component unless [`matches_component_set`] always returns `false` when the component set contains that component.
 /// - [`update_component_access`] may not add a `With` filter for a component unless [`matches_component_set`] always returns `false` when the component set doesn't contain that component.
@@ -47,7 +47,6 @@ use variadics_please::all_tuples;
 ///
 /// [`QueryData::provide_extra_access`]: crate::query::QueryData::provide_extra_access
 /// [`QueryData::fetch`]: crate::query::QueryData::fetch
-/// [`QueryFilter::filter_fetch`]: crate::query::QueryFilter::filter_fetch
 /// [`init_fetch`]: Self::init_fetch
 /// [`matches_component_set`]: Self::matches_component_set
 /// [`Query`]: crate::system::Query

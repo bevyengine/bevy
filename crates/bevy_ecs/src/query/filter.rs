@@ -109,7 +109,7 @@ pub struct With<T>(PhantomData<T>);
 
 /// SAFETY:
 /// `update_component_access` does not add any accesses.
-/// This is sound because [`QueryFilter::filter_fetch`] does not access any components.
+/// This is sound because [`WorldQuery::matches`] does not access any components.
 /// `update_component_access` adds a `With` filter for `T`.
 /// This is sound because `matches_component_set` returns whether the set contains the component.
 unsafe impl<T: Component> WorldQuery for With<T> {
@@ -208,7 +208,7 @@ pub struct Without<T>(PhantomData<T>);
 
 /// SAFETY:
 /// `update_component_access` does not add any accesses.
-/// This is sound because [`QueryFilter::filter_fetch`] does not access any components.
+/// This is sound because [`WorldQuery::matches`] does not access any components.
 /// `update_component_access` adds a `Without` filter for `T`.
 /// This is sound because `matches_component_set` returns whether the set does not contain the component.
 unsafe impl<T: Component> WorldQuery for Without<T> {
@@ -344,7 +344,7 @@ macro_rules! impl_or_query_filter {
         /// SAFETY:
         /// [`WorldQuery::matches`], [`WorldQuery::find_table_chunk`], and [`WorldQuery::find_archetype_chunk`] only
         /// call their respective methods on subqueries, so they can't perform mutable access unless subqueries are invalid.
-        /// [`QueryFilter::filter_fetch`] accesses are a subset of the subqueries' accesses
+        /// [`WorldQuery::matches`] accesses are a subset of the subqueries' accesses
         /// This is sound because `update_component_access` adds accesses according to the implementations of all the subqueries.
         /// `update_component_access` replace the filters with a disjunction where every element is a conjunction of the previous filters and the filters of one of the subqueries.
         /// This is sound because `matches_component_set` returns a disjunction of the results of the subqueries' implementations.
@@ -574,7 +574,7 @@ pub struct Allow<T>(PhantomData<T>);
 
 /// SAFETY:
 /// `update_component_access` does not add any accesses.
-/// This is sound because [`QueryFilter::filter_fetch`] does not access any components.
+/// This is sound because [`WorldQuery::matches`] does not access any components.
 /// `update_component_access` adds an archetypal filter for `T`.
 /// This is sound because it doesn't affect the query
 unsafe impl<T: Component> WorldQuery for Allow<T> {
@@ -1219,7 +1219,7 @@ impl QueryFilter for Spawned {}
 /// This is needed to implement [`ExactSizeIterator`] for
 /// [`QueryIter`](crate::query::QueryIter) that contains archetype-level filters.
 ///
-/// The trait must only be implemented for filters where its corresponding [`QueryFilter::IS_ARCHETYPAL`]
+/// The trait must only be implemented for filters where its corresponding [`WorldQuery::IS_ARCHETYPAL`]
 /// is [`prim@true`]. As such, only the [`With`] and [`Without`] filters can implement the trait.
 /// [Tuples](prim@tuple) and [`Or`] filters are automatically implemented with the trait only if its containing types
 /// also implement the same trait.
