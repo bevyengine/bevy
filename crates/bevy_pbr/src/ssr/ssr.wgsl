@@ -176,10 +176,6 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     }
     fade *= fade_xy.x * fade_xy.y;
 
-    if (fade <= 0.0 || perceptual_roughness > ssr_settings.max_perceptual_roughness) {
-        return fragment;
-    }
-
     // Unpack the PBR input.
     var specular_occlusion = pbr_input.specular_occlusion;
     let world_position = pbr_input.world_position.xyz;
@@ -232,7 +228,6 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     // Do the raymarching.
     let ssr_specular = evaluate_ssr(R_stochastic, world_position, raymarch_jitter);
     var indirect_light = (ssr_specular.rgb * brdf_sample_value_over_pdf) * fade;
-    specular_occlusion = mix(specular_occlusion, specular_occlusion * ssr_specular.a, fade);
 
     // Sample the environment map if necessary.
     //
@@ -311,7 +306,9 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
         &lighting_input, &clusterable_object_index_ranges, true);
 
     // Accumulate the environment map light.
-    indirect_light += (view.exposure * environment_light.specular * specular_occlusion) * fade;
+    // Note that we multiply by (1.0 - ssr_specular.a * fade) to occlude the
+    // environment map if SSR hits.
+    indirect_light += (view.exposure * environment_light.specular * specular_occlusion) * (1.0 - (1.0 - ssr_specular.a) * fade);
 #endif
 
     // Write the results.
