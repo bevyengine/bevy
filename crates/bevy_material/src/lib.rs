@@ -9,6 +9,10 @@
 )]
 #![cfg_attr(any(docsrs, docsrs_dep), feature(rustdoc_internals))]
 #![cfg_attr(docsrs, feature(doc_cfg))]
+#![doc(
+    html_logo_url = "https://bevy.org/assets/icon.png",
+    html_favicon_url = "https://bevy.org/assets/icon.png"
+)]
 
 use bevy_asset::Handle;
 use bevy_shader::Shader;
