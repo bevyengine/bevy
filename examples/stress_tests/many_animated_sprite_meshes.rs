@@ -2,6 +2,8 @@
 //!
 //! This example sets up many animated sprites in different sizes, rotations, and scales in the world.
 //! It also moves the camera over them to see how well frustum culling works.
+//! 
+//! This is a modified version of many_animated_sprites but based on [`SpriteMesh`]
 
 use std::time::Duration;
 
