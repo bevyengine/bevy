@@ -109,12 +109,14 @@ Example | Description
 Example | Description
 --- | ---
 [2D Bloom](../examples/2d/bloom_2d.rs) | Illustrates bloom post-processing in 2d
-[2D Rotation](../examples/2d/rotation.rs) | Demonstrates rotating entities in 2D with quaternions
+[2D Rotation to Cursor](../examples/2d/rotate_to_cursor.rs) | Demonstrates rotating entities in 2D to follow the cursor
 [2D Shapes](../examples/2d/2d_shapes.rs) | Renders simple 2D primitive shapes like circles and polygons
 [2D Viewport To World](../examples/2d/2d_viewport_to_world.rs) | Demonstrates how to use the `Camera::viewport_to_world_2d` method with a dynamic viewport and camera.
 [2D Wireframe](../examples/2d/wireframe_2d.rs) | Showcases wireframes for 2d meshes
 [Arc 2D Meshes](../examples/2d/mesh2d_arcs.rs) | Demonstrates UV-mapping of the circular segment and sector primitives
 [CPU Drawing](../examples/2d/cpu_draw.rs) | Manually read/write the pixels of a texture
+[Dynamic Mipmap Generation](../examples/2d/dynamic_mip_generation.rs) | Demonstrates use of the mipmap generation plugin to generate mipmaps for a texture
+[Generic 2D Rotation](../examples/2d/rotation.rs) | Demonstrates rotating entities in 2D with quaternions
 [Manual Mesh 2D](../examples/2d/mesh2d_manual.rs) | Renders a custom mesh "manually" with "mid-level" renderer apis
 [Mesh 2D](../examples/2d/mesh2d.rs) | Renders a 2d mesh
 [Mesh 2D With Vertex Colors](../examples/2d/mesh2d_vertex_color_texture.rs) | Renders a 2d mesh with vertex color attributes
@@ -156,6 +158,7 @@ Example | Description
 [Clustered Decal Maps](../examples/3d/clustered_decal_maps.rs) | Demonstrates normal and metallic-roughness maps of decals
 [Clustered Decals](../examples/3d/clustered_decals.rs) | Demonstrates clustered decals
 [Color grading](../examples/3d/color_grading.rs) | Demonstrates color grading
+[Contact Shadows](../examples/3d/contact_shadows.rs) | Showcases how contact shadows add shadow detail
 [Decal](../examples/3d/decal.rs) | Decal rendering
 [Deferred Rendering](../examples/3d/deferred_rendering.rs) | Renders meshes with both forward and deferred pipelines
 [Depth of field](../examples/3d/depth_of_field.rs) | Demonstrates depth of field
@@ -416,6 +419,7 @@ Example | Description
 
 Example | Description
 --- | ---
+[Drag and Drop](../examples/picking/dragdrop_picking.rs) | Demonstrates drag and drop using picking events
 [Mesh Picking](../examples/picking/mesh_picking.rs) | Demonstrates picking meshes
 [Picking Debug Tools](../examples/picking/debug_picking.rs) | Demonstrates picking debug overlay
 [Showcases simple picking events and usage](../examples/picking/simple_picking.rs) | Demonstrates how to use picking events to spawn simple objects
@@ -518,6 +522,7 @@ cargo run --release --example <example name>
 Example | Description
 --- | ---
 [Bevymark](../examples/stress_tests/bevymark.rs) | A heavy sprite rendering workload to benchmark your system with Bevy
+[Bevymark 3D](../examples/stress_tests/bevymark_3d.rs) | A heavy 3D cube rendering workload to benchmark your system with Bevy
 [Many Animated Materials](../examples/stress_tests/many_materials.rs) | Benchmark to test rendering many animated materials
 [Many Animated Sprites](../examples/stress_tests/many_animated_sprites.rs) | Displays many animated sprites in a grid arrangement with slight offsets to their animation timers. Used for performance testing.
 [Many Buttons](../examples/stress_tests/many_buttons.rs) | Test rendering of many UI elements
@@ -564,17 +569,18 @@ Example | Description
 Example | Description
 --- | ---
 [Anchor Layout](../examples/ui/anchor_layout.rs) | Shows an 'anchor layout' style of ui layout
-[Automatic Directional Navigation](../examples/ui/auto_directional_navigation.rs) | Demonstration of automatic directional navigation graph generation based on UI element positions
 [Borders](../examples/ui/borders.rs) | Demonstrates how to create a node with a border
 [Box Shadow](../examples/ui/box_shadow.rs) | Demonstrates how to create a node with a shadow
 [Button](../examples/ui/button.rs) | Illustrates creating and updating a button
 [CSS Grid](../examples/ui/grid.rs) | An example for CSS Grid layout
-[Directional Navigation](../examples/ui/directional_navigation.rs) | Demonstration of Directional Navigation between UI elements
+[Directional Navigation](../examples/ui/navigation/directional_navigation.rs) | Demonstration of automatic directional navigation based on UI element positions
+[Directional Navigation Overrides](../examples/ui/navigation/directional_navigation_overrides.rs) | Demonstration of automatic directional navigation between UI elements with manual overrides
 [Display and Visibility](../examples/ui/display_and_visibility.rs) | Demonstrates how Display and Visibility work in the UI.
 [Drag to Scroll](../examples/ui/drag_to_scroll.rs) | This example tests scale factor, dragging and scrolling
 [Feathers Widgets](../examples/ui/feathers.rs) | Gallery of Feathers Widgets
 [Flex Layout](../examples/ui/flex_layout.rs) | Demonstrates how the AlignItems and JustifyContent properties can be composed to layout nodes and position text
 [Font Atlas Debug](../examples/ui/font_atlas_debug.rs) | Illustrates how FontAtlases are populated (used to optimize text rendering internally)
+[Font Queries](../examples/ui/font_query.rs) | Demonstrates font querying
 [Font Weights](../examples/ui/font_weights.rs) | Demonstrates how to use font weights.
 [Ghost Nodes](../examples/ui/ghost_nodes.rs) | Demonstrates the use of Ghost Nodes to skip entities in the UI layout hierarchy
 [Gradients](../examples/ui/gradients.rs) | An example demonstrating gradients
@@ -610,6 +616,7 @@ Example | Description
 [Viewport Node](../examples/ui/viewport_node.rs) | Demonstrates how to create a viewport node with picking support
 [Virtual Keyboard](../examples/ui/virtual_keyboard.rs) | Example demonstrating a virtual keyboard widget
 [Window Fallthrough](../examples/ui/window_fallthrough.rs) | Illustrates how to access `winit::window::Window`'s `hittest` functionality.
+[system_fonts](../examples/ui/system_fonts.rs) | Demonstrates how to use system fonts
 
 ### Usage
 

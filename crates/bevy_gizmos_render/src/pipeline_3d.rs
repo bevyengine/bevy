@@ -22,7 +22,7 @@ use bevy_ecs::{
     system::{Commands, Query, Res, ResMut},
 };
 use bevy_image::BevyDefault as _;
-use bevy_pbr::{MeshPipeline, MeshPipelineKey, SetMeshViewBindGroup};
+use bevy_pbr::{ExtractedAtmosphere, MeshPipeline, MeshPipelineKey, SetMeshViewBindGroup};
 use bevy_render::{
     render_asset::{prepare_assets, RenderAssets},
     render_phase::{
@@ -149,7 +149,7 @@ impl Specializer<RenderPipeline> for LineGizmoPipelineSpecializer {
 
         let fragment = descriptor.fragment_mut()?;
 
-        #[cfg(feature = "webgl")]
+        #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
         fragment.shader_defs.push("SIXTEEN_BYTE_ALIGNMENT".into());
 
         if key.perspective {
@@ -203,7 +203,7 @@ impl SpecializedRenderPipeline for LineJointGizmoPipeline {
 
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
         let mut shader_defs = vec![
-            #[cfg(feature = "webgl")]
+            #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
             "SIXTEEN_BYTE_ALIGNMENT".into(),
         ];
 
@@ -305,6 +305,7 @@ fn queue_line_gizmos_3d(
             Has<MotionVectorPrepass>,
             Has<DeferredPrepass>,
             Has<OrderIndependentTransparencySettings>,
+            Has<ExtractedAtmosphere>,
         ),
     )>,
 ) -> Result<(), BevyError> {
@@ -318,7 +319,7 @@ fn queue_line_gizmos_3d(
         view,
         msaa,
         render_layers,
-        (normal_prepass, depth_prepass, motion_vector_prepass, deferred_prepass, oit),
+        (normal_prepass, depth_prepass, motion_vector_prepass, deferred_prepass, oit, atmosphere),
     ) in &views
     {
         let Some(transparent_phase) = transparent_render_phases.get_mut(&view.retained_view_entity)
@@ -349,6 +350,10 @@ fn queue_line_gizmos_3d(
 
         if oit {
             view_key |= MeshPipelineKey::OIT_ENABLED;
+        }
+
+        if atmosphere {
+            view_key |= MeshPipelineKey::ATMOSPHERE;
         }
 
         for (entity, main_entity, config) in &line_gizmos {

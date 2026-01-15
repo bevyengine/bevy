@@ -1225,6 +1225,9 @@ impl App {
     }
 
     /// Applies the provided [`ScheduleBuildSettings`] to all schedules.
+    ///
+    /// This mutates all currently present schedules, but does not apply to any custom schedules
+    /// that might be added in the future.
     pub fn configure_schedules(
         &mut self,
         schedule_build_settings: ScheduleBuildSettings,

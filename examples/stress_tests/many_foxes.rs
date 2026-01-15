@@ -54,6 +54,7 @@ fn main() {
             FrameTimeDiagnosticsPlugin::default(),
             LogDiagnosticsPlugin::default(),
         ))
+        .insert_resource(StaticTransformOptimizations::disabled())
         .insert_resource(WinitSettings::continuous())
         .insert_resource(Foxes {
             count: args.count,
@@ -119,7 +120,7 @@ fn setup(
     ];
     let mut animation_graph = AnimationGraph::new();
     let node_indices = animation_graph
-        .add_clips(animation_clips.iter().cloned(), 1.0, animation_graph.root)
+        .add_clips(animation_clips, 1.0, animation_graph.root)
         .collect();
     commands.insert_resource(Animations {
         node_indices,
@@ -208,7 +209,7 @@ fn setup(
     commands.spawn((
         Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, 1.0, -PI / 4.)),
         DirectionalLight {
-            shadows_enabled: true,
+            shadow_maps_enabled: true,
             ..default()
         },
         CascadeShadowConfigBuilder {
@@ -241,9 +242,10 @@ fn setup_scene_once_loaded(
             if !foxes.sync {
                 playing_animation.seek_to(scene_ready.entity.index_u32() as f32 / 10.0);
             }
-            commands
-                .entity(child)
-                .insert(AnimationGraphHandle(animations.graph.clone()));
+            commands.entity(child).insert((
+                AnimationGraphHandle(animations.graph.clone()),
+                AnimationTransitions::default(),
+            ));
         }
     }
 }

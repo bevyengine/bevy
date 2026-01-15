@@ -52,7 +52,7 @@ pub struct GlobalsUniform {
     frame_count: u32,
     /// WebGL2 structs must be 16 byte aligned.
     #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
-    _wasm_padding: f32,
+    _webgl2_padding: f32,
 }
 
 /// The buffer containing the [`GlobalsUniform`]
