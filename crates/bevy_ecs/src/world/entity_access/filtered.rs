@@ -55,7 +55,7 @@ impl<'w, 's> FilteredEntityRef<'w, 's> {
         Self { entity, access }
     }
 
-    /// Consumes self and returns full read-only access to the entity and all of
+    /// Consumes self and returns read-only access to the entity and *all* of
     /// its components, with the world `'w` lifetime. Returns an error if the
     /// access does not include read access to all components.
     ///
@@ -63,7 +63,7 @@ impl<'w, 's> FilteredEntityRef<'w, 's> {
     ///
     /// - [`TryFromFilteredError::MissingReadAllAccess`] - if the access does not include read access to all components.
     #[inline]
-    pub fn try_into_full(self) -> Result<EntityRef<'w>, TryFromFilteredError> {
+    pub fn try_into_all(self) -> Result<EntityRef<'w>, TryFromFilteredError> {
         if !self.access.has_read_all() {
             Err(TryFromFilteredError::MissingReadAllAccess)
         } else {
@@ -231,7 +231,7 @@ impl<'a> TryFrom<FilteredEntityRef<'a, '_>> for EntityRef<'a> {
     type Error = TryFromFilteredError;
 
     fn try_from(entity: FilteredEntityRef<'a, '_>) -> Result<Self, Self::Error> {
-        entity.try_into_full()
+        entity.try_into_all()
     }
 }
 
@@ -239,7 +239,7 @@ impl<'a> TryFrom<&FilteredEntityRef<'a, '_>> for EntityRef<'a> {
     type Error = TryFromFilteredError;
 
     fn try_from(entity: &FilteredEntityRef<'a, '_>) -> Result<Self, Self::Error> {
-        entity.try_into_full()
+        entity.try_into_all()
     }
 }
 
@@ -409,7 +409,7 @@ impl<'w, 's> FilteredEntityMut<'w, 's> {
         unsafe { FilteredEntityRef::new(self.entity, self.access) }
     }
 
-    /// Consumes self and returns full mutable access to the entity and all of
+    /// Consumes self and returns mutable access to the entity and *all* of
     /// its components, with the world `'w` lifetime. Returns an error if the
     /// access does not include read and write access to all components.
     ///
@@ -418,7 +418,7 @@ impl<'w, 's> FilteredEntityMut<'w, 's> {
     /// - [`TryFromFilteredError::MissingReadAllAccess`] - if the access does not include read access to all components.
     /// - [`TryFromFilteredError::MissingWriteAllAccess`] - if the access does not include write access to all components.
     #[inline]
-    pub fn try_into_full(self) -> Result<EntityMut<'w>, TryFromFilteredError> {
+    pub fn try_into_all(self) -> Result<EntityMut<'w>, TryFromFilteredError> {
         if !self.access.has_read_all() {
             Err(TryFromFilteredError::MissingReadAllAccess)
         } else if !self.access.has_write_all() {
@@ -709,7 +709,7 @@ impl<'a> TryFrom<FilteredEntityMut<'a, '_>> for EntityRef<'a> {
 
     #[inline]
     fn try_from(entity: FilteredEntityMut<'a, '_>) -> Result<Self, Self::Error> {
-        entity.into_readonly().try_into_full()
+        entity.into_readonly().try_into_all()
     }
 }
 
@@ -718,7 +718,7 @@ impl<'a> TryFrom<&'a FilteredEntityMut<'_, '_>> for EntityRef<'a> {
 
     #[inline]
     fn try_from(entity: &'a FilteredEntityMut<'_, '_>) -> Result<Self, Self::Error> {
-        entity.as_readonly().try_into_full()
+        entity.as_readonly().try_into_all()
     }
 }
 
@@ -726,7 +726,7 @@ impl<'a> TryFrom<FilteredEntityMut<'a, '_>> for EntityMut<'a> {
     type Error = TryFromFilteredError;
 
     fn try_from(entity: FilteredEntityMut<'a, '_>) -> Result<Self, Self::Error> {
-        entity.try_into_full()
+        entity.try_into_all()
     }
 }
 
@@ -735,7 +735,7 @@ impl<'a> TryFrom<&'a mut FilteredEntityMut<'_, '_>> for EntityMut<'a> {
 
     #[inline]
     fn try_from(entity: &'a mut FilteredEntityMut<'_, '_>) -> Result<Self, Self::Error> {
-        entity.reborrow().try_into_full()
+        entity.reborrow().try_into_all()
     }
 }
 
