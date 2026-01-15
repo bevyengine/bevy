@@ -315,5 +315,5 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
 #endif
 
     // Write the results.
-    return vec4(fragment.rgb + indirect_light, 1.0);
+    return vec4(fragment.rgb + indirect_light, fragment.a);
 }
