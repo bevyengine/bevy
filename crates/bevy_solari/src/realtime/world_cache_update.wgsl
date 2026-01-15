@@ -3,7 +3,7 @@
 #import bevy_render::view::View
 #import bevy_solari::presample_light_tiles::{ResolvedLightSamplePacked, unpack_resolved_light_sample}
 #import bevy_solari::sampling::{calculate_resolved_light_contribution, trace_light_visibility}
-#import bevy_solari::scene_bindings::{trace_ray, resolve_ray_hit_full, RAY_T_MIN}
+#import bevy_solari::scene_bindings::{trace_ray, resolve_ray_hit_full, light_sources, transforms, previous_frame_transforms, RAY_T_MIN}
 #import bevy_solari::world_cache::{
     WORLD_CACHE_MAX_TEMPORAL_SAMPLES,
     WORLD_CACHE_DIRECT_LIGHT_SAMPLE_COUNT,
@@ -12,6 +12,7 @@
     query_world_cache,
 }
 #import bevy_solari::realtime_bindings::{
+    light_tile_samples,
     light_tile_resolved_samples,
     view,
     constants,
@@ -97,7 +98,19 @@ fn sample_random_light_ris(world_position: vec3<f32>, world_normal: vec3<f32>, w
     for (var i = 0u; i < WORLD_CACHE_DIRECT_LIGHT_SAMPLE_COUNT; i++) {
         let tile_sample = light_tile_start + rand_range_u(1024u, rng);
         let resolved_light_sample = unpack_resolved_light_sample(light_tile_resolved_samples[tile_sample], view.exposure);
-        let light_contribution = calculate_resolved_light_contribution(resolved_light_sample, world_position, world_normal);
+        var light_contribution = calculate_resolved_light_contribution(resolved_light_sample, world_position, world_normal);
+
+        // Only sample non-moving emissive lights
+        // TODO: Pack this in the light tile instead of calculating this here
+        if resolved_light_sample.world_position.w == 1.0 {
+            let light_sample = light_tile_samples[tile_sample];
+            let light_source = light_sources[light_sample.light_id >> 16u];
+            let transform = transforms[light_source.id];
+            let previous_frame_transform = previous_frame_transforms[light_source.id];
+            let velocity = transform[3].xyz - previous_frame_transform[3].xyz;
+
+            light_contribution.inverse_pdf *= f32(length(velocity) == 0.0);
+        }
 
         let target_function = luminance(light_contribution.radiance);
         let resampling_weight = mis_weight * (target_function * light_contribution.inverse_pdf);
