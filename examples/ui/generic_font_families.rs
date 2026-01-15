@@ -1,4 +1,13 @@
-//! This example demonstrates generic font families
+//! This example demonstrates generic font families,
+//! which look up a matching font from installed fonts on the user's device.
+//!
+//! This is used as a fallback in case a specific selected font is available,
+//! ensuring that the provided font approximately matches the needs
+//! of a given piece of text.
+//!
+//! This feature is most useful for non-game applications;
+//! most games instead choose to simply bundle their required fonts
+//! to ensure a unified visual look.
 
 use bevy::{
     color::palettes::{
