@@ -121,6 +121,10 @@ pub(crate) fn check(what_to_run: Command) {
     sorted_features.sort();
 
     if what_to_run.contains(Command::UPDATE) {
+        panic!("this panic can be removed, if CARGO_PKG_VERSION is also the bevy's workspace version"); // TODO: note this panic!
+        let long_version = std::env::var("CARGO_PKG_VERSION").unwrap(); 
+        let version: _ = long_version.as_str().rsplit_once('.').unwrap().0;
+
         let mut context = Context::new();
         context.insert("features", &features);
         context.insert("sorted_features", &sorted_features);
