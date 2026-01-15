@@ -131,7 +131,7 @@ static TEXTURE_FORMATS: [(TextureFormat, &str); 40] = [
 ///
 /// You can add images to this list via the [`MipGenerationJobs::add`] method,
 /// in the render world. Note that this, by itself, isn't enough to generate
-/// the mipmaps; you must also add a [`MipGenerationNode`] to the render graph.
+/// the mipmaps; you must also add a [`mip_generation`] system to the render schedule.
 ///
 /// This resource exists only in the render world, not the main world.
 /// Therefore, you typically want to place images in this resource in a system
@@ -146,9 +146,9 @@ impl MipGenerationJobs {
     /// Schedules the generation of mipmaps for an image.
     ///
     /// Mipmaps will be generated during the execution of the
-    /// [`MipGenerationNode`] corresponding to the [`MipGenerationPhaseId`].
-    /// Note that, by default, Bevy doesn't automatically add any such node to
-    /// the render graph; it's up to you to manually add that node.
+    /// [`mip_generation`] system corresponding to the [`MipGenerationPhaseId`].
+    /// Note that, by default, Bevy doesn't automatically add any such system to
+    /// the render schedule; it's up to you to manually add that system.
     pub fn add(&mut self, phase: MipGenerationPhaseId, image: impl Into<AssetId<Image>>) {
         self.entry(phase).or_default().push(image.into());
     }
