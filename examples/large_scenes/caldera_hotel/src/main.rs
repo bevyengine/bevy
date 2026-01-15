@@ -3,7 +3,9 @@
 
 use std::{f32::consts::PI, time::Instant};
 
+use crate::light_consts::lux;
 use argh::FromArgs;
+use bevy::pbr::ContactShadows;
 use bevy::{
     anti_alias::taa::TemporalAntiAliasing,
     camera::visibility::{NoCpuCulling, NoFrustumCulling},
@@ -27,8 +29,6 @@ use bevy::{
     window::{PresentMode, WindowResolution},
     winit::{UpdateMode, WinitSettings},
 };
-
-use crate::light_consts::lux;
 
 #[derive(FromArgs, Resource, Clone)]
 /// Config
@@ -182,7 +182,8 @@ pub fn setup(
             DirectionalLight {
                 color: Color::srgb(1.0, 0.87, 0.78),
                 illuminance: lux::FULL_DAYLIGHT,
-                shadows_enabled: !args.minimal,
+                shadow_maps_enabled: !args.minimal,
+                contact_shadows_enabled: !args.minimal,
                 shadow_depth_bias: 0.2,
                 shadow_normal_bias: 0.2,
                 ..default()
@@ -215,6 +216,7 @@ pub fn setup(
             intensity: 1000.0,
             ..default()
         },
+        ContactShadows::default(),
         FreeCamera::default(),
         Spin,
     ));
