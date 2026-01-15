@@ -19,6 +19,7 @@ fn balance_heuristic(f: f32, g: f32) -> f32 {
 
 // https://gpuopen.com/download/Bounded_VNDF_Sampling_for_Smith-GGX_Reflections.pdf (Listing 1)
 fn sample_ggx_vndf(wi_tangent: vec3<f32>, roughness: f32, rng: ptr<function, u32>) -> vec3<f32> {
+    // Mirror BRDF case
     if roughness <= 0.001 {
         return vec3(-wi_tangent.xy, wi_tangent.z);
     }
@@ -43,6 +44,7 @@ fn sample_ggx_vndf(wi_tangent: vec3<f32>, roughness: f32, rng: ptr<function, u32
 
 // https://gpuopen.com/download/Bounded_VNDF_Sampling_for_Smith-GGX_Reflections.pdf (Listing 2)
 fn ggx_vndf_pdf(wi_tangent: vec3<f32>, wo_tangent: vec3<f32>, roughness: f32) -> f32 {
+    // Mirror BRDF case
     if roughness <= 0.001 {
         let mirror_wo = vec3(-wi_tangent.xy, wi_tangent.z);
         return f32(all(abs(mirror_wo - wo_tangent) < vec3(0.0001)));
