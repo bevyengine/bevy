@@ -60,7 +60,7 @@ use core::{
 /// ## Component access
 ///
 /// You can fetch an entity's component by specifying a reference to that component in the query's data parameter:
-///
+//query.rs/
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// #
@@ -2053,7 +2053,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// This is equivalent to `self.iter().count()` but may be more efficient in some cases.
     ///
-    /// If [`D::IS_ARCHETYPAL`](WorldQuery::IS_ARCHETYPAL) && [`F::IS_ARCHETYPAL`](WorldQuery::IS_ARCHETYPAL) is `true`,
+    /// If [`D::IS_ARCHETYPAL`](crate::query::WorldQuery::IS_ARCHETYPAL) && [`F::IS_ARCHETYPAL`](crate::query::WorldQuery::IS_ARCHETYPAL) is `true`,
     /// this will do work proportional to the number of matched archetypes or tables, but will not iterate each entity.
     /// If it is `false`, it will have to do work for each entity.
     ///
