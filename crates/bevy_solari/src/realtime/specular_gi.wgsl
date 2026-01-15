@@ -70,7 +70,7 @@ fn specular_gi(@builtin(global_invocation_id) global_id: vec3<u32>) {
     textureStore(view_output, global_id.xy, pixel_color);
 
 #ifdef VISUALIZE_WORLD_CACHE
-    textureStore(view_output, global_id.xy, vec4(query_world_cache(surface.world_position, surface.world_normal, view.world_position, WORLD_CACHE_CELL_LIFETIME, &rng) * view.exposure, 1.0));
+    textureStore(view_output, global_id.xy, vec4(query_world_cache(surface.world_position, surface.world_normal, view.world_position, RAY_T_MAX, WORLD_CACHE_CELL_LIFETIME, &rng) * view.exposure, 1.0));
 #endif
 }
 
@@ -127,11 +127,10 @@ fn trace_glossy_path(pixel_id: vec2<u32>, primary_surface: ResolvedGPixel, initi
         }
 #endif
 
-        if i != 0u && !surface_perfect_mirror
-            && (path_spread * path_spread > a0 * get_cell_size(ray_hit.world_position, view.world_position)) {
+        if path_spread * path_spread > a0 * get_cell_size(ray_hit.world_position, view.world_position) {
             // Path spread is wide enough, terminate path in the world cache
             let diffuse_brdf = ray_hit.material.base_color / PI;
-            radiance += throughput * diffuse_brdf * query_world_cache(ray_hit.world_position, ray_hit.geometric_world_normal, view.world_position, WORLD_CACHE_CELL_LIFETIME, rng);
+            radiance += throughput * diffuse_brdf * query_world_cache(ray_hit.world_position, ray_hit.geometric_world_normal, view.world_position, ray.t, WORLD_CACHE_CELL_LIFETIME, rng);
             break;
         } else if !surface_perfect_mirror {
             // Sample direct lighting (NEE)

@@ -124,11 +124,11 @@ impl ExtractComponent for Skybox {
                 brightness: skybox.brightness * exposure,
                 transform: Transform::from_rotation(skybox.rotation.inverse()).to_matrix(),
                 #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
-                _wasm_padding_8b: 0,
+                _webgl2_padding_8b: 0,
                 #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
-                _wasm_padding_12b: 0,
+                _webgl2_padding_12b: 0,
                 #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
-                _wasm_padding_16b: 0,
+                _webgl2_padding_16b: 0,
             },
         ))
     }
@@ -140,11 +140,11 @@ pub struct SkyboxUniforms {
     brightness: f32,
     transform: Mat4,
     #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
-    _wasm_padding_8b: u32,
+    _webgl2_padding_8b: u32,
     #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
-    _wasm_padding_12b: u32,
+    _webgl2_padding_12b: u32,
     #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
-    _wasm_padding_16b: u32,
+    _webgl2_padding_16b: u32,
 }
 
 #[derive(Resource)]

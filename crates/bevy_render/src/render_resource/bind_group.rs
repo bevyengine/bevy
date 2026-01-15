@@ -6,7 +6,7 @@ use crate::{
 };
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::system::{SystemParam, SystemParamItem};
-use bevy_render::render_resource::BindGroupLayoutDescriptor;
+use bevy_material::descriptor::BindGroupLayoutDescriptor;
 pub use bevy_render_macros::AsBindGroup;
 use bevy_utils::define_atomic_id;
 use core::ops::Deref;
