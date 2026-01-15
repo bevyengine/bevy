@@ -17,7 +17,7 @@ use bevy::{
         texture::GpuImage,
         Render, RenderApp, RenderStartup, RenderSystems,
     },
-    shader::PipelineCacheError,
+    shader::ShaderCacheError,
 };
 use std::borrow::Cow;
 
@@ -228,7 +228,7 @@ fn update(
                     *state = GameOfLifeState::Init;
                 }
                 // If the shader hasn't loaded yet, just wait.
-                CachedPipelineState::Err(PipelineCacheError::ShaderNotLoaded(_)) => {}
+                CachedPipelineState::Err(ShaderCacheError::ShaderNotLoaded(_)) => {}
                 CachedPipelineState::Err(err) => {
                     panic!("Initializing assets/{SHADER_ASSET_PATH}:\n{err}")
                 }
