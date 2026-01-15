@@ -235,10 +235,10 @@ impl<'a> TryFrom<FilteredEntityRef<'a, '_>> for EntityRef<'a> {
     }
 }
 
-impl<'a> TryFrom<&'a FilteredEntityRef<'_, '_>> for EntityRef<'a> {
+impl<'a> TryFrom<&FilteredEntityRef<'a, '_>> for EntityRef<'a> {
     type Error = TryFromFilteredError;
 
-    fn try_from(entity: &'a FilteredEntityRef<'_, '_>) -> Result<Self, Self::Error> {
+    fn try_from(entity: &FilteredEntityRef<'a, '_>) -> Result<Self, Self::Error> {
         entity.try_into_full()
     }
 }

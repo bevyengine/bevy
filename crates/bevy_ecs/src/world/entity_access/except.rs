@@ -207,8 +207,8 @@ impl<'w, 's, B: Bundle> From<EntityRefExcept<'w, 's, B>> for FilteredEntityRef<'
     }
 }
 
-impl<'w, 's, B: Bundle> From<&'w EntityRefExcept<'_, 's, B>> for FilteredEntityRef<'w, 's> {
-    fn from(entity: &'w EntityRefExcept<'_, 's, B>) -> Self {
+impl<'w, 's, B: Bundle> From<&EntityRefExcept<'w, 's, B>> for FilteredEntityRef<'w, 's> {
+    fn from(entity: &EntityRefExcept<'w, 's, B>) -> Self {
         entity.into_filtered()
     }
 }

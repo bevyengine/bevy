@@ -304,10 +304,10 @@ impl<'a> From<EntityRef<'a>> for FilteredEntityRef<'a, 'static> {
     }
 }
 
-impl<'a> From<&'a EntityRef<'_>> for FilteredEntityRef<'a, 'static> {
+impl<'a> From<&EntityRef<'a>> for FilteredEntityRef<'a, 'static> {
     #[inline]
-    fn from(entity: &'a EntityRef<'_>) -> Self {
-        (*entity).into_filtered()
+    fn from(entity: &EntityRef<'a>) -> Self {
+        entity.into_filtered()
     }
 }
 
