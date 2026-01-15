@@ -33,6 +33,8 @@ pub struct TextEntity {
     pub entity: Entity,
     /// Records the hierarchy depth of the entity within a `TextLayout`.
     pub depth: usize,
+    /// Antialiasing method to use when rendering the text.
+    pub font_smoothing: FontSmoothing,
 }
 
 /// Computed information for a text block.
