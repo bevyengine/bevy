@@ -301,6 +301,7 @@ Example | Description
 
 Example | Description
 --- | ---
+[Extract Schedule Data](../examples/dev_tools/schedule_data.rs) | Extracts the schedule data from a default app and writes it to a file
 [FPS overlay](../examples/dev_tools/fps_overlay.rs) | Demonstrates FPS overlay
 
 ### Diagnostics
