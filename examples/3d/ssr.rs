@@ -811,10 +811,10 @@ fn adjust_app_settings(
             ExampleSetting::Model(model) => app_settings.displayed_model == model,
             ExampleSetting::Base(base) => app_settings.displayed_base == base,
             _ => {
-                if has_background {
-                    if let Ok(mut background_color) = background_colors.get_mut(entity) {
-                        *background_color = BackgroundColor(Color::BLACK);
-                    }
+                if has_background
+                    && let Ok(mut background_color) = background_colors.get_mut(entity)
+                {
+                    *background_color = BackgroundColor(Color::BLACK);
                 }
                 if has_text {
                     update_ui_radio_button_text(entity, &mut writer, false);
@@ -823,10 +823,8 @@ fn adjust_app_settings(
             }
         };
 
-        if has_background {
-            if let Ok(mut background_color) = background_colors.get_mut(entity) {
-                update_ui_radio_button(&mut background_color, selected);
-            }
+        if has_background && let Ok(mut background_color) = background_colors.get_mut(entity) {
+            update_ui_radio_button(&mut background_color, selected);
         }
         if has_text {
             update_ui_radio_button_text(entity, &mut writer, selected);
