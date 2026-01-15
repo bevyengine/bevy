@@ -150,6 +150,10 @@ where
     fn reflect_partial_eq(&self, value: &dyn PartialReflect) -> Option<bool> {
         crate::list::list_partial_eq(self, value)
     }
+
+    fn reflect_partial_cmp(&self, value: &dyn PartialReflect) -> Option<core::cmp::Ordering> {
+        crate::list::list_partial_cmp(self, value)
+    }
 }
 
 impl<T: SmallArray + TypePath + Send + Sync> Reflect for SmallVec<T>

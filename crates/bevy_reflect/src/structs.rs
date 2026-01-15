@@ -450,6 +450,10 @@ impl PartialReflect for DynamicStruct {
         struct_partial_eq(self, value)
     }
 
+    fn reflect_partial_cmp(&self, value: &dyn PartialReflect) -> Option<::core::cmp::Ordering> {
+        struct_partial_cmp(self, value)
+    }
+
     fn debug(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         write!(f, "DynamicStruct(")?;
         struct_debug(self, f)?;
@@ -535,6 +539,114 @@ pub fn struct_partial_eq<S: Struct + ?Sized>(a: &S, b: &dyn PartialReflect) -> O
     }
 
     Some(true)
+}
+
+/// Lexicographically compares two [`Struct`] values and returns their ordering.
+///
+/// Returns [`None`] if the comparison couldn't be performed (e.g., kinds mismatch
+/// or an element comparison returns `None`).
+#[inline]
+pub fn struct_partial_cmp<S: Struct + ?Sized>(
+    a: &S,
+    b: &dyn PartialReflect,
+) -> Option<::core::cmp::Ordering> {
+    let ReflectRef::Struct(struct_value) = b.reflect_ref() else {
+        return None;
+    };
+
+    if a.field_len() != struct_value.field_len() {
+        return None;
+    }
+
+    // Delegate detailed field-name-aware comparison to shared helper
+    partial_cmp_by_field_names(
+        a.field_len(),
+        |i| a.name_at(i),
+        |i| a.field_at(i),
+        |i| struct_value.name_at(i),
+        |i| struct_value.field_at(i),
+        |name| struct_value.field(name),
+    )
+}
+
+/// Compare two sets of named fields. `field_len` should be equal.
+///
+/// Tries best to:
+/// 1. when used on concrete types of actually same type, should be compatible
+///    with derived `PartialOrd` implementations.
+/// 2. compatible with `reflect_partial_eq`: when `reflect_partial_eq(a, b) = Some(true)`,
+///    then `partial_cmp(a, b) = Some(Ordering::Equal)`.
+/// 3. when used on dynamic types, provide a consistent ordering:
+///    see example `crate::tests:reflect_partial_cmp_struct_named_field_reorder`
+pub(crate) fn partial_cmp_by_field_names<'a, NA, FA, NB, FB, FBY>(
+    field_len: usize,
+    name_at_a: NA,
+    field_at_a: FA,
+    name_at_b: NB,
+    field_at_b_index: FB,
+    field_b_by_name: FBY,
+) -> Option<::core::cmp::Ordering>
+where
+    NA: Fn(usize) -> Option<&'a str>,
+    FA: Fn(usize) -> Option<&'a dyn PartialReflect>,
+    NB: Fn(usize) -> Option<&'a str>,
+    FB: Fn(usize) -> Option<&'a dyn PartialReflect>,
+    FBY: Fn(&str) -> Option<&'a dyn PartialReflect>,
+{
+    use ::core::cmp::Ordering;
+
+    let mut same_field_order = true;
+    for i in 0..field_len {
+        if name_at_a(i) != name_at_b(i) {
+            same_field_order = false;
+            break;
+        }
+    }
+
+    if same_field_order {
+        for i in 0..field_len {
+            let a_val = field_at_a(i).unwrap();
+            let b_val = field_at_b_index(i).unwrap();
+            match a_val.reflect_partial_cmp(b_val) {
+                None => return None,
+                Some(Ordering::Equal) => continue,
+                Some(ord) => return Some(ord),
+            }
+        }
+        return Some(Ordering::Equal);
+    }
+
+    let mut all_less_equal = true;
+    let mut all_greater_equal = true;
+    let mut all_equal = true;
+
+    for i in 0..field_len {
+        let field_name = name_at_a(i).unwrap();
+        let a_val = field_at_a(i).unwrap();
+        let b_val = field_b_by_name(field_name)?;
+        match a_val.reflect_partial_cmp(b_val) {
+            None => return None,
+            Some(::core::cmp::Ordering::Less) => {
+                all_greater_equal = false;
+                all_equal = false;
+            }
+            Some(::core::cmp::Ordering::Greater) => {
+                all_less_equal = false;
+                all_equal = false;
+            }
+            Some(::core::cmp::Ordering::Equal) => {}
+        }
+    }
+
+    if all_equal {
+        Some(::core::cmp::Ordering::Equal)
+    } else if all_less_equal {
+        Some(::core::cmp::Ordering::Less)
+    } else if all_greater_equal {
+        Some(::core::cmp::Ordering::Greater)
+    } else {
+        None
+    }
 }
 
 /// The default debug formatter for [`Struct`] types.
