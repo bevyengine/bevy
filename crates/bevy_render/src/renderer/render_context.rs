@@ -16,18 +16,10 @@ use core::marker::PhantomData;
 use tracing::info_span;
 use wgpu::CommandBuffer;
 
+#[derive(Default)]
 struct PendingCommandBuffersInner {
     buffers: Vec<CommandBuffer>,
     encoders: Vec<CommandEncoder>,
-}
-
-impl Default for PendingCommandBuffersInner {
-    fn default() -> Self {
-        Self {
-            buffers: Vec::new(),
-            encoders: Vec::new(),
-        }
-    }
 }
 
 #[derive(Resource)]
