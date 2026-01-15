@@ -21,20 +21,18 @@ use bevy_ecs::{
 use bevy_math::{uvec2, UVec2, Vec4Swizzles as _};
 use bevy_render::{
     batching::gpu_preprocessing::GpuPreprocessingSupport,
-    render_resource::BindGroupLayoutDescriptor,
-};
-use bevy_render::{
     experimental::occlusion_culling::{
         OcclusionCulling, OcclusionCullingSubview, OcclusionCullingSubviewEntities,
     },
     render_resource::{
         binding_types::{sampler, texture_2d, texture_2d_multisampled, texture_storage_2d},
-        BindGroup, BindGroupEntries, BindGroupLayout, BindGroupLayoutEntries,
-        CachedComputePipelineId, ComputePassDescriptor, ComputePipeline, ComputePipelineDescriptor,
-        Extent3d, IntoBinding, PipelineCache, PushConstantRange, Sampler, SamplerBindingType,
-        SamplerDescriptor, ShaderStages, SpecializedComputePipeline, SpecializedComputePipelines,
-        StorageTextureAccess, TextureAspect, TextureDescriptor, TextureDimension, TextureFormat,
-        TextureSampleType, TextureUsages, TextureView, TextureViewDescriptor, TextureViewDimension,
+        BindGroup, BindGroupEntries, BindGroupLayout, BindGroupLayoutDescriptor,
+        BindGroupLayoutEntries, CachedComputePipelineId, ComputePassDescriptor, ComputePipeline,
+        ComputePipelineDescriptor, Extent3d, IntoBinding, PipelineCache, PushConstantRange,
+        Sampler, SamplerBindingType, SamplerDescriptor, ShaderStages, SpecializedComputePipeline,
+        SpecializedComputePipelines, StorageTextureAccess, TextureAspect, TextureDescriptor,
+        TextureDimension, TextureFormat, TextureSampleType, TextureUsages, TextureView,
+        TextureViewDescriptor, TextureViewDimension,
     },
     renderer::{RenderContext, RenderDevice, ViewQuery},
     texture::TextureCache,

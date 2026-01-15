@@ -39,7 +39,8 @@ pub struct SolariLightingPipelines {
     compact_world_cache_single_block_pipeline: CachedComputePipelineId,
     compact_world_cache_blocks_pipeline: CachedComputePipelineId,
     compact_world_cache_write_active_cells_pipeline: CachedComputePipelineId,
-    sample_for_world_cache_pipeline: CachedComputePipelineId,
+    sample_di_for_world_cache_pipeline: CachedComputePipelineId,
+    sample_gi_for_world_cache_pipeline: CachedComputePipelineId,
     blend_new_world_cache_samples_pipeline: CachedComputePipelineId,
     presample_light_tiles_pipeline: CachedComputePipelineId,
     di_initial_and_temporal_pipeline: CachedComputePipelineId,
@@ -47,6 +48,8 @@ pub struct SolariLightingPipelines {
     gi_initial_and_temporal_pipeline: CachedComputePipelineId,
     gi_spatial_and_shade_pipeline: CachedComputePipelineId,
     specular_gi_pipeline: CachedComputePipelineId,
+    #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
+    specular_gi_with_psr_pipeline: CachedComputePipelineId,
     #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
     resolve_dlss_rr_textures_pipeline: CachedComputePipelineId,
 }
@@ -89,7 +92,7 @@ pub fn init_solari_lighting_pipelines(
                 storage_buffer_sized(false, None),
                 storage_buffer_sized(false, None),
                 storage_buffer_sized(false, None),
-                storage_buffer_sized(false, None), // world_cache_active_cells_count - added from main
+                storage_buffer_sized(false, None),
             ),
         ),
     );
@@ -181,9 +184,16 @@ pub fn init_solari_lighting_pipelines(
             Some(&bind_group_layout_world_cache_active_cells_dispatch),
             vec!["WORLD_CACHE_NON_ATOMIC_LIFE_BUFFER".into()],
         ),
-        sample_for_world_cache_pipeline: create_pipeline(
-            "solari_lighting_sample_for_world_cache_pipeline",
-            "sample_radiance",
+        sample_di_for_world_cache_pipeline: create_pipeline(
+            "solari_lighting_sample_di_for_world_cache_pipeline",
+            "sample_di",
+            load_embedded_asset!(asset_server.as_ref(), "world_cache_update.wgsl"),
+            None,
+            vec![],
+        ),
+        sample_gi_for_world_cache_pipeline: create_pipeline(
+            "solari_lighting_sample_gi_for_world_cache_pipeline",
+            "sample_gi",
             load_embedded_asset!(asset_server.as_ref(), "world_cache_update.wgsl"),
             None,
             vec!["WORLD_CACHE_QUERY_ATOMIC_MAX_LIFETIME".into()],
@@ -285,7 +295,8 @@ pub fn solari_lighting(
         Some(compact_world_cache_single_block_pipeline),
         Some(compact_world_cache_blocks_pipeline),
         Some(compact_world_cache_write_active_cells_pipeline),
-        Some(sample_for_world_cache_pipeline),
+        Some(sample_di_for_world_cache_pipeline),
+        Some(sample_gi_for_world_cache_pipeline),
         Some(blend_new_world_cache_samples_pipeline),
         Some(presample_light_tiles_pipeline),
         Some(di_initial_and_temporal_pipeline),
@@ -307,7 +318,8 @@ pub fn solari_lighting(
         pipeline_cache.get_compute_pipeline(pipelines.compact_world_cache_blocks_pipeline),
         pipeline_cache
             .get_compute_pipeline(pipelines.compact_world_cache_write_active_cells_pipeline),
-        pipeline_cache.get_compute_pipeline(pipelines.sample_for_world_cache_pipeline),
+        pipeline_cache.get_compute_pipeline(pipelines.sample_di_for_world_cache_pipeline),
+        pipeline_cache.get_compute_pipeline(pipelines.sample_gi_for_world_cache_pipeline),
         pipeline_cache.get_compute_pipeline(pipelines.blend_new_world_cache_samples_pipeline),
         pipeline_cache.get_compute_pipeline(pipelines.presample_light_tiles_pipeline),
         pipeline_cache.get_compute_pipeline(pipelines.di_initial_and_temporal_pipeline),
@@ -432,7 +444,17 @@ pub fn solari_lighting(
 
     pass.set_bind_group(2, None, &[]);
 
-    pass.set_pipeline(sample_for_world_cache_pipeline);
+    pass.set_pipeline(sample_di_for_world_cache_pipeline);
+    pass.set_push_constants(
+        0,
+        bytemuck::cast_slice(&[frame_index, solari_lighting.reset as u32]),
+    );
+    pass.dispatch_workgroups_indirect(
+        &solari_lighting_resources.world_cache_active_cells_dispatch,
+        0,
+    );
+
+    pass.set_pipeline(sample_gi_for_world_cache_pipeline);
     pass.set_push_constants(
         0,
         bytemuck::cast_slice(&[frame_index, solari_lighting.reset as u32]),
@@ -535,7 +557,8 @@ pub fn solari_lighting(
         Some(compact_world_cache_single_block_pipeline),
         Some(compact_world_cache_blocks_pipeline),
         Some(compact_world_cache_write_active_cells_pipeline),
-        Some(sample_for_world_cache_pipeline),
+        Some(sample_di_for_world_cache_pipeline),
+        Some(sample_gi_for_world_cache_pipeline),
         Some(blend_new_world_cache_samples_pipeline),
         Some(presample_light_tiles_pipeline),
         Some(di_initial_and_temporal_pipeline),
@@ -557,7 +580,8 @@ pub fn solari_lighting(
         pipeline_cache.get_compute_pipeline(pipelines.compact_world_cache_blocks_pipeline),
         pipeline_cache
             .get_compute_pipeline(pipelines.compact_world_cache_write_active_cells_pipeline),
-        pipeline_cache.get_compute_pipeline(pipelines.sample_for_world_cache_pipeline),
+        pipeline_cache.get_compute_pipeline(pipelines.sample_di_for_world_cache_pipeline),
+        pipeline_cache.get_compute_pipeline(pipelines.sample_gi_for_world_cache_pipeline),
         pipeline_cache.get_compute_pipeline(pipelines.blend_new_world_cache_samples_pipeline),
         pipeline_cache.get_compute_pipeline(pipelines.presample_light_tiles_pipeline),
         pipeline_cache.get_compute_pipeline(pipelines.di_initial_and_temporal_pipeline),
@@ -708,7 +732,17 @@ pub fn solari_lighting(
 
     pass.set_bind_group(2, None, &[]);
 
-    pass.set_pipeline(sample_for_world_cache_pipeline);
+    pass.set_pipeline(sample_di_for_world_cache_pipeline);
+    pass.set_push_constants(
+        0,
+        bytemuck::cast_slice(&[frame_index, solari_lighting.reset as u32]),
+    );
+    pass.dispatch_workgroups_indirect(
+        &solari_lighting_resources.world_cache_active_cells_dispatch,
+        0,
+    );
+
+    pass.set_pipeline(sample_gi_for_world_cache_pipeline);
     pass.set_push_constants(
         0,
         bytemuck::cast_slice(&[frame_index, solari_lighting.reset as u32]),

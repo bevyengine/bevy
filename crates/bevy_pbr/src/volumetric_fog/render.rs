@@ -48,8 +48,8 @@ use bitflags::bitflags;
 
 use crate::{
     ExtractedAtmosphere, MeshPipelineViewLayoutKey, MeshPipelineViewLayouts, MeshViewBindGroup,
-    ViewEnvironmentMapUniformOffset, ViewFogUniformOffset, ViewLightProbesUniformOffset,
-    ViewLightsUniformOffset, ViewScreenSpaceReflectionsUniformOffset,
+    ViewContactShadowsUniformOffset, ViewEnvironmentMapUniformOffset, ViewFogUniformOffset,
+    ViewLightProbesUniformOffset, ViewLightsUniformOffset, ViewScreenSpaceReflectionsUniformOffset,
 };
 
 use super::FogAssets;
@@ -307,6 +307,7 @@ pub fn volumetric_fog(
         &ViewVolumetricFog,
         &MeshViewBindGroup,
         &ViewScreenSpaceReflectionsUniformOffset,
+        &ViewContactShadowsUniformOffset,
         &Msaa,
         &ViewEnvironmentMapUniformOffset,
     )>,
@@ -330,6 +331,7 @@ pub fn volumetric_fog(
         view_fog_volumes,
         view_bind_group,
         view_ssr_offset,
+        view_contact_shadows_offset,
         msaa,
         view_environment_map_offset,
     ) = view.into_inner();
@@ -446,6 +448,7 @@ pub fn volumetric_fog(
                 view_fog_offset.offset,
                 **view_light_probes_offset,
                 **view_ssr_offset,
+                **view_contact_shadows_offset,
                 **view_environment_map_offset,
             ],
         );

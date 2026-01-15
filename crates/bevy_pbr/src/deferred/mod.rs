@@ -4,9 +4,9 @@ use crate::{
 };
 use crate::{
     MeshPipeline, MeshViewBindGroup, RenderViewLightProbes, ScreenSpaceAmbientOcclusion,
-    ScreenSpaceReflectionsUniform, ViewEnvironmentMapUniformOffset, ViewLightProbesUniformOffset,
-    ViewScreenSpaceReflectionsUniformOffset, TONEMAPPING_LUT_SAMPLER_BINDING_INDEX,
-    TONEMAPPING_LUT_TEXTURE_BINDING_INDEX,
+    ScreenSpaceReflectionsUniform, ViewContactShadowsUniformOffset, ViewEnvironmentMapUniformOffset,
+    ViewLightProbesUniformOffset, ViewScreenSpaceReflectionsUniformOffset,
+    TONEMAPPING_LUT_SAMPLER_BINDING_INDEX, TONEMAPPING_LUT_TEXTURE_BINDING_INDEX,
 };
 use bevy_app::prelude::*;
 use bevy_asset::{embedded_asset, load_embedded_asset, AssetServer, Handle};
@@ -129,6 +129,7 @@ pub fn deferred_lighting(
         &ViewFogUniformOffset,
         &ViewLightProbesUniformOffset,
         &ViewScreenSpaceReflectionsUniformOffset,
+        &ViewContactShadowsUniformOffset,
         &ViewEnvironmentMapUniformOffset,
         &MeshViewBindGroup,
         &ViewTarget,
@@ -146,6 +147,7 @@ pub fn deferred_lighting(
         view_fog_offset,
         view_light_probes_offset,
         view_ssr_offset,
+        view_contact_shadows_offset,
         view_environment_map_offset,
         mesh_view_bind_group,
         target,
@@ -194,6 +196,7 @@ pub fn deferred_lighting(
             view_fog_offset.offset,
             **view_light_probes_offset,
             **view_ssr_offset,
+            **view_contact_shadows_offset,
             **view_environment_map_offset,
         ],
     );

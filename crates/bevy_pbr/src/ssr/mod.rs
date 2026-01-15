@@ -41,8 +41,9 @@ use bevy_utils::{once, prelude::default};
 use tracing::info;
 
 use crate::{
-    binding_arrays_are_usable, deferred::deferred_lighting, ExtractedAtmosphere,
-    MeshPipelineViewLayoutKey, MeshPipelineViewLayouts, MeshViewBindGroup, RenderViewLightProbes,
+    binding_arrays_are_usable, contact_shadows::ViewContactShadowsUniformOffset,
+    deferred::deferred_lighting, ExtractedAtmosphere, MeshPipelineViewLayoutKey,
+    MeshPipelineViewLayouts, MeshViewBindGroup, RenderViewLightProbes,
     ViewEnvironmentMapUniformOffset, ViewFogUniformOffset, ViewLightProbesUniformOffset,
     ViewLightsUniformOffset,
 };
@@ -230,6 +231,7 @@ pub fn screen_space_reflections(
         &ViewFogUniformOffset,
         &ViewLightProbesUniformOffset,
         &ViewScreenSpaceReflectionsUniformOffset,
+        &ViewContactShadowsUniformOffset,
         &ViewEnvironmentMapUniformOffset,
         &MeshViewBindGroup,
         &ScreenSpaceReflectionsPipelineId,
@@ -245,6 +247,7 @@ pub fn screen_space_reflections(
         view_fog_offset,
         view_light_probes_offset,
         view_ssr_offset,
+        view_contact_shadows_offset,
         view_environment_map_offset,
         view_bind_group,
         ssr_pipeline_id,
@@ -299,6 +302,7 @@ pub fn screen_space_reflections(
             view_fog_offset.offset,
             **view_light_probes_offset,
             **view_ssr_offset,
+            **view_contact_shadows_offset,
             **view_environment_map_offset,
         ],
     );

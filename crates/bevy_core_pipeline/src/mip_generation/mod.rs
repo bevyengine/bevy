@@ -37,24 +37,20 @@ use bevy_render::{
     diagnostic::RecordDiagnostics as _,
     render_asset::RenderAssets,
     render_resource::{
-        binding_types::uniform_buffer, BindGroupLayoutDescriptor, FilterMode, ShaderType,
-        TextureFormatFeatureFlags, UniformBuffer,
+        binding_types::{sampler, texture_2d, texture_storage_2d, uniform_buffer},
+        BindGroup, BindGroupEntries, BindGroupLayoutDescriptor, BindGroupLayoutEntries,
+        CachedComputePipelineId, ComputePassDescriptor, ComputePipelineDescriptor, Extent3d,
+        FilterMode, PipelineCache, Sampler, SamplerBindingType, SamplerDescriptor, ShaderStages,
+        ShaderType, SpecializedComputePipelines, StorageTextureAccess, TextureAspect,
+        TextureDescriptor, TextureDimension, TextureFormat, TextureFormatFeatureFlags,
+        TextureUsages, TextureView, TextureViewDescriptor, TextureViewDimension, UniformBuffer,
     },
-    renderer::{RenderAdapter, RenderQueue},
+    renderer::{RenderAdapter, RenderContext, RenderDevice, RenderQueue},
     settings::WgpuFeatures,
     texture::GpuImage,
     RenderStartup,
 };
 use bevy_render::{
-    render_resource::{
-        binding_types::{sampler, texture_2d, texture_storage_2d},
-        BindGroup, BindGroupEntries, BindGroupLayoutEntries, CachedComputePipelineId,
-        ComputePassDescriptor, ComputePipelineDescriptor, Extent3d, PipelineCache, Sampler,
-        SamplerBindingType, SamplerDescriptor, ShaderStages, SpecializedComputePipelines,
-        StorageTextureAccess, TextureAspect, TextureDescriptor, TextureDimension, TextureFormat,
-        TextureUsages, TextureView, TextureViewDescriptor, TextureViewDimension,
-    },
-    renderer::{RenderContext, RenderDevice},
     Render, RenderApp, RenderSystems,
 };
 use bevy_shader::{Shader, ShaderDefVal};
