@@ -7,6 +7,10 @@
 //! family name, which is then matched to a font in the internal
 //! font database. This example loads system installed fonts to
 //! populate the database.
+//!
+//! This feature is most useful for non-game applications;
+//! most games instead choose to simply bundle their required fonts
+//! to ensure a unified visual look.
 
 use bevy::{
     color::palettes::{
