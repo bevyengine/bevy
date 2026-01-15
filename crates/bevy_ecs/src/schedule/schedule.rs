@@ -1184,8 +1184,16 @@ impl ScheduleGraph {
 
         // Allow modification of the schedule graph by build passes.
         let mut passes = core::mem::take(&mut self.passes);
+        let mut added_edges = Default::default();
         for pass in passes.values_mut() {
-            pass.build(world, self, &mut flat_dependency)?;
+            pass.build(
+                world,
+                self,
+                FlattenedDependencies {
+                    dag: &mut flat_dependency,
+                    added_edges: &mut added_edges,
+                },
+            )?;
         }
         self.passes = passes;
 
@@ -1225,6 +1233,7 @@ impl ScheduleGraph {
             self.build_schedule_inner(flat_dependency, hierarchy_analysis),
             ScheduleBuildMetadata {
                 warnings,
+                edges_added_by_build_passes: added_edges,
             },
         ))
     }
@@ -1596,6 +1605,11 @@ impl ScheduleBuildSettings {
 pub struct ScheduleBuildMetadata {
     /// Warnings about the schedule graph detected by the build process.
     pub warnings: Vec<ScheduleBuildWarning>,
+    /// Edges added by [`ScheduleBuildPass`]es.
+    ///
+    /// These edges are not stored in the [`ScheduleGraph`], and so are only available during the
+    /// build process.
+    pub edges_added_by_build_passes: HashSet<(SystemKey, SystemKey)>,
 }
 
 /// Error to denote that [`Schedule::initialize`] or [`Schedule::run`] has not yet been called for
@@ -1615,8 +1629,9 @@ mod tests {
         error::{ignore, panic, DefaultErrorHandler, Result},
         prelude::{ApplyDeferred, IntoSystemSet, Res, Resource},
         schedule::{
-            passes::AutoInsertApplyDeferredPass, tests::ResMut, IntoScheduleConfigs, Schedule,
-            ScheduleBuildPass, ScheduleBuildSettings, ScheduleCleanupPolicy, SystemSet,
+            passes::AutoInsertApplyDeferredPass, tests::ResMut, FlattenedDependencies,
+            IntoScheduleConfigs, Schedule, ScheduleBuildPass, ScheduleBuildSettings,
+            ScheduleCleanupPolicy, SystemSet,
         },
         system::Commands,
         world::World,
@@ -2613,7 +2628,7 @@ mod tests {
                 &mut self,
                 _world: &mut World,
                 _graph: &mut super::ScheduleGraph,
-                _dependency_flattened: &mut crate::schedule::graph::Dag<crate::schedule::SystemKey>,
+                _dependency_flattened: FlattenedDependencies<'_>,
             ) -> core::result::Result<(), crate::schedule::ScheduleBuildError> {
                 Ok(())
             }
