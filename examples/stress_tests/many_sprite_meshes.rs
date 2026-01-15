@@ -7,7 +7,7 @@
 //! Add the `--colored` arg to run with color tinted sprites. This will cause the sprites to be rendered
 //! in multiple batches, reducing performance but useful for testing.
 //!
-//! This is a modified version of many_sprites but based on [`SpriteMesh`]
+//! This is a modified version of `many_sprites` but based on [`SpriteMesh`]
 
 use bevy::{
     color::palettes::css::*,
