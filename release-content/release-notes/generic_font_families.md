@@ -4,7 +4,7 @@ authors: ["@ickshonpe"]
 pull_requests: [22396]
 ---
 
-Support for generic font families has been added through new `FontSource` variants: `Serif`, `SansSerif`, `Cursive`, `Fantasy`, and `Monospace`.
+Bevy now supports generic font families, allowing font faces to be selected using broadly defined categories (such as `FontSource::Serif` or `FontSource::Monospace`) without naming a specific font family.
 
 The `CosmicFontSystem` resource can be used to update the font family associated with each generic font variant:
 
