@@ -1,10 +1,14 @@
-use bevy_asset::Handle;
+use bevy_asset::{Assets, Handle, RenderAssetUsages};
 use bevy_camera::visibility::Visibility;
+use bevy_color::{Color, ColorToComponents, Srgba};
 use bevy_ecs::prelude::*;
 use bevy_image::Image;
 use bevy_math::{Quat, UVec2};
 use bevy_reflect::prelude::*;
 use bevy_transform::components::Transform;
+use wgpu_types::{
+    Extent3d, TextureDimension, TextureFormat, TextureViewDescriptor, TextureViewDimension,
+};
 
 /// A marker component for a light probe, which is a cuboid region that provides
 /// global illumination to all fragments inside it.
@@ -94,6 +98,73 @@ pub struct EnvironmentMapLight {
     ///
     /// By default, this is set to true.
     pub affects_lightmapped_mesh_diffuse: bool,
+}
+
+impl EnvironmentMapLight {
+    /// An environment map with a uniform color, useful for uniform ambient lighting.
+    pub fn solid_color(assets: &mut Assets<Image>, color: impl Into<Color>) -> Self {
+        let color = color.into();
+        Self::hemispherical_gradient(assets, color, color, color)
+    }
+
+    /// An environment map with a hemispherical gradient, fading between the sky and ground colors
+    /// at the horizon. Useful as a very simple 'sky'.
+    pub fn hemispherical_gradient(
+        assets: &mut Assets<Image>,
+        top_color: impl Into<Color>,
+        mid_color: impl Into<Color>,
+        bottom_color: impl Into<Color>,
+    ) -> Self {
+        let handle = assets.add(Self::hemispherical_gradient_cubemap(
+            top_color.into(),
+            mid_color.into(),
+            bottom_color.into(),
+        ));
+
+        Self {
+            diffuse_map: handle.clone(),
+            specular_map: handle,
+            ..Default::default()
+        }
+    }
+
+    pub(crate) fn hemispherical_gradient_cubemap(
+        top_color: Color,
+        mid_color: Color,
+        bottom_color: Color,
+    ) -> Image {
+        let top_color: Srgba = top_color.into();
+        let mid_color: Srgba = mid_color.into();
+        let bottom_color: Srgba = bottom_color.into();
+        Image {
+            texture_view_descriptor: Some(TextureViewDescriptor {
+                dimension: Some(TextureViewDimension::Cube),
+                ..Default::default()
+            }),
+            ..Image::new(
+                Extent3d {
+                    width: 1,
+                    height: 1,
+                    depth_or_array_layers: 6,
+                },
+                TextureDimension::D2,
+                [
+                    mid_color,
+                    mid_color,
+                    top_color,
+                    bottom_color,
+                    mid_color,
+                    mid_color,
+                ]
+                .into_iter()
+                .flat_map(|c| c.to_f32_array().map(half::f16::from_f32))
+                .flat_map(half::f16::to_le_bytes)
+                .collect(),
+                TextureFormat::Rgba16Float,
+                RenderAssetUsages::RENDER_WORLD,
+            )
+        }
+    }
 }
 
 impl Default for EnvironmentMapLight {

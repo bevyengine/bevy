@@ -186,7 +186,7 @@ where
     C: LightProbeComponent,
 {
     /// The list of environment maps presented to the shader, in order.
-    binding_index_to_textures: Vec<C::AssetId>,
+    pub binding_index_to_textures: Vec<C::AssetId>,
 
     /// The reverse of `binding_index_to_cubemap`: a map from the texture ID to
     /// the index in `binding_index_to_cubemap`.

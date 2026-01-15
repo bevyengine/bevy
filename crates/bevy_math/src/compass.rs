@@ -34,9 +34,9 @@ pub enum CompassQuadrant {
     North,
     /// Corresponds to [`Dir2::X`] and [`Dir2::EAST`]
     East,
-    /// Corresponds to [`Dir2::NEG_X`] and [`Dir2::SOUTH`]
+    /// Corresponds to [`Dir2::NEG_Y`] and [`Dir2::SOUTH`]
     South,
-    /// Corresponds to [`Dir2::NEG_Y`] and [`Dir2::WEST`]
+    /// Corresponds to [`Dir2::NEG_X`] and [`Dir2::WEST`]
     West,
 }
 
@@ -145,11 +145,11 @@ pub enum CompassOctant {
     East,
     /// Corresponds to [`Dir2::SOUTH_EAST`]
     SouthEast,
-    /// Corresponds to [`Dir2::NEG_X`] and [`Dir2::SOUTH`]
+    /// Corresponds to [`Dir2::NEG_Y`] and [`Dir2::SOUTH`]
     South,
     /// Corresponds to [`Dir2::SOUTH_WEST`]
     SouthWest,
-    /// Corresponds to [`Dir2::NEG_Y`] and [`Dir2::WEST`]
+    /// Corresponds to [`Dir2::NEG_X`] and [`Dir2::WEST`]
     West,
     /// Corresponds to [`Dir2::NORTH_WEST`]
     NorthWest,

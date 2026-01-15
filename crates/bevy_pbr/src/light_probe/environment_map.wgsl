@@ -240,9 +240,8 @@ fn environment_map_light(
     // Multiscattering approximation: https://www.jcgt.org/published/0008/01/03/paper.pdf
     // We initially used this (https://bruop.github.io/ibl) reference with Roughness Dependent
     // Fresnel, but it made fresnel very bright so we reverted to the "typical" fresnel term.
-    let Ess = F_ab.x + F_ab.y;
-    let FssEss = (F0 * Ess) * specular_occlusion;
-    let Ems = 1.0 - Ess;
+    let FssEss = (F0 * F_ab.x + F_ab.y) * specular_occlusion;
+    let Ems = 1.0 - (F_ab.x + F_ab.y);
     let Favg = F0 + (1.0 - F0) / 21.0;
     let Fms = FssEss * Favg / (1.0 - Ems * Favg);
     let FmsEms = Fms * Ems;
