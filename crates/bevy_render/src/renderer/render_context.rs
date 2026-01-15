@@ -58,33 +58,42 @@ impl PendingCommandBuffers {
 }
 
 #[derive(Default)]
-pub struct RenderContextState {
+struct RenderContextStateInner {
     command_encoder: Option<CommandEncoder>,
     command_buffers: Vec<CommandBuffer>,
     render_device: Option<RenderDevice>,
 }
 
+pub struct RenderContextState(WgpuWrapper<RenderContextStateInner>);
+
+impl Default for RenderContextState {
+    fn default() -> Self {
+        Self(WgpuWrapper::new(RenderContextStateInner::default()))
+    }
+}
+
 impl RenderContextState {
     fn flush_encoder(&mut self) {
-        if let Some(encoder) = self.command_encoder.take() {
-            self.command_buffers.push(encoder.finish());
+        if let Some(encoder) = self.0.command_encoder.take() {
+            self.0.command_buffers.push(encoder.finish());
         }
     }
 
     fn command_encoder(&mut self) -> &mut CommandEncoder {
         let render_device = self
+            .0
             .render_device
-            .as_ref()
+            .clone()
             .expect("RenderDevice must be set before accessing command_encoder");
 
-        self.command_encoder.get_or_insert_with(|| {
+        self.0.command_encoder.get_or_insert_with(|| {
             render_device.create_command_encoder(&wgpu::CommandEncoderDescriptor::default())
         })
     }
 
     pub fn finish(&mut self) -> Vec<CommandBuffer> {
         self.flush_encoder();
-        core::mem::take(&mut self.command_buffers)
+        core::mem::take(&mut self.0.command_buffers)
     }
 }
 
@@ -92,22 +101,22 @@ impl SystemBuffer for RenderContextState {
     fn apply(&mut self, system_meta: &SystemMeta, world: &mut World) {
         let _span = info_span!("RenderContextState::apply", system = %system_meta.name()).entered();
 
-        let has_buffers = !self.command_buffers.is_empty();
-        let has_encoder = self.command_encoder.is_some();
+        let has_buffers = !self.0.command_buffers.is_empty();
+        let has_encoder = self.0.command_encoder.is_some();
 
         if has_buffers || has_encoder {
             let mut pending = world.resource_mut::<PendingCommandBuffers>();
 
             if has_buffers {
-                pending.push(core::mem::take(&mut self.command_buffers));
+                pending.push(core::mem::take(&mut self.0.command_buffers));
             }
 
-            if let Some(encoder) = self.command_encoder.take() {
+            if let Some(encoder) = self.0.command_encoder.take() {
                 pending.push_encoder(encoder);
             }
         }
 
-        self.render_device = None;
+        self.0.render_device = None;
     }
 
     fn queue(&mut self, _system_meta: &SystemMeta, _world: DeferredWorld) {}
@@ -122,8 +131,8 @@ pub struct RenderContext<'w, 's> {
 
 impl<'w, 's> RenderContext<'w, 's> {
     fn ensure_device(&mut self) {
-        if self.state.render_device.is_none() {
-            self.state.render_device = Some(self.render_device.clone());
+        if self.state.0.render_device.is_none() {
+            self.state.0.render_device = Some(self.render_device.clone());
         }
     }
 
@@ -146,7 +155,7 @@ impl<'w, 's> RenderContext<'w, 's> {
     ) -> TrackedRenderPass<'a> {
         self.ensure_device();
 
-        let command_encoder = self.state.command_encoder.get_or_insert_with(|| {
+        let command_encoder = self.state.0.command_encoder.get_or_insert_with(|| {
             self.render_device
                 .create_command_encoder(&wgpu::CommandEncoderDescriptor::default())
         });
@@ -157,7 +166,7 @@ impl<'w, 's> RenderContext<'w, 's> {
 
     pub fn add_command_buffer(&mut self, command_buffer: CommandBuffer) {
         self.state.flush_encoder();
-        self.state.command_buffers.push(command_buffer);
+        self.state.0.command_buffers.push(command_buffer);
     }
 }
 
