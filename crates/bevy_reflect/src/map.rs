@@ -1,3 +1,6 @@
+//! Traits and types used to power [map-like] operations via reflection.
+//!
+//! [map-like]: https://doc.rust-lang.org/book/ch08-03-hash-maps.html
 use core::fmt::{Debug, Formatter};
 
 use bevy_platform::collections::HashTable;
@@ -29,7 +32,7 @@ use alloc::{boxed::Box, format, vec::Vec};
 /// # Example
 ///
 /// ```
-/// use bevy_reflect::{PartialReflect, Reflect, Map};
+/// use bevy_reflect::{PartialReflect, Reflect, map::Map};
 /// use std::collections::HashMap;
 ///
 ///
