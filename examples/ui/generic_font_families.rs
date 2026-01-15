@@ -1,13 +1,12 @@
 //! This example demonstrates generic font families,
-//! which look up a matching font from installed fonts on the user's device.
+//! which allow font faces to be selected using broadly defined
+//! categories (such as serif or monospace) without selecting
+//! a specific font family.
 //!
-//! This is used as a fallback in case a specific selected font is available,
-//! ensuring that the provided font approximately matches the needs
-//! of a given piece of text.
-//!
-//! This feature is most useful for non-game applications;
-//! most games instead choose to simply bundle their required fonts
-//! to ensure a unified visual look.
+//! Each generic font family is first resolved to a concrete
+//! family name, which is then matched to a font in the internal
+//! font database. This example loads system installed fonts to
+//! populate the database.
 
 use bevy::{
     color::palettes::{
