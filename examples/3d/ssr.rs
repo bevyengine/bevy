@@ -79,6 +79,8 @@ struct AppSettings {
     ssr_on: bool,
     /// Which model is being displayed.
     displayed_model: DisplayedModel,
+    /// Which base is being displayed.
+    displayed_base: DisplayedBase,
     /// The perceptual roughness range over which SSR begins to fade in.
     min_perceptual_roughness: Range<f32>,
     /// The perceptual roughness range over which SSR begins to fade out.
@@ -99,6 +101,18 @@ enum DisplayedModel {
     Capsules,
 }
 
+/// Which base is being displayed.
+#[derive(Default, PartialEq, Copy, Clone)]
+enum DisplayedBase {
+    /// The water base is being displayed.
+    #[default]
+    Water,
+    /// A slightly rough metallic base is being displayed.
+    Metallic,
+    /// A very rough non-metallic base is being displayed.
+    RedPlane,
+}
+
 impl fmt::Display for DisplayedModel {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let name = match self {
@@ -110,10 +124,22 @@ impl fmt::Display for DisplayedModel {
     }
 }
 
+impl fmt::Display for DisplayedBase {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let name = match self {
+            DisplayedBase::Water => "Water",
+            DisplayedBase::Metallic => "Metallic",
+            DisplayedBase::RedPlane => "Red Plane",
+        };
+        write!(f, "{}", name)
+    }
+}
+
 #[derive(Clone, Copy, PartialEq)]
 enum ExampleSetting {
     Ssr(bool),
     Model(DisplayedModel),
+    Base(DisplayedBase),
     MinRoughnessStart(Adjustment),
     MinRoughnessEnd(Adjustment),
     MaxRoughnessStart(Adjustment),
@@ -144,6 +170,18 @@ struct CapsuleModel;
 #[derive(Component)]
 struct CapsulesParent;
 
+/// A marker component for the metallic base.
+#[derive(Component)]
+struct MetallicBaseModel;
+
+/// A marker component for the non-metallic base.
+#[derive(Component)]
+struct RedPlaneBaseModel;
+
+/// A marker component for the water model.
+#[derive(Component)]
+struct WaterModel;
+
 /// A marker component for the text that displays a range value.
 #[derive(Component)]
 enum RangeValueText {
@@ -153,6 +191,16 @@ enum RangeValueText {
     MaxRoughnessEnd,
     EdgeFadeoutStart,
     EdgeFadeoutEnd,
+}
+
+#[derive(bevy::ecs::system::SystemParam)]
+struct ModelQueries<'w, 's> {
+    cube_models: Query<'w, 's, Entity, With<CubeModel>>,
+    flight_helmet_models: Query<'w, 's, Entity, With<FlightHelmetModel>>,
+    capsule_models: Query<'w, 's, Entity, Or<(With<CapsuleModel>, With<CapsulesParent>)>>,
+    metallic_base_models: Query<'w, 's, Entity, With<MetallicBaseModel>>,
+    non_metallic_base_models: Query<'w, 's, Entity, With<RedPlaneBaseModel>>,
+    water_models: Query<'w, 's, Entity, With<WaterModel>>,
 }
 
 fn main() {
@@ -196,6 +244,8 @@ fn setup(
     );
     spawn_flight_helmet(&mut commands, &asset_server);
     spawn_capsules(&mut commands, &mut meshes, &mut standard_materials);
+    spawn_metallic_base(&mut commands, &mut meshes, &mut standard_materials);
+    spawn_non_metallic_base(&mut commands, &mut meshes, &mut standard_materials);
     spawn_water(
         &mut commands,
         &asset_server,
@@ -261,7 +311,7 @@ fn spawn_capsules(
                 Mesh3d(capsule_mesh.clone()),
                 MeshMaterial3d(standard_materials.add(StandardMaterial {
                     base_color: Color::BLACK,
-                    perceptual_roughness: roughness,
+                    perceptual_roughness: roughness.max(0.08),
                     ..default()
                 })),
                 Transform::from_xyz(i as f32 * 1.1 - (1.1 * 2.0), 0.5, 0.0),
@@ -270,6 +320,46 @@ fn spawn_capsules(
             .id();
         commands.entity(parent).add_child(child);
     }
+}
+
+// Spawns the metallic base.
+fn spawn_metallic_base(
+    commands: &mut Commands,
+    meshes: &mut Assets<Mesh>,
+    standard_materials: &mut Assets<StandardMaterial>,
+) {
+    commands.spawn((
+        Mesh3d(meshes.add(Plane3d::new(Vec3::Y, Vec2::splat(1.0)))),
+        MeshMaterial3d(standard_materials.add(StandardMaterial {
+            base_color: Color::from(bevy::color::palettes::css::DARK_GRAY),
+            metallic: 1.0,
+            perceptual_roughness: 0.3,
+            ..default()
+        })),
+        Transform::from_scale(Vec3::splat(100.0)),
+        MetallicBaseModel,
+        Visibility::Hidden,
+    ));
+}
+
+// Spawns the non-metallic base.
+fn spawn_non_metallic_base(
+    commands: &mut Commands,
+    meshes: &mut Assets<Mesh>,
+    standard_materials: &mut Assets<StandardMaterial>,
+) {
+    commands.spawn((
+        Mesh3d(meshes.add(Plane3d::new(Vec3::Y, Vec2::splat(1.0)))),
+        MeshMaterial3d(standard_materials.add(StandardMaterial {
+            base_color: Color::from(bevy::color::palettes::css::RED),
+            metallic: 0.0,
+            perceptual_roughness: 0.2,
+            ..default()
+        })),
+        Transform::from_scale(Vec3::splat(100.0)),
+        RedPlaneBaseModel,
+        Visibility::Hidden,
+    ));
 }
 
 // Spawns the water plane.
@@ -314,6 +404,7 @@ fn spawn_water(
             },
         })),
         Transform::from_scale(Vec3::splat(100.0)),
+        WaterModel,
     ));
 }
 
@@ -369,6 +460,15 @@ fn spawn_buttons(commands: &mut Commands, app_settings: &AppSettings) {
                     "Flight Helmet",
                 ),
                 (ExampleSetting::Model(DisplayedModel::Capsules), "Capsules"),
+            ],
+        ));
+
+        parent.spawn(option_buttons(
+            "Base",
+            &[
+                (ExampleSetting::Base(DisplayedBase::Water), "Water"),
+                (ExampleSetting::Base(DisplayedBase::Metallic), "Metallic"),
+                (ExampleSetting::Base(DisplayedBase::RedPlane), "Red Plane"),
             ],
         ));
 
@@ -579,9 +679,7 @@ fn adjust_app_settings(
     mut app_settings: ResMut<AppSettings>,
     mut cameras: Query<Entity, With<Camera>>,
     mut visibilities: Query<&mut Visibility>,
-    cube_models: Query<Entity, With<CubeModel>>,
-    flight_helmet_models: Query<Entity, With<FlightHelmetModel>>,
-    capsule_models: Query<Entity, Or<(With<CapsuleModel>, With<CapsulesParent>)>>,
+    model_queries: ModelQueries,
     mut widget_click_events: MessageReader<WidgetClickEvent<ExampleSetting>>,
     mut background_colors: Query<&mut BackgroundColor>,
     radio_buttons: Query<
@@ -605,6 +703,7 @@ fn adjust_app_settings(
         match **event {
             ExampleSetting::Ssr(on) => app_settings.ssr_on = on,
             ExampleSetting::Model(model) => app_settings.displayed_model = model,
+            ExampleSetting::Base(base) => app_settings.displayed_base = base,
             ExampleSetting::MinRoughnessStart(adj) => {
                 app_settings.min_perceptual_roughness.start =
                     adjust(app_settings.min_perceptual_roughness.start, adj, 0.005);
@@ -650,7 +749,7 @@ fn adjust_app_settings(
     }
 
     // Set model visibility.
-    for entity in cube_models.iter() {
+    for entity in model_queries.cube_models.iter() {
         if let Ok(mut visibility) = visibilities.get_mut(entity) {
             *visibility = if app_settings.displayed_model == DisplayedModel::Cube {
                 Visibility::Visible
@@ -659,7 +758,7 @@ fn adjust_app_settings(
             };
         }
     }
-    for entity in flight_helmet_models.iter() {
+    for entity in model_queries.flight_helmet_models.iter() {
         if let Ok(mut visibility) = visibilities.get_mut(entity) {
             *visibility = if app_settings.displayed_model == DisplayedModel::FlightHelmet {
                 Visibility::Visible
@@ -668,9 +767,36 @@ fn adjust_app_settings(
             };
         }
     }
-    for entity in capsule_models.iter() {
+    for entity in model_queries.capsule_models.iter() {
         if let Ok(mut visibility) = visibilities.get_mut(entity) {
             *visibility = if app_settings.displayed_model == DisplayedModel::Capsules {
+                Visibility::Visible
+            } else {
+                Visibility::Hidden
+            };
+        }
+    }
+    for entity in model_queries.metallic_base_models.iter() {
+        if let Ok(mut visibility) = visibilities.get_mut(entity) {
+            *visibility = if app_settings.displayed_base == DisplayedBase::Metallic {
+                Visibility::Visible
+            } else {
+                Visibility::Hidden
+            };
+        }
+    }
+    for entity in model_queries.non_metallic_base_models.iter() {
+        if let Ok(mut visibility) = visibilities.get_mut(entity) {
+            *visibility = if app_settings.displayed_base == DisplayedBase::RedPlane {
+                Visibility::Visible
+            } else {
+                Visibility::Hidden
+            };
+        }
+    }
+    for entity in model_queries.water_models.iter() {
+        if let Ok(mut visibility) = visibilities.get_mut(entity) {
+            *visibility = if app_settings.displayed_base == DisplayedBase::Water {
                 Visibility::Visible
             } else {
                 Visibility::Hidden
@@ -683,6 +809,7 @@ fn adjust_app_settings(
         let selected = match **sender {
             ExampleSetting::Ssr(on) => app_settings.ssr_on == on,
             ExampleSetting::Model(model) => app_settings.displayed_model == model,
+            ExampleSetting::Base(base) => app_settings.displayed_base == base,
             _ => {
                 if has_background {
                     if let Ok(mut background_color) = background_colors.get_mut(entity) {
@@ -747,8 +874,9 @@ impl Default for AppSettings {
         Self {
             ssr_on: true,
             displayed_model: default(),
-            min_perceptual_roughness: 0.0..0.0,
-            max_perceptual_roughness: ScreenSpaceReflections::default().max_perceptual_roughness,
+            displayed_base: default(),
+            min_perceptual_roughness: 0.0..0.01,
+            max_perceptual_roughness: 0.99..1.0,
             edge_fadeout: 0.0..0.0,
         }
     }
