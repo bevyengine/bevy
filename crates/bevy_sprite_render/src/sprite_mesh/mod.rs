@@ -42,9 +42,9 @@ fn add_mesh(
         *quad = Some(meshes.add(Rectangle::from_size(vec2(1.0, 1.0))));
     }
     for entity in sprites {
-        commands
-            .entity(entity)
-            .insert(Mesh2d(quad.clone().unwrap()));
+        if let Some(quad) = quad.clone() {
+            commands.entity(entity).insert(Mesh2d(quad));
+        }
     }
 }
 

@@ -3351,6 +3351,12 @@ category = "Stress Tests"
 wasm = true
 
 [[example]]
+name = "many_animated_sprite_meshes"
+path = "examples/stress_tests/many_animated_sprite_meshes.rs"
+# Causes an ICE on docs.rs
+doc-scrape-examples = false
+
+[[example]]
 name = "many_buttons"
 path = "examples/stress_tests/many_buttons.rs"
 # Causes an ICE on docs.rs
@@ -3469,6 +3475,12 @@ name = "Many Sprites"
 description = "Displays many sprites in a grid arrangement! Used for performance testing. Use `--colored` to enable color tinted sprites."
 category = "Stress Tests"
 wasm = true
+
+[[example]]
+name = "many_sprite_meshes"
+path = "examples/stress_tests/many_sprite_meshes.rs"
+# Causes an ICE on docs.rs
+doc-scrape-examples = false
 
 [[example]]
 name = "many_text2d"

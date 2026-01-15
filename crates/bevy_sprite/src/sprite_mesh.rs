@@ -39,7 +39,7 @@ pub struct SpriteMesh {
     /// How the sprite's image will be scaled.
     pub image_mode: SpriteImageMode,
     /// The sprite's alpha mode, defaulting to `Mask(0.5)`.
-    /// If you wish to render a sprite with transparent pixels,
+    /// If you wish to render a sprite with translucent pixels,
     /// set it to `Blend` instead (significantly worse for performance).
     pub alpha_mode: SpriteAlphaMode,
 }
