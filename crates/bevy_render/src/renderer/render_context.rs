@@ -1,3 +1,4 @@
+use super::WgpuWrapper;
 use crate::diagnostic::internal::DiagnosticsRecorder;
 use crate::render_phase::TrackedRenderPass;
 use crate::render_resource::{CommandEncoder, RenderPassDescriptor};
@@ -15,34 +16,52 @@ use core::marker::PhantomData;
 use tracing::info_span;
 use wgpu::CommandBuffer;
 
-#[derive(Resource, Default)]
-pub struct PendingCommandBuffers {
+struct PendingCommandBuffersInner {
     buffers: Vec<CommandBuffer>,
     encoders: Vec<CommandEncoder>,
 }
 
+impl Default for PendingCommandBuffersInner {
+    fn default() -> Self {
+        Self {
+            buffers: Vec::new(),
+            encoders: Vec::new(),
+        }
+    }
+}
+
+#[derive(Resource)]
+pub struct PendingCommandBuffers(WgpuWrapper<PendingCommandBuffersInner>);
+
+impl Default for PendingCommandBuffers {
+    fn default() -> Self {
+        Self(WgpuWrapper::new(PendingCommandBuffersInner::default()))
+    }
+}
+
 impl PendingCommandBuffers {
     pub fn push(&mut self, buffers: impl IntoIterator<Item = CommandBuffer>) {
-        self.buffers.extend(buffers);
+        self.0.buffers.extend(buffers);
     }
 
     pub fn push_encoder(&mut self, encoder: CommandEncoder) {
-        self.encoders.push(encoder);
+        self.0.encoders.push(encoder);
     }
 
     pub fn take(&mut self) -> Vec<CommandBuffer> {
-        for encoder in self.encoders.drain(..) {
-            self.buffers.push(encoder.finish());
+        let encoders: Vec<_> = self.0.encoders.drain(..).collect();
+        for encoder in encoders {
+            self.0.buffers.push(encoder.finish());
         }
-        core::mem::take(&mut self.buffers)
+        core::mem::take(&mut self.0.buffers)
     }
 
     pub fn is_empty(&self) -> bool {
-        self.buffers.is_empty() && self.encoders.is_empty()
+        self.0.buffers.is_empty() && self.0.encoders.is_empty()
     }
 
     pub fn len(&self) -> usize {
-        self.buffers.len() + self.encoders.len()
+        self.0.buffers.len() + self.0.encoders.len()
     }
 }
 
