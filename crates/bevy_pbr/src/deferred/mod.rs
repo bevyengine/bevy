@@ -4,9 +4,10 @@ use crate::{
 };
 use crate::{
     MeshPipeline, MeshViewBindGroup, RenderViewLightProbes, ScreenSpaceAmbientOcclusion,
-    ScreenSpaceReflectionsUniform, ViewContactShadowsUniformOffset, ViewEnvironmentMapUniformOffset,
-    ViewLightProbesUniformOffset, ViewScreenSpaceReflectionsUniformOffset,
-    TONEMAPPING_LUT_SAMPLER_BINDING_INDEX, TONEMAPPING_LUT_TEXTURE_BINDING_INDEX,
+    ScreenSpaceReflectionsUniform, ViewContactShadowsUniformOffset,
+    ViewEnvironmentMapUniformOffset, ViewLightProbesUniformOffset,
+    ViewScreenSpaceReflectionsUniformOffset, TONEMAPPING_LUT_SAMPLER_BINDING_INDEX,
+    TONEMAPPING_LUT_TEXTURE_BINDING_INDEX,
 };
 use bevy_app::prelude::*;
 use bevy_asset::{embedded_asset, load_embedded_asset, AssetServer, Handle};

@@ -50,9 +50,7 @@ use bevy_render::{
     texture::GpuImage,
     RenderStartup,
 };
-use bevy_render::{
-    Render, RenderApp, RenderSystems,
-};
+use bevy_render::{Render, RenderApp, RenderSystems};
 use bevy_shader::{Shader, ShaderDefVal};
 use bevy_utils::default;
 
