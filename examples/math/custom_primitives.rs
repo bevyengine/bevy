@@ -7,7 +7,6 @@ use std::f32::consts::{PI, SQRT_2};
 use bevy::pbr::wireframe::{WireframeConfig, WireframePlugin};
 
 use bevy::{
-    asset::RenderAssetUsages,
     camera::ScalingMode,
     color::palettes::css::{RED, WHITE},
     input::common_conditions::{input_just_pressed, input_toggle_active},
@@ -17,7 +16,7 @@ use bevy::{
         },
         Isometry2d,
     },
-    mesh::{Extrudable, ExtrusionBuilder, PerimeterSegment},
+    mesh::{Extrudable, ExtrusionBuilder, MeshExtractableData, PerimeterSegment},
     prelude::*,
 };
 
@@ -554,14 +553,13 @@ impl MeshBuilder for HeartMeshBuilder {
         }
 
         // Here, the actual `Mesh` is created. We set the indices, vertices, normals and UVs created above and specify the topology of the mesh.
-        Mesh::new(
-            bevy::mesh::PrimitiveTopology::TriangleList,
-            RenderAssetUsages::default(),
+        Mesh::from(
+            MeshExtractableData::new(bevy::mesh::PrimitiveTopology::TriangleList)
+                .with_inserted_indices(bevy::mesh::Indices::U32(indices))
+                .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, vertices)
+                .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
+                .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs),
         )
-        .with_inserted_indices(bevy::mesh::Indices::U32(indices))
-        .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, vertices)
-        .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
-        .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)
     }
 }
 

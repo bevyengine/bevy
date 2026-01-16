@@ -1,5 +1,4 @@
-use crate::{Indices, Mesh, MeshBuilder, Meshable, PrimitiveTopology};
-use bevy_asset::RenderAssetUsages;
+use crate::{Indices, Mesh, MeshBuilder, MeshExtractableData, Meshable, PrimitiveTopology};
 use bevy_math::{primitives::Cuboid, Vec3};
 use bevy_reflect::prelude::*;
 
@@ -71,14 +70,13 @@ impl MeshBuilder for CuboidMeshBuilder {
             20, 21, 22, 22, 23, 20, // bottom
         ]);
 
-        Mesh::new(
-            PrimitiveTopology::TriangleList,
-            RenderAssetUsages::default(),
+        Mesh::from(
+            MeshExtractableData::new(PrimitiveTopology::TriangleList)
+                .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
+                .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
+                .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)
+                .with_inserted_indices(indices),
         )
-        .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
-        .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
-        .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)
-        .with_inserted_indices(indices)
     }
 }
 

@@ -1,8 +1,9 @@
 use core::f32::consts::FRAC_PI_2;
 use core::mem;
 
+use crate::MeshExtractableData;
 use crate::{primitives::dim3::triangle3d, Indices, Mesh, PerimeterSegment, VertexAttributeValues};
-use bevy_asset::RenderAssetUsages;
+use bevy_asset::ExtractableAsset;
 
 use super::{Extrudable, MeshBuilder, Meshable};
 use bevy_math::prelude::Polyline2d;
@@ -210,14 +211,13 @@ impl MeshBuilder for CircularSectorMeshBuilder {
             indices.extend_from_slice(&[0, i, i + 1]);
         }
 
-        Mesh::new(
-            PrimitiveTopology::TriangleList,
-            RenderAssetUsages::default(),
+        Mesh::from(
+            MeshExtractableData::new(PrimitiveTopology::TriangleList)
+                .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
+                .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
+                .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)
+                .with_inserted_indices(Indices::U32(indices)),
         )
-        .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
-        .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
-        .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)
-        .with_inserted_indices(Indices::U32(indices))
     }
 }
 
@@ -357,14 +357,13 @@ impl MeshBuilder for CircularSegmentMeshBuilder {
             indices.extend_from_slice(&[0, i, i + 1]);
         }
 
-        Mesh::new(
-            PrimitiveTopology::TriangleList,
-            RenderAssetUsages::default(),
+        Mesh::from(
+            MeshExtractableData::new(PrimitiveTopology::TriangleList)
+                .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
+                .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
+                .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)
+                .with_inserted_indices(Indices::U32(indices)),
         )
-        .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
-        .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
-        .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)
-        .with_inserted_indices(Indices::U32(indices))
     }
 }
 
@@ -438,12 +437,11 @@ impl MeshBuilder for ConvexPolygonMeshBuilder {
         for i in 2..len as u32 {
             indices.extend_from_slice(&[0, i - 1, i]);
         }
-        Mesh::new(
-            PrimitiveTopology::TriangleList,
-            RenderAssetUsages::default(),
+        Mesh::from(
+            MeshExtractableData::new(PrimitiveTopology::TriangleList)
+                .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
+                .with_inserted_indices(Indices::U32(indices)),
         )
-        .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
-        .with_inserted_indices(Indices::U32(indices))
     }
 }
 
@@ -602,14 +600,13 @@ impl MeshBuilder for EllipseMeshBuilder {
             indices.extend_from_slice(&[0, i, i + 1]);
         }
 
-        Mesh::new(
-            PrimitiveTopology::TriangleList,
-            RenderAssetUsages::default(),
+        Mesh::from(
+            MeshExtractableData::new(PrimitiveTopology::TriangleList)
+                .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
+                .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
+                .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)
+                .with_inserted_indices(Indices::U32(indices)),
         )
-        .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
-        .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
-        .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)
-        .with_inserted_indices(Indices::U32(indices))
     }
 }
 
@@ -659,9 +656,11 @@ impl MeshBuilder for Segment2dMeshBuilder {
         let positions = self.segment.vertices.map(|v| v.extend(0.0)).to_vec();
         let indices = Indices::U32(vec![0, 1]);
 
-        Mesh::new(PrimitiveTopology::LineList, RenderAssetUsages::default())
-            .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
-            .with_inserted_indices(indices)
+        Mesh::from(
+            MeshExtractableData::new(PrimitiveTopology::LineList)
+                .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
+                .with_inserted_indices(indices),
+        )
     }
 }
 
@@ -702,9 +701,11 @@ impl MeshBuilder for Polyline2dMeshBuilder {
                 .collect(),
         );
 
-        Mesh::new(PrimitiveTopology::LineList, RenderAssetUsages::default())
-            .with_inserted_indices(indices)
-            .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
+        Mesh::from(
+            MeshExtractableData::new(PrimitiveTopology::LineList)
+                .with_inserted_indices(indices)
+                .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions),
+        )
     }
 }
 
@@ -811,14 +812,13 @@ impl MeshBuilder for AnnulusMeshBuilder {
             indices.extend_from_slice(&[next_outer, next_inner, inner_vertex]);
         }
 
-        Mesh::new(
-            PrimitiveTopology::TriangleList,
-            RenderAssetUsages::default(),
+        Mesh::from(
+            MeshExtractableData::new(PrimitiveTopology::TriangleList)
+                .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
+                .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
+                .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)
+                .with_inserted_indices(Indices::U32(indices)),
         )
-        .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
-        .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
-        .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)
-        .with_inserted_indices(Indices::U32(indices))
     }
 }
 
@@ -908,14 +908,13 @@ impl MeshBuilder for RhombusMeshBuilder {
         let uvs = vec![[1.0, 0.5], [0.5, 0.0], [0.0, 0.5], [0.5, 1.0]];
         let indices = Indices::U32(vec![2, 0, 1, 2, 3, 0]);
 
-        Mesh::new(
-            PrimitiveTopology::TriangleList,
-            RenderAssetUsages::default(),
+        Mesh::from(
+            MeshExtractableData::new(PrimitiveTopology::TriangleList)
+                .with_inserted_indices(indices)
+                .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
+                .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
+                .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs),
         )
-        .with_inserted_indices(indices)
-        .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
-        .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
-        .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)
     }
 }
 
@@ -988,14 +987,13 @@ impl MeshBuilder for Triangle2dMeshBuilder {
             Indices::U32(vec![2, 1, 0])
         };
 
-        Mesh::new(
-            PrimitiveTopology::TriangleList,
-            RenderAssetUsages::default(),
+        Mesh::from(
+            MeshExtractableData::new(PrimitiveTopology::TriangleList)
+                .with_inserted_indices(indices)
+                .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
+                .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
+                .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs),
         )
-        .with_inserted_indices(indices)
-        .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
-        .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
-        .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)
     }
 }
 
@@ -1065,14 +1063,13 @@ impl MeshBuilder for RectangleMeshBuilder {
         let uvs = vec![[1.0, 0.0], [0.0, 0.0], [0.0, 1.0], [1.0, 1.0]];
         let indices = Indices::U32(vec![0, 1, 2, 0, 2, 3]);
 
-        Mesh::new(
-            PrimitiveTopology::TriangleList,
-            RenderAssetUsages::default(),
+        Mesh::from(
+            MeshExtractableData::new(PrimitiveTopology::TriangleList)
+                .with_inserted_indices(indices)
+                .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
+                .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
+                .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs),
         )
-        .with_inserted_indices(indices)
-        .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
-        .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
-        .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)
     }
 }
 
@@ -1207,14 +1204,13 @@ impl MeshBuilder for Capsule2dMeshBuilder {
         // Add indices for bottom right triangle of the part between the semicircles
         indices.extend_from_slice(&[resolution, vertex_count - 1, 0]);
 
-        Mesh::new(
-            PrimitiveTopology::TriangleList,
-            RenderAssetUsages::default(),
+        Mesh::from(
+            MeshExtractableData::new(PrimitiveTopology::TriangleList)
+                .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
+                .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
+                .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)
+                .with_inserted_indices(Indices::U32(indices)),
         )
-        .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
-        .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
-        .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)
-        .with_inserted_indices(Indices::U32(indices))
     }
 }
 
@@ -1290,7 +1286,7 @@ where
     }
 
     fn get_vertex_attributes(&self) -> Option<RingMeshBuilderVertexAttributes> {
-        fn get_positions(mesh: &mut Mesh) -> Option<&mut Vec<[f32; 3]>> {
+        fn get_positions(mesh: &mut MeshExtractableData) -> Option<&mut Vec<[f32; 3]>> {
             if let VertexAttributeValues::Float32x3(data) =
                 mesh.attribute_mut(Mesh::ATTRIBUTE_POSITION)?
             {
@@ -1300,7 +1296,7 @@ where
             }
         }
 
-        fn get_uvs(mesh: &mut Mesh) -> Option<&mut Vec<[f32; 2]>> {
+        fn get_uvs(mesh: &mut MeshExtractableData) -> Option<&mut Vec<[f32; 2]>> {
             if let VertexAttributeValues::Float32x2(data) =
                 mesh.attribute_mut(Mesh::ATTRIBUTE_UV_0)?
             {
@@ -1310,7 +1306,7 @@ where
             }
         }
 
-        fn get_normals(mesh: &mut Mesh) -> Option<&mut Vec<[f32; 3]>> {
+        fn get_normals(mesh: &mut MeshExtractableData) -> Option<&mut Vec<[f32; 3]>> {
             if let VertexAttributeValues::Float32x3(data) =
                 mesh.attribute_mut(Mesh::ATTRIBUTE_NORMAL)?
             {
@@ -1335,12 +1331,12 @@ where
         );
 
         Some(RingMeshBuilderVertexAttributes {
-            outer_positions: mem::take(get_positions(&mut outer)?),
-            inner_positions: mem::take(get_positions(&mut inner)?),
-            outer_normals: mem::take(get_normals(&mut outer)?),
-            inner_normals: mem::take(get_normals(&mut inner)?),
-            outer_uvs: mem::take(get_uvs(&mut outer)?),
-            inner_uvs: mem::take(get_uvs(&mut inner)?),
+            outer_positions: mem::take(get_positions(outer.extractable_data_mut().unwrap())?),
+            inner_positions: mem::take(get_positions(inner.extractable_data_mut().unwrap())?),
+            outer_normals: mem::take(get_normals(outer.extractable_data_mut().unwrap())?),
+            inner_normals: mem::take(get_normals(inner.extractable_data_mut().unwrap())?),
+            outer_uvs: mem::take(get_uvs(outer.extractable_data_mut().unwrap())?),
+            inner_uvs: mem::take(get_uvs(inner.extractable_data_mut().unwrap())?),
         })
     }
 }
@@ -1424,14 +1420,13 @@ where
             let mut positions = outer_positions;
             positions.extend_from_slice(&inner_positions);
 
-            Mesh::new(
-                PrimitiveTopology::TriangleList,
-                RenderAssetUsages::default(),
+            Mesh::from(
+                MeshExtractableData::new(PrimitiveTopology::TriangleList)
+                    .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
+                    .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
+                    .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)
+                    .with_inserted_indices(Indices::U32(indices)),
             )
-            .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
-            .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
-            .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)
-            .with_inserted_indices(Indices::U32(indices))
         } else {
             panic!("The inner and outer meshes should have the same number of vertices, and have required attributes");
         }
@@ -1526,6 +1521,7 @@ where
 
 #[cfg(test)]
 mod tests {
+    use bevy_asset::ExtractableAsset;
     use bevy_math::{prelude::Annulus, primitives::RegularPolygon, FloatOrd};
     use bevy_platform::collections::HashSet;
 
@@ -1542,6 +1538,7 @@ mod tests {
     #[test]
     fn test_annulus() {
         let mesh = Annulus::new(1.0, 1.2).mesh().resolution(16).build();
+        let mesh = mesh.extractable_data_ref().unwrap();
 
         assert_eq!(
             32,
@@ -1570,6 +1567,7 @@ mod tests {
     #[test]
     fn test_regular_polygon() {
         let mut mesh = Mesh::from(RegularPolygon::new(7.0, 4));
+        let mesh = mesh.extractable_data_mut().unwrap();
 
         let Some(VertexAttributeValues::Float32x3(mut positions)) =
             mesh.remove_attribute(Mesh::ATTRIBUTE_POSITION)

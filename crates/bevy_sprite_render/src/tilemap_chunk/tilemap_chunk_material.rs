@@ -110,5 +110,6 @@ pub fn make_chunk_tile_data_image(size: &UVec2, data: &[PackedTileData]) -> Imag
         texture_view_descriptor: None,
         asset_usage: RenderAssetUsages::RENDER_WORLD | RenderAssetUsages::MAIN_WORLD,
         copy_on_resize: false,
+        is_extracted_to_render_world: false,
     }
 }

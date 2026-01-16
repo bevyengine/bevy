@@ -1,10 +1,11 @@
+use bevy_asset::ExtractableAsset;
 use bevy_math::{
     primitives::{Annulus, Capsule2d, Circle, Ellipse, Extrusion, Primitive2d},
     Vec2, Vec3,
 };
 
 use super::{MeshBuilder, Meshable};
-use crate::{Indices, Mesh, PrimitiveTopology, VertexAttributeValues};
+use crate::{Indices, Mesh, MeshExtractableData, PrimitiveTopology, VertexAttributeValues};
 
 /// A type representing a segment of the perimeter of an extrudable mesh.
 pub enum PerimeterSegment {
@@ -179,10 +180,9 @@ where
 {
     fn build(&self) -> Mesh {
         // Create and move the base mesh to the front
-        let mut front_face =
-            self.base_builder
-                .build()
-                .translated_by(Vec3::new(0., 0., self.half_depth));
+        let mut front_face_mesh = self.base_builder.build();
+        let front_face = front_face_mesh.extractable_data_mut().unwrap();
+        front_face.translate_by(Vec3::new(0., 0., self.half_depth));
 
         // Move the uvs of the front face to be between (0., 0.) and (0.5, 0.5)
         if let Some(VertexAttributeValues::Float32x2(uvs)) =
@@ -229,7 +229,7 @@ where
         // An extrusion of depth 0 does not need a mantel
         if self.half_depth == 0. {
             front_face.merge(&back_face).unwrap();
-            return front_face;
+            return front_face_mesh;
         }
 
         let mantel = {
@@ -413,16 +413,20 @@ where
                 }
             }
 
-            Mesh::new(PrimitiveTopology::TriangleList, front_face.asset_usage)
-                .with_inserted_indices(Indices::U32(indices))
-                .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
-                .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
-                .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)
+            Mesh::from(
+                MeshExtractableData::new(PrimitiveTopology::TriangleList)
+                    .with_inserted_indices(Indices::U32(indices))
+                    .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
+                    .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
+                    .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs),
+            )
         };
 
         front_face.merge(&back_face).unwrap();
-        front_face.merge(&mantel).unwrap();
         front_face
+            .merge(mantel.extractable_data_ref().unwrap())
+            .unwrap();
+        front_face_mesh
     }
 }
 

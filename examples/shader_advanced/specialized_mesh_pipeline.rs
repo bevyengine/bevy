@@ -7,12 +7,11 @@
 //! [`SpecializedMeshPipeline`] let's you customize the entire pipeline used when rendering a mesh.
 
 use bevy::{
-    asset::RenderAssetUsages,
     camera::visibility::{self, VisibilityClass},
     core_pipeline::core_3d::{Opaque3d, Opaque3dBatchSetKey, Opaque3dBinKey, CORE_3D_DEPTH_FORMAT},
     ecs::change_detection::Tick,
     math::{vec3, vec4},
-    mesh::{Indices, MeshVertexBufferLayoutRef, PrimitiveTopology},
+    mesh::{Indices, MeshExtractableData, MeshVertexBufferLayoutRef, PrimitiveTopology},
     pbr::{
         DrawMesh, MeshPipeline, MeshPipelineKey, MeshPipelineViewLayoutKey, RenderMeshInstances,
         SetMeshBindGroup, SetMeshViewBindGroup, SetMeshViewEmptyBindGroup,
@@ -53,26 +52,25 @@ fn setup(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>) {
     // Build a custom triangle mesh with colors
     // We define a custom mesh because the examples only uses a limited
     // set of vertex attributes for simplicity
-    let mesh = Mesh::new(
-        PrimitiveTopology::TriangleList,
-        RenderAssetUsages::default(),
-    )
-    .with_inserted_indices(Indices::U32(vec![0, 1, 2]))
-    .with_inserted_attribute(
-        Mesh::ATTRIBUTE_POSITION,
-        vec![
-            vec3(-0.5, -0.5, 0.0),
-            vec3(0.5, -0.5, 0.0),
-            vec3(0.0, 0.25, 0.0),
-        ],
-    )
-    .with_inserted_attribute(
-        Mesh::ATTRIBUTE_COLOR,
-        vec![
-            vec4(1.0, 0.0, 0.0, 1.0),
-            vec4(0.0, 1.0, 0.0, 1.0),
-            vec4(0.0, 0.0, 1.0, 1.0),
-        ],
+    let mesh = Mesh::from(
+        MeshExtractableData::new(PrimitiveTopology::TriangleList)
+            .with_inserted_indices(Indices::U32(vec![0, 1, 2]))
+            .with_inserted_attribute(
+                Mesh::ATTRIBUTE_POSITION,
+                vec![
+                    vec3(-0.5, -0.5, 0.0),
+                    vec3(0.5, -0.5, 0.0),
+                    vec3(0.0, 0.25, 0.0),
+                ],
+            )
+            .with_inserted_attribute(
+                Mesh::ATTRIBUTE_COLOR,
+                vec![
+                    vec4(1.0, 0.0, 0.0, 1.0),
+                    vec4(0.0, 1.0, 0.0, 1.0),
+                    vec4(0.0, 0.0, 1.0, 1.0),
+                ],
+            ),
     );
 
     // spawn 3 triangles to show that batching works

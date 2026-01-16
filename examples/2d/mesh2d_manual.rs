@@ -62,6 +62,7 @@ fn star(
         PrimitiveTopology::TriangleList,
         RenderAssetUsages::RENDER_WORLD,
     );
+    let star_mut = star.extractable_data_mut().unwrap();
 
     // Vertices need to have a position attribute. We will use the following
     // vertices (I hope you can spot the star in the schema).
@@ -85,12 +86,12 @@ fn star(
         v_pos.push([r * ops::sin(a), r * ops::cos(a), 0.0]);
     }
     // Set the position attribute
-    star.insert_attribute(Mesh::ATTRIBUTE_POSITION, v_pos);
+    star_mut.insert_attribute(Mesh::ATTRIBUTE_POSITION, v_pos);
     // And a RGB color attribute as well. A built-in `Mesh::ATTRIBUTE_COLOR` exists, but we
     // use a custom vertex attribute here for demonstration purposes.
     let mut v_color: Vec<u32> = vec![LinearRgba::BLACK.as_u32()];
     v_color.extend_from_slice(&[LinearRgba::from(YELLOW).as_u32(); 10]);
-    star.insert_attribute(
+    star_mut.insert_attribute(
         MeshVertexAttribute::new("Vertex_Color", 1, VertexFormat::Uint32),
         v_color,
     );
@@ -108,7 +109,7 @@ fn star(
     for i in 2..=10 {
         indices.extend_from_slice(&[0, i, i - 1]);
     }
-    star.insert_indices(Indices::U32(indices));
+    star_mut.insert_indices(Indices::U32(indices));
 
     // We can now spawn the entities for the star and the camera
     commands.spawn((

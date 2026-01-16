@@ -390,13 +390,13 @@ pub struct StandardMaterial {
     /// - Vertex normals
     ///
     /// Tangents do not have to be stored in your model,
-    /// they can be generated using the [`Mesh::generate_tangents`] or
-    /// [`Mesh::with_generated_tangents`] methods.
+    /// they can be generated using the [`MeshExtractableData::generate_tangents`] or
+    /// [`MeshExtractableData::with_generated_tangents`] methods.
     /// If your material has a normal map, but still renders as a flat surface,
     /// make sure your meshes have their tangents set.
     ///
-    /// [`Mesh::generate_tangents`]: bevy_mesh::Mesh::generate_tangents
-    /// [`Mesh::with_generated_tangents`]: bevy_mesh::Mesh::with_generated_tangents
+    /// [`MeshExtractableData::generate_tangents`]: bevy_mesh::MeshExtractableData::generate_tangents
+    /// [`MeshExtractableData::with_generated_tangents`]: bevy_mesh::MeshExtractableData::with_generated_tangents
     ///
     /// # Usage
     ///

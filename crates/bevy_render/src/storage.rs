@@ -1,10 +1,10 @@
 use crate::{
-    render_asset::{AssetExtractionError, PrepareAssetError, RenderAsset, RenderAssetPlugin},
+    render_asset::{PrepareAssetError, RenderAsset, RenderAssetPlugin},
     render_resource::{Buffer, BufferUsages},
     renderer::RenderDevice,
 };
 use bevy_app::{App, Plugin};
-use bevy_asset::{Asset, AssetApp, AssetId, RenderAssetUsages};
+use bevy_asset::{Asset, AssetApp, AssetId, ExtractableAsset, RenderAssetUsages};
 use bevy_ecs::system::{lifetimeless::SRes, SystemParamItem};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_utils::default;
@@ -34,6 +34,50 @@ pub struct ShaderStorageBuffer {
     pub buffer_description: wgpu::BufferDescriptor<'static>,
     /// The asset usage of the storage buffer.
     pub asset_usage: RenderAssetUsages,
+    /// Whether this storage buffer has been extracted to the render world.
+    pub is_extracted_to_render_world: bool,
+}
+
+impl ExtractableAsset for ShaderStorageBuffer {
+    type Data = Option<Vec<u8>>;
+
+    fn extractable_data_replace(&mut self, data: Self::Data) -> Option<Self::Data> {
+        let old_data = core::mem::replace(&mut self.data, data);
+        let old_data = if self.is_extracted_to_render_world {
+            None
+        } else {
+            Some(old_data)
+        };
+        self.is_extracted_to_render_world = false;
+        old_data
+    }
+
+    fn extractable_data_ref(&self) -> Result<&Self::Data, bevy_asset::ExtractableAssetAccessError> {
+        if self.is_extracted_to_render_world {
+            Err(bevy_asset::ExtractableAssetAccessError::ExtractedToRenderWorld)
+        } else {
+            Ok(&self.data)
+        }
+    }
+
+    fn extractable_data_mut(
+        &mut self,
+    ) -> Result<&mut Self::Data, bevy_asset::ExtractableAssetAccessError> {
+        if self.is_extracted_to_render_world {
+            Err(bevy_asset::ExtractableAssetAccessError::ExtractedToRenderWorld)
+        } else {
+            Ok(&mut self.data)
+        }
+    }
+
+    fn extract(&mut self) -> Result<Self::Data, bevy_asset::AssetExtractionError> {
+        if self.is_extracted_to_render_world {
+            Err(bevy_asset::AssetExtractionError::AlreadyExtracted)
+        } else {
+            self.is_extracted_to_render_world = true;
+            Ok(self.data.take())
+        }
+    }
 }
 
 impl Default for ShaderStorageBuffer {
@@ -47,6 +91,7 @@ impl Default for ShaderStorageBuffer {
                 mapped_at_creation: false,
             },
             asset_usage: RenderAssetUsages::default(),
+            is_extracted_to_render_world: false,
         }
     }
 }
@@ -101,7 +146,6 @@ where
 /// A storage buffer that is prepared as a [`RenderAsset`] and uploaded to the GPU.
 pub struct GpuShaderStorageBuffer {
     pub buffer: Buffer,
-    pub had_data: bool,
 }
 
 impl RenderAsset for GpuShaderStorageBuffer {
@@ -114,18 +158,8 @@ impl RenderAsset for GpuShaderStorageBuffer {
 
     fn take_gpu_data(
         source: &mut Self::SourceAsset,
-        previous_gpu_asset: Option<&Self>,
-    ) -> Result<Self::SourceAsset, AssetExtractionError> {
-        let data = source.data.take();
-
-        let valid_upload = data.is_some() || previous_gpu_asset.is_none_or(|prev| !prev.had_data);
-
-        valid_upload
-            .then(|| Self::SourceAsset {
-                data,
-                ..source.clone()
-            })
-            .ok_or(AssetExtractionError::AlreadyExtracted)
+    ) -> Result<Self::SourceAsset, bevy_asset::AssetExtractionError> {
+        source.take_gpu_data()
     }
 
     fn prepare_asset(
@@ -141,17 +175,11 @@ impl RenderAsset for GpuShaderStorageBuffer {
                     contents: &data,
                     usage: source_asset.buffer_description.usage,
                 });
-                Ok(GpuShaderStorageBuffer {
-                    buffer,
-                    had_data: true,
-                })
+                Ok(GpuShaderStorageBuffer { buffer })
             }
             None => {
                 let buffer = render_device.create_buffer(&source_asset.buffer_description);
-                Ok(GpuShaderStorageBuffer {
-                    buffer,
-                    had_data: false,
-                })
+                Ok(GpuShaderStorageBuffer { buffer })
             }
         }
     }

@@ -7,6 +7,7 @@ mod components;
 mod conversions;
 mod index;
 mod mesh;
+mod mesh_extractable_data;
 #[cfg(feature = "bevy_mikktspace")]
 mod mikktspace;
 #[cfg(feature = "morph")]
@@ -21,6 +22,7 @@ use bitflags::bitflags;
 pub use components::*;
 pub use index::*;
 pub use mesh::*;
+pub use mesh_extractable_data::*;
 #[cfg(feature = "bevy_mikktspace")]
 pub use mikktspace::*;
 pub use primitives::*;

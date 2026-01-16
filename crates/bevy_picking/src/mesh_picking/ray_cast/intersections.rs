@@ -1,5 +1,5 @@
 use bevy_math::{bounding::Aabb3d, Affine3A, Dir3, Ray3d, Vec2, Vec3, Vec3A};
-use bevy_mesh::{Indices, Mesh, PrimitiveTopology, VertexAttributeValues};
+use bevy_mesh::{Indices, Mesh, MeshExtractableData, PrimitiveTopology, VertexAttributeValues};
 use bevy_reflect::Reflect;
 
 use super::Backfaces;
@@ -37,7 +37,7 @@ pub struct RayTriangleHit {
 
 /// Casts a ray on a mesh, and returns the intersection.
 pub(super) fn ray_intersection_over_mesh(
-    mesh: &Mesh,
+    mesh: &MeshExtractableData,
     transform: &Affine3A,
     ray: Ray3d,
     cull: Backfaces,
