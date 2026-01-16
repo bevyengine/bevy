@@ -53,7 +53,7 @@ struct Material {
 
 const TEXTURE_MAP_NONE = 0xFFFFFFFFu;
 
-const MIRROR_ROUGHNESS_THRESHOLDf = 0.001f;
+const MIRROR_ROUGHNESS_THRESHOLD = 0.001f;
 
 struct LightSource {
     kind: u32, // 1 bit for kind, 31 bits for extra data
