@@ -32,4 +32,4 @@ For example, if your cell can access all components without violating aliasing
 rules, use the `All` scope. If your cell can only access a specific set of
 components without violating aliasing rules, consider using `Filtered` or `Except`
 scopes. If you are able to validate externally that you won't violate aliasing
-rules by accesing a particular component, you may use `All`.
+rules by accessing a particular component, you may use `All`.
