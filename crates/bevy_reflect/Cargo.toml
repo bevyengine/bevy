@@ -1,6 +1,6 @@
 [package]
 name = "bevy_reflect"
-version = "0.18.0-dev"
+version = "0.19.0-dev"
 edition = "2024"
 description = "Dynamically interact with rust types"
 homepage = "https://bevy.org"
@@ -93,10 +93,10 @@ web = ["bevy_platform/web", "uuid?/js"]
 
 [dependencies]
 # bevy
-bevy_reflect_derive = { path = "derive", version = "0.18.0-dev" }
-bevy_utils = { path = "../bevy_utils", version = "0.18.0-dev", default-features = false }
-bevy_ptr = { path = "../bevy_ptr", version = "0.18.0-dev" }
-bevy_platform = { path = "../bevy_platform", version = "0.18.0-dev", default-features = false, features = [
+bevy_reflect_derive = { path = "derive", version = "0.19.0-dev" }
+bevy_utils = { path = "../bevy_utils", version = "0.19.0-dev", default-features = false }
+bevy_ptr = { path = "../bevy_ptr", version = "0.19.0-dev" }
+bevy_platform = { path = "../bevy_platform", version = "0.19.0-dev", default-features = false, features = [
   "alloc",
   "serialize",
 ] }
@@ -139,7 +139,7 @@ inventory = { version = "0.3", optional = true }
 [dev-dependencies]
 ron = "0.12"
 rmp-serde = "1.1"
-bincode = { version = "2.0", features = ["serde"] }
+postcard = { version = "1.0", features = ["alloc"] }
 serde_json = "1.0.140"
 serde = { version = "1", features = ["derive"] }
 static_assertions = "1.1.0"

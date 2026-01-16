@@ -1,8 +1,7 @@
-//! Demonstrates automatic directional navigation with zero configuration.
+//! Demonstrates automatic directional navigation.
 //!
-//! Unlike the manual `directional_navigation` example, this shows how to use automatic
-//! navigation by simply adding the `AutoDirectionalNavigation` component to UI elements.
-//! The navigation graph is automatically built and maintained based on screen positions.
+//! This shows how to use automatic navigation by simply adding the [`AutoDirectionalNavigation`]
+//! component to UI elements. Navigation is automatically calculated based on screen positions.
 //!
 //! This is especially useful for:
 //! - Dynamic UIs where elements may be added, removed, or repositioned
@@ -11,25 +10,26 @@
 //!
 //! The automatic system finds the nearest neighbor in each compass direction for every node,
 //! completely eliminating the need to manually specify navigation relationships.
+//!
+//! For an example that demonstrates automatic directional navigation with manual overrides,
+//! refer to the `directional_navigation_overrides` example.
 
 use core::time::Duration;
 
 use bevy::{
     camera::NormalizedRenderTarget,
     input_focus::{
-        directional_navigation::{
-            AutoDirectionalNavigation, AutoNavigationConfig, DirectionalNavigation,
-            DirectionalNavigationPlugin,
-        },
+        directional_navigation::{AutoNavigationConfig, DirectionalNavigationPlugin},
         InputDispatchPlugin, InputFocus, InputFocusVisible,
     },
-    math::{CompassOctant, Dir2},
+    math::{CompassOctant, Dir2, Rot2},
     picking::{
         backend::HitData,
         pointer::{Location, PointerId},
     },
     platform::collections::HashSet,
     prelude::*,
+    ui::auto_directional_navigation::{AutoDirectionalNavigation, AutoDirectionalNavigator},
 };
 
 fn main() {
@@ -47,14 +47,13 @@ fn main() {
         .insert_resource(AutoNavigationConfig {
             // Require at least 10% overlap in perpendicular axis for cardinal directions
             min_alignment_factor: 0.1,
-            // Don't connect nodes more than 500 pixels apart
+            // Don't connect nodes more than 500 pixels apart between their closest edges
             max_search_distance: Some(500.0),
             // Prefer nodes that are well-aligned
             prefer_aligned: true,
         })
         .init_resource::<ActionState>()
         .add_systems(Startup, setup_scattered_ui)
-        // Navigation graph is automatically maintained by DirectionalNavigationPlugin!
         // No manual system needed - just add AutoDirectionalNavigation to entities.
         // Input is generally handled during PreUpdate
         .add_systems(PreUpdate, (process_inputs, navigate).chain())
@@ -64,7 +63,8 @@ fn main() {
                 highlight_focused_element,
                 interact_with_focused_button,
                 reset_button_after_interaction,
-                update_focus_display,
+                update_focus_display
+                    .run_if(|input_focus: Res<InputFocus>| input_focus.is_changed()),
                 update_key_display,
             ),
         )
@@ -132,7 +132,7 @@ fn setup_scattered_ui(mut commands: Commands, mut input_focus: ResMut<InputFocus
     let instructions = commands
         .spawn((
             Text::new(
-                "Automatic Navigation Demo\n\n\
+                "Directional Navigation Demo\n\n\
                  Use arrow keys or D-pad to navigate.\n\
                  Press Enter or A button to interact.\n\n\
                  Buttons are scattered irregularly,\n\
@@ -212,6 +212,15 @@ fn setup_scattered_ui(mut commands: Commands, mut input_focus: ResMut<InputFocus
 
     let mut first_button = None;
     for (i, (x, y)) in button_positions.iter().enumerate() {
+        let transform = if i == 4 {
+            UiTransform {
+                scale: Vec2::splat(1.2),
+                rotation: Rot2::FRAC_PI_2,
+                ..default()
+            }
+        } else {
+            UiTransform::IDENTITY
+        };
         let button_entity = commands
             .spawn((
                 Button,
@@ -227,6 +236,7 @@ fn setup_scattered_ui(mut commands: Commands, mut input_focus: ResMut<InputFocus
                     border_radius: BorderRadius::all(px(12)),
                     ..default()
                 },
+                transform,
                 // This is the key: just add this component for automatic navigation!
                 AutoDirectionalNavigation::default(),
                 ResetTimer::default(),
@@ -255,7 +265,7 @@ fn setup_scattered_ui(mut commands: Commands, mut input_focus: ResMut<InputFocus
     }
 }
 
-// Action state and input handling (same as the manual navigation example)
+// Action state and input handling
 #[derive(Debug, PartialEq, Eq, Hash)]
 enum DirectionalNavigationAction {
     Up,
@@ -324,7 +334,10 @@ fn process_inputs(
     }
 }
 
-fn navigate(action_state: Res<ActionState>, mut directional_navigation: DirectionalNavigation) {
+fn navigate(
+    action_state: Res<ActionState>,
+    mut auto_directional_navigator: AutoDirectionalNavigator,
+) {
     let net_east_west = action_state
         .pressed_actions
         .contains(&DirectionalNavigationAction::Right) as i8
@@ -345,7 +358,7 @@ fn navigate(action_state: Res<ActionState>, mut directional_navigation: Directio
         .map(CompassOctant::from);
 
     if let Some(direction) = maybe_direction {
-        match directional_navigation.navigate(direction) {
+        match auto_directional_navigator.navigate(direction) {
             Ok(_entity) => {
                 // Successfully navigated
             }

@@ -135,7 +135,7 @@
 //! For example, we can access our struct's fields by name using the [`Struct::field`] method.
 //!
 //! ```
-//! # use bevy_reflect::{PartialReflect, Reflect, Struct};
+//! # use bevy_reflect::{PartialReflect, Reflect, structs::Struct};
 //! # #[derive(Reflect)]
 //! # struct MyStruct {
 //! #   foo: i32
@@ -195,7 +195,7 @@
 //! These dynamic types may contain any arbitrary reflected data.
 //!
 //! ```
-//! # use bevy_reflect::{DynamicStruct, Struct};
+//! # use bevy_reflect::structs::{DynamicStruct, Struct};
 //! let mut data = DynamicStruct::default();
 //! data.insert("foo", 123_i32);
 //! assert_eq!(Some(&123), data.field("foo").unwrap().try_downcast_ref::<i32>())
@@ -209,7 +209,7 @@
 //! we may pass them around just like most other reflected types.
 //!
 //! ```
-//! # use bevy_reflect::{DynamicStruct, PartialReflect, Reflect};
+//! # use bevy_reflect::{structs::DynamicStruct, PartialReflect, Reflect};
 //! # #[derive(Reflect)]
 //! # struct MyStruct {
 //! #   foo: i32
@@ -229,7 +229,7 @@
 //! This is known as "patching" and is done using the [`PartialReflect::apply`] and [`PartialReflect::try_apply`] methods.
 //!
 //! ```
-//! # use bevy_reflect::{DynamicEnum, PartialReflect};
+//! # use bevy_reflect::{enums::DynamicEnum, PartialReflect};
 //! let mut value = Some(123_i32);
 //! let patch = DynamicEnum::new("None", ());
 //! value.apply(&patch);
@@ -243,7 +243,7 @@
 //! or when trying to make use of a reflected trait which expects the actual type.
 //!
 //! ```should_panic
-//! # use bevy_reflect::{DynamicStruct, PartialReflect, Reflect};
+//! # use bevy_reflect::{structs::DynamicStruct, PartialReflect, Reflect};
 //! # #[derive(Reflect)]
 //! # struct MyStruct {
 //! #   foo: i32
@@ -541,7 +541,23 @@
 //! [the language feature for dyn upcasting coercion]: https://github.com/rust-lang/rust/issues/65991
 //! [derive macro]: derive@crate::Reflect
 //! [`'static` lifetime]: https://doc.rust-lang.org/rust-by-example/scope/lifetime/static_lifetime.html#trait-bound
+//! [`Tuple`]: crate::tuple::Tuple
+//! [`Array`]: crate::array::Array
+//! [`List`]: crate::list::List
+//! [`Set`]: crate::set::Set
+//! [`Map`]: crate::map::Map
+//! [`Struct`]: crate::structs::Struct
+//! [`TupleStruct`]: crate::tuple_struct::TupleStruct
+//! [`Enum`]: crate::enums::Enum
 //! [`Function`]: crate::func::Function
+//! [`Struct::field`]: crate::structs::Struct::field
+//! [`DynamicTuple`]: crate::tuple::DynamicTuple
+//! [`DynamicArray`]: crate::array::DynamicArray
+//! [`DynamicList`]: crate::list::DynamicList
+//! [`DynamicMap`]: crate::map::DynamicMap
+//! [`DynamicStruct`]: crate::structs::DynamicStruct
+//! [`DynamicTupleStruct`]: crate::tuple_struct::DynamicTupleStruct
+//! [`DynamicEnum`]: crate::enums::DynamicEnum
 //! [derive macro documentation]: derive@crate::Reflect
 //! [deriving `Reflect`]: derive@crate::Reflect
 //! [type data]: TypeData
@@ -578,7 +594,7 @@ extern crate alloc;
 // Required to make proc macros work in bevy itself.
 extern crate self as bevy_reflect;
 
-mod array;
+pub mod array;
 mod error;
 mod fields;
 mod from_reflect;
@@ -586,16 +602,16 @@ mod from_reflect;
 pub mod func;
 mod is;
 mod kind;
-mod list;
-mod map;
+pub mod list;
+pub mod map;
 mod path;
 mod reflect;
 mod reflectable;
 mod remote;
-mod set;
-mod struct_trait;
-mod tuple;
-mod tuple_struct;
+pub mod set;
+pub mod structs;
+pub mod tuple;
+pub mod tuple_struct;
 mod type_info;
 mod type_path;
 mod type_registry;
@@ -628,7 +644,7 @@ mod impls {
 }
 
 pub mod attributes;
-mod enums;
+pub mod enums;
 mod generics;
 pub mod serde;
 pub mod std_traits;
@@ -644,33 +660,27 @@ pub mod prelude {
 
     #[doc(hidden)]
     pub use crate::{
-        reflect_trait, FromReflect, GetField, GetPath, GetTupleStructField, PartialReflect,
-        Reflect, ReflectDeserialize, ReflectFromReflect, ReflectPath, ReflectSerialize, Struct,
-        TupleStruct, TypePath,
+        reflect_trait,
+        structs::{GetField, Struct},
+        tuple_struct::{GetTupleStructField, TupleStruct},
+        FromReflect, GetPath, PartialReflect, Reflect, ReflectDeserialize, ReflectFromReflect,
+        ReflectPath, ReflectSerialize, TypePath,
     };
 
     #[cfg(feature = "functions")]
     pub use crate::func::{Function, IntoFunction, IntoFunctionMut};
 }
 
-pub use array::*;
-pub use enums::*;
 pub use error::*;
 pub use fields::*;
 pub use from_reflect::*;
 pub use generics::*;
 pub use is::*;
 pub use kind::*;
-pub use list::*;
-pub use map::*;
 pub use path::*;
 pub use reflect::*;
 pub use reflectable::*;
 pub use remote::*;
-pub use set::*;
-pub use struct_trait::*;
-pub use tuple::*;
-pub use tuple_struct::*;
 pub use type_info::*;
 pub use type_path::*;
 pub use type_registry::*;
@@ -684,8 +694,9 @@ pub use erased_serde;
 #[doc(hidden)]
 pub mod __macro_exports {
     use crate::{
-        DynamicArray, DynamicEnum, DynamicList, DynamicMap, DynamicStruct, DynamicTuple,
-        DynamicTupleStruct, GetTypeRegistration, TypeRegistry,
+        array::DynamicArray, enums::DynamicEnum, list::DynamicList, map::DynamicMap,
+        structs::DynamicStruct, tuple::DynamicTuple, tuple_struct::DynamicTupleStruct,
+        GetTypeRegistration, TypeRegistry,
     };
 
     /// Re-exports of items from the [`alloc`] crate.
@@ -864,7 +875,9 @@ mod tests {
     };
     use static_assertions::{assert_impl_all, assert_not_impl_all};
 
-    use super::{prelude::*, *};
+    use super::{
+        array::*, enums::*, list::*, map::*, prelude::*, structs::*, tuple::*, tuple_struct::*, *,
+    };
     use crate::{
         serde::{ReflectDeserializer, ReflectSerializer},
         utility::GenericTypePathCell,
@@ -1444,6 +1457,457 @@ mod tests {
             },
             clone.take::<MyEnum>().unwrap()
         );
+    }
+
+    #[test]
+    fn reflect_partial_cmp_derive_support() {
+        use core::cmp::Ordering;
+
+        #[derive(PartialEq, PartialOrd, Reflect, Debug)]
+        #[reflect(PartialOrd)]
+        struct Foo(i32);
+
+        let a = Foo(1);
+        let b = Foo(2);
+
+        // direct same-type comparison should delegate to concrete PartialOrd
+        let ord = PartialReflect::reflect_partial_cmp(&a, &b);
+        assert_eq!(ord, Some(Ordering::Less));
+
+        // comparing against a different type should return None
+        let ord_mismatch = PartialReflect::reflect_partial_cmp(&a, &1i32);
+        assert_eq!(ord_mismatch, None);
+    }
+
+    #[test]
+    fn reflect_partial_cmp_custom_fn() {
+        use core::cmp::Ordering;
+
+        fn custom_cmp(a: &CustomFoo, b: &dyn PartialReflect) -> Option<Ordering> {
+            if let Some(b) = b.try_downcast_ref::<CustomFoo>() {
+                Some(::core::cmp::Ord::cmp(&a.0, &b.0))
+            } else {
+                Some(Ordering::Greater)
+            }
+        }
+
+        #[derive(PartialEq, PartialOrd, Reflect, Debug)]
+        #[reflect(PartialOrd(custom_cmp))]
+        struct CustomFoo(i32);
+
+        let a = CustomFoo(3);
+        let b = CustomFoo(5);
+
+        let ord = PartialReflect::reflect_partial_cmp(&a, &b);
+        assert_eq!(ord, Some(Ordering::Less));
+
+        let ord_mismatch = PartialReflect::reflect_partial_cmp(&a, &1i32);
+        assert_eq!(ord_mismatch, Some(Ordering::Greater));
+    }
+
+    #[test]
+    fn reflect_partial_cmp_array() {
+        use core::cmp::Ordering;
+
+        let a = [1i32, 2];
+        let b = [1i32, 3];
+
+        let ord = PartialReflect::reflect_partial_cmp(&a, &b);
+        assert_eq!(ord, Some(Ordering::Less));
+    }
+
+    #[test]
+    fn reflect_partial_cmp_tuple_length_mismatch() {
+        // tuples with different lengths should return None
+        let a = (1i32, 2i32);
+        let b = (1i32, 2i32, 3i32);
+
+        let ord = PartialReflect::reflect_partial_cmp(&a, &b);
+        assert_eq!(ord, None);
+    }
+
+    #[test]
+    fn reflect_partial_cmp_btreemap_lexicographic() {
+        use alloc::collections::BTreeMap;
+        use core::cmp::Ordering;
+
+        let mut m1: BTreeMap<usize, i32> = BTreeMap::new();
+        m1.insert(1usize, 1i32);
+        m1.insert(2usize, 3i32);
+
+        let mut m2: BTreeMap<usize, i32> = BTreeMap::new();
+        m2.insert(1usize, 1i32);
+        m2.insert(2usize, 4i32);
+
+        let ord = PartialReflect::reflect_partial_cmp(&m1, &m2);
+        assert_eq!(ord, Some(Ordering::Less));
+    }
+
+    #[test]
+    fn reflect_partial_cmp_btreemap_key_difference() {
+        use alloc::collections::BTreeMap;
+        use core::cmp::Ordering;
+
+        let mut m1: BTreeMap<usize, i32> = BTreeMap::new();
+        m1.insert(1usize, 10i32);
+
+        let mut m2: BTreeMap<usize, i32> = BTreeMap::new();
+        m2.insert(2usize, 5i32);
+
+        // keys differ: ordering should be determined by key ordering
+        let ord = PartialReflect::reflect_partial_cmp(&m1, &m2);
+        assert_eq!(ord, Some(Ordering::Less));
+    }
+
+    #[test]
+    fn reflect_partial_cmp_btreemap_length_difference() {
+        use alloc::collections::BTreeMap;
+        use core::cmp::Ordering;
+
+        let mut m1: BTreeMap<usize, i32> = BTreeMap::new();
+        m1.insert(1usize, 1i32);
+        m1.insert(2usize, 2i32);
+
+        let mut m2: BTreeMap<usize, i32> = BTreeMap::new();
+        m2.insert(1usize, 1i32);
+
+        // m1 has extra entry, so lexicographic ordering should consider m1 > m2
+        let ord = PartialReflect::reflect_partial_cmp(&m1, &m2);
+        assert_eq!(ord, Some(Ordering::Greater));
+    }
+
+    #[test]
+    fn reflect_partial_cmp_btreemap_value_incomparable() {
+        use alloc::collections::BTreeMap;
+
+        let mut m1: BTreeMap<usize, f32> = BTreeMap::new();
+        m1.insert(1usize, 1.0f32);
+
+        let mut m2: BTreeMap<usize, f32> = BTreeMap::new();
+        m2.insert(1usize, f32::NAN);
+
+        // value comparison will be None due to NaN
+        assert_eq!(PartialReflect::reflect_partial_cmp(&m1, &m2), None);
+    }
+
+    #[test]
+    fn reflect_partial_cmp_list_lexicographic() {
+        use core::cmp::Ordering;
+
+        let a = vec![1i32, 2];
+        let b = vec![1i32, 3];
+
+        let ord = PartialReflect::reflect_partial_cmp(&a, &b);
+        assert_eq!(ord, Some(Ordering::Less));
+    }
+
+    #[test]
+    fn reflect_partial_cmp_tuple_lexicographic() {
+        use core::cmp::Ordering;
+
+        let a = (1i32, 2i32);
+        let b = (1i32, 3i32);
+
+        let ord = PartialReflect::reflect_partial_cmp(&a, &b);
+        assert_eq!(ord, Some(Ordering::Less));
+    }
+
+    #[test]
+    fn reflect_partial_cmp_tuple_struct_and_mismatch() {
+        use core::cmp::Ordering;
+
+        #[derive(PartialEq, PartialOrd, Reflect, Debug)]
+        #[reflect(PartialOrd)]
+        struct TS(i32, i32);
+
+        let a = TS(1, 2);
+        let b = TS(1, 3);
+
+        let ord = PartialReflect::reflect_partial_cmp(&a, &b);
+        assert_eq!(ord, Some(Ordering::Less));
+
+        // Comparing against a bare tuple should return None
+        let ord_mismatch = PartialReflect::reflect_partial_cmp(&a, &(1i32, 2i32));
+        assert_eq!(ord_mismatch, None);
+
+        // Now test a tuple-struct *without* the `#[reflect(PartialOrd)]` attribute
+        // to exercise the runtime/dynamic `reflect_partial_cmp` implementation.
+        #[derive(PartialEq, PartialOrd, Reflect, Debug)]
+        struct TSNoAttr(i32, i32);
+
+        let a2 = TSNoAttr(1, 2);
+        let b2 = TSNoAttr(1, 3);
+
+        let ord2 = PartialReflect::reflect_partial_cmp(&a2, &b2);
+        assert_eq!(ord2, Some(Ordering::Less));
+
+        let ord2_mismatch = PartialReflect::reflect_partial_cmp(&a2, &(1i32, 2i32));
+        assert_eq!(ord2_mismatch, None);
+    }
+
+    #[test]
+    fn reflect_partial_cmp_struct_fields() {
+        use core::cmp::Ordering;
+
+        #[derive(PartialEq, PartialOrd, Reflect, Debug)]
+        #[reflect(PartialOrd)]
+        struct S {
+            a: i32,
+            b: i32,
+        }
+
+        let a = S { a: 1, b: 2 };
+        let b = S { a: 1, b: 3 };
+
+        let ord = PartialReflect::reflect_partial_cmp(&a, &b);
+        assert_eq!(ord, Some(Ordering::Less));
+
+        // Also test a struct without the attribute to hit the dynamic path.
+        #[derive(PartialEq, PartialOrd, Reflect, Debug)]
+        struct SNoAttr {
+            a: i32,
+            b: i32,
+        }
+
+        let a2 = SNoAttr { a: 1, b: 2 };
+        let b2 = SNoAttr { a: 1, b: 3 };
+
+        let ord2 = PartialReflect::reflect_partial_cmp(&a2, &b2);
+        assert_eq!(ord2, Some(Ordering::Less));
+    }
+
+    #[test]
+    fn enum_variant_index_ordering() {
+        use core::cmp::Ordering;
+
+        #[derive(PartialEq, PartialOrd, Reflect, Debug)]
+        enum MyEnum {
+            Top,
+            Center,
+            Bottom,
+        }
+
+        let a = MyEnum::Top;
+        let b = MyEnum::Center;
+        let c = MyEnum::Bottom;
+
+        // Variant ordering should follow variant index
+        assert_eq!(
+            PartialReflect::reflect_partial_cmp(&a, &b),
+            Some(Ordering::Less)
+        );
+        assert_eq!(
+            PartialReflect::reflect_partial_cmp(&b, &a),
+            Some(Ordering::Greater)
+        );
+        assert_eq!(
+            PartialReflect::reflect_partial_cmp(&b, &c),
+            Some(Ordering::Less)
+        );
+        assert_eq!(
+            PartialReflect::reflect_partial_cmp(&a, &a),
+            Some(Ordering::Equal)
+        );
+
+        #[derive(PartialEq, PartialOrd, Reflect, Debug)]
+        enum MyEnum2 {
+            A,
+            B,
+            C,
+        }
+        let a1 = MyEnum2::A;
+        let c1 = MyEnum2::C;
+
+        // Unfortunately, it means that enums that have different types can also be compared
+        assert_eq!(
+            PartialReflect::reflect_partial_cmp(&a1, &a),
+            Some(Ordering::Equal)
+        );
+        assert_eq!(
+            PartialReflect::reflect_partial_cmp(&a1, &b),
+            Some(Ordering::Less)
+        );
+        assert_eq!(
+            PartialReflect::reflect_partial_cmp(&c1, &b),
+            Some(Ordering::Greater)
+        );
+    }
+
+    #[test]
+    fn reflect_partial_cmp_array_length_difference() {
+        use core::cmp::Ordering;
+
+        let a = [1i32, 2i32];
+        let b = [1i32, 2i32, 3i32];
+
+        let ord = PartialReflect::reflect_partial_cmp(&a, &b);
+        assert_eq!(ord, Some(Ordering::Less));
+    }
+
+    #[test]
+    fn reflect_partial_cmp_nested_none() {
+        // inner NaN should cause overall None
+        let a = (1i32, (1f32, f32::NAN));
+        let b = (1i32, (1f32, 2f32));
+
+        assert_eq!(PartialReflect::reflect_partial_cmp(&a, &b), None);
+    }
+
+    #[test]
+    fn reflect_partial_cmp_struct_named_field_reorder() {
+        use crate::structs::DynamicStruct;
+
+        #[derive(PartialEq, PartialOrd, Reflect, Debug)]
+        struct S {
+            a: i32,
+            b: i32,
+        }
+
+        let concrete = S { a: 1, b: 0 };
+
+        // dynamic struct with reversed insertion order
+        // when fields are not in same order
+        // we cannot determine ordering if reorder fields make the result change
+        let mut dyn_s = DynamicStruct::default();
+        dyn_s.insert("b", 1i32);
+        dyn_s.insert("a", 0i32);
+        assert_eq!(PartialReflect::reflect_partial_cmp(&concrete, &dyn_s), None);
+        assert_eq!(PartialReflect::reflect_partial_cmp(&dyn_s, &concrete), None);
+
+        // but when reorder fields do not affect the result, we can determine ordering
+        let mut dyn_s = DynamicStruct::default();
+        dyn_s.insert("b", 0i32);
+        dyn_s.insert("a", 0i32);
+        assert_eq!(
+            PartialReflect::reflect_partial_cmp(&concrete, &dyn_s),
+            Some(core::cmp::Ordering::Greater)
+        );
+
+        let mut dyn_s = DynamicStruct::default();
+        dyn_s.insert("b", 0i32);
+        dyn_s.insert("a", 1i32);
+        assert_eq!(
+            PartialReflect::reflect_partial_cmp(&concrete, &dyn_s),
+            Some(core::cmp::Ordering::Equal)
+        );
+    }
+
+    #[test]
+    fn reflect_partial_cmp_enum_variant_type_mismatch() {
+        #[derive(PartialEq, PartialOrd, Reflect, Debug)]
+        enum E1 {
+            Foo(i32),
+        }
+
+        #[derive(PartialEq, PartialOrd, Reflect, Debug)]
+        enum E2 {
+            Foo { x: i32 },
+        }
+
+        let a = E1::Foo(1);
+        let b = E2::Foo { x: 1 };
+
+        // same variant name but different variant types -> None
+        assert_eq!(PartialReflect::reflect_partial_cmp(&a, &b), None);
+    }
+
+    #[test]
+    fn reflect_partial_cmp_dynamic_vs_concrete_struct_equal() {
+        use crate::structs::DynamicStruct;
+
+        #[derive(PartialEq, PartialOrd, Reflect, Debug)]
+        struct S {
+            a: i32,
+            b: i32,
+        }
+
+        let concrete = S { a: 5, b: 6 };
+
+        let mut dyn_s = DynamicStruct::default();
+        dyn_s.insert("a", 5i32);
+        dyn_s.insert("b", 6i32);
+
+        assert_eq!(
+            PartialReflect::reflect_partial_cmp(&concrete, &dyn_s),
+            Some(core::cmp::Ordering::Equal)
+        );
+    }
+
+    #[test]
+    fn reflect_partial_cmp_opaque_without_impl() {
+        #[derive(Reflect, Debug)]
+        struct Opaque(usize);
+
+        let o = Opaque(1);
+
+        // Derived tuple-struct comparison should succeed via default delegate
+        assert_eq!(
+            PartialReflect::reflect_partial_cmp(&o, &o),
+            Some(core::cmp::Ordering::Equal)
+        );
+    }
+
+    #[test]
+    fn reflect_partial_cmp_btreemap_equal_keys_diff_values() {
+        use alloc::collections::BTreeMap;
+        use core::cmp::Ordering;
+
+        let mut m1: BTreeMap<usize, i32> = BTreeMap::new();
+        m1.insert(1usize, 2i32);
+        m1.insert(2usize, 3i32);
+
+        let mut m2: BTreeMap<usize, i32> = BTreeMap::new();
+        m2.insert(1usize, 2i32);
+        m2.insert(2usize, 4i32);
+
+        let ord = PartialReflect::reflect_partial_cmp(&m1, &m2);
+        assert_eq!(ord, Some(Ordering::Less));
+    }
+
+    #[test]
+    fn reflect_partial_cmp_large_nested_stress_none() {
+        use alloc::collections::BTreeMap;
+
+        // BTreeMap<usize, Vec<(i32, f32)>> with deep NaN
+        let mut m1: BTreeMap<usize, Vec<(i32, f32)>> = BTreeMap::new();
+        m1.insert(1usize, vec![(1, 2.0f32), (2, 3.0f32)]);
+
+        let mut m2: BTreeMap<usize, Vec<(i32, f32)>> = BTreeMap::new();
+        m2.insert(1usize, vec![(1, 2.0f32), (2, f32::NAN)]);
+
+        assert_eq!(PartialReflect::reflect_partial_cmp(&m1, &m2), None);
+    }
+
+    #[test]
+    fn reflect_partial_cmp_enum_variant() {
+        use core::cmp::Ordering;
+
+        #[derive(PartialEq, PartialOrd, Reflect, Debug)]
+        #[reflect(PartialOrd)]
+        enum E {
+            A(i32),
+            B,
+        }
+
+        let a = E::A(1);
+        let b = E::A(2);
+
+        let ord = PartialReflect::reflect_partial_cmp(&a, &b);
+        assert_eq!(ord, Some(Ordering::Less));
+
+        // And the same enum without the attribute to ensure the dynamic enum
+        // comparison helpers are used.
+        #[derive(PartialEq, PartialOrd, Reflect, Debug)]
+        enum ENoAttr {
+            A(i32),
+            B,
+        }
+
+        let a2 = ENoAttr::A(1);
+        let b2 = ENoAttr::A(2);
+
+        let ord2 = PartialReflect::reflect_partial_cmp(&a2, &b2);
+        assert_eq!(ord2, Some(Ordering::Less));
     }
 
     #[test]
