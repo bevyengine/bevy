@@ -91,9 +91,9 @@ impl<'w> DynamicSceneBuilder<'w> {
     }
 
     /// Set the entity map to use for remapping entities in components and resources.
-    ///
-    /// This is used when extracting from a world that was loaded from a scene, to map
-    /// the world entities back to the original scene entities.
+    /// The map are from world entities to scene entities.
+    /// This is used when extracting from a world that was previously loaded from a scene,
+    /// so saving back to scene maintains the original entity IDs.
     #[must_use]
     pub fn with_entity_map(mut self, entity_map: &'w mut EntityHashMap<Entity>) -> Self {
         self.entity_map = Some(entity_map);
