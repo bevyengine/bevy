@@ -163,25 +163,31 @@ impl<'w, 's> AutoDirectionalNavigator<'w, 's> {
     ) -> Result<Entity, DirectionalNavigationError> {
         if let Some(current_focus) = self.input_focus() {
             // Respect manual edges first
-            if let Ok(new_focus) = self.manual_directional_navigation.navigate(direction) {
-                self.manual_directional_navigation.focus.set(new_focus);
-                Ok(new_focus)
-            } else if let Some((target_camera, origin)) =
-                self.entity_to_camera_and_focusable_area(current_focus)
-                && let Some(new_focus) = find_best_candidate(
-                    &origin,
-                    direction,
-                    &self.get_navigable_nodes(target_camera),
-                    &self.config,
-                )
-            {
-                self.manual_directional_navigation.focus.set(new_focus);
-                Ok(new_focus)
-            } else {
-                Err(DirectionalNavigationError::NoNeighborInDirection {
-                    current_focus,
-                    direction,
-                })
+            match self.manual_directional_navigation.navigate(direction) {
+                Ok(new_focus) => {
+                    self.manual_directional_navigation.focus.set(new_focus);
+                    Ok(new_focus)
+                }
+                Err(DirectionalNavigationError::NoNeighborInDirection { .. }) => {
+                    if let Some((target_camera, origin)) =
+                        self.entity_to_camera_and_focusable_area(current_focus)
+                        && let Some(new_focus) = find_best_candidate(
+                            &origin,
+                            direction,
+                            &self.get_navigable_nodes(target_camera),
+                            &self.config,
+                        )
+                    {
+                        self.manual_directional_navigation.focus.set(new_focus);
+                        Ok(new_focus)
+                    } else {
+                        Err(DirectionalNavigationError::NoNeighborInDirection {
+                            current_focus,
+                            direction,
+                        })
+                    }
+                }
+                err => err,
             }
         } else {
             Err(DirectionalNavigationError::NoFocus)
