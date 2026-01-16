@@ -20,12 +20,11 @@ use bevy::{
     render::{
         extract_component::{ExtractComponent, ExtractComponentPlugin},
         mesh::allocator::MeshAllocator,
-        render_graph::{self, RenderGraph, RenderLabel},
         render_resource::{
             binding_types::{storage_buffer, uniform_buffer},
             *,
         },
-        renderer::{RenderContext, RenderQueue},
+        renderer::{RenderContext, RenderGraph, RenderQueue},
         Render, RenderApp, RenderStartup,
     },
 };
@@ -55,11 +54,9 @@ impl Plugin for ComputeShaderMeshGeneratorPlugin {
 
         render_app
             .init_resource::<ChunksToProcess>()
-            .add_systems(
-                RenderStartup,
-                (init_compute_pipeline, add_compute_render_graph_node),
-            )
-            .add_systems(Render, prepare_chunks);
+            .add_systems(RenderStartup, init_compute_pipeline)
+            .add_systems(Render, prepare_chunks)
+            .add_systems(RenderGraph, compute_mesh);
     }
     fn finish(&self, app: &mut App) {
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
@@ -161,12 +158,6 @@ fn setup(
     ));
 }
 
-fn add_compute_render_graph_node(mut render_graph: ResMut<RenderGraph>) {
-    render_graph.add_node(ComputeNodeLabel, ComputeNode::default());
-    // add_node_edge guarantees that ComputeNodeLabel will run before CameraDriverLabel
-    render_graph.add_node_edge(ComputeNodeLabel, bevy::render::graph::CameraDriverLabel);
-}
-
 /// This is called `ChunksToProcess` because this example originated
 /// from a use case of generating chunks of landscape or voxels
 /// It only exists in the render world.
@@ -248,14 +239,6 @@ fn init_compute_pipeline(
     commands.insert_resource(ComputePipeline { layout, pipeline });
 }
 
-/// Label to identify the node in the render graph
-#[derive(Debug, Hash, PartialEq, Eq, Clone, RenderLabel)]
-struct ComputeNodeLabel;
-
-/// The node that will execute the compute shader
-#[derive(Default)]
-struct ComputeNode {}
-
 // A uniform that holds the vertex and index offsets
 // for the vertex/index mesh_allocator buffer slabs
 #[derive(ShaderType)]
@@ -266,79 +249,71 @@ struct DataRanges {
     index_end: u32,
 }
 
-impl render_graph::Node for ComputeNode {
-    fn run(
-        &self,
-        _graph: &mut render_graph::RenderGraphContext,
-        render_context: &mut RenderContext,
-        world: &World,
-    ) -> Result<(), render_graph::NodeRunError> {
-        let chunks = world.resource::<ChunksToProcess>();
-        let mesh_allocator = world.resource::<MeshAllocator>();
+fn compute_mesh(
+    mut render_context: RenderContext,
+    chunks: Res<ChunksToProcess>,
+    mesh_allocator: Res<MeshAllocator>,
+    pipeline_cache: Res<PipelineCache>,
+    pipeline: Res<ComputePipeline>,
+    render_queue: Res<RenderQueue>,
+) {
+    let Some(init_pipeline) = pipeline_cache.get_compute_pipeline(pipeline.pipeline) else {
+        return;
+    };
 
-        for mesh_id in &chunks.0 {
-            info!(?mesh_id, "processing mesh");
-            let pipeline_cache = world.resource::<PipelineCache>();
-            let pipeline = world.resource::<ComputePipeline>();
+    for mesh_id in &chunks.0 {
+        info!(?mesh_id, "processing mesh");
 
-            if let Some(init_pipeline) = pipeline_cache.get_compute_pipeline(pipeline.pipeline) {
-                // the mesh_allocator holds slabs of meshes, so the buffers we get here
-                // can contain more data than just the mesh we're asking for.
-                // That's why there is a range field.
-                // You should *not* touch data in these buffers that is outside of the range.
-                let vertex_buffer_slice = mesh_allocator.mesh_vertex_slice(mesh_id).unwrap();
-                let index_buffer_slice = mesh_allocator.mesh_index_slice(mesh_id).unwrap();
+        // the mesh_allocator holds slabs of meshes, so the buffers we get here
+        // can contain more data than just the mesh we're asking for.
+        // That's why there is a range field.
+        // You should *not* touch data in these buffers that is outside of the range.
+        let vertex_buffer_slice = mesh_allocator.mesh_vertex_slice(mesh_id).unwrap();
+        let index_buffer_slice = mesh_allocator.mesh_index_slice(mesh_id).unwrap();
 
-                let first = DataRanges {
-                    // there are 8 vertex data values (pos, normal, uv) per vertex
-                    // and the vertex_buffer_slice.range.start is in "vertex elements"
-                    // which includes all of that data, so each index is worth 8 indices
-                    // to our shader code.
-                    vertex_start: vertex_buffer_slice.range.start * 8,
-                    vertex_end: vertex_buffer_slice.range.end * 8,
-                    // but each vertex index is a single value, so the index of the
-                    // vertex indices is exactly what the value is
-                    index_start: index_buffer_slice.range.start,
-                    index_end: index_buffer_slice.range.end,
-                };
+        let first = DataRanges {
+            // there are 8 vertex data values (pos, normal, uv) per vertex
+            // and the vertex_buffer_slice.range.start is in "vertex elements"
+            // which includes all of that data, so each index is worth 8 indices
+            // to our shader code.
+            vertex_start: vertex_buffer_slice.range.start * 8,
+            vertex_end: vertex_buffer_slice.range.end * 8,
+            // but each vertex index is a single value, so the index of the
+            // vertex indices is exactly what the value is
+            index_start: index_buffer_slice.range.start,
+            index_end: index_buffer_slice.range.end,
+        };
 
-                let mut uniforms = UniformBuffer::from(first);
-                uniforms.write_buffer(
-                    render_context.render_device(),
-                    world.resource::<RenderQueue>(),
-                );
+        let mut uniforms = UniformBuffer::from(first);
+        uniforms.write_buffer(render_context.render_device(), &render_queue);
 
-                // pass in the full mesh_allocator slabs as well as the first index
-                // offsets for the vertex and index buffers
-                let bind_group = render_context.render_device().create_bind_group(
-                    None,
-                    &pipeline_cache.get_bind_group_layout(&pipeline.layout),
-                    &BindGroupEntries::sequential((
-                        &uniforms,
-                        vertex_buffer_slice.buffer.as_entire_buffer_binding(),
-                        index_buffer_slice.buffer.as_entire_buffer_binding(),
-                    )),
-                );
+        // pass in the full mesh_allocator slabs as well as the first index
+        // offsets for the vertex and index buffers
+        let bind_group = render_context.render_device().create_bind_group(
+            None,
+            &pipeline_cache.get_bind_group_layout(&pipeline.layout),
+            &BindGroupEntries::sequential((
+                &uniforms,
+                vertex_buffer_slice.buffer.as_entire_buffer_binding(),
+                index_buffer_slice.buffer.as_entire_buffer_binding(),
+            )),
+        );
 
-                let mut pass =
-                    render_context
-                        .command_encoder()
-                        .begin_compute_pass(&ComputePassDescriptor {
-                            label: Some("Mesh generation compute pass"),
-                            ..default()
-                        });
-                pass.push_debug_group("compute_mesh");
+        let mut pass =
+            render_context
+                .command_encoder()
+                .begin_compute_pass(&ComputePassDescriptor {
+                    label: Some("Mesh generation compute pass"),
+                    ..default()
+                });
+        pass.push_debug_group("compute_mesh");
 
-                pass.set_bind_group(0, &bind_group, &[]);
-                pass.set_pipeline(init_pipeline);
-                // we only dispatch 1,1,1 workgroup here, but a real compute shader
-                // would take advantage of more and larger size workgroups
-                pass.dispatch_workgroups(1, 1, 1);
+        pass.set_bind_group(0, &bind_group, &[]);
+        pass.set_pipeline(init_pipeline);
+        // we only dispatch 1,1,1 workgroup here, but a real compute shader
+        // would take advantage of more and larger size workgroups
+        pass.dispatch_workgroups(1, 1, 1);
 
-                pass.pop_debug_group();
-            }
-        }
-
-        Ok(())
+        pass.pop_debug_group();
     }
 }
