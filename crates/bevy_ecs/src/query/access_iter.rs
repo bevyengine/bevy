@@ -1,4 +1,4 @@
-use core::fmt::Display;
+use core::{convert::identity, fmt::Display};
 
 use crate::{
     component::{ComponentId, Components},
@@ -22,12 +22,32 @@ pub fn has_conflicts<Q: QueryData>(components: &Components) -> Result<(), QueryA
         let Some(state) = Q::get_state(components) else {
             return Err(QueryAccessError::ComponentNotRegistered);
         };
-        let iter = Q::iter_access(&state);
+        let iter = Q::iter_access(&state).enumerate();
         let mut filter = BloomFilter::<8, 2>::new();
-        for access in iter {
-            if filter.contains(&access) {
+        for (i, access) in iter {
+            let needs_check = match access {
+                EcsAccessType::Component(EcsAccessLevel::Read(component_id))
+                | EcsAccessType::Component(EcsAccessLevel::Write(component_id)) => {
+                    filter.check_insert(&component_id.index())
+                }
+                EcsAccessType::Component(EcsAccessLevel::ReadAll)
+                | EcsAccessType::Component(EcsAccessLevel::WriteAll) => true,
+                EcsAccessType::Resource(ResourceAccessLevel::Read(resource_id))
+                | EcsAccessType::Resource(ResourceAccessLevel::Write(resource_id)) => {
+                    filter.check_insert(&resource_id.index())
+                }
+                // we CANNOT use Iterator::any here as it will short circuit
+                // and not record all components/resources
+                EcsAccessType::Access(access) => access
+                    .archetypal()
+                    .map(|archetype| filter.check_insert(&archetype.index()))
+                    .any(identity),
+
+                EcsAccessType::Empty => continue,
+            };
+            if needs_check {
                 // we MIGHT have a conflict, fallback to slow check
-                for access_other in Q::iter_access(&state) {
+                for access_other in Q::iter_access(&state).skip(i + 1) {
                     if let Err(err) = access.is_compatible(access_other) {
                         panic!("{}", err);
                     }

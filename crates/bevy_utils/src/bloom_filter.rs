@@ -61,6 +61,18 @@ impl<const N: usize, const K: usize> BloomFilter<N, K> {
         true
     }
 
+    /// Combined [`contains`] and [`insert`].
+    ///
+    /// Returns `true` if the value was already in the filter.
+    /// Adds the value to the filter if it was not already present.
+    pub fn check_insert(&mut self, item: &impl Hash) -> bool {
+        let res = self.contains(item);
+        if !res {
+            self.insert(item);
+        }
+        res
+    }
+
     fn hash(&self, item: &impl Hash) -> (u64, u64) {
         let mut hasher = FixedHasher.build_hasher();
         item.hash(&mut hasher);
