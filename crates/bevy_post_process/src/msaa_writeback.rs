@@ -29,7 +29,7 @@ impl Plugin for MsaaWritebackPlugin {
             Render,
             prepare_msaa_writeback_pipelines.in_set(RenderSystems::Prepare),
         );
-        render_app.add_systems(Core3d, msaa_writeback.before(Core3dSystems::EndPrepasses));
+        render_app.add_systems(Core3d, msaa_writeback.before(Core3dSystems::StartMainPass));
         render_app.add_systems(Core2d, msaa_writeback.before(Core2dSystems::StartMainPass));
     }
 }

@@ -49,6 +49,7 @@ use bevy_app::{App, Plugin};
 use bevy_asset::{embedded_asset, AssetApp, AssetId, Handle};
 use bevy_camera::visibility::{self, Visibility, VisibilityClass};
 use bevy_core_pipeline::{
+    core_3d::main_opaque_pass_3d,
     prepass::{DeferredPrepass, MotionVectorPrepass, NormalPrepass},
     schedule::{Core3d, Core3dSystems},
 };
@@ -205,7 +206,7 @@ impl Plugin for MeshletPlugin {
                         .before(Core3dSystems::EndPrepasses),
                     meshlet_main_opaque_pass
                         .after(Core3dSystems::StartMainPass)
-                        .before(Core3dSystems::EndMainPass),
+                        .before(main_opaque_pass_3d),
                 ),
             );
     }
