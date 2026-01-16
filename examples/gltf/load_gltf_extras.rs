@@ -23,7 +23,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     ));
 
     commands.spawn(DirectionalLight {
-        shadows_enabled: true,
+        shadow_maps_enabled: true,
         ..default()
     });
 

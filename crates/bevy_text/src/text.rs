@@ -7,7 +7,7 @@ use bevy_reflect::prelude::*;
 use bevy_utils::{default, once};
 use core::fmt::{Debug, Formatter};
 use core::str::from_utf8;
-use cosmic_text::{Buffer, Metrics, Stretch};
+use cosmic_text::{Buffer, Family, Metrics, Stretch};
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
 use smol_str::SmolStr;
@@ -33,6 +33,8 @@ pub struct TextEntity {
     pub entity: Entity,
     /// Records the hierarchy depth of the entity within a `TextLayout`.
     pub depth: usize,
+    /// Antialiasing method to use when rendering the text.
+    pub font_smoothing: FontSmoothing,
 }
 
 /// Computed information for a text block.
@@ -247,10 +249,29 @@ impl From<Justify> for cosmic_text::Align {
 }
 
 #[derive(Clone, Debug, Reflect, PartialEq)]
-/// Specifies how the font face for a text span is sourced.
+/// Determines how the font face for a text sections is selected.
 ///
-/// A `FontSource` can either reference a font asset or identify a font by family name to be
-/// resolved by the font systems.
+/// A `FontSource` can be a handle to a font asset, a font family name,
+/// or a generic font category that is resolved using Cosmic Text's font database.
+///
+/// The `CosmicFontSystem` resource can be used to change the font family
+/// associated to a generic font variant:
+/// ```
+/// # use bevy_text::CosmicFontSystem;
+/// # use bevy_text::FontSource;
+/// let mut font_system = CosmicFontSystem::default();
+/// let mut font_database = font_system.db_mut();
+/// font_database.set_serif_family("Allegro");
+/// font_database.set_sans_serif_family("Encode Sans");
+/// font_database.set_cursive_family("Cedarville Cursive");
+/// font_database.set_fantasy_family("Argusho");
+/// font_database.set_monospace_family("Lucida Console");
+///
+/// // `CosmicFontSystem::get_family` can be used to look up the name
+/// // of a `FontSource`'s associated family
+/// let family_name = font_system.get_family(&FontSource::Serif).unwrap();
+/// assert_eq!(family_name.as_str(), "Allegro");
+/// ```
 pub enum FontSource {
     /// Use a specific font face referenced by a [`Font`] asset handle.
     ///
@@ -262,6 +283,47 @@ pub enum FontSource {
     Handle(Handle<Font>),
     /// Resolve the font by family name using the font database.
     Family(SmolStr),
+    /// Fonts with serifs — small decorative strokes at the ends of letterforms.
+    ///
+    /// Serif fonts are typically used for long passages of text and represent
+    /// a more traditional or formal typographic style.
+    Serif,
+    /// Fonts without serifs.
+    ///
+    /// Sans-serif fonts generally have low stroke contrast and plain stroke
+    /// endings, making them common for UI text and on-screen reading.
+    SansSerif,
+    /// Fonts that use a cursive or handwritten style.
+    ///
+    /// Glyphs often resemble connected or flowing pen or brush strokes rather
+    /// than printed letterforms.
+    Cursive,
+    /// Decorative or expressive fonts.
+    ///
+    /// Fantasy fonts are primarily intended for display purposes and may
+    /// prioritize visual style over readability.
+    Fantasy,
+    /// Fonts in which all glyphs have the same fixed advance width.
+    ///
+    /// Monospace fonts are commonly used for code, tabular data, and text
+    /// where vertical alignment is important.
+    Monospace,
+}
+
+impl FontSource {
+    /// Returns this `FontSource` as a `fontdb` family, or `None`
+    /// if this source is a `Handle`.
+    pub(crate) fn as_family<'a>(&'a self) -> Option<Family<'a>> {
+        Some(match self {
+            FontSource::Family(family) => Family::Name(family.as_str()),
+            FontSource::Serif => Family::Serif,
+            FontSource::SansSerif => Family::SansSerif,
+            FontSource::Cursive => Family::Cursive,
+            FontSource::Fantasy => Family::Fantasy,
+            FontSource::Monospace => Family::Monospace,
+            _ => return None,
+        })
+    }
 }
 
 impl Default for FontSource {
@@ -299,10 +361,10 @@ impl From<&str> for FontSource {
 #[derive(Component, Clone, Debug, Reflect, PartialEq)]
 #[reflect(Component, Default, Debug, Clone)]
 pub struct TextFont {
-    /// Specifies how the font face for a text span is sourced.
+    /// Specifies the font face used for this text section.
     ///
-    /// A `FontSource` can either reference a font asset or identify a font by family name to be
-    /// resolved by the text systems.
+    /// A `FontSource` can be a handle to a font asset, a font family name,
+    /// or a generic font category that is resolved using Cosmic Text's font database.
     pub font: FontSource,
     /// The vertical height of rasterized glyphs in the font atlas in pixels.
     ///
@@ -990,12 +1052,16 @@ pub fn detect_text_needs_rerender<Root: Component>(
 #[reflect(Component, Default, Debug, Clone, PartialEq)]
 /// Font hinting strategy.
 ///
+/// The text bounds can underflow or overflow slightly with `FontHinting::Enabled`.
+///
 /// <https://docs.rs/cosmic-text/latest/cosmic_text/enum.Hinting.html>
 pub enum FontHinting {
     #[default]
     /// Glyphs will have subpixel coordinates.
     Disabled,
     /// Glyphs will be snapped to integral coordinates in the X-axis during layout.
+    ///
+    /// The text bounds can underflow or overflow slightly with this enabled.
     Enabled,
 }
 
