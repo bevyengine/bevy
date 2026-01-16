@@ -343,7 +343,7 @@ impl<'w> DynamicSceneBuilder<'w> {
 
                     // Map entities in the component if an entity map is provided
                     if let Some(entity_map) = self.entity_map.as_mut()
-                        && let Some(map_entities) = type_registration.data::<ReflectComponent>()
+                        && let Some(refl_component) = type_registration.data::<ReflectComponent>()
                         && let Some(component) = component.try_as_reflect_mut()
                     {
                         map_entities.map_entities(component, &mut **entity_map);
