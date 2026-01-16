@@ -328,7 +328,7 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
 
             resolve_depth(
                 render_context,
-                shadow_view.depth_attachment.get_attachment(StoreOp::Store),
+                shadow_view.get_attachment(),
                 meshlet_view_bind_groups,
                 resolve_depth_shadow_view_pipeline,
                 camera,

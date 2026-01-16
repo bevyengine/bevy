@@ -125,10 +125,10 @@ impl Node for DownsampleDepthNode {
             view_depth_pyramid,
             view_downsample_depth_bind_group,
             uvec2(
-                view_depth_texture.texture.width(),
-                view_depth_texture.texture.height(),
+                view_depth_texture.texture().width(),
+                view_depth_texture.texture().height(),
             ),
-            view_depth_texture.texture.sample_count(),
+            view_depth_texture.texture().sample_count(),
         )?;
 
         // Downsample depth for shadow maps that have occlusion culling enabled.
@@ -682,7 +682,7 @@ pub(crate) fn prepare_downsample_depth_view_bind_groups(
         &view_depth_textures
     {
         let is_multisampled = view_depth_texture
-            .is_some_and(|view_depth_texture| view_depth_texture.texture.sample_count() > 1);
+            .is_some_and(|view_depth_texture| view_depth_texture.texture().sample_count() > 1);
         commands
             .entity(view_entity)
             .insert(ViewDownsampleDepthBindGroup(
@@ -701,7 +701,7 @@ pub(crate) fn prepare_downsample_depth_view_bind_groups(
                         &downsample_depth_pipelines.first.bind_group_layout
                     }),
                     match (view_depth_texture, shadow_occlusion_culling) {
-                        (Some(view_depth_texture), _) => view_depth_texture.view(),
+                        (Some(view_depth_texture), _) => view_depth_texture.depth_only_view(),
                         (None, Some(shadow_occlusion_culling)) => {
                             &shadow_occlusion_culling.depth_texture_view
                         }

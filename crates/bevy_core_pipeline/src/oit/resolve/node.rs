@@ -57,7 +57,7 @@ impl ViewNode for OitResolveNode {
                 "oit_resolve_depth_bind_group",
                 &pipeline_cache
                     .get_bind_group_layout(&resolve_pipeline.oit_depth_bind_group_layout),
-                &BindGroupEntries::single(depth.view()),
+                &BindGroupEntries::single(depth.depth_only_view()),
             );
 
             let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {

@@ -418,7 +418,7 @@ impl ViewNode for VolumetricFogNode {
             // texture will only be filled in if that texture is present.
             let mut bind_group_entries = DynamicBindGroupEntries::sequential((
                 volumetric_lighting_uniform_buffer_binding.clone(),
-                BindingResource::TextureView(view_depth_texture.view()),
+                BindingResource::TextureView(view_depth_texture.depth_only_view()),
             ));
             if let Some(density_image) = density_image {
                 bind_group_layout_key.insert(VolumetricFogBindGroupLayoutKey::DENSITY_TEXTURE);
