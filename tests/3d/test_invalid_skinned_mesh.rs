@@ -11,7 +11,7 @@ use bevy::{
     post_process::motion_blur::MotionBlur,
     prelude::*,
 };
-use bevy_asset::RenderAssetTransferPriority;
+use bevy::asset::RenderAssetTransferPriority;
 use core::f32::consts::TAU;
 
 fn main() {
