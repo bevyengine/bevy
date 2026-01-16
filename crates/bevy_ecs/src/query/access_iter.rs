@@ -36,24 +36,44 @@ pub fn has_conflicts<Q: QueryData>(components: &Components) -> Result<(), QueryA
                 | EcsAccessType::Resource(ResourceAccessLevel::Write(resource_id)) => {
                     filter.check_insert(&resource_id.index())
                 }
-                // we CANNOT use Iterator::any here as it will short circuit
-                // and not record all components/resources
-                EcsAccessType::Access(access) => access
-                    .archetypal()
-                    .map(|archetype| filter.check_insert(&archetype.index()))
-                    .any(identity),
-
+                EcsAccessType::Access(access) => {
+                    if access.has_read_all_resources() || access.has_write_all_resources() {
+                        true
+                    } else if let Ok(component_iter) = access.try_iter_component_access() {
+                        let mut needs_check = false;
+                        for kind in component_iter {
+                            let index = match kind {
+                                crate::query::ComponentAccessKind::Shared(id)
+                                | crate::query::ComponentAccessKind::Exclusive(id)
+                                | crate::query::ComponentAccessKind::Archetypal(id) => id.index(),
+                            };
+                            if filter.check_insert(&index) {
+                                needs_check = true;
+                            }
+                        }
+                        for resource_id in access.resource_reads_and_writes() {
+                            if filter.check_insert(&resource_id.index()) {
+                                needs_check = true;
+                            }
+                        }
+                        needs_check
+                    } else {
+                        true
+                    }
+                }
                 EcsAccessType::Empty => continue,
             };
             if needs_check {
                 // we MIGHT have a conflict, fallback to slow check
-                for access_other in Q::iter_access(&state).skip(i + 1) {
+                for (j, access_other) in Q::iter_access(&state).enumerate() {
+                    if i == j {
+                        continue;
+                    }
                     if let Err(err) = access.is_compatible(access_other) {
                         panic!("{}", err);
                     }
                 }
             }
-            filter.insert(&access);
         }
     } else {
         // we can optimize small sizes by caching the iteration result in an array on the stack
