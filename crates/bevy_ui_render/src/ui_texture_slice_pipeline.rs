@@ -137,6 +137,7 @@ pub fn init_ui_texture_slice_pipeline(mut commands: Commands, asset_server: Res<
 
 #[derive(Clone, Copy, Hash, PartialEq, Eq)]
 pub struct UiTextureSlicePipelineKey {
+    pub hdr: bool,
     pub hdr_output: bool,
 }
 
@@ -176,7 +177,7 @@ impl SpecializedRenderPipeline for UiTextureSlicePipeline {
                 shader: self.shader.clone(),
                 shader_defs,
                 targets: vec![Some(ColorTargetState {
-                    format: if key.hdr_output {
+                    format: if key.hdr {
                         ViewTarget::TEXTURE_FORMAT_HDR
                     } else {
                         TextureFormat::bevy_default()
@@ -337,6 +338,7 @@ pub fn queue_ui_slices(
             &pipeline_cache,
             &ui_slicer_pipeline,
             UiTextureSlicePipelineKey {
+                hdr: view.hdr,
                 hdr_output: view.hdr_output,
             },
         );

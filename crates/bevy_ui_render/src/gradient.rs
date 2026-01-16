@@ -138,6 +138,7 @@ pub fn compute_gradient_line_length(angle: f32, size: Vec2) -> f32 {
 pub struct UiGradientPipelineKey {
     anti_alias: bool,
     color_space: InterpolationColorSpace,
+    pub hdr: bool,
     pub hdr_output: bool,
 }
 
@@ -207,7 +208,7 @@ impl SpecializedRenderPipeline for GradientPipeline {
                 shader: self.shader.clone(),
                 shader_defs,
                 targets: vec![Some(ColorTargetState {
-                    format: if key.hdr_output {
+                    format: if key.hdr {
                         ViewTarget::TEXTURE_FORMAT_HDR
                     } else {
                         TextureFormat::bevy_default()
@@ -612,6 +613,7 @@ pub fn queue_gradient(
             UiGradientPipelineKey {
                 anti_alias: matches!(ui_anti_alias, None | Some(UiAntiAlias::On)),
                 color_space: gradient.color_space,
+                hdr: view.hdr,
                 hdr_output: view.hdr_output,
             },
         );

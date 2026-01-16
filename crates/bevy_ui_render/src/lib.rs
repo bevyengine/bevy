@@ -1442,6 +1442,7 @@ pub fn queue_uinodes(
             &pipeline_cache,
             &ui_pipeline,
             UiPipelineKey {
+                hdr: view.hdr,
                 hdr_output: view.hdr_output,
                 anti_alias: matches!(ui_anti_alias, None | Some(UiAntiAlias::On)),
             },

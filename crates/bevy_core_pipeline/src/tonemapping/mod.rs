@@ -194,6 +194,7 @@ pub struct TonemappingPipelineKey {
     deband_dither: DebandDither,
     tonemapping: Tonemapping,
     flags: TonemappingPipelineKeyFlags,
+    hdr: bool,
     hdr_output: bool,
 }
 
@@ -286,7 +287,7 @@ impl SpecializedRenderPipeline for TonemappingPipeline {
                 shader: self.fragment_shader.clone(),
                 shader_defs,
                 targets: vec![Some(ColorTargetState {
-                    format: if key.hdr_output {
+                    format: if key.hdr {
                         ViewTarget::TEXTURE_FORMAT_HDR
                     } else {
                         TextureFormat::bevy_default()
@@ -374,6 +375,7 @@ pub fn prepare_view_tonemapping_pipelines(
             deband_dither: *dither.unwrap_or(&DebandDither::Disabled),
             tonemapping: *tonemapping.unwrap_or(&Tonemapping::None),
             flags,
+            hdr: view.hdr,
             hdr_output: view.hdr_output,
         };
         let pipeline = pipelines.specialize(&pipeline_cache, &upscaling_pipeline, key);

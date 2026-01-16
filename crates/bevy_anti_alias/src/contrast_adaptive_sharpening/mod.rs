@@ -208,7 +208,7 @@ pub fn init_cas_pipeline(
 
 #[derive(PartialEq, Eq, Hash, Clone, Copy, SpecializerKey)]
 pub struct CasPipelineKey {
-    texture_format: TextureFormat,
+    hdr: bool,
     denoise: bool,
 }
 
@@ -231,7 +231,11 @@ impl Specializer<RenderPipeline> for CasPipelineSpecializer {
         fragment.set_target(
             0,
             ColorTargetState {
-                format: key.texture_format,
+                format: if key.hdr {
+                    ViewTarget::TEXTURE_FORMAT_HDR
+                } else {
+                    TextureFormat::bevy_default()
+                },
                 blend: None,
                 write_mask: ColorWrites::ALL,
             },
@@ -260,11 +264,7 @@ fn prepare_cas_pipelines(
             &pipeline_cache,
             CasPipelineKey {
                 denoise: denoise_cas.0,
-                texture_format: if view.hdr_output {
-                    ViewTarget::TEXTURE_FORMAT_HDR
-                } else {
-                    TextureFormat::bevy_default()
-                },
+                hdr: view.hdr,
             },
         )?;
 

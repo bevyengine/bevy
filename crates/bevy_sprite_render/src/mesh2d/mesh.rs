@@ -136,7 +136,7 @@ pub fn check_views_need_specialization(
             | Mesh2dPipelineKey::from_hdr(view.hdr)
             | Mesh2dPipelineKey::from_hdr_output(view.hdr_output);
 
-        if !view.hdr_output {
+        if !view.hdr {
             if let Some(tonemapping) = tonemapping {
                 view_key |= Mesh2dPipelineKey::TONEMAP_IN_SHADER;
                 view_key |= tonemapping_pipeline_key(*tonemapping);
@@ -549,6 +549,10 @@ impl SpecializedMeshPipeline for Mesh2dPipeline {
                 3,
             ));
 
+            if key.contains(Mesh2dPipelineKey::HDR_OUTPUT) {
+                shader_defs.push("HDR_OUTPUT".into());
+            }
+
             let method = key.intersection(Mesh2dPipelineKey::TONEMAP_METHOD_RESERVED_BITS);
 
             match method {
@@ -590,7 +594,7 @@ impl SpecializedMeshPipeline for Mesh2dPipeline {
 
         let vertex_buffer_layout = layout.0.get_layout(&vertex_attributes)?;
 
-        let format = match key.contains(Mesh2dPipelineKey::HDR_OUTPUT) {
+        let format = match key.contains(Mesh2dPipelineKey::HDR) {
             true => ViewTarget::TEXTURE_FORMAT_HDR,
             false => TextureFormat::bevy_default(),
         };

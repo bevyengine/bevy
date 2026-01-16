@@ -190,6 +190,8 @@ pub struct DepthOfFieldPipelineKey {
     hdr: bool,
     /// Whether the render target is multisampled.
     multisample: bool,
+    /// Whether the final output is HDR.
+    hdr_output: bool,
 }
 
 /// Identifies a specific depth of field render pass.
@@ -691,7 +693,7 @@ pub fn prepare_depth_of_field_pipelines(
         };
 
         // We'll need these two flags to create the `DepthOfFieldPipelineKey`s.
-        let (hdr, multisample) = (view.hdr, *msaa != Msaa::Off);
+        let (hdr, multisample, hdr_output) = (view.hdr, *msaa != Msaa::Off, view.hdr_output);
 
         // Go ahead and specialize the pipelines.
         match depth_of_field.mode {
@@ -705,6 +707,7 @@ pub fn prepare_depth_of_field_pipelines(
                             DepthOfFieldPipelineKey {
                                 hdr,
                                 multisample,
+                                hdr_output,
                                 pass: DofPass::GaussianHorizontal,
                             },
                         ),
@@ -714,6 +717,7 @@ pub fn prepare_depth_of_field_pipelines(
                             DepthOfFieldPipelineKey {
                                 hdr,
                                 multisample,
+                                hdr_output,
                                 pass: DofPass::GaussianVertical,
                             },
                         ),
@@ -730,6 +734,7 @@ pub fn prepare_depth_of_field_pipelines(
                             DepthOfFieldPipelineKey {
                                 hdr,
                                 multisample,
+                                hdr_output,
                                 pass: DofPass::BokehPass0,
                             },
                         ),
@@ -739,6 +744,7 @@ pub fn prepare_depth_of_field_pipelines(
                             DepthOfFieldPipelineKey {
                                 hdr,
                                 multisample,
+                                hdr_output,
                                 pass: DofPass::BokehPass1,
                             },
                         ),
@@ -794,6 +800,10 @@ impl SpecializedRenderPipeline for DepthOfFieldPipeline {
 
         if key.multisample {
             shader_defs.push("MULTISAMPLED".into());
+        }
+
+        if key.hdr_output {
+            shader_defs.push("HDR_OUTPUT".into());
         }
 
         RenderPipelineDescriptor {

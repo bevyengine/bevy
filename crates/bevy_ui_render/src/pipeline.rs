@@ -48,6 +48,7 @@ pub fn init_ui_pipeline(mut commands: Commands, asset_server: Res<AssetServer>) 
 
 #[derive(Clone, Copy, Hash, PartialEq, Eq)]
 pub struct UiPipelineKey {
+    pub hdr: bool,
     pub hdr_output: bool,
     pub anti_alias: bool,
 }
@@ -94,7 +95,7 @@ impl SpecializedRenderPipeline for UiPipeline {
                 shader: self.shader.clone(),
                 shader_defs,
                 targets: vec![Some(ColorTargetState {
-                    format: if key.hdr_output {
+                    format: if key.hdr {
                         ViewTarget::TEXTURE_FORMAT_HDR
                     } else {
                         TextureFormat::bevy_default()

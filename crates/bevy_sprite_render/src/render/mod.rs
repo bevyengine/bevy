@@ -163,6 +163,10 @@ impl SpecializedRenderPipeline for SpritePipeline {
                 2,
             ));
 
+            if key.contains(SpritePipelineKey::HDR_OUTPUT) {
+                shader_defs.push("HDR_OUTPUT".into());
+            }
+
             let method = key.intersection(SpritePipelineKey::TONEMAP_METHOD_RESERVED_BITS);
 
             if method == SpritePipelineKey::TONEMAP_METHOD_NONE {
@@ -192,7 +196,7 @@ impl SpecializedRenderPipeline for SpritePipeline {
             }
         }
 
-        let format = match key.contains(SpritePipelineKey::HDR_OUTPUT) {
+        let format = match key.contains(SpritePipelineKey::HDR) {
             true => ViewTarget::TEXTURE_FORMAT_HDR,
             false => TextureFormat::bevy_default(),
         };
@@ -510,7 +514,7 @@ pub fn queue_sprites(
             | SpritePipelineKey::from_hdr_output(view.hdr_output)
             | msaa_key;
 
-        if !view.hdr_output {
+        if !view.hdr {
             if let Some(tonemapping) = tonemapping {
                 view_key |= SpritePipelineKey::TONEMAP_IN_SHADER;
                 view_key |= match tonemapping {

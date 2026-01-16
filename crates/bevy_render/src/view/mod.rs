@@ -1105,7 +1105,7 @@ pub fn prepare_view_targets(
             continue;
         };
 
-        let main_texture_format = if view.hdr_output {
+        let main_texture_format = if view.hdr {
             ViewTarget::TEXTURE_FORMAT_HDR
         } else {
             TextureFormat::bevy_default()
@@ -1118,12 +1118,7 @@ pub fn prepare_view_targets(
         };
 
         let (a, b, sampled, main_texture) = textures
-            .entry((
-                camera.target.clone(),
-                texture_usage.0,
-                view.hdr_output,
-                msaa,
-            ))
+            .entry((camera.target.clone(), texture_usage.0, view.hdr, msaa))
             .or_insert_with(|| {
                 let descriptor = TextureDescriptor {
                     label: None,

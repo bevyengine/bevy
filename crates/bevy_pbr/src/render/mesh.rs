@@ -427,7 +427,7 @@ pub fn check_views_need_specialization(
             }
         }
 
-        if !view.hdr_output {
+        if !view.hdr {
             if let Some(tonemapping) = tonemapping {
                 view_key |= MeshPipelineKey::TONEMAP_IN_SHADER;
                 view_key |= tonemapping_pipeline_key(*tonemapping);
@@ -2601,6 +2601,10 @@ impl SpecializedMeshPipeline for MeshPipeline {
                 TONEMAPPING_LUT_SAMPLER_BINDING_INDEX,
             ));
 
+            if key.contains(MeshPipelineKey::HDR_OUTPUT) {
+                shader_defs.push("HDR_OUTPUT".into());
+            }
+
             let method = key.intersection(MeshPipelineKey::TONEMAP_METHOD_RESERVED_BITS);
 
             if method == MeshPipelineKey::TONEMAP_METHOD_NONE {
@@ -2704,7 +2708,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
             }
         }
 
-        let format = if key.contains(MeshPipelineKey::HDR_OUTPUT) {
+        let format = if key.contains(MeshPipelineKey::HDR) {
             ViewTarget::TEXTURE_FORMAT_HDR
         } else {
             TextureFormat::bevy_default()

@@ -969,6 +969,7 @@ fn main_pass_post_lighting_processing(
 
 #ifdef TONEMAP_IN_SHADER
     output_color = tone_mapping(output_color, view_bindings::view.color_grading);
+#ifndef HDR_OUTPUT
 #ifdef DEBAND_DITHER
     var output_rgb = output_color.rgb;
     output_rgb = powsafe(output_rgb, 1.0 / 2.2);
@@ -977,6 +978,7 @@ fn main_pass_post_lighting_processing(
     // SRGB; the GPU will assume our output is linear and will apply an SRGB conversion.
     output_rgb = powsafe(output_rgb, 2.2);
     output_color = vec4(output_rgb, output_color.a);
+#endif
 #endif
 #endif
 #ifdef PREMULTIPLY_ALPHA
