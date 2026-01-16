@@ -248,6 +248,14 @@ pub fn init_solari_lighting_pipelines(
             vec![],
         ),
         #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
+        specular_gi_with_psr_pipeline: create_pipeline(
+            "solari_lighting_specular_gi_with_psr_pipeline",
+            "specular_gi",
+            load_embedded_asset!(asset_server.as_ref(), "specular_gi.wgsl"),
+            Some(&bind_group_layout_resolve_dlss_rr_textures),
+            vec!["DLSS_RR_GUIDE_BUFFERS".into()],
+        ),
+        #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
         resolve_dlss_rr_textures_pipeline: create_pipeline(
             "solari_lighting_resolve_dlss_rr_textures_pipeline",
             "resolve_dlss_rr_textures",
