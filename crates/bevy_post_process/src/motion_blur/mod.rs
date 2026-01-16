@@ -152,7 +152,7 @@ impl Plugin for MotionBlurPlugin {
                 Render,
                 (
                     pipeline::prepare_motion_blur_pipelines.in_set(RenderSystems::Prepare),
-                    prepare_view_depth_textur_usages_for_motion_blur
+                    prepare_view_depth_texture_usages_for_motion_blur
                         .after(prepare_view_targets)
                         .in_set(RenderSystems::ManageViews),
                 ),
@@ -174,7 +174,7 @@ impl Plugin for MotionBlurPlugin {
     }
 }
 
-fn prepare_view_depth_textur_usages_for_motion_blur(
+fn prepare_view_depth_texture_usages_for_motion_blur(
     mut view_targets: Query<&mut Camera3d, With<MotionBlurUniform>>,
 ) {
     for mut camera in view_targets.iter_mut() {
