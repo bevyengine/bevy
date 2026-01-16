@@ -152,6 +152,23 @@ impl Default for AutoNavigationConfig {
     }
 }
 
+/// Represents what's near a focusable entity.
+#[derive(Default, Debug, Clone, PartialEq, Copy)]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Default, Debug, PartialEq, Clone)
+)]
+pub enum NavNeighbor {
+    /// No neighbor explicitly set.
+    #[default]
+    Unset,
+    /// Do not find a neighbor.
+    Blocked,
+    /// The neighbor is known and set.
+    Neighbor(Entity),
+}
+
 /// The up-to-eight neighbors of a focusable entity, one for each [`CompassOctant`].
 #[derive(Default, Debug, Clone, PartialEq)]
 #[cfg_attr(
@@ -166,23 +183,28 @@ pub struct NavNeighbors {
     /// If no neighbor exists in a given direction, the value will be [`None`].
     /// In most cases, using [`NavNeighbors::set`] and [`NavNeighbors::get`]
     /// will be more ergonomic than directly accessing this array.
-    pub neighbors: [Option<Entity>; 8],
+    pub neighbors: [NavNeighbor; 8],
 }
 
 impl NavNeighbors {
     /// An empty set of neighbors.
     pub const EMPTY: NavNeighbors = NavNeighbors {
-        neighbors: [None; 8],
+        neighbors: [NavNeighbor::Unset; 8],
     };
 
     /// Get the neighbor for a given [`CompassOctant`].
-    pub const fn get(&self, octant: CompassOctant) -> Option<Entity> {
+    pub const fn get(&self, octant: CompassOctant) -> NavNeighbor {
         self.neighbors[octant.to_index()]
     }
 
     /// Set the neighbor for a given [`CompassOctant`].
     pub const fn set(&mut self, octant: CompassOctant, entity: Entity) {
-        self.neighbors[octant.to_index()] = Some(entity);
+        self.neighbors[octant.to_index()] = NavNeighbor::Neighbor(entity);
+    }
+
+    /// Prevent navigation to a given [`CompassOctant`].
+    pub const fn block(&mut self, octant: CompassOctant) {
+        self.neighbors[octant.to_index()] = NavNeighbor::Blocked;
     }
 }
 
@@ -231,8 +253,8 @@ impl DirectionalNavigationMap {
 
         for node in self.neighbors.values_mut() {
             for neighbor in node.neighbors.iter_mut() {
-                if *neighbor == Some(entity) {
-                    *neighbor = None;
+                if *neighbor == NavNeighbor::Neighbor(entity) {
+                    *neighbor = NavNeighbor::Unset;
                 }
             }
         }
@@ -252,10 +274,11 @@ impl DirectionalNavigationMap {
 
         for node in self.neighbors.values_mut() {
             for neighbor in node.neighbors.iter_mut() {
-                if let Some(entity) = *neighbor {
-                    if entities.contains(&entity) {
-                        *neighbor = None;
-                    }
+                let NavNeighbor::Neighbor(entity) = neighbor else {
+                    continue;
+                };
+                if entities.contains(entity) {
+                    *neighbor = NavNeighbor::Unset;
                 }
             }
         }
@@ -278,6 +301,19 @@ impl DirectionalNavigationMap {
             .set(direction, b);
     }
 
+    /// Adds an edge blocking automatic naviation from an entity in a direction.
+    /// Any existing edge from A in the provided direction will be overwritten.
+    ///
+    /// The reverse block will not be added, so navigation will only be possible from other entities
+    /// in the direction.
+    /// If you want to add a symmetrical block, use [`block_symmetrical_edge`](Self::block_symmetrical_edge) instead.
+    pub fn block_edge(&mut self, a: Entity, direction: CompassOctant) {
+        self.neighbors
+            .entry(a)
+            .or_insert(NavNeighbors::EMPTY)
+            .block(direction);
+    }
+
     /// Adds a symmetrical edge between two entities in the navigation map.
     /// The A -> B path will use the provided direction, while B -> A will use the [`CompassOctant::opposite`] variant.
     ///
@@ -285,6 +321,16 @@ impl DirectionalNavigationMap {
     pub fn add_symmetrical_edge(&mut self, a: Entity, b: Entity, direction: CompassOctant) {
         self.add_edge(a, b, direction);
         self.add_edge(b, a, direction.opposite());
+    }
+
+    // TODO: not quite sure if this is necessary
+    /// Adds a symmetrical edge between two entities in the navigation map.
+    /// The A -> B path will use the provided direction, while B -> A will use the [`CompassOctant::opposite`] variant.
+    ///
+    /// Any existing connections between the two entities will be overwritten.
+    pub fn block_symmetrical_edge(&mut self, a: Entity, b: Entity, direction: CompassOctant) {
+        self.block_edge(a, direction);
+        self.block_edge(b, direction.opposite());
     }
 
     /// Add symmetrical edges between each consecutive pair of entities in the provided slice.
@@ -309,16 +355,17 @@ impl DirectionalNavigationMap {
     }
 
     /// Gets the entity in a given direction from the current focus, if any.
-    pub fn get_neighbor(&self, focus: Entity, octant: CompassOctant) -> Option<Entity> {
+    pub fn get_neighbor(&self, focus: Entity, octant: CompassOctant) -> NavNeighbor {
         self.neighbors
             .get(&focus)
-            .and_then(|neighbors| neighbors.get(octant))
+            .map(|neighbors| neighbors.get(octant))
+            .unwrap_or(NavNeighbor::Unset)
     }
 
     /// Looks up the neighbors of a given entity.
     ///
     /// If the entity is not in the map, [`None`] will be returned.
-    /// Note that the set of neighbors is not guaranteed to be non-empty though!
+    /// Note that the set of neighbors may be the default value!
     pub fn get_neighbors(&self, entity: Entity) -> Option<&NavNeighbors> {
         self.neighbors.get(&entity)
     }
@@ -346,14 +393,19 @@ impl<'w> DirectionalNavigation<'w> {
     ) -> Result<Entity, DirectionalNavigationError> {
         if let Some(current_focus) = self.focus.0 {
             // Respect manual edges first
-            if let Some(new_focus) = self.map.get_neighbor(current_focus, direction) {
-                self.focus.set(new_focus);
-                Ok(new_focus)
-            } else {
-                Err(DirectionalNavigationError::NoNeighborInDirection {
+            match self.map.get_neighbor(current_focus, direction) {
+                NavNeighbor::Unset => Err(DirectionalNavigationError::NoNeighborInDirection {
                     current_focus,
                     direction,
-                })
+                }),
+                NavNeighbor::Blocked => Err(DirectionalNavigationError::BlockedNavigation {
+                    current_focus,
+                    direction,
+                }),
+                NavNeighbor::Neighbor(new_focus) => {
+                    self.focus.set(new_focus);
+                    Ok(new_focus)
+                }
             }
         } else {
             Err(DirectionalNavigationError::NoFocus)
@@ -370,6 +422,14 @@ pub enum DirectionalNavigationError {
     /// No neighbor in the requested direction.
     #[error("No neighbor from {current_focus} in the {direction:?} direction.")]
     NoNeighborInDirection {
+        /// The entity that was the focus when the error occurred.
+        current_focus: Entity,
+        /// The direction in which the navigation was attempted.
+        direction: CompassOctant,
+    },
+    /// Navigation explicitly blocked in the requested direction.
+    #[error("Naviation explicitly blocked from {current_focus} in the {direction:?} direction.")]
+    BlockedNavigation {
         /// The entity that was the focus when the error occurred.
         current_focus: Entity,
         /// The direction in which the navigation was attempted.
@@ -455,7 +515,12 @@ pub fn auto_generate_navigation_edges(
             // Skip if manual edge already exists (check inline to avoid borrow issues)
             if nav_map
                 .get_neighbors(origin.entity)
-                .and_then(|neighbors| neighbors.get(octant))
+                .filter(|neighbors| {
+                    matches!(
+                        neighbors.get(octant),
+                        NavNeighbor::Blocked | NavNeighbor::Neighbor(_)
+                    )
+                })
                 .is_some()
             {
                 continue; // Respect manual override
@@ -482,7 +547,7 @@ mod tests {
     #[test]
     fn setting_and_getting_nav_neighbors() {
         let mut neighbors = NavNeighbors::EMPTY;
-        assert_eq!(neighbors.get(CompassOctant::SouthEast), None);
+        assert_eq!(neighbors.get(CompassOctant::SouthEast), NavNeighbor::Unset);
 
         neighbors.set(CompassOctant::SouthEast, Entity::PLACEHOLDER);
 
@@ -490,10 +555,13 @@ mod tests {
             if i == CompassOctant::SouthEast.to_index() {
                 assert_eq!(
                     neighbors.get(CompassOctant::SouthEast),
-                    Some(Entity::PLACEHOLDER)
+                    NavNeighbor::Neighbor(Entity::PLACEHOLDER)
                 );
             } else {
-                assert_eq!(neighbors.get(CompassOctant::from_index(i).unwrap()), None);
+                assert_eq!(
+                    neighbors.get(CompassOctant::from_index(i).unwrap()),
+                    NavNeighbor::Unset
+                );
             }
         }
     }
@@ -507,10 +575,13 @@ mod tests {
         let mut map = DirectionalNavigationMap::default();
         map.add_edge(a, b, CompassOctant::SouthEast);
 
-        assert_eq!(map.get_neighbor(a, CompassOctant::SouthEast), Some(b));
+        assert_eq!(
+            map.get_neighbor(a, CompassOctant::SouthEast),
+            NavNeighbor::Neighbor(b)
+        );
         assert_eq!(
             map.get_neighbor(b, CompassOctant::SouthEast.opposite()),
-            None
+            NavNeighbor::Unset
         );
     }
 
@@ -523,8 +594,14 @@ mod tests {
         let mut map = DirectionalNavigationMap::default();
         map.add_symmetrical_edge(a, b, CompassOctant::North);
 
-        assert_eq!(map.get_neighbor(a, CompassOctant::North), Some(b));
-        assert_eq!(map.get_neighbor(b, CompassOctant::South), Some(a));
+        assert_eq!(
+            map.get_neighbor(a, CompassOctant::North),
+            NavNeighbor::Neighbor(b)
+        );
+        assert_eq!(
+            map.get_neighbor(b, CompassOctant::South),
+            NavNeighbor::Neighbor(a)
+        );
     }
 
     #[test]
@@ -537,13 +614,25 @@ mod tests {
         map.add_edge(a, b, CompassOctant::North);
         map.add_edge(b, a, CompassOctant::South);
 
-        assert_eq!(map.get_neighbor(a, CompassOctant::North), Some(b));
-        assert_eq!(map.get_neighbor(b, CompassOctant::South), Some(a));
+        assert_eq!(
+            map.get_neighbor(a, CompassOctant::North),
+            NavNeighbor::Neighbor(b)
+        );
+        assert_eq!(
+            map.get_neighbor(b, CompassOctant::South),
+            NavNeighbor::Neighbor(a)
+        );
 
         map.remove(b);
 
-        assert_eq!(map.get_neighbor(a, CompassOctant::North), None);
-        assert_eq!(map.get_neighbor(b, CompassOctant::South), None);
+        assert_eq!(
+            map.get_neighbor(a, CompassOctant::North),
+            NavNeighbor::Unset
+        );
+        assert_eq!(
+            map.get_neighbor(b, CompassOctant::South),
+            NavNeighbor::Unset
+        );
     }
 
     #[test]
@@ -565,10 +654,16 @@ mod tests {
 
         map.remove_multiple(to_remove);
 
-        assert_eq!(map.get_neighbor(a, CompassOctant::North), None);
-        assert_eq!(map.get_neighbor(b, CompassOctant::South), None);
-        assert_eq!(map.get_neighbor(b, CompassOctant::East), None);
-        assert_eq!(map.get_neighbor(c, CompassOctant::West), None);
+        assert_eq!(
+            map.get_neighbor(a, CompassOctant::North),
+            NavNeighbor::Unset
+        );
+        assert_eq!(
+            map.get_neighbor(b, CompassOctant::South),
+            NavNeighbor::Unset
+        );
+        assert_eq!(map.get_neighbor(b, CompassOctant::East), NavNeighbor::Unset);
+        assert_eq!(map.get_neighbor(c, CompassOctant::West), NavNeighbor::Unset);
     }
 
     #[test]
@@ -581,13 +676,25 @@ mod tests {
         let mut map = DirectionalNavigationMap::default();
         map.add_edges(&[a, b, c], CompassOctant::East);
 
-        assert_eq!(map.get_neighbor(a, CompassOctant::East), Some(b));
-        assert_eq!(map.get_neighbor(b, CompassOctant::East), Some(c));
-        assert_eq!(map.get_neighbor(c, CompassOctant::East), None);
+        assert_eq!(
+            map.get_neighbor(a, CompassOctant::East),
+            NavNeighbor::Neighbor(b)
+        );
+        assert_eq!(
+            map.get_neighbor(b, CompassOctant::East),
+            NavNeighbor::Neighbor(c)
+        );
+        assert_eq!(map.get_neighbor(c, CompassOctant::East), NavNeighbor::Unset);
 
-        assert_eq!(map.get_neighbor(a, CompassOctant::West), None);
-        assert_eq!(map.get_neighbor(b, CompassOctant::West), Some(a));
-        assert_eq!(map.get_neighbor(c, CompassOctant::West), Some(b));
+        assert_eq!(map.get_neighbor(a, CompassOctant::West), NavNeighbor::Unset);
+        assert_eq!(
+            map.get_neighbor(b, CompassOctant::West),
+            NavNeighbor::Neighbor(a)
+        );
+        assert_eq!(
+            map.get_neighbor(c, CompassOctant::West),
+            NavNeighbor::Neighbor(b)
+        );
     }
 
     #[test]
@@ -600,13 +707,31 @@ mod tests {
         let mut map = DirectionalNavigationMap::default();
         map.add_looping_edges(&[a, b, c], CompassOctant::East);
 
-        assert_eq!(map.get_neighbor(a, CompassOctant::East), Some(b));
-        assert_eq!(map.get_neighbor(b, CompassOctant::East), Some(c));
-        assert_eq!(map.get_neighbor(c, CompassOctant::East), Some(a));
+        assert_eq!(
+            map.get_neighbor(a, CompassOctant::East),
+            NavNeighbor::Neighbor(b)
+        );
+        assert_eq!(
+            map.get_neighbor(b, CompassOctant::East),
+            NavNeighbor::Neighbor(c)
+        );
+        assert_eq!(
+            map.get_neighbor(c, CompassOctant::East),
+            NavNeighbor::Neighbor(a)
+        );
 
-        assert_eq!(map.get_neighbor(a, CompassOctant::West), Some(c));
-        assert_eq!(map.get_neighbor(b, CompassOctant::West), Some(a));
-        assert_eq!(map.get_neighbor(c, CompassOctant::West), Some(b));
+        assert_eq!(
+            map.get_neighbor(a, CompassOctant::West),
+            NavNeighbor::Neighbor(c)
+        );
+        assert_eq!(
+            map.get_neighbor(b, CompassOctant::West),
+            NavNeighbor::Neighbor(a)
+        );
+        assert_eq!(
+            map.get_neighbor(c, CompassOctant::West),
+            NavNeighbor::Neighbor(b)
+        );
     }
 
     #[test]
@@ -683,27 +808,27 @@ mod tests {
         // Test horizontal navigation
         assert_eq!(
             nav_map.get_neighbor(node_a, CompassOctant::East),
-            Some(node_b)
+            NavNeighbor::Neighbor(node_b)
         );
         assert_eq!(
             nav_map.get_neighbor(node_b, CompassOctant::West),
-            Some(node_a)
+            NavNeighbor::Neighbor(node_a)
         );
 
         // Test vertical navigation
         assert_eq!(
             nav_map.get_neighbor(node_a, CompassOctant::South),
-            Some(node_c)
+            NavNeighbor::Neighbor(node_c)
         );
         assert_eq!(
             nav_map.get_neighbor(node_c, CompassOctant::North),
-            Some(node_a)
+            NavNeighbor::Neighbor(node_a)
         );
 
         // Test diagonal navigation
         assert_eq!(
             nav_map.get_neighbor(node_a, CompassOctant::SouthEast),
-            Some(node_d)
+            NavNeighbor::Neighbor(node_d)
         );
     }
 
@@ -742,7 +867,7 @@ mod tests {
         // The manual edge should be preserved, even though B is closer
         assert_eq!(
             nav_map.get_neighbor(node_a, CompassOctant::East),
-            Some(node_c)
+            NavNeighbor::Neighbor(node_c)
         );
     }
 
@@ -779,8 +904,49 @@ mod tests {
 
         assert_eq!(
             nav_map.get_neighbor(left, CompassOctant::East),
-            Some(wide_top),
+            NavNeighbor::Neighbor(wide_top),
             "Should navigate to wide_top not bottom, even though bottom's center is closer."
+        );
+    }
+
+    #[test]
+    fn test_respects_set_blocks() {
+        let mut nav_map = DirectionalNavigationMap::default();
+        let config = AutoNavigationConfig::default();
+
+        let node_a = Entity::from_bits(1);
+        let node_b = Entity::from_bits(2);
+        let node_c = Entity::from_bits(3);
+
+        // Manually set a block from A to B
+        // A should NOT be able to nav East to B
+        // but SHOULD be able to nav South to C
+        nav_map.block_edge(node_a, CompassOctant::East);
+
+        let nodes = vec![
+            FocusableArea {
+                entity: node_a,
+                position: Vec2::new(0.0, 0.0),
+                size: Vec2::new(50.0, 50.0),
+            },
+            FocusableArea {
+                entity: node_b,
+                position: Vec2::new(50.0, 0.0),
+                size: Vec2::new(50.0, 50.0),
+            },
+            FocusableArea {
+                entity: node_c,
+                position: Vec2::new(0.0, -50.0),
+                size: Vec2::new(50.0, 50.0),
+            },
+        ];
+
+        auto_generate_navigation_edges(&mut nav_map, &nodes, &config);
+
+        // The manual edge should be preserved, even though B is closer
+        assert_eq!(
+            nav_map.get_neighbor(node_a, CompassOctant::East),
+            NavNeighbor::Blocked
         );
     }
 }
