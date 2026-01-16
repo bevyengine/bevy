@@ -179,7 +179,6 @@ pub fn update_text2d_layout(
         &mut ComputedTextBlock,
         Ref<FontHinting>,
     )>,
-    text_font_query: Query<&TextFont>,
     mut text_reader: Text2dReader,
     mut font_system: ResMut<CosmicFontSystem>,
     mut swash_cache: ResMut<SwashCache>,
@@ -254,15 +253,21 @@ pub fn update_text2d_layout(
                 &mut font_system,
                 *hinting,
             ) {
-                Err(TextError::NoSuchFont) => {
+                Err(TextError::NoSuchFont | TextError::DegenerateScaleFactor) => {
                     // There was an error processing the text layout.
                     // Add this entity to the queue and reprocess it in the following frame
                     reprocess_queue.insert(entity);
                     continue;
                 }
+                Err(e @ TextError::FailedToGetGlyphImage(key)) => {
+                    bevy_log::warn_once!(
+                        "{e}. Face: {:?}",
+                        font_system.get_face_details(key.font_id)
+                    );
+                    text_layout_info.clear();
+                }
                 Err(
                     e @ (TextError::FailedToAddGlyph(_)
-                    | TextError::FailedToGetGlyphImage(_)
                     | TextError::MissingAtlasLayout
                     | TextError::MissingAtlasTexture
                     | TextError::InconsistentAtlasState),
@@ -275,8 +280,6 @@ pub fn update_text2d_layout(
 
         match text_pipeline.update_text_layout_info(
             &mut text_layout_info,
-            text_font_query,
-            scale_factor as f64,
             &mut font_atlas_set,
             &mut texture_atlases,
             &mut textures,
@@ -297,7 +300,8 @@ pub fn update_text2d_layout(
                 | TextError::FailedToGetGlyphImage(_)
                 | TextError::MissingAtlasLayout
                 | TextError::MissingAtlasTexture
-                | TextError::InconsistentAtlasState),
+                | TextError::InconsistentAtlasState
+                | TextError::DegenerateScaleFactor),
             ) => {
                 panic!("Fatal error when processing text: {e}.");
             }
@@ -405,6 +409,19 @@ mod tests {
             "../../bevy_text/src/FiraMono-subset.ttf",
             |bytes: &[u8], _path: String| { Font::try_from_bytes(bytes.to_vec()).unwrap() }
         );
+
+        let world = app.world_mut();
+
+        let mut fonts = world.resource_mut::<Assets<Font>>();
+
+        let font = fonts.get_mut(bevy_asset::AssetId::default()).unwrap();
+        font.family_name = "Fira Mono".into();
+        let data = font.data.as_ref().clone();
+
+        app.world_mut()
+            .resource_mut::<CosmicFontSystem>()
+            .db_mut()
+            .load_font_data(data);
 
         let entity = app.world_mut().spawn(Text2d::new(FIRST_TEXT)).id();
 

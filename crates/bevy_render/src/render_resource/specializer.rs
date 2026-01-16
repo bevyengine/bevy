@@ -1,7 +1,9 @@
-use super::{
-    CachedComputePipelineId, CachedRenderPipelineId, ComputePipeline, ComputePipelineDescriptor,
-    PipelineCache, RenderPipeline, RenderPipelineDescriptor,
+use bevy_material::descriptor::{
+    CachedComputePipelineId, CachedRenderPipelineId, ComputePipelineDescriptor,
+    RenderPipelineDescriptor,
 };
+
+use super::{ComputePipeline, PipelineCache, RenderPipeline};
 use bevy_ecs::error::BevyError;
 use bevy_platform::{
     collections::{
