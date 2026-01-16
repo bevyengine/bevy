@@ -26,7 +26,7 @@ use bevy_ecs::{
     prelude::resource_exists,
     query::{Has, Or, With, Without},
     resource::Resource,
-    schedule::IntoScheduleConfigs as _,
+    schedule::{common_conditions::any_match_filter, IntoScheduleConfigs as _},
     system::{Commands, Query, Res, ResMut},
     world::{FromWorld, World},
 };
@@ -369,15 +369,33 @@ impl Plugin for GpuMeshPreprocessPlugin {
                         .after(clear_indirect_parameters_metadata)
                         .before(early_prepass),
                     early_prepass_build_indirect_parameters
+                        .run_if(any_match_filter::<(
+                            With<PreprocessBindGroups>,
+                            Without<SkipGpuPreprocess>,
+                            Without<NoIndirectDrawing>,
+                            Or<(With<DepthPrepass>, With<ShadowView>)>,
+                        )>)
                         .after(early_gpu_preprocess)
                         .before(early_prepass),
                     late_gpu_preprocess
                         .after(early_downsample_depth)
                         .before(late_prepass),
                     late_prepass_build_indirect_parameters
+                        .run_if(any_match_filter::<(
+                            With<PreprocessBindGroups>,
+                            Without<SkipGpuPreprocess>,
+                            Without<NoIndirectDrawing>,
+                            Or<(With<DepthPrepass>, With<ShadowView>)>,
+                            With<OcclusionCulling>,
+                        )>)
                         .after(late_gpu_preprocess)
                         .before(late_prepass),
                     main_build_indirect_parameters
+                        .run_if(any_match_filter::<(
+                            With<PreprocessBindGroups>,
+                            Without<SkipGpuPreprocess>,
+                            Without<NoIndirectDrawing>,
+                        )>)
                         .after(late_prepass_build_indirect_parameters)
                         .after(late_deferred_prepass)
                         .before(Core3dSystems::StartMainPass),
@@ -754,25 +772,12 @@ pub fn late_gpu_preprocess(
 }
 
 pub fn early_prepass_build_indirect_parameters(
-    views: Query<
-        (),
-        (
-            With<PreprocessBindGroups>,
-            Without<SkipGpuPreprocess>,
-            Without<NoIndirectDrawing>,
-            Or<(With<DepthPrepass>, With<ShadowView>)>,
-        ),
-    >,
     preprocess_pipelines: Res<PreprocessPipelines>,
     build_indirect_params_bind_groups: Option<Res<BuildIndirectParametersBindGroups>>,
     pipeline_cache: Res<PipelineCache>,
     indirect_parameters_buffers: Option<Res<IndirectParametersBuffers>>,
     mut ctx: RenderContext,
 ) {
-    if views.iter().next().is_none() {
-        return;
-    }
-
     run_build_indirect_parameters(
         &mut ctx,
         build_indirect_params_bind_groups.as_deref(),
@@ -784,26 +789,12 @@ pub fn early_prepass_build_indirect_parameters(
 }
 
 pub fn late_prepass_build_indirect_parameters(
-    views: Query<
-        (),
-        (
-            With<PreprocessBindGroups>,
-            Without<SkipGpuPreprocess>,
-            Without<NoIndirectDrawing>,
-            Or<(With<DepthPrepass>, With<ShadowView>)>,
-            With<OcclusionCulling>,
-        ),
-    >,
     preprocess_pipelines: Res<PreprocessPipelines>,
     build_indirect_params_bind_groups: Option<Res<BuildIndirectParametersBindGroups>>,
     pipeline_cache: Res<PipelineCache>,
     indirect_parameters_buffers: Option<Res<IndirectParametersBuffers>>,
     mut ctx: RenderContext,
 ) {
-    if views.iter().next().is_none() {
-        return;
-    }
-
     run_build_indirect_parameters(
         &mut ctx,
         build_indirect_params_bind_groups.as_deref(),
@@ -815,24 +806,12 @@ pub fn late_prepass_build_indirect_parameters(
 }
 
 pub fn main_build_indirect_parameters(
-    views: Query<
-        (),
-        (
-            With<PreprocessBindGroups>,
-            Without<SkipGpuPreprocess>,
-            Without<NoIndirectDrawing>,
-        ),
-    >,
     preprocess_pipelines: Res<PreprocessPipelines>,
     build_indirect_params_bind_groups: Option<Res<BuildIndirectParametersBindGroups>>,
     pipeline_cache: Res<PipelineCache>,
     indirect_parameters_buffers: Option<Res<IndirectParametersBuffers>>,
     mut ctx: RenderContext,
 ) {
-    if views.iter().next().is_none() {
-        return;
-    }
-
     run_build_indirect_parameters(
         &mut ctx,
         build_indirect_params_bind_groups.as_deref(),

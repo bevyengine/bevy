@@ -5,7 +5,7 @@ use bevy_asset::{load_embedded_asset, AssetServer, Handle};
 use bevy_core_pipeline::{
     core_3d::{main_opaque_pass_3d, DEPTH_TEXTURE_SAMPLING_SUPPORTED},
     prepass::{DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass},
-    schedule::Core3d,
+    schedule::{Core3d, Core3dSystems},
     FullscreenShader,
 };
 use bevy_derive::{Deref, DerefMut};
@@ -201,6 +201,7 @@ impl Plugin for ScreenSpaceReflectionsPlugin {
                 Core3d,
                 screen_space_reflections
                     .after(deferred_lighting)
+                    .after(Core3dSystems::StartMainPass)
                     .before(main_opaque_pass_3d),
             );
     }

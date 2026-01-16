@@ -43,7 +43,7 @@ use self::{
     },
     visibility_buffer_raster_node::meshlet_visibility_buffer_raster,
 };
-use crate::render::early_shadow_pass;
+use crate::render::{shadow_pass, EARLY_SHADOW_PASS};
 use crate::{meshlet::meshlet_mesh_manager::init_meshlet_mesh_manager, PreviousGlobalTransform};
 use bevy_app::{App, Plugin};
 use bevy_asset::{embedded_asset, AssetApp, AssetId, Handle};
@@ -197,9 +197,9 @@ impl Plugin for MeshletPlugin {
             .add_systems(
                 Core3d,
                 (
-                    meshlet_visibility_buffer_raster.before(early_shadow_pass),
+                    meshlet_visibility_buffer_raster.before(shadow_pass::<EARLY_SHADOW_PASS>),
                     meshlet_prepass
-                        .after(early_shadow_pass)
+                        .after(shadow_pass::<EARLY_SHADOW_PASS>)
                         .before(Core3dSystems::EndPrepasses),
                     meshlet_deferred_gbuffer_prepass
                         .after(meshlet_prepass)

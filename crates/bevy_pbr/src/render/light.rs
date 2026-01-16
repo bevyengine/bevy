@@ -2263,57 +2263,18 @@ impl CachedRenderPipelinePhaseItem for Shadow {
     }
 }
 
-/// This renders meshes that were "visible" (so to speak) from a light last frame.
-/// If occlusion culling for a light is disabled, then this simply renders
-/// all meshes in range of the light.
-pub fn early_shadow_pass(
+pub const EARLY_SHADOW_PASS: bool = false;
+pub const LATE_SHADOW_PASS: bool = true;
+
+pub fn shadow_pass<const IS_LATE: bool>(
     world: &World,
     view: ViewQuery<&ViewLightEntities>,
     view_light_query: Query<(&ShadowView, &ExtractedView, Has<OcclusionCulling>)>,
     shadow_render_phases: Res<ViewBinnedRenderPhases<Shadow>>,
     mut ctx: RenderContext,
 ) {
-    run_shadow_pass(
-        world,
-        view.into_inner(),
-        &view_light_query,
-        &shadow_render_phases,
-        &mut ctx,
-        false,
-    );
-}
+    let view_lights = view.into_inner();
 
-/// This renders meshes that became newly "visible" (so to speak) from a light this frame.
-/// If occlusion culling for a light is disabled, then this does nothing.
-pub fn late_shadow_pass(
-    world: &World,
-    view: ViewQuery<&ViewLightEntities>,
-    view_light_query: Query<(&ShadowView, &ExtractedView, Has<OcclusionCulling>)>,
-    shadow_render_phases: Res<ViewBinnedRenderPhases<Shadow>>,
-    mut ctx: RenderContext,
-) {
-    run_shadow_pass(
-        world,
-        view.into_inner(),
-        &view_light_query,
-        &shadow_render_phases,
-        &mut ctx,
-        true,
-    );
-}
-
-/// Shared implementation for early and late shadow passes.
-///
-/// `is_late` is true if this is the late shadow pass or false if this is
-/// the early shadow pass.
-fn run_shadow_pass(
-    world: &World,
-    view_lights: &ViewLightEntities,
-    view_light_query: &Query<(&ShadowView, &ExtractedView, Has<OcclusionCulling>)>,
-    shadow_render_phases: &ViewBinnedRenderPhases<Shadow>,
-    ctx: &mut RenderContext,
-    is_late: bool,
-) {
     for view_light_entity in view_lights.lights.iter().copied() {
         let Ok((view_light, extracted_light_view, occlusion_culling)) =
             view_light_query.get(view_light_entity)
@@ -2321,7 +2282,7 @@ fn run_shadow_pass(
             continue;
         };
 
-        if is_late && !occlusion_culling {
+        if IS_LATE && !occlusion_culling {
             continue;
         }
 

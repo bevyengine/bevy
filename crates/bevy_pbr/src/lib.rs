@@ -320,11 +320,11 @@ impl Plugin for PbrPlugin {
         render_app.add_systems(
             Core3d,
             (
-                early_shadow_pass
+                shadow_pass::<EARLY_SHADOW_PASS>
                     .after(early_prepass_build_indirect_parameters)
                     .before(early_downsample_depth)
-                    .before(late_shadow_pass),
-                late_shadow_pass
+                    .before(shadow_pass::<LATE_SHADOW_PASS>),
+                shadow_pass::<LATE_SHADOW_PASS>
                     .after(late_prepass_build_indirect_parameters)
                     .before(main_build_indirect_parameters)
                     .before(Core3dSystems::StartMainPass),
