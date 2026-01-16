@@ -3878,6 +3878,18 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
+name = "generic_font_families"
+path = "examples/ui/generic_font_families.rs"
+# Causes an ICE on docs.rs
+doc-scrape-examples = false
+
+[package.metadata.example.generic_font_families]
+name = "Generic Font Families"
+description = "Demonstrates how to use generic font families"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "text"
 path = "examples/ui/text.rs"
 # Causes an ICE on docs.rs
