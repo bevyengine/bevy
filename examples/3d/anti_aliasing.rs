@@ -10,7 +10,7 @@ use bevy::{
         taa::TemporalAntiAliasing,
     },
     asset::RenderAssetUsages,
-    core_pipeline::prepass::{DepthPrepass, MotionVectorPrepass},
+    core_pipeline::prepass::MotionVectorPrepass,
     image::{ImageSampler, ImageSamplerDescriptor},
     light::CascadeShadowConfigBuilder,
     prelude::*,
@@ -48,7 +48,6 @@ type TaaComponents = (
     TemporalAntiAliasing,
     TemporalJitter,
     MipBias,
-    DepthPrepass,
     MotionVectorPrepass,
 );
 

@@ -24,7 +24,7 @@ use bevy_render::{
     diagnostic::RecordDiagnostics,
     render_graph::{NodeRunError, RenderGraphContext, RenderGraphExt, ViewNode, ViewNodeRunner},
     render_resource::{
-        binding_types::{sampler, texture_2d, texture_depth_2d},
+        binding_types::{sampler, texture_2d},
         BindGroupEntries, BindGroupLayoutDescriptor, BindGroupLayoutEntries,
         CachedRenderPipelineId, Canonical, ColorTargetState, ColorWrites, FilterMode,
         FragmentState, Operations, PipelineCache, RenderPassColorAttachment, RenderPassDescriptor,
@@ -36,7 +36,7 @@ use bevy_render::{
     sync_component::SyncComponentPlugin,
     sync_world::RenderEntity,
     texture::{CachedTexture, TextureCache},
-    view::{ExtractedView, Msaa, ViewTarget},
+    view::{prepare_view_targets, ExtractedView, Msaa, ViewDepthTexture, ViewTarget},
     ExtractSchedule, MainWorld, Render, RenderApp, RenderStartup, RenderSystems,
 };
 use bevy_utils::default;
@@ -65,6 +65,9 @@ impl Plugin for TemporalAntiAliasPlugin {
                 (
                     prepare_taa_jitter.in_set(RenderSystems::ManageViews),
                     prepare_taa_pipelines.in_set(RenderSystems::Prepare),
+                    prepare_view_depth_textur_usages_for_taa
+                        .after(prepare_view_targets)
+                        .in_set(RenderSystems::ManageViews),
                     prepare_taa_history_textures.in_set(RenderSystems::PrepareResources),
                 ),
             )
@@ -79,6 +82,14 @@ impl Plugin for TemporalAntiAliasPlugin {
                     Node3d::Tonemapping,
                 ),
             );
+    }
+}
+
+fn prepare_view_depth_textur_usages_for_taa(
+    mut view_targets: Query<&mut Camera3d, With<TemporalAntiAliasing>>,
+) {
+    for mut camera in view_targets.iter_mut() {
+        camera.depth_texture_usages.0 |= TextureUsages::TEXTURE_BINDING.bits();
     }
 }
 
@@ -118,7 +129,7 @@ impl Plugin for TemporalAntiAliasPlugin {
 /// 2. Render particles after TAA
 #[derive(Component, Reflect, Clone)]
 #[reflect(Component, Default, Clone)]
-#[require(TemporalJitter, MipBias, DepthPrepass, MotionVectorPrepass)]
+#[require(TemporalJitter, MipBias, MotionVectorPrepass)]
 #[doc(alias = "Taa")]
 pub struct TemporalAntiAliasing {
     /// Set to true to delete the saved temporal history (past frames).
@@ -147,6 +158,7 @@ impl ViewNode for TemporalAntiAliasNode {
         &'static ViewTarget,
         &'static TemporalAntiAliasHistoryTextures,
         &'static ViewPrepassTextures,
+        &'static ViewDepthTexture,
         &'static TemporalAntiAliasPipelineId,
         &'static Msaa,
     );
@@ -155,7 +167,7 @@ impl ViewNode for TemporalAntiAliasNode {
         &self,
         _graph: &mut RenderGraphContext,
         render_context: &mut RenderContext,
-        (camera, view_target, taa_history_textures, prepass_textures, taa_pipeline_id, msaa): QueryItem<
+        (camera, view_target, taa_history_textures, prepass_textures,depth, taa_pipeline_id, msaa): QueryItem<
             Self::ViewQuery,
         >,
         world: &World,
@@ -171,10 +183,9 @@ impl ViewNode for TemporalAntiAliasNode {
         ) else {
             return Ok(());
         };
-        let (Some(taa_pipeline), Some(prepass_motion_vectors_texture), Some(prepass_depth_texture)) = (
+        let (Some(taa_pipeline), Some(prepass_motion_vectors_texture)) = (
             pipeline_cache.get_render_pipeline(taa_pipeline_id.0),
             &prepass_textures.motion_vectors,
-            &prepass_textures.depth,
         ) else {
             return Ok(());
         };
@@ -190,7 +201,7 @@ impl ViewNode for TemporalAntiAliasNode {
                 view_target.source,
                 &taa_history_textures.read.default_view,
                 &prepass_motion_vectors_texture.texture.default_view,
-                &prepass_depth_texture.texture.default_view,
+                depth.view(),
                 &pipelines.nearest_sampler,
                 &pipelines.linear_sampler,
             )),
@@ -272,7 +283,7 @@ fn init_taa_pipeline(
                 // Motion Vectors
                 texture_2d(TextureSampleType::Float { filterable: true }),
                 // Depth
-                texture_depth_2d(),
+                texture_2d(TextureSampleType::Float { filterable: false }),
                 // Nearest sampler
                 sampler(SamplerBindingType::NonFiltering),
                 // Linear sampler

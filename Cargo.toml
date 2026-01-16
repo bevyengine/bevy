@@ -1190,8 +1190,7 @@ doc-scrape-examples = false
 name = "Anti-aliasing"
 description = "Compares different anti-aliasing techniques supported by Bevy"
 category = "3D Rendering"
-# TAA not supported by WebGL
-wasm = false
+wasm = true
 
 [[example]]
 name = "atmospheric_fog"
