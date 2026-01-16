@@ -5,11 +5,11 @@ use bevy_render::{
     globals::GlobalsBuffer,
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
     render_resource::{
-        BindGroupEntries, Operations, PipelineCache, RenderPassColorAttachment,
-        RenderPassDescriptor,
+        BindGroupEntries, LoadOp, Operations, PipelineCache, RenderPassColorAttachment,
+        RenderPassDescriptor, StoreOp,
     },
     renderer::RenderContext,
-    view::{Msaa, ViewTarget},
+    view::{Msaa, ViewDepthTexture, ViewTarget},
 };
 
 use bevy_core_pipeline::prepass::ViewPrepassTextures;
@@ -27,6 +27,7 @@ impl ViewNode for MotionBlurNode {
         &'static ViewTarget,
         &'static MotionBlurPipelineId,
         &'static ViewPrepassTextures,
+        &'static ViewDepthTexture,
         &'static MotionBlurUniform,
         &'static Msaa,
     );
@@ -34,7 +35,9 @@ impl ViewNode for MotionBlurNode {
         &self,
         _graph: &mut RenderGraphContext,
         render_context: &mut RenderContext,
-        (view_target, pipeline_id, prepass_textures, motion_blur, msaa): QueryItem<Self::ViewQuery>,
+        (view_target, pipeline_id, prepass_textures, depth, motion_blur, msaa): QueryItem<
+            Self::ViewQuery,
+        >,
         world: &World,
     ) -> Result<(), NodeRunError> {
         if motion_blur.samples == 0 || motion_blur.shutter_angle <= 0.0 {
@@ -51,9 +54,7 @@ impl ViewNode for MotionBlurNode {
         let Some(settings_binding) = settings_uniforms.uniforms().binding() else {
             return Ok(());
         };
-        let (Some(prepass_motion_vectors_texture), Some(prepass_depth_texture)) =
-            (&prepass_textures.motion_vectors, &prepass_textures.depth)
-        else {
+        let Some(prepass_motion_vectors_texture) = &prepass_textures.motion_vectors else {
             return Ok(());
         };
         let Some(globals_uniforms) = world.resource::<GlobalsBuffer>().buffer.binding() else {
@@ -76,7 +77,7 @@ impl ViewNode for MotionBlurNode {
             &BindGroupEntries::sequential((
                 post_process.source,
                 &prepass_motion_vectors_texture.texture.default_view,
-                &prepass_depth_texture.texture.default_view,
+                depth.view(),
                 &motion_blur_pipeline.sampler,
                 settings_binding.clone(),
                 globals_uniforms.clone(),
@@ -89,7 +90,10 @@ impl ViewNode for MotionBlurNode {
                 view: post_process.destination,
                 depth_slice: None,
                 resolve_target: None,
-                ops: Operations::default(),
+                ops: Operations {
+                    load: LoadOp::Clear(Default::default()),
+                    store: StoreOp::Store,
+                },
             })],
             depth_stencil_attachment: None,
             timestamp_writes: None,

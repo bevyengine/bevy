@@ -76,6 +76,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, app_settings: R
         Transform::from_xyz(0.0, 4.5, 8.25).looking_at(Vec3::ZERO, Vec3::Y),
         Tonemapping::TonyMcMapface,
         Bloom::NATURAL,
+        #[cfg(all(feature = "webgl2", target_arch = "wasm32", not(feature = "webgpu")))]
+        Msaa::Off,
     ));
 
     // Insert the depth of field settings.
