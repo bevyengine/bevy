@@ -92,7 +92,6 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 |bevy_post_process|Provides post process effects such as depth of field, bloom, chromatic aberration.|
 |bevy_remote|Enable the Bevy Remote Protocol|
 |bevy_render|Provides rendering functionality|
-|bevy_render_debug|Provides debug visualization for the PBR render pipeline|
 |bevy_scene|Provides scene functionality|
 |bevy_shader|Provides shaders usable through asset handles.|
 |bevy_solari|Provides raytraced lighting (experimental)|
