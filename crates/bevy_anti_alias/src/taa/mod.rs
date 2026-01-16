@@ -65,7 +65,7 @@ impl Plugin for TemporalAntiAliasPlugin {
                 (
                     prepare_taa_jitter.in_set(RenderSystems::ManageViews),
                     prepare_taa_pipelines.in_set(RenderSystems::Prepare),
-                    prepare_view_depth_textur_usages_for_taa
+                    prepare_view_depth_texture_usages_for_taa
                         .after(prepare_view_targets)
                         .in_set(RenderSystems::ManageViews),
                     prepare_taa_history_textures.in_set(RenderSystems::PrepareResources),
@@ -85,7 +85,7 @@ impl Plugin for TemporalAntiAliasPlugin {
     }
 }
 
-fn prepare_view_depth_textur_usages_for_taa(
+fn prepare_view_depth_texture_usages_for_taa(
     mut view_targets: Query<&mut Camera3d, With<TemporalAntiAliasing>>,
 ) {
     for mut camera in view_targets.iter_mut() {
