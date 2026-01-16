@@ -1944,6 +1944,17 @@ category = "Application"
 wasm = false
 
 [[example]]
+name = "externally_driven_renderer"
+path = "examples/app/externally_driven_renderer.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.externally_driven_renderer]
+name = "Externally Driven Renderer"
+description = "Using bevy with manually driven update to render images"
+category = "Application"
+wasm = false
+
+[[example]]
 name = "headless_renderer"
 path = "examples/app/headless_renderer.rs"
 # Causes an ICE on docs.rs
