@@ -45,6 +45,7 @@ use bevy_render::erased_render_asset::{
 };
 use bevy_render::render_asset::{prepare_assets, RenderAssets};
 use bevy_render::renderer::RenderQueue;
+use bevy_render::texture::GpuImage;
 use bevy_render::RenderStartup;
 use bevy_render::{
     batching::gpu_preprocessing::GpuPreprocessingSupport,
@@ -366,7 +367,7 @@ where
         app.init_asset::<M>()
             .register_type::<MeshMaterial3d<M>>()
             .init_resource::<EntitiesNeedingSpecialization<M>>()
-            .add_plugins((ErasedRenderAssetPlugin::<MeshMaterial3d<M>>::default(),))
+            .add_plugins((ErasedRenderAssetPlugin::<MeshMaterial3d<M>, GpuImage>::default(),))
             .add_systems(
                 PostUpdate,
                 (

@@ -1,4 +1,7 @@
-use crate::render_asset::{allocate_render_asset_bytes_per_frame_priorities, reset_render_asset_bytes_per_frame};
+use crate::render_asset::{
+    allocate_render_asset_bytes_per_frame_priorities, prepare_assets,
+    reset_render_asset_bytes_per_frame, RenderAsset, RenderAssetDependency,
+};
 use crate::{
     render_resource::AsBindGroupError, ExtractSchedule, MainWorld, Render, RenderApp,
     RenderSystems, Res,
@@ -59,7 +62,7 @@ pub trait ErasedRenderAsset: Send + Sync + 'static {
     /// via [`RenderAssetBytesPerFrame`].
     /// Specifying a size will allow the asset size to be counted towards the bytes per frame limit.
     /// If a `RenderAsset` does not implement this function, it is immediately uploaded and reports zero size.
-    /// 
+    ///
     /// [`RenderAssetBytesPerFrame`]: crate::render_asset::RenderAssetBytesPerFrame
     #[inline]
     #[expect(
@@ -107,12 +110,12 @@ pub trait ErasedRenderAsset: Send + Sync + 'static {
 /// targets, so the plugin is created as `ErasedRenderAssetPlugin::<RenderMesh, GpuImage>::default()`.
 pub struct ErasedRenderAssetPlugin<
     A: ErasedRenderAsset,
-    AFTER: ErasedRenderAssetDependency + 'static = (),
+    AFTER: RenderAssetDependency + 'static = (),
 > {
     phantom: PhantomData<fn() -> (A, AFTER)>,
 }
 
-impl<A: ErasedRenderAsset, AFTER: ErasedRenderAssetDependency + 'static> Default
+impl<A: ErasedRenderAsset, AFTER: RenderAssetDependency + 'static> Default
     for ErasedRenderAssetPlugin<A, AFTER>
 {
     fn default() -> Self {
@@ -139,18 +142,18 @@ impl<A: ErasedRenderAsset, AFTER: ErasedRenderAssetDependency + 'static> Plugin
                     ExtractSchedule,
                     extract_erased_render_asset::<A>.in_set(AssetExtractionSystems),
                 );
-            AFTER::register_system::<A>(render_app);
+            AFTER::register_erased_systems::<A>(render_app);
         }
     }
 }
 
 // helper to allow specifying dependencies between render assets
-pub trait ErasedRenderAssetDependency {
-    fn register_system<A: ErasedRenderAsset>(render_app: &mut SubApp);
+pub trait ErasedRenderAssetDependency: RenderAssetDependency {
+    fn register_erased_systems<A: ErasedRenderAsset>(render_app: &mut SubApp);
 }
 
 impl ErasedRenderAssetDependency for () {
-    fn register_system<A: ErasedRenderAsset>(render_app: &mut SubApp) {
+    fn register_erased_systems<A: ErasedRenderAsset>(render_app: &mut SubApp) {
         render_app.add_systems(
             Render,
             request_bytes::<A>
@@ -169,8 +172,8 @@ impl ErasedRenderAssetDependency for () {
     }
 }
 
-impl<AFTER: ErasedRenderAsset> ErasedRenderAssetDependency for AFTER {
-    fn register_system<A: ErasedRenderAsset>(render_app: &mut SubApp) {
+impl<AFTER: RenderAsset> ErasedRenderAssetDependency for AFTER {
+    fn register_erased_systems<A: ErasedRenderAsset>(render_app: &mut SubApp) {
         render_app.add_systems(
             Render,
             request_bytes::<A>
@@ -184,11 +187,12 @@ impl<AFTER: ErasedRenderAsset> ErasedRenderAssetDependency for AFTER {
             Render,
             prepare_erased_assets::<A>
                 .after(allocate_render_asset_bytes_per_frame_priorities)
-                .after(prepare_erased_assets::<AFTER>)
+                .after(prepare_assets::<AFTER>)
                 .in_set(RenderSystems::PrepareAssets),
         );
     }
 }
+
 /// Temporarily stores the extracted and removed assets of the current frame.
 #[derive(Resource)]
 pub struct ExtractedAssets<A: ErasedRenderAsset> {
