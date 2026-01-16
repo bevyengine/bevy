@@ -257,7 +257,6 @@ common_api = [
   "bevy_anti_alias",
   "bevy_gltf",
   "bevy_pbr",
-  "bevy_render_debug",
   "bevy_post_process",
   "gltf_animation",
 ]
@@ -323,9 +322,6 @@ bevy_gltf = ["bevy_internal/bevy_gltf"]
 
 # Adds PBR rendering
 bevy_pbr = ["bevy_internal/bevy_pbr"]
-
-# Provides debug visualization for the PBR render pipeline
-bevy_render_debug = ["bevy_internal/bevy_render_debug"]
 
 # Provides picking functionality
 bevy_picking = ["bevy_internal/bevy_picking"]

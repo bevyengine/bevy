@@ -18,7 +18,6 @@ use bevy_ecs::{
     system::{Commands, Query, Res, ResMut},
     world::{FromWorld, World},
 };
-use bevy_image::BevyDefault;
 use bevy_input::{prelude::KeyCode, ButtonInput};
 use bevy_log::info;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
@@ -357,7 +356,7 @@ impl FromWorld for RenderDebugOverlayPipeline {
         );
 
         Self {
-            shader: asset_server.load("embedded://bevy_render_debug/debug_overlay.wgsl"),
+            shader: asset_server.load("embedded://bevy_dev_tools/debug_overlay.wgsl"),
             mesh_view_layouts,
             bind_group_layout,
             bind_group_layout_descriptor,
@@ -371,6 +370,7 @@ impl FromWorld for RenderDebugOverlayPipeline {
 struct RenderDebugOverlayPipelineKey {
     mode: RenderDebugMode,
     view_layout_key: MeshPipelineViewLayoutKey,
+    texture_format: TextureFormat,
 }
 
 impl SpecializedRenderPipeline for RenderDebugOverlayPipeline {
@@ -482,7 +482,7 @@ impl SpecializedRenderPipeline for RenderDebugOverlayPipeline {
                 shader_defs,
                 entry_point: Some("fragment".into()),
                 targets: vec![Some(ColorTargetState {
-                    format: TextureFormat::bevy_default(),
+                    format: key.texture_format,
                     blend: None,
                     write_mask: ColorWrites::ALL,
                 })],
@@ -503,6 +503,7 @@ fn prepare_debug_overlay_pipelines(
     pipeline: Res<RenderDebugOverlayPipeline>,
     views: Query<(
         Entity,
+        &ViewTarget,
         &RenderDebugOverlay,
         &Msaa,
         Has<bevy_core_pipeline::prepass::DepthPrepass>,
@@ -515,6 +516,7 @@ fn prepare_debug_overlay_pipelines(
 ) {
     for (
         entity,
+        target,
         config,
         msaa,
         depth_prepass,
@@ -555,6 +557,7 @@ fn prepare_debug_overlay_pipelines(
             RenderDebugOverlayPipelineKey {
                 mode: config.mode,
                 view_layout_key,
+                texture_format: target.main_texture_format(),
             },
         );
 

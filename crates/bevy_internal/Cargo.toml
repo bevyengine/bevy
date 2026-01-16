@@ -246,7 +246,6 @@ bevy_pbr = [
   "bevy_core_pipeline",
   "bevy_gizmos_render?/bevy_pbr",
 ]
-bevy_render_debug = ["dep:bevy_render_debug", "bevy_pbr"]
 bevy_sprite_render = [
   "dep:bevy_sprite_render",
   "bevy_sprite",
@@ -508,7 +507,6 @@ bevy_input_focus = { path = "../bevy_input_focus", optional = true, version = "0
   "bevy_reflect",
 ] }
 bevy_pbr = { path = "../bevy_pbr", optional = true, version = "0.18.0-dev" }
-bevy_render_debug = { path = "../bevy_render_debug", optional = true, version = "0.18.0-dev" }
 bevy_picking = { path = "../bevy_picking", optional = true, version = "0.18.0-dev" }
 bevy_remote = { path = "../bevy_remote", optional = true, version = "0.18.0-dev" }
 bevy_render = { path = "../bevy_render", optional = true, version = "0.18.0-dev" }
