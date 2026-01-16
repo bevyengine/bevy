@@ -853,7 +853,6 @@ mod tests {
                 .find(|e| e.entity == original_entity.entity)
                 .expect("Entity should be present in recreated scene");
 
-            assert_eq!(original_entity.entity, recreated_entity.entity);
             assert_eq!(
                 original_entity.components.len(),
                 recreated_entity.components.len()
