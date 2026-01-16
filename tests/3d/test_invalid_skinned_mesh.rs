@@ -1,5 +1,6 @@
 //! Test that the renderer can handle various invalid skinned meshes
 
+use bevy::asset::RenderAssetTransferPriority;
 use bevy::{
     asset::RenderAssetUsages,
     camera::ScalingMode,
@@ -11,7 +12,6 @@ use bevy::{
     post_process::motion_blur::MotionBlur,
     prelude::*,
 };
-use bevy::asset::RenderAssetTransferPriority;
 use core::f32::consts::TAU;
 
 fn main() {

@@ -6,6 +6,7 @@
 //!
 //! [`SpecializedMeshPipeline`] let's you customize the entire pipeline used when rendering a mesh.
 
+use bevy::asset::RenderAssetTransferPriority;
 use bevy::{
     asset::RenderAssetUsages,
     camera::visibility::{self, VisibilityClass},
@@ -37,7 +38,6 @@ use bevy::{
         Render, RenderApp, RenderStartup, RenderSystems,
     },
 };
-use bevy::asset::RenderAssetTransferPriority;
 
 const SHADER_ASSET_PATH: &str = "shaders/specialized_mesh_pipeline.wgsl";
 

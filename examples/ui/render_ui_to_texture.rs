@@ -2,6 +2,7 @@
 
 use std::f32::consts::PI;
 
+use bevy::asset::RenderAssetTransferPriority;
 use bevy::picking::PickingSystems;
 use bevy::{
     asset::{uuid::Uuid, RenderAssetUsages},
@@ -16,7 +17,6 @@ use bevy::{
     render::render_resource::{Extent3d, TextureDimension, TextureFormat, TextureUsages},
     window::{PrimaryWindow, WindowEvent},
 };
-use bevy::asset::RenderAssetTransferPriority;
 
 const CUBE_POINTER_ID: PointerId = PointerId::Custom(Uuid::from_u128(90870987));
 

@@ -5,6 +5,7 @@
 //!
 //! [`Material2d`]: bevy::sprite::Material2d
 
+use bevy::asset::RenderAssetTransferPriority;
 use bevy::{
     asset::RenderAssetUsages,
     color::palettes::basic::YELLOW,
@@ -37,7 +38,6 @@ use bevy::{
         SetMesh2dViewBindGroup,
     },
 };
-use bevy::asset::RenderAssetTransferPriority;
 use std::f32::consts::PI;
 
 fn main() {

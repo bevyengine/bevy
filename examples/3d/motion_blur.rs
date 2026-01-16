@@ -1,13 +1,13 @@
 //! Demonstrates how to enable per-object motion blur. This rendering feature can be configured per
 //! camera using the [`MotionBlur`] component.z
 
+use bevy::asset::RenderAssetTransferPriority;
 use bevy::{
     image::{ImageAddressMode, ImageFilterMode, ImageSampler, ImageSamplerDescriptor},
     math::ops,
     post_process::motion_blur::MotionBlur,
     prelude::*,
 };
-use bevy::asset::RenderAssetTransferPriority;
 
 fn main() {
     let mut app = App::new();

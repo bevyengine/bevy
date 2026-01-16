@@ -1,5 +1,6 @@
 //! Create a custom material to draw basic lines in 3D
 
+use bevy::asset::RenderAssetTransferPriority;
 use bevy::{
     asset::RenderAssetUsages,
     mesh::{MeshVertexBufferLayoutRef, PrimitiveTopology},
@@ -11,7 +12,6 @@ use bevy::{
     },
     shader::ShaderRef,
 };
-use bevy::asset::RenderAssetTransferPriority;
 
 /// This example uses a shader source file from the assets subdirectory
 const SHADER_ASSET_PATH: &str = "shaders/line_material.wgsl";

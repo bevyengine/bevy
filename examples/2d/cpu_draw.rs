@@ -5,11 +5,11 @@
 //! values and automatically perform any necessary conversions and encoding
 //! into the texture's native pixel format.
 
+use bevy::asset::RenderAssetTransferPriority;
 use bevy::asset::RenderAssetUsages;
 use bevy::color::{color_difference::EuclideanDistance, palettes::css};
 use bevy::prelude::*;
 use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
-use bevy::asset::RenderAssetTransferPriority;
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;
 

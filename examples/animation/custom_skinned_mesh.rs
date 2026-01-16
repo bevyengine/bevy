@@ -3,6 +3,7 @@
 
 use std::f32::consts::*;
 
+use bevy::asset::RenderAssetTransferPriority;
 use bevy::{
     asset::RenderAssetUsages,
     math::ops,
@@ -12,7 +13,6 @@ use bevy::{
     },
     prelude::*,
 };
-use bevy::asset::RenderAssetTransferPriority;
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;
 

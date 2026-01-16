@@ -3,6 +3,7 @@
 use std::f32::consts::FRAC_PI_2;
 
 use crate::widgets::{RadioButton, WidgetClickEvent, WidgetClickSender};
+use bevy::asset::RenderAssetTransferPriority;
 use bevy::camera::RenderTarget;
 use bevy::{
     asset::RenderAssetUsages,
@@ -17,7 +18,6 @@ use bevy::{
     shader::ShaderRef,
     window::{PrimaryWindow, WindowResized},
 };
-use bevy::asset::RenderAssetTransferPriority;
 
 #[path = "../helpers/widgets.rs"]
 mod widgets;

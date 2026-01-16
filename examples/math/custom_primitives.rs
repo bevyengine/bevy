@@ -6,6 +6,7 @@ use std::f32::consts::{PI, SQRT_2};
 #[cfg(not(target_family = "wasm"))]
 use bevy::pbr::wireframe::{WireframeConfig, WireframePlugin};
 
+use bevy::asset::RenderAssetTransferPriority;
 use bevy::{
     asset::RenderAssetUsages,
     camera::ScalingMode,
@@ -20,7 +21,6 @@ use bevy::{
     mesh::{Extrudable, ExtrusionBuilder, PerimeterSegment},
     prelude::*,
 };
-use bevy::asset::RenderAssetTransferPriority;
 
 const HEART: Heart = Heart::new(0.5);
 const HOLLOW: Heart = Heart::new(0.3);

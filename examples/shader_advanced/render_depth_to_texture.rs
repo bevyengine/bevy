@@ -17,6 +17,7 @@
 
 use std::f32::consts::{FRAC_PI_2, PI};
 
+use bevy::asset::RenderAssetTransferPriority;
 use bevy::{
     asset::RenderAssetUsages,
     camera::RenderTarget,
@@ -48,7 +49,6 @@ use bevy::{
     },
     shader::ShaderRef,
 };
-use bevy::asset::RenderAssetTransferPriority;
 
 /// A marker component for a rotating cube.
 #[derive(Component)]

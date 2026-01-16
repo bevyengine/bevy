@@ -15,6 +15,7 @@
 
 use std::f32::consts::PI;
 
+use bevy::asset::RenderAssetTransferPriority;
 #[cfg(not(target_arch = "wasm32"))]
 use bevy::pbr::wireframe::{WireframeConfig, WireframePlugin};
 use bevy::{
@@ -24,7 +25,6 @@ use bevy::{
     prelude::*,
     render::render_resource::{Extent3d, TextureDimension, TextureFormat},
 };
-use bevy::asset::RenderAssetTransferPriority;
 
 fn main() {
     App::new()

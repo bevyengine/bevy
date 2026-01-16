@@ -6,6 +6,7 @@ use core::time::Duration;
 use std::str::FromStr;
 
 use argh::FromArgs;
+use bevy::asset::RenderAssetTransferPriority;
 use bevy::{
     asset::RenderAssetUsages,
     color::palettes::basic::*,
@@ -15,7 +16,6 @@ use bevy::{
     window::{PresentMode, WindowResolution},
     winit::WinitSettings,
 };
-use bevy::asset::RenderAssetTransferPriority;
 use rand::{seq::IndexedRandom, Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;
 

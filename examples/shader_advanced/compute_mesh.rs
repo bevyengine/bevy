@@ -11,6 +11,7 @@
 
 use std::ops::Not;
 
+use bevy::asset::RenderAssetTransferPriority;
 use bevy::{
     asset::RenderAssetUsages,
     color::palettes::tailwind::{RED_400, SKY_400},
@@ -29,7 +30,6 @@ use bevy::{
         Render, RenderApp, RenderStartup,
     },
 };
-use bevy::asset::RenderAssetTransferPriority;
 
 /// This example uses a shader source file from the assets subdirectory
 const SHADER_ASSET_PATH: &str = "shaders/compute_mesh.wgsl";
