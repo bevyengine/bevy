@@ -678,32 +678,34 @@ fn apply_pbr_lighting(
 
     // Environment map light (indirect)
 #ifdef ENVIRONMENT_MAP
-    // If screen space reflections are going to be used for this material, don't
-    // accumulate environment map light yet. The SSR shader will do it.
+    // If screen space reflections are going to be used for this material, only
+    // accumulate the diffuse part of the environment map light. The SSR shader
+    // will accumulate the specular part (including the environment map fallback
+    // if SSR misses).
 #ifdef SCREEN_SPACE_REFLECTIONS
-    let use_ssr = perceptual_roughness <=
-        view_bindings::ssr_settings.perceptual_roughness_threshold;
+    let use_ssr = perceptual_roughness <= view_bindings::ssr_settings.max_perceptual_roughness
+        && perceptual_roughness >= view_bindings::ssr_settings.min_perceptual_roughness;
 #else   // SCREEN_SPACE_REFLECTIONS
     let use_ssr = false;
 #endif  // SCREEN_SPACE_REFLECTIONS
 
-    if (!use_ssr) {
 #ifdef STANDARD_MATERIAL_ANISOTROPY
-        var bent_normal_lighting_input = lighting_input;
-        bend_normal_for_anisotropy(&bent_normal_lighting_input);
-        let environment_map_lighting_input = &bent_normal_lighting_input;
+    var bent_normal_lighting_input = lighting_input;
+    bend_normal_for_anisotropy(&bent_normal_lighting_input);
+    let environment_map_lighting_input = &bent_normal_lighting_input;
 #else   // STANDARD_MATERIAL_ANISOTROPY
-        let environment_map_lighting_input = &lighting_input;
+    let environment_map_lighting_input = &lighting_input;
 #endif  // STANDARD_MATERIAL_ANISOTROPY
 
-        let environment_light = environment_map::environment_map_light(
-            environment_map_lighting_input,
-            &clusterable_object_index_ranges,
-            found_diffuse_indirect,
-        );
+    let environment_light = environment_map::environment_map_light(
+        environment_map_lighting_input,
+        &clusterable_object_index_ranges,
+        found_diffuse_indirect,
+    );
 
-        indirect_light += environment_light.diffuse * diffuse_occlusion +
-            environment_light.specular * specular_occlusion;
+    indirect_light += environment_light.diffuse * diffuse_occlusion;
+    if (!use_ssr) {
+        indirect_light += environment_light.specular * specular_occlusion;
     }
 #endif  // ENVIRONMENT_MAP
 

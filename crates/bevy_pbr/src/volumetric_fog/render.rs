@@ -671,6 +671,9 @@ pub fn prepare_volumetric_fog_pipelines(
             deferred_prepass,
         );
         mesh_pipeline_view_key.set(MeshPipelineViewLayoutKey::ATMOSPHERE, atmosphere);
+        if cfg!(feature = "bluenoise_texture") {
+            mesh_pipeline_view_key |= MeshPipelineViewLayoutKey::STBN;
+        }
 
         let mut textureless_flags = VolumetricFogPipelineKeyFlags::empty();
         textureless_flags.set(VolumetricFogPipelineKeyFlags::HDR, view.hdr);
