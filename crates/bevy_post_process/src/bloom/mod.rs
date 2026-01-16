@@ -89,7 +89,7 @@ impl Plugin for BloomPlugin {
     }
 }
 
-pub(crate) fn bloom(
+pub fn bloom(
     view: ViewQuery<(
         &ExtractedCamera,
         &ViewTarget,
@@ -275,7 +275,7 @@ pub(crate) fn bloom(
 }
 
 #[derive(Component)]
-pub(crate) struct BloomTexture {
+pub struct BloomTexture {
     // First mip is half the screen resolution, successive mips are half the previous
     #[cfg(any(
         not(feature = "webgl"),
@@ -377,7 +377,7 @@ fn prepare_bloom_textures(
 }
 
 #[derive(Component)]
-pub(crate) struct BloomBindGroups {
+pub struct BloomBindGroups {
     cache_key: (TextureId, BufferId),
     downsampling_bind_groups: Box<[BindGroup]>,
     upsampling_bind_groups: Box<[BindGroup]>,

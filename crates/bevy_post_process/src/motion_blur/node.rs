@@ -18,7 +18,7 @@ use super::{
     MotionBlurUniform,
 };
 
-pub(crate) fn motion_blur(
+pub fn motion_blur(
     view: ViewQuery<(
         &ViewTarget,
         &MotionBlurPipelineId,
