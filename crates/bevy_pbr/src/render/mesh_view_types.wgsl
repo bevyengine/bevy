@@ -157,7 +157,12 @@ struct LightProbes {
 // For more information on these settings, see the documentation for
 // `bevy_pbr::ssr::ScreenSpaceReflections`.
 struct ScreenSpaceReflectionsSettings {
-    perceptual_roughness_threshold: f32,
+    min_perceptual_roughness: f32,
+    min_perceptual_roughness_fully_active: f32,
+    max_perceptual_roughness_starts_to_fade: f32,
+    max_perceptual_roughness: f32,
+    edge_fadeout_fully_active: f32,
+    edge_fadeout_no_longer_active: f32,
     thickness: f32,
     linear_steps: u32,
     linear_march_exponent: f32,
