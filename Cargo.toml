@@ -4679,6 +4679,7 @@ name = "ssr"
 path = "examples/3d/ssr.rs"
 # Causes an ICE on docs.rs
 doc-scrape-examples = false
+required-features = ["bluenoise_texture"]
 
 [package.metadata.example.ssr]
 name = "Screen Space Reflections"

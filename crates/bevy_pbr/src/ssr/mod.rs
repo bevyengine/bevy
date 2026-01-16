@@ -1,5 +1,7 @@
 //! Screen space reflections implemented via raymarching.
 
+use core::ops::Range;
+
 use bevy_app::{App, Plugin};
 use bevy_asset::{load_embedded_asset, AssetServer, Handle};
 use bevy_core_pipeline::{
@@ -27,6 +29,7 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     diagnostic::RecordDiagnostics,
     extract_component::{ExtractComponent, ExtractComponentPlugin},
+    render_asset::RenderAssets,
     render_graph::{
         NodeRunError, RenderGraph, RenderGraphContext, RenderGraphExt, ViewNode, ViewNodeRunner,
     },
@@ -36,9 +39,11 @@ use bevy_render::{
         DynamicUniformBuffer, FilterMode, FragmentState, Operations, PipelineCache,
         RenderPassColorAttachment, RenderPassDescriptor, RenderPipelineDescriptor, Sampler,
         SamplerBindingType, SamplerDescriptor, ShaderStages, ShaderType, SpecializedRenderPipeline,
-        SpecializedRenderPipelines, TextureFormat, TextureSampleType,
+        SpecializedRenderPipelines, TextureFormat, TextureSampleType, TextureViewDescriptor,
+        TextureViewDimension,
     },
     renderer::{RenderAdapter, RenderContext, RenderDevice, RenderQueue},
+    texture::GpuImage,
     view::{ExtractedView, Msaa, ViewTarget, ViewUniformOffset},
     Render, RenderApp, RenderStartup, RenderSystems,
 };
@@ -48,9 +53,9 @@ use tracing::info;
 
 use crate::{
     binding_arrays_are_usable, contact_shadows::ViewContactShadowsUniformOffset, graph::NodePbr,
-    ExtractedAtmosphere, MeshPipelineViewLayoutKey, MeshPipelineViewLayouts, MeshViewBindGroup,
-    RenderViewLightProbes, ViewEnvironmentMapUniformOffset, ViewFogUniformOffset,
-    ViewLightProbesUniformOffset, ViewLightsUniformOffset,
+    Bluenoise, ExtractedAtmosphere, MeshPipelineViewLayoutKey, MeshPipelineViewLayouts,
+    MeshViewBindGroup, RenderViewLightProbes, ViewEnvironmentMapUniformOffset,
+    ViewFogUniformOffset, ViewLightProbesUniformOffset, ViewLightsUniformOffset,
 };
 
 /// Enables screen-space reflections for a camera.
@@ -65,10 +70,7 @@ pub struct ScreenSpaceReflectionsPlugin;
 /// components, which are inserted automatically,
 /// but deferred rendering itself is not automatically enabled.
 ///
-/// SSR currently performs no roughness filtering for glossy reflections, so
-/// only very smooth surfaces will reflect objects in screen space. You can
-/// adjust the `perceptual_roughness_threshold` in order to tune the threshold
-/// below which screen-space reflections will be traced.
+/// Enable the `bluenoise_texture` feature to improve the quality of noise on rough reflections.
 ///
 /// As with all screen-space techniques, SSR can only reflect objects on screen.
 /// When objects leave the camera, they will disappear from reflections.
@@ -82,14 +84,22 @@ pub struct ScreenSpaceReflectionsPlugin;
 /// Screen-space reflections are presently unsupported on WebGL 2 because of a
 /// bug whereby Naga doesn't generate correct GLSL when sampling depth buffers,
 /// which is required for screen-space raymarching.
-#[derive(Clone, Copy, Component, Reflect)]
+#[derive(Clone, Component, Reflect)]
 #[reflect(Component, Default, Clone)]
 #[require(DepthPrepass, DeferredPrepass)]
 #[doc(alias = "Ssr")]
 pub struct ScreenSpaceReflections {
-    /// The maximum PBR roughness level that will enable screen space
-    /// reflections.
-    pub perceptual_roughness_threshold: f32,
+    /// The perceptual roughness range over which SSR begins to fade in.
+    ///
+    /// The first value is the roughness at which SSR begins to appear; the
+    /// second value is the roughness at which SSR is fully active.
+    pub min_perceptual_roughness: Range<f32>,
+
+    /// The perceptual roughness range over which SSR begins to fade out.
+    ///
+    /// The first value is the roughness at which SSR begins to fade out; the
+    /// second value is the roughness at which SSR is no longer active.
+    pub max_perceptual_roughness: Range<f32>,
 
     /// When marching the depth buffer, we only have 2.5D information and don't
     /// know how thick surfaces are. We shall assume that the depth buffer
@@ -115,6 +125,14 @@ pub struct ScreenSpaceReflections {
     /// as 1 or 2.
     pub linear_march_exponent: f32,
 
+    /// The range over which SSR begins to fade out at the edges of the screen,
+    /// in terms of a percentage of the screen dimensions.
+    ///
+    /// The first value is the percentage from the edge at which SSR is no
+    /// longer active; the second value is the percentage at which SSR is fully
+    /// active.
+    pub edge_fadeout: Range<f32>,
+
     /// Number of steps in a bisection (binary search) to perform once the
     /// linear search has found an intersection. Helps narrow down the hit,
     /// increasing the chance of the secant method finding an accurate hit
@@ -133,7 +151,12 @@ pub struct ScreenSpaceReflections {
 /// [`ScreenSpaceReflections`].
 #[derive(Clone, Copy, Component, ShaderType)]
 pub struct ScreenSpaceReflectionsUniform {
-    perceptual_roughness_threshold: f32,
+    min_perceptual_roughness: f32,
+    min_perceptual_roughness_fully_active: f32,
+    max_perceptual_roughness_starts_to_fade: f32,
+    max_perceptual_roughness: f32,
+    edge_fadeout_fully_active: f32,
+    edge_fadeout_no_longer_active: f32,
     thickness: f32,
     linear_steps: u32,
     linear_march_exponent: f32,
@@ -240,12 +263,14 @@ impl Default for ScreenSpaceReflections {
     // <https://gist.github.com/h3r2tic/9c8356bdaefbe80b1a22ae0aaee192db?permalink_comment_id=4552149#gistcomment-4552149>.
     fn default() -> Self {
         Self {
-            perceptual_roughness_threshold: 0.1,
-            linear_steps: 16,
-            bisection_steps: 4,
+            min_perceptual_roughness: 0.08..0.12,
+            max_perceptual_roughness: 0.55..0.6,
+            linear_steps: 10,
+            bisection_steps: 5,
             use_secant: true,
             thickness: 0.25,
             linear_march_exponent: 1.0,
+            edge_fadeout: 0.0..0.0,
         }
     }
 }
@@ -295,6 +320,17 @@ impl ViewNode for ScreenSpaceReflectionsNode {
 
         // Create the bind group for this view.
         let ssr_pipeline = world.resource::<ScreenSpaceReflectionsPipeline>();
+        let bluenoise = world.resource::<Bluenoise>();
+        let render_images = world.resource::<RenderAssets<GpuImage>>();
+        let Some(stbn_texture) = render_images.get(&bluenoise.texture) else {
+            return Ok(());
+        };
+        let stbn_view = stbn_texture.texture.create_view(&TextureViewDescriptor {
+            label: Some("ssr_stbn_view"),
+            dimension: Some(TextureViewDimension::D2Array),
+            ..default()
+        });
+
         let ssr_bind_group = render_context.render_device().create_bind_group(
             "SSR bind group",
             &pipeline_cache.get_bind_group_layout(&ssr_pipeline.bind_group_layout),
@@ -303,6 +339,7 @@ impl ViewNode for ScreenSpaceReflectionsNode {
                 &ssr_pipeline.color_sampler,
                 &ssr_pipeline.depth_linear_sampler,
                 &ssr_pipeline.depth_nearest_sampler,
+                &stbn_view,
             )),
         );
 
@@ -366,6 +403,7 @@ pub fn init_screen_space_reflections_pipeline(
                 binding_types::sampler(SamplerBindingType::Filtering),
                 binding_types::sampler(SamplerBindingType::Filtering),
                 binding_types::sampler(SamplerBindingType::NonFiltering),
+                binding_types::texture_2d_array(TextureSampleType::Float { filterable: false }),
             ),
         ),
     );
@@ -458,6 +496,9 @@ pub fn prepare_ssr_pipelines(
             has_motion_vector_prepass,
         );
         mesh_pipeline_view_key.set(MeshPipelineViewLayoutKey::ATMOSPHERE, has_atmosphere);
+        if cfg!(feature = "bluenoise_texture") {
+            mesh_pipeline_view_key |= MeshPipelineViewLayoutKey::STBN;
+        }
 
         // Build the pipeline.
         let pipeline_id = pipelines.specialize(
@@ -520,7 +561,7 @@ impl ExtractComponent for ScreenSpaceReflections {
             return None;
         }
 
-        Some((*settings).into())
+        Some(settings.clone().into())
     }
 }
 
@@ -555,6 +596,10 @@ impl SpecializedRenderPipeline for ScreenSpaceReflectionsPipeline {
             shader_defs.push("ATMOSPHERE".into());
         }
 
+        if cfg!(feature = "bluenoise_texture") {
+            shader_defs.push("BLUE_NOISE_TEXTURE".into());
+        }
+
         #[cfg(not(target_arch = "wasm32"))]
         shader_defs.push("USE_DEPTH_SAMPLERS".into());
 
@@ -584,7 +629,12 @@ impl SpecializedRenderPipeline for ScreenSpaceReflectionsPipeline {
 impl From<ScreenSpaceReflections> for ScreenSpaceReflectionsUniform {
     fn from(settings: ScreenSpaceReflections) -> Self {
         Self {
-            perceptual_roughness_threshold: settings.perceptual_roughness_threshold,
+            min_perceptual_roughness: settings.min_perceptual_roughness.start,
+            min_perceptual_roughness_fully_active: settings.min_perceptual_roughness.end,
+            max_perceptual_roughness_starts_to_fade: settings.max_perceptual_roughness.start,
+            max_perceptual_roughness: settings.max_perceptual_roughness.end,
+            edge_fadeout_no_longer_active: settings.edge_fadeout.start,
+            edge_fadeout_fully_active: settings.edge_fadeout.end,
             thickness: settings.thickness,
             linear_steps: settings.linear_steps,
             linear_march_exponent: settings.linear_march_exponent,
