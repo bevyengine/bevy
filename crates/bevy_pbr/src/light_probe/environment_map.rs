@@ -288,7 +288,7 @@ impl LightProbeComponent for EnvironmentMapLight {
                     diffuse: diffuse_map_handle.id(),
                     specular: specular_map_handle.id(),
                 }) as i32,
-                smallest_specular_mip_level: specular_map.mip_level_count - 1,
+                smallest_specular_mip_level: specular_map.texture_descriptor.mip_level_count - 1,
                 intensity: *intensity,
                 affects_lightmapped_mesh_diffuse: *affects_lightmapped_mesh_diffuse,
             };

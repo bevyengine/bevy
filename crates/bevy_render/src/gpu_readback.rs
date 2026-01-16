@@ -262,12 +262,12 @@ fn prepare_buffers(
         match readback {
             Readback::Texture(image) => {
                 if let Some(gpu_image) = gpu_images.get(image)
-                    && let Ok(pixel_size) = gpu_image.texture_format.pixel_size()
+                    && let Ok(pixel_size) = gpu_image.texture_descriptor.format.pixel_size()
                 {
-                    let layout = layout_data(gpu_image.size, gpu_image.texture_format);
+                    let layout = layout_data(gpu_image.texture_descriptor.size, gpu_image.texture_descriptor.format);
                     let buffer = buffer_pool.get(
                         &render_device,
-                        get_aligned_size(gpu_image.size, pixel_size as u32) as u64,
+                        get_aligned_size(gpu_image.texture_descriptor.size, pixel_size as u32) as u64,
                     );
                     let (tx, rx) = async_channel::bounded(1);
                     readbacks.requested.push(GpuReadback {
@@ -275,7 +275,7 @@ fn prepare_buffers(
                         src: ReadbackSource::Texture {
                             texture: gpu_image.texture.clone(),
                             layout,
-                            size: gpu_image.size,
+                            size: gpu_image.texture_descriptor.size,
                         },
                         buffer,
                         rx,

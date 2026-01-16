@@ -212,7 +212,7 @@ impl NormalizedRenderTargetExt for NormalizedRenderTarget {
                 .and_then(|window| window.swap_chain_texture_view_format),
             NormalizedRenderTarget::Image(image_target) => images
                 .get(&image_target.handle)
-                .map(|image| image.texture_view_format.unwrap_or(image.texture_format)),
+                .map(|image| image.view_format()),
             NormalizedRenderTarget::TextureView(id) => {
                 manual_texture_views.get(id).map(|tex| tex.view_format)
             }
