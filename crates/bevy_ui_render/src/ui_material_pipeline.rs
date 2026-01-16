@@ -155,7 +155,7 @@ where
                 shader: self.fragment_shader.clone(),
                 shader_defs,
                 targets: vec![Some(ColorTargetState {
-                    format: if key.hdr {
+                    format: if key.hdr_output {
                         ViewTarget::TEXTURE_FORMAT_HDR
                     } else {
                         TextureFormat::bevy_default()
@@ -623,7 +623,7 @@ pub fn queue_ui_material_nodes<M: UiMaterial>(
             &pipeline_cache,
             &ui_material_pipeline,
             UiMaterialKey {
-                hdr: view.hdr_output,
+                hdr_output: view.hdr_output,
                 bind_group_data: material.key.clone(),
             },
         );

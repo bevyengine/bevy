@@ -92,8 +92,9 @@ bitflags::bitflags! {
     pub struct SpritePipelineKey: u32 {
         const NONE                              = 0;
         const HDR                               = 1 << 0;
-        const TONEMAP_IN_SHADER                 = 1 << 1;
-        const DEBAND_DITHER                     = 1 << 2;
+        const HDR_OUTPUT                        = 1 << 1;
+        const TONEMAP_IN_SHADER                 = 1 << 2;
+        const DEBAND_DITHER                     = 1 << 3;
         const MSAA_RESERVED_BITS                = Self::MSAA_MASK_BITS << Self::MSAA_SHIFT_BITS;
         const TONEMAP_METHOD_RESERVED_BITS      = Self::TONEMAP_METHOD_MASK_BITS << Self::TONEMAP_METHOD_SHIFT_BITS;
         const TONEMAP_METHOD_NONE               = 0 << Self::TONEMAP_METHOD_SHIFT_BITS;
@@ -131,6 +132,15 @@ impl SpritePipelineKey {
     pub const fn from_hdr(hdr: bool) -> Self {
         if hdr {
             SpritePipelineKey::HDR
+        } else {
+            SpritePipelineKey::NONE
+        }
+    }
+
+    #[inline]
+    pub const fn from_hdr_output(hdr_output: bool) -> Self {
+        if hdr_output {
+            SpritePipelineKey::HDR_OUTPUT
         } else {
             SpritePipelineKey::NONE
         }
@@ -182,7 +192,7 @@ impl SpecializedRenderPipeline for SpritePipeline {
             }
         }
 
-        let format = match key.contains(SpritePipelineKey::HDR) {
+        let format = match key.contains(SpritePipelineKey::HDR_OUTPUT) {
             true => ViewTarget::TEXTURE_FORMAT_HDR,
             false => TextureFormat::bevy_default(),
         };
@@ -496,7 +506,9 @@ pub fn queue_sprites(
         };
 
         let msaa_key = SpritePipelineKey::from_msaa_samples(msaa.samples());
-        let mut view_key = SpritePipelineKey::from_hdr(view.hdr_output) | msaa_key;
+        let mut view_key = SpritePipelineKey::from_hdr(view.hdr)
+            | SpritePipelineKey::from_hdr_output(view.hdr_output)
+            | msaa_key;
 
         if !view.hdr_output {
             if let Some(tonemapping) = tonemapping {

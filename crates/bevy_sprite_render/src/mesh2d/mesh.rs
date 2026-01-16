@@ -133,7 +133,8 @@ pub fn check_views_need_specialization(
 ) {
     for (view_entity, view, msaa, tonemapping, dither) in &views {
         let mut view_key = Mesh2dPipelineKey::from_msaa_samples(msaa.samples())
-            | Mesh2dPipelineKey::from_hdr(view.hdr_output);
+            | Mesh2dPipelineKey::from_hdr(view.hdr)
+            | Mesh2dPipelineKey::from_hdr_output(view.hdr_output);
 
         if !view.hdr_output {
             if let Some(tonemapping) = tonemapping {
@@ -425,10 +426,11 @@ bitflags::bitflags! {
     pub struct Mesh2dPipelineKey: u32 {
         const NONE                              = 0;
         const HDR                               = 1 << 0;
-        const TONEMAP_IN_SHADER                 = 1 << 1;
-        const DEBAND_DITHER                     = 1 << 2;
-        const BLEND_ALPHA                       = 1 << 3;
-        const MAY_DISCARD                       = 1 << 4;
+        const HDR_OUTPUT                        = 1 << 1;
+        const TONEMAP_IN_SHADER                 = 1 << 2;
+        const DEBAND_DITHER                     = 1 << 3;
+        const BLEND_ALPHA                       = 1 << 4;
+        const MAY_DISCARD                       = 1 << 5;
         const MSAA_RESERVED_BITS                = Self::MSAA_MASK_BITS << Self::MSAA_SHIFT_BITS;
         const PRIMITIVE_TOPOLOGY_RESERVED_BITS  = Self::PRIMITIVE_TOPOLOGY_MASK_BITS << Self::PRIMITIVE_TOPOLOGY_SHIFT_BITS;
         const TONEMAP_METHOD_RESERVED_BITS      = Self::TONEMAP_METHOD_MASK_BITS << Self::TONEMAP_METHOD_SHIFT_BITS;
@@ -462,6 +464,14 @@ impl Mesh2dPipelineKey {
     pub fn from_hdr(hdr: bool) -> Self {
         if hdr {
             Mesh2dPipelineKey::HDR
+        } else {
+            Mesh2dPipelineKey::NONE
+        }
+    }
+
+    pub fn from_hdr_output(hdr_output: bool) -> Self {
+        if hdr_output {
+            Mesh2dPipelineKey::HDR_OUTPUT
         } else {
             Mesh2dPipelineKey::NONE
         }
@@ -580,7 +590,7 @@ impl SpecializedMeshPipeline for Mesh2dPipeline {
 
         let vertex_buffer_layout = layout.0.get_layout(&vertex_attributes)?;
 
-        let format = match key.contains(Mesh2dPipelineKey::HDR) {
+        let format = match key.contains(Mesh2dPipelineKey::HDR_OUTPUT) {
             true => ViewTarget::TEXTURE_FORMAT_HDR,
             false => TextureFormat::bevy_default(),
         };

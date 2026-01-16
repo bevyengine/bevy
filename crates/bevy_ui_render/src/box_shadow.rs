@@ -126,8 +126,7 @@ pub fn init_box_shadow_pipeline(mut commands: Commands, asset_server: Res<AssetS
 
 #[derive(Clone, Copy, Hash, PartialEq, Eq)]
 pub struct BoxShadowPipelineKey {
-    pub hdr: bool,
-    /// Number of samples, a higher value results in better quality shadows.
+    pub hdr_output: bool,
     pub samples: u32,
 }
 
@@ -170,7 +169,7 @@ impl SpecializedRenderPipeline for BoxShadowPipeline {
                 shader: self.shader.clone(),
                 shader_defs,
                 targets: vec![Some(ColorTargetState {
-                    format: if key.hdr {
+                    format: if key.hdr_output {
                         ViewTarget::TEXTURE_FORMAT_HDR
                     } else {
                         TextureFormat::bevy_default()
@@ -333,7 +332,7 @@ pub fn queue_shadows(
             &pipeline_cache,
             &box_shadow_pipeline,
             BoxShadowPipelineKey {
-                hdr: view.hdr_output,
+                hdr_output: view.hdr_output,
                 samples: shadow_samples.copied().unwrap_or_default().0,
             },
         );
