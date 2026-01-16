@@ -15,7 +15,7 @@ use bevy::{
     window::{PresentMode, WindowResolution},
     winit::WinitSettings,
 };
-use bevy_asset::RenderAssetTransferPriority;
+use bevy::asset::RenderAssetTransferPriority;
 use rand::{seq::IndexedRandom, Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;
 

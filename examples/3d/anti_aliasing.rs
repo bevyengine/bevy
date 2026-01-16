@@ -25,7 +25,7 @@ use bevy::{
 use bevy::anti_alias::dlss::{
     Dlss, DlssPerfQualityMode, DlssProjectId, DlssSuperResolutionSupported,
 };
-use bevy_asset::RenderAssetTransferPriority;
+use bevy::asset::RenderAssetTransferPriority;
 
 fn main() {
     let mut app = App::new();

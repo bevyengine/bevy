@@ -24,7 +24,7 @@ use bevy::{
     prelude::*,
     render::render_resource::{Extent3d, TextureDimension, TextureFormat},
 };
-use bevy_asset::RenderAssetTransferPriority;
+use bevy::asset::RenderAssetTransferPriority;
 
 fn main() {
     App::new()

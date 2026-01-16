@@ -8,7 +8,7 @@ use bevy::{
     prelude::*,
     render::render_resource::PrimitiveTopology,
 };
-use bevy_asset::RenderAssetTransferPriority;
+use bevy::asset::RenderAssetTransferPriority;
 
 // Define a "marker" component to mark the custom mesh. Marker components are often used in Bevy for
 // filtering entities in queries with `With`, they're usually not queried directly since they don't

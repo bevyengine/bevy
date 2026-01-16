@@ -29,7 +29,7 @@ use bevy::{
         Render, RenderApp, RenderStartup,
     },
 };
-use bevy_asset::RenderAssetTransferPriority;
+use bevy::asset::RenderAssetTransferPriority;
 
 /// This example uses a shader source file from the assets subdirectory
 const SHADER_ASSET_PATH: &str = "shaders/compute_mesh.wgsl";

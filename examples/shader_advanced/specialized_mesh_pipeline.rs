@@ -37,7 +37,7 @@ use bevy::{
         Render, RenderApp, RenderStartup, RenderSystems,
     },
 };
-use bevy_asset::RenderAssetTransferPriority;
+use bevy::asset::RenderAssetTransferPriority;
 
 const SHADER_ASSET_PATH: &str = "shaders/specialized_mesh_pipeline.wgsl";
 

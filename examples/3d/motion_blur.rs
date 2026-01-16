@@ -7,7 +7,7 @@ use bevy::{
     post_process::motion_blur::MotionBlur,
     prelude::*,
 };
-use bevy_asset::RenderAssetTransferPriority;
+use bevy::asset::RenderAssetTransferPriority;
 
 fn main() {
     let mut app = App::new();

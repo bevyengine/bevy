@@ -2,7 +2,7 @@
 //! using both a storage buffer and texture.
 
 use bevy::{
-    asset::RenderAssetUsages,
+    asset::{RenderAssetTransferPriority, RenderAssetUsages},
     prelude::*,
     render::{
         extract_resource::{ExtractResource, ExtractResourcePlugin},
@@ -19,7 +19,6 @@ use bevy::{
         Render, RenderApp, RenderStartup, RenderSystems,
     },
 };
-use bevy_asset::RenderAssetTransferPriority;
 
 /// This example uses a shader source file from the assets subdirectory
 const SHADER_ASSET_PATH: &str = "shaders/gpu_readback.wgsl";

@@ -17,7 +17,7 @@ use bevy::{
     shader::ShaderRef,
     window::{PrimaryWindow, WindowResized},
 };
-use bevy_asset::RenderAssetTransferPriority;
+use bevy::asset::RenderAssetTransferPriority;
 
 #[path = "../helpers/widgets.rs"]
 mod widgets;

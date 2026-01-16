@@ -20,7 +20,7 @@ use bevy::{
     mesh::{Extrudable, ExtrusionBuilder, PerimeterSegment},
     prelude::*,
 };
-use bevy_asset::RenderAssetTransferPriority;
+use bevy::asset::RenderAssetTransferPriority;
 
 const HEART: Heart = Heart::new(0.5);
 const HOLLOW: Heart = Heart::new(0.3);

@@ -12,7 +12,7 @@ use bevy::{
     },
     prelude::*,
 };
-use bevy_asset::RenderAssetTransferPriority;
+use bevy::asset::RenderAssetTransferPriority;
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;
 

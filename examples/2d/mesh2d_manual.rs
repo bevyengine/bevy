@@ -37,7 +37,7 @@ use bevy::{
         SetMesh2dViewBindGroup,
     },
 };
-use bevy_asset::RenderAssetTransferPriority;
+use bevy::asset::RenderAssetTransferPriority;
 use std::f32::consts::PI;
 
 fn main() {

@@ -28,7 +28,7 @@ use bevy::{
     sprite_render::{AlphaMode2d, Material2d, Material2dPlugin},
     window::{PrimaryWindow, WindowResized},
 };
-use bevy_asset::RenderAssetTransferPriority;
+use bevy::asset::RenderAssetTransferPriority;
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;
 

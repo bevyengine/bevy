@@ -48,7 +48,7 @@ use bevy::{
     },
     shader::ShaderRef,
 };
-use bevy_asset::RenderAssetTransferPriority;
+use bevy::asset::RenderAssetTransferPriority;
 
 /// A marker component for a rotating cube.
 #[derive(Component)]
