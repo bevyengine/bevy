@@ -4,12 +4,13 @@ use crate::{
     component::{ComponentId, Components},
     query::{Access, QueryData},
 };
+use bevy_utils::BloomFilter;
 
 /// Check if `Q` has any internal conflicts.
 #[inline(never)]
 pub fn has_conflicts<Q: QueryData>(components: &Components) -> Result<(), QueryAccessError> {
     // increasing this too much may slow down smaller queries
-    const MAX_SIZE: usize = 16;
+    const MAX_SIZE: usize = 8;
     let Some(state) = Q::get_state(components) else {
         return Err(QueryAccessError::ComponentNotRegistered);
     };
@@ -17,12 +18,22 @@ pub fn has_conflicts<Q: QueryData>(components: &Components) -> Result<(), QueryA
     let size = iter.size_hint().1.unwrap_or(MAX_SIZE);
 
     if size > MAX_SIZE {
-        for (i, access) in iter {
-            for access_other in Q::iter_access(&state).take(i) {
-                if let Err(err) = access.is_compatible(access_other) {
-                    panic!("{}", err);
+        // use a bloom filter as a linear time check if we need to run the longer, exact check
+        let Some(state) = Q::get_state(components) else {
+            return Err(QueryAccessError::ComponentNotRegistered);
+        };
+        let iter = Q::iter_access(&state);
+        let mut filter = BloomFilter::<8, 2>::new();
+        for access in iter {
+            if filter.contains(&access) {
+                // we MIGHT have a conflict, fallback to slow check
+                for access_other in Q::iter_access(&state) {
+                    if let Err(err) = access.is_compatible(access_other) {
+                        panic!("{}", err);
+                    }
                 }
             }
+            filter.insert(&access);
         }
     } else {
         // we can optimize small sizes by caching the iteration result in an array on the stack
@@ -41,7 +52,7 @@ pub fn has_conflicts<Q: QueryData>(components: &Components) -> Result<(), QueryA
 }
 
 /// The data storage type that is being accessed.
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, Hash)]
 pub enum EcsAccessType<'a> {
     /// Accesses [`Component`](crate::prelude::Component) data
     Component(EcsAccessLevel),
@@ -152,7 +163,7 @@ impl<'a> EcsAccessType<'a> {
 
 /// The way the data will be accessed and whether we take access on all the components on
 /// an entity or just one component.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Hash)]
 pub enum EcsAccessLevel {
     /// Reads [`Component`](crate::prelude::Component) with [`ComponentId`]
     Read(ComponentId),
@@ -165,7 +176,7 @@ pub enum EcsAccessLevel {
 }
 
 /// Access level needed by [`QueryData`] fetch to the resource.
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, Hash)]
 pub enum ResourceAccessLevel {
     /// Reads the resource with [`ComponentId`]
     Read(ComponentId),
