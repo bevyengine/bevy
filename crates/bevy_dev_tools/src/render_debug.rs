@@ -24,6 +24,7 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin},
     extract_resource::{ExtractResource, ExtractResourcePlugin},
+    render_asset::RenderAssets,
     render_graph::{
         NodeRunError, RenderGraphContext, RenderGraphExt, RenderLabel, ViewNode, ViewNodeRunner,
     },
@@ -36,16 +37,16 @@ use bevy_render::{
         TextureSampleType, VertexState,
     },
     renderer::{RenderContext, RenderDevice, RenderQueue},
-    texture::FallbackImage,
+    texture::{FallbackImage, GpuImage},
     view::{Msaa, ViewTarget, ViewUniformOffset},
     Render, RenderApp, RenderSystems,
 };
 use bevy_shader::Shader;
 
 use bevy_pbr::{
-    MeshPipelineViewLayoutKey, MeshPipelineViewLayouts, MeshViewBindGroup,
-    ViewEnvironmentMapUniformOffset, ViewFogUniformOffset, ViewLightProbesUniformOffset,
-    ViewLightsUniformOffset, ViewScreenSpaceReflectionsUniformOffset,
+    Bluenoise, MeshPipelineViewLayoutKey, MeshPipelineViewLayouts, MeshViewBindGroup,
+    ViewContactShadowsUniformOffset, ViewEnvironmentMapUniformOffset, ViewFogUniformOffset,
+    ViewLightProbesUniformOffset, ViewLightsUniformOffset, ViewScreenSpaceReflectionsUniformOffset,
 };
 
 /// Adds a rendering debug overlay to visualize various renderer buffers.
@@ -501,54 +502,37 @@ fn prepare_debug_overlay_pipelines(
     pipeline_cache: Res<PipelineCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<RenderDebugOverlayPipeline>>,
     pipeline: Res<RenderDebugOverlayPipeline>,
+    images: Res<RenderAssets<GpuImage>>,
+    blue_noise: Res<Bluenoise>,
     views: Query<(
         Entity,
         &ViewTarget,
         &RenderDebugOverlay,
         &Msaa,
-        Has<bevy_core_pipeline::prepass::DepthPrepass>,
-        Has<bevy_core_pipeline::prepass::NormalPrepass>,
-        Has<bevy_core_pipeline::prepass::MotionVectorPrepass>,
-        Has<bevy_core_pipeline::prepass::DeferredPrepass>,
+        Option<&bevy_core_pipeline::prepass::ViewPrepassTextures>,
         Has<bevy_core_pipeline::oit::OrderIndependentTransparencySettings>,
         Has<bevy_pbr::ExtractedAtmosphere>,
     )>,
 ) {
-    for (
-        entity,
-        target,
-        config,
-        msaa,
-        depth_prepass,
-        normal_prepass,
-        motion_vector_prepass,
-        deferred_prepass,
-        has_oit,
-        has_atmosphere,
-    ) in &views
-    {
+    for (entity, target, config, msaa, prepass_textures, has_oit, has_atmosphere) in &views {
         if !config.enabled {
             continue;
         }
 
-        let mut view_layout_key = MeshPipelineViewLayoutKey::from(*msaa);
-        if depth_prepass {
-            view_layout_key |= MeshPipelineViewLayoutKey::DEPTH_PREPASS;
-        }
-        if normal_prepass {
-            view_layout_key |= MeshPipelineViewLayoutKey::NORMAL_PREPASS;
-        }
-        if motion_vector_prepass {
-            view_layout_key |= MeshPipelineViewLayoutKey::MOTION_VECTOR_PREPASS;
-        }
-        if deferred_prepass {
-            view_layout_key |= MeshPipelineViewLayoutKey::DEFERRED_PREPASS;
-        }
+        let mut view_layout_key = MeshPipelineViewLayoutKey::from(*msaa)
+            | MeshPipelineViewLayoutKey::from(prepass_textures);
+
         if has_oit {
             view_layout_key |= MeshPipelineViewLayoutKey::OIT_ENABLED;
         }
         if has_atmosphere {
             view_layout_key |= MeshPipelineViewLayoutKey::ATMOSPHERE;
+        }
+
+        if let Some(gpu_image) = images.get(&blue_noise.texture) {
+            if gpu_image.texture.depth_or_array_layers() > 1 {
+                view_layout_key |= MeshPipelineViewLayoutKey::STBN;
+            }
         }
 
         let pipeline_id = pipelines.specialize(
@@ -624,6 +608,7 @@ impl ViewNode for RenderDebugOverlayNode {
         &'static ViewFogUniformOffset,
         &'static ViewLightProbesUniformOffset,
         &'static ViewScreenSpaceReflectionsUniformOffset,
+        &'static ViewContactShadowsUniformOffset,
         &'static ViewEnvironmentMapUniformOffset,
         Has<bevy_core_pipeline::oit::OrderIndependentTransparencySettings>,
         Option<&'static OrderIndependentTransparencySettingsOffset>,
@@ -645,6 +630,7 @@ impl ViewNode for RenderDebugOverlayNode {
             view_fog_offset,
             view_light_probes_offset,
             view_ssr_offset,
+            view_contact_shadows_offset,
             view_environment_map_offset,
             has_oit,
             view_oit_offset,
@@ -717,6 +703,7 @@ impl ViewNode for RenderDebugOverlayNode {
             view_fog_offset.offset,
             **view_light_probes_offset,
             **view_ssr_offset,
+            **view_contact_shadows_offset,
             **view_environment_map_offset,
         ];
         if has_oit && let Some(view_oit_offset) = view_oit_offset {
