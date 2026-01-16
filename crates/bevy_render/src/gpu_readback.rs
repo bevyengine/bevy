@@ -264,10 +264,14 @@ fn prepare_buffers(
                 if let Some(gpu_image) = gpu_images.get(image)
                     && let Ok(pixel_size) = gpu_image.texture_descriptor.format.pixel_size()
                 {
-                    let layout = layout_data(gpu_image.texture_descriptor.size, gpu_image.texture_descriptor.format);
+                    let layout = layout_data(
+                        gpu_image.texture_descriptor.size,
+                        gpu_image.texture_descriptor.format,
+                    );
                     let buffer = buffer_pool.get(
                         &render_device,
-                        get_aligned_size(gpu_image.texture_descriptor.size, pixel_size as u32) as u64,
+                        get_aligned_size(gpu_image.texture_descriptor.size, pixel_size as u32)
+                            as u64,
                     );
                     let (tx, rx) = async_channel::bounded(1);
                     readbacks.requested.push(GpuReadback {

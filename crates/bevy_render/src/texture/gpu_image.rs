@@ -92,57 +92,55 @@ impl RenderAsset for GpuImage {
 
             // reuse previous texture
             prev.texture.clone()
+        } else if let Some(ref data) = image.data {
+            render_device.create_texture_with_data(
+                render_queue,
+                &image.texture_descriptor,
+                image.data_order,
+                data,
+            )
         } else {
-            if let Some(ref data) = image.data {
-                render_device.create_texture_with_data(
-                    render_queue,
-                    &image.texture_descriptor,
-                    image.data_order,
-                    data,
-                )
-            } else {
-                let new_texture = render_device.create_texture(&image.texture_descriptor);
-                if image.copy_on_resize {
-                    if let Some(previous) = previous_asset {
-                        let mut command_encoder =
-                            render_device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                                label: Some("copy_image_on_resize"),
-                            });
-                        let copy_size = Extent3d {
-                            width: image
-                                .texture_descriptor
-                                .size
-                                .width
-                                .min(previous.texture_descriptor.size.width),
-                            height: image
-                                .texture_descriptor
-                                .size
-                                .height
-                                .min(previous.texture_descriptor.size.height),
-                            depth_or_array_layers: image
-                                .texture_descriptor
-                                .size
-                                .depth_or_array_layers
-                                .min(previous.texture_descriptor.size.depth_or_array_layers),
-                        };
+            let new_texture = render_device.create_texture(&image.texture_descriptor);
+            if image.copy_on_resize {
+                if let Some(previous) = previous_asset {
+                    let mut command_encoder =
+                        render_device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                            label: Some("copy_image_on_resize"),
+                        });
+                    let copy_size = Extent3d {
+                        width: image
+                            .texture_descriptor
+                            .size
+                            .width
+                            .min(previous.texture_descriptor.size.width),
+                        height: image
+                            .texture_descriptor
+                            .size
+                            .height
+                            .min(previous.texture_descriptor.size.height),
+                        depth_or_array_layers: image
+                            .texture_descriptor
+                            .size
+                            .depth_or_array_layers
+                            .min(previous.texture_descriptor.size.depth_or_array_layers),
+                    };
 
-                        command_encoder.copy_texture_to_texture(
-                            previous.texture.as_image_copy(),
-                            new_texture.as_image_copy(),
-                            copy_size,
-                        );
-                        render_queue.submit([command_encoder.finish()]);
-                    } else {
-                        warn!("No previous asset to copy from for image: {:?}", image);
-                    }
+                    command_encoder.copy_texture_to_texture(
+                        previous.texture.as_image_copy(),
+                        new_texture.as_image_copy(),
+                        copy_size,
+                    );
+                    render_queue.submit([command_encoder.finish()]);
+                } else {
+                    warn!("No previous asset to copy from for image: {:?}", image);
                 }
-                new_texture
             }
+            new_texture
         };
 
         let texture_view = if let Some(prev) = previous_asset.as_ref()
             && prev.texture_descriptor == image.texture_descriptor
-            && prev.texture_view_descriptor == prev.texture_view_descriptor
+            && prev.texture_view_descriptor == image.texture_view_descriptor
         {
             prev.texture_view.clone()
         } else {
