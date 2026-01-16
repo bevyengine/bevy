@@ -3,7 +3,7 @@
 #import bevy_pbr::lighting::{F_AB, D_GGX, V_SmithGGXCorrelated, fresnel, specular_multiscatter}
 #import bevy_pbr::pbr_functions::{calculate_diffuse_color, calculate_F0}
 #import bevy_render::maths::PI
-#import bevy_solari::scene_bindings::ResolvedMaterial
+#import bevy_solari::scene_bindings::{ResolvedMaterial, MIRROR_ROUGHNESS_THRESHOLD}
 
 fn evaluate_brdf(
     world_normal: vec3<f32>,
@@ -49,7 +49,7 @@ fn evaluate_specular_brdf(
     let F0 = calculate_F0(base_color, metallic, reflectance);
     let F = fresnel(F0, LdotH);
 
-    if roughness <= 0.001 {
+    if roughness <= MIRROR_ROUGHNESS_THRESHOLD {
         return F;
     }
 
