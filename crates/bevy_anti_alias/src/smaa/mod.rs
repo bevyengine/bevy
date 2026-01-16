@@ -618,7 +618,7 @@ fn prepare_smaa_pipelines(
                 &pipeline_cache,
                 &smaa_pipelines.neighborhood_blending,
                 SmaaNeighborhoodBlendingPipelineKey {
-                    texture_format: if view.hdr {
+                    texture_format: if view.hdr_output {
                         ViewTarget::TEXTURE_FORMAT_HDR
                     } else {
                         TextureFormat::bevy_default()

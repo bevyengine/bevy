@@ -5335,6 +5335,17 @@ category = "3D Rendering"
 wasm = true
 
 [[example]]
+name = "hdr_calibration"
+path = "examples/3d/hdr_calibration.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.hdr_calibration]
+name = "HDR Calibration"
+description = "Demonstrates how to calibrate HDR display output"
+category = "3D Rendering"
+wasm = true
+
+[[example]]
 name = "dynamic_mip_generation"
 path = "examples/2d/dynamic_mip_generation.rs"
 doc-scrape-examples = true

@@ -22,6 +22,12 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
 
     var output_rgb = tone_mapping(hdr_color, view.color_grading).rgb;
 
+#ifdef HDR_OUTPUT
+    // If we're tonemapping for HDR output, we don't want to apply dither or gamma correction in the same way,
+    // as the output should stay linear scRGB (or the driver will handle the PQ curve).
+    return vec4<f32>(output_rgb, hdr_color.a);
+#endif
+
 #ifdef DEBAND_DITHER
     output_rgb = powsafe(output_rgb.rgb, 1.0 / 2.2);
     output_rgb = output_rgb + screen_space_dither(in.position.xy);

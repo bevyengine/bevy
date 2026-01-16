@@ -192,9 +192,7 @@ impl Msaa {
 }
 
 /// If this component is added to a camera, the camera will use an intermediate "high dynamic range" render texture.
-/// This allows rendering with a wider range of lighting values. However, this does *not* affect
-/// whether the camera will render with hdr display output (which bevy does not support currently)
-/// and only affects the intermediate render texture.
+/// This allows rendering with a wider range of lighting values.
 #[derive(
     Component, Default, Copy, Clone, ExtractComponent, Reflect, PartialEq, Eq, Hash, Debug,
 )]
@@ -302,6 +300,7 @@ pub struct ExtractedView {
     // stability matters and there is a more direct way to derive the view-projection matrix.
     pub clip_from_world: Option<Mat4>,
     pub hdr: bool,
+    pub hdr_output: bool,
     // uvec4(origin.x, origin.y, width, height)
     pub viewport: UVec4,
     pub color_grading: ColorGrading,
@@ -405,6 +404,17 @@ pub struct ColorGradingGlobal {
     ///
     /// The default value is 0.2 to 0.7.
     pub midtones_range: Range<f32>,
+
+    /// The maximum brightness of the display, in nits.
+    ///
+    /// This is used when tonemapping for HDR displays.
+    pub max_luminance: f32,
+
+    /// The brightness of "paper white", in nits.
+    ///
+    /// This is the brightness of a 1.0, 1.0, 1.0 sRGB color.
+    /// It is used when tonemapping for HDR displays.
+    pub paper_white: f32,
 }
 
 /// The [`ColorGrading`] structure, packed into the most efficient form for the
@@ -421,6 +431,8 @@ pub struct ColorGradingUniform {
     pub exposure: f32,
     pub hue: f32,
     pub post_saturation: f32,
+    pub max_luminance: f32,
+    pub paper_white: f32,
 }
 
 /// A section of color grading values that can be selectively applied to
@@ -489,6 +501,8 @@ impl Default for ColorGradingGlobal {
             hue: 0.0,
             post_saturation: 1.0,
             midtones_range: 0.2..0.7,
+            max_luminance: 1000.0,
+            paper_white: 203.0,
         }
     }
 }
@@ -713,6 +727,8 @@ impl From<ColorGrading> for ColorGradingUniform {
             exposure: component.global.exposure,
             hue: component.global.hue,
             post_saturation: component.global.post_saturation,
+            max_luminance: component.global.max_luminance,
+            paper_white: component.global.paper_white,
         }
     }
 }
@@ -1089,7 +1105,7 @@ pub fn prepare_view_targets(
             continue;
         };
 
-        let main_texture_format = if view.hdr {
+        let main_texture_format = if view.hdr_output {
             ViewTarget::TEXTURE_FORMAT_HDR
         } else {
             TextureFormat::bevy_default()
@@ -1102,7 +1118,12 @@ pub fn prepare_view_targets(
         };
 
         let (a, b, sampled, main_texture) = textures
-            .entry((camera.target.clone(), texture_usage.0, view.hdr, msaa))
+            .entry((
+                camera.target.clone(),
+                texture_usage.0,
+                view.hdr_output,
+                msaa,
+            ))
             .or_insert_with(|| {
                 let descriptor = TextureDescriptor {
                     label: None,

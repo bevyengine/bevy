@@ -414,6 +414,7 @@ pub struct ExtractedCamera {
     pub sorted_camera_index_for_target: usize,
     pub exposure: f32,
     pub hdr: bool,
+    pub hdr_output: bool,
 }
 
 pub fn extract_cameras(
@@ -443,6 +444,7 @@ pub fn extract_cameras(
     primary_window: Extract<Query<Entity, With<PrimaryWindow>>>,
     gpu_preprocessing_support: Res<GpuPreprocessingSupport>,
     mapper: Extract<Query<&RenderEntity>>,
+    windows: Extract<Query<&Window>>,
 ) {
     let primary_window = primary_window.iter().next();
     type ExtractedCameraComponents = (
@@ -526,6 +528,20 @@ pub fn extract_cameras(
                     .collect(),
             };
 
+            let hdr_output = match render_target {
+                RenderTarget::Window(window_ref) => {
+                    if let Some(window) = window_ref.normalize(primary_window) {
+                        windows
+                            .get(window.entity())
+                            .map(|w| w.hdr_output)
+                            .unwrap_or(false)
+                    } else {
+                        false
+                    }
+                }
+                _ => false,
+            };
+
             let mut commands = commands.entity(render_entity);
             commands.insert((
                 ExtractedCamera {
@@ -544,6 +560,7 @@ pub fn extract_cameras(
                         .map(Exposure::exposure)
                         .unwrap_or_else(|| Exposure::default().exposure()),
                     hdr,
+                    hdr_output,
                 },
                 ExtractedView {
                     retained_view_entity: RetainedViewEntity::new(main_entity.into(), None, 0),
@@ -551,6 +568,7 @@ pub fn extract_cameras(
                     world_from_view: *transform,
                     clip_from_world: None,
                     hdr,
+                    hdr_output,
                     viewport: UVec4::new(
                         viewport_origin.x,
                         viewport_origin.y,

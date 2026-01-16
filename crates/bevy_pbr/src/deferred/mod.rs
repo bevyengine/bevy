@@ -528,6 +528,7 @@ pub fn prepare_deferred_lighting_pipelines(
                     }
                     Tonemapping::TonyMcMapface => MeshPipelineKey::TONEMAP_METHOD_TONY_MC_MAPFACE,
                     Tonemapping::BlenderFilmic => MeshPipelineKey::TONEMAP_METHOD_BLENDER_FILMIC,
+                    Tonemapping::Pq => MeshPipelineKey::TONEMAP_METHOD_PQ,
                 };
             }
             if let Some(DebandDither::Enabled) = dither {

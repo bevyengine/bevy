@@ -260,7 +260,7 @@ fn prepare_cas_pipelines(
             &pipeline_cache,
             CasPipelineKey {
                 denoise: denoise_cas.0,
-                texture_format: if view.hdr {
+                texture_format: if view.hdr_output {
                     ViewTarget::TEXTURE_FORMAT_HDR
                 } else {
                     TextureFormat::bevy_default()

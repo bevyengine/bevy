@@ -623,7 +623,7 @@ pub fn queue_ui_material_nodes<M: UiMaterial>(
             &pipeline_cache,
             &ui_material_pipeline,
             UiMaterialKey {
-                hdr: view.hdr,
+                hdr: view.hdr_output,
                 bind_group_data: material.key.clone(),
             },
         );

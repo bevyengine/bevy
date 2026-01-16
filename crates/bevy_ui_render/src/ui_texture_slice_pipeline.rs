@@ -336,7 +336,9 @@ pub fn queue_ui_slices(
         let pipeline = pipelines.specialize(
             &pipeline_cache,
             &ui_slicer_pipeline,
-            UiTextureSlicePipelineKey { hdr: view.hdr },
+            UiTextureSlicePipelineKey {
+                hdr: view.hdr_output,
+            },
         );
 
         transparent_phase.add(TransparentUi {

@@ -333,7 +333,7 @@ pub fn queue_shadows(
             &pipeline_cache,
             &box_shadow_pipeline,
             BoxShadowPipelineKey {
-                hdr: view.hdr,
+                hdr: view.hdr_output,
                 samples: shadow_samples.copied().unwrap_or_default().0,
             },
         );

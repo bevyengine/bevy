@@ -463,6 +463,14 @@ pub struct Window {
     ///
     /// [`WindowAttributesExtIOS::with_preferred_screen_edges_deferring_system_gestures`]: https://docs.rs/winit/latest/x86_64-apple-darwin/winit/platform/ios/trait.WindowAttributesExtIOS.html#tymethod.with_preferred_screen_edges_deferring_system_gestures
     pub preferred_screen_edges_deferring_system_gestures: ScreenEdge,
+    /// Whether or not to use high dynamic range (HDR) for the window's surface.
+    ///
+    /// If this is true, the window will request a 16-bit float surface format (e.g. `Rgba16Float`).
+    /// This allows the window to display colors outside of the standard [0, 1] range.
+    ///
+    /// Note that this requires hardware and OS support. If HDR is not supported, the window will
+    /// fall back to a standard dynamic range (SDR) surface format.
+    pub hdr_output: bool,
 }
 
 impl Default for Window {
@@ -507,6 +515,7 @@ impl Default for Window {
             prefers_home_indicator_hidden: false,
             prefers_status_bar_hidden: false,
             preferred_screen_edges_deferring_system_gestures: Default::default(),
+            hdr_output: false,
         }
     }
 }

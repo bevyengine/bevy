@@ -20,8 +20,8 @@
 // You don't need to worry about this too much since bevy will compute the correct UVs for you.
 #import bevy_core_pipeline::fullscreen_vertex_shader::FullscreenVertexOutput
 
-@group(0) @binding(0) var screen_texture: texture_2d<f32>;
-@group(0) @binding(1) var texture_sampler: sampler;
+@group(0) @binding(1) var screen_texture: texture_2d<f32>;
+@group(0) @binding(2) var texture_sampler: sampler;
 
 struct FullScreenEffect {
     intensity: f32,
@@ -31,7 +31,7 @@ struct FullScreenEffect {
 #endif
 }
 
-@group(0) @binding(2) var<uniform> settings: FullScreenEffect;
+@group(0) @binding(3) var<uniform> settings: FullScreenEffect;
 
 @fragment
 fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {

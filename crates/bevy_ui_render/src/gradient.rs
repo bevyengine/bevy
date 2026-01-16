@@ -612,7 +612,7 @@ pub fn queue_gradient(
             UiGradientPipelineKey {
                 anti_alias: matches!(ui_anti_alias, None | Some(UiAntiAlias::On)),
                 color_space: gradient.color_space,
-                hdr: view.hdr,
+                hdr: view.hdr_output,
             },
         );
 

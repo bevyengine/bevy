@@ -357,6 +357,10 @@ pub fn check_views_need_specialization(
         let mut view_key = MeshPipelineKey::from_msaa_samples(msaa.samples())
             | MeshPipelineKey::from_hdr(view.hdr);
 
+        if view.hdr_output {
+            view_key |= MeshPipelineKey::HDR_OUTPUT;
+        }
+
         if normal_prepass {
             view_key |= MeshPipelineKey::NORMAL_PREPASS;
         }
@@ -417,7 +421,7 @@ pub fn check_views_need_specialization(
             }
         }
 
-        if !view.hdr {
+        if !view.hdr_output {
             if let Some(tonemapping) = tonemapping {
                 view_key |= MeshPipelineKey::TONEMAP_IN_SHADER;
                 view_key |= tonemapping_pipeline_key(*tonemapping);
@@ -2159,32 +2163,33 @@ bitflags::bitflags! {
 
         // Flag bits
         const HDR                               = 1 << 0;
-        const TONEMAP_IN_SHADER                 = 1 << 1;
-        const DEBAND_DITHER                     = 1 << 2;
-        const DEPTH_PREPASS                     = 1 << 3;
-        const NORMAL_PREPASS                    = 1 << 4;
-        const DEFERRED_PREPASS                  = 1 << 5;
-        const MOTION_VECTOR_PREPASS             = 1 << 6;
-        const MAY_DISCARD                       = 1 << 7; // Guards shader codepaths that may discard, allowing early depth tests in most cases
+        const HDR_OUTPUT                        = 1 << 1;
+        const TONEMAP_IN_SHADER                 = 1 << 2;
+        const DEBAND_DITHER                     = 1 << 3;
+        const DEPTH_PREPASS                     = 1 << 4;
+        const NORMAL_PREPASS                    = 1 << 5;
+        const DEFERRED_PREPASS                  = 1 << 6;
+        const MOTION_VECTOR_PREPASS             = 1 << 7;
+        const MAY_DISCARD                       = 1 << 8; // Guards shader codepaths that may discard, allowing early depth tests in most cases
                                                             // See: https://www.khronos.org/opengl/wiki/Early_Fragment_Test
-        const ENVIRONMENT_MAP                   = 1 << 8;
-        const SCREEN_SPACE_AMBIENT_OCCLUSION    = 1 << 9;
-        const UNCLIPPED_DEPTH_ORTHO             = 1 << 10; // Disables depth clipping for use with directional light shadow views
+        const ENVIRONMENT_MAP                   = 1 << 9;
+        const SCREEN_SPACE_AMBIENT_OCCLUSION    = 1 << 10;
+        const UNCLIPPED_DEPTH_ORTHO             = 1 << 11; // Disables depth clipping for use with directional light shadow views
                                                             // Emulated via fragment shader depth on hardware that doesn't support it natively
                                                             // See: https://www.w3.org/TR/webgpu/#depth-clipping and https://therealmjp.github.io/posts/shadow-maps/#disabling-z-clipping
-        const TEMPORAL_JITTER                   = 1 << 11;
-        const READS_VIEW_TRANSMISSION_TEXTURE   = 1 << 12;
-        const LIGHTMAPPED                       = 1 << 13;
-        const LIGHTMAP_BICUBIC_SAMPLING         = 1 << 14;
-        const IRRADIANCE_VOLUME                 = 1 << 15;
-        const VISIBILITY_RANGE_DITHER           = 1 << 16;
-        const SCREEN_SPACE_REFLECTIONS          = 1 << 17;
-        const HAS_PREVIOUS_SKIN                 = 1 << 18;
-        const HAS_PREVIOUS_MORPH                = 1 << 19;
-        const OIT_ENABLED                       = 1 << 20;
-        const DISTANCE_FOG                      = 1 << 21;
-        const ATMOSPHERE                        = 1 << 22;
-        const INVERT_CULLING                    = 1 << 23;
+        const TEMPORAL_JITTER                   = 1 << 12;
+        const READS_VIEW_TRANSMISSION_TEXTURE   = 1 << 13;
+        const LIGHTMAPPED                       = 1 << 14;
+        const LIGHTMAP_BICUBIC_SAMPLING         = 1 << 15;
+        const IRRADIANCE_VOLUME                 = 1 << 16;
+        const VISIBILITY_RANGE_DITHER           = 1 << 17;
+        const SCREEN_SPACE_REFLECTIONS          = 1 << 18;
+        const HAS_PREVIOUS_SKIN                 = 1 << 19;
+        const HAS_PREVIOUS_MORPH                = 1 << 20;
+        const OIT_ENABLED                       = 1 << 21;
+        const DISTANCE_FOG                      = 1 << 22;
+        const ATMOSPHERE                        = 1 << 23;
+        const INVERT_CULLING                    = 1 << 24;
         const LAST_FLAG                         = Self::INVERT_CULLING.bits();
 
         // Bitfields
@@ -2204,6 +2209,7 @@ bitflags::bitflags! {
         const TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM = 5 << Self::TONEMAP_METHOD_SHIFT_BITS;
         const TONEMAP_METHOD_TONY_MC_MAPFACE    = 6 << Self::TONEMAP_METHOD_SHIFT_BITS;
         const TONEMAP_METHOD_BLENDER_FILMIC     = 7 << Self::TONEMAP_METHOD_SHIFT_BITS;
+        const TONEMAP_METHOD_PQ                 = 8 << Self::TONEMAP_METHOD_SHIFT_BITS;
         const SHADOW_FILTER_METHOD_RESERVED_BITS = Self::SHADOW_FILTER_METHOD_MASK_BITS << Self::SHADOW_FILTER_METHOD_SHIFT_BITS;
         const SHADOW_FILTER_METHOD_HARDWARE_2X2  = 0 << Self::SHADOW_FILTER_METHOD_SHIFT_BITS;
         const SHADOW_FILTER_METHOD_GAUSSIAN      = 1 << Self::SHADOW_FILTER_METHOD_SHIFT_BITS;
@@ -2235,7 +2241,7 @@ impl MeshPipelineKey {
     const BLEND_MASK_BITS: u64 = 0b111;
     const BLEND_SHIFT_BITS: u64 = Self::MSAA_MASK_BITS.count_ones() as u64 + Self::MSAA_SHIFT_BITS;
 
-    const TONEMAP_METHOD_MASK_BITS: u64 = 0b111;
+    const TONEMAP_METHOD_MASK_BITS: u64 = 0b1111;
     const TONEMAP_METHOD_SHIFT_BITS: u64 =
         Self::BLEND_MASK_BITS.count_ones() as u64 + Self::BLEND_SHIFT_BITS;
 
@@ -2607,6 +2613,8 @@ impl SpecializedMeshPipeline for MeshPipeline {
                 shader_defs.push("TONEMAP_METHOD_BLENDER_FILMIC".into());
             } else if method == MeshPipelineKey::TONEMAP_METHOD_TONY_MC_MAPFACE {
                 shader_defs.push("TONEMAP_METHOD_TONY_MC_MAPFACE".into());
+            } else if method == MeshPipelineKey::TONEMAP_METHOD_PQ {
+                shader_defs.push("TONEMAP_METHOD_PQ".into());
             }
 
             // Debanding is tied to tonemapping in the shader, cannot run without it.
@@ -2690,7 +2698,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
             }
         }
 
-        let format = if key.contains(MeshPipelineKey::HDR) {
+        let format = if key.contains(MeshPipelineKey::HDR_OUTPUT) {
             ViewTarget::TEXTURE_FORMAT_HDR
         } else {
             TextureFormat::bevy_default()
