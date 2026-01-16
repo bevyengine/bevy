@@ -37,6 +37,7 @@ use bevy::{
         SetMesh2dViewBindGroup,
     },
 };
+use bevy_asset::RenderAssetTransferPriority;
 use std::f32::consts::PI;
 
 fn main() {
@@ -61,6 +62,7 @@ fn star(
     let mut star = Mesh::new(
         PrimitiveTopology::TriangleList,
         RenderAssetUsages::RENDER_WORLD,
+        RenderAssetTransferPriority::default(),
     );
 
     // Vertices need to have a position attribute. We will use the following

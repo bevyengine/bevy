@@ -28,6 +28,7 @@ use bevy::{
     sprite_render::{AlphaMode2d, Material2d, Material2dPlugin},
     window::{PrimaryWindow, WindowResized},
 };
+use bevy_asset::RenderAssetTransferPriority;
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;
 
@@ -769,6 +770,7 @@ impl AppStatus {
             TextureDimension::D2,
             TextureFormat::Rgba8Unorm,
             RenderAssetUsages::all(),
+            RenderAssetTransferPriority::default(),
         );
         image.texture_descriptor.mip_level_count = self.image_mip_level_count();
         image.texture_descriptor.usage |= TextureUsages::STORAGE_BINDING;

@@ -1,5 +1,5 @@
 use crate::{Image, TextureFormatPixelInfo};
-use bevy_asset::RenderAssetUsages;
+use bevy_asset::{RenderAssetTransferPriority, RenderAssetUsages};
 use image::{DynamicImage, ImageBuffer};
 use thiserror::Error;
 use wgpu_types::{Extent3d, TextureDimension, TextureFormat};
@@ -10,6 +10,7 @@ impl Image {
         dyn_img: DynamicImage,
         is_srgb: bool,
         asset_usage: RenderAssetUsages,
+        transfer_priority: RenderAssetTransferPriority,
     ) -> Image {
         use bytemuck::cast_slice;
         let width;
@@ -158,6 +159,7 @@ impl Image {
             data,
             format,
             asset_usage,
+            transfer_priority,
         )
     }
 
@@ -236,7 +238,12 @@ mod test {
         let mut initial = DynamicImage::new_rgba8(1, 1);
         initial.put_pixel(0, 0, Rgba::from([132, 3, 7, 200]));
 
-        let image = Image::from_dynamic(initial.clone(), true, RenderAssetUsages::RENDER_WORLD);
+        let image = Image::from_dynamic(
+            initial.clone(),
+            true,
+            RenderAssetUsages::RENDER_WORLD,
+            RenderAssetTransferPriority::default(),
+        );
 
         // NOTE: Fails if `is_srgb = false` or the dynamic image is of the type rgb8.
         assert_eq!(initial, image.try_into_dynamic().unwrap());

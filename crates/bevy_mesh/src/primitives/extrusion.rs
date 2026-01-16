@@ -413,11 +413,15 @@ where
                 }
             }
 
-            Mesh::new(PrimitiveTopology::TriangleList, front_face.asset_usage)
-                .with_inserted_indices(Indices::U32(indices))
-                .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
-                .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
-                .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)
+            Mesh::new(
+                PrimitiveTopology::TriangleList,
+                front_face.asset_usage,
+                front_face.transfer_priority,
+            )
+            .with_inserted_indices(Indices::U32(indices))
+            .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
+            .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
+            .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)
         };
 
         front_face.merge(&back_face).unwrap();

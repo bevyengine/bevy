@@ -24,6 +24,7 @@ use bevy::{
     prelude::*,
     render::render_resource::{Extent3d, TextureDimension, TextureFormat},
 };
+use bevy_asset::RenderAssetTransferPriority;
 
 fn main() {
     App::new()
@@ -243,6 +244,7 @@ fn uv_debug_texture() -> Image {
         &texture_data,
         TextureFormat::Rgba8UnormSrgb,
         RenderAssetUsages::RENDER_WORLD,
+        RenderAssetTransferPriority::default(),
     )
 }
 

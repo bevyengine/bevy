@@ -8,6 +8,7 @@ use bevy::{
     prelude::*,
     render::render_resource::PrimitiveTopology,
 };
+use bevy_asset::RenderAssetTransferPriority;
 
 // Define a "marker" component to mark the custom mesh. Marker components are often used in Bevy for
 // filtering entities in queries with `With`, they're usually not queried directly since they don't
@@ -105,7 +106,7 @@ fn input_handler(
 #[rustfmt::skip]
 fn create_cube_mesh() -> Mesh {
     // Keep the mesh data accessible in future frames to be able to mutate it in toggle_texture.
-    Mesh::new(PrimitiveTopology::TriangleList, RenderAssetUsages::MAIN_WORLD | RenderAssetUsages::RENDER_WORLD)
+    Mesh::new(PrimitiveTopology::TriangleList, RenderAssetUsages::MAIN_WORLD | RenderAssetUsages::RENDER_WORLD, RenderAssetTransferPriority::default())
     .with_inserted_attribute(
         Mesh::ATTRIBUTE_POSITION,
         // Each array is an [x, y, z] coordinate in local space.

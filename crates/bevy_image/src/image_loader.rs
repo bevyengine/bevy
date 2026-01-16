@@ -2,7 +2,9 @@ use crate::{
     image::{Image, ImageFormat, ImageType, TextureError},
     TextureReinterpretationError,
 };
-use bevy_asset::{io::Reader, AssetLoader, LoadContext, RenderAssetUsages};
+use bevy_asset::{
+    io::Reader, AssetLoader, LoadContext, RenderAssetTransferPriority, RenderAssetUsages,
+};
 use bevy_reflect::TypePath;
 use thiserror::Error;
 
@@ -131,6 +133,9 @@ pub struct ImageLoaderSettings {
     /// Where the asset will be used - see the docs on
     /// [`RenderAssetUsages`] for details.
     pub asset_usage: RenderAssetUsages,
+    /// The priority to assign when transferring assets to the GPU.
+    /// Only effective when used with `RenderAssetBytesPerFrame::MaxBytesWithPriority`
+    pub transfer_priority: RenderAssetTransferPriority,
     /// Interpret the image as an array of images. This is
     /// primarily for use with the `texture2DArray` shader
     /// uniform type.
@@ -146,6 +151,7 @@ impl Default for ImageLoaderSettings {
             is_srgb: true,
             sampler: ImageSampler::Default,
             asset_usage: RenderAssetUsages::default(),
+            transfer_priority: RenderAssetTransferPriority::default(),
             array_layout: None,
         }
     }
@@ -212,6 +218,7 @@ impl AssetLoader for ImageLoader {
             settings.is_srgb,
             settings.sampler.clone(),
             settings.asset_usage,
+            settings.transfer_priority,
         )
         .map_err(|err| FileTextureError {
             error: err,

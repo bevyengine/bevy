@@ -134,7 +134,9 @@ pub mod graph {
 
 use crate::{deferred::DeferredPbrLightingPlugin, graph::NodePbr};
 use bevy_app::prelude::*;
-use bevy_asset::{AssetApp, AssetPath, Assets, Handle, RenderAssetUsages};
+use bevy_asset::{
+    AssetApp, AssetPath, Assets, Handle, RenderAssetTransferPriority, RenderAssetUsages,
+};
 use bevy_core_pipeline::core_3d::graph::{Core3d, Node3d};
 use bevy_ecs::prelude::*;
 #[cfg(feature = "bluenoise_texture")]
@@ -297,6 +299,7 @@ impl Plugin for PbrPlugin {
                     false,
                     ImageSampler::Default,
                     RenderAssetUsages::RENDER_WORLD,
+                    RenderAssetTransferPriority::Immediate,
                 )
                 .expect("Failed to decode embedded blue-noise texture");
                 images.add(image)
@@ -397,6 +400,7 @@ pub fn stbn_placeholder() -> Image {
         sampler: ImageSampler::Default,
         texture_view_descriptor: None,
         asset_usage: RenderAssetUsages::RENDER_WORLD,
+        transfer_priority: RenderAssetTransferPriority::Immediate,
         copy_on_resize: false,
     }
 }

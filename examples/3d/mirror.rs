@@ -17,6 +17,7 @@ use bevy::{
     shader::ShaderRef,
     window::{PrimaryWindow, WindowResized},
 };
+use bevy_asset::RenderAssetTransferPriority;
 
 #[path = "../helpers/widgets.rs"]
 mod widgets;
@@ -432,6 +433,7 @@ fn create_mirror_texture_image(images: &mut Assets<Image>, window_size: UVec2) -
         TextureDimension::D2,
         TextureFormat::Bgra8UnormSrgb,
         RenderAssetUsages::MAIN_WORLD | RenderAssetUsages::RENDER_WORLD,
+        RenderAssetTransferPriority::default(),
     );
     image.texture_descriptor.usage |=
         TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST | TextureUsages::RENDER_ATTACHMENT;

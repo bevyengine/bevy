@@ -3,7 +3,7 @@ use crate::{
     renderer::{RenderDevice, RenderQueue},
     texture::{DefaultImageSampler, GpuImage},
 };
-use bevy_asset::RenderAssetUsages;
+use bevy_asset::{RenderAssetTransferPriority, RenderAssetUsages};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     prelude::{FromWorld, Res, ResMut},
@@ -96,6 +96,7 @@ fn fallback_image_new(
             &data,
             format,
             RenderAssetUsages::RENDER_WORLD,
+            RenderAssetTransferPriority::Immediate,
         )
     } else {
         let mut image = Image::default_uninit();

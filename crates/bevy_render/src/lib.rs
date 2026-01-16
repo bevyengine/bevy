@@ -79,7 +79,7 @@ use crate::{
     camera::CameraPlugin,
     gpu_readback::GpuReadbackPlugin,
     mesh::{MeshRenderAssetPlugin, RenderMesh},
-    render_asset::prepare_assets,
+    render_asset::{allocate_render_asset_bytes_per_frame_priorities, prepare_assets},
     render_resource::PipelineCache,
     renderer::{render_system, RenderAdapterInfo},
     settings::RenderCreation,
@@ -385,7 +385,11 @@ impl Plugin for RenderPlugin {
                 .add_systems(ExtractSchedule, extract_render_asset_bytes_per_frame)
                 .add_systems(
                     Render,
-                    reset_render_asset_bytes_per_frame.in_set(RenderSystems::Cleanup),
+                    (
+                        allocate_render_asset_bytes_per_frame_priorities,
+                        reset_render_asset_bytes_per_frame,
+                    )
+                        .in_set(RenderSystems::PrepareAssets),
                 );
         }
     }

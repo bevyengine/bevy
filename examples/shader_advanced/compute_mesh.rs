@@ -29,6 +29,7 @@ use bevy::{
         Render, RenderApp, RenderStartup,
     },
 };
+use bevy_asset::RenderAssetTransferPriority;
 
 /// This example uses a shader source file from the assets subdirectory
 const SHADER_ASSET_PATH: &str = "shaders/compute_mesh.wgsl";
@@ -104,6 +105,7 @@ fn setup(
         let mut mesh = Mesh::new(
             PrimitiveTopology::TriangleList,
             RenderAssetUsages::RENDER_WORLD,
+            RenderAssetTransferPriority::default(),
         )
         .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, vec![[0.; 3]; 50])
         .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, vec![[0.; 3]; 50])

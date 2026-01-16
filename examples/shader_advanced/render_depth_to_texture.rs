@@ -48,6 +48,7 @@ use bevy::{
     },
     shader::ShaderRef,
 };
+use bevy_asset::RenderAssetTransferPriority;
 
 /// A marker component for a rotating cube.
 #[derive(Component)]
@@ -359,6 +360,7 @@ impl FromWorld for DemoDepthTexture {
             TextureDimension::D2,
             TextureFormat::Depth32Float,
             RenderAssetUsages::default(),
+            RenderAssetTransferPriority::default(),
         );
 
         // Create a sampler. Note that this needs to specify a `compare`

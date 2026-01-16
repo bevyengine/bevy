@@ -8,7 +8,7 @@ use crate::{
 };
 use allocator::MeshAllocatorPlugin;
 use bevy_app::{App, Plugin};
-use bevy_asset::{AssetId, RenderAssetUsages};
+use bevy_asset::{AssetId, RenderAssetTransferPriority, RenderAssetUsages};
 use bevy_ecs::{
     prelude::*,
     system::{
@@ -142,7 +142,7 @@ impl RenderAsset for RenderMesh {
             .map_err(|_| AssetExtractionError::AlreadyExtracted)
     }
 
-    fn byte_len(mesh: &Self::SourceAsset) -> Option<usize> {
+    fn transfer_priority(mesh: &Self::SourceAsset) -> (RenderAssetTransferPriority, Option<usize>) {
         let mut vertex_size = 0;
         for attribute_data in mesh.attributes() {
             let vertex_format = attribute_data.0.format;
@@ -151,7 +151,10 @@ impl RenderAsset for RenderMesh {
 
         let vertex_count = mesh.count_vertices();
         let index_bytes = mesh.get_index_buffer_bytes().map(<[_]>::len).unwrap_or(0);
-        Some(vertex_size * vertex_count + index_bytes)
+        (
+            mesh.transfer_priority,
+            Some(vertex_size * vertex_count + index_bytes),
+        )
     }
 
     /// Converts the extracted mesh into a [`RenderMesh`].

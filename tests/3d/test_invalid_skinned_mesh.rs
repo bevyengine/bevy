@@ -11,6 +11,7 @@ use bevy::{
     post_process::motion_blur::MotionBlur,
     prelude::*,
 };
+use bevy_asset::RenderAssetTransferPriority;
 use core::f32::consts::TAU;
 
 fn main() {
@@ -99,6 +100,7 @@ fn setup_meshes(
     let unskinned_mesh = Mesh::new(
         PrimitiveTopology::TriangleList,
         RenderAssetUsages::default(),
+        RenderAssetTransferPriority::default(),
     )
     .with_inserted_attribute(
         Mesh::ATTRIBUTE_POSITION,

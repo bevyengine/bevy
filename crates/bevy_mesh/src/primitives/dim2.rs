@@ -2,7 +2,7 @@ use core::f32::consts::FRAC_PI_2;
 use core::mem;
 
 use crate::{primitives::dim3::triangle3d, Indices, Mesh, PerimeterSegment, VertexAttributeValues};
-use bevy_asset::RenderAssetUsages;
+use bevy_asset::{RenderAssetTransferPriority, RenderAssetUsages};
 
 use super::{Extrudable, MeshBuilder, Meshable};
 use bevy_math::prelude::Polyline2d;
@@ -213,6 +213,7 @@ impl MeshBuilder for CircularSectorMeshBuilder {
         Mesh::new(
             PrimitiveTopology::TriangleList,
             RenderAssetUsages::default(),
+            RenderAssetTransferPriority::default(),
         )
         .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
         .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
@@ -360,6 +361,7 @@ impl MeshBuilder for CircularSegmentMeshBuilder {
         Mesh::new(
             PrimitiveTopology::TriangleList,
             RenderAssetUsages::default(),
+            RenderAssetTransferPriority::default(),
         )
         .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
         .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
@@ -441,6 +443,7 @@ impl MeshBuilder for ConvexPolygonMeshBuilder {
         Mesh::new(
             PrimitiveTopology::TriangleList,
             RenderAssetUsages::default(),
+            RenderAssetTransferPriority::default(),
         )
         .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
         .with_inserted_indices(Indices::U32(indices))
@@ -605,6 +608,7 @@ impl MeshBuilder for EllipseMeshBuilder {
         Mesh::new(
             PrimitiveTopology::TriangleList,
             RenderAssetUsages::default(),
+            RenderAssetTransferPriority::default(),
         )
         .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
         .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
@@ -659,9 +663,13 @@ impl MeshBuilder for Segment2dMeshBuilder {
         let positions = self.segment.vertices.map(|v| v.extend(0.0)).to_vec();
         let indices = Indices::U32(vec![0, 1]);
 
-        Mesh::new(PrimitiveTopology::LineList, RenderAssetUsages::default())
-            .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
-            .with_inserted_indices(indices)
+        Mesh::new(
+            PrimitiveTopology::LineList,
+            RenderAssetUsages::default(),
+            RenderAssetTransferPriority::default(),
+        )
+        .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
+        .with_inserted_indices(indices)
     }
 }
 
@@ -702,9 +710,13 @@ impl MeshBuilder for Polyline2dMeshBuilder {
                 .collect(),
         );
 
-        Mesh::new(PrimitiveTopology::LineList, RenderAssetUsages::default())
-            .with_inserted_indices(indices)
-            .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
+        Mesh::new(
+            PrimitiveTopology::LineList,
+            RenderAssetUsages::default(),
+            RenderAssetTransferPriority::default(),
+        )
+        .with_inserted_indices(indices)
+        .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
     }
 }
 
@@ -814,6 +826,7 @@ impl MeshBuilder for AnnulusMeshBuilder {
         Mesh::new(
             PrimitiveTopology::TriangleList,
             RenderAssetUsages::default(),
+            RenderAssetTransferPriority::default(),
         )
         .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
         .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
@@ -911,6 +924,7 @@ impl MeshBuilder for RhombusMeshBuilder {
         Mesh::new(
             PrimitiveTopology::TriangleList,
             RenderAssetUsages::default(),
+            RenderAssetTransferPriority::default(),
         )
         .with_inserted_indices(indices)
         .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
@@ -991,6 +1005,7 @@ impl MeshBuilder for Triangle2dMeshBuilder {
         Mesh::new(
             PrimitiveTopology::TriangleList,
             RenderAssetUsages::default(),
+            RenderAssetTransferPriority::default(),
         )
         .with_inserted_indices(indices)
         .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
@@ -1068,6 +1083,7 @@ impl MeshBuilder for RectangleMeshBuilder {
         Mesh::new(
             PrimitiveTopology::TriangleList,
             RenderAssetUsages::default(),
+            RenderAssetTransferPriority::default(),
         )
         .with_inserted_indices(indices)
         .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
@@ -1210,6 +1226,7 @@ impl MeshBuilder for Capsule2dMeshBuilder {
         Mesh::new(
             PrimitiveTopology::TriangleList,
             RenderAssetUsages::default(),
+            RenderAssetTransferPriority::default(),
         )
         .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
         .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
@@ -1427,6 +1444,7 @@ where
             Mesh::new(
                 PrimitiveTopology::TriangleList,
                 RenderAssetUsages::default(),
+                RenderAssetTransferPriority::default(),
             )
             .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
             .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)

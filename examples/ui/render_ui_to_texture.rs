@@ -16,6 +16,7 @@ use bevy::{
     render::render_resource::{Extent3d, TextureDimension, TextureFormat, TextureUsages},
     window::{PrimaryWindow, WindowEvent},
 };
+use bevy_asset::RenderAssetTransferPriority;
 
 const CUBE_POINTER_ID: PointerId = PointerId::Custom(Uuid::from_u128(90870987));
 
@@ -51,6 +52,7 @@ fn setup(
         &[0, 0, 0, 0],
         TextureFormat::Bgra8UnormSrgb,
         RenderAssetUsages::default(),
+        RenderAssetTransferPriority::Immediate,
     );
     // You need to set these texture usage flags in order to use the image as a render target
     image.texture_descriptor.usage =

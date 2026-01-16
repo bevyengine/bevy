@@ -11,6 +11,7 @@ use bevy::{
     },
     shader::ShaderRef,
 };
+use bevy_asset::RenderAssetTransferPriority;
 
 /// This example uses a shader source file from the assets subdirectory
 const SHADER_ASSET_PATH: &str = "shaders/line_material.wgsl";
@@ -101,6 +102,7 @@ impl From<LineList> for Mesh {
             // where every pair is a start and end point
             PrimitiveTopology::LineList,
             RenderAssetUsages::RENDER_WORLD,
+            RenderAssetTransferPriority::default(),
         )
         // Add the vertices positions as an attribute
         .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, vertices)
@@ -120,6 +122,7 @@ impl From<LineStrip> for Mesh {
             // where a line will be drawn between each consecutive point
             PrimitiveTopology::LineStrip,
             RenderAssetUsages::RENDER_WORLD,
+            RenderAssetTransferPriority::default(),
         )
         // Add the point positions as an attribute
         .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, line.points)

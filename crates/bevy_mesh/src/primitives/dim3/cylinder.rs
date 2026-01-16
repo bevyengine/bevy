@@ -1,5 +1,5 @@
 use crate::{Indices, Mesh, MeshBuilder, Meshable, PrimitiveTopology};
-use bevy_asset::RenderAssetUsages;
+use bevy_asset::{RenderAssetTransferPriority, RenderAssetUsages};
 use bevy_math::{ops, primitives::Cylinder};
 use bevy_reflect::prelude::*;
 
@@ -196,6 +196,7 @@ impl MeshBuilder for CylinderMeshBuilder {
         Mesh::new(
             PrimitiveTopology::TriangleList,
             RenderAssetUsages::default(),
+            RenderAssetTransferPriority::default(),
         )
         .with_inserted_indices(Indices::U32(indices))
         .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)

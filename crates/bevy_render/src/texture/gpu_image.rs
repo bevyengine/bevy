@@ -55,8 +55,10 @@ impl RenderAsset for GpuImage {
     }
 
     #[inline]
-    fn byte_len(image: &Self::SourceAsset) -> Option<usize> {
-        image.data.as_ref().map(Vec::len)
+    fn transfer_priority(
+        image: &Self::SourceAsset,
+    ) -> (bevy_asset::RenderAssetTransferPriority, Option<usize>) {
+        (image.transfer_priority, image.data.as_ref().map(Vec::len))
     }
 
     /// Converts the extracted image into a [`GpuImage`].

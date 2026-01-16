@@ -2,7 +2,7 @@
 //! pick entities visible in the widget's view.
 
 use bevy::{
-    asset::RenderAssetUsages,
+    asset::{RenderAssetTransferPriority, RenderAssetUsages},
     camera::RenderTarget,
     picking::pointer::PointerInteraction,
     prelude::*,
@@ -38,6 +38,7 @@ fn test(
         TextureDimension::D2,
         TextureFormat::Bgra8UnormSrgb,
         RenderAssetUsages::all(),
+        RenderAssetTransferPriority::default(),
     );
     image.texture_descriptor.usage =
         TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST | TextureUsages::RENDER_ATTACHMENT;

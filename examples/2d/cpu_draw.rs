@@ -9,6 +9,7 @@ use bevy::asset::RenderAssetUsages;
 use bevy::color::{color_difference::EuclideanDistance, palettes::css};
 use bevy::prelude::*;
 use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
+use bevy_asset::RenderAssetTransferPriority;
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;
 
@@ -52,6 +53,7 @@ fn setup(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
         // Use the same encoding as the color we set
         TextureFormat::Rgba8UnormSrgb,
         RenderAssetUsages::MAIN_WORLD | RenderAssetUsages::RENDER_WORLD,
+        RenderAssetTransferPriority::default(),
     );
 
     // To make it extra fancy, we can set the Alpha of each pixel,

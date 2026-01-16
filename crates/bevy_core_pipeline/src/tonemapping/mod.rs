@@ -428,6 +428,7 @@ fn setup_tonemapping_lut_image(bytes: &[u8], image_type: ImageType) -> Image {
         false,
         image_sampler,
         RenderAssetUsages::RENDER_WORLD,
+        bevy_asset::RenderAssetTransferPriority::Immediate,
     )
     .unwrap()
 }
@@ -451,6 +452,7 @@ pub fn lut_placeholder() -> Image {
         sampler: ImageSampler::Default,
         texture_view_descriptor: None,
         asset_usage: RenderAssetUsages::RENDER_WORLD,
+        transfer_priority: bevy_asset::RenderAssetTransferPriority::Immediate,
         copy_on_resize: false,
     }
 }

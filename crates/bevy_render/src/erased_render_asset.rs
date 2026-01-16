@@ -1,14 +1,15 @@
+use crate::render_asset::{allocate_render_asset_bytes_per_frame_priorities, reset_render_asset_bytes_per_frame};
 use crate::{
     render_resource::AsBindGroupError, ExtractSchedule, MainWorld, Render, RenderApp,
     RenderSystems, Res,
 };
 use bevy_app::{App, Plugin, SubApp};
-use bevy_asset::RenderAssetUsages;
 use bevy_asset::{Asset, AssetEvent, AssetId, Assets, UntypedAssetId};
+use bevy_asset::{RenderAssetTransferPriority, RenderAssetUsages};
 use bevy_ecs::{
     prelude::{Commands, IntoScheduleConfigs, MessageReader, ResMut, Resource},
-    schedule::{ScheduleConfigs, SystemSet},
-    system::{ScheduleSystem, StaticSystemParam, SystemParam, SystemParamItem, SystemState},
+    schedule::SystemSet,
+    system::{StaticSystemParam, SystemParam, SystemParamItem, SystemState},
     world::{FromWorld, Mut},
 };
 use bevy_platform::collections::{HashMap, HashSet};
@@ -53,15 +54,23 @@ pub trait ErasedRenderAsset: Send + Sync + 'static {
         RenderAssetUsages::default()
     }
 
-    /// Size of the data the asset will upload to the gpu. Specifying a return value
-    /// will allow the asset to be throttled via [`RenderAssetBytesPerFrameLimiter`].
+    /// Priority for GPU transfer, and optionally size of the data the asset will upload to the gpu.
+    /// Using a priority other than `TransferPriority::Immediate` will allow the asset to be throttled
+    /// via [`RenderAssetBytesPerFrame`].
+    /// Specifying a size will allow the asset size to be counted towards the bytes per frame limit.
+    /// If a `RenderAsset` does not implement this function, it is immediately uploaded and reports zero size.
+    /// 
+    /// [`RenderAssetBytesPerFrame`]: crate::render_asset::RenderAssetBytesPerFrame
     #[inline]
     #[expect(
         unused_variables,
         reason = "The parameters here are intentionally unused by the default implementation; however, putting underscores here will result in the underscores being copied by rust-analyzer's tab completion."
     )]
-    fn byte_len(erased_asset: &Self::SourceAsset) -> Option<usize> {
-        None
+    fn transfer_priority(
+        source_asset: &Self::SourceAsset,
+    ) -> (RenderAssetTransferPriority, Option<usize>) {
+        // by default assets are transferred immediately, and do not count towards the frame limit.
+        (RenderAssetTransferPriority::Immediate, None)
     }
 
     /// Prepares the [`ErasedRenderAsset::SourceAsset`] for the GPU by transforming it into a [`ErasedRenderAsset`].
@@ -130,31 +139,56 @@ impl<A: ErasedRenderAsset, AFTER: ErasedRenderAssetDependency + 'static> Plugin
                     ExtractSchedule,
                     extract_erased_render_asset::<A>.in_set(AssetExtractionSystems),
                 );
-            AFTER::register_system(
-                render_app,
-                prepare_erased_assets::<A>.in_set(RenderSystems::PrepareAssets),
-            );
+            AFTER::register_system::<A>(render_app);
         }
     }
 }
 
 // helper to allow specifying dependencies between render assets
 pub trait ErasedRenderAssetDependency {
-    fn register_system(render_app: &mut SubApp, system: ScheduleConfigs<ScheduleSystem>);
+    fn register_system<A: ErasedRenderAsset>(render_app: &mut SubApp);
 }
 
 impl ErasedRenderAssetDependency for () {
-    fn register_system(render_app: &mut SubApp, system: ScheduleConfigs<ScheduleSystem>) {
-        render_app.add_systems(Render, system);
+    fn register_system<A: ErasedRenderAsset>(render_app: &mut SubApp) {
+        render_app.add_systems(
+            Render,
+            request_bytes::<A>
+                .after(reset_render_asset_bytes_per_frame)
+                .before(allocate_render_asset_bytes_per_frame_priorities)
+                .in_set(RenderSystems::PrepareAssets)
+                .run_if(|bpf: Res<RenderAssetBytesPerFrameLimiter>| bpf.needs_requests()),
+        );
+
+        render_app.add_systems(
+            Render,
+            prepare_erased_assets::<A>
+                .after(allocate_render_asset_bytes_per_frame_priorities)
+                .in_set(RenderSystems::PrepareAssets),
+        );
     }
 }
 
-impl<A: ErasedRenderAsset> ErasedRenderAssetDependency for A {
-    fn register_system(render_app: &mut SubApp, system: ScheduleConfigs<ScheduleSystem>) {
-        render_app.add_systems(Render, system.after(prepare_erased_assets::<A>));
+impl<AFTER: ErasedRenderAsset> ErasedRenderAssetDependency for AFTER {
+    fn register_system<A: ErasedRenderAsset>(render_app: &mut SubApp) {
+        render_app.add_systems(
+            Render,
+            request_bytes::<A>
+                .after(reset_render_asset_bytes_per_frame)
+                .before(allocate_render_asset_bytes_per_frame_priorities)
+                .in_set(RenderSystems::PrepareAssets)
+                .run_if(|bpf: Res<RenderAssetBytesPerFrameLimiter>| bpf.needs_requests()),
+        );
+
+        render_app.add_systems(
+            Render,
+            prepare_erased_assets::<A>
+                .after(allocate_render_asset_bytes_per_frame_priorities)
+                .after(prepare_erased_assets::<AFTER>)
+                .in_set(RenderSystems::PrepareAssets),
+        );
     }
 }
-
 /// Temporarily stores the extracted and removed assets of the current frame.
 #[derive(Resource)]
 pub struct ExtractedAssets<A: ErasedRenderAsset> {
@@ -189,7 +223,7 @@ impl<A: ErasedRenderAsset> Default for ExtractedAssets<A> {
 /// Stores all GPU representations ([`ErasedRenderAsset`])
 /// of [`ErasedRenderAsset::SourceAsset`] as long as they exist.
 #[derive(Resource)]
-pub struct ErasedRenderAssets<ERA>(HashMap<UntypedAssetId, ERA>);
+pub struct ErasedRenderAssets<ERA>(HashMap<UntypedAssetId, (ERA, bool)>);
 
 impl<ERA> Default for ErasedRenderAssets<ERA> {
     fn default() -> Self {
@@ -199,27 +233,43 @@ impl<ERA> Default for ErasedRenderAssets<ERA> {
 
 impl<ERA> ErasedRenderAssets<ERA> {
     pub fn get(&self, id: impl Into<UntypedAssetId>) -> Option<&ERA> {
-        self.0.get(&id.into())
+        self.0.get(&id.into()).map(|(asset, _)| asset)
+    }
+
+    pub fn get_latest(&self, id: impl Into<UntypedAssetId>) -> Option<&ERA> {
+        self.0
+            .get(&id.into())
+            .filter(|(_, stale)| !stale)
+            .map(|(asset, _)| asset)
     }
 
     pub fn get_mut(&mut self, id: impl Into<UntypedAssetId>) -> Option<&mut ERA> {
-        self.0.get_mut(&id.into())
+        self.0.get_mut(&id.into()).map(|(asset, _)| asset)
     }
 
     pub fn insert(&mut self, id: impl Into<UntypedAssetId>, value: ERA) -> Option<ERA> {
-        self.0.insert(id.into(), value)
+        self.0
+            .insert(id.into(), (value, false))
+            .map(|(asset, _)| asset)
     }
 
     pub fn remove(&mut self, id: impl Into<UntypedAssetId>) -> Option<ERA> {
-        self.0.remove(&id.into())
+        self.0.remove(&id.into()).map(|(asset, _)| asset)
+    }
+
+    pub fn set_stale(&mut self, id: impl Into<UntypedAssetId>) -> Option<&ERA> {
+        self.0.get_mut(&id.into()).map(|(asset, stale)| {
+            *stale = true;
+            &*asset
+        })
     }
 
     pub fn iter(&self) -> impl Iterator<Item = (UntypedAssetId, &ERA)> {
-        self.0.iter().map(|(k, v)| (*k, v))
+        self.0.iter().map(|(k, (asset, _))| (*k, asset))
     }
 
     pub fn iter_mut(&mut self) -> impl Iterator<Item = (UntypedAssetId, &mut ERA)> {
-        self.0.iter_mut().map(|(k, v)| (*k, v))
+        self.0.iter_mut().map(|(k, (asset, _))| (*k, asset))
     }
 }
 
@@ -326,6 +376,30 @@ impl<A: ErasedRenderAsset> Default for PrepareNextFrameAssets<A> {
     }
 }
 
+/// This system iterates all assets of the corresponding [`ErasedRenderAsset::SourceAsset`] type
+/// and records the bytes requested for transferring, in order to apply priorities
+/// when the assets are actually prepared
+pub fn request_bytes<A: ErasedRenderAsset>(
+    extracted_assets: Res<ExtractedAssets<A>>,
+    prepare_next_frame: Res<PrepareNextFrameAssets<A>>,
+    bpf: Res<RenderAssetBytesPerFrameLimiter>,
+) {
+    for (id, extracted_asset) in &prepare_next_frame.assets {
+        if extracted_assets.removed.contains(id) || extracted_assets.added.contains(id) {
+            // skip previous frame's assets that have been removed or updated
+            continue;
+        }
+
+        let (transfer_priority, maybe_bytes) = A::transfer_priority(extracted_asset);
+        bpf.request_bytes(maybe_bytes, transfer_priority);
+    }
+
+    for (_, extracted_asset) in &extracted_assets.extracted {
+        let (transfer_priority, maybe_bytes) = A::transfer_priority(extracted_asset);
+        bpf.request_bytes(maybe_bytes, transfer_priority);
+    }
+}
+
 /// This system prepares all assets of the corresponding [`ErasedRenderAsset::SourceAsset`] type
 /// which where extracted this frame for the GPU.
 pub fn prepare_erased_assets<A: ErasedRenderAsset>(
@@ -345,24 +419,16 @@ pub fn prepare_erased_assets<A: ErasedRenderAsset>(
             continue;
         }
 
-        let write_bytes = if let Some(size) = A::byte_len(&extracted_asset) {
-            // we could check if available bytes > byte_len here, but we want to make some
-            // forward progress even if the asset is larger than the max bytes per frame.
-            // this way we always write at least one (sized) asset per frame.
-            // in future we could also consider partial asset uploads.
-            if bpf.exhausted() {
-                prepare_next_frame.assets.push((id, extracted_asset));
-                continue;
-            }
-            size
-        } else {
-            0
-        };
+        let (transfer_priority, maybe_bytes) = A::transfer_priority(&extracted_asset);
+        if bpf.exhausted(transfer_priority) {
+            prepare_next_frame.assets.push((id, extracted_asset));
+            continue;
+        }
 
         match A::prepare_asset(extracted_asset, id, &mut param) {
             Ok(prepared_asset) => {
                 render_assets.insert(id, prepared_asset);
-                bpf.write_bytes(write_bytes);
+                bpf.write_bytes(maybe_bytes, transfer_priority);
                 wrote_asset_count += 1;
             }
             Err(PrepareAssetError::RetryNextUpdate(extracted_asset)) => {
@@ -383,25 +449,23 @@ pub fn prepare_erased_assets<A: ErasedRenderAsset>(
     }
 
     for (id, extracted_asset) in extracted_assets.extracted.drain(..) {
-        // we remove previous here to ensure that if we are updating the asset then
-        // any users will not see the old asset after a new asset is extracted,
-        // even if the new asset is not yet ready or we are out of bytes to write.
-        render_assets.remove(id);
+        // we do not remove previous here so that materials can continue to use
+        // the old asset until it is replaced.
+        // if it is necessary to have new asset immediately (e.g. if it is a resized image
+        // and the shader expects the new sizes), use `RenderAssetTransferPriority::Immediate`.
+        let _previous_asset = render_assets.set_stale(id);
 
-        let write_bytes = if let Some(size) = A::byte_len(&extracted_asset) {
-            if bpf.exhausted() {
-                prepare_next_frame.assets.push((id, extracted_asset));
-                continue;
-            }
-            size
-        } else {
-            0
-        };
+        let (transfer_priority, maybe_bytes) = A::transfer_priority(&extracted_asset);
+
+        if bpf.exhausted(transfer_priority) {
+            prepare_next_frame.assets.push((id, extracted_asset));
+            continue;
+        }
 
         match A::prepare_asset(extracted_asset, id, &mut param) {
             Ok(prepared_asset) => {
                 render_assets.insert(id, prepared_asset);
-                bpf.write_bytes(write_bytes);
+                bpf.write_bytes(maybe_bytes, transfer_priority);
                 wrote_asset_count += 1;
             }
             Err(PrepareAssetError::RetryNextUpdate(extracted_asset)) => {
@@ -416,7 +480,7 @@ pub fn prepare_erased_assets<A: ErasedRenderAsset>(
         }
     }
 
-    if bpf.exhausted() && !prepare_next_frame.assets.is_empty() {
+    if bpf.overflowing() && !prepare_next_frame.assets.is_empty() {
         debug!(
             "{} write budget exhausted with {} assets remaining (wrote {})",
             core::any::type_name::<A>(),

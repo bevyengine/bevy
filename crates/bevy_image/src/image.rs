@@ -12,7 +12,9 @@ use bevy_reflect::TypePath;
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 
-use bevy_asset::{uuid_handle, Asset, AssetApp, Assets, Handle, RenderAssetUsages};
+use bevy_asset::{
+    uuid_handle, Asset, AssetApp, Assets, Handle, RenderAssetTransferPriority, RenderAssetUsages,
+};
 use bevy_color::{Color, ColorToComponents, Gray, LinearRgba, Srgba, Xyza};
 use bevy_ecs::resource::Resource;
 use bevy_math::{AspectRatio, UVec2, UVec3, Vec2};
@@ -607,6 +609,8 @@ pub struct Image {
     ///   If you use assets, the label is purely a debugging aid.
     pub texture_view_descriptor: Option<TextureViewDescriptor<Option<&'static str>>>,
     pub asset_usage: RenderAssetUsages,
+    /// The priority to assign when transferring assets to the GPU. Only effective when used with `RenderAssetBytesPerFrame::MaxBytesWithPriority`
+    pub transfer_priority: RenderAssetTransferPriority,
     /// Whether this image should be copied on the GPU when resized.
     pub copy_on_resize: bool,
 }
@@ -1028,6 +1032,7 @@ impl Image {
         data: Vec<u8>,
         format: TextureFormat,
         asset_usage: RenderAssetUsages,
+        transfer_priority: RenderAssetTransferPriority,
     ) -> Self {
         if let Ok(pixel_size) = format.pixel_size() {
             debug_assert_eq!(
@@ -1036,7 +1041,7 @@ impl Image {
                 "Pixel data, size and format have to match",
             );
         }
-        let mut image = Image::new_uninit(size, dimension, format, asset_usage);
+        let mut image = Image::new_uninit(size, dimension, format, asset_usage, transfer_priority);
         image.data = Some(data);
         image
     }
@@ -1047,6 +1052,7 @@ impl Image {
         dimension: TextureDimension,
         format: TextureFormat,
         asset_usage: RenderAssetUsages,
+        transfer_priority: RenderAssetTransferPriority,
     ) -> Self {
         Image {
             data: None,
@@ -1066,6 +1072,7 @@ impl Image {
             sampler: ImageSampler::Default,
             texture_view_descriptor: None,
             asset_usage,
+            transfer_priority,
             copy_on_resize: false,
         }
     }
@@ -1088,6 +1095,7 @@ impl Image {
             data,
             format,
             RenderAssetUsages::default(),
+            RenderAssetTransferPriority::default(),
         )
     }
     /// Creates a new uninitialized 1x1x1 image
@@ -1097,6 +1105,7 @@ impl Image {
             TextureDimension::D2,
             TextureFormat::bevy_default(),
             RenderAssetUsages::default(),
+            RenderAssetTransferPriority::default(),
         )
     }
 
@@ -1111,8 +1120,9 @@ impl Image {
         pixel: &[u8],
         format: TextureFormat,
         asset_usage: RenderAssetUsages,
+        transfer_priority: RenderAssetTransferPriority,
     ) -> Self {
-        let mut image = Image::new_uninit(size, dimension, format, asset_usage);
+        let mut image = Image::new_uninit(size, dimension, format, asset_usage, transfer_priority);
         if let Ok(pixel_size) = image.texture_descriptor.format.pixel_size()
             && pixel_size > 0
         {
@@ -1197,6 +1207,7 @@ impl Image {
                 ..Default::default()
             }),
             asset_usage: RenderAssetUsages::default(),
+            transfer_priority: RenderAssetTransferPriority::Immediate,
             copy_on_resize: true,
         }
     }
@@ -1367,7 +1378,9 @@ impl Image {
                 }
                 _ => None,
             })
-            .map(|(dyn_img, is_srgb)| Self::from_dynamic(dyn_img, is_srgb, self.asset_usage))
+            .map(|(dyn_img, is_srgb)| {
+                Self::from_dynamic(dyn_img, is_srgb, self.asset_usage, self.transfer_priority)
+            })
     }
 
     /// Load a bytes buffer in a [`Image`], according to type `image_type`, using the `image`
@@ -1383,6 +1396,7 @@ impl Image {
         is_srgb: bool,
         image_sampler: ImageSampler,
         asset_usage: RenderAssetUsages,
+        transfer_priority: RenderAssetTransferPriority,
     ) -> Result<Image, TextureError> {
         let format = image_type.to_image_format()?;
 
@@ -1419,7 +1433,7 @@ impl Image {
                 reader.set_format(image_crate_format);
                 reader.no_limits();
                 let dyn_img = reader.decode()?;
-                Self::from_dynamic(dyn_img, is_srgb, asset_usage)
+                Self::from_dynamic(dyn_img, is_srgb, asset_usage, transfer_priority)
             }
         };
         image.sampler = image_sampler;
@@ -2157,6 +2171,7 @@ mod test {
             &[0, 0, 0, 255],
             TextureFormat::Rgba8Unorm,
             RenderAssetUsages::MAIN_WORLD,
+            RenderAssetTransferPriority::default(),
         );
         assert_eq!(
             Vec2::new(size.width as f32, size.height as f32),
@@ -2183,6 +2198,7 @@ mod test {
             &[0, 0, 0, 255],
             TextureFormat::Rgba8Unorm,
             RenderAssetUsages::MAIN_WORLD,
+            RenderAssetTransferPriority::default(),
         );
         assert!(matches!(image.get_color_at(4, 9), Ok(Color::BLACK)));
         assert!(matches!(
@@ -2207,6 +2223,7 @@ mod test {
             &[0, 0, 0, 255],
             TextureFormat::Rgba8Unorm,
             RenderAssetUsages::MAIN_WORLD,
+            RenderAssetTransferPriority::default(),
         );
         image.set_color_at_3d(0, 0, 0, Color::WHITE).unwrap();
         assert!(matches!(image.get_color_at_3d(0, 0, 0), Ok(Color::WHITE)));
@@ -2233,6 +2250,7 @@ mod test {
             &INITIAL_FILL.to_u8_array(),
             TextureFormat::Rgba8Unorm,
             RenderAssetUsages::MAIN_WORLD,
+            RenderAssetTransferPriority::default(),
         );
 
         // Create a test pattern
@@ -2301,6 +2319,7 @@ mod test {
             &INITIAL_FILL.to_u8_array(),
             TextureFormat::Rgba8Unorm,
             RenderAssetUsages::MAIN_WORLD,
+            RenderAssetTransferPriority::default(),
         );
 
         // Create a test pattern
@@ -2387,6 +2406,7 @@ mod test {
             &[0; 4],
             TextureFormat::Rgba8Snorm,
             RenderAssetUsages::all(),
+            RenderAssetTransferPriority::default(),
         );
 
         assert!(image.data.as_ref().unwrap().iter().all(|&p| p == 0));

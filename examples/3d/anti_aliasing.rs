@@ -25,6 +25,7 @@ use bevy::{
 use bevy::anti_alias::dlss::{
     Dlss, DlssPerfQualityMode, DlssProjectId, DlssSuperResolutionSupported,
 };
+use bevy_asset::RenderAssetTransferPriority;
 
 fn main() {
     let mut app = App::new();
@@ -526,6 +527,7 @@ fn uv_debug_texture() -> Image {
         &texture_data,
         TextureFormat::Rgba8UnormSrgb,
         RenderAssetUsages::RENDER_WORLD,
+        RenderAssetTransferPriority::default(),
     );
     img.sampler = ImageSampler::Descriptor(ImageSamplerDescriptor::default());
     img

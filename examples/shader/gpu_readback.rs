@@ -19,6 +19,7 @@ use bevy::{
         Render, RenderApp, RenderStartup, RenderSystems,
     },
 };
+use bevy_asset::RenderAssetTransferPriority;
 
 /// This example uses a shader source file from the assets subdirectory
 const SHADER_ASSET_PATH: &str = "shaders/gpu_readback.wgsl";
@@ -92,6 +93,7 @@ fn setup(
         TextureDimension::D2,
         TextureFormat::R32Uint,
         RenderAssetUsages::RENDER_WORLD,
+        RenderAssetTransferPriority::Immediate,
     );
     // We also need to enable the COPY_SRC, as well as STORAGE_BINDING so we can use it in the
     // compute shader

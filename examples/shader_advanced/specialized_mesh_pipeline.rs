@@ -37,6 +37,7 @@ use bevy::{
         Render, RenderApp, RenderStartup, RenderSystems,
     },
 };
+use bevy_asset::RenderAssetTransferPriority;
 
 const SHADER_ASSET_PATH: &str = "shaders/specialized_mesh_pipeline.wgsl";
 
@@ -56,6 +57,7 @@ fn setup(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>) {
     let mesh = Mesh::new(
         PrimitiveTopology::TriangleList,
         RenderAssetUsages::default(),
+        RenderAssetTransferPriority::default(),
     )
     .with_inserted_indices(Indices::U32(vec![0, 1, 2]))
     .with_inserted_attribute(

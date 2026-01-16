@@ -162,6 +162,7 @@ impl EnvironmentMapLight {
                 .collect(),
                 TextureFormat::Rgba16Float,
                 RenderAssetUsages::RENDER_WORLD,
+                bevy_asset::RenderAssetTransferPriority::Immediate,
             )
         }
     }

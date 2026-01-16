@@ -12,6 +12,7 @@ use bevy::{
     },
     prelude::*,
 };
+use bevy_asset::RenderAssetTransferPriority;
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;
 
@@ -57,6 +58,7 @@ fn setup(
     let mesh = Mesh::new(
         PrimitiveTopology::TriangleList,
         RenderAssetUsages::RENDER_WORLD,
+        RenderAssetTransferPriority::default(),
     )
     // Set mesh vertex positions
     .with_inserted_attribute(

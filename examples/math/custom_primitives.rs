@@ -20,6 +20,7 @@ use bevy::{
     mesh::{Extrudable, ExtrusionBuilder, PerimeterSegment},
     prelude::*,
 };
+use bevy_asset::RenderAssetTransferPriority;
 
 const HEART: Heart = Heart::new(0.5);
 const HOLLOW: Heart = Heart::new(0.3);
@@ -557,6 +558,7 @@ impl MeshBuilder for HeartMeshBuilder {
         Mesh::new(
             bevy::mesh::PrimitiveTopology::TriangleList,
             RenderAssetUsages::default(),
+            RenderAssetTransferPriority::default(),
         )
         .with_inserted_indices(bevy::mesh::Indices::U32(indices))
         .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, vertices)
