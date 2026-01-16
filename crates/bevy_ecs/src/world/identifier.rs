@@ -1,5 +1,6 @@
 use crate::{
-    component::Tick,
+    change_detection::Tick,
+    query::FilteredAccessSet,
     storage::SparseSetIndex,
     system::{ExclusiveSystemParam, ReadOnlySystemParam, SystemMeta, SystemParam},
     world::{FromWorld, World},
@@ -53,7 +54,15 @@ unsafe impl SystemParam for WorldId {
 
     type Item<'world, 'state> = WorldId;
 
-    fn init_state(_: &mut World, _: &mut SystemMeta) -> Self::State {}
+    fn init_state(_: &mut World) -> Self::State {}
+
+    fn init_access(
+        _state: &Self::State,
+        _system_meta: &mut SystemMeta,
+        _component_access_set: &mut FilteredAccessSet,
+        _world: &mut World,
+    ) {
+    }
 
     #[inline]
     unsafe fn get_param<'world, 'state>(

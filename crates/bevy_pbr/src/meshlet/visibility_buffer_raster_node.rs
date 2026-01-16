@@ -2,22 +2,24 @@ use super::{
     pipelines::MeshletPipelines,
     resource_manager::{MeshletViewBindGroups, MeshletViewResources},
 };
-use crate::{LightEntity, ShadowView, ViewLightEntities};
+use crate::{
+    meshlet::resource_manager::ResourceManager, LightEntity, ShadowView, ViewLightEntities,
+};
 use bevy_color::LinearRgba;
 use bevy_core_pipeline::prepass::PreviousViewUniformOffset;
 use bevy_ecs::{
     query::QueryState,
     world::{FromWorld, World},
 };
-use bevy_math::{ops, UVec2};
+use bevy_math::UVec2;
 use bevy_render::{
     camera::ExtractedCamera,
+    diagnostic::RecordDiagnostics,
     render_graph::{Node, NodeRunError, RenderGraphContext},
     render_resource::*,
     renderer::RenderContext,
     view::{ViewDepthTexture, ViewUniformOffset},
 };
-use core::sync::atomic::Ordering;
 
 /// Rasterize meshlets into a depth buffer, and optional visibility buffer + material depth buffer for shading passes.
 pub struct MeshletVisibilityBufferRasterPassNode {
@@ -76,11 +78,14 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
         };
 
         let Some((
-            fill_cluster_buffers_pipeline,
             clear_visibility_buffer_pipeline,
             clear_visibility_buffer_shadow_view_pipeline,
-            culling_first_pipeline,
-            culling_second_pipeline,
+            first_instance_cull_pipeline,
+            second_instance_cull_pipeline,
+            first_bvh_cull_pipeline,
+            second_bvh_cull_pipeline,
+            first_meshlet_cull_pipeline,
+            second_meshlet_cull_pipeline,
             downsample_depth_first_pipeline,
             downsample_depth_second_pipeline,
             downsample_depth_first_shadow_view_pipeline,
@@ -94,69 +99,66 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
             resolve_depth_shadow_view_pipeline,
             resolve_material_depth_pipeline,
             remap_1d_to_2d_dispatch_pipeline,
+            fill_counts_pipeline,
         )) = MeshletPipelines::get(world)
         else {
             return Ok(());
         };
 
-        let first_node = meshlet_view_bind_groups
-            .first_node
-            .fetch_and(false, Ordering::SeqCst);
-
-        let div_ceil = meshlet_view_resources.scene_cluster_count.div_ceil(128);
-        let thread_per_cluster_workgroups = ops::cbrt(div_ceil as f32).ceil() as u32;
+        let diagnostics = render_context.diagnostic_recorder();
 
         render_context
             .command_encoder()
             .push_debug_group("meshlet_visibility_buffer_raster");
-        if first_node {
-            fill_cluster_buffers_pass(
-                render_context,
-                &meshlet_view_bind_groups.fill_cluster_buffers,
-                fill_cluster_buffers_pipeline,
-                meshlet_view_resources.scene_instance_count,
-            );
-        }
+        let time_span = diagnostics.time_span(
+            render_context.command_encoder(),
+            "meshlet_visibility_buffer_raster",
+        );
+
+        let resource_manager = world.get_resource::<ResourceManager>().unwrap();
+        render_context.command_encoder().clear_buffer(
+            &resource_manager.visibility_buffer_raster_cluster_prev_counts,
+            0,
+            None,
+        );
+
         clear_visibility_buffer_pass(
             render_context,
             &meshlet_view_bind_groups.clear_visibility_buffer,
             clear_visibility_buffer_pipeline,
             meshlet_view_resources.view_size,
         );
-        render_context.command_encoder().clear_buffer(
-            &meshlet_view_resources.second_pass_candidates_buffer,
-            0,
-            None,
-        );
-        cull_pass(
-            "culling_first",
+
+        render_context
+            .command_encoder()
+            .push_debug_group("meshlet_first_pass");
+        first_cull(
             render_context,
-            &meshlet_view_bind_groups.culling_first,
+            meshlet_view_bind_groups,
+            meshlet_view_resources,
             view_offset,
             previous_view_offset,
-            culling_first_pipeline,
-            thread_per_cluster_workgroups,
-            meshlet_view_resources.scene_cluster_count,
-            meshlet_view_resources.raster_cluster_rightmost_slot,
-            meshlet_view_bind_groups
-                .remap_1d_to_2d_dispatch
-                .as_ref()
-                .map(|(bg1, _)| bg1),
+            first_instance_cull_pipeline,
+            first_bvh_cull_pipeline,
+            first_meshlet_cull_pipeline,
             remap_1d_to_2d_dispatch_pipeline,
         );
         raster_pass(
             true,
             render_context,
-            &meshlet_view_resources.visibility_buffer_software_raster_indirect_args_first,
-            &meshlet_view_resources.visibility_buffer_hardware_raster_indirect_args_first,
+            &meshlet_view_resources.visibility_buffer_software_raster_indirect_args,
+            &meshlet_view_resources.visibility_buffer_hardware_raster_indirect_args,
             &meshlet_view_resources.dummy_render_target.default_view,
             meshlet_view_bind_groups,
             view_offset,
             visibility_buffer_software_raster_pipeline,
             visibility_buffer_hardware_raster_pipeline,
+            fill_counts_pipeline,
             Some(camera),
-            meshlet_view_resources.raster_cluster_rightmost_slot,
+            meshlet_view_resources.rightmost_slot,
         );
+        render_context.command_encoder().pop_debug_group();
+
         meshlet_view_resources.depth_pyramid.downsample_depth(
             "downsample_depth",
             render_context,
@@ -165,35 +167,37 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
             downsample_depth_first_pipeline,
             downsample_depth_second_pipeline,
         );
-        cull_pass(
-            "culling_second",
+
+        render_context
+            .command_encoder()
+            .push_debug_group("meshlet_second_pass");
+        second_cull(
             render_context,
-            &meshlet_view_bind_groups.culling_second,
+            meshlet_view_bind_groups,
+            meshlet_view_resources,
             view_offset,
             previous_view_offset,
-            culling_second_pipeline,
-            thread_per_cluster_workgroups,
-            meshlet_view_resources.scene_cluster_count,
-            meshlet_view_resources.raster_cluster_rightmost_slot,
-            meshlet_view_bind_groups
-                .remap_1d_to_2d_dispatch
-                .as_ref()
-                .map(|(_, bg2)| bg2),
+            second_instance_cull_pipeline,
+            second_bvh_cull_pipeline,
+            second_meshlet_cull_pipeline,
             remap_1d_to_2d_dispatch_pipeline,
         );
         raster_pass(
             false,
             render_context,
-            &meshlet_view_resources.visibility_buffer_software_raster_indirect_args_second,
-            &meshlet_view_resources.visibility_buffer_hardware_raster_indirect_args_second,
+            &meshlet_view_resources.visibility_buffer_software_raster_indirect_args,
+            &meshlet_view_resources.visibility_buffer_hardware_raster_indirect_args,
             &meshlet_view_resources.dummy_render_target.default_view,
             meshlet_view_bind_groups,
             view_offset,
             visibility_buffer_software_raster_pipeline,
             visibility_buffer_hardware_raster_pipeline,
+            fill_counts_pipeline,
             Some(camera),
-            meshlet_view_resources.raster_cluster_rightmost_slot,
+            meshlet_view_resources.rightmost_slot,
         );
+        render_context.command_encoder().pop_debug_group();
+
         resolve_depth(
             render_context,
             view_depth.get_attachment(StoreOp::Store),
@@ -242,46 +246,47 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
                 "meshlet_visibility_buffer_raster: {}",
                 shadow_view.pass_name
             ));
+            let time_span_shadow = diagnostics.time_span(
+                render_context.command_encoder(),
+                shadow_view.pass_name.clone(),
+            );
             clear_visibility_buffer_pass(
                 render_context,
                 &meshlet_view_bind_groups.clear_visibility_buffer,
                 clear_visibility_buffer_shadow_view_pipeline,
                 meshlet_view_resources.view_size,
             );
-            render_context.command_encoder().clear_buffer(
-                &meshlet_view_resources.second_pass_candidates_buffer,
-                0,
-                None,
-            );
-            cull_pass(
-                "culling_first",
+
+            render_context
+                .command_encoder()
+                .push_debug_group("meshlet_first_pass");
+            first_cull(
                 render_context,
-                &meshlet_view_bind_groups.culling_first,
+                meshlet_view_bind_groups,
+                meshlet_view_resources,
                 view_offset,
                 previous_view_offset,
-                culling_first_pipeline,
-                thread_per_cluster_workgroups,
-                meshlet_view_resources.scene_cluster_count,
-                meshlet_view_resources.raster_cluster_rightmost_slot,
-                meshlet_view_bind_groups
-                    .remap_1d_to_2d_dispatch
-                    .as_ref()
-                    .map(|(bg1, _)| bg1),
+                first_instance_cull_pipeline,
+                first_bvh_cull_pipeline,
+                first_meshlet_cull_pipeline,
                 remap_1d_to_2d_dispatch_pipeline,
             );
             raster_pass(
                 true,
                 render_context,
-                &meshlet_view_resources.visibility_buffer_software_raster_indirect_args_first,
-                &meshlet_view_resources.visibility_buffer_hardware_raster_indirect_args_first,
+                &meshlet_view_resources.visibility_buffer_software_raster_indirect_args,
+                &meshlet_view_resources.visibility_buffer_hardware_raster_indirect_args,
                 &meshlet_view_resources.dummy_render_target.default_view,
                 meshlet_view_bind_groups,
                 view_offset,
                 visibility_buffer_software_raster_shadow_view_pipeline,
                 shadow_visibility_buffer_hardware_raster_pipeline,
+                fill_counts_pipeline,
                 None,
-                meshlet_view_resources.raster_cluster_rightmost_slot,
+                meshlet_view_resources.rightmost_slot,
             );
+            render_context.command_encoder().pop_debug_group();
+
             meshlet_view_resources.depth_pyramid.downsample_depth(
                 "downsample_depth",
                 render_context,
@@ -290,35 +295,37 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
                 downsample_depth_first_shadow_view_pipeline,
                 downsample_depth_second_shadow_view_pipeline,
             );
-            cull_pass(
-                "culling_second",
+
+            render_context
+                .command_encoder()
+                .push_debug_group("meshlet_second_pass");
+            second_cull(
                 render_context,
-                &meshlet_view_bind_groups.culling_second,
+                meshlet_view_bind_groups,
+                meshlet_view_resources,
                 view_offset,
                 previous_view_offset,
-                culling_second_pipeline,
-                thread_per_cluster_workgroups,
-                meshlet_view_resources.scene_cluster_count,
-                meshlet_view_resources.raster_cluster_rightmost_slot,
-                meshlet_view_bind_groups
-                    .remap_1d_to_2d_dispatch
-                    .as_ref()
-                    .map(|(_, bg2)| bg2),
+                second_instance_cull_pipeline,
+                second_bvh_cull_pipeline,
+                second_meshlet_cull_pipeline,
                 remap_1d_to_2d_dispatch_pipeline,
             );
             raster_pass(
                 false,
                 render_context,
-                &meshlet_view_resources.visibility_buffer_software_raster_indirect_args_second,
-                &meshlet_view_resources.visibility_buffer_hardware_raster_indirect_args_second,
+                &meshlet_view_resources.visibility_buffer_software_raster_indirect_args,
+                &meshlet_view_resources.visibility_buffer_hardware_raster_indirect_args,
                 &meshlet_view_resources.dummy_render_target.default_view,
                 meshlet_view_bind_groups,
                 view_offset,
                 visibility_buffer_software_raster_shadow_view_pipeline,
                 shadow_visibility_buffer_hardware_raster_pipeline,
+                fill_counts_pipeline,
                 None,
-                meshlet_view_resources.raster_cluster_rightmost_slot,
+                meshlet_view_resources.rightmost_slot,
             );
+            render_context.command_encoder().pop_debug_group();
+
             resolve_depth(
                 render_context,
                 shadow_view.depth_attachment.get_attachment(StoreOp::Store),
@@ -335,43 +342,13 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
                 downsample_depth_second_shadow_view_pipeline,
             );
             render_context.command_encoder().pop_debug_group();
+            time_span_shadow.end(render_context.command_encoder());
         }
+
+        time_span.end(render_context.command_encoder());
 
         Ok(())
     }
-}
-
-fn fill_cluster_buffers_pass(
-    render_context: &mut RenderContext,
-    fill_cluster_buffers_bind_group: &BindGroup,
-    fill_cluster_buffers_pass_pipeline: &ComputePipeline,
-    scene_instance_count: u32,
-) {
-    let mut fill_cluster_buffers_pass_workgroups_x = scene_instance_count;
-    let mut fill_cluster_buffers_pass_workgroups_y = 1;
-    if scene_instance_count
-        > render_context
-            .render_device()
-            .limits()
-            .max_compute_workgroups_per_dimension
-    {
-        fill_cluster_buffers_pass_workgroups_x = (scene_instance_count as f32).sqrt().ceil() as u32;
-        fill_cluster_buffers_pass_workgroups_y = fill_cluster_buffers_pass_workgroups_x;
-    }
-
-    let command_encoder = render_context.command_encoder();
-    let mut fill_pass = command_encoder.begin_compute_pass(&ComputePassDescriptor {
-        label: Some("fill_cluster_buffers"),
-        timestamp_writes: None,
-    });
-    fill_pass.set_pipeline(fill_cluster_buffers_pass_pipeline);
-    fill_pass.set_push_constants(0, &scene_instance_count.to_le_bytes());
-    fill_pass.set_bind_group(0, fill_cluster_buffers_bind_group, &[]);
-    fill_pass.dispatch_workgroups(
-        fill_cluster_buffers_pass_workgroups_x,
-        fill_cluster_buffers_pass_workgroups_y,
-        1,
-    );
 }
 
 // TODO: Replace this with vkCmdClearColorImage once wgpu supports it
@@ -397,82 +374,231 @@ fn clear_visibility_buffer_pass(
     );
 }
 
-fn cull_pass(
-    label: &'static str,
+fn first_cull(
     render_context: &mut RenderContext,
-    culling_bind_group: &BindGroup,
+    meshlet_view_bind_groups: &MeshletViewBindGroups,
+    meshlet_view_resources: &MeshletViewResources,
     view_offset: &ViewUniformOffset,
     previous_view_offset: &PreviousViewUniformOffset,
-    culling_pipeline: &ComputePipeline,
-    culling_workgroups: u32,
-    scene_cluster_count: u32,
-    raster_cluster_rightmost_slot: u32,
-    remap_1d_to_2d_dispatch_bind_group: Option<&BindGroup>,
-    remap_1d_to_2d_dispatch_pipeline: Option<&ComputePipeline>,
+    first_instance_cull_pipeline: &ComputePipeline,
+    first_bvh_cull_pipeline: &ComputePipeline,
+    first_meshlet_cull_pipeline: &ComputePipeline,
+    remap_1d_to_2d_pipeline: Option<&ComputePipeline>,
 ) {
-    let max_compute_workgroups_per_dimension = render_context
-        .render_device()
-        .limits()
-        .max_compute_workgroups_per_dimension;
+    let workgroups = meshlet_view_resources.scene_instance_count.div_ceil(128);
+    cull_pass(
+        "meshlet_first_instance_cull",
+        render_context,
+        &meshlet_view_bind_groups.first_instance_cull,
+        view_offset,
+        previous_view_offset,
+        first_instance_cull_pipeline,
+        &[meshlet_view_resources.scene_instance_count],
+    )
+    .dispatch_workgroups(workgroups, 1, 1);
 
+    render_context
+        .command_encoder()
+        .push_debug_group("meshlet_first_bvh_cull");
+    let mut ping = true;
+    for _ in 0..meshlet_view_resources.max_bvh_depth {
+        cull_pass(
+            "meshlet_first_bvh_cull_dispatch",
+            render_context,
+            if ping {
+                &meshlet_view_bind_groups.first_bvh_cull_ping
+            } else {
+                &meshlet_view_bind_groups.first_bvh_cull_pong
+            },
+            view_offset,
+            previous_view_offset,
+            first_bvh_cull_pipeline,
+            &[ping as u32, meshlet_view_resources.rightmost_slot],
+        )
+        .dispatch_workgroups_indirect(
+            if ping {
+                &meshlet_view_resources.first_bvh_cull_dispatch_front
+            } else {
+                &meshlet_view_resources.first_bvh_cull_dispatch_back
+            },
+            0,
+        );
+        render_context.command_encoder().clear_buffer(
+            if ping {
+                &meshlet_view_resources.first_bvh_cull_count_front
+            } else {
+                &meshlet_view_resources.first_bvh_cull_count_back
+            },
+            0,
+            Some(4),
+        );
+        render_context.command_encoder().clear_buffer(
+            if ping {
+                &meshlet_view_resources.first_bvh_cull_dispatch_front
+            } else {
+                &meshlet_view_resources.first_bvh_cull_dispatch_back
+            },
+            0,
+            Some(4),
+        );
+        ping = !ping;
+    }
+    render_context.command_encoder().pop_debug_group();
+
+    let mut pass = cull_pass(
+        "meshlet_first_meshlet_cull",
+        render_context,
+        &meshlet_view_bind_groups.first_meshlet_cull,
+        view_offset,
+        previous_view_offset,
+        first_meshlet_cull_pipeline,
+        &[meshlet_view_resources.rightmost_slot],
+    );
+    pass.dispatch_workgroups_indirect(&meshlet_view_resources.front_meshlet_cull_dispatch, 0);
+    remap_1d_to_2d(
+        pass,
+        remap_1d_to_2d_pipeline,
+        meshlet_view_bind_groups.remap_1d_to_2d_dispatch.as_ref(),
+    );
+}
+
+fn second_cull(
+    render_context: &mut RenderContext,
+    meshlet_view_bind_groups: &MeshletViewBindGroups,
+    meshlet_view_resources: &MeshletViewResources,
+    view_offset: &ViewUniformOffset,
+    previous_view_offset: &PreviousViewUniformOffset,
+    second_instance_cull_pipeline: &ComputePipeline,
+    second_bvh_cull_pipeline: &ComputePipeline,
+    second_meshlet_cull_pipeline: &ComputePipeline,
+    remap_1d_to_2d_pipeline: Option<&ComputePipeline>,
+) {
+    cull_pass(
+        "meshlet_second_instance_cull",
+        render_context,
+        &meshlet_view_bind_groups.second_instance_cull,
+        view_offset,
+        previous_view_offset,
+        second_instance_cull_pipeline,
+        &[meshlet_view_resources.scene_instance_count],
+    )
+    .dispatch_workgroups_indirect(&meshlet_view_resources.second_pass_dispatch, 0);
+
+    render_context
+        .command_encoder()
+        .push_debug_group("meshlet_second_bvh_cull");
+    let mut ping = true;
+    for _ in 0..meshlet_view_resources.max_bvh_depth {
+        cull_pass(
+            "meshlet_second_bvh_cull_dispatch",
+            render_context,
+            if ping {
+                &meshlet_view_bind_groups.second_bvh_cull_ping
+            } else {
+                &meshlet_view_bind_groups.second_bvh_cull_pong
+            },
+            view_offset,
+            previous_view_offset,
+            second_bvh_cull_pipeline,
+            &[ping as u32, meshlet_view_resources.rightmost_slot],
+        )
+        .dispatch_workgroups_indirect(
+            if ping {
+                &meshlet_view_resources.second_bvh_cull_dispatch_front
+            } else {
+                &meshlet_view_resources.second_bvh_cull_dispatch_back
+            },
+            0,
+        );
+        ping = !ping;
+    }
+    render_context.command_encoder().pop_debug_group();
+
+    let mut pass = cull_pass(
+        "meshlet_second_meshlet_cull",
+        render_context,
+        &meshlet_view_bind_groups.second_meshlet_cull,
+        view_offset,
+        previous_view_offset,
+        second_meshlet_cull_pipeline,
+        &[meshlet_view_resources.rightmost_slot],
+    );
+    pass.dispatch_workgroups_indirect(&meshlet_view_resources.back_meshlet_cull_dispatch, 0);
+    remap_1d_to_2d(
+        pass,
+        remap_1d_to_2d_pipeline,
+        meshlet_view_bind_groups.remap_1d_to_2d_dispatch.as_ref(),
+    );
+}
+
+fn cull_pass<'a>(
+    label: &'static str,
+    render_context: &'a mut RenderContext,
+    bind_group: &'a BindGroup,
+    view_offset: &'a ViewUniformOffset,
+    previous_view_offset: &'a PreviousViewUniformOffset,
+    pipeline: &'a ComputePipeline,
+    push_constants: &[u32],
+) -> ComputePass<'a> {
     let command_encoder = render_context.command_encoder();
-    let mut cull_pass = command_encoder.begin_compute_pass(&ComputePassDescriptor {
+    let mut pass = command_encoder.begin_compute_pass(&ComputePassDescriptor {
         label: Some(label),
         timestamp_writes: None,
     });
-    cull_pass.set_pipeline(culling_pipeline);
-    cull_pass.set_push_constants(
+    pass.set_pipeline(pipeline);
+    pass.set_bind_group(
         0,
-        bytemuck::cast_slice(&[scene_cluster_count, raster_cluster_rightmost_slot]),
-    );
-    cull_pass.set_bind_group(
-        0,
-        culling_bind_group,
+        bind_group,
         &[view_offset.offset, previous_view_offset.offset],
     );
-    cull_pass.dispatch_workgroups(culling_workgroups, culling_workgroups, culling_workgroups);
+    pass.set_push_constants(0, bytemuck::cast_slice(push_constants));
+    pass
+}
 
-    if let (Some(remap_1d_to_2d_dispatch_pipeline), Some(remap_1d_to_2d_dispatch_bind_group)) = (
-        remap_1d_to_2d_dispatch_pipeline,
-        remap_1d_to_2d_dispatch_bind_group,
-    ) {
-        cull_pass.set_pipeline(remap_1d_to_2d_dispatch_pipeline);
-        cull_pass.set_push_constants(0, &max_compute_workgroups_per_dimension.to_be_bytes());
-        cull_pass.set_bind_group(0, remap_1d_to_2d_dispatch_bind_group, &[]);
-        cull_pass.dispatch_workgroups(1, 1, 1);
+fn remap_1d_to_2d(
+    mut pass: ComputePass,
+    pipeline: Option<&ComputePipeline>,
+    bind_group: Option<&BindGroup>,
+) {
+    if let (Some(pipeline), Some(bind_group)) = (pipeline, bind_group) {
+        pass.set_pipeline(pipeline);
+        pass.set_bind_group(0, bind_group, &[]);
+        pass.dispatch_workgroups(1, 1, 1);
     }
 }
 
 fn raster_pass(
     first_pass: bool,
     render_context: &mut RenderContext,
-    visibility_buffer_hardware_software_indirect_args: &Buffer,
+    visibility_buffer_software_raster_indirect_args: &Buffer,
     visibility_buffer_hardware_raster_indirect_args: &Buffer,
     dummy_render_target: &TextureView,
     meshlet_view_bind_groups: &MeshletViewBindGroups,
     view_offset: &ViewUniformOffset,
-    visibility_buffer_hardware_software_pipeline: &ComputePipeline,
+    visibility_buffer_software_raster_pipeline: &ComputePipeline,
     visibility_buffer_hardware_raster_pipeline: &RenderPipeline,
+    fill_counts_pipeline: &ComputePipeline,
     camera: Option<&ExtractedCamera>,
     raster_cluster_rightmost_slot: u32,
 ) {
-    let command_encoder = render_context.command_encoder();
-    let mut software_pass = command_encoder.begin_compute_pass(&ComputePassDescriptor {
-        label: Some(if first_pass {
-            "raster_software_first"
-        } else {
-            "raster_software_second"
-        }),
-        timestamp_writes: None,
-    });
-    software_pass.set_pipeline(visibility_buffer_hardware_software_pipeline);
+    let mut software_pass =
+        render_context
+            .command_encoder()
+            .begin_compute_pass(&ComputePassDescriptor {
+                label: Some(if first_pass {
+                    "raster_software_first"
+                } else {
+                    "raster_software_second"
+                }),
+                timestamp_writes: None,
+            });
+    software_pass.set_pipeline(visibility_buffer_software_raster_pipeline);
     software_pass.set_bind_group(
         0,
         &meshlet_view_bind_groups.visibility_buffer_raster,
         &[view_offset.offset],
     );
-    software_pass
-        .dispatch_workgroups_indirect(visibility_buffer_hardware_software_indirect_args, 0);
+    software_pass.dispatch_workgroups_indirect(visibility_buffer_software_raster_indirect_args, 0);
     drop(software_pass);
 
     let mut hardware_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
@@ -483,6 +609,7 @@ fn raster_pass(
         }),
         color_attachments: &[Some(RenderPassColorAttachment {
             view: dummy_render_target,
+            depth_slice: None,
             resolve_target: None,
             ops: Operations {
                 load: LoadOp::Clear(LinearRgba::BLACK.into()),
@@ -508,6 +635,18 @@ fn raster_pass(
         &[view_offset.offset],
     );
     hardware_pass.draw_indirect(visibility_buffer_hardware_raster_indirect_args, 0);
+    drop(hardware_pass);
+
+    let mut fill_counts_pass =
+        render_context
+            .command_encoder()
+            .begin_compute_pass(&ComputePassDescriptor {
+                label: Some("fill_counts"),
+                timestamp_writes: None,
+            });
+    fill_counts_pass.set_pipeline(fill_counts_pipeline);
+    fill_counts_pass.set_bind_group(0, &meshlet_view_bind_groups.fill_counts, &[]);
+    fill_counts_pass.dispatch_workgroups(1, 1, 1);
 }
 
 fn resolve_depth(

@@ -10,7 +10,7 @@ use bevy::{
     app::AppExit,
     input::common_conditions::{input_just_pressed, input_just_released},
     prelude::*,
-    window::{PrimaryWindow, WindowLevel},
+    window::{CursorOptions, PrimaryWindow, WindowLevel},
 };
 
 #[cfg(target_os = "macos")]
@@ -108,7 +108,7 @@ fn setup(
     // Spawn the text instructions
     let font = asset_server.load("fonts/FiraSans-Bold.ttf");
     let text_style = TextFont {
-        font: font.clone(),
+        font: font.clone().into(),
         font_size: 25.0,
         ..default()
     };
@@ -219,12 +219,13 @@ fn get_cursor_world_pos(
 /// Update whether the window is clickable or not
 fn update_cursor_hit_test(
     cursor_world_pos: Res<CursorWorldPos>,
-    mut primary_window: Single<&mut Window, With<PrimaryWindow>>,
+    primary_window: Single<(&Window, &mut CursorOptions), With<PrimaryWindow>>,
     bevy_logo_transform: Single<&Transform, With<BevyLogo>>,
 ) {
+    let (window, mut cursor_options) = primary_window.into_inner();
     // If the window has decorations (e.g. a border) then it should be clickable
-    if primary_window.decorations {
-        primary_window.cursor_options.hit_test = true;
+    if window.decorations {
+        cursor_options.hit_test = true;
         return;
     }
 
@@ -234,7 +235,7 @@ fn update_cursor_hit_test(
     };
 
     // If the cursor is within the radius of the Bevy logo make the window clickable otherwise the window is not clickable
-    primary_window.cursor_options.hit_test = bevy_logo_transform
+    cursor_options.hit_test = bevy_logo_transform
         .translation
         .truncate()
         .distance(cursor_world_pos)
@@ -300,7 +301,7 @@ fn drag(
 /// Quit when the user right clicks the Bevy logo
 fn quit(
     cursor_world_pos: Res<CursorWorldPos>,
-    mut app_exit: EventWriter<AppExit>,
+    mut app_exit: MessageWriter<AppExit>,
     bevy_logo_transform: Single<&Transform, With<BevyLogo>>,
 ) {
     // If the cursor is not within the primary window skip this system

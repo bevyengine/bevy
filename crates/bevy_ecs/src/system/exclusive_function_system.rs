@@ -1,20 +1,21 @@
 use crate::{
-    archetype::ArchetypeComponentId,
-    component::{ComponentId, Tick},
-    query::{Access, FilteredAccessSet},
+    change_detection::{CheckChangeTicks, Tick},
+    error::Result,
+    query::FilteredAccessSet,
     schedule::{InternedSystemSet, SystemSet},
     system::{
-        check_system_change_tick, ExclusiveSystemParam, ExclusiveSystemParamItem, IntoSystem,
-        System, SystemIn, SystemInput, SystemMeta,
+        check_system_change_tick, ExclusiveSystemParam, ExclusiveSystemParamItem, IntoResult,
+        IntoSystem, System, SystemIn, SystemInput, SystemMeta,
     },
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
 
 use alloc::{borrow::Cow, vec, vec::Vec};
+use bevy_utils::prelude::DebugName;
 use core::marker::PhantomData;
 use variadics_please::all_tuples;
 
-use super::SystemParamValidationError;
+use super::{RunSystemError, SystemParamValidationError, SystemStateFlags};
 
 /// A function system that runs with exclusive [`World`] access.
 ///
@@ -22,18 +23,20 @@ use super::SystemParamValidationError;
 /// [`ExclusiveSystemParam`]s.
 ///
 /// [`ExclusiveFunctionSystem`] must be `.initialized` before they can be run.
-pub struct ExclusiveFunctionSystem<Marker, F>
+pub struct ExclusiveFunctionSystem<Marker, Out, F>
 where
     F: ExclusiveSystemParamFunction<Marker>,
 {
     func: F,
+    #[cfg(feature = "hotpatching")]
+    current_ptr: subsecond::HotFnPtr,
     param_state: Option<<F::Param as ExclusiveSystemParam>::State>,
     system_meta: SystemMeta,
     // NOTE: PhantomData<fn()-> T> gives this safe Send/Sync impls
-    marker: PhantomData<fn() -> Marker>,
+    marker: PhantomData<fn() -> (Marker, Out)>,
 }
 
-impl<Marker, F> ExclusiveFunctionSystem<Marker, F>
+impl<Marker, Out, F> ExclusiveFunctionSystem<Marker, Out, F>
 where
     F: ExclusiveSystemParamFunction<Marker>,
 {
@@ -41,7 +44,7 @@ where
     ///
     /// Useful to give closure systems more readable and unique names for debugging and tracing.
     pub fn with_name(mut self, new_name: impl Into<Cow<'static, str>>) -> Self {
-        self.system_meta.set_name(new_name.into());
+        self.system_meta.set_name(new_name);
         self
     }
 }
@@ -50,15 +53,22 @@ where
 #[doc(hidden)]
 pub struct IsExclusiveFunctionSystem;
 
-impl<Marker, F> IntoSystem<F::In, F::Out, (IsExclusiveFunctionSystem, Marker)> for F
+impl<Out, Marker, F> IntoSystem<F::In, Out, (IsExclusiveFunctionSystem, Marker, Out)> for F
 where
+    Out: 'static,
     Marker: 'static,
+    F::Out: IntoResult<Out>,
     F: ExclusiveSystemParamFunction<Marker>,
 {
-    type System = ExclusiveFunctionSystem<Marker, F>;
+    type System = ExclusiveFunctionSystem<Marker, Out, F>;
     fn into_system(func: Self) -> Self::System {
         ExclusiveFunctionSystem {
             func,
+            #[cfg(feature = "hotpatching")]
+            current_ptr: subsecond::HotFn::current(
+                <F as ExclusiveSystemParamFunction<Marker>>::run,
+            )
+            .ptr_address(),
             param_state: None,
             system_meta: SystemMeta::new::<F>(),
             marker: PhantomData,
@@ -68,51 +78,28 @@ where
 
 const PARAM_MESSAGE: &str = "System's param_state was not found. Did you forget to initialize this system before running it?";
 
-impl<Marker, F> System for ExclusiveFunctionSystem<Marker, F>
+impl<Marker, Out, F> System for ExclusiveFunctionSystem<Marker, Out, F>
 where
     Marker: 'static,
+    Out: 'static,
+    F::Out: IntoResult<Out>,
     F: ExclusiveSystemParamFunction<Marker>,
 {
     type In = F::In;
-    type Out = F::Out;
+    type Out = Out;
 
     #[inline]
-    fn name(&self) -> Cow<'static, str> {
+    fn name(&self) -> DebugName {
         self.system_meta.name.clone()
     }
 
     #[inline]
-    fn component_access(&self) -> &Access<ComponentId> {
-        self.system_meta.component_access_set.combined_access()
-    }
-
-    #[inline]
-    fn component_access_set(&self) -> &FilteredAccessSet<ComponentId> {
-        &self.system_meta.component_access_set
-    }
-
-    #[inline]
-    fn archetype_component_access(&self) -> &Access<ArchetypeComponentId> {
-        &self.system_meta.archetype_component_access
-    }
-
-    #[inline]
-    fn is_send(&self) -> bool {
-        // exclusive systems should have access to non-send resources
+    fn flags(&self) -> SystemStateFlags {
+        // non-send , exclusive , no deferred
         // the executor runs exclusive systems on the main thread, so this
         // field reflects that constraint
-        false
-    }
-
-    #[inline]
-    fn is_exclusive(&self) -> bool {
-        true
-    }
-
-    #[inline]
-    fn has_deferred(&self) -> bool {
         // exclusive systems have no deferred system params
-        false
+        SystemStateFlags::NON_SEND | SystemStateFlags::EXCLUSIVE
     }
 
     #[inline]
@@ -120,7 +107,7 @@ where
         &mut self,
         input: SystemIn<'_, Self>,
         world: UnsafeWorldCell,
-    ) -> Self::Out {
+    ) -> Result<Self::Out, RunSystemError> {
         // SAFETY: The safety is upheld by the caller.
         let world = unsafe { world.world_mut() };
         world.last_change_tick_scope(self.system_meta.last_run, |world| {
@@ -131,13 +118,38 @@ where
                 self.param_state.as_mut().expect(PARAM_MESSAGE),
                 &self.system_meta,
             );
+
+            #[cfg(feature = "hotpatching")]
+            let out = {
+                let mut hot_fn =
+                    subsecond::HotFn::current(<F as ExclusiveSystemParamFunction<Marker>>::run);
+                // SAFETY:
+                // - pointer used to call is from the current jump table
+                unsafe {
+                    hot_fn
+                        .try_call_with_ptr(self.current_ptr, (&mut self.func, world, input, params))
+                        .expect("Error calling hotpatched system. Run a full rebuild")
+                }
+            };
+            #[cfg(not(feature = "hotpatching"))]
             let out = self.func.run(world, input, params);
 
             world.flush();
             self.system_meta.last_run = world.increment_change_tick();
 
-            out
+            IntoResult::into_result(out)
         })
+    }
+
+    #[cfg(feature = "hotpatching")]
+    #[inline]
+    fn refresh_hotpatch(&mut self) {
+        let new = subsecond::HotFn::current(<F as ExclusiveSystemParamFunction<Marker>>::run)
+            .ptr_address();
+        if new != self.current_ptr {
+            log::debug!("system {} hotpatched", self.name());
+        }
+        self.current_ptr = new;
     }
 
     #[inline]
@@ -164,24 +176,23 @@ where
     }
 
     #[inline]
-    fn initialize(&mut self, world: &mut World) {
+    fn initialize(&mut self, world: &mut World) -> FilteredAccessSet {
         self.system_meta.last_run = world.change_tick().relative_to(Tick::MAX);
         self.param_state = Some(F::Param::init(world, &mut self.system_meta));
+        FilteredAccessSet::new()
     }
 
-    fn update_archetype_component_access(&mut self, _world: UnsafeWorldCell) {}
-
     #[inline]
-    fn check_change_tick(&mut self, change_tick: Tick) {
+    fn check_change_tick(&mut self, check: CheckChangeTicks) {
         check_system_change_tick(
             &mut self.system_meta.last_run,
-            change_tick,
-            self.system_meta.name.as_ref(),
+            check,
+            self.system_meta.name.clone(),
         );
     }
 
     fn default_system_sets(&self) -> Vec<InternedSystemSet> {
-        let set = crate::schedule::SystemTypeSet::<Self>::new();
+        let set = crate::schedule::SystemTypeSet::<F>::new();
         vec![set.intern()]
     }
 

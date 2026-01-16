@@ -38,6 +38,12 @@ pub trait IntoRenderNodeArray<const N: usize> {
     fn into_array(self) -> [InternedRenderLabel; N];
 }
 
+impl<const N: usize> IntoRenderNodeArray<N> for Vec<InternedRenderLabel> {
+    fn into_array(self) -> [InternedRenderLabel; N] {
+        self.try_into().unwrap()
+    }
+}
+
 macro_rules! impl_render_label_tuples {
     ($N: expr, $(#[$meta:meta])* $(($T: ident, $I: ident)),*) => {
         $(#[$meta])*
@@ -343,7 +349,7 @@ impl Node for RunGraphOnViewNode {
         _render_context: &mut RenderContext,
         _world: &World,
     ) -> Result<(), NodeRunError> {
-        graph.run_sub_graph(self.sub_graph, vec![], Some(graph.view_entity()))?;
+        graph.run_sub_graph(self.sub_graph, vec![], Some(graph.view_entity()), None)?;
         Ok(())
     }
 }
@@ -366,7 +372,7 @@ pub trait ViewNode {
         &self,
         graph: &mut RenderGraphContext,
         render_context: &mut RenderContext<'w>,
-        view_query: QueryItem<'w, Self::ViewQuery>,
+        view_query: QueryItem<'w, '_, Self::ViewQuery>,
         world: &'w World,
     ) -> Result<(), NodeRunError>;
 }

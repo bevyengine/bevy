@@ -60,7 +60,6 @@ impl Oklcha {
     /// * `lightness` - Lightness channel. [0.0, 1.0]
     /// * `chroma` - Chroma channel. [0.0, 1.0]
     /// * `hue` - Hue channel. [0.0, 360.0]
-    /// * `alpha` - Alpha channel. [0.0, 1.0]
     pub const fn lch(lightness: f32, chroma: f32, hue: f32) -> Self {
         Self::new(lightness, chroma, hue, 1.0)
     }
@@ -92,7 +91,7 @@ impl Oklcha {
     /// // Palette with 5 distinct hues
     /// let palette = (0..5).map(Oklcha::sequential_dispersed).collect::<Vec<_>>();
     /// ```
-    pub fn sequential_dispersed(index: u32) -> Self {
+    pub const fn sequential_dispersed(index: u32) -> Self {
         const FRAC_U32MAX_GOLDEN_RATIO: u32 = 2654435769; // (u32::MAX / Φ) rounded up
         const RATIO_360: f32 = 360.0 / u32::MAX as f32;
 

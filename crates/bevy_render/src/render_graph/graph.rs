@@ -145,6 +145,7 @@ impl RenderGraph {
     ///
     /// Defining an edge that already exists is not considered an error with this api.
     /// It simply won't create a new edge.
+    #[track_caller]
     pub fn add_node_edges<const N: usize>(&mut self, edges: impl IntoRenderNodeArray<N>) {
         for window in edges.into_array().windows(2) {
             let [a, b] = window else {
@@ -155,7 +156,7 @@ impl RenderGraph {
                     // Already existing edges are very easy to produce with this api
                     // and shouldn't cause a panic
                     RenderGraphError::EdgeAlreadyExists(_) => {}
-                    _ => panic!("{err:?}"),
+                    _ => panic!("{err}"),
                 }
             }
         }
@@ -478,14 +479,13 @@ impl RenderGraph {
                     } else {
                         false
                     }
-                }) {
-                    if should_exist == EdgeExistence::DoesNotExist {
-                        return Err(RenderGraphError::NodeInputSlotAlreadyOccupied {
-                            node: input_node,
-                            input_slot: input_index,
-                            occupied_by_node: *current_output_node,
-                        });
-                    }
+                }) && should_exist == EdgeExistence::DoesNotExist
+                {
+                    return Err(RenderGraphError::NodeInputSlotAlreadyOccupied {
+                        node: input_node,
+                        input_slot: input_index,
+                        occupied_by_node: *current_output_node,
+                    });
                 }
 
                 if output_slot.slot_type != input_slot.slot_type {
@@ -507,14 +507,12 @@ impl RenderGraph {
     pub fn has_edge(&self, edge: &Edge) -> bool {
         let output_node_state = self.get_node_state(edge.get_output_node());
         let input_node_state = self.get_node_state(edge.get_input_node());
-        if let Ok(output_node_state) = output_node_state {
-            if output_node_state.edges.output_edges().contains(edge) {
-                if let Ok(input_node_state) = input_node_state {
-                    if input_node_state.edges.input_edges().contains(edge) {
-                        return true;
-                    }
-                }
-            }
+        if let Ok(output_node_state) = output_node_state
+            && output_node_state.edges.output_edges().contains(edge)
+            && let Ok(input_node_state) = input_node_state
+            && input_node_state.edges.input_edges().contains(edge)
+        {
+            return true;
         }
 
         false

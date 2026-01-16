@@ -10,15 +10,15 @@
 //! [a blog post on depth of field in Unity]: https://catlikecoding.com/unity/tutorials/advanced-rendering/depth-of-field/
 
 use bevy::{
-    core_pipeline::{
-        bloom::Bloom,
-        dof::{self, DepthOfField, DepthOfFieldMode},
-        tonemapping::Tonemapping,
-    },
+    camera::PhysicalCameraParameters,
+    core_pipeline::tonemapping::Tonemapping,
     gltf::GltfMeshName,
     pbr::Lightmap,
+    post_process::{
+        bloom::Bloom,
+        dof::{self, DepthOfField, DepthOfFieldMode},
+    },
     prelude::*,
-    render::camera::PhysicalCameraParameters,
 };
 
 /// The increments in which the user can adjust the focal distance, in meters
@@ -74,10 +74,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, app_settings: R
     let mut camera = commands.spawn((
         Camera3d::default(),
         Transform::from_xyz(0.0, 4.5, 8.25).looking_at(Vec3::ZERO, Vec3::Y),
-        Camera {
-            hdr: true,
-            ..default()
-        },
         Tonemapping::TonyMcMapface,
         Bloom::NATURAL,
     ));
@@ -97,8 +93,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, app_settings: R
         create_text(&app_settings),
         Node {
             position_type: PositionType::Absolute,
-            bottom: Val::Px(12.0),
-            left: Val::Px(12.0),
+            bottom: px(12),
+            left: px(12),
             ..default()
         },
     ));
@@ -193,7 +189,7 @@ fn tweak_scene(
 ) {
     // Turn on shadows.
     for mut light in lights.iter_mut() {
-        light.shadows_enabled = true;
+        light.shadow_maps_enabled = true;
     }
 
     // Add a nice lightmap to the circuit board.
@@ -246,10 +242,10 @@ impl AppSettings {
         let fov = PerspectiveProjection::default().fov;
 
         format!(
-            "Focal distance: {} m (Press Up/Down to change)
-Aperture F-stops: f/{} (Press Left/Right to change)
-Sensor height: {}mm
-Focal length: {}mm
+            "Focal distance: {:.2} m (Press Up/Down to change)
+Aperture F-stops: f/{:.3} (Press Left/Right to change)
+Sensor height: {:.2}mm
+Focal length: {:.2}mm
 Mode: {} (Press Space to change)",
             self.focal_distance,
             self.aperture_f_stops,

@@ -11,24 +11,20 @@
 use argh::FromArgs;
 use bevy::{
     asset::UnapprovedPathMode,
+    camera::primitives::{Aabb, Sphere},
+    camera_controller::free_camera::{FreeCamera, FreeCameraPlugin},
     core_pipeline::prepass::{DeferredPrepass, DepthPrepass},
+    gltf::{convert_coordinates::GltfConvertCoordinates, GltfPlugin},
     pbr::DefaultOpaqueRendererMethod,
     prelude::*,
-    render::{
-        experimental::occlusion_culling::OcclusionCulling,
-        primitives::{Aabb, Sphere},
-    },
+    render::experimental::occlusion_culling::OcclusionCulling,
 };
 
-#[path = "../../helpers/camera_controller.rs"]
-mod camera_controller;
-
-#[cfg(feature = "animation")]
+#[cfg(feature = "gltf_animation")]
 mod animation_plugin;
 mod morph_viewer_plugin;
 mod scene_viewer_plugin;
 
-use camera_controller::{CameraController, CameraControllerPlugin};
 use morph_viewer_plugin::MorphViewerPlugin;
 use scene_viewer_plugin::{SceneHandle, SceneViewerPlugin};
 
@@ -53,6 +49,25 @@ struct Args {
     /// spawn a light even if the scene already has one
     #[argh(switch)]
     add_light: Option<bool>,
+    /// enable `GltfPlugin::convert_coordinates::scenes`
+    #[argh(switch)]
+    convert_scene_coordinates: Option<bool>,
+    /// enable `GltfPlugin::convert_coordinates::meshes`
+    #[argh(switch)]
+    convert_mesh_coordinates: Option<bool>,
+}
+
+impl Args {
+    fn rotation(&self) -> Quat {
+        if self.convert_scene_coordinates == Some(true) {
+            // If the scene is converted then rotate everything else to match. This
+            // makes comparisons easier - the scene will always face the same way
+            // relative to the cameras and lights.
+            Quat::from_xyzw(0.0, 1.0, 0.0, 0.0)
+        } else {
+            Quat::IDENTITY
+        }
+    }
 }
 
 fn main() {
@@ -78,8 +93,15 @@ fn main() {
                 // Allow scenes to be loaded from anywhere on disk
                 unapproved_path_mode: UnapprovedPathMode::Allow,
                 ..default()
+            })
+            .set(GltfPlugin {
+                convert_coordinates: GltfConvertCoordinates {
+                    rotate_scene_entity: args.convert_scene_coordinates == Some(true),
+                    rotate_meshes: args.convert_mesh_coordinates == Some(true),
+                },
+                ..default()
             }),
-        CameraControllerPlugin,
+        FreeCameraPlugin,
         SceneViewerPlugin,
         MorphViewerPlugin,
     ))
@@ -92,7 +114,7 @@ fn main() {
         app.insert_resource(DefaultOpaqueRendererMethod::deferred());
     }
 
-    #[cfg(feature = "animation")]
+    #[cfg(feature = "gltf_animation")]
     app.add_plugins(animation_plugin::AnimationManipulationPlugin);
 
     app.run();
@@ -101,13 +123,12 @@ fn main() {
 fn parse_scene(scene_path: String) -> (String, usize) {
     if scene_path.contains('#') {
         let gltf_and_scene = scene_path.split('#').collect::<Vec<_>>();
-        if let Some((last, path)) = gltf_and_scene.split_last() {
-            if let Some(index) = last
+        if let Some((last, path)) = gltf_and_scene.split_last()
+            && let Some(index) = last
                 .strip_prefix("Scene")
                 .and_then(|index| index.parse::<usize>().ok())
-            {
-                return (path.join("#"), index);
-            }
+        {
+            return (path.join("#"), index);
         }
     }
     (scene_path, 0)
@@ -160,7 +181,7 @@ fn setup_scene_after_load(
         projection.far = projection.far.max(size * 10.0);
 
         let walk_speed = size * 3.0;
-        let camera_controller = CameraController {
+        let camera_controller = FreeCamera {
             walk_speed,
             run_speed: 3.0 * walk_speed,
             ..default()
@@ -173,8 +194,10 @@ fn setup_scene_after_load(
         let mut camera = commands.spawn((
             Camera3d::default(),
             Projection::from(projection),
-            Transform::from_translation(Vec3::from(aabb.center) + size * Vec3::new(0.5, 0.25, 0.5))
-                .looking_at(Vec3::from(aabb.center), Vec3::Y),
+            Transform::from_translation(
+                Vec3::from(aabb.center) + size * (args.rotation() * Vec3::new(0.5, 0.25, 0.5)),
+            )
+            .looking_at(Vec3::from(aabb.center), Vec3::Y),
             Camera {
                 is_active: false,
                 ..default()
@@ -185,6 +208,7 @@ fn setup_scene_after_load(
                 specular_map: asset_server
                     .load("assets/environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
                 intensity: 150.0,
+                rotation: args.rotation(),
                 ..default()
             },
             camera_controller,
@@ -214,7 +238,8 @@ fn setup_scene_after_load(
             info!("Spawning a directional light");
             let mut light = commands.spawn((
                 DirectionalLight::default(),
-                Transform::from_xyz(1.0, 1.0, 0.0).looking_at(Vec3::ZERO, Vec3::Y),
+                Transform::from_translation(args.rotation() * Vec3::new(1.0, 1.0, 0.0))
+                    .looking_at(Vec3::ZERO, Vec3::Y),
             ));
             if args.occlusion_culling == Some(true) {
                 light.insert(OcclusionCulling);

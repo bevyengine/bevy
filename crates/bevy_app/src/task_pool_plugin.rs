@@ -160,7 +160,7 @@ impl TaskPoolOptions {
     pub fn create_default_pools(&self) {
         let total_threads = bevy_tasks::available_parallelism()
             .clamp(self.min_total_threads, self.max_total_threads);
-        trace!("Assigning {} cores to default task pools", total_threads);
+        trace!("Assigning {total_threads} cores to default task pools");
 
         let mut remaining_threads = total_threads;
 
@@ -170,7 +170,7 @@ impl TaskPoolOptions {
                 .io
                 .get_number_of_threads(remaining_threads, total_threads);
 
-            trace!("IO Threads: {}", io_threads);
+            trace!("IO Threads: {io_threads}");
             remaining_threads = remaining_threads.saturating_sub(io_threads);
 
             IoTaskPool::get_or_init(|| {
@@ -200,7 +200,7 @@ impl TaskPoolOptions {
                 .async_compute
                 .get_number_of_threads(remaining_threads, total_threads);
 
-            trace!("Async Compute Threads: {}", async_compute_threads);
+            trace!("Async Compute Threads: {async_compute_threads}");
             remaining_threads = remaining_threads.saturating_sub(async_compute_threads);
 
             AsyncComputeTaskPool::get_or_init(|| {
@@ -231,7 +231,7 @@ impl TaskPoolOptions {
                 .compute
                 .get_number_of_threads(remaining_threads, total_threads);
 
-            trace!("Compute Threads: {}", compute_threads);
+            trace!("Compute Threads: {compute_threads}");
 
             ComputeTaskPool::get_or_init(|| {
                 let builder = TaskPoolBuilder::default()

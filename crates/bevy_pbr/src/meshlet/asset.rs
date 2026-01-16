@@ -6,9 +6,9 @@ use bevy_asset::{
 };
 use bevy_math::{Vec2, Vec3};
 use bevy_reflect::TypePath;
+use bevy_render::render_resource::ShaderType;
 use bevy_tasks::block_on;
 use bytemuck::{Pod, Zeroable};
-use half::f16;
 use lz4_flex::frame::{FrameDecoder, FrameEncoder};
 use std::io::{Read, Write};
 use thiserror::Error;
@@ -17,15 +17,15 @@ use thiserror::Error;
 const MESHLET_MESH_ASSET_MAGIC: u64 = 1717551717668;
 
 /// The current version of the [`MeshletMesh`] asset format.
-pub const MESHLET_MESH_ASSET_VERSION: u64 = 1;
+pub const MESHLET_MESH_ASSET_VERSION: u64 = 3;
 
 /// A mesh that has been pre-processed into multiple small clusters of triangles called meshlets.
 ///
-/// A [`bevy_render::mesh::Mesh`] can be converted to a [`MeshletMesh`] using `MeshletMesh::from_mesh` when the `meshlet_processor` cargo feature is enabled.
+/// A [`bevy_mesh::Mesh`] can be converted to a [`MeshletMesh`] using `MeshletMesh::from_mesh` when the `meshlet_processor` cargo feature is enabled.
 /// The conversion step is very slow, and is meant to be ran once ahead of time, and not during runtime. This type of mesh is not suitable for
 /// dynamically generated geometry.
 ///
-/// There are restrictions on the [`crate::Material`] functionality that can be used with this type of mesh.
+/// There are restrictions on the [`Material`](`crate::Material`) functionality that can be used with this type of mesh.
 /// * Materials have no control over the vertex shader or vertex attributes.
 /// * Materials must be opaque. Transparent, alpha masked, and transmissive materials are not supported.
 /// * Do not use normal maps baked from higher-poly geometry. Use the high-poly geometry directly and skip the normal map.
@@ -33,10 +33,10 @@ pub const MESHLET_MESH_ASSET_VERSION: u64 = 1;
 /// * Material shaders must not use builtin functions that automatically calculate derivatives <https://gpuweb.github.io/gpuweb/wgsl/#derivatives>.
 ///   * Performing manual arithmetic on texture coordinates (UVs) is forbidden. Use the chain-rule version of arithmetic functions instead (TODO: not yet implemented).
 /// * Limited control over [`bevy_render::render_resource::RenderPipelineDescriptor`] attributes.
-/// * Materials must use the [`crate::Material::meshlet_mesh_fragment_shader`] method (and similar variants for prepass/deferred shaders)
+/// * Materials must use the [`Material::meshlet_mesh_fragment_shader`](`crate::Material::meshlet_mesh_fragment_shader`) method (and similar variants for prepass/deferred shaders)
 ///   which requires certain shader patterns that differ from the regular material shaders.
 ///
-/// See also [`super::MeshletMesh3d`] and [`super::MeshletPlugin`].
+/// See also [`MeshletMesh3d`](`super::MeshletMesh3d`) and [`MeshletPlugin`](`super::MeshletPlugin`).
 #[derive(Asset, TypePath, Clone)]
 pub struct MeshletMesh {
     /// Quantized and bitstream-packed vertex positions for meshlet vertices.
@@ -47,12 +47,32 @@ pub struct MeshletMesh {
     pub(crate) vertex_uvs: Arc<[Vec2]>,
     /// Triangle indices for meshlets.
     pub(crate) indices: Arc<[u8]>,
+    /// The BVH8 used for culling and LOD selection of the meshlets. The root is at index 0.
+    pub(crate) bvh: Arc<[BvhNode]>,
     /// The list of meshlets making up this mesh.
     pub(crate) meshlets: Arc<[Meshlet]>,
     /// Spherical bounding volumes.
-    pub(crate) meshlet_bounding_spheres: Arc<[MeshletBoundingSpheres]>,
-    /// Meshlet group and parent group simplification errors.
-    pub(crate) meshlet_simplification_errors: Arc<[MeshletSimplificationError]>,
+    pub(crate) meshlet_cull_data: Arc<[MeshletCullData]>,
+    /// The tight AABB of the meshlet mesh, used for frustum and occlusion culling at the instance
+    /// level.
+    pub(crate) aabb: MeshletAabb,
+    /// The depth of the culling BVH, used to determine the number of dispatches at runtime.
+    pub(crate) bvh_depth: u32,
+}
+
+/// A single BVH8 node in the BVH used for culling and LOD selection of a [`MeshletMesh`].
+#[derive(Copy, Clone, Default, Pod, Zeroable)]
+#[repr(C)]
+pub struct BvhNode {
+    /// The tight AABBs of this node's children, used for frustum and occlusion during BVH
+    /// traversal.
+    pub aabbs: [MeshletAabbErrorOffset; 8],
+    /// The LOD bounding spheres of this node's children, used for LOD selection during BVH
+    /// traversal.
+    pub lod_bounds: [MeshletBoundingSphere; 8],
+    /// If `u8::MAX`, it indicates that the child of each children is a BVH node, otherwise it is the number of meshlets in the group.
+    pub child_counts: [u8; 8],
+    pub _padding: [u32; 2],
 }
 
 /// A single meshlet within a [`MeshletMesh`].
@@ -66,8 +86,8 @@ pub struct Meshlet {
     pub start_vertex_attribute_id: u32,
     /// The offset within the parent mesh's [`MeshletMesh::indices`] buffer where the indices for this meshlet begin.
     pub start_index_id: u32,
-    /// The amount of vertices in this meshlet.
-    pub vertex_count: u8,
+    /// The amount of vertices in this meshlet (minus one to fit 256 in a u8).
+    pub vertex_count_minus_one: u8,
     /// The amount of triangles in this meshlet.
     pub triangle_count: u8,
     /// Unused.
@@ -91,34 +111,41 @@ pub struct Meshlet {
 /// Bounding spheres used for culling and choosing level of detail for a [`Meshlet`].
 #[derive(Copy, Clone, Pod, Zeroable)]
 #[repr(C)]
-pub struct MeshletBoundingSpheres {
-    /// Bounding sphere used for frustum and occlusion culling for this meshlet.
-    pub culling_sphere: MeshletBoundingSphere,
+pub struct MeshletCullData {
+    /// Tight bounding box, used for frustum and occlusion culling for this meshlet.
+    pub aabb: MeshletAabbErrorOffset,
     /// Bounding sphere used for determining if this meshlet's group is at the correct level of detail for a given view.
     pub lod_group_sphere: MeshletBoundingSphere,
-    /// Bounding sphere used for determining if this meshlet's parent group is at the correct level of detail for a given view.
-    pub lod_parent_group_sphere: MeshletBoundingSphere,
+}
+
+/// An axis-aligned bounding box used for a [`Meshlet`].
+#[derive(Copy, Clone, Default, Pod, Zeroable, ShaderType)]
+#[repr(C)]
+pub struct MeshletAabb {
+    pub center: Vec3,
+    pub half_extent: Vec3,
+}
+
+// An axis-aligned bounding box used for a [`Meshlet`].
+#[derive(Copy, Clone, Default, Pod, Zeroable, ShaderType)]
+#[repr(C)]
+pub struct MeshletAabbErrorOffset {
+    pub center: Vec3,
+    pub error: f32,
+    pub half_extent: Vec3,
+    pub child_offset: u32,
 }
 
 /// A spherical bounding volume used for a [`Meshlet`].
-#[derive(Copy, Clone, Pod, Zeroable)]
+#[derive(Copy, Clone, Default, Pod, Zeroable)]
 #[repr(C)]
 pub struct MeshletBoundingSphere {
     pub center: Vec3,
     pub radius: f32,
 }
 
-/// Simplification error used for choosing level of detail for a [`Meshlet`].
-#[derive(Copy, Clone, Pod, Zeroable)]
-#[repr(C)]
-pub struct MeshletSimplificationError {
-    /// Simplification error used for determining if this meshlet's group is at the correct level of detail for a given view.
-    pub group_error: f16,
-    /// Simplification error used for determining if this meshlet's parent group is at the correct level of detail for a given view.
-    pub parent_group_error: f16,
-}
-
 /// An [`AssetSaver`] for `.meshlet_mesh` [`MeshletMesh`] assets.
+#[derive(TypePath)]
 pub struct MeshletMeshSaver;
 
 impl AssetSaver for MeshletMeshSaver {
@@ -143,15 +170,23 @@ impl AssetSaver for MeshletMeshSaver {
             .write_all(&MESHLET_MESH_ASSET_VERSION.to_le_bytes())
             .await?;
 
+        writer.write_all(bytemuck::bytes_of(&asset.aabb)).await?;
+        writer
+            .write_all(bytemuck::bytes_of(&asset.bvh_depth))
+            .await?;
+
         // Compress and write asset data
         let mut writer = FrameEncoder::new(AsyncWriteSyncAdapter(writer));
         write_slice(&asset.vertex_positions, &mut writer)?;
         write_slice(&asset.vertex_normals, &mut writer)?;
         write_slice(&asset.vertex_uvs, &mut writer)?;
         write_slice(&asset.indices, &mut writer)?;
+        write_slice(&asset.bvh, &mut writer)?;
         write_slice(&asset.meshlets, &mut writer)?;
-        write_slice(&asset.meshlet_bounding_spheres, &mut writer)?;
-        write_slice(&asset.meshlet_simplification_errors, &mut writer)?;
+        write_slice(&asset.meshlet_cull_data, &mut writer)?;
+        // BUG: Flushing helps with an async_fs bug, but it still fails sometimes. https://github.com/smol-rs/async-fs/issues/45
+        // ERROR bevy_asset::server: Failed to load asset with asset loader MeshletMeshLoader: failed to fill whole buffer
+        writer.flush()?;
         writer.finish()?;
 
         Ok(())
@@ -159,6 +194,7 @@ impl AssetSaver for MeshletMeshSaver {
 }
 
 /// An [`AssetLoader`] for `.meshlet_mesh` [`MeshletMesh`] assets.
+#[derive(TypePath)]
 pub struct MeshletMeshLoader;
 
 impl AssetLoader for MeshletMeshLoader {
@@ -184,24 +220,33 @@ impl AssetLoader for MeshletMeshLoader {
             return Err(MeshletMeshSaveOrLoadError::WrongVersion { found: version });
         }
 
+        let mut bytes = [0u8; size_of::<MeshletAabb>()];
+        reader.read_exact(&mut bytes).await?;
+        let aabb = bytemuck::cast(bytes);
+        let mut bytes = [0u8; size_of::<u32>()];
+        reader.read_exact(&mut bytes).await?;
+        let bvh_depth = u32::from_le_bytes(bytes);
+
         // Load and decompress asset data
         let reader = &mut FrameDecoder::new(AsyncReadSyncAdapter(reader));
         let vertex_positions = read_slice(reader)?;
         let vertex_normals = read_slice(reader)?;
         let vertex_uvs = read_slice(reader)?;
         let indices = read_slice(reader)?;
+        let bvh = read_slice(reader)?;
         let meshlets = read_slice(reader)?;
-        let meshlet_bounding_spheres = read_slice(reader)?;
-        let meshlet_simplification_errors = read_slice(reader)?;
+        let meshlet_cull_data = read_slice(reader)?;
 
         Ok(MeshletMesh {
             vertex_positions,
             vertex_normals,
             vertex_uvs,
             indices,
+            bvh,
             meshlets,
-            meshlet_bounding_spheres,
-            meshlet_simplification_errors,
+            meshlet_cull_data,
+            aabb,
+            bvh_depth,
         })
     }
 
@@ -218,7 +263,7 @@ pub enum MeshletMeshSaveOrLoadError {
     WrongVersion { found: u64 },
     #[error("failed to compress or decompress asset data")]
     CompressionOrDecompression(#[from] lz4_flex::frame::Error),
-    #[error("failed to read or write asset data")]
+    #[error(transparent)]
     Io(#[from] std::io::Error),
 }
 

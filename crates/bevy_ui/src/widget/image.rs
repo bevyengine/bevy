@@ -1,11 +1,10 @@
-use crate::{ComputedNodeTarget, ContentSize, Measure, MeasureArgs, Node, NodeMeasure};
-use bevy_asset::{Assets, Handle};
+use crate::{ComputedUiRenderTargetInfo, ContentSize, Measure, MeasureArgs, Node, NodeMeasure};
+use bevy_asset::{AsAssetId, AssetId, Assets, Handle};
 use bevy_color::Color;
 use bevy_ecs::prelude::*;
-use bevy_image::prelude::*;
+use bevy_image::{prelude::*, TRANSPARENT_IMAGE_HANDLE};
 use bevy_math::{Rect, UVec2, Vec2};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_render::texture::TRANSPARENT_IMAGE_HANDLE;
 use bevy_sprite::TextureSlicer;
 use taffy::{MaybeMath, MaybeResolve};
 
@@ -137,9 +136,17 @@ impl From<Handle<Image>> for ImageNode {
     }
 }
 
+impl AsAssetId for ImageNode {
+    type Asset = Image;
+
+    fn as_asset_id(&self) -> AssetId<Self::Asset> {
+        self.image.id()
+    }
+}
+
 /// Controls how the image is altered to fit within the layout and how the layout algorithm determines the space in the layout for the image
-#[derive(Default, Debug, Clone, Reflect)]
-#[reflect(Clone, Default)]
+#[derive(Default, Debug, Clone, PartialEq, Reflect)]
+#[reflect(Clone, Default, PartialEq)]
 pub enum NodeImageMode {
     /// The image will be sized automatically by taking the size of the source image and applying any layout constraints.
     #[default]
@@ -163,7 +170,7 @@ pub enum NodeImageMode {
 impl NodeImageMode {
     /// Returns true if this mode uses slices internally ([`NodeImageMode::Sliced`] or [`NodeImageMode::Tiled`])
     #[inline]
-    pub fn uses_slices(&self) -> bool {
+    pub const fn uses_slices(&self) -> bool {
         matches!(
             self,
             NodeImageMode::Sliced(..) | NodeImageMode::Tiled { .. }
@@ -185,7 +192,8 @@ pub struct ImageNodeSize {
 
 impl ImageNodeSize {
     /// The size of the image's texture
-    pub fn size(&self) -> UVec2 {
+    #[inline]
+    pub const fn size(&self) -> UVec2 {
         self.size
     }
 }
@@ -195,6 +203,11 @@ impl ImageNodeSize {
 pub struct ImageMeasure {
     /// The size of the image's texture
     pub size: Vec2,
+}
+
+// NOOP function used to call into taffy API
+fn resolve_calc(_calc_ptr: *const (), _parent_size: f32) -> f32 {
+    0.0
 }
 
 impl Measure for ImageMeasure {
@@ -213,12 +226,24 @@ impl Measure for ImageMeasure {
 
         // Resolve styles
         let s_aspect_ratio = style.aspect_ratio;
-        let s_width = style.size.width.maybe_resolve(parent_width);
-        let s_min_width = style.min_size.width.maybe_resolve(parent_width);
-        let s_max_width = style.max_size.width.maybe_resolve(parent_width);
-        let s_height = style.size.height.maybe_resolve(parent_height);
-        let s_min_height = style.min_size.height.maybe_resolve(parent_height);
-        let s_max_height = style.max_size.height.maybe_resolve(parent_height);
+        let s_width = style.size.width.maybe_resolve(parent_width, resolve_calc);
+        let s_min_width = style
+            .min_size
+            .width
+            .maybe_resolve(parent_width, resolve_calc);
+        let s_max_width = style
+            .max_size
+            .width
+            .maybe_resolve(parent_width, resolve_calc);
+        let s_height = style.size.height.maybe_resolve(parent_height, resolve_calc);
+        let s_min_height = style
+            .min_size
+            .height
+            .maybe_resolve(parent_height, resolve_calc);
+        let s_max_height = style
+            .max_size
+            .height
+            .maybe_resolve(parent_height, resolve_calc);
 
         // Determine width and height from styles and known_sizes (if a size is available
         // from any of these sources)
@@ -261,7 +286,7 @@ pub fn update_image_content_size_system(
             &mut ContentSize,
             Ref<ImageNode>,
             &mut ImageNodeSize,
-            Ref<ComputedNodeTarget>,
+            Ref<ComputedUiRenderTargetInfo>,
         ),
         UpdateImageFilter,
     >,

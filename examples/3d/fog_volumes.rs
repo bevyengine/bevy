@@ -6,9 +6,10 @@
 //! light.
 
 use bevy::{
+    light::{FogVolume, VolumetricFog, VolumetricLight},
     math::vec3,
-    pbr::{FogVolume, VolumetricFog, VolumetricLight},
     prelude::*,
+    render::view::Hdr,
 };
 
 /// Entry point.
@@ -21,7 +22,7 @@ fn main() {
             }),
             ..default()
         }))
-        .insert_resource(AmbientLight::NONE)
+        .insert_resource(GlobalAmbientLight::NONE)
         .add_systems(Startup, setup)
         .add_systems(Update, rotate_camera)
         .run();
@@ -46,7 +47,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn((
         Transform::from_xyz(1.0, 1.0, -0.3).looking_at(vec3(0.0, 0.5, 0.0), Vec3::Y),
         DirectionalLight {
-            shadows_enabled: true,
+            shadow_maps_enabled: true,
             illuminance: 32000.0,
             ..default()
         },
@@ -58,10 +59,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn((
         Camera3d::default(),
         Transform::from_xyz(-0.75, 1.0, 2.0).looking_at(vec3(0.0, 0.0, 0.0), Vec3::Y),
-        Camera {
-            hdr: true,
-            ..default()
-        },
+        Hdr,
         VolumetricFog {
             // Make this relatively high in order to increase the fog quality.
             step_count: 64,

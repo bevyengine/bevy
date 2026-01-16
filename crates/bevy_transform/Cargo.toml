@@ -1,31 +1,31 @@
 [package]
 name = "bevy_transform"
-version = "0.16.0-dev"
+version = "0.19.0-dev"
 edition = "2024"
 description = "Provides transform functionality for Bevy Engine"
-homepage = "https://bevyengine.org"
+homepage = "https://bevy.org"
 repository = "https://github.com/bevyengine/bevy"
 license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
 [dependencies]
 # bevy
-bevy_app = { path = "../bevy_app", version = "0.16.0-dev", default-features = false, optional = true }
-bevy_ecs = { path = "../bevy_ecs", version = "0.16.0-dev", default-features = false, optional = true }
-bevy_log = { path = "../bevy_log", version = "0.16.0-dev", default-features = false, optional = true }
-bevy_math = { path = "../bevy_math", version = "0.16.0-dev", default-features = false }
-bevy_reflect = { path = "../bevy_reflect", version = "0.16.0-dev", default-features = false, optional = true }
-bevy_tasks = { path = "../bevy_tasks", version = "0.16.0-dev", default-features = false }
-bevy_utils = { path = "../bevy_utils", version = "0.16.0-dev", default-features = false, optional = true }
+bevy_app = { path = "../bevy_app", version = "0.19.0-dev", default-features = false, optional = true }
+bevy_ecs = { path = "../bevy_ecs", version = "0.19.0-dev", default-features = false, optional = true }
+bevy_log = { path = "../bevy_log", version = "0.19.0-dev", default-features = false, optional = true }
+bevy_math = { path = "../bevy_math", version = "0.19.0-dev", default-features = false }
+bevy_reflect = { path = "../bevy_reflect", version = "0.19.0-dev", default-features = false, optional = true }
+bevy_tasks = { path = "../bevy_tasks", version = "0.19.0-dev", default-features = false }
+bevy_utils = { path = "../bevy_utils", version = "0.19.0-dev", default-features = false, optional = true }
 serde = { version = "1", default-features = false, features = [
   "derive",
 ], optional = true }
 thiserror = { version = "2", default-features = false }
-derive_more = { version = "1", default-features = false, features = ["from"] }
+derive_more = { version = "2", default-features = false, features = ["from"] }
 
 [dev-dependencies]
-bevy_tasks = { path = "../bevy_tasks", version = "0.16.0-dev" }
-bevy_math = { path = "../bevy_math", version = "0.16.0-dev", default-features = false, features = [
+bevy_tasks = { path = "../bevy_tasks", version = "0.19.0-dev" }
+bevy_math = { path = "../bevy_math", version = "0.19.0-dev", default-features = false, features = [
   "approx",
 ] }
 approx = "0.5.1"
@@ -73,7 +73,6 @@ std = [
   "bevy_ecs?/std",
   "bevy_math/std",
   "bevy_reflect?/std",
-  "bevy_tasks/std",
   "bevy_utils/parallel",
   "serde?/std",
 ]
@@ -83,7 +82,6 @@ std = [
 critical-section = [
   "bevy_app?/critical-section",
   "bevy_ecs?/critical-section",
-  "bevy_tasks/critical-section",
   "bevy_reflect?/critical-section",
 ]
 

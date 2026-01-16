@@ -1,11 +1,8 @@
 //! A module for the [`GizmoConfig<T>`] [`Resource`].
 
+use bevy_camera::visibility::RenderLayers;
 pub use bevy_gizmos_macros::GizmoConfigGroup;
 
-#[cfg(all(
-    feature = "bevy_render",
-    any(feature = "bevy_pbr", feature = "bevy_sprite")
-))]
 use {crate::GizmoAsset, bevy_asset::Handle, bevy_ecs::component::Component};
 
 use bevy_ecs::{reflect::ReflectResource, resource::Resource};
@@ -195,8 +192,7 @@ pub struct GizmoConfig {
     /// Describes which rendering layers gizmos will be rendered to.
     ///
     /// Gizmos will only be rendered to cameras with intersecting layers.
-    #[cfg(feature = "bevy_render")]
-    pub render_layers: bevy_render::view::RenderLayers,
+    pub render_layers: RenderLayers,
 }
 
 impl Default for GizmoConfig {
@@ -205,7 +201,6 @@ impl Default for GizmoConfig {
             enabled: true,
             line: Default::default(),
             depth_bias: 0.,
-            #[cfg(feature = "bevy_render")]
             render_layers: Default::default(),
         }
     }
@@ -244,15 +239,23 @@ impl Default for GizmoLineConfig {
     }
 }
 
-#[cfg(all(
-    feature = "bevy_render",
-    any(feature = "bevy_pbr", feature = "bevy_sprite")
-))]
+/// Configuration for gizmo meshes.
 #[derive(Component)]
-pub(crate) struct GizmoMeshConfig {
+pub struct GizmoMeshConfig {
+    /// Apply perspective to gizmo lines.
+    ///
+    /// This setting only affects 3D, non-orthographic cameras.
+    ///
+    /// Defaults to `false`.
     pub line_perspective: bool,
+    /// Determine the style of gizmo lines.
     pub line_style: GizmoLineStyle,
+    /// Describe how lines should join.
     pub line_joints: GizmoLineJoint,
-    pub render_layers: bevy_render::view::RenderLayers,
+    /// Describes which rendering layers gizmos will be rendered to.
+    ///
+    /// Gizmos will only be rendered to cameras with intersecting layers.
+    pub render_layers: RenderLayers,
+    /// Handle of the gizmo asset.
     pub handle: Handle<GizmoAsset>,
 }

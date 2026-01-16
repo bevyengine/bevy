@@ -1,9 +1,8 @@
 use crate::io::{AssetReader, AssetReaderError, PathStream, Reader};
 use alloc::{boxed::Box, sync::Arc};
-use bevy_platform::collections::HashMap;
-use crossbeam_channel::{Receiver, Sender};
-use parking_lot::RwLock;
-use std::path::Path;
+use async_channel::{Receiver, Sender};
+use bevy_platform::{collections::HashMap, sync::RwLock};
+use std::{path::Path, sync::PoisonError};
 
 /// A "gated" reader that will prevent asset reads from returning until
 /// a given path has been "opened" using [`GateOpener`].
@@ -32,11 +31,11 @@ impl GateOpener {
     /// Opens the `path` "gate", allowing a _single_ [`AssetReader`] operation to return for that path.
     /// If multiple operations are expected, call `open` the expected number of calls.
     pub fn open<P: AsRef<Path>>(&self, path: P) {
-        let mut gates = self.gates.write();
+        let mut gates = self.gates.write().unwrap_or_else(PoisonError::into_inner);
         let gates = gates
             .entry_ref(path.as_ref())
-            .or_insert_with(crossbeam_channel::unbounded);
-        gates.0.send(()).unwrap();
+            .or_insert_with(async_channel::unbounded);
+        gates.0.send_blocking(()).unwrap();
     }
 }
 
@@ -58,13 +57,13 @@ impl<R: AssetReader> GatedReader<R> {
 impl<R: AssetReader> AssetReader for GatedReader<R> {
     async fn read<'a>(&'a self, path: &'a Path) -> Result<impl Reader + 'a, AssetReaderError> {
         let receiver = {
-            let mut gates = self.gates.write();
+            let mut gates = self.gates.write().unwrap_or_else(PoisonError::into_inner);
             let gates = gates
                 .entry_ref(path.as_ref())
-                .or_insert_with(crossbeam_channel::unbounded);
+                .or_insert_with(async_channel::unbounded);
             gates.1.clone()
         };
-        receiver.recv().unwrap();
+        receiver.recv().await.unwrap();
         let result = self.reader.read(path).await?;
         Ok(result)
     }

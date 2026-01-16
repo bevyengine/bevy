@@ -28,69 +28,49 @@ macro_rules! impl_function_traits {
     (
         $ty: ty
         $(;
-            <
-                $($T: ident $(: $T1: tt $(+ $T2: tt)*)?),*
-            >
+            < $($T: ident $(: $T1: tt $(+ $T2: tt)*)?),* >
         )?
         $(
-            [
-                $(const $N: ident : $size: ident),*
-            ]
+            [ $(const $N: ident : $size: ident),* ]
         )?
         $(
-            where
-                $($U: ty $(: $U1: tt $(+ $U2: tt)*)?),*
+            where $($U: ty $(: $U1: tt $(+ $U2: tt)*)?),*
         )?
     ) => {
         $crate::func::args::impl_get_ownership!(
             $ty
             $(;
-                <
-                    $($T $(: $T1 $(+ $T2)*)?),*
-                >
+                < $($T $(: $T1 $(+ $T2)*)?),* >
             )?
             $(
-                [
-                    $(const $N : $size),*
-                ]
+                [ $(const $N : $size),* ]
             )?
             $(
-                where
-                    $($U $(: $U1 $(+ $U2)*)?),*
+                where $($U $(: $U1 $(+ $U2)*)?),*
             )?
         );
         $crate::func::args::impl_from_arg!(
             $ty
             $(;
-                <
-                    $($T $(: $T1 $(+ $T2)*)?),*
-                >
+                < $($T $(: $T1 $(+ $T2)*)?),* >
             )?
             $(
-                [
-                    $(const $N : $size),*
-                ]
+                [ $(const $N : $size),* ]
             )?
             $(
-                where
-                    $($U $(: $U1 $(+ $U2)*)?),*
+                where $($U $(: $U1 $(+ $U2)*)?),*
             )?
         );
         $crate::func::impl_into_return!(
             $ty
             $(;
-                <
-                    $($T $(: $T1 $(+ $T2)*)?),*
-                >
+                < $($T $(: $T1 $(+ $T2)*)?),* >
             )?
             $(
-                [
-                    $(const $N : $size),*
-                ]
+                [ $(const $N : $size),* ]
             )?
             $(
-                where
-                    $($U $(: $U1 $(+ $U2)*)?),*
+                where $($U $(: $U1 $(+ $U2)*)?),*
             )?
         );
     };

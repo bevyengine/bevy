@@ -2,8 +2,7 @@
 
 use bevy::{
     animation::{
-        animated_field, AnimationEntityMut, AnimationEvaluationError, AnimationTarget,
-        AnimationTargetId,
+        animated_field, AnimatedBy, AnimationEntityMut, AnimationEvaluationError, AnimationTargetId,
     },
     prelude::*,
 };
@@ -123,43 +122,36 @@ fn setup(
     // Build the UI. We have a parent node that covers the whole screen and
     // contains the `AnimationPlayer`, as well as a child node that contains the
     // text to be animated.
-    commands
-        .spawn((
-            // Cover the whole screen, and center contents.
-            Node {
-                position_type: PositionType::Absolute,
-                top: Val::Px(0.0),
-                left: Val::Px(0.0),
-                right: Val::Px(0.0),
-                bottom: Val::Px(0.0),
-                justify_content: JustifyContent::Center,
-                align_items: AlignItems::Center,
-                ..default()
-            },
-            animation_player,
-            AnimationGraphHandle(animation_graph),
-        ))
-        .with_children(|builder| {
-            // Build the text node.
-            let player = builder.target_entity();
-            builder
-                .spawn((
-                    Text::new("Bevy"),
-                    TextFont {
-                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                        font_size: 24.0,
-                        ..default()
-                    },
-                    TextColor(Color::Srgba(Srgba::RED)),
-                    TextLayout::new_with_justify(JustifyText::Center),
-                ))
-                // Mark as an animation target.
-                .insert(AnimationTarget {
-                    id: animation_target_id,
-                    player,
-                })
-                .insert(animation_target_name);
-        });
+    let mut entity = commands.spawn((
+        // Cover the whole screen, and center contents.
+        Node {
+            position_type: PositionType::Absolute,
+            top: px(0),
+            left: px(0),
+            right: px(0),
+            bottom: px(0),
+            justify_content: JustifyContent::Center,
+            align_items: AlignItems::Center,
+            ..default()
+        },
+        animation_player,
+        AnimationGraphHandle(animation_graph),
+    ));
+
+    let player = entity.id();
+    entity.insert(children![(
+        Text::new("Bevy"),
+        TextFont {
+            font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
+            font_size: 24.0,
+            ..default()
+        },
+        TextColor(Color::Srgba(Srgba::RED)),
+        TextLayout::new_with_justify(Justify::Center),
+        animation_target_id,
+        AnimatedBy(player),
+        animation_target_name,
+    )]);
 }
 
 // A type that represents the color of the first text section.
@@ -171,7 +163,7 @@ struct TextColorProperty;
 impl AnimatableProperty for TextColorProperty {
     type Property = Srgba;
 
-    fn evaluator_id(&self) -> EvaluatorId {
+    fn evaluator_id(&self) -> EvaluatorId<'_> {
         EvaluatorId::Type(TypeId::of::<Self>())
     }
 

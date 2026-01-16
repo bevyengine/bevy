@@ -1,10 +1,11 @@
 use crate::{
-    utility::GenericTypeInfoCell, ApplyError, FromReflect, FromType, Generics, GetTypeRegistration,
-    List, ListInfo, ListIter, MaybeTyped, PartialReflect, Reflect, ReflectFromPtr, ReflectKind,
-    ReflectMut, ReflectOwned, ReflectRef, TypeInfo, TypeParamInfo, TypePath, TypeRegistration,
-    Typed,
+    list::{List, ListInfo, ListIter},
+    utility::GenericTypeInfoCell,
+    ApplyError, FromReflect, FromType, Generics, GetTypeRegistration, MaybeTyped, PartialReflect,
+    Reflect, ReflectFromPtr, ReflectKind, ReflectMut, ReflectOwned, ReflectRef, TypeInfo,
+    TypeParamInfo, TypePath, TypeRegistration, Typed,
 };
-use alloc::{borrow::Cow, boxed::Box, string::ToString, vec::Vec};
+use alloc::{boxed::Box, vec::Vec};
 use bevy_reflect::ReflectCloneError;
 use bevy_reflect_derive::impl_type_path;
 use core::any::Any;
@@ -67,7 +68,7 @@ where
         <SmallVec<T>>::len(self)
     }
 
-    fn iter(&self) -> ListIter {
+    fn iter(&self) -> ListIter<'_> {
         ListIter::new(self)
     }
 
@@ -77,6 +78,7 @@ where
             .collect()
     }
 }
+
 impl<T: SmallArray + TypePath + Send + Sync> PartialReflect for SmallVec<T>
 where
     T::Item: FromReflect + MaybeTyped + TypePath,
@@ -111,22 +113,22 @@ where
     }
 
     fn apply(&mut self, value: &dyn PartialReflect) {
-        crate::list_apply(self, value);
+        crate::list::list_apply(self, value);
     }
 
     fn try_apply(&mut self, value: &dyn PartialReflect) -> Result<(), ApplyError> {
-        crate::list_try_apply(self, value)
+        crate::list::list_try_apply(self, value)
     }
 
     fn reflect_kind(&self) -> ReflectKind {
         ReflectKind::List
     }
 
-    fn reflect_ref(&self) -> ReflectRef {
+    fn reflect_ref(&self) -> ReflectRef<'_> {
         ReflectRef::List(self)
     }
 
-    fn reflect_mut(&mut self) -> ReflectMut {
+    fn reflect_mut(&mut self) -> ReflectMut<'_> {
         ReflectMut::List(self)
     }
 
@@ -136,22 +138,21 @@ where
 
     fn reflect_clone(&self) -> Result<Box<dyn Reflect>, ReflectCloneError> {
         Ok(Box::new(
-            self.iter()
-                .map(|value| {
-                    value
-                        .reflect_clone()?
-                        .take()
-                        .map_err(|_| ReflectCloneError::FailedDowncast {
-                            expected: Cow::Borrowed(<T::Item as TypePath>::type_path()),
-                            received: Cow::Owned(value.reflect_type_path().to_string()),
-                        })
-                })
+            // `(**self)` avoids getting `SmallVec<T> as List::iter`, which
+            // would give us the wrong item type.
+            (**self)
+                .iter()
+                .map(PartialReflect::reflect_clone_and_take)
                 .collect::<Result<Self, ReflectCloneError>>()?,
         ))
     }
 
     fn reflect_partial_eq(&self, value: &dyn PartialReflect) -> Option<bool> {
-        crate::list_partial_eq(self, value)
+        crate::list::list_partial_eq(self, value)
+    }
+
+    fn reflect_partial_cmp(&self, value: &dyn PartialReflect) -> Option<core::cmp::Ordering> {
+        crate::list::list_partial_cmp(self, value)
     }
 }
 

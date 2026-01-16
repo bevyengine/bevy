@@ -45,8 +45,8 @@
 use std::f32::consts::FRAC_PI_2;
 
 use bevy::{
-    color::palettes::tailwind, input::mouse::AccumulatedMouseMotion, pbr::NotShadowCaster,
-    prelude::*, render::view::RenderLayers,
+    camera::visibility::RenderLayers, color::palettes::tailwind,
+    input::mouse::AccumulatedMouseMotion, light::NotShadowCaster, prelude::*,
 };
 
 fn main() {
@@ -178,7 +178,7 @@ fn spawn_lights(mut commands: Commands) {
     commands.spawn((
         PointLight {
             color: Color::from(tailwind::ROSE_300),
-            shadows_enabled: true,
+            shadow_maps_enabled: true,
             ..default()
         },
         Transform::from_xyz(-2.0, 4.0, -0.75),
@@ -191,8 +191,8 @@ fn spawn_text(mut commands: Commands) {
     commands
         .spawn(Node {
             position_type: PositionType::Absolute,
-            bottom: Val::Px(12.0),
-            left: Val::Px(12.0),
+            bottom: px(12),
+            left: px(12),
             ..default()
         })
         .with_child(Text::new(concat!(

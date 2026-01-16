@@ -28,9 +28,13 @@ inputs:
   wayland:
     description: Install Wayland (libwayland-dev)
     required: false
-    default: "false"
+    default: "true"
   xkb:
     description: Install xkb (libxkbcommon-dev)
+    required: false
+    default: "false"
+  x264:
+    description: Install x264 (libx264-dev)
     required: false
     default: "false"
 runs:
@@ -47,3 +51,4 @@ runs:
         ${{ fromJSON(inputs.udev) && 'libudev-dev' || '' }}
         ${{ fromJSON(inputs.wayland) && 'libwayland-dev' || '' }}
         ${{ fromJSON(inputs.xkb) && 'libxkbcommon-dev' || '' }}
+        ${{ fromJSON(inputs.x264) && 'libx264-164 libx264-dev' || '' }}

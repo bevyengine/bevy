@@ -1,10 +1,10 @@
 # Bevy's Migration Guide Process
 
-Hi! Did someone add `M-Needs-Migration-Guide` to your PR? If so, you're in the right place.
+Hi! Did someone add `M-Migration-Guide` to your PR? If so, you're in the right place.
 Let's talk about how this process works.
 
 When we make breaking changes to Bevy, we need to communicate them to users so their libraries and applications can be moved to the new Bevy version.
-To do this, we write and ship a [migration guide](https://bevyengine.org/learn/migration-guides/introduction/) for every major Bevy version.
+To do this, we write and ship a [migration guide](https://bevy.org/learn/migration-guides/introduction/) for every major Bevy version.
 To avoid a crunch at the end of the cycle as we *write* all of these,
 Bevy asks authors (and reviewers) to write a draft migration guide as part of the pull requests that make breaking changes.
 
@@ -97,6 +97,6 @@ Keep it short and sweet:
   
   **Relocations**
   
-  |Item|0.15 Path|0.16 Path|
-  |-|-|-|
-  |`Foo`|`bar::foo`|`baz`|
+  | Item  | 0.15 Path  | 0.16 Path |
+  | ----- | ---------- | --------- |
+  | `Foo` | `bar::foo` | `baz`     |

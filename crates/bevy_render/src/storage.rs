@@ -1,10 +1,10 @@
 use crate::{
-    render_asset::{PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssetUsages},
+    render_asset::{AssetExtractionError, PrepareAssetError, RenderAsset, RenderAssetPlugin},
     render_resource::{Buffer, BufferUsages},
     renderer::RenderDevice,
 };
 use bevy_app::{App, Plugin};
-use bevy_asset::{Asset, AssetApp, AssetId};
+use bevy_asset::{Asset, AssetApp, AssetId, RenderAssetUsages};
 use bevy_ecs::system::{lifetimeless::SRes, SystemParamItem};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_utils::default;
@@ -18,7 +18,6 @@ pub struct StoragePlugin;
 impl Plugin for StoragePlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(RenderAssetPlugin::<GpuShaderStorageBuffer>::default())
-            .register_type::<ShaderStorageBuffer>()
             .init_asset::<ShaderStorageBuffer>()
             .register_asset_reflect::<ShaderStorageBuffer>();
     }
@@ -102,6 +101,7 @@ where
 /// A storage buffer that is prepared as a [`RenderAsset`] and uploaded to the GPU.
 pub struct GpuShaderStorageBuffer {
     pub buffer: Buffer,
+    pub had_data: bool,
 }
 
 impl RenderAsset for GpuShaderStorageBuffer {
@@ -112,10 +112,27 @@ impl RenderAsset for GpuShaderStorageBuffer {
         source_asset.asset_usage
     }
 
+    fn take_gpu_data(
+        source: &mut Self::SourceAsset,
+        previous_gpu_asset: Option<&Self>,
+    ) -> Result<Self::SourceAsset, AssetExtractionError> {
+        let data = source.data.take();
+
+        let valid_upload = data.is_some() || previous_gpu_asset.is_none_or(|prev| !prev.had_data);
+
+        valid_upload
+            .then(|| Self::SourceAsset {
+                data,
+                ..source.clone()
+            })
+            .ok_or(AssetExtractionError::AlreadyExtracted)
+    }
+
     fn prepare_asset(
         source_asset: Self::SourceAsset,
         _: AssetId<Self::SourceAsset>,
         render_device: &mut SystemParamItem<Self::Param>,
+        _: Option<&Self>,
     ) -> Result<Self, PrepareAssetError<Self::SourceAsset>> {
         match source_asset.data {
             Some(data) => {
@@ -124,11 +141,17 @@ impl RenderAsset for GpuShaderStorageBuffer {
                     contents: &data,
                     usage: source_asset.buffer_description.usage,
                 });
-                Ok(GpuShaderStorageBuffer { buffer })
+                Ok(GpuShaderStorageBuffer {
+                    buffer,
+                    had_data: true,
+                })
             }
             None => {
                 let buffer = render_device.create_buffer(&source_asset.buffer_description);
-                Ok(GpuShaderStorageBuffer { buffer })
+                Ok(GpuShaderStorageBuffer {
+                    buffer,
+                    had_data: false,
+                })
             }
         }
     }

@@ -1,13 +1,13 @@
-#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![doc(
-    html_logo_url = "https://bevyengine.org/assets/icon.png",
-    html_favicon_url = "https://bevyengine.org/assets/icon.png"
+    html_logo_url = "https://bevy.org/assets/icon.png",
+    html_favicon_url = "https://bevy.org/assets/icon.png"
 )]
 #![no_std]
 
 //! General utilities for first-party [Bevy] engine crates.
 //!
-//! [Bevy]: https://bevyengine.org/
+//! [Bevy]: https://bevy.org/
 
 /// Configuration information for this crate.
 pub mod cfg {
@@ -43,12 +43,13 @@ cfg::parallel! {
 ///
 /// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
+    pub use crate::debug_info::DebugName;
     pub use crate::default;
+    pub use disqualified::ShortName;
 }
 
-pub mod synccell;
-pub mod syncunsafecell;
-
+mod atomic_id;
+mod debug_info;
 mod default;
 mod once;
 

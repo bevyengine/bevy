@@ -40,21 +40,21 @@ fn setup_scene(
             Text::new("Click Me to get a box\nDrag cubes to rotate\nPress F3 to cycle between picking debug levels"),
             Node {
                 position_type: PositionType::Absolute,
-                top: Val::Percent(12.0),
-                left: Val::Percent(12.0),
+                top: percent(12),
+                left: percent(12),
                 ..default()
             },
         ))
         .observe(on_click_spawn_cube)
         .observe(
-            |out: Trigger<Pointer<Out>>, mut texts: Query<&mut TextColor>| {
-                let mut text_color = texts.get_mut(out.target()).unwrap();
+            |out: On<Pointer<Out>>, mut texts: Query<&mut TextColor>| {
+                let mut text_color = texts.get_mut(out.entity).unwrap();
                 text_color.0 = Color::WHITE;
             },
         )
         .observe(
-            |over: Trigger<Pointer<Over>>, mut texts: Query<&mut TextColor>| {
-                let mut color = texts.get_mut(over.target()).unwrap();
+            |over: On<Pointer<Over>>, mut texts: Query<&mut TextColor>| {
+                let mut color = texts.get_mut(over.entity).unwrap();
                 color.0 = bevy::color::palettes::tailwind::CYAN_400.into();
             },
         );
@@ -70,7 +70,7 @@ fn setup_scene(
     // Light
     commands.spawn((
         PointLight {
-            shadows_enabled: true,
+            shadow_maps_enabled: true,
             ..default()
         },
         Transform::from_xyz(4.0, 8.0, 4.0),
@@ -84,7 +84,7 @@ fn setup_scene(
 }
 
 fn on_click_spawn_cube(
-    _click: Trigger<Pointer<Click>>,
+    _click: On<Pointer<Click>>,
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
@@ -101,8 +101,8 @@ fn on_click_spawn_cube(
     *num += 1;
 }
 
-fn on_drag_rotate(drag: Trigger<Pointer<Drag>>, mut transforms: Query<&mut Transform>) {
-    if let Ok(mut transform) = transforms.get_mut(drag.target()) {
+fn on_drag_rotate(drag: On<Pointer<Drag>>, mut transforms: Query<&mut Transform>) {
+    if let Ok(mut transform) = transforms.get_mut(drag.entity) {
         transform.rotate_y(drag.delta.x * 0.02);
         transform.rotate_x(drag.delta.y * 0.02);
     }

@@ -7,9 +7,12 @@ use super::{
     InstanceManager,
 };
 use crate::{
-    MeshViewBindGroup, PrepassViewBindGroup, ViewEnvironmentMapUniformOffset, ViewFogUniformOffset,
-    ViewLightProbesUniformOffset, ViewLightsUniformOffset, ViewScreenSpaceReflectionsUniformOffset,
+    MeshViewBindGroup, PrepassViewBindGroup, ViewContactShadowsUniformOffset,
+    ViewEnvironmentMapUniformOffset, ViewFogUniformOffset, ViewLightProbesUniformOffset,
+    ViewLightsUniformOffset, ViewScreenSpaceReflectionsUniformOffset,
 };
+use bevy_camera::MainPassResolutionOverride;
+use bevy_camera::Viewport;
 use bevy_core_pipeline::prepass::{
     MotionVectorPrepass, PreviousViewUniformOffset, ViewPrepassTextures,
 };
@@ -19,6 +22,7 @@ use bevy_ecs::{
 };
 use bevy_render::{
     camera::ExtractedCamera,
+    diagnostic::RecordDiagnostics,
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
     render_resource::{
         LoadOp, Operations, PipelineCache, RenderPassDepthStencilAttachment, RenderPassDescriptor,
@@ -41,7 +45,9 @@ impl ViewNode for MeshletMainOpaquePass3dNode {
         &'static ViewFogUniformOffset,
         &'static ViewLightProbesUniformOffset,
         &'static ViewScreenSpaceReflectionsUniformOffset,
+        &'static ViewContactShadowsUniformOffset,
         &'static ViewEnvironmentMapUniformOffset,
+        Option<&'static MainPassResolutionOverride>,
         &'static MeshletViewMaterialsMainOpaquePass,
         &'static MeshletViewBindGroups,
         &'static MeshletViewResources,
@@ -60,7 +66,9 @@ impl ViewNode for MeshletMainOpaquePass3dNode {
             view_fog_offset,
             view_light_probes_offset,
             view_ssr_offset,
+            view_contact_shadows_offset,
             view_environment_map_offset,
+            resolution_override,
             meshlet_view_materials,
             meshlet_view_bind_groups,
             meshlet_view_resources,
@@ -86,8 +94,10 @@ impl ViewNode for MeshletMainOpaquePass3dNode {
             return Ok(());
         };
 
+        let diagnostics = render_context.diagnostic_recorder();
+
         let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
-            label: Some("meshlet_main_opaque_pass_3d"),
+            label: Some("meshlet_material_opaque_3d_pass"),
             color_attachments: &[Some(target.get_color_attachment())],
             depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
                 view: &meshlet_material_depth.default_view,
@@ -100,39 +110,45 @@ impl ViewNode for MeshletMainOpaquePass3dNode {
             timestamp_writes: None,
             occlusion_query_set: None,
         });
-        if let Some(viewport) = camera.viewport.as_ref() {
-            render_pass.set_camera_viewport(viewport);
+        let pass_span = diagnostics.pass_span(&mut render_pass, "meshlet_material_opaque_3d_pass");
+        if let Some(viewport) =
+            Viewport::from_viewport_and_override(camera.viewport.as_ref(), resolution_override)
+        {
+            render_pass.set_camera_viewport(&viewport);
         }
 
         render_pass.set_bind_group(
             0,
-            &mesh_view_bind_group.value,
+            &mesh_view_bind_group.main,
             &[
                 view_uniform_offset.offset,
                 view_lights_offset.offset,
                 view_fog_offset.offset,
                 **view_light_probes_offset,
                 **view_ssr_offset,
+                **view_contact_shadows_offset,
                 **view_environment_map_offset,
             ],
         );
-        render_pass.set_bind_group(1, meshlet_material_shade_bind_group, &[]);
+        render_pass.set_bind_group(1, &mesh_view_bind_group.binding_array, &[]);
+        render_pass.set_bind_group(2, meshlet_material_shade_bind_group, &[]);
 
         // 1 fullscreen triangle draw per material
         for (material_id, material_pipeline_id, material_bind_group) in
             meshlet_view_materials.iter()
         {
-            if instance_manager.material_present_in_scene(material_id) {
-                if let Some(material_pipeline) =
+            if instance_manager.material_present_in_scene(material_id)
+                && let Some(material_pipeline) =
                     pipeline_cache.get_render_pipeline(*material_pipeline_id)
-                {
-                    let x = *material_id * 3;
-                    render_pass.set_render_pipeline(material_pipeline);
-                    render_pass.set_bind_group(2, material_bind_group, &[]);
-                    render_pass.draw(x..(x + 3), 0..1);
-                }
+            {
+                let x = *material_id * 3;
+                render_pass.set_render_pipeline(material_pipeline);
+                render_pass.set_bind_group(3, material_bind_group, &[]);
+                render_pass.draw(x..(x + 3), 0..1);
             }
         }
+
+        pass_span.end(&mut render_pass);
 
         Ok(())
     }
@@ -147,6 +163,7 @@ impl ViewNode for MeshletPrepassNode {
         &'static ViewPrepassTextures,
         &'static ViewUniformOffset,
         &'static PreviousViewUniformOffset,
+        Option<&'static MainPassResolutionOverride>,
         Has<MotionVectorPrepass>,
         &'static MeshletViewMaterialsPrepass,
         &'static MeshletViewBindGroups,
@@ -162,6 +179,7 @@ impl ViewNode for MeshletPrepassNode {
             view_prepass_textures,
             view_uniform_offset,
             previous_view_uniform_offset,
+            resolution_override,
             view_has_motion_vector_prepass,
             meshlet_view_materials,
             meshlet_view_bind_groups,
@@ -190,6 +208,8 @@ impl ViewNode for MeshletPrepassNode {
             return Ok(());
         };
 
+        let diagnostics = render_context.diagnostic_recorder();
+
         let color_attachments = vec![
             view_prepass_textures
                 .normal
@@ -205,7 +225,7 @@ impl ViewNode for MeshletPrepassNode {
         ];
 
         let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
-            label: Some("meshlet_prepass"),
+            label: Some("meshlet_material_prepass"),
             color_attachments: &color_attachments,
             depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
                 view: &meshlet_material_depth.default_view,
@@ -218,8 +238,11 @@ impl ViewNode for MeshletPrepassNode {
             timestamp_writes: None,
             occlusion_query_set: None,
         });
-        if let Some(viewport) = camera.viewport.as_ref() {
-            render_pass.set_camera_viewport(viewport);
+        let pass_span = diagnostics.pass_span(&mut render_pass, "meshlet_material_prepass");
+        if let Some(viewport) =
+            Viewport::from_viewport_and_override(camera.viewport.as_ref(), resolution_override)
+        {
+            render_pass.set_camera_viewport(&viewport);
         }
 
         if view_has_motion_vector_prepass {
@@ -239,23 +262,25 @@ impl ViewNode for MeshletPrepassNode {
             );
         }
 
-        render_pass.set_bind_group(1, meshlet_material_shade_bind_group, &[]);
+        render_pass.set_bind_group(1, &prepass_view_bind_group.empty_bind_group, &[]);
+        render_pass.set_bind_group(2, meshlet_material_shade_bind_group, &[]);
 
         // 1 fullscreen triangle draw per material
         for (material_id, material_pipeline_id, material_bind_group) in
             meshlet_view_materials.iter()
         {
-            if instance_manager.material_present_in_scene(material_id) {
-                if let Some(material_pipeline) =
+            if instance_manager.material_present_in_scene(material_id)
+                && let Some(material_pipeline) =
                     pipeline_cache.get_render_pipeline(*material_pipeline_id)
-                {
-                    let x = *material_id * 3;
-                    render_pass.set_render_pipeline(material_pipeline);
-                    render_pass.set_bind_group(2, material_bind_group, &[]);
-                    render_pass.draw(x..(x + 3), 0..1);
-                }
+            {
+                let x = *material_id * 3;
+                render_pass.set_render_pipeline(material_pipeline);
+                render_pass.set_bind_group(2, material_bind_group, &[]);
+                render_pass.draw(x..(x + 3), 0..1);
             }
         }
+
+        pass_span.end(&mut render_pass);
 
         Ok(())
     }
@@ -270,6 +295,7 @@ impl ViewNode for MeshletDeferredGBufferPrepassNode {
         &'static ViewPrepassTextures,
         &'static ViewUniformOffset,
         &'static PreviousViewUniformOffset,
+        Option<&'static MainPassResolutionOverride>,
         Has<MotionVectorPrepass>,
         &'static MeshletViewMaterialsDeferredGBufferPrepass,
         &'static MeshletViewBindGroups,
@@ -285,6 +311,7 @@ impl ViewNode for MeshletDeferredGBufferPrepassNode {
             view_prepass_textures,
             view_uniform_offset,
             previous_view_uniform_offset,
+            resolution_override,
             view_has_motion_vector_prepass,
             meshlet_view_materials,
             meshlet_view_bind_groups,
@@ -332,8 +359,10 @@ impl ViewNode for MeshletDeferredGBufferPrepassNode {
                 .map(|deferred_lighting_pass_id| deferred_lighting_pass_id.get_attachment()),
         ];
 
+        let diagnostics = render_context.diagnostic_recorder();
+
         let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
-            label: Some("meshlet_deferred_prepass"),
+            label: Some("meshlet_material_deferred_prepass"),
             color_attachments: &color_attachments,
             depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
                 view: &meshlet_material_depth.default_view,
@@ -346,8 +375,12 @@ impl ViewNode for MeshletDeferredGBufferPrepassNode {
             timestamp_writes: None,
             occlusion_query_set: None,
         });
-        if let Some(viewport) = camera.viewport.as_ref() {
-            render_pass.set_camera_viewport(viewport);
+        let pass_span =
+            diagnostics.pass_span(&mut render_pass, "meshlet_material_deferred_prepass");
+        if let Some(viewport) =
+            Viewport::from_viewport_and_override(camera.viewport.as_ref(), resolution_override)
+        {
+            render_pass.set_camera_viewport(&viewport);
         }
 
         if view_has_motion_vector_prepass {
@@ -367,23 +400,25 @@ impl ViewNode for MeshletDeferredGBufferPrepassNode {
             );
         }
 
-        render_pass.set_bind_group(1, meshlet_material_shade_bind_group, &[]);
+        render_pass.set_bind_group(1, &prepass_view_bind_group.empty_bind_group, &[]);
+        render_pass.set_bind_group(2, meshlet_material_shade_bind_group, &[]);
 
         // 1 fullscreen triangle draw per material
         for (material_id, material_pipeline_id, material_bind_group) in
             meshlet_view_materials.iter()
         {
-            if instance_manager.material_present_in_scene(material_id) {
-                if let Some(material_pipeline) =
+            if instance_manager.material_present_in_scene(material_id)
+                && let Some(material_pipeline) =
                     pipeline_cache.get_render_pipeline(*material_pipeline_id)
-                {
-                    let x = *material_id * 3;
-                    render_pass.set_render_pipeline(material_pipeline);
-                    render_pass.set_bind_group(2, material_bind_group, &[]);
-                    render_pass.draw(x..(x + 3), 0..1);
-                }
+            {
+                let x = *material_id * 3;
+                render_pass.set_render_pipeline(material_pipeline);
+                render_pass.set_bind_group(2, material_bind_group, &[]);
+                render_pass.draw(x..(x + 3), 0..1);
             }
         }
+
+        pass_span.end(&mut render_pass);
 
         Ok(())
     }

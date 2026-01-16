@@ -94,7 +94,7 @@ fn spawn_sprites(
             children![(
                 Text2d::new(label),
                 text_style,
-                TextLayout::new_with_justify(JustifyText::Center),
+                TextLayout::new_with_justify(Justify::Center),
                 Transform::from_xyz(0., -0.5 * size.y - 10., 0.0),
                 bevy::sprite::Anchor::TOP_CENTER,
             )],
@@ -108,7 +108,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     let font = asset_server.load("fonts/FiraSans-Bold.ttf");
     let style = TextFont {
-        font: font.clone(),
+        font: font.into(),
         ..default()
     };
 

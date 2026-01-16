@@ -4,7 +4,6 @@ use bevy::{input::common_conditions::input_just_pressed, prelude::*, ui::widget:
 use std::f32::consts::{FRAC_PI_2, PI, TAU};
 
 const CONTAINER_SIZE: f32 = 150.0;
-const HALF_CONTAINER_SIZE: f32 = CONTAINER_SIZE / 2.0;
 const LOOP_LENGTH: f32 = 4.0;
 
 fn main() {
@@ -41,16 +40,16 @@ struct AnimationState {
 struct Container(u8);
 
 trait UpdateTransform {
-    fn update(&self, t: f32, transform: &mut Transform);
+    fn update(&self, t: f32, transform: &mut UiTransform);
 }
 
 #[derive(Component)]
 struct Move;
 
 impl UpdateTransform for Move {
-    fn update(&self, t: f32, transform: &mut Transform) {
-        transform.translation.x = ops::sin(t * TAU - FRAC_PI_2) * HALF_CONTAINER_SIZE;
-        transform.translation.y = -ops::cos(t * TAU - FRAC_PI_2) * HALF_CONTAINER_SIZE;
+    fn update(&self, t: f32, transform: &mut UiTransform) {
+        transform.translation.x = percent(ops::sin(t * TAU - FRAC_PI_2) * 50.);
+        transform.translation.y = percent(-ops::cos(t * TAU - FRAC_PI_2) * 50.);
     }
 }
 
@@ -58,7 +57,7 @@ impl UpdateTransform for Move {
 struct Scale;
 
 impl UpdateTransform for Scale {
-    fn update(&self, t: f32, transform: &mut Transform) {
+    fn update(&self, t: f32, transform: &mut UiTransform) {
         transform.scale.x = 1.0 + 0.5 * ops::cos(t * TAU).max(0.0);
         transform.scale.y = 1.0 + 0.5 * ops::cos(t * TAU + PI).max(0.0);
     }
@@ -68,9 +67,8 @@ impl UpdateTransform for Scale {
 struct Rotate;
 
 impl UpdateTransform for Rotate {
-    fn update(&self, t: f32, transform: &mut Transform) {
-        transform.rotation =
-            Quat::from_axis_angle(Vec3::Z, (ops::cos(t * TAU) * 45.0).to_radians());
+    fn update(&self, t: f32, transform: &mut UiTransform) {
+        transform.rotation = Rot2::radians(ops::cos(t * TAU) * 45.0);
     }
 }
 
@@ -91,8 +89,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             text_font.clone(),
             Node {
                 position_type: PositionType::Absolute,
-                top: Val::Px(12.0),
-                left: Val::Px(12.0),
+                top: px(12),
+                left: px(12),
                 ..default()
             },
             Instructions,
@@ -106,8 +104,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     commands
         .spawn(Node {
-            width: Val::Percent(100.),
-            height: Val::Percent(100.),
+            width: percent(100),
+            height: percent(100),
             justify_content: JustifyContent::Center,
             align_items: AlignItems::Center,
             ..default()
@@ -118,8 +116,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     display: Display::Grid,
                     grid_template_columns: RepeatedGridTrack::px(3, CONTAINER_SIZE),
                     grid_template_rows: RepeatedGridTrack::px(2, CONTAINER_SIZE),
-                    row_gap: Val::Px(80.),
-                    column_gap: Val::Px(80.),
+                    row_gap: px(80),
+                    column_gap: px(80),
                     ..default()
                 })
                 .with_children(|parent| {
@@ -143,10 +141,10 @@ fn spawn_image(
         parent.spawn((
             ImageNode::new(asset_server.load("branding/bevy_logo_dark_big.png")),
             Node {
-                height: Val::Px(100.),
+                height: px(100),
                 position_type: PositionType::Absolute,
-                top: Val::Px(-50.),
-                left: Val::Px(-200.),
+                top: px(-50),
+                left: px(-200),
                 ..default()
             },
         ));
@@ -162,7 +160,7 @@ fn spawn_text(
         parent.spawn((
             Text::new("Bevy"),
             TextFont {
-                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
                 font_size: 100.0,
                 ..default()
             },
@@ -175,15 +173,11 @@ fn spawn_container(
     update_transform: impl UpdateTransform + Component,
     spawn_children: impl FnOnce(&mut ChildSpawnerCommands),
 ) {
-    let mut transform = Transform::default();
-
-    update_transform.update(0.0, &mut transform);
-
     parent
         .spawn((
             Node {
-                width: Val::Percent(100.),
-                height: Val::Percent(100.),
+                width: percent(100),
+                height: percent(100),
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
                 overflow: Overflow::clip(),
@@ -198,11 +192,8 @@ fn spawn_container(
                     Node {
                         align_items: AlignItems::Center,
                         justify_content: JustifyContent::Center,
-                        top: Val::Px(transform.translation.x),
-                        left: Val::Px(transform.translation.y),
                         ..default()
                     },
-                    transform,
                     update_transform,
                 ))
                 .with_children(spawn_children);
@@ -233,13 +224,10 @@ fn update_animation(
 
 fn update_transform<T: UpdateTransform + Component>(
     animation: Res<AnimationState>,
-    mut containers: Query<(&mut Transform, &mut Node, &ComputedNode, &T)>,
+    mut containers: Query<(&mut UiTransform, &T)>,
 ) {
-    for (mut transform, mut node, computed_node, update_transform) in &mut containers {
+    for (mut transform, update_transform) in &mut containers {
         update_transform.update(animation.t, &mut transform);
-
-        node.left = Val::Px(transform.translation.x * computed_node.inverse_scale_factor());
-        node.top = Val::Px(transform.translation.y * computed_node.inverse_scale_factor());
     }
 }
 
@@ -275,12 +263,12 @@ fn next_container_size(mut containers: Query<(&mut Node, &mut Container)>) {
         container.0 = (container.0 + 1) % 3;
 
         node.width = match container.0 {
-            2 => Val::Percent(30.),
-            _ => Val::Percent(100.),
+            2 => percent(30),
+            _ => percent(100),
         };
         node.height = match container.0 {
-            1 => Val::Percent(30.),
-            _ => Val::Percent(100.),
+            1 => percent(30),
+            _ => percent(100),
         };
     }
 }

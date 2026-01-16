@@ -3,10 +3,9 @@ use crate::{
     RenderSystems, Res,
 };
 use bevy_app::{App, Plugin, SubApp};
-pub use bevy_asset::RenderAssetUsages;
-use bevy_asset::{Asset, AssetEvent, AssetId, Assets};
+use bevy_asset::{Asset, AssetEvent, AssetId, Assets, RenderAssetUsages};
 use bevy_ecs::{
-    prelude::{Commands, EventReader, IntoScheduleConfigs, ResMut, Resource},
+    prelude::{Commands, IntoScheduleConfigs, MessageReader, ResMut, Resource},
     schedule::{ScheduleConfigs, SystemSet},
     system::{ScheduleSystem, StaticSystemParam, SystemParam, SystemParamItem, SystemState},
     world::{FromWorld, Mut},
@@ -29,9 +28,14 @@ pub enum PrepareAssetError<E: Send + Sync + 'static> {
 #[derive(SystemSet, Clone, PartialEq, Eq, Debug, Hash)]
 pub struct AssetExtractionSystems;
 
-/// Deprecated alias for [`AssetExtractionSystems`].
-#[deprecated(since = "0.17.0", note = "Renamed to `AssetExtractionSystems`.")]
-pub type ExtractAssetsSet = AssetExtractionSystems;
+/// Error returned when an asset due for extraction has already been extracted
+#[derive(Debug, Error)]
+pub enum AssetExtractionError {
+    #[error("The asset has already been extracted")]
+    AlreadyExtracted,
+    #[error("The asset type does not support extraction. To clone the asset to the renderworld, use `RenderAssetUsages::default()`")]
+    NoExtractionImplementation,
+}
 
 /// Describes how an asset gets extracted and prepared for rendering.
 ///
@@ -73,6 +77,7 @@ pub trait RenderAsset: Send + Sync + 'static + Sized {
         source_asset: Self::SourceAsset,
         asset_id: AssetId<Self::SourceAsset>,
         param: &mut SystemParamItem<Self::Param>,
+        previous_asset: Option<&Self>,
     ) -> Result<Self, PrepareAssetError<Self::SourceAsset>>;
 
     /// Called whenever the [`RenderAsset::SourceAsset`] has been removed.
@@ -85,6 +90,18 @@ pub trait RenderAsset: Send + Sync + 'static + Sized {
         _source_asset: AssetId<Self::SourceAsset>,
         _param: &mut SystemParamItem<Self::Param>,
     ) {
+    }
+
+    /// Make a copy of the asset to be moved to the `RenderWorld` / gpu. Heavy internal data (pixels, vertex attributes)
+    /// should be moved into the copy, leaving this asset with only metadata.
+    /// An error may be returned to indicate that the asset has already been extracted, and should not
+    /// have been modified on the CPU side (as it cannot be transferred to GPU again).
+    /// The previous GPU asset is also provided, which can be used to check if the modification is valid.
+    fn take_gpu_data(
+        _source: &mut Self::SourceAsset,
+        _previous_gpu_asset: Option<&Self>,
+    ) -> Result<Self::SourceAsset, AssetExtractionError> {
+        Err(AssetExtractionError::NoExtractionImplementation)
     }
 }
 
@@ -222,8 +239,9 @@ impl<A: RenderAsset> RenderAssets<A> {
 #[derive(Resource)]
 struct CachedExtractRenderAssetSystemState<A: RenderAsset> {
     state: SystemState<(
-        EventReader<'static, 'static, AssetEvent<A::SourceAsset>>,
+        MessageReader<'static, 'static, AssetEvent<A::SourceAsset>>,
         ResMut<'static, Assets<A::SourceAsset>>,
+        Option<Res<'static, RenderAssets<A>>>,
     )>,
 }
 
@@ -243,7 +261,7 @@ pub(crate) fn extract_render_asset<A: RenderAsset>(
 ) {
     main_world.resource_scope(
         |world, mut cached_state: Mut<CachedExtractRenderAssetSystemState<A>>| {
-            let (mut events, mut assets) = cached_state.state.get_mut(world);
+            let (mut events, mut assets, maybe_render_assets) = cached_state.state.get_mut(world);
 
             let mut needs_extracting = <HashSet<_>>::default();
             let mut removed = <HashSet<_>>::default();
@@ -284,9 +302,17 @@ pub(crate) fn extract_render_asset<A: RenderAsset>(
                     let asset_usage = A::asset_usage(asset);
                     if asset_usage.contains(RenderAssetUsages::RENDER_WORLD) {
                         if asset_usage == RenderAssetUsages::RENDER_WORLD {
-                            if let Some(asset) = assets.remove(id) {
-                                extracted_assets.push((id, asset));
-                                added.insert(id);
+                            if let Some(asset) = assets.get_mut_untracked(id) {
+                                let previous_asset = maybe_render_assets.as_ref().and_then(|render_assets| render_assets.get(id));
+                                match A::take_gpu_data(asset, previous_asset) {
+                                    Ok(gpu_data_asset) => {
+                                        extracted_assets.push((id, gpu_data_asset));
+                                        added.insert(id);
+                                    }
+                                    Err(e) => {
+                                        error!("{} with RenderAssetUsages == RENDER_WORLD cannot be extracted: {e}", core::any::type_name::<A>());
+                                    }
+                                };
                             }
                         } else {
                             extracted_assets.push((id, asset.clone()));
@@ -355,7 +381,8 @@ pub fn prepare_assets<A: RenderAsset>(
             0
         };
 
-        match A::prepare_asset(extracted_asset, id, &mut param) {
+        let previous_asset = render_assets.get(id);
+        match A::prepare_asset(extracted_asset, id, &mut param, previous_asset) {
             Ok(prepared_asset) => {
                 render_assets.insert(id, prepared_asset);
                 bpf.write_bytes(write_bytes);
@@ -382,7 +409,7 @@ pub fn prepare_assets<A: RenderAsset>(
         // we remove previous here to ensure that if we are updating the asset then
         // any users will not see the old asset after a new asset is extracted,
         // even if the new asset is not yet ready or we are out of bytes to write.
-        render_assets.remove(id);
+        let previous_asset = render_assets.remove(id);
 
         let write_bytes = if let Some(size) = A::byte_len(&extracted_asset) {
             if bpf.exhausted() {
@@ -394,7 +421,7 @@ pub fn prepare_assets<A: RenderAsset>(
             0
         };
 
-        match A::prepare_asset(extracted_asset, id, &mut param) {
+        match A::prepare_asset(extracted_asset, id, &mut param, previous_asset.as_ref()) {
             Ok(prepared_asset) => {
                 render_assets.insert(id, prepared_asset);
                 bpf.write_bytes(write_bytes);
@@ -497,14 +524,14 @@ impl RenderAssetBytesPerFrameLimiter {
     }
 
     /// Decreases the available bytes for the current frame.
-    fn write_bytes(&self, bytes: usize) {
+    pub(crate) fn write_bytes(&self, bytes: usize) {
         if self.max_bytes.is_some() && bytes > 0 {
             self.bytes_written.fetch_add(bytes, Ordering::Relaxed);
         }
     }
 
     /// Returns `true` if there are no remaining bytes available for writing this frame.
-    fn exhausted(&self) -> bool {
+    pub(crate) fn exhausted(&self) -> bool {
         if let Some(max_bytes) = self.max_bytes {
             let bytes_written = self.bytes_written.load(Ordering::Relaxed);
             bytes_written >= max_bytes

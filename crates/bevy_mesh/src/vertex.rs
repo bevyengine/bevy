@@ -2,13 +2,17 @@ use alloc::sync::Arc;
 use bevy_derive::EnumVariantMeta;
 use bevy_ecs::resource::Resource;
 use bevy_math::Vec3;
+#[cfg(feature = "serialize")]
+use bevy_platform::collections::HashMap;
 use bevy_platform::collections::HashSet;
 use bytemuck::cast_slice;
 use core::hash::{Hash, Hasher};
+#[cfg(feature = "serialize")]
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use wgpu_types::{BufferAddress, VertexAttribute, VertexFormat, VertexStepMode};
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct MeshVertexAttribute {
     /// The friendly name of the vertex attribute
     pub name: &'static str,
@@ -20,6 +24,37 @@ pub struct MeshVertexAttribute {
 
     /// The format of the vertex attribute.
     pub format: VertexFormat,
+}
+
+#[cfg(feature = "serialize")]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub(crate) struct SerializedMeshVertexAttribute {
+    pub(crate) name: String,
+    pub(crate) id: MeshVertexAttributeId,
+    pub(crate) format: VertexFormat,
+}
+
+#[cfg(feature = "serialize")]
+impl SerializedMeshVertexAttribute {
+    pub(crate) fn from_mesh_vertex_attribute(attribute: MeshVertexAttribute) -> Self {
+        Self {
+            name: attribute.name.to_string(),
+            id: attribute.id,
+            format: attribute.format,
+        }
+    }
+
+    pub(crate) fn try_into_mesh_vertex_attribute(
+        self,
+        possible_attributes: &HashMap<Box<str>, MeshVertexAttribute>,
+    ) -> Option<MeshVertexAttribute> {
+        let attr = possible_attributes.get(self.name.as_str())?;
+        if attr.id == self.id {
+            Some(*attr)
+        } else {
+            None
+        }
+    }
 }
 
 impl MeshVertexAttribute {
@@ -37,6 +72,7 @@ impl MeshVertexAttribute {
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Ord, PartialOrd, Hash)]
+#[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
 pub struct MeshVertexAttributeId(u64);
 
 impl From<MeshVertexAttribute> for MeshVertexAttributeId {
@@ -132,10 +168,40 @@ impl VertexAttributeDescriptor {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub(crate) struct MeshAttributeData {
     pub(crate) attribute: MeshVertexAttribute,
     pub(crate) values: VertexAttributeValues,
+}
+
+#[cfg(feature = "serialize")]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub(crate) struct SerializedMeshAttributeData {
+    pub(crate) attribute: SerializedMeshVertexAttribute,
+    pub(crate) values: VertexAttributeValues,
+}
+
+#[cfg(feature = "serialize")]
+impl SerializedMeshAttributeData {
+    pub(crate) fn from_mesh_attribute_data(data: MeshAttributeData) -> Self {
+        Self {
+            attribute: SerializedMeshVertexAttribute::from_mesh_vertex_attribute(data.attribute),
+            values: data.values,
+        }
+    }
+
+    pub(crate) fn try_into_mesh_attribute_data(
+        self,
+        possible_attributes: &HashMap<Box<str>, MeshVertexAttribute>,
+    ) -> Option<MeshAttributeData> {
+        let attribute = self
+            .attribute
+            .try_into_mesh_vertex_attribute(possible_attributes)?;
+        Some(MeshAttributeData {
+            attribute,
+            values: self.values,
+        })
+    }
 }
 
 /// Compute a vector whose direction is the normal of the triangle formed by
@@ -153,21 +219,22 @@ pub(crate) struct MeshAttributeData {
 /// the sum of these vectors which are then normalized, a constant multiple has
 /// no effect.
 #[inline]
-pub fn face_area_normal(a: [f32; 3], b: [f32; 3], c: [f32; 3]) -> [f32; 3] {
+pub fn triangle_area_normal(a: [f32; 3], b: [f32; 3], c: [f32; 3]) -> [f32; 3] {
     let (a, b, c) = (Vec3::from(a), Vec3::from(b), Vec3::from(c));
     (b - a).cross(c - a).into()
 }
 
 /// Compute the normal of a face made of three points: a, b, and c.
 #[inline]
-pub fn face_normal(a: [f32; 3], b: [f32; 3], c: [f32; 3]) -> [f32; 3] {
+pub fn triangle_normal(a: [f32; 3], b: [f32; 3], c: [f32; 3]) -> [f32; 3] {
     let (a, b, c) = (Vec3::from(a), Vec3::from(b), Vec3::from(c));
-    (b - a).cross(c - a).normalize().into()
+    (b - a).cross(c - a).normalize_or_zero().into()
 }
 
 /// Contains an array where each entry describes a property of a single vertex.
 /// Matches the [`VertexFormats`](VertexFormat).
-#[derive(Clone, Debug, EnumVariantMeta)]
+#[derive(Clone, Debug, EnumVariantMeta, PartialEq)]
+#[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
 pub enum VertexAttributeValues {
     Float32(Vec<f32>),
     Sint32(Vec<i32>),

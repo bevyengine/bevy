@@ -21,44 +21,39 @@
 use std::f32::consts::PI;
 
 use bevy::{
+    camera::{Exposure, ScreenSpaceTransmissionQuality},
     color::palettes::css::*,
-    core_pipeline::{
-        bloom::Bloom, core_3d::ScreenSpaceTransmissionQuality, prepass::DepthPrepass,
-        tonemapping::Tonemapping,
-    },
+    core_pipeline::{prepass::DepthPrepass, tonemapping::Tonemapping},
+    light::{NotShadowCaster, PointLightShadowMap, TransmittedShadowReceiver},
     math::ops,
-    pbr::{NotShadowCaster, PointLightShadowMap, TransmittedShadowReceiver},
+    post_process::bloom::Bloom,
     prelude::*,
     render::{
-        camera::{Exposure, TemporalJitter},
-        view::{ColorGrading, ColorGradingGlobal},
+        camera::TemporalJitter,
+        view::{ColorGrading, ColorGradingGlobal, Hdr},
     },
 };
 
+// *Note:* TAA is not _required_ for specular transmission, but
+// it _greatly enhances_ the look of the resulting blur effects.
+// Sadly, it's not available under WebGL.
 #[cfg(any(feature = "webgpu", not(target_arch = "wasm32")))]
-use bevy::anti_aliasing::experimental::taa::{TemporalAntiAliasPlugin, TemporalAntiAliasing};
+use bevy::anti_alias::taa::TemporalAntiAliasing;
+
 use rand::random;
 
 fn main() {
-    let mut app = App::new();
-
-    app.add_plugins(DefaultPlugins)
+    App::new()
+        .add_plugins(DefaultPlugins)
         .insert_resource(ClearColor(Color::BLACK))
         .insert_resource(PointLightShadowMap { size: 2048 })
-        .insert_resource(AmbientLight {
+        .insert_resource(GlobalAmbientLight {
             brightness: 0.0,
             ..default()
         })
         .add_systems(Startup, setup)
-        .add_systems(Update, (example_control_system, flicker_system));
-
-    // *Note:* TAA is not _required_ for specular transmission, but
-    // it _greatly enhances_ the look of the resulting blur effects.
-    // Sadly, it's not available under WebGL.
-    #[cfg(any(feature = "webgpu", not(target_arch = "wasm32")))]
-    app.add_plugins(TemporalAntiAliasPlugin);
-
-    app.run();
+        .add_systems(Update, (example_control_system, flicker_system))
+        .run();
 }
 
 /// set up a simple 3D scene
@@ -294,7 +289,7 @@ fn setup(
             intensity: 4_000.0,
             radius: 0.2,
             range: 5.0,
-            shadows_enabled: true,
+            shadow_maps_enabled: true,
             ..default()
         },
         Flicker,
@@ -303,10 +298,6 @@ fn setup(
     // Camera
     commands.spawn((
         Camera3d::default(),
-        Camera {
-            hdr: true,
-            ..default()
-        },
         Transform::from_xyz(1.0, 1.8, 7.0).looking_at(Vec3::ZERO, Vec3::Y),
         ColorGrading {
             global: ColorGradingGlobal {
@@ -335,8 +326,8 @@ fn setup(
         Text::default(),
         Node {
             position_type: PositionType::Absolute,
-            top: Val::Px(12.0),
-            left: Val::Px(12.0),
+            top: px(12),
+            left: px(12),
             ..default()
         },
         ExampleDisplay,
@@ -387,11 +378,11 @@ fn example_control_system(
     camera: Single<
         (
             Entity,
-            &mut Camera,
             &mut Camera3d,
             &mut Transform,
             Option<&DepthPrepass>,
             Option<&TemporalJitter>,
+            Has<Hdr>,
         ),
         With<Camera3d>,
     >,
@@ -458,17 +449,15 @@ fn example_control_system(
         }
     }
 
-    let (
-        camera_entity,
-        mut camera,
-        mut camera_3d,
-        mut camera_transform,
-        depth_prepass,
-        temporal_jitter,
-    ) = camera.into_inner();
+    let (camera_entity, mut camera_3d, mut camera_transform, depth_prepass, temporal_jitter, hdr) =
+        camera.into_inner();
 
     if input.just_pressed(KeyCode::KeyH) {
-        camera.hdr = !camera.hdr;
+        if hdr {
+            commands.entity(camera_entity).remove::<Hdr>();
+        } else {
+            commands.entity(camera_entity).insert(Hdr);
+        }
     }
 
     #[cfg(any(feature = "webgpu", not(target_arch = "wasm32")))]
@@ -571,7 +560,7 @@ fn example_control_system(
         state.ior,
         state.perceptual_roughness,
         state.reflectance,
-        if camera.hdr { "ON " } else { "OFF" },
+        if hdr { "ON " } else { "OFF" },
         if cfg!(any(feature = "webgpu", not(target_arch = "wasm32"))) {
             if depth_prepass.is_some() {
                 "ON "

@@ -3,14 +3,15 @@
 use std::f32::consts::*;
 
 use bevy::{
-    anti_aliasing::fxaa::Fxaa,
+    anti_alias::fxaa::Fxaa,
     core_pipeline::prepass::{DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass},
     image::ImageLoaderSettings,
-    math::ops,
-    pbr::{
-        CascadeShadowConfigBuilder, DefaultOpaqueRendererMethod, DirectionalLightShadowMap,
-        NotShadowCaster, NotShadowReceiver, OpaqueRendererMethod,
+    light::{
+        CascadeShadowConfigBuilder, DirectionalLightShadowMap, NotShadowCaster, NotShadowReceiver,
     },
+    material::OpaqueRendererMethod,
+    math::ops,
+    pbr::DefaultOpaqueRendererMethod,
     prelude::*,
 };
 
@@ -33,11 +34,6 @@ fn setup(
 ) {
     commands.spawn((
         Camera3d::default(),
-        Camera {
-            // Deferred both supports both hdr: true and hdr: false
-            hdr: false,
-            ..default()
-        },
         Transform::from_xyz(0.7, 0.7, 1.0).looking_at(Vec3::new(0.0, 0.3, 0.0), Vec3::Y),
         // MSAA needs to be off for Deferred rendering
         Msaa::Off,
@@ -64,7 +60,7 @@ fn setup(
     commands.spawn((
         DirectionalLight {
             illuminance: 15_000.,
-            shadows_enabled: true,
+            shadow_maps_enabled: true,
             ..default()
         },
         CascadeShadowConfigBuilder {
@@ -127,7 +123,7 @@ fn setup(
         PointLight {
             intensity: 800.0,
             radius: 0.125,
-            shadows_enabled: true,
+            shadow_maps_enabled: true,
             color: sphere_color,
             ..default()
         },
@@ -190,8 +186,8 @@ fn setup(
         Text::default(),
         Node {
             position_type: PositionType::Absolute,
-            top: Val::Px(12.0),
-            left: Val::Px(12.0),
+            top: px(12),
+            left: px(12),
             ..default()
         },
     ));

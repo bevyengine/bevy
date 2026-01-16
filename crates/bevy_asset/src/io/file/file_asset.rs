@@ -1,37 +1,20 @@
 use crate::io::{
-    get_meta_path, AssetReader, AssetReaderError, AssetWriter, AssetWriterError, AsyncSeekForward,
-    PathStream, Reader, Writer,
+    get_meta_path, AssetReader, AssetReaderError, AssetWriter, AssetWriterError, PathStream,
+    Reader, ReaderNotSeekableError, SeekableReader, Writer,
 };
 use async_fs::{read_dir, File};
-use futures_io::AsyncSeek;
 use futures_lite::StreamExt;
 
 use alloc::{borrow::ToOwned, boxed::Box};
-use core::{pin::Pin, task, task::Poll};
 use std::path::Path;
 
 use super::{FileAssetReader, FileAssetWriter};
 
-impl AsyncSeekForward for File {
-    fn poll_seek_forward(
-        mut self: Pin<&mut Self>,
-        cx: &mut task::Context<'_>,
-        offset: u64,
-    ) -> Poll<futures_io::Result<u64>> {
-        let offset: Result<i64, _> = offset.try_into();
-
-        if let Ok(offset) = offset {
-            Pin::new(&mut self).poll_seek(cx, futures_io::SeekFrom::Current(offset))
-        } else {
-            Poll::Ready(Err(std::io::Error::new(
-                std::io::ErrorKind::InvalidInput,
-                "seek position is out of range",
-            )))
-        }
+impl Reader for File {
+    fn seekable(&mut self) -> Result<&mut dyn SeekableReader, ReaderNotSeekableError> {
+        Ok(self)
     }
 }
-
-impl Reader for File {}
 
 impl AssetReader for FileAssetReader {
     async fn read<'a>(&'a self, path: &'a Path) -> Result<impl Reader + 'a, AssetReaderError> {
@@ -69,10 +52,10 @@ impl AssetReader for FileAssetReader {
                     f.ok().and_then(|dir_entry| {
                         let path = dir_entry.path();
                         // filter out meta files as they are not considered assets
-                        if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
-                            if ext.eq_ignore_ascii_case("meta") {
-                                return None;
-                            }
+                        if let Some(ext) = path.extension().and_then(|e| e.to_str())
+                            && ext.eq_ignore_ascii_case("meta")
+                        {
+                            return None;
                         }
                         // filter out hidden files. they are not listed by default but are directly targetable
                         if path

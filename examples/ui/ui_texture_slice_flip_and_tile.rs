@@ -4,15 +4,12 @@ use bevy::{
     image::{ImageLoaderSettings, ImageSampler},
     prelude::*,
     ui::widget::NodeImageMode,
-    winit::WinitSettings,
 };
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .insert_resource(UiScale(2.))
-        // Only run the app when there is user input. This will significantly reduce CPU/GPU use for UI-only apps.
-        .insert_resource(WinitSettings::desktop_app())
         .add_systems(Startup, setup)
         .run();
 }
@@ -41,17 +38,17 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     commands
         .spawn(Node {
-            width: Val::Percent(100.),
-            height: Val::Percent(100.),
+            width: percent(100),
+            height: percent(100),
             justify_content: JustifyContent::Center,
             align_content: AlignContent::Center,
             flex_wrap: FlexWrap::Wrap,
-            column_gap: Val::Px(10.),
-            row_gap: Val::Px(10.),
+            column_gap: px(10),
+            row_gap: px(10),
             ..default()
         })
         .with_children(|parent| {
-            for [columns, rows] in [[3., 3.], [4., 4.], [5., 4.], [4., 5.], [5., 5.]] {
+            for [columns, rows] in [[3, 3], [4, 4], [5, 4], [4, 5], [5, 5]] {
                 for (flip_x, flip_y) in [(false, false), (false, true), (true, false), (true, true)]
                 {
                     parent.spawn((
@@ -63,8 +60,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             ..default()
                         },
                         Node {
-                            width: Val::Px(16. * columns),
-                            height: Val::Px(16. * rows),
+                            width: px(16 * columns),
+                            height: px(16 * rows),
                             ..default()
                         },
                     ));

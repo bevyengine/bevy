@@ -1,6 +1,7 @@
-use alloc::{borrow::Cow, vec::Vec};
+use alloc::vec::Vec;
+use bevy_utils::prelude::DebugName;
 
-use super::{IntoSystem, ReadOnlySystem, System, SystemParamValidationError};
+use super::{IntoSystem, ReadOnlySystem, RunSystemError, System, SystemParamValidationError};
 use crate::{
     schedule::InternedSystemSet,
     system::{input::SystemInput, SystemIn},
@@ -13,7 +14,7 @@ use crate::{
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
-/// use bevy_ecs::system::{Adapt, AdapterSystem};
+/// use bevy_ecs::system::{Adapt, AdapterSystem, RunSystemError};
 ///
 /// // A system adapter that inverts the result of a system.
 /// // NOTE: Instead of manually implementing this, you can just use `bevy_ecs::schedule::common_conditions::not`.
@@ -33,15 +34,16 @@ use crate::{
 ///     fn adapt(
 ///         &mut self,
 ///         input: <Self::In as SystemInput>::Inner<'_>,
-///         run_system: impl FnOnce(SystemIn<'_, S>) -> S::Out,
-///     ) -> Self::Out {
-///         !run_system(input)
+///         run_system: impl FnOnce(SystemIn<'_, S>) -> Result<S::Out, RunSystemError>,
+///     ) -> Result<Self::Out, RunSystemError> {
+///         let result = run_system(input)?;
+///         Ok(!result)
 ///     }
 /// }
 /// # let mut world = World::new();
 /// # let mut system = NotSystem::new(NotMarker, IntoSystem::into_system(|| false), "".into());
 /// # system.initialize(&mut world);
-/// # assert!(system.run((), &mut world));
+/// # assert!(system.run((), &mut world).unwrap());
 /// ```
 #[diagnostic::on_unimplemented(
     message = "`{Self}` can not adapt a system of type `{S}`",
@@ -58,8 +60,8 @@ pub trait Adapt<S: System>: Send + Sync + 'static {
     fn adapt(
         &mut self,
         input: <Self::In as SystemInput>::Inner<'_>,
-        run_system: impl FnOnce(SystemIn<'_, S>) -> S::Out,
-    ) -> Self::Out;
+        run_system: impl FnOnce(SystemIn<'_, S>) -> Result<S::Out, RunSystemError>,
+    ) -> Result<Self::Out, RunSystemError>;
 }
 
 /// An [`IntoSystem`] creating an instance of [`AdapterSystem`].
@@ -101,7 +103,7 @@ where
 pub struct AdapterSystem<Func, S> {
     func: Func,
     system: S,
-    name: Cow<'static, str>,
+    name: DebugName,
 }
 
 impl<Func, S> AdapterSystem<Func, S>
@@ -110,7 +112,7 @@ where
     S: System,
 {
     /// Creates a new [`System`] that uses `func` to adapt `system`, via the [`Adapt`] trait.
-    pub const fn new(func: Func, system: S, name: Cow<'static, str>) -> Self {
+    pub const fn new(func: Func, system: S, name: DebugName) -> Self {
         Self { func, system, name }
     }
 }
@@ -123,37 +125,13 @@ where
     type In = Func::In;
     type Out = Func::Out;
 
-    fn name(&self) -> Cow<'static, str> {
+    fn name(&self) -> DebugName {
         self.name.clone()
     }
 
-    fn component_access(&self) -> &crate::query::Access<crate::component::ComponentId> {
-        self.system.component_access()
-    }
-
-    fn component_access_set(
-        &self,
-    ) -> &crate::query::FilteredAccessSet<crate::component::ComponentId> {
-        self.system.component_access_set()
-    }
-
     #[inline]
-    fn archetype_component_access(
-        &self,
-    ) -> &crate::query::Access<crate::archetype::ArchetypeComponentId> {
-        self.system.archetype_component_access()
-    }
-
-    fn is_send(&self) -> bool {
-        self.system.is_send()
-    }
-
-    fn is_exclusive(&self) -> bool {
-        self.system.is_exclusive()
-    }
-
-    fn has_deferred(&self) -> bool {
-        self.system.has_deferred()
+    fn flags(&self) -> super::SystemStateFlags {
+        self.system.flags()
     }
 
     #[inline]
@@ -161,11 +139,17 @@ where
         &mut self,
         input: SystemIn<'_, Self>,
         world: UnsafeWorldCell,
-    ) -> Self::Out {
+    ) -> Result<Self::Out, RunSystemError> {
         // SAFETY: `system.run_unsafe` has the same invariants as `self.run_unsafe`.
         self.func.adapt(input, |input| unsafe {
             self.system.run_unsafe(input, world)
         })
+    }
+
+    #[cfg(feature = "hotpatching")]
+    #[inline]
+    fn refresh_hotpatch(&mut self) {
+        self.system.refresh_hotpatch();
     }
 
     #[inline]
@@ -187,28 +171,23 @@ where
         unsafe { self.system.validate_param_unsafe(world) }
     }
 
-    fn initialize(&mut self, world: &mut crate::prelude::World) {
-        self.system.initialize(world);
+    fn initialize(&mut self, world: &mut crate::prelude::World) -> crate::query::FilteredAccessSet {
+        self.system.initialize(world)
     }
 
-    #[inline]
-    fn update_archetype_component_access(&mut self, world: UnsafeWorldCell) {
-        self.system.update_archetype_component_access(world);
-    }
-
-    fn check_change_tick(&mut self, change_tick: crate::component::Tick) {
-        self.system.check_change_tick(change_tick);
+    fn check_change_tick(&mut self, check: crate::change_detection::CheckChangeTicks) {
+        self.system.check_change_tick(check);
     }
 
     fn default_system_sets(&self) -> Vec<InternedSystemSet> {
         self.system.default_system_sets()
     }
 
-    fn get_last_run(&self) -> crate::component::Tick {
+    fn get_last_run(&self) -> crate::change_detection::Tick {
         self.system.get_last_run()
     }
 
-    fn set_last_run(&mut self, last_run: crate::component::Tick) {
+    fn set_last_run(&mut self, last_run: crate::change_detection::Tick) {
         self.system.set_last_run(last_run);
     }
 }
@@ -232,8 +211,8 @@ where
     fn adapt(
         &mut self,
         input: <Self::In as SystemInput>::Inner<'_>,
-        run_system: impl FnOnce(SystemIn<'_, S>) -> S::Out,
-    ) -> Out {
-        self(run_system(input))
+        run_system: impl FnOnce(SystemIn<'_, S>) -> Result<S::Out, RunSystemError>,
+    ) -> Result<Self::Out, RunSystemError> {
+        run_system(input).map(self)
     }
 }

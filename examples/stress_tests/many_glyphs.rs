@@ -12,7 +12,7 @@ use bevy::{
     prelude::*,
     text::{LineBreak, TextBounds},
     window::{PresentMode, WindowResolution},
-    winit::{UpdateMode, WinitSettings},
+    winit::WinitSettings,
 };
 
 #[derive(FromArgs, Resource)]
@@ -43,7 +43,7 @@ fn main() {
         DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 present_mode: PresentMode::AutoNoVsync,
-                resolution: WindowResolution::new(1920.0, 1080.0).with_scale_factor_override(1.0),
+                resolution: WindowResolution::new(1920, 1080).with_scale_factor_override(1.0),
                 ..default()
             }),
             ..default()
@@ -51,10 +51,7 @@ fn main() {
         FrameTimeDiagnosticsPlugin::default(),
         LogDiagnosticsPlugin::default(),
     ))
-    .insert_resource(WinitSettings {
-        focused_mode: UpdateMode::Continuous,
-        unfocused_mode: UpdateMode::Continuous,
-    })
+    .insert_resource(WinitSettings::continuous())
     .add_systems(Startup, setup);
 
     if args.recompute_text {
@@ -74,14 +71,14 @@ fn setup(mut commands: Commands, args: Res<Args>) {
         ..Default::default()
     };
     let text_block = TextLayout {
-        justify: JustifyText::Left,
+        justify: Justify::Left,
         linebreak: LineBreak::AnyCharacter,
     };
 
     if !args.no_ui {
         commands
             .spawn(Node {
-                width: Val::Percent(100.),
+                width: percent(100),
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
                 ..default()
@@ -89,7 +86,7 @@ fn setup(mut commands: Commands, args: Res<Args>) {
             .with_children(|commands| {
                 commands
                     .spawn(Node {
-                        width: Val::Px(1000.),
+                        width: px(1000),
                         ..Default::default()
                     })
                     .with_child((Text(text_string.clone()), text_font.clone(), text_block));

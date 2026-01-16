@@ -46,16 +46,16 @@ pub mod prelude {
     };
 }
 
-/// An event produced by a picking backend after it has run its hit tests, describing the entities
+/// A message produced by a picking backend after it has run its hit tests, describing the entities
 /// under a pointer.
 ///
 /// Some backends may only support providing the topmost entity; this is a valid limitation. For
 /// example, a picking shader might only have data on the topmost rendered output from its buffer.
 ///
-/// Note that systems reading these events in [`PreUpdate`](bevy_app::PreUpdate) will not report ordering
+/// Note that systems reading these messages in [`PreUpdate`](bevy_app::PreUpdate) will not report ordering
 /// ambiguities with picking backends. Take care to ensure such systems are explicitly ordered
 /// against [`PickingSystems::Backend`](crate::PickingSystems::Backend), or better, avoid reading `PointerHits` in `PreUpdate`.
-#[derive(Event, Debug, Clone, Reflect)]
+#[derive(Message, Debug, Clone, Reflect)]
 #[reflect(Debug, Clone)]
 pub struct PointerHits {
     /// The pointer associated with this hit test.
@@ -63,7 +63,7 @@ pub struct PointerHits {
     /// An unordered collection of entities and their distance (depth) from the cursor.
     pub picks: Vec<(Entity, HitData)>,
     /// Set the order of this group of picks. Normally, this is the
-    /// [`bevy_render::camera::Camera::order`].
+    /// [`bevy_camera::Camera::order`].
     ///
     /// Used to allow multiple `PointerHits` submitted for the same pointer to be ordered.
     /// `PointerHits` with a higher `order` will be checked before those with a lower `order`,
@@ -99,10 +99,10 @@ impl PointerHits {
 #[reflect(Clone, PartialEq)]
 pub struct HitData {
     /// The camera entity used to detect this hit. Useful when you need to find the ray that was
-    /// casted for this hit when using a raycasting backend.
+    /// cast for this hit when using a raycasting backend.
     pub camera: Entity,
     /// `depth` only needs to be self-consistent with other [`PointerHits`]s using the same
-    /// [`RenderTarget`](bevy_render::camera::RenderTarget). However, it is recommended to use the
+    /// [`RenderTarget`](bevy_camera::RenderTarget). However, it is recommended to use the
     /// distance from the pointer to the hit, measured from the near plane of the camera, to the
     /// point, in world space.
     pub depth: f32,
@@ -129,11 +129,11 @@ pub mod ray {
     //! Types and systems for constructing rays from cameras and pointers.
 
     use crate::backend::prelude::{PointerId, PointerLocation};
+    use bevy_camera::{Camera, RenderTarget};
     use bevy_ecs::prelude::*;
     use bevy_math::Ray3d;
     use bevy_platform::collections::{hash_map::Iter, HashMap};
     use bevy_reflect::Reflect;
-    use bevy_render::camera::Camera;
     use bevy_transform::prelude::GlobalTransform;
     use bevy_window::PrimaryWindow;
 
@@ -170,7 +170,7 @@ pub mod ray {
     /// # use bevy_picking::backend::ray::RayMap;
     /// # use bevy_picking::backend::PointerHits;
     /// // My raycasting backend
-    /// pub fn update_hits(ray_map: Res<RayMap>, mut output_events: EventWriter<PointerHits>,) {
+    /// pub fn update_hits(ray_map: Res<RayMap>, mut output_messages: MessageWriter<PointerHits>,) {
     ///     for (&ray_id, &ray) in ray_map.iter() {
     ///         // Run a raycast with each ray, returning any `PointerHits` found.
     ///     }
@@ -196,20 +196,24 @@ pub mod ray {
         pub fn repopulate(
             mut ray_map: ResMut<Self>,
             primary_window_entity: Query<Entity, With<PrimaryWindow>>,
-            cameras: Query<(Entity, &Camera, &GlobalTransform)>,
+            cameras: Query<(Entity, &Camera, &RenderTarget, &GlobalTransform)>,
             pointers: Query<(&PointerId, &PointerLocation)>,
         ) {
             ray_map.map.clear();
 
-            for (camera_entity, camera, camera_tfm) in &cameras {
+            for (camera_entity, camera, render_target, camera_tfm) in &cameras {
                 if !camera.is_active {
                     continue;
                 }
 
                 for (&pointer_id, pointer_loc) in &pointers {
-                    if let Some(ray) =
-                        make_ray(&primary_window_entity, camera, camera_tfm, pointer_loc)
-                    {
+                    if let Some(ray) = make_ray(
+                        &primary_window_entity,
+                        camera,
+                        render_target,
+                        camera_tfm,
+                        pointer_loc,
+                    ) {
                         ray_map
                             .map
                             .insert(RayId::new(camera_entity, pointer_id), ray);
@@ -222,11 +226,12 @@ pub mod ray {
     fn make_ray(
         primary_window_entity: &Query<Entity, With<PrimaryWindow>>,
         camera: &Camera,
+        render_target: &RenderTarget,
         camera_tfm: &GlobalTransform,
         pointer_loc: &PointerLocation,
     ) -> Option<Ray3d> {
         let pointer_loc = pointer_loc.location()?;
-        if !pointer_loc.is_in_viewport(camera, primary_window_entity) {
+        if !pointer_loc.is_in_viewport(camera, render_target, primary_window_entity) {
             return None;
         }
         camera

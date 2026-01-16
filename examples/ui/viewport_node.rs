@@ -2,17 +2,12 @@
 //! pick entities visible in the widget's view.
 
 use bevy::{
-    image::{TextureFormatPixelInfo, Volume},
+    asset::RenderAssetUsages,
+    camera::RenderTarget,
     picking::pointer::PointerInteraction,
     prelude::*,
-    render::{
-        camera::RenderTarget,
-        render_resource::{
-            Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
-        },
-    },
+    render::render_resource::{TextureDimension, TextureFormat, TextureUsages},
     ui::widget::ViewportNode,
-    window::PrimaryWindow,
 };
 
 fn main() {
@@ -29,7 +24,6 @@ struct Shape;
 
 fn test(
     mut commands: Commands,
-    window: Query<&Window, With<PrimaryWindow>>,
     mut images: ResMut<Assets<Image>>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
@@ -37,31 +31,16 @@ fn test(
     // Spawn a UI camera
     commands.spawn(Camera3d::default());
 
-    // Set up an texture for the 3D camera to render to
-    let window = window.single().unwrap();
-    let window_size = window.physical_size();
-    let size = Extent3d {
-        width: window_size.x,
-        height: window_size.y,
-        ..default()
-    };
-    let format = TextureFormat::Bgra8UnormSrgb;
-    let image = Image {
-        data: Some(vec![0; size.volume() * format.pixel_size()]),
-        texture_descriptor: TextureDescriptor {
-            label: None,
-            size,
-            dimension: TextureDimension::D2,
-            format,
-            mip_level_count: 1,
-            sample_count: 1,
-            usage: TextureUsages::TEXTURE_BINDING
-                | TextureUsages::COPY_DST
-                | TextureUsages::RENDER_ATTACHMENT,
-            view_formats: &[],
-        },
-        ..default()
-    };
+    // Set up an texture for the 3D camera to render to.
+    // The size of the texture will be based on the viewport's ui size.
+    let mut image = Image::new_uninit(
+        default(),
+        TextureDimension::D2,
+        TextureFormat::Bgra8UnormSrgb,
+        RenderAssetUsages::all(),
+    );
+    image.texture_descriptor.usage =
+        TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST | TextureUsages::RENDER_ATTACHMENT;
     let image_handle = images.add(image);
 
     // Spawn the 3D camera
@@ -71,9 +50,9 @@ fn test(
             Camera {
                 // Render this camera before our UI camera
                 order: -1,
-                target: RenderTarget::Image(image_handle.clone().into()),
                 ..default()
             },
+            RenderTarget::Image(image_handle.clone().into()),
         ))
         .id();
 
@@ -86,7 +65,7 @@ fn test(
             Shape,
         ))
         // We can observe pointer events on our objects as normal, the
-        // `bevy::ui::widgets::viewport_picking` system will take care of ensuring our viewport
+        // `bevy::ui::widget::viewport_picking` system will take care of ensuring our viewport
         // clicks pass through
         .observe(on_drag_cuboid);
 
@@ -95,33 +74,33 @@ fn test(
         .spawn((
             Node {
                 position_type: PositionType::Absolute,
-                top: Val::Px(50.0),
-                left: Val::Px(50.0),
-                width: Val::Px(200.0),
-                height: Val::Px(200.0),
-                border: UiRect::all(Val::Px(5.0)),
+                top: px(50),
+                left: px(50),
+                width: px(200),
+                height: px(200),
+                border: UiRect::all(px(5)),
                 ..default()
             },
-            BorderColor(Color::WHITE),
+            BorderColor::all(Color::WHITE),
             ViewportNode::new(camera),
         ))
         .observe(on_drag_viewport);
 }
 
-fn on_drag_viewport(drag: Trigger<Pointer<Drag>>, mut node_query: Query<&mut Node>) {
+fn on_drag_viewport(drag: On<Pointer<Drag>>, mut node_query: Query<&mut Node>) {
     if matches!(drag.button, PointerButton::Secondary) {
-        let mut node = node_query.get_mut(drag.target()).unwrap();
+        let mut node = node_query.get_mut(drag.entity).unwrap();
 
         if let (Val::Px(top), Val::Px(left)) = (node.top, node.left) {
-            node.left = Val::Px(left + drag.delta.x);
-            node.top = Val::Px(top + drag.delta.y);
+            node.left = px(left + drag.delta.x);
+            node.top = px(top + drag.delta.y);
         };
     }
 }
 
-fn on_drag_cuboid(drag: Trigger<Pointer<Drag>>, mut transform_query: Query<&mut Transform>) {
+fn on_drag_cuboid(drag: On<Pointer<Drag>>, mut transform_query: Query<&mut Transform>) {
     if matches!(drag.button, PointerButton::Primary) {
-        let mut transform = transform_query.get_mut(drag.target()).unwrap();
+        let mut transform = transform_query.get_mut(drag.entity).unwrap();
         transform.rotate_y(drag.delta.x * 0.02);
         transform.rotate_x(drag.delta.y * 0.02);
     }

@@ -8,17 +8,29 @@ use bevy::{
     ecs::schedule::{InternedScheduleLabel, LogLevel, ScheduleBuildSettings},
     platform::collections::HashMap,
     prelude::*,
-    render::pipelined_rendering::RenderExtractApp,
+    render::{pipelined_rendering::PipelinedRenderingPlugin, RenderPlugin},
 };
 
 fn main() {
     let mut app = App::new();
-    app.add_plugins(DefaultPlugins);
+    app.add_plugins(
+        DefaultPlugins
+            .build()
+            .set(RenderPlugin {
+                // llvmpipe driver can cause segfaults when aborting the binary while pipelines are being
+                // compiled (which happens very quickly in this example since we only run for a single
+                // frame). Synchronous pipeline compilation helps prevent these segfaults as the
+                // rendering thread blocks on these pipeline compilations.
+                synchronous_pipeline_compilation: true,
+                ..Default::default()
+            })
+            // We also have to disable pipelined rendering to ensure the test doesn't end while the
+            // rendering frame is still executing in another thread.
+            .disable::<PipelinedRenderingPlugin>(),
+    );
 
     let main_app = app.main_mut();
     configure_ambiguity_detection(main_app);
-    let render_extract_app = app.sub_app_mut(RenderExtractApp);
-    configure_ambiguity_detection(render_extract_app);
 
     // Ambiguities in the RenderApp are currently allowed.
     // Eventually, we should forbid these: see https://github.com/bevyengine/bevy/issues/7386
@@ -35,14 +47,6 @@ fn main() {
         main_app_ambiguities.total(),
         0,
         "Main app has unexpected ambiguities among the following schedules: \n{main_app_ambiguities:#?}.",
-    );
-
-    // RenderApp is not checked here, because it is not within the App at this point.
-    let render_extract_ambiguities = count_ambiguities(app.sub_app(RenderExtractApp));
-    assert_eq!(
-        render_extract_ambiguities.total(),
-        0,
-        "RenderExtract app has unexpected ambiguities among the following schedules: \n{render_extract_ambiguities:#?}",
     );
 }
 

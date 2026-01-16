@@ -1,5 +1,8 @@
 name: Send Screenshots to Pixel Eagle
 
+permissions:
+  contents: read
+
 on:
   workflow_call:
     inputs:
@@ -37,7 +40,7 @@ jobs:
 
       - name: Download artifact
         if: ${{ fromJSON(env.PIXELEAGLE_TOKEN_EXISTS) }}
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
         with:
           pattern: ${{ inputs.artifact }}
 
@@ -45,14 +48,13 @@ jobs:
         if: ${{ fromJSON(env.PIXELEAGLE_TOKEN_EXISTS) }}
         env:
           project: B04F67C0-C054-4A6F-92EC-F599FEC2FD1D
+          branch: ${{ inputs.branch }}
         run: |
           # Create a new run with its associated metadata
-          metadata='{"os":"${{ inputs.os }}", "commit": "${{ inputs.commit }}", "branch": "${{ inputs.branch }}"}'
+          metadata='{"os":"${{ inputs.os }}", "commit": "${{ inputs.commit }}", "branch": "'$branch'"}'
           run=`curl https://pixel-eagle.com/$project/runs --json "$metadata" --oauth2-bearer ${{ secrets.PIXELEAGLE_TOKEN }} | jq '.id'`
 
           SAVEIFS=$IFS
-
-          cd ${{ inputs.artifact }}
 
           # Read the hashes of the screenshot for fast comparison when they are equal
           IFS=$'\n'

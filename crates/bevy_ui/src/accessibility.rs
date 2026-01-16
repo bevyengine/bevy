@@ -1,6 +1,7 @@
 use crate::{
     experimental::UiChildren,
     prelude::{Button, Label},
+    ui_transform::UiGlobalTransform,
     widget::{ImageNode, TextUiReader},
     ComputedNode,
 };
@@ -13,11 +14,9 @@ use bevy_ecs::{
     system::{Commands, Query},
     world::Ref,
 };
-use bevy_math::Vec3Swizzles;
-use bevy_render::camera::CameraUpdateSystems;
-use bevy_transform::prelude::GlobalTransform;
 
 use accesskit::{Node, Rect, Role};
+use bevy_camera::CameraUpdateSystems;
 
 fn calc_label(
     text_reader: &mut TextUiReader,
@@ -27,7 +26,7 @@ fn calc_label(
     for child in children {
         let values = text_reader
             .iter(child)
-            .map(|(_, _, text, _, _)| text.into())
+            .map(|(_, _, text, _, _, _)| text.into())
             .collect::<Vec<String>>();
         if !values.is_empty() {
             name = Some(values.join(" "));
@@ -40,12 +39,12 @@ fn calc_bounds(
     mut nodes: Query<(
         &mut AccessibilityNode,
         Ref<ComputedNode>,
-        Ref<GlobalTransform>,
+        Ref<UiGlobalTransform>,
     )>,
 ) {
     for (mut accessible, node, transform) in &mut nodes {
         if node.is_changed() || transform.is_changed() {
-            let center = transform.translation().xy();
+            let center = transform.translation;
             let half_size = 0.5 * node.size;
             let min = center - half_size;
             let max = center + half_size;
@@ -120,7 +119,7 @@ fn label_changed(
     for (entity, accessible) in &mut query {
         let values = text_reader
             .iter(entity)
-            .map(|(_, _, text, _, _)| text.into())
+            .map(|(_, _, text, _, _, _)| text.into())
             .collect::<Vec<String>>();
         let label = Some(values.join(" ").into_boxed_str());
         if let Some(mut accessible) = accessible {

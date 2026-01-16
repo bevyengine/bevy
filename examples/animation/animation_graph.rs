@@ -88,7 +88,7 @@ fn main() {
             (handle_weight_drag, update_ui, sync_weights).chain(),
         )
         .insert_resource(args)
-        .insert_resource(AmbientLight {
+        .insert_resource(GlobalAmbientLight {
             color: WHITE.into(),
             brightness: 100.0,
             ..default()
@@ -180,17 +180,23 @@ fn setup_assets_programmatically(
 
         IoTaskPool::get()
             .spawn(async move {
+                use std::io::Write;
+
+                let animation_graph: SerializedAnimationGraph = animation_graph
+                    .try_into()
+                    .expect("The animation graph failed to convert to its serialized form");
+
+                let serialized_graph =
+                    ron::ser::to_string_pretty(&animation_graph, PrettyConfig::default())
+                        .expect("Failed to serialize the animation graph");
                 let mut animation_graph_writer = File::create(Path::join(
                     &FileAssetReader::get_base_path(),
                     Path::join(Path::new("assets"), Path::new(ANIMATION_GRAPH_PATH)),
                 ))
                 .expect("Failed to open the animation graph asset");
-                ron::ser::to_writer_pretty(
-                    &mut animation_graph_writer,
-                    &animation_graph,
-                    PrettyConfig::default(),
-                )
-                .expect("Failed to serialize the animation graph");
+                animation_graph_writer
+                    .write_all(serialized_graph.as_bytes())
+                    .expect("Failed to write the animation graph");
             })
             .detach();
     }
@@ -226,7 +232,7 @@ fn setup_scene(
     commands.spawn((
         PointLight {
             intensity: 10_000_000.0,
-            shadows_enabled: true,
+            shadow_maps_enabled: true,
             ..default()
         },
         Transform::from_xyz(-4.0, 8.0, 13.0),
@@ -254,8 +260,8 @@ fn setup_help_text(commands: &mut Commands) {
         Text::new(HELP_TEXT),
         Node {
             position_type: PositionType::Absolute,
-            top: Val::Px(12.0),
-            left: Val::Px(12.0),
+            top: px(12),
+            left: px(12),
             ..default()
         },
     ));
@@ -277,7 +283,7 @@ fn setup_node_rects(commands: &mut Commands) {
                     ..default()
                 },
                 TextColor(ANTIQUE_WHITE.into()),
-                TextLayout::new_with_justify(JustifyText::Center),
+                TextLayout::new_with_justify(Justify::Center),
             ))
             .id();
 
@@ -285,18 +291,18 @@ fn setup_node_rects(commands: &mut Commands) {
             let mut container = commands.spawn((
                 Node {
                     position_type: PositionType::Absolute,
-                    bottom: Val::Px(node_rect.bottom),
-                    left: Val::Px(node_rect.left),
-                    height: Val::Px(node_rect.height),
-                    width: Val::Px(node_rect.width),
+                    bottom: px(node_rect.bottom),
+                    left: px(node_rect.left),
+                    height: px(node_rect.height),
+                    width: px(node_rect.width),
                     align_items: AlignItems::Center,
                     justify_items: JustifyItems::Center,
                     align_content: AlignContent::Center,
                     justify_content: JustifyContent::Center,
                     ..default()
                 },
-                BorderColor(WHITE.into()),
-                Outline::new(Val::Px(1.), Val::ZERO, Color::WHITE),
+                BorderColor::all(WHITE),
+                Outline::new(px(1), Val::ZERO, Color::WHITE),
             ));
 
             if let NodeType::Clip(clip) = node_type {
@@ -316,10 +322,10 @@ fn setup_node_rects(commands: &mut Commands) {
                 .spawn((
                     Node {
                         position_type: PositionType::Absolute,
-                        top: Val::Px(0.),
-                        left: Val::Px(0.),
-                        height: Val::Px(node_rect.height),
-                        width: Val::Px(node_rect.width),
+                        top: px(0),
+                        left: px(0),
+                        height: px(node_rect.height),
+                        width: px(node_rect.width),
                         ..default()
                     },
                     BackgroundColor(DARK_GREEN.into()),
@@ -342,14 +348,14 @@ fn setup_node_lines(commands: &mut Commands) {
         commands.spawn((
             Node {
                 position_type: PositionType::Absolute,
-                bottom: Val::Px(line.bottom),
-                left: Val::Px(line.left),
-                height: Val::Px(0.0),
-                width: Val::Px(line.length),
-                border: UiRect::bottom(Val::Px(1.0)),
+                bottom: px(line.bottom),
+                left: px(line.left),
+                height: px(0),
+                width: px(line.length),
+                border: UiRect::bottom(px(1)),
                 ..default()
             },
-            BorderColor(WHITE.into()),
+            BorderColor::all(WHITE),
         ));
     }
 
@@ -357,14 +363,14 @@ fn setup_node_lines(commands: &mut Commands) {
         commands.spawn((
             Node {
                 position_type: PositionType::Absolute,
-                bottom: Val::Px(line.bottom),
-                left: Val::Px(line.left),
-                height: Val::Px(line.length),
-                width: Val::Px(0.0),
-                border: UiRect::left(Val::Px(1.0)),
+                bottom: px(line.bottom),
+                left: px(line.left),
+                height: px(line.length),
+                width: px(0),
+                border: UiRect::left(px(1)),
                 ..default()
             },
-            BorderColor(WHITE.into()),
+            BorderColor::all(WHITE),
         ));
     }
 }
@@ -427,8 +433,7 @@ fn update_ui(
             let mut bg_iter = background_query.iter_many_mut(children);
             if let Some(mut node) = bg_iter.fetch_next() {
                 // All nodes are the same width, so `NODE_RECTS[0]` is as good as any other.
-                node.width =
-                    Val::Px(NODE_RECTS[0].width * animation_weights.weights[clip_node.index]);
+                node.width = px(NODE_RECTS[0].width * animation_weights.weights[clip_node.index]);
             }
 
             // Update the node labels with the current weights.

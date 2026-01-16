@@ -11,10 +11,14 @@ pub use bevy_derive::AppLabel;
 use bevy_ecs::{
     component::RequiredComponentsError,
     error::{DefaultErrorHandler, ErrorHandler},
-    event::{event_update_system, EventCursor},
+    event::Event,
     intern::Interned,
+    message::{message_update_system, MessageCursor},
     prelude::*,
-    schedule::{InternedSystemSet, ScheduleBuildSettings, ScheduleLabel},
+    schedule::{
+        InternedSystemSet, ScheduleBuildSettings, ScheduleCleanupPolicy, ScheduleError,
+        ScheduleLabel,
+    },
     system::{IntoObserverSystem, ScheduleSystem, SystemId, SystemInput},
 };
 use bevy_platform::collections::HashMap;
@@ -76,6 +80,7 @@ pub(crate) enum AppError {
 ///    println!("hello world");
 /// }
 /// ```
+#[must_use]
 pub struct App {
     pub(crate) sub_apps: SubApps,
     /// The function that will manage the app's lifecycle.
@@ -106,10 +111,11 @@ impl Default for App {
 
         #[cfg(feature = "bevy_reflect")]
         {
+            #[cfg(not(feature = "reflect_auto_register"))]
             app.init_resource::<AppTypeRegistry>();
-            app.register_type::<Name>();
-            app.register_type::<ChildOf>();
-            app.register_type::<Children>();
+
+            #[cfg(feature = "reflect_auto_register")]
+            app.insert_resource(AppTypeRegistry::new_with_derived_types());
         }
 
         #[cfg(feature = "reflect_functions")]
@@ -118,11 +124,11 @@ impl Default for App {
         app.add_plugins(MainSchedulePlugin);
         app.add_systems(
             First,
-            event_update_system
-                .in_set(bevy_ecs::event::EventUpdateSystems)
-                .run_if(bevy_ecs::event::event_update_condition),
+            message_update_system
+                .in_set(bevy_ecs::message::MessageUpdateSystems)
+                .run_if(bevy_ecs::message::message_update_condition),
         );
-        app.add_event::<AppExit>();
+        app.add_message::<AppExit>();
 
         app
     }
@@ -254,28 +260,40 @@ impl App {
     /// Runs [`Plugin::finish`] for each plugin. This is usually called by the event loop once all
     /// plugins are ready, but can be useful for situations where you want to use [`App::update`].
     pub fn finish(&mut self) {
+        #[cfg(feature = "trace")]
+        let _finish_span = info_span!("plugin finish").entered();
         // plugins installed to main should see all sub-apps
-        let plugins = core::mem::take(&mut self.main_mut().plugin_registry);
-        for plugin in &plugins {
-            plugin.finish(self);
+        // do hokey pokey with a boxed zst plugin (doesn't allocate)
+        let mut hokeypokey: Box<dyn Plugin> = Box::new(HokeyPokey);
+        for i in 0..self.main().plugin_registry.len() {
+            core::mem::swap(&mut self.main_mut().plugin_registry[i], &mut hokeypokey);
+            #[cfg(feature = "trace")]
+            let _plugin_finish_span =
+                info_span!("plugin finish", plugin = hokeypokey.name()).entered();
+            hokeypokey.finish(self);
+            core::mem::swap(&mut self.main_mut().plugin_registry[i], &mut hokeypokey);
         }
-        let main = self.main_mut();
-        main.plugin_registry = plugins;
-        main.plugins_state = PluginsState::Finished;
+        self.main_mut().plugins_state = PluginsState::Finished;
         self.sub_apps.iter_mut().skip(1).for_each(SubApp::finish);
     }
 
     /// Runs [`Plugin::cleanup`] for each plugin. This is usually called by the event loop after
     /// [`App::finish`], but can be useful for situations where you want to use [`App::update`].
     pub fn cleanup(&mut self) {
+        #[cfg(feature = "trace")]
+        let _cleanup_span = info_span!("plugin cleanup").entered();
         // plugins installed to main should see all sub-apps
-        let plugins = core::mem::take(&mut self.main_mut().plugin_registry);
-        for plugin in &plugins {
-            plugin.cleanup(self);
+        // do hokey pokey with a boxed zst plugin (doesn't allocate)
+        let mut hokeypokey: Box<dyn Plugin> = Box::new(HokeyPokey);
+        for i in 0..self.main().plugin_registry.len() {
+            core::mem::swap(&mut self.main_mut().plugin_registry[i], &mut hokeypokey);
+            #[cfg(feature = "trace")]
+            let _plugin_cleanup_span =
+                info_span!("plugin cleanup", plugin = hokeypokey.name()).entered();
+            hokeypokey.cleanup(self);
+            core::mem::swap(&mut self.main_mut().plugin_registry[i], &mut hokeypokey);
         }
-        let main = self.main_mut();
-        main.plugin_registry = plugins;
-        main.plugins_state = PluginsState::Cleaned;
+        self.main_mut().plugins_state = PluginsState::Cleaned;
         self.sub_apps.iter_mut().skip(1).for_each(SubApp::cleanup);
     }
 
@@ -310,6 +328,38 @@ impl App {
         self
     }
 
+    /// Removes all systems in a [`SystemSet`]. This will cause the schedule to be rebuilt when
+    /// the schedule is run again and can be slow. A [`ScheduleError`] is returned if the schedule needs to be
+    /// [`Schedule::initialize`]'d or the `set` is not found.
+    ///
+    /// Note that this can remove all systems of a type if you pass
+    /// the system to this function as systems implicitly create a set based
+    /// on the system type.
+    ///
+    /// ## Example
+    /// ```
+    /// # use bevy_app::prelude::*;
+    /// # use bevy_ecs::schedule::ScheduleCleanupPolicy;
+    /// #
+    /// # let mut app = App::new();
+    /// # fn system_a() {}
+    /// # fn system_b() {}
+    /// #
+    /// // add the system
+    /// app.add_systems(Update, system_a);
+    ///
+    /// // remove the system
+    /// app.remove_systems_in_set(Update, system_a, ScheduleCleanupPolicy::RemoveSystemsOnly);
+    /// ```
+    pub fn remove_systems_in_set<M>(
+        &mut self,
+        schedule: impl ScheduleLabel,
+        set: impl IntoSystemSet<M>,
+        policy: ScheduleCleanupPolicy,
+    ) -> Result<usize, ScheduleError> {
+        self.main_mut().remove_systems_in_set(schedule, set, policy)
+    }
+
     /// Registers a system and returns a [`SystemId`] so it can later be called by [`World::run_system`].
     ///
     /// It's possible to register the same systems more than once, they'll be stored separately.
@@ -341,10 +391,10 @@ impl App {
         self
     }
 
-    /// Initializes `T` event handling by inserting an event queue resource ([`Events::<T>`])
-    /// and scheduling an [`event_update_system`] in [`First`].
+    /// Initializes [`Message`] handling for `T` by inserting a message queue resource ([`Messages::<T>`])
+    /// and scheduling an [`message_update_system`] in [`First`].
     ///
-    /// See [`Events`] for information on how to define events.
+    /// See [`Messages`] for information on how to define messages.
     ///
     /// # Examples
     ///
@@ -352,17 +402,14 @@ impl App {
     /// # use bevy_app::prelude::*;
     /// # use bevy_ecs::prelude::*;
     /// #
-    /// # #[derive(Event)]
-    /// # struct MyEvent;
+    /// # #[derive(Message)]
+    /// # struct MyMessage;
     /// # let mut app = App::new();
     /// #
-    /// app.add_event::<MyEvent>();
+    /// app.add_message::<MyMessage>();
     /// ```
-    pub fn add_event<T>(&mut self) -> &mut Self
-    where
-        T: Event,
-    {
-        self.main_mut().add_event::<T>();
+    pub fn add_message<M: Message>(&mut self) -> &mut Self {
+        self.main_mut().add_message::<M>();
         self
     }
 
@@ -477,6 +524,9 @@ impl App {
             .push(Box::new(PlaceholderPlugin));
 
         self.main_mut().plugin_build_depth += 1;
+
+        #[cfg(feature = "trace")]
+        let _plugin_build_span = info_span!("plugin build", plugin = plugin.name()).entered();
 
         let f = AssertUnwindSafe(|| plugin.build(self));
 
@@ -1175,6 +1225,9 @@ impl App {
     }
 
     /// Applies the provided [`ScheduleBuildSettings`] to all schedules.
+    ///
+    /// This mutates all currently present schedules, but does not apply to any custom schedules
+    /// that might be added in the future.
     pub fn configure_schedules(
         &mut self,
         schedule_build_settings: ScheduleBuildSettings,
@@ -1287,14 +1340,14 @@ impl App {
     /// This should be called after every [`update()`](App::update) otherwise you risk
     /// dropping possible [`AppExit`] events.
     pub fn should_exit(&self) -> Option<AppExit> {
-        let mut reader = EventCursor::default();
+        let mut reader = MessageCursor::default();
 
-        let events = self.world().get_resource::<Events<AppExit>>()?;
-        let mut events = reader.read(events);
+        let messages = self.world().get_resource::<Messages<AppExit>>()?;
+        let mut messages = reader.read(messages);
 
-        if events.len() != 0 {
+        if messages.len() != 0 {
             return Some(
-                events
+                messages
                     .find(|exit| exit.is_error())
                     .cloned()
                     .unwrap_or(AppExit::Success),
@@ -1305,6 +1358,8 @@ impl App {
     }
 
     /// Spawns an [`Observer`] entity, which will watch for and respond to the given event.
+    ///
+    /// `observer` can be any system whose first parameter is [`On`].
     ///
     /// # Examples
     ///
@@ -1320,17 +1375,19 @@ impl App {
     /// #   friends_allowed: bool,
     /// # };
     /// #
-    /// # #[derive(Event)]
-    /// # struct Invite;
+    /// # #[derive(EntityEvent)]
+    /// # struct Invite {
+    /// #    entity: Entity,
+    /// # }
     /// #
     /// # #[derive(Component)]
     /// # struct Friend;
     /// #
-    /// // An observer system can be any system where the first parameter is a trigger
-    /// app.add_observer(|trigger: Trigger<Party>, friends: Query<Entity, With<Friend>>, mut commands: Commands| {
-    ///     if trigger.event().friends_allowed {
-    ///         for friend in friends.iter() {
-    ///             commands.trigger_targets(Invite, friend);
+    ///
+    /// app.add_observer(|event: On<Party>, friends: Query<Entity, With<Friend>>, mut commands: Commands| {
+    ///     if event.friends_allowed {
+    ///         for entity in friends.iter() {
+    ///             commands.trigger(Invite { entity } );
     ///         }
     ///     }
     /// });
@@ -1387,6 +1444,12 @@ impl App {
     }
 }
 
+// Used for doing hokey pokey in finish and cleanup
+pub(crate) struct HokeyPokey;
+impl Plugin for HokeyPokey {
+    fn build(&self, _: &mut App) {}
+}
+
 type RunnerFn = Box<dyn FnOnce(App) -> AppExit>;
 
 fn run_once(mut app: App) -> AppExit {
@@ -1402,17 +1465,17 @@ fn run_once(mut app: App) -> AppExit {
     app.should_exit().unwrap_or(AppExit::Success)
 }
 
-/// An event that indicates the [`App`] should exit. If one or more of these are present at the end of an update,
+/// A [`Message`] that indicates the [`App`] should exit. If one or more of these are present at the end of an update,
 /// the [runner](App::set_runner) will end and ([maybe](App::run)) return control to the caller.
 ///
-/// This event can be used to detect when an exit is requested. Make sure that systems listening
-/// for this event run before the current update ends.
+/// This message can be used to detect when an exit is requested. Make sure that systems listening
+/// for this message run before the current update ends.
 ///
 /// # Portability
 /// This type is roughly meant to map to a standard definition of a process exit code (0 means success, not 0 means error). Due to portability concerns
 /// (see [`ExitCode`](https://doc.rust-lang.org/std/process/struct.ExitCode.html) and [`process::exit`](https://doc.rust-lang.org/std/process/fn.exit.html#))
 /// we only allow error codes between 1 and [255](u8::MAX).
-#[derive(Event, Debug, Clone, Default, PartialEq, Eq)]
+#[derive(Message, Debug, Clone, Default, PartialEq, Eq)]
 pub enum AppExit {
     /// [`App`] exited without any problems.
     #[default]
@@ -1480,9 +1543,9 @@ mod tests {
         change_detection::{DetectChanges, ResMut},
         component::Component,
         entity::Entity,
-        event::{Event, EventWriter, Events},
+        lifecycle::RemovedComponents,
+        message::{Message, MessageWriter, Messages},
         query::With,
-        removal_detection::RemovedComponents,
         resource::Resource,
         schedule::{IntoScheduleConfigs, ScheduleLabel},
         system::{Commands, Query},
@@ -1520,6 +1583,38 @@ mod tests {
             if app.is_plugin_added::<PluginA>() {
                 panic!("cannot run if PluginA is already registered");
             }
+        }
+    }
+
+    struct PluginF;
+
+    impl Plugin for PluginF {
+        fn build(&self, _app: &mut App) {}
+
+        fn finish(&self, app: &mut App) {
+            // Ensure other plugins are available during finish
+            assert_eq!(
+                app.is_plugin_added::<PluginA>(),
+                !app.get_added_plugins::<PluginA>().is_empty(),
+            );
+        }
+
+        fn cleanup(&self, app: &mut App) {
+            // Ensure other plugins are available during finish
+            assert_eq!(
+                app.is_plugin_added::<PluginA>(),
+                !app.get_added_plugins::<PluginA>().is_empty(),
+            );
+        }
+    }
+
+    struct PluginG;
+
+    impl Plugin for PluginG {
+        fn build(&self, _app: &mut App) {}
+
+        fn finish(&self, app: &mut App) {
+            app.add_plugins(PluginB);
         }
     }
 
@@ -1563,12 +1658,15 @@ mod tests {
     #[derive(ScheduleLabel, Hash, Clone, PartialEq, Eq, Debug)]
     struct EnterMainMenu;
 
+    #[derive(Component)]
+    struct A;
+
     fn bar(mut commands: Commands) {
-        commands.spawn_empty();
+        commands.spawn(A);
     }
 
     fn foo(mut commands: Commands) {
-        commands.spawn_empty();
+        commands.spawn(A);
     }
 
     #[test]
@@ -1577,7 +1675,7 @@ mod tests {
         app.add_systems(EnterMainMenu, (foo, bar));
 
         app.world_mut().run_schedule(EnterMainMenu);
-        assert_eq!(app.world().entities().len(), 2);
+        assert_eq!(app.world_mut().query::<&A>().query(app.world()).count(), 2);
     }
 
     #[test]
@@ -1587,6 +1685,39 @@ mod tests {
         app.add_plugins(PluginA);
         app.add_plugins(PluginE);
         app.finish();
+    }
+
+    #[test]
+    fn test_get_added_plugins_works_during_finish_and_cleanup() {
+        let mut app = App::new();
+        app.add_plugins(PluginA);
+        app.add_plugins(PluginF);
+        app.finish();
+    }
+
+    #[test]
+    fn test_adding_plugin_works_during_finish() {
+        let mut app = App::new();
+        app.add_plugins(PluginA);
+        app.add_plugins(PluginG);
+        app.finish();
+        assert_eq!(
+            app.main().plugin_registry[0].name(),
+            "bevy_app::main_schedule::MainSchedulePlugin"
+        );
+        assert_eq!(
+            app.main().plugin_registry[1].name(),
+            "bevy_app::app::tests::PluginA"
+        );
+        assert_eq!(
+            app.main().plugin_registry[2].name(),
+            "bevy_app::app::tests::PluginG"
+        );
+        // PluginG adds PluginB during finish
+        assert_eq!(
+            app.main().plugin_registry[3].name(),
+            "bevy_app::app::tests::PluginB"
+        );
     }
 
     #[test]
@@ -1605,9 +1736,17 @@ mod tests {
             b: u32,
         }
 
+        #[expect(
+            dead_code,
+            reason = "This struct is used as a compilation test to test the derive macros, and as such is intentionally never constructed."
+        )]
         #[derive(AppLabel, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
         struct EmptyTupleLabel();
 
+        #[expect(
+            dead_code,
+            reason = "This struct is used as a compilation test to test the derive macros, and as such is intentionally never constructed."
+        )]
         #[derive(AppLabel, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
         struct EmptyStructLabel {}
 
@@ -1748,7 +1887,7 @@ mod tests {
 
     #[test]
     fn runner_returns_correct_exit_code() {
-        fn raise_exits(mut exits: EventWriter<AppExit>) {
+        fn raise_exits(mut exits: MessageWriter<AppExit>) {
             // Exit codes chosen by a fair dice roll.
             // Unlikely to overlap with default values.
             exits.write(AppExit::Success);
@@ -1846,38 +1985,38 @@ mod tests {
     }
     #[test]
     fn events_should_be_updated_once_per_update() {
-        #[derive(Event, Clone)]
-        struct TestEvent;
+        #[derive(Message, Clone)]
+        struct TestMessage;
 
         let mut app = App::new();
-        app.add_event::<TestEvent>();
+        app.add_message::<TestMessage>();
 
         // Starts empty
-        let test_events = app.world().resource::<Events<TestEvent>>();
-        assert_eq!(test_events.len(), 0);
-        assert_eq!(test_events.iter_current_update_events().count(), 0);
+        let test_messages = app.world().resource::<Messages<TestMessage>>();
+        assert_eq!(test_messages.len(), 0);
+        assert_eq!(test_messages.iter_current_update_messages().count(), 0);
         app.update();
 
         // Sending one event
-        app.world_mut().send_event(TestEvent);
+        app.world_mut().write_message(TestMessage);
 
-        let test_events = app.world().resource::<Events<TestEvent>>();
+        let test_events = app.world().resource::<Messages<TestMessage>>();
         assert_eq!(test_events.len(), 1);
-        assert_eq!(test_events.iter_current_update_events().count(), 1);
+        assert_eq!(test_events.iter_current_update_messages().count(), 1);
         app.update();
 
         // Sending two events on the next frame
-        app.world_mut().send_event(TestEvent);
-        app.world_mut().send_event(TestEvent);
+        app.world_mut().write_message(TestMessage);
+        app.world_mut().write_message(TestMessage);
 
-        let test_events = app.world().resource::<Events<TestEvent>>();
+        let test_events = app.world().resource::<Messages<TestMessage>>();
         assert_eq!(test_events.len(), 3); // Events are double-buffered, so we see 1 + 2 = 3
-        assert_eq!(test_events.iter_current_update_events().count(), 2);
+        assert_eq!(test_events.iter_current_update_messages().count(), 2);
         app.update();
 
         // Sending zero events
-        let test_events = app.world().resource::<Events<TestEvent>>();
+        let test_events = app.world().resource::<Messages<TestMessage>>();
         assert_eq!(test_events.len(), 2); // Events are double-buffered, so we see 2 + 0 = 2
-        assert_eq!(test_events.iter_current_update_events().count(), 0);
+        assert_eq!(test_events.iter_current_update_messages().count(), 0);
     }
 }

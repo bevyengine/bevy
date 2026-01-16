@@ -3,36 +3,50 @@ use core::marker::PhantomData;
 
 use bevy_app::{App, SubApp};
 use bevy_ecs::{
-    event::{Event, EventReader, Events},
+    message::{Message, MessageReader, Messages},
     resource::Resource,
     system::Commands,
     world::World,
 };
 use bevy_platform::collections::HashMap;
 
-use crate::state::{FreelyMutableState, OnExit, StateTransitionEvent};
+use crate::state::{OnEnter, OnExit, StateTransitionEvent, States};
 
-fn clear_event_queue<E: Event>(w: &mut World) {
-    if let Some(mut queue) = w.get_resource_mut::<Events<E>>() {
+fn clear_message_queue<M: Message>(w: &mut World) {
+    if let Some(mut queue) = w.get_resource_mut::<Messages<M>>() {
         queue.clear();
     }
 }
 
-#[derive(Resource)]
-struct StateScopedEvents<S: FreelyMutableState> {
-    cleanup_fns: HashMap<S, Vec<fn(&mut World)>>,
+#[derive(Copy, Clone)]
+enum TransitionType {
+    OnExit,
+    OnEnter,
 }
 
-impl<S: FreelyMutableState> StateScopedEvents<S> {
-    fn add_event<E: Event>(&mut self, state: S) {
-        self.cleanup_fns
-            .entry(state)
-            .or_default()
-            .push(clear_event_queue::<E>);
+#[derive(Resource)]
+struct StateScopedMessages<S: States> {
+    /// Keeps track of which messages need to be reset when the state is exited.
+    on_exit: HashMap<S, Vec<fn(&mut World)>>,
+    /// Keeps track of which messages need to be reset when the state is entered.
+    on_enter: HashMap<S, Vec<fn(&mut World)>>,
+}
+
+impl<S: States> StateScopedMessages<S> {
+    fn add_message<M: Message>(&mut self, state: S, transition_type: TransitionType) {
+        let map = match transition_type {
+            TransitionType::OnExit => &mut self.on_exit,
+            TransitionType::OnEnter => &mut self.on_enter,
+        };
+        map.entry(state).or_default().push(clear_message_queue::<M>);
     }
 
-    fn cleanup(&self, w: &mut World, state: S) {
-        let Some(fns) = self.cleanup_fns.get(&state) else {
+    fn cleanup(&self, w: &mut World, state: S, transition_type: TransitionType) {
+        let map = match transition_type {
+            TransitionType::OnExit => &self.on_exit,
+            TransitionType::OnEnter => &self.on_enter,
+        };
+        let Some(fns) = map.get(&state) else {
             return;
         };
         for callback in fns {
@@ -41,17 +55,18 @@ impl<S: FreelyMutableState> StateScopedEvents<S> {
     }
 }
 
-impl<S: FreelyMutableState> Default for StateScopedEvents<S> {
+impl<S: States> Default for StateScopedMessages<S> {
     fn default() -> Self {
         Self {
-            cleanup_fns: HashMap::default(),
+            on_exit: HashMap::default(),
+            on_enter: HashMap::default(),
         }
     }
 }
 
-fn cleanup_state_scoped_event<S: FreelyMutableState>(
+fn clear_messages_on_exit<S: States>(
     mut c: Commands,
-    mut transitions: EventReader<StateTransitionEvent<S>>,
+    mut transitions: MessageReader<StateTransitionEvent<S>>,
 ) {
     let Some(transition) = transitions.read().last() else {
         return;
@@ -64,49 +79,197 @@ fn cleanup_state_scoped_event<S: FreelyMutableState>(
     };
 
     c.queue(move |w: &mut World| {
-        w.resource_scope::<StateScopedEvents<S>, ()>(|w, events| {
-            events.cleanup(w, exited);
+        w.resource_scope::<StateScopedMessages<S>, ()>(|w, messages| {
+            messages.cleanup(w, exited, TransitionType::OnExit);
         });
     });
 }
 
-fn add_state_scoped_event_impl<E: Event, S: FreelyMutableState>(
-    app: &mut SubApp,
-    _p: PhantomData<E>,
-    state: S,
+fn clear_messages_on_enter<S: States>(
+    mut c: Commands,
+    mut transitions: MessageReader<StateTransitionEvent<S>>,
 ) {
-    if !app.world().contains_resource::<StateScopedEvents<S>>() {
-        app.init_resource::<StateScopedEvents<S>>();
+    let Some(transition) = transitions.read().last() else {
+        return;
+    };
+    if transition.entered == transition.exited {
+        return;
     }
-    app.add_event::<E>();
+    let Some(entered) = transition.entered.clone() else {
+        return;
+    };
+
+    c.queue(move |w: &mut World| {
+        w.resource_scope::<StateScopedMessages<S>, ()>(|w, messages| {
+            messages.cleanup(w, entered, TransitionType::OnEnter);
+        });
+    });
+}
+
+fn clear_messages_on_state_transition<M: Message, S: States>(
+    app: &mut SubApp,
+    _p: PhantomData<M>,
+    state: S,
+    transition_type: TransitionType,
+) {
+    if !app.world().contains_resource::<StateScopedMessages<S>>() {
+        app.init_resource::<StateScopedMessages<S>>();
+    }
     app.world_mut()
-        .resource_mut::<StateScopedEvents<S>>()
-        .add_event::<E>(state.clone());
-    app.add_systems(OnExit(state), cleanup_state_scoped_event::<S>);
+        .resource_mut::<StateScopedMessages<S>>()
+        .add_message::<M>(state.clone(), transition_type);
+    match transition_type {
+        TransitionType::OnExit => app.add_systems(OnExit(state), clear_messages_on_exit::<S>),
+        TransitionType::OnEnter => app.add_systems(OnEnter(state), clear_messages_on_enter::<S>),
+    };
 }
 
-/// Extension trait for [`App`] adding methods for registering state scoped events.
-pub trait StateScopedEventsAppExt {
-    /// Adds an [`Event`] that is automatically cleaned up when leaving the specified `state`.
+/// Extension trait for [`App`] adding methods for registering state scoped messages.
+pub trait StateScopedMessagesAppExt {
+    /// Clears a [`Message`] when exiting the specified `state`.
     ///
-    /// Note that event cleanup is ordered ambiguously relative to [`DespawnOnEnterState`](crate::prelude::DespawnOnEnterState)
-    /// and [`DespawnOnExitState`](crate::prelude::DespawnOnExitState) entity
-    /// cleanup and the [`OnExit`] schedule for the target state. All of these (state scoped
-    /// entities and events cleanup, and `OnExit`) occur within schedule [`StateTransition`](crate::prelude::StateTransition)
+    /// Note that message cleanup is ambiguously ordered relative to
+    /// [`DespawnOnExit`](crate::prelude::DespawnOnExit) entity cleanup,
+    /// and the [`OnExit`] schedule for the target state.
+    /// All of these (state scoped entities and messages cleanup, and `OnExit`)
+    /// occur within schedule [`StateTransition`](crate::prelude::StateTransition)
     /// and system set `StateTransitionSystems::ExitSchedules`.
-    fn add_state_scoped_event<E: Event>(&mut self, state: impl FreelyMutableState) -> &mut Self;
+    fn clear_messages_on_exit<M: Message>(&mut self, state: impl States) -> &mut Self;
+
+    /// Clears a [`Message`] when entering the specified `state`.
+    ///
+    /// Note that message cleanup is ambiguously ordered relative to
+    /// [`DespawnOnEnter`](crate::prelude::DespawnOnEnter) entity cleanup,
+    /// and the [`OnEnter`] schedule for the target state.
+    /// All of these (state scoped entities and messages cleanup, and `OnEnter`)
+    /// occur within schedule [`StateTransition`](crate::prelude::StateTransition)
+    /// and system set `StateTransitionSystems::EnterSchedules`.
+    fn clear_messages_on_enter<M: Message>(&mut self, state: impl States) -> &mut Self;
 }
 
-impl StateScopedEventsAppExt for App {
-    fn add_state_scoped_event<E: Event>(&mut self, state: impl FreelyMutableState) -> &mut Self {
-        add_state_scoped_event_impl(self.main_mut(), PhantomData::<E>, state);
+impl StateScopedMessagesAppExt for App {
+    fn clear_messages_on_exit<M: Message>(&mut self, state: impl States) -> &mut Self {
+        clear_messages_on_state_transition(
+            self.main_mut(),
+            PhantomData::<M>,
+            state,
+            TransitionType::OnExit,
+        );
+        self
+    }
+
+    fn clear_messages_on_enter<M: Message>(&mut self, state: impl States) -> &mut Self {
+        clear_messages_on_state_transition(
+            self.main_mut(),
+            PhantomData::<M>,
+            state,
+            TransitionType::OnEnter,
+        );
         self
     }
 }
 
-impl StateScopedEventsAppExt for SubApp {
-    fn add_state_scoped_event<E: Event>(&mut self, state: impl FreelyMutableState) -> &mut Self {
-        add_state_scoped_event_impl(self, PhantomData::<E>, state);
+impl StateScopedMessagesAppExt for SubApp {
+    fn clear_messages_on_exit<M: Message>(&mut self, state: impl States) -> &mut Self {
+        clear_messages_on_state_transition(self, PhantomData::<M>, state, TransitionType::OnExit);
         self
+    }
+
+    fn clear_messages_on_enter<M: Message>(&mut self, state: impl States) -> &mut Self {
+        clear_messages_on_state_transition(self, PhantomData::<M>, state, TransitionType::OnEnter);
+        self
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::app::StatesPlugin;
+    use bevy_ecs::message::Message;
+    use bevy_state::prelude::*;
+
+    #[derive(States, Default, Clone, Hash, Eq, PartialEq, Debug)]
+    enum TestState {
+        #[default]
+        A,
+        B,
+    }
+
+    #[derive(Message, Debug)]
+    struct StandardMessage;
+
+    #[derive(Message, Debug)]
+    struct StateScopedMessage;
+
+    #[test]
+    fn clear_message_on_exit_state() {
+        let mut app = App::new();
+        app.add_plugins(StatesPlugin);
+        app.init_state::<TestState>();
+
+        app.add_message::<StandardMessage>();
+        app.add_message::<StateScopedMessage>()
+            .clear_messages_on_exit::<StateScopedMessage>(TestState::A);
+
+        app.world_mut().write_message(StandardMessage).unwrap();
+        app.world_mut().write_message(StateScopedMessage).unwrap();
+        assert!(!app
+            .world()
+            .resource::<Messages<StandardMessage>>()
+            .is_empty());
+        assert!(!app
+            .world()
+            .resource::<Messages<StateScopedMessage>>()
+            .is_empty());
+
+        app.world_mut()
+            .resource_mut::<NextState<TestState>>()
+            .set(TestState::B);
+        app.update();
+
+        assert!(!app
+            .world()
+            .resource::<Messages<StandardMessage>>()
+            .is_empty());
+        assert!(app
+            .world()
+            .resource::<Messages<StateScopedMessage>>()
+            .is_empty());
+    }
+
+    #[test]
+    fn clear_message_on_enter_state() {
+        let mut app = App::new();
+        app.add_plugins(StatesPlugin);
+        app.init_state::<TestState>();
+
+        app.add_message::<StandardMessage>();
+        app.add_message::<StateScopedMessage>()
+            .clear_messages_on_enter::<StateScopedMessage>(TestState::B);
+
+        app.world_mut().write_message(StandardMessage).unwrap();
+        app.world_mut().write_message(StateScopedMessage).unwrap();
+        assert!(!app
+            .world()
+            .resource::<Messages<StandardMessage>>()
+            .is_empty());
+        assert!(!app
+            .world()
+            .resource::<Messages<StateScopedMessage>>()
+            .is_empty());
+
+        app.world_mut()
+            .resource_mut::<NextState<TestState>>()
+            .set(TestState::B);
+        app.update();
+
+        assert!(!app
+            .world()
+            .resource::<Messages<StandardMessage>>()
+            .is_empty());
+        assert!(app
+            .world()
+            .resource::<Messages<StateScopedMessage>>()
+            .is_empty());
     }
 }

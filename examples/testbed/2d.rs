@@ -4,20 +4,38 @@
 
 mod helpers;
 
+use argh::FromArgs;
 use bevy::prelude::*;
 use helpers::Next;
 
+#[derive(FromArgs)]
+/// 2d testbed
+pub struct Args {
+    #[argh(positional)]
+    scene: Option<Scene>,
+}
+
 fn main() {
+    #[cfg(not(target_arch = "wasm32"))]
+    let args: Args = argh::from_env();
+    #[cfg(target_arch = "wasm32")]
+    let args: Args = Args::from_args(&[], &[]).unwrap();
+
     let mut app = App::new();
     app.add_plugins((DefaultPlugins,))
-        .init_state::<Scene>()
         .add_systems(OnEnter(Scene::Shapes), shapes::setup)
         .add_systems(OnEnter(Scene::Bloom), bloom::setup)
         .add_systems(OnEnter(Scene::Text), text::setup)
         .add_systems(OnEnter(Scene::Sprite), sprite::setup)
+        .add_systems(OnEnter(Scene::SpriteSlicing), sprite_slicing::setup)
         .add_systems(OnEnter(Scene::Gizmos), gizmos::setup)
         .add_systems(Update, switch_scene)
         .add_systems(Update, gizmos::draw_gizmos.run_if(in_state(Scene::Gizmos)));
+
+    match args.scene {
+        None => app.init_state::<Scene>(),
+        Some(scene) => app.insert_state(scene),
+    };
 
     #[cfg(feature = "bevy_ci_testing")]
     app.add_systems(Update, helpers::switch_scene_in_ci::<Scene>);
@@ -26,14 +44,29 @@ fn main() {
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash, States, Default)]
-#[states(scoped_entities)]
 enum Scene {
     #[default]
     Shapes,
     Bloom,
     Text,
     Sprite,
+    SpriteSlicing,
     Gizmos,
+}
+
+impl std::str::FromStr for Scene {
+    type Err = String;
+
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        let mut isit = Self::default();
+        while s.to_lowercase() != format!("{isit:?}").to_lowercase() {
+            isit = isit.next();
+            if isit == Self::default() {
+                return Err(format!("Invalid Scene name: {s}"));
+            }
+        }
+        Ok(isit)
+    }
 }
 
 impl Next for Scene {
@@ -42,7 +75,8 @@ impl Next for Scene {
             Scene::Shapes => Scene::Bloom,
             Scene::Bloom => Scene::Text,
             Scene::Text => Scene::Sprite,
-            Scene::Sprite => Scene::Gizmos,
+            Scene::Sprite => Scene::SpriteSlicing,
+            Scene::SpriteSlicing => Scene::Gizmos,
             Scene::Gizmos => Scene::Shapes,
         }
     }
@@ -69,7 +103,7 @@ mod shapes {
         mut meshes: ResMut<Assets<Mesh>>,
         mut materials: ResMut<Assets<ColorMaterial>>,
     ) {
-        commands.spawn((Camera2d, DespawnOnExitState(super::Scene::Shapes)));
+        commands.spawn((Camera2d, DespawnOnExit(super::Scene::Shapes)));
 
         let shapes = [
             meshes.add(Circle::new(50.0)),
@@ -102,17 +136,14 @@ mod shapes {
                     0.0,
                     0.0,
                 ),
-                DespawnOnExitState(super::Scene::Shapes),
+                DespawnOnExit(super::Scene::Shapes),
             ));
         }
     }
 }
 
 mod bloom {
-    use bevy::{
-        core_pipeline::{bloom::Bloom, tonemapping::Tonemapping},
-        prelude::*,
-    };
+    use bevy::{core_pipeline::tonemapping::Tonemapping, post_process::bloom::Bloom, prelude::*};
 
     pub fn setup(
         mut commands: Commands,
@@ -121,27 +152,23 @@ mod bloom {
     ) {
         commands.spawn((
             Camera2d,
-            Camera {
-                hdr: true,
-                ..default()
-            },
             Tonemapping::TonyMcMapface,
             Bloom::default(),
-            DespawnOnExitState(super::Scene::Bloom),
+            DespawnOnExit(super::Scene::Bloom),
         ));
 
         commands.spawn((
             Mesh2d(meshes.add(Circle::new(100.))),
             MeshMaterial2d(materials.add(Color::srgb(7.5, 0.0, 7.5))),
             Transform::from_translation(Vec3::new(-200., 0., 0.)),
-            DespawnOnExitState(super::Scene::Bloom),
+            DespawnOnExit(super::Scene::Bloom),
         ));
 
         commands.spawn((
             Mesh2d(meshes.add(RegularPolygon::new(100., 6))),
             MeshMaterial2d(materials.add(Color::srgb(6.25, 9.4, 9.1))),
             Transform::from_translation(Vec3::new(200., 0., 0.)),
-            DespawnOnExitState(super::Scene::Bloom),
+            DespawnOnExit(super::Scene::Bloom),
         ));
     }
 }
@@ -153,13 +180,13 @@ mod text {
     use bevy::text::TextBounds;
 
     pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-        commands.spawn((Camera2d, DespawnOnExitState(super::Scene::Text)));
+        commands.spawn((Camera2d, DespawnOnExit(super::Scene::Text)));
 
         for (i, justify) in [
-            JustifyText::Left,
-            JustifyText::Right,
-            JustifyText::Center,
-            JustifyText::Justified,
+            Justify::Left,
+            Justify::Right,
+            Justify::Center,
+            Justify::Justified,
         ]
         .into_iter()
         .enumerate()
@@ -170,11 +197,11 @@ mod text {
                 &mut commands,
                 300. * Vec3::X + y * Vec3::Y,
                 justify,
-                Some(TextBounds::new(150., 55.)),
+                Some(TextBounds::new(150., 60.)),
             );
         }
 
-        let sans_serif = TextFont::from_font(asset_server.load("fonts/FiraSans-Bold.ttf"));
+        let sans_serif = TextFont::from(asset_server.load("fonts/FiraSans-Bold.ttf"));
 
         const NUM_ITERATIONS: usize = 10;
         for i in 0..NUM_ITERATIONS {
@@ -187,21 +214,21 @@ mod text {
                     .with_scale(1.0 + Vec2::splat(fraction).extend(1.))
                     .with_rotation(Quat::from_rotation_z(fraction * core::f32::consts::PI)),
                 TextColor(Color::hsla(fraction * 360.0, 0.8, 0.8, 0.8)),
-                DespawnOnExitState(super::Scene::Text),
+                DespawnOnExit(super::Scene::Text),
             ));
         }
 
         commands.spawn((
             Text2d::new("This text is invisible."),
             Visibility::Hidden,
-            DespawnOnExitState(super::Scene::Text),
+            DespawnOnExit(super::Scene::Text),
         ));
     }
 
     fn spawn_anchored_text(
         commands: &mut Commands,
         dest: Vec3,
-        justify: JustifyText,
+        justify: Justify,
         bounds: Option<TextBounds>,
     ) {
         commands.spawn((
@@ -211,7 +238,7 @@ mod text {
                 ..Default::default()
             },
             Transform::from_translation(dest),
-            DespawnOnExitState(super::Scene::Text),
+            DespawnOnExit(super::Scene::Text),
         ));
 
         for anchor in [
@@ -225,7 +252,10 @@ mod text {
                 TextLayout::new_with_justify(justify),
                 Transform::from_translation(dest + Vec3::Z),
                 anchor,
-                DespawnOnExitState(super::Scene::Text),
+                DespawnOnExit(super::Scene::Text),
+                ShowAabbGizmo {
+                    color: Some(palettes::tailwind::AMBER_400.into()),
+                },
                 children![
                     (
                         TextSpan::new(format!("{}, {}\n", anchor.x, anchor.y)),
@@ -250,7 +280,7 @@ mod text {
                     },
                     Transform::from_translation(dest - Vec3::Z),
                     anchor,
-                    DespawnOnExitState(super::Scene::Text),
+                    DespawnOnExit(super::Scene::Text),
                 ));
             }
         }
@@ -263,7 +293,7 @@ mod sprite {
     use bevy::sprite::Anchor;
 
     pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-        commands.spawn((Camera2d, DespawnOnExitState(super::Scene::Sprite)));
+        commands.spawn((Camera2d, DespawnOnExit(super::Scene::Sprite)));
         for (anchor, flip_x, flip_y, color) in [
             (Anchor::BOTTOM_LEFT, false, false, Color::WHITE),
             (Anchor::BOTTOM_RIGHT, true, false, RED.into()),
@@ -279,9 +309,67 @@ mod sprite {
                     ..default()
                 },
                 anchor,
-                DespawnOnExitState(super::Scene::Sprite),
+                DespawnOnExit(super::Scene::Sprite),
             ));
         }
+    }
+}
+
+mod sprite_slicing {
+    use bevy::prelude::*;
+    use bevy::sprite::{BorderRect, SliceScaleMode, SpriteImageMode, TextureSlicer};
+
+    pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+        commands.spawn((Camera2d, DespawnOnExit(super::Scene::SpriteSlicing)));
+
+        let texture = asset_server.load("textures/slice_square_2.png");
+        let font = asset_server.load("fonts/FiraSans-Bold.ttf");
+
+        commands.spawn((
+            Sprite {
+                image: texture.clone(),
+                ..default()
+            },
+            Transform::from_translation(Vec3::new(-150.0, 50.0, 0.0)).with_scale(Vec3::splat(2.0)),
+            DespawnOnExit(super::Scene::SpriteSlicing),
+        ));
+
+        commands.spawn((
+            Sprite {
+                image: texture,
+                image_mode: SpriteImageMode::Sliced(TextureSlicer {
+                    border: BorderRect::all(20.0),
+                    center_scale_mode: SliceScaleMode::Stretch,
+                    ..default()
+                }),
+                custom_size: Some(Vec2::new(200.0, 200.0)),
+                ..default()
+            },
+            Transform::from_translation(Vec3::new(150.0, 50.0, 0.0)),
+            DespawnOnExit(super::Scene::SpriteSlicing),
+        ));
+
+        commands.spawn((
+            Text2d::new("Original"),
+            TextFont {
+                font: FontSource::from(font.clone()),
+                font_size: 20.0,
+                ..default()
+            },
+            Transform::from_translation(Vec3::new(-150.0, -80.0, 0.0)),
+            DespawnOnExit(super::Scene::SpriteSlicing),
+        ));
+
+        commands.spawn((
+            Text2d::new("Sliced"),
+            TextFont {
+                font: FontSource::from(font.clone()),
+                font_size: 20.0,
+                ..default()
+            },
+            Transform::from_translation(Vec3::new(150.0, -80.0, 0.0)),
+            DespawnOnExit(super::Scene::SpriteSlicing),
+        ));
     }
 }
 
@@ -289,13 +377,39 @@ mod gizmos {
     use bevy::{color::palettes::css::*, prelude::*};
 
     pub fn setup(mut commands: Commands) {
-        commands.spawn((Camera2d, DespawnOnExitState(super::Scene::Gizmos)));
+        commands.spawn((Camera2d, DespawnOnExit(super::Scene::Gizmos)));
     }
 
     pub fn draw_gizmos(mut gizmos: Gizmos) {
-        gizmos.rect_2d(Isometry2d::IDENTITY, Vec2::new(200.0, 200.0), RED);
+        gizmos.rect_2d(
+            Isometry2d::from_translation(Vec2::new(-200.0, 0.0)),
+            Vec2::new(200.0, 200.0),
+            RED,
+        );
         gizmos
-            .circle_2d(Isometry2d::IDENTITY, 200.0, GREEN)
+            .circle_2d(
+                Isometry2d::from_translation(Vec2::new(-200.0, 0.0)),
+                200.0,
+                GREEN,
+            )
             .resolution(64);
+
+        // 2d grids with all variations of outer edges on or off
+        for i in 0..4 {
+            let x = 200.0 * (1.0 + (i % 2) as f32);
+            let y = 150.0 * (0.5 - (i / 2) as f32);
+            let mut grid = gizmos.grid(
+                Vec3::new(x, y, 0.0),
+                UVec2::new(5, 4),
+                Vec2::splat(30.),
+                Color::WHITE,
+            );
+            if i & 1 > 0 {
+                grid = grid.outer_edges_x();
+            }
+            if i & 2 > 0 {
+                grid.outer_edges_y();
+            }
+        }
     }
 }

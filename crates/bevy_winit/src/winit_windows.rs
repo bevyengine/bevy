@@ -4,8 +4,8 @@ use bevy_ecs::entity::Entity;
 use bevy_ecs::entity::EntityHashMap;
 use bevy_platform::collections::HashMap;
 use bevy_window::{
-    CursorGrabMode, MonitorSelection, VideoModeSelection, Window, WindowMode, WindowPosition,
-    WindowResolution, WindowWrapper,
+    CursorGrabMode, CursorOptions, MonitorSelection, VideoModeSelection, Window, WindowMode,
+    WindowPosition, WindowResolution, WindowWrapper,
 };
 use tracing::warn;
 
@@ -58,6 +58,7 @@ impl WinitWindows {
         event_loop: &ActiveEventLoop,
         entity: Entity,
         window: &Window,
+        cursor_options: &CursorOptions,
         adapters: &mut AccessKitAdapters,
         handlers: &mut WinitActionRequestHandlers,
         accessibility_requested: &AccessibilityRequested,
@@ -129,7 +130,8 @@ impl WinitWindows {
             .with_resizable(window.resizable)
             .with_enabled_buttons(convert_enabled_buttons(window.enabled_buttons))
             .with_decorations(window.decorations)
-            .with_transparent(window.transparent);
+            .with_transparent(window.transparent)
+            .with_active(window.focused);
 
         #[cfg(target_os = "windows")]
         {
@@ -188,11 +190,16 @@ impl WinitWindows {
         bevy_log::debug!("{display_info}");
 
         #[cfg(any(
-            target_os = "linux",
-            target_os = "dragonfly",
-            target_os = "freebsd",
-            target_os = "netbsd",
-            target_os = "openbsd",
+            all(
+                any(feature = "wayland", feature = "x11"),
+                any(
+                    target_os = "linux",
+                    target_os = "dragonfly",
+                    target_os = "freebsd",
+                    target_os = "netbsd",
+                    target_os = "openbsd",
+                )
+            ),
             target_os = "windows"
         ))]
         if let Some(name) = &window.name {
@@ -283,7 +290,7 @@ impl WinitWindows {
                     let canvas = canvas.dyn_into::<web_sys::HtmlCanvasElement>().ok();
                     winit_window_attributes = winit_window_attributes.with_canvas(canvas);
                 } else {
-                    panic!("Cannot find element: {}.", selector);
+                    panic!("Cannot find element: {selector}.");
                 }
             }
 
@@ -309,21 +316,21 @@ impl WinitWindows {
         winit_window.set_visible(window.visible);
 
         // Do not set the grab mode on window creation if it's none. It can fail on mobile.
-        if window.cursor_options.grab_mode != CursorGrabMode::None {
-            let _ = attempt_grab(&winit_window, window.cursor_options.grab_mode);
+        if cursor_options.grab_mode != CursorGrabMode::None {
+            let _ = attempt_grab(&winit_window, cursor_options.grab_mode);
         }
 
-        winit_window.set_cursor_visible(window.cursor_options.visible);
+        winit_window.set_cursor_visible(cursor_options.visible);
 
         // Do not set the cursor hittest on window creation if it's false, as it will always fail on
         // some platforms and log an unfixable warning.
-        if !window.cursor_options.hit_test {
-            if let Err(err) = winit_window.set_cursor_hittest(window.cursor_options.hit_test) {
-                warn!(
-                    "Could not set cursor hit test for window {}: {}",
-                    window.title, err
-                );
-            }
+        if !cursor_options.hit_test
+            && let Err(err) = winit_window.set_cursor_hittest(cursor_options.hit_test)
+        {
+            warn!(
+                "Could not set cursor hit test for window {}: {}",
+                window.title, err
+            );
         }
 
         self.entity_to_winit.insert(entity, winit_window.id());
@@ -390,10 +397,29 @@ fn get_current_videomode(monitor: &MonitorHandle) -> Option<VideoModeHandle> {
         .max_by_key(VideoModeHandle::bit_depth)
 }
 
+#[cfg(target_arch = "wasm32")]
+fn pointer_supported() -> Result<bool, ExternalError> {
+    Ok(js_sys::Reflect::has(
+        web_sys::window()
+            .ok_or(ExternalError::Ignored)?
+            .document()
+            .ok_or(ExternalError::Ignored)?
+            .as_ref(),
+        &"exitPointerLock".into(),
+    )
+    .unwrap_or(false))
+}
+
 pub(crate) fn attempt_grab(
     winit_window: &WinitWindow,
     grab_mode: CursorGrabMode,
 ) -> Result<(), ExternalError> {
+    // Do not attempt to grab on web if unsupported (e.g. mobile)
+    #[cfg(target_arch = "wasm32")]
+    if !pointer_supported()? {
+        return Err(ExternalError::Ignored);
+    }
+
     let grab_result = match grab_mode {
         CursorGrabMode::None => winit_window.set_cursor_grab(WinitCursorGrabMode::None),
         CursorGrabMode::Confined => winit_window
@@ -527,7 +553,7 @@ impl core::fmt::Display for DisplayInfo {
         let millihertz = self.refresh_rate_millihertz.unwrap_or(0);
         let hertz = millihertz / 1000;
         let extra_millihertz = millihertz % 1000;
-        write!(f, "  Refresh rate (Hz): {}.{:03}", hertz, extra_millihertz)?;
+        write!(f, "  Refresh rate (Hz): {hertz}.{extra_millihertz:03}")?;
         Ok(())
     }
 }

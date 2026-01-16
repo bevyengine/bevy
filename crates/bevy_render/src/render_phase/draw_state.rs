@@ -1,5 +1,4 @@
 use crate::{
-    camera::Viewport,
     diagnostic::internal::{Pass, PassKind, WritePipelineStatistics, WriteTimestamp},
     render_resource::{
         BindGroup, BindGroupId, Buffer, BufferId, BufferSlice, RenderPipeline, RenderPipelineId,
@@ -7,6 +6,7 @@ use crate::{
     },
     renderer::RenderDevice,
 };
+use bevy_camera::Viewport;
 use bevy_color::LinearRgba;
 use bevy_utils::default;
 use core::ops::Range;
@@ -14,6 +14,8 @@ use wgpu::{IndexFormat, QuerySet, RenderPass};
 
 #[cfg(feature = "detailed_trace")]
 use tracing::trace;
+
+type BufferSliceKey = (BufferId, wgpu::BufferAddress, wgpu::BufferSize);
 
 /// Tracks the state of a [`TrackedRenderPass`].
 ///
@@ -25,8 +27,8 @@ struct DrawState {
     pipeline: Option<RenderPipelineId>,
     bind_groups: Vec<(Option<BindGroupId>, Vec<u32>)>,
     /// List of vertex buffers by [`BufferId`], offset, and size. See [`DrawState::buffer_slice_key`]
-    vertex_buffers: Vec<Option<(BufferId, u64, u64)>>,
-    index_buffer: Option<(BufferId, u64, IndexFormat)>,
+    vertex_buffers: Vec<Option<BufferSliceKey>>,
+    index_buffer: Option<(BufferSliceKey, IndexFormat)>,
 
     /// Stores whether this state is populated or empty for quick state invalidation
     stores_state: bool,
@@ -87,7 +89,7 @@ impl DrawState {
     }
 
     /// Returns the value used for checking whether `BufferSlice`s are equivalent.
-    fn buffer_slice_key(&self, buffer_slice: &BufferSlice) -> (BufferId, u64, u64) {
+    fn buffer_slice_key(&self, buffer_slice: &BufferSlice) -> BufferSliceKey {
         (
             buffer_slice.id(),
             buffer_slice.offset(),
@@ -96,19 +98,14 @@ impl DrawState {
     }
 
     /// Marks the index `buffer` as bound.
-    fn set_index_buffer(&mut self, buffer: BufferId, offset: u64, index_format: IndexFormat) {
-        self.index_buffer = Some((buffer, offset, index_format));
+    fn set_index_buffer(&mut self, buffer_slice: &BufferSlice, index_format: IndexFormat) {
+        self.index_buffer = Some((self.buffer_slice_key(buffer_slice), index_format));
         self.stores_state = true;
     }
 
     /// Checks, whether the index `buffer` is already bound.
-    fn is_index_buffer_set(
-        &self,
-        buffer: BufferId,
-        offset: u64,
-        index_format: IndexFormat,
-    ) -> bool {
-        self.index_buffer == Some((buffer, offset, index_format))
+    fn is_index_buffer_set(&self, buffer: &BufferSlice, index_format: IndexFormat) -> bool {
+        self.index_buffer == Some((self.buffer_slice_key(buffer), index_format))
     }
 
     /// Resets tracking state
@@ -256,29 +253,21 @@ impl<'a> TrackedRenderPass<'a> {
     ///
     /// Subsequent calls to [`TrackedRenderPass::draw_indexed`] will use the buffer referenced by
     /// `buffer_slice` as the source index buffer.
-    pub fn set_index_buffer(
-        &mut self,
-        buffer_slice: BufferSlice<'a>,
-        offset: u64,
-        index_format: IndexFormat,
-    ) {
-        if self
-            .state
-            .is_index_buffer_set(buffer_slice.id(), offset, index_format)
-        {
-            #[cfg(feature = "detailed_trace")]
-            trace!(
-                "set index buffer (already set): {:?} ({})",
-                buffer_slice.id(),
-                offset
-            );
+    pub fn set_index_buffer(&mut self, buffer_slice: BufferSlice<'a>, index_format: IndexFormat) {
+        let already_set = self.state.is_index_buffer_set(&buffer_slice, index_format);
+        #[cfg(feature = "detailed_trace")]
+        trace!(
+            "set index buffer{}: {:?} (offset = {}, size = {})",
+            if already_set { " (already set)" } else { "" },
+            buffer_slice.id(),
+            buffer_slice.offset(),
+            buffer_slice.size(),
+        );
+        if already_set {
             return;
         }
-        #[cfg(feature = "detailed_trace")]
-        trace!("set index buffer: {:?} ({})", buffer_slice.id(), offset);
         self.pass.set_index_buffer(*buffer_slice, index_format);
-        self.state
-            .set_index_buffer(buffer_slice.id(), offset, index_format);
+        self.state.set_index_buffer(&buffer_slice, index_format);
     }
 
     /// Draws primitives from the active vertex buffer(s).

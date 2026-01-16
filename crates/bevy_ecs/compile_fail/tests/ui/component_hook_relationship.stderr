@@ -22,68 +22,88 @@ error: Custom on_despawn hooks are not supported as this RelationshipTarget alre
 52 |     #[component(on_despawn = foo_hook)]
    |     ^
 
-error[E0277]: the trait bound `FooTargetOfFail: Relationship` is not satisfied
+error[E0277]: the trait bound `FooTargetOfFail: bevy_ecs::relationship::Relationship` is not satisfied
    --> tests/ui/component_hook_relationship.rs:13:42
     |
-13  |     #[relationship_target(relationship = FooTargetOfFail)]
-    |                                          ^^^^^^^^^^^^^^^ the trait `Relationship` is not implemented for `FooTargetOfFail`
+ 13 |     #[relationship_target(relationship = FooTargetOfFail)]
+    |                                          ^^^^^^^^^^^^^^^ unsatisfied trait bound
     |
-    = help: the following other types implement trait `Relationship`:
+help: the trait `bevy_ecs::relationship::Relationship` is not implemented for `FooTargetOfFail`
+   --> tests/ui/component_hook_relationship.rs:10:5
+    |
+ 10 |     pub struct FooTargetOfFail(Entity);
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^
+    = help: the following other types implement trait `bevy_ecs::relationship::Relationship`:
               BarTargetOf
               ChildOf
               FooTargetOf
 note: required by a bound in `bevy_ecs::relationship::RelationshipTarget::Relationship`
-   --> $BEVY_ROOT/bevy_ecs/src/relationship/mod.rs:167:24
+   --> $BEVY_ROOT/bevy_ecs/src/relationship/mod.rs:234:24
     |
-167 |     type Relationship: Relationship<RelationshipTarget = Self>;
+234 |     type Relationship: Relationship<RelationshipTarget = Self>;
     |                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ required by this bound in `RelationshipTarget::Relationship`
 
 error[E0277]: the trait bound `FooTargetsFail: bevy_ecs::relationship::RelationshipTarget` is not satisfied
   --> tests/ui/component_hook_relationship.rs:28:42
    |
 28 |     #[relationship(relationship_target = FooTargetsFail)]
-   |                                          ^^^^^^^^^^^^^^ the trait `bevy_ecs::relationship::RelationshipTarget` is not implemented for `FooTargetsFail`
+   |                                          ^^^^^^^^^^^^^^ unsatisfied trait bound
    |
+help: the trait `bevy_ecs::relationship::RelationshipTarget` is not implemented for `FooTargetsFail`
+  --> tests/ui/component_hook_relationship.rs:25:5
+   |
+25 |     pub struct FooTargetsFail(Vec<Entity>);
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^
    = help: the following other types implement trait `bevy_ecs::relationship::RelationshipTarget`:
              BarTargets
              Children
              FooTargets
 note: required by a bound in `bevy_ecs::relationship::Relationship::RelationshipTarget`
-  --> $BEVY_ROOT/bevy_ecs/src/relationship/mod.rs:79:30
+  --> $BEVY_ROOT/bevy_ecs/src/relationship/mod.rs:81:30
    |
-79 |     type RelationshipTarget: RelationshipTarget<Relationship = Self>;
+81 |     type RelationshipTarget: RelationshipTarget<Relationship = Self>;
    |                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ required by this bound in `Relationship::RelationshipTarget`
 
-error[E0277]: the trait bound `BarTargetOfFail: Relationship` is not satisfied
+error[E0277]: the trait bound `BarTargetOfFail: bevy_ecs::relationship::Relationship` is not satisfied
    --> tests/ui/component_hook_relationship.rs:43:42
     |
-43  |     #[relationship_target(relationship = BarTargetOfFail)]
-    |                                          ^^^^^^^^^^^^^^^ the trait `Relationship` is not implemented for `BarTargetOfFail`
+ 43 |     #[relationship_target(relationship = BarTargetOfFail)]
+    |                                          ^^^^^^^^^^^^^^^ unsatisfied trait bound
     |
-    = help: the following other types implement trait `Relationship`:
+help: the trait `bevy_ecs::relationship::Relationship` is not implemented for `BarTargetOfFail`
+   --> tests/ui/component_hook_relationship.rs:40:5
+    |
+ 40 |     pub struct BarTargetOfFail(Entity);
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^
+    = help: the following other types implement trait `bevy_ecs::relationship::Relationship`:
               BarTargetOf
               ChildOf
               FooTargetOf
 note: required by a bound in `bevy_ecs::relationship::RelationshipTarget::Relationship`
-   --> $BEVY_ROOT/bevy_ecs/src/relationship/mod.rs:167:24
+   --> $BEVY_ROOT/bevy_ecs/src/relationship/mod.rs:234:24
     |
-167 |     type Relationship: Relationship<RelationshipTarget = Self>;
+234 |     type Relationship: Relationship<RelationshipTarget = Self>;
     |                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ required by this bound in `RelationshipTarget::Relationship`
 
 error[E0277]: the trait bound `BarTargetsFail: bevy_ecs::relationship::RelationshipTarget` is not satisfied
   --> tests/ui/component_hook_relationship.rs:58:42
    |
 58 |     #[relationship(relationship_target = BarTargetsFail)]
-   |                                          ^^^^^^^^^^^^^^ the trait `bevy_ecs::relationship::RelationshipTarget` is not implemented for `BarTargetsFail`
+   |                                          ^^^^^^^^^^^^^^ unsatisfied trait bound
    |
+help: the trait `bevy_ecs::relationship::RelationshipTarget` is not implemented for `BarTargetsFail`
+  --> tests/ui/component_hook_relationship.rs:55:5
+   |
+55 |     pub struct BarTargetsFail(Vec<Entity>);
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^
    = help: the following other types implement trait `bevy_ecs::relationship::RelationshipTarget`:
              BarTargets
              Children
              FooTargets
 note: required by a bound in `bevy_ecs::relationship::Relationship::RelationshipTarget`
-  --> $BEVY_ROOT/bevy_ecs/src/relationship/mod.rs:79:30
+  --> $BEVY_ROOT/bevy_ecs/src/relationship/mod.rs:81:30
    |
-79 |     type RelationshipTarget: RelationshipTarget<Relationship = Self>;
+81 |     type RelationshipTarget: RelationshipTarget<Relationship = Self>;
    |                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ required by this bound in `Relationship::RelationshipTarget`
 
 error: aborting due to 8 previous errors

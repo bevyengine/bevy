@@ -5,10 +5,7 @@ use bevy::prelude::*;
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_systems(
-            Startup,
-            (setup_sprites, setup_texture_atlas).after(setup_camera),
-        )
+        .add_systems(Startup, (setup_sprites, setup_texture_atlas, setup_camera))
         .add_systems(Update, animate_sprite)
         .run();
 }
@@ -34,49 +31,49 @@ fn setup_sprites(mut commands: Commands, asset_server: Res<AssetServer>) {
             text: "Fill Center".to_string(),
             transform: Transform::from_translation(Vec3::new(-450., 230., 0.)),
             texture: square.clone(),
-            image_mode: SpriteImageMode::Scale(ScalingMode::FillCenter),
+            image_mode: SpriteImageMode::Scale(SpriteScalingMode::FillCenter),
         },
         Rect {
             size: Vec2::new(100., 225.),
             text: "Fill Start".to_string(),
             transform: Transform::from_translation(Vec3::new(-330., 230., 0.)),
             texture: square.clone(),
-            image_mode: SpriteImageMode::Scale(ScalingMode::FillStart),
+            image_mode: SpriteImageMode::Scale(SpriteScalingMode::FillStart),
         },
         Rect {
             size: Vec2::new(100., 225.),
             text: "Fill End".to_string(),
             transform: Transform::from_translation(Vec3::new(-210., 230., 0.)),
             texture: square.clone(),
-            image_mode: SpriteImageMode::Scale(ScalingMode::FillEnd),
+            image_mode: SpriteImageMode::Scale(SpriteScalingMode::FillEnd),
         },
         Rect {
             size: Vec2::new(300., 100.),
             text: "Fill Start Horizontal".to_string(),
             transform: Transform::from_translation(Vec3::new(10., 290., 0.)),
             texture: square.clone(),
-            image_mode: SpriteImageMode::Scale(ScalingMode::FillStart),
+            image_mode: SpriteImageMode::Scale(SpriteScalingMode::FillStart),
         },
         Rect {
             size: Vec2::new(300., 100.),
             text: "Fill End Horizontal".to_string(),
             transform: Transform::from_translation(Vec3::new(10., 155., 0.)),
             texture: square.clone(),
-            image_mode: SpriteImageMode::Scale(ScalingMode::FillEnd),
+            image_mode: SpriteImageMode::Scale(SpriteScalingMode::FillEnd),
         },
         Rect {
             size: Vec2::new(200., 200.),
             text: "Fill Center".to_string(),
             transform: Transform::from_translation(Vec3::new(280., 230., 0.)),
             texture: banner.clone(),
-            image_mode: SpriteImageMode::Scale(ScalingMode::FillCenter),
+            image_mode: SpriteImageMode::Scale(SpriteScalingMode::FillCenter),
         },
         Rect {
             size: Vec2::new(200., 100.),
             text: "Fill Center".to_string(),
             transform: Transform::from_translation(Vec3::new(500., 230., 0.)),
             texture: square.clone(),
-            image_mode: SpriteImageMode::Scale(ScalingMode::FillCenter),
+            image_mode: SpriteImageMode::Scale(SpriteScalingMode::FillCenter),
         },
         Rect {
             size: Vec2::new(100., 100.),
@@ -90,33 +87,33 @@ fn setup_sprites(mut commands: Commands, asset_server: Res<AssetServer>) {
             text: "Fit Center".to_string(),
             transform: Transform::from_translation(Vec3::new(-400., -40., 0.)),
             texture: banner.clone(),
-            image_mode: SpriteImageMode::Scale(ScalingMode::FitCenter),
+            image_mode: SpriteImageMode::Scale(SpriteScalingMode::FitCenter),
         },
         Rect {
             size: Vec2::new(200., 200.),
             text: "Fit Start".to_string(),
             transform: Transform::from_translation(Vec3::new(-180., -40., 0.)),
             texture: banner.clone(),
-            image_mode: SpriteImageMode::Scale(ScalingMode::FitStart),
+            image_mode: SpriteImageMode::Scale(SpriteScalingMode::FitStart),
         },
         Rect {
             size: Vec2::new(200., 200.),
             text: "Fit End".to_string(),
             transform: Transform::from_translation(Vec3::new(40., -40., 0.)),
             texture: banner.clone(),
-            image_mode: SpriteImageMode::Scale(ScalingMode::FitEnd),
+            image_mode: SpriteImageMode::Scale(SpriteScalingMode::FitEnd),
         },
         Rect {
             size: Vec2::new(100., 200.),
             text: "Fit Center".to_string(),
             transform: Transform::from_translation(Vec3::new(210., -40., 0.)),
             texture: banner.clone(),
-            image_mode: SpriteImageMode::Scale(ScalingMode::FitCenter),
+            image_mode: SpriteImageMode::Scale(SpriteScalingMode::FitCenter),
         },
     ];
 
     for rect in rects {
-        let mut cmd = commands.spawn((
+        commands.spawn((
             Sprite {
                 image: rect.texture,
                 custom_size: Some(rect.size),
@@ -124,17 +121,14 @@ fn setup_sprites(mut commands: Commands, asset_server: Res<AssetServer>) {
                 ..default()
             },
             rect.transform,
-        ));
-
-        cmd.with_children(|builder| {
-            builder.spawn((
+            children![(
                 Text2d::new(rect.text),
-                TextLayout::new_with_justify(JustifyText::Center),
+                TextLayout::new_with_justify(Justify::Center),
                 TextFont::from_font_size(15.),
                 Transform::from_xyz(0., -0.5 * rect.size.y - 10., 0.),
                 bevy::sprite::Anchor::TOP_CENTER,
-            ));
-        });
+            )],
+        ));
     }
 }
 
@@ -143,7 +137,6 @@ fn setup_texture_atlas(
     asset_server: Res<AssetServer>,
     mut texture_atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
 ) {
-    commands.spawn(Camera2d);
     let gabe = asset_server.load("textures/rpg/chars/gabe/gabe-idle-run.png");
     let animation_indices_gabe = AnimationIndices { first: 0, last: 6 };
     let gabe_atlas = TextureAtlas {
@@ -173,7 +166,7 @@ fn setup_texture_atlas(
             text: "Fill Center".to_string(),
             transform: Transform::from_translation(Vec3::new(-570., -300., 0.)),
             texture: gabe.clone(),
-            image_mode: SpriteImageMode::Scale(ScalingMode::FillCenter),
+            image_mode: SpriteImageMode::Scale(SpriteScalingMode::FillCenter),
             atlas: gabe_atlas.clone(),
             indices: animation_indices_gabe.clone(),
             timer: AnimationTimer(Timer::from_seconds(0.1, TimerMode::Repeating)),
@@ -183,7 +176,7 @@ fn setup_texture_atlas(
             text: "Fill Start".to_string(),
             transform: Transform::from_translation(Vec3::new(-430., -200., 0.)),
             texture: gabe.clone(),
-            image_mode: SpriteImageMode::Scale(ScalingMode::FillStart),
+            image_mode: SpriteImageMode::Scale(SpriteScalingMode::FillStart),
             atlas: gabe_atlas.clone(),
             indices: animation_indices_gabe.clone(),
             timer: AnimationTimer(Timer::from_seconds(0.1, TimerMode::Repeating)),
@@ -193,7 +186,7 @@ fn setup_texture_atlas(
             text: "Fill End".to_string(),
             transform: Transform::from_translation(Vec3::new(-430., -300., 0.)),
             texture: gabe.clone(),
-            image_mode: SpriteImageMode::Scale(ScalingMode::FillEnd),
+            image_mode: SpriteImageMode::Scale(SpriteScalingMode::FillEnd),
             atlas: gabe_atlas.clone(),
             indices: animation_indices_gabe.clone(),
             timer: AnimationTimer(Timer::from_seconds(0.1, TimerMode::Repeating)),
@@ -203,7 +196,7 @@ fn setup_texture_atlas(
             text: "Fill Center".to_string(),
             transform: Transform::from_translation(Vec3::new(-300., -250., 0.)),
             texture: gabe.clone(),
-            image_mode: SpriteImageMode::Scale(ScalingMode::FillCenter),
+            image_mode: SpriteImageMode::Scale(SpriteScalingMode::FillCenter),
             atlas: gabe_atlas.clone(),
             indices: animation_indices_gabe.clone(),
             timer: AnimationTimer(Timer::from_seconds(0.1, TimerMode::Repeating)),
@@ -213,7 +206,7 @@ fn setup_texture_atlas(
             text: "Fill Start".to_string(),
             transform: Transform::from_translation(Vec3::new(-190., -250., 0.)),
             texture: gabe.clone(),
-            image_mode: SpriteImageMode::Scale(ScalingMode::FillStart),
+            image_mode: SpriteImageMode::Scale(SpriteScalingMode::FillStart),
             atlas: gabe_atlas.clone(),
             indices: animation_indices_gabe.clone(),
             timer: AnimationTimer(Timer::from_seconds(0.1, TimerMode::Repeating)),
@@ -223,7 +216,7 @@ fn setup_texture_atlas(
             text: "Fill End".to_string(),
             transform: Transform::from_translation(Vec3::new(-90., -250., 0.)),
             texture: gabe.clone(),
-            image_mode: SpriteImageMode::Scale(ScalingMode::FillEnd),
+            image_mode: SpriteImageMode::Scale(SpriteScalingMode::FillEnd),
             atlas: gabe_atlas.clone(),
             indices: animation_indices_gabe.clone(),
             timer: AnimationTimer(Timer::from_seconds(0.1, TimerMode::Repeating)),
@@ -233,7 +226,7 @@ fn setup_texture_atlas(
             text: "Fit Center".to_string(),
             transform: Transform::from_translation(Vec3::new(20., -200., 0.)),
             texture: gabe.clone(),
-            image_mode: SpriteImageMode::Scale(ScalingMode::FitCenter),
+            image_mode: SpriteImageMode::Scale(SpriteScalingMode::FitCenter),
             atlas: gabe_atlas.clone(),
             indices: animation_indices_gabe.clone(),
             timer: AnimationTimer(Timer::from_seconds(0.1, TimerMode::Repeating)),
@@ -243,7 +236,7 @@ fn setup_texture_atlas(
             text: "Fit Start".to_string(),
             transform: Transform::from_translation(Vec3::new(20., -300., 0.)),
             texture: gabe.clone(),
-            image_mode: SpriteImageMode::Scale(ScalingMode::FitStart),
+            image_mode: SpriteImageMode::Scale(SpriteScalingMode::FitStart),
             atlas: gabe_atlas.clone(),
             indices: animation_indices_gabe.clone(),
             timer: AnimationTimer(Timer::from_seconds(0.1, TimerMode::Repeating)),
@@ -253,7 +246,7 @@ fn setup_texture_atlas(
             text: "Fit End".to_string(),
             transform: Transform::from_translation(Vec3::new(160., -200., 0.)),
             texture: gabe.clone(),
-            image_mode: SpriteImageMode::Scale(ScalingMode::FitEnd),
+            image_mode: SpriteImageMode::Scale(SpriteScalingMode::FitEnd),
             atlas: gabe_atlas.clone(),
             indices: animation_indices_gabe.clone(),
             timer: AnimationTimer(Timer::from_seconds(0.1, TimerMode::Repeating)),
@@ -261,7 +254,7 @@ fn setup_texture_atlas(
     ];
 
     for sprite_sheet in sprite_sheets {
-        let mut cmd = commands.spawn((
+        commands.spawn((
             Sprite {
                 image_mode: sprite_sheet.image_mode,
                 custom_size: Some(sprite_sheet.size),
@@ -270,17 +263,14 @@ fn setup_texture_atlas(
             sprite_sheet.indices,
             sprite_sheet.timer,
             sprite_sheet.transform,
-        ));
-
-        cmd.with_children(|builder| {
-            builder.spawn((
+            children![(
                 Text2d::new(sprite_sheet.text),
-                TextLayout::new_with_justify(JustifyText::Center),
+                TextLayout::new_with_justify(Justify::Center),
                 TextFont::from_font_size(15.),
                 Transform::from_xyz(0., -0.5 * sprite_sheet.size.y - 10., 0.),
                 bevy::sprite::Anchor::TOP_CENTER,
-            ));
-        });
+            )],
+        ));
     }
 }
 
@@ -319,14 +309,14 @@ fn animate_sprite(
     for (indices, mut timer, mut sprite) in &mut query {
         timer.tick(time.delta());
 
-        if timer.just_finished() {
-            if let Some(atlas) = &mut sprite.texture_atlas {
-                atlas.index = if atlas.index == indices.last {
-                    indices.first
-                } else {
-                    atlas.index + 1
-                };
-            }
+        if timer.just_finished()
+            && let Some(atlas) = &mut sprite.texture_atlas
+        {
+            atlas.index = if atlas.index == indices.last {
+                indices.first
+            } else {
+                atlas.index + 1
+            };
         }
     }
 }

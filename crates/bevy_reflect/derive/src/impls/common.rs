@@ -4,10 +4,8 @@ use quote::quote;
 
 use crate::{derive_data::ReflectMeta, where_clause_options::WhereClauseOptions};
 
-pub fn impl_full_reflect(
-    meta: &ReflectMeta,
-    where_clause_options: &WhereClauseOptions,
-) -> proc_macro2::TokenStream {
+pub fn impl_full_reflect(where_clause_options: &WhereClauseOptions) -> proc_macro2::TokenStream {
+    let meta = where_clause_options.meta();
     let bevy_reflect_path = meta.bevy_reflect_path();
     let type_path = meta.type_path();
 
@@ -85,6 +83,7 @@ pub fn common_partial_reflect_methods(
     meta: &ReflectMeta,
     default_partial_eq_delegate: impl FnOnce() -> Option<proc_macro2::TokenStream>,
     default_hash_delegate: impl FnOnce() -> Option<proc_macro2::TokenStream>,
+    default_partial_ord_delegate: impl FnOnce() -> Option<proc_macro2::TokenStream>,
 ) -> proc_macro2::TokenStream {
     let bevy_reflect_path = meta.bevy_reflect_path();
 
@@ -97,6 +96,19 @@ pub fn common_partial_reflect_methods(
             default_delegate.map(|func| {
                 quote! {
                     fn reflect_partial_eq(&self, value: &dyn #bevy_reflect_path::PartialReflect) -> #FQOption<bool> {
+                        (#func)(self, value)
+                    }
+                }
+            })
+        });
+    let partial_ord_fn = meta
+        .attrs()
+        .get_partial_ord_impl(bevy_reflect_path)
+        .or_else(move || {
+            let default_delegate = default_partial_ord_delegate();
+            default_delegate.map(|func| {
+                quote! {
+                    fn reflect_partial_cmp(&self, value: &dyn #bevy_reflect_path::PartialReflect) -> #FQOption<::core::cmp::Ordering> {
                         (#func)(self, value)
                     }
                 }
@@ -153,6 +165,93 @@ pub fn common_partial_reflect_methods(
 
         #partial_eq_fn
 
+        #partial_ord_fn
+
         #debug_fn
+    }
+}
+
+#[cfg(feature = "auto_register")]
+pub fn reflect_auto_registration(meta: &ReflectMeta) -> Option<proc_macro2::TokenStream> {
+    if meta.attrs().no_auto_register() {
+        return None;
+    }
+
+    let bevy_reflect_path = meta.bevy_reflect_path();
+    let type_path = meta.type_path();
+
+    if type_path.impl_is_generic() {
+        return None;
+    };
+
+    #[cfg(feature = "auto_register_static")]
+    {
+        use std::{
+            env, fs,
+            io::Write,
+            path::PathBuf,
+            sync::{LazyLock, Mutex},
+        };
+
+        // Skip unless env var is set, otherwise this might slow down rust-analyzer
+        if env::var("BEVY_REFLECT_AUTO_REGISTER_STATIC").is_err() {
+            return None;
+        }
+
+        // Names of registrations functions will be stored in this file.
+        // To allow writing to this file from multiple threads during compilation it is protected by mutex.
+        // This static is valid for the duration of compilation of one crate and we have one file per crate,
+        // so it is enough to protect compilation threads from overwriting each other.
+        // This file is reset on every crate recompilation.
+        //
+        // It might make sense to replace the mutex with File::lock when file_lock feature becomes stable.
+        static REGISTRATION_FNS_EXPORT: LazyLock<Mutex<fs::File>> = LazyLock::new(|| {
+            let path = PathBuf::from("target").join("bevy_reflect_type_registrations");
+            fs::DirBuilder::new()
+                .recursive(true)
+                .create(&path)
+                .unwrap_or_else(|_| panic!("Failed to create {path:?}"));
+            let file_path = path.join(env::var("CARGO_CRATE_NAME").unwrap());
+            let file = fs::OpenOptions::new()
+                .create(true)
+                .write(true)
+                .truncate(true)
+                .open(&file_path)
+                .unwrap_or_else(|_| panic!("Failed to create {file_path:?}"));
+            Mutex::new(file)
+        });
+
+        let export_name = format!("_bevy_reflect_register_{}", uuid::Uuid::new_v4().as_u128());
+
+        {
+            let mut file = REGISTRATION_FNS_EXPORT.lock().unwrap();
+            writeln!(file, "{export_name}")
+                .unwrap_or_else(|_| panic!("Failed to write registration function {export_name}"));
+            // We must sync_data to ensure all content is written before releasing the lock.
+            file.sync_data().unwrap();
+        };
+
+        Some(quote! {
+            /// # Safety
+            /// This function must only be used by the `load_type_registrations` macro.
+            #[unsafe(export_name=#export_name)]
+            pub unsafe extern "Rust" fn bevy_register_type(registry: &mut #bevy_reflect_path::TypeRegistry) {
+                <#type_path as #bevy_reflect_path::__macro_exports::RegisterForReflection>::__register(registry);
+            }
+        })
+    }
+
+    #[cfg(all(
+        feature = "auto_register_inventory",
+        not(feature = "auto_register_static")
+    ))]
+    {
+        Some(quote! {
+            #bevy_reflect_path::__macro_exports::auto_register::inventory::submit!{
+                #bevy_reflect_path::__macro_exports::auto_register::AutomaticReflectRegistrations(
+                    <#type_path as #bevy_reflect_path::__macro_exports::auto_register::RegisterForReflection>::__register
+                )
+            }
+        })
     }
 }

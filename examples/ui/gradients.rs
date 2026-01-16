@@ -12,6 +12,9 @@ use bevy::prelude::*;
 use bevy::ui::ColorStop;
 use std::f32::consts::TAU;
 
+#[derive(Component)]
+struct CurrentColorSpaceLabel;
+
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
@@ -26,36 +29,36 @@ fn setup(mut commands: Commands) {
     commands
         .spawn(Node {
             flex_direction: FlexDirection::Column,
-            row_gap: Val::Px(30.),
-            margin: UiRect::all(Val::Px(30.)),
+            row_gap: px(20),
+            margin: UiRect::all(px(20)),
             ..Default::default()
         })
         .with_children(|commands| {
             for (b, stops) in [
                 (
-                    5.,
+                    4.,
                     vec![
-                        ColorStop::new(Color::WHITE, Val::Percent(15.)),
-                        ColorStop::new(Color::BLACK, Val::Percent(85.)),
+                        ColorStop::new(Color::WHITE, percent(15)),
+                        ColorStop::new(Color::BLACK, percent(85)),
                     ],
                 ),
-                (5., vec![RED.into(), BLUE.into(), LIME.into()]),
+                (4., vec![RED.into(), BLUE.into(), LIME.into()]),
                 (
                     0.,
                     vec![
                         RED.into(),
-                        ColorStop::new(RED, Val::Percent(100. / 7.)),
-                        ColorStop::new(ORANGE, Val::Percent(100. / 7.)),
-                        ColorStop::new(ORANGE, Val::Percent(200. / 7.)),
-                        ColorStop::new(YELLOW, Val::Percent(200. / 7.)),
-                        ColorStop::new(YELLOW, Val::Percent(300. / 7.)),
-                        ColorStop::new(GREEN, Val::Percent(300. / 7.)),
-                        ColorStop::new(GREEN, Val::Percent(400. / 7.)),
-                        ColorStop::new(BLUE, Val::Percent(400. / 7.)),
-                        ColorStop::new(BLUE, Val::Percent(500. / 7.)),
-                        ColorStop::new(INDIGO, Val::Percent(500. / 7.)),
-                        ColorStop::new(INDIGO, Val::Percent(600. / 7.)),
-                        ColorStop::new(VIOLET, Val::Percent(600. / 7.)),
+                        ColorStop::new(RED, percent(100. / 7.)),
+                        ColorStop::new(ORANGE, percent(100. / 7.)),
+                        ColorStop::new(ORANGE, percent(200. / 7.)),
+                        ColorStop::new(YELLOW, percent(200. / 7.)),
+                        ColorStop::new(YELLOW, percent(300. / 7.)),
+                        ColorStop::new(GREEN, percent(300. / 7.)),
+                        ColorStop::new(GREEN, percent(400. / 7.)),
+                        ColorStop::new(BLUE, percent(400. / 7.)),
+                        ColorStop::new(BLUE, percent(500. / 7.)),
+                        ColorStop::new(INDIGO, percent(500. / 7.)),
+                        ColorStop::new(INDIGO, percent(600. / 7.)),
+                        ColorStop::new(VIOLET, percent(600. / 7.)),
                         VIOLET.into(),
                     ],
                 ),
@@ -64,29 +67,30 @@ fn setup(mut commands: Commands) {
                     commands
                         .spawn(Node {
                             flex_direction: FlexDirection::Column,
-                            row_gap: Val::Px(10.),
+                            row_gap: px(5),
                             ..Default::default()
                         })
                         .with_children(|commands| {
-                            for (w, h) in [(100., 100.), (50., 100.), (100., 50.)] {
+                            for (w, h) in [(70., 70.), (35., 70.), (70., 35.)] {
                                 commands
                                     .spawn(Node {
-                                        column_gap: Val::Px(10.),
+                                        column_gap: px(10),
                                         ..Default::default()
                                     })
                                     .with_children(|commands| {
                                         for angle in (0..8).map(|i| i as f32 * TAU / 8.) {
                                             commands.spawn((
                                                 Node {
-                                                    width: Val::Px(w),
-                                                    height: Val::Px(h),
-                                                    border: UiRect::all(Val::Px(b)),
+                                                    width: px(w),
+                                                    height: px(h),
+                                                    border: UiRect::all(px(b)),
+                                                    border_radius: BorderRadius::all(px(20)),
                                                     ..default()
                                                 },
-                                                BorderRadius::all(Val::Px(20.)),
                                                 BackgroundGradient::from(LinearGradient {
                                                     angle,
                                                     stops: stops.clone(),
+                                                    ..default()
                                                 }),
                                                 BorderGradient::from(LinearGradient {
                                                     angle: 3. * TAU / 8.,
@@ -95,6 +99,7 @@ fn setup(mut commands: Commands) {
                                                         Color::WHITE.into(),
                                                         ORANGE.into(),
                                                     ],
+                                                    ..default()
                                                 }),
                                             ));
                                         }
@@ -106,19 +111,21 @@ fn setup(mut commands: Commands) {
                         commands.spawn((
                             Node {
                                 aspect_ratio: Some(1.),
-                                height: Val::Percent(100.),
-                                border: UiRect::all(Val::Px(b)),
-                                margin: UiRect::left(Val::Px(30.)),
+                                height: percent(100),
+                                border: UiRect::all(px(b)),
+                                margin: UiRect::left(px(20)),
+                                border_radius: BorderRadius::all(px(20)),
                                 ..default()
                             },
-                            BorderRadius::all(Val::Px(20.)),
                             BackgroundGradient::from(LinearGradient {
                                 angle: 0.,
                                 stops: stops.clone(),
+                                ..default()
                             }),
                             BorderGradient::from(LinearGradient {
                                 angle: 3. * TAU / 8.,
                                 stops: vec![YELLOW.into(), Color::WHITE.into(), ORANGE.into()],
+                                ..default()
                             }),
                             AnimateMarker,
                         ));
@@ -126,49 +133,154 @@ fn setup(mut commands: Commands) {
                         commands.spawn((
                             Node {
                                 aspect_ratio: Some(1.),
-                                height: Val::Percent(100.),
-                                border: UiRect::all(Val::Px(b)),
-                                margin: UiRect::left(Val::Px(30.)),
+                                height: percent(100),
+                                border: UiRect::all(px(b)),
+                                margin: UiRect::left(px(20)),
+                                border_radius: BorderRadius::all(px(20)),
                                 ..default()
                             },
-                            BorderRadius::all(Val::Px(20.)),
                             BackgroundGradient::from(RadialGradient {
                                 stops: stops.clone(),
                                 shape: RadialGradientShape::ClosestSide,
-                                position: Position::CENTER,
+                                position: UiPosition::CENTER,
+                                ..default()
                             }),
                             BorderGradient::from(LinearGradient {
                                 angle: 3. * TAU / 8.,
                                 stops: vec![YELLOW.into(), Color::WHITE.into(), ORANGE.into()],
+                                ..default()
                             }),
                             AnimateMarker,
                         ));
                         commands.spawn((
                             Node {
                                 aspect_ratio: Some(1.),
-                                height: Val::Percent(100.),
-                                border: UiRect::all(Val::Px(b)),
-                                margin: UiRect::left(Val::Px(30.)),
+                                height: percent(100),
+                                border: UiRect::all(px(b)),
+                                margin: UiRect::left(px(20)),
+                                border_radius: BorderRadius::all(px(20)),
                                 ..default()
                             },
-                            BorderRadius::all(Val::Px(20.)),
                             BackgroundGradient::from(ConicGradient {
                                 start: 0.,
                                 stops: stops
                                     .iter()
                                     .map(|stop| AngularColorStop::auto(stop.color))
                                     .collect(),
-                                position: Position::CENTER,
+                                position: UiPosition::CENTER,
+                                ..default()
                             }),
                             BorderGradient::from(LinearGradient {
                                 angle: 3. * TAU / 8.,
                                 stops: vec![YELLOW.into(), Color::WHITE.into(), ORANGE.into()],
+                                ..default()
                             }),
                             AnimateMarker,
                         ));
                     });
                 });
             }
+
+            let button = commands.spawn((
+                        Button,
+                        Node {
+                            border: UiRect::all(px(2)),
+                            padding: UiRect::axes(px(8), px(4)),
+                            // horizontally center child text
+                            justify_content: JustifyContent::Center,
+                            // vertically center child text
+                            align_items: AlignItems::Center,
+                            border_radius: BorderRadius::MAX,
+                            ..default()
+                        },
+                        BorderColor::all(Color::WHITE),
+                        BackgroundColor(Color::BLACK),
+                        children![(
+                            Text::new("next color space"),
+                            TextColor(Color::srgb(0.9, 0.9, 0.9)),
+                            TextShadow::default(),
+                        )]
+                )).observe(
+                    |_event: On<Pointer<Over>>, mut border_query: Query<&mut BorderColor, With<Button>>| {
+                    *border_query.single_mut().unwrap() = BorderColor::all(RED);
+
+
+                })
+                .observe(
+                    |_event: On<Pointer<Out>>, mut border_query: Query<&mut BorderColor, With<Button>>| {
+                    *border_query.single_mut().unwrap() = BorderColor::all(Color::WHITE);
+                })
+                .observe(
+                        |_event: On<Pointer<Click>>,
+                            mut gradients_query: Query<&mut BackgroundGradient>,
+                            mut label_query: Query<
+                            &mut Text,
+                            With<CurrentColorSpaceLabel>,
+                        >| {
+                            let mut current_space = InterpolationColorSpace::default();
+                            for mut gradients in gradients_query.iter_mut() {
+                                for gradient in gradients.0.iter_mut() {
+                                    let space = match gradient {
+                                        Gradient::Linear(linear_gradient) => {
+                                            &mut linear_gradient.color_space
+                                        }
+                                        Gradient::Radial(radial_gradient) => {
+                                            &mut radial_gradient.color_space
+                                        }
+                                        Gradient::Conic(conic_gradient) => {
+                                            &mut conic_gradient.color_space
+                                        }
+                                    };
+                                    *space = match *space {
+                                        InterpolationColorSpace::Oklaba => {
+                                            InterpolationColorSpace::Oklcha
+                                        }
+                                        InterpolationColorSpace::Oklcha => {
+                                            InterpolationColorSpace::OklchaLong
+                                        }
+                                        InterpolationColorSpace::OklchaLong => {
+                                            InterpolationColorSpace::Srgba
+                                        }
+                                        InterpolationColorSpace::Srgba => {
+                                            InterpolationColorSpace::LinearRgba
+                                        }
+                                        InterpolationColorSpace::LinearRgba => {
+                                            InterpolationColorSpace::Hsla
+                                        }
+                                        InterpolationColorSpace::Hsla => {
+                                            InterpolationColorSpace::HslaLong
+                                        }
+                                        InterpolationColorSpace::HslaLong => {
+                                            InterpolationColorSpace::Hsva
+                                        }
+                                        InterpolationColorSpace::Hsva => {
+                                            InterpolationColorSpace::HsvaLong
+                                        }
+                                        InterpolationColorSpace::HsvaLong => {
+                                            InterpolationColorSpace::Oklaba
+                                        }
+                                    };
+                                    current_space = *space;
+                                }
+                            }
+                            for mut label in label_query.iter_mut() {
+                                label.0 = format!("{current_space:?}");
+                            }
+                        }
+                    ).id();
+
+            commands.spawn(
+                Node {
+                    flex_direction: FlexDirection::Column,
+                    row_gap: px(10),
+                    align_items: AlignItems::Center,
+                    ..Default::default()
+                }
+            ).with_children(|commands| {
+                commands.spawn((Text::new(format!("{:?}", InterpolationColorSpace::default())), TextFont { font_size: 25., ..default() }, CurrentColorSpaceLabel));
+
+            })
+            .add_child(button);
         });
 }
 

@@ -4,7 +4,7 @@ use crate::{
     system::{Local, SystemMeta, SystemParam, SystemState},
     world::World,
 };
-use bevy_utils::synccell::SyncCell;
+use bevy_platform::cell::SyncCell;
 use core::marker::PhantomData;
 use variadics_please::all_tuples;
 
@@ -100,6 +100,7 @@ macro_rules! impl_exclusive_system_param_tuple {
             unused_variables,
             reason = "Zero-length tuples won't use any of the parameters."
         )]
+        #[allow(clippy::unused_unit, reason = "Zero length tuple is unit.")]
         $(#[$meta])*
         impl<$($param: ExclusiveSystemParam),*> ExclusiveSystemParam for ($($param,)*) {
             type State = ($($param::State,)*);
@@ -107,7 +108,7 @@ macro_rules! impl_exclusive_system_param_tuple {
 
             #[inline]
             fn init(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
-                (($($param::init(world, system_meta),)*))
+                ($($param::init(world, system_meta),)*)
             }
 
             #[inline]

@@ -112,15 +112,15 @@ use crate::{PartialReflect, TypeRegistry};
 ///     }
 /// }
 ///
-/// fn save(type_registry: &TypeRegistry, asset: &MyAsset) -> Result<Vec<u8>, AssetError> {
-///     let mut asset_bytes = Vec::new();
+/// fn save(type_registry: &TypeRegistry, asset: &MyAsset) -> Result<String, AssetError> {
+///     let mut asset_string = String::new();
 ///
 ///     let processor = HandleProcessor;
 ///     let serializer = ReflectSerializer::with_processor(asset, type_registry, &processor);
-///     let mut ron_serializer = ron::Serializer::new(&mut asset_bytes, None)?;
+///     let mut ron_serializer = ron::Serializer::new(&mut asset_string, None)?;
 ///
 ///     serializer.serialize(&mut ron_serializer)?;
-///     Ok(asset_bytes)
+///     Ok(asset_string)
 /// }
 /// ```
 ///

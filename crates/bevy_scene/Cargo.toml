@@ -1,9 +1,9 @@
 [package]
 name = "bevy_scene"
-version = "0.16.0-dev"
+version = "0.19.0-dev"
 edition = "2024"
 description = "Provides scene functionality for Bevy Engine"
-homepage = "https://bevyengine.org"
+homepage = "https://bevy.org"
 repository = "https://github.com/bevyengine/bevy"
 license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
@@ -11,6 +11,7 @@ keywords = ["bevy"]
 [features]
 default = ["serialize"]
 serialize = [
+  "dep:ron",
   "dep:serde",
   "uuid/serde",
   "bevy_ecs/serialize",
@@ -19,23 +20,24 @@ serialize = [
 
 [dependencies]
 # bevy
-bevy_app = { path = "../bevy_app", version = "0.16.0-dev" }
-bevy_asset = { path = "../bevy_asset", version = "0.16.0-dev" }
-bevy_derive = { path = "../bevy_derive", version = "0.16.0-dev" }
-bevy_ecs = { path = "../bevy_ecs", version = "0.16.0-dev" }
-bevy_reflect = { path = "../bevy_reflect", version = "0.16.0-dev" }
-bevy_transform = { path = "../bevy_transform", version = "0.16.0-dev" }
-bevy_utils = { path = "../bevy_utils", version = "0.16.0-dev" }
-bevy_render = { path = "../bevy_render", version = "0.16.0-dev", optional = true }
-bevy_platform = { path = "../bevy_platform", version = "0.16.0-dev", default-features = false, features = [
+bevy_app = { path = "../bevy_app", version = "0.19.0-dev" }
+bevy_asset = { path = "../bevy_asset", version = "0.19.0-dev" }
+bevy_derive = { path = "../bevy_derive", version = "0.19.0-dev" }
+bevy_ecs = { path = "../bevy_ecs", version = "0.19.0-dev" }
+bevy_reflect = { path = "../bevy_reflect", version = "0.19.0-dev" }
+bevy_transform = { path = "../bevy_transform", version = "0.19.0-dev" }
+bevy_utils = { path = "../bevy_utils", version = "0.19.0-dev" }
+bevy_camera = { path = "../bevy_camera", version = "0.19.0-dev" }
+bevy_platform = { path = "../bevy_platform", version = "0.19.0-dev", default-features = false, features = [
   "std",
 ] }
 
 # other
+ron = { version = "0.12", default-features = false, optional = true }
 serde = { version = "1.0", features = ["derive"], optional = true }
 uuid = { version = "1.13.1", features = ["v4"] }
 thiserror = { version = "2", default-features = false }
-derive_more = { version = "1", default-features = false, features = ["from"] }
+derive_more = { version = "2", default-features = false, features = ["from"] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 # TODO: Assuming all wasm builds are for the browser. Require `no_std` support to break assumption.
@@ -43,7 +45,6 @@ uuid = { version = "1.13.1", default-features = false, features = ["js"] }
 
 [dev-dependencies]
 postcard = { version = "1.0", features = ["alloc"] }
-bincode = { version = "2.0", features = ["serde"] }
 rmp-serde = "1.1"
 
 [lints]

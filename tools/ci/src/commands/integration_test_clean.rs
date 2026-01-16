@@ -1,4 +1,4 @@
-use crate::{Flag, Prepare, PreparedCommand};
+use crate::{args::Args, Prepare, PreparedCommand};
 use argh::FromArgs;
 use xshell::cmd;
 
@@ -10,7 +10,7 @@ use super::get_integration_tests;
 pub struct IntegrationTestCleanCommand {}
 
 impl Prepare for IntegrationTestCleanCommand {
-    fn prepare<'a>(&self, sh: &'a xshell::Shell, _flags: Flag) -> Vec<PreparedCommand<'a>> {
+    fn prepare<'a>(&self, sh: &'a xshell::Shell, _args: Args) -> Vec<PreparedCommand<'a>> {
         get_integration_tests(sh)
             .into_iter()
             .map(|path| {

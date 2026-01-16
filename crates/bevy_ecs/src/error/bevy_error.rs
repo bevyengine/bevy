@@ -76,7 +76,7 @@ impl BevyError {
                             break;
                         }
                     }
-                    writeln!(f, "{}", line)?;
+                    writeln!(f, "{line}")?;
                 }
                 if !full_backtrace {
                     if std::thread::panicking() {
@@ -191,10 +191,10 @@ mod tests {
 
         // On mac backtraces can start with Backtrace::create
         let mut skip = false;
-        if let Some(line) = lines.peek() {
-            if &line[6..] == "std::backtrace::Backtrace::create" {
-                skip = true;
-            }
+        if let Some(line) = lines.peek()
+            && &line[6..] == "std::backtrace::Backtrace::create"
+        {
+            skip = true;
         }
 
         if skip {
@@ -212,10 +212,10 @@ mod tests {
             let line = lines.next().unwrap();
             assert_eq!(&line[6..], expected);
             let mut skip = false;
-            if let Some(line) = lines.peek() {
-                if line.starts_with("             at") {
-                    skip = true;
-                }
+            if let Some(line) = lines.peek()
+                && line.starts_with("             at")
+            {
+                skip = true;
             }
 
             if skip {
@@ -225,19 +225,19 @@ mod tests {
 
         // on linux there is a second call_once
         let mut skip = false;
-        if let Some(line) = lines.peek() {
-            if &line[6..] == "core::ops::function::FnOnce::call_once" {
-                skip = true;
-            }
+        if let Some(line) = lines.peek()
+            && &line[6..] == "core::ops::function::FnOnce::call_once"
+        {
+            skip = true;
         }
         if skip {
             lines.next().unwrap();
         }
         let mut skip = false;
-        if let Some(line) = lines.peek() {
-            if line.starts_with("             at") {
-                skip = true;
-            }
+        if let Some(line) = lines.peek()
+            && line.starts_with("             at")
+        {
+            skip = true;
         }
 
         if skip {

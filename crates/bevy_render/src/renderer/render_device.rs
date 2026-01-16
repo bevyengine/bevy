@@ -3,11 +3,11 @@ use crate::render_resource::{
     BindGroup, BindGroupLayout, Buffer, ComputePipeline, RawRenderPipelineDescriptor,
     RenderPipeline, Sampler, Texture,
 };
-use crate::WgpuWrapper;
+use crate::renderer::WgpuWrapper;
 use bevy_ecs::resource::Resource;
 use wgpu::{
     util::DeviceExt, BindGroupDescriptor, BindGroupEntry, BindGroupLayoutDescriptor,
-    BindGroupLayoutEntry, BufferAsyncError, BufferBindingType, MaintainResult,
+    BindGroupLayoutEntry, BufferAsyncError, BufferBindingType, PollError, PollStatus,
 };
 
 /// This GPU device is responsible for the creation of most rendering and compute resources.
@@ -61,17 +61,19 @@ impl RenderDevice {
             wgpu::ShaderSource::SpirV(source)
                 if self
                     .features()
-                    .contains(wgpu::Features::SPIRV_SHADER_PASSTHROUGH) =>
+                    .contains(wgpu::Features::EXPERIMENTAL_PASSTHROUGH_SHADERS) =>
             {
                 // SAFETY:
                 // This call passes binary data to the backend as-is and can potentially result in a driver crash or bogus behavior.
                 // No attempt is made to ensure that data is valid SPIR-V.
                 unsafe {
-                    self.device
-                        .create_shader_module_spirv(&wgpu::ShaderModuleDescriptorSpirV {
+                    self.device.create_shader_module_passthrough(
+                        wgpu::ShaderModuleDescriptorPassthrough {
                             label: desc.label,
-                            source: source.clone(),
-                        })
+                            spirv: Some(source.clone()),
+                            ..Default::default()
+                        },
+                    )
                 }
             }
             // SAFETY:
@@ -93,7 +95,7 @@ impl RenderDevice {
 
     /// Creates and validates a [`ShaderModule`](wgpu::ShaderModule) from either SPIR-V or WGSL source code.
     ///
-    /// See [`ValidateShader`](bevy_render::render_resource::ValidateShader) for more information on the tradeoffs involved with shader validation.
+    /// See [`ValidateShader`](bevy_shader::ValidateShader) for more information on the tradeoffs involved with shader validation.
     #[inline]
     pub fn create_and_validate_shader_module(
         &self,
@@ -118,7 +120,7 @@ impl RenderDevice {
     ///
     /// no-op on the web, device is automatically polled.
     #[inline]
-    pub fn poll(&self, maintain: wgpu::Maintain) -> MaintainResult {
+    pub fn poll(&self, maintain: wgpu::PollType) -> Result<PollStatus, PollError> {
         self.device.poll(maintain)
     }
 
@@ -136,7 +138,7 @@ impl RenderDevice {
     pub fn create_render_bundle_encoder(
         &self,
         desc: &wgpu::RenderBundleEncoderDescriptor,
-    ) -> wgpu::RenderBundleEncoder {
+    ) -> wgpu::RenderBundleEncoder<'_> {
         self.device.create_render_bundle_encoder(desc)
     }
 

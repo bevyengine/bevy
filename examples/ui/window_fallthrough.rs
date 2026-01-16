@@ -2,7 +2,7 @@
 //! If you build this, and hit 'P' it should toggle on/off the mouse's passthrough.
 //! Note: this example will not work on following platforms: iOS / Android / Web / X11. Window fall through is not supported there.
 
-use bevy::prelude::*;
+use bevy::{prelude::*, window::CursorOptions};
 
 fn main() {
     App::new()
@@ -30,15 +30,15 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         // Accepts a `String` or any type that converts into a `String`, such as `&str`
         Text::new("Hit 'P' then scroll/click around!"),
         TextFont {
-            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+            font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
             font_size: 83.0, // Nice and big so you can see it!
             ..default()
         },
         // Set the style of the TextBundle itself.
         Node {
             position_type: PositionType::Absolute,
-            bottom: Val::Px(5.),
-            right: Val::Px(10.),
+            bottom: px(5),
+            right: px(10),
             ..default()
         },
     ));
@@ -46,9 +46,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 // A simple system to handle some keyboard input and toggle on/off the hit test.
 fn toggle_mouse_passthrough(
     keyboard_input: Res<ButtonInput<KeyCode>>,
-    mut window: Single<&mut Window>,
+    mut cursor_options: Single<&mut CursorOptions>,
 ) {
     if keyboard_input.just_pressed(KeyCode::KeyP) {
-        window.cursor_options.hit_test = !window.cursor_options.hit_test;
+        cursor_options.hit_test = !cursor_options.hit_test;
     }
 }

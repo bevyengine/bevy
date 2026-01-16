@@ -1,7 +1,7 @@
 use core::fmt::Display;
 
-use crate::{component::Tick, error::BevyError, prelude::Resource};
-use alloc::borrow::Cow;
+use crate::{change_detection::Tick, error::BevyError, prelude::Resource};
+use bevy_utils::prelude::DebugName;
 use derive_more::derive::{Deref, DerefMut};
 
 /// Context for a [`BevyError`] to aid in debugging.
@@ -10,26 +10,30 @@ pub enum ErrorContext {
     /// The error occurred in a system.
     System {
         /// The name of the system that failed.
-        name: Cow<'static, str>,
+        name: DebugName,
         /// The last tick that the system was run.
         last_run: Tick,
     },
     /// The error occurred in a run condition.
     RunCondition {
         /// The name of the run condition that failed.
-        name: Cow<'static, str>,
+        name: DebugName,
         /// The last tick that the run condition was evaluated.
         last_run: Tick,
+        /// The system this run condition is attached to.
+        system: DebugName,
+        /// `true` if this run condition was on a set.
+        on_set: bool,
     },
     /// The error occurred in a command.
     Command {
         /// The name of the command that failed.
-        name: Cow<'static, str>,
+        name: DebugName,
     },
     /// The error occurred in an observer.
     Observer {
         /// The name of the observer that failed.
-        name: Cow<'static, str>,
+        name: DebugName,
         /// The last tick that the observer was run.
         last_run: Tick,
     },
@@ -39,14 +43,23 @@ impl Display for ErrorContext {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             Self::System { name, .. } => {
-                write!(f, "System `{}` failed", name)
+                write!(f, "System `{name}` failed")
             }
-            Self::Command { name } => write!(f, "Command `{}` failed", name),
+            Self::Command { name } => write!(f, "Command `{name}` failed"),
             Self::Observer { name, .. } => {
-                write!(f, "Observer `{}` failed", name)
+                write!(f, "Observer `{name}` failed")
             }
-            Self::RunCondition { name, .. } => {
-                write!(f, "Run condition `{}` failed", name)
+            Self::RunCondition {
+                name,
+                system,
+                on_set,
+                ..
+            } => {
+                write!(
+                    f,
+                    "Run condition `{name}` failed for{} system `{system}`",
+                    if *on_set { " set containing" } else { "" }
+                )
             }
         }
     }
@@ -54,12 +67,12 @@ impl Display for ErrorContext {
 
 impl ErrorContext {
     /// The name of the ECS construct that failed.
-    pub fn name(&self) -> &str {
+    pub fn name(&self) -> DebugName {
         match self {
             Self::System { name, .. }
             | Self::Command { name, .. }
             | Self::Observer { name, .. }
-            | Self::RunCondition { name, .. } => name,
+            | Self::RunCondition { name, .. } => name.clone(),
         }
     }
 

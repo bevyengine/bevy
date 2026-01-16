@@ -10,7 +10,7 @@ use super::{CubicCurve, RationalCurve};
 
 // -- CubicSegment
 
-impl<P: VectorSpace> Curve<P> for CubicSegment<P> {
+impl<P: VectorSpace<Scalar = f32>> Curve<P> for CubicSegment<P> {
     #[inline]
     fn domain(&self) -> Interval {
         Interval::UNIT
@@ -22,7 +22,7 @@ impl<P: VectorSpace> Curve<P> for CubicSegment<P> {
     }
 }
 
-impl<P: VectorSpace> SampleDerivative<P> for CubicSegment<P> {
+impl<P: VectorSpace<Scalar = f32>> SampleDerivative<P> for CubicSegment<P> {
     #[inline]
     fn sample_with_derivative_unchecked(&self, t: f32) -> WithDerivative<P> {
         WithDerivative {
@@ -32,7 +32,7 @@ impl<P: VectorSpace> SampleDerivative<P> for CubicSegment<P> {
     }
 }
 
-impl<P: VectorSpace> SampleTwoDerivatives<P> for CubicSegment<P> {
+impl<P: VectorSpace<Scalar = f32>> SampleTwoDerivatives<P> for CubicSegment<P> {
     #[inline]
     fn sample_with_two_derivatives_unchecked(&self, t: f32) -> WithTwoDerivatives<P> {
         WithTwoDerivatives {
@@ -46,7 +46,7 @@ impl<P: VectorSpace> SampleTwoDerivatives<P> for CubicSegment<P> {
 // -- CubicCurve
 
 #[cfg(feature = "alloc")]
-impl<P: VectorSpace> Curve<P> for CubicCurve<P> {
+impl<P: VectorSpace<Scalar = f32>> Curve<P> for CubicCurve<P> {
     #[inline]
     fn domain(&self) -> Interval {
         // The non-emptiness invariant guarantees that this succeeds.
@@ -61,7 +61,7 @@ impl<P: VectorSpace> Curve<P> for CubicCurve<P> {
 }
 
 #[cfg(feature = "alloc")]
-impl<P: VectorSpace> SampleDerivative<P> for CubicCurve<P> {
+impl<P: VectorSpace<Scalar = f32>> SampleDerivative<P> for CubicCurve<P> {
     #[inline]
     fn sample_with_derivative_unchecked(&self, t: f32) -> WithDerivative<P> {
         WithDerivative {
@@ -72,7 +72,7 @@ impl<P: VectorSpace> SampleDerivative<P> for CubicCurve<P> {
 }
 
 #[cfg(feature = "alloc")]
-impl<P: VectorSpace> SampleTwoDerivatives<P> for CubicCurve<P> {
+impl<P: VectorSpace<Scalar = f32>> SampleTwoDerivatives<P> for CubicCurve<P> {
     #[inline]
     fn sample_with_two_derivatives_unchecked(&self, t: f32) -> WithTwoDerivatives<P> {
         WithTwoDerivatives {
@@ -85,7 +85,7 @@ impl<P: VectorSpace> SampleTwoDerivatives<P> for CubicCurve<P> {
 
 // -- RationalSegment
 
-impl<P: VectorSpace> Curve<P> for RationalSegment<P> {
+impl<P: VectorSpace<Scalar = f32>> Curve<P> for RationalSegment<P> {
     #[inline]
     fn domain(&self) -> Interval {
         Interval::UNIT
@@ -97,7 +97,7 @@ impl<P: VectorSpace> Curve<P> for RationalSegment<P> {
     }
 }
 
-impl<P: VectorSpace> SampleDerivative<P> for RationalSegment<P> {
+impl<P: VectorSpace<Scalar = f32>> SampleDerivative<P> for RationalSegment<P> {
     #[inline]
     fn sample_with_derivative_unchecked(&self, t: f32) -> WithDerivative<P> {
         WithDerivative {
@@ -107,7 +107,7 @@ impl<P: VectorSpace> SampleDerivative<P> for RationalSegment<P> {
     }
 }
 
-impl<P: VectorSpace> SampleTwoDerivatives<P> for RationalSegment<P> {
+impl<P: VectorSpace<Scalar = f32>> SampleTwoDerivatives<P> for RationalSegment<P> {
     #[inline]
     fn sample_with_two_derivatives_unchecked(&self, t: f32) -> WithTwoDerivatives<P> {
         WithTwoDerivatives {
@@ -121,7 +121,7 @@ impl<P: VectorSpace> SampleTwoDerivatives<P> for RationalSegment<P> {
 // -- RationalCurve
 
 #[cfg(feature = "alloc")]
-impl<P: VectorSpace> Curve<P> for RationalCurve<P> {
+impl<P: VectorSpace<Scalar = f32>> Curve<P> for RationalCurve<P> {
     #[inline]
     fn domain(&self) -> Interval {
         // The non-emptiness invariant guarantees the success of this.
@@ -136,7 +136,7 @@ impl<P: VectorSpace> Curve<P> for RationalCurve<P> {
 }
 
 #[cfg(feature = "alloc")]
-impl<P: VectorSpace> SampleDerivative<P> for RationalCurve<P> {
+impl<P: VectorSpace<Scalar = f32>> SampleDerivative<P> for RationalCurve<P> {
     #[inline]
     fn sample_with_derivative_unchecked(&self, t: f32) -> WithDerivative<P> {
         WithDerivative {
@@ -147,7 +147,7 @@ impl<P: VectorSpace> SampleDerivative<P> for RationalCurve<P> {
 }
 
 #[cfg(feature = "alloc")]
-impl<P: VectorSpace> SampleTwoDerivatives<P> for RationalCurve<P> {
+impl<P: VectorSpace<Scalar = f32>> SampleTwoDerivatives<P> for RationalCurve<P> {
     #[inline]
     fn sample_with_two_derivatives_unchecked(&self, t: f32) -> WithTwoDerivatives<P> {
         WithTwoDerivatives {

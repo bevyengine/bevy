@@ -31,14 +31,14 @@ fn main() {
 struct TextChanges;
 
 fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
-    let font = asset_server.load("fonts/FiraSans-Bold.ttf");
+    let font = FontSource::from(asset_server.load("fonts/FiraSans-Bold.ttf"));
     let background_color = MAROON.into();
     commands.spawn(Camera2d);
 
     let root_uinode = commands
         .spawn(Node {
-            width: Val::Percent(100.),
-            height: Val::Percent(100.),
+            width: percent(100),
+            height: percent(100),
             justify_content: JustifyContent::SpaceBetween,
             ..default()
         })
@@ -50,7 +50,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
             justify_content: JustifyContent::SpaceBetween,
             align_items: AlignItems::Start,
             flex_grow: 1.,
-            margin: UiRect::axes(Val::Px(15.), Val::Px(5.)),
+            margin: UiRect::axes(px(15), px(5)),
             ..default()
         }).with_children(|builder| {
         builder.spawn((
@@ -64,7 +64,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
         ));
         builder.spawn((
             Text::new(
-                "This text is right-justified. The `JustifyText` component controls the horizontal alignment of the lines of multi-line text relative to each other, and does not affect the text node's position in the UI layout.",
+                "This text is right-justified. The `Justify` component controls the horizontal alignment of the lines of multi-line text relative to each other, and does not affect the text node's position in the UI layout.",
             ),
             TextFont {
                 font: font.clone(),
@@ -72,9 +72,9 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                 ..default()
             },
             TextColor(YELLOW.into()),
-            TextLayout::new_with_justify(JustifyText::Right),
+            TextLayout::new_with_justify(Justify::Right),
             Node {
-                max_width: Val::Px(300.),
+                max_width: px(300),
                 ..default()
             },
             BackgroundColor(background_color)
@@ -88,7 +88,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                 ..default()
             },
             Node {
-                max_width: Val::Px(300.),
+                max_width: px(300),
                 ..default()
             },
             BackgroundColor(background_color)
@@ -102,7 +102,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
             justify_content: JustifyContent::SpaceBetween,
             align_items: AlignItems::End,
             flex_grow: 1.,
-            margin: UiRect::axes(Val::Px(15.), Val::Px(5.)),
+            margin: UiRect::axes(px(15), px(5)),
             ..default()
         })
         .with_children(|builder| {
@@ -114,9 +114,9 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                     ..default()
                 },
                 TextColor(Color::srgb(0.8, 0.2, 0.7)),
-                TextLayout::new_with_justify(JustifyText::Center),
+                TextLayout::new_with_justify(Justify::Center),
                 Node {
-                    max_width: Val::Px(400.),
+                    max_width: px(400),
                     ..default()
                 },
                 BackgroundColor(background_color),
@@ -130,9 +130,9 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                     ..default()
                 },
                 TextColor(YELLOW.into()),
-                TextLayout::new_with_justify(JustifyText::Left),
+                TextLayout::new_with_justify(Justify::Left),
                 Node {
-                    max_width: Val::Px(300.),
+                    max_width: px(300),
                     ..default()
                 },
                 BackgroundColor(background_color),
@@ -145,10 +145,10 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                     font_size: 29.0,
                     ..default()
                 },
-                TextLayout::new_with_justify(JustifyText::Justified),
+                TextLayout::new_with_justify(Justify::Justified),
                 TextColor(GREEN_YELLOW.into()),
                 Node {
-                    max_width: Val::Px(300.),
+                    max_width: px(300),
                     ..default()
                 },
                 BackgroundColor(background_color),
@@ -266,19 +266,18 @@ fn change_text_system(
 
     for entity in &query {
         let mut fps = 0.0;
-        if let Some(fps_diagnostic) = diagnostics.get(&FrameTimeDiagnosticsPlugin::FPS) {
-            if let Some(fps_smoothed) = fps_diagnostic.smoothed() {
-                fps = fps_smoothed;
-            }
+        if let Some(fps_diagnostic) = diagnostics.get(&FrameTimeDiagnosticsPlugin::FPS)
+            && let Some(fps_smoothed) = fps_diagnostic.smoothed()
+        {
+            fps = fps_smoothed;
         }
 
         let mut frame_time = time.delta_secs_f64();
         if let Some(frame_time_diagnostic) =
             diagnostics.get(&FrameTimeDiagnosticsPlugin::FRAME_TIME)
+            && let Some(frame_time_smoothed) = frame_time_diagnostic.smoothed()
         {
-            if let Some(frame_time_smoothed) = frame_time_diagnostic.smoothed() {
-                frame_time = frame_time_smoothed;
-            }
+            frame_time = frame_time_smoothed;
         }
 
         *writer.text(entity, 0) =

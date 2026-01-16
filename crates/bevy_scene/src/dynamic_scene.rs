@@ -13,11 +13,7 @@ use bevy_ecs::component::ComponentCloneBehavior;
 use bevy_ecs::relationship::RelationshipHookMode;
 
 #[cfg(feature = "serialize")]
-use {
-    crate::{ron, serde::SceneSerializer},
-    bevy_reflect::TypeRegistry,
-    serde::Serialize,
-};
+use {crate::serde::SceneSerializer, bevy_reflect::TypeRegistry, serde::Serialize};
 
 /// A collection of serializable resources and dynamic entities.
 ///
@@ -54,7 +50,15 @@ impl DynamicScene {
     /// Create a new dynamic scene from a given world.
     pub fn from_world(world: &World) -> Self {
         DynamicSceneBuilder::from_world(world)
-            .extract_entities(world.iter_entities().map(|entity| entity.id()))
+            .extract_entities(
+                // we do this instead of a query, in order to completely sidestep default query filters.
+                // while we could use `Allow<_>`, this wouldn't account for custom disabled components
+                world
+                    .archetypes()
+                    .iter()
+                    .flat_map(bevy_ecs::archetype::Archetype::entities)
+                    .map(bevy_ecs::archetype::ArchetypeEntity::id),
+            )
             .extract_resources()
             .build()
     }
@@ -114,7 +118,10 @@ impl DynamicScene {
                     #[expect(unsafe_code, reason = "this is faster")]
                     let component_info =
                         unsafe { world.components().get_info_unchecked(component_id) };
-                    if *component_info.clone_behavior() == ComponentCloneBehavior::Ignore {
+                    if matches!(
+                        *component_info.clone_behavior(),
+                        ComponentCloneBehavior::Ignore
+                    ) {
                         continue;
                     }
                 }

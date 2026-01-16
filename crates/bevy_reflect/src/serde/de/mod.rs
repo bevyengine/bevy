@@ -37,12 +37,12 @@ mod tests {
     use bevy_platform::collections::{HashMap, HashSet};
 
     use crate::{
+        enums::DynamicEnum,
         serde::{
             ReflectDeserializer, ReflectDeserializerProcessor, ReflectSerializer,
             TypedReflectDeserializer,
         },
-        DynamicEnum, FromReflect, PartialReflect, Reflect, ReflectDeserialize, TypeRegistration,
-        TypeRegistry,
+        FromReflect, PartialReflect, Reflect, ReflectDeserialize, TypeRegistration, TypeRegistry,
     };
 
     #[derive(Reflect, Debug, PartialEq)]
@@ -452,26 +452,20 @@ mod tests {
         let registry = get_registry();
 
         let input = vec![
-            1, 0, 0, 0, 0, 0, 0, 0, 40, 0, 0, 0, 0, 0, 0, 0, 98, 101, 118, 121, 95, 114, 101, 102,
-            108, 101, 99, 116, 58, 58, 115, 101, 114, 100, 101, 58, 58, 100, 101, 58, 58, 116, 101,
-            115, 116, 115, 58, 58, 77, 121, 83, 116, 114, 117, 99, 116, 123, 1, 12, 0, 0, 0, 0, 0,
-            0, 0, 72, 101, 108, 108, 111, 32, 119, 111, 114, 108, 100, 33, 1, 123, 0, 0, 0, 0, 0,
-            0, 0, 219, 15, 73, 64, 57, 5, 0, 0, 0, 0, 0, 0, 5, 0, 0, 0, 0, 0, 0, 0, 254, 255, 255,
-            255, 255, 255, 255, 255, 0, 0, 0, 0, 1, 0, 0, 0, 2, 0, 0, 0, 254, 255, 255, 255, 255,
-            255, 255, 255, 0, 0, 0, 0, 1, 0, 0, 0, 2, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 64, 32, 0,
-            0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 64, 255, 201, 154, 59, 0, 0, 0, 0, 12, 0, 0,
-            0, 0, 0, 0, 0, 84, 117, 112, 108, 101, 32, 83, 116, 114, 117, 99, 116, 0, 0, 0, 0, 1,
-            0, 0, 0, 123, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 164, 112, 157, 63, 164, 112, 77, 64, 3,
-            0, 0, 0, 20, 0, 0, 0, 0, 0, 0, 0, 83, 116, 114, 117, 99, 116, 32, 118, 97, 114, 105,
-            97, 110, 116, 32, 118, 97, 108, 117, 101, 1, 0, 0, 0, 0, 0, 0, 0, 100, 0, 0, 0, 0, 0,
-            0, 0, 101, 0, 0, 0, 0, 0, 0, 0,
+            1, 40, 98, 101, 118, 121, 95, 114, 101, 102, 108, 101, 99, 116, 58, 58, 115, 101, 114,
+            100, 101, 58, 58, 100, 101, 58, 58, 116, 101, 115, 116, 115, 58, 58, 77, 121, 83, 116,
+            114, 117, 99, 116, 123, 1, 12, 72, 101, 108, 108, 111, 32, 119, 111, 114, 108, 100, 33,
+            1, 246, 1, 219, 15, 73, 64, 185, 10, 5, 3, 1, 0, 2, 4, 3, 1, 0, 2, 4, 1, 64, 32, 1, 64,
+            254, 167, 214, 185, 7, 12, 84, 117, 112, 108, 101, 32, 83, 116, 114, 117, 99, 116, 0,
+            1, 123, 2, 164, 112, 157, 63, 164, 112, 77, 64, 3, 20, 83, 116, 114, 117, 99, 116, 32,
+            118, 97, 114, 105, 97, 110, 116, 32, 118, 97, 108, 117, 101, 1, 0, 100, 202, 1,
         ];
 
         let deserializer = ReflectDeserializer::new(&registry);
 
-        let config = bincode::config::standard().with_fixed_int_encoding();
-        let (dynamic_output, _read_bytes) =
-            bincode::serde::seed_decode_from_slice(deserializer, &input, config).unwrap();
+        let dynamic_output = deserializer
+            .deserialize(&mut postcard::Deserializer::from_bytes(&input))
+            .unwrap();
 
         let output = <MyStruct as FromReflect>::from_reflect(dynamic_output.as_ref()).unwrap();
         assert_eq!(expected, output);

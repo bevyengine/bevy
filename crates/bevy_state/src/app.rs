@@ -1,12 +1,13 @@
 use bevy_app::{App, MainScheduleOrder, Plugin, PreStartup, PreUpdate, SubApp};
-use bevy_ecs::{event::Events, schedule::IntoScheduleConfigs, world::FromWorld};
+use bevy_ecs::{message::Messages, schedule::IntoScheduleConfigs, world::FromWorld};
 use bevy_utils::once;
 use log::warn;
 
 use crate::{
     state::{
-        setup_state_transitions_in_world, ComputedStates, FreelyMutableState, NextState, State,
-        StateTransition, StateTransitionEvent, StateTransitionSystems, States, SubStates,
+        setup_state_transitions_in_world, ComputedStates, FreelyMutableState, NextState,
+        PreviousState, State, StateTransition, StateTransitionEvent, StateTransitionSystems,
+        States, SubStates,
     },
     state_scoped::{despawn_entities_on_enter_state, despawn_entities_on_exit_state},
 };
@@ -57,14 +58,6 @@ pub trait AppExtStates {
     /// This method is idempotent: it has no effect when called again using the same generic type.
     fn add_sub_state<S: SubStates>(&mut self) -> &mut Self;
 
-    /// Enable state-scoped entity clearing for state `S`.
-    ///
-    /// If the [`States`] trait was derived with the `#[states(scoped_entities)]` attribute, it
-    /// will be called automatically.
-    ///
-    /// For more information refer to [`crate::state_scoped`].
-    fn enable_state_scoped_entities<S: States>(&mut self) -> &mut Self;
-
     #[cfg(feature = "bevy_reflect")]
     /// Registers the state type `T` using [`App::register_type`],
     /// and adds [`ReflectState`](crate::reflect::ReflectState) type data to `T` in the type registry.
@@ -100,22 +93,22 @@ impl AppExtStates for SubApp {
         if !self.world().contains_resource::<State<S>>() {
             self.init_resource::<State<S>>()
                 .init_resource::<NextState<S>>()
-                .add_event::<StateTransitionEvent<S>>();
+                .add_message::<StateTransitionEvent<S>>();
             let schedule = self.get_schedule_mut(StateTransition).expect(
                 "The `StateTransition` schedule is missing. Did you forget to add StatesPlugin or DefaultPlugins before calling init_state?"
             );
             S::register_state(schedule);
             let state = self.world().resource::<State<S>>().get().clone();
-            self.world_mut().send_event(StateTransitionEvent {
+            self.world_mut().write_message(StateTransitionEvent {
                 exited: None,
                 entered: Some(state),
+                // makes no difference: the state didn't exist before anyways
+                allow_same_state_transitions: true,
             });
-            if S::SCOPED_ENTITIES_ENABLED {
-                self.enable_state_scoped_entities::<S>();
-            }
+            enable_state_scoped_entities::<S>(self);
         } else {
             let name = core::any::type_name::<S>();
-            warn!("State {} is already initialized.", name);
+            warn!("State {name} is already initialized.");
         }
 
         self
@@ -126,27 +119,30 @@ impl AppExtStates for SubApp {
         if !self.world().contains_resource::<State<S>>() {
             self.insert_resource::<State<S>>(State::new(state.clone()))
                 .init_resource::<NextState<S>>()
-                .add_event::<StateTransitionEvent<S>>();
+                .add_message::<StateTransitionEvent<S>>();
             let schedule = self.get_schedule_mut(StateTransition).expect(
                 "The `StateTransition` schedule is missing. Did you forget to add StatesPlugin or DefaultPlugins before calling insert_state?"
             );
             S::register_state(schedule);
-            self.world_mut().send_event(StateTransitionEvent {
+            self.world_mut().write_message(StateTransitionEvent {
                 exited: None,
                 entered: Some(state),
+                // makes no difference: the state didn't exist before anyways
+                allow_same_state_transitions: true,
             });
-            if S::SCOPED_ENTITIES_ENABLED {
-                self.enable_state_scoped_entities::<S>();
-            }
+            enable_state_scoped_entities::<S>(self);
         } else {
             // Overwrite previous state and initial event
             self.insert_resource::<State<S>>(State::new(state.clone()));
             self.world_mut()
-                .resource_mut::<Events<StateTransitionEvent<S>>>()
+                .resource_mut::<Messages<StateTransitionEvent<S>>>()
                 .clear();
-            self.world_mut().send_event(StateTransitionEvent {
+            self.world_mut().write_message(StateTransitionEvent {
                 exited: None,
                 entered: Some(state),
+                // Not configurable for the moment. This controls whether inserting a state with the same value as a pre-existing state should run state transitions.
+                // Leaving it at `true` makes state insertion idempotent. Neat!
+                allow_same_state_transitions: true,
             });
         }
 
@@ -157,9 +153,9 @@ impl AppExtStates for SubApp {
         warn_if_no_states_plugin_installed(self);
         if !self
             .world()
-            .contains_resource::<Events<StateTransitionEvent<S>>>()
+            .contains_resource::<Messages<StateTransitionEvent<S>>>()
         {
-            self.add_event::<StateTransitionEvent<S>>();
+            self.add_message::<StateTransitionEvent<S>>();
             let schedule = self.get_schedule_mut(StateTransition).expect(
                 "The `StateTransition` schedule is missing. Did you forget to add StatesPlugin or DefaultPlugins before calling add_computed_state?"
             );
@@ -168,16 +164,15 @@ impl AppExtStates for SubApp {
                 .world()
                 .get_resource::<State<S>>()
                 .map(|s| s.get().clone());
-            self.world_mut().send_event(StateTransitionEvent {
+            self.world_mut().write_message(StateTransitionEvent {
                 exited: None,
                 entered: state,
+                allow_same_state_transitions: S::ALLOW_SAME_STATE_TRANSITIONS,
             });
-            if S::SCOPED_ENTITIES_ENABLED {
-                self.enable_state_scoped_entities::<S>();
-            }
+            enable_state_scoped_entities::<S>(self);
         } else {
             let name = core::any::type_name::<S>();
-            warn!("Computed state {} is already initialized.", name);
+            warn!("Computed state {name} is already initialized.");
         }
 
         self
@@ -187,10 +182,10 @@ impl AppExtStates for SubApp {
         warn_if_no_states_plugin_installed(self);
         if !self
             .world()
-            .contains_resource::<Events<StateTransitionEvent<S>>>()
+            .contains_resource::<Messages<StateTransitionEvent<S>>>()
         {
             self.init_resource::<NextState<S>>();
-            self.add_event::<StateTransitionEvent<S>>();
+            self.add_message::<StateTransitionEvent<S>>();
             let schedule = self.get_schedule_mut(StateTransition).expect(
                 "The `StateTransition` schedule is missing. Did you forget to add StatesPlugin or DefaultPlugins before calling add_sub_state?"
             );
@@ -199,44 +194,19 @@ impl AppExtStates for SubApp {
                 .world()
                 .get_resource::<State<S>>()
                 .map(|s| s.get().clone());
-            self.world_mut().send_event(StateTransitionEvent {
+            self.world_mut().write_message(StateTransitionEvent {
                 exited: None,
                 entered: state,
+                // makes no difference: the state didn't exist before anyways
+                allow_same_state_transitions: true,
             });
-            if S::SCOPED_ENTITIES_ENABLED {
-                self.enable_state_scoped_entities::<S>();
-            }
+            enable_state_scoped_entities::<S>(self);
         } else {
             let name = core::any::type_name::<S>();
-            warn!("Sub state {} is already initialized.", name);
+            warn!("Sub state {name} is already initialized.");
         }
 
         self
-    }
-
-    fn enable_state_scoped_entities<S: States>(&mut self) -> &mut Self {
-        if !self
-            .world()
-            .contains_resource::<Events<StateTransitionEvent<S>>>()
-        {
-            let name = core::any::type_name::<S>();
-            warn!("State scoped entities are enabled for state `{}`, but the state isn't installed in the app!", name);
-        }
-
-        // Note: We work with `StateTransition` in set
-        // `StateTransitionSystems::ExitSchedules` rather than `OnExit`, because
-        // `OnExit` only runs for one specific variant of the state.
-        self.add_systems(
-            StateTransition,
-            despawn_entities_on_exit_state::<S>.in_set(StateTransitionSystems::ExitSchedules),
-        )
-        // Note: We work with `StateTransition` in set
-        // `StateTransitionSystems::EnterSchedules` rather than `OnEnter`, because
-        // `OnEnter` only runs for one specific variant of the state.
-        .add_systems(
-            StateTransition,
-            despawn_entities_on_enter_state::<S>.in_set(StateTransitionSystems::EnterSchedules),
-        )
     }
 
     #[cfg(feature = "bevy_reflect")]
@@ -246,6 +216,7 @@ impl AppExtStates for SubApp {
     {
         self.register_type::<S>();
         self.register_type::<State<S>>();
+        self.register_type::<PreviousState<S>>();
         self.register_type_data::<S, crate::reflect::ReflectState>();
         self
     }
@@ -258,10 +229,36 @@ impl AppExtStates for SubApp {
         self.register_type::<S>();
         self.register_type::<State<S>>();
         self.register_type::<NextState<S>>();
+        self.register_type::<PreviousState<S>>();
         self.register_type_data::<S, crate::reflect::ReflectState>();
         self.register_type_data::<S, crate::reflect::ReflectFreelyMutableState>();
         self
     }
+}
+
+fn enable_state_scoped_entities<S: States>(app: &mut SubApp) {
+    if !app
+        .world()
+        .contains_resource::<Messages<StateTransitionEvent<S>>>()
+    {
+        let name = core::any::type_name::<S>();
+        warn!("State scoped entities are enabled for state `{name}`, but the state wasn't initialized in the app!");
+    }
+
+    // Note: We work with `StateTransition` in set
+    // `StateTransitionSystems::ExitSchedules` rather than `OnExit`, because
+    // `OnExit` only runs for one specific variant of the state.
+    app.add_systems(
+        StateTransition,
+        despawn_entities_on_exit_state::<S>.in_set(StateTransitionSystems::ExitSchedules),
+    )
+    // Note: We work with `StateTransition` in set
+    // `StateTransitionSystems::EnterSchedules` rather than `OnEnter`, because
+    // `OnEnter` only runs for one specific variant of the state.
+    .add_systems(
+        StateTransition,
+        despawn_entities_on_enter_state::<S>.in_set(StateTransitionSystems::EnterSchedules),
+    );
 }
 
 impl AppExtStates for App {
@@ -282,11 +279,6 @@ impl AppExtStates for App {
 
     fn add_sub_state<S: SubStates>(&mut self) -> &mut Self {
         self.main_mut().add_sub_state::<S>();
-        self
-    }
-
-    fn enable_state_scoped_entities<S: States>(&mut self) -> &mut Self {
-        self.main_mut().enable_state_scoped_entities::<S>();
         self
     }
 
@@ -329,7 +321,7 @@ mod tests {
         state::{State, StateTransition, StateTransitionEvent},
     };
     use bevy_app::App;
-    use bevy_ecs::event::Events;
+    use bevy_ecs::message::Messages;
     use bevy_state_macros::States;
 
     use super::AppExtStates;
@@ -354,7 +346,7 @@ mod tests {
         world.run_schedule(StateTransition);
 
         assert_eq!(world.resource::<State<TestState>>().0, TestState::B);
-        let events = world.resource::<Events<StateTransitionEvent<TestState>>>();
+        let events = world.resource::<Messages<StateTransitionEvent<TestState>>>();
         assert_eq!(events.len(), 1);
         let mut reader = events.get_cursor();
         let last = reader.read(events).last().unwrap();
@@ -374,7 +366,7 @@ mod tests {
         world.run_schedule(StateTransition);
 
         assert_eq!(world.resource::<State<TestState>>().0, TestState::C);
-        let events = world.resource::<Events<StateTransitionEvent<TestState>>>();
+        let events = world.resource::<Messages<StateTransitionEvent<TestState>>>();
         assert_eq!(events.len(), 1);
         let mut reader = events.get_cursor();
         let last = reader.read(events).last().unwrap();

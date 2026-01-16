@@ -1,69 +1,66 @@
 #![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
-#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![forbid(unsafe_code)]
 #![doc(
-    html_logo_url = "https://bevyengine.org/assets/icon.png",
-    html_favicon_url = "https://bevyengine.org/assets/icon.png"
+    html_logo_url = "https://bevy.org/assets/icon.png",
+    html_favicon_url = "https://bevy.org/assets/icon.png"
 )]
 
-//! Provides 2D sprite rendering functionality.
+//! Provides 2D sprite functionality.
 
 extern crate alloc;
 
-mod mesh2d;
-#[cfg(feature = "bevy_sprite_picking_backend")]
+#[cfg(feature = "bevy_picking")]
 mod picking_backend;
-mod render;
 mod sprite;
+#[cfg(feature = "bevy_text")]
+mod text2d;
 mod texture_slice;
 
 /// The sprite prelude.
 ///
 /// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
-    #[cfg(feature = "bevy_sprite_picking_backend")]
+    #[cfg(feature = "bevy_picking")]
     #[doc(hidden)]
     pub use crate::picking_backend::{
         SpritePickingCamera, SpritePickingMode, SpritePickingPlugin, SpritePickingSettings,
     };
+    #[cfg(feature = "bevy_text")]
+    #[doc(hidden)]
+    pub use crate::text2d::{Text2d, Text2dReader, Text2dWriter};
     #[doc(hidden)]
     pub use crate::{
         sprite::{Sprite, SpriteImageMode},
         texture_slice::{BorderRect, SliceScaleMode, TextureSlice, TextureSlicer},
-        ColorMaterial, MeshMaterial2d, ScalingMode,
+        SpriteScalingMode,
     };
 }
 
-pub use mesh2d::*;
-#[cfg(feature = "bevy_sprite_picking_backend")]
+use bevy_asset::Assets;
+use bevy_camera::{
+    primitives::{Aabb, MeshAabb},
+    visibility::NoFrustumCulling,
+    visibility::VisibilitySystems,
+};
+use bevy_mesh::{Mesh, Mesh2d};
+#[cfg(feature = "bevy_picking")]
 pub use picking_backend::*;
-pub use render::*;
 pub use sprite::*;
+#[cfg(feature = "bevy_text")]
+pub use text2d::*;
 pub use texture_slice::*;
 
 use bevy_app::prelude::*;
-use bevy_asset::{load_internal_asset, weak_handle, AssetEventSystems, Assets, Handle};
-use bevy_core_pipeline::core_2d::{AlphaMask2d, Opaque2d, Transparent2d};
+use bevy_asset::prelude::AssetChanged;
+use bevy_camera::visibility::NoAutoAabb;
 use bevy_ecs::prelude::*;
-use bevy_image::{prelude::*, TextureAtlasPlugin};
-use bevy_render::{
-    batching::sort_binned_render_phase,
-    mesh::{Mesh, Mesh2d, MeshAabb},
-    primitives::Aabb,
-    render_phase::AddRenderCommand,
-    render_resource::{Shader, SpecializedRenderPipelines},
-    view::{NoFrustumCulling, VisibilitySystems},
-    ExtractSchedule, Render, RenderApp, RenderSystems,
-};
+use bevy_image::{Image, TextureAtlasLayout, TextureAtlasPlugin};
+use bevy_math::Vec2;
 
-/// Adds support for 2D sprite rendering.
+/// Adds support for 2D sprites.
 #[derive(Default)]
 pub struct SpritePlugin;
-
-pub const SPRITE_SHADER_HANDLE: Handle<Shader> =
-    weak_handle!("ed996613-54c0-49bd-81be-1c2d1a0d03c2");
-pub const SPRITE_VIEW_BINDINGS_SHADER_HANDLE: Handle<Shader> =
-    weak_handle!("43947210-8df6-459a-8f2a-12f350d174cc");
 
 /// System set for sprite rendering.
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
@@ -72,87 +69,32 @@ pub enum SpriteSystems {
     ComputeSlices,
 }
 
-/// Deprecated alias for [`SpriteSystems`].
-#[deprecated(since = "0.17.0", note = "Renamed to `SpriteSystems`.")]
-pub type SpriteSystem = SpriteSystems;
-
 impl Plugin for SpritePlugin {
     fn build(&self, app: &mut App) {
-        load_internal_asset!(
-            app,
-            SPRITE_SHADER_HANDLE,
-            "render/sprite.wgsl",
-            Shader::from_wgsl
-        );
-        load_internal_asset!(
-            app,
-            SPRITE_VIEW_BINDINGS_SHADER_HANDLE,
-            "render/sprite_view_bindings.wgsl",
-            Shader::from_wgsl
-        );
-
         if !app.is_plugin_added::<TextureAtlasPlugin>() {
             app.add_plugins(TextureAtlasPlugin);
         }
+        app.add_systems(
+            PostUpdate,
+            calculate_bounds_2d.in_set(VisibilitySystems::CalculateBounds),
+        );
 
-        app.register_type::<Sprite>()
-            .register_type::<SpriteImageMode>()
-            .register_type::<TextureSlicer>()
-            .register_type::<Anchor>()
-            .register_type::<Mesh2d>()
-            .add_plugins((Mesh2dRenderPlugin, ColorMaterialPlugin))
-            .add_systems(
-                PostUpdate,
-                (
-                    calculate_bounds_2d.in_set(VisibilitySystems::CalculateBounds),
-                    (
-                        compute_slices_on_asset_event.before(AssetEventSystems),
-                        compute_slices_on_sprite_change,
-                    )
-                        .in_set(SpriteSystems::ComputeSlices),
-                ),
-            );
+        #[cfg(feature = "bevy_text")]
+        app.add_systems(
+            PostUpdate,
+            (
+                bevy_text::detect_text_needs_rerender::<Text2d>,
+                update_text2d_layout.after(bevy_camera::CameraUpdateSystems),
+                calculate_bounds_text2d.in_set(VisibilitySystems::CalculateBounds),
+            )
+                .chain()
+                .after(bevy_text::load_font_assets_into_fontdb_system)
+                .in_set(bevy_text::Text2dUpdateSystems)
+                .after(bevy_app::AnimationSystems),
+        );
 
-        #[cfg(feature = "bevy_sprite_picking_backend")]
+        #[cfg(feature = "bevy_picking")]
         app.add_plugins(SpritePickingPlugin);
-
-        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app
-                .init_resource::<ImageBindGroups>()
-                .init_resource::<SpecializedRenderPipelines<SpritePipeline>>()
-                .init_resource::<SpriteMeta>()
-                .init_resource::<ExtractedSprites>()
-                .init_resource::<ExtractedSlices>()
-                .init_resource::<SpriteAssetEvents>()
-                .add_render_command::<Transparent2d, DrawSprite>()
-                .add_systems(
-                    ExtractSchedule,
-                    (
-                        extract_sprites.in_set(SpriteSystems::ExtractSprites),
-                        extract_sprite_events,
-                    ),
-                )
-                .add_systems(
-                    Render,
-                    (
-                        queue_sprites
-                            .in_set(RenderSystems::Queue)
-                            .ambiguous_with(queue_material2d_meshes::<ColorMaterial>),
-                        prepare_sprite_image_bind_groups.in_set(RenderSystems::PrepareBindGroups),
-                        prepare_sprite_view_bind_groups.in_set(RenderSystems::PrepareBindGroups),
-                        sort_binned_render_phase::<Opaque2d>.in_set(RenderSystems::PhaseSort),
-                        sort_binned_render_phase::<AlphaMask2d>.in_set(RenderSystems::PhaseSort),
-                    ),
-                );
-        };
-    }
-
-    fn finish(&self, app: &mut App) {
-        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app
-                .init_resource::<SpriteBatches>()
-                .init_resource::<SpritePipeline>();
-        }
     }
 }
 
@@ -167,24 +109,62 @@ pub fn calculate_bounds_2d(
     meshes: Res<Assets<Mesh>>,
     images: Res<Assets<Image>>,
     atlases: Res<Assets<TextureAtlasLayout>>,
-    meshes_without_aabb: Query<(Entity, &Mesh2d), (Without<Aabb>, Without<NoFrustumCulling>)>,
-    sprites_to_recalculate_aabb: Query<
+    new_mesh_aabb: Query<
+        (Entity, &Mesh2d),
+        (
+            Without<Aabb>,
+            Without<NoFrustumCulling>,
+            Without<NoAutoAabb>,
+        ),
+    >,
+    mut update_mesh_aabb: Query<
+        (&Mesh2d, &mut Aabb),
+        (
+            Or<(AssetChanged<Mesh2d>, Changed<Mesh2d>)>,
+            Without<NoFrustumCulling>,
+            Without<NoAutoAabb>,
+            Without<Sprite>, // disjoint mutable query
+        ),
+    >,
+    new_sprite_aabb: Query<
         (Entity, &Sprite, &Anchor),
         (
-            Or<(Without<Aabb>, Changed<Sprite>, Changed<Anchor>)>,
+            Without<Aabb>,
             Without<NoFrustumCulling>,
+            Without<NoAutoAabb>,
+        ),
+    >,
+    mut update_sprite_aabb: Query<
+        (&Sprite, &mut Aabb, &Anchor),
+        (
+            Or<(Changed<Sprite>, Changed<Anchor>)>,
+            Without<NoFrustumCulling>,
+            Without<NoAutoAabb>,
+            Without<Mesh2d>, // disjoint mutable query
         ),
     >,
 ) {
-    for (entity, mesh_handle) in &meshes_without_aabb {
-        if let Some(mesh) = meshes.get(&mesh_handle.0) {
-            if let Some(aabb) = mesh.compute_aabb() {
-                commands.entity(entity).try_insert(aabb);
-            }
+    // New meshes require inserting a component
+    for (entity, mesh_handle) in &new_mesh_aabb {
+        if let Some(mesh) = meshes.get(mesh_handle)
+            && let Some(aabb) = mesh.compute_aabb()
+        {
+            commands.entity(entity).try_insert(aabb);
         }
     }
-    for (entity, sprite, anchor) in &sprites_to_recalculate_aabb {
-        if let Some(size) = sprite
+
+    // Updated meshes can take the fast path with parallel component mutation
+    update_mesh_aabb
+        .par_iter_mut()
+        .for_each(|(mesh_handle, mut aabb)| {
+            if let Some(new_aabb) = meshes.get(mesh_handle).and_then(MeshAabb::compute_aabb) {
+                aabb.set_if_neq(new_aabb);
+            }
+        });
+
+    // Sprite helper
+    let sprite_size = |sprite: &Sprite| -> Option<Vec2> {
+        sprite
             .custom_size
             .or_else(|| sprite.rect.map(|rect| rect.size()))
             .or_else(|| match &sprite.texture_atlas {
@@ -195,23 +175,37 @@ pub fn calculate_bounds_2d(
                     .texture_rect(&atlases)
                     .map(|rect| rect.size().as_vec2()),
             })
-        {
-            let aabb = Aabb {
-                center: (-anchor.as_vec() * size).extend(0.0).into(),
-                half_extents: (0.5 * size).extend(0.0).into(),
-            };
-            commands.entity(entity).try_insert(aabb);
-        }
+    };
+
+    // New sprites require inserting a component
+    for (size, (entity, anchor)) in new_sprite_aabb
+        .iter()
+        .filter_map(|(entity, sprite, anchor)| sprite_size(sprite).zip(Some((entity, anchor))))
+    {
+        let aabb = Aabb {
+            center: (-anchor.as_vec() * size).extend(0.0).into(),
+            half_extents: (0.5 * size).extend(0.0).into(),
+        };
+        commands.entity(entity).try_insert(aabb);
     }
+
+    // Updated sprites can take the fast path with parallel component mutation
+    update_sprite_aabb
+        .par_iter_mut()
+        .for_each(|(sprite, mut aabb, anchor)| {
+            if let Some(size) = sprite_size(sprite) {
+                aabb.set_if_neq(Aabb {
+                    center: (-anchor.as_vec() * size).extend(0.0).into(),
+                    half_extents: (0.5 * size).extend(0.0).into(),
+                });
+            }
+        });
 }
 
 #[cfg(test)]
 mod test {
-
-    use bevy_math::{Rect, Vec2, Vec3A};
-    use bevy_utils::default;
-
     use super::*;
+    use bevy_math::{Rect, Vec2, Vec3A};
 
     #[test]
     fn calculate_bounds_2d_create_aabb_for_image_sprite_entity() {
@@ -274,7 +268,7 @@ mod test {
             .spawn(Sprite {
                 custom_size: Some(Vec2::ZERO),
                 image: image_handle,
-                ..default()
+                ..Sprite::default()
             })
             .id();
 
@@ -338,7 +332,7 @@ mod test {
                 Sprite {
                     rect: Some(Rect::new(0., 0., 0.5, 1.)),
                     image: image_handle,
-                    ..default()
+                    ..Sprite::default()
                 },
                 Anchor::TOP_RIGHT,
             ))

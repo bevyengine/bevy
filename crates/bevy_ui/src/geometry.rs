@@ -1,4 +1,4 @@
-use bevy_math::Vec2;
+use bevy_math::{MismatchedUnitsError, StableInterpolate as _, TryStableInterpolate, Vec2};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_utils::default;
 use core::ops::{Div, DivAssign, Mul, MulAssign, Neg};
@@ -165,6 +165,142 @@ impl PartialEq for Val {
 impl Val {
     pub const DEFAULT: Self = Self::Auto;
     pub const ZERO: Self = Self::Px(0.0);
+
+    /// Returns a [`UiRect`] with its `left` equal to this value,
+    /// and all other fields set to `Val::ZERO`.
+    ///
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ui::{UiRect, Val};
+    /// #
+    /// let ui_rect = Val::Px(1.).left();
+    ///
+    /// assert_eq!(ui_rect.left, Val::Px(1.));
+    /// assert_eq!(ui_rect.right, Val::ZERO);
+    /// assert_eq!(ui_rect.top, Val::ZERO);
+    /// assert_eq!(ui_rect.bottom, Val::ZERO);
+    /// ```
+    pub const fn left(self) -> UiRect {
+        UiRect::left(self)
+    }
+
+    /// Returns a [`UiRect`] with its `right` equal to this value,
+    /// and all other fields set to `Val::ZERO`.
+    ///
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ui::{UiRect, Val};
+    /// #
+    /// let ui_rect = Val::Px(1.).right();
+    ///
+    /// assert_eq!(ui_rect.left, Val::ZERO);
+    /// assert_eq!(ui_rect.right, Val::Px(1.));
+    /// assert_eq!(ui_rect.top, Val::ZERO);
+    /// assert_eq!(ui_rect.bottom, Val::ZERO);
+    /// ```
+    pub const fn right(self) -> UiRect {
+        UiRect::right(self)
+    }
+
+    /// Returns a [`UiRect`] with its `top` equal to this value,
+    /// and all other fields set to `Val::ZERO`.
+    ///
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ui::{UiRect, Val};
+    /// #
+    /// let ui_rect = Val::Px(1.).top();
+    ///
+    /// assert_eq!(ui_rect.left, Val::ZERO);
+    /// assert_eq!(ui_rect.right, Val::ZERO);
+    /// assert_eq!(ui_rect.top, Val::Px(1.));
+    /// assert_eq!(ui_rect.bottom, Val::ZERO);
+    /// ```
+    pub const fn top(self) -> UiRect {
+        UiRect::top(self)
+    }
+
+    /// Returns a [`UiRect`] with its `bottom` equal to this value,
+    /// and all other fields set to `Val::ZERO`.
+    ///
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ui::{UiRect, Val};
+    /// #
+    /// let ui_rect = Val::Px(1.).bottom();
+    ///
+    /// assert_eq!(ui_rect.left, Val::ZERO);
+    /// assert_eq!(ui_rect.right, Val::ZERO);
+    /// assert_eq!(ui_rect.top, Val::ZERO);
+    /// assert_eq!(ui_rect.bottom, Val::Px(1.));
+    /// ```
+    pub const fn bottom(self) -> UiRect {
+        UiRect::bottom(self)
+    }
+
+    /// Returns a [`UiRect`] with all its fields equal to this value.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ui::{UiRect, Val};
+    /// #
+    /// let ui_rect = Val::Px(1.).all();
+    ///
+    /// assert_eq!(ui_rect.left, Val::Px(1.));
+    /// assert_eq!(ui_rect.right, Val::Px(1.));
+    /// assert_eq!(ui_rect.top, Val::Px(1.));
+    /// assert_eq!(ui_rect.bottom, Val::Px(1.));
+    /// ```
+    pub const fn all(self) -> UiRect {
+        UiRect::all(self)
+    }
+
+    /// Returns a [`UiRect`] with all its `left` and `right` equal to this value,
+    /// and its `top` and `bottom` set to `Val::ZERO`.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ui::{UiRect, Val};
+    /// #
+    /// let ui_rect = Val::Px(1.).horizontal();
+    ///
+    /// assert_eq!(ui_rect.left, Val::Px(1.));
+    /// assert_eq!(ui_rect.right, Val::Px(1.));
+    /// assert_eq!(ui_rect.top, Val::ZERO);
+    /// assert_eq!(ui_rect.bottom, Val::ZERO);
+    /// ```
+    pub const fn horizontal(self) -> UiRect {
+        UiRect::horizontal(self)
+    }
+
+    /// Returns a [`UiRect`] with all its `top` and `bottom` equal to this value,
+    /// and its `left` and `right` set to `Val::ZERO`.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ui::{UiRect, Val};
+    /// #
+    /// let ui_rect = Val::Px(1.).vertical();
+    ///
+    /// assert_eq!(ui_rect.left, Val::ZERO);
+    /// assert_eq!(ui_rect.right, Val::ZERO);
+    /// assert_eq!(ui_rect.top, Val::Px(1.));
+    /// assert_eq!(ui_rect.bottom, Val::Px(1.));
+    /// ```
+    pub const fn vertical(self) -> UiRect {
+        UiRect::vertical(self)
+    }
 }
 
 impl Default for Val {
@@ -260,7 +396,7 @@ impl Val {
     /// and `physical_target_size` context values.
     ///
     /// Returns a [`ValArithmeticError::NonEvaluable`] if the [`Val`] is impossible to resolve into a concrete value.
-    pub fn resolve(
+    pub const fn resolve(
         self,
         scale_factor: f32,
         physical_base_value: f32,
@@ -271,11 +407,111 @@ impl Val {
             Val::Px(value) => Ok(value * scale_factor),
             Val::Vw(value) => Ok(physical_target_size.x * value / 100.0),
             Val::Vh(value) => Ok(physical_target_size.y * value / 100.0),
-            Val::VMin(value) => Ok(physical_target_size.min_element() * value / 100.0),
-            Val::VMax(value) => Ok(physical_target_size.max_element() * value / 100.0),
+            Val::VMin(value) => {
+                Ok(physical_target_size.x.min(physical_target_size.y) * value / 100.0)
+            }
+            Val::VMax(value) => {
+                Ok(physical_target_size.x.max(physical_target_size.y) * value / 100.0)
+            }
             Val::Auto => Err(ValArithmeticError::NonEvaluable),
         }
     }
+}
+
+impl TryStableInterpolate for Val {
+    type Error = MismatchedUnitsError;
+
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ui::Val;
+    /// # use bevy_math::TryStableInterpolate;
+    /// assert!(matches!(Val::Px(0.0).try_interpolate_stable(&Val::Px(10.0), 0.5), Ok(Val::Px(5.0))));
+    /// ```
+    fn try_interpolate_stable(&self, other: &Self, t: f32) -> Result<Self, Self::Error> {
+        match (self, other) {
+            (Val::Px(a), Val::Px(b)) => Ok(Val::Px(a.interpolate_stable(b, t))),
+            (Val::Percent(a), Val::Percent(b)) => Ok(Val::Percent(a.interpolate_stable(b, t))),
+            (Val::Vw(a), Val::Vw(b)) => Ok(Val::Vw(a.interpolate_stable(b, t))),
+            (Val::Vh(a), Val::Vh(b)) => Ok(Val::Vh(a.interpolate_stable(b, t))),
+            (Val::VMin(a), Val::VMin(b)) => Ok(Val::VMin(a.interpolate_stable(b, t))),
+            (Val::VMax(a), Val::VMax(b)) => Ok(Val::VMax(a.interpolate_stable(b, t))),
+            (Val::Auto, Val::Auto) => Ok(Val::Auto),
+            _ => Err(MismatchedUnitsError),
+        }
+    }
+}
+
+/// All the types that should be able to be used in the [`Val`] enum should implement this trait.
+///
+/// Instead of just implementing `Into<Val>` a custom trait is added.
+/// This is done in order to prevent having to define a default unit, which could lead to confusion especially for newcomers.
+pub trait ValNum {
+    /// Called by the [`Val`] helper functions to convert the implementing type to an `f32` that can
+    /// be used by [`Val`].
+    fn val_num_f32(self) -> f32;
+}
+
+macro_rules! impl_to_val_num {
+    ($($impl_type:ty),*$(,)?) => {
+        $(
+            impl ValNum for $impl_type {
+                fn val_num_f32(self) -> f32 {
+                    self as f32
+                }
+            }
+        )*
+    };
+}
+
+impl_to_val_num!(f32, f64, i8, i16, i32, i64, u8, u16, u32, u64, usize, isize);
+
+/// Returns a [`Val::Auto`] where the value is automatically determined
+/// based on the context and other [`Node`](crate::Node) properties.
+pub const fn auto() -> Val {
+    Val::Auto
+}
+
+/// Returns a [`Val::Px`] representing a value in logical pixels.
+pub fn px<T: ValNum>(value: T) -> Val {
+    Val::Px(value.val_num_f32())
+}
+
+/// Returns a [`Val::Percent`] representing a percentage of the parent node's length
+/// along a specific axis.
+///
+/// If the UI node has no parent, the percentage is based on the window's length
+/// along that axis.
+///
+/// Axis rules:
+/// * For `flex_basis`, the percentage is relative to the main-axis length determined by the `flex_direction`.
+/// * For `gap`, `min_size`, `size`, and `max_size`:
+///   - `width` is relative to the parent's width.
+///   - `height` is relative to the parent's height.
+/// * For `margin`, `padding`, and `border` values: the percentage is relative to the parent's width.
+/// * For positions, `left` and `right` are relative to the parent's width, while `bottom` and `top` are relative to the parent's height.
+pub fn percent<T: ValNum>(value: T) -> Val {
+    Val::Percent(value.val_num_f32())
+}
+
+/// Returns a [`Val::Vw`] representing a percentage of the viewport width.
+pub fn vw<T: ValNum>(value: T) -> Val {
+    Val::Vw(value.val_num_f32())
+}
+
+/// Returns a [`Val::Vh`] representing a percentage of the viewport height.
+pub fn vh<T: ValNum>(value: T) -> Val {
+    Val::Vh(value.val_num_f32())
+}
+
+/// Returns a [`Val::VMin`] representing a percentage of the viewport's smaller dimension.
+pub fn vmin<T: ValNum>(value: T) -> Val {
+    Val::VMin(value.val_num_f32())
+}
+
+/// Returns a [`Val::VMax`] representing a percentage of the viewport's larger dimension.
+pub fn vmax<T: ValNum>(value: T) -> Val {
+    Val::VMax(value.val_num_f32())
 }
 
 /// A type which is commonly used to define margins, paddings and borders.
@@ -683,6 +919,12 @@ impl Default for UiRect {
     }
 }
 
+impl From<Val> for UiRect {
+    fn from(value: Val) -> Self {
+        UiRect::all(value)
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Reflect)]
 #[reflect(Default, Debug, PartialEq)]
 #[cfg_attr(
@@ -691,7 +933,7 @@ impl Default for UiRect {
     reflect(Serialize, Deserialize)
 )]
 /// Responsive position relative to a UI node.
-pub struct Position {
+pub struct UiPosition {
     /// Normalized anchor point
     pub anchor: Vec2,
     /// Responsive horizontal position relative to the anchor point
@@ -700,13 +942,13 @@ pub struct Position {
     pub y: Val,
 }
 
-impl Default for Position {
+impl Default for UiPosition {
     fn default() -> Self {
         Self::CENTER
     }
 }
 
-impl Position {
+impl UiPosition {
     /// Position at the given normalized anchor point
     pub const fn anchor(anchor: Vec2) -> Self {
         Self {
@@ -844,13 +1086,13 @@ impl Position {
     }
 }
 
-impl From<Val> for Position {
+impl From<Val> for UiPosition {
     fn from(x: Val) -> Self {
         Self { x, ..default() }
     }
 }
 
-impl From<(Val, Val)> for Position {
+impl From<(Val, Val)> for UiPosition {
     fn from((x, y): (Val, Val)) -> Self {
         Self { x, y, ..default() }
     }
@@ -1038,5 +1280,16 @@ mod tests {
         assert_eq!(r.right, Val::Percent(5.));
         assert_eq!(r.top, Val::Percent(20.));
         assert_eq!(r.bottom, Val::Percent(99.));
+    }
+
+    #[test]
+    fn val_constructor_fns_return_correct_val_variant() {
+        assert_eq!(auto(), Val::Auto);
+        assert_eq!(px(0.0), Val::Px(0.0));
+        assert_eq!(percent(0.0), Val::Percent(0.0));
+        assert_eq!(vw(0.0), Val::Vw(0.0));
+        assert_eq!(vh(0.0), Val::Vh(0.0));
+        assert_eq!(vmin(0.0), Val::VMin(0.0));
+        assert_eq!(vmax(0.0), Val::VMax(0.0));
     }
 }

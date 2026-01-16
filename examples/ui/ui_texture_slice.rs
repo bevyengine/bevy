@@ -5,14 +5,11 @@ use bevy::{
     color::palettes::css::{GOLD, ORANGE},
     prelude::*,
     ui::widget::NodeImageMode,
-    winit::WinitSettings,
 };
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        // Only run the app when there is user input. This will significantly reduce CPU/GPU use.
-        .insert_resource(WinitSettings::desktop_app())
         .add_systems(Startup, setup)
         .add_systems(Update, button_system)
         .run();
@@ -57,8 +54,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2d);
     commands
         .spawn(Node {
-            width: Val::Percent(100.0),
-            height: Val::Percent(100.0),
+            width: percent(100),
+            height: percent(100),
             align_items: AlignItems::Center,
             justify_content: JustifyContent::Center,
             ..default()
@@ -74,20 +71,20 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             ..default()
                         },
                         Node {
-                            width: Val::Px(w),
-                            height: Val::Px(h),
+                            width: px(w),
+                            height: px(h),
                             // horizontally center child text
                             justify_content: JustifyContent::Center,
                             // vertically center child text
                             align_items: AlignItems::Center,
-                            margin: UiRect::all(Val::Px(20.0)),
+                            margin: UiRect::all(px(20)),
                             ..default()
                         },
                     ))
                     .with_child((
                         Text::new("Button"),
                         TextFont {
-                            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                            font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
                             font_size: 33.0,
                             ..default()
                         },

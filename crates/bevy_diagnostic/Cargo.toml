@@ -1,9 +1,9 @@
 [package]
 name = "bevy_diagnostic"
-version = "0.16.0-dev"
+version = "0.19.0-dev"
 edition = "2024"
 description = "Provides diagnostic functionality for Bevy Engine"
-homepage = "https://bevyengine.org"
+homepage = "https://bevy.org"
 repository = "https://github.com/bevyengine/bevy"
 license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
@@ -38,7 +38,6 @@ std = [
   "bevy_app/std",
   "bevy_platform/std",
   "bevy_time/std",
-  "bevy_tasks/std",
 ]
 
 ## `critical-section` provides the building blocks for synchronization primitives
@@ -48,21 +47,20 @@ critical-section = [
   "bevy_app/critical-section",
   "bevy_platform/critical-section",
   "bevy_time/critical-section",
-  "bevy_tasks/critical-section",
 ]
 
 [dependencies]
 # bevy
-bevy_app = { path = "../bevy_app", version = "0.16.0-dev", default-features = false }
-bevy_ecs = { path = "../bevy_ecs", version = "0.16.0-dev", default-features = false }
-bevy_time = { path = "../bevy_time", version = "0.16.0-dev", default-features = false }
-bevy_utils = { path = "../bevy_utils", version = "0.16.0-dev", default-features = false }
-bevy_tasks = { path = "../bevy_tasks", version = "0.16.0-dev", default-features = false }
-bevy_platform = { path = "../bevy_platform", version = "0.16.0-dev", default-features = false, features = [
+bevy_app = { path = "../bevy_app", version = "0.19.0-dev", default-features = false }
+bevy_ecs = { path = "../bevy_ecs", version = "0.19.0-dev", default-features = false }
+bevy_time = { path = "../bevy_time", version = "0.19.0-dev", default-features = false }
+bevy_tasks = { path = "../bevy_tasks", version = "0.19.0-dev", default-features = false }
+bevy_platform = { path = "../bevy_platform", version = "0.19.0-dev", default-features = false, features = [
   "alloc",
 ] }
 
 # other
+atomic-waker = { version = "1", default-features = false }
 const-fnv1a-hash = "1.1.0"
 serde = { version = "1.0", default-features = false, features = [
   "alloc",
@@ -72,14 +70,14 @@ log = { version = "0.4", default-features = false }
 # macOS
 [target.'cfg(all(target_os="macos"))'.dependencies]
 # Some features of sysinfo are not supported by apple. This will disable those features on apple devices
-sysinfo = { version = "0.35.0", optional = true, default-features = false, features = [
+sysinfo = { version = "0.37.0", optional = true, default-features = false, features = [
   "apple-app-store",
   "system",
 ] }
 
 # Only include when on linux/windows/android/freebsd
 [target.'cfg(any(target_os = "linux", target_os = "windows", target_os = "android", target_os = "freebsd"))'.dependencies]
-sysinfo = { version = "0.35.0", optional = true, default-features = false, features = [
+sysinfo = { version = "0.37.0", optional = true, default-features = false, features = [
   "system",
 ] }
 

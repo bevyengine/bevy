@@ -1,7 +1,7 @@
-use crate::define_atomic_id;
 use crate::renderer::WgpuWrapper;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::resource::Resource;
+use bevy_utils::define_atomic_id;
 use core::ops::Deref;
 
 define_atomic_id!(TextureId);
@@ -160,7 +160,7 @@ impl Deref for Sampler {
 /// A rendering resource for the default image sampler which is set during renderer
 /// initialization.
 ///
-/// The [`ImagePlugin`](crate::texture::ImagePlugin) can be set during app initialization to change the default
+/// The [`ImagePlugin`](bevy_image::ImagePlugin) can be set during app initialization to change the default
 /// image sampler.
 #[derive(Resource, Debug, Clone, Deref, DerefMut)]
 pub struct DefaultImageSampler(pub(crate) Sampler);

@@ -11,13 +11,13 @@
 //! interactions change based on the density of the fog.
 
 use bevy::{
-    anti_aliasing::experimental::taa::{TemporalAntiAliasPlugin, TemporalAntiAliasing},
-    core_pipeline::bloom::Bloom,
+    anti_alias::taa::TemporalAntiAliasing,
     image::{
         ImageAddressMode, ImageFilterMode, ImageLoaderSettings, ImageSampler,
         ImageSamplerDescriptor,
     },
-    pbr::{DirectionalLightShadowMap, FogVolume, VolumetricFog, VolumetricLight},
+    light::{DirectionalLightShadowMap, FogVolume, VolumetricFog, VolumetricLight},
+    post_process::bloom::Bloom,
     prelude::*,
 };
 
@@ -32,7 +32,6 @@ fn main() {
             ..default()
         }))
         .insert_resource(DirectionalLightShadowMap { size: 4096 })
-        .add_plugins(TemporalAntiAliasPlugin)
         .add_systems(Startup, setup)
         .add_systems(Update, scroll_fog)
         .run();
@@ -49,10 +48,6 @@ fn setup(
     commands.spawn((
         Camera3d::default(),
         Transform::from_xyz(0.0, 2.0, 0.0).looking_at(Vec3::new(-5.0, 3.5, -6.0), Vec3::Y),
-        Camera {
-            hdr: true,
-            ..default()
-        },
         Msaa::Off,
         TemporalAntiAliasing::default(),
         Bloom::default(),
@@ -66,7 +61,7 @@ fn setup(
     // Spawn a directional light shining at the camera with the VolumetricLight component.
     commands.spawn((
         DirectionalLight {
-            shadows_enabled: true,
+            shadow_maps_enabled: true,
             ..default()
         },
         Transform::from_xyz(-5.0, 5.0, -7.0).looking_at(Vec3::new(0.0, 0.0, 0.0), Vec3::Y),

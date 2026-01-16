@@ -3,12 +3,13 @@
 use std::f32::consts::PI;
 
 use bevy::{
-    core_pipeline::{bloom::Bloom, tonemapping::Tonemapping},
+    core_pipeline::tonemapping::Tonemapping,
     input::mouse::{AccumulatedMouseMotion, AccumulatedMouseScroll, MouseButtonInput},
     math::prelude::*,
+    post_process::bloom::Bloom,
     prelude::*,
 };
-use rand::{seq::SliceRandom, Rng, SeedableRng};
+use rand::{seq::IndexedRandom, Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;
 
 fn main() {
@@ -316,7 +317,7 @@ fn setup(
                 range: 4.0,
                 radius: 0.6,
                 intensity: 1.0,
-                shadows_enabled: false,
+                shadow_maps_enabled: false,
                 color: Color::LinearRgba(INSIDE_POINT_COLOR),
                 ..default()
             },
@@ -330,7 +331,7 @@ fn setup(
         PointLight {
             color: SKY_COLOR,
             intensity: 2_000.0,
-            shadows_enabled: false,
+            shadow_maps_enabled: false,
             ..default()
         },
         Transform::from_xyz(4.0, 8.0, 4.0),
@@ -340,7 +341,6 @@ fn setup(
     commands.spawn((
         Camera3d::default(),
         Camera {
-            hdr: true, // HDR is required for bloom
             clear_color: ClearColorConfig::Custom(SKY_COLOR),
             ..default()
         },
@@ -390,8 +390,8 @@ fn setup(
         ),
         Node {
             position_type: PositionType::Absolute,
-            top: Val::Px(12.0),
-            left: Val::Px(12.0),
+            top: px(12),
+            left: px(12),
             ..default()
         },
     ));
@@ -512,16 +512,16 @@ fn handle_keypress(
 fn handle_mouse(
     accumulated_mouse_motion: Res<AccumulatedMouseMotion>,
     accumulated_mouse_scroll: Res<AccumulatedMouseScroll>,
-    mut button_events: EventReader<MouseButtonInput>,
+    mut mouse_button_inputs: MessageReader<MouseButtonInput>,
     mut camera_rig: Single<&mut CameraRig>,
     mut mouse_pressed: ResMut<MousePressed>,
 ) {
     // Store left-pressed state in the MousePressed resource
-    for button_event in button_events.read() {
-        if button_event.button != MouseButton::Left {
+    for mouse_button_input in mouse_button_inputs.read() {
+        if mouse_button_input.button != MouseButton::Left {
             continue;
         }
-        *mouse_pressed = MousePressed(button_event.state.is_pressed());
+        *mouse_pressed = MousePressed(mouse_button_input.state.is_pressed());
     }
 
     if accumulated_mouse_scroll.delta != Vec2::ZERO {
@@ -615,7 +615,7 @@ fn despawn_points(
 
     let rng = &mut random_source.0;
     // Skip a random amount of points to ensure random despawning
-    let skip = rng.gen_range(0..counter.0);
+    let skip = rng.random_range(0..counter.0);
     let despawn_amount = (counter.0 - MAX_POINTS).min(100);
     counter.0 -= samples
         .iter()

@@ -1,3 +1,6 @@
+//! Traits and types used to power [map-like] operations via reflection.
+//!
+//! [map-like]: https://doc.rust-lang.org/book/ch08-03-hash-maps.html
 use core::fmt::{Debug, Formatter};
 
 use bevy_platform::collections::HashTable;
@@ -29,7 +32,7 @@ use alloc::{boxed::Box, format, vec::Vec};
 /// # Example
 ///
 /// ```
-/// use bevy_reflect::{PartialReflect, Reflect, Map};
+/// use bevy_reflect::{PartialReflect, Reflect, map::Map};
 /// use std::collections::HashMap;
 ///
 ///
@@ -56,15 +59,6 @@ pub trait Map: PartialReflect {
     /// If no value is associated with `key`, returns `None`.
     fn get_mut(&mut self, key: &dyn PartialReflect) -> Option<&mut dyn PartialReflect>;
 
-    /// Returns the key-value pair at `index` by reference, or `None` if out of bounds.
-    fn get_at(&self, index: usize) -> Option<(&dyn PartialReflect, &dyn PartialReflect)>;
-
-    /// Returns the key-value pair at `index` by reference where the value is a mutable reference, or `None` if out of bounds.
-    fn get_at_mut(
-        &mut self,
-        index: usize,
-    ) -> Option<(&dyn PartialReflect, &mut dyn PartialReflect)>;
-
     /// Returns the number of elements in the map.
     fn len(&self) -> usize;
 
@@ -74,12 +68,17 @@ pub trait Map: PartialReflect {
     }
 
     /// Returns an iterator over the key-value pairs of the map.
-    fn iter(&self) -> MapIter;
+    fn iter(&self) -> Box<dyn Iterator<Item = (&dyn PartialReflect, &dyn PartialReflect)> + '_>;
 
     /// Drain the key-value pairs of this map to get a vector of owned values.
     ///
     /// After calling this function, `self` will be empty.
     fn drain(&mut self) -> Vec<(Box<dyn PartialReflect>, Box<dyn PartialReflect>)>;
+
+    /// Retain only the elements specified by the predicate.
+    ///
+    /// In other words, remove all pairs `(k, v)` such that `f(&k, &mut v)` returns `false`.
+    fn retain(&mut self, f: &mut dyn FnMut(&dyn PartialReflect, &mut dyn PartialReflect) -> bool);
 
     /// Creates a new [`DynamicMap`] from this map.
     fn to_dynamic_map(&self) -> DynamicMap {
@@ -122,7 +121,7 @@ pub struct MapInfo {
     key_ty: Type,
     value_info: fn() -> Option<&'static TypeInfo>,
     value_ty: Type,
-    #[cfg(feature = "documentation")]
+    #[cfg(feature = "reflect_documentation")]
     docs: Option<&'static str>,
 }
 
@@ -140,13 +139,13 @@ impl MapInfo {
             key_ty: Type::of::<TKey>(),
             value_info: TValue::maybe_type_info,
             value_ty: Type::of::<TValue>(),
-            #[cfg(feature = "documentation")]
+            #[cfg(feature = "reflect_documentation")]
             docs: None,
         }
     }
 
     /// Sets the docstring for this map.
-    #[cfg(feature = "documentation")]
+    #[cfg(feature = "reflect_documentation")]
     pub fn with_docs(self, docs: Option<&'static str>) -> Self {
         Self { docs, ..self }
     }
@@ -184,7 +183,7 @@ impl MapInfo {
     }
 
     /// The docstring of this map, if any.
-    #[cfg(feature = "documentation")]
+    #[cfg(feature = "reflect_documentation")]
     pub fn docs(&self) -> Option<&'static str> {
         self.docs
     }
@@ -192,6 +191,8 @@ impl MapInfo {
     impl_generic_info_methods!(generics);
 }
 
+/// Used to produce an error message when an attempt is made to hash
+/// a [`PartialReflect`] value that does not support hashing.
 #[macro_export]
 macro_rules! hash_error {
     ( $key:expr ) => {{
@@ -216,12 +217,11 @@ macro_rules! hash_error {
     }}
 }
 
-/// An ordered mapping between reflected values.
+/// An unordered mapping between reflected values.
 #[derive(Default)]
 pub struct DynamicMap {
     represented_type: Option<&'static TypeInfo>,
-    values: Vec<(Box<dyn PartialReflect>, Box<dyn PartialReflect>)>,
-    indices: HashTable<usize>,
+    hash_table: HashTable<(Box<dyn PartialReflect>, Box<dyn PartialReflect>)>,
 }
 
 impl DynamicMap {
@@ -236,8 +236,7 @@ impl DynamicMap {
         if let Some(represented_type) = represented_type {
             assert!(
                 matches!(represented_type, TypeInfo::Map(_)),
-                "expected TypeInfo::Map but received: {:?}",
-                represented_type
+                "expected TypeInfo::Map but received: {represented_type:?}"
             );
         }
 
@@ -253,13 +252,12 @@ impl DynamicMap {
         value.reflect_hash().expect(&hash_error!(value))
     }
 
-    fn internal_eq<'a>(
-        value: &'a dyn PartialReflect,
-        values: &'a [(Box<dyn PartialReflect>, Box<dyn PartialReflect>)],
-    ) -> impl FnMut(&usize) -> bool + 'a {
-        |&index| {
-            value
-            .reflect_partial_eq(&*values[index].0)
+    fn internal_eq(
+        key: &dyn PartialReflect,
+    ) -> impl FnMut(&(Box<dyn PartialReflect>, Box<dyn PartialReflect>)) -> bool + '_ {
+        |(other, _)| {
+            key
+            .reflect_partial_eq(&**other)
             .expect("underlying type does not reflect `PartialEq` and hence doesn't support equality checks")
         }
     }
@@ -267,46 +265,33 @@ impl DynamicMap {
 
 impl Map for DynamicMap {
     fn get(&self, key: &dyn PartialReflect) -> Option<&dyn PartialReflect> {
-        let hash = Self::internal_hash(key);
-        let eq = Self::internal_eq(key, &self.values);
-        self.indices
-            .find(hash, eq)
-            .map(|&index| &*self.values[index].1)
+        self.hash_table
+            .find(Self::internal_hash(key), Self::internal_eq(key))
+            .map(|(_, value)| &**value)
     }
 
     fn get_mut(&mut self, key: &dyn PartialReflect) -> Option<&mut dyn PartialReflect> {
-        let hash = Self::internal_hash(key);
-        let eq = Self::internal_eq(key, &self.values);
-        self.indices
-            .find(hash, eq)
-            .map(|&index| &mut *self.values[index].1)
-    }
-
-    fn get_at(&self, index: usize) -> Option<(&dyn PartialReflect, &dyn PartialReflect)> {
-        self.values
-            .get(index)
-            .map(|(key, value)| (&**key, &**value))
-    }
-
-    fn get_at_mut(
-        &mut self,
-        index: usize,
-    ) -> Option<(&dyn PartialReflect, &mut dyn PartialReflect)> {
-        self.values
-            .get_mut(index)
-            .map(|(key, value)| (&**key, &mut **value))
+        self.hash_table
+            .find_mut(Self::internal_hash(key), Self::internal_eq(key))
+            .map(|(_, value)| &mut **value)
     }
 
     fn len(&self) -> usize {
-        self.values.len()
+        self.hash_table.len()
     }
 
-    fn iter(&self) -> MapIter {
-        MapIter::new(self)
+    fn iter(&self) -> Box<dyn Iterator<Item = (&dyn PartialReflect, &dyn PartialReflect)> + '_> {
+        let iter = self.hash_table.iter().map(|(k, v)| (&**k, &**v));
+        Box::new(iter)
     }
 
     fn drain(&mut self) -> Vec<(Box<dyn PartialReflect>, Box<dyn PartialReflect>)> {
-        self.values.drain(..).collect()
+        self.hash_table.drain().collect()
+    }
+
+    fn retain(&mut self, f: &mut dyn FnMut(&dyn PartialReflect, &mut dyn PartialReflect) -> bool) {
+        self.hash_table
+            .retain(move |(key, value)| f(&**key, &mut **value));
     }
 
     fn insert_boxed(
@@ -321,20 +306,15 @@ impl Map for DynamicMap {
         );
 
         let hash = Self::internal_hash(&*key);
-        let eq = Self::internal_eq(&*key, &self.values);
-        match self.indices.find(hash, eq) {
-            Some(&index) => {
-                let (key_ref, value_ref) = &mut self.values[index];
-                *key_ref = key;
-                let old_value = core::mem::replace(value_ref, value);
-                Some(old_value)
-            }
+        let eq = Self::internal_eq(&*key);
+        match self.hash_table.find_mut(hash, eq) {
+            Some((_, old)) => Some(core::mem::replace(old, value)),
             None => {
-                let index = self.values.len();
-                self.values.push((key, value));
-                self.indices.insert_unique(hash, index, |&index| {
-                    Self::internal_hash(&*self.values[index].0)
-                });
+                self.hash_table.insert_unique(
+                    Self::internal_hash(key.as_ref()),
+                    (key, value),
+                    |(key, _)| Self::internal_hash(&**key),
+                );
                 None
             }
         }
@@ -342,26 +322,10 @@ impl Map for DynamicMap {
 
     fn remove(&mut self, key: &dyn PartialReflect) -> Option<Box<dyn PartialReflect>> {
         let hash = Self::internal_hash(key);
-        let eq = Self::internal_eq(key, &self.values);
-        match self.indices.find_entry(hash, eq) {
+        let eq = Self::internal_eq(key);
+        match self.hash_table.find_entry(hash, eq) {
             Ok(entry) => {
-                let (index, _) = entry.remove();
-                let (_, old_value) = self.values.swap_remove(index);
-
-                // The `swap_remove` might have moved the last element of `values`
-                // to `index`, so we might need to fix up its index in `indices`.
-                // If the removed element was also the last element there's nothing to
-                // fixup and this will return `None`, otherwise it returns the key
-                // whose index needs to be fixed up.
-                if let Some((moved_key, _)) = self.values.get(index) {
-                    let hash = Self::internal_hash(&**moved_key);
-                    let moved_index = self
-                        .indices
-                        .find_mut(hash, |&moved_index| moved_index == self.values.len())
-                        .expect("key inserted in a `DynamicMap` is no longer present, this means its reflected `Hash` might be incorrect");
-                    *moved_index = index;
-                }
-
+                let ((_, old_value), _) = entry.remove();
                 Some(old_value)
             }
             Err(_) => None,
@@ -414,11 +378,11 @@ impl PartialReflect for DynamicMap {
         ReflectKind::Map
     }
 
-    fn reflect_ref(&self) -> ReflectRef {
+    fn reflect_ref(&self) -> ReflectRef<'_> {
         ReflectRef::Map(self)
     }
 
-    fn reflect_mut(&mut self) -> ReflectMut {
+    fn reflect_mut(&mut self) -> ReflectMut<'_> {
         ReflectMut::Map(self)
     }
 
@@ -450,35 +414,6 @@ impl Debug for DynamicMap {
     }
 }
 
-/// An iterator over the key-value pairs of a [`Map`].
-pub struct MapIter<'a> {
-    map: &'a dyn Map,
-    index: usize,
-}
-
-impl MapIter<'_> {
-    /// Creates a new [`MapIter`].
-    #[inline]
-    pub const fn new(map: &dyn Map) -> MapIter {
-        MapIter { map, index: 0 }
-    }
-}
-
-impl<'a> Iterator for MapIter<'a> {
-    type Item = (&'a dyn PartialReflect, &'a dyn PartialReflect);
-
-    fn next(&mut self) -> Option<Self::Item> {
-        let value = self.map.get_at(self.index);
-        self.index += value.is_some() as usize;
-        value
-    }
-
-    fn size_hint(&self) -> (usize, Option<usize>) {
-        let size = self.map.len();
-        (size, Some(size))
-    }
-}
-
 impl FromIterator<(Box<dyn PartialReflect>, Box<dyn PartialReflect>)> for DynamicMap {
     fn from_iter<I: IntoIterator<Item = (Box<dyn PartialReflect>, Box<dyn PartialReflect>)>>(
         items: I,
@@ -503,23 +438,29 @@ impl<K: Reflect, V: Reflect> FromIterator<(K, V)> for DynamicMap {
 
 impl IntoIterator for DynamicMap {
     type Item = (Box<dyn PartialReflect>, Box<dyn PartialReflect>);
-    type IntoIter = alloc::vec::IntoIter<Self::Item>;
+    type IntoIter = bevy_platform::collections::hash_table::IntoIter<Self::Item>;
 
     fn into_iter(self) -> Self::IntoIter {
-        self.values.into_iter()
+        self.hash_table.into_iter()
     }
 }
 
 impl<'a> IntoIterator for &'a DynamicMap {
     type Item = (&'a dyn PartialReflect, &'a dyn PartialReflect);
-    type IntoIter = MapIter<'a>;
+    type IntoIter = core::iter::Map<
+        bevy_platform::collections::hash_table::Iter<
+            'a,
+            (Box<dyn PartialReflect>, Box<dyn PartialReflect>),
+        >,
+        fn(&'a (Box<dyn PartialReflect>, Box<dyn PartialReflect>)) -> Self::Item,
+    >;
 
     fn into_iter(self) -> Self::IntoIter {
-        self.iter()
+        self.hash_table
+            .iter()
+            .map(|(k, v)| (k.as_ref(), v.as_ref()))
     }
 }
-
-impl<'a> ExactSizeIterator for MapIter<'a> {}
 
 /// Compares a [`Map`] with a [`PartialReflect`] value.
 ///
@@ -554,6 +495,50 @@ pub fn map_partial_eq<M: Map + ?Sized>(a: &M, b: &dyn PartialReflect) -> Option<
     Some(true)
 }
 
+/// Lexicographically compares two [`Map`] values according to their iteration order
+/// (suitable for ordered maps like `BTreeMap`).
+///
+/// For each entry pair `(a_k, a_v)` and `(b_k, b_v)` in the iteration order,
+/// compare `a_k` to `b_k` using `reflect_partial_cmp`, returning the first
+/// non-equal ordering. If keys are equal, compare values `a_v` and `b_v `similarly. If all
+/// compared entries are equal, the shorter map is `Less` and longer is `Greater`.
+///
+/// Returns [`None`] if the comparison couldn't be performed (kinds mismatch or
+/// an element comparison returns `None`).
+#[inline]
+pub fn map_partial_cmp<M: Map + ?Sized>(
+    a: &M,
+    b: &dyn PartialReflect,
+) -> Option<::core::cmp::Ordering> {
+    let ReflectRef::Map(map) = b.reflect_ref() else {
+        return None;
+    };
+
+    let mut a_iter = a.iter();
+    let mut b_iter = map.iter();
+
+    loop {
+        match (a_iter.next(), b_iter.next()) {
+            (Some((a_k, a_v)), Some((b_k, b_v))) => {
+                match a_k.reflect_partial_cmp(b_k) {
+                    None => return None,
+                    Some(core::cmp::Ordering::Equal) => {}
+                    Some(ord) => return Some(ord),
+                }
+
+                match a_v.reflect_partial_cmp(b_v) {
+                    None => return None,
+                    Some(core::cmp::Ordering::Equal) => {}
+                    Some(ord) => return Some(ord),
+                }
+            }
+            (None, None) => return Some(::core::cmp::Ordering::Equal),
+            (None, Some(_)) => return Some(::core::cmp::Ordering::Less),
+            (Some(_), None) => return Some(::core::cmp::Ordering::Greater),
+        }
+    }
+}
+
 /// The default debug formatter for [`Map`] types.
 ///
 /// # Example
@@ -583,6 +568,7 @@ pub fn map_debug(dyn_map: &dyn Map, f: &mut Formatter<'_>) -> core::fmt::Result 
 /// Applies the elements of reflected map `b` to the corresponding elements of map `a`.
 ///
 /// If a key from `b` does not exist in `a`, the value is cloned and inserted.
+/// If a key from `a` does not exist in `b`, the value is removed.
 ///
 /// # Panics
 ///
@@ -598,6 +584,7 @@ pub fn map_apply<M: Map>(a: &mut M, b: &dyn PartialReflect) {
 /// and returns a Result.
 ///
 /// If a key from `b` does not exist in `a`, the value is cloned and inserted.
+/// If a key from `a` does not exist in `b`, the value is removed.
 ///
 /// # Errors
 ///
@@ -614,117 +601,17 @@ pub fn map_try_apply<M: Map>(a: &mut M, b: &dyn PartialReflect) -> Result<(), Ap
             a.insert_boxed(key.to_dynamic(), b_value.to_dynamic());
         }
     }
+    a.retain(&mut |key, _| map_value.get(key).is_some());
 
     Ok(())
 }
 
 #[cfg(test)]
 mod tests {
+
+    use crate::PartialReflect;
+
     use super::{DynamicMap, Map};
-    use alloc::{
-        borrow::ToOwned,
-        string::{String, ToString},
-    };
-
-    #[test]
-    fn test_into_iter() {
-        let expected = ["foo", "bar", "baz"];
-
-        let mut map = DynamicMap::default();
-        map.insert(0usize, expected[0].to_string());
-        map.insert(1usize, expected[1].to_string());
-        map.insert(2usize, expected[2].to_string());
-
-        for (index, item) in map.into_iter().enumerate() {
-            let key = item
-                .0
-                .try_take::<usize>()
-                .expect("couldn't downcast to usize");
-            let value = item
-                .1
-                .try_take::<String>()
-                .expect("couldn't downcast to String");
-            assert_eq!(index, key);
-            assert_eq!(expected[index], value);
-        }
-    }
-
-    #[test]
-    fn test_map_get_at() {
-        let values = ["first", "second", "third"];
-        let mut map = DynamicMap::default();
-        map.insert(0usize, values[0].to_string());
-        map.insert(1usize, values[1].to_string());
-        map.insert(1usize, values[2].to_string());
-
-        let (key_r, value_r) = map.get_at(1).expect("Item wasn't found");
-        let value = value_r
-            .try_downcast_ref::<String>()
-            .expect("Couldn't downcast to String");
-        let key = key_r
-            .try_downcast_ref::<usize>()
-            .expect("Couldn't downcast to usize");
-        assert_eq!(key, &1usize);
-        assert_eq!(value, &values[2].to_owned());
-
-        assert!(map.get_at(2).is_none());
-        map.remove(&1usize);
-        assert!(map.get_at(1).is_none());
-    }
-
-    #[test]
-    fn test_map_get_at_mut() {
-        let values = ["first", "second", "third"];
-        let mut map = DynamicMap::default();
-        map.insert(0usize, values[0].to_string());
-        map.insert(1usize, values[1].to_string());
-        map.insert(1usize, values[2].to_string());
-
-        let (key_r, value_r) = map.get_at_mut(1).expect("Item wasn't found");
-        let value = value_r
-            .try_downcast_mut::<String>()
-            .expect("Couldn't downcast to String");
-        let key = key_r
-            .try_downcast_ref::<usize>()
-            .expect("Couldn't downcast to usize");
-        assert_eq!(key, &1usize);
-        assert_eq!(value, &mut values[2].to_owned());
-
-        value.clone_from(&values[0].to_owned());
-
-        assert_eq!(
-            map.get(&1usize)
-                .expect("Item wasn't found")
-                .try_downcast_ref::<String>()
-                .expect("Couldn't downcast to String"),
-            &values[0].to_owned()
-        );
-
-        assert!(map.get_at(2).is_none());
-    }
-
-    #[test]
-    fn next_index_increment() {
-        let values = ["first", "last"];
-        let mut map = DynamicMap::default();
-        map.insert(0usize, values[0]);
-        map.insert(1usize, values[1]);
-
-        let mut iter = map.iter();
-        let size = iter.len();
-
-        for _ in 0..2 {
-            let prev_index = iter.index;
-            assert!(iter.next().is_some());
-            assert_eq!(prev_index, iter.index - 1);
-        }
-
-        // When None we should no longer increase index
-        for _ in 0..2 {
-            assert!(iter.next().is_none());
-            assert_eq!(size, iter.index);
-        }
-    }
 
     #[test]
     fn remove() {
@@ -741,5 +628,22 @@ mod tests {
 
         assert!(map.remove(&1).is_none());
         assert!(map.get(&1).is_none());
+    }
+
+    #[test]
+    fn apply() {
+        let mut map_a = DynamicMap::default();
+        map_a.insert(0, 0);
+        map_a.insert(1, 1);
+
+        let mut map_b = DynamicMap::default();
+        map_b.insert(10, 10);
+        map_b.insert(1, 5);
+
+        map_a.apply(&map_b);
+
+        assert!(map_a.get(&0).is_none());
+        assert_eq!(map_a.get(&1).unwrap().try_downcast_ref(), Some(&5));
+        assert_eq!(map_a.get(&10).unwrap().try_downcast_ref(), Some(&10));
     }
 }

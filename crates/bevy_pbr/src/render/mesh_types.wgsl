@@ -34,17 +34,14 @@ struct SkinnedMesh {
 
 #ifdef MORPH_TARGETS
 struct MorphWeights {
-    weights: array<vec4<f32>, 16u>, // 16 = 64 / 4 (64 = MAX_MORPH_WEIGHTS)
+    weights: array<vec4<f32>, 64u>, // 64 = 256 / 4 (256 = MAX_MORPH_WEIGHTS)
 };
 #endif
 
 // [2^0, 2^16)
-const MESH_FLAGS_VISIBILITY_RANGE_INDEX_BITS: u32 = 65535u;
-// 2^28
-const MESH_FLAGS_NO_FRUSTUM_CULLING_BIT: u32 = 268435456u;
-// 2^29
-const MESH_FLAGS_SHADOW_RECEIVER_BIT: u32 = 536870912u;
-// 2^30
-const MESH_FLAGS_TRANSMITTED_SHADOW_RECEIVER_BIT: u32 = 1073741824u;
-// 2^31 - if the flag is set, the sign is positive, else it is negative
-const MESH_FLAGS_SIGN_DETERMINANT_MODEL_3X3_BIT: u32 = 2147483648u;
+const MESH_FLAGS_VISIBILITY_RANGE_INDEX_BITS: u32     = (1u << 16u) - 1u;
+const MESH_FLAGS_NO_FRUSTUM_CULLING_BIT: u32          = 1u << 28u;
+const MESH_FLAGS_SHADOW_RECEIVER_BIT: u32             = 1u << 29u;
+const MESH_FLAGS_TRANSMITTED_SHADOW_RECEIVER_BIT: u32 = 1u << 30u;
+// if the flag is set, the sign is positive, else it is negative
+const MESH_FLAGS_SIGN_DETERMINANT_MODEL_3X3_BIT: u32  = 1u << 31u;

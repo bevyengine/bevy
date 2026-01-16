@@ -14,12 +14,12 @@ fn main() {
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2d);
 
-    let font_handle = asset_server.load("fonts/FiraSans-Bold.ttf");
+    let font_handle = FontSource::from(asset_server.load("fonts/FiraSans-Bold.ttf"));
 
     commands
         .spawn(Node {
-            width: Val::Percent(100.0),
-            height: Val::Percent(100.0),
+            width: percent(100),
+            height: percent(100),
             align_items: AlignItems::Center,
             justify_content: JustifyContent::SpaceAround,
             ..default()
@@ -29,8 +29,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 .spawn((
                     Button,
                     Node {
-                        width: Val::Px(150.0),
-                        height: Val::Px(65.0),
+                        width: px(150),
+                        height: px(65),
                         justify_content: JustifyContent::Center,
                         align_items: AlignItems::Center,
                         ..default()
@@ -56,8 +56,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 .spawn((
                     Button,
                     Node {
-                        width: Val::Px(150.0),
-                        height: Val::Px(65.0),
+                        width: px(150),
+                        height: px(65),
                         justify_content: JustifyContent::Center,
                         align_items: AlignItems::Center,
                         ..default()

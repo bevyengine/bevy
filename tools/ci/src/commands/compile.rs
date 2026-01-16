@@ -1,9 +1,10 @@
 use crate::{
+    args::Args,
     commands::{
         BenchCheckCommand, CompileCheckCommand, CompileFailCommand, ExampleCheckCommand,
         IntegrationTestCheckCommand, TestCheckCommand,
     },
-    Flag, Prepare, PreparedCommand,
+    Prepare, PreparedCommand,
 };
 use argh::FromArgs;
 
@@ -13,14 +14,14 @@ use argh::FromArgs;
 pub struct CompileCommand {}
 
 impl Prepare for CompileCommand {
-    fn prepare<'a>(&self, sh: &'a xshell::Shell, flags: Flag) -> Vec<PreparedCommand<'a>> {
+    fn prepare<'a>(&self, sh: &'a xshell::Shell, args: Args) -> Vec<PreparedCommand<'a>> {
         let mut commands = vec![];
-        commands.append(&mut CompileFailCommand::default().prepare(sh, flags));
-        commands.append(&mut BenchCheckCommand::default().prepare(sh, flags));
-        commands.append(&mut ExampleCheckCommand::default().prepare(sh, flags));
-        commands.append(&mut CompileCheckCommand::default().prepare(sh, flags));
-        commands.append(&mut TestCheckCommand::default().prepare(sh, flags));
-        commands.append(&mut IntegrationTestCheckCommand::default().prepare(sh, flags));
+        commands.append(&mut CompileFailCommand::default().prepare(sh, args));
+        commands.append(&mut BenchCheckCommand::default().prepare(sh, args));
+        commands.append(&mut ExampleCheckCommand::default().prepare(sh, args));
+        commands.append(&mut CompileCheckCommand::default().prepare(sh, args));
+        commands.append(&mut TestCheckCommand::default().prepare(sh, args));
+        commands.append(&mut IntegrationTestCheckCommand::default().prepare(sh, args));
         commands
     }
 }

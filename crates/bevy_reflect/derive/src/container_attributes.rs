@@ -5,11 +5,11 @@
 //! the derive helper attribute for `Reflect`, which looks like:
 //! `#[reflect(PartialEq, Default, ...)]`.
 
-use crate::{
-    attribute_parser::terminated_parser, custom_attributes::CustomAttributes,
-    derive_data::ReflectTraitToImpl,
+use crate::{custom_attributes::CustomAttributes, derive_data::ReflectTraitToImpl};
+use bevy_macro_utils::{
+    fq_std::{FQAny, FQClone, FQOption, FQResult},
+    terminated_parser,
 };
-use bevy_macro_utils::fq_std::{FQAny, FQClone, FQOption, FQResult};
 use proc_macro2::{Ident, Span};
 use quote::quote_spanned;
 use syn::{
@@ -22,9 +22,11 @@ mod kw {
     syn::custom_keyword!(type_path);
     syn::custom_keyword!(Debug);
     syn::custom_keyword!(PartialEq);
+    syn::custom_keyword!(PartialOrd);
     syn::custom_keyword!(Hash);
     syn::custom_keyword!(Clone);
     syn::custom_keyword!(no_field_bounds);
+    syn::custom_keyword!(no_auto_register);
     syn::custom_keyword!(opaque);
 }
 
@@ -32,6 +34,7 @@ mod kw {
 // Received via attributes like `#[reflect(PartialEq, Hash, ...)]`
 const DEBUG_ATTR: &str = "Debug";
 const PARTIAL_EQ_ATTR: &str = "PartialEq";
+const PARTIAL_ORD_ATTR: &str = "PartialOrd";
 const HASH_ATTR: &str = "Hash";
 
 // The traits listed below are not considered "special" (i.e. they use the `ReflectMyTrait` syntax)
@@ -179,11 +182,13 @@ pub(crate) struct ContainerAttributes {
     clone: TraitImpl,
     debug: TraitImpl,
     hash: TraitImpl,
+    partial_ord: TraitImpl,
     partial_eq: TraitImpl,
     from_reflect_attrs: FromReflectAttrs,
     type_path_attrs: TypePathAttrs,
     custom_where: Option<WhereClause>,
     no_field_bounds: bool,
+    no_auto_register: bool,
     custom_attributes: CustomAttributes,
     is_opaque: bool,
     idents: Vec<Ident>,
@@ -240,10 +245,14 @@ impl ContainerAttributes {
             self.parse_no_field_bounds(input)
         } else if lookahead.peek(kw::Clone) {
             self.parse_clone(input)
+        } else if lookahead.peek(kw::no_auto_register) {
+            self.parse_no_auto_register(input)
         } else if lookahead.peek(kw::Debug) {
             self.parse_debug(input)
         } else if lookahead.peek(kw::Hash) {
             self.parse_hash(input)
+        } else if lookahead.peek(kw::PartialOrd) {
+            self.parse_partial_ord(input)
         } else if lookahead.peek(kw::PartialEq) {
             self.parse_partial_eq(input)
         } else if lookahead.peek(Ident::peek_any) {
@@ -262,7 +271,7 @@ impl ContainerAttributes {
 
         if input.peek(token::Paren) {
             return Err(syn::Error::new(ident.span(), format!(
-                "only [{DEBUG_ATTR:?}, {PARTIAL_EQ_ATTR:?}, {HASH_ATTR:?}] may specify custom functions",
+                "only [{DEBUG_ATTR:?}, {PARTIAL_EQ_ATTR:?}, {PARTIAL_ORD_ATTR:?}, {HASH_ATTR:?}] may specify custom functions",
             )));
         }
 
@@ -338,6 +347,27 @@ impl ContainerAttributes {
         Ok(())
     }
 
+    /// Parse special `PartialOrd` registration.
+    ///
+    /// Examples:
+    /// - `#[reflect(PartialOrd)]`
+    /// - `#[reflect(PartialOrd(custom_partial_cmp_fn))]`
+    fn parse_partial_ord(&mut self, input: ParseStream) -> syn::Result<()> {
+        let ident = input.parse::<kw::PartialOrd>()?;
+
+        if input.peek(token::Paren) {
+            let content;
+            parenthesized!(content in input);
+            let path = content.parse::<Path>()?;
+            self.partial_ord
+                .merge(TraitImpl::Custom(path, ident.span))?;
+        } else {
+            self.partial_ord = TraitImpl::Implemented(ident.span);
+        }
+
+        Ok(())
+    }
+
     /// Parse special `Hash` registration.
     ///
     /// Examples:
@@ -375,6 +405,16 @@ impl ContainerAttributes {
     fn parse_no_field_bounds(&mut self, input: ParseStream) -> syn::Result<()> {
         input.parse::<kw::no_field_bounds>()?;
         self.no_field_bounds = true;
+        Ok(())
+    }
+
+    /// Parse `no_auto_register` attribute.
+    ///
+    /// Examples:
+    /// - `#[reflect(no_auto_register)]`
+    fn parse_no_auto_register(&mut self, input: ParseStream) -> syn::Result<()> {
+        input.parse::<kw::no_auto_register>()?;
+        self.no_auto_register = true;
         Ok(())
     }
 
@@ -532,6 +572,33 @@ impl ContainerAttributes {
         }
     }
 
+    /// Returns the implementation of `PartialReflect::reflect_partial_cmp` as a `TokenStream`.
+    ///
+    /// If `PartialOrd` was not registered, returns `None`.
+    pub fn get_partial_ord_impl(
+        &self,
+        bevy_reflect_path: &Path,
+    ) -> Option<proc_macro2::TokenStream> {
+        match &self.partial_ord {
+            &TraitImpl::Implemented(span) => Some(quote_spanned! {span=>
+                fn reflect_partial_cmp(&self, value: &dyn #bevy_reflect_path::PartialReflect) -> #FQOption<::core::cmp::Ordering> {
+                    let value = <dyn #bevy_reflect_path::PartialReflect>::try_downcast_ref::<Self>(value);
+                    if let #FQOption::Some(value) = value {
+                        ::core::cmp::PartialOrd::partial_cmp(self, value)
+                    } else {
+                        #FQOption::None
+                    }
+                }
+            }),
+            &TraitImpl::Custom(ref impl_fn, span) => Some(quote_spanned! {span=>
+                fn reflect_partial_cmp(&self, value: &dyn #bevy_reflect_path::PartialReflect) -> #FQOption<::core::cmp::Ordering> {
+                    #impl_fn(self, value)
+                }
+            }),
+            TraitImpl::NotImplemented => None,
+        }
+    }
+
     /// Returns the implementation of `PartialReflect::debug` as a `TokenStream`.
     ///
     /// If `Debug` was not registered, returns `None`.
@@ -581,6 +648,12 @@ impl ContainerAttributes {
     /// Returns true if the `no_field_bounds` attribute was found on this type.
     pub fn no_field_bounds(&self) -> bool {
         self.no_field_bounds
+    }
+
+    /// Returns true if the `no_auto_register` attribute was found on this type.
+    #[cfg(feature = "auto_register")]
+    pub fn no_auto_register(&self) -> bool {
+        self.no_auto_register
     }
 
     /// Returns true if the `opaque` attribute was found on this type.

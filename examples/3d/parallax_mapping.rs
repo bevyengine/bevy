@@ -29,7 +29,7 @@ struct Spin {
 
 /// The camera, used to move camera on click.
 #[derive(Component)]
-struct CameraController;
+struct FreeCameraController;
 
 const DEPTH_CHANGE_RATE: f32 = 0.1;
 const DEPTH_UPDATE_STEP: f32 = 0.03;
@@ -53,6 +53,7 @@ impl Default for CurrentMethod {
         CurrentMethod(ParallaxMappingMethod::Relief { max_steps: 4 })
     }
 }
+
 impl fmt::Display for CurrentMethod {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self.0 {
@@ -63,6 +64,7 @@ impl fmt::Display for CurrentMethod {
         }
     }
 }
+
 impl CurrentMethod {
     fn next_method(&mut self) {
         use ParallaxMappingMethod::*;
@@ -183,7 +185,7 @@ const CAMERA_POSITIONS: &[Transform] = &[
 ];
 
 fn move_camera(
-    mut camera: Single<&mut Transform, With<CameraController>>,
+    mut camera: Single<&mut Transform, With<FreeCameraController>>,
     mut current_view: Local<usize>,
     button: Res<ButtonInput<MouseButton>>,
 ) {
@@ -215,23 +217,21 @@ fn setup(
     commands.spawn((
         Camera3d::default(),
         Transform::from_xyz(1.5, 1.5, 1.5).looking_at(Vec3::ZERO, Vec3::Y),
-        CameraController,
+        FreeCameraController,
     ));
 
+    // represent the light source as a sphere
+    let mesh = meshes.add(Sphere::new(0.05).mesh().ico(3).unwrap());
+
     // light
-    commands
-        .spawn((
-            PointLight {
-                shadows_enabled: true,
-                ..default()
-            },
-            Transform::from_xyz(2.0, 1.0, -1.1),
-        ))
-        .with_children(|commands| {
-            // represent the light source as a sphere
-            let mesh = meshes.add(Sphere::new(0.05).mesh().ico(3).unwrap());
-            commands.spawn((Mesh3d(mesh), MeshMaterial3d(materials.add(Color::WHITE))));
-        });
+    commands.spawn((
+        PointLight {
+            shadow_maps_enabled: true,
+            ..default()
+        },
+        Transform::from_xyz(2.0, 1.0, -1.1),
+        children![(Mesh3d(mesh), MeshMaterial3d(materials.add(Color::WHITE)))],
+    ));
 
     // Plane
     commands.spawn((
@@ -295,29 +295,24 @@ fn setup(
     commands.spawn(background_cube_bundle(Vec3::new(0., 0., -45.)));
 
     // example instructions
-    commands
-        .spawn((
-            Text::default(),
-            Node {
-                position_type: PositionType::Absolute,
-                top: Val::Px(12.0),
-                left: Val::Px(12.0),
-                ..default()
-            },
-        ))
-        .with_children(|p| {
-            p.spawn(TextSpan(format!(
-                "Parallax depth scale: {parallax_depth_scale:.5}\n"
-            )));
-            p.spawn(TextSpan(format!("Layers: {max_parallax_layer_count:.0}\n")));
-            p.spawn(TextSpan(format!("{parallax_mapping_method}\n")));
-            p.spawn(TextSpan::new("\n\n"));
-            p.spawn(TextSpan::new("Controls:\n"));
-            p.spawn(TextSpan::new("Left click - Change view angle\n"));
-            p.spawn(TextSpan::new(
-                "1/2 - Decrease/Increase parallax depth scale\n",
-            ));
-            p.spawn(TextSpan::new("3/4 - Decrease/Increase layer count\n"));
-            p.spawn(TextSpan::new("Space - Switch parallaxing algorithm\n"));
-        });
+    commands.spawn((
+        Text::default(),
+        Node {
+            position_type: PositionType::Absolute,
+            top: px(12),
+            left: px(12),
+            ..default()
+        },
+        children![
+            (TextSpan(format!("Parallax depth scale: {parallax_depth_scale:.5}\n"))),
+            (TextSpan(format!("Layers: {max_parallax_layer_count:.0}\n"))),
+            (TextSpan(format!("{parallax_mapping_method}\n"))),
+            (TextSpan::new("\n\n")),
+            (TextSpan::new("Controls:\n")),
+            (TextSpan::new("Left click - Change view angle\n")),
+            (TextSpan::new("1/2 - Decrease/Increase parallax depth scale\n",)),
+            (TextSpan::new("3/4 - Decrease/Increase layer count\n")),
+            (TextSpan::new("Space - Switch parallaxing algorithm\n")),
+        ],
+    ));
 }

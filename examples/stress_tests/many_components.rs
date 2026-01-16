@@ -28,7 +28,7 @@ use bevy::{
     MinimalPlugins,
 };
 
-use rand::prelude::{Rng, SeedableRng, SliceRandom};
+use rand::prelude::{IndexedRandom, Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;
 use std::{alloc::Layout, mem::ManuallyDrop, num::Wrapping};
 
@@ -91,12 +91,13 @@ fn stress_test(num_entities: u32, num_components: u32, num_systems: u32) {
                 // * u8 is Sync and Send
                 unsafe {
                     ComponentDescriptor::new_with_layout(
-                        format!("Component{}", i).to_string(),
+                        format!("Component{i}").to_string(),
                         StorageType::Table,
                         Layout::new::<u8>(),
                         None,
                         true, // is mutable
                         ComponentCloneBehavior::Default,
+                        None,
                     )
                 },
             )
@@ -106,7 +107,7 @@ fn stress_test(num_entities: u32, num_components: u32, num_systems: u32) {
     // fill the schedule with systems
     let mut schedule = Schedule::new(Update);
     for _ in 1..=num_systems {
-        let num_access_components = rng.gen_range(1..10);
+        let num_access_components = rng.random_range(1..10);
         let access_components: Vec<ComponentId> = component_ids
             .choose_multiple(&mut rng, num_access_components)
             .copied()
@@ -127,7 +128,7 @@ fn stress_test(num_entities: u32, num_components: u32, num_systems: u32) {
 
     // spawn a bunch of entities
     for _ in 1..=num_entities {
-        let num_components = rng.gen_range(1..10);
+        let num_components = rng.random_range(1..10);
         let components: Vec<ComponentId> = component_ids
             .choose_multiple(&mut rng, num_components)
             .copied()
@@ -139,7 +140,7 @@ fn stress_test(num_entities: u32, num_components: u32, num_systems: u32) {
         // But we do want to deallocate the memory when values is dropped.
         let mut values: Vec<ManuallyDrop<u8>> = components
             .iter()
-            .map(|_id| ManuallyDrop::new(rng.gen_range(0..255)))
+            .map(|_id| ManuallyDrop::new(rng.random_range(0..255)))
             .collect();
         let ptrs: Vec<OwningPtr> = values
             .iter_mut()
@@ -157,11 +158,6 @@ fn stress_test(num_entities: u32, num_components: u32, num_systems: u32) {
             entity.insert_by_ids(&components, ptrs.into_iter());
         }
     }
-
-    println!(
-        "Number of Archetype-Components: {}",
-        world.archetypes().archetype_components_len()
-    );
 
     // overwrite Update schedule in the app
     app.add_schedule(schedule);
@@ -185,10 +181,7 @@ fn main() {
         .nth(1)
         .and_then(|string| string.parse::<u32>().ok())
         .unwrap_or_else(|| {
-            println!(
-                "No valid number of entities provided, using default {}",
-                DEFAULT_NUM_ENTITIES
-            );
+            println!("No valid number of entities provided, using default {DEFAULT_NUM_ENTITIES}");
             DEFAULT_NUM_ENTITIES
         });
     let num_components = std::env::args()
@@ -197,8 +190,7 @@ fn main() {
         .and_then(|n| if n >= 10 { Some(n) } else { None })
         .unwrap_or_else(|| {
             println!(
-                "No valid number of components provided (>= 10), using default {}",
-                DEFAULT_NUM_COMPONENTS
+                "No valid number of components provided (>= 10), using default {DEFAULT_NUM_COMPONENTS}"
             );
             DEFAULT_NUM_COMPONENTS
         });
@@ -206,10 +198,7 @@ fn main() {
         .nth(3)
         .and_then(|string| string.parse::<u32>().ok())
         .unwrap_or_else(|| {
-            println!(
-                "No valid number of systems provided, using default {}",
-                DEFAULT_NUM_SYSTEMS
-            );
+            println!("No valid number of systems provided, using default {DEFAULT_NUM_SYSTEMS}");
             DEFAULT_NUM_SYSTEMS
         });
 

@@ -3,6 +3,10 @@
 mod config;
 mod systems;
 
+use crate::EasyCameraMovementPlugin;
+#[cfg(feature = "screenrecording")]
+use crate::EasyScreenRecordPlugin;
+
 pub use self::config::*;
 
 use bevy_app::prelude::*;
@@ -26,23 +30,47 @@ pub struct CiTestingPlugin;
 
 impl Plugin for CiTestingPlugin {
     fn build(&self, app: &mut App) {
-        #[cfg(not(target_arch = "wasm32"))]
-        let config: CiTestingConfig = {
-            let filename = std::env::var("CI_TESTING_CONFIG")
-                .unwrap_or_else(|_| "ci_testing_config.ron".to_string());
-            std::fs::read_to_string(filename)
-                .map(|content| {
-                    ron::from_str(&content)
-                        .expect("error deserializing CI testing configuration file")
-                })
-                .unwrap_or_default()
+        let config = if !app.world().is_resource_added::<CiTestingConfig>() {
+            // Load configuration from file if not already setup
+            #[cfg(not(target_arch = "wasm32"))]
+            let config: CiTestingConfig = {
+                let filename = std::env::var("CI_TESTING_CONFIG")
+                    .unwrap_or_else(|_| "ci_testing_config.ron".to_string());
+                std::fs::read_to_string(filename)
+                    .map(|content| {
+                        ron::from_str(&content)
+                            .expect("error deserializing CI testing configuration file")
+                    })
+                    .unwrap_or_default()
+            };
+
+            #[cfg(target_arch = "wasm32")]
+            let config: CiTestingConfig = {
+                let config = include_str!("../../../../ci_testing_config.ron");
+                ron::from_str(config).expect("error deserializing CI testing configuration file")
+            };
+
+            config
+        } else {
+            app.world().resource::<CiTestingConfig>().clone()
         };
 
-        #[cfg(target_arch = "wasm32")]
-        let config: CiTestingConfig = {
-            let config = include_str!("../../../../ci_testing_config.ron");
-            ron::from_str(config).expect("error deserializing CI testing configuration file")
-        };
+        // Add the `EasyCameraMovementPlugin` to the app if it's not already added.
+        // To configure the movement speed, add the plugin first.
+        if !app.is_plugin_added::<EasyCameraMovementPlugin>() {
+            app.add_plugins(EasyCameraMovementPlugin::default());
+        }
+        // Add the `EasyScreenRecordPlugin` to the app if it's not already added and one of the event is starting screenrecording.
+        // To configure the recording quality, add the plugin first.
+        #[cfg(feature = "screenrecording")]
+        if !app.is_plugin_added::<EasyScreenRecordPlugin>()
+            && config
+                .events
+                .iter()
+                .any(|e| matches!(e.1, CiTestingEvent::StartScreenRecording))
+        {
+            app.add_plugins(EasyScreenRecordPlugin::default());
+        }
 
         // Configure a fixed frame time if specified.
         if let Some(fixed_frame_time) = config.setup.fixed_frame_time {
@@ -50,7 +78,7 @@ impl Plugin for CiTestingPlugin {
                 fixed_frame_time,
             )));
         }
-        app.add_event::<CiTestingCustomEvent>()
+        app.add_message::<CiTestingCustomEvent>()
             .insert_resource(config)
             .add_systems(
                 Update,

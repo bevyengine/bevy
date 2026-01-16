@@ -11,10 +11,9 @@ use wgpu::{
     BindGroupLayoutEntry, SamplerBindingType, ShaderStages, TextureSampleType, TextureViewDimension,
 };
 
-use crate::render_resource::binding_types::storage_buffer_read_only_sized;
-
-use super::binding_types::{
-    sampler, texture_1d, texture_2d, texture_2d_array, texture_3d, texture_cube, texture_cube_array,
+use bevy_material::bind_group_layout_entries::binding_types::{
+    sampler, storage_buffer_read_only_sized, texture_1d, texture_2d, texture_2d_array, texture_3d,
+    texture_cube, texture_cube_array,
 };
 
 /// The default value for the number of resources that can be stored in a slab
@@ -243,35 +242,65 @@ pub fn create_bindless_bind_group_layout_entries(
             false,
             NonZeroU64::new(bindless_index_table_length as u64 * size_of::<u32>() as u64),
         )
-        .build(*bindless_index_table_binding_number, ShaderStages::all()),
+        .build(
+            *bindless_index_table_binding_number,
+            ShaderStages::FRAGMENT | ShaderStages::VERTEX | ShaderStages::COMPUTE,
+        ),
         // Continue with the common bindless resource arrays.
         sampler(SamplerBindingType::Filtering)
             .count(bindless_slab_resource_limit)
-            .build(1, ShaderStages::all()),
+            .build(
+                1,
+                ShaderStages::FRAGMENT | ShaderStages::VERTEX | ShaderStages::COMPUTE,
+            ),
         sampler(SamplerBindingType::NonFiltering)
             .count(bindless_slab_resource_limit)
-            .build(2, ShaderStages::all()),
+            .build(
+                2,
+                ShaderStages::FRAGMENT | ShaderStages::VERTEX | ShaderStages::COMPUTE,
+            ),
         sampler(SamplerBindingType::Comparison)
             .count(bindless_slab_resource_limit)
-            .build(3, ShaderStages::all()),
+            .build(
+                3,
+                ShaderStages::FRAGMENT | ShaderStages::VERTEX | ShaderStages::COMPUTE,
+            ),
         texture_1d(TextureSampleType::Float { filterable: true })
             .count(bindless_slab_resource_limit)
-            .build(4, ShaderStages::all()),
+            .build(
+                4,
+                ShaderStages::FRAGMENT | ShaderStages::VERTEX | ShaderStages::COMPUTE,
+            ),
         texture_2d(TextureSampleType::Float { filterable: true })
             .count(bindless_slab_resource_limit)
-            .build(5, ShaderStages::all()),
+            .build(
+                5,
+                ShaderStages::FRAGMENT | ShaderStages::VERTEX | ShaderStages::COMPUTE,
+            ),
         texture_2d_array(TextureSampleType::Float { filterable: true })
             .count(bindless_slab_resource_limit)
-            .build(6, ShaderStages::all()),
+            .build(
+                6,
+                ShaderStages::FRAGMENT | ShaderStages::VERTEX | ShaderStages::COMPUTE,
+            ),
         texture_3d(TextureSampleType::Float { filterable: true })
             .count(bindless_slab_resource_limit)
-            .build(7, ShaderStages::all()),
+            .build(
+                7,
+                ShaderStages::FRAGMENT | ShaderStages::VERTEX | ShaderStages::COMPUTE,
+            ),
         texture_cube(TextureSampleType::Float { filterable: true })
             .count(bindless_slab_resource_limit)
-            .build(8, ShaderStages::all()),
+            .build(
+                8,
+                ShaderStages::FRAGMENT | ShaderStages::VERTEX | ShaderStages::COMPUTE,
+            ),
         texture_cube_array(TextureSampleType::Float { filterable: true })
             .count(bindless_slab_resource_limit)
-            .build(9, ShaderStages::all()),
+            .build(
+                9,
+                ShaderStages::FRAGMENT | ShaderStages::VERTEX | ShaderStages::COMPUTE,
+            ),
     ]
 }
 

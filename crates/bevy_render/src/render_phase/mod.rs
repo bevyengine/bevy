@@ -30,7 +30,7 @@ mod rangefinder;
 
 use bevy_app::{App, Plugin};
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::component::Tick;
+use bevy_ecs::change_detection::Tick;
 use bevy_ecs::entity::EntityHash;
 use bevy_platform::collections::{hash_map::Entry, HashMap};
 use bevy_utils::default;
@@ -51,6 +51,8 @@ use crate::renderer::RenderDevice;
 use crate::sync_world::{MainEntity, MainEntityHashMap};
 use crate::view::RetainedViewEntity;
 use crate::RenderDebugFlags;
+use bevy_material::descriptor::CachedRenderPipelineId;
+
 use crate::{
     batching::{
         self,
@@ -58,13 +60,17 @@ use crate::{
         no_gpu_preprocessing::{self, BatchedInstanceBuffer},
         GetFullBatchData,
     },
-    render_resource::{CachedRenderPipelineId, GpuArrayBufferIndex, PipelineCache},
+    render_resource::{GpuArrayBufferIndex, PipelineCache},
     Render, RenderApp, RenderSystems,
 };
 use bevy_ecs::{
     prelude::*,
     system::{lifetimeless::SRes, SystemParamItem},
 };
+pub use bevy_material::labels::DrawFunctionId;
+pub use bevy_material_macros::DrawFunctionLabel;
+pub use bevy_material_macros::ShaderLabel;
+use bevy_render::renderer::RenderAdapterInfo;
 use core::{fmt::Debug, hash::Hash, iter, marker::PhantomData, ops::Range, slice::SliceIndex};
 use smallvec::SmallVec;
 use tracing::warn;
@@ -583,13 +589,13 @@ where
 
         // If the entity changed bins, record its old bin so that we can remove
         // the entity from it.
-        if let Some(old_cached_binned_entity) = old_cached_binned_entity {
-            if old_cached_binned_entity.cached_bin_key != new_cached_binned_entity.cached_bin_key {
-                self.entities_that_changed_bins.push(EntityThatChangedBins {
-                    main_entity,
-                    old_cached_binned_entity,
-                });
-            }
+        if let Some(old_cached_binned_entity) = old_cached_binned_entity
+            && old_cached_binned_entity.cached_bin_key != new_cached_binned_entity.cached_bin_key
+        {
+            self.entities_that_changed_bins.push(EntityThatChangedBins {
+                main_entity,
+                old_cached_binned_entity,
+            });
         }
 
         // Mark the entity as valid.
@@ -629,9 +635,12 @@ where
         let mut draw_functions = draw_functions.write();
 
         let render_device = world.resource::<RenderDevice>();
+        let render_adapter_info = world.resource::<RenderAdapterInfo>();
         let multi_draw_indirect_count_supported = render_device
             .features()
-            .contains(Features::MULTI_DRAW_INDIRECT_COUNT);
+            .contains(Features::MULTI_DRAW_INDIRECT_COUNT)
+            // TODO: https://github.com/gfx-rs/wgpu/issues/7974
+            && !matches!(render_adapter_info.backend, wgpu::Backend::Dx12);
 
         match self.batch_sets {
             BinnedRenderPhaseBatchSets::DynamicUniforms(ref batch_sets) => {
@@ -872,11 +881,10 @@ where
     ) -> bool {
         if let indexmap::map::Entry::Occupied(entry) =
             self.cached_entity_bin_keys.entry(visible_entity)
+            && entry.get().change_tick == current_change_tick
         {
-            if entry.get().change_tick == current_change_tick {
-                self.valid_cached_entity_bin_keys.insert(entry.index());
-                return true;
-            }
+            self.valid_cached_entity_bin_keys.insert(entry.index());
+            return true;
         }
 
         false

@@ -1,3 +1,5 @@
+use bevy_material::labels::DrawFunctionId;
+
 use crate::render_phase::{PhaseItem, TrackedRenderPass};
 use bevy_app::{App, SubApp};
 use bevy_ecs::{
@@ -8,7 +10,7 @@ use bevy_ecs::{
     world::World,
 };
 use bevy_utils::TypeIdMap;
-use core::{any::TypeId, fmt::Debug, hash::Hash};
+use core::{any::TypeId, fmt::Debug};
 use std::sync::{PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard};
 use thiserror::Error;
 use variadics_please::all_tuples;
@@ -48,11 +50,6 @@ pub enum DrawError {
     #[error("View entity not found")]
     ViewEntityNotFound,
 }
-
-// TODO: make this generic?
-/// An identifier for a [`Draw`] function stored in [`DrawFunctions`].
-#[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Hash)]
-pub struct DrawFunctionId(u32);
 
 /// Stores all [`Draw`] functions for the [`PhaseItem`] type.
 ///
@@ -168,14 +165,16 @@ impl<P: PhaseItem> DrawFunctions<P> {
 /// ```
 /// # use bevy_render::render_phase::SetItemPipeline;
 /// # struct SetMeshViewBindGroup<const N: usize>;
+/// # struct SetMeshViewBindingArrayBindGroup<const N: usize>;
 /// # struct SetMeshBindGroup<const N: usize>;
 /// # struct SetMaterialBindGroup<M, const N: usize>(std::marker::PhantomData<M>);
 /// # struct DrawMesh;
 /// pub type DrawMaterial<M> = (
 ///     SetItemPipeline,
 ///     SetMeshViewBindGroup<0>,
-///     SetMeshBindGroup<1>,
-///     SetMaterialBindGroup<M, 2>,
+///     SetMeshViewBindingArrayBindGroup<1>,
+///     SetMeshBindGroup<2>,
+///     SetMaterialBindGroup<M, 3>,
 ///     DrawMesh,
 /// );
 /// ```
@@ -213,8 +212,8 @@ pub trait RenderCommand<P: PhaseItem> {
     /// issuing draw calls, etc.) via the [`TrackedRenderPass`].
     fn render<'w>(
         item: &P,
-        view: ROQueryItem<'w, Self::ViewQuery>,
-        entity: Option<ROQueryItem<'w, Self::ItemQuery>>,
+        view: ROQueryItem<'w, '_, Self::ViewQuery>,
+        entity: Option<ROQueryItem<'w, '_, Self::ItemQuery>>,
         param: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult;
@@ -246,8 +245,8 @@ macro_rules! render_command_tuple_impl {
             )]
             fn render<'w>(
                 _item: &P,
-                ($($view,)*): ROQueryItem<'w, Self::ViewQuery>,
-                maybe_entities: Option<ROQueryItem<'w, Self::ItemQuery>>,
+                ($($view,)*): ROQueryItem<'w, '_, Self::ViewQuery>,
+                maybe_entities: Option<ROQueryItem<'w, '_, Self::ItemQuery>>,
                 ($($name,)*): SystemParamItem<'w, '_, Self::Param>,
                 _pass: &mut TrackedRenderPass<'w>,
             ) -> RenderCommandResult {
@@ -315,7 +314,6 @@ where
     /// Prepares the render command to be used. This is called once and only once before the phase
     /// begins. There may be zero or more [`draw`](RenderCommandState::draw) calls following a call to this function.
     fn prepare(&mut self, world: &'_ World) {
-        self.state.update_archetypes(world);
         self.view.update_archetypes(world);
         self.entity.update_archetypes(world);
     }
@@ -328,13 +326,11 @@ where
         view: Entity,
         item: &P,
     ) -> Result<(), DrawError> {
-        let param = self.state.get_manual(world);
+        let param = self.state.get(world);
         let view = match self.view.get_manual(world, view) {
             Ok(view) => view,
             Err(err) => match err {
-                QueryEntityError::EntityDoesNotExist(_) => {
-                    return Err(DrawError::ViewEntityNotFound)
-                }
+                QueryEntityError::NotSpawned(_) => return Err(DrawError::ViewEntityNotFound),
                 QueryEntityError::QueryDoesNotMatch(_, _)
                 | QueryEntityError::AliasedMutability(_) => {
                     return Err(DrawError::InvalidViewQuery)

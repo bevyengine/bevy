@@ -1,8 +1,8 @@
-#![cfg_attr(docsrs, feature(doc_auto_cfg))]
-#![forbid(unsafe_code)]
+#![cfg_attr(docsrs, feature(doc_cfg))]
+#![warn(unsafe_code)]
 #![doc(
-    html_logo_url = "https://bevyengine.org/assets/icon.png",
-    html_favicon_url = "https://bevyengine.org/assets/icon.png"
+    html_logo_url = "https://bevy.org/assets/icon.png",
+    html_favicon_url = "https://bevy.org/assets/icon.png"
 )]
 
 //! Animation for the game engine Bevy
@@ -13,8 +13,14 @@ pub mod animatable;
 pub mod animation_curves;
 pub mod gltf_curves;
 pub mod graph;
+#[cfg(feature = "bevy_mesh")]
+mod morph;
 pub mod transition;
+
+mod animation_event;
 mod util;
+
+pub use animation_event::*;
 
 use core::{
     any::TypeId,
@@ -40,7 +46,6 @@ use bevy_reflect::{prelude::ReflectDefault, Reflect, TypePath};
 use bevy_time::Time;
 use bevy_transform::TransformSystems;
 use bevy_utils::{PreHashMap, PreHashMapExt, TypeIdMap};
-use petgraph::graph::NodeIndex;
 use serde::{Deserialize, Serialize};
 use thread_local::ThreadLocal;
 use tracing::{trace, warn};
@@ -60,7 +65,7 @@ pub mod prelude {
 use crate::{
     animation_curves::AnimationCurve,
     graph::{AnimationGraph, AnimationGraphAssetLoader, AnimationNodeIndex},
-    transition::{advance_transitions, expire_completed_transitions, AnimationTransitions},
+    transition::{advance_transitions, expire_completed_transitions},
 };
 use alloc::sync::Arc;
 
@@ -94,7 +99,7 @@ impl VariableCurve {
 /// apply.
 ///
 /// Because animation clips refer to targets by UUID, they can target any
-/// [`AnimationTarget`] with that ID.
+/// entity with that ID.
 #[derive(Asset, Reflect, Clone, Debug, Default)]
 #[reflect(Clone, Default)]
 pub struct AnimationClip {
@@ -109,17 +114,17 @@ pub struct AnimationClip {
 #[reflect(Clone)]
 struct TimedAnimationEvent {
     time: f32,
-    event: AnimationEvent,
+    event: AnimationEventData,
 }
 
 #[derive(Reflect, Debug, Clone)]
 #[reflect(Clone)]
-struct AnimationEvent {
+struct AnimationEventData {
     #[reflect(ignore, clone)]
     trigger: AnimationEventFn,
 }
 
-impl AnimationEvent {
+impl AnimationEventData {
     fn trigger(&self, commands: &mut Commands, entity: Entity, time: f32, weight: f32) {
         (self.trigger.0)(commands, entity, time, weight);
     }
@@ -155,20 +160,19 @@ type AnimationEvents = HashMap<AnimationEventTarget, Vec<TimedAnimationEvent>>;
 /// animation curves.
 pub type AnimationCurves = HashMap<AnimationTargetId, Vec<VariableCurve>, NoOpHash>;
 
-/// A unique [UUID] for an animation target (e.g. bone in a skinned mesh).
+/// A component that identifies which parts of an [`AnimationClip`] asset can
+/// be applied to an entity. Typically used alongside the
+/// [`AnimatedBy`] component.
 ///
-/// The [`AnimationClip`] asset and the [`AnimationTarget`] component both use
-/// this to refer to targets (e.g. bones in a skinned mesh) to be animated.
-///
-/// When importing an armature or an animation clip, asset loaders typically use
-/// the full path name from the armature to the bone to generate these UUIDs.
-/// The ID is unique to the full path name and based only on the names. So, for
-/// example, any imported armature with a bone at the root named `Hips` will
-/// assign the same [`AnimationTargetId`] to its root bone. Likewise, any
-/// imported animation clip that animates a root bone named `Hips` will
-/// reference the same [`AnimationTargetId`]. Any animation is playable on any
-/// armature as long as the bone names match, which allows for easy animation
-/// retargeting.
+/// `AnimationTargetId` is implemented as a [UUID]. When importing an armature
+/// or an animation clip, asset loaders typically use the full path name from
+/// the armature to the bone to generate these UUIDs. The ID is unique to the
+/// full path name and based only on the names. So, for example, any imported
+/// armature with a bone at the root named `Hips` will assign the same
+/// [`AnimationTargetId`] to its root bone. Likewise, any imported animation
+/// clip that animates a root bone named `Hips` will reference the same
+/// [`AnimationTargetId`]. Any animation is playable on any armature as long as
+/// the bone names match, which allows for easy animation retargeting.
 ///
 /// Note that asset loaders generally use the *full* path name to generate the
 /// [`AnimationTargetId`]. Thus a bone named `Chest` directly connected to a
@@ -176,8 +180,10 @@ pub type AnimationCurves = HashMap<AnimationTargetId, Vec<VariableCurve>, NoOpHa
 /// connected to a bone named `Stomach`.
 ///
 /// [UUID]: https://en.wikipedia.org/wiki/Universally_unique_identifier
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Reflect, Debug, Serialize, Deserialize)]
-#[reflect(Clone)]
+#[derive(
+    Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Reflect, Debug, Serialize, Deserialize, Component,
+)]
+#[reflect(Component, Clone)]
 pub struct AnimationTargetId(pub Uuid);
 
 impl Hash for AnimationTargetId {
@@ -187,39 +193,26 @@ impl Hash for AnimationTargetId {
     }
 }
 
-/// An entity that can be animated by an [`AnimationPlayer`].
+/// A component that links an animated entity to an entity containing an
+/// [`AnimationPlayer`]. Typically used alongside the [`AnimationTargetId`]
+/// component - the linked `AnimationPlayer` plays [`AnimationClip`] assets, and
+/// the `AnimationTargetId` identifies which curves in the `AnimationClip` will
+/// affect the target entity.
 ///
-/// These are frequently referred to as *bones* or *joints*, because they often
-/// refer to individually-animatable parts of an armature.
-///
-/// Asset loaders for armatures are responsible for adding these as necessary.
-/// Typically, they're generated from hashed versions of the entire name path
-/// from the root of the armature to the bone. See the [`AnimationTargetId`]
-/// documentation for more details.
-///
-/// By convention, asset loaders add [`AnimationTarget`] components to the
+/// By convention, asset loaders add [`AnimationTargetId`] components to the
 /// descendants of an [`AnimationPlayer`], as well as to the [`AnimationPlayer`]
 /// entity itself, but Bevy doesn't require this in any way. So, for example,
 /// it's entirely possible for an [`AnimationPlayer`] to animate a target that
 /// it isn't an ancestor of. If you add a new bone to or delete a bone from an
-/// armature at runtime, you may want to update the [`AnimationTarget`]
+/// armature at runtime, you may want to update the [`AnimationTargetId`]
 /// component as appropriate, as Bevy won't do this automatically.
 ///
 /// Note that each entity can only be animated by one animation player at a
-/// time. However, you can change [`AnimationTarget`]'s `player` property at
-/// runtime to change which player is responsible for animating the entity.
-#[derive(Clone, Copy, Component, Reflect)]
+/// time. However, you can change [`AnimatedBy`] components at runtime and
+/// link them to a different player.
+#[derive(Clone, Copy, Component, Reflect, Debug)]
 #[reflect(Component, Clone)]
-pub struct AnimationTarget {
-    /// The ID of this animation target.
-    ///
-    /// Typically, this is derived from the path.
-    pub id: AnimationTargetId,
-
-    /// The entity containing the [`AnimationPlayer`].
-    #[entities]
-    pub player: Entity,
-}
+pub struct AnimatedBy(#[entities] pub Entity);
 
 impl AnimationClip {
     #[inline]
@@ -268,8 +261,8 @@ impl AnimationClip {
         self.duration = duration_sec;
     }
 
-    /// Adds an [`AnimationCurve`] to an [`AnimationTarget`] named by an
-    /// [`AnimationTargetId`].
+    /// Adds an [`AnimationCurve`] that can target an entity with the given
+    /// [`AnimationTargetId`] component.
     ///
     /// If the curve extends beyond the current duration of this clip, this
     /// method lengthens this clip to include the entire time span that the
@@ -324,22 +317,22 @@ impl AnimationClip {
             .push(variable_curve);
     }
 
-    /// Add a untargeted [`Event`] to this [`AnimationClip`].
+    /// Add an [`EntityEvent`] with no [`AnimationTargetId`].
     ///
     /// The `event` will be cloned and triggered on the [`AnimationPlayer`] entity once the `time` (in seconds)
     /// is reached in the animation.
     ///
     /// See also [`add_event_to_target`](Self::add_event_to_target).
-    pub fn add_event(&mut self, time: f32, event: impl Event + Clone) {
+    pub fn add_event(&mut self, time: f32, event: impl AnimationEvent) {
         self.add_event_fn(
             time,
-            move |commands: &mut Commands, entity: Entity, _time: f32, _weight: f32| {
-                commands.entity(entity).trigger(event.clone());
+            move |commands: &mut Commands, target: Entity, _time: f32, _weight: f32| {
+                commands.trigger_with(event.clone(), AnimationEventTrigger { target });
             },
         );
     }
 
-    /// Add an [`Event`] to an [`AnimationTarget`] named by an [`AnimationTargetId`].
+    /// Add an [`EntityEvent`] with an [`AnimationTargetId`].
     ///
     /// The `event` will be cloned and triggered on the entity matching the target once the `time` (in seconds)
     /// is reached in the animation.
@@ -349,30 +342,30 @@ impl AnimationClip {
         &mut self,
         target_id: AnimationTargetId,
         time: f32,
-        event: impl Event + Clone,
+        event: impl AnimationEvent,
     ) {
         self.add_event_fn_to_target(
             target_id,
             time,
-            move |commands: &mut Commands, entity: Entity, _time: f32, _weight: f32| {
-                commands.entity(entity).trigger(event.clone());
+            move |commands: &mut Commands, target: Entity, _time: f32, _weight: f32| {
+                commands.trigger_with(event.clone(), AnimationEventTrigger { target });
             },
         );
     }
 
-    /// Add a untargeted event function to this [`AnimationClip`].
+    /// Add an event function with no [`AnimationTargetId`] to this [`AnimationClip`].
     ///
     /// The `func` will trigger on the [`AnimationPlayer`] entity once the `time` (in seconds)
     /// is reached in the animation.
     ///
-    /// For a simpler [`Event`]-based alternative, see [`AnimationClip::add_event`].
+    /// For a simpler [`EntityEvent`]-based alternative, see [`AnimationClip::add_event`].
     /// See also [`add_event_to_target`](Self::add_event_to_target).
     ///
     /// ```
     /// # use bevy_animation::AnimationClip;
     /// # let mut clip = AnimationClip::default();
     /// clip.add_event_fn(1.0, |commands, entity, time, weight| {
-    ///   println!("Animation Event Triggered {entity:#?} at time {time} with weight {weight}");
+    ///   println!("Animation event triggered {entity:#?} at time {time} with weight {weight}");
     /// })
     /// ```
     pub fn add_event_fn(
@@ -383,19 +376,19 @@ impl AnimationClip {
         self.add_event_internal(AnimationEventTarget::Root, time, func);
     }
 
-    /// Add an event function to an [`AnimationTarget`] named by an [`AnimationTargetId`].
+    /// Add an event function with an [`AnimationTargetId`].
     ///
     /// The `func` will trigger on the entity matching the target once the `time` (in seconds)
     /// is reached in the animation.
     ///
-    /// For a simpler [`Event`]-based alternative, see [`AnimationClip::add_event_to_target`].
+    /// For a simpler [`EntityEvent`]-based alternative, see [`AnimationClip::add_event_to_target`].
     /// Use [`add_event`](Self::add_event) instead if you don't have a specific target.
     ///
     /// ```
     /// # use bevy_animation::{AnimationClip, AnimationTargetId};
     /// # let mut clip = AnimationClip::default();
     /// clip.add_event_fn_to_target(AnimationTargetId::from_iter(["Arm", "Hand"]), 1.0, |commands, entity, time, weight| {
-    ///   println!("Animation Event Triggered {entity:#?} at time {time} with weight {weight}");
+    ///   println!("Animation event triggered {entity:#?} at time {time} with weight {weight}");
     /// })
     /// ```
     pub fn add_event_fn_to_target(
@@ -420,7 +413,7 @@ impl AnimationClip {
                 index,
                 TimedAnimationEvent {
                     time,
-                    event: AnimationEvent {
+                    event: AnimationEventData {
                         trigger: AnimationEventFn(Arc::new(trigger_fn)),
                     },
                 },
@@ -773,7 +766,7 @@ struct CurrentEvaluators {
 }
 
 impl CurrentEvaluators {
-    pub(crate) fn keys(&self) -> impl Iterator<Item = EvaluatorId> {
+    pub(crate) fn keys(&self) -> impl Iterator<Item = EvaluatorId<'_>> {
         self.component_properties
             .keys()
             .map(EvaluatorId::ComponentField)
@@ -871,7 +864,7 @@ impl AnimationPlayer {
             .all(ActiveAnimation::is_paused)
     }
 
-    /// Resume all playing animations.
+    /// Pause all playing animations.
     #[doc(alias = "pause")]
     pub fn pause_all(&mut self) -> &mut Self {
         for (_, playing_animation) in self.playing_animations_mut() {
@@ -1008,12 +1001,11 @@ pub fn advance_animations(
 
                 if let Some(active_animation) = active_animations.get_mut(&node_index) {
                     // Tick the animation if necessary.
-                    if !active_animation.paused {
-                        if let AnimationNodeType::Clip(ref clip_handle) = node.node_type {
-                            if let Some(clip) = animation_clips.get(clip_handle) {
-                                active_animation.update(delta_seconds, clip.duration);
-                            }
-                        }
+                    if !active_animation.paused
+                        && let AnimationNodeType::Clip(ref clip_handle) = node.node_type
+                        && let Some(clip) = animation_clips.get(clip_handle)
+                    {
+                        active_animation.update(delta_seconds, clip.duration);
                     }
                 }
             }
@@ -1021,8 +1013,16 @@ pub fn advance_animations(
 }
 
 /// A type alias for [`EntityMutExcept`] as used in animation.
-pub type AnimationEntityMut<'w> =
-    EntityMutExcept<'w, (AnimationTarget, AnimationPlayer, AnimationGraphHandle)>;
+pub type AnimationEntityMut<'w, 's> = EntityMutExcept<
+    'w,
+    's,
+    (
+        AnimationTargetId,
+        AnimatedBy,
+        AnimationPlayer,
+        AnimationGraphHandle,
+    ),
+>;
 
 /// A system that modifies animation targets (e.g. bones in a skinned mesh)
 /// according to the currently-playing animations.
@@ -1032,18 +1032,13 @@ pub fn animate_targets(
     graphs: Res<Assets<AnimationGraph>>,
     threaded_animation_graphs: Res<ThreadedAnimationGraphs>,
     players: Query<(&AnimationPlayer, &AnimationGraphHandle)>,
-    mut targets: Query<(Entity, &AnimationTarget, AnimationEntityMut)>,
+    mut targets: Query<(Entity, &AnimationTargetId, &AnimatedBy, AnimationEntityMut)>,
     animation_evaluation_state: Local<ThreadLocal<RefCell<AnimationEvaluationState>>>,
 ) {
     // Evaluate all animation targets in parallel.
     targets
         .par_iter_mut()
-        .for_each(|(entity, target, entity_mut)| {
-            let &AnimationTarget {
-                id: target_id,
-                player: player_id,
-            } = target;
-
+        .for_each(|(entity, &target_id, &AnimatedBy(player_id), entity_mut)| {
             let (animation_player, animation_graph_id) =
                 if let Ok((player, graph_handle)) = players.get(player_id) {
                     (player, graph_handle.id())
@@ -1159,21 +1154,20 @@ pub fn animate_targets(
                                 AnimationEventTarget::Node(target_id),
                                 clip,
                                 active_animation,
-                            ) {
-                                if !triggered_events.is_empty() {
-                                    par_commands.command_scope(move |mut commands| {
-                                        for TimedAnimationEvent { time, event } in
-                                            triggered_events.iter()
-                                        {
-                                            event.trigger(
-                                                &mut commands,
-                                                entity,
-                                                *time,
-                                                active_animation.weight,
-                                            );
-                                        }
-                                    });
-                                }
+                            ) && !triggered_events.is_empty()
+                            {
+                                par_commands.command_scope(move |mut commands| {
+                                    for TimedAnimationEvent { time, event } in
+                                        triggered_events.iter()
+                                    {
+                                        event.trigger(
+                                            &mut commands,
+                                            entity,
+                                            *time,
+                                            active_animation.weight,
+                                        );
+                                    }
+                                });
                             }
                         }
 
@@ -1234,12 +1228,6 @@ impl Plugin for AnimationPlugin {
             .init_asset_loader::<AnimationGraphAssetLoader>()
             .register_asset_reflect::<AnimationClip>()
             .register_asset_reflect::<AnimationGraph>()
-            .register_type::<AnimationPlayer>()
-            .register_type::<AnimationTarget>()
-            .register_type::<AnimationTransitions>()
-            .register_type::<AnimationGraphHandle>()
-            .register_type::<NodeIndex>()
-            .register_type::<ThreadedAnimationGraphs>()
             .init_resource::<ThreadedAnimationGraphs>()
             .add_systems(
                 PostUpdate,
@@ -1253,9 +1241,12 @@ impl Plugin for AnimationPlugin {
                     // it to its own system set after `Update` but before
                     // `PostUpdate`. For now, we just disable ambiguity testing
                     // for this system.
+                    #[cfg(feature = "bevy_mesh")]
                     animate_targets
-                        .before(bevy_render::mesh::inherit_weights)
+                        .before(bevy_mesh::InheritWeightSystems)
                         .ambiguous_with_all(),
+                    #[cfg(not(feature = "bevy_mesh"))]
+                    animate_targets.ambiguous_with_all(),
                     trigger_untargeted_animation_events,
                     expire_completed_transitions,
                 )
@@ -1469,7 +1460,7 @@ impl<'a> TriggeredEvents<'a> {
         self.lower.is_empty() && self.upper.is_empty()
     }
 
-    fn iter(&self) -> TriggeredEventsIter {
+    fn iter(&self) -> TriggeredEventsIter<'_> {
         match self.direction {
             TriggeredEventsDir::Forward => TriggeredEventsIter::Forward(self.lower.iter()),
             TriggeredEventsDir::Reverse => TriggeredEventsIter::Reverse(self.lower.iter().rev()),
@@ -1530,11 +1521,12 @@ impl<'a> Iterator for TriggeredEventsIter<'a> {
 
 #[cfg(test)]
 mod tests {
-    use bevy_reflect::{DynamicMap, Map};
+    use crate as bevy_animation;
+    use bevy_reflect::map::{DynamicMap, Map};
 
     use super::*;
 
-    #[derive(Event, Reflect, Clone)]
+    #[derive(AnimationEvent, Reflect, Clone)]
     struct A;
 
     #[track_caller]

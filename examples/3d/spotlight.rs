@@ -4,9 +4,10 @@ use std::f32::consts::*;
 
 use bevy::{
     color::palettes::basic::{MAROON, RED},
+    light::NotShadowCaster,
     math::ops,
-    pbr::NotShadowCaster,
     prelude::*,
+    render::view::Hdr,
 };
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;
@@ -20,7 +21,7 @@ Rotate Camera: Left and Right Arrows";
 
 fn main() {
     App::new()
-        .insert_resource(AmbientLight {
+        .insert_resource(GlobalAmbientLight {
             brightness: 20.0,
             ..default()
         })
@@ -56,9 +57,9 @@ fn setup(
 
     commands.spawn_batch(
         std::iter::repeat_with(move || {
-            let x = rng.gen_range(-5.0..5.0);
-            let y = rng.gen_range(0.0..3.0);
-            let z = rng.gen_range(-5.0..5.0);
+            let x = rng.random_range(-5.0..5.0);
+            let y = rng.random_range(0.0..3.0);
+            let z = rng.random_range(-5.0..5.0);
 
             (
                 Mesh3d(cube_mesh.clone()),
@@ -88,41 +89,37 @@ fn setup(
             let x = x as f32 - 2.0;
             let z = z as f32 - 2.0;
             // red spot_light
-            commands
-                .spawn((
-                    SpotLight {
-                        intensity: 40_000.0, // lumens
-                        color: Color::WHITE,
-                        shadows_enabled: true,
-                        inner_angle: PI / 4.0 * 0.85,
-                        outer_angle: PI / 4.0,
-                        ..default()
-                    },
-                    Transform::from_xyz(1.0 + x, 2.0, z)
-                        .looking_at(Vec3::new(1.0 + x, 0.0, z), Vec3::X),
-                ))
-                .with_children(|builder| {
-                    builder.spawn((
+            commands.spawn((
+                SpotLight {
+                    intensity: 40_000.0, // lumens
+                    color: Color::WHITE,
+                    shadow_maps_enabled: true,
+                    inner_angle: PI / 4.0 * 0.85,
+                    outer_angle: PI / 4.0,
+                    ..default()
+                },
+                Transform::from_xyz(1.0 + x, 2.0, z)
+                    .looking_at(Vec3::new(1.0 + x, 0.0, z), Vec3::X),
+                children![
+                    (
                         Mesh3d(sphere_mesh.clone()),
                         MeshMaterial3d(red_emissive.clone()),
-                    ));
-                    builder.spawn((
+                    ),
+                    (
                         Mesh3d(sphere_mesh_direction.clone()),
                         MeshMaterial3d(maroon_emissive.clone()),
                         Transform::from_translation(Vec3::Z * -0.1),
                         NotShadowCaster,
-                    ));
-                });
+                    )
+                ],
+            ));
         }
     }
 
     // camera
     commands.spawn((
         Camera3d::default(),
-        Camera {
-            hdr: true,
-            ..default()
-        },
+        Hdr,
         Transform::from_xyz(-4.0, 5.0, 10.0).looking_at(Vec3::ZERO, Vec3::Y),
     ));
 
@@ -130,8 +127,8 @@ fn setup(
         Text::new(INSTRUCTIONS),
         Node {
             position_type: PositionType::Absolute,
-            top: Val::Px(12.0),
-            left: Val::Px(12.0),
+            top: px(12),
+            left: px(12),
             ..default()
         },
     ));

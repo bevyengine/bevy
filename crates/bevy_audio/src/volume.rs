@@ -34,7 +34,7 @@ impl GlobalVolume {
 #[derive(Clone, Copy, Debug, Reflect)]
 #[reflect(Clone, Debug, PartialEq)]
 pub enum Volume {
-    /// Create a new [`Volume`] from the given volume in linear scale.
+    /// Create a new [`Volume`] from the given volume in the linear scale.
     ///
     /// In a linear scale, the value `1.0` represents the "normal" volume,
     /// meaning the audio is played at its original level. Values greater than
@@ -144,7 +144,7 @@ impl Volume {
 
     /// Returns the volume in decibels as a float.
     ///
-    /// If the volume is silent / off / muted, i.e. it's underlying linear scale
+    /// If the volume is silent / off / muted, i.e., its underlying linear scale
     /// is `0.0`, this method returns negative infinity.
     pub fn to_decibels(&self) -> f32 {
         match self {
@@ -155,57 +155,95 @@ impl Volume {
 
     /// The silent volume. Also known as "off" or "muted".
     pub const SILENT: Self = Volume::Linear(0.0);
-}
 
-impl core::ops::Add<Self> for Volume {
-    type Output = Self;
-
-    fn add(self, rhs: Self) -> Self {
-        use Volume::{Decibels, Linear};
-
-        match (self, rhs) {
-            (Linear(a), Linear(b)) => Linear(a + b),
-            (Decibels(a), Decibels(b)) => Decibels(linear_to_decibels(
-                decibels_to_linear(a) + decibels_to_linear(b),
-            )),
-            // {Linear, Decibels} favors the left hand side of the operation by
-            // first converting the right hand side to the same type as the left
-            // hand side and then performing the operation.
-            (Linear(..), Decibels(db)) => self + Linear(decibels_to_linear(db)),
-            (Decibels(..), Linear(l)) => self + Decibels(linear_to_decibels(l)),
-        }
+    /// Increases the volume by the specified percentage.
+    ///
+    /// This method works in the linear domain, where a 100% increase
+    /// means doubling the volume (equivalent to +6.02dB).
+    ///
+    /// # Arguments
+    /// * `percentage` - The percentage to increase (50.0 means 50% increase)
+    ///
+    /// # Examples
+    /// ```
+    /// use bevy_audio::Volume;
+    ///
+    /// let volume = Volume::Linear(1.0);
+    /// let increased = volume.increase_by_percentage(100.0);
+    /// assert_eq!(increased.to_linear(), 2.0);
+    /// ```
+    pub fn increase_by_percentage(&self, percentage: f32) -> Self {
+        let factor = 1.0 + (percentage / 100.0);
+        Volume::Linear(self.to_linear() * factor)
     }
-}
 
-impl core::ops::AddAssign<Self> for Volume {
-    fn add_assign(&mut self, rhs: Self) {
-        *self = *self + rhs;
+    /// Decreases the volume by the specified percentage.
+    ///
+    /// This method works in the linear domain, where a 50% decrease
+    /// means halving the volume (equivalent to -6.02dB).
+    ///
+    /// # Arguments
+    /// * `percentage` - The percentage to decrease (50.0 means 50% decrease)
+    ///
+    /// # Examples
+    /// ```
+    /// use bevy_audio::Volume;
+    ///
+    /// let volume = Volume::Linear(1.0);
+    /// let decreased = volume.decrease_by_percentage(50.0);
+    /// assert_eq!(decreased.to_linear(), 0.5);
+    /// ```
+    pub fn decrease_by_percentage(&self, percentage: f32) -> Self {
+        let factor = 1.0 - (percentage / 100.0).clamp(0.0, 1.0);
+        Volume::Linear(self.to_linear() * factor)
     }
-}
 
-impl core::ops::Sub<Self> for Volume {
-    type Output = Self;
-
-    fn sub(self, rhs: Self) -> Self {
-        use Volume::{Decibels, Linear};
-
-        match (self, rhs) {
-            (Linear(a), Linear(b)) => Linear(a - b),
-            (Decibels(a), Decibels(b)) => Decibels(linear_to_decibels(
-                decibels_to_linear(a) - decibels_to_linear(b),
-            )),
-            // {Linear, Decibels} favors the left hand side of the operation by
-            // first converting the right hand side to the same type as the left
-            // hand side and then performing the operation.
-            (Linear(..), Decibels(db)) => self - Linear(decibels_to_linear(db)),
-            (Decibels(..), Linear(l)) => self - Decibels(linear_to_decibels(l)),
-        }
+    /// Scales the volume to a specific linear factor relative to the current volume.
+    ///
+    /// This is different from `adjust_by_linear` as it sets the volume to be
+    /// exactly the factor times the original volume, rather than applying
+    /// the factor to the current volume.
+    ///
+    /// # Arguments
+    /// * `factor` - The scaling factor (2.0 = twice as loud, 0.5 = half as loud)
+    ///
+    /// # Examples
+    /// ```
+    /// use bevy_audio::Volume;
+    ///
+    /// let volume = Volume::Linear(0.8);
+    /// let scaled = volume.scale_to_factor(1.25);
+    /// assert_eq!(scaled.to_linear(), 1.0);
+    /// ```
+    pub fn scale_to_factor(&self, factor: f32) -> Self {
+        Volume::Linear(self.to_linear() * factor)
     }
-}
 
-impl core::ops::SubAssign<Self> for Volume {
-    fn sub_assign(&mut self, rhs: Self) {
-        *self = *self - rhs;
+    /// Creates a fade effect by interpolating between current volume and target volume.
+    ///
+    /// This method performs linear interpolation in the linear domain, which
+    /// provides a more natural-sounding fade effect.
+    ///
+    /// # Arguments
+    /// * `target` - The target volume to fade towards
+    /// * `factor` - The interpolation factor (0.0 = current volume, 1.0 = target volume)
+    ///
+    /// # Examples
+    /// ```
+    /// use bevy_audio::Volume;
+    ///
+    /// let current = Volume::Linear(1.0);
+    /// let target = Volume::Linear(0.0);
+    /// let faded = current.fade_towards(target, 0.5);
+    /// assert_eq!(faded.to_linear(), 0.5);
+    /// ```
+    pub fn fade_towards(&self, target: Volume, factor: f32) -> Self {
+        let current_linear = self.to_linear();
+        let target_linear = target.to_linear();
+        let factor_clamped = factor.clamp(0.0, 1.0);
+
+        let interpolated = current_linear + (target_linear - current_linear) * factor_clamped;
+        Volume::Linear(interpolated)
     }
 }
 
@@ -306,17 +344,11 @@ mod tests {
 
                 assert!(
                     db_delta.abs() < 1e-2,
-                    "Expected ~{}dB, got {}dB (delta {})",
-                    db,
-                    db_test,
-                    db_delta
+                    "Expected ~{db}dB, got {db_test}dB (delta {db_delta})",
                 );
                 assert!(
                     linear_relative_delta.abs() < 1e-3,
-                    "Expected ~{}, got {} (relative delta {})",
-                    linear,
-                    linear_test,
-                    linear_relative_delta
+                    "Expected ~{linear}, got {linear_test} (relative delta {linear_relative_delta})",
                 );
             }
         }
@@ -337,8 +369,9 @@ mod tests {
             Linear(f32::NEG_INFINITY).to_decibels().is_infinite(),
             "Negative infinite linear scale is equivalent to infinite decibels"
         );
-        assert!(
-            Decibels(f32::NEG_INFINITY).to_linear().abs() == 0.0,
+        assert_eq!(
+            Decibels(f32::NEG_INFINITY).to_linear().abs(),
+            0.0,
             "Negative infinity decibels is equivalent to zero linear scale"
         );
 
@@ -361,69 +394,87 @@ mod tests {
         );
     }
 
+    #[test]
+    fn test_increase_by_percentage() {
+        let volume = Linear(1.0);
+
+        // 100% increase should double the volume
+        let increased = volume.increase_by_percentage(100.0);
+        assert_eq!(increased.to_linear(), 2.0);
+
+        // 50% increase
+        let increased = volume.increase_by_percentage(50.0);
+        assert_eq!(increased.to_linear(), 1.5);
+    }
+
+    #[test]
+    fn test_decrease_by_percentage() {
+        let volume = Linear(1.0);
+
+        // 50% decrease should halve the volume
+        let decreased = volume.decrease_by_percentage(50.0);
+        assert_eq!(decreased.to_linear(), 0.5);
+
+        // 25% decrease
+        let decreased = volume.decrease_by_percentage(25.0);
+        assert_eq!(decreased.to_linear(), 0.75);
+
+        // 100% decrease should result in silence
+        let decreased = volume.decrease_by_percentage(100.0);
+        assert_eq!(decreased.to_linear(), 0.0);
+    }
+
+    #[test]
+    fn test_scale_to_factor() {
+        let volume = Linear(0.8);
+        let scaled = volume.scale_to_factor(1.25);
+        assert_eq!(scaled.to_linear(), 1.0);
+    }
+
+    #[test]
+    fn test_fade_towards() {
+        let current = Linear(1.0);
+        let target = Linear(0.0);
+
+        // 50% fade should result in 0.5 linear volume
+        let faded = current.fade_towards(target, 0.5);
+        assert_eq!(faded.to_linear(), 0.5);
+
+        // 0% fade should keep current volume
+        let faded = current.fade_towards(target, 0.0);
+        assert_eq!(faded.to_linear(), 1.0);
+
+        // 100% fade should reach target volume
+        let faded = current.fade_towards(target, 1.0);
+        assert_eq!(faded.to_linear(), 0.0);
+    }
+
+    #[test]
+    fn test_decibel_math_properties() {
+        let volume = Linear(1.0);
+
+        // Adding 20dB should multiply linear volume by 10
+        let adjusted = volume * Decibels(20.0);
+        assert_approx_eq(adjusted, Linear(10.0));
+
+        // Subtracting 20dB should divide linear volume by 10
+        let adjusted = volume / Decibels(20.0);
+        assert_approx_eq(adjusted, Linear(0.1));
+    }
+
     fn assert_approx_eq(a: Volume, b: Volume) {
         const EPSILON: f32 = 0.0001;
 
         match (a, b) {
             (Decibels(a), Decibels(b)) | (Linear(a), Linear(b)) => assert!(
                 (a - b).abs() < EPSILON,
-                "Expected {:?} to be approximately equal to {:?}",
-                a,
-                b
+                "Expected {a:?} to be approximately equal to {b:?}",
             ),
             (a, b) => assert!(
                 (a.to_decibels() - b.to_decibels()).abs() < EPSILON,
-                "Expected {:?} to be approximately equal to {:?}",
-                a,
-                b
+                "Expected {a:?} to be approximately equal to {b:?}",
             ),
         }
-    }
-
-    #[test]
-    fn volume_ops_add() {
-        // Linear to Linear.
-        assert_approx_eq(Linear(0.5) + Linear(0.5), Linear(1.0));
-        assert_approx_eq(Linear(0.5) + Linear(0.1), Linear(0.6));
-        assert_approx_eq(Linear(0.5) + Linear(-0.5), Linear(0.0));
-
-        // Decibels to Decibels.
-        assert_approx_eq(Decibels(0.0) + Decibels(0.0), Decibels(6.0206003));
-        assert_approx_eq(Decibels(6.0) + Decibels(6.0), Decibels(12.020599));
-        assert_approx_eq(Decibels(-6.0) + Decibels(-6.0), Decibels(0.020599423));
-
-        // {Linear, Decibels} favors the left hand side of the operation.
-        assert_approx_eq(Linear(0.5) + Decibels(0.0), Linear(1.5));
-        assert_approx_eq(Decibels(0.0) + Linear(0.5), Decibels(3.521825));
-    }
-
-    #[test]
-    fn volume_ops_add_assign() {
-        // Linear to Linear.
-        let mut volume = Linear(0.5);
-        volume += Linear(0.5);
-        assert_approx_eq(volume, Linear(1.0));
-    }
-
-    #[test]
-    fn volume_ops_sub() {
-        // Linear to Linear.
-        assert_approx_eq(Linear(0.5) - Linear(0.5), Linear(0.0));
-        assert_approx_eq(Linear(0.5) - Linear(0.1), Linear(0.4));
-        assert_approx_eq(Linear(0.5) - Linear(-0.5), Linear(1.0));
-
-        // Decibels to Decibels.
-        assert_eq!(Decibels(0.0) - Decibels(0.0), Decibels(f32::NEG_INFINITY));
-        assert_approx_eq(Decibels(6.0) - Decibels(4.0), Decibels(-7.736506));
-        assert_eq!(Decibels(-6.0) - Decibels(-6.0), Decibels(f32::NEG_INFINITY));
-    }
-
-    #[test]
-    fn volume_ops_sub_assign() {
-        // Linear to Linear.
-        let mut volume = Linear(0.5);
-        volume -= Linear(0.5);
-        assert_approx_eq(volume, Linear(0.0));
     }
 
     #[test]

@@ -1,4 +1,4 @@
-#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 
 //! This crate contains macros used by Bevy's `Reflect` API.
 //!
@@ -16,11 +16,10 @@
 
 extern crate proc_macro;
 
-mod attribute_parser;
 mod container_attributes;
 mod custom_attributes;
 mod derive_data;
-#[cfg(feature = "documentation")]
+#[cfg(feature = "reflect_documentation")]
 mod documentation;
 mod enum_utility;
 mod field_attributes;
@@ -32,13 +31,14 @@ mod meta;
 mod reflect_opaque;
 mod registration;
 mod remote;
-mod result_sifter;
 mod serialization;
 mod string_expr;
 mod struct_utility;
 mod trait_reflection;
 mod type_path;
 mod where_clause_options;
+
+use std::{fs, io::Read, path::PathBuf};
 
 use crate::derive_data::{ReflectDerive, ReflectMeta, ReflectStruct};
 use container_attributes::ContainerAttributes;
@@ -161,7 +161,7 @@ fn match_reflect_impls(ast: DeriveInput, source: ReflectImplSource) -> TokenStre
 ///   A custom implementation may be provided using `#[reflect(Clone(my_clone_func))]` where
 ///   `my_clone_func` is the path to a function matching the signature:
 ///   `(&Self) -> Self`.
-/// * `#[reflect(Debug)]` will force the implementation of `Reflect::reflect_debug` to rely on
+/// * `#[reflect(Debug)]` will force the implementation of `Reflect::debug` to rely on
 ///   the type's [`Debug`] implementation.
 ///   A custom implementation may be provided using `#[reflect(Debug(my_debug_func))]` where
 ///   `my_debug_func` is the path to a function matching the signature:
@@ -171,6 +171,11 @@ fn match_reflect_impls(ast: DeriveInput, source: ReflectImplSource) -> TokenStre
 ///   A custom implementation may be provided using `#[reflect(PartialEq(my_partial_eq_func))]` where
 ///   `my_partial_eq_func` is the path to a function matching the signature:
 ///   `(&Self, value: &dyn #bevy_reflect_path::Reflect) -> bool`.
+/// * `#[reflect(PartialOrd)]` will force the implementation of `PartialReflect::reflect_partial_cmp`
+///   to rely on the type's [`PartialOrd`] implementation.
+///   A custom implementation may be provided using `#[reflect(PartialOrd(my_partial_cmp_fn))]` where
+///   `my_partial_cmp_fn` is the path to a function matching the signature:
+///   `(&Self, value: &dyn #bevy_reflect_path::PartialReflect) -> Option<::core::cmp::Ordering>`.
 /// * `#[reflect(Hash)]` will force the implementation of `Reflect::reflect_hash` to rely on
 ///   the type's [`Hash`] implementation.
 ///   A custom implementation may be provided using `#[reflect(Hash(my_hash_func))]` where
@@ -231,11 +236,11 @@ fn match_reflect_impls(ast: DeriveInput, source: ReflectImplSource) -> TokenStre
 /// // Generates a where clause like:
 /// // impl bevy_reflect::Reflect for Foo
 /// // where
-/// //   Self: Any + Send + Sync,
-/// //   Vec<Foo>: FromReflect + TypePath,
+/// //   Foo: Any + Send + Sync,
+/// //   Vec<Foo>: FromReflect + TypePath + MaybeTyped + RegisterForReflection,
 /// ```
 ///
-/// In this case, `Foo` is given the bounds `Vec<Foo>: FromReflect + TypePath`,
+/// In this case, `Foo` is given the bounds `Vec<Foo>: FromReflect + ...`,
 /// which requires that `Foo` implements `FromReflect`,
 /// which requires that `Vec<Foo>` implements `FromReflect`,
 /// and so on, resulting in the error.
@@ -283,10 +288,10 @@ fn match_reflect_impls(ast: DeriveInput, source: ReflectImplSource) -> TokenStre
 /// //
 /// // impl<T: Trait> bevy_reflect::Reflect for Foo<T>
 /// // where
-/// //   Self: Any + Send + Sync,
+/// //   Foo<T>: Any + Send + Sync,
 /// //   T::Assoc: Default,
 /// //   T: TypePath,
-/// //   T::Assoc: FromReflect + TypePath,
+/// //   T::Assoc: FromReflect + TypePath + MaybeTyped + RegisterForReflection,
 /// //   T::Assoc: List,
 /// // {/* ... */}
 /// ```
@@ -320,6 +325,12 @@ fn match_reflect_impls(ast: DeriveInput, source: ReflectImplSource) -> TokenStre
 /// #[reflect(@Required, @EditorTooltip::new("An ID is required!"))]
 /// struct Id(u8);
 /// ```
+/// ## `#[reflect(no_auto_register)]`
+///
+/// This attribute will opt-out of the automatic reflect type registration.
+///
+/// All non-generic types annotated with `#[derive(Reflect)]` are usually automatically registered on app startup.
+/// If this behavior is not desired, this attribute may be used to disable it for the annotated type.
 ///
 /// # Field Attributes
 ///
@@ -674,7 +685,7 @@ pub fn impl_reflect_opaque(input: TokenStream) -> TokenStream {
 
     let meta = ReflectMeta::new(type_path, def.traits.unwrap_or_default());
 
-    #[cfg(feature = "documentation")]
+    #[cfg(feature = "reflect_documentation")]
     let meta = meta.with_docs(documentation::Documentation::from_attributes(&def.attrs));
 
     let reflect_impls = impls::impl_opaque(&meta);
@@ -841,5 +852,55 @@ pub fn impl_type_path(input: TokenStream) -> TokenStream {
         const _: () = {
             #type_path_impl
         };
+    })
+}
+
+/// Collects and loads type registrations when using `auto_register_static` feature.
+///
+/// Correctly using this macro requires following:
+/// 1. This macro must be called **last** during compilation. This can be achieved by putting your main function
+///    in a separate crate or restructuring your project to be separated into `bin` and `lib`, and putting this macro in `bin`.
+///    Any automatic type registrations using `#[derive(Reflect)]` within the same crate as this macro are not guaranteed to run.
+/// 2. Your project must be compiled with `auto_register_static` feature **and** `BEVY_REFLECT_AUTO_REGISTER_STATIC=1` env variable.
+///    Enabling the feature generates registration functions while setting the variable enables export and
+///    caching of registration function names.
+/// 3. Must be called before creating `App` or using `TypeRegistry::register_derived_types`.
+///
+/// If you're experiencing linking issues try running `cargo clean` before rebuilding.
+#[proc_macro]
+pub fn load_type_registrations(_input: TokenStream) -> TokenStream {
+    if !cfg!(feature = "auto_register_static") {
+        return TokenStream::new();
+    }
+
+    let Ok(dir) = fs::read_dir(PathBuf::from("target").join("bevy_reflect_type_registrations"))
+    else {
+        return TokenStream::new();
+    };
+    let mut str_buf = String::new();
+    let mut registration_fns = Vec::new();
+    for file_path in dir {
+        let mut file = fs::OpenOptions::new()
+            .read(true)
+            .open(file_path.unwrap().path())
+            .unwrap();
+        file.read_to_string(&mut str_buf).unwrap();
+        registration_fns.extend(str_buf.lines().filter(|s| !s.is_empty()).map(|s| {
+            s.parse::<proc_macro2::TokenStream>()
+                .expect("Unexpected function name")
+        }));
+        str_buf.clear();
+    }
+    let bevy_reflect_path = meta::get_bevy_reflect_path();
+    TokenStream::from(quote! {
+        {
+            fn _register_types(){
+                unsafe extern "Rust" {
+                    #( safe fn #registration_fns(registry_ptr: &mut #bevy_reflect_path::TypeRegistry); )*
+                };
+                #( #bevy_reflect_path::__macro_exports::auto_register::push_registration_fn(#registration_fns); )*
+            }
+            _register_types();
+        }
     })
 }

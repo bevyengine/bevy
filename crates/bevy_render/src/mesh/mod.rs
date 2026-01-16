@@ -1,19 +1,14 @@
-use bevy_math::Vec3;
-pub use bevy_mesh::*;
-use morph::{MeshMorphWeights, MorphWeights};
 pub mod allocator;
-mod components;
 use crate::{
-    primitives::Aabb,
-    render_asset::{PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets},
-    render_resource::TextureView,
+    render_asset::{
+        AssetExtractionError, PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets,
+    },
     texture::GpuImage,
-    view::VisibilitySystems,
     RenderApp,
 };
 use allocator::MeshAllocatorPlugin;
-use bevy_app::{App, Plugin, PostUpdate};
-use bevy_asset::{AssetApp, AssetEventSystems, AssetId, RenderAssetUsages};
+use bevy_app::{App, Plugin};
+use bevy_asset::{AssetId, RenderAssetUsages};
 use bevy_ecs::{
     prelude::*,
     system::{
@@ -21,60 +16,21 @@ use bevy_ecs::{
         SystemParamItem,
     },
 };
-pub use components::{mark_3d_meshes_as_changed_if_their_assets_changed, Mesh2d, Mesh3d, MeshTag};
+#[cfg(feature = "morph")]
+use bevy_mesh::morph::{MeshMorphWeights, MorphWeights};
+use bevy_mesh::*;
 use wgpu::IndexFormat;
 
-/// Registers all [`MeshBuilder`] types.
-pub struct MeshBuildersPlugin;
+/// Makes sure that [`Mesh`]es are extracted and prepared for the GPU.
+/// Does *not* add the [`Mesh`] as an asset. Use [`MeshPlugin`] for that.
+pub struct MeshRenderAssetPlugin;
 
-impl Plugin for MeshBuildersPlugin {
+impl Plugin for MeshRenderAssetPlugin {
     fn build(&self, app: &mut App) {
-        // 2D Mesh builders
-        app.register_type::<CircleMeshBuilder>()
-            .register_type::<CircularSectorMeshBuilder>()
-            .register_type::<CircularSegmentMeshBuilder>()
-            .register_type::<RegularPolygonMeshBuilder>()
-            .register_type::<EllipseMeshBuilder>()
-            .register_type::<AnnulusMeshBuilder>()
-            .register_type::<RhombusMeshBuilder>()
-            .register_type::<Triangle2dMeshBuilder>()
-            .register_type::<RectangleMeshBuilder>()
-            .register_type::<Capsule2dMeshBuilder>()
-            // 3D Mesh builders
-            .register_type::<Capsule3dMeshBuilder>()
-            .register_type::<ConeMeshBuilder>()
-            .register_type::<ConicalFrustumMeshBuilder>()
-            .register_type::<CuboidMeshBuilder>()
-            .register_type::<CylinderMeshBuilder>()
-            .register_type::<PlaneMeshBuilder>()
-            .register_type::<SphereMeshBuilder>()
-            .register_type::<TetrahedronMeshBuilder>()
-            .register_type::<TorusMeshBuilder>()
-            .register_type::<Triangle3dMeshBuilder>();
-    }
-}
-
-/// Adds the [`Mesh`] as an asset and makes sure that they are extracted and prepared for the GPU.
-pub struct MeshPlugin;
-
-impl Plugin for MeshPlugin {
-    fn build(&self, app: &mut App) {
-        app.init_asset::<Mesh>()
-            .init_asset::<skinning::SkinnedMeshInverseBindposes>()
-            .register_asset_reflect::<Mesh>()
-            .register_type::<Mesh3d>()
-            .register_type::<skinning::SkinnedMesh>()
-            .register_type::<Vec<Entity>>()
-            .add_plugins(MeshBuildersPlugin)
+        app
             // 'Mesh' must be prepared after 'Image' as meshes rely on the morph target image being ready
             .add_plugins(RenderAssetPlugin::<RenderMesh, GpuImage>::default())
-            .add_plugins(MeshAllocatorPlugin)
-            .add_systems(
-                PostUpdate,
-                mark_3d_meshes_as_changed_if_their_assets_changed
-                    .ambiguous_with(VisibilitySystems::CalculateBounds)
-                    .before(AssetEventSystems),
-            );
+            .add_plugins(MeshAllocatorPlugin);
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
@@ -86,12 +42,15 @@ impl Plugin for MeshPlugin {
 
 /// [Inherit weights](inherit_weights) from glTF mesh parent entity to direct
 /// bevy mesh child entities (ie: glTF primitive).
+#[cfg(feature = "morph")]
 pub struct MorphPlugin;
+#[cfg(feature = "morph")]
 impl Plugin for MorphPlugin {
     fn build(&self, app: &mut App) {
-        app.register_type::<MorphWeights>()
-            .register_type::<MeshMorphWeights>()
-            .add_systems(PostUpdate, inherit_weights);
+        app.add_systems(
+            bevy_app::PostUpdate,
+            inherit_weights.in_set(InheritWeightSystems),
+        );
     }
 }
 
@@ -99,6 +58,7 @@ impl Plugin for MorphPlugin {
 /// should be inherited by children meshes.
 ///
 /// Only direct children are updated, to fulfill the expectations of glTF spec.
+#[cfg(feature = "morph")]
 pub fn inherit_weights(
     morph_nodes: Query<(&Children, &MorphWeights), (Without<Mesh3d>, Changed<MorphWeights>)>,
     mut morph_primitives: Query<&mut MeshMorphWeights, With<Mesh3d>>,
@@ -112,26 +72,6 @@ pub fn inherit_weights(
     }
 }
 
-pub trait MeshAabb {
-    /// Compute the Axis-Aligned Bounding Box of the mesh vertices in model space
-    ///
-    /// Returns `None` if `self` doesn't have [`Mesh::ATTRIBUTE_POSITION`] of
-    /// type [`VertexAttributeValues::Float32x3`], or if `self` doesn't have any vertices.
-    fn compute_aabb(&self) -> Option<Aabb>;
-}
-
-impl MeshAabb for Mesh {
-    fn compute_aabb(&self) -> Option<Aabb> {
-        let Some(VertexAttributeValues::Float32x3(values)) =
-            self.attribute(Mesh::ATTRIBUTE_POSITION)
-        else {
-            return None;
-        };
-
-        Aabb::enclosing(values.iter().map(|p| Vec3::from_slice(p)))
-    }
-}
-
 /// The render world representation of a [`Mesh`].
 #[derive(Debug, Clone)]
 pub struct RenderMesh {
@@ -139,7 +79,8 @@ pub struct RenderMesh {
     pub vertex_count: u32,
 
     /// Morph targets for the mesh, if present.
-    pub morph_targets: Option<TextureView>,
+    #[cfg(feature = "morph")]
+    pub morph_targets: Option<crate::render_resource::TextureView>,
 
     /// Information about the mesh data buffers, including whether the mesh uses
     /// indices or not.
@@ -192,6 +133,15 @@ impl RenderAsset for RenderMesh {
         mesh.asset_usage
     }
 
+    fn take_gpu_data(
+        source: &mut Self::SourceAsset,
+        _previous_gpu_asset: Option<&Self>,
+    ) -> Result<Self::SourceAsset, AssetExtractionError> {
+        source
+            .take_gpu_data()
+            .map_err(|_| AssetExtractionError::AlreadyExtracted)
+    }
+
     fn byte_len(mesh: &Self::SourceAsset) -> Option<usize> {
         let mut vertex_size = 0;
         for attribute_data in mesh.attributes() {
@@ -208,11 +158,13 @@ impl RenderAsset for RenderMesh {
     fn prepare_asset(
         mesh: Self::SourceAsset,
         _: AssetId<Self::SourceAsset>,
-        (images, mesh_vertex_buffer_layouts): &mut SystemParamItem<Self::Param>,
+        (_images, mesh_vertex_buffer_layouts): &mut SystemParamItem<Self::Param>,
+        _: Option<&Self>,
     ) -> Result<Self, PrepareAssetError<Self::SourceAsset>> {
+        #[cfg(feature = "morph")]
         let morph_targets = match mesh.morph_targets() {
             Some(mt) => {
-                let Some(target_image) = images.get(mt) else {
+                let Some(target_image) = _images.get(mt) else {
                     return Err(PrepareAssetError::RetryNextUpdate(mesh));
                 };
                 Some(target_image.texture_view.clone())
@@ -231,17 +183,20 @@ impl RenderAsset for RenderMesh {
         let mesh_vertex_buffer_layout =
             mesh.get_mesh_vertex_buffer_layout(mesh_vertex_buffer_layouts);
 
-        let mut key_bits = BaseMeshPipelineKey::from_primitive_topology(mesh.primitive_topology());
-        key_bits.set(
-            BaseMeshPipelineKey::MORPH_TARGETS,
-            mesh.morph_targets().is_some(),
-        );
+        let key_bits = BaseMeshPipelineKey::from_primitive_topology(mesh.primitive_topology());
+        #[cfg(feature = "morph")]
+        let key_bits = if mesh.morph_targets().is_some() {
+            key_bits | BaseMeshPipelineKey::MORPH_TARGETS
+        } else {
+            key_bits
+        };
 
         Ok(RenderMesh {
             vertex_count: mesh.count_vertices() as u32,
             buffer_info,
             key_bits,
             layout: mesh_vertex_buffer_layout,
+            #[cfg(feature = "morph")]
             morph_targets,
         })
     }

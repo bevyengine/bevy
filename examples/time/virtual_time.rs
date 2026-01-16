@@ -21,7 +21,7 @@ fn main() {
                 change_time_speed::<1>.run_if(input_just_pressed(KeyCode::ArrowUp)),
                 change_time_speed::<-1>.run_if(input_just_pressed(KeyCode::ArrowDown)),
                 (update_virtual_time_info_text, update_real_time_info_text)
-                    // update the texts on a timer to make them more readable
+                    // update the texts on a timer to make them more readable.
                     // `on_timer` run condition uses `Virtual` time meaning it's scaled
                     // and would result in the UI updating at different intervals based
                     // on `Time<Virtual>::relative_speed` and `Time<Virtual>::is_paused()`
@@ -80,10 +80,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut time: ResMu
         Node {
             display: Display::Flex,
             justify_content: JustifyContent::SpaceBetween,
-            width: Val::Percent(100.),
+            width: percent(100),
             position_type: PositionType::Absolute,
-            top: Val::Px(0.),
-            padding: UiRect::all(Val::Px(20.0)),
+            top: px(0),
+            padding: UiRect::all(px(20)),
             ..default()
         },
         children![
@@ -96,13 +96,13 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut time: ResMu
                 RealTime,
             ),
             (
-                Text::new("CONTROLS\nUn/Pause: Space\nSpeed+: Up\nSpeed-: Down"),
+                Text::new("CONTROLS\n(Un)pause: Space\nSpeed+: Up\nSpeed-: Down"),
                 TextFont {
                     font_size,
                     ..default()
                 },
                 TextColor(Color::srgb(0.85, 0.85, 0.85)),
-                TextLayout::new_with_justify(JustifyText::Center),
+                TextLayout::new_with_justify(Justify::Center),
             ),
             (
                 Text::default(),
@@ -111,7 +111,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut time: ResMu
                     ..default()
                 },
                 TextColor(virtual_color),
-                TextLayout::new_with_justify(JustifyText::Right),
+                TextLayout::new_with_justify(Justify::Right),
                 VirtualTime,
             ),
         ],
@@ -163,13 +163,9 @@ fn change_time_speed<const DELTA: i8>(mut time: ResMut<Time<Virtual>>) {
     time.set_relative_speed(time_speed);
 }
 
-/// pause or resume `Relative` time
+/// Pause or resume `Relative` time
 fn toggle_pause(mut time: ResMut<Time<Virtual>>) {
-    if time.is_paused() {
-        time.unpause();
-    } else {
-        time.pause();
-    }
+    time.toggle();
 }
 
 /// Update the `Real` time info text

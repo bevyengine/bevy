@@ -5,6 +5,7 @@
         meshlet_cluster_instance_ids,
         meshlet_instance_uniforms,
         meshlet_raster_clusters,
+        meshlet_previous_raster_counts,
         meshlet_software_raster_cluster_count,
         meshlet_visibility_buffer,
         view,
@@ -22,7 +23,7 @@
 
 // TODO: Fixed-point math and top-left rule
 
-var<workgroup> viewport_vertices: array<vec3f, 255>;
+var<workgroup> viewport_vertices: array<vec3f, 256>;
 
 @compute
 @workgroup_size(128, 1, 1) // 128 threads per workgroup, 1-2 vertices per thread, 1 triangle per thread, 1 cluster per workgroup
@@ -40,12 +41,11 @@ fn rasterize_cluster(
     if workgroup_id_1d >= meshlet_software_raster_cluster_count { return; }
 #endif
 
-    let cluster_id = meshlet_raster_clusters[workgroup_id_1d];
-    let meshlet_id = meshlet_cluster_meshlet_ids[cluster_id];
-    var meshlet = meshlets[meshlet_id];
+    let cluster_id = workgroup_id_1d + meshlet_previous_raster_counts[0];
+    let instanced_offset = meshlet_raster_clusters[cluster_id];
+    var meshlet = meshlets[instanced_offset.offset];
 
-    let instance_id = meshlet_cluster_instance_ids[cluster_id];
-    let instance_uniform = meshlet_instance_uniforms[instance_id];
+    let instance_uniform = meshlet_instance_uniforms[instanced_offset.instance_id];
     let world_from_local = affine3_to_square(instance_uniform.world_from_local);
 
     // Load and project 1 vertex per thread, and then again if there are more than 128 vertices in the meshlet

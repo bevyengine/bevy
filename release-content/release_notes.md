@@ -1,10 +1,10 @@
 # Bevy's Release Notes Process
 
-Hi! Did someone add `M-Needs-Release-Note` to your PR? If so, you're in the right place.
+Hi! Did someone add `M-Release-Note` to your PR? If so, you're in the right place.
 Let's talk about how this process works.
 
 When we make high-impact changes to Bevy, we need to communicate them to users (and potential users!).
-For the most part, this is done via our [famously in-depth release notes](https://bevyengine.org/news/).
+For the most part, this is done via our [famously in-depth release notes](https://bevy.org/news/).
 To avoid a crunch at the end of the cycle as we *write* all of these,
 Bevy asks authors (and reviewers) to write draft release notes as part of the pull requests to add high-impact features.
 

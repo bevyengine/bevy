@@ -2,19 +2,22 @@
 
 use std::f32::consts::PI;
 
+#[cfg(feature = "free_camera")]
+use bevy::camera_controller::free_camera::{FreeCamera, FreeCameraPlugin};
 use bevy::{
-    anti_aliasing::experimental::taa::{TemporalAntiAliasPlugin, TemporalAntiAliasing},
+    anti_alias::taa::TemporalAntiAliasing,
+    camera::{
+        primitives::{CubemapFrusta, Frustum},
+        visibility::{CubemapVisibleEntities, VisibleMeshEntities},
+    },
     core_pipeline::{
         prepass::{DepthPrepass, MotionVectorPrepass},
         Skybox,
     },
+    light::ShadowFilteringMethod,
     math::vec3,
-    pbr::{CubemapVisibleEntities, ShadowFilteringMethod, VisibleMeshEntities},
     prelude::*,
-    render::{
-        camera::TemporalJitter,
-        primitives::{CubemapFrusta, Frustum},
-    },
+    render::camera::TemporalJitter,
 };
 
 use crate::widgets::{RadioButton, RadioButtonText, WidgetClickEvent, WidgetClickSender};
@@ -111,17 +114,23 @@ enum AppSetting {
 
 /// The example application entry point.
 fn main() {
+    #[cfg(not(feature = "free_camera"))]
+    println!("Enable feature free_camera to add a free camera to this example");
+
     App::new()
         .init_resource::<AppStatus>()
-        .add_plugins(DefaultPlugins.set(WindowPlugin {
-            primary_window: Some(Window {
-                title: "Bevy Percentage Closer Soft Shadows Example".into(),
+        .add_plugins((
+            DefaultPlugins.set(WindowPlugin {
+                primary_window: Some(Window {
+                    title: "Bevy Percentage Closer Soft Shadows Example".into(),
+                    ..default()
+                }),
                 ..default()
             }),
-            ..default()
-        }))
-        .add_plugins(TemporalAntiAliasPlugin)
-        .add_event::<WidgetClickEvent<AppSetting>>()
+            #[cfg(feature = "free_camera")]
+            FreeCameraPlugin,
+        ))
+        .add_message::<WidgetClickEvent<AppSetting>>()
         .add_systems(Startup, setup)
         .add_systems(Update, widgets::handle_ui_interactions::<AppSetting>)
         .add_systems(
@@ -156,6 +165,8 @@ fn spawn_camera(commands: &mut Commands, asset_server: &AssetServer) {
             Transform::from_xyz(-12.912 * 0.7, 4.466 * 0.7, -10.624 * 0.7).with_rotation(
                 Quat::from_euler(EulerRot::YXZ, -134.76 / 180.0 * PI, -0.175, 0.0),
             ),
+            #[cfg(feature = "free_camera")]
+            FreeCamera::default(),
         ))
         .insert(ShadowFilteringMethod::Gaussian)
         // `TemporalJitter` is needed for TAA. Note that it does nothing without
@@ -208,20 +219,18 @@ fn spawn_gltf_scene(commands: &mut Commands, asset_server: &AssetServer) {
 
 /// Spawns all the buttons at the bottom of the screen.
 fn spawn_buttons(commands: &mut Commands) {
-    commands
-        .spawn(widgets::main_ui_node())
-        .with_children(|parent| {
-            widgets::spawn_option_buttons(
-                parent,
+    commands.spawn((
+        widgets::main_ui_node(),
+        children![
+            widgets::option_buttons(
                 "Light Type",
                 &[
                     (AppSetting::LightType(LightType::Directional), "Directional"),
                     (AppSetting::LightType(LightType::Point), "Point"),
                     (AppSetting::LightType(LightType::Spot), "Spot"),
                 ],
-            );
-            widgets::spawn_option_buttons(
-                parent,
+            ),
+            widgets::option_buttons(
                 "Shadow Filter",
                 &[
                     (AppSetting::ShadowFilter(ShadowFilter::Temporal), "Temporal"),
@@ -230,16 +239,16 @@ fn spawn_buttons(commands: &mut Commands) {
                         "Non-Temporal",
                     ),
                 ],
-            );
-            widgets::spawn_option_buttons(
-                parent,
+            ),
+            widgets::option_buttons(
                 "Soft Shadows",
                 &[
                     (AppSetting::SoftShadows(true), "On"),
                     (AppSetting::SoftShadows(false), "Off"),
                 ],
-            );
-        });
+            ),
+        ],
+    ));
 }
 
 /// Updates the style of the radio buttons that enable and disable soft shadows
@@ -277,7 +286,7 @@ fn update_radio_buttons(
 fn handle_light_type_change(
     mut commands: Commands,
     mut lights: Query<Entity, Or<(With<DirectionalLight>, With<PointLight>, With<SpotLight>)>>,
-    mut events: EventReader<WidgetClickEvent<AppSetting>>,
+    mut events: MessageReader<WidgetClickEvent<AppSetting>>,
     mut app_status: ResMut<AppStatus>,
 ) {
     for event in events.read() {
@@ -314,7 +323,7 @@ fn handle_light_type_change(
 fn handle_shadow_filter_change(
     mut commands: Commands,
     mut cameras: Query<(Entity, &mut ShadowFilteringMethod)>,
-    mut events: EventReader<WidgetClickEvent<AppSetting>>,
+    mut events: MessageReader<WidgetClickEvent<AppSetting>>,
     mut app_status: ResMut<AppStatus>,
 ) {
     for event in events.read() {
@@ -343,7 +352,7 @@ fn handle_shadow_filter_change(
 /// Handles requests from the user to toggle soft shadows on and off.
 fn handle_pcss_toggle(
     mut lights: Query<AnyOf<(&mut DirectionalLight, &mut PointLight, &mut SpotLight)>>,
-    mut events: EventReader<WidgetClickEvent<AppSetting>>,
+    mut events: MessageReader<WidgetClickEvent<AppSetting>>,
     mut app_status: ResMut<AppStatus>,
 ) {
     for event in events.read() {
@@ -370,7 +379,7 @@ fn handle_pcss_toggle(
 /// Creates the [`DirectionalLight`] component with the appropriate settings.
 fn create_directional_light(app_status: &AppStatus) -> DirectionalLight {
     DirectionalLight {
-        shadows_enabled: true,
+        shadow_maps_enabled: true,
         soft_shadow_size: if app_status.soft_shadows {
             Some(LIGHT_RADIUS)
         } else {
@@ -386,7 +395,7 @@ fn create_point_light(app_status: &AppStatus) -> PointLight {
     PointLight {
         intensity: POINT_LIGHT_INTENSITY,
         range: POINT_LIGHT_RANGE,
-        shadows_enabled: true,
+        shadow_maps_enabled: true,
         radius: LIGHT_RADIUS,
         soft_shadows_enabled: app_status.soft_shadows,
         shadow_depth_bias: POINT_SHADOW_DEPTH_BIAS,
@@ -401,7 +410,7 @@ fn create_spot_light(app_status: &AppStatus) -> SpotLight {
         intensity: POINT_LIGHT_INTENSITY,
         range: POINT_LIGHT_RANGE,
         radius: LIGHT_RADIUS,
-        shadows_enabled: true,
+        shadow_maps_enabled: true,
         soft_shadows_enabled: app_status.soft_shadows,
         shadow_depth_bias: DIRECTIONAL_SHADOW_DEPTH_BIAS,
         shadow_map_near_z: SHADOW_MAP_NEAR_Z,

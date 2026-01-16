@@ -10,7 +10,7 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
-                resolution: WindowResolution::new(500., 300.).with_scale_factor_override(1.0),
+                resolution: WindowResolution::new(500, 300).with_scale_factor_override(1.0),
                 ..default()
             }),
             ..default()
@@ -27,38 +27,35 @@ fn setup(mut commands: Commands) {
     // camera
     commands.spawn(Camera2d);
     // root node
-    commands
-        .spawn(Node {
-            width: Val::Percent(100.0),
-            height: Val::Percent(100.0),
+    commands.spawn((
+        Node {
+            width: percent(100),
+            height: percent(100),
             justify_content: JustifyContent::SpaceBetween,
             ..default()
-        })
-        .with_children(|parent| {
-            // left vertical fill (border)
-            parent
-                .spawn((
-                    Node {
-                        width: Val::Px(300.0),
-                        height: Val::Percent(100.0),
-                        border: UiRect::all(Val::Px(2.0)),
-                        ..default()
-                    },
-                    BackgroundColor(Color::srgb(0.65, 0.65, 0.65)),
-                ))
-                .with_child((
-                    CustomText,
-                    Text::new("Example text"),
-                    TextFont {
-                        font_size: 25.0,
-                        ..default()
-                    },
-                    Node {
-                        align_self: AlignSelf::FlexEnd,
-                        ..default()
-                    },
-                ));
-        });
+        },
+        children![(
+            Node {
+                width: px(300),
+                height: percent(100),
+                border: UiRect::all(px(2)),
+                ..default()
+            },
+            BackgroundColor(Color::srgb(0.65, 0.65, 0.65)),
+            children![(
+                CustomText,
+                Text::new("Example text"),
+                TextFont {
+                    font_size: 25.0,
+                    ..default()
+                },
+                Node {
+                    align_self: AlignSelf::FlexEnd,
+                    ..default()
+                },
+            )]
+        )],
+    ));
 }
 
 /// Set the title of the window to the current override

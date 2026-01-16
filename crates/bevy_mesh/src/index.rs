@@ -1,8 +1,12 @@
 use bevy_reflect::Reflect;
 use core::iter;
 use core::iter::FusedIterator;
+#[cfg(feature = "serialize")]
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use wgpu_types::IndexFormat;
+
+use crate::MeshAccessError;
 
 /// A disjunction of four iterators. This is necessary to have a well-formed type for the output
 /// of [`Mesh::triangles`](super::Mesh::triangles), which produces iterators of four different types depending on the
@@ -31,6 +35,15 @@ where
             FourIterators::Fourth(iter) => iter.next(),
         }
     }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        match self {
+            FourIterators::First(iter) => iter.size_hint(),
+            FourIterators::Second(iter) => iter.size_hint(),
+            FourIterators::Third(iter) => iter.size_hint(),
+            FourIterators::Fourth(iter) => iter.size_hint(),
+        }
+    }
 }
 
 /// An error that occurred while trying to invert the winding of a [`Mesh`](super::Mesh).
@@ -45,6 +58,8 @@ pub enum MeshWindingInvertError {
     /// * [`PrimitiveTopology::LineList`](super::PrimitiveTopology::LineList), but the indices are not in chunks of 2.
     #[error("Indices weren't in chunks according to topology")]
     AbruptIndicesEnd,
+    #[error("Mesh access error: {0}")]
+    MeshAccessError(#[from] MeshAccessError),
 }
 
 /// An error that occurred while trying to extract a collection of triangles from a [`Mesh`](super::Mesh).
@@ -53,24 +68,21 @@ pub enum MeshTrianglesError {
     #[error("Source mesh does not have primitive topology TriangleList or TriangleStrip")]
     WrongTopology,
 
-    #[error("Source mesh lacks position data")]
-    MissingPositions,
-
     #[error("Source mesh position data is not Float32x3")]
     PositionsFormat,
 
-    #[error("Source mesh lacks face index data")]
-    MissingIndices,
-
     #[error("Face index data references vertices that do not exist")]
     BadIndices,
+    #[error("mesh access error: {0}")]
+    MeshAccessError(#[from] MeshAccessError),
 }
 
 /// An array of indices into the [`VertexAttributeValues`](super::VertexAttributeValues) for a mesh.
 ///
 /// It describes the order in which the vertex attributes should be joined into faces.
-#[derive(Debug, Clone, Reflect)]
+#[derive(Debug, Clone, Reflect, PartialEq)]
 #[reflect(Clone)]
+#[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
 pub enum Indices {
     U16(Vec<u16>),
     U32(Vec<u32>),
@@ -163,6 +175,7 @@ impl Iterator for IndicesIter<'_> {
 }
 
 impl<'a> ExactSizeIterator for IndicesIter<'a> {}
+
 impl<'a> FusedIterator for IndicesIter<'a> {}
 
 impl From<&Indices> for IndexFormat {

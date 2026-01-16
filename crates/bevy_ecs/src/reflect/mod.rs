@@ -14,13 +14,16 @@ use bevy_reflect::{
 mod bundle;
 mod component;
 mod entity_commands;
+mod event;
 mod from_world;
 mod map_entities;
 mod resource;
 
+use bevy_utils::prelude::DebugName;
 pub use bundle::{ReflectBundle, ReflectBundleFns};
 pub use component::{ReflectComponent, ReflectComponentFns};
 pub use entity_commands::ReflectCommandExt;
+pub use event::{ReflectEvent, ReflectEventFns};
 pub use from_world::{ReflectFromWorld, ReflectFromWorldFns};
 pub use map_entities::ReflectMapEntities;
 pub use resource::{ReflectResource, ReflectResourceFns};
@@ -43,6 +46,18 @@ impl DerefMut for AppTypeRegistry {
     #[inline]
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
+    }
+}
+
+impl AppTypeRegistry {
+    /// Creates [`AppTypeRegistry`] and automatically registers all types deriving [`Reflect`].
+    ///
+    /// See [`TypeRegistry::register_derived_types`] for more details.
+    #[cfg(feature = "reflect_auto_register")]
+    pub fn new_with_derived_types() -> Self {
+        let app_registry = AppTypeRegistry::default();
+        app_registry.write().register_derived_types();
+        app_registry
     }
 }
 
@@ -93,53 +108,55 @@ pub fn from_reflect_with_fallback<T: Reflect + TypePath>(
     world: &mut World,
     registry: &TypeRegistry,
 ) -> T {
-    fn different_type_error<T: TypePath>(reflected: &str) -> ! {
-        panic!(
-            "The registration for the reflected `{}` trait for the type `{}` produced \
-            a value of a different type",
-            reflected,
-            T::type_path(),
-        );
-    }
-
-    // First, try `FromReflect`. This is handled differently from the others because
-    // it doesn't need a subsequent `apply` and may fail.
-    if let Some(reflect_from_reflect) =
-        registry.get_type_data::<ReflectFromReflect>(TypeId::of::<T>())
-    {
+    #[inline(never)]
+    fn type_erased(
+        reflected: &dyn PartialReflect,
+        world: &mut World,
+        registry: &TypeRegistry,
+        id: TypeId,
+        name: DebugName,
+    ) -> alloc::boxed::Box<dyn core::any::Any> {
+        // First, try `FromReflect`. This is handled differently from the others because
+        // it doesn't need a subsequent `apply` and may fail.
         // If it fails it's ok, we can continue checking `Default` and `FromWorld`.
-        if let Some(value) = reflect_from_reflect.from_reflect(reflected) {
-            return value
-                .take::<T>()
-                .unwrap_or_else(|_| different_type_error::<T>("FromReflect"));
+        let (value, source) = if let Some(value) = registry
+            .get_type_data::<ReflectFromReflect>(id)
+            .and_then(|reflect_from_reflect| reflect_from_reflect.from_reflect(reflected))
+        {
+            (value, "FromReflect")
         }
-    }
-
-    // Create an instance of `T` using either the reflected `Default` or `FromWorld`.
-    let mut value = if let Some(reflect_default) =
-        registry.get_type_data::<ReflectDefault>(TypeId::of::<T>())
-    {
-        reflect_default
-            .default()
-            .take::<T>()
-            .unwrap_or_else(|_| different_type_error::<T>("Default"))
-    } else if let Some(reflect_from_world) =
-        registry.get_type_data::<ReflectFromWorld>(TypeId::of::<T>())
-    {
-        reflect_from_world
-            .from_world(world)
-            .take::<T>()
-            .unwrap_or_else(|_| different_type_error::<T>("FromWorld"))
-    } else {
-        panic!(
-            "Couldn't create an instance of `{}` using the reflected `FromReflect`, \
-            `Default` or `FromWorld` traits. Are you perhaps missing a `#[reflect(Default)]` \
-            or `#[reflect(FromWorld)]`?",
-            // FIXME: once we have unique reflect, use `TypePath`.
-            core::any::type_name::<T>(),
+        // Create an instance of `T` using either the reflected `Default` or `FromWorld`.
+        else if let Some(reflect_default) = registry.get_type_data::<ReflectDefault>(id) {
+            let mut value = reflect_default.default();
+            value.apply(reflected);
+            (value, "Default")
+        } else if let Some(reflect_from_world) = registry.get_type_data::<ReflectFromWorld>(id) {
+            let mut value = reflect_from_world.from_world(world);
+            value.apply(reflected);
+            (value, "FromWorld")
+        } else {
+            panic!(
+                "Couldn't create an instance of `{name}` using the reflected `FromReflect`, \
+                `Default` or `FromWorld` traits. Are you perhaps missing a `#[reflect(Default)]` \
+                or `#[reflect(FromWorld)]`?",
+            );
+        };
+        assert_eq!(
+            value.as_any().type_id(),
+            id,
+            "The registration for the reflected `{source}` trait for the type `{name}` produced \
+            a value of a different type",
         );
-    };
-
-    value.apply(reflected);
-    value
+        value
+    }
+    *type_erased(
+        reflected,
+        world,
+        registry,
+        TypeId::of::<T>(),
+        // FIXME: once we have unique reflect, use `TypePath`.
+        DebugName::type_name::<T>(),
+    )
+    .downcast::<T>()
+    .unwrap()
 }

@@ -409,11 +409,11 @@ impl PartialReflect for DynamicFunction<'static> {
         ReflectKind::Function
     }
 
-    fn reflect_ref(&self) -> ReflectRef {
+    fn reflect_ref(&self) -> ReflectRef<'_> {
         ReflectRef::Function(self)
     }
 
-    fn reflect_mut(&mut self) -> ReflectMut {
+    fn reflect_mut(&mut self) -> ReflectMut<'_> {
         ReflectMut::Function(self)
     }
 
@@ -439,6 +439,7 @@ impl PartialReflect for DynamicFunction<'static> {
 }
 
 impl MaybeTyped for DynamicFunction<'static> {}
+
 impl RegisterForReflection for DynamicFunction<'static> {}
 
 impl_type_path!((in bevy_reflect) DynamicFunction<'env>);
@@ -550,7 +551,7 @@ mod tests {
     fn should_clone_dynamic_function() {
         let hello = String::from("Hello");
 
-        let greet = |name: &String| -> String { format!("{}, {}!", hello, name) };
+        let greet = |name: &String| -> String { format!("{hello}, {name}!") };
 
         let greet = greet.into_function().with_name("greet");
         let clone = greet.clone();
@@ -771,18 +772,18 @@ mod tests {
     #[test]
     fn should_debug_dynamic_function() {
         fn greet(name: &String) -> String {
-            format!("Hello, {}!", name)
+            format!("Hello, {name}!")
         }
 
         let function = greet.into_function();
-        let debug = format!("{:?}", function);
+        let debug = format!("{function:?}");
         assert_eq!(debug, "DynamicFunction(fn bevy_reflect::func::dynamic_function::tests::should_debug_dynamic_function::greet(_: &alloc::string::String) -> alloc::string::String)");
     }
 
     #[test]
     fn should_debug_anonymous_dynamic_function() {
         let function = (|a: i32, b: i32| a + b).into_function();
-        let debug = format!("{:?}", function);
+        let debug = format!("{function:?}");
         assert_eq!(debug, "DynamicFunction(fn _(_: i32, _: i32) -> i32)");
     }
 
@@ -792,11 +793,11 @@ mod tests {
             a + b
         }
 
-        let func = add::<i32>
+        let function = add::<i32>
             .into_function()
             .with_overload(add::<f32>)
             .with_name("add");
-        let debug = format!("{:?}", func);
+        let debug = format!("{function:?}");
         assert_eq!(
             debug,
             "DynamicFunction(fn add{(_: i32, _: i32) -> i32, (_: f32, _: f32) -> f32})"

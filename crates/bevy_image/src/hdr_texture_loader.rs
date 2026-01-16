@@ -1,13 +1,14 @@
-use crate::{Image, TextureFormatPixelInfo};
+use crate::{Image, TextureAccessError, TextureFormatPixelInfo};
 use bevy_asset::RenderAssetUsages;
 use bevy_asset::{io::Reader, AssetLoader, LoadContext};
+use bevy_reflect::TypePath;
 use image::DynamicImage;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use wgpu_types::{Extent3d, TextureDimension, TextureFormat};
 
 /// Loads HDR textures as Texture assets
-#[derive(Clone, Default)]
+#[derive(Clone, Default, TypePath)]
 pub struct HdrTextureLoader;
 
 #[derive(Serialize, Deserialize, Default, Debug)]
@@ -22,6 +23,8 @@ pub enum HdrTextureLoaderError {
     Io(#[from] std::io::Error),
     #[error("Could not extract image: {0}")]
     Image(#[from] image::ImageError),
+    #[error("Texture access error: {0}")]
+    TextureAccess(#[from] TextureAccessError),
 }
 
 impl AssetLoader for HdrTextureLoader {
@@ -35,11 +38,8 @@ impl AssetLoader for HdrTextureLoader {
         _load_context: &mut LoadContext<'_>,
     ) -> Result<Image, Self::Error> {
         let format = TextureFormat::Rgba32Float;
-        debug_assert_eq!(
-            format.pixel_size(),
-            4 * 4,
-            "Format should have 32bit x 4 size"
-        );
+        let pixel_size = format.pixel_size()?;
+        debug_assert_eq!(pixel_size, 4 * 4, "Format should have 32bit x 4 size");
 
         let mut bytes = Vec::new();
         reader.read_to_end(&mut bytes).await?;
@@ -49,7 +49,7 @@ impl AssetLoader for HdrTextureLoader {
         let image_buffer = dynamic_image
             .as_rgb32f()
             .expect("HDR Image format should be Rgb32F");
-        let mut rgba_data = Vec::with_capacity(image_buffer.pixels().len() * format.pixel_size());
+        let mut rgba_data = Vec::with_capacity(image_buffer.pixels().len() * pixel_size);
 
         for rgb in image_buffer.pixels() {
             let alpha = 1.0f32;

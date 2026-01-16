@@ -1,3 +1,4 @@
+use bevy_camera::{MainPassResolutionOverride, Viewport};
 use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_render::{
     camera::ExtractedCamera,
@@ -36,7 +37,7 @@ impl ViewNode for EarlyPrepassNode {
         &self,
         graph: &mut RenderGraphContext,
         render_context: &mut RenderContext<'w>,
-        view_query: QueryItem<'w, Self::ViewQuery>,
+        view_query: QueryItem<'w, '_, Self::ViewQuery>,
         world: &'w World,
     ) -> Result<(), NodeRunError> {
         run_prepass(graph, render_context, view_query, world, "early prepass")
@@ -55,30 +56,37 @@ pub struct LatePrepassNode;
 
 impl ViewNode for LatePrepassNode {
     type ViewQuery = (
-        &'static ExtractedCamera,
-        &'static ExtractedView,
-        &'static ViewDepthTexture,
-        &'static ViewPrepassTextures,
-        &'static ViewUniformOffset,
-        Option<&'static DeferredPrepass>,
-        Option<&'static RenderSkyboxPrepassPipeline>,
-        Option<&'static SkyboxPrepassBindGroup>,
-        Option<&'static PreviousViewUniformOffset>,
-        Has<OcclusionCulling>,
-        Has<NoIndirectDrawing>,
-        Has<DeferredPrepass>,
+        (
+            &'static ExtractedCamera,
+            &'static ExtractedView,
+            &'static ViewDepthTexture,
+            &'static ViewPrepassTextures,
+            &'static ViewUniformOffset,
+        ),
+        (
+            Option<&'static DeferredPrepass>,
+            Option<&'static RenderSkyboxPrepassPipeline>,
+            Option<&'static SkyboxPrepassBindGroup>,
+            Option<&'static PreviousViewUniformOffset>,
+            Option<&'static MainPassResolutionOverride>,
+        ),
+        (
+            Has<OcclusionCulling>,
+            Has<NoIndirectDrawing>,
+            Has<DeferredPrepass>,
+        ),
     );
 
     fn run<'w>(
         &self,
         graph: &mut RenderGraphContext,
         render_context: &mut RenderContext<'w>,
-        query: QueryItem<'w, Self::ViewQuery>,
+        query: QueryItem<'w, '_, Self::ViewQuery>,
         world: &'w World,
     ) -> Result<(), NodeRunError> {
         // We only need a late prepass if we have occlusion culling and indirect
         // drawing.
-        let (_, _, _, _, _, _, _, _, _, occlusion_culling, no_indirect_drawing, _) = query;
+        let (_, _, (occlusion_culling, no_indirect_drawing, _)) = query;
         if !occlusion_culling || no_indirect_drawing {
             return Ok(());
         }
@@ -100,19 +108,16 @@ fn run_prepass<'w>(
     graph: &mut RenderGraphContext,
     render_context: &mut RenderContext<'w>,
     (
-        camera,
-        extracted_view,
-        view_depth_texture,
-        view_prepass_textures,
-        view_uniform_offset,
-        deferred_prepass,
-        skybox_prepass_pipeline,
-        skybox_prepass_bind_group,
-        view_prev_uniform_offset,
-        _,
-        _,
-        has_deferred,
-    ): QueryItem<'w, <LatePrepassNode as ViewNode>::ViewQuery>,
+        (camera, extracted_view, view_depth_texture, view_prepass_textures, view_uniform_offset),
+        (
+            deferred_prepass,
+            skybox_prepass_pipeline,
+            skybox_prepass_bind_group,
+            view_prev_uniform_offset,
+            resolution_override,
+        ),
+        (_, _, has_deferred),
+    ): QueryItem<'w, '_, <LatePrepassNode as ViewNode>::ViewQuery>,
     world: &'w World,
     label: &'static str,
 ) -> Result<(), NodeRunError> {
@@ -182,8 +187,10 @@ fn run_prepass<'w>(
         let mut render_pass = TrackedRenderPass::new(&render_device, render_pass);
         let pass_span = diagnostics.pass_span(&mut render_pass, label);
 
-        if let Some(viewport) = camera.viewport.as_ref() {
-            render_pass.set_camera_viewport(viewport);
+        if let Some(viewport) =
+            Viewport::from_viewport_and_override(camera.viewport.as_ref(), resolution_override)
+        {
+            render_pass.set_camera_viewport(&viewport);
         }
 
         // Opaque draws
@@ -231,14 +238,14 @@ fn run_prepass<'w>(
         drop(render_pass);
 
         // After rendering to the view depth texture, copy it to the prepass depth texture if deferred isn't going to
-        if deferred_prepass.is_none() {
-            if let Some(prepass_depth_texture) = &view_prepass_textures.depth {
-                command_encoder.copy_texture_to_texture(
-                    view_depth_texture.texture.as_image_copy(),
-                    prepass_depth_texture.texture.texture.as_image_copy(),
-                    view_prepass_textures.size,
-                );
-            }
+        if deferred_prepass.is_none()
+            && let Some(prepass_depth_texture) = &view_prepass_textures.depth
+        {
+            command_encoder.copy_texture_to_texture(
+                view_depth_texture.texture.as_image_copy(),
+                prepass_depth_texture.texture.texture.as_image_copy(),
+                view_prepass_textures.size,
+            );
         }
 
         command_encoder.finish()

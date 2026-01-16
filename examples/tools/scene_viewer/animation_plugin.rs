@@ -1,7 +1,7 @@
 //! Control animations of entities in the loaded scene.
 use std::collections::HashMap;
 
-use bevy::{animation::AnimationTarget, ecs::entity::EntityHashMap, gltf::Gltf, prelude::*};
+use bevy::{animation::AnimationTargetId, ecs::entity::EntityHashMap, gltf::Gltf, prelude::*};
 
 use crate::scene_viewer_plugin::SceneHandle;
 
@@ -11,6 +11,7 @@ struct Clips {
     nodes: Vec<AnimationNodeIndex>,
     current: usize,
 }
+
 impl Clips {
     fn new(clips: Vec<AnimationNodeIndex>) -> Self {
         Clips {
@@ -34,7 +35,7 @@ impl Clips {
 /// the common case).
 fn assign_clips(
     mut players: Query<&mut AnimationPlayer>,
-    targets: Query<(Entity, &AnimationTarget)>,
+    targets: Query<(&AnimationTargetId, Entity)>,
     children: Query<&ChildOf>,
     scene_handle: Res<SceneHandle>,
     clips: Res<Assets<AnimationClip>>,
@@ -63,10 +64,7 @@ fn assign_clips(
     info!("Animation names: {names:?}");
 
     // Map animation target IDs to entities.
-    let animation_target_id_to_entity: HashMap<_, _> = targets
-        .iter()
-        .map(|(entity, target)| (target.id, entity))
-        .collect();
+    let animation_target_id_to_entity: HashMap<_, _> = targets.iter().collect();
 
     // Build up a list of all animation clips that belong to each player. A clip
     // is considered to belong to an animation player if all targets of the clip
@@ -173,15 +171,14 @@ fn handle_inputs(
         if keyboard_input.just_pressed(KeyCode::Enter) {
             info!("switching to new animation for {display_entity_name}");
 
-            let resume = !player.all_paused();
-            // set the current animation to its start and pause it to reset to its starting state
-            player.rewind_all().pause_all();
+            let paused = player.all_paused();
+            player.stop_all();
 
             clips.advance_to_next();
             let current_clip = clips.current();
             player.play(current_clip).repeat();
-            if resume {
-                player.resume_all();
+            if paused {
+                player.pause_all();
             }
         }
     }

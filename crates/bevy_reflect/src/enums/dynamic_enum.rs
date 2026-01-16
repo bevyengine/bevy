@@ -1,9 +1,14 @@
 use bevy_reflect_derive::impl_type_path;
 
 use crate::{
-    enum_debug, enum_hash, enum_partial_eq, ApplyError, DynamicStruct, DynamicTuple, Enum,
-    PartialReflect, Reflect, ReflectKind, ReflectMut, ReflectOwned, ReflectRef, Struct, Tuple,
-    TypeInfo, VariantFieldIter, VariantType,
+    enums::{
+        enum_debug, enum_hash, enum_partial_cmp, enum_partial_eq, Enum, VariantFieldIter,
+        VariantType,
+    },
+    structs::{DynamicStruct, Struct},
+    tuple::{DynamicTuple, Tuple},
+    ApplyError, PartialReflect, Reflect, ReflectKind, ReflectMut, ReflectOwned, ReflectRef,
+    TypeInfo,
 };
 
 use alloc::{boxed::Box, string::String};
@@ -13,9 +18,12 @@ use derive_more::derive::From;
 /// A dynamic representation of an enum variant.
 #[derive(Debug, Default, From)]
 pub enum DynamicVariant {
+    /// A unit variant.
     #[default]
     Unit,
+    /// A tuple variant.
     Tuple(DynamicTuple),
+    /// A struct variant.
     Struct(DynamicStruct),
 }
 
@@ -42,7 +50,7 @@ impl From<()> for DynamicVariant {
 /// # Example
 ///
 /// ```
-/// # use bevy_reflect::{DynamicEnum, DynamicVariant, Reflect, PartialReflect};
+/// # use bevy_reflect::{enums::{DynamicEnum, DynamicVariant}, Reflect, PartialReflect};
 ///
 /// // The original enum value
 /// let mut value: Option<usize> = Some(123);
@@ -114,8 +122,7 @@ impl DynamicEnum {
         if let Some(represented_type) = represented_type {
             assert!(
                 matches!(represented_type, TypeInfo::Enum(_)),
-                "expected TypeInfo::Enum but received: {:?}",
-                represented_type
+                "expected TypeInfo::Enum but received: {represented_type:?}",
             );
         }
 
@@ -214,10 +221,10 @@ impl Enum for DynamicEnum {
     }
 
     fn field_at(&self, index: usize) -> Option<&dyn PartialReflect> {
-        if let DynamicVariant::Tuple(data) = &self.variant {
-            data.field(index)
-        } else {
-            None
+        match &self.variant {
+            DynamicVariant::Tuple(data) => data.field(index),
+            DynamicVariant::Struct(data) => data.field_at(index),
+            DynamicVariant::Unit => None,
         }
     }
 
@@ -230,10 +237,10 @@ impl Enum for DynamicEnum {
     }
 
     fn field_at_mut(&mut self, index: usize) -> Option<&mut dyn PartialReflect> {
-        if let DynamicVariant::Tuple(data) = &mut self.variant {
-            data.field_mut(index)
-        } else {
-            None
+        match &mut self.variant {
+            DynamicVariant::Tuple(data) => data.field_mut(index),
+            DynamicVariant::Struct(data) => data.field_at_mut(index),
+            DynamicVariant::Unit => None,
         }
     }
 
@@ -253,7 +260,7 @@ impl Enum for DynamicEnum {
         }
     }
 
-    fn iter_fields(&self) -> VariantFieldIter {
+    fn iter_fields(&self) -> VariantFieldIter<'_> {
         VariantFieldIter::new(self)
     }
 
@@ -370,12 +377,12 @@ impl PartialReflect for DynamicEnum {
     }
 
     #[inline]
-    fn reflect_ref(&self) -> ReflectRef {
+    fn reflect_ref(&self) -> ReflectRef<'_> {
         ReflectRef::Enum(self)
     }
 
     #[inline]
-    fn reflect_mut(&mut self) -> ReflectMut {
+    fn reflect_mut(&mut self) -> ReflectMut<'_> {
         ReflectMut::Enum(self)
     }
 
@@ -392,6 +399,11 @@ impl PartialReflect for DynamicEnum {
     #[inline]
     fn reflect_partial_eq(&self, value: &dyn PartialReflect) -> Option<bool> {
         enum_partial_eq(self, value)
+    }
+
+    #[inline]
+    fn reflect_partial_cmp(&self, value: &dyn PartialReflect) -> Option<::core::cmp::Ordering> {
+        enum_partial_cmp(self, value)
     }
 
     #[inline]

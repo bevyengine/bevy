@@ -25,7 +25,6 @@ fn main() {
             TimerMode::Repeating,
         )))
         .init_state::<GameState>()
-        .enable_state_scoped_entities::<GameState>()
         .add_systems(Startup, setup_cameras)
         .add_systems(OnEnter(GameState::Playing), setup)
         .add_systems(
@@ -110,7 +109,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMu
         // This isn't strictly required in practical use unless you need your app to be deterministic.
         ChaCha8Rng::seed_from_u64(19878367467713)
     } else {
-        ChaCha8Rng::from_entropy()
+        ChaCha8Rng::from_os_rng()
     };
 
     // reset the game state
@@ -121,10 +120,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMu
     game.player.move_cooldown = Timer::from_seconds(0.3, TimerMode::Once);
 
     commands.spawn((
-        DespawnOnExitState(GameState::Playing),
+        DespawnOnExit(GameState::Playing),
         PointLight {
             intensity: 2_000_000.0,
-            shadows_enabled: true,
+            shadow_maps_enabled: true,
             range: 30.0,
             ..default()
         },
@@ -138,9 +137,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMu
         .map(|j| {
             (0..BOARD_SIZE_I)
                 .map(|i| {
-                    let height = rng.gen_range(-0.1..0.1);
+                    let height = rng.random_range(-0.1..0.1);
                     commands.spawn((
-                        DespawnOnExitState(GameState::Playing),
+                        DespawnOnExit(GameState::Playing),
                         Transform::from_xyz(i as f32, height - 0.2, j as f32),
                         SceneRoot(cell_scene.clone()),
                     ));
@@ -154,7 +153,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMu
     game.player.entity = Some(
         commands
             .spawn((
-                DespawnOnExitState(GameState::Playing),
+                DespawnOnExit(GameState::Playing),
                 Transform {
                     translation: Vec3::new(
                         game.player.i as f32,
@@ -178,7 +177,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMu
 
     // scoreboard
     commands.spawn((
-        DespawnOnExitState(GameState::Playing),
+        DespawnOnExit(GameState::Playing),
         Text::new("Score:"),
         TextFont {
             font_size: 33.0,
@@ -187,8 +186,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMu
         TextColor(Color::srgb(0.5, 0.5, 1.0)),
         Node {
             position_type: PositionType::Absolute,
-            top: Val::Px(5.0),
-            left: Val::Px(5.0),
+            top: px(5),
+            left: px(5),
             ..default()
         },
     ));
@@ -204,7 +203,7 @@ fn move_player(
     mut transforms: Query<&mut Transform>,
     time: Res<Time>,
 ) {
-    if game.player.move_cooldown.tick(time.delta()).finished() {
+    if game.player.move_cooldown.tick(time.delta()).is_finished() {
         let mut moved = false;
         let mut rotation = 0.0;
 
@@ -253,13 +252,14 @@ fn move_player(
     }
 
     // eat the cake!
-    if let Some(entity) = game.bonus.entity {
-        if game.player.i == game.bonus.i && game.player.j == game.bonus.j {
-            game.score += 2;
-            game.cake_eaten += 1;
-            commands.entity(entity).despawn();
-            game.bonus.entity = None;
-        }
+    if let Some(entity) = game.bonus.entity
+        && game.player.i == game.bonus.i
+        && game.player.j == game.bonus.j
+    {
+        game.score += 2;
+        game.cake_eaten += 1;
+        commands.entity(entity).despawn();
+        game.bonus.entity = None;
     }
 }
 
@@ -315,7 +315,7 @@ fn spawn_bonus(
     mut rng: ResMut<Random>,
 ) {
     // make sure we wait enough time before spawning the next cake
-    if !timer.0.tick(time.delta()).finished() {
+    if !timer.0.tick(time.delta()).is_finished() {
         return;
     }
 
@@ -331,8 +331,8 @@ fn spawn_bonus(
 
     // ensure bonus doesn't spawn on the player
     loop {
-        game.bonus.i = rng.gen_range(0..BOARD_SIZE_I);
-        game.bonus.j = rng.gen_range(0..BOARD_SIZE_J);
+        game.bonus.i = rng.random_range(0..BOARD_SIZE_I);
+        game.bonus.j = rng.random_range(0..BOARD_SIZE_J);
         if game.bonus.i != game.player.i || game.bonus.j != game.player.j {
             break;
         }
@@ -340,7 +340,7 @@ fn spawn_bonus(
     game.bonus.entity = Some(
         commands
             .spawn((
-                DespawnOnExitState(GameState::Playing),
+                DespawnOnExit(GameState::Playing),
                 Transform::from_xyz(
                     game.bonus.i as f32,
                     game.board[game.bonus.j][game.bonus.i].height + 0.2,
@@ -363,12 +363,12 @@ fn spawn_bonus(
 
 // let the cake turn on itself
 fn rotate_bonus(game: Res<Game>, time: Res<Time>, mut transforms: Query<&mut Transform>) {
-    if let Some(entity) = game.bonus.entity {
-        if let Ok(mut cake_transform) = transforms.get_mut(entity) {
-            cake_transform.rotate_y(time.delta_secs());
-            cake_transform.scale =
-                Vec3::splat(1.0 + (game.score as f32 / 10.0 * ops::sin(time.elapsed_secs())).abs());
-        }
+    if let Some(entity) = game.bonus.entity
+        && let Ok(mut cake_transform) = transforms.get_mut(entity)
+    {
+        cake_transform.rotate_y(time.delta_secs());
+        cake_transform.scale =
+            Vec3::splat(1.0 + (game.score as f32 / 10.0 * ops::sin(time.elapsed_secs())).abs());
     }
 }
 
@@ -390,9 +390,9 @@ fn game_over_keyboard(
 // display the number of cake eaten before losing
 fn display_score(mut commands: Commands, game: Res<Game>) {
     commands.spawn((
-        DespawnOnExitState(GameState::GameOver),
+        DespawnOnExit(GameState::GameOver),
         Node {
-            width: Val::Percent(100.),
+            width: percent(100),
             align_items: AlignItems::Center,
             justify_content: JustifyContent::Center,
             ..default()

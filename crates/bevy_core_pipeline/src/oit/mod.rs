@@ -1,23 +1,22 @@
 //! Order Independent Transparency (OIT) for 3d rendering. See [`OrderIndependentTransparencyPlugin`] for more details.
 
 use bevy_app::prelude::*;
-use bevy_asset::{load_internal_asset, weak_handle, Handle};
-use bevy_ecs::{component::*, prelude::*};
+use bevy_camera::{Camera3d, RenderTarget};
+use bevy_ecs::{component::*, lifecycle::ComponentHook, prelude::*};
 use bevy_math::UVec2;
 use bevy_platform::collections::HashSet;
 use bevy_platform::time::Instant;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
-    camera::{Camera, ExtractedCamera},
+    camera::ExtractedCamera,
     extract_component::{ExtractComponent, ExtractComponentPlugin},
-    render_graph::{RenderGraphApp, ViewNodeRunner},
-    render_resource::{
-        BufferUsages, BufferVec, DynamicUniformBuffer, Shader, ShaderType, TextureUsages,
-    },
+    render_graph::{RenderGraphExt, ViewNodeRunner},
+    render_resource::{BufferUsages, BufferVec, DynamicUniformBuffer, ShaderType, TextureUsages},
     renderer::{RenderDevice, RenderQueue},
     view::Msaa,
-    Render, RenderApp, RenderSystems,
+    Render, RenderApp, RenderStartup, RenderSystems,
 };
+use bevy_shader::load_shader_library;
 use bevy_window::PrimaryWindow;
 use resolve::{
     node::{OitResolveNode, OitResolvePass},
@@ -25,17 +24,10 @@ use resolve::{
 };
 use tracing::{trace, warn};
 
-use crate::core_3d::{
-    graph::{Core3d, Node3d},
-    Camera3d,
-};
+use crate::core_3d::graph::{Core3d, Node3d};
 
 /// Module that defines the necessary systems to resolve the OIT buffer and render it to the screen.
 pub mod resolve;
-
-/// Shader handle for the shader that draws the transparent meshes to the OIT layers buffer.
-pub const OIT_DRAW_SHADER_HANDLE: Handle<Shader> =
-    weak_handle!("0cd3c764-39b8-437b-86b4-4e45635fc03d");
 
 /// Used to identify which camera will use OIT to render transparent meshes
 /// and to configure OIT.
@@ -73,13 +65,13 @@ impl Component for OrderIndependentTransparencySettings {
 
     fn on_add() -> Option<ComponentHook> {
         Some(|world, context| {
-            if let Some(value) = world.get::<OrderIndependentTransparencySettings>(context.entity) {
-                if value.layer_count > 32 {
-                    warn!("{}OrderIndependentTransparencySettings layer_count set to {} might be too high.",
+            if let Some(value) = world.get::<OrderIndependentTransparencySettings>(context.entity)
+                && value.layer_count > 32
+            {
+                warn!("{}OrderIndependentTransparencySettings layer_count set to {} might be too high.",
                         context.caller.map(|location|format!("{location}: ")).unwrap_or_default(),
                         value.layer_count
                     );
-                }
             }
         })
     }
@@ -105,29 +97,25 @@ impl Component for OrderIndependentTransparencySettings {
 pub struct OrderIndependentTransparencyPlugin;
 impl Plugin for OrderIndependentTransparencyPlugin {
     fn build(&self, app: &mut App) {
-        load_internal_asset!(
-            app,
-            OIT_DRAW_SHADER_HANDLE,
-            "oit_draw.wgsl",
-            Shader::from_wgsl
-        );
+        load_shader_library!(app, "oit_draw.wgsl");
 
         app.add_plugins((
             ExtractComponentPlugin::<OrderIndependentTransparencySettings>::default(),
             OitResolvePlugin,
         ))
         .add_systems(Update, check_msaa)
-        .add_systems(Last, configure_depth_texture_usages)
-        .register_type::<OrderIndependentTransparencySettings>();
+        .add_systems(Last, configure_depth_texture_usages);
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
 
-        render_app.add_systems(
-            Render,
-            prepare_oit_buffers.in_set(RenderSystems::PrepareResources),
-        );
+        render_app
+            .add_systems(RenderStartup, init_oit_buffers)
+            .add_systems(
+                Render,
+                prepare_oit_buffers.in_set(RenderSystems::PrepareResources),
+            );
 
         render_app
             .add_render_graph_node::<ViewNodeRunner<OitResolveNode>>(Core3d, OitResolvePass)
@@ -140,14 +128,6 @@ impl Plugin for OrderIndependentTransparencyPlugin {
                 ),
             );
     }
-
-    fn finish(&self, app: &mut App) {
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
-
-        render_app.init_resource::<OitBuffers>();
-    }
 }
 
 // WARN This should only happen for cameras with the [`OrderIndependentTransparencySettings`] component
@@ -155,8 +135,8 @@ impl Plugin for OrderIndependentTransparencyPlugin {
 // bevy reuses the same depth texture so we need to set this on all cameras with the same render target.
 fn configure_depth_texture_usages(
     p: Query<Entity, With<PrimaryWindow>>,
-    cameras: Query<(&Camera, Has<OrderIndependentTransparencySettings>)>,
-    mut new_cameras: Query<(&mut Camera3d, &Camera), Added<Camera3d>>,
+    cameras: Query<(&RenderTarget, Has<OrderIndependentTransparencySettings>)>,
+    mut new_cameras: Query<(&mut Camera3d, &RenderTarget), Added<Camera3d>>,
 ) {
     if new_cameras.is_empty() {
         return;
@@ -165,15 +145,15 @@ fn configure_depth_texture_usages(
     // Find all the render target that potentially uses OIT
     let primary_window = p.single().ok();
     let mut render_target_has_oit = <HashSet<_>>::default();
-    for (camera, has_oit) in &cameras {
+    for (render_target, has_oit) in &cameras {
         if has_oit {
-            render_target_has_oit.insert(camera.target.normalize(primary_window));
+            render_target_has_oit.insert(render_target.normalize(primary_window));
         }
     }
 
     // Update the depth texture usage for cameras with a render target that has OIT
-    for (mut camera_3d, camera) in &mut new_cameras {
-        if render_target_has_oit.contains(&camera.target.normalize(primary_window)) {
+    for (mut camera_3d, render_target) in &mut new_cameras {
+        if render_target_has_oit.contains(&render_target.normalize(primary_window)) {
             let mut usages = TextureUsages::from(camera_3d.depth_texture_usages);
             usages |= TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING;
             camera_3d.depth_texture_usages = usages.into();
@@ -203,32 +183,31 @@ pub struct OitBuffers {
     pub settings: DynamicUniformBuffer<OrderIndependentTransparencySettings>,
 }
 
-impl FromWorld for OitBuffers {
-    fn from_world(world: &mut World) -> Self {
-        let render_device = world.resource::<RenderDevice>();
-        let render_queue = world.resource::<RenderQueue>();
+pub fn init_oit_buffers(
+    mut commands: Commands,
+    render_device: Res<RenderDevice>,
+    render_queue: Res<RenderQueue>,
+) {
+    // initialize buffers with something so there's a valid binding
 
-        // initialize buffers with something so there's a valid binding
+    let mut layers = BufferVec::new(BufferUsages::COPY_DST | BufferUsages::STORAGE);
+    layers.set_label(Some("oit_layers"));
+    layers.reserve(1, &render_device);
+    layers.write_buffer(&render_device, &render_queue);
 
-        let mut layers = BufferVec::new(BufferUsages::COPY_DST | BufferUsages::STORAGE);
-        layers.set_label(Some("oit_layers"));
-        layers.reserve(1, render_device);
-        layers.write_buffer(render_device, render_queue);
+    let mut layer_ids = BufferVec::new(BufferUsages::COPY_DST | BufferUsages::STORAGE);
+    layer_ids.set_label(Some("oit_layer_ids"));
+    layer_ids.reserve(1, &render_device);
+    layer_ids.write_buffer(&render_device, &render_queue);
 
-        let mut layer_ids = BufferVec::new(BufferUsages::COPY_DST | BufferUsages::STORAGE);
-        layer_ids.set_label(Some("oit_layer_ids"));
-        layer_ids.reserve(1, render_device);
-        layer_ids.write_buffer(render_device, render_queue);
+    let mut settings = DynamicUniformBuffer::default();
+    settings.set_label(Some("oit_settings"));
 
-        let mut settings = DynamicUniformBuffer::default();
-        settings.set_label(Some("oit_settings"));
-
-        Self {
-            layers,
-            layer_ids,
-            settings,
-        }
-    }
+    commands.insert_resource(OitBuffers {
+        layers,
+        layer_ids,
+        settings,
+    });
 }
 
 #[derive(Component)]

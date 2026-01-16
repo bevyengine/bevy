@@ -7,7 +7,7 @@ pub use bevy_state_macros::SubStates;
 /// but unlike [`ComputedStates`](crate::state::ComputedStates) - while they exist they can be manually modified.
 ///
 /// The default approach to creating [`SubStates`] is using the derive macro, and defining a single source state
-/// and value to determine it's existence.
+/// and value to determine its existence.
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;

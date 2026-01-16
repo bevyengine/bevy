@@ -155,14 +155,14 @@ fn unset_getter() -> Duration {
             let nanos = unsafe {
                 core::arch::x86::_rdtsc()
             };
-            return Duration::from_nanos(nanos);
+            Duration::from_nanos(nanos)
         }
         #[cfg(target_arch = "x86_64")] => {
             // SAFETY: standard technique for getting a nanosecond counter on x86_64
             let nanos = unsafe {
                 core::arch::x86_64::_rdtsc()
             };
-            return Duration::from_nanos(nanos);
+            Duration::from_nanos(nanos)
         }
         #[cfg(target_arch = "aarch64")] => {
             // SAFETY: standard technique for getting a nanosecond counter of aarch64
@@ -171,7 +171,7 @@ fn unset_getter() -> Duration {
                 core::arch::asm!("mrs {}, cntvct_el0", out(reg) ticks);
                 ticks
             };
-            return Duration::from_nanos(nanos);
+            Duration::from_nanos(nanos)
         }
         _ => {
             panic!("An elapsed time getter has not been provided to `Instant`. Please use `Instant::set_elapsed(...)` before calling `Instant::now()`")

@@ -1,9 +1,9 @@
 [package]
 name = "bevy_utils"
-version = "0.16.0-dev"
+version = "0.19.0-dev"
 edition = "2024"
 description = "A collection of utils for Bevy Engine"
-homepage = "https://bevyengine.org"
+homepage = "https://bevy.org"
 repository = "https://github.com/bevyengine/bevy"
 license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
@@ -14,9 +14,14 @@ default = ["parallel"]
 # Provides access to the `Parallel` type.
 parallel = ["bevy_platform/std", "dep:thread_local"]
 
-[dependencies]
-bevy_platform = { path = "../bevy_platform", version = "0.16.0-dev", default-features = false }
+std = ["disqualified/alloc"]
 
+debug = ["bevy_platform/alloc"]
+
+[dependencies]
+bevy_platform = { path = "../bevy_platform", version = "0.19.0-dev", default-features = false }
+
+disqualified = { version = "1.0", default-features = false }
 thread_local = { version = "1.0", optional = true }
 
 [dev-dependencies]

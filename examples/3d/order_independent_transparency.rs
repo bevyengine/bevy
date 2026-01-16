@@ -2,12 +2,12 @@
 //!
 //! See [`OrderIndependentTransparencyPlugin`] for the trade-offs of using OIT.
 //!
-//! [`OrderIndependentTransparencyPlugin`]: bevy::render::pipeline::OrderIndependentTransparencyPlugin
+//! [`OrderIndependentTransparencyPlugin`]: bevy::core_pipeline::oit::OrderIndependentTransparencyPlugin
 use bevy::{
+    camera::visibility::RenderLayers,
     color::palettes::css::{BLUE, GREEN, RED},
     core_pipeline::oit::OrderIndependentTransparencySettings,
     prelude::*,
-    render::view::RenderLayers,
 };
 
 fn main() {
@@ -38,7 +38,7 @@ fn setup(
     // light
     commands.spawn((
         PointLight {
-            shadows_enabled: false,
+            shadow_maps_enabled: false,
             ..default()
         },
         Transform::from_xyz(4.0, 8.0, 4.0),
@@ -46,22 +46,21 @@ fn setup(
     ));
 
     // spawn help text
-    commands
-        .spawn((
-            Text::default(),
-            Node {
-                position_type: PositionType::Absolute,
-                top: Val::Px(12.0),
-                left: Val::Px(12.0),
-                ..default()
-            },
-            RenderLayers::layer(1),
-        ))
-        .with_children(|p| {
-            p.spawn(TextSpan::new("Press T to toggle OIT\n"));
-            p.spawn(TextSpan::new("OIT Enabled"));
-            p.spawn(TextSpan::new("\nPress C to cycle test scenes"));
-        });
+    commands.spawn((
+        Text::default(),
+        Node {
+            position_type: PositionType::Absolute,
+            top: px(12),
+            left: px(12),
+            ..default()
+        },
+        RenderLayers::layer(1),
+        children![
+            TextSpan::new("Press T to toggle OIT\n"),
+            TextSpan::new("OIT Enabled"),
+            TextSpan::new("\nPress C to cycle test scenes"),
+        ],
+    ));
 
     // spawn default scene
     spawn_spheres(&mut commands, &mut meshes, &mut materials);

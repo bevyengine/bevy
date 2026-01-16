@@ -13,6 +13,7 @@ use bevy::{
     picking::hover::HoverMap,
     prelude::*,
     ui::widget::NodeImageMode,
+    ui_widgets::Scrollbar,
 };
 
 fn main() {
@@ -34,8 +35,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // root node
     commands
         .spawn(Node {
-            width: Val::Percent(100.0),
-            height: Val::Percent(100.0),
+            width: percent(100),
+            height: percent(100),
             justify_content: JustifyContent::SpaceBetween,
             ..default()
         })
@@ -45,8 +46,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             parent
                 .spawn((
                     Node {
-                        width: Val::Px(200.),
-                        border: UiRect::all(Val::Px(2.)),
+                        width: px(200),
+                        border: UiRect::all(px(2)),
                         ..default()
                     },
                     BackgroundColor(Color::srgb(0.65, 0.65, 0.65)),
@@ -56,10 +57,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     parent
                         .spawn((
                             Node {
-                                width: Val::Percent(100.),
+                                width: percent(100),
                                 flex_direction: FlexDirection::Column,
-                                padding: UiRect::all(Val::Px(5.)),
-                                row_gap: Val::Px(5.),
+                                padding: UiRect::all(px(5)),
+                                row_gap: px(5),
                                 ..default()
                             },
                             BackgroundColor(Color::srgb(0.15, 0.15, 0.15)),
@@ -70,7 +71,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             parent.spawn((
                                 Text::new("Text Example"),
                                 TextFont {
-                                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                                    font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
                                     font_size: 25.0,
                                     ..default()
                                 },
@@ -86,7 +87,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 parent.spawn((
                                     Text::new("Press Space to toggle debug outlines."),
                                     TextFont {
-                                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                                        font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
                                         ..default()
                                     },
                                     Label,
@@ -95,7 +96,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 parent.spawn((
                                     Text::new("V: toggle UI root's visibility"),
                                     TextFont {
-                                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                                        font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
                                         font_size: 12.,
                                         ..default()
                                     },
@@ -105,7 +106,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 parent.spawn((
                                     Text::new("S: toggle outlines for hidden nodes"),
                                     TextFont {
-                                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                                        font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
                                         font_size: 12.,
                                         ..default()
                                     },
@@ -114,7 +115,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 parent.spawn((
                                     Text::new("C: toggle outlines for clipped nodes"),
                                     TextFont {
-                                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                                        font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
                                         font_size: 12.,
                                         ..default()
                                     },
@@ -125,7 +126,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             parent.spawn((
                                 Text::new("Try enabling feature \"bevy_ui_debug\"."),
                                 TextFont {
-                                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                                    font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
                                     ..default()
                                 },
                                 Label,
@@ -138,7 +139,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     flex_direction: FlexDirection::Column,
                     justify_content: JustifyContent::Center,
                     align_items: AlignItems::Center,
-                    width: Val::Px(200.),
+                    width: px(200),
                     ..default()
                 })
                 .with_children(|parent| {
@@ -146,7 +147,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     parent.spawn((
                         Text::new("Scrolling list"),
                         TextFont {
-                            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                            font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
                             font_size: 21.,
                             ..default()
                         },
@@ -158,7 +159,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             Node {
                                 flex_direction: FlexDirection::Column,
                                 align_self: AlignSelf::Stretch,
-                                height: Val::Percent(50.),
+                                height: percent(50),
                                 overflow: Overflow::scroll_y(),
                                 ..default()
                             },
@@ -188,7 +189,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                                 Text(format!("Item {i}")),
                                                 TextFont {
                                                     font: asset_server
-                                                        .load("fonts/FiraSans-Bold.ttf"),
+                                                        .load("fonts/FiraSans-Bold.ttf")
+                                                        .into(),
                                                     ..default()
                                                 },
                                                 Label,
@@ -205,8 +207,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
             parent
                 .spawn(Node {
-                    left: Val::Px(210.),
-                    bottom: Val::Px(10.),
+                    left: px(210),
+                    bottom: px(10),
                     position_type: PositionType::Absolute,
                     ..default()
                 })
@@ -214,25 +216,31 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     parent
                         .spawn((
                             Node {
-                                width: Val::Px(200.0),
-                                height: Val::Px(200.0),
-                                border: UiRect::all(Val::Px(20.)),
+                                width: px(200),
+                                height: px(200),
+                                border: UiRect::all(px(20)),
                                 flex_direction: FlexDirection::Column,
                                 justify_content: JustifyContent::Center,
                                 ..default()
                             },
-                            BorderColor(LIME.into()),
+                            BorderColor::all(LIME),
                             BackgroundColor(Color::srgb(0.8, 0.8, 1.)),
                         ))
                         .with_children(|parent| {
                             parent.spawn((
                                 ImageNode::new(asset_server.load("branding/bevy_logo_light.png")),
                                 // Uses the transform to rotate the logo image by 45 degrees
-                                Transform::from_rotation(Quat::from_rotation_z(0.25 * PI)),
-                                BorderRadius::all(Val::Px(10.)),
+                                Node {
+                                    border_radius: BorderRadius::all(px(10)),
+                                    ..Default::default()
+                                },
+                                UiTransform {
+                                    rotation: Rot2::radians(0.25 * PI),
+                                    ..Default::default()
+                                },
                                 Outline {
-                                    width: Val::Px(2.),
-                                    offset: Val::Px(4.),
+                                    width: px(2),
+                                    offset: px(4),
                                     color: DARK_GRAY.into(),
                                 },
                             ));
@@ -241,17 +249,17 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
             let shadow_style = ShadowStyle {
                 color: Color::BLACK.with_alpha(0.5),
-                blur_radius: Val::Px(2.),
-                x_offset: Val::Px(10.),
-                y_offset: Val::Px(10.),
+                blur_radius: px(2),
+                x_offset: px(10),
+                y_offset: px(10),
                 ..default()
             };
 
             // render order test: reddest in the back, whitest in the front (flex center)
             parent
                 .spawn(Node {
-                    width: Val::Percent(100.0),
-                    height: Val::Percent(100.0),
+                    width: percent(100),
+                    height: percent(100),
                     position_type: PositionType::Absolute,
                     align_items: AlignItems::Center,
                     justify_content: JustifyContent::Center,
@@ -262,8 +270,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     parent
                         .spawn((
                             Node {
-                                width: Val::Px(100.0),
-                                height: Val::Px(100.0),
+                                width: px(100),
+                                height: px(100),
                                 ..default()
                             },
                             BackgroundColor(Color::srgb(1.0, 0.0, 0.)),
@@ -273,11 +281,11 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             parent.spawn((
                                 Node {
                                     // Take the size of the parent node.
-                                    width: Val::Percent(100.0),
-                                    height: Val::Percent(100.0),
+                                    width: percent(100),
+                                    height: percent(100),
                                     position_type: PositionType::Absolute,
-                                    left: Val::Px(20.),
-                                    bottom: Val::Px(20.),
+                                    left: px(20),
+                                    bottom: px(20),
                                     ..default()
                                 },
                                 BackgroundColor(Color::srgb(1.0, 0.3, 0.3)),
@@ -285,11 +293,11 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             ));
                             parent.spawn((
                                 Node {
-                                    width: Val::Percent(100.0),
-                                    height: Val::Percent(100.0),
+                                    width: percent(100),
+                                    height: percent(100),
                                     position_type: PositionType::Absolute,
-                                    left: Val::Px(40.),
-                                    bottom: Val::Px(40.),
+                                    left: px(40),
+                                    bottom: px(40),
                                     ..default()
                                 },
                                 BackgroundColor(Color::srgb(1.0, 0.5, 0.5)),
@@ -297,11 +305,11 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             ));
                             parent.spawn((
                                 Node {
-                                    width: Val::Percent(100.0),
-                                    height: Val::Percent(100.0),
+                                    width: percent(100),
+                                    height: percent(100),
                                     position_type: PositionType::Absolute,
-                                    left: Val::Px(60.),
-                                    bottom: Val::Px(60.),
+                                    left: px(60),
+                                    bottom: px(60),
                                     ..default()
                                 },
                                 BackgroundColor(Color::srgb(0.0, 0.7, 0.7)),
@@ -310,11 +318,11 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             // alpha test
                             parent.spawn((
                                 Node {
-                                    width: Val::Percent(100.0),
-                                    height: Val::Percent(100.0),
+                                    width: percent(100),
+                                    height: percent(100),
                                     position_type: PositionType::Absolute,
-                                    left: Val::Px(80.),
-                                    bottom: Val::Px(80.),
+                                    left: px(80),
+                                    bottom: px(80),
                                     ..default()
                                 },
                                 BackgroundColor(Color::srgba(1.0, 0.9, 0.9, 0.4)),
@@ -328,7 +336,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             // bevy logo (flex center)
             parent
                 .spawn(Node {
-                    width: Val::Percent(100.0),
+                    width: percent(100),
                     position_type: PositionType::Absolute,
                     justify_content: JustifyContent::Center,
                     align_items: AlignItems::FlexStart,
@@ -341,9 +349,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             ImageNode::new(asset_server.load("branding/bevy_logo_dark_big.png"))
                                 .with_mode(NodeImageMode::Stretch),
                             Node {
-                                width: Val::Px(500.0),
-                                height: Val::Px(125.0),
-                                margin: UiRect::top(Val::VMin(5.)),
+                                width: px(500),
+                                height: px(125),
+                                margin: UiRect::top(vmin(5)),
                                 ..default()
                             },
                         ))
@@ -364,13 +372,13 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             // four bevy icons demonstrating image flipping
             parent
                 .spawn(Node {
-                    width: Val::Percent(100.0),
-                    height: Val::Percent(100.0),
+                    width: percent(100),
+                    height: percent(100),
                     position_type: PositionType::Absolute,
                     justify_content: JustifyContent::Center,
                     align_items: AlignItems::FlexEnd,
-                    column_gap: Val::Px(10.),
-                    padding: UiRect::all(Val::Px(10.)),
+                    column_gap: px(10),
+                    padding: UiRect::all(px(10)),
                     ..default()
                 })
                 .insert(Pickable::IGNORE)
@@ -387,7 +395,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             },
                             Node {
                                 // The height will be chosen automatically to preserve the image's aspect ratio
-                                width: Val::Px(75.),
+                                width: px(75),
                                 ..default()
                             },
                         ));
@@ -429,15 +437,15 @@ fn toggle_debug_overlay(
 
 /// Updates the scroll position of scrollable nodes in response to mouse input
 pub fn update_scroll_position(
-    mut mouse_wheel_events: EventReader<MouseWheel>,
+    mut mouse_wheel_reader: MessageReader<MouseWheel>,
     hover_map: Res<HoverMap>,
-    mut scrolled_node_query: Query<&mut ScrollPosition>,
+    mut scrolled_node_query: Query<(&mut ScrollPosition, &ComputedNode), Without<Scrollbar>>,
     keyboard_input: Res<ButtonInput<KeyCode>>,
 ) {
-    for mouse_wheel_event in mouse_wheel_events.read() {
-        let (mut dx, mut dy) = match mouse_wheel_event.unit {
-            MouseScrollUnit::Line => (mouse_wheel_event.x * 20., mouse_wheel_event.y * 20.),
-            MouseScrollUnit::Pixel => (mouse_wheel_event.x, mouse_wheel_event.y),
+    for mouse_wheel in mouse_wheel_reader.read() {
+        let (mut dx, mut dy) = match mouse_wheel.unit {
+            MouseScrollUnit::Line => (mouse_wheel.x * 20., mouse_wheel.y * 20.),
+            MouseScrollUnit::Pixel => (mouse_wheel.x, mouse_wheel.y),
         };
 
         if keyboard_input.pressed(KeyCode::ShiftLeft) || keyboard_input.pressed(KeyCode::ShiftRight)
@@ -447,9 +455,17 @@ pub fn update_scroll_position(
 
         for (_pointer, pointer_map) in hover_map.iter() {
             for (entity, _hit) in pointer_map.iter() {
-                if let Ok(mut scroll_position) = scrolled_node_query.get_mut(*entity) {
-                    scroll_position.offset_x -= dx;
-                    scroll_position.offset_y -= dy;
+                if let Ok((mut scroll_position, scroll_content)) =
+                    scrolled_node_query.get_mut(*entity)
+                {
+                    let visible_size = scroll_content.size();
+                    let content_size = scroll_content.content_size();
+
+                    let range = (content_size.y - visible_size.y).max(0.)
+                        * scroll_content.inverse_scale_factor;
+
+                    scroll_position.x -= dx;
+                    scroll_position.y = (scroll_position.y - dy).clamp(0., range);
                 }
             }
         }

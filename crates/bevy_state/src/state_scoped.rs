@@ -3,7 +3,9 @@ use bevy_ecs::reflect::ReflectComponent;
 use bevy_ecs::{
     component::Component,
     entity::Entity,
-    event::EventReader,
+    entity_disabling::Disabled,
+    message::MessageReader,
+    query::Allow,
     system::{Commands, Query},
 };
 #[cfg(feature = "bevy_reflect")]
@@ -14,8 +16,7 @@ use crate::state::{StateTransitionEvent, States};
 /// Entities marked with this component will be removed
 /// when the world's state of the matching type no longer matches the supplied value.
 ///
-/// To enable this feature remember to add the attribute `#[states(scoped_entities)]` when deriving [`States`].
-/// It's also possible to enable it when adding the state to an app with [`enable_state_scoped_entities`](crate::app::AppExtStates::enable_state_scoped_entities).
+/// If you need to disable this behavior, add the attribute `#[states(scoped_entities = false)]` when deriving [`States`].
 ///
 /// ```
 /// use bevy_state::prelude::*;
@@ -23,7 +24,6 @@ use crate::state::{StateTransitionEvent, States};
 /// use bevy_ecs::system::ScheduleSystem;
 ///
 /// #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default, States)]
-/// #[states(scoped_entities)]
 /// enum GameState {
 ///     #[default]
 ///     MainMenu,
@@ -36,7 +36,7 @@ use crate::state::{StateTransitionEvent, States};
 ///
 /// fn spawn_player(mut commands: Commands) {
 ///     commands.spawn((
-///         DespawnOnExitState(GameState::InGame),
+///         DespawnOnExit(GameState::InGame),
 ///         Player
 ///     ));
 /// }
@@ -44,7 +44,6 @@ use crate::state::{StateTransitionEvent, States};
 /// # struct AppMock;
 /// # impl AppMock {
 /// #     fn init_state<S>(&mut self) {}
-/// #     fn enable_state_scoped_entities<S>(&mut self) {}
 /// #     fn add_systems<S, M>(&mut self, schedule: S, systems: impl IntoScheduleConfigs<ScheduleSystem, M>) {}
 /// # }
 /// # struct Update;
@@ -55,9 +54,9 @@ use crate::state::{StateTransitionEvent, States};
 /// ```
 #[derive(Component, Clone)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Component, Clone))]
-pub struct DespawnOnExitState<S: States>(pub S);
+pub struct DespawnOnExit<S: States>(pub S);
 
-impl<S> Default for DespawnOnExitState<S>
+impl<S> Default for DespawnOnExit<S>
 where
     S: States + Default,
 {
@@ -66,12 +65,14 @@ where
     }
 }
 
-/// Despawns entities marked with [`DespawnOnExitState<S>`] when their state no
+/// Despawns entities marked with [`DespawnOnExit<S>`] when their state no
 /// longer matches the world state.
+///
+/// If the entity has already been despawned no warning will be emitted.
 pub fn despawn_entities_on_exit_state<S: States>(
     mut commands: Commands,
-    mut transitions: EventReader<StateTransitionEvent<S>>,
-    query: Query<(Entity, &DespawnOnExitState<S>)>,
+    mut transitions: MessageReader<StateTransitionEvent<S>>,
+    query: Query<(Entity, &DespawnOnExit<S>), Allow<Disabled>>,
 ) {
     // We use the latest event, because state machine internals generate at most 1
     // transition event (per type) each frame. No event means no change happened
@@ -87,16 +88,13 @@ pub fn despawn_entities_on_exit_state<S: States>(
     };
     for (entity, binding) in &query {
         if binding.0 == *exited {
-            commands.entity(entity).despawn();
+            commands.entity(entity).try_despawn();
         }
     }
 }
 
 /// Entities marked with this component will be despawned
 /// upon entering the given state.
-///
-/// To enable this feature remember to configure your application
-/// with [`enable_state_scoped_entities`](crate::app::AppExtStates::enable_state_scoped_entities) on your state(s) of choice.
 ///
 /// ```
 /// use bevy_state::prelude::*;
@@ -115,7 +113,7 @@ pub fn despawn_entities_on_exit_state<S: States>(
 ///
 /// fn spawn_player(mut commands: Commands) {
 ///     commands.spawn((
-///         DespawnOnEnterState(GameState::MainMenu),
+///         DespawnOnEnter(GameState::MainMenu),
 ///         Player
 ///     ));
 /// }
@@ -123,26 +121,26 @@ pub fn despawn_entities_on_exit_state<S: States>(
 /// # struct AppMock;
 /// # impl AppMock {
 /// #     fn init_state<S>(&mut self) {}
-/// #     fn enable_state_scoped_entities<S>(&mut self) {}
 /// #     fn add_systems<S, M>(&mut self, schedule: S, systems: impl IntoScheduleConfigs<ScheduleSystem, M>) {}
 /// # }
 /// # struct Update;
 /// # let mut app = AppMock;
 ///
 /// app.init_state::<GameState>();
-/// app.enable_state_scoped_entities::<GameState>();
 /// app.add_systems(OnEnter(GameState::InGame), spawn_player);
 /// ```
 #[derive(Component, Clone)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Component))]
-pub struct DespawnOnEnterState<S: States>(pub S);
+pub struct DespawnOnEnter<S: States>(pub S);
 
-/// Despawns entities marked with [`DespawnOnEnterState<S>`] when their state
+/// Despawns entities marked with [`DespawnOnEnter<S>`] when their state
 /// matches the world state.
+///
+/// If the entity has already been despawned no warning will be emitted.
 pub fn despawn_entities_on_enter_state<S: States>(
     mut commands: Commands,
-    mut transitions: EventReader<StateTransitionEvent<S>>,
-    query: Query<(Entity, &DespawnOnEnterState<S>)>,
+    mut transitions: MessageReader<StateTransitionEvent<S>>,
+    query: Query<(Entity, &DespawnOnEnter<S>), Allow<Disabled>>,
 ) {
     // We use the latest event, because state machine internals generate at most 1
     // transition event (per type) each frame. No event means no change happened
@@ -158,7 +156,79 @@ pub fn despawn_entities_on_enter_state<S: States>(
     };
     for (entity, binding) in &query {
         if binding.0 == *entered {
-            commands.entity(entity).despawn();
+            commands.entity(entity).try_despawn();
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use bevy_app::App;
+
+    use crate::{
+        app::{AppExtStates, StatesPlugin},
+        prelude::CommandsStatesExt,
+    };
+
+    #[test]
+    fn despawn_on_exit_from_computed_state() {
+        #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, States)]
+        enum State {
+            On,
+            Off,
+        }
+
+        #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+        struct ComputedState;
+        impl bevy_state::state::ComputedStates for ComputedState {
+            type SourceStates = State;
+
+            fn compute(sources: Self::SourceStates) -> Option<Self> {
+                match sources {
+                    State::On => Some(ComputedState),
+                    State::Off => None,
+                }
+            }
+        }
+
+        let mut app = App::new();
+        app.add_plugins(StatesPlugin);
+
+        app.insert_state(State::On);
+        app.add_computed_state::<ComputedState>();
+        app.update();
+
+        assert_eq!(
+            app.world()
+                .resource::<bevy_state::state::State<State>>()
+                .get(),
+            &State::On
+        );
+        assert_eq!(
+            app.world()
+                .resource::<bevy_state::state::State<ComputedState>>()
+                .get(),
+            &ComputedState
+        );
+
+        let entity = app.world_mut().spawn(DespawnOnExit(ComputedState)).id();
+        assert!(app.world().get_entity(entity).is_ok());
+
+        app.world_mut().commands().set_state(State::Off);
+        app.update();
+
+        assert_eq!(
+            app.world()
+                .resource::<bevy_state::state::State<State>>()
+                .get(),
+            &State::Off
+        );
+        assert!(app
+            .world()
+            .get_resource::<bevy_state::state::State<ComputedState>>()
+            .is_none());
+        assert!(app.world().get_entity(entity).is_err());
     }
 }

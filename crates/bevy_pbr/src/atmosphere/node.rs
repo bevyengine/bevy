@@ -1,6 +1,9 @@
+use bevy_camera::{MainPassResolutionOverride, Viewport};
 use bevy_ecs::{query::QueryItem, system::lifetimeless::Read, world::World};
 use bevy_math::{UVec2, Vec3Swizzles};
 use bevy_render::{
+    camera::ExtractedCamera,
+    diagnostic::RecordDiagnostics,
     extract_component::DynamicUniformIndex,
     render_graph::{NodeRunError, RenderGraphContext, RenderLabel, ViewNode},
     render_resource::{ComputePass, ComputePassDescriptor, PipelineCache, RenderPassDescriptor},
@@ -8,20 +11,21 @@ use bevy_render::{
     view::{ViewTarget, ViewUniformOffset},
 };
 
-use crate::ViewLightsUniformOffset;
+use crate::{resources::GpuAtmosphere, ViewLightsUniformOffset};
 
 use super::{
     resources::{
         AtmosphereBindGroups, AtmosphereLutPipelines, AtmosphereTransformsOffset,
         RenderSkyPipelineId,
     },
-    Atmosphere, AtmosphereSettings,
+    GpuAtmosphereSettings,
 };
 
 #[derive(PartialEq, Eq, Debug, Copy, Clone, Hash, RenderLabel)]
 pub enum AtmosphereNode {
     RenderLuts,
     RenderSky,
+    Environment,
 }
 
 #[derive(Default)]
@@ -29,10 +33,10 @@ pub(super) struct AtmosphereLutsNode {}
 
 impl ViewNode for AtmosphereLutsNode {
     type ViewQuery = (
-        Read<AtmosphereSettings>,
+        Read<GpuAtmosphereSettings>,
         Read<AtmosphereBindGroups>,
-        Read<DynamicUniformIndex<Atmosphere>>,
-        Read<DynamicUniformIndex<AtmosphereSettings>>,
+        Read<DynamicUniformIndex<GpuAtmosphere>>,
+        Read<DynamicUniformIndex<GpuAtmosphereSettings>>,
         Read<AtmosphereTransformsOffset>,
         Read<ViewUniformOffset>,
         Read<ViewLightsUniformOffset>,
@@ -70,12 +74,15 @@ impl ViewNode for AtmosphereLutsNode {
             return Ok(());
         };
 
+        let diagnostics = render_context.diagnostic_recorder();
+
         let command_encoder = render_context.command_encoder();
 
         let mut luts_pass = command_encoder.begin_compute_pass(&ComputePassDescriptor {
-            label: Some("atmosphere_luts_pass"),
+            label: Some("atmosphere_luts"),
             timestamp_writes: None,
         });
+        let pass_span = diagnostics.pass_span(&mut luts_pass, "atmosphere_luts");
 
         fn dispatch_2d(compute_pass: &mut ComputePass, size: UVec2) {
             const WORKGROUP_SIZE: u32 = 16;
@@ -149,6 +156,8 @@ impl ViewNode for AtmosphereLutsNode {
 
         dispatch_2d(&mut luts_pass, settings.aerial_view_lut_size.xy());
 
+        pass_span.end(&mut luts_pass);
+
         Ok(())
     }
 }
@@ -158,14 +167,16 @@ pub(super) struct RenderSkyNode;
 
 impl ViewNode for RenderSkyNode {
     type ViewQuery = (
+        Read<ExtractedCamera>,
         Read<AtmosphereBindGroups>,
         Read<ViewTarget>,
-        Read<DynamicUniformIndex<Atmosphere>>,
-        Read<DynamicUniformIndex<AtmosphereSettings>>,
+        Read<DynamicUniformIndex<GpuAtmosphere>>,
+        Read<DynamicUniformIndex<GpuAtmosphereSettings>>,
         Read<AtmosphereTransformsOffset>,
         Read<ViewUniformOffset>,
         Read<ViewLightsUniformOffset>,
         Read<RenderSkyPipelineId>,
+        Option<Read<MainPassResolutionOverride>>,
     );
 
     fn run<'w>(
@@ -173,6 +184,7 @@ impl ViewNode for RenderSkyNode {
         _graph: &mut RenderGraphContext,
         render_context: &mut RenderContext<'w>,
         (
+            camera,
             atmosphere_bind_groups,
             view_target,
             atmosphere_uniforms_offset,
@@ -181,7 +193,8 @@ impl ViewNode for RenderSkyNode {
             view_uniforms_offset,
             lights_uniforms_offset,
             render_sky_pipeline_id,
-        ): QueryItem<'w, Self::ViewQuery>,
+            resolution_override,
+        ): QueryItem<'w, '_, Self::ViewQuery>,
         world: &'w World,
     ) -> Result<(), NodeRunError> {
         let pipeline_cache = world.resource::<PipelineCache>();
@@ -191,18 +204,24 @@ impl ViewNode for RenderSkyNode {
             return Ok(());
         }; //TODO: warning
 
-        let mut render_sky_pass =
-            render_context
-                .command_encoder()
-                .begin_render_pass(&RenderPassDescriptor {
-                    label: Some("render_sky_pass"),
-                    color_attachments: &[Some(view_target.get_color_attachment())],
-                    depth_stencil_attachment: None,
-                    timestamp_writes: None,
-                    occlusion_query_set: None,
-                });
+        let diagnostics = render_context.diagnostic_recorder();
 
-        render_sky_pass.set_pipeline(render_sky_pipeline);
+        let mut render_sky_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
+            label: Some("render_sky"),
+            color_attachments: &[Some(view_target.get_color_attachment())],
+            depth_stencil_attachment: None,
+            timestamp_writes: None,
+            occlusion_query_set: None,
+        });
+        let pass_span = diagnostics.pass_span(&mut render_sky_pass, "render_sky");
+
+        if let Some(viewport) =
+            Viewport::from_viewport_and_override(camera.viewport.as_ref(), resolution_override)
+        {
+            render_sky_pass.set_camera_viewport(&viewport);
+        }
+
+        render_sky_pass.set_render_pipeline(render_sky_pipeline);
         render_sky_pass.set_bind_group(
             0,
             &atmosphere_bind_groups.render_sky,
@@ -215,6 +234,8 @@ impl ViewNode for RenderSkyNode {
             ],
         );
         render_sky_pass.draw(0..3, 0..1);
+
+        pass_span.end(&mut render_sky_pass);
 
         Ok(())
     }

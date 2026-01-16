@@ -7,19 +7,21 @@ on:
   pull_request_target:
     types:
       - labeled
-
-permissions:
-  pull-requests: 'write'
+    branches:
+      - "main"
 
 jobs:
   comment-on-migration-guide-label:
+    permissions:
+      pull-requests: "write"
     runs-on: ubuntu-latest
-    if: github.event.label.name == 'M-Needs-Migration-Guide'
+    if: github.event.label.name == 'M-Migration-Guide'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 2
+          persist-credentials: false
       - name: Get changes
         id: get_changes
         shell: bash {0}
@@ -30,7 +32,7 @@ jobs:
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-      - uses: actions/github-script@v7
+      - uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         if: steps.get_changes.outputs.found_changes == '0'
         with:
           script: |
@@ -43,13 +45,16 @@ jobs:
               Please review the [instructions for writing migration guides](https://github.com/bevyengine/bevy/tree/main/release-content/migration_guides.md), then expand or revise the content in the [migration guides directory](https://github.com/bevyengine/bevy/tree/main/release-content/migration-guides) to reflect your changes.`
             })
   comment-on-release-note-label:
+    permissions:
+      pull-requests: "write"
     runs-on: ubuntu-latest
-    if: github.event.label.name == 'M-Needs-Release-Note'
+    if: github.event.label.name == 'M-Release-Note'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 2
+          persist-credentials: false
       - name: Get changes
         id: get_changes
         shell: bash {0}
@@ -60,7 +65,7 @@ jobs:
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-      - uses: actions/github-script@v7
+      - uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         if: steps.get_changes.outputs.found_changes == '0'
         with:
           script: |
@@ -70,5 +75,5 @@ jobs:
               repo: context.repo.repo,
               body: `It looks like your PR has been selected for a highlight in the next release blog post, but **you didn't provide a release note**.
 
-              Please review the [instructions for writing release notes](https://github.com/bevyengine/bevy/tree/main/release-content/release_notes.md), then expand or revise the content in the [release notes directory](https://github.com/bevyengine/bevy/tree/main/release-content/release_notes) to showcase your changes.`
+              Please review the [instructions for writing release notes](https://github.com/bevyengine/bevy/tree/main/release-content/release_notes.md), then expand or revise the content in the [release notes directory](https://github.com/bevyengine/bevy/tree/main/release-content/release-notes) to showcase your changes.`
             })

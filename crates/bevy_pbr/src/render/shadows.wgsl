@@ -11,12 +11,17 @@
 
 #import bevy_render::{
     color_operations::hsv_to_rgb,
-    maths::PI_2
+    maths::{orthonormalize, PI_2}
 }
 
 const flip_z: vec3<f32> = vec3<f32>(1.0, 1.0, -1.0);
 
-fn fetch_point_shadow(light_id: u32, frag_position: vec4<f32>, surface_normal: vec3<f32>) -> f32 {
+fn fetch_point_shadow(
+    light_id: u32,
+    frag_position: vec4<f32>,
+    surface_normal: vec3<f32>,
+    frag_coord_xy: vec2<f32>,
+) -> f32 {
     let light = &view_bindings::clusterable_objects.data[light_id];
 
     // because the shadow maps align with the axes and the frustum planes are at 45 degrees
@@ -54,12 +59,13 @@ fn fetch_point_shadow(light_id: u32, frag_position: vec4<f32>, surface_normal: v
             depth,
             light_id,
             (*light).soft_shadow_size,
+            frag_coord_xy,
         );
     }
 
     // Do the lookup, using HW PCF and comparison. Cubemaps assume a left-handed
     // coordinate space, so we have to flip the z-axis when sampling.
-    return sample_shadow_cubemap(frag_ls * flip_z, distance_to_light, depth, light_id);
+    return sample_shadow_cubemap(frag_ls * flip_z, distance_to_light, depth, light_id, frag_coord_xy);
 }
 
 fn fetch_spot_shadow(
@@ -67,6 +73,7 @@ fn fetch_spot_shadow(
     frag_position: vec4<f32>,
     surface_normal: vec3<f32>,
     near_z: f32,
+    frag_coord_xy: vec2<f32>,
 ) -> f32 {
     let light = &view_bindings::clusterable_objects.data[light_id];
 
@@ -88,17 +95,7 @@ fn fetch_spot_shadow(
         + ((*light).shadow_depth_bias * normalize(surface_to_light))
         + (surface_normal.xyz * (*light).shadow_normal_bias) * distance_to_light;
 
-    // the construction of the up and right vectors needs to precisely mirror the code
-    // in render/light.rs:spot_light_view_matrix
-    var sign = -1.0;
-    if (fwd.z >= 0.0) {
-        sign = 1.0;
-    }
-    let a = -1.0 / (fwd.z + sign);
-    let b = fwd.x * fwd.y * a;
-    let up_dir = vec3<f32>(1.0 + sign * fwd.x * fwd.x * a, sign * b, -sign * fwd.x);
-    let right_dir = vec3<f32>(-b, -sign - fwd.y * fwd.y * a, fwd.y);
-    let light_inv_rot = mat3x3<f32>(right_dir, up_dir, fwd);
+    let light_inv_rot = orthonormalize(fwd);
 
     // because the matrix is a pure rotation matrix, the inverse is just the transpose, and to calculate
     // the product of the transpose with a vector we can just post-multiply instead of pre-multiplying.
@@ -118,10 +115,22 @@ fn fetch_spot_shadow(
     let array_index = i32(light_id) + view_bindings::lights.spot_light_shadowmap_offset;
     if ((*light).soft_shadow_size > 0.0) {
         return sample_shadow_map_pcss(
-            shadow_uv, depth, array_index, SPOT_SHADOW_TEXEL_SIZE, (*light).soft_shadow_size);
+            shadow_uv,
+            depth,
+            array_index,
+            frag_coord_xy,
+            SPOT_SHADOW_TEXEL_SIZE,
+            (*light).soft_shadow_size,
+        );
     }
 
-    return sample_shadow_map(shadow_uv, depth, array_index, SPOT_SHADOW_TEXEL_SIZE);
+    return sample_shadow_map(
+        shadow_uv,
+        depth,
+        array_index,
+        frag_coord_xy,
+        SPOT_SHADOW_TEXEL_SIZE,
+    );
 }
 
 fn get_cascade_index(light_id: u32, view_z: f32) -> u32 {
@@ -173,6 +182,7 @@ fn sample_directional_cascade(
     cascade_index: u32,
     frag_position: vec4<f32>,
     surface_normal: vec3<f32>,
+    frag_coord_xy: vec2<f32>,
 ) -> f32 {
     let light = &view_bindings::lights.directional_lights[light_id];
     let cascade = &(*light).cascades[cascade_index];
@@ -193,13 +203,31 @@ fn sample_directional_cascade(
     // If soft shadows are enabled, use the PCSS path.
     if ((*light).soft_shadow_size > 0.0) {
         return sample_shadow_map_pcss(
-            light_local.xy, light_local.z, array_index, texel_size, (*light).soft_shadow_size);
+            light_local.xy,
+            light_local.z,
+            array_index,
+            frag_coord_xy,
+            texel_size,
+            (*light).soft_shadow_size,
+        );
     }
 
-    return sample_shadow_map(light_local.xy, light_local.z, array_index, texel_size);
+    return sample_shadow_map(
+        light_local.xy,
+        light_local.z,
+        array_index,
+        frag_coord_xy,
+        texel_size,
+    );
 }
 
-fn fetch_directional_shadow(light_id: u32, frag_position: vec4<f32>, surface_normal: vec3<f32>, view_z: f32) -> f32 {
+fn fetch_directional_shadow(
+    light_id: u32,
+    frag_position: vec4<f32>,
+    surface_normal: vec3<f32>,
+    view_z: f32,
+    frag_coord_xy: vec2<f32>,
+) -> f32 {
     let light = &view_bindings::lights.directional_lights[light_id];
     let cascade_index = get_cascade_index(light_id, view_z);
 
@@ -207,7 +235,13 @@ fn fetch_directional_shadow(light_id: u32, frag_position: vec4<f32>, surface_nor
         return 1.0;
     }
 
-    var shadow = sample_directional_cascade(light_id, cascade_index, frag_position, surface_normal);
+    var shadow = sample_directional_cascade(
+        light_id,
+        cascade_index,
+        frag_position,
+        surface_normal,
+        frag_coord_xy,
+    );
 
     // Blend with the next cascade, if there is one.
     let next_cascade_index = cascade_index + 1u;
@@ -215,7 +249,13 @@ fn fetch_directional_shadow(light_id: u32, frag_position: vec4<f32>, surface_nor
         let this_far_bound = (*light).cascades[cascade_index].far_bound;
         let next_near_bound = (1.0 - (*light).cascades_overlap_proportion) * this_far_bound;
         if (-view_z >= next_near_bound) {
-            let next_shadow = sample_directional_cascade(light_id, next_cascade_index, frag_position, surface_normal);
+            let next_shadow = sample_directional_cascade(
+                light_id,
+                next_cascade_index,
+                frag_position,
+                surface_normal,
+                frag_coord_xy,
+            );
             shadow = mix(shadow, next_shadow, (-view_z - next_near_bound) / (this_far_bound - next_near_bound));
         }
     }

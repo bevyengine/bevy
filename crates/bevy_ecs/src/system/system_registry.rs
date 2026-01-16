@@ -1,40 +1,76 @@
-#[cfg(feature = "bevy_reflect")]
-use crate::reflect::ReflectComponent;
+#[cfg(feature = "hotpatching")]
+use crate::{change_detection::DetectChanges, HotPatchChanges};
 use crate::{
     change_detection::Mut,
     entity::Entity,
-    system::{input::SystemInput, BoxedSystem, IntoSystem, SystemParamValidationError},
+    error::BevyError,
+    system::{
+        input::SystemInput, BoxedSystem, IntoSystem, RunSystemError, SystemParamValidationError,
+    },
     world::World,
 };
 use alloc::boxed::Box;
 use bevy_ecs_macros::{Component, Resource};
-#[cfg(feature = "bevy_reflect")]
-use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use core::marker::PhantomData;
+use bevy_utils::prelude::DebugName;
+use core::{any::TypeId, marker::PhantomData};
 use thiserror::Error;
 
 /// A small wrapper for [`BoxedSystem`] that also keeps track whether or not the system has been initialized.
 #[derive(Component)]
-#[require(SystemIdMarker)]
+#[require(SystemIdMarker = SystemIdMarker::typed_system_id_marker::<I, O>())]
 pub(crate) struct RegisteredSystem<I, O> {
     initialized: bool,
-    system: BoxedSystem<I, O>,
+    system: Option<BoxedSystem<I, O>>,
 }
 
 impl<I, O> RegisteredSystem<I, O> {
     pub fn new(system: BoxedSystem<I, O>) -> Self {
         RegisteredSystem {
             initialized: false,
-            system,
+            system: Some(system),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+struct TypeIdAndName {
+    type_id: TypeId,
+    name: DebugName,
+}
+
+impl TypeIdAndName {
+    fn new<T: 'static>() -> Self {
+        Self {
+            type_id: TypeId::of::<T>(),
+            name: DebugName::type_name::<T>(),
+        }
+    }
+}
+
+impl Default for TypeIdAndName {
+    fn default() -> Self {
+        Self {
+            type_id: TypeId::of::<()>(),
+            name: DebugName::type_name::<()>(),
         }
     }
 }
 
 /// Marker [`Component`](bevy_ecs::component::Component) for identifying [`SystemId`] [`Entity`]s.
-#[derive(Component, Default)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
-#[cfg_attr(feature = "bevy_reflect", reflect(Component, Default))]
-pub struct SystemIdMarker;
+#[derive(Debug, Default, Clone, Component)]
+pub struct SystemIdMarker {
+    input_type_id: TypeIdAndName,
+    output_type_id: TypeIdAndName,
+}
+
+impl SystemIdMarker {
+    fn typed_system_id_marker<I: 'static, O: 'static>() -> Self {
+        Self {
+            input_type_id: TypeIdAndName::new::<I>(),
+            output_type_id: TypeIdAndName::new::<O>(),
+        }
+    }
+}
 
 /// A system that has been removed from the registry.
 /// It contains the system and whether or not it has been initialized.
@@ -200,7 +236,9 @@ impl World {
                 entity.despawn();
                 Ok(RemovedSystem {
                     initialized: registered_system.initialized,
-                    system: registered_system.system,
+                    system: registered_system
+                        .system
+                        .ok_or(RegisteredSystemError::SystemMissing(id))?,
                 })
             }
             Err(_) => Err(RegisteredSystemError::SystemIdNotRegistered(id)),
@@ -338,41 +376,58 @@ impl World {
             .map_err(|_| RegisteredSystemError::SystemIdNotRegistered(id))?;
 
         // Take ownership of system trait object
-        let RegisteredSystem {
-            mut initialized,
-            mut system,
-        } = entity
-            .take::<RegisteredSystem<I, O>>()
-            .ok_or(RegisteredSystemError::Recursive(id))?;
+        let Some(mut registered_system) = entity.get_mut::<RegisteredSystem<I, O>>() else {
+            let Some(system_id_marker) = entity.get::<SystemIdMarker>() else {
+                return Err(RegisteredSystemError::SystemIdNotRegistered(id));
+            };
+            if system_id_marker.input_type_id.type_id != TypeId::of::<I>()
+                || system_id_marker.output_type_id.type_id != TypeId::of::<O>()
+            {
+                return Err(RegisteredSystemError::IncorrectType(
+                    id,
+                    system_id_marker.clone(),
+                ));
+            }
+            return Err(RegisteredSystemError::MissingRegisteredSystemComponent(id));
+        };
 
-        // Run the system
-        if !initialized {
+        let mut system = registered_system
+            .system
+            .take()
+            .ok_or(RegisteredSystemError::SystemMissing(id))?;
+
+        // Initialize the system
+        if !registered_system.initialized {
             system.initialize(self);
-            initialized = true;
         }
 
-        let result = system
-            .validate_param(self)
-            .map_err(|err| RegisteredSystemError::InvalidParams { system: id, err })
-            .map(|()| {
-                // Wait to run the commands until the system is available again.
-                // This is needed so the systems can recursively run themselves.
-                let ret = system.run_without_applying_deferred(input, self);
-                system.queue_deferred(self.into());
-                ret
-            });
+        // refresh hotpatches for stored systems
+        #[cfg(feature = "hotpatching")]
+        if self
+            .get_resource_ref::<HotPatchChanges>()
+            .map(|r| r.last_changed())
+            .unwrap_or_default()
+            .is_newer_than(system.get_last_run(), self.change_tick())
+        {
+            system.refresh_hotpatch();
+        }
+
+        // Wait to run the commands until the system is available again.
+        // This is needed so the systems can recursively run themselves.
+        let result = system.run_without_applying_deferred(input, self);
+        system.queue_deferred(self.into());
 
         // Return ownership of system trait object (if entity still exists)
-        if let Ok(mut entity) = self.get_entity_mut(id.entity) {
-            entity.insert::<RegisteredSystem<I, O>>(RegisteredSystem {
-                initialized,
-                system,
-            });
+        if let Ok(mut entity) = self.get_entity_mut(id.entity)
+            && let Some(mut registered_system) = entity.get_mut::<RegisteredSystem<I, O>>()
+        {
+            registered_system.system = Some(system);
+            registered_system.initialized = true;
         }
 
         // Run any commands enqueued by the system
         self.flush();
-        result
+        Ok(result?)
     }
 
     /// Registers a system or returns its cached [`SystemId`].
@@ -486,21 +541,35 @@ pub enum RegisteredSystemError<I: SystemInput = (), O = ()> {
     /// Did you forget to register it?
     #[error("Cached system was not found")]
     SystemNotCached,
-    /// A system tried to run itself recursively.
-    #[error("System {0:?} tried to run itself recursively")]
-    Recursive(SystemId<I, O>),
+    /// The `RegisteredSystem` component is missing.
+    #[error("System {0:?} does not have a RegisteredSystem component. This only happens if app code removed the component.")]
+    MissingRegisteredSystemComponent(SystemId<I, O>),
     /// A system tried to remove itself.
     #[error("System {0:?} tried to remove itself")]
     SelfRemove(SystemId<I, O>),
     /// System could not be run due to parameters that failed validation.
-    /// This should not be considered an error if [`field@SystemParamValidationError::skipped`] is `true`.
-    #[error("System {system:?} did not run due to failed parameter validation: {err}")]
-    InvalidParams {
-        /// The identifier of the system that was run.
-        system: SystemId<I, O>,
-        /// The returned parameter validation error.
-        err: SystemParamValidationError,
-    },
+    /// This is not considered an error.
+    #[error("System did not run due to failed parameter validation: {0}")]
+    Skipped(SystemParamValidationError),
+    /// System returned an error or failed required parameter validation.
+    #[error("System returned error: {0}")]
+    Failed(BevyError),
+    /// [`SystemId`] had different input and/or output types than [`SystemIdMarker`]
+    #[error("Could not get system from `{}`, entity was `SystemId<{}, {}>`", DebugName::type_name::<SystemId<I, O>>(), .1.input_type_id.name, .1.output_type_id.name)]
+    IncorrectType(SystemId<I, O>, SystemIdMarker),
+    /// System is not present in the `RegisteredSystem` component.
+    // TODO: We should consider using catch_unwind to protect against the panic case.
+    #[error("The system is not present in the RegisteredSystem component. This can happen if the system was called recursively or if the system panicked on the last run.")]
+    SystemMissing(SystemId<I, O>),
+}
+
+impl<I: SystemInput, O> From<RunSystemError> for RegisteredSystemError<I, O> {
+    fn from(value: RunSystemError) -> Self {
+        match value {
+            RunSystemError::Skipped(err) => Self::Skipped(err),
+            RunSystemError::Failed(err) => Self::Failed(err),
+        }
+    }
 }
 
 impl<I: SystemInput, O> core::fmt::Debug for RegisteredSystemError<I, O> {
@@ -510,13 +579,19 @@ impl<I: SystemInput, O> core::fmt::Debug for RegisteredSystemError<I, O> {
                 f.debug_tuple("SystemIdNotRegistered").field(arg0).finish()
             }
             Self::SystemNotCached => write!(f, "SystemNotCached"),
-            Self::Recursive(arg0) => f.debug_tuple("Recursive").field(arg0).finish(),
-            Self::SelfRemove(arg0) => f.debug_tuple("SelfRemove").field(arg0).finish(),
-            Self::InvalidParams { system, err } => f
-                .debug_struct("InvalidParams")
-                .field("system", system)
-                .field("err", err)
+            Self::MissingRegisteredSystemComponent(arg0) => f
+                .debug_tuple("MissingRegisteredSystemComponent")
+                .field(arg0)
                 .finish(),
+            Self::SelfRemove(arg0) => f.debug_tuple("SelfRemove").field(arg0).finish(),
+            Self::Skipped(arg0) => f.debug_tuple("Skipped").field(arg0).finish(),
+            Self::Failed(arg0) => f.debug_tuple("Failed").field(arg0).finish(),
+            Self::IncorrectType(arg0, arg1) => f
+                .debug_tuple("IncorrectType")
+                .field(arg0)
+                .field(arg1)
+                .finish(),
+            Self::SystemMissing(arg0) => f.debug_tuple("SystemMissing").field(arg0).finish(),
         }
     }
 }
@@ -527,7 +602,10 @@ mod tests {
 
     use bevy_utils::default;
 
-    use crate::{prelude::*, system::SystemId};
+    use crate::{
+        prelude::*,
+        system::{RegisteredSystemError, SystemId},
+    };
 
     #[derive(Resource, Default, PartialEq, Debug)]
     struct Counter(u8);
@@ -652,14 +730,27 @@ mod tests {
     }
 
     #[test]
+    fn fallible_system() {
+        fn sys() -> Result<()> {
+            Err("error")?;
+            Ok(())
+        }
+
+        let mut world = World::new();
+        let fallible_system_id = world.register_system(sys);
+        let output = world.run_system(fallible_system_id);
+        assert!(matches!(output, Ok(Err(_))));
+    }
+
+    #[test]
     fn exclusive_system() {
         let mut world = World::new();
         let exclusive_system_id = world.register_system(|world: &mut World| {
             world.spawn_empty();
         });
-        let entity_count = world.entities.len();
+        let entity_count = world.entities.count_spawned();
         let _ = world.run_system(exclusive_system_id);
-        assert_eq!(world.entities.len(), entity_count + 1);
+        assert_eq!(world.entities.count_spawned(), entity_count + 1);
     }
 
     #[test]
@@ -752,18 +843,66 @@ mod tests {
     }
 
     #[test]
+    fn cached_fallible_system() {
+        fn sys() -> Result<()> {
+            Err("error")?;
+            Ok(())
+        }
+
+        let mut world = World::new();
+        let fallible_system_id = world.register_system_cached(sys);
+        let output = world.run_system(fallible_system_id);
+        assert!(matches!(output, Ok(Err(_))));
+        let output = world.run_system_cached(sys);
+        assert!(matches!(output, Ok(Err(_))));
+        let output = world.run_system_cached_with(sys, ());
+        assert!(matches!(output, Ok(Err(_))));
+    }
+
+    #[test]
     fn cached_system_commands() {
         fn sys(mut counter: ResMut<Counter>) {
-            counter.0 = 1;
+            counter.0 += 1;
         }
 
         let mut world = World::new();
         world.insert_resource(Counter(0));
-
         world.commands().run_system_cached(sys);
         world.flush_commands();
-
         assert_eq!(world.resource::<Counter>().0, 1);
+        world.commands().run_system_cached_with(sys, ());
+        world.flush_commands();
+        assert_eq!(world.resource::<Counter>().0, 2);
+    }
+
+    #[test]
+    fn cached_fallible_system_commands() {
+        fn sys(mut counter: ResMut<Counter>) -> Result {
+            counter.0 += 1;
+            Ok(())
+        }
+
+        let mut world = World::new();
+        world.insert_resource(Counter(0));
+        world.commands().run_system_cached(sys);
+        world.flush_commands();
+        assert_eq!(world.resource::<Counter>().0, 1);
+        world.commands().run_system_cached_with(sys, ());
+        world.flush_commands();
+        assert_eq!(world.resource::<Counter>().0, 2);
+    }
+
+    #[test]
+    #[should_panic(expected = "This system always fails")]
+    fn cached_fallible_system_commands_can_fail() {
+        use crate::system::command;
+        fn sys() -> Result {
+            Err("This system always fails".into())
+        }
+
+        let mut world = World::new();
+        world.commands().queue(command::run_system_cached(sys));
+        world.flush_commands();
     }
 
     #[test]
@@ -787,10 +926,8 @@ mod tests {
 
     #[test]
     fn cached_system_into_same_system_type() {
-        use crate::error::Result;
-
         struct Foo;
-        impl IntoSystem<(), Result<()>, ()> for Foo {
+        impl IntoSystem<(), (), ()> for Foo {
             type System = ApplyDeferred;
             fn into_system(_: Self) -> Self::System {
                 ApplyDeferred
@@ -798,7 +935,7 @@ mod tests {
         }
 
         struct Bar;
-        impl IntoSystem<(), Result<()>, ()> for Bar {
+        impl IntoSystem<(), (), ()> for Bar {
             type System = ApplyDeferred;
             fn into_system(_: Self) -> Self::System {
                 ApplyDeferred
@@ -865,10 +1002,11 @@ mod tests {
     #[test]
     fn run_system_invalid_params() {
         use crate::system::RegisteredSystemError;
-        use alloc::{format, string::ToString};
+        use alloc::string::ToString;
 
+        #[derive(Resource)]
         struct T;
-        impl Resource for T {}
+
         fn system(_: Res<T>) {}
 
         let mut world = World::new();
@@ -876,12 +1014,16 @@ mod tests {
         // This fails because `T` has not been added to the world yet.
         let result = world.run_system(id);
 
-        assert!(matches!(
-            result,
-            Err(RegisteredSystemError::InvalidParams { .. })
-        ));
-        let expected = format!("System {id:?} did not run due to failed parameter validation: Parameter `Res<T>` failed validation: Resource does not exist");
-        assert_eq!(expected, result.unwrap_err().to_string());
+        assert!(matches!(result, Err(RegisteredSystemError::Failed { .. })));
+        let expected = "Resource does not exist";
+        let actual = result.unwrap_err().to_string();
+
+        assert!(
+            actual.contains(expected),
+            "Expected error message to contain `{}` but got `{}`",
+            expected,
+            actual
+        );
     }
 
     #[test]
@@ -914,5 +1056,22 @@ mod tests {
         world.run_system_cached(system).unwrap();
         world.run_system_cached(system.pipe(system)).unwrap();
         world.run_system_cached(system.map(|()| {})).unwrap();
+    }
+
+    #[test]
+    fn wrong_system_type() {
+        fn test() -> Result<(), u8> {
+            Ok(())
+        }
+
+        let mut world = World::new();
+
+        let entity = world.register_system_cached(test).entity();
+
+        match world.run_system::<u8>(SystemId::from_entity(entity)) {
+            Ok(_) => panic!("Should fail since called `run_system` with wrong SystemId type."),
+            Err(RegisteredSystemError::IncorrectType(_, _)) => (),
+            Err(err) => panic!("Failed with wrong error. `{:?}`", err),
+        }
     }
 }

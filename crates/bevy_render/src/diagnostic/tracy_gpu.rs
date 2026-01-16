@@ -1,7 +1,7 @@
 use crate::renderer::{RenderAdapterInfo, RenderDevice, RenderQueue};
 use tracy_client::{Client, GpuContext, GpuContextType};
 use wgpu::{
-    Backend, BufferDescriptor, BufferUsages, CommandEncoderDescriptor, Maintain, MapMode,
+    Backend, BufferDescriptor, BufferUsages, CommandEncoderDescriptor, MapMode, PollType,
     QuerySetDescriptor, QueryType, QUERY_SIZE,
 };
 
@@ -14,7 +14,7 @@ pub fn new_tracy_gpu_context(
         Backend::Vulkan => GpuContextType::Vulkan,
         Backend::Dx12 => GpuContextType::Direct3D12,
         Backend::Gl => GpuContextType::OpenGL,
-        Backend::Metal | Backend::BrowserWebGpu | Backend::Empty => GpuContextType::Invalid,
+        Backend::Metal | Backend::BrowserWebGpu | Backend::Noop => GpuContextType::Invalid,
     };
 
     let tracy_client = Client::running().unwrap();
@@ -56,11 +56,13 @@ fn initial_timestamp(device: &RenderDevice, queue: &RenderQueue) -> i64 {
     // Workaround for https://github.com/gfx-rs/wgpu/issues/6406
     // TODO when that bug is fixed, merge these encoders together again
     let mut copy_encoder = device.create_command_encoder(&CommandEncoderDescriptor::default());
-    copy_encoder.copy_buffer_to_buffer(&resolve_buffer, 0, &map_buffer, 0, QUERY_SIZE as _);
+    copy_encoder.copy_buffer_to_buffer(&resolve_buffer, 0, &map_buffer, 0, Some(QUERY_SIZE as _));
     queue.submit([timestamp_encoder.finish(), copy_encoder.finish()]);
 
     map_buffer.slice(..).map_async(MapMode::Read, |_| ());
-    device.poll(Maintain::Wait);
+    device
+        .poll(PollType::wait_indefinitely())
+        .expect("Failed to poll device for map async");
 
     let view = map_buffer.slice(..).get_mapped_range();
     i64::from_le_bytes((*view).try_into().unwrap())

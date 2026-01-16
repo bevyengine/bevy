@@ -1,8 +1,8 @@
 #![forbid(unsafe_code)]
-#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![doc(
-    html_logo_url = "https://bevyengine.org/assets/icon.png",
-    html_favicon_url = "https://bevyengine.org/assets/icon.png"
+    html_logo_url = "https://bevy.org/assets/icon.png",
+    html_favicon_url = "https://bevy.org/assets/icon.png"
 )]
 
 //! A collection of helper types and functions for working on macros within the Bevy ecosystem.
@@ -14,11 +14,17 @@ mod attrs;
 mod bevy_manifest;
 pub mod fq_std;
 mod label;
+mod member;
+mod parser;
+mod result_sifter;
 mod shape;
 mod symbol;
 
 pub use attrs::*;
 pub use bevy_manifest::*;
 pub use label::*;
+pub use member::*;
+pub use parser::*;
+pub use result_sifter::*;
 pub use shape::*;
 pub use symbol::*;

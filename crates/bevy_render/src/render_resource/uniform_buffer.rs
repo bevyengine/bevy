@@ -78,7 +78,7 @@ impl<T: ShaderType + WriteInto> UniformBuffer<T> {
     }
 
     #[inline]
-    pub fn binding(&self) -> Option<BindingResource> {
+    pub fn binding(&self) -> Option<BindingResource<'_>> {
         Some(BindingResource::Buffer(
             self.buffer()?.as_entire_buffer_binding(),
         ))
@@ -213,7 +213,7 @@ impl<T: ShaderType + WriteInto> DynamicUniformBuffer<T> {
     }
 
     #[inline]
-    pub fn binding(&self) -> Option<BindingResource> {
+    pub fn binding(&self) -> Option<BindingResource<'_>> {
         Some(BindingResource::Buffer(BufferBinding {
             buffer: self.buffer()?,
             offset: 0,
@@ -277,7 +277,7 @@ impl<T: ShaderType + WriteInto> DynamicUniformBuffer<T> {
         max_count: usize,
         device: &RenderDevice,
         queue: &'a RenderQueue,
-    ) -> Option<DynamicUniformBufferWriter<'a, T>> {
+    ) -> Option<DynamicUniformBufferWriter<T>> {
         let alignment = if cfg!(target_abi = "sim") {
             // On iOS simulator on silicon macs, metal validation check that the host OS alignment
             // is respected, but the device reports the correct value for iOS, which is smaller.
@@ -357,27 +357,27 @@ impl<T: ShaderType + WriteInto> DynamicUniformBuffer<T> {
 /// A writer that can be used to directly write elements into the target buffer.
 ///
 /// For more information, see [`DynamicUniformBuffer::get_writer`].
-pub struct DynamicUniformBufferWriter<'a, T> {
-    buffer: encase::DynamicUniformBuffer<QueueWriteBufferViewWrapper<'a>>,
+pub struct DynamicUniformBufferWriter<T> {
+    buffer: encase::DynamicUniformBuffer<QueueWriteBufferViewWrapper>,
     _marker: PhantomData<fn() -> T>,
 }
 
-impl<'a, T: ShaderType + WriteInto> DynamicUniformBufferWriter<'a, T> {
+impl<T: ShaderType + WriteInto> DynamicUniformBufferWriter<T> {
     pub fn write(&mut self, value: &T) -> u32 {
         self.buffer.write(value).unwrap() as u32
     }
 }
 
-/// A wrapper to work around the orphan rule so that [`wgpu::QueueWriteBufferView`] can  implement
+/// A wrapper to work around the orphan rule so that [`wgpu::QueueWriteBufferView`] can implement
 /// [`BufferMut`].
-struct QueueWriteBufferViewWrapper<'a> {
-    buffer_view: wgpu::QueueWriteBufferView<'a>,
+struct QueueWriteBufferViewWrapper {
+    buffer_view: wgpu::QueueWriteBufferView,
     // Must be kept separately and cannot be retrieved from buffer_view, as the read-only access will
     // invoke a panic.
     capacity: usize,
 }
 
-impl<'a> BufferMut for QueueWriteBufferViewWrapper<'a> {
+impl BufferMut for QueueWriteBufferViewWrapper {
     #[inline]
     fn capacity(&self) -> usize {
         self.capacity

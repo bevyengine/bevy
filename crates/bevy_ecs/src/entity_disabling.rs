@@ -36,7 +36,7 @@
 //!
 //! ## Default query filters
 //!
-//! In Bevy, entity disabling is implemented through the construction of a global "default query filter".
+//! In Bevy, entity disabling is implemented through the construction of a global "default query filter" resource.
 //! Queries which do not explicitly mention the disabled component will not include entities with that component.
 //! If an entity has multiple disabling components, it will only be included in queries that mention all of them.
 //!
@@ -44,8 +44,37 @@
 //! even if they have a `Position` component,
 //! but `Query<&Position, With<Disabled>>` or `Query<(&Position, Has<Disabled>)>` will see them.
 //!
+//! The [`Allow`](crate::query::Allow) query filter is designed to be used with default query filters,
+//! and ensures that the query will include entities both with and without the specified disabling component.
+//!
 //! Entities with disabling components are still present in the [`World`] and can be accessed directly,
 //! using methods on [`World`] or [`Commands`](crate::prelude::Commands).
+//!
+//! As default query filters are implemented through a resource,
+//! it's possible to temporarily ignore any default filters by using [`World::resource_scope`](crate::prelude::World).
+//!
+//! ```
+//! use bevy_ecs::prelude::*;
+//! use bevy_ecs::entity_disabling::{DefaultQueryFilters, Disabled};
+//!
+//! let mut world = World::default();
+//!
+//! #[derive(Component)]
+//! struct CustomDisabled;
+//!
+//! world.register_disabling_component::<CustomDisabled>();
+//!
+//! world.spawn(Disabled);
+//! world.spawn(CustomDisabled);
+//!
+//! // resource_scope removes DefaultQueryFilters temporarily before re-inserting into the world.
+//! world.resource_scope(|world: &mut World, _: Mut<DefaultQueryFilters>| {
+//!     // within this scope, we can query like no components are disabled.
+//!     assert_eq!(world.query::<&Disabled>().query(&world).count(), 1);
+//!     assert_eq!(world.query::<&CustomDisabled>().query(&world).count(), 1);
+//!     assert_eq!(world.query::<()>().query(&world).count(), world.entities().count_spawned() as usize);
+//! })
+//! ```
 //!
 //! ### Warnings
 //!
@@ -54,7 +83,7 @@
 //! app starts.
 //!
 //! Because filters are applied to all queries they can have performance implication for
-//! the enire [`World`], especially when they cause queries to mix sparse and table components.
+//! the entire [`World`], especially when they cause queries to mix sparse and table components.
 //! See [`Query` performance] for more info.
 //!
 //! Custom disabling components can cause significant interoperability issues within the ecosystem,
@@ -110,6 +139,12 @@ pub struct Disabled;
 /// If a query does not explicitly mention a given disabling component, it will not include entities with that component.
 /// To be more precise, this checks if the query's [`FilteredAccess`] contains the component,
 /// and if it does not, adds a [`Without`](crate::prelude::Without) filter for that component to the query.
+///
+/// [`Allow`](crate::query::Allow) and [`Has`](crate::prelude::Has) can be used to include entities
+/// with and without the disabling component.
+/// [`Allow`](crate::query::Allow) is a [`QueryFilter`](crate::query::QueryFilter) and will simply change
+/// the list of shown entities, while [`Has`](crate::prelude::Has) is a [`QueryData`](crate::query::QueryData)
+/// and will allow you to see if each entity has the disabling component or not.
 ///
 /// This resource is initialized in the [`World`] whenever a new world is created,
 /// with the [`Disabled`] component as a disabling component.
@@ -178,12 +213,12 @@ impl DefaultQueryFilters {
     }
 
     /// Get an iterator over all of the components which disable entities when present.
-    pub fn disabling_ids(&self) -> impl Iterator<Item = ComponentId> + use<'_> {
+    pub fn disabling_ids(&self) -> impl Iterator<Item = ComponentId> {
         self.disabling.iter().copied()
     }
 
     /// Modifies the provided [`FilteredAccess`] to include the filters from this [`DefaultQueryFilters`].
-    pub(super) fn modify_access(&self, component_access: &mut FilteredAccess<ComponentId>) {
+    pub(super) fn modify_access(&self, component_access: &mut FilteredAccess) {
         for component_id in self.disabling_ids() {
             if !component_access.contains(component_id) {
                 component_access.and_without(component_id);
@@ -205,7 +240,7 @@ mod tests {
 
     use super::*;
     use crate::{
-        prelude::World,
+        prelude::{EntityMut, EntityRef, World},
         query::{Has, With},
     };
     use alloc::{vec, vec::Vec};
@@ -216,7 +251,7 @@ mod tests {
         filters.register_disabling_component(ComponentId::new(1));
 
         // A component access with an unrelated component
-        let mut component_access = FilteredAccess::<ComponentId>::default();
+        let mut component_access = FilteredAccess::default();
         component_access
             .access_mut()
             .add_component_read(ComponentId::new(2));
@@ -273,35 +308,50 @@ mod tests {
     #[derive(Component)]
     struct CustomDisabled;
 
+    #[derive(Component)]
+    struct Dummy;
+
     #[test]
     fn multiple_disabling_components() {
         let mut world = World::new();
         world.register_disabling_component::<CustomDisabled>();
 
-        world.spawn_empty();
-        world.spawn(Disabled);
-        world.spawn(CustomDisabled);
-        world.spawn((Disabled, CustomDisabled));
+        // Use powers of two so we can uniquely identify the set of matching archetypes from the count.
+        world.spawn(Dummy);
+        world.spawn_batch((0..2).map(|_| (Dummy, Disabled)));
+        world.spawn_batch((0..4).map(|_| (Dummy, CustomDisabled)));
+        world.spawn_batch((0..8).map(|_| (Dummy, Disabled, CustomDisabled)));
 
-        let mut query = world.query::<()>();
+        let mut query = world.query::<&Dummy>();
         assert_eq!(1, query.iter(&world).count());
 
-        let mut query = world.query_filtered::<(), With<Disabled>>();
+        let mut query = world.query_filtered::<EntityRef, With<Dummy>>();
         assert_eq!(1, query.iter(&world).count());
 
-        let mut query = world.query::<Has<Disabled>>();
+        let mut query = world.query_filtered::<EntityMut, With<Dummy>>();
+        assert_eq!(1, query.iter(&world).count());
+
+        let mut query = world.query_filtered::<&Dummy, With<Disabled>>();
         assert_eq!(2, query.iter(&world).count());
 
-        let mut query = world.query_filtered::<(), With<CustomDisabled>>();
-        assert_eq!(1, query.iter(&world).count());
+        let mut query = world.query_filtered::<Has<Disabled>, With<Dummy>>();
+        assert_eq!(3, query.iter(&world).count());
 
-        let mut query = world.query::<Has<CustomDisabled>>();
-        assert_eq!(2, query.iter(&world).count());
-
-        let mut query = world.query_filtered::<(), (With<Disabled>, With<CustomDisabled>)>();
-        assert_eq!(1, query.iter(&world).count());
-
-        let mut query = world.query::<(Has<Disabled>, Has<CustomDisabled>)>();
+        let mut query = world.query_filtered::<&Dummy, With<CustomDisabled>>();
         assert_eq!(4, query.iter(&world).count());
+
+        let mut query = world.query_filtered::<Has<CustomDisabled>, With<Dummy>>();
+        assert_eq!(5, query.iter(&world).count());
+
+        let mut query = world.query_filtered::<&Dummy, (With<Disabled>, With<CustomDisabled>)>();
+        assert_eq!(8, query.iter(&world).count());
+
+        let mut query = world.query_filtered::<(Has<Disabled>, Has<CustomDisabled>), With<Dummy>>();
+        assert_eq!(15, query.iter(&world).count());
+
+        // This seems like it ought to count as a mention of `Disabled`, but it does not.
+        // We don't consider read access, since that would count `EntityRef` as a mention of *all* components.
+        let mut query = world.query_filtered::<Option<&Disabled>, With<Dummy>>();
+        assert_eq!(1, query.iter(&world).count());
     }
 }

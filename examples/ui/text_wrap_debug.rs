@@ -1,7 +1,7 @@
 //! This example demonstrates text wrapping and use of the `LineBreakOn` property.
 
 use argh::FromArgs;
-use bevy::{prelude::*, text::LineBreak, window::WindowResolution, winit::WinitSettings};
+use bevy::{prelude::*, text::LineBreak, window::WindowResolution};
 
 #[derive(FromArgs, Resource)]
 /// `text_wrap_debug` demonstrates text wrapping and use of the `LineBreakOn` property
@@ -36,7 +36,6 @@ fn main() {
             primary_window: Some(window),
             ..Default::default()
         }))
-        .insert_resource(WinitSettings::desktop_app())
         .insert_resource(UiScale(args.ui_scale))
         .add_systems(Startup, spawn)
         .run();
@@ -46,7 +45,7 @@ fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2d);
 
     let text_font = TextFont {
-        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+        font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
         font_size: 12.0,
         ..default()
     };
@@ -54,8 +53,8 @@ fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
     let root = commands
         .spawn((
             Node {
-                width: Val::Percent(100.),
-                height: Val::Percent(100.),
+                width: percent(100),
+                height: percent(100),
                 flex_direction: FlexDirection::Column,
                 ..default()
             },
@@ -74,8 +73,8 @@ fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
                 flex_direction: FlexDirection::Row,
                 justify_content: JustifyContent::SpaceAround,
                 align_items: AlignItems::Center,
-                width: Val::Percent(100.),
-                height: Val::Percent(50.),
+                width: percent(100),
+                height: percent(50),
                 ..default()
             })
             .id();
@@ -96,8 +95,8 @@ fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
                     Node {
                         justify_content: justification,
                         flex_direction: FlexDirection::Column,
-                        width: Val::Percent(16.),
-                        height: Val::Percent(95.),
+                        width: percent(16),
+                        height: percent(95),
                         overflow: Overflow::clip_x(),
                         ..default()
                     },
@@ -117,7 +116,7 @@ fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
                 commands.entity(column_id).with_child((
                     Text(message.clone()),
                     text_font.clone(),
-                    TextLayout::new(JustifyText::Left, linebreak),
+                    TextLayout::new(Justify::Left, linebreak),
                     BackgroundColor(Color::srgb(0.8 - j as f32 * 0.2, 0., 0.)),
                 ));
             }

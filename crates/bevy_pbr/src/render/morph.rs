@@ -1,13 +1,13 @@
 use core::{iter, mem};
 
+use bevy_camera::visibility::ViewVisibility;
 use bevy_ecs::prelude::*;
+use bevy_mesh::morph::{MeshMorphWeights, MAX_MORPH_WEIGHTS};
 use bevy_render::sync_world::MainEntityHashMap;
 use bevy_render::{
     batching::NoAutomaticBatching,
-    mesh::morph::{MeshMorphWeights, MAX_MORPH_WEIGHTS},
     render_resource::{BufferUsages, RawBufferVec},
     renderer::{RenderDevice, RenderQueue},
-    view::ViewVisibility,
     Extract,
 };
 use bytemuck::NoUninit;
@@ -75,7 +75,7 @@ pub fn prepare_morphs(
 }
 
 const fn can_align(step: usize, target: usize) -> bool {
-    step % target == 0 || target % step == 0
+    step.is_multiple_of(target) || target.is_multiple_of(step)
 }
 
 const WGPU_MIN_ALIGN: usize = 256;
@@ -127,7 +127,11 @@ pub fn extract_morphs(
         }
         let start = uniform.current_buffer.len();
         let weights = morph_weights.weights();
-        let legal_weights = weights.iter().take(MAX_MORPH_WEIGHTS).copied();
+        let legal_weights = weights
+            .iter()
+            .chain(iter::repeat(&0.0))
+            .take(MAX_MORPH_WEIGHTS)
+            .copied();
         uniform.current_buffer.extend(legal_weights);
         add_to_alignment::<f32>(&mut uniform.current_buffer);
 
