@@ -1,6 +1,6 @@
 [package]
 name = "bevy_render"
-version = "0.18.0-dev"
+version = "0.19.0-dev"
 edition = "2024"
 description = "Provides rendering functionality for Bevy Engine"
 homepage = "https://bevy.org"
@@ -50,31 +50,31 @@ serialize = ["bevy_mesh/serialize"]
 
 [dependencies]
 # bevy
-bevy_app = { path = "../bevy_app", version = "0.18.0-dev" }
-bevy_asset = { path = "../bevy_asset", version = "0.18.0-dev" }
-bevy_color = { path = "../bevy_color", version = "0.18.0-dev", features = [
+bevy_app = { path = "../bevy_app", version = "0.19.0-dev" }
+bevy_asset = { path = "../bevy_asset", version = "0.19.0-dev" }
+bevy_color = { path = "../bevy_color", version = "0.19.0-dev", features = [
   "serialize",
   "wgpu-types",
 ] }
-bevy_derive = { path = "../bevy_derive", version = "0.18.0-dev" }
-bevy_diagnostic = { path = "../bevy_diagnostic", version = "0.18.0-dev" }
-bevy_ecs = { path = "../bevy_ecs", version = "0.18.0-dev" }
-bevy_encase_derive = { path = "../bevy_encase_derive", version = "0.18.0-dev" }
-bevy_math = { path = "../bevy_math", version = "0.18.0-dev" }
-bevy_material = { path = "../bevy_material", version = "0.18.0-dev" }
-bevy_reflect = { path = "../bevy_reflect", version = "0.18.0-dev" }
-bevy_material_macros = { path = "../bevy_material/macros", version = "0.18.0-dev" }
-bevy_render_macros = { path = "../bevy_render/macros", version = "0.18.0-dev" }
-bevy_time = { path = "../bevy_time", version = "0.18.0-dev" }
-bevy_transform = { path = "../bevy_transform", version = "0.18.0-dev" }
-bevy_window = { path = "../bevy_window", version = "0.18.0-dev" }
-bevy_utils = { path = "../bevy_utils", version = "0.18.0-dev" }
-bevy_tasks = { path = "../bevy_tasks", version = "0.18.0-dev" }
-bevy_image = { path = "../bevy_image", version = "0.18.0-dev" }
-bevy_mesh = { path = "../bevy_mesh", version = "0.18.0-dev" }
-bevy_camera = { path = "../bevy_camera", version = "0.18.0-dev" }
-bevy_shader = { path = "../bevy_shader", version = "0.18.0-dev" }
-bevy_platform = { path = "../bevy_platform", version = "0.18.0-dev", default-features = false, features = [
+bevy_derive = { path = "../bevy_derive", version = "0.19.0-dev" }
+bevy_diagnostic = { path = "../bevy_diagnostic", version = "0.19.0-dev" }
+bevy_ecs = { path = "../bevy_ecs", version = "0.19.0-dev" }
+bevy_encase_derive = { path = "../bevy_encase_derive", version = "0.19.0-dev" }
+bevy_math = { path = "../bevy_math", version = "0.19.0-dev" }
+bevy_material = { path = "../bevy_material", version = "0.19.0-dev" }
+bevy_reflect = { path = "../bevy_reflect", version = "0.19.0-dev" }
+bevy_material_macros = { path = "../bevy_material/macros", version = "0.19.0-dev" }
+bevy_render_macros = { path = "../bevy_render/macros", version = "0.19.0-dev" }
+bevy_time = { path = "../bevy_time", version = "0.19.0-dev" }
+bevy_transform = { path = "../bevy_transform", version = "0.19.0-dev" }
+bevy_window = { path = "../bevy_window", version = "0.19.0-dev" }
+bevy_utils = { path = "../bevy_utils", version = "0.19.0-dev" }
+bevy_tasks = { path = "../bevy_tasks", version = "0.19.0-dev" }
+bevy_image = { path = "../bevy_image", version = "0.19.0-dev" }
+bevy_mesh = { path = "../bevy_mesh", version = "0.19.0-dev" }
+bevy_camera = { path = "../bevy_camera", version = "0.19.0-dev" }
+bevy_shader = { path = "../bevy_shader", version = "0.19.0-dev" }
+bevy_platform = { path = "../bevy_platform", version = "0.19.0-dev", default-features = false, features = [
   "std",
   "serialize",
 ] }
@@ -139,13 +139,13 @@ web-sys = { version = "0.3.67", features = [
 ] }
 wasm-bindgen = "0.2"
 # TODO: Assuming all wasm builds are for the browser. Require `no_std` support to break assumption.
-bevy_app = { path = "../bevy_app", version = "0.18.0-dev", default-features = false, features = [
+bevy_app = { path = "../bevy_app", version = "0.19.0-dev", default-features = false, features = [
   "web",
 ] }
-bevy_platform = { path = "../bevy_platform", version = "0.18.0-dev", default-features = false, features = [
+bevy_platform = { path = "../bevy_platform", version = "0.19.0-dev", default-features = false, features = [
   "web",
 ] }
-bevy_reflect = { path = "../bevy_reflect", version = "0.18.0-dev", default-features = false, features = [
+bevy_reflect = { path = "../bevy_reflect", version = "0.19.0-dev", default-features = false, features = [
   "web",
 ] }
 

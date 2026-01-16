@@ -110,6 +110,11 @@ impl SystemMeta {
     pub fn set_exclusive(&mut self) {
         self.flags |= SystemStateFlags::EXCLUSIVE;
     }
+
+    /// Expose a read only copy of `last_run`.
+    pub fn get_last_run(&self) -> Tick {
+        self.last_run
+    }
 }
 
 // TODO: Actually use this in FunctionSystem. We should probably only do this once Systems are constructed using a World reference
@@ -754,7 +759,7 @@ where
     }
 
     fn default_system_sets(&self) -> Vec<InternedSystemSet> {
-        let set = crate::schedule::SystemTypeSet::<Self>::new();
+        let set = crate::schedule::SystemTypeSet::<F>::new();
         vec![set.intern()]
     }
 

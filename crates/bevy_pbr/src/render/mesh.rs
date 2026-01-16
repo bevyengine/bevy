@@ -334,6 +334,7 @@ pub fn check_views_need_specialization(
         ),
         Has<OrderIndependentTransparencySettings>,
         Has<ExtractedAtmosphere>,
+        Has<ScreenSpaceReflectionsUniform>,
     )>,
     ticks: SystemChangeTick,
 ) {
@@ -352,6 +353,7 @@ pub fn check_views_need_specialization(
         (has_environment_maps, has_irradiance_volumes),
         has_oit,
         has_atmosphere,
+        has_ssr,
     ) in views.iter_mut()
     {
         let mut view_key = MeshPipelineKey::from_msaa_samples(msaa.samples())
@@ -387,6 +389,10 @@ pub fn check_views_need_specialization(
 
         if has_irradiance_volumes {
             view_key |= MeshPipelineKey::IRRADIANCE_VOLUME;
+        }
+
+        if has_ssr {
+            view_key |= MeshPipelineKey::SCREEN_SPACE_REFLECTIONS;
         }
 
         if has_oit {
