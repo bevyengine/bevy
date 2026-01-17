@@ -1095,7 +1095,7 @@ impl Image {
             data,
             format,
             RenderAssetUsages::default(),
-            RenderAssetTransferPriority::default(),
+            RenderAssetTransferPriority::Immediate,
         )
     }
     /// Creates a new uninitialized 1x1x1 image
@@ -1105,7 +1105,7 @@ impl Image {
             TextureDimension::D2,
             TextureFormat::bevy_default(),
             RenderAssetUsages::default(),
-            RenderAssetTransferPriority::default(),
+            RenderAssetTransferPriority::Immediate,
         )
     }
 
