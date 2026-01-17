@@ -228,7 +228,7 @@ fn update_chromatic_aberration_settings(
 /// [`AppSettings`].
 fn update_help_text(mut text: Single<&mut Text>, app_settings: Res<AppSettings>) {
     text.clear();
-    let text_list = vec![
+    let text_list = [
         format!(
             "Chromatic aberration intensity: {:.2}\n",
             app_settings.chromatic_aberration_intensity

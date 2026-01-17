@@ -8,15 +8,11 @@
 mod chromatic_aberration;
 mod vignette;
 
-pub use chromatic_aberration::ChromaticAberration;
-pub use vignette::Vignette;
+pub use chromatic_aberration::{ChromaticAberration, ChromaticAberrationUniform};
+pub use vignette::{Vignette, VignetteUniform};
 
-use crate::effect_stack::{
-    chromatic_aberration::{
-        ChromaticAberrationUniform, DefaultChromaticAberrationLut,
-        DEFAULT_CHROMATIC_ABERRATION_LUT_DATA,
-    },
-    vignette::VignetteUniform,
+use crate::effect_stack::chromatic_aberration::{
+    DefaultChromaticAberrationLut, DEFAULT_CHROMATIC_ABERRATION_LUT_DATA,
 };
 
 use bevy_app::{App, Plugin};
@@ -103,8 +99,11 @@ pub struct PostProcessingPipelineKey {
 #[derive(Component, Deref, DerefMut)]
 pub struct PostProcessingPipelineId(CachedRenderPipelineId);
 
-/// A resource, part of the render world, that stores the
-/// [`ChromaticAberrationUniform`]s for each view.
+/// A resource, part of the render world, that stores the uniform buffers for
+/// post-processing effects.
+///
+/// This currently holds buffers for [`ChromaticAberrationUniform`] and
+/// [`VignetteUniform`], allowing them to be uploaded to the GPU efficiently.
 #[derive(Resource, Default)]
 pub struct PostProcessingUniformBuffers {
     chromatic_aberration: DynamicUniformBuffer<ChromaticAberrationUniform>,
