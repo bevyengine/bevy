@@ -8,23 +8,6 @@ use bevy_reflect::TypePath;
 // use bevy_reflect::{std_traits::ReflectDefault, Reflect, TypePath};
 use wgpu_types::Face;
 
-// #[derive(Component, Clone, Debug, Reflect)]
-// #[reflect(Component, Default, Clone, PartialEq)]
-// pub struct MarkerMeshMaterial3d(pub Handle<GltfMaterial>);
-
-// impl Default for MarkerMeshMaterial3d {
-//     fn default() -> Self {
-//         Self(Handle::default())
-//     }
-// }
-
-// impl PartialEq for MarkerMeshMaterial3d {
-//     fn eq(&self, other: &Self) -> bool {
-//         self.0 == other.0
-//     }
-// }
-
-// impl Eq for MarkerMeshMaterial3d {}
 
 /// Data to build a Gltf Material
 #[derive(Asset, Debug, TypePath)]
@@ -52,21 +35,34 @@ pub struct GltfMaterial {
     /// A
     pub reflectance: f32,
     /// A
+    #[cfg(feature = "pbr_specular_textures")]
+    pub specular_channel: UvChannel,
+    /// A
+    #[cfg(feature = "pbr_specular_textures")]
+    pub specular_texture: Option<Handle<Image>>,
+    /// A
     pub specular_tint: Color,
+    /// A
+    #[cfg(feature = "pbr_specular_textures")]
+    pub specular_tint_channel: UvChannel,
+    /// A
+    #[cfg(feature = "pbr_specular_textures")]
+    pub specular_tint_texture: Option<Handle<Image>>,
     /// A
     pub specular_transmission: f32,
     /// A
     #[cfg(feature = "pbr_transmission_textures")]
     pub specular_transmission_channel: UvChannel,
-    #[cfg(feature = "pbr_transmission_textures")]
     /// A
+    #[cfg(feature = "pbr_transmission_textures")]
     pub specular_transmission_texture: Option<Handle<Image>>,
     /// A
     pub thickness: f32,
     #[cfg(feature = "pbr_transmission_textures")]
-    pub thickness_channel: UvChannel,
-    #[cfg(feature = "pbr_transmission_textures")]
     /// A
+    pub thickness_channel: UvChannel,
+    /// A
+    #[cfg(feature = "pbr_transmission_textures")]
     pub thickness_texture: Option<Handle<Image>>,
     /// A
     pub ior: f32,
@@ -87,9 +83,34 @@ pub struct GltfMaterial {
     /// A
     pub clearcoat_perceptual_roughness: f32,
     /// A
+    #[cfg(feature = "pbr_multi_layer_material_textures")]
+    pub clearcoat_channel: UvChannel,
+    /// A
+    #[cfg(feature = "pbr_multi_layer_material_textures")]
+    pub clearcoat_texture: Option<Handle<Image>>,
+    /// A
+    #[cfg(feature = "pbr_multi_layer_material_textures")]
+    pub clearcoat_roughness_channel: UvChannel,
+    /// A
+    #[cfg(feature = "pbr_multi_layer_material_textures")]
+    pub clearcoat_roughness_texture: Option<Handle<Image>>,
+    /// A
+    #[cfg(feature = "pbr_multi_layer_material_textures")]
+    pub clearcoat_normal_channel: UvChannel,
+    /// A
+    #[cfg(feature = "pbr_multi_layer_material_textures")]
+    /// A
+    pub clearcoat_normal_texture: Option<Handle<Image>>,
+    /// A
     pub anisotropy_strength: f32,
     /// A
     pub anisotropy_rotation: f32,
+    /// A
+    #[cfg(feature = "pbr_anisotropy_texture")]
+    pub anisotropy_channel: UvChannel,
+    /// A
+    #[cfg(feature = "pbr_anisotropy_texture")]
+    pub anisotropy_texture: Option<Handle<Image>>,
     /// A
     pub double_sided: bool,
     /// A

@@ -76,7 +76,7 @@ use self::{
 };
 use crate::convert_coordinates::GltfConvertCoordinates;
 
-/// Must match bevy_pbr::MAX_JOINTS
+/// Must match same constant in bevy pbr
 pub const MAX_JOINTS: usize = 256;
 
 /// An error that occurs when loading a glTF file.
@@ -158,7 +158,7 @@ pub struct GltfLoader {
     /// These are Bevy-side processors designed to access glTF
     /// extension data during the loading process.
     pub extensions: Arc<RwLock<Vec<Box<dyn extensions::GltfExtensionHandler>>>>,
-    ///  Converts GltfMaterial to something the renderer understands
+    ///  Converts `GltfMaterial` to something the renderer understands
     pub material_translator: Option<GltfMaterialTranslator>,
 }
 
@@ -1434,7 +1434,6 @@ fn load_material(
         specular_tint_channel: specular.specular_color_channel,
         #[cfg(feature = "pbr_specular_textures")]
         specular_tint_texture: specular.specular_color_texture,
-        ..Default::default()
     };
 
     let mat_label = material_label(material, is_scale_inverted);
@@ -1625,6 +1624,8 @@ fn load_node(
                     ) {
                         warn!("gltf material_translator insert_material error: {:?}", err);
                     }
+                } else {
+                    warn!("gltf material_translator missing");
                 }
 
                 let target_count = primitive.morph_targets().len();
