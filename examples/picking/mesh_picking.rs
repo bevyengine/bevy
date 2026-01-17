@@ -78,7 +78,7 @@ fn setup_scene(
     let mut observer_hover = Observer::new(update_material_on::<Pointer<Over>>(hover_matl.clone()));
     let mut observer_pointer_out =
         Observer::new(update_material_on::<Pointer<Out>>(white_matl.clone()));
-    let mut obsevrer_pointer_press =
+    let mut observer_pointer_press =
         Observer::new(update_material_on::<Pointer<Press>>(pressed_matl.clone()));
     let mut observer_pointer_release =
         Observer::new(update_material_on::<Pointer<Release>>(hover_matl.clone()));
@@ -101,7 +101,7 @@ fn setup_scene(
             .id();
         observer_hover.watch_entity(entity);
         observer_pointer_out.watch_entity(entity);
-        obsevrer_pointer_press.watch_entity(entity);
+        observer_pointer_press.watch_entity(entity);
         observer_pointer_release.watch_entity(entity);
         observer_rotate_on_drag.watch_entity(entity);
     }
@@ -125,7 +125,7 @@ fn setup_scene(
             .id();
         observer_hover.watch_entity(entity);
         observer_pointer_out.watch_entity(entity);
-        obsevrer_pointer_press.watch_entity(entity);
+        observer_pointer_press.watch_entity(entity);
         observer_pointer_release.watch_entity(entity);
         observer_rotate_on_drag.watch_entity(entity);
     }
@@ -133,7 +133,7 @@ fn setup_scene(
     // Register observers
     commands.spawn(observer_hover);
     commands.spawn(observer_pointer_out);
-    commands.spawn(obsevrer_pointer_press);
+    commands.spawn(observer_pointer_press);
     commands.spawn(observer_pointer_release);
     commands.spawn(observer_rotate_on_drag);
 
