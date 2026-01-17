@@ -12,7 +12,9 @@ keywords = ["bevy"]
 webgl = ["bevy_light/webgl"]
 webgpu = ["bevy_light/webgpu"]
 pbr_transmission_textures = ["bevy_gltf/pbr_transmission_textures"]
-pbr_multi_layer_material_textures = ["bevy_gltf/pbr_multi_layer_material_textures"]
+pbr_multi_layer_material_textures = [
+  "bevy_gltf/pbr_multi_layer_material_textures"
+]
 pbr_anisotropy_texture = ["bevy_gltf/pbr_anisotropy_texture"]
 pbr_specular_textures = ["bevy_gltf/pbr_specular_textures"]
 experimental_pbr_pcss = ["bevy_light/experimental_pbr_pcss"]
