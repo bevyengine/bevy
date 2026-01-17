@@ -20,3 +20,5 @@ pub mod picking_debug;
 pub mod states;
 
 pub use easy_screenshot::*;
+
+pub mod render_debug;
