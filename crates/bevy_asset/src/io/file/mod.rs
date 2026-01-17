@@ -33,6 +33,11 @@ pub(crate) fn get_base_path() -> PathBuf {
 /// This asset I/O is fully featured but it's not available on `android` and `wasm` targets.
 pub struct FileAssetReader {
     root_path: PathBuf,
+    #[cfg(all(
+        feature = "multi_threaded",
+        any(target_os = "macos", target_os = "ios")
+    ))]
+    open_file_limiter: async_lock::Semaphore,
 }
 
 impl FileAssetReader {
@@ -46,7 +51,14 @@ impl FileAssetReader {
             "Asset Server using {} as its base path.",
             root_path.display()
         );
-        Self { root_path }
+        Self {
+            root_path,
+            #[cfg(all(
+                feature = "multi_threaded",
+                any(target_os = "macos", target_os = "ios")
+            ))]
+            open_file_limiter: async_lock::Semaphore::new(128),
+        }
     }
 
     /// Returns the base path of the assets directory, which is normally the executable's parent

@@ -16,28 +16,68 @@ impl Reader for File {
     }
 }
 
+#[cfg(any(target_os = "macos", target_os = "ios"))]
+struct GuardedFile<'a> {
+    file: File,
+    _guard: async_lock::SemaphoreGuard<'a>,
+}
+
+#[cfg(any(target_os = "macos", target_os = "ios"))]
+impl<'a> futures_io::AsyncRead for GuardedFile<'a> {
+    fn poll_read(
+        mut self: core::pin::Pin<&mut Self>,
+        cx: &mut core::task::Context<'_>,
+        buf: &mut [u8],
+    ) -> core::task::Poll<std::io::Result<usize>> {
+        core::pin::Pin::new(&mut self.file).poll_read(cx, buf)
+    }
+}
+
+#[cfg(any(target_os = "macos", target_os = "ios"))]
+impl<'a> Reader for GuardedFile<'a> {
+    fn seekable(&mut self) -> Result<&mut dyn SeekableReader, ReaderNotSeekableError> {
+        self.file.seekable()
+    }
+}
+
 impl AssetReader for FileAssetReader {
     async fn read<'a>(&'a self, path: &'a Path) -> Result<impl Reader + 'a, AssetReaderError> {
+        #[cfg(any(target_os = "macos", target_os = "ios"))]
+        let _guard = self.open_file_limiter.acquire().await;
+
         let full_path = self.root_path.join(path);
-        File::open(&full_path).await.map_err(|e| {
+        let file = File::open(&full_path).await.map_err(|e| {
             if e.kind() == std::io::ErrorKind::NotFound {
                 AssetReaderError::NotFound(full_path)
             } else {
                 e.into()
             }
-        })
+        });
+
+        #[cfg(any(target_os = "macos", target_os = "ios"))]
+        let file = file.map(|file| GuardedFile { file, _guard });
+
+        return file;
     }
 
     async fn read_meta<'a>(&'a self, path: &'a Path) -> Result<impl Reader + 'a, AssetReaderError> {
+        #[cfg(any(target_os = "macos", target_os = "ios"))]
+        let _guard = self.open_file_limiter.acquire().await;
+
         let meta_path = get_meta_path(path);
         let full_path = self.root_path.join(meta_path);
-        File::open(&full_path).await.map_err(|e| {
+        let file = File::open(&full_path).await.map_err(|e| {
             if e.kind() == std::io::ErrorKind::NotFound {
                 AssetReaderError::NotFound(full_path)
             } else {
                 e.into()
             }
-        })
+        });
+
+        #[cfg(any(target_os = "macos", target_os = "ios"))]
+        let file = file.map(|file| GuardedFile { file, _guard });
+
+        return file;
     }
 
     async fn read_directory<'a>(
