@@ -15,7 +15,7 @@ commands.spawn(DiagnosticsOverlay::fps());
 commands.spawn(DiagnosticsOverlay::mesh_and_standard_materials());
 ```
 
-By defualt the overlay will display the smoothed moving average for the diagnostic, but
+By default the overlay will display the smoothed moving average for the diagnostic, but
 you can also visualize the latest value or the moving average by passing
 [`DiagnosticOverlayStatistic`]
 
