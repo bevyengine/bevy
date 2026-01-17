@@ -3,7 +3,7 @@ use crate::{
     render_resource::{DefaultImageSampler, Sampler, Texture, TextureView},
     renderer::{RenderDevice, RenderQueue},
 };
-use bevy_asset::{AssetId, RenderAssetUsages};
+use bevy_asset::{AssetId, RenderAssetTransferPriority, RenderAssetUsages};
 use bevy_ecs::system::{lifetimeless::SRes, SystemParamItem};
 use bevy_image::{Image, ImageSampler};
 use bevy_math::{AspectRatio, UVec2};
@@ -57,7 +57,7 @@ impl RenderAsset for GpuImage {
     #[inline]
     fn transfer_priority(
         image: &Self::SourceAsset,
-    ) -> (bevy_asset::RenderAssetTransferPriority, Option<usize>) {
+    ) -> (RenderAssetTransferPriority, Option<usize>) {
         (image.transfer_priority, image.data.as_ref().map(Vec::len))
     }
 

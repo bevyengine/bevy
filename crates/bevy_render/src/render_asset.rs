@@ -572,13 +572,21 @@ impl RenderAssetBytesPerFrame {
 }
 
 #[derive(Default, Debug)]
-
 struct RenderAssetPriorityAllocation {
-    requested: AtomicUsize,
+    requested_bytes: AtomicUsize,
     requested_count: AtomicUsize,
-    written: AtomicUsize,
+    written_bytes: AtomicUsize,
     written_count: AtomicUsize,
-    available: usize,
+    available_bytes: usize,
+}
+
+#[derive(Debug)]
+pub struct RenderAssetPriorityAllocationStats {
+    pub requested_bytes: usize,
+    pub requested_count: usize,
+    pub written_bytes: usize,
+    pub written_count: usize,
+    pub available_bytes: usize,
 }
 
 /// A render-world resource that facilitates limiting the data transferred from CPU to GPU
@@ -603,19 +611,19 @@ impl RenderAssetBytesPerFrameLimiter {
                 self.bytes_written.write().expect("can't read bpf").insert(
                     RenderAssetTransferPriority::default(),
                     RenderAssetPriorityAllocation {
-                        requested: AtomicUsize::new(0),
+                        requested_bytes: AtomicUsize::new(0),
                         requested_count: AtomicUsize::new(0),
-                        written: AtomicUsize::new(0),
+                        written_bytes: AtomicUsize::new(0),
                         written_count: AtomicUsize::new(0),
-                        available: max_bytes,
+                        available_bytes: max_bytes,
                     },
                 );
             }
 
             RenderAssetBytesPerFrame::MaxBytesWithPriority(_) => {
                 for value in self.bytes_written.read().expect("can't read bpf").values() {
-                    value.requested.store(0, Ordering::Relaxed);
-                    value.written.store(0, Ordering::Relaxed);
+                    value.requested_bytes.store(0, Ordering::Relaxed);
+                    value.written_bytes.store(0, Ordering::Relaxed);
                     value.requested_count.store(0, Ordering::Relaxed);
                     value.written_count.store(0, Ordering::Relaxed);
                 }
@@ -653,7 +661,9 @@ impl RenderAssetBytesPerFrameLimiter {
             .get(&priority)
         {
             if let Some(bytes) = bytes {
-                bytes_written.requested.fetch_add(bytes, Ordering::Relaxed);
+                bytes_written
+                    .requested_bytes
+                    .fetch_add(bytes, Ordering::Relaxed);
             }
 
             bytes_written
@@ -663,11 +673,11 @@ impl RenderAssetBytesPerFrameLimiter {
             self.bytes_written.write().expect("can't write bpf").insert(
                 priority,
                 RenderAssetPriorityAllocation {
-                    requested: AtomicUsize::new(bytes.unwrap_or_default()),
+                    requested_bytes: AtomicUsize::new(bytes.unwrap_or_default()),
                     requested_count: AtomicUsize::new(1),
-                    written: AtomicUsize::new(0),
+                    written_bytes: AtomicUsize::new(0),
                     written_count: AtomicUsize::new(0),
-                    available: 0,
+                    available_bytes: 0,
                 },
             );
         }
@@ -687,8 +697,8 @@ impl RenderAssetBytesPerFrameLimiter {
             // immediate, then priority(i16::max) down to priority(i16::min)
             .rev()
         {
-            let requested = value.requested.load(Ordering::Relaxed);
-            value.available = requested.min(max_bytes);
+            let requested = value.requested_bytes.load(Ordering::Relaxed);
+            value.available_bytes = requested.min(max_bytes);
             max_bytes = max_bytes.saturating_sub(requested);
         }
     }
@@ -708,7 +718,9 @@ impl RenderAssetBytesPerFrameLimiter {
             .get(&priority)
         {
             if let Some(bytes) = bytes {
-                bytes_written.written.fetch_add(bytes, Ordering::Relaxed);
+                bytes_written
+                    .written_bytes
+                    .fetch_add(bytes, Ordering::Relaxed);
             }
 
             bytes_written.written_count.fetch_add(1, Ordering::Relaxed);
@@ -729,7 +741,7 @@ impl RenderAssetBytesPerFrameLimiter {
             .read()
             .expect("can't read bpf")
             .get(&priority)
-            .is_none_or(|bw| bw.written.load(Ordering::Relaxed) >= bw.available);
+            .is_none_or(|bw| bw.written_bytes.load(Ordering::Relaxed) >= bw.available_bytes);
 
         if exhausted {
             self.overflowing.store(true, Ordering::Relaxed);
@@ -738,7 +750,30 @@ impl RenderAssetBytesPerFrameLimiter {
         exhausted
     }
 
+    /// Returns true if any assets were declined since last reset
     pub fn overflowing(&self) -> bool {
         self.overflowing.load(Ordering::Relaxed)
+    }
+
+    pub fn stats(
+        &self,
+    ) -> BTreeMap<RenderAssetTransferPriority, RenderAssetPriorityAllocationStats> {
+        self.bytes_written
+            .read()
+            .expect("can't read bpf")
+            .iter()
+            .map(|(k, v)| {
+                (
+                    *k,
+                    RenderAssetPriorityAllocationStats {
+                        requested_bytes: v.requested_bytes.load(Ordering::Relaxed),
+                        requested_count: v.requested_count.load(Ordering::Relaxed),
+                        written_bytes: v.written_bytes.load(Ordering::Relaxed),
+                        written_count: v.written_count.load(Ordering::Relaxed),
+                        available_bytes: v.available_bytes,
+                    },
+                )
+            })
+            .collect()
     }
 }
