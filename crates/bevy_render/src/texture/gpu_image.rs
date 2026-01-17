@@ -69,7 +69,10 @@ impl RenderAsset for GpuImage {
         let had_data = image.data.is_some();
         let texture = if let Some(prev) = previous_asset
             && prev.texture_descriptor == image.texture_descriptor
-            && prev.texture_descriptor.usage.contains(TextureUsages::COPY_DST)
+            && prev
+                .texture_descriptor
+                .usage
+                .contains(TextureUsages::COPY_DST)
             && let Ok(pixel_size) = image.texture_descriptor.format.pixel_size()
         {
             if let Some(ref data) = image.data {
@@ -141,7 +144,10 @@ impl RenderAsset for GpuImage {
 
         let texture_view = if let Some(prev) = previous_asset.as_ref()
             && prev.texture_descriptor == image.texture_descriptor
-            && prev.texture_descriptor.usage.contains(TextureUsages::COPY_DST)
+            && prev
+                .texture_descriptor
+                .usage
+                .contains(TextureUsages::COPY_DST)
             && prev.texture_view_descriptor == image.texture_view_descriptor
         {
             prev.texture_view.clone()
