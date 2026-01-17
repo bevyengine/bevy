@@ -1,3 +1,4 @@
+use crate::contact_shadows::ViewContactShadowsUniformOffset;
 use crate::{
     material_bind_groups::{MaterialBindGroupIndex, MaterialBindGroupSlot},
     resources::write_atmosphere_buffer,
@@ -334,6 +335,7 @@ pub fn check_views_need_specialization(
         ),
         Has<OrderIndependentTransparencySettings>,
         Has<ExtractedAtmosphere>,
+        Has<ScreenSpaceReflectionsUniform>,
     )>,
     ticks: SystemChangeTick,
 ) {
@@ -352,6 +354,7 @@ pub fn check_views_need_specialization(
         (has_environment_maps, has_irradiance_volumes),
         has_oit,
         has_atmosphere,
+        has_ssr,
     ) in views.iter_mut()
     {
         let mut view_key = MeshPipelineKey::from_msaa_samples(msaa.samples())
@@ -383,6 +386,10 @@ pub fn check_views_need_specialization(
 
         if has_irradiance_volumes {
             view_key |= MeshPipelineKey::IRRADIANCE_VOLUME;
+        }
+
+        if has_ssr {
+            view_key |= MeshPipelineKey::SCREEN_SPACE_REFLECTIONS;
         }
 
         if has_oit {
@@ -2396,6 +2403,18 @@ impl MeshPipelineKey {
     }
 }
 
+impl From<u64> for MeshPipelineKey {
+    fn from(value: u64) -> Self {
+        MeshPipelineKey::from_bits_retain(value)
+    }
+}
+
+impl From<MeshPipelineKey> for u64 {
+    fn from(value: MeshPipelineKey) -> Self {
+        value.bits()
+    }
+}
+
 // Ensure that we didn't overflow the number of bits available in `MeshPipelineKey`.
 const_assert_eq!(
     (((MeshPipelineKey::LAST_FLAG.bits() << 1) - 1) | MeshPipelineKey::ALL_RESERVED_BITS.bits())
@@ -2534,6 +2553,9 @@ impl SpecializedMeshPipeline for MeshPipeline {
         }
         if cfg!(feature = "pbr_specular_textures") {
             shader_defs.push("PBR_SPECULAR_TEXTURES_SUPPORTED".into());
+        }
+        if cfg!(feature = "bluenoise_texture") {
+            shader_defs.push("BLUE_NOISE_TEXTURE".into());
         }
 
         let bind_group_layout = self.get_view_layout(key.into());
@@ -3103,6 +3125,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshViewBindGroup<I> 
         Read<ViewFogUniformOffset>,
         Read<ViewLightProbesUniformOffset>,
         Read<ViewScreenSpaceReflectionsUniformOffset>,
+        Read<ViewContactShadowsUniformOffset>,
         Read<ViewEnvironmentMapUniformOffset>,
         Read<MeshViewBindGroup>,
         Option<Read<OrderIndependentTransparencySettingsOffset>>,
@@ -3118,6 +3141,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshViewBindGroup<I> 
             view_fog,
             view_light_probes,
             view_ssr,
+            view_contact_shadows,
             view_environment_map,
             mesh_view_bind_group,
             maybe_oit_layers_count_offset,
@@ -3132,6 +3156,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshViewBindGroup<I> 
             view_fog.offset,
             **view_light_probes,
             **view_ssr,
+            **view_contact_shadows,
             **view_environment_map,
         ];
         if let Some(layers_count_offset) = maybe_oit_layers_count_offset {

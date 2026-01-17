@@ -75,10 +75,10 @@ use super::{LightProbeComponent, RenderViewLightProbes};
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub struct EnvironmentMapIds {
     /// The blurry image that represents diffuse radiance surrounding a region.
-    pub(crate) diffuse: AssetId<Image>,
+    pub diffuse: AssetId<Image>,
     /// The typically-sharper, mipmapped image that represents specular radiance
     /// surrounding a region.
-    pub(crate) specular: AssetId<Image>,
+    pub specular: AssetId<Image>,
 }
 
 /// All the bind group entries necessary for PBR shaders to access the

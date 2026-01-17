@@ -1,6 +1,6 @@
 [package]
 name = "bevy_platform"
-version = "0.18.0-dev"
+version = "0.19.0-dev"
 edition = "2024"
 description = "Provides common platform agnostic APIs, as well as platform-specific features for Bevy Engine"
 homepage = "https://bevy.org"

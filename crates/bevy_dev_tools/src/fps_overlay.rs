@@ -15,7 +15,7 @@ use bevy_ecs::{
 };
 use bevy_picking::Pickable;
 use bevy_reflect::Reflect;
-use bevy_render::storage::ShaderStorageBuffer;
+use bevy_render::storage::ShaderBuffer;
 use bevy_text::{TextColor, TextFont, TextSpan};
 use bevy_time::common_conditions::on_timer;
 use bevy_ui::{
@@ -169,7 +169,7 @@ fn setup(
     )]
     (mut frame_time_graph_materials, mut buffers): (
         ResMut<Assets<FrametimeGraphMaterial>>,
-        ResMut<Assets<ShaderStorageBuffer>>,
+        ResMut<Assets<ShaderBuffer>>,
     ),
 ) {
     commands
@@ -218,7 +218,7 @@ fn setup(
                     },
                     Pickable::IGNORE,
                     MaterialNode::from(frame_time_graph_materials.add(FrametimeGraphMaterial {
-                        values: buffers.add(ShaderStorageBuffer {
+                        values: buffers.add(ShaderBuffer {
                             // Initialize with dummy data because the default (`data: None`) will
                             // cause a panic in the shader if the frame time graph is constructed
                             // with `enabled: false`.
