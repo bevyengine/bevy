@@ -175,20 +175,20 @@ fn handle_keyboard_input(mut app_settings: ResMut<AppSettings>, input: Res<Butto
         0 => {
             app_settings.chromatic_aberration_intensity =
                 (app_settings.chromatic_aberration_intensity + delta)
-                    .clamp(0.0, MAX_CHROMATIC_ABERRATION_INTENSITY)
+                    .clamp(0.0, MAX_CHROMATIC_ABERRATION_INTENSITY);
         }
         1 => {
             app_settings.vignette_intensity =
-                (app_settings.vignette_intensity + delta).clamp(0.0, 1.0)
+                (app_settings.vignette_intensity + delta).clamp(0.0, 1.0);
         }
         2 => app_settings.vignette_radius = (app_settings.vignette_radius + delta).clamp(0.0, 2.0),
         3 => {
             app_settings.vignette_smoothness =
-                (app_settings.vignette_smoothness + delta).clamp(0.01, 1.0)
+                (app_settings.vignette_smoothness + delta).clamp(0.01, 1.0);
         }
         4 => {
             app_settings.vignette_roundness =
-                (app_settings.vignette_roundness + delta).clamp(0.5, 1.0)
+                (app_settings.vignette_roundness + delta).clamp(0.5, 1.0);
         }
         _ => {}
     }
