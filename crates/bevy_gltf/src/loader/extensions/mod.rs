@@ -21,7 +21,7 @@ use {
     bevy_platform::collections::{HashMap, HashSet},
 };
 
-use crate::{GltfMesh, GltfMaterial};
+use crate::{GltfMaterial, GltfMesh};
 
 pub(crate) use self::{
     khr_materials_anisotropy::AnisotropyExtension, khr_materials_clearcoat::ClearcoatExtension,

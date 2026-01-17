@@ -54,7 +54,9 @@ use thiserror::Error;
 use tracing::{error, info_span, warn};
 
 use crate::{
-    convert_coordinates::ConvertCoordinates as _, vertex_attributes::convert_attribute, Gltf, GltfAssetLabel, GltfExtras, GltfMaterial, GltfMaterialExtras, GltfMaterialName, GltfMaterialTranslator, GltfMeshExtras, GltfMeshName, GltfNode, GltfSceneExtras, GltfSkin,
+    convert_coordinates::ConvertCoordinates as _, vertex_attributes::convert_attribute, Gltf,
+    GltfAssetLabel, GltfExtras, GltfMaterial, GltfMaterialExtras, GltfMaterialName,
+    GltfMaterialTranslator, GltfMeshExtras, GltfMeshName, GltfNode, GltfSceneExtras, GltfSkin,
 };
 
 #[cfg(feature = "bevy_animation")]
@@ -1445,10 +1447,7 @@ fn load_material(
         // };
     }
 
-    (
-        mat_label.to_string(),
-        gltf_material,
-    )
+    (mat_label.to_string(), gltf_material)
 }
 
 /// Loads a glTF node.
@@ -1619,7 +1618,11 @@ fn load_node(
                 ));
 
                 if let Some(material_translator) = material_translator {
-                    if let Err(err) = (material_translator.insert_material)(&mat_label, load_context, &mut mesh_entity) {
+                    if let Err(err) = (material_translator.insert_material)(
+                        &mat_label,
+                        load_context,
+                        &mut mesh_entity,
+                    ) {
                         warn!("gltf material_translator insert_material error: {:?}", err);
                     }
                 }

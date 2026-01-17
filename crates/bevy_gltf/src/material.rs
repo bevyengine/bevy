@@ -8,8 +8,6 @@ use bevy_reflect::TypePath;
 // use bevy_reflect::{std_traits::ReflectDefault, Reflect, TypePath};
 use wgpu_types::Face;
 
-
-
 // #[derive(Component, Clone, Debug, Reflect)]
 // #[reflect(Component, Default, Clone, PartialEq)]
 // pub struct MarkerMeshMaterial3d(pub Handle<GltfMaterial>);

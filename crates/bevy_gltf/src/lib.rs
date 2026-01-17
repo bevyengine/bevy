@@ -132,8 +132,8 @@ pub mod convert_coordinates;
 mod label;
 mod loader;
 mod material;
-mod vertex_attributes;
 mod translate;
+mod vertex_attributes;
 
 extern crate alloc;
 
@@ -159,7 +159,10 @@ pub mod prelude {
 
 use crate::{convert_coordinates::GltfConvertCoordinates, extensions::GltfExtensionHandlers};
 
-pub use {assets::*, label::GltfAssetLabel, loader::*, material::GltfMaterial, translate::GltfMaterialTranslator};
+pub use {
+    assets::*, label::GltfAssetLabel, loader::*, material::GltfMaterial,
+    translate::GltfMaterialTranslator,
+};
 
 // Has to store an Arc<Mutex<...>> as there is no other way to mutate fields of asset loaders.
 /// Stores default [`ImageSamplerDescriptor`] in main world.
@@ -267,8 +270,11 @@ impl Plugin for GltfPlugin {
 
         // Copy the material translator resource into the loader. This means we can access it in `GltfLoader::load`,
         // which doesn't have access to world resources.
-        let material_translator = app.world().get_resource::<GltfMaterialTranslator>().cloned();
-        
+        let material_translator = app
+            .world()
+            .get_resource::<GltfMaterialTranslator>()
+            .cloned();
+
         if material_translator.is_none() {
             warn!("Missing material translator");
         }
@@ -281,6 +287,5 @@ impl Plugin for GltfPlugin {
             extensions: extensions.0.clone(),
             material_translator,
         });
-
     }
 }

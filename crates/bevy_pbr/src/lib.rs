@@ -53,18 +53,18 @@ mod volumetric_fog;
 
 use bevy_color::{Color, LinearRgba};
 
-use core::{error::Error, fmt};
 pub use atmosphere::*;
 use bevy_asset::LoadContext;
+use bevy_gltf::{GltfAssetLabel, GltfMaterial, GltfMaterialTranslator};
 use bevy_light::{
     AmbientLight, DirectionalLight, PointLight, ShadowFilteringMethod, SimulationLightSystems,
     SpotLight,
 };
-use bevy_gltf::{GltfAssetLabel, GltfMaterial, GltfMaterialTranslator};
 use bevy_platform::sync::Arc;
 use bevy_shader::{load_shader_library, ShaderRef};
 pub use cluster::*;
 pub use components::*;
+use core::{error::Error, fmt};
 pub use decal::clustered::ClusteredDecalPlugin;
 pub use extended_material::*;
 pub use fog::*;
@@ -211,7 +211,6 @@ impl fmt::Display for PbrGltfError {
 
 impl Error for PbrGltfError {}
 
-
 impl Plugin for PbrPlugin {
     fn build(&self, app: &mut App) {
         load_shader_library!(app, "render/pbr_types.wgsl");
@@ -283,30 +282,38 @@ impl Plugin for PbrPlugin {
             );
 
         let gltf_material_translator = GltfMaterialTranslator {
-            load_material: Arc::new(|gltf_material: &GltfMaterial, label: &GltfAssetLabel, load_context: &mut LoadContext| {
-                let t = load_context
-                .labeled_asset_scope::<_, ()>(label.to_string(), |_load_context| {
-                        Ok(standard_material_from_gltf_material(gltf_material))
-                    });
+            load_material: Arc::new(
+                |gltf_material: &GltfMaterial,
+                 label: &GltfAssetLabel,
+                 load_context: &mut LoadContext| {
+                    let t = load_context
+                        .labeled_asset_scope::<_, ()>(label.to_string(), |_load_context| {
+                            Ok(standard_material_from_gltf_material(gltf_material))
+                        });
                     // .untyped()
-                if let Some(tt) = t.ok() {
-                    return Ok(tt.untyped());
-                } else {
-                    // let _k = t.err().into();
-                    return Err(BevyError::from(PbrGltfError));
-                }
-            }),
-            insert_material: Arc::new(|label: &GltfAssetLabel, load_context: &mut LoadContext, entity: &mut EntityWorldMut| {
-                let handle = load_context.get_label_handle::<StandardMaterial>(label.to_string());
-                // .ok_or_else(|| "TODO: error".into())?;
-                    
-                entity.insert(MeshMaterial3d(handle));
-                Ok(())
-            }),
-        };
-        
-        app.insert_resource(gltf_material_translator);
+                    if let Some(tt) = t.ok() {
+                        return Ok(tt.untyped());
+                    } else {
+                        // let _k = t.err().into();
+                        return Err(BevyError::from(PbrGltfError));
+                    }
+                },
+            ),
+            insert_material: Arc::new(
+                |label: &GltfAssetLabel,
+                 load_context: &mut LoadContext,
+                 entity: &mut EntityWorldMut| {
+                    let handle =
+                        load_context.get_label_handle::<StandardMaterial>(label.to_string());
+                    // .ok_or_else(|| "TODO: error".into())?;
 
+                    entity.insert(MeshMaterial3d(handle));
+                    Ok(())
+                },
+            ),
+        };
+
+        app.insert_resource(gltf_material_translator);
 
         if self.add_default_deferred_lighting_plugin {
             app.add_plugins(DeferredPbrLightingPlugin);
