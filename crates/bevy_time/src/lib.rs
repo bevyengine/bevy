@@ -17,6 +17,7 @@ pub mod common_conditions;
 mod fixed;
 mod real;
 mod stopwatch;
+mod strange_times;
 mod time;
 mod timer;
 mod virt;
@@ -24,7 +25,8 @@ mod virt;
 pub use fixed::*;
 pub use real::*;
 pub use stopwatch::*;
-pub use time::*;
+pub use strange_times::*;
+pub use time::{Time, TimeDuration, TimeDurationPrecompute};
 pub use timer::*;
 pub use virt::*;
 
@@ -67,6 +69,10 @@ impl Plugin for TimePlugin {
             .init_resource::<Time<Real>>()
             .init_resource::<Time<Virtual>>()
             .init_resource::<Time<Fixed>>()
+            .init_resource::<Time<TimeTravel>>()
+            .init_resource::<Time<Stepped, u32>>()
+            .init_resource::<Time<SteppedVirtual, u32>>()
+            .init_resource::<Time<SteppedTimeTravel, u32>>()
             .init_resource::<TimeUpdateStrategy>();
 
         #[cfg(feature = "bevy_reflect")]
@@ -74,12 +80,16 @@ impl Plugin for TimePlugin {
             app.register_type::<Time>()
                 .register_type::<Time<Real>>()
                 .register_type::<Time<Virtual>>()
-                .register_type::<Time<Fixed>>();
+                .register_type::<Time<Fixed>>()
+                .register_type::<Time<TimeTravel>>()
+                .register_type::<Time<Stepped, u32>>()
+                .register_type::<Time<SteppedVirtual, u32>>()
+                .register_type::<Time<SteppedTimeTravel, u32>>();
         }
 
         app.add_systems(
             First,
-            time_system
+            (time_system, stepped_time_system)
                 .in_set(TimeSystems)
                 .ambiguous_with(message_update_system),
         )
@@ -145,6 +155,7 @@ pub fn time_system(
     mut virtual_time: ResMut<Time<Virtual>>,
     fixed_time: Res<Time<Fixed>>,
     mut time: ResMut<Time>,
+    mut time_travel: ResMut<Time<TimeTravel>>,
     update_strategy: Res<TimeUpdateStrategy>,
     #[cfg(feature = "std")] time_recv: Option<Res<TimeReceiver>>,
     #[cfg(feature = "std")] mut has_received_time: Local<bool>,
@@ -181,6 +192,18 @@ pub fn time_system(
     }
 
     update_virtual_time(&mut time, &mut virtual_time, &real_time);
+    time_travel.advance_by(time.delta);
+}
+
+/// The system used to update the [`Time`] over stepped contexts.
+pub fn stepped_time_system(
+    mut virtual_time: ResMut<Time<SteppedVirtual, u32>>,
+    mut time: ResMut<Time<Stepped, u32>>,
+    mut time_travel: ResMut<Time<SteppedTimeTravel, u32>>,
+) {
+    virtual_time.advance_with_step_count(1);
+    *time = virtual_time.as_other();
+    time_travel.advance_by(time.delta);
 }
 
 #[cfg(test)]

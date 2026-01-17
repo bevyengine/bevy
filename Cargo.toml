@@ -10,7 +10,7 @@ keywords = ["game", "engine", "gamedev", "graphics", "bevy"]
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/bevyengine/bevy"
 documentation = "https://docs.rs/bevy"
-rust-version = "1.89.0"
+rust-version = "1.91.0"
 
 [workspace]
 resolver = "2"
@@ -2708,6 +2708,27 @@ description = "Illustrates ticking `Timer` resources inside systems and handling
 category = "Time"
 wasm = false
 
+[[example]]
+name = "groundhog_day"
+path = "examples/time/groundhog_day.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.groundhog_day]
+name = "Groundhog Day"
+description = "Shows how `Time<TimeTravel>` can be used to go back in time."
+category = "Time"
+wasm = false
+
+[[example]]
+name = "stepped_simulation"
+path = "examples/time/stepped_simulation.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.stepped_simulation]
+name = "Stepped Simulation"
+description = "Shows how `Time<SteppedTimeTravel>` can be used to track a simulation."
+category = "Time"
+wasm = false
 
 # Games
 [[example]]

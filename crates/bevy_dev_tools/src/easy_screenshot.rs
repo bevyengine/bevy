@@ -303,7 +303,7 @@ impl Plugin for EasyScreenRecordPlugin {
                                     let img = screenshot_captured.image.clone();
                                     tx.send(RecordCommand::Frame(img)).unwrap();
                                     virtual_time.advance_by(frame_time);
-                                    *time = virtual_time.as_generic();
+                                    *time = virtual_time.as_other();
                                 },
                             );
                         }

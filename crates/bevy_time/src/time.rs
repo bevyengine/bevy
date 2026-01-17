@@ -1,5 +1,9 @@
 use bevy_ecs::resource::Resource;
-use core::time::Duration;
+use core::{
+    ops::{Add, AddAssign, Sub},
+    time::Duration,
+};
+
 #[cfg(feature = "bevy_reflect")]
 use {
     bevy_ecs::reflect::ReflectResource,
@@ -151,7 +155,7 @@ use {
 ///
 /// You can also replace the "generic" `Time` clock resource if the "default"
 /// time for your game should not be the default virtual time provided. You can
-/// get a "generic" snapshot of your clock by calling `as_generic()` and then
+/// get a "generic" snapshot of your clock by calling `as_other()` and then
 /// overwrite the [`Time`] resource with it. The default systems added by
 /// [`TimePlugin`](crate::TimePlugin) will overwrite the [`Time`] clock during
 /// [`First`](bevy_app::First) and [`FixedUpdate`](bevy_app::FixedUpdate)
@@ -189,26 +193,102 @@ use {
 /// ```
 #[derive(Resource, Debug, Copy, Clone)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Resource, Default))]
-pub struct Time<T: Default = ()> {
-    context: T,
-    wrap_period: Duration,
-    delta: Duration,
-    delta_secs: f32,
-    delta_secs_f64: f64,
-    elapsed: Duration,
-    elapsed_secs: f32,
-    elapsed_secs_f64: f64,
-    elapsed_wrapped: Duration,
-    elapsed_secs_wrapped: f32,
-    elapsed_secs_wrapped_f64: f64,
+pub struct Time<CONTEXT: Default = (), STEP: TimeDuration = Duration> {
+    pub(crate) context: CONTEXT,
+    pub(crate) wrap_period: STEP,
+    pub(crate) delta: STEP,
+    pub(crate) elapsed: STEP,
+    pub(crate) elapsed_wrapped: STEP,
+    pub(crate) precompute: STEP::Precompute,
 }
 
-impl<T: Default> Time<T> {
+/// Type that represents a duration of time.
+pub trait TimeDuration:
+    Default + Clone + Copy + PartialOrd + Add<Self> + AddAssign<Self> + Sub<Self, Output = Self>
+{
+    /// Used to store precomputed value about the time elapsed and the duration
+    type Precompute: TimeDurationPrecompute<Self>;
+    /// Empty duration
+    const ZERO: Self;
+    /// Default duration for a wrap period
+    const DEFAULT_WRAP_PERIOD: Self;
+
+    /// Wrap the given duration within the specified period.
+    fn wrap(value: Self, wrap_period: Self) -> Self;
+
+    /// Is this duration empty
+    fn is_zero(&self) -> bool {
+        *self == Self::ZERO
+    }
+}
+
+/// Type that represents a precomputed value about the time elapsed and the duration
+pub trait TimeDurationPrecompute<STEP>: Default + Clone + Copy {
+    /// Update the precomputed value with the given delta.
+    fn update_delta(&mut self, delta: STEP);
+    /// Update the precomputed value with the given elapsed time.
+    fn update_elapsed(&mut self, elapsed: STEP);
+    /// Update the precomputed value with the given elapsed time and wrap period.
+    fn update_elapsed_wrapped(&mut self, elapsed: STEP);
+}
+
+impl<STEP> TimeDurationPrecompute<STEP> for () {
+    fn update_delta(&mut self, _delta: STEP) {}
+    fn update_elapsed(&mut self, _elapsed: STEP) {}
+    fn update_elapsed_wrapped(&mut self, _elapsed: STEP) {}
+}
+
+#[derive(Default, Clone, Copy)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Default))]
+pub struct DurationPreCompute {
+    delta_f32: f32,
+    delta_f64: f64,
+    elapsed_f32: f32,
+    elapsed_f64: f64,
+    elapsed_wrapped_f32: f32,
+    elapsed_wrapped_f64: f64,
+}
+
+impl TimeDurationPrecompute<Duration> for DurationPreCompute {
+    #[inline]
+    fn update_delta(&mut self, delta: Duration) {
+        self.delta_f32 = delta.as_secs_f32();
+        self.delta_f64 = delta.as_secs_f64();
+    }
+
+    #[inline]
+    fn update_elapsed(&mut self, elapsed: Duration) {
+        self.elapsed_f32 = elapsed.as_secs_f32();
+        self.elapsed_f64 = elapsed.as_secs_f64();
+    }
+
+    #[inline]
+    fn update_elapsed_wrapped(&mut self, elapsed_wrapped: Duration) {
+        self.elapsed_wrapped_f32 = elapsed_wrapped.as_secs_f32();
+        self.elapsed_wrapped_f64 = elapsed_wrapped.as_secs_f64();
+    }
+}
+
+impl TimeDuration for Duration {
+    type Precompute = DurationPreCompute;
+    const ZERO: Duration = Duration::ZERO;
     const DEFAULT_WRAP_PERIOD: Duration = Duration::from_secs(3600); // 1 hour
 
+    fn wrap(dividend: Duration, divisor: Duration) -> Duration {
+        // `Duration` does not have a built-in modulo operation
+        let quotient = (dividend.as_nanos() / divisor.as_nanos()) as u32;
+        dividend - (quotient * divisor)
+    }
+
+    fn is_zero(&self) -> bool {
+        self.is_zero()
+    }
+}
+
+impl<CONTEXT: Default, STEP: TimeDuration> Time<CONTEXT, STEP> {
     /// Create a new clock from context with [`Self::delta`] and [`Self::elapsed`] starting from
     /// zero.
-    pub fn new_with(context: T) -> Self {
+    pub fn new_with(context: CONTEXT) -> Self {
         Self {
             context,
             ..Default::default()
@@ -220,16 +300,13 @@ impl<T: Default> Time<T> {
     /// The added duration will be returned by [`Self::delta`] and
     /// [`Self::elapsed`] will be increased by the duration. Adding
     /// [`Duration::ZERO`] is allowed and will set [`Self::delta`] to zero.
-    pub fn advance_by(&mut self, delta: Duration) {
+    pub fn advance_by(&mut self, delta: STEP) {
         self.delta = delta;
-        self.delta_secs = self.delta.as_secs_f32();
-        self.delta_secs_f64 = self.delta.as_secs_f64();
+        self.precompute.update_delta(self.delta);
         self.elapsed += delta;
-        self.elapsed_secs = self.elapsed.as_secs_f32();
-        self.elapsed_secs_f64 = self.elapsed.as_secs_f64();
-        self.elapsed_wrapped = duration_rem(self.elapsed, self.wrap_period);
-        self.elapsed_secs_wrapped = self.elapsed_wrapped.as_secs_f32();
-        self.elapsed_secs_wrapped_f64 = self.elapsed_wrapped.as_secs_f64();
+        self.precompute.update_elapsed(self.elapsed);
+        self.elapsed_wrapped = STEP::wrap(self.elapsed, self.wrap_period);
+        self.precompute.update_elapsed_wrapped(self.elapsed_wrapped);
     }
 
     /// Advance this clock to a specific `elapsed` time.
@@ -241,7 +318,7 @@ impl<T: Default> Time<T> {
     /// # Panics
     ///
     /// Panics if `elapsed` is less than `Self::elapsed()`.
-    pub fn advance_to(&mut self, elapsed: Duration) {
+    pub fn advance_to(&mut self, elapsed: STEP) {
         assert!(
             elapsed >= self.elapsed,
             "tried to move time backwards to an earlier elapsed moment"
@@ -253,7 +330,7 @@ impl<T: Default> Time<T> {
     ///
     /// **Note:** The default modulus is one hour.
     #[inline]
-    pub fn wrap_period(&self) -> Duration {
+    pub fn wrap_period(&self) -> STEP {
         self.wrap_period
     }
 
@@ -265,7 +342,7 @@ impl<T: Default> Time<T> {
     ///
     /// Panics if `wrap_period` is a zero-length duration.
     #[inline]
-    pub fn set_wrap_period(&mut self, wrap_period: Duration) {
+    pub fn set_wrap_period(&mut self, wrap_period: STEP) {
         assert!(!wrap_period.is_zero(), "division by zero");
         self.wrap_period = wrap_period;
     }
@@ -273,28 +350,62 @@ impl<T: Default> Time<T> {
     /// Returns how much time has advanced since the last [`update`](#method.update), as a
     /// [`Duration`].
     #[inline]
-    pub fn delta(&self) -> Duration {
+    pub fn delta(&self) -> STEP {
         self.delta
     }
 
+    /// Returns how much time has advanced since [`startup`](#method.startup), as [`Duration`].
+    #[inline]
+    pub fn elapsed(&self) -> STEP {
+        self.elapsed
+    }
+
+    /// Returns how much time has advanced since [`startup`](#method.startup) modulo
+    /// the [`wrap_period`](#method.wrap_period), as [`Duration`].
+    #[inline]
+    pub fn elapsed_wrapped(&self) -> STEP {
+        self.elapsed_wrapped
+    }
+
+    /// Returns a reference to the context of this specific clock.
+    #[inline]
+    pub fn context(&self) -> &CONTEXT {
+        &self.context
+    }
+
+    /// Returns a mutable reference to the context of this specific clock.
+    #[inline]
+    pub fn context_mut(&mut self) -> &mut CONTEXT {
+        &mut self.context
+    }
+
+    /// Returns a copy of this clock as fully generic clock without context.
+    #[inline]
+    pub fn as_other<OtherContext: Default>(&self) -> Time<OtherContext, STEP> {
+        Time {
+            context: OtherContext::default(),
+            wrap_period: self.wrap_period,
+            delta: self.delta,
+            elapsed: self.elapsed,
+            elapsed_wrapped: self.elapsed_wrapped,
+            precompute: self.precompute,
+        }
+    }
+}
+
+impl<CONTEXT: Default> Time<CONTEXT, Duration> {
     /// Returns how much time has advanced since the last [`update`](#method.update), as [`f32`]
     /// seconds.
     #[inline]
     pub fn delta_secs(&self) -> f32 {
-        self.delta_secs
+        self.precompute.delta_f32
     }
 
     /// Returns how much time has advanced since the last [`update`](#method.update), as [`f64`]
     /// seconds.
     #[inline]
     pub fn delta_secs_f64(&self) -> f64 {
-        self.delta_secs_f64
-    }
-
-    /// Returns how much time has advanced since [`startup`](#method.startup), as [`Duration`].
-    #[inline]
-    pub fn elapsed(&self) -> Duration {
-        self.elapsed
+        self.precompute.delta_f64
     }
 
     /// Returns how much time has advanced since [`startup`](#method.startup), as [`f32`] seconds.
@@ -304,20 +415,13 @@ impl<T: Default> Time<T> {
     /// use [`elapsed_secs_wrapped`](#method.elapsed_secs_wrapped).
     #[inline]
     pub fn elapsed_secs(&self) -> f32 {
-        self.elapsed_secs
+        self.precompute.elapsed_f32
     }
 
     /// Returns how much time has advanced since [`startup`](#method.startup), as [`f64`] seconds.
     #[inline]
     pub fn elapsed_secs_f64(&self) -> f64 {
-        self.elapsed_secs_f64
-    }
-
-    /// Returns how much time has advanced since [`startup`](#method.startup) modulo
-    /// the [`wrap_period`](#method.wrap_period), as [`Duration`].
-    #[inline]
-    pub fn elapsed_wrapped(&self) -> Duration {
-        self.elapsed_wrapped
+        self.precompute.elapsed_f64
     }
 
     /// Returns how much time has advanced since [`startup`](#method.startup) modulo
@@ -327,69 +431,28 @@ impl<T: Default> Time<T> {
     /// suffer from the gradual precision loss of [`elapsed_secs`](#method.elapsed_secs).
     #[inline]
     pub fn elapsed_secs_wrapped(&self) -> f32 {
-        self.elapsed_secs_wrapped
+        self.precompute.elapsed_wrapped_f32
     }
 
     /// Returns how much time has advanced since [`startup`](#method.startup) modulo
     /// the [`wrap_period`](#method.wrap_period), as [`f64`] seconds.
     #[inline]
     pub fn elapsed_secs_wrapped_f64(&self) -> f64 {
-        self.elapsed_secs_wrapped_f64
-    }
-
-    /// Returns a reference to the context of this specific clock.
-    #[inline]
-    pub fn context(&self) -> &T {
-        &self.context
-    }
-
-    /// Returns a mutable reference to the context of this specific clock.
-    #[inline]
-    pub fn context_mut(&mut self) -> &mut T {
-        &mut self.context
-    }
-
-    /// Returns a copy of this clock as fully generic clock without context.
-    #[inline]
-    pub fn as_generic(&self) -> Time<()> {
-        Time {
-            context: (),
-            wrap_period: self.wrap_period,
-            delta: self.delta,
-            delta_secs: self.delta_secs,
-            delta_secs_f64: self.delta_secs_f64,
-            elapsed: self.elapsed,
-            elapsed_secs: self.elapsed_secs,
-            elapsed_secs_f64: self.elapsed_secs_f64,
-            elapsed_wrapped: self.elapsed_wrapped,
-            elapsed_secs_wrapped: self.elapsed_secs_wrapped,
-            elapsed_secs_wrapped_f64: self.elapsed_secs_wrapped_f64,
-        }
+        self.precompute.elapsed_wrapped_f64
     }
 }
 
-impl<T: Default> Default for Time<T> {
+impl<CONTEXT: Default, STEP: Default + TimeDuration> Default for Time<CONTEXT, STEP> {
     fn default() -> Self {
         Self {
             context: Default::default(),
-            wrap_period: Self::DEFAULT_WRAP_PERIOD,
-            delta: Duration::ZERO,
-            delta_secs: 0.0,
-            delta_secs_f64: 0.0,
-            elapsed: Duration::ZERO,
-            elapsed_secs: 0.0,
-            elapsed_secs_f64: 0.0,
-            elapsed_wrapped: Duration::ZERO,
-            elapsed_secs_wrapped: 0.0,
-            elapsed_secs_wrapped_f64: 0.0,
+            wrap_period: STEP::DEFAULT_WRAP_PERIOD,
+            delta: STEP::ZERO,
+            elapsed: STEP::ZERO,
+            elapsed_wrapped: STEP::ZERO,
+            precompute: STEP::Precompute::default(),
         }
     }
-}
-
-fn duration_rem(dividend: Duration, divisor: Duration) -> Duration {
-    // `Duration` does not have a built-in modulo operation
-    let quotient = (dividend.as_nanos() / divisor.as_nanos()) as u32;
-    dividend - (quotient * divisor)
 }
 
 #[cfg(test)]
@@ -400,7 +463,7 @@ mod test {
     fn test_initial_state() {
         let time: Time = Time::default();
 
-        assert_eq!(time.wrap_period(), Time::<()>::DEFAULT_WRAP_PERIOD);
+        assert_eq!(time.wrap_period(), Duration::DEFAULT_WRAP_PERIOD);
         assert_eq!(time.delta(), Duration::ZERO);
         assert_eq!(time.delta_secs(), 0.0);
         assert_eq!(time.delta_secs_f64(), 0.0);

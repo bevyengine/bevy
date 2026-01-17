@@ -543,6 +543,8 @@ Example | Description
 
 Example | Description
 --- | ---
+[Groundhog Day](../examples/time/groundhog_day.rs) | Shows how `Time<TimeTravel>` can be used to go back in time.
+[Stepped Simulation](../examples/time/stepped_simulation.rs) | Shows how `Time<SteppedTimeTravel>` can be used to track a simulation.
 [Time handling](../examples/time/time.rs) | Explains how Time is handled in ECS
 [Timers](../examples/time/timers.rs) | Illustrates ticking `Timer` resources inside systems and handling their state
 [Virtual time](../examples/time/virtual_time.rs) | Shows how `Time<Virtual>` can be used to pause, resume, slow down and speed up a game.

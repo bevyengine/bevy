@@ -280,7 +280,7 @@ impl Default for Virtual {
 pub fn update_virtual_time(current: &mut Time, virt: &mut Time<Virtual>, real: &Time<Real>) {
     let raw_delta = real.delta();
     virt.advance_with_raw_delta(raw_delta);
-    *current = virt.as_generic();
+    *current = virt.as_other();
 }
 
 #[cfg(test)]
