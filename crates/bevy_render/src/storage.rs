@@ -45,7 +45,7 @@ impl Default for ShaderStorageBuffer {
             buffer_description: wgpu::BufferDescriptor {
                 label: None,
                 size: 0,
-                usage: BufferUsages::STORAGE | BufferUsages::COPY_DST,
+                usage: BufferUsages::STORAGE | BufferUsages::COPY_SRC | BufferUsages::COPY_DST,
                 mapped_at_creation: false,
             },
             asset_usage: RenderAssetUsages::default(),
@@ -166,6 +166,10 @@ impl RenderAsset for GpuShaderStorageBuffer {
 
         let buffer = if let Some(prev) = previous_asset
             && prev.buffer_descriptor == source_asset.buffer_description
+            && source_asset
+                .buffer_description
+                .usage
+                .contains(BufferUsages::COPY_DST)
         {
             if let Some(ref data) = source_asset.data {
                 render_queue.write_buffer(&prev.buffer, 0, data);
@@ -181,6 +185,14 @@ impl RenderAsset for GpuShaderStorageBuffer {
             let new_buffer = render_device.create_buffer(&source_asset.buffer_description);
             if source_asset.copy_on_resize
                 && let Some(previous) = previous_asset
+                && previous
+                    .buffer_descriptor
+                    .usage
+                    .contains(BufferUsages::COPY_SRC)
+                && source_asset
+                    .buffer_description
+                    .usage
+                    .contains(BufferUsages::COPY_DST)
             {
                 let copy_size = source_asset
                     .buffer_description
