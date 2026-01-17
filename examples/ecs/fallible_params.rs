@@ -121,8 +121,8 @@ fn user_input(
 
 // System that moves the enemies in a circle.
 // Only runs if there are enemies, due to the `Populated` parameter.
-fn move_targets(mut enemies: Populated<(&mut Transform, &mut Enemy)>, time: Res<Time>) {
-    for (mut transform, mut target) in &mut *enemies {
+fn move_targets(mut enemies: If<Populated<(&mut Transform, &mut Enemy)>>, time: Res<Time>) {
+    for (mut transform, mut target) in &mut **enemies {
         target.rotation += target.rotation_speed * time.delta_secs();
         transform.rotation = Quat::from_rotation_z(target.rotation);
         let offset = transform.right() * target.radius;
@@ -162,4 +162,4 @@ fn track_targets(
 
 /// This system always fails param validation, because we never
 /// create an entity with both [`Player`] and [`Enemy`] components.
-fn do_nothing_fail_validation(_: Single<(), (With<Player>, With<Enemy>)>) {}
+fn do_nothing_fail_validation(_: If<Single<(), (With<Player>, With<Enemy>)>>) {}
