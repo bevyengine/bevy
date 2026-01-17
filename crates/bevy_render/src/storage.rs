@@ -179,19 +179,19 @@ impl RenderAsset for GpuShaderStorageBuffer {
             })
         } else {
             let new_buffer = render_device.create_buffer(&source_asset.buffer_description);
-            if source_asset.copy_on_resize {
-                if let Some(previous) = previous_asset {
-                    let copy_size = source_asset
-                        .buffer_description
-                        .size
-                        .min(previous.buffer_descriptor.size);
-                    let mut encoder =
-                        render_device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                            label: Some("copy_buffer_on_resize"),
-                        });
-                    encoder.copy_buffer_to_buffer(&previous.buffer, 0, &new_buffer, 0, copy_size);
-                    render_queue.submit([encoder.finish()]);
-                }
+            if source_asset.copy_on_resize
+                && let Some(previous) = previous_asset
+            {
+                let copy_size = source_asset
+                    .buffer_description
+                    .size
+                    .min(previous.buffer_descriptor.size);
+                let mut encoder =
+                    render_device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                        label: Some("copy_buffer_on_resize"),
+                    });
+                encoder.copy_buffer_to_buffer(&previous.buffer, 0, &new_buffer, 0, copy_size);
+                render_queue.submit([encoder.finish()]);
             }
             new_buffer
         };
