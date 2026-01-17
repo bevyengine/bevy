@@ -8,7 +8,6 @@ use bevy_reflect::TypePath;
 // use bevy_reflect::{std_traits::ReflectDefault, Reflect, TypePath};
 use wgpu_types::Face;
 
-
 /// Data to build a Gltf Material
 #[derive(Asset, Debug, TypePath)]
 pub struct GltfMaterial {
