@@ -45,7 +45,7 @@ impl Default for ShaderStorageBuffer {
             buffer_description: wgpu::BufferDescriptor {
                 label: None,
                 size: 0,
-                usage: BufferUsages::STORAGE,
+                usage: BufferUsages::STORAGE | BufferUsages::COPY_DST,
                 mapped_at_creation: false,
             },
             asset_usage: RenderAssetUsages::default(),
