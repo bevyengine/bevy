@@ -62,7 +62,7 @@ use bevy_utils::default;
 use bevy_utils::once;
 use smallvec::SmallVec;
 #[cfg(feature = "trace")]
-use tracing::{info, warn};
+use tracing::warn;
 
 use bevy_core_pipeline::{
     core_3d::graph::{Core3d, Node3d},

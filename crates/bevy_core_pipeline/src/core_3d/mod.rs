@@ -56,7 +56,7 @@ pub const CORE_3D_DEPTH_FORMAT: TextureFormat = TextureFormat::Depth32Float;
 /// - doesn't support `copy_texture_to_texture` for depth textures so it doesn't support `DepthPrepass`.
 /// - doesn't support creating multisampled textures if them are not pure `RENDER_ATTACHMENT` so it doesn't support Msaa when reading `ViewDepthTexture`.
 /// - shadow sampler `texture_depth_2d` doesn't support sampling, only supports comparison.
-/// 
+///
 /// To read depth texture on WebGL 2, we can only use `ViewDepthTexture` with `Msaa::Off` and bind depth texture as unfilterable `texture_2d<f32>`.
 /// Therefore we disable screen space reflections entirely on WebGL 2.
 #[cfg(not(any(feature = "webgpu", not(target_arch = "wasm32"))))]
@@ -68,7 +68,7 @@ pub const DEPTH_PREPASS_TEXTURE_SUPPORTED: bool = false;
 /// - doesn't support `copy_texture_to_texture` for depth textures so it doesn't support `DepthPrepass`.
 /// - doesn't support creating multisampled textures if them are not pure `RENDER_ATTACHMENT` so it doesn't support Msaa when reading `ViewDepthTexture`.
 /// - shadow sampler `texture_depth_2d` doesn't support sampling, only supports comparison.
-/// 
+///
 /// To read depth texture on WebGL 2, we can only use `ViewDepthTexture` with `Msaa::Off` and bind depth texture as unfilterable `texture_2d<f32>`.
 /// Therefore we disable screen space reflections entirely on WebGL 2.
 #[cfg(any(feature = "webgpu", not(target_arch = "wasm32")))]
