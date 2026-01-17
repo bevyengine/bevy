@@ -3,8 +3,8 @@
 use std::collections::BTreeMap;
 
 use bevy::prelude::*;
-use bevy_asset::{RenderAssetTransferPriority, RenderAssetUsages};
-use bevy_render::{
+use bevy::asset::{RenderAssetTransferPriority, RenderAssetUsages};
+use bevy::render::{
     render_asset::{
         RenderAssetBytesPerFrame, RenderAssetBytesPerFrameLimiter,
         RenderAssetPriorityAllocationStats,
