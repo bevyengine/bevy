@@ -197,7 +197,6 @@ default_app = [
 default_platform = [
   "std",
   "android-game-activity",
-  "android_shared_stdcxx",
   "bevy_gilrs",
   "bevy_winit",
   "default_font",
@@ -495,35 +494,35 @@ zstd_rust = ["bevy_internal/zstd_rust"]
 # For KTX2 Zstandard decompression using [zstd](https://crates.io/crates/zstd). This is a faster backend, but uses unsafe C bindings. For the safe option, stick to the default backend with "zstd_rust".
 zstd_c = ["bevy_internal/zstd_c"]
 
-# FLAC audio format support
-flac = ["bevy_internal/flac"]
-
-# MP3 audio format support
-mp3 = ["bevy_internal/mp3"]
-
-# OGG/VORBIS audio format support
-vorbis = ["bevy_internal/vorbis"]
-
-# WAV audio format support
-wav = ["bevy_internal/wav"]
-
-# AAC audio format support (through symphonia)
-symphonia-aac = ["bevy_internal/symphonia-aac"]
-
-# AAC, FLAC, MP3, MP4, OGG/VORBIS, and WAV audio formats support (through symphonia)
-symphonia-all = ["bevy_internal/symphonia-all"]
-
-# FLAC audio format support (through symphonia)
+# FLAC audio format support (through `symphonia`)
 symphonia-flac = ["bevy_internal/symphonia-flac"]
 
-# MP4 audio format support (through symphonia)
-symphonia-isomp4 = ["bevy_internal/symphonia-isomp4"]
-
-# OGG/VORBIS audio format support (through symphonia)
+# OGG/VORBIS audio format support (through `symphonia`)
 symphonia-vorbis = ["bevy_internal/symphonia-vorbis"]
 
-# WAV audio format support (through symphonia)
+# WAV audio format support (through `symphonia`)
 symphonia-wav = ["bevy_internal/symphonia-wav"]
+
+# AAC audio format support (through `symphonia`)
+aac = ["bevy_internal/aac"]
+
+# AAC, MP3, MP4 (`symphonia`), WAV (`hound`), FLAC (`claxon`) and OGG/VORBIS (`lewton`) audio formats support
+audio-all = ["bevy_internal/audio-all"]
+
+# FLAC audio format support (through `symphonia`)
+flac = ["bevy_internal/flac"]
+
+# MP4 audio format support (through `symphonia`). It also enables AAC support.
+mp4 = ["bevy_internal/mp4"]
+
+# MP3 audio format support (through `symphonia`)
+mp3 = ["bevy_internal/mp3"]
+
+# OGG/VORBIS audio format support (through `lewton`)
+vorbis = ["bevy_internal/vorbis"]
+
+# WAV audio format support (through `symphonia`)
+wav = ["bevy_internal/wav"]
 
 # Enable serialization support through serde
 serialize = ["bevy_internal/serialize"]
@@ -557,9 +556,6 @@ morph = ["bevy_internal/morph"]
 
 # Enables bevy_mesh and bevy_animation morph weight support
 morph_animation = ["bevy_internal/morph_animation"]
-
-# Enable using a shared stdlib for cxx on Android
-android_shared_stdcxx = ["bevy_internal/android_shared_stdcxx"]
 
 # Enable detailed trace event logging. These trace events are expensive even when off, thus they require compile time opt-in
 detailed_trace = ["bevy_internal/detailed_trace"]
@@ -5368,3 +5364,6 @@ name = "Dynamic Mipmap Generation"
 description = "Demonstrates use of the mipmap generation plugin to generate mipmaps for a texture"
 category = "2D Rendering"
 wasm = false
+
+[patch.crates-io]
+rodio = { git = "https://github.com/RustAudio/rodio.git", rev = "744f27b27816aac74f266dc0cb3c5ffb6226c630" }

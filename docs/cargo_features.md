@@ -57,13 +57,14 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 
 |Feature|Description|
 |-|-|
+|aac|AAC audio format support (through `symphonia`)|
 |accesskit_unix|Enable AccessKit on Unix backends (currently only works with experimental screen readers and forks.)|
 |android-game-activity|Android GameActivity support. Default, choose between this and `android-native-activity`.|
 |android-native-activity|Android NativeActivity support. Legacy, should be avoided for most new Android games.|
-|android_shared_stdcxx|Enable using a shared stdlib for cxx on Android|
 |asset_processor|Enables the built-in asset processor for processed assets.|
 |async-io|Use async-io's implementation of block_on instead of futures-lite's implementation. This is preferred if your application uses async-io.|
 |async_executor|Uses `async-executor` as a task execution backend.|
+|audio-all|AAC, MP3, MP4 (`symphonia`), WAV (`hound`), FLAC (`claxon`) and OGG/VORBIS (`lewton`) audio formats support|
 |basis-universal|Basis Universal compressed texture support|
 |bevy_animation|Provides animation functionality|
 |bevy_anti_alias|Provides various anti aliasing solutions|
@@ -123,7 +124,7 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 |exr|EXR image format support|
 |ff|Farbfeld image format support|
 |file_watcher|Enables watching the filesystem for Bevy Asset hot-reloading|
-|flac|FLAC audio format support|
+|flac|FLAC audio format support (through `symphonia`)|
 |force_disable_dlss|Forcibly disable DLSS so that cargo build --all-features works without the DLSS SDK being installed. Not meant for users.|
 |free_camera|Enables the free cam from bevy_camera_controller|
 |gamepad|Gamepad support. Automatically enabled by `bevy_gilrs`.|
@@ -147,7 +148,8 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 |morph|Enables support for morph target weights in bevy_mesh|
 |morph_animation|Enables bevy_mesh and bevy_animation morph weight support|
 |mouse|Mouse support. Automatically enabled by `bevy_window`.|
-|mp3|MP3 audio format support|
+|mp3|MP3 audio format support (through `symphonia`)|
+|mp4|MP4 audio format support (through `symphonia`). It also enables AAC support.|
 |multi_threaded|Enables multithreaded parallelism in the engine. Disabling it forces all engine tasks to run on a single thread.|
 |pan_camera|Enables the pan camera from bevy_camera_controller|
 |pbr_anisotropy_texture|Enable support for anisotropy texture in the `StandardMaterial`, at the risk of blowing past the global, per-shader texture limit on older/lower-end GPUs|
@@ -173,12 +175,9 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 |sprite_picking|Provides an implementation for picking sprites|
 |statically-linked-dxc|Statically linked DXC shader compiler for DirectX 12|
 |std|Allows access to the `std` crate.|
-|symphonia-aac|AAC audio format support (through symphonia)|
-|symphonia-all|AAC, FLAC, MP3, MP4, OGG/VORBIS, and WAV audio formats support (through symphonia)|
-|symphonia-flac|FLAC audio format support (through symphonia)|
-|symphonia-isomp4|MP4 audio format support (through symphonia)|
-|symphonia-vorbis|OGG/VORBIS audio format support (through symphonia)|
-|symphonia-wav|WAV audio format support (through symphonia)|
+|symphonia-flac|FLAC audio format support (through `symphonia`)|
+|symphonia-vorbis|OGG/VORBIS audio format support (through `symphonia`)|
+|symphonia-wav|WAV audio format support (through `symphonia`)|
 |sysinfo_plugin|Enables system information diagnostic plugin|
 |tga|TGA image format support|
 |tiff|TIFF image format support|
@@ -190,8 +189,8 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 |trace_tracy_memory|Tracing support, with memory profiling, exposing a port for Tracy|
 |track_location|Enables source location tracking for change detection and spawning/despawning, which can assist with debugging|
 |ui_picking|Provides an implementation for picking UI|
-|vorbis|OGG/VORBIS audio format support|
-|wav|WAV audio format support|
+|vorbis|OGG/VORBIS audio format support (through `lewton`)|
+|wav|WAV audio format support (through `symphonia`)|
 |wayland|Wayland display server support|
 |web|Enables use of browser APIs. Note this is currently only applicable on `wasm32` architectures.|
 |web_asset_cache|Enable caching downloaded assets on the filesystem. NOTE: this cache currently never invalidates entries!|

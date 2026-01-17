@@ -40,11 +40,11 @@ jobs:
       - uses: actions/cache/restore@9255dc7a253b0ccc959486e2bca901246202afeb # v5.0.1
         with:
           # key won't match, will rely on restore-keys
-          key: ${{ runner.os }}-stable-aarch64-apple-ios-sim-${{ hashFiles('**/Cargo.toml') }}-
+          key: ${{ runner.os }}-stable-arm64-apple-ios-simulator-${{ hashFiles('**/Cargo.toml') }}-
           # See .github/workflows/update-caches.yml for how keys are generated
           restore-keys: |
-            ${{ runner.os }}-stable-aarch64-apple-ios-sim-${{ hashFiles('**/Cargo.toml') }}-
-            ${{ runner.os }}-stable-aarch64-apple-ios-sim-
+            ${{ runner.os }}-stable-arm64-apple-ios-simulator-${{ hashFiles('**/Cargo.toml') }}-
+            ${{ runner.os }}-stable-arm64-apple-ios-simulator-
           path: |
             ~/.cargo/bin/
             ~/.cargo/registry/index/
@@ -53,7 +53,7 @@ jobs:
             target/
 
       - name: Add iOS targets
-        run: rustup target add aarch64-apple-ios-sim
+        run: rustup target add arm64-apple-ios-simulator
 
       - name: Build and install iOS app in iOS Simulator.
         run: cd examples/mobile && make install
