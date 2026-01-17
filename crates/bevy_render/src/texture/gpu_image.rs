@@ -8,7 +8,7 @@ use bevy_ecs::system::{lifetimeless::SRes, SystemParamItem};
 use bevy_image::{Image, ImageSampler, TextureFormatPixelInfo};
 use bevy_math::{AspectRatio, UVec2};
 use tracing::warn;
-use wgpu::{Extent3d, TexelCopyBufferLayout, TextureFormat};
+use wgpu::{Extent3d, TexelCopyBufferLayout, TextureFormat, TextureUsages};
 use wgpu_types::{TextureDescriptor, TextureViewDescriptor};
 
 /// The GPU-representation of an [`Image`].
@@ -69,6 +69,7 @@ impl RenderAsset for GpuImage {
         let had_data = image.data.is_some();
         let texture = if let Some(prev) = previous_asset
             && prev.texture_descriptor == image.texture_descriptor
+            && prev.texture_descriptor.usage.contains(TextureUsages::COPY_DST)
             && let Ok(pixel_size) = image.texture_descriptor.format.pixel_size()
         {
             if let Some(ref data) = image.data {
@@ -140,6 +141,7 @@ impl RenderAsset for GpuImage {
 
         let texture_view = if let Some(prev) = previous_asset.as_ref()
             && prev.texture_descriptor == image.texture_descriptor
+            && prev.texture_descriptor.usage.contains(TextureUsages::COPY_DST)
             && prev.texture_view_descriptor == image.texture_view_descriptor
         {
             prev.texture_view.clone()
