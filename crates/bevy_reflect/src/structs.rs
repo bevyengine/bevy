@@ -447,11 +447,11 @@ impl PartialReflect for DynamicStruct {
     }
 
     fn reflect_partial_eq(&self, value: &dyn PartialReflect) -> Option<bool> {
-        struct_partial_eq(self, value)
+        struct_partial_eq_dynamic(self, value)
     }
 
     fn reflect_partial_cmp(&self, value: &dyn PartialReflect) -> Option<::core::cmp::Ordering> {
-        struct_partial_cmp(self, value)
+        struct_partial_cmp_dynamic(self, value)
     }
 
     fn debug(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
@@ -507,6 +507,11 @@ impl<'a> IntoIterator for &'a DynamicStruct {
     }
 }
 
+/// see [`struct_partial_eq_dynamic`]
+pub fn struct_partial_eq<S: Struct + ?Sized>(a: &S, b: &dyn PartialReflect) -> Option<bool> {
+    struct_partial_eq_dynamic(&a.to_dynamic_struct(), b)
+}
+
 /// Compares a [`Struct`] with a [`PartialReflect`] value.
 ///
 /// Returns true if and only if all of the following are true:
@@ -516,8 +521,8 @@ impl<'a> IntoIterator for &'a DynamicStruct {
 ///   values.
 ///
 /// Returns [`None`] if the comparison couldn't even be performed.
-#[inline]
-pub fn struct_partial_eq<S: Struct + ?Sized>(a: &S, b: &dyn PartialReflect) -> Option<bool> {
+#[inline(never)]
+pub fn struct_partial_eq_dynamic(a: &DynamicStruct, b: &dyn PartialReflect) -> Option<bool> {
     let ReflectRef::Struct(struct_value) = b.reflect_ref() else {
         return Some(false);
     };
@@ -541,13 +546,22 @@ pub fn struct_partial_eq<S: Struct + ?Sized>(a: &S, b: &dyn PartialReflect) -> O
     Some(true)
 }
 
+
+/// see [`struct_partial_cmp_dynamic`]
+pub fn struct_partial_cmp<S: Struct + ?Sized>(
+    a: &S,
+    b: &dyn PartialReflect,
+) -> Option<::core::cmp::Ordering> {
+    struct_partial_cmp_dynamic(&a.to_dynamic_struct(), b)
+}
+
 /// Lexicographically compares two [`Struct`] values and returns their ordering.
 ///
 /// Returns [`None`] if the comparison couldn't be performed (e.g., kinds mismatch
 /// or an element comparison returns `None`).
-#[inline]
-pub fn struct_partial_cmp<S: Struct + ?Sized>(
-    a: &S,
+#[inline(never)]
+pub fn struct_partial_cmp_dynamic(
+    a: &DynamicStruct,
     b: &dyn PartialReflect,
 ) -> Option<::core::cmp::Ordering> {
     let ReflectRef::Struct(struct_value) = b.reflect_ref() else {
