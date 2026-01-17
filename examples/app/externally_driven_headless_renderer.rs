@@ -57,6 +57,7 @@ impl BevyWrapper {
             DefaultPlugins
                 .set(window_plugin)
                 .set(render_plugin)
+                // Disable winit because we want to own the update loop ourselves.
                 .disable::<WinitPlugin>(),
         )
         .add_systems(Startup, spawn_test_scene)
@@ -101,6 +102,7 @@ impl BevyWrapper {
             .id()
     }
 
+    // Run one world update and wait for rendering to finish.
     fn update(&mut self) {
         self.0.update();
         // Wait for frame to finish rendering by wait polling the device
@@ -116,6 +118,7 @@ impl BevyWrapper {
             .unwrap();
     }
 
+    // Schedules a screenshot to be captured on the next update.
     fn screenshot(&mut self, target: RenderTarget, i: u32) {
         self.0
             .main
