@@ -208,6 +208,7 @@ impl Plugin for DiagnosticsOverlayPlugin {
         app.add_observer(build_overlay);
         app.add_observer(drag_by_header);
         app.add_observer(collapse_on_click_to_header);
+        app.add_observer(bring_to_front);
     }
 }
 
@@ -433,5 +434,20 @@ fn collapse_on_click_to_header(
             only ever have one single child with DiagnosticsList."
             );
         }
+    }
+}
+
+fn bring_to_front(
+    event: On<Pointer<Press>>,
+    mut commands: Commands,
+    diagnostics_overlays: Query<(), With<DiagnosticsOverlay>>,
+    diagnostics_overlay_plane: Single<Entity, With<DiagnosticsOverlayPlane>>,
+) {
+    let entity = event.entity;
+    if diagnostics_overlays.contains(entity) {
+        commands
+            .entity(entity)
+            .remove::<ChildOf>()
+            .insert(ChildOf(*diagnostics_overlay_plane));
     }
 }
