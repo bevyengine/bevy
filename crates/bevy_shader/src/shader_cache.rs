@@ -537,8 +537,16 @@ fn get_capabilities(features: Features, downlevel: DownlevelFlags) -> Capabiliti
         features.contains(Features::SHADER_F16),
     );
     capabilities.set(
+        Capabilities::SHADER_FLOAT16_IN_FLOAT32,
+        downlevel.contains(DownlevelFlags::SHADER_F16_IN_F32),
+    );
+    capabilities.set(
         Capabilities::RAY_HIT_VERTEX_POSITION,
         features.intersects(Features::EXPERIMENTAL_RAY_HIT_VERTEX_RETURN),
+    );
+    capabilities.set(
+        Capabilities::TEXTURE_EXTERNAL,
+        features.intersects(Features::EXTERNAL_TEXTURE),
     );
 
     capabilities

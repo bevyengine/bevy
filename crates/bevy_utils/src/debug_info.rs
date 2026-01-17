@@ -8,7 +8,7 @@ use core::ops::Deref;
 use disqualified::ShortName;
 
 #[cfg(not(feature = "debug"))]
-const FEATURE_DISABLED: &str = "Enable the debug feature to see the name";
+const FEATURE_DISABLED: &str = "<Enable the debug feature to see the name>";
 
 /// Wrapper to help debugging ECS issues. This is used to display the names of systems, components, ...
 ///
