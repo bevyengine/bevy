@@ -529,10 +529,10 @@ fn prepare_debug_overlay_pipelines(
             view_layout_key |= MeshPipelineViewLayoutKey::ATMOSPHERE;
         }
 
-        if let Some(gpu_image) = images.get(&blue_noise.texture) {
-            if gpu_image.texture.depth_or_array_layers() > 1 {
-                view_layout_key |= MeshPipelineViewLayoutKey::STBN;
-            }
+        if let Some(gpu_image) = images.get(&blue_noise.texture)
+            && gpu_image.texture.depth_or_array_layers() > 1
+        {
+            view_layout_key |= MeshPipelineViewLayoutKey::STBN;
         }
 
         let pipeline_id = pipelines.specialize(
