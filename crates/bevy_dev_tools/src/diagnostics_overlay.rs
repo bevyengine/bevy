@@ -29,7 +29,7 @@ const DEFAULT_PADDING: UiRect = UiRect::all(Val::Px(4.));
 pub const INITIAL_DIAGNOSTICS_OVERLAY_PLANE_Z_INDEX: GlobalZIndex = GlobalZIndex(1_000_000);
 
 /// Diagnostics overlay displays on a draggable and collapsible window
-/// statistics stored on the [`DiagnosticStore`]. Spawning an entity
+/// statistics stored on the [`DiagnosticsStore`]. Spawning an entity
 /// with this component will create the window for you. Some presets
 /// are also provided.
 ///
