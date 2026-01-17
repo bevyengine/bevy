@@ -243,6 +243,7 @@ impl Plugin for GltfPlugin {
             .init_asset::<GltfPrimitive>()
             .init_asset::<GltfMesh>()
             .init_asset::<GltfSkin>()
+            .init_asset::<GltfMaterial>()
             .preregister_asset_loader::<GltfLoader>(&["gltf", "glb"])
             .init_resource::<GltfExtensionHandlers>();
     }
