@@ -75,9 +75,18 @@ fn setup_scene(
 
     let num_shapes = shapes.len();
 
+    let mut observer_hover = Observer::new(update_material_on::<Pointer<Over>>(hover_matl.clone()));
+    let mut observer_pointer_out =
+        Observer::new(update_material_on::<Pointer<Out>>(white_matl.clone()));
+    let mut obsevrer_pointer_press =
+        Observer::new(update_material_on::<Pointer<Press>>(pressed_matl.clone()));
+    let mut observer_pointer_release =
+        Observer::new(update_material_on::<Pointer<Release>>(hover_matl.clone()));
+    let mut observer_rotate_on_drag = Observer::new(rotate_on_drag);
+
     // Spawn the shapes. The meshes will be pickable by default.
     for (i, shape) in shapes.into_iter().enumerate() {
-        commands
+        let entity = commands
             .spawn((
                 Mesh3d(shape),
                 MeshMaterial3d(white_matl.clone()),
@@ -89,17 +98,18 @@ fn setup_scene(
                 .with_rotation(Quat::from_rotation_x(-PI / 4.)),
                 Shape,
             ))
-            .observe(update_material_on::<Pointer<Over>>(hover_matl.clone()))
-            .observe(update_material_on::<Pointer<Out>>(white_matl.clone()))
-            .observe(update_material_on::<Pointer<Press>>(pressed_matl.clone()))
-            .observe(update_material_on::<Pointer<Release>>(hover_matl.clone()))
-            .observe(rotate_on_drag);
+            .id();
+        observer_hover.watch_entity(entity);
+        observer_pointer_out.watch_entity(entity);
+        obsevrer_pointer_press.watch_entity(entity);
+        observer_pointer_release.watch_entity(entity);
+        observer_rotate_on_drag.watch_entity(entity);
     }
 
     let num_extrusions = extrusions.len();
 
     for (i, shape) in extrusions.into_iter().enumerate() {
-        commands
+        let entity = commands
             .spawn((
                 Mesh3d(shape),
                 MeshMaterial3d(white_matl.clone()),
@@ -112,12 +122,20 @@ fn setup_scene(
                 .with_rotation(Quat::from_rotation_x(-PI / 4.)),
                 Shape,
             ))
-            .observe(update_material_on::<Pointer<Over>>(hover_matl.clone()))
-            .observe(update_material_on::<Pointer<Out>>(white_matl.clone()))
-            .observe(update_material_on::<Pointer<Press>>(pressed_matl.clone()))
-            .observe(update_material_on::<Pointer<Release>>(hover_matl.clone()))
-            .observe(rotate_on_drag);
+            .id();
+        observer_hover.watch_entity(entity);
+        observer_pointer_out.watch_entity(entity);
+        obsevrer_pointer_press.watch_entity(entity);
+        observer_pointer_release.watch_entity(entity);
+        observer_rotate_on_drag.watch_entity(entity);
     }
+
+    // Register observers
+    commands.spawn(observer_hover);
+    commands.spawn(observer_pointer_out);
+    commands.spawn(obsevrer_pointer_press);
+    commands.spawn(observer_pointer_release);
+    commands.spawn(observer_rotate_on_drag);
 
     // Ground
     commands.spawn((
