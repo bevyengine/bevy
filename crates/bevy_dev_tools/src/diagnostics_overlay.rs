@@ -7,7 +7,7 @@ use core::time::Duration;
 
 use bevy_app::prelude::*;
 use bevy_color::{palettes, prelude::*};
-use bevy_diagnostic::{DiagnosticPath, DiagnosticsStore, FrameTimeDiagnosticsPlugin};
+use bevy_diagnostic::{Diagnostic, DiagnosticPath, DiagnosticsStore, FrameTimeDiagnosticsPlugin};
 use bevy_ecs::{prelude::*, relationship::Relationship};
 use bevy_pbr::{diagnostic::MaterialAllocatorDiagnosticPlugin, StandardMaterial};
 use bevy_picking::prelude::*;
@@ -27,46 +27,69 @@ const ROW_COLUMN_GAP: Val = Val::Px(4.);
 /// Padding for cels of the diagnostics overlay
 const DEFAULT_PADDING: UiRect = UiRect::all(Val::Px(4.));
 
-/// Diagnostics overlay
+/// Diagnostics overlay displays on a draggable and collapsable window
+/// statistics stored on the [`DiagnosticStore`]. Spawining an entity
+/// with this component will create the window for you. Some presets
+/// are also provided.
 ///
-/// Spawning an entity with this component will create a draggable and collapsible window
-/// that presents the diagnostics passed to the constructor
+/// ```
+/// # use bevy_dev_tools::diagnostics_overlay::{DiagnosticsOverlay, DiagnosticOverlayItem, DiagnosticOverlayStatistic};
+/// # use bevy_ecs::prelude::{Commands, World};
+/// # use bevy_diagnostic::DiagnosticPath;
+/// # let mut world = World::new();
+/// # let mut commands = world.commands();
+/// // Spawning an overlay window from the struct
+/// commands.spawn(DiagnosticsOverlay {
+///     title: "Fps".into(),
+///     diagnostic_overlay_items: vec![DiagnosticPath::new("fps").into()]
+/// });
+/// // Spawning an overlay window from the `new` method
+/// commands.spawn(DiagnosticsOverlay::new(
+///     "Fps",
+///     vec![DiagnosticPath::new("fps").into()]
+/// ));
+/// // Spawning an overlay window from the `new` method using a different statistic
+/// commands.spawn(DiagnosticsOverlay::new(
+///     "Fps",
+///     vec![DiagnosticOverlayItem {
+///         path: DiagnosticPath::new("fps"),
+///         statistic: DiagnosticOverlayStatistic::Value
+///     }]
+/// ));
+/// // Spawning an overlay window from the `fps` preset
+/// commands.spawn(DiagnosticsOverlay::fps());
+/// ```
 ///
-/// If any value is showing as missing, means that no value was stored to the [`DiagnosticPath`],
+/// If any value is showing as `Missing`, means that the [`DiagnosticPath`] is not registered,
 /// so make sure that the plugin that writes to it is properly set up.
 #[derive(Component)]
 pub struct DiagnosticsOverlay {
-    title: Cow<'static, str>,
-    diagnostic_paths: Vec<DiagnosticPath>,
+    /// Title that will appear on the overlay window
+    pub title: Cow<'static, str>,
+    /// Items that will appear on this overlay window
+    pub diagnostic_overlay_items: Vec<DiagnosticOverlayItem>,
 }
 
 impl DiagnosticsOverlay {
     /// Creates a new instance of a [`DiagnosticsOverlay`]
-    pub fn new(title: impl Into<Cow<'static, str>>, diagnostic_paths: Vec<DiagnosticPath>) -> Self {
+    pub fn new(
+        title: impl Into<Cow<'static, str>>,
+        diagnostic_paths: Vec<DiagnosticOverlayItem>,
+    ) -> Self {
         Self {
             title: title.into(),
-            diagnostic_paths,
+            diagnostic_overlay_items: diagnostic_paths,
         }
-    }
-
-    /// Gets the title of the [`DiagnosticsOverlay`] window
-    pub fn title(&self) -> &str {
-        &self.title
-    }
-
-    /// Gets the [`DiagnosticPath`] registered to this [`DiagnosticsOverlay`]
-    pub fn diagnostic_paths(&self) -> &[DiagnosticPath] {
-        &self.diagnostic_paths
     }
 
     /// Create a [`DiagnosticsOverlay`] with the diagnostcs from [`FrameTimeDiagnosticsPlugin`]
     pub fn fps() -> Self {
         Self {
             title: Cow::Owned("Fps".to_owned()),
-            diagnostic_paths: vec![
-                FrameTimeDiagnosticsPlugin::FPS,
-                FrameTimeDiagnosticsPlugin::FRAME_TIME,
-                FrameTimeDiagnosticsPlugin::FRAME_COUNT,
+            diagnostic_overlay_items: vec![
+                FrameTimeDiagnosticsPlugin::FPS.into(),
+                FrameTimeDiagnosticsPlugin::FRAME_TIME.into(),
+                FrameTimeDiagnosticsPlugin::FRAME_COUNT.into(),
             ],
         }
     }
@@ -77,15 +100,70 @@ impl DiagnosticsOverlay {
     pub fn mesh_and_standard_material() -> Self {
         Self {
             title: Cow::Owned("Mesh and standard materials".to_owned()),
-            diagnostic_paths: vec![
-                MaterialAllocatorDiagnosticPlugin::<StandardMaterial>::slabs_diagnostic_path(),
-                MaterialAllocatorDiagnosticPlugin::<StandardMaterial>::slabs_size_diagnostic_path(),
+            diagnostic_overlay_items: vec![
+                MaterialAllocatorDiagnosticPlugin::<StandardMaterial>::slabs_diagnostic_path()
+                    .into(),
+                MaterialAllocatorDiagnosticPlugin::<StandardMaterial>::slabs_size_diagnostic_path()
+                    .into(),
                 MaterialAllocatorDiagnosticPlugin::<StandardMaterial>::allocations_diagnostic_path(
-                ),
-                MeshAllocatorDiagnosticPlugin::slabs_diagnostic_path().clone(),
-                MeshAllocatorDiagnosticPlugin::slabs_size_diagnostic_path().clone(),
-                MeshAllocatorDiagnosticPlugin::allocations_diagnostic_path().clone(),
+                )
+                .into(),
+                MeshAllocatorDiagnosticPlugin::slabs_diagnostic_path()
+                    .clone()
+                    .into(),
+                MeshAllocatorDiagnosticPlugin::slabs_size_diagnostic_path()
+                    .clone()
+                    .into(),
+                MeshAllocatorDiagnosticPlugin::allocations_diagnostic_path()
+                    .clone()
+                    .into(),
             ],
+        }
+    }
+}
+
+/// An item to be displayed on the overlay.
+///
+/// Items built using `From<DiagnosticPath>` will use
+/// [`DiagnosticOverlayStatistic::Smoothed`].
+pub struct DiagnosticOverlayItem {
+    /// The statistic of the diagnostic to display
+    pub statistic: DiagnosticOverlayStatistic,
+    /// The diagnostic to display
+    pub path: DiagnosticPath,
+}
+
+impl From<DiagnosticPath> for DiagnosticOverlayItem {
+    /// Creates an instance of [`DiagnosticOverlayItem`]
+    /// from a [`DiagnosticPath`] using [`DiagnosticOverlayStatistic::Smoothed`].
+    fn from(value: DiagnosticPath) -> Self {
+        Self {
+            path: value,
+            statistic: Default::default(),
+        }
+    }
+}
+
+/// The statistic to use when displaying a diagnostic
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub enum DiagnosticOverlayStatistic {
+    /// The most recent value of on the diagnostic store
+    Value,
+    /// The average of a window of values in the diagnostic store.
+    Average,
+    /// The smoothed average of a window of values in the diagnostic store
+    /// using the [EMA](https://en.wikipedia.org/wiki/Exponential_smoothing).
+    #[default]
+    Smoothed,
+}
+
+impl DiagnosticOverlayStatistic {
+    /// Fetch the appropriate statistic from a [`Diagnostic`]
+    pub fn fetch(&self, diagnostic: &Diagnostic) -> Option<f64> {
+        match self {
+            Self::Value => diagnostic.value(),
+            Self::Average => diagnostic.average(),
+            Self::Smoothed => diagnostic.smoothed(),
         }
     }
 }
@@ -128,11 +206,23 @@ fn rebuild_diagnostics_list(
             continue;
         };
 
-        for (i, diagnostic_path) in diagnostics_overlay.diagnostic_paths.iter().enumerate() {
-            let maybe_diagnostic = diagnostics.get(diagnostic_path);
+        for (i, diagnostic_overlay_item) in diagnostics_overlay
+            .diagnostic_overlay_items
+            .iter()
+            .enumerate()
+        {
+            let maybe_diagnostic = diagnostics.get(&diagnostic_overlay_item.path);
             let diagnostic = maybe_diagnostic
                 .map(|diagnostic| {
-                    format!("{}{}", diagnostic.value().unwrap_or(0.), diagnostic.suffix)
+                    format!(
+                        "{}{}",
+                        diagnostic
+                            .value()
+                            .as_ref()
+                            .map(ToString::to_string)
+                            .unwrap_or("No sample".to_owned()),
+                        diagnostic.suffix
+                    )
                 })
                 .unwrap_or("Missing".to_owned());
 
@@ -145,7 +235,7 @@ fn rebuild_diagnostics_list(
                 },
                 Pickable::IGNORE,
                 children![(
-                    Text::new(diagnostic_path.to_string()),
+                    Text::new(diagnostic_overlay_item.path.to_string()),
                     TextFont {
                         font_size: 10.,
                         ..Default::default()
