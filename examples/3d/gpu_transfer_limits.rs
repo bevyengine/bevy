@@ -1,4 +1,4 @@
-//! This examples demonstrates the usage of RenderAssetBytesPerFrame and RenderAssetTransferPriority
+//! This examples demonstrates the usage of `RenderAssetBytesPerFrame` and `RenderAssetTransferPriority`
 //! for managing gpu transfer rates and avoiding frame hiccups
 use std::collections::BTreeMap;
 
@@ -52,8 +52,8 @@ fn setup(
     // set up priorities
     let mut priorities: [RenderAssetTransferPriority; 6] = Default::default();
     priorities[0] = RenderAssetTransferPriority::Immediate;
-    for i in 1..6 {
-        priorities[i] = RenderAssetTransferPriority::Priority(10 - i as i16);
+    for (i, priority) in priorities.iter_mut().enumerate().skip(1) {
+        *priority = RenderAssetTransferPriority::Priority(10 - i as i16);
     }
 
     // spawn planes showing images with varying priorities
@@ -188,7 +188,7 @@ fn update_stats(
             let text = TextSpan::new(format!(
                 "{:^20}{:^20}{:^15}{:^20}{:^15}{:^15}\n",
                 match priority {
-                    RenderAssetTransferPriority::Immediate => format!("Immediate"),
+                    RenderAssetTransferPriority::Immediate => "Immediate".to_string(),
                     RenderAssetTransferPriority::Priority(p) => format!("Priority {p}"),
                 },
                 stat.requested_bytes,
@@ -203,8 +203,5 @@ fn update_stats(
                 commands.spawn((text, ChildOf(output_entity)));
             }
         }
-        println!("{}", output_children.len());
-    } else {
-        error!("no stats");
     }
 }
