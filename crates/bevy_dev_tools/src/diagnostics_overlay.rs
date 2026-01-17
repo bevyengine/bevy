@@ -438,13 +438,14 @@ fn collapse_on_click_to_header(
 }
 
 fn bring_to_front(
-    event: On<Pointer<Press>>,
+    mut event: On<Pointer<Press>>,
     mut commands: Commands,
     diagnostics_overlays: Query<(), With<DiagnosticsOverlay>>,
     diagnostics_overlay_plane: Single<Entity, With<DiagnosticsOverlayPlane>>,
 ) {
     let entity = event.entity;
     if diagnostics_overlays.contains(entity) {
+        event.propagate(false);
         commands
             .entity(entity)
             .remove::<ChildOf>()
