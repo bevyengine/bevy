@@ -57,7 +57,7 @@ impl AssetReader for FileAssetReader {
         #[cfg(any(target_os = "macos", target_os = "ios"))]
         let file = file.map(|file| GuardedFile { file, _guard });
 
-        return file;
+        file
     }
 
     async fn read_meta<'a>(&'a self, path: &'a Path) -> Result<impl Reader + 'a, AssetReaderError> {
@@ -77,7 +77,7 @@ impl AssetReader for FileAssetReader {
         #[cfg(any(target_os = "macos", target_os = "ios"))]
         let file = file.map(|file| GuardedFile { file, _guard });
 
-        return file;
+        file
     }
 
     async fn read_directory<'a>(
