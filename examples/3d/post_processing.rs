@@ -165,7 +165,7 @@ fn handle_keyboard_input(mut app_settings: ResMut<AppSettings>, input: Res<Butto
     } else if input.pressed(KeyCode::ArrowRight) {
         delta += ADJUSTMENT_SPEED;
     }
-    
+
     // If no arrow key was pressed, just bail out.
     if delta == 0.0 {
         return;
