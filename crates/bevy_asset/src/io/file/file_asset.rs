@@ -18,10 +18,16 @@ impl Reader for File {
 
 impl AssetReader for FileAssetReader {
     async fn read<'a>(&'a self, path: &'a Path) -> Result<impl Reader + 'a, AssetReaderError> {
-        let full_path = self.root_path.join(path);
+        let path_buf;
+        let full_path = if path.is_absolute() {
+            path
+        } else {
+            path_buf = self.root_path.join(path);
+            &path_buf
+        };
         File::open(&full_path).await.map_err(|e| {
             if e.kind() == std::io::ErrorKind::NotFound {
-                AssetReaderError::NotFound(full_path)
+                AssetReaderError::NotFound(full_path.to_path_buf())
             } else {
                 e.into()
             }
@@ -29,11 +35,17 @@ impl AssetReader for FileAssetReader {
     }
 
     async fn read_meta<'a>(&'a self, path: &'a Path) -> Result<impl Reader + 'a, AssetReaderError> {
-        let meta_path = get_meta_path(path);
-        let full_path = self.root_path.join(meta_path);
-        File::open(&full_path).await.map_err(|e| {
+        let path_buf;
+        let full_path = if path.is_absolute() {
+            path
+        } else {
+            path_buf = self.root_path.join(path);
+            &path_buf
+        };
+        let meta_path = get_meta_path(full_path);
+        File::open(&meta_path).await.map_err(|e| {
             if e.kind() == std::io::ErrorKind::NotFound {
-                AssetReaderError::NotFound(full_path)
+                AssetReaderError::NotFound(meta_path)
             } else {
                 e.into()
             }
@@ -44,7 +56,13 @@ impl AssetReader for FileAssetReader {
         &'a self,
         path: &'a Path,
     ) -> Result<Box<PathStream>, AssetReaderError> {
-        let full_path = self.root_path.join(path);
+        let path_buf;
+        let full_path = if path.is_absolute() {
+            path
+        } else {
+            path_buf = self.root_path.join(path);
+            &path_buf
+        };
         match read_dir(&full_path).await {
             Ok(read_dir) => {
                 let root_path = self.root_path.clone();
@@ -75,7 +93,7 @@ impl AssetReader for FileAssetReader {
             }
             Err(e) => {
                 if e.kind() == std::io::ErrorKind::NotFound {
-                    Err(AssetReaderError::NotFound(full_path))
+                    Err(AssetReaderError::NotFound(full_path.to_path_buf()))
                 } else {
                     Err(e.into())
                 }
@@ -84,17 +102,29 @@ impl AssetReader for FileAssetReader {
     }
 
     async fn is_directory<'a>(&'a self, path: &'a Path) -> Result<bool, AssetReaderError> {
-        let full_path = self.root_path.join(path);
+        let path_buf;
+        let full_path = if path.is_absolute() {
+            path
+        } else {
+            path_buf = self.root_path.join(path);
+            &path_buf
+        };
         let metadata = full_path
             .metadata()
-            .map_err(|_e| AssetReaderError::NotFound(path.to_owned()))?;
+            .map_err(|_e| AssetReaderError::NotFound(full_path.to_path_buf()))?;
         Ok(metadata.file_type().is_dir())
     }
 }
 
 impl AssetWriter for FileAssetWriter {
     async fn write<'a>(&'a self, path: &'a Path) -> Result<Box<Writer>, AssetWriterError> {
-        let full_path = self.root_path.join(path);
+        let path_buf;
+        let full_path = if path.is_absolute() {
+            path
+        } else {
+            path_buf = self.root_path.join(path);
+            &path_buf
+        };
         if let Some(parent) = full_path.parent() {
             async_fs::create_dir_all(parent).await?;
         }
@@ -104,26 +134,44 @@ impl AssetWriter for FileAssetWriter {
     }
 
     async fn write_meta<'a>(&'a self, path: &'a Path) -> Result<Box<Writer>, AssetWriterError> {
-        let meta_path = get_meta_path(path);
-        let full_path = self.root_path.join(meta_path);
-        if let Some(parent) = full_path.parent() {
+        let path_buf;
+        let full_path = if path.is_absolute() {
+            path
+        } else {
+            path_buf = self.root_path.join(path);
+            &path_buf
+        };
+        let meta_path = get_meta_path(full_path);
+        if let Some(parent) = meta_path.parent() {
             async_fs::create_dir_all(parent).await?;
         }
-        let file = File::create(&full_path).await?;
+        let file = File::create(&meta_path).await?;
         let writer: Box<Writer> = Box::new(file);
         Ok(writer)
     }
 
     async fn remove<'a>(&'a self, path: &'a Path) -> Result<(), AssetWriterError> {
-        let full_path = self.root_path.join(path);
+        let path_buf;
+        let full_path = if path.is_absolute() {
+            path
+        } else {
+            path_buf = self.root_path.join(path);
+            &path_buf
+        };
         async_fs::remove_file(full_path).await?;
         Ok(())
     }
 
     async fn remove_meta<'a>(&'a self, path: &'a Path) -> Result<(), AssetWriterError> {
-        let meta_path = get_meta_path(path);
-        let full_path = self.root_path.join(meta_path);
-        async_fs::remove_file(full_path).await?;
+        let path_buf;
+        let full_path = if path.is_absolute() {
+            path
+        } else {
+            path_buf = self.root_path.join(path);
+            &path_buf
+        };
+        let meta_path = get_meta_path(full_path);
+        async_fs::remove_file(meta_path).await?;
         Ok(())
     }
 
@@ -132,8 +180,19 @@ impl AssetWriter for FileAssetWriter {
         old_path: &'a Path,
         new_path: &'a Path,
     ) -> Result<(), AssetWriterError> {
-        let full_old_path = self.root_path.join(old_path);
-        let full_new_path = self.root_path.join(new_path);
+        let (path_buf_old, path_buf_new);
+        let full_old_path = if old_path.is_absolute() {
+            old_path
+        } else {
+            path_buf_old = self.root_path.join(old_path);
+            &path_buf_old
+        };
+        let full_new_path = if new_path.is_absolute() {
+            new_path
+        } else {
+            path_buf_new = self.root_path.join(new_path);
+            &path_buf_new
+        };
         if let Some(parent) = full_new_path.parent() {
             async_fs::create_dir_all(parent).await?;
         }
@@ -146,31 +205,60 @@ impl AssetWriter for FileAssetWriter {
         old_path: &'a Path,
         new_path: &'a Path,
     ) -> Result<(), AssetWriterError> {
-        let old_meta_path = get_meta_path(old_path);
-        let new_meta_path = get_meta_path(new_path);
-        let full_old_path = self.root_path.join(old_meta_path);
-        let full_new_path = self.root_path.join(new_meta_path);
-        if let Some(parent) = full_new_path.parent() {
+        let (path_buf_old, path_buf_new);
+        let full_old_path = if old_path.is_absolute() {
+            old_path
+        } else {
+            path_buf_old = self.root_path.join(old_path);
+            &path_buf_old
+        };
+        let full_new_path = if new_path.is_absolute() {
+            new_path
+        } else {
+            path_buf_new = self.root_path.join(new_path);
+            &path_buf_new
+        };
+        let old_meta_path = get_meta_path(full_old_path);
+        let new_meta_path = get_meta_path(full_new_path);
+        if let Some(parent) = new_meta_path.parent() {
             async_fs::create_dir_all(parent).await?;
         }
-        async_fs::rename(full_old_path, full_new_path).await?;
+        async_fs::rename(old_meta_path, new_meta_path).await?;
         Ok(())
     }
 
     async fn create_directory<'a>(&'a self, path: &'a Path) -> Result<(), AssetWriterError> {
-        let full_path = self.root_path.join(path);
+        let path_buf;
+        let full_path = if path.is_absolute() {
+            path
+        } else {
+            path_buf = self.root_path.join(path);
+            &path_buf
+        };
         async_fs::create_dir_all(full_path).await?;
         Ok(())
     }
 
     async fn remove_directory<'a>(&'a self, path: &'a Path) -> Result<(), AssetWriterError> {
-        let full_path = self.root_path.join(path);
+        let path_buf;
+        let full_path = if path.is_absolute() {
+            path
+        } else {
+            path_buf = self.root_path.join(path);
+            &path_buf
+        };
         async_fs::remove_dir_all(full_path).await?;
         Ok(())
     }
 
     async fn remove_empty_directory<'a>(&'a self, path: &'a Path) -> Result<(), AssetWriterError> {
-        let full_path = self.root_path.join(path);
+        let path_buf;
+        let full_path = if path.is_absolute() {
+            path
+        } else {
+            path_buf = self.root_path.join(path);
+            &path_buf
+        };
         async_fs::remove_dir(full_path).await?;
         Ok(())
     }
@@ -179,7 +267,13 @@ impl AssetWriter for FileAssetWriter {
         &'a self,
         path: &'a Path,
     ) -> Result<(), AssetWriterError> {
-        let full_path = self.root_path.join(path);
+        let path_buf;
+        let full_path = if path.is_absolute() {
+            path
+        } else {
+            path_buf = self.root_path.join(path);
+            &path_buf
+        };
         async_fs::remove_dir_all(&full_path).await?;
         async_fs::create_dir_all(&full_path).await?;
         Ok(())
