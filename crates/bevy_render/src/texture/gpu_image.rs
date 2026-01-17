@@ -76,7 +76,8 @@ impl RenderAsset for GpuImage {
             && let Some(block_bytes) = image.texture_descriptor.format.block_copy_size(None)
         {
             if let Some(ref data) = image.data {
-                let (block_width, block_height) = image.texture_descriptor.format.block_dimensions();
+                let (block_width, block_height) =
+                    image.texture_descriptor.format.block_dimensions();
 
                 // queue copy
                 render_queue.write_texture(
