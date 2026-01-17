@@ -3,12 +3,14 @@
 //!
 //! See [`Event`] and [`Observer`] for in-depth documentation and usage examples.
 
+mod add_observer;
 mod centralized_storage;
 mod distributed_storage;
 mod entity_cloning;
 mod runner;
 mod system_param;
 
+pub use add_observer::*;
 pub use centralized_storage::*;
 pub use distributed_storage::*;
 pub use runner::*;

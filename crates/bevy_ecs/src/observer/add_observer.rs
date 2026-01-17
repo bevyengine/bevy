@@ -1,10 +1,8 @@
-// TODO: This probably doesn't belong in bevy_ui_widgets, but I am not sure where it should go.
-// It is certainly a useful thing to have.
 #![expect(unsafe_code, reason = "Unsafe code is used to improve performance.")]
 
 use core::{marker::PhantomData, mem};
 
-use bevy_ecs::{
+use crate::{
     bundle::{Bundle, DynamicBundle},
     event::EntityEvent,
     system::IntoObserverSystem,

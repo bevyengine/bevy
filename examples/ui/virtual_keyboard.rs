@@ -2,6 +2,7 @@
 
 use bevy::{
     color::palettes::css::NAVY,
+    ecs::observer::observe,
     feathers::{
         controls::{virtual_keyboard, VirtualKeyPressed},
         dark_theme::create_dark_theme,
@@ -9,7 +10,6 @@ use bevy::{
         FeathersPlugins,
     },
     prelude::*,
-    ui_widgets::observe,
 };
 
 fn main() {

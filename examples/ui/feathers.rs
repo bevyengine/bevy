@@ -2,6 +2,7 @@
 
 use bevy::{
     color::palettes,
+    ecs::observer::observe,
     feathers::{
         controls::{
             button, checkbox, color_plane, color_slider, color_swatch, radio, slider,
@@ -19,7 +20,7 @@ use bevy::{
     prelude::*,
     ui::{Checked, InteractionDisabled},
     ui_widgets::{
-        checkbox_self_update, observe, slider_self_update, Activate, RadioButton, RadioGroup,
+        checkbox_self_update, slider_self_update, Activate, RadioButton, RadioGroup,
         SliderPrecision, SliderStep, SliderValue, ValueChange,
     },
     window::SystemCursorIcon,

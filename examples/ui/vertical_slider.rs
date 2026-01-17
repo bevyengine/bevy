@@ -1,6 +1,7 @@
 //! Simple example showing vertical and horizontal slider widgets with snap behavior and value labels
 
 use bevy::{
+    ecs::observer::observe,
     input_focus::{
         tab_navigation::{TabGroup, TabIndex, TabNavigationPlugin},
         InputDispatchPlugin,
@@ -8,8 +9,8 @@ use bevy::{
     picking::hover::Hovered,
     prelude::*,
     ui_widgets::{
-        observe, slider_self_update, CoreSliderDragState, Slider, SliderRange, SliderThumb,
-        SliderValue, TrackClick, UiWidgetsPlugins,
+        slider_self_update, CoreSliderDragState, Slider, SliderRange, SliderThumb, SliderValue,
+        TrackClick, UiWidgetsPlugins,
     },
 };
 

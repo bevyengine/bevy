@@ -8,6 +8,7 @@
 
 use bevy::{
     color::palettes::basic::*,
+    ecs::observer::observe,
     input_focus::{
         tab_navigation::{TabGroup, TabIndex, TabNavigationPlugin},
         InputDispatchPlugin, InputFocus,
@@ -16,7 +17,7 @@ use bevy::{
     prelude::*,
     ui::{Checked, InteractionDisabled, Pressed},
     ui_widgets::{
-        checkbox_self_update, observe,
+        checkbox_self_update,
         popover::{Popover, PopoverAlign, PopoverPlacement, PopoverSide},
         Activate, Button, Checkbox, CoreSliderDragState, MenuAction, MenuButton, MenuEvent,
         MenuItem, MenuPopup, RadioButton, RadioGroup, Slider, SliderRange, SliderThumb,
