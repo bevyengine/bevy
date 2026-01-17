@@ -11,6 +11,7 @@ struct BloomUniforms {
     viewport: vec4<f32>,
     scale: vec2<f32>,
     aspect: f32,
+    hdr_output: u32,
 };
 
 @group(0) @binding(0) var input_texture: texture_2d<f32>;
@@ -43,9 +44,19 @@ fn rgb_to_srgb_simple(color: vec3<f32>) -> vec3<f32> {
 
 // http://graphicrants.blogspot.com/2013/12/tone-mapping.html
 fn karis_average(color: vec3<f32>) -> f32 {
-    // Luminance calculated by gamma-correcting linear RGB to non-linear sRGB using pow(color, 1.0 / 2.2)
-    // and then calculating luminance based on Rec. 709 color primaries.
-    let luma = tonemapping_luminance(rgb_to_srgb_simple(color)) / 4.0;
+    // Luminance calculated based on Rec. 709 color primaries.
+    var luma = tonemapping_luminance(color);
+
+    if uniforms.hdr_output == 0u {
+        luma /= 4.0;
+    } else {
+        // High Dynamic Range
+        // 1.0 in Bevy is 100 nits.
+        // We want to reduce fireflies that are significantly above the expected range.
+        // 400.0 corresponds to 40,000 nits, which is a reasonable upper bound for firefly suppression in HDR.
+        luma /= 400.0;
+    }
+
     return 1.0 / (1.0 + luma);
 }
 
@@ -123,10 +134,10 @@ fn sample_input_13_tap(uv: vec2<f32>) -> vec3<f32> {
     group4 *= karis_average(group4);
     return group0 + group1 + group2 + group3 + group4;
 #else
-    var sample = (a + c + g + i) * 0.03125;
-    sample += (b + d + f + h) * 0.0625;
-    sample += (e + j + k + l + m) * 0.125;
-    return sample;
+    var output_sample = (a + c + g + i) * 0.03125;
+    output_sample += (b + d + f + h) * 0.0625;
+    output_sample += (e + j + k + l + m) * 0.125;
+    return output_sample;
 #endif
 }
 
@@ -150,29 +161,29 @@ fn sample_input_3x3_tent(uv: vec2<f32>) -> vec3<f32> {
     let h = textureSample(input_texture, s, vec2<f32>(uv.x, uv.y - y)).rgb;
     let i = textureSample(input_texture, s, vec2<f32>(uv.x + x, uv.y - y)).rgb;
 
-    var sample = e * 0.25;
-    sample += (b + d + f + h) * 0.125;
-    sample += (a + c + g + i) * 0.0625;
+    var output_sample = e * 0.25;
+    output_sample += (b + d + f + h) * 0.125;
+    output_sample += (a + c + g + i) * 0.0625;
 
-    return sample;
+    return output_sample;
 }
 
 #ifdef FIRST_DOWNSAMPLE
 @fragment
 fn downsample_first(@location(0) output_uv: vec2<f32>) -> @location(0) vec4<f32> {
     let sample_uv = uniforms.viewport.xy + output_uv * uniforms.viewport.zw;
-    var sample = sample_input_13_tap(sample_uv);
+    var output_sample = sample_input_13_tap(sample_uv);
     // Lower bound of 0.0001 is to avoid propagating multiplying by 0.0 through the
     // downscaling and upscaling which would result in black boxes.
     // The upper bound is to prevent NaNs.
     // with f32::MAX (E+38) Chrome fails with ":value 340282346999999984391321947108527833088.0 cannot be represented as 'f32'"
-    sample = clamp(sample, vec3<f32>(0.0001), vec3<f32>(3.40282347E+37));
+    output_sample = clamp(output_sample, vec3<f32>(0.0001), vec3<f32>(3.40282347E+37));
 
 #ifdef USE_THRESHOLD
-    sample = soft_threshold(sample);
+    output_sample = soft_threshold(output_sample);
 #endif
 
-    return vec4<f32>(sample, 1.0);
+    return vec4<f32>(output_sample, 1.0);
 }
 #endif
 

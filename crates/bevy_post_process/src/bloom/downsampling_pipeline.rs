@@ -51,6 +51,7 @@ pub struct BloomUniforms {
     pub viewport: Vec4,
     pub scale: Vec2,
     pub aspect: f32,
+    pub hdr_output: u32,
 }
 
 pub fn init_bloom_downsampling_pipeline(

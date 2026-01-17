@@ -17,7 +17,7 @@ use bevy_core_pipeline::{
     core_3d::graph::{Core3d, Node3d},
 };
 use bevy_ecs::{prelude::*, query::QueryItem};
-use bevy_math::{ops, UVec2};
+use bevy_math::{ops, UVec2, Vec4};
 use bevy_render::{
     camera::ExtractedCamera,
     diagnostic::RecordDiagnostics,
@@ -73,6 +73,7 @@ impl Plugin for BloomPlugin {
                 (
                     prepare_downsampling_pipeline.in_set(RenderSystems::Prepare),
                     prepare_upsampling_pipeline.in_set(RenderSystems::Prepare),
+                    update_bloom_hdr_output.in_set(RenderSystems::Prepare),
                     prepare_bloom_textures.in_set(RenderSystems::PrepareResources),
                     prepare_bloom_bind_groups.in_set(RenderSystems::PrepareBindGroups),
                 ),
@@ -518,4 +519,23 @@ fn compute_blend_factor(bloom: &Bloom, mip: f32, max_mip: f32) -> f32 {
     };
 
     (bloom.intensity + lf_boost) * high_pass_lq
+}
+
+fn update_bloom_hdr_output(mut views: Query<(&ExtractedCamera, &mut BloomUniforms, &Bloom)>) {
+    for (camera, mut uniforms, bloom) in &mut views {
+        uniforms.hdr_output = camera.hdr_output as u32;
+
+        if camera.hdr_output && bloom.prefilter.threshold == 0.0 {
+            let threshold = 1.0;
+            let threshold_softness = bloom.prefilter.threshold_softness;
+            let knee = threshold * threshold_softness.clamp(0.0, 1.0);
+
+            uniforms.threshold_precomputations = Vec4::new(
+                threshold,
+                threshold - knee,
+                2.0 * knee,
+                0.25 / (knee + 0.00001),
+            );
+        }
+    }
 }
