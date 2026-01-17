@@ -15,7 +15,6 @@ use bevy_render::diagnostic::MeshAllocatorDiagnosticPlugin;
 use bevy_text::prelude::*;
 use bevy_time::common_conditions::on_timer;
 use bevy_ui::prelude::*;
-use tracing::error;
 
 /// Initial offset from the top left corner of the window
 /// for the diagnostics overlay
@@ -232,20 +231,19 @@ struct DiagnosticOverlayHeader;
 
 /// Section of the overlay that will have the diagnostics
 #[derive(Component)]
-struct DiagnosticsList;
+struct DiagnosticsOverlayContents;
 
 fn rebuild_diagnostics_list(
     mut commands: Commands,
     diagnostics_overlays: Query<&DiagnosticsOverlay>,
-    diagnostics_lists: Query<(Entity, &ChildOf), With<DiagnosticsList>>,
-    diagnostics: Res<DiagnosticsStore>,
+    diagnostics_overlay_contents: Query<(Entity, &ChildOf), With<DiagnosticsOverlayContents>>,
+    diagnostics_store: Res<DiagnosticsStore>,
 ) {
-    for (entity, child_of) in diagnostics_lists {
+    for (entity, child_of) in diagnostics_overlay_contents {
         commands.entity(entity).despawn_children();
 
         let Ok(diagnostics_overlay) = diagnostics_overlays.get(child_of.get()) else {
-            error!("Failed to get list of diagnostics path to display on the overlay.");
-            continue;
+            panic!("DiagnosticsOverlayContents has been tempered with. Parent was not a DiagnosticsOverlay.");
         };
 
         for (i, diagnostic_overlay_item) in diagnostics_overlay
@@ -253,7 +251,7 @@ fn rebuild_diagnostics_list(
             .iter()
             .enumerate()
         {
-            let maybe_diagnostic = diagnostics.get(&diagnostic_overlay_item.path);
+            let maybe_diagnostic = diagnostics_store.get(&diagnostic_overlay_item.path);
             let diagnostic = maybe_diagnostic
                 .map(|diagnostic| {
                     format!(
@@ -310,7 +308,7 @@ fn build_overlay(
     event: On<Add, DiagnosticsOverlay>,
     mut commands: Commands,
     diagnostics_overlays: Query<&DiagnosticsOverlay>,
-    plane: Single<Entity, With<DiagnosticsOverlayPlane>>,
+    diagnostics_overlay_plane: Single<Entity, With<DiagnosticsOverlayPlane>>,
 ) {
     let entity = event.entity;
     let Ok(diagnostics_overlay) = diagnostics_overlays.get(entity) else {
@@ -325,7 +323,7 @@ fn build_overlay(
             flex_direction: FlexDirection::Column,
             ..Default::default()
         },
-        ChildOf(*plane),
+        ChildOf(*diagnostics_overlay_plane),
         children![
             (
                 Node {
@@ -355,7 +353,7 @@ fn build_overlay(
                     padding: DEFAULT_PADDING,
                     ..Default::default()
                 },
-                DiagnosticsList,
+                DiagnosticsOverlayContents,
                 BackgroundColor(
                     palettes::tailwind::GRAY_600
                         .with_alpha(BACKGROUND_COLOR_ALPHA)
@@ -368,22 +366,26 @@ fn build_overlay(
 
 fn drag_by_header(
     mut event: On<Pointer<Drag>>,
-    mut overlay: Query<&mut Node, With<DiagnosticsOverlay>>,
-    headers: Query<&ChildOf, With<DiagnosticOverlayHeader>>,
+    mut diagnostics_overlays: Query<&mut Node, With<DiagnosticsOverlay>>,
+    diagnostics_overlay_headers: Query<&ChildOf, With<DiagnosticOverlayHeader>>,
 ) {
     let entity = event.entity;
-    if let Ok(child_of) = headers.get(entity) {
+    if let Ok(child_of) = diagnostics_overlay_headers.get(entity) {
         event.propagate(false);
-        let Ok(mut node) = overlay.get_mut(child_of.get()) else {
-            unreachable!("Render asset diagnostic overlay hierarchy is malformed.");
+        let Ok(mut node) = diagnostics_overlays.get_mut(child_of.get()) else {
+            panic!("DiagnosticsOverlayHeader has been tempered with. Parent was not a DiagnosticsOverlay.");
         };
         let delta = event.delta;
         let Val::Px(top) = &mut node.top else {
-            unreachable!("Node must have `top` using `Val::Px`.");
+            panic!(
+                "DiagnosticsOverlay has been tempered with. Node must have `top` using `Val::Px`."
+            );
         };
         *top += delta.y;
         let Val::Px(left) = &mut node.left else {
-            unreachable!("Node must have `left` using `Val::Px`.");
+            panic!(
+                "DiagnosticsOverlay has been tempered with. Node must have `left` using `Val::Px`."
+            );
         };
         *left += delta.x;
     }
@@ -391,33 +393,45 @@ fn drag_by_header(
 
 fn collapse_on_click_to_header(
     mut event: On<Pointer<Click>>,
-    mut overlay: Query<&Children, With<DiagnosticsOverlay>>,
-    mut lists: Query<&mut Node, With<DiagnosticsList>>,
-    headers: Query<&ChildOf, With<DiagnosticOverlayHeader>>,
+    mut diagnostics_overlays: Query<&Children, With<DiagnosticsOverlay>>,
+    mut diagnostics_overlay_contents: Query<&mut Node, With<DiagnosticsOverlayContents>>,
+    diagnostics_overlay_header: Query<&ChildOf, With<DiagnosticOverlayHeader>>,
 ) {
     if event.duration > Duration::from_millis(250) {
         return;
     }
 
     let entity = event.entity;
-    if let Ok(child_of) = headers.get(entity) {
+    if let Ok(child_of) = diagnostics_overlay_header.get(entity) {
         event.propagate(false);
 
-        let Ok(children) = overlay.get_mut(child_of.get()) else {
-            unreachable!("Render asset diagnostic overlay hierarchy is malformed.");
+        let Ok(children) = diagnostics_overlays.get_mut(child_of.get()) else {
+            unreachable!("DiagnosticsOverlay has been tempered with. Do not despawn its children.");
         };
-        let mut lists_iter = lists.iter_many_mut(children.collection());
+        let mut lists_iter = diagnostics_overlay_contents.iter_many_mut(children.collection());
 
         let Some(mut node) = lists_iter.fetch_next() else {
-            unreachable!("Render asset diagnostic overlay must have a child with DiagnosticList.");
+            panic!(
+                "DiagnosticsOverlay has been tempered with. DiagnosticsOverlay must\
+            have a child with DiagnosticsList."
+            );
         };
 
-        if node.display == Display::Grid {
-            node.display = Display::None;
-        } else if node.display == Display::None {
-            node.display = Display::Grid;
-        } else {
-            unreachable!("Diagnostic list `Display` must be either `Grid` or `None`.");
+        let next_display_mode = match node.display {
+            Display::Grid => Display::None,
+            Display::None => Display::Grid,
+            _ => panic!(
+                "The DiagnosticsList has be tempered with. Valid Displays for a\
+            DiagnosticsList are Grid or None."
+            ),
+        };
+        node.display = next_display_mode;
+
+        if lists_iter.fetch_next().is_some() {
+            panic!(
+                "DiagnosticsOverlay has been tempered with. DiagnosticsOverlay must\
+            only ever have one single child with DiagnosticsList."
+            );
         }
     }
 }
