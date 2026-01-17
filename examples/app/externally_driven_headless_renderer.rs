@@ -1,4 +1,4 @@
-//! This example shows how to make an externally driven renderer,
+//! This example shows how to make an externally driven headless renderer,
 //! pumping the update loop manually.
 use bevy::{
     app::SubApps,
@@ -24,9 +24,12 @@ fn main() {
     let target = bw.new_render_target(500, 500);
     let camera = bw.spawn_camera(target.clone());
     for i in 0..10 {
+        // Schedule a screenshot for this frame
         bw.screenshot(target.clone(), i);
+        // Pump the update loop once
         bw.update();
     }
+    // Loop a couple times more to let screenshot gpu readback and then write to disk
     bw.update();
     bw.update();
 }
@@ -36,9 +39,13 @@ struct BevyWrapper(SubApps);
 impl BevyWrapper {
     fn new() -> Self {
         let render_plugin = RenderPlugin {
+            // Make sure all shaders are loaded for the first frame
             synchronous_pipeline_compilation: true,
             ..default()
         };
+        // We don't have any windows, but the WindowPlugin is still needed
+        // because a lot of bevy expects it to be there. Just configure it
+        // to not have any windows and not exit automatically.
         let window_plugin = WindowPlugin {
             primary_window: None,
             exit_condition: ExitCondition::DontExit,
@@ -55,9 +62,13 @@ impl BevyWrapper {
         .add_systems(Startup, spawn_test_scene)
         .add_systems(Update, update_camera);
 
+        // We yeet the schedule runner and never call app.run(),
+        // so we have to finish and clean up ourselves
         app.finish();
         app.cleanup();
 
+        // We grab the sub apps cus we dont want the runner, as we'll
+        // be pumping the update loop ourselves manually.
         Self(std::mem::take(app.sub_apps_mut()))
     }
 
@@ -72,6 +83,7 @@ impl BevyWrapper {
             TextureFormat::Rgba8UnormSrgb,
             RenderAssetUsages::RENDER_WORLD,
         );
+        // We're going to render to this image, mark it as such
         target.texture_descriptor.usage |= TextureUsages::RENDER_ATTACHMENT;
         self.0
             .main
@@ -91,6 +103,7 @@ impl BevyWrapper {
 
     fn update(&mut self) {
         self.0.update();
+        // Wait for frame to finish rendering by wait polling the device
         self.0
             .main
             .world()
