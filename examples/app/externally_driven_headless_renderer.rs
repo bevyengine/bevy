@@ -4,7 +4,6 @@ use bevy::{
     app::SubApps,
     asset::RenderAssetUsages,
     camera::RenderTarget,
-    core_pipeline::tonemapping::Tonemapping,
     diagnostic::FrameCount,
     image::Image,
     prelude::*,
@@ -22,7 +21,7 @@ fn main() {
     let mut bw = BevyWrapper::new();
 
     let target = bw.new_render_target(500, 500);
-    let camera = bw.spawn_camera(target.clone());
+    bw.spawn_camera(target.clone());
     for i in 0..10 {
         // Schedule a screenshot for this frame
         bw.screenshot(target.clone(), i);
