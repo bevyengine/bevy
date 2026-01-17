@@ -8,7 +8,6 @@
 #import bevy_solari::gbuffer_utils::{gpixel_resolve, ResolvedGPixel}
 #import bevy_solari::sampling::{sample_random_light, random_emissive_light_pdf, sample_ggx_vndf, ggx_vndf_pdf, power_heuristic}
 #import bevy_solari::scene_bindings::{trace_ray, resolve_ray_hit_full, ResolvedRayHitFull, RAY_T_MIN, RAY_T_MAX, MIRROR_ROUGHNESS_THRESHOLD}
-#import bevy_solari::scene_bindings::{trace_ray, resolve_ray_hit_full, ResolvedRayHitFull, RAY_T_MIN, RAY_T_MAX, MIRROR_ROUGHNESS_THRESHOLD}
 #import bevy_solari::world_cache::{query_world_cache, get_cell_size, WORLD_CACHE_CELL_LIFETIME}
 #import bevy_solari::realtime_bindings::{view_output, gi_reservoirs_a, gbuffer, depth_buffer, view, constants}
 #ifdef DLSS_RR_GUIDE_BUFFERS
@@ -110,7 +109,6 @@ fn trace_glossy_path(pixel_id: vec2<u32>, primary_surface: ResolvedGPixel, initi
         // Primary surface replacement for perfect mirrors
         // https://developer.nvidia.com/blog/rendering-perfect-reflections-and-refractions-in-path-traced-games/#primary_surface_replacement
 #ifdef DLSS_RR_GUIDE_BUFFERS
-        if !psr_finished && primary_surface.material.roughness <= MIRROR_ROUGHNESS_THRESHOLD && primary_surface.material.metallic > 0.9999 {
         if !psr_finished && primary_surface.material.roughness <= MIRROR_ROUGHNESS_THRESHOLD && primary_surface.material.metallic > 0.9999 {
             if surface_perfect_mirror {
                 mirror_rotations = mirror_rotations * reflection_matrix(ray_hit.world_normal);
