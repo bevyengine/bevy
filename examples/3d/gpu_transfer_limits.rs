@@ -2,8 +2,8 @@
 //! for managing gpu transfer rates and avoiding frame hiccups
 use std::collections::BTreeMap;
 
-use bevy::prelude::*;
 use bevy::asset::{RenderAssetTransferPriority, RenderAssetUsages};
+use bevy::prelude::*;
 use bevy::render::{
     render_asset::{
         RenderAssetBytesPerFrame, RenderAssetBytesPerFrameLimiter,
