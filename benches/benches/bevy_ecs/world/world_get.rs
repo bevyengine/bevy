@@ -423,6 +423,14 @@ query_get_components_mut!(query_get_components_mut_10, 10);
 
 // I'd like to do this as a macro, but we're bounded by the QueryData tuple size limit
 pub fn query_get_components_mut_32(criterion: &mut Criterion) {
+    #[expect(
+        clippy::identity_op,
+        clippy::erasing_op,
+        reason = "Clippy complains that, at some point in the 32 component
+              bench, C32/RefC32 expand to 0 * 16 or 0 * 4 or 0. The
+              alternative is to make the bounds 2..(n + 2) which is
+              much less readable."
+    )]
     type C32 = seq!(I in 0..2 {
         ( #(
             seq!(J in 0..4 {
@@ -434,6 +442,14 @@ pub fn query_get_components_mut_32(criterion: &mut Criterion) {
             }),
         )* )
     });
+    #[expect(
+        clippy::identity_op,
+        clippy::erasing_op,
+        reason = "Clippy complains that, at some point in the 32 component
+              bench, C32/RefC32 expand to 0 * 16 or 0 * 4 or 0. The
+              alternative is to make the bounds 2..(n + 2) which is
+              much less readable."
+    )]
     type RefC32<'a> = seq!(I in 0..2 {
         ( #(
             seq!(J in 0..4 {
@@ -452,7 +468,7 @@ pub fn query_get_components_mut_32(criterion: &mut Criterion) {
     for entity_count in RANGE.map(|i| i * 10_000) {
         let (mut world, entities) = setup_wide::<C32>(entity_count);
         let mut query = world.query::<EntityMut>();
-        group.bench_function(format!("32_components"), |bencher| {
+        group.bench_function("32_components", |bencher| {
             bencher.iter(|| {
                 for entity in &entities {
                     assert!(query
@@ -463,7 +479,7 @@ pub fn query_get_components_mut_32(criterion: &mut Criterion) {
                 }
             });
         });
-        group.bench_function(format!("unchecked_32_components"), |bencher| {
+        group.bench_function("unchecked_32_components", |bencher| {
             bencher.iter(|| {
                 for entity in &entities {
                     // SAFETY: no duplicate components are listed

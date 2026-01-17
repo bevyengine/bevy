@@ -1,4 +1,4 @@
-use core::{convert::identity, fmt::Display};
+use core::fmt::Display;
 
 use crate::{
     component::{ComponentId, Components},

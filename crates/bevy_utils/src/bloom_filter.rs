@@ -1,5 +1,5 @@
 use bevy_platform::hash::FixedHasher;
-use core::hash::{BuildHasher, Hash, Hasher};
+use core::hash::{BuildHasher, Hash};
 
 /// A Bloom filter, parameterized by number of u64 segments `N` and number of hash functions `K`.
 ///
@@ -74,9 +74,7 @@ impl<const N: usize, const K: usize> BloomFilter<N, K> {
     }
 
     fn hash(&self, item: &impl Hash) -> (u64, u64) {
-        let mut hasher = FixedHasher.build_hasher();
-        item.hash(&mut hasher);
-        let hash = hasher.finish();
+        let hash = FixedHasher.hash_one(item);
         (hash as u32 as u64, hash >> 32)
     }
 }
