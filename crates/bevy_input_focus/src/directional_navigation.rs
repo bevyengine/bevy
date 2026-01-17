@@ -169,6 +169,17 @@ pub enum NavNeighbor {
     Neighbor(Entity),
 }
 
+impl NavNeighbor {
+    /// Helper for getting the pointed-to entity, if any.
+    pub fn get(&self) -> Option<Entity> {
+        if let NavNeighbor::Neighbor(n) = self {
+            Some(n.clone())
+        } else {
+            None
+        }
+    }
+}
+
 /// The up-to-eight neighbors of a focusable entity, one for each [`CompassOctant`].
 #[derive(Default, Debug, Clone, PartialEq)]
 #[cfg_attr(
@@ -180,9 +191,12 @@ pub struct NavNeighbors {
     /// The array of neighbors, one for each [`CompassOctant`].
     /// The mapping between array elements and directions is determined by [`CompassOctant::to_index`].
     ///
-    /// If no neighbor exists in a given direction, the value will be [`None`].
-    /// In most cases, using [`NavNeighbors::set`] and [`NavNeighbors::get`]
-    /// will be more ergonomic than directly accessing this array.
+    /// If no neighbor is set in a given direction, the value will be
+    /// [`NavNeighbor::Unset`].  If navigation should be explicitly blocked in a
+    /// given direction, the value will be [`NavNeighbor::Blocked`].  In most
+    /// cases, using [`NavNeighbors::set`], [`NavNeighbors::get`], and
+    /// [`NavNeighbors::block`] will be more ergonomic than directly accessing
+    /// this array.
     pub neighbors: [NavNeighbor; 8],
 }
 
@@ -203,6 +217,10 @@ impl NavNeighbors {
     }
 
     /// Prevent navigation to a given [`CompassOctant`].
+    ///
+    /// Note that navigation in this direction specifically will
+    /// be blocked. For example, blocking [`CompassOctant::North`]
+    /// will not affect the neighbor towards [`CompassOctant::NorthWest`].
     pub const fn block(&mut self, octant: CompassOctant) {
         self.neighbors[octant.to_index()] = NavNeighbor::Blocked;
     }
@@ -307,6 +325,9 @@ impl DirectionalNavigationMap {
     /// The reverse block will not be added, so navigation will only be possible from other entities
     /// in the direction.
     /// If you want to add a symmetrical block, use [`block_symmetrical_edge`](Self::block_symmetrical_edge) instead.
+    ///
+    /// Note that blocking a primary cardinal direction will not block intermediates.
+    /// In other words, blocking `North` will still allow navigation towards `NorthEast`.
     pub fn block_edge(&mut self, a: Entity, direction: CompassOctant) {
         self.neighbors
             .entry(a)
