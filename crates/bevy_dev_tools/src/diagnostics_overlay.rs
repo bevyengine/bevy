@@ -26,6 +26,8 @@ const BACKGROUND_COLOR_ALPHA: f32 = 0.75;
 const ROW_COLUMN_GAP: Val = Val::Px(4.);
 /// Padding for cels of the diagnostics overlay
 const DEFAULT_PADDING: UiRect = UiRect::all(Val::Px(4.));
+/// Initial Z-index for the [`DiagnosticsOverlayPlane`]
+pub const INITIAL_DIAGNOSTICS_OVERLAY_PLANE_Z_INDEX: GlobalZIndex = GlobalZIndex(1_000_000);
 
 /// Diagnostics overlay displays on a draggable and collapsable window
 /// statistics stored on the [`DiagnosticStore`]. Spawining an entity
@@ -59,6 +61,9 @@ const DEFAULT_PADDING: UiRect = UiRect::all(Val::Px(4.));
 /// // Spawning an overlay window from the `fps` preset
 /// commands.spawn(DiagnosticsOverlay::fps());
 /// ```
+///
+/// A [`DiagnosticsOverlay`] entity will be managed by [`DiagnosticsOverlayPlugin`],
+/// and be added as a child of the [`DiagnosticsOverlayPlane`].
 ///
 /// If any value is showing as `Missing`, means that the [`DiagnosticPath`] is not registered,
 /// so make sure that the plugin that writes to it is properly set up.
@@ -122,6 +127,16 @@ impl DiagnosticsOverlay {
     }
 }
 
+/// Marker for the UI root that will hold all of the [`DiagnosticsOverlay`]
+/// entities.
+///
+/// Initially the [`DiagnosticsOverlayPlane`] will be positioned at the
+/// [`GlobalZIndex`] of [`INITIAL_DIAGNOSTICS_OVERLAY_PLANE_Z_INDEX`].
+/// You are free to edit the z index of the plane or have your ui hierarchies
+/// be relative to it.
+#[derive(Component)]
+pub struct DiagnosticsOverlayPlane;
+
 /// An item to be displayed on the overlay.
 ///
 /// Items built using `From<DiagnosticPath>` will use
@@ -168,20 +183,47 @@ impl DiagnosticOverlayStatistic {
     }
 }
 
-/// Plugin that builds a visual overlay to present diagnostics
+/// System set for the systems of the [`DiagnosticsOverlayPlugin`]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, SystemSet)]
+pub enum DiagnosticsOverlaySystems {
+    /// Rebuild the contents of the [`DiagnosticsOverlay`] entities
+    Rebuild,
+}
+
+/// Plugin that builds a visual overlay to present diagnostics.
+///
+/// The contents of each [`DiagnosticsOverlay`] are rebuilt ever second.
 pub struct DiagnosticsOverlayPlugin;
 
 impl Plugin for DiagnosticsOverlayPlugin {
     fn build(&self, app: &mut App) {
+        app.configure_sets(Update, DiagnosticsOverlaySystems::Rebuild);
+        app.add_systems(Startup, build_plane);
         app.add_systems(
             Update,
-            rebuild_diagnostics_list.run_if(on_timer(Duration::from_secs(1))),
+            rebuild_diagnostics_list
+                .run_if(on_timer(Duration::from_secs(1)))
+                .in_set(DiagnosticsOverlaySystems::Rebuild),
         );
 
         app.add_observer(build_overlay);
         app.add_observer(drag_by_header);
         app.add_observer(collapse_on_click_to_header);
     }
+}
+
+/// Builds the Ui plane where the [`DiagnosticsOverlay`] entities
+/// will reside.
+fn build_plane(mut commands: Commands) {
+    commands.spawn((
+        DiagnosticsOverlayPlane,
+        Node {
+            width: Val::Percent(100.),
+            height: Val::Percent(100.),
+            ..Default::default()
+        },
+        INITIAL_DIAGNOSTICS_OVERLAY_PLANE_Z_INDEX,
+    ));
 }
 
 /// Header of the overlay
@@ -268,6 +310,7 @@ fn build_overlay(
     event: On<Add, DiagnosticsOverlay>,
     mut commands: Commands,
     diagnostics_overlays: Query<&DiagnosticsOverlay>,
+    plane: Single<Entity, With<DiagnosticsOverlayPlane>>,
 ) {
     let entity = event.entity;
     let Ok(diagnostics_overlay) = diagnostics_overlays.get(entity) else {
@@ -276,12 +319,13 @@ fn build_overlay(
 
     commands.entity(entity).insert((
         Node {
+            position_type: PositionType::Absolute,
             top: INITIAL_OFFSET,
             left: INITIAL_OFFSET,
             flex_direction: FlexDirection::Column,
             ..Default::default()
         },
-        Pickable::IGNORE,
+        ChildOf(*plane),
         children![
             (
                 Node {
