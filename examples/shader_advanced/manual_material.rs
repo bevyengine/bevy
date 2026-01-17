@@ -7,13 +7,14 @@ use bevy::{
         lifetimeless::{SRes, SResMut},
         SystemChangeTick, SystemParamItem,
     },
+    material::MaterialProperties,
     pbr::{
         late_sweep_material_instances, DrawMaterial, EntitiesNeedingSpecialization,
         EntitySpecializationTickPair, EntitySpecializationTicks, MainPassOpaqueDrawFunction,
         MaterialBindGroupAllocator, MaterialBindGroupAllocators,
         MaterialExtractEntitiesNeedingSpecializationSystems, MaterialExtractionSystems,
-        MaterialFragmentShader, MaterialProperties, PreparedMaterial, RenderMaterialBindings,
-        RenderMaterialInstance, RenderMaterialInstances, SpecializedMaterialPipelineCache,
+        MaterialFragmentShader, PreparedMaterial, RenderMaterialBindings, RenderMaterialInstance,
+        RenderMaterialInstances, SpecializedMaterialPipelineCache,
     },
     platform::collections::hash_map::Entry,
     prelude::*,
@@ -228,7 +229,7 @@ fn setup(
     // light
     commands.spawn((
         PointLight {
-            shadows_enabled: true,
+            shadow_maps_enabled: true,
             ..default()
         },
         Transform::from_xyz(4.0, 8.0, 4.0),

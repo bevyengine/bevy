@@ -1,7 +1,21 @@
-//! An automatic directional navigation system, powered by the [`AutoDirectionalNavigation`] component.
+//! An automatic directional navigation system, powered by the [`AutoDirectionalNavigation`]
+//! component.
 //!
-//! [`AutoDirectionalNavigator`] expands on the manual directional navigation system
-//! provided by the [`DirectionalNavigation`] system parameter from `bevy_input_focus`.
+//! Unlike the navigation system provided by `bevy_input_focus`, the automatic directional
+//! navigation system does not require specifying navigation edges. Just simply add the
+//! [`AutoDirectionalNavigation`] component to your entities, and the system will automatically
+//! calculate the navigation edges between entities based on screen position.
+//!
+//! [`AutoDirectionalNavigator`] replaces the manual directional navigation system
+//! provided by the [`DirectionalNavigation`] system parameter from `bevy_input_focus`. The
+//! [`AutoDirectionalNavigator`] will first navigate using manual override edges defined in the
+//! [`DirectionalNavigationMap`](bevy_input_focus::directional_navigation::DirectionalNavigationMap).
+//! If no manual overrides are defined, automatic navigation will occur between entities based on
+//! screen position.
+//!
+//! If any resulting navigation behavior is undesired, [`AutoNavigationConfig`] can be tweaked or
+//! manual overrides can be specified using the
+//! [`DirectionalNavigationMap`](bevy_input_focus::directional_navigation::DirectionalNavigationMap).
 
 use crate::{ComputedNode, ComputedUiTargetCamera, UiGlobalTransform};
 use bevy_camera::visibility::InheritedVisibility;
@@ -72,7 +86,7 @@ use bevy_reflect::{prelude::*, Reflect};
 ///   automatic navigation as needed.
 ///
 /// Manual edges defined via [`DirectionalNavigationMap`](bevy_input_focus::directional_navigation::DirectionalNavigationMap)
-/// are completely independent and will continue to work regardless of this component.
+/// will override any automatically calculated edges.
 ///
 /// # Additional Requirements
 ///
@@ -237,6 +251,11 @@ impl<'w, 's> AutoDirectionalNavigator<'w, 's> {
     }
 }
 
+/// Util used to get the resulting bounds of a UI entity after applying its rotation.
+///
+/// This is necessary to apply because navigation should only use the final screen position
+/// of an entity in automatic navigation calculations. These bounds are used as the entity's size in
+/// [`FocusableArea`].
 fn get_rotated_bounds(size: Vec2, rotation: f32) -> Vec2 {
     if rotation == 0.0 {
         return size;

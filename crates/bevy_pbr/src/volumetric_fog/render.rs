@@ -51,8 +51,8 @@ use bitflags::bitflags;
 
 use crate::{
     ExtractedAtmosphere, MeshPipelineViewLayoutKey, MeshPipelineViewLayouts, MeshViewBindGroup,
-    ViewEnvironmentMapUniformOffset, ViewFogUniformOffset, ViewLightProbesUniformOffset,
-    ViewLightsUniformOffset, ViewScreenSpaceReflectionsUniformOffset,
+    ViewContactShadowsUniformOffset, ViewEnvironmentMapUniformOffset, ViewFogUniformOffset,
+    ViewLightProbesUniformOffset, ViewLightsUniformOffset, ViewScreenSpaceReflectionsUniformOffset,
 };
 
 use super::FogAssets;
@@ -315,6 +315,7 @@ impl ViewNode for VolumetricFogNode {
         Read<ViewVolumetricFog>,
         Read<MeshViewBindGroup>,
         Read<ViewScreenSpaceReflectionsUniformOffset>,
+        Read<ViewContactShadowsUniformOffset>,
         Read<Msaa>,
         Read<ViewEnvironmentMapUniformOffset>,
     );
@@ -334,6 +335,7 @@ impl ViewNode for VolumetricFogNode {
             view_fog_volumes,
             view_bind_group,
             view_ssr_offset,
+            view_contact_shadows_offset,
             msaa,
             view_environment_map_offset,
         ): QueryItem<'w, '_, Self::ViewQuery>,
@@ -466,6 +468,7 @@ impl ViewNode for VolumetricFogNode {
                     view_fog_offset.offset,
                     **view_light_probes_offset,
                     **view_ssr_offset,
+                    **view_contact_shadows_offset,
                     **view_environment_map_offset,
                 ],
             );
@@ -668,6 +671,9 @@ pub fn prepare_volumetric_fog_pipelines(
             deferred_prepass,
         );
         mesh_pipeline_view_key.set(MeshPipelineViewLayoutKey::ATMOSPHERE, atmosphere);
+        if cfg!(feature = "bluenoise_texture") {
+            mesh_pipeline_view_key |= MeshPipelineViewLayoutKey::STBN;
+        }
 
         let mut textureless_flags = VolumetricFogPipelineKeyFlags::empty();
         textureless_flags.set(VolumetricFogPipelineKeyFlags::HDR, view.hdr);
