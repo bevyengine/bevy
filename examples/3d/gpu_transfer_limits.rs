@@ -1,30 +1,41 @@
 //! This examples demonstrates the usage of RenderAssetBytesPerFrame and RenderAssetTransferPriority
 //! for managing gpu transfer rates and avoiding frame hiccups
-use bevy::{log, prelude::*};
+use std::collections::BTreeMap;
+
+use bevy::prelude::*;
 use bevy_asset::{RenderAssetTransferPriority, RenderAssetUsages};
 use bevy_render::{
-    render_asset::{RenderAssetBytesPerFrame, RenderAssetBytesPerFrameLimiter},
+    render_asset::{
+        RenderAssetBytesPerFrame, RenderAssetBytesPerFrameLimiter,
+        RenderAssetPriorityAllocationStats,
+    },
     render_resource::{Extent3d, TextureDimension, TextureFormat},
-    RenderApp,
+    Extract, RenderApp,
 };
 
 fn main() {
     let mut app = App::new();
 
+    let (sender, receiver) = crossbeam_channel::unbounded();
+
     // note: 1kb is a VERY low limit, only useful for demonstrating the functionality visually.
     // low-end hardware will not see any benefit at 60fps below ~50mb (~3gb / sec)
     app.insert_resource(RenderAssetBytesPerFrame::MaxBytesWithPriority(1000))
+        .insert_resource(StatsChannel { sender, receiver })
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
-        .add_systems(Update, update);
+        .add_systems(Update, (update, update_stats));
 
     let render_app = app.sub_app_mut(RenderApp);
-    render_app.add_systems(ExtractSchedule, show_stats);
+    render_app.add_systems(ExtractSchedule, extract_stats);
     app.run();
 }
 
 #[derive(Component)]
 struct PlaneColor([u8; 3], RenderAssetTransferPriority);
+
+#[derive(Component)]
+struct UiOutput;
 
 fn setup(
     mut commands: Commands,
@@ -80,6 +91,33 @@ fn setup(
         Camera3d::default(),
         Transform::from_translation(Vec3::Z * 75.0),
     ));
+
+    // stats
+    commands.spawn((
+        Node {
+            position_type: PositionType::Absolute,
+            padding: UiRect::all(px(5)),
+            ..default()
+        },
+        BackgroundColor(Color::BLACK.with_alpha(0.75)),
+        GlobalZIndex(i32::MAX),
+        children![(
+            (Text::default(), UiOutput),
+            children![
+                (TextSpan::new("GPU Transfer Limits:\n")),
+                (TextSpan::new("Press Space to modify all materials\n\n")),
+                (TextSpan::new(format!(
+                    "{:^20}{:^20}{:^15}{:^20}{:^15}{:^15}\n",
+                    "Priority",
+                    "requested bytes",
+                    "requested count",
+                    "written bytes",
+                    "written count",
+                    "allocated bytes"
+                )))
+            ]
+        )],
+    ));
 }
 
 fn update(
@@ -121,6 +159,52 @@ fn update(
     }
 }
 
-fn show_stats(limiter: Res<RenderAssetBytesPerFrameLimiter>) {
-    log::info!("{:#?}", limiter.stats());
+#[derive(Resource)]
+struct StatsChannel {
+    sender: crossbeam_channel::Sender<
+        BTreeMap<RenderAssetTransferPriority, RenderAssetPriorityAllocationStats>,
+    >,
+    receiver: crossbeam_channel::Receiver<
+        BTreeMap<RenderAssetTransferPriority, RenderAssetPriorityAllocationStats>,
+    >,
+}
+
+fn extract_stats(
+    channel: Extract<Res<StatsChannel>>,
+    limiter: Res<RenderAssetBytesPerFrameLimiter>,
+) {
+    let stats = limiter.stats();
+    let _ = channel.sender.send(stats);
+}
+
+fn update_stats(
+    mut commands: Commands,
+    output: Query<(Entity, &Children), With<UiOutput>>,
+    stats: Res<StatsChannel>,
+) {
+    if let Ok(stats) = stats.receiver.try_recv() {
+        let (output_entity, output_children) = output.single().unwrap();
+        for (i, (priority, stat)) in stats.iter().rev().enumerate() {
+            let text = TextSpan::new(format!(
+                "{:^20}{:^20}{:^15}{:^20}{:^15}{:^15}\n",
+                match priority {
+                    RenderAssetTransferPriority::Immediate => format!("Immediate"),
+                    RenderAssetTransferPriority::Priority(p) => format!("Priority {p}"),
+                },
+                stat.requested_bytes,
+                stat.requested_count,
+                stat.written_bytes,
+                stat.written_count,
+                stat.available_bytes,
+            ));
+            if let Some(child) = output_children.get(i + 3) {
+                commands.entity(*child).insert(text);
+            } else {
+                commands.spawn((text, ChildOf(output_entity)));
+            }
+        }
+        println!("{}", output_children.len());
+    } else {
+        error!("no stats");
+    }
 }
