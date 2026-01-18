@@ -143,8 +143,7 @@ fn trace_glossy_path(pixel_id: vec2<u32>, primary_surface: ResolvedGPixel, initi
         // Update throughput for next bounce
         p_bounce = ggx_vndf_pdf(wo_tangent, wi_tangent, ray_hit.material.roughness);
         let brdf = evaluate_brdf(N, wo, wi, ray_hit.material);
-        let cos_theta = saturate(dot(wi, N));
-        throughput *= (brdf * cos_theta) / p_bounce;
+        throughput *= brdf / p_bounce;
 
         // Path spread increase
         path_spread += path_spread_heuristic(ray.t, ray_hit.material.roughness);
