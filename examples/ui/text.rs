@@ -7,7 +7,7 @@ use bevy::{
     color::palettes::css::GOLD,
     diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin},
     prelude::*,
-    text::{FontFeatureTag, FontFeatures, Underline},
+    text::{FontFeatureTag, FontFeatures, FontSize, Underline},
 };
 
 fn main() {
@@ -37,7 +37,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         TextFont {
             // This font is loaded and will be used instead of the default font.
             font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
-            font_size: 67.0,
+            // The size of the text will be 20% of the viewport height.
+            font_size: FontSize::Vh(20.0),
             ..default()
         },
         TextShadow::default(),
@@ -61,7 +62,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             TextFont {
                 // This font is loaded and will be used instead of the default font.
                 font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
-                font_size: 42.0,
+                font_size: FontSize::Px(42.0),
                 ..default()
             },
         ))
@@ -72,7 +73,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     // If the "default_font" feature is unavailable, load a font to use instead.
                     #[cfg(not(feature = "default_font"))]
                     font: asset_server.load("fonts/FiraMono-Medium.ttf").into(),
-                    font_size: 33.0,
+                    font_size: FontSize::Px(33.0),
                     ..Default::default()
                 },
                 TextColor(GOLD.into()),
@@ -95,7 +96,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             Text::new("Opentype features:\n"),
             TextFont {
                 font: opentype_font_handle.clone(),
-                font_size: 32.0,
+                font_size: FontSize::Px(32.0),
                 ..default()
             },
         ))
@@ -127,7 +128,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     TextSpan::new(title),
                     TextFont {
                         font: opentype_font_handle.clone(),
-                        font_size: 24.0,
+                        font_size: FontSize::Px(24.0),
                         ..default()
                     },
                 ));
@@ -135,7 +136,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     TextSpan::new(format!("{text}\n")),
                     TextFont {
                         font: opentype_font_handle.clone(),
-                        font_size: 24.0,
+                        font_size: FontSize::Px(24.0),
                         font_features: FontFeatures::builder().enable(feature).build(),
                         ..default()
                     },
@@ -172,8 +173,11 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     ));
 }
 
-fn text_color_system(time: Res<Time>, mut query: Query<&mut TextColor, With<AnimatedText>>) {
-    for mut text_color in &mut query {
+fn text_color_system(
+    time: Res<Time>,
+    mut query: Query<(&mut Text, &mut TextColor), With<AnimatedText>>,
+) {
+    for (mut t, mut text_color) in &mut query {
         let seconds = time.elapsed_secs();
 
         // Update the color of the ColorText span.
@@ -182,6 +186,7 @@ fn text_color_system(time: Res<Time>, mut query: Query<&mut TextColor, With<Anim
             ops::sin(0.75 * seconds) / 2.0 + 0.5,
             ops::sin(0.50 * seconds) / 2.0 + 0.5,
         );
+        //t.set_changed();
     }
 }
 

@@ -252,6 +252,7 @@ pub fn update_text2d_layout(
                 &mut computed,
                 &mut font_system,
                 *hinting,
+                None,
             ) {
                 Err(TextError::NoSuchFont | TextError::DegenerateScaleFactor) => {
                     // There was an error processing the text layout.

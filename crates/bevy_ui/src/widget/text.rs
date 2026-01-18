@@ -288,6 +288,7 @@ pub fn measure_text_system(
             computed.as_mut(),
             &mut font_system,
             *hinting,
+            Some(computed_target.physical_size().as_vec2()),
         ) {
             Ok(measure) => {
                 if block.linebreak == LineBreak::NoWrap {

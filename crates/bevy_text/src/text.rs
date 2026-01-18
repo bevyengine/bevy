@@ -3,6 +3,7 @@ use bevy_asset::Handle;
 use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{prelude::*, reflect::ReflectComponent};
+use bevy_math::Vec2;
 use bevy_reflect::prelude::*;
 use bevy_utils::{default, once};
 use core::fmt::{Debug, Formatter};
@@ -373,7 +374,7 @@ pub struct TextFont {
     ///
     /// A new font atlas is generated for every combination of font handle and scaled font size
     /// which can have a strong performance impact.
-    pub font_size: f32,
+    pub font_size: FontSize,
     /// How thick or bold the strokes of a font appear.
     ///
     /// Font weights can be any value between 1 and 1000, inclusive.
@@ -392,7 +393,7 @@ pub struct TextFont {
 
 impl TextFont {
     /// Returns a new [`TextFont`] with the specified font size.
-    pub fn from_font_size(font_size: f32) -> Self {
+    pub fn from_font_size(font_size: impl Into<FontSize>) -> Self {
         Self::default().with_font_size(font_size)
     }
 
@@ -409,8 +410,8 @@ impl TextFont {
     }
 
     /// Returns this [`TextFont`] with the specified font size.
-    pub const fn with_font_size(mut self, font_size: f32) -> Self {
-        self.font_size = font_size;
+    pub fn with_font_size(mut self, font_size: impl Into<FontSize>) -> Self {
+        self.font_size = font_size.into();
         self
     }
 
@@ -434,13 +435,79 @@ impl Default for TextFont {
     fn default() -> Self {
         Self {
             font: Default::default(),
-            font_size: 20.0,
+            font_size: FontSize::from(20.),
             style: FontStyle::Normal,
             weight: FontWeight::NORMAL,
             width: FontWidth::NORMAL,
             font_features: FontFeatures::default(),
             font_smoothing: Default::default(),
         }
+    }
+}
+
+/// The vertical height of rasterized glyphs in the font atlas in pixels.
+///
+/// This is multiplied by the scale factor, but not the text entity
+/// transform or camera projection.
+///
+/// The viewport variants are not supported by `Text2d`.
+///
+/// A new font atlas is generated for every combination of font handle and scaled font size
+/// which can have a strong performance impact.
+#[derive(Component, Copy, Clone, Debug, Reflect)]
+pub enum FontSize {
+    /// Font Size in logical pixels.
+    Px(f32),
+    /// Font Size relative to the size of the viewport width.
+    Vw(f32),
+    /// Font Size relative to the size of the viewport height.
+    Vh(f32),
+    /// Font Size relative to the smaller of the viewport width and viewport height.
+    VMin(f32),
+    /// Font Size relative to the larger of the viewport width and viewport height.
+    VMax(f32),
+}
+
+impl PartialEq for FontSize {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::Px(l0), Self::Px(r0)) => l0 == r0,
+            (Self::Vw(l0), Self::Vw(r0)) => l0 == r0,
+            (Self::Vh(l0), Self::Vh(r0)) => l0 == r0,
+            (Self::VMin(l0), Self::VMin(r0)) => l0 == r0,
+            (Self::VMax(l0), Self::VMax(r0)) => l0 == r0,
+            _ => false,
+        }
+    }
+}
+
+impl FontSize {
+    /// Evaluate the font size to a value in logical pixels
+    pub fn eval(
+        self,
+        // Viewport size in logical pixels
+        maybe_viewport_size: Option<Vec2>,
+    ) -> Option<f32> {
+        Some(match (self, maybe_viewport_size) {
+            (FontSize::Px(s), _) => s,
+            (FontSize::Vw(s), Some(viewport_size)) => viewport_size.x * s,
+            (FontSize::Vh(s), Some(viewport_size)) => viewport_size.y * s,
+            (FontSize::VMin(s), Some(viewport_size)) => viewport_size.min_element() * s,
+            (FontSize::VMax(s), Some(viewport_size)) => viewport_size.max_element() * s,
+            _ => return None,
+        })
+    }
+}
+
+impl Default for FontSize {
+    fn default() -> Self {
+        Self::Px(20.)
+    }
+}
+
+impl From<f32> for FontSize {
+    fn from(value: f32) -> Self {
+        Self::Px(value)
     }
 }
 
