@@ -3,7 +3,7 @@ use bevy_asset::{embedded_asset, load_embedded_asset, AssetServer};
 use bevy_camera::{Camera, Camera3d};
 use bevy_core_pipeline::{
     core_3d::graph::{Core3d, Node3d},
-    prepass::{DepthPrepass, MotionVectorPrepass, ViewPrepassTextures},
+    prepass::{MotionVectorPrepass, ViewPrepassTextures},
     FullscreenShader,
 };
 use bevy_diagnostic::FrameCount;
@@ -395,7 +395,6 @@ fn prepare_taa_jitter(
             With<TemporalAntiAliasing>,
             With<Camera3d>,
             With<TemporalJitter>,
-            With<DepthPrepass>,
             With<MotionVectorPrepass>,
         ),
     >,
