@@ -11,6 +11,10 @@ struct VignetteSettings {
     radius: f32,
     smoothness: f32,
     roundness: f32,
+    center: vec2<f32>,
+    unused_a: u32,
+    unused_b: u32,
+    color: vec4<f32>
 }
 
 // The settings supplied by the developer.
@@ -22,13 +26,28 @@ fn vignette(uv: vec2<f32>, color: vec3<f32>) -> vec3<f32> {
     let smoothness = max(vignette_settings.smoothness, 0.0);
     let roundness = max(vignette_settings.roundness, 0.001);
 
-    // Correct for the screen aspect ratio so the vignette remains circular, not oval.
+    // Get the screen resolution.
     let dims = textureDimensions(source_texture);
     let resolution = vec2<f32>(f32(dims.x), f32(dims.y));
+
+    // Calculate the aspect ratio.
+    //
+    // We divide by the smallest dimension to normalize the scale.
+    // This will be used later to force the vignette to be circular, not oval.
     let aspect_ratio = resolution / min(resolution.x, resolution.y);
-    // Center the UVs at (0,0) and apply aspect correction.
-    let centered_uv = (uv - 0.5) * aspect_ratio;
-    let final_uv = centered_uv * vec2<f32>(1.0, 1.0 / roundness);
+
+    // Center the UV coordinates at (0,0).
+    let centered_uv = uv - 0.5;
+
+    // Calculate the normalized offset from the center.
+    //
+    // (vignette_settings.center - 0.5) maps the 0.0-1.0 input to -0.5-0.5.
+    // Multiplying by (1.0, y/x) compensates for the screen's aspect ratio.
+    // This ensures that a movement of 0.1 looks the same distance horizontally and vertically.
+    let offset = (vignette_settings.center - 0.5) * vec2<f32>(1.0, resolution.y / resolution.x);
+
+    let uv_from_center = centered_uv - offset;
+    let final_uv = uv_from_center * aspect_ratio * vec2<f32>(1.0, 1.0 / roundness);
 
     // Calculate distance from center.
     let dist = length(final_uv) * 2.0;
@@ -39,5 +58,6 @@ fn vignette(uv: vec2<f32>, color: vec3<f32>) -> vec3<f32> {
     // Generate a 0.0 to 1.0 factor based on distance within the edges.
     let factor = smoothstep(inner_edge, outer_edge, dist);
 
-    return mix(color, vec3<f32>(0.0), factor * intensity);
+    // Blend the original color with the vignette color.
+    return mix(color, vignette_settings.color.rgb, factor * intensity);
 }

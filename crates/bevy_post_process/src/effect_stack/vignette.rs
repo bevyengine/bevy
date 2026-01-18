@@ -1,10 +1,12 @@
 use bevy_camera::Camera;
+use bevy_color::Color;
 use bevy_ecs::{
     component::Component,
     query::{QueryItem, With},
     reflect::ReflectComponent,
     system::lifetimeless::Read,
 };
+use bevy_math::{Vec2, Vec4};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{extract_component::ExtractComponent, render_resource::ShaderType};
 
@@ -60,6 +62,19 @@ pub struct Vignette {
     ///
     /// The default value is 0.75
     pub roundness: f32,
+    /// The color of the vignette.
+    ///
+    /// Typically black for standard darkening, but can be any color for creative effects.
+    ///
+    /// The default value is `Color::BLACK`
+    pub color: Color,
+    /// The center of the vignette in UV coordinates (0.0 to 1.0).
+    ///
+    /// `(0.5, 0.5)` is the exact center of the screen.
+    /// Deviating from this allows for off-center or asymmetric vignette effects.
+    ///
+    /// The default value is `Vec2::new(0.5, 0.5)`
+    pub center: Vec2,
 }
 
 impl Default for Vignette {
@@ -69,6 +84,8 @@ impl Default for Vignette {
             radius: DEFAULT_VIGNETTE_RADIUS,
             smoothness: DEFAULT_VIGNETTE_SMOOTHNESS,
             roundness: DEFAULT_VIGNETTE_ROUNDNESS,
+            color: Color::BLACK,
+            center: Vec2::new(0.5, 0.5),
         }
     }
 }
@@ -100,4 +117,8 @@ pub struct VignetteUniform {
     pub(super) smoothness: f32,
     /// The shape of the vignette.
     pub(super) roundness: f32,
+    pub(super) center: Vec2,
+    pub(super) unused_1: u32,
+    pub(super) unused_2: u32,
+    pub(super) color: Vec4,
 }

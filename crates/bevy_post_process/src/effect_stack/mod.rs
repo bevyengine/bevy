@@ -8,6 +8,7 @@
 mod chromatic_aberration;
 mod vignette;
 
+use bevy_color::ColorToComponents;
 pub use chromatic_aberration::{ChromaticAberration, ChromaticAberrationUniform};
 pub use vignette::{Vignette, VignetteUniform};
 
@@ -444,6 +445,10 @@ pub fn prepare_post_processing_uniforms(
                     radius: vignette.radius,
                     smoothness: vignette.smoothness,
                     roundness: vignette.roundness,
+                    center: vignette.center,
+                    unused_1: 0,
+                    unused_2: 0,
+                    color: vignette.color.to_srgba().to_vec4(),
                 })
         } else {
             post_processing_uniform_buffers
