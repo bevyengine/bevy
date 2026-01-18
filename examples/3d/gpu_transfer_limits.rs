@@ -18,9 +18,9 @@ fn main() {
 
     let (sender, receiver) = crossbeam_channel::unbounded();
 
-    // note: 1kb is a VERY low limit, only useful for demonstrating the functionality visually.
-    // low-end hardware will not see any benefit at 60fps below ~50mb (~3gb / sec)
-    app.insert_resource(RenderAssetBytesPerFrame::MaxBytesWithPriority(1000))
+    // note: 10kb is a VERY low limit, only useful for demonstrating the functionality visually.
+    // low-end hardware will not see any benefit at 60fps below ~50mb (~3gb / sec).
+    app.insert_resource(RenderAssetBytesPerFrame::MaxBytesWithPriority(10000))
         .insert_resource(StatsChannel { sender, receiver })
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
@@ -58,13 +58,13 @@ fn setup(
 
     // spawn planes showing images with varying priorities
     for (y, priority) in priorities.iter().enumerate() {
-        for x in 0..100 {
-            let color = [x as u8 * 2, 128, y as u8 * 50];
+        for x in 0..10000 {
+            let color = [(x as f32 / 10000.0 * 255.0) as u8, 128, y as u8 * 50];
             let image = images.add(Image::new_fill(
                 Extent3d {
-                    width: 25,
-                    height: 10,
-                    depth_or_array_layers: 1, // 1000 bytes per image
+                    width: 5,
+                    height: 5,
+                    depth_or_array_layers: 1, // 100 bytes per image
                 },
                 TextureDimension::D2,
                 &[color[0], color[1], color[2], 255],
@@ -78,7 +78,12 @@ fn setup(
                 ..Default::default()
             });
             commands.spawn((
-                Transform::from_translation(Vec3::new(x as f32 - 49.5, 2.0 - y as f32, 0.0)),
+                Transform::from_translation(Vec3::new(
+                    x as f32 - 4999.5,
+                    2.0 - y as f32 * 500.0,
+                    0.0,
+                ))
+                .with_scale(Vec3::new(1.0, 500.0, 1.0)),
                 Mesh3d(plane_mesh.clone()),
                 MeshMaterial3d(material),
                 PlaneColor(color, *priority),
@@ -89,7 +94,7 @@ fn setup(
     // camera
     commands.spawn((
         Camera3d::default(),
-        Transform::from_translation(Vec3::Z * 75.0),
+        Transform::from_translation(Vec3::Z * 7500.0),
     ));
 
     // stats
@@ -138,8 +143,8 @@ fn update(
             // create a new image
             let image = images.add(Image::new_fill(
                 Extent3d {
-                    width: 25,
-                    height: 10,
+                    width: 5,
+                    height: 5,
                     depth_or_array_layers: 1,
                 },
                 TextureDimension::D2,
