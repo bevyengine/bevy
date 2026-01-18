@@ -1427,6 +1427,18 @@ category = "3D Rendering"
 wasm = true
 
 [[example]]
+name = "white_furnace"
+path = "examples/3d/white_furnace.rs"
+# Causes an ICE on docs.rs
+doc-scrape-examples = false
+
+[package.metadata.example.white_furnace]
+name = "White Furnace Test"
+description = "Demonstrates a white furnace test for PBR materials using a pure white environment map"
+category = "3D Rendering"
+wasm = true
+
+[[example]]
 name = "parallax_mapping"
 path = "examples/3d/parallax_mapping.rs"
 # Causes an ICE on docs.rs
