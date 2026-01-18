@@ -5,7 +5,6 @@ use core::f32;
 use bevy::{
     camera_controller::free_camera::{FreeCamera, FreeCameraPlugin},
     light::NoParallaxCorrection,
-    math::ops,
     prelude::*,
     render::view::Hdr,
 };
@@ -96,7 +95,7 @@ fn spawn_camera(commands: &mut Commands) {
     commands.spawn((
         Camera3d::default(),
         FreeCamera::default(),
-        Transform::from_xyz(0.0, 0.0, 3.5).looking_at(Vec3::ZERO, Dir3::Y),
+        Transform::from_xyz(0.0, 0.0, 4.0).looking_at(Vec3::new(0.0, -2.5, 0.0), Dir3::Y),
         Hdr,
     ));
 }
@@ -127,7 +126,7 @@ fn spawn_inner_cube(
     commands.spawn((
         Mesh3d(cube_mesh),
         MeshMaterial3d(cube_material),
-        Transform::from_xyz(0.0, -4.0, -2.0),
+        Transform::from_xyz(0.0, -4.0, -2.5),
         InnerCube,
     ));
 }
