@@ -45,7 +45,11 @@ pub trait CameraProjection {
     fn get_clip_from_view(&self) -> Mat4;
 
     /// Generate the projection matrix for a [`SubCameraView`](super::SubCameraView).
-    fn get_clip_from_view_for_sub(&self, sub_view: &super::SubCameraView) -> Mat4;
+    fn get_clip_from_view_for_sub(
+        &self,
+        sub_view: &super::SubCameraView,
+        sub_view_aspect_ratio: Option<f32>,
+    ) -> Mat4;
 
     /// When the area this camera renders to changes dimensions, this method will be automatically
     /// called. Use this to update any projection properties that depend on the aspect ratio or
@@ -341,32 +345,41 @@ impl CameraProjection for PerspectiveProjection {
         matrix
     }
 
-    fn get_clip_from_view_for_sub(&self, sub_view: &super::SubCameraView) -> Mat4 {
-        let full_width = sub_view.full_size.x as f32;
-        let full_height = sub_view.full_size.y as f32;
-        let sub_width = sub_view.size.x as f32;
-        let sub_height = sub_view.size.y as f32;
+    fn get_clip_from_view_for_sub(
+        &self,
+        sub_view: &super::SubCameraView,
+        sub_view_aspect_ratio: Option<f32>,
+    ) -> Mat4 {
+        let scale = sub_view.scale;
         let offset_x = sub_view.offset.x;
-        // Y-axis increases from top to bottom
-        let offset_y = full_height - (sub_view.offset.y + sub_height);
-
-        let full_aspect = full_width / full_height;
+        let offset_y = sub_view.offset.y;
 
         // Original frustum parameters
+        // These are the edges of the near plane rect of the full view in world units
         let top = self.near * ops::tan(0.5 * self.fov);
         let bottom = -top;
-        let right = top * full_aspect;
+        let right = top * self.aspect_ratio;
         let left = -right;
 
-        // Calculate scaling factors
         let width = right - left;
         let height = top - bottom;
 
+        // Use the sub view's aspect ratio instead of our own for just the width of the sub view rect.
+        // This width is what needs to match the width of the camera's viewport for the image to be correct,
+        // so we want to use the aspect ratio that the camera_system is keeping in sync with the viewport.
+        // That is the sub view's aspect ratio if it's set, otherwise the projection's aspect ratio.
+        // The rest of the calculations just use the projection's aspect ratio, because they can't cause
+        // the image to become distorted.
+        let sub_width = sub_view_aspect_ratio.map_or(width, |aspect_ratio| height * aspect_ratio);
+
         // Calculate the new frustum parameters
-        let left_prime = left + (width * offset_x) / full_width;
-        let right_prime = left + (width * (offset_x + sub_width)) / full_width;
-        let bottom_prime = bottom + (height * offset_y) / full_height;
-        let top_prime = bottom + (height * (offset_y + sub_height)) / full_height;
+        // These are the edges of the near plane rect of the sub view in world units
+        // In the case that `sub_width == width`, the `right_prime` calculation is equivalent to
+        // `left + (width * (offset_x + scale)`, i.e. the same form as the `bottom_prime` calculation
+        let top_prime = top - (height * offset_y);
+        let bottom_prime = top - (height * (offset_y + scale));
+        let right_prime = left + ((width * offset_x) + (sub_width * scale));
+        let left_prime = left + (width * offset_x);
 
         // Compute the new projection matrix
         let x = (2.0 * self.near) / (right_prime - left_prime);
@@ -644,36 +657,39 @@ impl CameraProjection for OrthographicProjection {
         )
     }
 
-    fn get_clip_from_view_for_sub(&self, sub_view: &super::SubCameraView) -> Mat4 {
-        let full_width = sub_view.full_size.x as f32;
-        let full_height = sub_view.full_size.y as f32;
+    fn get_clip_from_view_for_sub(
+        &self,
+        sub_view: &super::SubCameraView,
+        sub_view_aspect_ratio: Option<f32>,
+    ) -> Mat4 {
+        let scale = sub_view.scale;
         let offset_x = sub_view.offset.x;
         let offset_y = sub_view.offset.y;
-        let sub_width = sub_view.size.x as f32;
-        let sub_height = sub_view.size.y as f32;
 
-        let full_aspect = full_width / full_height;
-
-        // Base the vertical size on self.area and adjust the horizontal size
         let top = self.area.max.y;
         let bottom = self.area.min.y;
+        let right = self.area.max.x;
+        let left = self.area.min.x;
+
         let ortho_height = top - bottom;
-        let ortho_width = ortho_height * full_aspect;
+        let ortho_width = right - left;
 
-        // Center the orthographic area horizontally
-        let center_x = (self.area.max.x + self.area.min.x) / 2.0;
-        let left = center_x - ortho_width / 2.0;
-        let right = center_x + ortho_width / 2.0;
-
-        // Calculate scaling factors
-        let scale_w = (right - left) / full_width;
-        let scale_h = (top - bottom) / full_height;
+        // Use the sub view's aspect ratio instead of our own for just the width of the sub view rect.
+        // This width is what needs to match the width of the camera's viewport for the image to be correct,
+        // so we want to use the aspect ratio that the camera_system is keeping in sync with the viewport.
+        // That is the sub view's aspect ratio if it's set, otherwise the projection's aspect ratio.
+        // The rest of the calculations just use the projection's aspect ratio, because they can't cause
+        // the image to become distorted.
+        let sub_width =
+            sub_view_aspect_ratio.map_or(ortho_width, |aspect_ratio| ortho_height * aspect_ratio);
 
         // Calculate the new orthographic bounds
-        let left_prime = left + scale_w * offset_x;
-        let right_prime = left_prime + scale_w * sub_width;
-        let top_prime = top - scale_h * offset_y;
-        let bottom_prime = top_prime - scale_h * sub_height;
+        // In the case that `sub_width == ortho_width`, the `right_prime` calculation is equivalent to
+        // `left + (ortho_width * (offset_x + scale)`, i.e. the same form as the `bottom_prime` calculation
+        let top_prime = top - (ortho_height * offset_y);
+        let bottom_prime = top - (ortho_height * (offset_y + scale));
+        let right_prime = left + ((ortho_width * offset_x) + (sub_width * scale));
+        let left_prime = left + (ortho_width * offset_x);
 
         Mat4::orthographic_rh(
             left_prime,

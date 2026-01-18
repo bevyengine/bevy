@@ -4718,7 +4718,18 @@ doc-scrape-examples = false
 
 [package.metadata.example.camera_sub_view]
 name = "Camera sub view"
-description = "Demonstrates using different sub view effects on a camera"
+description = "Demonstrates splitting an image across multiple windows with CameraSubView"
+category = "3D Rendering"
+wasm = true
+
+[[example]]
+name = "magnifier"
+path = "examples/usage/magnifier.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.magnifier]
+name = "Magnifier"
+description = "Demonstrates magnifying part of the screen with CameraSubView"
 category = "3D Rendering"
 wasm = true
 

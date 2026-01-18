@@ -1,4 +1,4 @@
-use crate::primitives::Frustum;
+use crate::{primitives::Frustum, Projection};
 
 use super::{
     visibility::{Visibility, VisibleEntities},
@@ -108,52 +108,134 @@ impl Viewport {
 #[reflect(Component)]
 pub struct MainPassResolutionOverride(pub UVec2);
 
-/// Settings to define a camera sub view.
+/// Settings to define a camera sub view. Also called a "sheared projection matrix".
 ///
-/// When [`Camera::sub_camera_view`] is `Some`, only the sub-section of the
-/// image defined by `size` and `offset` (relative to the `full_size` of the
-/// whole image) is projected to the cameras viewport.
+/// This is not a component type itself, but rather is stored in the `sub_camera_view` field of the [`Camera`] component.
+/// The `Camera` component is typically used alongside the `Projection` component, which is used to calculate a view frustum
+/// for that camera. If a sub view is set on the camera, it is used to modify the frustum calculation.
 ///
-/// Take the example of the following multi-monitor setup:
-/// ```css
-/// ┌───┬───┐
-/// │ A │ B │
-/// ├───┼───┤
-/// │ C │ D │
-/// └───┴───┘
+/// The two parameters that a sub view has are `scale` and `offset`.
+/// `scale` is a multiplier for the width and height of the view frustum.
+/// `offset` is an interpolation parameter for the position of the view frustum, within the bounds of the unmodified "base" frustum,
+/// that would be used if the camera didn't have a sub view set.
+///
+/// Changing the scale of a sub view will not change the size of the rendered image on screen, as the size of a camera's frustum
+/// is independent of the size of its viewport. Rather, this will cause the image to appear to zoom in or out. An important
+/// thing to note is that the scale does not zoom "around" the center of the view, but rather the top-left corner.
+///
+/// The top-left corner is also the point controlled by the offset parameter. An offset of 0 in a given axis puts the
+/// corresponding edge (either top or left) on the same edge of the base frustum. An offset of 1 puts that edge on the
+/// opposite edge of the base frustum, which means the rest of the sub view will be *outside* of the base view on that axis.
+/// Offset values in between 0 and 1 are linearly interpolated between these two extremes.
+///
+/// ## Example
+///
+/// Suppose you have a camera with a square viewport, looking at a grid of digits.
+/// The camera's projection is configured so the entire grid is visible on screen.
+///
+/// ```text
+/// ┌─────────┐
+/// │ 0 1 2 3 │
+/// │ 4 5 6 7 │
+/// │ 8 9 A B │
+/// │ C D E F │
+/// └─────────┘
 /// ```
-/// If each monitor is 1920x1080, the whole image will have a resolution of
-/// 3840x2160. For each monitor we can use a single camera with a viewport of
-/// the same size as the monitor it corresponds to. To ensure that the image is
-/// cohesive, we can use a different sub view on each camera:
-/// - Camera A: `full_size` = 3840x2160, `size` = 1920x1080, `offset` = 0,0
-/// - Camera B: `full_size` = 3840x2160, `size` = 1920x1080, `offset` = 1920,0
-/// - Camera C: `full_size` = 3840x2160, `size` = 1920x1080, `offset` = 0,1080
-/// - Camera D: `full_size` = 3840x2160, `size` = 1920x1080, `offset` =
-///   1920,1080
 ///
-/// However since only the ratio between the values is important, they could all
-/// be divided by 120 and still produce the same image. Camera D would for
-/// example have the following values:
-/// `full_size` = 32x18, `size` = 16x9, `offset` = 16,9
+/// If a `SubCameraView` was set on the camera, with a scale of `0.5`, and an offset of `(0.0, 0.0)`, the width and height of
+/// the camera's view frustum would both be halved, resulting in a quarter of the grid being visible. The top-left corner
+/// of the frustum would remain in place, so it would be the top-left quarter of the grid that gets projected to the camera's
+/// viewport.
+///
+/// ```text
+/// ┌──────────
+/// │ 0     1
+/// │
+/// │
+/// │ 4     5
+/// │
+/// ```
+///
+/// If the sub view had its offset changed to `(0.5, 0.5)`, then the top-left corner of the view frustum would be moved to the
+/// middle of the camera's original view. Given that the camera was originally configured so that its view perfectly lined up
+/// with the grid, this means the top-left corner of the frustum would appear to be moved to the middle of the grid.
+///
+/// ```text
+///           │
+///   A     B │
+///           │
+///           │
+///   E     F │
+/// ──────────┘
+/// ```
+///
+/// Now suppose that the sub view's offset was changed to `(1.0, 0.0)`. This would move the top-left corner of the view to the
+/// top-right corner of the grid, putting the grid off-screen.
+///
+/// ```text
+/// ┐
+/// │
+/// │
+/// │
+/// │
+/// │
+/// ```
+///
+/// Lastly, if we wanted to center the view on the grid, we would need to modify the offset so that we can use it to describe the
+/// position of the center of the view, rather than the top-left corner. We can do that by subtracting half the scale from it.
+/// With a scale of `0.5`, and a desired offset of `(0.5, 0.5)` for the center of the view, the offset to use would be `(0.25, 0.25)`.
+///
+/// ```text
+///            
+///   5     6  
+///            
+///            
+///   9     A  
+///            
+/// ```
+///
+/// See the `camera_sub_view` example for more information.
+///
+/// ## [`SubViewSourceProjection`]
+///
+/// The `SubViewSourceProjection` relationship component can be inserted onto an camera entity that has a sub view set, in
+/// order to use the `Projection` component on a different entity as the base for the sub view frustum calculation. All of the
+/// parameters of the specified projection will be used, except that the aspect ratio of the calculated frustum will still be
+/// the same as the aspect ratio of the camera's viewport. This can be used to drastically simplify the math in some use cases,
+/// see the "magnifier" example for an example of this.
 #[derive(Debug, Clone, Copy, Reflect, PartialEq)]
 #[reflect(Clone, PartialEq, Default)]
 pub struct SubCameraView {
-    /// Size of the entire camera view
-    pub full_size: UVec2,
-    /// Offset of the sub camera
+    /// Scaling factor for the size of the sub view. The height of the sub view will be scale * the height of the base view
+    pub scale: f32,
+    /// Percentage offset of the top-left corner of the sub view, from top-left at `0,0` to bottom-right at `1,1`
     pub offset: Vec2,
-    /// Size of the sub camera
-    pub size: UVec2,
 }
 
 impl Default for SubCameraView {
     fn default() -> Self {
         Self {
-            full_size: UVec2::new(1, 1),
-            offset: Vec2::new(0., 0.),
-            size: UVec2::new(1, 1),
+            scale: 1.0,
+            offset: Vec2::ZERO,
         }
+    }
+}
+
+/// Points to an entity with a [`Projection`] component, which will be used to calculate the camera sub view on this entity.
+/// An entity with a sub view, but without this component, will use its own projection.
+#[derive(Component)]
+#[relationship(relationship_target = SubViewsUsingThisProjection)]
+pub struct SubViewSourceProjection(pub Entity);
+
+/// List of all entities with camera sub views, that are calculated from this entity's [`Projection`].
+#[derive(Component)]
+#[require(Projection)]
+#[relationship_target(relationship = SubViewSourceProjection)]
+pub struct SubViewsUsingThisProjection(Vec<Entity>);
+
+impl SubViewsUsingThisProjection {
+    pub fn get_entities(&self) -> impl Iterator<Item = Entity> {
+        self.0.iter().copied()
     }
 }
 
@@ -183,7 +265,8 @@ impl Default for RenderTargetInfo {
 pub struct ComputedCameraValues {
     pub clip_from_view: Mat4,
     pub target_info: Option<RenderTargetInfo>,
-    // size of the `Viewport`
+    // These two values aren't actually "computed" like the above two are,
+    // but are cached here for more granular change detection in the `camera_system`.
     pub old_viewport_size: Option<UVec2>,
     pub old_sub_camera_view: Option<SubCameraView>,
 }
@@ -315,7 +398,7 @@ pub enum ViewportConversionError {
     #[error("computed coordinate beyond `Camera`'s far plane")]
     PastFarPlane,
     /// The Normalized Device Coordinates could not be computed because the `camera_transform`, the
-    /// `world_position`, or the projection matrix defined by [`Projection`](super::projection::Projection)
+    /// `world_position`, or the projection matrix defined by [`Projection`]
     /// contained `NAN` (see [`world_to_ndc`][Camera::world_to_ndc] and [`ndc_to_world`][Camera::ndc_to_world]).
     #[error("found NaN while computing NDC")]
     InvalidData,
@@ -490,7 +573,7 @@ impl Camera {
             .map(|t: &RenderTargetInfo| t.scale_factor)
     }
 
-    /// The projection matrix computed using this camera's [`Projection`](super::projection::Projection).
+    /// The projection matrix computed using this camera's [`Projection`].
     #[inline]
     pub fn clip_from_view(&self) -> Mat4 {
         self.computed.clip_from_view
@@ -694,7 +777,7 @@ impl Camera {
     /// [`world_to_viewport`](Self::world_to_viewport).
     ///
     /// Returns `None` if the `camera_transform`, the `world_position`, or the projection matrix defined by
-    /// [`Projection`](super::projection::Projection) contain `NAN`.
+    /// [`Projection`] contain `NAN`.
     ///
     /// # Panics
     ///
@@ -721,7 +804,7 @@ impl Camera {
     /// [`viewport_to_world`](Self::viewport_to_world).
     ///
     /// Returns `None` if the `camera_transform`, the `ndc_point`, or the projection matrix defined by
-    /// [`Projection`](super::projection::Projection) contain `NAN`.
+    /// [`Projection`] contain `NAN`.
     ///
     /// # Panics
     ///
