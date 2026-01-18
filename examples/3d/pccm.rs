@@ -26,11 +26,11 @@ struct InnerCube;
 const ENVIRONMENT_MAP_INTENSITY: f32 = 100.0;
 
 const OUTER_CUBE_URL: &str =
-    "https://github.com/atlv24/bevy_asset_files/raw/ad/pccm-example/pccm_example/outer_cube.glb#Scene0";
+    "https://github.com/bevyengine/bevy_asset_files/raw/main/pccm_example/outer_cube.glb#Scene0";
 const ENV_DIFFUSE_URL: &str =
-    "https://github.com/atlv24/bevy_asset_files/raw/ad/pccm-example/pccm_example/env_diffuse.ktx2";
+    "https://github.com/bevyengine/bevy_asset_files/raw/main/pccm_example/env_diffuse.ktx2";
 const ENV_SPECULAR_URL: &str =
-    "https://github.com/atlv24/bevy_asset_files/raw/ad/pccm-example/pccm_example/env_specular.ktx2";
+    "https://github.com/bevyengine/bevy_asset_files/raw/main/pccm_example/env_specular.ktx2";
 
 /// The current value of user-customizable settings for this demo.
 #[derive(Resource, Default)]
