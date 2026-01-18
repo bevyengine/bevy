@@ -52,6 +52,8 @@ pub use directional_light::{
     update_directional_light_frusta, DirectionalLight, DirectionalLightShadowMap,
     DirectionalLightTexture, SunDisk,
 };
+#[cfg(feature = "bevy_gizmos")]
+pub mod gizmos;
 
 /// The light prelude.
 ///
@@ -62,6 +64,10 @@ pub mod prelude {
         light_consts, AmbientLight, DirectionalLight, EnvironmentMapLight,
         GeneratedEnvironmentMapLight, GlobalAmbientLight, LightProbe, PointLight, SpotLight,
     };
+
+    #[doc(hidden)]
+    #[cfg(feature = "bevy_gizmos")]
+    pub use crate::gizmos::{LightGizmoColor, LightGizmoConfigGroup, ShowLightGizmo};
 }
 
 use crate::directional_light::validate_shadow_map_size;
@@ -201,6 +207,9 @@ impl Plugin for LightPlugin {
                         .after(clear_directional_light_cascades),
                 ),
             );
+
+        #[cfg(feature = "bevy_gizmos")]
+        app.add_plugins(gizmos::LightGizmoPlugin);
     }
 }
 
