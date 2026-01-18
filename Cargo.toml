@@ -5349,6 +5349,7 @@ wasm = false
 name = "pccm"
 path = "examples/3d/pccm.rs"
 doc-scrape-examples = true
+required-features = ["free_camera", "https"]
 
 [package.metadata.example.pccm]
 name = "Parallax-Corrected Cubemaps"

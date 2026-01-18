@@ -1,6 +1,14 @@
 //! Demonstrates parallax-corrected cubemap reflections.
 
-use bevy::{light::NoParallaxCorrection, math::ops, prelude::*, render::view::Hdr};
+use core::f32;
+
+use bevy::{
+    camera_controller::free_camera::{FreeCamera, FreeCameraPlugin},
+    light::NoParallaxCorrection,
+    math::ops,
+    prelude::*,
+    render::view::Hdr,
+};
 
 use crate::widgets::{WidgetClickEvent, WidgetClickSender};
 
@@ -16,15 +24,14 @@ struct InnerCube;
 /// Since the cubemap image was baked in Blender, which uses a different
 /// exposure setting than that of Bevy, we need this factor in order to make the
 /// exposure of the baked image match ours.
-const ENVIRONMENT_MAP_INTENSITY: f32 = 2000.0;
+const ENVIRONMENT_MAP_INTENSITY: f32 = 100.0;
 
-/// The speed at which the camera rotates in radians per second.
-const CAMERA_ROTATION_SPEED: f32 = 0.25;
-
-/// The speed at which the rotating inner cube rotates about the X axis, in radians per second.
-const INNER_CUBE_ROTATION_SPEED_X: f32 = 1.5;
-/// The speed at which the rotating inner cube rotates about the Z axis, in radians per second.
-const INNER_CUBE_ROTATION_SPEED_Z: f32 = 1.3;
+const OUTER_CUBE_URL: &str =
+    "https://github.com/atlv24/bevy_asset_files/raw/ad/pccm-example/pccm_example/outer_cube.glb#Scene0";
+const ENV_DIFFUSE_URL: &str =
+    "https://github.com/atlv24/bevy_asset_files/raw/ad/pccm-example/pccm_example/env_diffuse.ktx2";
+const ENV_SPECULAR_URL: &str =
+    "https://github.com/atlv24/bevy_asset_files/raw/ad/pccm-example/pccm_example/env_specular.ktx2";
 
 /// The current value of user-customizable settings for this demo.
 #[derive(Resource, Default)]
@@ -46,24 +53,25 @@ enum PccmEnableStatus {
 /// The example entry point.
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins.set(WindowPlugin {
-            primary_window: Some(Window {
-                title: "Bevy Parallax-Corrected Cubemaps Example".into(),
+        .add_plugins((
+            DefaultPlugins.set(WindowPlugin {
+                primary_window: Some(Window {
+                    title: "Bevy Parallax-Corrected Cubemaps Example".into(),
+                    ..default()
+                }),
                 ..default()
             }),
-            ..default()
-        }))
+            FreeCameraPlugin,
+        ))
         .init_resource::<AppStatus>()
         .add_message::<WidgetClickEvent<PccmEnableStatus>>()
         .add_systems(Startup, setup)
-        .add_systems(FixedUpdate, rotate_inner_cube)
         .add_systems(Update, widgets::handle_ui_interactions::<PccmEnableStatus>)
         .add_systems(
             Update,
             (handle_pccm_enable_change, update_radio_buttons)
                 .after(widgets::handle_ui_interactions::<PccmEnableStatus>),
         )
-        .add_systems(Update, rotate_camera)
         .run();
 }
 
@@ -75,9 +83,7 @@ fn setup(
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     // Spawn the glTF scene.
-    commands.spawn(SceneRoot(
-        asset_server.load("models/PCCMExample/PCCMExample.glb#Scene0"),
-    ));
+    commands.spawn(SceneRoot(asset_server.load(OUTER_CUBE_URL)));
 
     spawn_camera(&mut commands);
     spawn_inner_cube(&mut commands, &mut meshes, &mut materials);
@@ -85,31 +91,35 @@ fn setup(
     spawn_buttons(&mut commands);
 }
 
-/// Spawns the rotating camera.
+/// Spawns the camera.
 fn spawn_camera(commands: &mut Commands) {
     commands.spawn((
         Camera3d::default(),
+        FreeCamera::default(),
         Transform::from_xyz(0.0, 0.0, 3.5).looking_at(Vec3::ZERO, Dir3::Y),
         Hdr,
     ));
 }
 
-/// Spawns the inner rotating reflective cube in the center of the scene.
+/// Spawns the inner reflective cube in the scene.
 fn spawn_inner_cube(
     commands: &mut Commands,
     meshes: &mut Assets<Mesh>,
     materials: &mut Assets<StandardMaterial>,
 ) {
     let cube_mesh = meshes.add(
-        Cuboid::default()
-            .mesh()
-            .build()
-            .with_duplicated_vertices()
-            .with_computed_flat_normals(),
+        Cuboid {
+            half_size: Vec3::new(5.0, 1.0, 2.0),
+        }
+        .mesh()
+        .build()
+        .with_duplicated_vertices()
+        .with_computed_flat_normals(),
     );
     let cube_material = materials.add(StandardMaterial {
         base_color: Color::WHITE,
         metallic: 1.0,
+        reflectance: 1.0,
         perceptual_roughness: 0.0,
         ..default()
     });
@@ -117,15 +127,15 @@ fn spawn_inner_cube(
     commands.spawn((
         Mesh3d(cube_mesh),
         MeshMaterial3d(cube_material),
-        Transform::default(),
+        Transform::from_xyz(0.0, -4.0, -2.0),
         InnerCube,
     ));
 }
 
 /// Spawns the reflection probe (i.e. cubemap reflection) in the center of the scene.
 fn spawn_reflection_probe(commands: &mut Commands, asset_server: &AssetServer) {
-    let diffuse_map = asset_server.load("environment_maps/BevyPCCMExample_diffuse.ktx2");
-    let specular_map = asset_server.load("environment_maps/BevyPCCMExample_specular.ktx2");
+    let diffuse_map = asset_server.load(ENV_DIFFUSE_URL);
+    let specular_map = asset_server.load(ENV_SPECULAR_URL);
     commands.spawn((
         LightProbe,
         EnvironmentMapLight {
@@ -134,7 +144,10 @@ fn spawn_reflection_probe(commands: &mut Commands, asset_server: &AssetServer) {
             intensity: ENVIRONMENT_MAP_INTENSITY,
             ..default()
         },
-        Transform::from_scale(Vec3::splat(5.0)),
+        // HACK: slightly larger than 10.0 to avoid z-fighting from the outer cube
+        // faces being partially inside and partially outside the light probe influence
+        // volume. We should have a smooth falloff probe transition option at some point.
+        Transform::from_scale(Vec3::splat(10.01)),
     ));
 }
 
@@ -150,25 +163,6 @@ fn spawn_buttons(commands: &mut Commands) {
             ],
         )],
     ));
-}
-
-/// Rotates the inner reflective cube every frame.
-fn rotate_inner_cube(mut cubes_query: Query<&mut Transform, With<InnerCube>>, time: Res<Time>) {
-    for mut transform in &mut cubes_query {
-        transform.rotate_x(INNER_CUBE_ROTATION_SPEED_X * time.delta_secs());
-        transform.rotate_z(INNER_CUBE_ROTATION_SPEED_Z * time.delta_secs());
-    }
-}
-
-/// Rotates the camera every frame.
-fn rotate_camera(cameras_query: Query<&mut Transform, With<Camera3d>>, time: Res<Time>) {
-    let theta = time.elapsed_secs() * CAMERA_ROTATION_SPEED;
-    for mut camera_transform in cameras_query {
-        let distance_from_center = camera_transform.translation.length();
-        *camera_transform = camera_transform
-            .with_translation(vec3(ops::sin(theta), 0.0, ops::cos(theta)) * distance_from_center)
-            .looking_at(Vec3::ZERO, Vec3::Y);
-    }
 }
 
 /// Handles a change to the parallax correction setting UI.
