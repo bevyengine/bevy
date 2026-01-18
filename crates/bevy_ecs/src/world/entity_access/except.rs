@@ -5,10 +5,10 @@ use crate::{
 
 /// Provides read-only access to a single [`Entity`] and all its components,
 /// except those mentioned in the [`Bundle`] `B` at compile time. This is an
-/// [`EntityRef`] with an [`AccessScope`] of [`Except`].
+/// [`EntityRef`] with an [`AsAccess`] of [`Except`].
 ///
 /// [`Entity`]: crate::world::Entity
-/// [`AccessScope`]: crate::world::AccessScope
+/// [`AsAccess`]: crate::world::AsAccess
 pub type EntityRefExcept<'w, 's, B> = EntityRef<'w, Except<'s, B>>;
 
 impl<'w, 's, B: Bundle> EntityRefExcept<'w, 's, B> {
@@ -16,8 +16,8 @@ impl<'w, 's, B: Bundle> EntityRefExcept<'w, 's, B> {
     /// permissions.
     pub fn into_filtered(self) -> FilteredEntityRef<'w, 's> {
         // SAFETY:
-        // - Read permissions of the `Except` scope are preserved in the `Filtered` scope.
-        unsafe { EntityRef::new(self.cell, Filtered(self.scope().0)) }
+        // - Read permissions of the `Except` access are preserved in the `Filtered` access.
+        unsafe { EntityRef::new(self.cell, Filtered(self.access().0)) }
     }
 }
 
@@ -37,7 +37,7 @@ impl<'w, 's, B: Bundle> From<&EntityRefExcept<'w, 's, B>> for FilteredEntityRef<
 
 /// Provides mutable access to a single [`Entity`] and all its components,
 /// except those mentioned in the [`Bundle`] `B` at compile time. This is an
-/// [`EntityMut`] with an [`AccessScope`] of [`Except`].
+/// [`EntityMut`] with an [`AsAccess`] of [`Except`].
 ///
 /// This is a rather niche type that should only be used if you need access to
 /// *all* components of an entity, while still allowing you to consult other
@@ -46,7 +46,7 @@ impl<'w, 's, B: Bundle> From<&EntityRefExcept<'w, 's, B>> for FilteredEntityRef<
 /// [`Without`](`crate::query::Without`) filter.
 ///
 /// [`Entity`]: crate::world::Entity
-/// [`AccessScope`]: crate::world::AccessScope
+/// [`AsAccess`]: crate::world::AsAccess
 pub type EntityMutExcept<'w, 's, B> = EntityMut<'w, Except<'s, B>>;
 
 impl<'w, 's, B: Bundle> EntityMutExcept<'w, 's, B> {
@@ -55,10 +55,10 @@ impl<'w, 's, B: Bundle> EntityMutExcept<'w, 's, B> {
     #[inline]
     pub fn into_filtered(self) -> FilteredEntityMut<'w, 's> {
         // SAFETY:
-        // - Read and write permissions of the `Except` scope are preserved in
-        //   the `Filtered` scope.
+        // - Read and write permissions of the `Except` access are preserved in
+        //   the `Filtered` access.
         // - Consuming `self` ensures there are no other accesses.
-        unsafe { EntityMut::new(self.cell, Filtered(self.scope().0)) }
+        unsafe { EntityMut::new(self.cell, Filtered(self.access().0)) }
     }
 }
 

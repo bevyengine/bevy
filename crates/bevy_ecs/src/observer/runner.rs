@@ -46,7 +46,7 @@ pub(super) unsafe fn observer_system_runner<E: Event, B: Bundle, S: ObserverSyst
     // SAFETY: Observer was triggered so must have an `Observer`
     let mut state = unsafe {
         observer_cell
-            .get_mut::<Observer>(&All)
+            .get_mut::<Observer>(All)
             .debug_checked_unwrap()
     };
 

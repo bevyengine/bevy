@@ -25,7 +25,7 @@ pub use crate::{
 pub use bevy_ecs_macros::FromWorld;
 pub use deferred_world::DeferredWorld;
 pub use entity_access::{
-    AccessScope, All, ComponentEntry, DynamicComponentFetch, EntityMut, EntityMutExcept, EntityRef,
+    All, AsAccess, ComponentEntry, DynamicComponentFetch, EntityMut, EntityMutExcept, EntityRef,
     EntityRefExcept, EntityWorldMut, Except, Filtered, FilteredEntityMut, FilteredEntityRef,
     OccupiedComponentEntry, TryFromFilteredError, UnsafeFilteredEntityMut, VacantComponentEntry,
 };

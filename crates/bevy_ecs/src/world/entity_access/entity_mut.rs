@@ -4,7 +4,7 @@ use crate::{
     component::{Component, ComponentId, Mutable},
     entity::{ContainsEntity, Entity, EntityEquivalent, EntityLocation},
     world::{
-        error::EntityComponentError, unsafe_world_cell::UnsafeEntityCell, AccessScope, All,
+        error::EntityComponentError, unsafe_world_cell::UnsafeEntityCell, All, AsAccess,
         DynamicComponentFetch, EntityRef, Mut, Ref,
     },
 };
@@ -16,21 +16,21 @@ use core::{
 };
 
 /// Provides mutable access to a single [`Entity`] and the components allowed by
-/// the [`AccessScope`] `S`. Plain `EntityMut`s have an [`AccessScope`]
+/// the [`AsAccess`] `A`. Plain `EntityMut`s have an [`AsAccess`]
 /// of [`All`], providing access to all components of the entity.
 ///
 /// Contrast with [`EntityWorldMut`], which allows adding and removing components,
 /// despawning the entity, and provides mutable access to the entire world.
 /// Because of this, `EntityWorldMut` cannot coexist with any other world accesses.
 ///
-/// # [`AccessScope`]s
+/// # [`AsAccess`]s
 ///
-/// Access scopes describe what you can access on an `EntityMut`. The default
-/// scope is [`All`], which provides access to all components of the entity.
-/// Other scopes, such as [`Filtered`] and [`Except`], can restrict access to
+/// Access kinds describe what you can access on an `EntityMut`. The default
+/// kind is [`All`], which provides access to all components of the entity.
+/// Other kinds, such as [`Filtered`] and [`Except`], can restrict access to
 /// only a subset of components.
 ///
-/// See the documentation of [`AccessScope`] for more details.
+/// See the documentation of [`AsAccess`] for more details.
 ///
 /// # Examples
 ///
@@ -51,49 +51,49 @@ use core::{
 /// [`EntityWorldMut`]: crate::world::EntityWorldMut
 /// [`Filtered`]: crate::world::Filtered
 /// [`Except`]: crate::world::Except
-pub struct EntityMut<'w, S: AccessScope = All> {
+pub struct EntityMut<'w, A: AsAccess = All> {
     pub(super) cell: UnsafeEntityCell<'w>,
-    scope: S,
+    access: A,
 }
 
-impl<'w, S: AccessScope> EntityMut<'w, S> {
+impl<'w, A: AsAccess> EntityMut<'w, A> {
     /// # Safety
     ///
-    /// Caller must ensure `scope` does not exceed the read or write permissions
+    /// Caller must ensure `access` does not exceed the read or write permissions
     /// of `cell` in a way that would violate Rust's aliasing rules, including
     /// simultaneous access of `cell` via another `EntityMut`, `EntityRef`, or
     /// any other means.
     #[inline]
-    pub(crate) unsafe fn new(cell: UnsafeEntityCell<'w>, scope: S) -> Self {
-        Self { cell, scope }
+    pub(crate) unsafe fn new(cell: UnsafeEntityCell<'w>, access: A) -> Self {
+        Self { cell, access }
     }
 
     /// Returns a new instance with a shorter lifetime.
     /// This is useful if you have `&mut EntityMut`, but you need `EntityMut`.
     #[inline]
-    pub fn reborrow(&mut self) -> EntityMut<'_, S::Borrow<'_>> {
+    pub fn reborrow(&mut self) -> EntityMut<'_, A> {
         // SAFETY: We have exclusive access to the entire entity and its components.
-        unsafe { EntityMut::new(self.cell, self.scope.reborrow()) }
+        unsafe { EntityMut::new(self.cell, self.access) }
     }
 
     /// Consumes `self` and returns a [`EntityRef`] with the same access
     /// permissions.
     #[inline]
-    pub fn into_readonly(self) -> EntityRef<'w, S> {
+    pub fn into_readonly(self) -> EntityRef<'w, A> {
         // SAFETY:
-        // - Read permissions of `entity.scope` are preserved.
+        // - Read permissions of `entity.access` are preserved.
         // - Consuming `entity` ensures there are no mutable accesses.
-        unsafe { EntityRef::new(self.cell, self.scope) }
+        unsafe { EntityRef::new(self.cell, self.access) }
     }
 
     /// Borrows `self` and returns a [`EntityRef`] with the same access
     /// permissions.
     #[inline]
-    pub fn as_readonly(&self) -> EntityRef<'_, S::Borrow<'_>> {
+    pub fn as_readonly(&self) -> EntityRef<'_, A> {
         // SAFETY:
-        // - Read permissions of `&entity.scope` are preserved.
+        // - Read permissions of `&entity.access` are preserved.
         // - `&entity` ensures there are no mutable accesses.
-        unsafe { EntityRef::new(self.cell, self.scope.reborrow()) }
+        unsafe { EntityRef::new(self.cell, self.access) }
     }
 
     /// Get access to the underlying [`UnsafeEntityCell`].
@@ -102,16 +102,10 @@ impl<'w, S: AccessScope> EntityMut<'w, S> {
         self.cell
     }
 
-    /// Returns a reference to the current [`AccessScope`].
+    /// Returns a copy of the current [`AsAccess`].
     #[inline]
-    pub fn scope(&self) -> &S {
-        &self.scope
-    }
-
-    /// Consumes self and returns the current [`AccessScope`].
-    #[inline]
-    pub fn into_scope(self) -> S {
-        self.scope
+    pub fn access(&self) -> A {
+        self.access
     }
 
     /// Returns the [ID](Entity) of the current entity.
@@ -229,10 +223,10 @@ impl<'w, S: AccessScope> EntityMut<'w, S> {
     #[inline]
     pub fn into_mut<T: Component<Mutability = Mutable>>(self) -> Option<Mut<'w, T>> {
         // SAFETY:
-        // - `self` was constructed with a `scope` that doesn't violate aliasing
+        // - `self` was constructed with an `access` that doesn't violate aliasing
         //   rules for `cell`.
-        // - Consuming `self` implies exclusive access to components in `scope`.
-        unsafe { self.cell.get_mut(&self.scope) }
+        // - Consuming `self` implies exclusive access to components in `access`.
+        unsafe { self.cell.get_mut(self.access) }
     }
 
     /// Gets mutable access to the component of type `T` for the current entity.
@@ -244,11 +238,11 @@ impl<'w, S: AccessScope> EntityMut<'w, S> {
     #[inline]
     pub unsafe fn into_mut_assume_mutable<T: Component>(self) -> Option<Mut<'w, T>> {
         // SAFETY:
-        // - `self` was constructed with a `scope` that doesn't violate aliasing
+        // - `self` was constructed with an `access` that doesn't violate aliasing
         //   rules for `cell`.
-        // - Consuming `self` implies exclusive access to components in `scope`.
+        // - Consuming `self` implies exclusive access to components in `access`.
         // - Caller ensures `T` is a mutable component.
-        unsafe { self.cell.get_mut_assume_mutable(&self.scope) }
+        unsafe { self.cell.get_mut_assume_mutable(self.access) }
     }
 
     /// Retrieves the change ticks for the given component. This can be useful for implementing change
@@ -500,11 +494,11 @@ impl<'w, S: AccessScope> EntityMut<'w, S> {
         component_ids: F,
     ) -> Result<F::Mut<'_>, EntityComponentError> {
         // SAFETY:
-        // - `self` was constructed with a `scope` that doesn't violate aliasing
+        // - `self` was constructed with an `access` that doesn't violate aliasing
         //   rules for `cell`.
-        // - Caller ensures exclusive access to components in `scope` for
+        // - Caller ensures exclusive access to components in `access` for
         //   duration of returned value.
-        unsafe { component_ids.fetch_mut(self.cell, &self.scope) }
+        unsafe { component_ids.fetch_mut(self.cell, self.access) }
     }
 
     /// Returns untyped mutable reference to component for
@@ -532,12 +526,12 @@ impl<'w, S: AccessScope> EntityMut<'w, S> {
         component_ids: F,
     ) -> Result<F::Mut<'_>, EntityComponentError> {
         // SAFETY:
-        // - `self` was constructed with a `scope` that doesn't violate aliasing
+        // - `self` was constructed with an `access` that doesn't violate aliasing
         //   rules for `cell`.
-        // - Caller ensures exclusive access to components in `scope` for
+        // - Caller ensures exclusive access to components in `access` for
         //   duration of returned value.
         // - Caller ensures provided `ComponentId`s refer to mutable components.
-        unsafe { component_ids.fetch_mut_assume_mutable(self.cell, &self.scope) }
+        unsafe { component_ids.fetch_mut_assume_mutable(self.cell, self.access) }
     }
 
     /// Consumes `self` and returns untyped mutable reference(s)
@@ -568,10 +562,10 @@ impl<'w, S: AccessScope> EntityMut<'w, S> {
         component_ids: F,
     ) -> Result<F::Mut<'w>, EntityComponentError> {
         // SAFETY:
-        // - `self` was constructed with a `scope` that doesn't violate aliasing
+        // - `self` was constructed with an `access` that doesn't violate aliasing
         //   rules for `cell`.
-        // - Consuming `self` implies exclusive access to components in `scope`.
-        unsafe { component_ids.fetch_mut(self.cell, &self.scope) }
+        // - Consuming `self` implies exclusive access to components in `access`.
+        unsafe { component_ids.fetch_mut(self.cell, self.access) }
     }
 
     /// Consumes `self` and returns untyped mutable reference(s)
@@ -603,11 +597,11 @@ impl<'w, S: AccessScope> EntityMut<'w, S> {
         component_ids: F,
     ) -> Result<F::Mut<'w>, EntityComponentError> {
         // SAFETY:
-        // - `self` was constructed with a `scope` that doesn't violate aliasing
+        // - `self` was constructed with an `access` that doesn't violate aliasing
         //   rules for `cell`.
-        // - Consuming `self` implies exclusive access to components in `scope`.
+        // - Consuming `self` implies exclusive access to components in `access`.
         // - Caller ensures provided `ComponentId`s refer to mutable components.
-        unsafe { component_ids.fetch_mut_assume_mutable(self.cell, &self.scope) }
+        unsafe { component_ids.fetch_mut_assume_mutable(self.cell, self.access) }
     }
 
     /// Returns the source code location from which this entity has been spawned.
@@ -621,36 +615,36 @@ impl<'w, S: AccessScope> EntityMut<'w, S> {
     }
 }
 
-impl<'w, S: AccessScope> From<EntityMut<'w, S>> for EntityRef<'w, S> {
+impl<'w, A: AsAccess> From<EntityMut<'w, A>> for EntityRef<'w, A> {
     #[inline]
-    fn from(entity: EntityMut<'w, S>) -> Self {
+    fn from(entity: EntityMut<'w, A>) -> Self {
         entity.into_readonly()
     }
 }
 
-impl<'w, S: AccessScope> From<&'w EntityMut<'_, S>> for EntityRef<'w, S::Borrow<'w>> {
+impl<'w, A: AsAccess> From<&'w EntityMut<'_, A>> for EntityRef<'w, A> {
     #[inline]
-    fn from(entity: &'w EntityMut<'_, S>) -> Self {
+    fn from(entity: &'w EntityMut<'_, A>) -> Self {
         entity.as_readonly()
     }
 }
 
-impl<'w, S: AccessScope> From<&'w mut EntityMut<'_, S>> for EntityMut<'w, S::Borrow<'w>> {
+impl<'w, A: AsAccess> From<&'w mut EntityMut<'_, A>> for EntityMut<'w, A> {
     #[inline]
-    fn from(entity: &'w mut EntityMut<'_, S>) -> Self {
+    fn from(entity: &'w mut EntityMut<'_, A>) -> Self {
         entity.reborrow()
     }
 }
 
-impl<S: AccessScope> PartialEq for EntityMut<'_, S> {
+impl<A: AsAccess> PartialEq for EntityMut<'_, A> {
     fn eq(&self, other: &Self) -> bool {
         self.entity() == other.entity()
     }
 }
 
-impl<S: AccessScope> Eq for EntityMut<'_, S> {}
+impl<A: AsAccess> Eq for EntityMut<'_, A> {}
 
-impl<S: AccessScope> PartialOrd for EntityMut<'_, S> {
+impl<A: AsAccess> PartialOrd for EntityMut<'_, A> {
     /// [`EntityMut`]'s comparison trait implementations match the underlying [`Entity`],
     /// and cannot discern between different worlds.
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
@@ -658,23 +652,23 @@ impl<S: AccessScope> PartialOrd for EntityMut<'_, S> {
     }
 }
 
-impl<S: AccessScope> Ord for EntityMut<'_, S> {
+impl<A: AsAccess> Ord for EntityMut<'_, A> {
     fn cmp(&self, other: &Self) -> Ordering {
         self.entity().cmp(&other.entity())
     }
 }
 
-impl<S: AccessScope> Hash for EntityMut<'_, S> {
+impl<A: AsAccess> Hash for EntityMut<'_, A> {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.entity().hash(state);
     }
 }
 
-impl<S: AccessScope> ContainsEntity for EntityMut<'_, S> {
+impl<A: AsAccess> ContainsEntity for EntityMut<'_, A> {
     fn entity(&self) -> Entity {
         self.id()
     }
 }
 
 // SAFETY: This type represents one Entity. We implement the comparison traits based on that Entity.
-unsafe impl<S: AccessScope> EntityEquivalent for EntityMut<'_, S> {}
+unsafe impl<A: AsAccess> EntityEquivalent for EntityMut<'_, A> {}

@@ -383,7 +383,7 @@ impl<C: Component + Reflect + TypePath> FromType<C> for ReflectComponent {
                 // SAFETY: reflect_unchecked_mut is an unsafe function pointer used by
                 // `reflect_unchecked_mut` which must be called with an UnsafeEntityCell with access to the component `C` on the `entity`
                 // guard ensures `C` is a mutable component
-                let c = unsafe { entity.get_mut_assume_mutable::<C>(&All) };
+                let c = unsafe { entity.get_mut_assume_mutable::<C>(All) };
                 c.map(|c| c.map_unchanged(|value| value as &mut dyn Reflect))
             },
             register_component: |world: &mut World| -> ComponentId {

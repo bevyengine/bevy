@@ -9,7 +9,7 @@ use thiserror::Error;
 
 /// Provides read-only access to a single [`Entity`] and some of its components,
 /// as defined by the contained [`Access`] at runtime. This is an [`EntityRef`]
-/// with an [`AccessScope`] of [`Filtered`].
+/// with an [`AsAccess`] of [`Filtered`].
 ///
 /// To define the access when used as a [`QueryData`], use a [`QueryBuilder`] or
 /// [`QueryParamBuilder`]. The [`FilteredEntityRef`] must be the entire
@@ -34,20 +34,13 @@ use thiserror::Error;
 /// ```
 ///
 /// [`Entity`]: crate::world::Entity
-/// [`AccessScope`]: crate::world::AccessScope
+/// [`AsAccess`]: crate::world::AsAccess
 /// [`QueryData`]: crate::query::QueryData
 /// [`QueryBuilder`]: crate::query::QueryBuilder
 /// [`QueryParamBuilder`]: crate::system::QueryParamBuilder
 pub type FilteredEntityRef<'w, 's> = EntityRef<'w, Filtered<'s>>;
 
 impl<'w, 's> FilteredEntityRef<'w, 's> {
-    /// Returns a reference to the underlying [`Access`].
-    #[inline]
-    #[deprecated(since = "0.19.0", note = "Use `EntityRef::scope()` instead.")]
-    pub fn access(&self) -> &Access {
-        self.scope().0
-    }
-
     /// Consumes `self` and attempts to return an [`EntityRef`] with [`All`]
     /// access.
     ///
@@ -56,11 +49,11 @@ impl<'w, 's> FilteredEntityRef<'w, 's> {
     /// Returns [`TryFromFilteredError::MissingReadAllAccess`] if the contained
     /// [`Access`] does not have read access to all components.
     pub fn try_into_all(self) -> Result<EntityRef<'w>, TryFromFilteredError> {
-        if !self.scope().has_read_all() {
+        if !self.access().has_read_all() {
             Err(TryFromFilteredError::MissingReadAllAccess)
         } else {
-            // SAFETY: `Access::has_read_all` check satisfies the `All` scope
-            // for `EntityRef`.
+            // SAFETY: `Access::has_read_all` check satisfies the `All` access
+            // kind for `EntityRef`.
             Ok(unsafe { EntityRef::new(self.cell, All) })
         }
     }
@@ -126,7 +119,7 @@ impl<'w, 's> UnsafeFilteredEntityMut<'w, 's> {
     pub fn new_readonly(filtered_entity_mut: &FilteredEntityMut<'w, 's>) -> Self {
         Self {
             entity: filtered_entity_mut.cell,
-            access: filtered_entity_mut.scope().0,
+            access: filtered_entity_mut.access().0,
         }
     }
 
@@ -142,7 +135,7 @@ impl<'w, 's> UnsafeFilteredEntityMut<'w, 's> {
 
 /// Provides mutable access to a single [`Entity`] and some of its components,
 /// as defined by the contained [`Access`] at runtime. This is an [`EntityMut`]
-/// with an [`AccessScope`] of [`Filtered`].
+/// with an [`AsAccess`] of [`Filtered`].
 ///
 /// To define the access when used as a [`QueryData`], use a [`QueryBuilder`] or
 /// [`QueryParamBuilder`]. The `FilteredEntityMut` must be the entire
@@ -169,20 +162,13 @@ impl<'w, 's> UnsafeFilteredEntityMut<'w, 's> {
 /// Also see [`UnsafeFilteredEntityMut`] for a way to bypass borrow-checker restrictions.
 ///
 /// [`Entity`]: crate::world::Entity
-/// [`AccessScope`]: crate::world::AccessScope
+/// [`AsAccess`]: crate::world::AsAccess
 /// [`QueryData`]: crate::query::QueryData
 /// [`QueryBuilder`]: crate::query::QueryBuilder
 /// [`QueryParamBuilder`]: crate::system::QueryParamBuilder
 pub type FilteredEntityMut<'w, 's> = EntityMut<'w, Filtered<'s>>;
 
 impl<'w, 's> FilteredEntityMut<'w, 's> {
-    /// Returns a reference to the underlying [`Access`].
-    #[inline]
-    #[deprecated(since = "0.19.0", note = "Use `EntityMut::scope()` instead.")]
-    pub fn access(&self) -> &Access {
-        self.scope().0
-    }
-
     /// Consumes `self` and attempts to return an [`EntityMut`] with [`All`] access.
     ///
     /// # Errors
@@ -192,13 +178,13 @@ impl<'w, 's> FilteredEntityMut<'w, 's> {
     /// - Returns [`TryFromFilteredError::MissingWriteAllAccess`] if the contained
     ///   [`Access`] does not have write access to all components.
     pub fn try_into_all(self) -> Result<EntityMut<'w>, TryFromFilteredError> {
-        if !self.scope().has_read_all() {
+        if !self.access().has_read_all() {
             Err(TryFromFilteredError::MissingReadAllAccess)
-        } else if !self.scope().has_write_all() {
+        } else if !self.access().has_write_all() {
             Err(TryFromFilteredError::MissingWriteAllAccess)
         } else {
             // SAFETY: `Access::has_read_all` and `Access::has_write_all` checks
-            // satisfy the `All` scope for `EntityMut`.
+            // satisfy the `All` access for `EntityMut`.
             Ok(unsafe { EntityMut::new(self.cell, All) })
         }
     }
@@ -241,8 +227,7 @@ impl<'w> TryFrom<&'w mut FilteredEntityMut<'_, '_>> for EntityMut<'w> {
 }
 
 /// Error type returned by [`TryFrom`] conversions from [`EntityRef`]/[`EntityMut`]
-/// entity reference types with [`Filtered`] access scopes to ones with [`All`]
-/// access scopes.
+/// entity reference types with [`Filtered`] access to ones with [`All`] access.
 #[derive(Error, Debug)]
 pub enum TryFromFilteredError {
     /// Error indicating that the filtered entity does not have read access to

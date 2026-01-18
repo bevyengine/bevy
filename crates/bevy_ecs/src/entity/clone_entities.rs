@@ -635,7 +635,7 @@ impl EntityCloner {
                 // - `component` is from `source_entity`'s archetype
                 let source_component_ptr = unsafe {
                     source_entity
-                        .get_by_id(&All, component)
+                        .get_by_id(All, component)
                         .debug_checked_unwrap()
                 };
 

@@ -8,7 +8,7 @@ impl<'w> EntityRef<'w, All> {
     /// all components.
     pub fn into_filtered(self) -> FilteredEntityRef<'w, 'static> {
         // SAFETY:
-        // - `Access:new_read_all` equals the read permissions of `self`'s `All` scope.
+        // - `Access:new_read_all` equals the read permissions of `self`'s `All` access.
         unsafe { EntityRef::new(self.cell, Filtered(const { &Access::new_read_all() })) }
     }
 
@@ -54,7 +54,7 @@ impl<'w> EntityMut<'w, All> {
     #[inline]
     pub fn into_filtered(self) -> FilteredEntityMut<'w, 'static> {
         // SAFETY:
-        // - `Access::new_write_all` equals the read and write permissions of `entity`'s `All` scope.
+        // - `Access::new_write_all` equals the read and write permissions of `entity`'s `All` access.
         // - Consuming `self` ensures there are no other accesses.
         unsafe { EntityMut::new(self.cell, Filtered(const { &Access::new_write_all() })) }
     }

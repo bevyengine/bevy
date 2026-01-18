@@ -1,5 +1,5 @@
 ---
-title: "`UnsafeEntityCell` functions now have an `AccessScope` parameter"
+title: "`UnsafeEntityCell` functions now have an `AccessKind` parameter"
 pull_requests: [22538]
 ---
 
@@ -14,7 +14,7 @@ The following functions now return a `Result` with a proper error, instead of an
 - `EntityMutExcept::get_by_id`
 - `EntityMutExcept::get_mut_by_id`
 
-The following functions now take an `AccessScope` as an additional argument.
+The following functions now take an `AccessKind` as an additional argument.
 You should pass a scope that most closely matches your access patterns, and
 ensure it abides by Rust aliasing rules.
 
