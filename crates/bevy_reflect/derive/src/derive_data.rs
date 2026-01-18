@@ -1247,17 +1247,17 @@ impl<'a> ReflectTypePath<'a> {
         mut ty_generic_fn: impl FnMut(&TypeParam) -> StringExpr,
         bevy_reflect_path: &Path,
     ) -> StringExpr {
-        let mut params = generics.params.iter().filter_map(|param| match param {
-            GenericParam::Type(type_param) => Some(ty_generic_fn(type_param)),
+        let mut params = generics.params.iter().map(|param| match param {
+            GenericParam::Type(type_param) => ty_generic_fn(type_param),
             GenericParam::Const(const_param) => {
                 let ident = &const_param.ident;
                 let ty = &const_param.ty;
 
-                Some(StringExpr::Owned(quote! {
+                StringExpr::Owned(quote! {
                     <#ty as #bevy_reflect_path::__macro_exports::alloc_utils::ToString>::to_string(&#ident)
-                }))
+                })
             }
-            GenericParam::Lifetime(_) => None,
+            GenericParam::Lifetime(_) => StringExpr::from_str("'_"),
         });
 
         params
@@ -1278,7 +1278,7 @@ impl<'a> ReflectTypePath<'a> {
                 let ident = self.type_ident().unwrap();
                 let module_path = self.module_path().unwrap();
 
-                if self.impl_is_generic() {
+                if !generics.params.is_empty() {
                     let generics = ReflectTypePath::reduce_generics(
                         generics,
                         |TypeParam { ident, .. }| {
@@ -1316,7 +1316,7 @@ impl<'a> ReflectTypePath<'a> {
             Self::External { generics, .. } | Self::Internal { generics, .. } => {
                 let ident = self.type_ident().unwrap();
 
-                if self.impl_is_generic() {
+                if !generics.params.is_empty() {
                     let generics = ReflectTypePath::reduce_generics(
                         generics,
                         |TypeParam { ident, .. }| {

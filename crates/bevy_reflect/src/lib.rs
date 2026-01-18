@@ -2597,7 +2597,18 @@ mod tests {
             (Type,) => "(Long,)", "(Short,)",
             (Type, Type) => "(Long, Long)", "(Short, Short)",
             (Type, Type, Type) => "(Long, Long, Long)", "(Short, Short, Short)",
-            Cow<'static, Type> => "alloc::borrow::Cow<Long>", "Cow<Short>",
+            Cow<'static, Type> => "alloc::borrow::Cow<'_, Long>", "Cow<'_, Short>",
+        }
+
+        #[expect(
+            dead_code,
+            reason = "field 0 carries the lifetime which is used in the type path"
+        )]
+        #[derive(TypePath)]
+        struct WithLifetime<'a>(&'a ());
+
+        assert_type_paths! {
+            WithLifetime<'static> => "bevy_reflect::tests::WithLifetime<'_>", "WithLifetime<'_>",
         }
     }
 
