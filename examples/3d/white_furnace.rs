@@ -5,14 +5,16 @@
 use bevy::{
     asset::RenderAssetUsages,
     camera::ScalingMode,
-    core_pipeline::{Skybox, tonemapping::Tonemapping},
+    core_pipeline::{tonemapping::Tonemapping, Skybox},
     image::Image,
     prelude::*,
-    render::render_resource::{
-        Extent3d, TextureDimension, TextureFormat, TextureViewDescriptor, TextureViewDimension,
+    render::{
+        render_resource::{
+            Extent3d, TextureDimension, TextureFormat, TextureViewDescriptor, TextureViewDimension,
+        },
+        view::Hdr,
     },
 };
-use bevy_render::view::Hdr;
 
 fn main() {
     App::new()
@@ -26,15 +28,17 @@ fn create_white_cubemap(size: u32) -> Image {
     // f16 bytes for 1.0 (white): [0, 60] in little-endian
     const WHITE_F16: [u8; 2] = [0, 60];
     const WHITE_PIXEL: [u8; 8] = [
-        WHITE_F16[0], WHITE_F16[1], // R
-        WHITE_F16[0], WHITE_F16[1], // G
-        WHITE_F16[0], WHITE_F16[1], // B
-        WHITE_F16[0], WHITE_F16[1], // A
+        WHITE_F16[0],
+        WHITE_F16[1], // R
+        WHITE_F16[0],
+        WHITE_F16[1], // G
+        WHITE_F16[0],
+        WHITE_F16[1], // B
+        WHITE_F16[0],
+        WHITE_F16[1], // A
     ];
-    
-    let pixel_data: Vec<u8> = (0..6 * size * size)
-        .flat_map(|_| WHITE_PIXEL)
-        .collect();
+
+    let pixel_data: Vec<u8> = (0..6 * size * size).flat_map(|_| WHITE_PIXEL).collect();
 
     Image {
         texture_view_descriptor: Some(TextureViewDescriptor {
