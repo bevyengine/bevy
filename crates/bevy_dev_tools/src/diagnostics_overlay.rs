@@ -257,8 +257,9 @@ fn rebuild_diagnostics_list(
                 .map(|diagnostic| {
                     format!(
                         "{}{}",
-                        diagnostic
-                            .value()
+                        diagnostic_overlay_item
+                            .statistic
+                            .fetch(diagnostic)
                             .as_ref()
                             .map(ToString::to_string)
                             .unwrap_or("No sample".to_owned()),
