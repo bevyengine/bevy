@@ -45,7 +45,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         TextFont {
                             font: font.clone(),
                             font_size: 32.0,
-                            weight: 100.into(),
+                            weight: FontWeight(100),
                             ..default()
                         },
                     ),
@@ -54,7 +54,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         TextFont {
                             font: font.clone(),
                             font_size: 32.0,
-                            weight: 134.into(),
+                            weight: FontWeight(134),
                             ..default()
                         },
                     ),
@@ -63,7 +63,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         TextFont {
                             font: font.clone(),
                             font_size: 32.0,
-                            weight: 200.into(),
+                            weight: FontWeight(200),
                             ..default()
                         },
                     ),
@@ -72,7 +72,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         TextFont {
                             font: font.clone(),
                             font_size: 32.0,
-                            weight: 300.into(),
+                            weight: FontWeight(300),
                             ..default()
                         },
                     ),
@@ -81,7 +81,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         TextFont {
                             font: font.clone(),
                             font_size: 32.0,
-                            weight: 400.into(),
+                            weight: FontWeight(400),
                             ..default()
                         },
                     ),
@@ -90,7 +90,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         TextFont {
                             font: font.clone(),
                             font_size: 32.0,
-                            weight: 500.into(),
+                            weight: FontWeight(500),
                             ..default()
                         },
                     ),
@@ -99,7 +99,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         TextFont {
                             font: font.clone(),
                             font_size: 32.0,
-                            weight: 600.into(),
+                            weight: FontWeight(600),
                             ..default()
                         },
                     ),
@@ -108,7 +108,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         TextFont {
                             font: font.clone(),
                             font_size: 32.0,
-                            weight: 700.into(),
+                            weight: FontWeight(700),
                             ..default()
                         },
                     ),
@@ -117,7 +117,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         TextFont {
                             font: font.clone(),
                             font_size: 32.0,
-                            weight: 800.into(),
+                            weight: FontWeight(800),
                             ..default()
                         },
                     ),
@@ -126,7 +126,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         TextFont {
                             font: font.clone(),
                             font_size: 32.0,
-                            weight: 900.into(),
+                            weight: FontWeight(900),
                             ..default()
                         },
                     ),
@@ -135,7 +135,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         TextFont {
                             font: font.clone(),
                             font_size: 32.0,
-                            weight: 950.into(),
+                            weight: FontWeight(950),
                             ..default()
                         },
                     )
