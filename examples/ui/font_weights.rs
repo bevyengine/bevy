@@ -41,86 +41,104 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 },
                 children![
                     (
-                        Text::new("Weight 100 (Thin)"),
+                        Text::new("Weight 100"),
                         TextFont {
                             font: font.clone(),
                             font_size: 32.0,
-                            weight: FontWeight::THIN, // 100
+                            weight: 100.into(),
                             ..default()
                         },
                     ),
                     (
-                        Text::new("Weight 200 (Extra Light)"),
+                        Text::new("Weight 134"),
                         TextFont {
                             font: font.clone(),
                             font_size: 32.0,
-                            weight: FontWeight::EXTRA_LIGHT, // 200
+                            weight: 134.into(),
                             ..default()
                         },
                     ),
                     (
-                        Text::new("Weight 300 (Light)"),
+                        Text::new("Weight 200"),
                         TextFont {
                             font: font.clone(),
                             font_size: 32.0,
-                            weight: FontWeight::LIGHT, // 300
+                            weight: 200.into(),
                             ..default()
                         },
                     ),
                     (
-                        Text::new("Weight 400 (Normal)"),
+                        Text::new("Weight 300"),
                         TextFont {
                             font: font.clone(),
                             font_size: 32.0,
-                            weight: FontWeight::NORMAL, // 400
+                            weight: 300.into(),
                             ..default()
                         },
                     ),
                     (
-                        Text::new("Weight 500 (Medium)"),
+                        Text::new("Weight 400"),
                         TextFont {
                             font: font.clone(),
                             font_size: 32.0,
-                            weight: FontWeight::MEDIUM, // 500
+                            weight: 400.into(),
                             ..default()
                         },
                     ),
                     (
-                        Text::new("Weight 600 (Semibold)"),
+                        Text::new("Weight 500"),
                         TextFont {
                             font: font.clone(),
                             font_size: 32.0,
-                            weight: FontWeight::SEMIBOLD, // 600
+                            weight: 500.into(),
                             ..default()
                         },
                     ),
                     (
-                        Text::new("Weight 700 (Bold)"),
+                        Text::new("Weight 600"),
                         TextFont {
                             font: font.clone(),
                             font_size: 32.0,
-                            weight: FontWeight::BOLD, // 700
+                            weight: 600.into(),
                             ..default()
                         },
                     ),
                     (
-                        Text::new("Weight 800 (Extra Bold)"),
+                        Text::new("Weight 700"),
                         TextFont {
                             font: font.clone(),
                             font_size: 32.0,
-                            weight: FontWeight::EXTRA_BOLD, // 800
+                            weight: 700.into(),
                             ..default()
                         },
                     ),
                     (
-                        Text::new("Weight 900 (Black)"),
+                        Text::new("Weight 800"),
                         TextFont {
                             font: font.clone(),
                             font_size: 32.0,
-                            weight: FontWeight::BLACK, // 900
+                            weight: 800.into(),
                             ..default()
                         },
                     ),
+                    (
+                        Text::new("Weight 900"),
+                        TextFont {
+                            font: font.clone(),
+                            font_size: 32.0,
+                            weight: 900.into(),
+                            ..default()
+                        },
+                    ),
+                    (
+                        Text::new("Weight 950"),
+                        TextFont {
+                            font: font.clone(),
+                            font_size: 32.0,
+                            weight: 950.into(),
+                            ..default()
+                        },
+                    )
                 ]
             ),
         ],
