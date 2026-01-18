@@ -40,13 +40,13 @@
         const isImmutable = [...associatedTypeHeader].some(el => el.innerText.includes('type Mutability = Immutable'));
 
         // Create a tag for each implemented trait.
-        for (let [tagName, href] of implementedBevyTraits) {
+        for (let [tagName, [href, requiredComponents]] of implementedBevyTraits) {
             if (tagName == 'Component' & isImmutable) {
                 tagName = 'Immutable Component';
             }
 
             // Create the tag and append it to the container.
-            tagContainer.appendChild(createBevyTag(tagName, href));
+            tagContainer.appendChild(createBevyTag(tagName, href, requiredComponents));
         }
     }
 
@@ -65,12 +65,29 @@
             // This results in ['impl', 'TraitName', 'for', 'TypeName'].
             const traitName = removeGenerics(header.innerText).split(' ')[1].trim();
 
+            let requiredComponents = [];
+            if (traitName === 'Component') {
+                const docblock = Array.from(header.parentNode.children)
+                    .find(child => child.classList.contains('docblock'));
+                if (docblock) {
+                    for (const el of docblock.children[0].children) {
+                        let code;
+                        if (el.nodeName === 'A') {
+                            code = el.children[0];
+                            requiredComponents.push([code.innerText, el.getAttribute('href')]);
+                        } else if (el.nodeName === 'CODE') {
+                            requiredComponents.push([el.innerText]);
+                        }
+                    }
+                }
+            }
+
             // Find the link to the trait if the anchor element exists.
             // Otherwise, the trait is just in plain text.
             const traitLinkEl = [...header.children].find(el => el.getAttribute('href')?.includes(`trait.${traitName}.html`));
             const href = traitLinkEl?.getAttribute('href');
 
-            implementedTraits.set(traitName, href);
+            implementedTraits.set(traitName, [href, requiredComponents]);
         }
 
         const implementedBevyTraits = new Map(
@@ -97,7 +114,7 @@
 
     // Helper function to create a tag element with the given name and href,
     // if available.
-    function createBevyTag(tagName, href) {
+    function createBevyTag(tagName, href, requiredComponents) {
         const el = document.createElement('a');
         const kebabCaseName = tagName.toLowerCase().replace(' ', '-');
 
@@ -107,6 +124,28 @@
 
         el.innerText = tagName;
         el.className = `bevy-tag ${kebabCaseName}-tag`;
+
+        if (requiredComponents.length > 0) {
+            const tooltip = document.createElement('span');
+            tooltip.innerText = 'Required Components:';
+            tooltip.className = 'bevy-tooltip';
+
+            const ul = document.createElement('ul');
+            for (const [component, componentHref] of requiredComponents) {
+                const li = document.createElement('li');
+                const a = document.createElement('a');
+                if (componentHref) {
+                    a.setAttribute('href', componentHref);
+                }
+                a.innerText = component;
+                li.appendChild(a);
+                ul.appendChild(li);
+            }
+
+            tooltip.appendChild(ul);
+            el.appendChild(tooltip);
+        }
+
         return el;
     }
 </script>
@@ -129,6 +168,20 @@
         font-size: 1rem;
         font-weight: normal;
         color: white;
+    }
+
+    .bevy-tooltip {
+        visibility: hidden;
+        position: absolute;
+        top: 5.5rem;
+        background-color: BLACK;
+        border-radius: 10px;
+        padding: 0 0.5rem;
+        z-index: 1;
+    }
+
+    .bevy-tag:hover .bevy-tooltip {
+        visibility: visible;
     }
 
     .bevy-tag {
