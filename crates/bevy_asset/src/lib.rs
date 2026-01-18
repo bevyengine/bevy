@@ -2906,4 +2906,110 @@ mod tests {
         // Now that the dependency is loaded, the subasset is counted as loaded with dependencies!
         assert!(asset_server.is_loaded_with_dependencies(&subasset_handle));
     }
+
+    #[test]
+    fn immediate_nested_subasset_does_not_prevent_normal_load() {
+        let (mut app, dir) = create_app();
+
+        #[derive(TypePath)]
+        struct LoadsImmediateNestedSubasset {
+            has_subasset_sender: Sender<()>,
+            finish_load_receiver: Receiver<()>,
+        }
+
+        impl AssetLoader for LoadsImmediateNestedSubasset {
+            type Asset = CoolText;
+            type Settings = ();
+            type Error = std::io::Error;
+
+            async fn load(
+                &self,
+                _reader: &mut dyn Reader,
+                _settings: &Self::Settings,
+                load_context: &mut LoadContext<'_>,
+            ) -> Result<Self::Asset, Self::Error> {
+                let target: LoadedAsset<CoolText> = load_context
+                    .loader()
+                    .immediate()
+                    .load("target.cool.ron")
+                    .await
+                    .unwrap();
+
+                // We have the subasset. So tell the main thread.
+                self.has_subasset_sender.send(()).await.unwrap();
+
+                // Wait for the main thread to do its business.
+                self.finish_load_receiver.recv().await.unwrap();
+
+                // **Don't** add the `LoadedAsset` we get from the immediate load. This means that
+                // the subasset of the nested asset never gets sent to the ECS.
+                Ok(CoolText {
+                    text: target
+                        .get_labeled("hehe")
+                        .unwrap()
+                        .get::<SubText>()
+                        .unwrap()
+                        .text
+                        .clone(),
+                    ..Default::default()
+                })
+            }
+
+            fn extensions(&self) -> &[&str] {
+                &["blah"]
+            }
+        }
+
+        let (has_subasset_sender, has_subasset_receiver) = async_channel::bounded(1);
+        let (finish_load_sender, finish_load_receiver) = async_channel::bounded(1);
+
+        app.init_asset::<TestAsset>()
+            .init_asset::<CoolText>()
+            .init_asset::<SubText>()
+            .register_asset_loader(CoolTextLoader)
+            .register_asset_loader(LoadsImmediateNestedSubasset {
+                has_subasset_sender,
+                finish_load_receiver,
+            });
+
+        // We just need some data the loader can pretend to load.
+        dir.insert_asset_text(Path::new("abc.blah"), "");
+        dir.insert_asset_text(
+            Path::new("target.cool.ron"),
+            r#"(
+    text: "a",
+    dependencies: [],
+    embedded_dependencies: [],
+    sub_texts: ["hehe"],
+)"#,
+        );
+
+        let asset_server = app.world().resource::<AssetServer>().clone();
+        let root_asset_handle: Handle<CoolText> = asset_server.load("abc.blah");
+
+        run_app_until(&mut app, |_| {
+            has_subasset_receiver.try_recv().is_ok().then_some(())
+        });
+
+        // Try to load the subasset for the nested asset.
+        let nested_subasset_handle: Handle<CoolText> = asset_server.load("target.cool.ron#hehe");
+        finish_load_sender.send_blocking(()).unwrap();
+
+        run_app_until(&mut app, |_| {
+            asset_server.is_loaded(&root_asset_handle).then_some(())
+        });
+
+        // Due to https://github.com/bevyengine/bevy/issues/22585, this subasset never loads.
+        // Once 22585 is fixed, we should swap out these asserts.
+        //
+        // run_app_until(&mut app, |_| {
+        //     asset_server
+        //         .is_loaded(&nested_subasset_handle)
+        //         .then_some(())
+        // });
+        for _ in 0..100 {
+            app.update();
+            assert!(!asset_server.is_loaded(&nested_subasset_handle));
+        }
+    }
 }
