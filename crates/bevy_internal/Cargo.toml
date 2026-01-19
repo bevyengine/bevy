@@ -20,7 +20,6 @@ trace = [
   "bevy_pbr?/trace",
   "bevy_render?/trace",
   "bevy_winit?/trace",
-  "bevy_post_process?/trace",
 ]
 trace_chrome = ["bevy_log/tracing-chrome"]
 trace_tracy = ["bevy_render?/tracing-tracy", "bevy_log/tracing-tracy"]
@@ -189,7 +188,6 @@ webgl = [
   "bevy_gizmos_render?/webgl",
   "bevy_sprite_render?/webgl",
   "bevy_dev_tools?/webgl",
-  "bevy_post_process?/webgl",
 ]
 
 webgpu = [
@@ -200,7 +198,6 @@ webgpu = [
   "bevy_gizmos_render?/webgpu",
   "bevy_sprite_render?/webgpu",
   "bevy_dev_tools?/webgpu",
-  "bevy_post_process?/webgpu",
 ]
 
 # Enable systems that allow for automated testing on CI

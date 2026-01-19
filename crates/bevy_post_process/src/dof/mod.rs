@@ -57,11 +57,8 @@ use bevy_render::{
     Extract, ExtractSchedule, Render, RenderApp, RenderStartup, RenderSystems,
 };
 use bevy_shader::Shader;
-use bevy_utils::default;
-#[cfg(feature = "trace")]
-use bevy_utils::once;
+use bevy_utils::{default, once};
 use smallvec::SmallVec;
-#[cfg(feature = "trace")]
 use tracing::warn;
 
 use bevy_core_pipeline::{
@@ -374,7 +371,6 @@ impl ViewNode for DepthOfFieldNode {
                     auxiliary_dof_texture,
                     view_bind_group_layouts.dual_input.as_ref(),
                 ) else {
-                    #[cfg(feature = "trace")]
                     once!(warn!(
                         "Should have created the auxiliary depth of field texture by now"
                     ));
@@ -420,7 +416,6 @@ impl ViewNode for DepthOfFieldNode {
             // `prepare_auxiliary_depth_of_field_textures``.
             if pipeline_render_info.is_dual_output {
                 let Some(auxiliary_dof_texture) = auxiliary_dof_texture else {
-                    #[cfg(feature = "trace")]
                     once!(warn!(
                         "Should have created the auxiliary depth of field texture by now"
                     ));
