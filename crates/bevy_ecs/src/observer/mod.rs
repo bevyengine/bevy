@@ -4,12 +4,14 @@
 //! See [`Event`] and [`Observer`] for in-depth documentation and usage examples.
 
 mod centralized_storage;
+pub mod condition;
 mod distributed_storage;
 mod entity_cloning;
 mod runner;
 mod system_param;
 
 pub use centralized_storage::*;
+pub use condition::*;
 pub use distributed_storage::*;
 pub use runner::*;
 pub use system_param::*;
@@ -18,7 +20,6 @@ use crate::{
     change_detection::MaybeLocation,
     event::Event,
     prelude::*,
-    system::IntoObserverSystem,
     world::{DeferredWorld, *},
 };
 
@@ -51,11 +52,8 @@ impl World {
     /// # Panics
     ///
     /// Panics if the given system is an exclusive system.
-    pub fn add_observer<E: Event, B: Bundle, M>(
-        &mut self,
-        system: impl IntoObserverSystem<E, B, M>,
-    ) -> EntityWorldMut<'_> {
-        self.spawn(Observer::new(system))
+    pub fn add_observer<M>(&mut self, observer: impl IntoObserver<M>) -> EntityWorldMut<'_> {
+        self.spawn(observer.into_observer())
     }
 
     /// Triggers the given [`Event`], which will run any [`Observer`]s watching for it.
@@ -250,6 +248,7 @@ mod tests {
 
     use crate::{
         change_detection::MaybeLocation,
+        error::Result,
         event::{EntityComponentsTrigger, Event, GlobalTrigger},
         hierarchy::ChildOf,
         observer::{Observer, Replace},
@@ -1101,5 +1100,165 @@ mod tests {
             .get_observers_mut(event_key)
             .component_observers()
             .contains_key(&a));
+    }
+
+    #[derive(Resource)]
+    struct RunConditionFlag(bool);
+
+    #[test]
+    fn observer_run_condition_true() {
+        let mut world = World::new();
+        world.insert_resource(RunConditionFlag(true));
+        world.init_resource::<Order>();
+
+        world.add_observer(
+            (|_: On<EventA>, mut order: ResMut<Order>| {
+                order.observed("event");
+            })
+            .run_if(|flag: Res<RunConditionFlag>| flag.0),
+        );
+
+        world.trigger(EventA);
+        assert_eq!(vec!["event"], world.resource::<Order>().0);
+    }
+
+    #[test]
+    fn observer_run_condition_false() {
+        let mut world = World::new();
+        world.insert_resource(RunConditionFlag(false));
+        world.init_resource::<Order>();
+
+        world.add_observer(
+            (|_: On<EventA>, mut order: ResMut<Order>| {
+                order.observed("event");
+            })
+            .run_if(|flag: Res<RunConditionFlag>| flag.0),
+        );
+
+        world.trigger(EventA);
+        assert!(world.resource::<Order>().0.is_empty());
+    }
+
+    #[test]
+    fn observer_run_condition_chained() {
+        let mut world = World::new();
+        world.insert_resource(RunConditionFlag(true));
+        world.init_resource::<Order>();
+
+        #[derive(Resource)]
+        struct SecondFlag(bool);
+        world.insert_resource(SecondFlag(true));
+
+        world.add_observer(
+            (|_: On<EventA>, mut order: ResMut<Order>| {
+                order.observed("event");
+            })
+            .run_if(|flag: Res<RunConditionFlag>| flag.0)
+            .run_if(|flag: Res<SecondFlag>| flag.0),
+        );
+
+        world.trigger(EventA);
+        assert_eq!(vec!["event"], world.resource::<Order>().0);
+
+        world.resource_mut::<Order>().0.clear();
+        world.resource_mut::<SecondFlag>().0 = false;
+        world.trigger(EventA);
+        assert!(world.resource::<Order>().0.is_empty());
+    }
+
+    #[test]
+    fn observer_run_condition_re_evaluated() {
+        let mut world = World::new();
+        world.insert_resource(RunConditionFlag(false));
+        world.init_resource::<Order>();
+
+        world.add_observer(
+            (|_: On<EventA>, mut order: ResMut<Order>| {
+                order.observed("event");
+            })
+            .run_if(|flag: Res<RunConditionFlag>| flag.0),
+        );
+
+        world.trigger(EventA);
+        assert!(world.resource::<Order>().0.is_empty());
+
+        world.resource_mut::<RunConditionFlag>().0 = true;
+        world.trigger(EventA);
+        assert_eq!(vec!["event"], world.resource::<Order>().0);
+    }
+
+    #[test]
+    fn observer_run_condition_result_bool() {
+        let mut world = World::new();
+        world.init_resource::<Order>();
+
+        world.add_observer(
+            (|_: On<EventA>, mut order: ResMut<Order>| {
+                order.observed("err");
+            })
+            .run_if(|| -> Result<bool> { Err(core::fmt::Error.into()) }),
+        );
+        world.add_observer(
+            (|_: On<EventA>, mut order: ResMut<Order>| {
+                order.observed("false");
+            })
+            .run_if(|| -> Result<bool> { Ok(false) }),
+        );
+        world.add_observer(
+            (|_: On<EventA>, mut order: ResMut<Order>| {
+                order.observed("true");
+            })
+            .run_if(|| -> Result<bool> { Ok(true) }),
+        );
+
+        world.trigger(EventA);
+        assert_eq!(vec!["true"], world.resource::<Order>().0);
+    }
+
+    #[test]
+    fn entity_observer_with_run_condition() {
+        let mut world = World::new();
+        world.insert_resource(RunConditionFlag(true));
+        world.init_resource::<Order>();
+
+        let entity = world
+            .spawn_empty()
+            .observe(
+                (|_: On<EntityEventA>, mut order: ResMut<Order>| {
+                    order.observed("entity_event");
+                })
+                .run_if(|flag: Res<RunConditionFlag>| flag.0),
+            )
+            .id();
+
+        world.trigger(EntityEventA(entity));
+        assert_eq!(vec!["entity_event"], world.resource::<Order>().0);
+
+        world.resource_mut::<Order>().0.clear();
+        world.resource_mut::<RunConditionFlag>().0 = false;
+        world.trigger(EntityEventA(entity));
+        assert!(world.resource::<Order>().0.is_empty());
+    }
+
+    #[test]
+    fn observer_builder_run_if() {
+        let mut world = World::new();
+        world.insert_resource(RunConditionFlag(true));
+        world.init_resource::<Order>();
+
+        let observer = Observer::new(|_: On<EventA>, mut order: ResMut<Order>| {
+            order.observed("event");
+        })
+        .run_if(|flag: Res<RunConditionFlag>| flag.0);
+
+        world.spawn(observer);
+
+        world.trigger(EventA);
+        assert_eq!(vec!["event"], world.resource::<Order>().0);
+
+        world.resource_mut::<Order>().0.clear();
+        world.resource_mut::<RunConditionFlag>().0 = false;
+        world.trigger(EventA);
+        assert!(world.resource::<Order>().0.is_empty());
     }
 }

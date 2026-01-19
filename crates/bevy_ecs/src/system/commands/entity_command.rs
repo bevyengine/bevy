@@ -15,10 +15,9 @@ use crate::{
     change_detection::MaybeLocation,
     component::{Component, ComponentId},
     entity::{Entity, EntityClonerBuilder, OptIn, OptOut},
-    event::EntityEvent,
     name::Name,
+    observer::IntoEntityObserver,
     relationship::RelationshipHookMode,
-    system::IntoObserverSystem,
     world::{error::EntityMutableFetchError, EntityWorldMut, FromWorld},
 };
 use bevy_ptr::{move_as_ptr, OwningPtr};
@@ -251,10 +250,12 @@ pub fn despawn() -> impl EntityCommand {
 /// An [`EntityCommand`] that creates an [`Observer`](crate::observer::Observer)
 /// watching for an [`EntityEvent`] of type `E` whose [`EntityEvent::event_target`]
 /// targets this entity.
+///
+/// Accepts any type that implements [`IntoEntityObserver`], including:
+/// - Observer systems (closures or functions implementing [`IntoObserverSystem`](crate::system::IntoObserverSystem))
+/// - Observer systems with run conditions (via `.run_if()`)
 #[track_caller]
-pub fn observe<E: EntityEvent, B: Bundle, M>(
-    observer: impl IntoObserverSystem<E, B, M>,
-) -> impl EntityCommand {
+pub fn observe<M>(observer: impl IntoEntityObserver<M>) -> impl EntityCommand {
     let caller = MaybeLocation::caller();
     move |mut entity: EntityWorldMut| {
         entity.observe_with_caller(observer, caller);
