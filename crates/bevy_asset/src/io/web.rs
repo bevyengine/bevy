@@ -2,7 +2,6 @@ use crate::io::{AssetReader, AssetReaderError, AssetSourceBuilder, PathStream, R
 use crate::{AssetApp, AssetPlugin};
 use alloc::boxed::Box;
 use bevy_app::{App, Plugin};
-use bevy_tasks::ConditionalSendFuture;
 use std::path::{Path, PathBuf};
 use tracing::warn;
 
@@ -122,10 +121,9 @@ async fn get<'a>(path: PathBuf) -> Result<Box<dyn Reader>, AssetReaderError> {
 #[cfg(not(target_arch = "wasm32"))]
 async fn get(path: PathBuf) -> Result<Box<dyn Reader>, AssetReaderError> {
     use crate::io::VecReader;
-    use alloc::{borrow::ToOwned, boxed::Box, vec::Vec};
+    use alloc::{borrow::ToOwned, boxed::Box};
     use bevy_platform::sync::LazyLock;
-    use blocking::unblock;
-    use std::io::{self, BufReader, Read};
+    use std::io;
 
     let str_path = path.to_str().ok_or_else(|| {
         AssetReaderError::Io(
@@ -177,6 +175,9 @@ async fn get(path: PathBuf) -> Result<Box<dyn Reader>, AssetReaderError> {
     // Without "web_asset_cache", fall back to plain ureq.
     #[cfg(not(feature = "web_asset_cache"))]
     {
+        use alloc::vec::Vec;
+        use blocking::unblock;
+        use std::io::{BufReader, Read};
         use ureq::tls::{RootCerts, TlsConfig};
         use ureq::Agent;
 
