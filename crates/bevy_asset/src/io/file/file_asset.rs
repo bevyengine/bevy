@@ -26,6 +26,9 @@ impl Reader for File {
     }
 }
 
+// Set to OS default limit / 2
+// macos & ios: 256
+// linux & android: 1024
 #[cfg(any(target_os = "macos", target_os = "ios"))]
 static OPEN_FILE_LIMITER: Semaphore = Semaphore::new(128);
 #[cfg(not(any(target_os = "macos", target_os = "ios", target_os = "windows")))]
