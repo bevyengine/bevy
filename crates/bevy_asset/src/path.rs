@@ -695,7 +695,7 @@ pub fn split_asset_path_segments(path_str: &str) -> (bool, Vec<&str>) {
 
 /// Normalizes segments by applying '.' and '..' rules
 /// as per [RFC 1808](https://datatracker.ietf.org/doc/html/rfc1808)
-/// 'is_rooted' is reserved for future use (e.g. forbidding '..' above root). current behavior matches 'normalize_path'.
+/// `is_rooted` is reserved for future use (e.g. forbidding `..` above root). Current behavior matches `normalize_path`.
 pub(crate) fn normalize_asset_path_segments(segments: &[&str], _is_rooted: bool) -> Vec<String> {
     let mut result = Vec::new();
     for segment in segments {
@@ -715,8 +715,8 @@ pub(crate) fn normalize_asset_path_segments(segments: &[&str], _is_rooted: bool)
     result
 }
 
-/// Check normalize_asset_path_segments above for the implementation of this function.
-#[allow(dead_code)]
+/// See `normalize_asset_path_segments` above for the segment-based logic. This remains for `file_watcher` (filesystem paths).
+#[cfg(feature = "file_watcher")]
 pub(crate) fn normalize_path(path: &Path) -> PathBuf {
     let mut result_path = PathBuf::new();
     for elt in path.iter() {
@@ -740,10 +740,10 @@ pub(crate) fn normalize_path(path: &Path) -> PathBuf {
     result_path
 }
 
-/// Joins 'base_str' and 'rpath_str' then normalizes. Used by 'resolve_from_parts'.
-/// - 'rpath_is_rooted': if true, base is ignored and the result is rooted.
-/// - 'replace': if true (resolve_embed), drop the last base segment unless 'base_trailing_slash'.
-/// - 'rpath_str' must already have a leading '/' stripped when 'rpath_is_rooted' is true.
+/// Joins `base_str` and `rpath_str` then normalizes. Used by `resolve_from_parts`.
+/// - `rpath_is_rooted`: if true, base is ignored and the result is rooted.
+/// - `replace`: if true ([`resolve_embed`](AssetPath::resolve_embed)), drop the last base segment unless `base_trailing_slash`.
+/// - `rpath_str` must already have a leading `/` stripped when `rpath_is_rooted` is true.
 pub(crate) fn join_and_normalize_asset_path(
     base_str: &str,
     base_trailing_slash: bool,
