@@ -7,12 +7,12 @@ use core::{iter::Chain, slice::IterMut};
 ///
 /// [`MessageMutator`]: super::MessageMutator
 #[derive(Debug)]
-pub struct MessageMutIterator<'a, E: Message> {
-    iter: MessageMutIteratorWithId<'a, E>,
+pub struct MessageMutIterator<'a, M: Message> {
+    iter: MessageMutIteratorWithId<'a, M>,
 }
 
-impl<'a, E: Message> Iterator for MessageMutIterator<'a, E> {
-    type Item = &'a mut E;
+impl<'a, M: Message> Iterator for MessageMutIterator<'a, M> {
+    type Item = &'a mut M;
     fn next(&mut self) -> Option<Self::Item> {
         self.iter.next().map(|(message, _)| message)
     }
@@ -37,7 +37,7 @@ impl<'a, E: Message> Iterator for MessageMutIterator<'a, E> {
     }
 }
 
-impl<'a, E: Message> ExactSizeIterator for MessageMutIterator<'a, E> {
+impl<'a, M: Message> ExactSizeIterator for MessageMutIterator<'a, M> {
     fn len(&self) -> usize {
         self.iter.len()
     }
@@ -47,15 +47,15 @@ impl<'a, E: Message> ExactSizeIterator for MessageMutIterator<'a, E> {
 ///
 /// [`MessageMutator`]: super::MessageMutator
 #[derive(Debug)]
-pub struct MessageMutIteratorWithId<'a, E: Message> {
-    mutator: &'a mut MessageCursor<E>,
-    chain: Chain<IterMut<'a, MessageInstance<E>>, IterMut<'a, MessageInstance<E>>>,
+pub struct MessageMutIteratorWithId<'a, M: Message> {
+    mutator: &'a mut MessageCursor<M>,
+    chain: Chain<IterMut<'a, MessageInstance<M>>, IterMut<'a, MessageInstance<M>>>,
     unread: usize,
 }
 
-impl<'a, E: Message> MessageMutIteratorWithId<'a, E> {
+impl<'a, M: Message> MessageMutIteratorWithId<'a, M> {
     /// Creates a new iterator that yields any `messages` that have not yet been seen by `mutator`.
-    pub fn new(mutator: &'a mut MessageCursor<E>, messages: &'a mut Messages<E>) -> Self {
+    pub fn new(mutator: &'a mut MessageCursor<M>, messages: &'a mut Messages<M>) -> Self {
         let a_index = mutator
             .last_message_count
             .saturating_sub(messages.messages_a.start_message_count);
@@ -79,13 +79,13 @@ impl<'a, E: Message> MessageMutIteratorWithId<'a, E> {
     }
 
     /// Iterate over only the messages.
-    pub fn without_id(self) -> MessageMutIterator<'a, E> {
+    pub fn without_id(self) -> MessageMutIterator<'a, M> {
         MessageMutIterator { iter: self }
     }
 }
 
-impl<'a, E: Message> Iterator for MessageMutIteratorWithId<'a, E> {
-    type Item = (&'a mut E, MessageId<E>);
+impl<'a, M: Message> Iterator for MessageMutIteratorWithId<'a, M> {
+    type Item = (&'a mut M, MessageId<M>);
     fn next(&mut self) -> Option<Self::Item> {
         match self
             .chain
@@ -141,7 +141,7 @@ impl<'a, E: Message> Iterator for MessageMutIteratorWithId<'a, E> {
     }
 }
 
-impl<'a, E: Message> ExactSizeIterator for MessageMutIteratorWithId<'a, E> {
+impl<'a, M: Message> ExactSizeIterator for MessageMutIteratorWithId<'a, M> {
     fn len(&self) -> usize {
         self.unread
     }
@@ -150,18 +150,18 @@ impl<'a, E: Message> ExactSizeIterator for MessageMutIteratorWithId<'a, E> {
 /// A parallel iterator over `Message`s.
 #[derive(Debug)]
 #[cfg(feature = "multi_threaded")]
-pub struct MessageMutParIter<'a, E: Message> {
-    mutator: &'a mut MessageCursor<E>,
-    slices: [&'a mut [MessageInstance<E>]; 2],
+pub struct MessageMutParIter<'a, M: Message> {
+    mutator: &'a mut MessageCursor<M>,
+    slices: [&'a mut [MessageInstance<M>]; 2],
     batching_strategy: BatchingStrategy,
     #[cfg(not(target_arch = "wasm32"))]
     unread: usize,
 }
 
 #[cfg(feature = "multi_threaded")]
-impl<'a, E: Message> MessageMutParIter<'a, E> {
+impl<'a, M: Message> MessageMutParIter<'a, M> {
     /// Creates a new parallel iterator over `messages` that have not yet been seen by `mutator`.
-    pub fn new(mutator: &'a mut MessageCursor<E>, messages: &'a mut Messages<E>) -> Self {
+    pub fn new(mutator: &'a mut MessageCursor<M>, messages: &'a mut Messages<M>) -> Self {
         let a_index = mutator
             .last_message_count
             .saturating_sub(messages.messages_a.start_message_count);
@@ -201,7 +201,7 @@ impl<'a, E: Message> MessageMutParIter<'a, E> {
     /// initialized and run from the ECS scheduler, this should never panic.
     ///
     /// [`ComputeTaskPool`]: bevy_tasks::ComputeTaskPool
-    pub fn for_each<FN: Fn(&'a mut E) + Send + Sync + Clone>(self, func: FN) {
+    pub fn for_each<FN: Fn(&'a mut M) + Send + Sync + Clone>(self, func: FN) {
         self.for_each_with_id(move |e, _| func(e));
     }
 
@@ -219,7 +219,7 @@ impl<'a, E: Message> MessageMutParIter<'a, E> {
         target_arch = "wasm32",
         expect(unused_mut, reason = "not mutated on this target")
     )]
-    pub fn for_each_with_id<FN: Fn(&'a mut E, MessageId<E>) + Send + Sync + Clone>(
+    pub fn for_each_with_id<FN: Fn(&'a mut M, MessageId<M>) + Send + Sync + Clone>(
         mut self,
         func: FN,
     ) {
@@ -270,8 +270,8 @@ impl<'a, E: Message> MessageMutParIter<'a, E> {
 }
 
 #[cfg(feature = "multi_threaded")]
-impl<'a, E: Message> IntoIterator for MessageMutParIter<'a, E> {
-    type IntoIter = MessageMutIteratorWithId<'a, E>;
+impl<'a, M: Message> IntoIterator for MessageMutParIter<'a, M> {
+    type IntoIter = MessageMutIteratorWithId<'a, M>;
     type Item = <Self::IntoIter as Iterator>::Item;
 
     fn into_iter(self) -> Self::IntoIter {
