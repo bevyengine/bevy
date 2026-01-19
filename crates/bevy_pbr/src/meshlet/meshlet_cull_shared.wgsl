@@ -143,9 +143,8 @@ fn sample_hzb_row(sx: vec4<u32>, sy: u32, mip: i32) -> f32 {
     return min(min(a, b), min(c, d));
 }
 
-// TODO: We should probably be using a POT HZB texture?
 fn occlusion_cull_screen_aabb(aabb: ScreenAabb, screen: vec2<f32>) -> bool {
-    let hzb_size = ceil(screen * 0.5);
+    let hzb_size = vec2<f32>(textureDimensions(depth_pyramid).xy);
     let aabb_min = aabb.min.xy * hzb_size;
     let aabb_max = aabb.max.xy * hzb_size;
 
@@ -157,7 +156,6 @@ fn occlusion_cull_screen_aabb(aabb: ScreenAabb, screen: vec2<f32>) -> bool {
     // note: add 1 before max because the unsigned overflow behavior is intentional
     // it wraps around firstLeadingBit(0) = ~0 to 0
     // TODO: we actually sample a 4x4 block, so ideally this would be `max(..., 3u) - 3u`.
-    // However, since our HZB is not a power of two, we need to be extra-conservative to not over-cull, so we go up a mip.
     var mip = max(firstLeadingBit(max_size) + 1u, 2u) - 2u;
     
     if any((max_texel >> vec2(mip)) > (min_texel >> vec2(mip)) + 3) {
