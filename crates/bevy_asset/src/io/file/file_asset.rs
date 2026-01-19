@@ -76,7 +76,6 @@ impl AssetReader for FileAssetReader {
     }
 
     async fn read_meta<'a>(&'a self, path: &'a Path) -> Result<impl Reader + 'a, AssetReaderError> {
-        #[cfg(any(target_os = "macos", target_os = "ios"))]
         let _guard = maybe_get_semaphore().await;
 
         let meta_path = get_meta_path(path);
