@@ -177,15 +177,13 @@ impl Plugin for AtmospherePlugin {
             .add_systems(
                 Core3d,
                 (
-                    atmosphere_luts
+                    (atmosphere_luts, atmosphere_environment)
+                        .chain()
                         .after(Core3dSystems::EndPrepasses)
                         .before(Core3dSystems::StartMainPass),
                     render_sky
                         .after(main_opaque_pass_3d)
                         .before(main_transparent_pass_3d),
-                    atmosphere_environment
-                        .after(atmosphere_luts)
-                        .before(Core3dSystems::StartMainPass),
                 ),
             );
     }

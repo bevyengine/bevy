@@ -191,15 +191,11 @@ impl Plugin for DlssPlugin {
 
         app.sub_app_mut(RenderApp).add_systems(
             Core3d,
-            (
-                node::dlss_super_resolution
-                    .after(motion_blur)
-                    .after(Core3dSystems::StartMainPassPostProcessing)
-                    .before(bloom),
-                node::dlss_ray_reconstruction
-                    .after(node::dlss_super_resolution)
-                    .before(bloom),
-            ),
+            (node::dlss_super_resolution, node::dlss_ray_reconstruction)
+                .chain()
+                .after(motion_blur)
+                .after(Core3dSystems::StartMainPassPostProcessing)
+                .before(bloom),
         );
     }
 }

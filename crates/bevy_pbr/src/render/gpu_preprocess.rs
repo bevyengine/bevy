@@ -364,31 +364,30 @@ impl Plugin for GpuMeshPreprocessPlugin {
             .add_systems(
                 Core3d,
                 (
-                    clear_indirect_parameters_metadata.before(early_prepass),
-                    early_gpu_preprocess
-                        .after(clear_indirect_parameters_metadata)
-                        .before(early_prepass),
-                    early_prepass_build_indirect_parameters
-                        .run_if(any_match_filter::<(
+                    (
+                        clear_indirect_parameters_metadata,
+                        early_gpu_preprocess,
+                        early_prepass_build_indirect_parameters.run_if(any_match_filter::<(
                             With<PreprocessBindGroups>,
                             Without<SkipGpuPreprocess>,
                             Without<NoIndirectDrawing>,
                             Or<(With<DepthPrepass>, With<ShadowView>)>,
-                        )>)
-                        .after(early_gpu_preprocess)
+                        )>),
+                    )
+                        .chain()
                         .before(early_prepass),
-                    late_gpu_preprocess
-                        .after(early_downsample_depth)
-                        .before(late_prepass),
-                    late_prepass_build_indirect_parameters
-                        .run_if(any_match_filter::<(
+                    (
+                        late_gpu_preprocess,
+                        late_prepass_build_indirect_parameters.run_if(any_match_filter::<(
                             With<PreprocessBindGroups>,
                             Without<SkipGpuPreprocess>,
                             Without<NoIndirectDrawing>,
                             Or<(With<DepthPrepass>, With<ShadowView>)>,
                             With<OcclusionCulling>,
-                        )>)
-                        .after(late_gpu_preprocess)
+                        )>),
+                    )
+                        .chain()
+                        .after(early_downsample_depth)
                         .before(late_prepass),
                     main_build_indirect_parameters
                         .run_if(any_match_filter::<(
