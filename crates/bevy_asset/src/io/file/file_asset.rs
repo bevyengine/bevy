@@ -10,6 +10,8 @@ use async_lock::{Semaphore, SemaphoreGuard};
 use futures_lite::StreamExt;
 
 use alloc::{borrow::ToOwned, boxed::Box};
+#[cfg(target_os = "windows")]
+use core::marker::PhantomData;
 #[cfg(not(target_os = "windows"))]
 use core::time::Duration;
 #[cfg(not(target_os = "windows"))]
@@ -46,6 +48,8 @@ struct GuardedFile<'a> {
     file: File,
     #[cfg(not(target_os = "windows"))]
     _guard: Option<SemaphoreGuard<'a>>,
+    #[cfg(target_os = "windows")]
+    _lifetime: &'a PhantomData,
 }
 
 impl<'a> futures_io::AsyncRead for GuardedFile<'a> {
@@ -83,6 +87,8 @@ impl AssetReader for FileAssetReader {
                 file,
                 #[cfg(not(target_os = "windows"))]
                 _guard,
+                #[cfg(target_os = "windows")]
+                _lifetime: PhantomData::default(),
             })
     }
 
@@ -105,6 +111,8 @@ impl AssetReader for FileAssetReader {
                 file,
                 #[cfg(not(target_os = "windows"))]
                 _guard,
+                #[cfg(target_os = "windows")]
+                _lifetime: PhantomData::default(),
             })
     }
 
