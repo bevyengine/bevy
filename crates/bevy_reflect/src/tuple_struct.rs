@@ -420,13 +420,6 @@ impl<'a> IntoIterator for &'a DynamicTupleStruct {
     }
 }
 
-/// see [`tuple_struct_partial_eq_dynamic`]
-pub fn tuple_struct_partial_eq<S: TupleStruct>(
-    a: &S,
-    b: &dyn PartialReflect,
-) -> Option<bool> {
-    tuple_struct_partial_eq_dynamic(a, b)
-}
 /// Compares a [`TupleStruct`] with a [`PartialReflect`] value.
 ///
 /// Returns true if and only if all of the following are true:
@@ -436,7 +429,7 @@ pub fn tuple_struct_partial_eq<S: TupleStruct>(
 ///
 /// Returns [`None`] if the comparison couldn't even be performed.
 #[inline(never)]
-pub fn tuple_struct_partial_eq_dynamic(
+pub fn tuple_struct_partial_eq(
     a: &dyn TupleStruct,
     b: &dyn PartialReflect,
 ) -> Option<bool> {
@@ -461,22 +454,12 @@ pub fn tuple_struct_partial_eq_dynamic(
 
     Some(true)
 }
-
-/// see [`tuple_struct_partial_eq_dynamic`]
-#[inline]
-pub fn tuple_struct_partial_cmp<S: TupleStruct>(
-    a: &S,
-    b: &dyn PartialReflect,
-) -> Option<::core::cmp::Ordering> {
-    tuple_struct_partial_cmp_dynamic(a, b)
-}
-
 /// Lexicographically compares two [`TupleStruct`] values and returns their ordering.
 ///
 /// Returns [`None`] if the comparison couldn't be performed (e.g., kinds mismatch
 /// or an element comparison returns `None`).
 #[inline(never)]
-pub fn tuple_struct_partial_cmp_dynamic(
+pub fn tuple_struct_partial_cmp(
     a: &dyn TupleStruct,
     b: &dyn PartialReflect,
 ) -> Option<::core::cmp::Ordering> {

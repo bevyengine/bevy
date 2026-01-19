@@ -447,11 +447,11 @@ impl PartialReflect for DynamicStruct {
     }
 
     fn reflect_partial_eq(&self, value: &dyn PartialReflect) -> Option<bool> {
-        struct_partial_eq_dynamic(self, value)
+        struct_partial_eq(self, value)
     }
 
     fn reflect_partial_cmp(&self, value: &dyn PartialReflect) -> Option<::core::cmp::Ordering> {
-        struct_partial_cmp_dynamic(self, value)
+        struct_partial_cmp(self, value)
     }
 
     fn debug(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
@@ -507,11 +507,6 @@ impl<'a> IntoIterator for &'a DynamicStruct {
     }
 }
 
-/// see [`struct_partial_eq_dynamic`]
-pub fn struct_partial_eq<S: Struct>(a: &S, b: &dyn PartialReflect) -> Option<bool> {
-    struct_partial_eq_dynamic(&*a, b)
-}
-
 /// Compares a [`Struct`] with a [`PartialReflect`] value.
 ///
 /// Returns true if and only if all of the following are true:
@@ -522,7 +517,7 @@ pub fn struct_partial_eq<S: Struct>(a: &S, b: &dyn PartialReflect) -> Option<boo
 ///
 /// Returns [`None`] if the comparison couldn't even be performed.
 #[inline(never)]
-pub fn struct_partial_eq_dynamic(a: &dyn Struct, b: &dyn PartialReflect) -> Option<bool> {
+pub fn struct_partial_eq(a: &dyn Struct, b: &dyn PartialReflect) -> Option<bool> {
     let ReflectRef::Struct(struct_value) = b.reflect_ref() else {
         return Some(false);
     };
@@ -546,21 +541,12 @@ pub fn struct_partial_eq_dynamic(a: &dyn Struct, b: &dyn PartialReflect) -> Opti
     Some(true)
 }
 
-
-/// see [`struct_partial_cmp_dynamic`]
-pub fn struct_partial_cmp<S: Struct>(
-    a: &S,
-    b: &dyn PartialReflect,
-) -> Option<::core::cmp::Ordering> {
-    struct_partial_cmp_dynamic(a, b)
-}
-
 /// Lexicographically compares two [`Struct`] values and returns their ordering.
 ///
 /// Returns [`None`] if the comparison couldn't be performed (e.g., kinds mismatch
 /// or an element comparison returns `None`).
 #[inline(never)]
-pub fn struct_partial_cmp_dynamic(
+pub fn struct_partial_cmp(
     a: &dyn Struct,
     b: &dyn PartialReflect,
 ) -> Option<::core::cmp::Ordering> {

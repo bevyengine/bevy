@@ -8,14 +8,9 @@ use core::{
     hash::{Hash, Hasher},
 };
 
-/// see [`enum_hash_dynamic`]
-pub fn enum_hash<TEnum: Enum>(value: &TEnum) -> Option<u64> {
-    enum_hash_dynamic(value)
-}
-
 /// Returns the `u64` hash of the given [enum](Enum).
 #[inline(never)]
-pub fn enum_hash_dynamic(value: &dyn Enum) -> Option<u64> {
+pub fn enum_hash(value: &dyn Enum) -> Option<u64> {
     let mut hasher = reflect_hasher();
     core::any::Any::type_id(value).hash(&mut hasher);
     value.variant_name().hash(&mut hasher);
@@ -26,10 +21,6 @@ pub fn enum_hash_dynamic(value: &dyn Enum) -> Option<u64> {
     Some(hasher.finish())
 }
 
-/// see [`enum_partial_eq_dynamic`]
-pub fn enum_partial_eq<TEnum: Enum>(a: &TEnum, b: &dyn PartialReflect) -> Option<bool> {
-    enum_partial_eq_dynamic(a, b)
-}
 
 /// Compares an [`Enum`] with a [`PartialReflect`] value.
 ///
@@ -40,7 +31,7 @@ pub fn enum_partial_eq<TEnum: Enum>(a: &TEnum, b: &dyn PartialReflect) -> Option
 ///   [`PartialReflect::reflect_partial_eq`] returns `Some(true)` for the two field
 ///   values.
 #[inline(never)]
-pub fn enum_partial_eq_dynamic(a: &dyn Enum, b: &dyn PartialReflect) -> Option<bool> {
+pub fn enum_partial_eq(a: &dyn Enum, b: &dyn PartialReflect) -> Option<bool> {
     // Both enums?
     let ReflectRef::Enum(b) = b.reflect_ref() else {
         return Some(false);
@@ -98,15 +89,6 @@ pub fn enum_partial_eq_dynamic(a: &dyn Enum, b: &dyn PartialReflect) -> Option<b
     }
 }
 
-
-/// see [`enum_partial_cmp_dynamic`]
-pub fn enum_partial_cmp<TEnum: Enum>(
-    a: &TEnum,
-    b: &dyn PartialReflect,
-) -> Option<::core::cmp::Ordering> {
-    enum_partial_cmp_dynamic(a, b)
-}
-
 /// Compares two [`Enum`] values (by variant) and returns their ordering.
 ///
 /// Returns [`None`] if the comparison couldn't be performed (e.g., kinds mismatch
@@ -114,7 +96,7 @@ pub fn enum_partial_cmp<TEnum: Enum>(
 ///
 /// The ordering is same with `derive` macro. First order by variant index, then by fields.
 #[inline(never)]
-pub fn enum_partial_cmp_dynamic(
+pub fn enum_partial_cmp(
     a: &dyn Enum,
     b: &dyn PartialReflect,
 ) -> Option<::core::cmp::Ordering> {
