@@ -69,7 +69,7 @@ fn spatial_and_shade(@builtin(global_invocation_id) global_id: vec3<u32>) {
     gi_reservoirs_a[pixel_index] = combined_reservoir;
 #endif
 
-    let brdf = evaluate_diffuse_brdf(surface.material.base_color, surface.material.metallic);
+    let brdf = evaluate_diffuse_brdf(surface.world_normal, merge_result.wi, surface.material.base_color, surface.material.metallic);
 
     var pixel_color = textureLoad(view_output, global_id.xy);
     pixel_color += vec4(merge_result.selected_sample_radiance * combined_reservoir.unbiased_contribution_weight * view.exposure * brdf, 0.0);
@@ -98,7 +98,7 @@ fn generate_initial_reservoir(world_position: vec3<f32>, world_normal: vec3<f32>
 
 #ifdef NO_WORLD_CACHE
     let direct_lighting = sample_random_light(sample_point.world_position, sample_point.world_normal, rng);
-    reservoir.radiance = direct_lighting.radiance;
+    reservoir.radiance = direct_lighting.radiance * saturate(dot(direct_lighting.wi, sample_point.world_normal));
     reservoir.unbiased_contribution_weight = direct_lighting.inverse_pdf * uniform_hemisphere_inverse_pdf();
 #else
     reservoir.radiance = query_world_cache(sample_point.world_position, sample_point.geometric_world_normal, view.world_position, ray.t, WORLD_CACHE_CELL_LIFETIME, rng);
@@ -219,6 +219,7 @@ fn empty_reservoir() -> Reservoir {
 struct ReservoirMergeResult {
     merged_reservoir: Reservoir,
     selected_sample_radiance: vec3<f32>,
+    wi: vec3<f32>,
 }
 
 fn merge_reservoirs(
@@ -233,8 +234,10 @@ fn merge_reservoirs(
     rng: ptr<function, u32>,
 ) -> ReservoirMergeResult {
     // Radiances for resampling
-    let canonical_sample_radiance = canonical_reservoir.radiance * saturate(dot(normalize(canonical_reservoir.sample_point_world_position - canonical_world_position), canonical_world_normal));
-    let other_sample_radiance = other_reservoir.radiance * saturate(dot(normalize(other_reservoir.sample_point_world_position - canonical_world_position), canonical_world_normal));
+    let canonical_sample_wi = normalize(canonical_reservoir.sample_point_world_position - canonical_world_position);
+    let other_sample_wi = normalize(other_reservoir.sample_point_world_position - canonical_world_position);
+    let canonical_sample_radiance = canonical_reservoir.radiance * saturate(dot(canonical_sample_wi, canonical_world_normal));
+    let other_sample_radiance = other_reservoir.radiance * saturate(dot(other_sample_wi, canonical_world_normal));
 
     // Target functions for resampling and MIS
     let canonical_target_function_canonical_sample = luminance(canonical_sample_radiance * canonical_diffuse_brdf);
@@ -264,7 +267,7 @@ fn merge_reservoirs(
 
     // Don't merge samples with huge jacobians, as it explodes the variance
     if canonical_target_function_other_sample_jacobian > 1.2 {
-        return ReservoirMergeResult(canonical_reservoir, canonical_sample_radiance);
+        return ReservoirMergeResult(canonical_reservoir, canonical_sample_radiance, canonical_sample_wi);
     }
 
     // Resampling weight for canonical sample
@@ -294,7 +297,7 @@ fn merge_reservoirs(
         let inverse_target_function = select(0.0, 1.0 / canonical_target_function_other_sample, canonical_target_function_other_sample > 0.0);
         combined_reservoir.unbiased_contribution_weight = combined_reservoir.weight_sum * inverse_target_function;
 
-        return ReservoirMergeResult(combined_reservoir, other_sample_radiance);
+        return ReservoirMergeResult(combined_reservoir, other_sample_radiance, other_sample_wi);
     } else {
         combined_reservoir.sample_point_world_position = canonical_reservoir.sample_point_world_position;
         combined_reservoir.sample_point_world_normal = canonical_reservoir.sample_point_world_normal;
@@ -303,6 +306,6 @@ fn merge_reservoirs(
         let inverse_target_function = select(0.0, 1.0 / canonical_target_function_canonical_sample, canonical_target_function_canonical_sample > 0.0);
         combined_reservoir.unbiased_contribution_weight = combined_reservoir.weight_sum * inverse_target_function;
 
-        return ReservoirMergeResult(combined_reservoir, canonical_sample_radiance);
+        return ReservoirMergeResult(combined_reservoir, canonical_sample_radiance, canonical_sample_wi);
     }
 }

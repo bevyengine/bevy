@@ -60,6 +60,16 @@ struct GltfToMesh2dPlugin;
 
 impl Plugin for GltfToMesh2dPlugin {
     fn build(&self, app: &mut App) {
+        #[cfg(target_family = "wasm")]
+        bevy::tasks::block_on(async {
+            app.world_mut()
+                .resource_mut::<GltfExtensionHandlers>()
+                .0
+                .write()
+                .await
+                .push(Box::new(GltfExtensionHandlerToMesh2d))
+        });
+        #[cfg(not(target_family = "wasm"))]
         app.world_mut()
             .resource_mut::<GltfExtensionHandlers>()
             .0

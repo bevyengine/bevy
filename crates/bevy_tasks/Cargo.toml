@@ -25,11 +25,11 @@ multi_threaded = [
 async_executor = ["bevy_platform/std", "dep:async-executor", "futures-lite"]
 
 # Provide an implementation of `block_on` from  `futures-lite`.
-futures-lite = ["bevy_platform/std", "futures-lite/std"]
+futures-lite = ["bevy_platform/futures-lite"]
 
 # Use async-io's implementation of block_on instead of futures-lite's implementation.
 # This is preferred if your application uses async-io.
-async-io = ["bevy_platform/std", "dep:async-io"]
+async-io = ["bevy_platform/async-io"]
 
 [dependencies]
 bevy_platform = { path = "../bevy_platform", version = "0.19.0-dev", default-features = false, features = [
@@ -46,7 +46,6 @@ derive_more = { version = "2", default-features = false, features = [
 ] }
 async-executor = { version = "1.11", optional = true }
 async-channel = { version = "2.3.0", optional = true }
-async-io = { version = "2.0.0", optional = true }
 concurrent-queue = { version = "2.0.0", optional = true }
 atomic-waker = { version = "1", default-features = false }
 crossbeam-queue = { version = "0.3", default-features = false, features = [
