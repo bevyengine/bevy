@@ -1,5 +1,5 @@
 use crate::{
-    enums::{DynamicEnum, Enum, VariantType},
+    enums::{Enum, VariantType},
     utility::reflect_hasher,
     PartialReflect, ReflectRef,
 };
@@ -100,7 +100,7 @@ pub fn enum_partial_eq_dynamic(a: &dyn Enum, b: &dyn PartialReflect) -> Option<b
 
 
 /// see [`enum_partial_cmp_dynamic`]
-pub fn enum_partial_cmp<TEnum: Enum + ?Sized>(
+pub fn enum_partial_cmp<TEnum: Enum>(
     a: &TEnum,
     b: &dyn PartialReflect,
 ) -> Option<::core::cmp::Ordering> {

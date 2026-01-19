@@ -421,11 +421,11 @@ impl<'a> IntoIterator for &'a DynamicTupleStruct {
 }
 
 /// see [`tuple_struct_partial_eq_dynamic`]
-pub fn tuple_struct_partial_eq<S: TupleStruct + ?Sized>(
+pub fn tuple_struct_partial_eq<S: TupleStruct>(
     a: &S,
     b: &dyn PartialReflect,
 ) -> Option<bool> {
-    tuple_struct_partial_eq_dynamic(&a.to_dynamic_tuple_struct(), b)
+    tuple_struct_partial_eq_dynamic(a, b)
 }
 /// Compares a [`TupleStruct`] with a [`PartialReflect`] value.
 ///
@@ -437,7 +437,7 @@ pub fn tuple_struct_partial_eq<S: TupleStruct + ?Sized>(
 /// Returns [`None`] if the comparison couldn't even be performed.
 #[inline(never)]
 pub fn tuple_struct_partial_eq_dynamic(
-    a: &DynamicTupleStruct,
+    a: &dyn TupleStruct,
     b: &dyn PartialReflect,
 ) -> Option<bool> {
     let ReflectRef::TupleStruct(tuple_struct) = b.reflect_ref() else {
@@ -464,11 +464,11 @@ pub fn tuple_struct_partial_eq_dynamic(
 
 /// see [`tuple_struct_partial_eq_dynamic`]
 #[inline]
-pub fn tuple_struct_partial_cmp<S: TupleStruct + ?Sized>(
+pub fn tuple_struct_partial_cmp<S: TupleStruct>(
     a: &S,
     b: &dyn PartialReflect,
 ) -> Option<::core::cmp::Ordering> {
-    tuple_struct_partial_cmp_dynamic(&a.to_dynamic_tuple_struct(), b)
+    tuple_struct_partial_cmp_dynamic(a, b)
 }
 
 /// Lexicographically compares two [`TupleStruct`] values and returns their ordering.
@@ -477,7 +477,7 @@ pub fn tuple_struct_partial_cmp<S: TupleStruct + ?Sized>(
 /// or an element comparison returns `None`).
 #[inline(never)]
 pub fn tuple_struct_partial_cmp_dynamic(
-    a: &DynamicTupleStruct,
+    a: &dyn TupleStruct,
     b: &dyn PartialReflect,
 ) -> Option<::core::cmp::Ordering> {
     let ReflectRef::TupleStruct(tuple_struct) = b.reflect_ref() else {
