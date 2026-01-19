@@ -29,6 +29,7 @@
 //! * Compatibility with SSAA and MSAA.
 //!
 //! [SMAA]: https://www.iryoku.com/smaa/
+use crate::AntiAliasing;
 use bevy_app::{App, Plugin};
 use bevy_asset::{embedded_asset, load_embedded_asset, AssetServer, Handle};
 #[cfg(not(feature = "smaa_luts"))]
@@ -346,12 +347,14 @@ impl Plugin for SmaaPlugin {
             .add_systems(
                 Core3d,
                 smaa.after(tonemapping)
-                    .before(Core3dSystems::EndMainPassPostProcessing),
+                    .before(Core3dSystems::EndMainPassPostProcessing)
+                    .in_set(AntiAliasing),
             )
             .add_systems(
                 Core2d,
                 smaa.after(tonemapping)
-                    .before(Core2dSystems::EndMainPassPostProcessing),
+                    .before(Core2dSystems::EndMainPassPostProcessing)
+                    .in_set(AntiAliasing),
             );
     }
 }

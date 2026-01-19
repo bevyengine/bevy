@@ -20,6 +20,7 @@ mod prepare;
 
 pub use dlss_wgpu::DlssPerfQualityMode;
 
+use crate::AntiAliasing;
 use bevy_app::{App, Plugin};
 use bevy_core_pipeline::{
     prepass::{DepthPrepass, MotionVectorPrepass},
@@ -195,7 +196,8 @@ impl Plugin for DlssPlugin {
                 .chain()
                 .after(motion_blur)
                 .after(Core3dSystems::StartMainPassPostProcessing)
-                .before(bloom),
+                .before(bloom)
+                .in_set(AntiAliasing),
         );
     }
 }

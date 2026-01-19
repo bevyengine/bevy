@@ -1,4 +1,4 @@
-use crate::fxaa::fxaa;
+use crate::{fxaa::fxaa, AntiAliasing};
 use bevy_app::prelude::*;
 use bevy_asset::{embedded_asset, load_embedded_asset, AssetServer};
 use bevy_camera::Camera;
@@ -116,12 +116,14 @@ impl Plugin for CasPlugin {
             .add_systems(
                 Core3d,
                 cas.after(fxaa)
-                    .before(Core3dSystems::EndMainPassPostProcessing),
+                    .before(Core3dSystems::EndMainPassPostProcessing)
+                    .in_set(AntiAliasing),
             )
             .add_systems(
                 Core2d,
                 cas.after(fxaa)
-                    .before(Core2dSystems::EndMainPassPostProcessing),
+                    .before(Core2dSystems::EndMainPassPostProcessing)
+                    .in_set(AntiAliasing),
             );
     }
 }

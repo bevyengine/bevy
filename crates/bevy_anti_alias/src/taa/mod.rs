@@ -1,3 +1,4 @@
+use crate::AntiAliasing;
 use bevy_app::{App, Plugin};
 use bevy_asset::{embedded_asset, load_embedded_asset, AssetServer};
 use bevy_camera::{Camera, Camera3d};
@@ -73,7 +74,8 @@ impl Plugin for TemporalAntiAliasPlugin {
             temporal_anti_alias
                 .after(motion_blur)
                 .after(Core3dSystems::StartMainPassPostProcessing)
-                .before(bloom),
+                .before(bloom)
+                .in_set(AntiAliasing),
         );
     }
 }
