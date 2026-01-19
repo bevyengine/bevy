@@ -17,6 +17,7 @@ use bevy::{
     render::{
         camera::{MipBias, TemporalJitter},
         render_resource::{Extent3d, TextureDimension, TextureFormat},
+        renderer::RenderAdapter,
         view::Hdr,
     },
 };
@@ -65,6 +66,7 @@ type DlssComponents = ();
 
 fn modify_aa(
     keys: Res<ButtonInput<KeyCode>>,
+    supported_msaa_sample_counts: Res<SupportedMsaaSampleCounts>,
     #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))] camera: Single<
         (
             Entity,
@@ -115,18 +117,30 @@ fn modify_aa(
             .remove::<TaaComponents>()
             .remove::<DlssComponents>();
 
-        *msaa = Msaa::Sample4;
+        *msaa = Msaa::default();
     }
 
     // MSAA Sample Count
     if *msaa != Msaa::Off {
-        if keys.just_pressed(KeyCode::KeyQ) {
+        if keys.just_pressed(KeyCode::KeyQ)
+            && supported_msaa_sample_counts
+                .0
+                .contains(&Msaa::Sample2.samples())
+        {
             *msaa = Msaa::Sample2;
         }
-        if keys.just_pressed(KeyCode::KeyW) {
+        if keys.just_pressed(KeyCode::KeyW)
+            && supported_msaa_sample_counts
+                .0
+                .contains(&Msaa::Sample4.samples())
+        {
             *msaa = Msaa::Sample4;
         }
-        if keys.just_pressed(KeyCode::KeyE) {
+        if keys.just_pressed(KeyCode::KeyE)
+            && supported_msaa_sample_counts
+                .0
+                .contains(&Msaa::Sample8.samples())
+        {
             *msaa = Msaa::Sample8;
         }
     }
@@ -303,6 +317,7 @@ fn update_ui(
         With<Camera>,
     >,
     mut ui: Single<&mut Text>,
+    supported_msaa_sample_counts: Res<SupportedMsaaSampleCounts>,
     #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))] dlss_supported: Option<
         Res<DlssSuperResolutionSupported>,
     >,
@@ -337,9 +352,20 @@ fn update_ui(
 
     if *msaa != Msaa::Off {
         ui.push_str("\n----------\n\nSample Count\n");
-        draw_selectable_menu_item(ui, "2", 'Q', *msaa == Msaa::Sample2);
-        draw_selectable_menu_item(ui, "4", 'W', *msaa == Msaa::Sample4);
-        draw_selectable_menu_item(ui, "8", 'E', *msaa == Msaa::Sample8);
+
+        for (sample_count, shortcut) in supported_msaa_sample_counts
+            .0
+            .iter()
+            .skip(1) // First supported sample count is always '1' (no multisampling), skip it
+            .zip(['Q', 'W', 'E'].into_iter())
+        {
+            draw_selectable_menu_item(
+                ui,
+                sample_count.to_string().as_str(),
+                shortcut,
+                msaa.samples() == *sample_count,
+            );
+        }
     }
 
     if let Some(fxaa) = fxaa {
@@ -408,6 +434,9 @@ fn update_ui(
     );
 }
 
+#[derive(Resource)]
+struct SupportedMsaaSampleCounts(Vec<u32>);
+
 /// Set up a simple 3D scene
 fn setup(
     mut commands: Commands,
@@ -415,6 +444,7 @@ fn setup(
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut images: ResMut<Assets<Image>>,
     asset_server: Res<AssetServer>,
+    render_adapter: Res<RenderAdapter>,
 ) {
     // Plane
     commands.spawn((
@@ -481,6 +511,14 @@ fn setup(
             ..default()
         },
     ));
+
+    // Check for supported MSAA sample counts
+    let supported_msaa_sample_counts = Msaa::supported_samples(&render_adapter);
+    info!(
+        "Supported MSAA sample counts on this device: {:?}",
+        supported_msaa_sample_counts
+    );
+    commands.insert_resource(SupportedMsaaSampleCounts(supported_msaa_sample_counts));
 
     // example instructions
     commands.spawn((

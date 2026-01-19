@@ -16,7 +16,7 @@ use crate::{
     render_asset::RenderAssets,
     render_phase::ViewRangefinder3d,
     render_resource::{DynamicUniformBuffer, ShaderType, Texture, TextureView},
-    renderer::{RenderDevice, RenderQueue},
+    renderer::{RenderAdapter, RenderDevice, RenderQueue},
     sync_world::MainEntity,
     texture::{
         CachedTexture, ColorAttachment, DepthAttachment, GpuImage, ManualTextureViews,
@@ -188,6 +188,16 @@ impl Msaa {
             8 => Msaa::Sample8,
             _ => panic!("Unsupported MSAA sample count: {samples}"),
         }
+    }
+
+    /// Returns a non-empty list of supported `Msaa` sample counts by `render_adapter`, in increasing order.
+    pub fn supported_samples(render_adapter: &RenderAdapter) -> Vec<u32> {
+        // While max. sample count is defined on the device level in the underlying graphics APIs, for some reason
+        // WebGPU ties it to texture formats, so we pass the default one here for the query.
+        render_adapter
+            .get_texture_format_features(TextureFormat::bevy_default())
+            .flags
+            .supported_sample_counts()
     }
 }
 
