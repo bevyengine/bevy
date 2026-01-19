@@ -24,9 +24,13 @@ fn main() {
               mines: Query<&Mine>,
               index: Res<SpatialIndex>,
               mut commands: Commands| {
+                // Access resources
                 for entity in index.get_nearby(explode_mines.pos) {
+                    // Run queries
                     let mine = mines.get(entity).unwrap();
                     if mine.pos.distance(explode_mines.pos) < mine.size + explode_mines.radius {
+                        // And queue commands, including triggering additional events
+                        // Here we trigger the `Explode` event for entity `e`
                         commands.trigger(Explode { entity });
                     }
                 }

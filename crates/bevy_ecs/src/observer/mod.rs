@@ -4,7 +4,7 @@
 //! See [`Event`] and [`Observer`] for in-depth documentation and usage examples.
 
 mod centralized_storage;
-pub mod condition;
+mod condition;
 mod distributed_storage;
 mod entity_cloning;
 mod runner;
