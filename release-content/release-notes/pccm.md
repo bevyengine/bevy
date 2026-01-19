@@ -10,4 +10,4 @@ This commit implements parallax correction in Bevy for light probes in an opt-ou
 
 Additionally, a bug was fixed where the transform of each cubemap reflection probe wasn't being taken into account in the shader. I believe that this was being masked because most cubemaps are rendered in world space and therefore most cubemap reflection probes have an identity rotation.
 
-A new example, pccm, has been added, demonstrating the effect of parallax correction. It shows a scene consisting of an outer textured cube with an inner reflective cuboid. The outer textured cube contains a reflection probe containing a snapshot of the scene (pre-rendered in Blender). Parallax correction can be toggled on and off in the example in order to demonstrate its effect.
+A new example, `pccm`, has been added, demonstrating the effect of parallax correction. It shows a scene consisting of an outer textured cube with an inner reflective cuboid. The outer textured cube contains a reflection probe containing a snapshot of the scene (pre-rendered in Blender). Parallax correction can be toggled on and off in the example in order to demonstrate its effect.
