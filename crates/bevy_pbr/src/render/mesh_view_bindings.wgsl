@@ -1,6 +1,7 @@
 #define_import_path bevy_pbr::mesh_view_bindings
 
 #import bevy_pbr::mesh_view_types as types
+#import bevy_pbr::atmosphere::types as atmosphere
 #import bevy_render::{
     view::View,
     globals::Globals,
@@ -49,50 +50,60 @@ const VISIBILITY_RANGE_UNIFORM_BUFFER_SIZE: u32 = 64u;
 #endif
 
 @group(0) @binding(15) var<uniform> ssr_settings: types::ScreenSpaceReflectionsSettings;
-@group(0) @binding(16) var screen_space_ambient_occlusion_texture: texture_2d<f32>;
-@group(0) @binding(17) var<uniform> environment_map_uniform: types::EnvironmentMapUniform;
+@group(0) @binding(16) var<uniform> contact_shadows_settings: types::ContactShadowsSettings;
+@group(0) @binding(17) var screen_space_ambient_occlusion_texture: texture_2d<f32>;
+@group(0) @binding(18) var<uniform> environment_map_uniform: types::EnvironmentMapUniform;
 
 // NB: If you change these, make sure to update `tonemapping_shared.wgsl` too.
-@group(0) @binding(18) var dt_lut_texture: texture_3d<f32>;
-@group(0) @binding(19) var dt_lut_sampler: sampler;
+@group(0) @binding(19) var dt_lut_texture: texture_3d<f32>;
+@group(0) @binding(20) var dt_lut_sampler: sampler;
 
 #ifdef MULTISAMPLED
 #ifdef DEPTH_PREPASS
-@group(0) @binding(20) var depth_prepass_texture: texture_depth_multisampled_2d;
+@group(0) @binding(21) var depth_prepass_texture: texture_depth_multisampled_2d;
 #endif // DEPTH_PREPASS
 #ifdef NORMAL_PREPASS
-@group(0) @binding(21) var normal_prepass_texture: texture_multisampled_2d<f32>;
+@group(0) @binding(22) var normal_prepass_texture: texture_multisampled_2d<f32>;
 #endif // NORMAL_PREPASS
 #ifdef MOTION_VECTOR_PREPASS
-@group(0) @binding(22) var motion_vector_prepass_texture: texture_multisampled_2d<f32>;
+@group(0) @binding(23) var motion_vector_prepass_texture: texture_multisampled_2d<f32>;
 #endif // MOTION_VECTOR_PREPASS
 
 #else // MULTISAMPLED
 
 #ifdef DEPTH_PREPASS
-@group(0) @binding(20) var depth_prepass_texture: texture_depth_2d;
+@group(0) @binding(21) var depth_prepass_texture: texture_depth_2d;
 #endif // DEPTH_PREPASS
 #ifdef NORMAL_PREPASS
-@group(0) @binding(21) var normal_prepass_texture: texture_2d<f32>;
+@group(0) @binding(22) var normal_prepass_texture: texture_2d<f32>;
 #endif // NORMAL_PREPASS
 #ifdef MOTION_VECTOR_PREPASS
-@group(0) @binding(22) var motion_vector_prepass_texture: texture_2d<f32>;
+@group(0) @binding(23) var motion_vector_prepass_texture: texture_2d<f32>;
 #endif // MOTION_VECTOR_PREPASS
 
 #endif // MULTISAMPLED
 
 #ifdef DEFERRED_PREPASS
-@group(0) @binding(23) var deferred_prepass_texture: texture_2d<u32>;
+@group(0) @binding(24) var deferred_prepass_texture: texture_2d<u32>;
 #endif // DEFERRED_PREPASS
 
-@group(0) @binding(24) var view_transmission_texture: texture_2d<f32>;
-@group(0) @binding(25) var view_transmission_sampler: sampler;
+@group(0) @binding(25) var view_transmission_texture: texture_2d<f32>;
+@group(0) @binding(26) var view_transmission_sampler: sampler;
 
 #ifdef OIT_ENABLED
-@group(0) @binding(26) var<storage, read_write> oit_layers: array<vec2<u32>>;
-@group(0) @binding(27) var<storage, read_write> oit_layer_ids: array<atomic<i32>>;
-@group(0) @binding(28) var<uniform> oit_settings: types::OrderIndependentTransparencySettings;
+@group(0) @binding(27) var<storage, read_write> oit_layers: array<vec2<u32>>;
+@group(0) @binding(28) var<storage, read_write> oit_layer_ids: array<atomic<i32>>;
+@group(0) @binding(29) var<uniform> oit_settings: types::OrderIndependentTransparencySettings;
 #endif // OIT_ENABLED
+
+#ifdef ATMOSPHERE
+@group(0) @binding(30) var atmosphere_transmittance_texture: texture_2d<f32>;
+@group(0) @binding(31) var atmosphere_transmittance_sampler: sampler;
+@group(0) @binding(32) var<storage> atmosphere_data: atmosphere::AtmosphereData;
+#endif // ATMOSPHERE
+#ifdef BLUE_NOISE_TEXTURE
+@group(0) @binding(33) var blue_noise_texture: texture_2d_array<f32>;
+#endif // BLUE_NOISE_TEXTURE
 
 #ifdef MULTIPLE_LIGHT_PROBES_IN_ARRAY
 @group(1) @binding(0) var diffuse_environment_maps: binding_array<texture_cube<f32>, 8u>;

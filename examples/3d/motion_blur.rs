@@ -57,7 +57,7 @@ fn setup_scene(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    commands.insert_resource(AmbientLight {
+    commands.insert_resource(GlobalAmbientLight {
         color: Color::WHITE,
         brightness: 300.0,
         ..default()
@@ -66,7 +66,7 @@ fn setup_scene(
     commands.spawn((
         DirectionalLight {
             illuminance: 3_000.0,
-            shadows_enabled: true,
+            shadow_maps_enabled: true,
             ..default()
         },
         Transform::default().looking_to(Vec3::new(-1.0, -0.7, -1.0), Vec3::X),

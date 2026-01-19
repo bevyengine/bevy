@@ -12,8 +12,7 @@ use bevy_ecs::{
     query::{Added, Changed, Has, Or, Spawned, With},
     reflect::ReflectComponent,
     schedule::IntoScheduleConfigs,
-    spawn::SpawnRelated,
-    system::{Commands, In, Query, Res},
+    system::{Commands, Query, Res},
 };
 use bevy_input_focus::tab_navigation::TabIndex;
 use bevy_picking::PickingSystems;
@@ -23,7 +22,7 @@ use bevy_ui::{
     InteractionDisabled, InterpolationColorSpace, JustifyContent, LinearGradient, Node,
     PositionType, UiRect, Val,
 };
-use bevy_ui_widgets::{Callback, Slider, SliderRange, SliderValue, TrackClick, ValueChange};
+use bevy_ui_widgets::{Slider, SliderPrecision, SliderRange, SliderValue, TrackClick};
 
 use crate::{
     constants::{fonts, size},
@@ -43,8 +42,6 @@ pub struct SliderProps {
     pub min: f32,
     /// Slider maximum value
     pub max: f32,
-    /// On-change handler
-    pub on_change: Callback<In<ValueChange<f32>>>,
 }
 
 impl Default for SliderProps {
@@ -53,7 +50,6 @@ impl Default for SliderProps {
             value: 0.0,
             min: 0.0,
             max: 1.0,
-            on_change: Callback::Ignore,
         }
     }
 }
@@ -75,6 +71,12 @@ struct SliderValueText;
 ///
 /// * `props` - construction properties for the slider.
 /// * `overrides` - a bundle of components that are merged in with the normal slider components.
+///
+/// # Emitted events
+///
+/// * [`bevy_ui_widgets::ValueChange<f32>`] when the slider value is changed.
+///
+///  These events can be disabled by adding an [`bevy_ui::InteractionDisabled`] component to the entity
 pub fn slider<B: Bundle>(props: SliderProps, overrides: B) -> impl Bundle {
     (
         Node {
@@ -83,10 +85,10 @@ pub fn slider<B: Bundle>(props: SliderProps, overrides: B) -> impl Bundle {
             align_items: AlignItems::Center,
             padding: UiRect::axes(Val::Px(8.0), Val::Px(0.)),
             flex_grow: 1.0,
+            border_radius: RoundedCorners::All.to_border_radius(6.0),
             ..Default::default()
         },
         Slider {
-            on_change: props.on_change,
             track_click: TrackClick::Drag,
         },
         SliderStyle,
@@ -94,7 +96,6 @@ pub fn slider<B: Bundle>(props: SliderProps, overrides: B) -> impl Bundle {
         SliderRange::new(props.min, props.max),
         EntityCursor::System(bevy_window::SystemCursorIcon::EwResize),
         TabIndex(0),
-        RoundedCorners::All.to_border_radius(6.0),
         // Use a gradient to draw the moving bar
         BackgroundGradient(vec![Gradient::Linear(LinearGradient {
             angle: PI * 0.5,
@@ -199,7 +200,13 @@ fn set_slider_styles(
 
 fn update_slider_pos(
     mut q_sliders: Query<
-        (Entity, &SliderValue, &SliderRange, &mut BackgroundGradient),
+        (
+            Entity,
+            &SliderValue,
+            &SliderRange,
+            &SliderPrecision,
+            &mut BackgroundGradient,
+        ),
         (
             With<SliderStyle>,
             Or<(
@@ -212,9 +219,9 @@ fn update_slider_pos(
     q_children: Query<&Children>,
     mut q_slider_text: Query<&mut Text, With<SliderValueText>>,
 ) {
-    for (slider_ent, value, range, mut gradient) in q_sliders.iter_mut() {
+    for (slider_ent, value, range, precision, mut gradient) in q_sliders.iter_mut() {
         if let [Gradient::Linear(linear_gradient)] = &mut gradient.0[..] {
-            let percent_value = range.thumb_position(value.0) * 100.0;
+            let percent_value = (range.thumb_position(value.0) * 100.0).clamp(0.0, 100.0);
             linear_gradient.stops[1].point = Val::Percent(percent_value);
             linear_gradient.stops[2].point = Val::Percent(percent_value);
         }
@@ -222,7 +229,18 @@ fn update_slider_pos(
         // Find slider text child entity and update its text with the formatted value
         q_children.iter_descendants(slider_ent).for_each(|child| {
             if let Ok(mut text) = q_slider_text.get_mut(child) {
-                text.0 = format!("{}", value.0);
+                let label = format!("{}", value.0);
+                let decimals_len = label
+                    .split_once('.')
+                    .map(|(_, decimals)| decimals.len() as i32)
+                    .unwrap_or(precision.0);
+
+                // Don't format with precision if the value has more decimals than the precision
+                text.0 = if precision.0 >= 0 && decimals_len <= precision.0 {
+                    format!("{:.precision$}", value.0, precision = precision.0 as usize)
+                } else {
+                    label
+                };
             }
         });
     }

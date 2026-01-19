@@ -13,11 +13,7 @@ use bevy_ecs::component::ComponentCloneBehavior;
 use bevy_ecs::relationship::RelationshipHookMode;
 
 #[cfg(feature = "serialize")]
-use {
-    crate::{ron, serde::SceneSerializer},
-    bevy_reflect::TypeRegistry,
-    serde::Serialize,
-};
+use {crate::serde::SceneSerializer, bevy_reflect::TypeRegistry, serde::Serialize};
 
 /// A collection of serializable resources and dynamic entities.
 ///

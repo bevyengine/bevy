@@ -1,3 +1,6 @@
+//! A trait used to power [set-like] operations via reflection.
+//!
+//! [set-like]: https://doc.rust-lang.org/stable/std/collections/struct.HashSet.html
 use alloc::{boxed::Box, format, vec::Vec};
 use core::fmt::{Debug, Formatter};
 
@@ -29,7 +32,7 @@ use crate::{
 /// # Example
 ///
 /// ```
-/// use bevy_reflect::{PartialReflect, Set};
+/// use bevy_reflect::{PartialReflect, set::Set};
 /// use std::collections::HashSet;
 ///
 ///
@@ -104,7 +107,7 @@ pub struct SetInfo {
     ty: Type,
     generics: Generics,
     value_ty: Type,
-    #[cfg(feature = "documentation")]
+    #[cfg(feature = "reflect_documentation")]
     docs: Option<&'static str>,
 }
 
@@ -115,13 +118,13 @@ impl SetInfo {
             ty: Type::of::<TSet>(),
             generics: Generics::new(),
             value_ty: Type::of::<TValue>(),
-            #[cfg(feature = "documentation")]
+            #[cfg(feature = "reflect_documentation")]
             docs: None,
         }
     }
 
     /// Sets the docstring for this set.
-    #[cfg(feature = "documentation")]
+    #[cfg(feature = "reflect_documentation")]
     pub fn with_docs(self, docs: Option<&'static str>) -> Self {
         Self { docs, ..self }
     }
@@ -136,7 +139,7 @@ impl SetInfo {
     }
 
     /// The docstring of this set, if any.
-    #[cfg(feature = "documentation")]
+    #[cfg(feature = "reflect_documentation")]
     pub fn docs(&self) -> Option<&'static str> {
         self.docs
     }
@@ -488,7 +491,7 @@ pub fn set_try_apply<S: Set>(a: &mut S, b: &dyn PartialReflect) -> Result<(), Ap
 
 #[cfg(test)]
 mod tests {
-    use crate::{PartialReflect, Set};
+    use crate::{set::Set, PartialReflect};
 
     use super::DynamicSet;
     use alloc::string::{String, ToString};

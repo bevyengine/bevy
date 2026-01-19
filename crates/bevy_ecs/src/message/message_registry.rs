@@ -1,6 +1,6 @@
 use crate::{
-    change_detection::{DetectChangesMut, MutUntyped},
-    component::{ComponentId, Tick},
+    change_detection::{DetectChangesMut, MutUntyped, Tick},
+    component::ComponentId,
     message::{Message, Messages},
     resource::Resource,
     world::World,

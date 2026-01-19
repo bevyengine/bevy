@@ -137,6 +137,18 @@ pub enum MouseScrollUnit {
     Pixel,
 }
 
+impl MouseScrollUnit {
+    /// An approximate conversion factor to account for the difference between
+    /// [`MouseScrollUnit::Line`] and [`MouseScrollUnit::Pixel`].
+    ///
+    /// Each line corresponds to many pixels; this must be corrected for in order to ensure that
+    /// mouse wheel controls are scaled properly regardless of the provided input events for the end user.
+    ///
+    /// This value is correct for Microsoft Edge, but its validity has not been broadly tested.
+    /// Please file an issue if you find that this differs on certain platforms or hardware!
+    pub const SCROLL_UNIT_CONVERSION_FACTOR: f32 = 100.;
+}
+
 /// A mouse wheel event.
 ///
 /// This event is the translated version of the `WindowEvent::MouseWheel` from the `winit` crate.

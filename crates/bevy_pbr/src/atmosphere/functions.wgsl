@@ -5,14 +5,13 @@
 #import bevy_pbr::atmosphere::{
     types::Atmosphere,
     bindings::{
-        atmosphere, settings, view, lights, transmittance_lut, transmittance_lut_sampler, 
-        multiscattering_lut, multiscattering_lut_sampler, sky_view_lut, sky_view_lut_sampler,
-        aerial_view_lut, aerial_view_lut_sampler, atmosphere_transforms
+        atmosphere, settings, view, lights, transmittance_lut, atmosphere_lut_sampler,
+        multiscattering_lut, sky_view_lut, aerial_view_lut, atmosphere_transforms,
+        medium_density_lut, medium_scattering_lut, medium_sampler,
     },
     bruneton_functions::{
-        transmittance_lut_r_mu_to_uv, transmittance_lut_uv_to_r_mu, 
-        ray_intersects_ground, distance_to_top_atmosphere_boundary, 
-        distance_to_bottom_atmosphere_boundary
+        transmittance_lut_r_mu_to_uv, ray_intersects_ground,
+        distance_to_top_atmosphere_boundary, distance_to_bottom_atmosphere_boundary
     },
 }
 
@@ -42,6 +41,7 @@ const FRAC_3_16_PI: f32 = 0.0596831036594607509; // 3 / (16π)
 const FRAC_4_PI: f32 = 0.07957747154594767; // 1 / (4π)
 const ROOT_2: f32 = 1.41421356; // √2
 const EPSILON: f32 = 1.0; // 1 meter
+const MIN_EXTINCTION: vec3<f32> = vec3(1e-12);
 
 // During raymarching, each segment is sampled at a single point. This constant determines
 // where in the segment that sample is taken (0.0 = start, 0.5 = middle, 1.0 = end).
@@ -114,8 +114,8 @@ fn sky_view_lut_uv_to_zenith_azimuth(r: f32, uv: vec2<f32>) -> vec2<f32> {
 // LUT SAMPLING
 
 fn sample_transmittance_lut(r: f32, mu: f32) -> vec3<f32> {
-    let uv = transmittance_lut_r_mu_to_uv(r, mu);
-    return textureSampleLevel(transmittance_lut, transmittance_lut_sampler, uv, 0.0).rgb;
+    let uv = transmittance_lut_r_mu_to_uv(atmosphere, r, mu);
+    return textureSampleLevel(transmittance_lut, atmosphere_lut_sampler, uv, 0.0).rgb;
 }
 
 // NOTICE: This function is copyrighted by Eric Bruneton and INRIA, and falls
@@ -141,14 +141,14 @@ fn sample_transmittance_lut_segment(r: f32, mu: f32, t: f32) -> vec3<f32> {
 
 fn sample_multiscattering_lut(r: f32, mu: f32) -> vec3<f32> {
     let uv = multiscattering_lut_r_mu_to_uv(r, mu);
-    return textureSampleLevel(multiscattering_lut, multiscattering_lut_sampler, uv, 0.0).rgb;
+    return textureSampleLevel(multiscattering_lut, atmosphere_lut_sampler, uv, 0.0).rgb;
 }
 
 fn sample_sky_view_lut(r: f32, ray_dir_as: vec3<f32>) -> vec3<f32> {
     let mu = ray_dir_as.y;
     let azimuth = fast_atan2(ray_dir_as.x, -ray_dir_as.z);
     let uv = sky_view_lut_r_mu_azimuth_to_uv(r, mu, azimuth);
-    return textureSampleLevel(sky_view_lut, sky_view_lut_sampler, uv, 0.0).rgb;
+    return textureSampleLevel(sky_view_lut, atmosphere_lut_sampler, uv, 0.0).rgb;
 }
 
 fn ndc_to_camera_dist(ndc: vec3<f32>) -> f32 {
@@ -168,7 +168,7 @@ fn sample_aerial_view_lut(uv: vec2<f32>, t: f32) -> vec3<f32> {
     // we'd need to sample at the center of the previous slice, and vice-versa for
     // sampling in the center of a slice.
     let uvw = vec3(uv, saturate(t / t_max - 0.5 / num_slices));
-    let sample = textureSampleLevel(aerial_view_lut, aerial_view_lut_sampler, uvw, 0.0);
+    let sample = textureSampleLevel(aerial_view_lut, atmosphere_lut_sampler, uvw, 0.0);
     // Since sampling anywhere between w=0 and w=t_slice will clamp to the first slice,
     // we need to do a linear step over the first slice towards zero at the camera's
     // position to recover the correct integral value.
@@ -178,72 +178,32 @@ fn sample_aerial_view_lut(uv: vec2<f32>, t: f32) -> vec3<f32> {
     return exp(sample.rgb) * fade;
 }
 
-// PHASE FUNCTIONS
-
-// -(L . V) == (L . -V). -V here is our ray direction, which points away from the view 
-// instead of towards it (which would be the *view direction*, V)
-
-// evaluates the rayleigh phase function, which describes the likelihood
-// of a rayleigh scattering event scattering light from the light direction towards the view
-fn rayleigh(neg_LdotV: f32) -> f32 {
-    return FRAC_3_16_PI * (1 + (neg_LdotV * neg_LdotV));
-}
-
-// evaluates the henyey-greenstein phase function, which describes the likelihood
-// of a mie scattering event scattering light from the light direction towards the view
-fn henyey_greenstein(neg_LdotV: f32) -> f32 {
-    let g = atmosphere.mie_asymmetry;
-    let denom = 1.0 + g * g - 2.0 * g * neg_LdotV;
-    return FRAC_4_PI * (1.0 - g * g) / (denom * sqrt(denom));
-}
-
 // ATMOSPHERE SAMPLING
 
-struct AtmosphereSample {
-    /// units: m^-1
-    rayleigh_scattering: vec3<f32>,
+const ABSORPTION_DENSITY: f32 = 0.0;
+const SCATTERING_DENSITY: f32 = 1.0;
 
-    /// units: m^-1
-    mie_scattering: f32,
-
-    /// the sum of scattering and absorption. Since the phase function doesn't
-    /// matter for this, we combine rayleigh and mie extinction to a single 
-    //  value.
-    //
-    /// units: m^-1
-    extinction: vec3<f32>
+// samples from the atmosphere density LUT.
+//
+// calling with `component = 0.0` will return the atmosphere's absorption density,
+// while calling with `component = 1.0` will return the atmosphere's scattering density.
+fn sample_density_lut(r: f32, component: f32) -> vec3<f32> {
+    // sampler clamps to [0, 1] anyways, no need to clamp the altitude
+    let normalized_altitude = (r - atmosphere.bottom_radius) / (atmosphere.top_radius - atmosphere.bottom_radius);
+    let uv = vec2(1.0 - normalized_altitude, component);
+    return textureSampleLevel(medium_density_lut, medium_sampler, uv, 0.0).xyz;
 }
 
-/// Samples atmosphere optical densities at a given radius
-fn sample_atmosphere(r: f32) -> AtmosphereSample {
-    let altitude = clamp(r, atmosphere.bottom_radius, atmosphere.top_radius) - atmosphere.bottom_radius;
-
-    // atmosphere values at altitude
-    let mie_density = exp(-atmosphere.mie_density_exp_scale * altitude);
-    let rayleigh_density = exp(-atmosphere.rayleigh_density_exp_scale * altitude);
-    var ozone_density: f32 = max(0.0, 1.0 - (abs(altitude - atmosphere.ozone_layer_altitude) / (atmosphere.ozone_layer_width * 0.5)));
-
-    let mie_scattering = mie_density * atmosphere.mie_scattering;
-    let mie_absorption = mie_density * atmosphere.mie_absorption;
-    let mie_extinction = mie_scattering + mie_absorption;
-
-    let rayleigh_scattering = rayleigh_density * atmosphere.rayleigh_scattering;
-    // no rayleigh absorption
-    // rayleigh extinction is the sum of scattering and absorption
-
-    // ozone doesn't contribute to scattering
-    let ozone_absorption = ozone_density * atmosphere.ozone_absorption;
-
-    var sample: AtmosphereSample;
-    sample.rayleigh_scattering = rayleigh_scattering;
-    sample.mie_scattering = mie_scattering;
-    sample.extinction = rayleigh_scattering + mie_extinction + ozone_absorption;
-
-    return sample;
+// samples from the atmosphere scattering LUT. `neg_LdotV` is the dot product
+// of the light direction and the incoming view vector.
+fn sample_scattering_lut(r: f32, neg_LdotV: f32) -> vec3<f32> {
+    let normalized_altitude = (r - atmosphere.bottom_radius) / (atmosphere.top_radius - atmosphere.bottom_radius);
+    let uv = vec2(1.0 - normalized_altitude, neg_LdotV * 0.5 + 0.5);
+    return textureSampleLevel(medium_scattering_lut, medium_sampler, uv, 0.0).xyz;
 }
 
 /// evaluates L_scat, equation 3 in the paper, which gives the total single-order scattering towards the view at a single point
-fn sample_local_inscattering(local_atmosphere: AtmosphereSample, ray_dir: vec3<f32>, world_pos: vec3<f32>) -> vec3<f32> {
+fn sample_local_inscattering(local_scattering: vec3<f32>, ray_dir: vec3<f32>, world_pos: vec3<f32>) -> vec3<f32> {
     let local_r = length(world_pos);
     let local_up = normalize(world_pos);
     var inscattering = vec3(0.0);
@@ -256,21 +216,16 @@ fn sample_local_inscattering(local_atmosphere: AtmosphereSample, ray_dir: vec3<f
         // instead of towards it (as is the convention for V)
         let neg_LdotV = dot((*light).direction_to_light, ray_dir);
 
-        // Phase functions give the proportion of light
-        // scattered towards the camera for each scattering type
-        let rayleigh_phase = rayleigh(neg_LdotV);
-        let mie_phase = henyey_greenstein(neg_LdotV);
-        let scattering_coeff = local_atmosphere.rayleigh_scattering * rayleigh_phase + local_atmosphere.mie_scattering * mie_phase;
-
         let transmittance_to_light = sample_transmittance_lut(local_r, mu_light);
         let shadow_factor = transmittance_to_light * f32(!ray_intersects_ground(local_r, mu_light));
+        let scattering_coeff = sample_scattering_lut(local_r, neg_LdotV);
 
         // Transmittance from scattering event to light source
         let scattering_factor = shadow_factor * scattering_coeff;
 
         // Additive factor from the multiscattering LUT
         let psi_ms = sample_multiscattering_lut(local_r, mu_light);
-        let multiscattering_factor = psi_ms * (local_atmosphere.rayleigh_scattering + local_atmosphere.mie_scattering);
+        let multiscattering_factor = psi_ms * local_scattering;
 
         inscattering += (*light).color.rgb * (scattering_factor + multiscattering_factor);
     }
@@ -300,10 +255,45 @@ fn sample_sun_radiance(ray_dir_ws: vec3<f32>) -> vec3<f32> {
     return sun_radiance;
 }
 
+fn calculate_visible_sun_ratio(atmosphere: Atmosphere, r: f32, mu: f32, sun_angular_size: f32) -> f32 {
+    let bottom_radius = atmosphere.bottom_radius;
+    // Calculate the angle between horizon and sun center
+    // Invert the horizon angle calculation to fix shading direction
+    let horizon_cos = -sqrt(1.0 - (bottom_radius * bottom_radius) / (r * r));
+    let horizon_angle = fast_acos_4(horizon_cos);
+    let sun_zenith_angle = fast_acos_4(mu);
+    
+    // If sun is completely above horizon
+    if sun_zenith_angle + sun_angular_size * 0.5 <= horizon_angle {
+        return 1.0;
+    }
+    
+    // If sun is completely below horizon
+    if sun_zenith_angle - sun_angular_size * 0.5 >= horizon_angle {
+        return 0.0;
+    }
+    
+    // Calculate partial visibility using circular segment area formula
+    let d = (horizon_angle - sun_zenith_angle) / (sun_angular_size * 0.5);
+    let visible_ratio = 0.5 + d * 0.5;
+    return clamp(visible_ratio, 0.0, 1.0);
+}
+
 // TRANSFORM UTILITIES
 
+/// Clamp a position to the planet surface (with a small epsilon) to avoid underground artifacts.
+fn clamp_to_surface(atmosphere: Atmosphere, position: vec3<f32>) -> vec3<f32> {
+    let min_radius = atmosphere.bottom_radius + EPSILON;
+    let r = length(position);
+    if r < min_radius {
+        let up = normalize(position);
+        return up * min_radius;
+    }
+    return position;
+}
+
 fn max_atmosphere_distance(r: f32, mu: f32) -> f32 {
-    let t_top = distance_to_top_atmosphere_boundary(r, mu);
+    let t_top = distance_to_top_atmosphere_boundary(atmosphere, r, mu);
     let t_bottom = distance_to_bottom_atmosphere_boundary(r, mu);
     let hits = ray_intersects_ground(r, mu);
     return mix(t_top, t_bottom, f32(hits));
@@ -312,18 +302,7 @@ fn max_atmosphere_distance(r: f32, mu: f32) -> f32 {
 /// Returns the observer's position in the atmosphere
 fn get_view_position() -> vec3<f32> {
     var world_pos = view.world_position * settings.scene_units_to_m + vec3(0.0, atmosphere.bottom_radius, 0.0);
-    
-    // If the camera is underground, clamp it to the ground surface along the local up.
-    let r = length(world_pos);
-    // Nudge r above ground to avoid sqrt cancellation, zero-length segments where 
-    // r is equal to bottom_radius, which show up as black pixels
-    let min_radius = atmosphere.bottom_radius + EPSILON;
-    if r < min_radius {
-        let up = normalize(world_pos);
-        world_pos = up * min_radius;
-    }
-
-    return world_pos;
+    return clamp_to_surface(atmosphere, world_pos);
 }
 
 // We assume the `up` vector at the view position is the y axis, since the world is locally flat/level.
@@ -412,9 +391,9 @@ fn get_raymarch_segment(r: f32, mu: f32) -> RaymarchSegment {
     // Get both intersection points with atmosphere
     let atmosphere_intersections = ray_sphere_intersect(r, mu, atmosphere.top_radius);
     let ground_intersections = ray_sphere_intersect(r, mu, atmosphere.bottom_radius);
-    
+
     var segment: RaymarchSegment;
-    
+
     if r < atmosphere.bottom_radius {
         // Inside planet - start from bottom of atmosphere
         segment.start = ground_intersections.y; // Use second intersection point with ground
@@ -453,26 +432,26 @@ fn raymarch_atmosphere(
     let r = length(pos);
     let up = normalize(pos);
     let mu = dot(ray_dir, up);
-    
+
     // Optimization: Reduce sample count at close proximity to the scene
     let sample_count = mix(1.0, f32(max_samples), saturate(t_max * 0.01));
-    
+
     let segment = get_raymarch_segment(r, mu);
     let t_start = segment.start;
     var t_end = segment.end;
-    
+
     t_end = min(t_end, t_max);
     let t_total = t_end - t_start;
-    
+
     var result: RaymarchResult;
     result.inscattering = vec3(0.0);
     result.transmittance = vec3(1.0);
-    
+
     // Skip if invalid segment
     if t_total <= 0.0 {
         return result;
     }
-    
+
     var prev_t = t_start;
     var optical_depth = vec3(0.0);
     for (var s = 0.0; s < sample_count; s += 1.0) {
@@ -484,19 +463,22 @@ fn raymarch_atmosphere(
         let sample_pos = pos + ray_dir * t_i;
         let local_r = length(sample_pos);
         let local_up = normalize(sample_pos);
-        let local_atmosphere = sample_atmosphere(local_r);
 
-        let sample_optical_depth = local_atmosphere.extinction * dt_i;
+        let absorption = sample_density_lut(local_r, ABSORPTION_DENSITY);
+        let scattering = sample_density_lut(local_r, SCATTERING_DENSITY);
+        let extinction = absorption + scattering;
+
+        let sample_optical_depth = extinction * dt_i;
         optical_depth += sample_optical_depth;
         let sample_transmittance = exp(-sample_optical_depth);
 
         let inscattering = sample_local_inscattering(
-            local_atmosphere,
+            scattering,
             ray_dir,
             sample_pos
         );
 
-        let s_int = (inscattering - inscattering * sample_transmittance) / local_atmosphere.extinction;
+        let s_int = (inscattering - inscattering * sample_transmittance) / max(extinction, MIN_EXTINCTION);
         result.inscattering += result.transmittance * s_int;
 
         result.transmittance *= sample_transmittance;

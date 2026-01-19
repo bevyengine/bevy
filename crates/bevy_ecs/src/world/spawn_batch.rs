@@ -3,7 +3,7 @@ use bevy_ptr::move_as_ptr;
 use crate::{
     bundle::{Bundle, BundleSpawner, NoBundleEffect},
     change_detection::MaybeLocation,
-    entity::{Entity, EntitySetIterator},
+    entity::{AllocEntitiesIterator, Entity, EntitySetIterator},
     world::World,
 };
 use core::iter::FusedIterator;
@@ -19,6 +19,7 @@ where
 {
     inner: I,
     spawner: BundleSpawner<'w>,
+    allocator: AllocEntitiesIterator<'w>,
     caller: MaybeLocation,
 }
 
@@ -30,21 +31,18 @@ where
     #[inline]
     #[track_caller]
     pub(crate) fn new(world: &'w mut World, iter: I, caller: MaybeLocation) -> Self {
-        // Ensure all entity allocations are accounted for so `self.entities` can realloc if
-        // necessary
-        world.flush();
-
         let change_tick = world.change_tick();
 
         let (lower, upper) = iter.size_hint();
         let length = upper.unwrap_or(lower);
-        world.entities.reserve(length as u32);
 
         let mut spawner = BundleSpawner::new::<I::Item>(world, change_tick);
         spawner.reserve_storage(length);
+        let allocator = spawner.allocator().alloc_many(length as u32);
 
         Self {
             inner: iter,
+            allocator,
             spawner,
             caller,
         }
@@ -75,11 +73,16 @@ where
     fn next(&mut self) -> Option<Entity> {
         let bundle = self.inner.next()?;
         move_as_ptr!(bundle);
-        // SAFETY:
-        // - The spawner matches `I::Item`'s type.
-        // - `I::Item::Effect: NoBundleEffect`, thus [`apply_effect`] does not need to be called.
-        // - `bundle` is not accessed or dropped after this function call.
-        unsafe { Some(self.spawner.spawn::<I::Item>(bundle, self.caller)) }
+        Some(if let Some(bulk) = self.allocator.next() {
+            // SAFETY: bundle matches spawner type and we just allocated it
+            unsafe {
+                self.spawner.spawn_at(bulk, bundle, self.caller);
+            }
+            bulk
+        } else {
+            // SAFETY: bundle matches spawner type
+            unsafe { self.spawner.spawn(bundle, self.caller) }
+        })
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {

@@ -103,7 +103,7 @@ impl Node for AutoExposureNode {
 
         let compute_bind_group = render_context.render_device().create_bind_group(
             None,
-            &pipeline.histogram_layout,
+            &pipeline_cache.get_bind_group_layout(&pipeline.histogram_layout),
             &BindGroupEntries::sequential((
                 &globals_buffer.buffer,
                 &auto_exposure_buffers.settings,
@@ -128,7 +128,7 @@ impl Node for AutoExposureNode {
                     label: Some("auto_exposure"),
                     timestamp_writes: None,
                 });
-        let pass_span = diagnostics.time_span(&mut compute_pass, "auto_exposure");
+        let pass_span = diagnostics.pass_span(&mut compute_pass, "auto_exposure");
 
         compute_pass.set_bind_group(0, &compute_bind_group, &[view_uniform_offset.offset]);
         compute_pass.set_pipeline(histogram_pipeline);

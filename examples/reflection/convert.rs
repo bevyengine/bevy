@@ -1,6 +1,6 @@
 //! Illustrates how to specify conversions for `FromReflect`
 
-use bevy::{prelude::*, reflect::DynamicStruct};
+use bevy::{prelude::*, reflect::structs::DynamicStruct};
 
 fn main() {
     App::new()

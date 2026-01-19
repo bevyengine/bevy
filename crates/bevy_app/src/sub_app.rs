@@ -3,7 +3,10 @@ use alloc::{boxed::Box, string::String, vec::Vec};
 use bevy_ecs::{
     message::MessageRegistry,
     prelude::*,
-    schedule::{InternedScheduleLabel, InternedSystemSet, ScheduleBuildSettings, ScheduleLabel},
+    schedule::{
+        InternedScheduleLabel, InternedSystemSet, ScheduleBuildSettings, ScheduleCleanupPolicy,
+        ScheduleError, ScheduleLabel,
+    },
     system::{ScheduleSystem, SystemId, SystemInput},
 };
 use bevy_platform::collections::{HashMap, HashSet};
@@ -219,6 +222,18 @@ impl SubApp {
         self
     }
 
+    /// See [`App::remove_systems_in_set`]
+    pub fn remove_systems_in_set<M>(
+        &mut self,
+        schedule: impl ScheduleLabel,
+        set: impl IntoSystemSet<M>,
+        policy: ScheduleCleanupPolicy,
+    ) -> Result<usize, ScheduleError> {
+        self.world.schedule_scope(schedule, |world, schedule| {
+            schedule.remove_systems_in_set(set, world, policy)
+        })
+    }
+
     /// See [`App::register_system`].
     pub fn register_system<I, O, M>(
         &mut self,
@@ -333,15 +348,6 @@ impl SubApp {
         schedules.ignore_ambiguity(schedule, a, b);
 
         self
-    }
-
-    /// See [`App::add_message`].
-    #[deprecated(since = "0.17.0", note = "Use `add_message` instead.")]
-    pub fn add_event<T>(&mut self) -> &mut Self
-    where
-        T: Message,
-    {
-        self.add_message::<T>()
     }
 
     /// See [`App::add_message`].

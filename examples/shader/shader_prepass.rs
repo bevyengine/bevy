@@ -27,12 +27,7 @@ fn main() {
                 ..default()
             }),
             MaterialPlugin::<CustomMaterial>::default(),
-            MaterialPlugin::<PrepassOutputMaterial> {
-                // This material only needs to read the prepass textures,
-                // but the meshes using it should not contribute to the prepass render, so we can disable it.
-                prepass_enabled: false,
-                ..default()
-            },
+            MaterialPlugin::<PrepassOutputMaterial>::default(),
         ))
         .add_systems(Startup, setup)
         .add_systems(Update, (rotate, toggle_prepass_view))
@@ -119,7 +114,7 @@ fn setup(
     // light
     commands.spawn((
         PointLight {
-            shadows_enabled: true,
+            shadow_maps_enabled: true,
             ..default()
         },
         Transform::from_xyz(4.0, 8.0, 4.0),
@@ -206,6 +201,10 @@ impl Material for PrepassOutputMaterial {
     // This needs to be transparent in order to show the scene behind the mesh
     fn alpha_mode(&self) -> AlphaMode {
         AlphaMode::Blend
+    }
+
+    fn enable_prepass() -> bool {
+        false
     }
 }
 

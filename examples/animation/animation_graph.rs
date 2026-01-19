@@ -88,7 +88,7 @@ fn main() {
             (handle_weight_drag, update_ui, sync_weights).chain(),
         )
         .insert_resource(args)
-        .insert_resource(AmbientLight {
+        .insert_resource(GlobalAmbientLight {
             color: WHITE.into(),
             brightness: 100.0,
             ..default()
@@ -232,7 +232,7 @@ fn setup_scene(
     commands.spawn((
         PointLight {
             intensity: 10_000_000.0,
-            shadows_enabled: true,
+            shadow_maps_enabled: true,
             ..default()
         },
         Transform::from_xyz(-4.0, 8.0, 13.0),

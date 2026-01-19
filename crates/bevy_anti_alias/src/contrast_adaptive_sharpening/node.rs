@@ -83,7 +83,7 @@ impl Node for CasNode {
             cached_bind_group => {
                 let bind_group = render_context.render_device().create_bind_group(
                     "cas_bind_group",
-                    &sharpening_pipeline.texture_bind_group,
+                    &pipeline_cache.get_bind_group_layout(&sharpening_pipeline.layout),
                     &BindGroupEntries::sequential((
                         view_target.source,
                         &sharpening_pipeline.sampler,
@@ -113,7 +113,7 @@ impl Node for CasNode {
         let mut render_pass = render_context
             .command_encoder()
             .begin_render_pass(&pass_descriptor);
-        let pass_span = diagnostics.time_span(&mut render_pass, "contrast_adaptive_sharpening");
+        let pass_span = diagnostics.pass_span(&mut render_pass, "contrast_adaptive_sharpening");
 
         render_pass.set_pipeline(pipeline);
         render_pass.set_bind_group(0, bind_group, &[uniform_index.index()]);

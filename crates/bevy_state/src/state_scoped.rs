@@ -3,7 +3,9 @@ use bevy_ecs::reflect::ReflectComponent;
 use bevy_ecs::{
     component::Component,
     entity::Entity,
+    entity_disabling::Disabled,
     message::MessageReader,
+    query::Allow,
     system::{Commands, Query},
 };
 #[cfg(feature = "bevy_reflect")]
@@ -65,10 +67,12 @@ where
 
 /// Despawns entities marked with [`DespawnOnExit<S>`] when their state no
 /// longer matches the world state.
+///
+/// If the entity has already been despawned no warning will be emitted.
 pub fn despawn_entities_on_exit_state<S: States>(
     mut commands: Commands,
     mut transitions: MessageReader<StateTransitionEvent<S>>,
-    query: Query<(Entity, &DespawnOnExit<S>)>,
+    query: Query<(Entity, &DespawnOnExit<S>), Allow<Disabled>>,
 ) {
     // We use the latest event, because state machine internals generate at most 1
     // transition event (per type) each frame. No event means no change happened
@@ -84,7 +88,7 @@ pub fn despawn_entities_on_exit_state<S: States>(
     };
     for (entity, binding) in &query {
         if binding.0 == *exited {
-            commands.entity(entity).despawn();
+            commands.entity(entity).try_despawn();
         }
     }
 }
@@ -131,10 +135,12 @@ pub struct DespawnOnEnter<S: States>(pub S);
 
 /// Despawns entities marked with [`DespawnOnEnter<S>`] when their state
 /// matches the world state.
+///
+/// If the entity has already been despawned no warning will be emitted.
 pub fn despawn_entities_on_enter_state<S: States>(
     mut commands: Commands,
     mut transitions: MessageReader<StateTransitionEvent<S>>,
-    query: Query<(Entity, &DespawnOnEnter<S>)>,
+    query: Query<(Entity, &DespawnOnEnter<S>), Allow<Disabled>>,
 ) {
     // We use the latest event, because state machine internals generate at most 1
     // transition event (per type) each frame. No event means no change happened
@@ -150,7 +156,79 @@ pub fn despawn_entities_on_enter_state<S: States>(
     };
     for (entity, binding) in &query {
         if binding.0 == *entered {
-            commands.entity(entity).despawn();
+            commands.entity(entity).try_despawn();
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use bevy_app::App;
+
+    use crate::{
+        app::{AppExtStates, StatesPlugin},
+        prelude::CommandsStatesExt,
+    };
+
+    #[test]
+    fn despawn_on_exit_from_computed_state() {
+        #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, States)]
+        enum State {
+            On,
+            Off,
+        }
+
+        #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+        struct ComputedState;
+        impl bevy_state::state::ComputedStates for ComputedState {
+            type SourceStates = State;
+
+            fn compute(sources: Self::SourceStates) -> Option<Self> {
+                match sources {
+                    State::On => Some(ComputedState),
+                    State::Off => None,
+                }
+            }
+        }
+
+        let mut app = App::new();
+        app.add_plugins(StatesPlugin);
+
+        app.insert_state(State::On);
+        app.add_computed_state::<ComputedState>();
+        app.update();
+
+        assert_eq!(
+            app.world()
+                .resource::<bevy_state::state::State<State>>()
+                .get(),
+            &State::On
+        );
+        assert_eq!(
+            app.world()
+                .resource::<bevy_state::state::State<ComputedState>>()
+                .get(),
+            &ComputedState
+        );
+
+        let entity = app.world_mut().spawn(DespawnOnExit(ComputedState)).id();
+        assert!(app.world().get_entity(entity).is_ok());
+
+        app.world_mut().commands().set_state(State::Off);
+        app.update();
+
+        assert_eq!(
+            app.world()
+                .resource::<bevy_state::state::State<State>>()
+                .get(),
+            &State::Off
+        );
+        assert!(app
+            .world()
+            .get_resource::<bevy_state::state::State<ComputedState>>()
+            .is_none());
+        assert!(app.world().get_entity(entity).is_err());
     }
 }

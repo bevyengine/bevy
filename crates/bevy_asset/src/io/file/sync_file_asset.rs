@@ -2,15 +2,15 @@ use futures_io::{AsyncRead, AsyncWrite};
 use futures_lite::Stream;
 
 use crate::io::{
-    get_meta_path, AssetReader, AssetReaderError, AssetWriter, AssetWriterError, AsyncSeekForward,
-    PathStream, Reader, Writer,
+    get_meta_path, AssetReader, AssetReaderError, AssetWriter, AssetWriterError, AsyncSeek,
+    PathStream, Reader, ReaderNotSeekableError, SeekableReader, Writer,
 };
 
 use alloc::{borrow::ToOwned, boxed::Box, vec::Vec};
 use core::{pin::Pin, task::Poll};
 use std::{
     fs::{read_dir, File},
-    io::{Read, Seek, Write},
+    io::{Read, Seek, SeekFrom, Write},
     path::{Path, PathBuf},
 };
 
@@ -30,17 +30,13 @@ impl AsyncRead for FileReader {
     }
 }
 
-impl AsyncSeekForward for FileReader {
-    fn poll_seek_forward(
-        self: Pin<&mut Self>,
+impl AsyncSeek for FileReader {
+    fn poll_seek(
+        mut self: Pin<&mut Self>,
         _cx: &mut core::task::Context<'_>,
-        offset: u64,
+        pos: SeekFrom,
     ) -> Poll<std::io::Result<u64>> {
-        let this = self.get_mut();
-        let current = this.0.stream_position()?;
-        let seek = this.0.seek(std::io::SeekFrom::Start(current + offset));
-
-        Poll::Ready(seek)
+        Poll::Ready(self.0.seek(pos))
     }
 }
 
@@ -51,6 +47,10 @@ impl Reader for FileReader {
     ) -> stackfuture::StackFuture<'a, std::io::Result<usize>, { crate::io::STACK_FUTURE_SIZE }>
     {
         stackfuture::StackFuture::from(async { self.0.read_to_end(buf) })
+    }
+
+    fn seekable(&mut self) -> Result<&mut dyn SeekableReader, ReaderNotSeekableError> {
+        Ok(self)
     }
 }
 

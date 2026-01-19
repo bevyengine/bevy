@@ -5,10 +5,11 @@ use bevy_ecs::{
     entity::{Entity, EntityHashMap},
     resource::Resource,
     system::{Query, Res, ResMut},
-    world::{FromWorld, World},
 };
 use bevy_math::{ops::cos, Mat4, Vec3};
-use bevy_pbr::{ExtractedDirectionalLight, MeshMaterial3d, StandardMaterial};
+use bevy_pbr::{
+    ExtractedDirectionalLight, MeshMaterial3d, PreviousGlobalTransform, StandardMaterial,
+};
 use bevy_platform::{collections::HashMap, hash::FixedHasher};
 use bevy_render::{
     mesh::allocator::MeshAllocator,
@@ -29,7 +30,7 @@ const LIGHT_NOT_PRESENT_THIS_FRAME: u32 = u32::MAX;
 #[derive(Resource)]
 pub struct RaytracingSceneBindings {
     pub bind_group: Option<BindGroup>,
-    pub bind_group_layout: BindGroupLayout,
+    pub bind_group_layout: BindGroupLayoutDescriptor,
     previous_frame_light_entities: Vec<Entity>,
 }
 
@@ -39,6 +40,7 @@ pub fn prepare_raytracing_scene_bindings(
         &RaytracingMesh3d,
         &MeshMaterial3d<StandardMaterial>,
         &GlobalTransform,
+        Option<&PreviousGlobalTransform>,
     )>,
     directional_lights_query: Query<(Entity, &ExtractedDirectionalLight)>,
     mesh_allocator: Res<MeshAllocator>,
@@ -47,6 +49,7 @@ pub fn prepare_raytracing_scene_bindings(
     texture_assets: Res<RenderAssets<GpuImage>>,
     fallback_texture: Res<FallbackImage>,
     render_device: Res<RenderDevice>,
+    pipeline_cache: Res<PipelineCache>,
     render_queue: Res<RenderQueue>,
     mut raytracing_scene_bindings: ResMut<RaytracingSceneBindings>,
 ) {
@@ -76,6 +79,7 @@ pub fn prepare_raytracing_scene_bindings(
             max_instances: instances_query.iter().len() as u32,
         });
     let mut transforms = StorageBufferList::<Mat4>::default();
+    let mut previous_frame_transforms = StorageBufferList::<Mat4>::default();
     let mut geometry_ids = StorageBufferList::<GpuInstanceGeometryIds>::default();
     let mut material_ids = StorageBufferList::<u32>::default();
     let mut light_sources = StorageBufferList::<GpuLightSource>::default();
@@ -145,7 +149,7 @@ pub fn prepare_raytracing_scene_bindings(
     }
 
     let mut instance_id = 0;
-    for (entity, mesh, material, transform) in &instances_query {
+    for (entity, mesh, material, transform, previous_frame_transform) in &instances_query {
         let Some(blas) = blas_manager.get(&mesh.id()) else {
             continue;
         };
@@ -171,6 +175,11 @@ pub fn prepare_raytracing_scene_bindings(
         ));
 
         transforms.get_mut().push(transform);
+        previous_frame_transforms.get_mut().push(
+            previous_frame_transform
+                .map(|t| Mat4::from(t.0))
+                .unwrap_or(transform),
+        );
 
         let (vertex_buffer_id, _) = vertex_buffers.push_if_absent(
             vertex_slice.buffer.as_entire_buffer_binding(),
@@ -244,6 +253,7 @@ pub fn prepare_raytracing_scene_bindings(
 
     materials.write_buffer(&render_device, &render_queue);
     transforms.write_buffer(&render_device, &render_queue);
+    previous_frame_transforms.write_buffer(&render_device, &render_queue);
     geometry_ids.write_buffer(&render_device, &render_queue);
     material_ids.write_buffer(&render_device, &render_queue);
     light_sources.write_buffer(&render_device, &render_queue);
@@ -258,7 +268,7 @@ pub fn prepare_raytracing_scene_bindings(
 
     raytracing_scene_bindings.bind_group = Some(render_device.create_bind_group(
         "raytracing_scene_bind_group",
-        &raytracing_scene_bindings.bind_group_layout,
+        &pipeline_cache.get_bind_group_layout(&raytracing_scene_bindings.bind_group_layout),
         &BindGroupEntries::sequential((
             vertex_buffers.as_slice(),
             index_buffers.as_slice(),
@@ -267,6 +277,7 @@ pub fn prepare_raytracing_scene_bindings(
             materials.binding().unwrap(),
             tlas.as_binding(),
             transforms.binding().unwrap(),
+            previous_frame_transforms.binding().unwrap(),
             geometry_ids.binding().unwrap(),
             material_ids.binding().unwrap(),
             light_sources.binding().unwrap(),
@@ -276,13 +287,11 @@ pub fn prepare_raytracing_scene_bindings(
     ));
 }
 
-impl FromWorld for RaytracingSceneBindings {
-    fn from_world(world: &mut World) -> Self {
-        let render_device = world.resource::<RenderDevice>();
-
+impl RaytracingSceneBindings {
+    pub fn new() -> Self {
         Self {
             bind_group: None,
-            bind_group_layout: render_device.create_bind_group_layout(
+            bind_group_layout: BindGroupLayoutDescriptor::new(
                 "raytracing_scene_bind_group_layout",
                 &BindGroupLayoutEntries::sequential(
                     ShaderStages::COMPUTE,
@@ -300,11 +309,18 @@ impl FromWorld for RaytracingSceneBindings {
                         storage_buffer_read_only_sized(false, None),
                         storage_buffer_read_only_sized(false, None),
                         storage_buffer_read_only_sized(false, None),
+                        storage_buffer_read_only_sized(false, None),
                     ),
                 ),
             ),
             previous_frame_light_entities: Vec::new(),
         }
+    }
+}
+
+impl Default for RaytracingSceneBindings {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

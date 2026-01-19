@@ -287,7 +287,7 @@ where
 
         let isometry = isometry.into();
         let [a, b, c] = primitive.vertices;
-        self.linestrip([a, b, c, a].map(|vec3| isometry * vec3), color);
+        self.lineloop([a, b, c].map(|vec3| isometry * vec3), color);
     }
 }
 

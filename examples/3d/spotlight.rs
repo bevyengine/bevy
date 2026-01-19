@@ -21,7 +21,7 @@ Rotate Camera: Left and Right Arrows";
 
 fn main() {
     App::new()
-        .insert_resource(AmbientLight {
+        .insert_resource(GlobalAmbientLight {
             brightness: 20.0,
             ..default()
         })
@@ -93,7 +93,7 @@ fn setup(
                 SpotLight {
                     intensity: 40_000.0, // lumens
                     color: Color::WHITE,
-                    shadows_enabled: true,
+                    shadow_maps_enabled: true,
                     inner_angle: PI / 4.0 * 0.85,
                     outer_angle: PI / 4.0,
                     ..default()

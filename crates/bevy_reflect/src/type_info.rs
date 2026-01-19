@@ -1,7 +1,13 @@
 use crate::{
-    ArrayInfo, DynamicArray, DynamicEnum, DynamicList, DynamicMap, DynamicStruct, DynamicTuple,
-    DynamicTupleStruct, EnumInfo, Generics, ListInfo, MapInfo, PartialReflect, Reflect,
-    ReflectKind, SetInfo, StructInfo, TupleInfo, TupleStructInfo, TypePath, TypePathTable,
+    array::{ArrayInfo, DynamicArray},
+    enums::{DynamicEnum, EnumInfo},
+    list::{DynamicList, ListInfo},
+    map::{DynamicMap, MapInfo},
+    set::SetInfo,
+    structs::{DynamicStruct, StructInfo},
+    tuple::{DynamicTuple, TupleInfo},
+    tuple_struct::{DynamicTupleStruct, TupleStructInfo},
+    Generics, PartialReflect, Reflect, ReflectKind, TypePath, TypePathTable,
 };
 use core::{
     any::{Any, TypeId},
@@ -33,7 +39,7 @@ use thiserror::Error;
 ///
 /// ```
 /// # use core::any::Any;
-/// # use bevy_reflect::{DynamicTypePath, NamedField, PartialReflect, Reflect, ReflectMut, ReflectOwned, ReflectRef, StructInfo, TypeInfo, TypePath, OpaqueInfo, ApplyError};
+/// # use bevy_reflect::{DynamicTypePath, NamedField, PartialReflect, Reflect, ReflectMut, ReflectOwned, ReflectRef, structs::StructInfo, TypeInfo, TypePath, OpaqueInfo, ApplyError};
 /// # use bevy_reflect::utility::NonGenericTypeInfoCell;
 /// use bevy_reflect::Typed;
 ///
@@ -203,35 +209,35 @@ pub enum TypeInfoError {
 pub enum TypeInfo {
     /// Type information for a [struct-like] type.
     ///
-    /// [struct-like]: crate::Struct
+    /// [struct-like]: crate::structs::Struct
     Struct(StructInfo),
     /// Type information for a [tuple-struct-like] type.
     ///
-    /// [tuple-struct-like]: crate::TupleStruct
+    /// [tuple-struct-like]: crate::tuple_struct::TupleStruct
     TupleStruct(TupleStructInfo),
     /// Type information for a [tuple-like] type.
     ///
-    /// [tuple-like]: crate::Tuple
+    /// [tuple-like]: crate::tuple::Tuple
     Tuple(TupleInfo),
     /// Type information for a [list-like] type.
     ///
-    /// [list-like]: crate::List
+    /// [list-like]: crate::list::List
     List(ListInfo),
     /// Type information for an [array-like] type.
     ///
-    /// [array-like]: crate::Array
+    /// [array-like]: crate::array::Array
     Array(ArrayInfo),
     /// Type information for a [map-like] type.
     ///
-    /// [map-like]: crate::Map
+    /// [map-like]: crate::map::Map
     Map(MapInfo),
     /// Type information for a [set-like] type.
     ///
-    /// [set-like]: crate::Set
+    /// [set-like]: crate::set::Set
     Set(SetInfo),
     /// Type information for an [enum-like] type.
     ///
-    /// [enum-like]: crate::Enum
+    /// [enum-like]: crate::enums::Enum
     Enum(EnumInfo),
     /// Type information for an opaque type - see the [`OpaqueInfo`] docs for
     /// a discussion of opaque types.
@@ -289,7 +295,7 @@ impl TypeInfo {
     }
 
     /// The docstring of the underlying type, if any.
-    #[cfg(feature = "documentation")]
+    #[cfg(feature = "reflect_documentation")]
     pub fn docs(&self) -> Option<&str> {
         match self {
             Self::Struct(info) => info.docs(),
@@ -580,7 +586,7 @@ pub(crate) use impl_type_methods;
 pub struct OpaqueInfo {
     ty: Type,
     generics: Generics,
-    #[cfg(feature = "documentation")]
+    #[cfg(feature = "reflect_documentation")]
     docs: Option<&'static str>,
 }
 
@@ -590,13 +596,13 @@ impl OpaqueInfo {
         Self {
             ty: Type::of::<T>(),
             generics: Generics::new(),
-            #[cfg(feature = "documentation")]
+            #[cfg(feature = "reflect_documentation")]
             docs: None,
         }
     }
 
     /// Sets the docstring for this type.
-    #[cfg(feature = "documentation")]
+    #[cfg(feature = "reflect_documentation")]
     pub fn with_docs(self, doc: Option<&'static str>) -> Self {
         Self { docs: doc, ..self }
     }
@@ -604,7 +610,7 @@ impl OpaqueInfo {
     impl_type_methods!(ty);
 
     /// The docstring of this dynamic type, if any.
-    #[cfg(feature = "documentation")]
+    #[cfg(feature = "reflect_documentation")]
     pub fn docs(&self) -> Option<&'static str> {
         self.docs
     }

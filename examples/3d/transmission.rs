@@ -47,7 +47,7 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .insert_resource(ClearColor(Color::BLACK))
         .insert_resource(PointLightShadowMap { size: 2048 })
-        .insert_resource(AmbientLight {
+        .insert_resource(GlobalAmbientLight {
             brightness: 0.0,
             ..default()
         })
@@ -289,7 +289,7 @@ fn setup(
             intensity: 4_000.0,
             radius: 0.2,
             range: 5.0,
-            shadows_enabled: true,
+            shadow_maps_enabled: true,
             ..default()
         },
         Flicker,

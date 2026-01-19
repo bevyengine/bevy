@@ -3,11 +3,14 @@
 
 use std::f32::consts::{PI, SQRT_2};
 
+#[cfg(not(target_family = "wasm"))]
+use bevy::pbr::wireframe::{WireframeConfig, WireframePlugin};
+
 use bevy::{
     asset::RenderAssetUsages,
     camera::ScalingMode,
     color::palettes::css::{RED, WHITE},
-    input::common_conditions::input_just_pressed,
+    input::common_conditions::{input_just_pressed, input_toggle_active},
     math::{
         bounding::{
             Aabb2d, Bounded2d, Bounded3d, BoundedExtrusion, BoundingCircle, BoundingVolume,
@@ -19,8 +22,16 @@ use bevy::{
 };
 
 const HEART: Heart = Heart::new(0.5);
+const HOLLOW: Heart = Heart::new(0.3);
+// By implementing these traits we can construct the 2D ring version of this shape
+const RING: Ring<Heart> = Ring::new(HEART, HOLLOW);
+// By implementing these traits we can construct the 3D extrusion of this shape
 const EXTRUSION: Extrusion<Heart> = Extrusion {
-    base_shape: Heart::new(0.5),
+    base_shape: HEART,
+    half_depth: 0.5,
+};
+const RING_EXTRUSION: Extrusion<Ring<Heart>> = Extrusion {
+    base_shape: RING,
     half_depth: 0.5,
 };
 
@@ -50,7 +61,7 @@ const PROJECTION_2D: Projection = Projection::Orthographic(OrthographicProjectio
 const TRANSFORM_3D: Transform = Transform {
     translation: Vec3::ZERO,
     // The camera is pointing at the 3D shape
-    rotation: Quat::from_xyzw(-0.14521316, -0.0, -0.0, 0.98940045),
+    rotation: Quat::from_xyzw(-0.2669336, -0.0, -0.0, 0.96371484),
     scale: Vec3::ONE,
 };
 // The projection used for the camera in 3D
@@ -59,16 +70,41 @@ const PROJECTION_3D: Projection = Projection::Perspective(PerspectiveProjection 
     near: 0.1,
     far: 1000.0,
     aspect_ratio: 1.0,
+    near_clip_plane: vec4(0.0, 0.0, -1.0, -0.1),
 });
 
 /// State for tracking the currently displayed shape
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, States, Default, Reflect)]
-enum CameraActive {
+///
+/// Also a component for associating the entity with this state, for toggling visibility
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, States, Default, Reflect, Component)]
+enum ShapeActive {
     #[default]
-    /// The 2D shape is displayed
-    Dim2,
-    /// The 3D shape is displayed
-    Dim3,
+    /// The 2D heart shape is displayed
+    Heart,
+    /// The 2D heart ring shape is displayed
+    Ring,
+    /// The 3D extruded heart shape is displayed
+    Extrusion,
+    /// The 3D extruded heart ring shape is displayed
+    RingExtrusion,
+}
+
+impl ShapeActive {
+    const SHAPES: [ShapeActive; 4] = [
+        ShapeActive::Heart,
+        ShapeActive::Ring,
+        ShapeActive::Extrusion,
+        ShapeActive::RingExtrusion,
+    ];
+
+    fn next_shape(self) -> Self {
+        Self::SHAPES
+            .into_iter()
+            .cycle()
+            .skip_while(|shape| *shape != self)
+            .nth(1) // move to the next element
+            .unwrap()
+    }
 }
 
 /// State for tracking the currently displayed shape
@@ -92,21 +128,44 @@ struct Shape2d;
 struct Shape3d;
 
 fn main() {
-    App::new()
-        .add_plugins(DefaultPlugins)
-        .init_state::<BoundingShape>()
-        .init_state::<CameraActive>()
+    let mut app = App::new();
+
+    app.add_plugins(DefaultPlugins);
+
+    #[cfg(not(target_family = "wasm"))]
+    app.add_plugins(WireframePlugin::default());
+
+    app.init_state::<BoundingShape>()
+        .init_state::<ShapeActive>()
         .add_systems(Startup, setup)
         .add_systems(
             Update,
             (
-                (rotate_2d_shapes, bounding_shapes_2d).run_if(in_state(CameraActive::Dim2)),
-                (rotate_3d_shapes, bounding_shapes_3d).run_if(in_state(CameraActive::Dim3)),
+                (
+                    rotate_2d_shapes.run_if(input_toggle_active(true, KeyCode::KeyR)),
+                    bounding_shapes_2d,
+                )
+                    .run_if(state_in_one_of([ShapeActive::Heart, ShapeActive::Ring])),
+                (
+                    rotate_3d_shapes.run_if(input_toggle_active(true, KeyCode::KeyR)),
+                    bounding_shapes_3d,
+                )
+                    .run_if(state_in_one_of([
+                        ShapeActive::Extrusion,
+                        ShapeActive::RingExtrusion,
+                    ])),
                 update_bounding_shape.run_if(input_just_pressed(KeyCode::KeyB)),
-                switch_cameras.run_if(input_just_pressed(KeyCode::Space)),
+                switch_shapes.run_if(input_just_pressed(KeyCode::Tab)),
             ),
-        )
-        .run();
+        );
+
+    #[cfg(not(target_family = "wasm"))]
+    app.add_systems(
+        Update,
+        toggle_wireframes.run_if(input_just_pressed(KeyCode::Space)),
+    );
+
+    app.run();
 }
 
 fn setup(
@@ -128,9 +187,26 @@ fn setup(
         })),
         Transform::from_xyz(0.0, 0.0, 0.0),
         Shape2d,
+        Visibility::Visible,
+        ShapeActive::Heart,
     ));
 
-    // Spawn an extrusion of the heart.
+    // Spawn the 2D heart ring
+    commands.spawn((
+        // We can use the methods defined on the `MeshBuilder` to customize the mesh.
+        Mesh3d(meshes.add(RING.mesh().with_inner(|heart| heart.resolution(50)))),
+        MeshMaterial3d(materials.add(StandardMaterial {
+            emissive: RED.into(),
+            base_color: RED.into(),
+            ..Default::default()
+        })),
+        Transform::from_xyz(0.0, 0.0, 0.0),
+        Shape2d,
+        Visibility::Hidden,
+        ShapeActive::Ring,
+    ));
+
+    // Spawn an extrusion of the heart
     commands.spawn((
         // We can set a custom resolution for the round parts of the extrusion as well.
         Mesh3d(meshes.add(EXTRUSION.mesh().resolution(50))),
@@ -138,14 +214,36 @@ fn setup(
             base_color: RED.into(),
             ..Default::default()
         })),
-        Transform::from_xyz(0., -3., -10.).with_rotation(Quat::from_rotation_x(-PI / 4.)),
+        Transform::from_xyz(0., -3., -5.).with_rotation(Quat::from_rotation_x(-PI / 4.)),
         Shape3d,
+        Visibility::Hidden,
+        ShapeActive::Extrusion,
+    ));
+
+    // Spawn an extrusion of the heart ring
+    commands.spawn((
+        // We can set a custom resolution for the round parts of the extrusion as well.
+        Mesh3d(
+            meshes.add(
+                RING_EXTRUSION
+                    .mesh()
+                    .with_inner(|ring| ring.with_inner(|heart| heart.resolution(50))),
+            ),
+        ),
+        MeshMaterial3d(materials.add(StandardMaterial {
+            base_color: RED.into(),
+            ..Default::default()
+        })),
+        Transform::from_xyz(0., -3., -5.).with_rotation(Quat::from_rotation_x(-PI / 4.)),
+        Shape3d,
+        Visibility::Hidden,
+        ShapeActive::RingExtrusion,
     ));
 
     // Point light for 3D
     commands.spawn((
         PointLight {
-            shadows_enabled: true,
+            shadow_maps_enabled: true,
             intensity: 10_000_000.,
             range: 100.0,
             shadow_depth_bias: 0.2,
@@ -154,10 +252,15 @@ fn setup(
         Transform::from_xyz(8.0, 12.0, 1.0),
     ));
 
+    let mut text = "\
+        Press 'B' to cycle between no bounding shapes, bounding boxes (AABBs) and bounding spheres / circles\n\
+        Press 'Tab' to cycle between 2D and 3D shapes\n\
+        Press 'R' to pause/resume rotation".to_string();
+    #[cfg(not(target_family = "wasm"))]
+    text.push_str("\nPress 'Space' to toggle display of wireframes");
     // Example instructions
     commands.spawn((
-        Text::new("Press 'B' to toggle between no bounding shapes, bounding boxes (AABBs) and bounding spheres / circles\n\
-            Press 'Space' to switch between 3D and 2D"),
+        Text::new(text),
         Node {
             position_type: PositionType::Absolute,
             top: px(12),
@@ -256,29 +359,40 @@ fn update_bounding_shape(
     });
 }
 
-// Switch between 2D and 3D cameras.
-fn switch_cameras(
-    current: Res<State<CameraActive>>,
-    mut next: ResMut<NextState<CameraActive>>,
+// Switch between shapes, and update 2D and 3D cameras.
+fn switch_shapes(
+    current: Res<State<ShapeActive>>,
+    mut next: ResMut<NextState<ShapeActive>>,
     camera: Single<(&mut Transform, &mut Projection)>,
+    mut shapes: Query<(&mut Visibility, &ShapeActive)>,
 ) {
-    let next_state = match current.get() {
-        CameraActive::Dim2 => CameraActive::Dim3,
-        CameraActive::Dim3 => CameraActive::Dim2,
-    };
+    let next_state = current.get().next_shape();
     next.set(next_state);
+
+    for (mut visibility, shape) in &mut shapes {
+        if next_state == *shape {
+            *visibility = Visibility::Visible;
+        } else {
+            *visibility = Visibility::Hidden;
+        }
+    }
 
     let (mut transform, mut projection) = camera.into_inner();
     match next_state {
-        CameraActive::Dim2 => {
+        ShapeActive::Heart | ShapeActive::Ring => {
             *transform = TRANSFORM_2D;
             *projection = PROJECTION_2D;
         }
-        CameraActive::Dim3 => {
+        ShapeActive::Extrusion | ShapeActive::RingExtrusion => {
             *transform = TRANSFORM_3D;
             *projection = PROJECTION_3D;
         }
     };
+}
+
+#[cfg(not(target_family = "wasm"))]
+fn toggle_wireframes(mut wireframe_config: ResMut<WireframeConfig>) {
+    wireframe_config.global = !wireframe_config.global;
 }
 
 /// A custom 2D heart primitive. The heart is made up of two circles centered at `Vec2::new(±radius, 0.)` each with the same `radius`.
@@ -475,5 +589,15 @@ impl Extrudable for HeartMeshBuilder {
                 indices: (resolution + 1..2 * resolution).chain([0]).collect(),
             },
         ]
+    }
+}
+
+// Helper run condition for matching multiple states
+fn state_in_one_of<S: States, const N: usize>(
+    states: [S; N],
+) -> impl FnMut(Option<Res<State<S>>>) -> bool + Clone {
+    move |current_state: Option<Res<State<S>>>| match current_state {
+        Some(current_state) => states.contains(&current_state),
+        None => false,
     }
 }

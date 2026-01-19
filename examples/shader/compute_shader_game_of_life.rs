@@ -18,7 +18,7 @@ use bevy::{
         texture::GpuImage,
         Render, RenderApp, RenderStartup, RenderSystems,
     },
-    shader::PipelineCacheError,
+    shader::ShaderCacheError,
 };
 use std::borrow::Cow;
 
@@ -52,7 +52,7 @@ fn main() {
 }
 
 fn setup(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
-    let mut image = Image::new_target_texture(SIZE.x, SIZE.y, TextureFormat::Rgba32Float);
+    let mut image = Image::new_target_texture(SIZE.x, SIZE.y, TextureFormat::Rgba32Float, None);
     image.asset_usage = RenderAssetUsages::RENDER_WORLD;
     image.texture_descriptor.usage =
         TextureUsages::COPY_DST | TextureUsages::STORAGE_BINDING | TextureUsages::TEXTURE_BINDING;
@@ -136,6 +136,7 @@ fn prepare_bind_group(
     game_of_life_images: Res<GameOfLifeImages>,
     game_of_life_uniforms: Res<GameOfLifeUniforms>,
     render_device: Res<RenderDevice>,
+    pipeline_cache: Res<PipelineCache>,
     queue: Res<RenderQueue>,
 ) {
     let view_a = gpu_images.get(&game_of_life_images.texture_a).unwrap();
@@ -148,7 +149,7 @@ fn prepare_bind_group(
 
     let bind_group_0 = render_device.create_bind_group(
         None,
-        &pipeline.texture_bind_group_layout,
+        &pipeline_cache.get_bind_group_layout(&pipeline.texture_bind_group_layout),
         &BindGroupEntries::sequential((
             &view_a.texture_view,
             &view_b.texture_view,
@@ -157,7 +158,7 @@ fn prepare_bind_group(
     );
     let bind_group_1 = render_device.create_bind_group(
         None,
-        &pipeline.texture_bind_group_layout,
+        &pipeline_cache.get_bind_group_layout(&pipeline.texture_bind_group_layout),
         &BindGroupEntries::sequential((
             &view_b.texture_view,
             &view_a.texture_view,
@@ -169,18 +170,17 @@ fn prepare_bind_group(
 
 #[derive(Resource)]
 struct GameOfLifePipeline {
-    texture_bind_group_layout: BindGroupLayout,
+    texture_bind_group_layout: BindGroupLayoutDescriptor,
     init_pipeline: CachedComputePipelineId,
     update_pipeline: CachedComputePipelineId,
 }
 
 fn init_game_of_life_pipeline(
     mut commands: Commands,
-    render_device: Res<RenderDevice>,
     asset_server: Res<AssetServer>,
     pipeline_cache: Res<PipelineCache>,
 ) {
-    let texture_bind_group_layout = render_device.create_bind_group_layout(
+    let texture_bind_group_layout = BindGroupLayoutDescriptor::new(
         "GameOfLifeImages",
         &BindGroupLayoutEntries::sequential(
             ShaderStages::COMPUTE,
@@ -243,7 +243,7 @@ impl render_graph::Node for GameOfLifeNode {
                         self.state = GameOfLifeState::Init;
                     }
                     // If the shader hasn't loaded yet, just wait.
-                    CachedPipelineState::Err(PipelineCacheError::ShaderNotLoaded(_)) => {}
+                    CachedPipelineState::Err(ShaderCacheError::ShaderNotLoaded(_)) => {}
                     CachedPipelineState::Err(err) => {
                         panic!("Initializing assets/{SHADER_ASSET_PATH}:\n{err}")
                     }

@@ -4,12 +4,11 @@
 //! - Insert an initialized `SceneHandle` resource into your App's `AssetServer`.
 
 use bevy::{
-    gltf::Gltf, input::common_conditions::input_just_pressed, prelude::*, scene::InstanceId,
+    camera_controller::free_camera::FreeCamera, gltf::Gltf,
+    input::common_conditions::input_just_pressed, prelude::*, scene::InstanceId,
 };
 
 use std::{f32::consts::*, fmt};
-
-use super::camera_controller::*;
 
 #[derive(Resource)]
 pub struct SceneHandle {
@@ -32,7 +31,7 @@ impl SceneHandle {
     }
 }
 
-#[cfg(not(feature = "animation"))]
+#[cfg(not(feature = "gltf_animation"))]
 const INSTRUCTIONS: &str = r#"
 Scene Controls:
     L           - animate light direction
@@ -42,7 +41,7 @@ Scene Controls:
     compile with "--features animation" for animation controls.
 "#;
 
-#[cfg(feature = "animation")]
+#[cfg(feature = "gltf_animation")]
 const INSTRUCTIONS: &str = "
 Scene Controls:
     L           - animate light direction
@@ -148,7 +147,7 @@ fn update_lights(
 ) {
     for (_, mut light) in &mut query {
         if key_input.just_pressed(KeyCode::KeyU) {
-            light.shadows_enabled = !light.shadows_enabled;
+            light.shadow_maps_enabled = !light.shadow_maps_enabled;
         }
     }
 
@@ -200,8 +199,8 @@ fn camera_tracker(
     mut camera_tracker: ResMut<CameraTracker>,
     keyboard_input: Res<ButtonInput<KeyCode>>,
     mut queries: ParamSet<(
-        Query<(Entity, &mut Camera), (Added<Camera>, Without<CameraController>)>,
-        Query<(Entity, &mut Camera), (Added<Camera>, With<CameraController>)>,
+        Query<(Entity, &mut Camera), (Added<Camera>, Without<FreeCamera>)>,
+        Query<(Entity, &mut Camera), (Added<Camera>, With<FreeCamera>)>,
         Query<&mut Camera>,
     )>,
 ) {

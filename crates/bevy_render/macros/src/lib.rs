@@ -1,5 +1,5 @@
 #![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
-#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 
 mod as_bind_group;
 mod extract_component;
@@ -12,11 +12,11 @@ use quote::format_ident;
 use syn::{parse_macro_input, DeriveInput};
 
 pub(crate) fn bevy_render_path() -> syn::Path {
-    BevyManifest::shared().get_path("bevy_render")
+    BevyManifest::shared(|manifest| manifest.get_path("bevy_render"))
 }
 
 pub(crate) fn bevy_ecs_path() -> syn::Path {
-    BevyManifest::shared().get_path("bevy_ecs")
+    BevyManifest::shared(|manifest| manifest.get_path("bevy_ecs"))
 }
 
 #[proc_macro_derive(ExtractResource)]
@@ -119,30 +119,4 @@ pub fn derive_specialize(input: TokenStream) -> TokenStream {
 #[proc_macro_derive(SpecializerKey)]
 pub fn derive_specializer_key(input: TokenStream) -> TokenStream {
     specializer::impl_specializer_key(input)
-}
-
-#[proc_macro_derive(ShaderLabel)]
-pub fn derive_shader_label(input: TokenStream) -> TokenStream {
-    let input = parse_macro_input!(input as DeriveInput);
-    let mut trait_path = bevy_render_path();
-    trait_path
-        .segments
-        .push(format_ident!("render_phase").into());
-    trait_path
-        .segments
-        .push(format_ident!("ShaderLabel").into());
-    derive_label(input, "ShaderLabel", &trait_path)
-}
-
-#[proc_macro_derive(DrawFunctionLabel)]
-pub fn derive_draw_function_label(input: TokenStream) -> TokenStream {
-    let input = parse_macro_input!(input as DeriveInput);
-    let mut trait_path = bevy_render_path();
-    trait_path
-        .segments
-        .push(format_ident!("render_phase").into());
-    trait_path
-        .segments
-        .push(format_ident!("DrawFunctionLabel").into());
-    derive_label(input, "DrawFunctionLabel", &trait_path)
 }

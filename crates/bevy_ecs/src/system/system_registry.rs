@@ -3,7 +3,6 @@ use crate::{change_detection::DetectChanges, HotPatchChanges};
 use crate::{
     change_detection::Mut,
     entity::Entity,
-    entity_disabling::Internal,
     error::BevyError,
     system::{
         input::SystemInput, BoxedSystem, IntoSystem, RunSystemError, SystemParamValidationError,
@@ -18,17 +17,17 @@ use thiserror::Error;
 
 /// A small wrapper for [`BoxedSystem`] that also keeps track whether or not the system has been initialized.
 #[derive(Component)]
-#[require(SystemIdMarker = SystemIdMarker::typed_system_id_marker::<I, O>(), Internal)]
+#[require(SystemIdMarker = SystemIdMarker::typed_system_id_marker::<I, O>())]
 pub(crate) struct RegisteredSystem<I, O> {
     initialized: bool,
-    system: BoxedSystem<I, O>,
+    system: Option<BoxedSystem<I, O>>,
 }
 
 impl<I, O> RegisteredSystem<I, O> {
     pub fn new(system: BoxedSystem<I, O>) -> Self {
         RegisteredSystem {
             initialized: false,
-            system,
+            system: Some(system),
         }
     }
 }
@@ -237,7 +236,9 @@ impl World {
                 entity.despawn();
                 Ok(RemovedSystem {
                     initialized: registered_system.initialized,
-                    system: registered_system.system,
+                    system: registered_system
+                        .system
+                        .ok_or(RegisteredSystemError::SystemMissing(id))?,
                 })
             }
             Err(_) => Err(RegisteredSystemError::SystemIdNotRegistered(id)),
@@ -375,11 +376,7 @@ impl World {
             .map_err(|_| RegisteredSystemError::SystemIdNotRegistered(id))?;
 
         // Take ownership of system trait object
-        let Some(RegisteredSystem {
-            mut initialized,
-            mut system,
-        }) = entity.take::<RegisteredSystem<I, O>>()
-        else {
+        let Some(mut registered_system) = entity.get_mut::<RegisteredSystem<I, O>>() else {
             let Some(system_id_marker) = entity.get::<SystemIdMarker>() else {
                 return Err(RegisteredSystemError::SystemIdNotRegistered(id));
             };
@@ -391,13 +388,17 @@ impl World {
                     system_id_marker.clone(),
                 ));
             }
-            return Err(RegisteredSystemError::Recursive(id));
+            return Err(RegisteredSystemError::MissingRegisteredSystemComponent(id));
         };
 
+        let mut system = registered_system
+            .system
+            .take()
+            .ok_or(RegisteredSystemError::SystemMissing(id))?;
+
         // Initialize the system
-        if !initialized {
+        if !registered_system.initialized {
             system.initialize(self);
-            initialized = true;
         }
 
         // refresh hotpatches for stored systems
@@ -417,11 +418,11 @@ impl World {
         system.queue_deferred(self.into());
 
         // Return ownership of system trait object (if entity still exists)
-        if let Ok(mut entity) = self.get_entity_mut(id.entity) {
-            entity.insert::<RegisteredSystem<I, O>>(RegisteredSystem {
-                initialized,
-                system,
-            });
+        if let Ok(mut entity) = self.get_entity_mut(id.entity)
+            && let Some(mut registered_system) = entity.get_mut::<RegisteredSystem<I, O>>()
+        {
+            registered_system.system = Some(system);
+            registered_system.initialized = true;
         }
 
         // Run any commands enqueued by the system
@@ -540,9 +541,9 @@ pub enum RegisteredSystemError<I: SystemInput = (), O = ()> {
     /// Did you forget to register it?
     #[error("Cached system was not found")]
     SystemNotCached,
-    /// A system tried to run itself recursively.
-    #[error("System {0:?} tried to run itself recursively")]
-    Recursive(SystemId<I, O>),
+    /// The `RegisteredSystem` component is missing.
+    #[error("System {0:?} does not have a RegisteredSystem component. This only happens if app code removed the component.")]
+    MissingRegisteredSystemComponent(SystemId<I, O>),
     /// A system tried to remove itself.
     #[error("System {0:?} tried to remove itself")]
     SelfRemove(SystemId<I, O>),
@@ -556,6 +557,10 @@ pub enum RegisteredSystemError<I: SystemInput = (), O = ()> {
     /// [`SystemId`] had different input and/or output types than [`SystemIdMarker`]
     #[error("Could not get system from `{}`, entity was `SystemId<{}, {}>`", DebugName::type_name::<SystemId<I, O>>(), .1.input_type_id.name, .1.output_type_id.name)]
     IncorrectType(SystemId<I, O>, SystemIdMarker),
+    /// System is not present in the `RegisteredSystem` component.
+    // TODO: We should consider using catch_unwind to protect against the panic case.
+    #[error("The system is not present in the RegisteredSystem component. This can happen if the system was called recursively or if the system panicked on the last run.")]
+    SystemMissing(SystemId<I, O>),
 }
 
 impl<I: SystemInput, O> From<RunSystemError> for RegisteredSystemError<I, O> {
@@ -574,7 +579,10 @@ impl<I: SystemInput, O> core::fmt::Debug for RegisteredSystemError<I, O> {
                 f.debug_tuple("SystemIdNotRegistered").field(arg0).finish()
             }
             Self::SystemNotCached => write!(f, "SystemNotCached"),
-            Self::Recursive(arg0) => f.debug_tuple("Recursive").field(arg0).finish(),
+            Self::MissingRegisteredSystemComponent(arg0) => f
+                .debug_tuple("MissingRegisteredSystemComponent")
+                .field(arg0)
+                .finish(),
             Self::SelfRemove(arg0) => f.debug_tuple("SelfRemove").field(arg0).finish(),
             Self::Skipped(arg0) => f.debug_tuple("Skipped").field(arg0).finish(),
             Self::Failed(arg0) => f.debug_tuple("Failed").field(arg0).finish(),
@@ -583,6 +591,7 @@ impl<I: SystemInput, O> core::fmt::Debug for RegisteredSystemError<I, O> {
                 .field(arg0)
                 .field(arg1)
                 .finish(),
+            Self::SystemMissing(arg0) => f.debug_tuple("SystemMissing").field(arg0).finish(),
         }
     }
 }
@@ -739,9 +748,9 @@ mod tests {
         let exclusive_system_id = world.register_system(|world: &mut World| {
             world.spawn_empty();
         });
-        let entity_count = world.entities.len();
+        let entity_count = world.entities.count_spawned();
         let _ = world.run_system(exclusive_system_id);
-        assert_eq!(world.entities.len(), entity_count + 1);
+        assert_eq!(world.entities.count_spawned(), entity_count + 1);
     }
 
     #[test]
@@ -995,8 +1004,9 @@ mod tests {
         use crate::system::RegisteredSystemError;
         use alloc::string::ToString;
 
+        #[derive(Resource)]
         struct T;
-        impl Resource for T {}
+
         fn system(_: Res<T>) {}
 
         let mut world = World::new();

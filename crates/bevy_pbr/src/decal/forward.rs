@@ -7,11 +7,11 @@ use bevy_asset::{Asset, Assets, Handle};
 use bevy_ecs::{
     component::Component, lifecycle::HookContext, resource::Resource, world::DeferredWorld,
 };
+use bevy_material::AlphaMode;
 use bevy_math::{prelude::Rectangle, Quat, Vec2, Vec3};
 use bevy_mesh::{Mesh, Mesh3d, MeshBuilder, MeshVertexBufferLayoutRef, Meshable};
 use bevy_reflect::{Reflect, TypePath};
 use bevy_render::{
-    alpha::AlphaMode,
     render_asset::RenderAssets,
     render_resource::{
         AsBindGroup, AsBindGroupShaderType, CompareFunction, RenderPipelineDescriptor, ShaderType,
@@ -41,8 +41,6 @@ impl Plugin for ForwardDecalPlugin {
         app.insert_resource(ForwardDecalMesh(mesh));
 
         app.add_plugins(MaterialPlugin::<ForwardDecalMaterial<StandardMaterial>> {
-            prepass_enabled: false,
-            shadows_enabled: false,
             debug_flags: RenderDebugFlags::default(),
             ..Default::default()
         });
@@ -115,6 +113,10 @@ impl AsBindGroupShaderType<ForwardDecalMaterialExtUniform> for ForwardDecalMater
 impl MaterialExtension for ForwardDecalMaterialExt {
     fn alpha_mode() -> Option<AlphaMode> {
         Some(AlphaMode::Blend)
+    }
+
+    fn enable_shadows() -> bool {
+        false
     }
 
     fn specialize(

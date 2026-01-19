@@ -2,8 +2,7 @@
 
 use bevy::{
     animation::{
-        animated_field, AnimationEntityMut, AnimationEvaluationError, AnimationTarget,
-        AnimationTargetId,
+        animated_field, AnimatedBy, AnimationEntityMut, AnimationEvaluationError, AnimationTargetId,
     },
     prelude::*,
 };
@@ -143,16 +142,14 @@ fn setup(
     entity.insert(children![(
         Text::new("Bevy"),
         TextFont {
-            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+            font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
             font_size: 24.0,
             ..default()
         },
         TextColor(Color::Srgba(Srgba::RED)),
         TextLayout::new_with_justify(Justify::Center),
-        AnimationTarget {
-            id: animation_target_id,
-            player,
-        },
+        animation_target_id,
+        AnimatedBy(player),
         animation_target_name,
     )]);
 }

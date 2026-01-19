@@ -22,7 +22,7 @@ fn main() {
 
     app.add_plugins(DefaultPlugins);
 
-    #[cfg(feature = "bevy_mesh_picking_backend")]
+    #[cfg(feature = "mesh_picking")]
     app.add_plugins(MeshPickingPlugin);
 
     // Fallible systems can be used the same way as regular systems. The only difference is they
@@ -73,7 +73,7 @@ fn setup(
     // Spawn a light:
     commands.spawn((
         PointLight {
-            shadows_enabled: true,
+            shadow_maps_enabled: true,
             ..default()
         },
         Transform::from_xyz(4.0, 8.0, 4.0),

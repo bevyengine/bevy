@@ -1,10 +1,20 @@
-//! This example shows how to use the ECS and the [`AsyncComputeTaskPool`]
-//! to spawn, poll, and complete tasks across systems and system ticks.
+//! This example demonstrates how to use Bevy's ECS and the [`AsyncComputeTaskPool`]
+//! to offload computationally intensive tasks to a background thread pool, process them
+//! asynchronously, and apply the results across systems and ticks.
+//!
+//! Unlike the channel-based approach (where tasks send results directly via a communication
+//! channel), this example uses the `AsyncComputeTaskPool` to run tasks in the background,
+//! check for their completion, and handle results when the task is ready. This method allows
+//! tasks to be processed in parallel without blocking the main thread, but requires periodically
+//! checking the status of each task.
+//!
+//! The channel-based approach, on the other hand, detaches tasks and communicates results
+//! through a channel, avoiding the need to check task statuses manually.
 
 use bevy::{
     ecs::{system::SystemState, world::CommandQueue},
     prelude::*,
-    tasks::{block_on, futures_lite::future, AsyncComputeTaskPool, Task},
+    tasks::{futures::check_ready, AsyncComputeTaskPool, Task},
 };
 use futures_timer::Delay;
 use rand::Rng;
@@ -48,8 +58,11 @@ struct ComputeTransform(Task<CommandQueue>);
 
 /// This system generates tasks simulating computationally intensive
 /// work that potentially spans multiple frames/ticks. A separate
-/// system, [`handle_tasks`], will poll the spawned tasks on subsequent
-/// frames/ticks, and use the results to spawn cubes
+/// system, [`handle_tasks`], will track the spawned tasks on subsequent
+/// frames/ticks, and use the results to spawn cubes.
+///
+/// The task is offloaded to the `AsyncComputeTaskPool`, allowing heavy computation
+/// to be handled asynchronously, without blocking the main game thread.
 fn spawn_tasks(mut commands: Commands) {
     let thread_pool = AsyncComputeTaskPool::get();
     for x in 0..NUM_CUBES {
@@ -103,19 +116,25 @@ fn spawn_tasks(mut commands: Commands) {
     }
 }
 
-/// This system queries for entities that have our Task<Transform> component. It polls the
-/// tasks to see if they're complete. If the task is complete it takes the result, adds a
-/// new [`Mesh3d`] and [`MeshMaterial3d`] to the entity using the result from the task's work, and
-/// removes the task component from the entity.
+/// This system queries for entities that have the `ComputeTransform` component.
+/// It checks if the tasks associated with those entities are complete.
+/// If the task is complete, it extracts the result, adds a new [`Mesh3d`] and [`MeshMaterial3d`]
+/// to the entity using the result from the task, and removes the task component from the entity.
+///
+/// **Important Note:**
+/// - Don't use `future::block_on(poll_once)` to check if tasks are completed, as it is expensive and
+///   can block the main thread. Also, it leaves around a `Task<T>` which will panic if awaited again.
+/// - Instead, use `check_ready` for efficient polling, which does not block the main thread.
 fn handle_tasks(
     mut commands: Commands,
     mut transform_tasks: Query<(Entity, &mut ComputeTransform)>,
 ) {
     for (entity, mut task) in &mut transform_tasks {
-        if let Some(mut commands_queue) = block_on(future::poll_once(&mut task.0)) {
-            // append the returned command queue to have it execute later
+        // Use `check_ready` to efficiently poll the task without blocking the main thread.
+        if let Some(mut commands_queue) = check_ready(&mut task.0) {
+            // Append the returned command queue to execute it later.
             commands.append(&mut commands_queue);
-            // Task is complete, so remove task component from entity
+            // Task is complete, so remove the task component from the entity.
             commands.entity(entity).remove::<ComputeTransform>();
         }
     }

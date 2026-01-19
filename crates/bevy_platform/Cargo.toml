@@ -1,6 +1,6 @@
 [package]
 name = "bevy_platform"
-version = "0.17.0-dev"
+version = "0.19.0-dev"
 edition = "2024"
 description = "Provides common platform agnostic APIs, as well as platform-specific features for Bevy Engine"
 homepage = "https://bevy.org"
@@ -20,6 +20,12 @@ serialize = ["dep:serde", "hashbrown/serde"]
 rayon = ["dep:rayon", "hashbrown/rayon"]
 
 # Platform Compatibility
+
+## Provides an implementation of `block_on` from `futures-lite`.
+futures-lite = ["std", "dep:futures-lite", "futures-lite?/std"]
+
+## Provides an implementation of `block_on` from `async-io`.
+async-io = ["std", "dep:async-io"]
 
 ## Allows access to the `std` crate. Enabling this feature will prevent compilation
 ## on `no_std` targets, but provides access to certain additional features on
@@ -50,7 +56,6 @@ critical-section = ["dep:critical-section", "portable-atomic/critical-section"]
 web = [
   "std",
   "dep:web-time",
-  "dep:getrandom",
   "dep:wasm-bindgen-futures",
   "dep:wasm-bindgen",
   "dep:js-sys",
@@ -67,18 +72,17 @@ spin = { version = "0.10.0", default-features = false, features = [
   "barrier",
 ] }
 foldhash = { version = "0.2.0", default-features = false }
-hashbrown = { version = "0.16.0", features = [
+hashbrown = { version = "0.16.1", features = [
   "equivalent",
   "raw-entry",
 ], optional = true, default-features = false }
 serde = { version = "1", default-features = false, optional = true }
 rayon = { version = "1", default-features = false, optional = true }
+futures-lite = { version = "2.0.1", default-features = false, optional = true }
+async-io = { version = "2.0.0", optional = true }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 web-time = { version = "1.1", default-features = false, optional = true }
-getrandom = { version = "0.3.0", default-features = false, optional = true, features = [
-  "wasm_js",
-] }
 wasm-bindgen-futures = { version = "0.4", default-features = false, optional = true }
 futures-channel = { version = "0.3", default-features = false }
 js-sys = { version = "0.3", default-features = false, optional = true }

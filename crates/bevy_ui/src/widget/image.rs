@@ -205,6 +205,11 @@ pub struct ImageMeasure {
     pub size: Vec2,
 }
 
+// NOOP function used to call into taffy API
+fn resolve_calc(_calc_ptr: *const (), _parent_size: f32) -> f32 {
+    0.0
+}
+
 impl Measure for ImageMeasure {
     fn measure(&mut self, measure_args: MeasureArgs, style: &taffy::Style) -> Vec2 {
         let MeasureArgs {
@@ -221,12 +226,24 @@ impl Measure for ImageMeasure {
 
         // Resolve styles
         let s_aspect_ratio = style.aspect_ratio;
-        let s_width = style.size.width.maybe_resolve(parent_width);
-        let s_min_width = style.min_size.width.maybe_resolve(parent_width);
-        let s_max_width = style.max_size.width.maybe_resolve(parent_width);
-        let s_height = style.size.height.maybe_resolve(parent_height);
-        let s_min_height = style.min_size.height.maybe_resolve(parent_height);
-        let s_max_height = style.max_size.height.maybe_resolve(parent_height);
+        let s_width = style.size.width.maybe_resolve(parent_width, resolve_calc);
+        let s_min_width = style
+            .min_size
+            .width
+            .maybe_resolve(parent_width, resolve_calc);
+        let s_max_width = style
+            .max_size
+            .width
+            .maybe_resolve(parent_width, resolve_calc);
+        let s_height = style.size.height.maybe_resolve(parent_height, resolve_calc);
+        let s_min_height = style
+            .min_size
+            .height
+            .maybe_resolve(parent_height, resolve_calc);
+        let s_max_height = style
+            .max_size
+            .height
+            .maybe_resolve(parent_height, resolve_calc);
 
         // Determine width and height from styles and known_sizes (if a size is available
         // from any of these sources)

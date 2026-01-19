@@ -15,7 +15,7 @@ const FOX_PATH: &str = "models/animated/Fox.glb";
 
 fn main() {
     App::new()
-        .insert_resource(AmbientLight {
+        .insert_resource(GlobalAmbientLight {
             color: Color::WHITE,
             brightness: 2000.,
             ..default()
@@ -49,9 +49,7 @@ fn observe_on_step(
     transforms: Query<&GlobalTransform>,
     mut seeded_rng: ResMut<SeededRng>,
 ) -> Result {
-    let translation = transforms
-        .get(step.trigger().animation_player)?
-        .translation();
+    let translation = transforms.get(step.trigger().target)?.translation();
     // Spawn a bunch of particles.
     for _ in 0..14 {
         let horizontal = seeded_rng.0.random::<Dir2>() * seeded_rng.0.random_range(8.0..12.0);
@@ -115,7 +113,7 @@ fn setup(
     commands.spawn((
         Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, 1.0, -PI / 4.)),
         DirectionalLight {
-            shadows_enabled: true,
+            shadow_maps_enabled: true,
             ..default()
         },
         CascadeShadowConfigBuilder {
@@ -166,7 +164,7 @@ fn setup_scene_once_loaded(
         let graph = graphs.get(&animations.graph_handle).unwrap();
         let running_animation = get_clip(animations.index, graph, &mut clips);
 
-        // You can determine the time an event should trigger if you know witch frame it occurs and
+        // You can determine the time an event should trigger if you know which frame it occurs and
         // the frame rate of the animation. Let's say we want to trigger an event at frame 15,
         // and the animation has a frame rate of 24 fps, then time = 15 / 24 = 0.625.
         running_animation.add_event_to_target(feet.front_left, 0.625, Step);

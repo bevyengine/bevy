@@ -119,7 +119,7 @@ impl Plugin for SyncWorldPlugin {
 /// [`ExtractComponentPlugin`]: crate::extract_component::ExtractComponentPlugin
 /// [`SyncComponentPlugin`]: crate::sync_component::SyncComponentPlugin
 #[derive(Component, Copy, Clone, Debug, Default, Reflect)]
-#[reflect[Component, Default, Clone]]
+#[reflect(Component, Default, Clone)]
 #[component(storage = "SparseSet")]
 pub struct SyncToRenderWorld;
 
@@ -278,9 +278,13 @@ mod render_entities_world_query_impls {
 
     use bevy_ecs::{
         archetype::Archetype,
-        component::{ComponentId, Components, Tick},
+        change_detection::Tick,
+        component::{ComponentId, Components},
         entity::Entity,
-        query::{FilteredAccess, QueryData, ReadOnlyQueryData, ReleaseStateQueryData, WorldQuery},
+        query::{
+            ArchetypeQueryData, FilteredAccess, QueryData, ReadOnlyQueryData,
+            ReleaseStateQueryData, WorldQuery,
+        },
         storage::{Table, TableRow},
         world::{unsafe_world_cell::UnsafeWorldCell, World},
     };
@@ -359,6 +363,7 @@ mod render_entities_world_query_impls {
     // Self::ReadOnly matches exactly the same archetypes/tables as Self.
     unsafe impl QueryData for RenderEntity {
         const IS_READ_ONLY: bool = true;
+        const IS_ARCHETYPAL: bool = <&MainEntity as QueryData>::IS_ARCHETYPAL;
         type ReadOnly = RenderEntity;
         type Item<'w, 's> = Entity;
 
@@ -374,16 +379,24 @@ mod render_entities_world_query_impls {
             fetch: &mut Self::Fetch<'w>,
             entity: Entity,
             table_row: TableRow,
-        ) -> Self::Item<'w, 's> {
+        ) -> Option<Self::Item<'w, 's>> {
             // SAFETY: defers to the `&T` implementation, with T set to `RenderEntity`.
             let component =
                 unsafe { <&RenderEntity as QueryData>::fetch(state, fetch, entity, table_row) };
-            component.id()
+            component.map(RenderEntity::id)
+        }
+
+        fn iter_access(
+            state: &Self::State,
+        ) -> impl Iterator<Item = bevy_ecs::query::EcsAccessType<'_>> {
+            <&RenderEntity as QueryData>::iter_access(state)
         }
     }
 
     // SAFETY: the underlying `Entity` is copied, and no mutable access is provided.
     unsafe impl ReadOnlyQueryData for RenderEntity {}
+
+    impl ArchetypeQueryData for RenderEntity {}
 
     impl ReleaseStateQueryData for RenderEntity {
         fn release_state<'w>(item: Self::Item<'w, '_>) -> Self::Item<'w, 'static> {
@@ -465,6 +478,7 @@ mod render_entities_world_query_impls {
     // Self::ReadOnly matches exactly the same archetypes/tables as Self.
     unsafe impl QueryData for MainEntity {
         const IS_READ_ONLY: bool = true;
+        const IS_ARCHETYPAL: bool = <&MainEntity as QueryData>::IS_ARCHETYPAL;
         type ReadOnly = MainEntity;
         type Item<'w, 's> = Entity;
 
@@ -480,16 +494,24 @@ mod render_entities_world_query_impls {
             fetch: &mut Self::Fetch<'w>,
             entity: Entity,
             table_row: TableRow,
-        ) -> Self::Item<'w, 's> {
+        ) -> Option<Self::Item<'w, 's>> {
             // SAFETY: defers to the `&T` implementation, with T set to `MainEntity`.
             let component =
                 unsafe { <&MainEntity as QueryData>::fetch(state, fetch, entity, table_row) };
-            component.id()
+            component.map(MainEntity::id)
+        }
+
+        fn iter_access(
+            state: &Self::State,
+        ) -> impl Iterator<Item = bevy_ecs::query::EcsAccessType<'_>> {
+            <&MainEntity as QueryData>::iter_access(state)
         }
     }
 
     // SAFETY: the underlying `Entity` is copied, and no mutable access is provided.
     unsafe impl ReadOnlyQueryData for MainEntity {}
+
+    impl ArchetypeQueryData for MainEntity {}
 
     impl ReleaseStateQueryData for MainEntity {
         fn release_state<'w>(item: Self::Item<'w, '_>) -> Self::Item<'w, 'static> {

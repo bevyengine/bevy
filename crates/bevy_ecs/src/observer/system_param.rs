@@ -24,7 +24,7 @@ use core::{
 /// The entity involved *does not* have to have these components, but the observer will only be
 /// triggered if the event matches the components in `B`.
 ///
-/// This is used to to avoid providing a generic argument in your event, as is done for [`Add`]
+/// This is used to avoid providing a generic argument in your event, as is done for [`Add`]
 /// and the other lifecycle events.
 ///
 /// Providing multiple components in this bundle will cause this event to be triggered by any
@@ -45,10 +45,6 @@ pub struct On<'w, 't, E: Event, B: Bundle = ()> {
     trigger_context: &'w TriggerContext,
     _marker: PhantomData<B>,
 }
-
-/// Deprecated in favor of [`On`].
-#[deprecated(since = "0.17.0", note = "Renamed to `On`.")]
-pub type Trigger<'w, 't, E, B = ()> = On<'w, 't, E, B>;
 
 impl<'w, 't, E: Event, B: Bundle> On<'w, 't, E, B> {
     /// Creates a new instance of [`On`] for the given triggered event.
@@ -138,19 +134,6 @@ impl<
         T: Traversal<E>,
     > On<'w, 't, E, B>
 {
-    /// A deprecated way to retrieve the entity that this [`EntityEvent`] targeted at.
-    ///
-    /// Access the event via [`On::event`], then read the entity that the event was targeting.
-    /// Prefer using the field name directly for clarity,
-    /// but if you are working in a generic context, you can use [`EntityEvent::event_target`].
-    #[deprecated(
-        since = "0.17.0",
-        note = "Call On::event() to access the event, then read the target entity from the event directly."
-    )]
-    pub fn target(&self) -> Entity {
-        self.event.event_target()
-    }
-
     /// Returns the original [`Entity`] that this [`EntityEvent`] targeted via [`EntityEvent::event_target`] when it was _first_ triggered,
     /// prior to any propagation logic.
     pub fn original_event_target(&self) -> Entity {

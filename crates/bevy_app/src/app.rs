@@ -15,7 +15,10 @@ use bevy_ecs::{
     intern::Interned,
     message::{message_update_system, MessageCursor},
     prelude::*,
-    schedule::{InternedSystemSet, ScheduleBuildSettings, ScheduleLabel},
+    schedule::{
+        InternedSystemSet, ScheduleBuildSettings, ScheduleCleanupPolicy, ScheduleError,
+        ScheduleLabel,
+    },
     system::{IntoObserverSystem, ScheduleSystem, SystemId, SystemInput},
 };
 use bevy_platform::collections::HashMap;
@@ -325,6 +328,38 @@ impl App {
         self
     }
 
+    /// Removes all systems in a [`SystemSet`]. This will cause the schedule to be rebuilt when
+    /// the schedule is run again and can be slow. A [`ScheduleError`] is returned if the schedule needs to be
+    /// [`Schedule::initialize`]'d or the `set` is not found.
+    ///
+    /// Note that this can remove all systems of a type if you pass
+    /// the system to this function as systems implicitly create a set based
+    /// on the system type.
+    ///
+    /// ## Example
+    /// ```
+    /// # use bevy_app::prelude::*;
+    /// # use bevy_ecs::schedule::ScheduleCleanupPolicy;
+    /// #
+    /// # let mut app = App::new();
+    /// # fn system_a() {}
+    /// # fn system_b() {}
+    /// #
+    /// // add the system
+    /// app.add_systems(Update, system_a);
+    ///
+    /// // remove the system
+    /// app.remove_systems_in_set(Update, system_a, ScheduleCleanupPolicy::RemoveSystemsOnly);
+    /// ```
+    pub fn remove_systems_in_set<M>(
+        &mut self,
+        schedule: impl ScheduleLabel,
+        set: impl IntoSystemSet<M>,
+        policy: ScheduleCleanupPolicy,
+    ) -> Result<usize, ScheduleError> {
+        self.main_mut().remove_systems_in_set(schedule, set, policy)
+    }
+
     /// Registers a system and returns a [`SystemId`] so it can later be called by [`World::run_system`].
     ///
     /// It's possible to register the same systems more than once, they'll be stored separately.
@@ -354,31 +389,6 @@ impl App {
     ) -> &mut Self {
         self.main_mut().configure_sets(schedule, sets);
         self
-    }
-
-    /// Initializes [`Message`] handling for `T` by inserting an event queue resource ([`Messages::<T>`])
-    /// and scheduling an [`message_update_system`] in [`First`].
-    ///
-    /// See [`Messages`] for information on how to define events.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// # use bevy_app::prelude::*;
-    /// # use bevy_ecs::prelude::*;
-    /// #
-    /// # #[derive(Message)]
-    /// # struct MyMessage;
-    /// # let mut app = App::new();
-    /// #
-    /// app.add_event::<MyMessage>();
-    /// ```
-    #[deprecated(since = "0.17.0", note = "Use `add_message` instead.")]
-    pub fn add_event<T>(&mut self) -> &mut Self
-    where
-        T: Message,
-    {
-        self.add_message::<T>()
     }
 
     /// Initializes [`Message`] handling for `T` by inserting a message queue resource ([`Messages::<T>`])
@@ -1215,6 +1225,9 @@ impl App {
     }
 
     /// Applies the provided [`ScheduleBuildSettings`] to all schedules.
+    ///
+    /// This mutates all currently present schedules, but does not apply to any custom schedules
+    /// that might be added in the future.
     pub fn configure_schedules(
         &mut self,
         schedule_build_settings: ScheduleBuildSettings,

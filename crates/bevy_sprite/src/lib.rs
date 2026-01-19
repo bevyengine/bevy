@@ -1,5 +1,5 @@
 #![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
-#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![forbid(unsafe_code)]
 #![doc(
     html_logo_url = "https://bevy.org/assets/icon.png",
@@ -10,7 +10,7 @@
 
 extern crate alloc;
 
-#[cfg(feature = "bevy_sprite_picking_backend")]
+#[cfg(feature = "bevy_picking")]
 mod picking_backend;
 mod sprite;
 #[cfg(feature = "bevy_text")]
@@ -21,7 +21,7 @@ mod texture_slice;
 ///
 /// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
-    #[cfg(feature = "bevy_sprite_picking_backend")]
+    #[cfg(feature = "bevy_picking")]
     #[doc(hidden)]
     pub use crate::picking_backend::{
         SpritePickingCamera, SpritePickingMode, SpritePickingPlugin, SpritePickingSettings,
@@ -33,7 +33,7 @@ pub mod prelude {
     pub use crate::{
         sprite::{Sprite, SpriteImageMode},
         texture_slice::{BorderRect, SliceScaleMode, TextureSlice, TextureSlicer},
-        ScalingMode,
+        SpriteScalingMode,
     };
 }
 
@@ -44,7 +44,7 @@ use bevy_camera::{
     visibility::VisibilitySystems,
 };
 use bevy_mesh::{Mesh, Mesh2d};
-#[cfg(feature = "bevy_sprite_picking_backend")]
+#[cfg(feature = "bevy_picking")]
 pub use picking_backend::*;
 pub use sprite::*;
 #[cfg(feature = "bevy_text")]
@@ -52,8 +52,11 @@ pub use text2d::*;
 pub use texture_slice::*;
 
 use bevy_app::prelude::*;
+use bevy_asset::prelude::AssetChanged;
+use bevy_camera::visibility::NoAutoAabb;
 use bevy_ecs::prelude::*;
 use bevy_image::{Image, TextureAtlasLayout, TextureAtlasPlugin};
+use bevy_math::Vec2;
 
 /// Adds support for 2D sprites.
 #[derive(Default)]
@@ -65,10 +68,6 @@ pub enum SpriteSystems {
     ExtractSprites,
     ComputeSlices,
 }
-
-/// Deprecated alias for [`SpriteSystems`].
-#[deprecated(since = "0.17.0", note = "Renamed to `SpriteSystems`.")]
-pub type SpriteSystem = SpriteSystems;
 
 impl Plugin for SpritePlugin {
     fn build(&self, app: &mut App) {
@@ -85,17 +84,16 @@ impl Plugin for SpritePlugin {
             PostUpdate,
             (
                 bevy_text::detect_text_needs_rerender::<Text2d>,
-                update_text2d_layout
-                    .after(bevy_camera::CameraUpdateSystems)
-                    .after(bevy_text::remove_dropped_font_atlas_sets),
+                update_text2d_layout.after(bevy_camera::CameraUpdateSystems),
                 calculate_bounds_text2d.in_set(VisibilitySystems::CalculateBounds),
             )
                 .chain()
+                .after(bevy_text::load_font_assets_into_fontdb_system)
                 .in_set(bevy_text::Text2dUpdateSystems)
                 .after(bevy_app::AnimationSystems),
         );
 
-        #[cfg(feature = "bevy_sprite_picking_backend")]
+        #[cfg(feature = "bevy_picking")]
         app.add_plugins(SpritePickingPlugin);
     }
 }
@@ -111,24 +109,62 @@ pub fn calculate_bounds_2d(
     meshes: Res<Assets<Mesh>>,
     images: Res<Assets<Image>>,
     atlases: Res<Assets<TextureAtlasLayout>>,
-    meshes_without_aabb: Query<(Entity, &Mesh2d), (Without<Aabb>, Without<NoFrustumCulling>)>,
-    sprites_to_recalculate_aabb: Query<
+    new_mesh_aabb: Query<
+        (Entity, &Mesh2d),
+        (
+            Without<Aabb>,
+            Without<NoFrustumCulling>,
+            Without<NoAutoAabb>,
+        ),
+    >,
+    mut update_mesh_aabb: Query<
+        (&Mesh2d, &mut Aabb),
+        (
+            Or<(AssetChanged<Mesh2d>, Changed<Mesh2d>)>,
+            Without<NoFrustumCulling>,
+            Without<NoAutoAabb>,
+            Without<Sprite>, // disjoint mutable query
+        ),
+    >,
+    new_sprite_aabb: Query<
         (Entity, &Sprite, &Anchor),
         (
-            Or<(Without<Aabb>, Changed<Sprite>, Changed<Anchor>)>,
+            Without<Aabb>,
             Without<NoFrustumCulling>,
+            Without<NoAutoAabb>,
+        ),
+    >,
+    mut update_sprite_aabb: Query<
+        (&Sprite, &mut Aabb, &Anchor),
+        (
+            Or<(Changed<Sprite>, Changed<Anchor>)>,
+            Without<NoFrustumCulling>,
+            Without<NoAutoAabb>,
+            Without<Mesh2d>, // disjoint mutable query
         ),
     >,
 ) {
-    for (entity, mesh_handle) in &meshes_without_aabb {
-        if let Some(mesh) = meshes.get(&mesh_handle.0)
+    // New meshes require inserting a component
+    for (entity, mesh_handle) in &new_mesh_aabb {
+        if let Some(mesh) = meshes.get(mesh_handle)
             && let Some(aabb) = mesh.compute_aabb()
         {
             commands.entity(entity).try_insert(aabb);
         }
     }
-    for (entity, sprite, anchor) in &sprites_to_recalculate_aabb {
-        if let Some(size) = sprite
+
+    // Updated meshes can take the fast path with parallel component mutation
+    update_mesh_aabb
+        .par_iter_mut()
+        .for_each(|(mesh_handle, mut aabb)| {
+            if let Some(new_aabb) = meshes.get(mesh_handle).and_then(MeshAabb::compute_aabb) {
+                aabb.set_if_neq(new_aabb);
+            }
+        });
+
+    // Sprite helper
+    let sprite_size = |sprite: &Sprite| -> Option<Vec2> {
+        sprite
             .custom_size
             .or_else(|| sprite.rect.map(|rect| rect.size()))
             .or_else(|| match &sprite.texture_atlas {
@@ -139,14 +175,31 @@ pub fn calculate_bounds_2d(
                     .texture_rect(&atlases)
                     .map(|rect| rect.size().as_vec2()),
             })
-        {
-            let aabb = Aabb {
-                center: (-anchor.as_vec() * size).extend(0.0).into(),
-                half_extents: (0.5 * size).extend(0.0).into(),
-            };
-            commands.entity(entity).try_insert(aabb);
-        }
+    };
+
+    // New sprites require inserting a component
+    for (size, (entity, anchor)) in new_sprite_aabb
+        .iter()
+        .filter_map(|(entity, sprite, anchor)| sprite_size(sprite).zip(Some((entity, anchor))))
+    {
+        let aabb = Aabb {
+            center: (-anchor.as_vec() * size).extend(0.0).into(),
+            half_extents: (0.5 * size).extend(0.0).into(),
+        };
+        commands.entity(entity).try_insert(aabb);
     }
+
+    // Updated sprites can take the fast path with parallel component mutation
+    update_sprite_aabb
+        .par_iter_mut()
+        .for_each(|(sprite, mut aabb, anchor)| {
+            if let Some(size) = sprite_size(sprite) {
+                aabb.set_if_neq(Aabb {
+                    center: (-anchor.as_vec() * size).extend(0.0).into(),
+                    half_extents: (0.5 * size).extend(0.0).into(),
+                });
+            }
+        });
 }
 
 #[cfg(test)]

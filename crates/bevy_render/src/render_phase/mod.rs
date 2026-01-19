@@ -30,7 +30,7 @@ mod rangefinder;
 
 use bevy_app::{App, Plugin};
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::component::Tick;
+use bevy_ecs::change_detection::Tick;
 use bevy_ecs::entity::EntityHash;
 use bevy_platform::collections::{hash_map::Entry, HashMap};
 use bevy_utils::default;
@@ -51,6 +51,8 @@ use crate::renderer::RenderDevice;
 use crate::sync_world::{MainEntity, MainEntityHashMap};
 use crate::view::RetainedViewEntity;
 use crate::RenderDebugFlags;
+use bevy_material::descriptor::CachedRenderPipelineId;
+
 use crate::{
     batching::{
         self,
@@ -58,45 +60,20 @@ use crate::{
         no_gpu_preprocessing::{self, BatchedInstanceBuffer},
         GetFullBatchData,
     },
-    render_resource::{CachedRenderPipelineId, GpuArrayBufferIndex, PipelineCache},
+    render_resource::{GpuArrayBufferIndex, PipelineCache},
     Render, RenderApp, RenderSystems,
 };
-use bevy_ecs::intern::Interned;
 use bevy_ecs::{
-    define_label,
     prelude::*,
     system::{lifetimeless::SRes, SystemParamItem},
 };
+pub use bevy_material::labels::DrawFunctionId;
+pub use bevy_material_macros::DrawFunctionLabel;
+pub use bevy_material_macros::ShaderLabel;
 use bevy_render::renderer::RenderAdapterInfo;
-pub use bevy_render_macros::ShaderLabel;
 use core::{fmt::Debug, hash::Hash, iter, marker::PhantomData, ops::Range, slice::SliceIndex};
 use smallvec::SmallVec;
 use tracing::warn;
-
-define_label!(
-    #[diagnostic::on_unimplemented(
-        note = "consider annotating `{Self}` with `#[derive(ShaderLabel)]`"
-    )]
-    /// Labels used to uniquely identify types of material shaders
-    ShaderLabel,
-    SHADER_LABEL_INTERNER
-);
-
-/// A shorthand for `Interned<dyn RenderSubGraph>`.
-pub type InternedShaderLabel = Interned<dyn ShaderLabel>;
-
-pub use bevy_render_macros::DrawFunctionLabel;
-
-define_label!(
-    #[diagnostic::on_unimplemented(
-        note = "consider annotating `{Self}` with `#[derive(DrawFunctionLabel)]`"
-    )]
-    /// Labels used to uniquely identify types of material shaders
-    DrawFunctionLabel,
-    DRAW_FUNCTION_LABEL_INTERNER
-);
-
-pub type InternedDrawFunctionLabel = Interned<dyn DrawFunctionLabel>;
 
 /// Stores the rendering instructions for a single phase that uses bins in all
 /// views.

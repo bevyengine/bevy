@@ -1,9 +1,9 @@
 use crate::{
     resources::{
-        AtmosphereSamplers, AtmosphereTextures, AtmosphereTransform, AtmosphereTransforms,
-        AtmosphereTransformsOffset,
+        AtmosphereSampler, AtmosphereTextures, AtmosphereTransform, AtmosphereTransforms,
+        AtmosphereTransformsOffset, GpuAtmosphere,
     },
-    GpuAtmosphereSettings, GpuLights, LightMeta, ViewLightsUniformOffset,
+    ExtractedAtmosphere, GpuAtmosphereSettings, GpuLights, LightMeta, ViewLightsUniformOffset,
 };
 use bevy_asset::{load_embedded_asset, AssetServer, Assets, Handle, RenderAssetUsages};
 use bevy_ecs::{
@@ -29,8 +29,6 @@ use bevy_render::{
 use bevy_utils::default;
 use tracing::warn;
 
-use super::Atmosphere;
-
 // Render world representation of an environment map light for the atmosphere
 #[derive(Component, ExtractComponent, Clone)]
 pub struct AtmosphereEnvironmentMap {
@@ -54,7 +52,7 @@ pub(crate) struct AtmosphereProbeBindGroups {
 
 #[derive(Resource)]
 pub struct AtmosphereProbeLayouts {
-    pub environment: BindGroupLayout,
+    pub environment: BindGroupLayoutDescriptor,
 }
 
 #[derive(Resource)]
@@ -62,29 +60,31 @@ pub struct AtmosphereProbePipeline {
     pub environment: CachedComputePipelineId,
 }
 
-pub fn init_atmosphere_probe_layout(mut commands: Commands, render_device: Res<RenderDevice>) {
-    let environment = render_device.create_bind_group_layout(
+pub fn init_atmosphere_probe_layout(mut commands: Commands) {
+    let environment = BindGroupLayoutDescriptor::new(
         "environment_bind_group_layout",
-        &BindGroupLayoutEntries::sequential(
+        &BindGroupLayoutEntries::with_indices(
             ShaderStages::COMPUTE,
             (
-                uniform_buffer::<Atmosphere>(true),
-                uniform_buffer::<GpuAtmosphereSettings>(true),
-                uniform_buffer::<AtmosphereTransform>(true),
-                uniform_buffer::<ViewUniform>(true),
-                uniform_buffer::<GpuLights>(true),
-                texture_2d(TextureSampleType::Float { filterable: true }), //transmittance lut and sampler
-                sampler(SamplerBindingType::Filtering),
-                texture_2d(TextureSampleType::Float { filterable: true }), //multiscattering lut and sampler
-                sampler(SamplerBindingType::Filtering),
-                texture_2d(TextureSampleType::Float { filterable: true }), //sky view lut and sampler
-                sampler(SamplerBindingType::Filtering),
-                texture_3d(TextureSampleType::Float { filterable: true }), //aerial view lut ans sampler
-                sampler(SamplerBindingType::Filtering),
-                texture_storage_2d_array(
-                    // output 2D array texture
-                    TextureFormat::Rgba16Float,
-                    StorageTextureAccess::WriteOnly,
+                // uniforms
+                (0, uniform_buffer::<GpuAtmosphere>(true)),
+                (1, uniform_buffer::<GpuAtmosphereSettings>(true)),
+                (2, uniform_buffer::<AtmosphereTransform>(true)),
+                (3, uniform_buffer::<ViewUniform>(true)),
+                (4, uniform_buffer::<GpuLights>(true)),
+                // atmosphere luts and sampler
+                (8, texture_2d(TextureSampleType::default())), // transmittance
+                (9, texture_2d(TextureSampleType::default())), // multiscattering
+                (10, texture_2d(TextureSampleType::default())), // sky view
+                (11, texture_3d(TextureSampleType::default())), // aerial view
+                (12, sampler(SamplerBindingType::Filtering)),
+                // output 2D array texture
+                (
+                    13,
+                    texture_storage_2d_array(
+                        TextureFormat::Rgba16Float,
+                        StorageTextureAccess::WriteOnly,
+                    ),
                 ),
             ),
         ),
@@ -97,33 +97,34 @@ pub(super) fn prepare_atmosphere_probe_bind_groups(
     probes: Query<(Entity, &AtmosphereProbeTextures), With<AtmosphereEnvironmentMap>>,
     render_device: Res<RenderDevice>,
     layouts: Res<AtmosphereProbeLayouts>,
-    samplers: Res<AtmosphereSamplers>,
+    atmosphere_sampler: Res<AtmosphereSampler>,
     view_uniforms: Res<ViewUniforms>,
     lights_uniforms: Res<LightMeta>,
     atmosphere_transforms: Res<AtmosphereTransforms>,
-    atmosphere_uniforms: Res<ComponentUniforms<Atmosphere>>,
+    atmosphere_uniforms: Res<ComponentUniforms<GpuAtmosphere>>,
     settings_uniforms: Res<ComponentUniforms<GpuAtmosphereSettings>>,
+    pipeline_cache: Res<PipelineCache>,
     mut commands: Commands,
 ) {
     for (entity, textures) in &probes {
         let environment = render_device.create_bind_group(
             "environment_bind_group",
-            &layouts.environment,
-            &BindGroupEntries::sequential((
-                atmosphere_uniforms.binding().unwrap(),
-                settings_uniforms.binding().unwrap(),
-                atmosphere_transforms.uniforms().binding().unwrap(),
-                view_uniforms.uniforms.binding().unwrap(),
-                lights_uniforms.view_gpu_lights.binding().unwrap(),
-                &textures.transmittance_lut.default_view,
-                &samplers.transmittance_lut,
-                &textures.multiscattering_lut.default_view,
-                &samplers.multiscattering_lut,
-                &textures.sky_view_lut.default_view,
-                &samplers.sky_view_lut,
-                &textures.aerial_view_lut.default_view,
-                &samplers.aerial_view_lut,
-                &textures.environment,
+            &pipeline_cache.get_bind_group_layout(&layouts.environment),
+            &BindGroupEntries::with_indices((
+                // uniforms
+                (0, atmosphere_uniforms.binding().unwrap()),
+                (1, settings_uniforms.binding().unwrap()),
+                (2, atmosphere_transforms.uniforms().binding().unwrap()),
+                (3, view_uniforms.uniforms.binding().unwrap()),
+                (4, lights_uniforms.view_gpu_lights.binding().unwrap()),
+                // atmosphere luts and sampler
+                (8, &textures.transmittance_lut.default_view),
+                (9, &textures.multiscattering_lut.default_view),
+                (10, &textures.sky_view_lut.default_view),
+                (11, &textures.aerial_view_lut.default_view),
+                (12, &**atmosphere_sampler),
+                // output 2D array texture
+                (13, &textures.environment),
             )),
         );
 
@@ -134,7 +135,7 @@ pub(super) fn prepare_atmosphere_probe_bind_groups(
 }
 
 pub(super) fn prepare_probe_textures(
-    view_textures: Query<&AtmosphereTextures, With<Atmosphere>>,
+    view_textures: Query<&AtmosphereTextures, With<ExtractedAtmosphere>>,
     probes: Query<
         (Entity, &AtmosphereEnvironmentMap),
         (
@@ -245,7 +246,7 @@ pub fn prepare_atmosphere_probe_components(
 
 pub(super) struct EnvironmentNode {
     main_view_query: QueryState<(
-        Read<DynamicUniformIndex<Atmosphere>>,
+        Read<DynamicUniformIndex<GpuAtmosphere>>,
         Read<DynamicUniformIndex<GpuAtmosphereSettings>>,
         Read<AtmosphereTransformsOffset>,
         Read<ViewUniformOffset>,

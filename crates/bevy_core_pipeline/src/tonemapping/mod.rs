@@ -104,7 +104,7 @@ impl Plugin for TonemappingPlugin {
 
 #[derive(Resource)]
 pub struct TonemappingPipeline {
-    texture_bind_group: BindGroupLayout,
+    texture_bind_group: BindGroupLayoutDescriptor,
     sampler: Sampler,
     fullscreen_shader: FullscreenShader,
     fragment_shader: Handle<Shader>,
@@ -304,8 +304,8 @@ pub fn init_tonemapping_pipeline(
     let lut_layout_entries = get_lut_bind_group_layout_entries();
     entries = entries.extend_with_indices(((3, lut_layout_entries[0]), (4, lut_layout_entries[1])));
 
-    let tonemap_texture_bind_group = render_device
-        .create_bind_group_layout("tonemapping_hdr_texture_bind_group_layout", &entries);
+    let tonemap_texture_bind_group =
+        BindGroupLayoutDescriptor::new("tonemapping_hdr_texture_bind_group_layout", &entries);
 
     let sampler = render_device.create_sampler(&SamplerDescriptor::default());
 

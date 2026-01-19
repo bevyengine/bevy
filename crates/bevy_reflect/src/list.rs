@@ -1,3 +1,6 @@
+//! Traits and types used to power [list-like] operations via reflection.
+//!
+//! [list-like]: https://doc.rust-lang.org/book/ch08-01-vectors.html
 use alloc::{boxed::Box, vec::Vec};
 use core::{
     any::Any,
@@ -19,7 +22,7 @@ use crate::{
 /// This corresponds to types, like [`Vec`], which contain an ordered sequence
 /// of elements that implement [`Reflect`].
 ///
-/// Unlike the [`Array`](crate::Array) trait, implementors of this trait are not expected to
+/// Unlike the [`Array`](crate::array::Array) trait, implementors of this trait are not expected to
 /// maintain a constant length.
 /// Methods like [insertion](List::insert) and [removal](List::remove) explicitly allow for their
 /// internal size to change.
@@ -39,7 +42,7 @@ use crate::{
 /// # Example
 ///
 /// ```
-/// use bevy_reflect::{PartialReflect, Reflect, List};
+/// use bevy_reflect::{PartialReflect, Reflect, list::List};
 ///
 /// let foo: &mut dyn List = &mut vec![123_u32, 456_u32, 789_u32];
 /// assert_eq!(foo.len(), 3);
@@ -124,7 +127,7 @@ pub struct ListInfo {
     generics: Generics,
     item_info: fn() -> Option<&'static TypeInfo>,
     item_ty: Type,
-    #[cfg(feature = "documentation")]
+    #[cfg(feature = "reflect_documentation")]
     docs: Option<&'static str>,
 }
 
@@ -136,13 +139,13 @@ impl ListInfo {
             generics: Generics::new(),
             item_info: TItem::maybe_type_info,
             item_ty: Type::of::<TItem>(),
-            #[cfg(feature = "documentation")]
+            #[cfg(feature = "reflect_documentation")]
             docs: None,
         }
     }
 
     /// Sets the docstring for this list.
-    #[cfg(feature = "documentation")]
+    #[cfg(feature = "reflect_documentation")]
     pub fn with_docs(self, docs: Option<&'static str>) -> Self {
         Self { docs, ..self }
     }
@@ -165,7 +168,7 @@ impl ListInfo {
     }
 
     /// The docstring of this list, if any.
-    #[cfg(feature = "documentation")]
+    #[cfg(feature = "reflect_documentation")]
     pub fn docs(&self) -> Option<&'static str> {
         self.docs
     }
@@ -315,6 +318,10 @@ impl PartialReflect for DynamicList {
 
     fn reflect_partial_eq(&self, value: &dyn PartialReflect) -> Option<bool> {
         list_partial_eq(self, value)
+    }
+
+    fn reflect_partial_cmp(&self, value: &dyn PartialReflect) -> Option<::core::cmp::Ordering> {
+        list_partial_cmp(self, value)
     }
 
     fn debug(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
@@ -486,6 +493,32 @@ pub fn list_partial_eq<L: List + ?Sized>(a: &L, b: &dyn PartialReflect) -> Optio
     }
 
     Some(true)
+}
+
+/// Lexicographically compares two [List] values and returns their ordering.
+///
+/// Returns [`None`] if the comparison couldn't be performed (e.g., kinds mismatch
+/// or an element comparison returns `None`).
+#[inline]
+pub fn list_partial_cmp<L: List + ?Sized>(
+    a: &L,
+    b: &dyn PartialReflect,
+) -> Option<::core::cmp::Ordering> {
+    let ReflectRef::List(list) = b.reflect_ref() else {
+        return None;
+    };
+
+    let min_len = core::cmp::min(a.len(), list.len());
+
+    for (a_value, b_value) in a.iter().zip(list.iter()).take(min_len) {
+        match a_value.reflect_partial_cmp(b_value) {
+            None => return None,
+            Some(core::cmp::Ordering::Equal) => continue,
+            Some(ord) => return Some(ord),
+        }
+    }
+
+    Some(a.len().cmp(&list.len()))
 }
 
 /// The default debug formatter for [`List`] types.

@@ -43,13 +43,13 @@ impl Default for Sphere {
 
 impl Sphere {
     /// Create a new [`Sphere`] from a `radius`
-    #[inline(always)]
+    #[inline]
     pub const fn new(radius: f32) -> Self {
         Self { radius }
     }
 
     /// Get the diameter of the sphere
-    #[inline(always)]
+    #[inline]
     pub const fn diameter(&self) -> f32 {
         2.0 * self.radius
     }
@@ -58,7 +58,7 @@ impl Sphere {
     ///
     /// If the point is outside the sphere, the returned point will be on the surface of the sphere.
     /// Otherwise, it will be inside the sphere and returned as is.
-    #[inline(always)]
+    #[inline]
     pub fn closest_point(&self, point: Vec3) -> Vec3 {
         let distance_squared = point.length_squared();
 
@@ -76,13 +76,13 @@ impl Sphere {
 
 impl Measured3d for Sphere {
     /// Get the surface area of the sphere
-    #[inline(always)]
+    #[inline]
     fn area(&self) -> f32 {
         4.0 * PI * self.radius.squared()
     }
 
     /// Get the volume of the sphere
-    #[inline(always)]
+    #[inline]
     fn volume(&self) -> f32 {
         4.0 * FRAC_PI_3 * self.radius.cubed()
     }
@@ -125,7 +125,7 @@ impl Plane3d {
     /// # Panics
     ///
     /// Panics if the given `normal` is zero (or very close to zero), or non-finite.
-    #[inline(always)]
+    #[inline]
     pub fn new(normal: Vec3, half_size: Vec2) -> Self {
         Self {
             normal: Dir3::new(normal).expect("normal must be nonzero and finite"),
@@ -143,7 +143,7 @@ impl Plane3d {
     ///
     /// Panics if a valid normal can not be computed, for example when the points
     /// are *collinear* and lie on the same line.
-    #[inline(always)]
+    #[inline]
     pub fn from_points(a: Vec3, b: Vec3, c: Vec3) -> (Self, Vec3) {
         let normal = Dir3::new((b - a).cross(c - a)).expect(
             "finite plane must be defined by three finite points that don't lie on the same line",
@@ -157,6 +157,17 @@ impl Plane3d {
             },
             translation,
         )
+    }
+}
+impl Measured2d for Plane3d {
+    #[inline]
+    fn area(&self) -> f32 {
+        self.half_size.element_product() * 4.0
+    }
+
+    #[inline]
+    fn perimeter(&self) -> f32 {
+        self.half_size.element_sum() * 4.0
     }
 }
 
@@ -193,7 +204,7 @@ impl InfinitePlane3d {
     /// # Panics
     ///
     /// Panics if the given `normal` is zero (or very close to zero), or non-finite.
-    #[inline(always)]
+    #[inline]
     pub fn new<T: TryInto<Dir3>>(normal: T) -> Self
     where
         <T as TryInto<Dir3>>::Error: core::fmt::Debug,
@@ -215,7 +226,7 @@ impl InfinitePlane3d {
     ///
     /// Panics if a valid normal can not be computed, for example when the points
     /// are *collinear* and lie on the same line.
-    #[inline(always)]
+    #[inline]
     pub fn from_points(a: Vec3, b: Vec3, c: Vec3) -> (Self, Vec3) {
         let normal = Dir3::new((b - a).cross(c - a)).expect(
             "infinite plane must be defined by three finite points that don't lie on the same line",
@@ -387,7 +398,7 @@ impl Default for Segment3d {
 
 impl Segment3d {
     /// Create a new `Segment3d` from its endpoints.
-    #[inline(always)]
+    #[inline]
     pub const fn new(point1: Vec3, point2: Vec3) -> Self {
         Self {
             vertices: [point1, point2],
@@ -397,7 +408,7 @@ impl Segment3d {
     /// Create a new `Segment3d` centered at the origin with the given direction and length.
     ///
     /// The endpoints will be at `-direction * length / 2.0` and `direction * length / 2.0`.
-    #[inline(always)]
+    #[inline]
     pub fn from_direction_and_length(direction: Dir3, length: f32) -> Self {
         let endpoint = 0.5 * length * direction;
         Self {
@@ -409,7 +420,7 @@ impl Segment3d {
     /// the direction and length of the line segment.
     ///
     /// The endpoints will be at `-scaled_direction / 2.0` and `scaled_direction / 2.0`.
-    #[inline(always)]
+    #[inline]
     pub fn from_scaled_direction(scaled_direction: Vec3) -> Self {
         let endpoint = 0.5 * scaled_direction;
         Self {
@@ -421,7 +432,7 @@ impl Segment3d {
     /// going in the direction of the ray for the given `length`.
     ///
     /// The endpoints will be at `ray.origin` and `ray.origin + length * ray.direction`.
-    #[inline(always)]
+    #[inline]
     pub fn from_ray_and_length(ray: Ray3d, length: f32) -> Self {
         Self {
             vertices: [ray.origin, ray.get_point(length)],
@@ -429,32 +440,32 @@ impl Segment3d {
     }
 
     /// Get the position of the first endpoint of the line segment.
-    #[inline(always)]
+    #[inline]
     pub const fn point1(&self) -> Vec3 {
         self.vertices[0]
     }
 
     /// Get the position of the second endpoint of the line segment.
-    #[inline(always)]
+    #[inline]
     pub const fn point2(&self) -> Vec3 {
         self.vertices[1]
     }
 
     /// Compute the midpoint between the two endpoints of the line segment.
-    #[inline(always)]
+    #[inline]
     #[doc(alias = "midpoint")]
     pub fn center(&self) -> Vec3 {
         self.point1().midpoint(self.point2())
     }
 
     /// Compute the length of the line segment.
-    #[inline(always)]
+    #[inline]
     pub fn length(&self) -> f32 {
         self.point1().distance(self.point2())
     }
 
     /// Compute the squared length of the line segment.
-    #[inline(always)]
+    #[inline]
     pub fn length_squared(&self) -> f32 {
         self.point1().distance_squared(self.point2())
     }
@@ -466,7 +477,7 @@ impl Segment3d {
     /// # Panics
     ///
     /// Panics if a valid direction could not be computed, for example when the endpoints are coincident, NaN, or infinite.
-    #[inline(always)]
+    #[inline]
     pub fn direction(&self) -> Dir3 {
         self.try_direction().unwrap_or_else(|err| {
             panic!("Failed to compute the direction of a line segment: {err}")
@@ -477,19 +488,19 @@ impl Segment3d {
     ///
     /// Returns [`Err(InvalidDirectionError)`](InvalidDirectionError) if a valid direction could not be computed,
     /// for example when the endpoints are coincident, NaN, or infinite.
-    #[inline(always)]
+    #[inline]
     pub fn try_direction(&self) -> Result<Dir3, InvalidDirectionError> {
         Dir3::new(self.scaled_direction())
     }
 
     /// Compute the vector from the first endpoint to the second endpoint.
-    #[inline(always)]
+    #[inline]
     pub fn scaled_direction(&self) -> Vec3 {
         self.point2() - self.point1()
     }
 
     /// Compute the segment transformed by the given [`Isometry3d`].
-    #[inline(always)]
+    #[inline]
     pub fn transformed(&self, isometry: impl Into<Isometry3d>) -> Self {
         let isometry: Isometry3d = isometry.into();
         Self::new(
@@ -499,19 +510,19 @@ impl Segment3d {
     }
 
     /// Compute the segment translated by the given vector.
-    #[inline(always)]
+    #[inline]
     pub fn translated(&self, translation: Vec3) -> Segment3d {
         Self::new(self.point1() + translation, self.point2() + translation)
     }
 
     /// Compute the segment rotated around the origin by the given rotation.
-    #[inline(always)]
+    #[inline]
     pub fn rotated(&self, rotation: Quat) -> Segment3d {
         Segment3d::new(rotation * self.point1(), rotation * self.point2())
     }
 
     /// Compute the segment rotated around the given point by the given rotation.
-    #[inline(always)]
+    #[inline]
     pub fn rotated_around(&self, rotation: Quat, point: Vec3) -> Segment3d {
         // We offset our segment so that our segment is rotated as if from the origin, then we can apply the offset back
         let offset = self.translated(-point);
@@ -520,20 +531,20 @@ impl Segment3d {
     }
 
     /// Compute the segment rotated around its own center.
-    #[inline(always)]
+    #[inline]
     pub fn rotated_around_center(&self, rotation: Quat) -> Segment3d {
         self.rotated_around(rotation, self.center())
     }
 
     /// Compute the segment with its center at the origin, keeping the same direction and length.
-    #[inline(always)]
+    #[inline]
     pub fn centered(&self) -> Segment3d {
         let center = self.center();
         self.translated(-center)
     }
 
     /// Compute the segment with a new length, keeping the same direction and center.
-    #[inline(always)]
+    #[inline]
     pub fn resized(&self, length: f32) -> Segment3d {
         let offset_from_origin = self.center();
         let centered = self.translated(-offset_from_origin);
@@ -543,14 +554,14 @@ impl Segment3d {
     }
 
     /// Reverses the direction of the line segment by swapping the endpoints.
-    #[inline(always)]
+    #[inline]
     pub fn reverse(&mut self) {
         let [point1, point2] = &mut self.vertices;
         core::mem::swap(point1, point2);
     }
 
     /// Returns the line segment with its direction reversed by swapping the endpoints.
-    #[inline(always)]
+    #[inline]
     #[must_use]
     pub fn reversed(mut self) -> Self {
         self.reverse();
@@ -558,7 +569,7 @@ impl Segment3d {
     }
 
     /// Returns the point on the [`Segment3d`] that is closest to the specified `point`.
-    #[inline(always)]
+    #[inline]
     pub fn closest_point(&self, point: Vec3) -> Vec3 {
         //       `point`
         //           x
@@ -591,14 +602,14 @@ impl Segment3d {
 }
 
 impl From<[Vec3; 2]> for Segment3d {
-    #[inline(always)]
+    #[inline]
     fn from(vertices: [Vec3; 2]) -> Self {
         Self { vertices }
     }
 }
 
 impl From<(Vec3, Vec3)> for Segment3d {
-    #[inline(always)]
+    #[inline]
     fn from((point1, point2): (Vec3, Vec3)) -> Self {
         Self::new(point1, point2)
     }
@@ -695,13 +706,13 @@ impl Default for Cuboid {
 
 impl Cuboid {
     /// Create a new `Cuboid` from a full x, y, and z length
-    #[inline(always)]
+    #[inline]
     pub const fn new(x_length: f32, y_length: f32, z_length: f32) -> Self {
         Self::from_size(Vec3::new(x_length, y_length, z_length))
     }
 
     /// Create a new `Cuboid` from a given full size
-    #[inline(always)]
+    #[inline]
     pub const fn from_size(size: Vec3) -> Self {
         Self {
             half_size: Vec3::new(size.x / 2.0, size.y / 2.0, size.z / 2.0),
@@ -709,7 +720,7 @@ impl Cuboid {
     }
 
     /// Create a new `Cuboid` from two corner points
-    #[inline(always)]
+    #[inline]
     pub fn from_corners(point1: Vec3, point2: Vec3) -> Self {
         Self {
             half_size: (point2 - point1).abs() / 2.0,
@@ -718,7 +729,7 @@ impl Cuboid {
 
     /// Create a `Cuboid` from a single length.
     /// The resulting `Cuboid` will be the same size in every direction.
-    #[inline(always)]
+    #[inline]
     pub const fn from_length(length: f32) -> Self {
         Self {
             half_size: Vec3::splat(length / 2.0),
@@ -726,7 +737,7 @@ impl Cuboid {
     }
 
     /// Get the size of the cuboid
-    #[inline(always)]
+    #[inline]
     pub fn size(&self) -> Vec3 {
         2.0 * self.half_size
     }
@@ -735,7 +746,7 @@ impl Cuboid {
     ///
     /// If the point is outside the cuboid, the returned point will be on the surface of the cuboid.
     /// Otherwise, it will be inside the cuboid and returned as is.
-    #[inline(always)]
+    #[inline]
     pub fn closest_point(&self, point: Vec3) -> Vec3 {
         // Clamp point coordinates to the cuboid
         point.clamp(-self.half_size, self.half_size)
@@ -744,7 +755,7 @@ impl Cuboid {
 
 impl Measured3d for Cuboid {
     /// Get the surface area of the cuboid
-    #[inline(always)]
+    #[inline]
     fn area(&self) -> f32 {
         8.0 * (self.half_size.x * self.half_size.y
             + self.half_size.y * self.half_size.z
@@ -752,7 +763,7 @@ impl Measured3d for Cuboid {
     }
 
     /// Get the volume of the cuboid
-    #[inline(always)]
+    #[inline]
     fn volume(&self) -> f32 {
         8.0 * self.half_size.x * self.half_size.y * self.half_size.z
     }
@@ -791,7 +802,7 @@ impl Default for Cylinder {
 
 impl Cylinder {
     /// Create a new `Cylinder` from a radius and full height
-    #[inline(always)]
+    #[inline]
     pub const fn new(radius: f32, height: f32) -> Self {
         Self {
             radius,
@@ -800,7 +811,7 @@ impl Cylinder {
     }
 
     /// Get the base of the cylinder as a [`Circle`]
-    #[inline(always)]
+    #[inline]
     pub const fn base(&self) -> Circle {
         Circle {
             radius: self.radius,
@@ -809,14 +820,14 @@ impl Cylinder {
 
     /// Get the surface area of the side of the cylinder,
     /// also known as the lateral area
-    #[inline(always)]
+    #[inline]
     #[doc(alias = "side_area")]
     pub const fn lateral_area(&self) -> f32 {
         4.0 * PI * self.radius * self.half_height
     }
 
     /// Get the surface area of one base of the cylinder
-    #[inline(always)]
+    #[inline]
     pub fn base_area(&self) -> f32 {
         PI * self.radius.squared()
     }
@@ -824,13 +835,13 @@ impl Cylinder {
 
 impl Measured3d for Cylinder {
     /// Get the total surface area of the cylinder
-    #[inline(always)]
+    #[inline]
     fn area(&self) -> f32 {
         2.0 * PI * self.radius * (self.radius + 2.0 * self.half_height)
     }
 
     /// Get the volume of the cylinder
-    #[inline(always)]
+    #[inline]
     fn volume(&self) -> f32 {
         self.base_area() * 2.0 * self.half_height
     }
@@ -880,7 +891,7 @@ impl Capsule3d {
 
     /// Get the part connecting the hemispherical ends
     /// of the capsule as a [`Cylinder`]
-    #[inline(always)]
+    #[inline]
     pub const fn to_cylinder(&self) -> Cylinder {
         Cylinder {
             radius: self.radius,
@@ -891,14 +902,14 @@ impl Capsule3d {
 
 impl Measured3d for Capsule3d {
     /// Get the surface area of the capsule
-    #[inline(always)]
+    #[inline]
     fn area(&self) -> f32 {
         // Modified version of 2pi * r * (2r + h)
         4.0 * PI * self.radius * (self.radius + self.half_length)
     }
 
     /// Get the volume of the capsule
-    #[inline(always)]
+    #[inline]
     fn volume(&self) -> f32 {
         // Modified version of pi * r^2 * (4/3 * r + a)
         let diameter = self.radius * 2.0;
@@ -945,7 +956,7 @@ impl Cone {
         Self { radius, height }
     }
     /// Get the base of the cone as a [`Circle`]
-    #[inline(always)]
+    #[inline]
     pub const fn base(&self) -> Circle {
         Circle {
             radius: self.radius,
@@ -954,7 +965,7 @@ impl Cone {
 
     /// Get the slant height of the cone, the length of the line segment
     /// connecting a point on the base to the apex
-    #[inline(always)]
+    #[inline]
     #[doc(alias = "side_length")]
     pub fn slant_height(&self) -> f32 {
         ops::hypot(self.radius, self.height)
@@ -962,14 +973,14 @@ impl Cone {
 
     /// Get the surface area of the side of the cone,
     /// also known as the lateral area
-    #[inline(always)]
+    #[inline]
     #[doc(alias = "side_area")]
     pub fn lateral_area(&self) -> f32 {
         PI * self.radius * self.slant_height()
     }
 
     /// Get the surface area of the base of the cone
-    #[inline(always)]
+    #[inline]
     pub fn base_area(&self) -> f32 {
         PI * self.radius.squared()
     }
@@ -977,13 +988,13 @@ impl Cone {
 
 impl Measured3d for Cone {
     /// Get the total surface area of the cone
-    #[inline(always)]
+    #[inline]
     fn area(&self) -> f32 {
         self.base_area() + self.lateral_area()
     }
 
     /// Get the volume of the cone
-    #[inline(always)]
+    #[inline]
     fn volume(&self) -> f32 {
         (self.base_area() * self.height) / 3.0
     }
@@ -1022,6 +1033,67 @@ impl Default for ConicalFrustum {
             radius_bottom: 0.5,
             height: 0.5,
         }
+    }
+}
+
+impl ConicalFrustum {
+    /// Get the bottom base of the conical frustum as a [`Circle`]
+    #[inline]
+    pub const fn bottom_base(&self) -> Circle {
+        Circle {
+            radius: self.radius_bottom,
+        }
+    }
+
+    /// Get the top base of the conical frustum as a [`Circle`]
+    #[inline]
+    pub const fn top_base(&self) -> Circle {
+        Circle {
+            radius: self.radius_top,
+        }
+    }
+
+    /// Get the slant height of the conical frustum, the length of the line segment
+    /// connecting a point on the base to the closest point on the top
+    #[inline]
+    #[doc(alias = "side_length")]
+    pub fn slant_height(&self) -> f32 {
+        ops::hypot(self.radius_bottom - self.radius_top, self.height)
+    }
+
+    /// Get the surface area of the side of the conical frustum,
+    /// also known as the lateral area
+    #[inline]
+    #[doc(alias = "side_area")]
+    pub fn lateral_area(&self) -> f32 {
+        PI * (self.radius_bottom + self.radius_top) * self.slant_height()
+    }
+
+    /// Get the surface area of the bottom base of the conical frustum
+    #[inline]
+    pub fn bottom_base_area(&self) -> f32 {
+        PI * self.radius_bottom.squared()
+    }
+
+    /// Get the surface area of the top base of the conical frustum
+    #[inline]
+    pub fn top_base_area(&self) -> f32 {
+        PI * self.radius_top.squared()
+    }
+}
+
+impl Measured3d for ConicalFrustum {
+    #[inline]
+    fn volume(&self) -> f32 {
+        FRAC_PI_3
+            * self.height
+            * (self.radius_bottom * self.radius_bottom
+                + self.radius_top * self.radius_top
+                + self.radius_top * self.radius_bottom)
+    }
+    #[inline]
+    fn area(&self) -> f32 {
+        self.bottom_base_area() + self.top_base_area() + self.lateral_area()
     }
 }
 
@@ -1086,7 +1158,7 @@ impl Torus {
     ///
     /// The inner radius is the radius of the hole, and the outer radius
     /// is the radius of the entire object
-    #[inline(always)]
+    #[inline]
     pub const fn new(inner_radius: f32, outer_radius: f32) -> Self {
         let minor_radius = (outer_radius - inner_radius) / 2.0;
         let major_radius = outer_radius - minor_radius;
@@ -1100,7 +1172,7 @@ impl Torus {
     /// Get the inner radius of the torus.
     /// For a ring torus, this corresponds to the radius of the hole,
     /// or `major_radius - minor_radius`
-    #[inline(always)]
+    #[inline]
     pub const fn inner_radius(&self) -> f32 {
         self.major_radius - self.minor_radius
     }
@@ -1108,7 +1180,7 @@ impl Torus {
     /// Get the outer radius of the torus.
     /// This corresponds to the overall radius of the entire object,
     /// or `major_radius + minor_radius`
-    #[inline(always)]
+    #[inline]
     pub const fn outer_radius(&self) -> f32 {
         self.major_radius + self.minor_radius
     }
@@ -1121,7 +1193,7 @@ impl Torus {
     ///
     /// If the minor or major radius is non-positive, infinite, or `NaN`,
     /// [`TorusKind::Invalid`] is returned
-    #[inline(always)]
+    #[inline]
     pub fn kind(&self) -> TorusKind {
         // Invalid if minor or major radius is non-positive, infinite, or NaN
         if self.minor_radius <= 0.0
@@ -1143,14 +1215,14 @@ impl Torus {
 impl Measured3d for Torus {
     /// Get the surface area of the torus. Note that this only produces
     /// the expected result when the torus has a ring and isn't self-intersecting
-    #[inline(always)]
+    #[inline]
     fn area(&self) -> f32 {
         4.0 * PI.squared() * self.major_radius * self.minor_radius
     }
 
     /// Get the volume of the torus. Note that this only produces
     /// the expected result when the torus has a ring and isn't self-intersecting
-    #[inline(always)]
+    #[inline]
     fn volume(&self) -> f32 {
         2.0 * PI.squared() * self.major_radius * self.minor_radius.squared()
     }
@@ -1190,7 +1262,7 @@ impl Default for Triangle3d {
 
 impl Triangle3d {
     /// Create a new [`Triangle3d`] from points `a`, `b`, and `c`.
-    #[inline(always)]
+    #[inline]
     pub const fn new(a: Vec3, b: Vec3, c: Vec3) -> Self {
         Self {
             vertices: [a, b, c],
@@ -1206,7 +1278,7 @@ impl Triangle3d {
     ///
     /// Returns [`Err(InvalidDirectionError)`](InvalidDirectionError) if the length
     /// of the given vector is zero (or very close to zero), infinite, or `NaN`.
-    #[inline(always)]
+    #[inline]
     pub fn normal(&self) -> Result<Dir3, InvalidDirectionError> {
         let [a, b, c] = self.vertices;
         let ab = b - a;
@@ -1218,7 +1290,7 @@ impl Triangle3d {
     ///
     /// A triangle is degenerate if the cross product of the vectors `ab` and `ac` has a length less than `10e-7`.
     /// This indicates that the three vertices are collinear or nearly collinear.
-    #[inline(always)]
+    #[inline]
     pub fn is_degenerate(&self) -> bool {
         let [a, b, c] = self.vertices;
         let ab = b - a;
@@ -1227,7 +1299,7 @@ impl Triangle3d {
     }
 
     /// Checks if the triangle is acute, meaning all angles are less than 90 degrees
-    #[inline(always)]
+    #[inline]
     pub fn is_acute(&self) -> bool {
         let [a, b, c] = self.vertices;
         let ab = b - a;
@@ -1235,17 +1307,18 @@ impl Triangle3d {
         let ca = a - c;
 
         // a^2 + b^2 < c^2 for an acute triangle
-        let mut side_lengths = [
+        let side_lengths = [
             ab.length_squared(),
             bc.length_squared(),
             ca.length_squared(),
         ];
-        side_lengths.sort_by(|a, b| a.partial_cmp(b).unwrap());
-        side_lengths[0] + side_lengths[1] > side_lengths[2]
+        let sum = side_lengths[0] + side_lengths[1] + side_lengths[2];
+        let max = side_lengths[0].max(side_lengths[1]).max(side_lengths[2]);
+        sum - max > max
     }
 
     /// Checks if the triangle is obtuse, meaning one angle is greater than 90 degrees
-    #[inline(always)]
+    #[inline]
     pub fn is_obtuse(&self) -> bool {
         let [a, b, c] = self.vertices;
         let ab = b - a;
@@ -1253,23 +1326,24 @@ impl Triangle3d {
         let ca = a - c;
 
         // a^2 + b^2 > c^2 for an obtuse triangle
-        let mut side_lengths = [
+        let side_lengths = [
             ab.length_squared(),
             bc.length_squared(),
             ca.length_squared(),
         ];
-        side_lengths.sort_by(|a, b| a.partial_cmp(b).unwrap());
-        side_lengths[0] + side_lengths[1] < side_lengths[2]
+        let sum = side_lengths[0] + side_lengths[1] + side_lengths[2];
+        let max = side_lengths[0].max(side_lengths[1]).max(side_lengths[2]);
+        sum - max < max
     }
 
     /// Reverse the triangle by swapping the first and last vertices.
-    #[inline(always)]
+    #[inline]
     pub fn reverse(&mut self) {
         self.vertices.swap(0, 2);
     }
 
     /// This triangle but reversed.
-    #[inline(always)]
+    #[inline]
     #[must_use]
     pub fn reversed(mut self) -> Triangle3d {
         self.reverse();
@@ -1281,7 +1355,7 @@ impl Triangle3d {
     /// This function finds the geometric center of the triangle by averaging the vertices:
     /// `centroid = (a + b + c) / 3`.
     #[doc(alias("center", "barycenter", "baricenter"))]
-    #[inline(always)]
+    #[inline]
     pub fn centroid(&self) -> Vec3 {
         (self.vertices[0] + self.vertices[1] + self.vertices[2]) / 3.0
     }
@@ -1289,7 +1363,7 @@ impl Triangle3d {
     /// Get the largest side of the triangle.
     ///
     /// Returns the two points that form the largest side of the triangle.
-    #[inline(always)]
+    #[inline]
     pub fn largest_side(&self) -> (Vec3, Vec3) {
         let [a, b, c] = self.vertices;
         let ab = b - a;
@@ -1314,7 +1388,7 @@ impl Triangle3d {
     }
 
     /// Get the circumcenter of the triangle.
-    #[inline(always)]
+    #[inline]
     pub fn circumcenter(&self) -> Vec3 {
         if self.is_degenerate() {
             // If the triangle is degenerate, the circumcenter is the midpoint of the largest side.
@@ -1335,7 +1409,7 @@ impl Triangle3d {
 
 impl Measured2d for Triangle3d {
     /// Get the area of the triangle.
-    #[inline(always)]
+    #[inline]
     fn area(&self) -> f32 {
         let [a, b, c] = self.vertices;
         let ab = b - a;
@@ -1344,7 +1418,7 @@ impl Measured2d for Triangle3d {
     }
 
     /// Get the perimeter of the triangle.
-    #[inline(always)]
+    #[inline]
     fn perimeter(&self) -> f32 {
         let [a, b, c] = self.vertices;
         a.distance(b) + b.distance(c) + c.distance(a)
@@ -1387,7 +1461,7 @@ impl Default for Tetrahedron {
 
 impl Tetrahedron {
     /// Create a new [`Tetrahedron`] from points `a`, `b`, `c` and `d`.
-    #[inline(always)]
+    #[inline]
     pub const fn new(a: Vec3, b: Vec3, c: Vec3, d: Vec3) -> Self {
         Self {
             vertices: [a, b, c, d],
@@ -1399,7 +1473,7 @@ impl Tetrahedron {
     /// If it's negative, the normal vector of the face defined by
     /// the first three points using the right-hand rule points
     /// away from the fourth vertex.
-    #[inline(always)]
+    #[inline]
     pub fn signed_volume(&self) -> f32 {
         let [a, b, c, d] = self.vertices;
         let ab = b - a;
@@ -1413,7 +1487,7 @@ impl Tetrahedron {
     /// This function finds the geometric center of the tetrahedron
     /// by averaging the vertices: `centroid = (a + b + c + d) / 4`.
     #[doc(alias("center", "barycenter", "baricenter"))]
-    #[inline(always)]
+    #[inline]
     pub fn centroid(&self) -> Vec3 {
         (self.vertices[0] + self.vertices[1] + self.vertices[2] + self.vertices[3]) / 4.0
     }
@@ -1423,7 +1497,7 @@ impl Tetrahedron {
     /// Note that the orientations of the faces are determined by that of the tetrahedron; if the
     /// signed volume of this tetrahedron is positive, then the triangles' normals will point
     /// outward, and if the signed volume is negative they will point inward.
-    #[inline(always)]
+    #[inline]
     pub fn faces(&self) -> [Triangle3d; 4] {
         let [a, b, c, d] = self.vertices;
         [
@@ -1437,7 +1511,7 @@ impl Tetrahedron {
 
 impl Measured3d for Tetrahedron {
     /// Get the surface area of the tetrahedron.
-    #[inline(always)]
+    #[inline]
     fn area(&self) -> f32 {
         let [a, b, c, d] = self.vertices;
         let ab = b - a;
@@ -1453,7 +1527,7 @@ impl Measured3d for Tetrahedron {
     }
 
     /// Get the volume of the tetrahedron.
-    #[inline(always)]
+    #[inline]
     fn volume(&self) -> f32 {
         ops::abs(self.signed_volume())
     }
@@ -1739,6 +1813,35 @@ mod tests {
         assert_eq!(cone.base_area(), 12.566371, "incorrect base area");
         assert_relative_eq!(cone.area(), 70.49447);
         assert_eq!(cone.volume(), 37.699111, "incorrect volume");
+    }
+
+    #[test]
+    fn conical_frustum_math() {
+        let frustum = ConicalFrustum {
+            height: 9.0,
+            radius_top: 1.0,
+            radius_bottom: 2.0,
+        };
+        assert_eq!(
+            frustum.bottom_base(),
+            Circle { radius: 2.0 },
+            "bottom base produces incorrect circle"
+        );
+        assert_eq!(
+            frustum.top_base(),
+            Circle { radius: 1.0 },
+            "top base produces incorrect circle"
+        );
+        assert_eq!(frustum.slant_height(), 9.055386, "incorrect slant height");
+        assert_eq!(frustum.lateral_area(), 85.345, "incorrect lateral area");
+        assert_eq!(
+            frustum.bottom_base_area(),
+            12.566371,
+            "incorrect bottom base area"
+        );
+        assert_eq!(frustum.top_base_area(), PI, "incorrect top base area");
+        assert_eq!(frustum.area(), 101.05296, "incorrect surface area");
+        assert_eq!(frustum.volume(), 65.97345, "incorrect volume");
     }
 
     #[test]
