@@ -1,7 +1,6 @@
 #define_import_path bevy_solari::specular_gi
 
 #import bevy_pbr::pbr_functions::{calculate_tbn_mikktspace, calculate_diffuse_color, calculate_F0}
-#import bevy_pbr::prepass_bindings::PreviousViewUniforms
 #import bevy_render::maths::{orthonormalize, PI}
 #import bevy_render::view::View
 #import bevy_solari::brdf::{evaluate_brdf, evaluate_specular_brdf}
