@@ -452,7 +452,10 @@ impl<'a> AssetPath<'a> {
         rpath: &Path,
         rlabel: Option<&str>,
     ) -> AssetPath<'static> {
-        let base_str = self.path().to_str().expect("asset path must be valid UTF-8");
+        let base_str = self
+            .path()
+            .to_str()
+            .expect("asset path must be valid UTF-8");
         let base_trailing_slash = base_str.ends_with('/');
         let rpath_str = rpath.to_str().expect("asset path must be valid UTF-8");
         let rpath_is_rooted = rpath_str.starts_with('/');
@@ -1347,17 +1350,35 @@ mod tests {
         assert_eq!(split_asset_path_segments("/a/b"), (true, vec!["a", "b"]));
         assert_eq!(split_asset_path_segments("C:file"), (false, vec!["C:file"]));
         assert_eq!(split_asset_path_segments("a\\b"), (false, vec!["a\\b"]));
-        assert_eq!(split_asset_path_segments("a//b"), (false, vec!["a", "", "b"]));
+        assert_eq!(
+            split_asset_path_segments("a//b"),
+            (false, vec!["a", "", "b"])
+        );
     }
 
     #[test]
     fn test_normalize_asset_path_segments() {
-        assert_eq!(normalize_asset_path_segments(&["a", ".", "b"], false), vec!["a", "b"]);
-        assert_eq!(normalize_asset_path_segments(&["a", "..", "b"], false), vec!["b"]);
-        assert_eq!(normalize_asset_path_segments(&["a", "b", ".."], false), vec!["a"]);
-        assert_eq!(normalize_asset_path_segments(&["..", "a"], false), vec!["..", "a"]);
+        assert_eq!(
+            normalize_asset_path_segments(&["a", ".", "b"], false),
+            vec!["a", "b"]
+        );
+        assert_eq!(
+            normalize_asset_path_segments(&["a", "..", "b"], false),
+            vec!["b"]
+        );
+        assert_eq!(
+            normalize_asset_path_segments(&["a", "b", ".."], false),
+            vec!["a"]
+        );
+        assert_eq!(
+            normalize_asset_path_segments(&["..", "a"], false),
+            vec!["..", "a"]
+        );
         assert!(normalize_asset_path_segments(&["a", ".."], true).is_empty());
-        assert_eq!(normalize_asset_path_segments(&["a", "b", ".."], true), vec!["a"]);
+        assert_eq!(
+            normalize_asset_path_segments(&["a", "b", ".."], true),
+            vec!["a"]
+        );
     }
 
     #[test]
@@ -1408,17 +1429,11 @@ mod tests {
     fn test_resolve_rooted_dotdot() {
         // Rooted base: ".." does not escape above root; we pop when possible.
         let base = AssetPath::parse("/a/b");
-        assert_eq!(
-            base.resolve_str("../c").unwrap(),
-            AssetPath::from("/a/c")
-        );
+        assert_eq!(base.resolve_str("../c").unwrap(), AssetPath::from("/a/c"));
 
         // "/a" + "../b": ".." pops "a" -> root, then "b" -> "/b".
         let base = AssetPath::parse("/a");
-        assert_eq!(
-            base.resolve_str("../b").unwrap(),
-            AssetPath::from("/b")
-        );
+        assert_eq!(base.resolve_str("../b").unwrap(), AssetPath::from("/b"));
     }
 
     #[test]
