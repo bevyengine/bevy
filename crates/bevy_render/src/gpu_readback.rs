@@ -6,7 +6,7 @@ use crate::{
         TextureFormat,
     },
     renderer::RenderDevice,
-    storage::{GpuShaderStorageBuffer, ShaderStorageBuffer},
+    storage::{GpuShaderBuffer, ShaderBuffer},
     sync_world::MainEntity,
     texture::GpuImage,
     ExtractSchedule, MainWorld, Render, RenderApp, RenderSystems,
@@ -77,7 +77,7 @@ impl Plugin for GpuReadbackPlugin {
 pub enum Readback {
     Texture(Handle<Image>),
     Buffer {
-        buffer: Handle<ShaderStorageBuffer>,
+        buffer: Handle<ShaderBuffer>,
         start_offset_and_size: Option<(u64, u64)>,
     },
 }
@@ -89,7 +89,7 @@ impl Readback {
     }
 
     /// Create a readback component for a full buffer using the given handle.
-    pub fn buffer(buffer: Handle<ShaderStorageBuffer>) -> Self {
+    pub fn buffer(buffer: Handle<ShaderBuffer>) -> Self {
         Self::Buffer {
             buffer,
             start_offset_and_size: None,
@@ -98,7 +98,7 @@ impl Readback {
 
     /// Create a readback component for a buffer range using the given handle, a start offset in bytes
     /// and a number of bytes to read.
-    pub fn buffer_range(buffer: Handle<ShaderStorageBuffer>, start_offset: u64, size: u64) -> Self {
+    pub fn buffer_range(buffer: Handle<ShaderBuffer>, start_offset: u64, size: u64) -> Self {
         Self::Buffer {
             buffer,
             start_offset_and_size: Some((start_offset, size)),
@@ -254,7 +254,7 @@ fn prepare_buffers(
     mut readbacks: ResMut<GpuReadbacks>,
     mut buffer_pool: ResMut<GpuReadbackBufferPool>,
     gpu_images: Res<RenderAssets<GpuImage>>,
-    ssbos: Res<RenderAssets<GpuShaderStorageBuffer>>,
+    ssbos: Res<RenderAssets<GpuShaderBuffer>>,
     handles: Query<(&MainEntity, &Readback)>,
 ) {
     for (entity, readback) in handles.iter() {
