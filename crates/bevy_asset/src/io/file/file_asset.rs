@@ -49,7 +49,7 @@ struct GuardedFile<'a> {
     #[cfg(not(target_os = "windows"))]
     _guard: Option<SemaphoreGuard<'a>>,
     #[cfg(target_os = "windows")]
-    _lifetime: &'a PhantomData,
+    _lifetime: PhantomData<&'a ()>,
 }
 
 impl<'a> futures_io::AsyncRead for GuardedFile<'a> {
