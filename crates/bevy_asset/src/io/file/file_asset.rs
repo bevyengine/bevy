@@ -19,7 +19,7 @@ impl Reader for File {
 #[cfg(any(target_os = "macos", target_os = "ios"))]
 struct GuardedFile<'a> {
     file: File,
-    _guard: async_lock::SemaphoreGuard<'a>,
+    _guard: Option<async_lock::SemaphoreGuard<'a>>,
 }
 
 #[cfg(any(target_os = "macos", target_os = "ios"))]
@@ -43,7 +43,7 @@ impl<'a> Reader for GuardedFile<'a> {
 impl AssetReader for FileAssetReader {
     async fn read<'a>(&'a self, path: &'a Path) -> Result<impl Reader + 'a, AssetReaderError> {
         #[cfg(any(target_os = "macos", target_os = "ios"))]
-        let _guard = self.open_file_limiter.acquire().await;
+        let _guard = self.get_semaphore_with_timeout(500).await;
 
         let full_path = self.root_path.join(path);
         let file = File::open(&full_path).await.map_err(|e| {
@@ -62,7 +62,7 @@ impl AssetReader for FileAssetReader {
 
     async fn read_meta<'a>(&'a self, path: &'a Path) -> Result<impl Reader + 'a, AssetReaderError> {
         #[cfg(any(target_os = "macos", target_os = "ios"))]
-        let _guard = self.open_file_limiter.acquire().await;
+        let _guard = self.get_semaphore_with_timeout(500).await;
 
         let meta_path = get_meta_path(path);
         let full_path = self.root_path.join(meta_path);

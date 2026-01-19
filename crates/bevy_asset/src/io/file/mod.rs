@@ -75,6 +75,25 @@ impl FileAssetReader {
     pub fn root_path(&self) -> &PathBuf {
         &self.root_path
     }
+
+    #[cfg(all(
+        feature = "multi_threaded",
+        any(target_os = "macos", target_os = "ios")
+    ))]
+    async fn get_semaphore_with_timeout<'a>(
+        &'a self,
+        timeout: u64,
+    ) -> Option<async_lock::SemaphoreGuard<'a>> {
+        let guard_future = self.open_file_limiter.acquire();
+        let timeout_future = async_io::Timer::after(core::time::Duration::from_millis(timeout));
+        futures_util::pin_mut!(guard_future);
+        futures_util::pin_mut!(timeout_future);
+
+        match futures_util::future::select(guard_future, timeout_future).await {
+            futures_util::future::Either::Left((guard, _)) => Some(guard),
+            futures_util::future::Either::Right((_, _)) => None,
+        }
+    }
 }
 
 /// A writer for the local filesystem.
