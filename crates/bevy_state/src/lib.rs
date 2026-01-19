@@ -29,7 +29,8 @@
 //! - The [`in_state<S>`](crate::condition::in_state) and [`state_changed<S>`](crate::condition::state_changed) run conditions - which are used
 //!   to determine whether a system should run based on the current state.
 //!
-//! Bevy also provides ("state-scoped entities")[`crate::state_scoped`] functionality for managing the lifetime of entities in the context of game states.
+//! Bevy also provides functionality for managing the lifetime of entities in the context of game states, using the [`state_scoped`] module.
+//! Specifically, the marker components [`DespawnOnEnter<S>`](crate::state_scoped::DespawnOnEnter) and [`DespawnOnExit<S>`](crate::state_scoped::DespawnOnExit) are provided for despawning entities on state transition.
 //! This, especially in combination with system scheduling, enables a flexible and expressive way to manage spawning and despawning entities.
 
 #![cfg_attr(
@@ -76,7 +77,7 @@ pub mod reflect;
 pub mod prelude {
     #[cfg(feature = "bevy_app")]
     #[doc(hidden)]
-    pub use crate::{app::AppExtStates, state_scoped_events::StateScopedEventsAppExt};
+    pub use crate::{app::AppExtStates, state_scoped_events::StateScopedMessagesAppExt};
 
     #[cfg(feature = "bevy_reflect")]
     #[doc(hidden)]
@@ -88,10 +89,10 @@ pub mod prelude {
         condition::*,
         state::{
             last_transition, ComputedStates, EnterSchedules, ExitSchedules, NextState, OnEnter,
-            OnExit, OnTransition, State, StateSet, StateTransition, StateTransitionEvent, States,
-            SubStates, TransitionSchedules,
+            OnExit, OnTransition, PreviousState, State, StateSet, StateTransition,
+            StateTransitionEvent, States, SubStates, TransitionSchedules,
         },
-        state_scoped::{DespawnOnEnterState, DespawnOnExitState},
+        state_scoped::{DespawnOnEnter, DespawnOnExit},
     };
 }
 

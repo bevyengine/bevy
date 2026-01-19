@@ -25,9 +25,17 @@ use ratatui::{
     prelude::*,
 };
 
+use crate::app::Content;
+
 mod app;
 
 fn main() -> Result<()> {
+    let check = std::env::args().any(|arg| arg == "--check");
+    if check {
+        Content::load().unwrap();
+        return Ok(());
+    }
+
     init_panic_hook();
     let mut terminal = init_terminal().unwrap();
     let res = run_app(&mut terminal);

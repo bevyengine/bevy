@@ -12,11 +12,11 @@
 //! | `V`                | Visualize Metering Mask                |
 
 use bevy::{
-    core_pipeline::{
-        auto_exposure::{AutoExposure, AutoExposureCompensationCurve, AutoExposurePlugin},
-        Skybox,
-    },
+    core_pipeline::Skybox,
     math::{cubic_splines::LinearSpline, primitives::Plane3d, vec2},
+    post_process::auto_exposure::{
+        AutoExposure, AutoExposureCompensationCurve, AutoExposurePlugin,
+    },
     prelude::*,
 };
 
@@ -97,7 +97,7 @@ fn setup(
         }
     }
 
-    commands.insert_resource(AmbientLight {
+    commands.insert_resource(GlobalAmbientLight {
         color: Color::WHITE,
         brightness: 0.0,
         ..default()

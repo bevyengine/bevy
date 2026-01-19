@@ -30,10 +30,10 @@ use bevy_render::{
         binding_types::{
             sampler, texture_3d, texture_depth_2d, texture_depth_2d_multisampled, uniform_buffer,
         },
-        BindGroupLayout, BindGroupLayoutEntries, BindingResource, BlendComponent, BlendFactor,
-        BlendOperation, BlendState, CachedRenderPipelineId, ColorTargetState, ColorWrites,
-        DynamicBindGroupEntries, DynamicUniformBuffer, Face, FragmentState, LoadOp, Operations,
-        PipelineCache, PrimitiveState, RenderPassColorAttachment, RenderPassDescriptor,
+        BindGroupLayoutDescriptor, BindGroupLayoutEntries, BindingResource, BlendComponent,
+        BlendFactor, BlendOperation, BlendState, CachedRenderPipelineId, ColorTargetState,
+        ColorWrites, DynamicBindGroupEntries, DynamicUniformBuffer, Face, FragmentState, LoadOp,
+        Operations, PipelineCache, PrimitiveState, RenderPassColorAttachment, RenderPassDescriptor,
         RenderPipelineDescriptor, SamplerBindingType, ShaderStages, ShaderType,
         SpecializedRenderPipeline, SpecializedRenderPipelines, StoreOp, TextureFormat,
         TextureSampleType, TextureUsages, VertexState,
@@ -50,9 +50,9 @@ use bevy_utils::prelude::default;
 use bitflags::bitflags;
 
 use crate::{
-    MeshPipelineViewLayoutKey, MeshPipelineViewLayouts, MeshViewBindGroup,
-    ViewEnvironmentMapUniformOffset, ViewFogUniformOffset, ViewLightProbesUniformOffset,
-    ViewLightsUniformOffset, ViewScreenSpaceReflectionsUniformOffset,
+    ExtractedAtmosphere, MeshPipelineViewLayoutKey, MeshPipelineViewLayouts, MeshViewBindGroup,
+    ViewContactShadowsUniformOffset, ViewEnvironmentMapUniformOffset, ViewFogUniformOffset,
+    ViewLightProbesUniformOffset, ViewLightsUniformOffset, ViewScreenSpaceReflectionsUniformOffset,
 };
 
 use super::FogAssets;
@@ -105,7 +105,8 @@ pub struct VolumetricFogPipeline {
     /// All bind group layouts.
     ///
     /// Since there aren't too many of these, we precompile them all.
-    volumetric_view_bind_group_layouts: [BindGroupLayout; VOLUMETRIC_FOG_BIND_GROUP_LAYOUT_COUNT],
+    volumetric_view_bind_group_layouts:
+        [BindGroupLayoutDescriptor; VOLUMETRIC_FOG_BIND_GROUP_LAYOUT_COUNT],
 
     // The shader asset handle.
     shader: Handle<Shader>,
@@ -204,7 +205,6 @@ pub struct VolumetricFogUniformBuffer(pub DynamicUniformBuffer<VolumetricFogUnif
 
 pub fn init_volumetric_fog_pipeline(
     mut commands: Commands,
-    render_device: Res<RenderDevice>,
     mesh_view_layouts: Res<MeshPipelineViewLayouts>,
     asset_server: Res<AssetServer>,
 ) {
@@ -249,7 +249,7 @@ pub fn init_volumetric_fog_pipeline(
 
         // Create the bind group layout.
         let description = flags.bind_group_layout_description();
-        render_device.create_bind_group_layout(&*description, &bind_group_layout_entries)
+        BindGroupLayoutDescriptor::new(description, &bind_group_layout_entries)
     });
 
     commands.insert_resource(VolumetricFogPipeline {
@@ -315,6 +315,7 @@ impl ViewNode for VolumetricFogNode {
         Read<ViewVolumetricFog>,
         Read<MeshViewBindGroup>,
         Read<ViewScreenSpaceReflectionsUniformOffset>,
+        Read<ViewContactShadowsUniformOffset>,
         Read<Msaa>,
         Read<ViewEnvironmentMapUniformOffset>,
     );
@@ -334,6 +335,7 @@ impl ViewNode for VolumetricFogNode {
             view_fog_volumes,
             view_bind_group,
             view_ssr_offset,
+            view_contact_shadows_offset,
             msaa,
             view_environment_map_offset,
         ): QueryItem<'w, '_, Self::ViewQuery>,
@@ -431,7 +433,7 @@ impl ViewNode for VolumetricFogNode {
 
             let volumetric_view_bind_group = render_context.render_device().create_bind_group(
                 None,
-                volumetric_view_bind_group_layout,
+                &pipeline_cache.get_bind_group_layout(volumetric_view_bind_group_layout),
                 &bind_group_entries,
             );
 
@@ -466,6 +468,7 @@ impl ViewNode for VolumetricFogNode {
                     view_fog_offset.offset,
                     **view_light_probes_offset,
                     **view_ssr_offset,
+                    **view_contact_shadows_offset,
                     **view_environment_map_offset,
                 ],
             );
@@ -550,6 +553,13 @@ impl SpecializedRenderPipeline for VolumetricFogPipeline {
         }
 
         if key
+            .mesh_pipeline_view_key
+            .contains(MeshPipelineViewLayoutKey::ATMOSPHERE)
+        {
+            shader_defs.push("ATMOSPHERE".into());
+        }
+
+        if key
             .flags
             .contains(VolumetricFogPipelineKeyFlags::DENSITY_TEXTURE)
         {
@@ -626,6 +636,7 @@ pub fn prepare_volumetric_fog_pipelines(
             Has<DepthPrepass>,
             Has<MotionVectorPrepass>,
             Has<DeferredPrepass>,
+            Has<ExtractedAtmosphere>,
         ),
         With<VolumetricFog>,
     >,
@@ -644,6 +655,7 @@ pub fn prepare_volumetric_fog_pipelines(
         depth_prepass,
         motion_vector_prepass,
         deferred_prepass,
+        atmosphere,
     ) in view_targets.iter()
     {
         // Create a mesh pipeline view layout key corresponding to the view.
@@ -658,6 +670,10 @@ pub fn prepare_volumetric_fog_pipelines(
             MeshPipelineViewLayoutKey::DEFERRED_PREPASS,
             deferred_prepass,
         );
+        mesh_pipeline_view_key.set(MeshPipelineViewLayoutKey::ATMOSPHERE, atmosphere);
+        if cfg!(feature = "bluenoise_texture") {
+            mesh_pipeline_view_key |= MeshPipelineViewLayoutKey::STBN;
+        }
 
         let mut textureless_flags = VolumetricFogPipelineKeyFlags::empty();
         textureless_flags.set(VolumetricFogPipelineKeyFlags::HDR, view.hdr);

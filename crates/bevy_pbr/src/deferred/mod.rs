@@ -1,10 +1,14 @@
 use crate::{
     graph::NodePbr, MeshPipeline, MeshViewBindGroup, RenderViewLightProbes,
-    ScreenSpaceAmbientOcclusion, ScreenSpaceReflectionsUniform, ViewEnvironmentMapUniformOffset,
-    ViewLightProbesUniformOffset, ViewScreenSpaceReflectionsUniformOffset,
-    TONEMAPPING_LUT_SAMPLER_BINDING_INDEX, TONEMAPPING_LUT_TEXTURE_BINDING_INDEX,
+    ScreenSpaceAmbientOcclusion, ScreenSpaceReflectionsUniform, ViewContactShadowsUniformOffset,
+    ViewEnvironmentMapUniformOffset, ViewLightProbesUniformOffset,
+    ViewScreenSpaceReflectionsUniformOffset, TONEMAPPING_LUT_SAMPLER_BINDING_INDEX,
+    TONEMAPPING_LUT_TEXTURE_BINDING_INDEX,
 };
-use crate::{DistanceFog, MeshPipelineKey, ViewFogUniformOffset, ViewLightsUniformOffset};
+use crate::{
+    DistanceFog, ExtractedAtmosphere, MeshPipelineKey, ViewFogUniformOffset,
+    ViewLightsUniformOffset,
+};
 use bevy_app::prelude::*;
 use bevy_asset::{embedded_asset, load_embedded_asset, AssetServer, Handle};
 use bevy_core_pipeline::{
@@ -26,7 +30,7 @@ use bevy_render::{
     },
     render_graph::{NodeRunError, RenderGraphContext, RenderGraphExt, ViewNode, ViewNodeRunner},
     render_resource::{binding_types::uniform_buffer, *},
-    renderer::{RenderContext, RenderDevice},
+    renderer::RenderContext,
     view::{ExtractedView, ViewTarget, ViewUniformOffset},
     Render, RenderApp, RenderSystems,
 };
@@ -136,6 +140,7 @@ impl ViewNode for DeferredOpaquePass3dPbrLightingNode {
         &'static ViewFogUniformOffset,
         &'static ViewLightProbesUniformOffset,
         &'static ViewScreenSpaceReflectionsUniformOffset,
+        &'static ViewContactShadowsUniformOffset,
         &'static ViewEnvironmentMapUniformOffset,
         &'static MeshViewBindGroup,
         &'static ViewTarget,
@@ -153,6 +158,7 @@ impl ViewNode for DeferredOpaquePass3dPbrLightingNode {
             view_fog_offset,
             view_light_probes_offset,
             view_ssr_offset,
+            view_contact_shadows_offset,
             view_environment_map_offset,
             mesh_view_bind_group,
             target,
@@ -182,7 +188,7 @@ impl ViewNode for DeferredOpaquePass3dPbrLightingNode {
 
         let bind_group_2 = render_context.render_device().create_bind_group(
             "deferred_lighting_layout_group_2",
-            &deferred_lighting_layout.bind_group_layout_2,
+            &pipeline_cache.get_bind_group_layout(&deferred_lighting_layout.bind_group_layout_2),
             &BindGroupEntries::single(deferred_lighting_pass_id_binding),
         );
 
@@ -212,6 +218,7 @@ impl ViewNode for DeferredOpaquePass3dPbrLightingNode {
                 view_fog_offset.offset,
                 **view_light_probes_offset,
                 **view_ssr_offset,
+                **view_contact_shadows_offset,
                 **view_environment_map_offset,
             ],
         );
@@ -228,7 +235,7 @@ impl ViewNode for DeferredOpaquePass3dPbrLightingNode {
 #[derive(Resource)]
 pub struct DeferredLightingLayout {
     mesh_pipeline: MeshPipeline,
-    bind_group_layout_2: BindGroupLayout,
+    bind_group_layout_2: BindGroupLayoutDescriptor,
     deferred_lighting_shader: Handle<Shader>,
 }
 
@@ -325,6 +332,9 @@ impl SpecializedRenderPipeline for DeferredLightingLayout {
         if key.contains(MeshPipelineKey::DISTANCE_FOG) {
             shader_defs.push("DISTANCE_FOG".into());
         }
+        if key.contains(MeshPipelineKey::ATMOSPHERE) {
+            shader_defs.push("ATMOSPHERE".into());
+        }
 
         // Always true, since we're in the deferred lighting pipeline
         shader_defs.push("DEFERRED_PREPASS".into());
@@ -396,11 +406,10 @@ impl SpecializedRenderPipeline for DeferredLightingLayout {
 
 pub fn init_deferred_lighting_layout(
     mut commands: Commands,
-    render_device: Res<RenderDevice>,
     mesh_pipeline: Res<MeshPipeline>,
     asset_server: Res<AssetServer>,
 ) {
-    let layout = render_device.create_bind_group_layout(
+    let layout = BindGroupLayoutDescriptor::new(
         "deferred_lighting_layout",
         &BindGroupLayoutEntries::single(
             ShaderStages::VERTEX_FRAGMENT,
@@ -453,6 +462,7 @@ pub fn prepare_deferred_lighting_pipelines(
         Has<RenderViewLightProbes<EnvironmentMapLight>>,
         Has<RenderViewLightProbes<IrradianceVolume>>,
         Has<SkipDeferredLighting>,
+        Has<ExtractedAtmosphere>,
     )>,
 ) {
     for (
@@ -466,6 +476,7 @@ pub fn prepare_deferred_lighting_pipelines(
         has_environment_maps,
         has_irradiance_volumes,
         skip_deferred_lighting,
+        has_atmosphere,
     ) in &views
     {
         // If there is no deferred prepass or we want to skip the deferred lighting pass,
@@ -488,6 +499,14 @@ pub fn prepare_deferred_lighting_pipelines(
 
         if motion_vector_prepass {
             view_key |= MeshPipelineKey::MOTION_VECTOR_PREPASS;
+        }
+
+        if has_atmosphere {
+            view_key |= MeshPipelineKey::ATMOSPHERE;
+        }
+
+        if view.invert_culling {
+            view_key |= MeshPipelineKey::INVERT_CULLING;
         }
 
         // Always true, since we're in the deferred lighting pipeline

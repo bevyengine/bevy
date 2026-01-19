@@ -35,7 +35,9 @@ fn get_tile_data(coord: vec2<u32>) -> TileData {
 fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     let chunk_size = textureDimensions(tile_data, 0);
     let tile_uv = in.uv * vec2<f32>(chunk_size);
-    let tile_coord = clamp(vec2<u32>(floor(tile_uv)), vec2<u32>(0), chunk_size - 1);
+    var tile_coord = clamp(vec2<u32>(floor(tile_uv)), vec2<u32>(0), chunk_size - 1);
+    let local_uv = tile_uv - vec2<f32>(tile_coord);
+    tile_coord.y = chunk_size.y - 1 - tile_coord.y;
 
     let tile = get_tile_data(tile_coord);
 
@@ -43,7 +45,6 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
         discard;
     }
 
-    let local_uv = fract(tile_uv);
     let tex_color = textureSample(tileset, tileset_sampler, local_uv, tile.tileset_index);
     let final_color = tex_color * tile.color;
 

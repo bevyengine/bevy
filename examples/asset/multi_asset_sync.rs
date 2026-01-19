@@ -17,7 +17,7 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .init_state::<LoadingState>()
-        .insert_resource(AmbientLight {
+        .insert_resource(GlobalAmbientLight {
             color: Color::WHITE,
             brightness: 2000.,
             ..default()
@@ -196,7 +196,7 @@ fn setup_scene(
     // Light
     commands.spawn((
         DirectionalLight {
-            shadows_enabled: true,
+            shadow_maps_enabled: true,
             ..default()
         },
         Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, 1.0, -PI / 4.)),

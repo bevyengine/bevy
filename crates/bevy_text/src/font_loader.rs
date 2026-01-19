@@ -1,8 +1,10 @@
 use crate::Font;
 use bevy_asset::{io::Reader, AssetLoader, LoadContext};
+use bevy_reflect::TypePath;
+use cosmic_text::skrifa::raw::ReadError;
 use thiserror::Error;
 
-#[derive(Default)]
+#[derive(Default, TypePath)]
 /// An [`AssetLoader`] for [`Font`]s, for use by the [`AssetServer`](bevy_asset::AssetServer)
 pub struct FontLoader;
 
@@ -12,7 +14,7 @@ pub struct FontLoader;
 pub enum FontLoaderError {
     /// The contents that could not be parsed
     #[error(transparent)]
-    Content(#[from] cosmic_text::ttf_parser::FaceParsingError),
+    Content(#[from] ReadError),
     /// An [IO](std::io) Error
     #[error(transparent)]
     Io(#[from] std::io::Error),

@@ -13,94 +13,24 @@ use syn::{
     LitStr, Member, Path, Result, Token, Type, Visibility,
 };
 
-pub const EVENT: &str = "entity_event";
-pub const AUTO_PROPAGATE: &str = "auto_propagate";
-pub const TRAVERSAL: &str = "traversal";
-
-pub fn derive_event(input: TokenStream) -> TokenStream {
-    let mut ast = parse_macro_input!(input as DeriveInput);
-    let bevy_ecs_path: Path = crate::bevy_ecs_path();
-
-    ast.generics
-        .make_where_clause()
-        .predicates
-        .push(parse_quote! { Self: Send + Sync + 'static });
-
-    let struct_name = &ast.ident;
-    let (impl_generics, type_generics, where_clause) = &ast.generics.split_for_impl();
-
-    TokenStream::from(quote! {
-        impl #impl_generics #bevy_ecs_path::event::Event for #struct_name #type_generics #where_clause {}
-    })
-}
-
-pub fn derive_entity_event(input: TokenStream) -> TokenStream {
-    let mut ast = parse_macro_input!(input as DeriveInput);
-    let mut auto_propagate = false;
-    let mut traversal: Type = parse_quote!(());
-    let bevy_ecs_path: Path = crate::bevy_ecs_path();
-
-    let mut processed_attrs = Vec::new();
-
-    ast.generics
-        .make_where_clause()
-        .predicates
-        .push(parse_quote! { Self: Send + Sync + 'static });
-
-    for attr in ast.attrs.iter().filter(|attr| attr.path().is_ident(EVENT)) {
-        if let Err(e) = attr.parse_nested_meta(|meta| match meta.path.get_ident() {
-            Some(ident) if processed_attrs.iter().any(|i| ident == i) => {
-                Err(meta.error(format!("duplicate attribute: {ident}")))
-            }
-            Some(ident) if ident == AUTO_PROPAGATE => {
-                auto_propagate = true;
-                processed_attrs.push(AUTO_PROPAGATE);
-                Ok(())
-            }
-            Some(ident) if ident == TRAVERSAL => {
-                traversal = meta.value()?.parse()?;
-                processed_attrs.push(TRAVERSAL);
-                Ok(())
-            }
-            Some(ident) => Err(meta.error(format!("unsupported attribute: {ident}"))),
-            None => Err(meta.error("expected identifier")),
-        }) {
-            return e.to_compile_error().into();
-        }
-    }
-
-    let struct_name = &ast.ident;
-    let (impl_generics, type_generics, where_clause) = &ast.generics.split_for_impl();
-
-    TokenStream::from(quote! {
-        impl #impl_generics #bevy_ecs_path::event::Event for #struct_name #type_generics #where_clause {}
-        impl #impl_generics #bevy_ecs_path::event::EntityEvent for #struct_name #type_generics #where_clause {
-            type Traversal = #traversal;
-            const AUTO_PROPAGATE: bool = #auto_propagate;
-        }
-    })
-}
-
-pub fn derive_buffered_event(input: TokenStream) -> TokenStream {
-    let mut ast = parse_macro_input!(input as DeriveInput);
-    let bevy_ecs_path: Path = crate::bevy_ecs_path();
-
-    ast.generics
-        .make_where_clause()
-        .predicates
-        .push(parse_quote! { Self: Send + Sync + 'static });
-
-    let struct_name = &ast.ident;
-    let (impl_generics, type_generics, where_clause) = &ast.generics.split_for_impl();
-
-    TokenStream::from(quote! {
-        impl #impl_generics #bevy_ecs_path::event::BufferedEvent for #struct_name #type_generics #where_clause {}
-    })
-}
-
 pub fn derive_resource(input: TokenStream) -> TokenStream {
     let mut ast = parse_macro_input!(input as DeriveInput);
     let bevy_ecs_path: Path = crate::bevy_ecs_path();
+
+    // We want to raise a compile time error when the generic lifetimes
+    // are not bound to 'static lifetime
+    let non_static_lifetime_error = ast
+        .generics
+        .lifetimes()
+        .filter(|lifetime| !lifetime.bounds.iter().any(|bound| bound.ident == "static"))
+        .map(|param| syn::Error::new(param.span(), "Lifetimes must be 'static"))
+        .reduce(|mut err_acc, err| {
+            err_acc.combine(err);
+            err_acc
+        });
+    if let Some(err) = non_static_lifetime_error {
+        return err.into_compile_error().into();
+    }
 
     ast.generics
         .make_where_clause()
@@ -286,6 +216,35 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
         )
     };
 
+    let relationship_accessor = if (relationship.is_some() || relationship_target.is_some())
+        && let Data::Struct(DataStruct {
+            fields,
+            struct_token,
+            ..
+        }) = &ast.data
+        && let Ok(field) = relationship_field(fields, "Relationship", struct_token.span())
+    {
+        let relationship_member = field.ident.clone().map_or(Member::from(0), Member::Named);
+        if relationship.is_some() {
+            quote! {
+                Some(
+                    // Safety: we pass valid offset of a field containing Entity (obtained via offset_off!)
+                    unsafe {
+                        #bevy_ecs_path::relationship::ComponentRelationshipAccessor::<Self>::relationship(
+                            core::mem::offset_of!(Self, #relationship_member)
+                        )
+                    }
+                )
+            }
+        } else {
+            quote! {
+                Some(#bevy_ecs_path::relationship::ComponentRelationshipAccessor::<Self>::relationship_target())
+            }
+        }
+    } else {
+        quote! {None}
+    };
+
     // This puts `register_required` before `register_recursive_requires` to ensure that the constructors of _all_ top
     // level components are initialized first, giving them precedence over recursively defined constructors for the same component type
     TokenStream::from(quote! {
@@ -311,6 +270,10 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
             }
 
             #map_entities
+
+            fn relationship_accessor() -> Option<#bevy_ecs_path::relationship::ComponentRelationshipAccessor<Self>> {
+                #relationship_accessor
+            }
         }
 
         #relationship
@@ -387,7 +350,7 @@ pub(crate) fn map_entities(
                 let ident = &variant.ident;
                 let field_idents = field_members
                     .iter()
-                    .map(|member| format_ident!("__self_{}", member))
+                    .map(|member| format_ident!("__self{}", member))
                     .collect::<Vec<_>>();
 
                 map.push(
@@ -444,6 +407,18 @@ enum HookAttributeKind {
 }
 
 impl HookAttributeKind {
+    fn parse(
+        input: syn::parse::ParseStream,
+        default_hook_path: impl FnOnce() -> ExprPath,
+    ) -> Result<Self> {
+        if input.peek(Token![=]) {
+            input.parse::<Token![=]>()?;
+            input.parse::<Expr>().and_then(Self::from_expr)
+        } else {
+            Ok(Self::Path(default_hook_path()))
+        }
+    }
+
     fn from_expr(value: Expr) -> Result<Self> {
         match value {
             Expr::Path(path) => Ok(HookAttributeKind::Path(path)),
@@ -473,12 +448,6 @@ impl HookAttributeKind {
                 })
             }
         }
-    }
-}
-
-impl Parse for HookAttributeKind {
-    fn parse(input: syn::parse::ParseStream) -> Result<Self> {
-        input.parse::<Expr>().and_then(Self::from_expr)
     }
 }
 
@@ -560,6 +529,7 @@ struct Require {
 
 struct Relationship {
     relationship_target: Type,
+    allow_self_referential: bool,
 }
 
 struct RelationshipTarget {
@@ -603,19 +573,29 @@ fn parse_component_attr(ast: &DeriveInput) -> Result<Attrs> {
                     };
                     Ok(())
                 } else if nested.path.is_ident(ON_ADD) {
-                    attrs.on_add = Some(nested.value()?.parse::<HookAttributeKind>()?);
+                    attrs.on_add = Some(HookAttributeKind::parse(nested.input, || {
+                        parse_quote! { Self::on_add }
+                    })?);
                     Ok(())
                 } else if nested.path.is_ident(ON_INSERT) {
-                    attrs.on_insert = Some(nested.value()?.parse::<HookAttributeKind>()?);
+                    attrs.on_insert = Some(HookAttributeKind::parse(nested.input, || {
+                        parse_quote! { Self::on_insert }
+                    })?);
                     Ok(())
                 } else if nested.path.is_ident(ON_REPLACE) {
-                    attrs.on_replace = Some(nested.value()?.parse::<HookAttributeKind>()?);
+                    attrs.on_replace = Some(HookAttributeKind::parse(nested.input, || {
+                        parse_quote! { Self::on_replace }
+                    })?);
                     Ok(())
                 } else if nested.path.is_ident(ON_REMOVE) {
-                    attrs.on_remove = Some(nested.value()?.parse::<HookAttributeKind>()?);
+                    attrs.on_remove = Some(HookAttributeKind::parse(nested.input, || {
+                        parse_quote! { Self::on_remove }
+                    })?);
                     Ok(())
                 } else if nested.path.is_ident(ON_DESPAWN) {
-                    attrs.on_despawn = Some(nested.value()?.parse::<HookAttributeKind>()?);
+                    attrs.on_despawn = Some(HookAttributeKind::parse(nested.input, || {
+                        parse_quote! { Self::on_despawn }
+                    })?);
                     Ok(())
                 } else if nested.path.is_ident(IMMUTABLE) {
                     attrs.immutable = true;
@@ -756,14 +736,35 @@ mod kw {
     syn::custom_keyword!(relationship_target);
     syn::custom_keyword!(relationship);
     syn::custom_keyword!(linked_spawn);
+    syn::custom_keyword!(allow_self_referential);
 }
 
 impl Parse for Relationship {
     fn parse(input: syn::parse::ParseStream) -> Result<Self> {
-        input.parse::<kw::relationship_target>()?;
-        input.parse::<Token![=]>()?;
+        let mut relationship_target: Option<Type> = None;
+        let mut allow_self_referential: bool = false;
+
+        while !input.is_empty() {
+            let lookahead = input.lookahead1();
+            if lookahead.peek(kw::allow_self_referential) {
+                input.parse::<kw::allow_self_referential>()?;
+                allow_self_referential = true;
+            } else if lookahead.peek(kw::relationship_target) {
+                input.parse::<kw::relationship_target>()?;
+                input.parse::<Token![=]>()?;
+                relationship_target = Some(input.parse()?);
+            } else {
+                return Err(lookahead.error());
+            }
+            if !input.is_empty() {
+                input.parse::<Token![,]>()?;
+            }
+        }
         Ok(Relationship {
-            relationship_target: input.parse::<Type>()?,
+            relationship_target: relationship_target.ok_or_else(|| {
+                syn::Error::new(input.span(), "Missing `relationship_target = X` attribute")
+            })?,
+            allow_self_referential,
         })
     }
 }
@@ -828,10 +829,12 @@ fn derive_relationship(
     let (impl_generics, type_generics, where_clause) = &ast.generics.split_for_impl();
 
     let relationship_target = &relationship.relationship_target;
+    let allow_self_referential = relationship.allow_self_referential;
 
     Ok(Some(quote! {
         impl #impl_generics #bevy_ecs_path::relationship::Relationship for #struct_name #type_generics #where_clause {
             type RelationshipTarget = #relationship_target;
+            const ALLOW_SELF_REFERENTIAL: bool = #allow_self_referential;
 
             #[inline(always)]
             fn get(&self) -> #bevy_ecs_path::entity::Entity {
@@ -847,7 +850,7 @@ fn derive_relationship(
             }
 
             #[inline]
-            fn set_risky(&mut self, entity: Entity) {
+            fn set_risky(&mut self, entity: #bevy_ecs_path::entity::Entity) {
                 self.#relationship_member = entity;
             }
         }

@@ -161,7 +161,7 @@ fn setup(
 
     // We need the full version of this font so we can use box drawing characters.
     let text_style = TextFont {
-        font: asset_server.load("fonts/FiraMono-Medium.ttf"),
+        font: asset_server.load("fonts/FiraMono-Medium.ttf").into(),
         ..default()
     };
 
@@ -190,26 +190,23 @@ fn setup(
     ));
 
     let mut label = |entity: Entity, label: &str| {
-        commands
-            .spawn((
+        commands.spawn((
+            Node {
+                position_type: PositionType::Absolute,
+                ..default()
+            },
+            ExampleLabel { entity },
+            children![(
+                Text::new(label),
+                label_text_style.clone(),
                 Node {
                     position_type: PositionType::Absolute,
+                    bottom: Val::ZERO,
                     ..default()
                 },
-                ExampleLabel { entity },
-            ))
-            .with_children(|parent| {
-                parent.spawn((
-                    Text::new(label),
-                    label_text_style.clone(),
-                    Node {
-                        position_type: PositionType::Absolute,
-                        bottom: Val::ZERO,
-                        ..default()
-                    },
-                    TextLayout::default().with_no_wrap(),
-                ));
-            });
+                TextLayout::default().with_no_wrap(),
+            )],
+        ));
     };
 
     label(opaque, "┌─ Opaque\n│\n│\n│\n│");

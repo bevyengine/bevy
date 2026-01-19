@@ -3,9 +3,6 @@ use core::f32::consts::PI;
 use bevy_app::{Plugin, PreUpdate};
 use bevy_asset::Handle;
 use bevy_color::{Alpha, Color, Hsla};
-use bevy_core_widgets::{
-    Callback, CoreSlider, CoreSliderThumb, SliderRange, SliderValue, TrackClick, ValueChange,
-};
 use bevy_ecs::{
     bundle::Bundle,
     children,
@@ -14,8 +11,7 @@ use bevy_ecs::{
     hierarchy::Children,
     query::{Changed, Or, With},
     schedule::IntoScheduleConfigs,
-    spawn::SpawnRelated,
-    system::{In, Query},
+    system::Query,
 };
 use bevy_input_focus::tab_navigation::TabIndex;
 use bevy_log::warn_once;
@@ -26,6 +22,7 @@ use bevy_ui::{
     UiRect, UiTransform, Val, Val2, ZIndex,
 };
 use bevy_ui_render::ui_material::MaterialNode;
+use bevy_ui_widgets::{Slider, SliderRange, SliderThumb, SliderValue, TrackClick};
 
 use crate::{
     alpha_pattern::{AlphaPattern, AlphaPatternMaterial},
@@ -146,8 +143,6 @@ pub struct SliderBaseColor(pub Color);
 pub struct ColorSliderProps {
     /// Slider current value
     pub value: f32,
-    /// On-change handler
-    pub on_change: Callback<In<ValueChange<f32>>>,
     /// Which color component we're editing
     pub channel: ColorChannel,
 }
@@ -156,7 +151,6 @@ impl Default for ColorSliderProps {
     fn default() -> Self {
         Self {
             value: 0.0,
-            on_change: Callback::Ignore,
             channel: ColorChannel::Alpha,
         }
     }
@@ -164,7 +158,7 @@ impl Default for ColorSliderProps {
 
 /// A color slider widget.
 #[derive(Component, Default, Clone)]
-#[require(CoreSlider, SliderBaseColor(Color::WHITE))]
+#[require(Slider, SliderBaseColor(Color::WHITE))]
 pub struct ColorSlider {
     /// Which channel is being edited by this slider.
     pub channel: ColorChannel,
@@ -184,6 +178,12 @@ struct ColorSliderThumb;
 ///
 /// * `props` - construction properties for the slider.
 /// * `overrides` - a bundle of components that are merged in with the normal slider components.
+///
+/// # Emitted events
+///
+/// * [`bevy_ui_widgets::ValueChange<f32>`] when the slider value is changed.
+///
+///  These events can be disabled by adding an [`bevy_ui::InteractionDisabled`] component to the entity
 pub fn color_slider<B: Bundle>(props: ColorSliderProps, overrides: B) -> impl Bundle {
     (
         Node {
@@ -194,8 +194,7 @@ pub fn color_slider<B: Bundle>(props: ColorSliderProps, overrides: B) -> impl Bu
             flex_grow: 1.0,
             ..Default::default()
         },
-        CoreSlider {
-            on_change: props.on_change,
+        Slider {
             track_click: TrackClick::Snap,
         },
         ColorSlider {
@@ -215,9 +214,9 @@ pub fn color_slider<B: Bundle>(props: ColorSliderProps, overrides: B) -> impl Bu
                     right: Val::Px(0.),
                     top: Val::Px(TRACK_PADDING),
                     bottom: Val::Px(TRACK_PADDING),
+                    border_radius: RoundedCorners::All.to_border_radius(TRACK_RADIUS),
                     ..Default::default()
                 },
-                RoundedCorners::All.to_border_radius(TRACK_RADIUS),
                 ColorSliderTrack,
                 AlphaPattern,
                 MaterialNode::<AlphaPatternMaterial>(Handle::default()),
@@ -226,9 +225,9 @@ pub fn color_slider<B: Bundle>(props: ColorSliderProps, overrides: B) -> impl Bu
                     (
                         Node {
                             width: Val::Px(THUMB_SIZE * 0.5),
+                            border_radius: RoundedCorners::Left.to_border_radius(TRACK_RADIUS),
                             ..Default::default()
                         },
-                        RoundedCorners::Left.to_border_radius(TRACK_RADIUS),
                         BackgroundColor(palette::X_AXIS),
                     ),
                     // Track with gradient
@@ -255,11 +254,11 @@ pub fn color_slider<B: Bundle>(props: ColorSliderProps, overrides: B) -> impl Bu
                                 width: Val::Px(THUMB_SIZE),
                                 height: Val::Px(THUMB_SIZE),
                                 border: UiRect::all(Val::Px(2.0)),
+                                border_radius: BorderRadius::MAX,
                                 ..Default::default()
                             },
-                            CoreSliderThumb,
+                            SliderThumb,
                             ColorSliderThumb,
-                            BorderRadius::MAX,
                             BorderColor::all(palette::WHITE),
                             Outline {
                                 width: Val::Px(1.),
@@ -276,9 +275,9 @@ pub fn color_slider<B: Bundle>(props: ColorSliderProps, overrides: B) -> impl Bu
                     (
                         Node {
                             width: Val::Px(THUMB_SIZE * 0.5),
+                            border_radius: RoundedCorners::Right.to_border_radius(TRACK_RADIUS),
                             ..Default::default()
                         },
-                        RoundedCorners::Right.to_border_radius(TRACK_RADIUS),
                         BackgroundColor(palette::Z_AXIS),
                     ),
                 ]

@@ -2,7 +2,7 @@
 //!
 //! # Architecture
 //!
-//! See the module doc for [`crate::reflect::component`].
+//! See the module doc for [`reflect::component`](`crate::reflect::component`).
 
 use crate::{
     change_detection::Mut,

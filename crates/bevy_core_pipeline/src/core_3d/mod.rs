@@ -28,6 +28,7 @@ pub mod graph {
         MainTransparentPass,
         EndMainPass,
         Wireframe,
+        StartMainPassPostProcessing,
         LateDownsampleDepth,
         MotionBlur,
         Taa,
@@ -72,12 +73,14 @@ pub const DEPTH_TEXTURE_SAMPLING_SUPPORTED: bool = true;
 use core::ops::Range;
 
 use bevy_camera::{Camera, Camera3d, Camera3dDepthLoadOp};
+use bevy_diagnostic::FrameCount;
 use bevy_render::{
     batching::gpu_preprocessing::{GpuPreprocessingMode, GpuPreprocessingSupport},
     camera::CameraRenderGraph,
     experimental::occlusion_culling::OcclusionCulling,
     mesh::allocator::SlabId,
     render_phase::PhaseItemBatchSetKey,
+    texture::CachedTexture,
     view::{prepare_view_targets, NoIndirectDrawing, RetainedViewEntity},
 };
 pub use main_opaque_pass_3d_node::*;
@@ -121,12 +124,12 @@ use crate::{
         AlphaMask3dDeferred, Opaque3dDeferred, DEFERRED_LIGHTING_PASS_ID_FORMAT,
         DEFERRED_PREPASS_FORMAT,
     },
-    dof::DepthOfFieldNode,
     prepass::{
         node::{EarlyPrepassNode, LatePrepassNode},
-        AlphaMask3dPrepass, DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass,
-        Opaque3dPrepass, OpaqueNoLightmap3dBatchSetKey, OpaqueNoLightmap3dBinKey,
-        ViewPrepassTextures, MOTION_VECTOR_PREPASS_FORMAT, NORMAL_PREPASS_FORMAT,
+        AlphaMask3dPrepass, DeferredPrepass, DeferredPrepassDoubleBuffer, DepthPrepass,
+        DepthPrepassDoubleBuffer, MotionVectorPrepass, NormalPrepass, Opaque3dPrepass,
+        OpaqueNoLightmap3dBatchSetKey, OpaqueNoLightmap3dBinKey, ViewPrepassTextures,
+        MOTION_VECTOR_PREPASS_FORMAT, NORMAL_PREPASS_FORMAT,
     },
     skybox::SkyboxPlugin,
     tonemapping::{DebandDither, Tonemapping, TonemappingNode},
@@ -214,7 +217,7 @@ impl Plugin for Core3dPlugin {
                 Node3d::MainTransparentPass,
             )
             .add_render_graph_node::<EmptyNode>(Core3d, Node3d::EndMainPass)
-            .add_render_graph_node::<ViewNodeRunner<DepthOfFieldNode>>(Core3d, Node3d::DepthOfField)
+            .add_render_graph_node::<EmptyNode>(Core3d, Node3d::StartMainPassPostProcessing)
             .add_render_graph_node::<ViewNodeRunner<TonemappingNode>>(Core3d, Node3d::Tonemapping)
             .add_render_graph_node::<EmptyNode>(Core3d, Node3d::EndMainPassPostProcessing)
             .add_render_graph_node::<ViewNodeRunner<UpscalingNode>>(Core3d, Node3d::Upscaling)
@@ -232,6 +235,7 @@ impl Plugin for Core3dPlugin {
                     Node3d::MainTransmissivePass,
                     Node3d::MainTransparentPass,
                     Node3d::EndMainPass,
+                    Node3d::StartMainPassPostProcessing,
                     Node3d::Tonemapping,
                     Node3d::EndMainPassPostProcessing,
                     Node3d::Upscaling,
@@ -675,6 +679,8 @@ pub fn extract_camera_prepass_phase(
                 Has<NormalPrepass>,
                 Has<MotionVectorPrepass>,
                 Has<DeferredPrepass>,
+                Has<DepthPrepassDoubleBuffer>,
+                Has<DeferredPrepassDoubleBuffer>,
             ),
             With<Camera3d>,
         >,
@@ -693,6 +699,8 @@ pub fn extract_camera_prepass_phase(
         normal_prepass,
         motion_vector_prepass,
         deferred_prepass,
+        depth_prepass_double_buffer,
+        deferred_prepass_double_buffer,
     ) in cameras_3d.iter()
     {
         if !camera.is_active {
@@ -759,6 +767,18 @@ pub fn extract_camera_prepass_phase(
             camera_commands.insert(DeferredPrepass);
         } else {
             camera_commands.remove::<DeferredPrepass>();
+        }
+
+        if depth_prepass_double_buffer {
+            camera_commands.insert(DepthPrepassDoubleBuffer);
+        } else {
+            camera_commands.remove::<DepthPrepassDoubleBuffer>();
+        }
+
+        if deferred_prepass_double_buffer {
+            camera_commands.insert(DeferredPrepassDoubleBuffer);
+        } else {
+            camera_commands.remove::<DeferredPrepassDoubleBuffer>();
         }
     }
 
@@ -972,6 +992,7 @@ pub fn prepare_prepass_textures(
     mut commands: Commands,
     mut texture_cache: ResMut<TextureCache>,
     render_device: Res<RenderDevice>,
+    frame_count: Res<FrameCount>,
     opaque_3d_prepass_phases: Res<ViewBinnedRenderPhases<Opaque3dPrepass>>,
     alpha_mask_3d_prepass_phases: Res<ViewBinnedRenderPhases<AlphaMask3dPrepass>>,
     opaque_3d_deferred_phases: Res<ViewBinnedRenderPhases<Opaque3dDeferred>>,
@@ -985,11 +1006,15 @@ pub fn prepare_prepass_textures(
         Has<NormalPrepass>,
         Has<MotionVectorPrepass>,
         Has<DeferredPrepass>,
+        Has<DepthPrepassDoubleBuffer>,
+        Has<DeferredPrepassDoubleBuffer>,
     )>,
 ) {
-    let mut depth_textures = <HashMap<_, _>>::default();
+    let mut depth_textures1 = <HashMap<_, _>>::default();
+    let mut depth_textures2 = <HashMap<_, _>>::default();
     let mut normal_textures = <HashMap<_, _>>::default();
-    let mut deferred_textures = <HashMap<_, _>>::default();
+    let mut deferred_textures1: HashMap<_, _> = <HashMap<_, _>>::default();
+    let mut deferred_textures2: HashMap<_, _> = <HashMap<_, _>>::default();
     let mut deferred_lighting_id_textures = <HashMap<_, _>>::default();
     let mut motion_vectors_textures = <HashMap<_, _>>::default();
     for (
@@ -1001,6 +1026,8 @@ pub fn prepare_prepass_textures(
         normal_prepass,
         motion_vector_prepass,
         deferred_prepass,
+        depth_prepass_double_buffer,
+        deferred_prepass_double_buffer,
     ) in &views_3d
     {
         if !opaque_3d_prepass_phases.contains_key(&view.retained_view_entity)
@@ -1018,12 +1045,12 @@ pub fn prepare_prepass_textures(
 
         let size = physical_target_size.to_extents();
 
-        let cached_depth_texture = depth_prepass.then(|| {
-            depth_textures
+        let cached_depth_texture1 = depth_prepass.then(|| {
+            depth_textures1
                 .entry(camera.target.clone())
                 .or_insert_with(|| {
                     let descriptor = TextureDescriptor {
-                        label: Some("prepass_depth_texture"),
+                        label: Some("prepass_depth_texture_1"),
                         size,
                         mip_level_count: 1,
                         sample_count: msaa.samples(),
@@ -1031,8 +1058,28 @@ pub fn prepare_prepass_textures(
                         format: CORE_3D_DEPTH_FORMAT,
                         usage: TextureUsages::COPY_DST
                             | TextureUsages::RENDER_ATTACHMENT
-                            | TextureUsages::TEXTURE_BINDING
-                            | TextureUsages::COPY_SRC, // TODO: Remove COPY_SRC, double buffer instead (for bevy_solari)
+                            | TextureUsages::TEXTURE_BINDING,
+                        view_formats: &[],
+                    };
+                    texture_cache.get(&render_device, descriptor)
+                })
+                .clone()
+        });
+
+        let cached_depth_texture2 = depth_prepass_double_buffer.then(|| {
+            depth_textures2
+                .entry(camera.target.clone())
+                .or_insert_with(|| {
+                    let descriptor = TextureDescriptor {
+                        label: Some("prepass_depth_texture_2"),
+                        size,
+                        mip_level_count: 1,
+                        sample_count: msaa.samples(),
+                        dimension: TextureDimension::D2,
+                        format: CORE_3D_DEPTH_FORMAT,
+                        usage: TextureUsages::COPY_DST
+                            | TextureUsages::RENDER_ATTACHMENT
+                            | TextureUsages::TEXTURE_BINDING,
                         view_formats: &[],
                     };
                     texture_cache.get(&render_device, descriptor)
@@ -1084,22 +1131,43 @@ pub fn prepare_prepass_textures(
                 .clone()
         });
 
-        let cached_deferred_texture = deferred_prepass.then(|| {
-            deferred_textures
+        let cached_deferred_texture1 = deferred_prepass.then(|| {
+            deferred_textures1
                 .entry(camera.target.clone())
                 .or_insert_with(|| {
                     texture_cache.get(
                         &render_device,
                         TextureDescriptor {
-                            label: Some("prepass_deferred_texture"),
+                            label: Some("prepass_deferred_texture_1"),
                             size,
                             mip_level_count: 1,
                             sample_count: 1,
                             dimension: TextureDimension::D2,
                             format: DEFERRED_PREPASS_FORMAT,
                             usage: TextureUsages::RENDER_ATTACHMENT
-                                | TextureUsages::TEXTURE_BINDING
-                                | TextureUsages::COPY_SRC, // TODO: Remove COPY_SRC, double buffer instead (for bevy_solari)
+                                | TextureUsages::TEXTURE_BINDING,
+                            view_formats: &[],
+                        },
+                    )
+                })
+                .clone()
+        });
+
+        let cached_deferred_texture2 = deferred_prepass_double_buffer.then(|| {
+            deferred_textures2
+                .entry(camera.target.clone())
+                .or_insert_with(|| {
+                    texture_cache.get(
+                        &render_device,
+                        TextureDescriptor {
+                            label: Some("prepass_deferred_texture_2"),
+                            size,
+                            mip_level_count: 1,
+                            sample_count: 1,
+                            dimension: TextureDimension::D2,
+                            format: DEFERRED_PREPASS_FORMAT,
+                            usage: TextureUsages::RENDER_ATTACHMENT
+                                | TextureUsages::TEXTURE_BINDING,
                             view_formats: &[],
                         },
                     )
@@ -1130,20 +1198,54 @@ pub fn prepare_prepass_textures(
         });
 
         commands.entity(entity).insert(ViewPrepassTextures {
-            depth: cached_depth_texture
-                .map(|t| ColorAttachment::new(t, None, Some(LinearRgba::BLACK))),
+            depth: package_double_buffered_texture(
+                cached_depth_texture1,
+                cached_depth_texture2,
+                frame_count.0,
+            ),
             normal: cached_normals_texture
-                .map(|t| ColorAttachment::new(t, None, Some(LinearRgba::BLACK))),
+                .map(|t| ColorAttachment::new(t, None, None, Some(LinearRgba::BLACK))),
             // Red and Green channels are X and Y components of the motion vectors
             // Blue channel doesn't matter, but set to 0.0 for possible faster clear
             // https://gpuopen.com/performance/#clears
             motion_vectors: cached_motion_vectors_texture
-                .map(|t| ColorAttachment::new(t, None, Some(LinearRgba::BLACK))),
-            deferred: cached_deferred_texture
-                .map(|t| ColorAttachment::new(t, None, Some(LinearRgba::BLACK))),
+                .map(|t| ColorAttachment::new(t, None, None, Some(LinearRgba::BLACK))),
+            deferred: package_double_buffered_texture(
+                cached_deferred_texture1,
+                cached_deferred_texture2,
+                frame_count.0,
+            ),
             deferred_lighting_pass_id: cached_deferred_lighting_pass_id_texture
-                .map(|t| ColorAttachment::new(t, None, Some(LinearRgba::BLACK))),
+                .map(|t| ColorAttachment::new(t, None, None, Some(LinearRgba::BLACK))),
             size,
         });
+    }
+}
+
+fn package_double_buffered_texture(
+    texture1: Option<CachedTexture>,
+    texture2: Option<CachedTexture>,
+    frame_count: u32,
+) -> Option<ColorAttachment> {
+    match (texture1, texture2) {
+        (Some(t1), None) => Some(ColorAttachment::new(
+            t1,
+            None,
+            None,
+            Some(LinearRgba::BLACK),
+        )),
+        (Some(t1), Some(t2)) if frame_count.is_multiple_of(2) => Some(ColorAttachment::new(
+            t1,
+            None,
+            Some(t2),
+            Some(LinearRgba::BLACK),
+        )),
+        (Some(t1), Some(t2)) => Some(ColorAttachment::new(
+            t2,
+            None,
+            Some(t1),
+            Some(LinearRgba::BLACK),
+        )),
+        _ => None,
     }
 }

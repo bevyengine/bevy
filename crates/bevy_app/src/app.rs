@@ -11,10 +11,14 @@ pub use bevy_derive::AppLabel;
 use bevy_ecs::{
     component::RequiredComponentsError,
     error::{DefaultErrorHandler, ErrorHandler},
-    event::{event_update_system, EventCursor},
+    event::Event,
     intern::Interned,
+    message::{message_update_system, MessageCursor},
     prelude::*,
-    schedule::{InternedSystemSet, ScheduleBuildSettings, ScheduleLabel},
+    schedule::{
+        InternedSystemSet, ScheduleBuildSettings, ScheduleCleanupPolicy, ScheduleError,
+        ScheduleLabel,
+    },
     system::{IntoObserverSystem, ScheduleSystem, SystemId, SystemInput},
 };
 use bevy_platform::collections::HashMap;
@@ -76,6 +80,7 @@ pub(crate) enum AppError {
 ///    println!("hello world");
 /// }
 /// ```
+#[must_use]
 pub struct App {
     pub(crate) sub_apps: SubApps,
     /// The function that will manage the app's lifecycle.
@@ -119,11 +124,11 @@ impl Default for App {
         app.add_plugins(MainSchedulePlugin);
         app.add_systems(
             First,
-            event_update_system
-                .in_set(bevy_ecs::event::EventUpdateSystems)
-                .run_if(bevy_ecs::event::event_update_condition),
+            message_update_system
+                .in_set(bevy_ecs::message::MessageUpdateSystems)
+                .run_if(bevy_ecs::message::message_update_condition),
         );
-        app.add_event::<AppExit>();
+        app.add_message::<AppExit>();
 
         app
     }
@@ -323,6 +328,38 @@ impl App {
         self
     }
 
+    /// Removes all systems in a [`SystemSet`]. This will cause the schedule to be rebuilt when
+    /// the schedule is run again and can be slow. A [`ScheduleError`] is returned if the schedule needs to be
+    /// [`Schedule::initialize`]'d or the `set` is not found.
+    ///
+    /// Note that this can remove all systems of a type if you pass
+    /// the system to this function as systems implicitly create a set based
+    /// on the system type.
+    ///
+    /// ## Example
+    /// ```
+    /// # use bevy_app::prelude::*;
+    /// # use bevy_ecs::schedule::ScheduleCleanupPolicy;
+    /// #
+    /// # let mut app = App::new();
+    /// # fn system_a() {}
+    /// # fn system_b() {}
+    /// #
+    /// // add the system
+    /// app.add_systems(Update, system_a);
+    ///
+    /// // remove the system
+    /// app.remove_systems_in_set(Update, system_a, ScheduleCleanupPolicy::RemoveSystemsOnly);
+    /// ```
+    pub fn remove_systems_in_set<M>(
+        &mut self,
+        schedule: impl ScheduleLabel,
+        set: impl IntoSystemSet<M>,
+        policy: ScheduleCleanupPolicy,
+    ) -> Result<usize, ScheduleError> {
+        self.main_mut().remove_systems_in_set(schedule, set, policy)
+    }
+
     /// Registers a system and returns a [`SystemId`] so it can later be called by [`World::run_system`].
     ///
     /// It's possible to register the same systems more than once, they'll be stored separately.
@@ -354,10 +391,10 @@ impl App {
         self
     }
 
-    /// Initializes [`BufferedEvent`] handling for `T` by inserting an event queue resource ([`Events::<T>`])
-    /// and scheduling an [`event_update_system`] in [`First`].
+    /// Initializes [`Message`] handling for `T` by inserting a message queue resource ([`Messages::<T>`])
+    /// and scheduling an [`message_update_system`] in [`First`].
     ///
-    /// See [`Events`] for information on how to define events.
+    /// See [`Messages`] for information on how to define messages.
     ///
     /// # Examples
     ///
@@ -365,17 +402,14 @@ impl App {
     /// # use bevy_app::prelude::*;
     /// # use bevy_ecs::prelude::*;
     /// #
-    /// # #[derive(BufferedEvent)]
-    /// # struct MyEvent;
+    /// # #[derive(Message)]
+    /// # struct MyMessage;
     /// # let mut app = App::new();
     /// #
-    /// app.add_event::<MyEvent>();
+    /// app.add_message::<MyMessage>();
     /// ```
-    pub fn add_event<T>(&mut self) -> &mut Self
-    where
-        T: BufferedEvent,
-    {
-        self.main_mut().add_event::<T>();
+    pub fn add_message<M: Message>(&mut self) -> &mut Self {
+        self.main_mut().add_message::<M>();
         self
     }
 
@@ -1191,6 +1225,9 @@ impl App {
     }
 
     /// Applies the provided [`ScheduleBuildSettings`] to all schedules.
+    ///
+    /// This mutates all currently present schedules, but does not apply to any custom schedules
+    /// that might be added in the future.
     pub fn configure_schedules(
         &mut self,
         schedule_build_settings: ScheduleBuildSettings,
@@ -1303,14 +1340,14 @@ impl App {
     /// This should be called after every [`update()`](App::update) otherwise you risk
     /// dropping possible [`AppExit`] events.
     pub fn should_exit(&self) -> Option<AppExit> {
-        let mut reader = EventCursor::default();
+        let mut reader = MessageCursor::default();
 
-        let events = self.world().get_resource::<Events<AppExit>>()?;
-        let mut events = reader.read(events);
+        let messages = self.world().get_resource::<Messages<AppExit>>()?;
+        let mut messages = reader.read(messages);
 
-        if events.len() != 0 {
+        if messages.len() != 0 {
             return Some(
-                events
+                messages
                     .find(|exit| exit.is_error())
                     .cloned()
                     .unwrap_or(AppExit::Success),
@@ -1339,7 +1376,9 @@ impl App {
     /// # };
     /// #
     /// # #[derive(EntityEvent)]
-    /// # struct Invite;
+    /// # struct Invite {
+    /// #    entity: Entity,
+    /// # }
     /// #
     /// # #[derive(Component)]
     /// # struct Friend;
@@ -1347,8 +1386,8 @@ impl App {
     ///
     /// app.add_observer(|event: On<Party>, friends: Query<Entity, With<Friend>>, mut commands: Commands| {
     ///     if event.friends_allowed {
-    ///         for friend in friends.iter() {
-    ///             commands.trigger_targets(Invite, friend);
+    ///         for entity in friends.iter() {
+    ///             commands.trigger(Invite { entity } );
     ///         }
     ///     }
     /// });
@@ -1426,17 +1465,17 @@ fn run_once(mut app: App) -> AppExit {
     app.should_exit().unwrap_or(AppExit::Success)
 }
 
-/// A [`BufferedEvent`] that indicates the [`App`] should exit. If one or more of these are present at the end of an update,
+/// A [`Message`] that indicates the [`App`] should exit. If one or more of these are present at the end of an update,
 /// the [runner](App::set_runner) will end and ([maybe](App::run)) return control to the caller.
 ///
-/// This event can be used to detect when an exit is requested. Make sure that systems listening
-/// for this event run before the current update ends.
+/// This message can be used to detect when an exit is requested. Make sure that systems listening
+/// for this message run before the current update ends.
 ///
 /// # Portability
 /// This type is roughly meant to map to a standard definition of a process exit code (0 means success, not 0 means error). Due to portability concerns
 /// (see [`ExitCode`](https://doc.rust-lang.org/std/process/struct.ExitCode.html) and [`process::exit`](https://doc.rust-lang.org/std/process/fn.exit.html#))
 /// we only allow error codes between 1 and [255](u8::MAX).
-#[derive(BufferedEvent, Debug, Clone, Default, PartialEq, Eq)]
+#[derive(Message, Debug, Clone, Default, PartialEq, Eq)]
 pub enum AppExit {
     /// [`App`] exited without any problems.
     #[default]
@@ -1504,8 +1543,8 @@ mod tests {
         change_detection::{DetectChanges, ResMut},
         component::Component,
         entity::Entity,
-        event::{BufferedEvent, EventWriter, Events},
         lifecycle::RemovedComponents,
+        message::{Message, MessageWriter, Messages},
         query::With,
         resource::Resource,
         schedule::{IntoScheduleConfigs, ScheduleLabel},
@@ -1848,7 +1887,7 @@ mod tests {
 
     #[test]
     fn runner_returns_correct_exit_code() {
-        fn raise_exits(mut exits: EventWriter<AppExit>) {
+        fn raise_exits(mut exits: MessageWriter<AppExit>) {
             // Exit codes chosen by a fair dice roll.
             // Unlikely to overlap with default values.
             exits.write(AppExit::Success);
@@ -1946,38 +1985,38 @@ mod tests {
     }
     #[test]
     fn events_should_be_updated_once_per_update() {
-        #[derive(BufferedEvent, Clone)]
-        struct TestEvent;
+        #[derive(Message, Clone)]
+        struct TestMessage;
 
         let mut app = App::new();
-        app.add_event::<TestEvent>();
+        app.add_message::<TestMessage>();
 
         // Starts empty
-        let test_events = app.world().resource::<Events<TestEvent>>();
-        assert_eq!(test_events.len(), 0);
-        assert_eq!(test_events.iter_current_update_events().count(), 0);
+        let test_messages = app.world().resource::<Messages<TestMessage>>();
+        assert_eq!(test_messages.len(), 0);
+        assert_eq!(test_messages.iter_current_update_messages().count(), 0);
         app.update();
 
         // Sending one event
-        app.world_mut().write_event(TestEvent);
+        app.world_mut().write_message(TestMessage);
 
-        let test_events = app.world().resource::<Events<TestEvent>>();
+        let test_events = app.world().resource::<Messages<TestMessage>>();
         assert_eq!(test_events.len(), 1);
-        assert_eq!(test_events.iter_current_update_events().count(), 1);
+        assert_eq!(test_events.iter_current_update_messages().count(), 1);
         app.update();
 
         // Sending two events on the next frame
-        app.world_mut().write_event(TestEvent);
-        app.world_mut().write_event(TestEvent);
+        app.world_mut().write_message(TestMessage);
+        app.world_mut().write_message(TestMessage);
 
-        let test_events = app.world().resource::<Events<TestEvent>>();
+        let test_events = app.world().resource::<Messages<TestMessage>>();
         assert_eq!(test_events.len(), 3); // Events are double-buffered, so we see 1 + 2 = 3
-        assert_eq!(test_events.iter_current_update_events().count(), 2);
+        assert_eq!(test_events.iter_current_update_messages().count(), 2);
         app.update();
 
         // Sending zero events
-        let test_events = app.world().resource::<Events<TestEvent>>();
+        let test_events = app.world().resource::<Messages<TestMessage>>();
         assert_eq!(test_events.len(), 2); // Events are double-buffered, so we see 2 + 0 = 2
-        assert_eq!(test_events.iter_current_update_events().count(), 0);
+        assert_eq!(test_events.iter_current_update_messages().count(), 0);
     }
 }

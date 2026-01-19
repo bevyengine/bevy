@@ -1,11 +1,15 @@
+//! Traits and types used to power [tuple-struct-like] operations via reflection.
+//!
+//! [tuple-struct-like]: https://doc.rust-lang.org/book/ch05-01-defining-structs.html#using-tuple-structs-without-named-fields-to-create-different-types
 use bevy_reflect_derive::impl_type_path;
 
 use crate::generics::impl_generic_info_methods;
 use crate::{
     attributes::{impl_custom_attribute_methods, CustomAttributes},
+    tuple::{DynamicTuple, Tuple},
     type_info::impl_type_methods,
-    ApplyError, DynamicTuple, Generics, PartialReflect, Reflect, ReflectKind, ReflectMut,
-    ReflectOwned, ReflectRef, Tuple, Type, TypeInfo, TypePath, UnnamedField,
+    ApplyError, Generics, PartialReflect, Reflect, ReflectKind, ReflectMut, ReflectOwned,
+    ReflectRef, Type, TypeInfo, TypePath, UnnamedField,
 };
 use alloc::{boxed::Box, vec::Vec};
 use bevy_platform::sync::Arc;
@@ -25,7 +29,7 @@ use core::{
 /// # Example
 ///
 /// ```
-/// use bevy_reflect::{PartialReflect, Reflect, TupleStruct};
+/// use bevy_reflect::{PartialReflect, Reflect, tuple_struct::TupleStruct};
 ///
 /// #[derive(Reflect)]
 /// struct Foo(u32);
@@ -76,7 +80,7 @@ pub struct TupleStructInfo {
     generics: Generics,
     fields: Box<[UnnamedField]>,
     custom_attributes: Arc<CustomAttributes>,
-    #[cfg(feature = "documentation")]
+    #[cfg(feature = "reflect_documentation")]
     docs: Option<&'static str>,
 }
 
@@ -92,13 +96,13 @@ impl TupleStructInfo {
             generics: Generics::new(),
             fields: fields.to_vec().into_boxed_slice(),
             custom_attributes: Arc::new(CustomAttributes::default()),
-            #[cfg(feature = "documentation")]
+            #[cfg(feature = "reflect_documentation")]
             docs: None,
         }
     }
 
     /// Sets the docstring for this struct.
-    #[cfg(feature = "documentation")]
+    #[cfg(feature = "reflect_documentation")]
     pub fn with_docs(self, docs: Option<&'static str>) -> Self {
         Self { docs, ..self }
     }
@@ -129,7 +133,7 @@ impl TupleStructInfo {
     impl_type_methods!(ty);
 
     /// The docstring of this struct, if any.
-    #[cfg(feature = "documentation")]
+    #[cfg(feature = "reflect_documentation")]
     pub fn docs(&self) -> Option<&'static str> {
         self.docs
     }
@@ -178,7 +182,7 @@ impl<'a> ExactSizeIterator for TupleStructFieldIter<'a> {}
 /// # Example
 ///
 /// ```
-/// use bevy_reflect::{GetTupleStructField, Reflect};
+/// use bevy_reflect::{tuple_struct::GetTupleStructField, Reflect};
 ///
 /// #[derive(Reflect)]
 /// struct Foo(String);
@@ -356,6 +360,10 @@ impl PartialReflect for DynamicTupleStruct {
         tuple_struct_partial_eq(self, value)
     }
 
+    fn reflect_partial_cmp(&self, value: &dyn PartialReflect) -> Option<::core::cmp::Ordering> {
+        tuple_struct_partial_cmp(self, value)
+    }
+
     fn debug(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         write!(f, "DynamicTupleStruct(")?;
         tuple_struct_debug(self, f)?;
@@ -447,6 +455,37 @@ pub fn tuple_struct_partial_eq<S: TupleStruct + ?Sized>(
     Some(true)
 }
 
+/// Lexicographically compares two [`TupleStruct`] values and returns their ordering.
+///
+/// Returns [`None`] if the comparison couldn't be performed (e.g., kinds mismatch
+/// or an element comparison returns `None`).
+#[inline]
+pub fn tuple_struct_partial_cmp<S: TupleStruct + ?Sized>(
+    a: &S,
+    b: &dyn PartialReflect,
+) -> Option<::core::cmp::Ordering> {
+    let ReflectRef::TupleStruct(tuple_struct) = b.reflect_ref() else {
+        return None;
+    };
+
+    if a.field_len() != tuple_struct.field_len() {
+        return None;
+    }
+
+    for (i, value) in tuple_struct.iter_fields().enumerate() {
+        if let Some(field_value) = a.field(i) {
+            match field_value.reflect_partial_cmp(value) {
+                None => return None,
+                Some(core::cmp::Ordering::Equal) => continue,
+                Some(ord) => return Some(ord),
+            }
+        }
+        return None;
+    }
+
+    Some(core::cmp::Ordering::Equal)
+}
+
 /// The default debug formatter for [`TupleStruct`] types.
 ///
 /// # Example
@@ -483,7 +522,8 @@ pub fn tuple_struct_debug(
 
 #[cfg(test)]
 mod tests {
-    use crate::*;
+    use super::TupleStruct;
+    use crate::Reflect;
     #[derive(Reflect)]
     struct Ts(u8, u8, u8, u8, u8, u8, u8, u8, u8, u8, u8, u8);
     #[test]

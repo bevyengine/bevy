@@ -8,7 +8,7 @@ use bevy_reflect::prelude::*;
 use bevy_transform::components::Transform;
 
 /// Add this component to a [`DirectionalLight`](crate::DirectionalLight) with a shadow map
-/// (`shadows_enabled: true`) to make volumetric fog interact with it.
+/// (`shadow_maps_enabled: true`) to make volumetric fog interact with it.
 ///
 /// This allows the light to generate light shafts/god rays.
 #[derive(Clone, Copy, Component, Default, Debug, Reflect)]
@@ -18,6 +18,8 @@ pub struct VolumetricLight;
 /// When placed on a [`bevy_camera::Camera3d`], enables
 /// volumetric fog and volumetric lighting, also known as light shafts or god
 /// rays.
+///
+/// Requires using WebGPU on Wasm builds.
 #[derive(Clone, Copy, Component, Debug, Reflect)]
 #[reflect(Component, Default, Debug, Clone)]
 pub struct VolumetricFog {

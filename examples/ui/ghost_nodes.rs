@@ -9,12 +9,11 @@
 //!
 //! In order to use [`GhostNode`]s you must enable the `ghost_nodes` feature flag.
 
-use bevy::{prelude::*, ui::experimental::GhostNode, winit::WinitSettings};
+use bevy::{prelude::*, ui::experimental::GhostNode};
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .insert_resource(WinitSettings::desktop_app())
         .add_systems(Startup, setup)
         .add_systems(Update, button_system)
         .run();
@@ -81,10 +80,10 @@ fn create_button() -> impl Bundle {
             justify_content: JustifyContent::Center,
             // vertically center child text
             align_items: AlignItems::Center,
+            border_radius: BorderRadius::MAX,
             ..default()
         },
         BorderColor::all(Color::BLACK),
-        BorderRadius::MAX,
         BackgroundColor(Color::srgb(0.15, 0.15, 0.15)),
     )
 }
@@ -93,7 +92,7 @@ fn create_label(text: &str, font: Handle<Font>) -> (Text, TextFont, TextColor) {
     (
         Text::new(text),
         TextFont {
-            font,
+            font: font.into(),
             font_size: 33.0,
             ..default()
         },

@@ -11,13 +11,13 @@
 //! interactions change based on the density of the fog.
 
 use bevy::{
-    anti_aliasing::taa::TemporalAntiAliasing,
-    core_pipeline::bloom::Bloom,
+    anti_alias::taa::TemporalAntiAliasing,
     image::{
         ImageAddressMode, ImageFilterMode, ImageLoaderSettings, ImageSampler,
         ImageSamplerDescriptor,
     },
     light::{DirectionalLightShadowMap, FogVolume, VolumetricFog, VolumetricLight},
+    post_process::bloom::Bloom,
     prelude::*,
 };
 
@@ -61,7 +61,7 @@ fn setup(
     // Spawn a directional light shining at the camera with the VolumetricLight component.
     commands.spawn((
         DirectionalLight {
-            shadows_enabled: true,
+            shadow_maps_enabled: true,
             ..default()
         },
         Transform::from_xyz(-5.0, 5.0, -7.0).looking_at(Vec3::new(0.0, 0.0, 0.0), Vec3::Y),

@@ -3,17 +3,17 @@
 use accesskit::{Node as Accessible, Role};
 use bevy::{
     a11y::AccessibilityNode,
+    color::palettes::css::{BLACK, BLUE, RED},
     ecs::spawn::SpawnIter,
     input::mouse::{MouseScrollUnit, MouseWheel},
     picking::hover::HoverMap,
     prelude::*,
-    winit::WinitSettings,
 };
 
 fn main() {
     let mut app = App::new();
+
     app.add_plugins(DefaultPlugins)
-        .insert_resource(WinitSettings::desktop_app())
         .add_systems(Startup, setup)
         .add_systems(Update, send_scroll_events)
         .add_observer(on_scroll_handler);
@@ -25,15 +25,15 @@ const LINE_HEIGHT: f32 = 21.;
 
 /// Injects scroll events into the UI hierarchy.
 fn send_scroll_events(
-    mut mouse_wheel_events: EventReader<MouseWheel>,
+    mut mouse_wheel_reader: MessageReader<MouseWheel>,
     hover_map: Res<HoverMap>,
     keyboard_input: Res<ButtonInput<KeyCode>>,
     mut commands: Commands,
 ) {
-    for event in mouse_wheel_events.read() {
-        let mut delta = -Vec2::new(event.x, event.y);
+    for mouse_wheel in mouse_wheel_reader.read() {
+        let mut delta = -Vec2::new(mouse_wheel.x, mouse_wheel.y);
 
-        if event.unit == MouseScrollUnit::Line {
+        if mouse_wheel.unit == MouseScrollUnit::Line {
             delta *= LINE_HEIGHT;
         }
 
@@ -42,8 +42,8 @@ fn send_scroll_events(
         }
 
         for pointer_map in hover_map.values() {
-            for entity in pointer_map.keys() {
-                commands.trigger_targets(Scroll { delta }, *entity);
+            for entity in pointer_map.keys().copied() {
+                commands.trigger(Scroll { entity, delta });
             }
         }
     }
@@ -51,25 +51,24 @@ fn send_scroll_events(
 
 /// UI scrolling event.
 #[derive(EntityEvent, Debug)]
-#[entity_event(auto_propagate, traversal = &'static ChildOf)]
+#[entity_event(propagate, auto_propagate)]
 struct Scroll {
+    entity: Entity,
     /// Scroll delta in logical coordinates.
     delta: Vec2,
 }
 
 fn on_scroll_handler(
-    mut event: On<Scroll>,
+    mut scroll: On<Scroll>,
     mut query: Query<(&mut ScrollPosition, &Node, &ComputedNode)>,
 ) {
-    let target = event.entity();
-    let delta = &mut event.delta;
-
-    let Ok((mut scroll_position, node, computed)) = query.get_mut(target) else {
+    let Ok((mut scroll_position, node, computed)) = query.get_mut(scroll.entity) else {
         return;
     };
 
     let max_offset = (computed.content_size() - computed.size()) * computed.inverse_scale_factor();
 
+    let delta = &mut scroll.delta;
     if node.overflow.x == OverflowAxis::Scroll && delta.x != 0. {
         // Is this node already scrolled all the way in the direction of the scroll?
         let max = if delta.x > 0. {
@@ -102,7 +101,7 @@ fn on_scroll_handler(
 
     // Stop propagating when the delta is fully consumed.
     if *delta == Vec2::ZERO {
-        event.propagate(false);
+        scroll.propagate(false);
     }
 }
 
@@ -137,7 +136,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     parent.spawn((
                         Text::new("Horizontally Scrolling list (Ctrl + MouseWheel)"),
                         TextFont {
-                            font: font_handle.clone(),
+                            font: font_handle.clone().into(),
                             font_size: FONT_SIZE,
                             ..default()
                         },
@@ -162,7 +161,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     .spawn((
                                         Text(format!("Item {i}")),
                                         TextFont {
-                                            font: font_handle.clone(),
+                                            font: font_handle.clone().into(),
                                             ..default()
                                         },
                                         Label,
@@ -174,9 +173,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                         },
                                     ))
                                     .observe(
-                                        |event: On<Pointer<Press>>, mut commands: Commands| {
-                                            if event.event().button == PointerButton::Primary {
-                                                commands.entity(event.entity()).despawn();
+                                        |press: On<Pointer<Press>>, mut commands: Commands| {
+                                            if press.event().button == PointerButton::Primary {
+                                                commands.entity(press.entity).despawn();
                                             }
                                         },
                                     );
@@ -196,6 +195,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 children![
                     vertically_scrolling_list(asset_server.load("fonts/FiraSans-Bold.ttf")),
                     bidirectional_scrolling_list(asset_server.load("fonts/FiraSans-Bold.ttf")),
+                    bidirectional_scrolling_list_with_sticky(
+                        asset_server.load("fonts/FiraSans-Bold.ttf")
+                    ),
                     nested_scrolling_list(asset_server.load("fonts/FiraSans-Bold.ttf")),
                 ],
             ));
@@ -216,7 +218,7 @@ fn vertically_scrolling_list(font_handle: Handle<Font>) -> impl Bundle {
                 // Title
                 Text::new("Vertically Scrolling List"),
                 TextFont {
-                    font: font_handle.clone(),
+                    font: font_handle.clone().into(),
                     font_size: FONT_SIZE,
                     ..default()
                 },
@@ -229,7 +231,21 @@ fn vertically_scrolling_list(font_handle: Handle<Font>) -> impl Bundle {
                     align_self: AlignSelf::Stretch,
                     height: percent(50),
                     overflow: Overflow::scroll_y(), // n.b.
+                    scrollbar_width: 20.,
                     ..default()
+                },
+                #[cfg(feature = "bevy_ui_debug")]
+                UiDebugOptions {
+                    enabled: true,
+                    outline_border_box: false,
+                    outline_padding_box: false,
+                    outline_content_box: false,
+                    outline_scrollbars: true,
+                    line_width: 2.,
+                    line_color_override: None,
+                    show_hidden: false,
+                    show_clipped: true,
+                    ignore_border_radius: true,
                 },
                 BackgroundColor(Color::srgb(0.10, 0.10, 0.10)),
                 Children::spawn(SpawnIter((0..25).map(move |i| {
@@ -242,7 +258,7 @@ fn vertically_scrolling_list(font_handle: Handle<Font>) -> impl Bundle {
                         children![(
                             Text(format!("Item {i}")),
                             TextFont {
-                                font: font_handle.clone(),
+                                font: font_handle.clone().into(),
                                 ..default()
                             },
                             Label,
@@ -268,7 +284,7 @@ fn bidirectional_scrolling_list(font_handle: Handle<Font>) -> impl Bundle {
             (
                 Text::new("Bidirectionally Scrolling List"),
                 TextFont {
-                    font: font_handle.clone(),
+                    font: font_handle.clone().into(),
                     font_size: FONT_SIZE,
                     ..default()
                 },
@@ -294,10 +310,7 @@ fn bidirectional_scrolling_list(font_handle: Handle<Font>) -> impl Bundle {
                             move |i| {
                                 (
                                     Text(format!("Item {}", (oi * 10) + i)),
-                                    TextFont {
-                                        font: value.clone(),
-                                        ..default()
-                                    },
+                                    TextFont::from(value.clone()),
                                     Label,
                                     AccessibilityNode(Accessible::new(Role::ListItem)),
                                 )
@@ -305,6 +318,72 @@ fn bidirectional_scrolling_list(font_handle: Handle<Font>) -> impl Bundle {
                         }))),
                     )
                 })))
+            )
+        ],
+    )
+}
+
+fn bidirectional_scrolling_list_with_sticky(font_handle: Handle<Font>) -> impl Bundle {
+    (
+        Node {
+            flex_direction: FlexDirection::Column,
+            justify_content: JustifyContent::Center,
+            align_items: AlignItems::Center,
+            width: px(200),
+            ..default()
+        },
+        children![
+            (
+                Text::new("Bidirectionally Scrolling List With Sticky Nodes"),
+                TextFont {
+                    font: font_handle.clone().into(),
+                    font_size: FONT_SIZE,
+                    ..default()
+                },
+                Label,
+            ),
+            (
+                Node {
+                    display: Display::Grid,
+                    align_self: AlignSelf::Stretch,
+                    height: percent(50),
+                    overflow: Overflow::scroll(), // n.b.
+                    grid_template_columns: RepeatedGridTrack::auto(30),
+                    ..default()
+                },
+                Children::spawn(SpawnIter(
+                    (0..30)
+                        .flat_map(|y| (0..30).map(move |x| (y, x)))
+                        .map(move |(y, x)| {
+                            let value = font_handle.clone();
+                            // Simple sticky nodes at top and left sides of UI node
+                            // can be achieved by combining such effects as
+                            // IgnoreScroll, ZIndex, BackgroundColor for child UI nodes.
+                            let ignore_scroll = BVec2 {
+                                x: x == 0,
+                                y: y == 0,
+                            };
+                            let (z_index, background_color, role) = match (x == 0, y == 0) {
+                                (true, true) => (2, RED, Role::RowHeader),
+                                (true, false) => (1, BLUE, Role::RowHeader),
+                                (false, true) => (1, BLUE, Role::ColumnHeader),
+                                (false, false) => (0, BLACK, Role::Cell),
+                            };
+                            (
+                                Text(format!("|{},{}|", y, x)),
+                                TextFont::from(value.clone()),
+                                TextLayout {
+                                    linebreak: LineBreak::NoWrap,
+                                    ..default()
+                                },
+                                Label,
+                                AccessibilityNode(Accessible::new(role)),
+                                IgnoreScroll(ignore_scroll),
+                                ZIndex(z_index),
+                                BackgroundColor(Color::Srgba(background_color)),
+                            )
+                        })
+                ))
             )
         ],
     )
@@ -324,7 +403,7 @@ fn nested_scrolling_list(font_handle: Handle<Font>) -> impl Bundle {
                 // Title
                 Text::new("Nested Scrolling Lists"),
                 TextFont {
-                    font: font_handle.clone(),
+                    font: font_handle.clone().into(),
                     font_size: FONT_SIZE,
                     ..default()
                 },
@@ -357,10 +436,7 @@ fn nested_scrolling_list(font_handle: Handle<Font>) -> impl Bundle {
                             move |i| {
                                 (
                                     Text(format!("Item {}", (oi * 20) + i)),
-                                    TextFont {
-                                        font: value.clone(),
-                                        ..default()
-                                    },
+                                    TextFont::from(value.clone()),
                                     Label,
                                     AccessibilityNode(Accessible::new(Role::ListItem)),
                                 )

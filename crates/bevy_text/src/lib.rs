@@ -21,9 +21,9 @@
 //!
 //! With the actual text bounds defined, the `bevy_ui::widget::text::text_system` system (in a UI context)
 //! or `bevy_sprite::text2d::update_text2d_layout` system (in a 2d world space context)
-//! passes it into [`TextPipeline::queue_text`], which:
+//! passes it into [`TextPipeline::update_text_layout_info`], which:
 //!
-//! 1. updates a [`Buffer`](cosmic_text::Buffer) from the [`TextSpan`]s, generating new [`FontAtlasSet`]s if necessary.
+//! 1. updates a [`Buffer`](cosmic_text::Buffer) from the [`TextSpan`]s, generating new [`FontAtlas`]es if necessary.
 //! 2. iterates over each glyph in the [`Buffer`](cosmic_text::Buffer) to create a [`PositionedGlyph`],
 //!    retrieving glyphs from the cache, or rasterizing to a [`FontAtlas`] if necessary.
 //! 3. [`PositionedGlyph`]s are stored in a [`TextLayoutInfo`],
@@ -42,6 +42,7 @@ mod pipeline;
 mod text;
 mod text_access;
 
+use bevy_asset::AssetEventSystems;
 pub use bounds::*;
 pub use error::*;
 pub use font::*;
@@ -59,12 +60,14 @@ pub use text_access::*;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        Font, Justify, LineBreak, TextColor, TextError, TextFont, TextLayout, TextSpan,
+        Font, FontHinting, FontSmoothing, FontSource, FontStyle, FontWeight, FontWidth, Justify,
+        LineBreak, Strikethrough, StrikethroughColor, TextColor, TextError, TextFont, TextLayout,
+        TextSpan, Underline, UnderlineColor,
     };
 }
 
 use bevy_app::prelude::*;
-use bevy_asset::{AssetApp, AssetEventSystems};
+use bevy_asset::AssetApp;
 use bevy_ecs::prelude::*;
 
 /// The raw data for the default font used by `bevy_text`
@@ -82,22 +85,18 @@ pub struct TextPlugin;
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub struct Text2dUpdateSystems;
 
-/// Deprecated alias for [`Text2dUpdateSystems`].
-#[deprecated(since = "0.17.0", note = "Renamed to `Text2dUpdateSystems`.")]
-pub type Update2dText = Text2dUpdateSystems;
-
 impl Plugin for TextPlugin {
     fn build(&self, app: &mut App) {
         app.init_asset::<Font>()
             .init_asset_loader::<FontLoader>()
-            .init_resource::<FontAtlasSets>()
+            .init_resource::<FontAtlasSet>()
             .init_resource::<TextPipeline>()
             .init_resource::<CosmicFontSystem>()
             .init_resource::<SwashCache>()
             .init_resource::<TextIterScratch>()
             .add_systems(
                 PostUpdate,
-                remove_dropped_font_atlas_sets.before(AssetEventSystems),
+                load_font_assets_into_fontdb_system.after(AssetEventSystems),
             )
             .add_systems(Last, trim_cosmic_cache);
 

@@ -1,9 +1,12 @@
 use crate::{App, AppLabel, InternedAppLabel, Plugin, Plugins, PluginsState};
 use alloc::{boxed::Box, string::String, vec::Vec};
 use bevy_ecs::{
-    event::EventRegistry,
+    message::MessageRegistry,
     prelude::*,
-    schedule::{InternedScheduleLabel, InternedSystemSet, ScheduleBuildSettings, ScheduleLabel},
+    schedule::{
+        InternedScheduleLabel, InternedSystemSet, ScheduleBuildSettings, ScheduleCleanupPolicy,
+        ScheduleError, ScheduleLabel,
+    },
     system::{ScheduleSystem, SystemId, SystemInput},
 };
 use bevy_platform::collections::{HashMap, HashSet};
@@ -219,6 +222,18 @@ impl SubApp {
         self
     }
 
+    /// See [`App::remove_systems_in_set`]
+    pub fn remove_systems_in_set<M>(
+        &mut self,
+        schedule: impl ScheduleLabel,
+        set: impl IntoSystemSet<M>,
+        policy: ScheduleCleanupPolicy,
+    ) -> Result<usize, ScheduleError> {
+        self.world.schedule_scope(schedule, |world, schedule| {
+            schedule.remove_systems_in_set(set, world, policy)
+        })
+    }
+
     /// See [`App::register_system`].
     pub fn register_system<I, O, M>(
         &mut self,
@@ -335,13 +350,13 @@ impl SubApp {
         self
     }
 
-    /// See [`App::add_event`].
-    pub fn add_event<T>(&mut self) -> &mut Self
+    /// See [`App::add_message`].
+    pub fn add_message<T>(&mut self) -> &mut Self
     where
-        T: BufferedEvent,
+        T: Message,
     {
-        if !self.world.contains_resource::<Events<T>>() {
-            EventRegistry::register_event::<T>(self.world_mut());
+        if !self.world.contains_resource::<Messages<T>>() {
+            MessageRegistry::register_message::<T>(self.world_mut());
         }
 
         self

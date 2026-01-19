@@ -38,6 +38,130 @@ impl BevyDefault for TextureFormat {
     }
 }
 
+/// Trait used to provide texture srgb view formats with static lifetime for `TextureDescriptor.view_formats`.
+pub trait TextureSrgbViewFormats {
+    /// Returns the srgb view formats for a type.
+    fn srgb_view_formats(&self) -> &'static [TextureFormat];
+}
+
+impl TextureSrgbViewFormats for TextureFormat {
+    /// Returns the srgb view formats if the format has an srgb variant, otherwise returns an empty slice.
+    ///
+    /// The return result covers all the results of [`TextureFormat::add_srgb_suffix`](wgpu_types::TextureFormat::add_srgb_suffix).
+    fn srgb_view_formats(&self) -> &'static [TextureFormat] {
+        match self {
+            TextureFormat::Rgba8Unorm => &[TextureFormat::Rgba8UnormSrgb],
+            TextureFormat::Bgra8Unorm => &[TextureFormat::Bgra8UnormSrgb],
+            TextureFormat::Bc1RgbaUnorm => &[TextureFormat::Bc1RgbaUnormSrgb],
+            TextureFormat::Bc2RgbaUnorm => &[TextureFormat::Bc2RgbaUnormSrgb],
+            TextureFormat::Bc3RgbaUnorm => &[TextureFormat::Bc3RgbaUnormSrgb],
+            TextureFormat::Bc7RgbaUnorm => &[TextureFormat::Bc7RgbaUnormSrgb],
+            TextureFormat::Etc2Rgb8Unorm => &[TextureFormat::Etc2Rgb8UnormSrgb],
+            TextureFormat::Etc2Rgb8A1Unorm => &[TextureFormat::Etc2Rgb8A1UnormSrgb],
+            TextureFormat::Etc2Rgba8Unorm => &[TextureFormat::Etc2Rgba8UnormSrgb],
+            TextureFormat::Astc {
+                block: wgpu_types::AstcBlock::B4x4,
+                channel: wgpu_types::AstcChannel::Unorm,
+            } => &[TextureFormat::Astc {
+                block: wgpu_types::AstcBlock::B4x4,
+                channel: wgpu_types::AstcChannel::UnormSrgb,
+            }],
+            TextureFormat::Astc {
+                block: wgpu_types::AstcBlock::B5x4,
+                channel: wgpu_types::AstcChannel::Unorm,
+            } => &[TextureFormat::Astc {
+                block: wgpu_types::AstcBlock::B5x4,
+                channel: wgpu_types::AstcChannel::UnormSrgb,
+            }],
+            TextureFormat::Astc {
+                block: wgpu_types::AstcBlock::B5x5,
+                channel: wgpu_types::AstcChannel::Unorm,
+            } => &[TextureFormat::Astc {
+                block: wgpu_types::AstcBlock::B5x5,
+                channel: wgpu_types::AstcChannel::UnormSrgb,
+            }],
+            TextureFormat::Astc {
+                block: wgpu_types::AstcBlock::B6x5,
+                channel: wgpu_types::AstcChannel::Unorm,
+            } => &[TextureFormat::Astc {
+                block: wgpu_types::AstcBlock::B6x5,
+                channel: wgpu_types::AstcChannel::UnormSrgb,
+            }],
+            TextureFormat::Astc {
+                block: wgpu_types::AstcBlock::B6x6,
+                channel: wgpu_types::AstcChannel::Unorm,
+            } => &[TextureFormat::Astc {
+                block: wgpu_types::AstcBlock::B6x6,
+                channel: wgpu_types::AstcChannel::UnormSrgb,
+            }],
+            TextureFormat::Astc {
+                block: wgpu_types::AstcBlock::B8x5,
+                channel: wgpu_types::AstcChannel::Unorm,
+            } => &[TextureFormat::Astc {
+                block: wgpu_types::AstcBlock::B8x5,
+                channel: wgpu_types::AstcChannel::UnormSrgb,
+            }],
+            TextureFormat::Astc {
+                block: wgpu_types::AstcBlock::B8x6,
+                channel: wgpu_types::AstcChannel::Unorm,
+            } => &[TextureFormat::Astc {
+                block: wgpu_types::AstcBlock::B8x6,
+                channel: wgpu_types::AstcChannel::UnormSrgb,
+            }],
+            TextureFormat::Astc {
+                block: wgpu_types::AstcBlock::B8x8,
+                channel: wgpu_types::AstcChannel::Unorm,
+            } => &[TextureFormat::Astc {
+                block: wgpu_types::AstcBlock::B8x8,
+                channel: wgpu_types::AstcChannel::UnormSrgb,
+            }],
+            TextureFormat::Astc {
+                block: wgpu_types::AstcBlock::B10x5,
+                channel: wgpu_types::AstcChannel::Unorm,
+            } => &[TextureFormat::Astc {
+                block: wgpu_types::AstcBlock::B10x5,
+                channel: wgpu_types::AstcChannel::UnormSrgb,
+            }],
+            TextureFormat::Astc {
+                block: wgpu_types::AstcBlock::B10x6,
+                channel: wgpu_types::AstcChannel::Unorm,
+            } => &[TextureFormat::Astc {
+                block: wgpu_types::AstcBlock::B10x6,
+                channel: wgpu_types::AstcChannel::UnormSrgb,
+            }],
+            TextureFormat::Astc {
+                block: wgpu_types::AstcBlock::B10x8,
+                channel: wgpu_types::AstcChannel::Unorm,
+            } => &[TextureFormat::Astc {
+                block: wgpu_types::AstcBlock::B10x8,
+                channel: wgpu_types::AstcChannel::UnormSrgb,
+            }],
+            TextureFormat::Astc {
+                block: wgpu_types::AstcBlock::B10x10,
+                channel: wgpu_types::AstcChannel::Unorm,
+            } => &[TextureFormat::Astc {
+                block: wgpu_types::AstcBlock::B10x10,
+                channel: wgpu_types::AstcChannel::UnormSrgb,
+            }],
+            TextureFormat::Astc {
+                block: wgpu_types::AstcBlock::B12x10,
+                channel: wgpu_types::AstcChannel::Unorm,
+            } => &[TextureFormat::Astc {
+                block: wgpu_types::AstcBlock::B12x10,
+                channel: wgpu_types::AstcChannel::UnormSrgb,
+            }],
+            TextureFormat::Astc {
+                block: wgpu_types::AstcBlock::B12x12,
+                channel: wgpu_types::AstcChannel::Unorm,
+            } => &[TextureFormat::Astc {
+                block: wgpu_types::AstcBlock::B12x12,
+                channel: wgpu_types::AstcChannel::UnormSrgb,
+            }],
+            _ => &[],
+        }
+    }
+}
+
 /// A handle to a 1 x 1 transparent white image.
 ///
 /// Like [`Handle<Image>::default`], this is a handle to a fallback image asset.
@@ -699,6 +823,36 @@ impl ImageSamplerDescriptor {
         }
     }
 
+    /// Returns this sampler descriptor with a new `ImageFilterMode` min, mag, and mipmap filters
+    #[inline]
+    pub fn set_filter(&mut self, filter: ImageFilterMode) -> &mut Self {
+        self.mag_filter = filter;
+        self.min_filter = filter;
+        self.mipmap_filter = filter;
+        self
+    }
+
+    /// Returns this sampler descriptor with a new `ImageAddressMode` for u, v, and w
+    #[inline]
+    pub fn set_address_mode(&mut self, address_mode: ImageAddressMode) -> &mut Self {
+        self.address_mode_u = address_mode;
+        self.address_mode_v = address_mode;
+        self.address_mode_w = address_mode;
+        self
+    }
+
+    /// Returns this sampler descriptor with an `anisotropy_clamp` value and also
+    /// set filters to `ImageFilterMode::Linear`, which is required to
+    /// use anisotropy.
+    #[inline]
+    pub fn set_anisotropic_filter(&mut self, anisotropy_clamp: u16) -> &mut Self {
+        self.mag_filter = ImageFilterMode::Linear;
+        self.min_filter = ImageFilterMode::Linear;
+        self.mipmap_filter = ImageFilterMode::Linear;
+        self.anisotropy_clamp = anisotropy_clamp;
+        self
+    }
+
     pub fn as_wgpu(&self) -> SamplerDescriptor<Option<&str>> {
         SamplerDescriptor {
             label: self.label.as_deref(),
@@ -980,7 +1134,12 @@ impl Image {
     ///
     /// [`Camera`]: https://docs.rs/bevy/latest/bevy/render/camera/struct.Camera.html
     /// [`RenderTarget::Image`]: https://docs.rs/bevy/latest/bevy/render/camera/enum.RenderTarget.html#variant.Image
-    pub fn new_target_texture(width: u32, height: u32, format: TextureFormat) -> Self {
+    pub fn new_target_texture(
+        width: u32,
+        height: u32,
+        format: TextureFormat,
+        view_format: Option<TextureFormat>,
+    ) -> Self {
         let size = Extent3d {
             width,
             height,
@@ -1009,10 +1168,16 @@ impl Image {
                 mip_level_count: 1,
                 sample_count: 1,
                 usage,
-                view_formats: &[],
+                view_formats: match view_format {
+                    Some(_) => format.srgb_view_formats(),
+                    None => &[],
+                },
             },
             sampler: ImageSampler::Default,
-            texture_view_descriptor: None,
+            texture_view_descriptor: view_format.map(|f| TextureViewDescriptor {
+                format: Some(f),
+                ..Default::default()
+            }),
             asset_usage: RenderAssetUsages::default(),
             copy_on_resize: true,
         }
@@ -1063,21 +1228,21 @@ impl Image {
         }
     }
 
-    /// Changes the `size`, asserting that the total number of data elements (pixels) remains the
-    /// same.
-    ///
-    /// # Panics
-    /// Panics if the `new_size` does not have the same volume as to old one.
-    pub fn reinterpret_size(&mut self, new_size: Extent3d) {
-        assert_eq!(
-            new_size.volume(),
-            self.texture_descriptor.size.volume(),
-            "Incompatible sizes: old = {:?} new = {:?}",
-            self.texture_descriptor.size,
-            new_size
-        );
+    /// Changes the `size` if the total number of data elements (pixels) remains the same.
+    /// If not, returns [`TextureReinterpretationError::IncompatibleSizes`].
+    pub fn reinterpret_size(
+        &mut self,
+        new_size: Extent3d,
+    ) -> Result<(), TextureReinterpretationError> {
+        if new_size.volume() != self.texture_descriptor.size.volume() {
+            return Err(TextureReinterpretationError::IncompatibleSizes {
+                old: self.texture_descriptor.size,
+                new: new_size,
+            });
+        }
 
         self.texture_descriptor.size = new_size;
+        Ok(())
     }
 
     /// Resizes the image to the new size, keeping the pixel data intact, anchored at the top-left.
@@ -1129,20 +1294,34 @@ impl Image {
     /// it as a 2D array texture, where each of the stacked images becomes one layer of the
     /// array. This is primarily for use with the `texture2DArray` shader uniform type.
     ///
-    /// # Panics
-    /// Panics if the texture is not 2D, has more than one layers or is not evenly dividable into
-    /// the `layers`.
-    pub fn reinterpret_stacked_2d_as_array(&mut self, layers: u32) {
+    /// # Errors
+    /// Returns [`TextureReinterpretationError`] if the texture is not 2D, has more than one layers
+    /// or is not evenly dividable into the `layers`.
+    pub fn reinterpret_stacked_2d_as_array(
+        &mut self,
+        layers: u32,
+    ) -> Result<(), TextureReinterpretationError> {
         // Must be a stacked image, and the height must be divisible by layers.
-        assert_eq!(self.texture_descriptor.dimension, TextureDimension::D2);
-        assert_eq!(self.texture_descriptor.size.depth_or_array_layers, 1);
-        assert_eq!(self.height() % layers, 0);
+        if self.texture_descriptor.dimension != TextureDimension::D2 {
+            return Err(TextureReinterpretationError::WrongDimension);
+        }
+        if self.texture_descriptor.size.depth_or_array_layers != 1 {
+            return Err(TextureReinterpretationError::InvalidLayerCount);
+        }
+        if !self.height().is_multiple_of(layers) {
+            return Err(TextureReinterpretationError::HeightNotDivisibleByLayers {
+                height: self.height(),
+                layers,
+            });
+        }
 
         self.reinterpret_size(Extent3d {
             width: self.width(),
             height: self.height() / layers,
             depth_or_array_layers: layers,
-        });
+        })?;
+
+        Ok(())
     }
 
     /// Convert a texture from a format to another. Only a few formats are
@@ -1289,6 +1468,33 @@ impl Image {
         let offset = self.pixel_data_offset(coords);
         let data = self.data.as_mut()?;
         offset.map(|start| &mut data[start..(start + len)])
+    }
+
+    /// Clears the content of the image with the given pixel. The image needs to be initialized on
+    /// the cpu otherwise this is a noop.
+    ///
+    /// This does nothing if the image data is not already initialized
+    pub fn clear(&mut self, pixel: &[u8]) {
+        if let Ok(pixel_size) = self.texture_descriptor.format.pixel_size()
+            && pixel_size > 0
+        {
+            let byte_len = pixel_size * self.texture_descriptor.size.volume();
+            debug_assert_eq!(
+                pixel.len() % pixel_size,
+                0,
+                "Must not have incomplete pixel data (pixel size is {}B).",
+                pixel_size,
+            );
+            debug_assert!(
+                pixel.len() <= byte_len,
+                "Clear data must fit within pixel buffer (expected {byte_len}B).",
+            );
+            if let Some(data) = self.data.as_mut() {
+                for pixel_data in data.chunks_mut(pixel_size) {
+                    pixel_data.copy_from_slice(pixel);
+                }
+            }
+        }
     }
 
     /// Read the color of a specific pixel (1D texture).
@@ -1741,6 +1947,19 @@ pub enum TranscodeFormat {
     Rgb8,
 }
 
+/// An error that occurs when reinterpreting an image.
+#[derive(Error, Debug)]
+pub enum TextureReinterpretationError {
+    #[error("incompatible sizes: old = {old:?} new = {new:?}")]
+    IncompatibleSizes { old: Extent3d, new: Extent3d },
+    #[error("must be a 2d image")]
+    WrongDimension,
+    #[error("must not already be a layered image")]
+    InvalidLayerCount,
+    #[error("can not evenly divide height = {height} by layers = {layers}")]
+    HeightNotDivisibleByLayers { height: u32, layers: u32 },
+}
+
 /// An error that occurs when accessing specific pixels in a texture.
 #[derive(Error, Debug)]
 pub enum TextureAccessError {
@@ -2136,5 +2355,56 @@ mod test {
             image.get_color_at_3d(0, 0, 1),
             Ok(Color::LinearRgba(GROW_FILL))
         ));
+    }
+
+    #[test]
+    fn image_clear() {
+        let mut image = Image::new_fill(
+            Extent3d {
+                width: 32,
+                height: 32,
+                depth_or_array_layers: 1,
+            },
+            TextureDimension::D2,
+            &[0; 4],
+            TextureFormat::Rgba8Snorm,
+            RenderAssetUsages::all(),
+        );
+
+        assert!(image.data.as_ref().unwrap().iter().all(|&p| p == 0));
+
+        image.clear(&[255; 4]);
+
+        assert!(image.data.as_ref().unwrap().iter().all(|&p| p == 255));
+    }
+
+    #[test]
+    fn get_or_init_sampler_modifications() {
+        // given some sampler
+        let mut default_sampler = ImageSampler::Default;
+        // a load_with_settings call wants to customize the descriptor
+        let my_sampler_in_a_loader = default_sampler
+            .get_or_init_descriptor()
+            .set_filter(ImageFilterMode::Linear)
+            .set_address_mode(ImageAddressMode::Repeat);
+
+        assert_eq!(
+            my_sampler_in_a_loader.address_mode_u,
+            ImageAddressMode::Repeat
+        );
+        assert_eq!(my_sampler_in_a_loader.min_filter, ImageFilterMode::Linear);
+    }
+
+    #[test]
+    fn get_or_init_sampler_anisotropy() {
+        // given some sampler
+        let mut default_sampler = ImageSampler::Default;
+        // a load_with_settings call wants to customize the descriptor
+        let my_sampler_in_a_loader = default_sampler
+            .get_or_init_descriptor()
+            .set_anisotropic_filter(8);
+
+        assert_eq!(my_sampler_in_a_loader.min_filter, ImageFilterMode::Linear);
+        assert_eq!(my_sampler_in_a_loader.anisotropy_clamp, 8);
     }
 }

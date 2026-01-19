@@ -356,6 +356,20 @@ impl Rect {
         }
     }
 
+    /// Return the area of this rectangle.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_math::Rect;
+    /// let r = Rect::new(0., 0., 10., 10.); // w=10 h=10
+    /// assert_eq!(r.area(), 100.0);
+    /// ```
+    #[inline]
+    pub fn area(&self) -> f32 {
+        self.width() * self.height()
+    }
+
     /// Returns self as [`IRect`] (i32)
     #[inline]
     pub fn as_irect(&self) -> IRect {

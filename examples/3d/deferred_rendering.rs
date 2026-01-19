@@ -3,14 +3,15 @@
 use std::f32::consts::*;
 
 use bevy::{
-    anti_aliasing::fxaa::Fxaa,
+    anti_alias::fxaa::Fxaa,
     core_pipeline::prepass::{DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass},
     image::ImageLoaderSettings,
     light::{
         CascadeShadowConfigBuilder, DirectionalLightShadowMap, NotShadowCaster, NotShadowReceiver,
     },
+    material::OpaqueRendererMethod,
     math::ops,
-    pbr::{DefaultOpaqueRendererMethod, OpaqueRendererMethod},
+    pbr::DefaultOpaqueRendererMethod,
     prelude::*,
 };
 
@@ -59,7 +60,7 @@ fn setup(
     commands.spawn((
         DirectionalLight {
             illuminance: 15_000.,
-            shadows_enabled: true,
+            shadow_maps_enabled: true,
             ..default()
         },
         CascadeShadowConfigBuilder {
@@ -122,7 +123,7 @@ fn setup(
         PointLight {
             intensity: 800.0,
             radius: 0.125,
-            shadows_enabled: true,
+            shadow_maps_enabled: true,
             color: sphere_color,
             ..default()
         },

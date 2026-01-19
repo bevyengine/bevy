@@ -1,7 +1,9 @@
-use super::{
-    CachedComputePipelineId, CachedRenderPipelineId, ComputePipeline, ComputePipelineDescriptor,
-    PipelineCache, RenderPipeline, RenderPipelineDescriptor,
+use bevy_material::descriptor::{
+    CachedComputePipelineId, CachedRenderPipelineId, ComputePipelineDescriptor,
+    RenderPipelineDescriptor,
 };
+
+use super::{ComputePipeline, PipelineCache, RenderPipeline};
 use bevy_ecs::error::BevyError;
 use bevy_platform::{
     collections::{
@@ -245,7 +247,8 @@ impl<T: Specializable, V: Send + Sync + 'static> Specializer<T> for PhantomData<
 }
 
 macro_rules! impl_specialization_key_tuple {
-    ($($T:ident),*) => {
+    ($(#[$meta:meta])* $($T:ident),*) => {
+        $(#[$meta])*
         impl <$($T: SpecializerKey),*> SpecializerKey for ($($T,)*) {
             const IS_CANONICAL: bool = true $(&& <$T as SpecializerKey>::IS_CANONICAL)*;
             type Canonical = ($(Canonical<$T>,)*);
@@ -253,8 +256,13 @@ macro_rules! impl_specialization_key_tuple {
     };
 }
 
-// TODO: How to we fake_variadics this?
-all_tuples!(impl_specialization_key_tuple, 0, 12, T);
+all_tuples!(
+    #[doc(fake_variadic)]
+    impl_specialization_key_tuple,
+    0,
+    12,
+    T
+);
 
 /// A cache for variants of a resource type created by a specializer.
 /// At most one resource will be created for each key.

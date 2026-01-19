@@ -2,48 +2,31 @@
 
 use bevy::{
     color::palettes::css::NAVY,
-    core_widgets::{Activate, CoreWidgetsPlugins},
-    ecs::relationship::RelatedSpawnerCommands,
     feathers::{
-        controls::virtual_keyboard, dark_theme::create_dark_theme, theme::UiTheme, FeathersPlugin,
+        controls::{virtual_keyboard, VirtualKeyPressed},
+        dark_theme::create_dark_theme,
+        theme::UiTheme,
+        FeathersPlugins,
     },
-    input_focus::{tab_navigation::TabNavigationPlugin, InputDispatchPlugin},
     prelude::*,
-    winit::WinitSettings,
+    ui_widgets::observe,
 };
 
 fn main() {
     App::new()
-        .add_plugins((
-            DefaultPlugins,
-            CoreWidgetsPlugins,
-            InputDispatchPlugin,
-            TabNavigationPlugin,
-            FeathersPlugin,
-        ))
+        .add_plugins((DefaultPlugins, FeathersPlugins))
         .insert_resource(UiTheme(create_dark_theme()))
-        // Only run the app when there is user input. This will significantly reduce CPU/GPU use.
-        .insert_resource(WinitSettings::desktop_app())
         .add_systems(Startup, setup)
         .run();
 }
 
-#[derive(Component)]
-struct VirtualKey(String);
-
-fn on_virtual_key_pressed(
-    In(Activate(virtual_key_entity)): In<Activate>,
-    virtual_key_query: Query<&VirtualKey>,
-) {
-    if let Ok(VirtualKey(label)) = virtual_key_query.get(virtual_key_entity) {
-        println!("key pressed: {label}");
-    }
+fn on_virtual_key_pressed(virtual_key_pressed: On<VirtualKeyPressed<&'static str>>) {
+    println!("key pressed: {}", virtual_key_pressed.key);
 }
 
 fn setup(mut commands: Commands) {
     // ui camera
     commands.spawn(Camera2d);
-    let callback = commands.register_system(on_virtual_key_pressed);
 
     let layout = [
         vec!["1", "2", "3", "4", "5", "6", "7", "8", "9", "0", ".", ","],
@@ -54,42 +37,34 @@ fn setup(mut commands: Commands) {
         vec!["left", "right", "up", "down", "home", "end"],
     ];
 
-    let keys_iter = layout.into_iter().map(|row| {
-        row.into_iter()
-            .map(|label| {
-                let label_string = label.to_string();
-                (label_string.clone(), VirtualKey(label_string))
-            })
-            .collect()
-    });
-
-    commands
-        .spawn(Node {
+    commands.spawn((
+        Node {
             width: percent(100),
             height: percent(100),
             align_items: AlignItems::End,
             justify_content: JustifyContent::Center,
             ..default()
-        })
-        .with_children(|parent: &mut RelatedSpawnerCommands<ChildOf>| {
-            parent
-                .spawn((
-                    Node {
-                        flex_direction: FlexDirection::Column,
-                        border: px(5).into(),
-                        row_gap: px(5),
-                        padding: px(5).into(),
-                        align_items: AlignItems::Center,
-                        margin: px(25).into(),
-                        ..Default::default()
-                    },
-                    BackgroundColor(NAVY.into()),
-                    BorderColor::all(Color::WHITE),
-                    BorderRadius::all(px(10)),
-                ))
-                .with_children(|parent: &mut RelatedSpawnerCommands<ChildOf>| {
-                    parent.spawn(Text::new("virtual keyboard"));
-                    parent.spawn(virtual_keyboard(keys_iter, callback));
-                });
-        });
+        },
+        children![(
+            Node {
+                flex_direction: FlexDirection::Column,
+                border: px(5).into(),
+                row_gap: px(5),
+                padding: px(5).into(),
+                align_items: AlignItems::Center,
+                margin: px(25).into(),
+                border_radius: BorderRadius::all(px(10)),
+                ..Default::default()
+            },
+            BackgroundColor(NAVY.into()),
+            BorderColor::all(Color::WHITE),
+            children![
+                Text::new("virtual keyboard"),
+                (
+                    virtual_keyboard(layout.into_iter()),
+                    observe(on_virtual_key_pressed)
+                )
+            ]
+        )],
+    ));
 }

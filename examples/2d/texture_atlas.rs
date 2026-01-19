@@ -37,7 +37,7 @@ fn load_textures(mut commands: Commands, asset_server: Res<AssetServer>) {
 fn check_textures(
     mut next_state: ResMut<NextState<AppState>>,
     rpg_sprite_folder: Res<RpgSpriteFolder>,
-    mut events: EventReader<AssetEvent<LoadedFolder>>,
+    mut events: MessageReader<AssetEvent<LoadedFolder>>,
 ) {
     // Advance the `AppState` once all sprite handles have been loaded by the `AssetServer`
     for event in events.read() {
@@ -121,7 +121,7 @@ fn setup(
 
     // Padding label text style
     let text_style: TextFont = TextFont {
-        font: font.clone(),
+        font: font.clone().into(),
         font_size: 42.0,
         ..default()
     };
@@ -184,7 +184,7 @@ fn setup(
 
     // Label text style
     let sampling_label_style = TextFont {
-        font,
+        font: font.into(),
         font_size: 25.0,
         ..default()
     };

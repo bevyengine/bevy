@@ -50,9 +50,9 @@ fn test(
             Camera {
                 // Render this camera before our UI camera
                 order: -1,
-                target: RenderTarget::Image(image_handle.clone().into()),
                 ..default()
             },
+            RenderTarget::Image(image_handle.clone().into()),
         ))
         .id();
 
@@ -65,7 +65,7 @@ fn test(
             Shape,
         ))
         // We can observe pointer events on our objects as normal, the
-        // `bevy::ui::widgets::viewport_picking` system will take care of ensuring our viewport
+        // `bevy::ui::widget::viewport_picking` system will take care of ensuring our viewport
         // clicks pass through
         .observe(on_drag_cuboid);
 
@@ -89,7 +89,7 @@ fn test(
 
 fn on_drag_viewport(drag: On<Pointer<Drag>>, mut node_query: Query<&mut Node>) {
     if matches!(drag.button, PointerButton::Secondary) {
-        let mut node = node_query.get_mut(drag.entity()).unwrap();
+        let mut node = node_query.get_mut(drag.entity).unwrap();
 
         if let (Val::Px(top), Val::Px(left)) = (node.top, node.left) {
             node.left = px(left + drag.delta.x);
@@ -100,7 +100,7 @@ fn on_drag_viewport(drag: On<Pointer<Drag>>, mut node_query: Query<&mut Node>) {
 
 fn on_drag_cuboid(drag: On<Pointer<Drag>>, mut transform_query: Query<&mut Transform>) {
     if matches!(drag.button, PointerButton::Primary) {
-        let mut transform = transform_query.get_mut(drag.entity()).unwrap();
+        let mut transform = transform_query.get_mut(drag.entity).unwrap();
         transform.rotate_y(drag.delta.x * 0.02);
         transform.rotate_x(drag.delta.y * 0.02);
     }

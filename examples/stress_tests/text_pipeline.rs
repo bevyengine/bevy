@@ -8,7 +8,7 @@ use bevy::{
     prelude::*,
     text::{LineBreak, TextBounds},
     window::{PresentMode, WindowResolution},
-    winit::{UpdateMode, WinitSettings},
+    winit::WinitSettings,
 };
 
 fn main() {
@@ -25,10 +25,7 @@ fn main() {
             FrameTimeDiagnosticsPlugin::default(),
             LogDiagnosticsPlugin::default(),
         ))
-        .insert_resource(WinitSettings {
-            focused_mode: UpdateMode::Continuous,
-            unfocused_mode: UpdateMode::Continuous,
-        })
+        .insert_resource(WinitSettings::continuous())
         .add_systems(Startup, spawn)
         .add_systems(Update, update_text_bounds)
         .run();
@@ -44,7 +41,7 @@ fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
             (
                 TextSpan("text".repeat(i)),
                 TextFont {
-                    font: asset_server.load("fonts/FiraMono-Medium.ttf"),
+                    font: asset_server.load("fonts/FiraMono-Medium.ttf").into(),
                     font_size: (4 + i % 10) as f32,
                     ..Default::default()
                 },
@@ -53,7 +50,7 @@ fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
             (
                 TextSpan("pipeline".repeat(i)),
                 TextFont {
-                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                    font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
                     font_size: (4 + i % 11) as f32,
                     ..default()
                 },

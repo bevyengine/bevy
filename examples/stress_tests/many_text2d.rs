@@ -6,9 +6,9 @@ use bevy::{
     camera::visibility::NoFrustumCulling,
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
-    text::FontAtlasSets,
+    text::FontAtlasSet,
     window::{PresentMode, WindowResolution},
-    winit::{UpdateMode, WinitSettings},
+    winit::WinitSettings,
 };
 
 use argh::FromArgs;
@@ -82,10 +82,7 @@ fn main() {
             ..default()
         }),
     ))
-    .insert_resource(WinitSettings {
-        focused_mode: UpdateMode::Continuous,
-        unfocused_mode: UpdateMode::Continuous,
-    })
+    .insert_resource(WinitSettings::continuous())
     .init_resource::<FontHandle>()
     .add_systems(Startup, setup)
     .add_systems(Update, (move_camera, print_counts));
@@ -173,18 +170,19 @@ fn print_counts(
     time: Res<Time>,
     mut timer: Local<PrintingTimer>,
     texts: Query<&ViewVisibility, With<Text2d>>,
-    atlases: Res<FontAtlasSets>,
-    font: Res<FontHandle>,
+    font_atlas_set: Res<FontAtlasSet>,
 ) {
     timer.tick(time.delta());
     if !timer.just_finished() {
         return;
     }
 
-    let num_atlases = atlases
-        .get(font.0.id())
-        .map(|set| set.iter().map(|atlas| atlas.1.len()).sum())
-        .unwrap_or(0);
+    let num_atlases = font_atlas_set
+        .iter()
+        // Removed this filter for now as the keys no longer include the AssetIds
+        //        .filter(|(key, _)| key.0 == font_id)
+        .map(|(_, atlases)| atlases.len())
+        .sum::<usize>();
 
     let visible_texts = texts.iter().filter(|visibility| visibility.get()).count();
 
@@ -205,7 +203,7 @@ fn random_text_font(rng: &mut ChaCha8Rng, args: &Args, font: Handle<Font>) -> Te
 
     TextFont {
         font_size,
-        font,
+        font: font.into(),
         ..default()
     }
 }

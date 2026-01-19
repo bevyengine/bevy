@@ -2,27 +2,19 @@
 
 // Note: This example showcases the meshlet API, but is not the type of scene that would benefit from using meshlets.
 
-#[path = "../helpers/camera_controller.rs"]
-mod camera_controller;
-
 use bevy::{
+    camera_controller::free_camera::{FreeCamera, FreeCameraPlugin},
     light::{CascadeShadowConfigBuilder, DirectionalLightShadowMap},
     pbr::experimental::meshlet::{MeshletMesh3d, MeshletPlugin},
     prelude::*,
     render::render_resource::AsBindGroup,
 };
-use camera_controller::{CameraController, CameraControllerPlugin};
-use std::{f32::consts::PI, path::Path, process::ExitCode};
+use std::f32::consts::PI;
 
 const ASSET_URL: &str =
-    "https://raw.githubusercontent.com/atlv24/assets/69bb39164fd35aadf863f6009520d4981eafcea0/bunny.meshlet_mesh";
+    "https://github.com/bevyengine/bevy_asset_files/raw/6dccaef517bde74d1969734703709aead7211dbc/meshlet/bunny.meshlet_mesh";
 
-fn main() -> ExitCode {
-    if !Path::new("./assets/external/models/bunny.meshlet_mesh").exists() {
-        eprintln!("ERROR: Asset at path <bevy>/assets/external/models/bunny.meshlet_mesh is missing. Please download it from {ASSET_URL}");
-        return ExitCode::FAILURE;
-    }
-
+fn main() {
     App::new()
         .insert_resource(DirectionalLightShadowMap { size: 4096 })
         .add_plugins((
@@ -31,12 +23,10 @@ fn main() -> ExitCode {
                 cluster_buffer_slots: 1 << 14,
             },
             MaterialPlugin::<MeshletDebugMaterial>::default(),
-            CameraControllerPlugin,
+            FreeCameraPlugin,
         ))
         .add_systems(Startup, setup)
         .run();
-
-    ExitCode::SUCCESS
 }
 
 fn setup(
@@ -56,13 +46,13 @@ fn setup(
             intensity: 150.0,
             ..default()
         },
-        CameraController::default(),
+        FreeCamera::default(),
     ));
 
     commands.spawn((
         DirectionalLight {
             illuminance: light_consts::lux::FULL_DAYLIGHT,
-            shadows_enabled: true,
+            shadow_maps_enabled: true,
             ..default()
         },
         CascadeShadowConfigBuilder {
@@ -78,7 +68,7 @@ fn setup(
     // that has been converted to a [`bevy_pbr::meshlet::MeshletMesh`]
     // using [`bevy_pbr::meshlet::MeshletMesh::from_mesh`], which is
     // a function only available when the `meshlet_processor` cargo feature is enabled.
-    let meshlet_mesh_handle = asset_server.load("external/models/bunny.meshlet_mesh");
+    let meshlet_mesh_handle = asset_server.load(ASSET_URL);
     let debug_material = debug_materials.add(MeshletDebugMaterial::default());
 
     for x in -2..=2 {

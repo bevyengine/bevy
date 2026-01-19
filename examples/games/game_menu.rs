@@ -3,7 +3,6 @@
 //! settings for 5 seconds before going back to the menu.
 
 use bevy::prelude::*;
-
 const TEXT_COLOR: Color = Color::srgb(0.9, 0.9, 0.9);
 
 // Enum that will be used as a global state for the game
@@ -48,7 +47,7 @@ fn setup(mut commands: Commands) {
 mod splash {
     use bevy::prelude::*;
 
-    use super::{despawn_screen, GameState};
+    use super::GameState;
 
     // This plugin will display a splash screen with Bevy logo for 1 second before switching to the menu
     pub fn splash_plugin(app: &mut App) {
@@ -57,9 +56,7 @@ mod splash {
             // When entering the state, spawn everything needed for this screen
             .add_systems(OnEnter(GameState::Splash), splash_setup)
             // While in this state, run the `countdown` system
-            .add_systems(Update, countdown.run_if(in_state(GameState::Splash)))
-            // When exiting the state, despawn everything that was spawned for this screen
-            .add_systems(OnExit(GameState::Splash), despawn_screen::<OnSplashScreen>);
+            .add_systems(Update, countdown.run_if(in_state(GameState::Splash)));
     }
 
     // Tag component used to tag entities added on the splash screen
@@ -74,6 +71,8 @@ mod splash {
         let icon = asset_server.load("branding/icon.png");
         // Display the logo
         commands.spawn((
+            // This entity will be despawned when exiting the state
+            DespawnOnExit(GameState::Splash),
             Node {
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
@@ -113,14 +112,13 @@ mod game {
         prelude::*,
     };
 
-    use super::{despawn_screen, DisplayQuality, GameState, Volume, TEXT_COLOR};
+    use super::{DisplayQuality, GameState, Volume, TEXT_COLOR};
 
     // This plugin will contain the game. In this case, it's just be a screen that will
     // display the current settings for 5 seconds before returning to the menu
     pub fn game_plugin(app: &mut App) {
         app.add_systems(OnEnter(GameState::Game), game_setup)
-            .add_systems(Update, game.run_if(in_state(GameState::Game)))
-            .add_systems(OnExit(GameState::Game), despawn_screen::<OnGameScreen>);
+            .add_systems(Update, game.run_if(in_state(GameState::Game)));
     }
 
     // Tag component used to tag entities added on the game screen
@@ -136,6 +134,7 @@ mod game {
         volume: Res<Volume>,
     ) {
         commands.spawn((
+            DespawnOnExit(GameState::Game),
             Node {
                 width: percent(100),
                 height: percent(100),
@@ -229,7 +228,7 @@ mod menu {
         prelude::*,
     };
 
-    use super::{despawn_screen, DisplayQuality, GameState, Volume, TEXT_COLOR};
+    use super::{DisplayQuality, GameState, Volume, TEXT_COLOR};
 
     // This plugin manages the menu, with 5 different screens:
     // - a main menu with "New Game", "Settings", "Quit"
@@ -244,13 +243,8 @@ mod menu {
             .add_systems(OnEnter(GameState::Menu), menu_setup)
             // Systems to handle the main menu screen
             .add_systems(OnEnter(MenuState::Main), main_menu_setup)
-            .add_systems(OnExit(MenuState::Main), despawn_screen::<OnMainMenuScreen>)
             // Systems to handle the settings menu screen
             .add_systems(OnEnter(MenuState::Settings), settings_menu_setup)
-            .add_systems(
-                OnExit(MenuState::Settings),
-                despawn_screen::<OnSettingsMenuScreen>,
-            )
             // Systems to handle the display settings screen
             .add_systems(
                 OnEnter(MenuState::SettingsDisplay),
@@ -260,19 +254,11 @@ mod menu {
                 Update,
                 (setting_button::<DisplayQuality>.run_if(in_state(MenuState::SettingsDisplay)),),
             )
-            .add_systems(
-                OnExit(MenuState::SettingsDisplay),
-                despawn_screen::<OnDisplaySettingsMenuScreen>,
-            )
             // Systems to handle the sound settings screen
             .add_systems(OnEnter(MenuState::SettingsSound), sound_settings_menu_setup)
             .add_systems(
                 Update,
                 setting_button::<Volume>.run_if(in_state(MenuState::SettingsSound)),
-            )
-            .add_systems(
-                OnExit(MenuState::SettingsSound),
-                despawn_screen::<OnSoundSettingsMenuScreen>,
             )
             // Common systems to all screens that handles buttons behavior
             .add_systems(
@@ -397,6 +383,7 @@ mod menu {
         let exit_icon = asset_server.load("textures/Game Icons/exitRight.png");
 
         commands.spawn((
+            DespawnOnExit(MenuState::Main),
             Node {
                 width: percent(100),
                 height: percent(100),
@@ -492,6 +479,7 @@ mod menu {
         );
 
         commands.spawn((
+            DespawnOnExit(MenuState::Settings),
             Node {
                 width: percent(100),
                 height: percent(100),
@@ -551,6 +539,7 @@ mod menu {
 
         let display_quality = *display_quality;
         commands.spawn((
+            DespawnOnExit(MenuState::SettingsDisplay),
             Node {
                 width: percent(100),
                 height: percent(100),
@@ -638,6 +627,7 @@ mod menu {
         let volume = *volume;
         let button_node_clone = button_node.clone();
         commands.spawn((
+            DespawnOnExit(MenuState::SettingsSound),
             Node {
                 width: percent(100),
                 height: percent(100),
@@ -698,7 +688,7 @@ mod menu {
             (&Interaction, &MenuButtonAction),
             (Changed<Interaction>, With<Button>),
         >,
-        mut app_exit_events: EventWriter<AppExit>,
+        mut app_exit_writer: MessageWriter<AppExit>,
         mut menu_state: ResMut<NextState<MenuState>>,
         mut game_state: ResMut<NextState<GameState>>,
     ) {
@@ -706,7 +696,7 @@ mod menu {
             if *interaction == Interaction::Pressed {
                 match menu_button_action {
                     MenuButtonAction::Quit => {
-                        app_exit_events.write(AppExit::Success);
+                        app_exit_writer.write(AppExit::Success);
                     }
                     MenuButtonAction::Play => {
                         game_state.set(GameState::Game);
@@ -726,12 +716,5 @@ mod menu {
                 }
             }
         }
-    }
-}
-
-// Generic system that takes a component as a parameter, and will despawn all entities with that component
-fn despawn_screen<T: Component>(to_despawn: Query<Entity, With<T>>, mut commands: Commands) {
-    for entity in &to_despawn {
-        commands.entity(entity).despawn();
     }
 }

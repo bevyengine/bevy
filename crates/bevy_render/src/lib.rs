@@ -20,7 +20,7 @@
         reason = "rustdoc_internals is needed for fake_variadic"
     )
 )]
-#![cfg_attr(any(docsrs, docsrs_dep), feature(doc_auto_cfg, rustdoc_internals))]
+#![cfg_attr(any(docsrs, docsrs_dep), feature(doc_cfg, rustdoc_internals))]
 #![doc(
     html_logo_url = "https://bevy.org/assets/icon.png",
     html_favicon_url = "https://bevy.org/assets/icon.png"
@@ -35,7 +35,6 @@ extern crate core;
 // Required to make proc macros work in bevy itself.
 extern crate self as bevy_render;
 
-pub mod alpha;
 pub mod batching;
 pub mod camera;
 pub mod diagnostic;
@@ -62,7 +61,6 @@ pub mod sync_component;
 pub mod sync_world;
 pub mod texture;
 pub mod view;
-mod wgpu_wrapper;
 
 /// The render prelude.
 ///
@@ -70,8 +68,8 @@ mod wgpu_wrapper;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        alpha::AlphaMode, camera::NormalizedRenderTargetExt as _, texture::ManualTextureViews,
-        view::Msaa, ExtractSchedule,
+        camera::NormalizedRenderTargetExt as _, texture::ManualTextureViews, view::Msaa,
+        ExtractSchedule,
     };
 }
 
@@ -80,9 +78,9 @@ pub use extract_param::Extract;
 use crate::{
     camera::CameraPlugin,
     gpu_readback::GpuReadbackPlugin,
-    mesh::{MeshPlugin, MorphPlugin, RenderMesh},
+    mesh::{MeshRenderAssetPlugin, RenderMesh},
     render_asset::prepare_assets,
-    render_resource::{init_empty_bind_group_layout, PipelineCache},
+    render_resource::PipelineCache,
     renderer::{render_system, RenderAdapterInfo},
     settings::RenderCreation,
     storage::StoragePlugin,
@@ -112,7 +110,6 @@ use render_asset::{
 use settings::RenderResources;
 use std::sync::Mutex;
 use sync_world::{despawn_temporary_render_entities, entity_sync_system, SyncWorldPlugin};
-pub use wgpu_wrapper::WgpuWrapper;
 
 /// Contains the default Bevy rendering backend based on wgpu.
 ///
@@ -188,15 +185,12 @@ pub enum RenderSystems {
     Render,
     /// Cleanup render resources here.
     Cleanup,
-    /// Final cleanup occurs: all entities will be despawned.
+    /// Final cleanup occurs: any entities with
+    /// [`TemporaryRenderEntity`](sync_world::TemporaryRenderEntity) will be despawned.
     ///
     /// Runs after [`Cleanup`](RenderSystems::Cleanup).
     PostCleanup,
 }
-
-/// Deprecated alias for [`RenderSystems`].
-#[deprecated(since = "0.17.0", note = "Renamed to `RenderSystems`.")]
-pub type RenderSet = RenderSystems;
 
 /// The startup schedule of the [`RenderApp`]
 #[derive(ScheduleLabel, Debug, Hash, PartialEq, Eq, Clone, Default)]
@@ -252,13 +246,13 @@ impl Render {
     }
 }
 
-/// Schedule which extract data from the main world and inserts it into the render world.
+/// Schedule in which data from the main world is 'extracted' into the render world.
 ///
 /// This step should be kept as short as possible to increase the "pipelining potential" for
 /// running the next frame while rendering the current frame.
 ///
-/// This schedule is run on the main world, but its buffers are not applied
-/// until it is returned to the render world.
+/// This schedule is run on the render world, but it also has access to the main world.
+/// See [`MainWorld`] and [`Extract`] for details on how to access main world data from this schedule.
 #[derive(ScheduleLabel, PartialEq, Eq, Debug, Clone, Hash, Default)]
 pub struct ExtractSchedule;
 
@@ -368,9 +362,10 @@ impl Plugin for RenderPlugin {
             WindowRenderPlugin,
             CameraPlugin,
             ViewPlugin,
-            MeshPlugin,
+            MeshRenderAssetPlugin,
             GlobalsPlugin,
-            MorphPlugin,
+            #[cfg(feature = "morph")]
+            mesh::MorphPlugin,
             TexturePlugin,
             BatchingPlugin {
                 debug_flags: self.debug_flags,
@@ -392,8 +387,6 @@ impl Plugin for RenderPlugin {
                     Render,
                     reset_render_asset_bytes_per_frame.in_set(RenderSystems::Cleanup),
                 );
-
-            render_app.add_systems(RenderStartup, init_empty_bind_group_layout);
         }
     }
 

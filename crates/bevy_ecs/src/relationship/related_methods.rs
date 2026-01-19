@@ -54,7 +54,7 @@ impl<'w> EntityWorldMut<'w> {
     }
 
     /// Removes the relation `R` between this entity and all its related entities.
-    pub fn clear_related<R: Relationship>(&mut self) -> &mut Self {
+    pub fn detach_all_related<R: Relationship>(&mut self) -> &mut Self {
         self.remove::<R::RelationshipTarget>()
     }
 
@@ -437,9 +437,9 @@ impl<'a> EntityCommands<'a> {
     }
 
     /// Removes the relation `R` between this entity and all its related entities.
-    pub fn clear_related<R: Relationship>(&mut self) -> &mut Self {
+    pub fn detach_all_related<R: Relationship>(&mut self) -> &mut Self {
         self.queue(|mut entity: EntityWorldMut| {
-            entity.clear_related::<R>();
+            entity.detach_all_related::<R>();
         })
     }
 
@@ -707,7 +707,7 @@ mod tests {
         let b = world.spawn(ChildOf(a)).id();
         let c = world.spawn(ChildOf(a)).id();
 
-        world.entity_mut(a).clear_related::<ChildOf>();
+        world.entity_mut(a).detach_all_related::<ChildOf>();
 
         assert_eq!(world.entity(a).get::<Children>(), None);
         assert_eq!(world.entity(b).get::<ChildOf>(), None);
@@ -905,11 +905,10 @@ mod tests {
         let result_entity = world.spawn(ObserverResult::default()).id();
 
         world.add_observer(
-            move |event: On<Replace, MyComponent>,
+            move |replace: On<Replace, MyComponent>,
                   has_relationship: Query<Has<ChildOf>>,
                   mut results: Query<&mut ObserverResult>| {
-                let entity = event.entity();
-                if has_relationship.get(entity).unwrap_or(false) {
+                if has_relationship.get(replace.entity).unwrap_or(false) {
                     results.get_mut(result_entity).unwrap().success = true;
                 }
             },

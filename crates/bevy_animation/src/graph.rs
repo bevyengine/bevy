@@ -13,13 +13,13 @@ use bevy_asset::{
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     component::Component,
-    event::EventReader,
+    message::MessageReader,
     reflect::ReflectComponent,
     resource::Resource,
     system::{Res, ResMut},
 };
 use bevy_platform::collections::HashMap;
-use bevy_reflect::{prelude::ReflectDefault, Reflect};
+use bevy_reflect::{prelude::ReflectDefault, Reflect, TypePath};
 use derive_more::derive::From;
 use petgraph::{
     graph::{DiGraph, NodeIndex},
@@ -29,7 +29,6 @@ use ron::de::SpannedError;
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
 use thiserror::Error;
-use tracing::warn;
 
 use crate::{AnimationClip, AnimationTargetId};
 
@@ -239,7 +238,7 @@ pub enum AnimationNodeType {
 ///
 /// The canonical extension for [`AnimationGraph`]s is `.animgraph.ron`. Plain
 /// `.animgraph` is supported as well.
-#[derive(Default)]
+#[derive(Default, TypePath)]
 pub struct AnimationGraphAssetLoader;
 
 /// Errors that can occur when serializing animation graphs to RON.
@@ -299,7 +298,7 @@ pub struct ThreadedAnimationGraph {
     ///
     /// The node indices here are stored in postorder. Siblings are stored in
     /// descending order. This is because the
-    /// [`crate::animation_curves::AnimationCurveEvaluator`] uses a stack for
+    /// [`AnimationCurveEvaluator`](`crate::animation_curves::AnimationCurveEvaluator`) uses a stack for
     /// evaluation. Consider this graph:
     ///
     /// ```text
@@ -408,40 +407,11 @@ pub struct SerializedAnimationGraphNode {
 #[derive(Serialize, Deserialize)]
 pub enum SerializedAnimationNodeType {
     /// Corresponds to [`AnimationNodeType::Clip`].
-    Clip(MigrationSerializedAnimationClip),
+    Clip(AssetPath<'static>),
     /// Corresponds to [`AnimationNodeType::Blend`].
     Blend,
     /// Corresponds to [`AnimationNodeType::Add`].
     Add,
-}
-
-/// A type to facilitate migration from the legacy format of [`SerializedAnimationGraph`] to the
-/// new format.
-///
-/// By using untagged serde deserialization, we can try to deserialize the modern form, then
-/// fallback to the legacy form. Users must migrate to the modern form by Bevy 0.18.
-// TODO: Delete this after Bevy 0.17.
-#[derive(Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum MigrationSerializedAnimationClip {
-    /// This is the new type of this field.
-    Modern(AssetPath<'static>),
-    /// This is the legacy type of this field. Users must migrate away from this.
-    #[serde(skip_serializing)]
-    Legacy(SerializedAnimationClip),
-}
-
-/// The legacy form of serialized animation clips. This allows raw asset IDs to be deserialized.
-// TODO: Delete this after Bevy 0.17.
-#[derive(Deserialize)]
-pub enum SerializedAnimationClip {
-    /// Records an asset path.
-    AssetPath(AssetPath<'static>),
-    /// The fallback that records an asset ID.
-    ///
-    /// Because asset IDs can change, this should not be relied upon. Prefer to
-    /// use asset paths where possible.
-    AssetId(AssetId<AnimationClip>),
 }
 
 /// The type of an animation mask bitfield.
@@ -801,35 +771,12 @@ impl AssetLoader for AnimationGraphAssetLoader {
             serialized_animation_graph.graph.edge_count(),
         );
 
-        let mut already_warned = false;
         for serialized_node in serialized_animation_graph.graph.node_weights() {
             animation_graph.add_node(AnimationGraphNode {
                 node_type: match serialized_node.node_type {
-                    SerializedAnimationNodeType::Clip(ref clip) => match clip {
-                        MigrationSerializedAnimationClip::Modern(path) => {
-                            AnimationNodeType::Clip(load_context.load(path.clone()))
-                        }
-                        MigrationSerializedAnimationClip::Legacy(
-                            SerializedAnimationClip::AssetPath(path),
-                        ) => {
-                            if !already_warned {
-                                let path = load_context.asset_path();
-                                warn!(
-                                    "Loaded an AnimationGraph asset at \"{path}\" which contains a \
-                                    legacy-style SerializedAnimationClip. Please re-save the asset \
-                                    using AnimationGraph::save to automatically migrate to the new \
-                                    format"
-                                );
-                                already_warned = true;
-                            }
-                            AnimationNodeType::Clip(load_context.load(path.clone()))
-                        }
-                        MigrationSerializedAnimationClip::Legacy(
-                            SerializedAnimationClip::AssetId(_),
-                        ) => {
-                            return Err(AnimationGraphLoadError::GraphContainsLegacyAssetId);
-                        }
-                    },
+                    SerializedAnimationNodeType::Clip(ref path) => {
+                        AnimationNodeType::Clip(load_context.load(path.clone()))
+                    }
                     SerializedAnimationNodeType::Blend => AnimationNodeType::Blend,
                     SerializedAnimationNodeType::Add => AnimationNodeType::Add,
                 },
@@ -870,9 +817,7 @@ impl TryFrom<AnimationGraph> for SerializedAnimationGraph {
                 mask: node.mask,
                 node_type: match node.node_type {
                     AnimationNodeType::Clip(ref clip) => match clip.path() {
-                        Some(path) => SerializedAnimationNodeType::Clip(
-                            MigrationSerializedAnimationClip::Modern(path.clone()),
-                        ),
+                        Some(path) => SerializedAnimationNodeType::Clip(path.clone()),
                         None => return Err(NonPathHandleError),
                     },
                     AnimationNodeType::Blend => SerializedAnimationNodeType::Blend,
@@ -904,7 +849,7 @@ pub struct NonPathHandleError;
 pub(crate) fn thread_animation_graphs(
     mut threaded_animation_graphs: ResMut<ThreadedAnimationGraphs>,
     animation_graphs: Res<Assets<AnimationGraph>>,
-    mut animation_graph_asset_events: EventReader<AssetEvent<AnimationGraph>>,
+    mut animation_graph_asset_events: MessageReader<AssetEvent<AnimationGraph>>,
 ) {
     for animation_graph_asset_event in animation_graph_asset_events.read() {
         match *animation_graph_asset_event {

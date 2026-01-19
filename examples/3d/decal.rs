@@ -1,20 +1,19 @@
 //! Decal rendering.
-
-#[path = "../helpers/camera_controller.rs"]
-mod camera_controller;
+//! Note: On Wasm, this example only runs on WebGPU
 
 use bevy::{
+    anti_alias::fxaa::Fxaa,
+    camera_controller::free_camera::{FreeCamera, FreeCameraPlugin},
     core_pipeline::prepass::DepthPrepass,
     pbr::decal::{ForwardDecal, ForwardDecalMaterial, ForwardDecalMaterialExt},
     prelude::*,
 };
-use camera_controller::{CameraController, CameraControllerPlugin};
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;
 
 fn main() {
     App::new()
-        .add_plugins((DefaultPlugins, CameraControllerPlugin))
+        .add_plugins((DefaultPlugins, FreeCameraPlugin))
         .add_systems(Startup, setup)
         .run();
 }
@@ -45,8 +44,13 @@ fn setup(
     commands.spawn((
         Name::new("Camera"),
         Camera3d::default(),
-        CameraController::default(),
-        DepthPrepass, // Must enable the depth prepass to render forward decals
+        FreeCamera::default(),
+        // Must enable the depth prepass to render forward decals
+        DepthPrepass,
+        // Must disable MSAA to use decals on WebGPU
+        Msaa::Off,
+        // FXAA is a fine alternative to MSAA for anti-aliasing
+        Fxaa::default(),
         Transform::from_xyz(2.0, 9.5, 2.5).looking_at(Vec3::ZERO, Vec3::Y),
     ));
 
@@ -88,7 +92,7 @@ fn setup(
     commands.spawn((
         Name::new("Light"),
         PointLight {
-            shadows_enabled: true,
+            shadow_maps_enabled: true,
             ..default()
         },
         Transform::from_xyz(4.0, 8.0, 4.0),

@@ -43,7 +43,7 @@ fn text_color_on_hover<T: Debug + Clone + Reflect>(
     move |mut event: On<Pointer<T>>,
           mut text_color: Query<&mut TextColor>,
           children: Query<&Children>| {
-        let Ok(children) = children.get(event.original_entity()) else {
+        let Ok(children) = children.get(event.original_event_target()) else {
             return;
         };
         event.propagate(false);
@@ -94,10 +94,10 @@ fn on_trigger_menu(event: On<OpenContextMenu>, mut commands: Commands) {
                 left: px(pos.x),
                 top: px(pos.y),
                 flex_direction: FlexDirection::Column,
+                border_radius: BorderRadius::all(px(4)),
                 ..default()
             },
             BorderColor::all(Color::BLACK),
-            BorderRadius::all(px(4)),
             BackgroundColor(Color::linear_rgb(0.1, 0.1, 0.1)),
             children![
                 context_item("fuchsia", basic::FUCHSIA),
@@ -112,7 +112,7 @@ fn on_trigger_menu(event: On<OpenContextMenu>, mut commands: Commands) {
              menu_items: Query<&ContextMenuItem>,
              mut clear_col: ResMut<ClearColor>,
              mut commands: Commands| {
-                let target = event.original_entity();
+                let target = event.original_event_target();
 
                 if let Ok(item) = menu_items.get(target) {
                     clear_col.0 = item.0.into();
@@ -165,10 +165,10 @@ fn background_and_button() -> impl Bundle {
                         border: UiRect::all(px(5)),
                         justify_content: JustifyContent::Center,
                         align_items: AlignItems::Center,
+                        border_radius: BorderRadius::MAX,
                         ..default()
                     },
                     BorderColor::all(Color::BLACK),
-                    BorderRadius::MAX,
                     BackgroundColor(Color::BLACK),
                     children![(
                         Pickable::IGNORE,

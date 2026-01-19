@@ -1,8 +1,6 @@
 //! This example shows how to create a node with a shadow and adjust its settings interactively.
 
-use bevy::{
-    color::palettes::css::*, prelude::*, time::Time, window::RequestRedraw, winit::WinitSettings,
-};
+use bevy::{color::palettes::css::*, prelude::*, time::Time, window::RequestRedraw};
 
 const NORMAL_BUTTON: Color = Color::srgb(0.15, 0.15, 0.15);
 const HOVERED_BUTTON: Color = Color::srgb(0.25, 0.25, 0.25);
@@ -19,31 +17,31 @@ const SHADOW_DEFAULT_SETTINGS: ShadowSettings = ShadowSettings {
     samples: 6,
 };
 
-const SHAPES: &[(&str, fn(&mut Node, &mut BorderRadius))] = &[
-    ("1", |node, radius| {
+const SHAPES: &[(&str, fn(&mut Node))] = &[
+    ("1", |node| {
         node.width = px(164);
         node.height = px(164);
-        *radius = BorderRadius::ZERO;
+        node.border_radius = BorderRadius::ZERO;
     }),
-    ("2", |node, radius| {
+    ("2", |node| {
         node.width = px(164);
         node.height = px(164);
-        *radius = BorderRadius::all(px(41));
+        node.border_radius = BorderRadius::all(px(41));
     }),
-    ("3", |node, radius| {
+    ("3", |node| {
         node.width = px(164);
         node.height = px(164);
-        *radius = BorderRadius::MAX;
+        node.border_radius = BorderRadius::MAX;
     }),
-    ("4", |node, radius| {
+    ("4", |node| {
         node.width = px(240);
         node.height = px(80);
-        *radius = BorderRadius::all(px(32));
+        node.border_radius = BorderRadius::all(px(32));
     }),
-    ("5", |node, radius| {
+    ("5", |node| {
         node.width = px(80);
         node.height = px(240);
-        *radius = BorderRadius::all(px(32));
+        node.border_radius = BorderRadius::all(px(32));
     }),
 ];
 
@@ -119,7 +117,6 @@ struct HeldButton {
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .insert_resource(WinitSettings::desktop_app())
         .insert_resource(SHADOW_DEFAULT_SETTINGS)
         .insert_resource(SHAPE_DEFAULT_SETTINGS)
         .insert_resource(HeldButton::default())
@@ -165,15 +162,14 @@ fn setup(
                 border: UiRect::all(px(1)),
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
+                border_radius: BorderRadius::ZERO,
                 ..default()
             };
-            let mut radius = BorderRadius::ZERO;
-            SHAPES[shape.index % SHAPES.len()].1(&mut node, &mut radius);
+            SHAPES[shape.index % SHAPES.len()].1(&mut node);
 
             (
                 node,
                 BorderColor::all(WHITE),
-                radius,
                 BackgroundColor(Color::srgb(0.21, 0.21, 0.21)),
                 BoxShadow(vec![ShadowStyle {
                     color: Color::BLACK.with_alpha(0.8),
@@ -196,11 +192,11 @@ fn setup(
                 bottom: px(24),
                 width: px(270),
                 padding: UiRect::all(px(16)),
+                border_radius: BorderRadius::all(px(12)),
                 ..default()
             },
             BackgroundColor(Color::srgb(0.12, 0.12, 0.12).with_alpha(0.85)),
             BorderColor::all(Color::WHITE.with_alpha(0.15)),
-            BorderRadius::all(px(12)),
             ZIndex(10),
         ))
         .insert(children![
@@ -270,15 +266,15 @@ fn setup(
                         height: px(32),
                         justify_content: JustifyContent::Center,
                         align_items: AlignItems::Center,
+                        border_radius: BorderRadius::all(px(8)),
                         ..default()
                     },
                     BackgroundColor(NORMAL_BUTTON),
-                    BorderRadius::all(px(8)),
                     SettingsButton::Reset,
                     children![(
                         Text::new("Reset"),
                         TextFont {
-                            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                            font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
                             font_size: 16.0,
                             ..default()
                         },
@@ -323,7 +319,7 @@ fn build_setting_row(
                 children![(
                     Text::new(setting_type.label()),
                     TextFont {
-                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                        font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
                         font_size: 16.0,
                         ..default()
                     },
@@ -337,10 +333,10 @@ fn build_setting_row(
                     margin: UiRect::left(px(8)),
                     justify_content: JustifyContent::Center,
                     align_items: AlignItems::Center,
+                    border_radius: BorderRadius::all(px(6)),
                     ..default()
                 },
                 BackgroundColor(Color::WHITE),
-                BorderRadius::all(px(6)),
                 dec,
                 children![(
                     Text::new(if setting_type == SettingType::Shape {
@@ -349,7 +345,7 @@ fn build_setting_row(
                         "-"
                     }),
                     TextFont {
-                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                        font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
                         font_size: 18.0,
                         ..default()
                     },
@@ -362,14 +358,14 @@ fn build_setting_row(
                     margin: UiRect::horizontal(px(8)),
                     justify_content: JustifyContent::Center,
                     align_items: AlignItems::Center,
+                    border_radius: BorderRadius::all(px(6)),
                     ..default()
                 },
-                BorderRadius::all(px(6)),
                 children![{
                     (
                         Text::new(value_text),
                         TextFont {
-                            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                            font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
                             font_size: 16.0,
                             ..default()
                         },
@@ -384,10 +380,10 @@ fn build_setting_row(
                     height: px(28),
                     justify_content: JustifyContent::Center,
                     align_items: AlignItems::Center,
+                    border_radius: BorderRadius::all(px(6)),
                     ..default()
                 },
                 BackgroundColor(Color::WHITE),
-                BorderRadius::all(px(6)),
                 inc,
                 children![(
                     Text::new(if setting_type == SettingType::Shape {
@@ -396,7 +392,7 @@ fn build_setting_row(
                         "+"
                     }),
                     TextFont {
-                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                        font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
                         font_size: 18.0,
                         ..default()
                     },
@@ -506,11 +502,11 @@ fn make_shadow(color: Color, x_offset: f32, y_offset: f32, spread: f32, blur: f3
 // Update shape of ShadowNode if shape selection changed
 fn update_shape(
     shape: Res<ShapeSettings>,
-    mut query: Query<(&mut Node, &mut BorderRadius), With<ShadowNode>>,
+    mut query: Query<&mut Node, With<ShadowNode>>,
     mut label_query: Query<(&mut Text, &SettingType)>,
 ) {
-    for (mut node, mut radius) in &mut query {
-        SHAPES[shape.index % SHAPES.len()].1(&mut node, &mut radius);
+    for mut node in &mut query {
+        SHAPES[shape.index % SHAPES.len()].1(&mut node);
     }
     for (mut text, kind) in &mut label_query {
         if *kind == SettingType::Shape {
@@ -603,10 +599,10 @@ fn button_repeat_system(
     mut held: ResMut<HeldButton>,
     mut shadow: ResMut<ShadowSettings>,
     mut shape: ResMut<ShapeSettings>,
-    mut redraw_events: EventWriter<RequestRedraw>,
+    mut request_redraw_writer: MessageWriter<RequestRedraw>,
 ) {
     if held.button.is_some() {
-        redraw_events.write(RequestRedraw);
+        request_redraw_writer.write(RequestRedraw);
     }
     const INITIAL_DELAY: f64 = 0.15;
     const REPEAT_RATE: f64 = 0.08;

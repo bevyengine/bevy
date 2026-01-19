@@ -3,12 +3,12 @@
 use bevy::{
     asset::RenderAssetUsages,
     camera::ScalingMode,
-    core_pipeline::motion_blur::MotionBlur,
     math::ops,
     mesh::{
         skinning::{SkinnedMesh, SkinnedMeshInverseBindposes},
         Indices, PrimitiveTopology, VertexAttributeValues,
     },
+    post_process::motion_blur::MotionBlur,
     prelude::*,
 };
 use core::f32::consts::TAU;
@@ -16,7 +16,7 @@ use core::f32::consts::TAU;
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .insert_resource(AmbientLight {
+        .insert_resource(GlobalAmbientLight {
             brightness: 20_000.0,
             ..default()
         })
@@ -72,7 +72,7 @@ fn setup_environment(
     commands.spawn((
         Transform::from_xyz(1.0, 1.0, 3.0).looking_at(Vec3::ZERO, Vec3::Y),
         DirectionalLight {
-            shadows_enabled: true,
+            shadow_maps_enabled: true,
             ..default()
         },
     ));

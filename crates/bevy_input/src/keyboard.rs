@@ -69,7 +69,7 @@ use crate::{ButtonInput, ButtonState};
 use bevy_ecs::{
     change_detection::DetectChangesMut,
     entity::Entity,
-    event::{BufferedEvent, EventReader},
+    message::{Message, MessageReader},
     system::ResMut,
 };
 
@@ -95,7 +95,7 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 /// The event is consumed inside of the [`keyboard_input_system`] to update the
 /// [`ButtonInput<KeyCode>`](ButtonInput<KeyCode>) and
 /// [`ButtonInput<Key>`](ButtonInput<Key>) resources.
-#[derive(BufferedEvent, Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Message, Debug, Clone, PartialEq, Eq, Hash)]
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
@@ -144,7 +144,7 @@ pub struct KeyboardInput {
 /// when, for example, switching between windows with 'Alt-Tab' or using any other
 /// OS specific key combination that leads to Bevy window losing focus and not receiving any
 /// input events
-#[derive(BufferedEvent, Debug, Clone, PartialEq, Eq)]
+#[derive(Message, Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Clone, PartialEq))]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -164,14 +164,14 @@ pub struct KeyboardFocusLost;
 pub fn keyboard_input_system(
     mut keycode_input: ResMut<ButtonInput<KeyCode>>,
     mut key_input: ResMut<ButtonInput<Key>>,
-    mut keyboard_input_events: EventReader<KeyboardInput>,
-    mut focus_events: EventReader<KeyboardFocusLost>,
+    mut keyboard_input_reader: MessageReader<KeyboardInput>,
+    mut keyboard_focus_lost_reader: MessageReader<KeyboardFocusLost>,
 ) {
     // Avoid clearing if not empty to ensure change detection is not triggered.
     keycode_input.bypass_change_detection().clear();
     key_input.bypass_change_detection().clear();
 
-    for event in keyboard_input_events.read() {
+    for event in keyboard_input_reader.read() {
         let KeyboardInput {
             key_code,
             logical_key,
@@ -191,9 +191,9 @@ pub fn keyboard_input_system(
     }
 
     // Release all cached input to avoid having stuck input when switching between windows in os
-    if !focus_events.is_empty() {
+    if !keyboard_focus_lost_reader.is_empty() {
         keycode_input.release_all();
-        focus_events.clear();
+        keyboard_focus_lost_reader.clear();
     }
 }
 

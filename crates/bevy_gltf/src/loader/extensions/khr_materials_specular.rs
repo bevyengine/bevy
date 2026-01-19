@@ -1,14 +1,12 @@
-use bevy_asset::LoadContext;
+use bevy_asset::{AssetPath, Handle};
+use bevy_image::Image;
 
-use gltf::{Document, Material};
+use gltf::Material;
 
 use serde_json::Value;
 
 #[cfg(feature = "pbr_specular_textures")]
-use {
-    crate::loader::gltf_ext::material::parse_material_extension_texture, bevy_asset::Handle,
-    bevy_image::Image, bevy_pbr::UvChannel,
-};
+use {crate::loader::gltf_ext::material::parse_material_extension_texture, bevy_pbr::UvChannel};
 
 /// Parsed data from the `KHR_materials_specular` extension.
 ///
@@ -41,10 +39,18 @@ pub(crate) struct SpecularExtension {
 }
 
 impl SpecularExtension {
+    #[expect(
+        clippy::allow_attributes,
+        reason = "`unused_variables` is not always linted"
+    )]
+    #[allow(
+        unused_variables,
+        reason = "Depending on what features are used to compile this crate, certain parameters may end up unused."
+    )]
     pub(crate) fn parse(
-        _load_context: &mut LoadContext,
-        _document: &Document,
         material: &Material,
+        textures: &[Handle<Image>],
+        asset_path: AssetPath<'_>,
     ) -> Option<Self> {
         let extension = material
             .extensions()?
@@ -54,21 +60,21 @@ impl SpecularExtension {
         #[cfg(feature = "pbr_specular_textures")]
         let (_specular_channel, _specular_texture) = parse_material_extension_texture(
             material,
-            _load_context,
-            _document,
             extension,
             "specularTexture",
             "specular",
+            textures,
+            asset_path.clone(),
         );
 
         #[cfg(feature = "pbr_specular_textures")]
         let (_specular_color_channel, _specular_color_texture) = parse_material_extension_texture(
             material,
-            _load_context,
-            _document,
             extension,
             "specularColorTexture",
             "specular color",
+            textures,
+            asset_path,
         );
 
         Some(SpecularExtension {

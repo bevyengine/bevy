@@ -1,5 +1,5 @@
 #![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
-#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![forbid(unsafe_code)]
 #![doc(
     html_logo_url = "https://bevy.org/assets/icon.png",
@@ -27,14 +27,21 @@ pub mod experimental {
 mod atmosphere;
 mod cluster;
 mod components;
+pub mod contact_shadows;
+pub use contact_shadows::{
+    ContactShadows, ContactShadowsBuffer, ContactShadowsPlugin, ContactShadowsUniform,
+    ViewContactShadowsUniformOffset,
+};
 pub mod decal;
 pub mod deferred;
+pub mod diagnostic;
 mod extended_material;
 mod fog;
 mod light_probe;
 mod lightmap;
 mod material;
 mod material_bind_groups;
+mod medium;
 mod mesh_material;
 mod parallax;
 mod pbr_material;
@@ -61,6 +68,7 @@ pub use light_probe::*;
 pub use lightmap::*;
 pub use material::*;
 pub use material_bind_groups::*;
+pub use medium::*;
 pub use mesh_material::*;
 pub use parallax::*;
 pub use pbr_material::*;
@@ -76,6 +84,7 @@ pub use volumetric_fog::VolumetricFogPlugin;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
+        contact_shadows::ContactShadowsPlugin,
         fog::{DistanceFog, FogFalloff},
         material::{Material, MaterialPlugin},
         mesh_material::MeshMaterial3d,
@@ -131,8 +140,8 @@ use bevy_ecs::prelude::*;
 #[cfg(feature = "bluenoise_texture")]
 use bevy_image::{CompressedImageFormats, ImageType};
 use bevy_image::{Image, ImageSampler};
+use bevy_material::AlphaMode;
 use bevy_render::{
-    alpha::AlphaMode,
     camera::sort_cameras,
     extract_resource::ExtractResourcePlugin,
     render_graph::RenderGraph,
@@ -150,8 +159,8 @@ fn shader_ref(path: PathBuf) -> ShaderRef {
     ShaderRef::Path(AssetPath::from_path_buf(path).with_source("embedded"))
 }
 
-pub const TONEMAPPING_LUT_TEXTURE_BINDING_INDEX: u32 = 18;
-pub const TONEMAPPING_LUT_SAMPLER_BINDING_INDEX: u32 = 19;
+pub const TONEMAPPING_LUT_TEXTURE_BINDING_INDEX: u32 = 19;
+pub const TONEMAPPING_LUT_SAMPLER_BINDING_INDEX: u32 = 20;
 
 /// Sets up the entire PBR infrastructure of bevy.
 pub struct PbrPlugin {
@@ -223,7 +232,6 @@ impl Plugin for PbrPlugin {
                     debug_flags: self.debug_flags,
                 },
                 MaterialPlugin::<StandardMaterial> {
-                    prepass_enabled: self.prepass_enabled,
                     debug_flags: self.debug_flags,
                     ..Default::default()
                 },
@@ -239,6 +247,7 @@ impl Plugin for PbrPlugin {
                 VolumetricFogPlugin,
                 ScreenSpaceReflectionsPlugin,
                 ClusteredDecalPlugin,
+                ContactShadowsPlugin,
             ))
             .add_plugins((
                 decal::ForwardDecalPlugin,
@@ -247,7 +256,7 @@ impl Plugin for PbrPlugin {
                 SyncComponentPlugin::<SpotLight>::default(),
                 SyncComponentPlugin::<AmbientLight>::default(),
             ))
-            .add_plugins(AtmospherePlugin)
+            .add_plugins((ScatteringMediumPlugin, AtmospherePlugin))
             .configure_sets(
                 PostUpdate,
                 (

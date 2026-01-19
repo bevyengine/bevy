@@ -1,7 +1,7 @@
 //! A scene showcasing screen space ambient occlusion.
 
 use bevy::{
-    anti_aliasing::taa::TemporalAntiAliasing,
+    anti_alias::taa::TemporalAntiAliasing,
     math::ops,
     pbr::{ScreenSpaceAmbientOcclusion, ScreenSpaceAmbientOcclusionQualityLevel},
     prelude::*,
@@ -11,7 +11,7 @@ use std::f32::consts::PI;
 
 fn main() {
     App::new()
-        .insert_resource(AmbientLight {
+        .insert_resource(GlobalAmbientLight {
             brightness: 1000.,
             ..default()
         })
@@ -69,7 +69,7 @@ fn setup(
 
     commands.spawn((
         DirectionalLight {
-            shadows_enabled: true,
+            shadow_maps_enabled: true,
             ..default()
         },
         Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, PI * -0.15, PI * -0.15)),

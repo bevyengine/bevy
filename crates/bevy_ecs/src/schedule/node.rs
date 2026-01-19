@@ -1,22 +1,29 @@
-use alloc::{boxed::Box, vec::Vec};
-use bevy_utils::prelude::DebugName;
+use alloc::{boxed::Box, collections::BTreeSet, string::String, vec::Vec};
 use core::{
     any::TypeId,
     fmt::{self, Debug},
-    ops::{Index, IndexMut, Range},
+    ops::{Deref, Index, IndexMut, Range},
 };
 
-use bevy_platform::collections::HashMap;
+use bevy_platform::collections::{HashMap, HashSet};
+use bevy_utils::prelude::DebugName;
 use slotmap::{new_key_type, Key, KeyData, SecondaryMap, SlotMap};
+use thiserror::Error;
 
 use crate::{
-    component::{CheckChangeTicks, Tick},
+    change_detection::{CheckChangeTicks, Tick},
+    component::{ComponentId, Components},
     prelude::{SystemIn, SystemSet},
-    query::FilteredAccessSet,
+    query::{AccessConflicts, FilteredAccessSet},
     schedule::{
-        graph::{Direction, GraphNodeId},
-        BoxedCondition, InternedSystemSet,
+        graph::{
+            DagAnalysis, DagGroups, DiGraph,
+            Direction::{self, Incoming, Outgoing},
+            GraphNodeId, UnGraph,
+        },
+        BoxedCondition, InternedSystemSet, ScheduleGraph,
     },
+    storage::SparseSetIndex,
     system::{
         ReadOnlySystem, RunSystemError, ScheduleSystem, System, SystemParamValidationError,
         SystemStateFlags,
@@ -24,7 +31,7 @@ use crate::{
     world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, World},
 };
 
-/// A [`SystemWithAccess`] stored in a [`ScheduleGraph`](crate::schedule::ScheduleGraph).
+/// A [`SystemWithAccess`] stored in a [`ScheduleGraph`].
 pub(crate) struct SystemNode {
     pub(crate) inner: Option<SystemWithAccess>,
 }
@@ -487,14 +494,10 @@ impl Systems {
         self.nodes.get_mut(key).and_then(|node| node.get_mut())
     }
 
-    /// Returns a mutable reference to the system with the given key, panicking
-    /// if it does not exist.
-    ///
-    /// # Panics
-    ///
-    /// If the system with the given key does not exist in this container.
-    pub(crate) fn node_mut(&mut self, key: SystemKey) -> &mut SystemNode {
-        &mut self.nodes[key]
+    /// Returns a mutable reference to the system with the given key. Will return
+    /// `None` if the key does not exist.
+    pub(crate) fn node_mut(&mut self, key: SystemKey) -> Option<&mut SystemNode> {
+        self.nodes.get_mut(key)
     }
 
     /// Returns `true` if the system with the given key has conditions.
@@ -554,6 +557,25 @@ impl Systems {
         key
     }
 
+    /// Remove a system with [`SystemKey`]
+    pub(crate) fn remove(&mut self, key: SystemKey) -> bool {
+        let mut found = false;
+        if self.nodes.remove(key).is_some() {
+            found = true;
+        }
+
+        if self.conditions.remove(key).is_some() {
+            found = true;
+        }
+
+        if let Some(index) = self.uninit.iter().position(|value| *value == key) {
+            self.uninit.remove(index);
+            found = true;
+        }
+
+        found
+    }
+
     /// Returns `true` if all systems in this container have been initialized.
     pub fn is_initialized(&self) -> bool {
         self.uninit.is_empty()
@@ -575,6 +597,60 @@ impl Systems {
             }
         }
     }
+
+    /// Calculates the list of systems that conflict with each other based on
+    /// their access patterns.
+    ///
+    /// If the `Box<[ComponentId]>` is empty for a given pair of systems, then the
+    /// systems conflict on [`World`] access in general (e.g. one of them is
+    /// exclusive, or both systems have `Query<EntityMut>`).
+    pub fn get_conflicting_systems(
+        &self,
+        flat_dependency_analysis: &DagAnalysis<SystemKey>,
+        flat_ambiguous_with: &UnGraph<SystemKey>,
+        ambiguous_with_all: &HashSet<NodeId>,
+        ignored_ambiguities: &BTreeSet<ComponentId>,
+    ) -> ConflictingSystems {
+        let mut conflicting_systems: Vec<(_, _, Box<[_]>)> = Vec::new();
+        for &(a, b) in flat_dependency_analysis.disconnected() {
+            if flat_ambiguous_with.contains_edge(a, b)
+                || ambiguous_with_all.contains(&NodeId::System(a))
+                || ambiguous_with_all.contains(&NodeId::System(b))
+            {
+                continue;
+            }
+
+            let system_a = &self[a];
+            let system_b = &self[b];
+            if system_a.is_exclusive() || system_b.is_exclusive() {
+                conflicting_systems.push((a, b, Box::new([])));
+            } else {
+                let access_a = &system_a.access;
+                let access_b = &system_b.access;
+                if !access_a.is_compatible(access_b) {
+                    match access_a.get_conflicts(access_b) {
+                        AccessConflicts::Individual(conflicts) => {
+                            let conflicts: Box<[_]> = conflicts
+                                .ones()
+                                .map(ComponentId::get_sparse_set_index)
+                                .filter(|id| !ignored_ambiguities.contains(id))
+                                .collect();
+                            if !conflicts.is_empty() {
+                                conflicting_systems.push((a, b, conflicts));
+                            }
+                        }
+                        AccessConflicts::All => {
+                            // there is no specific component conflicting, but the systems are overall incompatible
+                            // for example 2 systems with `Query<EntityMut>`
+                            conflicting_systems.push((a, b, Box::new([])));
+                        }
+                    }
+                }
+            }
+        }
+
+        ConflictingSystems(conflicting_systems)
+    }
 }
 
 impl Index<SystemKey> for Systems {
@@ -594,6 +670,58 @@ impl IndexMut<SystemKey> for Systems {
             .unwrap_or_else(|| panic!("System with key {:?} does not exist in the schedule", key))
     }
 }
+
+/// Pairs of systems that conflict with each other along with the components
+/// they conflict on, which prevents them from running in parallel. If the
+/// component list is empty, the systems conflict on [`World`] access in general
+/// (e.g. one of them is exclusive, or both systems have `Query<EntityMut>`).
+#[derive(Clone, Debug, Default)]
+pub struct ConflictingSystems(pub Vec<(SystemKey, SystemKey, Box<[ComponentId]>)>);
+
+impl ConflictingSystems {
+    /// Checks if there are any conflicting systems, returning [`Ok`] if there
+    /// are none, or an [`AmbiguousSystemConflictsWarning`] if there are.
+    pub fn check_if_not_empty(&self) -> Result<(), AmbiguousSystemConflictsWarning> {
+        if self.0.is_empty() {
+            Ok(())
+        } else {
+            Err(AmbiguousSystemConflictsWarning(self.clone()))
+        }
+    }
+
+    /// Converts the conflicting systems into an iterator of their system names
+    /// and the names of the components they conflict on.
+    pub fn to_string(
+        &self,
+        graph: &ScheduleGraph,
+        components: &Components,
+    ) -> impl Iterator<Item = (String, String, Box<[DebugName]>)> {
+        self.iter().map(move |(system_a, system_b, conflicts)| {
+            let name_a = graph.get_node_name(&NodeId::System(*system_a));
+            let name_b = graph.get_node_name(&NodeId::System(*system_b));
+
+            let conflict_names: Box<[_]> = conflicts
+                .iter()
+                .map(|id| components.get_name(*id).unwrap())
+                .collect();
+
+            (name_a, name_b, conflict_names)
+        })
+    }
+}
+
+impl Deref for ConflictingSystems {
+    type Target = Vec<(SystemKey, SystemKey, Box<[ComponentId]>)>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+/// Error returned when there are ambiguous system conflicts detected.
+#[derive(Error, Debug)]
+#[error("Systems with conflicting access have indeterminate run order: {:?}", .0.0)]
+pub struct AmbiguousSystemConflictsWarning(pub ConflictingSystems);
 
 /// Container for system sets in a schedule.
 #[derive(Default)]
@@ -644,6 +772,11 @@ impl SystemSets {
     /// Returns a reference to the system set with the given key, if it exists.
     pub fn get(&self, key: SystemSetKey) -> Option<&dyn SystemSet> {
         self.sets.get(key).map(|set| &**set)
+    }
+
+    /// Returns the key for the given system set, returns None if it does not exist.
+    pub fn get_key(&self, set: InternedSystemSet) -> Option<SystemSetKey> {
+        self.ids.get(&set).copied()
     }
 
     /// Returns the key for the given system set, inserting it into this
@@ -716,6 +849,14 @@ impl SystemSets {
         key
     }
 
+    /// Remove a set with a [`SystemSetKey`]
+    pub(crate) fn remove(&mut self, key: SystemSetKey) -> bool {
+        self.sets.remove(key);
+        self.conditions.remove(key);
+        self.uninit.retain(|uninit| uninit.key != key);
+        true
+    }
+
     /// Returns `true` if all system sets' conditions in this container have
     /// been initialized.
     pub fn is_initialized(&self) -> bool {
@@ -736,6 +877,30 @@ impl SystemSets {
             }
         }
     }
+
+    /// Ensures that there are no edges to system-type sets that have multiple
+    /// instances.
+    pub fn check_type_set_ambiguity(
+        &self,
+        set_systems: &DagGroups<SystemSetKey, SystemKey>,
+        ambiguous_with: &UnGraph<NodeId>,
+        dependency: &DiGraph<NodeId>,
+    ) -> Result<(), SystemTypeSetAmbiguityError> {
+        for (&key, systems) in set_systems.iter() {
+            let set = &self[key];
+            if set.system_type().is_some() {
+                let instances = systems.len();
+                let ambiguous_with = ambiguous_with.edges(NodeId::Set(key));
+                let before = dependency.edges_directed(NodeId::Set(key), Incoming);
+                let after = dependency.edges_directed(NodeId::Set(key), Outgoing);
+                let relations = before.count() + after.count() + ambiguous_with.count();
+                if instances > 1 && relations > 0 {
+                    return Err(SystemTypeSetAmbiguityError(key));
+                }
+            }
+        }
+        Ok(())
+    }
 }
 
 impl Index<SystemSetKey> for SystemSets {
@@ -751,6 +916,11 @@ impl Index<SystemSetKey> for SystemSets {
         })
     }
 }
+
+/// Error returned when calling [`SystemSets::check_type_set_ambiguity`].
+#[derive(Error, Debug)]
+#[error("Tried to order against `{0:?}` in a schedule that has more than one `{0:?}` instance. `{0:?}` is a `SystemTypeSet` and cannot be used for ordering if ambiguous. Use a different set without this restriction.")]
+pub struct SystemTypeSetAmbiguityError(pub SystemSetKey);
 
 #[cfg(test)]
 mod tests {

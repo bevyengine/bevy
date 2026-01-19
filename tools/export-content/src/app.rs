@@ -1,4 +1,9 @@
-use std::{env, fs, io::Write, path};
+#![expect(
+    unused_assignments,
+    reason = "Warnings from inside miette due to a rustc bug: https://github.com/rust-lang/rust/issues/147648"
+)]
+
+use std::{env, fs, io::Write, path::PathBuf};
 
 use miette::{diagnostic, Context, Diagnostic, IntoDiagnostic, NamedSource, Result};
 use ratatui::{
@@ -16,7 +21,7 @@ enum Mode {
 }
 
 pub struct App {
-    content_dir: path::PathBuf,
+    content_dir: PathBuf,
     release_notes: Vec<Entry>,
     release_notes_state: ListState,
     migration_guides: Vec<Entry>,
@@ -26,8 +31,14 @@ pub struct App {
     exit: bool,
 }
 
-impl App {
-    pub fn new() -> Result<App> {
+pub struct Content {
+    content_dir: PathBuf,
+    migration_guides: Vec<Entry>,
+    release_notes: Vec<Entry>,
+}
+
+impl Content {
+    pub fn load() -> Result<Self> {
         let exe_dir = env::current_exe()
             .into_diagnostic()
             .wrap_err("failed to determine path to binary")?;
@@ -43,6 +54,21 @@ impl App {
 
         let migration_guides_dir = content_dir.join("migration-guides");
         let migration_guides = load_content(migration_guides_dir, "migration guide")?;
+        Ok(Content {
+            content_dir,
+            migration_guides,
+            release_notes,
+        })
+    }
+}
+
+impl App {
+    pub fn new() -> Result<App> {
+        let Content {
+            content_dir,
+            release_notes,
+            migration_guides,
+        } = Content::load()?;
 
         Ok(App {
             content_dir,
@@ -224,7 +250,7 @@ impl App {
 
                     write!(
                         file,
-                        "## {title}\n{{% heading_metadata(authors=[{authors}] prs=[{pull_requests}]) %}}\n{content}\n\n"
+                        "## {title}\n\n{{{{ heading_metadata(authors=[{authors}] prs=[{pull_requests}]) }}}}\n\n{content}\n"
                     )
                     .into_diagnostic()?;
                 }
@@ -250,7 +276,7 @@ impl App {
 
                     write!(
                         file,
-                        "### {title}\n{{% heading_metadata(prs=[{pull_requests}]) %}}\n{content}\n\n"
+                        "### {title}\n\n{{{{ heading_metadata(prs=[{pull_requests}]) }}}}\n\n{content}\n"
                     )
                     .into_diagnostic()?;
                 }
@@ -284,7 +310,7 @@ impl Entry {
 }
 
 /// Loads release content from files in the specified directory
-fn load_content(dir: path::PathBuf, kind: &'static str) -> Result<Vec<Entry>> {
+fn load_content(dir: PathBuf, kind: &'static str) -> Result<Vec<Entry>> {
     let re = Regex::new(r"(?s)^---\s*\n(?<frontmatter>.*?)\s*\n---\s*\n(?<content>.*)").unwrap();
 
     let mut entries = vec![];

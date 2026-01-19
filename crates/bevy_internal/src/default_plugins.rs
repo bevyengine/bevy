@@ -29,10 +29,11 @@ plugin_group! {
         bevy_asset:::AssetPlugin,
         #[cfg(feature = "bevy_scene")]
         bevy_scene:::ScenePlugin,
+        // NOTE: WinitPlugin needs to be after AssetPlugin because of custom cursors.
         #[cfg(feature = "bevy_winit")]
         bevy_winit:::WinitPlugin,
         #[custom(cfg(all(feature = "dlss", not(feature = "force_disable_dlss"))))]
-        bevy_anti_aliasing::dlss:::DlssInitPlugin,
+        bevy_anti_alias::dlss:::DlssInitPlugin,
         #[cfg(feature = "bevy_render")]
         bevy_render:::RenderPlugin,
         // NOTE: Load this after renderer initialization so that it knows about the supported
@@ -50,8 +51,10 @@ plugin_group! {
         bevy_render::pipelined_rendering:::PipelinedRenderingPlugin,
         #[cfg(feature = "bevy_core_pipeline")]
         bevy_core_pipeline:::CorePipelinePlugin,
-        #[cfg(feature = "bevy_anti_aliasing")]
-        bevy_anti_aliasing:::AntiAliasingPlugin,
+        #[cfg(feature = "bevy_post_process")]
+        bevy_post_process:::PostProcessPlugin,
+        #[cfg(feature = "bevy_anti_alias")]
+        bevy_anti_alias:::AntiAliasPlugin,
         #[cfg(feature = "bevy_sprite")]
         bevy_sprite:::SpritePlugin,
         #[cfg(feature = "bevy_sprite_render")]
@@ -76,12 +79,14 @@ plugin_group! {
         bevy_animation:::AnimationPlugin,
         #[cfg(feature = "bevy_gizmos")]
         bevy_gizmos:::GizmoPlugin,
+        #[cfg(feature = "bevy_gizmos_render")]
+        bevy_gizmos_render:::GizmoRenderPlugin,
         #[cfg(feature = "bevy_state")]
         bevy_state::app:::StatesPlugin,
-        #[cfg(feature = "bevy_dev_tools")]
-        bevy_dev_tools:::DevToolsPlugin,
         #[cfg(feature = "bevy_ci_testing")]
         bevy_dev_tools::ci_testing:::CiTestingPlugin,
+        #[cfg(feature = "bevy_dev_tools")]
+        bevy_dev_tools::render_debug:::RenderDebugOverlayPlugin,
         #[cfg(feature = "hotpatching")]
         bevy_app::hotpatch:::HotPatchPlugin,
         #[plugin_group]

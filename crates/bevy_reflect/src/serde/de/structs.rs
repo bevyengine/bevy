@@ -1,6 +1,7 @@
 use crate::{
     serde::de::struct_utils::{visit_struct, visit_struct_seq},
-    DynamicStruct, StructInfo, TypeRegistration, TypeRegistry,
+    structs::{DynamicStruct, StructInfo},
+    TypeRegistration, TypeRegistry,
 };
 use core::{fmt, fmt::Formatter};
 use serde::de::{MapAccess, SeqAccess, Visitor};
@@ -9,7 +10,7 @@ use super::ReflectDeserializerProcessor;
 
 /// A [`Visitor`] for deserializing [`Struct`] values.
 ///
-/// [`Struct`]: crate::Struct
+/// [`Struct`]: crate::structs::Struct
 pub(super) struct StructVisitor<'a, P> {
     pub struct_info: &'static StructInfo,
     pub registration: &'a TypeRegistration,

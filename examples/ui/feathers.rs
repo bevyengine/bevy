@@ -2,28 +2,27 @@
 
 use bevy::{
     color::palettes,
-    core_widgets::{
-        Activate, Callback, CoreRadio, CoreRadioGroup, CoreWidgetsPlugins, SliderPrecision,
-        SliderStep, SliderValue, ValueChange,
-    },
     feathers::{
         controls::{
-            button, checkbox, color_slider, color_swatch, radio, slider, toggle_switch,
-            ButtonProps, ButtonVariant, CheckboxProps, ColorChannel, ColorSlider, ColorSliderProps,
-            ColorSwatch, SliderBaseColor, SliderProps, ToggleSwitchProps,
+            button, checkbox, color_plane, color_slider, color_swatch, radio, slider,
+            toggle_switch, ButtonProps, ButtonVariant, ColorChannel, ColorPlane, ColorPlaneValue,
+            ColorSlider, ColorSliderProps, ColorSwatch, ColorSwatchValue, SliderBaseColor,
+            SliderProps,
         },
+        cursor::{EntityCursor, OverrideCursor},
         dark_theme::create_dark_theme,
         rounded_corners::RoundedCorners,
         theme::{ThemeBackgroundColor, ThemedText, UiTheme},
-        tokens, FeathersPlugin,
+        tokens, FeathersPlugins,
     },
-    input_focus::{
-        tab_navigation::{TabGroup, TabNavigationPlugin},
-        InputDispatchPlugin,
-    },
+    input_focus::tab_navigation::TabGroup,
     prelude::*,
     ui::{Checked, InteractionDisabled},
-    winit::WinitSettings,
+    ui_widgets::{
+        checkbox_self_update, observe, slider_self_update, Activate, RadioButton, RadioGroup,
+        SliderPrecision, SliderStep, SliderValue, ValueChange,
+    },
+    window::SystemCursorIcon,
 };
 
 /// A struct to hold the state of various widgets shown in the demo.
@@ -39,22 +38,17 @@ enum SwatchType {
     Hsl,
 }
 
+#[derive(Component, Clone, Copy)]
+struct DemoDisabledButton;
+
 fn main() {
     App::new()
-        .add_plugins((
-            DefaultPlugins,
-            CoreWidgetsPlugins,
-            InputDispatchPlugin,
-            TabNavigationPlugin,
-            FeathersPlugin,
-        ))
+        .add_plugins((DefaultPlugins, FeathersPlugins))
         .insert_resource(UiTheme(create_dark_theme()))
         .insert_resource(DemoWidgetStates {
             rgb_color: palettes::tailwind::EMERALD_800.with_alpha(0.7),
             hsl_color: palettes::tailwind::AMBER_800.into(),
         })
-        // Only run the app when there is user input. This will significantly reduce CPU/GPU use.
-        .insert_resource(WinitSettings::desktop_app())
         .add_systems(Startup, setup)
         .add_systems(Update, update_colors)
         .run();
@@ -63,66 +57,10 @@ fn main() {
 fn setup(mut commands: Commands) {
     // ui camera
     commands.spawn(Camera2d);
-    let root = demo_root(&mut commands);
-    commands.spawn(root);
+    commands.spawn(demo_root());
 }
 
-fn demo_root(commands: &mut Commands) -> impl Bundle {
-    // Update radio button states based on notification from radio group.
-    let radio_exclusion = commands.register_system(
-        |ent: In<Activate>, q_radio: Query<Entity, With<CoreRadio>>, mut commands: Commands| {
-            for radio in q_radio.iter() {
-                if radio == ent.0 .0 {
-                    commands.entity(radio).insert(Checked);
-                } else {
-                    commands.entity(radio).remove::<Checked>();
-                }
-            }
-        },
-    );
-
-    let change_red = commands.register_system(
-        |change: In<ValueChange<f32>>, mut color: ResMut<DemoWidgetStates>| {
-            color.rgb_color.red = change.value;
-        },
-    );
-
-    let change_green = commands.register_system(
-        |change: In<ValueChange<f32>>, mut color: ResMut<DemoWidgetStates>| {
-            color.rgb_color.green = change.value;
-        },
-    );
-
-    let change_blue = commands.register_system(
-        |change: In<ValueChange<f32>>, mut color: ResMut<DemoWidgetStates>| {
-            color.rgb_color.blue = change.value;
-        },
-    );
-
-    let change_alpha = commands.register_system(
-        |change: In<ValueChange<f32>>, mut color: ResMut<DemoWidgetStates>| {
-            color.rgb_color.alpha = change.value;
-        },
-    );
-
-    let change_hue = commands.register_system(
-        |change: In<ValueChange<f32>>, mut color: ResMut<DemoWidgetStates>| {
-            color.hsl_color.hue = change.value;
-        },
-    );
-
-    let change_saturation = commands.register_system(
-        |change: In<ValueChange<f32>>, mut color: ResMut<DemoWidgetStates>| {
-            color.hsl_color.saturation = change.value;
-        },
-    );
-
-    let change_lightness = commands.register_system(
-        |change: In<ValueChange<f32>>, mut color: ResMut<DemoWidgetStates>| {
-            color.hsl_color.lightness = change.value;
-        },
-    );
-
+fn demo_root() -> impl Bundle {
     (
         Node {
             width: percent(100),
@@ -159,42 +97,38 @@ fn demo_root(commands: &mut Commands) -> impl Bundle {
                         ..default()
                     },
                     children![
-                        button(
-                            ButtonProps {
-                                on_click: Callback::System(commands.register_system(
-                                    |_: In<Activate>| {
-                                        info!("Normal button clicked!");
-                                    }
-                                )),
-                                ..default()
-                            },
-                            (),
-                            Spawn((Text::new("Normal"), ThemedText))
+                        (
+                            button(
+                                ButtonProps::default(),
+                                (),
+                                Spawn((Text::new("Normal"), ThemedText))
+                            ),
+                            observe(|_activate: On<Activate>| {
+                                info!("Normal button clicked!");
+                            })
                         ),
-                        button(
-                            ButtonProps {
-                                on_click: Callback::System(commands.register_system(
-                                    |_: In<Activate>| {
-                                        info!("Disabled button clicked!");
-                                    }
-                                )),
-                                ..default()
-                            },
-                            InteractionDisabled,
-                            Spawn((Text::new("Disabled"), ThemedText))
+                        (
+                            button(
+                                ButtonProps::default(),
+                                (InteractionDisabled, DemoDisabledButton),
+                                Spawn((Text::new("Disabled"), ThemedText))
+                            ),
+                            observe(|_activate: On<Activate>| {
+                                info!("Disabled button clicked!");
+                            })
                         ),
-                        button(
-                            ButtonProps {
-                                on_click: Callback::System(commands.register_system(
-                                    |_: In<Activate>| {
-                                        info!("Primary button clicked!");
-                                    }
-                                )),
-                                variant: ButtonVariant::Primary,
-                                ..default()
-                            },
-                            (),
-                            Spawn((Text::new("Primary"), ThemedText))
+                        (
+                            button(
+                                ButtonProps {
+                                    variant: ButtonVariant::Primary,
+                                    ..default()
+                                },
+                                (),
+                                Spawn((Text::new("Primary"), ThemedText))
+                            ),
+                            observe(|_activate: On<Activate>| {
+                                info!("Disabled button clicked!");
+                            })
                         ),
                     ]
                 ),
@@ -208,77 +142,101 @@ fn demo_root(commands: &mut Commands) -> impl Bundle {
                         ..default()
                     },
                     children![
-                        button(
-                            ButtonProps {
-                                on_click: Callback::System(commands.register_system(
-                                    |_: In<Activate>| {
-                                        info!("Left button clicked!");
-                                    }
-                                )),
-                                corners: RoundedCorners::Left,
-                                ..default()
-                            },
-                            (),
-                            Spawn((Text::new("Left"), ThemedText))
+                        (
+                            button(
+                                ButtonProps {
+                                    corners: RoundedCorners::Left,
+                                    ..default()
+                                },
+                                (),
+                                Spawn((Text::new("Left"), ThemedText))
+                            ),
+                            observe(|_activate: On<Activate>| {
+                                info!("Left button clicked!");
+                            })
                         ),
-                        button(
-                            ButtonProps {
-                                on_click: Callback::System(commands.register_system(
-                                    |_: In<Activate>| {
-                                        info!("Center button clicked!");
-                                    }
-                                )),
-                                corners: RoundedCorners::None,
-                                ..default()
-                            },
-                            (),
-                            Spawn((Text::new("Center"), ThemedText))
+                        (
+                            button(
+                                ButtonProps {
+                                    corners: RoundedCorners::None,
+                                    ..default()
+                                },
+                                (),
+                                Spawn((Text::new("Center"), ThemedText))
+                            ),
+                            observe(|_activate: On<Activate>| {
+                                info!("Center button clicked!");
+                            })
                         ),
-                        button(
-                            ButtonProps {
-                                on_click: Callback::System(commands.register_system(
-                                    |_: In<Activate>| {
-                                        info!("Right button clicked!");
-                                    }
-                                )),
-                                variant: ButtonVariant::Primary,
-                                corners: RoundedCorners::Right,
-                            },
-                            (),
-                            Spawn((Text::new("Right"), ThemedText))
+                        (
+                            button(
+                                ButtonProps {
+                                    variant: ButtonVariant::Primary,
+                                    corners: RoundedCorners::Right,
+                                },
+                                (),
+                                Spawn((Text::new("Right"), ThemedText))
+                            ),
+                            observe(|_activate: On<Activate>| {
+                                info!("Right button clicked!");
+                            })
                         ),
                     ]
                 ),
-                button(
-                    ButtonProps {
-                        on_click: Callback::System(commands.register_system(|_: In<Activate>| {
-                            info!("Wide button clicked!");
-                        })),
-                        ..default()
-                    },
-                    (),
-                    Spawn((Text::new("Button"), ThemedText))
+                (
+                    button(
+                        ButtonProps::default(),
+                        (),
+                        Spawn((Text::new("Toggle override"), ThemedText))
+                    ),
+                    observe(|_activate: On<Activate>, mut ovr: ResMut<OverrideCursor>| {
+                        ovr.0 = if ovr.0.is_some() {
+                            None
+                        } else {
+                            Some(EntityCursor::System(SystemCursorIcon::Wait))
+                        };
+                        info!("Override cursor button clicked!");
+                    })
                 ),
-                checkbox(
-                    CheckboxProps {
-                        on_change: Callback::Ignore,
-                    },
-                    Checked,
-                    Spawn((Text::new("Checkbox"), ThemedText))
+                (
+                    checkbox(Checked, Spawn((Text::new("Checkbox"), ThemedText))),
+                    observe(
+                        |change: On<ValueChange<bool>>,
+                         query: Query<Entity, With<DemoDisabledButton>>,
+                         mut commands: Commands| {
+                            info!("Checkbox clicked!");
+                            let mut button = commands.entity(query.single().unwrap());
+                            if change.value {
+                                button.insert(InteractionDisabled);
+                            } else {
+                                button.remove::<InteractionDisabled>();
+                            }
+                            let mut checkbox = commands.entity(change.source);
+                            if change.value {
+                                checkbox.insert(Checked);
+                            } else {
+                                checkbox.remove::<Checked>();
+                            }
+                        }
+                    )
                 ),
-                checkbox(
-                    CheckboxProps {
-                        on_change: Callback::Ignore,
-                    },
-                    InteractionDisabled,
-                    Spawn((Text::new("Disabled"), ThemedText))
+                (
+                    checkbox(
+                        InteractionDisabled,
+                        Spawn((Text::new("Disabled"), ThemedText))
+                    ),
+                    observe(|_change: On<ValueChange<bool>>| {
+                        warn!("Disabled checkbox clicked!");
+                    })
                 ),
-                checkbox(
-                    CheckboxProps {
-                        on_change: Callback::Ignore,
-                    },
-                    (InteractionDisabled, Checked),
-                    Spawn((Text::new("Disabled+Checked"), ThemedText))
+                (
+                    checkbox(
+                        (InteractionDisabled, Checked),
+                        Spawn((Text::new("Disabled+Checked"), ThemedText))
+                    ),
+                    observe(|_change: On<ValueChange<bool>>| {
+                        warn!("Disabled checkbox clicked!");
+                    })
                 ),
                 (
                     Node {
@@ -287,9 +245,20 @@ fn demo_root(commands: &mut Commands) -> impl Bundle {
                         row_gap: px(4),
                         ..default()
                     },
-                    CoreRadioGroup {
-                        on_change: Callback::System(radio_exclusion),
-                    },
+                    RadioGroup,
+                    observe(
+                        |value_change: On<ValueChange<Entity>>,
+                         q_radio: Query<Entity, With<RadioButton>>,
+                         mut commands: Commands| {
+                            for radio in q_radio.iter() {
+                                if radio == value_change.value {
+                                    commands.entity(radio).insert(Checked);
+                                } else {
+                                    commands.entity(radio).remove::<Checked>();
+                                }
+                            }
+                        }
+                    ),
                     children![
                         radio(Checked, Spawn((Text::new("One"), ThemedText))),
                         radio((), Spawn((Text::new("Two"), ThemedText))),
@@ -310,33 +279,27 @@ fn demo_root(commands: &mut Commands) -> impl Bundle {
                         ..default()
                     },
                     children![
-                        toggle_switch(
-                            ToggleSwitchProps {
-                                on_change: Callback::Ignore,
-                            },
-                            (),
+                        (toggle_switch((),), observe(checkbox_self_update)),
+                        (
+                            toggle_switch(InteractionDisabled,),
+                            observe(checkbox_self_update)
                         ),
-                        toggle_switch(
-                            ToggleSwitchProps {
-                                on_change: Callback::Ignore,
-                            },
-                            InteractionDisabled,
-                        ),
-                        toggle_switch(
-                            ToggleSwitchProps {
-                                on_change: Callback::Ignore,
-                            },
-                            (InteractionDisabled, Checked),
+                        (
+                            toggle_switch((InteractionDisabled, Checked),),
+                            observe(checkbox_self_update)
                         ),
                     ]
                 ),
-                slider(
-                    SliderProps {
-                        max: 100.0,
-                        value: 20.0,
-                        ..default()
-                    },
-                    (SliderStep(10.), SliderPrecision(2)),
+                (
+                    slider(
+                        SliderProps {
+                            max: 100.0,
+                            value: 20.0,
+                            ..default()
+                        },
+                        (SliderStep(10.), SliderPrecision(2)),
+                    ),
+                    observe(slider_self_update)
                 ),
                 (
                     Node {
@@ -347,37 +310,70 @@ fn demo_root(commands: &mut Commands) -> impl Bundle {
                     },
                     children![Text("Srgba".to_owned()), color_swatch(SwatchType::Rgb),]
                 ),
-                color_slider(
-                    ColorSliderProps {
-                        value: 0.5,
-                        on_change: Callback::System(change_red),
-                        channel: ColorChannel::Red
-                    },
-                    ()
+                (
+                    color_plane(ColorPlane::RedBlue, ()),
+                    observe(
+                        |change: On<ValueChange<Vec2>>, mut color: ResMut<DemoWidgetStates>| {
+                            color.rgb_color.red = change.value.x;
+                            color.rgb_color.blue = change.value.y;
+                        }
+                    )
                 ),
-                color_slider(
-                    ColorSliderProps {
-                        value: 0.5,
-                        on_change: Callback::System(change_green),
-                        channel: ColorChannel::Green
-                    },
-                    ()
+                (
+                    color_slider(
+                        ColorSliderProps {
+                            value: 0.5,
+                            channel: ColorChannel::Red
+                        },
+                        ()
+                    ),
+                    observe(
+                        |change: On<ValueChange<f32>>, mut color: ResMut<DemoWidgetStates>| {
+                            color.rgb_color.red = change.value;
+                        }
+                    )
                 ),
-                color_slider(
-                    ColorSliderProps {
-                        value: 0.5,
-                        on_change: Callback::System(change_blue),
-                        channel: ColorChannel::Blue
-                    },
-                    ()
+                (
+                    color_slider(
+                        ColorSliderProps {
+                            value: 0.5,
+                            channel: ColorChannel::Green
+                        },
+                        ()
+                    ),
+                    observe(
+                        |change: On<ValueChange<f32>>, mut color: ResMut<DemoWidgetStates>| {
+                            color.rgb_color.green = change.value;
+                        },
+                    )
                 ),
-                color_slider(
-                    ColorSliderProps {
-                        value: 0.5,
-                        on_change: Callback::System(change_alpha),
-                        channel: ColorChannel::Alpha
-                    },
-                    ()
+                (
+                    color_slider(
+                        ColorSliderProps {
+                            value: 0.5,
+                            channel: ColorChannel::Blue
+                        },
+                        ()
+                    ),
+                    observe(
+                        |change: On<ValueChange<f32>>, mut color: ResMut<DemoWidgetStates>| {
+                            color.rgb_color.blue = change.value;
+                        },
+                    )
+                ),
+                (
+                    color_slider(
+                        ColorSliderProps {
+                            value: 0.5,
+                            channel: ColorChannel::Alpha
+                        },
+                        ()
+                    ),
+                    observe(
+                        |change: On<ValueChange<f32>>, mut color: ResMut<DemoWidgetStates>| {
+                            color.rgb_color.alpha = change.value;
+                        },
+                    )
                 ),
                 (
                     Node {
@@ -388,29 +384,47 @@ fn demo_root(commands: &mut Commands) -> impl Bundle {
                     },
                     children![Text("Hsl".to_owned()), color_swatch(SwatchType::Hsl),]
                 ),
-                color_slider(
-                    ColorSliderProps {
-                        value: 0.5,
-                        on_change: Callback::System(change_hue),
-                        channel: ColorChannel::HslHue
-                    },
-                    ()
+                (
+                    color_slider(
+                        ColorSliderProps {
+                            value: 0.5,
+                            channel: ColorChannel::HslHue
+                        },
+                        ()
+                    ),
+                    observe(
+                        |change: On<ValueChange<f32>>, mut color: ResMut<DemoWidgetStates>| {
+                            color.hsl_color.hue = change.value;
+                        },
+                    )
                 ),
-                color_slider(
-                    ColorSliderProps {
-                        value: 0.5,
-                        on_change: Callback::System(change_saturation),
-                        channel: ColorChannel::HslSaturation
-                    },
-                    ()
+                (
+                    color_slider(
+                        ColorSliderProps {
+                            value: 0.5,
+                            channel: ColorChannel::HslSaturation
+                        },
+                        ()
+                    ),
+                    observe(
+                        |change: On<ValueChange<f32>>, mut color: ResMut<DemoWidgetStates>| {
+                            color.hsl_color.saturation = change.value;
+                        },
+                    )
                 ),
-                color_slider(
-                    ColorSliderProps {
-                        value: 0.5,
-                        on_change: Callback::System(change_lightness),
-                        channel: ColorChannel::HslLightness
-                    },
-                    ()
+                (
+                    color_slider(
+                        ColorSliderProps {
+                            value: 0.5,
+                            channel: ColorChannel::HslLightness
+                        },
+                        ()
+                    ),
+                    observe(
+                        |change: On<ValueChange<f32>>, mut color: ResMut<DemoWidgetStates>| {
+                            color.hsl_color.lightness = change.value;
+                        },
+                    )
                 )
             ]
         ),],
@@ -420,7 +434,8 @@ fn demo_root(commands: &mut Commands) -> impl Bundle {
 fn update_colors(
     colors: Res<DemoWidgetStates>,
     mut sliders: Query<(Entity, &ColorSlider, &mut SliderBaseColor)>,
-    swatches: Query<(&SwatchType, &Children), With<ColorSwatch>>,
+    mut swatches: Query<(&mut ColorSwatchValue, &SwatchType), With<ColorSwatch>>,
+    mut color_planes: Query<&mut ColorPlaneValue, With<ColorPlane>>,
     mut commands: Commands,
 ) {
     if colors.is_changed() {
@@ -471,13 +486,17 @@ fn update_colors(
             }
         }
 
-        for (swatch_type, children) in swatches.iter() {
-            commands
-                .entity(children[0])
-                .insert(BackgroundColor(match swatch_type {
-                    SwatchType::Rgb => colors.rgb_color.into(),
-                    SwatchType::Hsl => colors.hsl_color.into(),
-                }));
+        for (mut swatch_value, swatch_type) in swatches.iter_mut() {
+            swatch_value.0 = match swatch_type {
+                SwatchType::Rgb => colors.rgb_color.into(),
+                SwatchType::Hsl => colors.hsl_color.into(),
+            };
+        }
+
+        for mut plane_value in color_planes.iter_mut() {
+            plane_value.0.x = colors.rgb_color.red;
+            plane_value.0.y = colors.rgb_color.blue;
+            plane_value.0.z = colors.rgb_color.green;
         }
     }
 }

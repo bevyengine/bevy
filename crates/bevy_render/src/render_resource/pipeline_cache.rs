@@ -1,36 +1,31 @@
-use crate::WgpuWrapper;
+use bevy_material::descriptor::{
+    BindGroupLayoutDescriptor, CachedComputePipelineId, CachedRenderPipelineId,
+    ComputePipelineDescriptor, PipelineDescriptor, RenderPipelineDescriptor,
+};
+
 use crate::{
     render_resource::*,
-    renderer::{RenderAdapter, RenderDevice},
+    renderer::{RenderAdapter, RenderDevice, WgpuWrapper},
     Extract,
 };
 use alloc::{borrow::Cow, sync::Arc};
 use bevy_asset::{AssetEvent, AssetId, Assets, Handle};
 use bevy_ecs::{
-    event::EventReader,
+    message::MessageReader,
     resource::Resource,
     system::{Res, ResMut},
 };
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_shader::{
-    CachedPipelineId, PipelineCacheError, Shader, ShaderCache, ShaderCacheSource, ShaderDefVal,
+    CachedPipelineId, Shader, ShaderCache, ShaderCacheError, ShaderCacheSource, ShaderDefVal,
     ValidateShader,
 };
 use bevy_tasks::Task;
 use bevy_utils::default;
-use core::{future::Future, hash::Hash, mem};
+use core::{future::Future, mem};
 use std::sync::{Mutex, PoisonError};
 use tracing::error;
 use wgpu::{PipelineCompilationOptions, VertexBufferLayout as RawVertexBufferLayout};
-
-/// A descriptor for a [`Pipeline`].
-///
-/// Used to store a heterogenous collection of render and compute pipeline descriptors together.
-#[derive(Debug)]
-pub enum PipelineDescriptor {
-    RenderPipelineDescriptor(Box<RenderPipelineDescriptor>),
-    ComputePipelineDescriptor(Box<ComputePipelineDescriptor>),
-}
 
 /// A pipeline defining the data layout and shader logic for a specific GPU task.
 ///
@@ -41,57 +36,22 @@ pub enum Pipeline {
     ComputePipeline(ComputePipeline),
 }
 
-/// Index of a cached render pipeline in a [`PipelineCache`].
-#[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, PartialOrd, Ord)]
-pub struct CachedRenderPipelineId(CachedPipelineId);
-
-impl CachedRenderPipelineId {
-    /// An invalid cached render pipeline index, often used to initialize a variable.
-    pub const INVALID: Self = CachedRenderPipelineId(usize::MAX);
-
-    #[inline]
-    pub fn id(&self) -> usize {
-        self.0
-    }
-}
-
-/// Index of a cached compute pipeline in a [`PipelineCache`].
-#[derive(Copy, Clone, Debug, Hash, Eq, PartialEq)]
-pub struct CachedComputePipelineId(CachedPipelineId);
-
-impl CachedComputePipelineId {
-    /// An invalid cached compute pipeline index, often used to initialize a variable.
-    pub const INVALID: Self = CachedComputePipelineId(usize::MAX);
-
-    #[inline]
-    pub fn id(&self) -> usize {
-        self.0
-    }
-}
-
 pub struct CachedPipeline {
     pub descriptor: PipelineDescriptor,
     pub state: CachedPipelineState,
 }
 
 /// State of a cached pipeline inserted into a [`PipelineCache`].
-#[cfg_attr(
-    not(target_arch = "wasm32"),
-    expect(
-        clippy::large_enum_variant,
-        reason = "See https://github.com/bevyengine/bevy/issues/19220"
-    )
-)]
 #[derive(Debug)]
 pub enum CachedPipelineState {
     /// The pipeline GPU object is queued for creation.
     Queued,
     /// The pipeline GPU object is being created.
-    Creating(Task<Result<Pipeline, PipelineCacheError>>),
+    Creating(Task<Result<Pipeline, ShaderCacheError>>),
     /// The pipeline GPU object was created successfully and is available (allocated on the GPU).
     Ok(Pipeline),
     /// An error occurred while trying to create the pipeline GPU object.
-    Err(PipelineCacheError),
+    Err(ShaderCacheError),
 }
 
 impl CachedPipelineState {
@@ -152,15 +112,11 @@ impl LayoutCache {
     }
 }
 
-#[expect(
-    clippy::result_large_err,
-    reason = "See https://github.com/bevyengine/bevy/issues/19220"
-)]
 fn load_module(
     render_device: &RenderDevice,
     shader_source: ShaderCacheSource,
     validate_shader: &ValidateShader,
-) -> Result<WgpuWrapper<ShaderModule>, PipelineCacheError> {
+) -> Result<WgpuWrapper<ShaderModule>, ShaderCacheError> {
     let shader_source = match shader_source {
         #[cfg(feature = "shader_format_spirv")]
         ShaderCacheSource::SpirV(data) => wgpu::util::make_spirv(data),
@@ -202,10 +158,31 @@ fn load_module(
     if let Some(Some(wgpu::Error::Validation { description, .. })) =
         bevy_tasks::futures::now_or_never(error)
     {
-        return Err(PipelineCacheError::CreateShaderModule(description));
+        return Err(ShaderCacheError::CreateShaderModule(description));
     }
 
     Ok(shader_module)
+}
+
+#[derive(Default)]
+struct BindGroupLayoutCache {
+    bgls: HashMap<BindGroupLayoutDescriptor, BindGroupLayout>,
+}
+
+impl BindGroupLayoutCache {
+    fn get(
+        &mut self,
+        render_device: &RenderDevice,
+        descriptor: BindGroupLayoutDescriptor,
+    ) -> BindGroupLayout {
+        self.bgls
+            .entry(descriptor)
+            .or_insert_with_key(|descriptor| {
+                render_device
+                    .create_bind_group_layout(descriptor.label.as_ref(), &descriptor.entries)
+            })
+            .clone()
+    }
 }
 
 /// Cache for render and compute pipelines.
@@ -223,6 +200,7 @@ fn load_module(
 #[derive(Resource)]
 pub struct PipelineCache {
     layout_cache: Arc<Mutex<LayoutCache>>,
+    bindgroup_layout_cache: Arc<Mutex<BindGroupLayoutCache>>,
     shader_cache: Arc<Mutex<ShaderCache<WgpuWrapper<ShaderModule>, RenderDevice>>>,
     device: RenderDevice,
     pipelines: Vec<CachedPipeline>,
@@ -276,6 +254,7 @@ impl PipelineCache {
             ))),
             device,
             layout_cache: default(),
+            bindgroup_layout_cache: default(),
             waiting_pipelines: default(),
             new_pipelines: default(),
             pipelines: default(),
@@ -291,7 +270,7 @@ impl PipelineCache {
     pub fn get_render_pipeline_state(&self, id: CachedRenderPipelineId) -> &CachedPipelineState {
         // If the pipeline id isn't in `pipelines`, it's queued in `new_pipelines`
         self.pipelines
-            .get(id.0)
+            .get(id.id())
             .map_or(&CachedPipelineState::Queued, |pipeline| &pipeline.state)
     }
 
@@ -302,7 +281,7 @@ impl PipelineCache {
     pub fn get_compute_pipeline_state(&self, id: CachedComputePipelineId) -> &CachedPipelineState {
         // If the pipeline id isn't in `pipelines`, it's queued in `new_pipelines`
         self.pipelines
-            .get(id.0)
+            .get(id.id())
             .map_or(&CachedPipelineState::Queued, |pipeline| &pipeline.state)
     }
 
@@ -317,7 +296,7 @@ impl PipelineCache {
         &self,
         id: CachedRenderPipelineId,
     ) -> &RenderPipelineDescriptor {
-        match &self.pipelines[id.0].descriptor {
+        match &self.pipelines[id.id()].descriptor {
             PipelineDescriptor::RenderPipelineDescriptor(descriptor) => descriptor,
             PipelineDescriptor::ComputePipelineDescriptor(_) => unreachable!(),
         }
@@ -334,7 +313,7 @@ impl PipelineCache {
         &self,
         id: CachedComputePipelineId,
     ) -> &ComputePipelineDescriptor {
-        match &self.pipelines[id.0].descriptor {
+        match &self.pipelines[id.id()].descriptor {
             PipelineDescriptor::RenderPipelineDescriptor(_) => unreachable!(),
             PipelineDescriptor::ComputePipelineDescriptor(descriptor) => descriptor,
         }
@@ -350,7 +329,7 @@ impl PipelineCache {
     #[inline]
     pub fn get_render_pipeline(&self, id: CachedRenderPipelineId) -> Option<&RenderPipeline> {
         if let CachedPipelineState::Ok(Pipeline::RenderPipeline(pipeline)) =
-            &self.pipelines.get(id.0)?.state
+            &self.pipelines.get(id.id())?.state
         {
             Some(pipeline)
         } else {
@@ -361,11 +340,11 @@ impl PipelineCache {
     /// Wait for a render pipeline to finish compiling.
     #[inline]
     pub fn block_on_render_pipeline(&mut self, id: CachedRenderPipelineId) {
-        if self.pipelines.len() <= id.0 {
+        if self.pipelines.len() <= id.id() {
             self.process_queue();
         }
 
-        let state = &mut self.pipelines[id.0].state;
+        let state = &mut self.pipelines[id.id()].state;
         if let CachedPipelineState::Creating(task) = state {
             *state = match bevy_tasks::block_on(task) {
                 Ok(p) => CachedPipelineState::Ok(p),
@@ -384,7 +363,7 @@ impl PipelineCache {
     #[inline]
     pub fn get_compute_pipeline(&self, id: CachedComputePipelineId) -> Option<&ComputePipeline> {
         if let CachedPipelineState::Ok(Pipeline::ComputePipeline(pipeline)) =
-            &self.pipelines.get(id.0)?.state
+            &self.pipelines.get(id.id())?.state
         {
             Some(pipeline)
         } else {
@@ -413,7 +392,7 @@ impl PipelineCache {
             .new_pipelines
             .lock()
             .unwrap_or_else(PoisonError::into_inner);
-        let id = CachedRenderPipelineId(self.pipelines.len() + new_pipelines.len());
+        let id = CachedRenderPipelineId::new(self.pipelines.len() + new_pipelines.len());
         new_pipelines.push(CachedPipeline {
             descriptor: PipelineDescriptor::RenderPipelineDescriptor(Box::new(descriptor)),
             state: CachedPipelineState::Queued,
@@ -442,12 +421,22 @@ impl PipelineCache {
             .new_pipelines
             .lock()
             .unwrap_or_else(PoisonError::into_inner);
-        let id = CachedComputePipelineId(self.pipelines.len() + new_pipelines.len());
+        let id = CachedComputePipelineId::new(self.pipelines.len() + new_pipelines.len());
         new_pipelines.push(CachedPipeline {
             descriptor: PipelineDescriptor::ComputePipelineDescriptor(Box::new(descriptor)),
             state: CachedPipelineState::Queued,
         });
         id
+    }
+
+    pub fn get_bind_group_layout(
+        &self,
+        bind_group_layout_descriptor: &BindGroupLayoutDescriptor,
+    ) -> BindGroupLayout {
+        self.bindgroup_layout_cache
+            .lock()
+            .unwrap()
+            .get(&self.device, bind_group_layout_descriptor.clone())
     }
 
     fn set_shader(&mut self, id: AssetId<Shader>, shader: Shader) {
@@ -476,6 +465,14 @@ impl PipelineCache {
         let device = self.device.clone();
         let shader_cache = self.shader_cache.clone();
         let layout_cache = self.layout_cache.clone();
+        let mut bindgroup_layout_cache = self.bindgroup_layout_cache.lock().unwrap();
+        let bind_group_layout = descriptor
+            .layout
+            .iter()
+            .map(|bind_group_layout_descriptor| {
+                bindgroup_layout_cache.get(&self.device, bind_group_layout_descriptor.clone())
+            })
+            .collect::<Vec<_>>();
 
         create_pipeline_task(
             async move {
@@ -513,7 +510,7 @@ impl PipelineCache {
                     } else {
                         Some(layout_cache.get(
                             &device,
-                            &descriptor.layout,
+                            &bind_group_layout,
                             descriptor.push_constant_ranges.to_vec(),
                         ))
                     };
@@ -587,6 +584,14 @@ impl PipelineCache {
         let device = self.device.clone();
         let shader_cache = self.shader_cache.clone();
         let layout_cache = self.layout_cache.clone();
+        let mut bindgroup_layout_cache = self.bindgroup_layout_cache.lock().unwrap();
+        let bind_group_layout = descriptor
+            .layout
+            .iter()
+            .map(|bind_group_layout_descriptor| {
+                bindgroup_layout_cache.get(&self.device, bind_group_layout_descriptor.clone())
+            })
+            .collect::<Vec<_>>();
 
         create_pipeline_task(
             async move {
@@ -609,7 +614,7 @@ impl PipelineCache {
                     } else {
                         Some(layout_cache.get(
                             &device,
-                            &descriptor.layout,
+                            &bind_group_layout,
                             descriptor.push_constant_ranges.to_vec(),
                         ))
                     };
@@ -691,13 +696,13 @@ impl PipelineCache {
 
             CachedPipelineState::Err(err) => match err {
                 // Retry
-                PipelineCacheError::ShaderNotLoaded(_)
-                | PipelineCacheError::ShaderImportNotYetAvailable => {
+                ShaderCacheError::ShaderNotLoaded(_)
+                | ShaderCacheError::ShaderImportNotYetAvailable => {
                     cached_pipeline.state = CachedPipelineState::Queued;
                 }
 
                 // Shader could not be processed ... retrying won't help
-                PipelineCacheError::ProcessShaderError(err) => {
+                ShaderCacheError::ProcessShaderError(err) => {
                     let error_detail =
                         err.emit_to_string(&self.shader_cache.lock().unwrap().composer);
                     if std::env::var("VERBOSE_SHADER_ERROR")
@@ -708,7 +713,7 @@ impl PipelineCache {
                     error!("failed to process shader error:\n{}", error_detail);
                     return;
                 }
-                PipelineCacheError::CreateShaderModule(description) => {
+                ShaderCacheError::CreateShaderModule(description) => {
                     error!("failed to create shader module: {}", description);
                     return;
                 }
@@ -728,7 +733,7 @@ impl PipelineCache {
     pub(crate) fn extract_shaders(
         mut cache: ResMut<Self>,
         shaders: Extract<Res<Assets<Shader>>>,
-        mut events: Extract<EventReader<AssetEvent<Shader>>>,
+        mut events: Extract<MessageReader<AssetEvent<Shader>>>,
     ) {
         for event in events.read() {
             #[expect(
@@ -803,7 +808,7 @@ fn pipeline_error_context(cached_pipeline: &CachedPipeline) -> String {
     feature = "multi_threaded"
 ))]
 fn create_pipeline_task(
-    task: impl Future<Output = Result<Pipeline, PipelineCacheError>> + Send + 'static,
+    task: impl Future<Output = Result<Pipeline, ShaderCacheError>> + Send + 'static,
     sync: bool,
 ) -> CachedPipelineState {
     if !sync {
@@ -822,7 +827,7 @@ fn create_pipeline_task(
     not(feature = "multi_threaded")
 ))]
 fn create_pipeline_task(
-    task: impl Future<Output = Result<Pipeline, PipelineCacheError>> + Send + 'static,
+    task: impl Future<Output = Result<Pipeline, ShaderCacheError>> + Send + 'static,
     _sync: bool,
 ) -> CachedPipelineState {
     match bevy_tasks::block_on(task) {

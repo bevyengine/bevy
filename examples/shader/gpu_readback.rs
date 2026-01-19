@@ -14,7 +14,7 @@ use bevy::{
             *,
         },
         renderer::{RenderContext, RenderDevice},
-        storage::{GpuShaderStorageBuffer, ShaderStorageBuffer},
+        storage::{GpuShaderBuffer, ShaderBuffer},
         texture::GpuImage,
         Render, RenderApp, RenderStartup, RenderSystems,
     },
@@ -62,7 +62,7 @@ impl Plugin for GpuReadbackPlugin {
 }
 
 #[derive(Resource, ExtractResource, Clone)]
-struct ReadbackBuffer(Handle<ShaderStorageBuffer>);
+struct ReadbackBuffer(Handle<ShaderBuffer>);
 
 #[derive(Resource, ExtractResource, Clone)]
 struct ReadbackImage(Handle<Image>);
@@ -70,11 +70,11 @@ struct ReadbackImage(Handle<Image>);
 fn setup(
     mut commands: Commands,
     mut images: ResMut<Assets<Image>>,
-    mut buffers: ResMut<Assets<ShaderStorageBuffer>>,
+    mut buffers: ResMut<Assets<ShaderBuffer>>,
 ) {
     // Create a storage buffer with some data
     let buffer: Vec<u32> = (0..BUFFER_LEN as u32).collect();
-    let mut buffer = ShaderStorageBuffer::from(buffer);
+    let mut buffer = ShaderBuffer::from(buffer);
     // We need to enable the COPY_SRC usage so we can copy the buffer to the cpu
     buffer.buffer_description.usage |= BufferUsages::COPY_SRC;
     let buffer = buffers.add(buffer);
@@ -104,7 +104,7 @@ fn setup(
     commands
         .spawn(Readback::buffer(buffer.clone()))
         .observe(|event: On<ReadbackComplete>| {
-            // This matches the type which was used to create the `ShaderStorageBuffer` above,
+            // This matches the type which was used to create the `ShaderBuffer` above,
             // and is a convenient way to interpret the data.
             let data: Vec<u32> = event.to_shader_type();
             info!("Buffer {:?}", data);
@@ -153,16 +153,17 @@ fn prepare_bind_group(
     mut commands: Commands,
     pipeline: Res<ComputePipeline>,
     render_device: Res<RenderDevice>,
+    pipeline_cache: Res<PipelineCache>,
     buffer: Res<ReadbackBuffer>,
     image: Res<ReadbackImage>,
-    buffers: Res<RenderAssets<GpuShaderStorageBuffer>>,
+    buffers: Res<RenderAssets<GpuShaderBuffer>>,
     images: Res<RenderAssets<GpuImage>>,
 ) {
     let buffer = buffers.get(&buffer.0).unwrap();
     let image = images.get(&image.0).unwrap();
     let bind_group = render_device.create_bind_group(
         None,
-        &pipeline.layout,
+        &pipeline_cache.get_bind_group_layout(&pipeline.layout),
         &BindGroupEntries::sequential((
             buffer.buffer.as_entire_buffer_binding(),
             image.texture_view.into_binding(),
@@ -173,18 +174,17 @@ fn prepare_bind_group(
 
 #[derive(Resource)]
 struct ComputePipeline {
-    layout: BindGroupLayout,
+    layout: BindGroupLayoutDescriptor,
     pipeline: CachedComputePipelineId,
 }
 
 fn init_compute_pipeline(
     mut commands: Commands,
-    render_device: Res<RenderDevice>,
     asset_server: Res<AssetServer>,
     pipeline_cache: Res<PipelineCache>,
 ) {
-    let layout = render_device.create_bind_group_layout(
-        None,
+    let layout = BindGroupLayoutDescriptor::new(
+        "",
         &BindGroupLayoutEntries::sequential(
             ShaderStages::COMPUTE,
             (

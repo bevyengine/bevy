@@ -161,7 +161,7 @@ fn queue_custom(
                 entity: (entity, *main_entity),
                 pipeline,
                 draw_function: draw_custom,
-                distance: rangefinder.distance_translation(&mesh_instance.translation),
+                distance: rangefinder.distance(&mesh_instance.center),
                 batch_range: 0..1,
                 extra_index: PhaseItemExtraIndex::None,
                 indexed: true,
@@ -303,7 +303,7 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMeshInstanced {
                     return RenderCommandResult::Skip;
                 };
 
-                pass.set_index_buffer(index_buffer_slice.buffer.slice(..), 0, *index_format);
+                pass.set_index_buffer(index_buffer_slice.buffer.slice(..), *index_format);
                 pass.draw_indexed(
                     index_buffer_slice.range.start..(index_buffer_slice.range.start + count),
                     vertex_buffer_slice.range.start as i32,

@@ -1,13 +1,11 @@
 //! This example illustrates how to create a button that changes color and text based on its
 //! interaction state.
 
-use bevy::{color::palettes::basic::*, input_focus::InputFocus, prelude::*, winit::WinitSettings};
+use bevy::{color::palettes::basic::*, input_focus::InputFocus, prelude::*};
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        // Only run the app when there is user input. This will significantly reduce CPU/GPU use.
-        .insert_resource(WinitSettings::desktop_app())
         // `InputFocus` must be set for accessibility to recognize the button.
         .init_resource::<InputFocus>()
         .add_systems(Startup, setup)
@@ -91,15 +89,15 @@ fn button(asset_server: &AssetServer) -> impl Bundle {
                 justify_content: JustifyContent::Center,
                 // vertically center child text
                 align_items: AlignItems::Center,
+                border_radius: BorderRadius::MAX,
                 ..default()
             },
             BorderColor::all(Color::WHITE),
-            BorderRadius::MAX,
             BackgroundColor(Color::BLACK),
             children![(
                 Text::new("Button"),
                 TextFont {
-                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                    font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
                     font_size: 33.0,
                     ..default()
                 },

@@ -35,21 +35,18 @@ fn setup(
     });
 
     // parent cube
-    commands
-        .spawn((
-            Mesh3d(cube_handle.clone()),
-            MeshMaterial3d(cube_material_handle.clone()),
-            Transform::from_xyz(0.0, 0.0, 1.0),
-            Rotator,
-        ))
-        .with_children(|parent| {
+    commands.spawn((
+        Mesh3d(cube_handle.clone()),
+        MeshMaterial3d(cube_material_handle.clone()),
+        Transform::from_xyz(0.0, 0.0, 1.0),
+        Rotator,
+        children![(
             // child cube
-            parent.spawn((
-                Mesh3d(cube_handle),
-                MeshMaterial3d(cube_material_handle),
-                Transform::from_xyz(0.0, 0.0, 3.0),
-            ));
-        });
+            Mesh3d(cube_handle),
+            MeshMaterial3d(cube_material_handle),
+            Transform::from_xyz(0.0, 0.0, 3.0),
+        )],
+    ));
     // light
     commands.spawn((PointLight::default(), Transform::from_xyz(4.0, 5.0, -4.0)));
     // camera

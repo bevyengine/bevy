@@ -119,12 +119,12 @@ use {
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_time::prelude::*;
 /// #
-/// #[derive(BufferedEvent)]
-/// struct PauseEvent(bool);
+/// #[derive(Message)]
+/// struct Pause(bool);
 ///
-/// fn pause_system(mut time: ResMut<Time<Virtual>>, mut events: EventReader<PauseEvent>) {
-///     for ev in events.read() {
-///         if ev.0 {
+/// fn pause_system(mut time: ResMut<Time<Virtual>>, mut pause_reader: MessageReader<Pause>) {
+///     for pause in pause_reader.read() {
+///         if pause.0 {
 ///             time.pause();
 ///         } else {
 ///             time.unpause();

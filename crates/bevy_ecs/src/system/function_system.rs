@@ -1,13 +1,13 @@
 use crate::{
-    component::{CheckChangeTicks, Tick},
+    change_detection::{CheckChangeTicks, Tick},
     error::{BevyError, Result},
     never::Never,
     prelude::FromWorld,
     query::FilteredAccessSet,
     schedule::{InternedSystemSet, SystemSet},
     system::{
-        check_system_change_tick, ReadOnlySystemParam, System, SystemIn, SystemInput, SystemParam,
-        SystemParamItem,
+        check_system_change_tick, FromInput, ReadOnlySystemParam, System, SystemIn, SystemInput,
+        SystemParam, SystemParamItem,
     },
     world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, World, WorldId},
 };
@@ -19,6 +19,9 @@ use variadics_please::all_tuples;
 
 #[cfg(feature = "trace")]
 use tracing::{info_span, Span};
+
+#[cfg(feature = "trace")]
+use alloc::string::ToString as _;
 
 use super::{
     IntoSystem, ReadOnlySystem, RunSystemError, SystemParamBuilder, SystemParamValidationError,
@@ -46,9 +49,9 @@ impl SystemMeta {
             // These spans are initialized during plugin build, so we set the parent to `None` to prevent
             // them from being children of the span that is measuring the plugin build time.
             #[cfg(feature = "trace")]
-            system_span: info_span!(parent: None, "system", name = name.clone().as_string()),
+            system_span: info_span!(parent: None, "system", name = name.clone().to_string()),
             #[cfg(feature = "trace")]
-            commands_span: info_span!(parent: None, "system_commands", name = name.clone().as_string()),
+            commands_span: info_span!(parent: None, "system_commands", name = name.clone().to_string()),
             name,
             flags: SystemStateFlags::empty(),
             last_run: Tick::new(0),
@@ -102,6 +105,16 @@ impl SystemMeta {
     pub fn set_has_deferred(&mut self) {
         self.flags |= SystemStateFlags::DEFERRED;
     }
+
+    /// Mark the system to run exclusively. i.e. no other systems will run at the same time.
+    pub fn set_exclusive(&mut self) {
+        self.flags |= SystemStateFlags::EXCLUSIVE;
+    }
+
+    /// Expose a read only copy of `last_run`.
+    pub fn get_last_run(&self) -> Tick {
+        self.last_run
+    }
 }
 
 // TODO: Actually use this in FunctionSystem. We should probably only do this once Systems are constructed using a World reference
@@ -114,7 +127,7 @@ impl SystemMeta {
 /// can be significantly simpler and ensures that change detection and command flushing work as expected.
 ///
 /// Borrow-checking is handled for you, allowing you to mutably access multiple compatible system parameters at once,
-/// and arbitrary system parameters (like [`EventWriter`](crate::event::EventWriter)) can be conveniently fetched.
+/// and arbitrary system parameters (like [`MessageWriter`](crate::message::MessageWriter)) can be conveniently fetched.
 ///
 /// For an alternative approach to split mutable access to the world, see [`World::resource_scope`].
 ///
@@ -125,7 +138,7 @@ impl SystemMeta {
 /// These include:
 /// - [`Added`](crate::query::Added), [`Changed`](crate::query::Changed) and [`Spawned`](crate::query::Spawned) query filters
 /// - [`Local`](crate::system::Local) variables that hold state
-/// - [`EventReader`](crate::event::EventReader) system parameters, which rely on a [`Local`](crate::system::Local) to track which events have been seen
+/// - [`MessageReader`](crate::message::MessageReader) system parameters, which rely on a [`Local`](crate::system::Local) to track which messages have been seen
 ///
 /// Note that this is automatically handled for you when using a [`World::run_system`](World::run_system).
 ///
@@ -135,10 +148,9 @@ impl SystemMeta {
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_ecs::system::SystemState;
-/// # use bevy_ecs::event::Events;
 /// #
-/// # #[derive(BufferedEvent)]
-/// # struct MyEvent;
+/// # #[derive(Message)]
+/// # struct MyMessage;
 /// # #[derive(Resource)]
 /// # struct MyResource(u32);
 /// #
@@ -147,19 +159,19 @@ impl SystemMeta {
 /// #
 /// // Work directly on the `World`
 /// let mut world = World::new();
-/// world.init_resource::<Events<MyEvent>>();
+/// world.init_resource::<Messages<MyMessage>>();
 ///
 /// // Construct a `SystemState` struct, passing in a tuple of `SystemParam`
 /// // as if you were writing an ordinary system.
 /// let mut system_state: SystemState<(
-///     EventWriter<MyEvent>,
+///     MessageWriter<MyMessage>,
 ///     Option<ResMut<MyResource>>,
 ///     Query<&MyComponent>,
 /// )> = SystemState::new(&mut world);
 ///
 /// // Use system_state.get_mut(&mut world) and unpack your system parameters into variables!
 /// // system_state.get(&world) provides read-only versions of your system parameters instead.
-/// let (event_writer, maybe_resource, query) = system_state.get_mut(&mut world);
+/// let (message_writer, maybe_resource, query) = system_state.get_mut(&mut world);
 ///
 /// // If you are using `Commands`, you can choose when you want to apply them to the world.
 /// // You need to manually call `.apply(world)` on the `SystemState` to apply them.
@@ -168,30 +180,30 @@ impl SystemMeta {
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_ecs::system::SystemState;
-/// # use bevy_ecs::event::Events;
+/// # use bevy_ecs::message::Messages;
 /// #
-/// # #[derive(BufferedEvent)]
-/// # struct MyEvent;
+/// # #[derive(Message)]
+/// # struct MyMessage;
 /// #[derive(Resource)]
 /// struct CachedSystemState {
-///     event_state: SystemState<EventReader<'static, 'static, MyEvent>>,
+///     message_state: SystemState<MessageReader<'static, 'static, MyMessage>>,
 /// }
 ///
 /// // Create and store a system state once
 /// let mut world = World::new();
-/// world.init_resource::<Events<MyEvent>>();
-/// let initial_state: SystemState<EventReader<MyEvent>> = SystemState::new(&mut world);
+/// world.init_resource::<Messages<MyMessage>>();
+/// let initial_state: SystemState<MessageReader<MyMessage>> = SystemState::new(&mut world);
 ///
 /// // The system state is cached in a resource
 /// world.insert_resource(CachedSystemState {
-///     event_state: initial_state,
+///     message_state: initial_state,
 /// });
 ///
 /// // Later, fetch the cached system state, saving on overhead
 /// world.resource_scope(|world, mut cached_state: Mut<CachedSystemState>| {
-///     let mut event_reader = cached_state.event_state.get_mut(world);
+///     let mut message_reader = cached_state.message_state.get_mut(world);
 ///
-///     for events in event_reader.read() {
+///     for message in message_reader.read() {
 ///         println!("Hello World!");
 ///     }
 /// });
@@ -201,13 +213,13 @@ impl SystemMeta {
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_ecs::system::SystemState;
 /// #
-/// # #[derive(BufferedEvent)]
-/// # struct MyEvent;
+/// # #[derive(Message)]
+/// # struct MyMessage;
 /// #
-/// fn exclusive_system(world: &mut World, system_state: &mut SystemState<EventReader<MyEvent>>) {
-///     let mut event_reader = system_state.get_mut(world);
+/// fn exclusive_system(world: &mut World, system_state: &mut SystemState<MessageReader<MyMessage>>) {
+///     let mut message_reader = system_state.get_mut(world);
 ///
-///     for events in event_reader.read() {
+///     for message in message_reader.read() {
 ///         println!("Hello World!");
 ///     }
 /// }
@@ -230,17 +242,18 @@ macro_rules! impl_build_system {
             /// Create a [`FunctionSystem`] from a [`SystemState`].
             /// This method signature allows type inference of closure parameters for a system with no input.
             /// You can use [`SystemState::build_system_with_input()`] if you have input, or [`SystemState::build_any_system()`] if you don't need type inference.
+            #[inline]
             pub fn build_system<
                 InnerOut: IntoResult<Out>,
-                Out: 'static,
+                Out,
                 Marker,
                 F: FnMut($(SystemParamItem<$param>),*) -> InnerOut
-                    + SystemParamFunction<Marker, Param = ($($param,)*), In = (), Out = InnerOut>
+                    + SystemParamFunction<Marker, In = (), Out = InnerOut, Param = ($($param,)*)>
             >
             (
                 self,
                 func: F,
-            ) -> FunctionSystem<Marker, Out, F>
+            ) -> FunctionSystem<Marker, (), Out, F>
             {
                 self.build_any_system(func)
             }
@@ -248,17 +261,20 @@ macro_rules! impl_build_system {
             /// Create a [`FunctionSystem`] from a [`SystemState`].
             /// This method signature allows type inference of closure parameters for a system with input.
             /// You can use [`SystemState::build_system()`] if you have no input, or [`SystemState::build_any_system()`] if you don't need type inference.
+            #[inline]
             pub fn build_system_with_input<
-                Input: SystemInput,
+                InnerIn: SystemInput + FromInput<In>,
+                In: SystemInput,
                 InnerOut: IntoResult<Out>,
-                Out: 'static,
+                Out,
                 Marker,
-                F: FnMut(Input, $(SystemParamItem<$param>),*) -> InnerOut
-                    + SystemParamFunction<Marker, Param = ($($param,)*), In = Input, Out = InnerOut>,
-            >(
+                F: FnMut(InnerIn, $(SystemParamItem<$param>),*) -> InnerOut
+                    + SystemParamFunction<Marker, In = InnerIn, Out = InnerOut, Param = ($($param,)*)>
+            >
+            (
                 self,
                 func: F,
-            ) -> FunctionSystem<Marker, Out, F> {
+            ) -> FunctionSystem<Marker, In, Out, F> {
                 self.build_any_system(func)
             }
         }
@@ -275,6 +291,7 @@ all_tuples!(
 
 impl<Param: SystemParam> SystemState<Param> {
     /// Creates a new [`SystemState`] with default state.
+    #[track_caller]
     pub fn new(world: &mut World) -> Self {
         let mut meta = SystemMeta::new::<Param>();
         meta.last_run = world.change_tick().relative_to(Tick::MAX);
@@ -309,22 +326,20 @@ impl<Param: SystemParam> SystemState<Param> {
     /// Create a [`FunctionSystem`] from a [`SystemState`].
     /// This method signature allows any system function, but the compiler will not perform type inference on closure parameters.
     /// You can use [`SystemState::build_system()`] or [`SystemState::build_system_with_input()`] to get type inference on parameters.
-    pub fn build_any_system<Marker, Out, F>(self, func: F) -> FunctionSystem<Marker, Out, F>
+    #[inline]
+    pub fn build_any_system<Marker, In, Out, F>(self, func: F) -> FunctionSystem<Marker, In, Out, F>
     where
-        F: SystemParamFunction<Marker, Param = Param, Out: IntoResult<Out>>,
+        In: SystemInput,
+        F: SystemParamFunction<Marker, In: FromInput<In>, Out: IntoResult<Out>, Param = Param>,
     {
-        FunctionSystem {
+        FunctionSystem::new(
             func,
-            #[cfg(feature = "hotpatching")]
-            current_ptr: subsecond::HotFn::current(<F as SystemParamFunction<Marker>>::run)
-                .ptr_address(),
-            state: Some(FunctionSystemState {
+            self.meta,
+            Some(FunctionSystemState {
                 param: self.param_state,
                 world_id: self.world_id,
             }),
-            system_meta: self.meta,
-            marker: PhantomData,
-        }
+        )
     }
 
     /// Gets the metadata for this instance.
@@ -353,6 +368,7 @@ impl<Param: SystemParam> SystemState<Param> {
 
     /// Retrieve the mutable [`SystemParam`] values.
     #[inline]
+    #[track_caller]
     pub fn get_mut<'w, 's>(&'s mut self, world: &'w mut World) -> SystemParamItem<'w, 's, Param> {
         self.validate_world(world.id());
         // SAFETY: World is uniquely borrowed and matches the World this SystemState was created with.
@@ -405,58 +421,6 @@ impl<Param: SystemParam> SystemState<Param> {
         }
     }
 
-    /// Has no effect
-    #[inline]
-    #[deprecated(
-        since = "0.17.0",
-        note = "No longer has any effect.  Calls may be removed."
-    )]
-    pub fn update_archetypes(&mut self, _world: &World) {}
-
-    /// Has no effect
-    #[inline]
-    #[deprecated(
-        since = "0.17.0",
-        note = "No longer has any effect.  Calls may be removed."
-    )]
-    pub fn update_archetypes_unsafe_world_cell(&mut self, _world: UnsafeWorldCell) {}
-
-    /// Identical to [`SystemState::get`].
-    #[inline]
-    #[deprecated(since = "0.17.0", note = "Call `SystemState::get` instead.")]
-    pub fn get_manual<'w, 's>(&'s mut self, world: &'w World) -> SystemParamItem<'w, 's, Param>
-    where
-        Param: ReadOnlySystemParam,
-    {
-        self.get(world)
-    }
-
-    /// Identical to [`SystemState::get_mut`].
-    #[inline]
-    #[deprecated(since = "0.17.0", note = "Call `SystemState::get_mut` instead.")]
-    pub fn get_manual_mut<'w, 's>(
-        &'s mut self,
-        world: &'w mut World,
-    ) -> SystemParamItem<'w, 's, Param> {
-        self.get_mut(world)
-    }
-
-    /// Identical to [`SystemState::get_unchecked`].
-    ///
-    /// # Safety
-    /// This call might access any of the input parameters in a way that violates Rust's mutability rules. Make sure the data
-    /// access is safe in the context of global [`World`] access. The passed-in [`World`] _must_ be the [`World`] the [`SystemState`] was
-    /// created with.
-    #[inline]
-    #[deprecated(since = "0.17.0", note = "Call `SystemState::get_unchecked` instead.")]
-    pub unsafe fn get_unchecked_manual<'w, 's>(
-        &'s mut self,
-        world: UnsafeWorldCell<'w>,
-    ) -> SystemParamItem<'w, 's, Param> {
-        // SAFETY: Caller ensures safety requirements
-        unsafe { self.get_unchecked(world) }
-    }
-
     /// Retrieve the [`SystemParam`] values.
     ///
     /// # Safety
@@ -464,6 +428,7 @@ impl<Param: SystemParam> SystemState<Param> {
     /// access is safe in the context of global [`World`] access. The passed-in [`World`] _must_ be the [`World`] the [`SystemState`] was
     /// created with.
     #[inline]
+    #[track_caller]
     pub unsafe fn get_unchecked<'w, 's>(
         &'s mut self,
         world: UnsafeWorldCell<'w>,
@@ -478,6 +443,7 @@ impl<Param: SystemParam> SystemState<Param> {
     /// access is safe in the context of global [`World`] access. The passed-in [`World`] _must_ be the [`World`] the [`SystemState`] was
     /// created with.
     #[inline]
+    #[track_caller]
     unsafe fn fetch<'w, 's>(
         &'s mut self,
         world: UnsafeWorldCell<'w>,
@@ -525,7 +491,7 @@ impl<Param: SystemParam> FromWorld for SystemState<Param> {
 ///
 /// The [`Clone`] implementation for [`FunctionSystem`] returns a new instance which
 /// is NOT initialized. The cloned system must also be `.initialized` before it can be run.
-pub struct FunctionSystem<Marker, Out, F>
+pub struct FunctionSystem<Marker, In, Out, F>
 where
     F: SystemParamFunction<Marker>,
 {
@@ -535,7 +501,7 @@ where
     state: Option<FunctionSystemState<F::Param>>,
     system_meta: SystemMeta,
     // NOTE: PhantomData<fn()-> T> gives this safe Send/Sync impls
-    marker: PhantomData<fn() -> (Marker, Out)>,
+    marker: PhantomData<fn(In) -> (Marker, Out)>,
 }
 
 /// The state of a [`FunctionSystem`], which must be initialized with
@@ -550,10 +516,23 @@ struct FunctionSystemState<P: SystemParam> {
     world_id: WorldId,
 }
 
-impl<Marker, Out, F> FunctionSystem<Marker, Out, F>
+impl<Marker, In, Out, F> FunctionSystem<Marker, In, Out, F>
 where
     F: SystemParamFunction<Marker>,
 {
+    #[inline]
+    fn new(func: F, system_meta: SystemMeta, state: Option<FunctionSystemState<F::Param>>) -> Self {
+        Self {
+            func,
+            #[cfg(feature = "hotpatching")]
+            current_ptr: subsecond::HotFn::current(<F as SystemParamFunction<Marker>>::run)
+                .ptr_address(),
+            state,
+            system_meta,
+            marker: PhantomData,
+        }
+    }
+
     /// Return this system with a new name.
     ///
     /// Useful to give closure systems more readable and unique names for debugging and tracing.
@@ -564,7 +543,7 @@ where
 }
 
 // De-initializes the cloned system.
-impl<Marker, Out, F> Clone for FunctionSystem<Marker, Out, F>
+impl<Marker, In, Out, F> Clone for FunctionSystem<Marker, In, Out, F>
 where
     F: SystemParamFunction<Marker> + Clone,
 {
@@ -585,23 +564,16 @@ where
 #[doc(hidden)]
 pub struct IsFunctionSystem;
 
-impl<Marker, Out, F> IntoSystem<F::In, Out, (IsFunctionSystem, Marker)> for F
+impl<Marker, In, Out, F> IntoSystem<In, Out, (IsFunctionSystem, Marker)> for F
 where
-    Out: 'static,
     Marker: 'static,
-    F: SystemParamFunction<Marker, Out: IntoResult<Out>>,
+    In: SystemInput + 'static,
+    Out: 'static,
+    F: SystemParamFunction<Marker, In: FromInput<In>, Out: IntoResult<Out>>,
 {
-    type System = FunctionSystem<Marker, Out, F>;
+    type System = FunctionSystem<Marker, In, Out, F>;
     fn into_system(func: Self) -> Self::System {
-        FunctionSystem {
-            func,
-            #[cfg(feature = "hotpatching")]
-            current_ptr: subsecond::HotFn::current(<F as SystemParamFunction<Marker>>::run)
-                .ptr_address(),
-            state: None,
-            system_meta: SystemMeta::new::<F>(),
-            marker: PhantomData,
-        }
+        FunctionSystem::new(func, SystemMeta::new::<F>(), None)
     }
 }
 
@@ -646,7 +618,7 @@ impl IntoResult<bool> for Never {
     }
 }
 
-impl<Marker, Out, F> FunctionSystem<Marker, Out, F>
+impl<Marker, In, Out, F> FunctionSystem<Marker, In, Out, F>
 where
     F: SystemParamFunction<Marker>,
 {
@@ -657,13 +629,14 @@ where
         "System's state was not found. Did you forget to initialize this system before running it?";
 }
 
-impl<Marker, Out, F> System for FunctionSystem<Marker, Out, F>
+impl<Marker, In, Out, F> System for FunctionSystem<Marker, In, Out, F>
 where
     Marker: 'static,
+    In: SystemInput + 'static,
     Out: 'static,
-    F: SystemParamFunction<Marker, Out: IntoResult<Out>>,
+    F: SystemParamFunction<Marker, In: FromInput<In>, Out: IntoResult<Out>>,
 {
-    type In = F::In;
+    type In = In;
     type Out = Out;
 
     #[inline]
@@ -686,6 +659,8 @@ where
         let _span_guard = self.system_meta.system_span.enter();
 
         let change_tick = world.increment_change_tick();
+
+        let input = F::In::from_inner(input);
 
         let state = self.state.as_mut().expect(Self::ERROR_UNINITIALIZED);
         assert_eq!(state.world_id, world.id(), "Encountered a mismatched World. A System cannot be used with Worlds other than the one it was initialized with.");
@@ -784,7 +759,7 @@ where
     }
 
     fn default_system_sets(&self) -> Vec<InternedSystemSet> {
-        let set = crate::schedule::SystemTypeSet::<Self>::new();
+        let set = crate::schedule::SystemTypeSet::<F>::new();
         vec![set.intern()]
     }
 
@@ -798,12 +773,17 @@ where
 }
 
 /// SAFETY: `F`'s param is [`ReadOnlySystemParam`], so this system will only read from the world.
-unsafe impl<Marker, Out, F> ReadOnlySystem for FunctionSystem<Marker, Out, F>
+unsafe impl<Marker, In, Out, F> ReadOnlySystem for FunctionSystem<Marker, In, Out, F>
 where
     Marker: 'static,
+    In: SystemInput + 'static,
     Out: 'static,
-    F: SystemParamFunction<Marker, Out: IntoResult<Out>>,
-    F::Param: ReadOnlySystemParam,
+    F: SystemParamFunction<
+        Marker,
+        In: FromInput<In>,
+        Out: IntoResult<Out>,
+        Param: ReadOnlySystemParam,
+    >,
 {
 }
 
@@ -849,8 +829,10 @@ where
 ///     let mut world = World::default();
 ///     world.insert_resource(Message("42".to_string()));
 ///
-///     // pipe the `parse_message_system`'s output into the `filter_system`s input
-///     let mut piped_system = IntoSystem::into_system(pipe(parse_message, filter));
+///     // pipe the `parse_message_system`'s output into the `filter_system`s input.
+///     // Type annotations should only needed when using `StaticSystemInput` as input
+///     // AND the input type isn't constrained by nearby code.
+///     let mut piped_system = IntoSystem::<(), Option<usize>, _>::into_system(pipe(parse_message, filter));
 ///     piped_system.initialize(&mut world);
 ///     assert_eq!(piped_system.run((), &mut world).unwrap(), Some(42));
 /// }

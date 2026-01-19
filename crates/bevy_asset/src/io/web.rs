@@ -1,9 +1,8 @@
-use crate::io::{AssetReader, AssetReaderError, Reader};
-use crate::io::{AssetSource, PathStream};
+use crate::io::{AssetReader, AssetReaderError, AssetSourceBuilder, PathStream, Reader};
 use crate::{AssetApp, AssetPlugin};
-use alloc::{borrow::ToOwned, boxed::Box};
+use alloc::boxed::Box;
 use bevy_app::{App, Plugin};
-use blocking::unblock;
+use bevy_tasks::ConditionalSendFuture;
 use std::path::{Path, PathBuf};
 use tracing::warn;
 
@@ -21,12 +20,12 @@ use tracing::warn;
 /// Example usage:
 ///
 /// ```rust
-/// # use bevy_app::{App, Startup};
-/// # use bevy_ecs::prelude::{Commands, Res};
-/// # use bevy_asset::web::{WebAssetPlugin, AssetServer};
+/// # use bevy_app::{App, Startup, TaskPoolPlugin};
+/// # use bevy_ecs::prelude::{Commands, Component, Res};
+/// # use bevy_asset::{Asset, AssetApp, AssetPlugin, AssetServer, Handle, io::web::WebAssetPlugin};
+/// # use bevy_reflect::TypePath;
 /// # struct DefaultPlugins;
-/// # impl DefaultPlugins { fn set(plugin: WebAssetPlugin) -> WebAssetPlugin { plugin } }
-/// # use bevy_asset::web::AssetServer;
+/// # impl DefaultPlugins { fn set(&self, plugin: WebAssetPlugin) -> WebAssetPlugin { plugin } }
 /// # #[derive(Asset, TypePath, Default)]
 /// # struct Image;
 /// # #[derive(Component)]
@@ -37,6 +36,8 @@ use tracing::warn;
 ///     .add_plugins(DefaultPlugins.set(WebAssetPlugin {
 ///         silence_startup_warning: true,
 ///     }))
+/// #   .add_plugins((TaskPoolPlugin::default(), AssetPlugin::default()))
+/// #   .init_asset::<Image>()
 /// #   .add_systems(Startup, setup).run();
 /// # }
 /// // ...
@@ -61,8 +62,8 @@ pub struct WebAssetPlugin {
 impl Plugin for WebAssetPlugin {
     fn build(&self, app: &mut App) {
         if !self.silence_startup_warning {
-            warn!("WebAssetPlugin is potentially insecure! Make sure to verify asset URLs are safe to load before loading them.\
-            If you promise you know what you're doing, you can silence this warning by setting silence_startup_warning: true\
+            warn!("WebAssetPlugin is potentially insecure! Make sure to verify asset URLs are safe to load before loading them. \
+            If you promise you know what you're doing, you can silence this warning by setting silence_startup_warning: true \
             in the WebAssetPlugin construction.");
         }
         if app.is_plugin_added::<AssetPlugin>() {
@@ -71,16 +72,14 @@ impl Plugin for WebAssetPlugin {
         #[cfg(feature = "http")]
         app.register_asset_source(
             "http",
-            AssetSource::build()
-                .with_reader(move || Box::new(WebAssetReader::Http))
+            AssetSourceBuilder::new(move || Box::new(WebAssetReader::Http))
                 .with_processed_reader(move || Box::new(WebAssetReader::Http)),
         );
 
         #[cfg(feature = "https")]
         app.register_asset_source(
             "https",
-            AssetSource::build()
-                .with_reader(move || Box::new(WebAssetReader::Https))
+            AssetSourceBuilder::new(move || Box::new(WebAssetReader::Https))
                 .with_processed_reader(move || Box::new(WebAssetReader::Https)),
         );
     }
@@ -103,7 +102,7 @@ impl WebAssetReader {
         PathBuf::from(prefix).join(path)
     }
 
-    /// See [`crate::io::get_meta_path`]
+    /// See [`io::get_meta_path`](`crate::io::get_meta_path`)
     fn make_meta_uri(&self, path: &Path) -> PathBuf {
         let meta_path = crate::io::get_meta_path(path);
         self.make_uri(&meta_path)
@@ -123,8 +122,10 @@ async fn get<'a>(path: PathBuf) -> Result<Box<dyn Reader>, AssetReaderError> {
 #[cfg(not(target_arch = "wasm32"))]
 async fn get(path: PathBuf) -> Result<Box<dyn Reader>, AssetReaderError> {
     use crate::io::VecReader;
+    use alloc::{borrow::ToOwned, boxed::Box, vec::Vec};
     use bevy_platform::sync::LazyLock;
-    use std::io;
+    use blocking::unblock;
+    use std::io::{self, BufReader, Read};
 
     let str_path = path.to_str().ok_or_else(|| {
         AssetReaderError::Io(
@@ -149,7 +150,7 @@ async fn get(path: PathBuf) -> Result<Box<dyn Reader>, AssetReaderError> {
         let uri = str_path.to_owned();
         // Use [`unblock`] to run the http request on a separately spawned thread as to not block bevy's
         // async executor.
-        let result = unblock(move || CACHED_AGENT.get(&uri).call()).await.await;
+        let result = unblock(move || CACHED_AGENT.get(&uri).call()).await;
 
         match result {
             Ok(response) => {
@@ -177,12 +178,19 @@ async fn get(path: PathBuf) -> Result<Box<dyn Reader>, AssetReaderError> {
     // Without "web_asset_cache", fall back to plain ureq.
     #[cfg(not(feature = "web_asset_cache"))]
     {
-        use alloc::{boxed::Box, vec::Vec};
-        use std::io::{self, BufReader, Read};
+        use ureq::tls::{RootCerts, TlsConfig};
         use ureq::Agent;
 
-        static AGENT: LazyLock<Agent> =
-            LazyLock::new(|| Agent::config_builder().build().new_agent());
+        static AGENT: LazyLock<Agent> = LazyLock::new(|| {
+            Agent::config_builder()
+                .tls_config(
+                    TlsConfig::builder()
+                        .root_certs(RootCerts::PlatformVerifier)
+                        .build(),
+                )
+                .build()
+                .new_agent()
+        });
 
         let uri = str_path.to_owned();
         // Use [`unblock`] to run the http request on a separately spawned thread as to not block bevy's

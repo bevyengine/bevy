@@ -5,7 +5,7 @@ use crate::{
     ops,
     primitives::{
         Annulus, Arc2d, Capsule2d, Circle, CircularSector, CircularSegment, Ellipse, Line2d,
-        Plane2d, Rectangle, RegularPolygon, Rhombus, Segment2d, Triangle2d,
+        Plane2d, Primitive2d, Rectangle, RegularPolygon, Rhombus, Ring, Segment2d, Triangle2d,
     },
     Dir2, Isometry2d, Mat2, Rot2, Vec2,
 };
@@ -14,7 +14,7 @@ use core::f32::consts::{FRAC_PI_2, PI, TAU};
 #[cfg(feature = "alloc")]
 use crate::primitives::{ConvexPolygon, Polygon, Polyline2d};
 
-use smallvec::SmallVec;
+use arrayvec::ArrayVec;
 
 use super::{Aabb2d, Bounded2d, BoundingCircle};
 
@@ -33,10 +33,10 @@ impl Bounded2d for Circle {
 // Compute the axis-aligned bounding points of a rotated arc, used for computing the AABB of arcs and derived shapes.
 // The return type has room for 7 points so that the CircularSector code can add an additional point.
 #[inline]
-fn arc_bounding_points(arc: Arc2d, rotation: impl Into<Rot2>) -> SmallVec<[Vec2; 7]> {
+fn arc_bounding_points(arc: Arc2d, rotation: impl Into<Rot2>) -> ArrayVec<Vec2, 7> {
     // Otherwise, the extreme points will always be either the endpoints or the axis-aligned extrema of the arc's circle.
     // We need to compute which axis-aligned extrema are actually contained within the rotated arc.
-    let mut bounds = SmallVec::<[Vec2; 7]>::new();
+    let mut bounds = ArrayVec::<Vec2, 7>::new();
     let rotation = rotation.into();
     bounds.push(rotation * arc.left_endpoint());
     bounds.push(rotation * arc.right_endpoint());
@@ -425,6 +425,16 @@ impl Bounded2d for Capsule2d {
     fn bounding_circle(&self, isometry: impl Into<Isometry2d>) -> BoundingCircle {
         let isometry = isometry.into();
         BoundingCircle::new(isometry.translation, self.radius + self.half_length)
+    }
+}
+
+impl<P: Bounded2d + Primitive2d> Bounded2d for Ring<P> {
+    fn aabb_2d(&self, isometry: impl Into<Isometry2d>) -> Aabb2d {
+        self.outer_shape.aabb_2d(isometry)
+    }
+
+    fn bounding_circle(&self, isometry: impl Into<Isometry2d>) -> BoundingCircle {
+        self.outer_shape.bounding_circle(isometry)
     }
 }
 
