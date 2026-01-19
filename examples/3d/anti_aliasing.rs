@@ -66,7 +66,7 @@ type DlssComponents = ();
 
 fn modify_aa(
     keys: Res<ButtonInput<KeyCode>>,
-    supported_msaa_sample_counts: Res<SupportedMsaaSampleCounts>,
+    supported_msaa_list: Res<SupportedMsaaList>,
     #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))] camera: Single<
         (
             Entity,
@@ -122,25 +122,13 @@ fn modify_aa(
 
     // MSAA Sample Count
     if *msaa != Msaa::Off {
-        if keys.just_pressed(KeyCode::KeyQ)
-            && supported_msaa_sample_counts
-                .0
-                .contains(&Msaa::Sample2.samples())
-        {
+        if keys.just_pressed(KeyCode::KeyQ) && supported_msaa_list.0.contains(&Msaa::Sample2) {
             *msaa = Msaa::Sample2;
         }
-        if keys.just_pressed(KeyCode::KeyW)
-            && supported_msaa_sample_counts
-                .0
-                .contains(&Msaa::Sample4.samples())
-        {
+        if keys.just_pressed(KeyCode::KeyW) && supported_msaa_list.0.contains(&Msaa::Sample4) {
             *msaa = Msaa::Sample4;
         }
-        if keys.just_pressed(KeyCode::KeyE)
-            && supported_msaa_sample_counts
-                .0
-                .contains(&Msaa::Sample8.samples())
-        {
+        if keys.just_pressed(KeyCode::KeyE) && supported_msaa_list.0.contains(&Msaa::Sample8) {
             *msaa = Msaa::Sample8;
         }
     }
@@ -317,7 +305,7 @@ fn update_ui(
         With<Camera>,
     >,
     mut ui: Single<&mut Text>,
-    supported_msaa_sample_counts: Res<SupportedMsaaSampleCounts>,
+    supported_msaa_list: Res<SupportedMsaaList>,
     #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))] dlss_supported: Option<
         Res<DlssSuperResolutionSupported>,
     >,
@@ -353,7 +341,7 @@ fn update_ui(
     if *msaa != Msaa::Off {
         ui.push_str("\n----------\n\nSample Count\n");
 
-        for (sample_count, shortcut) in supported_msaa_sample_counts
+        for (supported_msaa, shortcut) in supported_msaa_list
             .0
             .iter()
             .skip(1) // First supported sample count is always '1' (no multisampling), skip it
@@ -361,9 +349,9 @@ fn update_ui(
         {
             draw_selectable_menu_item(
                 ui,
-                sample_count.to_string().as_str(),
+                supported_msaa.samples().to_string().as_str(),
                 shortcut,
-                msaa.samples() == *sample_count,
+                msaa == supported_msaa,
             );
         }
     }
@@ -435,7 +423,7 @@ fn update_ui(
 }
 
 #[derive(Resource)]
-struct SupportedMsaaSampleCounts(Vec<u32>);
+struct SupportedMsaaList(Vec<Msaa>);
 
 /// Set up a simple 3D scene
 fn setup(
@@ -512,13 +500,13 @@ fn setup(
         },
     ));
 
-    // Check for supported MSAA sample counts
-    let supported_msaa_sample_counts = Msaa::supported_samples(&render_adapter);
+    // Check for supported MSAA modes
+    let supported_msaa_list = Msaa::list_supported(&render_adapter);
     info!(
-        "Supported MSAA sample counts on this device: {:?}",
-        supported_msaa_sample_counts
+        "Supported MSAA modes on this device: {:?}",
+        supported_msaa_list
     );
-    commands.insert_resource(SupportedMsaaSampleCounts(supported_msaa_sample_counts));
+    commands.insert_resource(SupportedMsaaList(supported_msaa_list));
 
     // example instructions
     commands.spawn((
