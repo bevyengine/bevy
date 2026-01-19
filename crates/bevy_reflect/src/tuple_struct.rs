@@ -429,10 +429,7 @@ impl<'a> IntoIterator for &'a DynamicTupleStruct {
 ///
 /// Returns [`None`] if the comparison couldn't even be performed.
 #[inline(never)]
-pub fn tuple_struct_partial_eq(
-    a: &dyn TupleStruct,
-    b: &dyn PartialReflect,
-) -> Option<bool> {
+pub fn tuple_struct_partial_eq(a: &dyn TupleStruct, b: &dyn PartialReflect) -> Option<bool> {
     let ReflectRef::TupleStruct(tuple_struct) = b.reflect_ref() else {
         return Some(false);
     };

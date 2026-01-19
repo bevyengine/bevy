@@ -546,10 +546,7 @@ pub fn struct_partial_eq(a: &dyn Struct, b: &dyn PartialReflect) -> Option<bool>
 /// Returns [`None`] if the comparison couldn't be performed (e.g., kinds mismatch
 /// or an element comparison returns `None`).
 #[inline(never)]
-pub fn struct_partial_cmp(
-    a: &dyn Struct,
-    b: &dyn PartialReflect,
-) -> Option<::core::cmp::Ordering> {
+pub fn struct_partial_cmp(a: &dyn Struct, b: &dyn PartialReflect) -> Option<::core::cmp::Ordering> {
     let ReflectRef::Struct(struct_value) = b.reflect_ref() else {
         return None;
     };

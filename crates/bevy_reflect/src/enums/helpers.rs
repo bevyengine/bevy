@@ -21,7 +21,6 @@ pub fn enum_hash(value: &dyn Enum) -> Option<u64> {
     Some(hasher.finish())
 }
 
-
 /// Compares an [`Enum`] with a [`PartialReflect`] value.
 ///
 /// Returns true if and only if all of the following are true:
@@ -96,10 +95,7 @@ pub fn enum_partial_eq(a: &dyn Enum, b: &dyn PartialReflect) -> Option<bool> {
 ///
 /// The ordering is same with `derive` macro. First order by variant index, then by fields.
 #[inline(never)]
-pub fn enum_partial_cmp(
-    a: &dyn Enum,
-    b: &dyn PartialReflect,
-) -> Option<::core::cmp::Ordering> {
+pub fn enum_partial_cmp(a: &dyn Enum, b: &dyn PartialReflect) -> Option<::core::cmp::Ordering> {
     // Both enums?
     let ReflectRef::Enum(b) = b.reflect_ref() else {
         return None;
