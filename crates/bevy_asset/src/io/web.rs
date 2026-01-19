@@ -148,9 +148,8 @@ async fn get(path: PathBuf) -> Result<Box<dyn Reader>, AssetReaderError> {
         });
 
         let uri = str_path.to_owned();
-        // Use [`unblock`] to run the http request on a separately spawned thread as to not block bevy's
-        // async executor.
-        let result = unblock(move || CACHED_AGENT.get(&uri).call()).await;
+        // The http-cache library already handles async execution internally
+        let result = CACHED_AGENT.get(&uri).call().await;
 
         match result {
             Ok(response) => {
