@@ -68,12 +68,10 @@ uuid = { version = "1.13.1", default-features = false, features = [
   "serde",
 ] }
 tracing = { version = "0.1", default-features = false }
+async-io = "2.6"
 
 [target.'cfg(target_os = "android")'.dependencies]
 bevy_android = { path = "../bevy_android", version = "0.19.0-dev", default-features = false }
-
-[target.'cfg(any(target_os = "ios",target_os = "macos"))'.dependencies]
-async-io = "2.6"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 # TODO: Assuming all wasm builds are for the browser. Require `no_std` support to break assumption.

@@ -33,11 +33,6 @@ pub(crate) fn get_base_path() -> PathBuf {
 /// This asset I/O is fully featured but it's not available on `android` and `wasm` targets.
 pub struct FileAssetReader {
     root_path: PathBuf,
-    #[cfg(all(
-        feature = "multi_threaded",
-        any(target_os = "macos", target_os = "ios")
-    ))]
-    open_file_limiter: async_lock::Semaphore,
 }
 
 impl FileAssetReader {
@@ -51,14 +46,7 @@ impl FileAssetReader {
             "Asset Server using {} as its base path.",
             root_path.display()
         );
-        Self {
-            root_path,
-            #[cfg(all(
-                feature = "multi_threaded",
-                any(target_os = "macos", target_os = "ios")
-            ))]
-            open_file_limiter: async_lock::Semaphore::new(128),
-        }
+        Self { root_path }
     }
 
     /// Returns the base path of the assets directory, which is normally the executable's parent
@@ -74,25 +62,6 @@ impl FileAssetReader {
     /// See `get_base_path`.
     pub fn root_path(&self) -> &PathBuf {
         &self.root_path
-    }
-
-    #[cfg(all(
-        feature = "multi_threaded",
-        any(target_os = "macos", target_os = "ios")
-    ))]
-    async fn get_semaphore_with_timeout<'a>(
-        &'a self,
-        timeout: u64,
-    ) -> Option<async_lock::SemaphoreGuard<'a>> {
-        let guard_future = self.open_file_limiter.acquire();
-        let timeout_future = async_io::Timer::after(core::time::Duration::from_millis(timeout));
-        futures_util::pin_mut!(guard_future);
-        futures_util::pin_mut!(timeout_future);
-
-        match futures_util::future::select(guard_future, timeout_future).await {
-            futures_util::future::Either::Left((guard, _)) => Some(guard),
-            futures_util::future::Either::Right((_, _)) => None,
-        }
     }
 }
 

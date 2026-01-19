@@ -3,9 +3,13 @@ use crate::io::{
     Reader, ReaderNotSeekableError, SeekableReader, Writer,
 };
 use async_fs::{read_dir, File};
+use async_io::Timer;
+use async_lock::{Semaphore, SemaphoreGuard};
 use futures_lite::StreamExt;
 
 use alloc::{borrow::ToOwned, boxed::Box};
+use core::time::Duration;
+use futures_util::{future, pin_mut};
 use std::path::Path;
 
 use super::{FileAssetReader, FileAssetWriter};
@@ -17,12 +21,27 @@ impl Reader for File {
 }
 
 #[cfg(any(target_os = "macos", target_os = "ios"))]
-struct GuardedFile<'a> {
-    file: File,
-    _guard: Option<async_lock::SemaphoreGuard<'a>>,
+static OPEN_FILE_LIMITER: Semaphore = Semaphore::new(128);
+#[cfg(not(any(target_os = "macos", target_os = "ios")))]
+static OPEN_FILE_LIMITER: Semaphore = Semaphore::new(512);
+
+async fn maybe_get_semaphore<'a>() -> Option<SemaphoreGuard<'a>> {
+    let guard_future = OPEN_FILE_LIMITER.acquire();
+    let timeout_future = Timer::after(Duration::from_millis(500));
+    pin_mut!(guard_future);
+    pin_mut!(timeout_future);
+
+    match future::select(guard_future, timeout_future).await {
+        future::Either::Left((guard, _)) => Some(guard),
+        future::Either::Right((_, _)) => None,
+    }
 }
 
-#[cfg(any(target_os = "macos", target_os = "ios"))]
+struct GuardedFile<'a> {
+    file: File,
+    _guard: Option<SemaphoreGuard<'a>>,
+}
+
 impl<'a> futures_io::AsyncRead for GuardedFile<'a> {
     fn poll_read(
         mut self: core::pin::Pin<&mut Self>,
@@ -33,7 +52,6 @@ impl<'a> futures_io::AsyncRead for GuardedFile<'a> {
     }
 }
 
-#[cfg(any(target_os = "macos", target_os = "ios"))]
 impl<'a> Reader for GuardedFile<'a> {
     fn seekable(&mut self) -> Result<&mut dyn SeekableReader, ReaderNotSeekableError> {
         self.file.seekable()
@@ -42,42 +60,37 @@ impl<'a> Reader for GuardedFile<'a> {
 
 impl AssetReader for FileAssetReader {
     async fn read<'a>(&'a self, path: &'a Path) -> Result<impl Reader + 'a, AssetReaderError> {
-        #[cfg(any(target_os = "macos", target_os = "ios"))]
-        let _guard = self.get_semaphore_with_timeout(500).await;
+        let _guard = maybe_get_semaphore().await;
 
         let full_path = self.root_path.join(path);
-        let file = File::open(&full_path).await.map_err(|e| {
-            if e.kind() == std::io::ErrorKind::NotFound {
-                AssetReaderError::NotFound(full_path)
-            } else {
-                e.into()
-            }
-        });
-
-        #[cfg(any(target_os = "macos", target_os = "ios"))]
-        let file = file.map(|file| GuardedFile { file, _guard });
-
-        file
+        File::open(&full_path)
+            .await
+            .map_err(|e| {
+                if e.kind() == std::io::ErrorKind::NotFound {
+                    AssetReaderError::NotFound(full_path)
+                } else {
+                    e.into()
+                }
+            })
+            .map(|file| GuardedFile { file, _guard })
     }
 
     async fn read_meta<'a>(&'a self, path: &'a Path) -> Result<impl Reader + 'a, AssetReaderError> {
         #[cfg(any(target_os = "macos", target_os = "ios"))]
-        let _guard = self.get_semaphore_with_timeout(500).await;
+        let _guard = maybe_get_semaphore().await;
 
         let meta_path = get_meta_path(path);
         let full_path = self.root_path.join(meta_path);
-        let file = File::open(&full_path).await.map_err(|e| {
-            if e.kind() == std::io::ErrorKind::NotFound {
-                AssetReaderError::NotFound(full_path)
-            } else {
-                e.into()
-            }
-        });
-
-        #[cfg(any(target_os = "macos", target_os = "ios"))]
-        let file = file.map(|file| GuardedFile { file, _guard });
-
-        file
+        File::open(&full_path)
+            .await
+            .map_err(|e| {
+                if e.kind() == std::io::ErrorKind::NotFound {
+                    AssetReaderError::NotFound(full_path)
+                } else {
+                    e.into()
+                }
+            })
+            .map(|file| GuardedFile { file, _guard })
     }
 
     async fn read_directory<'a>(
