@@ -68,6 +68,8 @@ uuid = { version = "1.13.1", default-features = false, features = [
   "serde",
 ] }
 tracing = { version = "0.1", default-features = false }
+
+[target.'cfg(not(target_os = "windows"))'.dependencies]
 async-io = "2.6"
 
 [target.'cfg(target_os = "android")'.dependencies]
