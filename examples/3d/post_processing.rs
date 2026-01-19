@@ -24,12 +24,17 @@ const MAX_CHROMATIC_ABERRATION_INTENSITY: f32 = 0.4;
 /// The settings that the user can control.
 #[derive(Resource)]
 struct AppSettings {
+    /// The index of the currently selected UI item.
     selected: usize,
     /// The intensity of the chromatic aberration effect.
     chromatic_aberration_intensity: f32,
+    /// The intensity of the vignette effect.
     vignette_intensity: f32,
+    /// The radius of the vignette.
     vignette_radius: f32,
+    /// The smoothness of the vignette.
     vignette_smoothness: f32,
+    /// The roundness of the vignette.
     vignette_roundness: f32,
 }
 

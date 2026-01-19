@@ -283,9 +283,9 @@ impl ViewNode for PostProcessingNode {
         >,
         world: &'w World,
     ) -> Result<(), NodeRunError> {
-        let (chromatic_aberration_opt, vignette_opt) = post_effects;
+        let (maybe_chromatic_aberration, maybe_vignette) = post_effects;
 
-        if chromatic_aberration_opt.is_none() && vignette_opt.is_none() {
+        if maybe_chromatic_aberration.is_none() && maybe_vignette.is_none() {
             return Ok(());
         }
 
@@ -300,9 +300,8 @@ impl ViewNode for PostProcessingNode {
             return Ok(());
         };
 
-        // We need the chromatic aberration LUT to be present
         let Some(chromatic_aberration_lut) = gpu_image_assets.get(
-            chromatic_aberration_opt
+            maybe_chromatic_aberration
                 .and_then(|ca| ca.color_lut.as_ref())
                 .unwrap_or(&default_lut.0),
         ) else {
@@ -420,9 +419,9 @@ pub fn prepare_post_processing_uniforms(
     post_processing_uniform_buffers.vignette.clear();
 
     // Gather up all the postprocessing settings.
-    for (view_entity, chromatic_aberration_opt, vignette_opt) in views.iter_mut() {
+    for (view_entity, maybe_chromatic_aberration, maybe_vignette) in views.iter_mut() {
         let chromatic_aberration_uniform_buffer_offset =
-            if let Some(chromatic_aberration) = chromatic_aberration_opt {
+            if let Some(chromatic_aberration) = maybe_chromatic_aberration {
                 post_processing_uniform_buffers.chromatic_aberration.push(
                     &ChromaticAberrationUniform {
                         intensity: chromatic_aberration.intensity,
@@ -437,7 +436,7 @@ pub fn prepare_post_processing_uniforms(
                     .push(&ChromaticAberrationUniform::default())
             };
 
-        let vignette_uniform_buffer_offset = if let Some(vignette) = vignette_opt {
+        let vignette_uniform_buffer_offset = if let Some(vignette) = maybe_vignette {
             post_processing_uniform_buffers
                 .vignette
                 .push(&VignetteUniform {

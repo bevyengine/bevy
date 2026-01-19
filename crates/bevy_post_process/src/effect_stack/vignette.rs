@@ -52,7 +52,7 @@ pub struct Vignette {
     pub radius: f32,
     /// The softness of the edge between the clear and dark areas.
     ///
-    /// Range: `0.01` (Sharp edge) to `1.0` (Very soft edge)
+    /// Range: `0.01` (Sharp edge) to `1.0+` (Very soft edge)
     ///
     /// The default value is 0.50
     pub smoothness: f32,

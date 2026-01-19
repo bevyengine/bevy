@@ -21,14 +21,14 @@ struct VignetteSettings {
 @group(0) @binding(5) var<uniform> vignette_settings: VignetteSettings;
 
 fn vignette(uv: vec2<f32>, color: vec3<f32>) -> vec3<f32> {
-    let intensity = clamp(vignette_settings.intensity, 0.0, 1.0);
+    let intensity = saturate(vignette_settings.intensity);
     let radius = max(vignette_settings.radius, 0.0);
     let smoothness = max(vignette_settings.smoothness, 0.0);
     let roundness = max(vignette_settings.roundness, 0.001);
 
     // Get the screen resolution.
     let dims = textureDimensions(source_texture);
-    let resolution = vec2<f32>(f32(dims.x), f32(dims.y));
+    let resolution = vec2<f32>(dims.xy);
 
     // Calculate the aspect ratio.
     //
