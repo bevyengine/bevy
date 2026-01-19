@@ -198,6 +198,11 @@ impl Msaa {
         }
     }
 
+    /// Creates `Msaa` with the highest sample count supported by `render_adapter`.
+    pub fn max_supported(render_adapter: &RenderAdapter) -> Self {
+        Self::from_samples(*Self::supported_samples(render_adapter).last().unwrap_or(&1))
+    }
+
     /// Returns a non-empty list of supported `Msaa` sample counts by `render_adapter`, in increasing order.
     pub fn supported_samples(render_adapter: &RenderAdapter) -> Vec<u32> {
         // While max. sample count is defined on the device level in the underlying graphics APIs, for some reason
