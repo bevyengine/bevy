@@ -49,6 +49,18 @@ use tracing::debug;
 /// support.
 pub const DEPTH_PYRAMID_MIP_COUNT: usize = 12;
 
+/// Produces a hierarchical Z-buffer (depth pyramid) for occlusion culling.
+///
+/// This runs the single-pass downsampling (SPD) shader with the *min* filter in
+/// order to generate a series of mipmaps for the Z buffer. The resulting
+/// hierarchical Z-buffer can be used for occlusion culling.
+///
+/// The *early* downsample depth pass is the first hierarchical Z-buffer stage,
+/// which runs after the early prepass and before the late prepass. It prepares
+/// the Z-buffer for the bounding box tests that the late mesh preprocessing
+/// stage will perform.
+///
+/// This system won't do anything if occlusion culling isn't on.
 pub fn early_downsample_depth(
     view: ViewQuery<(
         &ViewDepthPyramid,
@@ -113,6 +125,17 @@ pub fn early_downsample_depth(
     }
 }
 
+/// Produces a hierarchical Z-buffer (depth pyramid) for occlusion culling.
+///
+/// This runs the single-pass downsampling (SPD) shader with the *min* filter in
+/// order to generate a series of mipmaps for the Z buffer. The resulting
+/// hierarchical Z-buffer can be used for occlusion culling.
+///
+/// The *late* downsample depth pass runs at the end of the main phase. It
+/// prepares the Z-buffer for the occlusion culling that the early mesh
+/// preprocessing phase of the *next* frame will perform.
+///
+/// This system won't do anything if occlusion culling isn't on.
 pub fn late_downsample_depth(
     view: ViewQuery<(
         &ViewDepthPyramid,
