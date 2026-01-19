@@ -200,17 +200,20 @@ impl Msaa {
 
     /// Creates `Msaa` with the highest sample count supported by `render_adapter`.
     pub fn max_supported(render_adapter: &RenderAdapter) -> Self {
-        Self::from_samples(*Self::supported_samples(render_adapter).last().unwrap_or(&1))
+        *Self::list_supported(render_adapter).last().unwrap()
     }
 
-    /// Returns a non-empty list of supported `Msaa` sample counts by `render_adapter`, in increasing order.
-    pub fn supported_samples(render_adapter: &RenderAdapter) -> Vec<u32> {
+    /// Returns a non-empty list of supported `Msaa` modes by `render_adapter`, in increasing order of sample counts.
+    pub fn list_supported(render_adapter: &RenderAdapter) -> Vec<Self> {
         // While max. sample count is defined on the device level in the underlying graphics APIs, for some reason
         // WebGPU ties it to texture formats, so we pass the default one here for the query.
         render_adapter
             .get_texture_format_features(TextureFormat::bevy_default())
             .flags
             .supported_sample_counts()
+            .into_iter()
+            .map(Self::from_samples)
+            .collect()
     }
 }
 
