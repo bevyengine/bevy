@@ -248,8 +248,8 @@ pub fn despawn() -> impl EntityCommand {
 }
 
 /// An [`EntityCommand`] that creates an [`Observer`](crate::observer::Observer)
-/// watching for an [`EntityEvent`] of type `E` whose [`EntityEvent::event_target`]
-/// targets this entity.
+/// watching for an [`EntityEvent`](crate::event::EntityEvent) of type `E` whose
+/// [`event_target`](crate::event::EntityEvent::event_target) targets this entity.
 ///
 /// Accepts any type that implements [`IntoEntityObserver`], including:
 /// - Observer systems (closures or functions implementing [`IntoObserverSystem`](crate::system::IntoObserverSystem))

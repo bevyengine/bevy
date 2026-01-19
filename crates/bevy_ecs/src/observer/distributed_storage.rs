@@ -14,19 +14,17 @@ use core::any::Any;
 use core::marker::PhantomData;
 
 use crate::{
-    bundle::Bundle,
-    component::{Component, ComponentCloneBehavior, ComponentId, Mutable, StorageType},
-    entity::Entity,
-    error::{BevyError, ErrorContext, ErrorHandler},
-    event::{EntityEvent, Event, EventKey},
+    component::{ComponentCloneBehavior, ComponentId, Mutable, StorageType},
+    error::{ErrorContext, ErrorHandler},
+    event::EventKey,
     lifecycle::{ComponentHook, HookContext},
     observer::{
         condition::{ObserverCondition, ObserverWithCondition, ObserverWithConditionMarker},
         observer_system_runner, ObserverRunner,
     },
-    schedule::SystemCondition,
-    system::{IntoObserverSystem, IntoSystem, ObserverSystem, System},
-    world::{DeferredWorld, World},
+    prelude::*,
+    system::{IntoObserverSystem, ObserverSystem},
+    world::DeferredWorld,
 };
 use alloc::boxed::Box;
 use alloc::vec::Vec;

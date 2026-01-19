@@ -1159,7 +1159,7 @@ impl<'w, 's> Commands<'w, 's> {
         self.queue(command::trigger_with(event, trigger));
     }
 
-    /// Spawns an [`Observer`] and returns the [`EntityCommands`] associated
+    /// Spawns an [`Observer`](crate::observer::Observer) and returns the [`EntityCommands`] associated
     /// with the entity that stores the observer.
     ///
     /// `observer` can be any system whose first parameter is [`On`].
