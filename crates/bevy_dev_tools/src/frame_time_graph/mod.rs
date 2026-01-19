@@ -8,7 +8,7 @@ use bevy_math::ops::log2;
 use bevy_reflect::TypePath;
 use bevy_render::{
     render_resource::{AsBindGroup, ShaderType},
-    storage::ShaderStorageBuffer,
+    storage::ShaderBuffer,
 };
 use bevy_shader::{Shader, ShaderRef};
 use bevy_ui_render::prelude::{UiMaterial, UiMaterialPlugin};
@@ -77,7 +77,7 @@ pub struct FrametimeGraphMaterial {
     ///
     /// This should be updated every frame to match the frame time history from the [`DiagnosticsStore`]
     #[storage(0, read_only)]
-    pub values: Handle<ShaderStorageBuffer>, // Vec<f32>,
+    pub values: Handle<ShaderBuffer>, // Vec<f32>,
     /// The configuration values used by the shader to control how the graph is rendered
     #[uniform(1)]
     pub config: FrameTimeGraphConfigUniform,
@@ -92,7 +92,7 @@ impl UiMaterial for FrametimeGraphMaterial {
 /// A system that updates the frame time values sent to the frame time graph
 fn update_frame_time_values(
     mut frame_time_graph_materials: ResMut<Assets<FrametimeGraphMaterial>>,
-    mut buffers: ResMut<Assets<ShaderStorageBuffer>>,
+    mut buffers: ResMut<Assets<ShaderBuffer>>,
     diagnostics_store: Res<DiagnosticsStore>,
     config: Option<Res<FpsOverlayConfig>>,
 ) {
