@@ -573,7 +573,8 @@ pub fn solari_lighting(
         Some(di_spatial_and_shade_pipeline),
         Some(gi_initial_and_temporal_pipeline),
         Some(gi_spatial_and_shade_pipeline),
-        Some(specular_gi_pipeline),
+        Some(specular_gi_pipeline_regular),
+        Some(specular_gi_pipeline_with_psr),
         Some(scene_bind_group),
         Some(gbuffer),
         Some(depth_buffer),
@@ -597,6 +598,7 @@ pub fn solari_lighting(
         pipeline_cache.get_compute_pipeline(pipelines.gi_initial_and_temporal_pipeline),
         pipeline_cache.get_compute_pipeline(pipelines.gi_spatial_and_shade_pipeline),
         pipeline_cache.get_compute_pipeline(pipelines.specular_gi_pipeline),
+        pipeline_cache.get_compute_pipeline(pipelines.specular_gi_with_psr_pipeline),
         &scene_bindings.bind_group,
         view_prepass_textures.deferred_view(),
         view_prepass_textures.depth_view(),
@@ -608,6 +610,12 @@ pub fn solari_lighting(
     )
     else {
         return;
+    };
+
+    let specular_gi_pipeline = if view_dlss_rr_textures.is_some() {
+        specular_gi_pipeline_with_psr
+    } else {
+        specular_gi_pipeline_regular
     };
 
     let Some(resolve_dlss_rr_textures_pipeline) =
