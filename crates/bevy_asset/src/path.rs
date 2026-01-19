@@ -2,6 +2,7 @@ use crate::io::AssetSourceId;
 use alloc::{
     borrow::ToOwned,
     string::{String, ToString},
+    vec::Vec,
 };
 use atomicow::CowArc;
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
@@ -451,36 +452,34 @@ impl<'a> AssetPath<'a> {
         rpath: &Path,
         rlabel: Option<&str>,
     ) -> AssetPath<'static> {
-        let mut base_path = PathBuf::from(self.path());
-        if replace && !self.path.to_str().unwrap().ends_with('/') {
-            // No error if base is empty (per RFC 1808).
-            base_path.pop();
-        }
-
-        // Strip off leading slash
-        let mut is_absolute = false;
-        let rpath = match rpath.strip_prefix("/") {
-            Ok(p) => {
-                is_absolute = true;
-                p
-            }
-            _ => rpath,
-        };
-
-        let mut result_path = if !is_absolute && source.is_none() {
-            base_path
+        let base_str = self.path().to_str().expect("asset path must be valid UTF-8");
+        let base_trailing_slash = base_str.ends_with('/');
+        let rpath_str = rpath.to_str().expect("asset path must be valid UTF-8");
+        let rpath_is_rooted = rpath_str.starts_with('/');
+        let rpath_str = if rpath_is_rooted {
+            rpath_str.strip_prefix('/').unwrap_or(rpath_str)
         } else {
-            PathBuf::new()
+            rpath_str
         };
-        result_path.push(rpath);
-        result_path = normalize_path(result_path.as_path());
+
+        let resolved = if source.is_some() {
+            join_and_normalize_asset_path("", false, rpath_str, true, replace)
+        } else {
+            join_and_normalize_asset_path(
+                base_str,
+                base_trailing_slash,
+                rpath_str,
+                rpath_is_rooted,
+                replace,
+            )
+        };
 
         AssetPath {
             source: match source {
                 Some(source) => AssetSourceId::Name(CowArc::Owned(source.into())),
                 None => self.source.clone_owned(),
             },
-            path: CowArc::Owned(result_path.into()),
+            path: CowArc::Owned(PathBuf::from(resolved).into()),
             label: rlabel.map(|l| CowArc::Owned(l.into())),
         }
     }
@@ -678,8 +677,43 @@ impl<'de> Visitor<'de> for AssetPathVisitor {
     }
 }
 
-/// Normalizes the path by collapsing all occurrences of '.' and '..' dot-segments where possible
+/*
+function that splits only on /, and returns (bool, Vec<&str>):
+bool = path starts with /
+Vec<&str> = segments between / (define once whether you keep or drop "" from // or trailing / and stick to it)
+*/
+
+pub fn split_asset_path_segments(path_str: &str) -> (bool, Vec<&str>) {
+    let is_rooted = path_str.starts_with('/');
+    let to_split = path_str.strip_prefix('/').unwrap_or(path_str);
+    let segments: Vec<&str> = to_split.split('/').collect();
+    (is_rooted, segments)
+}
+
+/// Normalizes segments by applying '.' and '..' rules
 /// as per [RFC 1808](https://datatracker.ietf.org/doc/html/rfc1808)
+/// 'is_rooted' is reserved for future use (e.g. forbidding '..' above root). current behavior matches 'normalize_path'.
+pub(crate) fn normalize_asset_path_segments(segments: &[&str], _is_rooted: bool) -> Vec<String> {
+    let mut result = Vec::new();
+    for segment in segments {
+        if *segment == "." {
+            // Skip
+        } else if *segment == ".." {
+            // Pop the last segment if it exists and is not "..", otherwise preserve ".." (underflow).
+            if !result.is_empty() && result.last().unwrap() != ".." {
+                result.pop();
+            } else {
+                result.push("..".to_string());
+            }
+        } else {
+            result.push(segment.to_string());
+        }
+    }
+    result
+}
+
+/// Check normalize_asset_path_segments above for the implementation of this function.
+#[allow(dead_code)]
 pub(crate) fn normalize_path(path: &Path) -> PathBuf {
     let mut result_path = PathBuf::new();
     for elt in path.iter() {
@@ -703,10 +737,58 @@ pub(crate) fn normalize_path(path: &Path) -> PathBuf {
     result_path
 }
 
+/// Joins 'base_str' and 'rpath_str' then normalizes. Used by 'resolve_from_parts'.
+/// - 'rpath_is_rooted': if true, base is ignored and the result is rooted.
+/// - 'replace': if true (resolve_embed), drop the last base segment unless 'base_trailing_slash'.
+/// - 'rpath_str' must already have a leading '/' stripped when 'rpath_is_rooted' is true.
+pub(crate) fn join_and_normalize_asset_path(
+    base_str: &str,
+    base_trailing_slash: bool,
+    rpath_str: &str,
+    rpath_is_rooted: bool,
+    replace: bool,
+) -> String {
+    if rpath_is_rooted {
+        let (_, rpath_segments) = split_asset_path_segments(rpath_str);
+        let normalized = normalize_asset_path_segments(&rpath_segments, true);
+        return normalized.join("/");
+    }
+
+    let (base_rooted, mut base_segments) = split_asset_path_segments(base_str);
+    while base_segments.last() == Some(&"") {
+        base_segments.pop();
+    }
+    let (_, rpath_segments) = split_asset_path_segments(rpath_str);
+
+    let base_use: &[&str] = if replace && !base_trailing_slash && !base_segments.is_empty() {
+        let n = base_segments.len() - 1;
+        &base_segments[..n]
+    } else {
+        &base_segments[..]
+    };
+
+    let mut combined = Vec::new();
+    combined.extend(base_use);
+    combined.extend(rpath_segments.iter().copied());
+
+    let normalized = normalize_asset_path_segments(&combined, base_rooted);
+    let joined = normalized.join("/");
+
+    if base_rooted {
+        "/".to_string() + &joined
+    } else {
+        joined
+    }
+}
+
 #[cfg(test)]
 mod tests {
+    use super::join_and_normalize_asset_path;
+    use super::normalize_asset_path_segments;
+    use super::split_asset_path_segments;
     use crate::AssetPath;
     use alloc::string::ToString;
+    use alloc::vec;
     use std::path::Path;
 
     #[test]
@@ -1249,6 +1331,102 @@ mod tests {
             base.resolve(&AssetPath::parse("c.bin")),
             AssetPath::from("../../a/b.gltf/c.bin")
         );
+    }
+
+    /*
+    "a/b" -> (false, ["a", "b"])
+    "/a/b" -> (true, ["a", "b"])
+    "C:file" -> (false, ["C:file"]) (no split on :)
+    "a\\b" -> (false, ["a\\b"]) (no split on \)
+    "a//b" -> ["a","","b"]
+    */
+
+    #[test]
+    fn test_split_asset_path_segments() {
+        assert_eq!(split_asset_path_segments("a/b"), (false, vec!["a", "b"]));
+        assert_eq!(split_asset_path_segments("/a/b"), (true, vec!["a", "b"]));
+        assert_eq!(split_asset_path_segments("C:file"), (false, vec!["C:file"]));
+        assert_eq!(split_asset_path_segments("a\\b"), (false, vec!["a\\b"]));
+        assert_eq!(split_asset_path_segments("a//b"), (false, vec!["a", "", "b"]));
+    }
+
+    #[test]
+    fn test_normalize_asset_path_segments() {
+        assert_eq!(normalize_asset_path_segments(&["a", ".", "b"], false), vec!["a", "b"]);
+        assert_eq!(normalize_asset_path_segments(&["a", "..", "b"], false), vec!["b"]);
+        assert_eq!(normalize_asset_path_segments(&["a", "b", ".."], false), vec!["a"]);
+        assert_eq!(normalize_asset_path_segments(&["..", "a"], false), vec!["..", "a"]);
+        assert!(normalize_asset_path_segments(&["a", ".."], true).is_empty());
+        assert_eq!(normalize_asset_path_segments(&["a", "b", ".."], true), vec!["a"]);
+    }
+
+    #[test]
+    fn test_join_and_normalize_asset_path() {
+        assert_eq!(
+            join_and_normalize_asset_path("a/b", false, "c", false, false),
+            "a/b/c"
+        );
+        assert_eq!(
+            join_and_normalize_asset_path("a/b", false, "c", false, true),
+            "a/c"
+        );
+        assert_eq!(
+            join_and_normalize_asset_path("a/b/", true, "c", false, true),
+            "a/b/c"
+        );
+        assert_eq!(
+            join_and_normalize_asset_path("a/b", false, "x", true, false),
+            "x"
+        );
+    }
+
+    //Regression tests: segment-based resolver (no PathBuf)
+
+    #[test]
+    fn test_resolve_colon_in_segment() {
+        // "C:" and "a:b" are normal segments, not drive or scheme.
+        let base = AssetPath::parse("a/b");
+        let resolved = base.resolve_str("C:file").unwrap();
+        assert_eq!(resolved.path().to_str().unwrap(), "a/b/C:file");
+
+        let resolved = base.resolve_str("a:b").unwrap();
+        assert_eq!(resolved.path().to_str().unwrap(), "a/b/a:b");
+    }
+
+    #[test]
+    fn test_resolve_backslash_in_segment() {
+        // Backslash is not a separator at the asset-path layer.
+        let base = AssetPath::parse("a/b");
+        let resolved = base.resolve_str(r"x\y").unwrap();
+        assert_eq!(resolved.path().to_str().unwrap(), r"a/b/x\y");
+
+        let resolved = base.resolve_str(r"x\y/z").unwrap();
+        assert_eq!(resolved.path().to_str().unwrap(), r"a/b/x\y/z");
+    }
+
+    #[test]
+    fn test_resolve_rooted_dotdot() {
+        // Rooted base: ".." does not escape above root; we pop when possible.
+        let base = AssetPath::parse("/a/b");
+        assert_eq!(
+            base.resolve_str("../c").unwrap(),
+            AssetPath::from("/a/c")
+        );
+
+        // "/a" + "../b": ".." pops "a" -> root, then "b" -> "/b".
+        let base = AssetPath::parse("/a");
+        assert_eq!(
+            base.resolve_str("../b").unwrap(),
+            AssetPath::from("/b")
+        );
+    }
+
+    #[test]
+    fn test_resolve_multiple_slashes() {
+        // "a//b" preserves the empty segment.
+        let base = AssetPath::parse("x");
+        let resolved = base.resolve_str("a//b").unwrap();
+        assert_eq!(resolved.path().to_str().unwrap(), "x/a//b");
     }
 
     #[test]
