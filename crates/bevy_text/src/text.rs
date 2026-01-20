@@ -470,20 +470,6 @@ pub enum FontSize {
     Rem(f32),
 }
 
-impl PartialEq for FontSize {
-    fn eq(&self, other: &Self) -> bool {
-        match (*self, *other) {
-            (Self::Px(l), Self::Px(r))
-            | (Self::Vw(l), Self::Vw(r))
-            | (Self::Vh(l), Self::Vh(r))
-            | (Self::VMin(l), Self::VMin(r))
-            | (Self::VMax(l), Self::VMax(r))
-            | (Self::Rem(l), Self::Rem(r)) => l == r,
-            _ => false,
-        }
-    }
-}
-
 impl FontSize {
     /// Evaluate the font size to a value in logical pixels
     pub fn eval(
@@ -501,6 +487,43 @@ impl FontSize {
             FontSize::VMax(s) => logical_viewport_size.max_element() * s / 100.,
             FontSize::Rem(s) => rem_size * s,
         }
+    }
+}
+
+impl PartialEq for FontSize {
+    fn eq(&self, other: &Self) -> bool {
+        match (*self, *other) {
+            (Self::Px(l), Self::Px(r))
+            | (Self::Vw(l), Self::Vw(r))
+            | (Self::Vh(l), Self::Vh(r))
+            | (Self::VMin(l), Self::VMin(r))
+            | (Self::VMax(l), Self::VMax(r))
+            | (Self::Rem(l), Self::Rem(r)) => l == r,
+            _ => false,
+        }
+    }
+}
+
+impl core::ops::Mul<f32> for FontSize {
+    type Output = FontSize;
+
+    fn mul(self, rhs: f32) -> Self::Output {
+        match self {
+            FontSize::Px(v) => FontSize::Px(v * rhs),
+            FontSize::Vw(v) => FontSize::Vw(v * rhs),
+            FontSize::Vh(v) => FontSize::Vh(v * rhs),
+            FontSize::VMin(v) => FontSize::VMin(v * rhs),
+            FontSize::VMax(v) => FontSize::VMax(v * rhs),
+            FontSize::Rem(v) => FontSize::Rem(v * rhs),
+        }
+    }
+}
+
+impl core::ops::Mul<FontSize> for f32 {
+    type Output = FontSize;
+
+    fn mul(self, rhs: FontSize) -> Self::Output {
+        rhs * self
     }
 }
 
