@@ -11,16 +11,16 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{extract_component::ExtractComponent, render_resource::ShaderType};
 
 /// The default vignette intensity amount.
-const DEFAULT_VIGNETTE_INTENSITY: f32 = 0.50;
+const DEFAULT_VIGNETTE_INTENSITY: f32 = 1.00;
 
 /// The default vignette radius amount.
-const DEFAULT_VIGNETTE_RADIUS: f32 = 1.00;
+const DEFAULT_VIGNETTE_RADIUS: f32 = 0.75;
 
 /// The default vignette smoothness amount.
-const DEFAULT_VIGNETTE_SMOOTHNESS: f32 = 0.50;
+const DEFAULT_VIGNETTE_SMOOTHNESS: f32 = 5.0;
 
 /// The default vignette roundness amount.
-const DEFAULT_VIGNETTE_ROUNDNESS: f32 = 0.75;
+const DEFAULT_VIGNETTE_ROUNDNESS: f32 = 1.00;
 
 /// Adds a gradual shading effect to the edges of the screen, drawing focus
 /// towards the center.
@@ -62,12 +62,6 @@ pub struct Vignette {
     ///
     /// The default value is 0.75
     pub roundness: f32,
-    /// The color of the vignette.
-    ///
-    /// Typically black for standard darkening, but can be any color for creative effects.
-    ///
-    /// The default value is `Color::BLACK`
-    pub color: Color,
     /// The center of the vignette in UV coordinates (0.0 to 1.0).
     ///
     /// `(0.5, 0.5)` is the exact center of the screen.
@@ -75,6 +69,13 @@ pub struct Vignette {
     ///
     /// The default value is `Vec2::new(0.5, 0.5)`
     pub center: Vec2,
+    pub edge_compensation: f32,
+    /// The color of the vignette.
+    ///
+    /// Typically black for standard darkening, but can be any color for creative effects.
+    ///
+    /// The default value is `Color::BLACK`
+    pub color: Color,
 }
 
 impl Default for Vignette {
@@ -85,6 +86,7 @@ impl Default for Vignette {
             smoothness: DEFAULT_VIGNETTE_SMOOTHNESS,
             roundness: DEFAULT_VIGNETTE_ROUNDNESS,
             color: Color::BLACK,
+            edge_compensation: 1.0,
             center: Vec2::new(0.5, 0.5),
         }
     }
@@ -118,7 +120,7 @@ pub struct VignetteUniform {
     /// The shape of the vignette.
     pub(super) roundness: f32,
     pub(super) center: Vec2,
-    pub(super) unused_1: u32,
-    pub(super) unused_2: u32,
+    pub(super) edge_compensation: f32,
+    pub(super) unused: u32,
     pub(super) color: Vec4,
 }

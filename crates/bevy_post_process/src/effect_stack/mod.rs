@@ -445,8 +445,8 @@ pub fn prepare_post_processing_uniforms(
                     smoothness: vignette.smoothness,
                     roundness: vignette.roundness,
                     center: vignette.center,
-                    unused_1: 0,
-                    unused_2: 0,
+                    edge_compensation: vignette.edge_compensation,
+                    unused: 0,
                     color: vignette.color.to_srgba().to_vec4(),
                 })
         } else {

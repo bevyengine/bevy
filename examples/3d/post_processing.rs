@@ -16,7 +16,7 @@ use bevy::{
 
 /// The number of units per frame to add to or subtract from intensity when the
 /// arrow keys are held.
-const ADJUSTMENT_SPEED: f32 = 0.002;
+const ADJUSTMENT_SPEED: f32 = 0.005;
 
 /// The maximum supported chromatic aberration intensity level.
 const MAX_CHROMATIC_ABERRATION_INTENSITY: f32 = 0.4;
@@ -36,6 +36,7 @@ struct AppSettings {
     vignette_smoothness: f32,
     /// The roundness of the vignette.
     vignette_roundness: f32,
+    vignette_edge_compensation: f32,
 }
 
 /// The entry point.
@@ -152,6 +153,7 @@ impl Default for AppSettings {
             vignette_radius: vignette_default.radius,
             vignette_smoothness: vignette_default.smoothness,
             vignette_roundness: vignette_default.roundness,
+            vignette_edge_compensation: vignette_default.edge_compensation,
         }
     }
 }
@@ -160,7 +162,7 @@ impl Default for AppSettings {
 fn handle_keyboard_input(mut app_settings: ResMut<AppSettings>, input: Res<ButtonInput<KeyCode>>) {
     if input.just_pressed(KeyCode::ArrowUp) && app_settings.selected > 0 {
         app_settings.selected -= 1;
-    } else if input.just_pressed(KeyCode::ArrowDown) && app_settings.selected < 4 {
+    } else if input.just_pressed(KeyCode::ArrowDown) && app_settings.selected < 6 {
         app_settings.selected += 1;
     }
 
@@ -188,12 +190,12 @@ fn handle_keyboard_input(mut app_settings: ResMut<AppSettings>, input: Res<Butto
         }
         2 => app_settings.vignette_radius = (app_settings.vignette_radius + delta).clamp(0.0, 2.0),
         3 => {
-            app_settings.vignette_smoothness =
-                (app_settings.vignette_smoothness + delta).clamp(0.01, 1.0);
+            app_settings.vignette_smoothness = (app_settings.vignette_smoothness + delta).max(0.01)
         }
-        4 => {
-            app_settings.vignette_roundness =
-                (app_settings.vignette_roundness + delta).clamp(0.5, 1.0);
+        4 => app_settings.vignette_roundness = (app_settings.vignette_roundness + delta).max(0.01),
+        5 => {
+            app_settings.vignette_edge_compensation =
+                (app_settings.vignette_edge_compensation + delta).clamp(0.0, 1.0)
         }
         _ => {}
     }
@@ -226,6 +228,7 @@ fn update_chromatic_aberration_settings(
         vignette.radius = app_settings.vignette_radius;
         vignette.smoothness = app_settings.vignette_smoothness;
         vignette.roundness = app_settings.vignette_roundness;
+        vignette.edge_compensation = app_settings.vignette_edge_compensation;
     }
 }
 
@@ -233,6 +236,7 @@ fn update_chromatic_aberration_settings(
 /// [`AppSettings`].
 fn update_help_text(mut text: Single<&mut Text>, app_settings: Res<AppSettings>) {
     text.clear();
+    //let vignette_mode_list = ["Cosine Fourth Law", "Higher-order Powers", "Smoothstep"];
     let text_list = [
         format!(
             "Chromatic aberration intensity: {:.2}\n",
@@ -250,6 +254,10 @@ fn update_help_text(mut text: Single<&mut Text>, app_settings: Res<AppSettings>)
         format!(
             "Vignette roundness: {:.2}\n",
             app_settings.vignette_roundness
+        ),
+        format!(
+            "Vignette edge_compensation: {:.2}\n",
+            app_settings.vignette_edge_compensation
         ),
     ];
     for (i, val) in text_list.iter().enumerate() {
