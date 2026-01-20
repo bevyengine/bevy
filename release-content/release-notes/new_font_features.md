@@ -9,7 +9,7 @@ pull_requests: [22156]
 ```rust
 pub struct TextFont {
     pub font: FontSource,
-    pub font_size: f32,
+    pub font_size: FontSize,
     pub weight: FontWeight,
     pub width: FontWidth,
     pub style: FontStyle,
@@ -31,3 +31,5 @@ font_system.db_mut().load_system_fonts()
 ```
 
 Then they are available to be selected by family name using `FontSource::Family`.
+
+The `font_size` field now takes a `FontSize` value, enabling responsive font sizing.
