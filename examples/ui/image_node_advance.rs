@@ -1,5 +1,5 @@
 //! This example illustrates the advance usage of an image node.
-//! Compare `NodeImageMode` behaviour
+//! Compare `NodeImageMode` behavior
 
 use bevy::{color::palettes::tailwind, prelude::*};
 
