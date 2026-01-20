@@ -458,13 +458,13 @@ impl Default for TextFont {
 pub enum FontSize {
     /// Font Size in logical pixels.
     Px(f32),
-    /// Font Size relative to the size of the viewport width.
+    /// Font size as a percentage of the viewport width.
     Vw(f32),
-    /// Font Size relative to the size of the viewport height.
+    /// Font size as a percentage of the viewport height.
     Vh(f32),
-    /// Font Size relative to the smaller of the viewport width and viewport height.
+    /// Font size as a percentage of the smaller of the viewport width and height.
     VMin(f32),
-    /// Font Size relative to the larger of the viewport width and viewport height.
+    /// Font size as a percentage of the larger of the viewport width and height.
     VMax(f32),
     /// Font Size relative to the value of the `RemSize` resource.
     Rem(f32),
@@ -495,10 +495,10 @@ impl FontSize {
     ) -> f32 {
         match self {
             FontSize::Px(s) => s,
-            FontSize::Vw(s) => logical_viewport_size.x * s,
-            FontSize::Vh(s) => logical_viewport_size.y * s,
-            FontSize::VMin(s) => logical_viewport_size.min_element() * s,
-            FontSize::VMax(s) => logical_viewport_size.max_element() * s,
+            FontSize::Vw(s) => logical_viewport_size.x * s / 100.,
+            FontSize::Vh(s) => logical_viewport_size.y * s / 100.,
+            FontSize::VMin(s) => logical_viewport_size.min_element() * s / 100.,
+            FontSize::VMax(s) => logical_viewport_size.max_element() * s / 100.,
             FontSize::Rem(s) => rem_size * s,
         }
     }
