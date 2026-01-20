@@ -115,7 +115,7 @@ impl GizmoConfigStore {
             panic!("Requested config {} does not exist in `GizmoConfigStore`! Did you forget to add it using `app.init_gizmo_group<T>()`?", T::type_path());
         };
         // hash map invariant guarantees that &dyn Reflect is of correct type T
-        let ext = ext.as_any().downcast_ref().unwrap();
+        let ext = ext.downcast_ref().unwrap();
         (config, ext)
     }
 
@@ -134,7 +134,7 @@ impl GizmoConfigStore {
             panic!("Requested config {} does not exist in `GizmoConfigStore`! Did you forget to add it using `app.init_gizmo_group<T>()`?", T::type_path());
         };
         // hash map invariant guarantees that &dyn Reflect is of correct type T
-        let ext = ext.as_any_mut().downcast_mut().unwrap();
+        let ext = ext.downcast_mut().unwrap();
         (config, ext)
     }
 
