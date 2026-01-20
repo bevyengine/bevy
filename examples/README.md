@@ -233,6 +233,7 @@ Example | Description
 [Drag and Drop](../examples/app/drag_and_drop.rs) | An example that shows how to handle drag and drop in an app
 [Empty](../examples/app/empty.rs) | An empty application (does nothing)
 [Empty with Defaults](../examples/app/empty_defaults.rs) | An empty application with default plugins
+[Externally Driven Headless Renderer](../examples/app/externally_driven_headless_renderer.rs) | Using bevy with manually driven update to render images
 [Headless](../examples/app/headless.rs) | An application that runs without default plugins
 [Headless Renderer](../examples/app/headless_renderer.rs) | An application that runs with no window, but renders into image file
 [Log layers](../examples/app/log_layers.rs) | Illustrate how to add custom log layers

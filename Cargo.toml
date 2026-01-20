@@ -1944,6 +1944,17 @@ category = "Application"
 wasm = false
 
 [[example]]
+name = "externally_driven_headless_renderer"
+path = "examples/app/externally_driven_headless_renderer.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.externally_driven_headless_renderer]
+name = "Externally Driven Headless Renderer"
+description = "Using bevy with manually driven update to render images"
+category = "Application"
+wasm = false
+
+[[example]]
 name = "headless_renderer"
 path = "examples/app/headless_renderer.rs"
 # Causes an ICE on docs.rs
@@ -4551,7 +4562,7 @@ doc-scrape-examples = false
 name = "glTF extension AnimationGraph"
 description = "Uses glTF data to build an AnimationGraph via extension processing"
 category = "glTF"
-wasm = false
+wasm = true
 
 [[example]]
 name = "gltf_extension_mesh_2d"
@@ -4563,7 +4574,7 @@ doc-scrape-examples = false
 name = "glTF extension processing to build Mesh2ds from glTF data"
 description = "Uses glTF extension data to convert incoming Mesh3d/MeshMaterial3d assets to 2d"
 category = "glTF"
-wasm = false
+wasm = true
 
 [[example]]
 name = "query_gltf_primitives"
