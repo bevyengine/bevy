@@ -3018,16 +3018,22 @@ mod tests {
     fn load_fail() {
         test_load_state::<CoolText>("root asset exists", "test.cool.ron", TestLoadState::Loaded);
 
+        test_load_state::<SubText>(
+            "sub-asset exists",
+            "test.cool.ron#subasset",
+            TestLoadState::Loaded,
+        );
+
         test_load_state::<CoolText>(
             "root asset does not exist",
             "does_not_exist.cool.ron",
             TestLoadState::Failed(TestAssetLoadError::AssetReaderErrorNotFound),
         );
 
-        test_load_state::<SubText>(
-            "sub-asset exists",
-            "test.cool.ron#subasset",
-            TestLoadState::Loaded,
+        test_load_state::<CoolText>(
+            "sub-asset of root asset that does not exist",
+            "does_not_exist.cool.ron#subasset",
+            TestLoadState::Failed(TestAssetLoadError::AssetReaderErrorNotFound),
         );
 
         test_load_state::<SubText>(
