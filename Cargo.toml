@@ -5427,3 +5427,15 @@ name = "Parallax-Corrected Cubemaps"
 description = "Demonstrates parallax-corrected cubemap reflections"
 category = "3D Rendering"
 wasm = true
+
+[[example]]
+name = "light_probe_blending"
+path = "examples/3d/light_probe_blending.rs"
+doc-scrape-examples = true
+required-features = []
+
+[package.metadata.example.light_probe_blending]
+name = "Light Probe Blending"
+description = "Demonstrates light probe falloff and blending"
+category = "3D Rendering"
+wasm = false
