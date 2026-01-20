@@ -1,14 +1,20 @@
 use crate::{
-    io::Writer, meta::Settings, transformer::TransformedAsset, Asset, AssetContainer, AssetLoader,
-    AssetPath, AssetServer, ErasedLoadedAsset, Handle, LabeledAsset, UntypedHandle,
+    io::{AssetWriterError, MissingAssetSourceError, MissingAssetWriterError, Writer},
+    meta::{AssetAction, AssetMeta, AssetMetaDyn, Settings},
+    transformer::TransformedAsset,
+    Asset, AssetContainer, AssetLoader, AssetPath, AssetServer, ErasedLoadedAsset, Handle,
+    LabeledAsset, UntypedHandle,
 };
-use alloc::{boxed::Box, string::ToString};
+use alloc::{boxed::Box, string::ToString, sync::Arc};
 use atomicow::CowArc;
+use bevy_ecs::error::BevyError;
 use bevy_platform::collections::HashMap;
 use bevy_reflect::TypePath;
 use bevy_tasks::{BoxedFuture, ConditionalSendFuture};
 use core::{any::TypeId, borrow::Borrow, ops::Deref};
+use futures_lite::AsyncWriteExt;
 use serde::{Deserialize, Serialize};
+use thiserror::Error;
 
 /// Saves an [`Asset`] of a given [`AssetSaver::Asset`] type. [`AssetSaver::OutputLoader`] will then be used to load the saved asset
 /// in the final deployed application. The saver should produce asset bytes in a format that [`AssetSaver::OutputLoader`] can read.
@@ -255,6 +261,8 @@ impl<'a> LabeledSavedAsset<'a> {
 }
 
 /// A builder for creating [`SavedAsset`] instances (for use with asset saving).
+///
+/// This is commonly used in tandem with [`save_using_saver`].
 pub struct SavedAssetBuilder<'a> {
     /// The labeled assets for this saved asset.
     labeled_assets: HashMap<&'a str, LabeledSavedAsset<'a>>,
@@ -396,5 +404,281 @@ impl<T> Deref for Moo<'_, T> {
             Self::Owned(t) => t,
             Self::Borrowed(t) => t,
         }
+    }
+}
+
+/// Saves `asset` to `path` using the provided `saver` and `settings`.
+pub async fn save_using_saver<S: AssetSaver>(
+    asset_server: AssetServer,
+    saver: &S,
+    path: &AssetPath<'_>,
+    asset: SavedAsset<'_, '_, S::Asset>,
+    settings: &S::Settings,
+) -> Result<(), SaveAssetError> {
+    let source = asset_server.get_source(path.source())?;
+    let writer = source.writer()?;
+
+    let mut file_writer = writer.write(path.path()).await?;
+
+    let loader_settings = saver
+        .save(&mut file_writer, asset, settings)
+        .await
+        .map_err(|err| SaveAssetError::SaverError(Arc::new(err.into().into())))?;
+
+    file_writer.flush().await.map_err(AssetWriterError::Io)?;
+
+    let meta = AssetMeta::<S::OutputLoader, ()>::new(AssetAction::Load {
+        loader: S::OutputLoader::type_path().into(),
+        settings: loader_settings,
+    });
+
+    let meta = AssetMetaDyn::serialize(&meta);
+    writer.write_meta_bytes(path.path(), &meta).await?;
+
+    Ok(())
+}
+
+/// An error occurring when saving an asset.
+#[derive(Error, Debug)]
+pub enum SaveAssetError {
+    #[error(transparent)]
+    MissingSource(#[from] MissingAssetSourceError),
+    #[error(transparent)]
+    MissingWriter(#[from] MissingAssetWriterError),
+    #[error(transparent)]
+    WriterError(#[from] AssetWriterError),
+    #[error("Failed to save asset due to error from saver: {0}")]
+    SaverError(Arc<BevyError>),
+}
+
+#[cfg(test)]
+pub(crate) mod tests {
+    use alloc::{string::ToString, vec, vec::Vec};
+    use bevy_reflect::TypePath;
+    use bevy_tasks::block_on;
+    use futures_lite::AsyncWriteExt;
+    use ron::ser::PrettyConfig;
+
+    use crate::{
+        saver::{save_using_saver, AssetSaver, SavedAsset, SavedAssetBuilder},
+        tests::{create_app, run_app_until, CoolText, CoolTextLoader, CoolTextRon, SubText},
+        AssetApp, AssetServer, Assets,
+    };
+
+    fn new_subtext(text: &str) -> SubText {
+        SubText {
+            text: text.to_string(),
+        }
+    }
+
+    #[derive(TypePath)]
+    pub struct CoolTextSaver;
+
+    impl AssetSaver for CoolTextSaver {
+        type Asset = CoolText;
+        type Settings = ();
+        type OutputLoader = CoolTextLoader;
+        type Error = std::io::Error;
+
+        async fn save(
+            &self,
+            writer: &mut crate::io::Writer,
+            asset: SavedAsset<'_, '_, Self::Asset>,
+            _: &Self::Settings,
+        ) -> Result<(), Self::Error> {
+            let ron = CoolTextRon {
+                text: asset.text.clone(),
+                sub_texts: asset
+                    .iter_labels()
+                    .map(|label| asset.get_labeled::<SubText>(label).unwrap().text.clone())
+                    .collect(),
+                dependencies: asset
+                    .dependencies
+                    .iter()
+                    .map(|handle| handle.path().unwrap().path())
+                    .map(|path| path.to_str().unwrap().to_string())
+                    .collect(),
+                // NOTE: We can't handle embedded dependencies in any way, since we need to write to
+                // another file to do so.
+                embedded_dependencies: vec![],
+            };
+            let ron = ron::ser::to_string_pretty(&ron, PrettyConfig::new().new_line("\n")).unwrap();
+            writer.write_all(ron.as_bytes()).await?;
+            Ok(())
+        }
+    }
+
+    #[test]
+    fn builds_saved_asset_for_new_asset() {
+        let mut app = create_app().0;
+
+        app.init_asset::<CoolText>()
+            .init_asset::<SubText>()
+            .register_asset_loader(CoolTextLoader);
+
+        // Update a few times before saving to show that assets can be entirely created from
+        // scratch.
+        app.update();
+        app.update();
+        app.update();
+
+        let hiya_subasset = new_subtext("hiya");
+        let goodbye_subasset = new_subtext("goodbye");
+        let idk_subasset = new_subtext("idk");
+
+        let asset_server = app.world().resource::<AssetServer>().clone();
+        let mut saved_asset_builder =
+            SavedAssetBuilder::new(asset_server.clone(), "some/target/path.cool.ron".into());
+        let hiya_handle = saved_asset_builder
+            .add_labeled_asset_with_new_handle("hiya", SavedAsset::from_asset(&hiya_subasset));
+        let goodbye_handle = saved_asset_builder.add_labeled_asset_with_new_handle(
+            "goodbye",
+            SavedAsset::from_asset(&goodbye_subasset),
+        );
+        let idk_handle = saved_asset_builder
+            .add_labeled_asset_with_new_handle("idk", SavedAsset::from_asset(&idk_subasset));
+
+        let main_asset = CoolText {
+            text: "wassup".into(),
+            sub_texts: vec![hiya_handle, goodbye_handle, idk_handle],
+            ..Default::default()
+        };
+
+        let saved_asset = saved_asset_builder.build(&main_asset);
+        let mut asset_labels = saved_asset
+            .labeled_assets
+            .keys()
+            .copied()
+            .collect::<Vec<_>>();
+        asset_labels.sort();
+        assert_eq!(asset_labels, &["goodbye", "hiya", "idk"]);
+
+        {
+            let asset_server = asset_server.clone();
+            block_on(async move {
+                save_using_saver(
+                    asset_server,
+                    &CoolTextSaver,
+                    &"some/target/path.cool.ron".into(),
+                    saved_asset,
+                    &(),
+                )
+                .await
+            })
+            .unwrap();
+        }
+
+        let readback = asset_server.load("some/target/path.cool.ron");
+        run_app_until(&mut app, |_| {
+            asset_server.is_loaded(&readback).then_some(())
+        });
+
+        let cool_text = app
+            .world()
+            .resource::<Assets<CoolText>>()
+            .get(&readback)
+            .unwrap();
+
+        let subtexts = app.world().resource::<Assets<SubText>>();
+        let mut asset_labels = cool_text
+            .sub_texts
+            .iter()
+            .map(|handle| subtexts.get(handle).unwrap().text.clone())
+            .collect::<Vec<_>>();
+        asset_labels.sort();
+        assert_eq!(asset_labels, &["goodbye", "hiya", "idk"]);
+    }
+
+    #[test]
+    fn builds_saved_asset_for_existing_asset() {
+        let (mut app, _) = create_app();
+
+        app.init_asset::<CoolText>()
+            .init_asset::<SubText>()
+            .register_asset_loader(CoolTextLoader);
+
+        let mut subtexts = app.world_mut().resource_mut::<Assets<SubText>>();
+        let hiya_handle = subtexts.add(new_subtext("hiya"));
+        let goodbye_handle = subtexts.add(new_subtext("goodbye"));
+        let idk_handle = subtexts.add(new_subtext("idk"));
+
+        let mut cool_texts = app.world_mut().resource_mut::<Assets<CoolText>>();
+        let cool_text_handle = cool_texts.add(CoolText {
+            text: "wassup".into(),
+            sub_texts: vec![
+                hiya_handle.clone(),
+                goodbye_handle.clone(),
+                idk_handle.clone(),
+            ],
+            ..Default::default()
+        });
+
+        let subtexts = app.world().resource::<Assets<SubText>>();
+        let cool_texts = app.world().resource::<Assets<CoolText>>();
+        let asset_server = app.world().resource::<AssetServer>().clone();
+        let mut saved_asset_builder =
+            SavedAssetBuilder::new(asset_server.clone(), "some/target/path.cool.ron".into());
+        saved_asset_builder.add_labeled_asset_with_existing_handle(
+            "hiya",
+            SavedAsset::from_asset(subtexts.get(&hiya_handle).unwrap()),
+            hiya_handle,
+        );
+        saved_asset_builder.add_labeled_asset_with_existing_handle(
+            "goodbye",
+            SavedAsset::from_asset(subtexts.get(&goodbye_handle).unwrap()),
+            goodbye_handle,
+        );
+        saved_asset_builder.add_labeled_asset_with_existing_handle(
+            "idk",
+            SavedAsset::from_asset(subtexts.get(&idk_handle).unwrap()),
+            idk_handle,
+        );
+
+        let saved_asset = saved_asset_builder.build(cool_texts.get(&cool_text_handle).unwrap());
+        let mut asset_labels = saved_asset
+            .labeled_assets
+            .keys()
+            .copied()
+            .collect::<Vec<_>>();
+        asset_labels.sort();
+        assert_eq!(asset_labels, &["goodbye", "hiya", "idk"]);
+
+        // While this example is supported, it is **not** recommended. This currently blocks the
+        // entire world from updating. A slow write could cause visible stutters. However we do this
+        // here to show it's possible to use assets directly out of the Assets resources.
+        {
+            let asset_server = asset_server.clone();
+            block_on(async move {
+                save_using_saver(
+                    asset_server,
+                    &CoolTextSaver,
+                    &"some/target/path.cool.ron".into(),
+                    saved_asset,
+                    &(),
+                )
+                .await
+            })
+            .unwrap();
+        }
+
+        let readback = asset_server.load("some/target/path.cool.ron");
+        run_app_until(&mut app, |_| {
+            asset_server.is_loaded(&readback).then_some(())
+        });
+
+        let cool_text = app
+            .world()
+            .resource::<Assets<CoolText>>()
+            .get(&readback)
+            .unwrap();
+
+        let subtexts = app.world().resource::<Assets<SubText>>();
+        let mut asset_labels = cool_text
+            .sub_texts
+            .iter()
+            .map(|handle| subtexts.get(handle).unwrap().text.clone())
+            .collect::<Vec<_>>();
+        asset_labels.sort();
+        assert_eq!(asset_labels, &["goodbye", "hiya", "idk"]);
     }
 }
