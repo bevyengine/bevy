@@ -22,6 +22,9 @@ const DEFAULT_VIGNETTE_SMOOTHNESS: f32 = 5.0;
 /// The default vignette roundness amount.
 const DEFAULT_VIGNETTE_ROUNDNESS: f32 = 1.00;
 
+/// The default vignette edge compensation
+const DEFAULT_VIGNETTE_EDGE_COMPENSATION: f32 = 1.00;
+
 /// Adds a gradual shading effect to the edges of the screen, drawing focus
 /// towards the center.
 ///
@@ -69,6 +72,11 @@ pub struct Vignette {
     ///
     /// The default value is `Vec2::new(0.5, 0.5)`
     pub center: Vec2,
+    /// Used to make the vignette effect fit the screen better.
+    ///
+    /// Range: `0.0`(No fit) to `1.0` (Perfect fit)
+    ///
+    /// The default value is 1.00
     pub edge_compensation: f32,
     /// The color of the vignette.
     ///
@@ -86,7 +94,7 @@ impl Default for Vignette {
             smoothness: DEFAULT_VIGNETTE_SMOOTHNESS,
             roundness: DEFAULT_VIGNETTE_ROUNDNESS,
             color: Color::BLACK,
-            edge_compensation: 1.0,
+            edge_compensation: DEFAULT_VIGNETTE_EDGE_COMPENSATION,
             center: Vec2::new(0.5, 0.5),
         }
     }
@@ -119,8 +127,12 @@ pub struct VignetteUniform {
     pub(super) smoothness: f32,
     /// The shape of the vignette.
     pub(super) roundness: f32,
+    /// The center of the vignette.
     pub(super) center: Vec2,
+    /// The edge compensation of the vignette.
     pub(super) edge_compensation: f32,
+    /// Padding data.
     pub(super) unused: u32,
+    /// The color of the vignette.
     pub(super) color: Vec4,
 }

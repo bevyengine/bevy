@@ -36,6 +36,7 @@ struct AppSettings {
     vignette_smoothness: f32,
     /// The roundness of the vignette.
     vignette_roundness: f32,
+    /// The edge_compensation of the vignette.
     vignette_edge_compensation: f32,
 }
 
@@ -162,7 +163,7 @@ impl Default for AppSettings {
 fn handle_keyboard_input(mut app_settings: ResMut<AppSettings>, input: Res<ButtonInput<KeyCode>>) {
     if input.just_pressed(KeyCode::ArrowUp) && app_settings.selected > 0 {
         app_settings.selected -= 1;
-    } else if input.just_pressed(KeyCode::ArrowDown) && app_settings.selected < 6 {
+    } else if input.just_pressed(KeyCode::ArrowDown) && app_settings.selected < 5 {
         app_settings.selected += 1;
     }
 

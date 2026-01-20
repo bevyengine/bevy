@@ -57,6 +57,7 @@ fn vignette(uv: vec2<f32>, color: vec3<f32>) -> vec3<f32> {
     let uv_from_center = centered_uv - offset;
     var scale_vec = aspect_ratio * vec2<f32>(1.0, 1.0 / roundness);
 
+    // Apply edge compensation to make the vignette fit the screen better.
     if (screen_aspect >= 1.0) {
         let compensation_factor = mix(1.0, 1.0 / screen_aspect, edge_comp);
         scale_vec.x *= compensation_factor;
