@@ -14,7 +14,7 @@ use crate::{
 
 use alloc::{borrow::Cow, vec, vec::Vec};
 use bevy_utils::prelude::DebugName;
-use core::marker::PhantomData;
+use core::{iter, marker::PhantomData};
 use variadics_please::all_tuples;
 
 #[cfg(feature = "trace")]
@@ -40,6 +40,24 @@ pub struct SystemMeta {
     pub(crate) system_span: Span,
     #[cfg(feature = "trace")]
     pub(crate) commands_span: Span,
+}
+
+/// Trait for retrieving system metas.
+pub trait SystemMetaProvider {
+    /// Returns immutable references of system metas as a vector.
+    fn system_metas(&self) -> Vec<&SystemMeta>;
+
+    /// Returns mutable references of system metas as a vector.
+    fn system_metas_mut(&mut self) -> Vec<&mut SystemMeta>;
+
+    /// Helper method for `system_metas`.
+    fn extend_with_system_metas<'a>(&'a self, extendable: &mut impl Extend<&'a SystemMeta>);
+
+    /// Helper method for `system_metas_mut`.
+    fn extend_with_system_metas_mut<'a>(
+        &'a mut self,
+        extendable_mut: &mut impl Extend<&'a mut SystemMeta>,
+    );
 }
 
 impl SystemMeta {
@@ -785,6 +803,35 @@ where
         Param: ReadOnlySystemParam,
     >,
 {
+}
+
+impl<Marker, Out, F> SystemMetaProvider for FunctionSystem<Marker, Out, F>
+where
+    Marker: 'static,
+    F: SystemParamFunction<Marker>,
+{
+    fn system_metas(&self) -> Vec<&SystemMeta> {
+        let mut vec: Vec<&SystemMeta> = Vec::new();
+        self.extend_with_system_metas(&mut vec);
+        vec
+    }
+
+    fn system_metas_mut(&mut self) -> Vec<&mut SystemMeta> {
+        let mut vec: Vec<&mut SystemMeta> = Vec::new();
+        self.extend_with_system_metas_mut(&mut vec);
+        vec
+    }
+
+    fn extend_with_system_metas<'a>(&'a self, extendable: &mut impl Extend<&'a SystemMeta>) {
+        extendable.extend(iter::once(&self.system_meta));
+    }
+
+    fn extend_with_system_metas_mut<'a>(
+        &'a mut self,
+        extendable_mut: &mut impl Extend<&'a mut SystemMeta>,
+    ) {
+        extendable_mut.extend(iter::once(&mut self.system_meta));
+    }
 }
 
 /// A trait implemented for all functions that can be used as [`System`]s.

@@ -1,7 +1,10 @@
 use alloc::vec::Vec;
 use bevy_utils::prelude::DebugName;
 
-use super::{IntoSystem, ReadOnlySystem, RunSystemError, System, SystemParamValidationError};
+use super::{
+    IntoSystem, ReadOnlySystem, RunSystemError, System, SystemMeta, SystemMetaProvider,
+    SystemParamValidationError,
+};
 use crate::{
     schedule::InternedSystemSet,
     system::{input::SystemInput, SystemIn},
@@ -214,5 +217,30 @@ where
         run_system: impl FnOnce(SystemIn<'_, S>) -> Result<S::Out, RunSystemError>,
     ) -> Result<Self::Out, RunSystemError> {
         run_system(input).map(self)
+    }
+}
+
+impl<Func, S> SystemMetaProvider for AdapterSystem<Func, S>
+where
+    Func: Adapt<S>,
+    S: System + SystemMetaProvider,
+{
+    fn system_metas(&self) -> Vec<&SystemMeta> {
+        self.system.system_metas()
+    }
+
+    fn system_metas_mut(&mut self) -> Vec<&mut SystemMeta> {
+        self.system.system_metas_mut()
+    }
+
+    fn extend_with_system_metas<'a>(&'a self, extendable: &mut impl Extend<&'a SystemMeta>) {
+        self.system.extend_with_system_metas(extendable);
+    }
+
+    fn extend_with_system_metas_mut<'a>(
+        &'a mut self,
+        extendable_mut: &mut impl Extend<&'a mut SystemMeta>,
+    ) {
+        self.system.extend_with_system_metas_mut(extendable_mut);
     }
 }
