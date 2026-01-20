@@ -88,7 +88,7 @@ enum Direction {
 }
 
 #[derive(Debug, EntityEvent)]
-struct TextUpdateEvent {
+struct TextUpdate {
     entity: Entity,
     direction: Direction,
     change: f32,
@@ -193,7 +193,7 @@ fn update(
     let entity = query.single().unwrap();
     if keycode.pressed(KeyCode::ArrowUp) {
         commands.trigger(ImageGroupHeightEnlarge);
-        commands.trigger(TextUpdateEvent {
+        commands.trigger(TextUpdate {
             entity,
             direction: Direction::Height,
             change: 1.,
@@ -201,7 +201,7 @@ fn update(
     }
     if keycode.pressed(KeyCode::ArrowDown) {
         commands.trigger(ImageGroupHeightNarrow);
-        commands.trigger(TextUpdateEvent {
+        commands.trigger(TextUpdate {
             entity,
             direction: Direction::Height,
             change: -1.,
@@ -209,7 +209,7 @@ fn update(
     }
     if keycode.pressed(KeyCode::ArrowLeft) {
         commands.trigger(ImageGroupWidthEnlarge);
-        commands.trigger(TextUpdateEvent {
+        commands.trigger(TextUpdate {
             entity,
             direction: Direction::Width,
             change: -1.,
@@ -217,7 +217,7 @@ fn update(
     }
     if keycode.pressed(KeyCode::ArrowRight) {
         commands.trigger(ImageGroupWidthNarrow);
-        commands.trigger(TextUpdateEvent {
+        commands.trigger(TextUpdate {
             entity,
             direction: Direction::Width,
             change: 1.,
@@ -226,7 +226,7 @@ fn update(
 }
 
 fn update_text(
-    event: On<TextUpdateEvent>,
+    event: On<TextUpdate>,
     mut textmeta: Single<&mut TextMeta>,
     mut text: Single<&mut Text>,
 ) {
