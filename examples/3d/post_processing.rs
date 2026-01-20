@@ -36,7 +36,7 @@ struct AppSettings {
     vignette_smoothness: f32,
     /// The roundness of the vignette.
     vignette_roundness: f32,
-    /// The edge_compensation of the vignette.
+    /// The edge compensation of the vignette.
     vignette_edge_compensation: f32,
 }
 
