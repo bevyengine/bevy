@@ -3479,6 +3479,17 @@ category = "Stress Tests"
 wasm = true
 
 [[example]]
+name = "many_morph_targets"
+path = "examples/stress_tests/many_morph_targets.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.many_morph_targets]
+name = "Many Morph Targets"
+description = "Simple benchmark to test rendering many meshes with animated morph targets."
+category = "Stress Tests"
+wasm = true
+
+[[example]]
 name = "many_glyphs"
 path = "examples/stress_tests/many_glyphs.rs"
 # Causes an ICE on docs.rs

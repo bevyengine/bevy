@@ -535,6 +535,7 @@ Example | Description
 [Many Glyphs](../examples/stress_tests/many_glyphs.rs) | Simple benchmark to test text rendering.
 [Many Gradients](../examples/stress_tests/many_gradients.rs) | Stress test for gradient rendering performance
 [Many Lights](../examples/stress_tests/many_lights.rs) | Simple benchmark to test rendering many point lights. Run with `WGPU_SETTINGS_PRIO=webgl2` to restrict to uniform buffers and max 256 lights
+[Many Morph Targets](../examples/stress_tests/many_morph_targets.rs) | Simple benchmark to test rendering many meshes with animated morph targets.
 [Many Sprites](../examples/stress_tests/many_sprites.rs) | Displays many sprites in a grid arrangement! Used for performance testing. Use `--colored` to enable color tinted sprites.
 [Many Text2d](../examples/stress_tests/many_text2d.rs) | Displays many Text2d! Used for performance testing.
 [Text Pipeline](../examples/stress_tests/text_pipeline.rs) | Text Pipeline benchmark
