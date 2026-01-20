@@ -4149,6 +4149,18 @@ description = "Demonstrates how to create a viewport node with picking support"
 category = "UI (User Interface)"
 wasm = true
 
+[[example]]
+name = "image_node_advance"
+path = "examples/ui/image_node_advance.rs"
+# Causes an ICE on docs.rs
+doc-scrape-examples = false
+
+[package.metadata.example.image_node_advance]
+name = "Image Node Advance"
+description = "Demonstrates how to resizing a image node"
+category = "UI (User Interface)"
+wasm = true
+
 # Window
 [[example]]
 name = "clear_color"
