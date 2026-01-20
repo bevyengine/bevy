@@ -94,7 +94,6 @@ struct TextUpdate {
     change: f32,
 }
 
-// press `h/H` and `↑`/`↓` to resize height
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let image_handle = asset_server.load("branding/icon.png");
     commands.spawn(Camera2d);
