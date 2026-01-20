@@ -5415,3 +5415,15 @@ name = "Dynamic Mipmap Generation"
 description = "Demonstrates use of the mipmap generation plugin to generate mipmaps for a texture"
 category = "2D Rendering"
 wasm = false
+
+[[example]]
+name = "pccm"
+path = "examples/3d/pccm.rs"
+doc-scrape-examples = true
+required-features = ["free_camera", "https"]
+
+[package.metadata.example.pccm]
+name = "Parallax-Corrected Cubemaps"
+description = "Demonstrates parallax-corrected cubemap reflections"
+category = "3D Rendering"
+wasm = true

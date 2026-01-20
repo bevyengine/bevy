@@ -10,7 +10,7 @@ use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     component::Component,
     entity::Entity,
-    query::With,
+    query::{QueryData, ReadOnlyQueryData, With},
     resource::Resource,
     schedule::IntoScheduleConfigs,
     system::{Commands, Local, Query, Res, ResMut},
@@ -32,6 +32,7 @@ use bevy_render::{
 };
 use bevy_shader::load_shader_library;
 use bevy_transform::{components::Transform, prelude::GlobalTransform};
+use bitflags::bitflags;
 use tracing::error;
 
 use core::{hash::Hash, ops::Deref};
@@ -80,9 +81,9 @@ struct RenderLightProbe {
     /// See the comment in [`EnvironmentMapLight`] for details.
     intensity: f32,
 
-    /// Whether this light probe adds to the diffuse contribution of the
-    /// irradiance for meshes with lightmaps.
-    affects_lightmapped_mesh_diffuse: u32,
+    /// Various flags associated with the light probe: the bit value of
+    /// [`RenderLightProbeFlags`].
+    flags: u32,
 }
 
 /// A per-view shader uniform that specifies all the light probes that the view
@@ -157,9 +158,8 @@ where
     // See the comment in [`EnvironmentMapLight`] for details.
     intensity: f32,
 
-    // Whether this light probe adds to the diffuse contribution of the
-    // irradiance for meshes with lightmaps.
-    affects_lightmapped_mesh_diffuse: bool,
+    // Various flags associated with the light probe.
+    flags: RenderLightProbeFlags,
 
     // The IDs of all assets associated with this light probe.
     //
@@ -167,6 +167,21 @@ where
     // of assets (e.g. a reflection probe references two cubemap assets while an
     // irradiance volume references a single 3D texture asset), this is generic.
     asset_id: C::AssetId,
+}
+
+bitflags! {
+    /// Various flags that can be associated with light probes.
+    #[derive(Clone, Copy, PartialEq, Debug)]
+    pub struct RenderLightProbeFlags: u8 {
+        /// Whether this light probe adds to the diffuse contribution of the
+        /// irradiance for meshes with lightmaps.
+        const AFFECTS_LIGHTMAPPED_MESH_DIFFUSE = 1;
+        /// Whether this light probe has parallax correction enabled.
+        ///
+        /// See the comments in [`bevy_light::NoParallaxCorrection`] for more
+        /// information.
+        const ENABLE_PARALLAX_CORRECTION = 2;
+    }
 }
 
 /// A component, part of the render world, that stores the mapping from asset ID
@@ -239,6 +254,10 @@ pub trait LightProbeComponent: Send + Sync + Component + Sized {
     /// attached directly to views.
     type ViewLightProbeInfo: Send + Sync + Default;
 
+    /// Any additional query data needed to determine the
+    /// [`RenderLightProbeFlags`] for this light probe.
+    type QueryData: ReadOnlyQueryData;
+
     /// Returns the asset ID or asset IDs of the texture or textures referenced
     /// by this light probe.
     fn id(&self, image_assets: &RenderAssets<GpuImage>) -> Option<Self::AssetId>;
@@ -249,9 +268,12 @@ pub trait LightProbeComponent: Send + Sync + Component + Sized {
     /// sampled from the texture.
     fn intensity(&self) -> f32;
 
-    /// Returns true if this light probe contributes diffuse lighting to meshes
-    /// with lightmaps or false otherwise.
-    fn affects_lightmapped_mesh_diffuse(&self) -> bool;
+    /// Returns the appropriate value of [`RenderLightProbeFlags`] for this
+    /// component.
+    fn flags(
+        &self,
+        query_components: <Self::QueryData as QueryData>::Item<'_, '_>,
+    ) -> RenderLightProbeFlags;
 
     /// Creates an instance of [`RenderViewLightProbes`] containing all the
     /// information needed to render this light probe.
@@ -346,7 +368,7 @@ fn gather_environment_map_uniform(
 /// to views, performing frustum culling and distance sorting in the process.
 fn gather_light_probes<C>(
     image_assets: Res<RenderAssets<GpuImage>>,
-    light_probe_query: Extract<Query<(&GlobalTransform, &C), With<LightProbe>>>,
+    light_probe_query: Extract<Query<(&GlobalTransform, &C, C::QueryData), With<LightProbe>>>,
     view_query: Extract<
         Query<(RenderEntity, &GlobalTransform, &Frustum, Option<&C>), With<Camera3d>>,
     >,
@@ -540,7 +562,11 @@ where
     /// [`LightProbeInfo`]. This is done for every light probe in the scene
     /// every frame.
     fn new(
-        (light_probe_transform, environment_map): (&GlobalTransform, &C),
+        (light_probe_transform, environment_map, query_components): (
+            &GlobalTransform,
+            &C,
+            <C::QueryData as QueryData>::Item<'_, '_>,
+        ),
         image_assets: &RenderAssets<GpuImage>,
     ) -> Option<LightProbeInfo<C>> {
         let light_from_world_transposed =
@@ -554,7 +580,7 @@ where
             ],
             asset_id: id,
             intensity: environment_map.intensity(),
-            affects_lightmapped_mesh_diffuse: environment_map.affects_lightmapped_mesh_diffuse(),
+            flags: environment_map.flags(query_components),
         })
     }
 
@@ -643,8 +669,7 @@ where
                 light_from_world_transposed: light_probe.light_from_world,
                 texture_index: cubemap_index as i32,
                 intensity: light_probe.intensity,
-                affects_lightmapped_mesh_diffuse: light_probe.affects_lightmapped_mesh_diffuse
-                    as u32,
+                flags: light_probe.flags.bits() as u32,
             });
         }
     }
@@ -659,7 +684,7 @@ where
             light_from_world: self.light_from_world,
             world_from_light: self.world_from_light,
             intensity: self.intensity,
-            affects_lightmapped_mesh_diffuse: self.affects_lightmapped_mesh_diffuse,
+            flags: self.flags,
             asset_id: self.asset_id.clone(),
         }
     }
