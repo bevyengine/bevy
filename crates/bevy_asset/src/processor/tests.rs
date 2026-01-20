@@ -438,14 +438,14 @@ impl AssetSaver for CoolTextSaver {
     async fn save(
         &self,
         writer: &mut crate::io::Writer,
-        asset: crate::saver::SavedAsset<'_, Self::Asset>,
+        asset: crate::saver::SavedAsset<'_, '_, Self::Asset>,
         _: &Self::Settings,
     ) -> Result<(), Self::Error> {
         let ron = CoolTextRon {
             text: asset.text.clone(),
             sub_texts: asset
                 .iter_labels()
-                .map(|label| asset.get_labeled::<SubText, _>(label).unwrap().text.clone())
+                .map(|label| asset.get_labeled::<SubText>(label).unwrap().text.clone())
                 .collect(),
             dependencies: asset
                 .dependencies
@@ -846,7 +846,7 @@ impl AssetSaver for FakeBsnSaver {
     async fn save(
         &self,
         writer: &mut crate::io::Writer,
-        asset: crate::saver::SavedAsset<'_, Self::Asset>,
+        asset: crate::saver::SavedAsset<'_, '_, Self::Asset>,
         _settings: &Self::Settings,
     ) -> Result<(), Self::Error> {
         use std::io::{Error, ErrorKind};
@@ -1336,7 +1336,7 @@ fn nested_loads_of_processed_asset_reprocesses_on_reload() {
         async fn save(
             &self,
             writer: &mut crate::io::Writer,
-            asset: crate::saver::SavedAsset<'_, Self::Asset>,
+            asset: crate::saver::SavedAsset<'_, '_, Self::Asset>,
             _settings: &Self::Settings,
         ) -> Result<<Self::OutputLoader as AssetLoader>::Settings, Self::Error> {
             let serialized = serialize_as_leaf(asset.get().value.clone());

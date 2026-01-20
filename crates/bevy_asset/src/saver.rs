@@ -1,13 +1,13 @@
 use crate::{
-    io::Writer, meta::Settings, transformer::TransformedAsset, Asset, AssetLoader,
-    ErasedLoadedAsset, Handle, LabeledAsset, UntypedHandle,
+    io::Writer, meta::Settings, transformer::TransformedAsset, Asset, AssetContainer, AssetLoader,
+    AssetPath, AssetServer, ErasedLoadedAsset, Handle, LabeledAsset, UntypedHandle,
 };
-use alloc::boxed::Box;
+use alloc::{boxed::Box, string::ToString};
 use atomicow::CowArc;
 use bevy_platform::collections::HashMap;
 use bevy_reflect::TypePath;
 use bevy_tasks::{BoxedFuture, ConditionalSendFuture};
-use core::{borrow::Borrow, hash::Hash, ops::Deref};
+use core::{any::TypeId, borrow::Borrow, ops::Deref};
 use serde::{Deserialize, Serialize};
 
 /// Saves an [`Asset`] of a given [`AssetSaver::Asset`] type. [`AssetSaver::OutputLoader`] will then be used to load the saved asset
@@ -35,7 +35,7 @@ pub trait AssetSaver: TypePath + Send + Sync + 'static {
     fn save(
         &self,
         writer: &mut Writer,
-        asset: SavedAsset<'_, Self::Asset>,
+        asset: SavedAsset<'_, '_, Self::Asset>,
         settings: &Self::Settings,
     ) -> impl ConditionalSendFuture<
         Output = Result<<Self::OutputLoader as AssetLoader>::Settings, Self::Error>,
@@ -81,12 +81,13 @@ impl<S: AssetSaver> ErasedAssetSaver for S {
 }
 
 /// An [`Asset`] (and any labeled "sub assets") intended to be saved.
-pub struct SavedAsset<'a, A: Asset> {
+#[derive(Clone)]
+pub struct SavedAsset<'a, 'b, A: Asset> {
     value: &'a A,
-    labeled_assets: &'a HashMap<CowArc<'static, str>, LabeledAsset>,
+    labeled_assets: Moo<'b, HashMap<&'a str, LabeledSavedAsset<'a>>>,
 }
 
-impl<'a, A: Asset> Deref for SavedAsset<'a, A> {
+impl<A: Asset> Deref for SavedAsset<'_, '_, A> {
     type Target = A;
 
     fn deref(&self) -> &Self::Target {
@@ -94,21 +95,67 @@ impl<'a, A: Asset> Deref for SavedAsset<'a, A> {
     }
 }
 
-impl<'a, A: Asset> SavedAsset<'a, A> {
+impl<'a, 'b, A: Asset> SavedAsset<'a, 'b, A> {
+    fn from_value_and_labeled_saved_assets(
+        value: &'a A,
+        labeled_saved_assets: &'b HashMap<&'a str, LabeledSavedAsset<'a>>,
+    ) -> Self {
+        Self {
+            value,
+            labeled_assets: Moo::Borrowed(labeled_saved_assets),
+        }
+    }
+
+    fn from_value_and_labeled_assets(
+        value: &'a A,
+        labeled_assets: &'a HashMap<CowArc<'static, str>, LabeledAsset>,
+    ) -> Self {
+        Self {
+            value,
+            labeled_assets: Moo::Owned(
+                labeled_assets
+                    .iter()
+                    .map(|(label, labeled_asset)| {
+                        (
+                            label.borrow(),
+                            LabeledSavedAsset::from_labeled_asset(labeled_asset),
+                        )
+                    })
+                    .collect(),
+            ),
+        }
+    }
+
     /// Creates a new [`SavedAsset`] from `asset` if its internal value matches `A`.
     pub fn from_loaded(asset: &'a ErasedLoadedAsset) -> Option<Self> {
         let value = asset.value.downcast_ref::<A>()?;
-        Some(SavedAsset {
+        Some(Self::from_value_and_labeled_assets(
             value,
-            labeled_assets: &asset.labeled_assets,
-        })
+            &asset.labeled_assets,
+        ))
     }
 
     /// Creates a new [`SavedAsset`] from the a [`TransformedAsset`]
     pub fn from_transformed(asset: &'a TransformedAsset<A>) -> Self {
+        Self::from_value_and_labeled_assets(&asset.value, &asset.labeled_assets)
+    }
+
+    /// Creates a new [`SavedAsset`] holding only the provided value with no labeled assets.
+    pub fn from_asset(value: &'a A) -> Self {
         Self {
-            value: &asset.value,
-            labeled_assets: &asset.labeled_assets,
+            value,
+            labeled_assets: Moo::Owned(HashMap::default()),
+        }
+    }
+
+    /// Casts this typed asset into its type-erased form.
+    pub fn upcast(self) -> ErasedSavedAsset<'a, 'a>
+    where
+        'b: 'a,
+    {
+        ErasedSavedAsset {
+            value: self.value,
+            labeled_assets: self.labeled_assets,
         }
     }
 
@@ -119,45 +166,25 @@ impl<'a, A: Asset> SavedAsset<'a, A> {
     }
 
     /// Returns the labeled asset, if it exists and matches this type.
-    pub fn get_labeled<B: Asset, Q>(&self, label: &Q) -> Option<SavedAsset<'_, B>>
-    where
-        CowArc<'static, str>: Borrow<Q>,
-        Q: ?Sized + Hash + Eq,
-    {
+    pub fn get_labeled<B: Asset>(&self, label: &str) -> Option<SavedAsset<'a, '_, B>> {
         let labeled = self.labeled_assets.get(label)?;
-        let value = labeled.asset.value.downcast_ref::<B>()?;
-        Some(SavedAsset {
-            value,
-            labeled_assets: &labeled.asset.labeled_assets,
-        })
+        labeled.asset.downcast()
     }
 
     /// Returns the type-erased labeled asset, if it exists and matches this type.
-    pub fn get_erased_labeled<Q>(&self, label: &Q) -> Option<&ErasedLoadedAsset>
-    where
-        CowArc<'static, str>: Borrow<Q>,
-        Q: ?Sized + Hash + Eq,
-    {
+    pub fn get_erased_labeled(&self, label: &str) -> Option<&ErasedSavedAsset<'a, '_>> {
         let labeled = self.labeled_assets.get(label)?;
         Some(&labeled.asset)
     }
 
     /// Returns the [`UntypedHandle`] of the labeled asset with the provided 'label', if it exists.
-    pub fn get_untyped_handle<Q>(&self, label: &Q) -> Option<UntypedHandle>
-    where
-        CowArc<'static, str>: Borrow<Q>,
-        Q: ?Sized + Hash + Eq,
-    {
+    pub fn get_untyped_handle(&self, label: &str) -> Option<UntypedHandle> {
         let labeled = self.labeled_assets.get(label)?;
         Some(labeled.handle.clone())
     }
 
     /// Returns the [`Handle`] of the labeled asset with the provided 'label', if it exists and is an asset of type `B`
-    pub fn get_handle<Q, B: Asset>(&self, label: &Q) -> Option<Handle<B>>
-    where
-        CowArc<'static, str>: Borrow<Q>,
-        Q: ?Sized + Hash + Eq,
-    {
+    pub fn get_handle<B: Asset>(&self, label: &str) -> Option<Handle<B>> {
         let labeled = self.labeled_assets.get(label)?;
         if let Ok(handle) = labeled.handle.clone().try_typed::<B>() {
             return Some(handle);
@@ -168,5 +195,206 @@ impl<'a, A: Asset> SavedAsset<'a, A> {
     /// Iterate over all labels for "labeled assets" in the loaded asset
     pub fn iter_labels(&self) -> impl Iterator<Item = &str> {
         self.labeled_assets.keys().map(|s| &**s)
+    }
+}
+
+#[derive(Clone)]
+pub struct ErasedSavedAsset<'a: 'b, 'b> {
+    value: &'a dyn AssetContainer,
+    labeled_assets: Moo<'b, HashMap<&'a str, LabeledSavedAsset<'a>>>,
+}
+
+impl<'a> ErasedSavedAsset<'a, '_> {
+    fn from_loaded(asset: &'a ErasedLoadedAsset) -> Self {
+        Self {
+            value: &*asset.value,
+            labeled_assets: Moo::Owned(
+                asset
+                    .labeled_assets
+                    .iter()
+                    .map(|(label, asset)| {
+                        (label.borrow(), LabeledSavedAsset::from_labeled_asset(asset))
+                    })
+                    .collect(),
+            ),
+        }
+    }
+}
+
+impl<'a> ErasedSavedAsset<'a, '_> {
+    /// Attempts to downcast this erased asset into type `A`.
+    ///
+    /// Returns [`None`] if the asset is the wrong type.
+    pub fn downcast<'b, A: Asset>(&'b self) -> Option<SavedAsset<'a, 'b, A>> {
+        let value = self.value.downcast_ref::<A>()?;
+        Some(SavedAsset::from_value_and_labeled_saved_assets(
+            value,
+            &self.labeled_assets,
+        ))
+    }
+}
+
+/// Container for a single labeled asset (which also includes its labeled assets, for nested
+/// assets).
+#[derive(Clone)]
+struct LabeledSavedAsset<'a> {
+    /// The asset and its labeled assets.
+    asset: ErasedSavedAsset<'a, 'a>,
+    /// The handle of this labeled asset.
+    handle: UntypedHandle,
+}
+
+impl<'a> LabeledSavedAsset<'a> {
+    /// Creates an instance that corresponds to the same data as [`LabeledAsset`].
+    fn from_labeled_asset(asset: &'a LabeledAsset) -> Self {
+        Self {
+            asset: ErasedSavedAsset::from_loaded(&asset.asset),
+            handle: asset.handle.clone(),
+        }
+    }
+}
+
+/// A builder for creating [`SavedAsset`] instances (for use with asset saving).
+pub struct SavedAssetBuilder<'a> {
+    /// The labeled assets for this saved asset.
+    labeled_assets: HashMap<&'a str, LabeledSavedAsset<'a>>,
+    /// The asset path (with no label) that this saved asset is "tied" to.
+    ///
+    /// All labeled assets will use this asset path (with their substituted labels). Note labeled
+    /// assets **of labeled assets** may not use the same asset path (to represent nested-loaded
+    /// assets).
+    asset_path: AssetPath<'static>,
+    /// The asset server to use for creating handles.
+    asset_server: AssetServer,
+}
+
+impl<'a> SavedAssetBuilder<'a> {
+    /// Creates a new builder for the given `asset_path` and using the `asset_server` to back its
+    /// handles.
+    pub fn new(asset_server: AssetServer, mut asset_path: AssetPath<'static>) -> Self {
+        asset_path.remove_label();
+        Self {
+            asset_server,
+            asset_path,
+            labeled_assets: Default::default(),
+        }
+    }
+
+    /// Adds a labeled asset, creates a handle for it, and returns the handle (for use in creating
+    /// an asset).
+    ///
+    /// This is primarily used when **constructing** a new asset to be saved.
+    pub fn add_labeled_asset_with_new_handle<A: Asset>(
+        &mut self,
+        label: &'a str,
+        asset: SavedAsset<'a, 'a, A>,
+    ) -> Handle<A> {
+        let handle = Handle::Strong(
+            self.asset_server
+                .read_infos()
+                .handle_providers
+                .get(&TypeId::of::<A>())
+                .expect("asset type has been initialized")
+                .reserve_handle_internal(
+                    false,
+                    Some(self.asset_path.clone().with_label(label.to_string())),
+                    None,
+                ),
+        );
+        self.add_labeled_asset_with_existing_handle(label, asset, handle.clone());
+        handle
+    }
+
+    /// Adds a labeled asset with a pre-existing handle.
+    ///
+    /// This is primarily used when attempting to save an existing asset (which already has its
+    /// handles populated).
+    pub fn add_labeled_asset_with_existing_handle<A: Asset>(
+        &mut self,
+        label: &'a str,
+        asset: SavedAsset<'a, 'a, A>,
+        handle: Handle<A>,
+    ) {
+        self.add_labeled_asset_with_existing_handle_erased(label, asset.upcast(), handle.untyped());
+    }
+
+    /// Same as [`Self::add_labeled_asset_with_new_handle`], but type-erased to allow for dynamic
+    /// types.
+    pub fn add_labeled_asset_with_new_handle_erased(
+        &mut self,
+        label: &'a str,
+        asset: ErasedSavedAsset<'a, 'a>,
+    ) -> UntypedHandle {
+        let handle = UntypedHandle::Strong(
+            self.asset_server
+                .read_infos()
+                .handle_providers
+                .get(&asset.value.type_id())
+                .expect("asset type has been initialized")
+                .reserve_handle_internal(
+                    false,
+                    Some(self.asset_path.clone().with_label(label.to_string())),
+                    None,
+                ),
+        );
+        self.add_labeled_asset_with_existing_handle_erased(label, asset, handle.clone());
+        handle
+    }
+
+    /// Same as [`Self::add_labeled_asset_with_existing_handle`], but type-erased to allow for
+    /// dynamic types.
+    pub fn add_labeled_asset_with_existing_handle_erased(
+        &mut self,
+        label: &'a str,
+        asset: ErasedSavedAsset<'a, 'a>,
+        handle: UntypedHandle,
+    ) {
+        // TODO: Check asset and handle have the same type.
+        self.labeled_assets
+            .insert(label, LabeledSavedAsset { asset, handle });
+    }
+
+    /// Creates the final saved asset from this builder.
+    pub fn build<'b, A: Asset>(self, asset: &'b A) -> SavedAsset<'b, 'b, A>
+    where
+        'a: 'b,
+    {
+        SavedAsset {
+            value: asset,
+            labeled_assets: Moo::Owned(self.labeled_assets),
+        }
+    }
+}
+
+/// An alternative to [`Cow`] but simplified to just a `T` or `&T`.
+///
+/// Associated types are **always** considered "invariant" (see
+/// <https://doc.rust-lang.org/nomicon/subtyping.html>). Since [`Cow`] uses the [`ToOwned`] trait
+/// and its associated type of [`ToOwned::Owned`], this means [`Cow`] types are invariant (which
+/// TL;DR means that in some cases Rust is not allowed to shorten lifetimes, causing lifetime
+/// errors).
+///
+/// This type also allows working with any type, not just those that implement [`ToOwned`] - at the
+/// cost of losing the ability to mutate the value.
+///
+/// `Moo` stands for maybe-owned-object.
+///
+/// [`Cow`]: alloc::borrow::Cow
+/// [`ToOwned`]: alloc::borrow::ToOwned
+/// [`ToOwned::Owned`]: alloc::borrow::ToOwned::Owned
+#[derive(Clone)]
+enum Moo<'a, T> {
+    Owned(T),
+    Borrowed(&'a T),
+}
+
+impl<T> Deref for Moo<'_, T> {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        match self {
+            Self::Owned(t) => t,
+            Self::Borrowed(t) => t,
+        }
     }
 }
