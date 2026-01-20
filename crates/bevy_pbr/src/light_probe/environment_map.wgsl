@@ -1,6 +1,6 @@
 #define_import_path bevy_pbr::environment_map
 
-#import bevy_pbr::light_probe::query_light_probe
+#import bevy_pbr::light_probe::{light_probe_iterator_new, light_probe_iterator_next}
 #import bevy_pbr::mesh_view_bindings as bindings
 #import bevy_pbr::mesh_view_bindings::light_probes
 #import bevy_pbr::mesh_view_bindings::environment_map_uniform
@@ -93,72 +93,90 @@ fn compute_radiances(
 
     var radiances: EnvironmentMapRadiances;
 
-    // Search for a reflection probe that contains the fragment.
-    var query_result = query_light_probe(
+    // Search for all reflection probes that contain the fragment.
+    var iterator = light_probe_iterator_new(
         world_position,
         /*is_irradiance_volume=*/ false,
         clusterable_object_index_ranges,
     );
 
-    // If we didn't find a reflection probe, use the view environment map if applicable.
-    if (query_result.texture_index < 0) {
-        query_result.texture_index = light_probes.view_cubemap_index;
-        query_result.intensity = light_probes.intensity_for_view;
-        if light_probes.view_environment_map_affects_lightmapped_mesh_diffuse != 0u {
-            query_result.flags = LIGHT_PROBE_FLAG_AFFECTS_LIGHTMAPPED_MESH_DIFFUSE;
-        } else {
-            query_result.flags = 0u;
+    var total_weight = 0.0;
+    radiances.irradiance = vec3(0.0);
+    radiances.radiance = vec3(0.0);
+
+    while (true) {
+        var query_result = light_probe_iterator_next(&iterator);
+
+        // If we reached the end of the light probe list, and we didn't find
+        // enough reflection probes to reach a weight of 1.0, use the view
+        // environment map if applicable. This allows for e.g. nice transitions
+        // between the interior of a building and the outdoor environment map.
+        if (query_result.texture_index < 0 && total_weight < 0.9999) {
+            query_result.texture_index = light_probes.view_cubemap_index;
+            query_result.intensity = light_probes.intensity_for_view;
+            if light_probes.view_environment_map_affects_lightmapped_mesh_diffuse != 0u {
+                query_result.flags = LIGHT_PROBE_FLAG_AFFECTS_LIGHTMAPPED_MESH_DIFFUSE;
+            } else {
+                query_result.flags = 0u;
+            }
+            query_result.weight = 1.0 - total_weight;
         }
-    }
 
-    // If there's no cubemap, bail out.
-    if (query_result.texture_index < 0) {
-        radiances.irradiance = vec3(0.0);
-        radiances.radiance = vec3(0.0);
-        return radiances;
-    }
+        // If we reached the end, we're done.
+        if (query_result.texture_index < 0) {
+            break;
+        }
 
-    // Split-sum approximation for image based lighting: https://cdn2.unrealengine.com/Resources/files/2013SiggraphPresentationsNotes-26915738.pdf
-    let radiance_level = perceptual_roughness * f32(textureNumLevels(
-        bindings::specular_environment_maps[query_result.texture_index]) - 1u);
+        // Split-sum approximation for image based lighting: https://cdn2.unrealengine.com/Resources/files/2013SiggraphPresentationsNotes-26915738.pdf
+        let radiance_level = perceptual_roughness * f32(textureNumLevels(
+            bindings::specular_environment_maps[query_result.texture_index]) - 1u);
 
-    // If we're lightmapped, and we shouldn't accumulate diffuse light from the
-    // environment map, note that.
-    var enable_diffuse = !found_diffuse_indirect;
+        // If we're lightmapped, and we shouldn't accumulate diffuse light from the
+        // environment map, note that.
+        var enable_diffuse = !found_diffuse_indirect;
 #ifdef LIGHTMAP
-    enable_diffuse = enable_diffuse &&
-        (query_result.flags & LIGHT_PROBE_FLAG_AFFECTS_LIGHTMAPPED_MESH_DIFFUSE) != 0u;
+        enable_diffuse = enable_diffuse &&
+            (query_result.flags & LIGHT_PROBE_FLAG_AFFECTS_LIGHTMAPPED_MESH_DIFFUSE) != 0u;
 #endif  // LIGHTMAP
 
-    let parallax_correct = (query_result.flags & LIGHT_PROBE_FLAG_PARALLAX_CORRECT) != 0u;
+        let parallax_correct = (query_result.flags & LIGHT_PROBE_FLAG_PARALLAX_CORRECT) != 0u;
 
-    if (enable_diffuse) {
-        let irradiance_sample_dir = compute_cubemap_sample_dir(
-            world_position,
-            N,
-            query_result.light_from_world,
-            parallax_correct
-        );
-        radiances.irradiance = textureSampleLevel(
-            bindings::diffuse_environment_maps[query_result.texture_index],
-            bindings::environment_map_sampler,
-            irradiance_sample_dir,
-            0.0).rgb * query_result.intensity;
+        if (enable_diffuse) {
+            var irradiance_sample_dir = N;
+            // Rotating the world space ray direction by the environment light
+            // map transform matrix is equivalent to rotating the diffuse
+            // environment cubemap itself.
+            irradiance_sample_dir = (environment_map_uniform.transform * vec4(irradiance_sample_dir, 1.0)).xyz;
+            // Cube maps are left-handed so we negate the z coordinate.
+            irradiance_sample_dir.z = -irradiance_sample_dir.z;
+            radiances.irradiance = textureSampleLevel(
+                bindings::diffuse_environment_maps[query_result.texture_index],
+                bindings::environment_map_sampler,
+                irradiance_sample_dir,
+                0.0).rgb * query_result.intensity * query_result.weight;
+        }
+
+        var radiance_sample_dir = radiance_sample_direction(N, R, roughness);
+        // Rotating the world space ray direction by the environment light map
+        // transform matrix is equivalent to rotating the specular environment
+        // cubemap itself.
+        radiance_sample_dir = (environment_map_uniform.transform * vec4(radiance_sample_dir, 1.0)).xyz;
+        // Cube maps are left-handed so we negate the z coordinate.
+        radiance_sample_dir.z = -radiance_sample_dir.z;
+        radiances.radiance +=
+            textureSampleLevel(
+                bindings::specular_environment_maps[query_result.texture_index],
+                bindings::environment_map_sampler,
+                radiance_sample_dir,
+                radiance_level).rgb * query_result.intensity * query_result.weight;
+
+        total_weight += query_result.weight;
     }
 
-    var radiance_sample_dir = radiance_sample_direction(N, R, roughness);
-    radiance_sample_dir = compute_cubemap_sample_dir(
-        world_position,
-        radiance_sample_dir,
-        query_result.light_from_world,
-        parallax_correct
-    );
-
-    radiances.radiance = textureSampleLevel(
-        bindings::specular_environment_maps[query_result.texture_index],
-        bindings::environment_map_sampler,
-        radiance_sample_dir,
-        radiance_level).rgb * query_result.intensity;
+    if (total_weight != 0.0) {
+        radiances.irradiance /= total_weight;
+        radiances.radiance /= total_weight;
+    }
 
     return radiances;
 }
@@ -179,6 +197,7 @@ fn compute_radiances(
 
     var radiances: EnvironmentMapRadiances;
 
+    // If we have no light probe, bail.
     if (light_probes.view_cubemap_index < 0) {
         radiances.irradiance = vec3(0.0);
         radiances.radiance = vec3(0.0);
