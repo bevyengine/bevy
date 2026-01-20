@@ -1454,7 +1454,7 @@ pub struct PreparedMaterial {
     pub properties: Arc<MaterialProperties>,
 }
 
-fn base_specialize(
+pub fn base_specialize(
     world: &mut World,
     key: ErasedMaterialPipelineKey,
     layout: &MeshVertexBufferLayoutRef,
