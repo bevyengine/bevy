@@ -63,6 +63,11 @@ impl<E: Event, B: Bundle, M, S: IntoObserverSystem<E, B, M>> ObserverWithConditi
     ///
     /// All conditions must return `true` for the observer to run (AND semantics).
     ///
+    /// **Note:** Chained `.run_if()` calls do **not** short-circuit — all conditions
+    /// run every time to maintain correct change detection ticks. If you need
+    /// short-circuit behavior, use `.run_if(a.and(b))`, but be aware this may cause
+    /// stale `Changed<T>` detection if the second condition is frequently skipped.
+    ///
     /// # Example
     ///
     /// ```

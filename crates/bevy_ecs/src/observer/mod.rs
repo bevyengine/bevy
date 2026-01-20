@@ -1216,6 +1216,56 @@ mod tests {
     }
 
     #[test]
+    fn observer_conditions_and_change_detection() {
+        #[derive(Resource, Default)]
+        struct Bool2(pub bool);
+
+        let mut world = World::new();
+        world.init_resource::<Order>();
+        world.insert_resource(RunConditionFlag(false));
+        world.insert_resource(Bool2(false));
+
+        world.add_observer(
+            (|_: On<EventA>, mut order: ResMut<Order>| {
+                order.observed("event");
+            })
+            .run_if(|res1: Res<RunConditionFlag>| res1.is_changed())
+            .run_if(|res2: Res<Bool2>| res2.is_changed()),
+        );
+
+        // both resources were just added.
+        world.trigger(EventA);
+        assert_eq!(vec!["event"], world.resource::<Order>().0);
+
+        // nothing has changed
+        world.resource_mut::<Order>().0.clear();
+        world.trigger(EventA);
+        assert!(world.resource::<Order>().0.is_empty());
+
+        // RunConditionFlag has changed, but observer did not run
+        world.resource_mut::<RunConditionFlag>().0 = true;
+        world.trigger(EventA);
+        assert!(world.resource::<Order>().0.is_empty());
+
+        // internal state for the Bool2 condition was updated in the
+        // previous run, so observer still does not run
+        world.resource_mut::<Bool2>().0 = true;
+        world.trigger(EventA);
+        assert!(world.resource::<Order>().0.is_empty());
+
+        // internal state for Bool2 was updated, so observer still does not run
+        world.resource_mut::<RunConditionFlag>().0 = false;
+        world.trigger(EventA);
+        assert!(world.resource::<Order>().0.is_empty());
+
+        // now check that it works correctly changing Bool2 first and then RunConditionFlag
+        world.resource_mut::<Bool2>().0 = false;
+        world.resource_mut::<RunConditionFlag>().0 = true;
+        world.trigger(EventA);
+        assert_eq!(vec!["event"], world.resource::<Order>().0);
+    }
+
+    #[test]
     fn entity_observer_with_run_condition() {
         let mut world = World::new();
         world.insert_resource(RunConditionFlag(true));

@@ -57,11 +57,19 @@ pub(super) unsafe fn observer_system_runner<E: Event, B: Bundle, S: ObserverSyst
     // - Conditions are initialized during observer registration (hook_on_add)
     // - Conditions are ReadOnlySystem (enforced by SystemCondition trait)
     // - No aliasing: we hold &mut Observer, but conditions only read world state
-    for condition in &mut state.conditions {
+    #[expect(
+        clippy::unnecessary_fold,
+        reason = "Short-circuiting here would prevent conditions from mutating their own state as needed."
+    )]
+    let should_run = state
+        .conditions
+        .iter_mut()
         // SAFETY: See the safety comment above.
-        if !unsafe { condition.check(world) } {
-            return;
-        }
+        .map(|condition| unsafe { condition.check(world) })
+        .fold(true, |acc, res| acc && res);
+
+    if !should_run {
+        return;
     }
 
     // SAFETY: Caller ensures `trigger_ptr` is castable to `&mut E::Trigger<'_>`
