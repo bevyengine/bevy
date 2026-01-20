@@ -173,11 +173,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     ));
 }
 
-fn text_color_system(
-    time: Res<Time>,
-    mut query: Query<(&mut Text, &mut TextColor), With<AnimatedText>>,
-) {
-    for (mut t, mut text_color) in &mut query {
+fn text_color_system(time: Res<Time>, mut query: Query<&mut TextColor, With<AnimatedText>>) {
+    for mut text_color in &mut query {
         let seconds = time.elapsed_secs();
 
         // Update the color of the ColorText span.
