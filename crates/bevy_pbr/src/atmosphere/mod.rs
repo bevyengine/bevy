@@ -179,8 +179,8 @@ impl Plugin for AtmospherePlugin {
                 (
                     (atmosphere_luts, atmosphere_environment)
                         .chain()
-                        .after(Core3dSystems::EndPrepasses)
-                        .before(Core3dSystems::StartMainPass),
+                        .after(Core3dSystems::Prepass)
+                        .before(Core3dSystems::MainPass),
                     render_sky
                         .after(main_opaque_pass_3d)
                         .before(main_transparent_pass_3d),

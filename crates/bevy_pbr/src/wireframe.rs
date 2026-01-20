@@ -133,8 +133,8 @@ impl Plugin for WireframePlugin {
             .add_systems(
                 Core3d,
                 wireframe_3d
-                    .after(Core3dSystems::EndMainPass)
-                    .before(Core3dSystems::StartMainPassPostProcessing),
+                    .after(Core3dSystems::MainPass)
+                    .before(Core3dSystems::PostProcess),
             )
             .add_systems(
                 ExtractSchedule,

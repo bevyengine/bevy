@@ -76,15 +76,11 @@ impl Plugin for BloomPlugin {
             )
             .add_systems(
                 Core3d,
-                bloom
-                    .after(Core3dSystems::StartMainPassPostProcessing)
-                    .before(tonemapping),
+                bloom.before(tonemapping).in_set(Core3dSystems::PostProcess),
             )
             .add_systems(
                 Core2d,
-                bloom
-                    .after(Core2dSystems::StartMainPassPostProcessing)
-                    .before(tonemapping),
+                bloom.before(tonemapping).in_set(Core2dSystems::PostProcess),
             );
     }
 }

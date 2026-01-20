@@ -224,8 +224,8 @@ impl Plugin for ScreenSpaceReflectionsPlugin {
                 Core3d,
                 screen_space_reflections
                     .after(deferred_lighting)
-                    .after(Core3dSystems::StartMainPass)
-                    .before(main_opaque_pass_3d),
+                    .before(main_opaque_pass_3d)
+                    .in_set(Core3dSystems::MainPass),
             );
     }
 }

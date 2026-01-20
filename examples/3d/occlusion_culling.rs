@@ -228,13 +228,10 @@ impl Plugin for ReadbackIndirectParametersPlugin {
                 // meshes were culled.
                 readback_indirect_parameters_node
                     // We read back the indirect parameters any time after
-                    // `EndMainPass`. Readback doesn't particularly need to execute
-                    // before `EndMainPassPostProcessing`, but we specify that anyway
-                    // because we want to make the indirect parameters run before
-                    // *something* in the graph, and `EndMainPassPostProcessing` is a
-                    // good a node as any other.
-                    .after(Core3dSystems::EndMainPass)
-                    .before(Core3dSystems::EndMainPassPostProcessing),
+                    // `MainPass`. Readback doesn't particularly need to execute
+                    // before PostProcess, but we order it that way anyway.
+                    .after(Core3dSystems::MainPass)
+                    .before(Core3dSystems::PostProcess),
             );
     }
 }

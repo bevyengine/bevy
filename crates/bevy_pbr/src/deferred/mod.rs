@@ -117,8 +117,8 @@ impl Plugin for DeferredPbrLightingPlugin {
             .add_systems(
                 Core3d,
                 deferred_lighting
-                    .after(Core3dSystems::StartMainPass)
-                    .before(main_opaque_pass_3d),
+                    .before(main_opaque_pass_3d)
+                    .in_set(Core3dSystems::MainPass),
             );
     }
 }

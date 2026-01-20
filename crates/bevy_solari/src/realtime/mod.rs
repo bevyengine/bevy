@@ -71,8 +71,8 @@ impl Plugin for SolariLightingPlugin {
             .add_systems(
                 Core3d,
                 solari_lighting
-                    .after(Core3dSystems::EndPrepasses)
-                    .before(Core3dSystems::EndMainPass),
+                    .after(Core3dSystems::Prepass)
+                    .in_set(Core3dSystems::MainPass),
             );
     }
 }

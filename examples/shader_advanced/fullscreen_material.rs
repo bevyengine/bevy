@@ -50,6 +50,5 @@ impl FullscreenMaterial for FullscreenEffect {
         "shaders/fullscreen_effect.wgsl".into()
     }
 
-    // Uses default run_after (Core3dSystems::PostProcessing) and
-    // run_before (Core3dSystems::EndMainPassPostProcessing)
+    // Uses default run_in (Core3dSystems::PostProcess)
 }

@@ -76,8 +76,8 @@ impl Plugin for AutoExposurePlugin {
             .add_systems(
                 Core3d,
                 node::auto_exposure
-                    .after(Core3dSystems::StartMainPassPostProcessing)
-                    .before(tonemapping),
+                    .before(tonemapping)
+                    .in_set(Core3dSystems::PostProcess),
             );
     }
 }

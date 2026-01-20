@@ -152,19 +152,16 @@ impl Plugin for Core3dPlugin {
                         copy_deferred_lighting_id,
                     )
                         .chain()
-                        .before(Core3dSystems::EndPrepasses),
+                        .in_set(Core3dSystems::Prepass),
                     (
                         main_opaque_pass_3d,
                         main_transmissive_pass_3d,
                         main_transparent_pass_3d,
                     )
                         .chain()
-                        .after(Core3dSystems::StartMainPass)
-                        .before(Core3dSystems::EndMainPass),
-                    tonemapping
-                        .after(Core3dSystems::StartMainPassPostProcessing)
-                        .before(Core3dSystems::PostProcessing),
-                    upscaling.after(Core3dSystems::EndMainPassPostProcessing),
+                        .in_set(Core3dSystems::MainPass),
+                    tonemapping.in_set(Core3dSystems::PostProcess),
+                    upscaling.after(Core3dSystems::PostProcess),
                 ),
             );
     }

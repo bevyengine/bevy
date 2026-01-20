@@ -83,7 +83,7 @@ impl Plugin for RenderDebugOverlayPlugin {
             )
             .add_systems(
                 Core3d,
-                render_debug_overlay.in_set(Core3dSystems::PostProcessing),
+                render_debug_overlay.in_set(Core3dSystems::PostProcess),
             );
     }
 }

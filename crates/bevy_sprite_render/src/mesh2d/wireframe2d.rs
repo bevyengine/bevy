@@ -118,8 +118,8 @@ impl Plugin for Wireframe2dPlugin {
             .add_systems(
                 Core2d,
                 wireframe_2d
-                    .after(Core2dSystems::EndMainPass)
-                    .before(Core2dSystems::StartMainPassPostProcessing),
+                    .after(Core2dSystems::MainPass)
+                    .before(Core2dSystems::PostProcess),
             )
             .add_systems(
                 RenderStartup,

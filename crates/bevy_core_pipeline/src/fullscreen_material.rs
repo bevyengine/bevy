@@ -56,12 +56,14 @@ impl<T: FullscreenMaterial> Plugin for FullscreenMaterialPlugin<T> {
 
         render_app.add_systems(RenderStartup, init_pipeline::<T>);
 
-        render_app.add_systems(
-            T::schedule(),
-            fullscreen_material_system::<T>
-                .after(T::run_after())
-                .before(T::run_before()),
-        );
+        let mut system = fullscreen_material_system::<T>.in_set(T::run_in());
+        if let Some(run_after) = T::run_after() {
+            system = system.after(run_after);
+        }
+        if let Some(run_before) = T::run_before() {
+            system = system.before(run_before);
+        }
+        render_app.add_systems(T::schedule(), system);
     }
 }
 
@@ -88,18 +90,25 @@ pub trait FullscreenMaterial:
         Core3d
     }
 
+    /// The system set this effect belongs to.
+    ///
+    /// Defaults to [`Core3dSystems::PostProcess`].
+    fn run_in() -> impl SystemSet {
+        Core3dSystems::PostProcess
+    }
+
     /// The system set this effect runs after.
     ///
-    /// Defaults to [`Core3dSystems::PostProcessing`].
-    fn run_after() -> impl SystemSet {
-        Core3dSystems::PostProcessing
+    /// Defaults to `None`.
+    fn run_after() -> Option<Core3dSystems> {
+        None
     }
 
     /// The system set this effect runs before.
     ///
-    /// Defaults to [`Core3dSystems::EndMainPassPostProcessing`].
-    fn run_before() -> impl SystemSet {
-        Core3dSystems::EndMainPassPostProcessing
+    /// Defaults to `None`.
+    fn run_before() -> Option<Core3dSystems> {
+        None
     }
 }
 

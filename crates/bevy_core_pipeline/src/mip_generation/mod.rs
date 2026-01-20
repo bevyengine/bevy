@@ -298,9 +298,7 @@ impl Plugin for MipGenerationPlugin {
                     early_downsample_depth
                         .after(early_deferred_prepass)
                         .before(late_prepass),
-                    late_downsample_depth
-                        .after(Core3dSystems::StartMainPassPostProcessing)
-                        .before(Core3dSystems::EndMainPassPostProcessing),
+                    late_downsample_depth.in_set(Core3dSystems::PostProcess),
                 ),
             )
             .add_systems(

@@ -249,15 +249,11 @@ impl Plugin for UiRenderPlugin {
             )
             .add_systems(
                 Core2d,
-                ui_pass
-                    .after(Core2dSystems::EndMainPassPostProcessing)
-                    .before(upscaling),
+                ui_pass.after(Core2dSystems::PostProcess).before(upscaling),
             )
             .add_systems(
                 Core3d,
-                ui_pass
-                    .after(Core3dSystems::EndMainPassPostProcessing)
-                    .before(upscaling),
+                ui_pass.after(Core3dSystems::PostProcess).before(upscaling),
             );
 
         app.add_plugins(UiTextureSlicerPlugin);

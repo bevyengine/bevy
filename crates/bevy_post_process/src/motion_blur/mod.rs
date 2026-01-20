@@ -154,8 +154,8 @@ impl Plugin for MotionBlurPlugin {
         render_app.add_systems(
             Core3d,
             node::motion_blur
-                .after(Core3dSystems::StartMainPassPostProcessing)
-                .before(bloom),
+                .before(bloom)
+                .in_set(Core3dSystems::PostProcess),
         );
     }
 }

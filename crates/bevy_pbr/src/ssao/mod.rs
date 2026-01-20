@@ -84,8 +84,8 @@ impl Plugin for ScreenSpaceAmbientOcclusionPlugin {
 
         render_app.add_systems(
             Core3d,
-            ssao.after(Core3dSystems::EndPrepasses)
-                .before(Core3dSystems::StartMainPass),
+            ssao.after(Core3dSystems::Prepass)
+                .before(Core3dSystems::MainPass),
         );
     }
 }

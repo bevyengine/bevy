@@ -195,8 +195,8 @@ impl Plugin for DlssPlugin {
             (node::dlss_super_resolution, node::dlss_ray_reconstruction)
                 .chain()
                 .after(motion_blur)
-                .after(Core3dSystems::StartMainPassPostProcessing)
                 .before(bloom)
+                .in_set(Core3dSystems::PostProcess)
                 .in_set(AntiAliasing),
         );
     }

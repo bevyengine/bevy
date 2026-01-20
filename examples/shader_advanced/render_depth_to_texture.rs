@@ -117,8 +117,8 @@ fn main() {
     render_app.add_systems(
         Core3d,
         copy_depth_texture_system
-            .after(Core3dSystems::EndPrepasses)
-            .before(Core3dSystems::StartMainPass),
+            .after(Core3dSystems::Prepass)
+            .before(Core3dSystems::MainPass),
     );
 
     app.run();

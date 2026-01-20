@@ -77,16 +77,11 @@ impl Plugin for Core2dPlugin {
             .add_systems(
                 Core2d,
                 (
-                    main_opaque_pass_2d
-                        .after(Core2dSystems::StartMainPass)
-                        .before(Core2dSystems::EndMainPass),
-                    main_transparent_pass_2d
-                        .after(main_opaque_pass_2d)
-                        .before(Core2dSystems::EndMainPass),
-                    tonemapping
-                        .after(Core2dSystems::StartMainPassPostProcessing)
-                        .before(Core2dSystems::PostProcessing),
-                    upscaling.after(Core2dSystems::EndMainPassPostProcessing),
+                    (main_opaque_pass_2d, main_transparent_pass_2d)
+                        .chain()
+                        .in_set(Core2dSystems::MainPass),
+                    tonemapping.in_set(Core2dSystems::PostProcess),
+                    upscaling.after(Core2dSystems::PostProcess),
                 ),
             );
     }

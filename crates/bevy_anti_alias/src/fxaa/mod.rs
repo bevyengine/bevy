@@ -103,13 +103,13 @@ impl Plugin for FxaaPlugin {
             .add_systems(
                 Core3d,
                 fxaa.after(tonemapping)
-                    .before(Core3dSystems::EndMainPassPostProcessing)
+                    .in_set(Core3dSystems::PostProcess)
                     .in_set(AntiAliasing),
             )
             .add_systems(
                 Core2d,
                 fxaa.after(tonemapping)
-                    .before(Core2dSystems::EndMainPassPostProcessing)
+                    .in_set(Core2dSystems::PostProcess)
                     .in_set(AntiAliasing),
             );
     }

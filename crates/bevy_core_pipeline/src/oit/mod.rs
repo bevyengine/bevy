@@ -120,7 +120,7 @@ impl Plugin for OrderIndependentTransparencyPlugin {
             Core3d,
             oit_resolve
                 .after(main_transparent_pass_3d)
-                .before(Core3dSystems::EndMainPass),
+                .in_set(Core3dSystems::MainPass),
         );
     }
 }

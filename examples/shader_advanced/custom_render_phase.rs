@@ -139,7 +139,7 @@ impl Plugin for MeshStencilPhasePlugin {
                 Core3d,
                 custom_draw_system
                     .after(main_opaque_pass_3d)
-                    .before(Core3dSystems::EndMainPass),
+                    .in_set(Core3dSystems::MainPass),
             );
     }
 }

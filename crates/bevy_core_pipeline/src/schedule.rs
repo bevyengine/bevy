@@ -21,12 +21,9 @@ pub struct Core3d;
 
 #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Core3dSystems {
-    EndPrepasses,
-    StartMainPass,
-    EndMainPass,
-    StartMainPassPostProcessing,
-    PostProcessing,
-    EndMainPassPostProcessing,
+    Prepass,
+    MainPass,
+    PostProcess,
 }
 
 impl Core3d {
@@ -41,17 +38,7 @@ impl Core3d {
             ..Default::default()
         });
 
-        schedule.configure_sets(
-            (
-                EndPrepasses,
-                StartMainPass,
-                EndMainPass,
-                StartMainPassPostProcessing,
-                PostProcessing,
-                EndMainPassPostProcessing,
-            )
-                .chain(),
-        );
+        schedule.configure_sets((Prepass, MainPass, PostProcess).chain());
 
         schedule
     }
@@ -62,11 +49,8 @@ pub struct Core2d;
 
 #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Core2dSystems {
-    StartMainPass,
-    EndMainPass,
-    StartMainPassPostProcessing,
-    PostProcessing,
-    EndMainPassPostProcessing,
+    MainPass,
+    PostProcess,
 }
 
 impl Core2d {
@@ -81,16 +65,7 @@ impl Core2d {
             ..Default::default()
         });
 
-        schedule.configure_sets(
-            (
-                StartMainPass,
-                EndMainPass,
-                StartMainPassPostProcessing,
-                PostProcessing,
-                EndMainPassPostProcessing,
-            )
-                .chain(),
-        );
+        schedule.configure_sets((MainPass, PostProcess).chain());
 
         schedule
     }

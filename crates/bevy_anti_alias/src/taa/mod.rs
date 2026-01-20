@@ -73,8 +73,8 @@ impl Plugin for TemporalAntiAliasPlugin {
             Core3d,
             temporal_anti_alias
                 .after(motion_blur)
-                .after(Core3dSystems::StartMainPassPostProcessing)
                 .before(bloom)
+                .in_set(Core3dSystems::PostProcess)
                 .in_set(AntiAliasing),
         );
     }

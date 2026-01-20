@@ -397,7 +397,7 @@ impl Plugin for GpuMeshPreprocessPlugin {
                         )>)
                         .after(late_prepass_build_indirect_parameters)
                         .after(late_deferred_prepass)
-                        .before(Core3dSystems::StartMainPass),
+                        .before(Core3dSystems::MainPass),
                 ),
             );
     }

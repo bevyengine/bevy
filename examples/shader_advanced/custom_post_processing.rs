@@ -62,9 +62,7 @@ impl Plugin for PostProcessPlugin {
         render_app.add_systems(RenderStartup, init_post_process_pipeline);
         render_app.add_systems(
             Core3d,
-            post_process_system
-                .after(Core3dSystems::PostProcessing)
-                .before(Core3dSystems::EndMainPassPostProcessing),
+            post_process_system.in_set(Core3dSystems::PostProcess),
         );
     }
 }

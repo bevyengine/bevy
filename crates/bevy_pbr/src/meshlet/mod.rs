@@ -200,13 +200,13 @@ impl Plugin for MeshletPlugin {
                     meshlet_visibility_buffer_raster.before(shadow_pass::<EARLY_SHADOW_PASS>),
                     meshlet_prepass
                         .after(shadow_pass::<EARLY_SHADOW_PASS>)
-                        .before(Core3dSystems::EndPrepasses),
+                        .in_set(Core3dSystems::Prepass),
                     meshlet_deferred_gbuffer_prepass
                         .after(meshlet_prepass)
-                        .before(Core3dSystems::EndPrepasses),
+                        .in_set(Core3dSystems::Prepass),
                     meshlet_main_opaque_pass
-                        .after(Core3dSystems::StartMainPass)
-                        .before(main_opaque_pass_3d),
+                        .before(main_opaque_pass_3d)
+                        .in_set(Core3dSystems::MainPass),
                 ),
             );
     }
