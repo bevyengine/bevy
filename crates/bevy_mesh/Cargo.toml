@@ -1,6 +1,6 @@
 [package]
 name = "bevy_mesh"
-version = "0.18.0-dev"
+version = "0.19.0-dev"
 edition = "2024"
 description = "Provides mesh types for Bevy Engine"
 homepage = "https://bevy.org"
@@ -10,16 +10,16 @@ keywords = ["bevy"]
 
 [dependencies]
 # bevy
-bevy_app = { path = "../bevy_app", version = "0.18.0-dev" }
-bevy_asset = { path = "../bevy_asset", version = "0.18.0-dev" }
-bevy_image = { path = "../bevy_image", version = "0.18.0-dev", optional = true }
-bevy_math = { path = "../bevy_math", version = "0.18.0-dev" }
-bevy_reflect = { path = "../bevy_reflect", version = "0.18.0-dev" }
-bevy_ecs = { path = "../bevy_ecs", version = "0.18.0-dev" }
-bevy_transform = { path = "../bevy_transform", version = "0.18.0-dev" }
+bevy_app = { path = "../bevy_app", version = "0.19.0-dev" }
+bevy_asset = { path = "../bevy_asset", version = "0.19.0-dev" }
+bevy_image = { path = "../bevy_image", version = "0.19.0-dev", optional = true }
+bevy_math = { path = "../bevy_math", version = "0.19.0-dev" }
+bevy_reflect = { path = "../bevy_reflect", version = "0.19.0-dev" }
+bevy_ecs = { path = "../bevy_ecs", version = "0.19.0-dev" }
+bevy_transform = { path = "../bevy_transform", version = "0.19.0-dev" }
 bevy_mikktspace = { version = "0.17.0-dev", optional = true }
-bevy_derive = { path = "../bevy_derive", version = "0.18.0-dev" }
-bevy_platform = { path = "../bevy_platform", version = "0.18.0-dev", default-features = false, features = [
+bevy_derive = { path = "../bevy_derive", version = "0.19.0-dev" }
+bevy_platform = { path = "../bevy_platform", version = "0.19.0-dev", default-features = false, features = [
   "std",
   "serialize",
 ] }
@@ -27,7 +27,7 @@ bevy_platform = { path = "../bevy_platform", version = "0.18.0-dev", default-fea
 # other
 bitflags = { version = "2.3", features = ["serde"] }
 bytemuck = { version = "1.5" }
-wgpu-types = { version = "26", default-features = false }
+wgpu-types = { version = "27", default-features = false }
 serde = { version = "1", default-features = false, features = [
   "derive",
 ], optional = true }

@@ -92,17 +92,17 @@ use {
 /// [`message_update_system`]: super::message_update_system
 #[derive(Debug, Resource)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Resource, Default))]
-pub struct Messages<E: Message> {
+pub struct Messages<M: Message> {
     /// Holds the oldest still active messages.
     /// Note that `a.start_message_count + a.len()` should always be equal to `messages_b.start_message_count`.
-    pub(crate) messages_a: MessageSequence<E>,
+    pub(crate) messages_a: MessageSequence<M>,
     /// Holds the newer messages.
-    pub(crate) messages_b: MessageSequence<E>,
+    pub(crate) messages_b: MessageSequence<M>,
     pub(crate) message_count: usize,
 }
 
-// Derived Default impl would incorrectly require E: Default
-impl<E: Message> Default for Messages<E> {
+// Derived Default impl would incorrectly require M: Default
+impl<M: Message> Default for Messages<M> {
     fn default() -> Self {
         Self {
             messages_a: Default::default(),
@@ -290,11 +290,11 @@ impl<M: Message> Messages<M> {
     }
 }
 
-impl<E: Message> Extend<E> for Messages<E> {
+impl<M: Message> Extend<M> for Messages<M> {
     #[track_caller]
     fn extend<I>(&mut self, iter: I)
     where
-        I: IntoIterator<Item = E>,
+        I: IntoIterator<Item = M>,
     {
         let old_count = self.message_count;
         let mut message_count = self.message_count;
@@ -328,13 +328,13 @@ impl<E: Message> Extend<E> for Messages<E> {
 
 #[derive(Debug)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Default))]
-pub(crate) struct MessageSequence<E: Message> {
-    pub(crate) messages: Vec<MessageInstance<E>>,
+pub(crate) struct MessageSequence<M: Message> {
+    pub(crate) messages: Vec<MessageInstance<M>>,
     pub(crate) start_message_count: usize,
 }
 
-// Derived Default impl would incorrectly require E: Default
-impl<E: Message> Default for MessageSequence<E> {
+// Derived Default impl would incorrectly require M: Default
+impl<M: Message> Default for MessageSequence<M> {
     fn default() -> Self {
         Self {
             messages: Default::default(),
@@ -343,29 +343,29 @@ impl<E: Message> Default for MessageSequence<E> {
     }
 }
 
-impl<E: Message> Deref for MessageSequence<E> {
-    type Target = Vec<MessageInstance<E>>;
+impl<M: Message> Deref for MessageSequence<M> {
+    type Target = Vec<MessageInstance<M>>;
 
     fn deref(&self) -> &Self::Target {
         &self.messages
     }
 }
 
-impl<E: Message> DerefMut for MessageSequence<E> {
+impl<M: Message> DerefMut for MessageSequence<M> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.messages
     }
 }
 
 /// [`Iterator`] over written [`MessageIds`](`MessageId`) from a batch.
-pub struct WriteBatchIds<E> {
+pub struct WriteBatchIds<M> {
     last_count: usize,
     message_count: usize,
-    _marker: PhantomData<E>,
+    _marker: PhantomData<M>,
 }
 
-impl<E: Message> Iterator for WriteBatchIds<E> {
-    type Item = MessageId<E>;
+impl<M: Message> Iterator for WriteBatchIds<M> {
+    type Item = MessageId<M>;
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.last_count >= self.message_count {
@@ -382,9 +382,14 @@ impl<E: Message> Iterator for WriteBatchIds<E> {
 
         result
     }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let len = <Self as ExactSizeIterator>::len(self);
+        (len, Some(len))
+    }
 }
 
-impl<E: Message> ExactSizeIterator for WriteBatchIds<E> {
+impl<M: Message> ExactSizeIterator for WriteBatchIds<M> {
     fn len(&self) -> usize {
         self.message_count.saturating_sub(self.last_count)
     }
@@ -424,5 +429,20 @@ mod tests {
         // Writing zero messages
         assert_eq!(test_messages.len(), 2); // Messages are double-buffered, so we see 2 + 0 = 2
         assert_eq!(test_messages.iter_current_update_messages().count(), 0);
+    }
+
+    #[test]
+    fn write_batch_iter_size_hint() {
+        #[derive(Message, Clone, Copy)]
+        struct TestMessage;
+
+        let mut test_messages = Messages::<TestMessage>::default();
+        let write_batch_ids = test_messages.write_batch([TestMessage; 4]);
+        let expected_len = 4;
+        assert_eq!(write_batch_ids.len(), expected_len);
+        assert_eq!(
+            write_batch_ids.size_hint(),
+            (expected_len, Some(expected_len))
+        );
     }
 }

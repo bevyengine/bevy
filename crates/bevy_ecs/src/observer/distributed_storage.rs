@@ -301,6 +301,13 @@ impl Observer {
         self
     }
 
+    /// Observes the given `components`. This will cause the [`Observer`] to run whenever the [`Event`] has
+    /// an [`EntityComponentsTrigger`](crate::event::EntityComponentsTrigger) that targets any of the `components`.
+    pub fn with_components<I: IntoIterator<Item = ComponentId>>(mut self, components: I) -> Self {
+        self.descriptor.components.extend(components);
+        self
+    }
+
     /// Observes the given `event_key`. This will cause the [`Observer`] to run whenever an event with the given [`EventKey`]
     /// is triggered.
     /// # Safety
@@ -426,10 +433,8 @@ fn hook_on_add<E: Event, B: Bundle, S: ObserverSystem<E, B>>(
 ) {
     world.commands().queue(move |world: &mut World| {
         let event_key = world.register_event_key::<E>();
-        let mut components = alloc::vec![];
-        B::component_ids(&mut world.components_registrator(), &mut |id| {
-            components.push(id);
-        });
+        let components = B::component_ids(&mut world.components_registrator());
+
         if let Some(mut observer) = world.get_mut::<Observer>(entity) {
             observer.descriptor.event_keys.push(event_key);
             observer.descriptor.components.extend(components);

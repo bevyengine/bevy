@@ -14,7 +14,7 @@ use core::f32::consts::{FRAC_PI_2, PI, TAU};
 #[cfg(feature = "alloc")]
 use crate::primitives::{ConvexPolygon, Polygon, Polyline2d};
 
-use smallvec::SmallVec;
+use arrayvec::ArrayVec;
 
 use super::{Aabb2d, Bounded2d, BoundingCircle};
 
@@ -33,10 +33,10 @@ impl Bounded2d for Circle {
 // Compute the axis-aligned bounding points of a rotated arc, used for computing the AABB of arcs and derived shapes.
 // The return type has room for 7 points so that the CircularSector code can add an additional point.
 #[inline]
-fn arc_bounding_points(arc: Arc2d, rotation: impl Into<Rot2>) -> SmallVec<[Vec2; 7]> {
+fn arc_bounding_points(arc: Arc2d, rotation: impl Into<Rot2>) -> ArrayVec<Vec2, 7> {
     // Otherwise, the extreme points will always be either the endpoints or the axis-aligned extrema of the arc's circle.
     // We need to compute which axis-aligned extrema are actually contained within the rotated arc.
-    let mut bounds = SmallVec::<[Vec2; 7]>::new();
+    let mut bounds = ArrayVec::<Vec2, 7>::new();
     let rotation = rotation.into();
     bounds.push(rotation * arc.left_endpoint());
     bounds.push(rotation * arc.right_endpoint());

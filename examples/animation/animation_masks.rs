@@ -132,7 +132,7 @@ fn setup_scene(
     commands.spawn((
         PointLight {
             intensity: 10_000_000.0,
-            shadows_enabled: true,
+            shadow_maps_enabled: true,
             ..default()
         },
         Transform::from_xyz(-4.0, 8.0, 13.0),
@@ -288,10 +288,10 @@ fn new_mask_group_control(label: &str, width: Val, mask_group_id: u32) -> impl B
             align_items: AlignItems::Center,
             padding: UiRect::ZERO,
             margin: UiRect::ZERO,
+            border_radius: BorderRadius::all(px(3)),
             ..default()
         },
         BorderColor::all(Color::WHITE),
-        BorderRadius::all(px(3)),
         BackgroundColor(Color::BLACK),
         children![
             (

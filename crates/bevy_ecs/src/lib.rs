@@ -1,7 +1,3 @@
-#![expect(
-    unsafe_op_in_unsafe_fn,
-    reason = "See #11590. To be removed once all applicable unsafe code has an unsafe block with a safety comment."
-)]
 #![doc = include_str!("../README.md")]
 #![cfg_attr(
     any(docsrs, docsrs_dep),
@@ -109,7 +105,7 @@ pub mod prelude {
     #[doc(hidden)]
     #[cfg(feature = "bevy_reflect")]
     pub use crate::reflect::{
-        AppTypeRegistry, ReflectComponent, ReflectFromWorld, ReflectResource,
+        AppTypeRegistry, ReflectComponent, ReflectEvent, ReflectFromWorld, ReflectResource,
     };
 
     #[doc(hidden)]
@@ -244,10 +240,8 @@ mod tests {
             x: TableStored,
             y: SparseStored,
         }
-        let mut ids = Vec::new();
-        <FooBundle as Bundle>::component_ids(&mut world.components_registrator(), &mut |id| {
-            ids.push(id);
-        });
+        let ids: Vec<_> =
+            <FooBundle as Bundle>::component_ids(&mut world.components_registrator()).collect();
 
         assert_eq!(
             ids,
@@ -294,10 +288,8 @@ mod tests {
             b: B,
         }
 
-        let mut ids = Vec::new();
-        <NestedBundle as Bundle>::component_ids(&mut world.components_registrator(), &mut |id| {
-            ids.push(id);
-        });
+        let ids: Vec<_> =
+            <NestedBundle as Bundle>::component_ids(&mut world.components_registrator()).collect();
 
         assert_eq!(
             ids,
@@ -346,13 +338,9 @@ mod tests {
             ignored: Ignored,
         }
 
-        let mut ids = Vec::new();
-        <BundleWithIgnored as Bundle>::component_ids(
-            &mut world.components_registrator(),
-            &mut |id| {
-                ids.push(id);
-            },
-        );
+        let ids: Vec<_> =
+            <BundleWithIgnored as Bundle>::component_ids(&mut world.components_registrator())
+                .collect();
 
         assert_eq!(ids, &[world.register_component::<C>(),]);
 
@@ -1594,6 +1582,41 @@ mod tests {
             assert!(!world.contains_resource::<ResA>());
         });
         assert_eq!(world.resource::<ResA>().0, 1);
+    }
+
+    #[cfg(feature = "std")]
+    #[test]
+    fn resource_scope_unwind() {
+        #[derive(Debug, PartialEq)]
+        struct Panic;
+
+        let mut world = World::default();
+        assert!(world.try_resource_scope::<ResA, _>(|_, _| {}).is_none());
+        world.insert_resource(ResA(0));
+        let panic = std::panic::catch_unwind(core::panic::AssertUnwindSafe(|| {
+            world.resource_scope(|world: &mut World, _value: Mut<ResA>| {
+                assert!(!world.contains_resource::<ResA>());
+                std::panic::panic_any(Panic);
+            });
+            unreachable!();
+        }));
+        assert_eq!(panic.unwrap_err().downcast_ref::<Panic>(), Some(&Panic));
+        assert!(world.contains_resource::<ResA>());
+    }
+
+    // NOTE: this test is meant to validate the current behavior of `{try_}resource_scope` when resource metadata is cleared
+    // within the scope. future contributors who wish to change this behavior should feel free to delete this test.
+    #[test]
+    fn resource_scope_resources_cleared() {
+        let mut world = World::default();
+        assert!(world.try_resource_scope::<ResA, _>(|_, _| {}).is_none());
+        world.insert_resource(ResA(0));
+        let r = world.try_resource_scope(|world: &mut World, _value: Mut<ResA>| {
+            assert!(!world.contains_resource::<ResA>());
+            world.clear_resources();
+        });
+        assert_eq!(r, None);
+        assert!(!world.contains_resource::<ResA>());
     }
 
     #[test]

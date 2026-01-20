@@ -147,7 +147,15 @@ fn extract_gizmo_data(
             continue;
         }
 
-        let Some(handle) = handle else {
+        #[cfg_attr(
+            not(any(feature = "bevy_pbr", feature = "bevy_sprite_render")),
+            expect(
+                unused_variables,
+                reason = "`handle` is unused when bevy_pbr and bevy_sprite_render are both disabled."
+            )
+        )]
+        let Some(handle) = handle
+        else {
             continue;
         };
 
@@ -181,8 +189,8 @@ fn extract_gizmo_data(
                 joints_resolution,
                 gap_scale,
                 line_scale,
-                #[cfg(feature = "webgl")]
-                _padding: Default::default(),
+                #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
+                _webgl2_padding: Default::default(),
             },
             #[cfg(any(feature = "bevy_pbr", feature = "bevy_sprite_render"))]
             GizmoMeshConfig {
@@ -211,10 +219,17 @@ struct LineGizmoUniform {
     gap_scale: f32,
     line_scale: f32,
     /// WebGL2 structs must be 16 byte aligned.
-    #[cfg(feature = "webgl")]
-    _padding: bevy_math::Vec3,
+    #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
+    _webgl2_padding: bevy_math::Vec3,
 }
 
+#[cfg_attr(
+    not(any(feature = "bevy_pbr", feature = "bevy_sprite_render")),
+    expect(
+        dead_code,
+        reason = "fields are unused when bevy_pbr and bevy_sprite_render are both disabled."
+    )
+)]
 #[derive(Debug, Clone)]
 struct GpuLineGizmo {
     list_position_buffer: Buffer,
@@ -275,6 +290,13 @@ struct LineGizmoUniformBindgroupLayout {
     layout: BindGroupLayoutDescriptor,
 }
 
+#[cfg_attr(
+    not(any(feature = "bevy_pbr", feature = "bevy_sprite_render")),
+    expect(
+        dead_code,
+        reason = "fields are unused when bevy_pbr and bevy_sprite_render are both disabled."
+    )
+)]
 #[derive(Resource)]
 struct LineGizmoUniformBindgroup {
     bindgroup: BindGroup,
@@ -298,6 +320,13 @@ fn prepare_line_gizmo_bind_group(
     }
 }
 
+#[cfg_attr(
+    not(any(feature = "bevy_pbr", feature = "bevy_sprite_render")),
+    expect(
+        dead_code,
+        reason = "struct is not constructed when bevy_pbr and bevy_sprite_render are both disabled."
+    )
+)]
 struct SetLineGizmoBindGroup<const I: usize>;
 
 impl<const I: usize, P: PhaseItem> RenderCommand<P> for SetLineGizmoBindGroup<I> {
@@ -325,6 +354,13 @@ impl<const I: usize, P: PhaseItem> RenderCommand<P> for SetLineGizmoBindGroup<I>
     }
 }
 
+#[cfg_attr(
+    not(any(feature = "bevy_pbr", feature = "bevy_sprite_render")),
+    expect(
+        dead_code,
+        reason = "struct is not constructed when bevy_pbr and bevy_sprite_render are both disabled."
+    )
+)]
 struct DrawLineGizmo<const STRIP: bool>;
 
 impl<P: PhaseItem, const STRIP: bool> RenderCommand<P> for DrawLineGizmo<STRIP> {
@@ -384,6 +420,13 @@ impl<P: PhaseItem, const STRIP: bool> RenderCommand<P> for DrawLineGizmo<STRIP> 
     }
 }
 
+#[cfg_attr(
+    not(any(feature = "bevy_pbr", feature = "bevy_sprite_render")),
+    expect(
+        dead_code,
+        reason = "struct is not constructed when bevy_pbr and bevy_sprite_render are both disabled."
+    )
+)]
 struct DrawLineJointGizmo;
 
 impl<P: PhaseItem> RenderCommand<P> for DrawLineJointGizmo {
@@ -455,6 +498,13 @@ impl<P: PhaseItem> RenderCommand<P> for DrawLineJointGizmo {
     }
 }
 
+#[cfg_attr(
+    not(any(feature = "bevy_pbr", feature = "bevy_sprite_render")),
+    expect(
+        dead_code,
+        reason = "function is unused when bevy_pbr and bevy_sprite_render are both disabled."
+    )
+)]
 fn line_gizmo_vertex_buffer_layouts(strip: bool) -> Vec<VertexBufferLayout> {
     use VertexFormat::*;
     let mut position_layout = VertexBufferLayout {
@@ -509,6 +559,13 @@ fn line_gizmo_vertex_buffer_layouts(strip: bool) -> Vec<VertexBufferLayout> {
     }
 }
 
+#[cfg_attr(
+    not(any(feature = "bevy_pbr", feature = "bevy_sprite_render")),
+    expect(
+        dead_code,
+        reason = "function is unused when bevy_pbr and bevy_sprite_render are both disabled."
+    )
+)]
 fn line_joint_gizmo_vertex_buffer_layouts() -> Vec<VertexBufferLayout> {
     use VertexFormat::*;
     let mut position_layout = VertexBufferLayout {

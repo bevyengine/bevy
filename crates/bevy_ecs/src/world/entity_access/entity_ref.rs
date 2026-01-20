@@ -3,7 +3,7 @@ use crate::{
     change_detection::{ComponentTicks, MaybeLocation, Tick},
     component::{Component, ComponentId},
     entity::{ContainsEntity, Entity, EntityEquivalent, EntityLocation},
-    query::{Access, ReadOnlyQueryData, ReleaseStateQueryData},
+    query::{Access, QueryAccessError, ReadOnlyQueryData, ReleaseStateQueryData},
     world::{
         error::EntityComponentError, unsafe_world_cell::UnsafeEntityCell, DynamicComponentFetch,
         FilteredEntityRef, Ref,
@@ -47,6 +47,15 @@ impl<'w> EntityRef<'w> {
     #[inline]
     pub(crate) unsafe fn new(cell: UnsafeEntityCell<'w>) -> Self {
         Self { cell }
+    }
+
+    /// Consumes `self` and returns a [`FilteredEntityRef`] which has read-only
+    /// access to all of the entity's components, with the world `'w` lifetime.
+    #[inline]
+    pub fn into_filtered(self) -> FilteredEntityRef<'w, 'static> {
+        // SAFETY:
+        // - `EntityRef` guarantees exclusive access to all components in the new `FilteredEntityRef`.
+        unsafe { FilteredEntityRef::new(self.cell, const { &Access::new_read_all() }) }
     }
 
     /// Returns the [ID](Entity) of the current entity.
@@ -270,7 +279,7 @@ impl<'w> EntityRef<'w> {
     /// or `None` if the entity does not have the components required by the query `Q`.
     pub fn get_components<Q: ReadOnlyQueryData + ReleaseStateQueryData>(
         &self,
-    ) -> Option<Q::Item<'w, 'static>> {
+    ) -> Result<Q::Item<'w, 'static>, QueryAccessError> {
         // SAFETY:
         // - We have read-only access to all components of this entity.
         // - The query is read-only, and read-only references cannot have conflicts.
@@ -289,18 +298,16 @@ impl<'w> EntityRef<'w> {
 }
 
 impl<'a> From<EntityRef<'a>> for FilteredEntityRef<'a, 'static> {
+    #[inline]
     fn from(entity: EntityRef<'a>) -> Self {
-        // SAFETY:
-        // - `EntityRef` guarantees exclusive access to all components in the new `FilteredEntityRef`.
-        unsafe { FilteredEntityRef::new(entity.cell, const { &Access::new_read_all() }) }
+        entity.into_filtered()
     }
 }
 
-impl<'a> From<&'a EntityRef<'_>> for FilteredEntityRef<'a, 'static> {
-    fn from(entity: &'a EntityRef<'_>) -> Self {
-        // SAFETY:
-        // - `EntityRef` guarantees exclusive access to all components in the new `FilteredEntityRef`.
-        unsafe { FilteredEntityRef::new(entity.cell, const { &Access::new_read_all() }) }
+impl<'a> From<&EntityRef<'a>> for FilteredEntityRef<'a, 'static> {
+    #[inline]
+    fn from(entity: &EntityRef<'a>) -> Self {
+        entity.into_filtered()
     }
 }
 

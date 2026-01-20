@@ -130,7 +130,8 @@ fn scrollbar_on_pointer_down(
         // Convert the click coordinates into a scroll position. If it's greater than the
         // current scroll position, scroll forward by one step (visible size) otherwise scroll
         // back.
-        let visible_size = scroll_content.size() * scroll_content.inverse_scale_factor;
+        let visible_size = (scroll_content.size() - scroll_content.scrollbar_size)
+            * scroll_content.inverse_scale_factor;
         let content_size = scroll_content.content_size() * scroll_content.inverse_scale_factor;
         let max_range = (content_size - visible_size).max(Vec2::ZERO);
 
@@ -193,8 +194,11 @@ fn scrollbar_on_drag(
 
         if drag.dragging {
             let distance = ev.event().distance / ui_scale.0;
-            let visible_size = scroll_content.size() * scroll_content.inverse_scale_factor;
+
+            let visible_size = (scroll_content.size() - scroll_content.scrollbar_size)
+                * scroll_content.inverse_scale_factor;
             let content_size = scroll_content.content_size() * scroll_content.inverse_scale_factor;
+
             let scrollbar_size = (node.size() * node.inverse_scale_factor).max(Vec2::ONE);
 
             match scrollbar.orientation {
@@ -250,7 +254,8 @@ fn update_scrollbar_thumb(
         };
 
         // Size of the visible scrolling area.
-        let visible_size = scroll_area.1.size() * scroll_area.1.inverse_scale_factor;
+        let visible_size = (scroll_area.1.size() - scroll_area.1.scrollbar_size)
+            * scroll_area.1.inverse_scale_factor;
 
         // Size of the scrolling content.
         let content_size = scroll_area.1.content_size() * scroll_area.1.inverse_scale_factor;

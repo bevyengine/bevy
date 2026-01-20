@@ -25,18 +25,148 @@ use bevy_tasks::BoxedFuture;
 use crate::{
     io::{
         memory::{Dir, MemoryAssetReader, MemoryAssetWriter},
-        AssetReader, AssetReaderError, AssetSourceBuilder, AssetSourceEvent, AssetSourceId,
-        AssetWatcher, PathStream, Reader,
+        AssetReader, AssetReaderError, AssetSourceBuilder, AssetSourceBuilders, AssetSourceEvent,
+        AssetSourceId, AssetWatcher, PathStream, Reader,
     },
     processor::{
-        AssetProcessor, LoadTransformAndSave, LogEntry, ProcessorState, ProcessorTransactionLog,
-        ProcessorTransactionLogFactory,
+        AssetProcessor, GetProcessorError, LoadTransformAndSave, LogEntry, Process, ProcessContext,
+        ProcessError, ProcessorState, ProcessorTransactionLog, ProcessorTransactionLogFactory,
     },
     saver::AssetSaver,
-    tests::{run_app_until, CoolText, CoolTextLoader, CoolTextRon, SubText},
+    tests::{
+        read_asset_as_string, read_meta_as_string, run_app_until, CoolText, CoolTextLoader,
+        CoolTextRon, SubText,
+    },
     transformer::{AssetTransformer, TransformedAsset},
     Asset, AssetApp, AssetLoader, AssetMode, AssetPath, AssetPlugin, LoadContext,
+    WriteDefaultMetaError,
 };
+
+#[derive(TypePath)]
+struct MyProcessor<T>(PhantomData<fn() -> T>);
+
+impl<T: TypePath + 'static> Process for MyProcessor<T> {
+    type OutputLoader = ();
+    type Settings = ();
+
+    async fn process(
+        &self,
+        _context: &mut ProcessContext<'_>,
+        _settings: &Self::Settings,
+        _writer: &mut crate::io::Writer,
+    ) -> Result<(), ProcessError> {
+        Ok(())
+    }
+}
+
+#[derive(TypePath)]
+struct Marker;
+
+fn create_empty_asset_processor() -> AssetProcessor {
+    let mut sources = AssetSourceBuilders::default();
+    // Create an empty asset source so that AssetProcessor is happy.
+    let dir = Dir::default();
+    let memory_reader = MemoryAssetReader { root: dir.clone() };
+    sources.insert(
+        AssetSourceId::Default,
+        AssetSourceBuilder::new(move || Box::new(memory_reader.clone())),
+    );
+
+    AssetProcessor::new(&mut sources, false).0
+}
+
+#[test]
+fn get_asset_processor_by_name() {
+    let asset_processor = create_empty_asset_processor();
+    asset_processor.register_processor(MyProcessor::<Marker>(PhantomData));
+
+    let long_processor = asset_processor
+        .get_processor(
+            "bevy_asset::processor::tests::MyProcessor<bevy_asset::processor::tests::Marker>",
+        )
+        .expect("Processor was previously registered");
+    let short_processor = asset_processor
+        .get_processor("MyProcessor<Marker>")
+        .expect("Processor was previously registered");
+
+    // We can use either the long or short processor name and we will get the same processor
+    // out.
+    assert!(Arc::ptr_eq(&long_processor, &short_processor));
+}
+
+#[test]
+fn missing_processor_returns_error() {
+    let asset_processor = create_empty_asset_processor();
+
+    let Err(long_processor_err) = asset_processor.get_processor(
+        "bevy_asset::processor::tests::MyProcessor<bevy_asset::processor::tests::Marker>",
+    ) else {
+        panic!("Processor was returned even though we never registered any.");
+    };
+    let GetProcessorError::Missing(long_processor_err) = &long_processor_err else {
+        panic!("get_processor returned incorrect error: {long_processor_err}");
+    };
+    assert_eq!(
+        long_processor_err,
+        "bevy_asset::processor::tests::MyProcessor<bevy_asset::processor::tests::Marker>"
+    );
+
+    // Short paths should also return an error.
+
+    let Err(long_processor_err) = asset_processor.get_processor("MyProcessor<Marker>") else {
+        panic!("Processor was returned even though we never registered any.");
+    };
+    let GetProcessorError::Missing(long_processor_err) = &long_processor_err else {
+        panic!("get_processor returned incorrect error: {long_processor_err}");
+    };
+    assert_eq!(long_processor_err, "MyProcessor<Marker>");
+}
+
+// Create another marker type whose short name will overlap `Marker`.
+mod sneaky {
+    use bevy_reflect::TypePath;
+
+    #[derive(TypePath)]
+    pub struct Marker;
+}
+
+#[test]
+fn ambiguous_short_path_returns_error() {
+    let asset_processor = create_empty_asset_processor();
+    asset_processor.register_processor(MyProcessor::<Marker>(PhantomData));
+    asset_processor.register_processor(MyProcessor::<sneaky::Marker>(PhantomData));
+
+    let Err(long_processor_err) = asset_processor.get_processor("MyProcessor<Marker>") else {
+        panic!("Processor was returned even though the short path is ambiguous.");
+    };
+    let GetProcessorError::Ambiguous {
+        processor_short_name,
+        ambiguous_processor_names,
+    } = &long_processor_err
+    else {
+        panic!("get_processor returned incorrect error: {long_processor_err}");
+    };
+    assert_eq!(processor_short_name, "MyProcessor<Marker>");
+    let expected_ambiguous_names = [
+        "bevy_asset::processor::tests::MyProcessor<bevy_asset::processor::tests::Marker>",
+        "bevy_asset::processor::tests::MyProcessor<bevy_asset::processor::tests::sneaky::Marker>",
+    ];
+    assert_eq!(ambiguous_processor_names, &expected_ambiguous_names);
+
+    let processor_1 = asset_processor
+        .get_processor(
+            "bevy_asset::processor::tests::MyProcessor<bevy_asset::processor::tests::Marker>",
+        )
+        .expect("Processor was previously registered");
+    let processor_2 = asset_processor
+            .get_processor(
+                "bevy_asset::processor::tests::MyProcessor<bevy_asset::processor::tests::sneaky::Marker>",
+            )
+            .expect("Processor was previously registered");
+
+    // If we fully specify the paths, we get the two different processors.
+    assert!(!Arc::ptr_eq(&processor_1, &processor_2));
+}
 
 #[derive(Clone)]
 struct ProcessingDirs {
@@ -93,101 +223,22 @@ impl<R: AssetReader> AssetReader for LockGatedReader<R> {
     }
 }
 
-fn create_app_with_asset_processor(extra_sources: &[String]) -> AppWithProcessor {
-    let mut app = App::new();
-    let source_gate = Arc::new(RwLock::new(()));
+/// Serializes `text` into a `CoolText` that can be loaded.
+///
+/// This doesn't support all the features of `CoolText`, so more complex scenarios may require doing
+/// this manually.
+fn serialize_as_cool_text(text: &str) -> String {
+    let cool_text_ron = CoolTextRon {
+        text: text.into(),
+        dependencies: vec![],
+        embedded_dependencies: vec![],
+        sub_texts: vec![],
+    };
+    ron::ser::to_string_pretty(&cool_text_ron, PrettyConfig::new().new_line("\n")).unwrap()
+}
 
-    struct UnfinishedProcessingDirs {
-        source: Dir,
-        processed: Dir,
-        // The receiver channel for the source event sender for the unprocessed source.
-        source_event_sender_receiver:
-            async_channel::Receiver<async_channel::Sender<AssetSourceEvent>>,
-    }
-
-    impl UnfinishedProcessingDirs {
-        fn finish(self) -> ProcessingDirs {
-            ProcessingDirs {
-                source: self.source,
-                processed: self.processed,
-                // The processor listens for events on the source unconditionally, and we enable
-                // watching for the processed source, so both of these channels will be filled.
-                source_event_sender: self.source_event_sender_receiver.recv_blocking().unwrap(),
-            }
-        }
-    }
-
-    fn create_source(
-        app: &mut App,
-        source_id: AssetSourceId<'static>,
-        source_gate: Arc<RwLock<()>>,
-    ) -> UnfinishedProcessingDirs {
-        let source_dir = Dir::default();
-        let processed_dir = Dir::default();
-
-        let source_memory_reader = LockGatedReader::new(
-            source_gate,
-            MemoryAssetReader {
-                root: source_dir.clone(),
-            },
-        );
-        let processed_memory_reader = MemoryAssetReader {
-            root: processed_dir.clone(),
-        };
-        let processed_memory_writer = MemoryAssetWriter {
-            root: processed_dir.clone(),
-        };
-
-        let (source_event_sender_sender, source_event_sender_receiver) = async_channel::bounded(1);
-
-        struct FakeWatcher;
-
-        impl AssetWatcher for FakeWatcher {}
-
-        app.register_asset_source(
-            source_id,
-            AssetSourceBuilder::new(move || Box::new(source_memory_reader.clone()))
-                .with_watcher(move |sender: async_channel::Sender<AssetSourceEvent>| {
-                    source_event_sender_sender.send_blocking(sender).unwrap();
-                    Some(Box::new(FakeWatcher))
-                })
-                .with_processed_reader(move || Box::new(processed_memory_reader.clone()))
-                .with_processed_writer(move |_| Some(Box::new(processed_memory_writer.clone()))),
-        );
-
-        UnfinishedProcessingDirs {
-            source: source_dir,
-            processed: processed_dir,
-            source_event_sender_receiver,
-        }
-    }
-
-    let default_source_dirs = create_source(&mut app, AssetSourceId::Default, source_gate.clone());
-
-    let extra_sources_dirs = extra_sources
-        .iter()
-        .map(|source_name| {
-            (
-                source_name.clone(),
-                create_source(
-                    &mut app,
-                    AssetSourceId::Name(source_name.clone().into()),
-                    source_gate.clone(),
-                ),
-            )
-        })
-        .collect::<Vec<_>>();
-
-    app.add_plugins((
-        TaskPoolPlugin::default(),
-        AssetPlugin {
-            mode: AssetMode::Processed,
-            use_asset_processor_override: Some(true),
-            watch_for_changes_override: Some(true),
-            ..Default::default()
-        },
-    ));
-
+/// Sets the transaction log for the app to a fake one to prevent touching the filesystem.
+fn set_fake_transaction_log(app: &mut App) {
     /// A dummy transaction log factory that just creates [`FakeTransactionLog`].
     struct FakeTransactionLogFactory;
 
@@ -233,6 +284,108 @@ fn create_app_with_asset_processor(extra_sources: &[String]) -> AppWithProcessor
         .data()
         .set_log_factory(Box::new(FakeTransactionLogFactory))
         .unwrap();
+}
+
+fn create_app_with_asset_processor(extra_sources: &[String]) -> AppWithProcessor {
+    let mut app = App::new();
+    let source_gate = Arc::new(RwLock::new(()));
+
+    struct UnfinishedProcessingDirs {
+        source: Dir,
+        processed: Dir,
+        // The receiver channel for the source event sender for the unprocessed source.
+        source_event_sender_receiver:
+            async_channel::Receiver<async_channel::Sender<AssetSourceEvent>>,
+    }
+
+    impl UnfinishedProcessingDirs {
+        fn finish(self) -> ProcessingDirs {
+            ProcessingDirs {
+                source: self.source,
+                processed: self.processed,
+                // The processor listens for events on the source unconditionally, and we enable
+                // watching for the processed source, so both of these channels will be filled.
+                source_event_sender: self.source_event_sender_receiver.recv_blocking().unwrap(),
+            }
+        }
+    }
+
+    fn create_source(
+        app: &mut App,
+        source_id: AssetSourceId<'static>,
+        source_gate: Arc<RwLock<()>>,
+    ) -> UnfinishedProcessingDirs {
+        let source_dir = Dir::default();
+        let processed_dir = Dir::default();
+
+        let source_memory_reader = LockGatedReader::new(
+            source_gate,
+            MemoryAssetReader {
+                root: source_dir.clone(),
+            },
+        );
+        let source_memory_writer = MemoryAssetWriter {
+            root: source_dir.clone(),
+        };
+        let processed_memory_reader = MemoryAssetReader {
+            root: processed_dir.clone(),
+        };
+        let processed_memory_writer = MemoryAssetWriter {
+            root: processed_dir.clone(),
+        };
+
+        let (source_event_sender_sender, source_event_sender_receiver) = async_channel::bounded(1);
+
+        struct FakeWatcher;
+
+        impl AssetWatcher for FakeWatcher {}
+
+        app.register_asset_source(
+            source_id,
+            AssetSourceBuilder::new(move || Box::new(source_memory_reader.clone()))
+                .with_writer(move |_| Some(Box::new(source_memory_writer.clone())))
+                .with_watcher(move |sender: async_channel::Sender<AssetSourceEvent>| {
+                    source_event_sender_sender.send_blocking(sender).unwrap();
+                    Some(Box::new(FakeWatcher))
+                })
+                .with_processed_reader(move || Box::new(processed_memory_reader.clone()))
+                .with_processed_writer(move |_| Some(Box::new(processed_memory_writer.clone()))),
+        );
+
+        UnfinishedProcessingDirs {
+            source: source_dir,
+            processed: processed_dir,
+            source_event_sender_receiver,
+        }
+    }
+
+    let default_source_dirs = create_source(&mut app, AssetSourceId::Default, source_gate.clone());
+
+    let extra_sources_dirs = extra_sources
+        .iter()
+        .map(|source_name| {
+            (
+                source_name.clone(),
+                create_source(
+                    &mut app,
+                    AssetSourceId::Name(source_name.clone().into()),
+                    source_gate.clone(),
+                ),
+            )
+        })
+        .collect::<Vec<_>>();
+
+    app.add_plugins((
+        TaskPoolPlugin::default(),
+        AssetPlugin {
+            mode: AssetMode::Processed,
+            use_asset_processor_override: Some(true),
+            watch_for_changes_override: Some(true),
+            ..Default::default()
+        },
+    ));
+
+    set_fake_transaction_log(&mut app);
 
     // Now that we've built the app, finish all the processing dirs.
 
@@ -253,6 +406,17 @@ fn run_app_until_finished_processing(app: &mut App, guard: RwLockWriteGuard<'_, 
     // finished before, but now that something has changed, we may not have restarted processing
     // yet. So wait for processing to start, then finish.
     run_app_until(app, |_| {
+        // Before we even consider whether the processor is started, make sure that none of the
+        // receivers have anything left in them. This prevents us accidentally, considering the
+        // processor as processing before all the events have been processed.
+        for source in processor.sources().iter() {
+            let Some(recv) = source.event_receiver() else {
+                continue;
+            };
+            if !recv.is_empty() {
+                return None;
+            }
+        }
         let state = bevy_tasks::block_on(processor.get_state());
         (state == ProcessorState::Processing || state == ProcessorState::Initializing).then_some(())
     });
@@ -262,6 +426,7 @@ fn run_app_until_finished_processing(app: &mut App, guard: RwLockWriteGuard<'_, 
     });
 }
 
+#[derive(TypePath)]
 struct CoolTextSaver;
 
 impl AssetSaver for CoolTextSaver {
@@ -301,9 +466,10 @@ impl AssetSaver for CoolTextSaver {
 // Note: while we allow any Fn, since closures are unnameable types, creating a processor with a
 // closure cannot be used (since we need to include the name of the transformer in the meta
 // file).
+#[derive(TypePath)]
 struct RootAssetTransformer<M: MutateAsset<A>, A: Asset>(M, PhantomData<fn(&mut A)>);
 
-trait MutateAsset<A: Asset>: Send + Sync + 'static {
+trait MutateAsset<A: Asset>: TypePath + Send + Sync + 'static {
     fn mutate(&self, asset: &mut A);
 }
 
@@ -329,17 +495,13 @@ impl<M: MutateAsset<A>, A: Asset> AssetTransformer for RootAssetTransformer<M, A
     }
 }
 
+#[derive(TypePath)]
 struct AddText(String);
 
 impl MutateAsset<CoolText> for AddText {
     fn mutate(&self, text: &mut CoolText) {
         text.text.push_str(&self.0);
     }
-}
-
-fn read_asset_as_string(dir: &Dir, path: &Path) -> String {
-    let bytes = dir.get_asset(path).unwrap();
-    str::from_utf8(bytes.value()).unwrap().to_string()
 }
 
 #[test]
@@ -499,11 +661,76 @@ fn asset_processor_transforms_asset_with_meta() {
     );
 }
 
+#[test]
+fn asset_processor_transforms_asset_with_short_path_meta() {
+    let AppWithProcessor {
+        mut app,
+        source_gate,
+        default_source_dirs:
+            ProcessingDirs {
+                source: source_dir,
+                processed: processed_dir,
+                ..
+            },
+        ..
+    } = create_app_with_asset_processor(&[]);
+
+    type CoolTextProcessor = LoadTransformAndSave<
+        CoolTextLoader,
+        RootAssetTransformer<AddText, CoolText>,
+        CoolTextSaver,
+    >;
+    app.register_asset_loader(CoolTextLoader)
+        .register_asset_processor(CoolTextProcessor::new(
+            RootAssetTransformer::new(AddText("_def".into())),
+            CoolTextSaver,
+        ));
+
+    let guard = source_gate.write_blocking();
+
+    let path = Path::new("abc.cool.ron");
+    source_dir.insert_asset_text(
+        path,
+        r#"(
+    text: "abc",
+    dependencies: [],
+    embedded_dependencies: [],
+    sub_texts: [],
+)"#,
+    );
+    source_dir.insert_meta_text(path, r#"(
+    meta_format_version: "1.0",
+    asset: Process(
+        processor: "LoadTransformAndSave<CoolTextLoader, RootAssetTransformer<AddText, CoolText>, CoolTextSaver>",
+        settings: (
+            loader_settings: (),
+            transformer_settings: (),
+            saver_settings: (),
+        ),
+    ),
+)"#);
+
+    run_app_until_finished_processing(&mut app, guard);
+
+    let processed_asset = processed_dir.get_asset(path).unwrap();
+    let processed_asset = str::from_utf8(processed_asset.value()).unwrap();
+    assert_eq!(
+        processed_asset,
+        r#"(
+    text: "abc_def",
+    dependencies: [],
+    embedded_dependencies: [],
+    sub_texts: [],
+)"#
+    );
+}
+
 #[derive(Asset, TypePath, Serialize, Deserialize)]
 struct FakeGltf {
     gltf_nodes: BTreeMap<String, String>,
 }
 
+#[derive(TypePath)]
 struct FakeGltfLoader;
 
 impl AssetLoader for FakeGltfLoader {
@@ -540,6 +767,7 @@ struct FakeBsn {
 // scene that holds all the data including parents.
 // TODO: It would be nice if the inlining was actually done as an `AssetTransformer`, but
 // `Process` currently has no way to load nested assets.
+#[derive(TypePath)]
 struct FakeBsnLoader;
 
 impl AssetLoader for FakeBsnLoader {
@@ -945,15 +1173,6 @@ fn asset_processor_processes_all_sources() {
     // All the assets will have the same path, but they will still be separately processed since
     // they are in different sources.
     let path = Path::new("asset.cool.ron");
-    let serialize_as_cool_text = |text: &str| {
-        let cool_text_ron = CoolTextRon {
-            text: text.into(),
-            dependencies: vec![],
-            embedded_dependencies: vec![],
-            sub_texts: vec![],
-        };
-        ron::ser::to_string_pretty(&cool_text_ron, PrettyConfig::new().new_line("\n")).unwrap()
-    };
     default_source_dir.insert_asset_text(path, &serialize_as_cool_text("default asset"));
     custom_1_source_dir.insert_asset_text(path, &serialize_as_cool_text("custom 1 asset"));
     custom_2_source_dir.insert_asset_text(path, &serialize_as_cool_text("custom 2 asset"));
@@ -1057,6 +1276,7 @@ fn nested_loads_of_processed_asset_reprocesses_on_reload() {
         value: String,
     }
 
+    #[derive(TypePath)]
     struct NesterLoader;
 
     impl AssetLoader for NesterLoader {
@@ -1088,6 +1308,7 @@ fn nested_loads_of_processed_asset_reprocesses_on_reload() {
         }
     }
 
+    #[derive(TypePath)]
     struct AddTextToNested(String, Arc<Mutex<u32>>);
 
     impl MutateAsset<Nester> for AddTextToNested {
@@ -1103,6 +1324,7 @@ fn nested_loads_of_processed_asset_reprocesses_on_reload() {
         ron::ser::to_string(&serialized).unwrap()
     }
 
+    #[derive(TypePath)]
     struct NesterSaver;
 
     impl AssetSaver for NesterSaver {
@@ -1243,4 +1465,344 @@ fn nested_loads_of_processed_asset_reprocesses_on_reload() {
     );
 
     assert_eq!(get_process_count(), 7);
+}
+
+#[test]
+fn clears_invalid_data_from_processed_dir() {
+    let AppWithProcessor {
+        mut app,
+        source_gate,
+        default_source_dirs:
+            ProcessingDirs {
+                source: default_source_dir,
+                processed: default_processed_dir,
+                ..
+            },
+        ..
+    } = create_app_with_asset_processor(&[]);
+
+    type CoolTextProcessor = LoadTransformAndSave<
+        CoolTextLoader,
+        RootAssetTransformer<AddText, CoolText>,
+        CoolTextSaver,
+    >;
+    app.init_asset::<CoolText>()
+        .init_asset::<SubText>()
+        .register_asset_loader(CoolTextLoader)
+        .register_asset_processor(CoolTextProcessor::new(
+            RootAssetTransformer::new(AddText(" processed".to_string())),
+            CoolTextSaver,
+        ))
+        .set_default_asset_processor::<CoolTextProcessor>("cool.ron");
+
+    let guard = source_gate.write_blocking();
+
+    default_source_dir.insert_asset_text(Path::new("a.cool.ron"), &serialize_as_cool_text("a"));
+    default_source_dir.insert_asset_text(Path::new("dir/b.cool.ron"), &serialize_as_cool_text("b"));
+    default_source_dir.insert_asset_text(
+        Path::new("dir/subdir/c.cool.ron"),
+        &serialize_as_cool_text("c"),
+    );
+
+    // This asset has the right data, but no meta, so it should be reprocessed.
+    let a = Path::new("a.cool.ron");
+    default_processed_dir.insert_asset_text(a, &serialize_as_cool_text("a processed"));
+    // These assets aren't present in the unprocessed directory, so they should be deleted.
+    let missing1 = Path::new("missing1.cool.ron");
+    let missing2 = Path::new("dir/missing2.cool.ron");
+    let missing3 = Path::new("other_dir/missing3.cool.ron");
+    default_processed_dir.insert_asset_text(missing1, &serialize_as_cool_text("missing1"));
+    default_processed_dir.insert_meta_text(missing1, ""); // This asset has metadata.
+    default_processed_dir.insert_asset_text(missing2, &serialize_as_cool_text("missing2"));
+    default_processed_dir.insert_asset_text(missing3, &serialize_as_cool_text("missing3"));
+    // This directory is empty, so it should be deleted.
+    let empty_dir = Path::new("empty_dir");
+    let empty_dir_subdir = Path::new("empty_dir/empty_subdir");
+    default_processed_dir.get_or_insert_dir(empty_dir_subdir);
+
+    run_app_until_finished_processing(&mut app, guard);
+
+    assert_eq!(
+        read_asset_as_string(&default_processed_dir, a),
+        serialize_as_cool_text("a processed")
+    );
+    assert!(default_processed_dir.get_metadata(a).is_some());
+
+    assert!(default_processed_dir.get_asset(missing1).is_none());
+    assert!(default_processed_dir.get_metadata(missing1).is_none());
+    assert!(default_processed_dir.get_asset(missing2).is_none());
+    assert!(default_processed_dir.get_asset(missing3).is_none());
+
+    assert!(default_processed_dir.get_dir(empty_dir_subdir).is_none());
+    assert!(default_processed_dir.get_dir(empty_dir).is_none());
+}
+
+#[test]
+fn only_reprocesses_wrong_hash_on_startup() {
+    let no_deps_asset = Path::new("no_deps.cool.ron");
+    let source_changed_asset = Path::new("source_changed.cool.ron");
+    let dep_unchanged_asset = Path::new("dep_unchanged.cool.ron");
+    let dep_changed_asset = Path::new("dep_changed.cool.ron");
+    let default_source_dir;
+    let default_processed_dir;
+
+    #[derive(TypePath, Clone)]
+    struct MergeEmbeddedAndAddText;
+
+    impl MutateAsset<CoolText> for MergeEmbeddedAndAddText {
+        fn mutate(&self, asset: &mut CoolText) {
+            asset.text.push_str(" processed");
+            if asset.embedded.is_empty() {
+                return;
+            }
+            asset.text.push(' ');
+            asset.text.push_str(&asset.embedded);
+        }
+    }
+
+    #[derive(TypePath, Clone)]
+    struct Count<T>(Arc<Mutex<u32>>, T);
+
+    impl<A: Asset, T: MutateAsset<A>> MutateAsset<A> for Count<T> {
+        fn mutate(&self, asset: &mut A) {
+            *self.0.lock().unwrap_or_else(PoisonError::into_inner) += 1;
+            self.1.mutate(asset);
+        }
+    }
+
+    let transformer = Count(Arc::new(Mutex::new(0)), MergeEmbeddedAndAddText);
+    type CoolTextProcessor = LoadTransformAndSave<
+        CoolTextLoader,
+        RootAssetTransformer<Count<MergeEmbeddedAndAddText>, CoolText>,
+        CoolTextSaver,
+    >;
+
+    // Create a scope so that the app is completely gone afterwards (and we can see what happens
+    // after reinitializing).
+    {
+        let AppWithProcessor {
+            mut app,
+            source_gate,
+            default_source_dirs,
+            ..
+        } = create_app_with_asset_processor(&[]);
+        default_source_dir = default_source_dirs.source;
+        default_processed_dir = default_source_dirs.processed;
+
+        app.init_asset::<CoolText>()
+            .init_asset::<SubText>()
+            .register_asset_loader(CoolTextLoader)
+            .register_asset_processor(CoolTextProcessor::new(
+                RootAssetTransformer::new(transformer.clone()),
+                CoolTextSaver,
+            ))
+            .set_default_asset_processor::<CoolTextProcessor>("cool.ron");
+
+        let guard = source_gate.write_blocking();
+
+        let cool_text_with_embedded = |text: &str, embedded: &Path| {
+            let cool_text_ron = CoolTextRon {
+                text: text.into(),
+                dependencies: vec![],
+                embedded_dependencies: vec![embedded.to_string_lossy().into_owned()],
+                sub_texts: vec![],
+            };
+            ron::ser::to_string_pretty(&cool_text_ron, PrettyConfig::new().new_line("\n")).unwrap()
+        };
+
+        default_source_dir.insert_asset_text(no_deps_asset, &serialize_as_cool_text("no_deps"));
+        default_source_dir.insert_asset_text(
+            source_changed_asset,
+            &serialize_as_cool_text("source_changed"),
+        );
+        default_source_dir.insert_asset_text(
+            dep_unchanged_asset,
+            &cool_text_with_embedded("dep_unchanged", no_deps_asset),
+        );
+        default_source_dir.insert_asset_text(
+            dep_changed_asset,
+            &cool_text_with_embedded("dep_changed", source_changed_asset),
+        );
+
+        run_app_until_finished_processing(&mut app, guard);
+
+        assert_eq!(
+            read_asset_as_string(&default_processed_dir, no_deps_asset),
+            serialize_as_cool_text("no_deps processed")
+        );
+        assert_eq!(
+            read_asset_as_string(&default_processed_dir, source_changed_asset),
+            serialize_as_cool_text("source_changed processed")
+        );
+        assert_eq!(
+            read_asset_as_string(&default_processed_dir, dep_unchanged_asset),
+            serialize_as_cool_text("dep_unchanged processed no_deps processed")
+        );
+        assert_eq!(
+            read_asset_as_string(&default_processed_dir, dep_changed_asset),
+            serialize_as_cool_text("dep_changed processed source_changed processed")
+        );
+    }
+
+    // Assert and reset the processing count.
+    assert_eq!(
+        core::mem::take(&mut *transformer.0.lock().unwrap_or_else(PoisonError::into_inner)),
+        4
+    );
+
+    // Hand-make the app, since we need to pass in our already existing Dirs from the last app.
+    let mut app = App::new();
+    let source_gate = Arc::new(RwLock::new(()));
+
+    let source_memory_reader = LockGatedReader::new(
+        source_gate.clone(),
+        MemoryAssetReader {
+            root: default_source_dir.clone(),
+        },
+    );
+    let processed_memory_reader = MemoryAssetReader {
+        root: default_processed_dir.clone(),
+    };
+    let processed_memory_writer = MemoryAssetWriter {
+        root: default_processed_dir.clone(),
+    };
+
+    app.register_asset_source(
+        AssetSourceId::Default,
+        AssetSourceBuilder::new(move || Box::new(source_memory_reader.clone()))
+            .with_processed_reader(move || Box::new(processed_memory_reader.clone()))
+            .with_processed_writer(move |_| Some(Box::new(processed_memory_writer.clone()))),
+    );
+
+    app.add_plugins((
+        TaskPoolPlugin::default(),
+        AssetPlugin {
+            mode: AssetMode::Processed,
+            use_asset_processor_override: Some(true),
+            watch_for_changes_override: Some(true),
+            ..Default::default()
+        },
+    ));
+
+    set_fake_transaction_log(&mut app);
+
+    app.init_asset::<CoolText>()
+        .init_asset::<SubText>()
+        .register_asset_loader(CoolTextLoader)
+        .register_asset_processor(CoolTextProcessor::new(
+            RootAssetTransformer::new(transformer.clone()),
+            CoolTextSaver,
+        ))
+        .set_default_asset_processor::<CoolTextProcessor>("cool.ron");
+
+    let guard = source_gate.write_blocking();
+
+    default_source_dir
+        .insert_asset_text(source_changed_asset, &serialize_as_cool_text("DIFFERENT"));
+
+    run_app_until_finished_processing(&mut app, guard);
+
+    // Only source_changed and dep_changed assets were reprocessed - all others still have the same
+    // hashes.
+    let num_processes = *transformer.0.lock().unwrap_or_else(PoisonError::into_inner);
+    // TODO: assert_eq! (num_processes == 2) only after we prevent double processing assets
+    // == 3 happens when the initial processing of an asset and the re-processing that its dependency
+    // triggers are both able to proceed. (dep_changed_asset in this case is processed twice)
+    assert!(num_processes == 2 || num_processes == 3);
+
+    assert_eq!(
+        read_asset_as_string(&default_processed_dir, no_deps_asset),
+        serialize_as_cool_text("no_deps processed")
+    );
+    assert_eq!(
+        read_asset_as_string(&default_processed_dir, source_changed_asset),
+        serialize_as_cool_text("DIFFERENT processed")
+    );
+    assert_eq!(
+        read_asset_as_string(&default_processed_dir, dep_unchanged_asset),
+        serialize_as_cool_text("dep_unchanged processed no_deps processed")
+    );
+    assert_eq!(
+        read_asset_as_string(&default_processed_dir, dep_changed_asset),
+        serialize_as_cool_text("dep_changed processed DIFFERENT processed")
+    );
+}
+
+#[test]
+fn writes_default_meta_for_processor() {
+    let AppWithProcessor {
+        mut app,
+        default_source_dirs: ProcessingDirs { source, .. },
+        ..
+    } = create_app_with_asset_processor(&[]);
+
+    type CoolTextProcessor = LoadTransformAndSave<
+        CoolTextLoader,
+        RootAssetTransformer<AddText, CoolText>,
+        CoolTextSaver,
+    >;
+
+    app.register_asset_processor(CoolTextProcessor::new(
+        RootAssetTransformer::new(AddText("blah".to_string())),
+        CoolTextSaver,
+    ))
+    .set_default_asset_processor::<CoolTextProcessor>("cool.ron");
+
+    const ASSET_PATH: &str = "abc.cool.ron";
+    source.insert_asset_text(Path::new(ASSET_PATH), &serialize_as_cool_text("blah"));
+
+    let processor = app.world().resource::<AssetProcessor>().clone();
+    bevy_tasks::block_on(processor.write_default_meta_file_for_path(ASSET_PATH)).unwrap();
+
+    assert_eq!(
+        read_meta_as_string(&source, Path::new(ASSET_PATH)),
+        r#"(
+    meta_format_version: "1.0",
+    asset: Process(
+        processor: "bevy_asset::processor::process::LoadTransformAndSave<bevy_asset::tests::CoolTextLoader, bevy_asset::processor::tests::RootAssetTransformer<bevy_asset::processor::tests::AddText, bevy_asset::tests::CoolText>, bevy_asset::processor::tests::CoolTextSaver>",
+        settings: (
+            loader_settings: (),
+            transformer_settings: (),
+            saver_settings: (),
+        ),
+    ),
+)"#
+    );
+}
+
+#[test]
+fn write_default_meta_does_not_overwrite() {
+    let AppWithProcessor {
+        mut app,
+        default_source_dirs: ProcessingDirs { source, .. },
+        ..
+    } = create_app_with_asset_processor(&[]);
+
+    type CoolTextProcessor = LoadTransformAndSave<
+        CoolTextLoader,
+        RootAssetTransformer<AddText, CoolText>,
+        CoolTextSaver,
+    >;
+
+    app.register_asset_processor(CoolTextProcessor::new(
+        RootAssetTransformer::new(AddText("blah".to_string())),
+        CoolTextSaver,
+    ))
+    .set_default_asset_processor::<CoolTextProcessor>("cool.ron");
+
+    const ASSET_PATH: &str = "abc.cool.ron";
+    source.insert_asset_text(Path::new(ASSET_PATH), &serialize_as_cool_text("blah"));
+    const META_TEXT: &str = "hey i'm walkin here!";
+    source.insert_meta_text(Path::new(ASSET_PATH), META_TEXT);
+
+    let processor = app.world().resource::<AssetProcessor>().clone();
+    assert!(matches!(
+        bevy_tasks::block_on(processor.write_default_meta_file_for_path(ASSET_PATH)),
+        Err(WriteDefaultMetaError::MetaAlreadyExists)
+    ));
+
+    assert_eq!(
+        read_meta_as_string(&source, Path::new(ASSET_PATH)),
+        META_TEXT
+    );
 }

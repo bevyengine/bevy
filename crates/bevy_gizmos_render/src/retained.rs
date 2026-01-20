@@ -25,6 +25,13 @@ pub(crate) fn extract_linegizmos(
     query: Extract<Query<(Entity, &Gizmo, &GlobalTransform, Option<&RenderLayers>)>>,
 ) {
     let mut values = Vec::with_capacity(*previous_len);
+    #[cfg_attr(
+        not(any(feature = "bevy_pbr", feature = "bevy_sprite_render")),
+        expect(
+            unused_variables,
+            reason = "`render_layers` is unused when bevy_pbr and bevy_sprite_render are both disabled."
+        )
+    )]
     for (entity, gizmo, transform, render_layers) in &query {
         let joints_resolution = if let GizmoLineJoint::Round(resolution) = gizmo.line_config.joints
         {
@@ -56,8 +63,8 @@ pub(crate) fn extract_linegizmos(
                 joints_resolution,
                 gap_scale,
                 line_scale,
-                #[cfg(feature = "webgl")]
-                _padding: Default::default(),
+                #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
+                _webgl2_padding: Default::default(),
             },
             #[cfg(any(feature = "bevy_pbr", feature = "bevy_sprite_render"))]
             bevy_gizmos::config::GizmoMeshConfig {

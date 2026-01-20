@@ -10,17 +10,18 @@ use bevy_ecs::{
     lifecycle::RemovedComponentEntity,
     message::MessageCursor,
     query::QueryBuilder,
-    reflect::{AppTypeRegistry, ReflectComponent, ReflectResource},
+    reflect::{AppTypeRegistry, ReflectComponent, ReflectEvent, ReflectResource},
     system::{In, Local},
-    world::{EntityRef, EntityWorldMut, FilteredEntityRef, World},
+    world::{EntityRef, EntityWorldMut, FilteredEntityRef, Mut, World},
 };
 use bevy_log::warn_once;
 use bevy_platform::collections::HashMap;
 use bevy_reflect::{
     serde::{ReflectSerializer, TypedReflectDeserializer},
+    structs::DynamicStruct,
     GetPath, PartialReflect, TypeRegistration, TypeRegistry,
 };
-use serde::{de::DeserializeSeed as _, Deserialize, Serialize};
+use serde::{de::DeserializeSeed as _, de::IntoDeserializer, Deserialize, Serialize};
 use serde_json::{Map, Value};
 
 use crate::{
@@ -82,6 +83,9 @@ pub const BRP_MUTATE_RESOURCE_METHOD: &str = "world.mutate_resources";
 
 /// The method path for a `world.list_resources` request.
 pub const BRP_LIST_RESOURCES_METHOD: &str = "world.list_resources";
+
+/// The method path for a `world.trigger_event` request.
+pub const BRP_TRIGGER_EVENT_METHOD: &str = "world.trigger_event";
 
 /// The method path for a `registry.schema` request.
 pub const BRP_REGISTRY_SCHEMA_METHOD: &str = "registry.schema";
@@ -299,6 +303,19 @@ pub struct BrpMutateResourcesParams {
     pub value: Value,
 }
 
+/// `world.trigger_event`:
+///
+/// The server responds with a null.
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+struct BrpTriggerEventParams {
+    /// The [full path] of the event to trigger.
+    ///
+    /// [full path]: bevy_reflect::TypePath::type_path
+    pub event: String,
+    /// The serialized value of the event to be triggered, if any.
+    pub value: Option<Value>,
+}
+
 /// Describes the data that is to be fetched in a query.
 #[derive(Debug, Serialize, Deserialize, Clone, Default, PartialEq)]
 pub struct BrpQuery {
@@ -463,7 +480,7 @@ pub struct BrpQueryRow {
 }
 
 /// A helper function used to parse a `serde_json::Value`.
-fn parse<T: for<'de> Deserialize<'de>>(value: Value) -> Result<T, BrpError> {
+pub fn parse<T: for<'de> Deserialize<'de>>(value: Value) -> Result<T, BrpError> {
     serde_json::from_value(value).map_err(|err| BrpError {
         code: error_codes::INVALID_PARAMS,
         message: err.to_string(),
@@ -472,7 +489,7 @@ fn parse<T: for<'de> Deserialize<'de>>(value: Value) -> Result<T, BrpError> {
 }
 
 /// A helper function used to parse a `serde_json::Value` wrapped in an `Option`.
-fn parse_some<T: for<'de> Deserialize<'de>>(value: Option<Value>) -> Result<T, BrpError> {
+pub fn parse_some<T: for<'de> Deserialize<'de>>(value: Option<Value>) -> Result<T, BrpError> {
     match value {
         Some(value) => parse(value),
         None => Err(BrpError {
@@ -1348,6 +1365,44 @@ pub fn process_remote_list_components_watching_request(
     }
 }
 
+/// Handles a `world.trigger_event` request coming from a client.
+pub fn process_remote_trigger_event_request(
+    In(params): In<Option<Value>>,
+    world: &mut World,
+) -> BrpResult {
+    let BrpTriggerEventParams { event, value } = parse_some(params)?;
+
+    world.resource_scope(|world, registry: Mut<AppTypeRegistry>| {
+        let registry = registry.read();
+
+        let Some(registration) = registry.get_with_type_path(&event) else {
+            return Err(BrpError::resource_error(format!(
+                "Unknown event type: `{event}`"
+            )));
+        };
+        let Some(reflect_event) = registration.data::<ReflectEvent>() else {
+            return Err(BrpError::resource_error(format!(
+                "Event `{event}` is not reflectable"
+            )));
+        };
+
+        if let Some(payload) = value {
+            let payload: Box<dyn PartialReflect> =
+                TypedReflectDeserializer::new(registration, &registry)
+                    .deserialize(payload.into_deserializer())
+                    .map_err(|err| {
+                        BrpError::resource_error(format!("{event} is invalid: {err}"))
+                    })?;
+            reflect_event.trigger(world, &*payload, &registry);
+        } else {
+            let payload = DynamicStruct::default();
+            reflect_event.trigger(world, &payload, &registry);
+        }
+
+        Ok(Value::Null)
+    })
+}
+
 /// Handles a `registry.schema` request (list all registry types in form of schema) coming from a client.
 pub fn export_registry_types(In(params): In<Option<Value>>, world: &World) -> BrpResult {
     let filter: BrpJsonSchemaQueryFilter = match params {
@@ -1628,11 +1683,14 @@ mod tests {
     }
 
     use super::*;
+    use bevy_ecs::{
+        component::Component, event::Event, observer::On, resource::Resource, system::ResMut,
+    };
+    use bevy_reflect::Reflect;
+    use serde_json::Value::Null;
 
     #[test]
     fn insert_reflect_only_component() {
-        use bevy_ecs::prelude::Component;
-        use bevy_reflect::Reflect;
         #[derive(Reflect, Component)]
         #[reflect(Component)]
         struct Player {
@@ -1657,6 +1715,37 @@ mod tests {
         world.insert_resource(atr);
         let e = world.spawn_empty();
         insert_reflected_components(e, deserialized_components).expect("FAIL");
+    }
+
+    #[test]
+    fn trigger_reflect_only_event() {
+        #[derive(Event, Reflect)]
+        #[reflect(Event)]
+        struct Pass;
+
+        #[derive(Resource)]
+        struct TestResult(pub bool);
+
+        let atr = AppTypeRegistry::default();
+        {
+            let mut register = atr.write();
+            register.register::<Pass>();
+        }
+        let mut world = World::new();
+        world.add_observer(move |_event: On<Pass>, mut result: ResMut<TestResult>| result.0 = true);
+        world.insert_resource(TestResult(false));
+        world.insert_resource(atr);
+
+        let params = serde_json::to_value(&BrpTriggerEventParams {
+            event: "bevy_remote::builtin_methods::tests::Pass".to_owned(),
+            value: None,
+        })
+        .expect("FAIL");
+        assert_eq!(
+            process_remote_trigger_event_request(In(Some(params)), &mut world),
+            Ok(Null)
+        );
+        assert!(world.resource::<TestResult>().0);
     }
 
     #[test]

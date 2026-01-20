@@ -448,6 +448,8 @@ impl RepeatedGridTrack {
 mod tests {
     use bevy_math::Vec2;
 
+    use crate::BorderRadius;
+
     use super::*;
 
     #[test]
@@ -489,6 +491,7 @@ mod tests {
                 top: Val::Auto,
                 bottom: Val::Percent(31.),
             },
+            border_radius: BorderRadius::DEFAULT,
             flex_grow: 1.,
             flex_shrink: 0.,
             flex_basis: Val::ZERO,

@@ -30,13 +30,11 @@ pub mod config;
 pub mod cross;
 pub mod curves;
 pub mod gizmos;
+mod global;
 pub mod grid;
 pub mod primitives;
 pub mod retained;
 pub mod rounded_box;
-
-#[cfg(feature = "bevy_light")]
-pub mod light;
 
 /// The gizmos prelude.
 ///
@@ -52,14 +50,11 @@ pub mod prelude {
             GizmoLineConfig, GizmoLineJoint, GizmoLineStyle,
         },
         gizmos::Gizmos,
+        global::gizmo,
         primitives::{dim2::GizmoPrimitive2d, dim3::GizmoPrimitive3d},
         retained::Gizmo,
         AppGizmoBuilder, GizmoAsset,
     };
-
-    #[doc(hidden)]
-    #[cfg(feature = "bevy_light")]
-    pub use crate::light::{LightGizmoColor, LightGizmoConfigGroup, ShowLightGizmo};
 }
 
 use bevy_app::{App, FixedFirst, FixedLast, Last, Plugin, RunFixedMainLoop};
@@ -78,8 +73,6 @@ use bevy_utils::TypeIdMap;
 use config::{DefaultGizmoConfigGroup, GizmoConfig, GizmoConfigGroup, GizmoConfigStore};
 use core::{any::TypeId, marker::PhantomData, mem};
 use gizmos::{GizmoStorage, Swap};
-#[cfg(feature = "bevy_light")]
-use light::LightGizmoPlugin;
 
 /// A [`Plugin`] that provides an immediate mode drawing api for visual debugging.
 #[derive(Default)]
@@ -92,10 +85,7 @@ impl Plugin for GizmoPlugin {
             // We insert the Resource GizmoConfigStore into the world implicitly here if it does not exist.
             .init_gizmo_group::<DefaultGizmoConfigGroup>();
 
-        app.add_plugins(aabb::AabbGizmoPlugin);
-
-        #[cfg(feature = "bevy_light")]
-        app.add_plugins(LightGizmoPlugin);
+        app.add_plugins((aabb::AabbGizmoPlugin, global::GlobalGizmosPlugin));
     }
 }
 

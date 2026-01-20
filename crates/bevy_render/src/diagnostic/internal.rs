@@ -11,8 +11,9 @@ use bevy_ecs::system::{Res, ResMut};
 use bevy_platform::time::Instant;
 use std::sync::Mutex;
 use wgpu::{
-    Buffer, BufferDescriptor, BufferUsages, CommandEncoder, ComputePass, Features, MapMode,
-    PipelineStatisticsTypes, QuerySet, QuerySetDescriptor, QueryType, RenderPass,
+    Buffer, BufferDescriptor, BufferSize, BufferSlice, BufferUsages, CommandEncoder, ComputePass,
+    Device, Features, MapMode, PipelineStatisticsTypes, QuerySet, QuerySetDescriptor, QueryType,
+    RenderPass,
 };
 
 use crate::renderer::{RenderAdapterInfo, RenderDevice, RenderQueue, WgpuWrapper};
@@ -144,6 +145,42 @@ impl DiagnosticsRecorder {
 }
 
 impl RecordDiagnostics for DiagnosticsRecorder {
+    fn record_f32<N>(&self, command_encoder: &mut CommandEncoder, buffer: &BufferSlice, name: N)
+    where
+        N: Into<Cow<'static, str>>,
+    {
+        assert_eq!(
+            buffer.size(),
+            BufferSize::new(4).unwrap(),
+            "DiagnosticsRecorder::record_f32 buffer slice must be 4 bytes long"
+        );
+        assert!(
+            buffer.buffer().usage().contains(BufferUsages::COPY_SRC),
+            "DiagnosticsRecorder::record_f32 buffer must have BufferUsages::COPY_SRC"
+        );
+
+        self.current_frame_lock()
+            .record_value(command_encoder, buffer, name.into(), true);
+    }
+
+    fn record_u32<N>(&self, command_encoder: &mut CommandEncoder, buffer: &BufferSlice, name: N)
+    where
+        N: Into<Cow<'static, str>>,
+    {
+        assert_eq!(
+            buffer.size(),
+            BufferSize::new(4).unwrap(),
+            "DiagnosticsRecorder::record_u32 buffer slice must be 4 bytes long"
+        );
+        assert!(
+            buffer.buffer().usage().contains(BufferUsages::COPY_SRC),
+            "DiagnosticsRecorder::record_u32 buffer must have BufferUsages::COPY_SRC"
+        );
+
+        self.current_frame_lock()
+            .record_value(command_encoder, buffer, name.into(), false);
+    }
+
     fn begin_time_span<E: WriteTimestamp>(&self, encoder: &mut E, span_name: Cow<'static, str>) {
         self.current_frame_lock()
             .begin_time_span(encoder, span_name);
@@ -174,6 +211,7 @@ struct SpanRecord {
 }
 
 struct FrameData {
+    device: Device,
     timestamps_query_set: Option<QuerySet>,
     num_timestamps: u32,
     supports_timestamps_inside_passes: bool,
@@ -187,6 +225,7 @@ struct FrameData {
     path_components: Vec<Cow<'static, str>>,
     open_spans: Vec<SpanRecord>,
     closed_spans: Vec<SpanRecord>,
+    value_buffers: Vec<(Buffer, Cow<'static, str>, bool)>,
     is_mapped: Arc<AtomicBool>,
     callback: Option<Box<dyn FnOnce(RenderDiagnostics) + Send + Sync + 'static>>,
     #[cfg(feature = "tracing-tracy")]
@@ -246,6 +285,7 @@ impl FrameData {
         };
 
         FrameData {
+            device: wgpu_device.clone(),
             timestamps_query_set,
             num_timestamps: 0,
             supports_timestamps_inside_passes: features
@@ -261,6 +301,7 @@ impl FrameData {
             path_components: Vec::new(),
             open_spans: Vec::new(),
             closed_spans: Vec::new(),
+            value_buffers: Vec::new(),
             is_mapped: Arc::new(AtomicBool::new(false)),
             callback: None,
             #[cfg(feature = "tracing-tracy")]
@@ -323,11 +364,7 @@ impl FrameData {
     ) -> &mut SpanRecord {
         let thread_id = thread::current().id();
 
-        let parent = self
-            .open_spans
-            .iter()
-            .filter(|v| v.thread_id == thread_id)
-            .next_back();
+        let parent = self.open_spans.iter().rfind(|v| v.thread_id == thread_id);
 
         let path_range = match &parent {
             Some(parent) if parent.path_range.end == self.path_components.len() => {
@@ -363,13 +400,39 @@ impl FrameData {
         let iter = self.open_spans.iter();
         let (index, _) = iter
             .enumerate()
-            .filter(|(_, v)| v.thread_id == thread_id)
-            .next_back()
+            .rfind(|(_, v)| v.thread_id == thread_id)
             .unwrap();
 
         let span = self.open_spans.swap_remove(index);
         self.closed_spans.push(span);
         self.closed_spans.last_mut().unwrap()
+    }
+
+    fn record_value(
+        &mut self,
+        command_encoder: &mut CommandEncoder,
+        buffer: &BufferSlice,
+        name: Cow<'static, str>,
+        is_f32: bool,
+    ) {
+        let dest_buffer = self.device.create_buffer(&BufferDescriptor {
+            label: Some(&format!("render_diagnostic_{name}")),
+            size: 4,
+            usage: BufferUsages::COPY_DST | BufferUsages::MAP_READ,
+            mapped_at_creation: false,
+        });
+
+        command_encoder.copy_buffer_to_buffer(
+            buffer.buffer(),
+            buffer.offset(),
+            &dest_buffer,
+            0,
+            Some(buffer.size().into()),
+        );
+
+        command_encoder.map_buffer_on_submit(&dest_buffer, MapMode::Read, .., |_| {});
+
+        self.value_buffers.push((dest_buffer, name, is_f32));
     }
 
     fn begin_time_span(&mut self, encoder: &mut impl WriteTimestamp, name: Cow<'static, str>) {
@@ -467,6 +530,22 @@ impl FrameData {
                         value: (end - begin).as_secs_f64() * 1000.0,
                     });
                 }
+            }
+
+            for (buffer, diagnostic_path, is_f32) in self.value_buffers.drain(..) {
+                let buffer = buffer.get_mapped_range(..);
+                diagnostics.push(RenderDiagnostic {
+                    path: DiagnosticPath::from_components(
+                        core::iter::once("render")
+                            .chain(core::iter::once(diagnostic_path.as_ref())),
+                    ),
+                    suffix: "",
+                    value: if is_f32 {
+                        f32::from_le_bytes((*buffer).try_into().unwrap()) as f64
+                    } else {
+                        u32::from_le_bytes((*buffer).try_into().unwrap()) as f64
+                    },
+                });
             }
 
             callback(RenderDiagnostics(diagnostics));
@@ -589,6 +668,21 @@ impl FrameData {
             }
         }
 
+        for (buffer, diagnostic_path, is_f32) in self.value_buffers.drain(..) {
+            let buffer = buffer.get_mapped_range(..);
+            diagnostics.push(RenderDiagnostic {
+                path: DiagnosticPath::from_components(
+                    core::iter::once("render").chain(core::iter::once(diagnostic_path.as_ref())),
+                ),
+                suffix: "",
+                value: if is_f32 {
+                    f32::from_le_bytes((*buffer).try_into().unwrap()) as f64
+                } else {
+                    u32::from_le_bytes((*buffer).try_into().unwrap()) as f64
+                },
+            });
+        }
+
         callback(RenderDiagnostics(diagnostics));
 
         drop(data);
@@ -648,6 +742,13 @@ pub trait WriteTimestamp {
 
 impl WriteTimestamp for CommandEncoder {
     fn write_timestamp(&mut self, query_set: &QuerySet, index: u32) {
+        if cfg!(target_os = "macos") {
+            // When using tracy (and thus this function), rendering was flickering on macOS Tahoe.
+            // See: https://github.com/bevyengine/bevy/issues/22257
+            // The issue seems to be triggered when `write_timestamp` is called very close to frame
+            // presentation.
+            return;
+        }
         CommandEncoder::write_timestamp(self, query_set, index);
     }
 }

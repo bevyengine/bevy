@@ -124,6 +124,7 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
         }
     }
     let generics = ast.generics;
+    let generics_ty_list = generics.type_params().map(|p| p.ident.clone());
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
     let struct_name = &ast.ident;
 
@@ -132,20 +133,17 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
         // - ComponentId is returned in field-definition-order. [get_components] uses field-definition-order
         // - `Bundle::get_components` is exactly once for each member. Rely's on the Component -> Bundle implementation to properly pass
         //   the correct `StorageType` into the callback.
-        #[allow(deprecated)]
         unsafe impl #impl_generics #ecs_path::bundle::Bundle for #struct_name #ty_generics #where_clause {
             fn component_ids(
                 components: &mut #ecs_path::component::ComponentsRegistrator,
-                ids: &mut impl FnMut(#ecs_path::component::ComponentId)
-            ) {
-                #(<#active_field_types as #ecs_path::bundle::Bundle>::component_ids(components, ids);)*
+            ) -> impl Iterator<Item = #ecs_path::component::ComponentId> + use<#(#generics_ty_list,)*> {
+                core::iter::empty()#(.chain(<#active_field_types as #ecs_path::bundle::Bundle>::component_ids(components)))*
             }
 
             fn get_component_ids(
                 components: &#ecs_path::component::Components,
-                ids: &mut impl FnMut(Option<#ecs_path::component::ComponentId>)
-            ) {
-                #(<#active_field_types as #ecs_path::bundle::Bundle>::get_component_ids(components, &mut *ids);)*
+            ) -> impl Iterator<Item = Option<#ecs_path::component::ComponentId>> {
+                core::iter::empty()#(.chain(<#active_field_types as #ecs_path::bundle::Bundle>::get_component_ids(components)))*
             }
         }
     };
@@ -185,7 +183,6 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
     let from_components_impl = attributes.impl_from_components.then(|| quote! {
         // SAFETY:
         // - ComponentId is returned in field-definition-order. [from_components] uses field-definition-order
-        #[allow(deprecated)]
         unsafe impl #impl_generics #ecs_path::bundle::BundleFromComponents for #struct_name #ty_generics #where_clause {
             #[allow(unused_variables, non_snake_case)]
             unsafe fn from_components<__T, __F>(ctx: &mut __T, func: &mut __F) -> Self
@@ -632,9 +629,20 @@ pub fn derive_resource(input: TokenStream) -> TokenStream {
 /// On despawn, also despawn all related entities:
 /// ```ignore
 /// #[derive(Component)]
-/// #[relationship_target(relationship_target = Children, linked_spawn)]
+/// #[relationship_target(relationship = ChildOf, linked_spawn)]
 /// pub struct Children(Vec<Entity>);
 /// ```
+///
+/// Allow relationships to point to their own entity:
+/// ```ignore
+/// #[derive(Component)]
+/// #[relationship(relationship_target = PeopleILike, allow_self_referential)]
+/// pub struct LikedBy(pub Entity);
+/// ```
+/// ## Warning
+///
+/// When `allow_self_referential` is enabled, be careful when using recursive traversal methods
+/// like `iter_ancestors` or `root_ancestor`, as they will loop infinitely if an entity points to itself.
 ///
 /// ## Hooks
 /// ```ignore
@@ -642,10 +650,11 @@ pub fn derive_resource(input: TokenStream) -> TokenStream {
 /// #[component(hook_name = function)]
 /// struct MyComponent;
 /// ```
-/// where `hook_name` is `on_add`, `on_insert`, `on_replace` or `on_remove`;  
+/// where `hook_name` is `on_add`, `on_insert`, `on_replace` or `on_remove`;
 /// `function` can be either a path, e.g. `some_function::<Self>`,
 /// or a function call that returns a function that can be turned into
 /// a `ComponentHook`, e.g. `get_closure("Hi!")`.
+/// `function` can be elided if the path is `Self::on_add`, `Self::on_insert` etc.
 ///
 /// ## Ignore this component when cloning an entity
 /// ```ignore

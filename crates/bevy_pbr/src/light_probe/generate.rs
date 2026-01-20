@@ -13,7 +13,10 @@
 //! These components are intended to be added to a camera.
 use bevy_app::{App, Plugin, Update};
 use bevy_asset::{embedded_asset, load_embedded_asset, AssetServer, Assets, RenderAssetUsages};
-use bevy_core_pipeline::core_3d::graph::{Core3d, Node3d};
+use bevy_core_pipeline::{
+    core_3d::graph::{Core3d, Node3d},
+    mip_generation::{self, DownsampleShaders, DownsamplingConstants},
+};
 use bevy_ecs::{
     component::Component,
     entity::Entity,
@@ -35,8 +38,8 @@ use bevy_render::{
         ComputePipelineDescriptor, DownlevelFlags, Extent3d, FilterMode, PipelineCache, Sampler,
         SamplerBindingType, SamplerDescriptor, ShaderStages, ShaderType, StorageTextureAccess,
         Texture, TextureAspect, TextureDescriptor, TextureDimension, TextureFormat,
-        TextureFormatFeatureFlags, TextureSampleType, TextureUsages, TextureView,
-        TextureViewDescriptor, TextureViewDimension, UniformBuffer,
+        TextureSampleType, TextureUsages, TextureView, TextureViewDescriptor, TextureViewDimension,
+        UniformBuffer,
     },
     renderer::{RenderAdapter, RenderContext, RenderDevice, RenderQueue},
     settings::WgpuFeatures,
@@ -135,7 +138,6 @@ impl Plugin for EnvironmentMapGenerationPlugin {
         }
 
         embedded_asset!(app, "environment_filter.wgsl");
-        embedded_asset!(app, "downsample.wgsl");
         embedded_asset!(app, "copy.wgsl");
 
         app.add_plugins(SyncComponentPlugin::<GeneratedEnvironmentMapLight>::default())
@@ -178,9 +180,6 @@ impl Plugin for EnvironmentMapGenerationPlugin {
     }
 }
 
-// The number of storage textures required to combine the bind group
-const REQUIRED_STORAGE_TEXTURES: u32 = 12;
-
 /// Initializes all render-world resources used by the environment-map generator once on
 /// [`bevy_render::RenderStartup`].
 pub fn initialize_generated_environment_map_resources(
@@ -189,19 +188,11 @@ pub fn initialize_generated_environment_map_resources(
     render_adapter: Res<RenderAdapter>,
     pipeline_cache: Res<PipelineCache>,
     asset_server: Res<AssetServer>,
+    downsample_shaders: Res<DownsampleShaders>,
 ) {
-    // Determine whether we can use a single, large bind group for all mip outputs
-    let storage_texture_limit = render_device.limits().max_storage_textures_per_shader_stage;
-
-    // Determine whether we can read and write to the same rgba16f storage texture
-    let read_write_support = render_adapter
-        .get_texture_format_features(TextureFormat::Rgba16Float)
-        .flags
-        .contains(TextureFormatFeatureFlags::STORAGE_READ_WRITE);
-
     // Combine the bind group and use read-write storage if it is supported
     let combine_bind_group =
-        storage_texture_limit >= REQUIRED_STORAGE_TEXTURES && read_write_support;
+        mip_generation::can_combine_downsampling_bind_groups(&render_adapter, &render_device);
 
     // Output mips are write-only
     let mips =
@@ -366,14 +357,19 @@ pub fn initialize_generated_environment_map_resources(
     if combine_bind_group {
         shader_defs.push(ShaderDefVal::Int("COMBINE_BIND_GROUP".into(), 1));
     }
+    shader_defs.push(ShaderDefVal::Bool("ARRAY_TEXTURE".into(), true));
     #[cfg(feature = "bluenoise_texture")]
     {
         shader_defs.push(ShaderDefVal::Int("HAS_BLUE_NOISE".into(), 1));
     }
 
-    let downsampling_shader = load_embedded_asset!(asset_server.as_ref(), "downsample.wgsl");
     let env_filter_shader = load_embedded_asset!(asset_server.as_ref(), "environment_filter.wgsl");
     let copy_shader = load_embedded_asset!(asset_server.as_ref(), "copy.wgsl");
+
+    let downsampling_shader = downsample_shaders
+        .general
+        .get(&TextureFormat::Rgba16Float)
+        .expect("Mip generation shader should exist in the general downsampling shader table");
 
     // First pass for base mip Levels (0-5)
     let downsample_first = pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
@@ -396,7 +392,7 @@ pub fn initialize_generated_environment_map_resources(
         label: Some("downsampling_second_pipeline".into()),
         layout: vec![layouts.downsampling_second.clone()],
         push_constant_ranges: vec![],
-        shader: downsampling_shader,
+        shader: downsampling_shader.clone(),
         shader_defs: {
             let mut defs = shader_defs.clone();
             if !combine_bind_group {
@@ -530,7 +526,7 @@ pub fn prepare_generated_environment_map_intermediate_textures(
     mut commands: Commands,
 ) {
     for (entity, env_map_light) in &light_probes {
-        let base_size = env_map_light.environment_map.size.width;
+        let base_size = env_map_light.environment_map.texture_descriptor.size.width;
         let mip_level_count = compute_mip_count(base_size);
 
         let environment_map = texture_cache.get(
@@ -557,15 +553,6 @@ pub fn prepare_generated_environment_map_intermediate_textures(
             .entity(entity)
             .insert(IntermediateTextures { environment_map });
     }
-}
-
-/// Shader constants for downsampling algorithm
-#[derive(Clone, Copy, ShaderType)]
-#[repr(C)]
-pub struct DownsamplingConstants {
-    mips: u32,
-    inverse_input_size: Vec2,
-    _padding: u32,
 }
 
 /// Constants for filtering
@@ -610,16 +597,20 @@ pub fn prepare_generated_environment_map_bind_groups(
         return;
     };
 
-    assert!(stbn_texture.size.width.is_power_of_two());
-    assert!(stbn_texture.size.height.is_power_of_two());
+    assert!(stbn_texture.texture_descriptor.size.width.is_power_of_two());
+    assert!(stbn_texture
+        .texture_descriptor
+        .size
+        .height
+        .is_power_of_two());
     let noise_size_bits = UVec2::new(
-        stbn_texture.size.width.trailing_zeros(),
-        stbn_texture.size.height.trailing_zeros(),
+        stbn_texture.texture_descriptor.size.width.trailing_zeros(),
+        stbn_texture.texture_descriptor.size.height.trailing_zeros(),
     );
 
     for (entity, textures, env_map_light) in &light_probes {
         // Determine mip chain based on input size
-        let base_size = env_map_light.environment_map.size.width;
+        let base_size = env_map_light.environment_map.texture_descriptor.size.width;
         let mip_count = compute_mip_count(base_size);
         let last_mip = mip_count - 1;
         let env_map_texture = env_map_light.environment_map.texture.clone();
@@ -678,12 +669,16 @@ pub fn prepare_generated_environment_map_bind_groups(
                 (bind_group.clone(), bind_group)
             } else {
                 // Split path requires a separate view for mip6 input
-                let input_env_map_second = env_map_texture.create_view(&TextureViewDescriptor {
-                    dimension: Some(TextureViewDimension::D2Array),
-                    base_mip_level: min(6, last_mip),
-                    mip_level_count: Some(1),
-                    ..Default::default()
-                });
+                let input_env_map_second =
+                    textures
+                        .environment_map
+                        .texture
+                        .create_view(&TextureViewDescriptor {
+                            dimension: Some(TextureViewDimension::D2Array),
+                            base_mip_level: min(6, last_mip),
+                            mip_level_count: Some(1),
+                            ..Default::default()
+                        });
 
                 // Split layout (current behavior)
                 let first = render_device.create_bind_group(
@@ -932,7 +927,7 @@ impl Node for DownsamplingNode {
                 compute_pass.set_pipeline(copy_pipeline);
                 compute_pass.set_bind_group(0, &bind_groups.copy, &[]);
 
-                let tex_size = env_map_light.environment_map.size;
+                let tex_size = env_map_light.environment_map.texture_descriptor.size;
                 let wg_x = tex_size.width.div_ceil(8);
                 let wg_y = tex_size.height.div_ceil(8);
                 compute_pass.dispatch_workgroups(wg_x, wg_y, 6);
@@ -956,7 +951,7 @@ impl Node for DownsamplingNode {
                 compute_pass.set_pipeline(downsample_first_pipeline);
                 compute_pass.set_bind_group(0, &bind_groups.downsampling_first, &[]);
 
-                let tex_size = env_map_light.environment_map.size;
+                let tex_size = env_map_light.environment_map.texture_descriptor.size;
                 let wg_x = tex_size.width.div_ceil(64);
                 let wg_y = tex_size.height.div_ceil(64);
                 compute_pass.dispatch_workgroups(wg_x, wg_y, 6); // 6 faces
@@ -980,7 +975,7 @@ impl Node for DownsamplingNode {
                 compute_pass.set_pipeline(downsample_second_pipeline);
                 compute_pass.set_bind_group(0, &bind_groups.downsampling_second, &[]);
 
-                let tex_size = env_map_light.environment_map.size;
+                let tex_size = env_map_light.environment_map.texture_descriptor.size;
                 let wg_x = tex_size.width.div_ceil(256);
                 let wg_y = tex_size.height.div_ceil(256);
                 compute_pass.dispatch_workgroups(wg_x, wg_y, 6);
@@ -1048,7 +1043,7 @@ impl Node for FilteringNode {
 
             compute_pass.set_pipeline(radiance_pipeline);
 
-            let base_size = env_map_light.specular_map.size.width;
+            let base_size = env_map_light.specular_map.texture_descriptor.size.width;
 
             // Radiance convolution pass
             // Process each mip at different roughness levels

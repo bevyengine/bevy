@@ -7,7 +7,10 @@ use bevy_ecs::{
     world::World,
 };
 
-use super::{resources::State, states::States};
+use super::{
+    resources::{PreviousState, State},
+    states::States,
+};
 
 /// The label of a [`Schedule`] that **only** runs whenever [`State<S>`] enters the provided state.
 ///
@@ -67,6 +70,8 @@ pub struct StateTransitionEvent<S: States> {
     pub exited: Option<S>,
     /// The state being entered.
     pub entered: Option<S>,
+    /// Allow running state transition events when `exited` and `entered` are the same
+    pub allow_same_state_transitions: bool,
 }
 
 /// Applies state transitions and runs transitions schedules in order.
@@ -134,7 +139,9 @@ pub(crate) fn internal_apply_state_transition<S: States>(
     mut event: MessageWriter<StateTransitionEvent<S>>,
     mut commands: Commands,
     current_state: Option<ResMut<State<S>>>,
+    mut previous_state: Option<ResMut<PreviousState<S>>>,
     new_state: Option<S>,
+    allow_same_state_transitions: bool,
 ) {
     match new_state {
         Some(entered) => {
@@ -153,7 +160,14 @@ pub(crate) fn internal_apply_state_transition<S: States>(
                     event.write(StateTransitionEvent {
                         exited: Some(exited.clone()),
                         entered: Some(entered.clone()),
+                        allow_same_state_transitions,
                     });
+
+                    if let Some(ref mut previous_state) = previous_state {
+                        previous_state.0 = exited;
+                    } else {
+                        commands.insert_resource(PreviousState(exited));
+                    }
                 }
                 None => {
                     // If the [`State<S>`] resource does not exist, we create it, compute dependent states, send a transition event and register the `OnEnter` schedule.
@@ -162,19 +176,34 @@ pub(crate) fn internal_apply_state_transition<S: States>(
                     event.write(StateTransitionEvent {
                         exited: None,
                         entered: Some(entered.clone()),
+                        allow_same_state_transitions,
                     });
+
+                    // When [`State<S>`] is initialized, there can be stale data in
+                    // [`PreviousState<S>`] from a prior transition to `None`, so we remove it.
+                    if previous_state.is_some() {
+                        commands.remove_resource::<PreviousState<S>>();
+                    }
                 }
             };
         }
         None => {
             // We first remove the [`State<S>`] resource, and if one existed we compute dependent states, send a transition event and run the `OnExit` schedule.
             if let Some(resource) = current_state {
+                let exited = resource.get().clone();
                 commands.remove_resource::<State<S>>();
 
                 event.write(StateTransitionEvent {
-                    exited: Some(resource.get().clone()),
+                    exited: Some(exited.clone()),
                     entered: None,
+                    allow_same_state_transitions,
                 });
+
+                if let Some(ref mut previous_state) = previous_state {
+                    previous_state.0 = exited;
+                } else {
+                    commands.insert_resource(PreviousState(exited));
+                }
             }
         }
     }
@@ -200,6 +229,7 @@ pub fn setup_state_transitions_in_world(world: &mut World) {
         )
             .chain(),
     );
+
     schedules.insert(schedule);
 }
 
@@ -217,7 +247,7 @@ pub(crate) fn run_enter<S: States>(
     let Some(transition) = transition.0 else {
         return;
     };
-    if transition.entered == transition.exited {
+    if transition.entered == transition.exited && !transition.allow_same_state_transitions {
         return;
     }
     let Some(entered) = transition.entered else {
@@ -234,7 +264,7 @@ pub(crate) fn run_exit<S: States>(
     let Some(transition) = transition.0 else {
         return;
     };
-    if transition.entered == transition.exited {
+    if transition.entered == transition.exited && !transition.allow_same_state_transitions {
         return;
     }
     let Some(exited) = transition.exited else {

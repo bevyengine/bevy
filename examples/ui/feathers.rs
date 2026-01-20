@@ -4,10 +4,12 @@ use bevy::{
     color::palettes,
     feathers::{
         controls::{
-            button, checkbox, color_slider, color_swatch, radio, slider, toggle_switch,
-            ButtonProps, ButtonVariant, ColorChannel, ColorSlider, ColorSliderProps, ColorSwatch,
-            SliderBaseColor, SliderProps,
+            button, checkbox, color_plane, color_slider, color_swatch, radio, slider,
+            toggle_switch, ButtonProps, ButtonVariant, ColorChannel, ColorPlane, ColorPlaneValue,
+            ColorSlider, ColorSliderProps, ColorSwatch, ColorSwatchValue, SliderBaseColor,
+            SliderProps,
         },
+        cursor::{EntityCursor, OverrideCursor},
         dark_theme::create_dark_theme,
         rounded_corners::RoundedCorners,
         theme::{ThemeBackgroundColor, ThemedText, UiTheme},
@@ -20,6 +22,7 @@ use bevy::{
         checkbox_self_update, observe, slider_self_update, Activate, RadioButton, RadioGroup,
         SliderPrecision, SliderStep, SliderValue, ValueChange,
     },
+    window::SystemCursorIcon,
 };
 
 /// A struct to hold the state of various widgets shown in the demo.
@@ -184,10 +187,15 @@ fn demo_root() -> impl Bundle {
                     button(
                         ButtonProps::default(),
                         (),
-                        Spawn((Text::new("Button"), ThemedText))
+                        Spawn((Text::new("Toggle override"), ThemedText))
                     ),
-                    observe(|_activate: On<Activate>| {
-                        info!("Wide button clicked!");
+                    observe(|_activate: On<Activate>, mut ovr: ResMut<OverrideCursor>| {
+                        ovr.0 = if ovr.0.is_some() {
+                            None
+                        } else {
+                            Some(EntityCursor::System(SystemCursorIcon::Wait))
+                        };
+                        info!("Override cursor button clicked!");
                     })
                 ),
                 (
@@ -301,6 +309,15 @@ fn demo_root() -> impl Bundle {
                         ..default()
                     },
                     children![Text("Srgba".to_owned()), color_swatch(SwatchType::Rgb),]
+                ),
+                (
+                    color_plane(ColorPlane::RedBlue, ()),
+                    observe(
+                        |change: On<ValueChange<Vec2>>, mut color: ResMut<DemoWidgetStates>| {
+                            color.rgb_color.red = change.value.x;
+                            color.rgb_color.blue = change.value.y;
+                        }
+                    )
                 ),
                 (
                     color_slider(
@@ -417,7 +434,8 @@ fn demo_root() -> impl Bundle {
 fn update_colors(
     colors: Res<DemoWidgetStates>,
     mut sliders: Query<(Entity, &ColorSlider, &mut SliderBaseColor)>,
-    swatches: Query<(&SwatchType, &Children), With<ColorSwatch>>,
+    mut swatches: Query<(&mut ColorSwatchValue, &SwatchType), With<ColorSwatch>>,
+    mut color_planes: Query<&mut ColorPlaneValue, With<ColorPlane>>,
     mut commands: Commands,
 ) {
     if colors.is_changed() {
@@ -468,13 +486,17 @@ fn update_colors(
             }
         }
 
-        for (swatch_type, children) in swatches.iter() {
-            commands
-                .entity(children[0])
-                .insert(BackgroundColor(match swatch_type {
-                    SwatchType::Rgb => colors.rgb_color.into(),
-                    SwatchType::Hsl => colors.hsl_color.into(),
-                }));
+        for (mut swatch_value, swatch_type) in swatches.iter_mut() {
+            swatch_value.0 = match swatch_type {
+                SwatchType::Rgb => colors.rgb_color.into(),
+                SwatchType::Hsl => colors.hsl_color.into(),
+            };
+        }
+
+        for mut plane_value in color_planes.iter_mut() {
+            plane_value.0.x = colors.rgb_color.red;
+            plane_value.0.y = colors.rgb_color.blue;
+            plane_value.0.z = colors.rgb_color.green;
         }
     }
 }

@@ -7,13 +7,14 @@ use bevy::{
         lifetimeless::{SRes, SResMut},
         SystemChangeTick, SystemParamItem,
     },
+    material::MaterialProperties,
     pbr::{
         late_sweep_material_instances, DrawMaterial, EntitiesNeedingSpecialization,
-        EntitySpecializationTickPair, EntitySpecializationTicks, MaterialBindGroupAllocator,
-        MaterialBindGroupAllocators, MaterialDrawFunction,
+        EntitySpecializationTickPair, EntitySpecializationTicks, MainPassOpaqueDrawFunction,
+        MaterialBindGroupAllocator, MaterialBindGroupAllocators,
         MaterialExtractEntitiesNeedingSpecializationSystems, MaterialExtractionSystems,
-        MaterialFragmentShader, MaterialProperties, PreparedMaterial, RenderMaterialBindings,
-        RenderMaterialInstance, RenderMaterialInstances, SpecializedMaterialPipelineCache,
+        MaterialFragmentShader, PreparedMaterial, RenderMaterialBindings, RenderMaterialInstance,
+        RenderMaterialInstances, SpecializedMaterialPipelineCache,
     },
     platform::collections::hash_map::Entry,
     prelude::*,
@@ -200,7 +201,7 @@ impl ErasedRenderAsset for ImageMaterial {
             material_layout: Some(material_layout),
             ..Default::default()
         };
-        properties.add_draw_function(MaterialDrawFunction, draw_function_id);
+        properties.add_draw_function(MainPassOpaqueDrawFunction, draw_function_id);
         properties.add_shader(MaterialFragmentShader, asset_server.load(SHADER_ASSET_PATH));
 
         Ok(PreparedMaterial {
@@ -228,7 +229,7 @@ fn setup(
     // light
     commands.spawn((
         PointLight {
-            shadows_enabled: true,
+            shadow_maps_enabled: true,
             ..default()
         },
         Transform::from_xyz(4.0, 8.0, 4.0),

@@ -1,7 +1,10 @@
 use core::{hint::black_box, time::Duration};
 
 use benches::bench;
-use bevy_reflect::{DynamicStruct, GetField, PartialReflect, Reflect, Struct};
+use bevy_reflect::{
+    structs::{DynamicStruct, GetField, Struct},
+    PartialReflect, Reflect,
+};
 use criterion::{
     criterion_group, measurement::Measurement, AxisScale, BatchSize, BenchmarkGroup, BenchmarkId,
     Criterion, PlotConfiguration, Throughput,

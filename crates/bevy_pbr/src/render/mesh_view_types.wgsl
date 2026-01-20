@@ -21,6 +21,7 @@ const POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT: u32                    = 1u << 0u;
 const POINT_LIGHT_FLAGS_SPOT_LIGHT_Y_NEGATIVE: u32                  = 1u << 1u;
 const POINT_LIGHT_FLAGS_VOLUMETRIC_BIT: u32                         = 1u << 2u;
 const POINT_LIGHT_FLAGS_AFFECTS_LIGHTMAPPED_MESH_DIFFUSE_BIT: u32   = 1u << 3u;
+const POINT_LIGHT_FLAGS_CONTACT_SHADOWS_ENABLED_BIT: u32            = 1u << 4u;
 
 struct DirectionalCascade {
     clip_from_world: mat4x4<f32>,
@@ -48,6 +49,7 @@ struct DirectionalLight {
 const DIRECTIONAL_LIGHT_FLAGS_SHADOWS_ENABLED_BIT: u32                  = 1u << 0u;
 const DIRECTIONAL_LIGHT_FLAGS_VOLUMETRIC_BIT: u32                       = 1u << 1u;
 const DIRECTIONAL_LIGHT_FLAGS_AFFECTS_LIGHTMAPPED_MESH_DIFFUSE_BIT: u32 = 1u << 2u;
+const DIRECTIONAL_LIGHT_FLAGS_CONTACT_SHADOWS_ENABLED_BIT: u32           = 1u << 3u;
 
 struct Lights {
     // NOTE: this array size must be kept in sync with the constants defined in bevy_pbr/src/render/light.rs
@@ -121,14 +123,19 @@ struct ClusterOffsetsAndCounts {
 };
 #endif
 
+// Whether this light probe contributes diffuse light to lightmapped meshes.
+const LIGHT_PROBE_FLAG_AFFECTS_LIGHTMAPPED_MESH_DIFFUSE: u32 = 1;
+// Whether this light probe has parallax correction enabled.
+const LIGHT_PROBE_FLAG_PARALLAX_CORRECT:                 u32 = 2;
+
 struct LightProbe {
     // This is stored as the transpose in order to save space in this structure.
     // It'll be transposed in the `environment_map_light` function.
     light_from_world_transposed: mat3x4<f32>,
     cubemap_index: i32,
     intensity: f32,
-    // Whether this light probe contributes diffuse light to lightmapped meshes.
-    affects_lightmapped_mesh_diffuse: u32,
+    // Various flags that apply to this light probe.
+    flags: u32,
 };
 
 struct LightProbes {
@@ -155,12 +162,27 @@ struct LightProbes {
 // For more information on these settings, see the documentation for
 // `bevy_pbr::ssr::ScreenSpaceReflections`.
 struct ScreenSpaceReflectionsSettings {
-    perceptual_roughness_threshold: f32,
+    min_perceptual_roughness: f32,
+    min_perceptual_roughness_fully_active: f32,
+    max_perceptual_roughness_starts_to_fade: f32,
+    max_perceptual_roughness: f32,
+    edge_fadeout_fully_active: f32,
+    edge_fadeout_no_longer_active: f32,
     thickness: f32,
     linear_steps: u32,
     linear_march_exponent: f32,
     bisection_steps: u32,
     use_secant: u32,
+};
+
+// See the `ContactShadows` rust struct.
+struct ContactShadowsSettings {
+    linear_steps: u32,
+    thickness: f32,
+    length: f32,
+#ifdef SIXTEEN_BYTE_ALIGNMENT
+    _padding: f32,
+#endif
 };
 
 struct EnvironmentMapUniform {
@@ -176,10 +198,14 @@ struct OrderIndependentTransparencySettings {
 
 struct ClusteredDecal {
     local_from_world: mat4x4<f32>,
-    image_index: i32,
+    base_color_texture_index: i32,
+    normal_map_texture_index: i32,
+    metallic_roughness_texture_index: i32,
+    emissive_texture_index: i32,
     tag: u32,
     pad_a: u32,
     pad_b: u32,
+    pad_c: u32,
 }
 
 struct ClusteredDecals {

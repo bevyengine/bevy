@@ -542,6 +542,8 @@ mod tests {
     use core::hash::BuildHasher;
     use uuid::Uuid;
 
+    use crate::tests::create_app;
+
     use super::*;
 
     type TestAsset = ();
@@ -646,8 +648,7 @@ mod tests {
     /// `PartialReflect::reflect_clone`/`PartialReflect::to_dynamic` should increase the strong count of a strong handle
     #[test]
     fn strong_handle_reflect_clone() {
-        use crate::{AssetApp, AssetPlugin, Assets, VisitAssetDependencies};
-        use bevy_app::App;
+        use crate::{AssetApp, Assets, VisitAssetDependencies};
         use bevy_reflect::FromReflect;
 
         #[derive(Reflect)]
@@ -659,9 +660,8 @@ mod tests {
             fn visit_dependencies(&self, _visit: &mut impl FnMut(UntypedAssetId)) {}
         }
 
-        let mut app = App::new();
-        app.add_plugins(AssetPlugin::default())
-            .init_asset::<MyAsset>();
+        let mut app = create_app().0;
+        app.init_asset::<MyAsset>();
         let mut assets = app.world_mut().resource_mut::<Assets<MyAsset>>();
 
         let handle: Handle<MyAsset> = assets.add(MyAsset { value: 1 });
