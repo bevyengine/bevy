@@ -2906,4 +2906,109 @@ mod tests {
         // Now that the dependency is loaded, the subasset is counted as loaded with dependencies!
         assert!(asset_server.is_loaded_with_dependencies(&subasset_handle));
     }
+
+    // `LoadState` without the failure message, which makes it easier to compare.
+    #[derive(Debug, PartialEq, Eq)]
+    enum SimpleLoadState {
+        NotLoaded,
+        Loading,
+        Loaded,
+        Failed,
+    }
+
+    impl From<LoadState> for SimpleLoadState {
+        fn from(value: LoadState) -> Self {
+            match value {
+                LoadState::NotLoaded => Self::NotLoaded,
+                LoadState::Loading => Self::Loading,
+                LoadState::Loaded => Self::Loaded,
+                LoadState::Failed(_) => Self::Failed,
+            }
+        }
+    }
+
+    #[test]
+    fn load_fail() {
+        let (mut app, dir) = create_app();
+
+        app.init_asset::<CoolText>()
+            .init_asset::<SubText>()
+            .register_asset_loader(CoolTextLoader);
+
+        let a_path = "a.cool.ron";
+        let a_ron = r#"
+(
+    text: "a",
+    dependencies: [],
+    embedded_dependencies: [],
+    sub_texts: ["subasset"],
+)"#;
+
+        dir.insert_asset_text(Path::new(a_path), a_ron);
+
+        let asset_server = app.world().resource::<AssetServer>().clone();
+
+        let tests: &[(UntypedHandle, SimpleLoadState, &'static str)] = &[
+            (
+                asset_server.load::<CoolText>("a.cool.ron").untyped(),
+                SimpleLoadState::Loaded,
+                "root asset exists",
+            ),
+            (
+                asset_server.load::<SubText>("a.cool.ron").untyped(),
+                SimpleLoadState::Failed,
+                "root asset is wrong type",
+            ),
+            (
+                asset_server
+                    .load::<CoolText>("does_not_exist.cool.ron")
+                    .untyped(),
+                SimpleLoadState::Failed,
+                "root asset does not exist",
+            ),
+            (
+                asset_server
+                    .load::<SubText>("a.cool.ron#subasset")
+                    .untyped(),
+                SimpleLoadState::Loaded,
+                "sub-asset exists",
+            ),
+            (
+                asset_server
+                    .load::<CoolText>("a.cool.ron#subasset")
+                    .untyped(),
+                //SimplifiedLoadState::Failed,
+                SimpleLoadState::Loading,
+                "sub-asset is wrong type",
+            ),
+            (
+                asset_server
+                    .load::<SubText>("a.cool.ron#does_not_exist")
+                    .untyped(),
+                //SimplifiedLoadState::Failed,
+                SimpleLoadState::Loading,
+                "sub-asset does not exist",
+            ),
+        ];
+
+        for (handle, expected_load_state, label) in tests {
+            let mut load_state = SimpleLoadState::NotLoaded;
+
+            for _ in 0..LARGE_ITERATION_COUNT {
+                app.update();
+                load_state = asset_server.get_load_state(handle).unwrap().into();
+                if load_state == *expected_load_state {
+                    break;
+                }
+            }
+
+            assert!(
+                load_state == *expected_load_state,
+                "For test \"{}\", expected {:?} but got {:?}.",
+                label,
+                expected_load_state,
+                load_state,
+            );
+        }
+    }
 }
