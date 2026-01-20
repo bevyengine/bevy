@@ -1711,7 +1711,7 @@ mod tests {
 
         assert_eq!(PartialReflect::reflect_partial_cmp(&a1, &a), None);
         assert_eq!(PartialReflect::reflect_partial_cmp(&a1, &b), None);
-        // Variant name same, even different type, should be comparable
+        // Two enums with the same variant name across different types are currently comparable
         assert_eq!(
             PartialReflect::reflect_partial_cmp(&c1, &b),
             Some(Ordering::Equal)
