@@ -80,6 +80,8 @@ use core::any::TypeId;
 ///     parent.spawn((TextSpan::new("!"), TextColor(BLUE.into())));
 /// });
 /// ```
+///
+/// Viewport-based `FontSize` variants for `Text2d` are resolved based on the primary window’s logical size.
 #[derive(Component, Clone, Debug, Default, Deref, DerefMut, Reflect)]
 #[reflect(Component, Default, Debug, Clone)]
 #[require(
