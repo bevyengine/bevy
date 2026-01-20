@@ -117,10 +117,10 @@ pub fn camera_driver(world: &mut World) {
             .entered();
 
             world.run_schedule(schedule);
-            submit_pending_command_buffers(world);
         }
     }
 
+    submit_pending_command_buffers(world);
     world.remove_resource::<CurrentViewEntity>();
     handle_uncovered_swap_chains(world, &camera_windows);
 }
