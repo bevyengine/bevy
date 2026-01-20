@@ -94,6 +94,7 @@ impl Plugin for TextPlugin {
             .init_resource::<CosmicFontSystem>()
             .init_resource::<SwashCache>()
             .init_resource::<TextIterScratch>()
+            .init_resource::<RemSize>()
             .add_systems(
                 PostUpdate,
                 load_font_assets_into_fontdb_system.after(AssetEventSystems),

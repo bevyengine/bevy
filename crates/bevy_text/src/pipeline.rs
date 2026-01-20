@@ -6,15 +6,14 @@ use bevy_ecs::{
     system::ResMut,
 };
 use bevy_image::prelude::*;
-use bevy_log::{once, warn, warn_once};
+use bevy_log::{once, warn};
 use bevy_math::{Rect, UVec2, Vec2};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 
 use crate::{
     add_glyph_to_atlas, error::TextError, get_glyph_atlas_info, ComputedTextBlock, Font,
-    FontAtlasKey, FontAtlasSet, FontHinting, FontSize, FontSmoothing, FontSource, FontStyle,
-    FontWeight, Justify, LineBreak, LineHeight, PositionedGlyph, TextBounds, TextEntity, TextFont,
-    TextLayout,
+    FontAtlasKey, FontAtlasSet, FontHinting, FontSmoothing, FontSource, FontStyle, FontWeight,
+    Justify, LineBreak, LineHeight, PositionedGlyph, TextBounds, TextEntity, TextFont, TextLayout,
 };
 use cosmic_text::{Attrs, Buffer, Family, Metrics, Shaping, Wrap};
 
@@ -162,7 +161,8 @@ impl TextPipeline {
         computed: &mut ComputedTextBlock,
         font_system: &mut CosmicFontSystem,
         hinting: FontHinting,
-        maybe_viewport_size: Option<Vec2>,
+        logical_viewport_size: Vec2,
+        base_rem_size: f32,
     ) -> Result<(), TextError> {
         computed.entities.clear();
         computed.needs_rerender = false;
@@ -174,9 +174,6 @@ impl TextPipeline {
 
             return Err(TextError::DegenerateScaleFactor);
         }
-
-        let maybe_logical_viewport_size =
-            maybe_viewport_size.map(|viewport_size| viewport_size / scale_factor as f32);
 
         let font_system = &mut font_system.0;
 
@@ -215,10 +212,9 @@ impl TextPipeline {
                     FontSource::Monospace => Family::Monospace,
                 };
 
-                let font_size = text_font.font_size.eval(maybe_logical_viewport_size).unwrap_or_else(|| {
-                    warn_once!("Viewport font sizes are not supported for non-UI text, the default FontSize will be used instead.");
-                    FontSize::default().eval(None).expect("eval never fails for the default FontSize")
-                });
+                let font_size = text_font
+                    .font_size
+                    .eval(logical_viewport_size, base_rem_size);
 
                 // Save spans that aren't zero-sized.
                 if font_size <= 0.0 {
@@ -298,7 +294,8 @@ impl TextPipeline {
         computed: &mut ComputedTextBlock,
         font_system: &mut CosmicFontSystem,
         hinting: FontHinting,
-        viewport_size: Option<Vec2>,
+        logical_viewport_size: Vec2,
+        base_rem_size: f32,
     ) -> Result<TextMeasureInfo, TextError> {
         const MIN_WIDTH_CONTENT_BOUNDS: TextBounds = TextBounds::new_horizontal(0.0);
 
@@ -316,7 +313,8 @@ impl TextPipeline {
             computed,
             font_system,
             hinting,
-            viewport_size,
+            logical_viewport_size,
+            base_rem_size,
         )?;
 
         let buffer = &mut computed.buffer;

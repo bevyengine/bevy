@@ -20,7 +20,7 @@ use bevy_math::Vec2;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_text::{
     ComputedTextBlock, CosmicFontSystem, Font, FontAtlasSet, FontHinting, LineBreak, LineHeight,
-    SwashCache, TextBounds, TextColor, TextError, TextFont, TextLayout, TextLayoutInfo,
+    RemSize, SwashCache, TextBounds, TextColor, TextError, TextFont, TextLayout, TextLayoutInfo,
     TextMeasureInfo, TextPipeline, TextReader, TextRoot, TextSpanAccess, TextWriter,
 };
 use taffy::style::AvailableSpace;
@@ -255,6 +255,7 @@ pub fn measure_text_system(
     mut text_reader: TextUiReader,
     mut text_pipeline: ResMut<TextPipeline>,
     mut font_system: ResMut<CosmicFontSystem>,
+    rem_size: Res<RemSize>,
 ) {
     for (
         entity,
@@ -288,7 +289,8 @@ pub fn measure_text_system(
             computed.as_mut(),
             &mut font_system,
             *hinting,
-            Some(computed_target.physical_size().as_vec2()),
+            computed_target.physical_size().as_vec2(),
+            rem_size.0,
         ) {
             Ok(measure) => {
                 if block.linebreak == LineBreak::NoWrap {

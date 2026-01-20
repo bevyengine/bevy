@@ -466,16 +466,19 @@ pub enum FontSize {
     VMin(f32),
     /// Font Size relative to the larger of the viewport width and viewport height.
     VMax(f32),
+    /// Font Size relative to the value of the `RemSize` resource.
+    Rem(f32),
 }
 
 impl PartialEq for FontSize {
     fn eq(&self, other: &Self) -> bool {
-        match (self, other) {
-            (Self::Px(l0), Self::Px(r0)) => l0 == r0,
-            (Self::Vw(l0), Self::Vw(r0)) => l0 == r0,
-            (Self::Vh(l0), Self::Vh(r0)) => l0 == r0,
-            (Self::VMin(l0), Self::VMin(r0)) => l0 == r0,
-            (Self::VMax(l0), Self::VMax(r0)) => l0 == r0,
+        match (*self, *other) {
+            (Self::Px(l), Self::Px(r))
+            | (Self::Vw(l), Self::Vw(r))
+            | (Self::Vh(l), Self::Vh(r))
+            | (Self::VMin(l), Self::VMin(r))
+            | (Self::VMax(l), Self::VMax(r))
+            | (Self::Rem(l), Self::Rem(r)) => l == r,
             _ => false,
         }
     }
@@ -486,16 +489,18 @@ impl FontSize {
     pub fn eval(
         self,
         // Viewport size in logical pixels
-        maybe_viewport_size: Option<Vec2>,
-    ) -> Option<f32> {
-        Some(match (self, maybe_viewport_size) {
-            (FontSize::Px(s), _) => s,
-            (FontSize::Vw(s), Some(viewport_size)) => viewport_size.x * s,
-            (FontSize::Vh(s), Some(viewport_size)) => viewport_size.y * s,
-            (FontSize::VMin(s), Some(viewport_size)) => viewport_size.min_element() * s,
-            (FontSize::VMax(s), Some(viewport_size)) => viewport_size.max_element() * s,
-            _ => return None,
-        })
+        logical_viewport_size: Vec2,
+        // Base Rem size in logical pixels
+        rem_size: f32,
+    ) -> f32 {
+        match self {
+            FontSize::Px(s) => s,
+            FontSize::Vw(s) => logical_viewport_size.x * s,
+            FontSize::Vh(s) => logical_viewport_size.y * s,
+            FontSize::VMin(s) => logical_viewport_size.min_element() * s,
+            FontSize::VMax(s) => logical_viewport_size.max_element() * s,
+            FontSize::Rem(s) => rem_size * s,
+        }
     }
 }
 
@@ -508,6 +513,16 @@ impl Default for FontSize {
 impl From<f32> for FontSize {
     fn from(value: f32) -> Self {
         Self::Px(value)
+    }
+}
+
+/// Base value used to resolve `Rem` units for font sizes.
+#[derive(Resource, Copy, Clone, Debug, PartialEq, Deref, DerefMut)]
+pub struct RemSize(pub f32);
+
+impl Default for RemSize {
+    fn default() -> Self {
+        Self(20.)
     }
 }
 

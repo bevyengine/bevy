@@ -8,6 +8,8 @@ use bevy_camera::Camera;
 use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::entity::EntityHashSet;
+use bevy_ecs::query::With;
+use bevy_ecs::system::Single;
 use bevy_ecs::{
     change_detection::{DetectChanges, Ref},
     component::Component,
@@ -21,10 +23,11 @@ use bevy_math::{FloatOrd, Vec2, Vec3};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_text::{
     ComputedTextBlock, CosmicFontSystem, Font, FontAtlasSet, FontHinting, LineBreak, LineHeight,
-    SwashCache, TextBounds, TextColor, TextError, TextFont, TextLayout, TextLayoutInfo,
+    RemSize, SwashCache, TextBounds, TextColor, TextError, TextFont, TextLayout, TextLayoutInfo,
     TextPipeline, TextReader, TextRoot, TextSpanAccess, TextWriter,
 };
 use bevy_transform::components::Transform;
+use bevy_window::{PrimaryWindow, Window};
 use core::any::TypeId;
 
 /// The top-level 2D text component.
@@ -182,7 +185,13 @@ pub fn update_text2d_layout(
     mut text_reader: Text2dReader,
     mut font_system: ResMut<CosmicFontSystem>,
     mut swash_cache: ResMut<SwashCache>,
+    rem_size: Res<RemSize>,
+    primary_window: Option<Single<&Window, With<PrimaryWindow>>>,
 ) {
+    let logical_viewport_size = primary_window
+        .map(|window| window.resolution.size())
+        .unwrap_or(Vec2::splat(1000.));
+
     target_scale_factors.clear();
     target_scale_factors.extend(
         camera_query
@@ -252,7 +261,8 @@ pub fn update_text2d_layout(
                 &mut computed,
                 &mut font_system,
                 *hinting,
-                None,
+                logical_viewport_size,
+                rem_size.0,
             ) {
                 Err(TextError::NoSuchFont | TextError::DegenerateScaleFactor) => {
                     // There was an error processing the text layout.
