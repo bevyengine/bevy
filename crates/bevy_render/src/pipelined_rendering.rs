@@ -6,7 +6,7 @@ use bevy_ecs::{
     schedule::MainThreadExecutor,
     world::{Mut, World},
 };
-use bevy_tasks::ComputeTaskPool;
+use bevy_tasks::{ComputeTaskPool, ThreadPriority};
 
 use crate::RenderApp;
 
@@ -105,8 +105,24 @@ impl Drop for RenderAppChannels {
 /// - Once both the `main app schedule` and the `render schedule` are finished running, `extract` is run again.
 ///
 /// [`SyncWorldPlugin`]: crate::sync_world::SyncWorldPlugin
-#[derive(Default)]
-pub struct PipelinedRenderingPlugin;
+pub struct PipelinedRenderingPlugin {
+    /// The thread priority to use for the render thread. It will try to set each in sequence until one
+    /// succeeds. If all fail, the thread will default to [`ThreadPriority::Normal`]. Defaults to trying
+    /// [`ThreadPriority::Highest`] and [`ThreadPriority::AboveNormal`].
+    pub render_thread_priority: Vec<ThreadPriority>,
+}
+
+impl Default for PipelinedRenderingPlugin {
+    fn default() -> Self {
+        Self {
+            render_thread_priority: vec![
+                ThreadPriority::Highest,
+                ThreadPriority::AboveNormal,
+                ThreadPriority::Normal,
+            ],
+        }
+    }
+}
 
 impl Plugin for PipelinedRenderingPlugin {
     fn build(&self, app: &mut App) {
@@ -146,7 +162,15 @@ impl Plugin for PipelinedRenderingPlugin {
             render_to_app_receiver,
         ));
 
+        let render_thread_priority = self.render_thread_priority.clone();
         std::thread::spawn(move || {
+            for priority in render_thread_priority {
+                if bevy_tasks::set_thread_priority(priority).is_ok() {
+                    tracing::trace!("Render thread priority set to {priority:?}");
+                    break;
+                }
+            }
+
             #[cfg(feature = "trace")]
             let _span = tracing::info_span!("render thread").entered();
 

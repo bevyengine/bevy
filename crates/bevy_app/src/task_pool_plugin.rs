@@ -1,8 +1,10 @@
 use crate::{App, Plugin};
 
-use alloc::string::ToString;
+use alloc::{string::ToString, vec, vec::Vec};
 use bevy_platform::sync::Arc;
-use bevy_tasks::{AsyncComputeTaskPool, ComputeTaskPool, IoTaskPool, TaskPoolBuilder};
+use bevy_tasks::{
+    AsyncComputeTaskPool, ComputeTaskPool, IoTaskPool, TaskPoolBuilder, ThreadPriority,
+};
 use core::fmt::Debug;
 use log::trace;
 
@@ -22,19 +24,38 @@ cfg_if::cfg_if! {
 }
 
 /// Setup of default task pools: [`AsyncComputeTaskPool`], [`ComputeTaskPool`], [`IoTaskPool`].
-#[derive(Default)]
 pub struct TaskPoolPlugin {
     /// Options for the [`TaskPool`](bevy_tasks::TaskPool) created at application start.
     pub task_pool_options: TaskPoolOptions,
+    /// The thread priority to use for the main thread. It will try to set each in sequence until one
+    /// succeeds. If all fail, the thread will default to [`ThreadPriority::Normal`]. Defaults to trying
+    /// [`ThreadPriority::AboveNormal`].
+    pub main_thread_priority: Vec<ThreadPriority>,
 }
 
 impl Plugin for TaskPoolPlugin {
     fn build(&self, _app: &mut App) {
+        for priority in &self.main_thread_priority {
+            if bevy_tasks::set_thread_priority(*priority).is_ok() {
+                trace!("Main thread priority set to {priority:?}");
+                break;
+            }
+        }
+
         // Setup the default bevy task pools
         self.task_pool_options.create_default_pools();
 
         #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
         _app.add_systems(Last, tick_global_task_pools);
+    }
+}
+
+impl Default for TaskPoolPlugin {
+    fn default() -> Self {
+        Self {
+            task_pool_options: TaskPoolOptions::default(),
+            main_thread_priority: vec![ThreadPriority::AboveNormal, ThreadPriority::Normal],
+        }
     }
 }
 
@@ -55,6 +76,10 @@ pub struct TaskPoolThreadAssignmentPolicy {
     /// Callback that is invoked once for every created thread as it terminates
     /// This configuration will be ignored under wasm platform.
     pub on_thread_destroy: Option<Arc<dyn Fn() + Send + Sync + 'static>>,
+    /// The thread priority to use for the main thread. It will try to set each in sequence until one
+    /// succeeds. If all fail, the thread will default to [`ThreadPriority::Normal`]. Defaults to trying
+    /// [`ThreadPriority::Highest`] and [`ThreadPriority::AboveNormal`].
+    pub thread_priority: Vec<ThreadPriority>,
 }
 
 impl Debug for TaskPoolThreadAssignmentPolicy {
@@ -101,11 +126,14 @@ pub struct TaskPoolOptions {
     /// `max_total_threads`
     pub max_total_threads: usize,
 
-    /// Used to determine number of IO threads to allocate
+    /// Used to determine number of IO threads to allocate. Defaults to assinging each thread to
+    /// [`ThreadPriority::Normal`].
     pub io: TaskPoolThreadAssignmentPolicy,
-    /// Used to determine number of async compute threads to allocate
+    /// Used to determine number of async compute threads to allocate. Defaults to assinging each thread to
+    /// [`ThreadPriority::Normal`].
     pub async_compute: TaskPoolThreadAssignmentPolicy,
-    /// Used to determine number of compute threads to allocate
+    /// Used to determine number of compute threads to allocate.  Defaults to assinging each thread to
+    /// [`ThreadPriority::AboveNormal`].
     pub compute: TaskPoolThreadAssignmentPolicy,
 }
 
@@ -123,6 +151,7 @@ impl Default for TaskPoolOptions {
                 percent: 0.25,
                 on_thread_spawn: None,
                 on_thread_destroy: None,
+                thread_priority: vec![ThreadPriority::Normal],
             },
 
             // Use 25% of cores for async compute, at least 1, no more than 4
@@ -132,6 +161,7 @@ impl Default for TaskPoolOptions {
                 percent: 0.25,
                 on_thread_spawn: None,
                 on_thread_destroy: None,
+                thread_priority: vec![ThreadPriority::Normal],
             },
 
             // Use all remaining cores for compute (at least 1)
@@ -141,6 +171,7 @@ impl Default for TaskPoolOptions {
                 percent: 1.0, // This 1.0 here means "whatever is left over"
                 on_thread_spawn: None,
                 on_thread_destroy: None,
+                thread_priority: vec![ThreadPriority::AboveNormal],
             },
         }
     }
@@ -176,7 +207,8 @@ impl TaskPoolOptions {
             IoTaskPool::get_or_init(|| {
                 let builder = TaskPoolBuilder::default()
                     .num_threads(io_threads)
-                    .thread_name("IO Task Pool".to_string());
+                    .thread_name("IO Task Pool".to_string())
+                    .thread_priority(&self.io.thread_priority);
 
                 #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
                 let builder = {
@@ -206,7 +238,8 @@ impl TaskPoolOptions {
             AsyncComputeTaskPool::get_or_init(|| {
                 let builder = TaskPoolBuilder::default()
                     .num_threads(async_compute_threads)
-                    .thread_name("Async Compute Task Pool".to_string());
+                    .thread_name("Async Compute Task Pool".to_string())
+                    .thread_priority(&self.async_compute.thread_priority);
 
                 #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
                 let builder = {
@@ -236,7 +269,8 @@ impl TaskPoolOptions {
             ComputeTaskPool::get_or_init(|| {
                 let builder = TaskPoolBuilder::default()
                     .num_threads(compute_threads)
-                    .thread_name("Compute Task Pool".to_string());
+                    .thread_name("Compute Task Pool".to_string())
+                    .thread_priority(&self.compute.thread_priority);
 
                 #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
                 let builder = {
