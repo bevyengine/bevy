@@ -135,7 +135,7 @@ fn context_item(text: &str, col: Srgba) -> impl Bundle {
             Pickable::IGNORE,
             Text::new(text),
             TextFont {
-                font_size: 24.0,
+                font_size: FontSize::Px(24.0),
                 ..default()
             },
             TextColor(Color::WHITE),
@@ -174,7 +174,7 @@ fn background_and_button() -> impl Bundle {
                         Pickable::IGNORE,
                         Text::new("Context Menu"),
                         TextFont {
-                            font_size: 28.0,
+                            font_size: FontSize::Px(28.0),
                             ..default()
                         },
                         TextColor(Color::WHITE),

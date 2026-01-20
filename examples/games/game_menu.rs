@@ -3,6 +3,7 @@
 //! settings for 5 seconds before going back to the menu.
 
 use bevy::prelude::*;
+
 const TEXT_COLOR: Color = Color::srgb(0.9, 0.9, 0.9);
 
 // Enum that will be used as a global state for the game
@@ -159,7 +160,7 @@ mod game {
                     (
                         Text::new("Will be back to the menu shortly..."),
                         TextFont {
-                            font_size: 67.0,
+                            font_size: FontSize::Px(67.0),
                             ..default()
                         },
                         TextColor(TEXT_COLOR),
@@ -178,7 +179,7 @@ mod game {
                             (
                                 TextSpan(format!("quality: {:?}", *display_quality)),
                                 TextFont {
-                                    font_size: 50.0,
+                                    font_size: FontSize::Px(50.0),
                                     ..default()
                                 },
                                 TextColor(BLUE.into()),
@@ -186,7 +187,7 @@ mod game {
                             (
                                 TextSpan::new(" - "),
                                 TextFont {
-                                    font_size: 50.0,
+                                    font_size: FontSize::Px(50.0),
                                     ..default()
                                 },
                                 TextColor(TEXT_COLOR),
@@ -194,7 +195,7 @@ mod game {
                             (
                                 TextSpan(format!("volume: {:?}", *volume)),
                                 TextFont {
-                                    font_size: 50.0,
+                                    font_size: FontSize::Px(50.0),
                                     ..default()
                                 },
                                 TextColor(LIME.into()),
@@ -374,7 +375,7 @@ mod menu {
             ..default()
         };
         let button_text_font = TextFont {
-            font_size: 33.0,
+            font_size: FontSize::Px(33.0),
             ..default()
         };
 
@@ -404,7 +405,7 @@ mod menu {
                     (
                         Text::new("Bevy Game Menu UI"),
                         TextFont {
-                            font_size: 67.0,
+                            font_size: FontSize::Px(67.0),
                             ..default()
                         },
                         TextColor(TEXT_COLOR),
@@ -472,7 +473,7 @@ mod menu {
 
         let button_text_style = (
             TextFont {
-                font_size: 33.0,
+                font_size: FontSize::Px(33.0),
                 ..default()
             },
             TextColor(TEXT_COLOR),
@@ -530,7 +531,7 @@ mod menu {
         fn button_text_style() -> impl Bundle {
             (
                 TextFont {
-                    font_size: 33.0,
+                    font_size: FontSize::Px(33.0),
                     ..default()
                 },
                 TextColor(TEXT_COLOR),
@@ -618,7 +619,7 @@ mod menu {
         };
         let button_text_style = (
             TextFont {
-                font_size: 33.0,
+                font_size: FontSize::Px(33.0),
                 ..default()
             },
             TextColor(TEXT_COLOR),

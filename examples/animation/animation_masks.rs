@@ -229,7 +229,7 @@ fn setup_ui(mut commands: Commands) {
 fn new_mask_group_control(label: &str, width: Val, mask_group_id: u32) -> impl Bundle {
     let button_text_style = (
         TextFont {
-            font_size: 14.0,
+            font_size: FontSize::Px(14.0),
             ..default()
         },
         TextColor::WHITE,

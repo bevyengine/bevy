@@ -103,7 +103,7 @@ fn setup(
                             Text::new("Button"),
                             TextFont {
                                 font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
-                                font_size: 33.0,
+                                font_size: FontSize::Px(33.0),
                                 ..default()
                             },
                             TextColor(Color::srgb(0.9, 0.9, 0.9)),

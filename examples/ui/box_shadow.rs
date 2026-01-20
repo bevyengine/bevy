@@ -275,7 +275,7 @@ fn setup(
                         Text::new("Reset"),
                         TextFont {
                             font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
-                            font_size: 16.0,
+                            font_size: FontSize::Px(16.0),
                             ..default()
                         },
                     )],
@@ -320,7 +320,7 @@ fn build_setting_row(
                     Text::new(setting_type.label()),
                     TextFont {
                         font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
-                        font_size: 16.0,
+                        font_size: FontSize::Px(16.0),
                         ..default()
                     },
                 )],
@@ -346,7 +346,7 @@ fn build_setting_row(
                     }),
                     TextFont {
                         font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
-                        font_size: 18.0,
+                        font_size: FontSize::Px(18.0),
                         ..default()
                     },
                 )],
@@ -366,7 +366,7 @@ fn build_setting_row(
                         Text::new(value_text),
                         TextFont {
                             font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
-                            font_size: 16.0,
+                            font_size: FontSize::Px(16.0),
                             ..default()
                         },
                         setting_type,
@@ -393,7 +393,7 @@ fn build_setting_row(
                     }),
                     TextFont {
                         font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
-                        font_size: 18.0,
+                        font_size: FontSize::Px(18.0),
                         ..default()
                     },
                 )],

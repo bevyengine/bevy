@@ -138,7 +138,7 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
                     builder.spawn((Text::new("A paragraph of text which ought to wrap nicely. A paragraph of text which ought to wrap nicely. A paragraph of text which ought to wrap nicely. A paragraph of text which ought to wrap nicely. A paragraph of text which ought to wrap nicely. A paragraph of text which ought to wrap nicely. A paragraph of text which ought to wrap nicely."),
                         TextFont {
                             font: font.clone().into(),
-                            font_size: 13.0,
+                            font_size: FontSize::Px(13.0),
                             ..default()
                         },
                     ));

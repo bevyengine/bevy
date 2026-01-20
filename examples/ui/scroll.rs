@@ -105,7 +105,7 @@ fn on_scroll_handler(
     }
 }
 
-const FONT_SIZE: f32 = 20.;
+const FONT_SIZE: FontSize = FontSize::Px(20.);
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Camera

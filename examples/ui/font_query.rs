@@ -1,6 +1,7 @@
 //! This example demonstrates how to use font weights, widths and styles.
 
 use bevy::prelude::*;
+
 use bevy::text::FontSource;
 
 fn main() {
@@ -30,7 +31,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 Text::new("Font Weights, Widths & Styles"),
                 TextFont {
                     font: family.clone(),
-                    font_size: 32.0,
+                    font_size: FontSize::Px(32.0),
                     ..default()
                 },
                 Underline,

@@ -27,7 +27,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 Text::new("Font Weights"),
                 TextFont {
                     font: font.clone(),
-                    font_size: 32.0,
+                    font_size: FontSize::Px(32.0),
                     ..default()
                 },
                 Underline,
@@ -44,7 +44,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         Text::new("Weight 100 (Thin)"),
                         TextFont {
                             font: font.clone(),
-                            font_size: 32.0,
+                            font_size: FontSize::Px(32.0),
                             weight: FontWeight::THIN, // 100
                             ..default()
                         },
@@ -53,7 +53,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         Text::new("Weight 200 (Extra Light)"),
                         TextFont {
                             font: font.clone(),
-                            font_size: 32.0,
+                            font_size: FontSize::Px(32.0),
                             weight: FontWeight::EXTRA_LIGHT, // 200
                             ..default()
                         },
@@ -62,7 +62,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         Text::new("Weight 300 (Light)"),
                         TextFont {
                             font: font.clone(),
-                            font_size: 32.0,
+                            font_size: FontSize::Px(32.0),
                             weight: FontWeight::LIGHT, // 300
                             ..default()
                         },
@@ -71,7 +71,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         Text::new("Weight 400 (Normal)"),
                         TextFont {
                             font: font.clone(),
-                            font_size: 32.0,
+                            font_size: FontSize::Px(32.0),
                             weight: FontWeight::NORMAL, // 400
                             ..default()
                         },
@@ -80,7 +80,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         Text::new("Weight 500 (Medium)"),
                         TextFont {
                             font: font.clone(),
-                            font_size: 32.0,
+                            font_size: FontSize::Px(32.0),
                             weight: FontWeight::MEDIUM, // 500
                             ..default()
                         },
@@ -89,7 +89,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         Text::new("Weight 600 (Semibold)"),
                         TextFont {
                             font: font.clone(),
-                            font_size: 32.0,
+                            font_size: FontSize::Px(32.0),
                             weight: FontWeight::SEMIBOLD, // 600
                             ..default()
                         },
@@ -98,7 +98,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         Text::new("Weight 700 (Bold)"),
                         TextFont {
                             font: font.clone(),
-                            font_size: 32.0,
+                            font_size: FontSize::Px(32.0),
                             weight: FontWeight::BOLD, // 700
                             ..default()
                         },
@@ -107,7 +107,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         Text::new("Weight 800 (Extra Bold)"),
                         TextFont {
                             font: font.clone(),
-                            font_size: 32.0,
+                            font_size: FontSize::Px(32.0),
                             weight: FontWeight::EXTRA_BOLD, // 800
                             ..default()
                         },
@@ -116,7 +116,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         Text::new("Weight 900 (Black)"),
                         TextFont {
                             font: font.clone(),
-                            font_size: 32.0,
+                            font_size: FontSize::Px(32.0),
                             weight: FontWeight::BLACK, // 900
                             ..default()
                         },

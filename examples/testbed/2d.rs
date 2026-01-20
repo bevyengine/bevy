@@ -6,6 +6,7 @@ mod helpers;
 
 use argh::FromArgs;
 use bevy::prelude::*;
+
 use helpers::Next;
 
 #[derive(FromArgs)]
@@ -353,7 +354,7 @@ mod sprite_slicing {
             Text2d::new("Original"),
             TextFont {
                 font: FontSource::from(font.clone()),
-                font_size: 20.0,
+                font_size: FontSize::Px(20.0),
                 ..default()
             },
             Transform::from_translation(Vec3::new(-150.0, -80.0, 0.0)),
@@ -364,7 +365,7 @@ mod sprite_slicing {
             Text2d::new("Sliced"),
             TextFont {
                 font: FontSource::from(font.clone()),
-                font_size: 20.0,
+                font_size: FontSize::Px(20.0),
                 ..default()
             },
             Transform::from_translation(Vec3::new(150.0, -80.0, 0.0)),

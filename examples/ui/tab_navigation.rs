@@ -130,7 +130,7 @@ fn setup(mut commands: Commands) {
                                     children![(
                                         Text::new(format!("TabIndex {i}")),
                                         TextFont {
-                                            font_size: 20.0,
+                                            font_size: FontSize::Px(20.0),
                                             ..default()
                                         },
                                         TextColor(Color::srgb(0.9, 0.9, 0.9)),
