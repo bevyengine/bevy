@@ -740,7 +740,7 @@ mod tests {
         sync::Mutex,
     };
     use bevy_reflect::TypePath;
-    use core::time::Duration;
+    use core::{any::TypeId, time::Duration};
     use futures_lite::AsyncReadExt;
     use serde::{Deserialize, Serialize};
     use std::path::{Path, PathBuf};
@@ -2919,8 +2919,13 @@ mod tests {
     // A simplified subset of `AssetLoadError` for easier comparison.
     #[derive(Debug, PartialEq, Eq)]
     enum TestAssetLoadError {
+        RequestedHandleTypeMismatch {
+            requested: TypeId,
+            actual_asset_name: &'static str,
+        },
         MissingAssetLoader,
         AssetReaderErrorNotFound,
+        AssetLoaderError,
         MissingLabel,
     }
 
@@ -2938,10 +2943,19 @@ mod tests {
     impl From<&AssetLoadError> for TestAssetLoadError {
         fn from(value: &AssetLoadError) -> TestAssetLoadError {
             match value {
+                AssetLoadError::RequestedHandleTypeMismatch {
+                    requested,
+                    actual_asset_name,
+                    ..
+                } => Self::RequestedHandleTypeMismatch {
+                    requested: *requested,
+                    actual_asset_name,
+                },
                 AssetLoadError::MissingAssetLoader { .. } => Self::MissingAssetLoader,
                 AssetLoadError::AssetReaderError(AssetReaderError::NotFound(_)) => {
                     Self::AssetReaderErrorNotFound
                 }
+                AssetLoadError::AssetLoaderError { .. } => Self::AssetLoaderError,
                 AssetLoadError::MissingLabel { .. } => Self::MissingLabel,
                 _ => todo!("{:?}", value),
             }
@@ -2976,6 +2990,8 @@ mod tests {
 )"#,
         );
 
+        dir.insert_asset_text(Path::new("malformed.cool.ron"), "MALFORMED");
+
         let asset_server = app.world().resource::<AssetServer>().clone();
         let handle = asset_server.load::<A>(path);
         let mut load_state = LoadState::NotLoaded;
@@ -3007,6 +3023,7 @@ mod tests {
             "does_not_exist.cool.ron",
             TestLoadState::Failed(TestAssetLoadError::AssetReaderErrorNotFound),
         );
+
         test_load_state::<SubText>(
             "sub-asset exists",
             "test.cool.ron#subasset",
@@ -3020,8 +3037,23 @@ mod tests {
         );
 
         test_load_state::<CoolText>(
-            "sub-asset exists but is wrong type",
+            "sub-asset is not requested type",
             "test.cool.ron#subasset",
+            TestLoadState::Failed(TestAssetLoadError::RequestedHandleTypeMismatch {
+                requested: TypeId::of::<CoolText>(),
+                actual_asset_name: "bevy_asset::tests::SubText",
+            }),
+        );
+
+        test_load_state::<CoolText>(
+            "malformed root asset",
+            "malformed.cool.ron",
+            TestLoadState::Failed(TestAssetLoadError::AssetLoaderError),
+        );
+
+        test_load_state::<CoolText>(
+            "sub-asset of malformed root asset",
+            "malformed.cool.ron#subasset",
             // XXX TODO: This is broken.
             TestLoadState::Loading,
         );
