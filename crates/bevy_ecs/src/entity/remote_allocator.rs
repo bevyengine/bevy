@@ -1,11 +1,11 @@
 //! This module contains the guts of Bevy's entity allocator.
 //!
 //! Entity allocation needs to work concurrently and remotely.
-//! Remote allocations (where no reference to the world is held) is needed for async primarily for use.
+//! Remote allocations (where no reference to the world is held) is needed for long running tasks, such as loading assets on separate threads.
 //! Non-remote, "normal" allocation needs to be as fast as possible while still supporting remote allocation.
 //!
 //! The allocator fundamentally is made of a cursor for the next fresh, never used [`EntityIndex`] and a free list.
-//! The free list is some collection that hold [`Entity`] values that were used and can be reused; they are "free"/available.
+//! The free list is a collection that holds [`Entity`] values that were used and can be reused; they are "free"/available.
 //! If the free list is empty, it's really simple to just increment the fresh index cursor.
 //! The tricky part is implementing a remotely accessible free list.
 //!
@@ -18,7 +18,7 @@
 //! That means, we can have a much more efficient allocation scheme, far better than a linked list.
 //!
 //! For the free list, the list needs to be pinned in memory and yet grow-able.
-//! That's quire the pickle, but by splitting the growth over multiple arrays, this isn't so bad.
+//! That's quite the pickle, but by splitting the growth over multiple arrays, this isn't so bad.
 //! When the list needs to grow, we just *add* on another array to the buffer (instead of *replacing* the old one with a bigger one).
 //! These arrays are called [`Chunk`]s.
 //! This keeps everything pinned, and since we know the maximum size ahead of time, we can make this mapping very fast.
@@ -48,7 +48,6 @@ use super::{Entity, EntityIndex, EntitySetIterator};
 
 /// This is the item we store in the free list.
 /// Effectively, this is a `MaybeUninit<Entity>` where uninit is represented by `Entity::PLACEHOLDER`.
-/// This is
 struct Slot {
     inner: SyncUnsafeCell<Entity>,
 }
@@ -258,7 +257,7 @@ impl FreeBuffer {
     ///
     /// # Safety
     ///
-    /// [`set`](Self::set) must have been called on this index to initialize the its memory.
+    /// [`set`](Self::set) must have been called on this index to initialize its memory.
     /// There must be a clear, strict order between this call and the previous uses of this `full_index`.
     /// Otherwise, the compiler will make unsound optimizations.
     unsafe fn get(&self, full_index: u32) -> Entity {
@@ -473,10 +472,13 @@ impl FreeCount {
         success: Ordering,
         failure: Ordering,
     ) -> Result<(), FreeCountState> {
-        self.0
+        match self
+            .0
             .compare_exchange(expected_current_state.0, target_state.0, success, failure)
-            .map(|_| ())
-            .map_err(FreeCountState)
+        {
+            Ok(_) => Ok(()),
+            Err(val) => Err(FreeCountState(val)),
+        }
     }
 }
 
@@ -557,7 +559,7 @@ impl FreeList {
         // SAFETY: This was less then `len`, so it must have been `set` via `free` before.
         // There is a strict memory ordering of this use of the index because the length is only decreasing.
         // That means there is only one use of this index since the last call to `free`.
-        // The only time it the length increases is during `free`, which the caller ensures has a "happened before" relationship with this call.
+        // The only time the length increases is during `free`, which the caller ensures has a "happened before" relationship with this call.
         Some(unsafe { self.buffer.get(index) })
     }
 
