@@ -506,7 +506,7 @@ pub fn prepare_generated_environment_map_intermediate_textures(
     mut commands: Commands,
 ) {
     for (entity, env_map_light) in &light_probes {
-        let base_size = env_map_light.environment_map.size.width;
+        let base_size = env_map_light.environment_map.texture_descriptor.size.width;
         let mip_level_count = compute_mip_count(base_size);
 
         let environment_map = texture_cache.get(
@@ -577,16 +577,20 @@ pub fn prepare_generated_environment_map_bind_groups(
         return;
     };
 
-    assert!(stbn_texture.size.width.is_power_of_two());
-    assert!(stbn_texture.size.height.is_power_of_two());
+    assert!(stbn_texture.texture_descriptor.size.width.is_power_of_two());
+    assert!(stbn_texture
+        .texture_descriptor
+        .size
+        .height
+        .is_power_of_two());
     let noise_size_bits = UVec2::new(
-        stbn_texture.size.width.trailing_zeros(),
-        stbn_texture.size.height.trailing_zeros(),
+        stbn_texture.texture_descriptor.size.width.trailing_zeros(),
+        stbn_texture.texture_descriptor.size.height.trailing_zeros(),
     );
 
     for (entity, textures, env_map_light) in &light_probes {
         // Determine mip chain based on input size
-        let base_size = env_map_light.environment_map.size.width;
+        let base_size = env_map_light.environment_map.texture_descriptor.size.width;
         let mip_count = compute_mip_count(base_size);
         let last_mip = mip_count - 1;
         let env_map_texture = env_map_light.environment_map.texture.clone();
@@ -882,7 +886,7 @@ pub fn downsampling_system(
             compute_pass.set_pipeline(copy_pipeline);
             compute_pass.set_bind_group(0, &bind_groups.copy, &[]);
 
-            let tex_size = env_map_light.environment_map.size;
+            let tex_size = env_map_light.environment_map.texture_descriptor.size;
             let wg_x = tex_size.width.div_ceil(8);
             let wg_y = tex_size.height.div_ceil(8);
             compute_pass.dispatch_workgroups(wg_x, wg_y, 6);
@@ -905,7 +909,7 @@ pub fn downsampling_system(
             compute_pass.set_pipeline(downsample_first_pipeline);
             compute_pass.set_bind_group(0, &bind_groups.downsampling_first, &[]);
 
-            let tex_size = env_map_light.environment_map.size;
+            let tex_size = env_map_light.environment_map.texture_descriptor.size;
             let wg_x = tex_size.width.div_ceil(64);
             let wg_y = tex_size.height.div_ceil(64);
             compute_pass.dispatch_workgroups(wg_x, wg_y, 6); // 6 faces
@@ -928,7 +932,7 @@ pub fn downsampling_system(
             compute_pass.set_pipeline(downsample_second_pipeline);
             compute_pass.set_bind_group(0, &bind_groups.downsampling_second, &[]);
 
-            let tex_size = env_map_light.environment_map.size;
+            let tex_size = env_map_light.environment_map.texture_descriptor.size;
             let wg_x = tex_size.width.div_ceil(256);
             let wg_y = tex_size.height.div_ceil(256);
             compute_pass.dispatch_workgroups(wg_x, wg_y, 6);
@@ -973,7 +977,7 @@ pub fn filtering_system(
 
             compute_pass.set_pipeline(radiance_pipeline);
 
-            let base_size = env_map_light.specular_map.size.width;
+            let base_size = env_map_light.specular_map.texture_descriptor.size.width;
 
             // Process each mip at different roughness levels
             for (mip, bind_group) in bind_groups.radiance.iter().enumerate() {

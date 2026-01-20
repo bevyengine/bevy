@@ -336,15 +336,20 @@ fn image_copy_driver(
             .render_device()
             .create_command_encoder(&CommandEncoderDescriptor::default());
 
-        let block_dimensions = src_image.texture_format.block_dimensions();
-        let block_size = src_image.texture_format.block_copy_size(None).unwrap();
+        let block_dimensions = src_image.texture_descriptor.format.block_dimensions();
+        let block_size = src_image
+            .texture_descriptor
+            .format
+            .block_copy_size(None)
+            .unwrap();
 
         // Calculating correct size of image row because
         // copy_texture_to_buffer can copy image only by rows aligned wgpu::COPY_BYTES_PER_ROW_ALIGNMENT
         // That's why image in buffer can be little bit wider
         // This should be taken into account at copy from buffer stage
         let padded_bytes_per_row = RenderDevice::align_copy_bytes_per_row(
-            (src_image.size.width as usize / block_dimensions.0 as usize) * block_size as usize,
+            (src_image.texture_descriptor.size.width as usize / block_dimensions.0 as usize)
+                * block_size as usize,
         );
 
         encoder.copy_texture_to_buffer(
@@ -361,7 +366,7 @@ fn image_copy_driver(
                     rows_per_image: None,
                 },
             },
-            src_image.size,
+            src_image.texture_descriptor.size,
         );
 
         render_queue.submit(std::iter::once(encoder.finish()));
