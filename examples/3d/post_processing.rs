@@ -190,12 +190,12 @@ fn handle_keyboard_input(mut app_settings: ResMut<AppSettings>, input: Res<Butto
         }
         2 => app_settings.vignette_radius = (app_settings.vignette_radius + delta).clamp(0.0, 2.0),
         3 => {
-            app_settings.vignette_smoothness = (app_settings.vignette_smoothness + delta).max(0.01)
+            app_settings.vignette_smoothness = (app_settings.vignette_smoothness + delta).max(0.01);
         }
         4 => app_settings.vignette_roundness = (app_settings.vignette_roundness + delta).max(0.01),
         5 => {
             app_settings.vignette_edge_compensation =
-                (app_settings.vignette_edge_compensation + delta).clamp(0.0, 1.0)
+                (app_settings.vignette_edge_compensation + delta).clamp(0.0, 1.0);
         }
         _ => {}
     }
