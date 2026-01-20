@@ -106,8 +106,8 @@ pub fn enum_partial_cmp<TEnum: Enum + ?Sized>(
 
     // Same variant name?
     if a.variant_name() != b.variant_name() {
-        // Different variant names. 
-        // Ordering by variant index here can result in inconsistencies with 
+        // Different variant names.
+        // Ordering by variant index here can result in inconsistencies with
         // partial_eq when comparing between two different concrete enums,
         // so we simply return None here
         return None;

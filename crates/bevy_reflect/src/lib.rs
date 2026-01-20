@@ -1677,7 +1677,7 @@ mod tests {
     }
 
     #[test]
-    fn enum_variant_index_ordering() {
+    fn enum_variant_ordering() {
         use core::cmp::Ordering;
 
         #[derive(PartialEq, PartialOrd, Reflect, Debug)]
