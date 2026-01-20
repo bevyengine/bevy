@@ -1,4 +1,5 @@
 //! This example illustrates the advance usage of an image node.
+//! Compare `NodeImageMode` behaviour
 
 use bevy::{color::palettes::tailwind, prelude::*};
 
@@ -14,10 +15,10 @@ fn main() {
         .add_systems(Update, update)
         // observer for enlarge ImageGroup height
         .add_observer(
-            |_: On<ImageGroupEnlarge>, query: Query<&mut Node, With<ImageGroup>>| {
+            |_: On<ImageGroupHeightEnlarge>, query: Query<&mut Node, With<ImageGroup>>| {
                 for mut node in query {
                     if let Val::Percent(val) = node.height {
-                        let new_val = (val + 1.).min(50.0);
+                        let new_val = (val + 1.).min(40.0);
                         node.height = Val::Percent(new_val);
                     }
                 }
@@ -25,11 +26,33 @@ fn main() {
         )
         // observer for earrow ImageGroup height
         .add_observer(
-            |_: On<ImageGroupNarrow>, query: Query<&mut Node, With<ImageGroup>>| {
+            |_: On<ImageGroupHeightNarrow>, query: Query<&mut Node, With<ImageGroup>>| {
                 for mut node in query {
                     if let Val::Percent(val) = node.height {
                         let new_val = (val - 1.).max(10.);
                         node.height = Val::Percent(new_val);
+                    }
+                }
+            },
+        )
+        // observer for enlarge ImageGroup width
+        .add_observer(
+            |_: On<ImageGroupWidthEnlarge>, query: Query<&mut Node, With<ImageGroup>>| {
+                for mut node in query {
+                    if let Val::Percent(val) = node.width {
+                        let new_val = (val - 1.).max(40.);
+                        node.width = Val::Percent(new_val);
+                    }
+                }
+            },
+        )
+        // observer for earrow ImageGroup width
+        .add_observer(
+            |_: On<ImageGroupWidthNarrow>, query: Query<&mut Node, With<ImageGroup>>| {
+                for mut node in query {
+                    if let Val::Percent(val) = node.width {
+                        let new_val = (val + 1.).min(100.);
+                        node.width = Val::Percent(new_val);
                     }
                 }
             },
@@ -41,19 +64,33 @@ fn main() {
 struct ImageGroup;
 
 #[derive(Debug, Event)]
-struct ImageGroupEnlarge;
+struct ImageGroupHeightEnlarge;
 
 #[derive(Debug, Event)]
-struct ImageGroupNarrow;
+struct ImageGroupHeightNarrow;
+
+#[derive(Debug, Event)]
+struct ImageGroupWidthEnlarge;
+
+#[derive(Debug, Event)]
+struct ImageGroupWidthNarrow;
 
 #[derive(Debug, Component)]
 struct TextMeta {
     height: f32,
+    width: f32,
+}
+
+#[derive(Debug)]
+enum Direction {
+    Height,
+    Width,
 }
 
 #[derive(Debug, EntityEvent)]
-struct TextEvent {
+struct TextUpdateEvent {
     entity: Entity,
+    direction: Direction,
     change: f32,
 }
 
@@ -64,8 +101,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Keyboard Hint
     commands
         .spawn((
-            TextMeta { height: 40.0 },
-            Text::new("press `h/H` and `↑`/`↓` to resize height\nheight : 10%"),
+            TextMeta { height: 40.,  width : 100. },
+            Text::new(
+                "Compare NodeImageMode(Auto, Stretch) press `Upload`/`Down` to resize height, press `Left`/`Right` to resize width\nheight : 10%",
+            ),
             TextColor::WHITE,
             Node {
                 position_type: PositionType::Absolute,
@@ -87,102 +126,61 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             ..default()
         },))
         .with_children(|builder| {
-            // `NodeImageMode::Auto` will maintain the original image's aspect ratio when possible
-            builder.spawn((
-                ImageGroup,
-                Node {
-                    display: Display::Flex,
-                    justify_content: JustifyContent::Start,
-                    width: Val::Percent(100.),
-                    height: Val::Percent(40.),
-                    ..default()
-                },
-                BackgroundColor(Color::from(tailwind::BLUE_100)),
-                children![
-                    (ImageNode {
-                        image: image_handle.clone(),
-                        image_mode: NodeImageMode::Auto,
+            // `NodeImageMode::Auto` will be sized automatically by taking the size of the source image and applying any layout constraints.
+            builder
+                .spawn((
+                    ImageGroup,
+                    Node {
+                        display: Display::Flex,
+                        justify_content: JustifyContent::Start,
+                        width: Val::Percent(100.),
+                        height: Val::Percent(40.),
                         ..default()
-                    },),
-                    (ImageNode {
-                        image: image_handle.clone(),
-                        image_mode: NodeImageMode::Auto,
-                        ..default()
-                    },),
-                    (ImageNode {
-                        image: image_handle.clone(),
-                        image_mode: NodeImageMode::Auto,
-                        ..default()
-                    },),
-                    (ImageNode {
-                        image: image_handle.clone(),
-                        image_mode: NodeImageMode::Auto,
-                        ..default()
-                    },)
-                ],
-            ));
+                    },
+                    BackgroundColor(Color::from(tailwind::BLUE_100)),
+                ))
+                .with_children(|parent| {
+                    for _ in 0..4 {
+                        // child node will apply Flex layout
+                        parent.spawn((
+                            Node::default(),
+                            ImageNode {
+                                image: image_handle.clone(),
+                                image_mode: NodeImageMode::Auto,
+                                ..default()
+                            },
+                        ));
+                    }
+                });
             // `NodeImageMode::Stretch` will resized to match the size of the `Node` component
-            builder.spawn((
-                ImageGroup,
-                Node {
-                    display: Display::Flex,
-                    justify_content: JustifyContent::Start,
-                    width: Val::Percent(100.),
-                    height: Val::Percent(40.),
-                    ..default()
-                },
-                BackgroundColor(Color::from(tailwind::BLUE_100)),
-                children![
-                    (
-                        Node {
-                            height: Val::Percent(100.),
-                            width: Val::Percent(10.),
-                            ..default()
-                        },
-                        ImageNode {
-                            image: image_handle.clone(),
-                            image_mode: NodeImageMode::Stretch,
-                            ..default()
-                        },
-                    ),
-                    (
-                        Node {
-                            height: Val::Percent(100.),
-                            width: Val::Percent(20.),
-                            ..default()
-                        },
-                        ImageNode {
-                            image: image_handle.clone(),
-                            image_mode: NodeImageMode::Stretch,
-                            ..default()
-                        },
-                    ),
-                    (
-                        Node {
-                            height: Val::Percent(100.),
-                            width: Val::Percent(30.),
-                            ..default()
-                        },
-                        ImageNode {
-                            image: image_handle.clone(),
-                            image_mode: NodeImageMode::Stretch,
-                            ..default()
-                        },
-                    ),
-                    (
-                        Node {
-                            height: Val::Percent(100.),
-                            width: Val::Percent(40.),
-                            ..default()
-                        },
-                        ImageNode {
-                            image: image_handle.clone(),
-                            image_mode: NodeImageMode::Stretch,
-                            ..default()
-                        },
-                    )
-                ],
-            ));
+            builder
+                .spawn((
+                    ImageGroup,
+                    Node {
+                        display: Display::Flex,
+                        justify_content: JustifyContent::Start,
+                        width: Val::Percent(100.),
+                        height: Val::Percent(40.),
+                        ..default()
+                    },
+                    BackgroundColor(Color::from(tailwind::BLUE_100)),
+                ))
+                .with_children(|parent| {
+                    for width in [10., 20., 30., 40.] {
+                        parent.spawn((
+                            Node {
+                                height: Val::Percent(100.),
+                                width: Val::Percent(width),
+                                ..default()
+                            },
+                            ImageNode {
+                                image: image_handle.clone(),
+                                image_mode: NodeImageMode::Stretch,
+                                ..default()
+                            },
+                        ));
+                    }
+                });
         });
 }
 
@@ -194,29 +192,61 @@ fn update(
 ) {
     let entity = query.single().unwrap();
     if keycode.pressed(KeyCode::ArrowUp) {
-        commands.trigger(ImageGroupEnlarge);
-        commands.trigger(TextEvent {
+        commands.trigger(ImageGroupHeightEnlarge);
+        commands.trigger(TextUpdateEvent {
             entity,
-            change: 1.0,
+            direction: Direction::Height,
+            change: 1.,
         });
     }
     if keycode.pressed(KeyCode::ArrowDown) {
-        commands.trigger(ImageGroupNarrow);
-        commands.trigger(TextEvent {
+        commands.trigger(ImageGroupHeightNarrow);
+        commands.trigger(TextUpdateEvent {
             entity,
+            direction: Direction::Height,
             change: -1.,
+        });
+    }
+    if keycode.pressed(KeyCode::ArrowLeft) {
+        commands.trigger(ImageGroupWidthEnlarge);
+        commands.trigger(TextUpdateEvent {
+            entity,
+            direction: Direction::Width,
+            change: -1.,
+        });
+    }
+    if keycode.pressed(KeyCode::ArrowRight) {
+        commands.trigger(ImageGroupWidthNarrow);
+        commands.trigger(TextUpdateEvent {
+            entity,
+            direction: Direction::Width,
+            change: 1.,
         });
     }
 }
 
 fn update_text(
-    event: On<TextEvent>,
+    event: On<TextUpdateEvent>,
     mut textmeta: Single<&mut TextMeta>,
     mut text: Single<&mut Text>,
 ) {
-    let str = "press `h/H` and `↑`/`↓` to resize height\n";
+    let str = "Compare NodeImageMode(Auto, Stretch) press `Upload`/`Down` to resize height, press `Left`/`Right` to resize width\n";
     let mut new_text = Text::new(str);
-    textmeta.height = (textmeta.height + event.change).clamp(10.0, 50.0);
-    new_text.push_str(&format!("height : {}%", textmeta.height));
+    match event.direction {
+        Direction::Height => {
+            textmeta.height = (textmeta.height + event.change).clamp(10.0, 40.0);
+            new_text.push_str(&format!(
+                "height : {}%, width : {}%",
+                textmeta.height, textmeta.width
+            ));
+        }
+        Direction::Width => {
+            textmeta.width = (textmeta.width + event.change).clamp(40.0, 100.0);
+            new_text.push_str(&format!(
+                "height : {}%, width : {}%",
+                textmeta.height, textmeta.width
+            ));
+        }
+    }
     text.0 = new_text.0;
 }
