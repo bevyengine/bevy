@@ -847,11 +847,19 @@ impl AssetServer {
                                 .map(|s| (**s).to_owned())
                                 .collect();
                             all_labels.sort_unstable();
-                            return Err(AssetLoadError::MissingLabel {
+                            let error = AssetLoadError::MissingLabel {
                                 base_path,
                                 label: label.to_string(),
                                 all_labels,
-                            });
+                            };
+                            if let Some(asset_id) = asset_id {
+                                self.send_asset_event(InternalAssetEvent::Failed {
+                                    index: asset_id,
+                                    error: error.clone(),
+                                    path: path.into_owned(),
+                                });
+                            }
+                            return Err(error);
                         }
                     }
                 } else {

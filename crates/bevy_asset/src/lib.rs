@@ -2921,6 +2921,7 @@ mod tests {
     enum TestAssetLoadError {
         MissingAssetLoader,
         AssetReaderErrorNotFound,
+        MissingLabel,
     }
 
     impl From<&LoadState> for TestLoadState {
@@ -2941,6 +2942,7 @@ mod tests {
                 AssetLoadError::AssetReaderError(AssetReaderError::NotFound(_)) => {
                     Self::AssetReaderErrorNotFound
                 }
+                AssetLoadError::MissingLabel { .. } => Self::MissingLabel,
                 _ => todo!("{:?}", value),
             }
         }
@@ -3014,8 +3016,7 @@ mod tests {
         test_load_state::<SubText>(
             "sub-asset does not exist",
             "test.cool.ron#does_not_exist",
-            // XXX TODO: This is broken.
-            TestLoadState::Loading,
+            TestLoadState::Failed(TestAssetLoadError::MissingLabel),
         );
 
         test_load_state::<CoolText>(
