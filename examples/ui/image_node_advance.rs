@@ -6,14 +6,14 @@ use bevy::{color::palettes::tailwind, prelude::*};
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        // enable for image outline
+        // Enable for image outline
         .insert_resource(UiDebugOptions {
             enabled: true,
             ..default()
         })
         .add_systems(Startup, setup)
         .add_systems(Update, update)
-        // observer for enlarge ImageGroup height
+        // Add observer for enlarge ImageGroup height.
         .add_observer(
             |_: On<ImageGroupHeightEnlarge>, query: Query<&mut Node, With<ImageGroup>>| {
                 for mut node in query {
@@ -24,7 +24,7 @@ fn main() {
                 }
             },
         )
-        // observer for earrow ImageGroup height
+        // Add observer for earrow ImageGroup height.
         .add_observer(
             |_: On<ImageGroupHeightNarrow>, query: Query<&mut Node, With<ImageGroup>>| {
                 for mut node in query {
@@ -35,7 +35,7 @@ fn main() {
                 }
             },
         )
-        // observer for enlarge ImageGroup width
+        // Add observer for enlarge ImageGroup width.
         .add_observer(
             |_: On<ImageGroupWidthEnlarge>, query: Query<&mut Node, With<ImageGroup>>| {
                 for mut node in query {
@@ -46,7 +46,7 @@ fn main() {
                 }
             },
         )
-        // observer for earrow ImageGroup width
+        // Add observer for earrow ImageGroup width.
         .add_observer(
             |_: On<ImageGroupWidthNarrow>, query: Query<&mut Node, With<ImageGroup>>| {
                 for mut node in query {
