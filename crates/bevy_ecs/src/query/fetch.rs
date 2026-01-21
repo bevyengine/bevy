@@ -553,7 +553,7 @@ unsafe impl ContiguousQueryData for Entity {
         _fetch: &mut Self::Fetch<'w>,
         entities: &'w [Entity],
     ) -> Self::Contiguous<'w, 's> {
-        &entities
+        entities
     }
 }
 
@@ -1821,8 +1821,7 @@ unsafe impl<T: Component> ContiguousQueryData for &T {
                 // (i.e. repr(transparent)) of UnsafeCell
                 let table = table.cast();
                 // SAFETY: Caller ensures `rows` is the amount of rows in the table
-                let item = unsafe { table.as_slice_unchecked(entities.len()) };
-                item
+                unsafe { table.as_slice_unchecked(entities.len()) }
             },
             |_| {
                 #[cfg(debug_assertions)]

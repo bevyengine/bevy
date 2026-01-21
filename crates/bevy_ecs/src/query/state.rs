@@ -1421,7 +1421,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// Returns a contiguous iterator over the query results for the given [`World`] or [`None`] if
     /// the query is not dense hence not contiguously iterable.
     ///
-    /// This can only be called for mutable queries, see [`contiguous_iter`] for read-only-queries.
+    /// This can only be called for mutable queries, see [`Self::contiguous_iter`] for read-only-queries.
     #[inline]
     pub fn contiguous_iter_mut<'w, 's>(
         &'s mut self,
