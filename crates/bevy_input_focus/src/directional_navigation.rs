@@ -162,18 +162,18 @@ impl Default for AutoNavigationConfig {
 pub enum NavNeighbor {
     /// No neighbor explicitly set.
     #[default]
-    Unset,
+    Auto,
     /// Do not find a neighbor.
     Blocked,
     /// The neighbor is known and set.
-    Neighbor(Entity),
+    Set(Entity),
 }
 
 impl NavNeighbor {
     /// Helper for getting the pointed-to entity, if any.
     pub fn get(&self) -> Option<Entity> {
-        if let NavNeighbor::Neighbor(n) = self {
-            Some(n.clone())
+        if let NavNeighbor::Set(n) = self {
+            Some(*n)
         } else {
             None
         }
@@ -203,7 +203,7 @@ pub struct NavNeighbors {
 impl NavNeighbors {
     /// An empty set of neighbors.
     pub const EMPTY: NavNeighbors = NavNeighbors {
-        neighbors: [NavNeighbor::Unset; 8],
+        neighbors: [NavNeighbor::Auto; 8],
     };
 
     /// Get the neighbor for a given [`CompassOctant`].
@@ -213,7 +213,7 @@ impl NavNeighbors {
 
     /// Set the neighbor for a given [`CompassOctant`].
     pub const fn set(&mut self, octant: CompassOctant, entity: Entity) {
-        self.neighbors[octant.to_index()] = NavNeighbor::Neighbor(entity);
+        self.neighbors[octant.to_index()] = NavNeighbor::Set(entity);
     }
 
     /// Prevent navigation to a given [`CompassOctant`].
@@ -271,8 +271,8 @@ impl DirectionalNavigationMap {
 
         for node in self.neighbors.values_mut() {
             for neighbor in node.neighbors.iter_mut() {
-                if *neighbor == NavNeighbor::Neighbor(entity) {
-                    *neighbor = NavNeighbor::Unset;
+                if *neighbor == NavNeighbor::Set(entity) {
+                    *neighbor = NavNeighbor::Auto;
                 }
             }
         }
@@ -292,11 +292,11 @@ impl DirectionalNavigationMap {
 
         for node in self.neighbors.values_mut() {
             for neighbor in node.neighbors.iter_mut() {
-                let NavNeighbor::Neighbor(entity) = neighbor else {
+                let NavNeighbor::Set(entity) = neighbor else {
                     continue;
                 };
                 if entities.contains(entity) {
-                    *neighbor = NavNeighbor::Unset;
+                    *neighbor = NavNeighbor::Auto;
                 }
             }
         }
@@ -319,7 +319,7 @@ impl DirectionalNavigationMap {
             .set(direction, b);
     }
 
-    /// Adds an edge blocking automatic naviation from an entity in a direction.
+    /// Adds an edge blocking automatic navigation from an entity in a direction.
     /// Any existing edge from A in the provided direction will be overwritten.
     ///
     /// The reverse block will not be added, so navigation will only be possible from other entities
@@ -380,7 +380,7 @@ impl DirectionalNavigationMap {
         self.neighbors
             .get(&focus)
             .map(|neighbors| neighbors.get(octant))
-            .unwrap_or(NavNeighbor::Unset)
+            .unwrap_or(NavNeighbor::Auto)
     }
 
     /// Looks up the neighbors of a given entity.
@@ -415,7 +415,7 @@ impl<'w> DirectionalNavigation<'w> {
         if let Some(current_focus) = self.focus.0 {
             // Respect manual edges first
             match self.map.get_neighbor(current_focus, direction) {
-                NavNeighbor::Unset => Err(DirectionalNavigationError::NoNeighborInDirection {
+                NavNeighbor::Auto => Err(DirectionalNavigationError::NoNeighborInDirection {
                     current_focus,
                     direction,
                 }),
@@ -423,7 +423,7 @@ impl<'w> DirectionalNavigation<'w> {
                     current_focus,
                     direction,
                 }),
-                NavNeighbor::Neighbor(new_focus) => {
+                NavNeighbor::Set(new_focus) => {
                     self.focus.set(new_focus);
                     Ok(new_focus)
                 }
@@ -539,7 +539,7 @@ pub fn auto_generate_navigation_edges(
                 .filter(|neighbors| {
                     matches!(
                         neighbors.get(octant),
-                        NavNeighbor::Blocked | NavNeighbor::Neighbor(_)
+                        NavNeighbor::Blocked | NavNeighbor::Set(_)
                     )
                 })
                 .is_some()
@@ -568,7 +568,7 @@ mod tests {
     #[test]
     fn setting_and_getting_nav_neighbors() {
         let mut neighbors = NavNeighbors::EMPTY;
-        assert_eq!(neighbors.get(CompassOctant::SouthEast), NavNeighbor::Unset);
+        assert_eq!(neighbors.get(CompassOctant::SouthEast), NavNeighbor::Auto);
 
         neighbors.set(CompassOctant::SouthEast, Entity::PLACEHOLDER);
 
@@ -576,12 +576,12 @@ mod tests {
             if i == CompassOctant::SouthEast.to_index() {
                 assert_eq!(
                     neighbors.get(CompassOctant::SouthEast),
-                    NavNeighbor::Neighbor(Entity::PLACEHOLDER)
+                    NavNeighbor::Set(Entity::PLACEHOLDER)
                 );
             } else {
                 assert_eq!(
                     neighbors.get(CompassOctant::from_index(i).unwrap()),
-                    NavNeighbor::Unset
+                    NavNeighbor::Auto
                 );
             }
         }
@@ -598,11 +598,11 @@ mod tests {
 
         assert_eq!(
             map.get_neighbor(a, CompassOctant::SouthEast),
-            NavNeighbor::Neighbor(b)
+            NavNeighbor::Set(b)
         );
         assert_eq!(
             map.get_neighbor(b, CompassOctant::SouthEast.opposite()),
-            NavNeighbor::Unset
+            NavNeighbor::Auto
         );
     }
 
@@ -617,11 +617,11 @@ mod tests {
 
         assert_eq!(
             map.get_neighbor(a, CompassOctant::North),
-            NavNeighbor::Neighbor(b)
+            NavNeighbor::Set(b)
         );
         assert_eq!(
             map.get_neighbor(b, CompassOctant::South),
-            NavNeighbor::Neighbor(a)
+            NavNeighbor::Set(a)
         );
     }
 
@@ -637,22 +637,22 @@ mod tests {
 
         assert_eq!(
             map.get_neighbor(a, CompassOctant::North),
-            NavNeighbor::Neighbor(b)
+            NavNeighbor::Set(b)
         );
         assert_eq!(
             map.get_neighbor(b, CompassOctant::South),
-            NavNeighbor::Neighbor(a)
+            NavNeighbor::Set(a)
         );
 
         map.remove(b);
 
         assert_eq!(
             map.get_neighbor(a, CompassOctant::North),
-            NavNeighbor::Unset
+            NavNeighbor::Auto
         );
         assert_eq!(
             map.get_neighbor(b, CompassOctant::South),
-            NavNeighbor::Unset
+            NavNeighbor::Auto
         );
     }
 
@@ -677,14 +677,14 @@ mod tests {
 
         assert_eq!(
             map.get_neighbor(a, CompassOctant::North),
-            NavNeighbor::Unset
+            NavNeighbor::Auto
         );
         assert_eq!(
             map.get_neighbor(b, CompassOctant::South),
-            NavNeighbor::Unset
+            NavNeighbor::Auto
         );
-        assert_eq!(map.get_neighbor(b, CompassOctant::East), NavNeighbor::Unset);
-        assert_eq!(map.get_neighbor(c, CompassOctant::West), NavNeighbor::Unset);
+        assert_eq!(map.get_neighbor(b, CompassOctant::East), NavNeighbor::Auto);
+        assert_eq!(map.get_neighbor(c, CompassOctant::West), NavNeighbor::Auto);
     }
 
     #[test]
@@ -699,22 +699,22 @@ mod tests {
 
         assert_eq!(
             map.get_neighbor(a, CompassOctant::East),
-            NavNeighbor::Neighbor(b)
+            NavNeighbor::Set(b)
         );
         assert_eq!(
             map.get_neighbor(b, CompassOctant::East),
-            NavNeighbor::Neighbor(c)
+            NavNeighbor::Set(c)
         );
-        assert_eq!(map.get_neighbor(c, CompassOctant::East), NavNeighbor::Unset);
+        assert_eq!(map.get_neighbor(c, CompassOctant::East), NavNeighbor::Auto);
 
-        assert_eq!(map.get_neighbor(a, CompassOctant::West), NavNeighbor::Unset);
+        assert_eq!(map.get_neighbor(a, CompassOctant::West), NavNeighbor::Auto);
         assert_eq!(
             map.get_neighbor(b, CompassOctant::West),
-            NavNeighbor::Neighbor(a)
+            NavNeighbor::Set(a)
         );
         assert_eq!(
             map.get_neighbor(c, CompassOctant::West),
-            NavNeighbor::Neighbor(b)
+            NavNeighbor::Set(b)
         );
     }
 
@@ -730,28 +730,28 @@ mod tests {
 
         assert_eq!(
             map.get_neighbor(a, CompassOctant::East),
-            NavNeighbor::Neighbor(b)
+            NavNeighbor::Set(b)
         );
         assert_eq!(
             map.get_neighbor(b, CompassOctant::East),
-            NavNeighbor::Neighbor(c)
+            NavNeighbor::Set(c)
         );
         assert_eq!(
             map.get_neighbor(c, CompassOctant::East),
-            NavNeighbor::Neighbor(a)
+            NavNeighbor::Set(a)
         );
 
         assert_eq!(
             map.get_neighbor(a, CompassOctant::West),
-            NavNeighbor::Neighbor(c)
+            NavNeighbor::Set(c)
         );
         assert_eq!(
             map.get_neighbor(b, CompassOctant::West),
-            NavNeighbor::Neighbor(a)
+            NavNeighbor::Set(a)
         );
         assert_eq!(
             map.get_neighbor(c, CompassOctant::West),
-            NavNeighbor::Neighbor(b)
+            NavNeighbor::Set(b)
         );
     }
 
@@ -829,27 +829,27 @@ mod tests {
         // Test horizontal navigation
         assert_eq!(
             nav_map.get_neighbor(node_a, CompassOctant::East),
-            NavNeighbor::Neighbor(node_b)
+            NavNeighbor::Set(node_b)
         );
         assert_eq!(
             nav_map.get_neighbor(node_b, CompassOctant::West),
-            NavNeighbor::Neighbor(node_a)
+            NavNeighbor::Set(node_a)
         );
 
         // Test vertical navigation
         assert_eq!(
             nav_map.get_neighbor(node_a, CompassOctant::South),
-            NavNeighbor::Neighbor(node_c)
+            NavNeighbor::Set(node_c)
         );
         assert_eq!(
             nav_map.get_neighbor(node_c, CompassOctant::North),
-            NavNeighbor::Neighbor(node_a)
+            NavNeighbor::Set(node_a)
         );
 
         // Test diagonal navigation
         assert_eq!(
             nav_map.get_neighbor(node_a, CompassOctant::SouthEast),
-            NavNeighbor::Neighbor(node_d)
+            NavNeighbor::Set(node_d)
         );
     }
 
@@ -888,7 +888,7 @@ mod tests {
         // The manual edge should be preserved, even though B is closer
         assert_eq!(
             nav_map.get_neighbor(node_a, CompassOctant::East),
-            NavNeighbor::Neighbor(node_c)
+            NavNeighbor::Set(node_c)
         );
     }
 
@@ -925,7 +925,7 @@ mod tests {
 
         assert_eq!(
             nav_map.get_neighbor(left, CompassOctant::East),
-            NavNeighbor::Neighbor(wide_top),
+            NavNeighbor::Set(wide_top),
             "Should navigate to wide_top not bottom, even though bottom's center is closer."
         );
     }
