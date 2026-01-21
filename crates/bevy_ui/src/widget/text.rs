@@ -62,7 +62,7 @@ impl Default for TextNodeFlags {
 /// # use bevy_color::Color;
 /// # use bevy_color::palettes::basic::BLUE;
 /// # use bevy_ecs::world::World;
-/// # use bevy_text::{Font, Justify, TextLayout, TextFont, TextColor, TextSpan};
+/// # use bevy_text::{Font, FontSize, Justify, TextLayout, TextFont, TextColor, TextSpan};
 /// # use bevy_ui::prelude::Text;
 /// #
 /// # let font_handle: Handle<Font> = Default::default();
@@ -76,7 +76,7 @@ impl Default for TextNodeFlags {
 ///     Text::new("hello world!"),
 ///     TextFont {
 ///         font: font_handle.clone().into(),
-///         font_size: 60.0,
+///         font_size: FontSize::Px(60.0),
 ///         ..Default::default()
 ///     },
 ///     TextColor(BLUE.into()),
