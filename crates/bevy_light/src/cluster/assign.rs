@@ -830,7 +830,7 @@ pub(crate) fn assign_objects_to_clusters(
             };
 
         // reuse existing visible clusterable objects Vec, if it exists
-        if let Some(mut visible_clusterable_objects) = visible_clusterable_objects.as_mut() {
+        if let Some(visible_clusterable_objects) = visible_clusterable_objects.as_mut() {
             visible_clusterable_objects.clear();
             update_from_object_intersections(visible_clusterable_objects);
         } else {

@@ -550,7 +550,6 @@ impl ViewClusterBindings {
                 let array_index = self.n_indices >> 4; // >> 4 is equivalent to / 16
                 let component = (self.n_indices >> 2) & ((1 << 2) - 1);
                 let sub_index = self.n_indices & ((1 << 2) - 1);
-                let index = index as u32;
 
                 clusterable_object_index_lists.get_mut().data[array_index][component] |=
                     index << (8 * sub_index);
@@ -559,10 +558,7 @@ impl ViewClusterBindings {
                 clusterable_object_index_lists,
                 ..
             } => {
-                clusterable_object_index_lists
-                    .get_mut()
-                    .data
-                    .push(index as u32);
+                clusterable_object_index_lists.get_mut().data.push(index);
             }
         }
 
@@ -571,7 +567,7 @@ impl ViewClusterBindings {
 
     /// Pushes the index of a clustered object to the GPU buffer.
     pub fn push_index(&mut self, index: usize) {
-        self.push_raw_index(index as u32)
+        self.push_raw_index(index as u32);
     }
 
     /// Pushes a placeholder -1 index to the GPU buffer.
@@ -579,7 +575,7 @@ impl ViewClusterBindings {
     /// This is used when processing reflection probes and irradiance volumes
     /// that haven't loaded yet.
     pub fn push_dummy_index(&mut self) {
-        self.push_raw_index(!0)
+        self.push_raw_index(!0);
     }
 
     pub fn write_buffers(&mut self, render_device: &RenderDevice, render_queue: &RenderQueue) {

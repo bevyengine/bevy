@@ -34,8 +34,7 @@ use bevy_transform::{components::Transform, prelude::GlobalTransform};
 use bitflags::bitflags;
 use tracing::error;
 
-use core::{hash::Hash, ops::Deref};
-use std::any::TypeId;
+use core::{any::TypeId, hash::Hash, ops::Deref};
 
 use crate::{
     extract_clusters, generate::EnvironmentMapGenerationPlugin,
