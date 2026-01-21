@@ -42,7 +42,7 @@ bevy_platform = { path = "../bevy_platform", version = "0.19.0-dev", default-fea
 # http-cache-ureq = { version = "1.0.0-alpha.4", optional = true, default-features = false, features = [
 http-cache-ureq = { git = "https://github.com/06chaynes/http-cache", branch = "main", optional = true, default-features = false, features = [
   "manager-cacache",
-  "url-ada"
+  "url-ada",
 ] }
 
 stackfuture = { version = "0.3", default-features = false }
