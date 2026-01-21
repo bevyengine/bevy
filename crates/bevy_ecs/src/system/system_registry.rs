@@ -502,6 +502,33 @@ impl World {
 
     /// Runs a cached system, registering it if necessary.
     ///
+    /// # Type Inference Note
+    /// If the system returns `Result`, you may need to explicitly constrain the output
+    /// type for error handling:
+    ///
+    /// ```rust
+    /// # use bevy_ecs::prelude::*;
+    /// # fn my_system() -> Result { Ok(()) }
+    /// # let mut world = World::new();
+    /// // Either constrain the output type
+    /// () = world.run_system_cached(my_system)?;
+    /// // or supply the type parameter explicitly
+    /// world.run_system_cached::<(), _, _>(my_system)?;
+    /// # Ok::<(), BevyError>(())
+    /// ```
+    ///
+    /// Without this, Rust may fail to infer the system’s output type and produce
+    /// an error either of the form
+    ///
+    /// ```text
+    /// the trait `IntoResult<!>` is not implemented for `Result<(), BevyError>`
+    /// ```
+    ///
+    /// or
+    ///
+    /// ```text
+    /// cannot infer type of the type parameter `O` declared on the method `run_system_cached`
+    /// ```
     /// See [`World::register_system_cached`] for more information.
     pub fn run_system_cached<O: 'static, M, S: IntoSystem<(), O, M> + 'static>(
         &mut self,
@@ -510,8 +537,21 @@ impl World {
         self.run_system_cached_with(system, ())
     }
 
-    /// Runs a cached system with an input, registering it if necessary.
+    /// Runs a cached system with the provided input, registering it if necessary.
     ///
+    /// This is a more general version of [`World::run_system_cached`], allowing
+    /// callers to supply an explicit system input.
+    ///
+    /// # Type Inference Note
+    /// If the system returns `()`, you may need to explicitly constrain the
+    /// output type for proper error inference:
+    ///
+    /// ```rust
+    /// () = world.run_system_cached_with(my_system, input)?;
+    /// ```
+    ///
+    /// Without this, Rust may fail to infer the system’s output type and produce
+    /// a `IntoResult<!>` inference error.
     /// See [`World::register_system_cached`] for more information.
     pub fn run_system_cached_with<I, O, M, S>(
         &mut self,
