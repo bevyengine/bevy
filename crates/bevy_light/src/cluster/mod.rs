@@ -1,6 +1,6 @@
 //! Spatial clustering of objects, currently just point and spot lights.
 
-use std::any::TypeId;
+use core::any::TypeId;
 
 use bevy_asset::Handle;
 use bevy_camera::{
