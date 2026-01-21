@@ -90,7 +90,7 @@ impl<S: AssetSaver> ErasedAssetSaver for S {
 #[derive(Clone)]
 pub struct SavedAsset<'a, 'b, A: Asset> {
     value: &'a A,
-    labeled_assets: Moo<'b, HashMap<&'a str, LabeledSavedAsset<'a>>>,
+    labeled_assets: Moo<'b, HashMap<CowArc<'a, str>, LabeledSavedAsset<'a>>>,
 }
 
 impl<A: Asset> Deref for SavedAsset<'_, '_, A> {
@@ -104,7 +104,7 @@ impl<A: Asset> Deref for SavedAsset<'_, '_, A> {
 impl<'a, 'b, A: Asset> SavedAsset<'a, 'b, A> {
     fn from_value_and_labeled_saved_assets(
         value: &'a A,
-        labeled_saved_assets: &'b HashMap<&'a str, LabeledSavedAsset<'a>>,
+        labeled_saved_assets: &'b HashMap<CowArc<'a, str>, LabeledSavedAsset<'a>>,
     ) -> Self {
         Self {
             value,
@@ -123,7 +123,7 @@ impl<'a, 'b, A: Asset> SavedAsset<'a, 'b, A> {
                     .iter()
                     .map(|(label, labeled_asset)| {
                         (
-                            label.borrow(),
+                            CowArc::Borrowed(label.borrow()),
                             LabeledSavedAsset::from_labeled_asset(labeled_asset),
                         )
                     })
@@ -207,7 +207,7 @@ impl<'a, 'b, A: Asset> SavedAsset<'a, 'b, A> {
 #[derive(Clone)]
 pub struct ErasedSavedAsset<'a: 'b, 'b> {
     value: &'a dyn AssetContainer,
-    labeled_assets: Moo<'b, HashMap<&'a str, LabeledSavedAsset<'a>>>,
+    labeled_assets: Moo<'b, HashMap<CowArc<'a, str>, LabeledSavedAsset<'a>>>,
 }
 
 impl<'a> ErasedSavedAsset<'a, '_> {
@@ -219,7 +219,10 @@ impl<'a> ErasedSavedAsset<'a, '_> {
                     .labeled_assets
                     .iter()
                     .map(|(label, asset)| {
-                        (label.borrow(), LabeledSavedAsset::from_labeled_asset(asset))
+                        (
+                            CowArc::Borrowed(label.borrow()),
+                            LabeledSavedAsset::from_labeled_asset(asset),
+                        )
                     })
                     .collect(),
             ),
@@ -265,7 +268,7 @@ impl<'a> LabeledSavedAsset<'a> {
 /// This is commonly used in tandem with [`save_using_saver`].
 pub struct SavedAssetBuilder<'a> {
     /// The labeled assets for this saved asset.
-    labeled_assets: HashMap<&'a str, LabeledSavedAsset<'a>>,
+    labeled_assets: HashMap<CowArc<'a, str>, LabeledSavedAsset<'a>>,
     /// The asset path (with no label) that this saved asset is "tied" to.
     ///
     /// All labeled assets will use this asset path (with their substituted labels). Note labeled
@@ -292,11 +295,12 @@ impl<'a> SavedAssetBuilder<'a> {
     /// an asset).
     ///
     /// This is primarily used when **constructing** a new asset to be saved.
-    pub fn add_labeled_asset_with_new_handle<A: Asset>(
+    pub fn add_labeled_asset_with_new_handle<'b: 'a, A: Asset>(
         &mut self,
-        label: &'a str,
+        label: impl Into<CowArc<'b, str>>,
         asset: SavedAsset<'a, 'a, A>,
     ) -> Handle<A> {
+        let label = label.into();
         let handle = Handle::Strong(
             self.asset_server
                 .read_infos()
@@ -317,22 +321,27 @@ impl<'a> SavedAssetBuilder<'a> {
     ///
     /// This is primarily used when attempting to save an existing asset (which already has its
     /// handles populated).
-    pub fn add_labeled_asset_with_existing_handle<A: Asset>(
+    pub fn add_labeled_asset_with_existing_handle<'b: 'a, A: Asset>(
         &mut self,
-        label: &'a str,
+        label: impl Into<CowArc<'b, str>>,
         asset: SavedAsset<'a, 'a, A>,
         handle: Handle<A>,
     ) {
-        self.add_labeled_asset_with_existing_handle_erased(label, asset.upcast(), handle.untyped());
+        self.add_labeled_asset_with_existing_handle_erased(
+            label.into(),
+            asset.upcast(),
+            handle.untyped(),
+        );
     }
 
     /// Same as [`Self::add_labeled_asset_with_new_handle`], but type-erased to allow for dynamic
     /// types.
-    pub fn add_labeled_asset_with_new_handle_erased(
+    pub fn add_labeled_asset_with_new_handle_erased<'b: 'a>(
         &mut self,
-        label: &'a str,
+        label: impl Into<CowArc<'b, str>>,
         asset: ErasedSavedAsset<'a, 'a>,
     ) -> UntypedHandle {
+        let label = label.into();
         let handle = UntypedHandle::Strong(
             self.asset_server
                 .read_infos()
@@ -351,15 +360,15 @@ impl<'a> SavedAssetBuilder<'a> {
 
     /// Same as [`Self::add_labeled_asset_with_existing_handle`], but type-erased to allow for
     /// dynamic types.
-    pub fn add_labeled_asset_with_existing_handle_erased(
+    pub fn add_labeled_asset_with_existing_handle_erased<'b: 'a>(
         &mut self,
-        label: &'a str,
+        label: impl Into<CowArc<'b, str>>,
         asset: ErasedSavedAsset<'a, 'a>,
         handle: UntypedHandle,
     ) {
         // TODO: Check asset and handle have the same type.
         self.labeled_assets
-            .insert(label, LabeledSavedAsset { asset, handle });
+            .insert(label.into(), LabeledSavedAsset { asset, handle });
     }
 
     /// Creates the final saved asset from this builder.
@@ -548,7 +557,7 @@ pub(crate) mod tests {
         let mut asset_labels = saved_asset
             .labeled_assets
             .keys()
-            .copied()
+            .map(|label| label.as_ref().to_string())
             .collect::<Vec<_>>();
         asset_labels.sort();
         assert_eq!(asset_labels, &["goodbye", "hiya", "idk"]);
@@ -638,7 +647,7 @@ pub(crate) mod tests {
         let mut asset_labels = saved_asset
             .labeled_assets
             .keys()
-            .copied()
+            .map(|label| label.as_ref().to_string())
             .collect::<Vec<_>>();
         asset_labels.sort();
         assert_eq!(asset_labels, &["goodbye", "hiya", "idk"]);

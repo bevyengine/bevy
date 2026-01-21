@@ -47,15 +47,9 @@ fn perform_save(boxes: Query<(&Sprite, &Transform), With<Box>>, asset_server: Re
     // First we extract all the data needed to produce an asset we can save.
     let boxes = boxes
         .iter()
-        .enumerate()
-        .map(|(index, (sprite, transform))| {
-            (
-                index.to_string(),
-                OneBox {
-                    position: transform.translation.xy(),
-                    color: sprite.color,
-                },
-            )
+        .map(|(sprite, transform)| OneBox {
+            position: transform.translation.xy(),
+            color: sprite.color,
         })
         .collect::<Vec<_>>();
 
@@ -65,11 +59,13 @@ fn perform_save(boxes: Query<(&Sprite, &Transform), With<Box>>, asset_server: Re
             // Build a `SavedAsset` instance from the boxes we extracted.
             let mut builder = SavedAssetBuilder::new(asset_server.clone(), ASSET_PATH.into());
             let mut many_boxes = ManyBoxes { boxes: vec![] };
-            for (label, one_box) in boxes.iter() {
-                many_boxes.boxes.push(
-                    builder
-                        .add_labeled_asset_with_new_handle(label, SavedAsset::from_asset(one_box)),
-                );
+            for (index, one_box) in boxes.iter().enumerate() {
+                many_boxes
+                    .boxes
+                    .push(builder.add_labeled_asset_with_new_handle(
+                        index.to_string(),
+                        SavedAsset::from_asset(one_box),
+                    ));
             }
 
             let saved_asset = builder.build(&many_boxes);
