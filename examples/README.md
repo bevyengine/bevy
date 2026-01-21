@@ -179,6 +179,7 @@ Example | Description
 [Order Independent Transparency](../examples/3d/order_independent_transparency.rs) | Demonstrates how to use OIT
 [Orthographic View](../examples/3d/orthographic.rs) | Shows how to create a 3D orthographic view (for isometric-look in games or CAD applications)
 [Parallax Mapping](../examples/3d/parallax_mapping.rs) | Demonstrates use of a normal map and depth map for parallax mapping
+[Parallax-Corrected Cubemaps](../examples/3d/pccm.rs) | Demonstrates parallax-corrected cubemap reflections
 [Parenting](../examples/3d/parenting.rs) | Demonstrates parent->child relationships and relative transformations
 [Percentage-closer soft shadows](../examples/3d/pcss.rs) | Demonstrates percentage-closer soft shadows (PCSS)
 [Physically Based Rendering](../examples/3d/pbr.rs) | Demonstrates use of Physically Based Rendering (PBR) properties
@@ -233,6 +234,7 @@ Example | Description
 [Drag and Drop](../examples/app/drag_and_drop.rs) | An example that shows how to handle drag and drop in an app
 [Empty](../examples/app/empty.rs) | An empty application (does nothing)
 [Empty with Defaults](../examples/app/empty_defaults.rs) | An empty application with default plugins
+[Externally Driven Headless Renderer](../examples/app/externally_driven_headless_renderer.rs) | Using bevy with manually driven update to render images
 [Headless](../examples/app/headless.rs) | An application that runs without default plugins
 [Headless Renderer](../examples/app/headless_renderer.rs) | An application that runs with no window, but renders into image file
 [Log layers](../examples/app/log_layers.rs) | Illustrate how to add custom log layers
@@ -524,6 +526,7 @@ Example | Description
 [Bevymark](../examples/stress_tests/bevymark.rs) | A heavy sprite rendering workload to benchmark your system with Bevy
 [Bevymark 3D](../examples/stress_tests/bevymark_3d.rs) | A heavy 3D cube rendering workload to benchmark your system with Bevy
 [Many Animated Materials](../examples/stress_tests/many_materials.rs) | Benchmark to test rendering many animated materials
+[Many Animated Sprite Meshes](../examples/stress_tests/many_animated_sprite_meshes.rs) | Displays many animated sprite meshes in a grid arrangement with slight offsets to their animation timers. Used for performance testing.
 [Many Animated Sprites](../examples/stress_tests/many_animated_sprites.rs) | Displays many animated sprites in a grid arrangement with slight offsets to their animation timers. Used for performance testing.
 [Many Buttons](../examples/stress_tests/many_buttons.rs) | Test rendering of many UI elements
 [Many Cameras & Lights](../examples/stress_tests/many_cameras_lights.rs) | Test rendering of many cameras and lights
@@ -534,6 +537,7 @@ Example | Description
 [Many Glyphs](../examples/stress_tests/many_glyphs.rs) | Simple benchmark to test text rendering.
 [Many Gradients](../examples/stress_tests/many_gradients.rs) | Stress test for gradient rendering performance
 [Many Lights](../examples/stress_tests/many_lights.rs) | Simple benchmark to test rendering many point lights. Run with `WGPU_SETTINGS_PRIO=webgl2` to restrict to uniform buffers and max 256 lights
+[Many Sprite Meshes](../examples/stress_tests/many_sprite_meshes.rs) | Displays many sprite meshes in a grid arrangement! Used for performance testing. Use `--colored` to enable color tinted sprites.
 [Many Sprites](../examples/stress_tests/many_sprites.rs) | Displays many sprites in a grid arrangement! Used for performance testing. Use `--colored` to enable color tinted sprites.
 [Many Text2d](../examples/stress_tests/many_text2d.rs) | Displays many Text2d! Used for performance testing.
 [Text Pipeline](../examples/stress_tests/text_pipeline.rs) | Text Pipeline benchmark
@@ -585,6 +589,7 @@ Example | Description
 [Generic Font Families](../examples/ui/generic_font_families.rs) | Demonstrates how to use generic font families
 [Ghost Nodes](../examples/ui/ghost_nodes.rs) | Demonstrates the use of Ghost Nodes to skip entities in the UI layout hierarchy
 [Gradients](../examples/ui/gradients.rs) | An example demonstrating gradients
+[Image Node](../examples/ui/image_node.rs) | Demonstrates how to create a image node
 [Image Node Resizeing](../examples/ui/image_node_resizing.rs) | Demonstrates how to resizing a image node
 [Overflow](../examples/ui/overflow.rs) | Simple example demonstrating overflow behavior
 [Overflow Clip Margin](../examples/ui/overflow_clip_margin.rs) | Simple example demonstrating the OverflowClipMargin style property
