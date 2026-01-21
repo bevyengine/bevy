@@ -1,5 +1,5 @@
-//! This example illustrates the advance usage of an image node.
-//! Compare `NodeImageMode` behavior
+//! This example demonstrates the behavior of `NodeImageMode::Auto` and `NodeImageMode::Stretch` by allowing keyboard input to resize an `ImageGroup` container.
+//! It visually shows how images are sized automatically versus stretched to fit their container.
 
 use bevy::{color::palettes::tailwind, prelude::*};
 
