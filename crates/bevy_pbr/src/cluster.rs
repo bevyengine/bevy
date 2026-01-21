@@ -4,7 +4,7 @@ use bevy_camera::Camera;
 use bevy_ecs::{entity::EntityHashMap, prelude::*};
 use bevy_light::{
     cluster::{ClusterableObjectCounts, Clusters, GlobalClusterSettings},
-    ClusteredDecal, EnvironmentMapLight, IrradianceVolume,
+    ClusteredDecal, EnvironmentMapLight, IrradianceVolume, LightProbe, PointLight, SpotLight,
 };
 use bevy_math::{uvec4, UVec3, UVec4, Vec4};
 use bevy_render::{
@@ -293,12 +293,20 @@ pub fn extract_clusters(
     mut commands: Commands,
     views: Extract<Query<(RenderEntity, &Clusters, &Camera)>>,
     mapper: Extract<
-        Query<(
-            Option<&RenderEntity>,
-            Has<EnvironmentMapLight>,
-            Has<IrradianceVolume>,
-            Has<ClusteredDecal>,
-        )>,
+        Query<
+            (
+                Option<&RenderEntity>,
+                Has<EnvironmentMapLight>,
+                Has<IrradianceVolume>,
+                Has<ClusteredDecal>,
+            ),
+            Or<(
+                With<PointLight>,
+                With<SpotLight>,
+                With<LightProbe>,
+                With<ClusteredDecal>,
+            )>,
+        >,
     >,
 ) {
     for (entity, clusters, camera) in &views {
