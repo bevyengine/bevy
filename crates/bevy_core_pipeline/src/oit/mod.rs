@@ -7,13 +7,13 @@ use bevy_math::UVec2;
 use bevy_platform::collections::HashSet;
 use bevy_platform::time::Instant;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+use bevy_render::view::ExtractedView;
 use bevy_render::{
     camera::ExtractedCamera,
     extract_component::{ExtractComponent, ExtractComponentPlugin},
     render_graph::{RenderGraphExt, ViewNodeRunner},
     render_resource::{BufferUsages, BufferVec, DynamicUniformBuffer, ShaderType, TextureUsages},
     renderer::{RenderDevice, RenderQueue},
-    view::Msaa,
     Render, RenderApp, RenderStartup, RenderSystems,
 };
 use bevy_shader::load_shader_library;
@@ -161,9 +161,9 @@ fn configure_depth_texture_usages(
     }
 }
 
-fn check_msaa(cameras: Query<&Msaa, With<OrderIndependentTransparencySettings>>) {
-    for msaa in &cameras {
-        if msaa.samples() > 1 {
+fn check_msaa(cameras: Query<&ExtractedView, With<OrderIndependentTransparencySettings>>) {
+    for view in &cameras {
+        if view.msaa_samples > 1 {
             panic!("MSAA is not supported when using OrderIndependentTransparency");
         }
     }
@@ -236,9 +236,7 @@ pub fn prepare_oit_buffers(
     let mut max_layer_ids_size = usize::MIN;
     let mut max_layers_size = usize::MIN;
     for (camera, settings) in &cameras {
-        let Some(size) = camera.physical_target_size else {
-            continue;
-        };
+        let size = camera.main_color_target_size;
 
         let layer_count = settings.layer_count as usize;
         let size = (size.x * size.y) as usize;

@@ -37,7 +37,6 @@ use bevy::{
             },
             GetBatchData, GetFullBatchData,
         },
-        camera::ExtractedCamera,
         extract_component::{ExtractComponent, ExtractComponentPlugin},
         mesh::{allocator::MeshAllocator, RenderMesh},
         render_asset::RenderAssets,
@@ -501,10 +500,10 @@ fn queue_custom_meshes(
     render_meshes: Res<RenderAssets<RenderMesh>>,
     render_mesh_instances: Res<RenderMeshInstances>,
     mut custom_render_phases: ResMut<ViewSortedRenderPhases<Stencil3d>>,
-    mut views: Query<(&ExtractedView, &RenderVisibleEntities, &Msaa)>,
+    mut views: Query<(&ExtractedView, &RenderVisibleEntities)>,
     has_marker: Query<(), With<DrawStencil>>,
 ) {
-    for (view, visible_entities, msaa) in &mut views {
+    for (view, visible_entities) in &mut views {
         let Some(custom_phase) = custom_render_phases.get_mut(&view.retained_view_entity) else {
             continue;
         };
@@ -512,8 +511,8 @@ fn queue_custom_meshes(
 
         // Create the key based on the view.
         // In this case we only care about MSAA and HDR
-        let view_key = MeshPipelineKey::from_msaa_samples(msaa.samples())
-            | MeshPipelineKey::from_hdr(view.hdr);
+        let view_key = MeshPipelineKey::from_msaa_samples(view.msaa_samples)
+            | MeshPipelineKey::from_color_target_format(view.color_target_format);
 
         let rangefinder = view.rangefinder3d();
         // Since our phase can work on any 3d mesh we can reuse the default mesh 3d filter
@@ -575,7 +574,6 @@ struct CustomDrawPassLabel;
 struct CustomDrawNode;
 impl ViewNode for CustomDrawNode {
     type ViewQuery = (
-        &'static ExtractedCamera,
         &'static ExtractedView,
         &'static ViewTarget,
         Option<&'static MainPassResolutionOverride>,
@@ -585,7 +583,7 @@ impl ViewNode for CustomDrawNode {
         &self,
         graph: &mut RenderGraphContext,
         render_context: &mut RenderContext<'w>,
-        (camera, view, target, resolution_override): QueryItem<'w, '_, Self::ViewQuery>,
+        (view, target, resolution_override): QueryItem<'w, '_, Self::ViewQuery>,
         world: &'w World,
     ) -> Result<(), NodeRunError> {
         // First, we need to get our phases resource
@@ -614,9 +612,7 @@ impl ViewNode for CustomDrawNode {
             occlusion_query_set: None,
         });
 
-        if let Some(viewport) =
-            Viewport::from_viewport_and_override(camera.viewport.as_ref(), resolution_override)
-        {
+        if let Some(viewport) = Viewport::from_main_pass_resolution_override(resolution_override) {
             render_pass.set_camera_viewport(&viewport);
         }
 

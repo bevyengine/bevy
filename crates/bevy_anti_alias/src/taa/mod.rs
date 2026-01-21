@@ -16,7 +16,7 @@ use bevy_ecs::{
     system::{Commands, Query, Res, ResMut},
     world::World,
 };
-use bevy_image::{BevyDefault as _, ToExtents};
+use bevy_image::ToExtents;
 use bevy_math::vec2;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
@@ -36,7 +36,7 @@ use bevy_render::{
     sync_component::SyncComponentPlugin,
     sync_world::RenderEntity,
     texture::{CachedTexture, TextureCache},
-    view::{ExtractedView, Msaa, ViewTarget},
+    view::{ExtractedView, ViewTarget},
     ExtractSchedule, MainWorld, Render, RenderApp, RenderStartup, RenderSystems,
 };
 use bevy_utils::default;
@@ -143,24 +143,23 @@ pub struct TemporalAntiAliasNode;
 
 impl ViewNode for TemporalAntiAliasNode {
     type ViewQuery = (
-        &'static ExtractedCamera,
+        &'static ExtractedView,
         &'static ViewTarget,
         &'static TemporalAntiAliasHistoryTextures,
         &'static ViewPrepassTextures,
         &'static TemporalAntiAliasPipelineId,
-        &'static Msaa,
     );
 
     fn run(
         &self,
         _graph: &mut RenderGraphContext,
         render_context: &mut RenderContext,
-        (camera, view_target, taa_history_textures, prepass_textures, taa_pipeline_id, msaa): QueryItem<
+        (view, view_target, taa_history_textures, prepass_textures, taa_pipeline_id): QueryItem<
             Self::ViewQuery,
         >,
         world: &World,
     ) -> Result<(), NodeRunError> {
-        if *msaa != Msaa::Off {
+        if view.msaa_samples != 1 {
             warn!("Temporal anti-aliasing requires MSAA to be disabled");
             return Ok(());
         }
@@ -221,9 +220,6 @@ impl ViewNode for TemporalAntiAliasNode {
 
             taa_pass.set_render_pipeline(taa_pipeline);
             taa_pass.set_bind_group(0, &taa_bind_group, &[]);
-            if let Some(viewport) = camera.viewport.as_ref() {
-                taa_pass.set_camera_viewport(viewport);
-            }
             taa_pass.draw(0..3, 0..1);
 
             pass_span.end(&mut taa_pass);
@@ -309,6 +305,7 @@ struct TaaPipelineSpecializer;
 
 #[derive(PartialEq, Eq, Hash, Clone, SpecializerKey)]
 struct TaaPipelineKey {
+    texture_format: TextureFormat,
     hdr: bool,
     reset: bool,
 }
@@ -322,19 +319,15 @@ impl Specializer<RenderPipeline> for TaaPipelineSpecializer {
         descriptor: &mut RenderPipelineDescriptor,
     ) -> Result<Canonical<Self::Key>, BevyError> {
         let fragment = descriptor.fragment_mut()?;
-        let format = if key.hdr {
+        if key.hdr {
             fragment.shader_defs.push("TONEMAP".into());
-            ViewTarget::TEXTURE_FORMAT_HDR
-        } else {
-            TextureFormat::bevy_default()
-        };
-
+        }
         if key.reset {
             fragment.shader_defs.push("RESET".into());
         }
 
         let color_target_state = ColorTargetState {
-            format,
+            format: key.texture_format,
             blend: None,
             write_mask: ColorWrites::ALL,
         };
@@ -415,42 +408,36 @@ fn prepare_taa_history_textures(
     views: Query<(Entity, &ExtractedCamera, &ExtractedView), With<TemporalAntiAliasing>>,
 ) {
     for (entity, camera, view) in &views {
-        if let Some(physical_target_size) = camera.physical_target_size {
-            let mut texture_descriptor = TextureDescriptor {
-                label: None,
-                size: physical_target_size.to_extents(),
-                mip_level_count: 1,
-                sample_count: 1,
-                dimension: TextureDimension::D2,
-                format: if view.hdr {
-                    ViewTarget::TEXTURE_FORMAT_HDR
-                } else {
-                    TextureFormat::bevy_default()
-                },
-                usage: TextureUsages::TEXTURE_BINDING | TextureUsages::RENDER_ATTACHMENT,
-                view_formats: &[],
-            };
+        let mut texture_descriptor = TextureDescriptor {
+            label: None,
+            size: camera.main_color_target_size.to_extents(),
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: TextureDimension::D2,
+            format: view.color_target_format,
+            usage: TextureUsages::TEXTURE_BINDING | TextureUsages::RENDER_ATTACHMENT,
+            view_formats: &[],
+        };
 
-            texture_descriptor.label = Some("taa_history_1_texture");
-            let history_1_texture = texture_cache.get(&render_device, texture_descriptor.clone());
+        texture_descriptor.label = Some("taa_history_1_texture");
+        let history_1_texture = texture_cache.get(&render_device, texture_descriptor.clone());
 
-            texture_descriptor.label = Some("taa_history_2_texture");
-            let history_2_texture = texture_cache.get(&render_device, texture_descriptor);
+        texture_descriptor.label = Some("taa_history_2_texture");
+        let history_2_texture = texture_cache.get(&render_device, texture_descriptor);
 
-            let textures = if frame_count.0.is_multiple_of(2) {
-                TemporalAntiAliasHistoryTextures {
-                    write: history_1_texture,
-                    read: history_2_texture,
-                }
-            } else {
-                TemporalAntiAliasHistoryTextures {
-                    write: history_2_texture,
-                    read: history_1_texture,
-                }
-            };
+        let textures = if frame_count.0.is_multiple_of(2) {
+            TemporalAntiAliasHistoryTextures {
+                write: history_1_texture,
+                read: history_2_texture,
+            }
+        } else {
+            TemporalAntiAliasHistoryTextures {
+                write: history_2_texture,
+                read: history_1_texture,
+            }
+        };
 
-            commands.entity(entity).insert(textures);
-        }
+        commands.entity(entity).insert(textures);
     }
 }
 
@@ -466,6 +453,7 @@ fn prepare_taa_pipelines(
     for (entity, view, taa_settings) in &views {
         let mut pipeline_key = TaaPipelineKey {
             hdr: view.hdr,
+            texture_format: view.color_target_format,
             reset: taa_settings.reset,
         };
         let pipeline_id = pipeline

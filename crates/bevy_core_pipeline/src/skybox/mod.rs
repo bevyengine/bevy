@@ -9,7 +9,7 @@ use bevy_ecs::{
     schedule::IntoScheduleConfigs,
     system::{Commands, Query, Res, ResMut},
 };
-use bevy_image::{BevyDefault, Image};
+use bevy_image::Image;
 use bevy_math::{Mat4, Quat};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
@@ -24,7 +24,7 @@ use bevy_render::{
     },
     renderer::RenderDevice,
     texture::GpuImage,
-    view::{ExtractedView, Msaa, ViewTarget, ViewUniform, ViewUniforms},
+    view::{ExtractedView, ViewUniform, ViewUniforms},
     Render, RenderApp, RenderStartup, RenderSystems,
 };
 use bevy_shader::Shader;
@@ -181,7 +181,7 @@ fn init_skybox_pipeline(mut commands: Commands, asset_server: Res<AssetServer>) 
 
 #[derive(PartialEq, Eq, Hash, Clone, Copy)]
 struct SkyboxPipelineKey {
-    hdr: bool,
+    texture_format: TextureFormat,
     samples: u32,
     depth_format: TextureFormat,
 }
@@ -221,11 +221,7 @@ impl SpecializedRenderPipeline for SkyboxPipeline {
             fragment: Some(FragmentState {
                 shader: self.shader.clone(),
                 targets: vec![Some(ColorTargetState {
-                    format: if key.hdr {
-                        ViewTarget::TEXTURE_FORMAT_HDR
-                    } else {
-                        TextureFormat::bevy_default()
-                    },
+                    format: key.texture_format,
                     // BlendState::REPLACE is not needed here, and None will be potentially much faster in some cases.
                     blend: None,
                     write_mask: ColorWrites::ALL,
@@ -245,15 +241,15 @@ fn prepare_skybox_pipelines(
     pipeline_cache: Res<PipelineCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<SkyboxPipeline>>,
     pipeline: Res<SkyboxPipeline>,
-    views: Query<(Entity, &ExtractedView, &Msaa), With<Skybox>>,
+    views: Query<(Entity, &ExtractedView), With<Skybox>>,
 ) {
-    for (entity, view, msaa) in &views {
+    for (entity, view) in &views {
         let pipeline_id = pipelines.specialize(
             &pipeline_cache,
             &pipeline,
             SkyboxPipelineKey {
-                hdr: view.hdr,
-                samples: msaa.samples(),
+                texture_format: view.color_target_format,
+                samples: view.msaa_samples,
                 depth_format: CORE_3D_DEPTH_FORMAT,
             },
         );

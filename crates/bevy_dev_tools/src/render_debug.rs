@@ -38,7 +38,7 @@ use bevy_render::{
     },
     renderer::{RenderContext, RenderDevice, RenderQueue},
     texture::{FallbackImage, GpuImage},
-    view::{Msaa, ViewTarget, ViewUniformOffset},
+    view::{ExtractedView, ViewTarget, ViewUniformOffset},
     Render, RenderApp, RenderSystems,
 };
 use bevy_shader::Shader;
@@ -506,20 +506,19 @@ fn prepare_debug_overlay_pipelines(
     blue_noise: Res<Bluenoise>,
     views: Query<(
         Entity,
-        &ViewTarget,
+        &ExtractedView,
         &RenderDebugOverlay,
-        &Msaa,
         Option<&bevy_core_pipeline::prepass::ViewPrepassTextures>,
         Has<bevy_core_pipeline::oit::OrderIndependentTransparencySettings>,
         Has<bevy_pbr::ExtractedAtmosphere>,
     )>,
 ) {
-    for (entity, target, config, msaa, prepass_textures, has_oit, has_atmosphere) in &views {
+    for (entity, view, config, prepass_textures, has_oit, has_atmosphere) in &views {
         if !config.enabled {
             continue;
         }
 
-        let mut view_layout_key = MeshPipelineViewLayoutKey::from(*msaa)
+        let mut view_layout_key = MeshPipelineViewLayoutKey::from_msaa_samples(view.msaa_samples)
             | MeshPipelineViewLayoutKey::from(prepass_textures);
 
         if has_oit {
@@ -541,7 +540,7 @@ fn prepare_debug_overlay_pipelines(
             RenderDebugOverlayPipelineKey {
                 mode: config.mode,
                 view_layout_key,
-                texture_format: target.main_texture_format(),
+                texture_format: view.color_target_format,
             },
         );
 

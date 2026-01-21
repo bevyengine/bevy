@@ -104,7 +104,6 @@ impl Plugin for BloomPlugin {
 struct BloomNode;
 impl ViewNode for BloomNode {
     type ViewQuery = (
-        &'static ExtractedCamera,
         &'static ViewTarget,
         &'static BloomTexture,
         &'static BloomBindGroups,
@@ -122,7 +121,6 @@ impl ViewNode for BloomNode {
         _graph: &mut RenderGraphContext,
         render_context: &mut RenderContext<'w>,
         (
-            camera,
             view_target,
             bloom_texture,
             bind_groups,
@@ -288,16 +286,7 @@ impl ViewNode for BloomNode {
                     &bind_groups.upsampling_bind_groups[(bloom_texture.mip_count - 1) as usize],
                     &[uniform_index.index()],
                 );
-                if let Some(viewport) = camera.viewport.as_ref() {
-                    upsampling_final_pass.set_viewport(
-                        viewport.physical_position.x as f32,
-                        viewport.physical_position.y as f32,
-                        viewport.physical_size.x as f32,
-                        viewport.physical_size.y as f32,
-                        viewport.depth.start,
-                        viewport.depth.end,
-                    );
-                }
+
                 let blend =
                     compute_blend_factor(bloom_settings, 0.0, (bloom_texture.mip_count - 1) as f32);
                 upsampling_final_pass.set_blend_constant(LinearRgba::gray(blend).into());
@@ -360,58 +349,58 @@ fn prepare_bloom_textures(
     views: Query<(Entity, &ExtractedCamera, &Bloom)>,
 ) {
     for (entity, camera, bloom) in &views {
-        if let Some(viewport) = camera.physical_viewport_size {
-            // How many times we can halve the resolution minus one so we don't go unnecessarily low
-            let mip_count = bloom.max_mip_dimension.ilog2().max(2) - 1;
-            let mip_height_ratio = if viewport.y != 0 {
-                bloom.max_mip_dimension as f32 / viewport.y as f32
-            } else {
-                0.
-            };
-
-            let texture_descriptor = TextureDescriptor {
-                label: Some("bloom_texture"),
-                size: (viewport.as_vec2() * mip_height_ratio)
-                    .round()
-                    .as_uvec2()
-                    .max(UVec2::ONE)
-                    .to_extents(),
-                mip_level_count: mip_count,
-                sample_count: 1,
-                dimension: TextureDimension::D2,
-                format: BLOOM_TEXTURE_FORMAT,
-                usage: TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING,
-                view_formats: &[],
-            };
-
-            #[cfg(any(
-                not(feature = "webgl"),
-                not(target_arch = "wasm32"),
-                feature = "webgpu"
-            ))]
-            let texture = texture_cache.get(&render_device, texture_descriptor);
-            #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
-            let texture: Vec<CachedTexture> = (0..mip_count)
-                .map(|mip| {
-                    texture_cache.get(
-                        &render_device,
-                        TextureDescriptor {
-                            size: Extent3d {
-                                width: (texture_descriptor.size.width >> mip).max(1),
-                                height: (texture_descriptor.size.height >> mip).max(1),
-                                depth_or_array_layers: 1,
-                            },
-                            mip_level_count: 1,
-                            ..texture_descriptor.clone()
-                        },
-                    )
-                })
-                .collect();
-
-            commands
-                .entity(entity)
-                .insert(BloomTexture { texture, mip_count });
+        let viewport = camera.main_color_target_size;
+        let mip_height_ratio = if viewport.y != 0 {
+            bloom.max_mip_dimension as f32 / viewport.y as f32
+        } else {
+            0.
         }
+        .min(1.0);
+        let size = (viewport.as_vec2() * mip_height_ratio)
+            .round()
+            .as_uvec2()
+            .max(UVec2::ONE);
+        // How many times we can halve the resolution minus one so we don't go unnecessarily low
+        let mip_count = size.min_element().ilog2().max(2) - 1;
+
+        let texture_descriptor = TextureDescriptor {
+            label: Some("bloom_texture"),
+            size: size.to_extents(),
+            mip_level_count: mip_count,
+            sample_count: 1,
+            dimension: TextureDimension::D2,
+            format: BLOOM_TEXTURE_FORMAT,
+            usage: TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING,
+            view_formats: &[],
+        };
+
+        #[cfg(any(
+            not(feature = "webgl"),
+            not(target_arch = "wasm32"),
+            feature = "webgpu"
+        ))]
+        let texture = texture_cache.get(&render_device, texture_descriptor);
+        #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
+        let texture: Vec<CachedTexture> = (0..mip_count)
+            .map(|mip| {
+                texture_cache.get(
+                    &render_device,
+                    TextureDescriptor {
+                        size: Extent3d {
+                            width: (texture_descriptor.size.width >> mip).max(1),
+                            height: (texture_descriptor.size.height >> mip).max(1),
+                            depth_or_array_layers: 1,
+                        },
+                        mip_level_count: 1,
+                        ..texture_descriptor.clone()
+                    },
+                )
+            })
+            .collect();
+
+        commands
+            .entity(entity)
+            .insert(BloomTexture { texture, mip_count });
     }
 }
 

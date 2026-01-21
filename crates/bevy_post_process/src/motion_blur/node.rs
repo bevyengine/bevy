@@ -9,7 +9,7 @@ use bevy_render::{
         RenderPassDescriptor,
     },
     renderer::RenderContext,
-    view::{Msaa, ViewTarget},
+    view::{ExtractedView, ViewTarget},
 };
 
 use bevy_core_pipeline::prepass::ViewPrepassTextures;
@@ -24,17 +24,17 @@ pub struct MotionBlurNode;
 
 impl ViewNode for MotionBlurNode {
     type ViewQuery = (
+        &'static ExtractedView,
         &'static ViewTarget,
         &'static MotionBlurPipelineId,
         &'static ViewPrepassTextures,
         &'static MotionBlurUniform,
-        &'static Msaa,
     );
     fn run(
         &self,
         _graph: &mut RenderGraphContext,
         render_context: &mut RenderContext,
-        (view_target, pipeline_id, prepass_textures, motion_blur, msaa): QueryItem<Self::ViewQuery>,
+        (view, view_target, pipeline_id, prepass_textures, motion_blur): QueryItem<Self::ViewQuery>,
         world: &World,
     ) -> Result<(), NodeRunError> {
         if motion_blur.samples == 0 || motion_blur.shutter_angle <= 0.0 {
@@ -64,7 +64,7 @@ impl ViewNode for MotionBlurNode {
 
         let post_process = view_target.post_process_write();
 
-        let layout = if msaa.samples() == 1 {
+        let layout = if view.msaa_samples == 1 {
             &motion_blur_pipeline.layout
         } else {
             &motion_blur_pipeline.layout_msaa

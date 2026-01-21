@@ -20,7 +20,6 @@ use bevy_core_pipeline::{
     tonemapping::{DebandDither, Tonemapping},
 };
 use bevy_ecs::{prelude::*, query::QueryItem};
-use bevy_image::BevyDefault as _;
 use bevy_light::{EnvironmentMapLight, IrradianceVolume, ShadowFilteringMethod};
 use bevy_render::RenderStartup;
 use bevy_render::{
@@ -373,11 +372,7 @@ impl SpecializedRenderPipeline for DeferredLightingLayout {
                 shader: self.deferred_lighting_shader.clone(),
                 shader_defs,
                 targets: vec![Some(ColorTargetState {
-                    format: if key.contains(MeshPipelineKey::HDR) {
-                        ViewTarget::TEXTURE_FORMAT_HDR
-                    } else {
-                        TextureFormat::bevy_default()
-                    },
+                    format: key.color_target_format(),
                     blend: None,
                     write_mask: ColorWrites::ALL,
                 })],
@@ -487,7 +482,7 @@ pub fn prepare_deferred_lighting_pipelines(
             continue;
         }
 
-        let mut view_key = MeshPipelineKey::from_hdr(view.hdr);
+        let mut view_key = MeshPipelineKey::from_color_target_format(view.color_target_format);
 
         if normal_prepass {
             view_key |= MeshPipelineKey::NORMAL_PREPASS;

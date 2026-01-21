@@ -48,7 +48,7 @@ use bevy_ecs::{
     system::{lifetimeless::Read, Commands, Query, Res, ResMut},
     world::World,
 };
-use bevy_image::{BevyDefault, Image, ToExtents};
+use bevy_image::{Image, ToExtents};
 use bevy_math::{vec4, Vec4};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
@@ -618,11 +618,7 @@ fn prepare_smaa_pipelines(
                 &pipeline_cache,
                 &smaa_pipelines.neighborhood_blending,
                 SmaaNeighborhoodBlendingPipelineKey {
-                    texture_format: if view.hdr {
-                        ViewTarget::TEXTURE_FORMAT_HDR
-                    } else {
-                        TextureFormat::bevy_default()
-                    },
+                    texture_format: view.color_target_format,
                     preset: smaa.preset,
                 },
             );
@@ -675,9 +671,7 @@ fn prepare_smaa_textures(
     view_targets: Query<(Entity, &ExtractedCamera), (With<ExtractedView>, With<Smaa>)>,
 ) {
     for (entity, camera) in &view_targets {
-        let Some(texture_size) = camera.physical_target_size else {
-            continue;
-        };
+        let texture_size = camera.main_color_target_size;
 
         // Create the two-channel RG texture for phase 1 (edge detection).
         let edge_detection_color_texture = texture_cache.get(

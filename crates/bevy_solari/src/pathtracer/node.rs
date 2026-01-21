@@ -52,10 +52,9 @@ impl ViewNode for PathtracerNode {
         let pipeline_cache = world.resource::<PipelineCache>();
         let scene_bindings = world.resource::<RaytracingSceneBindings>();
         let view_uniforms = world.resource::<ViewUniforms>();
-        let (Some(pipeline), Some(scene_bindings), Some(viewport), Some(view_uniforms)) = (
+        let (Some(pipeline), Some(scene_bindings), Some(view_uniforms)) = (
             pipeline_cache.get_compute_pipeline(self.pipeline),
             &scene_bindings.bind_group,
-            camera.physical_viewport_size,
             view_uniforms.uniforms.binding(),
         ) else {
             return Ok(());
@@ -87,7 +86,11 @@ impl ViewNode for PathtracerNode {
         pass.set_pipeline(pipeline);
         pass.set_bind_group(0, scene_bindings, &[]);
         pass.set_bind_group(1, &bind_group, &[view_uniform_offset.offset]);
-        pass.dispatch_workgroups(viewport.x.div_ceil(8), viewport.y.div_ceil(8), 1);
+        pass.dispatch_workgroups(
+            camera.main_color_target_size.x.div_ceil(8),
+            camera.main_color_target_size.y.div_ceil(8),
+            1,
+        );
 
         Ok(())
     }
@@ -104,10 +107,7 @@ impl FromWorld for PathtracerNode {
                 ShaderStages::COMPUTE,
                 (
                     texture_storage_2d(TextureFormat::Rgba32Float, StorageTextureAccess::ReadWrite),
-                    texture_storage_2d(
-                        ViewTarget::TEXTURE_FORMAT_HDR,
-                        StorageTextureAccess::WriteOnly,
-                    ),
+                    texture_storage_2d(TextureFormat::Rgba16Float, StorageTextureAccess::WriteOnly),
                     uniform_buffer::<ViewUniform>(true),
                 ),
             ),

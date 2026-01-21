@@ -56,8 +56,6 @@ impl ViewNode for MainTransmissivePass3dNode {
 
         let diagnostics = render_context.diagnostic_recorder();
 
-        let physical_target_size = camera.physical_target_size.unwrap();
-
         let render_pass_descriptor = RenderPassDescriptor {
             label: Some("main_transmissive_pass_3d"),
             color_attachments: &[Some(target.get_color_attachment())],
@@ -93,17 +91,13 @@ impl ViewNode for MainTransmissivePass3dNode {
                     render_context.command_encoder().copy_texture_to_texture(
                         target.main_texture().as_image_copy(),
                         transmission.texture.as_image_copy(),
-                        physical_target_size.to_extents(),
+                        camera.main_color_target_size.to_extents(),
                     );
 
                     let mut render_pass =
                         render_context.begin_tracked_render_pass(render_pass_descriptor.clone());
                     let pass_span =
                         diagnostics.pass_span(&mut render_pass, "main_transmissive_pass_3d");
-
-                    if let Some(viewport) = camera.viewport.as_ref() {
-                        render_pass.set_camera_viewport(viewport);
-                    }
 
                     // render items in range
                     if let Err(err) =
@@ -120,10 +114,9 @@ impl ViewNode for MainTransmissivePass3dNode {
                 let pass_span =
                     diagnostics.pass_span(&mut render_pass, "main_transmissive_pass_3d");
 
-                if let Some(viewport) = Viewport::from_viewport_and_override(
-                    camera.viewport.as_ref(),
-                    resolution_override,
-                ) {
+                if let Some(viewport) =
+                    Viewport::from_main_pass_resolution_override(resolution_override)
+                {
                     render_pass.set_camera_viewport(&viewport);
                 }
 

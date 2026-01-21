@@ -7,7 +7,6 @@ use bevy_ecs::{
     resource::Resource,
     system::{Commands, Query, Res, ResMut},
 };
-use bevy_image::BevyDefault as _;
 use bevy_render::{
     globals::GlobalsUniform,
     render_resource::{
@@ -21,7 +20,7 @@ use bevy_render::{
         SpecializedRenderPipeline, SpecializedRenderPipelines, TextureFormat, TextureSampleType,
     },
     renderer::RenderDevice,
-    view::{ExtractedView, Msaa, ViewTarget},
+    view::ExtractedView,
 };
 use bevy_shader::{Shader, ShaderDefVal};
 use bevy_utils::default;
@@ -110,7 +109,7 @@ pub fn init_motion_blur_pipeline(
 
 #[derive(PartialEq, Eq, Hash, Clone, Copy)]
 pub struct MotionBlurPipelineKey {
-    hdr: bool,
+    texture_format: TextureFormat,
     samples: u32,
 }
 
@@ -143,11 +142,7 @@ impl SpecializedRenderPipeline for MotionBlurPipeline {
                 shader: self.fragment_shader.clone(),
                 shader_defs,
                 targets: vec![Some(ColorTargetState {
-                    format: if key.hdr {
-                        ViewTarget::TEXTURE_FORMAT_HDR
-                    } else {
-                        TextureFormat::bevy_default()
-                    },
+                    format: key.texture_format,
                     blend: None,
                     write_mask: ColorWrites::ALL,
                 })],
@@ -166,15 +161,15 @@ pub(crate) fn prepare_motion_blur_pipelines(
     pipeline_cache: Res<PipelineCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<MotionBlurPipeline>>,
     pipeline: Res<MotionBlurPipeline>,
-    views: Query<(Entity, &ExtractedView, &Msaa), With<MotionBlurUniform>>,
+    views: Query<(Entity, &ExtractedView), With<MotionBlurUniform>>,
 ) {
-    for (entity, view, msaa) in &views {
+    for (entity, view) in &views {
         let pipeline_id = pipelines.specialize(
             &pipeline_cache,
             &pipeline,
             MotionBlurPipelineKey {
-                hdr: view.hdr,
-                samples: msaa.samples(),
+                texture_format: view.color_target_format,
+                samples: view.msaa_samples,
             },
         );
 

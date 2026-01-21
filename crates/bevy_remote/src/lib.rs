@@ -227,7 +227,6 @@
 //!        "bevy_camera::Camera": {
 //!          "clear_color": "Default",
 //!          "is_active": true,
-//!          "msaa_writeback": true,
 //!          "order": 0,
 //!          "sub_camera_view": null,
 //!          "target": {

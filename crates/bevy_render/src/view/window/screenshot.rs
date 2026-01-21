@@ -8,7 +8,9 @@ use crate::{
     },
     renderer::RenderDevice,
     texture::{GpuImage, ManualTextureViews, OutputColorAttachment},
-    view::{prepare_view_attachments, prepare_view_targets, ViewTargetAttachments, WindowSurfaces},
+    view::{
+        prepare_view_attachments, prepare_view_targets, ViewOutputTargetAttachments, WindowSurfaces,
+    },
     ExtractSchedule, MainWorld, Render, RenderApp, RenderStartup, RenderSystems,
 };
 use alloc::{borrow::Cow, sync::Arc};
@@ -272,7 +274,7 @@ fn prepare_screenshots(
     mut pipelines: ResMut<SpecializedRenderPipelines<ScreenshotToScreenPipeline>>,
     images: Res<RenderAssets<GpuImage>>,
     manual_texture_views: Res<ManualTextureViews>,
-    mut view_target_attachments: ResMut<ViewTargetAttachments>,
+    mut view_target_attachments: ResMut<ViewOutputTargetAttachments>,
 ) {
     prepared.clear();
     for (entity, target) in targets.iter() {

@@ -2,7 +2,7 @@ use crate::primitives::Frustum;
 
 use super::{
     visibility::{Visibility, VisibleEntities},
-    ClearColorConfig, MsaaWriteback,
+    ClearColorConfig,
 };
 use bevy_asset::Handle;
 use bevy_derive::Deref;
@@ -80,17 +80,13 @@ impl Viewport {
         }
     }
 
-    pub fn from_viewport_and_override(
-        viewport: Option<&Self>,
+    pub fn from_main_pass_resolution_override(
         main_pass_resolution_override: Option<&MainPassResolutionOverride>,
     ) -> Option<Self> {
-        if let Some(override_size) = main_pass_resolution_override {
-            let mut vp = viewport.map_or_else(Self::default, Self::clone);
-            vp.physical_size = **override_size;
-            Some(vp)
-        } else {
-            viewport.cloned()
-        }
+        main_pass_resolution_override.map(|override_size| Viewport {
+            physical_size: **override_size,
+            ..Default::default()
+        })
     }
 }
 
@@ -338,14 +334,7 @@ pub enum ViewportConversionError {
 /// [`Camera3d`]: crate::Camera3d
 #[derive(Component, Debug, Reflect, Clone)]
 #[reflect(Component, Default, Debug, Clone)]
-#[require(
-    Frustum,
-    CameraMainTextureUsages,
-    VisibleEntities,
-    Transform,
-    Visibility,
-    RenderTarget
-)]
+#[require(Frustum, VisibleEntities, Transform, Visibility, RenderTarget)]
 pub struct Camera {
     /// If set, this camera will render to the given [`Viewport`] rectangle within the configured [`RenderTarget`].
     pub viewport: Option<Viewport>,
@@ -360,9 +349,6 @@ pub struct Camera {
     // todo: reflect this when #6042 lands
     /// The [`CameraOutputMode`] for this camera.
     pub output_mode: CameraOutputMode,
-    /// Controls when MSAA writeback occurs for this camera.
-    /// See [`MsaaWriteback`] for available options.
-    pub msaa_writeback: MsaaWriteback,
     /// The clear color operation to perform on the render target.
     pub clear_color: ClearColorConfig,
     /// Whether to switch culling mode so that materials that request backface
@@ -386,7 +372,6 @@ impl Default for Camera {
             viewport: None,
             computed: Default::default(),
             output_mode: Default::default(),
-            msaa_writeback: MsaaWriteback::default(),
             clear_color: Default::default(),
             invert_culling: false,
             sub_camera_view: None,
@@ -884,7 +869,7 @@ pub enum NormalizedRenderTarget {
 
 /// A unique id that corresponds to a specific `ManualTextureView` in the `ManualTextureViews` collection.
 ///
-/// See `ManualTextureViews` in `bevy_camera` for more details.
+/// See `ManualTextureViews` in `bevy_render` for more details.
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Component, Reflect)]
 #[reflect(Component, Default, Debug, PartialEq, Hash, Clone)]
 pub struct ManualTextureViewHandle(pub u32);

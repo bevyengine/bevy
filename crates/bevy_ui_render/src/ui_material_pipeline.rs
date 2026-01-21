@@ -9,7 +9,6 @@ use bevy_ecs::{
         *,
     },
 };
-use bevy_image::BevyDefault as _;
 use bevy_math::{Affine2, FloatOrd, Rect, Vec2};
 use bevy_mesh::VertexBufferLayout;
 use bevy_render::{
@@ -155,11 +154,7 @@ where
                 shader: self.fragment_shader.clone(),
                 shader_defs,
                 targets: vec![Some(ColorTargetState {
-                    format: if key.hdr {
-                        ViewTarget::TEXTURE_FORMAT_HDR
-                    } else {
-                        TextureFormat::bevy_default()
-                    },
+                    format: key.texture_format,
                     blend: Some(BlendState::ALPHA_BLENDING),
                     write_mask: ColorWrites::ALL,
                 })],
@@ -623,7 +618,7 @@ pub fn queue_ui_material_nodes<M: UiMaterial>(
             &pipeline_cache,
             &ui_material_pipeline,
             UiMaterialKey {
-                hdr: view.hdr,
+                texture_format: view.color_target_format,
                 bind_group_data: material.key.clone(),
             },
         );

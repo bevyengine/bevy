@@ -33,7 +33,7 @@ use bevy_render::{
     sync_component::SyncComponentPlugin,
     sync_world::RenderEntity,
     texture::{CachedTexture, TextureCache},
-    view::{Msaa, ViewUniform, ViewUniformOffset, ViewUniforms},
+    view::{ExtractedView, ViewUniform, ViewUniformOffset, ViewUniforms},
     Extract, ExtractSchedule, Render, RenderApp, RenderSystems,
 };
 use bevy_shader::{load_shader_library, Shader, ShaderDefVal};
@@ -191,18 +191,11 @@ impl ViewNode for SsaoNode {
     ) -> Result<(), NodeRunError> {
         let pipelines = world.resource::<SsaoPipelines>();
         let pipeline_cache = world.resource::<PipelineCache>();
-        let (
-            Some(camera_size),
-            Some(preprocess_depth_pipeline),
-            Some(spatial_denoise_pipeline),
-            Some(ssao_pipeline),
-        ) = (
-            camera.physical_viewport_size,
+        let (Some(preprocess_depth_pipeline), Some(spatial_denoise_pipeline), Some(ssao_pipeline)) = (
             pipeline_cache.get_compute_pipeline(pipelines.preprocess_depth_pipeline),
             pipeline_cache.get_compute_pipeline(pipelines.spatial_denoise_pipeline),
             pipeline_cache.get_compute_pipeline(pipeline_id.0),
-        )
-        else {
+        ) else {
             return Ok(());
         };
 
@@ -226,8 +219,8 @@ impl ViewNode for SsaoNode {
                 &[view_uniform_offset.offset],
             );
             preprocess_depth_pass.dispatch_workgroups(
-                camera_size.x.div_ceil(16),
-                camera_size.y.div_ceil(16),
+                camera.main_color_target_size.x.div_ceil(16),
+                camera.main_color_target_size.y.div_ceil(16),
                 1,
             );
         }
@@ -244,7 +237,11 @@ impl ViewNode for SsaoNode {
                 &bind_groups.common_bind_group,
                 &[view_uniform_offset.offset],
             );
-            ssao_pass.dispatch_workgroups(camera_size.x.div_ceil(8), camera_size.y.div_ceil(8), 1);
+            ssao_pass.dispatch_workgroups(
+                camera.main_color_target_size.x.div_ceil(8),
+                camera.main_color_target_size.y.div_ceil(8),
+                1,
+            );
         }
 
         {
@@ -261,8 +258,8 @@ impl ViewNode for SsaoNode {
                 &[view_uniform_offset.offset],
             );
             spatial_denoise_pass.dispatch_workgroups(
-                camera_size.x.div_ceil(8),
-                camera_size.y.div_ceil(8),
+                camera.main_color_target_size.x.div_ceil(8),
+                camera.main_color_target_size.y.div_ceil(8),
                 1,
             );
         }
@@ -496,16 +493,21 @@ fn extract_ssao_settings(
     mut commands: Commands,
     cameras: Extract<
         Query<
-            (RenderEntity, &Camera, &ScreenSpaceAmbientOcclusion, &Msaa),
+            (
+                RenderEntity,
+                &Camera,
+                &ScreenSpaceAmbientOcclusion,
+                &ExtractedView,
+            ),
             (With<Camera3d>, With<DepthPrepass>, With<NormalPrepass>),
         >,
     >,
 ) {
-    for (entity, camera, ssao_settings, msaa) in &cameras {
-        if *msaa != Msaa::Off {
+    for (entity, camera, ssao_settings, view) in &cameras {
+        if view.msaa_samples != 1 {
             error!(
-                "SSAO is being used which requires Msaa::Off, but Msaa is currently set to Msaa::{:?}",
-                *msaa
+                "SSAO is being used which requires Msaa::Off, but Msaa is currently set to Msaax{:?}",
+                view.msaa_samples
             );
             return;
         }
@@ -537,10 +539,7 @@ fn prepare_ssao_textures(
     views: Query<(Entity, &ExtractedCamera, &ScreenSpaceAmbientOcclusion)>,
 ) {
     for (entity, camera, ssao_settings) in &views {
-        let Some(physical_viewport_size) = camera.physical_viewport_size else {
-            continue;
-        };
-        let size = physical_viewport_size.to_extents();
+        let size = camera.main_color_target_size.to_extents();
 
         let preprocessed_depth_texture = texture_cache.get(
             &render_device,

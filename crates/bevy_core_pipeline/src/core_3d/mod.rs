@@ -14,7 +14,6 @@ pub mod graph {
 
     #[derive(Debug, Hash, PartialEq, Eq, Clone, RenderLabel)]
     pub enum Node3d {
-        MsaaWriteback,
         EarlyPrepass,
         EarlyDownsampleDepth,
         LatePrepass,
@@ -90,7 +89,7 @@ use bevy_app::{App, Plugin, PostUpdate};
 use bevy_asset::UntypedAssetId;
 use bevy_color::LinearRgba;
 use bevy_ecs::prelude::*;
-use bevy_image::{BevyDefault, ToExtents};
+use bevy_image::ToExtents;
 use bevy_math::FloatOrd;
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_render::{
@@ -110,7 +109,7 @@ use bevy_render::{
     renderer::RenderDevice,
     sync_world::{MainEntity, RenderEntity},
     texture::{ColorAttachment, TextureCache},
-    view::{ExtractedView, ViewDepthTexture, ViewTarget},
+    view::{ExtractedView, ViewDepthTexture},
     Extract, ExtractSchedule, Render, RenderApp, RenderSystems,
 };
 use nonmax::NonMaxU32;
@@ -802,11 +801,10 @@ pub fn prepare_core_3d_depth_textures(
         &ExtractedView,
         Option<&DepthPrepass>,
         &Camera3d,
-        &Msaa,
     )>,
 ) {
     let mut render_target_usage = <HashMap<_, _>>::default();
-    for (_, camera, extracted_view, depth_prepass, camera_3d, _msaa) in &views_3d {
+    for (_, camera, extracted_view, depth_prepass, camera_3d) in &views_3d {
         if !opaque_3d_phases.contains_key(&extracted_view.retained_view_entity)
             || !alpha_mask_3d_phases.contains_key(&extracted_view.retained_view_entity)
             || !transmissive_3d_phases.contains_key(&extracted_view.retained_view_entity)
@@ -822,30 +820,30 @@ pub fn prepare_core_3d_depth_textures(
             usage |= TextureUsages::COPY_SRC;
         }
         render_target_usage
-            .entry(camera.target.clone())
+            .entry(camera.output_color_target.clone())
             .and_modify(|u| *u |= usage)
             .or_insert_with(|| usage);
     }
 
     let mut textures = <HashMap<_, _>>::default();
-    for (entity, camera, _, _, camera_3d, msaa) in &views_3d {
-        let Some(physical_target_size) = camera.physical_target_size else {
-            continue;
-        };
-
+    for (entity, camera, view, _, camera_3d) in &views_3d {
+        let usage = *render_target_usage
+            .get(&camera.output_color_target.clone())
+            .expect("The depth texture usage should already exist for this target");
         let cached_texture = textures
-            .entry((camera.target.clone(), msaa))
+            .entry((
+                camera.output_color_target.clone(),
+                camera.main_color_target_size,
+                usage,
+                view.msaa_samples,
+            ))
             .or_insert_with(|| {
-                let usage = *render_target_usage
-                    .get(&camera.target.clone())
-                    .expect("The depth texture usage should already exist for this target");
-
                 let descriptor = TextureDescriptor {
                     label: Some("view_depth_texture"),
                     // The size of the depth texture
-                    size: physical_target_size.to_extents(),
+                    size: camera.main_color_target_size.to_extents(),
                     mip_level_count: 1,
-                    sample_count: msaa.samples(),
+                    sample_count: view.msaa_samples,
                     dimension: TextureDimension::D2,
                     format: CORE_3D_DEPTH_FORMAT,
                     usage,
@@ -897,10 +895,6 @@ pub fn prepare_core_3d_transmission_textures(
             continue;
         };
 
-        let Some(physical_target_size) = camera.physical_target_size else {
-            continue;
-        };
-
         // Don't prepare a transmission texture if the number of steps is set to 0
         if camera_3d.screen_space_specular_transmission_steps == 0 {
             continue;
@@ -912,24 +906,18 @@ pub fn prepare_core_3d_transmission_textures(
         }
 
         let cached_texture = textures
-            .entry(camera.target.clone())
+            .entry(camera.output_color_target.clone())
             .or_insert_with(|| {
                 let usage = TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST;
-
-                let format = if view.hdr {
-                    ViewTarget::TEXTURE_FORMAT_HDR
-                } else {
-                    TextureFormat::bevy_default()
-                };
 
                 let descriptor = TextureDescriptor {
                     label: Some("view_transmission_texture"),
                     // The size of the transmission texture
-                    size: physical_target_size.to_extents(),
+                    size: camera.main_color_target_size.to_extents(),
                     mip_level_count: 1,
                     sample_count: 1, // No need for MSAA, as we'll only copy the main texture here
                     dimension: TextureDimension::D2,
-                    format,
+                    format: view.color_target_format,
                     usage,
                     view_formats: &[],
                 };
@@ -1001,7 +989,6 @@ pub fn prepare_prepass_textures(
         Entity,
         &ExtractedCamera,
         &ExtractedView,
-        &Msaa,
         Has<DepthPrepass>,
         Has<NormalPrepass>,
         Has<MotionVectorPrepass>,
@@ -1021,7 +1008,6 @@ pub fn prepare_prepass_textures(
         entity,
         camera,
         view,
-        msaa,
         depth_prepass,
         normal_prepass,
         motion_vector_prepass,
@@ -1039,21 +1025,17 @@ pub fn prepare_prepass_textures(
             continue;
         };
 
-        let Some(physical_target_size) = camera.physical_target_size else {
-            continue;
-        };
-
-        let size = physical_target_size.to_extents();
+        let size = camera.main_color_target_size.to_extents();
 
         let cached_depth_texture1 = depth_prepass.then(|| {
             depth_textures1
-                .entry(camera.target.clone())
+                .entry(camera.output_color_target.clone())
                 .or_insert_with(|| {
                     let descriptor = TextureDescriptor {
                         label: Some("prepass_depth_texture_1"),
                         size,
                         mip_level_count: 1,
-                        sample_count: msaa.samples(),
+                        sample_count: view.msaa_samples,
                         dimension: TextureDimension::D2,
                         format: CORE_3D_DEPTH_FORMAT,
                         usage: TextureUsages::COPY_DST
@@ -1068,13 +1050,13 @@ pub fn prepare_prepass_textures(
 
         let cached_depth_texture2 = depth_prepass_double_buffer.then(|| {
             depth_textures2
-                .entry(camera.target.clone())
+                .entry(camera.output_color_target.clone())
                 .or_insert_with(|| {
                     let descriptor = TextureDescriptor {
                         label: Some("prepass_depth_texture_2"),
                         size,
                         mip_level_count: 1,
-                        sample_count: msaa.samples(),
+                        sample_count: view.msaa_samples,
                         dimension: TextureDimension::D2,
                         format: CORE_3D_DEPTH_FORMAT,
                         usage: TextureUsages::COPY_DST
@@ -1089,7 +1071,7 @@ pub fn prepare_prepass_textures(
 
         let cached_normals_texture = normal_prepass.then(|| {
             normal_textures
-                .entry(camera.target.clone())
+                .entry(camera.output_color_target.clone())
                 .or_insert_with(|| {
                     texture_cache.get(
                         &render_device,
@@ -1097,7 +1079,7 @@ pub fn prepare_prepass_textures(
                             label: Some("prepass_normal_texture"),
                             size,
                             mip_level_count: 1,
-                            sample_count: msaa.samples(),
+                            sample_count: view.msaa_samples,
                             dimension: TextureDimension::D2,
                             format: NORMAL_PREPASS_FORMAT,
                             usage: TextureUsages::RENDER_ATTACHMENT
@@ -1111,7 +1093,7 @@ pub fn prepare_prepass_textures(
 
         let cached_motion_vectors_texture = motion_vector_prepass.then(|| {
             motion_vectors_textures
-                .entry(camera.target.clone())
+                .entry(camera.output_color_target.clone())
                 .or_insert_with(|| {
                     texture_cache.get(
                         &render_device,
@@ -1119,7 +1101,7 @@ pub fn prepare_prepass_textures(
                             label: Some("prepass_motion_vectors_textures"),
                             size,
                             mip_level_count: 1,
-                            sample_count: msaa.samples(),
+                            sample_count: view.msaa_samples,
                             dimension: TextureDimension::D2,
                             format: MOTION_VECTOR_PREPASS_FORMAT,
                             usage: TextureUsages::RENDER_ATTACHMENT
@@ -1133,7 +1115,7 @@ pub fn prepare_prepass_textures(
 
         let cached_deferred_texture1 = deferred_prepass.then(|| {
             deferred_textures1
-                .entry(camera.target.clone())
+                .entry(camera.output_color_target.clone())
                 .or_insert_with(|| {
                     texture_cache.get(
                         &render_device,
@@ -1155,7 +1137,7 @@ pub fn prepare_prepass_textures(
 
         let cached_deferred_texture2 = deferred_prepass_double_buffer.then(|| {
             deferred_textures2
-                .entry(camera.target.clone())
+                .entry(camera.output_color_target.clone())
                 .or_insert_with(|| {
                     texture_cache.get(
                         &render_device,
@@ -1177,7 +1159,7 @@ pub fn prepare_prepass_textures(
 
         let cached_deferred_lighting_pass_id_texture = deferred_prepass.then(|| {
             deferred_lighting_id_textures
-                .entry(camera.target.clone())
+                .entry(camera.output_color_target.clone())
                 .or_insert_with(|| {
                     texture_cache.get(
                         &render_device,
