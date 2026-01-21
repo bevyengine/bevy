@@ -220,7 +220,8 @@ where
     /// array.
     render_light_probes: Vec<RenderLightProbe>,
 
-    /// A mapping from the main world entity to the index in [`Self::render_light_probes`].
+    /// A mapping from the main world entity to the index in
+    /// `render_light_probes`.
     pub main_entity_to_render_light_probe_index: MainEntityHashMap<u32>,
 
     /// Information needed to render the light probe attached directly to the
