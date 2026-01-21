@@ -9,8 +9,8 @@ use core::{
 };
 
 /// Returns the `u64` hash of the given [enum](Enum).
-#[inline]
-pub fn enum_hash<TEnum: Enum>(value: &TEnum) -> Option<u64> {
+#[inline(never)]
+pub fn enum_hash(value: &dyn Enum) -> Option<u64> {
     let mut hasher = reflect_hasher();
     core::any::Any::type_id(value).hash(&mut hasher);
     value.variant_name().hash(&mut hasher);
@@ -29,8 +29,8 @@ pub fn enum_hash<TEnum: Enum>(value: &TEnum) -> Option<u64> {
 /// - For each field in `a`, `b` contains a field with the same name and
 ///   [`PartialReflect::reflect_partial_eq`] returns `Some(true)` for the two field
 ///   values.
-#[inline]
-pub fn enum_partial_eq<TEnum: Enum + ?Sized>(a: &TEnum, b: &dyn PartialReflect) -> Option<bool> {
+#[inline(never)]
+pub fn enum_partial_eq(a: &dyn Enum, b: &dyn PartialReflect) -> Option<bool> {
     // Both enums?
     let ReflectRef::Enum(b) = b.reflect_ref() else {
         return Some(false);
@@ -94,11 +94,8 @@ pub fn enum_partial_eq<TEnum: Enum + ?Sized>(a: &TEnum, b: &dyn PartialReflect) 
 /// or an element comparison returns `None`).
 ///
 /// The ordering is same with `derive` macro. First order by variant index, then by fields.
-#[inline]
-pub fn enum_partial_cmp<TEnum: Enum + ?Sized>(
-    a: &TEnum,
-    b: &dyn PartialReflect,
-) -> Option<::core::cmp::Ordering> {
+#[inline(never)]
+pub fn enum_partial_cmp(a: &dyn Enum, b: &dyn PartialReflect) -> Option<::core::cmp::Ordering> {
     // Both enums?
     let ReflectRef::Enum(b) = b.reflect_ref() else {
         return None;

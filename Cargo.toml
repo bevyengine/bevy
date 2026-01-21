@@ -3395,6 +3395,18 @@ category = "Stress Tests"
 wasm = true
 
 [[example]]
+name = "many_animated_sprite_meshes"
+path = "examples/stress_tests/many_animated_sprite_meshes.rs"
+# Causes an ICE on docs.rs
+doc-scrape-examples = false
+
+[package.metadata.example.many_animated_sprite_meshes]
+name = "Many Animated Sprite Meshes"
+description = "Displays many animated sprite meshes in a grid arrangement with slight offsets to their animation timers. Used for performance testing."
+category = "Stress Tests"
+wasm = false
+
+[[example]]
 name = "many_buttons"
 path = "examples/stress_tests/many_buttons.rs"
 # Causes an ICE on docs.rs
@@ -3513,6 +3525,18 @@ name = "Many Sprites"
 description = "Displays many sprites in a grid arrangement! Used for performance testing. Use `--colored` to enable color tinted sprites."
 category = "Stress Tests"
 wasm = true
+
+[[example]]
+name = "many_sprite_meshes"
+path = "examples/stress_tests/many_sprite_meshes.rs"
+# Causes an ICE on docs.rs
+doc-scrape-examples = false
+
+[package.metadata.example.many_sprite_meshes]
+name = "Many Sprite Meshes"
+description = "Displays many sprite meshes in a grid arrangement! Used for performance testing. Use `--colored` to enable color tinted sprites."
+category = "Stress Tests"
+wasm = false
 
 [[example]]
 name = "many_text2d"
@@ -4157,6 +4181,18 @@ doc-scrape-examples = false
 [package.metadata.example.viewport_node]
 name = "Viewport Node"
 description = "Demonstrates how to create a viewport node with picking support"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
+name = "image_node"
+path = "examples/ui/image_node.rs"
+# Causes an ICE on docs.rs
+doc-scrape-examples = false
+
+[package.metadata.example.image_node]
+name = "Image Node"
+description = "Demonstrates how to create a image node"
 category = "UI (User Interface)"
 wasm = true
 
@@ -5379,3 +5415,15 @@ name = "Dynamic Mipmap Generation"
 description = "Demonstrates use of the mipmap generation plugin to generate mipmaps for a texture"
 category = "2D Rendering"
 wasm = false
+
+[[example]]
+name = "pccm"
+path = "examples/3d/pccm.rs"
+doc-scrape-examples = true
+required-features = ["free_camera", "https"]
+
+[package.metadata.example.pccm]
+name = "Parallax-Corrected Cubemaps"
+description = "Demonstrates parallax-corrected cubemap reflections"
+category = "3D Rendering"
+wasm = true

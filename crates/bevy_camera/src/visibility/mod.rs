@@ -261,7 +261,7 @@ impl<'a> SetViewVisibility for Mut<'a, ViewVisibility> {
 /// - when a [`Mesh`] is updated but its [`Aabb`] is not, which might happen with animations,
 /// - when using some light effects, like wanting a [`Mesh`] out of the [`Frustum`]
 ///   to appear in the reflection of a [`Mesh`] within.
-#[derive(Debug, Component, Default, Reflect)]
+#[derive(Debug, Component, Default, Reflect, Clone, PartialEq)]
 #[reflect(Component, Default, Debug)]
 pub struct NoFrustumCulling;
 
