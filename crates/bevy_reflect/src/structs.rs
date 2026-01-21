@@ -516,8 +516,8 @@ impl<'a> IntoIterator for &'a DynamicStruct {
 ///   values.
 ///
 /// Returns [`None`] if the comparison couldn't even be performed.
-#[inline]
-pub fn struct_partial_eq<S: Struct + ?Sized>(a: &S, b: &dyn PartialReflect) -> Option<bool> {
+#[inline(never)]
+pub fn struct_partial_eq(a: &dyn Struct, b: &dyn PartialReflect) -> Option<bool> {
     let ReflectRef::Struct(struct_value) = b.reflect_ref() else {
         return Some(false);
     };
@@ -545,11 +545,8 @@ pub fn struct_partial_eq<S: Struct + ?Sized>(a: &S, b: &dyn PartialReflect) -> O
 ///
 /// Returns [`None`] if the comparison couldn't be performed (e.g., kinds mismatch
 /// or an element comparison returns `None`).
-#[inline]
-pub fn struct_partial_cmp<S: Struct + ?Sized>(
-    a: &S,
-    b: &dyn PartialReflect,
-) -> Option<::core::cmp::Ordering> {
+#[inline(never)]
+pub fn struct_partial_cmp(a: &dyn Struct, b: &dyn PartialReflect) -> Option<::core::cmp::Ordering> {
     let ReflectRef::Struct(struct_value) = b.reflect_ref() else {
         return None;
     };

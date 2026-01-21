@@ -230,7 +230,7 @@ bevy_winit = ["dep:bevy_winit", "bevy_window"]
 bevy_camera = ["dep:bevy_camera", "bevy_mesh", "bevy_window"]
 bevy_scene = ["dep:bevy_scene", "bevy_asset"]
 bevy_material = ["dep:bevy_material", "bevy_image", "bevy_shader"]
-bevy_light = ["dep:bevy_light", "bevy_camera", "bevy_gizmos?/bevy_light"]
+bevy_light = ["dep:bevy_light", "bevy_camera"]
 bevy_render = [
   "dep:bevy_render",
   "bevy_camera",
@@ -257,7 +257,7 @@ bevy_sprite_render = [
 ]
 bevy_ui_render = ["dep:bevy_ui_render", "bevy_sprite_render", "bevy_ui"]
 bevy_solari = ["dep:bevy_solari", "bevy_pbr"]
-bevy_gizmos = ["dep:bevy_gizmos", "bevy_camera"]
+bevy_gizmos = ["dep:bevy_gizmos", "bevy_camera", "bevy_light?/bevy_gizmos"]
 bevy_gizmos_render = ["dep:bevy_gizmos_render", "bevy_gizmos"]
 bevy_gltf = ["dep:bevy_gltf", "bevy_scene", "bevy_pbr"]
 

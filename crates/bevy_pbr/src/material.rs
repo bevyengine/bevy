@@ -1455,7 +1455,7 @@ pub struct PreparedMaterial {
     pub properties: Arc<MaterialProperties>,
 }
 
-fn base_specialize(
+pub fn base_specialize(
     world: &mut World,
     key: ErasedMaterialPipelineKey,
     layout: &MeshVertexBufferLayoutRef,
@@ -1568,6 +1568,64 @@ where
             material_param,
         ): &mut SystemParamItem<Self::Param>,
     ) -> Result<Self::ErasedAsset, PrepareAssetError<Self::SourceAsset>> {
+        let material_layout = M::bind_group_layout_descriptor(render_device);
+        let actual_material_layout = pipeline_cache.get_bind_group_layout(&material_layout);
+
+        let binding = match material.unprepared_bind_group(
+            &actual_material_layout,
+            render_device,
+            material_param,
+            false,
+        ) {
+            Ok(unprepared) => {
+                let bind_group_allocator =
+                    bind_group_allocators.get_mut(&TypeId::of::<M>()).unwrap();
+                // Allocate or update the material.
+                match render_material_bindings.entry(material_id.into()) {
+                    Entry::Occupied(mut occupied_entry) => {
+                        // TODO: Have a fast path that doesn't require
+                        // recreating the bind group if only buffer contents
+                        // change. For now, we just delete and recreate the bind
+                        // group.
+                        bind_group_allocator.free(*occupied_entry.get());
+                        let new_binding =
+                            bind_group_allocator.allocate_unprepared(unprepared, &material_layout);
+                        *occupied_entry.get_mut() = new_binding;
+                        new_binding
+                    }
+                    Entry::Vacant(vacant_entry) => *vacant_entry.insert(
+                        bind_group_allocator.allocate_unprepared(unprepared, &material_layout),
+                    ),
+                }
+            }
+            Err(AsBindGroupError::RetryNextUpdate) => {
+                return Err(PrepareAssetError::RetryNextUpdate(material))
+            }
+            Err(AsBindGroupError::CreateBindGroupDirectly) => {
+                match material.as_bind_group(
+                    &material_layout,
+                    render_device,
+                    pipeline_cache,
+                    material_param,
+                ) {
+                    Ok(prepared_bind_group) => {
+                        let bind_group_allocator =
+                            bind_group_allocators.get_mut(&TypeId::of::<M>()).unwrap();
+                        // Store the resulting bind group directly in the slot.
+                        let material_binding_id =
+                            bind_group_allocator.allocate_prepared(prepared_bind_group);
+                        render_material_bindings.insert(material_id.into(), material_binding_id);
+                        material_binding_id
+                    }
+                    Err(AsBindGroupError::RetryNextUpdate) => {
+                        return Err(PrepareAssetError::RetryNextUpdate(material))
+                    }
+                    Err(other) => return Err(PrepareAssetError::AsBindGroupError(other)),
+                }
+            }
+            Err(other) => return Err(PrepareAssetError::AsBindGroupError(other)),
+        };
+
         let shadows_enabled = M::enable_shadows();
         let prepass_enabled = M::enable_prepass();
 
@@ -1674,115 +1732,27 @@ where
         let bind_group_data = material.bind_group_data();
         let material_key = ErasedMaterialKey::new(bind_group_data);
 
-        let material_layout = M::bind_group_layout_descriptor(render_device);
-        let actual_material_layout = pipeline_cache.get_bind_group_layout(&material_layout);
-
-        match material.unprepared_bind_group(
-            &actual_material_layout,
-            render_device,
-            material_param,
-            false,
-        ) {
-            Ok(unprepared) => {
-                let bind_group_allocator =
-                    bind_group_allocators.get_mut(&TypeId::of::<M>()).unwrap();
-                // Allocate or update the material.
-                let binding = match render_material_bindings.entry(material_id.into()) {
-                    Entry::Occupied(mut occupied_entry) => {
-                        // TODO: Have a fast path that doesn't require
-                        // recreating the bind group if only buffer contents
-                        // change. For now, we just delete and recreate the bind
-                        // group.
-                        bind_group_allocator.free(*occupied_entry.get());
-                        let new_binding =
-                            bind_group_allocator.allocate_unprepared(unprepared, &material_layout);
-                        *occupied_entry.get_mut() = new_binding;
-                        new_binding
-                    }
-                    Entry::Vacant(vacant_entry) => *vacant_entry.insert(
-                        bind_group_allocator.allocate_unprepared(unprepared, &material_layout),
-                    ),
-                };
-
-                Ok(PreparedMaterial {
-                    binding,
-                    properties: Arc::new(MaterialProperties {
-                        alpha_mode: material.alpha_mode(),
-                        depth_bias: material.depth_bias(),
-                        reads_view_transmission_texture,
-                        render_phase_type,
-                        render_method,
-                        mesh_pipeline_key_bits,
-                        material_layout: Some(material_layout),
-                        draw_functions,
-                        shaders,
-                        bindless,
-                        base_specialize: Some(base_specialize),
-                        prepass_specialize: Some(prepass_specialize),
-                        user_specialize: Some(user_specialize::<M>),
-                        material_key,
-                        shadows_enabled,
-                        prepass_enabled,
-                    }),
-                })
-            }
-
-            Err(AsBindGroupError::RetryNextUpdate) => {
-                Err(PrepareAssetError::RetryNextUpdate(material))
-            }
-
-            Err(AsBindGroupError::CreateBindGroupDirectly) => {
-                // This material has opted out of automatic bind group creation
-                // and is requesting a fully-custom bind group. Invoke
-                // `as_bind_group` as requested, and store the resulting bind
-                // group in the slot.
-                match material.as_bind_group(
-                    &material_layout,
-                    render_device,
-                    pipeline_cache,
-                    material_param,
-                ) {
-                    Ok(prepared_bind_group) => {
-                        let bind_group_allocator =
-                            bind_group_allocators.get_mut(&TypeId::of::<M>()).unwrap();
-                        // Store the resulting bind group directly in the slot.
-                        let material_binding_id =
-                            bind_group_allocator.allocate_prepared(prepared_bind_group);
-                        render_material_bindings.insert(material_id.into(), material_binding_id);
-
-                        Ok(PreparedMaterial {
-                            binding: material_binding_id,
-                            properties: Arc::new(MaterialProperties {
-                                alpha_mode: material.alpha_mode(),
-                                depth_bias: material.depth_bias(),
-                                reads_view_transmission_texture,
-                                render_phase_type,
-                                render_method,
-                                mesh_pipeline_key_bits,
-                                material_layout: Some(material_layout),
-                                draw_functions,
-                                shaders,
-                                bindless,
-                                base_specialize: Some(base_specialize),
-                                prepass_specialize: Some(prepass_specialize),
-                                user_specialize: Some(user_specialize::<M>),
-                                material_key,
-                                shadows_enabled,
-                                prepass_enabled,
-                            }),
-                        })
-                    }
-
-                    Err(AsBindGroupError::RetryNextUpdate) => {
-                        Err(PrepareAssetError::RetryNextUpdate(material))
-                    }
-
-                    Err(other) => Err(PrepareAssetError::AsBindGroupError(other)),
-                }
-            }
-
-            Err(other) => Err(PrepareAssetError::AsBindGroupError(other)),
-        }
+        Ok(PreparedMaterial {
+            binding,
+            properties: Arc::new(MaterialProperties {
+                alpha_mode: material.alpha_mode(),
+                depth_bias: material.depth_bias(),
+                reads_view_transmission_texture,
+                render_phase_type,
+                render_method,
+                mesh_pipeline_key_bits,
+                material_layout: Some(material_layout),
+                draw_functions,
+                shaders,
+                bindless,
+                base_specialize: Some(base_specialize),
+                prepass_specialize: Some(prepass_specialize),
+                user_specialize: Some(user_specialize::<M>),
+                material_key,
+                shadows_enabled,
+                prepass_enabled,
+            }),
+        })
     }
 
     fn unload_asset(

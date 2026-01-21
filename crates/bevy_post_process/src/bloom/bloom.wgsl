@@ -38,13 +38,10 @@ fn tonemapping_luminance(v: vec3<f32>) -> f32 {
     return dot(v, vec3<f32>(0.2126, 0.7152, 0.0722));
 }
 
-fn rgb_to_srgb_simple(color: vec3<f32>) -> vec3<f32> {
-    return pow(color, vec3<f32>(1.0 / 2.2));
-}
-
 // http://graphicrants.blogspot.com/2013/12/tone-mapping.html
 fn karis_average(color: vec3<f32>) -> f32 {
     // Luminance calculated based on Rec. 709 color primaries.
+    // Must be done in linear space.
     var luma = tonemapping_luminance(color);
 
     if uniforms.hdr_output == 0u {
