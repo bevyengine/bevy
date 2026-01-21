@@ -102,7 +102,10 @@ mod world_builder {
 
             self
         }
+
+        /// Finishes the builder to get the warmed up world.
+        pub fn build(self) -> World {
+            self.world
+        }
     }
 }
-
-use world_builder::WorldBuilder;
