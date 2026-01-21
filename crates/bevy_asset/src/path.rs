@@ -680,12 +680,13 @@ impl<'de> Visitor<'de> for AssetPathVisitor {
     }
 }
 
-/*
-function that splits only on /, and returns (bool, Vec<&str>):
-bool = path starts with /
-Vec<&str> = segments between / (define once whether you keep or drop "" from // or trailing / and stick to it)
-*/
-
+/// Splits `path_str` into segments using `/` as the separator.
+///
+/// Returns `(is_rooted, segments)`:
+/// - `is_rooted`: `true` if `path_str` starts with `/` (the leading `/` is not included in `segments`).
+/// - `segments`: the segments between `/` characters. Empty strings from `//` or a trailing `/` are preserved.
+///
+/// Backslashes and colons are never treated as separators; they remain part of a segment.
 pub fn split_asset_path_segments(path_str: &str) -> (bool, Vec<&str>) {
     let is_rooted = path_str.starts_with('/');
     let to_split = path_str.strip_prefix('/').unwrap_or(path_str);
@@ -1335,14 +1336,6 @@ mod tests {
             AssetPath::from("../../a/b.gltf/c.bin")
         );
     }
-
-    /*
-    "a/b" -> (false, ["a", "b"])
-    "/a/b" -> (true, ["a", "b"])
-    "C:file" -> (false, ["C:file"]) (no split on :)
-    "a\\b" -> (false, ["a\\b"]) (no split on \)
-    "a//b" -> ["a","","b"]
-    */
 
     #[test]
     fn test_split_asset_path_segments() {
