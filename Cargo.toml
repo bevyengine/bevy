@@ -4150,13 +4150,13 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
-name = "image_node_advance"
-path = "examples/ui/image_node_advance.rs"
+name = "image_node_resizing"
+path = "examples/ui/image_node_resizing.rs"
 # Causes an ICE on docs.rs
 doc-scrape-examples = false
 
-[package.metadata.example.image_node_advance]
-name = "Image Node Advance"
+[package.metadata.example.image_node_resizing]
+name = "Image Node Resizeing"
 description = "Demonstrates how to resizing a image node"
 category = "UI (User Interface)"
 wasm = true
