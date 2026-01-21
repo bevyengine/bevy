@@ -192,8 +192,8 @@ pub struct NavNeighbors {
     /// The mapping between array elements and directions is determined by [`CompassOctant::to_index`].
     ///
     /// If no neighbor is set in a given direction, the value will be
-    /// [`NavNeighbor::Unset`].  If navigation should be explicitly blocked in a
-    /// given direction, the value will be [`NavNeighbor::Blocked`].  In most
+    /// [`NavNeighbor::Auto`].  If navigation should be explicitly blocked in a
+    /// given direction, the value will be [`NavNeighbor::Blocked`]. In most
     /// cases, using [`NavNeighbors::set`], [`NavNeighbors::get`], and
     /// [`NavNeighbors::block`] will be more ergonomic than directly accessing
     /// this array.
