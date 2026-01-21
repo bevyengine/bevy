@@ -147,11 +147,13 @@ impl Plugin for ViewPlugin {
 /// Component for configuring the number of samples for [Multi-Sample Anti-Aliasing](https://en.wikipedia.org/wiki/Multisample_anti-aliasing)
 /// for a [`Camera`](bevy_camera::Camera).
 ///
-/// Defaults to 4 samples. A higher number of samples results in smoother edges.
+/// Defaults to 4 samples, as it's the common baseline for web and native. A higher number of samples results in
+/// smoother edges.
+///
+/// Actual support for given sample counts varies by platform and GPU. Use [`Msaa::list_supported`] to get a list of
+/// actually supported sample counts on the current rendering device.
 ///
 /// Some advanced rendering features may require that MSAA is disabled.
-///
-/// Note that the web currently only supports 1 or 4 samples.
 #[derive(
     Component,
     Default,
@@ -180,6 +182,12 @@ impl Msaa {
         *self as u32
     }
 
+    /// Creates `Msaa` with the given sample count.
+    ///
+    /// `samples` must be 1, 2, 4 or 8.
+    ///
+    /// Use [`Self::list_supported`] to get a list of actually supported sample counts on the current rendering
+    /// device.
     pub fn from_samples(samples: u32) -> Self {
         match samples {
             1 => Msaa::Off,
