@@ -646,14 +646,8 @@ mod tests {
 
         map.remove(b);
 
-        assert_eq!(
-            map.get_neighbor(a, CompassOctant::North),
-            NavNeighbor::Auto
-        );
-        assert_eq!(
-            map.get_neighbor(b, CompassOctant::South),
-            NavNeighbor::Auto
-        );
+        assert_eq!(map.get_neighbor(a, CompassOctant::North), NavNeighbor::Auto);
+        assert_eq!(map.get_neighbor(b, CompassOctant::South), NavNeighbor::Auto);
     }
 
     #[test]
@@ -675,14 +669,8 @@ mod tests {
 
         map.remove_multiple(to_remove);
 
-        assert_eq!(
-            map.get_neighbor(a, CompassOctant::North),
-            NavNeighbor::Auto
-        );
-        assert_eq!(
-            map.get_neighbor(b, CompassOctant::South),
-            NavNeighbor::Auto
-        );
+        assert_eq!(map.get_neighbor(a, CompassOctant::North), NavNeighbor::Auto);
+        assert_eq!(map.get_neighbor(b, CompassOctant::South), NavNeighbor::Auto);
         assert_eq!(map.get_neighbor(b, CompassOctant::East), NavNeighbor::Auto);
         assert_eq!(map.get_neighbor(c, CompassOctant::West), NavNeighbor::Auto);
     }
