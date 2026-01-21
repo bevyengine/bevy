@@ -1359,39 +1359,26 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// [`World`](crate::world::World) or [`None`] if the query is not dense hence not contiguously
     /// iterable.
     ///
-    /// A mutable version: [`contiguous_iter_mut`]
+    /// A mutable version: [`Self::contiguous_iter_mut`]
     pub fn contiguous_iter(&self) -> Option<QueryContiguousIter<'_, 's, D::ReadOnly, F>>
     where
         D::ReadOnly: ContiguousQueryData,
         F: ArchetypeFilter,
     {
-        // SAFETY:
-        // - `self.world` has permission to access the required components
-        // - `self.world` was used to initialize `self.state`
-        unsafe {
-            QueryContiguousIter::new(
-                self.world,
-                self.state.as_readonly(),
-                self.last_run,
-                self.this_run,
-            )
-        }
+        self.as_readonly().contiguous_iter_inner().ok()
     }
 
     /// Returns a mutable contiguous iterator over the query results for the given
     /// [`World`](crate::world::World) or [`None`] if the query is not dense hence not contiguously
     /// iterable.
     ///
-    /// An immutable version: [`contiguous_iter`]
+    /// An immutable version: [`Self::contiguous_iter`]
     pub fn contiguous_iter_mut(&mut self) -> Option<QueryContiguousIter<'_, 's, D, F>>
     where
         D: ContiguousQueryData,
         F: ArchetypeFilter,
     {
-        // SAFETY:
-        // - `self.world` has permission to access the required components
-        // - `self.world` was used to initialize `self.state`
-        unsafe { QueryContiguousIter::new(self.world, self.state, self.last_run, self.this_run) }
+        self.reborrow().contiguous_iter_inner().ok()
     }
 
     /// Returns a contiguous iterator over the query results for the given

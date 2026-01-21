@@ -1001,7 +1001,7 @@ pub struct QueryContiguousIter<'w, 's, D: ContiguousQueryData, F: ArchetypeFilte
     storage_id_iter: core::slice::Iter<'s, StorageId>,
     query_state: &'s QueryState<D, F>,
     fetch: D::Fetch<'w>,
-    filter: F::Fetch<'w>,
+    // NOTE: no need for F::Fetch because it always returns true
 }
 
 impl<'w, 's, D: ContiguousQueryData, F: ArchetypeFilter> QueryContiguousIter<'w, 's, D, F> {
@@ -1020,8 +1020,6 @@ impl<'w, 's, D: ContiguousQueryData, F: ArchetypeFilter> QueryContiguousIter<'w,
             storage_id_iter: query_state.matched_storage_ids.iter(),
             // SAFETY: The invariants are upheld by the caller.
             fetch: unsafe { D::init_fetch(world, &query_state.fetch_state, last_run, this_run) },
-            // SAFETY: The invariants are upheld by the caller.
-            filter: unsafe { F::init_fetch(world, &query_state.filter_state, last_run, this_run) },
             query_state,
         })
     }
@@ -1034,36 +1032,45 @@ impl<'w, 's, D: ContiguousQueryData, F: ArchetypeFilter> Iterator
 
     #[inline(always)]
     fn next(&mut self) -> Option<Self::Item> {
-        // SAFETY:
-        // `tables` belongs to the same world that the cursor was initialized for.
-        // `query_state` is the state that was passed to `QueryIterationCursor::init`
-        // SAFETY: Refer to [`Self::next`]
-        unsafe {
-            loop {
-                let table_id = self.storage_id_iter.next()?.table_id;
-                let table = self.tables.get(table_id).debug_checked_unwrap();
-                if table.is_empty() {
-                    continue;
-                }
+        loop {
+            // SAFETY: Query is dense
+            let table_id = unsafe { self.storage_id_iter.next()?.table_id };
+            // SAFETY: `table_id` was returned by `self.storage_id_iter` which always returns a
+            // valid id
+            let table = unsafe { self.tables.get(table_id).debug_checked_unwrap() };
+            if table.is_empty() {
+                continue;
+            }
+            // SAFETY:
+            // - `table` is from the same world as `self.query_state` (`self.storage_id_iter` is
+            // from the same world as `self.query_state`, see [`Self::new`])
+            // - `self.fetch` was initialized with `self.query_state` (in [`Self::new`])
+            unsafe {
                 D::set_table(&mut self.fetch, &self.query_state.fetch_state, table);
-                F::set_table(&mut self.filter, &self.query_state.filter_state, table);
+            }
 
-                // no filtering because `F` implements `ArchetypeFilter` which ensures that `QueryFilter::fetch`
-                // always returns true
+            // no filtering because `F` implements `ArchetypeFilter` which ensures that `QueryFilter::fetch`
+            // always returns true
 
-                let item = D::fetch_contiguous(
+            // SAFETY:
+            // - [`D::set_table`] is executed prior.
+            // - `table.entities()` return a valid entity array
+            // - the caller of [`Self::new`] ensures that the world has permission to access any of
+            // the components registered in `self.query_state`
+            let item = unsafe {
+                D::fetch_contiguous(
                     &self.query_state.fetch_state,
                     &mut self.fetch,
                     table.entities(),
-                );
+                )
+            };
 
-                return Some(item);
-            }
+            return Some(item);
         }
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        self.storage_id_iter.size_hint()
+        (0, self.storage_id_iter.size_hint().1)
     }
 }
 
@@ -2620,7 +2627,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
     // NOTE: If you are changing query iteration code, remember to update the following places, where relevant:
     // QueryIter, QueryIterationCursor, QuerySortedIter, QueryManyIter, QuerySortedManyIter, QueryCombinationIter,
     // QueryState::par_fold_init_unchecked_manual, QueryState::par_many_fold_init_unchecked_manual,
-    // QueryState::par_many_unique_fold_init_unchecked_manual
+    // QueryState::par_many_unique_fold_init_unchecked_manual, QueryContiguousIter::next
     /// # Safety
     /// `tables` and `archetypes` must belong to the same world that the [`QueryIterationCursor`]
     /// was initialized for.
@@ -2633,8 +2640,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
         query_state: &'s QueryState<D, F>,
     ) -> Option<D::Item<'w, 's>> {
         if self.is_dense {
-            // NOTE: If you are changing this branch's code (the self.is_dense branch),
-            // don't forget to update [`Self::next_contiguous`]
+            // NOTE: if you are changing this branch you would probably have to change
+            // QueryContiguousIter::next as well
             loop {
                 // we are on the beginning of the query, or finished processing a table, so skip to the next
                 if self.current_row == self.current_len {

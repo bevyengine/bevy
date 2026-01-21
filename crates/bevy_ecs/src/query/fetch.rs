@@ -2091,6 +2091,7 @@ unsafe impl<T: Component> ContiguousQueryData for Ref<'_, T> {
             |_| {
                 #[cfg(debug_assertions)]
                 unreachable!();
+                // SAFETY: the caller ensures that [`Self::set_table`] was called beforehand.
                 #[cfg(not(debug_assertions))]
                 core::hint::unreachable_unchecked();
             },
@@ -2344,6 +2345,7 @@ unsafe impl<T: Component<Mutability = Mutable>> ContiguousQueryData for &mut T {
             |_| {
                 #[cfg(debug_assertions)]
                 unreachable!();
+                // SAFETY: the caller ensures that [`Self::set_table`] was called beforehand.
                 #[cfg(not(debug_assertions))]
                 core::hint::unreachable_unchecked();
             },

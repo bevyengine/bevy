@@ -487,12 +487,12 @@ impl<'w> ContiguousComponentTicks<'w, true> {
     pub fn mark_all_as_updated(&mut self) {
         let this_run = self.this_run;
 
-        for i in 0..self.count {
-            // SAFETY: `changed_by` slice is `self.count` long, aliasing rules are uphold by `new`
-            self.changed_by
-                .map(|v| unsafe { v.get_unchecked(i).deref_mut() })
-                .assign(MaybeLocation::caller());
-        }
+        self.changed_by.map(|v| {
+            for i in 0..self.count {
+                // SAFETY: `changed_by` slice is `self.count` long, aliasing rules are uphold by `new`
+                *unsafe { v.get_unchecked(i).deref_mut() } = Location::caller();
+            }
+        });
 
         for t in self.get_changed_ticks_mut() {
             *t = this_run;

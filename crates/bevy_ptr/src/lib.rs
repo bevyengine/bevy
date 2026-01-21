@@ -1122,28 +1122,6 @@ impl<'a, T> ThinSlicePtr<'a, T> {
         unsafe { core::slice::from_raw_parts(self.ptr.as_ptr(), len) }
     }
 
-    /// Offsets the slice beginning by `count` elements
-    ///
-    /// # Safety
-    ///
-    /// - `count` must be less than or equal to the length of the slice
-    // The result pointer must lie within the same allocation
-    pub unsafe fn add_unchecked(&self, count: usize) -> ThinSlicePtr<'a, T> {
-        #[cfg(debug_assertions)]
-        assert!(
-            count <= self.len,
-            "tried to offset the slice by more than the length"
-        );
-
-        Self {
-            // SAFETY: The caller guarantees that count is in-bounds.
-            ptr: unsafe { self.ptr.add(count) },
-            #[cfg(debug_assertions)]
-            len: self.len - count,
-            _marker: PhantomData,
-        }
-    }
-
     /// Indexes the slice without performing bounds checks.
     ///
     /// # Safety
