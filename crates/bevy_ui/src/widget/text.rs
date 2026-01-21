@@ -289,7 +289,7 @@ pub fn measure_text_system(
             computed.as_mut(),
             &mut font_system,
             *hinting,
-            computed_target.physical_size().as_vec2(),
+            computed_target.logical_size().as_vec2(),
             rem_size.0,
         ) {
             Ok(measure) => {
