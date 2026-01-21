@@ -2929,13 +2929,13 @@ mod tests {
         MissingLabel,
     }
 
-    impl From<&LoadState> for TestLoadState {
-        fn from(value: &LoadState) -> Self {
+    impl From<LoadState> for TestLoadState {
+        fn from(value: LoadState) -> Self {
             match value {
                 LoadState::NotLoaded => Self::NotLoaded,
                 LoadState::Loading => Self::Loading,
                 LoadState::Loaded => Self::Loaded,
-                LoadState::Failed(err) => Self::Failed((&**err).into()),
+                LoadState::Failed(err) => Self::Failed((&*err).into()),
             }
         }
     }
@@ -2957,12 +2957,12 @@ mod tests {
                 }
                 AssetLoadError::AssetLoaderError { .. } => Self::AssetLoaderError,
                 AssetLoadError::MissingLabel { .. } => Self::MissingLabel,
-                _ => todo!("{:?}", value),
+                _ => panic!("TestAssetLoadError's From<&AssetLoaderError> is missing a case for AssetLoadError \"{:?}\".", value),
             }
         }
     }
 
-    // An asset type that's registered but doesn't have a loader.
+    // An asset type that doesn't have a registered loader.
     #[derive(Asset, TypePath)]
     struct LoaderlessAsset;
 
@@ -2994,19 +2994,18 @@ mod tests {
 
         let asset_server = app.world().resource::<AssetServer>().clone();
         let handle = asset_server.load::<A>(path);
-        let mut load_state = LoadState::NotLoaded;
+        let mut load_state = TestLoadState::NotLoaded;
 
-        // XXX TODO: Is there a way to know that the load state is final?
         for _ in 0..LARGE_ITERATION_COUNT {
             app.update();
-            load_state = asset_server.get_load_state(&handle).unwrap();
-            if TestLoadState::from(&load_state) == expect_load_state {
+            load_state = asset_server.get_load_state(&handle).unwrap().into();
+            if load_state == expect_load_state {
                 break;
             }
         }
 
         assert!(
-            TestLoadState::from(&load_state) == expect_load_state,
+            load_state == expect_load_state,
             "For test \"{}\", expected {:?} but got {:?}.",
             label,
             expect_load_state,
@@ -3014,8 +3013,10 @@ mod tests {
         );
     }
 
+    // Tests that `AssetServer::get_load_state` returns the correct state after
+    // various loads, some of which trigger errors.
     #[test]
-    fn load_fail() {
+    fn load_failure() {
         test_load_state::<CoolText>("root asset exists", "test.cool.ron", TestLoadState::Loaded);
 
         test_load_state::<SubText>(
