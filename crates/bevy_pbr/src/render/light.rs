@@ -720,7 +720,7 @@ pub fn prepare_lights(
     mut commands: Commands,
     mut texture_cache: ResMut<TextureCache>,
     (render_device, render_queue): (Res<RenderDevice>, Res<RenderQueue>),
-    mut global_light_meta: ResMut<GlobalClusterableObjectMeta>,
+    mut global_light_meta: ResMut<GlobalClusteredLightMeta>,
     mut light_meta: ResMut<LightMeta>,
     views: Query<
         (
@@ -898,7 +898,7 @@ pub fn prepare_lights(
             .reserve(point_lights.len());
     }
 
-    let mut gpu_point_lights = Vec::new();
+    let mut gpu_clustered_lights = Vec::new();
     for (index, &(entity, _, light, _)) in point_lights.iter().enumerate() {
         let mut flags = PointLightFlags::NONE;
 
@@ -965,7 +965,7 @@ pub fn prepare_lights(
             }
         };
 
-        gpu_point_lights.push(GpuClusterableObject {
+        gpu_clustered_lights.push(GpuClusteredLight {
             light_custom_data,
             // premultiply color by intensity
             // we don't use the alpha at all, so no reason to multiply only [0..3]
@@ -992,6 +992,7 @@ pub fn prepare_lights(
             },
         });
         global_light_meta.entity_to_index.insert(entity, index);
+        debug_assert_eq!(global_light_meta.entity_to_index.len(), gpu_clustered_lights.len());
     }
 
     // iterate the views once to find the maximum number of cascade shadowmaps we will need
@@ -1028,10 +1029,10 @@ pub fn prepare_lights(
     }
 
     global_light_meta
-        .gpu_clusterable_objects
-        .set(gpu_point_lights);
+        .gpu_clustered_lights
+        .set(gpu_clustered_lights);
     global_light_meta
-        .gpu_clusterable_objects
+        .gpu_clustered_lights
         .write_buffer(&render_device, &render_queue);
 
     live_shadow_mapping_lights.clear();
