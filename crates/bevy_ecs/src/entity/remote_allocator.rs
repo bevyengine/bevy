@@ -376,7 +376,7 @@ impl<'a> core::iter::FusedIterator for FreeBufferIterator<'a> {}
 ///    This happens when pushing to the list; we need to prevent a push and remote pop from happening at the same time.
 ///    We call this "disabling the length".
 ///    When it is disabled, only the thing that disabled it is allowed to re-enable it.
-///    This is like like a mutex, but it's faster because we pack the mutex into the same bits as the state.
+///    This is like a mutex, but it's faster because we pack the mutex into the same bits as the state.
 ///    See [`FreeCount::disable_len_for_state`] and [`FreeCount::set_state_risky`] for how this can be done.
 ///  - Third, we need to track the generation of the free list.
 ///    That is, any two distinct states of the free list, even if they are the same length, must have different [`FreeCount`] values.
