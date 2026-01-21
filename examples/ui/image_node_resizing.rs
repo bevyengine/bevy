@@ -3,7 +3,7 @@
 
 use bevy::{color::palettes::tailwind, prelude::*};
 
-static MINIUM_RESIZE_VAL: f32 = 1.0;
+static MIN_RESIZE_VAL: f32 = 1.0;
 static IMAGE_GROUP_BOX_MIN_WIDTH: f32 = 50.0;
 static IMAGE_GROUP_BOX_MAX_WIDTH: f32 = 100.0;
 static IMAGE_GROUP_BOX_MIN_HEIGHT: f32 = 10.0;
@@ -155,7 +155,7 @@ fn update(
         commands.trigger(TextUpdate {
             entity,
             direction: Direction::Height,
-            change: MINIUM_RESIZE_VAL,
+            change: MIN_RESIZE_VAL,
         });
     }
     if keycode.pressed(KeyCode::ArrowDown) {
@@ -163,7 +163,7 @@ fn update(
         commands.trigger(TextUpdate {
             entity,
             direction: Direction::Height,
-            change: -MINIUM_RESIZE_VAL,
+            change: -MIN_RESIZE_VAL,
         });
     }
     if keycode.pressed(KeyCode::ArrowLeft) {
@@ -171,7 +171,7 @@ fn update(
         commands.trigger(TextUpdate {
             entity,
             direction: Direction::Width,
-            change: -MINIUM_RESIZE_VAL,
+            change: -MIN_RESIZE_VAL,
         });
     }
     if keycode.pressed(KeyCode::ArrowRight) {
@@ -179,7 +179,7 @@ fn update(
         commands.trigger(TextUpdate {
             entity,
             direction: Direction::Width,
-            change: MINIUM_RESIZE_VAL,
+            change: MIN_RESIZE_VAL,
         });
     }
 }
@@ -217,25 +217,25 @@ fn on_trigger_image_group(event: On<ImageGroupResize>, query: Query<&mut Node, W
         match event.event() {
             ImageGroupResize::HeightGrow => {
                 if let Val::Percent(val) = node.height {
-                    let new_val = (val + MINIUM_RESIZE_VAL).min(IMAGE_GROUP_BOX_MAX_HEIGHT);
+                    let new_val = (val + MIN_RESIZE_VAL).min(IMAGE_GROUP_BOX_MAX_HEIGHT);
                     node.height = Val::Percent(new_val);
                 }
             }
             ImageGroupResize::HeightShrink => {
                 if let Val::Percent(val) = node.height {
-                    let new_val = (val - MINIUM_RESIZE_VAL).max(IMAGE_GROUP_BOX_MIN_HEIGHT);
+                    let new_val = (val - MIN_RESIZE_VAL).max(IMAGE_GROUP_BOX_MIN_HEIGHT);
                     node.height = Val::Percent(new_val);
                 }
             }
             ImageGroupResize::WidthGrow => {
                 if let Val::Percent(val) = node.width {
-                    let new_val = (val + MINIUM_RESIZE_VAL).min(IMAGE_GROUP_BOX_MAX_WIDTH);
+                    let new_val = (val + MIN_RESIZE_VAL).min(IMAGE_GROUP_BOX_MAX_WIDTH);
                     node.width = Val::Percent(new_val);
                 }
             }
             ImageGroupResize::WidthShrink => {
                 if let Val::Percent(val) = node.width {
-                    let new_val = (val - MINIUM_RESIZE_VAL).max(IMAGE_GROUP_BOX_MIN_WIDTH);
+                    let new_val = (val - MIN_RESIZE_VAL).max(IMAGE_GROUP_BOX_MIN_WIDTH);
                     node.width = Val::Percent(new_val);
                 }
             }

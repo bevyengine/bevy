@@ -4203,7 +4203,7 @@ path = "examples/ui/image_node_resizing.rs"
 doc-scrape-examples = false
 
 [package.metadata.example.image_node_resizing]
-name = "Image Node Resizeing"
+name = "Image Node Resizing"
 description = "Demonstrates how to resizing a image node"
 category = "UI (User Interface)"
 wasm = true
