@@ -32,9 +32,10 @@ font_system.db_mut().load_system_fonts()
 
 Then they are available to be selected by family name using `FontSource::Family`.
 
-The `font_size` field is now a `FontSize`, enabling responsive font sizing. 
+The `font_size` field is now a `FontSize`, enabling responsive font sizing.
 
 `FontSize` is an enum with variants:
+
 ```rust
 pub enum FontSize {
     /// Font Size in logical pixels.
