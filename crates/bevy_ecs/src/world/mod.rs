@@ -97,7 +97,7 @@ use unsafe_world_cell::UnsafeWorldCell;
 pub struct World {
     id: WorldId,
     pub(crate) entities: Entities,
-    pub(crate) allocator: EntityAllocator,
+    pub(crate) entity_allocator: EntityAllocator,
     pub(crate) components: Components,
     pub(crate) component_ids: ComponentIds,
     pub(crate) archetypes: Archetypes,
@@ -117,7 +117,7 @@ impl Default for World {
         let mut world = Self {
             id: WorldId::new().expect("More `bevy` `World`s have been created than is supported"),
             entities: Entities::new(),
-            allocator: EntityAllocator::default(),
+            entity_allocator: EntityAllocator::default(),
             components: Default::default(),
             archetypes: Archetypes::new(),
             storages: Default::default(),
@@ -213,14 +213,14 @@ impl World {
 
     /// Retrieves this world's [`EntityAllocator`] collection.
     #[inline]
-    pub fn entities_allocator(&self) -> &EntityAllocator {
-        &self.allocator
+    pub fn entity_allocator(&self) -> &EntityAllocator {
+        &self.entity_allocator
     }
 
     /// Retrieves this world's [`EntityAllocator`] collection mutably.
     #[inline]
-    pub fn entities_allocator_mut(&mut self) -> &mut EntityAllocator {
-        &mut self.allocator
+    pub fn entity_allocator_mut(&mut self) -> &mut EntityAllocator {
+        &mut self.entity_allocator
     }
 
     /// Retrieves this world's [`Entities`] collection mutably.
@@ -301,7 +301,7 @@ impl World {
         unsafe {
             Commands::new_raw_from_entities(
                 self.command_queue.clone(),
-                &self.allocator,
+                &self.entity_allocator,
                 &self.entities,
             )
         }
@@ -1234,7 +1234,7 @@ impl World {
         bundle: MovingPtr<'_, B>,
         caller: MaybeLocation,
     ) -> EntityWorldMut<'_> {
-        let entity = self.allocator.alloc();
+        let entity = self.entity_allocator.alloc();
         // This was just spawned from null, so it shouldn't panic.
         self.spawn_at_unchecked(entity, bundle, caller)
     }
@@ -1270,7 +1270,7 @@ impl World {
     }
 
     pub(crate) fn spawn_empty_with_caller(&mut self, caller: MaybeLocation) -> EntityWorldMut<'_> {
-        let entity = self.allocator.alloc();
+        let entity = self.entity_allocator.alloc();
         // This was just spawned from null, so it shouldn't panic.
         self.spawn_empty_at_unchecked(entity, caller)
     }
@@ -3205,7 +3205,7 @@ impl World {
         self.storages.sparse_sets.clear_entities();
         self.archetypes.clear_entities();
         self.entities.clear();
-        self.allocator.restart();
+        self.entity_allocator.restart();
     }
 
     /// Clears all resources in this [`World`].
