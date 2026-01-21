@@ -1080,12 +1080,6 @@ impl<'w, 's, D: ContiguousQueryData, F: ArchetypeFilter> FusedIterator
 {
 }
 
-// self.storage_id_iter is a slice's iterator hence has an exact size
-impl<'w, 's, D: ContiguousQueryData, F: ArchetypeFilter> ExactSizeIterator
-    for QueryContiguousIter<'w, 's, D, F>
-{
-}
-
 /// An [`Iterator`] over sorted query results of a [`Query`](crate::system::Query).
 ///
 /// This struct is created by the [`QueryIter::sort`], [`QueryIter::sort_unstable`],
