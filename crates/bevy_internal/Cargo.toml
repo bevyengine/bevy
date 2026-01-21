@@ -285,7 +285,7 @@ http = ["bevy_asset?/http"]
 # Enables downloading assets from HTTPS sources
 https = ["bevy_asset?/https"]
 
-# Enable caching downloaded assets on the filesystem. NOTE: this cache currently never invalidates entries!
+# Enable http caching for downloaded assets on the filesystem.
 web_asset_cache = ["bevy_asset?/web_asset_cache"]
 
 # Enables the built-in asset processor for processed assets.
