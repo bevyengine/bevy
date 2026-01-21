@@ -34,8 +34,9 @@ enum ImageGroupResize {
     WidthShrink,
 }
 
+// Text data for easy modification
 #[derive(Debug, Component)]
-struct TextMeta {
+struct TextData {
     height: f32,
     width: f32,
 }
@@ -56,10 +57,10 @@ struct TextUpdate {
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let image_handle = asset_server.load("branding/icon.png");
     commands.spawn(Camera2d);
-    // Keyboard Hint
+    // Keyboard Text
     commands
         .spawn((
-            TextMeta { height: IMAGE_GROUP_BOX_MAX_HEIGHT,  width : IMAGE_GROUP_BOX_MAX_WIDTH },
+            TextData { height: IMAGE_GROUP_BOX_MAX_HEIGHT,  width : IMAGE_GROUP_BOX_MAX_WIDTH },
             Text::new(
                 "Compare NodeImageMode(Auto, Stretch) press `Upload`/`Down` to resize height, press `Left`/`Right` to resize width\nheight : 10%",
             ),
@@ -142,11 +143,11 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         });
 }
 
-// trigger event
+// Trigger event
 fn update(
     keycode: Res<ButtonInput<KeyCode>>,
     mut commands: Commands,
-    query: Query<Entity, With<TextMeta>>,
+    query: Query<Entity, With<TextData>>,
 ) {
     let entity = query.single().unwrap();
     if keycode.pressed(KeyCode::ArrowUp) {
@@ -185,7 +186,7 @@ fn update(
 
 fn update_text(
     event: On<TextUpdate>,
-    mut textmeta: Single<&mut TextMeta>,
+    mut textmeta: Single<&mut TextData>,
     mut text: Single<&mut Text>,
 ) {
     let str = "Compare NodeImageMode(Auto, Stretch) press `Upload`/`Down` to resize height, press `Left`/`Right` to resize width\n";
