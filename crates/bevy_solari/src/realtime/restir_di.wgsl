@@ -83,7 +83,7 @@ fn spatial_and_shade(@builtin(global_invocation_id) global_id: vec3<u32>) {
     var brdf: vec3<f32>;
     // If the surface is very smooth, let specular GI handle the specular lobe
     if surface.material.roughness <= SPECULAR_GI_FOR_DI_ROUGHNESS_THRESHOLD {
-        brdf = evaluate_diffuse_brdf(surface.material.base_color, surface.material.metallic);
+        brdf = evaluate_diffuse_brdf(surface.world_normal, merge_result.wi, surface.material.base_color, surface.material.metallic);
     } else {
         brdf = evaluate_brdf(surface.world_normal, wo, merge_result.wi, surface.material);
     }
@@ -111,7 +111,7 @@ fn generate_initial_reservoir(world_position: vec3<f32>, world_normal: vec3<f32>
         let resolved_light_sample = unpack_resolved_light_sample(light_tile_resolved_samples[tile_sample], view.exposure);
         let light_contribution = calculate_resolved_light_contribution(resolved_light_sample, world_position, world_normal);
 
-        let target_function = luminance(light_contribution.radiance * diffuse_brdf);
+        let target_function = luminance(light_contribution.radiance * diffuse_brdf * saturate(dot(light_contribution.wi, world_normal)));
         let resampling_weight = mis_weight * (target_function * light_contribution.inverse_pdf);
 
         weight_sum += resampling_weight;
@@ -329,6 +329,6 @@ struct ReservoirContribution {
 fn reservoir_contribution(reservoir: Reservoir, world_position: vec3<f32>, world_normal: vec3<f32>, diffuse_brdf: vec3<f32>) -> ReservoirContribution {
     if !reservoir_valid(reservoir) { return ReservoirContribution(vec3(0.0), 0.0, vec3(0.0)); }
     let light_contribution = resolve_and_calculate_light_contribution(reservoir.sample, world_position, world_normal);
-    let target_function = luminance(light_contribution.radiance * diffuse_brdf);
+    let target_function = luminance(light_contribution.radiance * diffuse_brdf * saturate(dot(light_contribution.wi, world_normal)));
     return ReservoirContribution(light_contribution.radiance, target_function, light_contribution.wi);
 }

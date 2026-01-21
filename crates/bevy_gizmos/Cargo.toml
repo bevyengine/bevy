@@ -12,7 +12,6 @@ keywords = ["bevy"]
 # Bevy
 bevy_app = { path = "../bevy_app", version = "0.19.0-dev" }
 bevy_camera = { path = "../bevy_camera", version = "0.19.0-dev" }
-bevy_light = { path = "../bevy_light", version = "0.19.0-dev", optional = true }
 bevy_color = { path = "../bevy_color", version = "0.19.0-dev" }
 bevy_ecs = { path = "../bevy_ecs", version = "0.19.0-dev" }
 bevy_math = { path = "../bevy_math", version = "0.19.0-dev" }

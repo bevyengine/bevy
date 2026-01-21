@@ -36,9 +36,6 @@ pub mod primitives;
 pub mod retained;
 pub mod rounded_box;
 
-#[cfg(feature = "bevy_light")]
-pub mod light;
-
 /// The gizmos prelude.
 ///
 /// This includes the most common types in this crate, re-exported for your convenience.
@@ -58,10 +55,6 @@ pub mod prelude {
         retained::Gizmo,
         AppGizmoBuilder, GizmoAsset,
     };
-
-    #[doc(hidden)]
-    #[cfg(feature = "bevy_light")]
-    pub use crate::light::{LightGizmoColor, LightGizmoConfigGroup, ShowLightGizmo};
 }
 
 use bevy_app::{App, FixedFirst, FixedLast, Last, Plugin, RunFixedMainLoop};
@@ -80,8 +73,6 @@ use bevy_utils::TypeIdMap;
 use config::{DefaultGizmoConfigGroup, GizmoConfig, GizmoConfigGroup, GizmoConfigStore};
 use core::{any::TypeId, marker::PhantomData, mem};
 use gizmos::{GizmoStorage, Swap};
-#[cfg(feature = "bevy_light")]
-use light::LightGizmoPlugin;
 
 /// A [`Plugin`] that provides an immediate mode drawing api for visual debugging.
 #[derive(Default)]
@@ -95,9 +86,6 @@ impl Plugin for GizmoPlugin {
             .init_gizmo_group::<DefaultGizmoConfigGroup>();
 
         app.add_plugins((aabb::AabbGizmoPlugin, global::GlobalGizmosPlugin));
-
-        #[cfg(feature = "bevy_light")]
-        app.add_plugins(LightGizmoPlugin);
     }
 }
 
