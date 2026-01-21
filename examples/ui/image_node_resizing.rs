@@ -3,6 +3,12 @@
 
 use bevy::{color::palettes::tailwind, prelude::*};
 
+static MINIUM_RESIZE_VAL: f32 = 1.0;
+static IMAGE_GROUP_BOX_MIN_WIDTH: f32 = 50.0;
+static IMAGE_GROUP_BOX_MAX_WIDTH: f32 = 100.0;
+static IMAGE_GROUP_BOX_MIN_HEIGHT: f32 = 10.0;
+static IMAGE_GROUP_BOX_MAX_HEIGHT: f32 = 40.0;
+
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
@@ -53,7 +59,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Keyboard Hint
     commands
         .spawn((
-            TextMeta { height: 40.,  width : 100. },
+            TextMeta { height: IMAGE_GROUP_BOX_MAX_HEIGHT,  width : IMAGE_GROUP_BOX_MAX_WIDTH },
             Text::new(
                 "Compare NodeImageMode(Auto, Stretch) press `Upload`/`Down` to resize height, press `Left`/`Right` to resize width\nheight : 10%",
             ),
@@ -85,8 +91,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     Node {
                         display: Display::Flex,
                         justify_content: JustifyContent::Start,
-                        width: Val::Percent(100.),
-                        height: Val::Percent(40.),
+                        width: Val::Percent(IMAGE_GROUP_BOX_MAX_WIDTH),
+                        height: Val::Percent(IMAGE_GROUP_BOX_MAX_HEIGHT),
                         ..default()
                     },
                     BackgroundColor(Color::from(tailwind::BLUE_100)),
@@ -111,8 +117,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     Node {
                         display: Display::Flex,
                         justify_content: JustifyContent::Start,
-                        width: Val::Percent(100.),
-                        height: Val::Percent(40.),
+                        width: Val::Percent(IMAGE_GROUP_BOX_MAX_WIDTH),
+                        height: Val::Percent(IMAGE_GROUP_BOX_MAX_HEIGHT),
                         ..default()
                     },
                     BackgroundColor(Color::from(tailwind::BLUE_100)),
@@ -148,7 +154,7 @@ fn update(
         commands.trigger(TextUpdate {
             entity,
             direction: Direction::Height,
-            change: 1.,
+            change: MINIUM_RESIZE_VAL,
         });
     }
     if keycode.pressed(KeyCode::ArrowDown) {
@@ -156,23 +162,23 @@ fn update(
         commands.trigger(TextUpdate {
             entity,
             direction: Direction::Height,
-            change: -1.,
+            change: -MINIUM_RESIZE_VAL,
         });
     }
     if keycode.pressed(KeyCode::ArrowLeft) {
-        commands.trigger(ImageGroupResize::WidthGrow);
-        commands.trigger(TextUpdate {
-            entity,
-            direction: Direction::Width,
-            change: -1.,
-        });
-    }
-    if keycode.pressed(KeyCode::ArrowRight) {
         commands.trigger(ImageGroupResize::WidthShrink);
         commands.trigger(TextUpdate {
             entity,
             direction: Direction::Width,
-            change: 1.,
+            change: -MINIUM_RESIZE_VAL,
+        });
+    }
+    if keycode.pressed(KeyCode::ArrowRight) {
+        commands.trigger(ImageGroupResize::WidthGrow);
+        commands.trigger(TextUpdate {
+            entity,
+            direction: Direction::Width,
+            change: MINIUM_RESIZE_VAL,
         });
     }
 }
@@ -186,14 +192,16 @@ fn update_text(
     let mut new_text = Text::new(str);
     match event.direction {
         Direction::Height => {
-            textmeta.height = (textmeta.height + event.change).clamp(10.0, 40.0);
+            textmeta.height = (textmeta.height + event.change)
+                .clamp(IMAGE_GROUP_BOX_MIN_HEIGHT, IMAGE_GROUP_BOX_MAX_HEIGHT);
             new_text.push_str(&format!(
                 "height : {}%, width : {}%",
                 textmeta.height, textmeta.width
             ));
         }
         Direction::Width => {
-            textmeta.width = (textmeta.width + event.change).clamp(40.0, 100.0);
+            textmeta.width = (textmeta.width + event.change)
+                .clamp(IMAGE_GROUP_BOX_MIN_WIDTH, IMAGE_GROUP_BOX_MAX_WIDTH);
             new_text.push_str(&format!(
                 "height : {}%, width : {}%",
                 textmeta.height, textmeta.width
@@ -203,37 +211,31 @@ fn update_text(
     text.0 = new_text.0;
 }
 
-static MINIUM_RESIZE_VAL: f32 = 1.0;
-static IMAGEG_GROUP_BOX_MIN_WIDTH: f32 = 50.0;
-static IMAGEG_GROUP_BOX_MAX_WIDTH: f32 = 100.0;
-static IMAGEG_GROUP_BOX_MIN_HEIGHT: f32 = 10.0;
-static IMAGEG_GROUP_BOX_MAX_HEIGHT: f32 = 40.0;
-
 fn on_trigger_image_group(event: On<ImageGroupResize>, query: Query<&mut Node, With<ImageGroup>>) {
     for mut node in query {
         match event.event() {
             ImageGroupResize::HeightGrow => {
                 if let Val::Percent(val) = node.height {
-                    let new_val = (val + MINIUM_RESIZE_VAL).min(IMAGEG_GROUP_BOX_MAX_HEIGHT);
+                    let new_val = (val + MINIUM_RESIZE_VAL).min(IMAGE_GROUP_BOX_MAX_HEIGHT);
                     node.height = Val::Percent(new_val);
                 }
             }
             ImageGroupResize::HeightShrink => {
                 if let Val::Percent(val) = node.height {
-                    let new_val = (val - MINIUM_RESIZE_VAL).max(IMAGEG_GROUP_BOX_MIN_HEIGHT);
+                    let new_val = (val - MINIUM_RESIZE_VAL).max(IMAGE_GROUP_BOX_MIN_HEIGHT);
                     node.height = Val::Percent(new_val);
                 }
             }
             ImageGroupResize::WidthGrow => {
-                if let Val::Percent(val) = node.height {
-                    let new_val = (val + MINIUM_RESIZE_VAL).min(IMAGEG_GROUP_BOX_MAX_WIDTH);
-                    node.height = Val::Percent(new_val);
+                if let Val::Percent(val) = node.width {
+                    let new_val = (val + MINIUM_RESIZE_VAL).min(IMAGE_GROUP_BOX_MAX_WIDTH);
+                    node.width = Val::Percent(new_val);
                 }
             }
             ImageGroupResize::WidthShrink => {
-                if let Val::Percent(val) = node.height {
-                    let new_val = (val - MINIUM_RESIZE_VAL).max(IMAGEG_GROUP_BOX_MIN_WIDTH);
-                    node.height = Val::Percent(new_val);
+                if let Val::Percent(val) = node.width {
+                    let new_val = (val - MINIUM_RESIZE_VAL).max(IMAGE_GROUP_BOX_MIN_WIDTH);
+                    node.width = Val::Percent(new_val);
                 }
             }
         }
