@@ -555,6 +555,14 @@ impl Default for RemSize {
 /// Weights above 1000 are clamped to 1000.
 /// A weight of 0 is treated as [`FontWeight::DEFAULT`].
 ///
+/// Legacy names from when most fonts weren't variable fonts
+/// are included as const values, but are misleading if
+/// used in documentation and examples, as valid weights
+/// for variable fonts are all of the numbers from 1-1000, and
+/// not all fonts which are not variable fonts have those weights
+/// supplied. If you use a custom font that supplies only specific
+/// weights, that will be documented where you purchased the font.
+///
 /// `<https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Properties/font-weight>`
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Reflect)]
 pub struct FontWeight(pub u16);

@@ -428,11 +428,8 @@ impl<'a> IntoIterator for &'a DynamicTupleStruct {
 /// - [`PartialReflect::reflect_partial_eq`] returns `Some(true)` for pairwise fields of `a` and `b`.
 ///
 /// Returns [`None`] if the comparison couldn't even be performed.
-#[inline]
-pub fn tuple_struct_partial_eq<S: TupleStruct + ?Sized>(
-    a: &S,
-    b: &dyn PartialReflect,
-) -> Option<bool> {
+#[inline(never)]
+pub fn tuple_struct_partial_eq(a: &dyn TupleStruct, b: &dyn PartialReflect) -> Option<bool> {
     let ReflectRef::TupleStruct(tuple_struct) = b.reflect_ref() else {
         return Some(false);
     };
@@ -454,14 +451,13 @@ pub fn tuple_struct_partial_eq<S: TupleStruct + ?Sized>(
 
     Some(true)
 }
-
 /// Lexicographically compares two [`TupleStruct`] values and returns their ordering.
 ///
 /// Returns [`None`] if the comparison couldn't be performed (e.g., kinds mismatch
 /// or an element comparison returns `None`).
-#[inline]
-pub fn tuple_struct_partial_cmp<S: TupleStruct + ?Sized>(
-    a: &S,
+#[inline(never)]
+pub fn tuple_struct_partial_cmp(
+    a: &dyn TupleStruct,
     b: &dyn PartialReflect,
 ) -> Option<::core::cmp::Ordering> {
     let ReflectRef::TupleStruct(tuple_struct) = b.reflect_ref() else {

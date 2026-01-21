@@ -1944,6 +1944,17 @@ category = "Application"
 wasm = false
 
 [[example]]
+name = "externally_driven_headless_renderer"
+path = "examples/app/externally_driven_headless_renderer.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.externally_driven_headless_renderer]
+name = "Externally Driven Headless Renderer"
+description = "Using bevy with manually driven update to render images"
+category = "Application"
+wasm = false
+
+[[example]]
 name = "headless_renderer"
 path = "examples/app/headless_renderer.rs"
 # Causes an ICE on docs.rs
@@ -3384,6 +3395,18 @@ category = "Stress Tests"
 wasm = true
 
 [[example]]
+name = "many_animated_sprite_meshes"
+path = "examples/stress_tests/many_animated_sprite_meshes.rs"
+# Causes an ICE on docs.rs
+doc-scrape-examples = false
+
+[package.metadata.example.many_animated_sprite_meshes]
+name = "Many Animated Sprite Meshes"
+description = "Displays many animated sprite meshes in a grid arrangement with slight offsets to their animation timers. Used for performance testing."
+category = "Stress Tests"
+wasm = false
+
+[[example]]
 name = "many_buttons"
 path = "examples/stress_tests/many_buttons.rs"
 # Causes an ICE on docs.rs
@@ -3502,6 +3525,18 @@ name = "Many Sprites"
 description = "Displays many sprites in a grid arrangement! Used for performance testing. Use `--colored` to enable color tinted sprites."
 category = "Stress Tests"
 wasm = true
+
+[[example]]
+name = "many_sprite_meshes"
+path = "examples/stress_tests/many_sprite_meshes.rs"
+# Causes an ICE on docs.rs
+doc-scrape-examples = false
+
+[package.metadata.example.many_sprite_meshes]
+name = "Many Sprite Meshes"
+description = "Displays many sprite meshes in a grid arrangement! Used for performance testing. Use `--colored` to enable color tinted sprites."
+category = "Stress Tests"
+wasm = false
 
 [[example]]
 name = "many_text2d"
@@ -4149,6 +4184,18 @@ description = "Demonstrates how to create a viewport node with picking support"
 category = "UI (User Interface)"
 wasm = true
 
+[[example]]
+name = "image_node"
+path = "examples/ui/image_node.rs"
+# Causes an ICE on docs.rs
+doc-scrape-examples = false
+
+[package.metadata.example.image_node]
+name = "Image Node"
+description = "Demonstrates how to create a image node"
+category = "UI (User Interface)"
+wasm = true
+
 # Window
 [[example]]
 name = "clear_color"
@@ -4539,7 +4586,7 @@ doc-scrape-examples = false
 name = "glTF extension AnimationGraph"
 description = "Uses glTF data to build an AnimationGraph via extension processing"
 category = "glTF"
-wasm = false
+wasm = true
 
 [[example]]
 name = "gltf_extension_mesh_2d"
@@ -4551,7 +4598,7 @@ doc-scrape-examples = false
 name = "glTF extension processing to build Mesh2ds from glTF data"
 description = "Uses glTF extension data to convert incoming Mesh3d/MeshMaterial3d assets to 2d"
 category = "glTF"
-wasm = false
+wasm = true
 
 [[example]]
 name = "query_gltf_primitives"
@@ -5368,3 +5415,15 @@ name = "Dynamic Mipmap Generation"
 description = "Demonstrates use of the mipmap generation plugin to generate mipmaps for a texture"
 category = "2D Rendering"
 wasm = false
+
+[[example]]
+name = "pccm"
+path = "examples/3d/pccm.rs"
+doc-scrape-examples = true
+required-features = ["free_camera", "https"]
+
+[package.metadata.example.pccm]
+name = "Parallax-Corrected Cubemaps"
+description = "Demonstrates parallax-corrected cubemap reflections"
+category = "3D Rendering"
+wasm = true

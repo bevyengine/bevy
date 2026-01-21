@@ -39,89 +39,19 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     row_gap: px(8.),
                     ..default()
                 },
-                children![
-                    (
-                        Text::new("Weight 100 (Thin)"),
-                        TextFont {
-                            font: font.clone(),
-                            font_size: FontSize::Px(32.0),
-                            weight: FontWeight::THIN, // 100
-                            ..default()
-                        },
-                    ),
-                    (
-                        Text::new("Weight 200 (Extra Light)"),
-                        TextFont {
-                            font: font.clone(),
-                            font_size: FontSize::Px(32.0),
-                            weight: FontWeight::EXTRA_LIGHT, // 200
-                            ..default()
-                        },
-                    ),
-                    (
-                        Text::new("Weight 300 (Light)"),
-                        TextFont {
-                            font: font.clone(),
-                            font_size: FontSize::Px(32.0),
-                            weight: FontWeight::LIGHT, // 300
-                            ..default()
-                        },
-                    ),
-                    (
-                        Text::new("Weight 400 (Normal)"),
-                        TextFont {
-                            font: font.clone(),
-                            font_size: FontSize::Px(32.0),
-                            weight: FontWeight::NORMAL, // 400
-                            ..default()
-                        },
-                    ),
-                    (
-                        Text::new("Weight 500 (Medium)"),
-                        TextFont {
-                            font: font.clone(),
-                            font_size: FontSize::Px(32.0),
-                            weight: FontWeight::MEDIUM, // 500
-                            ..default()
-                        },
-                    ),
-                    (
-                        Text::new("Weight 600 (Semibold)"),
-                        TextFont {
-                            font: font.clone(),
-                            font_size: FontSize::Px(32.0),
-                            weight: FontWeight::SEMIBOLD, // 600
-                            ..default()
-                        },
-                    ),
-                    (
-                        Text::new("Weight 700 (Bold)"),
-                        TextFont {
-                            font: font.clone(),
-                            font_size: FontSize::Px(32.0),
-                            weight: FontWeight::BOLD, // 700
-                            ..default()
-                        },
-                    ),
-                    (
-                        Text::new("Weight 800 (Extra Bold)"),
-                        TextFont {
-                            font: font.clone(),
-                            font_size: FontSize::Px(32.0),
-                            weight: FontWeight::EXTRA_BOLD, // 800
-                            ..default()
-                        },
-                    ),
-                    (
-                        Text::new("Weight 900 (Black)"),
-                        TextFont {
-                            font: font.clone(),
-                            font_size: FontSize::Px(32.0),
-                            weight: FontWeight::BLACK, // 900
-                            ..default()
-                        },
-                    ),
-                ]
+                Children::spawn(SpawnIter(
+                    [100, 134, 200, 300, 400, 500, 600, 700, 800, 900, 950]
+                        .into_iter()
+                        .map(move |weight| (
+                            Text(format!("Weight {weight}")),
+                            TextFont {
+                                font: font.clone(),
+                                font_size: FontSize::Px(32.0),
+                                weight: FontWeight(weight),
+                                ..default()
+                            },
+                        ))
+                ))
             ),
         ],
     ));
