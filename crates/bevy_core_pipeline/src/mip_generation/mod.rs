@@ -426,7 +426,7 @@ impl Node for MipGenerationNode {
             };
             let Some(mip_generation_pipelines) = mip_generation_bind_groups
                 .pipelines
-                .get(&gpu_image.texture_format)
+                .get(&gpu_image.texture_descriptor.format)
             else {
                 continue;
             };
@@ -458,8 +458,8 @@ impl Node for MipGenerationNode {
                     &[],
                 );
                 compute_pass_1.dispatch_workgroups(
-                    gpu_image.size.width.div_ceil(64),
-                    gpu_image.size.height.div_ceil(64),
+                    gpu_image.texture_descriptor.size.width.div_ceil(64),
+                    gpu_image.texture_descriptor.size.height.div_ceil(64),
                     1,
                 );
                 pass_span.end(&mut compute_pass_1);
@@ -482,8 +482,8 @@ impl Node for MipGenerationNode {
                     &[],
                 );
                 compute_pass_2.dispatch_workgroups(
-                    gpu_image.size.width.div_ceil(256),
-                    gpu_image.size.height.div_ceil(256),
+                    gpu_image.texture_descriptor.size.width.div_ceil(256),
+                    gpu_image.texture_descriptor.size.height.div_ceil(256),
                     1,
                 );
                 pass_span.end(&mut compute_pass_2);
@@ -538,7 +538,7 @@ fn prepare_mip_generator_pipelines(
                 &pipeline_cache,
                 &downsample_shaders,
                 &mut mip_generation_pipelines.pipelines,
-                gpu_image.texture_format,
+                gpu_image.texture_descriptor.format,
                 mip_generation_job,
                 combine_downsampling_bind_groups,
             ) else {
@@ -786,7 +786,7 @@ fn create_downsampling_bind_groups(
         label: Some("mip generation input texture view, pass 2"),
         format: Some(gpu_image.texture.format()),
         dimension: Some(TextureViewDimension::D2),
-        base_mip_level: gpu_image.mip_level_count.min(6),
+        base_mip_level: gpu_image.texture_descriptor.mip_level_count.min(6),
         mip_level_count: Some(1),
         ..default()
     });
@@ -892,10 +892,10 @@ fn create_downsampling_constants_buffer(
     gpu_image: &GpuImage,
 ) -> UniformBuffer<DownsamplingConstants> {
     let downsampling_constants = DownsamplingConstants {
-        mips: gpu_image.mip_level_count,
+        mips: gpu_image.texture_descriptor.mip_level_count,
         inverse_input_size: vec2(
-            1.0 / gpu_image.size.width as f32,
-            1.0 / gpu_image.size.height as f32,
+            1.0 / gpu_image.texture_descriptor.size.width as f32,
+            1.0 / gpu_image.texture_descriptor.size.height as f32,
         ),
         _padding: 0,
     };
@@ -914,13 +914,13 @@ fn get_mip_storage_view(
 ) -> TextureView {
     // If `level` represents an actual mip level of the image, return a view to
     // it.
-    if level < gpu_image.mip_level_count {
+    if level < gpu_image.texture_descriptor.mip_level_count {
         return gpu_image.texture.create_view(&TextureViewDescriptor {
             label: Some(&*format!(
                 "mip downsampling storage view {}/{}",
-                level, gpu_image.mip_level_count
+                level, gpu_image.texture_descriptor.mip_level_count
             )),
-            format: Some(gpu_image.texture_format),
+            format: Some(gpu_image.texture_descriptor.format),
             dimension: Some(TextureViewDimension::D2),
             aspect: TextureAspect::All,
             base_mip_level: level,
@@ -936,7 +936,7 @@ fn get_mip_storage_view(
     let dummy_texture = render_device.create_texture(&TextureDescriptor {
         label: Some(&*format!(
             "mip downsampling dummy storage view {}/{}",
-            level, gpu_image.mip_level_count
+            level, gpu_image.texture_descriptor.mip_level_count
         )),
         size: Extent3d {
             width: 1,
@@ -946,7 +946,7 @@ fn get_mip_storage_view(
         mip_level_count: 1,
         sample_count: 1,
         dimension: TextureDimension::D2,
-        format: gpu_image.texture_format,
+        format: gpu_image.texture_descriptor.format,
         usage: TextureUsages::STORAGE_BINDING | TextureUsages::TEXTURE_BINDING,
         view_formats: &[],
     });
