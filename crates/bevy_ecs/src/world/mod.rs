@@ -1026,7 +1026,7 @@ impl World {
         let raw_queue = unsafe { cell.get_raw_command_queue() };
         // SAFETY: `&mut self` ensures the commands does not outlive the world.
         let commands = unsafe {
-            Commands::new_raw_from_entities(raw_queue, cell.entities_allocator(), cell.entities())
+            Commands::new_raw_from_entities(raw_queue, cell.entity_allocator(), cell.entities())
         };
 
         (fetcher, commands)
