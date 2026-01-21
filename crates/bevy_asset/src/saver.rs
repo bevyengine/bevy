@@ -34,7 +34,7 @@ pub trait AssetSaver: TypePath + Send + Sync + 'static {
     /// The type of [`AssetLoader`] used to load this [`Asset`]
     type OutputLoader: AssetLoader;
     /// The type of [error](`std::error::Error`) which could be encountered by this saver.
-    type Error: Into<Box<dyn core::error::Error + Send + Sync + 'static>>;
+    type Error: Into<BevyError>;
 
     /// Saves the given runtime [`Asset`] by writing it to a byte format using `writer`. The passed in `settings` can influence how the
     /// `asset` is saved.
@@ -57,7 +57,7 @@ pub trait ErasedAssetSaver: Send + Sync + 'static {
         writer: &'a mut Writer,
         asset: &'a ErasedLoadedAsset,
         settings: &'a dyn Settings,
-    ) -> BoxedFuture<'a, Result<(), Box<dyn core::error::Error + Send + Sync + 'static>>>;
+    ) -> BoxedFuture<'a, Result<(), BevyError>>;
 
     /// The type name of the [`AssetSaver`].
     fn type_name(&self) -> &'static str;
@@ -69,7 +69,7 @@ impl<S: AssetSaver> ErasedAssetSaver for S {
         writer: &'a mut Writer,
         asset: &'a ErasedLoadedAsset,
         settings: &'a dyn Settings,
-    ) -> BoxedFuture<'a, Result<(), Box<dyn core::error::Error + Send + Sync + 'static>>> {
+    ) -> BoxedFuture<'a, Result<(), BevyError>> {
         Box::pin(async move {
             let settings = settings
                 .downcast_ref::<S::Settings>()
@@ -423,7 +423,7 @@ pub async fn save_using_saver<S: AssetSaver>(
     let loader_settings = saver
         .save(&mut file_writer, asset, settings)
         .await
-        .map_err(|err| SaveAssetError::SaverError(Arc::new(err.into().into())))?;
+        .map_err(|err| SaveAssetError::SaverError(Arc::new(err.into())))?;
 
     file_writer.flush().await.map_err(AssetWriterError::Io)?;
 
