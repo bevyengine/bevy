@@ -893,11 +893,13 @@ impl AssetServer {
                 Ok(final_handle)
             }
             Err(err) => {
-                self.send_asset_event(InternalAssetEvent::Failed {
-                    index: base_asset_id,
-                    error: err.clone(),
-                    path: path.into_owned(),
-                });
+                if let Some(asset_id) = asset_id {
+                    self.send_asset_event(InternalAssetEvent::Failed {
+                        index: asset_id,
+                        error: err.clone(),
+                        path: path.into_owned(),
+                    });
+                }
                 Err(err)
             }
         }

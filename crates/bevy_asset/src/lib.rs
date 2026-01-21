@@ -3062,8 +3062,7 @@ mod tests {
         test_load_state::<CoolText>(
             "sub-asset of malformed root asset",
             "malformed.cool.ron#subasset",
-            // XXX TODO: This is broken.
-            TestLoadState::Loading,
+            TestLoadState::Failed(TestAssetLoadError::AssetLoaderError),
         );
 
         test_load_state::<LoaderlessAsset>(
