@@ -3,9 +3,19 @@ use crate::io::{
     Reader, ReaderNotSeekableError, SeekableReader, Writer,
 };
 use async_fs::{read_dir, File};
+#[cfg(not(target_os = "windows"))]
+use async_io::Timer;
+#[cfg(not(target_os = "windows"))]
+use async_lock::{Semaphore, SemaphoreGuard};
 use futures_lite::StreamExt;
 
 use alloc::{borrow::ToOwned, boxed::Box};
+#[cfg(target_os = "windows")]
+use core::marker::PhantomData;
+#[cfg(not(target_os = "windows"))]
+use core::time::Duration;
+#[cfg(not(target_os = "windows"))]
+use futures_util::{future, pin_mut};
 use std::path::Path;
 
 use super::{FileAssetReader, FileAssetWriter};
@@ -16,28 +26,97 @@ impl Reader for File {
     }
 }
 
+// Set to OS default limit / 2
+// macos & ios: 256
+// linux & android: 1024
+#[cfg(any(target_os = "macos", target_os = "ios"))]
+static OPEN_FILE_LIMITER: Semaphore = Semaphore::new(128);
+#[cfg(not(any(target_os = "macos", target_os = "ios", target_os = "windows")))]
+static OPEN_FILE_LIMITER: Semaphore = Semaphore::new(512);
+
+#[cfg(not(target_os = "windows"))]
+async fn maybe_get_semaphore<'a>() -> Option<SemaphoreGuard<'a>> {
+    let guard_future = OPEN_FILE_LIMITER.acquire();
+    let timeout_future = Timer::after(Duration::from_millis(500));
+    pin_mut!(guard_future);
+    pin_mut!(timeout_future);
+
+    match future::select(guard_future, timeout_future).await {
+        future::Either::Left((guard, _)) => Some(guard),
+        future::Either::Right((_, _)) => None,
+    }
+}
+
+struct GuardedFile<'a> {
+    file: File,
+    #[cfg(not(target_os = "windows"))]
+    _guard: Option<SemaphoreGuard<'a>>,
+    #[cfg(target_os = "windows")]
+    _lifetime: PhantomData<&'a ()>,
+}
+
+impl<'a> futures_io::AsyncRead for GuardedFile<'a> {
+    fn poll_read(
+        mut self: core::pin::Pin<&mut Self>,
+        cx: &mut core::task::Context<'_>,
+        buf: &mut [u8],
+    ) -> core::task::Poll<std::io::Result<usize>> {
+        core::pin::Pin::new(&mut self.file).poll_read(cx, buf)
+    }
+}
+
+impl<'a> Reader for GuardedFile<'a> {
+    fn seekable(&mut self) -> Result<&mut dyn SeekableReader, ReaderNotSeekableError> {
+        self.file.seekable()
+    }
+}
+
 impl AssetReader for FileAssetReader {
     async fn read<'a>(&'a self, path: &'a Path) -> Result<impl Reader + 'a, AssetReaderError> {
+        #[cfg(not(target_os = "windows"))]
+        let _guard = maybe_get_semaphore().await;
+
         let full_path = self.root_path.join(path);
-        File::open(&full_path).await.map_err(|e| {
-            if e.kind() == std::io::ErrorKind::NotFound {
-                AssetReaderError::NotFound(full_path)
-            } else {
-                e.into()
-            }
-        })
+        File::open(&full_path)
+            .await
+            .map_err(|e| {
+                if e.kind() == std::io::ErrorKind::NotFound {
+                    AssetReaderError::NotFound(full_path)
+                } else {
+                    e.into()
+                }
+            })
+            .map(|file| GuardedFile {
+                file,
+                #[cfg(not(target_os = "windows"))]
+                _guard,
+                #[cfg(target_os = "windows")]
+                _lifetime: PhantomData::default(),
+            })
     }
 
     async fn read_meta<'a>(&'a self, path: &'a Path) -> Result<impl Reader + 'a, AssetReaderError> {
+        #[cfg(not(target_os = "windows"))]
+        let _guard = maybe_get_semaphore().await;
+
         let meta_path = get_meta_path(path);
         let full_path = self.root_path.join(meta_path);
-        File::open(&full_path).await.map_err(|e| {
-            if e.kind() == std::io::ErrorKind::NotFound {
-                AssetReaderError::NotFound(full_path)
-            } else {
-                e.into()
-            }
-        })
+        File::open(&full_path)
+            .await
+            .map_err(|e| {
+                if e.kind() == std::io::ErrorKind::NotFound {
+                    AssetReaderError::NotFound(full_path)
+                } else {
+                    e.into()
+                }
+            })
+            .map(|file| GuardedFile {
+                file,
+                #[cfg(not(target_os = "windows"))]
+                _guard,
+                #[cfg(target_os = "windows")]
+                _lifetime: PhantomData::default(),
+            })
     }
 
     async fn read_directory<'a>(
