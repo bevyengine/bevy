@@ -13,50 +13,7 @@ fn main() {
         })
         .add_systems(Startup, setup)
         .add_systems(Update, update)
-        // Add observer for enlarge ImageGroup height.
-        .add_observer(
-            |_: On<ImageGroupHeightEnlarge>, query: Query<&mut Node, With<ImageGroup>>| {
-                for mut node in query {
-                    if let Val::Percent(val) = node.height {
-                        let new_val = (val + 1.).min(40.0);
-                        node.height = Val::Percent(new_val);
-                    }
-                }
-            },
-        )
-        // Add observer for earrow ImageGroup height.
-        .add_observer(
-            |_: On<ImageGroupHeightNarrow>, query: Query<&mut Node, With<ImageGroup>>| {
-                for mut node in query {
-                    if let Val::Percent(val) = node.height {
-                        let new_val = (val - 1.).max(10.);
-                        node.height = Val::Percent(new_val);
-                    }
-                }
-            },
-        )
-        // Add observer for enlarge ImageGroup width.
-        .add_observer(
-            |_: On<ImageGroupWidthEnlarge>, query: Query<&mut Node, With<ImageGroup>>| {
-                for mut node in query {
-                    if let Val::Percent(val) = node.width {
-                        let new_val = (val - 1.).max(40.);
-                        node.width = Val::Percent(new_val);
-                    }
-                }
-            },
-        )
-        // Add observer for earrow ImageGroup width.
-        .add_observer(
-            |_: On<ImageGroupWidthNarrow>, query: Query<&mut Node, With<ImageGroup>>| {
-                for mut node in query {
-                    if let Val::Percent(val) = node.width {
-                        let new_val = (val + 1.).min(100.);
-                        node.width = Val::Percent(new_val);
-                    }
-                }
-            },
-        )
+        .add_observer(on_trigger_image_group)
         .run();
 }
 
@@ -64,16 +21,12 @@ fn main() {
 struct ImageGroup;
 
 #[derive(Debug, Event)]
-struct ImageGroupHeightEnlarge;
-
-#[derive(Debug, Event)]
-struct ImageGroupHeightNarrow;
-
-#[derive(Debug, Event)]
-struct ImageGroupWidthEnlarge;
-
-#[derive(Debug, Event)]
-struct ImageGroupWidthNarrow;
+enum ImageGroupResize {
+    HeightGrow,
+    HeightShrink,
+    WidthGrow,
+    WidthShrink,
+}
 
 #[derive(Debug, Component)]
 struct TextMeta {
@@ -191,7 +144,7 @@ fn update(
 ) {
     let entity = query.single().unwrap();
     if keycode.pressed(KeyCode::ArrowUp) {
-        commands.trigger(ImageGroupHeightEnlarge);
+        commands.trigger(ImageGroupResize::HeightGrow);
         commands.trigger(TextUpdate {
             entity,
             direction: Direction::Height,
@@ -199,7 +152,7 @@ fn update(
         });
     }
     if keycode.pressed(KeyCode::ArrowDown) {
-        commands.trigger(ImageGroupHeightNarrow);
+        commands.trigger(ImageGroupResize::HeightShrink);
         commands.trigger(TextUpdate {
             entity,
             direction: Direction::Height,
@@ -207,7 +160,7 @@ fn update(
         });
     }
     if keycode.pressed(KeyCode::ArrowLeft) {
-        commands.trigger(ImageGroupWidthEnlarge);
+        commands.trigger(ImageGroupResize::WidthGrow);
         commands.trigger(TextUpdate {
             entity,
             direction: Direction::Width,
@@ -215,7 +168,7 @@ fn update(
         });
     }
     if keycode.pressed(KeyCode::ArrowRight) {
-        commands.trigger(ImageGroupWidthNarrow);
+        commands.trigger(ImageGroupResize::WidthShrink);
         commands.trigger(TextUpdate {
             entity,
             direction: Direction::Width,
@@ -248,4 +201,41 @@ fn update_text(
         }
     }
     text.0 = new_text.0;
+}
+
+static MINIUM_RESIZE_VAL: f32 = 1.0;
+static IMAGEG_GROUP_BOX_MIN_WIDTH: f32 = 50.0;
+static IMAGEG_GROUP_BOX_MAX_WIDTH: f32 = 100.0;
+static IMAGEG_GROUP_BOX_MIN_HEIGHT: f32 = 10.0;
+static IMAGEG_GROUP_BOX_MAX_HEIGHT: f32 = 40.0;
+
+fn on_trigger_image_group(event: On<ImageGroupResize>, query: Query<&mut Node, With<ImageGroup>>) {
+    for mut node in query {
+        match event.event() {
+            ImageGroupResize::HeightGrow => {
+                if let Val::Percent(val) = node.height {
+                    let new_val = (val + MINIUM_RESIZE_VAL).min(IMAGEG_GROUP_BOX_MAX_HEIGHT);
+                    node.height = Val::Percent(new_val);
+                }
+            }
+            ImageGroupResize::HeightShrink => {
+                if let Val::Percent(val) = node.height {
+                    let new_val = (val - MINIUM_RESIZE_VAL).max(IMAGEG_GROUP_BOX_MIN_HEIGHT);
+                    node.height = Val::Percent(new_val);
+                }
+            }
+            ImageGroupResize::WidthGrow => {
+                if let Val::Percent(val) = node.height {
+                    let new_val = (val + MINIUM_RESIZE_VAL).min(IMAGEG_GROUP_BOX_MAX_WIDTH);
+                    node.height = Val::Percent(new_val);
+                }
+            }
+            ImageGroupResize::WidthShrink => {
+                if let Val::Percent(val) = node.height {
+                    let new_val = (val - MINIUM_RESIZE_VAL).max(IMAGEG_GROUP_BOX_MIN_WIDTH);
+                    node.height = Val::Percent(new_val);
+                }
+            }
+        }
+    }
 }
