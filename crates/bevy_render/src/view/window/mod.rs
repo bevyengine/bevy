@@ -330,9 +330,7 @@ pub fn need_surface_configuration(
                 != (window_surfaces
                     .surfaces
                     .get(&window.entity)
-                    .map_or(false, |data| {
-                        data.configuration.format == TextureFormat::Rgba16Float
-                    }))
+                    .is_some_and(|data| data.configuration.format == TextureFormat::Rgba16Float))
         {
             return true;
         }
