@@ -149,12 +149,14 @@ impl Chunk {
     /// Index must be in bounds.
     /// There must be a clear, strict order between this call and the previous uses of this `index`.
     /// Otherwise, the compiler will make unsound optimizations.
+    /// This must not be called on the same chunk concurrently.
     #[inline]
     unsafe fn set(&self, index: u32, entity: Entity, chunk_capacity: u32) {
         // Relaxed is fine here since the caller ensures memory ordering.
         let ptr = self.first.load(Ordering::Relaxed);
         let head = if ptr.is_null() {
-            self.init(chunk_capacity)
+            // SAFETY: Ensured by caller.
+            unsafe { self.init(chunk_capacity) }
         } else {
             ptr
         };
@@ -165,7 +167,10 @@ impl Chunk {
         // For that to happen, you would first run out of memory in practice.
         let target = unsafe { &*head.add(index as usize) };
 
-        target.set_entity(entity);
+        // SAFETY: Ensured by caller.
+        unsafe {
+            target.set_entity(entity);
+        }
     }
 
     /// Initializes the chunk to be valid, returning the pointer.
@@ -272,6 +277,7 @@ impl FreeBuffer {
     ///
     /// There must be a clear, strict order between this call and the previous uses of this `full_index`.
     /// Otherwise, the compiler will make unsound optimizations.
+    /// This must not be called on the same buffer concurrently.
     #[inline]
     unsafe fn set(&self, full_index: u32, entity: Entity) {
         let (chunk, index, chunk_capacity) = self.index_in_chunk(full_index);
@@ -529,6 +535,7 @@ impl FreeList {
         let len = state.length();
         // SAFETY: Caller ensures this does not conflict with `free` or `alloc` calls,
         // and we just disabled remote allocation with a strict memory ordering.
+        // We only call `set` during a free, and the caller ensures that is not called concurrently.
         unsafe {
             self.buffer.set(len, entity);
         }
@@ -615,7 +622,7 @@ impl FreeList {
                 #[cfg(feature = "std")]
                 {
                     attempts += 1;
-                    if attempts % 64 == 0 {
+                    if attempts.is_multiple_of(64) {
                         // scheduler probably isn't running the thread doing the `free` call, so yield so it can finish.
                         std::thread::yield_now();
                     } else {
@@ -786,7 +793,8 @@ impl SharedAllocator {
     /// This must not conflict with [`FreeList::free`] calls for the duration of the iterator.
     #[inline]
     unsafe fn alloc_many(&self, count: u32) -> AllocEntitiesIterator<'_> {
-        let reused = self.free.alloc_many(count);
+        // SAFETY: Ensured by caller.
+        let reused = unsafe { self.free.alloc_many(count) };
         let still_need = count - reused.len() as u32;
         let new = self.fresh.alloc_many(still_need);
         AllocEntitiesIterator { new, reused }
