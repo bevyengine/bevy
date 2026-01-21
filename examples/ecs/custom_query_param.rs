@@ -193,6 +193,7 @@ fn print_components_tuple(
         println!("Nested: {:?} {:?}", nested.0, nested.1);
         println!("Generic: {generic_c:?} {generic_d:?}");
     }
+    println!();
 }
 
 /// If you are going to contiguously iterate the data in a query, you must mark it with the `contiguous` attribute,
@@ -213,7 +214,7 @@ struct CustomContiguousQuery<T: Component + Debug, P: Component + Debug> {
 
 fn print_components_contiguous_iter(query: Query<CustomContiguousQuery<ComponentC, ComponentD>>) {
     println!("Print components (contiguous_iter):");
-    for e in query.iter().as_contiguous_iter().unwrap() {
+    for e in query.contiguous_iter().unwrap() {
         let e: CustomContiguousQueryContiguousItem<'_, '_, _, _> = e;
         for i in 0..e.entity.len() {
             println!("Entity: {:?}", e.entity[i]);

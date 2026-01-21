@@ -102,7 +102,6 @@ fn contiguous_query_data_impl(
                 _state: &'__s <Self as #path::query::WorldQuery>::State,
                 _fetch: &mut <Self as #path::query::WorldQuery>::Fetch<'__w>,
                 _entities: &'__w [#path::entity::Entity],
-                _offset: usize,
             ) -> Self::Contiguous<'__w, '__s> {
                 #contiguous_item_struct_name {
                     #(
@@ -111,7 +110,6 @@ fn contiguous_query_data_impl(
                             &_state.#field_aliases,
                             &mut _fetch.#field_aliases,
                             _entities,
-                            _offset,
                         ),
                     )*
                 }

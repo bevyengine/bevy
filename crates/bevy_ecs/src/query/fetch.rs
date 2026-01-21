@@ -413,13 +413,11 @@ pub unsafe trait ContiguousQueryData: ArchetypeQueryData {
     /// - Must always be called _after_ [`WorldQuery::set_table`].
     /// - `entities`'s length must match the length of the set table.
     /// - `entities` must match the entities of the set table.
-    /// - `offset` must be less than the length of the set table.
     /// - There must not be simultaneous conflicting component access registered in `update_component_access`.
     unsafe fn fetch_contiguous<'w, 's>(
         state: &'s Self::State,
         fetch: &mut Self::Fetch<'w>,
         entities: &'w [Entity],
-        offset: usize,
     ) -> Self::Contiguous<'w, 's>;
 }
 
@@ -554,9 +552,8 @@ unsafe impl ContiguousQueryData for Entity {
         _state: &'s Self::State,
         _fetch: &mut Self::Fetch<'w>,
         entities: &'w [Entity],
-        offset: usize,
     ) -> Self::Contiguous<'w, 's> {
-        &entities[offset..]
+        &entities
     }
 }
 
@@ -1815,7 +1812,6 @@ unsafe impl<T: Component> ContiguousQueryData for &T {
         _state: &'s Self::State,
         fetch: &mut Self::Fetch<'w>,
         entities: &'w [Entity],
-        offset: usize,
     ) -> Self::Contiguous<'w, 's> {
         fetch.components.extract(
             |table| {
@@ -1826,7 +1822,7 @@ unsafe impl<T: Component> ContiguousQueryData for &T {
                 let table = table.cast();
                 // SAFETY: Caller ensures `rows` is the amount of rows in the table
                 let item = unsafe { table.as_slice_unchecked(entities.len()) };
-                &item[offset..]
+                item
             },
             |_| {
                 #[cfg(debug_assertions)]
@@ -2074,7 +2070,6 @@ unsafe impl<T: Component> ContiguousQueryData for Ref<'_, T> {
         _state: &'s Self::State,
         fetch: &mut Self::Fetch<'w>,
         entities: &'w [Entity],
-        offset: usize,
     ) -> Self::Contiguous<'w, 's> {
         fetch.components.extract(
             |table| {
@@ -2083,12 +2078,12 @@ unsafe impl<T: Component> ContiguousQueryData for Ref<'_, T> {
                     unsafe { table.debug_checked_unwrap() };
 
                 (
-                    &table_components.cast().as_slice_unchecked(entities.len())[offset..],
+                    table_components.cast().as_slice_unchecked(entities.len()),
                     ContiguousComponentTicks::<'w, false>::new(
-                        added_ticks.add_unchecked(offset),
-                        changed_ticks.add_unchecked(offset),
-                        callers.map(|callers| callers.add_unchecked(offset)),
-                        entities.len() - offset,
+                        added_ticks,
+                        changed_ticks,
+                        callers,
+                        entities.len(),
                         fetch.last_run,
                         fetch.this_run,
                     ),
@@ -2328,7 +2323,6 @@ unsafe impl<T: Component<Mutability = Mutable>> ContiguousQueryData for &mut T {
         _state: &'s Self::State,
         fetch: &mut Self::Fetch<'w>,
         entities: &'w [Entity],
-        offset: usize,
     ) -> Self::Contiguous<'w, 's> {
         fetch.components.extract(
             |table| {
@@ -2337,12 +2331,12 @@ unsafe impl<T: Component<Mutability = Mutable>> ContiguousQueryData for &mut T {
                     unsafe { table.debug_checked_unwrap() };
 
                 (
-                    &mut table_components.as_mut_slice_unchecked(entities.len())[offset..],
+                    table_components.as_mut_slice_unchecked(entities.len()),
                     ContiguousComponentTicks::<'w, true>::new(
-                        added_ticks.add_unchecked(offset),
-                        changed_ticks.add_unchecked(offset),
-                        callers.map(|callers| callers.add_unchecked(offset)),
-                        entities.len() - offset,
+                        added_ticks,
+                        changed_ticks,
+                        callers,
+                        entities.len(),
                         fetch.last_run,
                         fetch.this_run,
                     ),
@@ -2485,9 +2479,8 @@ unsafe impl<'__w, T: Component<Mutability = Mutable>> ContiguousQueryData for Mu
         state: &'s Self::State,
         fetch: &mut Self::Fetch<'w>,
         entities: &'w [Entity],
-        offset: usize,
     ) -> Self::Contiguous<'w, 's> {
-        <&mut T as ContiguousQueryData>::fetch_contiguous(state, fetch, entities, offset)
+        <&mut T as ContiguousQueryData>::fetch_contiguous(state, fetch, entities)
     }
 }
 
@@ -2656,12 +2649,11 @@ unsafe impl<T: ContiguousQueryData> ContiguousQueryData for Option<T> {
         state: &'s Self::State,
         fetch: &mut Self::Fetch<'w>,
         entities: &'w [Entity],
-        offset: usize,
     ) -> Self::Contiguous<'w, 's> {
         fetch
             .matches
             // SAFETY: The invariants are upheld by the caller
-            .then(|| unsafe { T::fetch_contiguous(state, &mut fetch.fetch, entities, offset) })
+            .then(|| unsafe { T::fetch_contiguous(state, &mut fetch.fetch, entities) })
     }
 }
 
@@ -2851,7 +2843,6 @@ unsafe impl<T: Component> ContiguousQueryData for Has<T> {
         _state: &'s Self::State,
         fetch: &mut Self::Fetch<'w>,
         _entities: &'w [Entity],
-        _offset: usize,
     ) -> Self::Contiguous<'w, 's> {
         *fetch
     }
@@ -2973,12 +2964,11 @@ macro_rules! impl_tuple_query_data {
                 state: &'s Self::State,
                 fetch: &mut Self::Fetch<'w>,
                 entities: &'w [Entity],
-                offset: usize,
             ) -> Self::Contiguous<'w, 's> {
                 let ($($state,)*) = state;
                 let ($($name,)*) = fetch;
                 // SAFETY: The invariants are upheld by the caller.
-                ($(unsafe {$name::fetch_contiguous($state, $name, entities, offset)},)*)
+                ($(unsafe {$name::fetch_contiguous($state, $name, entities)},)*)
             }
         }
     };
@@ -3209,14 +3199,13 @@ macro_rules! impl_anytuple_fetch {
                 state: &'s Self::State,
                 fetch: &mut Self::Fetch<'w>,
                 entities: &'w [Entity],
-                offset: usize,
             ) -> Self::Contiguous<'w, 's> {
                 let ($($name,)*) = fetch;
                 let ($($state,)*) = state;
                 // Matches the [`QueryData::fetch`] except it always returns Some
                 ($(
                     // SAFETY: The invariants are upheld by the caller
-                    $name.1.then(|| unsafe { $name::fetch_contiguous($state, &mut $name.0, entities, offset) }),
+                    $name.1.then(|| unsafe { $name::fetch_contiguous($state, &mut $name.0, entities) }),
                 )*)
             }
         }
@@ -3759,16 +3748,14 @@ mod tests {
         world.spawn(C(2));
 
         let mut query = world.query::<(&C, &D)>();
-        let mut iter = query.iter(&world);
-        let mut iter = iter.as_contiguous_iter().unwrap();
+        let mut iter = query.contiguous_iter(&world).unwrap();
         let c = iter.next().unwrap();
         assert_eq!(c.0, [C(0), C(1)].as_slice());
         assert_eq!(c.1, [D(true), D(false)].as_slice());
         assert!(iter.next().is_none());
 
         let mut query = world.query::<&C>();
-        let mut iter = query.iter(&world);
-        let mut iter = iter.as_contiguous_iter().unwrap();
+        let mut iter = query.contiguous_iter(&world).unwrap();
         let mut present = [false; 3];
         let mut len = 0;
         for _ in 0..2 {
@@ -3783,8 +3770,7 @@ mod tests {
         assert_eq!(present, [true; 3]);
 
         let mut query = world.query::<&mut C>();
-        let mut iter = query.iter_mut(&mut world);
-        let mut iter = iter.as_contiguous_iter().unwrap();
+        let mut iter = query.contiguous_iter_mut(&mut world).unwrap();
         for _ in 0..2 {
             let mut c = iter.next().unwrap();
             for c in c.0 {
@@ -3793,8 +3779,7 @@ mod tests {
             c.1.mark_all_as_updated();
         }
         assert!(iter.next().is_none());
-        let mut iter = query.iter(&world);
-        let mut iter = iter.as_contiguous_iter().unwrap();
+        let mut iter = query.contiguous_iter(&world).unwrap();
         let mut present = [false; 6];
         let mut len = 0;
         for _ in 0..2 {
@@ -3808,8 +3793,7 @@ mod tests {
         assert_eq!(len, 3);
 
         let mut query = world.query_filtered::<&C, Without<D>>();
-        let mut iter = query.iter(&world);
-        let mut iter = iter.as_contiguous_iter().unwrap();
+        let mut iter = query.contiguous_iter(&world).unwrap();
         assert_eq!(iter.next().unwrap(), &[C(4)]);
         assert!(iter.next().is_none());
     }
@@ -3824,9 +3808,8 @@ mod tests {
         world.spawn(S(0));
 
         let mut query = world.query::<&mut S>();
-        let mut iter = query.iter_mut(&mut world);
-        assert!(iter.as_contiguous_iter().is_none());
-        assert_eq!(iter.next().unwrap().as_ref(), &S(0));
+        let iter = query.contiguous_iter_mut(&mut world);
+        assert!(iter.is_none());
     }
 
     #[test]
@@ -3844,10 +3827,10 @@ mod tests {
         world.spawn(());
 
         let mut query = world.query::<AnyOf<(&C, &D)>>();
-        let mut iter = query.iter(&world);
+        let iter = query.contiguous_iter(&world).unwrap();
         let mut present = [false; 4];
 
-        for (c, d) in iter.as_contiguous_iter().unwrap() {
+        for (c, d) in iter {
             assert!(c.is_some() || d.is_some());
             let c = c.unwrap_or(&[]);
             let d = d.unwrap_or(&[]);
@@ -3882,10 +3865,10 @@ mod tests {
         world.spawn(C(3));
 
         let mut query = world.query::<(Option<&C>, &D)>();
-        let mut iter = query.iter(&world);
+        let iter = query.contiguous_iter(&world).unwrap();
         let mut present = [false; 3];
 
-        for (c, d) in iter.as_contiguous_iter().unwrap() {
+        for (c, d) in iter {
             let c = c.unwrap_or(&[]);
             for i in 0..d.len() {
                 let c = c.get(i).cloned();

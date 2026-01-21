@@ -5,8 +5,9 @@ use crate::{
     change_detection::Tick,
     entity::{Entity, EntityEquivalent, EntitySet, UniqueEntityArray},
     query::{
-        DebugCheckedUnwrap, NopWorldQuery, QueryCombinationIter, QueryData, QueryEntityError,
-        QueryFilter, QueryIter, QueryManyIter, QueryManyUniqueIter, QueryParIter, QueryParManyIter,
+        ArchetypeFilter, ContiguousQueryData, DebugCheckedUnwrap, NopWorldQuery,
+        QueryCombinationIter, QueryContiguousIter, QueryData, QueryEntityError, QueryFilter,
+        QueryIter, QueryManyIter, QueryManyUniqueIter, QueryParIter, QueryParManyIter,
         QueryParManyUniqueIter, QuerySingleError, QueryState, ROQueryItem, ReadOnlyQueryData,
     },
     world::unsafe_world_cell::UnsafeWorldCell,
@@ -1352,6 +1353,61 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
             this_run: self.this_run,
             batching_strategy: BatchingStrategy::new(),
         }
+    }
+
+    /// Returns a contiguous iterator over the query results for the given
+    /// [`World`](crate::world::World) or [`None`] if the query is not dense hence not contiguously
+    /// iterable.
+    ///
+    /// A mutable version: [`contiguous_iter_mut`]
+    pub fn contiguous_iter(&self) -> Option<QueryContiguousIter<'_, 's, D::ReadOnly, F>>
+    where
+        D::ReadOnly: ContiguousQueryData,
+        F: ArchetypeFilter,
+    {
+        // SAFETY:
+        // - `self.world` has permission to access the required components
+        // - `self.world` was used to initialize `self.state`
+        unsafe {
+            QueryContiguousIter::new(
+                self.world,
+                self.state.as_readonly(),
+                self.last_run,
+                self.this_run,
+            )
+        }
+    }
+
+    /// Returns a mutable contiguous iterator over the query results for the given
+    /// [`World`](crate::world::World) or [`None`] if the query is not dense hence not contiguously
+    /// iterable.
+    ///
+    /// An immutable version: [`contiguous_iter`]
+    pub fn contiguous_iter_mut(&mut self) -> Option<QueryContiguousIter<'_, 's, D, F>>
+    where
+        D: ContiguousQueryData,
+        F: ArchetypeFilter,
+    {
+        // SAFETY:
+        // - `self.world` has permission to access the required components
+        // - `self.world` was used to initialize `self.state`
+        unsafe { QueryContiguousIter::new(self.world, self.state, self.last_run, self.this_run) }
+    }
+
+    /// Returns a contiguous iterator over the query results for the given
+    /// [`World`](crate::world::World) or [`Err`] with this [`Query`] if the query is not dense hence not contiguously
+    /// iterable.
+    /// This consumes the [`Query`] to return results with the actual "inner" world lifetime.
+    pub fn contiguous_iter_inner(self) -> Result<QueryContiguousIter<'w, 's, D, F>, Self>
+    where
+        D: ContiguousQueryData,
+        F: ArchetypeFilter,
+    {
+        // SAFETY:
+        // - `self.world` has permission to access the required components
+        // - `self.world` was used to initialize `self.state`
+        unsafe { QueryContiguousIter::new(self.world, self.state, self.last_run, self.this_run) }
+            .ok_or(self)
     }
 
     /// Returns the read-only query item for the given [`Entity`].

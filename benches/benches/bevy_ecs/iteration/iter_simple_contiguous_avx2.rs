@@ -46,14 +46,14 @@ impl<'w> Benchmark<'w> {
         /// # Safety
         /// avx2 must be supported
         #[target_feature(enable = "avx2")]
-        fn exec(position: &mut [Position], velocity: &[Velocity]) {
+        unsafe fn exec(position: &mut [Position], velocity: &[Velocity]) {
             for i in 0..position.len() {
                 position[i].0 += velocity[i].0;
             }
         }
 
-        let mut iter = self.1.iter_mut(&mut self.0);
-        for (velocity, (position, mut ticks)) in iter.as_contiguous_iter().unwrap() {
+        let iter = self.1.contiguous_iter_mut(&mut self.0).unwrap();
+        for (velocity, (position, mut ticks)) in iter {
             // SAFETY: checked in new
             unsafe {
                 exec(position, velocity);

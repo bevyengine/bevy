@@ -5,7 +5,10 @@ use crate::{
     entity::{Entity, EntityEquivalent, EntitySet, UniqueEntityArray},
     entity_disabling::DefaultQueryFilters,
     prelude::FromWorld,
-    query::{FilteredAccess, QueryCombinationIter, QueryIter, QueryParIter, WorldQuery},
+    query::{
+        ArchetypeFilter, ContiguousQueryData, FilteredAccess, QueryCombinationIter,
+        QueryContiguousIter, QueryIter, QueryParIter, WorldQuery,
+    },
     storage::{SparseSetIndex, TableId},
     system::Query,
     world::{unsafe_world_cell::UnsafeWorldCell, World, WorldId},
@@ -1399,6 +1402,36 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     #[inline]
     pub fn par_iter_mut<'w, 's>(&'s mut self, world: &'w mut World) -> QueryParIter<'w, 's, D, F> {
         self.query_mut(world).par_iter_inner()
+    }
+
+    /// Returns a contiguous iterator over the query results for the given [`World`] or [`None`] if
+    /// the query is not dense hence not contiguously iterable.
+    #[inline]
+    pub fn contiguous_iter<'w, 's>(
+        &'s mut self,
+        world: &'w World,
+    ) -> Option<QueryContiguousIter<'w, 's, D::ReadOnly, F>>
+    where
+        D::ReadOnly: ContiguousQueryData,
+        F: ArchetypeFilter,
+    {
+        self.query(world).contiguous_iter_inner().ok()
+    }
+
+    /// Returns a contiguous iterator over the query results for the given [`World`] or [`None`] if
+    /// the query is not dense hence not contiguously iterable.
+    ///
+    /// This can only be called for mutable queries, see [`contiguous_iter`] for read-only-queries.
+    #[inline]
+    pub fn contiguous_iter_mut<'w, 's>(
+        &'s mut self,
+        world: &'w mut World,
+    ) -> Option<QueryContiguousIter<'w, 's, D, F>>
+    where
+        D: ContiguousQueryData,
+        F: ArchetypeFilter,
+    {
+        self.query_mut(world).contiguous_iter_inner().ok()
     }
 
     /// Runs `func` on each query result in parallel for the given [`World`], where the last change and
