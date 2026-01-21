@@ -61,7 +61,7 @@ impl<const N: usize, const K: usize> BloomFilter<N, K> {
         true
     }
 
-    /// Combined [`contains`] and [`insert`].
+    /// Combined [`Self::contains`] and [`Self::insert`].
     ///
     /// Returns `true` if the value was already in the filter.
     /// Adds the value to the filter if it was not already present.
