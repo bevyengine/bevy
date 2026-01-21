@@ -287,8 +287,7 @@ pub(crate) fn post_processing(
         return;
     };
 
-    let Some(vignette_uniform_buffer_binding) =
-        post_processing_uniform_buffers.vignette.binding()
+    let Some(vignette_uniform_buffer_binding) = post_processing_uniform_buffers.vignette.binding()
     else {
         return;
     };
