@@ -2966,11 +2966,12 @@ mod tests {
     #[derive(Asset, TypePath)]
     struct LoaderlessAsset;
 
-    // Load the given path and check that the eventual load state matches.
+    // Load the given path and test that `AssetServer::get_load_state` returns
+    // the given state.
     fn test_load_state<A: Asset>(
         label: &'static str,
         path: &'static str,
-        expect_load_state: TestLoadState,
+        expected_load_state: TestLoadState,
     ) {
         let (mut app, dir) = create_app();
 
@@ -2999,16 +3000,16 @@ mod tests {
         for _ in 0..LARGE_ITERATION_COUNT {
             app.update();
             load_state = asset_server.get_load_state(&handle).unwrap().into();
-            if load_state == expect_load_state {
+            if load_state == expected_load_state {
                 break;
             }
         }
 
         assert!(
-            load_state == expect_load_state,
+            load_state == expected_load_state,
             "For test \"{}\", expected {:?} but got {:?}.",
             label,
-            expect_load_state,
+            expected_load_state,
             load_state,
         );
     }

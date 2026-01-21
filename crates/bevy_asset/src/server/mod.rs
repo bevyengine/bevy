@@ -840,6 +840,8 @@ impl AssetServer {
                 let final_handle = if let Some(label) = path.label_cow() {
                     match loaded_asset.labeled_assets.get(&label) {
                         Some(labeled_asset) => {
+                            // If we know the requested type then check it
+                            // matches the labeled asset.
                             if let Some(asset_id) = asset_id
                                 && asset_id.type_id != labeled_asset.handle.type_id()
                             {
