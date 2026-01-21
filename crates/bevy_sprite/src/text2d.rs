@@ -62,7 +62,7 @@ use core::any::TypeId;
 ///     Text2d::new("hello world!"),
 ///     TextFont {
 ///         font: font_handle.clone().into(),
-///         font_size: 60.0,
+///         font_size: FontSize::Px(60.0),
 ///         ..Default::default()
 ///     },
 ///     TextColor(BLUE.into()),
