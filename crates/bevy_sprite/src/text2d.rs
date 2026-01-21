@@ -388,6 +388,7 @@ mod tests {
             .init_resource::<CosmicFontSystem>()
             .init_resource::<SwashCache>()
             .init_resource::<TextIterScratch>()
+            .init_resource::<RemSize>()
             .add_systems(
                 Update,
                 (
