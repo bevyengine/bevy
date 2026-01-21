@@ -367,9 +367,60 @@ impl<'a> core::iter::FusedIterator for FreeBufferIterator<'a> {}
 
 /// This tracks the state of a [`FreeCount`], which has lots of information packed into it.
 ///
-/// - The least 33 bits store a signed 33 bit integer. This behaves like a u33, but we define `1 << 32` as 0.
-/// - The 34th bit stores a flag that indicates if the count has been disabled/suspended.
-/// - The remaining 30 bits are the generation. The generation just differentiates different versions of the state that happen to encode the same length.
+/// This has three jobs:
+///
+///  - First, obviously, this needs to track the length of the free list.
+///    When the length is 0, we use the [`FreshAllocator`]; otherwise, we pop.
+///    The length also tells us where on the list to push freed entities to.
+///  - Second, we need to be able to "freeze" the length for remote allocations.
+///    This happens when pushing to the list; we need to prevent a push and remote pop from happening at the same time.
+///    We call this "disabling the length".
+///    When it is disabled, only the thing that disabled it is allowed to re-enable it.
+///    This is like like a mutex, but it's faster because we pack the mutex into the same bits as the state.
+///    See [`FreeCount::disable_len_for_state`] and [`FreeCount::set_state_risky`] for how this can be done.
+///  - Third, we need to track the generation of the free list.
+///    That is, any two distinct states of the free list, even if they are the same length, must have different [`FreeCount`] values.
+///    This becomes important when a remote allocator needs to know if the information it is working with has been outdated.
+///    See [`FreeList::remote_alloc`] for why this is so important.
+///
+/// As if that isn't hard enough, we need to do all three of these things in the same [`AtomicU64`] for performance.
+/// Not only that, but for memory ordering guarantees, we need to be able to change the length and generation in a single atomic operation.
+/// We do that with a very specific bit layout:
+///
+/// - The least significant 33 bits store a signed 33 bit integer for the length.
+///   This behaves like a u33, but we define `1 << 32` as 0.
+/// - The 34th bit stores a flag that indicates if the length has been disabled.
+/// - The remaining 30 bits are the generation.
+///   The generation helps differentiates different versions of the state that happen to encode the same length.
+///
+/// Why this layout?
+/// A few observations:
+/// First, since the disabling mechanic acts as a mutex, we only need one bit for that, and we can use bit operations to interact with it.
+/// That leaves the length and the generation (which we need to distinguish between two states of the free list that happen to be the same length).
+/// Every change to the length must be/cause a change to the [`FreeCountState`] such that the new state does not equal any previous state.
+/// The second observation is that we only need to change the generation when we move the length in one direction.
+/// Here, we tie popping/allocation to a generation change.
+/// When the length increases, the length part of the state changes, so a generation change is a moot point. (Ex `L0-G0` -> `L1G0`)
+/// When the length decreases, we also need to change the generation to distinguish the states. (Ex `L1-G0` -> `L0G1`)
+///
+/// We need the generation to freely wrap.
+/// In this case, the generation is 30 bits, so after 2 ^ 30 allocations, the generation will wrap.
+/// That is technically a soundness concern,
+/// but it would only cause a problem if the same [`FreeList::remote_alloc`] procedure had been sleeping for all 2 ^ 30 allocations and then when it woke up, all 2 ^ 30 allocations had been freed.
+/// This is impossibly unlikely and is safely ignored in other concurrent queue implementations.
+/// Still, we need the generation to wrap; it must not overflow into the length bits.
+/// As a result, the generation bits *must* be the most significant; this allows them to wrap freely.
+///
+/// It is convenient to put the disabling bit next since that leaves the length bits already aligned to the least significant bits.
+/// That saves us a bit shift!
+///
+/// But now we need to stop the length information from messing with the generation or disabling bits.
+/// Preventing overflow is easy since we can assume the list is unique and there are only `u32::MAX` [`Entity`] values.
+/// We can't prevent underflow with just 32 bits, and performance prevents us from running checks before a subtraction.
+/// But we do know that it can't overflow more than `u32::MAX` times because that would cause the [`FreshAllocator`] to overflow and panic for allocating too many entities.
+/// That means we need to represent "length" values in `±u32::MAX` range, which gives us an `i33` that we then saturatingly cast to `u32`.
+/// As mentioned above, we represent this `i33` as a `u33` where we define `1 << 32` as 0.
+/// This representation works slightly easier for the `saturating_sub` in [`FreeCountState::length`] than a true `i33` representation.
 #[derive(Clone, Copy)]
 struct FreeCountState(u64);
 
