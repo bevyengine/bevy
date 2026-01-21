@@ -20,7 +20,7 @@ use bevy::{
     pbr::{DefaultOpaqueRendererMethod, ScreenSpaceAmbientOcclusion},
     post_process::bloom::Bloom,
     render::{
-        batching::NoAutomaticBatching, experimental::occlusion_culling::OcclusionCulling,
+        batching::NoAutomaticBatching, occlusion_culling::OcclusionCulling,
         render_resource::Face, view::NoIndirectDrawing,
     },
     scene::SceneInstanceReady,

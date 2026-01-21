@@ -77,8 +77,8 @@ use bevy_diagnostic::FrameCount;
 use bevy_render::{
     batching::gpu_preprocessing::{GpuPreprocessingMode, GpuPreprocessingSupport},
     camera::CameraRenderGraph,
-    experimental::occlusion_culling::OcclusionCulling,
     mesh::allocator::SlabId,
+    occlusion_culling::OcclusionCulling,
     render_phase::PhaseItemBatchSetKey,
     texture::CachedTexture,
     view::{prepare_view_targets, NoIndirectDrawing, RetainedViewEntity},
