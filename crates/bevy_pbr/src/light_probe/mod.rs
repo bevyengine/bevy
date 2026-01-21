@@ -2,10 +2,7 @@
 
 use bevy_app::{App, Plugin};
 use bevy_asset::AssetId;
-use bevy_camera::{
-    primitives::{Aabb, Frustum},
-    Camera3d,
-};
+use bevy_camera::Camera3d;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     component::Component,
@@ -16,8 +13,10 @@ use bevy_ecs::{
     system::{Commands, Local, Query, Res, ResMut},
 };
 use bevy_image::Image;
-use bevy_light::{EnvironmentMapLight, IrradianceVolume, LightProbe};
-use bevy_math::{Affine3A, FloatOrd, Mat4, Vec3A, Vec4};
+use bevy_light::{
+    cluster::VisibleClusterableObjects, EnvironmentMapLight, IrradianceVolume, LightProbe,
+};
+use bevy_math::{Affine3A, FloatOrd, Mat4, Vec4};
 use bevy_platform::collections::HashMap;
 use bevy_render::{
     extract_instances::ExtractInstancesPlugin,
@@ -25,7 +24,7 @@ use bevy_render::{
     render_resource::{DynamicUniformBuffer, Sampler, ShaderType, TextureView},
     renderer::{RenderAdapter, RenderAdapterInfo, RenderDevice, RenderQueue, WgpuWrapper},
     settings::WgpuFeatures,
-    sync_world::RenderEntity,
+    sync_world::{MainEntity, MainEntityHashMap, RenderEntity},
     texture::{FallbackImage, GpuImage},
     view::ExtractedView,
     Extract, ExtractSchedule, Render, RenderApp, RenderSystems,
@@ -36,9 +35,11 @@ use bitflags::bitflags;
 use tracing::error;
 
 use core::{hash::Hash, ops::Deref};
+use std::any::TypeId;
 
 use crate::{
-    generate::EnvironmentMapGenerationPlugin, light_probe::environment_map::EnvironmentMapIds,
+    extract_clusters, generate::EnvironmentMapGenerationPlugin,
+    light_probe::environment_map::EnvironmentMapIds,
 };
 
 pub mod environment_map;
@@ -143,6 +144,9 @@ struct LightProbeInfo<C>
 where
     C: LightProbeComponent,
 {
+    // The entity of the light probe in the main world.
+    main_entity: MainEntity,
+
     // The transform from world space to light probe space.
     // Stored as the transpose of the inverse transform to compress the structure
     // on the GPU (from 4 `Vec4`s to 3 `Vec4`s). The shader will transpose it
@@ -217,6 +221,9 @@ where
     /// array.
     render_light_probes: Vec<RenderLightProbe>,
 
+    /// A mapping from the main world entity to the index in [`Self::render_light_probes`].
+    pub main_entity_to_render_light_probe_index: MainEntityHashMap<u32>,
+
     /// Information needed to render the light probe attached directly to the
     /// view, if applicable.
     ///
@@ -224,7 +231,7 @@ where
     /// probe that affects all objects not in the bounding region of any light
     /// probe. Currently, the only light probe type that supports this is the
     /// [`EnvironmentMapLight`].
-    view_light_probe_info: C::ViewLightProbeInfo,
+    view_light_probe_info: Option<C::ViewLightProbeInfo>,
 }
 
 /// A trait implemented by all components that represent light probes.
@@ -329,8 +336,14 @@ impl Plugin for LightProbePlugin {
             .init_resource::<LightProbesBuffer>()
             .init_resource::<EnvironmentMapUniformBuffer>()
             .add_systems(ExtractSchedule, gather_environment_map_uniform)
-            .add_systems(ExtractSchedule, gather_light_probes::<EnvironmentMapLight>)
-            .add_systems(ExtractSchedule, gather_light_probes::<IrradianceVolume>)
+            .add_systems(
+                ExtractSchedule,
+                gather_light_probes::<EnvironmentMapLight>.before(extract_clusters),
+            )
+            .add_systems(
+                ExtractSchedule,
+                gather_light_probes::<IrradianceVolume>.before(extract_clusters),
+            )
             .add_systems(
                 Render,
                 (upload_light_probes, prepare_environment_uniform_buffer)
@@ -368,36 +381,59 @@ fn gather_environment_map_uniform(
 /// to views, performing frustum culling and distance sorting in the process.
 fn gather_light_probes<C>(
     image_assets: Res<RenderAssets<GpuImage>>,
-    light_probe_query: Extract<Query<(&GlobalTransform, &C, C::QueryData), With<LightProbe>>>,
-    view_query: Extract<
-        Query<(RenderEntity, &GlobalTransform, &Frustum, Option<&C>), With<Camera3d>>,
+    light_probe_query: Extract<
+        Query<(Entity, &GlobalTransform, &C, C::QueryData), With<LightProbe>>,
     >,
-    mut reflection_probes: Local<Vec<LightProbeInfo<C>>>,
-    mut view_reflection_probes: Local<Vec<LightProbeInfo<C>>>,
+    view_query: Extract<
+        Query<
+            (
+                RenderEntity,
+                &GlobalTransform,
+                &VisibleClusterableObjects,
+                Option<&C>,
+            ),
+            With<Camera3d>,
+        >,
+    >,
+    mut view_light_probe_info: Local<Vec<LightProbeInfo<C>>>,
     mut commands: Commands,
 ) where
     C: LightProbeComponent,
 {
-    // Create [`LightProbeInfo`] for every light probe in the scene.
-    reflection_probes.clear();
-    reflection_probes.extend(
-        light_probe_query
-            .iter()
-            .filter_map(|query_row| LightProbeInfo::new(query_row, &image_assets)),
-    );
     // Build up the light probes uniform and the key table.
-    for (view_entity, view_transform, view_frustum, view_component) in view_query.iter() {
-        // Cull light probes outside the view frustum.
-        view_reflection_probes.clear();
-        view_reflection_probes.extend(
-            reflection_probes
-                .iter()
-                .filter(|light_probe_info| light_probe_info.frustum_cull(view_frustum))
-                .cloned(),
-        );
+    for (view_entity, view_transform, visible_clusterable_objects, view_component) in
+        view_query.iter()
+    {
+        view_light_probe_info.clear();
+        view_light_probe_info.reserve(visible_clusterable_objects.light_probes.len());
+        if let Some(visible_light_probes) = visible_clusterable_objects
+            .light_probes
+            .get(&TypeId::of::<C>())
+        {
+            for &main_entity in visible_light_probes {
+                let Ok(query_row) = light_probe_query.get(main_entity) else {
+                    // This should never happen. `assign_objects_to_clusters`
+                    // should use a light probe query that matches exactly the
+                    // same set of entities as our `light_probe_query`.
+                    error!(
+                        "Clustering shouldn't have clustered light probe {:?}",
+                        main_entity
+                    );
+                    continue;
+                };
+                // If we don't successfully create `LightProbeInfo`, that means
+                // the light probe hasn't loaded yet. We don't add such light
+                // probes to `view_light_probe_info` so that they don't waste
+                // space in the GPU light probe buffer, which has a limited
+                // size.
+                if let Some(light_probe_info) = LightProbeInfo::new(query_row, &image_assets) {
+                    view_light_probe_info.push(light_probe_info);
+                }
+            }
+        }
 
         // Sort by distance to camera.
-        view_reflection_probes.sort_by_cached_key(|light_probe_info| {
+        view_light_probe_info.sort_by_cached_key(|light_probe_info| {
             light_probe_info.camera_distance_sort_key(view_transform)
         });
 
@@ -406,7 +442,7 @@ fn gather_light_probes<C>(
             C::create_render_view_light_probes(view_component, &image_assets);
 
         // Gather up the light probes in the list.
-        render_view_light_probes.maybe_gather_light_probes(&view_reflection_probes);
+        render_view_light_probes.maybe_gather_light_probes(&view_light_probe_info);
 
         // Record the per-view light probes.
         if render_view_light_probes.is_empty() {
@@ -487,6 +523,8 @@ fn upload_light_probes(
 
         // Initialize the uniform with only the view environment map, if there
         // is one.
+        let maybe_view_light_probe_info =
+            render_view_environment_maps.and_then(|maps| maps.view_light_probe_info.as_ref());
         let mut light_probes_uniform = LightProbesUniform {
             reflection_probes: [RenderLightProbe::default(); MAX_VIEW_LIGHT_PROBES],
             irradiance_volumes: [RenderLightProbe::default(); MAX_VIEW_LIGHT_PROBES],
@@ -498,18 +536,25 @@ fn upload_light_probes(
                 .map(RenderViewLightProbes::len)
                 .unwrap_or_default()
                 .min(MAX_VIEW_LIGHT_PROBES) as i32,
-            view_cubemap_index: render_view_environment_maps
-                .map(|maps| maps.view_light_probe_info.cubemap_index)
-                .unwrap_or(-1),
-            smallest_specular_mip_level_for_view: render_view_environment_maps
-                .map(|maps| maps.view_light_probe_info.smallest_specular_mip_level)
-                .unwrap_or(0),
-            intensity_for_view: render_view_environment_maps
-                .map(|maps| maps.view_light_probe_info.intensity)
-                .unwrap_or(1.0),
-            view_environment_map_affects_lightmapped_mesh_diffuse: render_view_environment_maps
-                .map(|maps| maps.view_light_probe_info.affects_lightmapped_mesh_diffuse as u32)
-                .unwrap_or(1),
+            view_cubemap_index: match maybe_view_light_probe_info {
+                Some(view_light_probe_info) => view_light_probe_info.cubemap_index,
+                None => -1,
+            },
+            smallest_specular_mip_level_for_view: match maybe_view_light_probe_info {
+                Some(view_light_probe_info) => view_light_probe_info.smallest_specular_mip_level,
+                None => 0,
+            },
+            intensity_for_view: match maybe_view_light_probe_info {
+                Some(view_light_probe_info) => view_light_probe_info.intensity,
+                None => 1.0,
+            },
+            view_environment_map_affects_lightmapped_mesh_diffuse: match maybe_view_light_probe_info
+            {
+                Some(view_light_probe_info) => {
+                    view_light_probe_info.affects_lightmapped_mesh_diffuse as u32
+                }
+                None => 1,
+            },
         };
 
         // Add any environment maps that [`gather_light_probes`] found to the
@@ -562,7 +607,8 @@ where
     /// [`LightProbeInfo`]. This is done for every light probe in the scene
     /// every frame.
     fn new(
-        (light_probe_transform, environment_map, query_components): (
+        (main_entity, light_probe_transform, environment_map, query_components): (
+            Entity,
             &GlobalTransform,
             &C,
             <C::QueryData as QueryData>::Item<'_, '_>,
@@ -572,6 +618,7 @@ where
         let light_from_world_transposed =
             Mat4::from(light_probe_transform.affine().inverse()).transpose();
         environment_map.id(image_assets).map(|id| LightProbeInfo {
+            main_entity: main_entity.into(),
             world_from_light: light_probe_transform.affine(),
             light_from_world: [
                 light_from_world_transposed.x_axis,
@@ -582,20 +629,6 @@ where
             intensity: environment_map.intensity(),
             flags: environment_map.flags(query_components),
         })
-    }
-
-    /// Returns true if this light probe is in the viewing frustum of the camera
-    /// or false if it isn't.
-    fn frustum_cull(&self, view_frustum: &Frustum) -> bool {
-        view_frustum.intersects_obb(
-            &Aabb {
-                center: Vec3A::default(),
-                half_extents: Vec3A::splat(0.5),
-            },
-            &self.world_from_light,
-            true,
-            false,
-        )
     }
 
     /// Returns the squared distance from this light probe to the camera,
@@ -617,19 +650,20 @@ where
         RenderViewLightProbes {
             binding_index_to_textures: vec![],
             cubemap_to_binding_index: HashMap::default(),
+            main_entity_to_render_light_probe_index: HashMap::default(),
             render_light_probes: vec![],
-            view_light_probe_info: C::ViewLightProbeInfo::default(),
+            view_light_probe_info: None,
         }
     }
 
     /// Returns true if there are no light probes in the list.
     pub(crate) fn is_empty(&self) -> bool {
-        self.binding_index_to_textures.is_empty()
+        self.render_light_probes.is_empty() && self.view_light_probe_info.is_none()
     }
 
     /// Returns the number of light probes in the list.
     pub(crate) fn len(&self) -> usize {
-        self.binding_index_to_textures.len()
+        self.render_light_probes.len()
     }
 
     /// Adds a cubemap to the list of bindings, if it wasn't there already, and
@@ -664,6 +698,12 @@ where
             // Determine the index of the cubemap in the binding array.
             let cubemap_index = self.get_or_insert_cubemap(&light_probe.asset_id);
 
+            // Assign an ID, and write in the index.
+            let render_light_probe_index = self.render_light_probes.len() as u32;
+            debug_assert!((render_light_probe_index as usize) < MAX_VIEW_LIGHT_PROBES);
+            self.main_entity_to_render_light_probe_index
+                .insert(light_probe.main_entity, render_light_probe_index);
+
             // Write in the light probe data.
             self.render_light_probes.push(RenderLightProbe {
                 light_from_world_transposed: light_probe.light_from_world,
@@ -681,6 +721,7 @@ where
 {
     fn clone(&self) -> Self {
         Self {
+            main_entity: self.main_entity,
             light_from_world: self.light_from_world,
             world_from_light: self.world_from_light,
             intensity: self.intensity,

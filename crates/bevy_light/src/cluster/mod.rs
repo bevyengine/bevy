@@ -1,5 +1,7 @@
 //! Spatial clustering of objects, currently just point and spot lights.
 
+use std::any::TypeId;
+
 use bevy_asset::Handle;
 use bevy_camera::{
     visibility::{self, Visibility, VisibilityClass},
@@ -18,7 +20,10 @@ use bevy_math::{AspectRatio, UVec2, UVec3, Vec3Swizzles as _};
 use bevy_platform::collections::HashSet;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_transform::components::Transform;
+use bevy_utils::TypeIdMap;
 use tracing::warn;
+
+use crate::{cluster::assign::ClusterableObjectType, EnvironmentMapLight, IrradianceVolume};
 
 pub mod assign;
 
@@ -108,20 +113,39 @@ pub struct Clusters {
     /// and explicitly-configured to avoid having unnecessarily many slices close to the camera.
     pub near: f32,
     pub far: f32,
-    pub clusterable_objects: Vec<VisibleClusterableObjects>,
+    /// All objects within the cluster.
+    pub clusterable_objects: Vec<ObjectsInCluster>,
 }
 
-/// The [`VisibilityClass`] used for clusterables (decals, point lights, directional lights, and spot lights).
+/// The [`VisibilityClass`] used for clusterables (decals, point lights, spot
+/// lights, and light probes).
 ///
 /// [`VisibilityClass`]: bevy_camera::visibility::VisibilityClass
 pub struct ClusterVisibilityClass;
 
+/// A component, present on each render-world view, that stores the light of all
+/// clusterable objects potentially visible in that view, separated by type.
 #[derive(Clone, Component, Debug, Default)]
 pub struct VisibleClusterableObjects {
-    pub entities: Vec<Entity>,
+    /// A list of all point and spot lights that are potentially visible from
+    /// this view.
+    pub point_and_spot_lights: Vec<Entity>,
+    /// A list of all light probes that are potentially visible from this view.
+    pub light_probes: TypeIdMap<Vec<Entity>>,
+}
+
+/// All objects that potentially intersect a single cluster.
+#[derive(Default, Debug)]
+pub struct ObjectsInCluster {
+    /// A list of all clusterable objects that are potentially visible from this
+    /// view.
+    clusterables: Vec<Entity>,
+
+    /// The number of each clusterable object type.
     pub counts: ClusterableObjectCounts,
 }
 
+/// A resource that stores all clusterable objects visible in any view.
 #[derive(Resource, Default)]
 pub struct GlobalVisibleClusterableObjects {
     pub(crate) entities: HashSet<Entity>,
@@ -358,20 +382,82 @@ pub fn add_clusters(
     }
 }
 
-impl VisibleClusterableObjects {
-    #[inline]
+impl ObjectsInCluster {
+    /// Clears out all objects in this cluster in preparation for a new frame.
+    pub fn clear(&mut self) {
+        self.clusterables.clear();
+        self.counts = ClusterableObjectCounts::default();
+    }
+
+    /// Adds a spot light to the list.
+    pub fn add_spot_light(&mut self, entity: Entity) {
+        self.clusterables.push(entity);
+        self.counts.spot_lights += 1;
+    }
+
+    /// Adds a point light to the list.
+    pub fn add_point_light(&mut self, entity: Entity) {
+        self.clusterables.push(entity);
+        self.counts.point_lights += 1;
+    }
+
+    /// Adds a reflection probe to the list.
+    pub fn add_reflection_probe(&mut self, entity: Entity) {
+        self.clusterables.push(entity);
+        self.counts.reflection_probes += 1;
+    }
+
+    /// Adds an irradiance volume to the list.
+    pub fn add_irradiance_volume(&mut self, entity: Entity) {
+        self.clusterables.push(entity);
+        self.counts.irradiance_volumes += 1;
+    }
+
+    /// Adds a decal to the list.
+    pub fn add_decal(&mut self, entity: Entity) {
+        self.clusterables.push(entity);
+        self.counts.decals += 1;
+    }
+
+    /// Iterates through all objects in this cluster.
     pub fn iter(&self) -> impl DoubleEndedIterator<Item = &Entity> {
-        self.entities.iter()
+        self.clusterables.iter()
+    }
+}
+
+impl VisibleClusterableObjects {
+    /// Creates a new [`VisibleClusterableObjects`] container.
+    pub fn new() -> Self {
+        Self::default()
     }
 
-    #[inline]
-    pub fn len(&self) -> usize {
-        self.entities.len()
+    /// Clears out all lists of visible clusterable objects in preparation for a
+    /// new frame.
+    pub fn clear(&mut self) {
+        self.point_and_spot_lights.clear();
+        self.light_probes.clear();
     }
 
-    #[inline]
-    pub fn is_empty(&self) -> bool {
-        self.entities.is_empty()
+    /// Adds a new object of the given type to the list.
+    pub fn add(&mut self, entity: Entity, object_type: &ClusterableObjectType) {
+        match *object_type {
+            ClusterableObjectType::PointLight { .. } | ClusterableObjectType::SpotLight { .. } => {
+                self.point_and_spot_lights.push(entity);
+            }
+            ClusterableObjectType::ReflectionProbe => {
+                self.light_probes
+                    .entry(TypeId::of::<EnvironmentMapLight>())
+                    .or_default()
+                    .push(entity);
+            }
+            ClusterableObjectType::IrradianceVolume => {
+                self.light_probes
+                    .entry(TypeId::of::<IrradianceVolume>())
+                    .or_default()
+                    .push(entity);
+            }
+            ClusterableObjectType::Decal => {}
+        }
     }
 }
 
