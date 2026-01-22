@@ -47,6 +47,10 @@ impl<'w> ComponentTicksRef<'w> {
 pub(crate) struct ContiguousComponentTicksRef<'w> {
     pub(crate) added: &'w [Tick],
     pub(crate) changed: &'w [Tick],
+    #[allow(
+        unused,
+        reason = "ZST in release mode, for the back-portability with ComponentTicksRef"
+    )]
     pub(crate) changed_by: MaybeLocation<&'w [&'static Location<'static>]>,
     pub(crate) last_run: Tick,
     pub(crate) this_run: Tick,
@@ -144,7 +148,7 @@ impl<'w> ContiguousComponentTicksMut<'w> {
     pub fn mark_all_as_updated(&mut self) {
         let this_run = self.this_run;
 
-        self.changed_by.mutate(|v| {
+        self.changed_by.as_mut().map(|v| {
             for v in v.iter_mut() {
                 *v = Location::caller();
             }
@@ -152,6 +156,18 @@ impl<'w> ContiguousComponentTicksMut<'w> {
 
         for t in self.changed.iter_mut() {
             *t = this_run;
+        }
+    }
+}
+
+impl<'w> From<ContiguousComponentTicksMut<'w>> for ContiguousComponentTicksRef<'w> {
+    fn from(value: ContiguousComponentTicksMut<'w>) -> Self {
+        Self {
+            added: value.added,
+            changed: value.changed,
+            changed_by: value.changed_by.map(|v| &*v),
+            last_run: value.last_run,
+            this_run: value.this_run,
         }
     }
 }

@@ -83,13 +83,6 @@ impl<T> MaybeLocation<T> {
         }
     }
 
-    /// Mutates the value of `MaybeLocation<T>`
-    #[inline]
-    pub fn mutate(&mut self, _f: impl FnOnce(&mut T)) {
-        #[cfg(feature = "track_location")]
-        _f(self.value)
-    }
-
     /// Converts a pair of `MaybeLocation` values to an `MaybeLocation` of a tuple.
     #[inline]
     pub fn zip<U>(self, _other: MaybeLocation<U>) -> MaybeLocation<(T, U)> {
