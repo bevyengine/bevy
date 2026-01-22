@@ -13,6 +13,7 @@
 use bevy::{
     camera::Exposure,
     core_pipeline::{tonemapping::Tonemapping, Skybox},
+    light::NoParallaxCorrection,
     pbr::generate::generate_environment_map_light,
     prelude::*,
     render::{render_resource::TextureUsages, view::Hdr},
@@ -161,6 +162,9 @@ fn spawn_reflection_probe(commands: &mut Commands, cubemaps: &Cubemaps) {
         },
         // 2.0 because the sphere's radius is 1.0 and we want to fully enclose it.
         Transform::from_scale(Vec3::splat(2.0)),
+        // Disable parallax correction because the reflected scene is quite
+        // distant.
+        NoParallaxCorrection,
     ));
 }
 

@@ -53,6 +53,8 @@ struct Material {
 
 const TEXTURE_MAP_NONE = 0xFFFFFFFFu;
 
+const MIRROR_ROUGHNESS_THRESHOLD = 0.001f;
+
 struct LightSource {
     kind: u32, // 1 bit for kind, 31 bits for extra data
     id: u32,
@@ -76,12 +78,13 @@ const LIGHT_NOT_PRESENT_THIS_FRAME = 0xFFFFFFFFu;
 @group(0) @binding(3) var samplers: binding_array<sampler>;
 @group(0) @binding(4) var<storage> materials: array<Material>;
 @group(0) @binding(5) var tlas: acceleration_structure;
-@group(0) @binding(6) var<storage> transforms: array<mat4x4<f32>>;
-@group(0) @binding(7) var<storage> geometry_ids: array<InstanceGeometryIds>;
-@group(0) @binding(8) var<storage> material_ids: array<u32>; // TODO: Store material_id in instance_custom_index instead?
-@group(0) @binding(9) var<storage> light_sources: array<LightSource>;
-@group(0) @binding(10) var<storage> directional_lights: array<DirectionalLight>;
-@group(0) @binding(11) var<storage> previous_frame_light_id_translations: array<u32>;
+@group(0) @binding(6) var<storage> transforms: array<mat4x4<f32>>; // TODO: Use mat3x4<f32>?
+@group(0) @binding(7) var<storage> previous_frame_transforms: array<mat4x4<f32>>; // TODO: Use mat3x4<f32>?
+@group(0) @binding(8) var<storage> geometry_ids: array<InstanceGeometryIds>;
+@group(0) @binding(9) var<storage> material_ids: array<u32>; // TODO: Store material_id in instance_custom_index instead?
+@group(0) @binding(10) var<storage> light_sources: array<LightSource>;
+@group(0) @binding(11) var<storage> directional_lights: array<DirectionalLight>;
+@group(0) @binding(12) var<storage> previous_frame_light_id_translations: array<u32>;
 
 const RAY_T_MIN = 0.001f;
 const RAY_T_MAX = 100000.0f;
@@ -111,6 +114,7 @@ struct ResolvedMaterial {
 
 struct ResolvedRayHitFull {
     world_position: vec3<f32>,
+    previous_frame_world_position: vec3<f32>,
     world_normal: vec3<f32>,
     geometric_world_normal: vec3<f32>,
     world_tangent: vec4<f32>,
@@ -143,8 +147,6 @@ fn resolve_material(material: Material, uv: vec2<f32>) -> ResolvedMaterial {
         m.metallic *= metallic_roughness.b;
     }
 
-    // Clamp roughness to prevent NaNs
-    m.perceptual_roughness = clamp(m.perceptual_roughness, 0.0316227766, 1.0); // Clamp roughness to 0.001
     m.roughness = m.perceptual_roughness * m.perceptual_roughness;
 
     return m;
@@ -181,12 +183,17 @@ fn resolve_triangle_data_full(instance_id: u32, triangle_id: u32, barycentrics: 
     let material_id = material_ids[instance_id];
     let material = materials[material_id];
 
+    let transform = transforms[instance_id];
+    let previous_frame_transform = previous_frame_transforms[instance_id];
+
     let instance_geometry_ids = geometry_ids[instance_id];
     let vertices = load_vertices(instance_geometry_ids, triangle_id);
-    let transform = transforms[instance_id];
-    let world_vertices = transform_positions(transform, vertices);
 
+    let world_vertices = transform_positions(transform, vertices);
     let world_position = mat3x3(world_vertices[0], world_vertices[1], world_vertices[2]) * barycentrics;
+
+    let previous_frame_world_vertices = transform_positions(previous_frame_transform, vertices);
+    let previous_frame_world_position = mat3x3(previous_frame_world_vertices[0], previous_frame_world_vertices[1], previous_frame_world_vertices[2]) * barycentrics;
 
     let uv = mat3x2(vertices[0].uv, vertices[1].uv, vertices[2].uv) * barycentrics;
 
@@ -214,5 +221,15 @@ fn resolve_triangle_data_full(instance_id: u32, triangle_id: u32, barycentrics: 
 
     let resolved_material = resolve_material(material, uv);
 
-    return ResolvedRayHitFull(world_position, world_normal, geometric_world_normal, world_tangent, uv, triangle_area, instance_geometry_ids.triangle_count, resolved_material);
+    return ResolvedRayHitFull(
+        world_position,
+        previous_frame_world_position,
+        world_normal,
+        geometric_world_normal,
+        world_tangent,
+        uv,
+        triangle_area,
+        instance_geometry_ids.triangle_count,
+        resolved_material,
+    );
 }

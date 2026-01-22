@@ -1,6 +1,6 @@
 [package]
 name = "bevy_winit"
-version = "0.18.0-dev"
+version = "0.19.0-dev"
 edition = "2024"
 description = "A winit window and input backend for Bevy Engine"
 homepage = "https://bevy.org"
@@ -36,26 +36,26 @@ custom_cursor = [
 
 [dependencies]
 # bevy
-bevy_a11y = { path = "../bevy_a11y", version = "0.18.0-dev" }
-bevy_app = { path = "../bevy_app", version = "0.18.0-dev" }
-bevy_derive = { path = "../bevy_derive", version = "0.18.0-dev" }
-bevy_ecs = { path = "../bevy_ecs", version = "0.18.0-dev" }
-bevy_input = { path = "../bevy_input", version = "0.18.0-dev" }
-bevy_input_focus = { path = "../bevy_input_focus", version = "0.18.0-dev" }
-bevy_log = { path = "../bevy_log", version = "0.18.0-dev" }
-bevy_math = { path = "../bevy_math", version = "0.18.0-dev" }
-bevy_reflect = { path = "../bevy_reflect", version = "0.18.0-dev" }
-bevy_window = { path = "../bevy_window", version = "0.18.0-dev" }
-bevy_tasks = { path = "../bevy_tasks", version = "0.18.0-dev" }
-bevy_platform = { path = "../bevy_platform", version = "0.18.0-dev", default-features = false, features = [
+bevy_a11y = { path = "../bevy_a11y", version = "0.19.0-dev" }
+bevy_app = { path = "../bevy_app", version = "0.19.0-dev" }
+bevy_derive = { path = "../bevy_derive", version = "0.19.0-dev" }
+bevy_ecs = { path = "../bevy_ecs", version = "0.19.0-dev" }
+bevy_input = { path = "../bevy_input", version = "0.19.0-dev" }
+bevy_input_focus = { path = "../bevy_input_focus", version = "0.19.0-dev" }
+bevy_log = { path = "../bevy_log", version = "0.19.0-dev" }
+bevy_math = { path = "../bevy_math", version = "0.19.0-dev" }
+bevy_reflect = { path = "../bevy_reflect", version = "0.19.0-dev" }
+bevy_window = { path = "../bevy_window", version = "0.19.0-dev" }
+bevy_tasks = { path = "../bevy_tasks", version = "0.19.0-dev" }
+bevy_platform = { path = "../bevy_platform", version = "0.19.0-dev", default-features = false, features = [
   "std",
 ] }
 
 # bevy optional
 ## used by custom_cursor
-bevy_asset = { path = "../bevy_asset", version = "0.18.0-dev", optional = true }
+bevy_asset = { path = "../bevy_asset", version = "0.19.0-dev", optional = true }
 ## used by custom_cursor
-bevy_image = { path = "../bevy_image", version = "0.18.0-dev", optional = true }
+bevy_image = { path = "../bevy_image", version = "0.19.0-dev", optional = true }
 ## used by custom_cursor
 wgpu-types = { version = "27", optional = true }
 ## used by custom_cursor
@@ -64,29 +64,29 @@ bytemuck = { version = "1.5", optional = true }
 # other
 # feature rwh_06 refers to window_raw_handle@v0.6
 winit = { version = "0.30", default-features = false, features = ["rwh_06"] }
-accesskit_winit = { version = "0.29", default-features = false, features = [
+accesskit_winit = { version = "0.31", default-features = false, features = [
   "rwh_06",
 ] }
 approx = { version = "0.5", default-features = false }
 cfg-if = "1.0"
-accesskit = "0.21"
+accesskit = "0.23"
 tracing = { version = "0.1", default-features = false, features = ["std"] }
 
 [target.'cfg(target_os = "android")'.dependencies]
-bevy_android = { path = "../bevy_android", version = "0.18.0-dev", default-features = false }
+bevy_android = { path = "../bevy_android", version = "0.19.0-dev", default-features = false }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen = { version = "0.2" }
 web-sys = "0.3"
 js-sys = "0.3"
 # TODO: Assuming all wasm builds are for the browser. Require `no_std` support to break assumption.
-bevy_app = { path = "../bevy_app", version = "0.18.0-dev", default-features = false, features = [
+bevy_app = { path = "../bevy_app", version = "0.19.0-dev", default-features = false, features = [
   "web",
 ] }
-bevy_platform = { path = "../bevy_platform", version = "0.18.0-dev", default-features = false, features = [
+bevy_platform = { path = "../bevy_platform", version = "0.19.0-dev", default-features = false, features = [
   "web",
 ] }
-bevy_reflect = { path = "../bevy_reflect", version = "0.18.0-dev", default-features = false, features = [
+bevy_reflect = { path = "../bevy_reflect", version = "0.19.0-dev", default-features = false, features = [
   "web",
 ] }
 

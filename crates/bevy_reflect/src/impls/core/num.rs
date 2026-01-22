@@ -6,6 +6,7 @@ impl_reflect_opaque!(::core::num::NonZeroI128(
     Debug,
     Hash,
     PartialEq,
+    PartialOrd,
     Serialize,
     Deserialize
 ));
@@ -14,6 +15,7 @@ impl_reflect_opaque!(::core::num::NonZeroU128(
     Debug,
     Hash,
     PartialEq,
+    PartialOrd,
     Serialize,
     Deserialize
 ));
@@ -22,6 +24,7 @@ impl_reflect_opaque!(::core::num::NonZeroIsize(
     Debug,
     Hash,
     PartialEq,
+    PartialOrd,
     Serialize,
     Deserialize
 ));
@@ -30,6 +33,7 @@ impl_reflect_opaque!(::core::num::NonZeroUsize(
     Debug,
     Hash,
     PartialEq,
+    PartialOrd,
     Serialize,
     Deserialize
 ));
@@ -38,6 +42,7 @@ impl_reflect_opaque!(::core::num::NonZeroI64(
     Debug,
     Hash,
     PartialEq,
+    PartialOrd,
     Serialize,
     Deserialize
 ));
@@ -46,6 +51,7 @@ impl_reflect_opaque!(::core::num::NonZeroU64(
     Debug,
     Hash,
     PartialEq,
+    PartialOrd,
     Serialize,
     Deserialize
 ));
@@ -54,6 +60,7 @@ impl_reflect_opaque!(::core::num::NonZeroU32(
     Debug,
     Hash,
     PartialEq,
+    PartialOrd,
     Serialize,
     Deserialize
 ));
@@ -62,6 +69,7 @@ impl_reflect_opaque!(::core::num::NonZeroI32(
     Debug,
     Hash,
     PartialEq,
+    PartialOrd,
     Serialize,
     Deserialize
 ));
@@ -70,6 +78,7 @@ impl_reflect_opaque!(::core::num::NonZeroI16(
     Debug,
     Hash,
     PartialEq,
+    PartialOrd,
     Serialize,
     Deserialize
 ));
@@ -78,6 +87,7 @@ impl_reflect_opaque!(::core::num::NonZeroU16(
     Debug,
     Hash,
     PartialEq,
+    PartialOrd,
     Serialize,
     Deserialize
 ));
@@ -86,6 +96,7 @@ impl_reflect_opaque!(::core::num::NonZeroU8(
     Debug,
     Hash,
     PartialEq,
+    PartialOrd,
     Serialize,
     Deserialize
 ));
@@ -94,6 +105,7 @@ impl_reflect_opaque!(::core::num::NonZeroI8(
     Debug,
     Hash,
     PartialEq,
+    PartialOrd,
     Serialize,
     Deserialize
 ));

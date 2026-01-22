@@ -3,7 +3,10 @@
 #import bevy_pbr::clustered_forward
 #import bevy_pbr::clustered_forward::ClusterableObjectIndexRanges
 #import bevy_pbr::mesh_view_bindings::light_probes
-#import bevy_pbr::mesh_view_types::LightProbe
+#import bevy_pbr::mesh_view_types::{
+    LightProbe, LIGHT_PROBE_FLAG_AFFECTS_LIGHTMAPPED_MESH_DIFFUSE,
+    LIGHT_PROBE_FLAG_PARALLAX_CORRECT
+}
 
 // The result of searching for a light probe.
 struct LightProbeQueryResult {
@@ -16,8 +19,9 @@ struct LightProbeQueryResult {
     // Transform from world space to the light probe model space. In light probe
     // model space, the light probe is a 1×1×1 cube centered on the origin.
     light_from_world: mat4x4<f32>,
-    // Whether this light probe contributes diffuse light to lightmapped meshes.
-    affects_lightmapped_mesh_diffuse: bool,
+    // The flags that the light probe has: a combination of
+    // `LIGHT_PROBE_FLAG_*`.
+    flags: u32,
 };
 
 fn transpose_affine_matrix(matrix: mat3x4<f32>) -> mat4x4<f32> {
@@ -82,8 +86,7 @@ fn query_light_probe(
             result.texture_index = light_probe.cubemap_index;
             result.intensity = light_probe.intensity;
             result.light_from_world = light_from_world;
-            result.affects_lightmapped_mesh_diffuse =
-                light_probe.affects_lightmapped_mesh_diffuse != 0u;
+            result.flags = light_probe.flags;
             break;
         }
     }
@@ -136,8 +139,7 @@ fn query_light_probe(
             result.texture_index = light_probe.cubemap_index;
             result.intensity = light_probe.intensity;
             result.light_from_world = light_from_world;
-            result.affects_lightmapped_mesh_diffuse =
-                light_probe.affects_lightmapped_mesh_diffuse != 0u;
+            result.flags = light_probe.flags;
 
             // TODO: Workaround for ICE in DXC https://github.com/microsoft/DirectXShaderCompiler/issues/6183
             // We can't use `break` here because of the ICE.

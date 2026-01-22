@@ -1,8 +1,7 @@
 //! Generation of hierarchical Z buffers for occlusion culling.
 //!
-//! This is marked experimental because the shader is designed only for
-//! power-of-two texture sizes and is slightly incorrect for non-power-of-two
-//! depth buffer sizes.
+//! Currently, this module only supports generation of hierarchical Z buffers
+//! for occlusion culling.
 
 use core::array;
 
@@ -22,7 +21,7 @@ use bevy_ecs::{
 use bevy_math::{uvec2, UVec2, Vec4Swizzles as _};
 use bevy_render::{
     batching::gpu_preprocessing::GpuPreprocessingSupport,
-    experimental::occlusion_culling::{
+    occlusion_culling::{
         OcclusionCulling, OcclusionCullingSubview, OcclusionCullingSubviewEntities,
     },
     render_graph::{Node, NodeRunError, RenderGraphContext},
@@ -515,10 +514,11 @@ impl ViewDepthPyramid {
         texture_label: &'static str,
         texture_view_label: &'static str,
     ) -> ViewDepthPyramid {
-        // Calculate the size of the depth pyramid.
+        // Calculate the size of the depth pyramid. This is the size of the
+        // depth buffer rounded down to the previous power of two.
         let depth_pyramid_size = Extent3d {
-            width: size.x.div_ceil(2),
-            height: size.y.div_ceil(2),
+            width: previous_power_of_two(size.x),
+            height: previous_power_of_two(size.y),
             depth_or_array_layers: 1,
         };
 
@@ -616,6 +616,22 @@ impl ViewDepthPyramid {
         downsample_depth_first_pipeline: &ComputePipeline,
         downsample_depth_second_pipeline: &ComputePipeline,
     ) {
+        // We need to make sure that every mip level the single-pass
+        // downsampling (SPD) shader sees has lengths that are powers of two for
+        // correct conservative depth buffer downsampling. To do this, we
+        // maintain the fiction that we're downsampling a depth buffer scaled up
+        // so that it has side lengths rounded up to the next power of two. (If
+        // the depth buffer already has a side length that's a power of two,
+        // then we double it anyway; this ensures that we don't lose any
+        // precision in the top level of the depth pyramid.) The
+        // `downsample_depth` shader's `load_mip_0` function returns the value
+        // that sampling such a depth buffer would yield, without actually
+        // having to construct such a scaled depth buffer.
+        let virtual_view_size = uvec2(
+            (view_size.x + 1).next_power_of_two(),
+            (view_size.y + 1).next_power_of_two(),
+        );
+
         let command_encoder = render_context.command_encoder();
         let mut downsample_pass = command_encoder.begin_compute_pass(&ComputePassDescriptor {
             label: Some(label),
@@ -625,7 +641,11 @@ impl ViewDepthPyramid {
         // Pass the mip count as a push constant, for simplicity.
         downsample_pass.set_push_constants(0, &self.mip_count.to_le_bytes());
         downsample_pass.set_bind_group(0, downsample_depth_bind_group, &[]);
-        downsample_pass.dispatch_workgroups(view_size.x.div_ceil(64), view_size.y.div_ceil(64), 1);
+        downsample_pass.dispatch_workgroups(
+            virtual_view_size.x.div_ceil(64),
+            virtual_view_size.y.div_ceil(64),
+            1,
+        );
 
         if self.mip_count >= 7 {
             downsample_pass.set_pipeline(downsample_depth_second_pipeline);
@@ -711,4 +731,10 @@ pub(crate) fn prepare_downsample_depth_view_bind_groups(
                 ),
             ));
     }
+}
+
+/// Returns the previous power of two of x, or, if x is exactly a power of two,
+/// returns x unchanged.
+fn previous_power_of_two(x: u32) -> u32 {
+    1 << (31 - x.leading_zeros())
 }

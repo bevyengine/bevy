@@ -36,9 +36,6 @@ pub mod primitives;
 pub mod retained;
 pub mod rounded_box;
 
-#[cfg(feature = "bevy_light")]
-pub mod light;
-
 #[cfg(feature = "bevy_mesh")]
 pub mod skinned_mesh_bounds;
 
@@ -67,10 +64,6 @@ pub mod prelude {
         retained::Gizmo,
         AppGizmoBuilder, GizmoAsset,
     };
-
-    #[doc(hidden)]
-    #[cfg(feature = "bevy_light")]
-    pub use crate::light::{LightGizmoColor, LightGizmoConfigGroup, ShowLightGizmo};
 }
 
 use bevy_app::{App, FixedFirst, FixedLast, Last, Plugin, RunFixedMainLoop};
@@ -90,9 +83,6 @@ use config::{DefaultGizmoConfigGroup, GizmoConfig, GizmoConfigGroup, GizmoConfig
 use core::{any::TypeId, marker::PhantomData, mem};
 use gizmos::{GizmoStorage, Swap};
 
-#[cfg(feature = "bevy_light")]
-use light::LightGizmoPlugin;
-
 #[cfg(feature = "bevy_mesh")]
 use crate::skinned_mesh_bounds::SkinnedMeshBoundsGizmoPlugin;
 
@@ -108,9 +98,6 @@ impl Plugin for GizmoPlugin {
             .init_gizmo_group::<DefaultGizmoConfigGroup>();
 
         app.add_plugins((aabb::AabbGizmoPlugin, global::GlobalGizmosPlugin));
-
-        #[cfg(feature = "bevy_light")]
-        app.add_plugins(LightGizmoPlugin);
 
         #[cfg(feature = "bevy_mesh")]
         app.add_plugins(SkinnedMeshBoundsGizmoPlugin);
