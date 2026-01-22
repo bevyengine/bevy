@@ -10,7 +10,10 @@ pub use visibility::*;
 pub use window::*;
 
 use crate::{
-    camera::{ExtractedCamera, MipBias, NormalizedRenderTargetExt as _, TemporalJitter},
+    camera::{
+        ExtractedCamera, ExtractedMainColorTarget, MipBias, NormalizedRenderTargetExt as _,
+        TemporalJitter,
+    },
     extract_component::ExtractComponentPlugin,
     occlusion_culling::OcclusionCulling,
     render_asset::RenderAssets,
@@ -1043,16 +1046,19 @@ pub fn cleanup_view_targets_for_resize(
 pub fn prepare_view_targets(
     mut commands: Commands,
     cameras: Query<(Entity, &ExtractedCamera, &ExtractedView)>,
+    main_color_targets: Query<&ExtractedMainColorTarget>,
     clear_color_global: Res<ClearColor>,
     images: Res<RenderAssets<GpuImage>>,
     view_output_target_attachments: Res<ViewOutputTargetAttachments>,
 ) {
     for (entity, camera, view) in cameras.iter() {
-        let Some(out_attachment) = camera
-            .output_color_target
-            .as_ref()
-            .and_then(|target| view_output_target_attachments.get(target))
-        else {
+        let (Some(out_attachment), Ok(main_color_target)) = (
+            camera
+                .output_color_target
+                .as_ref()
+                .and_then(|target| view_output_target_attachments.get(target)),
+            main_color_targets.get(camera.main_color_target),
+        ) else {
             // If we can't find an output attachment we need to remove the ViewTarget
             // component to make sure the camera doesn't try rendering to an invalid
             // output attachment.
@@ -1061,7 +1067,7 @@ pub fn prepare_view_targets(
             continue;
         };
 
-        let Some(main_texture_a) = images.get(&camera.main_color_target.main_a) else {
+        let Some(main_texture_a) = images.get(main_color_target.main_a) else {
             commands.entity(entity).try_remove::<ViewTarget>();
             continue;
         };
@@ -1074,8 +1080,8 @@ pub fn prepare_view_targets(
             texture: main_texture_a.texture.clone(),
             default_view: main_texture_a.texture_view.clone(),
         };
-        let main_texture_b = if let Some(main_b) = &camera.main_color_target.main_b {
-            let Some(tex) = images.get(main_b) else {
+        let main_texture_b = if let Some(main_b) = &main_color_target.main_b {
+            let Some(tex) = images.get(*main_b) else {
                 commands.entity(entity).try_remove::<ViewTarget>();
                 continue;
             };
@@ -1086,11 +1092,10 @@ pub fn prepare_view_targets(
         } else {
             None
         };
-        let main_texture_multisampled = if let Some(multisampled) =
-            &camera.main_color_target.multisampled
+        let main_texture_multisampled = if let Some(multisampled) = &main_color_target.multisampled
             && view.msaa_samples > 1
         {
-            let Some(tex) = images.get(multisampled) else {
+            let Some(tex) = images.get(*multisampled) else {
                 commands.entity(entity).try_remove::<ViewTarget>();
                 continue;
             };
@@ -1115,7 +1120,7 @@ pub fn prepare_view_targets(
 
         let converted_clear_color = clear_color.map(Into::into);
         commands.entity(entity).insert(ViewTarget {
-            main_texture_flag: camera.main_color_target.main_target_flag.clone(),
+            main_texture_flag: main_color_target.main_target_flag.clone(),
             main_texture_a: ColorAttachment::new(
                 main_texture_a,
                 main_texture_multisampled.clone(),

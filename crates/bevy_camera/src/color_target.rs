@@ -15,9 +15,12 @@ pub const MAIN_COLOR_TARGET_DEFAULT_USAGES: TextureUsages = TextureUsages::from_
 );
 
 /// If this componet is present in a Camera, the current main texture and multisampled texture
-/// will read and be filled with the image during `ColorTargetInput` pass.
+/// will read and be filled with the image, or the main color target, during `ColorTargetInput` pass.
 #[derive(Component, Debug, Clone)]
-pub struct MainColorTargetReadsFrom(pub Handle<Image>);
+pub enum MainColorTargetReadsFrom {
+    Image(Handle<Image>),
+    Target(Entity),
+}
 
 /// The main color target used by camera in most render passes.
 ///

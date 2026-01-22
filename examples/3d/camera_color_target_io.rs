@@ -2,10 +2,14 @@
 //!
 
 use bevy::{
-    camera::color_target::{
-        MainColorTarget, MainColorTargetReadsFrom, NoAutoConfiguredMainColorTarget,
-        WithMainColorTarget, MAIN_COLOR_TARGET_DEFAULT_USAGES,
+    camera::{
+        color_target::{
+            MainColorTarget, MainColorTargetReadsFrom, NoAutoConfiguredMainColorTarget,
+            WithMainColorTarget, MAIN_COLOR_TARGET_DEFAULT_USAGES,
+        },
+        visibility::RenderLayers,
     },
+    post_process::effect_stack::Vignette,
     prelude::*,
 };
 use bevy_image::ToExtents;
@@ -103,12 +107,27 @@ fn setup(
     commands.spawn((
         Camera3d::default(),
         Camera {
+            // Don't use clear color since the color target will be filled.
             clear_color: ClearColorConfig::None,
             ..Default::default()
         },
         NoAutoConfiguredMainColorTarget,
-        MainColorTargetReadsFrom(uv_checker_image),
+        MainColorTargetReadsFrom::Image(uv_checker_image),
         WithMainColorTarget(main_color_target),
         transform,
+    ));
+
+    let layer1 = RenderLayers::layer(1);
+    commands.spawn((
+        Camera3d::default(),
+        Camera {
+            order: 1,
+            // Don't use clear color since the color target will be filled.
+            clear_color: ClearColorConfig::None,
+            ..Default::default()
+        },
+        MainColorTargetReadsFrom::Target(main_color_target),
+        Vignette::default(),
+        layer1,
     ));
 }

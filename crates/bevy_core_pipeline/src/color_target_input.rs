@@ -4,10 +4,10 @@ use crate::{
     core_3d::graph::{Core3d, Node3d},
 };
 use bevy_app::{App, Plugin};
-use bevy_camera::color_target::MainColorTargetReadsFrom;
 use bevy_color::LinearRgba;
 use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_render::{
+    camera::ExtractedMainColorTargetReadsFrom,
     diagnostic::RecordDiagnostics,
     render_asset::RenderAssets,
     render_graph::{NodeRunError, RenderGraphContext, RenderGraphExt, ViewNode, ViewNodeRunner},
@@ -58,7 +58,7 @@ impl ViewNode for ColorTargetInputNode {
         &'static ExtractedView,
         &'static ViewTarget,
         &'static ColorTargetInputBlitPipeline,
-        &'static MainColorTargetReadsFrom,
+        &'static ExtractedMainColorTargetReadsFrom,
     );
 
     fn run<'w>(
@@ -74,7 +74,7 @@ impl ViewNode for ColorTargetInputNode {
             return Ok(());
         };
         let images = world.resource::<RenderAssets<GpuImage>>();
-        let Some(source) = images.get(&reads_from.0) else {
+        let Some(source) = images.get(reads_from.0) else {
             return Ok(());
         };
 
