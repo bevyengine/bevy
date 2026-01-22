@@ -7,7 +7,7 @@ use bevy::prelude::*;
 pub struct Health(pub f32);
 
 #[derive(Component)]
-/// Each tick an entity will have his health multiplied by the factor, which
+/// Each tick an entity will have it's health multiplied by the factor, which
 /// for a big amount of entities can be accelerated using contiguous queries
 pub struct HealthDecay(pub f32);
 
