@@ -17,14 +17,14 @@ If you create your own skinned meshes, you'll need to call
 `Mesh::generate_skinned_mesh_bounds` or `Mesh::with_generated_skinned_bounds`
 and add a `DynamicSkinnedMeshBounds` component to your mesh entity.
 
-```diff
- let mut mesh = ...;
-+mesh.generate_skinned_mesh_bounds()?;
+```rust
+let mut mesh: Mesh = ...;
+mesh.generate_skinned_mesh_bounds()?;
  
- entity.insert((
-     Mesh3d(meshes.add(mesh)),
-+    DynamicSkinnedMeshBounds,
- ));
+entity.insert((
+    Mesh3d(meshes.add(mesh)),
+    DynamicSkinnedMeshBounds,
+));
 ```
 
 The new behavior is reliable for meshes that only use skinning. But it doesn't
@@ -57,11 +57,12 @@ fn toggle_skinned_mesh_bounds(mut config: ResMut<GizmoConfigStore>) {
 ```
 
 Or you can load a glTF into the scene viewer example and press `j` and `b` to
-enable the visualization.
+enable the visualizations.
 
 ```sh
 cargo run --example scene_viewer --features "free_camera" -- "path/to/your.gltf"
 ```
 
 If you were using [`bevy_mod_skinned_aabb`](https://github.com/greeble-dev/bevy_mod_skinned_aabb),
-see [Bevy 0.18 and `bevy_mod_skinned_aabb`](https://github.com/greeble-dev/bevy_mod_skinned_aabb/blob/main/notes/bevy_upgrade.md).
+see [Bevy 0.19 and `bevy_mod_skinned_aabb`](https://github.com/greeble-dev/bevy_mod_skinned_aabb/blob/main/notes/bevy_0_19.md)
+for how to upgrade.
