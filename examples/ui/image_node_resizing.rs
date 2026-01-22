@@ -63,7 +63,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let image_handle = asset_server.load("branding/icon.png");
     let full_text = format!(
         "{}height : {}%, width : {}%",
-        TEXT_PREFIX, IMAGE_GROUP_BOX_INIT_HEIGHT, IMAGE_GROUP_BOX_INIT_WIDTH, 
+        TEXT_PREFIX, IMAGE_GROUP_BOX_INIT_HEIGHT, IMAGE_GROUP_BOX_INIT_WIDTH,
     );
 
     commands.spawn(Camera2d);
