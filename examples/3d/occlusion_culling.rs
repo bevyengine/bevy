@@ -28,7 +28,7 @@ use bevy::{
         batching::gpu_preprocessing::{
             GpuPreprocessingSupport, IndirectParametersBuffers, IndirectParametersIndexed,
         },
-        experimental::occlusion_culling::OcclusionCulling,
+        occlusion_culling::OcclusionCulling,
         render_graph::{self, NodeRunError, RenderGraphContext, RenderGraphExt, RenderLabel},
         render_resource::{Buffer, BufferDescriptor, BufferUsages, MapMode},
         renderer::{RenderContext, RenderDevice},

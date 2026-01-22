@@ -4192,7 +4192,7 @@ doc-scrape-examples = false
 
 [package.metadata.example.image_node]
 name = "Image Node"
-description = "Demonstrates how to create a image node"
+description = "Demonstrates how to create an image node"
 category = "UI (User Interface)"
 wasm = true
 

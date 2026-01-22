@@ -22,13 +22,7 @@ impl Plugin for OcclusionCullingPlugin {
     }
 }
 
-/// Add this component to a view in order to enable experimental GPU occlusion
-/// culling.
-///
-/// *Bevy's occlusion culling is currently marked as experimental.* There are
-/// known issues whereby, in rare circumstances, occlusion culling can result in
-/// meshes being culled that shouldn't be (i.e. meshes that turn invisible).
-/// Please try it out and report issues.
+/// Add this component to a view in order to enable GPU occlusion culling.
 ///
 /// *Occlusion culling* allows Bevy to avoid rendering objects that are fully
 /// behind other opaque or alpha tested objects. This is different from, and
