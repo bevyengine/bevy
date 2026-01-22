@@ -182,6 +182,7 @@ impl<'a> RenderViewEnvironmentMapBindGroupEntries<'a> {
         render_adapter: &RenderAdapter,
     ) -> RenderViewEnvironmentMapBindGroupEntries<'a> {
         if binding_arrays_are_usable(render_device, render_adapter) {
+            // Initialize the diffuse and specular texture views with the fallback texture.
             let mut diffuse_texture_views = vec![];
             let mut specular_texture_views = vec![];
             let mut sampler = None;
@@ -298,15 +299,19 @@ impl LightProbeComponent for EnvironmentMapLight {
                 image_assets.get(specular_map_handle),
             )
         {
-            render_view_light_probes.view_light_probe_info = EnvironmentMapViewLightProbeInfo {
-                cubemap_index: render_view_light_probes.get_or_insert_cubemap(&EnvironmentMapIds {
-                    diffuse: diffuse_map_handle.id(),
-                    specular: specular_map_handle.id(),
-                }) as i32,
-                smallest_specular_mip_level: specular_map.texture_descriptor.mip_level_count - 1,
-                intensity: *intensity,
-                affects_lightmapped_mesh_diffuse: *affects_lightmapped_mesh_diffuse,
-            };
+            render_view_light_probes.view_light_probe_info =
+                Some(EnvironmentMapViewLightProbeInfo {
+                    cubemap_index: render_view_light_probes.get_or_insert_cubemap(
+                        &EnvironmentMapIds {
+                            diffuse: diffuse_map_handle.id(),
+                            specular: specular_map_handle.id(),
+                        },
+                    ) as i32,
+                    smallest_specular_mip_level: specular_map.texture_descriptor.mip_level_count
+                        - 1,
+                    intensity: *intensity,
+                    affects_lightmapped_mesh_diffuse: *affects_lightmapped_mesh_diffuse,
+                });
         };
 
         render_view_light_probes

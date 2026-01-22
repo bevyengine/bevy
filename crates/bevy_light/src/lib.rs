@@ -514,7 +514,7 @@ pub fn check_point_light_mesh_visibility(
 
     let visible_entity_ranges = visible_entity_ranges.as_deref();
     for visible_lights in &visible_point_lights {
-        for light_entity in visible_lights.entities.iter().copied() {
+        for light_entity in visible_lights.point_and_spot_lights.iter().copied() {
             if !checked_lights.insert(light_entity) {
                 continue;
             }
