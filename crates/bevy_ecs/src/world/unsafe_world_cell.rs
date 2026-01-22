@@ -266,10 +266,10 @@ impl<'w> UnsafeWorldCell<'w> {
 
     /// Retrieves this world's [`Entities`] collection.
     #[inline]
-    pub fn entities_allocator(self) -> &'w EntityAllocator {
+    pub fn entity_allocator(self) -> &'w EntityAllocator {
         // SAFETY:
         // - we only access world metadata
-        &unsafe { self.world_metadata() }.allocator
+        &unsafe { self.world_metadata() }.entity_allocator
     }
 
     /// Retrieves this world's [`Archetypes`] collection.
