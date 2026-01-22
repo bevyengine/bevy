@@ -1,3 +1,5 @@
+enable wgpu_ray_query;
+
 #import bevy_core_pipeline::tonemapping::tonemapping_luminance as luminance
 #import bevy_pbr::pbr_functions::calculate_tbn_mikktspace
 #import bevy_pbr::utils::{rand_f, rand_vec2f, sample_cosine_hemisphere}
