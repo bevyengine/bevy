@@ -461,6 +461,7 @@ impl<'w, T: ?Sized> Ref<'w, T> {
 }
 
 /// Data type returned by [`ContiguousQueryData::fetch_contiguous`](crate::query::ContiguousQueryData::fetch_contiguous) for [`Ref<T>`].
+#[derive(Clone)]
 pub struct ContiguousRef<'w, T> {
     pub(crate) value: &'w [T],
     pub(crate) ticks: ContiguousComponentTicksRef<'w>,
@@ -667,6 +668,20 @@ impl<'w, T> ContiguousMut<'w, T> {
     #[inline]
     pub fn mark_all_as_updated(&mut self) {
         self.ticks.mark_all_as_updated();
+    }
+
+    /// Returns a `ContiguousMut<T>` with a smaller lifetime.
+    pub fn reborrow(&mut self) -> ContiguousMut<'_, T> {
+        ContiguousMut {
+            value: self.value,
+            ticks: ContiguousComponentTicksMut {
+                added: self.ticks.added,
+                changed: self.ticks.changed,
+                changed_by: self.ticks.changed_by.as_deref_mut(),
+                last_run: self.ticks.last_run,
+                this_run: self.ticks.this_run,
+            },
+        }
     }
 }
 
