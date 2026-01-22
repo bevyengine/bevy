@@ -45,6 +45,7 @@ use bevy_platform::collections::{HashMap, HashSet};
 use bevy_reflect::prelude::*;
 use bevy_transform::components::GlobalTransform;
 use bevy_window::{PrimaryWindow, Window, WindowCreated, WindowResized, WindowScaleFactorChanged};
+use bevy_log::warn_once;
 use tracing::warn;
 use wgpu::TextureFormat;
 
@@ -652,7 +653,7 @@ pub fn sort_cameras(
     }
 
     if !ambiguities.is_empty() {
-        warn!(
+        warn_once!(
             "Camera order ambiguities detected for active cameras with the following priorities: {:?}. \
             To fix this, ensure there is exactly one Camera entity spawned with a given order for a given RenderTarget. \
             Ambiguities should be resolved because either (1) multiple active cameras were spawned accidentally, which will \
