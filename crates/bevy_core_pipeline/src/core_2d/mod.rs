@@ -13,6 +13,7 @@ pub mod graph {
 
     #[derive(Debug, Hash, PartialEq, Eq, Clone, RenderLabel)]
     pub enum Node2d {
+        ColorTargetInput,
         StartMainPass,
         MainOpaquePass,
         MainTransparentPass,

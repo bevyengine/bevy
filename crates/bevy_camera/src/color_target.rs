@@ -14,6 +14,11 @@ pub const MAIN_COLOR_TARGET_DEFAULT_USAGES: TextureUsages = TextureUsages::from_
         | TextureUsages::COPY_SRC.bits(),
 );
 
+/// If this componet is present in a Camera, the current main texture and multisampled texture
+/// will read and be filled with the image during `ColorTargetInput` pass.
+#[derive(Component, Debug, Clone)]
+pub struct MainColorTargetReadsFrom(pub Handle<Image>);
+
 /// The main color target used by camera in most render passes.
 ///
 /// 1. In main passes, objects are rendered to `main_a` (or `main_b`, depends on `main_target_flag`). If `multisampled` texture is provided, then MSAA will be enabled and resolved to `main_a`.

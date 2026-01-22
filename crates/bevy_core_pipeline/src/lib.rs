@@ -7,6 +7,7 @@
 )]
 
 pub mod blit;
+pub mod color_target_input;
 pub mod core_2d;
 pub mod core_3d;
 pub mod deferred;
@@ -24,9 +25,10 @@ mod fullscreen_vertex_shader;
 mod skybox;
 
 use crate::{
-    blit::BlitPlugin, core_2d::Core2dPlugin, core_3d::Core3dPlugin,
-    deferred::copy_lighting_id::CopyDeferredLightingIdPlugin, mip_generation::MipGenerationPlugin,
-    tonemapping::TonemappingPlugin, upscaling::UpscalingPlugin,
+    blit::BlitPlugin, color_target_input::ColorTargetInputPlugin, core_2d::Core2dPlugin,
+    core_3d::Core3dPlugin, deferred::copy_lighting_id::CopyDeferredLightingIdPlugin,
+    mip_generation::MipGenerationPlugin, tonemapping::TonemappingPlugin,
+    upscaling::UpscalingPlugin,
 };
 use bevy_app::{App, Plugin};
 use bevy_asset::embedded_asset;
@@ -45,6 +47,7 @@ impl Plugin for CorePipelinePlugin {
                 BlitPlugin,
                 TonemappingPlugin,
                 UpscalingPlugin,
+                ColorTargetInputPlugin,
                 OrderIndependentTransparencyPlugin,
                 MipGenerationPlugin,
             ));

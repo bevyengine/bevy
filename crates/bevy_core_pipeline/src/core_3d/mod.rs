@@ -14,6 +14,7 @@ pub mod graph {
 
     #[derive(Debug, Hash, PartialEq, Eq, Clone, RenderLabel)]
     pub enum Node3d {
+        ColorTargetInput,
         EarlyPrepass,
         EarlyDownsampleDepth,
         LatePrepass,

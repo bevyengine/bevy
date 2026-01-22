@@ -58,10 +58,11 @@ impl ViewNode for UpscalingNode {
             Some((id, bind_group)) if main_texture_view.id() == *id => bind_group,
             cached_bind_group => {
                 // Use linear filtering for better quality when upsampling.
-                let bind_group = blit_pipeline.create_bind_group_filtering(
+                let bind_group = blit_pipeline.create_bind_group(
                     render_context.render_device(),
                     main_texture_view,
                     pipeline_cache,
+                    true,
                 );
 
                 let (_, bind_group) =

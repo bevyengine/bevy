@@ -4758,6 +4758,16 @@ category = "3D Rendering"
 wasm = false
 
 [[example]]
+name = "camera_color_target_io"
+path = "examples/3d/camera_color_target_io.rs"
+
+[package.metadata.example.camera_color_target_io]
+name = "Camera color target IO"
+description = "Demonstrates connecting color target input and output of multiple cameras"
+category = "3D Rendering"
+wasm = true
+
+[[example]]
 name = "camera_sub_view"
 path = "examples/3d/camera_sub_view.rs"
 # Causes an ICE on docs.rs

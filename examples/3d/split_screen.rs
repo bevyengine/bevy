@@ -2,6 +2,11 @@
 
 use std::f32::consts::PI;
 
+use bevy::camera::color_target::MAIN_COLOR_TARGET_DEFAULT_USAGES;
+use bevy::image::ToExtents;
+use bevy::render::render_resource::{
+    TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
+};
 use bevy::{
     camera::{
         color_target::{MainColorTarget, NoAutoConfiguredMainColorTarget, WithMainColorTarget},
@@ -11,11 +16,6 @@ use bevy::{
     post_process::bloom::Bloom,
     prelude::*,
     window::WindowResized,
-};
-use bevy_asset::RenderAssetUsages;
-use bevy_image::ToExtents;
-use bevy_render::render_resource::{
-    TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
 };
 
 fn main() {
@@ -80,11 +80,9 @@ fn setup(
                     sample_count: 1,
                     dimension: TextureDimension::D2,
                     format: TextureFormat::Rg11b10Ufloat,
-                    usage: TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING,
+                    usage: MAIN_COLOR_TARGET_DEFAULT_USAGES,
                     view_formats: &[],
                 },
-                asset_usage: RenderAssetUsages::RENDER_WORLD,
-                copy_on_resize: false,
                 ..Default::default()
             }),
             Some(images.add(Image {
@@ -96,11 +94,9 @@ fn setup(
                     sample_count: 1,
                     dimension: TextureDimension::D2,
                     format: TextureFormat::Rg11b10Ufloat,
-                    usage: TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING,
+                    usage: MAIN_COLOR_TARGET_DEFAULT_USAGES,
                     view_formats: &[],
                 },
-                asset_usage: RenderAssetUsages::RENDER_WORLD,
-                copy_on_resize: false,
                 ..Default::default()
             })),
             Some(images.add(Image {
@@ -115,8 +111,6 @@ fn setup(
                     usage: TextureUsages::RENDER_ATTACHMENT,
                     view_formats: &[],
                 },
-                asset_usage: RenderAssetUsages::RENDER_WORLD,
-                copy_on_resize: false,
                 ..Default::default()
             })),
         ))

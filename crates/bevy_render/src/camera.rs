@@ -1,6 +1,6 @@
 use crate::{
     batching::gpu_preprocessing::{GpuPreprocessingMode, GpuPreprocessingSupport},
-    extract_component::ExtractComponent,
+    extract_component::{ExtractComponent, ExtractComponentPlugin},
     extract_resource::{ExtractResource, ExtractResourcePlugin},
     render_asset::RenderAssets,
     render_graph::{CameraDriverNode, InternedRenderSubGraph, RenderGraph, RenderSubGraph},
@@ -17,7 +17,10 @@ use crate::{
 use bevy_app::{App, Plugin, PostStartup, PostUpdate};
 use bevy_asset::{AssetEvent, AssetEventSystems, AssetId, Assets};
 use bevy_camera::{
-    color_target::{MainColorTarget, NoAutoConfiguredMainColorTarget, WithMainColorTarget},
+    color_target::{
+        MainColorTarget, MainColorTargetReadsFrom, NoAutoConfiguredMainColorTarget,
+        WithMainColorTarget,
+    },
     primitives::Frustum,
     visibility::{self, RenderLayers, VisibleEntities},
     Camera, Camera2d, Camera3d, CameraMainColorTargetConfig, CameraMainColorTargetsSize,
@@ -58,7 +61,10 @@ impl Plugin for CameraPlugin {
         app.register_required_components::<Camera, SyncToRenderWorld>()
             .register_required_components::<Camera3d, ColorGrading>()
             .register_required_components::<Camera3d, Exposure>()
-            .add_plugins((ExtractResourcePlugin::<ClearColor>::default(),))
+            .add_plugins((
+                ExtractResourcePlugin::<ClearColor>::default(),
+                ExtractComponentPlugin::<MainColorTargetReadsFrom>::default(),
+            ))
             .add_systems(
                 PostStartup,
                 (
@@ -308,6 +314,15 @@ impl ExtractResource for ClearColor {
 
     fn extract_resource(source: &Self::Source) -> Self {
         source.clone()
+    }
+}
+impl ExtractComponent for MainColorTargetReadsFrom {
+    type QueryData = &'static Self;
+    type QueryFilter = With<Camera>;
+    type Out = Self;
+
+    fn extract_component(item: QueryItem<Self::QueryData>) -> Option<Self::Out> {
+        Some(item.clone())
     }
 }
 impl ExtractComponent for Camera2d {

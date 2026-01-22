@@ -93,25 +93,21 @@ impl BlitPipeline {
         render_device: &RenderDevice,
         src_texture: &TextureView,
         pipeline_cache: &PipelineCache,
+        filtering: bool,
     ) -> BindGroup {
-        render_device.create_bind_group(
-            None,
-            &pipeline_cache.get_bind_group_layout(&self.layout),
-            &BindGroupEntries::sequential((src_texture, &self.sampler)),
-        )
-    }
-
-    pub fn create_bind_group_filtering(
-        &self,
-        render_device: &RenderDevice,
-        src_texture: &TextureView,
-        pipeline_cache: &PipelineCache,
-    ) -> BindGroup {
-        render_device.create_bind_group(
-            None,
-            &pipeline_cache.get_bind_group_layout(&self.layout_filtering),
-            &BindGroupEntries::sequential((src_texture, &self.sampler_filtering)),
-        )
+        if filtering {
+            render_device.create_bind_group(
+                None,
+                &pipeline_cache.get_bind_group_layout(&self.layout_filtering),
+                &BindGroupEntries::sequential((src_texture, &self.sampler_filtering)),
+            )
+        } else {
+            render_device.create_bind_group(
+                None,
+                &pipeline_cache.get_bind_group_layout(&self.layout),
+                &BindGroupEntries::sequential((src_texture, &self.sampler)),
+            )
+        }
     }
 }
 
