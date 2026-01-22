@@ -6,6 +6,7 @@ use crate::{
 };
 use bevy_app::{App, Plugin};
 use bevy_ecs::{entity::EntityHashMap, prelude::*};
+use bevy_log::{debug, info, warn};
 use bevy_platform::collections::HashSet;
 use bevy_utils::default;
 use bevy_window::{
@@ -15,7 +16,6 @@ use core::{
     num::NonZero,
     ops::{Deref, DerefMut},
 };
-use tracing::{debug, info, warn};
 use wgpu::{
     SurfaceConfiguration, SurfaceTargetUnsafe, TextureFormat, TextureUsages, TextureViewDescriptor,
 };
