@@ -4,11 +4,13 @@ use bevy_ecs::prelude::*;
 use criterion::{BatchSize, Criterion};
 
 pub fn entity_allocator_benches(criterion: &mut Criterion) {
+    const ENTITY_COUNTS: [u32; 3] = [1, 100, 10_000];
+
     let mut group = criterion.benchmark_group("entity_allocator_allocate_fresh");
     group.warm_up_time(core::time::Duration::from_millis(500));
     group.measurement_time(core::time::Duration::from_secs(4));
 
-    for entity_count in [1, 100, 10_000] {
+    for entity_count in ENTITY_COUNTS {
         group.bench_function(format!("{entity_count}_entities"), |bencher| {
             bencher.iter_batched_ref(
                 World::default,
@@ -29,7 +31,7 @@ pub fn entity_allocator_benches(criterion: &mut Criterion) {
     group.warm_up_time(core::time::Duration::from_millis(500));
     group.measurement_time(core::time::Duration::from_secs(4));
 
-    for entity_count in [1, 100, 10_000] {
+    for entity_count in ENTITY_COUNTS {
         group.bench_function(format!("{entity_count}_entities"), |bencher| {
             bencher.iter_batched_ref(
                 World::default,
@@ -49,7 +51,7 @@ pub fn entity_allocator_benches(criterion: &mut Criterion) {
     group.warm_up_time(core::time::Duration::from_millis(500));
     group.measurement_time(core::time::Duration::from_secs(4));
 
-    for entity_count in [1, 100, 10_000] {
+    for entity_count in ENTITY_COUNTS {
         group.bench_function(format!("{entity_count}_entities"), |bencher| {
             bencher.iter_batched_ref(
                 || {
@@ -74,7 +76,7 @@ pub fn entity_allocator_benches(criterion: &mut Criterion) {
     group.warm_up_time(core::time::Duration::from_millis(500));
     group.measurement_time(core::time::Duration::from_secs(4));
 
-    for entity_count in [1, 100, 10_000] {
+    for entity_count in ENTITY_COUNTS {
         group.bench_function(format!("{entity_count}_entities"), |bencher| {
             bencher.iter_batched_ref(
                 || {
@@ -103,7 +105,7 @@ pub fn entity_allocator_benches(criterion: &mut Criterion) {
     group.warm_up_time(core::time::Duration::from_millis(500));
     group.measurement_time(core::time::Duration::from_secs(4));
 
-    for entity_count in [1, 100, 10_000] {
+    for entity_count in ENTITY_COUNTS {
         group.bench_function(format!("{entity_count}_entities"), |bencher| {
             bencher.iter_batched_ref(
                 || {
