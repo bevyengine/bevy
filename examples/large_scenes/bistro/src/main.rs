@@ -116,10 +116,7 @@ pub fn main() {
         .insert_resource(GlobalAmbientLight::NONE)
         .insert_resource(args.clone())
         .insert_resource(ClearColor(Color::srgb(1.75, 1.9, 1.99)))
-        .insert_resource(WinitSettings {
-            focused_mode: UpdateMode::Continuous,
-            unfocused_mode: UpdateMode::Continuous,
-        })
+        .insert_resource(WinitSettings::continuous())
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 present_mode: PresentMode::Immediate,

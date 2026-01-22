@@ -94,10 +94,7 @@ pub fn main() {
     app.init_resource::<CameraPositions>()
         .init_resource::<FrameLowHigh>()
         .insert_resource(args.clone())
-        .insert_resource(WinitSettings {
-            focused_mode: UpdateMode::Continuous,
-            unfocused_mode: UpdateMode::Continuous,
-        })
+        .insert_resource(WinitSettings::continuous())
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 present_mode: PresentMode::Immediate,
