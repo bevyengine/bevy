@@ -44,7 +44,7 @@ use bevy_render::{
         CachedRenderPipelineId, ColorTargetState, ColorWrites, DynamicUniformBuffer, Extent3d,
         FilterMode, FragmentState, MipmapFilterMode, Operations, PipelineCache,
         RenderPassColorAttachment, RenderPassDescriptor, RenderPipelineDescriptor, Sampler,
-        SamplerBindingType, SamplerDescriptor, ShaderStages, ShaderType, SpecializedRenderPipeline,
+        SamplerBindingType, SamplerDescriptor, ShaderStages, SpecializedRenderPipeline,
         SpecializedRenderPipelines, TextureDimension, TextureFormat, TextureSampleType,
     },
     renderer::{RenderContext, RenderDevice, RenderQueue},
