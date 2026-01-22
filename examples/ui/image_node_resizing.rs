@@ -62,8 +62,8 @@ struct TextUpdate {
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let image_handle = asset_server.load("branding/icon.png");
     let full_text = format!(
-        "{}height : {}, width : {}",
-        TEXT_PREFIX, IMAGE_GROUP_BOX_INIT_WIDTH, IMAGE_GROUP_BOX_INIT_HEIGHT
+        "{}height : {}%, width : {}%",
+        TEXT_PREFIX, IMAGE_GROUP_BOX_INIT_HEIGHT, IMAGE_GROUP_BOX_INIT_WIDTH, 
     );
 
     commands.spawn(Camera2d);
@@ -85,14 +85,18 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands
         .spawn((
             TextData {
-                height: IMAGE_GROUP_BOX_INIT_WIDTH,
-                width: IMAGE_GROUP_BOX_INIT_HEIGHT,
+                height: IMAGE_GROUP_BOX_INIT_HEIGHT,
+                width: IMAGE_GROUP_BOX_INIT_WIDTH,
             },
             Text::new(full_text),
             TextColor::BLACK,
             Node {
                 grid_row: GridPlacement::span(1),
                 padding: UiRect::all(px(6)),
+                ..default()
+            },
+            UiDebugOptions {
+                enabled: false,
                 ..default()
             },
             UiDebugOptions {
@@ -124,8 +128,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     Node {
                         display: Display::Flex,
                         justify_content: JustifyContent::Start,
-                        width: Val::Percent(IMAGE_GROUP_BOX_MAX_WIDTH),
-                        height: Val::Percent(IMAGE_GROUP_BOX_MAX_HEIGHT),
+                        width: Val::Percent(IMAGE_GROUP_BOX_INIT_WIDTH),
+                        height: Val::Percent(IMAGE_GROUP_BOX_INIT_HEIGHT),
                         ..default()
                     },
                     BackgroundColor(Color::from(tailwind::BLUE_100)),
@@ -150,8 +154,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     Node {
                         display: Display::Flex,
                         justify_content: JustifyContent::Start,
-                        width: Val::Percent(IMAGE_GROUP_BOX_MAX_WIDTH),
-                        height: Val::Percent(IMAGE_GROUP_BOX_MAX_HEIGHT),
+                        width: Val::Percent(IMAGE_GROUP_BOX_INIT_WIDTH),
+                        height: Val::Percent(IMAGE_GROUP_BOX_INIT_HEIGHT),
                         ..default()
                     },
                     BackgroundColor(Color::from(tailwind::BLUE_100)),
