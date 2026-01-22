@@ -583,19 +583,22 @@ fn get_attrs<'a>(
     family: Family<'a>,
     scale_factor: f64,
 ) -> Attrs<'a> {
+    let font_size = (text_font.font_size * scale_factor as f32).round();
+    let line_height = match line_height {
+        LineHeight::Px(px) => px * scale_factor as f32,
+        LineHeight::RelativeToFont(s) => s * font_size,
+    };
+
     Attrs::new()
         .metadata(span_index)
         .family(family)
         .stretch(text_font.width.into())
         .style(text_font.style.into())
         .weight(text_font.weight.into())
-        .metrics(
-            Metrics {
-                font_size: text_font.font_size,
-                line_height: line_height.eval(text_font.font_size),
-            }
-            .scale(scale_factor as f32),
-        )
+        .metrics(Metrics {
+            font_size,
+            line_height,
+        })
         .font_features((&text_font.font_features).into())
 }
 
