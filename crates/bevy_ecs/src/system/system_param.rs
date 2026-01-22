@@ -1697,7 +1697,7 @@ unsafe impl<'a> SystemParam for &'a EntityAllocator {
         world: UnsafeWorldCell<'w>,
         _change_tick: Tick,
     ) -> Self::Item<'w, 's> {
-        world.entities_allocator()
+        world.entity_allocator()
     }
 }
 

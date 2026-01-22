@@ -9,7 +9,7 @@ enable wgpu_ray_query;
 #import bevy_solari::brdf::{evaluate_brdf, evaluate_specular_brdf}
 #import bevy_solari::gbuffer_utils::{gpixel_resolve, ResolvedGPixel}
 #import bevy_solari::sampling::{sample_random_light, random_emissive_light_pdf, sample_ggx_vndf, ggx_vndf_pdf, power_heuristic}
-#import bevy_solari::scene_bindings::{trace_ray, resolve_ray_hit_full, ResolvedRayHitFull, RAY_T_MIN, RAY_T_MAX}
+#import bevy_solari::scene_bindings::{trace_ray, resolve_ray_hit_full, ResolvedRayHitFull, RAY_T_MIN, RAY_T_MAX, MIRROR_ROUGHNESS_THRESHOLD}
 #import bevy_solari::world_cache::{query_world_cache, get_cell_size, WORLD_CACHE_CELL_LIFETIME}
 #import bevy_solari::realtime_bindings::{view_output, gi_reservoirs_a, gbuffer, depth_buffer, view, constants}
 #ifdef DLSS_RR_GUIDE_BUFFERS
@@ -65,8 +65,7 @@ fn specular_gi(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
     let brdf = evaluate_specular_brdf(surface.world_normal, wo, wi, surface.material.base_color, surface.material.metallic,
         surface.material.reflectance, surface.material.perceptual_roughness, surface.material.roughness);
-    let cos_theta = saturate(dot(wi, surface.world_normal));
-    radiance *= brdf * cos_theta * view.exposure;
+    radiance *= brdf * view.exposure;
 
     var pixel_color = textureLoad(view_output, global_id.xy);
     pixel_color += vec4(radiance, 0.0);
@@ -112,7 +111,7 @@ fn trace_glossy_path(pixel_id: vec2<u32>, primary_surface: ResolvedGPixel, initi
         radiance += throughput * mis_weight * ray_hit.material.emissive;
 
         // Should not perform NEE for mirror-like surfaces
-        surface_perfect_mirror = ray_hit.material.roughness <= 0.001 && ray_hit.material.metallic > 0.9999;
+        surface_perfect_mirror = ray_hit.material.roughness <= MIRROR_ROUGHNESS_THRESHOLD && ray_hit.material.metallic > 0.9999;
 
         // https://d1qx31qr3h6wln.cloudfront.net/publications/mueller21realtime.pdf#subsection.3.4, equation (3)
         path_spread += sqrt((ray.t * ray.t) / (p_bounce * wo_tangent.z));
@@ -120,7 +119,7 @@ fn trace_glossy_path(pixel_id: vec2<u32>, primary_surface: ResolvedGPixel, initi
         // Primary surface replacement for perfect mirrors
         // https://developer.nvidia.com/blog/rendering-perfect-reflections-and-refractions-in-path-traced-games/#primary_surface_replacement
 #ifdef DLSS_RR_GUIDE_BUFFERS
-        if !psr_finished && primary_surface.material.roughness <= 0.001 && primary_surface.material.metallic > 0.9999 {
+        if !psr_finished && primary_surface.material.roughness <= MIRROR_ROUGHNESS_THRESHOLD && primary_surface.material.metallic > 0.9999 {
             if surface_perfect_mirror {
                 mirror_rotations = mirror_rotations * reflection_matrix(ray_hit.world_normal);
             } else {

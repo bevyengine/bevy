@@ -752,7 +752,7 @@ argh = "0.1.12"
 thiserror = "2.0"
 event-listener = "5.3.0"
 anyhow = "1"
-accesskit = "0.22"
+accesskit = "0.23"
 nonmax = "0.5"
 gltf = "1.4"
 
@@ -1940,6 +1940,17 @@ doc-scrape-examples = true
 [package.metadata.example.no_renderer]
 name = "No Renderer"
 description = "An application that runs with default plugins and displays an empty window, but without an actual renderer"
+category = "Application"
+wasm = false
+
+[[example]]
+name = "externally_driven_headless_renderer"
+path = "examples/app/externally_driven_headless_renderer.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.externally_driven_headless_renderer]
+name = "Externally Driven Headless Renderer"
+description = "Using bevy with manually driven update to render images"
 category = "Application"
 wasm = false
 
@@ -3198,6 +3209,17 @@ category = "Shaders"
 wasm = false
 
 [[example]]
+name = "compute_mesh"
+path = "examples/shader_advanced/compute_mesh.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.compute_mesh]
+name = "Compute Shader Mesh"
+description = "A compute shader that generates a mesh that is controlled by a Handle"
+category = "Shaders"
+wasm = false
+
+[[example]]
 name = "array_texture"
 path = "examples/shader/array_texture.rs"
 # Causes an ICE on docs.rs
@@ -3373,6 +3395,18 @@ category = "Stress Tests"
 wasm = true
 
 [[example]]
+name = "many_animated_sprite_meshes"
+path = "examples/stress_tests/many_animated_sprite_meshes.rs"
+# Causes an ICE on docs.rs
+doc-scrape-examples = false
+
+[package.metadata.example.many_animated_sprite_meshes]
+name = "Many Animated Sprite Meshes"
+description = "Displays many animated sprite meshes in a grid arrangement with slight offsets to their animation timers. Used for performance testing."
+category = "Stress Tests"
+wasm = false
+
+[[example]]
 name = "many_buttons"
 path = "examples/stress_tests/many_buttons.rs"
 # Causes an ICE on docs.rs
@@ -3491,6 +3525,18 @@ name = "Many Sprites"
 description = "Displays many sprites in a grid arrangement! Used for performance testing. Use `--colored` to enable color tinted sprites."
 category = "Stress Tests"
 wasm = true
+
+[[example]]
+name = "many_sprite_meshes"
+path = "examples/stress_tests/many_sprite_meshes.rs"
+# Causes an ICE on docs.rs
+doc-scrape-examples = false
+
+[package.metadata.example.many_sprite_meshes]
+name = "Many Sprite Meshes"
+description = "Displays many sprite meshes in a grid arrangement! Used for performance testing. Use `--colored` to enable color tinted sprites."
+category = "Stress Tests"
+wasm = false
 
 [[example]]
 name = "many_text2d"
@@ -3878,6 +3924,18 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
+name = "generic_font_families"
+path = "examples/ui/generic_font_families.rs"
+# Causes an ICE on docs.rs
+doc-scrape-examples = false
+
+[package.metadata.example.generic_font_families]
+name = "Generic Font Families"
+description = "Demonstrates how to use generic font families"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "text"
 path = "examples/ui/text.rs"
 # Causes an ICE on docs.rs
@@ -4123,6 +4181,18 @@ doc-scrape-examples = false
 [package.metadata.example.viewport_node]
 name = "Viewport Node"
 description = "Demonstrates how to create a viewport node with picking support"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
+name = "image_node"
+path = "examples/ui/image_node.rs"
+# Causes an ICE on docs.rs
+doc-scrape-examples = false
+
+[package.metadata.example.image_node]
+name = "Image Node"
+description = "Demonstrates how to create an image node"
 category = "UI (User Interface)"
 wasm = true
 
@@ -4516,7 +4586,7 @@ doc-scrape-examples = false
 name = "glTF extension AnimationGraph"
 description = "Uses glTF data to build an AnimationGraph via extension processing"
 category = "glTF"
-wasm = false
+wasm = true
 
 [[example]]
 name = "gltf_extension_mesh_2d"
@@ -4528,7 +4598,7 @@ doc-scrape-examples = false
 name = "glTF extension processing to build Mesh2ds from glTF data"
 description = "Uses glTF extension data to convert incoming Mesh3d/MeshMaterial3d assets to 2d"
 category = "glTF"
-wasm = false
+wasm = true
 
 [[example]]
 name = "query_gltf_primitives"
@@ -4679,6 +4749,7 @@ name = "ssr"
 path = "examples/3d/ssr.rs"
 # Causes an ICE on docs.rs
 doc-scrape-examples = false
+required-features = ["bluenoise_texture"]
 
 [package.metadata.example.ssr]
 name = "Screen Space Reflections"
@@ -5344,3 +5415,15 @@ name = "Dynamic Mipmap Generation"
 description = "Demonstrates use of the mipmap generation plugin to generate mipmaps for a texture"
 category = "2D Rendering"
 wasm = false
+
+[[example]]
+name = "pccm"
+path = "examples/3d/pccm.rs"
+doc-scrape-examples = true
+required-features = ["free_camera", "https"]
+
+[package.metadata.example.pccm]
+name = "Parallax-Corrected Cubemaps"
+description = "Demonstrates parallax-corrected cubemap reflections"
+category = "3D Rendering"
+wasm = true
