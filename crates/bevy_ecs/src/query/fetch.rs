@@ -2078,7 +2078,12 @@ unsafe impl<T: Component> ContiguousQueryData for Ref<'_, T> {
                     unsafe { table.debug_checked_unwrap() };
 
                 ContiguousRef {
+                    // SAFETY: `entities` has the same length as the rows in the set table.
                     value: unsafe { table_components.cast().as_slice_unchecked(entities.len()) },
+                    // SAFETY:
+                    // - The caller ensures the permission to access ticks.
+                    // - `entities` has the same length as the rows in the set table hence the
+                    // ticks.
                     ticks: unsafe {
                         ContiguousComponentTicksRef::from_slice_ptrs(
                             added_ticks,
@@ -2334,7 +2339,12 @@ unsafe impl<T: Component<Mutability = Mutable>> ContiguousQueryData for &mut T {
                     unsafe { table.debug_checked_unwrap() };
 
                 ContiguousMut {
+                    // SAFETY: `entities` has the same length as the rows in the set table.
                     value: unsafe { table_components.as_mut_slice_unchecked(entities.len()) },
+                    // SAFETY:
+                    // - The caller ensures the permission to access ticks.
+                    // - `entities` has the same length as the rows in the set table hence the
+                    // ticks.
                     ticks: unsafe {
                         ContiguousComponentTicksMut::from_slice_ptrs(
                             added_ticks,

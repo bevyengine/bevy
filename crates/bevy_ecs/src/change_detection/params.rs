@@ -47,7 +47,7 @@ impl<'w> ComponentTicksRef<'w> {
 pub(crate) struct ContiguousComponentTicksRef<'w> {
     pub(crate) added: &'w [Tick],
     pub(crate) changed: &'w [Tick],
-    #[allow(
+    #[expect(
         unused,
         reason = "ZST in release mode, for the back-portability with ComponentTicksRef"
     )]
@@ -57,6 +57,9 @@ pub(crate) struct ContiguousComponentTicksRef<'w> {
 }
 
 impl<'w> ContiguousComponentTicksRef<'w> {
+    /// # Safety
+    /// - The caller must have permission for all given ticks to be read.
+    /// - `len` must be the length of `added`, `changed` and `changed_by` (unless none) slices.
     pub(crate) unsafe fn from_slice_ptrs(
         added: ThinSlicePtr<'w, UnsafeCell<Tick>>,
         changed: ThinSlicePtr<'w, UnsafeCell<Tick>>,
@@ -66,8 +69,11 @@ impl<'w> ContiguousComponentTicksRef<'w> {
         last_run: Tick,
     ) -> Self {
         Self {
+            // SAFETY: The invariants are upheld by the caller.
             added: unsafe { added.cast().as_slice_unchecked(len) },
+            // SAFETY: The invariants are upheld by the caller.
             changed: unsafe { changed.cast().as_slice_unchecked(len) },
+            // SAFETY: The invariants are upheld by the caller.
             changed_by: changed_by.map(|v| unsafe { v.cast().as_slice_unchecked(len) }),
             last_run,
             this_run,
@@ -128,6 +134,9 @@ pub(crate) struct ContiguousComponentTicksMut<'w> {
 }
 
 impl<'w> ContiguousComponentTicksMut<'w> {
+    /// # Safety
+    /// - The caller must have permission to use all given ticks to be mutated.
+    /// - `len` must be the length of `added`, `changed` and `changed_by` (unless none) slices.
     pub(crate) unsafe fn from_slice_ptrs(
         added: ThinSlicePtr<'w, UnsafeCell<Tick>>,
         changed: ThinSlicePtr<'w, UnsafeCell<Tick>>,
@@ -137,8 +146,11 @@ impl<'w> ContiguousComponentTicksMut<'w> {
         last_run: Tick,
     ) -> Self {
         Self {
+            // SAFETY: The invariants are upheld by the caller.
             added: unsafe { added.as_mut_slice_unchecked(len) },
+            // SAFETY: The invariants are upheld by the caller.
             changed: unsafe { changed.as_mut_slice_unchecked(len) },
+            // SAFETY: The invariants are upheld by the caller.
             changed_by: changed_by.map(|v| unsafe { v.as_mut_slice_unchecked(len) }),
             last_run,
             this_run,
